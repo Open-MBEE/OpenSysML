@@ -183,3 +183,35 @@ func runPaths(t *testing.T, dir, binary string, env []string, args ...string) ru
 	}
 	return result
 }
+
+// A notebook named on the command line loads its code cells, as `%load` does,
+// beside the model files; a directory contributes its notebooks too.
+func TestLoadFilesAcceptsANotebook(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "lib.sysml"), "package Lib { part def Base; }\n")
+	nb := write(t, filepath.Join(dir, "model.ipynb"), `{"cells": [
+  {"cell_type": "markdown", "metadata": {}, "source": "# The model"},
+  {"cell_type": "code", "metadata": {}, "outputs": [], "source": ["%verbosity quiet\n", "package M {\n", "  private import Lib::*;\n", "  part def Derived :> Base;\n", "}\n", "1 + 2\n"]}
+ ], "metadata": {"kernelspec": {"language": "sysml", "name": "sysml"}}, "nbformat": 4, "nbformat_minor": 5}`)
+
+	sess := repl.NewSession()
+	if status, err := loadFiles(sess, []string{nb}); err != nil || status != exitHolds {
+		t.Fatalf("loadFiles(%s) = %d, %v", nb, status, err)
+	}
+	if got := sess.List(); len(got) != 2 {
+		t.Fatalf("want the cell and the sibling it imports in the session, got %v", got)
+	}
+
+	sess = repl.NewSession()
+	if status, err := loadFiles(sess, []string{dir}); err != nil || status != exitHolds {
+		t.Fatalf("loadFiles(%s) = %d, %v", dir, status, err)
+	}
+	if got := sess.List(); len(got) != 2 {
+		t.Fatalf("want the model file and the notebook's cell, got %v", got)
+	}
+
+	python := write(t, filepath.Join(t.TempDir(), "analysis.ipynb"), `{"cells": [], "metadata": {"kernelspec": {"language": "python", "name": "python3"}}, "nbformat": 4, "nbformat_minor": 5}`)
+	if status, err := loadFiles(repl.NewSession(), []string{python}); err == nil || status != exitUnevaluable {
+		t.Fatalf("loadFiles(%s) = %d, %v; want a python notebook refused", python, status, err)
+	}
+}

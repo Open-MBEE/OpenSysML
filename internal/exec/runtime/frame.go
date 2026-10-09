@@ -192,7 +192,7 @@ func (f frame) has(name string) bool {
 
 // markUnvalued records a name the frame declares but holds no value for, which
 // a read answers as missing and a write binds.
-func (f frame) markUnvalued(name string) {
+func (f *frame) markUnvalued(name string) {
 	if f.unvalued == nil {
 		f.unvalued = map[string]bool{}
 	}

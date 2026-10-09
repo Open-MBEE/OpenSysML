@@ -163,6 +163,12 @@ func (s *Session) renderLines(name string, form view.Form, opts view.Options, ov
 	if err != nil {
 		return nil, err
 	}
+	return s.artifact(rendering, form, opts)
+}
+
+// artifact writes a rendering in form at the session's width, linking elements
+// to their source when a link template is set.
+func (s *Session) artifact(rendering *view.Rendering, form view.Form, opts view.Options) ([]string, error) {
 	opts.Width = s.renderWidth
 	if opts.Links.Template != "" {
 		renderer, err := s.viewRenderer()
@@ -308,21 +314,40 @@ func (s *Session) renderPseudoView(spec string, overlay view.Overlay) (*view.Ren
 	if !ok {
 		return nil, fmt.Errorf("%s is no pseudo-view: write %s", spec, strings.Join(view.PseudoViewSpecs(), ", "))
 	}
+	var targets []string
+	if target != "" {
+		targets = []string{target}
+	}
+	return s.renderExposed(kind, targets, overlay)
+}
+
+// renderExposed renders the named elements directly, with no view declared, in
+// kind — or, when kind is empty, in the kind the elements call for (see
+// view.Renderer.DefaultKind). No name renders the loaded documents.
+func (s *Session) renderExposed(kind view.Kind, targets []string, overlay view.Overlay) (*view.Rendering, error) {
 	renderer, err := s.overlaidRenderer(overlay)
 	if err != nil {
 		return nil, err
 	}
 	var exposed []*symbols.Symbol
 	stated := "no view declared; rendering the loaded documents directly"
-	if target != "" {
-		sym, fqn, err := s.lookupSymbol(target)
-		if err != nil {
-			return nil, err
+	if len(targets) > 0 {
+		names := make([]string, 0, len(targets))
+		for _, target := range targets {
+			sym, fqn, err := s.lookupSymbol(target)
+			if err != nil {
+				return nil, err
+			}
+			exposed = append(exposed, sym)
+			names = append(names, notationName(fqn))
 		}
-		exposed = append(exposed, sym)
-		stated = fmt.Sprintf("no view declared; rendering %s directly", notationName(fqn))
+		stated = fmt.Sprintf("no view declared; rendering %s directly", strings.Join(names, ", "))
 	} else {
 		exposed = s.symbolsInLoadOrder(model.TopLevelDeclarations)
+	}
+	if kind == "" {
+		kind = renderer.DefaultKind(exposed)
+		stated += fmt.Sprintf(", as the %s rendering the elements call for", kind)
 	}
 	rendering, err := renderer.RenderExposed(exposed, kind, stated)
 	if err != nil {

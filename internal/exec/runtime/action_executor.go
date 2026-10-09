@@ -1535,7 +1535,7 @@ func (e *ActionExecutor) setFeature(name string, value Value) error {
 		if value, err = e.mirrorOccurrence(name, value); err != nil {
 			return err
 		}
-	} else if err := e.ctx.checkNamedWrite(e.graph.Scope, actionLabelPrefix+symbolText(e.action), name, &value); err != nil {
+	} else if err := e.ctx.checkNamedWriteAs(e.graph.Scope, func() string { return actionLabelPrefix + symbolText(e.action) }, name, &value); err != nil {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
 		return err

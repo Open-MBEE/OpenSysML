@@ -25,12 +25,17 @@ var ErrNoView = errors.New("declares no view")
 // kind it states, whether this implementation produces that kind, and why not
 // when it does not. Origin is where the view is declared, so a client can tell
 // which view a cursor is in; the zero Origin for a view without a declaration.
+// Doc is the declaring document, Line the 1-based line the declaration starts
+// on, and Notation the qualified name as the notation writes it.
 type ViewInfo struct {
 	Name      string
+	Notation  string
 	Kind      view.Kind
 	Supported bool
 	Reason    string
 	Origin    view.Origin
+	Doc       string
+	Line      int
 }
 
 // Views lists the views a document declares, in qualified-name order, each with
@@ -45,11 +50,47 @@ func (w *Workspace) Views(doc string) ([]ViewInfo, *Document) {
 	if d == nil {
 		return nil, nil
 	}
+	if d.Recorded() {
+		d = w.hydrateLocked(doc)
+		w.index.ExpandWildcardImports()
+		w.invalidateLocked(doc)
+	}
+	out := w.viewInfosLocked(d)
+	sortViewInfos(out)
+	return out, d
+}
+
+// AllViews lists the views declared across the workspace's own documents, in
+// qualified-name order, as Views lists each document's; a library's views are
+// not among them.
+func (w *Workspace) AllViews() []ViewInfo {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.hydrateAllLocked()
 	out := []ViewInfo{}
-	w.queryLocked(doc, func(*resolve.Resolver, *semantics.Model) {
-		renderer := w.rendererLocked(doc)
-		for _, sym := range w.documentViewsLocked(doc) {
-			info := ViewInfo{Name: notationFQN(w.index, sym), Supported: true, Origin: declarationOrigin(d, sym)}
+	for _, d := range w.docs {
+		out = append(out, w.viewInfosLocked(d)...)
+	}
+	sortViewInfos(out)
+	return out
+}
+
+// viewInfosLocked is the views d declares, each with the kind its renderer
+// reads and, for a kind not produced, the reason.
+func (w *Workspace) viewInfosLocked(d *Document) []ViewInfo {
+	out := []ViewInfo{}
+	w.queryLocked(d.Name, func(*resolve.Resolver, *semantics.Model) {
+		renderer := w.rendererLocked(d.Name)
+		for _, sym := range w.documentViewsLocked(d.Name) {
+			origin := declarationOrigin(d, sym)
+			info := ViewInfo{
+				Name:      notationFQN(w.index, sym),
+				Notation:  notationName(sym),
+				Supported: true,
+				Origin:    origin,
+				Doc:       d.Name,
+				Line:      declarationLine(d, origin),
+			}
 			kind, _, err := renderer.KindOf(sym)
 			switch {
 			case err == nil:
@@ -65,8 +106,32 @@ func (w *Workspace) Views(doc string) ([]ViewInfo, *Document) {
 			out = append(out, info)
 		}
 	})
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out, d
+	return out
+}
+
+// sortViewInfos orders views by qualified name, then by declaring document.
+func sortViewInfos(views []ViewInfo) {
+	sort.SliceStable(views, func(i, j int) bool {
+		if views[i].Name != views[j].Name {
+			return views[i].Name < views[j].Name
+		}
+		return views[i].Doc < views[j].Doc
+	})
+}
+
+// notationName is sym's qualified name as the notation writes it, each segment
+// quoted on its own, so a name holding `::`, spaces or escapes reads back whole.
+func notationName(sym *symbols.Symbol) string {
+	return source.QualifiedNameOf(symbols.NameChain(sym))
+}
+
+// declarationLine is the 1-based line origin starts on in doc; 0 for an origin
+// located elsewhere or nowhere.
+func declarationLine(doc *Document, origin view.Origin) int {
+	if !origin.Located() || origin.Doc != doc.Name || origin.Span.Offset > len(doc.Content) {
+		return 0
+	}
+	return doc.Lines().PosAt(origin.Span.Offset).Line
 }
 
 // declarationOrigin locates a symbol's declaration, trimmed of the trailing

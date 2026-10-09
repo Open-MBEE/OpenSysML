@@ -1918,7 +1918,7 @@ func (r *Resolver) IsBaseThat(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
-	return sym.Name == baseThatFQN || r.registeredFQN(sym) == baseThatFQN
+	return sym.Name == baseThatFQN || (r.idx != nil && symbols.HasFQN(sym, baseThatFQN))
 }
 
 // getUsageType returns the type symbol of a usage by resolving its typing relationship.

@@ -1,7 +1,11 @@
 package jupyter
 
 import (
+	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -105,6 +109,10 @@ func TestFailuresAreNamedByWhatFailed(t *testing.T) {
 		"%print Nope":                        "CommandError",
 		"%render nothing":                    "RenderError",
 		"%render":                            "UsageError",
+		"%viz":                               "UsageError",
+		"%viz --view nope Demo":              "UsageError",
+		"%viz --style nosuch Demo":           "UsageError",
+		"%viz nothing":                       "RenderError",
 		"%render-document":                   "UsageError",
 		"1 +":                                "SubmissionError",
 	}
@@ -346,4 +354,146 @@ func hugeBudgets(t *testing.T, e *REPLEngine) runtime.Budgets {
 	b := e.Session().Budgets()
 	b.MaxActionSteps = 1 << 40
 	return b
+}
+
+const vizKernelModel = `package P {
+  part def Wheel;
+  part def Car { part fl : Wheel; part fr : Wheel; connect fl to fr; }
+  part car : Car { part a : Wheel; part b : Wheel; connect a to b; }
+  state def Lamp { state off; state on; transition off then on; }
+  action def Start { action a; action b; first a then b; }
+}
+`
+
+// %viz with no form shows a diagram: Mermaid, and the DOT the kind is drawn in,
+// as SVG where Graphviz draws it; a form asked for is shown as %render shows it.
+func TestVizShowsADiagram(t *testing.T) {
+	e := newEngine(t)
+	mustRun(t, e, vizKernelModel)
+	cases := []struct {
+		code string
+		mark string
+	}{
+		{"%viz P::Car", "flowchart"},
+		{"%viz P::car", "flowchart LR"},
+		{"%viz --view STATE P::Lamp", "stateDiagram-v2"},
+		{"%viz P::Lamp", "stateDiagram-v2"},
+		{"%viz P::Start", "flowchart"},
+		{"%viz --style LR --style ortholine P::Car P::Lamp", "flowchart LR"},
+	}
+	for _, c := range cases {
+		out := mustRun(t, e, c.code)
+		if len(out.displays) != 1 {
+			t.Fatalf("%s displayed %d bundles, want 1", c.code, len(out.displays))
+		}
+		bundle := out.displays[0]
+		mermaid, ok := bundle[mimeMermaid].(string)
+		if !ok || !strings.Contains(mermaid, c.mark) {
+			t.Errorf("%s: %s = %q, want a diagram holding %q", c.code, mimeMermaid, bundle[mimeMermaid], c.mark)
+		}
+		dot, ok := bundle[mimeDot].(string)
+		if !ok || !strings.Contains(dot, "digraph") {
+			t.Errorf("%s: %s = %q, want the DOT source beside the Mermaid", c.code, mimeDot, bundle[mimeDot])
+		}
+		if text, ok := bundle[mimeText].(string); !ok || text != mermaid {
+			t.Errorf("%s: %s = %q, want the Mermaid source as the plain text", c.code, mimeText, bundle[mimeText])
+		}
+		if svg, ok := bundle[mimeSVG].(string); ok != dotDrawn() || ok && !strings.Contains(svg, "<svg") {
+			t.Errorf("%s: %s present = %t, want %t (Graphviz drawn)", c.code, mimeSVG, ok, dotDrawn())
+		}
+	}
+	out := mustRun(t, e, "%viz --style ortholine P::Car")
+	if mermaid, _ := out.displays[0][mimeMermaid].(string); !strings.Contains(mermaid, "%% not represented: style ORTHOLINE (orthogonal line style) is not drawn") {
+		t.Errorf("a pilot style not drawn was not noted in the diagram:\n%s", mermaid)
+	}
+	out = mustRun(t, e, "%viz --view SEQUENCE P::Car")
+	if bundle := out.displays[0]; bundle[mimeMermaid] == nil || bundle[mimeDot] != nil {
+		t.Errorf("a sequence diagram, which DOT does not draw, was shown as %v", bundle)
+	}
+	out = mustRun(t, e, "%viz text P::Car")
+	if bundle := out.displays[0]; bundle[mimeMermaid] != nil || !strings.Contains(bundle[mimeText].(string), "tree rendering") {
+		t.Errorf("the text form asked for was shown as %v", bundle)
+	}
+	out = mustRun(t, e, "%viz P::Car dot")
+	if bundle := out.displays[0]; bundle[mimeDot] == nil || bundle[mimeMermaid] != nil {
+		t.Errorf("the dot form asked for was shown as %v", bundle)
+	}
+	failure := mustFail(t, e, "%viz --view nope P::Car")
+	if failure.Name != "UsageError" || !strings.Contains(failure.Value, `unknown view "nope"`) || !slices.ContainsFunc(failure.Traceback, func(line string) bool { return strings.HasPrefix(line, "usage: %viz") }) {
+		t.Errorf("a usage problem failed as %+v", failure)
+	}
+	failure = mustFail(t, e, "%viz P::Car P::Nope")
+	if failure.Name != "RenderError" || !strings.Contains(failure.Value, "P::Nope") {
+		t.Errorf("an unresolved name failed as %+v", failure)
+	}
+}
+
+// dotDrawn reports whether the kernel can draw DOT as SVG here.
+func dotDrawn() bool {
+	_, ok := drawDot("digraph { a -> b }")
+	return ok
+}
+
+func TestACellMayLoadAnotherNotebookAndUseItsNames(t *testing.T) {
+	dir := t.TempDir()
+	other := filepath.Join(dir, "other.ipynb")
+	data, err := json.Marshal(map[string]any{
+		"cells": []map[string]any{
+			{"cell_type": "markdown", "metadata": map[string]any{}, "source": "# A wheel"},
+			{"cell_type": "code", "metadata": map[string]any{}, "outputs": []any{}, "source": []string{
+				"%verbosity quiet\n",
+				"private import ScalarValues::*;\n",
+				"package Demo {\n",
+				"  part def Wheel { attribute diameter : Real = 16.0; }\n",
+				"}\n",
+				"Demo::Wheel::diameter + 1\n",
+			}},
+			{"cell_type": "code", "metadata": map[string]any{}, "outputs": []any{}, "source": "%instantiate Demo::Wheel\n"},
+		},
+		"metadata": map[string]any{"kernelspec": map[string]any{"language": "sysml", "name": "sysml"}},
+		"nbformat": 4, "nbformat_minor": 5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(other, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	e := newEngine(t)
+	out := mustRun(t, e, "%load "+other)
+	for _, want := range []string{
+		"loaded " + other + ": 2 of 2 code cells, 1 declaration",
+		"skipped 2 % command lines and 1 expression line",
+		"✓ package Demo",
+	} {
+		if !strings.Contains(out.text(), want) {
+			t.Errorf("want %q in the load report:\n%s", want, out.text())
+		}
+	}
+	if len(out.results) != 0 {
+		t.Errorf("the other notebook's expression was evaluated: %v", out.results)
+	}
+	out = mustRun(t, e, "Demo::Wheel::diameter + 1")
+	if len(out.results) != 1 || !strings.Contains(out.results[0][mimeText].(string), "= 17.0") {
+		t.Errorf("the loaded names are not usable: %v", out.results)
+	}
+	// The other notebook's %verbosity did not run: a declaration is still echoed.
+	out = mustRun(t, e, "package Spare { part def Rim; }")
+	if !strings.Contains(out.text(), "✓ package Spare") {
+		t.Errorf("declaration output = %q", out.text())
+	}
+}
+
+func TestLoadingAPythonNotebookIsACommandError(t *testing.T) {
+	dir := t.TempDir()
+	other := filepath.Join(dir, "analysis.ipynb")
+	nb := `{"cells": [{"cell_type": "code", "metadata": {}, "outputs": [], "source": "print(1)"}], "metadata": {"kernelspec": {"language": "python", "name": "python3"}}, "nbformat": 4, "nbformat_minor": 5}`
+	if err := os.WriteFile(other, []byte(nb), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	failure := mustFail(t, newEngine(t), "%load "+other)
+	if failure.Name != "CommandError" || !strings.Contains(failure.Value, "a python notebook") {
+		t.Errorf("failure = %+v, want a CommandError naming the python notebook", failure)
+	}
 }

@@ -111,8 +111,9 @@ func LibraryEntries() []Entry {
 		Path:        siPath,
 		Line:        233,
 		AsPublished: "    attribute <'m²⋅A'> 'metre squared ampere' : MagneticDipoleMomentUnit = m^2*A;",
+		Corrected:   "    attribute <'m²⋅A'> 'metre squared ampere' : ISQAtomicNuclear::MagneticDipoleMomentUnit = m^2*A;",
 		Citation:    kermlFeatureValue,
-		Derivation:  "`ISQ::*` re-exports two MagneticDipoleMomentUnits, the electromagnetic one (L^3·M·T^-2·I^-1, IEC 80000-6 item 6-30) and the atomic one (L^2·I, ISO 80000-10 item 10-9.1); `m^2*A` is the atomic unit, the unqualified name resolves to the electromagnetic one, and the ISQ library rather than this line is where the name clash is fixed, so the defect is documented without a correction.",
+		Derivation:  "`ISQ::*` re-exports two MagneticDipoleMomentUnits, the electromagnetic one (L^3·M·T^-2·I^-1, IEC 80000-6 item 6-30) and the atomic one (L^2·I, ISO 80000-10 item 10-9.1), so KerML 7.2.5.4 hides the name from `SI` and a first-match reader binds the electromagnetic one; `m^2*A` is the atomic unit, and `ISQAtomicNuclear::MagneticDipoleMomentUnit` is the one qualified name with the declared dimension.",
 	}, {
 		ID:          "SI-239",
 		Heading:     "`'m²⋅s⁻³' : DoseEquivalentUnit = m^2*s^-3` types a dose-equivalent rate as a dose equivalent",
@@ -147,6 +148,15 @@ func LibraryEntries() []Entry {
 		Citation:    kermlFeatureValue,
 		Derivation:  "`W/kg` is L^2·T^-3, a dose-equivalent rate (ISO 80000-10 item 10-83.2), while DoseEquivalentUnit is L^2·T^-2; as at line 239, no rate unit exists to retype the line by, so the defect is documented without a correction.",
 	}, {
+		ID:          "SI-303",
+		Heading:     "`'Wb⋅m' : MagneticDipoleMomentUnit = Wb*m` names a unit `ISQ` hides",
+		Path:        siPath,
+		Line:        303,
+		AsPublished: "    attribute <'Wb⋅m'> 'weber metre' : MagneticDipoleMomentUnit = Wb*m;",
+		Corrected:   "    attribute <'Wb⋅m'> 'weber metre' : ISQElectromagnetism::MagneticDipoleMomentUnit = Wb*m;",
+		Citation:    kermlImportHiding,
+		Derivation:  "`ISQ::*` re-exports two MagneticDipoleMomentUnits (IEC 80000-6 item 6-30 and ISO 80000-10 item 10-9.1), and KerML 7.2.5.4 hides an imported name two imports bring, so the unqualified name resolves to nothing in `SI`; `Wb*m` is L^3·M·T^-2·I^-1, the electromagnetic unit, and `ISQElectromagnetism::MagneticDipoleMomentUnit` is the one qualified name with that dimension.",
+	}, {
 		ID:          "USCustomaryUnits-255",
 		Heading:     "`zeroDegreeFahrenheitInKelvin = 229835/900 [K]` divides by a temperature",
 		Path:        LibraryRoot + "/Domain Libraries/Quantities and Units/USCustomaryUnits.sysml",
@@ -164,6 +174,7 @@ const siPath = LibraryRoot + "/Domain Libraries/Quantities and Units/SI.sysml"
 const (
 	sysmlUnitArithmetic = "SysML v2 §9.8.9.1"
 	kermlFeatureValue   = "KerML 7.4.9"
+	kermlImportHiding   = "KerML 7.2.5.4"
 )
 
 // Overlay is a registry indexed by file, ready to apply.

@@ -284,10 +284,23 @@ func (r *Resolver) ImportedMembersInto(into, scope *symbols.Scope, imp *ast.Impo
 	return r.importedMembersInto(into, scope, imp, true)
 }
 
+// enumEdge is an import edge an enumeration traversed, with the member kinds asked of it.
+type enumEdge struct {
+	imp     *ast.Import
+	unnamed bool
+}
+
 func (r *Resolver) importedMembersInto(into, scope *symbols.Scope, imp *ast.Import, includeUnnamed bool) []*symbols.Symbol {
 	if scope == nil || imp == nil || imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return nil
 	}
+	r.enumDepth++
+	defer func() {
+		r.enumDepth--
+		if r.enumDepth == 0 {
+			clear(r.enumMembers)
+		}
+	}()
 	if into == nil {
 		into = scope
 	}
@@ -347,11 +360,17 @@ func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbo
 			if !r.importVisibleFrom(target, scope, childImp) || r.importStack[childImp] {
 				continue
 			}
-			r.importStack[childImp] = true
-			for _, sym := range r.importedMembersInto(target.Scope, target.Scope, childImp, includeUnnamed) {
+			edge := enumEdge{imp: childImp, unnamed: includeUnnamed}
+			members, done := r.enumMembers[edge]
+			if !done {
+				r.importStack[childImp] = true
+				members = r.importedMembersInto(target.Scope, target.Scope, childImp, includeUnnamed)
+				delete(r.importStack, childImp)
+				r.enumMembers[edge] = members
+			}
+			for _, sym := range members {
 				children.add(sym)
 			}
-			delete(r.importStack, childImp)
 		}
 	}
 	if r.idx == nil {

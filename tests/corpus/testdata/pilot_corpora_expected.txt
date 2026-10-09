@@ -8,11 +8,17 @@
 # files: sysml-validation 56
 3	kerml-examples/Simple Tests/Circular.kerml
 6	kerml-examples/Simple Tests/Expressions.kerml
+4	kerml-examples/Simple Tests/Imports.kerml
 1	sysml-examples/Analysis Examples/Dynamics.sysml
 1	sysml-examples/Analysis Examples/Turbojet Stage Analysis.sysml
+2	sysml-examples/Arrowhead Framework Example/AHFNorwayTopics.sysml
 1	sysml-examples/Camera Example/Camera.sysml
 2	sysml-examples/Geometry Examples/SimpleQuadcopter.sysml
 1	sysml-examples/Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml
 1	sysml-examples/Simple Tests/IndividualTest.sysml
 1	sysml-examples/Simple Tests/ItemTest.sysml
 4	sysml-examples/Simple Tests/PartTest.sysml
+87	sysml-examples/Vehicle Example/Annex_A_VehicleViews.sysml
+134	sysml-examples/Vehicle Example/SysML v2 Spec Annex A SimpleVehicleModel.sysml
+2	sysml-validation/04-Functional Allocation/4a-Functional Allocation.sysml
+6	sysml-validation/13-Model Containment/13a-Model Containment.sysml

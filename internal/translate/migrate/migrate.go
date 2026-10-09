@@ -3031,7 +3031,7 @@ func (m *migration) connector(c *sysmlv1.Element) {
 	m.add(c, Mapped, target, note)
 	m.stereotypeComments(c)
 	for _, f := range m.flows[c] {
-		m.itemFlow(f, c.Owned("end"), paths)
+		m.itemFlow(f, c, segs, paths)
 	}
 }
 
@@ -3137,8 +3137,10 @@ func segmentWord(i, n int) string {
 
 // itemFlow writes an item flow realized by a connector as a flow between the
 // flow properties its ends carry for each conveyed classifier, from the end
-// whose role is the flow's source to the end whose role is its target.
-func (m *migration) itemFlow(f *sysmlv1.Element, ends []*sysmlv1.Element, paths []string) {
+// standing for the flow's source to the end standing for its target: the end
+// whose role is it, or, as a tool writes a flow between parts or blocks, whose
+// path names it or a part typed by it.
+func (m *migration) itemFlow(f, c *sysmlv1.Element, segs [][]*sysmlv1.Element, paths []string) {
 	conveyed := m.model.Refs(f, "conveyed")
 	missing := m.dangling(f, "conveyed")
 	if len(conveyed) == 0 {
@@ -3152,14 +3154,29 @@ func (m *migration) itemFlow(f *sysmlv1.Element, ends []*sysmlv1.Element, paths 
 		return
 	}
 	from, to := paths[0], paths[1]
+	owner := c.Parent
+	forward := m.endStandsFor(segs[0], owner, src) && m.endStandsFor(segs[1], owner, dst)
+	reverse := m.endStandsFor(segs[1], owner, src) && m.endStandsFor(segs[0], owner, dst)
+	ambiguous := forward && reverse
+	if ambiguous {
+		// Both ends stand for both; only the ends' own roles can still tell them apart.
+		ends := c.Owned("end")
+		forward = m.model.Ref(ends[0], "role") == src && m.model.Ref(ends[1], "role") == dst
+		reverse = m.model.Ref(ends[1], "role") == src && m.model.Ref(ends[0], "role") == dst
+	}
 	switch {
-	case m.model.Ref(ends[0], "role") == src && m.model.Ref(ends[1], "role") == dst:
-	case m.model.Ref(ends[1], "role") == src && m.model.Ref(ends[0], "role") == dst:
+	case forward && !reverse:
+	case reverse && !forward:
 		from, to = paths[1], paths[0]
+		segs = [][]*sysmlv1.Element{segs[1], segs[0]}
+	case ambiguous:
+		m.flowDone(f, nil, []string{"the item flow's source and target each stand for both ends of realizing connector " + describe(c) + ", so its direction cannot be told"})
+		return
 	default:
-		m.flowDone(f, nil, []string{"the item flow's source and target are not the roles of the ends of realizing connector " + describe(ends[0].Parent)})
+		m.flowDone(f, nil, []string{"the item flow's source and target are not the ends of realizing connector " + describe(c) + ", nor the parts or blocks on its ends' paths"})
 		return
 	}
+	src, dst = segs[0][len(segs[0])-1], segs[1][len(segs[1])-1]
 	var written, notes []string
 	if missing != "" {
 		notes = append(notes, missing)
@@ -3180,6 +3197,22 @@ func (m *migration) itemFlow(f *sysmlv1.Element, ends []*sysmlv1.Element, paths 
 		written = append(written, item.Name)
 	}
 	m.flowDone(f, written, notes)
+}
+
+// endStandsFor reports whether a connector end's path stands for el: its role,
+// a part on its path, or the block typing one of them, which is how a tool
+// writes an item flow between parts or between the blocks typing them; an end
+// at a port of the connector's owner stands for the owner itself.
+func (m *migration) endStandsFor(segs []*sysmlv1.Element, owner, el *sysmlv1.Element) bool {
+	if len(segs) == 1 && segs[0].Type == "Port" && owner != nil && owner == el {
+		return true
+	}
+	for _, s := range segs {
+		if s == el || m.model.Ref(s, "type") == el {
+			return true
+		}
+	}
+	return false
 }
 
 // flowDone records one realizing connector's result for f and reports the flow

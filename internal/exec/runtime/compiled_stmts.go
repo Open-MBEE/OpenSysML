@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -228,8 +229,10 @@ func declareStmt(s lower.Declare, slot int, value compiledExpr, check *scalarChe
 					return scalar{}, false, err
 				}
 			}
-			if v, err = check.held(v, nil); err != nil {
-				return scalar{}, false, err
+			if !check.holds(v) {
+				if v, err = check.held(v, nil); err != nil {
+					return scalar{}, false, err
+				}
 			}
 		}
 		frame[slot] = v
@@ -245,7 +248,7 @@ func returnStmt(value compiledExpr, result *scalarCheck) compiledStmt {
 		if err != nil {
 			return scalar{}, false, fmt.Errorf("evaluating the returned expression: %w", err)
 		}
-		if result != nil {
+		if result != nil && !(result.accepts(v) && result.holds(v)) {
 			what := func() string { return "result" }
 			if !result.accepts(v) {
 				if err := result.refuse(ctx, v, what); err != nil {
@@ -268,7 +271,7 @@ func ifStmt(cond compiledExpr, then, els compiledStmt) compiledStmt {
 		if err != nil {
 			return scalar{}, false, fmt.Errorf("eval condition of 'if': %w", err)
 		}
-		if cv.kind != scalarBool {
+		if cv.Kind != semantics.ValBool {
 			return scalar{}, false, fmt.Errorf("%s: condition of 'if' must evaluate to a Boolean, got %s",
 				calcBodyDescription, ValConst)
 		}
