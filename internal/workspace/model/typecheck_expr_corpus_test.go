@@ -81,19 +81,14 @@ func TestExprTypeCheckPublishedStdlibDefects(t *testing.T) {
 	checkStdlibExprTypeFindings(t, libs.EmbeddedSource(), publishedStdlibDefects)
 }
 
-// hiddenNameStdlibCorrections are the library corrections the checker has no
-// finding for: a line naming a member two of its imports bring, which KerML
-// 7.2.5.4 hides from the importing namespace, qualified by the one of the two
-// with the declared dimension. The checker is silent because resolution takes
-// the first import rather than hiding the name (docs/project/spec-pilot-gap-register.md,
-// "Imported memberships"), so these are pinned here by line instead.
+// hiddenNameStdlibCorrections are corrections the checker has no finding for: lines
+// naming a member two imports bring, which KerML 7.2.5.4 hides, qualified by the one meant.
 var hiddenNameStdlibCorrections = []string{
 	"Domain Libraries/Quantities and Units/SI.sysml:303",
 }
 
-// TestStdlibCorrectionsAreAccountedFor keeps the registry's library corrections
-// an exact set: each is either a line the checker rejects as published or a
-// hidden-name correction listed above, and each listed line is corrected.
+// TestStdlibCorrectionsAreAccountedFor pins the registry's library corrections as an exact
+// set: each is a line the checker rejects as published or a listed hidden-name correction.
 func TestStdlibCorrectionsAreAccountedFor(t *testing.T) {
 	t.Parallel()
 	overlay, err := errata.Library()
