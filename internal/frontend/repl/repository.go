@@ -109,7 +109,7 @@ func (s *Session) loadsRepository(args []string) bool {
 			return true
 		}
 	}
-	if len(args) != 1 {
+	if len(args) != 1 || strings.HasPrefix(args[0], "-") {
 		return false
 	}
 	return !namesPath(nameText(args[0]))
@@ -265,13 +265,14 @@ func (s *Session) doPublish(args []string) metaResult {
 }
 
 // repositoryCompletions answers Tab after a repository command: the flags a
-// `-` starts, project names otherwise, from the server when it answers in time.
+// `-` starts (the file load's --cells among %load's), project names otherwise,
+// from the server when it answers in time.
 func (s *Session) repositoryCompletions(command, word string) ([]string, bool) {
 	if !repositoryLinked() {
 		return nil, false
 	}
 	flags := map[string][]string{
-		"%load":    {"--id=", "--name=", "--branch="},
+		"%load":    {"--id=", "--name=", "--branch=", "--cells="},
 		"%publish": {"-d", "--project=", "--branch="},
 	}[command]
 	if flags == nil {

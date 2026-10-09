@@ -320,8 +320,11 @@ func TestRepositoryCommandsAreListedAndCompleted(t *testing.T) {
 	if got := complete("%pub"); joined(got) != "%publish" {
 		t.Errorf("%%pub completes to %q", got)
 	}
-	if got := complete("%load --"); joined(got) != "--branch=\n--id=\n--name=" {
+	if got := complete("%load --"); joined(got) != "--branch=\n--cells=\n--id=\n--name=" {
 		t.Errorf("%%load -- completes to %q", got)
+	}
+	if got := complete("%load --c"); joined(got) != "--cells=" {
+		t.Errorf("%%load --c completes to %q", got)
 	}
 	if got := complete("%load --name=Ve"); joined(got) != "--name=Vehicles\n--name=Vessels" {
 		t.Errorf("%%load --name=Ve completes to %q", got)
@@ -455,6 +458,24 @@ func TestPublishForgetsTheStateOfAnotherServer(t *testing.T) {
 	}
 	if now := other.elementCount("project-0001", "branch-0002"); now < held {
 		t.Errorf("the other server lost elements: %d, had %d", now, held)
+	}
+}
+
+// A %load of --cells alone is the file load's to answer: it wants a notebook,
+// or a selection, and no repository option was given.
+func TestLoadWithCellsAloneWantsANotebook(t *testing.T) {
+	s, _ := repoSession(t)
+	if out := joined(runMeta(t, s, "%load --cells=1")); out != usageLoadPath {
+		t.Errorf("%%load --cells=1 answered %q, want the file load's usage", out)
+	}
+	err := metaErr(t, s, "%load --cells")
+	if err == nil || !strings.Contains(err.Error(), "--cells needs a selection") {
+		t.Errorf("%%load --cells: %v", err)
+	}
+	err = metaErr(t, s, "%load --tags=x")
+	var usage *UsageError
+	if !errors.As(err, &usage) || !strings.Contains(joined(usage.Lines), "unknown option --tags") {
+		t.Errorf("%%load --tags=x: %v", err)
 	}
 }
 
