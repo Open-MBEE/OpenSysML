@@ -102,14 +102,14 @@ func (ctx *Context) readOnlyRefusal(what func() string, name string, feature *sy
 // statement was written — before its value is evaluated. A chained target is
 // judged on the object its chain reaches (writeThroughChain), unless it ends in
 // a `featured by` feature no object holds a slot for (featuredChainTarget).
-func (ctx *Context) checkAssignable(where string, s lower.Assign) error {
+func (ctx *Context) checkAssignable(where func() string, s lower.Assign) error {
 	if s.Chain != nil {
 		if feature, ok := ctx.featuredChainTarget(s); ok {
-			return ctx.readOnlyRefusal(func() string { return fmt.Sprintf("%s: assignment to %s", where, s.Chain.Text) }, s.Chain.Text, feature)
+			return ctx.readOnlyRefusal(func() string { return fmt.Sprintf("%s: assignment to %s", where(), s.Chain.Text) }, s.Chain.Text, feature)
 		}
 		return nil
 	}
-	what := func() string { return fmt.Sprintf("%s: assignment to %s", where, s.Target) }
+	what := func() string { return fmt.Sprintf("%s: assignment to %s", where(), s.Target) }
 	if s.Qualified {
 		if s.Feature == nil {
 			return nil
@@ -182,17 +182,23 @@ func (ctx *Context) writeCountRefusal(target *writeTarget, value *Value) string 
 // block-local, a parameter, an output - against the declaration of the name it
 // writes, before that value is stored.
 func (ctx *Context) checkBodyWrite(host stmtHost, s lower.Assign, value *Value) error {
-	return ctx.checkNamedWrite(s.Scope, host.describe(), s.Target, value)
+	return ctx.checkNamedWriteAs(s.Scope, host.describe, s.Target, value)
 }
 
 // checkNamedWrite checks a write of a name resolved in scope, for a path that
 // stores the value itself rather than reaching Instance.SetFeatureValue.
 func (ctx *Context) checkNamedWrite(scope *symbols.Scope, where, name string, value *Value) error {
+	return ctx.checkNamedWriteAs(scope, func() string { return where }, name, value)
+}
+
+// checkNamedWriteAs is checkNamedWrite naming where the write ran only when it is
+// refused, so a conformant write on a hot path does not pay for the description.
+func (ctx *Context) checkNamedWriteAs(scope *symbols.Scope, where func() string, name string, value *Value) error {
 	target, ok := ctx.writeTargetIn(scope, name)
 	if !ok {
 		return nil
 	}
-	what := func() string { return fmt.Sprintf("%s: assignment to %s", where, name) }
+	what := func() string { return fmt.Sprintf("%s: assignment to %s", where(), name) }
 	return ctx.checkTargetAs(scope, what, target, value, admitWritten, true)
 }
 
@@ -203,13 +209,19 @@ func (ctx *Context) checkNamedWrite(scope *symbols.Scope, where, name string, va
 // holds the count its initializer has and, as a namespace-level one, is judged for
 // uniqueness only where it declares more than one value.
 func (ctx *Context) checkBodyDeclaration(scope *symbols.Scope, where, name string, value *Value) error {
+	return ctx.checkBodyDeclarationAs(scope, func() string { return where }, name, value)
+}
+
+// checkBodyDeclarationAs is checkBodyDeclaration naming where the declaration ran
+// only when it is refused, so a conformant binding does not pay for the description.
+func (ctx *Context) checkBodyDeclarationAs(scope *symbols.Scope, where func() string, name string, value *Value) error {
 	target, ok := ctx.writeTargetIn(scope, name)
 	if !ok {
 		return nil
 	}
 	declared := *target
 	declared.unique = target.unique && multiValued(target.mult)
-	what := func() string { return fmt.Sprintf("%s: declaration of %s", where, name) }
+	what := func() string { return fmt.Sprintf("%s: declaration of %s", where(), name) }
 	return ctx.checkTargetAs(scope, what, &declared, value, admitDeclared, target.countJudged)
 }
 

@@ -1,4 +1,5 @@
-"""The platform wheels setup.py builds: tagged for their kernel, carrying it and the kernelspec."""
+"""The distributions setup.py builds: platform wheels tagged for their kernel, carrying it and
+the kernelspec, and every one of them carrying the JupyterLab extension."""
 
 import json
 import os
@@ -12,27 +13,57 @@ from types import SimpleNamespace
 
 import pytest
 
-from jupyter_opensysml_kernel import binary
+import jupyter_opensysml_kernel
+from jupyter_opensysml_kernel import binary, labextension
 from jupyter_opensysml_kernel._version import VERSION
 
 from .conftest import KERNEL_BYTES
 
 SOURCE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLATFORM_ENV = "JUPYTER_OPENSYSML_KERNEL_PLATFORM"
+LABEXTENSION = "share/jupyter/labextensions/jupyterlab-opensysml/"
+REMOTE_ENTRY = "static/remoteEntry.0123456789abcdef.js"
+LABEXTENSION_FILES = {
+    "package.json": json.dumps(
+        {"name": "jupyterlab-opensysml", "jupyterlab": {"extension": True, "_build": {"load": REMOTE_ENTRY}}}
+    ).encode(),
+    "install.json": b'{"packageManager": "python", "packageName": "jupyter-opensysml-kernel"}',
+    REMOTE_ENTRY: b"// the federated entry\n",
+    "static/style.js": b"",
+}
 
 pytest.importorskip("build", reason="the distributions are built as the release builds them, with python -m build")
 
 
 @pytest.fixture
-def source_tree(tmp_path):
-    """A copy of the package source, so staging a kernel never touches the checkout."""
+def bare_tree(tmp_path):
+    """A copy of the package source without any build of the extension, so staging a
+    kernel or an extension never touches the checkout."""
     tree = tmp_path / "src"
     shutil.copytree(
         SOURCE,
         tree,
-        ignore=shutil.ignore_patterns("build", "dist", "*.egg-info", "__pycache__", ".mypy_cache", ".pytest_cache", "tests"),
+        ignore=shutil.ignore_patterns(
+            "build", "dist", "*.egg-info", "__pycache__", ".mypy_cache", ".pytest_cache", "tests", "labextension"
+        ),
     )
     return tree
+
+
+@pytest.fixture
+def source_tree(bare_tree):
+    """The source with a build of the JupyterLab extension staged, as `make jupyterlab-build` leaves it."""
+    stage_labextension(bare_tree)
+    return bare_tree
+
+
+def stage_labextension(tree):
+    root = tree / "labextension"
+    for name, data in LABEXTENSION_FILES.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    return root
 
 
 def stage(tree, goos):
@@ -64,6 +95,18 @@ def built(tree, suffix):
     files = [f for f in os.listdir(tree / "dist") if f.endswith(suffix)]
     assert len(files) == 1, files
     return tree / "dist" / files[0]
+
+
+def labextension_members(names, prefix):
+    """The extension's files among an archive's `names`, keyed under its share/ directory."""
+    return {n[len(prefix) + len(LABEXTENSION):] for n in names if n.startswith(prefix + LABEXTENSION)}
+
+
+def assert_carries_the_labextension(zf, data_prefix):
+    names = set(zf.namelist())
+    assert labextension_members(names, data_prefix) == set(LABEXTENSION_FILES)
+    for name, data in LABEXTENSION_FILES.items():
+        assert zf.read(data_prefix + LABEXTENSION + name) == data
 
 
 def test_a_platform_wheel_bundles_the_kernel_and_registers_it(source_tree):
@@ -117,13 +160,16 @@ def test_a_wheel_built_after_another_platform_carries_only_its_own_kernel(source
     assert bundled == ["jupyter_opensysml_kernel/bin/sysml-jupyter-kernel.exe"]
 
 
-def test_a_pure_wheel_bundles_nothing_and_registers_nothing(source_tree):
+def test_a_pure_wheel_bundles_no_kernel_and_registers_only_the_labextension(source_tree):
     result = build(source_tree, "wheel")
     assert result.returncode == 0, result.output
     wheel = built(source_tree, ".whl")
     assert wheel.name == f"jupyter_opensysml_kernel-{VERSION}-py3-none-any.whl"
     with zipfile.ZipFile(wheel) as zf:
-        assert not any("/bin/" in n or "share/jupyter" in n for n in zf.namelist())
+        names = zf.namelist()
+        assert not any("/bin/" in n or "share/jupyter/kernels" in n for n in names)
+        assert_carries_the_labextension(zf, f"jupyter_opensysml_kernel-{VERSION}.data/data/")
+        assert not any(n.startswith("jupyter_opensysml_kernel/labextension/") for n in names), "the extension is shared data, not package data"
 
 
 def test_a_staged_kernel_without_a_platform_is_refused(source_tree):
@@ -154,13 +200,63 @@ def test_the_sdist_refuses_a_staged_kernel(source_tree):
     assert "an sdist bundles no kernel" in result.output
 
 
-def test_the_sdist_carries_setup_py_and_no_bin(source_tree):
+def test_the_sdist_carries_setup_py_and_the_labextension_and_no_bin(source_tree, tmp_path):
     result = build(source_tree, "sdist")
     assert result.returncode == 0, result.output
-    with tarfile.open(built(source_tree, ".tar.gz")) as tf:
-        names = tf.getnames()
+    sdist = built(source_tree, ".tar.gz")
+    with tarfile.open(sdist) as tf:
+        names = [m.name for m in tf.getmembers() if m.isfile()]
+        tf.extractall(tmp_path / "unpacked", filter="data")
     assert any(n.endswith("/setup.py") for n in names)
     assert not any("/bin/" in n for n in names)
+    root = f"jupyter_opensysml_kernel-{VERSION}/"
+    staged = root + "labextension/"
+    assert {n[len(staged):] for n in names if n.startswith(staged)} == set(LABEXTENSION_FILES)
+    # A wheel built from the sdist, as pip builds one, installs the extension too.
+    unpacked = tmp_path / "unpacked" / root
+    result = build(unpacked, "wheel")
+    assert result.returncode == 0, result.output
+    with zipfile.ZipFile(built(unpacked, ".whl")) as zf:
+        assert_carries_the_labextension(zf, f"jupyter_opensysml_kernel-{VERSION}.data/data/")
+
+
+@pytest.mark.parametrize("command", ["sdist", "wheel"])
+def test_no_distribution_is_built_without_the_labextension(bare_tree, command):
+    result = build(bare_tree, command)
+    assert result.returncode != 0
+    assert "run `make jupyterlab-build` first" in result.output
+
+
+def test_a_platform_wheel_is_refused_without_the_labextension(bare_tree):
+    stage(bare_tree, "linux")
+    result = build(bare_tree, "wheel", "linux-amd64")
+    assert result.returncode != 0
+    assert "run `make jupyterlab-build` first" in result.output
+
+
+def test_the_labextension_module_describes_a_staged_build(bare_tree):
+    assert not labextension.is_built(str(bare_tree / "labextension"))
+    root = stage_labextension(bare_tree)
+    assert labextension.is_built(str(root))
+    assert labextension.data_files(str(root)) == [
+        (
+            "share/jupyter/labextensions/jupyterlab-opensysml",
+            ["labextension/install.json", "labextension/package.json"],
+        ),
+        (
+            "share/jupyter/labextensions/jupyterlab-opensysml/static",
+            [
+                "labextension/static/remoteEntry.0123456789abcdef.js",
+                "labextension/static/style.js",
+            ],
+        ),
+    ]
+    (root / "static" / "remoteEntry.0123456789abcdef.js").unlink()
+    assert not labextension.is_built(str(root)), "a build without its federated entry is no build"
+
+
+def test_jupyter_labextension_develop_finds_the_extension_through_the_package():
+    assert jupyter_opensysml_kernel._jupyter_labextension_paths() == [{"src": "../labextension", "dest": "jupyterlab-opensysml"}]
 
 
 @pytest.mark.parametrize(

@@ -1,4 +1,4 @@
-package flexo
+package sysmlapi
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
-// rdfNil is what the service stores for a JSON null.
+// rdfNil is what the server stores for a JSON null.
 const rdfNil = rdf.RDFNS + "nil"
 
 var (
@@ -16,11 +16,11 @@ var (
 	decimalLexical = regexp.MustCompile(`^-?(0|[1-9][0-9]*)\.[0-9]+$`)
 )
 
-// Representation is what the service stores of a posted graph: sysml: properties
+// Representation is what the server stores of a posted graph: sysml: properties
 // only, values as JSON spells them. A diff under it converges with an apply.
 type Representation struct{}
 
-// UnrepresentableError is a value the service's JSON commit path has no
+// UnrepresentableError is a value the server's JSON commit path has no
 // spelling for; the diff refuses it rather than approximating.
 type UnrepresentableError struct {
 	Term   rdf.Term
@@ -31,7 +31,7 @@ func (e *UnrepresentableError) Error() string {
 	return fmt.Sprintf("%s cannot be written through the SysML v2 API: %s", e.Term, e.Reason)
 }
 
-// Carry keeps sysml: properties in the form the service stores them and drops
+// Carry keeps sysml: properties in the form the server stores them and drops
 // every other predicate: it has no place for them.
 func (Representation) Carry(triple rdf.Triple) (rdf.Triple, bool, error) {
 	if !strings.HasPrefix(triple.Predicate.Value, rdf.SysML) {

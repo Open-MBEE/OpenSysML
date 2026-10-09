@@ -24,7 +24,13 @@ Load files and enter interactive mode:
 ```bash
 sysml model.sysml
 sysml types.sysml instances.sysml
+sysml wheels.ipynb
 ```
+
+A file argument is a `.sysml` or `.kerml` file, a directory or glob pattern (every `.sysml`,
+`.kerml` and `.ipynb` under it), an API element-form `.json` file, or a Jupyter notebook
+(`.ipynb`), whose code cells load as `%load` loads them: declarations only, `%` command lines and
+expressions skipped and counted ([Reusing another notebook](../guide/12-jupyter.md#reusing-another-notebook)).
 
 ## Non-Interactive Mode
 
@@ -256,6 +262,9 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, in a form chosen per diagram: a view some `DiagramLayout::Layout` or `Route` positions is drawn by Graphviz where it states — inline SVG when `dot` is installed, a fenced ` ```dot ` block otherwise — and every other graph-shaped view is a fenced ` ```mermaid ` block; when Graphviz is absent a positioned view is written as Mermaid under a visible notice saying so (`-diagram-form mermaid|dot|plantuml|d2` writes every graph-shaped block in that one form; a table or matrix view is a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. An `Image` block (`location` a path relative to the document's file or an http(s)/file URL, optional `caption` and `alt`) renders as a CommonMark image under its caption, a relative `location` resolved beside the document's source file and written relative to the `-o` output's directory; `-doc-form pdf` draws the file — a missing local `location` is a `missing-image` error — and an `http(s)` location is fetched by the engine. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
 | `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid`, `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar, or `d2`, a [D2](https://d2lang.com) diagram in the same look, produced without `d2`. D2 writes `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` and `package` renderings; case and mixed views are refused with a typed error. Unset, the form is chosen per diagram: `dot` for a view some `DiagramLayout::Layout` or `Route` positions, drawn by Graphviz where it states (inline SVG in Markdown and HTML when `dot`, or `OPENSYSML_DOT`, is installed; Mermaid under a visible notice naming the missing tool when it is not), `mermaid` for every other graph-shaped view. Stated, it applies to every diagram of the document in every `--doc-form`; a table or matrix view remains a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
+| `--list <what>` | | List what the loaded model declares by the qualified names `--render-document` and `--render` read, to stdout: `documents`, its document definitions; `views`, its views with the rendering kind each states, a view whose kind this build does not produce marked unsupported with the reason; `diagrams`, the graph-shaped views (`tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition` and `package`); `pseudo-views`, the pseudo-views a document declaring no view is rendered through, which needs no model; or `all`, the documents followed by the views. Cannot be combined with another mode, `-import`, `-o` or a check flag (see [Listing documents and views](#listing-documents-and-views)) |
+| `--list-kind <kinds>` | | Comma-separated view kinds `--list views`, `diagrams` or `all` keeps, as `state,action`; an unknown kind is refused with the kinds there are, and `--list documents` or `pseudo-views` with the flag is refused |
+| `--list-form <form>` | | Form `--list` writes: `text` (the default), one aligned line per item; `tsv`, a header record `category`, `kind`, `supported`, `file`, `line`, `name`, `reason` then a record per item; or `json`, an array of objects with those fields, each omitted when empty |
 | `--render-documents <dir>` | | Render every document definition the model declares as a linked set into the directory, one file per document, so cross-document references resolve on disk; a document that cannot be rendered gets a page stating why and the run exits 3. `--doc-form html` writes the set as HTML pages linking shared stylesheet files written beside them |
 | `--doc-title-page` | | Put the document title on a page of its own (`--doc-form html` or `pdf`) |
 | `--doc-toc` | | Write a table of contents ahead of the content (`--doc-form html` or `pdf`) |
@@ -537,6 +546,68 @@ with `-json`; name a file for each rendering instead. `-render-run` cannot be co
 and PlantUML timeline lanes and single-state spans to their declarations. Mermaid gantt and run
 messages are not linked.
 
+## Listing documents and views
+
+`-list` names what the loaded model declares by the qualified names `-render-document` and
+`-render` read, so a name is copied from the listing and passed back unchanged:
+
+```bash
+sysml model.sysml -list documents
+# document  Reports::'Mass Report'
+# document  Reports::'line\nbreak'
+sysml model.sysml -list views
+# view  textual  Kit::asText  (unsupported: Kit::asText: textual rendering (render Views::asTextualNotation) is not supported; ...)
+# view  table    Kit::'parts table'
+# view  tree     Kit::vehicleView
+sysml model.sysml -render-document "Reports::'Mass Report'" -doc-form html -o mass.html
+```
+
+Each name is written as the notation writes it: a segment that is not a plain identifier is
+quoted, a quote inside escaped, a `::` inside a quoted segment kept within it, and a line break
+in a name written as `\n` inside the quotes, so every item stays on one line. The targets are:
+
+- `documents` — every document definition (a `part def` specializing `DocumentQueries::Document`)
+  the model's own files declare.
+- `views` — every view they declare, with the rendering kind it states. A view whose kind this
+  build does not produce (`textual`, `geometry`, `timeline`) is listed too, marked unsupported with
+  the reason `-render` would give.
+- `diagrams` — the graph-shaped views: those of the kinds `-render` draws as a graph of nodes and
+  edges and a document's `Diagram` block writes in the `-diagram-form` forms — `tree`,
+  `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition`
+  and `package`. A `table` or `matrix` view, which a document writes as a table, and an unsupported
+  kind are not among them.
+- `pseudo-views` — the pseudo-views (`#tree`, `#state`, …) a document declaring no view is rendered
+  through; they need no model.
+- `all` — the documents followed by the views.
+
+Documents and views are each listed in qualified-name order; the library's are not listed.
+`-list-kind state,action` keeps the views of the kinds it names, under `views`, `diagrams` or
+`all`; an unknown kind is refused with the kinds there are, and so is the flag with `documents` or
+`pseudo-views`, which have no kind to filter by.
+
+```bash
+sysml model.sysml -list diagrams -list-kind state,action
+sysml model.sysml -list all -list-form tsv
+sysml model.sysml -list views -list-form json
+```
+
+`-list-form` chooses the form: `text` (the default) writes one line per item, its columns aligned
+— `document  <name>`, `view  <kind>  <name>`, an unsupported view followed by
+`  (unsupported: <reason>)`. `tsv` writes the header record
+`category	kind	supported	file	line	name	reason` and then a record per item, a tab or
+line break inside a field escaped as `\t` or `\n`. `json` writes an array of objects with the fields
+`category`, `name`, `kind`, `supported`, `reason`, `file` and `line`, each left out when empty — a
+document has no kind or support, a supported view no reason. `file` is the path the declaration
+was loaded from, as named on the command line, and `line` its 1-based line.
+
+The model is loaded and analysed as `-render-documents` loads it: one that does not load or does
+not analyse cleanly stops the run with status 2 and its diagnostics. A model that declares nothing
+to list writes nothing and exits 0. The listing goes to stdout and the loading report to stderr.
+`-list` cannot be combined with `-render`, `-render-all`, `-render-document`, `-render-documents`,
+`-render-run`, `-convert`, `-migrate`, `-graphs`, `-compile`, `-sync-diff`, `-sync-apply`, a query
+flag, `-import`, `-html-default-css`, `-o` or a check flag. The REPL's `%documents` and `%views [diagrams] [<kind>...]` print the same
+text form (see [REPL commands](repl-commands.md)).
+
 ## Rendering a view
 
 `-render <view>` renders one view of the model and exits. Every file named on the command line is
@@ -557,6 +628,12 @@ render the named element directly (`-render '#interconnection:Plant::Loop'`, quo
 `#matrix` renders all loaded content.
 Only kinds registered as pseudo-views are offered; a filter-dependent `GeneralView` graph remains
 available through its declared view.
+
+At the `sysml` prompt and in the Jupyter kernel, `%viz` is the OMG pilot kernel's spelling of the
+same rendering: `%viz [--view=<VIEW>] [--style=<STYLE>...] [<form>] <name> [<name>...]` draws
+several named elements in one diagram, `--view` naming the kind (`TREE`, `INTERCONNECTION`,
+`STATE`, `ACTION`, `SEQUENCE`, `MIXED`, `CASE`) or `DEFAULT` choosing it from what the names
+resolve to; see the [REPL commands reference](repl-commands.md).
 
 A matrix's rows are relationship sources, its columns are targets, and each cell lists its
 relationship keywords in the order `satisfy`, `verify`, `allocate`, `connect`, `derive`, `refine`,

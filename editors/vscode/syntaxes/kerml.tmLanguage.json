@@ -60,6 +60,11 @@
     "comments": {
       "patterns": [
         {
+          "name": "comment.block.note.source.kerml",
+          "begin": "//\\*",
+          "end": "\\*/"
+        },
+        {
           "name": "comment.line.double-slash.source.kerml",
           "match": "//.*$"
         },

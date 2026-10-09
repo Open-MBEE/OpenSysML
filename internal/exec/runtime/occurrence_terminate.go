@@ -110,7 +110,7 @@ func (ctx *Context) noteEndingUndo(b *ObjectBehavior) {
 		captured.captureState(b.State)
 		captured.captureRunState(b.State.driven.state)
 	}
-	ctx.noteProbeUndo(captured.restore)
+	ctx.noteProbeUndo(func() { captured.restore(ctx) })
 }
 
 // endsWith reports whether the executor's performance ends with the objects ended:
