@@ -152,6 +152,7 @@ var (
 	htmlMath         string
 	htmlTheme        string
 	strictMode       bool
+	portableMode     bool
 	disabledLints    lintList
 	enabledLints     lintList
 	noRecordCache    bool

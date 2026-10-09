@@ -139,7 +139,7 @@ func migrateInput(name string, data []byte, _ convert.Format, to convert.Format)
 // options; none were given when the flag was not passed.
 func migrationOptions() (convert.MigrateOptions, error) {
 	if layoutPath == "" {
-		return convert.MigrateOptions{ImageBaseURL: imageBaseURL, Strict: strictMode}, nil
+		return convert.MigrateOptions{ImageBaseURL: imageBaseURL, Strict: strictMode, Portable: portableMode}, nil
 	}
 	data, err := os.ReadFile(layoutPath)
 	if err != nil {
@@ -149,7 +149,7 @@ func migrationOptions() (convert.MigrateOptions, error) {
 	if err != nil {
 		return convert.MigrateOptions{}, fmt.Errorf("%s: %w", layoutPath, err)
 	}
-	return convert.MigrateOptions{Layout: layout, LayoutSource: layoutPath, ImageBaseURL: imageBaseURL, Strict: strictMode}, nil
+	return convert.MigrateOptions{Layout: layout, LayoutSource: layoutPath, ImageBaseURL: imageBaseURL, Strict: strictMode, Portable: portableMode}, nil
 }
 
 // writeMigrationReport writes the report to the -migration-report file (JSON when

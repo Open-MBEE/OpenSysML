@@ -84,6 +84,9 @@ type Report struct {
 	// Images counts the attached image files the migration wrote beside the
 	// notation for its Image blocks.
 	Images int `json:"images,omitempty"`
+	// Libraries accounts for the OpenSysML library packages a portable
+	// migration appended to the output; nil when the migration was not portable.
+	Libraries *LibrarySummary `json:"libraries,omitempty"`
 }
 
 // LayoutSummary accounts for what an MTIP export and the diagrams' own symbol
@@ -197,6 +200,16 @@ func (r *Report) Summary() string {
 	}
 	if r.Images > 0 {
 		s += fmt.Sprintf("; wrote %d image file(s)", r.Images)
+	}
+	if l := r.Libraries; l != nil {
+		if len(l.Inlined) == 0 {
+			s += "; refers to no OpenSysML library, none inlined"
+		} else {
+			s += fmt.Sprintf("; inlined %d OpenSysML library package(s): %s", len(l.Inlined), strings.Join(l.Inlined, ", "))
+		}
+		for _, name := range sortedKeys(l.NotInlined) {
+			s += fmt.Sprintf("; %s not inlined: %s", name, l.NotInlined[name])
+		}
 	}
 	return s
 }

@@ -38,7 +38,7 @@ sysml: Model.mdzip is a SysML v1 model, which is migrated, not converted: every 
 ```
 
 and `-migrate` refuses v2 input the same way, pointing at `-convert`. The companion flags —
-`-migration-report`, `-migration-results`, `-layout`, `-image-base-url` and `-strict` — accompany
+`-migration-report`, `-migration-results`, `-layout`, `-image-base-url`, `-portable` and `-strict` — accompany
 `-migrate`.
 
 The same migration is available over gRPC (`Migrate`, with `from_format: "xmi"`, `"uml"` or
@@ -1975,6 +1975,26 @@ Every migrated model is gated in the test suite to:
 
 A model the reader cannot make sense of — not XMI, a zipped project container, a document
 without a model — is refused with an error naming the reason rather than migrated partially.
+
+### Portable output with `-portable`
+
+The default migration writes what v1 has no standard v2 form for through OpenSysML's own
+library packages — `StateMachines` for a pseudostate, `Stochastic` for a branch probability,
+`DiagramLayout` for a view's geometry, `MigrationMetadata` for the names the migration made up,
+`DocumentQueries` for a document or table, `RandomFunctions` or `Simulation` for a simulation
+profile — which OpenSysML ships and a tool built on the standard library alone does not.
+`-portable` leaves the migration as it is and appends those packages to the output: every
+library package the notation refers to by qualified name, and every one those refer to in
+turn, follows the model under a comment saying so, written as the library ships it except
+that a `standard library package` becomes a `library package`, which is what a file of one's
+own may declare. A KerML library (`RandomFunctions`, `OpenSysMLMathFunctions`) is written in
+its SysML spelling, its functions as `calc def`s; one with no SysML spelling is left
+referenced, and the report says so. The report's summary names the packages inlined —
+`inlined 5 OpenSysML library package(s): DiagramLayout, DocumentQueries, MigrationMetadata,
+StateMachines, Stochastic` — and its JSON form lists them under `libraries`. The one file then
+loads in the pilot implementation, or a modeling tool built on it, on its own; OpenSysML loads
+it too, the inlined packages standing in for its own. A migration that must also read as
+standard notation, with no OpenSysML reference left in it, is `-strict`'s, below.
 
 ### Portable output with `-strict`
 

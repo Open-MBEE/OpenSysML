@@ -226,7 +226,7 @@ friends — reported as warnings that name the replacement, so a model that uses
 still analyses cleanly. `-strict` promotes those warnings
 to errors, which turns the run into a test of whether the file is conforming SysML v2. The flag
 applies to `-migrate` too: a strict SysML v1 migration writes no extension notation
-at all and refers to no OpenSysML library — see [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict).
+at all and refers to no OpenSysML library — see [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict); `-portable` instead appends the OpenSysML library packages a default migration refers to, so the one file loads elsewhere unchanged.
 
 The state machine below uses the `choice` extension so the difference is visible:
 
