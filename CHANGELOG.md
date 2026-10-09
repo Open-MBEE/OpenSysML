@@ -663,6 +663,20 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 - **A view listing of a file read from the analysis cache reports the rendering kind the view states.** A view whose kind came from a `render` member (`render Views::asElementTable;`, `render Views::asTextualNotation;`) was listed as a `tree` view when its file was held as its cached interface record; the editor's view list and the workspace listing now read the file's parsed body first.
 
+- **A migrated item flow finds its ends through the parts and blocks a tool names.** An «ItemFlow» whose `informationSource` and `informationTarget` are the parts on the realizing connector's ends, the blocks typing them, or the connector's owner at its own port — as Cameo writes a flow drawn between parts — is now written as the `flow` between the ports those ends name. It was left as a comment, since only the connector ends' roles themselves were accepted; the report's note for a flow naming neither end now says what was tried.
+
+- **The terminal prompt prints every line of a usage error.** A repository or notebook command given wrong arguments — `%load --id x`, `%load --id=a --id=b`, `%load --tags=a a.ipynb` — printed only the usage line at the prompt, leaving out the line saying what was wrong (`--id is not an option of %load`), which the Jupyter kernel's `UsageError` traceback showed. The prompt now prints the usage and the problem, as the kernel does.
+
+- **A state usage inherits a definition that declares a view.** A `view`, `viewpoint`, `rendering` or `metadata` annotation in a state def body — what a migrated state machine diagram writes into its state def — made every usage typed by it fail to lower, so a state diagram showing such a usage rendered empty and its layout annotations warned that no node is drawn. Such members are not state content and are now passed over, like a comment or a nested definition.
+
+- **A SysML v2 API server cannot have the bearer token paged on to another host.** A `Link: rel="next"` header naming a page on another server, on another port, or over plaintext is refused with the error a redirect there gets ("the token is for *host* only"); the page is never requested with the token. Without a token the link is followed as before.
+
+- **The repository URL the environment supplies is held to the plaintext rule.** `FLEXO_SYSMLV2_URL` naming an `http://` server off this machine is refused by `%repo`, `%projects`, `%load` and `%publish` before any request goes out — the same refusal `%repo <url>` gives, lifted the same way by `FLEXO_ALLOW_PLAIN_HTTP=1` — instead of sending `FLEXO_INTEROP_TOKEN` in the clear.
+
+- **A branch read before its first commit is still checked for a moved head.** A change set computed against a branch with no head commit is refused as a stale branch when another writer made the first commit in between, instead of being posted onto the commit it never saw.
+
+- **`%publish` by name reaches the project the session loaded by id.** When the session tracks a project of that name on the server, the publish resolves it by the stored id, so a second project with the same name no longer makes the name ambiguous; `--project` naming another project and the refusal of a shared name no session project matches are unchanged.
+
 ### Security
 
 - **Refuse active SVG content and non-data URL schemes in diagram pictures.** Unsafe pictures are omitted without sanitizing their bytes, with a notice naming the refusal reason; document images, links and stylesheets remain unchanged.
