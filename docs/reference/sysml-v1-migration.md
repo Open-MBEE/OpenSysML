@@ -1989,18 +1989,23 @@ with a report line:
   comments (`// names the migration made up: a, b`), the report carrying the same information;
 - a `choice` or `junction` pseudostate, by default `#StateMachines::<kind> state x;`, is a plain
   `state x;` whose guarded transitions are the pseudostate's, reported approximated since a
-  run no longer passes through it in one step; a `shallowHistory` or `deepHistory` pseudostate,
+  run no longer passes through it in one step; its `else` branch, which a plain state's
+  transitions would compete with rather than fall back to, is guarded by the negation of the
+  other guards (`if not (count < 2)`), or written unguarded with a report line saying so when
+  one of them is not a v2 expression; a `shallowHistory` or `deepHistory` pseudostate,
   which has no standard form, is refused, with the transitions into and out of it;
 - a decision node's branch probability, by default `@Stochastic::Probability`, trails the
   succession as a comment (`then b; // probability 0.25`);
 - a duration constraint over an interval, by default a `RandomFunctions::uniform` draw, is a
   fixed wait of the interval's midpoint when both bounds are literal numbers, refused otherwise;
 - a «Document», a «DiagramTable» or «InstanceTable», whose forms are `DocumentQueries`
-  documents, are refused; a Monte Carlo analysis is written as the ordinary analysis without its
+  documents, are refused, a «Document» before its content is planned, so every view and
+  paragraph in it is reported unmapped with it; a Monte Carlo analysis is written as the ordinary analysis without its
   `Simulation::MonteCarlo` generalization, reported approximated, and a simulation configuration
   with its run settings as a comment in place of `@Simulation::Configuration`;
-- a view carries no `DiagramLayout` geometry, so `-layout` and the diagrams' own symbol streams
-  are not read.
+- a view carries no `DiagramLayout` geometry; a `-layout` export and the diagrams' own symbol
+  streams are still joined to the views they match, the report's layout account counting the
+  views whose geometry is omitted rather than reporting them missing.
 
 The one OpenSysML reference a strict migration keeps is the deferral encoding's
 `@MigrationMetadata::DeferredEvent` and `#MigrationMetadata::DeferredKeeper` annotations,

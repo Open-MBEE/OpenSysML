@@ -835,7 +835,7 @@ type viewGeometry struct {
 // stream carries.
 func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeometry {
 	s := m.layoutSummary
-	if s == nil || m.strict {
+	if s == nil {
 		return viewGeometry{}
 	}
 	rec, src := m.layoutRecord(v)
@@ -853,6 +853,10 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 		}
 	default:
 		s.StreamDiagrams++
+	}
+	if m.strict {
+		s.GeometryOmitted++
+		return viewGeometry{note: "layout from " + source + " omitted: a strict migration names no OpenSysML library, and DiagramLayout is one's"}
 	}
 	prefix := diagramLayoutPrefix
 	if m.shadowsLibrary("DiagramLayout", v.host) {

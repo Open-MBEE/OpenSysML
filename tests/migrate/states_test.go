@@ -1634,18 +1634,21 @@ func TestStrictMigrationWritesNoExtensionNotation(t *testing.T) {
 		"state route;",
 		"fork spread;",
 		"join gather;",
+		"transition first route if context.count < 2 then Work;",
+		"transition first route if not (context.count < 2) then done;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNote(t, r, "_junc", migrate.Approximated, "written as a plain state standing for the junction pseudostate")
 	wantNote(t, r, "_hist", migrate.Unmapped, "the shallowHistory pseudostate has no standard v2 form")
 	wantNote(t, r, "_deep", migrate.Unmapped, "the deepHistory pseudostate has no standard v2 form")
-	for _, id := range []string{"_tRoute", "_tBusy", "_tSpent"} {
+	for _, id := range []string{"_tRoute", "_tBusy"} {
 		wantNote(t, r, id, migrate.Mapped, "")
 	}
 	wantNote(t, r, "_tResume", migrate.Unmapped, "its target 'last' has no standard v2 form")
 	wantNote(t, r, "_tHist", migrate.Unmapped, "its source 'last' has no standard v2 form")
-	wantNote(t, r, "_gSpent", migrate.Mapped, "an else guard is written as the unguarded transition out of the junction")
+	wantNote(t, r, "_tSpent", migrate.Approximated, "the else guard is written as the negation of the other guards out of the junction")
+	wantNote(t, r, "_gSpent", migrate.Approximated, "the else guard is written as the negation of the other guards out of the junction, a plain state whose transitions compete rather than fall back to the else branch")
 	wantNote(t, r, "_fork", migrate.Mapped, "written as a fork pseudostate")
 	wantNote(t, r, "_join", migrate.Mapped, "written as a join pseudostate")
 
@@ -1782,4 +1785,51 @@ func TestStrictMigrationRefersToNoOpenSysMLLibrary(t *testing.T) {
 			noOpenSysMLLibrary(t, r.Notation)
 		})
 	}
+}
+
+// A choice whose other guard is not a v2 expression leaves a strict
+// migration nothing to negate: the else branch is written unguarded and the
+// report says it may be taken while that guard holds.
+const opaqueChoiceMachine = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_oc" name="Picker" classifierBehavior="_osm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ocn" name="n">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_ocn0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_osm" name="Picking">
+        <region xmi:type="uml:Region" xmi:id="_or" name="Main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_oinit"/>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_opick" name="pick" kind="choice"/>
+          <subvertex xmi:type="uml:State" xmi:id="_oA" name="A"/>
+          <subvertex xmi:type="uml:State" xmi:id="_oB" name="B"/>
+          <transition xmi:type="uml:Transition" xmi:id="_ot0" source="_oinit" target="_opick"/>
+          <transition xmi:type="uml:Transition" xmi:id="_otA" source="_opick" target="_oA">
+            <guard xmi:type="uml:Constraint" xmi:id="_ogA">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_ogAX"><body>Focus lost</body></specification>
+            </guard>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_otB" source="_opick" target="_oB">
+            <guard xmi:type="uml:Constraint" xmi:id="_ogB">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_ogBX"><body>else</body></specification>
+            </guard>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+func TestStrictChoiceElseBesideAnUnmigratedGuardIsReported(t *testing.T) {
+	r := migrateDocumentOptions(t, opaqueChoiceMachine, "", migrate.Options{Strict: true})
+	noOpenSysMLLibrary(t, r.Notation)
+	for _, line := range []string{
+		"state pick;",
+		"/* guard not migrated: [Focus lost] — not v2 expression syntax */",
+		"transition first pick then A;",
+		"transition first pick then B;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_ogB", migrate.Approximated, "the else guard is written as an unguarded transition, since the guard [Focus lost] of the transition (_otA) is not a v2 expression to negate; the choice is a plain state whose transitions compete, so this branch may be taken while that guard holds")
+
+	r = migrateDocument(t, opaqueChoiceMachine, "")
+	wantNote(t, r, "_ogB", migrate.Mapped, "an else guard is written as the unguarded transition out of the choice")
 }

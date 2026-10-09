@@ -3007,6 +3007,9 @@ func (s *stateRegion) guard(t, src *sysmlv1.Element) (string, string) {
 		return "", ""
 	}
 	if k := pseudoKind(src); (k == "choice" || k == "junction") && isElseGuard(spec) {
+		if s.m.strict {
+			return s.strictElse(g, t, src, k)
+		}
 		s.m.add(g, Mapped, "", "an else guard is written as the unguarded transition out of the "+k+", which is taken when no guarded one holds")
 		return "", ""
 	}
@@ -3018,6 +3021,47 @@ func (s *stateRegion) guard(t, src *sysmlv1.Element) (string, string) {
 	}
 	s.m.add(g, verdictFor(note), "", note)
 	return " if " + expr, note
+}
+
+// strictElse writes an else guard out of a choice or junction a strict migration
+// writes as a plain state, whose transitions compete rather than yield to a
+// holding guard: the negation of the other written transitions' guards when
+// each is a v2 expression, else unguarded with a note on what that risks.
+func (s *stateRegion) strictElse(g, t, src *sysmlv1.Element, kind string) (string, string) {
+	var others []string
+	for _, o := range s.m.outgoing[src] {
+		if o == t || !s.transitionWritten(o) {
+			continue
+		}
+		og := s.m.guardOf(o)
+		spec := firstOwned(og, "specification")
+		switch {
+		case og == nil, spec == nil, trueLiteral(spec):
+			others = append(others, "true")
+			continue
+		case isElseGuard(spec):
+			continue
+		}
+		expr, ok, _ := s.m.behaviorValue(spec, o)
+		if !ok {
+			note := "the else guard is written as an unguarded transition, since the guard [" + describeValue(spec) + "] of the transition " + describe(o) + " is not a v2 expression to negate; the " + kind + " is a plain state whose transitions compete, so this branch may be taken while that guard holds"
+			s.m.add(g, Approximated, "", note)
+			return "", note
+		}
+		others = append(others, expr)
+	}
+	if len(others) == 0 {
+		s.m.add(g, Mapped, "", "an else guard beside no guarded transition out of the "+kind+" is not written")
+		return "", ""
+	}
+	for i, o := range others {
+		if len(others) > 1 {
+			others[i] = "(" + o + ")"
+		}
+	}
+	note := "the else guard is written as the negation of the other guards out of the " + kind + ", a plain state whose transitions compete rather than fall back to the else branch"
+	s.m.add(g, Approximated, "", note)
+	return " if not (" + strings.Join(others, " or ") + ")", note
 }
 
 // isElseGuard reports whether a guard's specification is the word else, which

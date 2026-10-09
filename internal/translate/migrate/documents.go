@@ -195,12 +195,40 @@ func (m *migration) planDocument(d *sysmlv1.DocGenDocument) {
 	if title == "" {
 		title = "Document"
 	}
+	if m.strict {
+		m.strictDocument(d, host, title)
+		return
+	}
 	dp := &docPlan{d: d, host: host, refused: map[string]bool{}}
 	dp.root = &sectionPlan{v: d.Root, title: title, names: columnNames{}}
 	dp.root.name = m.viewName(host, title+docSuffix)
 	m.planSection(dp, dp.root)
 	m.nameAnchors(dp)
 	m.extras[host] = append(m.extras[host], func() { m.writeDocument(dp) })
+}
+
+// strictDocument accounts for a document a strict migration does not write,
+// before any of its content is planned: a comment where the Document would
+// be, and an Unmapped entry for it and for every view and paragraph in it.
+func (m *migration) strictDocument(d *sysmlv1.DocGenDocument, host *sysmlv1.Element, title string) {
+	note := "its v2 form is a Document of OpenSysML's DocumentQueries library, which a strict migration does not name"
+	m.extras[host] = append(m.extras[host], func() {
+		m.w.lines(commentLines("not migrated: «Document» '" + title + "' — " + note))
+	})
+	m.report.Entries = append(m.report.Entries, *m.docEntry(d, Unmapped, "", note))
+	var walk func(v *sysmlv1.DocGenView)
+	walk = func(v *sysmlv1.DocGenView) {
+		if v.Class != d.Class {
+			m.report.Entries = append(m.report.Entries, *m.nodeEntry(v.Class, viewApplication(v.Class), Unmapped, "it belongs to «Document» '"+title+"', which is not migrated: "+note))
+		}
+		for _, p := range v.Paragraphs {
+			m.report.Entries = append(m.report.Entries, *m.nodeEntry(p.Comment, p.Application, Unmapped, "it belongs to «Document» '"+title+"', which is not migrated: "+note))
+		}
+		for _, c := range v.Children {
+			walk(c)
+		}
+	}
+	walk(d.Root)
 }
 
 // nameAnchors names the anchors after their definitions, clear of every
@@ -2814,12 +2842,6 @@ func (c *chain) dynamicView(s *sysmlv1.DocGenStep) {
 // writeDocument writes a planned document: its queries first, then the
 // Document definition holding its sections and blocks.
 func (m *migration) writeDocument(dp *docPlan) {
-	if m.strict {
-		note := "its v2 form is a Document of OpenSysML's DocumentQueries library, which a strict migration does not name"
-		m.w.lines(commentLines("not migrated: «Document» '" + dp.root.title + "' — " + note))
-		m.report.Entries = append(m.report.Entries, *m.docEntry(dp.d, Unmapped, "", note))
-		return
-	}
 	m.writeQueries(dp.root, m.queryPrefix(dp.host), dp.host)
 	var notes []string
 	target := m.qualified(append(m.segments(dp.host), dp.root.name))
