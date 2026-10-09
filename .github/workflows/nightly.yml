@@ -336,7 +336,7 @@ jobs:
         run: |
           # jupyterlab provides `jupyter labextension build`, which bundles the
           # JupyterLab extension every distribution ships (make jupyterlab-build).
-          python -m pip install jupyterlab==4.6.4
+          python -m pip install --only-binary ":all:" jupyterlab==4.6.4
           # `jupyter labextension list` reports the extension's manifest version, so the
           # manifest is stamped with the snapshot's npm version first; `npm version` keeps
           # the lock file in step, as `npm ci` requires.
