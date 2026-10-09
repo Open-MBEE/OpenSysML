@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"sync"
 	"time"
@@ -40,6 +41,10 @@ type Kernel struct {
 	// session is the kernel's own session id, on every message it originates.
 	session string
 
+	// ctx and bound are set by Listen and consumed by Serve.
+	ctx   context.Context
+	bound *channels
+
 	iopubMu sync.Mutex
 	iopub   zmq4.Socket
 
@@ -67,60 +72,127 @@ func New(info Info, conn ConnectionInfo, engine Engine, logger *log.Logger) *Ker
 	}
 }
 
-// Run binds the channels and serves them until a shutdown request arrives or
-// ctx ends. It reports whether the front end asked for a restart.
+// channels are the five sockets of a kernel, one per channel. They close
+// once, whoever asks first: the context ending or Serve.
+type channels struct {
+	shell, control, stdin, iopub, hb zmq4.Socket
+	once                             sync.Once
+}
+
+func (c *channels) all() []zmq4.Socket {
+	return []zmq4.Socket{c.shell, c.control, c.stdin, c.iopub, c.hb}
+}
+
+func (c *channels) close() {
+	c.once.Do(func() {
+		for _, s := range c.all() {
+			_ = s.Close()
+		}
+	})
+}
+
+// Run is Listen then Serve: it binds the channels and serves them until a
+// shutdown request arrives or ctx ends, reporting whether the front end asked
+// for a restart.
 func (k *Kernel) Run(ctx context.Context) (restart bool, err error) {
+	if _, err := k.Listen(ctx); err != nil {
+		return false, err
+	}
+	return k.Serve()
+}
+
+// Listen binds the five channels and returns the connection they are bound
+// on. A TCP channel whose port is 0 is bound on a free port, and the
+// connection returned names the port taken; any other port is bound as given,
+// so a port already in use fails here. ctx ending closes the sockets, whether
+// or not Serve was called. A binding not yet served must be served before
+// the kernel can listen again.
+func (k *Kernel) Listen(ctx context.Context) (ConnectionInfo, error) {
+	if k.bound != nil {
+		return ConnectionInfo{}, errors.New("listen: the channels are bound already and not served")
+	}
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	k.stopMu.Lock()
 	k.stop = cancel
 	k.stopMu.Unlock()
 
-	shell := zmq4.NewRouter(ctx)
-	control := zmq4.NewRouter(ctx)
-	stdin := zmq4.NewRouter(ctx)
-	iopub := zmq4.NewPub(ctx)
-	hb := zmq4.NewRep(ctx)
-	sockets := []struct {
+	conn := k.conn
+	listening := &channels{
+		shell:   zmq4.NewRouter(ctx),
+		control: zmq4.NewRouter(ctx),
+		stdin:   zmq4.NewRouter(ctx),
+		iopub:   zmq4.NewPub(ctx),
+		hb:      zmq4.NewRep(ctx),
+	}
+	for _, s := range []struct {
 		name string
 		sock zmq4.Socket
-		port int
+		port *int
 	}{
-		{"shell", shell, k.conn.ShellPort},
-		{"control", control, k.conn.ControlPort},
-		{"stdin", stdin, k.conn.StdinPort},
-		{"iopub", iopub, k.conn.IOPubPort},
-		{"hb", hb, k.conn.HBPort},
-	}
-	defer func() {
-		for _, s := range sockets {
-			_ = s.sock.Close()
+		{"shell", listening.shell, &conn.ShellPort},
+		{"control", listening.control, &conn.ControlPort},
+		{"stdin", listening.stdin, &conn.StdinPort},
+		{"iopub", listening.iopub, &conn.IOPubPort},
+		{"hb", listening.hb, &conn.HBPort},
+	} {
+		port, err := listen(s.sock, conn, *s.port)
+		if err != nil {
+			listening.close()
+			cancel()
+			return ConnectionInfo{}, fmt.Errorf("listen %s on %s: %w", s.name, conn.endpoint(*s.port), err)
 		}
-	}()
-	for _, s := range sockets {
-		if err := s.sock.Listen(k.conn.endpoint(s.port)); err != nil {
-			return false, fmt.Errorf("listen %s on %s: %w", s.name, k.conn.endpoint(s.port), err)
-		}
+		*s.port = port
 	}
+	context.AfterFunc(ctx, listening.close)
+	k.conn = conn
+	k.ctx = ctx
+	k.bound = listening
 	k.iopubMu.Lock()
-	k.iopub = iopub
+	k.iopub = listening.iopub
 	k.iopubMu.Unlock()
+	return conn, nil
+}
+
+// listen binds one channel's socket and returns the port it is bound on: the
+// port given, or the one the system chose when that was 0.
+func listen(sock zmq4.Socket, conn ConnectionInfo, port int) (int, error) {
+	if err := sock.Listen(conn.endpoint(port)); err != nil {
+		return 0, err
+	}
+	if port != 0 || conn.Transport != "tcp" {
+		return port, nil
+	}
+	addr, ok := sock.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, fmt.Errorf("bound on %v, not a TCP address", sock.Addr())
+	}
+	return addr.Port, nil
+}
+
+// Serve answers on the channels Listen bound until a shutdown request arrives
+// or the context given to Listen ends. It reports whether the front end asked
+// for a restart.
+func (k *Kernel) Serve() (restart bool, err error) {
+	if k.bound == nil {
+		return false, errors.New("serve: the channels are not bound; Listen first")
+	}
+	ctx, ch := k.ctx, k.bound
+	k.ctx, k.bound = nil, nil
+	defer ch.close()
 
 	k.publish("status", Header{}, map[string]any{"execution_state": "starting"})
 
 	var wg sync.WaitGroup
 	wg.Add(3)
-	go func() { defer wg.Done(); k.heartbeat(ctx, hb) }()
-	go func() { defer wg.Done(); k.serve(ctx, control, k.handleControl) }()
-	go func() { defer wg.Done(); k.serve(ctx, shell, k.handleShell) }()
+	go func() { defer wg.Done(); k.heartbeat(ctx, ch.hb) }()
+	go func() { defer wg.Done(); k.serve(ctx, ch.control, k.handleControl) }()
+	go func() { defer wg.Done(); k.serve(ctx, ch.shell, k.handleShell) }()
 	<-ctx.Done()
 	// A cell under way is stopped first: closing the sockets cannot reach the
-	// goroutine busy in Execute, and Run waits for it below.
+	// goroutine busy in Execute, and Serve waits for it below.
 	k.engine.Interrupt()
 	// Closing the sockets unblocks the receives; the loops then see ctx done.
-	for _, s := range sockets {
-		_ = s.sock.Close()
-	}
+	ch.close()
 	wg.Wait()
 	k.stopMu.Lock()
 	defer k.stopMu.Unlock()
