@@ -125,7 +125,7 @@ type StateGraph struct {
 	// selection of an active composite owner.
 	CompositeStateOrder []*ast.StateNode
 
-	// RegionInitials: region → initial state
+	// RegionInitials: region → initial state, nil when default entry leaves it inactive.
 	RegionInitials map[*ast.StateRegion]*ast.StateNode
 
 	// ParentState: child → parent
@@ -158,8 +158,7 @@ type StateGraph struct {
 	// ForkPlans: fork → where its branches lead, checked when the graph is built.
 	ForkPlans map[*ast.PseudostateNode]*ForkPlan
 
-	// ForkEntered: region → the forks whose branches enter it, in declaration
-	// order. A region only forks enter needs no entry transition of its own.
+	// ForkEntered: region → the forks whose branches enter it, in declaration order.
 	ForkEntered map[*ast.StateRegion][]*ast.PseudostateNode
 
 	// JoinPlans: join → where its segments come from, checked when the graph is built.
@@ -393,9 +392,8 @@ func (g *StateGraph) collectRegions(body []inheritedMember) {
 	}
 }
 
-// recordRegionInitials records where every region starts and refuses one that
-// nothing starts: a top-level region needs an entry transition, a composite
-// state's region an entry transition or a fork branch into it.
+// recordRegionInitials records where every region starts, refusing only a
+// top-level region without an entry transition.
 func (g *StateGraph) recordRegionInitials() error {
 	for _, region := range g.TopRegions {
 		g.RegionInitials[region] = g.UnconditionalStart(region)
@@ -406,14 +404,10 @@ func (g *StateGraph) recordRegionInitials() error {
 	for _, state := range g.CompositeStateOrder {
 		for _, region := range g.CompositeStates[state] {
 			g.RegionInitials[region] = g.UnconditionalStart(region)
-			if len(g.EntryTransitions[region]) > 0 || g.stateless(region) {
-				continue
-			}
-			if !g.ForkStarted(region) {
-				return g.noInitialState(region, fmt.Sprintf("region %s in state %s", region.Name, state.Name))
-			}
-			if err := g.checkForkOnlyRegion(state, region); err != nil {
-				return err
+			if len(g.EntryTransitions[region]) == 0 && !g.stateless(region) {
+				if wrapper := g.RegionState[region]; wrapper != nil && g.parallelState[wrapper] {
+					return g.noInitialState(region, "")
+				}
 			}
 		}
 	}
@@ -963,6 +957,18 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 	return nil
 }
 
+// recordCompositeState registers a state's regions while retaining their
+// declaration order for deterministic consumers.
+func (g *StateGraph) recordCompositeState(state *ast.StateNode) {
+	if _, exists := g.CompositeStates[state]; !exists {
+		g.CompositeStateOrder = append(g.CompositeStateOrder, state)
+	}
+	g.CompositeStates[state] = state.Regions
+	for _, region := range state.Regions {
+		g.RegionOwner[region] = state
+	}
+}
+
 // stateless reports whether region is stood for by a state declaring no substates
 // (behaviors and transitions are not states): such a region
 // starts in, and stays in, that state, so it needs no initial.
@@ -985,18 +991,6 @@ func (g *StateGraph) stateless(region *ast.StateRegion) bool {
 		}
 	}
 	return true
-}
-
-// recordCompositeState registers a state's regions while retaining their
-// declaration order for deterministic consumers.
-func (g *StateGraph) recordCompositeState(state *ast.StateNode) {
-	if _, exists := g.CompositeStates[state]; !exists {
-		g.CompositeStateOrder = append(g.CompositeStateOrder, state)
-	}
-	g.CompositeStates[state] = state.Regions
-	for _, region := range state.Regions {
-		g.RegionOwner[region] = state
-	}
 }
 
 // stateScope returns the scope state's body was declared in, given the scope of

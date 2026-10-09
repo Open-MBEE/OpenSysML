@@ -137,6 +137,9 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 	if err != nil {
 		return err
 	}
+	if entry == nil {
+		return nil
+	}
 	e.setRegionState(w.region, entry)
 	_, deepest, err := e.enterToward(w.container, entry, w.branches)
 	if err != nil {
@@ -172,14 +175,14 @@ func (e *StateExecutor) regionStart(w *regionEntry) (*ast.StateNode, error) {
 		return w.target, nil
 	}
 	if owner := e.graph.RegionState[w.region]; owner != nil {
+		if w.container != nil && len(e.graph.StartOf(w.region)) == 0 {
+			return nil, nil
+		}
 		return owner, nil
 	}
 	entry, err := e.startIn(w.region)
 	if err != nil {
 		return nil, err
-	}
-	if entry == nil {
-		return nil, fmt.Errorf("region %s has no initial state", w.region.Name)
 	}
 	return entry, nil
 }

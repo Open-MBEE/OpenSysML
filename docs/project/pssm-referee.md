@@ -133,8 +133,9 @@ under [Behavior parameters, operation results, tester traces and standalone mach
   [candidate table](../internals/design/precise-semantics-alignment.md#a-guard-whose-behavior-acts-on-the-model)
   records the three candidates: the settled refusal of a construct v2 cannot spell faithfully.
 - **A fork into orthogonal regions that have no initial pseudostate**: *Fork 002*, *Join 001*
-  — kept apart from the rest while the lowerer refused the shape, and translated since it
-  accepts it, see [Findings about our own conformance](#findings-about-our-own-conformance).
+  — translated with the general inactive-region rule: regions without an entry remain
+  inactive on default entry, and fork branches activate the regions they name; see
+  [Findings about our own conformance](#findings-about-our-own-conformance).
 
 ## Translating
 
@@ -669,9 +670,10 @@ transition when a fork's branch enters it ([finding 6](#findings-about-our-own-c
 so the two tests the classifier filed under *lowerer refuses fork into a region without an
 entry transition* translate and run. Both moved `not-expressible` → `fail`; nothing else moved,
 and the eighteen other failures' reasons are byte-identical to the previous baseline's. Three
-`not-expressible` tests that also carried the reason stay where they are on their other grounds:
-*Transition 023* and *Standalone 002* drop it (their forks now enter their regions), *Entry 002 E*
-keeps the renamed reason (its regions have neither an entry transition nor a fork branch).
+`not-expressible` tests that also carried the reason stayed there on other grounds:
+*Transition 023* and *Standalone 002* have their regions entered by forks, while *Entry 002 E*
+also contains an entry point. The general inactive-region rule below supersedes that former
+lowerer refusal.
 
 | Test | Row | Movement | Adjudication |
 |---|---|---|---|
@@ -832,10 +834,13 @@ By reason, as the classifier names them:
   exit left, only by completion transitions or by paths accepting different events).
 - A standalone state machine is read as the target class, and a tester's `trace(...)` after a
   call is driven, so neither is a reason any longer; Event 019 A runs and passes.
-- **lowerer refuses an orthogonal region with neither an entry transition nor a fork branch
-  into it** (ours): Entry 002 E, which is not expressible on other grounds too. Fork 002 and
-  Join 001, filed here while the lowerer refused every region without an entry transition,
-  translate since finding 6 was fixed.
+- A composite-state region without an entry is valid: default entry leaves it inactive until
+  a transition or fork branch names one of its states, and its owner cannot complete while
+  that region is inactive. Entry 002 E remains not-expressible on its entry-point construct;
+  the no-entry refusal is no longer a classifier reason. Coverage includes
+  `TestRuntimeRobustnessInactiveRegion`, `state_parallel_region_without_entry_inactive`,
+  `state_fork_only_region_entered_by_default` and
+  `state_history_restores_inactive_parallel_region`.
 - **guard side effect** (no translation, settled): Choice 005. Making the runtime's guard
   reads the referee's observable instead was tried and refused: the suite reads the junction's
   guards at the incoming transition's selection, before its effect and the target's entry, where
@@ -857,30 +862,17 @@ three tests as a translation limit and on two as the suite's defect, and its las
 a do step on the entry front, *Terminate 002*'s — is fixed. No test now cites an open site of
 the runtime; a `fail` cites a tool choice, a translation limit or the suite's defect:
 
-- **The lowerer refused a fork into orthogonal regions that have no initial pseudostate**
-  (*Fork 002*, *Join 001*; alignment finding 6). UML lets a fork's outgoing transitions enter
-  states inside a composite state's orthogonal regions directly, with no initial pseudostate in
-  those regions; SysML v2 `parallel` regions can spell the shape and this project's `fork`
-  extension can spell the fork. `lower.ToStateGraph` refused it ("region `<name>` has no initial
-  state; write `entry; then <state>;` inside the region") because it required every region to
-  name its own start even when a fork was the only way in. The two tests were filed
-  `not-expressible` under the distinct reason *lowerer refuses fork into a region without an
-  entry transition* so they were never confused with the constructs v2 has no spelling for.
-  Fixed: `lower/fork_plan.go` reads each fork's branches into a `ForkPlan` — one target state
-  per orthogonal region of one composite state — and the lowerer accepts a region a fork enters
-  without an entry transition of its own, still refusing one with neither (the classifier's
-  reason is now *lowerer refuses an orthogonal region with neither an entry transition nor a
-  fork branch into it*, which only *Entry 002 E* still carries, and it reads a branch's region
-  the way the lowerer does — the region of the fork's composite the target lies in, however
-  deep); the runtime leaves the source configuration — every region of the composite when
-  the fork is reached from inside them — runs the first branch's effect, enters the rest of the
-  way down to the composite, then enters every region in declaration order, each branch's
-  effect before its target (`state_executor.go:leaveForFork`,
-  `state_region_entry.go:enterForkBranches`; `state_fork_enters_regions_without_initial`,
-  `state_fork_in_composite_enters_parallel_substate`,
-  `state_fork_omitted_region_declared_first` and `state_fork_from_within_owner_regions` with
-  their trace goldens). The two tests
-  translate and run; where each landed is in the movements table above.
+- **A composite-state region has no entry transition** (alignment finding 6). UML permits
+  such a region and SysML v2 can spell it as a parallel state's sub-state. The lowerer records
+  no default start; runtime default entry leaves the region out of the active configuration,
+  whether or not a fork can enter it. A later explicit transition or fork branch can activate
+  it, and the owner remains incomplete until every region is final. `regionStart`,
+  `enterRegion`, `regionComplete` and `stateComplete` implement the rule. The lowerer tests
+  `TestToStateGraph_RegionWithoutInitialOrForkRemainsInactive`,
+  `TestToStateGraph_ForkOmissionLeavesRegionInactive` and
+  `TestToStateGraph_NestedForkLeavesUnenteredRegionsInactive`; runtime fixtures cover default
+  entry, later transition/fork entry, history restoration and completion blocking. Entry 002 E
+  remains not-expressible for its entry-point construct, not for an absent region start.
 - **A transition from a composite state into its own history pseudostate read the record
   before the state was left** (*History 001-A*, *History 002-D*; alignment finding 7). The
   configuration a history restores is recorded when its owner is exited

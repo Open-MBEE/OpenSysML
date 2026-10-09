@@ -1,0 +1,12 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"A(entry) A(entry) B(entry) outside(entry) \"",
+			"\"A(entry) B(entry) A(entry) outside(entry) \""
+		]
+	},
+	"agreed": {
+		"finalState": "outside"
+	}
+}

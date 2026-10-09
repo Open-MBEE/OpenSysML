@@ -8,7 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-func TestRuntimeRobustnessParallelWrapper(t *testing.T) {
+func TestRuntimeRobustnessParallelWrapperLeavesRegionInactive(t *testing.T) {
 	err := stateRunErrorForSource(t, "Machine", `
 		package test {
 			state def Machine {
@@ -21,12 +21,8 @@ func TestRuntimeRobustnessParallelWrapper(t *testing.T) {
 			}
 		}
 	`)
-	if err == nil {
-		t.Fatal("a wrapped region without an entry completed")
-	}
-	message := strings.ToLower(err.Error())
-	if !strings.Contains(message, "initial") && !strings.Contains(message, "deadlock") && !strings.Contains(message, "stuck") {
-		t.Fatalf("error = %v; want a typed missing-entry error or a stuck/deadlock report", err)
+	if err != nil {
+		t.Fatalf("a wrapped region without an entry should remain inactive, not fail: %v", err)
 	}
 }
 

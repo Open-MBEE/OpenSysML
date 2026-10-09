@@ -1,0 +1,22 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"a(entry) b(entry) a(entry) b(entry) c(entry) finished(entry) \"",
+			"\"a(entry) b(entry) a(entry) c(entry) b(entry) finished(entry) \"",
+			"\"a(entry) b(entry) b(entry) a(entry) c(entry) finished(entry) \"",
+			"\"a(entry) b(entry) b(entry) c(entry) a(entry) finished(entry) \"",
+			"\"a(entry) b(entry) c(entry) a(entry) b(entry) finished(entry) \"",
+			"\"a(entry) b(entry) c(entry) b(entry) a(entry) finished(entry) \"",
+			"\"b(entry) a(entry) a(entry) b(entry) c(entry) finished(entry) \"",
+			"\"b(entry) a(entry) a(entry) c(entry) b(entry) finished(entry) \"",
+			"\"b(entry) a(entry) b(entry) a(entry) c(entry) finished(entry) \"",
+			"\"b(entry) a(entry) b(entry) c(entry) a(entry) finished(entry) \"",
+			"\"b(entry) a(entry) c(entry) a(entry) b(entry) finished(entry) \"",
+			"\"b(entry) a(entry) c(entry) b(entry) a(entry) finished(entry) \""
+		]
+	},
+	"agreed": {
+		"finalState": "finished"
+	}
+}

@@ -289,10 +289,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("action_body_unresolved_feature", testActionBodyUnresolvedFeature)
 	t.Run("state_body_unresolved_unit", testStateBodyUnresolvedUnit)
 	t.Run("fork_branches_share_region", testForkBranchesShareRegion)
-	t.Run("fork_leaves_a_region_without_a_way_in", testForkLeavesARegionWithoutAWayIn)
-	t.Run("fork_only_region_entered_by_default", testForkOnlyRegionEnteredByDefault)
 	t.Run("fork_branch_with_a_trigger", testForkBranchWithATrigger)
-	t.Run("nested_fork_starts_an_outer_region_by_default", testNestedForkStartsAnOuterRegionByDefault)
 	t.Run("join_with_one_incoming_branch", testJoinWithOneIncomingBranch)
 	t.Run("join_incoming_effect_that_fails", testJoinIncomingEffectThatFails)
 	t.Run("join_with_two_segments_from_one_source", testJoinWithTwoSegmentsFromOneSource)
@@ -6138,66 +6135,6 @@ func testForkBranchesShareRegion(t *testing.T) {
 	}
 }
 
-// testForkLeavesARegionWithoutAWayIn: a region a fork enters needs no entry
-// transition, but a sibling region neither enters still has no way in.
-func testForkLeavesARegionWithoutAWayIn(t *testing.T) {
-	_, _, err := executeStateSource(t, "Machine", `package test {
-		state Machine {
-			entry; then init;
-			state init;
-			state working parallel {
-				state left { state a; }
-				state right { state b; }
-				state third { state c; }
-			}
-			fork split;
-
-			transition first init then split;
-			transition first split then a;
-			transition first split then b;
-		}
-	}`)
-	if err == nil {
-		t.Fatal("expected an error for the region no fork enters")
-	}
-	if !strings.Contains(err.Error(), "region third has no initial state") {
-		t.Errorf("expected the third region's missing initial, got: %v", err)
-	}
-	if strings.Contains(err.Error(), "region left") || strings.Contains(err.Error(), "region right") {
-		t.Errorf("the fork-entered regions were refused too: %v", err)
-	}
-}
-
-// testForkOnlyRegionEnteredByDefault: a region only a fork enters has no
-// default start, so another transition into its composite state is refused
-// before the machine runs rather than failing when that transition fires.
-func testForkOnlyRegionEnteredByDefault(t *testing.T) {
-	_, _, err := executeStateSource(t, "Machine", `package test {
-		attribute def Go;
-		state Machine {
-			entry; then init;
-			state init;
-			state working parallel {
-				state left { state a; }
-				state right { state b; }
-			}
-			fork split;
-
-			transition first init accept Go then working;
-			transition first init then split;
-			transition first split then a;
-			transition first split then b;
-		}
-	}`)
-	if err == nil {
-		t.Fatal("expected an error for the transition entering the fork-only regions by default")
-	}
-	if !strings.Contains(err.Error(), "region left in state working has no initial state") ||
-		!strings.Contains(err.Error(), "the transition from init to working") {
-		t.Errorf("expected the default entry into left to be named, got: %v", err)
-	}
-}
-
 // testForkBranchWithATrigger: a fork's branches fire as one with the fork, so a
 // branch that waits for an occurrence is refused before the machine runs rather
 // than firing regardless of it.
@@ -6223,44 +6160,6 @@ func testForkBranchWithATrigger(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "fork split: outgoing transitions cannot have triggers") {
 		t.Errorf("expected the triggered branch to be refused, got: %v", err)
-	}
-}
-
-// testNestedForkStartsAnOuterRegionByDefault: a fork into a nested composite
-// state enters the outer one on the way, starting its other region by default,
-// so an outer region only another fork enters is refused before the machine runs.
-func testNestedForkStartsAnOuterRegionByDefault(t *testing.T) {
-	_, _, err := executeStateSource(t, "Machine", `package test {
-		state Machine {
-			entry; then init;
-			state init;
-			state outer parallel {
-				state o1 {
-					entry; then hold;
-					state hold;
-					state inner parallel {
-						state left { state a; }
-						state right { state b; }
-					}
-					fork split;
-					transition first split then a;
-					transition first split then b;
-				}
-				state o2 { state c; }
-			}
-			fork split2;
-
-			transition first init then split;
-			transition first split2 then hold;
-			transition first split2 then c;
-		}
-	}`)
-	if err == nil {
-		t.Fatal("expected an error for the nested fork starting o2 by default")
-	}
-	if !strings.Contains(err.Error(), "region o2 in state outer has no initial state") ||
-		!strings.Contains(err.Error(), "the transition from init to split") {
-		t.Errorf("expected the nested fork's route to be named, got: %v", err)
 	}
 }
 
