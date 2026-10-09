@@ -3,7 +3,8 @@
 The non-normative OpenSysML extension libraries (`OpenSysMLMathFunctions`,
 `DocumentQueries`, `IdentityMetadata`, `DiagramLayout`, `OOSEM`, `MOSA`,
 `StateSpaceIntegration`, `Stochastic`, `RandomFunctions`, `Simulation`,
-`AnalysisRecords`, `MigrationMetadata`, `StateMachines` and `SysMLValidation`)
+`AnalysisRecords`, `MigrationMetadata`, `OpenSysMLRenderings`, `StateActivity`,
+`StateMachines` and `SysMLValidation`)
 are maintained upstream at
 [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library),
 with their history imported from this repository. Other tools get them from

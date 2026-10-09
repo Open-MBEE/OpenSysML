@@ -842,6 +842,41 @@
       ]
     },
     {
+      "name": "OpenSysMLRenderings",
+      "kind": "package",
+      "consumers": [
+        "internal/ir/view/view.go"
+      ]
+    },
+    {
+      "name": "OpenSysMLRenderings::CaseView",
+      "kind": "element",
+      "consumers": [
+        "internal/ir/view/view.go"
+      ]
+    },
+    {
+      "name": "OpenSysMLRenderings::MixedView",
+      "kind": "element",
+      "consumers": [
+        "internal/ir/view/view.go"
+      ]
+    },
+    {
+      "name": "OpenSysMLRenderings::asCaseDiagram",
+      "kind": "element",
+      "consumers": [
+        "internal/ir/view/view.go"
+      ]
+    },
+    {
+      "name": "OpenSysMLRenderings::asMixedDiagram",
+      "kind": "element",
+      "consumers": [
+        "internal/ir/view/view.go"
+      ]
+    },
+    {
       "name": "RandomFunctions",
       "kind": "package",
       "consumers": []
@@ -925,6 +960,24 @@
       "consumers": [
         "internal/exec/runtime/montecarlo_case.go",
         "internal/exec/simresults/simresults.go"
+      ]
+    },
+    {
+      "name": "StateActivity",
+      "kind": "package",
+      "consumers": [
+        "internal/semantic/semantics/state_activity.go"
+      ]
+    },
+    {
+      "name": "StateActivity::isActive",
+      "kind": "element",
+      "consumers": [
+        "internal/semantic/semantics/state_activity.go",
+        "internal/exec/runtime/state_activity.go",
+        "internal/semantic/resolve/featured.go",
+        "internal/translate/codegen/compile_rec.go",
+        "internal/check/passes/nonstandard_notation.go"
       ]
     },
     {
