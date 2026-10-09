@@ -29,7 +29,7 @@
           "experimental": true
         },
         "contains": {
-          "report.summary": "migrated 93 element(s): 78 mapped, 12 approximated, 3 unmapped"
+          "report.summary": "migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped"
         },
         "non_empty": [
           "experimental_notice",
@@ -63,8 +63,8 @@
         "response": {
           "from_format": "xmi",
           "report": {
-            "mapped": 78,
-            "approximated": 12,
+            "mapped": 77,
+            "approximated": 13,
             "unmapped": 3,
             "skipped": 2
           }
