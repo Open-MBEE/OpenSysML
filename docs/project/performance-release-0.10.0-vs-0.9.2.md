@@ -52,7 +52,7 @@ is superlinear, nothing that fit 0.9.2's budgets stops fitting except the
 one calc noted below, and the fleet's instantiation and hydration are
 faster. Against the earlier measurement of `ffe51571c`, the six fixes on
 the candidate cleared three of the regressions that record named as
-avoidable and halved a fourth:
+avoidable and cut a fourth by a quarter:
 
 - `CompiledCalc/Fib(25)/interpreted` went from 5.3× 0.9.2 to **20%
   faster than 0.9.2** (the three-word scalar packing);
@@ -126,7 +126,11 @@ revisions interleaved, `-count 1` six times each, nothing else on the
 machine. Where the first pass left most of a package in doubt
 (`internal/frontend/repl`, `tests/perf`, `tests/stressmodel`) the whole
 package or the whole of its moving rows was re-run that way, and the re-run
-is the table shown. Whole-binary figures are `/usr/bin/time -f '%e %M'`
+is the table shown. A benchmark that fails on one revision (`b.Fatal`)
+prints `--- FAIL` and no result line while the package's other benchmarks
+run on; `benchstat` then has no row for it, and the failure is reported in
+that package's section as a candidate-only or baseline-only row. Nothing
+was excluded from `-bench .`. Whole-binary figures are `/usr/bin/time -f '%e %M'`
 over nine interleaved runs of each binary, all built with
 `make build-sysml` (`-s -w`, `-trimpath`); medians are reported. The pilot
 corpora the `vehicle` rows and the gRPC warm-instantiation row read were
@@ -385,9 +389,9 @@ rows below share. **Explained.**
 | benchmark | 0.9.2 | 0.10.0 (`82f0fac87`) |
 | --------- | ----- | -------------------- |
 | `migrate` `WriterSiblingBlocks` | 1.93 ms ±7% / 1.906 MiB / 20.02 k allocs | 1.90 ms ±9% (~) / 1.906 MiB (~) / 20.02 k (~) |
-| `libs` `ExpandWildcardImports` | 26.8 ms ±10% / 14.46 MiB / 128.3 k | 31.0 ms ±20% (+15%, p=0.009, first pass) / 15.36 MiB (+6.2%) / 145.7 k (+14%) |
+| `libs` `ExpandWildcardImports` | 27.4 ms ±1% / 14.46 MiB / 128.3 k | 28.6 ms ±3% (+4.2%) / 15.36 MiB (+6.2%) / 145.7 k (+14%) |
 | `libs` `IndexLibrary` | 16.3 ms ±15% / 13.56 MiB / 104.6 k | 16.2 ms ±14% (~, p=0.818) / 14.07 MiB (+3.8%) / 108.2 k (+3.4%) |
-| `libs` `ExpandModelImports` | 6.36 ms ±4% / 4.315 MiB / 36.16 k | 6.93 ms ±30% (+9.0%, p=0.002, first pass) / 4.376 MiB (+1.4%) / 38.15 k (+5.5%) |
+| `libs` `ExpandModelImports` | 6.50 ms ±11% / 4.315 MiB / 36.16 k | 6.67 ms ±4% (~, p=0.485) / 4.376 MiB (+1.4%) / 38.15 k (+5.5%) |
 | `libs` `DecodeSnapshot` | 9.89 ms ±17% / 35.32 MiB / 56.63 k | 10.8 ms ±21% (~, p=0.132) / 37.85 MiB (+7.2%) / 67.45 k (+19%) |
 | `libs` `SetDigest` | 629 µs ±12% / 1.710 MiB / 966 | 641 µs ±7% (~) / 1.733 MiB (+1.4%) / 998 (+3.3%) |
 | `model` `AnalyseUnresolved` | 20.2 ms ±8% / 13.69 MiB / 149.3 k | 20.6 ms ±6% (~) / 13.80 MiB (+0.8%) / 150.7 k (+1.0%) |
@@ -400,10 +404,11 @@ library allocates 3.4% more objects (the reflective relationship ends, the
 19% more: the snapshot carries the owned-relationship journal and the
 reflected implicit relationships (`da8fba4a3`, `32890be28`) that the 0.9.2
 snapshot did not hold; the time of both is `~` interleaved. Expanding the
-library's wildcard imports allocates 14% more objects and was +15% in the
-first pass with the candidate's counts 20% apart; the import-ambiguity
-rule (`eb4b7583c`) now walks what each wildcard brings in, and the row was
-not re-run. Analysing a resolved document allocates 18% more with the time
+library's wildcard imports allocates 14% more objects and is +4.2% in time
+interleaved (+15% in the first pass, with the candidate's counts 20%
+apart); the import-ambiguity rule (`eb4b7583c`) now walks what each
+wildcard brings in. Expanding a model's imports is `~` in time interleaved
+(+9.0% in the first pass). Analysing a resolved document allocates 18% more with the time
 `~` interleaved (first pass +12%): the constraint-tier passes added in the
 interval — the indexed-end multiplicity check (`cf85beb36`), the
 import-ambiguity warning (`eb4b7583c`), the reflective derivations for the
@@ -482,8 +487,8 @@ value import of `-import-values`: `ImportValues/flat/parts=100/attrs=3`
 `/nested/parts=500/attrs=3` 145 ms ±5% / 829.4 k;
 `/nested/parts=2000/attrs=3` 664 ms ±57% / 3.284 M;
 `/nested/parts=2000/attrs=5` 1.05 s ±18% / 4.569 M. Linear in parts ×
-attributes, 300 allocations per 1 000 values; the nested layout costs a
-third more than the flat one.
+attributes at roughly 400 allocations per value (437 at 300 values, 367
+at 10 000); the nested layout costs a third more than the flat one.
 
 Reading the table by cause:
 
@@ -748,6 +753,7 @@ What the re-run changed:
 - **Cleared:** `REPLLoadFile` (+34% as found; `~` at p=0.065),
   `Instantiate` in `tests/perf` (+39% as found; `~`), `BatchSatisfy`
   (+17% as found; `~`), `IndexLibrary` (+19% as found; `~`),
+  `ExpandModelImports` (+9.0% as found; `~`),
   `AnalyseResolved` (+12% as found; `~`, the +18% allocations stand),
   `DecodeSnapshot` (`~`, the +19% allocations stand), `IndexAddExpand`
   and `IndexAddOnly` (`~`), `FleetInstantiate` at every size (`~`),
@@ -763,7 +769,8 @@ What the re-run changed:
   (+17–41% → +5–10%), `RunCalc` (+13–19% → +10–14%), `Instantiate/250,
   1000, 4000` (+13–27% → +11–31%), `Collatz(27)` (+71%/+53% →
   +65%/+59%), `Fib(25)/go` (+94% → +81%), `Hypot(3.0,4.0)/go` (+394% →
-  +412%), `InstantiateWarmModel` (+32%), and the `tests/perf` and stress
+  +412%), `InstantiateWarmModel` (+32%), `ExpandWildcardImports` (+15% → +4.2%),
+  and the `tests/perf` and stress
   rows the tables above mark significant.
 - **Moved the other way:** `Fib(25)/interpreted` was `~` in the first pass
   (6.61 ms ±65% against 7.54 ms) and is −20% at ±9% interleaved.
