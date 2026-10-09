@@ -145,40 +145,39 @@ of the pilot corpora fails `tools/cmd/pilot-diff`, `tools/cmd/pilot-xpect` and t
 `TestPilotCorpora` gate with a provenance message naming the drift; that is the gate working, not
 a regression — re-fetch before re-recording anything.
 
-| Gate | Count at `v0.9.1` (`b9de3b070`, 2026-09-30, Go 1.25.0); the `v0.8.0` figure in brackets where it moved |
+| Gate | Count at `develop` `42b54859f` (2026-10-09, Go 1.25.0), four days past `v0.9.2` (`4226ad9a3`, 2026-10-05); the `v0.9.1` figure in brackets where it moved |
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
-| OMG pilot corpora (ratchet) | 213 files; 9 report a diagnostic [7] — 2 of 58 KerML examples, 7 of 99 SysML examples, 0 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
-| Stdlib parser conformance | 107/107 clean — 94 vendored OMG files and 13 non-normative OpenSysML extensions [100/100: 94 and 6] |
-| Execution conformance cases | 1224, all run and pass, none skipped [894] |
+| OMG pilot corpora (ratchet) | 213 files; 16 report a diagnostic [9] — 3 of 58 KerML examples, 11 of 99 SysML examples, 2 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
+| Stdlib parser conformance | 110/110 clean — 94 vendored OMG files and 16 non-normative OpenSysML extensions [107/107: 94 and 13] |
+| Execution conformance cases | 1490, all run and pass, none skipped [1224] |
 | Known execution-conformance failures | **0** — `known_failures.txt` holds no case |
-| Cases admitting several outcomes | 92 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [26] |
-| Trace partial orders | 8 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy |
-| Golden execution traces | 554 `.trace.golden` files: 388 under the default schedule and 166 per-policy goldens (`<case>.declared`, `<case>.seed-<n>`) [276: 230 and 46] |
-| Runtime robustness cases | 794 first-level subtests across the `TestRuntimeRobustness*` functions [459 of the one function] |
-| gRPC conformance fixtures / robustness cases | 33 / 13 (`TestGRPCConformance`, first-level subtests across the `TestGRPCRobustness*` functions) [15 / 8] |
-| Golden AST fixtures | 227 (`TestGolden`: 199 SysML, 28 KerML) [205: 177 and 28] |
-| Negative parser subtests | 277 first-level subtests of `TestNegative` (432 across the `TestNegative*` functions, 490 across every `*Negative*` parser test) [252: 396 and 454] |
-| Rejection oracle | 310 self-authored invalid models: 297 both reject by default and 301 when we are asked strictly, 4 the pilot alone by default and none strictly, 9 ours alone [306: 293 and 297] (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
-| Validation census | 164 of 217 named constraints reported (158 faithful, 6 approximate), 0 not implemented, 1 deliberate, 52 unknown [162: 156 and 6; 1 not implemented, 53 unknown] |
-| PSSM referee (advisory) | 103 tests: 60 `pass`, 12 `fail`, 30 `not-expressible`, 1 `differs-by-design` |
+| Cases admitting several outcomes | 137 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [92] |
+| Trace partial orders | 13 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy [8] |
+| Golden execution traces | 752 `.trace.golden` files: 524 under the default schedule and 228 per-policy goldens (`<case>.declared`, `<case>.seed-<n>`) [554: 388 and 166] |
+| Runtime robustness cases | 1131 first-level subtests across the `TestRuntimeRobustness*` functions [794] |
+| gRPC conformance fixtures / robustness cases | 38 / 13 (`TestGRPCConformance`, first-level subtests across the `TestGRPCRobustness*` functions) [33 / 13] |
+| Golden AST fixtures | 253 (`TestGolden`: 225 SysML, 28 KerML) [227: 199 and 28] |
+| Negative parser subtests | 307 first-level subtests of `TestNegative` (463 across the `TestNegative*` functions, 521 across every `*Negative*` parser test) [277: 432 and 490] |
+| Rejection oracle | 313 self-authored invalid models: 300 both reject by default and 304 when we are asked strictly, 4 the pilot alone by default and none strictly, 9 ours alone [310: 297 and 301] (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
+| Validation census | 164 of 217 named constraints reported (155 faithful, 9 approximate), 0 not implemented, 1 deliberate, 52 unknown [158 faithful and 6 approximate] |
+| PSSM referee (advisory) | 103 tests: 53 `pass`, 11 `fail`, 34 `not-expressible`, 5 `differs-by-design` [60, 12, 30 and 1] |
 | fUML referee (advisory) | 55 activities: 23 `pass`, 0 `fail`, 28 `not-expressible`, 4 `differs-by-design` |
-| RDF corpus round trip | 358 models: 351 stable, 7 whitespace-only, none graph-diff or refused [353 of 353 stable] |
-| API element form corpus round trip | 358 models: 349 stable, 7 whitespace-only, 2 graph-diff (a `.1` real respelled `0.1`), none refused [354 of 356 stable] |
+| RDF corpus round trip | 365 models: 358 stable, 7 whitespace-only, none graph-diff or refused [358: 351 stable] |
+| API element form corpus round trip | 365 models: 356 stable, 7 whitespace-only, 2 graph-diff (a `.1` real respelled `0.1`), none refused [358: 349 stable] |
 
 The pilot differential, the Xpect oracle, the scope oracle and the rejection oracle are the
 external conformance statement, and their figures are generated into `README.md` by `make
 docs-counts` from the committed baselines; they are not repeated here.
 
 The test-suite figures in the table are what `go run -C tools ./cmd/doc-counts -site-blocks`
-counts from the `v0.9.1` tree, the way the gates enumerate them. No committed page carries them:
+counts from the `develop` tree the table names, the way the gates enumerate them. No committed
+page carries them:
 since #291 and #345 the site build counts them into the compliance map's test inventory
 (`scripts/mkdocs_suite_figures.py`), the committed pages name what is counted without a figure,
-and a branch adding a test rewrites no shared line. The same run reads 10,698 top-level `Test`
-functions across the module, 1,737 of them in `internal/exec/runtime` and 424 in
-`internal/frontend/lsp`. The README's prose figure for the standard library still reads 105 of
-105 with 11 extensions; the tag bundles 106 files, 12 of them OpenSysML's, and `develop` 107
-with 13 — the parser gate reads every one clean, and the prose is the line that lags.
+and a branch adding a test rewrites no shared line. The same run reads 12,018 top-level `Test`
+functions across the module, 1,821 of them in `internal/exec/runtime` and 455 in
+`internal/frontend/lsp` [10,698; 1,737 and 424].
 
 At `develop`'s head three of the gates read differently from the tag, each by a pull request
 named above: the rejection oracle has 311 models with one more both-reject case, and the PSSM

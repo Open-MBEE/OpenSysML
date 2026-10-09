@@ -4,8 +4,8 @@
     {
       "name": "stdlib",
       "dir": "internal/workspace/libs/stdlib",
-      "files": 103,
-      "lines": 30341
+      "files": 110,
+      "lines": 31192
     },
     {
       "name": "training",
@@ -34,20 +34,20 @@
     {
       "name": "testdata",
       "dir": "tests/testdata",
-      "files": 18,
-      "lines": 310
+      "files": 22,
+      "lines": 398
     },
     {
       "name": "parser-fixtures",
       "dir": "tests/parser/testdata/parse",
-      "files": 209,
-      "lines": 5009
+      "files": 253,
+      "lines": 6059
     },
     {
       "name": "examples",
       "dir": "examples",
-      "files": 43,
-      "lines": 8431
+      "files": 52,
+      "lines": 9642
     }
   ],
   "totals": {

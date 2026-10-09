@@ -299,7 +299,7 @@ Guidance on selecting a client, the coverage of the four newer clients, and the 
 ## Goals
 
 - **Performance:** sub-millisecond parsing, a single static binary, and no JVM or Eclipse runtime
-- **Completeness:** SysML v2 textual notation support (105 of 105 standard library files parse cleanly: 94 vendored OMG files and 11 OpenSysML extensions)
+- **Completeness:** SysML v2 textual notation support (110 of 110 standard library files parse cleanly: 94 vendored OMG files and 16 OpenSysML extensions)
 - **Executable models:** instantiate, evaluate and simulate, turning specifications into running systems
 - **Practical ergonomics:** multi-file workspaces, incremental analysis and detailed diagnostics
 
