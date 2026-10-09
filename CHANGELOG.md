@@ -676,6 +676,7 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 - **A branch read before its first commit is still checked for a moved head.** A change set computed against a branch with no head commit is refused as a stale branch when another writer made the first commit in between, instead of being posted onto the commit it never saw.
 
 - **`%publish` by name reaches the project the session loaded by id.** When the session tracks a project of that name on the server, the publish resolves it by the stored id, so a second project with the same name no longer makes the name ambiguous; `--project` naming another project and the refusal of a shared name no session project matches are unchanged.
+- **A root view renders although nested elements share its name.** `-render 'Scanning Electron Microscope'` and `-render-all` refused the root-level view when parts, states or packages nested anywhere were also named `Scanning Electron Microscope`, reporting the name ambiguous although nothing more qualified can be written for a root declaration. A simple name that is a root declaration's qualified name now denotes it; nested namesakes are still reached by their qualified names.
 
 ### Security
 
