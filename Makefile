@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -53,6 +53,7 @@ NODE_DIR := client/node
 # The TypeScript protobuf plugin, installed by `npm ci` from the client's lockfile.
 PROTOC_GEN_ES := $(NODE_DIR)/node_modules/.bin/protoc-gen-es
 VSCODE_DIR := editors/vscode
+JUPYTERLAB_DIR := editors/jupyterlab
 PYTHON ?= python3
 # api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
@@ -282,12 +283,20 @@ test: ## Run Go tests with race detection and coverage
 
 # Run race-free by their own gate steps in the PR workflow's static-and-integrity job.
 RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
+# The runtime-corpus shard: the suites that run every model of the conformance corpus,
+# about half the package's time under -race.
+RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
-test-shard: ## Run one CI shard of the race suite (SHARD=runtime|model|export|rest)
+test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|rest)
 	@echo "Running Go race tests, shard $(SHARD)..."
-	@# 55m per package: the runtime shard takes 31-47 minutes under -race; its job's ceiling is 60.
-	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs
+	@# 55m per package; its job's ceiling is 60. Whole, internal/exec/runtime took 31-57 minutes
+	@# under -race on the CI runners, so it runs as two shards of about half that each.
+	pkgs=$$(scripts/race-shard.sh $(SHARD)) && case "$(SHARD)" in \
+	  runtime-corpus) go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  runtime) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	esac
 	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./...; fi
 
 coverage: ## Write the coverage profile the SonarCloud scan reads
@@ -507,10 +516,27 @@ node-coverage: ## Run Node client tests and write coverage-node.lcov
 	sed -e 's|^SF:|SF:$(NODE_DIR)/|' $(NODE_DIR)/coverage/lcov.info > coverage-node.lcov
 	@echo "✓ Wrote coverage-node.lcov"
 
-vscode-grammar: ## Regenerate the VS Code TextMate grammars from the keyword lists
-	@echo "Generating TextMate grammars..."
-	go run ./$(VSCODE_DIR)/tools/gengrammar -out $(VSCODE_DIR)/syntaxes
+vscode-grammar: ## Regenerate the VS Code TextMate grammars and the JupyterLab CodeMirror syntax table from the keyword lists
+	@echo "Generating TextMate grammars and the CodeMirror syntax table..."
+	go run ./$(VSCODE_DIR)/tools/gengrammar -out $(VSCODE_DIR)/syntaxes -codemirror-out $(JUPYTERLAB_DIR)/src/syntax.json
 	@echo "✓ Grammars generated"
+
+# `jupyter labextension build` needs the jupyterlab Python package on PATH
+# beside Node; the bundle lands in the kernel package, which ships it.
+jupyterlab-build: ## Build the JupyterLab extension into client/jupyter-kernel (needs Node and the jupyterlab package)
+	@echo "Building the JupyterLab extension..."
+	cd $(JUPYTERLAB_DIR) && npm ci && npm run build
+	cp $(JUPYTERLAB_DIR)/install.json $(JUPYTER_KERNEL_DIR)/labextension/
+	@echo "✓ Built $(JUPYTER_KERNEL_DIR)/labextension"
+
+jupyterlab-test: ## Run the JupyterLab extension's tokenizer tests
+	@echo "Running the JupyterLab extension tests..."
+	cd $(JUPYTERLAB_DIR) && npm ci && npm test
+	@echo "✓ JupyterLab extension tests passed"
+
+jupyterlab-install: jupyterlab-build ## Link the built JupyterLab extension into the current Jupyter environment for development
+	jupyter labextension develop --overwrite $(JUPYTER_KERNEL_DIR)
+	@echo "✓ Linked jupyterlab-opensysml; restart JupyterLab to load it"
 
 vscode-build: ## Type-check and bundle the VS Code extension
 	@echo "Building the VS Code extension..."

@@ -7,6 +7,10 @@ that platform, bundles the binary, and installs the `sysml` kernelspec under
 Unset, the wheel is pure and carries neither, like the sdist: an install from
 either registers a verified download with `python -m jupyter_opensysml_kernel
 install`.
+
+Every distribution installs the prebuilt JupyterLab extension staged in
+`labextension/` (`make jupyterlab-build`) under
+`<prefix>/share/jupyter/labextensions`; none is built without it.
 """
 
 import os
@@ -20,6 +24,7 @@ from setuptools.command.sdist import sdist
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
+from jupyter_opensysml_kernel import labextension
 from jupyter_opensysml_kernel.binary import BUNDLED_DIR, binary_name, wheel_platform_tag
 from jupyter_opensysml_kernel.kernelspec import KERNEL_NAME, write_launcher_spec
 
@@ -41,6 +46,15 @@ def bundled_files() -> list[str]:
     if not os.path.isdir(BUNDLED_DIR):
         return []
     return sorted(f for f in os.listdir(BUNDLED_DIR) if os.path.isfile(os.path.join(BUNDLED_DIR, f)))
+
+
+def labextension_data() -> list[tuple[str, list[str]]]:
+    if not labextension.is_built():
+        raise SystemExit(
+            f"{os.path.relpath(labextension.LABEXTENSION_DIR, HERE)} holds no built JupyterLab extension; "
+            "every distribution ships it: run `make jupyterlab-build` first"
+        )
+    return labextension.data_files()
 
 
 class PlatformDistribution(Distribution):
@@ -75,6 +89,7 @@ class PlatformWheel(bdist_wheel):
                     f"{BUNDLED_DIR} holds {', '.join(bundled)} but {PLATFORM_ENV} is unset: "
                     "a pure wheel bundles no kernel"
                 )
+            self.distribution.data_files = labextension_data()
             super().run()
             return
         expected = binary_name(self.target[0])
@@ -85,7 +100,7 @@ class PlatformWheel(bdist_wheel):
             )
         spec_dir = os.path.join(HERE, "build", "kernelspec")
         os.makedirs(spec_dir, exist_ok=True)
-        self.distribution.data_files = [(SHARED_DATA, write_launcher_spec(spec_dir))]
+        self.distribution.data_files = [(SHARED_DATA, write_launcher_spec(spec_dir)), *labextension_data()]
         super().run()
 
     def drop_stale_build_kernel(self) -> None:
@@ -96,12 +111,14 @@ class PlatformWheel(bdist_wheel):
 
 
 class SourceOnly(sdist):
-    """The sdist is built before any kernel is staged; it never carries one."""
+    """The sdist is built before any kernel is staged; it never carries one. It
+    does carry the labextension, so a wheel built from it installs the extension."""
 
     def run(self) -> None:
         bundled = bundled_files()
         if bundled:
             raise SystemExit(f"{BUNDLED_DIR} holds {', '.join(bundled)}: an sdist bundles no kernel")
+        self.distribution.data_files = labextension_data()
         super().run()
 
 

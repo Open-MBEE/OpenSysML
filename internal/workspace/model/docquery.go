@@ -13,9 +13,13 @@ import (
 
 // DocumentDefinition is one native document definition the workspace holds: a
 // part def specializing DocumentQueries::Document, and the file declaring it.
+// Notation is the qualified name as the notation writes it, and Line the 1-based
+// line the declaration starts on.
 type DocumentDefinition struct {
-	FQN string
-	Doc string
+	FQN      string
+	Notation string
+	Doc      string
+	Line     int
 }
 
 // DocumentDefinitions lists the document definitions declared across the
@@ -24,16 +28,26 @@ func (w *Workspace) DocumentDefinitions() []DocumentDefinition {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	out := []DocumentDefinition{}
-	for name := range w.docs {
+	for name, d := range w.docs {
 		w.queryLocked(name, func(_ *resolve.Resolver, sem *semantics.Model) {
 			walkScope(w.index.DocumentRoot(name), func(sym *symbols.Symbol) {
 				if docplan.IsDocumentDefinition(w.index, sem, sym) {
-					out = append(out, DocumentDefinition{FQN: notationFQN(w.index, sym), Doc: name})
+					out = append(out, DocumentDefinition{
+						FQN:      notationFQN(w.index, sym),
+						Notation: notationName(sym),
+						Doc:      name,
+						Line:     declarationLine(d, declarationOrigin(d, sym)),
+					})
 				}
 			})
 		})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].FQN < out[j].FQN })
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].FQN != out[j].FQN {
+			return out[i].FQN < out[j].FQN
+		}
+		return out[i].Doc < out[j].Doc
+	})
 	return out
 }
 

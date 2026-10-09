@@ -96,6 +96,11 @@ func (k Kind) Supported() bool {
 // Tabular reports whether k is rendered as rows and columns.
 func (k Kind) Tabular() bool { return k == KindTable || k == KindMatrix }
 
+// GraphShaped reports whether k is drawn as a graph of nodes and edges: every
+// produced kind that is not tabular, the kinds a document's diagrams and the
+// DOT, Mermaid, PlantUML and D2 forms draw.
+func (k Kind) GraphShaped() bool { return k.Supported() && !k.Tabular() }
+
 // article is the indefinite article the kind reads with, so a message says "an
 // action rendering" rather than "a action rendering".
 func (k Kind) article() string {

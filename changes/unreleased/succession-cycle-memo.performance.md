@@ -1,0 +1,1 @@
+- Constraint checks and other runs no longer walk the succession graph for a cycle among held behaviors on every quiescent scan: the runtime remembers that no behavior is held until one enters held, by instantiation, image or snapshot restore, which cut `BenchmarkBatchConstraints` per-check time.

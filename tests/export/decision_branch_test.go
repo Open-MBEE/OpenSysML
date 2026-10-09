@@ -54,8 +54,23 @@ func TestDecisionBranchesTheNotationCannotStateAreRefused(t *testing.T) {
 		"another source": func(g string) string {
 			return strings.Replace(g, "sysml:source elmt:P__A__pick ;", "sysml:source elmt:P__A__check ;", 1)
 		},
+		"another source stated as sourceFeature alone": func(g string) string {
+			return strings.Replace(g, "sysml:source elmt:P__A__pick ;", "sysml:sourceFeature elmt:P__A__check ;", 1)
+		},
+		"two sources, the member before it first": func(g string) string {
+			return strings.Replace(g, "sysml:source elmt:P__A__pick ;", "sysml:source elmt:P__A__pick, elmt:P__A__check ;", 1)
+		},
+		"two sourceFeature sources, the member before it first": func(g string) string {
+			return strings.Replace(g, "sysml:source elmt:P__A__pick ;", "sysml:sourceFeature elmt:P__A__pick, elmt:P__A__check ;", 1)
+		},
+		"a sourceFeature spelled as a literal": func(g string) string {
+			return strings.Replace(g, "sysml:source elmt:P__A__pick ;", "sysml:source elmt:P__A__pick ;\n    sysml:sourceFeature \"urn:sysmlv2:element:P__A__pick\" ;", 1)
+		},
 		"an else with a body": func(g string) string {
 			return strings.Replace(g, `sysx:isElse "true"^^xsd:boolean ;`, `sysx:isElse "true"^^xsd:boolean ;`+"\n    sysx:hasBody \"true\"^^xsd:boolean ;", 1)
+		},
+		"a trigger": func(g string) string {
+			return strings.Replace(g, `sysx:transitionSyntax "target" ;`, `sysx:transitionSyntax "target" ;`+"\n    sysx:trigger \"accept Go\" ;", 1)
 		},
 		"neither guard nor else": func(g string) string {
 			return strings.Replace(g, `sysx:isElse "true"^^xsd:boolean ;`, "", 1)

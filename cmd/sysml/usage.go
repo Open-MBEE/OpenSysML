@@ -467,6 +467,32 @@ func doc() usage.Doc {
 					"-render-documents.",
 			},
 		}, {
+			Title: "Listing documents and views",
+			Examples: []usage.Example{
+				usage.Ex("sysml model.sysml -list documents", "the names -render-document reads"),
+				usage.Ex("sysml model.sysml -list views", "the names -render reads, with their kinds"),
+				usage.Ex("sysml model.sysml -list diagrams -list-kind state,action", ""),
+				usage.Ex("sysml model.sysml -list all -list-form json", ""),
+			},
+			Paragraphs: []string{
+				"-list documents lists the document definitions the loaded model declares, " +
+					"-list views its views with the rendering kind each states, a view whose kind " +
+					"this build does not produce marked unsupported with the reason, -list diagrams " +
+					"the graph-shaped views — tree, interconnection, state, action, case, mixed, " +
+					"sequence, requirement, definition and package, the kinds a document draws as " +
+					"a diagram — -list pseudo-views the pseudo-views a document declaring no view " +
+					"is rendered through, and -list all the documents followed by the views. " +
+					"Each name is the qualified name as the notation writes it, every segment " +
+					"quoted that needs it and a line break escaped as \\n, so it is passed back " +
+					"unchanged to -render-document or -render.",
+				"-list-kind keeps the views of the comma-separated kinds it names. -list-form " +
+					"text (default) writes one aligned line per item; tsv writes a header record " +
+					"category, kind, supported, file, line, name and reason, then a record per item; " +
+					"json writes an array of objects with those fields, each omitted when empty. " +
+					"file is the path the declaration was loaded from and line its 1-based line. " +
+					"A model declaring nothing to list writes nothing.",
+			},
+		}, {
 			Title: "Rendering a document",
 			Examples: []usage.Example{
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport", "Markdown on stdout"),
@@ -690,6 +716,9 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
+	fs.StringVar(&listWhat, "list", "", "List the model's documents, views, diagrams (the graph-shaped views), pseudo-views or all of them, by the qualified names -render-document and -render read: documents, views, diagrams, pseudo-views or all")
+	fs.StringVar(&listKinds, "list-kind", "", "Comma-separated view kinds -list views, diagrams or all keeps, as state,action")
+	fs.StringVar(&listForm, "list-form", "", "Form -list writes: text (default), one aligned line per item, tsv or json")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory; a document that cannot be rendered gets a page stating why and the run exits 3")
 	fs.StringVar(&docForm, "doc-form", "", docFormUsage())
 	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid, dot, plantuml or d2; D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; unset, a positioned view is dot and any other mermaid; a table or matrix view is a table either way")
@@ -819,6 +848,13 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("render-style", "<style>"),
 			usage.Opt("render-ports", "<display>"),
 			usage.Opt("render-overlay", "<overlay>"),
+		},
+	}, {
+		Title: "Listing documents and views",
+		Options: []usage.Option{
+			usage.Opt("list", "<what>"),
+			usage.Opt("list-kind", "<kinds>"),
+			usage.Opt("list-form", formArg),
 		},
 	}, {
 		Title: "Rendering documents",

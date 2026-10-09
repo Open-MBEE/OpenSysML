@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
 // errPrefix marks a line the prompt prints for a failure.
@@ -90,6 +91,15 @@ func (e *REPLEngine) meta(line string, out Output) error {
 		}
 		out.Display(formBundle(rendered.Form, rendered.Lines), nil)
 		return nil
+	case "%viz":
+		// With no form asked for, the diagram is shown as richly as the front
+		// end can: as Mermaid, and as SVG drawn from DOT where Graphviz is.
+		rendered, err := e.session.Viz(args, view.FormMermaid, view.FormDot)
+		if err != nil {
+			return renderError(err)
+		}
+		out.Display(vizBundle(rendered), nil)
+		return nil
 	case "%render-document":
 		// A trailing `html` asks for the document as HTML rather than the
 		// Markdown the prompt prints; the arguments before it are the prompt's.
@@ -113,6 +123,10 @@ func (e *REPLEngine) meta(line string, out Output) error {
 	}
 	lines, quit, err := e.session.RunMeta(line)
 	if err != nil {
+		var usage *repl.UsageError
+		if errors.As(err, &usage) {
+			return execError("UsageError", usage.Error(), usage.Lines)
+		}
 		name := "CommandError"
 		if errors.Is(err, runtime.ErrInterrupted) {
 			name = "KeyboardInterrupt"

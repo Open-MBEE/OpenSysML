@@ -332,9 +332,18 @@ jobs:
       - name: Build the Jupyter kernel sdist and platform wheels
         env:
           PYPI_VERSION: ${{ steps.version.outputs.pypi }}
+          NPM_VERSION: ${{ steps.version.outputs.npm }}
         run: |
-          # The sdist, then one wheel per platform bundling the kernel from dist/jupyter;
-          # the script opens each and checks what it carries.
+          # jupyterlab provides `jupyter labextension build`, which bundles the
+          # JupyterLab extension every distribution ships (make jupyterlab-build).
+          python -m pip install --only-binary ":all:" jupyterlab==4.6.4
+          # `jupyter labextension list` reports the extension's manifest version, so the
+          # manifest is stamped with the snapshot's npm version first; `npm version` keeps
+          # the lock file in step, as `npm ci` requires.
+          (cd editors/jupyterlab && npm version --no-git-tag-version "$NPM_VERSION")
+          git diff --stat -- editors/jupyterlab/package.json editors/jupyterlab/package-lock.json
+          # The extension, the sdist, then one wheel per platform bundling the kernel
+          # from dist/jupyter; the script opens each and checks what it carries.
           "$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist
           # The version is PEP 440 in canonical form and the build tools normalize the
           # name, so these are the files.
@@ -344,6 +353,13 @@ jobs:
             echo "::error::expected five platform wheels for ${PYPI_VERSION}, found $#: $*"
             exit 1
           fi
+          stamped=$(unzip -p "$1" '*.data/data/share/jupyter/labextensions/jupyterlab-opensysml/package.json' \
+            | python -c 'import json, sys; print(json.load(sys.stdin)["version"])')
+          if [ "$stamped" != "$NPM_VERSION" ]; then
+            echo "::error::the labextension in $1 carries version '$stamped', not the '$NPM_VERSION' it is being published as."
+            exit 1
+          fi
+          echo "ok: the labextension carries $stamped"
           python -m twine check --strict client/jupyter-kernel/dist/*
 
       # Like the client's wheel: this platform's wheel must import at the snapshot

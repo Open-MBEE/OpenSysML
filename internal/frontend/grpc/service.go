@@ -873,13 +873,8 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, in
 		if len(p.Diagnostics) > 0 {
 			parsedClean = false
 		}
-		documents = append(documents, &CachedDocument{
-			Root:        root,
-			Source:      srcFile,
-			ParseDiags:  p.Diagnostics,
-			Diagnostics: parser.AsDiagnostics(p.Diagnostics, p.Warnings),
-			Warnings:    append([]string(nil), input.warnings...),
-		})
+		documents = append(documents, newCachedDocument(root, srcFile, p.Diagnostics,
+			parser.AsDiagnostics(p.Diagnostics, p.Warnings), input.warnings))
 	}
 
 	// Registers what a wildcard import re-exports, so a qualified name reaches a
@@ -944,22 +939,32 @@ func (s *Service) GetDiagnostics(ctx context.Context, req *pb.DiagnosticsRequest
 	}, nil
 }
 
-// modelDiagnostics are every document's diagnostics, document by document, each
-// located in the source it came from. The parse's are among them once: the
-// passes report them, escalated where a pass judged the notation.
+// modelDiagnostics are every document's diagnostics in document order, each in its own
+// source, the parse's among them once as the passes report them; the list is the response's own.
 func (s *Service) modelDiagnostics(model *CachedModel) []*pb.Diagnostic {
 	var pbDiags []*pb.Diagnostic
 	for _, doc := range model.Documents {
-		for _, diag := range doc.Diagnostics {
-			pbDiags = append(pbDiags, DiagnosticToProto(diag, doc.Source))
-		}
-		for _, warning := range doc.Warnings {
-			pbDiags = append(pbDiags, &pb.Diagnostic{
-				Severity: diag.SeverityWarning.String(),
-				Message:  warning,
-				Span:     &pb.Span{File: doc.Source.Name()},
-			})
-		}
+		pbDiags = append(pbDiags, doc.protoDiagnostics(s.documentDiagnostics)...)
+	}
+	return pbDiags
+}
+
+// documentDiagnostics converts one document's diagnostics, then its warnings, to
+// protobuf, filtered by the service's capabilities, which are fixed when it is built.
+func (s *Service) documentDiagnostics(doc *CachedDocument) []*pb.Diagnostic {
+	if len(doc.Diagnostics)+len(doc.Warnings) == 0 {
+		return nil
+	}
+	pbDiags := make([]*pb.Diagnostic, 0, len(doc.Diagnostics)+len(doc.Warnings))
+	for _, diag := range doc.Diagnostics {
+		pbDiags = append(pbDiags, DiagnosticToProto(diag, doc.Source))
+	}
+	for _, warning := range doc.Warnings {
+		pbDiags = append(pbDiags, &pb.Diagnostic{
+			Severity: diag.SeverityWarning.String(),
+			Message:  warning,
+			Span:     &pb.Span{File: doc.Source.Name()},
+		})
 	}
 	return s.filterDiagnosticCapabilities(pbDiags)
 }

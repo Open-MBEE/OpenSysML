@@ -70,3 +70,4 @@ cmd/*/rsrc_windows_*.syso
 
 # The kernel a platform wheel bundles, staged by the release pipeline (setup.py)
 /client/jupyter-kernel/jupyter_opensysml_kernel/bin/
+/client/jupyter-kernel/labextension/
