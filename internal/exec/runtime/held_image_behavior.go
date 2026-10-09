@@ -833,7 +833,7 @@ func (m *materializing) frameCells(
 			continue
 		}
 		check := func(value *Value) error {
-			return m.dst.checkBodyDeclaration(state.scope, perf.describe(), state.name, value)
+			return m.dst.checkBodyDeclarationAs(state.scope, perf.describe, state.name, value)
 		}
 		var onDerived func(*Value) error
 		if perf.node == nil && perf.parent == nil {
