@@ -282,12 +282,20 @@ test: ## Run Go tests with race detection and coverage
 
 # Run race-free by their own gate steps in the PR workflow's static-and-integrity job.
 RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
+# The runtime-corpus shard: the suites that run every model of the conformance corpus,
+# about half the package's time under -race.
+RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
-test-shard: ## Run one CI shard of the race suite (SHARD=runtime|model|export|rest)
+test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|rest)
 	@echo "Running Go race tests, shard $(SHARD)..."
-	@# 55m per package: the runtime shard takes 31-47 minutes under -race; its job's ceiling is 60.
-	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs
+	@# 55m per package; its job's ceiling is 60. Whole, internal/exec/runtime took 31-57 minutes
+	@# under -race on the CI runners, so it runs as two shards of about half that each.
+	pkgs=$$(scripts/race-shard.sh $(SHARD)) && case "$(SHARD)" in \
+	  runtime-corpus) go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  runtime) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	esac
 	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./...; fi
 
 coverage: ## Write the coverage profile the SonarCloud scan reads
