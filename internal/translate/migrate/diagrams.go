@@ -539,6 +539,9 @@ func (m *migration) writeView(v *view) {
 	}
 	geo := m.viewGeometry(v, x, form)
 	note = joinNotes(note, m.viewShownNote(d, x, geo, untyped))
+	if m.strict && m.layoutSummary != nil {
+		note = joinNotes(note, "its layout is not written: a strict migration names no OpenSysML library, and DiagramLayout is one")
+	}
 	doc, docNotes := m.proseNoted(d.Documentation)
 	note = joinNotes(note, strings.Join(docNotes, "; "))
 	m.w.block(decl, func() {
@@ -832,7 +835,7 @@ type viewGeometry struct {
 // stream carries.
 func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeometry {
 	s := m.layoutSummary
-	if s == nil {
+	if s == nil || m.strict {
 		return viewGeometry{}
 	}
 	rec, src := m.layoutRecord(v)

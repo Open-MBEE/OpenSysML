@@ -2814,6 +2814,12 @@ func (c *chain) dynamicView(s *sysmlv1.DocGenStep) {
 // writeDocument writes a planned document: its queries first, then the
 // Document definition holding its sections and blocks.
 func (m *migration) writeDocument(dp *docPlan) {
+	if m.strict {
+		note := "its v2 form is a Document of OpenSysML's DocumentQueries library, which a strict migration does not name"
+		m.w.lines(commentLines("not migrated: «Document» '" + dp.root.title + "' — " + note))
+		m.report.Entries = append(m.report.Entries, *m.docEntry(dp.d, Unmapped, "", note))
+		return
+	}
 	m.writeQueries(dp.root, m.queryPrefix(dp.host), dp.host)
 	var notes []string
 	target := m.qualified(append(m.segments(dp.host), dp.root.name))

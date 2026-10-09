@@ -60,10 +60,11 @@ type Options struct {
 	// ImageBaseURL resolves a comment's relative <img src> to the server
 	// serving it; "" leaves such images out.
 	ImageBaseURL string
-	// Strict writes only notation a pinned SysML v2 production admits: a
-	// construct whose only v2 form is an OpenSysML extension (a deferred
-	// event, a choice, junction or history pseudostate) is reported unmapped
-	// instead of written.
+	// Strict writes only notation a pinned SysML v2 production admits and
+	// refers to no OpenSysML library: a construct whose only v2 form is one
+	// (a history pseudostate, a document) is reported unmapped instead of
+	// written, one with a standard approximation (a choice, a probability)
+	// written so and reported approximated.
 	Strict bool
 }
 
@@ -863,6 +864,10 @@ func (m *migration) libraryNameNotes() {
 		prefix = "$::"
 	}
 	for _, r := range list {
+		if m.strict {
+			m.w.line("// " + writeName(r.fresh) + " is written for " + stringLiteral(r.src) + ", a name of the standard library")
+			continue
+		}
 		m.w.line("metadata " + prefix + "MigrationMetadata::LibraryNameAvoided about " + writeName(r.fresh) +
 			" { sourceName = " + stringLiteral(r.src) + "; }")
 	}

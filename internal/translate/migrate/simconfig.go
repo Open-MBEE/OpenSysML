@@ -144,12 +144,20 @@ func (m *migration) simulationConfig(e *sysmlv1.Element, header, note string) {
 	results.Notes = append(results.Notes, lost...)
 	notes = append(notes, lost...)
 	note = joinNotes(note, strings.Join(notes, "; "))
+	if m.strict {
+		note = joinNotes(note, "its run settings are written as a comment: a strict migration names no OpenSysML library, and Simulation::Configuration is one's")
+	}
 	m.add(e, verdictFor(note), m.v2Name(e), note)
 	m.w.block(header, func() {
 		saved := m.scope
 		m.scope = e
 		m.comments(e)
-		m.w.block("@Simulation::Configuration", func() { m.w.lines(settings.lines) })
+		if m.strict {
+			m.w.lines(commentLines("simulation run settings, a comment since their v2 form is an OpenSysML library's: " +
+				strings.ReplaceAll(strings.Join(settings.lines, " "), "Simulation::DrawPolicy::", "")))
+		} else {
+			m.w.block("@Simulation::Configuration", func() { m.w.lines(settings.lines) })
+		}
 		if target.element != nil {
 			part := m.freshName(e, "target")
 			results.Target = part

@@ -81,9 +81,20 @@ func (m *migration) standInNames(written []string) string {
 	return m.migrationMarker(standInFQN, written)
 }
 
+// strictMarkerText words the comment a strict migration writes instead of
+// each MigrationMetadata marker, the library being OpenSysML's, not the standard's.
+var strictMarkerText = map[string]string{
+	synthesizedNameFQN: "names the migration made up",
+	standInFQN:         "members standing for no source element",
+}
+
 // migrationMarker is the metadata usage of the MigrationMetadata definition
-// fqn about the written names, qualified past a member shadowing the library.
+// fqn about the written names, qualified past a member shadowing the library;
+// a strict migration writes a comment instead.
 func (m *migration) migrationMarker(fqn string, written []string) string {
+	if m.strict {
+		return "// " + strictMarkerText[fqn] + ": " + strings.Join(written, ", ")
+	}
 	prefix := ""
 	if m.shadowsLibrary("MigrationMetadata", m.scope) {
 		prefix = "$::"

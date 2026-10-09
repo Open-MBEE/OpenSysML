@@ -458,8 +458,8 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 func TestStrictPropertyProbabilityUsesOnlyLiteralDefaults(t *testing.T) {
 	r := migrateFixtureFileOptions(t, "decision_property_probability", migrate.Options{Strict: true})
 	for _, line := range []string{
-		"first 'with default' then defaulted { @Stochastic::Probability { p = 0.25; } }",
-		"first 'with default' then remainder { @Stochastic::Probability { p = 0.75; } }",
+		"first 'with default' then defaulted; // probability 0.25",
+		"first 'with default' then remainder; // probability 0.75",
 	} {
 		wantLine(t, r.Notation, line)
 	}
