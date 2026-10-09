@@ -77,18 +77,23 @@ func TestInheritedStereotypeSemanticsFollowEveryGeneral(t *testing.T) {
 	wantLine(t, r.Notation, "attribute def Torque {")
 	wantLine(t, r.Notation, "requirement def <'R-1'> 'Torque Requirement' {")
 	wantLine(t, r.Notation, "verify requirement : 'Torque Requirement' {")
-	wantLine(t, r.Notation, "@ModelingMetadata::Refinement;")
+	wantLine(t, r.Notation, "connection 'spin to speed Requirement' connect spin to 'speed Requirement' {")
+	wantLine(t, r.Notation, "/* «Refine» */")
 	wantLine(t, r.Notation, "@Tailoring::'Detailed By';")
+	wantNoLine(t, r.Notation, "@ModelingMetadata::Refinement;")
 	wantLine(t, r.Notation, "connection def 'Derive Speed Requirement' :> RequirementDerivation::Derivation {")
 	wantLine(t, r.Notation, "allocation def 'Spin to Shaft' {")
 	wantLine(t, r.Notation, "end :>> source : Spin;")
 	wantLine(t, r.Notation, "end :>> target : Shaft;")
 	wantLine(t, r.Notation, "@Tailoring::'Assigned To';")
 	wantNoLine(t, r.Notation, "applied stereotype")
-	for _, id := range []string{"_gear", "_torque", "_req_torque", "_verify", "_refine", "_derive", "_alloc"} {
+	for _, id := range []string{"_gear", "_torque", "_req_torque", "_verify", "_derive", "_alloc"} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 			t.Errorf("%s entries = %+v", id, es)
 		}
+	}
+	if es := entriesFor(r, "_refine"); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "connection between usages") {
+		t.Errorf("_refine entries = %+v", es)
 	}
 	if es := entriesFor(r, "_trace"); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "plain dependency") {
 		t.Errorf("_trace entries = %+v", es)

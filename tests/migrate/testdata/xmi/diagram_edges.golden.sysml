@@ -133,11 +133,16 @@ package Usage {
     }
     use case def 'Start Engine';
     use case def 'Stop Engine';
+    use case 'drive Vehicle' : 'Drive Vehicle';
+    use case 'start Engine' : 'Start Engine';
+    connection 'drive Vehicle to start Engine' connect 'drive Vehicle' to 'start Engine'; /* «include» */
+    use case 'stop Engine' : 'Stop Engine';
+    connection 'drive Vehicle to stop Engine' connect 'drive Vehicle' to 'stop Engine'; /* «include» */
     view 'Driving Cases' {
-        expose 'Drive Vehicle';
-        expose 'Start Engine';
-        expose Usage::'Drive Vehicle'::'start Engine';
-        render Views::asTextualNotation;
+        expose 'drive Vehicle';
+        expose 'start Engine';
+        expose 'drive Vehicle to start Engine';
+        render Views::asInterconnectionDiagram;
     }
 }
 metadata MigrationMetadata::LibraryNameAvoided about RequirementsModel { sourceName = "Requirements"; }

@@ -211,6 +211,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		pictureOf:         map[*sysmlv1.Diagram]*pictures{},
 		buried:            map[*sysmlv1.Element]bool{},
 		actors:            map[*sysmlv1.Element]*actorLink{},
+		defUsages:         map[*sysmlv1.Element]map[*sysmlv1.Element]*defUsage{},
+		conns:             map[*sysmlv1.Element]*defConn{},
 		monteCarlo:        map[*sysmlv1.Element]*monteCarloCase{},
 		strict:            opts.Strict,
 		layout:            opts.Layout,
@@ -528,6 +530,11 @@ type migration struct {
 	// actors gives each association linking a use case to an actor the actor
 	// usage it is written as in the use case's body.
 	actors map[*sysmlv1.Element]*actorLink
+	// defUsages are the usages written in a package, by definition, for the
+	// connections joining them; conns the connection written for an association or «Refine».
+	defUsages    map[*sysmlv1.Element]map[*sysmlv1.Element]*defUsage
+	defUsageList []*defUsage
+	conns        map[*sysmlv1.Element]*defConn
 	// framed marks the comments a viewpoint's concernList names, written as its concerns.
 	framed map[*sysmlv1.Element]bool
 	// concerns records comments named by viewpoint and stakeholder concern lists.
@@ -645,6 +652,7 @@ func (m *migration) prepare() {
 	m.prepareConcerns()
 	var reachers, configs, laned, associations, behaviors []*sysmlv1.Element
 	var links []*actorLink
+	var joined []*sysmlv1.Element
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		m.distinguish(e)
@@ -709,6 +717,9 @@ func (m *migration) prepare() {
 					m.nameFor(r)
 				}
 			}
+			if has(e, "Refine") {
+				joined = append(joined, e)
+			}
 			if has(e, "Allocate") {
 				for _, c := range m.model.Refs(e, "client") {
 					m.allocated[c] = append(m.allocated[c], m.model.Refs(e, "supplier")...)
@@ -757,6 +768,8 @@ func (m *migration) prepare() {
 					links = append(links, link)
 				}
 			}
+		case "Include", "Extend":
+			joined = append(joined, e)
 		}
 		for _, c := range e.Children {
 			walk(c)
@@ -769,6 +782,7 @@ func (m *migration) prepare() {
 	}
 	m.indexSnapshots(configs)
 	m.placeActors(links)
+	m.planConnections(joined)
 	for _, e := range reachers {
 		m.exposeReached(e)
 	}
@@ -1145,7 +1159,7 @@ func (m *migration) member(e *sysmlv1.Element) {
 		m.extend(e)
 		return
 	case "ExtensionPoint":
-		m.unmapped(e, "v2 has no extension points; an extending use case is written as a dependency on the extended one")
+		m.unmapped(e, "v2 has no extension points; an extending use case is written as a connection to the extended one")
 		return
 	case "Comment":
 		// A comment in a non-ownedComment role is still a comment.
@@ -3591,6 +3605,19 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 	target := ""
 	if name != "" {
 		target = m.qualified(append(m.segments(m.scope), name))
+	}
+	if has(d, "Refine") {
+		conn := m.conns[d]
+		if conn == nil {
+			conn = m.usageConnection(d, name, client, supplier, " /* «Refine» */")
+		}
+		if conn != nil {
+			m.wroteEdgeAlso(d, conn.host, "connection", nil, conn.name)
+			if len(nodes) > 0 {
+				pl.nodePairs = append(pl.nodePairs, nodePair{nodes, conn.target(m)})
+			}
+			return conn.target(m), true, refineConnectionNote
+		}
 	}
 	kw := "dependency"
 	if has(d, "Allocate") {

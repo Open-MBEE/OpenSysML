@@ -165,14 +165,20 @@ package Usage {
     }
     use case def 'Start Engine';
     use case def 'Stop Engine';
+    use case 'drive Vehicle' : 'Drive Vehicle';
+    use case 'start Engine' : 'Start Engine';
+    connection 'drive Vehicle to start Engine' connect 'drive Vehicle' to 'start Engine'; /* «include» */
+    use case 'stop Engine' : 'Stop Engine';
+    connection 'drive Vehicle to stop Engine' connect 'drive Vehicle' to 'stop Engine'; /* «include» */
     view 'Driving Cases' {
-        expose 'Drive Vehicle';
-        expose 'Start Engine';
-        expose Usage::'Drive Vehicle'::'start Engine';
+        expose 'drive Vehicle';
+        expose 'start Engine';
+        expose 'drive Vehicle to start Engine';
         @DiagramLayout::Canvas { unit = "px"; width = 300; height = 50; }
-        metadata DiagramLayout::Layout about 'Drive Vehicle' { x = 10; y = 10; width = 100; height = 40; }
-        metadata DiagramLayout::Layout about 'Start Engine' { x = 200; y = 10; width = 100; height = 40; }
-        render Views::asTextualNotation;
+        metadata DiagramLayout::Layout about 'drive Vehicle' { x = 10; y = 10; width = 100; height = 40; }
+        metadata DiagramLayout::Layout about 'start Engine' { x = 200; y = 10; width = 100; height = 40; }
+        metadata DiagramLayout::Route about 'drive Vehicle to start Engine' { points = (200, 30, 110, 30); }
+        render Views::asInterconnectionDiagram;
     }
 }
 metadata MigrationMetadata::LibraryNameAvoided about RequirementsModel { sourceName = "Requirements"; }

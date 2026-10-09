@@ -6,13 +6,16 @@ package Context {
     }
     part def Attendant;
     part def Bank;
+    part driver : Driver;
+    part attendant : Attendant;
+    part bank : Bank;
 }
 package 'Use Cases' {
     use case def 'Park Car' {
         doc /* A driver parks a car in the garage. */
         subject garage : Context::Garage;
         include use case 'pay Fee' : 'Pay Fee';
-        /* not migrated: ExtensionPoint 'garage full' — v2 has no extension points; an extending use case is written as a dependency on the extended one */
+        /* not migrated: ExtensionPoint 'garage full' — v2 has no extension points; an extending use case is written as a connection to the extended one */
         action def 'Park Flow' {
             first start then Enter;
             action Enter {
@@ -39,9 +42,7 @@ package 'Use Cases' {
         subject;
         actor bank : Context::Bank;
     }
-    use case def 'Wait For Space' {
-        dependency 'Wait For Space' to 'Park Car'; /* extends at extension point(s) 'garage full' when {English} no bay is free */
-    }
+    use case def 'Wait For Space';
     use case def 'Leave Garage' {
         /* not migrated: Include (_incLost) — the included use case is not in the document; 1 addition reference(s) resolve to nothing in the document (_lostCase) */
         /* not migrated: Extend (_extLost) — the extended use case is not in the document; 1 extendedCase reference(s) resolve to nothing in the document (_lostCase) */
@@ -61,6 +62,16 @@ package 'Use Cases' {
         end 'wait For Space' : 'Wait For Space';
         metadata MigrationMetadata::SynthesizedName about 'park Car', 'wait For Space';
     }
+    use case 'park Car' : 'Park Car';
+    use case 'pay Fee' : 'Pay Fee';
+    connection 'park Car to pay Fee' connect 'park Car' to 'pay Fee'; /* «include» */
+    use case 'authorise Payment' : 'Authorise Payment';
+    connection authorise connect 'pay Fee' to 'authorise Payment'; /* «include» */
+    use case 'wait For Space' : 'Wait For Space';
+    connection 'wait For Space to park Car' connect 'wait For Space' to 'park Car'; /* extends at extension point(s) 'garage full' when {English} no bay is free */
     metadata MigrationMetadata::SynthesizedName about unnamed;
 }
 attribute def Real;
+connection 'driver to park Car' connect Context::driver to 'Use Cases'::'park Car';
+connection 'attendant to park Car' connect Context::attendant to 'Use Cases'::'park Car';
+connection settlement : 'Use Cases'::Settlement connect Context::bank to 'Use Cases'::'pay Fee';

@@ -1384,7 +1384,7 @@ func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 	r := migrateDocument(t, namedRelationModel, namedRelationApplications)
 	wantLine(t, r.Notation, "satisfy requirement sat : Req by piece;")
 	wantLine(t, r.Notation, "verify requirement ver : Req;")
-	wantLine(t, r.Notation, "dependency 'ref' from Thing to Req {")
+	wantLine(t, r.Notation, "connection 'ref' connect thing to req; /* «Refine» */")
 	wantLine(t, r.Notation, "allocation def alloc {")
 	wantLine(t, r.Notation, "end :>> source : Thing;")
 	wantLine(t, r.Notation, "end :>> target : Piece;")
@@ -1396,7 +1396,7 @@ func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 	}{
 		"_sat":   {migrate.Mapped, "Thing::sat"},
 		"_ver":   {migrate.Mapped, "Check::ver"},
-		"_ref":   {migrate.Mapped, "'ref'"},
+		"_ref":   {migrate.Approximated, "'ref'"},
 		"_alloc": {migrate.Mapped, "alloc"},
 		"_trace": {migrate.Approximated, "trace"},
 		"_copy":  {migrate.Approximated, "copy"},
@@ -1675,4 +1675,22 @@ func TestItemFlowWithEndsStandingForBothIsNotMigrated(t *testing.T) {
 		t.Errorf("entries for _if2 = %+v, want one mapped", es)
 	}
 	wantClean(t, "t.sysml", r)
+}
+
+// A definition gets a package-level usage only when a connection joins it: a v1
+// association, include, extend or «Refine» names it as an end.
+func TestUsagesOnlyForConnectedDefinitions(t *testing.T) {
+	r := migrateFixtureFile(t, "parking_usecases")
+	for _, line := range []string{"part driver : Driver;", "part bank : Bank;", "use case 'park Car' : 'Park Car';", "use case 'pay Fee' : 'Pay Fee';"} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, line := range []string{"part garage :", "part ticket : Ticket;", "part 'valet Service' :", "use case 'valet Park' :"} {
+		wantNoLine(t, r.Notation, line)
+	}
+	// A named association is a connection def with one usage typed by it, named like a usage.
+	wantLine(t, r.Notation, "connection settlement : 'Use Cases'::Settlement connect Context::bank to 'Use Cases'::'pay Fee';")
+	wantNoLine(t, r.Notation, "connection Settlement ")
+	v := migrateFixtureFile(t, "vehicle")
+	wantLine(t, v.Notation, "connection drives : Drives connect driver to vehicle;")
+	wantNoLine(t, v.Notation, "connection Drives ")
 }

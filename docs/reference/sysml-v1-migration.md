@@ -131,7 +131,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | Model, Package | `package` | mapped |
 | «Block» Class | `part def` | mapped |
 | Plain UML Class | `occurrence def` | mapped |
-| Actor | `part def` | approximated |
+| Actor | `part def`; one `part` usage of it in its package when an association, drawn as a `connection`, names it | approximated |
 | «InterfaceBlock» | `port def` | mapped |
 | «ValueType» DataType, PrimitiveType | `attribute def` (`Real`/`Integer`/`Boolean`/`String` for the SysML primitives) | mapped |
 | Signal | `item def`; properties typed by it are `item` / `ref item` | mapped |
@@ -154,7 +154,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | Real literal on an `Integer`/`Natural` feature, numeric string on a scalar feature | converted to the feature's scalar | mapped |
 | Constraint whose specification is a literal, instance or opaque body yielding no Boolean (an integer, a real, a string spelling no `true`/`false`, an enumeration literal) | comment naming the value and the Boolean the constraint yields | **unmapped** — no v2 checker accepts a constraint body of another type; a string `"true"`/`"false"` is written as the Boolean it spells |
 | Constraint whose specification is a `uml:Expression` tree with no symbol at any node and, as leaves, only `InstanceValue`s naming no instance (a tool's presentation constraint on a document, a Cameo Collaborator marker) | nothing: the tree spells nothing | skipped — notation only; a tree with a symbol, or a leaf naming an instance, is translated or refused like any other expression |
-| Association with a name, «AssociationBlock» | `connection def` | mapped |
+| Association with a name, «AssociationBlock» | `connection def`; an association to an Actor also has its one usage, `connection <name> : <Def> connect <actor> to <use case>;` between `part`/`use case` usages written in the ends' packages, hosted by the nearest package holding both | mapped |
 | Anonymous association with a classifier-owned end | nothing: the end property carries it | mapped |
 | Anonymous association owning every end | a named `connection def` | approximated |
 | Value property | `attribute`, with multiplicity and default | mapped |
@@ -181,7 +181,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | «Allocate» | between different bodies, an `allocation def 'A to B'` whose ends redefine `source` and `target`, typed by the definitions that own the endpoints; a feature endpoint is chained in `allocate source.x to target.y`, and a definition endpoint is just `source` or `target`. When both endpoints are features of one definition body, or both are package features, it stays `allocate a to b` in that body. A feature owned by a package cannot type an allocation end and keeps a noted dependency | mapped, except for an endpoint owned by a package that needs the noted dependency fallback |
 | «Allocate» whose feature endpoint has no enclosing written definition, such as a package-owned feature paired with an endpoint from another body | `dependency a to b`, with a note naming the endpoint the allocation ends cannot type | approximated |
 | «Allocate», or another dependency, whose end is an activity node written only as a placeholder (a call that is not migrated) | the relationship is written to the placeholder; the pair ending there counts as failed when its end is not migrated, so the note gives the final tally of pairs written and names the end | approximated when another pair is written, **unmapped** when none is |
-| «Refine» | `dependency` carrying `@ModelingMetadata::Refinement` | mapped |
+| «Refine» | `connection connect <client> to <supplier>; /* «Refine» */` between usages of its ends written in their packages (a `part`, `use case`, `requirement`, `action`, `occurrence` or `item` usage of the definition), other metadata in its body — a line a diagram draws; the standard `Refinement` metadata annotates only a dependency, so the refine is kept as a comment. A «Refine» whose end is no such definition stays a `dependency` carrying `@ModelingMetadata::Refinement` | approximated |
 | «Trace», «Copy», other stereotyped dependencies | plain `dependency` with the stereotype as a comment; named relationships keep their name | approximated |
 | A user stereotype specializing a standard one («Org Requirement» :> «Requirement», or one specializing «Block», «ValueType», «Satisfy», «Verify», «Refine», «Trace», «DeriveReqt», «Allocate», …) | the standard stereotype's v2 form above, its tags read as the standard ones (`Id`, `Text`, …), plus a `@Profile::'Org Requirement' { … }` usage holding the user-added tags | as the standard form |
 | Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped and the cross-references in it read as plain text ([below](#cross-references-in-documentation)) | mapped (approximated when a reference is dangling or stale) |
@@ -204,9 +204,9 @@ ties each of its mapping classes to the code that carries it out (or records why
 | InterfaceRealization from a block | a `port` of the `part def` typed by the interface's `port def` — reused when the block already owns one so typed, otherwise added under the interface's name; a `part def` cannot specialize a `port def` | approximated |
 | InterfaceRealization from an «InterfaceBlock» | `port def :> <Interface>` | mapped |
 | InterfaceRealization whose interface is not written (outside the document, library content) or whose client becomes neither a part def nor a port def | comment naming why | **unmapped** |
-| UseCase (whatever incidental stereotype a tool applies to it) | `use case def`; its UML `subject` is a `subject` usage (v2 admits one per case: a second is a `ref part` with a note); an anonymous association to an Actor is an `actor` of the use case typed by the actor's `part def`, with the association's multiplicity; a `classifierBehavior` is performed as in a block | mapped |
-| Include | `include use case <name> : <Included>;` | mapped |
-| Extend, ExtensionPoint | `dependency <Extending> to <Extended>;` in the extending case, the extension points and condition as a comment; v2 has no `extend` | approximated / **unmapped** (extension point) |
+| UseCase (whatever incidental stereotype a tool applies to it) | `use case def`; its UML `subject` is a `subject` usage (v2 admits one per case: a second is a `ref part` with a note); an anonymous association to an Actor is an `actor` of the use case typed by the actor's `part def`, with the association's multiplicity, and a `connection` between a `part` usage of the actor and a `use case` usage of the case in their packages, which a use case diagram draws; a `classifierBehavior` is performed as in a block | mapped |
+| Include | `include use case <name> : <Included>;` and `connection … connect <including> to <included>; /* «include» */` between `use case` usages of the two cases, which a diagram draws | mapped |
+| Extend, ExtensionPoint | `connection connect <extending> to <extended>;` between `use case` usages of the two cases, the extension points and condition as a comment; v2 has no `extend` | approximated / **unmapped** (extension point) |
 | Include, Extend whose other case is not in the document | comment | **unmapped** |
 | Property typed by a UseCase | `ref use case x : <Case>;` | approximated |
 | «View» Class | package-level `view <Name>` usage (v2 admits `expose` in a usage alone): `satisfy <Viewpoint>` for its `viewpoint` tag and its «Conform» generalizations and dependencies; `expose` members for its «Expose» dependencies; its «View» property typed by another view a nested `view x :> <Other>;`, `ref` when not composite | mapped |
@@ -381,7 +381,8 @@ and `umlType` (`Class Diagram`) together — by the first family below a word of
 | internal block, parametric, composite structure and interconnection diagrams | `Views::asInterconnectionDiagram`; a parametric diagram of a block of the [Monte Carlo pattern](#monte-carlo-analyses) exposes the block's analysis def in place of the pattern's `Mean` symbol and the def's returns in place of its other statistics, the `Mean` binding routed along the def's `observed` |
 | block definition, class, package, object, component, deployment, profile and other structure diagrams | `Views::asTreeDiagram` |
 | an activity diagram whose owner is written as an `action def`, a state machine (or statechart) diagram whose owner is written as a `state def`, showing a node or edge of its graph | `view : StandardViewDefinitions::ActionFlowView` / `StateTransitionView`, rendered `Views::asInterconnectionDiagram` |
-| other behavior diagrams (sequence, use case, an activity diagram of a package or one showing nothing of its activity's graph), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
+| a use case diagram | `Views::asInterconnectionDiagram` over the `part`, `use case` and `requirement` usages and the connections written for the actor associations, includes, extends and «Refine»s it shows |
+| other behavior diagrams (sequence, an activity diagram of a package or one showing nothing of its activity's graph), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
 
 The rendering is written `$::Views::…` where a member named `Views` would shadow the library, a
 view definition `$::StandardViewDefinitions::…` where one named `StandardViewDefinitions` would, and a
@@ -414,7 +415,7 @@ otherwise a name spelled from what it is written between, in the body it is writ
 | Transition | `transition 'S accept Sig then T' first S accept Sig then T;` — the trigger, guard and target as written, the payload binding left out of the name; several triggers are several transitions, each named for its own trigger (a v1 name is numbered, `halt`, `halt2`), and the edge's route pins every one of them |
 | Connector | `connection 'a.p to b.q' connect a.p to b.q;` |
 | BindingConnector, delegation connector | `binding 'a.p = b.q' bind a.p = b.q;` |
-| Dependency, Extend | `dependency 'A to B' from A to B;` (`allocation` for an «Allocate»); several clients or suppliers are several dependencies, one per pair, and the view exposes each |
+| Dependency, Extend, «Refine» | `dependency 'A to B' from A to B;` (`allocation` for an «Allocate», `connection 'a to b' connect a to b;` for an Extend or a «Refine» between usages); several clients or suppliers are several dependencies, one per pair, and the view exposes each |
 | «Satisfy» | `satisfy requirement 'satisfy R' : R;` in the satisfying usage's owner, one per client in its own owner's body, and the view exposes each |
 | «Verify» | `verify requirement 'verify R' : R;` in the test case's `objective`, which is named `objective` so the member can be qualified; one per pair, as for a «Satisfy» |
 | Include, Message | already named members: `include use case x : X;`, the interaction step `action x …` |

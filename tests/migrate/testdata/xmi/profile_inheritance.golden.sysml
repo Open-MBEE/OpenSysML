@@ -61,10 +61,6 @@ package System {
     occurrence def 'Foreign Thing' {
         @Tailoring::Foreign;
     }
-    dependency Spin to 'Speed Requirement' {
-        @ModelingMetadata::Refinement;
-        @Tailoring::'Detailed By';
-    }
     dependency 'Speed Requirement' to Gear {
         /* «Trace» */
         @Tailoring::'Linked To';
@@ -78,6 +74,12 @@ package System {
         end :>> source : Spin;
         end :>> target : Shaft;
         @Tailoring::'Assigned To';
+    }
+    action spin : Spin;
+    requirement 'speed Requirement' : 'Speed Requirement';
+    connection 'spin to speed Requirement' connect spin to 'speed Requirement' {
+        /* «Refine» */
+        @Tailoring::'Detailed By';
     }
     metadata MigrationMetadata::SynthesizedName about 'Spin to Shaft';
 }

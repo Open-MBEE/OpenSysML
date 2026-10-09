@@ -4,7 +4,7 @@
 ## unmapped (3)
 Extend	Use Cases::Leave Garage::<Extend>	_extLost	(the extended use case is not in the document; 1 extendedCase reference(s) resolve to nothing in the document (_lostCase))
 Include	Use Cases::Leave Garage::<Include>	_incLost	(the included use case is not in the document; 1 addition reference(s) resolve to nothing in the document (_lostCase))
-ExtensionPoint	Use Cases::Park Car::garage full	_epFull	(v2 has no extension points; an extending use case is written as a dependency on the extended one)
+ExtensionPoint	Use Cases::Park Car::garage full	_epFull	(v2 has no extension points; an extending use case is written as a connection to the extended one)
 
 ## approximated (12)
 Actor	Context::Attendant	_attendant	-> Context::Attendant	(a UML actor is written as a part def)
@@ -18,7 +18,7 @@ OpaqueAction	Use Cases::Park Car::Park Flow::Enter	_pfEnter	-> Enter	(the body i
 UseCase	Use Cases::Pay Fee	_pay	-> 'Use Cases'::'Pay Fee'	(v2 admits one subject per case, so the subject Context::Ticket is written as the reference usage ticket)
 Property	Use Cases::Settlement::<Property>	_ePayB	-> 'Use Cases'::'Pay Fee'::bank	(the end at the use case is the use case def the actor is declared in)
 Property	Use Cases::Valet Service::offer	_svcCase	-> 'Use Cases'::'Valet Service'::offer	(a property typed by a behavior is written as a reference use case usage)
-Extend	Use Cases::Wait For Space::<Extend>	_extFull	(v2 has no extend: the extension is written as a plain dependency on the extended use case; it applies at extension point(s) 'garage full' when {English} no bay is free, which only a comment keeps)
+Extend	Use Cases::Wait For Space::<Extend>	_extFull	-> 'Use Cases'::'wait For Space to park Car'	(v2 has no extend: the extension is written as a connection between usages of the extending use case and the extended use case; it applies at extension point(s) 'garage full' when {English} no bay is free, which only a comment keeps)
 
 ## mapped (29)
 Package	Context	_ctx	-> Context

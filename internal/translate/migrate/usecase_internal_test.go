@@ -90,13 +90,13 @@ func TestUseCaseForms(t *testing.T) {
 			 <packagedElement xmi:type="uml:UseCase" xmi:id="_ext2" name="Search">
 			   <extensionPoint xmi:type="uml:ExtensionPoint" xmi:id="_ep" name="found"/>
 			 </packagedElement>`, "",
-			[]string{"dependency Buy to Browse; /* extends at extension point(s) 'found' when true */",
+			[]string{"connection 'buy to browse' connect buy to browse; /* extends at extension point(s) 'found' when true */",
 				"not migrated: ExtensionPoint 'found'"}, "_ext", Approximated},
 		{"an extend keeps an extension point that is not in the document",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy">
 			   <extend xmi:type="uml:Extend" xmi:id="_ext" extension="_uc" extendedCase="_browse" extensionLocation="_gone"/>
 			 </packagedElement>`, "",
-			[]string{"dependency Buy to Browse; /* extends at extension point(s) _gone (not in the document) */"}, "_ext", Approximated},
+			[]string{"connection 'buy to browse' connect buy to browse; /* extends at extension point(s) _gone (not in the document) */"}, "_ext", Approximated},
 		{"a block property typed by a use case is a reference use case usage",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_c" name="Site">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="visit" type="_browse"/>

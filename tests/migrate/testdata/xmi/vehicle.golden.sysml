@@ -101,6 +101,10 @@ package 'Vehicle Design' {
         attribute :>> color = 'Vehicle Design'::'Value Types'::Color::blue;
     }
     action def Drive;
+    part driver : Driver;
+    part vehicle : Vehicle;
+    connection drives : Drives connect driver to vehicle;
+    action drive : Drive;
 }
 package RequirementsModel {
     requirement def <R1> 'Mass Requirement' {
@@ -120,9 +124,6 @@ package RequirementsModel {
         end #RequirementDerivation::derive derivedRequirement : 'Engine Mass Requirement';
     }
     /* not migrated: «Verify» Abstraction (_dep_verify_block) — a verify whose client is not a test case has no v2 form; applied stereotypes «Verify» */
-    dependency 'Vehicle Design'::Drive to 'Speed Requirement' {
-        @ModelingMetadata::Refinement;
-    }
     dependency 'Speed Requirement' to 'Vehicle Design'::Engine; /* «Trace» */
     allocation def 'Drive to Engine' {
         end :>> source : 'Vehicle Design'::Drive;
@@ -138,10 +139,12 @@ package RequirementsModel {
             verify requirement : 'Mass Requirement';
         }
     }
+    requirement 'speed Requirement' : 'Speed Requirement';
     metadata MigrationMetadata::SynthesizedName about 'Drive to Engine', 'Motor to Engine';
 }
 package 'Empty Package';
 metadata MigrationMetadata::LibraryNameAvoided about RequirementsModel { sourceName = "Requirements"; }
+connection 'drive to speed Requirement' connect 'Vehicle Design'::drive to RequirementsModel::'speed Requirement'; /* «Refine» */
 view 'Vehicle BDD' {
     render Views::asTextualNotation;
 }

@@ -219,7 +219,7 @@ func TestReportAccountsForEveryElement(t *testing.T) {
 		"_act_drive":        migrate.Mapped,
 		"_op_start":         migrate.Mapped,
 		"_unit_kg":          migrate.Unmapped,
-		"_dep_refine":       migrate.Mapped,
+		"_dep_refine":       migrate.Approximated,
 		"_dep_verify_block": migrate.Unmapped,
 		"_lib_sysml":        migrate.Skipped,
 		"_diag_bdd":         migrate.Approximated,
