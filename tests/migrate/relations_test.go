@@ -1627,3 +1627,52 @@ func TestItemFlowEndsMayBeThePartsOrBlocksOnTheConnector(t *testing.T) {
 		t.Errorf("migrated notation has errors: %v", diags)
 	}
 }
+
+// twinFlowModel joins two parts of one block at ports of one type, so a flow
+// from the block to the port type stands for either end; one from one port to
+// the other is told apart by the ends' roles.
+const twinFlowModel = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_fuel" name="Fuel"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_out_if" name="Outlet">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_out_fuel" name="fuel" type="_fuel"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_pump_out" name="outlet" type="_out_if" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_sys" name="System">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_l" name="left" type="_pump" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_r" name="right" type="_pump" aggregation="composite"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_conn">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e1" partWithPort="_l" role="_pump_out"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e2" partWithPort="_r" role="_pump_out"/>
+      </ownedConnector>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_conn2">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e3" partWithPort="_r" role="_pump_out"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e4" partWithPort="_l" role="_pump_out"/>
+      </ownedConnector>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if" informationSource="_pump" informationTarget="_out_if" conveyed="_fuel" realizingConnector="_conn"/>
+    <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if2" informationSource="_l" informationTarget="_r" conveyed="_fuel" realizingConnector="_conn2"/>`
+
+const twinFlowApplications = `
+  <sysml:Block xmi:id="_s1" base_Class="_sys"/>
+  <sysml:Block xmi:id="_s2" base_Class="_fuel"/>
+  <sysml:Block xmi:id="_s3" base_Class="_pump"/>
+  <sysml:InterfaceBlock xmi:id="_s5" base_Class="_out_if"/>
+  <sysml:FlowProperty xmi:id="_s7" base_Property="_out_fuel" direction="inout"/>
+  <sysml:ProxyPort xmi:id="_s9" base_Port="_pump_out"/>
+  <sysml:ItemFlow xmi:id="_s12" base_InformationFlow="_if"/>
+  <sysml:ItemFlow xmi:id="_s13" base_InformationFlow="_if2"/>`
+
+// An item flow whose source and target each stand for both ends of the
+// connector is not given the connector's end order as its direction: it is
+// left as a comment, while one the parts tell apart still follows them.
+func TestItemFlowWithEndsStandingForBothIsNotMigrated(t *testing.T) {
+	r := migrateDocument(t, twinFlowModel, twinFlowApplications)
+	wantNote(t, r, "_if", migrate.Unmapped, "each stand for both ends of realizing connector")
+	wantLine(t, r.Notation, "flow of Fuel from left.outlet.fuel to right.outlet.fuel;")
+	if es := entriesFor(r, "_if2"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
+		t.Errorf("entries for _if2 = %+v, want one mapped", es)
+	}
+	wantClean(t, "t.sysml", r)
+}

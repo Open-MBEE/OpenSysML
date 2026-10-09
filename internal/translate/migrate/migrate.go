@@ -3155,11 +3155,23 @@ func (m *migration) itemFlow(f, c *sysmlv1.Element, segs [][]*sysmlv1.Element, p
 	}
 	from, to := paths[0], paths[1]
 	owner := c.Parent
+	forward := m.endStandsFor(segs[0], owner, src) && m.endStandsFor(segs[1], owner, dst)
+	reverse := m.endStandsFor(segs[1], owner, src) && m.endStandsFor(segs[0], owner, dst)
+	ambiguous := forward && reverse
+	if ambiguous {
+		// Both ends stand for both; only the ends' own roles can still tell them apart.
+		ends := c.Owned("end")
+		forward = m.model.Ref(ends[0], "role") == src && m.model.Ref(ends[1], "role") == dst
+		reverse = m.model.Ref(ends[1], "role") == src && m.model.Ref(ends[0], "role") == dst
+	}
 	switch {
-	case m.endStandsFor(segs[0], owner, src) && m.endStandsFor(segs[1], owner, dst):
-	case m.endStandsFor(segs[1], owner, src) && m.endStandsFor(segs[0], owner, dst):
+	case forward && !reverse:
+	case reverse && !forward:
 		from, to = paths[1], paths[0]
 		segs = [][]*sysmlv1.Element{segs[1], segs[0]}
+	case ambiguous:
+		m.flowDone(f, nil, []string{"the item flow's source and target each stand for both ends of realizing connector " + describe(c) + ", so its direction cannot be told"})
+		return
 	default:
 		m.flowDone(f, nil, []string{"the item flow's source and target are not the ends of realizing connector " + describe(c) + ", nor the parts or blocks on its ends' paths"})
 		return

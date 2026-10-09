@@ -501,3 +501,35 @@ func TestToStateGraphTypedStateUsageSkipsInheritedViewsAndMetadata(t *testing.T)
 		}
 	}
 }
+
+// A parallel state definition's views and metadata are no regions, so a usage
+// typed by it still lowers to its regions.
+func TestToStateGraphTypedParallelStateUsageSkipsInheritedViewsAndMetadata(t *testing.T) {
+	graph := stateGraphOf(t, `
+		package test {
+			metadata def Note;
+			state def Inner parallel {
+				view V : StandardViewDefinitions::StateTransitionView { expose Inner; render Views::asInterconnectionDiagram; }
+				viewpoint P;
+				rendering R;
+				@Note;
+				state left { entry; then idle; state idle; }
+				state right { entry; then busy; state busy; }
+			}
+			state def Machine {
+				entry; then nested;
+				state nested : Inner;
+			}
+		}
+	`, "Machine")
+
+	nested := stateNamed(graph, "nested")
+	if nested == nil {
+		t.Fatal("typed parallel state usage was not collected")
+	}
+	for _, name := range []string{"idle", "busy"} {
+		if stateNamed(graph, name) == nil {
+			t.Fatalf("inherited region substate %s was not collected", name)
+		}
+	}
+}
