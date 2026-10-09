@@ -929,7 +929,7 @@ func buildNameTable(scopes []*symbols.Scope) *nameTable {
 	for _, scope := range scopes {
 		t.collect(scope)
 		for _, name := range scope.MemberNames() {
-			t.roots[name] = append(t.roots[name], symbols.PreferDeclared(scope.LookupLocalAll(name))...)
+			t.roots[name] = append(t.roots[name], declaredUnder(scope, name)...)
 		}
 	}
 	return t
@@ -940,11 +940,25 @@ func (t *nameTable) collect(scope *symbols.Scope) {
 		return
 	}
 	for _, name := range scope.MemberNames() {
-		t.byName[name] = append(t.byName[name], symbols.PreferDeclared(scope.LookupLocalAll(name))...)
+		t.byName[name] = append(t.byName[name], declaredUnder(scope, name)...)
 	}
 	for _, child := range scope.Children() {
 		t.collect(child)
 	}
+}
+
+// declaredUnder returns the declarations scope itself holds under name, each
+// once although a declaration whose short and primary names coincide is
+// registered under both.
+func declaredUnder(scope *symbols.Scope, name string) []*symbols.Symbol {
+	syms := symbols.PreferDeclared(scope.LookupLocalAll(name))
+	out := syms[:0:0]
+	for _, sym := range syms {
+		if !slices.Contains(out, sym) {
+			out = append(out, sym)
+		}
+	}
+	return out
 }
 
 // lookup returns every declaration of name in scope-tree order. The slice is

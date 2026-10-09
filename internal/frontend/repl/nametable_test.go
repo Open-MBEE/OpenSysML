@@ -199,6 +199,17 @@ func TestRootDeclarationWinsOverNestedNamesakes(t *testing.T) {
 	}
 }
 
+// A root declaration whose short name repeats its name is still one declaration,
+// so it is chosen over a nested namesake rather than counted twice.
+func TestRootDeclarationWithRepeatedShortNameWinsOverNestedNamesake(t *testing.T) {
+	s := NewSession()
+	s.Submit("package <P> P; package Outer { package P; }")
+	_, fqn, err := s.lookupSymbol("P")
+	if err != nil || fqn != "P" {
+		t.Errorf("P = %q, %v; want the root package", fqn, err)
+	}
+}
+
 // The root declaration a simple name resolves to is the document's own symbol,
 // the one expressions resolve to, not the index's copy of it.
 func TestRootDeclarationResolvesToTheDocumentSymbol(t *testing.T) {
