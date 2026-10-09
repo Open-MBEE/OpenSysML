@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"container/list"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -42,6 +43,15 @@ type lineage struct {
 	library  libs.Source       // the files the workspace's library was built from
 	held     map[string]string // document name to the content the workspace holds
 	versions int               // the version the next update is given
+	// answered is each document of the model last answered, with the stamp of its
+	// analysis; the next model shares its converted diagnostics when both are unchanged.
+	answered map[string]answeredDocument
+}
+
+// answeredDocument is one document of the model a lineage last answered.
+type answeredDocument struct {
+	doc   *CachedDocument
+	stamp uint64
 }
 
 // lineages holds the most recently used lineages, a few at most: a lineage
@@ -171,7 +181,7 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 		}
 	}
 	if len(standIns) > 0 {
-		l.fresh, l.standIns, l.ws, l.held = true, standIns, nil, nil
+		l.fresh, l.standIns, l.ws, l.held, l.answered = true, standIns, nil, nil, nil
 		return nil, false
 	}
 	names := make([]string, len(inputs))
@@ -199,22 +209,35 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 	documents := make([]*CachedDocument, len(inputs))
 	for i, input := range inputs {
 		doc := l.ws.Document(input.name)
-		documents[i] = &CachedDocument{
-			Root:        doc.AST,
-			Source:      detached.Source(input.name),
-			ParseDiags:  doc.ParseDiagnostics,
-			Diagnostics: diagnostics[i],
-			Warnings:    append([]string(nil), input.warnings...),
-		}
+		documents[i] = newCachedDocument(doc.AST, detached.Source(input.name), doc.ParseDiagnostics,
+			diagnostics[i], input.warnings)
 	}
 	stamps := make(map[string]uint64, len(names))
 	for _, name := range names {
 		stamps[name] = l.ws.AnalysisStamp(name)
 	}
+	l.shareConvertedDiagnostics(documents, stamps)
 	return &CachedModel{
 		Documents: documents, Index: detached.Index(), Library: l.library, Mode: mode,
 		analysis: &analysisSnapshot{workspace: l.ws, stamps: stamps, scoped: declaresIdentityScope(inputs)},
 	}, true
+}
+
+// shareConvertedDiagnostics hands a document the converted diagnostics answered under
+// its name before when stamp, source and warnings are unchanged, i.e. no edit reached it.
+func (l *lineage) shareConvertedDiagnostics(documents []*CachedDocument, stamps map[string]uint64) {
+	if l.answered == nil {
+		l.answered = make(map[string]answeredDocument, len(documents))
+	}
+	for _, doc := range documents {
+		name := doc.Source.Name()
+		stamp := stamps[name]
+		if last, ok := l.answered[name]; ok && stamp != 0 && last.stamp == stamp &&
+			last.doc.Source == doc.Source && slices.Equal(last.doc.Warnings, doc.Warnings) {
+			doc.proto = last.doc.proto
+		}
+		l.answered[name] = answeredDocument{doc: doc, stamp: stamp}
+	}
 }
 
 // analysisSnapshot is which analysis of each document a model was answered
