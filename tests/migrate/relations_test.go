@@ -1557,3 +1557,73 @@ func TestOpaqueExpressionsMayNameImportedMembers(t *testing.T) {
 	wantNote(t, r, "_gear", migrate.Approximated, "private visibility is not written: v2 lets nothing outside the package reach a private member")
 	wantClean(t, "imports.sysml", r)
 }
+
+// partFlowModel is a system whose item flow names the blocks typing the parts on
+// the realizing connector's ends, as Cameo writes a flow drawn between parts, and
+// a second connector from the system's own port whose flow names the system.
+const partFlowModel = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_fuel" name="Fuel"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_out_if" name="Outlet">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_out_fuel" name="fuelOut" type="_fuel"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_in_if" name="Inlet">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_in_fuel" name="fuelIn" type="_fuel"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_pump_out" name="outlet" type="_out_if" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_engine" name="Engine">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_engine_in" name="inlet" type="_in_if" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_sys" name="System">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_sys_in" name="supply" type="_in_if" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="pump" type="_pump" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_e" name="engine" type="_engine" aggregation="composite"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_conn">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e1" partWithPort="_e" role="_engine_in"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e2" partWithPort="_p" role="_pump_out"/>
+      </ownedConnector>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_conn2">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e3" partWithPort="_p" role="_pump_out"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e4" role="_sys_in"/>
+      </ownedConnector>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if" informationSource="_pump" informationTarget="_engine" conveyed="_fuel" realizingConnector="_conn"/>
+    <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if2" informationSource="_p" informationTarget="_sys" conveyed="_fuel" realizingConnector="_conn2"/>
+    <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if3" informationSource="_engine" informationTarget="_sys" conveyed="_fuel" realizingConnector="_conn2"/>`
+
+const partFlowApplications = `
+  <sysml:Block xmi:id="_s1" base_Class="_sys"/>
+  <sysml:Block xmi:id="_s2" base_Class="_fuel"/>
+  <sysml:Block xmi:id="_s3" base_Class="_pump"/>
+  <sysml:Block xmi:id="_s4" base_Class="_engine"/>
+  <sysml:InterfaceBlock xmi:id="_s5" base_Class="_out_if"/>
+  <sysml:InterfaceBlock xmi:id="_s6" base_Class="_in_if"/>
+  <sysml:FlowProperty xmi:id="_s7" base_Property="_out_fuel" direction="out"/>
+  <sysml:FlowProperty xmi:id="_s8" base_Property="_in_fuel" direction="in"/>
+  <sysml:ProxyPort xmi:id="_s9" base_Port="_pump_out"/>
+  <sysml:ProxyPort xmi:id="_s10" base_Port="_engine_in"/>
+  <sysml:ProxyPort xmi:id="_s11" base_Port="_sys_in"/>
+  <sysml:ItemFlow xmi:id="_s12" base_InformationFlow="_if"/>
+  <sysml:ItemFlow xmi:id="_s13" base_InformationFlow="_if2"/>
+  <sysml:ItemFlow xmi:id="_s14" base_InformationFlow="_if3"/>`
+
+// An item flow whose source and target are the parts on the realizing
+// connector's ends, the blocks typing them, or the connector's owner at its
+// own port, flows between the ports those ends name; one naming an element on
+// neither end is left as a comment.
+func TestItemFlowEndsMayBeThePartsOrBlocksOnTheConnector(t *testing.T) {
+	r := migrateDocument(t, partFlowModel, partFlowApplications)
+	wantLine(t, r.Notation, "flow of Fuel from pump.outlet.fuelOut to engine.inlet.fuelIn;")
+	wantLine(t, r.Notation, "flow of Fuel from pump.outlet.fuelOut to supply.fuelIn;")
+	for _, id := range []string{"_if", "_if2"} {
+		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
+			t.Errorf("entries for %s = %+v, want one mapped", id, es)
+		}
+	}
+	wantNote(t, r, "_if3", migrate.Unmapped, "the item flow's source and target are not the ends of realizing connector")
+	wantNote(t, r, "_if3", migrate.Unmapped, "nor the parts or blocks on its ends' paths")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("migrated notation has errors: %v", diags)
+	}
+}
