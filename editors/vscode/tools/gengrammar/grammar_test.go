@@ -170,3 +170,56 @@ func TestScopesAreQualifiedPerLanguage(t *testing.T) {
 		}
 	}
 }
+
+func TestCommittedSyntaxTableIsCurrent(t *testing.T) {
+	want, err := RenderSyntaxTable()
+	if err != nil {
+		t.Fatalf("RenderSyntaxTable() err = %v", err)
+	}
+	path := filepath.Join("..", "..", "..", "jupyterlab", SyntaxTableFile)
+	got, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("%s is stale; regenerate it with `make vscode-grammar`", path)
+	}
+}
+
+func TestSyntaxTableCoversEveryKeywordOnce(t *testing.T) {
+	table, err := syntaxTable()
+	if err != nil {
+		t.Fatalf("syntaxTable() err = %v", err)
+	}
+	seen := map[string]string{}
+	note := func(group string, words []string) {
+		for _, w := range words {
+			if prev, dup := seen[w]; dup {
+				t.Errorf("%q is in both %s and %s", w, prev, group)
+			}
+			seen[w] = group
+		}
+	}
+	for group, words := range table.Keywords {
+		note(group, words)
+	}
+	note("constants", table.Constants)
+	for _, kw := range source.Keywords() {
+		if _, ok := seen[kw]; !ok {
+			t.Errorf("keyword %q is missing from the syntax table", kw)
+		}
+	}
+	for kind, words := range table.Contextual {
+		for _, w := range words {
+			if group, reserved := seen[w]; reserved {
+				t.Errorf("contextual %s word %q is also in group %s", kind, w, group)
+			}
+		}
+	}
+	if len(table.Contextual["kerml"]) <= len(table.Contextual["sysml"]) {
+		t.Errorf("kerml contextual words %v should extend sysml's %v", table.Contextual["kerml"], table.Contextual["sysml"])
+	}
+	if len(table.Operators) == 0 || table.OperatorChars == "" {
+		t.Error("operator tables are empty")
+	}
+}

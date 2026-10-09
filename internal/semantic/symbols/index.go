@@ -81,6 +81,10 @@ type Index struct {
 	// This is deliberately not folded into contributions: that is an append-only
 	// slice per document, and a re-export has to be found by (FQN, symbol) to
 	// drop one document's claim, or purged across all documents at once.
+	//
+	// A claims map and the claims in it are never written once installed: a
+	// write installs a new map, so a registration noted before it (noteBefore)
+	// keeps reading what it read without copying.
 	reexportDocs *layer[reexportKey, map[string]*reexportClaim]
 	docReexports *layer[string, map[reexportKey]bool]
 
@@ -1221,14 +1225,10 @@ func filtersSubsume(a, b []ElementFilter) bool {
 // a name is a member of the importing namespace when any one of them admits it,
 // so an unfiltered import re-exports it whatever another route filters out.
 func (idx *Index) reexportGated(fqn string, sym *Symbol, doc string, private bool, gates [][]ElementFilter) {
-	claim := idx.reexport(fqn, sym, doc, private)
-	if claim == nil {
+	if !idx.reexport(fqn, sym) {
 		return // the namespace declares it; nothing was borrowed
 	}
-	widened := false
-	for _, gate := range gates {
-		widened = claim.record(gateRoute{private: private, filters: gate}) || widened
-	}
+	widened := idx.claimReexport(reexportKey{fqn: fqn, sym: sym}, doc, !private, gates)
 	if widened {
 		idx.changedName(fqn)
 	}
@@ -1244,14 +1244,15 @@ func (idx *Index) reexportGated(fqn string, sym *Symbol, doc string, private boo
 // beside it redundant, and re-expanding an importer records nothing new. Keeping
 // only the routes no other subsumes also bounds the set, which is what lets a
 // cycle of filtered imports settle. It reports whether the claim now admits more
-// than it did.
+// than it did. The routes are replaced, not written in place: a claim installed
+// in the index may share them (see claimReexport).
 func (c *reexportClaim) record(route gateRoute) bool {
 	for _, have := range c.routes {
 		if have.private == route.private && filtersSubsume(have.filters, route.filters) {
 			return false
 		}
 	}
-	kept := c.routes[:0]
+	kept := make([]gateRoute, 0, len(c.routes)+1)
 	for _, have := range c.routes {
 		if have.private != route.private || !filtersSubsume(route.filters, have.filters) {
 			kept = append(kept, have)
@@ -1333,58 +1334,80 @@ func nonZeroFilters(filters []ElementFilter) []ElementFilter {
 	return out
 }
 
-// reexport registers sym under fqn on doc's behalf and returns doc's writable
-// claim on it, or nil when the namespace declares sym there itself.
-func (idx *Index) reexport(fqn string, sym *Symbol, doc string, private bool) *reexportClaim {
+// reexport registers sym under fqn as a re-export and reports whether it is
+// one, which it is not when the namespace declares sym there itself.
+func (idx *Index) reexport(fqn string, sym *Symbol) bool {
 	if idx.hasFQN(fqn, sym) {
-		if !idx.reexported.at(fqn).has(sym) {
-			return nil // declared here, not borrowed
-		}
-	} else {
-		idx.link(fqn, sym) // claimReexport notes the gain
+		return idx.reexported.at(fqn).has(sym) // else declared here, not borrowed
 	}
-	return idx.claimReexport(reexportKey{fqn: fqn, sym: sym}, doc, !private)
+	idx.link(fqn, sym) // claimReexport notes the gain
+	return true
 }
 
 // claimReexport records that doc's wildcard import surfaces the re-export key,
-// publicly or not, and updates the marks a lookup reads. A name is exported when
-// any import that surfaced it was public, so a public claim clears the hidden
-// mark a private one left. It returns doc's writable claim.
-func (idx *Index) claimReexport(key reexportKey, doc string, public bool) *reexportClaim {
-	docs := idx.writableClaims(key)
-	claim, claimed := docs[doc]
-	if claimed && (claim.public || !public) {
-		return claim // nothing new
+// publicly or not and by the given routes, and updates the marks a lookup reads.
+// A name is exported when any import that surfaced it was public, so a public
+// claim clears the hidden mark a private one left. It reports whether the routes
+// now admit more than they did.
+//
+// The claims on key are replaced rather than written: the map and the claims in
+// it may be what a registration noted before this write reads (noteBefore).
+func (idx *Index) claimReexport(key reexportKey, doc string, public bool, gates [][]ElementFilter) bool {
+	idx.noteBefore(key.fqn)
+	docs := idx.reexportDocs.at(key)
+	have, claimed := docs[doc]
+	var claim reexportClaim
+	if claimed {
+		claim = *have
 	}
-	if !claimed {
-		claim = &reexportClaim{}
-		docs[doc] = claim
-	}
+	upgraded := !claimed || (public && !claim.public)
 	claim.public = claim.public || public
-	idx.changedName(key.fqn)
-	writableMap(idx.docReexports, doc)[key] = true
-	idx.applyReexportMarks(key, docs)
-	parent, _ := splitFQN(key.fqn)
-	idx.markGained(parent) // a public claim can un-hide it, which exports it onward
-	return claim
+	widened := false
+	for _, gate := range gates {
+		widened = claim.record(gateRoute{private: !public, filters: gate}) || widened
+	}
+	if !upgraded && !widened {
+		return false // nothing new
+	}
+	next := make(map[string]*reexportClaim, len(docs)+1)
+	for other, c := range docs {
+		next[other] = c
+	}
+	next[doc] = &claim
+	idx.reexportDocs.set(key, next)
+	if upgraded {
+		idx.changedName(key.fqn)
+		writableMap(idx.docReexports, doc)[key] = true
+		idx.applyReexportMarks(key, next)
+		parent, _ := splitFQN(key.fqn)
+		idx.markGained(parent) // a public claim can un-hide it, which exports it onward
+	}
+	return widened
 }
 
 // dropClaim forgets doc's claim on a re-export, deregistering the name once no
 // document surfaces it any more and re-hiding it when only private imports
-// remain.
+// remain. The surviving claims go into a new map (see claimReexport).
 func (idx *Index) dropClaim(key reexportKey, doc string) {
-	if _, claimed := idx.reexportDocs.at(key)[doc]; !claimed {
+	docs := idx.reexportDocs.at(key)
+	if _, claimed := docs[doc]; !claimed {
 		return
 	}
-	docs := idx.writableClaims(key)
-	delete(docs, doc) // the routes this document recorded go with its claim
+	idx.noteBefore(key.fqn)
 	idx.changedName(key.fqn)
-	if len(docs) == 0 {
+	if len(docs) == 1 {
 		idx.reexportDocs.del(key)
 		idx.deregister(key.fqn, key.sym)
 		return
 	}
-	idx.applyReexportMarks(key, docs)
+	kept := make(map[string]*reexportClaim, len(docs)-1)
+	for other, c := range docs {
+		if other != doc { // the routes this document recorded go with its claim
+			kept[other] = c
+		}
+	}
+	idx.reexportDocs.set(key, kept)
+	idx.applyReexportMarks(key, kept)
 	parent, _ := splitFQN(key.fqn)
 	idx.markLost(parent) // only private imports may remain, hiding it again
 }
@@ -1402,26 +1425,6 @@ func (idx *Index) purgeReexport(key reexportKey) {
 	}
 	idx.reexportDocs.del(key)
 	idx.deregister(key.fqn, key.sym)
-}
-
-// writableClaims returns the claims on key that this index may write to. A claim
-// the frozen base recorded is copied with them: recording a route on it would
-// otherwise change what every index over that base re-exports.
-func (idx *Index) writableClaims(key reexportKey) map[string]*reexportClaim {
-	idx.noteBefore(key.fqn)
-	if docs, owned := idx.reexportDocs.own[key]; owned {
-		idx.reexportDocs.gen.bump()
-		return docs
-	}
-	shared, _ := idx.reexportDocs.below(key)
-	docs := make(map[string]*reexportClaim, len(shared)+1)
-	for doc, claim := range shared {
-		copied := *claim
-		copied.routes = append([]gateRoute(nil), claim.routes...)
-		docs[doc] = &copied
-	}
-	idx.reexportDocs.set(key, docs)
-	return docs
 }
 
 // applyReexportMarks brings the reexported and hidden marks in line with docs,

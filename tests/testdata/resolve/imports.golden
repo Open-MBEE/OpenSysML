@@ -1,0 +1,2 @@
+6:17 Duplicate of imported member name 'Engine': ImportsA::Engine (import ImportsA::*), ImportsB::Engine (import ImportsB::*)
+13:35 Duplicate of imported member name 'vb': ImportsV::ImportsP::vb (import ImportsV::**), ImportsV::ImportsR::vb (import ImportsV::**)

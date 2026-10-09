@@ -352,6 +352,19 @@ beside it, or full, every port, labelled name : Type
 What \-render or \-render\-all draws over a requirement rendering's structure:
 verdicts runs the verification cases verifying each requirement and colours
 and labels it by their verdicts; default none, a purely structural drawing
+.SS Listing documents and views
+.TP
+.BR \-list " \fIwhat\fP"
+List the model's documents, views, diagrams (the graph\-shaped views),
+pseudo\-views or all of them, by the qualified names \-render\-document and
+\-render read: documents, views, diagrams, pseudo\-views or all
+.TP
+.BR \-list\-kind " \fIkinds\fP"
+Comma\-separated view kinds \-list views, diagrams or all keeps, as
+state,action
+.TP
+.BR \-list\-form " \fIform\fP"
+Form \-list writes: text (default), one aligned line per item, tsv or json
 .SS Rendering documents
 .TP
 .BR \-render\-document " \fIname\fP"
@@ -984,6 +997,35 @@ Mermaid, PlantUML and D2 lay the same members out themselves.
 \-render\-unplaced strip draws the unplaced members too, in rows in a strip
 below a DOT drawing. The same setting shapes the diagrams of
 \-render\-document and \-render\-documents.
+.SH LISTING DOCUMENTS AND VIEWS
+.RS 2
+.nf
+# the names \-render\-document reads
+sysml model.sysml \-list documents
+# the names \-render reads, with their kinds
+sysml model.sysml \-list views
+sysml model.sysml \-list diagrams \-list\-kind state,action
+sysml model.sysml \-list all \-list\-form json
+.fi
+.RE
+.PP
+\-list documents lists the document definitions the loaded model declares,
+\-list views its views with the rendering kind each states, a view whose kind
+this build does not produce marked unsupported with the reason, \-list
+diagrams the graph\-shaped views \(em tree, interconnection, state, action,
+case, mixed, sequence, requirement, definition and package, the kinds a
+document draws as a diagram \(em \-list pseudo\-views the pseudo\-views a
+document declaring no view is rendered through, and \-list all the documents
+followed by the views. Each name is the qualified name as the notation writes
+it, every segment quoted that needs it and a line break escaped as \en, so it
+is passed back unchanged to \-render\-document or \-render.
+.PP
+\-list\-kind keeps the views of the comma\-separated kinds it names.
+\-list\-form text (default) writes one aligned line per item; tsv writes a
+header record category, kind, supported, file, line, name and reason, then a
+record per item; json writes an array of objects with those fields, each
+omitted when empty. file is the path the declaration was loaded from and line
+its 1\-based line. A model declaring nothing to list writes nothing.
 .SH RENDERING A DOCUMENT
 .RS 2
 .nf

@@ -1863,10 +1863,9 @@ test("landing drag keeps right-angled routes at the captured Pilot obstruction",
   assert.ok(auto, "ELK should lay out the saved landing render");
 
   const bounds: Box = { x: -600, y: -900, width: 3000, height: 1800 };
-  // Pilot's port faces Flexo across sysml-toolkit, which sits between them.
+  // Pilot's port faces Flexo across OpenSysML, which sits between them.
   const positions: Record<string, RenderPoint> = {
-    opensysml: { x: 100, y: -700 },
-    toolkit: { x: 500, y: 200 },
+    opensysml: { x: 500, y: 200 },
     pilot: { x: -240, y: 80 },
     flexo: { x: 1331, y: 180 },
   };

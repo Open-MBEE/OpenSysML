@@ -422,7 +422,7 @@ func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGr
 			continue
 		}
 		check := func(value *Value) error {
-			return e.ctx.checkBodyDeclaration(feature.Scope, perf.describe(), feature.Name, value)
+			return e.ctx.checkBodyDeclarationAs(feature.Scope, perf.describe, feature.Name, value)
 		}
 		context := func(scope *symbols.Scope) *EvalContext {
 			return e.evalBindingContext(perf, scope, feature.Name, activation)
@@ -497,7 +497,7 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 		if feature.Binding {
 			cells := e.bodyCells(perf)
 			check := func(value *Value) error {
-				return e.ctx.checkBodyDeclaration(feature.Scope, perf.describe(), feature.Name, value)
+				return e.ctx.checkBodyDeclarationAs(feature.Scope, perf.describe, feature.Name, value)
 			}
 			name := perf.key(feature.Name)
 			cell := cells.existingCell(name)
@@ -514,7 +514,7 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 		} else {
 			value, err = ec.Eval(feature.Value)
 			if err == nil {
-				err = e.ctx.checkBodyDeclaration(feature.Scope, perf.describe(), feature.Name, &value)
+				err = e.ctx.checkBodyDeclarationAs(feature.Scope, perf.describe, feature.Name, &value)
 			}
 			if err == nil {
 				e.ctx.writeBodyValue(perf.cells, perf.data, perf.key(feature.Name), value)
@@ -894,7 +894,7 @@ func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast
 	if !pins.declares(pin) {
 		return fmt.Errorf("%w: %s declares no %s", ErrNodePin, nodeDescription(node), pin)
 	}
-	if err := e.ctx.checkNamedWrite(flow.Scopes[node], nodeDescription(node), pin, &value); err != nil {
+	if err := e.ctx.checkNamedWriteAs(flow.Scopes[node], func() string { return nodeDescription(node) }, pin, &value); err != nil {
 		return err
 	}
 	f.queue(node, canonical(pins.aliases, pin), value)
@@ -952,7 +952,7 @@ func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Nod
 	if !pins.declares(pin) {
 		return fmt.Errorf("%w: %s declares no %s", ErrNodePin, nodeDescription(node), pin)
 	}
-	return e.ctx.checkNamedWrite(flow.Scopes[node], nodeDescription(node), pin, value)
+	return e.ctx.checkNamedWriteAs(flow.Scopes[node], func() string { return nodeDescription(node) }, pin, value)
 }
 
 // takeDeliveries moves the oldest delivery at each pin of node into perf, so that
@@ -1035,7 +1035,7 @@ func (e *performances) setFrameFeature(f *actionFrame, name string, value Value)
 		e.noteFrameWrite(f, name, value)
 		return nil
 	}
-	if err := e.ctx.checkNamedWrite(f.scope, f.describe(), name, &value); err != nil {
+	if err := e.ctx.checkNamedWriteAs(f.scope, f.describe, name, &value); err != nil {
 		return err
 	}
 	e.ctx.writeBodyValue(f.cells, f.data, f.key(name), value)
@@ -1101,7 +1101,7 @@ func (e *performances) streamFlow(
 		if !pins.declares(flow.TargetPin) {
 			return fmt.Errorf("%s: %w: %s declares no %s", flowDescription(flow), ErrNodePin, nodeDescription(flow.Target), flow.TargetPin)
 		}
-		if err := e.ctx.checkNamedWrite(graph.Scopes[flow.Target], nodeDescription(flow.Target), flow.TargetPin, &value); err != nil {
+		if err := e.ctx.checkNamedWriteAs(graph.Scopes[flow.Target], func() string { return nodeDescription(flow.Target) }, flow.TargetPin, &value); err != nil {
 			return fmt.Errorf("%s: %w", flowDescription(flow), err)
 		}
 		pin := canonical(pins.aliases, flow.TargetPin)

@@ -639,11 +639,11 @@ func (e *StateExecutor) assignAttribute(name string, value Value) error {
 	} else {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
-		where := "state machine " + symbolText(e.stateMachine)
-		if err := e.ctx.checkMutable(e.graph.Scope, func() string { return where + ": assignment to " + name }, name); err != nil {
+		where := func() string { return "state machine " + symbolText(e.stateMachine) }
+		if err := e.ctx.checkMutable(e.graph.Scope, func() string { return where() + ": assignment to " + name }, name); err != nil {
 			return err
 		}
-		if err := e.ctx.checkNamedWrite(e.graph.Scope, where, name, &value); err != nil {
+		if err := e.ctx.checkNamedWriteAs(e.graph.Scope, where, name, &value); err != nil {
 			return err
 		}
 	}

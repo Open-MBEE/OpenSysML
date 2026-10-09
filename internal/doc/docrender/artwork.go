@@ -137,7 +137,7 @@ func Diagrams(document *docir.Document, opts DiagramOptions) ([]Diagram, error) 
 			if rendering.Kind.Tabular() {
 				continue
 			}
-			if !rendering.Kind.Supported() {
+			if !rendering.Kind.GraphShaped() {
 				return &Error{Kind: ErrorUnrenderableDiagram, Content: node.Name(), Actual: string(rendering.Kind)}
 			}
 			form, fallback := opts.formFor(rendering)

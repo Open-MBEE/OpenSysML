@@ -24,11 +24,18 @@ func libraryDiagsOf(root *ast.RootNamespace) []diag.Diagnostic {
 	idx.ExpandWildcardImports()
 	var out []diag.Diagnostic
 	for _, d := range Analyze("<t>", root, nil, idx) {
-		if d.Source == "type" || d.Source == "name-resolution" {
+		if (d.Source == "type" || d.Source == "name-resolution") && !importedNameConflict(d) {
 			out = append(out, d)
 		}
 	}
 	return out
+}
+
+// importedNameConflict is the warning an overload set written as two imported
+// packages earns for its indistinguishable memberships; these suites test the
+// selection among the overloads, and distinguishability has tests of its own.
+func importedNameConflict(d diag.Diagnostic) bool {
+	return d.Code == "name-conflict" && strings.HasPrefix(d.Message, "Duplicate of imported member name")
 }
 
 func wantLibraryClean(t *testing.T, src string) {

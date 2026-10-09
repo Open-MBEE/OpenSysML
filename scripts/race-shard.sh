@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Prints the root-module package paths assigned to one race-test shard.
-# Usage: scripts/race-shard.sh runtime|model|export|rest
+# Usage: scripts/race-shard.sh runtime|runtime-corpus|model|export|rest
+# runtime and runtime-corpus are one package, split by test name in make test-shard.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 if [[ $# -ne 1 ]]; then
-  echo "usage: scripts/race-shard.sh runtime|model|export|rest" >&2
+  echo "usage: scripts/race-shard.sh runtime|runtime-corpus|model|export|rest" >&2
   exit 2
 fi
 
@@ -24,9 +25,9 @@ wasm="$module/tests/wasm"
 named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$passes" "$wasm")
 
 case "$shard" in
-  runtime|model|export|rest) ;;
+  runtime|runtime-corpus|model|export|rest) ;;
   *)
-    echo "usage: scripts/race-shard.sh runtime|model|export|rest" >&2
+    echo "usage: scripts/race-shard.sh runtime|runtime-corpus|model|export|rest" >&2
     exit 2
     ;;
 esac
@@ -40,7 +41,7 @@ for package in "${named_packages[@]}"; do
 done
 
 case "$shard" in
-  runtime)
+  runtime|runtime-corpus)
     printf '%s\n' "$runtime"
     ;;
   model)

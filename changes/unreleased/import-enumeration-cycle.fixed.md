@@ -1,0 +1,1 @@
+- Enumerating the members an import surfaces — completion through a wildcard import, an `expose`, the imported-name check — visited every simple path through a cycle of packages publicly re-importing one another, so six mutually importing packages did not finish; each import edge is now enumerated once per enumeration, as a lookup already searched it once.
