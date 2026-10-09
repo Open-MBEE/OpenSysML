@@ -947,9 +947,8 @@ func (t *nameTable) collect(scope *symbols.Scope) {
 	}
 }
 
-// declaredUnder returns the declarations scope itself holds under name, each
-// once although a declaration whose short and primary names coincide is
-// registered under both.
+// declaredUnder returns the declarations scope itself holds under name, each once
+// although one whose short and primary names coincide is registered under both.
 func declaredUnder(scope *symbols.Scope, name string) []*symbols.Symbol {
 	syms := symbols.PreferDeclared(scope.LookupLocalAll(name))
 	out := syms[:0:0]
