@@ -124,6 +124,41 @@ whatever it holds; it is `jupyter console` that asks the kernel whether the inpu
 complete, and there <kbd>Enter</kbd> on an unfinished declaration (an unclosed brace) reads
 another line rather than running it.
 
+## Drawing an element
+
+`%viz` draws any named element on demand, with no view declared, in the grammar of the OMG
+pilot kernel's `%viz`, so a notebook written for the pilot runs unchanged:
+
+```
+%viz [--view=<VIEW>] [--style=<STYLE>...] [<form>] <NAME> [<NAME>...]
+```
+
+```
+%viz Vehicles::Car
+%viz --view Tree --style LR --style ortholine Vehicles::Car Vehicles::Wheel
+%viz --view STATE Vehicles::Lamp
+```
+
+`VIEW` is `DEFAULT`, `TREE`, `INTERCONNECTION`, `STATE`, `ACTION`, `SEQUENCE`, `MIXED` or `CASE`,
+in any letter case. `DEFAULT` — the view when `--view` is absent — chooses the rendering from what
+the names resolve to: a state def or usage draws a state diagram, an action def or usage an action
+diagram, a case def or usage a case diagram, a part or other structural usage holding a
+connection, binding or flow an interconnection diagram, and a definition, a package or a usage
+with nothing to connect a tree; names calling for different diagrams draw a mixed one. Several
+names draw in one diagram. Names resolve as `%render`'s do: qualified, or simple and in scope.
+
+Each `--style` is a direction (`TB`, `LR`, `RL`, `BT`), a drawing style (`pilot`, `cameo`), a
+palette (`okabe-ito`, `viridis`, …) or a port display (`minimal`, `full`). The pilot's other
+styles (`ORTHOLINE`, `POLYLINE`, `COMPTREE`, `SHOWINHERITED`, …) are accepted and noted in the
+diagram as not drawn, so a pilot notebook runs and nothing is dropped silently; `PUMLCODE` asks for
+the PlantUML source, as it does in the pilot. An unknown view or style is refused with the list.
+
+With no form named, a cell shows the diagram — as Mermaid, and as an SVG drawn from DOT when
+Graphviz is installed. A form (`text`, `mermaid`, `dot`, `plantuml`, `d2`) shows that form, as
+`%render` does. `%viz` is the pilot's spelling of a pseudo-view: `%viz --view STATE P::Lamp` draws
+what `%render #state:P::Lamp mermaid` writes, and `%viz P::Car P::Lamp` what a view exposing both
+would render. At the `sysml` prompt the same command prints the text rendering.
+
 ## Rich output
 
 Output that has a richer form than text is sent in that form beside the text, and the
@@ -131,6 +166,8 @@ front end shows the richest it can:
 
 | Command | Shown as |
 |---|---|
+| `%viz <name> [<name>...]` | The diagram: a Mermaid diagram, and an SVG drawing when Graphviz is installed |
+| `%viz <form> <name>` | What `%render <view> <form>` shows |
 | `%render <view> mermaid` | A Mermaid diagram (JupyterLab 4.1 and later draw it) |
 | `%render <view> dot` | An SVG drawing when Graphviz is installed; otherwise the DOT source |
 | `%render <view> markdown` | Rendered Markdown |

@@ -623,6 +623,12 @@ render the named element directly (`-render '#interconnection:Plant::Loop'`, quo
 Only kinds registered as pseudo-views are offered; a filter-dependent `GeneralView` graph remains
 available through its declared view.
 
+At the `sysml` prompt and in the Jupyter kernel, `%viz` is the OMG pilot kernel's spelling of the
+same rendering: `%viz [--view=<VIEW>] [--style=<STYLE>...] [<form>] <name> [<name>...]` draws
+several named elements in one diagram, `--view` naming the kind (`TREE`, `INTERCONNECTION`,
+`STATE`, `ACTION`, `SEQUENCE`, `MIXED`, `CASE`) or `DEFAULT` choosing it from what the names
+resolve to; see the [REPL commands reference](repl-commands.md).
+
 A matrix's rows are relationship sources, its columns are targets, and each cell lists its
 relationship keywords in the order `satisfy`, `verify`, `allocate`, `connect`, `derive`, `refine`,
 `dependency`. It supports text, Markdown, CSV and TSV. Mermaid, DOT, PlantUML and D2 are refused as

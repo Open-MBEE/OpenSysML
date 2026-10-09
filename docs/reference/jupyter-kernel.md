@@ -144,6 +144,8 @@ Output with a richer form than plain text is a `display_data` carrying that form
 
 | Output | MIME types |
 |---|---|
+| `%viz [--view=<VIEW>] [--style=<STYLE>...] <name> [<name>...]` | `text/vnd.mermaid`, and `text/vnd.graphviz` where the rendering kind has a DOT form, with `image/svg+xml` when a Graphviz `dot` is on the kernel's `PATH` |
+| `%viz [--view=<VIEW>] [--style=<STYLE>...] <form> <name> [<name>...]` | What `%render <view> <form>` carries |
 | `%render <view> mermaid` | `text/vnd.mermaid` |
 | `%render <view> dot` | `text/vnd.graphviz`, and `image/svg+xml` when a Graphviz `dot` is on the kernel's `PATH` |
 | `%render <view> markdown` | `text/markdown` |
