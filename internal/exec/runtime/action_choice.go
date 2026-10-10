@@ -284,8 +284,11 @@ func (e *ActionExecutor) messageAccept(t Token) (lower.Accept, bool) {
 func (e *ActionExecutor) stepTokenNoting(i int, order *stepOrder) (acted bool, err error) {
 	before := e.tokens[i]
 	count := len(e.tokens)
+	// A synchronization consuming a sibling mints the token that moves: the
+	// count is unchanged and the tried token stays, yet its step acted.
+	ids := e.nextTokenID
 	err = e.stepToken(i)
-	acted = err != nil || e.tokenActed(before, count)
+	acted = err != nil || e.tokenActed(before, count) || e.nextTokenID != ids
 	if order.eligible(before) && (acted || order.offered[before.ID]) {
 		order.acted = append(order.acted, before)
 	}

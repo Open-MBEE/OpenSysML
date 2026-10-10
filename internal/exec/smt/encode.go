@@ -851,9 +851,14 @@ func (e *Encoding) actsAt(prev *State, choice *solve.Term) []*solve.Term {
 	for n := range f.Nodes {
 		var cases []*solve.Term
 		for t, slot := range prev.Slots {
-			cases = append(cases, and(
+			at := and(
 				eq(choice, solve.ValueTerm(e.Sorts.Choice, slotLabel(t))),
-				eq(solve.VarTerm(slot.At), nodeValue(e.Sorts, f, n))))
+				eq(solve.VarTerm(slot.At), nodeValue(e.Sorts, f, n)))
+			if f.Repeats[f.Nodes[n]] > 1 {
+				// A token pending its split makes the siblings; the body performs no move.
+				at = and(at, not(eq(solve.VarTerm(slot.Via), solve.ValueTerm(e.Sorts.Edge, Pending))))
+			}
+			cases = append(cases, at)
 		}
 		acts[n] = or(cases...)
 	}
@@ -984,12 +989,19 @@ type tokenStep struct {
 	// actorID is the acting token's identifier, fresh after a synchronization;
 	// base is the next identifier to give out after it.
 	actorID, base *solve.Term
-	consumed      []*solve.Term
-	free          []*solve.Term
-	placed        []*solve.Term
-	terms         []*solve.Term
-	nextID        *solve.Term
-	fails, full   *solve.Term
+	// gate is the condition under which the acting token may take a succession:
+	// false while sibling performances of a repeated step are still at it, so
+	// every token but the last retires behind the barrier.
+	gate *solve.Term
+	// pending holds when the acting token sits at a repeated step whose split
+	// it must still take, so the move makes the siblings rather than performs.
+	pending     *solve.Term
+	consumed    []*solve.Term
+	free        []*solve.Term
+	placed      []*solve.Term
+	terms       []*solve.Term
+	nextID      *solve.Term
+	fails, full *solve.Term
 }
 
 // tokens moves the token in slot t at node n (synchronization, then succession); the
@@ -997,9 +1009,11 @@ type tokenStep struct {
 func (e *Encoding) tokens(t, n int, node ast.Node, prev, next *State, m *Move, guards outgoingGuards) (step, fails, full *solve.Term) {
 	s := &tokenStep{
 		e: e, t: t, n: n, node: node, out: e.Flow.Outgoing[node], prev: prev, next: next, guards: guards,
-		travel: solve.VarTerm(m.Travel),
-		noEdge: solve.ValueTerm(e.Sorts.Edge, NoEdge),
-		absent: solve.ValueTerm(e.Sorts.Node, Absent),
+		travel:  solve.VarTerm(m.Travel),
+		noEdge:  solve.ValueTerm(e.Sorts.Edge, NoEdge),
+		absent:  solve.ValueTerm(e.Sorts.Node, Absent),
+		gate:    solve.BoolTerm(true),
+		pending: solve.BoolTerm(false),
 	}
 	s.synchronize()
 	s.nextID = s.base
@@ -1011,6 +1025,24 @@ func (e *Encoding) tokens(t, n int, node ast.Node, prev, next *State, m *Move, g
 	case *ast.DecisionNode:
 		s.decide()
 	default:
+		if count := e.Flow.Repeats[node]; count > 1 {
+			s.pending = eq(solve.VarTerm(prev.Slots[s.t].Via), solve.ValueTerm(e.Sorts.Edge, Pending))
+			s.split(count)
+			if e.Flow.Crosses[node] {
+				s.gate = not(s.pending)
+			} else {
+				// A barrier: the token performs, then retires while sibling
+				// performances are still at the step; the last succeeds.
+				var siblings []*solve.Term
+				for u, other := range prev.Slots {
+					if u == t {
+						continue
+					}
+					siblings = append(siblings, eq(solve.VarTerm(other.At), nodeValue(e.Sorts, e.Flow, n)))
+				}
+				s.gate = and(not(s.pending), not(or(siblings...)))
+			}
+		}
 		if e.Flow.fansOut(node) {
 			s.fork(true)
 		} else {
@@ -1077,16 +1109,25 @@ func (s *tokenStep) retire() *solve.Term {
 		eq(s.travel, s.noEdge))
 }
 
-// take says the acting token travels its p-th succession.
-func (s *tokenStep) take(p int) *solve.Term {
+// land places a token on slot at the p-th succession's target: pending when
+// the target repeats, since the interpreter's splitRepeatedStep spends the
+// token's own next move minting its siblings rather than minting them here.
+func (s *tokenStep) land(slot Slot, p int, id *solve.Term, travels bool) *solve.Term {
 	e, f := s.e, s.e.Flow
 	edge := f.Edges[s.out[p]]
-	after := s.next.Slots[s.t]
-	return and(
-		eq(solve.VarTerm(after.At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
-		eq(solve.VarTerm(after.Via), edgeValue(e.Sorts, f, s.out[p])),
-		eq(solve.VarTerm(after.ID), s.actorID),
-		eq(s.travel, edgeValue(e.Sorts, f, s.out[p])))
+	via := edgeValue(e.Sorts, f, s.out[p])
+	if f.Repeats[edge.Target] > 1 {
+		via = solve.ValueTerm(e.Sorts.Edge, Pending)
+	}
+	terms := []*solve.Term{
+		eq(solve.VarTerm(slot.At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
+		eq(solve.VarTerm(slot.Via), via),
+		eq(solve.VarTerm(slot.ID), id),
+	}
+	if travels {
+		terms = append(terms, eq(s.travel, edgeValue(e.Sorts, f, s.out[p])))
+	}
+	return and(terms...)
 }
 
 // stay says the acting token stays where it is.
@@ -1099,10 +1140,12 @@ func (s *tokenStep) stay() *solve.Term {
 		eq(s.travel, s.noEdge))
 }
 
-// fork gives each enabled succession a fresh token, in order: the first in the
-// actor's slot, the rest in the free slots in order. keepsOne moves a lone token on.
+// fork gives each enabled succession one fresh token, in order: the first in
+// the actor's slot, the rest in the free slots, as the interpreter's
+// stepForkNode does; a repeated target's split follows on the token's own move.
+// keepsOne moves a lone token on.
 func (s *tokenStep) fork(keepsOne bool) {
-	e, f, out, prev, next := s.e, s.e.Flow, s.out, s.prev, s.next
+	f, out, next := s.e.Flow, s.out, s.next
 	guards := s.guards.holds
 	rank := make([]*solve.Term, len(out))
 	count := solve.IntTerm(0)
@@ -1118,44 +1161,32 @@ func (s *tokenStep) fork(keepsOne bool) {
 	}
 	var actor []*solve.Term
 	for p := range out {
-		edge := f.Edges[out[p]]
-		isFirst := and(guards[p], eq(rank[p], solve.IntTerm(0)))
-		actor = append(actor, implies(isFirst, and(
-			eq(solve.VarTerm(next.Slots[s.t].At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
-			eq(solve.VarTerm(next.Slots[s.t].Via), edgeValue(e.Sorts, f, out[p])),
-			eq(solve.VarTerm(next.Slots[s.t].ID), ite(moves, s.actorID, s.base)),
-			eq(s.travel, edgeValue(e.Sorts, f, out[p])))))
+		isFirst := and(s.gate, guards[p], eq(rank[p], solve.IntTerm(0)))
+		actor = append(actor, implies(isFirst, s.land(next.Slots[s.t], p, ite(moves, s.actorID, s.base), true)))
 	}
-	s.terms = append(s.terms, implies(none, s.retire()), implies(not(none), and(actor...)))
-	freeRank := make([]*solve.Term, len(prev.Slots))
-	running := solve.IntTerm(0)
-	for u := range prev.Slots {
-		freeRank[u] = running
-		if u != s.t {
-			running = add(running, ite(s.free[u], solve.IntTerm(1), solve.IntTerm(0)))
-		}
-	}
-	for u := range prev.Slots {
+	s.terms = append(s.terms,
+		implies(and(s.gate, none), s.retire()),
+		implies(and(not(s.pending), not(s.gate)), s.retire()),
+		implies(not(none), and(actor...)))
+	ranks, running := s.freeRanks()
+	for u := range s.prev.Slots {
 		if u == s.t {
 			continue
 		}
+		after := next.Slots[u]
 		var here []*solve.Term
 		for p := range out {
-			edge := f.Edges[out[p]]
-			takes := and(guards[p], ge(rank[p], solve.IntTerm(1)),
-				eq(freeRank[u], sub(rank[p], solve.IntTerm(1))))
+			takes := and(s.gate, guards[p], ge(rank[p], solve.IntTerm(1)),
+				eq(ranks[u], sub(rank[p], solve.IntTerm(1))))
 			here = append(here, takes)
-			s.terms = append(s.terms, implies(and(s.free[u], takes), and(
-				eq(solve.VarTerm(next.Slots[u].At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
-				eq(solve.VarTerm(next.Slots[u].Via), edgeValue(e.Sorts, f, out[p])),
-				eq(solve.VarTerm(next.Slots[u].ID), add(s.base, rank[p])))))
+			s.terms = append(s.terms, implies(and(s.free[u], takes), s.land(after, p, add(s.base, rank[p]), false)))
 		}
-		s.placed[u] = and(s.free[u], or(here...))
+		s.placed[u] = or(s.placed[u], and(s.free[u], or(here...)))
 	}
-	s.nextID = ite(moves, s.base, add(s.base, count))
-	s.fails = or(undefinedGuards(s.guards.defined)...)
-	if f.Cyclic {
-		s.full = gt(count, add(running, solve.IntTerm(1)))
+	s.nextID = add(s.nextID, ite(and(s.gate, not(moves)), count, solve.IntTerm(0)))
+	s.fails = and(not(s.pending), or(undefinedGuards(s.guards.defined)...))
+	if f.Cyclic || f.Repeated {
+		s.full = and(s.gate, gt(count, add(running, solve.IntTerm(1))))
 	}
 }
 
@@ -1184,15 +1215,16 @@ func (s *tokenStep) decide() {
 		if f.Edges[out[p]].Guard == nil {
 			continue
 		}
+		picked := and(anyHolds, eq(s.travel, edgeValue(e.Sorts, f, out[p])))
 		branches = append(branches, and(eq(s.travel, edgeValue(e.Sorts, f, out[p])), holds[q]))
-		s.terms = append(s.terms, implies(and(anyHolds, eq(s.travel, edgeValue(e.Sorts, f, out[p]))), s.take(p)))
+		s.terms = append(s.terms, implies(picked, s.arrive(p, picked)))
 		q++
 	}
 	if len(branches) > 0 {
 		s.terms = append(s.terms, implies(anyHolds, or(branches...)))
 	}
 	if unguarded >= 0 {
-		s.terms = append(s.terms, implies(not(anyHolds), s.take(unguarded)))
+		s.terms = append(s.terms, implies(not(anyHolds), s.arrive(unguarded, not(anyHolds))))
 	} else {
 		s.terms = append(s.terms, implies(not(anyHolds), s.stay()))
 		undefined = append(undefined, not(anyHolds))
@@ -1200,18 +1232,90 @@ func (s *tokenStep) decide() {
 	s.fails = or(undefined...)
 }
 
-// succeed takes the node's one succession where its guard holds and retires the
-// token otherwise; a node with several fans out instead.
+// succeed takes the one enabled succession; none retires the token; several
+// out of a node other than the initial one is an error. A false guard on a
+// succession into a repeated step fails, as the interpreter reports it.
 func (s *tokenStep) succeed() {
+	f := s.e.Flow
+	guards := s.guards.holds
+	_, initial := s.node.(*ast.InitialNode)
+	count := solve.IntTerm(0)
 	taken := solve.BoolTerm(false)
 	for p := range s.out {
-		s.terms = append(s.terms, implies(s.guards.holds[p], s.take(p)))
-		taken = s.guards.holds[p]
+		isFirst := and(s.gate, guards[p], not(taken))
+		s.terms = append(s.terms, implies(isFirst, s.arrive(p, isFirst)))
+		taken = or(taken, isFirst)
+		count = add(count, ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
 	}
-	s.terms = append(s.terms, implies(not(taken), s.retire()))
-	if failures := undefinedGuards(s.guards.defined); len(failures) > 0 {
-		s.fails = or(failures...)
+	s.terms = append(s.terms, implies(and(not(s.pending), not(taken)), s.retire()))
+	failures := undefinedGuards(s.guards.defined)
+	if !initial && len(s.out) > 1 {
+		failures = append(failures, gt(count, solve.IntTerm(1)))
 	}
+	for p := range s.out {
+		edge := f.Edges[s.out[p]]
+		if edge.Guard != nil && edge.TargetMultiplicity != nil && f.Repeats[edge.Target] > 1 {
+			failures = append(failures, and(s.guards.defined[p], not(guards[p])))
+		}
+	}
+	if len(failures) > 0 {
+		s.fails = and(not(s.pending), or(failures...))
+	}
+}
+
+// freeRanks numbers the slots free after the acting token's consumption: rank 0
+// is the first free slot, and total how many there are.
+func (s *tokenStep) freeRanks() (ranks []*solve.Term, total *solve.Term) {
+	ranks = make([]*solve.Term, len(s.prev.Slots))
+	total = solve.IntTerm(0)
+	for u := range s.prev.Slots {
+		ranks[u] = total
+		if u != s.t {
+			total = add(total, ite(s.free[u], solve.IntTerm(1), solve.IntTerm(0)))
+		}
+	}
+	return ranks, total
+}
+
+// arrive takes the acting token's p-th succession into its target. Into a step
+// performed n times the token lands pending its split: the interpreter's
+// splitRepeatedStep spends the step after arrival minting the siblings, so the
+// encoding places them on the token's next move, marked by the Pending edge.
+func (s *tokenStep) arrive(p int, taken *solve.Term) *solve.Term {
+	return s.land(s.next.Slots[s.t], p, s.actorID, true)
+}
+
+// split is the move a token pending at a count-repeated step takes: it stays,
+// minting the count-1 sibling tokens the interpreter's splitRepeatedStep does,
+// in the free slots. Every sibling performs on a later move.
+func (s *tokenStep) split(count int64) {
+	e, f := s.e, s.e.Flow
+	target := nodeValue(e.Sorts, f, s.n)
+	s.terms = append(s.terms, implies(s.pending, and(
+		eq(solve.VarTerm(s.next.Slots[s.t].At), target),
+		eq(solve.VarTerm(s.next.Slots[s.t].Via), s.noEdge),
+		eq(solve.VarTerm(s.next.Slots[s.t].ID), s.actorID),
+		eq(s.travel, s.noEdge))))
+	extra := count - 1
+	ranks, total := s.freeRanks()
+	for u := range s.prev.Slots {
+		if u == s.t {
+			continue
+		}
+		after := s.next.Slots[u]
+		var hits []*solve.Term
+		for r := int64(0); r < extra; r++ {
+			hit := and(s.pending, s.free[u], eq(ranks[u], solve.IntTerm(r)))
+			hits = append(hits, hit)
+			s.terms = append(s.terms, implies(hit, and(
+				eq(solve.VarTerm(after.At), target),
+				eq(solve.VarTerm(after.Via), s.noEdge),
+				eq(solve.VarTerm(after.ID), add(s.base, solve.IntTerm(r))))))
+		}
+		s.placed[u] = or(s.placed[u], or(hits...))
+	}
+	s.nextID = add(s.nextID, ite(s.pending, solve.IntTerm(extra), solve.IntTerm(0)))
+	s.full = and(s.pending, gt(solve.IntTerm(extra), total))
 }
 
 // others ties the other slots: consumed ones are freed, the rest are as they
@@ -1250,6 +1354,11 @@ func undefinedGuards(defined []*solve.Term) []*solve.Term {
 func (e *Encoding) perform(i, n int, node ast.Node, prev *State) (*nodeEffect, error) {
 	effect := &nodeEffect{env: e.environment(prev), loops: make(map[int]*solve.Term), staged: make(map[string]*solve.Term)}
 	where := fmt.Sprintf("%d.%s", i, e.Flow.Labels[n])
+	if count, repeated := e.Flow.Repeats[node]; repeated && count == 0 {
+		// A step performed zero times passes its token on; nothing performs.
+		effect.guards = effect.env.clone()
+		return effect, nil
+	}
 	if err := e.begin(effect, node, where); err != nil {
 		return nil, err
 	}
