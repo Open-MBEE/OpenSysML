@@ -98,6 +98,10 @@
         "pssm": 0,
         "fixtures": 1
       },
+      "uml:Actor": {
+        "pssm": 0,
+        "fixtures": 8
+      },
       "uml:AddStructuralFeatureValueAction": {
         "pssm": 525,
         "fixtures": 18
@@ -21069,7 +21073,7 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "faithful",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/usecase.go:actorLink",
         "internal/translate/migrate/classify.go:classifyClass"
@@ -21077,8 +21081,10 @@
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "",
-      "scope": []
+      "reason": "an actor is written as a part usage, not a part def: the actor lines of a use case diagram are connections, which join usages",
+      "scope": [
+        "uml:Actor"
+      ]
     },
     {
       "name": "IncludeFeatureTyping_Mapping",
@@ -21145,16 +21151,18 @@
         "type"
       ],
       "ocl": "sha256:719917ab2ec0a4e8566e0084ac378f0182dd8f3ed98522ab6c780ed6a5001349",
-      "status": "faithful",
+      "status": "approximate",
       "implementation": [
-        "internal/translate/migrate/usecase.go:actorLink",
+        "internal/translate/migrate/usecase.go:connectActor",
         "internal/translate/migrate/classify.go:classifyClass"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "",
-      "scope": []
+      "reason": "the use case owns no actor member: the association is written as a connection between the actor's part usage and the use case usage",
+      "scope": [
+        "uml:Actor"
+      ]
     },
     {
       "name": "UseCaseActorMembership_Mapping",
@@ -21171,16 +21179,18 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:350dd57e7124d89991e86930a62206324b4913cc22f5dfbc212c7fb53353cc02",
-      "status": "faithful",
+      "status": "approximate",
       "implementation": [
-        "internal/translate/migrate/usecase.go:actorLink",
+        "internal/translate/migrate/usecase.go:connectActor",
         "internal/translate/migrate/classify.go:classifyClass"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "",
-      "scope": []
+      "reason": "the use case owns no actor member: the association is written as a connection between the actor's part usage and the use case usage",
+      "scope": [
+        "uml:Actor"
+      ]
     },
     {
       "name": "UseCaseActor_Mapping",
@@ -21198,16 +21208,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:a3c87cbca08a5c2087397677178ad9e15063e3bad7ab80893904b89e3c79001c",
-      "status": "faithful",
+      "status": "approximate",
       "implementation": [
-        "internal/translate/migrate/usecase.go:actorLink",
+        "internal/translate/migrate/usecase.go:connectActor",
         "internal/translate/migrate/classify.go:classifyClass"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "",
-      "scope": []
+      "reason": "the use case owns no actor member: the association is written as a connection between the actor's part usage and the use case usage",
+      "scope": [
+        "uml:Actor"
+      ]
     },
     {
       "name": "UseCaseEmptySubjectReferenceUsage_Mapping",
