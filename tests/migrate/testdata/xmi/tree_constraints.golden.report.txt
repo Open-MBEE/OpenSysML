@@ -8,7 +8,7 @@ Constraint	Tanks::Tank::unnamed operand	_unnamedRule	(the UML Expression tree ha
 
 ## approximated (7)
 Constraint	Tanks::Diagonal::<Constraint>	_dRule	-> Tanks::Diagonal	(the UML Expression tree is written as a v2 expression)
-Constraint	Tanks::Tank::filling below capacity	_fillingRule	-> Tanks::Tank::'filling below capacity'	(the UML Expression tree is written as a v2 expression)
+Constraint	Tanks::Tank::filling below capacity	_fillingRule	-> Tanks::Tank::'filling below capacity'	(acts on its owner Tanks::Tank, which it takes as its parameter context, since its this is the def's own occurrence; the constraint def Filling below capacity holds the specification as its result, asserted by the usage typed by it; the UML Expression tree is written as a v2 expression)
 Property	Tanks::Tank::label	_label	-> Tanks::Tank::label	(default value not migrated: the UML StringExpression tree has no v2 form: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
 Property	Tanks::Tank::reserve	_reserve	-> Tanks::Tank::reserve	(the UML Expression tree is written as a v2 expression)
 Constraint	Tanks::WithinCapacity::<Constraint>	_wRule	-> Tanks::WithinCapacity	(the UML Expression tree is written as a v2 expression)

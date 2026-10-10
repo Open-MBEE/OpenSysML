@@ -1,0 +1,11 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::overfull",
+  "validation": {
+    "verdicts": [
+      {"kind": "constraint", "assertion": "assert constraint 'below capacity'", "status": "violated"}
+    ],
+    "valid": false
+  }
+}

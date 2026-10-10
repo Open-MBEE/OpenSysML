@@ -566,6 +566,9 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.El
 		}
 		starts = append(starts, r.start)
 	}
+	if len(starts) == 0 {
+		return text
+	}
 	// Inside a def a classifier feature spells through the context parameter;
 	// inside a usage it resolves bare, so no prefix is inserted there.
 	prefix := m.self + "."
@@ -587,7 +590,7 @@ func (m *migration) ownedByClassifier(f, scope *sysmlv1.Element) bool {
 		return false
 	}
 	cur := scope
-	for ; cur != nil && !isBehavior(cur) && cur.Type != "Operation"; cur = cur.Parent {
+	for ; cur != nil && !isBehavior(cur) && cur.Type != "Operation" && !ruleDef(cur); cur = cur.Parent {
 		if cur == owner {
 			return false
 		}
@@ -596,7 +599,7 @@ func (m *migration) ownedByClassifier(f, scope *sysmlv1.Element) bool {
 		if cur == owner {
 			return !behaviorScope(cur)
 		}
-		if !behaviorScope(cur) {
+		if !behaviorScope(cur) && !ruleDef(cur) {
 			return m.inherits(cur, owner)
 		}
 	}

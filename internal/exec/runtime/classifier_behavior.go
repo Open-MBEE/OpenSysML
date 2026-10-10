@@ -345,16 +345,72 @@ func (ctx *Context) abandonInstancesSince(mark int) {
 // abandonInstancesBetween removes the objects registered from mark up to end,
 // keeping those registered since, along with occurrences naming the removed.
 func (ctx *Context) abandonInstancesBetween(mark, end int) {
-	abandoned := make(map[int64]bool)
-	var gone []*Instance
-	for _, id := range ctx.created[mark:end] {
-		if inst, live := ctx.instances[id]; live {
-			abandoned[id] = true
-			gone = append(gone, inst)
-			delete(ctx.instances, id)
+	ctx.forgetAbandoned(ctx.dropInstances(mark, end, func(*Instance) bool { return true }))
+}
+
+// abandonInstancesHeldBy removes the objects registered since mark that are one
+// of roots or held by one, directly or below, as a nested value or as the
+// variant it selected; the others stay, in order.
+func (ctx *Context) abandonInstancesHeldBy(mark int, roots map[*Instance]bool) {
+	held := ctx.heldSince(mark, roots)
+	ctx.forgetAbandoned(ctx.dropInstances(mark, len(ctx.created), func(inst *Instance) bool {
+		return held[inst.ID]
+	}))
+}
+
+// heldSince names the objects registered since mark that are one of roots or
+// held by one, directly or below. A variant's object names the object that
+// selected it only through the selection, so that link is followed as well.
+func (ctx *Context) heldSince(mark int, roots map[*Instance]bool) map[int64]bool {
+	selectedBy := make(map[int64]int64, len(ctx.variantObjects))
+	for key, id := range ctx.variantObjects {
+		selectedBy[id] = key.owner
+	}
+	held := make(map[int64]bool, len(roots))
+	for grew := true; grew; {
+		grew = false
+		for _, id := range ctx.created[mark:] {
+			inst, live := ctx.instances[id]
+			if !live || held[id] {
+				continue
+			}
+			if roots[inst] || (inst.owner != nil && held[inst.owner.ID]) || held[selectedBy[id]] {
+				held[id] = true
+				grew = true
+			}
 		}
 	}
-	ctx.created = append(ctx.created[:mark], ctx.created[end:]...)
+	return held
+}
+
+// dropInstances unregisters the objects registered from mark up to end that drop
+// accepts, and the dead ones there, answering the identities and objects dropped.
+func (ctx *Context) dropInstances(mark, end int, drop func(*Instance) bool) (map[int64]bool, []*Instance) {
+	abandoned := make(map[int64]bool)
+	var gone []*Instance
+	rest := append([]int64(nil), ctx.created[mark:end]...)
+	tail := append([]int64(nil), ctx.created[end:]...)
+	ctx.created = ctx.created[:mark]
+	for _, id := range rest {
+		inst, live := ctx.instances[id]
+		if !live {
+			continue
+		}
+		if !drop(inst) {
+			ctx.created = append(ctx.created, id)
+			continue
+		}
+		abandoned[id] = true
+		gone = append(gone, inst)
+		delete(ctx.instances, id)
+	}
+	ctx.created = append(ctx.created, tail...)
+	return abandoned, gone
+}
+
+// forgetAbandoned drops every record naming the objects abandoned: the
+// occurrences, bindings, lives, edges, values and messages that reached them.
+func (ctx *Context) forgetAbandoned(abandoned map[int64]bool, gone []*Instance) {
 	if len(abandoned) == 0 {
 		return
 	}
@@ -380,11 +436,16 @@ func (ctx *Context) abandonInstancesBetween(mark, end int) {
 	ctx.forgetMessagesTo(abandoned)
 }
 
-// forgetVariantsNaming unselects every variant whose object is abandoned, so the
-// selection is made again, and its object built again, when next read.
+// forgetVariantsNaming unselects every variant whose object or selecting object
+// is abandoned, so the selection is made, and its object built, again when next read.
 func (ctx *Context) forgetVariantsNaming(abandoned map[int64]bool) {
+	for selection := range ctx.selectedVariants {
+		if abandoned[selection.owner] {
+			delete(ctx.selectedVariants, selection)
+		}
+	}
 	for key, id := range ctx.variantObjects {
-		if !abandoned[id] {
+		if !abandoned[id] && !abandoned[key.owner] {
 			continue
 		}
 		delete(ctx.variantObjects, key)

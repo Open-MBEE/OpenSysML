@@ -16633,14 +16633,16 @@
       "ocl": "sha256:7726b130b0be57088502bd3fe54e900ca36fe5ccb74c2ed4c9f7a80e3720ede0",
       "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/migrate.go:rule"
+        "internal/translate/migrate/migrate.go:rule",
+        "internal/translate/migrate/migrate.go:ruleAsDef"
       ],
       "tests": [
         "tests/migrate/constraint_rule_test.go:TestOwnedRuleIsAsserted",
+        "tests/migrate/constraint_rule_test.go:TestOwnedRuleDefNameAvoidsItsSiblings",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/values_test.go:TestNonBooleanConstraintSpecificationIsNotWritten"
       ],
-      "reason": "the owned rule is written `assert constraint N { expr }` in its context, keeping the rule's name rather than OMG's `assert_N`, since no def is written for it to be distinguished from; a non-Boolean spec stays unmapped",
+      "reason": "the owned rule is written as a constraint def and an asserted usage typed by it, both members of the constrained block; the usage keeps the rule's name rather than OMG's `assert_N` and the def takes the name capitalized (or a fresh one when a member already bears it); a non-Boolean spec stays unmapped",
       "scope": [
         "uml:Constraint"
       ]
@@ -16660,16 +16662,18 @@
         "type"
       ],
       "ocl": "sha256:fd4db7dfc78dee71d4bc4970759862d56ea79c07c151e06000220b4d06f1da98",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/migrate.go:rule"
+        "internal/translate/migrate/migrate.go:rule",
+        "internal/translate/migrate/migrate.go:ruleAsDef"
       ],
       "tests": [
         "tests/migrate/constraint_rule_test.go:TestOwnedRuleIsAsserted",
+        "tests/migrate/constraint_rule_test.go:TestOwnedRuleDefNameAvoidsItsSiblings",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/values_test.go:TestNonBooleanConstraintSpecificationIsNotWritten"
       ],
-      "reason": "no constraint def is written: a def used by exactly one asserted usage adds nothing, so the expression is written in the usage itself",
+      "reason": "the asserted usage is typed by the constraint def written for the rule, `assert constraint N : N';`, binding the def's context parameter to `this` when the specification reads the block's features; a rule of a constraint def or of a behavior, whose parameters no context parameter reaches, stays `assert constraint N { expr }`",
       "scope": [
         "uml:Constraint"
       ]
@@ -16692,14 +16696,16 @@
       "ocl": "sha256:ffb52e84aa7547cd83b8e7ecbc25891bea6462826baffc697e1fff4cce00a888",
       "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/migrate.go:rule"
+        "internal/translate/migrate/migrate.go:rule",
+        "internal/translate/migrate/migrate.go:ruleAsDef"
       ],
       "tests": [
         "tests/migrate/constraint_rule_test.go:TestOwnedRuleIsAsserted",
+        "tests/migrate/constraint_rule_test.go:TestOwnedRuleDefNameAvoidsItsSiblings",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/values_test.go:TestNonBooleanConstraintSpecificationIsNotWritten"
       ],
-      "reason": "the owned rule is written `assert constraint N { expr }` in its context, keeping the rule's name rather than OMG's `assert_N`, since no def is written for it to be distinguished from; a non-Boolean spec stays unmapped",
+      "reason": "the owned rule is written `assert constraint N : N';` typed by its def, keeping the rule's name rather than OMG's `assert_N`; a non-Boolean spec stays unmapped",
       "scope": [
         "uml:Constraint"
       ]
@@ -16719,16 +16725,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:9ccda0864213c15e8892700538b1eb3ac90b7e02a960e6340bb40b3923964e95",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/migrate.go:rule"
+        "internal/translate/migrate/migrate.go:rule",
+        "internal/translate/migrate/migrate.go:ruleAsDef"
       ],
       "tests": [
         "tests/migrate/constraint_rule_test.go:TestOwnedRuleIsAsserted",
+        "tests/migrate/constraint_rule_test.go:TestOwnedRuleDefNameAvoidsItsSiblings",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/values_test.go:TestNonBooleanConstraintSpecificationIsNotWritten"
       ],
-      "reason": "no constraint def is written: a def used by exactly one asserted usage adds nothing, so the expression is written in the usage itself; candidate erratum: the mapping puts the specification in an owned calc feature with a return parameter (ElementFeatureMembership + CommonReturnParameterReferenceUsageMembership) rather than as the def's result expression, so a def written literally would not test the specification",
+      "reason": "the owned rule is written as `constraint def N' { expr }` whose result expression is the specification, the block's features read through an `in ref context` parameter the asserted usage binds to `this`; candidate erratum: the mapping puts the specification in an owned calc feature with a return parameter (ElementFeatureMembership + CommonReturnParameterReferenceUsageMembership) rather than as the def's result expression, so a def written literally would test nothing; the specification is written as the def's result, which the asserted usage typed by it evaluates",
       "scope": [
         "uml:Constraint"
       ]
