@@ -383,9 +383,13 @@ func (e *performances) beginPerformance(
 		perf.scope = parent.scope
 	}
 	if sub, owns := e.subflowOf(flow, node); owns {
-		perf.graph = sub.Graph
+		graph, err := unfoldSubflow(sub, node)
+		if err != nil {
+			return nil, err
+		}
+		perf.graph = graph
 		perf.live = 1
-		perf.connections = joinConnections(parent.connections, sub.Graph.Connections)
+		perf.connections = joinConnections(parent.connections, graph.Connections)
 		perf.subactions = make(map[ast.Node]*actionFrame)
 	}
 	pins, err := e.nodePins(flow, node)

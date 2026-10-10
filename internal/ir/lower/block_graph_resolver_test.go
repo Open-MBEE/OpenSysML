@@ -1,7 +1,6 @@
 package lower
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -81,7 +80,7 @@ func TestToActionNodeFlowKeepsInheritedProbabilityWeights(t *testing.T) {
 	}
 }
 
-func TestToActionNodeFlowReportsRecursiveTypedAction(t *testing.T) {
+func TestToActionNodeFlowDefersRecursiveTypedAction(t *testing.T) {
 	src := `package M {
 		action def A {
 			attribute c : Integer := 0;
@@ -102,11 +101,7 @@ func TestToActionNodeFlowReportsRecursiveTypedAction(t *testing.T) {
 	if prep == nil || prep.Graph == nil || prep.Err != nil {
 		t.Fatalf("entry behavior subflow = %#v, want A's graph", prep)
 	}
-	x := namedNode(prep.Graph, "x")
-	recursive := prep.Graph.Subflows[x]
-	if recursive == nil || !errors.Is(recursive.Err, ErrRecursiveActionTyping) {
-		t.Fatalf("recursive x subflow = %#v, want ErrRecursiveActionTyping", recursive)
-	}
+	unfoldedDeferred(t, prep.Graph, "x")
 }
 
 func actionNodeFlowFromSource(

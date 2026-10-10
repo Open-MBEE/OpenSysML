@@ -29,6 +29,26 @@ func (e *performances) subflowOf(graph *lower.ActionGraph, node ast.Node) (*lowe
 	return sub, owns && sub != nil
 }
 
+// unfoldSubflow returns the flow a node's performance runs; a deferred typed
+// body is lowered and validated here, as eager ones were at initialize().
+func unfoldSubflow(sub *lower.Subflow, node ast.Node) (*lower.ActionGraph, error) {
+	if sub.Deferred == nil {
+		return sub.Graph, nil
+	}
+	graph, err := sub.Unfold()
+	if err != nil {
+		return nil, fmt.Errorf("%w: action node %s: %w", ErrInvalidActionFlow, ActionNodeName(node), err)
+	}
+	if err := lower.FlowStartError(graph); err != nil {
+		return nil, fmt.Errorf("%w: no initial node found in action node %s: %w",
+			ErrInvalidActionFlow, ActionNodeName(node), err)
+	}
+	if err := validateSubflows(graph); err != nil {
+		return nil, err
+	}
+	return graph, nil
+}
+
 // enterSubflow moves a token into the flow its node owns, run by the node's performance,
 // to the first node it starts at, a token of its own standing at each other; a flow
 // with nothing to start completes the node at once. The flow was validated at
@@ -593,12 +613,12 @@ func (e *ActionExecutor) leaveSubflow(tokenIdx int) error {
 // validateSubflows reports a nested node whose own flow could not be built, in
 // graph's flow or in a block flow a body of it states. It runs at initialize(),
 // not at construction, per the error-timing contract.
-func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
+func validateSubflows(graph *lower.ActionGraph) error {
 	if graph.Invalid != nil {
 		return fmt.Errorf("%w: %w", ErrInvalidActionFlow, graph.Invalid)
 	}
 	for _, node := range graph.Nodes {
-		if sub, owns := e.subflowOf(graph, node); owns {
+		if sub, owns := graph.Subflows[node]; owns && sub != nil && sub.Deferred == nil {
 			if sub.Err != nil {
 				return fmt.Errorf("%w: action node %s: %w",
 					ErrInvalidActionFlow, ActionNodeName(node), sub.Err)
@@ -607,12 +627,12 @@ func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
 				return fmt.Errorf("%w: no initial node found in action node %s: %w",
 					ErrInvalidActionFlow, ActionNodeName(node), err)
 			}
-			if err := e.validateSubflows(sub.Graph); err != nil {
+			if err := validateSubflows(sub.Graph); err != nil {
 				return err
 			}
 		}
 		for _, block := range lower.BlockFlows(graph.Bodies[node]) {
-			if err := e.validateSubflows(block); err != nil {
+			if err := validateSubflows(block); err != nil {
 				return err
 			}
 			if err := lower.FlowStartError(block); err != nil {

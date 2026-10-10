@@ -1360,7 +1360,7 @@ func (c *checker) pathUnder(exec *ActionExecutor, graph *lower.ActionGraph, node
 				return true, t
 			}
 		}
-		if sub, owns := exec.subflowOf(graph, node); owns {
+		if sub, owns := exec.subflowOf(graph, node); owns && sub.Graph != nil {
 			if h, t := c.pathUnder(exec, sub.Graph, flowNodesNamed(sub.Graph, name), rest); h {
 				return true, t
 			}
