@@ -68,6 +68,10 @@ func TestRelationshipEdgesOf(t *testing.T) {
 		allocation alloc allocate source to target;
 		requirement req;
 		part satisfiedBy { satisfy req; }
+		requirement primary;
+		requirement secondary;
+		alias Secondary for secondary;
+		part pump { satisfy requirement proof :> primary, Secondary; }
 		verification def Check;
 		verification verified : Check {
 			objective { verify req; }
@@ -91,6 +95,9 @@ func TestRelationshipEdgesOf(t *testing.T) {
 		{"P::alloc", "", RelationshipAllocation, [][2]string{{"P::source", "P::target"}}},
 		{"P::satisfiedBy", "satisfy", RelationshipSatisfaction, [][2]string{{"P::satisfiedBy", "P::req"}}},
 		{"P::verified", "verify", RelationshipVerification, [][2]string{{"P::verified", "P::req"}}},
+		// A declaring satisfy relates its subject to the declared requirement and
+		// to every requirement it subsets, an alias followed to its target.
+		{"P::pump", "satisfy", RelationshipSatisfaction, [][2]string{{"P::pump", "P::pump::proof"}, {"P::pump", "P::primary"}, {"P::pump", "P::secondary"}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.symbol+"/"+string(tc.kind), func(t *testing.T) {

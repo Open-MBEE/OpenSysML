@@ -167,6 +167,13 @@ func TestExecuteRelatedDeclaredRequirements(t *testing.T) {
 	// A declared requirement that subsets another is an edge target beside it.
 	assertRelated(t, fixture, "relayHub", "satisfaction", "outgoing", 1,
 		[]string{"relayControl::relayRequirement", "massRequirement"})
+	// Every subsetted requirement is, an alias followed to the requirement it names.
+	assertRelated(t, fixture, "backupHub", "satisfaction", "outgoing", 1,
+		[]string{"backupControl::backupRequirement", "powerRequirement", "thermalRequirement"})
+	assertRelated(t, fixture, "powerRequirement", "satisfaction", "incoming", 1,
+		[]string{"backupHub"})
+	assertRelated(t, fixture, "thermalRequirement", "satisfaction", "incoming", 1,
+		[]string{"backupHub"})
 	assertRelated(t, fixture, "relayControl::relayRequirement", "satisfaction", "incoming", 1,
 		[]string{"relayHub"})
 

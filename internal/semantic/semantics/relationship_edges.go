@@ -84,7 +84,10 @@ func (m *Model) satisfactionEdges(sym *symbols.Symbol, kind RelationshipKind) []
 	if !ok || usage.Kind != ast.UsageSatisfy || (usage.Keyword == "verify") != (kind == RelationshipVerification) {
 		return nil
 	}
-	var requirement, original, subject *symbols.Symbol
+	var requirement, subject *symbols.Symbol
+	// originals are the requirements a declaring satisfy or verify is typed by
+	// or subsets, in declaration order.
+	var originals []*symbols.Symbol
 	for _, rel := range usage.Relationships {
 		if rel == nil || rel.Target == nil {
 			continue
@@ -93,17 +96,18 @@ func (m *Model) satisfactionEdges(sym *symbols.Symbol, kind RelationshipKind) []
 		if !ok || target == nil {
 			continue
 		}
+		if aliased, isAlias := m.resolver.ResolveAliasTarget(target); isAlias && aliased != nil {
+			target = aliased
+		}
 		switch rel.Kind {
-		case ast.RelSubsets:
+		case ast.RelSubsets, ast.RelTyping:
 			switch {
 			case !usage.DeclaresRequirement:
-				requirement = target
-			case target.Kind == symbols.SymbolRequirementUsage:
-				original = target
-			}
-		case ast.RelTyping:
-			if usage.DeclaresRequirement && target.Kind == symbols.SymbolRequirementDef {
-				original = target
+				if rel.Kind == ast.RelSubsets {
+					requirement = target
+				}
+			case isRequirementKind(target.Kind):
+				originals = append(originals, target)
 			}
 		case ast.RelSubject:
 			subject = target
@@ -122,10 +126,22 @@ func (m *Model) satisfactionEdges(sym *symbols.Symbol, kind RelationshipKind) []
 		return nil
 	}
 	out := []RelationshipEdge{{Source: subject, Target: requirement}}
-	if original != nil {
+	for _, original := range originals {
 		out = append(out, RelationshipEdge{Source: subject, Target: original})
 	}
 	return out
+}
+
+// isRequirementKind reports a requirement definition or usage, or one of the
+// viewpoint and concern kinds specializing them.
+func isRequirementKind(k symbols.SymbolKind) bool {
+	switch k {
+	case symbols.SymbolRequirementDef, symbols.SymbolViewpointDef, symbols.SymbolConcernDef,
+		symbols.SymbolRequirementUsage, symbols.SymbolSatisfyRequirementUsage,
+		symbols.SymbolViewpointUsage, symbols.SymbolConcernUsage:
+		return true
+	}
+	return false
 }
 
 func isObjectiveUsage(decl ast.Node) bool {
