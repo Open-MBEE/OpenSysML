@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
@@ -17,6 +18,10 @@ type typeFilter struct {
 	// excluding names a set of newly conforming elements that are not in the
 	// original UML metaclass's result set.
 	excluding *typeFilterExclusion
+	// usageKinds are the categories whose classifiers migrate to usages a
+	// table lists by name; usages are the plain names of those written.
+	usageKinds []category
+	usages     []string
 	// metadata is the written metadata def of a user stereotype rows carry.
 	metadata string
 	// all is set when the type admits every migrated element.
@@ -31,6 +36,7 @@ type typeFilter struct {
 type v2Types struct {
 	types     []string
 	excluding *typeFilterExclusion
+	usages    []category
 	note      string
 }
 
@@ -111,24 +117,27 @@ func occurrenceAwareTypes(types []string, include, exclude, note string) v2Types
 var behaviorTypes = []string{typeActionDef, typeCalcDef, typeStateDef, typeVerificationDef}
 
 // classifierTypes are what a UML type, which is always a classifier, migrates
-// to: a definition, the view or viewpoint usage a «View» or «Viewpoint» class
-// becomes, or the use case usage a use case becomes. An actor's part usage is
-// left out: by type, a query cannot tell it from the part a property becomes.
-var classifierTypes = []string{typeDefinition, typeViewUsage, typeViewpointUsage, typeUseCaseUsage}
+// to by metaclass: a definition, or the view or viewpoint usage a «View» or
+// «Viewpoint» class becomes. Actors and use cases become part and use case
+// usages, which by type a query cannot tell from the usage a property becomes,
+// so classifierUsages lists them by name instead.
+var classifierTypes = []string{typeDefinition, typeViewUsage, typeViewpointUsage}
+
+var classifierUsages = []category{catActor, catUseCase}
 
 // namespaceTypes add to the classifiers the packages and the states, which are
 // namespaces in UML; a «View» package is a view usage too.
-var namespaceTypes = []string{typePackage, typeDefinition, typeViewUsage, typeViewpointUsage, typeUseCaseUsage, typeStateUsage}
+var namespaceTypes = []string{typePackage, typeDefinition, typeViewUsage, typeViewpointUsage, typeStateUsage}
 
 // packageableTypes are what the elements a package can own migrate to: the
 // classifiers, packages, and the dependencies of every stereotype.
-var packageableTypes = []string{typePackage, typeDefinition, typeViewUsage, typeViewpointUsage, typeUseCaseUsage,
+var packageableTypes = []string{typePackage, typeDefinition, typeViewUsage, typeViewpointUsage,
 	typeDependency, typeSatisfyUsage, typeAllocationUsage}
 
 // Notes on what the broad UML metaclasses list once migrated.
 const (
-	noteDiagramViews    = "the views diagrams became are listed too; actors, part usages once migrated, are not"
-	noteClassifierExtra = "the views diagrams became and the action defs operations became are listed too; actors, part usages once migrated, are not"
+	noteDiagramViews    = "the views diagrams became are listed too"
+	noteClassifierExtra = "the views diagrams became and the action defs operations became are listed too"
 	elementTypeSubject  = "the element type "
 )
 
@@ -137,17 +146,17 @@ const (
 var metaclassTypes = map[string]v2Types{
 	"Element":      {},
 	"NamedElement": {note: "every migrated element is named, so a NamedElement filter admits all of them"},
-	"PackageableElement": {types: packageableTypes,
+	"PackageableElement": {types: packageableTypes, usages: classifierUsages,
 		note: noteClassifierExtra + "; instances of value types, written as attributes, are not"},
-	"Namespace": {types: namespaceTypes, note: noteDiagramViews +
+	"Namespace": {types: namespaceTypes, usages: classifierUsages, note: noteDiagramViews +
 		"; transitions and structured activity nodes are not"},
 	"Package":            {types: []string{typePackage}},
 	"Model":              {types: []string{typePackage}, note: "a model is a package once migrated"},
-	"Type":               {types: classifierTypes, note: noteClassifierExtra},
-	"Classifier":         {types: classifierTypes, note: noteClassifierExtra},
+	"Type":               {types: classifierTypes, usages: classifierUsages, note: noteClassifierExtra},
+	"Classifier":         {types: classifierTypes, usages: classifierUsages, note: noteClassifierExtra},
 	"Class":              occurrenceAwareTypes(classTypes, typeOccurrenceDef, typeItemDef, ""),
 	"Component":          occurrenceAwareTypes([]string{typePartDef}, typeOccurrenceDef, typeItemDef, "a component is a part def once migrated, as a block is"),
-	"Actor":              {types: []string{typePartUsage}, note: "an actor is a part usage once migrated"},
+	"Actor":              {usages: []category{catActor}},
 	"Behavior":           {types: behaviorTypes},
 	"Activity":           {types: []string{typeActionDef, typeCalcDef}},
 	"OpaqueBehavior":     {types: []string{typeActionDef, typeCalcDef}},
@@ -155,7 +164,7 @@ var metaclassTypes = map[string]v2Types{
 	"Interaction":        {types: []string{typeActionDef}},
 	"StateMachine":       {types: []string{typeStateDef}},
 	"Operation":          {types: []string{typeActionDef}, note: "an operation is an action def once migrated, as an activity is"},
-	"UseCase":            {types: []string{typeUseCaseUsage}},
+	"UseCase":            {usages: []category{catUseCase}},
 	"DataType":           {types: []string{typeAttributeDef, typeEnumDef}},
 	"PrimitiveType":      {types: []string{typeAttributeDef}},
 	"Enumeration":        {types: []string{typeEnumDef}},
@@ -245,7 +254,7 @@ func (m *migration) typeFilter(ref sysmlv1.ElementRef) typeFilter {
 	if doc, name, ok := standardHref(e.Href); ok {
 		switch {
 		case doc == "UML":
-			return metaclassFilter(name)
+			return m.nameUsages(metaclassFilter(name))
 		case stereotypeTypes[name].types != nil:
 			return fromTypes("«"+name+"»", stereotypeTypes[name])
 		default:
@@ -348,34 +357,69 @@ func metaclassFilter(name string) typeFilter {
 	if !ok {
 		return typeFilter{label: name, refused: "no v2 metaclass stands for the elements of a UML " + name}
 	}
-	if t.types == nil {
+	if t.types == nil && t.usages == nil {
 		return typeFilter{label: name, all: true, note: t.note}
 	}
 	return fromTypes(name, t)
 }
 
-func fromTypes(label string, t v2Types) typeFilter {
-	return typeFilter{label: label, types: t.types, excluding: t.excluding, note: t.note}
+// nameUsages fills in the written classifiers of the filter's usage kinds,
+// which the query lists by name since their type is a property's too.
+func (m *migration) nameUsages(f typeFilter) typeFilter {
+	if len(f.usageKinds) == 0 {
+		return f
+	}
+	var walk func(e *sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
+		if cat, _ := m.classify(e); slices.Contains(f.usageKinds, cat) && m.written(e) {
+			f.usages = append(f.usages, m.plainName(e))
+		}
+		for _, c := range e.Children {
+			walk(c)
+		}
+	}
+	for _, r := range m.model.Roots {
+		if !m.isLibrary(r) {
+			walk(r)
+		}
+	}
+	return f
 }
 
+func fromTypes(label string, t v2Types) typeFilter {
+	return typeFilter{label: label, types: t.types, excluding: t.excluding, usageKinds: t.usages, note: t.note}
+}
+
+// query selects from src the rows of the filter's types, less the excluded
+// ones, and the rows among its named usages.
 func (f typeFilter) query(src qx) qx {
+	named := qcall("Named", qstrs("qualifiedName", f.usages...))
+	// Named ∩ src, as the difference of named and what of it is outside src.
+	usages := qcall("Except",
+		qarg1("source", named),
+		qarg1("exclude", qcall("Except", qarg1("source", named), qarg1("exclude", src))))
+	if len(f.types) == 0 {
+		return usages
+	}
 	rows := whereType(src, f.types...)
-	if f.excluding == nil {
+	if f.excluding != nil {
+		outside := qcall("Except",
+			qarg1("source", whereType(src, f.excluding.source...)),
+			qarg1("exclude", whereType(src, f.excluding.keep...)))
+		rows = qcall("Except", qarg1("source", rows), qarg1("exclude", outside))
+	}
+	if len(f.usages) == 0 {
 		return rows
 	}
-	outside := qcall("Except",
-		qarg1("source", whereType(src, f.excluding.source...)),
-		qarg1("exclude", whereType(src, f.excluding.keep...)))
-	return qcall("Except",
-		qarg1("source", rows),
-		qarg1("exclude", outside))
+	return qcall("Union", qarg1("source", rows), qarg1("other", usages))
 }
 
 func mergeTypeFilters(filters []typeFilter) typeFilter {
-	var types, source, keep uniqueNames
+	var types, source, keep, usages uniqueNames
 	var excluding bool
 	for _, f := range filters {
 		types.add(f.types...)
+		usages.add(f.usages...)
 		if f.excluding != nil {
 			excluding = true
 			source.add(f.excluding.source...)
@@ -384,7 +428,7 @@ func mergeTypeFilters(filters []typeFilter) typeFilter {
 			keep.add(f.types...)
 		}
 	}
-	merged := typeFilter{types: types}
+	merged := typeFilter{types: types, usages: usages}
 	if excluding {
 		merged.excluding = &typeFilterExclusion{source: source, keep: keep}
 	}

@@ -46,7 +46,7 @@ package Tables {
                 source = DocumentQueries::WhereType(
                     source = DocumentQueries::Descendants(
                         source = DocumentQueries::Named(qualifiedName = ("Plant"))),
-                    type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "UseCaseUsage", "Dependency", "SatisfyRequirementUsage", "AllocationUsage")),
+                    type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "Dependency", "SatisfyRequirementUsage", "AllocationUsage")),
                 property = "qualifiedName",
                 direction = "ascending",
                 missing = "last",
@@ -71,7 +71,7 @@ package Tables {
                 source = DocumentQueries::WhereType(
                     source = DocumentQueries::Descendants(
                         source = DocumentQueries::Named(qualifiedName = ("Plant"))),
-                    type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "UseCaseUsage", "StateUsage")),
+                    type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "StateUsage")),
                 property = "qualifiedName",
                 direction = "ascending",
                 missing = "last",
@@ -96,7 +96,7 @@ package Tables {
                 source = DocumentQueries::WhereType(
                     source = DocumentQueries::Descendants(
                         source = DocumentQueries::Named(qualifiedName = ("Plant"))),
-                    type = ("Definition", "ViewUsage", "ViewpointUsage", "UseCaseUsage")),
+                    type = ("Definition", "ViewUsage", "ViewpointUsage")),
                 property = "qualifiedName",
                 direction = "ascending",
                 missing = "last",
@@ -121,7 +121,7 @@ package Tables {
                 source = DocumentQueries::WhereType(
                     source = DocumentQueries::Descendants(
                         source = DocumentQueries::Named(qualifiedName = ("Plant"))),
-                    type = ("Definition", "ViewUsage", "ViewpointUsage", "UseCaseUsage")),
+                    type = ("Definition", "ViewUsage", "ViewpointUsage")),
                 property = "qualifiedName",
                 direction = "ascending",
                 missing = "last",

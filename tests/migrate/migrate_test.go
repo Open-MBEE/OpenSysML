@@ -382,6 +382,7 @@ var constructFixtures = []string{
 	"stub_actions",
 	"tables",
 	"metaclass_tables",
+	"classifier_usages",
 	"documents",
 	"figures",
 	"collectors",
