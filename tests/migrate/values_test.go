@@ -827,6 +827,44 @@ func TestUntypedPartSlotIsTypedByItsIndividual(t *testing.T) {
 	wantClean(t, "untyped-part-slots.sysml", r)
 }
 
+// An untyped part that redefines a typed one, by declaration or by sharing its
+// name, inherits the type: a slot holding an individual of another type is unmapped.
+func TestUntypedRedefiningPartSlotKeepsTheInheritedType(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_wheel" name="Wheel"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_engine" name="Engine"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_base" name="Base">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_bw" name="wheel" type="_wheel" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_bs" name="spare" type="_wheel" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g" general="_base"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_w" name="wheel" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_s" name="front" aggregation="composite" redefinedProperty="_bs"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_w1" name="wheel 1" classifier="_wheel"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_e1" name="engine 1" classifier="_engine"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_c1" name="car 1" classifier="_car">
+      <slot xmi:type="uml:Slot" xmi:id="_sw" definingFeature="_w">
+        <value xmi:type="uml:InstanceValue" xmi:id="_vw" instance="_e1"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_ss" definingFeature="_s">
+        <value xmi:type="uml:InstanceValue" xmi:id="_vs" instance="_w1"/>
+      </slot>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_wheel"/>
+  <sysml:Block xmi:id="_s2" base_Class="_engine"/>
+  <sysml:Block xmi:id="_s3" base_Class="_base"/>
+  <sysml:Block xmi:id="_s4" base_Class="_car"/>`)
+	wantLine(t, r.Notation, "part wheel :>> wheel;")
+	wantLine(t, r.Notation, "part front :>> spare;")
+	wantNoLine(t, r.Notation, "individual part :>> wheel : 'engine 1';")
+	wantNote(t, r, "_sw", migrate.Unmapped, "the slot's value 'engine 1' is not an instance of Wheel, the type of wheel")
+	wantLine(t, r.Notation, "individual part :>> front : 'wheel 1';")
+	wantNote(t, r, "_ss", migrate.Mapped, "")
+	wantClean(t, "redefining-part-slots.sysml", r)
+}
+
 // An individual takes the kind of its classifier — `individual constraint
 // def` for an instance of a constraint block — and its slots redefine the
 // parameters with their `in` direction. Classifiers of another kind are not
