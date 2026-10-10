@@ -1860,7 +1860,7 @@ func (m *migration) valueSlot(e, slot, f *sysmlv1.Element, dir string) ([]string
 // instanceSlot resolves a slot holding instances: one redefines the feature
 // typed by its individual; several each subset it under a redefinition counting them.
 func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string) ([]string, string, bool) {
-	t := m.effectiveType(f)
+	types := m.effectiveTypes(f)
 	var refs []string
 	for _, v := range slot.Owned("value") {
 		if v.Type != "InstanceValue" {
@@ -1883,8 +1883,10 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 			return nil, slotValueSubject + describe(inst) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw, false
 		}
 		// A property with no type, its own or inherited, takes any individual of its kind.
-		if t != nil && !m.instanceOf(classifiers, t) {
-			return nil, slotValueSubject + describe(inst) + " is not an instance of " + qualifiedName(t) + ", the type of " + f.Name, false
+		for _, t := range types {
+			if !m.instanceOf(classifiers, t) {
+				return nil, slotValueSubject + describe(inst) + " is not an instance of " + qualifiedName(t) + ", the type of " + f.Name, false
+			}
 		}
 		// The default individual types the property, so a slot can only repeat it.
 		if d, _ := m.typingIndividual(f, kw); d != nil && d != inst {
@@ -1918,34 +1920,37 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 	return lines, "", true
 }
 
-// effectiveType is the type a property's usage has: its own, else the one it
-// inherits from the written property it redefines, subsets or shadows by name.
-func (m *migration) effectiveType(f *sysmlv1.Element) *sysmlv1.Element {
+// effectiveTypes are the types a property's usage must conform to: its own,
+// else those of every written property it redefines, subsets or shadows by name.
+func (m *migration) effectiveTypes(f *sysmlv1.Element) []*sysmlv1.Element {
+	var types []*sysmlv1.Element
 	seen := map[*sysmlv1.Element]bool{}
-	var walk func(*sysmlv1.Element) *sysmlv1.Element
-	walk = func(p *sysmlv1.Element) *sysmlv1.Element {
+	var walk func(*sysmlv1.Element)
+	walk = func(p *sysmlv1.Element) {
 		if p == nil || seen[p] {
-			return nil
+			return
 		}
 		seen[p] = true
 		if t := m.model.Ref(p, "type"); t != nil {
-			return t
+			if !seen[t] {
+				seen[t] = true
+				types = append(types, t)
+			}
+			return
 		}
 		for _, role := range []string{"redefinedProperty", "subsettedProperty"} {
 			for _, r := range m.model.Refs(p, role) {
 				if m.written(r) {
-					if t := walk(r); t != nil {
-						return t
-					}
+					walk(r)
 				}
 			}
 		}
 		if r, redefinable := m.shadowed(p); redefinable {
-			return walk(r)
+			walk(r)
 		}
-		return nil
 	}
-	return walk(f)
+	walk(f)
+	return types
 }
 
 // article is the indefinite article before a word: "an item", "a part".
