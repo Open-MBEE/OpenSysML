@@ -6,3 +6,6 @@ mkdocs-redirects==1.2.3
 mkdocstrings==1.0.6
 mkdocstrings-python==2.0.9
 griffelib==2.3.0
+# Transitive through mkdocs-material; 12.2 changed Highlight.__init__ in a way
+# mkdocstrings 1.0.6 does not expect, which fails every page it renders.
+pymdown-extensions==12.1
