@@ -3698,6 +3698,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 	if name == "" {
 		if kind != "" {
 			name = m.freshName(m.scope, spoken(from)+" "+verb+" "+spoken(to))
+			m.synthesized[d] = true
 		} else if base := m.edgeName(d, spoken(from)+" to "+spoken(to)); base != "" {
 			name = m.freshName(m.scope, base)
 		}
@@ -4300,7 +4301,9 @@ func (m *migration) appliedStereotype(stereotype, profile string, tags []string)
 		if len(tags) > 0 {
 			text += ": " + strings.Join(tags, "; ")
 		}
-		m.w.line("// " + strings.Join(strings.Fields(text), " "))
+		for _, line := range strings.Split(text, "\n") {
+			m.w.line("// " + line)
+		}
 		return
 	}
 	prefix := ""

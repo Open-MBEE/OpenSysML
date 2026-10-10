@@ -152,7 +152,7 @@ package RequirementsModel {
             verify 'Mass Requirement';
         }
     }
-    metadata MigrationMetadata::SynthesizedName about 'Drive to Engine', 'Motor to Engine';
+    metadata MigrationMetadata::SynthesizedName about 'Speed Requirement traces Engine', 'Drive to Engine', 'Motor to Engine';
 }
 package 'Empty Package';
 metadata MigrationMetadata::LibraryNameAvoided about RequirementsModel { sourceName = "Requirements"; }

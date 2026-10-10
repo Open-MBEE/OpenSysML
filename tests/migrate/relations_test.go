@@ -1838,3 +1838,21 @@ func TestTreeDiagramShowingAnAssociationExposesNoUsages(t *testing.T) {
 		}
 	}
 }
+
+func TestStrictAppliedStereotypeKeepsTagLines(t *testing.T) {
+	r := migrateDocumentOptions(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B"/>
+    <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_a" supplier="_b"/>`,
+		`<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/>
+  <custom:Critical xmlns:custom="http://example.com/custom" xmi:id="_s3" base_Dependency="_d" level="first line&#10;second&#9;line"/>`,
+		migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "// applied stereotype «Critical»: level = first line")
+	wantLine(t, r.Notation, "// second\tline")
+	if strings.Contains(string(r.Notation), "MigrationMetadata") {
+		t.Errorf("strict output references MigrationMetadata:\n%s", r.Notation)
+	}
+	for _, d := range errors(t, "strict_tags.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+}

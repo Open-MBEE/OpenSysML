@@ -533,7 +533,7 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 	name, doc := m.nameOf(ext), ""
 	if name == "" {
 		name = m.freshName(m.scope, kind)
-		m.names[ext] = name
+		m.names[ext], m.synthesized[ext] = name, true
 	} else {
 		doc = kind
 	}
@@ -541,6 +541,7 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 		doc = m.extendComment(ext)
 	}
 	m.wroteEdge(ext, m.scope, "dependency", name)
+	m.madeUp(ext, writeName(name))
 	m.w.trailed("dependency "+writeName(name)+" from "+from+" to "+to, ";", func() {
 		if doc != "" {
 			m.w.line("doc /* " + doc + " */")

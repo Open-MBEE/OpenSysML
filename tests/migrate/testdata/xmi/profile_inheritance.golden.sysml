@@ -81,5 +81,5 @@ package System {
     connection 'Spin refines Speed Requirement' connect spin to 'Speed Requirement' {
         @Tailoring::'Detailed By';
     }
-    metadata MigrationMetadata::SynthesizedName about 'Spin to Shaft';
+    metadata MigrationMetadata::SynthesizedName about 'Speed Requirement traces Gear', 'Spin to Shaft';
 }
