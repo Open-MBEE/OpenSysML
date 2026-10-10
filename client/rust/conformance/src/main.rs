@@ -987,6 +987,7 @@ impl Runner {
             subject: optional(subject),
             engine: optional(engine),
             question: optional(question),
+            ..VerifyOptions::default()
         }
     }
 

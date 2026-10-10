@@ -67,39 +67,58 @@ function _verdict(raw, instances, diagnostics, verifications=VerificationVerdict
 end
 
 function _verification_call(model::Model, method::String, request;
-                            engine=nothing, question=nothing)
-    require_capability(model.connection, CAPABILITY_VERIFICATION)
-    _engine_preflight(model.connection, engine)
-    _question_preflight(model.connection, question)
+                            engine=nothing, question=nothing,
+                            arguments=Any[], named_arguments=Dict())
+    conn = model.connection
+    require_capability(conn, CAPABILITY_VERIFICATION)
+    _engine_preflight(conn, engine)
+    _question_preflight(conn, question)
     needed = String[CAPABILITY_VERIFICATION]
     append!(needed, _engine_capabilities(engine))
     append!(needed, _question_capabilities(question))
+    if !isempty(arguments) || !isempty(named_arguments)
+        require_capability(conn, CAPABILITY_VERIFICATION_ARGUMENTS)
+        request["arguments"] = _encoded_arguments(conn, arguments)
+        request["namedArguments"] = Dict{String,Any}(String(k) => _encoded(conn, v)
+            for (k, v) in pairs(named_arguments))
+        append!(needed, (CAPABILITY_VERIFICATION_ARGUMENTS, CAPABILITY_COMPLEX_VALUES,
+            CAPABILITY_STRUCTURED_VALUES, CAPABILITY_MEASUREMENT_REFS, CAPABILITY_SET_VALUES,
+            CAPABILITY_TENSOR_VALUES, CAPABILITY_METAOBJECT_VALUES))
+    end
     answer = _translate(; capabilities=Tuple(needed), connection=model.connection) do
         call(model.connection, method, request)
     end
     return _single_verdict(model.connection, answer)
 end
 
-"""Ask whether a constraint holds, optionally for a subject or engine."""
+"""Ask whether a constraint holds, optionally for a subject or engine.
+
+`arguments` bind its `in` parameters in declaration order and `named_arguments` by name;
+both need the `verification_arguments` capability."""
 function verify_constraint(model::Model, symbol_id::AbstractString;
-                           subject=nothing, engine=nothing, question=nothing)
+                           subject=nothing, engine=nothing, question=nothing,
+                           arguments=Any[], named_arguments=Dict())
     _verification_call(model, "VerifyConstraint",
         Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(symbol_id),
             "subjectSymbolId" => subject === nothing ? "" : String(subject),
             "engine" => engine === nothing || engine == "auto" ? "" : String(engine),
             "question" => question === nothing || question == "evaluate" ? "" : String(question));
-        engine=engine, question=question)
+        engine=engine, question=question, arguments=arguments, named_arguments=named_arguments)
 end
 
-"""Ask whether a requirement is satisfied, optionally for a subject or engine."""
+"""Ask whether a requirement is satisfied, optionally for a subject or engine.
+
+`arguments` bind its `in` parameters in declaration order and `named_arguments` by name;
+both need the `verification_arguments` capability."""
 function verify_requirement(model::Model, symbol_id::AbstractString;
-                            subject=nothing, engine=nothing, question=nothing)
+                            subject=nothing, engine=nothing, question=nothing,
+                            arguments=Any[], named_arguments=Dict())
     _verification_call(model, "VerifyRequirement",
         Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(symbol_id),
             "subjectSymbolId" => subject === nothing ? "" : String(subject),
             "engine" => engine === nothing || engine == "auto" ? "" : String(engine),
             "question" => question === nothing || question == "evaluate" ? "" : String(question));
-        engine=engine, question=question)
+        engine=engine, question=question, arguments=arguments, named_arguments=named_arguments)
 end
 
 """Return verdicts for the model's satisfaction assertions."""

@@ -56,7 +56,8 @@ Parse every file loaded and hold it loaded, reading no interface record from
 the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0
 .TP
 .BR \-constraint " \fIname\fP"
-Evaluate this constraint and exit (repeatable)
+Evaluate this constraint and exit, with arguments for its in parameters and an
+object as its subject, as \-constraint "Pkg::Fits(3.0) Pkg::part" (repeatable)
 .TP
 .B \-self\-check
 Apply the SysMLValidation constraints to every reflectively classified model
@@ -67,8 +68,8 @@ Apply this package's constraint defs with the SysMLValidation ones, as
 \-self\-check\-package Acme::ModelingRules; implies \-self\-check (repeatable)
 .TP
 .BR \-requirement " \fIname\fP"
-Evaluate this requirement, and every verification case verifying it, and exit
-(repeatable)
+Evaluate this requirement, and every verification case verifying it, and exit;
+takes arguments and a subject as \-constraint does (repeatable)
 .TP
 .BR \-satisfy "[=\fIname\fP]"
 Evaluate every satisfaction assertion, or with \-satisfy=<name> those the
@@ -574,6 +575,9 @@ metaclass, and it applies to every element that metaclass conforms to.
 verification case verifying the requirement. \-analysis takes arguments for
 the case's inputs and an object as its subject, as \-analysis "Pkg::Case(3.0)
 Pkg::part"; a verification case also reports the verdict its body produced.
+\-constraint and \-requirement take arguments for the element's in parameters
+and a subject the same way, as \-requirement "Pkg::Under(limit = 5)
+Pkg::part".
 .SH RUNNING ACTIONS AND STATE MACHINES
 \-action runs an action to completion and \-state a state machine, both on one
 shared clock that \-advance runs for the given simulated time units; without

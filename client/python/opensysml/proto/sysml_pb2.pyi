@@ -142,18 +142,29 @@ class Bound(_message.Message):
     def __init__(self, name: _Optional[str] = ..., limit: _Optional[int] = ..., reached: _Optional[bool] = ...) -> None: ...
 
 class VerifyConstraintRequest(_message.Message):
-    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "engine", "question")
+    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "engine", "question", "arguments", "named_arguments")
+    class NamedArgumentsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: Value
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     SUBJECT_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     ENGINE_FIELD_NUMBER: _ClassVar[int]
     QUESTION_FIELD_NUMBER: _ClassVar[int]
+    ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    NAMED_ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     symbol_id: str
     subject_symbol_id: str
     engine: str
     question: str
-    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ..., question: _Optional[str] = ...) -> None: ...
+    arguments: _containers.RepeatedCompositeFieldContainer[Value]
+    named_arguments: _containers.MessageMap[str, Value]
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ..., question: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., named_arguments: _Optional[_Mapping[str, Value]] = ...) -> None: ...
 
 class VerifyConstraintResponse(_message.Message):
     __slots__ = ("verdict", "instances", "error", "diagnostics")
@@ -168,18 +179,29 @@ class VerifyConstraintResponse(_message.Message):
     def __init__(self, verdict: _Optional[_Union[Verdict, _Mapping]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ...) -> None: ...
 
 class VerifyRequirementRequest(_message.Message):
-    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "engine", "question")
+    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "engine", "question", "arguments", "named_arguments")
+    class NamedArgumentsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: Value
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     SUBJECT_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     ENGINE_FIELD_NUMBER: _ClassVar[int]
     QUESTION_FIELD_NUMBER: _ClassVar[int]
+    ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    NAMED_ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     symbol_id: str
     subject_symbol_id: str
     engine: str
     question: str
-    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ..., question: _Optional[str] = ...) -> None: ...
+    arguments: _containers.RepeatedCompositeFieldContainer[Value]
+    named_arguments: _containers.MessageMap[str, Value]
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ..., question: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., named_arguments: _Optional[_Mapping[str, Value]] = ...) -> None: ...
 
 class VerificationVerdict(_message.Message):
     __slots__ = ("case_id", "kind", "detail", "subcase", "requirement_id")

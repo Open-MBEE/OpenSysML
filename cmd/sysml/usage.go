@@ -88,7 +88,9 @@ func doc() usage.Doc {
 					"every verification case verifying the requirement. -analysis takes " +
 					"arguments for the case's inputs and an object as its subject, as " +
 					"-analysis \"Pkg::Case(3.0) Pkg::part\"; a verification case also " +
-					"reports the verdict its body produced.",
+					"reports the verdict its body produced. -constraint and -requirement " +
+					"take arguments for the element's in parameters and a subject the " +
+					"same way, as -requirement \"Pkg::Under(limit = 5) Pkg::part\".",
 			},
 		}, {
 			Title: "Running actions and state machines",
@@ -650,10 +652,10 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&enabledLints, "enable-lint", "Report this opt-in lint, off by default, in the model's diagnostics: rounded-real-literal, comma-separated or repeated; -disable-lint wins")
 	fs.BoolVar(&noRecordCache, "no-record-cache", false, "Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning; a SysML v1 migration writes none of it and refers to no OpenSysML library")
-	fs.Var(&modelChecks.constraints, "constraint", "Evaluate this constraint and exit (repeatable)")
+	fs.Var(&modelChecks.constraints, "constraint", "Evaluate this constraint and exit, with arguments for its in parameters and an object as its subject, as -constraint \"Pkg::Fits(3.0) Pkg::part\" (repeatable)")
 	fs.BoolVar(&modelChecks.selfCheck, "self-check", false, "Apply the SysMLValidation constraints to every reflectively classified model element and exit")
 	fs.Var(&modelChecks.selfCheckPackages, "self-check-package", "Apply this package's constraint defs with the SysMLValidation ones, as -self-check-package Acme::ModelingRules; implies -self-check (repeatable)")
-	fs.Var(&modelChecks.requirements, "requirement", "Evaluate this requirement, and every verification case verifying it, and exit (repeatable)")
+	fs.Var(&modelChecks.requirements, "requirement", "Evaluate this requirement, and every verification case verifying it, and exit; takes arguments and a subject as -constraint does (repeatable)")
 	fs.Var(&modelChecks.satisfy, "satisfy", "Evaluate every satisfaction assertion, or with -satisfy=<name> those the named element states, and exit (repeatable)")
 	fs.Var(&modelChecks.calcs, "calc", "Invoke this calculation and report its result, as -calc \"Fall(3, 4)\" (repeatable)")
 	fs.Var(&modelChecks.analyses, "analysis", "Run this analysis or verification case and report its outputs and verdict, as -analysis \"Pkg::Case(3.0) Pkg::part\" (repeatable)")

@@ -38,6 +38,7 @@ private static final long serialVersionUID = 0L;
     subjectSymbolId_ = "";
     engine_ = "";
     question_ = "";
+    arguments_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -45,6 +46,18 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_VerifyRequirementRequest_descriptor;
   }
 
+  @SuppressWarnings({"rawtypes"})
+  @java.lang.Override
+  protected com.google.protobuf.MapFieldReflectionAccessor internalGetMapFieldReflection(
+      int number) {
+    switch (number) {
+      case 7:
+        return internalGetNamedArguments();
+      default:
+        throw new RuntimeException(
+            "Invalid map field number: " + number);
+    }
+  }
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internalGetFieldAccessorTable() {
@@ -282,6 +295,156 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int ARGUMENTS_FIELD_NUMBER = 6;
+  @SuppressWarnings("serial")
+  private java.util.List<org.openmbee.opensysml.proto.Value> arguments_;
+  /**
+   * <pre>
+   * Values for the requirement's `in` parameters, positional and by name; see
+   * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+   * capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<org.openmbee.opensysml.proto.Value> getArgumentsList() {
+    return arguments_;
+  }
+  /**
+   * <pre>
+   * Values for the requirement's `in` parameters, positional and by name; see
+   * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+   * capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends org.openmbee.opensysml.proto.ValueOrBuilder> 
+      getArgumentsOrBuilderList() {
+    return arguments_;
+  }
+  /**
+   * <pre>
+   * Values for the requirement's `in` parameters, positional and by name; see
+   * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+   * capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  @java.lang.Override
+  public int getArgumentsCount() {
+    return arguments_.size();
+  }
+  /**
+   * <pre>
+   * Values for the requirement's `in` parameters, positional and by name; see
+   * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+   * capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Value getArguments(int index) {
+    return arguments_.get(index);
+  }
+  /**
+   * <pre>
+   * Values for the requirement's `in` parameters, positional and by name; see
+   * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+   * capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.ValueOrBuilder getArgumentsOrBuilder(
+      int index) {
+    return arguments_.get(index);
+  }
+
+  public static final int NAMED_ARGUMENTS_FIELD_NUMBER = 7;
+  private static final class NamedArgumentsDefaultEntryHolder {
+    static final com.google.protobuf.MapEntry<
+        java.lang.String, org.openmbee.opensysml.proto.Value> defaultEntry =
+            com.google.protobuf.MapEntry
+            .<java.lang.String, org.openmbee.opensysml.proto.Value>newDefaultInstance(
+                org.openmbee.opensysml.proto.Sysml.internal_static_sysml_VerifyRequirementRequest_NamedArgumentsEntry_descriptor, 
+                com.google.protobuf.WireFormat.FieldType.STRING,
+                "",
+                com.google.protobuf.WireFormat.FieldType.MESSAGE,
+                org.openmbee.opensysml.proto.Value.getDefaultInstance());
+  }
+  @SuppressWarnings("serial")
+  private com.google.protobuf.MapField<
+      java.lang.String, org.openmbee.opensysml.proto.Value> namedArguments_;
+  private com.google.protobuf.MapField<java.lang.String, org.openmbee.opensysml.proto.Value>
+  internalGetNamedArguments() {
+    if (namedArguments_ == null) {
+      return com.google.protobuf.MapField.emptyMapField(
+          NamedArgumentsDefaultEntryHolder.defaultEntry);
+    }
+    return namedArguments_;
+  }
+  public int getNamedArgumentsCount() {
+    return internalGetNamedArguments().getMap().size();
+  }
+  /**
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  @java.lang.Override
+  public boolean containsNamedArguments(
+      java.lang.String key) {
+    if (key == null) { throw new NullPointerException("map key"); }
+    return internalGetNamedArguments().getMap().containsKey(key);
+  }
+  /**
+   * Use {@link #getNamedArgumentsMap()} instead.
+   */
+  @java.lang.Override
+  @java.lang.Deprecated
+  public java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> getNamedArguments() {
+    return getNamedArgumentsMap();
+  }
+  /**
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  @java.lang.Override
+  public java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> getNamedArgumentsMap() {
+    return internalGetNamedArguments().getMap();
+  }
+  /**
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  @java.lang.Override
+  public /* nullable */
+org.openmbee.opensysml.proto.Value getNamedArgumentsOrDefault(
+      java.lang.String key,
+      /* nullable */
+org.openmbee.opensysml.proto.Value defaultValue) {
+    if (key == null) { throw new NullPointerException("map key"); }
+    java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> map =
+        internalGetNamedArguments().getMap();
+    return map.containsKey(key) ? map.get(key) : defaultValue;
+  }
+  /**
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Value getNamedArgumentsOrThrow(
+      java.lang.String key) {
+    if (key == null) { throw new NullPointerException("map key"); }
+    java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> map =
+        internalGetNamedArguments().getMap();
+    if (!map.containsKey(key)) {
+      throw new java.lang.IllegalArgumentException();
+    }
+    return map.get(key);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -311,6 +474,15 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(question_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 5, question_);
     }
+    for (int i = 0; i < arguments_.size(); i++) {
+      output.writeMessage(6, arguments_.get(i));
+    }
+    com.google.protobuf.GeneratedMessage
+      .serializeStringMapTo(
+        output,
+        internalGetNamedArguments(),
+        NamedArgumentsDefaultEntryHolder.defaultEntry,
+        7);
     getUnknownFields().writeTo(output);
   }
 
@@ -334,6 +506,20 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(question_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(5, question_);
+    }
+    for (int i = 0; i < arguments_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(6, arguments_.get(i));
+    }
+    for (java.util.Map.Entry<java.lang.String, org.openmbee.opensysml.proto.Value> entry
+         : internalGetNamedArguments().getMap().entrySet()) {
+      com.google.protobuf.MapEntry<java.lang.String, org.openmbee.opensysml.proto.Value>
+      namedArguments__ = NamedArgumentsDefaultEntryHolder.defaultEntry.newBuilderForType()
+          .setKey(entry.getKey())
+          .setValue(entry.getValue())
+          .build();
+      size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(7, namedArguments__);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -360,6 +546,10 @@ private static final long serialVersionUID = 0L;
         .equals(other.getEngine())) return false;
     if (!getQuestion()
         .equals(other.getQuestion())) return false;
+    if (!getArgumentsList()
+        .equals(other.getArgumentsList())) return false;
+    if (!internalGetNamedArguments().equals(
+        other.internalGetNamedArguments())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -381,6 +571,14 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getEngine().hashCode();
     hash = (37 * hash) + QUESTION_FIELD_NUMBER;
     hash = (53 * hash) + getQuestion().hashCode();
+    if (getArgumentsCount() > 0) {
+      hash = (37 * hash) + ARGUMENTS_FIELD_NUMBER;
+      hash = (53 * hash) + getArgumentsList().hashCode();
+    }
+    if (!internalGetNamedArguments().getMap().isEmpty()) {
+      hash = (37 * hash) + NAMED_ARGUMENTS_FIELD_NUMBER;
+      hash = (53 * hash) + internalGetNamedArguments().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -495,6 +693,28 @@ private static final long serialVersionUID = 0L;
       return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_VerifyRequirementRequest_descriptor;
     }
 
+    @SuppressWarnings({"rawtypes"})
+    protected com.google.protobuf.MapFieldReflectionAccessor internalGetMapFieldReflection(
+        int number) {
+      switch (number) {
+        case 7:
+          return internalGetNamedArguments();
+        default:
+          throw new RuntimeException(
+              "Invalid map field number: " + number);
+      }
+    }
+    @SuppressWarnings({"rawtypes"})
+    protected com.google.protobuf.MapFieldReflectionAccessor internalGetMutableMapFieldReflection(
+        int number) {
+      switch (number) {
+        case 7:
+          return internalGetMutableNamedArguments();
+        default:
+          throw new RuntimeException(
+              "Invalid map field number: " + number);
+      }
+    }
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
@@ -522,6 +742,14 @@ private static final long serialVersionUID = 0L;
       subjectSymbolId_ = "";
       engine_ = "";
       question_ = "";
+      if (argumentsBuilder_ == null) {
+        arguments_ = java.util.Collections.emptyList();
+      } else {
+        arguments_ = null;
+        argumentsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000020);
+      internalGetMutableNamedArguments().clear();
       return this;
     }
 
@@ -548,9 +776,22 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public org.openmbee.opensysml.proto.VerifyRequirementRequest buildPartial() {
       org.openmbee.opensysml.proto.VerifyRequirementRequest result = new org.openmbee.opensysml.proto.VerifyRequirementRequest(this);
+      buildPartialRepeatedFields(result);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
+    }
+
+    private void buildPartialRepeatedFields(org.openmbee.opensysml.proto.VerifyRequirementRequest result) {
+      if (argumentsBuilder_ == null) {
+        if (((bitField0_ & 0x00000020) != 0)) {
+          arguments_ = java.util.Collections.unmodifiableList(arguments_);
+          bitField0_ = (bitField0_ & ~0x00000020);
+        }
+        result.arguments_ = arguments_;
+      } else {
+        result.arguments_ = argumentsBuilder_.build();
+      }
     }
 
     private void buildPartial0(org.openmbee.opensysml.proto.VerifyRequirementRequest result) {
@@ -569,6 +810,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.question_ = question_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.namedArguments_ = internalGetNamedArguments().build(NamedArgumentsDefaultEntryHolder.defaultEntry);
       }
     }
 
@@ -609,6 +853,35 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000010;
         onChanged();
       }
+      if (argumentsBuilder_ == null) {
+        if (!other.arguments_.isEmpty()) {
+          if (arguments_.isEmpty()) {
+            arguments_ = other.arguments_;
+            bitField0_ = (bitField0_ & ~0x00000020);
+          } else {
+            ensureArgumentsIsMutable();
+            arguments_.addAll(other.arguments_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.arguments_.isEmpty()) {
+          if (argumentsBuilder_.isEmpty()) {
+            argumentsBuilder_.dispose();
+            argumentsBuilder_ = null;
+            arguments_ = other.arguments_;
+            bitField0_ = (bitField0_ & ~0x00000020);
+            argumentsBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetArgumentsFieldBuilder() : null;
+          } else {
+            argumentsBuilder_.addAllMessages(other.arguments_);
+          }
+        }
+      }
+      internalGetMutableNamedArguments().mergeFrom(
+          other.internalGetNamedArguments());
+      bitField0_ |= 0x00000040;
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -660,6 +933,28 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 42
+            case 50: {
+              org.openmbee.opensysml.proto.Value m =
+                  input.readMessage(
+                      org.openmbee.opensysml.proto.Value.parser(),
+                      extensionRegistry);
+              if (argumentsBuilder_ == null) {
+                ensureArgumentsIsMutable();
+                arguments_.add(m);
+              } else {
+                argumentsBuilder_.addMessage(m);
+              }
+              break;
+            } // case 50
+            case 58: {
+              com.google.protobuf.MapEntry<java.lang.String, org.openmbee.opensysml.proto.Value>
+              namedArguments__ = input.readMessage(
+                  NamedArgumentsDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
+              internalGetMutableNamedArguments().ensureBuilderMap().put(
+                  namedArguments__.getKey(), namedArguments__.getValue());
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1120,6 +1415,509 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x00000010;
       onChanged();
       return this;
+    }
+
+    private java.util.List<org.openmbee.opensysml.proto.Value> arguments_ =
+      java.util.Collections.emptyList();
+    private void ensureArgumentsIsMutable() {
+      if (!((bitField0_ & 0x00000020) != 0)) {
+        arguments_ = new java.util.ArrayList<org.openmbee.opensysml.proto.Value>(arguments_);
+        bitField0_ |= 0x00000020;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.Value, org.openmbee.opensysml.proto.Value.Builder, org.openmbee.opensysml.proto.ValueOrBuilder> argumentsBuilder_;
+
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.Value> getArgumentsList() {
+      if (argumentsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(arguments_);
+      } else {
+        return argumentsBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public int getArgumentsCount() {
+      if (argumentsBuilder_ == null) {
+        return arguments_.size();
+      } else {
+        return argumentsBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public org.openmbee.opensysml.proto.Value getArguments(int index) {
+      if (argumentsBuilder_ == null) {
+        return arguments_.get(index);
+      } else {
+        return argumentsBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public Builder setArguments(
+        int index, org.openmbee.opensysml.proto.Value value) {
+      if (argumentsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureArgumentsIsMutable();
+        arguments_.set(index, value);
+        onChanged();
+      } else {
+        argumentsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public Builder setArguments(
+        int index, org.openmbee.opensysml.proto.Value.Builder builderForValue) {
+      if (argumentsBuilder_ == null) {
+        ensureArgumentsIsMutable();
+        arguments_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        argumentsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public Builder addArguments(org.openmbee.opensysml.proto.Value value) {
+      if (argumentsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureArgumentsIsMutable();
+        arguments_.add(value);
+        onChanged();
+      } else {
+        argumentsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public Builder addArguments(
+        int index, org.openmbee.opensysml.proto.Value value) {
+      if (argumentsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureArgumentsIsMutable();
+        arguments_.add(index, value);
+        onChanged();
+      } else {
+        argumentsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public Builder addArguments(
+        org.openmbee.opensysml.proto.Value.Builder builderForValue) {
+      if (argumentsBuilder_ == null) {
+        ensureArgumentsIsMutable();
+        arguments_.add(builderForValue.build());
+        onChanged();
+      } else {
+        argumentsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public Builder addArguments(
+        int index, org.openmbee.opensysml.proto.Value.Builder builderForValue) {
+      if (argumentsBuilder_ == null) {
+        ensureArgumentsIsMutable();
+        arguments_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        argumentsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public Builder addAllArguments(
+        java.lang.Iterable<? extends org.openmbee.opensysml.proto.Value> values) {
+      if (argumentsBuilder_ == null) {
+        ensureArgumentsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, arguments_);
+        onChanged();
+      } else {
+        argumentsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public Builder clearArguments() {
+      if (argumentsBuilder_ == null) {
+        arguments_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000020);
+        onChanged();
+      } else {
+        argumentsBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public Builder removeArguments(int index) {
+      if (argumentsBuilder_ == null) {
+        ensureArgumentsIsMutable();
+        arguments_.remove(index);
+        onChanged();
+      } else {
+        argumentsBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public org.openmbee.opensysml.proto.Value.Builder getArgumentsBuilder(
+        int index) {
+      return internalGetArgumentsFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public org.openmbee.opensysml.proto.ValueOrBuilder getArgumentsOrBuilder(
+        int index) {
+      if (argumentsBuilder_ == null) {
+        return arguments_.get(index);  } else {
+        return argumentsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public java.util.List<? extends org.openmbee.opensysml.proto.ValueOrBuilder> 
+         getArgumentsOrBuilderList() {
+      if (argumentsBuilder_ != null) {
+        return argumentsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(arguments_);
+      }
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public org.openmbee.opensysml.proto.Value.Builder addArgumentsBuilder() {
+      return internalGetArgumentsFieldBuilder().addBuilder(
+          org.openmbee.opensysml.proto.Value.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public org.openmbee.opensysml.proto.Value.Builder addArgumentsBuilder(
+        int index) {
+      return internalGetArgumentsFieldBuilder().addBuilder(
+          index, org.openmbee.opensysml.proto.Value.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Values for the requirement's `in` parameters, positional and by name; see
+     * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+     * capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.Value.Builder> 
+         getArgumentsBuilderList() {
+      return internalGetArgumentsFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.Value, org.openmbee.opensysml.proto.Value.Builder, org.openmbee.opensysml.proto.ValueOrBuilder> 
+        internalGetArgumentsFieldBuilder() {
+      if (argumentsBuilder_ == null) {
+        argumentsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            org.openmbee.opensysml.proto.Value, org.openmbee.opensysml.proto.Value.Builder, org.openmbee.opensysml.proto.ValueOrBuilder>(
+                arguments_,
+                ((bitField0_ & 0x00000020) != 0),
+                getParentForChildren(),
+                isClean());
+        arguments_ = null;
+      }
+      return argumentsBuilder_;
+    }
+
+    private static final class NamedArgumentsConverter implements com.google.protobuf.MapFieldBuilder.Converter<java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder, org.openmbee.opensysml.proto.Value> {
+      @java.lang.Override
+      public org.openmbee.opensysml.proto.Value build(org.openmbee.opensysml.proto.ValueOrBuilder val) {
+        if (val instanceof org.openmbee.opensysml.proto.Value) { return (org.openmbee.opensysml.proto.Value) val; }
+        return ((org.openmbee.opensysml.proto.Value.Builder) val).build();
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.MapEntry<java.lang.String, org.openmbee.opensysml.proto.Value> defaultEntry() {
+        return NamedArgumentsDefaultEntryHolder.defaultEntry;
+      }
+    };
+    private static final NamedArgumentsConverter namedArgumentsConverter = new NamedArgumentsConverter();
+
+    private com.google.protobuf.MapFieldBuilder<
+        java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder, org.openmbee.opensysml.proto.Value, org.openmbee.opensysml.proto.Value.Builder> namedArguments_;
+    private com.google.protobuf.MapFieldBuilder<java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder, org.openmbee.opensysml.proto.Value, org.openmbee.opensysml.proto.Value.Builder>
+        internalGetNamedArguments() {
+      if (namedArguments_ == null) {
+        return new com.google.protobuf.MapFieldBuilder<>(namedArgumentsConverter);
+      }
+      return namedArguments_;
+    }
+    private com.google.protobuf.MapFieldBuilder<java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder, org.openmbee.opensysml.proto.Value, org.openmbee.opensysml.proto.Value.Builder>
+        internalGetMutableNamedArguments() {
+      if (namedArguments_ == null) {
+        namedArguments_ = new com.google.protobuf.MapFieldBuilder<>(namedArgumentsConverter);
+      }
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return namedArguments_;
+    }
+    public int getNamedArgumentsCount() {
+      return internalGetNamedArguments().ensureBuilderMap().size();
+    }
+    /**
+     * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+     */
+    @java.lang.Override
+    public boolean containsNamedArguments(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      return internalGetNamedArguments().ensureBuilderMap().containsKey(key);
+    }
+    /**
+     * Use {@link #getNamedArgumentsMap()} instead.
+     */
+    @java.lang.Override
+    @java.lang.Deprecated
+    public java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> getNamedArguments() {
+      return getNamedArgumentsMap();
+    }
+    /**
+     * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+     */
+    @java.lang.Override
+    public java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> getNamedArgumentsMap() {
+      return internalGetNamedArguments().getImmutableMap();
+    }
+    /**
+     * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+     */
+    @java.lang.Override
+    public /* nullable */
+org.openmbee.opensysml.proto.Value getNamedArgumentsOrDefault(
+        java.lang.String key,
+        /* nullable */
+org.openmbee.opensysml.proto.Value defaultValue) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder> map = internalGetMutableNamedArguments().ensureBuilderMap();
+      return map.containsKey(key) ? namedArgumentsConverter.build(map.get(key)) : defaultValue;
+    }
+    /**
+     * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.Value getNamedArgumentsOrThrow(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder> map = internalGetMutableNamedArguments().ensureBuilderMap();
+      if (!map.containsKey(key)) {
+        throw new java.lang.IllegalArgumentException();
+      }
+      return namedArgumentsConverter.build(map.get(key));
+    }
+    public Builder clearNamedArguments() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      internalGetMutableNamedArguments().clear();
+      return this;
+    }
+    /**
+     * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+     */
+    public Builder removeNamedArguments(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      internalGetMutableNamedArguments().ensureBuilderMap()
+          .remove(key);
+      return this;
+    }
+    /**
+     * Use alternate mutation accessors instead.
+     */
+    @java.lang.Deprecated
+    public java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value>
+        getMutableNamedArguments() {
+      bitField0_ |= 0x00000040;
+      return internalGetMutableNamedArguments().ensureMessageMap();
+    }
+    /**
+     * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+     */
+    public Builder putNamedArguments(
+        java.lang.String key,
+        org.openmbee.opensysml.proto.Value value) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      if (value == null) { throw new NullPointerException("map value"); }
+      internalGetMutableNamedArguments().ensureBuilderMap()
+          .put(key, value);
+      bitField0_ |= 0x00000040;
+      return this;
+    }
+    /**
+     * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+     */
+    public Builder putAllNamedArguments(
+        java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> values) {
+      for (java.util.Map.Entry<java.lang.String, org.openmbee.opensysml.proto.Value> e : values.entrySet()) {
+        if (e.getKey() == null || e.getValue() == null) {
+          throw new NullPointerException();
+        }
+      }
+      internalGetMutableNamedArguments().ensureBuilderMap()
+          .putAll(values);
+      bitField0_ |= 0x00000040;
+      return this;
+    }
+    /**
+     * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+     */
+    public org.openmbee.opensysml.proto.Value.Builder putNamedArgumentsBuilderIfAbsent(
+        java.lang.String key) {
+      java.util.Map<java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder> builderMap = internalGetMutableNamedArguments().ensureBuilderMap();
+      org.openmbee.opensysml.proto.ValueOrBuilder entry = builderMap.get(key);
+      if (entry == null) {
+        entry = org.openmbee.opensysml.proto.Value.newBuilder();
+        builderMap.put(key, entry);
+      }
+      if (entry instanceof org.openmbee.opensysml.proto.Value) {
+        entry = ((org.openmbee.opensysml.proto.Value) entry).toBuilder();
+        builderMap.put(key, entry);
+      }
+      return (org.openmbee.opensysml.proto.Value.Builder) entry;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.VerifyRequirementRequest)

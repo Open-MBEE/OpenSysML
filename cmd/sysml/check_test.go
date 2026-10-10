@@ -753,3 +753,42 @@ func TestSelfCheckPackageFlagReportsWhatCannotApply(t *testing.T) {
 		t.Errorf("JSON report status=%d is invalid or missing its summary:\n%s", jsonReport.status, jsonReport.output())
 	}
 }
+
+// boundModel reads `in` parameters in its conditions, so a check of either
+// element needs arguments for them.
+const boundModel = `package Bound {
+    private import ScalarValues::*;
+    part def Thing { attribute v : Integer = 2; }
+    part t : Thing;
+    requirement def Under {
+        subject s : Thing;
+        in limit : Integer;
+        in slack : Integer = 0;
+        require constraint { s.v + slack < limit }
+    }
+    constraint def Between {
+        in low : Integer;
+        in high : Integer = 10;
+        low < high
+    }
+}
+`
+
+// TestCheckArguments checks that -constraint and -requirement take arguments for
+// the element's in parameters and an object as its subject, as -analysis does.
+func TestCheckArguments(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, boundModel, "-instantiate", "Bound::t",
+		"-constraint", "Bound::Between(3)", "-requirement", "Bound::Under(limit = 5) Bound::t"),
+		0, "✓ Constraint Bound::Between(3) passed", "✓ Requirement Bound::Under(limit = 5) satisfied")
+
+	wantReport(t, check(t, binary, boundModel, "-instantiate", "Bound::t", "-requirement", "Bound::Under(5, 4) Bound::t"),
+		1, "✗ Requirement Bound::Under(5, 4) failed")
+
+	wantReport(t, check(t, binary, boundModel, "-instantiate", "Bound::t", "-requirement", "Bound::Under(limit = 5, bound = 1) Bound::t"),
+		2, "bound")
+
+	wantReport(t, check(t, binary, boundModel, "-constraint", "Bound::Between(3"),
+		2, "not closed")
+}

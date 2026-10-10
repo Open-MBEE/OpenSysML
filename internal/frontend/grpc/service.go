@@ -54,6 +54,11 @@ const CapabilityVerification = "verification"
 // and the `question`, `status` and `witness` fields of every Verdict.
 const CapabilityVerificationQuestions = "verification_questions"
 
+// CapabilityVerificationArguments names the `arguments` and `named_arguments`
+// fields of VerifyConstraintRequest and VerifyRequirementRequest, which bind the
+// checked element's `in` parameters as RunAnalysisRequest binds a case's.
+const CapabilityVerificationArguments = "verification_arguments"
+
 // CapabilityQuery names the capability of the Query RPC, which evaluates a
 // SysML v2 API & Services Query over a parsed model.
 const CapabilityQuery = "query"
@@ -306,6 +311,7 @@ var capabilities = []string{
 	CapabilityMemberModifiers,
 	CapabilityTransitionAuthoring,
 	CapabilityVerificationQuestions,
+	CapabilityVerificationArguments,
 	CapabilityVerificationObjectiveAuthoring,
 	CapabilityMetadataAuthoring,
 	CapabilityMetadataPrefixAuthoring,

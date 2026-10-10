@@ -154,13 +154,19 @@ func (s *Session) withTrace(v Verdict) Verdict {
 
 // CheckConstraint evaluates a constraint definition, against the object that
 // carries it when one has been created, so the verdict is about concrete values.
+// Arguments for its `in` parameters follow the name in parentheses and an object
+// as its subject after them, as `Pkg::Fits(3.0, limit = 4.0) Pkg::part`.
 func (s *Session) CheckConstraint(name string) Verdict {
 	defer s.enter()()
 	return s.withTrace(s.checkConstraint(name))
 }
 
-func (s *Session) checkConstraint(name string) Verdict {
-	target, bad := s.resolveCheckTarget(name)
+func (s *Session) checkConstraint(text string) Verdict {
+	inv, name, bad := s.checkCall(text)
+	if bad != nil {
+		return *bad
+	}
+	target, bad := s.resolveCheckTarget(inv.name)
 	if bad != nil {
 		return *bad
 	}
@@ -170,15 +176,78 @@ func (s *Session) checkConstraint(name string) Verdict {
 	if err := runtime.RequireConstraint(target.sym); err != nil {
 		return unresolvedVerdict(name, err.Error())
 	}
-	inst, owner, bad := s.checkSubject(name, target)
+	inst, owner, args, bad := s.checkBindings(name, inv, target)
 	if bad != nil {
 		return *bad
 	}
 	result, plan, err := s.check(name, target.ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
-		return ctx.CheckConstraintOn(target.sym, target.scope, inst)
+		return ctx.CheckConstraintWith(target.sym, target.scope, inst, args)
 	})
 	inst, owner = s.reportedSubject(result, inst, owner)
 	return standing(constraintVerdict(name, result, err, inst, owner), plan)
+}
+
+// checkCall parses what a check names: the element, arguments for its `in`
+// parameters in parentheses, and an object as its subject, as `%analysis` reads
+// them. The second result labels the verdict: the name with its arguments.
+func (s *Session) checkCall(text string) (analysisInvocation, string, *Verdict) {
+	inv, err := splitAnalysisArgs(text)
+	if err != nil {
+		bad := unresolvedVerdict(text, err.Error())
+		return analysisInvocation{}, "", &bad
+	}
+	label := inv.name
+	if inv.argText != "" {
+		label += "(" + inv.argText + ")"
+	}
+	return inv, label, nil
+}
+
+// checkBindings is what a check is about: the object named as its subject, or
+// the one the session holds for the element, and the values its arguments bind.
+func (s *Session) checkBindings(name string, inv analysisInvocation, target checkTarget) (*runtime.Instance, string, runtime.CheckArgs, *Verdict) {
+	var inst *runtime.Instance
+	var owner string
+	if inv.object != "" {
+		var err error
+		if inst, owner, err = s.resolveObject(inv.object); err != nil {
+			bad := unresolvedVerdict(name, err.Error())
+			return nil, "", runtime.CheckArgs{}, &bad
+		}
+	} else {
+		var bad *Verdict
+		if inst, owner, bad = s.checkSubject(name, target); bad != nil {
+			return nil, "", runtime.CheckArgs{}, bad
+		}
+	}
+	args, err := s.checkArgs(target.ctx, inv.argText)
+	if err != nil {
+		bad := unresolvedVerdict(name, err.Error())
+		return nil, "", runtime.CheckArgs{}, &bad
+	}
+	return inst, owner, args, nil
+}
+
+// checkArgs evaluates a check's written arguments at the prompt: positional ones
+// in order, named ones by parameter.
+func (s *Session) checkArgs(ctx *runtime.Context, argText string) (runtime.CheckArgs, error) {
+	parsed, err := parseAnalysisArgs(argText)
+	if err != nil {
+		return runtime.CheckArgs{}, err
+	}
+	var args runtime.CheckArgs
+	scope := s.promptScope()
+	for _, arg := range parsed.positional {
+		val, err := ctx.EvalWithScope(arg.expr, scope)
+		if err != nil {
+			return runtime.CheckArgs{}, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
+		}
+		args.Positional = append(args.Positional, val)
+	}
+	if args.Named, err = s.evalArguments(ctx, parsed.named); err != nil {
+		return runtime.CheckArgs{}, err
+	}
+	return args, nil
 }
 
 // constraintVerdict reports what checking a constraint decided.
@@ -198,14 +267,19 @@ func constraintVerdict(name string, result runtime.CheckResult, err error, inst 
 }
 
 // CheckRequirement evaluates a requirement definition, against the object that
-// carries it when one has been created.
+// carries it when one has been created. It takes arguments and a subject as
+// CheckConstraint does.
 func (s *Session) CheckRequirement(name string) Verdict {
 	defer s.enter()()
 	return s.withTrace(s.checkRequirement(name))
 }
 
-func (s *Session) checkRequirement(name string) Verdict {
-	target, bad := s.resolveCheckTarget(name)
+func (s *Session) checkRequirement(text string) Verdict {
+	inv, name, bad := s.checkCall(text)
+	if bad != nil {
+		return *bad
+	}
+	target, bad := s.resolveCheckTarget(inv.name)
 	if bad != nil {
 		return *bad
 	}
@@ -215,12 +289,12 @@ func (s *Session) checkRequirement(name string) Verdict {
 	if err := runtime.RequireRequirement(target.sym); err != nil {
 		return unresolvedVerdict(name, err.Error())
 	}
-	inst, owner, bad := s.checkSubject(name, target)
+	inst, owner, args, bad := s.checkBindings(name, inv, target)
 	if bad != nil {
 		return *bad
 	}
 	result, plan, err := s.check(name, target.ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
-		return ctx.CheckRequirementOn(target.sym, target.scope, inst)
+		return ctx.CheckRequirementWith(target.sym, target.scope, inst, args)
 	})
 	inst, owner = s.reportedSubject(result, inst, owner)
 	verdict := s.withVerifications(requirementVerdict(name, result, err, inst, owner), target.ctx, target.sym)

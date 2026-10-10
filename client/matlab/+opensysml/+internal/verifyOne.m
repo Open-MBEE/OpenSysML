@@ -3,7 +3,8 @@ function result = verifyOne(model, symbolId, method, kind, varargin)
 
     label = ['verify' upper(kind(1)) kind(2:end)];
     options = opensysml.internal.nameValueOptions(struct( ...
-        'subject', '', 'engine', '', 'question', ''), varargin, label);
+        'subject', '', 'engine', '', 'question', '', ...
+        'arguments', {{}}, 'namedArguments', struct()), varargin, label);
     model.connection.require('verification');
     engine = opensysml.internal.normalizeEngine(options.engine);
     question = opensysml.internal.normalizeQuestion(options.question);
@@ -18,6 +19,18 @@ function result = verifyOne(model, symbolId, method, kind, varargin)
     if ~isempty(engine), capabilities{end+1} = 'engines'; end
     if strcmp(char(options.engine), 'explore'), capabilities{end+1} = 'schedule_explore'; end
     if ~isempty(question), capabilities{end+1} = 'verification_questions'; end
+    bound = ~isempty(options.arguments) || ...
+        (isstruct(options.namedArguments) && ~isempty(fieldnames(options.namedArguments)));
+    if bound
+        model.connection.require('verification_arguments');
+        request.arguments = opensysml.internal.encodeArguments(options.arguments, ...
+            model.connection, [label ' arguments']);
+        request.namedArguments = opensysml.internal.encodeNamedArguments( ...
+            options.namedArguments, model.connection, [label ' namedArguments']);
+        capabilities = [capabilities, {'verification_arguments', 'complex_values', ...
+            'structured_values', 'measurement_refs', 'set_values', 'tensor_values', ...
+            'metaobject_values'}];
+    end
     raw = opensysml.internal.checkError(opensysml.call(model.connection, ...
         methodName, request, capabilities), methodName);
     diagnostics = opensysml.internal.decodeDiagnostics(fieldOr(raw, 'diagnostics', {}));

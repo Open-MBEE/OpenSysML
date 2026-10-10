@@ -1229,26 +1229,38 @@ func (ctx *Context) EvaluateConstraintOn(sym *symbols.Symbol, scope *symbols.Sco
 // reports the object it turned out to be about, which a caller labelling the
 // verdict needs: it is not always the instance supplied.
 func (ctx *Context) CheckConstraintOn(sym *symbols.Symbol, scope *symbols.Scope, self *Instance) (CheckResult, error) {
+	return ctx.CheckConstraintWith(sym, scope, self, CheckArgs{})
+}
+
+// CheckConstraintWith is CheckConstraintOn with arguments bound to the
+// constraint's `in` parameters for this check, as a calc's are for an invocation.
+func (ctx *Context) CheckConstraintWith(sym *symbols.Symbol, scope *symbols.Scope, self *Instance, args CheckArgs) (CheckResult, error) {
 	defer ctx.beginRun()()
 
 	if err := RequireConstraint(sym); err != nil {
 		return CheckResult{Subject: self}, err
 	}
 	return ctx.checkOn(sym, "constraint", sym.Name, sym, self, func(subject carrier) (CheckResult, error) {
-		return ctx.checkConstraintOn(sym, scope, subject)
+		return ctx.checkConstraintOn(sym, scope, subject, args)
 	})
 }
 
-// checkConstraintOn is CheckConstraintOn evaluated on the object it resolved to.
-func (ctx *Context) checkConstraintOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier) (CheckResult, error) {
+// checkConstraintOn is CheckConstraintWith evaluated on the object it resolved to.
+func (ctx *Context) checkConstraintOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier, args CheckArgs) (CheckResult, error) {
+	members := ctx.chainMembers(sym, scope)
+	bindings := make(map[string]Value)
+	if err := ctx.bindCheckArgs(sym, "constraint", sym.Name, members, subject.instance, args, bindings); err != nil {
+		return ctx.checkResultOf(false, subject), err
+	}
 	// Evaluate every condition the constraint states, inherited ones included.
-	conds := ctx.conditionsOf(sym, ctx.chainMembers(sym, scope))
+	conds := ctx.conditionsOf(sym, members)
 	holds, err := ctx.evaluateConditions(conditionCheck{
-		sym:     sym,
-		kind:    "constraint",
-		what:    "assertion",
-		self:    subject.instance,
-		negated: NegatedDecl(sym),
+		sym:      sym,
+		kind:     "constraint",
+		what:     "assertion",
+		self:     subject.instance,
+		bindings: mapFrame(bindings),
+		negated:  NegatedDecl(sym),
 	}, conds)
 	return ctx.checkResultOf(holds, subject), err
 }
@@ -1535,26 +1547,40 @@ func (ctx *Context) EvaluateRequirementOn(sym *symbols.Symbol, scope *symbols.Sc
 // CheckRequirementOn evaluates a requirement as EvaluateRequirementOn does and
 // also reports the object it turned out to be about.
 func (ctx *Context) CheckRequirementOn(sym *symbols.Symbol, scope *symbols.Scope, self *Instance) (CheckResult, error) {
+	return ctx.CheckRequirementWith(sym, scope, self, CheckArgs{})
+}
+
+// CheckRequirementWith is CheckRequirementOn with arguments bound to the
+// requirement's `in` parameters for this check, as a calc's are for an invocation.
+func (ctx *Context) CheckRequirementWith(sym *symbols.Symbol, scope *symbols.Scope, self *Instance, args CheckArgs) (CheckResult, error) {
 	defer ctx.beginRun()()
 
 	if err := RequireRequirement(sym); err != nil {
 		return CheckResult{Subject: self}, err
 	}
 	return ctx.checkOn(sym, "requirement", sym.Name, sym, self, func(subject carrier) (CheckResult, error) {
-		return ctx.checkRequirementOn(sym, scope, subject)
+		return ctx.checkRequirementOn(sym, scope, subject, args)
 	})
 }
 
-// checkRequirementOn is CheckRequirementOn evaluated on the object it resolved to.
-func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier) (CheckResult, error) {
+// checkRequirementOn is CheckRequirementWith evaluated on the object it resolved to.
+func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier, args CheckArgs) (CheckResult, error) {
 	// Requirement-local bindings are shared by every member, whichever scope it
 	// was declared in.
 	members := ctx.chainMembers(sym, scope)
 
-	// First pass: process subject/actor bindings
-	reqBindings, err := ctx.memberBindings(sym, "requirement", sym.Name, members, subject.instance, nil, frame{})
-
+	// First pass: process subject/actor bindings, then the arguments.
+	// An object supplied for a requirement no type declares is its subject:
+	// the declaration has no carrier of its own to read one from.
+	var supplied *Instance
+	if declaringType(sym) == nil {
+		supplied = subject.instance
+	}
+	reqBindings, err := ctx.memberBindings(sym, "requirement", sym.Name, members, subject.instance, supplied, frame{})
 	if err != nil {
+		return ctx.checkResultOf(false, subject), err
+	}
+	if err := ctx.bindCheckArgs(sym, "requirement", sym.Name, members, subject.instance, args, reqBindings); err != nil {
 		return ctx.checkResultOf(false, subject), err
 	}
 

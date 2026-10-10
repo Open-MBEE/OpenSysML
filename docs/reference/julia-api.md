@@ -124,8 +124,10 @@ client's unit semantics. `unit`, `describe`, `exponents`, `magnitudes`,
 ## Verification, execution, analyses, and sweeps
 
 ```julia
-verify_constraint(model, "Demo::constraint"; question=nothing, engine=nothing)
-verify_requirement(model, "Demo::requirement"; question=nothing, engine=nothing)
+verify_constraint(model, "Demo::constraint"; question=nothing, engine=nothing,
+                  arguments=Any[], named_arguments=Dict())
+verify_requirement(model, "Demo::requirement"; question=nothing, engine=nothing,
+                   arguments=Any[], named_arguments=Dict())
 verify_satisfaction(model, "Demo::satisfy"; question=nothing, engine=nothing)
 satisfied(model, "Demo::requirement"; question=nothing, engine=nothing)
 validate_instance(model, "Demo::car"; engine=nothing)
