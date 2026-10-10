@@ -518,7 +518,7 @@ verb, and `save` writes what it answers with its image files beside it:
 
 ```ts
 const migration = await connection.migrate("sysml", { path: "Model.mdzip" }, { report: true });
-console.log(migration.report.summary);            // migrated 93 element(s): 78 mapped, 12 approximated, …
+console.log(migration.report.summary);            // migrated 95 element(s): 76 mapped, 16 approximated, …
 for (const entry of migration.report.byVerdict("unmapped")) {
   console.log(`${entry.kind} ${entry.name}: ${entry.note}`);
 }
