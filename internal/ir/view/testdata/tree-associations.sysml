@@ -28,6 +28,15 @@ package Fleet {
         attribute tag : ScalarValues::String;
     }
 
+    connection def Keyed {
+        end a : Car {
+            attribute key : ScalarValues::String;
+        }
+        end b : Trailer;
+    }
+
+    connection def Towing :> Tows;
+
     part def Boat;
 
     connection def Ferries {
@@ -45,6 +54,8 @@ package FleetViews {
         expose Fleet::Tows;
         expose Fleet::Pairing;
         expose Fleet::Ferries;
+        expose Fleet::Keyed;
+        expose Fleet::Towing;
         render Views::asTreeDiagram;
     }
 }

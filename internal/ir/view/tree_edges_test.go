@@ -333,7 +333,7 @@ func TestTreeDrawsAConnectionDefAsALineBetweenItsEndTypes(t *testing.T) {
 			t.Errorf("%s is drawn as a box; nodes = %q", boxed, names)
 		}
 	}
-	for _, boxed := range []string{"Fleet::Pairing", "Fleet::Ferries"} {
+	for _, boxed := range []string{"Fleet::Pairing", "Fleet::Ferries", "Fleet::Keyed", "Fleet::Towing"} {
 		if !slices.Contains(names, boxed) {
 			t.Errorf("%s is not drawn as a box; nodes = %q", boxed, names)
 		}
@@ -346,9 +346,48 @@ func TestTreeDrawsAConnectionDefAsALineBetweenItsEndTypes(t *testing.T) {
 		"Fleet::Pairing reference Fleet::Car: a",
 		"Fleet::Pairing reference Fleet::Trailer: b",
 		"Fleet::Ferries reference Fleet::Car: car",
+		"Fleet::Keyed reference Fleet::Car: a",
+		"Fleet::Keyed reference Fleet::Trailer: b",
 	}
 	got := treeEdgeLines(rendering)
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("edges = %q, want %q", got, want)
+	}
+}
+
+// The line a connection def is drawn as wears the def's Style and Route and
+// carries its Notes, anchored to the line instead of to the box it no longer is.
+func TestTreeAssociationLineKeepsTheDefsPresentation(t *testing.T) {
+	rendering := renderSource(t, "Views::styled", `package Model {
+	part def Wheel;
+	part def Car;
+	connection def WheelToCar { end wheel : Wheel; end car : Car; }
+}
+package Views {
+	private import DiagramLayout::*;
+	view styled {
+		expose Model::Car;
+		expose Model::Wheel;
+		expose Model::WheelToCar;
+		metadata Style about Model::WheelToCar { line = "#00FF00"; }
+		metadata Route about Model::WheelToCar { points = (10, 20, 30, 40); }
+		metadata Note about Model::WheelToCar { text = "four of them"; x = 10; y = 20; }
+	}
+}`)
+	if len(rendering.Roots) != 2 {
+		t.Fatalf("roots = %+v, want Wheel and Car alone", rendering.Roots)
+	}
+	if len(rendering.Edges) != 1 || rendering.Edges[0].Kind != EdgeConnection {
+		t.Fatalf("edges = %+v, want the one connection line", rendering.Edges)
+	}
+	edge := rendering.Edges[0]
+	if edge.Style == nil || edge.Style.Line != "#00FF00" {
+		t.Errorf("edge style = %+v, want the def's line", edge.Style)
+	}
+	if len(edge.Route) != 2 {
+		t.Errorf("edge route = %+v, want the def's two points", edge.Route)
+	}
+	if len(rendering.Notes) != 1 || rendering.Notes[0].Anchor != "" || rendering.Notes[0].EdgeFrom != edge.From || rendering.Notes[0].EdgeTo != edge.To {
+		t.Errorf("notes = %+v, want the one note anchored to the line", rendering.Notes)
 	}
 }

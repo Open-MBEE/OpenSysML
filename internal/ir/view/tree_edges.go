@@ -105,7 +105,13 @@ func (g *treeGraph) associationLines() {
 				if !g.r.model.NameSynthesized(def) {
 					name = localName(def)
 				}
-				g.add(Edge{From: from.ID, To: to.ID, Kind: EdgeConnection, Label: g.r.associationLabel(name, def), Name: name, Origin: symbolOrigin(def)}, def)
+				g.add(Edge{From: from.ID, To: to.ID, Kind: EdgeConnection, Label: g.r.associationLabel(name, def), Name: name, Origin: symbolOrigin(def),
+					Route: g.r.routeOf(site.view, def, g.out), Style: node.Style}, def)
+				for i := range g.out.Notes {
+					if n := &g.out.Notes[i]; n.Anchor == node.ID {
+						n.Anchor, n.EdgeFrom, n.EdgeTo = "", from.ID, to.ID
+					}
+				}
 				continue
 			}
 			node.Children = prune(node.Children)
@@ -118,8 +124,10 @@ func (g *treeGraph) associationLines() {
 
 // associationLine is the pair of nodes the connection def of node is drawn as
 // a line between: those of its two ends' types, each one drawn definition the
-// def is not nested in. A def with other ends, with a member a box would show,
-// or with an end type the tree does not draw stays a box.
+// def is not nested in. A def with other ends, with inherited ends, with a
+// specialization or other relationship a box would draw, with a member a box
+// would show (a qualifier of an end included), or with an end type the tree
+// does not draw stays a box.
 func (g *treeGraph) associationLine(node *Node, site treeSite) (from, to *Node, ok bool) {
 	def := site.sym
 	if def == nil || def.Kind != symbols.SymbolConnectionDef || g.nodes[symbols.KeyOf(def)] != node {
@@ -129,8 +137,17 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (from, to *Node, 
 	if len(ends) != 2 {
 		return nil, nil, false
 	}
+	for _, rel := range semantics.RelationshipsOf(def) {
+		if _, _, ok := structuralEdgeKind(rel.Kind); ok && rel.Target != nil {
+			return nil, nil, false
+		}
+	}
+	members := g.r.containedMembers(def)
 	var typed [2]*Node
 	for i, end := range ends {
+		if !slices.Contains(members, end) || g.endHasContent(end) {
+			return nil, nil, false
+		}
 		types := g.r.model.DeclaredTypes(end)
 		if len(types) != 1 {
 			return nil, nil, false
@@ -140,7 +157,7 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (from, to *Node, 
 			return nil, nil, false
 		}
 	}
-	for _, member := range g.r.containedMembers(def) {
+	for _, member := range members {
 		if !slices.Contains(ends, member) {
 			return nil, nil, false
 		}
@@ -213,6 +230,17 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 				Route: g.r.routeOf(site.view, member, g.out), Style: g.r.styleOf(site.view, member, g.out)}, member)
 		}
 	}
+}
+
+// endHasContent reports whether an end declares more than its cross feature,
+// such as a qualifier, which only a box shows.
+func (g *treeGraph) endHasContent(end *symbols.Symbol) bool {
+	for _, member := range g.r.containedMembers(end) {
+		if _, cross := member.Decl.(*ast.CrossFeatureMember); !cross {
+			return true
+		}
+	}
+	return false
 }
 
 // node is the node drawing sym, nil when the tree draws none.
