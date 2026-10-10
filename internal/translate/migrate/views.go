@@ -553,9 +553,8 @@ func (m *migration) unnamedFrames(e *sysmlv1.Element, bound map[string]bool) map
 // `frame concern <name> ::> <ref>;` under a name fresh in the viewpoint, so its
 // memberships stay distinguishable (KerML 8.3.2.4.5).
 func (m *migration) frameHomed(e, c *sysmlv1.Element, unnamed map[*sysmlv1.Element]bool, bound map[string]bool) {
-	ref := m.ref(c, e)
 	if unnamed[c] {
-		m.w.line("frame " + ref + ";")
+		m.w.line("frame " + m.ref(c, e) + ";")
 		return
 	}
 	base := m.nameOf(c)
@@ -563,9 +562,11 @@ func (m *migration) frameHomed(e, c *sysmlv1.Element, unnamed map[*sysmlv1.Eleme
 	for i := 2; bound[name] || m.nameTakenBut(nil, e, name); i++ {
 		name = fmt.Sprintf("%s %d", base, i)
 	}
+	// The name is taken before the reference is written, so a frame named
+	// like the concern it frames refers to it qualified, not to itself.
 	m.take(e, name)
 	bound[name] = true
-	m.w.line("frame concern " + writeName(name) + " ::> " + ref + ";")
+	m.w.line("frame concern " + writeName(name) + " ::> " + m.ref(c, e) + ";")
 	m.w.madeUp(writeName(name))
 	m.add(c, Mapped, "", "framed by "+m.nameFor(e)+" as "+writeName(name)+", since an unnamed frame would repeat the name "+writeName(base)+" of another member")
 }

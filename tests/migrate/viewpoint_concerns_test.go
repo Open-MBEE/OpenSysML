@@ -201,3 +201,26 @@ func symbolByName(t *testing.T, idx *symbols.Index, name string) *symbols.Symbol
 	}
 	return matches[0]
 }
+
+// Two concerns of one name framed from elsewhere: the first named frame takes
+// the concern's own name, so its reference must be qualified rather than
+// resolve to the frame itself.
+func TestFramedConcernNamedLikeItsConcernRefersToItQualified(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Package" xmi:id="_pa" name="A">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_ca"><body>Cost</body></ownedComment>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_pb" name="B">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_cb"><body>Mass</body></ownedComment>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_vp" name="Review"/>`, `
+  <sysml:Viewpoint xmi:id="_svp" base_Class="_vp" concernList="_ca _cb"/>
+  <sysml:Concern xmi:id="_sca" base_Comment="_ca"/>
+  <sysml:Concern xmi:id="_scb" base_Comment="_cb"/>`)
+	notation := string(r.Notation)
+	wantLine(t, r.Notation, "frame concern 'concern' ::> A::'concern';")
+	wantLine(t, r.Notation, "frame concern 'concern 2' ::> B::'concern';")
+	if strings.Contains(notation, "::> 'concern';") {
+		t.Errorf("a frame refers to an unqualified 'concern' it shadows:\n%s", notation)
+	}
+}
