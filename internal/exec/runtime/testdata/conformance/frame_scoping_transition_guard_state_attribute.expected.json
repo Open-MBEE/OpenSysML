@@ -1,0 +1,17 @@
+{
+	"type": "instance",
+	"trace": true,
+	"instantiate": "test::Controller",
+	"objects": [
+		{
+			"finalState": "low",
+			"stateVisits": ["idle", "low"],
+			"slots": {
+				"level": {"type": "Integer", "value": 7},
+				"seen": {"type": "Integer", "value": 1},
+				"seenPart": {"type": "Integer", "value": 7},
+				"modes.level": {"type": "Integer", "value": 1}
+			}
+		}
+	]
+}

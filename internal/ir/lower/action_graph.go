@@ -377,6 +377,9 @@ type Declare struct {
 	BodyData bool           // expression-valued state action execution stored as state data
 	Node     ast.Node       // the declaration itself, for diagnostics
 	Scope    *symbols.Scope // the scope the declaration was written in
+	// Symbol is the feature the declaration introduces, which the block's frame
+	// binds its value by; nil when no scope declares Node.
+	Symbol *symbols.Symbol
 }
 
 func (Declare) statement() { /* marker: closed Statement set */ }
@@ -664,6 +667,9 @@ type Accept struct {
 	// action receive accept kept : Sig;`): it takes an occurrence no other accept
 	// of the state's behavior is ready for.
 	Keeper bool
+	// Payload is the feature the accept declares its payload as, which the nodes
+	// of its body resolve ParamName to where no nearer declaration binds the name.
+	Payload *symbols.Symbol
 }
 
 // Attribute is a lowered attribute default written among a behavior's members
@@ -685,6 +691,9 @@ type Attribute struct {
 	// Optional reports an effective multiplicity with lower bound 0 (`x : Integer[0..1]`):
 	// the feature may hold no value at all. The run resolves it, as it does Scope.
 	Optional bool
+	// Symbol is the feature the attribute declares, which a performance holding it
+	// binds its cell by; nil when no scope declares Node.
+	Symbol *symbols.Symbol
 }
 
 // TypeText spells the type a usage declares with `:` as the notation writes it
@@ -2234,7 +2243,7 @@ func isAnnotation(n ast.Node) bool {
 // in order. An unvalued attribute is still owned by the behavior even though it
 // supplies no initial value. A redefinition names the attribute it overrides
 // (`attribute :>> x = 5;`), so the effective name is the one bound.
-func lowerAttributes(members []ast.Node) []Attribute {
+func lowerAttributes(members []ast.Node, scope *symbols.Scope) []Attribute {
 	var attrs []Attribute
 	for _, member := range members {
 		usage, ok := unwrapMembership(member).(*ast.Usage)
@@ -2245,7 +2254,7 @@ func lowerAttributes(members []ast.Node) []Attribute {
 		if name == "" {
 			continue
 		}
-		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Binding: valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault), Node: usage})
+		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Binding: valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault), Node: usage, Symbol: scope.MemberDeclaring(usage)})
 	}
 	return attrs
 }

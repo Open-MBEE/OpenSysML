@@ -93,6 +93,7 @@ type actionFrame struct {
 	// outermost first: a loop variable the node's declarations read.
 	locals     []map[string]Value
 	localCells []*bodyCells
+	localHeld  []map[*symbols.Symbol]string
 	// outer are the frames around a root performance its bodies read but no performance
 	// holds, outermost first: a state machine's data and its states' attributes.
 	outer []frame
@@ -122,6 +123,8 @@ type actionFrame struct {
 	features map[string]ast.FeatureDirection
 	// aliases map each name a held feature redefines to the feature's own name.
 	aliases map[string]string
+	// declared indexes the features by the declaration each is, and those it redefines.
+	declared map[*symbols.Symbol]string
 	// optional holds the held features whose multiplicity admits no value at all.
 	optional map[string]bool
 	// result names the parameter a value read of the performance stands for,
@@ -284,30 +287,55 @@ func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
 func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
 	for _, attr := range e.graph.Attributes {
 		root.features[attr.Name] = attr.Direction
-		scope := attr.Scope
-		if scope == nil {
-			scope = e.graph.Scope
+		sym := attr.Symbol
+		if sym == nil {
+			scope := attr.Scope
+			if scope == nil {
+				scope = e.graph.Scope
+			}
+			sym = memberSymbol(scope, attr.Node)
 		}
-		e.ctx.aliasRedefinitions(&root.aliases, memberSymbol(scope, attr.Node), attr.Name)
+		e.ctx.aliasRedefinitions(&root.aliases, sym, attr.Name)
+		e.ctx.holdFeature(&root.declared, sym, attr.Name)
 	}
-	e.addFeatureDirections(root.features, &root.aliases, nil, e.action)
+	e.addFeatureDirections(root.features, &root.aliases, &root.declared, nil, e.action)
 }
 
 // declareAcceptPayloads gives root the payloads the graph's accepts name: each is a
-// feature of the flow its accept sits in, read by the nodes after it.
+// feature of the flow its accept sits in, read by the nodes after it. A name a
+// feature of root's own already holds stays that feature's (KerML 8.2.3.5.3): the
+// payload is then reached through its accept node alone.
 func (e *ActionExecutor) declareAcceptPayloads(root *actionFrame) {
 	for _, accept := range e.graph.Accepts {
-		if accept.ParamName != "" {
-			root.features[accept.ParamName] = ast.DirNone
+		if accept.ParamName == "" {
+			continue
+		}
+		if _, taken := root.features[accept.ParamName]; taken {
+			continue
+		}
+		root.features[accept.ParamName] = ast.DirNone
+		e.ctx.holdFeature(&root.declared, accept.Payload, accept.ParamName)
+	}
+}
+
+// bindsPayload reports whether f binds accept's payload under its name, which it
+// does unless a feature of its own holds that name.
+func (f *actionFrame) bindsPayload(accept lower.Accept) bool {
+	if accept.Payload != nil {
+		if name, held := f.declared[accept.Payload]; held {
+			return name == accept.ParamName
 		}
 	}
+	_, taken := f.features[accept.ParamName]
+	return !taken || accept.Payload == nil
 }
 
 // addFeatureDirections adds the parameters and attributes an action holds, the
 // inherited ones included, to features by name, aliasing what each redefines and
 // marking in optional, when it is not nil, each new one admitting no value.
 func (e *performances) addFeatureDirections(
-	features map[string]ast.FeatureDirection, aliases *map[string]string, optional map[string]bool, action *symbols.Symbol,
+	features map[string]ast.FeatureDirection, aliases *map[string]string, held *map[*symbols.Symbol]string,
+	optional map[string]bool, action *symbols.Symbol,
 ) {
 	if action == nil {
 		return
@@ -331,6 +359,7 @@ func (e *performances) addFeatureDirections(
 			}
 		}
 		e.ctx.aliasRedefinitions(aliases, member, name)
+		e.ctx.holdFeature(held, member, name)
 	}
 }
 
@@ -364,7 +393,8 @@ func (f *actionFrame) key(name string) string {
 // seeding its pins from deliveries, then the arguments it passes its callee, then input bindings,
 // then its own declared defaults.
 func (e *performances) beginPerformance(
-	parent *actionFrame, flow *lower.ActionGraph, node ast.Node, locals []map[string]Value, localCells []*bodyCells,
+	parent *actionFrame, flow *lower.ActionGraph, node ast.Node,
+	locals []map[string]Value, localCells []*bodyCells, localHeld []map[*symbols.Symbol]string,
 ) (*actionFrame, error) {
 	perf := &actionFrame{
 		node:        node,
@@ -373,6 +403,7 @@ func (e *performances) beginPerformance(
 		parent:      parent,
 		locals:      locals,
 		localCells:  localCells,
+		localHeld:   localHeld,
 		connections: parent.connections,
 		data:        make(map[string]Value),
 		features:    make(map[string]ast.FeatureDirection),
@@ -394,6 +425,7 @@ func (e *performances) beginPerformance(
 	}
 	perf.features = pins.directions
 	perf.aliases = pins.aliases
+	perf.declared = pins.declared
 	perf.optional = pins.optional
 	perf.result = pins.result
 	if usage, ok := node.(*ast.Usage); ok {
@@ -617,6 +649,7 @@ func checkStreamsReceived(frame *actionFrame) error {
 type nodePins struct {
 	directions map[string]ast.FeatureDirection
 	aliases    map[string]string
+	declared   map[*symbols.Symbol]string
 	// optional holds the pins whose multiplicity admits no value at all.
 	optional map[string]bool
 	result   string
@@ -675,6 +708,7 @@ func (e *performances) pinsOf(
 			pins.optional[feature.Name] = true
 		}
 		e.ctx.aliasRedefinitions(&pins.aliases, sym, feature.Name)
+		e.ctx.holdFeature(&pins.declared, sym, feature.Name)
 		if feature.IsResult {
 			pins.result = feature.Name
 		}
@@ -687,7 +721,9 @@ func (e *performances) pinsOf(
 		if err != nil {
 			return nodePins{}, err
 		}
-		e.addFeatureDirections(pins.directions, &pins.aliases, pins.optional, held)
+		var adopted map[*symbols.Symbol]string
+		e.addFeatureDirections(pins.directions, &pins.aliases, &adopted, pins.optional, held)
+		e.ctx.holdResolved(&pins.declared, adopted, nodeScope(graph, node))
 		if callee != settled {
 			continue
 		}
@@ -771,6 +807,9 @@ func (f *actionFrame) lexicalFrames() []frame {
 		fr := mapFrame(local)
 		if i < len(f.localCells) {
 			fr.cells = f.localCells[i]
+		}
+		if i < len(f.localHeld) {
+			fr.held = f.localHeld[i]
 		}
 		frames = append(frames, fr)
 	}
@@ -1364,6 +1403,9 @@ func (e *performances) evalContextAround(perf *actionFrame, scope *symbols.Scope
 		fr := mapFrame(local)
 		if i < len(perf.localCells) {
 			fr.cells = perf.localCells[i]
+		}
+		if i < len(perf.localHeld) {
+			fr.held = perf.localHeld[i]
 		}
 		ec.pushFrame(fr)
 	}
@@ -2060,7 +2102,7 @@ func checkInputsBound(inv actionInvocation, params []actionParameter, inputs map
 // performanceFrame is the frame an evaluation reads a performance's values
 // through, which also answers for the nodes of its flow.
 func performanceFrame(f *actionFrame) frame {
-	fr := frame{vars: f.data, aliases: f.aliases, perf: f, run: f.run, cells: f.cells}
+	fr := frame{vars: f.data, aliases: f.aliases, held: f.declared, perf: f, run: f.run, cells: f.cells}
 	if f.perfs != nil {
 		fr.ensureCells = func() *bodyCells { return f.perfs.bodyCells(f) }
 		// A qualified write lands on the run's own path: the declaration check,

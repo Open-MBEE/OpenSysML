@@ -1,0 +1,23 @@
+materialize: Controller #1
+start: exhibited state machine modes of #1
+materialize: Modes #2
+eval literal 99 -> 99
+enter: idle
+run: exhibited state machine modes of #1
+  eval feature level -> 1
+  eval literal 5 -> 5
+eval operator > -> false
+  eval feature level -> 1
+  eval literal 5 -> 5
+eval operator <= -> true
+  eval feature level -> 1
+  eval literal 5 -> 5
+eval operator <= -> true
+exit: idle
+stmt action body
+  stmt assign seen
+    eval feature level -> 1
+  stmt assign seenPart
+    eval feature Controller::level -> 7
+enter: low
+transition: idle -> low

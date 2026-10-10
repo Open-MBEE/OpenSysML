@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"evaluate": "test::aliased",
+	"outputs": {
+		"x": {"type": "Integer", "value": 1},
+		"y": {"type": "Integer", "value": 1},
+		"seenX": {"type": "Integer", "value": 1},
+		"seenBase": {"type": "Integer", "value": 1}
+	}
+}

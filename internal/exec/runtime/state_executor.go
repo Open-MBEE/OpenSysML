@@ -58,6 +58,9 @@ type StateExecutor struct {
 	// two usages of one state definition keep separate values.
 	stateAttrs     map[*ast.StateNode]map[string]Value
 	stateAttrCells map[*ast.StateNode]*bodyCells
+	// attrIndex indexes the machine's attributes by feature, stateAttrIndex each state's.
+	attrIndex      map[*symbols.Symbol]string
+	stateAttrIndex map[*ast.StateNode]map[*symbols.Symbol]string
 	stateVisits    []string         // Ordered list of visited state names
 	stateStack     []*ast.StateNode // Active state configuration (for nested states)
 
@@ -305,6 +308,7 @@ func newStateExecutorOn(
 		stateData:          make(map[string]Value),
 		stateAttrs:         make(map[*ast.StateNode]map[string]Value),
 		stateAttrCells:     make(map[*ast.StateNode]*bodyCells),
+		stateAttrIndex:     make(map[*ast.StateNode]map[*symbols.Symbol]string),
 		stateVisits:        make([]string, 0),
 		stateStack:         make([]*ast.StateNode, 0),
 		history:            make(map[*ast.StateNode]*historyRecord),
@@ -443,9 +447,19 @@ func (e *StateExecutor) bindContextDefault(attr lower.Attribute) bool {
 // written in a member the machine owns reads the binding the running machine gave it.
 func (e *StateExecutor) dataFrame() frame {
 	return frame{
-		vars: e.stateData, cells: e.stateCells, performed: e.stateMachine, machine: e,
+		vars: e.stateData, cells: e.stateCells, held: e.heldAttributes(), performed: e.stateMachine, machine: e,
 		ensureCells: e.ensureStateCells,
 	}
+}
+
+// heldAttributes indexes the machine's attributes by the features they declare.
+func (e *StateExecutor) heldAttributes() map[*symbols.Symbol]string {
+	if e.attrIndex == nil && len(e.graph.Attributes) > 0 {
+		for _, attr := range e.graph.Attributes {
+			e.ctx.holdFeature(&e.attrIndex, attr.Symbol, attr.Name)
+		}
+	}
+	return e.attrIndex
 }
 
 // ensureStateCells lazily creates dependency cells for machine data.
@@ -482,6 +496,11 @@ func (e *StateExecutor) initializeStateAttributes() error {
 		data := make(map[string]Value, len(attrs))
 		e.stateAttrs[state] = data
 		var cells *bodyCells
+		for _, attr := range attrs {
+			index := e.stateAttrIndex[state]
+			e.ctx.holdFeature(&index, attr.Symbol, attr.Name)
+			e.stateAttrIndex[state] = index
+		}
 		for _, attr := range attrs {
 			if attr.Binding && attr.Value != nil {
 				if cells == nil {
@@ -539,7 +558,7 @@ func (e *StateExecutor) attrFramesFor(state *ast.StateNode) []frame {
 	chain := e.getParentChain(state)
 	for i := len(chain) - 1; i >= 0; i-- {
 		if data := e.stateAttrs[chain[i]]; data != nil {
-			frames = append(frames, frame{vars: data, cells: e.stateAttrCells[chain[i]]})
+			frames = append(frames, frame{vars: data, cells: e.stateAttrCells[chain[i]], held: e.stateAttrIndex[chain[i]]})
 		}
 	}
 	return frames

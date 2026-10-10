@@ -261,9 +261,9 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 		}
 	}
 	if f.perf == nil {
-		locals, localCells := engine.env.localFrames()
+		locals, localCells, localHeld := engine.env.localFrames()
 		if f.perf, err = e.beginPerformance(
-			parent, graph, node, locals, localCells,
+			parent, graph, node, locals, localCells, localHeld,
 		); err != nil {
 			return flowNext, err
 		}
@@ -361,7 +361,7 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 		if scope == nil {
 			scope = parent.scope
 		}
-		locals, localCells := engine.env.localFrames()
+		locals, localCells, localHeld := engine.env.localFrames()
 		f.perf = &actionFrame{
 			node:        block.Node,
 			graph:       block.Graph,
@@ -370,6 +370,7 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 			parent:      parent,
 			locals:      locals,
 			localCells:  localCells,
+			localHeld:   localHeld,
 			connections: joinConnections(parent.connections, block.Graph.Connections),
 			data:        make(map[string]Value),
 			features:    make(map[string]ast.FeatureDirection),

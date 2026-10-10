@@ -22,6 +22,11 @@ type frame struct {
 	// aliases map the name of a redefined feature to the name of the feature
 	// redefining it, which the frame binds it under (`in g :>> x` holds x as g).
 	aliases map[string]string
+	// held indexes the bindings by the feature each is a value of: the declared
+	// feature and every feature it redefines, mapped to the name the frame binds
+	// it under, so a read resolved to a feature finds its cell whatever else
+	// shares the name (feature_identity.go).
+	held map[*symbols.Symbol]string
 	// perf is the action performance vars belongs to, if any, whose flow's nodes
 	// the frame also answers for (action_frame.go).
 	perf *actionFrame
@@ -134,7 +139,7 @@ func (f frame) performs() *symbols.Symbol {
 func (f frame) withVars(vars map[string]Value) frame {
 	return frame{
 		vars: vars, masked: f.masked, visible: f.visible, unvalued: f.unvalued,
-		aliases: f.aliases, perf: f.perf, owner: f.owner, lexical: f.lexical, write: f.write,
+		aliases: f.aliases, held: f.held, perf: f.perf, owner: f.owner, lexical: f.lexical, write: f.write,
 		performed: f.performed, run: f.run, merged: f.merged, firing: f.firing, machine: f.machine,
 	}
 }
@@ -304,6 +309,7 @@ func (f frame) snapshot() frame {
 	}
 	out.firing = f.firing.snapshot()
 	out.machine = f.machine
+	out.held = f.held
 	return out
 }
 
