@@ -48,7 +48,7 @@ func TestPortTypedByPlainClassUsesReferentialOccurrencePayload(t *testing.T) {
 	wantNote(t, r, "_plain", migrate.Mapped, "")
 }
 
-func TestMixedPartAndOccurrenceIndividualClassifiers(t *testing.T) {
+func TestMixedPartAndOccurrenceClassifiers(t *testing.T) {
 	for _, tc := range []struct {
 		name         string
 		classifiers  string
@@ -68,7 +68,7 @@ func TestMixedPartAndOccurrenceIndividualClassifiers(t *testing.T) {
         <value xmi:type="uml:LiteralInteger" xmi:id="_value" value="1"/>
       </slot>
     </packagedElement>`, `<sysml:Block xmi:id="_block" base_Class="_engine"/>`)
-			wantLine(t, r.Notation, "individual part def motor :> "+tc.generalizers+" {")
+			wantLine(t, r.Notation, "part motor : "+tc.generalizers+" {")
 			wantLine(t, r.Notation, "attribute :>> x = 1;")
 			wantNote(t, r, "_motor", migrate.Mapped, "")
 			wantNote(t, r, "_slot", migrate.Mapped, "")
@@ -77,7 +77,7 @@ func TestMixedPartAndOccurrenceIndividualClassifiers(t *testing.T) {
 	}
 }
 
-func TestOccurrenceSlotHoldsPartIndividual(t *testing.T) {
+func TestOccurrenceSlotHoldsPartInstance(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_vehicle" name="Vehicle"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
@@ -94,14 +94,14 @@ func TestOccurrenceSlotHoldsPartIndividual(t *testing.T) {
     </packagedElement>`,
 		`<sysml:Block xmi:id="_car_block" base_Class="_car"/><sysml:Block xmi:id="_garage_block" base_Class="_garage"/>`)
 	wantLine(t, r.Notation, "occurrence vehicle : Vehicle;")
-	wantLine(t, r.Notation, "individual part def myCar :> Car;")
-	wantLine(t, r.Notation, "individual occurrence :>> vehicle : myCar;")
+	wantLine(t, r.Notation, "part myCar : Car;")
+	wantLine(t, r.Notation, "occurrence :>> vehicle = myCar;")
 	wantNote(t, r, "_slot", migrate.Mapped, "")
 	wantNote(t, r, "_garage_instance", migrate.Mapped, "")
 	wantClean(t, "occurrence-slot.sysml", r)
 }
 
-func TestOccurrenceDefaultUsesPartIndividualAsType(t *testing.T) {
+func TestOccurrenceDefaultIsAPartInstance(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_vehicle" name="Vehicle"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
@@ -114,13 +114,12 @@ func TestOccurrenceDefaultUsesPartIndividualAsType(t *testing.T) {
       </ownedAttribute>
     </packagedElement>`,
 		`<sysml:Block xmi:id="_car_block" base_Class="_car"/><sysml:Block xmi:id="_garage_block" base_Class="_garage"/>`)
-	wantLine(t, r.Notation, "occurrence vehicle : Vehicle, myCar;")
-	wantNoLine(t, r.Notation, "default = myCar")
-	wantNote(t, r, "_vehicle_usage", migrate.Approximated, "the default value, the individual myCar, is written as a type of the usage")
+	wantLine(t, r.Notation, "occurrence vehicle : Vehicle default = myCar;")
+	wantNote(t, r, "_vehicle_usage", migrate.Mapped, "")
 	wantClean(t, "occurrence-default.sysml", r)
 }
 
-func TestOccurrenceIndividualDoesNotTypePartSlot(t *testing.T) {
+func TestOccurrenceInstanceIsNoPartSlotValue(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_vehicle" name="Vehicle"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_engine" name="Engine"/>
@@ -134,7 +133,7 @@ func TestOccurrenceIndividualDoesNotTypePartSlot(t *testing.T) {
       </slot>
     </packagedElement>`,
 		`<sysml:Block xmi:id="_engine_block" base_Class="_engine"/><sysml:Block xmi:id="_garage_block" base_Class="_garage"/>`)
-	wantNote(t, r, "_slot", migrate.Unmapped, "is an individual occurrence def, which cannot type a part")
-	wantNoLine(t, r.Notation, "individual part :>> engine")
+	wantNote(t, r, "_slot", migrate.Unmapped, "the slot's value 'plain' is written as an occurrence, which cannot be the value of a part")
+	wantNoLine(t, r.Notation, ":>> engine")
 	wantClean(t, "plain-individual-part-slot.sysml", r)
 }

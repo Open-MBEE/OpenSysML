@@ -24,7 +24,10 @@ const (
 	// tool's users draw one: a satisfy, verify or refine joins it directly.
 	catRequirement
 	catConnectionDef
-	catIndividualDef
+	// catInstance is an instance specification, written as a usage of the
+	// kind its classifiers give it, typed by them: a part, an attribute, a
+	// connection for a link (migration.instanceKind).
+	catInstance
 	catVerificationDef
 	catItemDef
 	// catActionDef is a behavior with a v2 action form: an activity, an
@@ -45,9 +48,6 @@ const (
 	// catSimConfig is a simulation tool's run configuration: an action def
 	// that instantiates its execution target and performs its behavior.
 	catSimConfig
-	// catValue is an instance of a value type: an attribute usage holding its
-	// slot values, since an individual cannot specialize an attribute def.
-	catValue
 	// catMetadataDef is a user profile's stereotype, written as a metadata def.
 	catMetadataDef
 	// catLibrary marks standard-profile, bundled-library and modeling-tool
@@ -78,8 +78,8 @@ func (c category) keyword() string {
 		return "requirement"
 	case catConnectionDef:
 		return "connection def"
-	case catIndividualDef:
-		return "individual def"
+	case catInstance:
+		return "usage"
 	case catVerificationDef:
 		return "verification def"
 	case catItemDef:
@@ -100,8 +100,6 @@ func (c category) keyword() string {
 		return "view def"
 	case catSimConfig:
 		return "action def"
-	case catValue:
-		return "attribute"
 	case catMetadataDef:
 		return "metadata def"
 	}
@@ -110,7 +108,7 @@ func (c category) keyword() string {
 
 // metaclass is the qualified name of the SysML metaclass a definition of
 // category c is an instance of; "" for a category that is not a definition
-// (an individual's follows its classifier: migration.metaclassOf).
+// (an instance's is the usage metaclass of its kind: migration.metaclassOf).
 func (c category) metaclass() string {
 	switch c {
 	case catPartDef:
@@ -147,6 +145,87 @@ func (c category) metaclass() string {
 		return "SysML::MetadataDefinition"
 	}
 	return ""
+}
+
+// usageKeyword is the keyword of a usage typed by (or, for a category written
+// as a usage, subsetting) a classifier of category c; "" when no usage can be.
+func (c category) usageKeyword() string {
+	switch c {
+	case catPartDef, catActor:
+		return "part"
+	case catOccurrenceDef:
+		return "occurrence"
+	case catPortDef:
+		return "port"
+	case catAttributeDef, catEnumDef:
+		return "attribute"
+	case catConstraintDef:
+		return "constraint"
+	case catRequirement:
+		return "requirement"
+	case catConnectionDef:
+		return "connection"
+	case catVerificationDef:
+		return "verification"
+	case catItemDef:
+		return "item"
+	case catActionDef, catSimConfig:
+		return "action"
+	case catCalcDef:
+		return "calc"
+	case catStateDef:
+		return "state"
+	case catUseCase:
+		return "use case"
+	case catView, catViewpoint:
+		return "view"
+	}
+	return ""
+}
+
+// usageMetaclass is the SysML metaclass of a usage of category c's usageKeyword.
+func (c category) usageMetaclass() string {
+	switch c {
+	case catPartDef, catActor:
+		return "SysML::PartUsage"
+	case catOccurrenceDef:
+		return "SysML::OccurrenceUsage"
+	case catPortDef:
+		return "SysML::PortUsage"
+	case catAttributeDef, catEnumDef:
+		return "SysML::AttributeUsage"
+	case catConstraintDef:
+		return "SysML::ConstraintUsage"
+	case catRequirement:
+		return "SysML::RequirementUsage"
+	case catConnectionDef:
+		return "SysML::ConnectionUsage"
+	case catVerificationDef:
+		return "SysML::VerificationCaseUsage"
+	case catItemDef:
+		return "SysML::ItemUsage"
+	case catActionDef, catSimConfig:
+		return "SysML::ActionUsage"
+	case catCalcDef:
+		return "SysML::CalculationUsage"
+	case catStateDef:
+		return "SysML::StateUsage"
+	case catUseCase:
+		return "SysML::UseCaseUsage"
+	case catView, catViewpoint:
+		return "SysML::ViewUsage"
+	}
+	return ""
+}
+
+// isUsage reports whether a classifier of category c is written as a usage,
+// which an instance of it subsets rather than is typed by.
+func (c category) isUsage() bool {
+	switch c {
+	case catActor, catUseCase, catRequirement, catView:
+		return true
+	}
+	return false
 }
 
 // requirementStereotypes are the SysML profile's requirement stereotypes.
@@ -570,8 +649,9 @@ func classifyClass(e *sysmlv1.Element) (category, string) {
 	return catOccurrenceDef, ""
 }
 
-// classifyInstance decides whether an instance specification becomes an
-// individual def, a value, or nothing.
+// classifyInstance decides whether an instance specification becomes a usage
+// of its classifiers — a link, a connection joining the instances its ends
+// hold — or nothing.
 func (m *migration) classifyInstance(e *sysmlv1.Element) (category, string) {
 	if has(e, "Unit", "QuantityKind") {
 		return catUnmapped, "units and quantity kinds are not migrated; use the SI and ISQ libraries"
@@ -579,23 +659,17 @@ func (m *migration) classifyInstance(e *sysmlv1.Element) (category, string) {
 	if len(m.classifiersOf(e)) == 0 {
 		return catUnmapped, joinNotes("an instance specification without a classifier has no v2 form", m.snapshots[e].note)
 	}
-	if association := m.instanceAssociation(e); association != nil && !m.associationAsConnectionDef(association) {
-		if m.actors[association] != nil {
-			return catUnmapped, "the link's association is written as a connection between the actor and the use case, so there is no connection def to specialize"
+	if association := m.instanceAssociation(e); association != nil {
+		if _, note, ok := m.linkEnds(e, association); !ok {
+			return catUnmapped, note
 		}
-		return catUnmapped, "the link's association is written as its member-end properties, so there is no connection def to specialize"
+		return catInstance, m.untypedLinkNote(association)
 	}
-	occurrences, values, note := m.instanceClassifiers(e)
-	switch {
-	case len(occurrences) == 0 && len(values) == 0:
+	kind, _, _, note := m.instanceKind(e)
+	if kind == catNone {
 		return catUnmapped, note
-	case len(occurrences) == 0:
-		return catValue, note
 	}
-	for _, v := range values {
-		note = joinNotes(note, classifierSubject+qualifiedName(v)+" is not written: an individual cannot specialize a value type")
-	}
-	return catIndividualDef, note
+	return catInstance, note
 }
 
 func (m *migration) instanceAssociation(e *sysmlv1.Element) *sysmlv1.Element {
@@ -653,33 +727,83 @@ func rootOf(e *sysmlv1.Element) *sysmlv1.Element {
 	return e
 }
 
-// instanceClassifiers splits an instance's classifiers into the occurrence
-// definitions an individual can specialize, the value types an attribute can
-// be typed by, and a note over those it can use as neither.
-func (m *migration) instanceClassifiers(e *sysmlv1.Element) (occurrences, values []*sysmlv1.Element, note string) {
+// instanceKind settles the usage an instance specification is written as: the
+// kind of its first classifier with a usage form, a part outranking an
+// occurrence and either a value type; the definitions it is typed by, the
+// usages it subsets, and the note on the classifiers left out.
+func (m *migration) instanceKind(e *sysmlv1.Element) (kind category, types, subsets []*sysmlv1.Element, note string) {
 	var notes []string
 	if snap, ok := m.snapshots[e]; ok && len(m.model.Refs(e, "classifier")) == 0 {
 		for _, c := range snap.classifiers {
 			notes = append(notes, "classified by "+qualifiedName(c)+", the owner of its slots' defining features, since it names no classifier and is a result snapshot of "+"the run configuration "+describe(snap.config))
 		}
 	}
-	for _, c := range m.classifiersOf(e) {
+	classifiers := m.classifiersOf(e)
+	kinds := make([]category, len(classifiers))
+	for i, c := range classifiers {
 		if c.IsProxy() || m.isLibrary(c) {
-			notes = append(notes, classifierSubject+c.Name+" is outside the document or in a library, so it has no v2 definition to specialize")
+			notes = append(notes, classifierSubject+c.Name+" is outside the document or in a library, so it has no v2 type the instance can be typed by")
 			continue
 		}
-		switch cc, _ := m.classify(c); {
+		cc, _ := m.classify(c)
+		switch {
 		case cc.keyword() == "":
 			notes = append(notes, classifierSubject+qualifiedName(c)+" is not migrated")
-		case cc == catAttributeDef, cc == catEnumDef:
-			values = append(values, c)
-		case cc == catView, cc == catActor, cc == catUseCase, cc == catRequirement:
-			notes = append(notes, classifierSubject+qualifiedName(c)+" is written as a "+cc.keyword()+" usage, which an individual cannot specialize")
+		case cc.usageKeyword() == "":
+			notes = append(notes, classifierSubject+qualifiedName(c)+" is written as a "+cc.keyword()+", which no usage is typed by")
 		default:
-			occurrences = append(occurrences, c)
+			kinds[i] = cc
+			if kind == catNone || instanceRank(cc) > instanceRank(kind) {
+				kind = cc
+			}
 		}
 	}
-	return occurrences, values, strings.Join(notes, "; ")
+	for i, c := range classifiers {
+		switch {
+		case kinds[i] == catNone:
+		case kinds[i] == catOccurrenceDef && (kind == catPartDef || kind == catItemDef || kind == catActor):
+			// A part or item is an occurrence, so an occurrence def types it too.
+			types = append(types, c)
+		case !instanceFits(kinds[i], kind.usageKeyword()):
+			notes = append(notes, classifierSubject+qualifiedName(c)+" is not written: "+kwArticle(kind.usageKeyword())+" cannot be typed by "+article(kinds[i].keyword())+kinds[i].keyword())
+		case kinds[i].isUsage():
+			subsets = append(subsets, c)
+		default:
+			types = append(types, c)
+		}
+	}
+	return kind, types, subsets, strings.Join(notes, "; ")
+}
+
+// instanceRank orders the kinds an instance's classifiers give it: a part or
+// any other kind outranks an occurrence, which outranks a value type.
+func instanceRank(kind category) int {
+	switch {
+	case kind.usageKeyword() == "attribute":
+		return 0
+	case kind == catOccurrenceDef:
+		return 1
+	}
+	return 2
+}
+
+// instanceFits reports whether an instance of the kind can be the value of a
+// kw usage: one of the same kind, an occurrence of a part or item, a part of
+// an item or actor, or anything of a ref.
+func instanceFits(kind category, kw string) bool {
+	switch kw {
+	case "ref":
+		return true
+	case "occurrence":
+		return kind == catOccurrenceDef || kind == catPartDef || kind == catActor || kind == catItemDef
+	case "item":
+		return kind == catItemDef || kind == catPartDef || kind == catActor
+	case "actor":
+		return kind == catPartDef || kind == catActor
+	case "part":
+		return kind == catPartDef || kind == catActor
+	}
+	return kind.usageKeyword() == kw
 }
 
 // classifiersOf is the classifiers an instance names, or, when it names none
@@ -690,55 +814,4 @@ func (m *migration) classifiersOf(e *sysmlv1.Element) []*sysmlv1.Element {
 		return named
 	}
 	return m.snapshots[e].classifiers
-}
-
-// individualClassifiers returns the kind an individual takes from its first classifier of a kind
-// (a port def gives none; a part def outranks an occurrence def) and the classifiers it specializes.
-func (m *migration) individualClassifiers(e *sysmlv1.Element) (kind category, written []*sysmlv1.Element, note string) {
-	occurrences, _, _ := m.instanceClassifiers(e)
-	kinds := make([]category, len(occurrences))
-	for i, c := range occurrences {
-		cc, _ := m.classify(c)
-		if cc == catPortDef {
-			cc = catNone
-		}
-		kinds[i] = cc
-		if kind == catNone {
-			kind = cc
-		}
-	}
-	if kind == catOccurrenceDef {
-		for _, k := range kinds {
-			if k == catPartDef {
-				kind = catPartDef
-				break
-			}
-		}
-	}
-	var notes []string
-	for i, c := range occurrences {
-		switch {
-		case kinds[i] == kind || kind == catPartDef && kinds[i] == catOccurrenceDef:
-			written = append(written, c)
-		case kinds[i] == catNone:
-			notes = append(notes, classifierSubject+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a port def")
-		default:
-			notes = append(notes, classifierSubject+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a "+kinds[i].keyword())
-		}
-	}
-	return kind, written, strings.Join(notes, "; ")
-}
-
-// individualKeyword is the declaration keyword of an individual of the kind:
-// `individual part def`, or `individual def` for an instance of an interface block.
-func individualKeyword(kind category) string {
-	if kind == catNone {
-		return "individual def"
-	}
-	return "individual " + kind.keyword()
-}
-
-// individualTypes reports whether an individual of the kind can type a kw usage.
-func individualTypes(kind category, kw string) bool {
-	return kind.keyword() == kw+" def" || kw == "occurrence" && kind == catPartDef
 }

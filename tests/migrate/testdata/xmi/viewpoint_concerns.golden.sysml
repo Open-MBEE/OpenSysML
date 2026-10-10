@@ -79,7 +79,7 @@ package ViewsModel {
     view 'Combined View' : 'Review Viewpoint' {
         /* conforms to 'Safety Viewpoint' */
     }
-    individual view def review :> 'Review Viewpoint';
+    view review : 'Review Viewpoint';
     metadata MigrationMetadata::SynthesizedName about 'concern 2', 'concern';
 }
 metadata MigrationMetadata::SynthesizedName about 'concern';

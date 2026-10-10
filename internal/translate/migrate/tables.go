@@ -384,7 +384,7 @@ func (m *migration) plainName(e *sysmlv1.Element) string {
 	return strings.Join(m.segments(e), "::")
 }
 
-// typedRows filters src by the row types; individuals only for an instance table.
+// typedRows filters src by the row types; package-owned usages only for an instance table.
 func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, individuals bool, l *lowered) qx {
 	if len(types) == 0 {
 		if individuals {
@@ -398,7 +398,7 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 	}
 	rows := src
 	if !typesAdmitAll(filters, l) {
-		var metadata uniqueNames
+		var metadata, classifierUsageNames uniqueNames
 		var filtersToMerge []typeFilter
 		var qs []qx
 		for _, f := range filters {
@@ -411,7 +411,11 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 			case len(f.classifiers) > 0:
 				l.note(f.note)
 				for _, c := range f.classifiers {
-					filtersToMerge = append(filtersToMerge, typeFilter{types: []string{m.plainName(c)}})
+					name := m.plainName(c)
+					filtersToMerge = append(filtersToMerge, typeFilter{types: []string{name}})
+					if cat, _ := m.classify(c); slices.Contains(classifierUsages, cat) {
+						classifierUsageNames.add(name)
+					}
 				}
 			case f.metadata != "":
 				metadata.add(f.metadata)
@@ -425,11 +429,26 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 			merged = mergeTypeFilters(filtersToMerge)
 		}
 		source := src
-		if (merged.excluding != nil || len(merged.usages) > 0) && !l.perRow {
+		if (merged.excluding != nil || len(merged.usages) > 0 || merged.instances) && !l.perRow {
 			source = qshared(src)
 		}
-		if len(filtersToMerge) > 0 {
+		if len(filtersToMerge) > 0 && !(merged.instances && len(merged.types) == 0 && len(merged.usages) == 0) {
 			qs = append(qs, merged.query(source))
+		}
+		if merged.instances {
+			// A link is a connection usage, as the lines of a use case diagram are.
+			instances := qcall("Except", qarg1("source", whereType(source, "Usage")), qarg1("exclude", whereType(source, "ConnectionUsage")))
+			// An actor, use case or requirement is a package-owned usage too, and no instance.
+			var classifiers uniqueNames
+			for _, name := range m.nameUsages(typeFilter{usageKinds: classifierUsages}).usages {
+				if !slices.Contains(merged.usages, name) {
+					classifiers.add(name)
+				}
+			}
+			if len(classifiers) > 0 {
+				instances = qcall("Except", qarg1("source", instances), qarg1("exclude", qcall("Named", qstrs("qualifiedName", classifiers...))))
+			}
+			qs = append(qs, packageOwnedUsages(instances, source, l.roots))
 		}
 		if len(metadata) > 0 {
 			qs = append(qs, qcall("WhereMetadata", qarg1("source", source), qstrs("'metadata'", metadata...)))
@@ -439,15 +458,34 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 			return src
 		}
 		rows = union(qs)
+		if individuals && len(classifierUsageNames) > 0 {
+			// A classifier written as a usage conforms to itself, and is no instance of itself.
+			rows = qcall("Except", qarg1("source", rows), qarg1("exclude", qcall("Named", qstrs("qualifiedName", classifierUsageNames...))))
+		}
 	}
 	if !subtypes {
 		l.note("rows of subtypes of the row types are listed too: a type filter admits conforming elements")
 	}
 	if individuals {
-		rows = qcall("WhereFeature", qarg1("source", whereType(rows, "Definition")), qarg1("'feature'", qstr("isIndividual")),
-			qarg1("operator", qstr("=")), qarg1("value", qstr("true")))
+		rows = packageOwnedUsages(whereType(rows, "Usage"), src, l.roots)
 	}
 	return rows
+}
+
+// packageOwnedUsages keeps the usages a package owns — the scope's instances —
+// dropping those nested in a type the scope's packages own or that a root is.
+func packageOwnedUsages(rows, src qx, roots []string) qx {
+	packages := whereType(src, "Package")
+	var members qx
+	if len(roots) > 0 {
+		named := qcall("Named", qstrs("qualifiedName", roots...))
+		packages = qcall("Union", qarg1("source", whereType(named, "Package")), qarg1("other", packages))
+		members = qcall("Union", qarg1("source", named), qarg1("other", qcall("Descendants", qarg1("source", packages), qarg1("maxDepth", qlit("1")))))
+	} else {
+		members = qcall("Descendants", qarg1("source", packages), qarg1("maxDepth", qlit("1")))
+	}
+	nested := qcall("Descendants", qarg1("source", whereType(members, "Type")))
+	return qcall("Except", qarg1("source", rows), qarg1("exclude", nested))
 }
 
 // typesAdmitAll reports whether one of the filters admits every element, which
@@ -491,7 +529,7 @@ func union(qs []qx) qx {
 // queryProperties maps the UML properties a column or sort reads to the query
 // properties the row's migrated element has. A requirement's Id and Text tags
 // are written as its short name and documentation; the classifier of an
-// instance is the general of the individual it became.
+// instance is the general of the usage it became.
 var queryProperties = map[string]string{
 	"name":          "name",
 	"documentation": "documentation",

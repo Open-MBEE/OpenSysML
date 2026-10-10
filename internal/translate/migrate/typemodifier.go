@@ -109,10 +109,7 @@ func (tm *typeModifier) reference(m *migration, p *sysmlv1.Element) {
 
 // kwArticle names a usage keyword with its article.
 func kwArticle(kw string) string {
-	if strings.HasPrefix(kw, "a") || strings.HasPrefix(kw, "i") {
-		return "an " + kw
-	}
-	return "a " + kw
+	return article(kw) + kw
 }
 
 // shape is the multiplicity the type modifier writes in place of the declared

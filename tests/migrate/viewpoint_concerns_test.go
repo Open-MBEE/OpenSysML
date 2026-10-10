@@ -49,7 +49,7 @@ func TestViewpointConcernMigration(t *testing.T) {
 		"view 'Inherited Derived' :> 'Inherited Base' {",
 		"view 'Inherited Same' :> 'Inherited Base';",
 		"view 'Multiple Bases' :> 'Generalized View', 'Tagged View';",
-		"individual view def review :> 'Review Viewpoint';",
+		"view review : 'Review Viewpoint';",
 		"doc /* Package concern */",
 		"doc /* Viewpoint concern */",
 		"doc /* Root concern */",

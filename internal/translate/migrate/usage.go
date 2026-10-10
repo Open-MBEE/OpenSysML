@@ -301,13 +301,13 @@ func (m *migration) lifelinesOn(b, c *sysmlv1.Element) bool {
 }
 
 // blockOwner reports whether c is a block, whose objects have features a
-// behavior's body may read: a part, occurrence, or individual definition.
+// behavior's body may read: a part or occurrence definition, or an instance.
 func (m *migration) blockOwner(c *sysmlv1.Element) bool {
 	if c == nil {
 		return false
 	}
 	switch cat, _ := m.classify(c); cat {
-	case catPartDef, catOccurrenceDef, catIndividualDef:
+	case catPartDef, catOccurrenceDef, catInstance:
 		return true
 	}
 	return false

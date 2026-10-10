@@ -378,7 +378,7 @@ func TestSimulationConfigurationDiagram(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(r.Notation)
-	want := "action def Trial {\n    @Simulation::Configuration {\n        runs = 2;\n    }\n    part target : rig;\n    view Setup {\n        expose Trial;\n        expose Sys::Pump;\n        render Views::asTextualNotation;\n    }\n}"
+	want := "action def Trial {\n    @Simulation::Configuration {\n        runs = 2;\n    }\n    part target :> rig;\n    view Setup {\n        expose Trial;\n        expose Sys::Pump;\n        render Views::asTextualNotation;\n    }\n}"
 	if !strings.Contains(got, want) {
 		t.Errorf("notation lacks %q:\n%s", want, got)
 	}

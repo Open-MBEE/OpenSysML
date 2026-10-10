@@ -96,7 +96,7 @@ package 'Vehicle Design' {
         in attribute limit : 'Vehicle Design'::'Value Types'::Mass[1];
         m < limit
     }
-    individual part def myCar :> Vehicle {
+    part myCar : Vehicle {
         attribute :>> mass = 1350.5;
         attribute :>> color = 'Vehicle Design'::'Value Types'::Color::blue;
     }

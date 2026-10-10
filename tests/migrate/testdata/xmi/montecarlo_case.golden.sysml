@@ -36,7 +36,7 @@ analysis def 'Settling Analysis Monte Carlo' :> Simulation::MonteCarlo {
     out Deviation : ScalarValues::Real[0..1] = deviation;
     out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;
 }
-individual part def 'settling analysis' :> 'Settling Analysis';
+part 'settling analysis' : 'Settling Analysis';
 part def 'Retried Settling' :> 'Settling Analysis' {
     attribute retries : ScalarValues::Integer;
 }
@@ -49,22 +49,22 @@ analysis def 'Retried Settling Monte Carlo' :> Simulation::MonteCarlo {
     out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;
     out Deviation : ScalarValues::Real[0..1] = deviation;
 }
-individual part def 'retried settling' :> 'Retried Settling';
+part 'retried settling' : 'Retried Settling';
 action def 'Retried Group' {
     @Simulation::Configuration {
         runs = 3;
         draws = Simulation::DrawPolicy::random;
         timeVariable = "simtime";
     }
-    part target : 'retried settling';
+    part target :> 'retried settling';
     perform action run ::> target.settle;
     /* results of the simulation tool: 1 snapshot(s) in Retried Results standing for 3 run(s) analysing settleTime holding settleTime */
 }
 package 'Retried Results' {
-    individual part def 'retried settling of 3 runs' :> 'Retried Settling' {
+    part 'retried settling of 3 runs' : 'Retried Settling' {
         attribute :>> settleTime = 2.9;
         analysis 'Monte Carlo' : 'Retried Settling Monte Carlo' {
-            subject :>> analysed : 'retried settling of 3 runs';
+            subject :>> analysed = 'retried settling of 3 runs';
             out :>> runs = 3;
             out :>> mean = 2.9;
             out :>> deviation = 0.4;
@@ -82,16 +82,16 @@ action def 'Settling Group' {
         draws = Simulation::DrawPolicy::random;
         timeVariable = "simtime";
     }
-    part target : 'settling analysis';
+    part target :> 'settling analysis';
     perform action run ::> target.settle;
     /* results of the simulation tool: 1 snapshot(s) in Results standing for 5 run(s) analysing settleTime holding settleTime */
 }
 package Results {
-    individual part def 'settling of 5 runs' :> 'Settling Analysis' {
+    part 'settling of 5 runs' : 'Settling Analysis' {
         /* not migrated: Slot (_sMedian) — the slot holds the simulation tool's MonteCarloAnalysis::Median, a statistic Simulation::MonteCarlo has no counterpart for */
         attribute :>> settleTime = 3.1;
         analysis 'Monte Carlo' : 'Settling Analysis Monte Carlo' {
-            subject :>> analysed : 'settling of 5 runs';
+            subject :>> analysed = 'settling of 5 runs';
             out :>> runs = 5;
             out :>> mean = 3.1;
             out :>> deviation = 0.6;

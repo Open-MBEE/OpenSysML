@@ -161,7 +161,7 @@ func (m *migration) simulationConfig(e *sysmlv1.Element, header, note string) {
 		if target.element != nil {
 			part := m.freshName(e, "target")
 			results.Target = part
-			m.w.line("part " + writeName(part) + " : " + m.ref(target.element, e) + ";")
+			m.w.line("part " + writeName(part) + m.targetRelation(target.element) + m.ref(target.element, e) + ";")
 			switch {
 			case target.usage != "":
 				run := m.freshName(e, "run")
@@ -189,7 +189,7 @@ func (m *migration) simulationConfig(e *sysmlv1.Element, header, note string) {
 
 // resultsComment says what the tool stored of the configuration's runs and
 // where — how many runs, when a snapshot summarises several; the snapshots
-// themselves are written as individuals in their package.
+// themselves are written as usages in their package.
 func resultsComment(r simresults.ConfigurationResults) string {
 	text := "results of the simulation tool: " + strconv.Itoa(len(r.Snapshots)) + " snapshot(s) in " + r.Location
 	if runs := r.StoredRuns(); runs != int64(len(r.Snapshots)) {
@@ -362,8 +362,17 @@ type executionTarget struct {
 	notes       []string
 }
 
+// targetRelation is how the configuration's part relates to its target: it
+// subsets the usage an instance is written as, and is typed by a definition.
+func (m *migration) targetRelation(t *sysmlv1.Element) string {
+	if cat, _ := m.classify(t); cat == catInstance {
+		return " :> "
+	}
+	return " : "
+}
+
 // targetClassifiers resolves a configuration's execution target and the part
-// defs its part is typed by; note says why there are none, t being nil when
+// defs its part is typed by or, for an instance, the instance's classifiers; note says why there are none, t being nil when
 // the target itself is unusable.
 func (m *migration) targetClassifiers(s *sysmlv1.Stereotype) (t *sysmlv1.Element, classifiers []*sysmlv1.Element, note string) {
 	ids := s.IDs("executionTarget")
@@ -384,12 +393,12 @@ func (m *migration) targetClassifiers(s *sysmlv1.Stereotype) (t *sysmlv1.Element
 	switch cat {
 	case catPartDef, catOccurrenceDef:
 		classifiers = []*sysmlv1.Element{t}
-	case catIndividualDef:
-		kind, written, _ := m.individualClassifiers(t)
-		if kind != catPartDef && kind != catOccurrenceDef {
-			return nil, nil, targetNote + describe(t) + " is written as an " + individualKeyword(kind) + ", which no part can be typed by, so the configuration runs no behavior"
+	case catInstance:
+		kind, types, _, _ := m.instanceKind(t)
+		if kind != catPartDef && kind != catOccurrenceDef && kind != catItemDef {
+			return nil, nil, targetNote + describe(t) + " is written as " + kwArticle(kind.usageKeyword()) + ", which no part can subset, so the configuration runs no behavior"
 		}
-		classifiers = written
+		classifiers = types
 	default:
 		return nil, nil, joinNotes(targetNote+describe(t)+" is written as a "+cat.keyword()+", which no part can be typed by, so the configuration runs no behavior", why)
 	}
