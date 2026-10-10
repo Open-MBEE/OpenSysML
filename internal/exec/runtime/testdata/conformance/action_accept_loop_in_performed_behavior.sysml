@@ -27,8 +27,8 @@ package test {
 		part emitter {
 			perform action emit {
 				first start;
-				action one send Tick(k = 3) to listener;
-				action two send Tick(k = 4) to listener;
+				action one send new Tick(k = 3) to listener;
+				action two send new Tick(k = 4) to listener;
 				done;
 				succession first start then one;
 				succession first one then two;
