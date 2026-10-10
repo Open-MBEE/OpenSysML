@@ -1,0 +1,1 @@
+- **The documentation site builds again with pymdown-extensions 12.2.** `mkdocstrings` is pinned to 1.0.7, whose highlighter accepts the Markdown instance that pymdown-extensions 12.2 requires, and `pymdown-extensions` itself is now pinned with the rest of the toolchain, so the site renders the same locally and in the Pages workflow.
