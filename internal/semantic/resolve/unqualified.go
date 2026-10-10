@@ -589,10 +589,8 @@ func (r *Resolver) importTargetOf(scope *symbols.Scope, imp *ast.Import) (*symbo
 	var target *symbols.Symbol
 	var ok bool
 	r.resolvingImports[imp] = true
-	overloading := r.overloading
-	r.overloading = 0 // the target is an ordinary reference, whatever lookup needs it
-	r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
-	r.overloading = overloading
+	// The target is an ordinary reference, whatever lookup needs it.
+	r.ordinary(func() { r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) }) })
 	delete(r.resolvingImports, imp)
 	if ok && remember {
 		journalNew(r, r.importTargets, imp, imp)

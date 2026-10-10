@@ -237,13 +237,33 @@ func (r *Resolver) AdmittedChildrenOf(scope *symbols.Scope, fqn string, children
 		return children
 	}
 	doc, from := r.documentOf(scope), r.ReferringNamespaceFQN(scope)
+	// An imported membership the namespace hides is no member of it (KerML
+	// 7.2.5.4), though the index still holds the name under it.
+	var hiding []*symbols.Scope
+	if r.idx != nil {
+		for _, ns := range symbols.PreferDeclared(r.idx.LookupQualified(fqn)) {
+			if ns != nil && ns.Scope != nil {
+				hiding = append(hiding, ns.Scope)
+			}
+		}
+	}
 	kept := make([]*symbols.Symbol, 0, len(children))
 	for _, sym := range children {
 		// A qualified name reaches only the namespace's visible memberships.
 		if !r.namedThroughNamespace(sym) {
 			continue
 		}
-		if r.admitsUnderName(doc, from, fqn+"::"+localNameOf(sym), sym) {
+		if !r.admitsUnderName(doc, from, fqn+"::"+localNameOf(sym), sym) {
+			continue
+		}
+		hidden := false
+		for _, ns := range hiding {
+			if len(r.withoutHiddenImports(ns, localNameOf(sym), []*symbols.Symbol{sym})) == 0 {
+				hidden = true
+				break
+			}
+		}
+		if !hidden {
 			kept = append(kept, sym)
 		}
 	}
@@ -271,8 +291,10 @@ func (r *Resolver) AdmittedTopLevel(doc string, bindings []symbols.RootBinding) 
 // ImportedElements enumerates the elements imp surfaces into scope, with the
 // same admission a lookup through imp makes: the import's filter clause and the
 // `filter` members of the declaring namespace (see importAdmitsInto).
+// A membership scope hides (KerML 7.2.5.4) is left out: an import brings
+// nothing under a name another import of scope brings a distinct element under.
 func (r *Resolver) ImportedElements(scope *symbols.Scope, imp *ast.Import) []*symbols.Symbol {
-	return r.ImportedElementsInto(scope, scope, imp)
+	return r.withoutHiddenMembers(scope, r.importedMembersInto(scope, scope, imp, false))
 }
 
 // ImportedElementsInto enumerates the elements imp, declared in scope, surfaces

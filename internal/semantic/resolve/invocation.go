@@ -39,6 +39,15 @@ func (r *Resolver) InvocationCandidates(scope *symbols.Scope, qn *ast.QualifiedN
 	return out
 }
 
+// ordinary runs f with hiding in force: the names f looks up are ordinary
+// references, not called names, whatever lookup is under way.
+func (r *Resolver) ordinary(f func()) {
+	overloading := r.overloading
+	r.overloading = 0
+	f()
+	r.overloading = overloading
+}
+
 // qualifiedCandidates resolves qn as an invocation name and widens the last
 // segment to every member it names under its qualifier, or at the root for `$::f`.
 func (r *Resolver) qualifiedCandidates(scope *symbols.Scope, qn *ast.QualifiedName) []*symbols.Symbol {

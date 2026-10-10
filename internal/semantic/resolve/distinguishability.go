@@ -222,7 +222,7 @@ func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) 
 		if target == nil || r.idx.Library(target) {
 			continue
 		}
-		for _, sym := range r.ImportedElementsInto(scope, scope, imp) {
+		for _, sym := range r.importedMembersInto(scope, scope, imp, false) {
 			if sym.Name == "" || r.idx.Library(sym) || !contributesName(sym) || !r.BindsName(sym) {
 				continue
 			}
@@ -299,8 +299,9 @@ func (r *Resolver) hiddenImportMember(scope *symbols.Scope, sym *symbols.Symbol)
 }
 
 // withoutHiddenImports drops from syms, reached under name, what scope hides
-// and what a namespace its imports re-export from hides: a membership hidden
-// there is no member of that namespace, so no import brings it on from there.
+// and what reaches scope only through a namespace that hides it: a membership
+// hidden there is no member of that namespace, so no import brings it on from
+// there, though another import of scope may still bring the element itself.
 func (r *Resolver) withoutHiddenImports(scope *symbols.Scope, name string, syms []*symbols.Symbol) []*symbols.Symbol {
 	if scope == nil || r.overloading > 0 || len(syms) == 0 {
 		return syms
@@ -322,11 +323,48 @@ func (r *Resolver) withoutHiddenImports(scope *symbols.Scope, name string, syms 
 				break
 			}
 		}
-		if !hidden {
+		if !hidden || r.importBrings(scope, name, sym, map[*symbols.Scope]bool{}) {
 			out = append(out, sym)
 		}
 	}
 	return out
+}
+
+// importBrings reports whether sym is a member of scope under name by a route
+// hiding does not cut: owned by scope, named by a membership import, or a
+// member, by the same measure, of a namespace a namespace import of scope
+// names. A route hiding cannot be decided on (a recursive import's subtree, a
+// library namespace without a scope) is taken to bring it.
+func (r *Resolver) importBrings(scope *symbols.Scope, name string, sym *symbols.Symbol, seen map[*symbols.Scope]bool) bool {
+	if scope == nil || seen[scope] || r.hiddenImport(scope, name, sym) {
+		return false
+	}
+	seen[scope] = true
+	key := symbols.KeyOf(r.aliasTarget(sym))
+	for _, owned := range r.LocalBindings(scope, name) {
+		if symbols.KeyOf(r.aliasTarget(owned)) == key {
+			return true
+		}
+	}
+	for _, imp := range r.scopeImports(scope) {
+		if r.resolvingImports[imp] {
+			continue
+		}
+		target, ok := r.importTargetOf(scope, imp)
+		if !ok || target == nil {
+			continue
+		}
+		if imp.Kind == ast.ImportMembership {
+			if imp.IsRecursive || symbols.KeyOf(r.aliasTarget(target)) == key {
+				return true
+			}
+			continue
+		}
+		if imp.IsRecursive || target.Scope == nil || r.importBrings(target.Scope, name, sym, seen) {
+			return true
+		}
+	}
+	return false
 }
 
 // collidedThrough is what hides name in scope, or in a namespace an import of
@@ -687,7 +725,7 @@ func (r *Resolver) importedMembers(owner, sup *symbols.Symbol) []*symbols.Symbol
 		if imp.Visibility == ast.VisibilityPrivate {
 			continue
 		}
-		for _, sym := range r.ImportedElementsInto(owner.Scope, sup.Scope, imp) {
+		for _, sym := range r.importedMembersInto(owner.Scope, sup.Scope, imp, false) {
 			if sym != nil && sym.Name != "" && !r.idx.Library(sym) && contributesName(sym) && r.BindsName(sym) &&
 				!r.hiddenImportMember(sup.Scope, sym) {
 				out = append(out, sym)

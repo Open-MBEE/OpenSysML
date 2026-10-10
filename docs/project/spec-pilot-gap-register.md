@@ -649,7 +649,8 @@ part def Base { protected import Left::*; protected import Right::*; }
   `pick(2)` still selects between `A::pick` and `B::pick` (`resolve.Resolver.InvocationCandidates`;
   `TestInvocationOverloadCandidatesThroughInheritedImports`). This is a documented extension of the
   specification, which has no overloading: read literally, the two memberships are hidden and the
-  call unresolved. Operator expressions (`'+'`, `'=='`, …) resolve against the Kernel Function
+  call unresolved. Only the called name is read so; the namespaces qualifying it are ordinary
+  references, so `Engine::build()` is unresolved where `Engine` is hidden. Operator expressions (`'+'`, `'=='`, …) resolve against the Kernel Function
   Library packages, library content the collision computation leaves out, so they are untouched
   either way.
 

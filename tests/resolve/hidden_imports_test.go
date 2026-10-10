@@ -320,3 +320,49 @@ func TestHiddenImportedMembershipsThroughAnImportCycle(t *testing.T) {
 		}
 	}
 }
+
+// A called name denotes an overload set, but the namespaces qualifying it are
+// ordinary references: a hidden `Engine` qualifies nothing, so `Engine::build()`
+// is unresolved, while the same call qualified by a package is not.
+func TestHiddenImportedMembershipsQualifierInCall(t *testing.T) {
+	r, root, scope := resolvedDoc(t, `package Left { part def Engine { calc def build { 1 } } }
+package Right { part def Engine { calc def build { 2 } } }
+package Use { private import Left::*; private import Right::*; calc c = Engine::build(); calc d = Left::Engine::build(); }`)
+	useScope := scope
+	for _, ref := range resolve.References(root, scope) {
+		if nameText(ref.QN) == "Engine::build" {
+			useScope = ref.Scope
+		}
+	}
+	if sym, ok := r.ResolveInvocationName(useScope, spelling(false, "Engine", "build")); ok {
+		t.Errorf("Engine::build() binds %s, want nothing", symbols.FQNOf(sym))
+	}
+	if cands := r.InvocationCandidates(useScope, spelling(false, "Engine", "build")); len(cands) != 0 {
+		t.Errorf("Engine::build() has candidates %v, want none", cands)
+	}
+	if sym, ok := r.ResolveInvocationName(useScope, spelling(false, "Left", "Engine", "build")); !ok || symbols.FQNOf(sym) != "Left::Engine::build" {
+		t.Errorf("Left::Engine::build() binds %v, %v; want Left::Engine::build", sym, ok)
+	}
+}
+
+// A namespace that hides a name re-exports nothing under it, but an element
+// one of its hidden memberships names is still a member of an importer that
+// imports the element's own namespace too: the direct route is not hidden.
+func TestHiddenImportedMembershipsBesideDirectImport(t *testing.T) {
+	r, root, scope := resolvedDoc(t, `package Left { part def Engine; }
+package Right { part def Engine; }
+package Both { public import Left::*; public import Right::*; }
+package Use { private import Both::*; private import Left::*; part e : Engine; part q : Use::Engine; }`)
+	for _, ref := range []string{"Engine", "Use::Engine"} {
+		if got := bindingOf(t, r, root, scope, ref); got != "Left::Engine" {
+			t.Errorf("%s binds %q, want Left::Engine", ref, got)
+		}
+	}
+	warnings, errors := diagnosticsOf(r)
+	if len(errors) != 0 {
+		t.Errorf("errors = %v, want none", errors)
+	}
+	if len(warnings) != 1 || !strings.HasPrefix(warnings[0], "Duplicate of imported member name 'Engine'") {
+		t.Errorf("warnings = %v, want the one on Both's second import", warnings)
+	}
+}
