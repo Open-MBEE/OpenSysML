@@ -1731,6 +1731,33 @@ func TestRefineWithSeveralEndsIsAConnectionPerPair(t *testing.T) {
 	wantNoLine(t, r.Notation, "connection 'Link 2 2'")
 }
 
+func TestNestedRequirementReferencesUseQualifiedNames(t *testing.T) {
+	r := migrateFixtureFile(t, "nested_requirement_refs")
+	target := "'Outer Requirement'::'Nested Requirement'::'Innermost Requirement'"
+	var dependency, comment bool
+	for _, line := range strings.Split(string(r.Notation), "\n") {
+		if strings.Contains(line, "dependency ") && strings.Contains(line, target) && strings.Contains(line, " to ") {
+			dependency = true
+			ends := strings.SplitN(line, " to ", 2)
+			if len(ends) != 2 || !strings.Contains(ends[0], "::") || !strings.Contains(ends[1], "::") {
+				t.Errorf("dependency ends are not both qualified names: %s", line)
+			}
+		}
+		if strings.Contains(line, "comment about ") && strings.Contains(line, target) {
+			comment = true
+		}
+	}
+	if !dependency {
+		t.Errorf("notation has no dependency with qualified nested requirement ends:\n%s", r.Notation)
+	}
+	if !comment {
+		t.Errorf("notation has no comment about the qualified nested requirement:\n%s", r.Notation)
+	}
+	for _, d := range errors(t, "nested_requirement_refs.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+}
+
 // A connection named after its relationship yields to a member of the package
 // it is written in that already has that name.
 func TestConnectionNameYieldsToAPackageMember(t *testing.T) {

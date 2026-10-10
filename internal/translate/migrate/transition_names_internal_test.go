@@ -82,8 +82,8 @@ func TestCommentAboutTransition(t *testing.T) {
 	}
 	got := string(r.Notation)
 	for _, w := range []string{
-		"    comment about 'Idle accept Go then Run' /* goes */\n",
-		"    comment about halt /* stops */\n",
+		"    comment about Modes::'Idle accept Go then Run' /* goes */\n",
+		"    comment about Modes::halt /* stops */\n",
 		"transition 'Idle accept Go then Run' first Idle accept Go then Run;",
 		"transition halt first Run then Idle;",
 	} {

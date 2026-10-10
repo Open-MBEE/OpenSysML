@@ -528,6 +528,7 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 		return
 	}
 	from, to := m.ref(ext.Parent, m.scope), m.ref(extended, m.scope)
+	qualifiedFrom, qualifiedTo := m.memberRef(ext.Parent, m.scope), m.memberRef(extended, m.scope)
 	decl, target := "dependency ", ""
 	name := m.nameOf(ext)
 	if name == "" {
@@ -542,7 +543,7 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 		m.madeUp(ext, writeName(name))
 	}
 	m.wroteEdge(ext, m.scope, "dependency", name)
-	m.w.line(decl + from + " to " + to + "; /* " + comment + " */")
+	m.w.line(decl + qualifiedFrom + " to " + qualifiedTo + "; /* " + comment + " */")
 	m.add(ext, Approximated, target, note)
 	m.stereotypeComments(ext)
 }

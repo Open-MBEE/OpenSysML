@@ -1,0 +1,1 @@
+- **Write nested requirement references as qualified names in dependencies and comments.** Migration output now uses `::` paths in dependency ends and comment subjects.

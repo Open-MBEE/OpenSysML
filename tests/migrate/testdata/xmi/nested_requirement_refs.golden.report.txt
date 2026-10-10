@@ -1,0 +1,16 @@
+# SysML v1 to v2 migration report: nested_requirement_refs.xmi
+# migrated 10 element(s): 9 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (1)
+Package	Requirements	_pkg_requirements	-> RequirementsModel	(written as RequirementsModel since a root package named Requirements would be hidden by the standard library's Requirements)
+
+## mapped (9)
+Model	Model	_model	(the root model's members are written at the top level)
+«Refine» Abstraction	Requirements::<Abstraction>	_dep_refine
+Comment	Requirements::<Comment>	_comment_inner
+«Block» Class	Requirements::Block	_block_type	-> RequirementsModel::Block
+«Block» Class	Requirements::Host	_host	-> RequirementsModel::Host
+Property	Requirements::Host::block	_block	-> RequirementsModel::Host::block
+«Requirement» Class	Requirements::Outer Requirement	_req_outer	-> RequirementsModel::'Outer Requirement'
+«Requirement» Class	Requirements::Outer Requirement::Nested Requirement	_req_nested	-> RequirementsModel::'Outer Requirement'::'Nested Requirement'
+«Requirement» Class	Requirements::Outer Requirement::Nested Requirement::Innermost Requirement	_req_inner	-> RequirementsModel::'Outer Requirement'::'Nested Requirement'::'Innermost Requirement'

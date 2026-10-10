@@ -365,6 +365,7 @@ var constructFixtures = []string{
 	"profile_inheritance",
 	"tool_profiles",
 	"property_markers",
+	"nested_requirement_refs",
 	"diagrams",
 	"diagram_edges",
 	"control_nodes",
