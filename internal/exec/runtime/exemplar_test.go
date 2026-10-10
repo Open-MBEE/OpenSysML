@@ -107,3 +107,48 @@ func TestConstraintAboutNoObjectKeepsUsagesItReads(t *testing.T) {
 		t.Errorf("the checks left %d object(s); want only sample's", after-before)
 	}
 }
+
+// The check abandons the variant its exemplar selected along with the exemplar,
+// though the variant's object names its owner only through the selection.
+func TestConstraintAboutNoObjectAbandonsItsVariants(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::Real;
+			part def Engine {
+				attribute power : Real default = 10.0;
+			}
+			abstract part def Powered {
+				variation part engine : Engine {
+					variant part petrol : Engine;
+					variant part electric : Engine;
+				}
+			}
+			part def Tank :> Powered {
+				part :>> engine = engine::electric;
+				constraint def 'Has power' {
+					in ref context : Tank[1];
+					context.engine.power > 0.0
+				}
+				assert constraint 'has power' : 'Has power' {
+					in ref :>> context = this;
+				}
+			}
+		}
+	`
+	ctx, pkg := conditionFixture(t, src)
+	tank := requirementNamed(t, pkg, "Tank")
+	before := len(ctx.instances)
+	ctx.SetMaxInstances(before + 2)
+	for i := 0; i < 3; i++ {
+		holds, err := ctx.EvaluateConstraint(requirementNamed(t, tank.Scope, "has power"), tank.Scope)
+		if err != nil || !holds {
+			t.Fatalf("check %d: has power = %v, %v; want true from the defaults", i+1, holds, err)
+		}
+		if after := len(ctx.instances); after != before {
+			t.Fatalf("check %d left %d object(s); want none", i+1, after-before)
+		}
+		if n := len(ctx.variantObjects); n != 0 {
+			t.Fatalf("check %d left %d selected variant object(s); want none", i+1, n)
+		}
+	}
+}

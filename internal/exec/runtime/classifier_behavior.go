@@ -349,16 +349,38 @@ func (ctx *Context) abandonInstancesBetween(mark, end int) {
 }
 
 // abandonInstancesHeldBy removes the objects registered since mark that are one
-// of roots or held, directly or below, by one; the others stay, in order.
+// of roots or held by one, directly or below, as a nested value or as the
+// variant it selected; the others stay, in order.
 func (ctx *Context) abandonInstancesHeldBy(mark int, roots map[*Instance]bool) {
+	held := ctx.heldSince(mark, roots)
 	ctx.forgetAbandoned(ctx.dropInstances(mark, len(ctx.created), func(inst *Instance) bool {
-		for ; inst != nil; inst = inst.owner {
-			if roots[inst] {
-				return true
+		return held[inst.ID]
+	}))
+}
+
+// heldSince names the objects registered since mark that are one of roots or
+// held by one, directly or below. A variant's object names the object that
+// selected it only through the selection, so that link is followed as well.
+func (ctx *Context) heldSince(mark int, roots map[*Instance]bool) map[int64]bool {
+	selectedBy := make(map[int64]int64, len(ctx.variantObjects))
+	for key, id := range ctx.variantObjects {
+		selectedBy[id] = key.owner
+	}
+	held := make(map[int64]bool, len(roots))
+	for grew := true; grew; {
+		grew = false
+		for _, id := range ctx.created[mark:] {
+			inst, live := ctx.instances[id]
+			if !live || held[id] {
+				continue
+			}
+			if roots[inst] || (inst.owner != nil && held[inst.owner.ID]) || held[selectedBy[id]] {
+				held[id] = true
+				grew = true
 			}
 		}
-		return false
-	}))
+	}
+	return held
 }
 
 // dropInstances unregisters the objects registered from mark up to end that drop
@@ -414,11 +436,16 @@ func (ctx *Context) forgetAbandoned(abandoned map[int64]bool, gone []*Instance) 
 	ctx.forgetMessagesTo(abandoned)
 }
 
-// forgetVariantsNaming unselects every variant whose object is abandoned, so the
-// selection is made again, and its object built again, when next read.
+// forgetVariantsNaming unselects every variant whose object or selecting object
+// is abandoned, so the selection is made, and its object built, again when next read.
 func (ctx *Context) forgetVariantsNaming(abandoned map[int64]bool) {
+	for selection := range ctx.selectedVariants {
+		if abandoned[selection.owner] {
+			delete(ctx.selectedVariants, selection)
+		}
+	}
 	for key, id := range ctx.variantObjects {
-		if !abandoned[id] {
+		if !abandoned[id] && !abandoned[key.owner] {
 			continue
 		}
 		delete(ctx.variantObjects, key)
