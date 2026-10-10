@@ -62,6 +62,14 @@ the frames remains, and answers in two cases:
   scope resolves the pin's name to it, so a pin resolution would not have found stays
   unheld and `frame.bindsUnheld` defers to the name walk.
 
+A frame holding the feature answers even when it has no value for it. A performance
+records the attributes it declares with no value (`actionFrame.declareUnvalued`, from
+the lowered declarations at `newRootFrame` and `seedPerformance`), and `frame.read`
+answers a read of one with `NoValueError` until a write binds it, so a nested
+`attribute x : Integer;` masks an enclosing `x = 4` instead of reading it. A binding
+connector probing its other end treats that error as the end holding nothing yet
+(`performances.otherEndHeld`, via `unheldEnd`), as it does an unperformed node's pin.
+
 Simple names are therefore a lookup and display index scoped to the frame declaring
 them; identity is the resolved feature.
 

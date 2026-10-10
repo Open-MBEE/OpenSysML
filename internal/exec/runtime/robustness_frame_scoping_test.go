@@ -14,6 +14,7 @@ func TestRuntimeRobustnessFrameScoping(t *testing.T) {
 	t.Run("block_local_attribute_is_unresolved_after_its_block", testFrameScopingBlockLocalUnresolved)
 	t.Run("nested_node_attribute_is_unresolved_in_the_enclosing_body", testFrameScopingNestedAttributeUnresolved)
 	t.Run("body_attribute_shadowing_a_payload_reads_as_itself", testFrameScopingShadowedPayloadNotRead)
+	t.Run("unvalued_nested_attribute_does_not_read_the_enclosing_value", testFrameScopingUnvaluedNestedNotRead)
 }
 
 func testFrameScopingBlockLocalUnresolved(t *testing.T) {
@@ -70,5 +71,27 @@ func testFrameScopingShadowedPayloadNotRead(t *testing.T) {
 	var noValue *NoValueError
 	if !errors.As(err, &noValue) || noValue.Feature != "msg" {
 		t.Fatalf("error = %v, want NoValueError for the body's own unvalued msg, not the payload", err)
+	}
+}
+
+func testFrameScopingUnvaluedNestedNotRead(t *testing.T) {
+	_, err := executeActionSource(t, "outer", `package test {
+		private import ScalarValues::*;
+		action outer {
+			attribute x : Integer = 4;
+			attribute got : Integer = -1;
+			first start;
+			then action inner {
+				attribute x : Integer;
+				first start;
+				then action r { assign got := x; }
+				then done;
+			}
+			then done;
+		}
+	}`)
+	var noValue *NoValueError
+	if !errors.As(err, &noValue) || noValue.Feature != "x" {
+		t.Fatalf("error = %v, want NoValueError for inner's own unvalued x, not outer's value", err)
 	}
 }

@@ -179,11 +179,22 @@ func (f frame) read(ctx *Context, name string) (Value, bool, error) {
 	if f.cells == nil && len(ctx.deriving) != 0 && f.ensureCells != nil {
 		f.cells = f.ensureCells()
 	}
+	var value Value
+	var ok bool
 	if f.cells == nil {
-		value, ok := f.vars[name]
-		return value, ok, nil
+		value, ok = f.vars[name]
+	} else {
+		var err error
+		if value, ok, err = ctx.readBodyCell(f.cells, name); err != nil {
+			return Value{}, false, err
+		}
 	}
-	return ctx.readBodyCell(f.cells, name)
+	if !ok && f.perf != nil && f.perf.unvalued[name] {
+		// The performance's own attribute, unvalued: that is the answer, not
+		// a same-named value some enclosing frame holds.
+		return Value{}, false, &NoValueError{Feature: name}
+	}
+	return value, ok, nil
 }
 
 // has reports whether the frame binds name or declares it unvalued.

@@ -127,6 +127,9 @@ type actionFrame struct {
 	declared map[*symbols.Symbol]string
 	// optional holds the held features whose multiplicity admits no value at all.
 	optional map[string]bool
+	// unvalued holds the attributes the performance declares with no value, which
+	// read as missing until written rather than as an enclosing frame's same name.
+	unvalued map[string]bool
 	// result names the parameter a value read of the performance stands for,
 	// "" when the action it performs states no result parameter.
 	result string
@@ -249,6 +252,9 @@ func (e *ActionExecutor) newRootFrame() *actionFrame {
 		run:         e.ctx.newRun(),
 	}
 	e.declareRootFeatures(root)
+	for _, attr := range e.features {
+		root.declareUnvalued(attr.Name, attr.Direction, attr.IsResult, attr.Optional, attr.Value)
+	}
 	e.registerRootBindings(root)
 	return root
 }
@@ -384,6 +390,19 @@ func (ctx *Context) aliasRedefinitions(aliases *map[string]string, sym *symbols.
 	visit(sym)
 }
 
+// declareUnvalued records an attribute the performance declares with no value: a
+// read of it answers missing until a write binds it, whatever an enclosing frame
+// binds the name to.
+func (f *actionFrame) declareUnvalued(name string, dir ast.FeatureDirection, isResult, optional bool, value ast.Node) {
+	if dir != ast.DirNone || isResult || optional || value != nil || name == "" {
+		return
+	}
+	if f.unvalued == nil {
+		f.unvalued = make(map[string]bool)
+	}
+	f.unvalued[f.key(name)] = true
+}
+
 // key is the name the performance holds name under: its redefinition's, else its own.
 func (f *actionFrame) key(name string) string {
 	return canonical(f.aliases, name)
@@ -490,6 +509,9 @@ func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGr
 	}
 	if err := e.seedDeclaredValues(perf, flow.Features[node], activation); err != nil {
 		return err
+	}
+	for _, feature := range flow.Features[node] {
+		perf.declareUnvalued(feature.Name, feature.Direction, feature.IsResult, perf.optional[perf.key(feature.Name)], feature.Value)
 	}
 	return e.checkMergedTypedInputs(perf)
 }
@@ -1866,7 +1888,11 @@ func (e *performances) otherEndHeld(perf *actionFrame, end boundEnd) (Value, boo
 		return e.ctx.readBodyValue(other.cells, other.data, other.key(end.OtherPin))
 	}
 	if name := simpleEndName(end.Other); name != "" {
-		return e.bindingEndContext(end).Lookup(name)
+		value, held, err := e.bindingEndContext(end).Lookup(name)
+		if err != nil && e.unheldEnd(end, err) {
+			return Value{}, false, nil // an enclosing feature declared unvalued holds nothing yet
+		}
+		return value, held, err
 	}
 	if end.OtherChain != nil {
 		value, err := e.bindingEndContext(end).Eval(end.Other)
