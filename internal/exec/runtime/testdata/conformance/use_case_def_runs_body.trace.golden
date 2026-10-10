@@ -1,0 +1,8 @@
+step 1: token 1@plugDrone
+step 2: token 1@chargeDroneBatteries
+stmt assign charged
+    eval feature level -> 5
+    eval literal 10 -> 10
+  eval operator + -> 15
+step 3: token 1@done
+step 4: no active tokens

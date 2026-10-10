@@ -52,6 +52,37 @@ func TestActionGeneralizationOrderTypingAndCycles(t *testing.T) {
 	}
 }
 
+// A use case is an action: its generalization chain and the action nodes it
+// inherits, an included use case among them, resolve as an action's do.
+func TestActionGeneralizationOfAUseCase(t *testing.T) {
+	scope := actionBodyScope(t, `package test {
+		use case def Charge;
+		use case def Base {
+			action work;
+			include use case charge : Charge;
+		}
+		use case def Derived :> Base;
+		use case typed : Base;
+	}`)
+
+	derived, cyclic := ActionGeneralization(scope("Derived"), false)
+	if cyclic {
+		t.Fatal("Derived specialization reported a cycle")
+	}
+	if got, want := actionGeneralizationNames(derived), []string{"Base"}; !equalNames(got, want) {
+		t.Fatalf("Derived generals = %v, want %v", got, want)
+	}
+	typed, _ := ActionGeneralization(scope("typed"), true)
+	if got, want := actionGeneralizationNames(typed), []string{"Base"}; !equalNames(got, want) {
+		t.Fatalf("typed usage generals = %v, want %v", got, want)
+	}
+	for _, name := range []string{"work", "charge"} {
+		if _, found := ActionNodeOfBody(scope("Derived"), name); !found {
+			t.Errorf("Derived does not inherit action node %s", name)
+		}
+	}
+}
+
 func actionBodyScope(t *testing.T, src string) func(string) *symbols.Scope {
 	t.Helper()
 	const name = "generalization.sysml"

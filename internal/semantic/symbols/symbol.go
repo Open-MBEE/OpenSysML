@@ -216,6 +216,18 @@ func (k SymbolKind) IsFeature() bool {
 	return false
 }
 
+// IsAction reports whether k classifies an action: an action definition or usage,
+// or a use case definition or usage, which is a case, a calculation and so an action
+// (SysML v2 §7.17, §7.19) and runs as one. An analysis or verification case runs as
+// the calculation it is.
+func (k SymbolKind) IsAction() bool {
+	switch k {
+	case SymbolActionDef, SymbolActionUsage, SymbolUseCaseDef, SymbolUseCaseUsage:
+		return true
+	}
+	return false
+}
+
 // IsAttributeLike reports whether k classifies a usage carrying attribute
 // features: an attribute usage, or a kindless reference usage, which is an
 // attribute for every purpose but the metaclass it names.

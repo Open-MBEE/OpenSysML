@@ -69,7 +69,7 @@ func isFlowNode(member ast.Node) bool {
 	case *ast.PerformActionNode:
 		return true
 	case *ast.Usage:
-		return (m.Kind == ast.UsageAction && !m.IsBodyParameter && !m.IsAccept) || IsCaseNode(m)
+		return (m.Kind.IsAction() && !m.IsBodyParameter && !m.IsAccept) || IsCaseNode(m)
 	default:
 		return false
 	}

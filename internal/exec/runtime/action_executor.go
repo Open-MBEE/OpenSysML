@@ -200,7 +200,7 @@ func newActionExecutorOfGraph(
 	occurrence *Instance,
 	graph *lower.ActionGraph,
 ) (*ActionExecutor, error) {
-	if action.Kind != symbols.SymbolActionUsage && action.Kind != symbols.SymbolActionDef {
+	if !action.Kind.IsAction() {
 		return nil, fmt.Errorf("symbol %s is not an action", action.Name)
 	}
 	if err := ctx.checkPerformer(self); err != nil {
@@ -1592,6 +1592,27 @@ func (e *ActionExecutor) setFrameFeatures(frame *actionFrame, values map[string]
 	return nil
 }
 
+// bindCaseMembers binds the subject and actors a use case gives a value (`subject drone
+// = d;`, `actor pilot = p;`) as a requirement binds its own, under the names the case
+// declares. The binding expressions read the inputs already held; a supplied input
+// of a member's name stands. A member given no value stays unbound.
+func (e *ActionExecutor) bindCaseMembers() error {
+	if e.action.Kind != symbols.SymbolUseCaseDef && e.action.Kind != symbols.SymbolUseCaseUsage {
+		return nil
+	}
+	members := e.ctx.chainMembers(e.action, DeclScope(e.action))
+	bindings, err := e.ctx.memberBindings(e.action, "use case", e.action.Name, members, e.self, nil, performanceFrame(e.root))
+	if err != nil {
+		return err
+	}
+	for name := range bindings {
+		if _, held := e.root.data[e.root.key(name)]; held {
+			delete(bindings, name)
+		}
+	}
+	return e.setFrameFeatures(e.root, bindings)
+}
+
 // hasFlow reports whether the action states a flow to start: an action with no
 // step performs none, while one whose steps give no start fails to initialize.
 func (e *ActionExecutor) hasFlow() bool {
@@ -1622,8 +1643,9 @@ func (e *ActionExecutor) completeWithoutFlow() error {
 	return e.completeRoot()
 }
 
-// bindInputs writes the supplied inputs into the performance, then the
-// attributes it declares: a default written in terms of an input reads it.
+// bindInputs writes the supplied inputs into the performance, then the subject
+// and actors a use case binds, then the attributes it declares: a default
+// written in terms of an input or the subject reads it.
 func (e *ActionExecutor) bindInputs() error {
 	if err := e.fixWitnessInputs(); err != nil {
 		return inputBindingError{Err: err}
@@ -1633,6 +1655,9 @@ func (e *ActionExecutor) bindInputs() error {
 	}
 	if err := e.setFrameFeatures(e.root, e.inputs); err != nil {
 		return inputBindingError{Err: err}
+	}
+	if err := e.bindCaseMembers(); err != nil {
+		return err
 	}
 	if err := e.initializeAttributes(); err != nil {
 		return inputBindingError{Err: fmt.Errorf("initialize attributes: %w", err)}
@@ -1836,7 +1861,7 @@ func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 		return e.stepActionExecutionNode(tokenIdx)
 	case *ast.Usage:
 		// Nested action invocation, or a nested case performed as a step
-		if node.Kind == ast.UsageAction || lower.IsCaseNode(node) {
+		if node.Kind.IsAction() || lower.IsCaseNode(node) {
 			return e.stepNestedAction(tokenIdx)
 		}
 		if e.tokenGraph(tokenIdx).StatementRuns[node] || node.Kind == ast.UsageConstraint {

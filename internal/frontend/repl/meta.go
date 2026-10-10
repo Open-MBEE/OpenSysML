@@ -2570,12 +2570,12 @@ func (s *Session) startAction(name string, performer []string) ([]string, error)
 		return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
 	}
 
-	sym, fqn, lerr := s.lookupSymbolOfKinds(name, symbols.SymbolActionUsage, symbols.SymbolActionDef)
+	sym, fqn, lerr := s.lookupSymbolOfKinds(name, actionKinds...)
 	if lerr != nil {
 		return nil, lerr
 	}
 
-	if sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolActionDef {
+	if !sym.Kind.IsAction() {
 		return nil, fmt.Errorf("%q is not an action", name)
 	}
 

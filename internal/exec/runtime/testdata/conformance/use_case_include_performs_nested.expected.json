@@ -1,0 +1,11 @@
+{
+  "type": "action",
+  "evaluate": "test::fly",
+  "trace": true,
+  "outputs": {
+    "x": {"type": "Integer", "value": 1},
+    "charge.level": {"type": "Integer", "value": 1},
+    "charge.charged": {"type": "Integer", "value": 11},
+    "y": {"type": "Integer", "value": 12}
+  }
+}

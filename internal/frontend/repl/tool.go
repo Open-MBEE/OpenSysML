@@ -48,10 +48,10 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 	if !s.hasDeclarations() {
 		return unresolvedVerdict(label, "no declarations loaded")
 	}
-	sym, fqn, err := s.lookupSymbolOfKinds(inv.name,
+	sym, fqn, err := s.lookupSymbolOfKinds(inv.name, append([]symbols.SymbolKind{
 		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
 		symbols.SymbolVerificationCaseDef, symbols.SymbolVerificationCaseUsage,
-		symbols.SymbolActionDef, symbols.SymbolActionUsage)
+	}, actionKinds...)...)
 	if err != nil {
 		return unresolvedVerdict(label, err.Error())
 	}
@@ -76,8 +76,7 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 	ctx.SetToolRunner(runner)
 	defer ctx.SetToolRunner(prior)
 
-	isAction := sym.Kind == symbols.SymbolActionDef || sym.Kind == symbols.SymbolActionUsage
-	if isAction {
+	if sym.Kind.IsAction() {
 		err = s.runActionToCompletion(ctx, inv, sym)
 	} else {
 		_, err = s.runAnalysisIn(s.direct(), ctx, inv, sym, fqn, heldObjects{s})
