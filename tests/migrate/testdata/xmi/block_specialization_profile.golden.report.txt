@@ -1,0 +1,28 @@
+# SysML v1 to v2 migration report: block_specialization_profile.xmi
+# exported by Example UML Tool
+# migrated 21 element(s): 20 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (1)
+Diagram	Bench::Segments	_diag_segments	-> Bench::Segments	(a Generic Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+
+## mapped (20)
+Package	Bench	_pkg_bench	-> Bench
+Association	Bench::Carries	_assoc_carries	-> Bench::Carries
+Property	Bench::Carries::carried	_carries_telescope	-> Bench::Carries::carried
+Property	Bench::Carries::carrier	_carries_tripod	-> Bench::Carries::carrier
+«Rule» Class	Bench::Focus Rule	_rule_focus	-> Bench::'Focus Rule'
+«Segment» Class	Bench::Lens	_seg_lens	-> Bench::Lens
+«DiagramTable» Diagram	Bench::Segments	_tbl_segments	-> part def Bench::'Segments Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Segments Rows')
+«Need» Class	Bench::Sharp Image	_need_sharp	-> Bench::'Sharp Image'
+«Segment» Class	Bench::Telescope	_seg_telescope	-> Bench::Telescope
+Port	Bench::Telescope::light in	_telescope_light	-> Bench::Telescope::'light in'
+Property	Bench::Telescope::objective	_telescope_lens	-> Bench::Telescope::'objective'
+«Mount» Class	Bench::Tripod	_mount_tripod	-> Bench::Tripod
+«Coupling» Class	Bench::iLight	_ib_light	-> Bench::iLight
+Model	Model	_m	(the root model's members are written at the top level)
+Profile	Optics	_optics	-> Optics
+Stereotype	Optics::Coupling	_st_coupling	-> Optics::Coupling
+Stereotype	Optics::Mount	_st_mount	-> Optics::Mount
+Stereotype	Optics::Need	_st_need	-> Optics::Need
+Stereotype	Optics::Rule	_st_rule	-> Optics::Rule
+Stereotype	Optics::Segment	_st_segment	-> Optics::Segment

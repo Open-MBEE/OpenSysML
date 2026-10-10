@@ -3,6 +3,8 @@ package migrate
 import (
 	"slices"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
 func TestMetaclassFiltersExcludeNewConformingTypes(t *testing.T) {
@@ -97,5 +99,32 @@ func TestMergedExclusionsRetainUnfilteredTypes(t *testing.T) {
 	}
 	if want := []string{typePartDef, typeItemDef}; !slices.Equal(merged.excluding.keep, want) {
 		t.Errorf("merged exclusion keep = %v, want %v", merged.excluding.keep, want)
+	}
+}
+
+func TestToolBlockStereotypeFilterIsTheBlockFilter(t *testing.T) {
+	block := fromTypes("«Block»", stereotypeTypes["Block"])
+	got := toolBlockFilter("Subsystem")
+	if got.label != "«Subsystem»" || !slices.Equal(got.types, block.types) || got.query(qlit("row")).text("") != block.query(qlit("row")).text("") {
+		t.Errorf("Subsystem filter = %+v, want the Block filter labelled «Subsystem»", got)
+	}
+	if got.note == "" {
+		t.Error("a filter by the tool table carries no note")
+	}
+}
+
+func TestSpecializedFilterFollowsModuleGenerals(t *testing.T) {
+	sysml := "http://www.omg.org/spec/SysML/20181001/SysML"
+	ancestors := []sysmlv1.StereotypeRef{
+		{ID: "_nne", Name: "NonNormative", Namespace: sysml},
+		{ID: "_user", Name: "Block", Namespace: "http://example.com/schemas/User.xmi"},
+		{ID: "_block", Name: "Block", Namespace: sysml},
+	}
+	got, ok := specializedFilter("Subsystem", ancestors)
+	if !ok || !slices.Equal(got.types, []string{typePartDef, typeOccurrenceDef}) {
+		t.Errorf("Subsystem :> Block filter = %+v, %v; want the Block types", got, ok)
+	}
+	if _, ok := specializedFilter("Tag", ancestors[:2]); ok {
+		t.Error("a stereotype specializing only a user «Block» filters as a standard block")
 	}
 }
