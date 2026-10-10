@@ -59,7 +59,7 @@ turned out to rest on a clause after all — retained so it is not re-audited).
 | 10 | Spurious error | A calculation usage named as a value is the calculation, not its result (`n as String`) | warns | warns, as the pilot | spec ambiguous |
 | 11 | Missed diagnostic | Eight control-node succession constraints (SysML §8.3.17) | unimplemented `TODO`s | reported | spec clear; pilot short |
 | 12 | Missed diagnostic | Non-Boolean transition guard | accepted with the full library | rejected | spec clear; pilot short |
-| 13 | Missed diagnostic | Indistinguishable memberships reported as a warning; repeated anonymous `perform a;` depends on bodies in the pilot | warning; silent for bodiless repeats | warning for every repeat | spec clear (a validation constraint), both tools under-report |
+| 13 | Missed diagnostic | Indistinguishable memberships reported as a warning; repeated anonymous `perform a;` depends on bodies in the pilot | warning; silent for bodiless repeats | warning for every repeat by default, error under strict conformance | spec clear (a validation constraint); the pilot under-reports, ours does by default |
 | 14 | Missed diagnostic | Constraints the pilot declares but never reports, absent from the published specification (`validateSubsettingPortionConformance`, `validateBindingConnectorArgumentTypeConformance`, `validatePartUsageType`, `validateItemUsageType`, …) | declared, unreported | not implemented | needs author opinion: are these normative? |
 | 15 | Missed diagnostic | Lower-tier errors suppress later diagnostics the pilot still reports | reports secondary diagnostics over unresolved names | gates higher tiers | not a spec matter; recorded so it is not mistaken for one |
 | 16 | Missed diagnostic | Body expression `{ … }` as a value typed `BooleanEvaluation` when its result is Boolean | so typed | as the pilot | spec ambiguous (implied typing of an expression body) |
@@ -468,7 +468,12 @@ and for the `'p' from A2` warning of `RedefinitionDiamond_Invalid.sysml.xt` and
 `p :>> p` (a `ReferenceUsage`).
 
 **OpenSysML:** a warning for every repeat, bodies or not; `part def A; part def A;` is likewise
-a warning. `part def A; attribute def A;` and `class A; datatype A;` are clean, as are the 55
+a warning. Under strict conformance (`-strict`, `%strict`, `strictConformance`,
+`strict_conformance`) every such finding — `Duplicate of other owned member name`, `Duplicate of
+owned member name` (an alias), `Duplicate of other alias name`, the short-name variant, and
+`Duplicate of inherited member name` for an owned member repeating an inherited one, a name
+inherited from two supertypes, and the library-base variant of both — is an error; the finding
+and its wording are those of the default mode. `part def A; attribute def A;` and `class A; datatype A;` are clean, as are the 55
 diamonds and the two `RedefinitionDiamond` members above: two memberships whose member elements'
 metaclasses conform in neither direction are distinguishable whatever their names
 (`resolve.Resolver.DistinguishableByMetaclass`). Same or specializing metaclasses
@@ -490,15 +495,32 @@ metaclass is the other's or a specialization of it. §8.3.3.3.4
 Two `perform a;` therefore both have `memberName` `a`, whatever their bodies.
 
 **Assessment:** spec clear on both counts. The rule is a `validate…` constraint — a violating model
-is not well-formed — so a warning under-reports it; both tools do so (a warning was chosen so that
-duplicated names in the training corpus do not fail its clean gate). The body-sensitivity is the
+is not well-formed — so a warning under-reports it. The pilot does so; OpenSysML does so by
+default (a warning was chosen so that duplicated names in the training corpus do not fail its
+clean gate, and so that the pilot differential compares like with like) and reports the error
+the specification calls for under strict conformance, the mode that judges a model as conforming
+SysML v2. Inherited memberships are in scope: `Type::inheritedMembership` "subsets membership"
+and is "included in the derived union for the memberships of the Type" (§8.3.3.1.10), §7.3.2.1
+spells it out ("The member names of all inherited memberships must be distinct from each other
+and from the member names of all owned memberships"), and a library supertype's members are
+inherited like any other, so the resolver's and the library-base pass's inherited findings are
+escalated alike. Imported collisions are not: §7.2.5.4 hides them, so the namespace keeps no
+indistinguishable membership and `Duplicate of imported member name` stays a warning in every
+mode (see [Imported memberships](#imported-memberships) below). The body-sensitivity is the
 pilot's alone; ours follows the specification. On the metaclass clause the specification is
 clear and the pilot is short: it does not implement the clause, and ours does.
 
-**Question for the authors:** is a namespace with indistinguishable memberships intended to be
-rejected (an error) or is a tool free to report it as a warning and keep resolving? And for
-two `perform a;` in one body, are the memberships indistinguishable regardless of whether the
-usages have bodies?
+**Referee note, framed concerns.** An unnamed `frame <concern>;` takes the referenced concern's
+name, so two frames of one name in a viewpoint are the owned-name case above — both tools warn.
+The named form `frame concern <name> ::> <concern>;` (SysML.xtext `FramedConcernUsage`) is clean
+here; the pilot adds `Duplicate of inherited member name 'this' from ownedPerformances,
+subperformances` at it where the framed concern declares a `subject` and is owned by the view
+definition enclosing the viewpoint (silent for a package-level concern, or one without a
+subject). The message names two library features as the supertypes a `this` is inherited from,
+which no clause of KerML provides for; left as the pilot's.
+
+**Question for the authors:** for two `perform a;` in one body, are the memberships
+indistinguishable regardless of whether the usages have bodies?
 
 #### Imported memberships
 
@@ -548,6 +570,17 @@ names count as names, and two members whose metaclasses conform in neither direc
   member, which it reaches first. An owned member of that name hides both and silences the
   warning, as it does for two imports. The pilot never compares imported with inherited
   memberships either.
+- *A hidden import is not inherited.* A membership §7.2.5.4 hides — colliding with another
+  import's name or with an owned name — is excluded from `importedMemberships` and so is no
+  membership of the importing namespace; a type specializing that namespace inherits none of it
+  (`Type::inheritedMembership` draws on the general's memberships, §8.3.3.1.10). `view v :>
+  Introduction;` where `Introduction` has `expose Fleet::**` bringing two parts' `payload` draws
+  the import warning at `Introduction` alone; `v` is clean (`resolve.Resolver.hiddenImports`,
+  which reads the same collisions `checkImportedNames` reports, through `importCollisions`). The
+  pilot reports `Duplicate of inherited member name 'payload' from Trailer, Truck` at `v` as
+  well: its `NamespaceImportAdapter` adds every visible membership (above), so the hidden pair is
+  inherited there — the same shortfall, one level down. Locked by
+  `TestHiddenImportsOfAGeneralAreNotInherited`.
 - *An imported name an owned member hides takes no part:* `Namespace::importedMemberships(excluded)`
   excludes a membership whose names an owned membership repeats, so `part def Engine;` declared in
   `C` silences both imports.

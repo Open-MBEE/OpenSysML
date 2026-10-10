@@ -512,3 +512,87 @@ func diagnosticsWithCode(r *resolve.Resolver, code string) []resolve.Diagnostic 
 	}
 	return out
 }
+
+// An imported membership KerML 7.2.5.4 hides — colliding with another import's
+// or with an owned name — is no membership of the importing namespace
+// (8.3.2.4.5 importedMemberships), so a subtype inherits none of it: the
+// warning stays on the import and the subtype is clean. A collision-free import
+// is inherited as before.
+func TestHiddenImportsOfAGeneralAreNotInherited(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		general string
+		want    []string
+	}{
+		{
+			"two imports collide",
+			`part def G { import A::*; import B::*; }`,
+			[]string{"Duplicate of imported member name 'x': P::A::x (import A::*), P::B::x (import B::*)"},
+		},
+		{
+			"an owned name hides an import",
+			`part def G { import A::*; part x; } part def S :> G { part x :>> x; }`,
+			nil,
+		},
+		{
+			"a collision-free import is inherited",
+			`part def G { import A::*; }`,
+			[]string{"Duplicate of inherited member name 'x' from A"},
+		},
+	} {
+		src := `package P {
+			package A { part x; }
+			package B { part x; }
+			` + tc.general
+		if !strings.Contains(tc.general, "part def S") {
+			src += ` part def S :> G { part x; }`
+		}
+		r, _, _ := resolvedDoc(t, src+`
+		}`)
+		var got []string
+		for _, d := range diagnosticsWithCode(r, resolve.CodeNameConflict) {
+			got = append(got, d.Message)
+		}
+		if strings.Join(got, "\n") != strings.Join(tc.want, "\n") {
+			t.Errorf("%s: name conflicts = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+// A specialization cycle whose types both import must still be answered: the
+// hidden imports of a general are computed without walking its inheritance.
+func TestImportsHiddenByInheritedNamesAreNotInherited(t *testing.T) {
+	r, _, _ := resolvedDoc(t, `package P {
+		part def Base { part x; }
+		package Q { part x; }
+		part def G :> Base { public import Q::*; }
+		part def S :> G;
+		part def T :> S;
+	}`)
+	var got []string
+	for _, d := range diagnosticsWithCode(r, resolve.CodeNameConflict) {
+		got = append(got, d.Message)
+	}
+	want := []string{"Duplicate of imported member name 'x': P::Q::x (import Q::*), P::Base::x (inherited)"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("name conflicts = %q, want %q", got, want)
+	}
+}
+
+func TestCyclicGeneralsWithImportsAreAnswered(t *testing.T) {
+	r, _, _ := resolvedDoc(t, `package P {
+		package X { part x; }
+		package Y { part y; }
+		part def A :> B { import X::*; }
+		part def B :> A { import Y::*; }
+		part def S :> A { part x; }
+	}`)
+	var got []string
+	for _, d := range diagnosticsWithCode(r, resolve.CodeNameConflict) {
+		got = append(got, d.Message)
+	}
+	want := []string{"Duplicate of inherited member name 'x' from X"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("name conflicts = %q, want %q", got, want)
+	}
+}

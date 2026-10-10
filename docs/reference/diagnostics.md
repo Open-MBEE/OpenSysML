@@ -7,8 +7,8 @@ can be switched off by that code. A lint marked *opt-in* below is off until it i
 by its code, since what it reports holds of ordinary models more often than it marks a slip.
 A lint is a warning in every mode:
 [`-strict`](../guide/03-command-line.md#strict-conformance) promotes notation no SysML v2
-production admits, and a lint is not about notation, so it stays a warning and never changes
-the exit status or blocks a check.
+production admits and the [duplicate member names](#duplicate-member-names) KerML forbids, and a
+lint is neither, so it stays a warning and never changes the exit status or blocks a check.
 
 | Code | Reported on | Tier | Default |
 |------|-------------|------|---------|
@@ -33,7 +33,13 @@ source `action-step-multiplicity`; they are not lints and cannot be disabled wit
 ## Duplicate member names
 
 The name-resolution tier reports KerML's distinguishability rule (`validateNamespaceDistinguishibility`)
-as warnings with code `name-conflict`; they are not lints and cannot be switched off. Two
+with code `name-conflict`; they are not lints and cannot be switched off. By default they are
+warnings; under [`-strict`](../guide/03-command-line.md#strict-conformance) (the REPL's `%strict`,
+the editor's `strictConformance`, the service's `strict_conformance`) the owned, alias, short-name
+and inherited wordings are errors, since a namespace that keeps two indistinguishable memberships
+is not well-formed. The imported wording stays a warning in every mode: KerML 7.2.5.4 hides the
+colliding names rather than keeping them, so the namespace is well-formed and the warning marks
+only where OpenSysML's resolution departs from that (below). Two
 memberships of one namespace are indistinguishable when one's name or short name is the other's
 and their metaclasses are related (a `part def` beside a `part def`, or beside an `item def`
 that it specializes; a `part def` beside an `attribute` is distinguishable whatever the names).

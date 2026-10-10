@@ -57,6 +57,38 @@ func TestStrictModeEscalatesNotationAtThePrompt(t *testing.T) {
 	}
 }
 
+// indistinguishable declares one name twice in one namespace: a warning at the
+// prompt by default, an error once the prompt is asked strictly, and a warning
+// again when it is not (KerML 8.3.2.4.5).
+const indistinguishable = "package P { part def A; part def A; }\n"
+
+func TestStrictModeEscalatesIndistinguishableMembershipsAtThePrompt(t *testing.T) {
+	s := NewSession()
+	s.Submit(indistinguishable)
+	if got := duplicateSeverities(s.Diagnostics()); len(got) != 2 || got[0] != diag.SeverityWarning || got[1] != diag.SeverityWarning {
+		t.Fatalf("default mode: duplicate-name severities = %v, want two warnings", got)
+	}
+	meta(t, s, "%strict on")
+	if got := duplicateSeverities(s.Diagnostics()); len(got) != 2 || got[0] != diag.SeverityError || got[1] != diag.SeverityError {
+		t.Fatalf("strict mode: duplicate-name severities = %v, want two errors", got)
+	}
+	meta(t, s, "%strict off")
+	if got := duplicateSeverities(s.Diagnostics()); len(got) != 2 || got[0] != diag.SeverityWarning || got[1] != diag.SeverityWarning {
+		t.Fatalf("default mode again: duplicate-name severities = %v, want two warnings", got)
+	}
+}
+
+// duplicateSeverities are the severities of the duplicate-name findings, in order.
+func duplicateSeverities(diags []diag.Diagnostic) []diag.Severity {
+	var out []diag.Severity
+	for _, d := range diags {
+		if d.Code == "name-conflict" && d.Message == "Duplicate of other owned member name" {
+			out = append(out, d.Severity)
+		}
+	}
+	return out
+}
+
 // Switching the mode re-reports the buffer instead of serving the other mode's
 // verdict from the cache.
 func TestStrictMetaCommandRepeatsTheDiagnostics(t *testing.T) {

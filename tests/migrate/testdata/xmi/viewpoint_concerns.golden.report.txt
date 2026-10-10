@@ -7,14 +7,14 @@ Package	Views	_p	-> ViewsModel	(written as ViewsModel since a root package named
 «View» Class	Views::Combined View	_bothView	-> ViewsModel::'Combined View'	(v2 types a view by one view definition, so its conformance to Views::Safety Viewpoint is kept as a comment)
 «Concern» Comment	Views::Fallback::<Comment>	_cEnum	(the concern is kept as a comment because its owner cannot own a v2 concern usage and no viewpoint frames it)
 «Viewpoint» Class	Views::Review Viewpoint	_vp1	-> ViewsModel::'Review Viewpoint'	(v2 places the subject before the stakeholders, so an anonymous subject is declared; SysMLv1Library::ViewpointData is unavailable, so language and presentation are retained as documentation)
-«Concern» Comment	Views::Review Viewpoint::<Comment>	_cVp	-> ViewsModel::'Review Viewpoint'::'concern'	(a v2 concern annotates nothing, so the comment's annotations are not carried)
+«Concern» Comment	Views::Review Viewpoint::<Comment>	_cVp	-> ViewsModel::'Review Viewpoint'::'concern'	(a v2 concern annotates nothing, so the comment's annotations are not carried; framed by Review Viewpoint as 'concern 3', since an unnamed frame would repeat the name 'concern' of another member)
 «Stakeholder» Class	Views::Reviewer	_stake	-> ViewsModel::Reviewer	(a v1 «Stakeholder» is written as a part def; «Stakeholder» concern = legacy stakeholder concern has no v2 form)
 
 ## mapped (28)
-«Concern» Comment	<Comment>	_cRoot	-> 'concern'
+«Concern» Comment	<Comment>	_cRoot	-> 'concern'	(framed by Review Viewpoint as 'concern 5', since an unnamed frame would repeat the name 'concern' of another member)
 Model	Model	_m	(the root model's members are written at the top level)
 «Concern» Comment	Views::<Comment>	_cPkg	-> ViewsModel::'concern 2'
-«Concern» Comment	Views::<Comment>	_shared	-> ViewsModel::'concern'
+«Concern» Comment	Views::<Comment>	_shared	-> ViewsModel::'concern'	(framed by Review Viewpoint as 'concern 4', since an unnamed frame would repeat the name 'concern' of another member)
 «Conform» Dependency	Views::<Dependency>	_conform	-> ViewsModel::'Conforming View'
 «Conform» Dependency	Views::<Dependency>	_conform2	-> ViewsModel::'Combined View'
 «Conform» Dependency	Views::<Dependency>	_inheritedSameConform	-> ViewsModel::'Inherited Same'

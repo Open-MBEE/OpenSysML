@@ -13,8 +13,10 @@ import (
 // checkDistinguishability reports the member names of one namespace that are not
 // distinguishable: an owned name repeating another owned name, — for a type —
 // an owned name repeating one the type inherits, and an imported name repeating
-// another imported one (KerML 7.2.2, SysML 7.6.1). All are warnings, as the
-// reference implementation reports the first two.
+// another imported one (KerML 7.2.2, SysML 7.6.1). All are warnings by default,
+// as the reference implementation reports the first two; the first two violate
+// `validateNamespaceDistinguishibility` (KerML 8.3.2.4.5), so strict conformance
+// reports them as errors, while an imported collision is a name 7.2.5.4 hides.
 func (r *Resolver) checkDistinguishability(scope *symbols.Scope) {
 	if scope == nil {
 		return
@@ -78,9 +80,31 @@ type boundName struct {
 // pass leaves library supertypes out. Resolution still takes the first
 // membership, so the warning sits on the import bringing the later one.
 func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
-	imports := r.scopeImports(scope)
-	if len(imports) == 0 || r.idx.DocumentLibraryTier(r.document).Library() {
+	if r.idx.DocumentLibraryTier(r.document).Library() {
 		return
+	}
+	names, collisions := r.importCollisions(scope, scope, r.inheritedAgainstImports(scope))
+	for _, name := range names {
+		kept := collisions[name]
+		imported := 0
+		for _, member := range kept {
+			if member.imp != nil {
+				imported++
+			}
+		}
+		if imported == 0 {
+			continue
+		}
+		r.duplicateImported(name, kept)
+	}
+}
+
+// importCollisions is each name imported memberships of into (admitted as ImportedElementsInto) share
+// with each other, an owned name or inherited (nil to skip), with the memberships KerML 7.2.5.4 hides under it.
+func (r *Resolver) importCollisions(into, scope *symbols.Scope, inherited map[string][]*symbols.Symbol) ([]string, map[string][]importedMember) {
+	imports := r.scopeImports(scope)
+	if len(imports) == 0 {
+		return nil, nil
 	}
 	hidden := map[string]bool{}
 	owned, aliases := r.DistinguishableMembers(scope)
@@ -98,7 +122,7 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 		if !ok || target == nil || r.idx.Library(target) {
 			continue
 		}
-		for _, sym := range r.ImportedElementsInto(scope, scope, imp) {
+		for _, sym := range r.ImportedElementsInto(into, scope, imp) {
 			if sym.Name == "" || r.idx.Library(sym) || !contributesName(sym) || !r.BindsName(sym) {
 				continue
 			}
@@ -118,7 +142,8 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 			}
 		}
 	}
-	inherited := r.inheritedAgainstImports(scope)
+	var colliding []string
+	collisions := map[string][]importedMember{}
 	for _, name := range names {
 		members := byName[name]
 		for _, sym := range inherited[name] {
@@ -130,20 +155,18 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 		// Keep the members some other member is indistinguishable from; the
 		// rest conflict with nothing.
 		var kept []importedMember
-		imported := 0
 		for i, member := range members {
 			if len(r.duplicatesOf(member.sym, importedSymbolsExcept(members, i))) > 0 {
 				kept = append(kept, member)
-				if member.imp != nil {
-					imported++
-				}
 			}
 		}
-		if len(kept) < 2 || imported == 0 {
+		if len(kept) < 2 {
 			continue
 		}
-		r.duplicateImported(name, kept)
+		colliding = append(colliding, name)
+		collisions[name] = kept
 	}
+	return colliding, collisions
 }
 
 // inheritedAgainstImports is what a type inherits, by name, for its imported
@@ -202,7 +225,7 @@ func (r *Resolver) duplicateImported(name string, members []importedMember) {
 	if last.Imported != nil {
 		span = last.Imported.Span()
 	}
-	r.reportDuplicate(span, fmt.Sprintf("Duplicate of imported member name '%s': %s", name, strings.Join(parts, ", ")))
+	r.reportDuplicate(span, fmt.Sprintf("Duplicate of imported member name '%s': %s", name, strings.Join(parts, ", ")), false)
 }
 
 // importText spells an import as its declaration does, visibility aside:
@@ -436,33 +459,86 @@ func (r *Resolver) inheritableMembers(owner, sup *symbols.Symbol, model supertyp
 		out = append(out, r.inheritableMembers(owner, next, model, seen)...)
 	}
 	if sup.Scope != nil {
+		inherited := membersByName(r.removeRedefinedFeatures(sup, out))
 		owned, aliases := r.DistinguishableMembers(sup.Scope)
 		for _, sym := range append(owned, aliases...) {
 			if sym.Visibility != ast.VisibilityPrivate {
 				out = append(out, sym)
 			}
 		}
-		out = append(out, r.importedMembers(owner, sup)...)
+		out = append(out, r.importedMembers(owner, sup, inherited)...)
 	}
 	return r.removeRedefinedFeatures(sup, out)
+}
+
+// membersByName keys members by their name.
+func membersByName(members []*symbols.Symbol) map[string][]*symbols.Symbol {
+	if len(members) == 0 {
+		return nil
+	}
+	out := map[string][]*symbols.Symbol{}
+	for _, sym := range members {
+		out[sym.Name] = append(out[sym.Name], sym)
+	}
+	return out
 }
 
 // importedMembers is what a namespace's non-private imports contribute to it: a
 // membership is inherited whether the namespace owns it or imported it
 // (KerML 8.4.3.2). Library elements are left out, as library supertypes are.
-func (r *Resolver) importedMembers(owner, sup *symbols.Symbol) []*symbols.Symbol {
+// inherited is what the namespace inherits itself, by name, which hides imports too.
+func (r *Resolver) importedMembers(owner, sup *symbols.Symbol, inherited map[string][]*symbols.Symbol) []*symbols.Symbol {
+	hidden := r.hiddenImports(sup.Scope, inherited)
 	var out []*symbols.Symbol
 	for _, imp := range r.scopeImports(sup.Scope) {
 		if imp.Visibility == ast.VisibilityPrivate {
 			continue
 		}
 		for _, sym := range r.ImportedElementsInto(owner.Scope, sup.Scope, imp) {
-			if sym != nil && sym.Name != "" && !r.idx.Library(sym) && contributesName(sym) && r.BindsName(sym) {
+			if sym != nil && sym.Name != "" && !r.idx.Library(sym) && contributesName(sym) && r.BindsName(sym) && !hidden[sym] {
 				out = append(out, sym)
 			}
 		}
 	}
 	return out
+}
+
+// hiddenImports is the imported memberships KerML 7.2.5.4 hides (an owned, inherited or other
+// imported name takes theirs), which no subtype inherits. inherited is passed in: no generals are walked here.
+func (r *Resolver) hiddenImports(scope *symbols.Scope, inherited map[string][]*symbols.Symbol) map[*symbols.Symbol]bool {
+	imports := r.scopeImports(scope)
+	if len(imports) == 0 {
+		return nil
+	}
+	hidden := map[*symbols.Symbol]bool{}
+	ownedNames := map[string]bool{}
+	owned, aliases := r.DistinguishableMembers(scope)
+	for _, sym := range append(owned, aliases...) {
+		for _, name := range memberNames(sym) {
+			ownedNames[name] = true
+		}
+	}
+	for _, imp := range imports {
+		for _, sym := range r.ImportedElementsInto(scope, scope, imp) {
+			if sym == nil {
+				continue
+			}
+			for _, name := range memberNames(sym) {
+				if ownedNames[name] {
+					hidden[sym] = true
+				}
+			}
+		}
+	}
+	_, collisions := r.importCollisions(scope, scope, inherited)
+	for _, kept := range collisions {
+		for _, member := range kept {
+			if member.imp != nil {
+				hidden[member.sym] = true
+			}
+		}
+	}
+	return hidden
 }
 
 // removeRedefinedFeatures drops the inherited members that are no longer
@@ -653,7 +729,7 @@ func (r *Resolver) duplicateName(sym *symbols.Symbol, message string, from []*sy
 	if names := ownerNames(sym, from); len(names) > 0 {
 		message = fmt.Sprintf("%s '%s' from %s", message, sym.Name, strings.Join(names, ", "))
 	}
-	r.reportDuplicate(span, message)
+	r.reportDuplicate(span, message, true)
 }
 
 // duplicateInherited reports a name owner inherits twice, at owner's own
@@ -663,15 +739,19 @@ func (r *Resolver) duplicateInherited(owner *symbols.Symbol, name string, from [
 	if names := ownerNames(nil, from); len(names) > 0 {
 		message = fmt.Sprintf("%s '%s' from %s", message, name, strings.Join(names, ", "))
 	}
-	r.reportDuplicate(owner.DeclSpan, message)
+	r.reportDuplicate(owner.DeclSpan, message, true)
 }
 
-func (r *Resolver) reportDuplicate(span source.Span, message string) {
+// reportDuplicate reports one indistinguishable name; illFormed marks the
+// memberships the namespace keeps, which `validateNamespaceDistinguishibility`
+// forbids, as against an imported collision 7.2.5.4 hides.
+func (r *Resolver) reportDuplicate(span source.Span, message string, illFormed bool) {
 	r.report(Diagnostic{
-		Span:    span,
-		Message: message,
-		Code:    CodeNameConflict,
-		Warning: true,
+		Span:      span,
+		Message:   message,
+		Code:      CodeNameConflict,
+		Warning:   true,
+		IllFormed: illFormed,
 	})
 }
 

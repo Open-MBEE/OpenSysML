@@ -71,6 +71,33 @@ func TestRemovedDeferMemberIsAnErrorInEitherMode(t *testing.T) {
 	}
 }
 
+// indistinguishableModel declares one name twice in one namespace, which
+// KerML's validateNamespaceDistinguishibility forbids.
+const indistinguishableModel = `package P {
+    part def A;
+    part def A;
+}
+`
+
+// A namespace with indistinguishable memberships is a warning by default and,
+// under -strict, the error that decides the exit status.
+func TestStrictConformanceRejectsIndistinguishableMemberships(t *testing.T) {
+	binary := buildCLI(t)
+
+	def := check(t, binary, indistinguishableModel, "-validate")
+	wantReport(t, def, 0, "warning: Duplicate of other owned member name", "no errors")
+	rejectReport(t, def, "error:")
+
+	strict := check(t, binary, indistinguishableModel, "-validate", "-strict")
+	wantReport(t, strict, 2, "error: Duplicate of other owned member name", "did not analyse cleanly")
+	rejectReport(t, strict, "warning:", "no errors")
+
+	// Unrelated metaclasses are distinguishable whatever the names (KerML 8.3.2.4.3).
+	distinct := check(t, binary, "package P {\n    part def A;\n    attribute def A;\n}\n", "-validate", "-strict")
+	wantReport(t, distinct, 0, "no errors")
+	rejectReport(t, distinct, "Duplicate of")
+}
+
 // A model in standard notation is unaffected, so -strict is a check and not a
 // second dialect.
 func TestStrictConformanceLeavesStandardNotationAlone(t *testing.T) {

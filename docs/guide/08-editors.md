@@ -47,7 +47,8 @@ point the extension at a specific build, use `.vscode/settings.json`:
 
 ### Strict conformance in the editor
 
-As on the command line, the server reports OpenSysML's own notation extensions as warnings. An
+As on the command line, the server reports OpenSysML's own notation extensions, and a namespace
+whose memberships are indistinguishable, as warnings. An
 editor that can send settings turns on strict conformance with the boolean
 `sysml.strictConformance` ([LSP extensions](../reference/lsp.md#strict-conformance-setting)),
 after which the diagnostics for every open document are republished as errors. With this

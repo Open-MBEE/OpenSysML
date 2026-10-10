@@ -58,7 +58,8 @@ in the editor's own buffer and undo history.
 ## Strict conformance (setting)
 
 Whether the server judges a document as conforming SysML v2 (reporting notation
-only OpenSysML accepts as an error instead of a warning) is controlled by a boolean
+only OpenSysML accepts, and a namespace whose memberships are indistinguishable, as an
+error instead of a warning) is controlled by a boolean
 setting, `strictConformance`. It is read from `initialize`'s `initializationOptions`
 and from `workspace/didChangeConfiguration`, in any of the three shapes clients
 nest settings in:
