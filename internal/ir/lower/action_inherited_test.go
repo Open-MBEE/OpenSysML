@@ -720,6 +720,84 @@ func TestToActionGraphResolvesInheritedGateInDeclaringScope(t *testing.T) {
 	}
 }
 
+func TestToActionGraphCompositeRedefinitionMergesInheritedContent(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+	}{
+		{
+			name: "inherited_statement_with_owned_subaction",
+			src: `
+				action def Base {
+					out attribute c : Integer = 0;
+					action a { assign c := c + 1; }
+				}
+				action def Derived :> Base {
+					action a :>> a {
+						action b { assign c := c + 10; }
+					}
+				}
+			`,
+		},
+		{
+			name: "inherited_subaction_with_owned_statement",
+			src: `
+				action def Base {
+					out attribute c : Integer = 0;
+					action a {
+						action b { assign c := c + 10; }
+					}
+				}
+				action def Derived :> Base {
+					action a :>> a { assign c := c + 1; }
+				}
+			`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			graph := scopedActionGraph(t, test.src, "Derived")
+			a := namedNode(graph, "a")
+			if a == nil {
+				t.Fatal("Derived graph has no redefined action a")
+			}
+			subflow := graph.Subflows[a]
+			if subflow == nil || subflow.Graph == nil {
+				t.Fatal("redefined action a has no composite subflow")
+			}
+			if b := namedNode(subflow.Graph, "b"); b == nil {
+				t.Fatal("redefined action a has no inherited or owned subaction b")
+			}
+
+			seen := make(map[*ActionGraph]bool)
+			var assignmentCount func(*ActionGraph) int
+			assignmentCount = func(current *ActionGraph) int {
+				if current == nil || seen[current] {
+					return 0
+				}
+				seen[current] = true
+				count := 0
+				for _, body := range current.Bodies {
+					for _, statement := range body {
+						if assign, ok := statement.(Assign); ok && assign.Target == "c" {
+							count++
+						}
+					}
+				}
+				for _, nested := range current.Subflows {
+					if nested != nil {
+						count += assignmentCount(nested.Graph)
+					}
+				}
+				return count
+			}
+			if got := assignmentCount(subflow.Graph); got != 2 {
+				t.Fatalf("redefined action flow has %d assignments to c, want inherited and owned statements", got)
+			}
+		})
+	}
+}
+
 func TestToActionGraphMergesBodyStatingTypedActionNode(t *testing.T) {
 	src := `
 		action def B1 {

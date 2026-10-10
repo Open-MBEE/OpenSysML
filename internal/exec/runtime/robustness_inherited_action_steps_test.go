@@ -121,6 +121,44 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
+	t.Run("composite_redefinition_keeps_inherited_statement_and_owned_subaction", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				out attribute c : Integer = 0;
+				action a { assign c := c + 1; }
+			}
+			action def Derived :> Base {
+				action a :>> a {
+					action b { assign c := c + 10; }
+				}
+			}
+		}`, "Derived")
+		if err != nil {
+			t.Fatalf("ExecuteAction(Derived): %v", err)
+		}
+		assertIntOutput(t, outputs, "c", 11)
+	})
+
+	t.Run("composite_redefinition_keeps_inherited_subaction_and_owned_statement", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				out attribute c : Integer = 0;
+				action a {
+					action b { assign c := c + 10; }
+				}
+			}
+			action def Derived :> Base {
+				action a :>> a { assign c := c + 1; }
+			}
+		}`, "Derived")
+		if err != nil {
+			t.Fatalf("ExecuteAction(Derived): %v", err)
+		}
+		assertIntOutput(t, outputs, "c", 11)
+	})
+
 	t.Run("specialized_body_binding_replaces_inherited_binding", func(t *testing.T) {
 		outputs, err := executeInheritedAction(t, `package test {
 			private import ScalarValues::*;
