@@ -38,7 +38,7 @@ type treeGraph struct {
 	nodes  map[symbols.ElementKey]*Node // the first node drawn for each element
 	parent map[string]string            // node ID -> the ID of the node it is nested in
 	edges  map[treeEdgeKey]bool
-	lined  map[symbols.ElementKey]bool // properties whose edge an association line stands for
+	lined  map[linedEdge]bool // property edges an association line stands for
 }
 
 // treeEdgeKey identifies an edge a tree draws once: a relationship between
@@ -54,7 +54,7 @@ type treeEdgeKey struct {
 // in the order of the nodes they leave. An element drawn more than once draws
 // its edges from the first node, the one that shows its members.
 func (r *Renderer) treeEdges(out *Rendering) {
-	g := &treeGraph{r: r, out: out, nodes: map[symbols.ElementKey]*Node{}, parent: map[string]string{}, edges: map[treeEdgeKey]bool{}, lined: map[symbols.ElementKey]bool{}}
+	g := &treeGraph{r: r, out: out, nodes: map[symbols.ElementKey]*Node{}, parent: map[string]string{}, edges: map[treeEdgeKey]bool{}, lined: map[linedEdge]bool{}}
 	var index func(node *Node, parent string)
 	index = func(node *Node, parent string) {
 		if parent != "" {
@@ -112,10 +112,15 @@ func (g *treeGraph) associationLines() {
 				for i, end := range line.ends {
 					label := ""
 					if p := line.crossed[i]; p != nil {
-						g.lined[symbols.KeyOf(p)] = true
+						g.lined[linedEdge{symbols.KeyOf(p), symbols.KeyOf(line.types[i])}] = true
 						label = g.r.usageLabel(p)
 						if compositeUsage(p) && edge.Kind != EdgeComposition {
-							edge.Kind, edge.From, edge.To = EdgeComposition, g.node(p.Owner()).ID, g.node(line.types[i]).ID
+							from, to := g.node(p.Owner()).ID, g.node(line.types[i]).ID
+							if from != edge.From {
+								// The def's route runs from its first end's type to its second's.
+								slices.Reverse(edge.Route)
+							}
+							edge.Kind, edge.From, edge.To = EdgeComposition, from, to
 						}
 						if edge.Route == nil {
 							edge.Route = g.r.routeOf(site.view, p, g.out)
@@ -145,6 +150,12 @@ func (g *treeGraph) associationLines() {
 		return kept
 	}
 	g.out.Roots = prune(g.out.Roots)
+}
+
+// linedEdge is the edge from a property to one of its types that an
+// association line stands for; the property's other types keep their edges.
+type linedEdge struct {
+	property, typ symbols.ElementKey
 }
 
 // association is a connection def drawn as a line: the nodes of its two end
@@ -250,7 +261,7 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 	}
 	for _, child := range node.Children {
 		member := g.out.sites[child].sym
-		if !structuralUsage(member) || g.lined[symbols.KeyOf(member)] {
+		if !structuralUsage(member) {
 			continue
 		}
 		kind := EdgeComposition
@@ -259,7 +270,7 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 		}
 		for _, typ := range g.r.model.DeclaredTypes(member) {
 			to := g.node(typ)
-			if to == nil || to == node || g.nested(node, to) {
+			if to == nil || to == node || g.nested(node, to) || g.lined[linedEdge{symbols.KeyOf(member), symbols.KeyOf(typ)}] {
 				continue
 			}
 			g.add(Edge{From: node.ID, To: to.ID, Kind: kind, Label: g.r.usageLabel(member), Origin: symbolOrigin(member),

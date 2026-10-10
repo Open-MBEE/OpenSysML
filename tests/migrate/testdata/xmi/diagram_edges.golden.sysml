@@ -61,6 +61,11 @@ package Structure {
         end wheel : Wheel crosses vehicle.wheel;
         end vehicle : Vehicle;
     }
+    connection def Pairing {
+        end engine : Engine;
+        end component : Component;
+        attribute tag;
+    }
     dependency 'Vehicle to Engine' from Vehicle to Engine;
     dependency Vehicle to Wheel;
     dependency 'Engine to Component' from Engine to Component;
@@ -68,6 +73,9 @@ package Structure {
     part wheel : Wheel;
     part vehicle : Vehicle;
     connection 'wheel to vehicle' : WheelToVehicle connect wheel to vehicle;
+    part engine : Engine;
+    part component : Component;
+    connection pairing : Pairing connect engine to component;
     view Structure {
         expose Component;
         expose Vehicle;
@@ -77,6 +85,7 @@ package Structure {
         expose 'Engine to Component';
         expose 'Wheel to Component';
         expose WheelToVehicle;
+        expose Pairing;
         render Views::asTreeDiagram;
     }
     metadata MigrationMetadata::SynthesizedName about WheelToVehicle, 'Vehicle to Engine', 'Engine to Component', 'Wheel to Component';

@@ -453,8 +453,10 @@ association is one line, with the composition's diamond, the part's name and mul
 the def's `Style` and `Route`, not a composition and a line. The line is plain, as a block
 definition diagram draws an association, not the heavy connector of an interconnection diagram.
 An association block, whose def carries members of its own, a def that inherits its ends or
-specializes another, and one whose end holds a qualifier stay boxes. Because the tree draws the
-def, a v1 association's diagram route is pinned to it (`Route about WheelToCar`), and a shown
+specializes another, and one whose end holds a qualifier stay boxes. Because the tree draws such a
+def as a line, a v1 association's diagram route is pinned to it (`Route about WheelToCar`); the
+route of one the tree keeps as a box, an association block with members say, stays `not drawn`.
+A shown
 end the association owns exposes the def rather than the end, so two defs with a same-named end
 shown on one diagram import no duplicate name. A region's initial transition is the bare entry
 `entry; then s;` until a diagram draws it; then it is a member of its own, `transition 'start

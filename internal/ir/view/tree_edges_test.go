@@ -425,8 +425,9 @@ package Diagrams {
 	if edge.Style == nil || edge.Style.Line != "#00FF00" {
 		t.Errorf("edge style = %+v, want the def's line", edge.Style)
 	}
-	if want := []Point{{10, 20}, {30, 40}}; !reflect.DeepEqual(edge.Route, want) {
-		t.Errorf("edge route = %v, want the def's %v", edge.Route, want)
+	// The def's route runs from Wheel to Car; the composition runs from Car.
+	if want := []Point{{30, 40}, {10, 20}}; !reflect.DeepEqual(edge.Route, want) {
+		t.Errorf("edge route = %v, want the def's reversed %v", edge.Route, want)
 	}
 	if len(rendering.Notes) != 1 || rendering.Notes[0].Anchor != "" || rendering.Notes[0].EdgeFrom != edge.From || rendering.Notes[0].EdgeTo != edge.To {
 		t.Errorf("notes = %+v, want the one note anchored to the edge", rendering.Notes)
@@ -459,5 +460,68 @@ func TestTreeAssociationLineIsPlain(t *testing.T) {
 	}
 	if want := `[label="Tows: tower / trailer[0..1]", dir=none];`; !strings.Contains(dot, want) {
 		t.Errorf("DOT lacks the plain line %s:\n%s", want, dot)
+	}
+}
+
+// A def whose second end crosses the composite part keeps the direction of
+// its route, which already runs from the part's owner.
+func TestTreeAssociationCrossingACompositePartFromItsSecondEndKeepsItsRoute(t *testing.T) {
+	rendering := renderSource(t, "Diagrams::bdd", `package Model {
+	part def Wheel;
+	part def Car {
+		part wheels : Wheel[4];
+	}
+	connection def CarToWheel {
+		end car : Car;
+		end wheels : Wheel crosses car.wheels;
+	}
+}
+package Diagrams {
+	private import DiagramLayout::*;
+	view bdd {
+		expose Model::Car;
+		expose Model::Wheel;
+		expose Model::CarToWheel;
+		metadata Route about Model::CarToWheel { points = (10, 20, 30, 40); }
+		render Views::asTreeDiagram;
+	}
+}`)
+	if got, want := treeEdgeLines(rendering), []string{"Model::Car composition Model::Wheel: CarToWheel: car / wheels[4]"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("edges = %q, want %q", got, want)
+	}
+	if want := []Point{{10, 20}, {30, 40}}; !reflect.DeepEqual(rendering.Edges[0].Route, want) {
+		t.Errorf("edge route = %v, want the def's %v", rendering.Edges[0].Route, want)
+	}
+}
+
+// An association line stands only for the edge from the crossed part to the
+// end's type; a part typed by more definitions keeps its edges to the others.
+func TestTreeAssociationCrossingAMultiplyTypedPartKeepsItsOtherEdges(t *testing.T) {
+	rendering := renderSource(t, "Diagrams::bdd", `package Model {
+	part def Wheel;
+	part def Electric;
+	part def Car {
+		part hybrid : Wheel, Electric;
+	}
+	connection def WheelToCar {
+		end wheels : Wheel crosses car.hybrid;
+		end car : Car;
+	}
+}
+package Diagrams {
+	view bdd {
+		expose Model::Car;
+		expose Model::Wheel;
+		expose Model::Electric;
+		expose Model::WheelToCar;
+		render Views::asTreeDiagram;
+	}
+}`)
+	want := []string{
+		"Model::Car composition Model::Wheel: WheelToCar: hybrid / car",
+		"Model::Car composition Model::Electric: hybrid",
+	}
+	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, want) {
+		t.Errorf("edges =\n  %s\nwant\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
 }

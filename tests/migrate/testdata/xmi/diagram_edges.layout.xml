@@ -134,6 +134,20 @@
                <id _dtype="str">_assoc_wheel</id>
                <type _dtype="str">sysml.Association</type>
             </diagramConnector>
+            <diagramConnector _dtype="dict" key="4">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">60</xCoordinate>
+                     <yCoordinate _dtype="int">220</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">60</xCoordinate>
+                     <yCoordinate _dtype="int">40</yCoordinate>
+                  </clientPoint>
+               </relationship_metadata>
+               <id _dtype="str">_assoc_pairing</id>
+               <type _dtype="str">sysml.AssociationClass</type>
+            </diagramConnector>
          </diagramConnector>
       </relationships>
       <type _dtype="str">sysml.BlockDefinitionDiagram</type>

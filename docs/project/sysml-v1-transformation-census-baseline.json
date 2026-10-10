@@ -248,7 +248,7 @@
       },
       "uml:Property": {
         "pssm": 25,
-        "fixtures": 490
+        "fixtures": 493
       },
       "uml:Property[qualifier]": {
         "pssm": 0,

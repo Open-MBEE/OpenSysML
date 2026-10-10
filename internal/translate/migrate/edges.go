@@ -368,7 +368,7 @@ func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]strin
 		return m.connRefs(c.of, scope)[:1], ""
 	}
 	if m.associationDef(el) {
-		if !f.drawsEdge("connection def") {
+		if !f.drawsEdge("connection def") || !m.associationLine(el) {
 			return nil, routeNotDrawn
 		}
 		return []string{m.exposure(el, scope)}, ""
@@ -399,6 +399,40 @@ func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]strin
 // def, which a tree draws as a line between its end types' boxes.
 func (m *migration) associationDef(e *sysmlv1.Element) bool {
 	return e != nil && (e.Type == "Association" || e.Type == "AssociationClass") && m.written(e) && m.associationAsConnectionDef(e)
+}
+
+// associationLine reports whether a tree draws the connection def written for
+// association e as a line rather than a box, as the renderer decides it: the
+// def is binary, its ends are typed by written definitions, it specializes
+// nothing and holds no member but its ends, and no end keeps a qualifier of
+// its own. The diagram shows both end types when it draws the association.
+func (m *migration) associationLine(e *sysmlv1.Element) bool {
+	ends := m.model.Refs(e, "memberEnd")
+	if len(ends) != 2 || len(m.extras[e]) > 0 || len(m.hosted[e]) > 0 || len(m.annotated(e)) > 0 {
+		return false
+	}
+	if gens, _ := m.generals(e, catConnectionDef); gens != "" {
+		return false
+	}
+	for _, c := range e.Children {
+		if c.Role != "ownedEnd" && c.Role != "ownedComment" && m.written(c) {
+			return false
+		}
+	}
+	for _, end := range ends {
+		t := m.model.Ref(end, "type")
+		if t == nil || t == e {
+			return false
+		}
+		typ, _ := m.typeRef(t, e)
+		if typ == "" || strings.TrimSpace(m.typing(t)) != ":" {
+			return false
+		}
+		if opp, _ := m.crossedProperty(e, end, typ); opp == nil && len(end.Owned("qualifier")) > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // viewForm is how a diagram's view is drawn: its Views rendering, the standard view
