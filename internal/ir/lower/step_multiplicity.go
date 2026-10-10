@@ -225,7 +225,7 @@ func (g *ActionGraph) stepMultiplicity(node ast.Node, model *semantics.Model) (*
 		return multiplicity, g.nodeScope(node), nil, true
 	}
 	usage, ok := node.(*ast.Usage)
-	if !ok || (usage.Kind != ast.UsageAction && !IsCaseNode(usage)) {
+	if !ok || (!usage.Kind.IsAction() && !IsCaseNode(usage)) {
 		return nil, nil, nil, false
 	}
 	sym := actionStepSymbol(node, g.nodeScope(node))

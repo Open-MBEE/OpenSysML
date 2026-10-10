@@ -1425,8 +1425,7 @@ func (ctx *Context) actionBodyGraph(action *symbols.Symbol) (*symbols.Symbol, *l
 			return sym, graph, nil
 		}
 		next := ctx.namedBehavior(sym)
-		if next == nil || next == sym ||
-			(next.Kind != symbols.SymbolActionUsage && next.Kind != symbols.SymbolActionDef) {
+		if next == nil || next == sym || !next.Kind.IsAction() {
 			return action, fallback, nil
 		}
 		sym = next

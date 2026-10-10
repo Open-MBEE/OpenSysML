@@ -155,7 +155,7 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) ([
 
 func recordInheritedPerform(graph *ActionGraph, replacement, redefined ast.Node, declaringScope *symbols.Scope) {
 	node, ok := redefined.(*ast.Usage)
-	if !ok || node.Kind != ast.UsageAction || graph == nil {
+	if !ok || !node.Kind.IsAction() || graph == nil {
 		return
 	}
 	target := typingTarget(node)
@@ -163,7 +163,7 @@ func recordInheritedPerform(graph *ActionGraph, replacement, redefined ast.Node,
 		return
 	}
 	usage, ok := replacement.(*ast.Usage)
-	if !ok || usage.Kind != ast.UsageAction || typingTarget(usage) != nil {
+	if !ok || !usage.Kind.IsAction() || typingTarget(usage) != nil {
 		return
 	}
 	if graph.Performs == nil {
@@ -186,7 +186,7 @@ func hasInheritedBody(graph *ActionGraph, body *symbols.Scope) bool {
 func lowerableActionNode(decl ast.Node) bool {
 	switch n := decl.(type) {
 	case *ast.Usage:
-		return n.Kind == ast.UsageAction || IsCaseNode(n)
+		return n.Kind.IsAction() || IsCaseNode(n)
 	case *ast.InitialNode, *ast.FinalNode, *ast.ForkNode, *ast.JoinNode,
 		*ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode,
 		*ast.PerformActionNode, *ast.WhileLoopActionNode, *ast.IfActionNode,

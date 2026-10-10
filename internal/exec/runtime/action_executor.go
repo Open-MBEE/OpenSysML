@@ -200,7 +200,7 @@ func newActionExecutorOfGraph(
 	occurrence *Instance,
 	graph *lower.ActionGraph,
 ) (*ActionExecutor, error) {
-	if action.Kind != symbols.SymbolActionUsage && action.Kind != symbols.SymbolActionDef {
+	if !action.Kind.IsAction() {
 		return nil, fmt.Errorf("symbol %s is not an action", action.Name)
 	}
 	if err := ctx.checkPerformer(self); err != nil {
@@ -1592,6 +1592,26 @@ func (e *ActionExecutor) setFrameFeatures(frame *actionFrame, values map[string]
 	return nil
 }
 
+// bindCaseMembers binds the subject and actors a use case gives a value (`subject drone
+// = d;`, `actor pilot = p;`) as a requirement binds its own, under the names the case
+// declares; a supplied input of the name stands. One given no value stays unbound.
+func (e *ActionExecutor) bindCaseMembers() error {
+	if e.action.Kind != symbols.SymbolUseCaseDef && e.action.Kind != symbols.SymbolUseCaseUsage {
+		return nil
+	}
+	members := e.ctx.chainMembers(e.action, e.graph.Scope)
+	bindings, err := e.ctx.memberBindings(e.action, "use case", e.action.Name, members, e.self, nil, frame{})
+	if err != nil {
+		return err
+	}
+	for name := range bindings {
+		if _, held := e.root.data[e.root.key(name)]; held {
+			delete(bindings, name)
+		}
+	}
+	return e.setFrameFeatures(e.root, bindings)
+}
+
 // hasFlow reports whether the action states a flow to start: an action with no
 // step performs none, while one whose steps give no start fails to initialize.
 func (e *ActionExecutor) hasFlow() bool {
@@ -1774,6 +1794,9 @@ func (e *ActionExecutor) initialize() error {
 	if err := e.bindInputs(); err != nil {
 		return err
 	}
+	if err := e.bindCaseMembers(); err != nil {
+		return err
+	}
 
 	// The performance starts its ordered flow and each unordered subaction at once.
 	starts := e.graph.Starts()
@@ -1836,7 +1859,7 @@ func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 		return e.stepActionExecutionNode(tokenIdx)
 	case *ast.Usage:
 		// Nested action invocation, or a nested case performed as a step
-		if node.Kind == ast.UsageAction || lower.IsCaseNode(node) {
+		if node.Kind.IsAction() || lower.IsCaseNode(node) {
 			return e.stepNestedAction(tokenIdx)
 		}
 		if e.tokenGraph(tokenIdx).StatementRuns[node] || node.Kind == ast.UsageConstraint {

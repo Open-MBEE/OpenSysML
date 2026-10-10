@@ -662,11 +662,11 @@ func freshExhibitorsError(name string, types []*symbols.Symbol, exhibitors []exh
 
 // exploredAction resolves the action an exploration runs.
 func (s *Session) exploredAction(name string) (*symbols.Symbol, error) {
-	sym, _, err := s.lookupSymbolOfKinds(name, symbols.SymbolActionDef, symbols.SymbolActionUsage)
+	sym, _, err := s.lookupSymbolOfKinds(name, actionKinds...)
 	if err != nil {
 		return nil, err
 	}
-	if sym.Kind != symbols.SymbolActionDef && sym.Kind != symbols.SymbolActionUsage {
+	if !sym.Kind.IsAction() {
 		return nil, fmt.Errorf("%q is not an action", name)
 	}
 	return sym, nil

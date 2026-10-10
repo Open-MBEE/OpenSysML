@@ -121,7 +121,7 @@ func collectActionNodesWithAncestors(
 			lowerControlFeatures(graph, n, scope)
 		case *ast.Usage:
 			switch {
-			case n.Kind == ast.UsageAction:
+			case n.Kind.IsAction():
 				graph.Nodes = append(graph.Nodes, n)
 				recordNodeMultiplicity(graph, n)
 				lowerActionNode(graph, n, childScope(scope, n))
