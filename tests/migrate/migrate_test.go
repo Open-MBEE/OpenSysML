@@ -439,6 +439,21 @@ func TestGoldenConstructFixtures(t *testing.T) {
 // A strict migration writes only notation a pinned SysML v2 production admits:
 // every fixture's strict output analyses with zero error diagnostics in strict
 // conformance mode, where extension notation is an error.
+// A strict migration refuses a DocGen document before planning its content,
+// so the report holds an Unmapped row for the document and each view and
+// paragraph in it, and no Mapped row for content no Document holds.
+func TestStrictMigrationRefusesDocumentsBeforePlanningThem(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "montecarlo_docgen_scoped", migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "/* not migrated: «Document» 'Statistics Report' — its v2 form is a Document of OpenSysML's DocumentQueries library, which a strict migration does not name */")
+	if strings.Contains(string(r.Notation), "DocumentQueries::") {
+		t.Errorf("strict notation names DocumentQueries:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_s8", migrate.Unmapped, "its v2 form is a Document of OpenSysML's DocumentQueries library")
+	for _, id := range []string{"_s4", "_s5"} {
+		wantNote(t, r, id, migrate.Unmapped, "it belongs to «Document» 'Statistics Report', which is not migrated")
+	}
+}
+
 func TestStrictMigrationAnalysesCleanUnderStrictConformance(t *testing.T) {
 	for _, name := range append([]string{"vehicle"}, constructFixtures...) {
 		t.Run(name, func(t *testing.T) {

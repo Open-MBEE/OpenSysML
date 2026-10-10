@@ -89,6 +89,8 @@ func (m *migration) lanesAround(e *sysmlv1.Element) (*lanes, *sysmlv1.Element) {
 // first, then what the scope sees, each further step a feature of the last.
 // The result is plural once any object the name reads through is, and a
 // write through a collection is refused: it would reach several objects.
+func (s *bodyScope) strictMigration() bool { return s.m.strict }
+
 func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 	m := s.m
 	full := strings.Join(path, ".")
@@ -324,6 +326,8 @@ type nameReads struct {
 	s     *bodyScope
 	names []string
 }
+
+func (r *nameReads) strictMigration() bool { return r.s.strictMigration() }
 
 func (r *nameReads) feature(path []string, write bool) (opaqueRef, *refusal) {
 	if r.s.m.pinCalled(r.s.scope, path[0]) != nil {

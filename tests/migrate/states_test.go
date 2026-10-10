@@ -2,6 +2,8 @@ package migrate_test
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -1636,50 +1638,52 @@ func noExtensionStatement(t *testing.T, notation []byte) {
 func TestStrictMigrationWritesNoExtensionNotation(t *testing.T) {
 	r := migrateFixtureFileOptions(t, "plant_states", migrate.Options{Strict: true})
 	noExtensionStatement(t, r.Notation)
+	noOpenSysMLLibrary(t, r.Notation)
 	for _, line := range []string{
-		"private import StateMachines::*;",
-		"#StateMachines::junction state route;",
-		"#StateMachines::shallowHistory state last;",
-		"#StateMachines::deepHistory state deepest;",
+		"state route;",
 		"fork spread;",
 		"join gather;",
+		"transition first route if context.count < 2 then Work;",
+		"transition first route if not (context.count < 2) then done;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_junc", migrate.Mapped, "written as a #StateMachines::junction state pseudostate")
-	wantNote(t, r, "_hist", migrate.Mapped, "written as a `#StateMachines::shallowHistory state` shallow history")
-	wantNote(t, r, "_deep", migrate.Mapped, "written as a `#StateMachines::deepHistory state` deep history")
-	for _, id := range []string{"_tRoute", "_tBusy", "_tSpent", "_tResume", "_tHist"} {
+	wantNote(t, r, "_junc", migrate.Approximated, "written as a plain state standing for the junction pseudostate")
+	wantNote(t, r, "_hist", migrate.Unmapped, "the shallowHistory pseudostate has no standard v2 form")
+	wantNote(t, r, "_deep", migrate.Unmapped, "the deepHistory pseudostate has no standard v2 form")
+	for _, id := range []string{"_tRoute", "_tBusy"} {
 		wantNote(t, r, id, migrate.Mapped, "")
 	}
-	wantNote(t, r, "_gSpent", migrate.Mapped, "an else guard is written as the unguarded transition out of the junction")
-	wantNote(t, r, "_resumeEv", migrate.Mapped, "written where a trigger refers to it, as accept Resume")
+	wantNote(t, r, "_tResume", migrate.Unmapped, "its target 'last' has no standard v2 form")
+	wantNote(t, r, "_tHist", migrate.Unmapped, "its source 'last' has no standard v2 form")
+	wantNote(t, r, "_tSpent", migrate.Approximated, "the else guard is written as the negation of the other guards out of the junction")
+	wantNote(t, r, "_gSpent", migrate.Approximated, "the else guard is written as the negation of the other guards out of the junction, a plain state whose transitions compete rather than fall back to the else branch")
 	wantNote(t, r, "_fork", migrate.Mapped, "written as a fork pseudostate")
 	wantNote(t, r, "_join", migrate.Mapped, "written as a join pseudostate")
 
 	r = migrateFixtureFileOptions(t, "station_points", migrate.Options{Strict: true})
 	noExtensionStatement(t, r.Notation)
+	noOpenSysMLLibrary(t, r.Notation)
 	for _, line := range []string{
-		"private import StateMachines::*;",
-		"#StateMachines::junction state Start;",
-		"#StateMachines::junction state Leave;",
-		"#StateMachines::junction state Deep;",
-		"#StateMachines::junction state Out;",
-		"#StateMachines::shallowHistory state H;",
+		"state Start;",
+		"state Leave;",
+		"state Deep;",
+		"state Out;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_start", migrate.Mapped, "written as a `#StateMachines::junction state` of its state; a transition entering through it runs the state's entry behavior")
-	wantNote(t, r, "_leave", migrate.Mapped, "written as a `#StateMachines::junction state` of its state; a transition leaving through it")
-	wantNote(t, r, "_deep", migrate.Mapped, "written as a `#StateMachines::junction state` of its state")
-	wantNote(t, r, "_out", migrate.Mapped, "written as a `#StateMachines::junction state` of its state")
-	wantNote(t, r, "_hist", migrate.Mapped, "written as a `#StateMachines::shallowHistory state` shallow history")
+	wantNote(t, r, "_start", migrate.Mapped, "written as a plain `state` standing for a junction, a strict migration naming no OpenSysML library, of its state; a transition entering through it runs the state's entry behavior")
+	wantNote(t, r, "_leave", migrate.Mapped, "written as a plain `state` standing for a junction, a strict migration naming no OpenSysML library, of its state; a transition leaving through it")
+	wantNote(t, r, "_deep", migrate.Mapped, "written as a plain `state` standing for a junction")
+	wantNote(t, r, "_out", migrate.Mapped, "written as a plain `state` standing for a junction")
+	wantNote(t, r, "_hist", migrate.Unmapped, "the shallowHistory pseudostate has no standard v2 form")
 	wantNote(t, r, "_both", migrate.Mapped, "written as a fork of its state")
 	wantNote(t, r, "_gather", migrate.Mapped, "written as a join of its state")
 	wantNote(t, r, "_plain", migrate.Mapped, "no transition leaves the entry point")
-	for _, id := range []string{"_tGo", "_tDive", "_tDeep", "_tBack", "_tFinish", "_tLeave", "_tOut", "_tResume", "_tStart"} {
+	for _, id := range []string{"_tGo", "_tDive", "_tDeep", "_tBack", "_tFinish", "_tLeave", "_tOut", "_tStart"} {
 		wantNote(t, r, id, migrate.Mapped, "")
 	}
+	wantNote(t, r, "_tResume", migrate.Unmapped, "its target 'H' has no standard v2 form")
 	// The pass-through route through 'Through' is still refused: it is not the
 	// metadata spelling's doing but an unwritable route shape.
 	wantNote(t, r, "_through", migrate.Unmapped, "leads from the entry point straight to the exit point")
@@ -1732,4 +1736,161 @@ func TestStateMachinesPackageShadowsTheLibrary(t *testing.T) {
     </packagedElement>`, `<sysml:Block xmi:id="_cb" base_Class="_c"/>`)
 	wantLine(t, r.Notation, "private import $::StateMachines::*;")
 	wantLine(t, r.Notation, "#$::StateMachines::choice state pick;")
+}
+
+// openSysMLLibraries names the library packages OpenSysML ships beyond the
+// standard's, which a strict migration must not refer to.
+func openSysMLLibraries(t *testing.T) []string {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join("..", "..", "internal", "workspace", "libs", "stdlib", "OpenSysML Libraries"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, e := range entries {
+		if name := strings.TrimSuffix(strings.TrimSuffix(e.Name(), ".sysml"), ".kerml"); name != e.Name() {
+			names = append(names, name)
+		}
+	}
+	if len(names) == 0 {
+		t.Fatal("no OpenSysML library found")
+	}
+	return names
+}
+
+// noOpenSysMLLibrary fails on a line of notation referring to an OpenSysML
+// library, past the deferral markers a strict migration keeps: they annotate
+// standard notation the runtime reads them to schedule.
+func noOpenSysMLLibrary(t *testing.T, notation []byte) {
+	t.Helper()
+	libs := openSysMLLibraries(t)
+	for _, line := range strings.Split(string(notation), "\n") {
+		if strings.Contains(line, "MigrationMetadata::DeferredEvent") || strings.Contains(line, "MigrationMetadata::DeferredKeeper") {
+			continue
+		}
+		for _, lib := range libs {
+			if strings.Contains(line, lib+"::") || strings.Contains(line, "import "+lib+";") {
+				t.Errorf("strict notation refers to the OpenSysML library %s:\n%s", lib, line)
+			}
+		}
+	}
+}
+
+// TestStrictMigrationRefersToNoOpenSysMLLibrary migrates every fixture under
+// strict and checks the notation names only the standard library, so a tool
+// without OpenSysML's libraries loads it.
+func TestStrictMigrationRefersToNoOpenSysMLLibrary(t *testing.T) {
+	fixtures, err := filepath.Glob(filepath.Join("testdata", "xmi", "*.xmi"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fixtures) == 0 {
+		t.Fatal("no fixture found")
+	}
+	for _, f := range fixtures {
+		name := strings.TrimSuffix(filepath.Base(f), ".xmi")
+		t.Run(name, func(t *testing.T) {
+			r := migrateFixtureFileOptions(t, name, migrate.Options{Strict: true})
+			noOpenSysMLLibrary(t, r.Notation)
+		})
+	}
+}
+
+// A choice whose other guard is not a v2 expression leaves a strict
+// migration nothing to negate: the else branch is written unguarded and the
+// report says it may be taken while that guard holds.
+const opaqueChoiceMachine = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_oc" name="Picker" classifierBehavior="_osm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ocn" name="n">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_ocn0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_osm" name="Picking">
+        <region xmi:type="uml:Region" xmi:id="_or" name="Main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_oinit"/>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_opick" name="pick" kind="choice"/>
+          <subvertex xmi:type="uml:State" xmi:id="_oA" name="A"/>
+          <subvertex xmi:type="uml:State" xmi:id="_oB" name="B"/>
+          <transition xmi:type="uml:Transition" xmi:id="_ot0" source="_oinit" target="_opick"/>
+          <transition xmi:type="uml:Transition" xmi:id="_otA" source="_opick" target="_oA">
+            <guard xmi:type="uml:Constraint" xmi:id="_ogA">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_ogAX"><body>Focus lost</body></specification>
+            </guard>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_otB" source="_opick" target="_oB">
+            <guard xmi:type="uml:Constraint" xmi:id="_ogB">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_ogBX"><body>else</body></specification>
+            </guard>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+// historyChoiceMachine is a choice whose guarded branch targets a shallow
+// history pseudostate, which a strict migration refuses, beside an else branch.
+const historyChoiceMachine = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_hc" name="Resumer" classifierBehavior="_hsm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_hcn" name="n">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_hcn0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_hsm" name="Resuming">
+        <region xmi:type="uml:Region" xmi:id="_hr" name="Main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_hinit"/>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_hpick" name="pick" kind="choice"/>
+          <subvertex xmi:type="uml:State" xmi:id="_hA" name="A">
+            <region xmi:type="uml:Region" xmi:id="_hAr" name="Inner">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_hAh" name="back" kind="shallowHistory"/>
+              <subvertex xmi:type="uml:State" xmi:id="_hA1" name="A1"/>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_hB" name="B"/>
+          <transition xmi:type="uml:Transition" xmi:id="_ht0" source="_hinit" target="_hpick"/>
+          <transition xmi:type="uml:Transition" xmi:id="_htA" source="_hpick" target="_hAh">
+            <guard xmi:type="uml:Constraint" xmi:id="_hgA">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_hgAX"><body>n &lt; 2</body></specification>
+            </guard>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_htB" source="_hpick" target="_hB">
+            <guard xmi:type="uml:Constraint" xmi:id="_hgB">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_hgBX"><body>else</body></specification>
+            </guard>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+// A strict else guard negates only the guards of branches the strict migration
+// writes: one into a history pseudostate is refused, so it does not block the fallback.
+func TestStrictChoiceElseIgnoresRefusedBranches(t *testing.T) {
+	r := migrateDocumentOptions(t, historyChoiceMachine, "", migrate.Options{Strict: true})
+	noOpenSysMLLibrary(t, r.Notation)
+	wantLine(t, r.Notation, "state pick;")
+	wantLine(t, r.Notation, "transition first pick then B;")
+	wantNoLine(t, r.Notation, "if not")
+	if es := entriesFor(r, "_htA"); len(es) != 1 || es[0].Verdict != migrate.Unmapped {
+		t.Errorf("_htA entries = %+v, want unmapped", es)
+	}
+	wantNote(t, r, "_hgB", migrate.Mapped, "an else guard beside no guarded transition out of the choice is not written")
+
+	r = migrateDocument(t, historyChoiceMachine, "")
+	wantLine(t, r.Notation, "#StateMachines::shallowHistory state back;")
+	wantNote(t, r, "_hgB", migrate.Mapped, "an else guard is written as the unguarded transition out of the choice")
+}
+
+func TestStrictChoiceElseBesideAnUnmigratedGuardIsReported(t *testing.T) {
+	r := migrateDocumentOptions(t, opaqueChoiceMachine, "", migrate.Options{Strict: true})
+	noOpenSysMLLibrary(t, r.Notation)
+	for _, line := range []string{
+		"state pick;",
+		"/* guard not migrated: [Focus lost] — not v2 expression syntax */",
+		"transition first pick then A;",
+		"transition first pick then B;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_ogB", migrate.Approximated, "the else guard is written as an unguarded transition, since the guard [Focus lost] of the transition (_otA) is not a v2 expression to negate; the choice is a plain state whose transitions compete, so this branch may be taken while that guard holds")
+
+	r = migrateDocument(t, opaqueChoiceMachine, "")
+	wantNote(t, r, "_ogB", migrate.Mapped, "an else guard is written as the unguarded transition out of the choice")
 }

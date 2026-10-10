@@ -115,6 +115,24 @@ func TestGoldenLayout(t *testing.T) {
 	for _, d := range errorsMode(t, "layout.sysml", strict.Notation, diag.ConformanceStrict) {
 		t.Errorf("%v", d)
 	}
+	// The strict migration joins the same records to the same views; only
+	// their geometry is left unwritten, which the summary says instead of
+	// reporting the views as missing.
+	l, sl := r.Report.Layout, strict.Report.Layout
+	if sl.DiagramsJoined != l.DiagramsJoined || sl.DiagramsUnmatched != l.DiagramsUnmatched || sl.ViewsWithoutLayout != l.ViewsWithoutLayout || sl.GeometryOmitted != l.DiagramsJoined || sl.PlacementsWritten != 0 {
+		t.Errorf("strict layout summary: %+v\nwant joined %d, unmatched %d, without %d, all geometry omitted", sl, l.DiagramsJoined, l.DiagramsUnmatched, l.ViewsWithoutLayout)
+	}
+	if l.GeometryOmitted != 0 {
+		t.Errorf("default layout summary omits geometry: %+v", l)
+	}
+	for _, e := range strict.Report.Entries {
+		if e.Kind == "Layout" && strings.Contains(e.Note, "does not write as a view") {
+			t.Errorf("strict migration reports a joined view missing: %+v", e)
+		}
+	}
+	if !strings.Contains(strict.Report.Summary(), "geometry the strict migration omits") {
+		t.Errorf("strict summary = %q", strict.Report.Summary())
+	}
 }
 
 func TestGoldenLayoutExposedMetadataAttribute(t *testing.T) {

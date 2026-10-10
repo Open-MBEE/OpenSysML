@@ -50,6 +50,8 @@ type treeLowering struct {
 }
 
 // feature answers a placeholder for an instance operand, else asks the scope.
+func (l *treeLowering) strictMigration() bool { return l.s.strictMigration() }
+
 func (l *treeLowering) feature(path []string, write bool) (opaqueRef, *refusal) {
 	if ref, ok := l.leaves[path[0]]; ok && len(path) == 1 {
 		return ref, nil

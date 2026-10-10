@@ -328,7 +328,7 @@ func TestDiagramNotesDoNotNameOmittedVertices(t *testing.T) {
 		strict   bool
 		anchored bool
 	}{
-		{name: "strict", strict: true, anchored: true},
+		{name: "strict", strict: true},
 		{name: "non-strict", anchored: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -348,6 +348,13 @@ func TestDiagramNotesDoNotNameOmittedVertices(t *testing.T) {
 			}
 			r := FromModelOptions("diagrams.xmi", model, Options{Strict: tc.strict})
 			got := string(r.Notation)
+			if tc.strict {
+				// A strict migration writes no layout, DiagramLayout being OpenSysML's.
+				if strings.Contains(got, "DiagramLayout") {
+					t.Errorf("strict notation names DiagramLayout:\n%s", got)
+				}
+				return
+			}
 			anchored := strings.Contains(got, "metadata DiagramLayout::Note about")
 			if anchored != tc.anchored {
 				t.Errorf("note anchored = %t, want %t:\n%s", anchored, tc.anchored, got)

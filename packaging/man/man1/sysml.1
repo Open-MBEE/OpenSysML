@@ -39,7 +39,8 @@ Report the model's diagnostics and exit, nonzero on an error;
 .TP
 .B \-strict
 Judge the model as conforming SysML v2: notation no pinned production admits
-is an error, not a warning; a SysML v1 migration writes none of it
+is an error, not a warning; a SysML v1 migration writes none of it and refers
+to no OpenSysML library
 .TP
 .BR \-disable\-lint " \fIcode\fP"
 Leave this lint out of the model's diagnostics: undeclared\-signal,
@@ -280,6 +281,11 @@ geometry it records as DiagramLayout annotations in the migrated views
 .BR \-image\-base\-url " \fIurl\fP"
 With \-migrate, the http(s) URL a comment's relative <img src> is resolved
 against, such as the View Editor server
+.TP
+.B \-portable
+With \-migrate, append the OpenSysML library packages the output refers to, so
+the one file loads in a tool that ships only the standard library; the report
+names them
 .TP
 .BR \-compare\-results " \fIfile\fP"
 Run every configuration this \-migration\-results file indexes \(em or those

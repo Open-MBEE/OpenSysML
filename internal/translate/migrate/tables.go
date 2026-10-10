@@ -201,6 +201,10 @@ func (m *migration) lowerTable(td *tableDoc) {
 	t, host := td.t, td.v.host
 	l := &lowered{}
 	td.l = l
+	if m.strict {
+		l.refuse("its v2 form is a document of OpenSysML's DocumentQueries library, which a strict migration does not name")
+		return
+	}
 	if len(t.Malformed) > 0 {
 		l.refuse(strings.Join(t.Malformed, "; "))
 	}

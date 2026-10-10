@@ -38,7 +38,7 @@ sysml: Model.mdzip is a SysML v1 model, which is migrated, not converted: every 
 ```
 
 and `-migrate` refuses v2 input the same way, pointing at `-convert`. The companion flags —
-`-migration-report`, `-migration-results`, `-layout`, `-image-base-url` and `-strict` — accompany
+`-migration-report`, `-migration-results`, `-layout`, `-image-base-url`, `-portable` and `-strict` — accompany
 `-migrate`.
 
 The same migration is available over gRPC (`Migrate`, with `from_format: "xmi"`, `"uml"` or
@@ -1976,24 +1976,68 @@ Every migrated model is gated in the test suite to:
 A model the reader cannot make sense of — not XMI, a zipped project container, a document
 without a model — is refused with an error naming the reason rather than migrated partially.
 
+### Portable output with `-portable`
+
+The default migration writes what v1 has no standard v2 form for through OpenSysML's own
+library packages — `StateMachines` for a pseudostate, `Stochastic` for a branch probability,
+`DiagramLayout` for a view's geometry, `MigrationMetadata` for the names the migration made up,
+`DocumentQueries` for a document or table, `RandomFunctions` or `Simulation` for a simulation
+profile — which OpenSysML ships and a tool built on the standard library alone does not.
+`-portable` leaves the migration as it is and appends those packages to the output: every
+library package the notation refers to by qualified name, and every one those refer to in
+turn, follows the model under a comment saying so, written as the library ships it except
+that a `standard library package` becomes a `library package`, which is what a file of one's
+own may declare. A KerML library (`RandomFunctions`, `OpenSysMLMathFunctions`) is written in
+its SysML spelling, its functions as `calc def`s; one with no SysML spelling is left
+referenced, and the report says so. The report's summary names the packages inlined —
+`inlined 5 OpenSysML library package(s): DiagramLayout, DocumentQueries, MigrationMetadata,
+StateMachines, Stochastic` — and its JSON form lists them under `libraries`. The one file then
+loads in the pilot implementation, or a modeling tool built on it, on its own; OpenSysML loads
+it too, the inlined packages standing in for its own. A migration that must also read as
+standard notation, with no OpenSysML reference left in it, is `-strict`'s, below.
+
 ### Portable output with `-strict`
 
 A migration under `-strict` writes only notation a pinned SysML v2 production admits, so the
-output analyses clean under [strict conformance](../guide/03-command-line.md#strict-conformance)
-and carries nothing an interchange partner could not read. The `choice`, `junction`,
-`shallowHistory` and `deepHistory` pseudostates are written
-`#StateMachines::<kind> state x;` — qualified so a member named like the metadata cannot
-shadow it — with `private import StateMachines::*;` added to each package holding one,
-under `-strict` the same as by default, and a `deferrableTrigger` is written in the
-standard notation described under [Deferred signals](#deferred-signals) in both modes,
-its deferred signal named by the `@MigrationMetadata::DeferredEvent` annotation. What a
-strict migration still refuses is whatever has no standard v2 form at all; a transition to
-or from an unmapped vertex is refused rather than written to an undeclared name.
+output analyses clean under [strict conformance](../guide/03-command-line.md#strict-conformance),
+and refers to no library beyond the standard's, so a tool without OpenSysML's libraries — the
+pilot implementation, or a modeling tool built on it — loads the file on its own. What the
+default migration writes through an OpenSysML library a strict one writes otherwise, or refuses
+with a report line:
 
-To check strict output against the pinned pilot implementation, validate it together with the
-whole OpenSysML library directory, `.kerml` files included (`RandomFunctions`, which migrated
-Monte Carlo analyses call, is KerML); see
-[Pilot differential](../project/pilot-differential.md#the-kerml-side-of-the-bridge).
+- the `MigrationMetadata::SynthesizedName`, `StandIn` and `LibraryNameAvoided` markers become
+  comments (`// names the migration made up: a, b`), the report carrying the same information;
+- a `choice` or `junction` pseudostate, by default `#StateMachines::<kind> state x;`, is a plain
+  `state x;` whose guarded transitions are the pseudostate's, reported approximated since a
+  run no longer passes through it in one step; its `else` branch, which a plain state's
+  transitions would compete with rather than fall back to, is guarded by the negation of the
+  other guards (`if not (count < 2)`), or written unguarded with a report line saying so when
+  one of them is not a v2 expression; a `shallowHistory` or `deepHistory` pseudostate,
+  which has no standard form, is refused, with the transitions into and out of it;
+- a decision node's branch probability, by default `@Stochastic::Probability`, trails the
+  succession as a comment (`then b; // probability 0.25`);
+- a duration constraint over an interval, by default a `RandomFunctions::uniform` draw, is a
+  fixed wait of the interval's midpoint when both bounds are literal numbers, refused otherwise;
+- a «Document», a «DiagramTable» or «InstanceTable», whose forms are `DocumentQueries`
+  documents, are refused, a «Document» before its content is planned, so every view and
+  paragraph in it is reported unmapped with it; a Monte Carlo analysis is written as the ordinary analysis without its
+  `Simulation::MonteCarlo` generalization, reported approximated, and a simulation configuration
+  with its run settings as a comment in place of `@Simulation::Configuration`;
+- a view carries no `DiagramLayout` geometry; a `-layout` export and the diagrams' own symbol
+  streams are still joined to the views they match, the report's layout account counting the
+  views whose geometry is omitted rather than reporting them missing.
+
+The one OpenSysML reference a strict migration keeps is the deferral encoding's
+`@MigrationMetadata::DeferredEvent` and `#MigrationMetadata::DeferredKeeper` annotations,
+described under [Deferred signals](#deferred-signals): the encoding itself is standard notation,
+and the annotations are what lets a run give a transition on the deferred signal its due; a
+tool that does not know them reads the state as it is written. A transition to or from an
+unmapped vertex is refused rather than written to an undeclared name.
+
+Strict output validates against the pinned pilot implementation with the standard library
+alone; see [Pilot differential](../project/pilot-differential.md). Default output needs the
+whole OpenSysML library directory beside it, `.kerml` files included (`RandomFunctions`, which
+migrated Monte Carlo analyses call, is KerML).
 
 #### Deferred signals
 
@@ -2060,12 +2104,12 @@ transition the migration
 writes takes a signal, whatever it is written to — a transition into a terminate pseudostate,
 written to `done`, or into a submachine state through a connection point reference, written to
 the entry point's state, counts as any other: one it refuses — into a final state of another region, a state of
-another machine, a vertex whose ends it refuses, or, under `-strict`, a pseudostate with no v2
-form such as a choice — takes none, so the deferral keeps every route it would have accepted
-by; nor does such a completion transition drop the deferral. This is the one point where the
-modes differ: the default migration writes a `choice` and the transition into it, so that
-transition wins over the deferral as any other, while `-strict` refuses both and the state
-keeps the signal. An internal transition of the
+another machine, a vertex whose ends it refuses, or, under `-strict`, a history pseudostate,
+which has no standard v2 form — takes none, so the deferral keeps every route it would have
+accepted by; nor does such a completion transition drop the deferral. This is the one point
+where the modes differ: the default migration writes the history pseudostate and the
+transition into it, so that transition wins over the deferral as any other, while `-strict`
+refuses both and the state keeps the signal. An internal transition of the
 state is written as a self transition, which exits and re-enters the state where v1 stayed in
 it: the exit action sends the kept occurrences to self, and the accept loop, started again by
 the re-entry, keeps them again unless a transition then accepts them — so the buffer survives
