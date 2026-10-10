@@ -459,22 +459,36 @@ func (r *Resolver) inheritableMembers(owner, sup *symbols.Symbol, model supertyp
 		out = append(out, r.inheritableMembers(owner, next, model, seen)...)
 	}
 	if sup.Scope != nil {
+		inherited := membersByName(r.removeRedefinedFeatures(sup, out))
 		owned, aliases := r.DistinguishableMembers(sup.Scope)
 		for _, sym := range append(owned, aliases...) {
 			if sym.Visibility != ast.VisibilityPrivate {
 				out = append(out, sym)
 			}
 		}
-		out = append(out, r.importedMembers(owner, sup)...)
+		out = append(out, r.importedMembers(owner, sup, inherited)...)
 	}
 	return r.removeRedefinedFeatures(sup, out)
+}
+
+// membersByName keys members by their name.
+func membersByName(members []*symbols.Symbol) map[string][]*symbols.Symbol {
+	if len(members) == 0 {
+		return nil
+	}
+	out := map[string][]*symbols.Symbol{}
+	for _, sym := range members {
+		out[sym.Name] = append(out[sym.Name], sym)
+	}
+	return out
 }
 
 // importedMembers is what a namespace's non-private imports contribute to it: a
 // membership is inherited whether the namespace owns it or imported it
 // (KerML 8.4.3.2). Library elements are left out, as library supertypes are.
-func (r *Resolver) importedMembers(owner, sup *symbols.Symbol) []*symbols.Symbol {
-	hidden := r.hiddenImports(sup.Scope)
+// inherited is what the namespace inherits itself, by name, which hides imports too.
+func (r *Resolver) importedMembers(owner, sup *symbols.Symbol, inherited map[string][]*symbols.Symbol) []*symbols.Symbol {
+	hidden := r.hiddenImports(sup.Scope, inherited)
 	var out []*symbols.Symbol
 	for _, imp := range r.scopeImports(sup.Scope) {
 		if imp.Visibility == ast.VisibilityPrivate {
@@ -489,9 +503,9 @@ func (r *Resolver) importedMembers(owner, sup *symbols.Symbol) []*symbols.Symbol
 	return out
 }
 
-// hiddenImports is the imported memberships KerML 7.2.5.4 hides (an owned or another imported name
-// takes theirs), which no subtype inherits; inherited names are not consulted, as that may walk back here.
-func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool {
+// hiddenImports is the imported memberships KerML 7.2.5.4 hides (an owned, inherited or other
+// imported name takes theirs), which no subtype inherits. inherited is passed in: no generals are walked here.
+func (r *Resolver) hiddenImports(scope *symbols.Scope, inherited map[string][]*symbols.Symbol) map[*symbols.Symbol]bool {
 	imports := r.scopeImports(scope)
 	if len(imports) == 0 {
 		return nil
@@ -516,7 +530,7 @@ func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool 
 			}
 		}
 	}
-	_, collisions := r.importCollisions(scope, scope, nil)
+	_, collisions := r.importCollisions(scope, scope, inherited)
 	for _, kept := range collisions {
 		for _, member := range kept {
 			if member.imp != nil {
