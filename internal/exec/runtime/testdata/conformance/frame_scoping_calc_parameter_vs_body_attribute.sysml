@@ -9,7 +9,7 @@ package test {
 
 	calc def Scale {
 		in k : Integer;
-		return : Integer = k * 10;
+		return r : Integer = k * 10;
 	}
 
 	calc def Offset {
@@ -30,7 +30,7 @@ package test {
 		action apply {
 			assign scaled := Scale(2);
 			then assign offset := Offset(2);
-			then assign usage := s;
+			then assign usage := s.r;
 			then assign own := k;
 		}
 		done;
