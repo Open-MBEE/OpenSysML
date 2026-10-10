@@ -60,11 +60,16 @@ type Options struct {
 	// ImageBaseURL resolves a comment's relative <img src> to the server
 	// serving it; "" leaves such images out.
 	ImageBaseURL string
-	// Strict writes only notation a pinned SysML v2 production admits: a
-	// construct whose only v2 form is an OpenSysML extension (a deferred
-	// event, a choice, junction or history pseudostate) is reported unmapped
-	// instead of written.
+	// Strict writes only notation a pinned SysML v2 production admits and
+	// refers to no OpenSysML library: a construct whose only v2 form is one
+	// (a history pseudostate, a document) is reported unmapped instead of
+	// written, one with a standard approximation (a choice, a probability)
+	// written so and reported approximated.
 	Strict bool
+	// Portable appends the OpenSysML library packages the output refers to,
+	// so the one file loads in a tool that ships only the standard library;
+	// what is written is otherwise unchanged. The report names the packages.
+	Portable bool
 }
 
 // Migrate reads a SysML v1 model as UML XMI, or a zip archive (such as a
@@ -270,7 +275,11 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	m.layoutReport()
 	m.extensions()
 	m.report.Images = m.imagesWritten
-	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results, Files: m.files}
+	notation := []byte(m.w.String())
+	if opts.Portable {
+		notation, m.report.Libraries = inlineLibraries(notation)
+	}
+	return &Result{Notation: notation, Report: m.report, Results: m.results, Files: m.files}
 }
 
 // unwrittenEvents reports the events whose triggers were never written: those
@@ -863,6 +872,10 @@ func (m *migration) libraryNameNotes() {
 		prefix = "$::"
 	}
 	for _, r := range list {
+		if m.strict {
+			m.w.line("// " + writeName(r.fresh) + " is written for " + stringLiteral(r.src) + ", a name of the standard library")
+			continue
+		}
 		m.w.line("metadata " + prefix + "MigrationMetadata::LibraryNameAvoided about " + writeName(r.fresh) +
 			" { sourceName = " + stringLiteral(r.src) + "; }")
 	}

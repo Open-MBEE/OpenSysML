@@ -315,24 +315,39 @@ its type: `end [0..1] driver : Driver;`. From this point `%save` in the REPL, `-
 LSP and the clients all take the file as they take any other; nothing remembers that it was
 migrated.
 
-## Portable output with `-strict`
+## Portable output: `-portable` and `-strict`
 
-Pseudostates are written through the `StateMachines` library's metadata
-spellings — `#StateMachines::junction state x;` — with `private import
-StateMachines::*;` added to each package that holds one, so a migrated model
-reads as conforming SysML v2 either way. Pass `-strict` (see
-[Strict conformance](03-command-line.md#strict-conformance)) and the migration
-still writes only notation a pinned grammar admits — the pseudostates keep
-their `StateMachines` metadata spellings in both modes:
+A migrated model refers to OpenSysML's own library packages where v1 has no standard v2
+form: a pseudostate is written through the `StateMachines` library's metadata spellings
+(`#StateMachines::junction state x;`, with `private import StateMachines::*;` added to each
+package that holds one), a branch probability through `Stochastic`, a view's geometry through
+`DiagramLayout`, the names the migration made up through `MigrationMetadata`. OpenSysML ships
+them, so the file loads here as it is; a tool that ships only the standard library — the pilot
+implementation, or a modeling tool built on it — reports every such reference unresolved. Two
+flags make the output portable to such a tool:
 
-```console
-$ sysml Project.xmi -strict -migrate sysml -o Project.sysml
-$ sysml -strict -validate Project.sysml
-✓ Project.sysml: no errors
-```
+- `-portable` keeps the migration as it is and appends the library packages the output refers
+  to, so the one file carries everything it needs; the report names them:
 
-What a strict migration refuses is described in the reference under
-[Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict).
+  ```console
+  $ sysml Project.xmi -migrate sysml -portable -o Project.sysml
+  migration: … inlined 4 OpenSysML library package(s): DiagramLayout, MigrationMetadata, StateMachines, Stochastic
+  ```
+
+- `-strict` (see [Strict conformance](03-command-line.md#strict-conformance)) writes no
+  OpenSysML reference at all — a pseudostate as a plain state, a probability as a comment, a
+  view without geometry — at the cost of what the reference lists under
+  [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict),
+  so the output also reads as conforming SysML v2:
+
+  ```console
+  $ sysml Project.xmi -strict -migrate sysml -o Project.sysml
+  $ sysml -strict -validate Project.sysml
+  ✓ Project.sysml: no errors
+  ```
+
+Both are described in the reference under
+[Portable output with `-portable`](../reference/sysml-v1-migration.md#portable-output-with--portable).
 
 A deferred signal is standard notation in both modes: the state gets an `item` buffer its do
 action fills from an accept loop while the state is active, substates included, and its exit

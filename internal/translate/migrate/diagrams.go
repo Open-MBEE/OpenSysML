@@ -845,11 +845,17 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 	case src.export:
 		s.DiagramsJoined++
 		m.layoutJoined[rec.ID] = true
-		if src.stream {
+		if src.stream && !m.strict {
 			s.StreamSupplemented++
 		}
 	default:
 		s.StreamDiagrams++
+	}
+	if m.strict {
+		s.GeometryOmitted++
+		// Nothing is written, so the stream supplements nothing.
+		source = m.layoutSourceName(layoutSources{export: src.export})
+		return viewGeometry{note: "layout from " + source + " omitted: a strict migration names no OpenSysML library, and DiagramLayout is one's"}
 	}
 	prefix := diagramLayoutPrefix
 	if m.shadowsLibrary("DiagramLayout", v.host) {

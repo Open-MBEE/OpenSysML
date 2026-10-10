@@ -152,6 +152,7 @@ var (
 	htmlMath         string
 	htmlTheme        string
 	strictMode       bool
+	portableMode     bool
 	disabledLints    lintList
 	enabledLints     lintList
 	noRecordCache    bool
@@ -542,6 +543,10 @@ func runCLI() int {
 	}
 	if imageBaseURL != "" && migrateFormat == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -image-base-url accompanies -migrate of a SysML v1 model; write `sysml Model.mdzip -migrate sysml -image-base-url https://ve.example.org`")
+		return 2
+	}
+	if portableMode && migrateFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -portable accompanies -migrate of a SysML v1 model; write `sysml Model.mdzip -migrate sysml -portable -o Model.sysml`")
 		return 2
 	}
 	if message := importMisuse(); message != "" {
