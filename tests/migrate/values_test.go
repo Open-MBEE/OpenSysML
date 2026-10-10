@@ -797,6 +797,36 @@ func TestPartSlotWithoutAConformingIndividualIsUnmapped(t *testing.T) {
 	wantClean(t, "bad-part-slots.sysml", r)
 }
 
+// A slot of an untyped part — composite, or marked «PartProperty» — holds any
+// individual part: the property has no type to check the instance against.
+func TestUntypedPartSlotIsTypedByItsIndividual(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_wheel" name="Wheel"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_w" name="wheel" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_s" name="spare"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_w1" name="wheel 1" classifier="_wheel"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_c1" name="car 1" classifier="_car">
+      <slot xmi:type="uml:Slot" xmi:id="_sw" definingFeature="_w">
+        <value xmi:type="uml:InstanceValue" xmi:id="_vw" instance="_w1"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_ss" definingFeature="_s">
+        <value xmi:type="uml:InstanceValue" xmi:id="_vs" instance="_w1"/>
+      </slot>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_wheel"/>
+  <sysml:Block xmi:id="_s2" base_Class="_car"/>
+  <MD_Customization_for_SysML__additional_stereotypes:PartProperty xmlns:MD_Customization_for_SysML__additional_stereotypes="http://www.magicdraw.com/spec/Customization/180/SysML" xmi:id="_mk" base_Property="_s"/>`)
+	wantLine(t, r.Notation, "part wheel;")
+	wantLine(t, r.Notation, "part spare;")
+	wantLine(t, r.Notation, "individual part :>> wheel : 'wheel 1';")
+	wantLine(t, r.Notation, "individual part :>> spare : 'wheel 1';")
+	wantNote(t, r, "_sw", migrate.Mapped, "")
+	wantNote(t, r, "_ss", migrate.Mapped, "")
+	wantClean(t, "untyped-part-slots.sysml", r)
+}
+
 // An individual takes the kind of its classifier — `individual constraint
 // def` for an instance of a constraint block — and its slots redefine the
 // parameters with their `in` direction. Classifiers of another kind are not

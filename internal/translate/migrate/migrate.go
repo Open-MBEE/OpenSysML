@@ -1882,7 +1882,8 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 		if kind == catNone || !individualTypes(kind, kw) {
 			return nil, slotValueSubject + describe(inst) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw, false
 		}
-		if !m.instanceOf(classifiers, t) {
+		// An untyped property is typed by any individual of its kind.
+		if t != nil && !m.instanceOf(classifiers, t) {
 			return nil, slotValueSubject + describe(inst) + " is not an instance of " + qualifiedName(t) + ", the type of " + f.Name, false
 		}
 		// The default individual types the property, so a slot can only repeat it.
