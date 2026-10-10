@@ -30,6 +30,135 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
+	t.Run("typed_usage_bodyless_inherited_pin_binding", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def T {
+				in source : Integer = 1;
+				out y : Integer = source;
+			}
+			action def Bodyless {
+				out attribute observed : Integer = 0;
+				action m : T;
+				action read { assign observed := m.y; }
+				first start then m;
+				first m then read;
+				first read then done;
+			}
+		}`, "Bodyless")
+		if err != nil {
+			t.Fatalf("ExecuteAction(Bodyless): %v", err)
+		}
+		assertIntOutput(t, outputs, "observed", 1)
+		assertIntOutput(t, outputs, "m.y", 1)
+	})
+
+	t.Run("typed_usage_body_preserves_inherited_pin_binding", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def T {
+				in source : Integer = 1;
+				out y : Integer = source;
+			}
+			action def WithBody {
+				out attribute observed : Integer = 0;
+				action m : T { assign source := 2; }
+				action read { assign observed := m.y; }
+				first start then m;
+				first m then read;
+				first read then done;
+			}
+		}`, "WithBody")
+		if err != nil {
+			t.Fatalf("ExecuteAction(WithBody): %v", err)
+		}
+		assertIntOutput(t, outputs, "m.source", 2)
+		assertIntOutput(t, outputs, "m.y", 2)
+		assertIntOutput(t, outputs, "observed", 2)
+	})
+
+	t.Run("inherited_succession_plain_restatement_is_refused", func(t *testing.T) {
+		_, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				out attribute c : Integer = 0;
+				action p;
+				action a[3] { assign c := c + 1; }
+				succession first [1] p then [3] a;
+			}
+			action def Derived :> Base {
+				succession first p then a;
+			}
+		}`, "Derived")
+		if !errors.Is(err, ErrActionStepMultiplicity) {
+			t.Fatalf("ExecuteAction(Derived) error = %v, want ErrActionStepMultiplicity", err)
+		}
+		var stepErr *lower.StepMultiplicityError
+		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderUnsatisfiableCode {
+			t.Fatalf("ExecuteAction(Derived) error = %v, want %s", err, lower.StepOrderUnsatisfiableCode)
+		}
+	})
+
+	t.Run("inherited_succession_matching_restatement_runs_repeated_step", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			action def Base {
+				out attribute c : Integer = 0;
+				action p;
+				action a[3] { assign c := c + 1; }
+				succession first [1] p then [3] a;
+			}
+			action def Derived :> Base {
+				succession first [1] p then [3] a;
+			}
+		}`
+		for _, action := range []string{"Base", "Derived"} {
+			outputs, err := executeInheritedAction(t, src, action)
+			if err != nil {
+				t.Fatalf("ExecuteAction(%s): %v", action, err)
+			}
+			assertIntOutput(t, outputs, "c", 3)
+		}
+	})
+
+	t.Run("composite_redefinition_keeps_inherited_statement_and_owned_subaction", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				out attribute c : Integer = 0;
+				action a { assign c := c + 1; }
+			}
+			action def Derived :> Base {
+				action a :>> a {
+					action b { assign c := c + 10; }
+				}
+			}
+		}`, "Derived")
+		if err != nil {
+			t.Fatalf("ExecuteAction(Derived): %v", err)
+		}
+		assertIntOutput(t, outputs, "c", 11)
+	})
+
+	t.Run("composite_redefinition_keeps_inherited_subaction_and_owned_statement", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				out attribute c : Integer = 0;
+				action a {
+					action b { assign c := c + 10; }
+				}
+			}
+			action def Derived :> Base {
+				action a :>> a { assign c := c + 1; }
+			}
+		}`, "Derived")
+		if err != nil {
+			t.Fatalf("ExecuteAction(Derived): %v", err)
+		}
+		assertIntOutput(t, outputs, "c", 11)
+	})
+
 	t.Run("specialized_body_binding_replaces_inherited_binding", func(t *testing.T) {
 		outputs, err := executeInheritedAction(t, `package test {
 			private import ScalarValues::*;

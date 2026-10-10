@@ -1070,7 +1070,7 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 func (l *actionEdgeLowerer) addEdge(edge ActionEdge) {
 	if l.nodes != nil {
 		for _, existing := range l.graph.Edges[edge.Source] {
-			if l.sameUnconditionalActionEdge(existing, edge) && l.graph.declaredIn[existing.Decl] == nil {
+			if sameUnconditionalActionEdge(l.graph, existing, edge) && l.graph.declaredIn[existing.Decl] == nil {
 				return
 			}
 		}
@@ -1078,50 +1078,46 @@ func (l *actionEdgeLowerer) addEdge(edge ActionEdge) {
 	l.graph.Edges[edge.Source] = append(l.graph.Edges[edge.Source], edge)
 }
 
-func (l *actionEdgeLowerer) sameUnconditionalActionEdge(existing, edge ActionEdge) bool {
+func sameUnconditionalActionEdge(graph *ActionGraph, existing, edge ActionEdge) bool {
 	return existing.Source == edge.Source &&
 		existing.Target == edge.Target &&
 		existing.Guard == nil && edge.Guard == nil &&
 		existing.Probability == nil && edge.Probability == nil &&
 		existing.Name == "" && edge.Name == "" &&
 		existing.Gate == nil && edge.Gate == nil &&
-		l.sameEndMultiplicity(existing.SourceMultiplicity, edge.SourceMultiplicity, existing.Decl) &&
-		l.sameEndMultiplicity(existing.TargetMultiplicity, edge.TargetMultiplicity, existing.Decl) &&
-		!existing.Carries && !edge.Carries
+		!existing.Carries && !edge.Carries &&
+		sameActionEdgeMultiplicities(graph, existing, edge)
 }
 
-// sameEndMultiplicity compares written end multiplicities by range: both nil, or
-// both evaluating to the same known range in each succession's declaring scope.
-func (l *actionEdgeLowerer) sameEndMultiplicity(existing, edge *ast.Multiplicity, existingDecl ast.Node) bool {
-	if (existing == nil) != (edge == nil) {
-		return false
-	}
-	if existing == nil {
-		return true
-	}
-	existingScope := l.graph.Scope
-	if l.graph.declaredIn[existingDecl] != nil {
-		existingScope = l.graph.declaredIn[existingDecl]
-	}
-	evaluator := semantics.NewModel(l.graph.resolver)
-	a, ok1 := evaluator.RangeIn(existingScope, existing)
-	b, ok2 := evaluator.RangeIn(l.scope, edge)
-	return ok1 && ok2 && sameMultiplicityRange(a, b)
+func sameActionEdgeMultiplicities(graph *ActionGraph, existing, edge ActionEdge) bool {
+	model := semantics.NewModel(graph.resolver)
+	return sameActionEdgeEndMultiplicity(graph, model,
+		existing.SourceMultiplicity, existing.Decl, existing.Target,
+		edge.SourceMultiplicity, edge.Decl, edge.Target) &&
+		sameActionEdgeEndMultiplicity(graph, model,
+			existing.TargetMultiplicity, existing.Decl, existing.Target,
+			edge.TargetMultiplicity, edge.Decl, edge.Target)
 }
 
-// sameMultiplicityRange holds when both bounds are fully known and identical.
-func sameMultiplicityRange(a, b semantics.Range) bool {
-	if !a.Lower.Known || a.Lower.Infinite || !b.Lower.Known || b.Lower.Infinite ||
-		a.Lower.Value != b.Lower.Value {
+func sameActionEdgeEndMultiplicity(
+	graph *ActionGraph,
+	model *semantics.Model,
+	existing *ast.Multiplicity,
+	existingDecl ast.Node,
+	existingStep ast.Node,
+	edge *ast.Multiplicity,
+	edgeDecl ast.Node,
+	edgeStep ast.Node,
+) bool {
+	if existing == nil || edge == nil {
+		return existing == nil && edge == nil
+	}
+	existingBounds, err := graph.crossingRange(existingStep, existing, existingDecl, model)
+	if err != nil {
 		return false
 	}
-	if a.Upper.Infinite != b.Upper.Infinite {
-		return false
-	}
-	if a.Upper.Infinite {
-		return true
-	}
-	return a.Upper.Known && b.Upper.Known && a.Upper.Value == b.Upper.Value
+	edgeBounds, err := graph.crossingRange(edgeStep, edge, edgeDecl, model)
+	return err == nil && existingBounds == edgeBounds
 }
 
 func (l *actionEdgeLowerer) endpoint(ref ast.Node, member ast.Node, source bool) (ast.Node, error) {
@@ -1703,16 +1699,13 @@ func lowerEffectiveActionNodeFeatures(graph *ActionGraph, node *ast.Usage, scope
 				if name == "" || seen[name] {
 					continue
 				}
+				feature, ok := declaredFeature(m, general)
+				if !ok {
+					continue
+				}
 				seen[name] = true
 				graph.recordDeclaredIn(m, general)
-				features = append(features, Feature{
-					Name:      name,
-					Direction: m.Direction,
-					IsResult:  m.IsResult,
-					Value:     m.Value,
-					Node:      m,
-					Scope:     general,
-				})
+				features = append(features, feature)
 			}
 		}
 	}
