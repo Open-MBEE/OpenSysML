@@ -20,16 +20,7 @@ package Tables {
     }
     calc def 'Actors Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
-            source = DocumentQueries::OrderBy(
-                source = DocumentQueries::Except(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Operations"))),
-                    exclude = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Operations")))),
-                property = "qualifiedName",
-                direction = "ascending",
-                missing = "last",
-                multiple = "first"),
+            source = DocumentQueries::OrderBy(source = (), property = "qualifiedName", direction = "ascending", missing = "last", multiple = "first"),
             properties = ("qualifiedName"))
     }
     part def 'Actors Document' :> DocumentQueries::Document {
@@ -45,16 +36,7 @@ package Tables {
     }
     calc def 'Use Cases Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
-            source = DocumentQueries::OrderBy(
-                source = DocumentQueries::Except(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Operations"))),
-                    exclude = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Operations")))),
-                property = "qualifiedName",
-                direction = "ascending",
-                missing = "last",
-                multiple = "first"),
+            source = DocumentQueries::OrderBy(source = (), property = "qualifiedName", direction = "ascending", missing = "last", multiple = "first"),
             properties = ("qualifiedName"))
     }
     part def 'Use Cases Document' :> DocumentQueries::Document {

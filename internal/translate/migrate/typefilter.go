@@ -407,7 +407,7 @@ func (f typeFilter) query(src qx) qx {
 	if len(f.usages) == 0 {
 		if !typed {
 			// Named takes at least one name; no usage written means no row.
-			return qcall("Except", qarg1("source", src), qarg1("exclude", src))
+			return qempty()
 		}
 		return rows
 	}
