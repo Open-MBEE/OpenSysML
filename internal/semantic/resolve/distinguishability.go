@@ -99,13 +99,8 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 	}
 }
 
-// importCollisions is each name several memberships of a namespace share, at
-// least one of them imported, with the memberships that are indistinguishable
-// under it, in the order the names are first imported: the memberships KerML
-// 7.2.5.4 hides. The rest of the imported memberships conflict with nothing.
-// into is the namespace the imports are admitted into (see ImportedElementsInto);
-// inherited is what the namespace inherits, by name, for the imports to be
-// told apart from as well (nil to judge them against owned names and each other).
+// importCollisions is each name imported memberships of into (admitted as ImportedElementsInto) share
+// with each other, an owned name or inherited (nil to skip), with the memberships KerML 7.2.5.4 hides under it.
 func (r *Resolver) importCollisions(into, scope *symbols.Scope, inherited map[string][]*symbols.Symbol) ([]string, map[string][]importedMember) {
 	imports := r.scopeImports(scope)
 	if len(imports) == 0 {
@@ -494,11 +489,8 @@ func (r *Resolver) importedMembers(owner, sup *symbols.Symbol) []*symbols.Symbol
 	return out
 }
 
-// hiddenImports is the imported memberships of a namespace that are no
-// memberships of it, so that a subtype inherits none of them: those an owned
-// name hides and those sharing a name with another imported membership (KerML
-// 7.2.5.4, 8.3.2.4.5 importedMemberships). What the namespace inherits is not
-// consulted: that would walk its generals, which may lead back here.
+// hiddenImports is the imported memberships KerML 7.2.5.4 hides (an owned or another imported name
+// takes theirs), which no subtype inherits; inherited names are not consulted, as that may walk back here.
 func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool {
 	imports := r.scopeImports(scope)
 	if len(imports) == 0 {

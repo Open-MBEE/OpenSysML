@@ -522,11 +522,8 @@ func (m *migration) viewpointTags(e *sysmlv1.Element) {
 	}
 }
 
-// unnamedFrames is the set of homed concerns a viewpoint frames in the
-// reference form `frame <ref>;`. An unnamed usage takes the effective name of
-// the feature it references (KerML 8.3.3.3 Feature::effectiveName), so a frame
-// stays unnamed only where no other member of the viewpoint — a stakeholder in
-// bound, or another frame — binds that name. The names kept are added to bound.
+// unnamedFrames is the homed concerns framed as `frame <ref>;`: those whose effective name
+// (KerML 8.3.3.3) no stakeholder in bound or other frame takes. The names kept are added to bound.
 func (m *migration) unnamedFrames(e *sysmlv1.Element, bound map[string]bool) map[*sysmlv1.Element]bool {
 	count := map[string]int{}
 	var homed []*sysmlv1.Element
@@ -548,10 +545,8 @@ func (m *migration) unnamedFrames(e *sysmlv1.Element, bound map[string]bool) map
 	return unnamed
 }
 
-// frameHomed frames a concern declared elsewhere: `frame <ref>;`, or, where
-// that frame's effective name would repeat another member's, the named form
-// `frame concern <name> ::> <ref>;` under a name fresh in the viewpoint, so its
-// memberships stay distinguishable (KerML 8.3.2.4.5).
+// frameHomed writes `frame <ref>;`, or `frame concern <name> ::> <ref>;` under a fresh name where
+// the unnamed frame would repeat another member's name, keeping memberships distinguishable (KerML 8.3.2.4.5).
 func (m *migration) frameHomed(e, c *sysmlv1.Element, unnamed map[*sysmlv1.Element]bool, bound map[string]bool) {
 	if unnamed[c] {
 		m.w.line("frame " + m.ref(c, e) + ";")
