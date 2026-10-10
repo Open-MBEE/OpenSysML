@@ -244,8 +244,6 @@ func (m *migration) connectActor(link *actorLink) {
 			if link.owned == nil {
 				note = joinNotes(note, "the use case declares the actor parameter "+param+" subsetting that usage")
 			}
-		case param == "":
-			note = "the end at the use case is the connection's end at the use case usage, whose actor parameter is anonymous"
 		case def != nil:
 			note = "the end at the use case is the connection's end at the use case usage, as the connection def's end is; the use case's actor parameter " + param + " subsets the actor"
 		default:
@@ -255,8 +253,7 @@ func (m *migration) connectActor(link *actorLink) {
 	}
 }
 
-// actorParameter is the name of the use case's actor parameter for the link,
-// "" when the use case's own property that is it has no name.
+// actorParameter is the name of the use case's actor parameter for the link.
 func (m *migration) actorParameter(link *actorLink) string {
 	if link.owned == nil {
 		return link.param
@@ -276,7 +273,11 @@ func (m *migration) actorParameters(e *sysmlv1.Element) {
 		if link.end.Name == "" {
 			m.w.madeUp(writeName(name))
 		}
-		m.w.line("actor " + writeName(name) + " :> " + m.ref(link.actor, e) + ";")
+		mult, _ := m.multiplicity(link.end)
+		if mult != "" {
+			mult = " " + mult
+		}
+		m.w.line("actor " + writeName(name) + mult + " :> " + m.ref(link.actor, e) + ";")
 	}
 }
 
@@ -457,7 +458,8 @@ func (m *migration) actorLink(a *sysmlv1.Element) *actorLink {
 			return nil
 		}
 		link := &actorLink{assoc: a, useCase: useCase, actor: actor, end: end}
-		if end.Parent == useCase {
+		if end.Parent == useCase && end.Type != "Port" {
+			// A port the use case owns stays a port; the use case gets a parameter besides.
 			link.owned = end
 		}
 		return link
@@ -467,8 +469,8 @@ func (m *migration) actorLink(a *sysmlv1.Element) *actorLink {
 
 // placeActors writes the connection each link's association is written as,
 // once every member of the use cases is named, and records the link, naming
-// the actor parameter the use case declares for it unless one of its own
-// properties, typed by the actor, is that parameter already.
+// the actor parameter the use case declares for it: the end at the actor when
+// the use case owns it, named after the actor if it is anonymous, else a new one.
 func (m *migration) placeActors(links []*actorLink) {
 	for _, link := range links {
 		if link.block {
@@ -477,29 +479,18 @@ func (m *migration) placeActors(links []*actorLink) {
 		}
 		m.actors[link.assoc] = link
 		m.linkedActors[link.useCase] = append(m.linkedActors[link.useCase], link)
-		if link.owned == nil {
-			link.owned = m.ownedActor(link.useCase, link.actor)
+		base := m.nameOf(link.end)
+		if base == "" {
+			base = lowerFirst(m.nameFor(link.actor))
 		}
-		if link.owned == nil {
-			base := m.nameOf(link.end)
-			if base == "" {
-				base = lowerFirst(m.nameFor(link.actor))
-			}
+		switch {
+		case link.owned == nil:
 			link.param = m.reserveNameFor(link.end, link.useCase, base)
+		case m.nameOf(link.owned) == "":
+			m.names[link.owned], m.synthesized[link.owned] = m.reserveNameFor(link.owned, link.useCase, base), true
 		}
 		m.connectActor(link)
 	}
-}
-
-// ownedActor is the use case's own property typed by the actor, written as an
-// actor parameter; nil for none.
-func (m *migration) ownedActor(useCase, actor *sysmlv1.Element) *sysmlv1.Element {
-	for _, p := range useCase.Owned("ownedAttribute") {
-		if p.Type != "Port" && m.model.Ref(p, "type") == actor && toolContent(p) == "" {
-			return p
-		}
-	}
-	return nil
 }
 
 // useCaseBody writes the body of a use case usage: its subject, its members

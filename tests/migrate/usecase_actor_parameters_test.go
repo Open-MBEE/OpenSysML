@@ -146,3 +146,77 @@ func TestNamedActorAssociationConnectsTheUseCaseUsage(t *testing.T) {
 	wantNote(t, r, "_eU", migrate.Approximated, "the end at the use case is the connection's end at the use case usage, as the connection def's end is; the use case's actor parameter bank subsets the actor")
 	wantClean(t, "actor-named.sysml", r)
 }
+
+// An unnamed actor end the use case owns is named after the actor, marked as
+// made up, and the connection joins it by that name.
+func TestUnnamedUseCaseOwnedActorEndIsNamed(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Actor" xmi:id="_actor" name="User"/>
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" type="_actor" association="_assoc"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Association" xmi:id="_assoc" memberEnd="_p _e2">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_e2" type="_uc" association="_assoc"/>
+    </packagedElement>`, "")
+	wantLine(t, r.Notation, "use case Buy {\n    subject;\n    actor user :> User;\n    metadata MigrationMetadata::SynthesizedName about user;\n}")
+	wantLine(t, r.Notation, "connection 'User to Buy' connect User to Buy.user;")
+	wantClean(t, "actor-owned-unnamed.sysml", r)
+}
+
+// A property of the use case typed by the actor that is not the association's
+// end is not that association's parameter: the association gets its own.
+func TestOwnedPropertyThatIsNotTheEndIsNotReused(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Actor" xmi:id="_actor" name="Operator"/>
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Scan">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="operator" type="_actor" association="_a1"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Association" xmi:id="_a1" memberEnd="_p _e1u">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_e1u" type="_uc" association="_a1"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Association" xmi:id="_a2" memberEnd="_e2a _e2u">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_e2a" name="supervisor" type="_actor" association="_a2"/>
+      <ownedEnd xmi:type="uml:Property" xmi:id="_e2u" type="_uc" association="_a2"/>
+    </packagedElement>`, "")
+	wantLine(t, r.Notation, "actor operator :> Operator;")
+	wantLine(t, r.Notation, "actor supervisor :> Operator;")
+	wantLine(t, r.Notation, "connect Operator to Scan.operator;")
+	wantLine(t, r.Notation, "connect Operator to Scan.supervisor;")
+	wantClean(t, "actor-owned-and-new.sysml", r)
+}
+
+// The association end's multiplicity is the actor parameter's.
+func TestActorParameterKeepsTheEndsMultiplicity(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Actor" xmi:id="_actor" name="Operator"/>
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Scan"/>
+    <packagedElement xmi:type="uml:Association" xmi:id="_assoc" memberEnd="_eA _eU">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_eA" type="_actor" association="_assoc">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_lo" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_hi" value="*"/>
+      </ownedEnd>
+      <ownedEnd xmi:type="uml:Property" xmi:id="_eU" type="_uc" association="_assoc"/>
+    </packagedElement>`, "")
+	wantLine(t, r.Notation, "actor operator [0..*] :> Operator;")
+	wantLine(t, r.Notation, "connect Operator to Scan.operator;")
+	wantClean(t, "actor-multiplicity.sysml", r)
+}
+
+// A port the use case owns, typed by the actor and the association's end, stays
+// a port; the use case declares an actor parameter for the association besides.
+func TestPortEndIsNotTheActorParameter(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Actor" xmi:id="_actor" name="Operator"/>
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Scan">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_p" name="console" type="_actor" association="_assoc"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Association" xmi:id="_assoc" memberEnd="_p _eU">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_eU" type="_uc" association="_assoc"/>
+    </packagedElement>`, "")
+	wantLine(t, r.Notation, "actor console :> Operator;")
+	wantLine(t, r.Notation, "connect Operator to Scan.console;")
+	if n := strings.Count(string(r.Notation), "actor "); n != 1 {
+		t.Errorf("%d actor parameters, want one:\n%s", n, r.Notation)
+	}
+	wantClean(t, "actor-port-end.sysml", r)
+}

@@ -12,7 +12,7 @@ package 'Use Cases' {
         doc /* A driver parks a car in the garage. */
         subject garage : Context::Garage;
         actor driver :> Context::Driver;
-        actor attendant :> Context::Attendant;
+        actor attendant [0..1] :> Context::Attendant;
         include 'Pay Fee';
         /* not migrated: ExtensionPoint 'garage full' — v2 has no extension points; an extending use case is written as a connection to the extended one */
         action def 'Park Flow' {
