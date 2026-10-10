@@ -234,7 +234,7 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 			why: "it is private to " + qualifiedName(hidden.Parent)}}
 	case f == nil:
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
-			why:     joinNotes("nothing visible from "+qualifiedName(s.scope)+" is called "+name, s.clash),
+			why:     joinNotes("nothing visible from "+qualifiedName(seeingScope(s.scope))+" is called "+name, s.clash),
 			unknown: s.clash == "" && !m.laneKnows(s.lane, name)}}
 	case f.Role != "variable" && f.Type != "Property" && f.Type != "Port" && f.Type != "Parameter":
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,

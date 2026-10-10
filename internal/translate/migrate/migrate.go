@@ -3403,13 +3403,74 @@ func (m *migration) informationFlow(f *sysmlv1.Element) {
 	m.unmapped(f, "an information flow with no realizing connector is not migrated")
 }
 
-// rule writes a constraint owned by a classifier as a constraint usage.
+// rule writes an owned constraint as the OMG mapping does: a constraint def
+// whose result is the specification, asserted by a usage typed by it. A
+// behavior's or operation's rule reads the behavior's own parameters, which no
+// def nested in it reaches, so it stays an asserted usage holding the
+// expression; so does a rule of a classifier written as a usage or a value
+// type, whose features no context parameter can reach.
 func (m *migration) rule(r *sysmlv1.Element) {
 	spec := firstOwned(r, "specification")
 	if spec == nil {
 		m.unmapped(r, "the constraint has no specification")
 		return
 	}
+	if !m.ruleAsDef(r) {
+		m.assertedRule(r, spec)
+		return
+	}
+	expr, ok, note := m.valueExprAs(spec, r, oneOf("Boolean", "the constraint yields"))
+	if !ok {
+		m.unmappedExpr(r, spec, note)
+		return
+	}
+	owner := r.Parent
+	name := m.nameOf(r)
+	var def string
+	if name == "" {
+		def = m.freshName(owner, "Constraint")
+	} else if def = m.freshNameBut(r, owner, upperFirst(name)); def == name {
+		name = m.freshName(owner, lowerFirst(name))
+		m.names[r] = name
+	}
+	m.w.block("constraint def "+writeName(def), func() {
+		m.bodyWithContext(r, func() { m.w.line(expr) })
+	})
+	ins, _ := m.contextIns(m.contextOf(r), owner)
+	decl := "assert constraint"
+	if name != "" {
+		decl += " " + writeName(name)
+	}
+	decl += " : " + writeName(def)
+	if ins != "" {
+		m.w.line(decl + " { " + ins + "; }")
+	} else {
+		m.w.line(decl + ";")
+	}
+	m.add(r, verdictFor(note), m.v2Name(r), joinNotes("the constraint def "+def+" holds the specification as its result, asserted by the usage typed by it", note))
+}
+
+// ruleAsDef reports whether owned rule r is written as a constraint def with an
+// asserted usage typed by it: a rule of a package, or of a classifier written as
+// a definition a context parameter can be typed by. A constraint def's own rule
+// reads its parameters, which no context parameter reaches, so it stays inline.
+func (m *migration) ruleAsDef(r *sysmlv1.Element) bool {
+	if !ruleDef(r) {
+		return false
+	}
+	switch r.Parent.Type {
+	case "Package", "Model", "Profile":
+		return true
+	}
+	if cat, _ := m.classify(r.Parent); cat == catConstraintDef {
+		return false
+	}
+	return m.definitionEnd(r.Parent)
+}
+
+// assertedRule writes an owned rule as an asserted constraint usage holding
+// the specification as its body.
+func (m *migration) assertedRule(r, spec *sysmlv1.Element) {
 	expr, ok, note := m.valueExprAs(spec, m.scope, oneOf("Boolean", "the constraint yields"))
 	if !ok {
 		m.unmappedExpr(r, spec, note)

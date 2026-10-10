@@ -182,10 +182,11 @@ func TestNonBooleanConstraintSpecificationIsNotWritten(t *testing.T) {
         <specification xmi:type="uml:LiteralInteger" xmi:id="_rs" value="3"/>
       </ownedRule>
     </packagedElement>`, `<sysml:Block xmi:id="_st" base_Class="_b"/><sysml:ConstraintBlock xmi:id="_scb" base_Class="_cb"/>`)
-	wantLine(t, r.Notation, "constraint always { true }")
-	wantLine(t, r.Notation, "constraint spelled { false }")
-	wantLine(t, r.Notation, "constraint lighted { lit or not lit }")
-	wantLine(t, r.Notation, "constraint yes { true }")
+	wantBlock(t, r.Notation, "constraint def Always {", "true", "}", "assert constraint always : Always;")
+	wantBlock(t, r.Notation, "constraint def Spelled {", "false", "}", "assert constraint spelled : Spelled;")
+	wantBlock(t, r.Notation, "constraint def Lighted {", "in ref context : Lamp[1];", "context.lit or not context.lit", "}",
+		"assert constraint lighted : Lighted { in ref :>> context = this; }")
+	wantBlock(t, r.Notation, "constraint def Yes {", "true", "}", "assert constraint yes : Yes;")
 	wantNoLine(t, r.Notation, "constraint one {")
 	wantNoLine(t, r.Notation, "constraint half {")
 	wantNoLine(t, r.Notation, "constraint word {")

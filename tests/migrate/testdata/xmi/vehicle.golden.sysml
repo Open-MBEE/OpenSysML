@@ -56,7 +56,11 @@ package 'Vehicle Design' {
             /* the region has no initial pseudostate: nothing enters it */
             state Off;
         }
-        assert constraint 'positive mass' { mass > 0 }
+        constraint def 'Positive mass' {
+            in ref context : Vehicle[1];
+            context.mass > 0
+        }
+        assert constraint 'positive mass' : 'Positive mass' { in ref :>> context = this; }
         part def Chassis {
             attribute mass : 'Vehicle Design'::'Value Types'::Mass;
         }

@@ -198,6 +198,11 @@ func (m *migration) opaqueValue(v, scope *sysmlv1.Element, want wanted) (expr st
 	}
 	visible, _ := m.visibleFrom(scope)
 	body = m.renamedRoots(body, refs, visible, nil)
+	if m.selfContext(scope) != nil {
+		// Inside a def the classifier's features read through its context parameter.
+		refs, _ = exprRefs(body)
+		body = m.qualifySelf(body, refs, scope)
+	}
 	return body, true, "opaque expression copied verbatim" + langNote(lang)
 }
 
@@ -764,6 +769,15 @@ func chainRef(e *ast.FeatureChainExpr) (reference, bool) {
 	return r, true
 }
 
+// seeingScope is the scope a note names what scope sees from: a rule declares
+// no names, so it sees what its owner sees.
+func seeingScope(scope *sysmlv1.Element) *sysmlv1.Element {
+	if ruleDef(scope) {
+		return scope.Parent
+	}
+	return scope
+}
+
 // invisible says why the references cannot all be seen from scope: the first that
 // resolves to nothing, or reaches through an untyped local. "" if all resolve.
 func (m *migration) invisible(refs []reference, scope *sysmlv1.Element) string {
@@ -777,7 +791,7 @@ func (m *migration) invisible(refs []reference, scope *sysmlv1.Element) string {
 			if r.local != "" && r.typed == 0 {
 				return "reaches " + missing + " through " + writeName(r.local) + ", whose type it does not declare"
 			}
-			return "names " + missing + ", which nothing visible from " + qualifiedName(scope) + " is called"
+			return "names " + missing + ", which nothing visible from " + qualifiedName(seeingScope(scope)) + " is called"
 		}
 		if kw := m.notAValue(e); kw != "" {
 			return "names " + r.text(len(r.steps)) + ", which is " + kw + " " + qualifiedName(e) + ", not a value an expression can read"

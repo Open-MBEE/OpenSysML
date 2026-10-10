@@ -1473,7 +1473,8 @@ func TestOpaqueExpressionsNeedWrittenAccessibleNames(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_cb"/>`)
 	wantLine(t, r.Notation, "attribute secret : ScalarValues::Real;")
 	wantLine(t, r.Notation, "private attribute hidden : ScalarValues::Real;")
-	wantLine(t, r.Notation, "constraint kept { secret + 1 > 0 }")
+	wantBlock(t, r.Notation, "constraint def Kept {", "in ref context : Bound[1];", "context.secret + 1 > 0", "}",
+		"assert constraint kept : Kept { in ref :>> context = this; }")
 	wantNoLine(t, r.Notation, "constraint ran")
 	wantNote(t, r, "_r1", migrate.Unmapped, "opaque expression names run, which is the action def Bound::run, not a value an expression can read")
 	wantNote(t, r, "_secret", migrate.Approximated, "private visibility is not written: an expression in Bound names it")
@@ -1522,9 +1523,12 @@ func TestOpaqueExpressionsResolveEveryStep(t *testing.T) {
   <sysml:Block xmi:id="_s1" base_Class="_motor"/>
   <sysml:Block xmi:id="_s2" base_Class="_engine"/>
   <sysml:Block xmi:id="_s3" base_Class="_car"/>`)
-	wantLine(t, r.Notation, "constraint hot { engine.temp > 90.0 and engine.rpm > 0.0 }")
-	wantLine(t, r.Notation, "constraint worn { engine.wear < 1.0 }")
-	wantLine(t, r.Notation, "constraint tracking { mode == Mode::TRACK }")
+	wantBlock(t, r.Notation, "constraint def Hot {", "in ref context : Car[1];", "context.engine.temp > 90.0 and context.engine.rpm > 0.0", "}",
+		"assert constraint hot : Hot { in ref :>> context = this; }")
+	wantBlock(t, r.Notation, "constraint def Worn {", "in ref context : Car[1];", "context.engine.wear < 1.0", "}",
+		"assert constraint worn : Worn { in ref :>> context = this; }")
+	wantBlock(t, r.Notation, "constraint def Tracking {", "in ref context : Car[1];", "context.mode == Mode::TRACK", "}",
+		"assert constraint tracking : Tracking { in ref :>> context = this; }")
 	wantLine(t, r.Notation, "attribute wear : ScalarValues::Real;")
 	wantNoLine(t, r.Notation, "constraint broken")
 	wantNoLine(t, r.Notation, "constraint parked")
@@ -1565,8 +1569,10 @@ func TestOpaqueExpressionsMayNameImportedMembers(t *testing.T) {
   <sysml:ValueType xmi:id="_s1" base_DataType="_gear"/>
   <sysml:Block xmi:id="_s2" base_Class="_car"/>`)
 	wantLine(t, r.Notation, "public import Modes::*;")
-	wantLine(t, r.Notation, "constraint tracking { mode == Mode::TRACK }")
-	wantLine(t, r.Notation, "constraint crawling { gear == Gear::LOW }")
+	wantBlock(t, r.Notation, "constraint def Tracking {", "in ref context : Car[1];", "context.mode == Mode::TRACK", "}",
+		"assert constraint tracking : Tracking { in ref :>> context = this; }")
+	wantBlock(t, r.Notation, "constraint def Crawling {", "in ref context : Car[1];", "context.gear == Gear::LOW", "}",
+		"assert constraint crawling : Crawling { in ref :>> context = this; }")
 	wantLine(t, r.Notation, "enum def Gear {")
 	wantNote(t, r, "_gear", migrate.Approximated, "private visibility is not written: v2 lets nothing outside the package reach a private member")
 	wantClean(t, "imports.sysml", r)

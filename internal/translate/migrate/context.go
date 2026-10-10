@@ -181,7 +181,14 @@ func defScope(e *sysmlv1.Element) bool {
 	case "entry", "exit", "doActivity", "effect", "method", "guard":
 		return false
 	}
-	return isBehavior(e) || e.Type == "Operation" || e.Type == "Reception"
+	return isBehavior(e) || e.Type == "Operation" || e.Type == "Reception" || ruleDef(e)
+}
+
+// ruleDef reports whether e is an owned rule written as a def of its own: a
+// plain constraint of a classifier or package, not of a behavior, operation,
+// state or transition, whose rule is asserted inline where it is read.
+func ruleDef(e *sysmlv1.Element) bool {
+	return e.Type == "Constraint" && e.Role == "ownedRule" && e.Parent != nil && !behaviorScope(e.Parent)
 }
 
 // enclosingDef is the def e's body is written inside: the innermost enclosing
