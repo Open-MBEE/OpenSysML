@@ -37,7 +37,7 @@ func (a *activity) targetNote(n, t, op *sysmlv1.Element, pname string) string {
 // pin holds: the pin is a parameter of the usage, which binds the operation's context to it.
 func (a *activity) callOnTarget(n, t, op *sysmlv1.Element, name string) (string, bool) {
 	c := a.m.contextOf(op)
-	used := map[string]bool{}
+	used := inheritedActionNamesSet()
 	for _, p := range a.m.actionParameters(op) {
 		used[a.m.nameFor(p)] = true
 	}
@@ -97,7 +97,7 @@ func (a *activity) callOnTargetLine(n, t, op *sysmlv1.Element, name string, note
 // pins are bound to the operation's parameters by position. It records the call,
 // returning the note on any pin left unbound.
 func (a *activity) callOnUsageTarget(n, t, op *sysmlv1.Element, name string, ins, outs []*sysmlv1.Element) string {
-	used := map[string]bool{}
+	used := inheritedActionNamesSet()
 	pname, typ := a.targetPin(n, t, op, used)
 	usage := a.m.operationUsage(op)
 	inParams, outParams := a.m.directedParameters(op)

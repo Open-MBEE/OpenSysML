@@ -152,6 +152,60 @@ func TestCallOperationOnACreatedObjectActsOnAnEmptyPin(t *testing.T) {
 	}
 }
 
+// controlNamedOperations calls the operations Start and Done of a Motor on one
+// a CreateObjectAction creates.
+const controlNamedOperations = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_motor" name="Motor">
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_opStart" name="Start"/>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_opDone" name="Done"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_build" name="Build">
+      <node xmi:type="uml:InitialNode" xmi:id="_bi"/>
+      <node xmi:type="uml:CreateObjectAction" xmi:id="_create" name="create" classifier="_motor">
+        <result xmi:type="uml:OutputPin" xmi:id="_createOut" name="result" type="_motor"/>
+      </node>
+      <node xmi:type="uml:ForkNode" xmi:id="_fork" name="copy"/>
+      <node xmi:type="uml:CallOperationAction" xmi:id="_callStart" name="begin" operation="_opStart">
+        <target xmi:type="uml:InputPin" xmi:id="_callStartTgt" name="target"/>
+      </node>
+      <node xmi:type="uml:CallOperationAction" xmi:id="_callDone" name="finish" operation="_opDone">
+        <target xmi:type="uml:InputPin" xmi:id="_callDoneTgt" name="target"/>
+      </node>
+      <node xmi:type="uml:ActivityFinalNode" xmi:id="_bf"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_be1" source="_bi" target="_create"/>
+      <edge xmi:type="uml:ObjectFlow" xmi:id="_bof1" source="_createOut" target="_fork"/>
+      <edge xmi:type="uml:ObjectFlow" xmi:id="_bof2" source="_fork" target="_callStartTgt"/>
+      <edge xmi:type="uml:ObjectFlow" xmi:id="_bof3" source="_fork" target="_callDoneTgt"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_be2" source="_callStart" target="_callDone"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_be3" source="_callDone" target="_bf"/>
+    </packagedElement>`
+
+// The step a call on a handed-in object performs is named after the operation,
+// which must not take the name of a control node every action inherits: Start
+// and Done are performed as 'start on target' and 'done on target', so the
+// successions from start and into done reach the step.
+func TestCallOperationNamedLikeAControlNodeKeepsItsSuccessions(t *testing.T) {
+	r := migrateDocument(t, controlNamedOperations, motorNetworkApplications)
+	for _, line := range []string{
+		"action begin {",
+		"perform action 'start on target' ::> target.start;",
+		"first start then 'start on target';",
+		"first 'start on target' then done;",
+		"action finish {",
+		"perform action 'done on target' ::> target.done;",
+		"first start then 'done on target';",
+		"first 'done on target' then done;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, line := range []string{"first start then start;", "first done then done;"} {
+		if strings.Contains(string(r.Notation), line) {
+			t.Errorf("a succession names a control node for the performed step: %q in\n%s", line, r.Notation)
+		}
+	}
+	wantClean(t, "Build", r)
+}
+
 // startedBehaviors starts the behavior of an object a CreateObjectAction creates,
 // then the classifier behavior of the same object.
 const startedBehaviors = `
