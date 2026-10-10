@@ -339,16 +339,50 @@ func (e *StateExecutor) observeChangedValue(relevant func([]*FeatureValue) bool)
 			if err != nil {
 				continue
 			}
-			observed := e.changeObserved[trans]
+			pending, hadPending := e.changePending[trans]
+			observed, hadObserved := e.changeObserved[trans]
+			fired, hadFired := e.changeFired[trans]
+			nextPending, hasPending := pending, hadPending
+			nextObserved, hasObserved := holds, true
+			nextFired, hasFired := fired, hadFired
 			if !holds {
-				e.changeObserved[trans] = false
-				delete(e.changeFired, trans)
-				continue
+				nextFired, hasFired = false, false
+			} else {
+				if !observed && !fired {
+					nextPending, hasPending = true, true
+				}
 			}
-			if !observed && !e.changeFired[trans] {
-				e.changePending[trans] = true
+			changed := hadPending != hasPending || hadPending && pending != nextPending ||
+				hadObserved != hasObserved || hadObserved && observed != nextObserved ||
+				hadFired != hasFired || hadFired && fired != nextFired
+			if changed {
+				trans := trans
+				e.ctx.noteProbeUndo(func() {
+					restore := func(values map[*lower.Transition]bool, value bool, present bool) {
+						if present {
+							values[trans] = value
+						} else {
+							delete(values, trans)
+						}
+					}
+					restore(e.changePending, pending, hadPending)
+					restore(e.changeObserved, observed, hadObserved)
+					restore(e.changeFired, fired, hadFired)
+				})
 			}
-			e.changeObserved[trans] = true
+			apply := func(values map[*lower.Transition]bool, old bool, hadOld bool, value bool, present bool) {
+				if hadOld == present && (!hadOld || old == value) {
+					return
+				}
+				if present {
+					values[trans] = value
+				} else {
+					delete(values, trans)
+				}
+			}
+			apply(e.changePending, pending, hadPending, nextPending, hasPending)
+			apply(e.changeObserved, observed, hadObserved, nextObserved, hasObserved)
+			apply(e.changeFired, fired, hadFired, nextFired, hasFired)
 		}
 	}
 	for _, leaf := range e.activeLeaves() {
