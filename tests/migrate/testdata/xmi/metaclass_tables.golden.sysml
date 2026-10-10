@@ -4,8 +4,7 @@ package Plant {
             doc /* Moves fluid through the plant. */
             attribute mass : ScalarValues::Real;
             part valve : Valve;
-            abstract action def prime;
-            action 'prime 2' : prime;
+            abstract action prime;
             state def Cycle {
                 entry; then Idle;
                 state Idle;

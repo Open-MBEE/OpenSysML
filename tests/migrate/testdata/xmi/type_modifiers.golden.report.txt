@@ -26,7 +26,7 @@ Package	Signals	_pkg	-> Signals
 «typeModifier» Property	Signals::Filter::probe	_probe	-> Signals::Filter::probe
 «typeModifier» Property	Signals::Filter::row	_row	-> Signals::Filter::row
 «typeModifier» Property	Signals::Filter::samples	_samples	-> Signals::Filter::samples
-Operation	Signals::Filter::smooth	_op_smooth	-> Signals::Filter::smooth	(its owner's usage smooth 2 performs it, as a call on an object does)
+Operation	Signals::Filter::smooth	_op_smooth	-> Signals::Filter::smooth	(written as an action usage of Signals::Filter, which a call on an object performs, so its body runs on the object and reaches its features)
 «typeModifier» Parameter	Signals::Filter::smooth::values	_par_values	-> Signals::Filter::smooth::values
 «typeModifier» Parameter	Signals::Filter::smooth::window	_par_window	-> Signals::Filter::smooth::window
 «typeModifier» Property	Signals::Filter::taps	_taps	-> Signals::Filter::taps

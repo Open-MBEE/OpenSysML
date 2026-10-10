@@ -382,7 +382,7 @@ func TestMethodParametersStandForTheOperationsByPosition(t *testing.T) {
 		"in azimuth : ScalarValues::Real[1];",
 		"perform action point ::> Scope::point;",
 		"bind 'set azimuth'.value = azimuth;",
-		"action def Tilt {",
+		"action tilt {",
 		"in amount : ScalarValues::Real[1];",
 		"out was : ScalarValues::Real[1];",
 		"in extra : ScalarValues::Real[1];",

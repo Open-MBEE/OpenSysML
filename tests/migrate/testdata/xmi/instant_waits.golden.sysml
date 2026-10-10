@@ -50,14 +50,13 @@ part def Stimulus {
         metadata MigrationMetadata::SynthesizedName about wait, final;
         metadata MigrationMetadata::StandIn about wait;
     }
-    action def Delay {
+    action delay {
         first start then delayed;
         action delayed accept after 2.0 [SI::s];
         first delayed then final;
         action final terminate;
         metadata MigrationMetadata::SynthesizedName about final;
     }
-    action delay : Delay;
     action def Blink {
         first start then blinked;
         action blinked accept after 1.0 [SI::s];
@@ -110,7 +109,7 @@ part def Stimulus {
         transition first Standby accept 'Cmd Pause'
             do action 'Send Ack Pause' {
                 /* not migrated: ControlFlow (_sapE1) — the edge leads to (_sapCall), which never fires: no value reaches its input pin 'target' */
-                ref action call : Delay;
+                ref action call;
                 action final terminate;
                 metadata MigrationMetadata::SynthesizedName about call, final;
             }
@@ -118,7 +117,7 @@ part def Stimulus {
         transition first On accept 'Cmd Off'
             do action 'Send Ack Off' {
                 first start then call;
-                action call : Delay;
+                perform action call ::> context.delay;
                 first call then final;
                 action final terminate;
                 metadata MigrationMetadata::SynthesizedName about call, final;

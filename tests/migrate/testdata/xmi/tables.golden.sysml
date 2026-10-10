@@ -17,8 +17,7 @@ package Plant {
             attribute mass : ScalarValues::Real;
             attribute 'flow' : ScalarValues::Real;
             attribute name : ScalarValues::String;
-            abstract action def prime;
-            action 'prime 2' : prime;
+            abstract action prime;
             satisfy Plant::Requirements::FlowRequirement;
             @'Plant Profile'::Critical {
                 level = 2;

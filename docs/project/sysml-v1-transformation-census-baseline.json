@@ -7338,7 +7338,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -7372,7 +7373,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -7406,7 +7408,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -7440,7 +7443,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -7474,7 +7478,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -7508,7 +7513,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -7579,7 +7585,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -13611,14 +13618,19 @@
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "status": "deliberate",
       "implementation": [
+        "internal/translate/migrate/usage.go:operationUsageOwner",
+        "internal/translate/migrate/usage.go:usageHeader",
         "internal/translate/migrate/behavior.go:operationBody",
-        "internal/translate/migrate/behavior.go:operationConditions"
+        "internal/translate/migrate/behavior.go:operationConditions",
+        "internal/translate/migrate/behavior.go:operationDirection"
       ],
       "tests": [
         "tests/migrate/reception_test.go:TestReceptionsAcceptAndPerformTheirMethod",
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
+        "tests/migrate/stereotype_metadata_test.go:TestDirectedOperationKeepsItsDirection",
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds"
       ],
-      "reason": "an operation is written as an `action def <Op>` holding its parameters, pre/postconditions as `assert constraint` and its method as body, which a call performs; not as a perform action usage, which would leave no definition a call action could type",
+      "reason": "OMG's `perform action <op>` on the block is one performance the object itself enacts (`Parts::Part::performedActions`, multiplicity 1), which a caller's `perform ::> target.op` joins instead of invoking afresh with its own arguments; so the operation is written as the block's composite `action <op>` usage holding its parameters, pre/postconditions as `assert constraint` and its method as body, with no `perform` keyword and no synthesized `action def`, and every call chains to it",
       "scope": []
     },
     {
@@ -14202,14 +14214,19 @@
       "ocl": "sha256:e45096d73b0ad7969fe570662881a6056191bd0320a9553e744706ca9b2f530f",
       "status": "deliberate",
       "implementation": [
+        "internal/translate/migrate/usage.go:operationUsageOwner",
+        "internal/translate/migrate/usage.go:usageHeader",
         "internal/translate/migrate/behavior.go:operationBody",
-        "internal/translate/migrate/behavior.go:operationConditions"
+        "internal/translate/migrate/behavior.go:operationConditions",
+        "internal/translate/migrate/behavior.go:operationDirection"
       ],
       "tests": [
         "tests/migrate/reception_test.go:TestReceptionsAcceptAndPerformTheirMethod",
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
+        "tests/migrate/stereotype_metadata_test.go:TestDirectedOperationKeepsItsDirection",
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds"
       ],
-      "reason": "an operation is written as an `action def <Op>` holding its parameters, pre/postconditions as `assert constraint` and its method as body, which a call performs; not as a perform action usage, which would leave no definition a call action could type",
+      "reason": "OMG's `perform action <op>` on the block is one performance the object itself enacts (`Parts::Part::performedActions`, multiplicity 1), which a caller's `perform ::> target.op` joins instead of invoking afresh with its own arguments; so the operation is written as the block's composite `action <op>` usage holding its parameters, pre/postconditions as `assert constraint` and its method as body, with no `perform` keyword and no synthesized `action def`, and every call chains to it",
       "scope": []
     },
     {

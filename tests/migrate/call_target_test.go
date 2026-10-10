@@ -92,13 +92,16 @@ var motorNetworkApplications = `
   <sysml:Block xmi:id="_s2" base_Class="_net"/>`
 
 // A call whose target pin a flow feeds with an object not read from this is
-// written with the pin as a parameter typed by the operation's class, to which
-// the operation's context is bound. The result runs Spin on the motor the
-// parameter holds, and on no other.
+// written with the pin as a parameter typed by the operation's class, through
+// which a nested perform chains to the operation. The result runs Spin on the
+// motor the parameter holds, and on no other.
 func TestCallOperationRunsOnTheObjectItsTargetPinHolds(t *testing.T) {
 	r := migrateDocument(t, motorNetwork, motorNetworkApplications)
 	for _, line := range []string{
-		"action spin : Motor::Spin { in ref :>> context = target; in 'to'[1]; in target : Motor[1]; }",
+		"action spin {",
+		"in target : Motor[1];",
+		"perform action 'spin on target' ::> target.spin;",
+		"bind 'spin on target'.'to' = 'to';",
 		"succession flow ten.result to spin.'to';",
 		"bind spin.target = motor;",
 	} {
@@ -132,7 +135,9 @@ func TestCallOperationRunsOnTheObjectItsTargetPinHolds(t *testing.T) {
 func TestCallOperationOnACreatedObjectActsOnAnEmptyPin(t *testing.T) {
 	r := migrateDocument(t, createdTarget, motorNetworkApplications)
 	for _, line := range []string{
-		"action spin : Motor::Spin { in target : Motor[1]; }",
+		"action spin {",
+		"in target : Motor[1];",
+		"perform action 'spin on target' ::> target.spin;",
 		"flow create.result to spin.target;",
 	} {
 		wantLine(t, r.Notation, line)

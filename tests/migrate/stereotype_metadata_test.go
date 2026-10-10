@@ -189,14 +189,13 @@ func TestDirectedOperationKeepsItsDirection(t *testing.T) {
 	r := migrateDocument(t, members, applications)
 	assertStereotypeMigrationValid(t, r)
 	for _, line := range []string{
-		"out action 'provided 2' : provided;",
-		"in action 'required 2' : required;",
-		"inout action 'both 2' : both;",
+		"out abstract action provided {",
+		"in abstract action required {",
+		"inout abstract action both {",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantLine(t, r.Notation, "abstract action def plain;")
-	wantLine(t, r.Notation, "action 'plain 2' : plain;")
+	wantLine(t, r.Notation, "abstract action plain;")
 
 	port := migrateDocument(t,
 		`<packagedElement xmi:type="uml:Class" xmi:id="_port" name="Port">

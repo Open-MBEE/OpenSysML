@@ -13,7 +13,7 @@ Interaction	Twin::Twinned	_twinned	(the lifeline 'm' stands for 'motor', which T
 Parameter	Motor::Spin::result	_spRes	-> Motor::spin::result	(the return parameter is written as an out parameter)
 Interaction	Rig::Spinup	_spinup	-> Rig::spinup	(written as an action usage of Rig, which a call on an object performs, so its body runs on the object and reaches its features; written as a scenario of 8 steps, one per message in occurrence order; the lifelines' own behavior is not part of it)
 «TestCase» Interaction	Rig::Spinup Test	_tc	-> Rig::'Spinup Test'	(written as a scenario of 1 step, one per message in occurrence order; the lifelines' own behavior is not part of it; the test case has no return parameter, so the verification case states no verdict and is inconclusive once its steps complete)
-Message	Rig::Spinup::brake	_mBrake	-> brake	(written as a call of Brake on drive.motor; the asynchronous call is performed to completion before the next step: an action performs what it calls)
+Message	Rig::Spinup::brake	_mBrake	-> brake	(written as a call of brake on drive.motor; the asynchronous call is performed to completion before the next step: an action performs what it calls)
 Message	Rig::Spinup::spun	_mRet	-> spun	(written as the assignment of the call spin's results to ctrl; the value 30.0 the reply states for result is the operation's own result, which the call computes)
 
 ## mapped (76)
@@ -26,9 +26,9 @@ Signal	Go	_go	-> Go
 Property	Go::n	_goN	-> Go::n
 Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Motor	_motor	-> Motor
-Operation	Motor::Brake	_brake	-> Motor::Brake	(its owner's usage brake performs it, as a call on an object does)
-Parameter	Motor::Brake::force	_brForce	-> Motor::Brake::force
-Parameter	Motor::Brake::hold	_brHold	-> Motor::Brake::hold
+Operation	Motor::Brake	_brake	-> Motor::brake	(written as an action usage of Motor, which a call on an object performs, so its body runs on the object and reaches its features)
+Parameter	Motor::Brake::force	_brForce	-> Motor::brake::force
+Parameter	Motor::Brake::hold	_brHold	-> Motor::brake::hold
 Operation	Motor::Spin	_spin	-> Motor::spin	(written as an action usage of Motor, which a call on an object performs, so its body runs on the object and reaches its features)
 Parameter	Motor::Spin::rpm	_spRpm	-> Motor::spin::rpm
 Parameter	Motor::Spin::times	_spTimes	-> Motor::spin::times

@@ -61,7 +61,9 @@ var guardedMail = strings.Replace(mailNetwork, `<edge xmi:type="uml:ObjectFlow" 
 func TestGuardedFlowIntoACallTargetDeliversNoRejectedObject(t *testing.T) {
 	r := migrateDocument(t, nudgeNetwork, motorNetworkApplications)
 	for _, line := range []string{
-		"action spin : Motor::Spin { in ref :>> context = target; in 'to'[1]; in target : Motor[1]; }",
+		"action spin {",
+		"in target : Motor[1];",
+		"perform action 'spin on target' ::> target.spin;",
 		"first pick if false then 'pick.motor to spin.target';",
 		"succession flow 'pick.motor to spin.target' of Motor from pick.motor to spin.target;",
 	} {

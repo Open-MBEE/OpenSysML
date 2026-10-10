@@ -87,11 +87,11 @@ func TestOrderedSingleInputsStaySingle(t *testing.T) {
 	session(t, r)
 }
 
-// A call's parameter redeclarations around its context binding carry the
-// callee's multiplicity, so an optional input stays optional.
+// An operation's usage carries its parameters' multiplicity, so an optional
+// input stays optional for the call chaining to it.
 func TestContextBodiesKeepTheCalleesParameterMultiplicity(t *testing.T) {
 	r := migrateFixtureFile(t, "operation_context_out")
 	wantLine(t, r.Notation, "in x : ScalarValues::Real[0..1];")
-	wantLine(t, r.Notation, "action adjust : Adjust { in ref :>> context = Drive::context; in x[0..1]; out result[1]; }")
+	wantLine(t, r.Notation, "perform action adjust ::> Plant::adjust;")
 	session(t, r)
 }

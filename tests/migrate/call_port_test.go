@@ -15,8 +15,8 @@ func TestCallOperationOverPortsReachesTheConnectedPart(t *testing.T) {
 	for _, line := range []string{
 		"perform action 'spin over p' ::> motor.spin;",
 		"perform action 'spin over cmd' ::> motor.spin;",
-		"action 'spin over loose' : Motor::Spin;",
-		"action 'spin over split' : Motor::Spin;",
+		"action 'spin over loose' {",
+		"action 'spin over split' {",
 		"flow thirty.result to 'spin over p'.rpm;",
 		"flow forty.result to 'spin over cmd'.rpm;",
 	} {
@@ -29,7 +29,7 @@ func TestCallOperationOverPortsReachesTheConnectedPart(t *testing.T) {
 	wantNote(t, r, "_callCmdTgt", migrate.Mapped, "the call performs the usage spin of the target this.motor; its port cmd is not written, as a v2 perform names the operation on the object")
 	wantNote(t, r, "_callCmd", migrate.Mapped, "")
 	wantNote(t, r, "_callLoose", migrate.Approximated, "the call runs in the caller's context: no connector of Drive joins its port loose to a part")
-	wantNote(t, r, "_callSplit", migrate.Approximated, "the call runs in the caller's context: the port split of Drive connects to several parts whose types have the operation Spin (motor, spare), and the call names no one of them")
+	wantNote(t, r, "_callSplit", migrate.Approximated, "the call runs in the caller's context: the port split of Drive connects to several parts whose types have the operation spin (motor, spare), and the call names no one of them")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Drive")
