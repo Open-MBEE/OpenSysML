@@ -246,13 +246,13 @@ nor double-counted as two independent disagreements.
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `examples/sysml-v2-training` | 100 | 99 | 1 | 0 | 0 | 0 | 1 | 0 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 88 | 235 | 0 | 0 | 0 | 235 | 0 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 54 | 8 | 0 | 0 | 0 | 8 | 0 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 55 | 13 | 0 | 0 | 0 | 13 | 0 |
-| `tests/testdata` | 22 | 11 | 57 | 77 | 45 | 1 | 11 | 31 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 88 | 261 | 0 | 0 | 0 | 261 | 0 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 54 | 11 | 0 | 0 | 0 | 11 | 0 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
+| `tests/testdata` | 22 | 11 | 58 | 77 | 45 | 1 | 12 | 31 |
 | `examples` | 52 | 45 | 8 | 61 | 0 | 0 | 8 | 61 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **391** | **353** | **328** | **138** | **45** | **1** | **282** | **92** |
+| **Total** | **391** | **353** | **361** | **138** | **45** | **1** | **315** | **92** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -287,14 +287,17 @@ true positives about our own examples, not candidate false positives about our i
 column header is wrong for them, and the honest count of suspect diagnostics of ours against the
 reference corpora is **20** (11 on `sysml-examples`, 9 on `kerml-examples`) once the 235 imported-member
 distinguishability warnings (223 on `sysml-examples`, 8 on `sysml-validation`, 4 on `kerml-examples`)
-are set aside as the known pilot omission they are (see the imported-membership round below) — of which six, the
+and the 32 `unresolved-reference` errors on names those warnings hide (26 on `sysml-examples`, 3 on
+`sysml-validation`, 3 on `kerml-examples`) are set aside as the known pilot omission they are (see the
+imported-membership and hidden-imported-memberships rounds below) — of which six, the
 `Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (1) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
 
 Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 227
-`unmapped`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`;
-`kerml-examples` 13 `unmapped`; `testdata` 10 `unmapped`, 1 `multiplicity`; `examples` 5
+`unmapped`, 26 `unresolved-reference`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`,
+3 `unresolved-reference`; `kerml-examples` 13 `unmapped`, 3 `unresolved-reference`; `testdata` 10 `unmapped`,
+1 `unresolved-reference`, 1 `multiplicity`; `examples` 5
 `unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`. Only-pilot: `testdata` 12 `kind-mismatch`, 14 `unmapped`,
 3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`.
 
@@ -1186,13 +1189,13 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **353 / 282 / 328** |
+| overall: fully agreeing / only ours / our diagnostics | **353 / 315 / 361** |
 | only pilot | **92** |
 | pilot diagnostics | **138** |
 | severity-only | **1** |
 | unmapped, our side | **284** |
-| kerml-examples: only ours | **13** |
-| pilot-examples: only ours | **235** |
+| kerml-examples: only ours | **16** |
+| pilot-examples: only ours | **261** |
 | examples: only pilot | **61** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
@@ -3130,10 +3133,11 @@ and inherited ones ([spec-pilot-gap-register.md](spec-pilot-gap-register.md) §1
 memberships"): two imports surfacing members of one name or short name whose metaclasses conform
 warn once per name, on the import bringing the later membership, naming the colliding members
 and their imports — `Duplicate of imported member name 'Engine': A::Engine (import A::*),
-B::Engine (import B::*)`. KerML 7.2.5.4 hides such a pair from the importing namespace; the pilot
-instead binds the first import's member and compares owned and inherited memberships only, so
-every one of these rows is only-ours and the pilot is expected to stay silent; they are a known
-pilot omission, not candidate false positives. Nothing else moved: the agreed, severity-only
+B::Engine (import B::*)`. KerML 7.2.5.4 hides such a pair from the importing namespace (which
+OpenSysML does since the [hidden imported memberships round](#hidden-imported-memberships-round));
+the pilot instead binds the first import's member and compares owned and inherited memberships
+only, so every one of these rows is only-ours and the pilot is expected to stay silent; they are a
+known pilot omission, not candidate false positives. Nothing else moved: the agreed, severity-only
 and only-pilot columns are what they were, and the `testdata` root gained one file,
 `resolve/imports.sysml`, the fixture of the new rule (two rows).
 
@@ -3161,6 +3165,42 @@ records the six corpus files' new counts; the training corpus is unmoved.
 | `kerml-examples`: fully agreeing / only ours | 56 / 9 | **55 / 13** |
 | `testdata`: files / only ours | 21 / 9 | **22 / 11** |
 | `examples`: only ours | 7 | **8** |
+
+### Hidden imported memberships round
+
+The memberships the warning above marks are now hidden from the importing namespace, as KerML
+7.2.5.4 and 8.3.2.4.5 `Namespace::importedMemberships` require ([spec-pilot-gap-register.md](spec-pilot-gap-register.md)
+§13, "Imported memberships"): an unqualified reference to such a name is looked up in the enclosing
+namespaces instead and is an `unresolved reference` error where none has it, with a hint naming the
+imports that hide the name and the qualified names that reach each. The pilot binds the first
+import's member and is silent, so every new row is only-ours `unresolved-reference` and the pilot
+is expected to stay silent; they are the same pilot omission as the warnings, not candidate false
+positives — pilot acceptance of a reference the specification leaves unresolved does not make the
+model valid. Only the files that reference a hidden name unqualified move; the warnings themselves
+do not, and nothing else does: the agreed, severity-only and only-pilot columns and the training
+corpus are what they were.
+
+The 33 new rows, all `error`: `Simple Tests/Imports.kerml` 3 (`class X :> A;` twice, `class Y :> D;`),
+`13a-Model Containment.sysml` 3 (`alias 'Sport Sedan' for vehicle1_c1;`, `public import Engine;`,
+`public import Transmission;`), `Annex_A_VehicleViews.sysml` 6 (unqualified `vehicle_b`, which the
+recursive `import …VehicleConfiguration_b::**` brings three times), `SysML v2 Spec Annex A
+SimpleVehicleModel.sysml` 20 (eleven `vehicle_b`, two `redefines engine`, one `redefines
+providePower`, and six consequences — redefinitions under an unresolved `engine`, members read
+through `vehicle_b_1 :> vehicle_b`), and the fixture `resolve/imports.sysml` 1. The per-file
+ratchet in `tests/corpus/testdata/pilot_corpora_expected.txt` records the four corpus files' new
+counts ([pilot-corpora.md](pilot-corpora.md), "Imported memberships the specification hides").
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 353 | 353 |
+| only ours | 282 | **315** |
+| only pilot | 92 | 92 |
+| severity-only | 1 | 1 |
+| our diagnostics / pilot diagnostics | 328 / 138 | **361** / 138 |
+| `pilot-examples`: fully agreeing / only ours | 88 / 235 | **88 / 261** |
+| `pilot-validation`: fully agreeing / only ours | 54 / 8 | **54 / 11** |
+| `kerml-examples`: fully agreeing / only ours | 55 / 13 | **55 / 16** |
+| `testdata`: files / only ours | 22 / 11 | **22 / 12** |
 
 ## Current branch movement and adjudications
 

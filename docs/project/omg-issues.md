@@ -682,7 +682,8 @@ attribute <'m²⋅A'> 'metre squared ampere' : ISQAtomicNuclear::MagneticDipoleM
 one (L^2·I, ISO 80000-10 item 10-9.1, unit `m²⋅A`, in `ISQAtomicNuclear`). KerML 7.2.5.4 hides
 a name two imports bring from the importing namespace, so in `SI` (which imports `ISQ::*`) the
 unqualified name resolves to nothing; a first-match reader — the pinned pilot, and OpenSysML
-after it — binds the electromagnetic one, against which `m^2*A` fails **KerML 7.4.9**. The
+reading the library as the pilot does, though it hides such a pair in a model — binds the
+electromagnetic one, against which `m^2*A` fails **KerML 7.4.9**. The
 value is the atomic unit, and `ISQAtomicNuclear::MagneticDipoleMomentUnit` is the one qualified
 name with its dimension, so the line is **corrected**. The clash itself stays in the `ISQ`
 library (the eight hidden names are listed in

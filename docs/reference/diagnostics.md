@@ -37,22 +37,31 @@ as warnings with code `name-conflict`; they are not lints and cannot be switched
 memberships of one namespace are indistinguishable when one's name or short name is the other's
 and their metaclasses are related (a `part def` beside a `part def`, or beside an `item def`
 that it specializes; a `part def` beside an `attribute` is distinguishable whatever the names).
-Resolution is not affected: a reference to the name still takes the first membership, in
-declaration order and then in import order. For two *imported* members KerML (7.2.5.4) hides
-both from the importing namespace instead, leaving an unqualified reference unresolved; OpenSysML
-binds the first import's member, as the OMG pilot implementation does, and the warning marks
-where the two readings part. Qualify the name to choose a member explicitly.
+For owned and inherited members resolution is not affected: a reference to the name still takes
+the first membership, in declaration order. Two *imported* members of one name are different:
+KerML (7.2.5.4) hides both from the importing namespace, so the warning marks memberships the
+namespace does not have, and an unqualified reference to the name is looked up in the enclosing
+namespaces instead — where none has it, the ordinary `unresolved reference` error is reported, with
+a hint naming the imports that hide the name: `unresolved reference: Engine — did you mean P::Engine
+or Q::Engine? The name is hidden here: import P::* and import Q::* bring distinct elements named
+'Engine', so none is a member; qualify the one meant: P::Engine or Q::Engine.` A qualified name
+(`P::Engine`) resolves as ever; the importing namespace's own qualified name (`Use::Engine`) does
+not reach a hidden membership, and a namespace that re-exports both imports has no such member to
+re-export. (The OMG pilot implementation binds the first import's member instead and reports
+nothing.) A called name is the exception: an invocation selects among every function visible under
+its name, imported ones included, so `pick(2)` still chooses between two imported `calc def pick`
+by signature.
 
 | Wording | Reported on |
 |---------|-------------|
 | `Duplicate of other owned member name 'x'` | the later of two owned members of one namespace |
 | `Duplicate of inherited member name 'x' from T` | an owned member of a type whose name an inherited member already has |
-| `Duplicate of imported member name 'x': P::x (import P::*), Q::x (import Q::*)` | the import that brings the later of two imported members, naming each member and the import that brought it; a member a type inherits that an imported one repeats is named `(inherited)` |
+| `Duplicate of imported member name 'x': P::x (import P::*), Q::x (import Q::*)` | the import that brings the later of two imported members, naming each member and the import that brought it — these memberships are hidden from the importing namespace; a member a type inherits that an imported one repeats is named `(inherited)`, and that pair is not hidden, the inherited member resolving |
 
 An imported name hidden by an owned member of the same name, one membership reached through two
 imports (`import P::*` beside `import Q::*` where `Q` publicly re-imports `P`), an alias or a
 membership import of an element beside the membership that owns it, and the standard library's
-own members are not reported. An alias under another name (`alias Spare for P::x`) binds only
+own members are not reported, and none of these is hidden. An alias under another name (`alias Spare for P::x`) binds only
 that name and does not stand in for `P::x`.
 
 The standard library has eight such pairs of its own, which `import ISQ::*` brings in without a

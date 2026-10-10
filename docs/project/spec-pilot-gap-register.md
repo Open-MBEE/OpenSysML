@@ -521,33 +521,52 @@ arrive by import are never compared (pilot `2026-08`, reading of `KerMLValidator
 sysml-toolkit (v0.10.2) reports `error: ambiguous reference 'Engine' resolves to multiple
 memberships` at `part e : Engine;` — a use-site error the specification does not provide for.
 
-**OpenSysML:** `warning: Duplicate of imported member name 'Engine': A::Engine (import A::*),
-B::Engine (import B::*)` on `B::*` — once per colliding name per importing namespace, on the
-import that brings the later membership, naming every colliding member and the import each came
-through (`resolve.Resolver.checkImportedNames`). Resolution is unchanged: `Engine` in `C` is
-`A::Engine`, the first matching membership. The same clauses as for owned names apply — short
-names count as names, and two members whose metaclasses conform in neither direction
-(`part def Engine` beside `attribute def Engine`) are distinguishable — and:
+**OpenSysML:** `Engine` is not a member of `C`. The two imported memberships collide, so
+§7.2.5.4 hides both: `warning: Duplicate of imported member name 'Engine': A::Engine (import A::*),
+B::Engine (import B::*)` is reported on `B::*` — once per colliding name per importing namespace,
+on the import that brings the later membership, naming every hidden member and the import each
+came through — and the reference `part e : Engine;` is resolved as any name `C` lacks is: outward
+through the enclosing namespaces, and where none has an `Engine`, `error: unresolved reference:
+Engine — did you mean A::Engine or B::Engine? The name is hidden here: import A::* and import
+B::* bring distinct elements named 'Engine', so none is a member; qualify the one meant: A::Engine
+or B::Engine.` — in default and strict mode alike (`sysml -validate` exits 2, the file not analysing cleanly). The warning and the
+hiding are one computation (`resolve.Resolver.importedCollisions`, memoized per namespace;
+`checkImportedNames` reports it, `lookupImports`, `lookupInheritedImports` and the qualified and
+re-export paths read it), so what is warned is exactly what is hidden. Qualified `A::Engine` and
+`B::Engine` resolve everywhere; `C::Engine` does not, a hidden membership being no membership of
+`C` — so `package Both { public import A::*; public import B::*; }` has no `Engine` to re-export
+and `import Both::*;` brings none, and a specialization looking `Engine` up through the
+`protected import`s of its general finds nothing under a name the general hides. The same clauses
+as for owned names apply — short names count as names, and two members whose metaclasses conform
+in neither direction (`part def Engine` beside `attribute def Engine`) are distinguishable, so
+neither is hidden — and:
 
 - *One membership reached twice is one membership.* `import A::*; import Q::*;` where `Q`
-  publicly re-imports `A` surfaces one `Membership` of `A::Engine` through two imports and does
-  not warn (`visibleMemberships` is an `OrderedSet(Membership)`).
-- *Two memberships of one element do not warn either:* an alias beside the element it names
+  publicly re-imports `A` surfaces one `Membership` of `A::Engine` through two imports; it is
+  neither hidden nor warned (`visibleMemberships` is an `OrderedSet(Membership)`).
+- *Two memberships of one element do not collide either:* an alias beside the element it names
   (`package B { alias Engine for A::Engine; }`) and a membership import beside a wildcard that
   also surfaces the member (`import A::Engine; import A::*;`). Read literally, §8.3.2.4.3 makes
   these indistinguishable — they are distinct `Membership`s with equal names and one metaclass —
   but whichever membership `resolveLocal` takes first, the name denotes the same element, so the
   model has nothing to fix; the owned check treats an alias beside its target the same way
-  (`sameElement`), and the pilot reports neither. An alias under another name is no such case:
+  (`sameElement`), and the pilot reports neither. Both keep resolving. An alias under another name is no such case:
   `alias Spare for A::Engine` binds `Spare`, and `A::Engine` reached after it still collides with a
   third `Engine` under its own name.
-- *An imported name a type inherits takes part:* `Type::membership` is owned, imported and
-  inherited memberships together, and `inheritedMemberships` removes only redefined features, so
-  `part def Child :> Base { private import A::*; }` where both `Base` and `A` declare a `part x`
-  warns on the import (`A::x (import A::*), Base::x (inherited)`); resolution keeps the inherited
-  member, which it reaches first. An owned member of that name hides both and silences the
-  warning, as it does for two imports. The pilot never compares imported with inherited
-  memberships either.
+- *An imported name a type inherits is warned, not hidden.* §8.3.2.4.5 `Namespace::importedMemberships(excluded)`
+  excludes memberships colliding "with each other or with any ownedMembership" — imported with
+  imported, imported with owned — and says nothing of inherited ones; `Type::membership` is the
+  owned, imported and inherited memberships together (`Type::nonPrivateMemberships` is the union
+  of the public, protected and inherited memberships), and `inheritedMemberships` removes
+  only redefined features. So in `part def Child :> Base { private import A::*; }` where both
+  `Base` and `A` declare a `part x`, both memberships stand and the type is ill-formed by
+  `validateNamespaceDistinguishability`: the import warns (`A::x (import A::*), Base::x
+  (inherited)`) and a reference to `x` binds the inherited member, which `resolveLocal` reaches
+  first. An owned member of that name hides the import and silences the warning, as it does for
+  two imports. The pilot never compares imported with inherited memberships either; it does
+  compare what a type inherits from a general's own imports: on the `Sub :> Base` fixture below
+  it reports `Duplicate of inherited member name 'Engine' from Left, Right` on `Sub` and binds
+  the first.
 - *An imported name an owned member hides takes no part:* `Namespace::importedMemberships(excluded)`
   excludes a membership whose names an owned membership repeats, so `part def Engine;` declared in
   `C` silences both imports.
@@ -575,36 +594,68 @@ names count as names, and two members whose metaclasses conform in neither direc
   member of `ISQ`; a first-match reader binds the Electromagnetism or SpaceTime one, and the
   library's own `SI.sysml` trips over that at lines 233 and 303, which the declared errata
   overlay qualifies ([omg-issues.md](omg-issues.md), "Defects in the vendored quantity
-  libraries"). `import NumericalFunctions::*; import DataFunctions::*;` brings sixteen more
+  libraries"). The library is read as its authors and the pilot read it: a model's `import
+  ISQ::*` still binds the eight names first-match, and so does the library's own, rather than
+  OpenSysML hiding what the library it ships relies on; a model that means one of them qualifies
+  it. `import NumericalFunctions::*; import DataFunctions::*;` brings sixteen more
   (`'+'`, `'*'`, `'=='`, …), the operator overloads invocation selects among by argument type.
   Model-vs-library pairs are likewise not reported.
 
-**What the specification makes of an imported collision.** The warning's name says
-"indistinguishable", but KerML does not leave two imported memberships of one name standing to
-be judged by `validateNamespaceDistinguishibility`: §7.2.5.4 — "if the member name or member
-short name of any imported membership conflicts with the name of any owned member, *or with the
-name of any visible membership from any other imported namespace*, then the conflicting
-membership is hidden and is not included in the set of imported memberships of the importing
-namespace" — and §8.3.2.4.5 `Namespace::importedMemberships(excluded)` ("excluding Memberships
-that have distinguishability collisions with each other or with any ownedMembership") remove
-both. The namespace is well-formed; the name resolves to nothing in it, so `resolveLocal` walks
-on to the outer scopes and an unqualified `Engine` in `C` is unresolved. Neither tool does
-that: the pilot's `NamespaceImportAdapter.importMemberships` adds every visible membership of
-the imported namespace, hiding by owned names only, so `C::Engine` resolves to the first import's
-member; OpenSysML resolves the same way (`lookupImports`, in owned-import order), deliberately,
-so that the two implementations agree on what every reference binds to. The warning is what
-marks the deviation: it is reported on exactly the memberships §7.2.5.4 hides, where the spec
-would leave the reference dangling and both tools bind it. A model that wants the spec's
-outcome qualifies the name.
+**What the specification makes of an imported collision.** KerML does not leave two imported
+memberships of one name standing to be judged by `validateNamespaceDistinguishibility`: §7.2.5.4 —
+"if the member name or member short name of any imported membership conflicts with the name of any
+owned member, *or with the name of any visible membership from any other imported namespace*, then
+the conflicting membership is hidden and is not included in the set of imported memberships of the
+importing namespace" — and §8.3.2.4.5 `Namespace::importedMemberships(excluded)` ("excluding
+Memberships that have distinguishability collisions with each other or with any ownedMembership")
+remove both. The namespace is well-formed; the name resolves to nothing in it, so `resolveLocal`
+walks on to the outer scopes and an unqualified `Engine` in `C` is unresolved. OpenSysML does
+this. The pilot does not: its `NamespaceImportAdapter.importMemberships` adds every visible
+membership of the imported namespace, hiding by owned names only, so `C::Engine` resolves to the
+first import's member and nothing is reported. The warning marks exactly the memberships §7.2.5.4
+hides; the use-site error says which imports hide the name and that qualifying it resolves it. The
+pinned validator accepts every fixture below silently, except that on `Sub :> Base` it warns
+`Duplicate of inherited member name 'Engine' from Left, Right`.
+
+```sysml
+package Left { part def Engine; }
+package Right { part def Engine; }
+part def Engine;                                  // only in the last fixture
+package Alias { public import Left::Engine; }
+package Both { public import Left::*; public import Right::*; }
+part def Base { protected import Left::*; protected import Right::*; }
+```
+
+| Fixture | Reference | OpenSysML | Pilot |
+|---|---|---|---|
+| `private import Left::*; private import Right::*; part e : Engine;` at the root | `Engine` | unresolved | `Left::Engine` |
+| the same inside `package Use { … }` | `Engine` | unresolved | `Left::Engine` |
+| `package Use { private import Left::*; private import Alias::*; part e : Engine; }` | `Engine` | `Left::Engine`, no warning | `Left::Engine` |
+| `package Use { private import Left::*; private import Right::*; part def Engine; part e : Engine; }` | `Engine` | `Use::Engine`, no warning | `Use::Engine` |
+| `part def Sub :> Base { part e : Engine; }` | `Engine` | unresolved | `Left::Engine`, warns |
+| `package Use { private import Both::*; part e : Engine; }` | `Engine` | unresolved | `Left::Engine` |
+| `package Use { private import Left::*; private import Right::*; part e : Engine; }` with the root `part def Engine` | `Engine` | the root `Engine` | `Left::Engine` |
+| any of these | `Left::Engine`, `Right::Engine` | resolve | resolve |
+| any of these | `Use::Engine` | unresolved | `Left::Engine` |
+
 - *Private imports count:* visibility governs what `C` re-exports, not what it imports.
-- *Overload sets are not exempt.* Two `calc def pick` reached through `import A::*; import B::*;`
-  are indistinguishable memberships like two owned `pick` are, which already warn
-  (`Duplicate of other owned member name`); invocation overload selection still chooses among
-  them ([spec-compliance.md](spec-compliance.md), "Invocation overload selection"). The overload
-  suites' diagnostic helpers set this warning aside, as they are about the selection.
+- *Overload sets are warned, and a call still selects among them.* Two `calc def pick` reached
+  through `import A::*; import B::*;` are indistinguishable memberships like two owned `pick`
+  are, which already warn (`Duplicate of other owned member name`), and are hidden from ordinary
+  lookup: `ref p : pick;` in that namespace is unresolved with the hint above. A called name is
+  looked up differently — an invocation gathers every function the name is visible as, owned,
+  inherited, imported or re-exported, and selects by signature ([spec-compliance.md](spec-compliance.md),
+  "Invocation overload selection") — and that gathering does not thin the set by §7.2.5.4, so
+  `pick(2)` still selects between `A::pick` and `B::pick` (`resolve.Resolver.InvocationCandidates`;
+  `TestInvocationOverloadCandidatesThroughInheritedImports`). This is a documented extension of the
+  specification, which has no overloading: read literally, the two memberships are hidden and the
+  call unresolved. Operator expressions (`'+'`, `'=='`, …) resolve against the Kernel Function
+  Library packages, library content the collision computation leaves out, so they are untouched
+  either way.
 
 Over the OMG corpora this reports 238 warnings, every one a same-metaclass pair under the
-rule above: `13a-Model Containment.sysml` (six names — `Engine`, `Transmission`, `ClutchPort`,
+rule above, and the hiding leaves 32 references unresolved (adjudicated per file in
+[pilot-corpora.md](pilot-corpora.md), "Imported memberships the specification hides"): `13a-Model Containment.sysml` (six names — `Engine`, `Transmission`, `ClutchPort`,
 `DrivePwrPort`, `EngineToTransmissionInterface`, `vehicle1_c1` — from
 `'2a-Parts Interconnection'::*` and `'8-Requirements'::*`), `4a-Functional Allocation.sysml`
 (`Definitions` and `Usages` from `'2a-Parts Interconnection'::*` and
@@ -631,12 +682,13 @@ Namespace, including (at least) the union of `ownedMemberships` and `importedMem
 as above. §8.3.2.4.4 `Import::importedMemberships`, `Namespace::importedMemberships(excluded)`
 ("excluding … a Membership whose … name is the same as an ownedMembership's").
 
-**Assessment:** spec clear, both implementations short in the same way: §7.2.5.4 hides a name
-two imports bring, so the reference does not resolve; the pilot binds the first import's member
-and reports nothing, and OpenSysML binds the same member and warns at the import that brought
-the collision. The toolkit's use-site error has the spec's outcome (the name is unresolved) but
-reports it as an ambiguity at the reference rather than a hidden name at the namespace. The
-exclusions listed above are the adjudicated readings.
+**Assessment:** spec clear, OpenSysML follows it, the pilot does not: §7.2.5.4 hides a name
+two imports bring, so the reference does not resolve; OpenSysML warns at the import that brought
+the collision and leaves the reference unresolved with the hint; the pilot binds the first import's
+member and reports nothing. The toolkit's use-site error has the spec's outcome (the name is
+unresolved) but reports it as an ambiguity at the reference rather than a hidden name at the
+namespace. The exclusions listed above — one element reached twice, the inherited reading, the
+library, the overload set a call gathers — are the adjudicated readings.
 
 **Questions for the authors:** two memberships of one element — an alias beside the element, or a
 membership import beside a wildcard that surfaces it — are indistinguishable by the letter of
