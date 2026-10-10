@@ -108,7 +108,7 @@ func TestDiagramViews(t *testing.T) {
 			[]string{"view Pumps {\n        expose Pump;\n        expose Sys::Pump::rate;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
 		{"a diagram of a block is written in its part def",
 			``, diagram("_d", "Pump IBD", "_pump", "SysML Internal Block Diagram", "_rate"),
-			[]string{"part def Pump {\n        ref rate;\n        view 'Pump IBD' {\n            expose rate;\n            render Views::asInterconnectionDiagram;\n        }\n    }"}, Mapped, ""},
+			[]string{"part def Pump {\n        attribute rate;\n        view 'Pump IBD' {\n            expose rate;\n            render Views::asInterconnectionDiagram;\n        }\n    }"}, Mapped, ""},
 		{"a diagram naming no owner is written where its extension is held",
 			``, diagram("_d", "Loose", "", "Class Diagram", "_pump"),
 			[]string{"view Loose {\n    expose Sys::Pump;\n    render Views::asTreeDiagram;\n}"}, Approximated, "the diagram names no owner; written at the top level"},
@@ -183,7 +183,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Valves", "_sys", "SysML Block Definition Diagram", "_status"),
-			[]string{"action def Open {\n        ref status;", "view Valves {\n        expose Valve::Open::status;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+			[]string{"action def Open {\n        attribute status;", "view Valves {\n        expose Valve::Open::status;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
 		{"a diagram of a method activity named like one of its members is numbered, the member keeping its name",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
 			   <ownedOperation xmi:type="uml:Operation" xmi:id="_open" name="Open" method="_opening"/>
@@ -195,7 +195,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d1", "status", "_opening", "SysML Activity Diagram", "_status") + diagram("_d", "turn", "_opening", "SysML Activity Diagram", "_turn"),
-			[]string{"action def Open {\n        view 'status 2' {\n            expose Valve::Open::status;\n            render Views::asTextualNotation;", "view 'turn 2' : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            render Views::asInterconnectionDiagram;", "ref status;", "action turn {"}, Approximated,
+			[]string{"action def Open {\n        view 'status 2' {\n            expose Valve::Open::status;\n            render Views::asTextualNotation;", "view 'turn 2' : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            render Views::asInterconnectionDiagram;", "attribute status;", "action turn {"}, Approximated,
 			"written as turn 2"},
 		{"a shown association end is exposed under the name its connection def declares",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">

@@ -135,6 +135,7 @@ const (
 	cmdRunQuery       = "%run-query"
 	cmdRenderDocument = "%render-document"
 	argName           = "<name>"
+	argInvocation     = "<name>[(<args>)] [<object>]"
 	timeLabel         = "  Time: "
 
 	groupSession    = "Session:"
@@ -237,7 +238,7 @@ var metaCommandTable = []metaCommand{
 	{name: cmdInvoke, group: groupRuntime, args: "<object> <op> [<expr>... | <p>=<expr>...]", desc: "invoke an operation of an object's type, performed by that object, with arguments by position or by name; an object is named, #<id>, or a path such as car.fl"},
 
 	{name: "%calc", group: groupBehavioral, args: "<name> <args>", desc: "invoke a calculation with arguments"},
-	{name: cmdAnalysis, group: groupBehavioral, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
+	{name: cmdAnalysis, group: groupBehavioral, args: argInvocation, desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
 	{name: cmdRecord, group: groupBehavioral, args: "<name>[(<args>)] [<object>] [into <package>]", desc: "run an analysis case as %analysis does and record the run into the model as AnalysisRecords elements, into the package named or a Records package beside the case's"},
 	{name: cmdImport, group: groupBehavioral, args: "<file> [map <file>] [format csv|tsv|json|jsonl] [dry-run]", desc: "set feature values from a CSV, TSV, JSON or JSON Lines file, one row per element: an element column names it and each other column a feature, `mass [kg]` with its unit; a feature the element inherits is redefined in its body, and a value the model refuses imports nothing"},
 	{name: cmdSweep, group: groupBehavioral, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
@@ -246,8 +247,8 @@ var metaCommandTable = []metaCommand{
 	{name: cmdRunQuery, group: groupBehavioral, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
 	{name: "%render-run", group: groupBehavioral, args: "<timeline|sequence> [form] [link=<template>]", desc: "render the recorded run as a state timeline or message sequence, optionally linking declarations to their source"},
 	{name: cmdRenderDocument, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml|d2 [pilot|cameo]]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT, PlantUML or D2"},
-	{name: "%constraint", group: groupBehavioral, args: argName, desc: "evaluate a constraint definition"},
-	{name: "%requirement", group: groupBehavioral, args: argName, desc: "evaluate a requirement definition"},
+	{name: "%constraint", group: groupBehavioral, args: argInvocation, desc: "evaluate a constraint definition, with arguments for its parameters and an object as its subject"},
+	{name: "%requirement", group: groupBehavioral, args: argInvocation, desc: "evaluate a requirement definition, with arguments for its parameters and an object as its subject"},
 	{name: "%satisfy", group: groupBehavioral, args: "[name]", desc: "evaluate the satisfaction assertions of the model, or of one element"},
 	{name: "%validate", group: groupBehavioral, args: "<object>", desc: "check every assertion about an object and the objects it holds: the asserted constraints of their types, the requirements they carry and the satisfactions they are subject of; an object is named, #<id>, or a path such as car.engine"},
 	{name: "%check", group: groupBehavioral, args: argName, desc: "ask an SMT solver whether a constraint, requirement or satisfaction can be satisfied (experimental)"},
@@ -666,14 +667,14 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 		return metaOut(s.doRenderDocument(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), cmdRenderDocument)))), true
 	case "%constraint":
 		if len(fields) < 2 {
-			return metaOut([]string{"usage: %constraint <name>"}, false, nil), true
+			return metaOut([]string{constraintUsage}, false, nil), true
 		}
-		return metaOut(s.doConstraint(fields[1])), true
+		return metaOut(s.doConstraint(strings.TrimPrefix(strings.TrimSpace(line), "%constraint"))), true
 	case "%requirement":
 		if len(fields) < 2 {
-			return metaOut([]string{"usage: %requirement <name>"}, false, nil), true
+			return metaOut([]string{requirementUsage}, false, nil), true
 		}
-		return metaOut(s.doRequirement(fields[1])), true
+		return metaOut(s.doRequirement(strings.TrimPrefix(strings.TrimSpace(line), "%requirement"))), true
 	case "%satisfy":
 		return metaOut(s.doSatisfy(fields[1:])), true
 	case "%validate":
@@ -2300,6 +2301,11 @@ func parseWholeExpr(text string) (ast.Node, error) {
 }
 
 // doConstraint evaluates a constraint definition.
+const (
+	constraintUsage  = "usage: %constraint <name>[(<args>)] [<object>]"
+	requirementUsage = "usage: %requirement <name>[(<args>)] [<object>]"
+)
+
 func (s *Session) doConstraint(name string) ([]string, bool, error) {
 	return s.withTrace(s.checkConstraint(name)).Lines, false, nil
 }

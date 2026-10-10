@@ -202,6 +202,9 @@ type CheckReport struct {
 	Divergent  []Divergence
 	// Finals are the distinct outcomes of the complete schedules, in canonical order.
 	Finals []CheckFinal
+	// Notes are the distinct reasons the searched runs' coverage is narrower than
+	// their schedules, so a clean report observed rather than bounded the result.
+	Notes []string
 	// Scope is the distinct reasons the finals were observed short of quiescence.
 	Scope []ObservationReason
 	// MassBounded reports the violations' masses are lower bounds: they are when a
@@ -325,6 +328,8 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 	if err := c.search(stop, mass); err != nil {
 		return nil, err
 	}
+	c.foldNotes()
+	slices.Sort(c.notes)
 	return more, nil
 }
 
@@ -360,6 +365,8 @@ type checker struct {
 	// nested are the `node.pin` names Diverge selects; untold are those among them only
 	// a performance can tell, each dropped once a state held it.
 	nested, untold map[string]bool
+	// notes are the coverage reasons the searched runs left on their contexts.
+	notes []string
 	// scope is the reasons the finals so far were observed short of quiescence.
 	scope []ObservationReason
 }
@@ -597,8 +604,20 @@ func (c *checker) search(stop context.Context, mass float64) error {
 			c.releaseAll()
 			return err
 		}
+		// The next move's restore rewinds the context's notes, so fold them now.
+		c.foldNotes()
 	}
 	return nil
+}
+
+// foldNotes merges the coverage reasons the run recorded on its context into
+// the checker's, since restoring the context's snapshot drops them.
+func (c *checker) foldNotes() {
+	for _, note := range c.ctx.coverageReasons() {
+		if !slices.Contains(c.notes, note) {
+			c.notes = append(c.notes, note)
+		}
+	}
 }
 
 // stopped is the check ended by its caller, with what it had searched so far.
@@ -1366,7 +1385,7 @@ func (c *checker) performedBy(graph *lower.ActionGraph, node ast.Node) (settled 
 	if !ok {
 		return nil, nil, false
 	}
-	inv, performs := nestedInvocation(usage)
+	inv, performs := nestedInvocationInGraph(graph, usage)
 	if !performs || lower.IsCaseNode(usage) {
 		return nil, nil, false
 	}
@@ -1383,13 +1402,13 @@ func (c *checker) performedBy(graph *lower.ActionGraph, node ast.Node) (settled 
 // calleeFlow lowers what node's performance of callee runs, as the executor will.
 func (c *checker) calleeFlow(graph *lower.ActionGraph, node ast.Node, callee *symbols.Symbol) (*lower.ActionGraph, error) {
 	usage := node.(*ast.Usage)
-	inv, _ := nestedInvocation(usage)
+	inv, _ := nestedInvocationInGraph(graph, usage)
 	inv.step, _ = stepSymbol(graph, node)
-	body, tool, err := c.ctx.performanceBody(inv.performed(callee), callee)
+	_, _, flow, err := c.ctx.performanceBody(inv.performed(callee), callee)
 	if err != nil {
 		return nil, err
 	}
-	return lowerPerformance(body, tool, c.ctx.Resolver())
+	return flow, nil
 }
 
 // divergeReached fails the check when a path only a performance could tell was held
@@ -1417,6 +1436,7 @@ func (c *checker) result() *CheckReport {
 		Horizon:    c.horizon(),
 		Violations: c.violations,
 		Finals:     slices.Clone(c.results),
+		Notes:      c.notes,
 		Scope:      c.scope,
 	}
 	sort.Slice(r.Finals, func(i, j int) bool { return r.Finals[i].identity < r.Finals[j].identity })

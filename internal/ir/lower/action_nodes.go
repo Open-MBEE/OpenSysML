@@ -85,8 +85,15 @@ func actionMembers(actionDecl ast.Node) ([]ast.Node, error) {
 }
 
 func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
+	return collectActionNodesWithAncestors(members, scope, resolver, nil)
+}
+
+func collectActionNodesWithAncestors(
+	members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node,
+) (*ActionGraph, error) {
 	graph := newActionGraph(scope)
 	graph.resolver = resolver
+	graph.lowering = actionLoweringAncestors(scope, ancestors)
 	asserted := orderedAssertions(members)
 
 	// First pass: collect nodes.
@@ -126,13 +133,16 @@ func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *reso
 				graph.Nodes = append(graph.Nodes, n)
 				graph.Bodies[n] = []Statement{Assert{Node: n, Sym: scope.MemberDeclaring(n), Scope: scope}}
 			}
+		case *ast.PerformActionNode:
+			graph.Nodes = append(graph.Nodes, n)
+			graph.Bodies[n] = []Statement{performEffect(n, scope)}
 		case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 			*ast.SendStatement, *ast.TerminateStatement:
 			// A statement written among the action's own members is a subaction of
 			// it, ordered by the successions that bind it and started with the
 			// owner where none does (StartFlow).
 			graph.Nodes = append(graph.Nodes, n)
-			graph.Bodies[n] = []Statement{lowerStatement(n, scope)}
+			graph.Bodies[n] = []Statement{lowerStatement(n, scope, graph.resolver)}
 		}
 	}
 
@@ -175,7 +185,19 @@ func collectInheritedActionNodes(graph *ActionGraph, members []ast.Node) {
 			}
 			ensureInheritedActionNode(graph, n.Target)
 		case *ast.Usage:
-			if n.Kind == ast.UsageSuccession && len(n.ConnectorEnds) == 2 {
+			switch {
+			case n.Kind == ast.UsageFlow && n.FlowEnds != nil:
+				for _, end := range []ast.Node{n.FlowEnds.From, n.FlowEnds.To} {
+					segments := endSegments(end)
+					if len(segments) == 0 {
+						continue
+					}
+					nodeName := &ast.QualifiedName{}
+					nodeName.NodeSpan = end.Span()
+					nodeName.SetSingleton(ast.NameSegment{Text: segments[0], Span: end.Span()})
+					ensureInheritedActionNode(graph, nodeName)
+				}
+			case n.Kind == ast.UsageSuccession && len(n.ConnectorEnds) == 2:
 				ensureInheritedActionNode(graph, connectorEndReference(n.ConnectorEnds[0]))
 				ensureInheritedActionNode(graph, connectorEndReference(n.ConnectorEnds[1]))
 			}
@@ -185,11 +207,22 @@ func collectInheritedActionNodes(graph *ActionGraph, members []ast.Node) {
 
 func ensureInheritedActionNode(graph *ActionGraph, ref ast.Node) ast.Node {
 	qn := actionEndpointQualifiedName(ref)
-	if qn == nil {
+	if qn == nil || len(qn.Parts) == 0 {
+		return nil
+	}
+	name := qn.Parts[len(qn.Parts)-1].Text
+	if name == "start" || name == "done" {
 		return nil
 	}
 	decl, declaringScope, found, _ := resolve.ActionNodeInScope(graph.Scope, qn)
 	if !found || decl == nil {
+		return nil
+	}
+	return ensureDeclaredActionNode(graph, decl, declaringScope)
+}
+
+func ensureDeclaredActionNode(graph *ActionGraph, decl ast.Node, declaringScope *symbols.Scope) ast.Node {
+	if decl == nil {
 		return nil
 	}
 	for _, node := range graph.Nodes {
@@ -206,13 +239,19 @@ func ensureInheritedActionNode(graph *ActionGraph, ref ast.Node) ast.Node {
 			break
 		}
 		recordNodeMultiplicity(graph, n)
+		if IsCaseNode(n) {
+			recordNodeScope(graph, n, childScope(declaringScope, n))
+			break
+		}
 		lowerActionNode(graph, n, childScope(declaringScope, n))
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode:
 		lowerNodeBody(graph, n, ast.NodeBodyMembers(n), declaringScope)
 		lowerControlFeatures(graph, n, declaringScope)
+	case *ast.PerformActionNode:
+		graph.Bodies[n] = []Statement{performEffect(n, declaringScope)}
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
-		graph.Bodies[n] = []Statement{lowerStatement(n, declaringScope)}
+		graph.Bodies[n] = []Statement{lowerStatement(n, declaringScope, graph.resolver)}
 	}
 	return decl
 }

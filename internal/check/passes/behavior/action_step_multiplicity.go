@@ -1,6 +1,8 @@
 package behavior
 
 import (
+	"errors"
+
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -9,7 +11,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
-const actionStepMultiplicitySource = "action-step-multiplicity"
+const (
+	actionStepMultiplicitySource = "action-step-multiplicity"
+	actionStepLoweringCode       = "action-step-lowering"
+)
 
 // ActionStepMultiplicityPass warns about action steps the runtime cannot
 // execute according to their declared multiplicity.
@@ -28,23 +33,21 @@ func (ActionStepMultiplicityPass) Run(ctx *kit.Context, name string, root *ast.R
 		return nil
 	}
 	c := &actionStepMultiplicityChecker{
-		ctx:            ctx,
-		model:          ctx.Model(),
-		visited:        make(map[*lower.ActionGraph]bool),
-		reported:       make(map[ast.Node]map[string]bool),
-		blockFlowSteps: make(map[ast.Node]bool),
+		ctx:      ctx,
+		model:    ctx.Model(),
+		visited:  make(map[*lower.ActionGraph]bool),
+		reported: make(map[ast.Node]map[string]bool),
 	}
 	c.walk(scope, root.Members)
 	return c.diags
 }
 
 type actionStepMultiplicityChecker struct {
-	ctx            *kit.Context
-	model          *semantics.Model
-	visited        map[*lower.ActionGraph]bool
-	reported       map[ast.Node]map[string]bool
-	blockFlowSteps map[ast.Node]bool
-	diags          []diag.Diagnostic
+	ctx      *kit.Context
+	model    *semantics.Model
+	visited  map[*lower.ActionGraph]bool
+	reported map[ast.Node]map[string]bool
+	diags    []diag.Diagnostic
 }
 
 func (c *actionStepMultiplicityChecker) walk(scope *symbols.Scope, members []ast.Node) {
@@ -155,6 +158,26 @@ func (c *actionStepMultiplicityChecker) checkAction(decl ast.Node, scope *symbol
 	}
 	graph, err := lower.ToActionGraphWith(decl, scope, c.ctx.Resolver())
 	if err != nil {
+		if !errors.Is(err, lower.ErrCyclicSpecialization) &&
+			!errors.Is(err, lower.ErrRedefinedStepMissing) &&
+			!errors.Is(err, lower.ErrIncompatibleRedefinedStep) &&
+			!errors.Is(err, lower.ErrAmbiguousInheritedStep) {
+			return
+		}
+		if c.reported[decl] == nil {
+			c.reported[decl] = make(map[string]bool)
+		}
+		if c.reported[decl][actionStepLoweringCode] {
+			return
+		}
+		c.reported[decl][actionStepLoweringCode] = true
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
+			Span:     decl.Span(),
+			Message:  err.Error(),
+			Code:     actionStepLoweringCode,
+			Source:   actionStepMultiplicitySource,
+		})
 		return
 	}
 	c.checkGraph(graph)
@@ -187,12 +210,9 @@ func (c *actionStepMultiplicityChecker) checkDeclaredMultiplicity(node ast.Node,
 	count, err := graph.StepCount(node, c.model)
 	if err != nil {
 		c.report(graph, err)
-	} else if count != 1 {
-		reason := "the state entry, do, and exit performances have multiplicity [1]"
-		if lower.IsPerformedActionUsage(usage) {
-			reason = "part-level performed actions cannot execute with multiplicity other than [1]"
-		}
-		c.report(graph, graph.StepError(node, c.model, lower.StepMultiplicityUnsupportedCode, reason, nil))
+	} else if count != 1 && !lower.IsPerformedActionUsage(usage) {
+		c.report(graph, graph.StepError(node, c.model, lower.StepMultiplicityUnsupportedCode,
+			"the state entry, do, and exit performances have multiplicity [1]", nil))
 	}
 }
 
@@ -200,7 +220,6 @@ func (c *actionStepMultiplicityChecker) checkStatementGraphs(statement lower.Sta
 	switch s := statement.(type) {
 	case lower.Block:
 		if s.Graph != nil {
-			c.checkBlockFlowSteps(s)
 			c.checkGraph(s.Graph)
 		}
 		for _, nested := range s.Statements {
@@ -216,35 +235,6 @@ func (c *actionStepMultiplicityChecker) checkStatementGraphs(statement lower.Sta
 	}
 }
 
-func (c *actionStepMultiplicityChecker) checkBlockFlowSteps(block lower.Block) {
-	switch block.Node.(type) {
-	case *ast.WhileLoopActionNode, *ast.IfBranchNode:
-	default:
-		return
-	}
-	for _, node := range block.Graph.Nodes {
-		if c.ctx.DownstreamOfFailure(node) {
-			continue
-		}
-		if block.Graph.Multiplicities[node] == nil {
-			continue
-		}
-		count, err := block.Graph.StepCount(node, c.model)
-		if err != nil {
-			c.blockFlowSteps[node] = true
-			c.report(block.Graph, err)
-			continue
-		}
-		if count == 1 {
-			continue
-		}
-		c.blockFlowSteps[node] = true
-		c.report(block.Graph, block.Graph.StepError(
-			node, c.model, lower.StepMultiplicityUnsupportedCode,
-			"a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there", nil))
-	}
-}
-
 func (c *actionStepMultiplicityChecker) checkGraph(graph *lower.ActionGraph) {
 	if graph == nil || c.visited[graph] {
 		return
@@ -254,11 +244,23 @@ func (c *actionStepMultiplicityChecker) checkGraph(graph *lower.ActionGraph) {
 		if c.ctx.DownstreamOfFailure(node) {
 			continue
 		}
-		if graph.Multiplicities[node] == nil || c.blockFlowSteps[node] {
+		if !graph.HasStepMultiplicity(node, c.model) {
 			continue
 		}
 		if err := graph.CheckStep(node, c.model); err != nil {
 			c.report(graph, err)
+		}
+		for _, edge := range graph.Incoming(node) {
+			literal, guarded := edge.Guard.(*ast.LiteralBool)
+			if !guarded || literal.Value || edge.TargetMultiplicity == nil {
+				continue
+			}
+			count, err := graph.StepCount(node, c.model)
+			if err != nil || count <= 1 {
+				continue
+			}
+			c.report(graph, graph.StepError(node, c.model, lower.StepOrderOpenCode,
+				"a false guard leaves the performances of the repeated step unordered with respect to its source", edge.Decl))
 		}
 	}
 	for _, subflow := range graph.Subflows {
@@ -287,7 +289,13 @@ func (c *actionStepMultiplicityChecker) report(graph *lower.ActionGraph, err err
 	c.reported[stepErr.Node][stepErr.Code] = true
 	declaration := stepErr.Declaration
 	if declaration == nil && graph != nil {
-		declaration = graph.Multiplicities[stepErr.Node]
+		multiplicity := graph.Multiplicities[stepErr.Node]
+		if multiplicity == nil {
+			multiplicity, _ = graph.StepMultiplicity(stepErr.Node, c.model)
+		}
+		if multiplicity != nil {
+			declaration = multiplicity
+		}
 	}
 	span := stepErr.Node.Span()
 	if declaration != nil {

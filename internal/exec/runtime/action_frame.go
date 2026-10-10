@@ -146,6 +146,9 @@ type actionFrame struct {
 	// subactions holds the latest performance of each node of graph, which is
 	// what a read of the node's pins by name sees.
 	subactions map[ast.Node]*actionFrame
+	// repeatedPerfs holds every performance of a repeated node, by repetition
+	// index, so a read of its features from outside sees them all.
+	repeatedPerfs map[ast.Node][]*actionFrame
 	// pending queues what flows and bindings delivered to a node's pins ahead of
 	// its performances, each of which takes the oldest delivery at each pin.
 	pending map[ast.Node]map[string][]Value
@@ -393,6 +396,16 @@ func (e *performances) beginPerformance(
 	perf.aliases = pins.aliases
 	perf.optional = pins.optional
 	perf.result = pins.result
+	if usage, ok := node.(*ast.Usage); ok {
+		if _, merged := mergedTypedSubflowInvocation(flow, usage); merged {
+			for name, direction := range pins.directions {
+				if direction == ast.DirOut || direction == ast.DirInOut {
+					perf.outputs = append(perf.outputs, name)
+				}
+			}
+			sort.Strings(perf.outputs)
+		}
+	}
 	// The performance is ongoing before anything seeding it streams, so a value carried
 	// back to its node reaches it rather than waiting for a later performance.
 	if parent.subactions == nil {
@@ -443,7 +456,37 @@ func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGr
 	if err := e.bindInputPins(perf, activation); err != nil {
 		return err
 	}
-	return e.seedDeclaredValues(perf, flow.Features[node], activation)
+	if err := e.seedDeclaredValues(perf, flow.Features[node], activation); err != nil {
+		return err
+	}
+	return e.checkMergedTypedInputs(perf)
+}
+
+func (e *performances) checkMergedTypedInputs(perf *actionFrame) error {
+	usage, ok := perf.node.(*ast.Usage)
+	if !ok {
+		return nil
+	}
+	inv, merged := mergedTypedSubflowInvocation(perf.flow, usage)
+	if !merged {
+		return nil
+	}
+	callee, err := resolveActionSymbol(e.ctx, nodeScope(perf.flow, usage), inv)
+	if err != nil {
+		return err
+	}
+	perf.callee = callee
+	params := e.ctx.actionParametersOf(perf.callee)
+	inputs := make(map[string]Value)
+	for _, param := range params {
+		if param.Direction != ast.DirIn && param.Direction != ast.DirInOut {
+			continue
+		}
+		if value, held := perf.data[perf.key(param.Name)]; held {
+			inputs[param.Name] = value
+		}
+	}
+	return checkInputsBound(inv, params, inputs)
 }
 
 // bindArguments writes the arguments a node passes its callee (`F(a = 3)`) to its pins,
@@ -453,7 +496,10 @@ func (e *performances) bindArguments(perf *actionFrame, activation int64) error 
 	if !ok {
 		return nil
 	}
-	inv, performs := nestedInvocation(usage)
+	inv, performs := nestedInvocationInGraph(perf.flow, usage)
+	if !performs {
+		inv, performs = mergedTypedSubflowInvocation(perf.flow, usage)
+	}
 	if !performs || inv.expr == nil || lower.IsCaseNode(usage) {
 		return nil
 	}
@@ -595,7 +641,10 @@ func (e *performances) nodePins(graph *lower.ActionGraph, node ast.Node) (nodePi
 	if !ok {
 		return nodePins{directions: make(map[string]ast.FeatureDirection)}, nil
 	}
-	inv, performs := nestedInvocation(usage)
+	inv, performs := nestedInvocationInGraph(graph, usage)
+	if !performs {
+		inv, performs = mergedTypedSubflowInvocation(graph, usage)
+	}
 	if !performs || lower.IsCaseNode(usage) {
 		return e.pinsOf(graph, node, inv, nil, nil)
 	}
@@ -634,7 +683,7 @@ func (e *performances) pinsOf(
 		inv.step, _ = stepSymbol(graph, node)
 	}
 	for _, callee := range callees {
-		held, _, err := e.ctx.performanceBody(inv.performed(callee), callee)
+		held, _, _, err := e.ctx.performanceBody(inv.performed(callee), callee)
 		if err != nil {
 			return nodePins{}, err
 		}
@@ -790,9 +839,6 @@ func (f *actionFrame) subaction(name string, decl ast.Node) (perf *actionFrame, 
 			}
 		}
 	}
-	if err := f.unsupportedRepeatedRead(node); err != nil {
-		return nil, true, err
-	}
 	perf, performed := f.subactions[node]
 	if !performed {
 		return nil, true, fmt.Errorf("%w: action node %s has not been performed yet",
@@ -801,39 +847,89 @@ func (f *actionFrame) subaction(name string, decl ast.Node) (perf *actionFrame, 
 	return perf, true, nil
 }
 
-func (f *actionFrame) unsupportedRepeatedRead(node ast.Node) error {
-	var graph *lower.ActionGraph
-	multiplicities := f.multiplicities
-	for _, candidate := range []*lower.ActionGraph{f.graph, f.flow} {
-		if candidate == nil {
-			continue
-		}
-		if _, declared := candidate.Multiplicities[node]; declared {
-			graph = candidate
-			multiplicities = candidate.Multiplicities
-			break
-		}
-	}
-	if _, declared := multiplicities[node]; !declared {
+// repetitionSiblings returns every performance of the repeated node this frame is
+// one performance of, in repetition-index order; nil for a step performed once.
+func (f *actionFrame) repetitionSiblings() []*actionFrame {
+	if f == nil || f.parent == nil {
 		return nil
 	}
-	if graph == nil {
-		graph = &lower.ActionGraph{Multiplicities: multiplicities}
+	return f.parent.repeatedPerfs[f.node]
+}
+
+// repeatedStep reports whether the performance is one of a step declared to run
+// other than once: the shape a binding at its pins distributes over.
+func (f *actionFrame) repeatedStep() bool {
+	if f == nil || f.node == nil || f.flow == nil {
+		return false
 	}
-	var model = (*semantics.Model)(nil)
+	var model *semantics.Model
 	if f.perfs != nil && f.perfs.ctx != nil {
 		model = f.perfs.ctx.Semantics()
 	}
-	count, err := graph.StepCount(node, model)
-	if err != nil {
-		return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+	if !f.flow.HasStepMultiplicity(f.node, model) {
+		return false
 	}
-	if count == 1 {
-		return nil
+	count, err := f.flow.StepCount(f.node, model)
+	return err == nil && count != 1
+}
+
+// valueMultiValued reports whether a binding end's value holds more than one element.
+func valueMultiValued(value Value) bool {
+	switch value.Kind {
+	case ValSequence:
+		if seq := value.Sequence(); seq != nil {
+			return seq.Size() > 1
+		}
+	case ValSet:
+		if set := value.Set(); set != nil {
+			return set.Size() > 1
+		}
 	}
-	return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(node, model,
+	return false
+}
+
+// repeatedBindError is the refusal a binding at a repeated step's pin gives when
+// its other end holds more values than one performance takes.
+func (f *actionFrame) repeatedBindError(end boundEnd) error {
+	var model *semantics.Model
+	if f.perfs != nil && f.perfs.ctx != nil {
+		model = f.perfs.ctx.Semantics()
+	}
+	var graph *lower.ActionGraph
+	if f.flow != nil {
+		graph = f.flow
+	} else {
+		graph = &lower.ActionGraph{}
+	}
+	return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(f.node, model,
 		lower.StepMultiplicityUnsupportedCode,
-		"features of a repeated action step cannot be read from outside the step", node))
+		"a binding distributes a multi-valued end over the performances in an assignment the model leaves open", end.Decl))
+}
+
+// repeatedPin reads a pin across every performance of a repeated step: the
+// sequence of what each performance's pin holds. A read before every performance
+// ended is the error a read of a step not yet performed gives.
+func (f *actionFrame) repeatedPin(name string) (Value, error) {
+	siblings := f.repetitionSiblings()
+	if state := f.parent.repeats[f.repetitionGroup]; state != nil && state.node == f.node && state.remaining > 0 {
+		return Value{}, fmt.Errorf("%w: action node %s has not been performed yet",
+			ErrNodeNotPerformed, ActionNodeName(f.node))
+	}
+	for _, perf := range siblings {
+		if !perf.ended {
+			return Value{}, fmt.Errorf("%w: action node %s has not been performed yet",
+				ErrNodeNotPerformed, ActionNodeName(f.node))
+		}
+	}
+	values := make([]Value, 0, len(siblings))
+	for _, perf := range siblings {
+		value, err := perf.pin(name)
+		if err != nil {
+			return Value{}, err
+		}
+		values = append(values, value)
+	}
+	return sequenceOf(values), nil
 }
 
 // pin reads the value the performance's pin holds; a pin admitting no value that
@@ -1394,6 +1490,9 @@ func (f *actionFrame) heldFeatures(prefix string, into map[string]bool) {
 		into[prefix+name] = true
 	}
 	for name, sub := range f.latestSubactions() {
+		if sub.repetition > 0 {
+			continue
+		}
 		sub.heldFeatures(prefix+name+".", into)
 	}
 }
@@ -1423,6 +1522,9 @@ func (e *performances) bindInputPins(perf *actionFrame, activation int64) error 
 				continue
 			}
 			return err
+		}
+		if perf.repeatedStep() && !end.FromValue && valueMultiValued(value) {
+			return perf.repeatedBindError(end)
 		}
 		if alreadyBound {
 			if held := perf.data[perf.key(end.Pin)]; !e.ctx.equalValues(held, value) {
@@ -1458,6 +1560,24 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 		}
 		if !carried {
 			continue
+		}
+		// Over the performances of a repeated step the values bound at an out pin
+		// must agree: the binding's other end takes the one value they all share.
+		if perf.repeatedStep() && !end.FromValue && end.OtherNode == nil {
+			if other, held, err := e.otherEndHeld(perf, end); err != nil {
+				return err
+			} else if held {
+				if e.ctx.equalValues(other, value) {
+					continue
+				}
+				return &BindingConflictError{
+					Target:     end.pinText(),
+					Left:       bindingEndText(end.Other),
+					Right:      end.pinText(),
+					LeftValue:  other,
+					RightValue: value,
+				}
+			}
 		}
 		switch {
 		case end.OtherNode != nil:
@@ -1556,6 +1676,12 @@ func (e *performances) writeNamedEnd(end boundEnd, value Value) error {
 	written, err := e.assignEnclosing(end.at, name, value)
 	if err != nil {
 		return err
+	}
+	if !written && end.FromValue {
+		written, err = assignPerformerFeature(e.ctx, e.self, end.Scope, name, value)
+		if err != nil {
+			return err
+		}
 	}
 	if !written && !end.FromValue {
 		return fmt.Errorf("%w: %s is bound to %s, which no enclosing action holds",

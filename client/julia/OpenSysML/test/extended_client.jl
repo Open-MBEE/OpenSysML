@@ -265,6 +265,34 @@ end
     end
 end
 
+@testset "verification argument capability preflight" begin
+    server, requests, address = recording_service(["verification"])
+    conn = external(address)
+    try
+        model = Model(conn, "hash", Diagnostic[])
+        err = try
+            verify_requirement(model, "R"; named_arguments=Dict("limit" => 5))
+            nothing
+        catch exception
+            exception
+        end
+        @test err isa MissingCapabilityError
+        @test err.capability == CAPABILITY_VERIFICATION_ARGUMENTS
+        err = try
+            verify_constraint(model, "C"; arguments=[3])
+            nothing
+        catch exception
+            exception
+        end
+        @test err isa MissingCapabilityError
+        @test err.capability == CAPABILITY_VERIFICATION_ARGUMENTS
+        @test [request.method for request in requests] == ["GetServerInfo"]
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
 @testset "OSLC query capability preflight" begin
     server, requests, address = recording_service(["query"])
     conn = external(address)
@@ -591,6 +619,31 @@ end
                 @test verify_constraint(verification, "Demo::Vehicle::massPositive").holds
                 @test verify_requirement(verification, "Demo::Vehicle::lightEnough";
                     subject="Demo::sedan").holds
+                bound = parse_source(conn, """
+                    package Bound {
+                        private import ScalarValues::*;
+                        part def Thing { attribute v : Integer = 2; }
+                        part t : Thing;
+                        requirement def Under {
+                            subject s : Thing;
+                            in limit : Integer;
+                            in slack : Integer = 0;
+                            require constraint { s.v + slack < limit }
+                        }
+                        constraint def Between {
+                            in low : Integer;
+                            in high : Integer = 10;
+                            low < high
+                        }
+                    }
+                """)
+                @test verify_requirement(bound, "Bound::Under"; subject="Bound::t",
+                    named_arguments=Dict("limit" => 5)).holds
+                @test !verify_requirement(bound, "Bound::Under"; subject="Bound::t",
+                    arguments=[5, 4]).holds
+                @test verify_constraint(bound, "Bound::Between"; arguments=[3]).holds
+                @test !verify_constraint(bound, "Bound::Between";
+                    named_arguments=Dict("low" => 3, "high" => 1)).holds
                 @test !isempty(verify_satisfaction(verification))
                 @test !isempty(verify_satisfaction(verification; symbol="Demo::analysis"))
                 @test !satisfied(verification; symbol="Demo::analysis")

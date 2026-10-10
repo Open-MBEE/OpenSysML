@@ -1,6 +1,5 @@
-// An invoked node's `out` values return to same-named enclosing features once
-// the node completes, so what its own body makes of an output is what returns:
-// `scaled` performs Scale (y = 30), its body adds one, and Adjust's `y` reads 31.
+// The typed usage's own `assign y := y + 1` is unordered with Scale's inherited
+// `start → scaling → done`: it leaves 31 after scaling, or scaling overwrites it with 30 first.
 package test {
     private import ScalarValues::*;
 

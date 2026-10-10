@@ -65,11 +65,18 @@ type verdictMemo struct {
 // it: shared across self's shape when self itself is that object, since finding it
 // walks structure no verdict depends on, else evaluated on the object resolved to.
 func (ctx *Context) checkOn(element *symbols.Symbol, kind, name string, carrying *symbols.Symbol, self *Instance, check func(carrier) (CheckResult, error)) (CheckResult, error) {
+	return ctx.checkOnWith(element, kind, name, carrying, self, CheckArgs{}, check)
+}
+
+// checkOnWith is checkOn for a check supplied args: one binding arguments is
+// evaluated, never shared, since a shared verdict's identity is what its check
+// read from the object and arguments are read from nothing.
+func (ctx *Context) checkOnWith(element *symbols.Symbol, kind, name string, carrying *symbols.Symbol, self *Instance, args CheckArgs, check func(carrier) (CheckResult, error)) (CheckResult, error) {
 	resolved, err := ctx.checkSubject(kind, name, carrying, self)
 	if err != nil {
 		return CheckResult{}, err
 	}
-	if resolved.instance != self {
+	if resolved.instance != self || args.supplies() {
 		return check(resolved)
 	}
 	return ctx.checkShared(element, kind, name, self, func() (CheckResult, error) { return check(resolved) })

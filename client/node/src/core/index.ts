@@ -6,6 +6,8 @@ export type {
   Encoding,
   ResponseTap,
   TransportOptions,
+  VerifyArguments,
+  VerifyOptions,
 } from "./connection.js";
 export type { WasmHost } from "./wasm.js";
 export { Instance, InstanceTree, Model, ModelSymbol, decodeDiagnostic } from "./model.js";
@@ -196,6 +198,7 @@ export {
   CAPABILITY_TRANSITION_AUTHORING,
   CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING,
   CAPABILITY_VERIFICATION_QUESTIONS,
+  CAPABILITY_VERIFICATION_ARGUMENTS,
   MissingCapabilityError,
   ServerInfo,
   capabilityRefusal,

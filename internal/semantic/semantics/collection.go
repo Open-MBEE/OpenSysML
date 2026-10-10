@@ -103,21 +103,37 @@ func (m *Model) resultHoldsNothing(result *symbols.Symbol) bool {
 	return ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0
 }
 
+// GoverningMultiplicitySource returns the alias-resolved feature whose declared
+// multiplicity governs sym: sym itself when it declares one, else the first
+// feature it redefines that does. Subsetting alone does not inherit multiplicity.
+func (m *Model) GoverningMultiplicitySource(sym *symbols.Symbol) (*symbols.Symbol, bool) {
+	if m == nil || sym == nil {
+		return nil, false
+	}
+	if m.resolver != nil {
+		if alias, ok := m.resolver.ResolveAliasTarget(sym); ok && alias != nil {
+			sym = alias
+		}
+	}
+	if _, ok := m.MultiplicityOf(sym); ok {
+		return sym, true
+	}
+	for _, redefined := range m.AllRedefinedFeatures(sym) {
+		if _, ok := m.MultiplicityOf(redefined); ok {
+			return redefined, true
+		}
+	}
+	return nil, false
+}
+
 // governingMultiplicity is the multiplicity a feature declares, or inherits from a feature it
 // redefines by clause or position, read through an alias; not ok where it declares and inherits none.
 func (m *Model) governingMultiplicity(sym *symbols.Symbol) (Range, bool) {
-	if alias, ok := m.resolver.ResolveAliasTarget(sym); ok && alias != nil {
-		sym = alias
+	source, ok := m.GoverningMultiplicitySource(sym)
+	if !ok {
+		return Range{}, false
 	}
-	if declared, ok := m.MultiplicityOf(sym); ok {
-		return declared, true
-	}
-	for _, redefined := range m.AllRedefinedFeatures(sym) {
-		if inherited, ok := m.MultiplicityOf(redefined); ok {
-			return inherited, true
-		}
-	}
-	return Range{}, false
+	return m.MultiplicityOf(source)
 }
 
 // GoverningMultiplicityOf returns the multiplicity governing a feature: the one
