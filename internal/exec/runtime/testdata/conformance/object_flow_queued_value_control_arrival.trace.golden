@@ -1,28 +1,28 @@
 step 1: token 1@a
 stmt assign y
   eval literal 7 -> 7
-step 2: token 1@b, token 2@b
+step 2: token 2@b, token 3@b
 stmt assign runs
     eval feature runs -> 0
     eval literal 1 -> 1
   eval operator + -> 1
 stmt assign took
   eval feature v -> 7
-step 3: token 3@check
+step 3: token 4@check
   eval feature runs -> 1
   eval literal 2 -> 2
 eval operator < -> true
-step 4: token 3@c
-step 5: token 3@b
+step 4: token 4@c
+step 5: token 4@b
 stmt assign runs
     eval feature runs -> 1
     eval literal 1 -> 1
   eval operator + -> 2
 stmt assign took
   eval feature v -> 7
-step 6: token 3@check
+step 6: token 4@check
   eval feature runs -> 2
   eval literal 2 -> 2
 eval operator < -> false
-step 7: token 3@done
+step 7: token 4@done
 step 8: no active tokens

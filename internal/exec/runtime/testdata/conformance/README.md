@@ -184,6 +184,12 @@ a case that hits it fails with a message telling the author to raise it:
   a model with more linearizations than the default covers, never to an outcome
   the set is missing: an unlisted outcome is a derivation to add to the oracle
   or a bug to fix.
+- `solverBudget`: optional beside `outcomes`, `{"moves": N}` with N at least 1. The
+  SMT referee (`TestRefereeCorpus`) encodes the case's action to N moves instead of
+  the engine's default 40. State it only for a case whose every run ends well within
+  N moves but whose default unrolling the solver cannot decide within the referee's
+  timeout; the referee's completion query still proves every run ends within N, so a
+  budget too low fails the case rather than hiding behavior.
 
 `TestExecutionConformance` explores cases with `outcomes`; the check corpus can
 also explore a single-result case with a `.check.expected.json` entry. The
