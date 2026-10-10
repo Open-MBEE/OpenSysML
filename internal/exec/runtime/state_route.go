@@ -764,6 +764,10 @@ func (e *StateExecutor) travel(trans *lower.Transition, from *ast.StateNode, r r
 	if err := e.moveWhole(func() error { return e.travelResolving(trans, from, r, exits, enters, move) }); err != nil {
 		return err
 	}
+	if e.state == StateTerminated {
+		clear(e.enteredAhead)
+		return nil
+	}
 	return e.entriesSettled()
 }
 

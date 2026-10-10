@@ -204,6 +204,9 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 		if len(expected.Performers) > 0 {
 			tracePerformers(t, ctx, idx, trace, stateSym, expected.Performers)
 		} else {
+			if expected.Trace && expected.Terminated && len(expected.Events) == 0 {
+				ctx.SetTrace(trace)
+			}
 			exec, err := ctx.CreateStateExecutor(stateSym)
 			if err != nil {
 				t.Fatalf("create state executor: %v", err)

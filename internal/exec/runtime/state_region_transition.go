@@ -77,6 +77,9 @@ func (e *StateExecutor) enterToward(lca, target *ast.StateNode, branches map[*as
 		if err := e.enterStateInto(state, plan, state == enter); err != nil {
 			return nil, nil, fmt.Errorf("enter state: %w", err)
 		}
+		if e.state == StateTerminated {
+			return nil, nil, nil
+		}
 	}
 	if enter != target {
 		if e.heldOwner(enter) != nil {

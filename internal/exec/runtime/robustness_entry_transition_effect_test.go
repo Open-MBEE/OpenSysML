@@ -9,6 +9,34 @@ import (
 )
 
 func TestRuntimeRobustnessEntryTransitionEffect(t *testing.T) {
+	t.Run("entry route termination prevents sibling region entry", func(t *testing.T) {
+		exec := stateExecutorForSource(t, "Machine", `package test {
+			state Machine {
+				attribute rightEntered : Integer = 0;
+				entry; then working;
+				state working parallel {
+					state left {
+						entry action boot { }
+						transition boot then pick;
+						junction pick;
+						transition first pick then stop;
+						action stop terminate;
+					}
+					state right {
+						entry; then idle;
+						state idle { entry { assign rightEntered := 1; } }
+					}
+				}
+			}
+		}`)
+		if exec.State() != StateTerminated {
+			t.Fatalf("machine state = %v, want StateTerminated", exec.State())
+		}
+		if got := exec.StateData()["rightEntered"].Const.Int; got != 0 {
+			t.Fatalf("right region entry ran before termination: rightEntered = %d, want 0", got)
+		}
+	})
+
 	t.Run("effect error is returned", func(t *testing.T) {
 		_, _, err := executeStateSource(t, "Machine", `package test {
 			state Machine {

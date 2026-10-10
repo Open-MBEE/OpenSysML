@@ -2516,6 +2516,10 @@ func (e *StateExecutor) enterBelow(trans *lower.Transition, fromName string, lca
 	if err != nil {
 		return err
 	}
+	if e.state == StateTerminated {
+		clear(e.enteredAhead)
+		return nil
+	}
 
 	if err := e.settleEntered(leaf); err != nil {
 		return fmt.Errorf("complete state machine: %w", err)
@@ -5165,6 +5169,9 @@ func (e *StateExecutor) enterMachineStart() error {
 	if err != nil {
 		return err
 	}
+	if e.state == StateTerminated {
+		return nil
+	}
 	e.setCurrentState(start)
 	e.stateStack = e.rootToLeaf(start)
 	for _, state := range e.stateStack {
@@ -5176,6 +5183,9 @@ func (e *StateExecutor) enterMachineStart() error {
 	if err != nil {
 		return err
 	}
+	if e.state == StateTerminated {
+		return nil
+	}
 	return e.settleEntered(leaf)
 }
 
@@ -5183,6 +5193,9 @@ func (e *StateExecutor) enterMachineStart() error {
 func (e *StateExecutor) enterMachineRegions() error {
 	if err := e.enterRegionsInto(nil, e.graph.TopRegions, nil); err != nil {
 		return err
+	}
+	if e.state == StateTerminated {
+		return nil
 	}
 	if err := e.scheduleTransitionEvents(); err != nil {
 		return fmt.Errorf("schedule events: %w", err)
@@ -5219,10 +5232,13 @@ func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
 			}
 			target := entry.Target
 			if entry.Via != nil {
-				target, err = e.continueEntryRoute(entry.Via, entryRoute)
+				target, err = e.continueEntryRoute(entryFromName(owner, entry), entry.Via, entryRoute)
 				if err != nil {
 					return nil, err
 				}
+			}
+			if e.state == StateTerminated {
+				return nil, nil
 			}
 			if entry.Decl != nil {
 				e.fired = append(e.fired, FiredTransition{Decl: entry.Decl, Target: entryTarget(entry), Owner: e.graph.EntryOwner(owner)})
@@ -5235,6 +5251,22 @@ func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
 			ErrNoEntryTransitionHolds, e.describeBody(owner), len(transitions))
 	}
 	return nil, nil
+}
+
+func entryFromName(owner ast.Node, entry *lower.EntryTransition) string {
+	if transition, ok := entry.Decl.(*ast.TransitionMember); ok {
+		if source := lower.EndpointText(transition.Source); source != "" {
+			return source
+		}
+	}
+	switch body := owner.(type) {
+	case *ast.StateNode:
+		return body.Name
+	case *ast.StateRegion:
+		return body.Name
+	default:
+		return ""
+	}
 }
 
 func entryTarget(entry *lower.EntryTransition) ast.Node {
@@ -5265,7 +5297,7 @@ func (e *StateExecutor) resolveEntryRoute(via *ast.PseudostateNode) (route, erro
 	return route, nil
 }
 
-func (e *StateExecutor) continueEntryRoute(via *ast.PseudostateNode, route route) (*ast.StateNode, error) {
+func (e *StateExecutor) continueEntryRoute(fromName string, via *ast.PseudostateNode, route route) (*ast.StateNode, error) {
 	var err error
 	for {
 		if route.draw != nil {
@@ -5282,6 +5314,12 @@ func (e *StateExecutor) continueEntryRoute(via *ast.PseudostateNode, route route
 		e.noteFired(route.segments...)
 		e.noteAll(route.notes)
 		route.notes = nil
+		if route.terminate != nil {
+			if err := e.terminateMachine(fromName, nil, route.terminate); err != nil {
+				return nil, err
+			}
+			return nil, nil
+		}
 		if route.choice == nil {
 			if route.target == nil {
 				return nil, fmt.Errorf("entry transition through %s %s has no state target", via.Kind, via.Name)
@@ -5394,12 +5432,18 @@ func (e *StateExecutor) enterStartOf(state *ast.StateNode) (*ast.StateNode, erro
 		if err != nil {
 			return nil, err
 		}
+		if e.state == StateTerminated {
+			return nil, nil
+		}
 		if start == nil {
 			return leaf, nil
 		}
 		for _, descendant := range e.descendantChain(leaf, start) {
 			if err := e.enterStateInto(descendant, nil, descendant == start); err != nil {
 				return nil, fmt.Errorf("enter state %s: %w", descendant.Name, err)
+			}
+			if e.state == StateTerminated {
+				return nil, nil
 			}
 		}
 		leaf = start
@@ -5481,6 +5525,9 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 		}
 		if err := e.enterRegionsInto(state, regions, branches); err != nil {
 			return err
+		}
+		if e.state == StateTerminated {
+			return nil
 		}
 	}
 
