@@ -104,7 +104,7 @@ func (m *migration) monteCarloRowsRecord(rows rowSet) bool {
 		if len(rows.classifiers) == 0 {
 			return true
 		}
-		_, classifiers, _ := m.individualClassifiers(e)
+		_, classifiers, _, _ := m.instanceKind(e)
 		for _, c := range classifiers {
 			for _, k := range rows.classifiers {
 				if c == k || m.inherits(c, k) {
@@ -116,7 +116,7 @@ func (m *migration) monteCarloRowsRecord(rows rowSet) bool {
 	return false
 }
 
-// monteCarloRecording lists, lazily, the written individuals that record an
+// monteCarloRecording lists, lazily, the written instances that record an
 // analysis: a recorded case and at least one statistic slot.
 func (m *migration) monteCarloRecording() []*sysmlv1.Element {
 	if m.mcRecordedDone {
@@ -131,7 +131,7 @@ func (m *migration) monteCarloRecording() []*sysmlv1.Element {
 		if e.Type != "InstanceSpecification" {
 			return
 		}
-		if cat, _ := m.classify(e); cat != catIndividualDef && cat != catValue {
+		if cat, _ := m.classify(e); cat != catInstance {
 			return
 		}
 		if m.recordedCase(e) == nil {
@@ -534,8 +534,8 @@ func (m *migration) monteCarloConnector(c *sysmlv1.Element) bool {
 	return true
 }
 
-// monteCarloSlots reports an individual's statistic slots and returns the other slots
-// with the writer of the recorded analysis, to follow the individual's values.
+// monteCarloSlots reports an instance's statistic slots and returns the other slots
+// with the writer of the recorded analysis, to follow the instance's values.
 func (m *migration) monteCarloSlots(e *sysmlv1.Element, slots []*sysmlv1.Element) (others []*sysmlv1.Element, recorded func()) {
 	type held struct {
 		slot *sysmlv1.Element
@@ -593,7 +593,7 @@ func (m *migration) monteCarloSlots(e *sysmlv1.Element, slots []*sysmlv1.Element
 	}
 	return others, func() {
 		m.w.block("analysis "+writeName(monteCarloRecorded)+" : "+m.refMember(cs.block.Parent, cs.name, namespaces(cs.segments), e, true), func() {
-			m.w.line("subject :>> " + monteCarloSubject + " : " + m.ref(e, e) + ";")
+			m.w.line("subject :>> " + monteCarloSubject + " = " + m.ref(e, e) + ";")
 			m.w.lines(lines)
 		})
 	}
@@ -620,10 +620,10 @@ func (m *migration) monteCarloSlotValue(e, slot *sysmlv1.Element, member monteCa
 	return "out :>> " + member.member + " = " + expr + ";", note, true
 }
 
-// recordedCase is the analysis an individual's statistics are recorded of: that of the
-// nearest classifier the individual is written to specialize that has one.
+// recordedCase is the analysis an instance's statistics are recorded of: that of the
+// nearest classifier the instance is written to be typed by that has one.
 func (m *migration) recordedCase(e *sysmlv1.Element) *monteCarloCase {
-	_, written, _ := m.individualClassifiers(e)
+	_, written, _, _ := m.instanceKind(e)
 	for _, c := range m.classifierOrder(written) {
 		if cs := m.monteCarloCaseOf(c); cs != nil {
 			return cs

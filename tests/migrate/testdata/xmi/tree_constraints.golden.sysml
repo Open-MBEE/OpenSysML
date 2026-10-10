@@ -31,7 +31,7 @@ package Tanks {
         in attribute span : ScalarValues::Real[1];
         width ** 2 + height ** 2 == span ** 2
     }
-    individual part def dayTank :> Tank {
+    part dayTank : Tank {
         attribute :>> level = 40 + 2.5;
         attribute :>> mode = Mode::Idle;
     }

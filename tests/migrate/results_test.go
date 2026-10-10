@@ -743,10 +743,10 @@ func TestSlotOwnersTypeOnlyResultSnapshots(t *testing.T) {
   <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
       executionTarget="_s0" resultLocation="_results _late"/>`)
 	wantNote(t, r, "_loose", migrate.Unmapped, "an instance specification without a classifier has no v2 form")
-	wantNoLine(t, r.Notation, "individual part def loose")
+	wantNoLine(t, r.Notation, "part loose")
 	wantNote(t, r, "_r3", migrate.Approximated, "classified by Chooser, the owner of its slots' defining features, since it names no classifier and is a result snapshot of the run configuration 'Group 0'")
 	wantNote(t, r, "_r5", migrate.Approximated, "classified by Sure, the owner of its slots' defining features, since it names no classifier and is a result snapshot of the run configuration 'Group 0'")
-	wantLine(t, r.Notation, "individual part def 'run 5' :> Sure {")
+	wantLine(t, r.Notation, "part 'run 5' : Sure {")
 	wantNote(t, r, "_split", migrate.Unmapped, "its slots are of features of Chooser, Other, none a special of all the others, so no one classifier is inferred under the result location of the run configuration 'Group 0'")
 	wantNote(t, r, "_foreign", migrate.Unmapped, "its slots are of features of Other, neither a classifier of the configuration's target nor a general of one, so it is no snapshot of a run on it under the result location of the run configuration 'Group 0'")
 	configs := r.Results.Configurations

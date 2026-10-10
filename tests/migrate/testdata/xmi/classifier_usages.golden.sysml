@@ -108,12 +108,25 @@ package Tables {
         DocumentQueries::Project(
             source = DocumentQueries::OrderBy(
                 source = DocumentQueries::Union(
-                    source = DocumentQueries::WhereType(source = candidates, type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "Dependency", "SatisfyRequirementUsage", "AllocationUsage")),
-                    other = DocumentQueries::Except(
-                        source = DocumentQueries::Named(qualifiedName = ("Operations::Operator", "Operations::Scan", "Operations::Focus")),
-                        exclude = DocumentQueries::Except(
+                    source = DocumentQueries::Union(
+                        source = DocumentQueries::WhereType(source = candidates, type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "Dependency", "SatisfyRequirementUsage", "AllocationUsage")),
+                        other = DocumentQueries::Except(
                             source = DocumentQueries::Named(qualifiedName = ("Operations::Operator", "Operations::Scan", "Operations::Focus")),
-                            exclude = candidates))),
+                            exclude = DocumentQueries::Except(
+                                source = DocumentQueries::Named(qualifiedName = ("Operations::Operator", "Operations::Scan", "Operations::Focus")),
+                                exclude = candidates))),
+                    other = DocumentQueries::Except(
+                        source = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(source = candidates, type = ("Usage")),
+                            exclude = DocumentQueries::WhereType(source = candidates, type = ("ConnectionUsage"))),
+                        exclude = DocumentQueries::Descendants(
+                            source = DocumentQueries::WhereType(
+                                source = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Union(
+                                        source = DocumentQueries::Named(qualifiedName = ("Operations")),
+                                        other = DocumentQueries::WhereType(source = candidates, type = ("Package"))),
+                                    maxDepth = 1),
+                                type = ("Type"))))),
                 property = "qualifiedName",
                 direction = "ascending",
                 missing = "last",

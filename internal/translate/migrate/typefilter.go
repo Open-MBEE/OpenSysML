@@ -22,6 +22,9 @@ type typeFilter struct {
 	// table lists by name; usages are the plain names of those written.
 	usageKinds []category
 	usages     []string
+	// instances admits the usages a package owns, which instance
+	// specifications are written as.
+	instances bool
 	// metadata is the written metadata def of a user stereotype rows carry.
 	metadata string
 	// all is set when the type admits every migrated element.
@@ -37,6 +40,8 @@ type v2Types struct {
 	types     []string
 	excluding *typeFilterExclusion
 	usages    []category
+	// instances admits the usages a package owns: the instance specifications.
+	instances bool
 	note      string
 }
 
@@ -151,8 +156,8 @@ const (
 var metaclassTypes = map[string]v2Types{
 	"Element":      {},
 	"NamedElement": {note: "every migrated element is named, so a NamedElement filter admits all of them"},
-	"PackageableElement": {types: packageableTypes, usages: classifierUsages,
-		note: noteClassifierExtra + "; instances of value types, written as attributes, are not"},
+	"PackageableElement": {types: packageableTypes, usages: classifierUsages, instances: true,
+		note: noteClassifierExtra + "; instance specifications are listed, but not links, which a query cannot tell from the connections of a use case diagram"},
 	"Namespace": {types: namespaceTypes, usages: classifierUsages, note: noteDiagramViews +
 		"; transitions and structured activity nodes are not"},
 	"Package":            {types: []string{typePackage}},
@@ -392,7 +397,7 @@ func (m *migration) nameUsages(f typeFilter) typeFilter {
 }
 
 func fromTypes(label string, t v2Types) typeFilter {
-	return typeFilter{label: label, types: t.types, excluding: t.excluding, usageKinds: t.usages, note: t.note}
+	return typeFilter{label: label, types: t.types, excluding: t.excluding, usageKinds: t.usages, instances: t.instances, note: t.note}
 }
 
 // query selects from src the rows of the filter's types, less the excluded
@@ -429,10 +434,11 @@ func (f typeFilter) query(src qx) qx {
 
 func mergeTypeFilters(filters []typeFilter) typeFilter {
 	var types, source, keep, usages uniqueNames
-	var excluding bool
+	var excluding, instances bool
 	for _, f := range filters {
 		types.add(f.types...)
 		usages.add(f.usages...)
+		instances = instances || f.instances
 		if f.excluding != nil {
 			excluding = true
 			source.add(f.excluding.source...)
@@ -441,7 +447,7 @@ func mergeTypeFilters(filters []typeFilter) typeFilter {
 			keep.add(f.types...)
 		}
 	}
-	merged := typeFilter{types: types, usages: usages}
+	merged := typeFilter{types: types, usages: usages, instances: instances}
 	if excluding {
 		merged.excluding = &typeFilterExclusion{source: source, keep: keep}
 	}

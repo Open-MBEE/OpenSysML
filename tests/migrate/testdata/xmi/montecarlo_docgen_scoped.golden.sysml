@@ -8,16 +8,16 @@ analysis def 'DocGen Analysis Monte Carlo' :> Simulation::MonteCarlo {
     return Mean : ScalarValues::Real[1] = mean;
 }
 package ResultsA {
-    individual part def 'analysis of 6 runs' :> 'DocGen Analysis' {
+    part 'analysis of 6 runs' : 'DocGen Analysis' {
         attribute :>> t = 2.5;
         analysis 'Monte Carlo' : 'DocGen Analysis Monte Carlo' {
-            subject :>> analysed : 'analysis of 6 runs';
+            subject :>> analysed = 'analysis of 6 runs';
             out :>> mean = 2.5;
         }
     }
 }
 package ResultsB {
-    individual part def 'analysis unrecorded' :> 'DocGen Analysis' {
+    part 'analysis unrecorded' : 'DocGen Analysis' {
         attribute :>> t = 1.25;
     }
 }

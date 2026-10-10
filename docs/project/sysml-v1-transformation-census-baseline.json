@@ -13927,18 +13927,19 @@
         "type"
       ],
       "ocl": "sha256:1dccb46c9bc0a7890050c0106cef1e6cae9e56d81b39d16ac07c1a847e2516a1",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyInstance",
-        "internal/translate/migrate/migrate.go:individualBody",
-        "internal/translate/migrate/migrate.go:valueSlot"
+        "internal/translate/migrate/classify.go:instanceKind",
+        "internal/translate/migrate/migrate.go:instanceHeader"
       ],
       "tests": [
         "tests/migrate/classify_test.go:TestInstanceWithSeveralClassifiers",
         "tests/migrate/classify_test.go:TestInstanceOfUnwritableClassifierIsUnmapped",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/classify_test.go:TestRequirementsAreUsages",
+        "tests/migrate/values_test.go:TestInstanceTakesTheKindOfItsClassifier"
       ],
-      "reason": "an instance specification is written as an `individual part def` specializing its classifiers, its slots as redefining attributes, so its values are defaults a simulation reads; not as a part usage typed by them",
+      "reason": "the instance's usage is typed by every classifier that can type a usage of its kind; a classifier of another kind is noted, and a classifier written as a usage (an actor, a use case, a requirement) is subsetted, since a usage types nothing",
       "scope": []
     },
     {
@@ -13957,17 +13958,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:fd10393457831dbb2a1a86a41ec95f8aa9f79922264c7f47491fbc38b86acecb",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyInstance",
-        "internal/translate/migrate/migrate.go:individualBody",
-        "internal/translate/migrate/migrate.go:instanceConnectionEnd"
+        "internal/translate/migrate/migrate.go:linkHeader",
+        "internal/translate/migrate/migrate.go:linkEnds",
+        "internal/translate/migrate/migrate.go:linkEnd"
       ],
       "tests": [
         "tests/migrate/instance_links_test.go:TestInstanceSpecificationLink",
-        "tests/migrate/instance_links_test.go:TestInstanceSpecificationLinkWithoutConnectionDefinitionIsUnmapped"
+        "tests/migrate/instance_links_test.go:TestInstanceSpecificationLinkWithoutConnectionDefinitionIsUntyped"
       ],
-      "reason": "a link is written as an individual connection def specializing its association with its ends redefined by the linked instances' individual defs, matching how instances are written (see InstanceSpecification); the mapping's connection usage would connect part usages the migration does not write; a link of an association written only as its member-end properties is not written; neither the PSSM suite nor the TMT model has a link",
+      "reason": "a link is written as a `connection` usage joining the usages its two end slots name, typed by the `connection def` its association became; an association written only as its member-end properties leaves the connection untyped, which is noted; neither the PSSM suite nor the TMT model has a link",
       "scope": [
         "uml:InstanceSpecification"
       ]
@@ -13992,15 +13994,24 @@
       "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyInstance",
-        "internal/translate/migrate/migrate.go:individualBody",
+        "internal/translate/migrate/classify.go:instanceKind",
+        "internal/translate/migrate/migrate.go:instanceHeader",
+        "internal/translate/migrate/migrate.go:instanceBody",
+        "internal/translate/migrate/migrate.go:slotForm",
+        "internal/translate/migrate/migrate.go:instanceSlot",
         "internal/translate/migrate/migrate.go:valueSlot"
       ],
       "tests": [
         "tests/migrate/classify_test.go:TestInstanceWithSeveralClassifiers",
         "tests/migrate/classify_test.go:TestInstanceOfUnwritableClassifierIsUnmapped",
+        "tests/migrate/classify_test.go:TestRequirementsAreUsages",
+        "tests/migrate/values_test.go:TestInstanceTakesTheKindOfItsClassifier",
+        "tests/migrate/values_test.go:TestPartSlotsRedefineThePartByItsInstance",
+        "tests/migrate/values_test.go:TestInstanceOfValueTypeIsAnAttributeUsage",
+        "tests/migrate/values_test.go:TestInstanceOfActorSubsetsTheUsage",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "an instance specification is written as an `individual part def` specializing its classifiers, its slots as redefining attributes, so its values are defaults a simulation reads; not as a part usage typed by them",
+      "reason": "an instance specification is written as one usage typed by its classifiers with its slots as nested features bound to their values — a `part` usage for a block, as the mapping writes; the usage kind follows the classifier where a part usage would not validate (a `constraint`, `item`, `occurrence`, `port` or `attribute` usage for a constraint block, an item, a plain class, an interface block or a value type), and an instance of an actor, use case or requirement, which are usages once migrated, subsets the classifier's usage instead of being typed by it",
       "scope": []
     },
     {

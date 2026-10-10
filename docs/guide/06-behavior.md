@@ -1367,7 +1367,7 @@ v1 idioms land on the machinery above:
   English (`[Align BTO]`) is written unguarded, and the runtime draws its branch with the model
   seed.
 - A **run configuration** (`SimulationProfile:SimulationConfig`) becomes an `action def` that
-  declares `part target : <the migrated execution target>` — the `individual def` the target
+  declares `part target :> <the migrated execution target>` — the `part` usage the target
   instance became, whose slots are its attribute values — and `perform action run ::>
   target.<the classifier behavior>`, with the tool's `numberOfRuns` and
   `durationSimulationMode` as `@Simulation::Configuration { runs = …; draws = …; }` metadata; so

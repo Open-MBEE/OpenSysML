@@ -26,7 +26,7 @@ package Shop {
         /* applied stereotype «Document» */
     }
     part def SeasonalCatalog :> Catalog;
-    individual part def c1 :> Catalog {
+    part c1 : Catalog {
         attribute :>> price = 4.5;
     }
     view 'Catalog Table' {

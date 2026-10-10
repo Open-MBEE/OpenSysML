@@ -47,7 +47,7 @@ func TestSimulationConfigBecomesARunnableActionDef(t *testing.T) {
 		"stepSize = 1.0;",
 		`timeUnit = "second";`,
 		"parallelForks = true;",
-		"part target : sure;",
+		"part target :> sure;",
 		"perform action run ::> target.choose;",
 		"/* results of the simulation tool: 0 snapshot(s) in Results */",
 		"/* «SimulationConfig» settings of the simulation tool: animationSpeed = 95; silent = true */",
@@ -91,7 +91,7 @@ func TestSimulationConfigReportsWhatItCannotRun(t *testing.T) {
 	for _, line := range []string{
 		"action def 'Group 0' {",
 		"runs = 3;",
-		"part target : other;",
+		"part target :> other;",
 		"/* «SimulationConfig» settings of the simulation tool: durationSimulationMode = fastest */",
 		"action def 'Group 1' {",
 		"draws = Simulation::DrawPolicy::random;",
@@ -448,7 +448,7 @@ func TestSimulationConfigNamesTheConstraintsOfAParametricTarget(t *testing.T) {
   <sysml:ConstraintProperty xmi:id="_s8" base_Property="_cPeak"/>
   <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
       executionTarget="_c1" numberOfRuns="1"/>`)
-	wantLine(t, r.Notation, "part target : circuit;")
+	wantLine(t, r.Notation, "part target :> circuit;")
 	wantNoLine(t, r.Notation, "perform action run")
 	wantNote(t, r, "_g0", migrate.Approximated, "neither Circuit nor any general of it has a classifier behavior, so the configuration only holds 'circuit'"+
 		"; the tool solves the constraints it holds for values, which a v2 run checks and does not solve: "+

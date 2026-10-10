@@ -171,7 +171,7 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		"connection def Drives {",
 		"constraint def MassLimit {",
 		"m < limit",
-		"individual part def myCar :> Vehicle {",
+		"part myCar : Vehicle {",
 		"attribute :>> mass = 1350.5;",
 		"requirement <R1> 'Mass Requirement' {",
 		"doc /* The vehicle shall have a mass of less than 1500 kg. */",

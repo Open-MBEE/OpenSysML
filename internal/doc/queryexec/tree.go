@@ -18,7 +18,7 @@ type treeNode struct {
 
 // evaluateTree arranges the source rows as a containment tree in pre-order:
 // each row nests under the nearest row containing it — the nearest owner
-// among the rows, or the individual whose part is typed by it — and rows
+// among the rows, or the instance whose part holds it — and rows
 // nobody contains are top-level. Rows of `ancestors` join the tree as
 // intermediate levels where a source row nests under them, which projected
 // rows refuse: an ancestor has no cells to show. A row repeated in the source
@@ -122,9 +122,11 @@ func (e *executor) owningNode(row Value, index map[rowKey]int) int {
 	}
 }
 
-// typedNesting is, per candidate, the candidate whose individual part is typed
-// by it (through individuals that are no candidates themselves), or -1: the
-// nesting of an individual's parts, whose definitions need not own one another.
+// typedNesting is, per candidate, the candidate whose part holds it (through
+// instances that are no candidates themselves), or -1: the nesting of an
+// instance's parts, whose declarations need not own one another. An instance
+// is an individual definition, whose parts are typed by the individuals it is
+// composed of, or a usage, whose parts are bound to the usages it is composed of.
 func (e *executor) typedNesting(
 	expression queryplan.Expression,
 	nodes []*treeNode,
@@ -137,14 +139,14 @@ func (e *executor) typedNesting(
 	visited := make(map[rowKey]struct{})
 	for i, node := range nodes {
 		sym, ok := node.value.Element()
-		if !ok || !individualDefinition(sym) {
+		if !ok || !(individualDefinition(sym) || sym.DeclaresUsage()) {
 			continue
 		}
 		queue := []*symbols.Symbol{sym}
 		for len(queue) > 0 {
 			next := queue[0]
 			queue = queue[1:]
-			for _, part := range e.individualParts(next) {
+			for _, part := range e.instanceParts(next) {
 				key := keyOfRow(ElementValue(part))
 				if j, candidate := index[key]; candidate {
 					if parents[j] < 0 && j != i {
@@ -166,10 +168,11 @@ func (e *executor) typedNesting(
 	return parents, nil
 }
 
-// individualParts are the individual definitions typing the part and item
-// usages an individual definition declares: the individuals it is composed
-// of. A reference usage names an individual without containing it.
-func (e *executor) individualParts(sym *symbols.Symbol) []*symbols.Symbol {
+// instanceParts are the instances the part and item usages sym declares hold:
+// the individual definitions typing them and the usages they are bound to,
+// the instances sym is composed of. A reference usage names an instance
+// without containing it.
+func (e *executor) instanceParts(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Scope == nil {
 		return nil
 	}
@@ -182,6 +185,18 @@ func (e *executor) individualParts(sym *symbols.Symbol) []*symbols.Symbol {
 		for _, typ := range e.context.Model.FeatureTypeSet(member) {
 			if typ != sym && individualDefinition(typ) {
 				out = append(out, typ)
+			}
+		}
+		values, ok, err := e.context.Model.DeclaredFeatureValues(sym, member.Name)
+		if !ok || err != nil {
+			continue
+		}
+		for _, value := range values {
+			if value.RefFQN == "" {
+				continue
+			}
+			if targets := e.context.Index.LookupQualified(value.RefFQN); len(targets) == 1 && targets[0] != sym && targets[0].DeclaresUsage() {
+				out = append(out, targets[0])
 			}
 		}
 	}

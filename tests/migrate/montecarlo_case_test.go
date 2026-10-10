@@ -45,7 +45,7 @@ func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 	wantNoLine(t, r.Notation, "Median :")
 	wantNoLine(t, r.Notation, "= median")
 	wantLine(t, r.Notation, "analysis 'Monte Carlo' : 'Settling Analysis Monte Carlo' {")
-	wantLine(t, r.Notation, "subject :>> analysed : 'settling of 5 runs';")
+	wantLine(t, r.Notation, "subject :>> analysed = 'settling of 5 runs';")
 	wantLine(t, r.Notation, "out :>> deviation = 0.6;")
 	wantBlock(t, r.Notation, "analysis def 'Retried Settling Monte Carlo' :> Simulation::MonteCarlo {",
 		"subject analysed : 'Retried Settling';",

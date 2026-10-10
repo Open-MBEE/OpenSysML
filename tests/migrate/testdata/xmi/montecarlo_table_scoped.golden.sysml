@@ -8,16 +8,16 @@ analysis def 'Scoped Analysis Monte Carlo' :> Simulation::MonteCarlo {
     return Mean : ScalarValues::Real[1] = mean;
 }
 package ResultsA {
-    individual part def 'analysis of 6 runs' :> 'Scoped Analysis' {
+    part 'analysis of 6 runs' : 'Scoped Analysis' {
         attribute :>> t = 2.5;
         analysis 'Monte Carlo' : 'Scoped Analysis Monte Carlo' {
-            subject :>> analysed : 'analysis of 6 runs';
+            subject :>> analysed = 'analysis of 6 runs';
             out :>> runs = 6;
         }
     }
 }
 package ResultsB {
-    individual part def 'analysis unrecorded' :> 'Scoped Analysis' {
+    part 'analysis unrecorded' : 'Scoped Analysis' {
         attribute :>> t = 1.25;
     }
     view 'Scoped Statistics' {
@@ -27,16 +27,24 @@ package ResultsB {
     }
     calc def 'Scoped Statistics Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
-            source = DocumentQueries::WhereFeature(
+            source = DocumentQueries::Except(
                 source = DocumentQueries::WhereType(
                     source = DocumentQueries::WhereType(
                         source = DocumentQueries::Descendants(
                             source = DocumentQueries::Named(qualifiedName = ("ResultsB"))),
                         type = ("Scoped Analysis")),
-                    type = ("Definition")),
-                'feature' = "isIndividual",
-                operator = "=",
-                value = "true"),
+                    type = ("Usage")),
+                exclude = DocumentQueries::Descendants(
+                    source = DocumentQueries::WhereType(
+                        source = DocumentQueries::Descendants(
+                            source = DocumentQueries::Union(
+                                source = DocumentQueries::Named(qualifiedName = ("ResultsB")),
+                                other = DocumentQueries::WhereType(
+                                    source = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Named(qualifiedName = ("ResultsB"))),
+                                    type = ("Package"))),
+                            maxDepth = 1),
+                        type = ("Type")))),
             properties = ("name"))
     }
     part def 'Scoped Statistics Document' :> DocumentQueries::Document {

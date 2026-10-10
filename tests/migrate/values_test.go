@@ -28,7 +28,7 @@ func wantClean(t *testing.T, name string, r *migrate.Result) {
 
 // An instance of a value type is a value, not an occurrence: it is written as
 // an attribute usage typed by the value type, holding its slots. An instance
-// classified by both a block and a value type is the individual alone.
+// classified by both a block and a value type is the part alone.
 func TestInstanceOfValueTypeIsAnAttributeUsage(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:DataType" xmi:id="_pos" name="Position">
@@ -48,11 +48,11 @@ func TestInstanceOfValueTypeIsAnAttributeUsage(t *testing.T) {
 		`<sysml:ValueType xmi:id="_st" base_DataType="_pos"/><sysml:Block xmi:id="_sb" base_Class="_b"/>`)
 	wantLine(t, r.Notation, "attribute home : Position {")
 	wantLine(t, r.Notation, "attribute :>> x = 2.5;")
-	wantLine(t, r.Notation, "individual part def mixed :> Rover {")
+	wantLine(t, r.Notation, "part mixed : Rover {")
 	wantNoLine(t, r.Notation, "x = 1.0")
 	wantNote(t, r, "_home", migrate.Mapped, "")
-	wantNote(t, r, "_mixed", migrate.Approximated, "an individual cannot specialize a value type")
-	wantNote(t, r, "_ms", migrate.Unmapped, "the slot's defining feature Position::x is not a feature of any classifier the instance is written to specialize")
+	wantNote(t, r, "_mixed", migrate.Approximated, "the instance's classifier Position is not written: a part cannot be typed by an attribute def")
+	wantNote(t, r, "_ms", migrate.Unmapped, "the slot's defining feature Position::x is not a feature of any classifier the instance is written to be typed by")
 	wantClean(t, "value.sysml", r)
 }
 
@@ -376,13 +376,13 @@ func TestSlotOfForeignFeatureIsUnmapped(t *testing.T) {
       </slot>
     </packagedElement>`, `<sysml:ValueType xmi:id="_s1" base_DataType="_a"/><sysml:ValueType xmi:id="_s2" base_DataType="_b"/>`)
 	wantNoLine(t, r.Notation, ":>> y")
-	wantNote(t, r, "_s", migrate.Unmapped, "the slot's defining feature B::y is not a feature of any classifier the instance is written to specialize")
+	wantNote(t, r, "_s", migrate.Unmapped, "the slot's defining feature B::y is not a feature of any classifier the instance is written to be typed by")
 	wantClean(t, "foreign.sysml", r)
 }
 
-// A default that names an individual types the usage by that individual,
-// since a v2 definition is not an expression.
-func TestIndividualDefaultTypesTheUsage(t *testing.T) {
+// A default that names an instance is written as the usage's default value:
+// the instance is a usage, which an expression can name.
+func TestInstanceDefaultIsTheUsageDefault(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_tab" name="Table"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_std" name="usual" classifier="_tab"/>
@@ -393,15 +393,15 @@ func TestIndividualDefaultTypesTheUsage(t *testing.T) {
         <defaultValue xmi:type="uml:InstanceValue" xmi:id="_dv" instance="_std"/>
       </ownedAttribute>
     </packagedElement>`, `<sysml:Block xmi:id="_s1" base_Class="_tab"/><sysml:Block xmi:id="_s2" base_Class="_b"/>`)
-	wantLine(t, r.Notation, "part angles : Table, usual[0..*];")
-	wantNoLine(t, r.Notation, "default = usual")
-	wantNote(t, r, "_p", migrate.Approximated, "the default value, the individual usual, is written as a type of the usage")
-	wantClean(t, "individual.sysml", r)
+	wantLine(t, r.Notation, "part usual : Table;")
+	wantLine(t, r.Notation, "part angles : Table[0..*] default = usual;")
+	wantNote(t, r, "_p", migrate.Mapped, "")
+	wantClean(t, "instance-default.sysml", r)
 }
 
-// An untyped property whose default is an individual is typed by that
-// individual alone: the instance is the only classification it has.
-func TestUntypedPropertyIsTypedByItsIndividualDefault(t *testing.T) {
+// An untyped property whose default is an instance keeps the default and
+// stays untyped: the instance is a usage, not a type.
+func TestUntypedPropertyKeepsItsInstanceDefault(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_tab" name="Table"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_std" name="usual" classifier="_tab"/>
@@ -410,17 +410,17 @@ func TestUntypedPropertyIsTypedByItsIndividualDefault(t *testing.T) {
         <defaultValue xmi:type="uml:InstanceValue" xmi:id="_dv" instance="_std"/>
       </ownedAttribute>
     </packagedElement>`, `<sysml:Block xmi:id="_s1" base_Class="_tab"/><sysml:Block xmi:id="_s2" base_Class="_b"/>`)
-	wantLine(t, r.Notation, "ref angles : usual;")
+	wantLine(t, r.Notation, "ref angles default = usual;")
 	wantNoLine(t, r.Notation, "default value not migrated")
-	wantNote(t, r, "_p", migrate.Approximated, "the default value, the individual usual, is written as a type of the usage")
-	wantClean(t, "untyped-individual.sysml", r)
+	wantNote(t, r, "_p", migrate.Mapped, "")
+	wantClean(t, "untyped-instance-default.sysml", r)
 }
 
-// An individual types a usage only when it is of the usage's kind and an
-// instance of its type: an interface block's individual is no port def, and
-// an instance of an unrelated block is no instance of the type, so such a
-// default stays a comment.
-func TestIndividualDefaultOfAnotherKindIsNotAType(t *testing.T) {
+// An instance is a usage's default only when it is an instance of the usage's
+// type: a port's default may be an instance of its interface block, and an
+// instance of an unrelated block is no instance of the type, so such a default
+// stays a comment.
+func TestInstanceDefaultOfAnotherTypeIsNotADefault(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_bus" name="Bus"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_fits" name="Fits"/>
@@ -448,14 +448,14 @@ func TestIndividualDefaultOfAnotherKindIsNotAType(t *testing.T) {
   <sysml:Block xmi:id="_s3" base_Class="_v"/>
   <sysml:Block xmi:id="_s4" base_Class="_engine"/>
   <sysml:Block xmi:id="_s5" base_Class="_pump"/>`)
-	wantLine(t, r.Notation, "port bus : Bus {")
+	wantLine(t, r.Notation, "port 'bus 1' : Bus;")
+	wantLine(t, r.Notation, "port bus : Bus default = 'bus 1';")
 	wantLine(t, r.Notation, "part engine : Engine {")
-	wantNoLine(t, r.Notation, "Engine, 'pump 1'")
-	wantLine(t, r.Notation, "part check : Fits, 'fits 1';")
-	wantLine(t, r.Notation, "ref loose : 'bus 1';")
-	wantNote(t, r, "_p", migrate.Approximated, "default value not migrated")
-	wantNote(t, r, "_p", migrate.Approximated, "the individual bus 1 cannot type a port: v2 has no individual port def")
-	wantNote(t, r, "_e", migrate.Approximated, "default value not migrated: the individual pump 1 is not an instance of Engine, the type of engine")
+	wantNoLine(t, r.Notation, "default = 'pump 1'")
+	wantLine(t, r.Notation, "part check : Fits default = 'fits 1';")
+	wantLine(t, r.Notation, "ref loose default = 'bus 1';")
+	wantNote(t, r, "_p", migrate.Mapped, "")
+	wantNote(t, r, "_e", migrate.Approximated, "default value not migrated: the default value 'pump 1' is not an instance of Engine, the type of engine")
 	wantClean(t, "kinds-default.sysml", r)
 }
 
@@ -579,7 +579,7 @@ func TestUnmappedSlotDoesNotExposeItsDefiningFeature(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_tmt"/>`)
 	wantLine(t, r.Notation, "part mcs : MCS;")
 	wantLine(t, r.Notation, "private part spare : MCS;")
-	wantLine(t, r.Notation, "individual part :>> mcs : 'mcs 1';")
+	wantLine(t, r.Notation, "part :>> mcs = 'mcs 1';")
 	wantNote(t, r, "_p", migrate.Approximated, "private visibility is not written: instance 'tmt 1' has a slot for it")
 	wantNote(t, r, "_q", migrate.Mapped, "")
 	wantNote(t, r, "_sl2", migrate.Unmapped, "a part holds instances; the slot's value is a LiteralInteger")
@@ -656,9 +656,9 @@ func TestSameNamedPortCannotRedefineAnInheritedProperty(t *testing.T) {
 	wantClean(t, "shadow-port.sysml", r)
 }
 
-// A slot of a part property holds instances: one redefines the part as an
-// individual typed by that instance, several each subset it under a
-// redefinition counting them. A reference part keeps its `ref`.
+// A slot of a part property holds instances: the redefinition of the part is
+// bound to the instance usage, or to the sequence of several. A reference
+// part keeps its `ref`.
 func TestPartSlotsRedefineThePartByItsInstance(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_mcs" name="MCS"/>
@@ -695,14 +695,12 @@ func TestPartSlotsRedefineThePartByItsInstance(t *testing.T) {
   <sysml:Block xmi:id="_s1" base_Class="_mcs"/>
   <sysml:Block xmi:id="_s2" base_Class="_fast"/>
   <sysml:Block xmi:id="_s3" base_Class="_tmt"/>`)
-	wantLine(t, r.Notation, "individual part def 'mcs 1' :> FastMCS;")
-	wantLine(t, r.Notation, "individual part def 'tmt 1' :> TMT {")
-	wantLine(t, r.Notation, "individual part :>> mcs : 'mcs 1';")
-	wantLine(t, r.Notation, "part :>> spares [2];")
-	wantLine(t, r.Notation, "individual part : 'mcs 1' :> spares;")
-	wantLine(t, r.Notation, "individual part : 'mcs 2' :> spares;")
-	wantLine(t, r.Notation, "ref individual part :>> shared : 'mcs 2';")
-	wantLine(t, r.Notation, "individual part :>> spares : 'mcs 2'[1];")
+	wantLine(t, r.Notation, "part 'mcs 1' : FastMCS;")
+	wantLine(t, r.Notation, "part 'tmt 1' : TMT {")
+	wantLine(t, r.Notation, "part :>> mcs = 'mcs 1';")
+	wantLine(t, r.Notation, "part :>> spares = ('mcs 1', 'mcs 2');")
+	wantLine(t, r.Notation, "ref part :>> shared = 'mcs 2';")
+	wantLine(t, r.Notation, "part :>> spares = 'mcs 2';")
 	for _, id := range []string{"_sl1", "_sl2", "_sl3", "_sl4"} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 			t.Errorf("entries for %s = %+v", id, es)
@@ -737,11 +735,11 @@ func TestPartSlotRepeatingOnAForcedUniquePartIsUnmapped(t *testing.T) {
 	wantClean(t, "part-slot-repeat.sysml", r)
 }
 
-// A part slot whose value is not an individual of the part's type has no v2
+// A part slot whose value is not an instance of the part's type has no v2
 // form: a literal, an instance without a classifier, an instance of another
-// block or of a block where an item is due, or a port's slot, since v2 has no
-// individual port def for an instance of an interface block to be.
-func TestPartSlotWithoutAConformingIndividualIsUnmapped(t *testing.T) {
+// block or of a block where an item is due, or a part where an attribute is
+// due; a port's slot is bound to the instance of its interface block.
+func TestPartSlotWithoutAConformingInstanceIsUnmapped(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_mcs" name="MCS"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_other" name="Other"/>
@@ -785,21 +783,24 @@ func TestPartSlotWithoutAConformingIndividualIsUnmapped(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_other"/>
   <sysml:InterfaceBlock xmi:id="_s3" base_Class="_if"/>
   <sysml:Block xmi:id="_s4" base_Class="_tmt"/>`)
-	wantLine(t, r.Notation, "individual def 'bus 1' :> Bus;")
+	wantLine(t, r.Notation, "port 'bus 1' : Bus;")
 	wantNoLine(t, r.Notation, ":>> mcs")
 	wantNote(t, r, "_sl1", migrate.Unmapped, "a part holds instances; the slot's value is a LiteralInteger")
-	wantNote(t, r, "_sl2", migrate.Unmapped, "the slot's value 'snapshot' is not written as an individual: an instance specification without a classifier has no v2 form")
+	wantNote(t, r, "_sl2", migrate.Unmapped, "the slot's value 'snapshot' is not written as a usage: an instance specification without a classifier has no v2 form")
 	wantNote(t, r, "_sl3", migrate.Unmapped, "the slot's value 'other 1' is not an instance of MCS, the type of mcs")
-	wantNote(t, r, "_sl4", migrate.Unmapped, "the slot of port bus is not written: v2 has no individual port for it to be typed by")
-	wantNote(t, r, "_sl5", migrate.Unmapped, "the slot of port link is not written: v2 has no individual port for it to be typed by")
-	wantNote(t, r, "_sl6", migrate.Unmapped, "the individual mcs 1 is a definition, which is not a v2 value")
-	wantNote(t, r, "_sl7", migrate.Unmapped, "the slot's value 'other 1' is an individual part def, which cannot type an item")
+	wantLine(t, r.Notation, "port :>> bus = 'bus 1';")
+	wantLine(t, r.Notation, "port :>> link = 'bus 1';")
+	wantNote(t, r, "_sl4", migrate.Mapped, "")
+	wantNote(t, r, "_sl5", migrate.Mapped, "")
+	wantNoLine(t, r.Notation, ":>> loose")
+	wantNote(t, r, "_sl6", migrate.Unmapped, "the slot's value 'mcs 1' is written as a part, which cannot be the value of an attribute")
+	wantNote(t, r, "_sl7", migrate.Unmapped, "the slot's value 'other 1' is not an instance of Ping, the type of ping")
 	wantClean(t, "bad-part-slots.sysml", r)
 }
 
 // A slot of an untyped part — composite, or marked «PartProperty» — holds any
-// individual part: the property has no type to check the instance against.
-func TestUntypedPartSlotIsTypedByItsIndividual(t *testing.T) {
+// part instance: the property has no type to check the instance against.
+func TestUntypedPartSlotHoldsAnyInstance(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_wheel" name="Wheel"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
@@ -820,15 +821,15 @@ func TestUntypedPartSlotIsTypedByItsIndividual(t *testing.T) {
   <MD_Customization_for_SysML__additional_stereotypes:PartProperty xmlns:MD_Customization_for_SysML__additional_stereotypes="http://www.magicdraw.com/spec/Customization/180/SysML" xmi:id="_mk" base_Property="_s"/>`)
 	wantLine(t, r.Notation, "part wheel;")
 	wantLine(t, r.Notation, "part spare;")
-	wantLine(t, r.Notation, "individual part :>> wheel : 'wheel 1';")
-	wantLine(t, r.Notation, "individual part :>> spare : 'wheel 1';")
+	wantLine(t, r.Notation, "part :>> wheel = 'wheel 1';")
+	wantLine(t, r.Notation, "part :>> spare = 'wheel 1';")
 	wantNote(t, r, "_sw", migrate.Mapped, "")
 	wantNote(t, r, "_ss", migrate.Mapped, "")
 	wantClean(t, "untyped-part-slots.sysml", r)
 }
 
 // An untyped part that redefines a typed one, by declaration or by sharing its
-// name, inherits the type: a slot holding an individual of another type is unmapped.
+// name, inherits the type: a slot holding an instance of another type is unmapped.
 func TestUntypedRedefiningPartSlotKeepsTheInheritedType(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_wheel" name="Wheel"/>
@@ -858,15 +859,15 @@ func TestUntypedRedefiningPartSlotKeepsTheInheritedType(t *testing.T) {
   <sysml:Block xmi:id="_s4" base_Class="_car"/>`)
 	wantLine(t, r.Notation, "part wheel :>> wheel;")
 	wantLine(t, r.Notation, "part front :>> spare;")
-	wantNoLine(t, r.Notation, "individual part :>> wheel : 'engine 1';")
+	wantNoLine(t, r.Notation, ":>> wheel = 'engine 1'")
 	wantNote(t, r, "_sw", migrate.Unmapped, "the slot's value 'engine 1' is not an instance of Wheel, the type of wheel")
-	wantLine(t, r.Notation, "individual part :>> front : 'wheel 1';")
+	wantLine(t, r.Notation, "part :>> front = 'wheel 1';")
 	wantNote(t, r, "_ss", migrate.Mapped, "")
 	wantClean(t, "redefining-part-slots.sysml", r)
 }
 
 // An untyped part subsetting several typed ones must hold an instance of every
-// type: an individual of only the first is unmapped, one of all is written.
+// type: an instance of only the first is unmapped, one of all is written.
 func TestUntypedPartSlotKeepsEveryInheritedType(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_vehicle" name="Vehicle"/>
@@ -893,18 +894,18 @@ func TestUntypedPartSlotKeepsEveryInheritedType(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_wheel"/>
   <sysml:Block xmi:id="_s3" base_Class="_car"/>`)
 	wantLine(t, r.Notation, "part spare :> vehicle :> wheel;")
-	wantNoLine(t, r.Notation, "individual part :>> spare : 'vehicle 1';")
+	wantNoLine(t, r.Notation, ":>> spare = 'vehicle 1'")
 	wantNote(t, r, "_ss", migrate.Unmapped, "the slot's value 'vehicle 1' is not an instance of Wheel, the type of spare")
-	wantLine(t, r.Notation, "individual part :>> trailer : 'wheel 1';")
+	wantLine(t, r.Notation, "part :>> trailer = 'wheel 1';")
 	wantNote(t, r, "_st", migrate.Mapped, "")
 	wantClean(t, "subsetting-part-slots.sysml", r)
 }
 
-// An individual takes the kind of its classifier — `individual constraint
-// def` for an instance of a constraint block — and its slots redefine the
-// parameters with their `in` direction. Classifiers of another kind are not
+// An instance takes the kind of its classifier — a `constraint` usage for an
+// instance of a constraint block — and its slots redefine the parameters with
+// their `in` direction. Classifiers of another kind are not
 // written: v2 does not cross them.
-func TestIndividualTakesTheKindOfItsClassifier(t *testing.T) {
+func TestInstanceTakesTheKindOfItsClassifier(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_fits" name="Fits">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_x" name="x">`+realHref+`</ownedAttribute>
@@ -934,21 +935,21 @@ func TestIndividualTakesTheKindOfItsClassifier(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_an"/>
   <sysml:Block xmi:id="_s3" base_Class="_b"/>
   <sysml:InterfaceBlock xmi:id="_s4" base_Class="_bus"/>`)
-	wantLine(t, r.Notation, "individual constraint def 'fits 1' :> Fits {")
+	wantLine(t, r.Notation, "constraint 'fits 1' : Fits {")
 	wantLine(t, r.Notation, "in attribute :>> x = 3.0;")
-	wantLine(t, r.Notation, "individual constraint :>> fits : 'fits 1';")
-	wantLine(t, r.Notation, "individual part def mixed :> Rover {")
-	wantNote(t, r, "_mixed", migrate.Approximated, "the instance's classifier Fits is not written: an individual part def cannot specialize a constraint def")
+	wantLine(t, r.Notation, "constraint :>> fits = 'fits 1';")
+	wantLine(t, r.Notation, "part mixed : Rover {")
+	wantNote(t, r, "_mixed", migrate.Approximated, "the instance's classifier Fits is not written: a part cannot be typed by a constraint def")
 	wantNoLine(t, r.Notation, "attribute :>> x = 4.0;")
-	wantNote(t, r, "_sl3", migrate.Unmapped, "the slot's defining feature Fits::x is not a feature of any classifier the instance is written to specialize")
-	wantLine(t, r.Notation, "individual part def 'port first' :> Rover;")
-	wantNote(t, r, "_pf", migrate.Approximated, "the instance's classifier Bus is not written: an individual part def cannot specialize a port def")
+	wantNote(t, r, "_sl3", migrate.Unmapped, "the slot's defining feature Fits::x is not a feature of any classifier the instance is written to be typed by")
+	wantLine(t, r.Notation, "port 'port first' : Bus;")
+	wantNote(t, r, "_pf", migrate.Approximated, "the instance's classifier Rover is not written: a port cannot be typed by a part def")
 	wantClean(t, "kinds.sysml", r)
 }
 
 // A simulation tool records its verdict on a constraint property in the
 // result instance's slot for it, as a literal of a verdict enumeration outside
-// the document; an individual has no slot for a verdict, and the note says
+// the document; a usage has no slot for a verdict, and the note says
 // that is what the slot holds rather than that the literal is out of reach.
 func TestConstraintSlotHoldingAVerdictIsUnmappedAsOne(t *testing.T) {
 	r := migrateDocument(t, `
@@ -971,20 +972,20 @@ func TestConstraintSlotHoldingAVerdictIsUnmappedAsOne(t *testing.T) {
     </packagedElement>`, `
   <sysml:ConstraintBlock xmi:id="_s1" base_Class="_fits"/>
   <sysml:Block xmi:id="_s2" base_Class="_an"/>`)
-	wantLine(t, r.Notation, "individual part def 'analysis 1' :> Analysis {")
+	wantLine(t, r.Notation, "part 'analysis 1' : Analysis {")
 	wantNoLine(t, r.Notation, ":>> fits")
-	wantNote(t, r, "_sl1", migrate.Unmapped, "the slot of constraint fits holds the literal SysML::Requirements::VerdictKind::pass, the run's verdict on the constraint rather than an instance of its type; an individual has no slot for a verdict")
+	wantNote(t, r, "_sl1", migrate.Unmapped, "the slot of constraint fits holds the literal SysML::Requirements::VerdictKind::pass, the run's verdict on the constraint rather than an instance of its type; a usage has no slot for a verdict")
 	wantClean(t, "verdict-slot.sysml", r)
 }
 
-// An instance classified by an actor, a part usage once migrated, specializes
-// nothing of it: an individual cannot specialize a usage.
-func TestInstanceOfActorSpecializesNoUsage(t *testing.T) {
+// An instance classified by an actor, a part usage once migrated, is a part
+// usage subsetting it: one of the actor's instances.
+func TestInstanceOfActorSubsetsTheUsage(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Actor" xmi:id="_d" name="Driver"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_alice" name="alice" classifier="_d"/>`, ``)
-	wantLine(t, r.Notation, "/* not migrated: InstanceSpecification 'alice' — the instance's classifier Driver is written as a part usage, which an individual cannot specialize */")
-	wantNoLine(t, r.Notation, "individual part alice")
-	wantNote(t, r, "_alice", migrate.Unmapped, "the instance's classifier Driver is written as a part usage, which an individual cannot specialize")
+	wantLine(t, r.Notation, "part Driver;")
+	wantLine(t, r.Notation, "part alice :> Driver;")
+	wantNote(t, r, "_alice", migrate.Mapped, "")
 	wantClean(t, "actor-instance.sysml", r)
 }

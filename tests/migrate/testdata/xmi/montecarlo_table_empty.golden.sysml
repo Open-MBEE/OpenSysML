@@ -8,10 +8,10 @@ analysis def 'Blank Analysis Monte Carlo' :> Simulation::MonteCarlo {
     return Mean : ScalarValues::Real[1] = mean;
 }
 package Results {
-    individual part def 'analysis of nothing' :> 'Blank Analysis' {
+    part 'analysis of nothing' : 'Blank Analysis' {
         attribute :>> t = 2.5;
     }
-    individual part def 'analysis of nothing else' :> 'Blank Analysis' {
+    part 'analysis of nothing else' : 'Blank Analysis' {
         attribute :>> t = 1.25;
     }
     view 'Blank Statistics' {
@@ -22,16 +22,24 @@ package Results {
     }
     calc def 'Blank Statistics Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
-            source = DocumentQueries::WhereFeature(
+            source = DocumentQueries::Except(
                 source = DocumentQueries::WhereType(
                     source = DocumentQueries::WhereType(
                         source = DocumentQueries::Descendants(
                             source = DocumentQueries::Named(qualifiedName = ("Results"))),
                         type = ("Blank Analysis")),
-                    type = ("Definition")),
-                'feature' = "isIndividual",
-                operator = "=",
-                value = "true"),
+                    type = ("Usage")),
+                exclude = DocumentQueries::Descendants(
+                    source = DocumentQueries::WhereType(
+                        source = DocumentQueries::Descendants(
+                            source = DocumentQueries::Union(
+                                source = DocumentQueries::Named(qualifiedName = ("Results")),
+                                other = DocumentQueries::WhereType(
+                                    source = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Named(qualifiedName = ("Results"))),
+                                    type = ("Package"))),
+                            maxDepth = 1),
+                        type = ("Type")))),
             properties = ("name"))
     }
     part def 'Blank Statistics Document' :> DocumentQueries::Document {

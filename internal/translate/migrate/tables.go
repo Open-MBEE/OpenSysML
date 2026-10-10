@@ -384,7 +384,7 @@ func (m *migration) plainName(e *sysmlv1.Element) string {
 	return strings.Join(m.segments(e), "::")
 }
 
-// typedRows filters src by the row types; individuals only for an instance table.
+// typedRows filters src by the row types; package-owned usages only for an instance table.
 func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, individuals bool, l *lowered) qx {
 	if len(types) == 0 {
 		if individuals {
@@ -425,11 +425,16 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 			merged = mergeTypeFilters(filtersToMerge)
 		}
 		source := src
-		if (merged.excluding != nil || len(merged.usages) > 0) && !l.perRow {
+		if (merged.excluding != nil || len(merged.usages) > 0 || merged.instances) && !l.perRow {
 			source = qshared(src)
 		}
 		if len(filtersToMerge) > 0 {
 			qs = append(qs, merged.query(source))
+		}
+		if merged.instances {
+			// A link is a connection usage, as the lines of a use case diagram are.
+			instances := qcall("Except", qarg1("source", whereType(source, "Usage")), qarg1("exclude", whereType(source, "ConnectionUsage")))
+			qs = append(qs, packageOwnedUsages(instances, source, l.roots))
 		}
 		if len(metadata) > 0 {
 			qs = append(qs, qcall("WhereMetadata", qarg1("source", source), qstrs("'metadata'", metadata...)))
@@ -444,10 +449,23 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 		l.note("rows of subtypes of the row types are listed too: a type filter admits conforming elements")
 	}
 	if individuals {
-		rows = qcall("WhereFeature", qarg1("source", whereType(rows, "Definition")), qarg1("'feature'", qstr("isIndividual")),
-			qarg1("operator", qstr("=")), qarg1("value", qstr("true")))
+		rows = packageOwnedUsages(whereType(rows, "Usage"), src, l.roots)
 	}
 	return rows
+}
+
+// packageOwnedUsages keeps the usages among rows (usages all) that a package
+// owns — the instances of the scope — dropping the features its types own: a
+// property, a slot bound to an instance. Descendants yields no element of its source, so
+// the nested elements are those of the types the scope's packages own directly.
+func packageOwnedUsages(rows, src qx, roots []string) qx {
+	packages := whereType(src, "Package")
+	if len(roots) > 0 {
+		packages = qcall("Union", qarg1("source", qcall("Named", qstrs("qualifiedName", roots...))), qarg1("other", packages))
+	}
+	members := qcall("Descendants", qarg1("source", packages), qarg1("maxDepth", qlit("1")))
+	nested := qcall("Descendants", qarg1("source", whereType(members, "Type")))
+	return qcall("Except", qarg1("source", rows), qarg1("exclude", nested))
 }
 
 // typesAdmitAll reports whether one of the filters admits every element, which
@@ -491,7 +509,7 @@ func union(qs []qx) qx {
 // queryProperties maps the UML properties a column or sort reads to the query
 // properties the row's migrated element has. A requirement's Id and Text tags
 // are written as its short name and documentation; the classifier of an
-// instance is the general of the individual it became.
+// instance is the general of the usage it became.
 var queryProperties = map[string]string{
 	"name":          "name",
 	"documentation": "documentation",

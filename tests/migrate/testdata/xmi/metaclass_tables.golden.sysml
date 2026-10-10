@@ -18,7 +18,7 @@ package Plant {
             on;
             off;
         }
-        individual part def p1 :> Pump {
+        part p1 : Pump {
             attribute :>> mass = 12.5;
         }
         dependency needs from Pump to Valve;
@@ -41,12 +41,24 @@ package Tables {
         render Views::asElementTable;
     }
     calc def 'Packageable Elements Rows' :> DocumentQueries::Query {
+        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+            source = DocumentQueries::Named(qualifiedName = ("Plant")));
         DocumentQueries::Project(
             source = DocumentQueries::OrderBy(
-                source = DocumentQueries::WhereType(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Plant"))),
-                    type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "Dependency", "SatisfyRequirementUsage", "AllocationUsage")),
+                source = DocumentQueries::Union(
+                    source = DocumentQueries::WhereType(source = candidates, type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "Dependency", "SatisfyRequirementUsage", "AllocationUsage")),
+                    other = DocumentQueries::Except(
+                        source = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(source = candidates, type = ("Usage")),
+                            exclude = DocumentQueries::WhereType(source = candidates, type = ("ConnectionUsage"))),
+                        exclude = DocumentQueries::Descendants(
+                            source = DocumentQueries::WhereType(
+                                source = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Union(
+                                        source = DocumentQueries::Named(qualifiedName = ("Plant")),
+                                        other = DocumentQueries::WhereType(source = candidates, type = ("Package"))),
+                                    maxDepth = 1),
+                                type = ("Type"))))),
                 property = "qualifiedName",
                 direction = "ascending",
                 missing = "last",

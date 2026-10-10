@@ -335,8 +335,8 @@ func TestInstanceWithSeveralClassifiers(t *testing.T) {
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_both" name="both" classifier="_a _b"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mixed" name="mixed" classifier="_a _act"/>`,
 		`<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/>`)
-	wantLine(t, r.Notation, "individual part def both :> A, B;")
-	wantLine(t, r.Notation, "individual part def mixed :> A;")
+	wantLine(t, r.Notation, "part both : A, B;")
+	wantLine(t, r.Notation, "part mixed : A;")
 	if es := entriesFor(r, "_both"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 		t.Errorf("both entries = %+v", es)
 	}
@@ -624,7 +624,7 @@ func TestSignalIsAnItemDef(t *testing.T) {
 // A v1 requirement is a requirement usage, as a tool's users draw one: a nested
 // requirement is a subrequirement, a satisfy, verify or refine joins it directly
 // with no usage written beside it, a property it types subsets it, and an
-// instance of it is no individual.
+// instance of it is a requirement usage subsetting it.
 func TestRequirementsAreUsages(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Package" xmi:id="_reqs" name="Reqs">
@@ -656,6 +656,7 @@ func TestRequirementsAreUsages(t *testing.T) {
 	wantLine(t, r.Notation, "requirement held :> Reqs::Mass;")
 	wantLine(t, r.Notation, "connection 'Drive refines Mass' connect Drive to Reqs::Mass;")
 	wantLine(t, r.Notation, "satisfy Reqs::Mass.'Chassis Mass';")
-	wantNote(t, r, "_i", migrate.Unmapped, "the instance's classifier Reqs::Mass is written as a requirement usage, which an individual cannot specialize")
+	wantLine(t, r.Notation, "requirement 'mass 1' :> Mass;")
+	wantNote(t, r, "_i", migrate.Mapped, "")
 	wantClean(t, "requirement-usages.sysml", r)
 }

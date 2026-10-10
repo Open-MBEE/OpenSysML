@@ -9,10 +9,10 @@ analysis def 'Base Analysis Monte Carlo' :> Simulation::MonteCarlo {
 }
 part def 'Fast Analysis' :> 'Base Analysis';
 package Results {
-    individual part def 'fast analysis of 9 runs' :> 'Fast Analysis' {
+    part 'fast analysis of 9 runs' : 'Fast Analysis' {
         attribute :>> t = 4.0;
         analysis 'Monte Carlo' : 'Base Analysis Monte Carlo' {
-            subject :>> analysed : 'fast analysis of 9 runs';
+            subject :>> analysed = 'fast analysis of 9 runs';
             out :>> runs = 9;
         }
     }
@@ -24,16 +24,24 @@ package Results {
     calc def 'Fast Statistics Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
             source = DocumentQueries::OrderBy(
-                source = DocumentQueries::WhereFeature(
+                source = DocumentQueries::Except(
                     source = DocumentQueries::WhereType(
                         source = DocumentQueries::WhereType(
                             source = DocumentQueries::Descendants(
                                 source = DocumentQueries::Named(qualifiedName = ("Results"))),
                             type = ("Fast Analysis")),
-                        type = ("Definition")),
-                    'feature' = "isIndividual",
-                    operator = "=",
-                    value = "true"),
+                        type = ("Usage")),
+                    exclude = DocumentQueries::Descendants(
+                        source = DocumentQueries::WhereType(
+                            source = DocumentQueries::Descendants(
+                                source = DocumentQueries::Union(
+                                    source = DocumentQueries::Named(qualifiedName = ("Results")),
+                                    other = DocumentQueries::WhereType(
+                                        source = DocumentQueries::Descendants(
+                                            source = DocumentQueries::Named(qualifiedName = ("Results"))),
+                                        type = ("Package"))),
+                                maxDepth = 1),
+                            type = ("Type")))),
                 property = "'Monte Carlo'.runs",
                 direction = "descending",
                 missing = "last",

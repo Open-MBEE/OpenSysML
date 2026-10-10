@@ -158,11 +158,11 @@ func TestViewForms(t *testing.T) {
 			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
 			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_pump"/>`,
 			[]string{"view def Safety {\n    viewpoint safety {\n        subject;\n    }\n    satisfy safety;\n    metadata MigrationMetadata::SynthesizedName about safety;\n}"}, "_vp2", Approximated},
-		{"an instance of a view is approximated while a viewpoint is a definition",
+		{"an instance of a view is a view usage while a viewpoint is a definition",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
 			 <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_i" name="snapshot" classifier="_v _vp"/>`,
 			`<sysml:View xmi:id="_s1" base_Class="_v"/>`,
-			[]string{"individual view def 'snapshot' :> Ops;"}, "_i", Approximated},
+			[]string{"view 'snapshot' : Ops :> Overview;"}, "_i", Mapped},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := Migrate("views.xmi", []byte(viewModel(tc.members, tc.stereotypes)))
@@ -190,9 +190,6 @@ func TestViewForms(t *testing.T) {
 			}
 			if !found {
 				t.Errorf("%s is missing from the report", tc.id)
-			}
-			if strings.Contains(got, "individual view 'snapshot'") {
-				t.Errorf("an individual specializes the view usage:\n%s", got)
 			}
 		})
 	}
