@@ -1,0 +1,4 @@
+exit: outside
+enter: A
+enter: inner
+transition: outside -> inner (event: accept Enter)

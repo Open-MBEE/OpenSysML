@@ -140,6 +140,8 @@ type imagedState struct {
 	timerScheduled     map[*lower.Transition]bool
 	timeTriggerVerdict map[*lower.Transition]error
 	changeFired        map[*lower.Transition]bool
+	changeObserved     map[*lower.Transition]bool
+	changePending      map[*lower.Transition]bool
 	firingChange       *lower.Transition
 	firingNotes        []RunNote
 	changeRearmed      map[*lower.Transition]bool
@@ -420,6 +422,8 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		timerScheduled:     maps.Clone(e.timerScheduled),
 		timeTriggerVerdict: maps.Clone(e.timeTriggerVerdict),
 		changeFired:        maps.Clone(e.changeFired),
+		changeObserved:     maps.Clone(e.changeObserved),
+		changePending:      maps.Clone(e.changePending),
 		firingChange:       e.firingChange,
 		firingNotes:        slices.Clone(e.firingNotes),
 		changeRearmed:      maps.Clone(e.changeRearmed),
@@ -549,6 +553,7 @@ func (m *materializing) behavior(b imagedBehavior) error {
 		if err := m.stateExecutor(exec, b.state); err != nil {
 			return err
 		}
+		dst.registerStateExecutor(exec)
 		if b.onClock {
 			dst.clock.attach(exec)
 		}
@@ -1018,6 +1023,9 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	e.timerScheduled = maps.Clone(img.timerScheduled)
 	e.timeTriggerVerdict = maps.Clone(img.timeTriggerVerdict)
 	e.changeFired = maps.Clone(img.changeFired)
+	e.changeObserved = maps.Clone(img.changeObserved)
+	e.changePending = maps.Clone(img.changePending)
+	e.changeReads = make(map[*lower.Transition][]*FeatureValue)
 	e.firingChange, e.firingNotes = img.firingChange, slices.Clone(img.firingNotes)
 	e.changeRearmed = maps.Clone(img.changeRearmed)
 	e.changeWaits = slices.Clone(img.changeWaits)

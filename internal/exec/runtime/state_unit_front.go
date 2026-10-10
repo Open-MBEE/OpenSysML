@@ -35,6 +35,16 @@ func (e *StateExecutor) effectLabel(trans *lower.Transition) string {
 	return e.transitionLabel(trans) + "(effect)"
 }
 
+func (e *StateExecutor) entryTransitionEffectHead(owner ast.Node, entry *lower.EntryTransition) unitHead {
+	label := e.describeBody(owner) + "(effect)"
+	if transition, ok := entry.Decl.(*ast.TransitionMember); ok {
+		if source := lower.EndpointText(transition.Source); source != "" {
+			label = source + "->" + StateVertexName(entryTarget(entry)) + "(effect)"
+		}
+	}
+	return unitHead{label: label, at: entry.Decl, site: e.bodySite(owner)}
+}
+
 // stateName is the state's name, qualified by its region where another region's state shares it.
 func (e *StateExecutor) stateName(state *ast.StateNode) string {
 	if region := e.graph.RegionOf[state]; region != nil && region.Name != "" && e.nameShared(state) {
