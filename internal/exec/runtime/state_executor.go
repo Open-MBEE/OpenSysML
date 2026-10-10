@@ -798,27 +798,16 @@ func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) erro
 	return nil
 }
 
-// completesAtEntry reports whether entry queues completion for a bodyless state without substates.
+// completesAtEntry reports whether entering state as the end of an entry path queues
+// its completion at once: it has a completion transition and nothing below to enter.
 func (e *StateExecutor) completesAtEntry(state *ast.StateNode) bool {
-	return !e.hasBody(state) && !e.declaresSubstates(state) && completionCount(e.graph.Transitions[state]) > 0
+	return !e.hasBody(state) && completionCount(e.graph.Transitions[state]) > 0
 }
 
 // hasBody reports whether state has substates to enter: orthogonal regions or a start.
 func (e *StateExecutor) hasBody(state *ast.StateNode) bool {
 	_, orthogonal := e.graph.CompositeStates[state]
 	return orthogonal || len(e.graph.StartOf(state)) > 0
-}
-
-func (e *StateExecutor) declaresSubstates(state *ast.StateNode) bool {
-	if state == nil {
-		return false
-	}
-	for _, child := range e.graph.States {
-		if e.graph.ParentState[child] == state && !e.graph.Completes(child) {
-			return true
-		}
-	}
-	return false
 }
 
 // scheduleTimeTransitions queues a time event per time-triggered transition out
