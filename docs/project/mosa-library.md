@@ -1,6 +1,6 @@
 # MOSA library — design
 
-Status: **implemented.** `internal/workspace/libs/stdlib/OpenSysML Libraries/MOSA.sysml` is bundled
+Status: **implemented.** `internal/workspace/libs/stdlib/OpenSysML Libraries/MOSA.sysml` — maintained upstream at Open-MBEE/OpenSysML-Extensions-Library and vendored here pinned by `scripts/extension-libraries-pin.sh` — is bundled
 with the other OpenSysML extensions, enters the same conformance, strict-notation and snapshot
 gates, and is exercised by `examples/mosa-demo/mosa-demo.sysml` (`TestExamplesAnalyseCleanly`).
 `passes.MOSAPass` audits models written against it.
