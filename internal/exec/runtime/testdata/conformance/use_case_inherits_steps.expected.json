@@ -1,0 +1,10 @@
+{
+  "libraries": true,
+  "type": "action",
+  "evaluate": "test::Derived",
+  "trace": true,
+  "outputs": {
+    "n": {"type": "Integer", "value": 1},
+    "charge.charged": {"type": "Integer", "value": 10}
+  }
+}

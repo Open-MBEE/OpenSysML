@@ -1594,13 +1594,14 @@ func (e *ActionExecutor) setFrameFeatures(frame *actionFrame, values map[string]
 
 // bindCaseMembers binds the subject and actors a use case gives a value (`subject drone
 // = d;`, `actor pilot = p;`) as a requirement binds its own, under the names the case
-// declares; a supplied input of the name stands. One given no value stays unbound.
+// declares. The binding expressions read the inputs already held; a supplied input
+// of a member's name stands. A member given no value stays unbound.
 func (e *ActionExecutor) bindCaseMembers() error {
 	if e.action.Kind != symbols.SymbolUseCaseDef && e.action.Kind != symbols.SymbolUseCaseUsage {
 		return nil
 	}
-	members := e.ctx.chainMembers(e.action, e.graph.Scope)
-	bindings, err := e.ctx.memberBindings(e.action, "use case", e.action.Name, members, e.self, nil, frame{})
+	members := e.ctx.chainMembers(e.action, DeclScope(e.action))
+	bindings, err := e.ctx.memberBindings(e.action, "use case", e.action.Name, members, e.self, nil, performanceFrame(e.root))
 	if err != nil {
 		return err
 	}
@@ -1642,8 +1643,9 @@ func (e *ActionExecutor) completeWithoutFlow() error {
 	return e.completeRoot()
 }
 
-// bindInputs writes the supplied inputs into the performance, then the
-// attributes it declares: a default written in terms of an input reads it.
+// bindInputs writes the supplied inputs into the performance, then the subject
+// and actors a use case binds, then the attributes it declares: a default
+// written in terms of an input or the subject reads it.
 func (e *ActionExecutor) bindInputs() error {
 	if err := e.fixWitnessInputs(); err != nil {
 		return inputBindingError{Err: err}
@@ -1653,6 +1655,9 @@ func (e *ActionExecutor) bindInputs() error {
 	}
 	if err := e.setFrameFeatures(e.root, e.inputs); err != nil {
 		return inputBindingError{Err: err}
+	}
+	if err := e.bindCaseMembers(); err != nil {
+		return err
 	}
 	if err := e.initializeAttributes(); err != nil {
 		return inputBindingError{Err: fmt.Errorf("initialize attributes: %w", err)}
@@ -1792,9 +1797,6 @@ func (e *ActionExecutor) initialize() error {
 
 	e.beginRootPerformance()
 	if err := e.bindInputs(); err != nil {
-		return err
-	}
-	if err := e.bindCaseMembers(); err != nil {
 		return err
 	}
 

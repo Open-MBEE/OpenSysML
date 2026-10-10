@@ -349,11 +349,11 @@ func enclosingActionScope(scope *symbols.Scope) *symbols.Scope {
 	for s := scope; s != nil; s = s.Parent() {
 		switch n := s.Node().(type) {
 		case *ast.Definition:
-			if n.Kind == ast.DefAction {
+			if n.Kind.IsAction() {
 				return s
 			}
 		case *ast.Usage:
-			if n.Kind == ast.UsageAction {
+			if n.Kind.IsAction() {
 				return s
 			}
 		}
@@ -641,7 +641,7 @@ func lookupScopePartsText(scope *symbols.Scope, parts []string) (*symbols.Symbol
 func isActionNode(decl ast.Node) bool {
 	switch n := decl.(type) {
 	case *ast.Usage:
-		return n.Kind == ast.UsageAction || n.Kind == ast.UsageAnalysisCase ||
+		return n.Kind.IsAction() || n.Kind == ast.UsageAnalysisCase ||
 			n.Kind == ast.UsageVerificationCase || IsAssertion(n)
 	case *ast.InitialNode, *ast.FinalNode, *ast.ForkNode, *ast.JoinNode, *ast.MergeNode,
 		*ast.DecisionNode, *ast.ActionExecutionNode, *ast.PerformActionNode,
@@ -780,17 +780,17 @@ func stateMachineEndpoint(scope *symbols.Scope) bool {
 	for s := scope; s != nil; s = s.Parent() {
 		switch n := s.Node().(type) {
 		case *ast.Definition:
-			switch n.Kind {
-			case ast.DefState:
+			switch {
+			case n.Kind == ast.DefState:
 				return true
-			case ast.DefAction:
+			case n.Kind.IsAction():
 				return false
 			}
 		case *ast.Usage:
-			switch n.Kind {
-			case ast.UsageState:
+			switch {
+			case n.Kind == ast.UsageState:
 				return true
-			case ast.UsageAction:
+			case n.Kind.IsAction():
 				return false
 			}
 		}
