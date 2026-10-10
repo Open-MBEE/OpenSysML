@@ -213,10 +213,15 @@ func TestPortEndIsNotTheActorParameter(t *testing.T) {
     <packagedElement xmi:type="uml:Association" xmi:id="_assoc" memberEnd="_p _eU">
       <ownedEnd xmi:type="uml:Property" xmi:id="_eU" type="_uc" association="_assoc"/>
     </packagedElement>`, "")
-	wantLine(t, r.Notation, "actor console :> Operator;")
-	wantLine(t, r.Notation, "connect Operator to Scan.console;")
+	wantLine(t, r.Notation, "actor operator :> Operator;")
+	wantLine(t, r.Notation, "metadata MigrationMetadata::SynthesizedName about operator;")
+	wantLine(t, r.Notation, "port console")
+	wantLine(t, r.Notation, "connect Operator to Scan.operator;")
 	if n := strings.Count(string(r.Notation), "actor "); n != 1 {
 		t.Errorf("%d actor parameters, want one:\n%s", n, r.Notation)
+	}
+	if n := strings.Count(string(r.Notation), "console"); n != 1 {
+		t.Errorf("console declared %d times, want the port only:\n%s", n, r.Notation)
 	}
 	wantClean(t, "actor-port-end.sysml", r)
 }

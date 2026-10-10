@@ -244,6 +244,9 @@ func (m *migration) connectActor(link *actorLink) {
 			if link.owned == nil {
 				note = joinNotes(note, "the use case declares the actor parameter "+param+" subsetting that usage")
 			}
+			if link.end.Parent == link.useCase {
+				note = joinNotes(note, "the port that is the end stays a port")
+			}
 		case def != nil:
 			note = "the end at the use case is the connection's end at the use case usage, as the connection def's end is; the use case's actor parameter " + param + " subsets the actor"
 		default:
@@ -270,7 +273,7 @@ func (m *migration) actorParameters(e *sysmlv1.Element) {
 			continue
 		}
 		name := m.claimName(link.end, e, link.param)
-		if link.end.Name == "" {
+		if name != m.nameOf(link.end) {
 			m.w.madeUp(writeName(name))
 		}
 		mult, _ := m.multiplicity(link.end)
@@ -484,6 +487,11 @@ func (m *migration) placeActors(links []*actorLink) {
 			base = lowerFirst(m.nameFor(link.actor))
 		}
 		switch {
+		case link.owned == nil && link.end.Parent == link.useCase:
+			// The end is a port of the use case, which keeps its name: the
+			// parameter is named after the actor, clear of the port.
+			link.param = m.freshNameBut(nil, link.useCase, lowerFirst(m.nameFor(link.actor)))
+			m.takenBy[link.useCase][link.param] = link.end
 		case link.owned == nil:
 			link.param = m.reserveNameFor(link.end, link.useCase, base)
 		case m.nameOf(link.owned) == "":
