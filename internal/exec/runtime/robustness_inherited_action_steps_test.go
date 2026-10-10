@@ -30,6 +30,53 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
+	t.Run("typed_usage_bodyless_inherited_pin_binding", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def T {
+				in source : Integer = 1;
+				out y : Integer = source;
+			}
+			action def Bodyless {
+				out attribute observed : Integer = 0;
+				action m : T;
+				action read { assign observed := m.y; }
+				first start then m;
+				first m then read;
+				first read then done;
+			}
+		}`, "Bodyless")
+		if err != nil {
+			t.Fatalf("ExecuteAction(Bodyless): %v", err)
+		}
+		assertIntOutput(t, outputs, "observed", 1)
+		assertIntOutput(t, outputs, "m.y", 1)
+	})
+
+	t.Run("typed_usage_body_preserves_inherited_pin_binding", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def T {
+				in source : Integer = 1;
+				out y : Integer = source;
+			}
+			action def WithBody {
+				out attribute observed : Integer = 0;
+				action m : T { assign source := 2; }
+				action read { assign observed := m.y; }
+				first start then m;
+				first m then read;
+				first read then done;
+			}
+		}`, "WithBody")
+		if err != nil {
+			t.Fatalf("ExecuteAction(WithBody): %v", err)
+		}
+		assertIntOutput(t, outputs, "m.source", 2)
+		assertIntOutput(t, outputs, "m.y", 2)
+		assertIntOutput(t, outputs, "observed", 2)
+	})
+
 	t.Run("specialized_body_binding_replaces_inherited_binding", func(t *testing.T) {
 		outputs, err := executeInheritedAction(t, `package test {
 			private import ScalarValues::*;

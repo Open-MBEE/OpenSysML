@@ -1662,16 +1662,13 @@ func lowerEffectiveActionNodeFeatures(graph *ActionGraph, node *ast.Usage, scope
 				if name == "" || seen[name] {
 					continue
 				}
+				feature, ok := declaredFeature(m, general)
+				if !ok {
+					continue
+				}
 				seen[name] = true
 				graph.recordDeclaredIn(m, general)
-				features = append(features, Feature{
-					Name:      name,
-					Direction: m.Direction,
-					IsResult:  m.IsResult,
-					Value:     m.Value,
-					Node:      m,
-					Scope:     general,
-				})
+				features = append(features, feature)
 			}
 		}
 	}

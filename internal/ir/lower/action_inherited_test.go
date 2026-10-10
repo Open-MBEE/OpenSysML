@@ -805,6 +805,44 @@ func TestToActionGraphBodyStatingTypedNodeIncludesTypedPins(t *testing.T) {
 	}
 }
 
+func TestToActionGraphTypedBodyPreservesInheritedPinBinding(t *testing.T) {
+	src := `
+		action def T {
+			in source : Integer = 1;
+			out y : Integer = source;
+		}
+		action def Host {
+			action m : T { assign source := 2; }
+		}
+	`
+	host, scope, root := inheritedActionDecl(t, src, "Host")
+	graph, err := ToActionGraph(host, scope)
+	if err != nil {
+		t.Fatalf("lower Host: %v", err)
+	}
+	typedScope := scope.Parent().ChildFor(actionDefinition(t, root, "T"))
+	node, ok := namedNode(graph, "m").(*ast.Usage)
+	if !ok {
+		t.Fatalf("m node = %T, want *ast.Usage", namedNode(graph, "m"))
+	}
+	for _, feature := range graph.Features[node] {
+		if feature.Name == "y" {
+			if !feature.Binding {
+				t.Fatal("inherited y pin is not a binding")
+			}
+			if feature.Scope != typedScope {
+				t.Fatalf("inherited y pin scope = %v, want its typed action's scope %v", feature.Scope, typedScope)
+			}
+			pin, ok := feature.Node.(*ast.Usage)
+			if !ok || getNodeName(pin) != "y" {
+				t.Fatalf("inherited y pin node = %T, want T::y", feature.Node)
+			}
+			return
+		}
+	}
+	t.Fatal("typed action node has no inherited y pin")
+}
+
 func TestToActionGraphPinOnlyTypedUsageKeepsInvocation(t *testing.T) {
 	src := `
 		metadata def Marker;
