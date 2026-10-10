@@ -19,9 +19,50 @@ func isStandard(s *sysmlv1.Stereotype) bool {
 type provenance struct {
 	namespace  func(ns string) bool
 	definition func(d *sysmlv1.Element) bool
+	// generals, when set, names the profile's stereotypes an application
+	// inherits from a definition no document or module read declares.
+	generals func(s *sysmlv1.Stereotype) []string
 }
 
-var standardProvenance = provenance{isStandardNamespace, isStandardDefinition}
+var standardProvenance = provenance{namespace: isStandardNamespace, definition: isStandardDefinition, generals: toolGenerals}
+
+// toolBlockStereotypes are the stereotypes MagicDraw and Cameo define in their
+// SysML profile, under the OMG SysML namespace, as specializations of «Block»:
+// the SysML Plugin's element descriptions document each as a block.
+var toolBlockStereotypes = map[string]bool{"System": true, "Subsystem": true, "Domain": true, "External": true}
+
+// toolGenerals names the standard stereotype the modeling tool's own SysML
+// profile derives s from when the profile is in no document or module read,
+// so the generalization is invisible: «Subsystem» specializes «Block».
+func toolGenerals(s *sysmlv1.Stereotype) []string {
+	if !isToolBlockStereotype(s) {
+		return nil
+	}
+	return []string{"Block"}
+}
+
+// isToolBlockStereotype reports whether s applies one of the tool's block
+// stereotypes under the SysML namespace with its definition out of reach.
+func isToolBlockStereotype(s *sysmlv1.Stereotype) bool {
+	return s.Definition == nil && len(s.Generals) == 0 && sysmlv1.IsSysMLNamespace(s.Namespace) && toolBlockStereotypes[s.Name]
+}
+
+// toolBlockStereotype returns e's application read as a block only through
+// toolGenerals, or nil when the document or a module declares the generalization.
+func toolBlockStereotype(e *sysmlv1.Element) *sysmlv1.Stereotype {
+	var found *sysmlv1.Stereotype
+	for _, s := range e.Stereotypes {
+		switch {
+		case isToolBlockStereotype(s):
+			if found == nil {
+				found = s
+			}
+		case appliesStandard(s, "Block"):
+			return nil
+		}
+	}
+	return found
+}
 
 // applies reports whether s applies the named stereotype of the profile p tells
 // apart: directly, or through a definition specializing it, since a user
@@ -41,6 +82,9 @@ func (p provenance) names(s *sysmlv1.Stereotype) []string {
 		if p.definition(g) {
 			names = append(names, g.Name)
 		}
+	}
+	if p.generals != nil {
+		names = append(names, p.generals(s)...)
 	}
 	return names
 }

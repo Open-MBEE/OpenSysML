@@ -36,7 +36,7 @@ func simulationConfig(e *sysmlv1.Element) *sysmlv1.Stereotype {
 	return nil
 }
 
-var simulationProvenance = provenance{isSimulationProfile, simulationProfileDefinition}
+var simulationProvenance = provenance{namespace: isSimulationProfile, definition: simulationProfileDefinition}
 
 // isSimulationConfig recognises a «SimulationConfig» application, or one of a
 // stereotype specializing it, by the simulation profile's provenance, not by name alone.

@@ -4240,7 +4240,8 @@ func (m *migration) appliedStereotypes(e *sysmlv1.Element, write bool, kind stri
 		}
 		sort.Strings(tags)
 		if classifying {
-			if len(tags) == 0 && s.Name != kind {
+			// A specialization's own name («Subsystem» :> «Block») is not what classified e, so it is marked.
+			if len(tags) == 0 && s.Name != kind && classifyingStereotypes[s.Name] {
 				continue
 			}
 			kindMarked = kindMarked || s.Name == kind
