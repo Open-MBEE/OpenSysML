@@ -2209,7 +2209,7 @@ func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword,
 		return "port", "", ""
 	}
 	if t == nil {
-		return "ref", "", "the untyped property is written as a reference usage"
+		return m.untypedKeyword(p)
 	}
 	if owner == catUseCaseDef && t.Type == "Actor" && m.written(t) {
 		return "actor", "", ""
@@ -2251,6 +2251,18 @@ func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword,
 		return kw, "ref ", note
 	}
 	return kw, "", note
+}
+
+// untypedKeyword is the usage an untyped property is written as: the kind its
+// tool's marker gives it, else a part when composite and an attribute otherwise.
+func (m *migration) untypedKeyword(p *sysmlv1.Element) (keyword, prefix, note string) {
+	if kind := m.markedPropertyKind(p); kind != "" {
+		return kind, "", ""
+	}
+	if p.Attrs["aggregation"] == "composite" {
+		return "part", "", "the untyped composite property is written as a part"
+	}
+	return "attribute", "", "the untyped property is written as an attribute"
 }
 
 // typeKeyword is the usage keyword a property takes from its type alone,
@@ -4181,9 +4193,8 @@ var propertyKindMarkers = map[string]string{
 // isPropertyKindMarker recognises MagicDraw's marker of a property's kind, which
 // the usage's keyword already says; a same-named stereotype from elsewhere is kept.
 func (m *migration) isPropertyKindMarker(e *sysmlv1.Element, s *sysmlv1.Stereotype) bool {
-	kind, ok := propertyKindMarkers[s.Name]
-	if !ok || len(s.Tags) > 0 || e.Type != "Property" || e.Parent == nil ||
-		!isMagicDrawCustomization(s.Namespace) {
+	kind := propertyKindMarker(e, s)
+	if kind == "" || e.Parent == nil {
 		return false
 	}
 	owner, _ := m.classify(e.Parent)
@@ -4192,6 +4203,26 @@ func (m *migration) isPropertyKindMarker(e *sysmlv1.Element, s *sysmlv1.Stereoty
 		kind = "ref" // a constraint parameter is a reference by necessity
 	}
 	return usageKind(kw, prefix) == kind
+}
+
+// propertyKindMarker is the kind of usage MagicDraw's marker s says property e
+// is, or empty when s is not such a marker.
+func propertyKindMarker(e *sysmlv1.Element, s *sysmlv1.Stereotype) string {
+	kind, ok := propertyKindMarkers[s.Name]
+	if !ok || len(s.Tags) > 0 || e.Type != "Property" || !isMagicDrawCustomization(s.Namespace) {
+		return ""
+	}
+	return kind
+}
+
+// markedPropertyKind is the kind MagicDraw's marker on property e gives it, if any.
+func (m *migration) markedPropertyKind(e *sysmlv1.Element) string {
+	for _, s := range e.Stereotypes {
+		if kind := propertyKindMarker(e, s); kind != "" {
+			return kind
+		}
+	}
+	return ""
 }
 
 // usageKind is the kind of property a usage keyword and its `ref ` prefix express.
