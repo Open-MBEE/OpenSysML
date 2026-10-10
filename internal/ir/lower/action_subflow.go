@@ -414,6 +414,24 @@ func lowerEffectiveAccept(graph *ActionGraph, node *ast.Usage, members []effecti
 			Trigger:      m.Value,
 			Scope:        scope,
 			Keeper:       IsDeferredKeeper(graph.resolver, scope, node),
+			Payload:      acceptPayloadSymbol(graph, node, m),
 		}
 	}
+}
+
+// acceptPayloadSymbol is the feature the payload of node's accept member m
+// declares: a member of the node's own namespace, as resolution finds it
+// (resolve.acceptPayload); nil for a payload declaring no name.
+func acceptPayloadSymbol(graph *ActionGraph, node *ast.Usage, m *ast.Usage) *symbols.Symbol {
+	if m.Ident.Name == "" || graph.Scopes == nil {
+		return nil
+	}
+	own := graph.Scopes[node]
+	if own == nil {
+		return nil
+	}
+	if sym, ok := own.LookupLocal(m.Ident.Name); ok {
+		return sym
+	}
+	return own.MemberDeclaring(m)
 }

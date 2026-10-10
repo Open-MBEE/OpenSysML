@@ -491,7 +491,7 @@ func lowerStateAttributes(graph *StateGraph, members []inheritedMember) []Attrib
 			continue
 		}
 		graph.attributeScope[usage] = member.scope
-		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Binding: valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault), Node: usage, Scope: member.scope})
+		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Binding: valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault), Node: usage, Scope: member.scope, Symbol: member.scope.MemberDeclaring(usage)})
 	}
 	return attrs
 }

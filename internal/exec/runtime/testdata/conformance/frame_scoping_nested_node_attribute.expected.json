@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"evaluate": "test::Outer",
+	"outputs": {
+		"x": {"type": "Integer", "value": 1},
+		"seen": {"type": "Integer", "value": 1},
+		"innerSeen": {"type": "Integer", "value": 15},
+		"inner.x": {"type": "Integer", "value": 15}
+	}
+}

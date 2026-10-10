@@ -226,7 +226,7 @@ func (e *ActionExecutor) beginPending(parent *actionFrame, node ast.Node) ([]*ac
 	slices.Sort(parked)
 	var begun []*actionFrame
 	for _, id := range parked {
-		perf, err := e.beginPerformance(parent, e.graphOf(parent), node, nil, nil)
+		perf, err := e.beginPerformance(parent, e.graphOf(parent), node, nil, nil, nil)
 		if err != nil {
 			return nil, err
 		}

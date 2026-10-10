@@ -655,6 +655,14 @@ const thisName = "this"
 // evalName evaluates a name as a reference to what it names, which is what an
 // expression written as a bare name is: `rate`, `A::B::x`.
 func (ec *EvalContext) evalName(qn *ast.QualifiedName) (Value, error) {
+	if qn != nil && len(qn.Parts) == 1 {
+		// The feature the name resolves to answers first, from the frame holding it.
+		if val, ok, err := ec.lookupHeld(qn.Parts[0].Text); err != nil {
+			return Value{}, err
+		} else if ok {
+			return val, nil
+		}
+	}
 	// Outside an expression body no body-local declaration can shadow a bound
 	// name, so a frame binding is the answer: the common case, kept small.
 	if qn != nil && len(qn.Parts) == 1 && (ec.scope == nil || !ec.scope.BodyLocal()) {

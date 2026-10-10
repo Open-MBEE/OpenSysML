@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"msg": {"type": "Integer", "value": 1},
+		"seen": {"type": "Integer", "value": 1},
+		"payload": {"type": "Integer", "value": 9}
+	}
+}

@@ -27,9 +27,12 @@ type stmtEnv struct {
 	perf          *actionFrame
 	locals        map[string]Value
 	localCells    *bodyCells
+	localHeld     map[*symbols.Symbol]string
 	unvaluedLocal map[string]bool
 	frames        []map[string]Value
 	cells         []*bodyCells
+	// held indexes, per frame, the features the frame's declarations are.
+	held []map[*symbols.Symbol]string
 	// unvalued names, per frame, the features a frame declares but holds no value
 	// for yet (`out v : Integer;`), which an assignment writes into that frame.
 	unvalued []map[string]bool
@@ -40,8 +43,19 @@ func (env *stmtEnv) enter(e *stmtEngine) map[string]Value {
 	frame := make(map[string]Value)
 	env.frames = append(env.frames, frame)
 	env.cells = append(env.cells, nil)
+	env.held = append(env.held, nil)
 	env.unvalued = append(env.unvalued, nil)
 	return frame
+}
+
+// hold records that the innermost entered block — or the behavior's own locals
+// when none is entered — declares name as the feature sym.
+func (env *stmtEnv) hold(ctx *Context, sym *symbols.Symbol, name string) {
+	if depth := len(env.frames); depth > 0 {
+		ctx.holdFeature(&env.held[depth-1], sym, name)
+		return
+	}
+	ctx.holdFeature(&env.localHeld, sym, name)
 }
 
 // ensureLocalCells lazily creates dependency cells for an entered block.
@@ -63,6 +77,7 @@ func (env *stmtEnv) leave(ctx *Context, forget bool) {
 		}
 		env.cells = env.cells[:len(env.cells)-1]
 		env.frames = env.frames[:len(env.frames)-1]
+		env.held = env.held[:len(env.held)-1]
 		env.unvalued = env.unvalued[:len(env.unvalued)-1]
 	}
 }
@@ -249,19 +264,23 @@ func (env *stmtEnv) constraintResult(ctx *Context) (frame, error) {
 }
 
 // localFrames returns the entered block maps and their dependency-cell stores.
-func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells) {
+func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells, []map[*symbols.Symbol]string) {
 	locals := make([]map[string]Value, 0, len(env.frames)+1)
 	cells := make([]*bodyCells, 0, len(env.frames)+1)
+	held := make([]map[*symbols.Symbol]string, 0, len(env.frames)+1)
 	locals = append(locals, env.locals)
 	cells = append(cells, env.localCells)
+	held = append(held, env.localHeld)
 	locals = append(locals, env.frames...)
 	cells = append(cells, env.cells...)
-	return locals, cells
+	held = append(held, env.held...)
+	return locals, cells, held
 }
 
 // localFrame exposes the behavior's root locals as an evaluation frame.
 func (env *stmtEnv) localFrame() frame {
 	local := env.bodyFrame(env.locals, env.localCells, env.unvaluedLocal)
+	local.held = env.localHeld
 	return local
 }
 
@@ -438,10 +457,12 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
 	root := e.env.bodyFrame(e.env.locals, e.env.localCells, e.env.unvaluedLocal)
+	root.held = e.env.localHeld
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)
 	for i := range e.env.frames {
 		frames = append(frames, e.env.bodyFrame(e.env.frames[i], e.env.cells[i], e.env.unvalued[i]))
+		frames[len(frames)-1].held = e.env.held[i]
 		index := i
 		frames[len(frames)-1].ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
 	}
@@ -472,6 +493,7 @@ func (e *stmtEngine) evalInDepth(scope *symbols.Scope, depth int) *EvalContext {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
 	root := e.env.bodyFrame(e.env.locals, e.env.localCells, e.env.unvaluedLocal)
+	root.held = e.env.localHeld
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)
 	if depth > len(e.env.frames) {
@@ -479,6 +501,7 @@ func (e *stmtEngine) evalInDepth(scope *symbols.Scope, depth int) *EvalContext {
 	}
 	for i, local := range e.env.frames[:depth] {
 		frames = append(frames, e.env.bodyFrame(local, e.env.cells[i], e.env.unvalued[i]))
+		frames[len(frames)-1].held = e.env.held[i]
 		index := i
 		frames[len(frames)-1].ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
 	}
@@ -498,6 +521,7 @@ func (f *engineFrame) abandon(*Context) { f.engine.finish() }
 func (f *engineFrame) clone() bodyFrame {
 	engine, env := *f.engine, *f.engine.env
 	env.frames, env.cells, env.unvalued = slices.Clone(env.frames), slices.Clone(env.cells), slices.Clone(env.unvalued)
+	env.held = slices.Clone(env.held)
 	env.unvaluedLocal = maps.Clone(env.unvaluedLocal)
 	engine.env, engine.scratch, engine.frameBuf = &env, EvalContext{}, nil
 	return &engineFrame{engine: &engine}
@@ -962,6 +986,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 				return flowNext, err
 			}
 			e.env.declare(e.ctx, s.Name, evaluated)
+			e.env.hold(e.ctx, s.Symbol, s.Name)
 			return flowNext, nil
 		}
 		// A constraint body's performance declares a valueless name as missing
@@ -972,6 +997,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		} else {
 			e.env.declare(e.ctx, s.Name, Value{Kind: ValNull})
 		}
+		e.env.hold(e.ctx, s.Symbol, s.Name)
 		return flowNext, nil
 	case lower.DeclareUsage:
 		return flowNext, e.declareUsage(s)
@@ -1081,6 +1107,7 @@ type blockFrame struct {
 	locals     map[string]Value
 	cells      *bodyCells
 	unvalued   map[string]bool
+	held       map[*symbols.Symbol]string
 	activation int64
 	outer      int64
 }
@@ -1097,6 +1124,7 @@ func (f *blockFrame) clone() bodyFrame {
 		c.locals = maps.Clone(f.locals)
 	}
 	c.unvalued = maps.Clone(f.unvalued)
+	c.held = maps.Clone(f.held)
 	return &c
 }
 
@@ -1111,11 +1139,13 @@ func (e *stmtEngine) enterBlock(f *blockFrame) (leave func(bool)) {
 		e.env.frames = append(e.env.frames, f.locals)
 		e.env.cells = append(e.env.cells, f.cells)
 		e.env.unvalued = append(e.env.unvalued, f.unvalued)
+		e.env.held = append(e.env.held, f.held)
 	}
 	e.activation = f.activation
 	return func(forget bool) {
 		f.unvalued = e.env.unvalued[len(e.env.unvalued)-1]
 		f.cells = e.env.cells[len(e.env.cells)-1]
+		f.held = e.env.held[len(e.env.held)-1]
 		e.env.leave(e.ctx, forget)
 		e.activation = f.outer
 	}
@@ -1294,6 +1324,7 @@ type loopFrame struct {
 	locals     map[string]Value
 	cells      *bodyCells
 	unvalued   map[string]bool
+	held       map[*symbols.Symbol]string
 	iteration  int
 	activation int64
 	outer      int64
@@ -1313,6 +1344,7 @@ func (f *loopFrame) clone() bodyFrame {
 		c.locals = maps.Clone(f.locals)
 	}
 	c.unvalued = maps.Clone(f.unvalued)
+	c.held = maps.Clone(f.held)
 	return &c
 }
 
@@ -1334,10 +1366,12 @@ func (e *stmtEngine) enterLoop(f *loopFrame) (leave func(bool)) {
 		e.env.frames = append(e.env.frames, f.locals)
 		e.env.cells = append(e.env.cells, f.cells)
 		e.env.unvalued = append(e.env.unvalued, f.unvalued)
+		e.env.held = append(e.env.held, f.held)
 	}
 	return func(forget bool) {
 		f.unvalued = e.env.unvalued[len(e.env.unvalued)-1]
 		f.cells = e.env.cells[len(e.env.cells)-1]
+		f.held = e.env.held[len(e.env.held)-1]
 		e.env.leave(e.ctx, forget)
 		e.activation = f.outer
 	}

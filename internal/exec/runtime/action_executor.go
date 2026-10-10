@@ -2697,7 +2697,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 		}
 	}
 
-	perf, err := e.beginPerformance(token.frame, graph, usage, nil, nil)
+	perf, err := e.beginPerformance(token.frame, graph, usage, nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -2784,14 +2784,18 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 	if err != nil {
 		return nil, false, fmt.Errorf("accept %s: %w", accept.ParamName, err)
 	}
+	// The payload is a feature of the flow the accept sits in, which the nodes
+	// after it read by its name unless a feature of the flow's own holds the name:
+	// then the payload is the accept node's alone (`receiver.msg`).
+	if !token.frame.bindsPayload(accept) {
+		return &value, true, nil
+	}
 	if token.frame == e.root && e.declaresAttribute(accept.ParamName) {
 		what := func() string { return "accept " + accept.ParamName }
 		if err := e.ctx.checkMutable(e.root.scope, what, accept.ParamName); err != nil {
 			return nil, false, err
 		}
 	}
-	// The payload is a feature of the flow the accept sits in, which the
-	// nodes after it read by its name.
 	if err := e.setFrameFeature(token.frame, accept.ParamName, value); err != nil {
 		return nil, false, err
 	}

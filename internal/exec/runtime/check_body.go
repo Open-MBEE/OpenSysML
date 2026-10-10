@@ -156,7 +156,7 @@ func (s *stateSpeller) bodyLocals(locals map[string]Value, cells *bodyCells, unv
 }
 
 func (s *stateSpeller) localBodyFrames(env *stmtEnv) string {
-	locals, cells := env.localFrames()
+	locals, cells, _ := env.localFrames()
 	frames := make([]string, len(locals))
 	for i, values := range locals {
 		var unvalued map[string]bool
