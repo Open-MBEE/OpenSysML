@@ -260,6 +260,14 @@ function test_surface_live()
     assert_equal(boundPositional.holds, false, 'verifyRequirement arguments');
     boundConstraint = bound.verifyConstraint('Bound::Between', 'arguments', {int64(3)});
     assert_equal(boundConstraint.holds, true, 'verifyConstraint arguments');
+    boundMap = bound.verifyConstraint('Bound::Between', ...
+        'namedArguments', containers.Map({'low'}, {int64(3)}));
+    assert_equal(boundMap.holds, true, 'verifyConstraint namedArguments as a Map');
+    boundMapFails = bound.verifyConstraint('Bound::Between', ...
+        'namedArguments', containers.Map({'low'}, {int64(12)}));
+    assert_equal(boundMapFails.holds, false, 'verifyConstraint Map arguments reach the check');
+    assert_error(@() bound.verifyConstraint('Bound::Between', 'namedArguments', 42), ...
+        'opensysml:argument', 'verifyConstraint refuses a non-struct namedArguments');
     satisfaction = opensysml.verifySatisfaction(cases, 'symbol', 'Demo::checks');
     satisfactionMethod = cases.verifySatisfaction('symbol', 'Demo::checks');
     assert_equal(iscell(satisfaction), true, 'verifySatisfaction');

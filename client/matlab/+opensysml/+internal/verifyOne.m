@@ -19,14 +19,13 @@ function result = verifyOne(model, symbolId, method, kind, varargin)
     if ~isempty(engine), capabilities{end+1} = 'engines'; end
     if strcmp(char(options.engine), 'explore'), capabilities{end+1} = 'schedule_explore'; end
     if ~isempty(question), capabilities{end+1} = 'verification_questions'; end
-    bound = ~isempty(options.arguments) || ...
-        (isstruct(options.namedArguments) && ~isempty(fieldnames(options.namedArguments)));
-    if bound
+    named = opensysml.internal.encodeNamedArguments( ...
+        options.namedArguments, model.connection, [label ' namedArguments']);
+    if ~isempty(options.arguments) || hasEntries(named)
         model.connection.require('verification_arguments');
         request.arguments = opensysml.internal.encodeArguments(options.arguments, ...
             model.connection, [label ' arguments']);
-        request.namedArguments = opensysml.internal.encodeNamedArguments( ...
-            options.namedArguments, model.connection, [label ' namedArguments']);
+        request.namedArguments = named;
         capabilities = [capabilities, {'verification_arguments', 'complex_values', ...
             'structured_values', 'measurement_refs', 'set_values', 'tensor_values', ...
             'metaobject_values'}];
@@ -53,6 +52,12 @@ function instances = decodeInstanceMap(model, raw)
     instances = containers.Map('KeyType', 'char', 'ValueType', 'any');
     if isfield(raw, 'instances')
         [~, instances] = opensysml.internal.decodeInstances(model.connection, raw.instances);
+    end
+end
+
+function bound = hasEntries(named)
+    if isa(named, 'containers.Map'), bound = named.Count > 0;
+    else, bound = ~isempty(fieldnames(named));
     end
 end
 
