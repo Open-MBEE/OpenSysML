@@ -78,11 +78,12 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     # The shards split the suite's slowest packages across runners so each gets its own job cap (see scripts/race-shard.sh).
-    # internal/exec/runtime alone outruns a job under -race, so it is two shards split by test name (see make test-shard).
+    # internal/exec/runtime alone outruns a job under -race, so it is two shards split by test name (see make test-shard);
+    # tests/migrate is the next-longest package, so it is a shard of its own rather than the long pole of rest.
     strategy:
       fail-fast: false
       matrix:
-        shard: [runtime, runtime-corpus, model, export, rest]
+        shard: [runtime, runtime-corpus, model, export, rest, migrate]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -291,7 +292,7 @@ jobs:
           set -euo pipefail
           profiles=(shards/coverage-*/coverage.txt)
           # One per race-tests shard.
-          if [ "${#profiles[@]}" -ne 5 ]; then echo "error: expected 5 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
+          if [ "${#profiles[@]}" -ne 6 ]; then echo "error: expected 6 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
           for f in "${profiles[@]}"; do
             [ "$(head -n 1 "$f")" = "mode: atomic" ] || { echo "error: $f is not an atomic-mode profile" >&2; exit 1; }
           done
