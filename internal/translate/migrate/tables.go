@@ -201,6 +201,10 @@ func (m *migration) lowerTable(td *tableDoc) {
 	t, host := td.t, td.v.host
 	l := &lowered{}
 	td.l = l
+	if m.strict {
+		l.refuse("its v2 form is a document of OpenSysML's DocumentQueries library, which a strict migration does not name")
+		return
+	}
 	if len(t.Malformed) > 0 {
 		l.refuse(strings.Join(t.Malformed, "; "))
 	}
@@ -421,7 +425,7 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 			merged = mergeTypeFilters(filtersToMerge)
 		}
 		source := src
-		if merged.excluding != nil && !l.perRow {
+		if (merged.excluding != nil || len(merged.usages) > 0) && !l.perRow {
 			source = qshared(src)
 		}
 		if len(filtersToMerge) > 0 {

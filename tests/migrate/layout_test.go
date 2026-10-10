@@ -115,6 +115,24 @@ func TestGoldenLayout(t *testing.T) {
 	for _, d := range errorsMode(t, "layout.sysml", strict.Notation, diag.ConformanceStrict) {
 		t.Errorf("%v", d)
 	}
+	// The strict migration joins the same records to the same views; only
+	// their geometry is left unwritten, which the summary says instead of
+	// reporting the views as missing.
+	l, sl := r.Report.Layout, strict.Report.Layout
+	if sl.DiagramsJoined != l.DiagramsJoined || sl.DiagramsUnmatched != l.DiagramsUnmatched || sl.ViewsWithoutLayout != l.ViewsWithoutLayout || sl.GeometryOmitted != l.DiagramsJoined || sl.PlacementsWritten != 0 {
+		t.Errorf("strict layout summary: %+v\nwant joined %d, unmatched %d, without %d, all geometry omitted", sl, l.DiagramsJoined, l.DiagramsUnmatched, l.ViewsWithoutLayout)
+	}
+	if l.GeometryOmitted != 0 {
+		t.Errorf("default layout summary omits geometry: %+v", l)
+	}
+	for _, e := range strict.Report.Entries {
+		if e.Kind == "Layout" && strings.Contains(e.Note, "does not write as a view") {
+			t.Errorf("strict migration reports a joined view missing: %+v", e)
+		}
+	}
+	if !strings.Contains(strict.Report.Summary(), "geometry the strict migration omits") {
+		t.Errorf("strict summary = %q", strict.Report.Summary())
+	}
 }
 
 func TestGoldenLayoutExposedMetadataAttribute(t *testing.T) {
@@ -192,7 +210,7 @@ func TestGoldenEdgeLayout(t *testing.T) {
 	if l == nil {
 		t.Fatal("no layout summary")
 	}
-	if l.Routes != 22 || l.RoutesWritten != 10 || l.RoutesUnexposed != 11 || l.RoutesDangling != 1 {
+	if l.Routes != 22 || l.RoutesWritten != 11 || l.RoutesUnexposed != 10 || l.RoutesDangling != 1 {
 		t.Errorf("routes: %+v", l)
 	}
 	// An edge of the graph the activity's rendering does not draw is exposed, not swallowed.
@@ -237,7 +255,7 @@ func TestGoldenEdgeLayout(t *testing.T) {
 		{Kind: "ControlFlow", Reason: "written", Count: 2},
 		{Kind: "Dependency", Reason: "not drawn", Count: 2},
 		{Kind: "Generalization", Reason: "no v2 member", Count: 1},
-		{Kind: "Include", Reason: "not drawn", Count: 1},
+		{Kind: "Include", Reason: "written", Count: 1},
 		{Kind: "ObjectFlow", Reason: "not drawn", Count: 1},
 		{Kind: "ObjectFlow", Reason: "written", Count: 1},
 		{Kind: "Satisfy", Reason: "not drawn", Count: 2},

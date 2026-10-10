@@ -1,12 +1,29 @@
 {
 	"type": "state",
-	"schedule": "reverse",
 	"trace": true,
 	"events": [{"signal": "Go"}, {"signal": "Stop"}],
-	"finalState": "done",
-	"stateVisits": ["idle", "both", "l1", "r0", "done"],
-	"outputs": {
-		"x": {"type": "Integer", "value": 0},
-		"log": {"type": "String", "value": "go(effect);both(entry);split(effect);l1(entry);r0(entry);both(exit);"}
-	}
+	"outcomes": [
+		{
+			"finalState": "done",
+			"outputs": {
+				"x": {"type": "Integer", "value": 0},
+				"log": {"type": "String", "value": "go(effect);both(entry);split(effect);l1(entry);r0(entry);both(exit);"}
+			}
+		},
+		{
+			"finalState": "done",
+			"outputs": {
+				"x": {"type": "Integer", "value": 0},
+				"log": {"type": "String", "value": "go(effect);both(entry);split(effect);r0(entry);l1(entry);both(exit);"}
+			}
+		},
+		{
+			"finalState": "done",
+			"outputs": {
+				"x": {"type": "Integer", "value": 0},
+				"log": {"type": "String", "value": "go(effect);both(entry);r0(entry);split(effect);l1(entry);both(exit);"}
+			}
+		}
+	],
+	"admissible": "Effects on the way into the regions of a parallel state: each precedes its own target's entry, the regions interleave"
 }

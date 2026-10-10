@@ -400,6 +400,7 @@ func (h *stateStmtHost) assignStateAttribute(name string, value Value) (bool, er
 		return true, err
 	}
 	h.exec.ctx.writeBodyValue(cells, data, name, value)
+	h.exec.ctx.noteStateDataWrite()
 	return true, nil
 }
 
@@ -535,6 +536,7 @@ func (h *stateStmtHost) assignAround(name string, value Value) (bool, error) {
 	}
 	if _, ok := h.exec.stateData[name]; ok {
 		h.exec.ctx.writeBodyValue(h.exec.stateCells, h.exec.stateData, name, value)
+		h.exec.ctx.noteStateDataWrite()
 		return true, nil
 	}
 	return assignPerformerFeature(h.exec.ctx, h.exec.self, h.behavior.Scope, name, value)

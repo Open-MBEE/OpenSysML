@@ -160,7 +160,16 @@ func (ctx *Context) runAttachedBehaviorsUntil(progress *dueProgress, halted func
 		return false, nil
 	}
 	ctx.behaviorRunDepth++
-	defer func() { ctx.behaviorRunDepth-- }()
+	var resume func()
+	defer func() {
+		ctx.behaviorRunDepth--
+		if resume != nil {
+			resume()
+		}
+	}()
+	if ctx.hasRunnableBehavior() {
+		resume = ctx.suspendFeatureWrite()
+	}
 	return ctx.drainObjectBehaviorsUntil(progress, halted)
 }
 

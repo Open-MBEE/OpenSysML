@@ -136,7 +136,7 @@ func TestMigratedTablesExecute(t *testing.T) {
 		"Plant::Inventory::p1", `name = "p1"`, `qualifiedName = "Plant::Inventory::p1"`, `name 2 = "primary"`, `mass = 12.5`,
 		"Plant::Inventory::p2", `name = "p2"`, `qualifiedName = "Plant::Inventory::p2"`, `name 2 = ""`)
 
-	// Generic table: every requirement definition of the scope by name.
+	// Generic table: every requirement of the scope by name.
 	reqs := rows(t, s, "Plant::Requirements::'Requirement Table Rows'")
 	wantInOrder(t, "Requirement Table rows", reqs,
 		"returned 3 rows",
@@ -182,7 +182,7 @@ func TestMigratedTablesExecute(t *testing.T) {
 	related := rows(t, s, "Plant::Structure::'Pump Requirement Map Rows'")
 	wantInOrder(t, "Pump Requirement Map rows", related,
 		"returned 1 row",
-		"Plant::Requirements::FlowRequirement", `@type = "RequirementDefinition"`)
+		"Plant::Requirements::FlowRequirement", `@type = "RequirementUsage"`)
 
 	// Whole-model scope filtered by a migrated user stereotype, the elements
 	// its specializations are applied to included.
@@ -862,7 +862,7 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 	// Requirement id and text columns read the short name and the doc.
 	wantInOrder(t, "Specification query", notation,
 		"calc def 'Yard Handbook Requirements Specification Table Rows'",
-		`type = ("RequirementDefinition")),`,
+		`source = DocumentQueries::Named(qualifiedName = ("Needs::Lift", "Needs::Sway")),`,
 		`properties = ("shortName", "name", "documentation"))`)
 	wantNote(t, r, "_st_todo_table", migrate.Unmapped,
 		"the elements it shows pass through «FilterByStereotypes» Yard Viewpoints::To Do Viewpoint::To Do Method::Filter By Stereotypes is not migrated: no v2 metaclass stands for the elements of «TODO_Owner»")

@@ -33,16 +33,40 @@ func theTransition(t *sysmlv1.Element) string { return "the transition " + descr
 
 func deferredBy(v *sysmlv1.Element) string { return "deferred by " + describe(v) }
 
-// pseudostateLine spells the member a pseudostate of kind kw writes as: a
-// StateMachines metadata usage for choice/junction/history — qualified so a
-// member named like the metadata cannot shadow it — the standard literal for
-// fork/join.
-func pseudostateLine(prefix, kw, name string) string {
+// pseudostateLine spells the member a pseudostate of kind kw writes as in
+// scope: a StateMachines metadata usage for choice/junction/history — qualified
+// so a member named like the metadata cannot shadow it, importing the library —
+// the standard literal for fork/join. A strict migration, naming no OpenSysML
+// library, writes a choice or junction as a plain state.
+func (m *migration) pseudostateLine(scope *sysmlv1.Element, kw, name string) string {
 	switch kw {
 	case "choice", "junction", "shallowHistory", "deepHistory":
-		return "#" + prefix + "StateMachines::" + kw + " state " + name + ";"
+		if m.strict {
+			return "state " + name + ";"
+		}
+		m.useStateMachines()
+		return "#" + m.stateMachinesPrefix(scope) + "StateMachines::" + kw + " state " + name + ";"
 	}
 	return kw + " " + name + ";"
+}
+
+// junctionSpelling says how a junction is written, for a report note.
+func (m *migration) junctionSpelling() string {
+	if m.strict {
+		return "plain `state` standing for a junction, a strict migration naming no OpenSysML library,"
+	}
+	return "`#StateMachines::junction state`"
+}
+
+// historyWords says what each history pseudostate re-enters, for a report note.
+var historyWords = map[string]string{
+	"shallowHistory": "shallow history, which re-enters the substate active when its state was last left",
+	"deepHistory":    "deep history, which re-enters the innermost states active when its state was last left",
+}
+
+// noStrictHistory says why a strict migration refuses a history pseudostate.
+func noStrictHistory(what string) string {
+	return what + " has no standard v2 form: a history pseudostate is written only through the OpenSysML StateMachines library, which a strict migration does not name"
 }
 
 // stateMachinesPrefix is "$::" when a member written as `StateMachines` hides
@@ -59,6 +83,9 @@ func (m *migration) stateMachinesPrefix(scope *sysmlv1.Element) string {
 // innermost package enclosing the current scope, once, for the StateMachines
 // metadata member being written.
 func (m *migration) useStateMachines() {
+	if m.strict {
+		return
+	}
 	for e := m.scope; e != nil; e = e.Parent {
 		switch e.Type {
 		case "Package", "Model", "Profile":
@@ -353,7 +380,7 @@ func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
 	}
 	regions := m.regionsCrossed(out, owner, "target")
 	if len(out) < 2 || len(regions) < 2 {
-		return pointForm{kw: "junction", note: "written as a `#StateMachines::junction state` of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction"}
+		return pointForm{kw: "junction", note: "written as a " + m.junctionSpelling() + " of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction"}
 	}
 	if len(regions) < len(out) {
 		return pointForm{why: "the entry point starts several regions of " + describe(owner) + ", as a fork does, but two of its outgoing transitions enter the same region"}
@@ -416,7 +443,7 @@ func (m *migration) exitPointForm(v, owner *sysmlv1.Element) pointForm {
 	}
 	regions := m.regionsCrossed(in, owner, "source")
 	if len(in) < 2 || len(regions) < 2 {
-		return pointForm{kw: "junction", note: "written as a `#StateMachines::junction state` of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it"}
+		return pointForm{kw: "junction", note: "written as a " + m.junctionSpelling() + " of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it"}
 	}
 	joinBut := "several regions of " + describe(owner) + " leave through the exit point, as through a join, but "
 	if len(regions) < len(in) {
@@ -1118,28 +1145,29 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 		switch pseudoKind(v) {
 		case "initial":
 		case "choice", "junction":
-			name := writeName(s.name(v))
-			s.m.useStateMachines()
-			s.m.w.line(pseudostateLine(s.m.stateMachinesPrefix(v.Parent), pseudoKind(v), name))
+			name, kind := writeName(s.name(v)), pseudoKind(v)
+			s.m.w.line(s.m.pseudostateLine(v.Parent, kind, name))
 			s.m.madeUp(v, name)
-			s.m.add(v, Mapped, name, "written as a #StateMachines::"+pseudoKind(v)+" state pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch")
+			if s.m.strict {
+				s.m.add(v, Approximated, name, "written as a plain state standing for the "+kind+" pseudostate, since a strict migration names no OpenSysML library and #StateMachines::"+kind+" is one's; its guarded transitions are the pseudostate's, but a runtime no longer passes through it in one step")
+			} else {
+				s.m.add(v, Mapped, name, "written as a #StateMachines::"+kind+" state pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch")
+			}
 		case "fork", "join":
 			name := writeName(s.name(v))
 			s.m.w.line(pseudoKind(v) + " " + name + ";")
 			s.m.madeUp(v, name)
 			s.m.add(v, Mapped, name, "written as a "+pseudoKind(v)+" pseudostate, whose segments the runtime fires together")
-		case "shallowHistory":
+		case "shallowHistory", "deepHistory":
+			kind := pseudoKind(v)
+			if s.m.strict {
+				s.m.unmapped(v, noStrictHistory("the "+kind+" pseudostate"))
+				return
+			}
 			name := writeName(s.name(v))
-			s.m.useStateMachines()
-			s.m.w.line(pseudostateLine(s.m.stateMachinesPrefix(v.Parent), "shallowHistory", name))
+			s.m.w.line(s.m.pseudostateLine(v.Parent, kind, name))
 			s.m.madeUp(v, name)
-			s.m.add(v, Mapped, name, "written as a `#StateMachines::shallowHistory state` shallow history, which re-enters the substate active when its state was last left")
-		case "deepHistory":
-			name := writeName(s.name(v))
-			s.m.useStateMachines()
-			s.m.w.line(pseudostateLine(s.m.stateMachinesPrefix(v.Parent), "deepHistory", name))
-			s.m.madeUp(v, name)
-			s.m.add(v, Mapped, name, "written as a `#StateMachines::deepHistory state` deep history, which re-enters the innermost states active when its state was last left")
+			s.m.add(v, Mapped, name, "written as a `#StateMachines::"+kind+" state` "+historyWords[kind])
 		case "terminate":
 			s.m.add(v, Approximated, "done", "a terminate pseudostate ends the machine; a transition to it is written to done, which ends its region")
 		case "entryPoint", "exitPoint":
@@ -1188,10 +1216,7 @@ func (m *migration) statePoints(v *sysmlv1.Element) int {
 			m.add(cp, Mapped, m.vertexNames[v], f.note)
 		default:
 			name := writeName(m.vertexNames[cp])
-			if f.kw == "junction" {
-				m.useStateMachines()
-			}
-			m.w.line(pseudostateLine(m.stateMachinesPrefix(m.scope), f.kw, name))
+			m.w.line(m.pseudostateLine(m.scope, f.kw, name))
 			m.madeUp(cp, name)
 			m.add(cp, Mapped, name, f.note)
 			written++
@@ -1877,7 +1902,9 @@ func (s *stateRegion) transitionWritten(t *sysmlv1.Element) bool {
 				return named(pointOwner(tgt))
 			}
 			return named(tgt)
-		case "choice", "junction", "shallowHistory", "deepHistory", "fork", "join":
+		case "shallowHistory", "deepHistory":
+			return !s.m.strict && named(tgt)
+		case "choice", "junction", "fork", "join":
 			return named(tgt)
 		}
 	case "ConnectionPointReference":
@@ -2391,7 +2418,13 @@ func (s *stateRegion) target(t, v *sysmlv1.Element) (string, bool) {
 				return p, ok
 			}
 			return s.endpoint(t, v, "target")
-		case "choice", "junction", "shallowHistory", "deepHistory":
+		case "shallowHistory", "deepHistory":
+			if s.m.strict {
+				s.m.add(t, Unmapped, "", noStrictHistory("its target "+describe(v)))
+				return "", false
+			}
+			return s.endpoint(t, v, "target")
+		case "choice", "junction":
 			return s.endpoint(t, v, "target")
 		case "fork", "join":
 			return s.endpoint(t, v, "target")
@@ -2418,7 +2451,13 @@ func (s *stateRegion) source(t, v *sysmlv1.Element) (string, bool) {
 				return "", false
 			}
 			return s.endpoint(t, v, "source")
-		case "choice", "junction", "shallowHistory", "deepHistory":
+		case "shallowHistory", "deepHistory":
+			if s.m.strict {
+				s.m.add(t, Unmapped, "", noStrictHistory("its source "+describe(v)))
+				return "", false
+			}
+			return s.endpoint(t, v, "source")
+		case "choice", "junction":
 			return s.endpoint(t, v, "source")
 		case "fork", "join":
 			return s.endpoint(t, v, "source")
@@ -2970,6 +3009,9 @@ func (s *stateRegion) guard(t, src *sysmlv1.Element) (string, string) {
 		return "", ""
 	}
 	if k := pseudoKind(src); (k == "choice" || k == "junction") && isElseGuard(spec) {
+		if s.m.strict {
+			return s.strictElse(g, t, src, k)
+		}
 		s.m.add(g, Mapped, "", "an else guard is written as the unguarded transition out of the "+k+", which is taken when no guarded one holds")
 		return "", ""
 	}
@@ -2981,6 +3023,47 @@ func (s *stateRegion) guard(t, src *sysmlv1.Element) (string, string) {
 	}
 	s.m.add(g, verdictFor(note), "", note)
 	return " if " + expr, note
+}
+
+// strictElse writes an else guard out of a choice or junction a strict migration
+// writes as a plain state, whose transitions compete rather than yield to a
+// holding guard: the negation of the other written transitions' guards when
+// each is a v2 expression, else unguarded with a note on what that risks.
+func (s *stateRegion) strictElse(g, t, src *sysmlv1.Element, kind string) (string, string) {
+	var others []string
+	for _, o := range s.m.outgoing[src] {
+		if o == t || !s.transitionWritten(o) {
+			continue
+		}
+		og := s.m.guardOf(o)
+		spec := firstOwned(og, "specification")
+		switch {
+		case og == nil, spec == nil, trueLiteral(spec):
+			others = append(others, "true")
+			continue
+		case isElseGuard(spec):
+			continue
+		}
+		expr, ok, _ := s.m.behaviorValue(spec, o)
+		if !ok {
+			note := "the else guard is written as an unguarded transition, since the guard [" + describeValue(spec) + "] of the transition " + describe(o) + " is not a v2 expression to negate; the " + kind + " is a plain state whose transitions compete, so this branch may be taken while that guard holds"
+			s.m.add(g, Approximated, "", note)
+			return "", note
+		}
+		others = append(others, expr)
+	}
+	if len(others) == 0 {
+		s.m.add(g, Mapped, "", "an else guard beside no guarded transition out of the "+kind+" is not written")
+		return "", ""
+	}
+	for i, o := range others {
+		if len(others) > 1 {
+			others[i] = "(" + o + ")"
+		}
+	}
+	note := "the else guard is written as the negation of the other guards out of the " + kind + ", a plain state whose transitions compete rather than fall back to the else branch"
+	s.m.add(g, Approximated, "", note)
+	return " if not (" + strings.Join(others, " or ") + ")", note
 }
 
 // isElseGuard reports whether a guard's specification is the word else, which

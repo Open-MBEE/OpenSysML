@@ -221,7 +221,7 @@ func (m *migration) generalizesMonteCarlo(c *sysmlv1.Element) bool {
 // monteCarloCaseOf is the analysis def written beside a block: one that generalizes
 // the tool's MonteCarloAnalysis, or binds a statistic of one it inherits; nil for others.
 func (m *migration) monteCarloCaseOf(block *sysmlv1.Element) *monteCarloCase {
-	if block == nil || block.IsProxy() {
+	if block == nil || block.IsProxy() || m.strict {
 		return nil
 	}
 	if cs, ok := m.monteCarlo[block]; ok {
@@ -426,7 +426,10 @@ func (cs *monteCarloCase) statistics() []string {
 // MonteCarloAnalysis is written: as the sibling analysis def.
 func (m *migration) monteCarloGeneralization(block *sysmlv1.Element) string {
 	cs := m.monteCarloCaseOf(block)
-	if cs == nil {
+	switch {
+	case cs == nil && m.strict:
+		return "generalization of the simulation tool's " + monteCarloAnalysisBlock + " is not written: its v2 form is an analysis def :> " + monteCarloLibraryCase + ", an OpenSysML library a strict migration does not name"
+	case cs == nil:
 		return "generalization of the simulation tool's " + monteCarloAnalysisBlock + " is not written: the classifier is written as no part def for an analysis to take as its subject"
 	}
 	return "generalization of the simulation tool's " + monteCarloAnalysisBlock + " is written as the analysis def " + writeName(cs.name) + " :> " + monteCarloLibraryCase + " beside the part def, which is its subject"

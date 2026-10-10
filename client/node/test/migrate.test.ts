@@ -44,10 +44,10 @@ test("a v1 model migrates from its path, with the summary and the counts", async
   );
   assert.match(
     migration.report.summary,
-    /^migrated 93 element\(s\): 78 mapped, 12 approximated, 3 unmapped/,
+    /^migrated 93 element\(s\): 77 mapped, 13 approximated, 3 unmapped/,
   );
-  assert.equal(migration.report.mapped, 78);
-  assert.equal(migration.report.approximated, 12);
+  assert.equal(migration.report.mapped, 77);
+  assert.equal(migration.report.approximated, 13);
   assert.equal(migration.report.unmapped, 3);
   assert.equal(migration.report.skipped, 2);
   assert.notEqual(migration.report.source, "");

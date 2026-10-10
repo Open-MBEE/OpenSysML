@@ -33,19 +33,19 @@ package System {
             side = 1;
         }
     }
-    requirement def <'R-1'> 'Torque Requirement' {
+    requirement <'R-1'> 'Torque Requirement' {
         doc /* Torque shall exceed 10 Nm. */
         @Tailoring::'Audited Requirement' {
             auditor = "QA";
         }
     }
-    requirement def <'R-2'> 'Speed Requirement' {
+    requirement <'R-2'> 'Speed Requirement' {
         doc /* Speed shall exceed 100 rpm. */
     }
     part def 'Torque Test' {
         verification def run {
             objective {
-                verify requirement : 'Torque Requirement' {
+                verify 'Torque Requirement' {
                     @Tailoring::'Checked By';
                 }
             }
@@ -61,23 +61,23 @@ package System {
     occurrence def 'Foreign Thing' {
         @Tailoring::Foreign;
     }
-    dependency Spin to 'Speed Requirement' {
-        @ModelingMetadata::Refinement;
-        @Tailoring::'Detailed By';
-    }
     dependency 'Speed Requirement' to Gear {
         /* «Trace» */
         @Tailoring::'Linked To';
     }
     connection def 'Derive Speed Requirement' :> RequirementDerivation::Derivation {
-        end #RequirementDerivation::original originalRequirement : 'Torque Requirement';
-        end #RequirementDerivation::derive derivedRequirement : 'Speed Requirement';
+        end #RequirementDerivation::original originalRequirement :> 'Torque Requirement';
+        end #RequirementDerivation::derive derivedRequirement :> 'Speed Requirement';
         @Tailoring::'Derived From';
     }
     allocation def 'Spin to Shaft' {
         end :>> source : Spin;
         end :>> target : Shaft;
         @Tailoring::'Assigned To';
+    }
+    action spin : Spin;
+    connection 'Spin refines Speed Requirement' connect spin to 'Speed Requirement' {
+        @Tailoring::'Detailed By';
     }
     metadata MigrationMetadata::SynthesizedName about 'Spin to Shaft';
 }

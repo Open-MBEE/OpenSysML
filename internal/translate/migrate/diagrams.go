@@ -426,6 +426,9 @@ func (m *migration) drawsAsEdge(f viewForm, el *sysmlv1.Element) bool {
 // places reports whether a view of form f exposing x shows el, which ref names, as a
 // node a Layout positions: an element it exposes or a node of its subject's graph.
 func (m *migration) places(x exposures, f viewForm, el *sysmlv1.Element, ref string) bool {
+	if f.useCases && m.connOf(el) != nil {
+		return false
+	}
 	return !m.drawsAsEdge(f, el) && (x.exposed(ref) || inGraph(f, el) && m.drawsNode(el, f))
 }
 
@@ -649,7 +652,7 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 			x.dangling++
 			continue
 		}
-		ref := m.exposure(shown.Element, host)
+		ref := m.shownRef(shown.Element, host, form)
 		switch {
 		case m.graphDraws(form, shown.Element):
 			x.drawn++
@@ -659,6 +662,13 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 			x.unwritten++
 		default:
 			add(ref)
+			if c := m.connOf(shown.Element); form.useCases && c != nil {
+				// The connection stands for the edge; its members would shadow the usages.
+				for _, also := range m.connRefs(c.of, host) {
+					add(also)
+				}
+				continue
+			}
 			for _, also := range m.edgeRefs(shown.Element, host) {
 				add(also)
 			}
@@ -703,7 +713,10 @@ func (m *migration) exposure(e, scope *sysmlv1.Element) string {
 		return scalarValuesPrefix + sv
 	}
 	if link := m.actorLinkOf(e); link != nil {
-		return m.memberRef(link.useCase, scope) + "::" + writeName(link.name)
+		if link.conn == nil {
+			return ""
+		}
+		return m.hostedRef(link.conn.host, link.conn.name, scope)
 	}
 	if ref := m.monteCarloExposure(e, scope); ref != "" {
 		return ref
@@ -717,8 +730,8 @@ func (m *migration) exposure(e, scope *sysmlv1.Element) string {
 	return ""
 }
 
-// actorLinkOf is the actor usage that stands for e: an anonymous association to
-// an actor, or its end at the actor; nil when e is written by itself.
+// actorLinkOf is the link whose connection stands for e: an anonymous association
+// to an actor, or its end at the actor; nil when e is written by itself.
 func (m *migration) actorLinkOf(e *sysmlv1.Element) *actorLink {
 	if e == nil {
 		return nil
@@ -732,6 +745,21 @@ func (m *migration) actorLinkOf(e *sysmlv1.Element) *actorLink {
 		return nil
 	}
 	return link
+}
+
+// shownRef is what a view of form f exposes for e, from scope: on a use case
+// diagram the usage written for a definition, or for an association the
+// connection alone (see connRefs); otherwise what exposure names.
+func (m *migration) shownRef(e, scope *sysmlv1.Element, f viewForm) string {
+	if f.useCases {
+		if u := m.usageIn(e); u != nil {
+			return m.usageRef(u, scope)
+		}
+		if c := m.connOf(e); c != nil {
+			return m.connRefs(c.of, scope)[0]
+		}
+	}
+	return m.exposure(e, scope)
 }
 
 // exposable is the declaration written for e that a view can expose: its own, the
@@ -845,11 +873,17 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 	case src.export:
 		s.DiagramsJoined++
 		m.layoutJoined[rec.ID] = true
-		if src.stream {
+		if src.stream && !m.strict {
 			s.StreamSupplemented++
 		}
 	default:
 		s.StreamDiagrams++
+	}
+	if m.strict {
+		s.GeometryOmitted++
+		// Nothing is written, so the stream supplements nothing.
+		source = m.layoutSourceName(layoutSources{export: src.export})
+		return viewGeometry{note: "layout from " + source + " omitted: a strict migration names no OpenSysML library, and DiagramLayout is one's"}
 	}
 	prefix := diagramLayoutPrefix
 	if m.shadowsLibrary("DiagramLayout", v.host) {
@@ -887,7 +921,7 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 	geo.lines = append(geo.lines, routes...)
 	geo.lines = append(geo.lines, dress.lines...)
 	if len(rec.Placements)+len(rec.Connectors) > 0 {
-		clauses := append([]string{layoutClause(p.written, p.unexposed, p.dangling, len(rec.Placements)), routeClause(p.reasons, len(rec.Connectors))}, dress.notes...)
+		clauses := append([]string{layoutClause(p.written, p.unexposed, p.dangling, p.onEdges, len(rec.Placements)), routeClause(p.reasons, len(rec.Connectors))}, dress.notes...)
 		geo.note = fmt.Sprintf("laid out from %s: %s", source, strings.Join(clauses, ", "))
 	} else if len(dress.notes) > 0 {
 		geo.note = fmt.Sprintf("dressed from %s: %s", streamSource, strings.Join(dress.notes, ", "))
@@ -908,6 +942,7 @@ type layoutPlan struct {
 	refOf      map[string]string
 	written    int
 	unexposed  int
+	onEdges    int
 	dangling   int
 	reasons    map[string]int
 }
@@ -935,9 +970,14 @@ func (p *layoutPlan) placements(rec *mtip.Diagram) []string {
 			p.dangling++
 			continue
 		}
+		if c := m.connOf(el); p.form.useCases && c != nil && c.of != el {
+			// An association end's label lies on the connection's route.
+			p.onEdges++
+			continue
+		}
 		ref := ""
 		if vertexBase(el) == "" || m.vertexWritten(el) {
-			ref = m.exposure(el, v.host)
+			ref = m.shownRef(el, v.host, p.form)
 		}
 		if ref == "" || !m.places(p.x, p.form, el, ref) {
 			s.PlacementsUnexposed++
@@ -1029,7 +1069,7 @@ func (m *migration) drawnRef(x exposures, f viewForm, host *sysmlv1.Element, id 
 	if el == nil {
 		return ""
 	}
-	if ref := m.exposure(el, host); ref != "" && m.places(x, f, el, ref) {
+	if ref := m.shownRef(el, host, f); ref != "" && m.places(x, f, el, ref) {
 		return ref
 	}
 	refs, why := m.routeTarget(el, host, f)
@@ -1041,11 +1081,14 @@ func (m *migration) drawnRef(x exposures, f viewForm, host *sysmlv1.Element, id 
 
 // layoutClause words the placements of the layout note: how many of the
 // record's shown elements were positioned, and why the rest were not.
-func layoutClause(written, unexposed, dangling, total int) string {
+func layoutClause(written, unexposed, dangling, onEdges, total int) string {
 	clause := fmt.Sprintf("%d of %d shown elements positioned", written, total)
 	var parts []string
 	if unexposed > 0 {
 		parts = append(parts, fmt.Sprintf("%d not exposed", unexposed))
+	}
+	if onEdges > 0 {
+		parts = append(parts, fmt.Sprintf("%d lying on connections", onEdges))
 	}
 	if dangling > 0 {
 		parts = append(parts, fmt.Sprintf("%d resolving to no element", dangling))

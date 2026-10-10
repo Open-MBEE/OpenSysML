@@ -31,7 +31,7 @@ func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []
 			roots = append(roots, elem)
 		}
 	}
-	descendants := r.exposedDescendants(roots, r.interconnectionMembers)
+	descendants := r.exposedDescendants(roots, w.nestedFeatures)
 	for _, elem := range exposed {
 		switch {
 		case r.drawsConnector(elem):
@@ -126,6 +126,8 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 			w.connectors = append(w.connectors, member)
 		case casePin(sym, member):
 			w.pin(node, member, pinDirection(member))
+		case isReferencedIncludedCase(member):
+			// an `include u;` is drawn by the connection to the case it names
 		case w.drawsFeature(member):
 			child := w.featureNode(member, seen, depth+1, false)
 			w.parent[child] = node
@@ -235,12 +237,12 @@ func (r *Renderer) libraryDeclared(sym *symbols.Symbol) bool {
 	return idx != nil && idx.Library(sym)
 }
 
-// interconnectionMembers is the members featureNode draws as nested nodes:
-// the feature-like of what an element declares, connectors being edges.
-func (r *Renderer) interconnectionMembers(sym *symbols.Symbol) []*symbols.Symbol {
+// nestedFeatures is the members featureNode draws as nested nodes of sym:
+// the features this walk draws, connectors being edges.
+func (w *featureWalk) nestedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
-	for _, member := range r.containedMembers(sym) {
-		if featureLike(member) {
+	for _, member := range w.r.containedMembers(sym) {
+		if w.drawsFeature(member) && !isReferencedIncludedCase(member) {
 			out = append(out, member)
 		}
 	}
@@ -532,6 +534,8 @@ func featureLike(sym *symbols.Symbol) bool {
 		symbols.SymbolEnumerationDef, symbols.SymbolEnumerationUsage,
 		symbols.SymbolInterfaceDef, symbols.SymbolConnectionDef, symbols.SymbolAllocationDef,
 		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
+		symbols.SymbolUseCaseDef, symbols.SymbolUseCaseUsage,
+		symbols.SymbolRequirementDef, symbols.SymbolRequirementUsage,
 		symbols.SymbolKerMLType:
 		return true
 	}

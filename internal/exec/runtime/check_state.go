@@ -298,6 +298,12 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 	for _, trans := range sortedTransitions(e.changeFired) {
 		fmt.Fprintf(&s.out, " latched{%s}", s.transition(e, trans))
 	}
+	for _, trans := range sortedTransitions(e.changePending) {
+		fmt.Fprintf(&s.out, " pending{%s}", s.transition(e, trans))
+	}
+	for _, trans := range sortedTransitionKeys(e.changeObserved) {
+		fmt.Fprintf(&s.out, " observed{%s=%t}", s.transition(e, trans), e.changeObserved[trans])
+	}
 	for _, act := range e.doActions {
 		fmt.Fprintf(&s.out, " do{%s: %d pending", e.statePath(act.state), len(act.pending))
 		if act.run != nil {
@@ -415,6 +421,15 @@ func sortedTransitions(m map[*lower.Transition]bool) []*lower.Transition {
 		if set {
 			transitions = append(transitions, trans)
 		}
+	}
+	sort.Slice(transitions, func(i, j int) bool { return transitionKey(transitions[i]) < transitionKey(transitions[j]) })
+	return transitions
+}
+
+func sortedTransitionKeys(m map[*lower.Transition]bool) []*lower.Transition {
+	transitions := make([]*lower.Transition, 0, len(m))
+	for trans := range m {
+		transitions = append(transitions, trans)
 	}
 	sort.Slice(transitions, func(i, j int) bool { return transitionKey(transitions[i]) < transitionKey(transitions[j]) })
 	return transitions

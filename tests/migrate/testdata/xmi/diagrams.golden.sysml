@@ -77,7 +77,7 @@ package Structure {
     }
     view 'Engine 2' {
         expose Engine;
-        render Views::asTextualNotation;
+        render Views::asInterconnectionDiagram;
     }
 }
 package Behavior {
@@ -113,16 +113,14 @@ package Behavior {
 }
 package Usage {
     comment /* The driver drives. */
-    part def Driver;
-    use case def 'Drive Vehicle' {
-        subject;
-        actor driver : Driver;
-    }
+    part Driver;
+    use case 'Drive Vehicle';
+    connection 'Driver to Drive Vehicle' connect Driver to 'Drive Vehicle';
     view Driving {
         expose Driver;
         expose 'Drive Vehicle';
-        expose 'Drive Vehicle'::driver;
-        render Views::asTextualNotation;
+        expose 'Driver to Drive Vehicle';
+        render Views::asInterconnectionDiagram;
     }
 }
 package Reports {

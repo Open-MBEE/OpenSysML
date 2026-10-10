@@ -1,7 +1,18 @@
 {
     "type": "state",
-    "finalState": "finished",
-    "outputs": {
-        "log": { "type": "Integer", "value": 321879 }
-    }
+    "outcomes": [
+        {
+            "finalState": "finished",
+            "outputs": {
+                "log": { "type": "Integer", "value": 321789 }
+            }
+        },
+        {
+            "finalState": "finished",
+            "outputs": {
+                "log": { "type": "Integer", "value": 321879 }
+            }
+        }
+    ],
+    "admissible": "A do step and a dispatch due at one instant: which goes first is open"
 }

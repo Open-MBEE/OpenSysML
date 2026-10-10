@@ -976,3 +976,15 @@ func TestConstraintSlotHoldingAVerdictIsUnmappedAsOne(t *testing.T) {
 	wantNote(t, r, "_sl1", migrate.Unmapped, "the slot of constraint fits holds the literal SysML::Requirements::VerdictKind::pass, the run's verdict on the constraint rather than an instance of its type; an individual has no slot for a verdict")
 	wantClean(t, "verdict-slot.sysml", r)
 }
+
+// An instance classified by an actor, a part usage once migrated, specializes
+// nothing of it: an individual cannot specialize a usage.
+func TestInstanceOfActorSpecializesNoUsage(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Actor" xmi:id="_d" name="Driver"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_alice" name="alice" classifier="_d"/>`, ``)
+	wantLine(t, r.Notation, "/* not migrated: InstanceSpecification 'alice' — the instance's classifier Driver is written as a part usage, which an individual cannot specialize */")
+	wantNoLine(t, r.Notation, "individual part alice")
+	wantNote(t, r, "_alice", migrate.Unmapped, "the instance's classifier Driver is written as a part usage, which an individual cannot specialize")
+	wantClean(t, "actor-instance.sysml", r)
+}

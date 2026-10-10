@@ -159,26 +159,26 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		"attribute mass : 'Vehicle Design'::'Value Types'::Mass default = 1200.0;",
 		"part engine : Engine[1..2];",
 		"part wheels : Wheel[4..*];",
-		"ref part driver : Driver[0..1];",
+		"ref part driver :> Driver[0..1];",
 		"port fuelIn : ~'Vehicle Design'::Interfaces::FuelInterface;",
 		"binding 'fuel line' bind fuelIn = engine.fuelPort;",
 		"flow of 'Vehicle Design'::Interfaces::Fuel from fuelIn.fuel to engine.fuelPort.fuel;",
 		"bind mass = massLimit.m;",
 		"bind speedOut = engine.piston.p;",
-		"satisfy requirement : RequirementsModel::'Mass Requirement';",
-		"satisfy requirement : RequirementsModel::'Engine Mass Requirement' by engine;",
+		"satisfy RequirementsModel::'Mass Requirement';",
+		"satisfy RequirementsModel::'Engine Mass Requirement' by engine;",
 		"part engine : Motor :>> engine;",
 		"connection def Drives {",
 		"constraint def MassLimit {",
 		"m < limit",
 		"individual part def myCar :> Vehicle {",
 		"attribute :>> mass = 1350.5;",
-		"requirement def <R1> 'Mass Requirement' {",
+		"requirement <R1> 'Mass Requirement' {",
 		"doc /* The vehicle shall have a mass of less than 1500 kg. */",
-		"requirement def <'R1.1'> 'Chassis Mass' {",
+		"requirement <'R1.1'> 'Chassis Mass' {",
 		":> RequirementDerivation::Derivation {",
-		"end #RequirementDerivation::derive derivedRequirement : 'Engine Mass Requirement';",
-		"verify requirement : 'Mass Requirement';",
+		"end #RequirementDerivation::derive derivedRequirement :> 'Engine Mass Requirement';",
+		"verify 'Mass Requirement';",
 		"allocation def 'Motor to Engine' {",
 		"end :>> source : 'Vehicle Design'::Motor;",
 		"end :>> target : 'Vehicle Design'::Engine;",
@@ -219,7 +219,7 @@ func TestReportAccountsForEveryElement(t *testing.T) {
 		"_act_drive":        migrate.Mapped,
 		"_op_start":         migrate.Mapped,
 		"_unit_kg":          migrate.Unmapped,
-		"_dep_refine":       migrate.Mapped,
+		"_dep_refine":       migrate.Approximated,
 		"_dep_verify_block": migrate.Unmapped,
 		"_lib_sysml":        migrate.Skipped,
 		"_diag_bdd":         migrate.Approximated,
@@ -382,6 +382,8 @@ var constructFixtures = []string{
 	"stub_actions",
 	"tables",
 	"metaclass_tables",
+	"classifier_usages",
+	"empty_classifier_tables",
 	"documents",
 	"figures",
 	"collectors",
@@ -438,6 +440,21 @@ func TestGoldenConstructFixtures(t *testing.T) {
 // A strict migration writes only notation a pinned SysML v2 production admits:
 // every fixture's strict output analyses with zero error diagnostics in strict
 // conformance mode, where extension notation is an error.
+// A strict migration refuses a DocGen document before planning its content,
+// so the report holds an Unmapped row for the document and each view and
+// paragraph in it, and no Mapped row for content no Document holds.
+func TestStrictMigrationRefusesDocumentsBeforePlanningThem(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "montecarlo_docgen_scoped", migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "/* not migrated: «Document» 'Statistics Report' — its v2 form is a Document of OpenSysML's DocumentQueries library, which a strict migration does not name */")
+	if strings.Contains(string(r.Notation), "DocumentQueries::") {
+		t.Errorf("strict notation names DocumentQueries:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_s8", migrate.Unmapped, "its v2 form is a Document of OpenSysML's DocumentQueries library")
+	for _, id := range []string{"_s4", "_s5"} {
+		wantNote(t, r, id, migrate.Unmapped, "it belongs to «Document» 'Statistics Report', which is not migrated")
+	}
+}
+
 func TestStrictMigrationAnalysesCleanUnderStrictConformance(t *testing.T) {
 	for _, name := range append([]string{"vehicle"}, constructFixtures...) {
 		t.Run(name, func(t *testing.T) {
