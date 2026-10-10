@@ -132,14 +132,8 @@ type importCollisions struct {
 
 var noImportCollisions = &importCollisions{}
 
-// importedCollisions is the importCollisions of scope, computed once: what a
-// namespace imports depends on its own imports alone, so the result is
-// memoized per scope once the resolver is settled — no import target or
-// filter condition resolving, no other namespace's collisions being computed,
-// as what the imports bring is not known until then. Until it is, the result
-// is kept provisionally, so a namespace met many times over one computation is
-// computed once rather than once per path to it (KerML 8.3.2.4.5 excludes the
-// namespaces already visited, which a cycle of imports otherwise repeats).
+// importedCollisions is the importCollisions of scope, memoized once the resolver is
+// settled and kept provisionally meanwhile, so an import cycle computes each namespace once.
 func (r *Resolver) importedCollisions(scope *symbols.Scope) *importCollisions {
 	if scope == nil || r.idx == nil {
 		return noImportCollisions

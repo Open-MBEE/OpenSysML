@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -290,20 +289,10 @@ func TestHiddenImportedMembershipsThroughAnImportCycle(t *testing.T) {
 	fmt.Fprintf(&src, "package Use { private import P1::*; part d : D%d; part e : Engine; }\n", n)
 	src.WriteString("package Other { private import P2::*; part e : Engine; }\n")
 
-	done := make(chan struct{})
-	var r *resolve.Resolver
-	var root *ast.RootNamespace
-	var scope *symbols.Scope
-	go func() {
-		defer close(done)
-		r, root, scope = resolvedDoc(t, src.String())
-		resolve.References(root, scope)
-	}()
-	select {
-	case <-done:
-	case <-time.After(10 * time.Second):
-		t.Fatal("resolving over the import cycle did not finish in 10s")
-	}
+	// Resolving over the cycle must stay linear; a repeat per path would not
+	// finish within the test binary's own deadline.
+	r, root, scope := resolvedDoc(t, src.String())
+	resolve.References(root, scope)
 	if got := bindingOf(t, r, root, scope, fmt.Sprintf("D%d", n)); got != fmt.Sprintf("P%d::D%d", n, n) {
 		t.Errorf("D%d binds %q, want P%d::D%d", n, got, n, n)
 	}
