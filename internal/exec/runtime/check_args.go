@@ -15,6 +15,11 @@ type CheckArgs struct {
 	Named      map[string]Value
 }
 
+// supplies reports whether args bind anything.
+func (args CheckArgs) supplies() bool {
+	return len(args.Positional) > 0 || len(args.Named) > 0
+}
+
 // checkParameter is one `in` parameter a constraint or requirement declares,
 // as the member closest to the checked element declares it.
 type checkParameter struct {
@@ -24,10 +29,11 @@ type checkParameter struct {
 	def    ast.Node
 }
 
-// checkParameters are the `in` parameters sym declares or inherits, in
-// declaration order, each under the declaration closest to sym.
+// checkParameters are the `in` parameters sym declares or inherits, each in the
+// position of the declaration that introduced it, under the declaration closest
+// to sym: a redefinition, renaming or not, refines the inherited slot in place and
+// keeps its default when it states none.
 func (ctx *Context) checkParameters(sym *symbols.Symbol, members []scopedMember) []checkParameter {
-	superseded := ctx.redefinedAmong(sym, members)
 	var params []checkParameter
 	index := make(map[string]int)
 	for _, member := range members {
@@ -42,26 +48,58 @@ func (ctx *Context) checkParameters(sym *symbols.Symbol, members []scopedMember)
 		if name == "" {
 			continue
 		}
-		if memberSym := memberSymbol(member.scope, usage); memberSym != nil && superseded[memberSym] {
-			continue
-		}
 		param := checkParameter{
 			name:   name,
 			names:  ctx.memberNames(sym, member, name, usage.Ident.ShortName),
 			member: member,
 			def:    usage.Value,
 		}
-		if at, seen := index[name]; seen {
+		if at, seen := ctx.checkParameterSlot(sym, index, member, name); seen {
 			if param.def == nil {
 				param.def = params[at].def
 			}
+			param.names = unionNames(param.names, params[at].names)
 			params[at] = param
+			index[name] = at
 			continue
 		}
 		index[name] = len(params)
 		params = append(params, param)
 	}
 	return params
+}
+
+// checkParameterSlot is the slot among the parameters indexed so far that member,
+// an `in` parameter of owner named name, redeclares: the one of the same name, or
+// of a parameter it redefines under another name.
+func (ctx *Context) checkParameterSlot(owner *symbols.Symbol, index map[string]int, member scopedMember, name string) (int, bool) {
+	if at, seen := index[name]; seen {
+		return at, true
+	}
+	memberSym := memberSymbol(member.scope, member.node)
+	if memberSym == nil {
+		return 0, false
+	}
+	for _, redefined := range ctx.redefinedFeatures(memberSym, owner) {
+		if at, seen := index[redefined.Name]; seen {
+			return at, true
+		}
+	}
+	return 0, false
+}
+
+func unionNames(names, more []string) []string {
+	seen := make(map[string]bool, len(names))
+	for _, n := range names {
+		seen[n] = true
+	}
+	for _, n := range more {
+		if !seen[n] {
+			seen[n] = true
+			names = append(names, n)
+		}
+	}
+	return names
 }
 
 // bindCheckArgs binds args to the `in` parameters of the checked element into

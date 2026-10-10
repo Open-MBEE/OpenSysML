@@ -1240,7 +1240,7 @@ func (ctx *Context) CheckConstraintWith(sym *symbols.Symbol, scope *symbols.Scop
 	if err := RequireConstraint(sym); err != nil {
 		return CheckResult{Subject: self}, err
 	}
-	return ctx.checkOn(sym, "constraint", sym.Name, sym, self, func(subject carrier) (CheckResult, error) {
+	return ctx.checkOnWith(sym, "constraint", sym.Name, sym, self, args, func(subject carrier) (CheckResult, error) {
 		return ctx.checkConstraintOn(sym, scope, subject, args)
 	})
 }
@@ -1558,7 +1558,7 @@ func (ctx *Context) CheckRequirementWith(sym *symbols.Symbol, scope *symbols.Sco
 	if err := RequireRequirement(sym); err != nil {
 		return CheckResult{Subject: self}, err
 	}
-	return ctx.checkOn(sym, "requirement", sym.Name, sym, self, func(subject carrier) (CheckResult, error) {
+	return ctx.checkOnWith(sym, "requirement", sym.Name, sym, self, args, func(subject carrier) (CheckResult, error) {
 		return ctx.checkRequirementOn(sym, scope, subject, args)
 	})
 }
