@@ -16,7 +16,6 @@ package ViewsModel {
         end pump : Pump;
         view Feeds {
             expose ValveToPump;
-            expose pump;
             render Views::asTreeDiagram;
         }
         metadata MigrationMetadata::SynthesizedName about pump;
@@ -26,7 +25,6 @@ package ViewsModel {
         end sink : Valve;
         view Supplies {
             expose ViewsModel::Supplies;
-            expose source;
             expose ViewsModel::Pump::outlet;
             render Views::asTreeDiagram;
         }

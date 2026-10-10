@@ -759,6 +759,11 @@ func (m *migration) shownRef(e, scope *sysmlv1.Element, f viewForm) string {
 			return m.connRefs(c.of, scope)[0]
 		}
 	}
+	if e.Type == "Property" && m.associationDef(e.Parent) {
+		// An end an association's def declares is shown by the def's line or box;
+		// exposed by itself it would shadow a same-named end of another def.
+		return m.exposure(e.Parent, scope)
+	}
 	return m.exposure(e, scope)
 }
 

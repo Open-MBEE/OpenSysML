@@ -209,7 +209,8 @@ const (
 	EdgeRefine
 	// EdgeAllocate is an allocation, from the allocated element.
 	EdgeAllocate
-	// EdgeAssociation connects an actor or subject to a case.
+	// EdgeAssociation is an association drawn as a plain line: an actor or subject
+	// to a case, or a connection def between the definitions typing its two ends.
 	EdgeAssociation
 	// EdgeInclude includes one case in another.
 	EdgeInclude

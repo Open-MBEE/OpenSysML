@@ -339,10 +339,9 @@ func TestTreeDrawsAConnectionDefAsALineBetweenItsEndTypes(t *testing.T) {
 		}
 	}
 	want := []string{
-		"Fleet::Wheel connection Fleet::Car: WheelToCar: wheels / car",
-		"Fleet::Car connection Fleet::Trailer: Tows: tower / trailer[0..1]",
-		"Fleet::Car reference Fleet::Wheel: wheels[4]",
-		"Fleet::Wheel reference Fleet::Car: car",
+		"Fleet::Wheel association Fleet::Car: WheelToCar: wheels[4] / car",
+		"Fleet::Truck composition Fleet::Hitch: HitchToTruck: hitch / truck",
+		"Fleet::Car association Fleet::Trailer: Tows: tower / trailer[0..1]",
 		"Fleet::Pairing reference Fleet::Car: a",
 		"Fleet::Pairing reference Fleet::Trailer: b",
 		"Fleet::Ferries reference Fleet::Car: car",
@@ -377,7 +376,7 @@ package Views {
 	if len(rendering.Roots) != 2 {
 		t.Fatalf("roots = %+v, want Wheel and Car alone", rendering.Roots)
 	}
-	if len(rendering.Edges) != 1 || rendering.Edges[0].Kind != EdgeConnection {
+	if len(rendering.Edges) != 1 || rendering.Edges[0].Kind != EdgeAssociation {
 		t.Fatalf("edges = %+v, want the one connection line", rendering.Edges)
 	}
 	edge := rendering.Edges[0]
@@ -389,5 +388,76 @@ package Views {
 	}
 	if len(rendering.Notes) != 1 || rendering.Notes[0].Anchor != "" || rendering.Notes[0].EdgeFrom != edge.From || rendering.Notes[0].EdgeTo != edge.To {
 		t.Errorf("notes = %+v, want the one note anchored to the line", rendering.Notes)
+	}
+}
+
+// An end crossing a composite part the tree already draws as a composition
+// from its owner takes that edge over: the association is one line, keeping
+// the composition's diamond and the part's name, wearing the def's Style and
+// following its Route, with the def's Notes anchored to it.
+func TestTreeAssociationCrossingACompositePartIsItsCompositionEdge(t *testing.T) {
+	rendering := renderSource(t, "Diagrams::bdd", `package Model {
+	part def Wheel;
+	part def Car {
+		part wheels : Wheel[4];
+	}
+	connection def WheelToCar {
+		end wheels : Wheel crosses car.wheels;
+		end car : Car;
+	}
+}
+package Diagrams {
+	private import DiagramLayout::*;
+	view bdd {
+		expose Model::Car;
+		expose Model::Wheel;
+		expose Model::WheelToCar;
+		metadata Style about Model::WheelToCar { line = "#00FF00"; }
+		metadata Route about Model::WheelToCar { points = (10, 20, 30, 40); }
+		metadata Note about Model::WheelToCar { text = "four of them"; x = 10; y = 20; }
+		render Views::asTreeDiagram;
+	}
+}`)
+	if got, want := treeEdgeLines(rendering), []string{"Model::Car composition Model::Wheel: WheelToCar: wheels[4] / car"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("edges = %q, want %q", got, want)
+	}
+	edge := rendering.Edges[0]
+	if edge.Style == nil || edge.Style.Line != "#00FF00" {
+		t.Errorf("edge style = %+v, want the def's line", edge.Style)
+	}
+	if want := []Point{{10, 20}, {30, 40}}; !reflect.DeepEqual(edge.Route, want) {
+		t.Errorf("edge route = %v, want the def's %v", edge.Route, want)
+	}
+	if len(rendering.Notes) != 1 || rendering.Notes[0].Anchor != "" || rendering.Notes[0].EdgeFrom != edge.From || rendering.Notes[0].EdgeTo != edge.To {
+		t.Errorf("notes = %+v, want the one note anchored to the edge", rendering.Notes)
+	}
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	var lines []string
+	for _, line := range strings.Split(dot, "\n") {
+		if strings.Contains(line, `label="WheelToCar`) {
+			lines = append(lines, line)
+		}
+	}
+	if len(lines) != 1 || !strings.Contains(lines[0], "dir=back, arrowtail=diamond") || strings.Contains(lines[0], "penwidth=3") {
+		t.Errorf("DOT draws the association as other than one composition edge:\n%s", dot)
+	}
+}
+
+// An association line is a plain line, as a block definition diagram draws
+// one, not the heavy connector of an interconnection diagram.
+func TestTreeAssociationLineIsPlain(t *testing.T) {
+	rendering := render(t, "tree-associations.sysml", "FleetViews::structure")
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if strings.Contains(dot, "penwidth=3") {
+		t.Errorf("DOT draws an association as a heavy connector:\n%s", dot)
+	}
+	if want := `[label="Tows: tower / trailer[0..1]", dir=none];`; !strings.Contains(dot, want) {
+		t.Errorf("DOT lacks the plain line %s:\n%s", want, dot)
 	}
 }

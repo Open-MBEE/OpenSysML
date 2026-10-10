@@ -73,10 +73,17 @@ package Structure {
         metadata MigrationMetadata::SynthesizedName about 'satisfy Speed Limit';
     }
     part def Wheel;
+    connection def WheelToVehicle {
+        end wheel : Wheel crosses vehicle.wheel;
+        end vehicle : Vehicle;
+    }
     dependency 'Vehicle to Engine' from Vehicle to Engine;
     dependency Vehicle to Wheel;
     dependency 'Engine to Component' from Engine to Component;
     dependency 'Wheel to Component' from Wheel to Component;
+    part wheel : Wheel;
+    part vehicle : Vehicle;
+    connection 'wheel to vehicle' : WheelToVehicle connect wheel to vehicle;
     view Structure {
         expose Component;
         expose Vehicle;
@@ -85,14 +92,16 @@ package Structure {
         expose 'Vehicle to Engine';
         expose 'Engine to Component';
         expose 'Wheel to Component';
-        @DiagramLayout::Canvas { unit = "px"; width = 330; height = 240; }
+        expose WheelToVehicle;
+        @DiagramLayout::Canvas { unit = "px"; width = 330; height = 260; }
         metadata DiagramLayout::Layout about Component { x = 120; y = 20; width = 100; height = 60; }
         metadata DiagramLayout::Layout about Vehicle { x = 10; y = 160; width = 100; height = 80; }
         metadata DiagramLayout::Layout about Engine { x = 120; y = 160; width = 100; height = 80; }
         metadata DiagramLayout::Layout about Wheel { x = 230; y = 160; width = 100; height = 80; }
+        metadata DiagramLayout::Route about WheelToVehicle { points = (260, 220, 210, 260, 160, 220); }
         render Views::asTreeDiagram;
     }
-    metadata MigrationMetadata::SynthesizedName about 'Vehicle to Engine', 'Engine to Component', 'Wheel to Component';
+    metadata MigrationMetadata::SynthesizedName about WheelToVehicle, 'Vehicle to Engine', 'Engine to Component', 'Wheel to Component';
 }
 package Behavior {
     item def Go;

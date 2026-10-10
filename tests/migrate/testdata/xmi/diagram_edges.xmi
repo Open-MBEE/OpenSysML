@@ -74,6 +74,9 @@
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_engine" general="_blk_component"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_blk_wheel" name="Wheel"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_wheel" memberEnd="_prop_wheel _assoc_wheel_end">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_assoc_wheel_end" name="vehicle" type="_blk_vehicle" association="_assoc_wheel"/>
+      </packagedElement>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_dep_shown" client="_blk_vehicle" supplier="_blk_engine"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_dep_hidden" client="_blk_vehicle" supplier="_blk_wheel"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_dep_pairs" client="_blk_engine _blk_wheel" supplier="_blk_component"/>
@@ -151,6 +154,8 @@
                   <usedElements>_gen_engine</usedElements>
                   <usedElements>_dep_shown</usedElements>
                   <usedElements>_dep_pairs</usedElements>
+                  <usedElements>_assoc_wheel</usedElements>
+                  <usedElements>_assoc_wheel_end</usedElements>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>

@@ -114,6 +114,26 @@
                <id _dtype="str">_dep_pairs</id>
                <type _dtype="str">sysml.Dependency</type>
             </diagramConnector>
+            <diagramConnector _dtype="dict" key="3">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">160</xCoordinate>
+                     <yCoordinate _dtype="int">220</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">260</xCoordinate>
+                     <yCoordinate _dtype="int">220</yCoordinate>
+                  </clientPoint>
+                  <breakPoint _dtype="list">
+                     <breakPoint key="0">
+                        <xCoordinate _dtype="int">210</xCoordinate>
+                        <yCoordinate _dtype="int">260</yCoordinate>
+                     </breakPoint>
+                  </breakPoint>
+               </relationship_metadata>
+               <id _dtype="str">_assoc_wheel</id>
+               <type _dtype="str">sysml.Association</type>
+            </diagramConnector>
          </diagramConnector>
       </relationships>
       <type _dtype="str">sysml.BlockDefinitionDiagram</type>

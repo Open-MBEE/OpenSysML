@@ -15,6 +15,17 @@ package Fleet {
         end car : Car crosses wheels.car;
     }
 
+    part def Hitch;
+
+    part def Truck {
+        part hitch : Hitch;
+    }
+
+    connection def HitchToTruck {
+        end hitch : Hitch crosses truck.hitch;
+        end truck : Truck;
+    }
+
     part def Trailer;
 
     connection def Tows {
@@ -50,7 +61,10 @@ package FleetViews {
         expose Fleet::Car;
         expose Fleet::Wheel;
         expose Fleet::Trailer;
+        expose Fleet::Truck;
+        expose Fleet::Hitch;
         expose Fleet::WheelToCar;
+        expose Fleet::HitchToTruck;
         expose Fleet::Tows;
         expose Fleet::Pairing;
         expose Fleet::Ferries;

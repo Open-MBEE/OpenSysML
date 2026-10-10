@@ -197,7 +197,7 @@ func TestDiagramViews(t *testing.T) {
 			diagram("_d1", "status", "_opening", "SysML Activity Diagram", "_status") + diagram("_d", "turn", "_opening", "SysML Activity Diagram", "_turn"),
 			[]string{"action def Open {\n        view 'status 2' {\n            expose Valve::Open::status;\n            render Views::asTextualNotation;", "view 'turn 2' : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            render Views::asInterconnectionDiagram;", "attribute status;", "action turn {"}, Approximated,
 			"written as turn 2"},
-		{"a shown association end is exposed under the name its connection def declares",
+		{"a shown association end exposes the connection def declaring it, not the end by itself",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_t_end" name="pump" type="_pump" association="_feeds"/>
 			 </packagedElement>
@@ -205,7 +205,7 @@ func TestDiagramViews(t *testing.T) {
 			   <ownedEnd xmi:type="uml:Property" xmi:id="_a_end" type="_pump" association="_feeds"/>
 			 </packagedElement>`,
 			diagram("_d", "Feeding", "_sys", "SysML Block Definition Diagram", "_a_end"),
-			[]string{"connection def Feeds {\n    end pump2 : Sys::Pump;\n    end pump : Sys::Pump;\n    metadata MigrationMetadata::SynthesizedName about pump;\n}", "view Feeding {\n        expose Feeds::pump;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+			[]string{"connection def Feeds {\n    end pump2 : Sys::Pump;\n    end pump : Sys::Pump;\n    metadata MigrationMetadata::SynthesizedName about pump;\n}", "view Feeding {\n        expose Feeds;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
 		{"a member named like a library package is renamed, so a shown primitive still exposes the library's",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_svs" name="ScalarValues"/>
 			 <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">

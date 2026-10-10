@@ -367,6 +367,12 @@ func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]strin
 	if c := m.connOf(el); f.useCases && c != nil {
 		return m.connRefs(c.of, scope)[:1], ""
 	}
+	if m.associationDef(el) {
+		if !f.drawsEdge("connection def") {
+			return nil, routeNotDrawn
+		}
+		return []string{m.exposure(el, scope)}, ""
+	}
 	if nameableEdge(el) {
 		em, ok := m.edgeMembers[el]
 		switch {
@@ -387,6 +393,12 @@ func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]strin
 		return nil, routeNotDrawn
 	}
 	return nil, routeNoMember
+}
+
+// associationDef reports whether e is an association written as a connection
+// def, which a tree draws as a line between its end types' boxes.
+func (m *migration) associationDef(e *sysmlv1.Element) bool {
+	return e != nil && (e.Type == "Association" || e.Type == "AssociationClass") && m.written(e) && m.associationAsConnectionDef(e)
 }
 
 // viewForm is how a diagram's view is drawn: its Views rendering, the standard view
@@ -489,7 +501,13 @@ func (f viewForm) drawsEdge(keyword string) bool {
 	case "StateTransitionView":
 		return keyword == "transition"
 	}
-	return f.rendering == interconnectionRendering && (keyword == "connection" || keyword == "binding")
+	switch f.rendering {
+	case interconnectionRendering:
+		return keyword == "connection" || keyword == "binding"
+	case treeRendering:
+		return keyword == "connection def"
+	}
+	return false
 }
 
 // drawsPictures reports whether the form's rendering draws the Pictures its
