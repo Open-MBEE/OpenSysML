@@ -46,6 +46,9 @@ func unfoldSubflow(sub *lower.Subflow, node ast.Node) (*lower.ActionGraph, error
 	if err := validateSubflows(graph); err != nil {
 		return nil, err
 	}
+	if err := checkNodeResultParameters(graph); err != nil {
+		return nil, err
+	}
 	return graph, nil
 }
 
@@ -164,7 +167,7 @@ func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error)
 		return nil, fmt.Errorf("%w: %s: %w",
 			ErrInvalidActionFlow, perf.describe(), perf.graph.Invalid)
 	}
-	if err := e.checkNodeResultParameters(perf.graph); err != nil {
+	if err := checkNodeResultParameters(perf.graph); err != nil {
 		return nil, fmt.Errorf("%s: %w", perf.describe(), err)
 	}
 	if perf.graph == nil {
@@ -653,10 +656,10 @@ func (e *ActionExecutor) checkResultParameters() error {
 				ErrActionResultParameter, symbolText(e.action), param.Symbol.Name, param.Symbol.Name)
 		}
 	}
-	return e.checkNodeResultParameters(e.graph)
+	return checkNodeResultParameters(e.graph)
 }
 
-func (e *ActionExecutor) checkNodeResultParameters(graph *lower.ActionGraph) error {
+func checkNodeResultParameters(graph *lower.ActionGraph) error {
 	if graph == nil {
 		return nil
 	}
@@ -667,13 +670,13 @@ func (e *ActionExecutor) checkNodeResultParameters(graph *lower.ActionGraph) err
 					ErrActionResultParameter, ActionNodeName(node), f.Name, f.Name)
 			}
 		}
-		if sub, owns := e.subflowOf(graph, node); owns && sub.Graph != nil {
-			if err := e.checkNodeResultParameters(sub.Graph); err != nil {
+		if sub, owns := graph.Subflows[node]; owns && sub != nil && sub.Graph != nil {
+			if err := checkNodeResultParameters(sub.Graph); err != nil {
 				return err
 			}
 		}
 		for _, block := range lower.BlockFlows(graph.Bodies[node]) {
-			if err := e.checkNodeResultParameters(block); err != nil {
+			if err := checkNodeResultParameters(block); err != nil {
 				return err
 			}
 		}

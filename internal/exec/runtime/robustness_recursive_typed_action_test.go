@@ -61,6 +61,41 @@ func TestRuntimeRobustnessRecursiveTypedAction(t *testing.T) {
 		}
 	})
 
+	t.Run("deferred_body_result_parameter_is_refused_when_a_body_unfolds_it", func(t *testing.T) {
+		_, err := executeRecursiveTypedAction(t, `package test {
+			private import ScalarValues::*;
+			action def A {
+				in depth : Integer;
+				if depth > 0 {
+					action x : A {
+						in depth = depth - 1;
+						action bad { return r : Integer; }
+					}
+				}
+			}
+			action run {
+				action w : A { in depth = 1; }
+			}
+		}`, "run", 200)
+		if !errors.Is(err, ErrActionResultParameter) {
+			t.Fatalf("ExecuteAction error = %v, want ErrActionResultParameter", err)
+		}
+	})
+
+	t.Run("deferred_body_result_parameter_is_refused_when_a_token_unfolds_it", func(t *testing.T) {
+		_, err := executeRecursiveTypedAction(t, `package test {
+			private import ScalarValues::*;
+			action def A {
+				first start then x;
+				action x : A { action bad { return r : Integer; } }
+				then done;
+			}
+		}`, "A", 200)
+		if !errors.Is(err, ErrActionResultParameter) {
+			t.Fatalf("ExecuteAction error = %v, want ErrActionResultParameter", err)
+		}
+	})
+
 	t.Run("bounded_inherited_recursion_runs_to_depth", func(t *testing.T) {
 		outputs, err := executeRecursiveTypedAction(t, `package test {
 			private import ScalarValues::*;
