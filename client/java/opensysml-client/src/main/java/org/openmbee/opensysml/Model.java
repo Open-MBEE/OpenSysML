@@ -855,8 +855,13 @@ public final class Model {
     Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
     connection.capabilities().require(Capabilities.VERIFICATION);
     requireQuestion(options);
+    requireArguments(options);
     VerifyConstraintRequest.Builder request =
-        VerifyConstraintRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId);
+        VerifyConstraintRequest.newBuilder()
+            .setModelHash(hash)
+            .setSymbolId(symbolId)
+            .addAllArguments(Protos.protos(options.arguments(), connection.capabilities()))
+            .putAllNamedArguments(Protos.protos(options.namedArguments(), connection.capabilities()));
     subjectSymbolId.ifPresent(request::setSubjectSymbolId);
     engine.ifPresent(request::setEngine);
     questionField(options).ifPresent(request::setQuestion);
@@ -937,8 +942,13 @@ public final class Model {
     Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
     connection.capabilities().require(Capabilities.VERIFICATION);
     requireQuestion(options);
+    requireArguments(options);
     VerifyRequirementRequest.Builder request =
-        VerifyRequirementRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId);
+        VerifyRequirementRequest.newBuilder()
+            .setModelHash(hash)
+            .setSymbolId(symbolId)
+            .addAllArguments(Protos.protos(options.arguments(), connection.capabilities()))
+            .putAllNamedArguments(Protos.protos(options.namedArguments(), connection.capabilities()));
     subjectSymbolId.ifPresent(request::setSubjectSymbolId);
     engine.ifPresent(request::setEngine);
     questionField(options).ifPresent(request::setQuestion);
@@ -1739,6 +1749,13 @@ public final class Model {
       return Optional.empty();
     }
     return Optional.of(options.question());
+  }
+
+  // Refuse to send bindings a service without verification_arguments would silently drop.
+  private void requireArguments(VerifyOptions options) {
+    if (options.bindsArguments()) {
+      connection.capabilities().require(Capabilities.VERIFICATION_ARGUMENTS);
+    }
   }
 
   // Refuse to send a question a service without verification_questions would evaluate instead.

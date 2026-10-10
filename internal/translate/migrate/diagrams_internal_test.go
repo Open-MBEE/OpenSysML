@@ -108,7 +108,7 @@ func TestDiagramViews(t *testing.T) {
 			[]string{"view Pumps {\n        expose Pump;\n        expose Sys::Pump::rate;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
 		{"a diagram of a block is written in its part def",
 			``, diagram("_d", "Pump IBD", "_pump", "SysML Internal Block Diagram", "_rate"),
-			[]string{"part def Pump {\n        ref rate;\n        view 'Pump IBD' {\n            expose rate;\n            render Views::asInterconnectionDiagram;\n        }\n    }"}, Mapped, ""},
+			[]string{"part def Pump {\n        attribute rate;\n        view 'Pump IBD' {\n            expose rate;\n            render Views::asInterconnectionDiagram;\n        }\n    }"}, Mapped, ""},
 		{"a diagram naming no owner is written where its extension is held",
 			``, diagram("_d", "Loose", "", "Class Diagram", "_pump"),
 			[]string{"view Loose {\n    expose Sys::Pump;\n    render Views::asTreeDiagram;\n}"}, Approximated, "the diagram names no owner; written at the top level"},
@@ -183,7 +183,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Valves", "_sys", "SysML Block Definition Diagram", "_status"),
-			[]string{"action def Open {\n        ref status;", "view Valves {\n        expose Valve::Open::status;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+			[]string{"action def Open {\n        attribute status;", "view Valves {\n        expose Valve::Open::status;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
 		{"a diagram of a method activity named like one of its members is numbered, the member keeping its name",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
 			   <ownedOperation xmi:type="uml:Operation" xmi:id="_open" name="Open" method="_opening"/>
@@ -195,7 +195,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d1", "status", "_opening", "SysML Activity Diagram", "_status") + diagram("_d", "turn", "_opening", "SysML Activity Diagram", "_turn"),
-			[]string{"action def Open {\n        view 'status 2' {\n            expose Valve::Open::status;\n            render Views::asTextualNotation;", "view 'turn 2' : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            render Views::asInterconnectionDiagram;", "ref status;", "action turn {"}, Approximated,
+			[]string{"action def Open {\n        view 'status 2' {\n            expose Valve::Open::status;\n            render Views::asTextualNotation;", "view 'turn 2' : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            render Views::asInterconnectionDiagram;", "attribute status;", "action turn {"}, Approximated,
 			"written as turn 2"},
 		{"a shown association end is exposed under the name its connection def declares",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
@@ -328,7 +328,7 @@ func TestDiagramNotesDoNotNameOmittedVertices(t *testing.T) {
 		strict   bool
 		anchored bool
 	}{
-		{name: "strict", strict: true, anchored: true},
+		{name: "strict", strict: true},
 		{name: "non-strict", anchored: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -348,6 +348,13 @@ func TestDiagramNotesDoNotNameOmittedVertices(t *testing.T) {
 			}
 			r := FromModelOptions("diagrams.xmi", model, Options{Strict: tc.strict})
 			got := string(r.Notation)
+			if tc.strict {
+				// A strict migration writes no layout, DiagramLayout being OpenSysML's.
+				if strings.Contains(got, "DiagramLayout") {
+					t.Errorf("strict notation names DiagramLayout:\n%s", got)
+				}
+				return
+			}
 			anchored := strings.Contains(got, "metadata DiagramLayout::Note about")
 			if anchored != tc.anchored {
 				t.Errorf("note anchored = %t, want %t:\n%s", anchored, tc.anchored, got)
@@ -480,14 +487,15 @@ func TestExposeOfUnhostedDiagramFailsPerClient(t *testing.T) {
 
 func TestLayoutClauseWording(t *testing.T) {
 	for _, tc := range []struct {
-		written, unexposed, dangling, total int
-		want                                string
+		written, unexposed, dangling, onEdges, total int
+		want                                         string
 	}{
-		{1, 0, 0, 1, "1 of 1 shown elements positioned"},
-		{1, 1, 1, 3, "1 of 3 shown elements positioned (1 not exposed, 1 resolving to no element)"},
-		{0, 2, 0, 2, "0 of 2 shown elements positioned (2 not exposed)"},
+		{1, 0, 0, 0, 1, "1 of 1 shown elements positioned"},
+		{1, 1, 1, 0, 3, "1 of 3 shown elements positioned (1 not exposed, 1 resolving to no element)"},
+		{0, 2, 0, 0, 2, "0 of 2 shown elements positioned (2 not exposed)"},
+		{2, 0, 0, 2, 4, "2 of 4 shown elements positioned (2 lying on connections)"},
 	} {
-		got := layoutClause(tc.written, tc.unexposed, tc.dangling, tc.total)
+		got := layoutClause(tc.written, tc.unexposed, tc.dangling, tc.onEdges, tc.total)
 		if got != tc.want {
 			t.Errorf("layoutClause = %q, want %q", got, tc.want)
 		}

@@ -73,6 +73,12 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: scripts/ci-changed-areas.sh "origin/$BASE_REF" HEAD | tee -a "$GITHUB_OUTPUT"
 
+      # The vendored copy is checked in this job, not static-and-integrity: the
+      # changed-areas filter may skip that job for a non-Go change, but drift
+      # between the vendored libraries and their pin must always fail.
+      - name: Check the vendored extension libraries against their pin
+        run: make extension-libraries-check
+
   race-tests:
     name: Go race tests (${{ matrix.shard }})
     needs: changes

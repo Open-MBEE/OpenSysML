@@ -142,9 +142,26 @@ type Context struct {
 	// behaviorRunDepth is the number of classifier-behavior starts under way.
 	behaviorRunDepth int
 
+	// stateExecutors are the live state machines this context can notify of a
+	// completed feature write, in creation order.
+	stateExecutors []*StateExecutor
+
+	// featureWriteDepth coalesces nested stores into one completed write.
+	featureWriteDepth  int
+	featureWriteState  bool
+	featureWriteBefore map[*FeatureValue]featureWriteValue
+	featureWriteOrder  []*FeatureValue
+
+	// readRecorders collect feature values read by an observed change condition.
+	readRecorders [][]*FeatureValue
+
 	// declarative makes the context read declared values only: no classifier
 	// behavior starts when an object is materialized (see DeclaredReader).
 	declarative bool
+
+	// coverageNotes holds the distinct reasons this run's coverage is narrower
+	// than its schedules, recorded once each (coverage_note.go).
+	coverageNotes map[string]bool
 
 	// heldBehaviors are the behaviors already holding work when the outermost
 	// start under way began: a driver put it in flight, and dispatches it.
@@ -1229,26 +1246,38 @@ func (ctx *Context) EvaluateConstraintOn(sym *symbols.Symbol, scope *symbols.Sco
 // reports the object it turned out to be about, which a caller labelling the
 // verdict needs: it is not always the instance supplied.
 func (ctx *Context) CheckConstraintOn(sym *symbols.Symbol, scope *symbols.Scope, self *Instance) (CheckResult, error) {
+	return ctx.CheckConstraintWith(sym, scope, self, CheckArgs{})
+}
+
+// CheckConstraintWith is CheckConstraintOn with arguments bound to the
+// constraint's `in` parameters for this check, as a calc's are for an invocation.
+func (ctx *Context) CheckConstraintWith(sym *symbols.Symbol, scope *symbols.Scope, self *Instance, args CheckArgs) (CheckResult, error) {
 	defer ctx.beginRun()()
 
 	if err := RequireConstraint(sym); err != nil {
 		return CheckResult{Subject: self}, err
 	}
-	return ctx.checkOn(sym, "constraint", sym.Name, sym, self, func(subject carrier) (CheckResult, error) {
-		return ctx.checkConstraintOn(sym, scope, subject)
+	return ctx.checkOnWith(sym, "constraint", sym.Name, sym, self, args, func(subject carrier) (CheckResult, error) {
+		return ctx.checkConstraintOn(sym, scope, subject, args)
 	})
 }
 
-// checkConstraintOn is CheckConstraintOn evaluated on the object it resolved to.
-func (ctx *Context) checkConstraintOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier) (CheckResult, error) {
+// checkConstraintOn is CheckConstraintWith evaluated on the object it resolved to.
+func (ctx *Context) checkConstraintOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier, args CheckArgs) (CheckResult, error) {
+	members := ctx.chainMembers(sym, scope)
+	bindings := make(map[string]Value)
+	if err := ctx.bindCheckArgs(sym, "constraint", sym.Name, members, subject.instance, args, bindings); err != nil {
+		return ctx.checkResultOf(false, subject), err
+	}
 	// Evaluate every condition the constraint states, inherited ones included.
-	conds := ctx.conditionsOf(sym, ctx.chainMembers(sym, scope))
+	conds := ctx.conditionsOf(sym, members)
 	holds, err := ctx.evaluateConditions(conditionCheck{
-		sym:     sym,
-		kind:    "constraint",
-		what:    "assertion",
-		self:    subject.instance,
-		negated: NegatedDecl(sym),
+		sym:      sym,
+		kind:     "constraint",
+		what:     "assertion",
+		self:     subject.instance,
+		bindings: mapFrame(bindings),
+		negated:  NegatedDecl(sym),
 	}, conds)
 	return ctx.checkResultOf(holds, subject), err
 }
@@ -1535,26 +1564,40 @@ func (ctx *Context) EvaluateRequirementOn(sym *symbols.Symbol, scope *symbols.Sc
 // CheckRequirementOn evaluates a requirement as EvaluateRequirementOn does and
 // also reports the object it turned out to be about.
 func (ctx *Context) CheckRequirementOn(sym *symbols.Symbol, scope *symbols.Scope, self *Instance) (CheckResult, error) {
+	return ctx.CheckRequirementWith(sym, scope, self, CheckArgs{})
+}
+
+// CheckRequirementWith is CheckRequirementOn with arguments bound to the
+// requirement's `in` parameters for this check, as a calc's are for an invocation.
+func (ctx *Context) CheckRequirementWith(sym *symbols.Symbol, scope *symbols.Scope, self *Instance, args CheckArgs) (CheckResult, error) {
 	defer ctx.beginRun()()
 
 	if err := RequireRequirement(sym); err != nil {
 		return CheckResult{Subject: self}, err
 	}
-	return ctx.checkOn(sym, "requirement", sym.Name, sym, self, func(subject carrier) (CheckResult, error) {
-		return ctx.checkRequirementOn(sym, scope, subject)
+	return ctx.checkOnWith(sym, "requirement", sym.Name, sym, self, args, func(subject carrier) (CheckResult, error) {
+		return ctx.checkRequirementOn(sym, scope, subject, args)
 	})
 }
 
-// checkRequirementOn is CheckRequirementOn evaluated on the object it resolved to.
-func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier) (CheckResult, error) {
+// checkRequirementOn is CheckRequirementWith evaluated on the object it resolved to.
+func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier, args CheckArgs) (CheckResult, error) {
 	// Requirement-local bindings are shared by every member, whichever scope it
 	// was declared in.
 	members := ctx.chainMembers(sym, scope)
 
-	// First pass: process subject/actor bindings
-	reqBindings, err := ctx.memberBindings(sym, "requirement", sym.Name, members, subject.instance, nil, frame{})
-
+	// First pass: process subject/actor bindings, then the arguments.
+	// An object supplied for a requirement no type declares is its subject:
+	// the declaration has no carrier of its own to read one from.
+	var supplied *Instance
+	if declaringType(sym) == nil {
+		supplied = subject.instance
+	}
+	reqBindings, err := ctx.memberBindings(sym, "requirement", sym.Name, members, subject.instance, supplied, frame{})
 	if err != nil {
+		return ctx.checkResultOf(false, subject), err
+	}
+	if err := ctx.bindCheckArgs(sym, "requirement", sym.Name, members, subject.instance, args, reqBindings); err != nil {
 		return ctx.checkResultOf(false, subject), err
 	}
 
@@ -1913,8 +1956,27 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 		}
 		return performed[0].Action, nil
 	default:
+		if member := sameBehaviorMember(performed); member != nil {
+			return nil, fmt.Errorf("%w: the object performs %s %d times, under %s", ErrAmbiguousAction, symbolText(action), len(performed), member.Name)
+		}
 		return nil, fmt.Errorf("%w: the object performs %s as %s", ErrAmbiguousAction, symbolText(action), strings.Join(behaviorUsages(performed), " and "))
 	}
+}
+
+// sameBehaviorMember is the usage every behavior is bound under when they
+// share one: the performances of `perform action run[2]` are ambiguous as
+// several of `run`, not as different usages.
+func sameBehaviorMember(behaviors []*ObjectBehavior) *symbols.Symbol {
+	member := behaviors[0].Member()
+	if member == nil {
+		return nil
+	}
+	for _, b := range behaviors[1:] {
+		if b.Member() != member {
+			return nil
+		}
+	}
+	return member
 }
 
 // behaviorUsages names the usages the behaviors are bound under, unnamed ones left out.

@@ -1147,22 +1147,6 @@ func (e *stmtEngine) block(block lower.Block) (stmtFlow, error) {
 // of it is an action node rather than a statement: the host's where the body
 // states its successions, else its nodes one after another.
 func (e *stmtEngine) runBlock(block lower.Block) (stmtFlow, error) {
-	if e.restrictedBlockFlow(block) {
-		for _, node := range block.Graph.Nodes {
-			if block.Graph.Multiplicities[node] == nil {
-				continue
-			}
-			count, err := block.Graph.StepCount(node, e.ctx.Semantics())
-			if err != nil {
-				return flowNext, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
-			}
-			if count != 1 {
-				return flowNext, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, block.Graph.StepError(
-					node, e.ctx.Semantics(), lower.StepMultiplicityUnsupportedCode,
-					"a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there", nil))
-			}
-		}
-	}
 	switch {
 	case block.Graph == nil:
 		return e.run(block.Statements)
@@ -1174,20 +1158,12 @@ func (e *stmtEngine) runBlock(block lower.Block) (stmtFlow, error) {
 	return e.blockFlow(block)
 }
 
-func (e *stmtEngine) restrictedBlockFlow(block lower.Block) bool {
-	if block.Graph == nil {
-		return false
-	}
-	switch block.Node.(type) {
-	case *ast.WhileLoopActionNode, *ast.IfBranchNode:
-		return true
-	default:
-		return false
-	}
+// flowNodeFrame is the node of a block's flow a body paused at, and the
+// performances of it this pass still owes when it declares a count.
+type flowNodeFrame struct {
+	node ast.Node
+	reps int64
 }
-
-// flowNodeFrame is the node of a block's flow a body paused at.
-type flowNodeFrame struct{ node ast.Node }
 
 func (*flowNodeFrame) abandon(*Context) {}
 
@@ -1216,13 +1192,23 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 			if err := e.ctx.incrementStep(); err != nil {
 				return flowNext, err
 			}
+			count, err := e.blockStepCount(graph, f.node)
+			if err != nil {
+				return flowNext, err
+			}
+			if count > 1 {
+				e.ctx.noteCoverage(ReasonBlockBodyRepetition)
+			}
+			f.reps = count
 		}
-		flow, err := e.blockNode(graph, f.node, resumed)
-		resumed = false
-		if err != nil || flow == flowReturn {
-			return flow, e.ctx.pausing(f, err)
+		for ; f.reps > 0; f.reps-- {
+			flow, err := e.blockNode(graph, f.node, resumed)
+			resumed = false
+			if err != nil || flow == flowReturn {
+				return flow, e.ctx.pausing(f, err)
+			}
+			e.bodyPerformed()
 		}
-		e.bodyPerformed()
 		successors := graph.Edges[f.node]
 		if len(successors) == 0 {
 			return flowNext, nil
@@ -1230,6 +1216,23 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 		f.node = successors[0].Target
 	}
 	return flowNext, nil
+}
+
+// blockStepCount returns the number of performances a node of a block's
+// declaration-order flow owes this pass: its declared count, checked by the same
+// rules an executor's flow applies.
+func (e *stmtEngine) blockStepCount(graph *lower.ActionGraph, node ast.Node) (int64, error) {
+	if graph.Multiplicities[node] == nil {
+		return 1, nil
+	}
+	count, err := graph.StepCount(node, e.ctx.Semantics())
+	if err == nil {
+		err = graph.CheckStep(node, e.ctx.Semantics())
+	}
+	if err != nil {
+		return 0, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+	}
+	return count, nil
 }
 
 func (e *stmtEngine) yieldBody() error {

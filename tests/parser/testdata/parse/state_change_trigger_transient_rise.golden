@@ -1,0 +1,38 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="Go"))
+      (Membership visibility="default"
+        (Usage kind="state" name="Machine" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="ready" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (LiteralBool value=false)))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="log" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (EntryMember)
+          (SuccessionEdge source="@entry" target="outer")
+          (Membership visibility="default"
+            (Usage kind="state" name="outer" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (EntryMember)
+              (SuccessionEdge source="@entry" target="waiting")
+              (SubstateMember name="waiting")
+              (SubstateMember name="pulsing")
+              (TransitionMember source="waiting" target="pulsing"
+                (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Go
+                    (*ast.QualifiedName)))
+                (Membership visibility="default"
+                  (Usage kind="action" name="pulse" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                    (*ast.AssignmentActionNode)
+                    (*ast.AssignmentActionNode))))))
+          (SubstateMember name="done")
+          (TransitionMember source="outer" target="done"
+            (ChangeEvent
+              (FeatureReference name="ready"))
+            (*ast.AssignmentActionNode)))))))

@@ -161,15 +161,28 @@ func (r *Renderer) entryEdges(view, machine *symbols.Symbol, graph *lower.StateG
 		Geometry: r.memberGeometryOf(view, r.bodySymbol(machine, graph, body.owner), ast.StartFeature, out)}
 	body.node.Children = append([]*Node{start}, body.node.Children...)
 	for _, entry := range entries {
-		target, ok := nodes[entry.Target]
+		entryTarget := ast.Node(entry.Target)
+		if entry.Via != nil {
+			entryTarget = entry.Via
+		}
+		target, ok := nodes[entryTarget]
 		if !ok {
 			out.Notices = append(out.Notices, fmt.Sprintf("entry transition to %s of %s leaves the machine's own states; no edge is drawn",
-				behaviorNodeName(entry.Target), r.notationName(machine)))
+				behaviorNodeName(entryTarget), r.notationName(machine)))
 			continue
 		}
 		doc := docOf(graph, entry.Decl, machine.DocName)
+		label := r.guardLabel(doc, entry.Guard)
+		if len(entry.Effect) > 0 {
+			effect := r.behaviorNames(doc, entry.Effect)
+			if label == "" {
+				label = "/" + effect
+			} else {
+				label += " / " + effect
+			}
+		}
 		out.Edges = append(out.Edges, Edge{
-			From: start.ID, To: target.ID, Label: r.guardLabel(doc, entry.Guard), Kind: EdgeTransition,
+			From: start.ID, To: target.ID, Label: label, Kind: EdgeTransition,
 			Origin: nodeOrigin(doc, entry.Decl), Route: r.declaredRouteOf(view, machine, entry.Decl, out),
 			Style: r.declaredEdgeDress(view, machine, entry.Decl, start.ID, target.ID, out),
 		})

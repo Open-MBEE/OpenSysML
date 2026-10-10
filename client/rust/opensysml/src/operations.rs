@@ -12,7 +12,7 @@ use crate::capabilities::{
     CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SET_VALUES, CAPABILITY_STATE_TRACE,
     CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES,
-    CAPABILITY_VERIFICATION, CAPABILITY_VERIFICATION_QUESTIONS,
+    CAPABILITY_VERIFICATION, CAPABILITY_VERIFICATION_ARGUMENTS, CAPABILITY_VERIFICATION_QUESTIONS,
 };
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
 use crate::document::{
@@ -79,10 +79,14 @@ pub struct RunOptions {
 }
 
 /// What to ask a verification and of whom.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct VerifyOptions {
     /// Qualified name of the part or usage to evaluate against.
     pub subject: Option<String>,
+    /// Positional arguments bound to the element's `in` parameters in declaration order.
+    pub arguments: Vec<Value>,
+    /// Arguments bound by parameter name.
+    pub named_arguments: BTreeMap<String, Value>,
     /// The engine to ask; `None` or [`ENGINE_AUTO`] lets the service choose.
     pub engine: Option<String>,
     /// The question to ask; `None` or [`QUESTION_EVALUATE`] evaluates the values held.
@@ -693,6 +697,19 @@ impl Connection {
         Ok(capabilities)
     }
 
+    /// The capabilities a verification with its argument bindings needs: those of
+    /// its engine and question, and `verification_arguments` once any is bound.
+    fn verify_capabilities(&self, options: &VerifyOptions) -> Result<Vec<&'static str>, Error> {
+        let mut capabilities =
+            self.verification_capabilities(options.engine.as_deref(), options.question.as_deref())?;
+        if !options.arguments.is_empty() || !options.named_arguments.is_empty() {
+            self.require_all(&[CAPABILITY_VERIFICATION_ARGUMENTS])?;
+            capabilities.push(CAPABILITY_VERIFICATION_ARGUMENTS);
+            capabilities = with_values(capabilities);
+        }
+        Ok(capabilities)
+    }
+
     /// Ask whether a constraint holds, as `%verify` does.
     pub fn verify_constraint(
         &self,
@@ -700,8 +717,7 @@ impl Connection {
         constraint_id: &str,
         options: &VerifyOptions,
     ) -> Result<Verdict, Error> {
-        let capabilities =
-            self.verification_capabilities(options.engine.as_deref(), options.question.as_deref())?;
+        let capabilities = self.verify_capabilities(options)?;
         let response: wire::VerifyConstraintResponse = self.gated_rpc(
             "VerifyConstraint",
             wire::VerifyConstraintRequest {
@@ -710,6 +726,8 @@ impl Connection {
                 subject_symbol_id: options.subject.clone().unwrap_or_default(),
                 engine: engine_field(options.engine.as_deref()),
                 question: question_field(options.question.as_deref()),
+                arguments: self.values_to_wire(&options.arguments)?,
+                named_arguments: self.named_to_wire(&options.named_arguments)?,
             },
             &capabilities,
         )?;
@@ -730,8 +748,7 @@ impl Connection {
         requirement_id: &str,
         options: &VerifyOptions,
     ) -> Result<Verdict, Error> {
-        let capabilities =
-            self.verification_capabilities(options.engine.as_deref(), options.question.as_deref())?;
+        let capabilities = self.verify_capabilities(options)?;
         let response: wire::VerifyRequirementResponse = self.gated_rpc(
             "VerifyRequirement",
             wire::VerifyRequirementRequest {
@@ -740,6 +757,8 @@ impl Connection {
                 subject_symbol_id: options.subject.clone().unwrap_or_default(),
                 engine: engine_field(options.engine.as_deref()),
                 question: question_field(options.question.as_deref()),
+                arguments: self.values_to_wire(&options.arguments)?,
+                named_arguments: self.named_to_wire(&options.named_arguments)?,
             },
             &capabilities,
         )?;

@@ -200,7 +200,7 @@ func testNamespaceSuccessionAlreadyRunningLaterStartIsNoop(t *testing.T) {
 		t.Fatal("later is not startable")
 	}
 	ctx.attachBehavior(inst, decl.member)
-	running, err := ctx.attachClassifierBehavior(inst, decl)
+	running, err := ctx.attachOneClassifierBehavior(inst, decl, 0)
 	ctx.behaviorAttached(inst, decl.member)
 	if err != nil {
 		t.Fatalf("attach running later: %v", err)

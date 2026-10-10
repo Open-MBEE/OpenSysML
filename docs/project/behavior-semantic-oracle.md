@@ -77,6 +77,11 @@ derivation fixes is met — not whether the golden is the only correct trace.
 | `Performances.kerml` `Performance::enclosedPerformances`, `subperformances` | `step enclosedPerformances: Performance[0..*] subsets performances, timeEnclosedOccurrences` — "timeEnclosedOccurrences of this Performance that are also Performances"; `composite step subperformances: Performance[0..*] subsets enclosedPerformances, suboccurrences` — "enclosedPerformances that are composite" | A composite step's performances start no earlier and end no later than the performance owning them, whether or not a succession orders them |
 | `Occurrences.kerml` `Occurrence::timeEnclosedOccurrences` | "Occurrences that start no earlier than and end no later than this occurrence" | The owner's performance ends only after every subperformance has; its own successors follow them all |
 | `Actions.sysml` `Action::subactions` | `action subactions: Action[0..*] :> actions, subperformances` — "The subperformances of this Action that are Actions" | Every composite action usage of an action (a `send`, `accept`, `assign`, `if`, `while` or `for` among them) is one of its subperformances; a `ref` action usage is not composite and is not one |
+| KerML 1.0 §7.3.2, §8.3.3.1.10 `Type::inheritedMembership` | `derived var feature inheritedMembership : Membership[0..*] ordered subsets membership` | A type's effective memberships include its owned memberships and those inherited from its generals; action steps, successions, flows and statements therefore carry into a specialization |
+| KerML 1.0 §7.3.4.3, §8.3.3.3 `FeatureTyping` | Feature typing is a specialization | A body-stating typed usage inherits the action content of its type; its own redefinitions mask inherited members |
+| SysML v2 §7.17 `PerformActionUsage` | A perform usage reference-subsets the action it performs | A body-stating perform usage merges the referenced action's members into its one lowered flow |
+| `Systems Library/States.sysml` `StateAction` | `entry action entryAction :>> 'entry'; do action doAction : Action :>> 'do'; exit action exitAction : Action :>> 'exit'` | Entry, do and exit action usages are behavior members whose body-stating typed usages specialize the action they perform |
+| KerML 1.0 §8.3.3.1 `Type::multiplicity` | "If there is no such ownedMember, then the cardinality of this Type is constrained by all the Multiplicity constraints applicable to any direct supertypes" | A step that declares no multiplicity takes the multiplicity of its redefined feature; subsetting alone does not transfer that multiplicity |
 | `Occurrences.kerml` `Occurrence::startShot` | `portion feature startShot: Occurrence[1] subsets snapshots` — "The snapshot representing the start of the occurrence in time" | A feature's initial value is bound at its performance's start shot, before any of its subperformances writes |
 | KerML 1.0 `FeatureValue` (`isInitial`) | An initial feature value (`:=`) gives the feature its value at the start of the featuring occurrence; a bound one (`=`) holds throughout | `attribute t : Integer := c` snapshots `c` once, when its performance starts |
 | `Actions.sysml` `Action::assignments`, `AssignmentAction`; `FeatureReferencingPerformances.kerml` `FeatureWritePerformance` | `abstract action assignments : AssignmentAction[0..*] :> subactions, assignmentActions`; `action def AssignmentAction :> FeatureWritePerformance, Action`; "assigns the values of a feature on an occurrence to the given replacementValues at time its performance ends" | An `assign` is a subperformance of its owner whose write happens when it ends, so it is a separate time from the owner's start shot |
@@ -258,6 +263,94 @@ the owning action: two performances of an action holding such a node each perfor
 that a flow-owning node reached from both branches of a fork is likewise one performance,
 holding at each pin the one delivery the flow into that pin carried.
 
+### A specialized action performs its inherited steps; a redefining step keeps the redefined step's members
+
+Fixtures: `inherited_action_steps_p0`, `_p2`, `_p3`, `_usage_typed`,
+`_usage_typed_with_body`, `_multi_level`, `_diamond`, `_narrow`, `_keep`,
+`_redefine_two_levels`, `_direct_assign`, `_direct_send`, `_typed_node`, `_perform`,
+`_state_entry`, `_state_do`, `_state_exit`, `_redefined_typed_step`; the ordering-sensitive
+cases carry trace goldens. The body-stating cases are `_usage_typed_with_body`,
+`_nested_typed_usage_with_body`, `_state_entry_typed_body`, `_state_do_typed_body`,
+`_state_exit_typed_body`, `_state_entry_perform_body` and
+`_classifier_perform_typed_body`; state and classifier observations use explicit `inout` pins
+bound to `hits`.
+
+Derived constraints:
+
+1. KerML 1.0 §7.3.2 and §8.3.3.1.10 `Type::inheritedMembership` derives a type's inherited
+   memberships from its generals. Redefinition is a Subsetting that is a Specialization
+   (§7.3.4.5), and FeatureTyping is also a Specialization, so a specialized action definition
+   inherits action nodes, statements, successions and flows, and performing a typed action usage
+   performs the action definition's body.
+2. The pilot's `TypeAdapter.getInheritedMemberships` passes inherited memberships through
+   `removeRedefinedFeatures`: a member disappears only when an owned or nearer inherited feature
+   redefines it, directly or indirectly. An inherited succession therefore maps its endpoint to
+   the redefining node, and inherited start/done markers are the specialized flow's own markers.
+3. For `Keep::a`, its own `assign c := c + 10` does not redefine `Base::a`'s unnamed assignment
+   `assign c := c + 1`. The pilot's `FeatureAdapter.addRedefinitions` /
+   `FeatureAdapter.getRelevantFeatures` add implicit redefinitions for end features,
+   constructor-result features and parameters by position; `ActionUsageAdapter.getRelevantFeatures`
+   does so for state- and transition-action members, not arbitrary assignments. Both statements
+   remain members of `Keep::a`, and each performance applies both. Keep owns no multiplicity, so
+   the redefined `Base::a[3]` governs it: `3 × (1 + 10) = 33`. The two additions are unordered
+   within each leaf performance, but their order does not change the result.
+4. `Narrow::a[2]` owns its count, so it performs twice and inherits Base's `+1` body:
+   `2 × 1 = 2`. In the two-level case, `Mid::a[2]` governs `Leaf::a`, whose own `+10` statement
+   and inherited Base `+1` statement run twice: `2 × (10 + 1) = 22`.
+5. Base's `first start then a` and `then done` constrain the specialized graph too. They target
+   the replacement for `a`, never a duplicate inherited node. Nearest-first generalization makes
+   each inherited body run once through a diamond.
+6. A feature's type includes the types of features it redefines, so `Narrow2::a` inherits `Foo`
+   as its performed action. Its two performances update their shared `hits` feature twice; the
+   repeated node's frame is not reported as an output.
+
+The fixed outcomes are P0 `c = 1`, P2 `c = 1, z = 0`, P3 `c = 101`, typed usage `u1.c = 1`,
+typed usage with its own `b` body `c = 101`, multi-level `c = 11`, diamond `c = 111`,
+Narrow `c = 2`, Keep `c = 33`, two-level redefinition `c = 22`, direct assignment `c = 5`,
+direct send `number = 5`, typed node `x.c = 1`, `perform` node `p.c = 1`, and one inherited
+step each for state entry, do and exit. Body-stating typed state entry/do/exit each add the
+inherited step and own member once (`hits = 11`); the `entry perform` form has the same outcome,
+the empty-`Bump` entry body leaves `c = 1`, and the part-level typed classifier body leaves
+`hits = 101`. `Narrow2` performs `a` twice as `Foo` and reports only the outer `hits = 2`.
+Subsetting alone does not carry multiplicity: only the own-or-
+redefined source used by `GoverningMultiplicityOf` does.
+
+Known refusals are cyclic specialization (`action specializes itself`), a missing redefined action
+step (`redefined action step not found`), a succession reaching a non-action replacement
+(`redefining feature is not an action step`), and an inherited succession mapping to multiple
+replacements (`inherited succession reaches more than one redefining step`).
+
+### Body-stating typed usages and mixed state behaviors
+
+7. KerML 1.0 §7.3.4.3 / §8.3.3.3 makes FeatureTyping a Specialization, so a typed usage inherits
+   its type's memberships as well as stating its own. The pilot's `TypeAdapter.getInheritedMemberships`
+   and `removeRedefinedFeatures` preserve the typed action's steps, successions, flows and statements,
+   dropping only inherited members its own body redefines. Thus `action y : B1 { action b { … } }`
+   performs B1's ordered `a` and its own unordered `b` in one flow. This applies to top-level typed
+   usages and nested action nodes. A nested typed node with a real body is lowered with typing
+   included and marked in the graph so the runtime does not also invoke that type; a node whose body
+   only binds features or pins retains its invocation path. The nested and top-level fixtures each
+   leave `c = 101`, not `102`.
+8. `Systems Library/States.sysml` `StateAction` declares the entry, do and exit behavior features.
+   The pilot's `ActionUsageAdapter.getRelevantFeatures` and `getRedefinedFeature` identify those
+   state behavior usages as redefinitions of `entryAction`, `doAction` and `exitAction`. A body-stating
+   typed entry/do/exit usage therefore specializes the performed action's body: its own members and
+   inherited ordered flow run once as a single started flow. SysML v2 §7.17 `PerformActionUsage`
+   gives the `perform action p : Bump { … }` form the same result because its ReferenceSubsetting
+   is a Subsetting, hence a Specialization. The same rule applies to a part-level classifier
+   `perform` body. The inherited action's step and the own action body each add once in the state
+   fixtures; the chosen trace order is a linearization, while the relative order of unordered
+   members is not fixed by the library.
+   In `action_invoked_node_body_writes_output`, the usage's own `assign y := y + 1` is an
+   unordered subaction beside Scale's inherited `start → scaling → done` flow. The inherited
+   `scaling` step sets `y` to 30; the assignment leaves 31 if it runs after `scaling`, while
+   `scaling` leaves 30 if the assignment runs first. The following `check` reads that final value,
+   so the oracle admits exactly `{30, 31}`.
+   A typed node whose own statements read the callee's outputs is order-dependent under this merge
+   rule: an order before the producing step reads the unset output and fails. `state_block_flow_typed_node`
+   therefore reads `scaled.y` after the node. `action_invoked_node_body_writes_output` and
+   `state_block_flow_typed_node_body_writes_output` carry the `{30, 31}` sets.
+
 ### Repeated action steps and shared writes
 
 Fixtures: `action_step_multiplicity_exact`, `_reverse`, `_explore`, `_range`, `_named_bound`,
@@ -266,24 +359,29 @@ Fixtures: `action_step_multiplicity_exact`, `_reverse`, `_explore`, `_range`, `_
 `_unordered_beside_ordered`, `_unordered_zero`,
 `_unordered_nested`, `_unordered_unbounded`, `_unordered_unaddressable`, `_unordered_outgoing`,
 `_unordered_loop_body` and `state_step_multiplicity_unordered_do_body`;
-`action_step_multiplicity_shared_writers` states the open outcome set.
+`action_step_multiplicity_shared_writers` states the open outcome set. Beyond plain successions:
+`_while_body` (trace golden), `_for_body`, `_if_body`, `_part_perform`, `_external_read`,
+`_pin_value`, `_bind_input`, `_bind_output`, `_fork_barrier`, `_decision_barrier`,
+`_merge_fanout`, `_join_per_performance`, `_merge_per_performance`, `_loop_body_race`,
+`_fork_into_repeated` (trace goldens where carried), `_guard_true`, `_guard_false` and
+`_guard_false_single`.
 
 Derived constraints:
 
-- A missing multiplicity keeps the historical one performance. An action-node usage's own
-  `[n]`, `[n..n]`, or named exact bounds that evaluate to an exact count perform `n` times,
+- A missing own multiplicity inherits the first declared multiplicity of a redefined feature;
+  where neither declares one, the action-node usage is one performance. An own or inherited exact
+  finite count `[n]`, `[n..n]`, or named exact bound that evaluates to `n` performs `n` times,
   including unordered subactions that start concurrently without an incoming succession; `[0]`
   performs no body, trace event, flow or data transfer. Other ranges and bounds the model cannot
   evaluate do not identify a fixed number and are refused.
-- An action usage in a loop or conditional block flow is performed once per pass. Repetition in
-  those statement-engine flows is out of scope: exact counts other than `[1]`, including `[0]`,
-  are refused with `action-step-multiplicity-unsupported` rather than being expanded.
+- An action usage in a loop or conditional block flow without a multiplicity is performed once
+  per pass; one declared `[n]` is performed `n` times per pass and `[0]` none (see below).
 - `Occurrences.kerml` `HappensBefore` orders whole source performances before whole target
   performances. A repeated node therefore needs every incident edge to admit and force its
   complete count. The accepted fixtures use explicitly written end multiplicities: `[1] p` to
   `[*] a[3]`, a written target `[3] a[3]`, `[*] a[3]` to `[1] q`, and `[2] a[2]` to `[3] b[3]`.
-  A start source and done target constrain no repeated endpoint; guards, control-node adjacency,
-  pins of repeated nodes and external reads of their features exceed the supported subset.
+  A start source and done target constrain no repeated endpoint. Control nodes, guards, pins,
+  external reads, block flows and part-level performs are derived below.
 - KerML leaves succession-end defaults unresolved ([OMG KERML-29](https://issues.omg.org/issues/KERML-29),
   deferred). The checker evaluates unwritten ends both as unconstrained `[0..*]` and as `[1..1]`,
   accepting only an edge whose counts are forced and admitted under each reading. If a reading
@@ -304,7 +402,8 @@ Derived constraints:
 Open: the order among sibling repeated performances is not established by their count. The
 runtime represents them as sibling tokens, each with an independent performance frame; their
 owner-frame writes share the same feature space. The last completion is a barrier: only after
-every performance at that node finishes can the token carry its succession and data flows on.
+every performance at that node finishes can the token carry its succession and data flows on,
+except into a join or merge, which each performance's token crosses on its own.
 Exploration therefore finds each admitted shared-write result without merging states that differ
 in the live repetition set.
 
@@ -313,6 +412,97 @@ schedules; explore reaches one distinct outcome. In `action_step_multiplicity_ze
 the initial `c` unchanged and its `q` successor still runs, setting `c = 7`. The local-frame
 fixture reaches `c = 3`: each fresh `l` starts at zero, becomes one, and contributes one to the
 shared `c`.
+
+#### Repeated steps at control nodes, guards, pins, reads, block flows and parts
+
+KerML 1.0 §7.3.2 makes a feature's cardinality "the number of values of the feature for a specific
+instance of its featuring types", so `a[n]` is `n` performances per performance of whatever
+features `a`: the owning action, a loop or `if` body performance, or a part. What each further
+shape means follows from the clauses below; where they leave the meaning open the shape stays
+refused. UML, fUML and PSSM were not used to settle any of these.
+
+- **Control nodes** (SysML v2.0 §8.3.17.6–§8.3.17.13, §8.4.13.4; enforced "even if not shown").
+  An incoming succession to any control node has target multiplicity `1..1` and an outgoing one
+  source multiplicity `1..1`; a join's incoming successions have source `1..1`, a merge's `0..1`;
+  a fork's outgoing successions have target `1..1`, a decision's `0..1`. The checker substitutes
+  these ends for unwritten ones (they are not subject to the KERML-29 dual reading) and refuses a
+  written end that differs from one as `action-step-order-unsatisfiable`. A control node declares
+  no multiplicity of its own: §7.6.3 leaves a usage that declares none at the most general
+  `[0..*]` when nothing subsets or redefines it (the implicit `[1..1]` reaches only owned
+  attribute, item, part and port usages), and `Actions.sysml` declares
+  `controls : ControlAction[0..*] :> subactions` and `merges : MergeAction[0..*]` while
+  `decisions`, `joins` and `forks` declare none and so inherit `[0..*]`. The executor's reading
+  therefore runs any node that declares no multiplicity, ordinary or control, once per arrival —
+  unless its incident ends force another count, which they do in exactly four cases, each giving
+  the node `n` performances:
+  - `a[n]` into a join, with both ends mandated `1..1`: the crossing is a bijection
+    (`_join_per_performance`: three join traversals).
+  - `a[n]` into a merge as the merge's only incoming succession: target `1..1` plus
+    `MergePerformance::incomingHBLink : HappensBefore[1]` (`ControlPerformances.kerml`) gives
+    one link per performance (`_merge_per_performance`).
+  - a fork out into `a[n]`, both ends mandated `1..1`.
+  - a decision out into `a[n]` as the decision's only outgoing succession: source `1..1` plus
+    `DecisionPerformance::outgoingHBLink : HappensBefore[1]`.
+
+  In a forced case every other edge at the node is checked under count `n`, so a predecessor of a
+  fork or decision that must order `n` crossings while performing once is unsatisfiable. Every
+  other adjacency takes the one-performance reading: `succession first [*] a then f;` runs `f`
+  once behind the written end's barrier (`_fork_barrier`, `_decision_barrier`), and `then [*] a`
+  out of a join or merge fans `a`'s performances out of its single performance (`_merge_fanout`) —
+  what separates the control node's barrier from an ordinary `tally`'s is only the mandated ends,
+  not a second default; a merge or decision carrying another succession beside the repeated
+  step's still checks each under count one, which its mandated `0..1` ends make unsatisfiable.
+  A written control-node multiplicity (`fork f[1]`, which the `ControlNode` → `UsageDeclaration`
+  production would admit) is refused by the parser today.
+- **Guarded successions** (SysML §8.4.13.3, `TransitionPerformances.kerml`). A guarded succession
+  is a `TransitionUsage` whose guard is evaluated after its one source performance
+  (`transitionLinkSource[1]`, `transitionLink : HappensBefore[0..1]`). `GuardedSuccession` admits
+  no source-end multiplicity, so the end at a repeated *source* can never be written and is
+  KERML-29 open: refused (`action-step-multiplicity-unsupported`). Into a repeated target, its
+  `ConnectorEnd` admits a written end (`first p if g then [*] a;`): a true guard orders every
+  performance of `a` after `p` (`_guard_true`). A false guard asserts no order, yet `a`'s exact
+  count still requires its `n` performances, now unordered with respect to `p`; the token flow
+  performs none, so the run refuses with `action-step-order-open` (`_guard_false`), and validation
+  warns where the guard is the literal `false`. A false guard into a single performance prunes the
+  edge instead: one performance needs no ordering among repetitions, so `a` simply does not perform
+  (`_guard_false_single`). An unwritten target end stays refused.
+- **Pins and bindings** (KerML §8.4.4.6.2, binding connectors as `SelfLink`; §7.4.11 feature
+  values). A feature value in the step's body (`action a : Inc[2] { in x = c; }`) is featured by
+  the step, so each performance binds its own `x` (`_pin_value`). A `bind a.x = e` owned by the
+  enclosing action equates the values of `a.x` over all `n` performances with those of `e`: a
+  single-valued `e` into an in-pin gives every performance that value (`_bind_input`); an out-pin
+  into a single-valued `e` requires all `n` outputs to coincide, else `ErrBindingConflict`
+  (`_bind_output`). A multi-valued `e` into in-pins leaves the assignment of its values to the
+  performances open: refused.
+- **Flows** (KerML §9.2.7, `Transfers.kerml`). A flow end has no multiplicity in the grammar, a
+  flow defaults to `[0..*]` (§7.6.3), and each transfer has one source and one target occurrence.
+  How many transfers `flow from a.out to b.in` with `a[3]` makes, and from which performances, is
+  not determined: refused. Connections at a repeated pin are refused for the same reason.
+- **External reads** (`ControlFunctions.kerml` `'.'`, source and result `[0..*]` nonunique;
+  KerML §7.3.4.6 chains). `a.x` read outside `a` is the values of every performance's `x`,
+  duplicates kept, listed in repetition-index order (a tool-chosen stable order where `a` is not
+  ordered); before all `n` performances end it is not yet performed (`ErrNodeNotPerformed`), as for
+  one node (`_external_read`). Inside a performance, `x` is that performance's own (`_pin_value`).
+- **Block flows** (`LoopPerformance`, `IfThenPerformance`; each body pass is a performance of its
+  own). `a[n]` in a `while`/`for`/`if` body performs `n` times per pass and `[0]` none
+  (`_while_body`, `_for_body`, `_if_body`, `_unordered_loop_body`). The runtime performs each
+  repetition as one move, so the orders between the repetitions are the ones exploration never
+  varies: explore and check report the result as observed rather than proved or bounded, with the
+  note "the performances of a repeated step in a loop or if body are each run as one move, so
+  their interleavings were not explored" (`_loop_body_race`, whose admitted set is
+  `{c = 1, c = 2}` of which only `c = 2` is observed).
+- **Part-level performs** (SysML §8.4.13.11, `Parts::performedActions`,
+  `Occurrences::enactedPerformances`). `perform action run[2]` on a part is two distinct
+  performances enacted within the part's lifetime, unordered with respect to each other: `run`
+  holds two occurrences and each behaviour runs on its own (`_part_perform`); `[0]` enacts none.
+- **SMT** (`sysml -check`). The bounded encoding represents the `n` performances as the runtime does: a
+  token entering `a[n]` places `n - 1` sibling tokens in free slots (sized by `sizeSlots`), each
+  performs the body, and every token but the last retires behind the barrier, or each crosses on
+  its own into a join or merge; `[0]` passes its token on, and a false guard into a written target
+  end is a failing move. Refused, each with a named reason: a repeated step a token may reach again
+  while its performances are live (two groups could be at it), a repeated step with its own
+  features or flows (one feature variable per state cannot hold each performance's values), and
+  every shape the checker refuses.
 
 ### Concurrent branches writing one feature: the value is open, the writes are not
 
@@ -357,6 +547,80 @@ recorded once the step is complete, one per destination, listing the last write 
 that wrote it and the one that stood: three branches are one choice of three
 (`TestThreeWritersAreOneChoice`), and a token writing twice contributes only its last write, the
 one that would stand had it gone last (`TestRepeatedWritesByOneTokenListItsLast`).
+
+### Several successions out of an ordinary action node: every target follows, in which order is open
+
+Fixture: `action_succession_fan_out_writes_one_feature` (golden, with `.declared` and `.seed-1`
+goldens); companions `action_succession_fan_out_rejoin`,
+`action_succession_fan_out_guard_pruned_rejoin`, `action_succession_fan_out_data_flows`,
+`action_succession_fan_out_statement_node`, `action_succession_fan_out_from_start`,
+`action_succession_guard_two_hold`, `action_step_multiplicity_fan_out`,
+`action_step_multiplicity_fan_out_plain` and `action_step_multiplicity_zero_fan_out`.
+
+```
+start → split ─→ left  { x := 1; leftRan := true  } ─┐
+              ─→ right { x := 2; rightRan := true } ─┤→ sync → done
+```
+
+`split` is a plain action node, not a fork.
+
+Derived constraints:
+
+- Each of `first split then left` and `first split then right` is a connector typed by
+  `HappensBefore`: it orders the one performance of `split` completely before its target's
+  performance and says nothing else. Neither link selects or excludes the other, and `left` and
+  `right` each declare no multiplicity, so each is one performance after `split`. The library
+  makes outgoing successions exclusive only for a decision (`DecisionPerformance`: "exactly one
+  of the Successions"); a fork adds only the `1..1` target multiplicity an ordinary node's
+  successions leave unwritten, which for an unrepeated target is the one performance it has
+  anyway. So `leftRan` and `rightRan` both end `true`, and `x` is `1` or `2`.
+- A guarded succession out of a non-decision node is a `NonStateTransitionPerformance` whose
+  guard constrains its own `transitionLink : HappensBefore[0..1]`; nothing relates the guards of
+  two such links. Every succession whose guard holds is followed (`action_succession_guard_two_hold`:
+  `low = 1`, `high = 1`), and a false guard leaves out only its own link
+  (`action_succession_fan_out_guard_pruned_rejoin`: `bRan = false`, `cRan = true`).
+- A node both branches reach declares no multiplicity, so it is one performance after every
+  succession that delivers to it (`action_succession_fan_out_rejoin`: `hits = 1`). Behind a
+  pruned link it awaits only what can still reach it, exactly as behind a fork branch a guard
+  pruned (`action_succession_guard_fork_branch_pruned`) or a decision branch not taken; see
+  [A node without multiplicity reached over two successions is performed once, after
+  both](#a-node-without-multiplicity-reached-over-two-successions-is-performed-once-after-both).
+  A join is the exception it always was: it awaits every incoming succession, so a pruned
+  branch into a join deadlocks.
+- `split` is one performance, so the flows out of it are its one set of outputs: they are moved
+  once, before its successors start, and each reaches its own target's pin
+  (`action_succession_fan_out_data_flows`: `runs = 1`, `got = 21`, `doubled = 42`).
+- A repeated step keeps its count rule: each edge out of `a[3]` must state its ends
+  (`succession first [*] a then [1] q;`), and fanning out to two targets is two such edges
+  (`action_step_multiplicity_fan_out`). A plain `then` out of it stays refused
+  (`action_step_multiplicity_fan_out_plain`). A `[0]` step is no performance and both of its
+  successors run (`action_step_multiplicity_zero_fan_out`).
+
+Two control nodes keep a bound on their outgoing side that the static rules state:
+`validateJoinNodeOutgoingSuccessions` and `validateMergeNodeOutgoingSuccessions` each allow at
+most one outgoing succession, so a join or a merge with two is an ill-formed model, reported by
+`join-outgoing-successions` and `merge-outgoing-successions` and refused by the executor
+(`ErrInvalidActionFlow`). `Actions::MergeAction` on its own constrains only the incoming side;
+the outgoing bound is the validation constraint's, not the library's.
+
+Open: the order of `left` against `right`, and so which write of `x` stands — the same openness
+as [Concurrent branches writing one feature: the value is open, the writes are
+not](#concurrent-branches-writing-one-feature-the-value-is-open-the-writes-are-not).
+
+Pinned outcome: the admissible set `{x = 1, x = 2}`, with `leftRan = true` and `rightRan = true`
+in both, stated as `outcomes` citing this section; the `.trace.order` constraints are
+`split < left`, `split < right`, `left < sync`, `right < sync`. Exploration reaches both outcomes
+and no other, one linearization each (2 runs, 2 outcomes, complete), and the exhaustive checker
+finds `x` divergent between `1` and `2`.
+
+Executor: a token leaving an ordinary node, a statement node or the start node along several
+enabled successions splits as a fork's does — one fresh token per succession, appended in
+succession-declaration order — so the scheduling conventions above carry over unchanged: under
+`declared` the last-declared branch is appended last and `right` writes last (`x = 2`); the
+default `reverse` policy steps it first (`x = 1`). The guards out of the node are all evaluated
+before the token leaves, so a guard that cannot be evaluated fails the step before any branch
+starts. The SMT encoding gives the node the fork's encoding (one slot per enabled succession);
+a plain node several tokens may reach together stays refused there as an implicit join.
 
 ### A decision with several holding guards: exactly one branch follows, which one is open
 
@@ -1910,6 +2174,36 @@ through a fork: the first branch's way down enters the composite and starts its 
 which is drawn against the branches' remaining target entries, six outcomes.
 `state_do_step_machine_before_top_entries` is the same shape at the machine, whose do behavior
 begins before its top regions are entered: six outcomes.
+
+### Effects on the way into the regions of a parallel state: each precedes its own target's entry, the regions interleave
+
+Fixtures: `state_entry_transition_effect_regions` (golden, explored, checked),
+`state_junction_inside_orthogonal_region` (golden, explored, checked).
+
+A transition out of a named entry action, `entry action boot; transition boot do { … } then s;`,
+is a `TransitionUsage` whose source is an action rather than a state, so its performance is a
+`NonStateTransitionPerformance` (`TransitionPerformances.kerml`; `Actions.sysml`
+`DecisionTransitionAction`, `Action::decisionTransitions`): `transitionLinkSource then effect`
+and `effect then transitionLink.laterOccurrence` place the effect after the entry action and
+before the target's `StatePerformance` begins, and `succession transitionLinkSource then
+Performance::self` makes the transition part of the entry, not a step dispatched after it. It
+has no trigger: an accepter needs a state source (the pilot's
+`validateTransitionUsageTriggerActions`). The shorthand `entry; then s;` (§7.18.3
+`EntryTransitionMember`, a `GuardedTargetSuccession`) still carries a guard at most. A segment
+of a compound transition that continues inside a region of the parallel state it enters is the
+same shape one level down: its effect is a `TransitionPerformance` step between the
+pseudostate's predecessor and its target's entry.
+
+The regions of a parallel state are `middle` steps of its `StatePerformance`
+(`StatePerformances.kerml` `succession entry then middle`), concurrent with each other, and
+nothing in either library orders one region's transition performance against another
+region's. So the parallel state's own entry comes first, each region's effect precedes its own
+target's entry, and the regions' chains interleave in every way: for a region whose chain is an
+effect then an entry beside one whose chain is a single entry, three orders. PSSM's *Entering
+010*, *Entering 011* and *Junction 005* admit exactly these linearizations. The executor
+offers each effect as a unit of its region's queue on the entry front
+(`state_unit_front.go` `entryTransitionEffectHead`, `state_region_entry.go` `enterRegion`), so
+`-schedule explore` reaches each order.
 
 ### A succession outside a behavior body orders the performances it relates, wherever they run
 

@@ -79,7 +79,7 @@ func (m *migration) portTypedBy(owner, t *sysmlv1.Element) *sysmlv1.Element {
 // another of the same category with `:>`.
 func specializable(cat category) bool {
 	switch cat {
-	case catPartDef, catOccurrenceDef, catPortDef, catAttributeDef, catConstraintDef, catRequirementDef, catConnectionDef,
+	case catPartDef, catOccurrenceDef, catPortDef, catAttributeDef, catConstraintDef, catRequirement, catConnectionDef,
 		catVerificationDef, catItemDef, catActionDef, catCalcDef, catStateDef:
 		return true
 	}

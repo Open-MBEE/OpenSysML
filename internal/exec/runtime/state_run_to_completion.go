@@ -31,7 +31,8 @@ type heldEntry struct {
 	machine bool
 	// firing is the transition whose entry the cascade is, with the payload it
 	// bound; the entries and do behaviors performed on resumption read it.
-	firing *firing
+	firing       *firing
+	routeEffects map[*ast.StateRegion][]routeEffect
 }
 
 // RunToCompletionValueError reports an unevaluable or non-Boolean RTC value.
@@ -116,7 +117,7 @@ func (e *StateExecutor) holdEntry(owner *ast.StateNode, regions []*ast.StateRegi
 	e.held = append(e.held, heldEntry{
 		owner: owner, regions: regions, branches: branches,
 		chain: chain, scopes: scopes, machine: machine,
-		firing: e.currentFiring(),
+		firing: e.currentFiring(), routeEffects: cloneRouteEntryEffects(e.pendingRouteEntryEffects),
 	})
 	return true, nil
 }
@@ -133,6 +134,9 @@ func (e *StateExecutor) heldOwner(state *ast.StateNode) *heldEntry {
 // performHeld resumes one held entry cascade within the firing that began it.
 func (e *StateExecutor) performHeld(item heldEntry) (err error) {
 	defer e.resumeFiring(item.firing)()
+	previousEffects := e.pendingRouteEntryEffects
+	e.pendingRouteEntryEffects = cloneRouteEntryEffects(item.routeEffects)
+	defer func() { e.pendingRouteEntryEffects = previousEffects }()
 	clear(e.entering)
 	for _, state := range item.chain {
 		e.entering[state] = true
@@ -154,7 +158,7 @@ func (e *StateExecutor) performHeld(item heldEntry) (err error) {
 	} else {
 		var leaf *ast.StateNode
 		leaf, err = e.enterStartOf(item.owner)
-		if err == nil {
+		if err == nil && e.state != StateTerminated {
 			err = e.settleEntered(leaf)
 		}
 	}

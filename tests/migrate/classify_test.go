@@ -438,7 +438,7 @@ func TestCustomStereotypesWithStandardNamesAreNotConsumed(t *testing.T) {
     <packagedElement xmi:type="uml:Abstraction" xmi:id="_d" name="link" client="_b" supplier="_r"/>`,
 		custom("Requirement", "Class", "_r")+custom("Block", "Class", "_b")+custom("ModelLibrary", "Package", "_lib")+
 			custom("FlowProperty", "Property", "_fp")+custom("Satisfy", "Abstraction", "_d")+`<sysml:Block xmi:id="_s" base_Class="_lb"/>`)
-	wantNoLine(t, r.Notation, "requirement def")
+	wantNoLine(t, r.Notation, "requirement Req")
 	wantLine(t, r.Notation, "occurrence def Req {")
 	wantLine(t, r.Notation, "applied stereotype «Requirement»")
 	wantLine(t, r.Notation, "applied stereotype «Block»")
@@ -466,7 +466,7 @@ func TestRequirementTagsComeOnlyFromStandardStereotypes(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_r" name="Req"/>`, apps)
-			wantLine(t, r.Notation, "requirement def <R1> Req {")
+			wantLine(t, r.Notation, "requirement <R1> Req {")
 			wantLine(t, r.Notation, "doc /* Shall. */")
 			wantNoLine(t, r.Notation, "X9> Req")
 			wantNoLine(t, r.Notation, "doc /* Custom text. */")
@@ -481,7 +481,7 @@ func TestRequirementIDDropsHTML(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_r" name="Req"/>`, `
   <sysml:Requirement xmi:id="_s" base_Class="_r" Id="&lt;html&gt;&lt;body&gt;&#10;&lt;span xmlns=&quot;http://www.w3.org/1999/xhtml&quot;&gt;REQ-1&lt;/span&gt;&lt;/body&gt;&lt;/html&gt;" Text="&lt;html&gt;&lt;body&gt;&lt;p&gt;Shall.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"/>`)
-	wantLine(t, r.Notation, "requirement def <'REQ-1'> Req {")
+	wantLine(t, r.Notation, "requirement <'REQ-1'> Req {")
 	wantLine(t, r.Notation, "doc /* Shall. */")
 	for _, d := range errors(t, "req.sysml", r.Notation) {
 		t.Errorf("%s", d.Message)
@@ -512,7 +512,7 @@ func TestPapyrusProfileClassifiesAndToolCustomizationsDoNot(t *testing.T) {
 	wantLine(t, r.Notation, "part def Pump {")
 	wantLine(t, r.Notation, "attribute def Rate;")
 	wantLine(t, r.Notation, "attribute throughput : Rate {")
-	wantLine(t, r.Notation, "requirement def <R1> Req {")
+	wantLine(t, r.Notation, "requirement <R1> Req {")
 	wantLine(t, r.Notation, "applied stereotype «ValueProperty»")
 	wantLine(t, r.Notation, "applied stereotype «performanceRequirement»")
 	wantLine(t, r.Notation, "occurrence def Plain {")
@@ -619,4 +619,43 @@ func TestSignalIsAnItemDef(t *testing.T) {
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}
+}
+
+// A v1 requirement is a requirement usage, as a tool's users draw one: a nested
+// requirement is a subrequirement, a satisfy, verify or refine joins it directly
+// with no usage written beside it, a property it types subsets it, and an
+// instance of it is no individual.
+func TestRequirementsAreUsages(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Package" xmi:id="_reqs" name="Reqs">
+      <packagedElement xmi:type="uml:Class" xmi:id="_r" name="Mass">
+        <nestedClassifier xmi:type="uml:Class" xmi:id="_r1" name="Chassis Mass"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_r2" name="Safety">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g" general="_r"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_i" name="mass 1" classifier="_r"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_held" name="held" type="_r"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Drive"/>
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_ref" client="_uc" supplier="_r"/>
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_sat" client="_car" supplier="_r1"/>`, `
+  <sysml:Requirement xmi:id="_s1" base_Class="_r" Id="R1" Text="Shall weigh less."/>
+  <sysml:Requirement xmi:id="_s2" base_Class="_r1" Id="R1.1" Text="The chassis shall weigh less."/>
+  <sysml:Requirement xmi:id="_s3" base_Class="_r2"/>
+  <sysml:Block xmi:id="_s4" base_Class="_car"/>
+  <sysml:Refine xmi:id="_s5" base_Abstraction="_ref"/>
+  <sysml:Satisfy xmi:id="_s6" base_Abstraction="_sat"/>`)
+	wantLine(t, r.Notation, "requirement <R1> Mass {")
+	wantLine(t, r.Notation, "requirement <'R1.1'> 'Chassis Mass' {")
+	wantLine(t, r.Notation, "requirement Safety :> Mass;")
+	wantNoLine(t, r.Notation, "requirement def")
+	wantNoLine(t, r.Notation, "requirement mass : Mass;")
+	wantLine(t, r.Notation, "requirement held :> Reqs::Mass;")
+	wantLine(t, r.Notation, "connection 'Drive refines Mass' connect Drive to Reqs::Mass;")
+	wantLine(t, r.Notation, "satisfy Reqs::Mass.'Chassis Mass';")
+	wantNote(t, r, "_i", migrate.Unmapped, "the instance's classifier Reqs::Mass is written as a requirement usage, which an individual cannot specialize")
+	wantClean(t, "requirement-usages.sysml", r)
 }

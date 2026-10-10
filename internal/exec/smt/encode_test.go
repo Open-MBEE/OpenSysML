@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -164,6 +165,82 @@ func TestEncodeForkJoinCompletes(t *testing.T) {
 	}
 	if result.Status != solve.StatusUnsat {
 		t.Fatalf("completes within 5 moves: %v\n%s", result.Status, modelText(result))
+	}
+}
+
+// TestEncodeFanOutJoinCompletes: two successions out of an ordinary node are
+// encoded as a fork's are, so both branches run and the join completes.
+func TestEncodeFanOutJoinCompletes(t *testing.T) {
+	solver := requireSolver(t)
+	src := `package test {
+	private import ScalarValues::*;
+	action clash {
+		attribute leftRan : Boolean = false;
+		attribute rightRan : Boolean = false;
+		first start;
+		action split;
+		action left { assign leftRan := true; }
+		action right { assign rightRan := true; }
+		join sync;
+		done;
+		succession first start then split;
+		succession first split then left;
+		succession first split then right;
+		succession first left then sync;
+		succession first right then sync;
+		succession first sync then done;
+	}
+}`
+	ctx, action, graph, held := loweredAction(t, src, "test::clash")
+	const k = 7
+	enc, err := Encode(ctx, action, graph, held, nil, k, DefaultUnroll)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	fans := false
+	for _, node := range graph.Nodes {
+		fans = fans || (nodeLabel(node) == "split" && enc.Flow.fansOut(node))
+	}
+	if !fans {
+		t.Fatal("split is not encoded as a fan-out")
+	}
+	q := *enc.Query
+	q.Assertions = append(q.Assertions, solve.Assertion{Term: enc.Completed[k]})
+	result, err := solver.Solve(context.Background(), &q)
+	if err != nil {
+		t.Fatalf("solve: %v\n%s", err, solve.Script(&q))
+	}
+	if result.Status != solve.StatusSat {
+		t.Fatalf("status %v, want sat\n%s", result.Status, solve.Script(&q))
+	}
+	last := enc.States[k]
+	for _, base := range enc.Features {
+		v := last.value(base)
+		if assigned(t, result, v.Name) != "true" {
+			t.Errorf("%s = %s at move %d, want true", v.Name, assigned(t, result, v.Name), k)
+		}
+	}
+}
+
+// TestEncodeFanOutPlainRejoinRefused: a plain node both branches of a fan-out
+// reach synchronizes as the interpreter does, which the encoding does not cover.
+func TestEncodeFanOutPlainRejoinRefused(t *testing.T) {
+	src := `package test {
+	action fan {
+		first start;
+		then action a;
+		action b; action c; action d;
+		succession first a then b;
+		succession first a then c;
+		succession first b then d;
+		succession first c then d;
+	}
+}`
+	ctx, action, graph, held := loweredAction(t, src, "test::fan")
+	_, err := Encode(ctx, action, graph, held, nil, 8, DefaultUnroll)
+	var unsupported *UnsupportedError
+	if !errors.As(err, &unsupported) || unsupported.Construct != "implicit join" {
+		t.Fatalf("encode err = %v, want the implicit join refused", err)
 	}
 }
 
@@ -555,5 +632,68 @@ func TestEncodeGatedFlowDeliversOnlyWhenTaken(t *testing.T) {
 	}
 	if status := status(t, solver, enc, k, solve.And(solve.VarTerm(gate), solve.Not(eq(solve.VarTerm(got), solve.IntTerm(7))))); status != solve.StatusUnsat {
 		t.Errorf("the accepted value misses consumer::got: %v, want unsat", status)
+	}
+}
+
+// TestEncodeRepeatedStepFanOutCompletes: a fan-out from a repeated step still
+// completes under SMT, each successor seeing the full count.
+func TestEncodeRepeatedStepFanOutCompletes(t *testing.T) {
+	solver := requireSolver(t)
+	const k = 10
+	ctx, action, graph, held := loweredConformanceAction(t, "action_step_multiplicity_fan_out.sysml", "test::FanOut")
+	enc, err := Encode(ctx, action, graph, held, nil, k, DefaultUnroll)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	last := enc.States[k]
+	failed := solve.VarTerm(last.Failed)
+	if status := status(t, solver, enc, k, solve.Not(failed)); status != solve.StatusSat {
+		t.Fatalf("completes unfailed: %v, want sat", status)
+	}
+	for name, want := range map[string]int64{
+		"test::FanOut::seenByQ": 3,
+		"test::FanOut::seenByR": 3,
+		"test::FanOut::sum":     3,
+	} {
+		v := last.Values[name]
+		if v == nil {
+			t.Fatalf("no feature %s among %v", name, names(enc.Features))
+		}
+		is := eq(solve.VarTerm(v), solve.IntTerm(want))
+		if status := status(t, solver, enc, k, solve.And(solve.Not(failed), is)); status != solve.StatusSat {
+			t.Errorf("%s = %d on unfailed completion: %v, want sat", name, want, status)
+		}
+		if status := status(t, solver, enc, k, solve.Or(failed, solve.Not(is))); status != solve.StatusUnsat {
+			t.Errorf("fails or %s != %d: %v, want unsat", name, want, status)
+		}
+	}
+}
+
+// TestEngineWitnessesRepeatedStepFanOut: a false property over a repeated
+// step's fan-out is violated, and the witness replays on the interpreter.
+func TestEngineWitnessesRepeatedStepFanOut(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "fanbad.sysml", `package test {
+	private import ScalarValues::*;
+	action def FanOut {
+		attribute sum : Integer = 0;
+		attribute seenByQ : Integer = 0;
+		attribute seenByR : Integer = 0;
+		action a[3] { assign sum := sum + 1; }
+		action q { assign seenByQ := sum; }
+		action r { assign seenByR := sum; }
+		succession first start then a;
+		succession first [*] a then [1] q;
+		succession first [*] a then [1] r;
+		constraint bad { seenByQ == 0 }
+	}
+}`)
+	violated := answer(t, e, d, d.holds(t, "test::FanOut", "test::FanOut::bad"), analysis.Budget{Depth: 10})
+	expect(t, violated, analysis.ClaimViolated, analysis.Witnessed)
+	if violated.Witness == nil {
+		t.Fatal("no witness")
+	}
+	if _, ok := violated.Witness.Schedule.Replay(); !ok {
+		t.Fatalf("witness schedule %s is not a replay", violated.Witness.Schedule)
 	}
 }

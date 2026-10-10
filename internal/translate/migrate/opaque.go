@@ -747,6 +747,7 @@ type opaqueParser struct {
 	i        int
 	d        dialect
 	kerml    bool // a lowered Expression tree may spell the KerML connectives xor and implies
+	strict   bool // write the standard library's functions only, never OpenSysMLMathFunctions
 	sc       featureResolver
 	locals   map[string]local    // names a `var`, `let` or `const` declared
 	assigns  bool                // whether `=` assigns (a statement) rather than compares
@@ -771,7 +772,16 @@ func newOpaqueParser(body string, d dialect, sc featureResolver) (*opaqueParser,
 	if err != nil {
 		return nil, err
 	}
-	return &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]local{}, assigned: map[string]bool{}, guarded: map[string][]string{}}, nil
+	p := &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]local{}, assigned: map[string]bool{}, guarded: map[string][]string{}}
+	if s, ok := sc.(strictTeller); ok {
+		p.strict = s.strictMigration()
+	}
+	return p, nil
+}
+
+// strictTeller is a featureResolver telling whether the migration is strict.
+type strictTeller interface {
+	strictMigration() bool
 }
 
 // local is a name a declaration introduced: the scalar it holds and whether
@@ -1504,7 +1514,7 @@ func (p *opaqueParser) arithmeticOf(left translated, op string, right translated
 	if op == "/" && p.d == dialectJava {
 		switch {
 		case wholeScalar(left.scalar) && wholeScalar(right.scalar):
-			return javaQuotient(left, right), nil
+			return javaQuotient(left, right, p.strict), nil
 		case !realScalar(left.scalar) && !realScalar(right.scalar):
 			side := left
 			if side.scalar != "" {
@@ -1520,7 +1530,12 @@ func (p *opaqueParser) arithmeticOf(left translated, op string, right translated
 // javaQuotient writes Java's `/` over whole numbers x and y: the exact quotient
 // truncated toward zero, which the extension library's quotient computes and
 // reports as overflow for the one pair (the least Integer by -1) outside the range.
-func javaQuotient(x, y translated) translated {
+// A strict migration computes it from the standard remainder, x % y having
+// the sign of x: (x - x % y) / y is exact, and its floor is itself.
+func javaQuotient(x, y translated, strict bool) translated {
+	if strict {
+		return translated{expr: "RealFunctions::floor((" + x.operand() + " - " + x.operand() + " % " + y.operand() + ") / " + y.operand() + ")", scalar: "Integer", atomic: true}
+	}
 	return translated{expr: "OpenSysMLMathFunctions::quotient(" + x.expr + ", " + y.expr + ")", scalar: "Integer", atomic: true}
 }
 
@@ -1816,6 +1831,9 @@ func (p *opaqueParser) mathRoundish(fn string, args []translated, arity func(int
 	switch fn {
 	case mathCeilFn:
 		// -floor(-x) would overflow at the least Integer; the extension library's ceiling does not.
+		if p.strict {
+			return translated{expr: "-RealFunctions::floor(-" + args[0].operand() + ")", scalar: yields, atomic: true}, nil
+		}
 		return translated{expr: "OpenSysMLMathFunctions::ceiling(" + args[0].expr + ")", scalar: yields, atomic: true}, nil
 	case mathRound:
 		// JavaScript and Java round a half toward +∞, where RealFunctions::round rounds it away from zero.

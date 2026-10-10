@@ -757,7 +757,8 @@ class Model:
             state_machine_symbol_id, self._hash, events=events, schedule=schedule, performer=performer
         )
 
-    def verify_constraint(self, symbol_id, subject=None, engine=None, question=None):
+    def verify_constraint(self, symbol_id, subject=None, engine=None, question=None,
+                          arguments=None, named_arguments=None):
         """Ask whether one of this model's constraints holds.
 
         Args:
@@ -771,6 +772,9 @@ class Model:
                 default), ``"holds"`` whether the claim holds for every
                 assignment the free features can take, or ``"satisfiable"``
                 whether any assignment satisfies it
+            arguments (list, optional): Positional arguments bound to the
+                element's ``in`` parameters in declaration order
+            named_arguments (dict, optional): Arguments by parameter name
 
         Returns:
             Verdict: The answer; false is the model's answer, not an exception
@@ -782,10 +786,11 @@ class Model:
         """
         return self._client.verify_constraint(
             symbol_id, self._hash, subject_symbol_id=subject, engine=engine,
-            question=question,
+            question=question, arguments=arguments, named_arguments=named_arguments,
         )
 
-    def verify_requirement(self, symbol_id, subject=None, engine=None, question=None):
+    def verify_requirement(self, symbol_id, subject=None, engine=None, question=None,
+                           arguments=None, named_arguments=None):
         """Ask whether one of this model's requirements is satisfied.
 
         Args:
@@ -796,6 +801,9 @@ class Model:
                 :meth:`verify_constraint`
             question (str, optional): The question to ask, as for
                 :meth:`verify_constraint`
+            arguments (list, optional): Positional arguments bound to the
+                element's ``in`` parameters in declaration order
+            named_arguments (dict, optional): Arguments by parameter name
 
         Returns:
             Verdict: The answer
@@ -807,7 +815,7 @@ class Model:
         """
         return self._client.verify_requirement(
             symbol_id, self._hash, subject_symbol_id=subject, engine=engine,
-            question=question,
+            question=question, arguments=arguments, named_arguments=named_arguments,
         )
 
     def verify_satisfaction(self, symbol_id=None, engine=None, question=None):

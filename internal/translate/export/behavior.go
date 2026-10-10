@@ -261,7 +261,7 @@ func (e *encoder) initialSuccessionEnds(subject rdf.Term, owner string, n *ast.I
 	if err := e.connectorEnd(subject, source); err != nil {
 		return err
 	}
-	return e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, target: n.Successor, noCollapse: true})
+	return e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, target: n.Successor, mult: n.TargetMultiplicity, noCollapse: true})
 }
 
 // encodeInitialNode emits `first x;` — a Membership of the member the body
@@ -295,8 +295,9 @@ func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), sub
 		// `first a then b;` owns its two ends, each a ConnectorEnd referencing
 		// the feature it names (SysML-textual-bnf SuccessionAsUsage,
 		// ConnectorEndMember), beside the sourceFeature and targetFeature the
-		// ends derive. A guarded one is a transition, not a succession.
-		if n.Guard == nil && n.Name() != "" {
+		// ends derive; a guarded `first a if g then [m] b` owns the same ends,
+		// its written target end on the target connector end.
+		if n.Name() != "" {
 			if err := e.initialSuccessionEnds(subject, owner, n); err != nil {
 				return err
 			}
@@ -647,7 +648,7 @@ func (e *encoder) transitionSuccession(subject rdf.Term, n *ast.TransitionMember
 	}
 	// A chained target (`then b.c`) is the OwnedFeatureChain its end's
 	// reference subsetting owns; a name is the member it resolves to here.
-	target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, noCollapse: true}
+	target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, mult: n.TargetMultiplicity, noCollapse: true}
 	if qualifiedNameHasChain(n.Target) {
 		target.target = n.Target
 	} else {
@@ -1338,29 +1339,31 @@ func (d *decoder) startOf(el *element) (rdf.Term, bool) {
 
 // initialEndsAgree refuses a `first a then b` whose connector ends and
 // sysml:sourceFeature/sysml:targetFeature name different features, or whose
-// end declares a name or bounds: the notation states each end once, as the
-// bare feature it names, so writing it would drop the rest.
-func (d *decoder) initialEndsAgree(el *element) error {
+// end declares a name, or bounds on its source end: the notation states each
+// end once, as the bare feature it names, so writing it would drop the rest.
+// The target end's bounds it returns — `first a then [m] b` writes them.
+func (d *decoder) initialEndsAgree(el *element) (string, error) {
 	ends, err := d.standardEndFeatures(el)
 	if err != nil || len(ends) == 0 {
-		return err
+		return "", err
 	}
 	subject := rdf.IRI(el.iri)
 	source, hasSource := d.graph.Object(subject, rdf.SysML+pSourceFeature)
 	target, hasTarget := d.graph.Object(subject, rdf.SysML+pTargetFeature)
 	if len(ends) != 2 || !hasSource || !hasTarget {
-		return &UnsupportedError{
+		return "", &UnsupportedError{
 			What: fmt.Sprintf("the succession <%s>", el.iri),
 			Note: fmt.Sprintf("it owns %d connector ends and states sysml:sourceFeature %t and sysml:targetFeature %t, where `first a then b` relates two ends, its source and its target", len(ends), hasSource, hasTarget),
 		}
 	}
+	var targetMultiplicity string
 	for i, want := range []rdf.Term{source, target} {
 		got, ok, err := d.standardEndTarget(ends[i], el)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if !ok {
-			return &UnsupportedError{
+			return "", &UnsupportedError{
 				What: fmt.Sprintf("the succession <%s>", el.iri),
 				Note: fmt.Sprintf("its connector end <%s> has no ReferenceSubsetting or sysml:references target, so `first a then b` would invent one from its sysml:%s", ends[i].Value, []string{pSourceFeature, pTargetFeature}[i]),
 			}
@@ -1369,35 +1372,41 @@ func (d *decoder) initialEndsAgree(el *element) error {
 		// name or bounds the end declares have no place there.
 		name, err := d.standardEndName(ends[i], el)
 		if err != nil {
-			return err
+			return "", err
 		}
 		mult, err := d.endMultiplicity(ends[i], el)
 		if err != nil {
-			return err
+			return "", err
+		}
+		// Only the target end may write bounds: `first a then [m] b`.
+		if i == 1 {
+			targetMultiplicity = mult
+			mult = ""
 		}
 		if name != "" || mult != "" {
-			return &UnsupportedError{
+			return "", &UnsupportedError{
 				What: fmt.Sprintf("the succession <%s>", el.iri),
-				Note: fmt.Sprintf("its connector end <%s> declares %q, which `first a then b` writes no name or multiplicity for, so writing it would drop them", ends[i].Value, strings.TrimSpace(mult+" "+name)),
+				Note: fmt.Sprintf("its connector end <%s> declares %q, which `first a then b` writes no name for, and bounds only on its target end, so writing it would drop them", ends[i].Value, strings.TrimSpace(mult+" "+name)),
 			}
 		}
 		// A literal names a feature the graph does not link, so it is no
 		// identity to compare with.
 		if got != want && !got.IsLiteral() && !want.IsLiteral() {
 			property := []string{pSourceFeature, pTargetFeature}[i]
-			return &UnsupportedError{
+			return "", &UnsupportedError{
 				What: fmt.Sprintf("the succession <%s>", el.iri),
 				Note: fmt.Sprintf("its connector end <%s> references <%s> and its sysml:%s is <%s>; the notation states the end once, so writing one would drop the other", ends[i].Value, got.Value, property, want.Value),
 			}
 		}
 	}
-	return nil
+	return targetMultiplicity, nil
 }
 
 // initialNodeHead writes `first x [if g then y]`. The start is a member of
 // this body or a label, written by its own name: `first` takes no qualified name.
 func (d *decoder) initialNodeHead(el *element) (string, error) {
-	if err := d.initialEndsAgree(el); err != nil {
+	targetMultiplicity, err := d.initialEndsAgree(el)
+	if err != nil {
 		return "", err
 	}
 	words := []string{"first"}
@@ -1419,6 +1428,9 @@ func (d *decoder) initialNodeHead(el *element) (string, error) {
 		return "", err
 	}
 	if successor != "" {
+		if targetMultiplicity != "" {
+			successor = targetMultiplicity + " " + successor
+		}
 		words = append(words, "then", successor)
 	}
 	return strings.Join(words, " "), nil
@@ -2054,6 +2066,13 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 			return "", "", err
 		}
 		words = append(words, "do", text)
+	}
+	// A guarded succession's written target end rides on the target connector
+	// end of the succession the transition owns (`then [m] b`).
+	if multiplicity, err := d.transitionTargetMultiplicity(el); err != nil {
+		return "", "", err
+	} else if multiplicity != "" {
+		target = multiplicity + " " + target
 	}
 	words = append(words, "then", target)
 	bodyText, err := d.transitionBody(body, hasBody, annotations, depth)
@@ -2782,6 +2801,21 @@ func (d *decoder) transitionChainText(el *element, property string) (string, boo
 		return "", false, err
 	}
 	return strings.Join(parts, "."), true, nil
+}
+
+// transitionTargetMultiplicity is the bounds the target end of the succession a
+// transition owns writes (`succession first a if g then [m] b`), or "" for a
+// target end written bare.
+func (d *decoder) transitionTargetMultiplicity(el *element) (string, error) {
+	succession, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+"succession")
+	if !ok {
+		return "", nil
+	}
+	ends := d.graph.Objects(succession, rdf.SysML+pConnectorEnd)
+	if len(ends) != 2 {
+		return "", nil
+	}
+	return d.endMultiplicity(ends[1], el)
 }
 
 // transitionLinkError refuses a transition whose effect and body links do not

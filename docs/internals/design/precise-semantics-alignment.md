@@ -106,7 +106,7 @@ in the runtime package. File paths are relative to `internal/exec/runtime/` unle
 
 ### State machines (PSSM)
 
-Rows are numbered SM1–SM45 so the count at the end of the map can be checked against them.
+Rows are numbered SM1–SM46 so the count at the end of the map can be checked against them.
 
 #### The event pool and the run-to-completion step
 
@@ -218,11 +218,12 @@ end, i.e. ahead of later arrivals. *Runtime:* `recallDeferredEvents` re-stamps a
 occurrence with the current clock time but keeps its arrival ID, so `eventHeap.Less` places it
 behind completion events at that instant and ahead of every later arrival, in its original order.
 `TestRecalledEventPrecedesLaterArrivals`, `TestDeferredEventsKeepTheirArrivalOrder`. **agrees.**
-*Since removed:* with the extension gone, a kept occurrence is re-sent to `self` as the state is
+The removed extension agreed with PSSM. *Since removed:* with it gone, a kept occurrence is
+re-sent to `self` as the state is
 left, an ordinary send that lands behind every occurrence already pooled — the ones that arrived
 meanwhile and the ones the state's own exit behavior sent — and the kept occurrences of one
 signal replay in their arrival order but different signals in the order the flush names them,
-not in one pooled order. **differs, v2 differs**: the standard encoding has no way to place a
+not in one pooled order. **differs because v2 differs**: the standard encoding has no way to place a
 re-sent occurrence ahead of the pool, and this project no longer has a rule of its own to put
 there. *Deferred 001* and *Deferred 005* report on this row (`docs/project/pssm-referee.md`).
 
@@ -730,7 +731,8 @@ it followed from the two functions and the comment. *Differs, v2 silent* as firs
 assessed — and a *Finding*, since the project's own design note says otherwise.
 *Decided:* PSSM's rule, and the project's own note. A route is resolved before firing only up
 to the first *choice*: junctions along it are resolved statically as before (SM29), as part
-of whether the transition is enabled at all (SM32). Firing then exits the states every branch of the choice leaves (`travel` →
+of whether that transition's own route is enabled (SM32); a nested default entry is a separate
+transition whose junction is read when it is taken (SM46). Firing then exits the states every branch of the choice leaves (`travel` →
 `certainExits` over the targets `reachable` past it), runs the segments' effects up to the
 choice, and only then reads the choice's guards against the data as it now stands; one enabled
 branch is taken — several enabled is the existing transition choice point, recorded as
@@ -745,28 +747,29 @@ seen` reaches `seen`), `state_choice_dynamic_conflict`, `state_pseudostate_chain
 `state_pseudostate_chain_choice_junction`, `state_pseudostate_chain_choice_choice`,
 `TestExploreDynamicChoiceBranches` and `robustness_test.go:state_choice_without_an_enabled_branch`;
 `state_choice_pseudostate` and the other `state_choice_*` cases keep their outcomes. **agrees**
-since the decision. The two vertices no longer share one rule: a junction's guards are read
-before the step and decide whether the transition is enabled (SM29, SM32), a choice's on arrival,
+since the decision. The two vertices no longer share one rule: a junction's guards on the
+transition's own route are read before the step and decide whether it is enabled (SM29, SM32);
+a choice's are read on arrival,
 with none enabled the typed error (SM31).
 
 **SM31. Choice with no guard true.** PSSM requirement *Choice 003* (§9.4.10): "the model is considered ill formed".
 *Runtime:* `state_route.go:resolveChoice` fails the run at the instant the choice is reached,
 after the incoming segment's effect, with the typed `ErrChoiceWithoutBranch` naming the choice
 (`robustness_test.go:state_choice_without_an_enabled_branch`); a junction with no guard true
-fails nothing, since the transition through it is not enabled (SM32,
-`region_pseudostate_without_satisfied_guard`). **agrees.**
+fails nothing when it lies on the transition's own route, since that transition is not enabled
+(SM32, `region_pseudostate_without_satisfied_guard`). A dead nested default-entry junction fails
+when its separate entry transition is taken (SM46). **agrees.**
 
-**SM32. Junction or join with no path through.** PSSM requirement *Junction 002* (§9.4.11): when no outgoing guard holds, "the
-entire compound transition is disabled even though its Triggers are enabled" — the incoming
-transition is not selected, and the occurrence is deferred or lost like any other unhandled one.
+**SM32. Junction or join with no path through.** PSSM §8.5.6 evaluates a junction on the
+transition's route before selection; when no outgoing guard holds, "the entire compound
+transition is disabled even though its Triggers are enabled" — the incoming transition is not
+selected, and the occurrence is deferred or lost like any other unhandled one.
 *Runtime, before the decision:* the incoming transition was selected on its own trigger and
 guard; the failure to route surfaced as a "no guard evaluated to true" run failure when the route
 was resolved, not as a disabled transition (`region_pseudostate_without_satisfied_guard` used a
-junction). *Junction 004* (§9.4.11) puts the junction with no way through on the default entry
-of a sibling region: the transition targets a junction inside one region of an orthogonal state,
-and the other region's initial transition leads to a junction both of whose guards are false;
-PSSM's static evaluation takes the default entry in and disables the whole transition — the state
-is never entered, its `entry` never logged, and the next occurrence fires from the source.
+junction). A nested default-entry junction is a separate transition and is read when that
+transition is taken (SM46); *Junction 004*'s separate explicit target-route behavior remains in
+this row.
 *Join 003* (§9.4.12) puts it at a join's way out: the join's only outgoing transition is guarded
 false, so PSSM fires the first completion transition into the join on its own (a segment may end
 at a join, whose completion is waited for) and disables the second, whose entering the join would
@@ -776,7 +779,9 @@ of the join. *Differs, v2 silent* as first assessed, the project keeping its rul
 and junction then shared one static reading.
 *Decided:* PSSM's rule. Once SM30 made the choice dynamic the two vertices no longer share a rule,
 and the junction's static reading is the one UML gives it, under which the guards beyond a
-junction decide whether the compound transition is enabled at all. Wherever enabledness is
+junction decide whether the compound transition is enabled at all. The route checked is the
+transition's own: a nested default entry's route belongs to a separate transition out of the
+composite's entry action, taken after it (SM46). Wherever enabledness is
 decided — a signal, call or event dispatch and its preview (`Decide`, `probeTransition`), a
 completion, a timer, a change poll — `state_route.go:routeAvailable` resolves the route in a
 preview with the trigger's arguments bound, as firing would. `followOut` marks a junction, or a
@@ -800,8 +805,9 @@ firing. Only that sentinel disables: a cycle between pseudostates, a guard that 
 and a binding failure still fail the run as the transition fires. The route is checked only as
 far as its first choice, whose guards are read on arrival (SM30), so a junction with no way
 through beyond a choice is the run's error when the choice is resolved. A region's default entry
-cannot reach a junction in v2 (an entry transition targets a state, §7.18.3), so *Junction 004*'s
-case arises only through the referee's translation. `state_junction_no_way_through_unmatched`,
+is a separate entry transition in v2, so a junction there is read after the composite's entry
+(SM46), not while evaluating the incoming transition's route; *Junction 004*'s separate explicit
+target-route behavior remains on SM32. `state_junction_no_way_through_unmatched`,
 `state_junction_no_way_through_other_transition_fires`, `state_junction_no_way_through_deferred`,
 `state_junction_dead_branch_not_drawn`, `state_completion_no_way_through_dropped`,
 `state_history_default_no_way_through`,
@@ -811,13 +817,12 @@ case arises only through the referee's translation. `state_junction_no_way_throu
 `robustness_test.go:region_pseudostate_without_satisfied_guard` (the source stays active),
 `robustness_junction_exit_route_test.go`, and `robustness_junction_join_test.go`
 (`junction_after_choice_keeps_runtime_error`, `junction_cycle_keeps_runtime_error`,
-`junction_unevaluable_guard_keeps_runtime_error`). **agrees** since the decision. *Join 003*
-passes; *Junction 002* and *Junction 004* stay `fail` in the referee because their junction lies
-after the start state the translation needs (`emit.go:startTarget`), so the transition the
-runtime disables is that state's completion, not the compound transition PSSM disables (finding
-11, open decision 8). *Choice 005* traces the same reach
-from the other side — its junction on the composite's default entry is read before `T2(effect)`
-and the composite's entry — and is refused on its acting guards before the order is reached; see
+`junction_unevaluable_guard_keeps_runtime_error`). **agrees** since the decision, for the
+transition's own route. *Join 003* passes; *Junction 004*'s separate explicit target route also
+remains within SM32, while its nested default-entry junction is SM46. *Choice 005* traces the
+same reach from the other side — its junction on the composite's default entry is read before
+`T2(effect)` and the composite's entry — and is refused on its acting guards before the order is
+reached; see
 [A guard whose behavior acts on the model](#a-guard-whose-behavior-acts-on-the-model).
 
 #### Fork and join
@@ -1035,11 +1040,14 @@ duration` when the state is entered (a composite's timer counts from entering th
 (`state_time_trigger_restarts_on_re_entry`); units are converted to seconds
 (`state_time_trigger_test.go`). **agrees** (by exclusion).
 
-**SM40. Change triggers.** *v2/KerML:* §7.18.3 `accept when <condition>`, a `ChangeSignal`
-accepted when its condition becomes true; the project takes a rising edge. *Runtime:*
-`state_change_trigger.go` polls the conditions of the active configuration's transitions once
-per `runStep`, after the do round and before the queued occurrence, firing on a false-to-true
-edge through the same `dispatchInOrder` as a signal (`state_change_trigger_rising_edge`,
+**SM40. Change triggers.** *v2/KerML:* §7.18.3 `accept when <condition>`, `Triggers.kerml`
+`TriggerWhen`: a `ChangeSignal` sent when its condition changes from false to true, observed by
+`ObserveChange` after each completed feature write (`FeatureWritePerformance` assigns when its
+performance ends). *Runtime:* `feature_write_watch.go` re-evaluates, after every completed
+outermost write, the conditions of the active configuration's transitions whose read set the
+write touched, and `state_change_trigger.go` queues each rise and dispatches it once per
+`runStep`, after the do round and before the queued occurrence, through the same
+`dispatchInOrder` as a signal (`state_change_trigger_transient_rise`, `state_change_trigger_atomic_write`, (`state_change_trigger_rising_edge`,
 `state_change_trigger_event_order`, `state_change_trigger_autonomous`). **agrees** (by exclusion).
 
 **SM41. The shared clock: quiescence before time moves.** PSSM §2.3: a tool "may be limited to a
@@ -1127,6 +1135,14 @@ ends the object's portions and refuses later reads once it goes ahead
 (`TestDestroyEndsPortionsAndRefusesReads`, `TestDestroyedObjectPerformsNothing`), and a binding to
 a destroyed end is refused (`TestBindingRefusesADestroyedEnd`). fUML aborts the behaviors and
 destroys; the runtime refuses the destruction. **differs, v2 silent.**
+
+**SM46. A junction on a nested default entry.** PSSM requirements *Junction 002* and *Junction 004* (§9.4.11) put a junction with no way through on the initial transition of a region that the incoming transition enters by default, and read its guards when the incoming transition is selected: the static evaluation of §8.5.6 reaches through the composite's default entry, and the incoming transition is not enabled. *v2/KerML:* the default entry is not part of the incoming transition. SysML v2 §7.18.3 makes it a transition out of the composite's `entry` action (`EntryTransitionMember`), a `TransitionUsage` of its own whose performance is a `NonStateTransitionPerformance` (`TransitionPerformances.kerml`). There, `succession [1] transitionLinkSource then [1] Performance::self` orders the whole performance, including its guard and the route it takes, after its source: the `entry` action, which `States.sysml` (`StateAction`, entry before the middle subperformances) performs once the composite has been entered. The guards beyond that transition's junction are therefore read when that transition is taken, after the incoming transition's effect and the composite's entry, and cannot decide whether the incoming transition was enabled. *Runtime:* `state_route.go:routeAvailable` resolves only the incoming transition's own route (SM32); `state_executor.go:startIn` resolves the default entry's route when the entry action has completed, and a junction there with no outgoing guard true fails the run with a no-way-through error naming the junction (`state_entry_transition_junction_no_way_fails`). **differs because v2 differs.**
+
+The discriminating conformance case `state_entry_transition_junction_reads_outer_effect` starts
+`x` at 0 and has only the `x > 0` branch; the incoming effect sets `x` to 1, so a junction read
+at the incoming transition's selection would leave `Go` unmatched, while the runtime reads it
+when the entry transition is taken and reaches `a`. The typed no-way-through failure is covered by
+`state_entry_transition_junction_no_way_fails`.
 
 ### Actions (fUML)
 
@@ -1566,22 +1582,24 @@ as a connector object of its own. Nothing in PSCS would supply that object; it i
 
 ## The count
 
-Seventy rows: 45 for state machines, 15 for actions, 10 for composite structures. Each
+Seventy-one rows: 46 for state machines, 15 for actions, 10 for composite structures. Each
 carries one verdict.
 
 | Verdict | Rows |
 |---|---:|
-| **agrees** | 54 |
-| **differs because v2 differs** | 7 |
+| **agrees** | 53 |
+| **differs because v2 differs** | 9 |
 | **differs, v2 silent** | 6 |
 | **gap** | 3 |
-| **Total** | **70** |
+| **Total** | **71** |
 
-The seven **differs because v2 differs** rows are SM15 (a do activity and the machine competing
-for one occurrence), SM36 (local transitions), SM37 (internal transitions), A12 (accept event:
-a message no accepter takes stays in flight), A15 (one firing per token: fUML re-fires an
-action for every token on a multiplicity-1 pin, the runtime performs the node once with every
-delivery), C6 (behavior ports) and C9 (interface-typed ports and name-based dispatch). On each, SysML v2 or the Kernel Semantic Library states the rule the
+The nine **differs because v2 differs** rows are SM6 (the standard deferred-event encoding
+cannot replay a kept occurrence ahead of events already pooled), SM15 (a do activity and the
+machine competing for one occurrence), SM36 (local transitions), SM37 (internal transitions),
+SM46 (a junction on a nested default entry), A12 (accept event: a message no accepter takes
+stays in flight), A15 (one firing per token: fUML re-fires an action for every token on a
+multiplicity-1 pin, the runtime performs the node once with every delivery), C6 (behavior ports)
+and C9 (interface-typed ports and name-based dispatch). On each, SysML v2 or the Kernel Semantic Library states the rule the
 runtime follows, quoted in the row; adopting PSSM, fUML or PSCS there would move the runtime
 away from the specification it implements, so none of them is a candidate for a port.
 
@@ -1610,8 +1628,9 @@ Four rows first assessed *differs, v2 silent* now **agree**, each decided for PS
 implemented, the first assessment and the *Decided:* sentence kept in the row: **SM11** (a
 composite state's completion fires its own completion transition), **SM28** (an empty history
 with no default transition performs the owner's default entry), **SM30** (a choice's guards are
-read on arrival) and **SM32** (a junction or a join's way out with no path through disables the
-compound transition, and the occurrence is handled as any unmatched one).
+read on arrival) and **SM32** (a junction or a join's way out with no path through on the
+transition's own route disables the compound transition, and the occurrence is handled as any
+unmatched one).
 
 The three **gap** rows:
 
@@ -1991,7 +2010,7 @@ one admitted trace has seven segments — `T1.2(guard)::T1.3(guard)::T2(effect)`
 composite's entry, `T1.4(guard)::T1.5(guard)`, the first substate's entry (the trace is quoted
 in [the referee record](../../project/pssm-referee.md)): the junction's two guards read at
 `T2`'s selection, before its effect and the composite's entry — the static evaluation of §8.5.6
-reaching through the composite's default entry, the same reach SM32 records for *Junction 004*
+reaching through the composite's default entry, the same reach SM46 records for *Junction 004*
 — and the choice's two read on arrival, after the composite's entry, the dynamic evaluation of
 §8.5.7. The suite observes *when each guard is read*, and the calls are its only
 means of observing it. Whether the referee can observe the same without giving a v2 guard a
@@ -2015,9 +2034,9 @@ and "guard expressions with side effects are ill formed".
 
 | Candidate | What it would do | Result against the admitted trace |
 |---|---|---|
-| Guard reads as the referee's observable: the emitter spells the four guards as the pure `true`/`false` they return, the runtime records each guard evaluation as a trace event naming the transition, and the run maps the events to `T1.n(guard)` in `log` | the guard stays a Boolean expression and the model is never mutated; the observable is the runtime's, not the model's | **refused.** Run under the shape the emitter produces (an initial into a junction is spelled as a helper start state whose completion transition reaches the junction, `emit.go`, `TestEmitInitialIntoPseudostate`), the runtime's execution trace reads the junction's guards *after* the composite's `enter` line and the helper state's entry, as the completion transition out of it is selected (`state_route.go:resolveRoute` → `followOut`, SM29: static for *that* transition, whose source is inside the composite), and the choice's after the helper state's exit — `T2(effect)`, the composite's entry, then `T1.2(guard)::T1.3(guard)::T1.4(guard)::T1.5(guard)` and the first substate's entry at best, which the suite does not admit; its one trace needs the junction read at `T2`'s selection, before `T2(effect)`, a reach through the default entry that SM32 recorded as *differs, v2 silent* and the library's `entry then middle` places the other way. The channel is also short of the suite's reads: `enabledBranches` reads the first guard of a vertex in the open and every further one under `beginProbe`, which restores `ctx.trace` — so of the four reads the execution trace holds two `eval` lines, `T1.2`'s and `T1.4`'s, and `T1.3`'s and `T1.5`'s are rolled back with the probe; a choice branch past the first is read once probed and once more when drawn (`resolveChoice`), a read the suite never traces. Exposing every read as an event would need a rule for probe reads, repeated reads and their identity that no test of the suite fixes and this one contradicts on its first two entries. Reached against admitted: 0 of 1, with one trace the suite refuses. Nothing else moves — no other expressible test has an acting guard (`TestClassifyGuardSideEffect`), and the runtime is unchanged |
+| Guard reads as the referee's observable: the emitter spells the four guards as the pure `true`/`false` they return, the runtime records each guard evaluation as a trace event naming the transition, and the run maps the events to `T1.n(guard)` in `log` | the guard stays a Boolean expression and the model is never mutated; the observable is the runtime's, not the model's | **refused.** Run under the shape the emitter produces (an initial into a junction is spelled as a helper start state whose completion transition reaches the junction, `emit.go`, `TestEmitInitialIntoPseudostate`), the runtime's execution trace reads the junction's guards *after* the composite's `enter` line and the helper state's entry, as the completion transition out of it is selected (`state_route.go:resolveRoute` → `followOut`, SM29: static for *that* transition, whose source is inside the composite), and the choice's after the helper state's exit — `T2(effect)`, the composite's entry, then `T1.2(guard)::T1.3(guard)::T1.4(guard)::T1.5(guard)` and the first substate's entry at best, which the suite does not admit; its one trace needs the junction read at `T2`'s selection, before `T2(effect)`, a reach through the default entry that SM46 records as *differs because v2 differs* and the library's `entry then middle` places the other way. The channel is also short of the suite's reads: `enabledBranches` reads the first guard of a vertex in the open and every further one under `beginProbe`, which restores `ctx.trace` — so of the four reads the execution trace holds two `eval` lines, `T1.2`'s and `T1.4`'s, and `T1.3`'s and `T1.5`'s are rolled back with the probe; a choice branch past the first is read once probed and once more when drawn (`resolveChoice`), a read the suite never traces. Exposing every read as an event would need a rule for probe reads, repeated reads and their identity that no test of the suite fixes and this one contradicts on its first two entries. Reached against admitted: 0 of 1, with one trace the suite refuses. Nothing else moves — no other expressible test has an acting guard (`TestClassifyGuardSideEffect`), and the runtime is unchanged |
 | A `calc def` or an expression with a side effect: spell each guard as a calculation that appends to `log` and returns its literal | the trace would be reached | **refused.** A v2 expression is pure — a `calc def` is a `Function` and a `calc` usage an `Expression` (SysML v2 §7.17), an `Evaluation` that computes a result and performs no action; a transition's guard is an `Expression` (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`), so `bool guard[*]` is an `Evaluation`, not a `step`, and no `assign`, `send` or `perform` may stand in one. What acts is `step effect[*]`, ordered after the guard. UML 2.5.1 §14.5.11 calls the guard with the side effect ill formed, so the spelling would encode a construct the source specification declares malformed to observe an order the target library places differently. Not spelled |
-| A `differs-by-design` row: adjudicate the test as differing because v2 orders the default entry after the composite's entry (SM32) | the test would run with pure guards and its `fail` on the missing four segments would be attributed to the tool choice | **refused.** `differs-by-design` names a *differs because v2 differs* row a test reaches (`rows.go:TestRows`); SM32 was then *differs, v2 silent* and now **agrees**, so the bucket does not apply, and the test does not run at all: with pure guards it reaches `T2(effect)`, the composite's entry and the first substate's entry, three segments where seven are admitted, and the difference is the construct's, not the order's alone. The classifier's refusal stands; SM31 (choice with no guard true) and SM32 (junction with no path through) were unchanged by it, and *Junction 002*, *Junction 004* and *Join 003* kept their buckets and reasons |
+| A `differs-by-design` row: adjudicate the test as differing because v2 orders the default entry after the composite's entry (SM46) | the test would run with pure guards and its `fail` on the missing four segments would be attributed to the tool choice | **refused.** SM46 now classifies the nested default-entry timing, but this case remains refused: with pure guards it reaches `T2(effect)`, the composite's entry and the first substate's entry, three segments where seven are admitted, and the difference is not attributable to that ordering alone. Its acting guards are not faithfully spellable or observable in v2; the classifier's refusal stands. SM31 and SM32 are unchanged; *Junction 002* and *Junction 004* now report on SM46, and *Join 003* remains on SM32 |
 
 The classification is the settled one: *guard side effect* is a construct with no translation
 and no faithful observable, `not-expressible` with the reason naming the four transitions,
@@ -2107,10 +2126,12 @@ whose guard changes between the completion and its dispatch step; and a join who
 the suite places before the last segment's effect — are the ones that would report on a tool
 choice; those landing on SM11, SM28, SM30 and SM32 (a composite owning a completion transition,
 a history entered with nothing recorded and no default, a choice whose guard reads what the
-incoming effect wrote, a junction or join with no way through) report on rules decided for PSSM's
+incoming effect wrote, a junction on the transition's own route or a join with no way through)
+report on rules decided for PSSM's
 reading, and so check that the runtime does what it was decided to do; and the 37 tests
-with no spelling or translation, together with any test that reaches SM15, SM36 or SM37, would fail for reasons
-that are v2's, and a harness would have to exclude them by classification rather than report
+  with no spelling or translation, together with any test that reaches SM6, SM15, SM36, SM37
+  or SM46, would fail for reasons that are v2's, and a harness would have to exclude them by
+  classification rather than report
 them as failures. Used that way, the suite is a second opinion on the tool choices and a
 regression oracle for the rows that agree; it is never a conformance statement about SysML v2.
 
@@ -2130,9 +2151,10 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
   ineffective whenever any other region reacted, which defeated its purpose; the extension and
   the decision have since been removed together, see the row) and SM28 (an empty history
   with no default falls back to the region's initial transition — a refusal serves no v2 rule,
-  and UML is the extension's reference); **keep ours, and say so** on SM30 and SM32 (the
-  runtime's static evaluation of choice and junction guards is one rule for both vertices and is
-  what makes `pseudostates.md`'s reading of a junction hold; a change would split them), on SM9
+and UML is the extension's reference); **keep ours, and say so** on SM30 (choice guards are read
+on arrival, after the incoming effect) and SM32 (junction guards on the transition's own route
+are read statically before it fires; a nested default-entry junction is separately adjudicated
+under SM46), on SM9
   (a guard read once at completion is the simpler rule, and a completion-occurrence pool would be
   a second event kind for the one case the row names), on SM45
   and C8 (a refused destroy and a failed send are typed errors a modeler sees, where fUML/PSCS
@@ -2193,7 +2215,8 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
 ### (c) A user-selectable PSSM-conformant execution mode
 
 - **Scope.** A `-semantics pssm` (or `%semantics`) switch under which the state executor follows
-  PSSM on every row where it differs: SM7, SM11, SM15, SM28, SM30, SM32, SM34, SM36, SM37, SM45,
+  PSSM on every row where it differs: SM6, SM7, SM11, SM15, SM28, SM30, SM32, SM34, SM36, SM37,
+  SM45, SM46,
   plus
   the local and internal transition kinds themselves, which need new notation and lowering
   (`transition local first …`), a completion-event pool (SM9 exactly rather than equivalently),
@@ -2235,18 +2258,19 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
 ## Recommendation
 
 **Option (a), with (b) as a follow-on once (a)'s two changes have landed.** The map shows no case
-for porting the precise-semantics family: 50 of 70 rows agree already, 7 differ because SysML v2
+for porting the precise-semantics family: 53 of 71 rows agree already, 9 differ because SysML v2
 says otherwise and must stay as they are, and the 3 gaps are v2 gaps Track E already owns. What
 remains is nine tool choices, and on two of them — SM7 and SM28 — PSSM's rule is the reference
 this project's own extensions name (UML) applied consistently, while ours is an accident of
 implementation order; on the other seven the runtime's rule is deliberate and better for a modeler
-(typed errors over silent drops, one guard-evaluation rule for both pseudostates, one reading of
-a completion guard, the library's connector model), and the row records why. Option (b) is worth having *after* that, as an
+(typed errors over silent drops, static junction routing on a transition's own route and dynamic
+choice routing, one reading of a completion guard, the library's connector model), and the row
+records why. Option (b) is worth having *after* that, as an
 advisory oracle in the established `cmd/pilot-*` shape and with its meaning stated in its own
 words: an advisory PSSM comparison tests reproduction of UML behavior unless the model and
 semantics have a defensible SysML v2 mapping, and it is never proof of SysML v2 conformance.
 Option (c) is rejected: two normative interpreters break the analysis framework's rule, double
-stage 3 of the model checker, and make the runtime disagree with the v2 text on six rows for
+stage 3 of the model checker, and make the runtime disagree with the v2 text on nine rows for
 users who select the mode. Option (d) is rejected because SM7 and SM28 are findings this note
 has now made and leaving them stands the extensions on UML for their syntax and on nothing for
 their semantics.
@@ -2256,10 +2280,10 @@ recommended, SM11 as leaned and as the library's own `done`/`endShot` binding re
 the project's own `pseudostates.md` already promised, so the "keep ours" position above holds for
 SM9, SM45, C8 and C3 only. Each of the four rows carries
 its *Decided:* sentence with the functions and fixtures; option (b) remains the follow-on it was.
-SM32 was decided for PSSM's rule afterwards: the "keep ours" argument for it — one static rule for
-choice and junction — went with SM30's decision, which made the choice dynamic, and the junction's
-static reading is then the one UML gives it, which decides enabledness (SM32's *Decided:*
-sentence). SM34's segment firing was decided with it; where the owner is left stays the runtime's.
+SM32 was decided for PSSM's rule afterwards: once SM30 made choices dynamic, the earlier argument
+for keeping ours — one static rule for choice and junction — no longer applied; the junction's
+static reading nevertheless matches UML for a transition's own route (SM32's *Decided:* sentence).
+SM34's segment firing was decided with it; where the owner is left stays the runtime's.
 
 Nothing here changes the architecture's position. SysML v2 and the Kernel Semantic Library
 govern; UML 2.5.1 — and now, on the state-body extensions, PSSM's reading of UML — is the
@@ -2556,7 +2580,12 @@ sites of the runtime's fixed, the pool's order and the do step drawn on the entr
       apart by the source performing nothing, which neither v2 nor PSSM does. The three stay
       `fail`, their reasons citing the language difference. Whether that difference takes a
       *differs because v2 differs* row — moving the three to `differs-by-design` through
-      `tools/referee/pssm/rows.go:TestRows` — is open decision 8.
+      `tools/referee/pssm/rows.go:TestRows` — was open decision 8. *Withdrawn*: the reading
+      that v2 cannot place the effect holds for the shorthand `EntryTransitionMember` only. A
+      transition out of a named entry action is a `TransitionUsage` performed as a
+      `NonStateTransitionPerformance`, its effect after the entry action and before the
+      target's entry, within the entry; the emitter spells the initial transition that way and
+      the three pass (see the referee record).
     - *History 001-C*'s first half is about the **pool's order** (SM10): PSSM
       generates a completion event as its source is entered and dispatches in generation order
       (§8.5.9), so the entry draw decides the pool's order, which `scheduleTransitionEvents`
@@ -2666,4 +2695,6 @@ Addressed to the maintainers; each gives the options and the lean.
    construct both languages have, and the runtime implements the v2 side; this one would name a construct
    v2 lacks, and a `differs-by-design` count that grows by three on a translation limit reads as
    conformance gained. The three reasons are precise and stable, and the bucket can be moved in a
-   change of its own if the maintainers read it otherwise.
+   change of its own if the maintainers read it otherwise. *Withdrawn*: the premise was the
+   shorthand's. A transition out of a named entry action carries an effect within the entry
+   (`TransitionPerformances.kerml` `NonStateTransitionPerformance`), and the three pass.

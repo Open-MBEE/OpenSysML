@@ -19,7 +19,7 @@ package Plant {
             attribute name : ScalarValues::String;
             abstract action def prime;
             action 'prime 2' : prime;
-            satisfy requirement : Plant::Requirements::FlowRequirement;
+            satisfy Plant::Requirements::FlowRequirement;
             @'Plant Profile'::Critical {
                 level = 2;
             }
@@ -27,7 +27,7 @@ package Plant {
         part def ReservePump :> Pump;
         part def Valve {
             attribute mass : ScalarValues::Real;
-            satisfy requirement : Plant::Requirements::SealRequirement;
+            satisfy Plant::Requirements::SealRequirement;
         }
         part def Station {
             part pumps : Pump[1..*];
@@ -45,11 +45,17 @@ package Plant {
                 direction = "outgoing",
                 maxDepth = 2);
             DocumentQueries::Project(
-                source = DocumentQueries::Except(
-                    source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
-                    exclude = DocumentQueries::Except(
-                        source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
-                        exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
+                source = DocumentQueries::Union(
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
+                            exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
+                    other = DocumentQueries::Except(
+                        source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement")),
+                            exclude = candidates))),
                 properties = ("qualifiedName", "@type"))
         }
         part def 'Pump Requirement Map Document' :> DocumentQueries::Document {
@@ -165,7 +171,7 @@ package Plant {
         individual part def s2 :> Plant::Structure::Pump;
     }
     package Requirements {
-        requirement def <'R-1'> FlowRequirement {
+        requirement <'R-1'> FlowRequirement {
             doc /* The pump keeps the flow above the minimum. */
             comment /* The pump keeps the flow up. */
             @'Plant Profile'::Critical {
@@ -173,19 +179,19 @@ package Plant {
                 level = 1;
             }
         }
-        requirement def <'R-2'> SealRequirement {
+        requirement <'R-2'> SealRequirement {
             doc /* Every valve seals when closed. */
             comment /* Every valve seals when closed. */
             @'Plant Profile'::Urgent {
                 level = 3;
             }
         }
-        requirement def <'R-3'> MassRequirement {
+        requirement <'R-3'> MassRequirement {
             doc /* The pump mass stays under the limit. */
         }
         connection def 'Derive MassRequirement' :> RequirementDerivation::Derivation {
-            end #RequirementDerivation::original originalRequirement : FlowRequirement;
-            end #RequirementDerivation::derive derivedRequirement : MassRequirement;
+            end #RequirementDerivation::original originalRequirement :> FlowRequirement;
+            end #RequirementDerivation::derive derivedRequirement :> MassRequirement;
         }
         view 'Requirement Table' {
             expose FlowRequirement;
@@ -195,14 +201,17 @@ package Plant {
             render Views::asElementTable;
         }
         calc def 'Requirement Table Rows' :> DocumentQueries::Query {
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Union(
+                source = DocumentQueries::Named(qualifiedName = ("Plant Profile", "Plant")),
+                other = DocumentQueries::Descendants(
+                    source = DocumentQueries::Named(qualifiedName = ("Plant Profile", "Plant"))));
             DocumentQueries::Project(
                 source = DocumentQueries::OrderBy(
-                    source = DocumentQueries::WhereType(
-                        source = DocumentQueries::Union(
-                            source = DocumentQueries::Named(qualifiedName = ("Plant Profile", "Plant")),
-                            other = DocumentQueries::Descendants(
-                                source = DocumentQueries::Named(qualifiedName = ("Plant Profile", "Plant")))),
-                        type = ("RequirementDefinition")),
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement")),
+                            exclude = candidates)),
                     property = "name",
                     direction = "ascending",
                     missing = "last",
@@ -224,15 +233,18 @@ package Plant {
             render Views::asElementTable;
         }
         calc def 'Key Requirements Rows' :> DocumentQueries::Query {
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Union(
+                source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement")),
+                other = DocumentQueries::Descendants(
+                    source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements"))));
             DocumentQueries::WhereText(
                 source = DocumentQueries::Project(
                     source = DocumentQueries::OrderBy(
-                        source = DocumentQueries::WhereType(
-                            source = DocumentQueries::Union(
+                        source = DocumentQueries::Except(
+                            source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement")),
+                            exclude = DocumentQueries::Except(
                                 source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement")),
-                                other = DocumentQueries::Descendants(
-                                    source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements")))),
-                            type = ("RequirementDefinition")),
+                                exclude = candidates)),
                         property = "shortName",
                         direction = "ascending",
                         missing = "last",
@@ -264,12 +276,15 @@ package Plant {
             render Views::asElementTable;
         }
         calc def 'Badly Filtered Requirements Rows' :> DocumentQueries::Query {
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+                source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements")));
             DocumentQueries::Project(
                 source = DocumentQueries::OrderBy(
-                    source = DocumentQueries::WhereType(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements"))),
-                        type = ("RequirementDefinition")),
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement")),
+                            exclude = candidates)),
                     property = "shortName",
                     direction = "ascending",
                     missing = "last",
@@ -294,12 +309,15 @@ package Plant {
         }
         calc def 'Satisfaction Matrix Rows' :> DocumentQueries::Query {
             in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+                source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements")));
+            in candidates2 : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
                 source = DocumentQueries::Named(qualifiedName = ("Plant::Structure")));
             DocumentQueries::Project(
-                source = DocumentQueries::WhereType(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements"))),
-                    type = ("RequirementDefinition")),
+                source = DocumentQueries::Except(
+                    source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement")),
+                    exclude = DocumentQueries::Except(
+                        source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement")),
+                        exclude = candidates)),
                 properties = ("name"),
                 columns = (
                     DocumentQueries::RelatedColumn(
@@ -309,10 +327,10 @@ package Plant {
                         maxDepth = 1,
                         aggregate = "list",
                         targets = DocumentQueries::Except(
-                            source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "OccurrenceDefinition")),
+                            source = DocumentQueries::WhereType(source = candidates2, type = ("PartDefinition", "OccurrenceDefinition")),
                             exclude = DocumentQueries::Except(
-                                source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
-                                exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition"))))),
+                                source = DocumentQueries::WhereType(source = candidates2, type = ("ItemDefinition")),
+                                exclude = DocumentQueries::WhereType(source = candidates2, type = ("PartDefinition"))))),
                     DocumentQueries::RelatedColumn(
                         name = "Trace 2",
                         relationshipKind = "derivation",
@@ -320,10 +338,10 @@ package Plant {
                         maxDepth = 1,
                         aggregate = "list",
                         targets = DocumentQueries::Except(
-                            source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "OccurrenceDefinition")),
+                            source = DocumentQueries::WhereType(source = candidates2, type = ("PartDefinition", "OccurrenceDefinition")),
                             exclude = DocumentQueries::Except(
-                                source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
-                                exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition")))))))
+                                source = DocumentQueries::WhereType(source = candidates2, type = ("ItemDefinition")),
+                                exclude = DocumentQueries::WhereType(source = candidates2, type = ("PartDefinition")))))))
         }
         part def 'Satisfaction Matrix Document' :> DocumentQueries::Document {
             attribute redefines title = "Satisfaction Matrix";

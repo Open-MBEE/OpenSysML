@@ -61,19 +61,38 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, err
 	}
 	host := e.behaviorHost(behavior, e.currentFiring())
 	defer e.ctx.holdClock(host.describe())()
-	if err := host.run(); err != nil {
+	if err := host.runBehavior(); err != nil {
 		return false, err
 	}
 	return host.terminated, nil
 }
 
-func (e *StateExecutor) validateBehaviorMultiplicity(behavior lower.StateBehavior) error {
-	if behavior.Multiplicity != nil {
-		graph := &lower.ActionGraph{
-			Scope:          behavior.Scope,
-			Multiplicities: map[ast.Node]*ast.Multiplicity{behavior.Node: behavior.Multiplicity},
-			Scopes:         map[ast.Node]*symbols.Scope{behavior.Node: behavior.Scope},
+func (h *stateStmtHost) runBehavior() error {
+	if !h.exec.ctx.scheduling().oneMove() {
+		return h.run()
+	}
+	run := &bodyRun{work: h, steps: true, holdsClock: true}
+	for {
+		pause, paused := run.resume(h.exec.ctx)
+		if !paused {
+			return run.err
 		}
+		if !pause.tokenStep {
+			return errPaused
+		}
+	}
+}
+
+func (e *StateExecutor) validateBehaviorMultiplicity(behavior lower.StateBehavior) error {
+	graph := &lower.ActionGraph{
+		Scope:          behavior.Scope,
+		Multiplicities: map[ast.Node]*ast.Multiplicity{},
+		Scopes:         map[ast.Node]*symbols.Scope{behavior.Node: behavior.Scope},
+	}
+	if behavior.Multiplicity != nil {
+		graph.Multiplicities[behavior.Node] = behavior.Multiplicity
+	}
+	if graph.HasStepMultiplicity(behavior.Node, e.ctx.Semantics()) {
 		count, err := graph.StepCount(behavior.Node, e.ctx.Semantics())
 		if err != nil {
 			return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
@@ -400,6 +419,7 @@ func (h *stateStmtHost) assignStateAttribute(name string, value Value) (bool, er
 		return true, err
 	}
 	h.exec.ctx.writeBodyValue(cells, data, name, value)
+	h.exec.ctx.noteStateDataWrite()
 	return true, nil
 }
 
@@ -535,6 +555,7 @@ func (h *stateStmtHost) assignAround(name string, value Value) (bool, error) {
 	}
 	if _, ok := h.exec.stateData[name]; ok {
 		h.exec.ctx.writeBodyValue(h.exec.stateCells, h.exec.stateData, name, value)
+		h.exec.ctx.noteStateDataWrite()
 		return true, nil
 	}
 	return assignPerformerFeature(h.exec.ctx, h.exec.self, h.behavior.Scope, name, value)

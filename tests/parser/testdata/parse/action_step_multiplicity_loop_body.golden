@@ -1,0 +1,41 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="LoopRep"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="passes" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (InitialNode name="start" successor="worker")
+          (Membership visibility="default"
+            (Usage kind="action" name="worker" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (WhileLoopActionNode kind="while" variable=""
+                (OperatorExpr operator="<"
+                  (FeatureReference name="passes")
+                  (LiteralInteger value="2"))
+                (InitialNode name="start" successor="a")
+                (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Multiplicity range=false
+                    (LiteralInteger value="3"))
+                  (*ast.AssignmentActionNode))
+                (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (ConnectorEnd target="a"
+                    (Multiplicity range=false
+                      (LiteralInfinity))
+                    (*ast.QualifiedName))
+                  (ConnectorEnd target="tally"
+                    (Multiplicity range=false
+                      (LiteralInteger value="1"))
+                    (*ast.QualifiedName)))
+                (Usage kind="action" name="tally" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (*ast.AssignmentActionNode)))))
+          (FinalNode)
+          (SuccessionEdge source="worker" target="@done"))))))

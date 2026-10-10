@@ -84,7 +84,10 @@ func (m *Model) satisfactionEdges(sym *symbols.Symbol, kind RelationshipKind) []
 	if !ok || usage.Kind != ast.UsageSatisfy || (usage.Keyword == "verify") != (kind == RelationshipVerification) {
 		return nil
 	}
-	var requirement, definition, subject *symbols.Symbol
+	var requirement, subject *symbols.Symbol
+	// originals are the requirements a declaring satisfy or verify is typed by
+	// or subsets, in declaration order.
+	var originals []*symbols.Symbol
 	for _, rel := range usage.Relationships {
 		if rel == nil || rel.Target == nil {
 			continue
@@ -93,14 +96,18 @@ func (m *Model) satisfactionEdges(sym *symbols.Symbol, kind RelationshipKind) []
 		if !ok || target == nil {
 			continue
 		}
+		if aliased, isAlias := m.resolver.ResolveAliasTarget(target); isAlias && aliased != nil {
+			target = aliased
+		}
 		switch rel.Kind {
-		case ast.RelSubsets:
-			if !usage.DeclaresRequirement {
-				requirement = target
-			}
-		case ast.RelTyping:
-			if usage.DeclaresRequirement && target.Kind == symbols.SymbolRequirementDef {
-				definition = target
+		case ast.RelSubsets, ast.RelTyping:
+			switch {
+			case !usage.DeclaresRequirement:
+				if rel.Kind == ast.RelSubsets {
+					requirement = target
+				}
+			case isRequirementKind(target.Kind):
+				originals = append(originals, target)
 			}
 		case ast.RelSubject:
 			subject = target
@@ -119,10 +126,22 @@ func (m *Model) satisfactionEdges(sym *symbols.Symbol, kind RelationshipKind) []
 		return nil
 	}
 	out := []RelationshipEdge{{Source: subject, Target: requirement}}
-	if definition != nil {
-		out = append(out, RelationshipEdge{Source: subject, Target: definition})
+	for _, original := range originals {
+		out = append(out, RelationshipEdge{Source: subject, Target: original})
 	}
 	return out
+}
+
+// isRequirementKind reports a requirement definition or usage, or one of the
+// viewpoint and concern kinds specializing them.
+func isRequirementKind(k symbols.SymbolKind) bool {
+	switch k {
+	case symbols.SymbolRequirementDef, symbols.SymbolViewpointDef, symbols.SymbolConcernDef,
+		symbols.SymbolRequirementUsage, symbols.SymbolSatisfyRequirementUsage,
+		symbols.SymbolViewpointUsage, symbols.SymbolConcernUsage:
+		return true
+	}
+	return false
 }
 
 func isObjectiveUsage(decl ast.Node) bool {
@@ -209,10 +228,23 @@ func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 	return ends
 }
 
+// derivationDefinitionEnds reads a derivation def's ends: each refers to the
+// requirements typing it, and to any requirement usage it subsets or references.
 func (m *Model) derivationDefinitionEnds(sym *symbols.Symbol) []derivationEnd {
 	var ends []derivationEnd
 	for _, feature := range m.EndFeatures(sym) {
-		ends = append(ends, derivationEnd{role: m.derivationRoleOf(feature), referents: m.requirementTypes(feature)})
+		end := derivationEnd{role: m.derivationRoleOf(feature), referents: m.requirementTypes(feature)}
+		for _, rel := range relationshipsOfEnd(feature) {
+			if rel.Kind != ast.RelReferences && rel.Kind != ast.RelSubsets {
+				continue
+			}
+			target, ok := m.resolver.ResolveTarget(feature.OwnerScope, rel.Target)
+			if !ok || target == nil || m.isDerivationRoleFeature(target) || !m.conformsToLibrary(target, "Requirements::RequirementCheck") {
+				continue
+			}
+			end.referents = append(end.referents, target)
+		}
+		ends = append(ends, end)
 	}
 	return ends
 }
