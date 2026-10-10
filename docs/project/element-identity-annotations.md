@@ -56,7 +56,7 @@ maintained upstream at Open-MBEE/OpenSysML-Extensions-Library and vendored here 
 by `scripts/extension-libraries-pin.sh`):
 
 ```sysml
-standard library package IdentityMetadata {
+library package IdentityMetadata {
     doc /* Binds notation to repository identity. Non-normative OpenSysML
          * extension, proposed for standardization; see the design record. */
 

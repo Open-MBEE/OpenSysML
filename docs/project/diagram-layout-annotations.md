@@ -51,7 +51,7 @@ extensions; maintained upstream at Open-MBEE/OpenSysML-Extensions-Library and ve
 here pinned by `scripts/extension-libraries-pin.sh`):
 
 ```sysml
-standard library package DiagramLayout {
+library package DiagramLayout {
     metadata def Layout {
         attribute x : ScalarValues::Real;
         attribute y : ScalarValues::Real;
