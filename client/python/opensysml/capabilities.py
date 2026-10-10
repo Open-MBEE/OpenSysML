@@ -45,6 +45,7 @@ CAPABILITY_VERIFICATION = "verification"
 #: and ``witness``. Without it the service refuses such a question with
 #: ``UNIMPLEMENTED``.
 CAPABILITY_VERIFICATION_QUESTIONS = "verification_questions"
+CAPABILITY_VERIFICATION_ARGUMENTS = "verification_arguments"
 
 #: The ``Query`` RPC, which evaluates a SysML v2 API & Services ``Query`` over a
 #: loaded model. Without it the service refuses queries with ``UNIMPLEMENTED``.

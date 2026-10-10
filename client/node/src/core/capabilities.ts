@@ -49,6 +49,8 @@ export const CAPABILITY_MIGRATE = "migrate";
 export const CAPABILITY_VERIFICATION = "verification";
 /** The `question` field of the verification RPCs. */
 export const CAPABILITY_VERIFICATION_QUESTIONS = "verification_questions";
+/** `arguments` and `named_arguments` on VerifyConstraint and VerifyRequirement. */
+export const CAPABILITY_VERIFICATION_ARGUMENTS = "verification_arguments";
 /** The `Query` RPC. */
 export const CAPABILITY_QUERY = "query";
 /** The `RunDocumentQuery` RPC. */

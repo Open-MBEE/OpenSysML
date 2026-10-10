@@ -863,6 +863,68 @@ class ApiIntegrationTest {
     assertFalse(wrongKind.verdict().error().orElseThrow().isEmpty());
   }
 
+  private static final String BOUND =
+      """
+      package Bound {
+        private import ScalarValues::*;
+        part def Thing { attribute v : Integer = 2; }
+        part t : Thing;
+        requirement def Under {
+          subject s : Thing;
+          in limit : Integer;
+          in slack : Integer = 0;
+          require constraint { s.v + slack < limit }
+        }
+        constraint def Between {
+          in low : Integer;
+          in high : Integer = 10;
+          low < high
+        }
+      }
+      """;
+
+  @Test
+  void argumentsBindTheInParametersOfARequirementOrConstraint() {
+    Model model = connection.parse(BOUND);
+    Verification named =
+        model.verifyRequirement(
+            "Bound::Under",
+            "Bound::t",
+            VerifyOptions.defaults().withNamedArguments(Map.of("limit", new Value.IntegerValue(5))));
+    assertTrue(named.holds());
+    Verification positional =
+        model.verifyRequirement(
+            "Bound::Under",
+            "Bound::t",
+            VerifyOptions.defaults()
+                .withArguments(new Value.IntegerValue(5), new Value.IntegerValue(4)));
+    assertFalse(positional.holds());
+    assertTrue(positional.verdict().violated());
+    assertTrue(
+        model
+            .verifyConstraint(
+                "Bound::Between", VerifyOptions.defaults().withArguments(new Value.IntegerValue(3)))
+            .holds());
+    Verification unknown =
+        model.verifyRequirement(
+            "Bound::Under",
+            "Bound::t",
+            VerifyOptions.defaults()
+                .withNamedArguments(
+                    Map.of("limit", new Value.IntegerValue(5), "bound", new Value.IntegerValue(1))));
+    assertFalse(unknown.holds());
+    assertTrue(unknown.verdict().error().orElse("").contains("bound"), unknown.toString());
+    ServiceException solver =
+        assertThrows(
+            ServiceException.class,
+            () ->
+                model.verifyConstraint(
+                    "Bound::Between",
+                    VerifyOptions.asking(VerifyOptions.QUESTION_HOLDS)
+                        .withArguments(new Value.IntegerValue(3))));
+    assertTrue(solver.getMessage().contains("holds"), solver.getMessage());
+  }
+
   @Test
   void requirementsAndSatisfactionsReportEachVerdict() {
     Model model = connection.parse(VERIFICATION);
