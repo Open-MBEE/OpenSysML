@@ -53,11 +53,15 @@ package Tables {
                             exclude = DocumentQueries::WhereType(source = candidates, type = ("ConnectionUsage"))),
                         exclude = DocumentQueries::Descendants(
                             source = DocumentQueries::WhereType(
-                                source = DocumentQueries::Descendants(
-                                    source = DocumentQueries::Union(
-                                        source = DocumentQueries::Named(qualifiedName = ("Plant")),
-                                        other = DocumentQueries::WhereType(source = candidates, type = ("Package"))),
-                                    maxDepth = 1),
+                                source = DocumentQueries::Union(
+                                    source = DocumentQueries::Named(qualifiedName = ("Plant")),
+                                    other = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Union(
+                                            source = DocumentQueries::WhereType(
+                                                source = DocumentQueries::Named(qualifiedName = ("Plant")),
+                                                type = ("Package")),
+                                            other = DocumentQueries::WhereType(source = candidates, type = ("Package"))),
+                                        maxDepth = 1)),
                                 type = ("Type"))))),
                 property = "qualifiedName",
                 direction = "ascending",

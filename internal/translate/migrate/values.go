@@ -261,8 +261,12 @@ func (m *migration) featureValue(v, f, scope *sysmlv1.Element) (expr string, ok 
 	}
 	if v.Type == "InstanceValue" && t != nil {
 		inst := m.model.Ref(v, "instance")
-		if inst.Type == "InstanceSpecification" && !m.instanceOf(m.model.Refs(inst, "classifier"), t) {
-			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + whichNote + featureHolds
+		if inst.Type == "InstanceSpecification" {
+			// The classifiers the instance is written with, an inferred snapshot classifier included.
+			_, types, subsets, _ := m.instanceKind(inst)
+			if !m.instanceOf(append(types, subsets...), t) {
+				return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + whichNote + featureHolds
+			}
 		}
 		if inst.Type == "EnumerationLiteral" && inst.Parent != t && m.written(t) {
 			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + whichNote + featureHolds

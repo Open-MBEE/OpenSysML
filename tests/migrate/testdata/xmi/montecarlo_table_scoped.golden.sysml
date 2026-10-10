@@ -36,14 +36,18 @@ package ResultsB {
                     type = ("Usage")),
                 exclude = DocumentQueries::Descendants(
                     source = DocumentQueries::WhereType(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Union(
-                                source = DocumentQueries::Named(qualifiedName = ("ResultsB")),
-                                other = DocumentQueries::WhereType(
-                                    source = DocumentQueries::Descendants(
-                                        source = DocumentQueries::Named(qualifiedName = ("ResultsB"))),
-                                    type = ("Package"))),
-                            maxDepth = 1),
+                        source = DocumentQueries::Union(
+                            source = DocumentQueries::Named(qualifiedName = ("ResultsB")),
+                            other = DocumentQueries::Descendants(
+                                source = DocumentQueries::Union(
+                                    source = DocumentQueries::WhereType(
+                                        source = DocumentQueries::Named(qualifiedName = ("ResultsB")),
+                                        type = ("Package")),
+                                    other = DocumentQueries::WhereType(
+                                        source = DocumentQueries::Descendants(
+                                            source = DocumentQueries::Named(qualifiedName = ("ResultsB"))),
+                                        type = ("Package"))),
+                                maxDepth = 1)),
                         type = ("Type")))),
             properties = ("name"))
     }

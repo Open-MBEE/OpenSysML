@@ -163,14 +163,18 @@ package Results {
                         type = ("Usage")),
                     exclude = DocumentQueries::Descendants(
                         source = DocumentQueries::WhereType(
-                            source = DocumentQueries::Descendants(
-                                source = DocumentQueries::Union(
-                                    source = DocumentQueries::Named(qualifiedName = ("Results")),
-                                    other = DocumentQueries::WhereType(
-                                        source = DocumentQueries::Descendants(
-                                            source = DocumentQueries::Named(qualifiedName = ("Results"))),
-                                        type = ("Package"))),
-                                maxDepth = 1),
+                            source = DocumentQueries::Union(
+                                source = DocumentQueries::Named(qualifiedName = ("Results")),
+                                other = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Union(
+                                        source = DocumentQueries::WhereType(
+                                            source = DocumentQueries::Named(qualifiedName = ("Results")),
+                                            type = ("Package")),
+                                        other = DocumentQueries::WhereType(
+                                            source = DocumentQueries::Descendants(
+                                                source = DocumentQueries::Named(qualifiedName = ("Results"))),
+                                            type = ("Package"))),
+                                    maxDepth = 1)),
                             type = ("Type")))),
                 property = "'Monte Carlo'.runs",
                 direction = "descending",

@@ -183,8 +183,8 @@ var metaclassTypes = map[string]v2Types{
 	"Interface":          {types: []string{typePortDef}, note: "an interface is a port def once migrated, as an interface block is"},
 	"Association":        {types: []string{typeConnectionDef}},
 	"AssociationClass":   {types: []string{typeConnectionDef}},
-	"InstanceSpecification": {types: []string{typeOccurrenceDef},
-		note: "instances of value types are written as attributes, which an OccurrenceDefinition filter leaves out"},
+	"InstanceSpecification": {instances: true,
+		note: "instance specifications are the usages a package owns; links are not listed, which a query cannot tell from the connections of a use case diagram"},
 	"Property":  occurrenceAwareTypes(propertyTypes, typeOccurrenceUsage, typeEventOccurrenceUsage, "properties typed by a view or viewpoint are not listed"),
 	"Port":      {types: []string{typePortUsage}},
 	"Connector": {types: []string{typeConnectionUsage, typeBindingUsage, typeInterfaceUsage, typeFlowUsage}},
@@ -367,7 +367,7 @@ func metaclassFilter(name string) typeFilter {
 	if !ok {
 		return typeFilter{label: name, refused: "no v2 metaclass stands for the elements of a UML " + name}
 	}
-	if t.types == nil && t.usages == nil {
+	if t.types == nil && t.usages == nil && !t.instances {
 		return typeFilter{label: name, all: true, note: t.note}
 	}
 	return fromTypes(name, t)

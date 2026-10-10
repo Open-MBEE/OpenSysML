@@ -1001,3 +1001,31 @@ func TestComparisonRunsEachConfigurationBesideItsStoredResults(t *testing.T) {
 		}
 	}
 }
+
+// A property whose default names a result snapshot that infers its classifier
+// from its slots keeps the default: the snapshot is an instance of the type.
+func TestDefaultNamingAnInferredSnapshotIsKept(t *testing.T) {
+	r := migrateDocument(t, storedResults+`
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pick" name="pick" type="_chooser">
+        <defaultValue xmi:type="uml:InstanceValue" xmi:id="_pickv" instance="_r3"/>
+      </ownedAttribute>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <sysml:Block xmi:id="_s4" base_Class="_host"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_sure" resultLocation="_results"/>`)
+	var pick string
+	for _, line := range strings.Split(string(r.Notation), "\n") {
+		if strings.Contains(line, " pick : ") {
+			pick = strings.TrimSpace(line)
+		}
+	}
+	if !strings.Contains(pick, "default = ") {
+		t.Errorf("pick is written %q, want its default naming the snapshot:\n%s", pick, r.Notation)
+	}
+	wantNote(t, r, "_pick", migrate.Mapped, "")
+	wantClean(t, "t.sysml", r)
+}

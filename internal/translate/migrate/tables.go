@@ -398,7 +398,7 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 	}
 	rows := src
 	if !typesAdmitAll(filters, l) {
-		var metadata uniqueNames
+		var metadata, classifierUsageNames uniqueNames
 		var filtersToMerge []typeFilter
 		var qs []qx
 		for _, f := range filters {
@@ -411,7 +411,11 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 			case len(f.classifiers) > 0:
 				l.note(f.note)
 				for _, c := range f.classifiers {
-					filtersToMerge = append(filtersToMerge, typeFilter{types: []string{m.plainName(c)}})
+					name := m.plainName(c)
+					filtersToMerge = append(filtersToMerge, typeFilter{types: []string{name}})
+					if cat, _ := m.classify(c); slices.Contains(classifierUsages, cat) {
+						classifierUsageNames.add(name)
+					}
 				}
 			case f.metadata != "":
 				metadata.add(f.metadata)
@@ -428,12 +432,22 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 		if (merged.excluding != nil || len(merged.usages) > 0 || merged.instances) && !l.perRow {
 			source = qshared(src)
 		}
-		if len(filtersToMerge) > 0 {
+		if len(filtersToMerge) > 0 && !(merged.instances && len(merged.types) == 0 && len(merged.usages) == 0) {
 			qs = append(qs, merged.query(source))
 		}
 		if merged.instances {
 			// A link is a connection usage, as the lines of a use case diagram are.
 			instances := qcall("Except", qarg1("source", whereType(source, "Usage")), qarg1("exclude", whereType(source, "ConnectionUsage")))
+			// An actor, use case or requirement is a package-owned usage too, and no instance.
+			var classifiers uniqueNames
+			for _, name := range m.nameUsages(typeFilter{usageKinds: classifierUsages}).usages {
+				if !slices.Contains(merged.usages, name) {
+					classifiers.add(name)
+				}
+			}
+			if len(classifiers) > 0 {
+				instances = qcall("Except", qarg1("source", instances), qarg1("exclude", qcall("Named", qstrs("qualifiedName", classifiers...))))
+			}
 			qs = append(qs, packageOwnedUsages(instances, source, l.roots))
 		}
 		if len(metadata) > 0 {
@@ -444,6 +458,10 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 			return src
 		}
 		rows = union(qs)
+		if individuals && len(classifierUsageNames) > 0 {
+			// A classifier written as a usage conforms to itself, and is no instance of itself.
+			rows = qcall("Except", qarg1("source", rows), qarg1("exclude", qcall("Named", qstrs("qualifiedName", classifierUsageNames...))))
+		}
 	}
 	if !subtypes {
 		l.note("rows of subtypes of the row types are listed too: a type filter admits conforming elements")
@@ -456,14 +474,19 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 
 // packageOwnedUsages keeps the usages among rows (usages all) that a package
 // owns — the instances of the scope — dropping the features its types own: a
-// property, a slot bound to an instance. Descendants yields no element of its source, so
-// the nested elements are those of the types the scope's packages own directly.
+// property, a slot bound to an instance. Descendants yields no element of its
+// source, so the nested elements are those of the types the scope's packages
+// own directly, and of a root that is itself a type: a classifier scope.
 func packageOwnedUsages(rows, src qx, roots []string) qx {
 	packages := whereType(src, "Package")
+	var members qx
 	if len(roots) > 0 {
-		packages = qcall("Union", qarg1("source", qcall("Named", qstrs("qualifiedName", roots...))), qarg1("other", packages))
+		named := qcall("Named", qstrs("qualifiedName", roots...))
+		packages = qcall("Union", qarg1("source", whereType(named, "Package")), qarg1("other", packages))
+		members = qcall("Union", qarg1("source", named), qarg1("other", qcall("Descendants", qarg1("source", packages), qarg1("maxDepth", qlit("1")))))
+	} else {
+		members = qcall("Descendants", qarg1("source", packages), qarg1("maxDepth", qlit("1")))
 	}
-	members := qcall("Descendants", qarg1("source", packages), qarg1("maxDepth", qlit("1")))
 	nested := qcall("Descendants", qarg1("source", whereType(members, "Type")))
 	return qcall("Except", qarg1("source", rows), qarg1("exclude", nested))
 }

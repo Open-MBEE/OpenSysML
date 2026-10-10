@@ -9,6 +9,7 @@
 
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_operations" name="Operations">
       <packagedElement xmi:type="uml:Actor" xmi:id="_act_operator" name="Operator"/>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_inst_alice" name="alice" classifier="_act_operator"/>
       <packagedElement xmi:type="uml:UseCase" xmi:id="_uc_scan" name="Scan">
         <include xmi:type="uml:Include" xmi:id="_inc_focus" addition="_uc_focus"/>
       </packagedElement>
@@ -77,6 +78,33 @@
           </diagramRepresentation>
         </xmi:Extension>
       </ownedDiagram>
+      <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_instances" name="Instance Specifications" ownerOfDiagram="_pkg_tables">
+        <xmi:Extension extender="Example UML Tool 1.0">
+          <diagramRepresentation>
+            <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+              <diagramContents/>
+            </diagram:DiagramRepresentationObject>
+          </diagramRepresentation>
+        </xmi:Extension>
+      </ownedDiagram>
+      <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_operators" name="Operators" ownerOfDiagram="_pkg_tables">
+        <xmi:Extension extender="Example UML Tool 1.0">
+          <diagramRepresentation>
+            <diagram:DiagramRepresentationObject type="SysML Instance Table" umlType="Class Diagram">
+              <diagramContents/>
+            </diagram:DiagramRepresentationObject>
+          </diagramRepresentation>
+        </xmi:Extension>
+      </ownedDiagram>
+      <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_console" name="Console Operators" ownerOfDiagram="_pkg_tables">
+        <xmi:Extension extender="Example UML Tool 1.0">
+          <diagramRepresentation>
+            <diagram:DiagramRepresentationObject type="SysML Instance Table" umlType="Class Diagram">
+              <diagramContents/>
+            </diagram:DiagramRepresentationObject>
+          </diagramRepresentation>
+        </xmi:Extension>
+      </ownedDiagram>
       </modelExtension>
     </xmi:Extension>
   </uml:Model>
@@ -111,4 +139,19 @@
     <columnIds>QPROP:Element:qualifiedName</columnIds>
     <sort>QPROP:Element:qualifiedName^Asc</sort>
   </MagicDraw_Profile:DiagramTable>
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_instances" base_Diagram="_diag_instances" scope="_pkg_operations" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#InstanceSpecification"/>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_operators" base_Diagram="_diag_operators" scope="_pkg_operations" includeSubtypesOfRowTypes="true" showScopeAsRoot="false">
+    <classifiers xmi:idref="_act_operator"/>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:InstanceTable>
+  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_console" base_Diagram="_diag_console" scope="_blk_console" includeSubtypesOfRowTypes="true" showScopeAsRoot="false">
+    <classifiers xmi:idref="_act_operator"/>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:InstanceTable>
 </xmi:XMI>

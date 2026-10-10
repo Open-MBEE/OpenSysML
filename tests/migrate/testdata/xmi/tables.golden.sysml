@@ -107,16 +107,20 @@ package Plant {
                                     type = ("Usage")),
                                 exclude = DocumentQueries::Descendants(
                                     source = DocumentQueries::WhereType(
-                                        source = DocumentQueries::Descendants(
-                                            source = DocumentQueries::Union(
-                                                source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")),
-                                                other = DocumentQueries::WhereType(
-                                                    source = DocumentQueries::Union(
-                                                        source = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2")),
-                                                        other = DocumentQueries::Descendants(
-                                                            source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")))),
-                                                    type = ("Package"))),
-                                            maxDepth = 1),
+                                        source = DocumentQueries::Union(
+                                            source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")),
+                                            other = DocumentQueries::Descendants(
+                                                source = DocumentQueries::Union(
+                                                    source = DocumentQueries::WhereType(
+                                                        source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")),
+                                                        type = ("Package")),
+                                                    other = DocumentQueries::WhereType(
+                                                        source = DocumentQueries::Union(
+                                                            source = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2")),
+                                                            other = DocumentQueries::Descendants(
+                                                                source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")))),
+                                                        type = ("Package"))),
+                                                maxDepth = 1)),
                                         type = ("Type")))),
                             exclude = DocumentQueries::Named(qualifiedName = ("Plant::Inventory::p2"))),
                         property = "mass",
@@ -155,14 +159,18 @@ package Plant {
                             type = ("Usage")),
                         exclude = DocumentQueries::Descendants(
                             source = DocumentQueries::WhereType(
-                                source = DocumentQueries::Descendants(
-                                    source = DocumentQueries::Union(
-                                        source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")),
-                                        other = DocumentQueries::WhereType(
-                                            source = DocumentQueries::Descendants(
-                                                source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
-                                            type = ("Package"))),
-                                    maxDepth = 1),
+                                source = DocumentQueries::Union(
+                                    source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")),
+                                    other = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Union(
+                                            source = DocumentQueries::WhereType(
+                                                source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")),
+                                                type = ("Package")),
+                                            other = DocumentQueries::WhereType(
+                                                source = DocumentQueries::Descendants(
+                                                    source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
+                                                type = ("Package"))),
+                                        maxDepth = 1)),
                                 type = ("Type")))),
                     property = "name",
                     direction = "ascending",
