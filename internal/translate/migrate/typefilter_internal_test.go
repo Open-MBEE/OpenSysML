@@ -127,4 +127,12 @@ func TestSpecializedFilterFollowsModuleGenerals(t *testing.T) {
 	if _, ok := specializedFilter("Tag", ancestors[:2]); ok {
 		t.Error("a stereotype specializing only a user «Block» filters as a standard block")
 	}
+	omg := sysmlv1.StereotypeRef{ID: sysml + ".xmi#Block", Element: &sysmlv1.Element{ID: sysml + ".xmi#Block", Href: sysml + ".xmi#Block", Name: "Block"}}
+	if got, ok := specializedFilter("Subsystem", []sysmlv1.StereotypeRef{omg}); !ok || !slices.Equal(got.types, []string{typePartDef, typeOccurrenceDef}) {
+		t.Errorf("Subsystem :> an unbundled OMG Block filter = %+v, %v; want the Block types", got, ok)
+	}
+	user := sysmlv1.StereotypeRef{ID: "u.xmi#Block", Element: &sysmlv1.Element{ID: "u.xmi#Block", Href: "http://example.com/schemas/User.xmi#Block", Name: "Block"}}
+	if _, ok := specializedFilter("Subsystem", []sysmlv1.StereotypeRef{user}); ok {
+		t.Error("a stereotype specializing an unbundled user «Block» filters as a standard block")
+	}
 }

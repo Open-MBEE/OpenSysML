@@ -49,6 +49,14 @@ const moduleHref = "local:/PROJECT-44?resource=com.nomagic.magicdraw.uml_umodel.
 // plainSnapshot declares the same stereotypes with no generalization at all.
 var plainSnapshot = regexp.MustCompile(`<generalization[^>]*/>|(?s)<generalization.*?</generalization>`).ReplaceAllString(moduleSnapshot, "")
 
+// omgSnapshot declares no Block of its own: every generalization points by
+// href into the OMG profile, which the archive does not bundle.
+var omgSnapshot = strings.NewReplacer(
+	`<packagedElement xsi:type="uml:Stereotype" xmi:id="_md_block" ID="_md_block" name="Block"/>`, "",
+	`href="#_md_block"`, `href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Block"`,
+	`general="_md_block"`, `general="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Block"`,
+).Replace(moduleSnapshot)
+
 // snapshotArchive zips the tool block stereotypes fixture with a snapshot of
 // the SysML module, the table's row type pointing into the module.
 func snapshotArchive(t *testing.T, snapshot string) []byte {
@@ -191,5 +199,30 @@ func TestStrictKeepsBlockSpecializationName(t *testing.T) {
 	}
 	if strings.Contains(out, "MigrationMetadata") {
 		t.Errorf("strict migration names the OpenSysML library:\n%s", out)
+	}
+}
+
+// A snapshot generalizing «Subsystem» by href into the unbundled OMG profile
+// still makes the class a part def and filters table rows typed by it as blocks.
+func TestModuleSnapshotGeneralizesIntoTheOMGProfile(t *testing.T) {
+	if strings.Contains(omgSnapshot, `"_md_block"`) || strings.Contains(omgSnapshot, "#_md_block") || !strings.Contains(omgSnapshot, "SysML.xmi#Block") {
+		t.Fatalf("OMG snapshot still declares or names a local Block:\n%s", omgSnapshot)
+	}
+	r, err := migrate.Migrate("tool_block_stereotypes.mdzip", snapshotArchive(t, omgSnapshot))
+	if err != nil {
+		t.Fatalf("Migrate(.mdzip): %v", err)
+	}
+	out := string(r.Notation)
+	for _, want := range []string{"part def 'Beam Column' {", "part def Microscope {", "part def Laboratory {", "part def Imaging {", "occurrence def Paperwork {", `stereotype = "Subsystem";`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("migration lacks %q:\n%s", want, out)
+		}
+	}
+	var report bytes.Buffer
+	if err := r.Report.WriteText(&report); err != nil {
+		t.Fatal(err)
+	}
+	if text := report.String(); strings.Contains(text, "tool's documented profile") || strings.Contains(text, "no v2 metaclass stands for") || !strings.Contains(text, "«Subsystem» specializes «Block» in the tool's profile") {
+		t.Errorf("the OMG Block general was not followed for the table's rows:\n%s", text)
 	}
 }

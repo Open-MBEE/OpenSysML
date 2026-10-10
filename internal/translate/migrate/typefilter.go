@@ -325,15 +325,29 @@ func (m *migration) proxyTypeFilter(e *sysmlv1.Element) typeFilter {
 // stereotype specializes, as the archive's snapshot declares: «Subsystem» :> «Block».
 func specializedFilter(name string, ancestors []sysmlv1.StereotypeRef) (typeFilter, bool) {
 	for _, a := range ancestors {
-		if a.Name == "" || !isStandardNamespace(a.Namespace) {
+		general, ok := standardAncestor(a)
+		if !ok {
 			continue
 		}
-		if t, ok := stereotypeTypes[a.Name]; ok {
-			t.note = "«" + name + "» specializes «" + a.Name + "» in the tool's profile; rows are filtered as its elements are"
+		if t, ok := stereotypeTypes[general]; ok {
+			t.note = "«" + name + "» specializes «" + general + "» in the tool's profile; rows are filtered as its elements are"
 			return fromTypes("«"+name+"»", t), true
 		}
 	}
 	return typeFilter{}, false
+}
+
+// standardAncestor names the standard stereotype an ancestor is: one the
+// document or tool table names in the SysML namespace, or a proxy whose href
+// points into the OMG profile, as classification reads it.
+func standardAncestor(a sysmlv1.StereotypeRef) (string, bool) {
+	if a.Name != "" && isStandardNamespace(a.Namespace) {
+		return a.Name, true
+	}
+	if e := a.Element; e != nil && e.IsProxy() && e.Name != "" && isStandardDefinition(e) {
+		return e.Name, true
+	}
+	return "", false
 }
 
 // toolBlockFilter filters by a block stereotype of the tool's SysML profile

@@ -255,7 +255,11 @@ func (m *Model) StereotypeAncestors(id string) ([]StereotypeRef, bool) {
 	}
 	var refs []StereotypeRef
 	for _, a := range m.moduleAncestors(decl) {
-		refs = append(refs, m.StereotypeRef(a.ID))
+		ref := m.StereotypeRef(a.ID)
+		if ref.Element == nil {
+			ref.Element = a
+		}
+		refs = append(refs, ref)
 	}
 	return refs, true
 }
