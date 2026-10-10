@@ -981,9 +981,12 @@ and the SysML Plugin's element descriptions document as blocks
 [Domain](https://docs.nomagic.com/display/SYSMLP2022x/Domain),
 [External](https://docs.nomagic.com/display/SYSMLP2022x/External)). Such a class is a `part
 def` too, approximated with the reason that the generalization is taken from the tool's
-documented profile rather than the archive. The table reaches only applications in the SysML
-namespace whose definition is out of reach: a user profile's own «Subsystem», in the document or
-in a module whose snapshot derives it from nothing standard, means nothing standard, as before.
+documented profile rather than the archive; under `-strict` the kind is the line comment
+`// applied stereotype «Subsystem»`, as every marker is. The table reaches only applications in
+the SysML namespace that no document or snapshot declares: a user profile's own «Subsystem», in
+the document or in a module's snapshot, means what its own generalizations say — nothing
+standard when it has none — and a snapshot's generalization by `href` into the OMG profile
+(`SysML.xmi#Block`) counts as the standard general it names, bundled or not.
 
 ### Stereotype markers
 

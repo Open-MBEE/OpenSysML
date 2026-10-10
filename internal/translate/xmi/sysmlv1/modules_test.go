@@ -19,10 +19,16 @@ const snapshotDocument = `<?xml version="1.0" encoding="ASCII"?>
             <general xsi:type="uml:Stereotype" href="#_system"/>
           </generalization>
         </packagedElement>
+        <packagedElement xsi:type="uml:Stereotype" xmi:id="_domain" name="Domain"/>
       </packagedElement>
     </packagedElement>
     <packagedElement xsi:type="uml:Profile" xmi:id="_org" name="Org">
       <packagedElement xsi:type="uml:Stereotype" xmi:id="_org_subsystem" name="Subsystem"/>
+      <packagedElement xsi:type="uml:Stereotype" xmi:id="_org_structural" name="Structural">
+        <generalization xmi:id="_org_structural_gen">
+          <general xsi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Block"/>
+        </generalization>
+      </packagedElement>
     </packagedElement>
   </uml:Package>
 </xmi:XMI>`
@@ -62,10 +68,18 @@ func generalNames(s *Stereotype) string {
 // snapshot's generalizations, through a profile its namespace denotes by name.
 func TestModuleSnapshotGenerals(t *testing.T) {
 	m := snapshotModel(t, `  <sysml:Subsystem xmi:id="_a1" base_Class="_c"/>
-  <Org:Subsystem xmi:id="_a2" base_Class="_d"/>`)
+  <Org:Subsystem xmi:id="_a2" base_Class="_d"/>
+  <sysml:Domain xmi:id="_a3" base_Class="_d"/>
+  <Org:Structural xmi:id="_a4" base_Class="_d"/>`)
 	s := m.Lookup("_c").Stereotype("Subsystem")
-	if s.Definition != nil {
-		t.Errorf("a snapshot declaration became the Definition %+v", s.Definition)
+	if s.Definition != nil || !s.Module {
+		t.Errorf("a snapshot declaration became the Definition %+v, Module %v", s.Definition, s.Module)
+	}
+	if d := m.Lookup("_d").Stereotype("Domain"); !d.Module || len(d.Generals) != 0 {
+		t.Errorf("a snapshot declaration with no generalization: Module %v, generals %q", d.Module, generalNames(d))
+	}
+	if st := m.Lookup("_d").Stereotype("Structural"); len(st.Generals) != 1 || !st.Generals[0].IsProxy() || st.Generals[0].Name != "Block" || st.Generals[0].Href != "http://www.omg.org/spec/SysML/20181001/SysML.xmi#Block" {
+		t.Errorf("an href into the OMG profile: generals %+v", st.Generals)
 	}
 	if got := generalNames(s); got != "SysML::System, SysML::Block" {
 		t.Errorf("Subsystem generals = %q, want SysML::System, SysML::Block", got)
@@ -80,11 +94,18 @@ func TestModuleSnapshotGenerals(t *testing.T) {
 		t.Errorf("StereotypeRef(_system) = %+v, want System in the SysML namespace", ref)
 	}
 	var names []string
-	for _, a := range m.StereotypeAncestors("local:/PROJECT-1?resource=com.nomagic.magicdraw.uml_umodel.shared_umodel#_subsystem") {
+	ancestors, declared := m.StereotypeAncestors("local:/PROJECT-1?resource=com.nomagic.magicdraw.uml_umodel.shared_umodel#_subsystem")
+	for _, a := range ancestors {
 		names = append(names, a.Name)
 	}
-	if got := strings.Join(names, ", "); got != "System, Block" {
-		t.Errorf("StereotypeAncestors(Subsystem) = %q, want System, Block", got)
+	if got := strings.Join(names, ", "); got != "System, Block" || !declared {
+		t.Errorf("StereotypeAncestors(Subsystem) = %q, %v; want System, Block, true", got, declared)
+	}
+	if ancestors, declared := m.StereotypeAncestors("_domain"); len(ancestors) != 0 || !declared {
+		t.Errorf("StereotypeAncestors(Domain) = %v, %v; want none, true", ancestors, declared)
+	}
+	if _, declared := m.StereotypeAncestors("_nowhere"); declared {
+		t.Error("an id no snapshot declares is declared")
 	}
 }
 

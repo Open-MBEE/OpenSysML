@@ -42,9 +42,9 @@ func toolGenerals(s *sysmlv1.Stereotype) []string {
 }
 
 // isToolBlockStereotype reports whether s applies one of the tool's block
-// stereotypes under the SysML namespace with its definition out of reach.
+// stereotypes under the SysML namespace with no document or snapshot declaring it.
 func isToolBlockStereotype(s *sysmlv1.Stereotype) bool {
-	return s.Definition == nil && len(s.Generals) == 0 && sysmlv1.IsSysMLNamespace(s.Namespace) && toolBlockStereotypes[s.Name]
+	return s.Definition == nil && !s.Module && sysmlv1.IsSysMLNamespace(s.Namespace) && toolBlockStereotypes[s.Name]
 }
 
 // toolBlockStereotype returns e's application read as a block only through

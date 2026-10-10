@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -45,9 +46,12 @@ const moduleSnapshot = `<?xml version="1.0" encoding="ASCII"?>
 
 const moduleHref = "local:/PROJECT-44?resource=com.nomagic.magicdraw.uml_umodel.shared_umodel#_md_subsystem"
 
-// snapshotArchive zips the tool block stereotypes fixture with the SysML
-// module's snapshot, the table's row type pointing into the module.
-func snapshotArchive(t *testing.T) []byte {
+// plainSnapshot declares the same stereotypes with no generalization at all.
+var plainSnapshot = regexp.MustCompile(`<generalization[^>]*/>|(?s)<generalization.*?</generalization>`).ReplaceAllString(moduleSnapshot, "")
+
+// snapshotArchive zips the tool block stereotypes fixture with a snapshot of
+// the SysML module, the table's row type pointing into the module.
+func snapshotArchive(t *testing.T, snapshot string) []byte {
 	t.Helper()
 	data, err := os.ReadFile("testdata/xmi/tool_block_stereotypes.xmi")
 	if err != nil {
@@ -64,7 +68,7 @@ func snapshotArchive(t *testing.T) []byte {
 	entries := [][2]string{
 		{"com.nomagic.ci.metamodel.project", `<?xml version="1.0"?><project/>`},
 		{"com.nomagic.magicdraw.uml_model.model", model},
-		{"proxy.local__PROJECT$h44_resource_com$dnomagic$dmagicdraw$duml_umodel$dshared_umodel$dsnapshot", moduleSnapshot},
+		{"proxy.local__PROJECT$h44_resource_com$dnomagic$dmagicdraw$duml_umodel$dshared_umodel$dsnapshot", snapshot},
 	}
 	for _, entry := range entries {
 		w, err := zw.Create(entry[0])
@@ -85,7 +89,7 @@ func snapshotArchive(t *testing.T) []byte {
 // module snapshot declares the generalization to «Block» or only the tool's
 // documentation does; the snapshot makes the class mapped rather than approximated.
 func TestModuleSnapshotBlockSpecializations(t *testing.T) {
-	r, err := migrate.Migrate("tool_block_stereotypes.mdzip", snapshotArchive(t))
+	r, err := migrate.Migrate("tool_block_stereotypes.mdzip", snapshotArchive(t, moduleSnapshot))
 	if err != nil {
 		t.Fatalf("Migrate(.mdzip): %v", err)
 	}
@@ -141,5 +145,51 @@ func TestUserBlockSpecializationsClassify(t *testing.T) {
 	}
 	if strings.Contains(out, "occurrence def") {
 		t.Errorf("a class whose stereotype specializes a standard one fell through to an occurrence def:\n%s", out)
+	}
+}
+
+// A snapshot that declares «Subsystem» with no generalization is believed over
+// the tool's documentation: the class is no block, and neither are table rows typed by it.
+func TestModuleSnapshotWithoutBlockIsNotABlock(t *testing.T) {
+	if !strings.Contains(plainSnapshot, `name="Subsystem"`) || strings.Contains(plainSnapshot, "generalization") {
+		t.Fatalf("plain snapshot is not the module without generalizations:\n%s", plainSnapshot)
+	}
+	r, err := migrate.Migrate("tool_block_stereotypes.mdzip", snapshotArchive(t, plainSnapshot))
+	if err != nil {
+		t.Fatalf("Migrate(.mdzip): %v", err)
+	}
+	out := string(r.Notation)
+	for _, want := range []string{"occurrence def 'Beam Column' {", "occurrence def Microscope {", "occurrence def Laboratory {", "occurrence def Imaging {", `stereotype = "Subsystem";`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("migration lacks %q:\n%s", want, out)
+		}
+	}
+	var report bytes.Buffer
+	if err := r.Report.WriteText(&report); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(report.String(), "tool's documented profile") || !strings.Contains(report.String(), "no v2 metaclass stands for the elements of «Subsystem»") {
+		t.Errorf("the snapshot's «Subsystem» was read from the tool table:\n%s", report.String())
+	}
+}
+
+// Under -strict the applied specialization is still named, as a line comment.
+func TestStrictKeepsBlockSpecializationName(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/tool_block_stereotypes.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := migrate.MigrateOptions("tool_block_stereotypes.xmi", data, migrate.Options{Strict: true})
+	if err != nil {
+		t.Fatalf("MigrateOptions(strict): %v", err)
+	}
+	out := string(r.Notation)
+	for _, want := range []string{"part def 'Beam Column' {", "// applied stereotype «Subsystem»", "// applied stereotype «System»"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("strict migration lacks %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "MigrationMetadata") {
+		t.Errorf("strict migration names the OpenSysML library:\n%s", out)
 	}
 }

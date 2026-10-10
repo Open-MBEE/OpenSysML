@@ -85,6 +85,9 @@ type Stereotype struct {
 	// stereotypes the archive's module snapshots declare the applied one
 	// specializes, as elements standing for the snapshot's; else empty.
 	Generals []*Element
+	// Module reports that a module snapshot, not a document read, declares the
+	// stereotype: Generals are then the snapshot's, however few.
+	Module bool
 	// Tags holds the tagged values: attributes other than xmi:* and base_*, and
 	// child elements as their text or idref, keyed by tag name. A multi-valued
 	// tag lists each value.
@@ -877,7 +880,7 @@ func (m *Model) link() {
 				s.Name = s.Definition.Name
 			}
 		} else if decl, ok := m.moduleDefinition(s); ok {
-			s.Generals = m.moduleAncestors(decl)
+			s.Generals, s.Module = m.moduleAncestors(decl), true
 		}
 	}
 	m.readTables()

@@ -50,8 +50,8 @@ func (m *Model) indexModule(data []byte) {
 	walk(doc.Root, nil)
 }
 
-// moduleGenerals lists the ids a snapshot stereotype's generalizations name,
-// whether written as a general attribute, an idref or an href's fragment.
+// moduleGenerals lists what a snapshot stereotype's generalizations name: ids
+// from a general attribute, an idref or a same-document href, else the href.
 func moduleGenerals(e *xmi.Element) []string {
 	var ids []string
 	for _, g := range e.Children {
@@ -67,8 +67,8 @@ func moduleGenerals(e *xmi.Element) []string {
 				if raw == "" {
 					continue
 				}
-				if i := strings.LastIndexByte(raw, '#'); i >= 0 {
-					raw = raw[i+1:]
+				if i := strings.LastIndexByte(raw, '#'); i == 0 {
+					raw = raw[1:]
 				}
 				ids = append(ids, raw)
 			}
@@ -178,14 +178,19 @@ func (m *Model) moduleDefinition(s *Stereotype) (moduleStereotype, bool) {
 
 // moduleAncestors lists the stereotypes a snapshot declaration specializes,
 // transitively, nearest first and each once: elements of the documents read
-// when they define one, else elements standing for the snapshot's own.
+// when they define one, elements standing for the snapshot's own, else the
+// proxy an href into an unbundled document (the OMG profile) resolves to.
 func (m *Model) moduleAncestors(decl moduleStereotype) []*Element {
 	seen := map[string]bool{decl.id: true}
 	var out []*Element
 	queue := append([]string(nil), decl.generals...)
 	for len(queue) > 0 {
-		id := queue[0]
+		href := queue[0]
 		queue = queue[1:]
+		id := href
+		if i := strings.LastIndexByte(href, '#'); i >= 0 {
+			id = href[i+1:]
+		}
 		if seen[id] {
 			continue
 		}
@@ -200,12 +205,12 @@ func (m *Model) moduleAncestors(decl moduleStereotype) []*Element {
 			}
 			continue
 		}
-		g, ok := m.moduleStereotypes[id]
-		if !ok {
-			continue
+		if g, ok := m.moduleStereotypes[id]; ok {
+			out = append(out, m.moduleElement(g))
+			queue = append(queue, g.generals...)
+		} else if id != href {
+			out = append(out, m.proxy(href))
 		}
-		out = append(out, m.moduleElement(g))
-		queue = append(queue, g.generals...)
 	}
 	return out
 }
@@ -237,20 +242,20 @@ func (m *Model) moduleElement(decl moduleStereotype) *Element {
 }
 
 // StereotypeAncestors lists the stereotypes the one an id or href names
-// specializes, transitively, as the archive's module snapshots declare them;
-// none for an id no snapshot declares.
-func (m *Model) StereotypeAncestors(id string) []StereotypeRef {
+// specializes, transitively, as the archive's module snapshots declare them,
+// and whether a snapshot declares it at all.
+func (m *Model) StereotypeAncestors(id string) ([]StereotypeRef, bool) {
 	frag := id
 	if i := strings.LastIndexByte(id, '#'); i >= 0 {
 		frag = id[i+1:]
 	}
 	decl, ok := m.moduleStereotypes[frag]
 	if !ok {
-		return nil
+		return nil, false
 	}
 	var refs []StereotypeRef
 	for _, a := range m.moduleAncestors(decl) {
 		refs = append(refs, m.StereotypeRef(a.ID))
 	}
-	return refs
+	return refs, true
 }

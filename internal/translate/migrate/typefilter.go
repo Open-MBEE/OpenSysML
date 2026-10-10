@@ -292,10 +292,11 @@ func (m *migration) proxyTypeFilter(e *sysmlv1.Element) typeFilter {
 		if t, ok := stereotypeTypes[s.Name]; ok {
 			return m.nameUsages(fromTypes("«"+s.Name+"»", t))
 		}
-		if f, ok := specializedFilter(s.Name, m.model.StereotypeAncestors(e.ID)); ok {
-			return m.nameUsages(f)
-		}
-		if toolBlockStereotypes[s.Name] {
+		if ancestors, declared := m.model.StereotypeAncestors(e.ID); declared {
+			if f, ok := specializedFilter(s.Name, ancestors); ok {
+				return m.nameUsages(f)
+			}
+		} else if toolBlockStereotypes[s.Name] {
 			return m.nameUsages(toolBlockFilter(s.Name))
 		}
 		return typeFilter{label: "«" + s.Name + "»", refused: "no v2 metaclass stands for the elements of «" + s.Name + "»"}
