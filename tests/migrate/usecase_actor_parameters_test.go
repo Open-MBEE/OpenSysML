@@ -225,3 +225,18 @@ func TestPortEndIsNotTheActorParameter(t *testing.T) {
 	}
 	wantClean(t, "actor-port-end.sysml", r)
 }
+
+// A named association's unnamed actor end gets a made-up parameter name,
+// marked as such, even though the connection def's end is named the same way.
+func TestNamedAssociationsUnnamedActorEndIsMarkedMadeUp(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Actor" xmi:id="_actor" name="Bank"/>
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Pay"/>
+    <packagedElement xmi:type="uml:Association" xmi:id="_assoc" name="Settlement" memberEnd="_eA _eU">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_eA" type="_actor" association="_assoc"/>
+      <ownedEnd xmi:type="uml:Property" xmi:id="_eU" type="_uc" association="_assoc"/>
+    </packagedElement>`, "")
+	wantLine(t, r.Notation, "use case Pay {\n    subject;\n    actor bank :> Bank;\n    metadata MigrationMetadata::SynthesizedName about bank;\n}")
+	wantLine(t, r.Notation, "connection settlement : Settlement connect Bank to Pay;")
+	wantClean(t, "actor-named-assoc-unnamed-end.sysml", r)
+}

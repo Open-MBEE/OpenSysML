@@ -273,7 +273,7 @@ func (m *migration) actorParameters(e *sysmlv1.Element) {
 			continue
 		}
 		name := m.claimName(link.end, e, link.param)
-		if name != m.nameOf(link.end) {
+		if name != link.end.Name {
 			m.w.madeUp(writeName(name))
 		}
 		mult, _ := m.multiplicity(link.end)
