@@ -4,9 +4,9 @@
 
 ## approximated (4)
 StateMachine	Mockups::Clock::Ticking	_ui_clock_sm	-> Mockups::Clock::Ticking	(the classifier behavior is run by every object of Mockups::Clock as its usage ticking)
-Property	Mockups::Clock::ticks	_ui_clock_ticks	-> Mockups::Clock::ticks	(the untyped property is written as a reference usage)
+Property	Mockups::Clock::ticks	_ui_clock_ticks	-> Mockups::Clock::ticks	(the untyped property is written as an attribute)
 «SimulationConfig» Class	Runs::Run pump	_cfg	-> Runs::'Run pump'	(neither System::Pump nor any general of it has a classifier behavior, so the configuration only holds 'Pump')
-Property	System::Pump::mass	_pump_mass	-> System::Pump::mass	(the untyped property is written as a reference usage)
+Property	System::Pump::mass	_pump_mass	-> System::Pump::mass	(the untyped property is written as an attribute)
 
 ## mapped (15)
 Package	Customizations	_cust	-> Customizations

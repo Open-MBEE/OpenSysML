@@ -792,7 +792,7 @@ func TestPartSlotWithoutAConformingIndividualIsUnmapped(t *testing.T) {
 	wantNote(t, r, "_sl3", migrate.Unmapped, "the slot's value 'other 1' is not an instance of MCS, the type of mcs")
 	wantNote(t, r, "_sl4", migrate.Unmapped, "the slot of port bus is not written: v2 has no individual port for it to be typed by")
 	wantNote(t, r, "_sl5", migrate.Unmapped, "the slot of port link is not written: v2 has no individual port for it to be typed by")
-	wantNote(t, r, "_sl6", migrate.Unmapped, "the slot of loose is not written: the property is written as a plain ref, which cannot be typed by an individual")
+	wantNote(t, r, "_sl6", migrate.Unmapped, "the individual mcs 1 is a definition, which is not a v2 value")
 	wantNote(t, r, "_sl7", migrate.Unmapped, "the slot's value 'other 1' is an individual part def, which cannot type an item")
 	wantClean(t, "bad-part-slots.sysml", r)
 }

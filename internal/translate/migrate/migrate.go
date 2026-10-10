@@ -2254,10 +2254,14 @@ func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword,
 }
 
 // untypedKeyword is the usage an untyped property is written as: the kind its
-// tool's marker gives it, else a part when composite and an attribute otherwise.
+// tool's marker gives it, a ref its default individual can type, else a part
+// when composite and an attribute otherwise.
 func (m *migration) untypedKeyword(p *sysmlv1.Element) (keyword, prefix, note string) {
 	if kind := m.markedPropertyKind(p); kind != "" {
 		return kind, "", ""
+	}
+	if m.defaultIndividual(p) != nil {
+		return "ref", "", ""
 	}
 	if p.Attrs["aggregation"] == "composite" {
 		return "part", "", "the untyped composite property is written as a part"

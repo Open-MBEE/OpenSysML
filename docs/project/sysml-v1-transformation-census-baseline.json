@@ -244,7 +244,7 @@
       },
       "uml:Property": {
         "pssm": 25,
-        "fixtures": 466
+        "fixtures": 473
       },
       "uml:Property[qualifier]": {
         "pssm": 0,
@@ -14639,14 +14639,16 @@
         "filter"
       ],
       "ocl": "sha256:99f06b2a46c64e98963563afeee2a1b8cb76a43e5fae2ee1af153c247800e6fc",
-      "status": "faithful",
+      "status": "approximate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:featureKeyword"
+        "internal/translate/migrate/migrate.go:featureKeyword",
+        "internal/translate/migrate/migrate.go:untypedKeyword"
       ],
       "tests": [
-        "tests/migrate/properties_common_test.go:TestUntypedPropertiesAreReferencesOutsideConstraintDefinitions"
+        "tests/migrate/properties_common_test.go:TestUntypedPropertiesAreAttributesInAndOutsideConstraintDefinitions",
+        "tests/migrate/relations_test.go:TestPropertyKindMarkersAreNotWritten"
       ],
-      "reason": "an untyped property is written as a reference usage; the scope counts every uml:Property, so it is an upper bound",
+      "reason": "an untyped property is written as the usage its tool's property-kind marker names, as a `ref` typed by its default individual, else as a `part` when composite and an `attribute` otherwise, rather than always as a reference usage; the scope counts every uml:Property, so it is an upper bound",
       "scope": [
         "uml:Property"
       ]
