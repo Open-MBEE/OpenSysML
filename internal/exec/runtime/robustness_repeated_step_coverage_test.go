@@ -348,7 +348,7 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 	// A repeated step inside a loop or if body is each run as one move, so the
 	// orders between its performances are the ones exploration never varies:
 	// explore and check record the note rather than claim the orders covered.
-	t.Run("block-body-repetition-is-observed", func(t *testing.T) {
+	t.Run("block-body-repetition-is-explored", func(t *testing.T) {
 		m := parseLibraryModel(t, `package test {
 			private import ScalarValues::*;
 			action def LoopRace {
@@ -388,64 +388,54 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 				succession first [*] a then [1] done;
 			}
 		}`)
-		notes := func(name string) []string {
+		// The two performances of a[2] in a body interleave as two top-level ones
+		// do: each snapshots c before writing it, so c ends at 1 or 2.
+		for _, name := range []string{"LoopRace", "LoneOnly"} {
 			x := m.exploreAction(t, "explore", name)
 			if !x.Complete() {
-				t.Fatalf("exploration incomplete: %s", x.Status())
+				t.Fatalf("%s exploration incomplete: %s", name, x.Status())
 			}
-			return x.Notes
-		}
-		for _, name := range []string{"LoopRace", "LoneOnly"} {
-			if got := notes(name); len(got) != 1 || got[0] != ReasonBlockBodyRepetition {
-				t.Errorf("%s notes = %v, want [%q]", name, got, ReasonBlockBodyRepetition)
+			if len(x.Notes) != 0 {
+				t.Errorf("%s notes = %v, want none", name, x.Notes)
+			}
+			values := map[string]bool{}
+			for _, text := range outcomeTexts(x) {
+				values[strings.SplitN(text, ";", 2)[0]] = true
+			}
+			if len(values) != 2 || !values["c = 1"] || !values["c = 2"] {
+				t.Errorf("%s outcomes = %v, want c = 1 and c = 2", name, outcomeTexts(x))
+			}
+			report := checkStart(t, m, starterOf(m.action(t, name)), unreduced())
+			if len(report.Notes) != 0 {
+				t.Errorf("%s check notes = %v, want none", name, report.Notes)
+			}
+			if report.Verdict != CheckDivergent {
+				t.Errorf("%s check verdict = %q, want divergent over c", name, report.Verdict)
 			}
 		}
-		// Check records the same note where it searches the body at all.
-		report := checkStart(t, m, starterOf(m.action(t, "LoneOnly")), unreduced())
-		if len(report.Notes) != 1 || report.Notes[0] != ReasonBlockBodyRepetition {
-			t.Errorf("LoneOnly check notes = %v, want [%q]", report.Notes, ReasonBlockBodyRepetition)
-		}
-		if got := notes("FlatAlone"); len(got) != 0 {
-			t.Errorf("FlatAlone notes = %v, want none", got)
-		}
-		flatReport := checkStart(t, m, starterOf(m.action(t, "FlatAlone")), unreduced())
-		if len(flatReport.Notes) != 0 {
-			t.Errorf("FlatAlone check notes = %v, want none", flatReport.Notes)
+		x := m.exploreAction(t, "explore", "FlatAlone")
+		if len(x.Notes) != 0 {
+			t.Errorf("FlatAlone notes = %v, want none", x.Notes)
 		}
 	})
 
-	// A snapshot restores the coverage notes it captured: one taken before the
-	// run clears them, one taken after keeps them.
-	t.Run("block-body-notes-restore", func(t *testing.T) {
-		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
-			action def LoneOnly {
-				first start then worker;
-				action worker {
-					if true {
-						action a[2];
-					}
-				}
-				then done;
-			}
-		}`))
-		sym := findSymbolByName(idx.DocumentRoot("<test>"), "LoneOnly", ast.DefAction)
+	// A snapshot restores the coverage notes it captured: one taken before a
+	// note is recorded clears it, one taken after keeps it.
+	t.Run("coverage-notes-restore", func(t *testing.T) {
+		_, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test { action def Noted; }`))
 		before, err := ctx.Snapshot()
 		if err != nil {
 			t.Fatalf("Snapshot: %v", err)
 		}
-		if _, err := ctx.ExecuteAction(sym); err != nil {
-			t.Fatalf("ExecuteAction: %v", err)
-		}
-		if len(ctx.coverageReasons()) == 0 {
-			t.Fatalf("no coverage note recorded")
-		}
+		const reason = "a schedule the run did not search"
+		ctx.noteCoverage(reason)
 		after, err := ctx.Snapshot()
 		if err != nil {
-			t.Fatalf("Snapshot after the run: %v", err)
+			t.Fatalf("Snapshot after the note: %v", err)
 		}
 		after.Restore()
-		if got := ctx.coverageReasons(); !slices.Contains(got, ReasonBlockBodyRepetition) {
-			t.Errorf("notes after restoring the later snapshot = %v, want the block-body reason", got)
+		if got := ctx.coverageReasons(); !slices.Contains(got, reason) {
+			t.Errorf("notes after restoring the later snapshot = %v, want the reason", got)
 		}
 		before.Restore()
 		if got := ctx.coverageReasons(); len(got) != 0 {

@@ -2,6 +2,7 @@ package lower
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -119,6 +120,28 @@ func ToActionNodeFlow(node ast.Node, scope *symbols.Scope, resolver *resolve.Res
 	graph := lowerBlockFlow([]ast.Node{node}, scope, false, resolver)
 	StartFlow(graph)
 	return graph
+}
+
+// flowStated reports a block flow that must run as a token flow of its own rather
+// than one statement at a time: it holds an accept, whose token parks, or a step
+// declaring a count, whose performances are sibling tokens of one repetition group.
+func flowStated(flow *ActionGraph) bool {
+	if len(flow.Accepts) > 0 {
+		return true
+	}
+	var model *semantics.Model
+	for _, node := range flow.Nodes {
+		if _, ok := node.(*ast.Usage); !ok {
+			continue
+		}
+		if model == nil {
+			model = semantics.NewModel(flow.resolver)
+		}
+		if flow.HasStepMultiplicity(node, model) {
+			return true
+		}
+	}
+	return false
 }
 
 // lowerStatedBlock lowers a loop or branch body stating a flow of its own.
@@ -391,7 +414,7 @@ func lowerNestedNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 			Node:   node,
 			Scope:  scope,
 			Graph:  flow,
-			Stated: len(flow.Accepts) > 0,
+			Stated: flowStated(flow),
 		}}
 		return
 	}

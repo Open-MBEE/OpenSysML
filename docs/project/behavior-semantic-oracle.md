@@ -360,7 +360,7 @@ Fixtures: `action_step_multiplicity_exact`, `_reverse`, `_explore`, `_range`, `_
 `_unordered_nested`, `_unordered_unbounded`, `_unordered_unaddressable`, `_unordered_outgoing`,
 `_unordered_loop_body` and `state_step_multiplicity_unordered_do_body`;
 `action_step_multiplicity_shared_writers` states the open outcome set. Beyond plain successions:
-`_while_body` (trace golden), `_for_body`, `_if_body`, `_part_perform`, `_external_read`,
+`_while_body` (trace golden), `_for_body`, `_if_body`, `_inherited_loop_body`, `_part_perform`, `_external_read`,
 `_pin_value`, `_bind_input`, `_bind_output`, `_fork_barrier`, `_decision_barrier`,
 `_merge_fanout`, `_join_per_performance`, `_merge_per_performance`, `_loop_body_race`,
 `_fork_into_repeated` (trace goldens where carried), `_guard_true`, `_guard_false` and
@@ -485,12 +485,11 @@ refused. UML, fUML and PSSM were not used to settle any of these.
   one node (`_external_read`). Inside a performance, `x` is that performance's own (`_pin_value`).
 - **Block flows** (`LoopPerformance`, `IfThenPerformance`; each body pass is a performance of its
   own). `a[n]` in a `while`/`for`/`if` body performs `n` times per pass and `[0]` none
-  (`_while_body`, `_for_body`, `_if_body`, `_unordered_loop_body`). The runtime performs each
-  repetition as one move, so the orders between the repetitions are the ones exploration never
-  varies: explore and check report the result as observed rather than proved or bounded, with the
-  note "the performances of a repeated step in a loop or if body are each run as one move, so
-  their interleavings were not explored" (`_loop_body_race`, whose admitted set is
-  `{c = 1, c = 2}` of which only `c = 2` is observed).
+  (`_while_body`, `_for_body`, `_if_body`, `_unordered_loop_body`, `_inherited_loop_body` for a
+  count inherited by the body's redefining owner). The `n` performances of one
+  pass are sibling tokens of the body's flow, so they interleave as `n` top-level performances do:
+  two performances each reading `c` then writing it back admit `{c = 1, c = 2}`, and explore and
+  check enumerate both (`_loop_body_race`).
 - **Part-level performs** (SysML §8.4.13.11, `Parts::performedActions`,
   `Occurrences::enactedPerformances`). `perform action run[2]` on a part is two distinct
   performances enacted within the part's lifetime, unordered with respect to each other: `run`

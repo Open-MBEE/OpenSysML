@@ -2204,7 +2204,7 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolv
 	}
 	if blockNeedsFlow(members) {
 		graph := lowerBlockFlow(members, scope, false, resolver)
-		return Block{Node: owner, Scope: scope, Graph: graph, Stated: len(graph.Accepts) > 0}
+		return Block{Node: owner, Scope: scope, Graph: graph, Stated: flowStated(graph)}
 	}
 	block := Block{Node: owner, Scope: scope}
 	for _, member := range members {
