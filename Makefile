@@ -299,6 +299,14 @@ test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|
 	esac
 	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./...; fi
 
+test-quick: ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export" | "rest migrate")
+	@echo "Running Go tests without race detection, shards $(SHARDS)..."
+	@# Draft pull requests run this instead of test-shard: the same packages and skips, no -race, no coverage.
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime model export rest migrate"; exit 1; }
+	pkgs=$$(for shard in $(SHARDS); do scripts/race-shard.sh $$shard || exit 1; done) && \
+	go test -skip '$(RACE_SHARD_SKIP)' -v -timeout 45m $$pkgs
+	case " $(SHARDS) " in *" rest "*) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -timeout 45m ./... ;; esac
+
 coverage: ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."
 	@# -coverpkg credits a package for the code it exercises elsewhere: without it
