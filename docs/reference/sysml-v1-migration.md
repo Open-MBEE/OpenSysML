@@ -964,6 +964,27 @@ two things:
   written and the report says so; the edge closing a generalization cycle is not written
   either, since v2 forbids the cycle, and the report names it.
 
+**Generals outside the document.** MagicDraw and Cameo archives apply the stereotypes of their
+used modules — the SysML profile, the tool's customizations — without defining them; what the
+archive holds instead is a *snapshot* of each module (`…shared_umodel.snapshot` entries), which
+declares the module's stereotypes with their generalizations. Those generalizations are
+followed as the document's own are: a class stereotyped «Subsystem», which the tool's SysML
+profile derives from «Block», is a `part def`, mapped, with nested parts and ports, connection
+defs typed by it, and tables filtered by it (rows filtered as blocks, with the note) all as for
+a «Block»; its own kind is kept as an `AppliedStereotype` marker, `stereotype = "Subsystem";`.
+When no snapshot declares the stereotype either — a plain XMI export — the tool's block
+stereotypes are known by name: «System», «Subsystem», «Domain» and «External», applied under
+the OMG SysML namespace, which MagicDraw's SysML profile defines as specializations of «Block»
+and the SysML Plugin's element descriptions document as blocks
+([System](https://docs.nomagic.com/display/SYSMLP2022x/System),
+[Subsystem](https://docs.nomagic.com/display/SYSMLP2022x/Subsystem),
+[Domain](https://docs.nomagic.com/display/SYSMLP2022x/Domain),
+[External](https://docs.nomagic.com/display/SYSMLP2022x/External)). Such a class is a `part
+def` too, approximated with the reason that the generalization is taken from the tool's
+documented profile rather than the archive. The table reaches only applications in the SysML
+namespace whose definition is out of reach: a user profile's own «Subsystem», in the document or
+in a module whose snapshot derives it from nothing standard, means nothing standard, as before.
+
 ### Stereotype markers
 
 A stereotype the element's v2 form does not carry is never written as a comment next to the
