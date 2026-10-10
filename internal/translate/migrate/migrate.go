@@ -3669,6 +3669,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 		}
 	}
 	from, to := m.ref(client, m.scope), m.ref(supplier, m.scope)
+	qualifiedFrom, qualifiedTo := m.qualifiedRef(client, m.scope), m.qualifiedRef(supplier, m.scope)
 	allocationNote := ""
 	if has(d, "Allocate") {
 		if target, ok := m.allocationDef(d, name, client, supplier); ok {
@@ -3714,7 +3715,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 		decl += writeName(name) + fromKeyword
 		m.madeUp(d, writeName(name))
 	}
-	decl += from + " to " + to
+	decl += qualifiedFrom + " to " + qualifiedTo
 	switch {
 	case has(d, "Refine"):
 		m.w.block(decl, func() {
@@ -4095,7 +4096,7 @@ func (m *migration) commentAbout(c *sysmlv1.Element, about []*sysmlv1.Element, t
 			omitted = append(omitted, describe(a))
 			continue
 		}
-		refs = append(refs, m.ref(a, scope))
+		refs = append(refs, m.qualifiedRef(a, scope))
 	}
 	if len(refs) == 0 {
 		m.w.lines(prefixFirst(commentPrefix, commentLines(text)))

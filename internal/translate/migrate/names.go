@@ -431,6 +431,16 @@ func (m *migration) memberRef(target, scope *sysmlv1.Element) string {
 	return m.refMember(target.Parent, m.nameOf(target), m.path(target), scope, false)
 }
 
+// qualifiedRef writes a reference to target from inside scope's body by qualified
+// name alone, as a dependency end or an annotated element is named; an edge's
+// member is referred to where the writer placed it.
+func (m *migration) qualifiedRef(target, scope *sysmlv1.Element) string {
+	if em, ok := m.edgeMembers[target]; ok && em.name != "" {
+		return m.refEdge(em.edgePlace, scope)
+	}
+	return m.memberRef(target, scope)
+}
+
 // refMember writes a reference from inside scope's body to the member of owner
 // named name, whose qualified name is path: a synthesized declaration written
 // beside owner's members refers like one of them. A feature of a feature is

@@ -91,6 +91,14 @@ func TestCommentAboutTransition(t *testing.T) {
 			t.Errorf("notation lacks %q:\n%s", w, got)
 		}
 	}
+	for _, w := range []string{
+		"comment about Modes::'Idle accept Go then Run'",
+		"comment about Modes::halt",
+	} {
+		if strings.Contains(got, w) {
+			t.Errorf("notation refers to the v1 owner instead of the edge member %q:\n%s", w, got)
+		}
+	}
 	if i, j := strings.Index(got, "comment about halt"), strings.Index(got, "transition halt"); i > j {
 		t.Errorf("the comment is written after the transition:\n%s", got)
 	}
