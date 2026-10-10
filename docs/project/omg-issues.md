@@ -529,9 +529,14 @@ loads the library and the model without complaint before leaving the usages unev
 
 OpenSysML answers `box.faces` (6), `box.edges` (24), `box.tf.edges` (4) and every
 face-local value; the groups and everything read through them are the typed
-`ErrBindingEnd` naming the binding and both ends, on `-e`, `%eval`, `-instantiate`
-and `%features` alike (`runtime/binding.go` `UndeterminedBindingError`; conformance
-`instance_library_geometry_box`):
+`ErrBindingEnd` naming the binding and both ends, on `-e`, `%eval`, the gRPC and LSP
+evaluation requests and `%features` alike (`runtime/binding.go`
+`UndeterminedBindingError`; conformance `instance_library_geometry_box`,
+`instance_library_geometry_box_bare`). Instantiating a `Box` is clean: the check
+`-instantiate` makes over the new object reads every feature value but reports what the
+model leaves open no more than it reports an unset attribute, so a `Drone` whose `shape`
+is a `Box` instantiates without a diagnostic and the error is seen only where a group is
+read (`runtime/materialize.go` `materializeWalk.walk`):
 
 ```text
 binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds

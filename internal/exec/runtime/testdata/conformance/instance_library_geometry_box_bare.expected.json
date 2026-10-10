@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "instantiate": "test::Crate",
+  "libraries": true,
+  "slots": {
+    "b": {"type": "Instance"},
+    "b.length": {"type": "Unset"},
+    "b.faces": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "b.tf.edges": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "b.tfe": {"error": "tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds"},
+    "b.tfe.length": {"error": "tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds"}
+  },
+  "materialization": {}
+}

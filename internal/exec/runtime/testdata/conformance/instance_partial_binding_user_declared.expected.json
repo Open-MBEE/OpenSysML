@@ -1,0 +1,20 @@
+{
+  "type": "instance",
+  "instantiate": "test::rig",
+  "slots": {
+    "top.pegs": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "front.pegs": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "shared": {"error": "binding end cannot be resolved: rig.shared is bound by `binding [1] bind [0..1] top.pegs = [0..1] shared`, which makes some value of shared a value of top.pegs without saying which value of either; the model does not state what shared holds"}
+  },
+  "identical": [
+    ["top.pegs.1", "top.p1"]
+  ],
+  "distinct": [
+    ["top.pegs.1", "front.pegs.1"]
+  ],
+  "materialization": {}
+}

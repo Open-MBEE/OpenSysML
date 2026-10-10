@@ -52,6 +52,28 @@ func TestCheckReportsMaterializationDiagnostics(t *testing.T) {
 			want:   []string{"✓ Created instance of M::craft", "no errors"},
 		},
 		{
+			name: "a feature pinned only by partial bindings holds what the model leaves open and is reported clean",
+			model: `package M {
+    part def Peg;
+    part def Side {
+        part p1 : Peg; part p2 : Peg;
+        part pegs : Peg [2] = (p1, p2);
+    }
+    part def Rig {
+        part top : Side;
+        part front : Side;
+        part shared : Peg [1];
+        binding [1] bind [0..1] top.pegs = [0..1] shared;
+        binding [1] bind [0..1] front.pegs = [0..1] shared;
+    }
+    part rig : Rig;
+}
+`,
+			object: "M::rig",
+			status: 0,
+			want:   []string{"✓ Created instance of M::rig", "no errors"},
+		},
+		{
 			name: "a default of fewer values than the declared lower bound is reported",
 			model: `package M {
     private import ScalarValues::Real;
