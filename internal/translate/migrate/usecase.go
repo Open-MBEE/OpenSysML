@@ -528,7 +528,7 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 		return
 	}
 	from, to := m.ref(ext.Parent, m.scope), m.ref(extended, m.scope)
-	qualifiedFrom, qualifiedTo := m.memberRef(ext.Parent, m.scope), m.memberRef(extended, m.scope)
+	qualifiedFrom, qualifiedTo := m.qualifiedRef(ext.Parent, m.scope), m.qualifiedRef(extended, m.scope)
 	decl, target := "dependency ", ""
 	name := m.nameOf(ext)
 	if name == "" {

@@ -1,1 +1,1 @@
-- **Write nested requirement references as qualified names in dependencies and comments.** Migration output now uses `::` paths in dependency ends and comment subjects.
+- **Dependencies and comments on nested requirements parse again.** A dependency end or comment subject that is a nested requirement usage is now written as a qualified name (`A::B::C`), not a feature chain, which the grammar does not allow there.
