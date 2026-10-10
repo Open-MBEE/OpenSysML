@@ -38,7 +38,7 @@ package Signals {
         }
         ref part drive : Actuator;
         ref part probe : Sensor;
-        abstract action def smooth {
+        abstract action smooth {
             in values : ScalarValues::Real[0..*] ordered nonunique;
             in window : ScalarValues::Real[4] ordered nonunique;
             in handle : ScalarValues::Real[1] {
@@ -46,6 +46,5 @@ package Signals {
             }
             out result : ScalarValues::Real[0..*] ordered nonunique;
         }
-        action 'smooth 2' : smooth;
     }
 }

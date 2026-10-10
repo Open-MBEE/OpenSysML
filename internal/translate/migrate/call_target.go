@@ -37,7 +37,7 @@ func (a *activity) targetNote(n, t, op *sysmlv1.Element, pname string) string {
 // pin holds: the pin is a parameter of the usage, which binds the operation's context to it.
 func (a *activity) callOnTarget(n, t, op *sysmlv1.Element, name string) (string, bool) {
 	c := a.m.contextOf(op)
-	used := map[string]bool{}
+	used := inheritedActionNamesSet()
 	for _, p := range a.m.actionParameters(op) {
 		used[a.m.nameFor(p)] = true
 	}
@@ -70,8 +70,7 @@ func (a *activity) callOnTarget(n, t, op *sysmlv1.Element, name string) (string,
 // holds, t declared as its parameter: a flow feeds t naming no object read from this.
 func (a *activity) targetBound(n, t *sysmlv1.Element) bool {
 	op := a.m.model.Ref(n, "operation")
-	if t == nil || op == nil || op.Parent == nil || a.m.model.Ref(n, "onPort") != nil ||
-		len(a.sources[t]) == 0 || a.m.asUsage[op] {
+	if t == nil || op == nil || op.Parent == nil || a.m.model.Ref(n, "onPort") != nil || len(a.sources[t]) == 0 {
 		return false
 	}
 	if _, _, ok := a.receiverOf(t, op); ok {
@@ -90,4 +89,50 @@ func (a *activity) callOnTargetLine(n, t, op *sysmlv1.Element, name string, note
 		*note = ""
 	}
 	return ok
+}
+
+// callOnUsageTarget writes a call of an operation written as its block's usage on
+// the object its target pin holds, as the mapping's action usage: the pin is its
+// parameter, from which a nested perform chains to the operation, and its other
+// pins are bound to the operation's parameters by position. It records the call,
+// returning the note on any pin left unbound.
+func (a *activity) callOnUsageTarget(n, t, op *sysmlv1.Element, name string, ins, outs []*sysmlv1.Element) string {
+	used := inheritedActionNamesSet()
+	pname, typ := a.targetPin(n, t, op, used)
+	usage := a.m.operationUsage(op)
+	inParams, outParams := a.m.directedParameters(op)
+	var notes []string
+	a.m.w.block(actionKw+name, func() {
+		a.m.w.line("in " + writeName(pname) + " : " + typ + "[1];")
+		a.declarePinsReserving(n, ins, outs, nil, nil, used)
+		base := usage
+		if used[base] {
+			base = usage + " on " + pname
+		}
+		step := writeName(freshIn(used, base))
+		a.m.w.line("perform action " + step + " ::> " + writeName(pname) + "." + writeName(usage) + ";")
+		for i, pin := range ins {
+			if i < len(inParams) {
+				a.m.w.line("bind " + step + "." + writeName(a.m.nameFor(inParams[i])) + " = " + writeName(a.names[pin]) + ";")
+			} else {
+				notes = append(notes, a.unparametered(pin, "in", op, inParams))
+			}
+		}
+		for i, pin := range outs {
+			if i < len(outParams) {
+				a.m.w.line("bind " + writeName(a.names[pin]) + " = " + step + "." + writeName(a.m.nameFor(outParams[i])) + ";")
+			} else {
+				notes = append(notes, a.unparametered(pin, "out", op, outParams))
+			}
+		}
+		a.m.w.line("first start then " + step + ";")
+		a.m.w.line("first " + step + " then done;")
+	})
+	on := a.targetNote(n, t, op, pname) + ", performing the usage " + usage + " of it"
+	extra := ""
+	for _, n := range notes {
+		extra = joinNotes(extra, n)
+	}
+	a.m.add(n, verdictFor(extra), name, joinNotes(on, extra))
+	return extra
 }

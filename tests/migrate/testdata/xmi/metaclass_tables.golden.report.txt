@@ -27,7 +27,7 @@ Transition	Plant::Structure::Pump::Cycle::main::<Transition>	_tr_start
 State	Plant::Structure::Pump::Cycle::main::Idle	_st_idle	-> Idle
 State	Plant::Structure::Pump::Cycle::main::Running	_st_running	-> Running
 Property	Plant::Structure::Pump::mass	_prop_mass	-> Plant::Structure::Pump::mass
-Operation	Plant::Structure::Pump::prime	_op_prime	-> Plant::Structure::Pump::prime	(its owner's usage prime 2 performs it, as a call on an object does)
+Operation	Plant::Structure::Pump::prime	_op_prime	-> Plant::Structure::Pump::prime	(written as an action usage of Plant::Structure::Pump, which a call on an object performs, so its body runs on the object and reaches its features)
 Property	Plant::Structure::Pump::valve	_prop_valve	-> Plant::Structure::Pump::valve
 «Block» Class	Plant::Structure::Valve	_blk_valve	-> Plant::Structure::Valve
 Dependency	Plant::Structure::needs	_dep_pump_valve	-> Plant::Structure::needs

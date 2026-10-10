@@ -3856,6 +3856,9 @@ func (m *migration) definitionEnd(e *sysmlv1.Element) bool {
 	if m.asUsage[e] || m.selfUsage(e) {
 		return false
 	}
+	if op := m.methodOf[e]; op != nil && m.asUsage[op] {
+		return false
+	}
 	switch c, _ := m.classify(e); c {
 	case catView, catValue:
 		return false

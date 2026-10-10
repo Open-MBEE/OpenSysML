@@ -349,13 +349,13 @@ func TestMetaclassTablesExecute(t *testing.T) {
 
 	packageable := rows(t, s, "Tables::'Packageable Elements Rows'")
 	wantInOrder(t, "Packageable Elements rows", packageable,
-		"returned 13 rows",
+		"returned 12 rows",
 		"Plant::Structure\n", "Plant::Structure::Mode\n", "Plant::Structure::Pump\n",
-		"Plant::Structure::Pump::Cycle\n", "Plant::Structure::Pump::prime\n", "Plant::Structure::Valve\n",
+		"Plant::Structure::Pump::Cycle\n", "Plant::Structure::Valve\n",
 		"Plant::Structure::needs\n", "Plant::Structure::p1\n",
 		"Plant::Views\n", "Plant::Views::Operations\n", "Plant::Views::Operations::''\n",
 		"Plant::Views::Operations::operations\n", "Plant::Views::Overview\n")
-	for _, feature := range []string{"Pump::mass", "Pump::valve", "Pump::'prime 2'", "Mode::on", "Cycle::Idle", "p1::mass"} {
+	for _, feature := range []string{"Pump::mass", "Pump::valve", "Pump::prime", "Mode::on", "Cycle::Idle", "p1::mass"} {
 		if strings.Contains(packageable, feature) {
 			t.Errorf("Packageable Elements lists the owned feature %s:\n%s", feature, packageable)
 		}
@@ -363,10 +363,10 @@ func TestMetaclassTablesExecute(t *testing.T) {
 
 	namespaces := rows(t, s, "Tables::'Namespaces Rows'")
 	wantInOrder(t, "Namespaces rows", namespaces,
-		"returned 13 rows",
+		"returned 12 rows",
 		"Plant::Structure\n", "Plant::Structure::Mode\n", "Plant::Structure::Pump\n",
 		"Plant::Structure::Pump::Cycle\n", "Plant::Structure::Pump::Cycle::Idle\n",
-		"Plant::Structure::Pump::Cycle::Running\n", "Plant::Structure::Pump::prime\n",
+		"Plant::Structure::Pump::Cycle::Running\n",
 		"Plant::Structure::Valve\n", "Plant::Structure::p1\n",
 		"Plant::Views\n", "Plant::Views::Operations\n",
 		"Plant::Views::Operations::operations\n", "Plant::Views::Overview\n")
@@ -377,9 +377,9 @@ func TestMetaclassTablesExecute(t *testing.T) {
 	for _, name := range []string{"Types", "Classifiers"} {
 		got := rows(t, s, "Tables::'"+name+" Rows'")
 		wantInOrder(t, name+" rows", got,
-			"returned 9 rows",
+			"returned 8 rows",
 			"Plant::Structure::Mode\n", "Plant::Structure::Pump\n", "Plant::Structure::Pump::Cycle\n",
-			"Plant::Structure::Pump::prime\n", "Plant::Structure::Valve\n", "Plant::Structure::p1\n",
+			"Plant::Structure::Valve\n", "Plant::Structure::p1\n",
 			"Plant::Views::Operations\n", "Plant::Views::Operations::operations\n", "Plant::Views::Overview\n")
 		for _, other := range []string{"Plant::Structure\n", "Plant::Views\n", "Cycle::Idle", "needs"} {
 			if strings.Contains(got, other) {

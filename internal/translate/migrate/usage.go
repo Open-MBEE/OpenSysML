@@ -12,7 +12,10 @@ import (
 func (m *migration) planUsages(behaviors []*sysmlv1.Element) {
 	var candidates []*sysmlv1.Element
 	for _, b := range behaviors {
-		if m.usageCandidate(b) {
+		switch {
+		case m.operationUsageOwner(b):
+			m.asUsage[b] = true
+		case m.usageCandidate(b):
 			candidates = append(candidates, b)
 		}
 	}
@@ -64,6 +67,17 @@ func (m *migration) usageName(b *sysmlv1.Element) string {
 	}
 	m.take(b.Parent, name)
 	return name
+}
+
+// operationUsageOwner reports whether b is an operation a block owns, which is
+// written as the block's composite action usage whatever its body reads: a call
+// on an object performs the usage through a feature chain, so no def is needed.
+func (m *migration) operationUsageOwner(b *sysmlv1.Element) bool {
+	if b.Type != "Operation" || !m.blockOwner(b.Parent) || !m.written(b) {
+		return false
+	}
+	c, _ := m.classify(b)
+	return c == catActionDef
 }
 
 // usageCandidate reports whether b is a behavior a block owns, written as the
@@ -213,7 +227,8 @@ func (m *migration) readsOwner(b *sysmlv1.Element) bool {
 				}
 			}
 		case "CallOperationAction":
-			if op := m.model.Ref(e, "operation"); op != nil && m.asUsage[op] && m.hasFeature(owner, op) {
+			if op := m.model.Ref(e, "operation"); op != nil && m.asUsage[op] && m.hasFeature(owner, op) &&
+				m.targetIsStatic(body, firstOwned(e, "target")) {
 				reads = true
 			}
 		case "CallBehaviorAction":
@@ -330,6 +345,7 @@ func (m *migration) performed(b *sysmlv1.Element) bool {
 // composite action, which a call on the object runs.
 func (m *migration) usageHeader(e *sysmlv1.Element, cat category, name string) (string, string) {
 	var b strings.Builder
+	b.WriteString(m.operationDirection(e))
 	if e.Attrs["isAbstract"] == "true" || m.abstractOperation(e) {
 		b.WriteString("abstract ")
 	}

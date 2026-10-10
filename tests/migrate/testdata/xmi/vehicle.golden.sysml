@@ -48,10 +48,9 @@ package 'Vehicle Design' {
         flow of 'Vehicle Design'::Interfaces::Fuel from fuelIn.fuel to engine.fuelPort.fuel;
         bind mass = massLimit.m;
         bind speedOut = engine.piston.p;
-        abstract action def start {
+        abstract action start {
             in key : ScalarValues::Integer[1];
         }
-        action 'start 2' : start;
         state def 'Vehicle States' {
             /* the region has no initial pseudostate: nothing enters it */
             state Off;

@@ -92,7 +92,7 @@ Property	Vehicle Design::Vehicle::isElectric	_prop_isElectric	-> 'Vehicle Design
 Property	Vehicle Design::Vehicle::mass	_prop_mass	-> 'Vehicle Design'::Vehicle::mass
 Property	Vehicle Design::Vehicle::massLimit	_prop_limit	-> 'Vehicle Design'::Vehicle::massLimit
 Constraint	Vehicle Design::Vehicle::positive mass	_rule_positive	-> 'Vehicle Design'::Vehicle::'positive mass'	(the English body is translated to v2)
-Operation	Vehicle Design::Vehicle::start	_op_start	-> 'Vehicle Design'::Vehicle::start	(its owner's usage start 2 performs it, as a call on an object does)
+Operation	Vehicle Design::Vehicle::start	_op_start	-> 'Vehicle Design'::Vehicle::start	(written as an action usage of Vehicle Design::Vehicle, which a call on an object performs, so its body runs on the object and reaches its features)
 Parameter	Vehicle Design::Vehicle::start::key	_par_start	-> 'Vehicle Design'::Vehicle::start::key
 Property	Vehicle Design::Vehicle::vehicle name	_prop_name	-> 'Vehicle Design'::Vehicle::'vehicle name'
 Property	Vehicle Design::Vehicle::wheels	_prop_wheels	-> 'Vehicle Design'::Vehicle::wheels

@@ -325,8 +325,8 @@ ties each of its mapping classes to the code that carries it out (or records why
 | Interaction with no message | comment naming what it records (state invariants under time constraints: a timing trace); DurationConstraint, TimeConstraint, observation on an interaction | **unmapped** — no scenario step performs it |
 | OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve or a JavaScript expression of the [subset](#the-opaque-language-subset) (`Math.max(a, b)` → `RealFunctions::max(a, b)`) of the type of its one return or output parameter — a behavior with several has no one result and is written as an `action def`; an `action def` whose body is the translated `assign` sequence when the script is statements; otherwise `action def` keeping the body as a comment and the report naming the token refused | mapped / approximated |
 | Member a behavior owns that its body has no place for: a constraint, attribute, nested classifier, operation or nested behavior of an OpaqueBehavior, FunctionBehavior or Interaction, a port of an Activity or StateMachine | comment; a diagram showing it does not expose it | **unmapped** — the reason names the behavior kind and its body |
-| Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does; an operation whose method reads the owner's features, and whose every call reaches a usage of the owner, is the usage `action <op> { … }` alone, carrying the body and the parameters, as an [Activity](#mapping) so read is | mapped |
-| Operation `precondition`, `postcondition`, `bodyCondition` | `assert constraint { <expr> }` in the action def when the expression parses and resolves; otherwise a comment | mapped / approximated |
+| Operation | the owner's composite usage `action <op> { … }`, carrying the operation's parameters and its `method` behavior as body (an Activity as the flow, an OpaqueBehavior as expression or comment), the method's parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action <op>`; a «DirectedFeature» operation keeps its direction (`in`, `out`, `inout`) on the usage; no `action def <Op>` is synthesized, and the usage is not a `perform action`: every call chains to it, `perform action <call> ::> <target>.<op>` (see [Operations are the block's actions](#operations-are-the-blocks-actions)) | mapped |
+| Operation `precondition`, `postcondition`, `bodyCondition` | `assert constraint { <expr> }` in the action usage when the expression parses and resolves; otherwise a comment | mapped / approximated |
 | Reception with a `signal` and an Activity `method` | `action def <Sig> { action receive accept sig : Sig; action run : <Method> { in p = sig.p; } first run then receive; }` on the `part def`, plus `perform action sig : <Sig>;`, so every object of the block runs it from creation and accepts the signal again after each: the signal's attributes bind the method's `in` parameters of the same name whose type they conform to and whose multiplicity holds theirs, defaulted and optional parameters stay unbound; a parameter that must hold a value no attribute supplies, or whose type or multiplicity the same-named attribute does not fit, leaves the method unrun, with the reason. Where the signal arrives at ports of the block over the document's connectors or declarations, a `fork` after `start` adds one such loop per port, `accept … : Sig via <port>;` | mapped (a required parameter unsupplied, or an attribute not fitting its parameter: approximated, the signal is only accepted) |
 | Reception whose signal arrives at a port, or whose method is written as a usage of the block | `perform action sig { … }`, the loop on the usage itself, since `via <port>` and the method's usage are features of the block a nested `action def` does not reach | mapped |
 | Reception without a method, or whose method is not an Activity | the same performed `action def`, accepting the signal and accepting again; the method is named in the report | approximated |
@@ -349,6 +349,22 @@ future work (see [element identity annotations](../project/element-identity-anno
 
 Names that are not v2 identifiers — with spaces, punctuation, or starting with a digit — are
 quoted (`'Vehicle Design'`).
+
+### Operations are the block's actions
+
+The OMG mapping writes a v1 Operation as a `perform action <op>` usage of the block. In SysML
+v2 such a usage is one of `Parts::Part::performedActions`: one performance the object itself
+enacts, with the arguments its declaration binds, and a caller's `perform ::> target.op` joins
+that performance rather than invoking the operation again with its own arguments — so under the
+mapping's form two calls of `inc(2)` and `inc(3)` on a counter would not count to 5. The migrator
+therefore writes the operation as the block's composite `action <op> { … }` usage, without the
+`perform` keyword and without an `action def`, and writes every CallOperationAction as a perform
+chaining to it: `perform action <call> ::> <target>.<op> { in <param> = …; }` when the target is
+`this`, a feature of `this` or a part a port connects to; and, when the target pin holds an object
+handed in or created, an action usage whose `in <pin> : <Block>` parameter the nested
+`perform action <op> ::> <pin>.<op>` chains through, its other pins bound to the operation's
+parameters by position. A call that reaches no object of the block (a caller outside it, an Alf
+`this` with no known type) is an empty step declaring the call's pins, reported as such.
 
 ### Diagrams
 
@@ -1420,7 +1436,7 @@ action whose `in` parameters read the accepted signal's attributes of the same n
 accept that holds the payload, `action run : 'Apply Level' { in value = receive.setLevel.value; }`
 (a feature of a sibling action is reachable only by dot notation), then returns to the accept,
 `first run then receive;`; a method that is also the method of an operation of the block is
-written once, as that operation's body, so the reception runs the operation's `action def`,
+written once, as that operation's body, so the reception runs the operation's `action` usage,
 binding the parameters it declares. The block performs it, `perform action setLevel : SetLevel;`, so
 every object of the block listens from the moment it is created — nothing starts the reception —
 and a signal sent to the object at any time is accepted and its method runs against the object,

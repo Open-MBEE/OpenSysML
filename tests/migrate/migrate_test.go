@@ -183,7 +183,7 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		"end :>> source : 'Vehicle Design'::Motor;",
 		"end :>> target : 'Vehicle Design'::Engine;",
 		"state def 'Vehicle States' {",
-		"abstract action def start {",
+		"abstract action start {",
 		"action def Drive;",
 		"/* not migrated: «Unit» InstanceSpecification 'kilogram'",
 		"applied stereotype «Critical»",

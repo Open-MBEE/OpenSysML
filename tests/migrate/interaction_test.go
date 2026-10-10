@@ -25,7 +25,7 @@ func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 		"action go send new Go(n = 3) to drive.motor;",
 		"else {",
 		"action altOp2 {",
-		"perform action brake : Motor::Brake ::> drive.motor.brake { in force[1] = 0.5; }",
+		"perform action brake ::> drive.motor.brake { in force[1] = 0.5; }",
 		"first spun then alt;",
 		"action 'loop' {",
 		"for i in 1..2 {",
@@ -61,7 +61,7 @@ func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 	wantNote(t, r, "_alt", migrate.Mapped, "written as the action alt, an if over the operands")
 	wantNote(t, r, "_altFast", migrate.Mapped, "its guard is the condition [mode == 1]")
 	wantNote(t, r, "_altElseG", migrate.Mapped, "the guard is the operand's condition")
-	wantNote(t, r, "_mBrake", migrate.Approximated, "written as a call of Brake on drive.motor; the asynchronous call is performed to completion before the next step")
+	wantNote(t, r, "_mBrake", migrate.Approximated, "written as a call of brake on drive.motor; the asynchronous call is performed to completion before the next step")
 	wantNote(t, r, "_loop", migrate.Mapped, "written as the action 'loop', a for over the operands")
 	wantNote(t, r, "_par", migrate.Mapped, "written as the action par, a fork over the operands")
 	wantNote(t, r, "_mNew", migrate.Unmapped, "the message creates drive.motor, a part that exists for as long as its owner does")

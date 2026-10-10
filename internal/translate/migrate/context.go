@@ -1168,19 +1168,18 @@ func (a *activity) on(obj, member string) string {
 // performUsage writes a call of a behavior written as an action usage of its
 // owner: the call performs that usage of the one object of the owner in
 // reach; when there is none, an empty step stands where the call was.
-func (a *activity) performUsage(name string, b *sysmlv1.Element) string {
+func (a *activity) performUsage(name string, b *sysmlv1.Element) (note string, performed bool) {
 	owner := b.Parent
 	obj, _, why := a.m.objectOf(owner, a.selfType(), a.self())
 	if obj == "" {
-		a.m.w.line(actionKw + name + ";")
-		return a.m.nameOf(b) + " is an action of " + qualifiedName(owner) + ", performed on an object of it; " + why + ", so an empty step stands for the call"
+		return a.m.nameOf(b) + " is an action of " + qualifiedName(owner) + ", performed on an object of it; " + why + ", so an empty step stands for the call", false
 	}
 	usage := a.on(obj, writeName(a.m.nameOf(b)))
 	a.m.w.line("perform action " + name + " ::> " + a.unshadowed(usage) + ";")
 	if obj == a.self() {
-		return ""
+		return "", true
 	}
-	return "performed on " + obj + why + ", as its usage " + usage
+	return "performed on " + obj + why + ", as its usage " + usage, true
 }
 
 // unshadowed writes the path to a feature of the object the activity acts on so

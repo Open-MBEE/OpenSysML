@@ -1738,23 +1738,33 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 
 // declarePinsWithValues is declarePins binding each pin in values to its expression.
 func (a *activity) declarePinsWithValues(n *sysmlv1.Element, ins, outs []*sysmlv1.Element, callee *sysmlv1.Element, values map[*sysmlv1.Element]string) {
-	typed := callee != nil
-	var params, inParams, outParams []*sysmlv1.Element
-	if typed {
-		params = a.m.actionParameters(callee)
-	}
-	for _, p := range params {
+	a.declarePinsReserving(n, ins, outs, callee, values, map[string]bool{})
+}
+
+// directedParameters splits a behavior's parameters into those a call feeds and
+// those it reads, an inout one in both, in declaration order.
+func (m *migration) directedParameters(b *sysmlv1.Element) (ins, outs []*sysmlv1.Element) {
+	for _, p := range m.actionParameters(b) {
 		switch p.Attrs["direction"] {
 		case "out", "return":
-			outParams = append(outParams, p)
+			outs = append(outs, p)
 		case "inout":
-			inParams = append(inParams, p)
-			outParams = append(outParams, p)
+			ins = append(ins, p)
+			outs = append(outs, p)
 		default:
-			inParams = append(inParams, p)
+			ins = append(ins, p)
 		}
 	}
-	used := map[string]bool{}
+	return ins, outs
+}
+
+// declarePinsReserving is declarePinsWithValues naming no pin in used, which it extends.
+func (a *activity) declarePinsReserving(n *sysmlv1.Element, ins, outs []*sysmlv1.Element, callee *sysmlv1.Element, values map[*sysmlv1.Element]string, used map[string]bool) {
+	typed := callee != nil
+	var inParams, outParams []*sysmlv1.Element
+	if typed {
+		inParams, outParams = a.m.directedParameters(callee)
+	}
 	declare := func(pin *sysmlv1.Element, dir string, byPos []*sysmlv1.Element, i int) {
 		if typed {
 			if i < len(byPos) {
@@ -2246,17 +2256,25 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 // or performing the usage its swimlane's object or the def's own usage stands for.
 func (a *activity) callActionDef(n *sysmlv1.Element, name string, b *sysmlv1.Element) {
 	var note string
+	declared := false
 	if l, _, why := a.m.lanePerformer(n); l != nil {
 		usage := joinDot(a.m.anchorExpr(l.expr, a.def), writeName(a.m.behaviorUsage(b)))
 		a.m.w.line("perform action " + name + " ::> " + usage + ";")
 		a.m.add(n, Mapped, name, "performed by "+l.expr+", the object its swimlane represents, as its usage "+usage)
 		note = why
 	} else if a.m.asUsage[b] {
-		note = joinNotes(why, a.performUsage(name, b))
+		usageNote, performed := a.performUsage(name, b)
+		note = joinNotes(why, usageNote)
+		if !performed {
+			a.emptyStep(n, name, inputPins(n), outputPins(n))
+			declared = true
+		}
 	} else {
 		note = joinNotes(why, a.callTyped(n, name, b))
 	}
-	a.pins(n, b)
+	if !declared {
+		a.pins(n, b)
+	}
 	note = joinNotes(note, a.absentArguments(inputPins(n), b))
 	a.m.add(n, verdictFor(note), name, note)
 }
@@ -2383,8 +2401,11 @@ func classifierOf(b *sysmlv1.Element) *sysmlv1.Element {
 	return nil
 }
 
-// callOperation writes a call on the object its target pin holds as `perform
-// action x ::> obj.op`; any other target leaves the call an action typed by the operation.
+// callOperation writes a call of an operation as `perform action x ::> obj.op`,
+// chaining to the owner's usage through the object its target pin holds: an object
+// read from this, reached over a port, or handed in, which the call declares as its
+// parameter. A call naming no object is an empty step; an operation written as a
+// def, which no block owns, types the call.
 func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 	if why, v, refused := a.refusal(n); refused {
 		a.placeholder(n, name, why, v)
@@ -2405,6 +2426,7 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 		}
 		return ";"
 	}
+	declared := false
 	switch {
 	case ok:
 		a.m.w.line("perform action " + name + " ::> " + receiver + ";")
@@ -2415,22 +2437,31 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 			a.receivers[t] = receiver
 		}
 		note = ""
+	case a.m.asUsage[op] && a.targetBound(n, t):
+		note = a.callOnUsageTarget(n, t, op, name, ins, outs)
+		declared = true
 	case a.m.asUsage[op] && t == nil:
-		note = joinNotes(note, a.performUsage(name, op))
-	case a.targetBound(n, t) && a.callOnTargetLine(n, t, op, name, &note):
+		why, performed := a.performUsage(name, op)
+		note = joinNotes(note, why)
+		if !performed {
+			a.emptyStep(n, name, ins, outs)
+			declared = true
+		}
 	case a.m.asUsage[op]:
-		a.m.w.line(actionKw + name + ";")
+		a.emptyStep(n, name, ins, outs)
+		declared = true
 		note = joinNotes(note, a.m.nameOf(op)+" is an action of "+qualifiedName(op.Parent)+", performed on an object of it, and the target pin names none read from this, so an empty step stands for the call")
 		a.m.add(t, Approximated, "", "the target pin is not written: it names no object read from this")
-	case port != nil && t == nil:
-		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + withIns())
+	case a.targetBound(n, t) && a.callOnTargetLine(n, t, op, name, &note):
 	case t != nil:
 		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + withIns())
 		a.m.add(t, Approximated, "", "the target pin is not written; the call runs in the caller's context")
 	default:
 		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + withIns())
 	}
-	a.declarePins(n, ins, outs, op)
+	if !declared {
+		a.declarePins(n, ins, outs, op)
+	}
 	note = joinNotes(note, a.absentArguments(ins, op))
 	a.m.add(n, verdictFor(note), name, note)
 }
@@ -3750,3 +3781,13 @@ func (a *activity) rules() {
 }
 
 // observations reports the activity's observations: what a run measures.
+
+// emptyStep writes the step standing for a call that performs nothing, declaring
+// the call's pins as its own features, so that the flows naming them resolve.
+func (a *activity) emptyStep(n *sysmlv1.Element, name string, ins, outs []*sysmlv1.Element) {
+	if len(ins)+len(outs) == 0 {
+		a.m.w.line(actionKw + name + ";")
+		return
+	}
+	a.m.w.block(actionKw+name, func() { a.declarePins(n, ins, outs, nil) })
+}

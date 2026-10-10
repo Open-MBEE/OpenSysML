@@ -3,8 +3,8 @@
 
 ## approximated (4)
 ReadStructuralFeatureAction	Drive::Run::read motor	_readMotor	-> 'read motor'	(several edges leave the node, which a fork fork carries)
-CallOperationAction	Drive::Stray::spin over loose	_callLoose	-> 'spin over loose'	(the call runs in the caller's context: no connector of Drive joins its port loose to a part)
-CallOperationAction	Drive::Stray::spin over split	_callSplit	-> 'spin over split'	(the call runs in the caller's context: the port split of Drive connects to several parts whose types have the operation Spin (motor, spare), and the call names no one of them)
+CallOperationAction	Drive::Stray::spin over loose	_callLoose	-> 'spin over loose'	(the call runs in the caller's context: no connector of Drive joins its port loose to a part; spin is an action of Motor, performed on an object of it; the caller is a Drive, which is no Motor and has 2 parts that are one, so no one of them is chosen, so an empty step stands for the call)
+CallOperationAction	Drive::Stray::spin over split	_callSplit	-> 'spin over split'	(the call runs in the caller's context: the port split of Drive connects to several parts whose types have the operation spin (motor, spare), and the call names no one of them; spin is an action of Motor, performed on an object of it; the caller is a Drive, which is no Motor and has 2 parts that are one, so no one of them is chosen, so an empty step stands for the call)
 Interface	MotorCmd	_cmdIf	-> MotorCmd	(a UML interface is written as a port def)
 
 ## mapped (49)
@@ -38,8 +38,8 @@ ValueSpecificationAction	Drive::Stray::five	_five	-> five	(no edge leads to the 
 OutputPin	Drive::Stray::five::result	_fiveOut	-> Drive::stray::five.result
 ValueSpecificationAction	Drive::Stray::six	_six	-> six	(no edge leads to the node, so it starts with the activity)
 OutputPin	Drive::Stray::six::result	_sixOut	-> Drive::stray::six.result
-InputPin	Drive::Stray::spin over loose::rpm	_callLooseRpm	-> Drive::stray::'spin over loose'.rpm	(the pin stands for the parameter rpm of the definition, which the flows name)
-InputPin	Drive::Stray::spin over split::rpm	_callSplitRpm	-> Drive::stray::'spin over split'.rpm	(the pin stands for the parameter rpm of the definition, which the flows name)
+InputPin	Drive::Stray::spin over loose::rpm	_callLooseRpm	-> Drive::stray::'spin over loose'.rpm
+InputPin	Drive::Stray::spin over split::rpm	_callSplitRpm	-> Drive::stray::'spin over split'.rpm
 Port	Drive::loose	_loose	-> Drive::loose
 Property	Drive::motor	_motorPart	-> Drive::motor
 Port	Drive::p	_p	-> Drive::p
@@ -47,13 +47,13 @@ Property	Drive::spare	_sparePart	-> Drive::spare
 Port	Drive::split	_split	-> Drive::split
 Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Motor	_motor	-> Motor
-Operation	Motor::Spin	_spin	-> Motor::Spin	(acts on its owner Motor, which it takes as its parameter context, since its this is the def's own occurrence; its owner's usage spin performs it, as a call on an object does)
-Parameter	Motor::Spin::rpm	_spinRpm	-> Motor::Spin::rpm
-Activity	Motor::Spinning	_spinning	-> Motor::Spin	(written as the body of the operation Motor::Spin, whose method it is)
+Operation	Motor::Spin	_spin	-> Motor::spin	(written as an action usage of Motor, which a call on an object performs, so its body runs on the object and reaches its features)
+Parameter	Motor::Spin::rpm	_spinRpm	-> Motor::spin::rpm
+Activity	Motor::Spinning	_spinning	-> Motor::spin	(written as the body of the operation Motor::Spin, whose method it is)
 ObjectFlow	Motor::Spinning::<ObjectFlow>	_spOf
-Parameter	Motor::Spinning::rpm	_spRpm	-> Motor::Spin::rpm	(stands for the operation's parameter rpm at the same position, which is written once)
-ActivityParameterNode	Motor::Spinning::rpm	_spApn	-> Motor::Spin::rpm	(the flows to and from the node name the parameter rpm)
+Parameter	Motor::Spinning::rpm	_spRpm	-> Motor::spin::rpm	(stands for the operation's parameter rpm at the same position, which is written once)
+ActivityParameterNode	Motor::Spinning::rpm	_spApn	-> Motor::spin::rpm	(the flows to and from the node name the parameter rpm)
 AddStructuralFeatureValueAction	Motor::Spinning::set speed	_setSpeed	-> 'set speed'	(no edge leads to the node, so it starts with the activity)
-InputPin	Motor::Spinning::set speed::value	_setSpeedVal	-> Motor::Spin::'set speed'.value
+InputPin	Motor::Spinning::set speed::value	_setSpeedVal	-> Motor::spin::'set speed'.value
 Port	Motor::cmd	_cmd	-> Motor::cmd
 Property	Motor::speed	_speed	-> Motor::speed

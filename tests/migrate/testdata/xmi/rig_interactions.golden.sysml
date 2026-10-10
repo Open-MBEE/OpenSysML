@@ -20,11 +20,10 @@ part def Motor {
         bind 'set speed'.value = rpm;
         bind result = 'read speed'.result;
     }
-    abstract action def Brake {
+    abstract action brake {
         in force : ScalarValues::Real[1];
         in hold : ScalarValues::Integer[0..1];
     }
-    action brake : Brake;
 }
 part def Drive {
     part motor : Motor;
@@ -61,7 +60,7 @@ part def Rig {
             }
             else {
                 action altOp2 {
-                    perform action brake : Motor::Brake ::> drive.motor.brake { in force[1] = 0.5; }
+                    perform action brake ::> drive.motor.brake { in force[1] = 0.5; }
                     first start then brake;
                     first brake then done;
                 }
