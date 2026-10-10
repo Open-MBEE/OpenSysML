@@ -298,9 +298,6 @@ $ sysml Vehicle.sysml -eval "'Vehicle Design'::myCar::mass"
 Vehicle.sysml:51:29: warning: Duplicate of inherited member name 'start' from Part
         abstract action def start {
                             ^~~~~
-Vehicle.sysml:91:9: warning: End feature must have multiplicity 1: an end relates exactly one thing per link; write `[1]` or take it from a feature the end subsets or redefines
-        end driver : Driver[0..1];
-        ^~~~~~~~~~~~~~~~~~~~~~~~~~
 ✓ package 'Vehicle Design'
 ✓ package Requirements
 ✓ package 'Empty Package'
@@ -309,9 +306,7 @@ Vehicle.sysml:91:9: warning: End feature must have multiplicity 1: an end relate
 ```
 
 Findings on the migrated file are read as on any model, and point at what to revise in the v2
-notation — here a v1 name that collides with one the `Parts` library gives every part, and the
-association `Drives`, whose v1 end multiplicity `0..1` v2 writes on the end rather than after
-its type: `end [0..1] driver : Driver;`. From this point `%save` in the REPL, `-convert ttl`, the
+notation — here a v1 name that collides with one the `Parts` library gives every part. From this point `%save` in the REPL, `-convert ttl`, the
 LSP and the clients all take the file as they take any other; nothing remembers that it was
 migrated.
 

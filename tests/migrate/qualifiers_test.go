@@ -14,14 +14,15 @@ func TestAssociationEndQualifiers(t *testing.T) {
 	for _, line := range []string{
 		"end a : A {",
 		"attribute ownedKey : Key;",
-		"end b : B {",
-		"attribute memberKey : Key;",
+		"end b : B crosses a.b;",
 		"ref occurrence b : B {",
+		"attribute memberKey : Key;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	if got := strings.Count(notation, "attribute memberKey : Key;"); got != 2 {
-		t.Errorf("memberKey qualifier count = %d, want 2\n%s", got, notation)
+	// The end inherits the qualifier through the property it crosses.
+	if got := strings.Count(notation, "attribute memberKey : Key;"); got != 1 {
+		t.Errorf("memberKey qualifier count = %d, want 1\n%s", got, notation)
 	}
 	wantNote(t, r, "_ownedQualifier", migrate.Mapped, "")
 	wantNote(t, r, "_classifierQualifier", migrate.Mapped, "")

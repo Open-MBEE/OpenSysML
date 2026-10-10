@@ -9,7 +9,7 @@ Class	A	_a	-> A
 Property	A::b	_classifierEnd	-> A::b
 Property	A::b::memberKey	_classifierQualifier	-> A::b::memberKey
 Class	B	_b	-> B
-Association	Link	_link	-> Link
+Association	Link	_link	-> Link	(its one usage is the connection link joining a and b)
 Property	Link::a	_ownedEnd	-> Link::a
 Property	Link::a::ownedKey	_ownedQualifier	-> Link::a::ownedKey
 Model	Model	_m	(the root model's members are written at the top level)

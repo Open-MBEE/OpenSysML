@@ -466,8 +466,8 @@ func TestConnectionEndYieldsItsNameToAMember(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_b"/>
   <sysml:Block xmi:id="_s3" base_Class="_ab"/>
   <sysml:ParticipantProperty xmi:id="_s4" base_Property="_pp" end="_toB"/>`)
-	wantLine(t, r.Notation, "end toB2 : B;")
-	wantLine(t, r.Notation, "end toA : A;")
+	wantLine(t, r.Notation, "end toB2 : B crosses toA.toB;")
+	wantLine(t, r.Notation, "end toA : A crosses toB2.toA;")
 	wantLine(t, r.Notation, "ref part toB : B")
 	es := entriesFor(r, "_ab")
 	if len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "end toB is written as toB2") {
@@ -1147,7 +1147,7 @@ func TestCollectionModifiersAreWritten(t *testing.T) {
 	wantLine(t, r.Notation, "part n : A[2];")
 	wantLine(t, r.Notation, "ref part b : A ordered :> n;")
 	wantLine(t, r.Notation, "ref part u : A;")
-	wantLine(t, r.Notation, "end 'first' : A[0..*] ordered;")
+	wantLine(t, r.Notation, "end [0..*] ordered ref 'first' : A;")
 	for _, id := range []string{"_o", "_u", "_e1"} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 			t.Errorf("%s entries = %+v", id, es)

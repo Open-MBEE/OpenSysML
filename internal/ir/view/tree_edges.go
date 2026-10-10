@@ -1,6 +1,9 @@
 package view
 
 import (
+	"slices"
+	"strings"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -69,6 +72,7 @@ func (r *Renderer) treeEdges(out *Rendering) {
 	for _, root := range out.Roots {
 		index(root, "")
 	}
+	g.associationLines()
 	var walk func(node *Node)
 	walk = func(node *Node) {
 		if site, ok := out.sites[node]; ok && g.nodes[symbols.KeyOf(site.sym)] == node {
@@ -82,6 +86,88 @@ func (r *Renderer) treeEdges(out *Rendering) {
 		walk(root)
 	}
 	out.sites = nil
+}
+
+// associationLines redraws each connection def the tree would show as a box
+// as a line between the nodes of its two end types, the way a block definition
+// diagram draws an association, and drops its node. Its ends are labelled on
+// the line; its own name is, unless a migration made the name up.
+func (g *treeGraph) associationLines() {
+	var prune func(nodes []*Node) []*Node
+	prune = func(nodes []*Node) []*Node {
+		kept := nodes[:0]
+		for _, node := range nodes {
+			site, ok := g.out.sites[node]
+			if from, to, line := g.associationLine(node, site); ok && line {
+				def := site.sym
+				delete(g.nodes, symbols.KeyOf(def))
+				name := ""
+				if !g.r.model.NameSynthesized(def) {
+					name = localName(def)
+				}
+				g.add(Edge{From: from.ID, To: to.ID, Kind: EdgeConnection, Label: g.r.associationLabel(name, def), Name: name, Origin: symbolOrigin(def)}, def)
+				continue
+			}
+			node.Children = prune(node.Children)
+			kept = append(kept, node)
+		}
+		return kept
+	}
+	g.out.Roots = prune(g.out.Roots)
+}
+
+// associationLine is the pair of nodes the connection def of node is drawn as
+// a line between: those of its two ends' types, each one drawn definition the
+// def is not nested in. A def with other ends, with a member a box would show,
+// or with an end type the tree does not draw stays a box.
+func (g *treeGraph) associationLine(node *Node, site treeSite) (from, to *Node, ok bool) {
+	def := site.sym
+	if def == nil || def.Kind != symbols.SymbolConnectionDef || g.nodes[symbols.KeyOf(def)] != node {
+		return nil, nil, false
+	}
+	ends := g.r.model.EndFeatures(def)
+	if len(ends) != 2 {
+		return nil, nil, false
+	}
+	var typed [2]*Node
+	for i, end := range ends {
+		types := g.r.model.DeclaredTypes(end)
+		if len(types) != 1 {
+			return nil, nil, false
+		}
+		typed[i] = g.node(types[0])
+		if typed[i] == nil || typed[i] == node || g.nested(node, typed[i]) || types[0].Kind == symbols.SymbolConnectionDef {
+			return nil, nil, false
+		}
+	}
+	for _, member := range g.r.containedMembers(def) {
+		if !slices.Contains(ends, member) {
+			return nil, nil, false
+		}
+	}
+	return typed[0], typed[1], true
+}
+
+// associationLabel labels the line a connection def is drawn as: its name, if
+// it has one of its own, and the names and multiplicities of its ends.
+func (r *Renderer) associationLabel(name string, def *symbols.Symbol) string {
+	var ends []string
+	for _, end := range r.model.EndFeatures(def) {
+		if r.model.NameSynthesized(end) {
+			continue
+		}
+		if label := r.usageLabel(end); label != "" {
+			ends = append(ends, label)
+		}
+	}
+	label := strings.Join(ends, " / ")
+	switch {
+	case name == "":
+		return label
+	case label == "":
+		return name
+	}
+	return name + ": " + label
 }
 
 // edgesOf draws what the element of node states of itself and of the usages
@@ -191,10 +277,19 @@ func (r *Renderer) usageLabel(sym *symbols.Symbol) string {
 		label = nameText(sym.Name)
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || usage.Multiplicity == nil {
+	if !ok {
 		return label
 	}
-	return label + r.multiplicityText(sym.DocName, usage.Multiplicity)
+	mult := usage.Multiplicity
+	if mult == nil && usage.CrossFeature != nil {
+		// An end's cross multiplicity, `end [0..1] ref trailer`, is how many
+		// of it one of the other end's type is linked to.
+		mult = usage.CrossFeature.Multiplicity
+	}
+	if mult == nil {
+		return label
+	}
+	return label + r.multiplicityText(sym.DocName, mult)
 }
 
 // multiplicityText spells a multiplicity as written, `[4]` or `[0..*]`, from

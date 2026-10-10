@@ -87,8 +87,18 @@ package 'Vehicle Design' {
     part def Motor :> Engine;
     part Driver;
     occurrence def Helper;
+    connection def EngineToVehicle {
+        end engine : Engine crosses vehicle.engine;
+        end vehicle : Vehicle;
+        metadata MigrationMetadata::SynthesizedName about vehicle;
+    }
+    connection def WheelToVehicle {
+        end wheels : Wheel crosses vehicle.wheels;
+        end vehicle : Vehicle;
+        metadata MigrationMetadata::SynthesizedName about vehicle;
+    }
     connection def Drives {
-        end driver :> Driver[0..1];
+        end [0..1] ref driver :> Driver;
         end vehicle : Vehicle;
     }
     constraint def MassLimit {
@@ -103,7 +113,12 @@ package 'Vehicle Design' {
     action def Drive;
     part vehicle : Vehicle;
     connection drives : Drives connect Driver to vehicle;
+    part engine : Engine;
+    connection 'engine to vehicle' : EngineToVehicle connect engine to vehicle;
+    part wheel : Wheel;
+    connection 'wheel to vehicle' : WheelToVehicle connect wheel to vehicle;
     action drive : Drive;
+    metadata MigrationMetadata::SynthesizedName about EngineToVehicle, WheelToVehicle;
 }
 package RequirementsModel {
     requirement <R1> 'Mass Requirement' {

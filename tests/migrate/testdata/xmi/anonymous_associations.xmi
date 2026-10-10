@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Anonymous associations: each is a connection def whose class-owned ends
+     cross the properties they are written as where that is sound, and one
+     connection typed by it joins usages of the two end types. -->
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20161101/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <uml:Model xmi:type="uml:Model" xmi:id="_model" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_fleet" name="Fleet">
+      <!-- Both ends class-owned: each end crosses the other's property. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_carWheels" name="wheels" type="_wheel" association="_carWheel">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_carWheelsL" value="4"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_carWheelsU" value="4"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_carDriver" name="driver" type="_driver" association="_carDriverAssoc"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_wheel" name="Wheel">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_wheelCar" name="car" type="_car" association="_carWheel"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_carWheel" memberEnd="_carWheels _wheelCar"/>
+      <!-- One end class-owned, the other owned by the association: the owned
+           end carries its multiplicity as the cross multiplicity. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_driver" name="Driver"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_carDriverAssoc" memberEnd="_carDriver _driverCars">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_driverCars" type="_car" association="_carDriverAssoc">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_driverCarsL" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_driverCarsU" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+      <!-- The opposite end is untyped: the property cannot be reached through it. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_sensor" name="Sensor">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_sensorReading" name="reading" type="_reading" association="_sensorReadingAssoc">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_sensorReadingL" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_sensorReadingU" value="*"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_reading" name="Reading"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_sensorReadingAssoc" memberEnd="_sensorReading _readingSource">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_readingSource" name="source" association="_sensorReadingAssoc"/>
+      </packagedElement>
+      <!-- The end's type lives outside the document: the end is untyped and crosses nothing. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_logger" name="Logger">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_loggerSink" name="sink" association="_loggerSinkAssoc">
+          <type href="External.xmi#_sink"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_loggerSinkAssoc" memberEnd="_loggerSink _sinkLogger">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_sinkLogger" type="_logger" association="_loggerSinkAssoc"/>
+      </packagedElement>
+      <!-- The end is named like its type: the type is referred to past the end. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_tankPump" name="Pump" type="_pump" association="_tankPumpAssoc"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_tankPumpAssoc" memberEnd="_tankPump _pumpTank">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_pumpTank" type="_tank" association="_tankPumpAssoc"/>
+      </packagedElement>
+      <!-- The end's type is an actor, written as a usage: the end subsets it and crosses nothing. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_console" name="Console">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_consoleOperator" name="operator" type="_operator" association="_operates"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Actor" xmi:id="_operator" name="Operator"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_operates" name="Operates" memberEnd="_consoleOperator _operatorConsole">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_operatorConsole" type="_console" association="_operates"/>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+  <!-- A block definition diagram showing the association between two blocks. -->
+  <xmi:Extension extender="Example UML Tool 1.0">
+    <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_bdd" name="Wheels" ownerOfDiagram="_fleet">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_car</usedElements>
+                  <usedElements>_wheel</usedElements>
+                  <usedElements>_carWheel</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+    </modelExtension>
+  </xmi:Extension>
+  <sysml:Block xmi:id="_sCar" base_Class="_car"/>
+  <sysml:Block xmi:id="_sWheel" base_Class="_wheel"/>
+  <sysml:Block xmi:id="_sDriver" base_Class="_driver"/>
+  <sysml:Block xmi:id="_sSensor" base_Class="_sensor"/>
+  <sysml:Block xmi:id="_sReading" base_Class="_reading"/>
+  <sysml:Block xmi:id="_sLogger" base_Class="_logger"/>
+  <sysml:Block xmi:id="_sTank" base_Class="_tank"/>
+  <sysml:Block xmi:id="_sPump" base_Class="_pump"/>
+  <sysml:Block xmi:id="_sConsole" base_Class="_console"/>
+</xmi:XMI>

@@ -3,6 +3,7 @@ package view
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -307,5 +308,47 @@ func TestMultiplicityExpressionBoundsAreSpelledFromTheTree(t *testing.T) {
 		if got := r.multiplicityText("", c.m); got != c.want {
 			t.Errorf("multiplicityText = %q, want %q", got, c.want)
 		}
+	}
+}
+
+// A connection def whose two ends are typed by drawn definitions is the
+// association a block definition diagram draws as a line between their
+// boxes, labelled with its ends and its own name, not a box of its own. One
+// that carries a member of its own, as an association block does, or whose
+// end type is not drawn stays a box.
+func TestTreeDrawsAConnectionDefAsALineBetweenItsEndTypes(t *testing.T) {
+	rendering := render(t, "tree-associations.sysml", "FleetViews::structure")
+	assertRenderingEdgeEndpoints(t, rendering)
+	var names []string
+	var visit func(nodes []*Node)
+	visit = func(nodes []*Node) {
+		for _, node := range nodes {
+			names = append(names, node.Name)
+			visit(node.Children)
+		}
+	}
+	visit(rendering.Roots)
+	for _, boxed := range []string{"Fleet::WheelToCar", "Fleet::Tows"} {
+		if slices.Contains(names, boxed) {
+			t.Errorf("%s is drawn as a box; nodes = %q", boxed, names)
+		}
+	}
+	for _, boxed := range []string{"Fleet::Pairing", "Fleet::Ferries"} {
+		if !slices.Contains(names, boxed) {
+			t.Errorf("%s is not drawn as a box; nodes = %q", boxed, names)
+		}
+	}
+	want := []string{
+		"Fleet::Wheel connection Fleet::Car: WheelToCar: wheels / car",
+		"Fleet::Car connection Fleet::Trailer: Tows: tower / trailer[0..1]",
+		"Fleet::Car reference Fleet::Wheel: wheels[4]",
+		"Fleet::Wheel reference Fleet::Car: car",
+		"Fleet::Pairing reference Fleet::Car: a",
+		"Fleet::Pairing reference Fleet::Trailer: b",
+		"Fleet::Ferries reference Fleet::Car: car",
+	}
+	got := treeEdgeLines(rendering)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("edges = %q, want %q", got, want)
 	}
 }
