@@ -81,8 +81,13 @@ type Stereotype struct {
 	Definition *Element
 	// Generals are every stereotype Definition specializes, transitively:
 	// Model.Ancestors of the definition, so proxies stand for those defined
-	// outside the documents read. Empty without a Definition.
+	// outside the documents read. Without a Definition, they are the
+	// stereotypes the archive's module snapshots declare the applied one
+	// specializes, as elements standing for the snapshot's; else empty.
 	Generals []*Element
+	// Module reports that a module snapshot, not a document read, declares the
+	// stereotype: Generals are then the snapshot's, however few.
+	Module bool
 	// Tags holds the tagged values: attributes other than xmi:* and base_*, and
 	// child elements as their text or idref, keyed by tag name. A multi-valued
 	// tag lists each value.
@@ -143,7 +148,10 @@ type Model struct {
 	// moduleStereotypes are the stereotypes the archive's module snapshots
 	// declare, by id, for resolving ids the stereotype table does not name.
 	moduleStereotypes map[string]moduleStereotype
-	clients           map[*Element][]*Element
+	// moduleElements stand for snapshot stereotypes and their profiles that
+	// an application's Generals name, by id; none is in a document read.
+	moduleElements map[string]*Element
+	clients        map[*Element][]*Element
 	// stereotypeHrefs are the definitions a tool's stereotypesHREFS table
 	// names for applied stereotypes, by namespace and name.
 	stereotypeHrefs map[stereotypeKey]string
@@ -871,6 +879,8 @@ func (m *Model) link() {
 			if s.Definition.Name != "" {
 				s.Name = s.Definition.Name
 			}
+		} else if decl, ok := m.moduleDefinition(s); ok {
+			s.Generals, s.Module = m.moduleAncestors(decl), true
 		}
 	}
 	m.readTables()

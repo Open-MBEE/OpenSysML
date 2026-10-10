@@ -262,6 +262,8 @@ func (m *migration) typeFilter(ref sysmlv1.ElementRef) typeFilter {
 			return m.nameUsages(metaclassFilter(name))
 		case stereotypeTypes[name].types != nil || stereotypeTypes[name].usages != nil:
 			return m.nameUsages(fromTypes("«"+name+"»", stereotypeTypes[name]))
+		case toolBlockStereotypes[name]:
+			return m.nameUsages(toolBlockFilter(name))
 		default:
 			return typeFilter{label: "«" + name + "»", refused: "no v2 metaclass stands for the elements of «" + name + "»"}
 		}
@@ -290,6 +292,13 @@ func (m *migration) proxyTypeFilter(e *sysmlv1.Element) typeFilter {
 		if t, ok := stereotypeTypes[s.Name]; ok {
 			return m.nameUsages(fromTypes("«"+s.Name+"»", t))
 		}
+		if ancestors, declared := m.model.StereotypeAncestors(e.ID); declared {
+			if f, ok := specializedFilter(s.Name, ancestors); ok {
+				return m.nameUsages(f)
+			}
+		} else if toolBlockStereotypes[s.Name] {
+			return m.nameUsages(toolBlockFilter(s.Name))
+		}
 		return typeFilter{label: "«" + s.Name + "»", refused: "no v2 metaclass stands for the elements of «" + s.Name + "»"}
 	}
 	customization := isCustomizationHref(e.Href) || isMagicDrawCustomization(s.Namespace)
@@ -312,6 +321,43 @@ func (m *migration) proxyTypeFilter(e *sysmlv1.Element) typeFilter {
 }
 
 // stereotypeTypeFilter decides how a stereotype of the document filters rows.
+// specializedFilter filters by the nearest standard stereotype a module's
+// stereotype specializes, as the archive's snapshot declares: «Subsystem» :> «Block».
+func specializedFilter(name string, ancestors []sysmlv1.StereotypeRef) (typeFilter, bool) {
+	for _, a := range ancestors {
+		general, ok := standardAncestor(a)
+		if !ok {
+			continue
+		}
+		if t, ok := stereotypeTypes[general]; ok {
+			t.note = "«" + name + "» specializes «" + general + "» in the tool's profile; rows are filtered as its elements are"
+			return fromTypes("«"+name+"»", t), true
+		}
+	}
+	return typeFilter{}, false
+}
+
+// standardAncestor names the standard stereotype an ancestor is: one the
+// document or tool table names in the SysML namespace, or a proxy whose href
+// points into the OMG profile, as classification reads it.
+func standardAncestor(a sysmlv1.StereotypeRef) (string, bool) {
+	if a.Name != "" && isStandardNamespace(a.Namespace) {
+		return a.Name, true
+	}
+	if e := a.Element; e != nil && e.IsProxy() && e.Name != "" && isStandardDefinition(e) {
+		return e.Name, true
+	}
+	return "", false
+}
+
+// toolBlockFilter filters by a block stereotype of the tool's SysML profile
+// whose generalization to «Block» is documented rather than in the archive.
+func toolBlockFilter(name string) typeFilter {
+	t := stereotypeTypes["Block"]
+	t.note = "«" + name + "» is the modeling tool's specialization of «Block»; rows are filtered as blocks"
+	return fromTypes("«"+name+"»", t)
+}
+
 func (m *migration) stereotypeTypeFilter(e *sysmlv1.Element) typeFilter {
 	if t, ok := stereotypeTypes[e.Name]; ok && m.isLibrary(e) && libraryRoots[pathRoot(qualifiedName(e))] {
 		return m.nameUsages(fromTypes("«"+e.Name+"»", t))

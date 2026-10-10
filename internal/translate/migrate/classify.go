@@ -559,6 +559,9 @@ func classifyClass(e *sysmlv1.Element) (category, string) {
 	case has(e, "InterfaceBlock"):
 		return catPortDef, ""
 	case has(e, "Block"):
+		if s := toolBlockStereotype(e); s != nil {
+			return catPartDef, "«" + s.Name + "» is the modeling tool's specialization of «Block»; its profile is not in the document, so the generalization is taken from the tool's documented profile"
+		}
 		return catPartDef, ""
 	case has(e, "Stakeholder"):
 		return catPartDef, "a v1 «Stakeholder» is written as a part def"
