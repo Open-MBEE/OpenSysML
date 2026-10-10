@@ -1,0 +1,27 @@
+exit: idle
+enter: Work
+transition: idle -> Work (event: accept Go)
+exit: Work
+enter: idle
+transition: Work -> idle (event: accept Back)
+exit: idle
+enter: Work
+enter: W1 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "W1(entry) " -> "W1(entry) "
+    eval operator + -> "W1(entry) "
+transition: idle -> W1 (event: accept Direct)
+exit: W1
+enter: done
+transition: W1 -> done (event: accept Finish)
+exit: done
+exit: Work
+enter: X (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "W1(entry) "
+      eval literal "X(entry) " -> "X(entry) "
+    eval operator + -> "W1(entry) X(entry) "
+transition: done -> X

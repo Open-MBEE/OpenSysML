@@ -1,0 +1,14 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Go"},
+    {"signal": "Back"},
+    {"signal": "Direct"},
+    {"signal": "Finish"}
+  ],
+  "finalState": "X",
+  "outputs": {
+    "log": {"type": "String", "value": "W1(entry) X(entry) "}
+  },
+  "trace": true
+}
