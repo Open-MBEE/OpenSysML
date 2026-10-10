@@ -459,7 +459,10 @@ jobs:
               go test -v -race -pgo=off -timeout 30m ./tests/wasm
               go test -C tools -v -race -pgo=off -timeout 30m ./...
             else
-              go test -v -race -pgo=off -timeout 30m $pkgs
+              # tests/migrate alone runs 23-32 minutes under -race on this class, so its
+              # shard gets the Makefile's per-package timeout (see make test-shard).
+              timeout=30m; [ "$shard" = migrate ] && timeout=55m
+              go test -v -race -pgo=off -timeout "$timeout" $pkgs
             fi
           no_output_timeout: 30m
           environment:
