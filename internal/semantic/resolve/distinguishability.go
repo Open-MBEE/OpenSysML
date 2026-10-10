@@ -13,8 +13,10 @@ import (
 // checkDistinguishability reports the member names of one namespace that are not
 // distinguishable: an owned name repeating another owned name, — for a type —
 // an owned name repeating one the type inherits, and an imported name repeating
-// another imported one (KerML 7.2.2, SysML 7.6.1). All are warnings, as the
-// reference implementation reports the first two.
+// another imported one (KerML 7.2.2, SysML 7.6.1). All are warnings by default,
+// as the reference implementation reports the first two; the first two violate
+// `validateNamespaceDistinguishibility` (KerML 8.3.2.4.5), so strict conformance
+// reports them as errors, while an imported collision is a name 7.2.5.4 hides.
 func (r *Resolver) checkDistinguishability(scope *symbols.Scope) {
 	if scope == nil {
 		return
@@ -202,7 +204,7 @@ func (r *Resolver) duplicateImported(name string, members []importedMember) {
 	if last.Imported != nil {
 		span = last.Imported.Span()
 	}
-	r.reportDuplicate(span, fmt.Sprintf("Duplicate of imported member name '%s': %s", name, strings.Join(parts, ", ")))
+	r.reportDuplicate(span, fmt.Sprintf("Duplicate of imported member name '%s': %s", name, strings.Join(parts, ", ")), false)
 }
 
 // importText spells an import as its declaration does, visibility aside:
@@ -653,7 +655,7 @@ func (r *Resolver) duplicateName(sym *symbols.Symbol, message string, from []*sy
 	if names := ownerNames(sym, from); len(names) > 0 {
 		message = fmt.Sprintf("%s '%s' from %s", message, sym.Name, strings.Join(names, ", "))
 	}
-	r.reportDuplicate(span, message)
+	r.reportDuplicate(span, message, true)
 }
 
 // duplicateInherited reports a name owner inherits twice, at owner's own
@@ -663,15 +665,19 @@ func (r *Resolver) duplicateInherited(owner *symbols.Symbol, name string, from [
 	if names := ownerNames(nil, from); len(names) > 0 {
 		message = fmt.Sprintf("%s '%s' from %s", message, name, strings.Join(names, ", "))
 	}
-	r.reportDuplicate(owner.DeclSpan, message)
+	r.reportDuplicate(owner.DeclSpan, message, true)
 }
 
-func (r *Resolver) reportDuplicate(span source.Span, message string) {
+// reportDuplicate reports one indistinguishable name; illFormed marks the
+// memberships the namespace keeps, which `validateNamespaceDistinguishibility`
+// forbids, as against an imported collision 7.2.5.4 hides.
+func (r *Resolver) reportDuplicate(span source.Span, message string, illFormed bool) {
 	r.report(Diagnostic{
-		Span:    span,
-		Message: message,
-		Code:    CodeNameConflict,
-		Warning: true,
+		Span:      span,
+		Message:   message,
+		Code:      CodeNameConflict,
+		Warning:   true,
+		IllFormed: illFormed,
 	})
 }
 

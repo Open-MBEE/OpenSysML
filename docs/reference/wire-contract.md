@@ -148,7 +148,9 @@ $ … /ParseSources -d '{"documents":[{"name":"vehicle.sysml","content":"…"}],
 ```
 
 `strictConformance` makes OpenSysML's extension notation a parse error rather than an accepted
-extension; what that covers is under [Strict conformance](../guide/03-command-line.md#strict-conformance)
+extension, and a namespace whose memberships are indistinguishable (`Duplicate of other owned
+member name` and its alias and inherited wordings) an error rather than a warning; what that
+covers is under [Strict conformance](../guide/03-command-line.md#strict-conformance)
 in the guide.
 
 ### How long a hash is valid

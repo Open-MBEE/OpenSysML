@@ -39,6 +39,9 @@ func (NameResolutionPass) Run(ctx *Context, name string, root *ast.RootNamespace
 		severity := diag.SeverityError
 		if d.Warning {
 			severity = diag.SeverityWarning
+			if d.IllFormed {
+				severity = strictSeverity(ctx.Options.Conformance)
+			}
 		}
 		out = append(out, diag.Diagnostic{
 			Severity: severity,
