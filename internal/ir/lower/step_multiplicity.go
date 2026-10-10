@@ -267,10 +267,8 @@ func actionStepSymbol(node ast.Node, scope *symbols.Scope) *symbols.Symbol {
 		return nil
 	}
 	for current := scope; current != nil; current = current.Parent() {
-		for _, member := range current.AllMembers() {
-			if member != nil && member.Decl == node {
-				return member
-			}
+		if member := current.MemberDeclaring(node); member != nil {
+			return member
 		}
 	}
 	return nil
