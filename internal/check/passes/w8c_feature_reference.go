@@ -144,7 +144,7 @@ func (c *featureReferenceChecker) annotationType(body *symbols.Scope) *symbols.S
 		// Resolution links the body to the metadata type it names.
 		return body.Owner()
 	case *ast.Usage:
-		if n.Kind != ast.UsageMetadata || symbols.UsageAnnotatesOthers(n) || body.Owner().OwnerScope == nil {
+		if n.Kind != ast.UsageMetadata || symbols.AnnotatesOthers(n) || body.Owner().OwnerScope == nil {
 			return nil
 		}
 		for _, rel := range n.Relationships {
@@ -704,7 +704,7 @@ func (c *featureReferenceChecker) checkDeclaredChains(sym *symbols.Symbol, d *as
 		}
 	}
 	for _, end := range w8dConnectorEndTargets(d) {
-		if d.FlowEnds != nil && (end == d.FlowEnds.From || end == d.FlowEnds.To) {
+		if d.FlowEnds != nil && (end == ast.EndTarget(d.FlowEnds.From) || end == ast.EndTarget(d.FlowEnds.To)) {
 			if chain, ok := end.(*ast.FeatureChainExpr); ok {
 				c.checkChainTarget(sym.OwnerScope, chain.Operand)
 			}

@@ -1394,14 +1394,16 @@ func testBindingNestedContainerIsNotACycle(t *testing.T) {
 }
 
 // testSuccessionGuardFailureModes: a guard on a succession leaving an ordinary
-// action node is evaluated, so its failure modes — a value that is not Boolean,
-// a guard nothing supplies a name for, and two guards holding at once — are each
-// reported as a typed error rather than a panic, a hang or a chosen branch.
+// action node is evaluated, so its failure modes — a value that is not Boolean and
+// a guard nothing supplies a name for — are each reported as a typed error rather
+// than a panic or a hang. Two guards holding at once are no failure: each
+// succession is its own HappensBefore link, so both targets are performed.
 func testSuccessionGuardFailureModes(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		body string
-		want error
+		name    string
+		body    string
+		want    error
+		results map[string]int64
 	}{
 		{
 			name: "guard is not a boolean",
@@ -1437,7 +1439,7 @@ func testSuccessionGuardFailureModes(t *testing.T) {
 				succession first check if level > 10 then alert;
 				succession first check if level > 5 then idle;
 			`,
-			want: ErrAmbiguousSuccession,
+			results: map[string]int64{"high": 1, "low": 1},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1455,7 +1457,12 @@ func testSuccessionGuardFailureModes(t *testing.T) {
 						done <- fmt.Errorf("panic: %v", r)
 					}
 				}()
-				_, err := ctx.ExecuteAction(sym)
+				results, err := ctx.ExecuteAction(sym)
+				for name, want := range tc.results {
+					if got, ok := results[name]; err == nil && (!ok || got.Const.Int != want) {
+						err = fmt.Errorf("%s = %v, want %d", name, got, want)
+					}
+				}
 				done <- err
 			}()
 			select {
@@ -2438,7 +2445,7 @@ func testNamedLibraryCallThatHasNoValue(t *testing.T) {
 		{`RealFunctions::ToReal("NaN")`, ErrInvalidNotation},
 		{`RealFunctions::ToReal(" 1.5 ")`, ErrInvalidNotation},
 		{`IntegerFunctions::ToInteger(" 7")`, ErrInvalidNotation},
-		{`RationalFunctions::ToRational("1/3")`, ErrInvalidNotation},
+		{`RationalFunctions::ToRational("1/x")`, ErrInvalidNotation},
 		{`IntegerFunctions::ToInteger("2.0")`, ErrInvalidNotation},
 		{`BooleanFunctions::ToBoolean("yes")`, ErrInvalidNotation},
 		{`IntegerFunctions::ToNatural(-1)`, semantics.ErrArithmeticDomain},
@@ -2731,17 +2738,17 @@ func testStructuredValueOutsideTheDeclaredShape(t *testing.T) {
 		"TwoAsThreeVector": "it declares dimension = 3",
 		"TwoAsIntThree":    "it declares dimension = 3",
 		"ThreeAsFixed2":    "it declares dimension = 2",
-		"RealsAsIntVec":    "it declares elements : Integer, got element 1.5 (a Real)",
-		"RealsAsIntThree":  "it declares elements : Integer, got element 1.5 (a Real)",
+		"RealsAsIntVec":    "it declares elements : Integer, got element 1.5 (a Rational)",
+		"RealsAsIntThree":  "it declares elements : Integer, got element 1.5 (a Rational)",
 		"VectorAsGrid":     "cannot write ⟨1, 2, 3, 4⟩ (vector) to a feature typed by Grid",
 		"VectorAsString":   "cannot write ⟨1, 2⟩ (vector) to a feature typed by String",
 		"WideAsGrid":       "it declares dimensions = [2, 2]",
 		"SquareAsRow4":     "it declares rank = 1",
 		"SquareAsOneDim":   "it declares dimension : Positive[0..1], got 2 dimension(s)",
-		"RealsAsIntArray":  "it declares elements : Integer, got element 1.5 (a Real)",
+		"RealsAsIntArray":  "it declares elements : Integer, got element 1.5 (a Rational)",
 		"RealsAsFour":      "it declares elements : Integer[4], got 2 element(s)",
 		"TwoAsVel3":        "it declares num : Real[3], got 2 element(s)",
-		"RealsAsIntVQ":     "it declares num : Integer, got element 1.5 (a Real)",
+		"RealsAsIntVQ":     "it declares num : Integer, got element 1.5 (a Rational)",
 		"TwoAsScalar":      "to a feature typed by ScalarQuantityValue: it is a ScalarValue, which holds one scalar",
 		"TwoAsLength":      "to a feature typed by LengthValue: it is a ScalarValue, which holds one scalar",
 	} {
@@ -2815,15 +2822,21 @@ func testBodyByReferenceThatCannotBeApplied(t *testing.T) {
 	}
 }
 
-// testRealLiteralThatUnderflows: a nonzero Real literal too small for a Real is
-// reported rather than read as zero.
+// testRealLiteralThatUnderflows: a decimal literal beyond the binary64 range is the
+// exact Rational, one beyond the size budget is reported, and a Real too small for
+// a binary64 is reported rather than read as zero.
 func testRealLiteralThatUnderflows(t *testing.T) {
+	for _, src := range []string{`1.0e-400`, `1.0e400`} {
+		got, err := evalCollectionExpr(t, src)
+		if err != nil || got.Kind != ValConst || got.Const.Kind != semantics.ValRational || got.Const.RatSign() != 1 {
+			t.Errorf("%s = (%v, %v), want the exact Rational", src, got, err)
+		}
+	}
 	for _, tt := range []struct {
 		expr string
 		want error
 	}{
-		{`1.0e-400`, semantics.ErrArithmeticOverflow},
-		{`1.0e400`, semantics.ErrArithmeticOverflow},
+		{`1.0e-400000`, semantics.ErrRationalSizeLimit},
 		{`RealFunctions::ToReal("1e-400")`, semantics.ErrArithmeticOverflow},
 	} {
 		got, err := evalCollectionExpr(t, tt.expr)
@@ -2832,8 +2845,8 @@ func testRealLiteralThatUnderflows(t *testing.T) {
 		}
 	}
 	got, err := evalCollectionExpr(t, `0.0e-400`)
-	if err != nil || got.Kind != ValConst || got.Const.Kind != semantics.ValReal || got.Const.Real != 0 {
-		t.Errorf("0.0e-400 = (%v, %v), want the Real 0", got, err)
+	if err != nil || got.Kind != ValConst || got.Const.Kind != semantics.ValRational || got.Const.RatSign() != 0 {
+		t.Errorf("0.0e-400 = (%v, %v), want the Rational 0", got, err)
 	}
 }
 
@@ -6766,20 +6779,24 @@ func testActionWhoseLastNodeHasNoSuccession(t *testing.T) {
 }
 
 // testFirstNodeWithASecondSuccession: `first s1 then s2;` is a succession out of
-// s1, so a second succession out of that node is ambiguous.
+// s1, so a second succession out of that node is a second HappensBefore link
+// from it, and both s2 and s3 are performed after s1.
 func testFirstNodeWithASecondSuccession(t *testing.T) {
 	src := `
 		package test {
+			private import ScalarValues::*;
 			action seq {
+				attribute two : Integer = 0;
+				attribute three : Integer = 0;
 				action s1;
-				action s2;
-				action s3;
+				action s2 { assign two := 2; }
+				action s3 { assign three := 3; }
 				first s1 then s2;
 				succession first s1 then s3;
 			}
 		}
 	`
-	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 
 	sym := findSymbolByName(idx.DocumentRoot("<test>"), "seq", ast.DefAction)
 	if sym == nil {
@@ -6791,12 +6808,12 @@ func testFirstNodeWithASecondSuccession(t *testing.T) {
 		t.Fatalf("create action executor: %v", err)
 	}
 
-	err = exec.RunToCompletion()
-	if err == nil {
-		t.Fatal("a first node with two successions ran to completion")
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("a first node with two successions: %v", err)
 	}
-	if !strings.Contains(err.Error(), "multiple successors") {
-		t.Fatalf("error = %q, want it to report multiple successors", err)
+	results := exec.Results()
+	if results["two"].Const.Int != 2 || results["three"].Const.Int != 3 {
+		t.Fatalf("two = %v, three = %v, want both successors performed", results["two"], results["three"])
 	}
 }
 
@@ -12094,7 +12111,7 @@ func testVariantOutsideAVariation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("widget.misplaced: %v", err)
 	}
-	if fv.Value.Kind != ValConst || fv.Value.Const.Real != 1.0 {
+	if fv.Value.Kind != ValConst || fv.Value.Const.AsReal() != 1.0 {
 		t.Errorf("widget.misplaced = %v, want 1", fv.Value)
 	}
 }
@@ -12137,7 +12154,7 @@ func testVariantUnderARedefinedVariation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sedan.engine.power: %v", err)
 	}
-	if power.Value.Kind != ValConst || power.Value.Const.Real != 150.0 {
+	if power.Value.Kind != ValConst || power.Value.Const.AsReal() != 150.0 {
 		t.Errorf("sedan.engine.power = %v, want 150", power.Value)
 	}
 }
@@ -12182,7 +12199,7 @@ func testDeepSpecializationChainOfRedefinitions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("t = %v", err)
 	}
-	if got.Kind != ValConst || got.Const.Real != 7.0 {
+	if got.Kind != ValConst || got.Const.AsReal() != 7.0 {
 		t.Errorf("t = %+v, want the base's 7.0", got)
 	}
 }
@@ -12203,7 +12220,7 @@ func testConflictingRedefinitionsAtSeveralLevels(t *testing.T) {
 	if err != nil {
 		t.Fatalf("t = %v", err)
 	}
-	if got.Kind != ValConst || got.Const.Real != 321.0 {
+	if got.Kind != ValConst || got.Const.AsReal() != 321.0 {
 		t.Errorf("t = %+v, want 321.0 (innermost c, middle b, base a)", got)
 	}
 }
@@ -12973,7 +12990,7 @@ func testWriteOfAWrongTypedValueLeavesTheFeature(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read reading after the rejected write: %v", err)
 	}
-	if got := fv.HeldValue(); got.Kind != ValConst || got.Const.Real != 0.5 {
+	if got := fv.HeldValue(); got.Kind != ValConst || got.Const.AsReal() != 0.5 {
 		t.Errorf("reading = %v, want the 0.5 it held before the rejected write", FormatValue(got))
 	}
 }
@@ -13132,7 +13149,7 @@ func testWriteOfNoValueWhereOneIsRequired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read reading after the rejected write: %v", err)
 	}
-	if got := fv.HeldValue(); got.Kind != ValConst || got.Const.Real != 0.5 {
+	if got := fv.HeldValue(); got.Kind != ValConst || got.Const.AsReal() != 0.5 {
 		t.Errorf("reading = %v, want the 0.5 it held before the rejected write", FormatValue(got))
 	}
 }

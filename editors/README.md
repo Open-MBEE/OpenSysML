@@ -6,6 +6,14 @@ directory here with its own build.
 - **[VS Code](vscode/)** — the extension that runs `sysml-lsp` as its language server and hosts
   the diagram panel; see [`docs/guide/08-editors.md`](../docs/guide/08-editors.md) for what a user sees.
 
+- **[JupyterLab](jupyterlab/)** — `jupyterlab-opensysml`, a prebuilt JupyterLab 4 / Notebook 7
+  extension that registers the `sysml` and `kerml` CodeMirror languages, so the cells of a
+  notebook on the `sysml` kernel, `.sysml`/`.kerml` files and Markdown fences are highlighted.
+  Its keyword tables are generated from the lexer by the same tool as the VS Code grammars
+  (`make vscode-grammar`), and the kernel's pip package
+  ([`client/jupyter-kernel`](../client/jupyter-kernel)) ships the build in every wheel and the
+  sdist (`make jupyterlab-build`); see [`docs/guide/12-jupyter.md`](../docs/guide/12-jupyter.md).
+
 <!-- mdk: begin -->
 - **[OpenSysML MDK](mdk/)** — a plugin for Cameo Systems Modeler 2026x Refresh1 (2024x
   Refresh3 as the minimum), positioned as the successor to OpenMBEE's Model Development Kit
@@ -33,9 +41,9 @@ directory here with its own build.
 
 ## Versions
 
-The editors carry the core version — `0.9.1` now — the same lockstep the clients
+The editors carry the core version — `0.9.2` now — the same lockstep the clients
 follow, even though nothing publishes them. `check_version.py --editors` checks
-every manifest (the two package.json files and their locks, the Cameo and SysON
+every manifest (the three package.json files and their locks, the Cameo and SysON
 poms and their children's `<parent><version>`), and a release fails early when
 one disagrees. The client references the editors build against —
 `opensysml.client.version` in the Cameo pom and the `opensysml`

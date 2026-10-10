@@ -57,11 +57,15 @@ func errorLines(lines []string, _ []NamedValue, err error) ([]string, bool, erro
 // one named as the transcript is.
 func (s *Session) LoadFile(path string) ([]string, error) {
 	defer s.enter()()
-	files, err := s.readSources(s.withDependencies([]string{expandHome(path)}))
+	read, err := s.readWithDependencies([]string{expandHome(path)}, loadOptions{})
 	if err != nil {
 		return nil, err
 	}
-	return renderResult(s.submitFiles(files), s.verbosity), nil
+	lines := read.notes
+	if len(read.files) > 0 {
+		lines = append(lines, renderResult(s.submitFiles(read.files), s.verbosity)...)
+	}
+	return append(lines, conversionWarnings(read.files, s.verbosity)...), nil
 }
 
 // LoadFileSummary submits the contents of path and returns only what it
@@ -79,18 +83,23 @@ func (s *Session) LoadFileSummary(path string) ([]string, error) {
 // root namespace load too.
 func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	defer s.enter()()
-	files, err := s.readSources(s.withDependencies(expandHomes(paths)))
+	read, err := s.readWithDependencies(expandHomes(paths), loadOptions{})
 	if err != nil {
 		return nil, err
 	}
+	files := read.files
+	lines := read.notes
+	if len(files) == 0 {
+		return lines, nil
+	}
 	res, byFile, whole := s.submitEach(files)
-	var lines []string
 	for i, f := range files {
 		// The analysis is reported once every file is in, but a file that does not
 		// parse is a finding about that file alone and is reported with it.
-		own := res.within(s.fileSpan(f.Name))
+		own := res.within(s.fileSpan(f.key()))
 		lines = append(lines, renderSyntax(own, s.verbosity)...)
 		lines = append(lines, byFile[i]...)
+		lines = append(lines, conversionWarnings([]SourceFile{f}, s.verbosity)...)
 		if i == 0 {
 			lines = append(lines, whole...)
 		}

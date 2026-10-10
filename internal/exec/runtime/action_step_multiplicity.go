@@ -92,10 +92,7 @@ func (e *ActionExecutor) passZeroStep(tokenIdx int, node ast.Node) error {
 	if err != nil {
 		return err
 	}
-	if err := ambiguousSuccession("action node "+ActionNodeName(node), successors); err != nil {
-		return err
-	}
-	return e.advance(tokenIdx, successors)
+	return e.follow(tokenIdx, successors)
 }
 
 func (e *ActionExecutor) trackRepeated(tokenID int64, perf *actionFrame) {

@@ -87,10 +87,18 @@ $ sysml -satisfy checks.sysml
   standing: violated (witnessed: 1 run under reverse)
 ```
 
-`-self-check` applies the 13 constraints in OpenSysML's `SysMLValidation` library to every
+`-self-check` applies the 50 constraints in OpenSysML's `SysMLValidation` library to every
 reflectively classified element in the workspace. A clean run reports the number of checked
 elements and applications; constraints whose reflective features are not derived are counted
 as unevaluated rather than treated as violations. See the [validation-constraint census page](../project/validation-constraints.md).
+
+`-self-check-package <QualifiedName>` adds the `constraint def`s of a package the loaded
+files declare — nested packages included — to the same walk; it implies `-self-check` and
+is repeatable. A rule is a `constraint def` whose first `in` parameter is typed by a
+`SysML::…` or `KerML::…` metaclass, and it applies to every element that metaclass conforms
+to; its verdicts carry the constraint's qualified name. See
+[Writing self-check rules](../reference/cli.md#writing-self-check-rules) and the worked
+example in `examples/self-check-rules/`.
 
 The `standing:` line under each verdict says what the verdict rests on: the claim, the strength
 of the evidence and what earned it. One run under the default schedule is *observed* evidence
@@ -187,6 +195,9 @@ sysml: bad.sysml did not analyse cleanly; no check was made
 exit=2
 ```
 
+An explicitly named API element-form `.json` file is converted before validation. Diagnostic
+positions refer to the converted SysML notation, not to positions in the JSON document.
+
 A single `-` stands for standard input wherever a file name is accepted, so you can pipe a model
 in; its diagnostics are reported against `<stdin>`. To read a file that is actually named `-`,
 write `./-`. `-convert` needs `-from` for piped input, because a stream has no file
@@ -266,13 +277,16 @@ each extension is measured against. The same setting is available as `%strict` a
 
 ## Lints
 
-Three further warnings, `undeclared-signal`, `port-type-mismatch` and
-`deferred-keeper-unmarked`, are *lints*: the model is valid SysML v2, but a `when <name>` that
-no declaration or `send` accounts for, a connection between ports whose definitions are
-unrelated, or a deferred signal's accept loop written without the `DeferredKeeper` marker that
-names it as the keeper, is almost always a slip. `-strict` leaves them warnings, since they are not about notation.
+Four further warnings, `undeclared-signal`, `port-type-mismatch`,
+`deferred-keeper-unmarked` and `rounded-real-literal`, are *lints*: the model is valid SysML v2,
+but a `when <name>` that no declaration or `send` accounts for, a connection between ports whose
+definitions are unrelated, a deferred signal's accept loop written without the `DeferredKeeper`
+marker that names it as the keeper, or a decimal literal such as `0.1` that a `Real` feature can
+only hold rounded, is almost always a slip or a surprise. `-strict` leaves them warnings, since they are not about notation.
 `-disable-lint <code>` switches one off (`%lint <code> off` at the prompt,
-`disabledLints` in an editor); [the diagnostics reference](../reference/diagnostics.md)
+`disabledLints` in an editor). `rounded-real-literal` is opt-in, since most decimals written
+to a `Real` round: `-enable-lint rounded-real-literal` switches it on (`%lint
+rounded-real-literal on`, `enabledLints`). [The diagnostics reference](../reference/diagnostics.md)
 states exactly what each reports.
 
 ## Running behavior

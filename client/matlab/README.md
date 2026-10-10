@@ -5,7 +5,7 @@ without protobuf-generated code. It supports **MATLAB R2019b+** and **GNU
 Octave 7+**.
 
 For a task-oriented walkthrough, see the
-[MATLAB client guide](https://opensysml.org/clients/matlab/).
+[MATLAB client guide](https://redk.opensysml.org/clients/matlab/).
 
 ## Requirements and installation
 
@@ -88,21 +88,25 @@ A `Model` exposes `hash`, `connection`, `diagnostics`, `documents`,
 `find` accepts a short name and can return an empty value when absent.
 `walk` traverses the model's children.
 
-`opensysml.symbol(model, id)` and model lookup return a `Symbol` with
+`opensysml.getSymbol(model, id)` returns the `GetSymbol` answer as a plain
+record; `model.symbol(id)` and model lookup wrap it in a `Symbol` with
 `id`, `name`, `kind`, `typeFacts`, `multiplicity`, `specializations`, and
 `record`. It provides `children()`, `attributes()`, `parts()`,
-`getAttr(name)`, `facts()`, and `attributeFacts()`.
+`getAttr(name)`, `facts()`, and `attributeFacts()`. The function is named
+`getSymbol` rather than `symbol` so that its file does not collide with
+`Symbol.m` on a case-insensitive file system.
 `opensysml.diagnostics(model)` returns diagnostic records as a cell array.
 
 ## Values
 
-`opensysml.decodeValue` reads all twenty-two `Value` arms;
+`opensysml.decodeValue` reads all twenty-three `Value` arms;
 `opensysml.encodeValue` writes request values.
 
 | Wire arm | MATLAB/Octave value |
 | --- | --- |
 | `intValue` | Exact `int64`; JSON decimal digits are never routed through a double. |
 | `bigIntValue` | `struct('bigInteger', char)`: an Integer beyond `int64`, kept as its decimal digits since no MATLAB number holds it, and sent back as written. A quantity's `bigIntMagnitude` and a vector component decode the same way. |
+| `rationalValue` | `struct('numerator', char, 'denominator', char)`: an exact Rational no `double` holds (such as `1/3`), kept as its lowest-terms decimal numerator and positive denominator, and sent back as written. Any such struct, one a `double` holds included, is sent as `rationalValue` to a service with `rational_values`; to one without it, a Rational a `double` holds is sent as that `realValue` and any other is refused. A Rational a `double` holds exactly arrives as `realValue`, and a `realValue` sent is always a Real. A quantity's `rationalMagnitude` and a vector component decode the same way. |
 | `realValue` | `double`, including `"NaN"`, `"Infinity"`, and `"-Infinity"`. |
 | `boolValue` / `stringValue` | `logical` / `char`. |
 | `instanceId` | `struct('instanceRef', int64)`. |

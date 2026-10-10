@@ -317,7 +317,8 @@ func (t *translator) declare(name string, sort Sort, sym *symbols.Symbol, dimens
 	if v, ok := t.vars[name]; ok {
 		return v
 	}
-	v := &Var{Name: name, Sort: sort, Symbol: sym, Dimension: dimension}
+	v := &Var{Name: name, Sort: sort, Symbol: sym, Dimension: dimension,
+		Binary64: sort.Kind == SortReal && t.model.PrimTypeOf(sym) == semantics.PrimReal}
 	if sym != nil {
 		v.File = sym.DocName
 		v.Span = sym.DeclSpan

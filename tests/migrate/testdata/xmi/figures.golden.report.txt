@@ -1,13 +1,12 @@
 # SysML v1 to v2 migration report: figures.xmi
 # exported by Example UML Tool
-# migrated 90 element(s): 72 mapped, 16 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 90 element(s): 73 mapped, 15 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (2)
 «CollectThingsOnDiagram» CallBehaviorAction	Plant Viewpoints::Shown Viewpoint::Shown Method::Collect Things On Diagram	_st_shown_collect	(it collects what the SysML Block Definition Diagram 'Partial' shows beyond the 1 element the tool lists, whose symbols cannot be read and what the SysML Block Definition Diagram 'Unlisted' shows, which the archive does not record)
 «TableStructure» StructuredActivityNode	Plant Viewpoints::Shown Viewpoint::Shown Method::Shown Blocks	_st_shown_table	(the elements it shows pass through «CollectThingsOnDiagram» Plant Viewpoints::Shown Viewpoint::Shown Method::Collect Things On Diagram is not migrated: it collects what the SysML Block Definition Diagram 'Partial' shows beyond the 1 element the tool lists, whose symbols cannot be read and what the SysML Block Definition Diagram 'Unlisted' shows, which the archive does not record)
 
-## approximated (16)
-«Document» Class	Plant Documents::Plant Handbook	_doc_plant	-> 'Plant Documents'::'Plant Handbook'	(a plain UML class without «Block» is written as a part def)
+## approximated (15)
 Activity	Plant Viewpoints::Figures Viewpoint::Figures Method	_act_figures	-> 'Plant Viewpoints'::'Figures Viewpoint'::'Figures Method'	(the classifier behavior is run by every object of Plant Viewpoints::Figures Viewpoint as its usage figures Method)
 «Image» CallBehaviorAction	Plant Viewpoints::Figures Viewpoint::Figures Method::Image	_figures_image	-> Image	(a step with no behavior and no duration; it passes the token on)
 Activity	Plant Viewpoints::Pictures Viewpoint::Pictures Method	_act_pictures	-> 'Plant Viewpoints'::'Pictures Viewpoint'::'Pictures Method'	(the classifier behavior is run by every object of Plant Viewpoints::Pictures Viewpoint as its usage pictures Method)
@@ -24,7 +23,7 @@ Diagram	Plant::Poster	_diag_poster	-> Plant::Poster	(a SysML Block Definition Di
 Diagram	Plant::Silent	_diag_silent	-> Plant::Silent	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram shows nothing; the view exposes nothing)
 Diagram	Plant::Unlisted	_diag_unlisted	-> Plant::Unlisted	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram shows nothing; the view exposes nothing)
 
-## mapped (72)
+## mapped (73)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Plant	_pkg_plant	-> Plant
 Package	Plant Documents	_pkg_docs	-> 'Plant Documents'
@@ -42,6 +41,7 @@ Package	Plant Documents	_pkg_docs	-> 'Plant Documents'
 «Conform» Generalization	Plant Documents::Behaviors::<Generalization>	_gen_behaviors	-> 'Plant Documents'::Behaviors
 «View» Class	Plant Documents::Pictures	_view_pictures	-> 'Plant Documents'::Pictures
 «Conform» Generalization	Plant Documents::Pictures::<Generalization>	_gen_pictures	-> 'Plant Documents'::Pictures
+«Document» Class	Plant Documents::Plant Handbook	_doc_plant	-> 'Plant Documents'::'Plant Handbook'
 «Document» Class	Plant Documents::Plant Handbook	_st_doc_plant	-> part def 'Plant Documents'::'Plant Handbook Document'	(the «Document» is written as a Document definition of 3 section(s))
 Property	Plant Documents::Plant Handbook::behaviors	_doc_behaviors	-> 'Plant Documents'::'Plant Handbook'::behaviors
 Property	Plant Documents::Plant Handbook::pictures	_doc_pictures	-> 'Plant Documents'::'Plant Handbook'::pictures

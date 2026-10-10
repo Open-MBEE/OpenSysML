@@ -346,7 +346,9 @@ and their bodies may hold whatever an action body holds: a flow of nodes joined 
 (`first start; then …`; every node no succession leads to starts with the behavior, unordered),
 forks, joins and decisions, timed and signal accepts, sends, nested action nodes with flows of
 their own, and typed usages with pin bindings (`do action poll : Poll { inout n = ticks; }`). A
-body stating no flow still runs its statements in declaration order. A braced block without the
+body stating no flow leaves the statements no `then` relates unordered: `declared` takes them in
+declaration order, and `explore` and `-engine check` reach every order
+([below](#seeing-the-whole-outcome-set-explore)). A braced block without the
 keyword — `entry { … }`, `do { … }`, `exit { … }`, and a transition's `do { … }` — is one
 anonymous action with that body, the same as `entry action { … }`: an attribute declared inside
 the block is local to it and shadows the state's, and a `terminate;` in it ends the whole block
@@ -532,6 +534,53 @@ behavior abandoned. A `terminate` written *inside* a state's `entry`, `do` or `e
 something else — it ends that behavior only, the whole braced block where the body is one
 (`do { assign d := 1; terminate; assign d := 9; }` leaves `d` at 1)
 ([below](#terminate-ending-an-action-early)).
+
+**Reading whether a state is active: `isActive`.** SysML v2 gives a state usage no Boolean
+saying whether it is active — `fill.done` and `fill.start` resolve, but they are occurrences, the
+state's end and start. OpenSysML supplies one as an extension library, `StateActivity` under
+`internal/workspace/libs/stdlib/OpenSysML Libraries/`, which declares `isActive : Boolean[1]` as
+a derived feature `featured by States::StateAction`. A model that writes `private import
+StateActivity::*;` then reads `x.isActive` for any state usage `x` it can name, by name or
+feature chain, from a guard, a constraint, an `assert constraint`, a calc, an assignment, or
+another state's entry, do or exit behavior:
+
+```sysml
+package Tank {
+	private import ScalarValues::*;
+	private import StateActivity::*;
+
+	state def Step {
+		attribute level : Real = 0.0;
+		attribute maxLevel : Real = 1.0;
+		state fill;
+		state drain {
+			entry assign level := if fill.isActive ? 0.0 else level;
+		}
+		transition first fill accept when level > maxLevel then drain;
+		assert constraint c { fill.isActive == true }
+	}
+}
+```
+
+`x.isActive` is `true` exactly while `x` is in the active configuration of the machine running
+it: a composite state while any of its substates is, a state in a parallel region together with
+the states of the other regions, and the state itself during its own entry and exit actions. It
+is `false` while a transition's effect runs — the source has exited and the target has not yet
+been entered, so the effect of a self-transition reads `false` and the state's entry, running once
+more, reads `true` again — before the machine starts and after it ends or is terminated. The
+value is the executor's own active configuration, so a run, `explore`, a `check`, a replayed
+witness and a snapshot all read the same thing. A read written through a part,
+`b.modes.ready.isActive`, is answered by the machine that part exhibits, so two parts running
+the same state usage are told apart; the machine usage itself, `modes.isActive`, is `true`
+while the machine holds an active configuration, awaiting events included. It is read-only: `assign fill.isActive := true;`
+is refused as a write to any derived feature is, and a calc reading it is reported as not
+compilable by the code generator, which has no machine to ask.
+
+The feature is **not standard**: neither `States.sysml` nor `StatePerformances.kerml` declares
+it, and the pinned pilot implementation leaves `fill.isActive` unresolved. Without the import
+OpenSysML does the same — `unresolved member: isActive`, exactly as before — and with it the
+import is reported as `nonstandard-notation`, a warning by default and an error under `-strict`,
+so a conforming model is untouched and a model that opts in says so in one line.
 
 **Action debugging commands:**
 - `%action <name> [<object>]` — Start an action debugging session, optionally performed by an instantiated object
@@ -768,7 +817,19 @@ tried. Under `explore` an action step is one token advancing one node — not, a
 policies, every steppable token moving once — so the picks fall in consecutive steps and a branch
 of several nodes can run ahead of, or be overtaken by, a concurrent one at each of them. A
 `complete` exploration therefore covers every interleaving of the nodes the library leaves
-unordered, at body granularity: the statements of one body run without interruption. A run that
+unordered. Where another performance's moves can change what a leaf body computes, the body
+yields after its initial values are read and after each statement, so a concurrent branch may
+run between a body's snapshot `attribute t : Integer := c` and its `assign c := t + 1`; the
+statements of a nested body run first to last, and an action definition's own statements in
+the token order each policy gives them (`reverse` last to first). A calc or constraint body is
+performed whole inside the step that evaluates it: no other performance runs between its
+statements, but the statements no `then` relates are unordered among themselves, so `explore`
+and `-engine check` reach every order of them (a calc whose `y := y * 10` and `y := y + 2` are
+unordered returns `12` or `30`), and its result expression or condition is evaluated after
+them; `declared` and `reverse` run calc and constraint bodies in declaration order. A case body
+stating no succession likewise leaves its steps unordered under `explore`, `-engine check`,
+replay and seeded schedules, while `declared` and `reverse` perform them in declaration order.
+A run that
 fails under some order is an outcome of its own (`error: …`), not the end of the exploration; a
 behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the

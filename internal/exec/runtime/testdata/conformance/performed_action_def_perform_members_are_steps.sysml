@@ -17,10 +17,8 @@ package test {
 			action def Sample {
 				in ref context : Station[1];
 				perform action read ::> context.sensor.sample;
-				action sum {
-					assign context.last := context.sensor.reading;
-					assign context.total := context.total + context.last;
-				}
+				action sum assign context.last := context.sensor.reading;
+				then assign context.total := context.total + context.last;
 				first start then read;
 				first read then sum;
 			}

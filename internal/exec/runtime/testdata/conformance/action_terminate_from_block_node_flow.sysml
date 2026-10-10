@@ -12,24 +12,22 @@ package test {
 		out attribute skipped : Integer = 0;
 		out attribute after : Integer = 0;
 
-		action node {
-			assign before := 1;
-			if before == 1 {
-				action forked {
-					fork split;
-					action waiter accept sig : Integer;
-					action quit { assign inner := 2; terminate node; }
-					first start;
-					succession first start then split;
-					succession first split then waiter;
-					succession first split then quit;
-					succession first waiter then done;
-					succession first quit then done;
-				}
-				action later { assign skipped := 3; }
+		action node assign before := 1;
+		then if before == 1 {
+			action forked {
+				fork split;
+				action waiter accept sig : Integer;
+				action quit { assign inner := 2; then terminate node; }
+				first start;
+				succession first start then split;
+				succession first split then waiter;
+				succession first split then quit;
+				succession first waiter then done;
+				succession first quit then done;
 			}
-			assign skipped := 4;
+			action later { assign skipped := 3; }
 		}
+		then assign skipped := 4;
 		action tail { assign after := 5; }
 		succession first start then node;
 		succession first node then tail;

@@ -40,6 +40,22 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_RATIONAL_VALUES
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_CONVERT_DOCUMENTS
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_CONVERT_COMPACT
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_PARSE_SOURCES_AFFECTED
+    options:
+      heading_level: 3
+
 ::: opensysml.load
     options:
       heading_level: 3
@@ -152,10 +168,23 @@ Connections own or reach a service, and resolve their address and release.
 ## opensysml.model
 
 A parsed model is the entry point for symbol lookup, evaluation and execution.
+`Model.render_view(view_name, ports="minimal")` returns a typed `RenderedView`;
+pass `ports="full"` to include every declared port.
+`Model.export_graphs(subject)` returns a typed `Graphs`: the canonical `graphs:1`
+JSON of an action or state machine's lowered graph, its version and the subject
+as resolved.
 
 ::: opensysml.Model
     options:
       heading_level: 3
+
+`Model.execute_state(..., trace=True)` returns typed `DocumentEvent` records in
+the result's `trace` list and the discarded-record count in `trace_dropped`.
+The option is capability-gated by `state_trace` and cannot be combined with an
+explore schedule; the same option and result fields are available on
+`Connection.execute_state`.
+A failed traced run raises the existing `ExecutionError`, with its partial
+records on `trace` and discarded count on `trace_dropped`.
 
 ## opensysml.symbol
 
@@ -489,6 +518,10 @@ The public exception hierarchy for client, service, model and edit failures.
     options:
       heading_level: 3
 
+::: opensysml.ViewNotFoundError
+    options:
+      heading_level: 3
+
 ::: opensysml.TypeMismatchError
     options:
       heading_level: 3
@@ -611,7 +644,7 @@ Named file and inline source documents parsed together into one model.
 
 ## opensysml.document
 
-Typed query rows, document values and render results.
+Typed query rows, document values, and document and view render results.
 
 ::: opensysml.DocumentEvent
     options:
@@ -622,6 +655,54 @@ Typed query rows, document values and render results.
       heading_level: 3
 
 ::: opensysml.DocumentQueryResult
+    options:
+      heading_level: 3
+
+::: opensysml.RenderCanvas
+    options:
+      heading_level: 3
+
+::: opensysml.RenderEdge
+    options:
+      heading_level: 3
+
+::: opensysml.RenderGeometry
+    options:
+      heading_level: 3
+
+::: opensysml.RenderNode
+    options:
+      heading_level: 3
+
+::: opensysml.RenderNote
+    options:
+      heading_level: 3
+
+::: opensysml.RenderPoint
+    options:
+      heading_level: 3
+
+::: opensysml.RenderPort
+    options:
+      heading_level: 3
+
+::: opensysml.RenderRow
+    options:
+      heading_level: 3
+
+::: opensysml.RenderSpan
+    options:
+      heading_level: 3
+
+::: opensysml.RenderStyle
+    options:
+      heading_level: 3
+
+::: opensysml.RenderedView
+    options:
+      heading_level: 3
+
+::: opensysml.Graphs
     options:
       heading_level: 3
 

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 )
 
 // Client answers SysML v2 questions: parse, look up, evaluate, instantiate.
@@ -75,6 +76,7 @@ type Client interface {
 
 	// ExecuteState runs the named state machine, feeding it the events in
 	// order, and reports the states visited and the context left behind.
+	// A FailureError from a traced run carries its partial trace and dropped count.
 	// WithSchedule selects the scheduling policy, which requires the schedule
 	// capability, checked before anything is sent.
 	ExecuteState(ctx context.Context, model *Model, stateMachineSymbolID string, events []string, opts ...ExecuteOption) (*StateRun, error)
@@ -162,6 +164,16 @@ type Client interface {
 	// RenderDocument renders the named document to Markdown. Requires the
 	// render_document capability.
 	RenderDocument(ctx context.Context, model *Model, documentID string) (string, error)
+
+	// RenderView renders a declared view or targeted pseudo-view as diagram
+	// data. Ports are minimal by default; WithFullPorts requests all ports.
+	// Requires the render_view capability.
+	RenderView(ctx context.Context, model *Model, viewName string, opts ...RenderViewOption) (*RenderedView, error)
+
+	// ExportGraphs exports the lowered graph of an action or state machine,
+	// and of every behavior it performs, as the canonical graphs:1 JSON an
+	// external analysis engine is sent. Requires the export_graphs capability.
+	ExportGraphs(ctx context.Context, model *Model, subject string) (*Graphs, error)
 
 	// Convert writes the model in another representation, from the source the
 	// parse read, so WithFromFormat does not apply and is refused. Requires the
@@ -309,6 +321,8 @@ type caller interface {
 	query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error)
 	runDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error)
 	renderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error)
+	renderView(ctx context.Context, req *pb.RenderViewRequest) (*pb.RenderViewResponse, error)
+	exportGraphs(ctx context.Context, req *pb.ExportGraphsRequest) (*pb.ExportGraphsResponse, error)
 	convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error)
 	migrate(ctx context.Context, req *pb.MigrateRequest) (*pb.MigrateResponse, error)
 	applyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*pb.ApplyEditsResponse, error)
@@ -728,6 +742,29 @@ func isBigInt(n Number) bool {
 }
 
 func quantityIsBigInt(q Quantity) bool { return isBigInt(q.Magnitude) }
+
+// fitRationals sends each exact Rational as rational_value to a service reading
+// rational_values; to one without, a Rational a double holds crosses as that Real,
+// and any other is refused rather than read as null.
+func (c *client) fitRationals(ctx context.Context, values ...*pb.Value) error {
+	if !slices.ContainsFunc(values, protoconv.ValueCarriesRational) {
+		return nil
+	}
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	if info.Has(CapabilityRationalValues) {
+		return nil
+	}
+	for _, value := range values {
+		protoconv.RationalsAsReals(value)
+	}
+	if slices.ContainsFunc(values, protoconv.ValueCarriesRational) {
+		return c.requireCapabilities(ctx, CapabilityRationalValues)
+	}
+	return nil
+}
 
 // nestedValues are the values a value holds: a sequence's or a set's elements,
 // an array's.

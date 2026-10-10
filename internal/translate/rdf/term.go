@@ -11,6 +11,7 @@ package rdf
 
 import (
 	"fmt"
+	"hash/maphash"
 	"strings"
 )
 
@@ -105,28 +106,138 @@ type Graph struct {
 	// index groups statements by subject. It is built on the first lookup and
 	// kept current as triples are added.
 	index map[Term]*subjectIndex
+	// subjectOrder caches distinct subjects in insertion order once requested.
+	subjectOrder  []Term
+	subjectSet    map[string]struct{}
+	subjectsReady bool
+
+	// settled vouches that every collection the graph annotates is stated by
+	// its typed triples, in the annotation's order: what ReconcileCollections
+	// would check. The encoder's own graph is settled when it is written; a
+	// triple added afterwards withdraws the claim (see MarkCollectionsSettled).
+	settled bool
+}
+
+// GraphBuilder collects triples without building the graph's lookup indexes.
+type GraphBuilder struct {
+	triples  []Triple
+	prefixes map[string]string
 }
 
 // subjectIndex holds one subject's statements, keeping predicates in insertion
 // order so serialization stays stable.
 type subjectIndex struct {
 	predicates []string
-	objects    map[string][]Term
+	objects    map[string][]int
 }
 
 // NewGraph returns an empty graph carrying the SysML prefix bindings.
 func NewGraph() *Graph {
-	g := &Graph{seen: make(map[Triple]bool), Prefixes: make(map[string]string)}
+	return NewGraphWithCapacity(0)
+}
+
+// NewGraphWithCapacity returns an empty graph with space for capacity triples.
+func NewGraphWithCapacity(capacity int) *Graph {
+	g := &Graph{
+		triples:  make([]Triple, 0, capacity),
+		seen:     make(map[Triple]bool, capacity),
+		Prefixes: make(map[string]string),
+	}
 	for prefix, ns := range DefaultPrefixes {
 		g.Prefixes[prefix] = ns
 	}
 	return g
 }
 
+// NewGraphBuilder returns a bulk graph builder with space for capacity triples.
+func NewGraphBuilder(capacity int) *GraphBuilder {
+	prefixes := make(map[string]string, len(DefaultPrefixes))
+	for prefix, ns := range DefaultPrefixes {
+		prefixes[prefix] = ns
+	}
+	return &GraphBuilder{triples: make([]Triple, 0, capacity), prefixes: prefixes}
+}
+
+// SetPrefix sets a namespace binding on the graph being built.
+func (b *GraphBuilder) SetPrefix(prefix, namespace string) {
+	b.prefixes[prefix] = namespace
+}
+
+// Add appends a triple to the builder.
+func (b *GraphBuilder) Add(subject, predicate, object Term) {
+	b.AddTriple(Triple{Subject: subject, Predicate: predicate, Object: object})
+}
+
+// AddTriple appends a triple to the builder.
+func (b *GraphBuilder) AddTriple(triple Triple) {
+	b.triples = append(b.triples, triple)
+}
+
+// Build returns a graph with duplicate triples removed in insertion order.
+func (b *GraphBuilder) Build() *Graph {
+	seed := maphash.MakeSeed()
+	seen := make(map[uint64]int, len(b.triples))
+	var collisions map[uint64][]int
+	triples := b.triples[:0]
+	for _, triple := range b.triples {
+		hash := tripleHash(triple, seed)
+		if first, exists := seen[hash]; exists {
+			duplicate := triples[first] == triple
+			if !duplicate {
+				for _, index := range collisions[hash] {
+					if triples[index] == triple {
+						duplicate = true
+						break
+					}
+				}
+			}
+			if duplicate {
+				continue
+			}
+			if collisions == nil {
+				collisions = make(map[uint64][]int)
+			}
+			collisions[hash] = append(collisions[hash], len(triples))
+		} else {
+			seen[hash] = len(triples)
+		}
+		triples = append(triples, triple)
+	}
+	b.triples = nil
+	return NewGraphOf(triples, b.prefixes)
+}
+
+func tripleHash(triple Triple, seed maphash.Seed) uint64 {
+	var hash maphash.Hash
+	hash.SetSeed(seed)
+	write := func(term Term) {
+		_ = hash.WriteByte(byte(term.Kind))
+		_, _ = hash.WriteString(term.Value)
+		_ = hash.WriteByte(0)
+		_, _ = hash.WriteString(term.Datatype)
+		_ = hash.WriteByte(0)
+		_, _ = hash.WriteString(term.Lang)
+		_ = hash.WriteByte(0xff)
+	}
+	write(triple.Subject)
+	write(triple.Predicate)
+	write(triple.Object)
+	return hash.Sum64()
+}
+
 // NewGraphOf returns a graph holding triples, in order, with prefixes. The
 // triples must be distinct: the set that drops duplicates is built only when a
 // triple is added or looked up, so a graph assembled from a known-distinct list
 // and then only read never builds it.
+// MarkCollectionsSettled records that every annotated collection of the graph is
+// stated by its typed triples in the annotation's order, so ReconcileCollections
+// has nothing to check or rewrite. Only a writer that produced the annotations
+// from the triples may say so; adding a triple afterwards withdraws it.
+func (g *Graph) MarkCollectionsSettled() { g.settled = true }
+
+// CollectionsSettled reports whether MarkCollectionsSettled holds for the graph.
+func (g *Graph) CollectionsSettled() bool { return g.settled }
+
 func NewGraphOf(triples []Triple, prefixes map[string]string) *Graph {
 	g := &Graph{triples: triples, Prefixes: make(map[string]string, len(prefixes))}
 	for prefix, ns := range prefixes {
@@ -153,27 +264,49 @@ func (g *Graph) Add(subject, predicate, object Term) {
 
 // AddTriple appends t unless the graph already contains it.
 func (g *Graph) AddTriple(t Triple) {
-	seen := g.set()
-	if seen[t] {
-		return
+	g.settled = false
+	if g.seen != nil {
+		if g.seen[t] {
+			return
+		}
+		g.seen[t] = true
+	} else if g.index != nil {
+		if si := g.index[t.Subject]; si != nil {
+			for _, index := range si.objects[t.Predicate.Value] {
+				if g.triples[index].Object == t.Object {
+					return
+				}
+			}
+		}
+	} else {
+		seen := g.set()
+		if seen[t] {
+			return
+		}
+		seen[t] = true
 	}
-	seen[t] = true
 	g.triples = append(g.triples, t)
+	if g.subjectsReady {
+		if _, exists := g.subjectSet[t.Subject.Value]; !exists {
+			g.subjectSet[t.Subject.Value] = struct{}{}
+			g.subjectOrder = append(g.subjectOrder, t.Subject)
+		}
+	}
 	if g.index != nil {
-		g.index[t.Subject] = indexTriple(g.index[t.Subject], t)
+		g.index[t.Subject] = indexTriple(g.index[t.Subject], t, len(g.triples)-1)
 	}
 }
 
 // indexTriple records t under its subject's index entry, creating the entry
 // when si is nil.
-func indexTriple(si *subjectIndex, t Triple) *subjectIndex {
+func indexTriple(si *subjectIndex, t Triple, index int) *subjectIndex {
 	if si == nil {
-		si = &subjectIndex{objects: make(map[string][]Term)}
+		si = &subjectIndex{objects: make(map[string][]int)}
 	}
-	if _, seen := si.objects[t.Predicate.Value]; !seen {
+	if len(si.objects[t.Predicate.Value]) == 0 {
 		si.predicates = append(si.predicates, t.Predicate.Value)
 	}
-	si.objects[t.Predicate.Value] = append(si.objects[t.Predicate.Value], t.Object)
+	si.objects[t.Predicate.Value] = append(si.objects[t.Predicate.Value], index)
 	return si
 }
 
@@ -185,8 +318,8 @@ func (g *Graph) subjects() map[Term]*subjectIndex {
 		return g.index
 	}
 	g.index = make(map[Term]*subjectIndex)
-	for _, t := range g.triples {
-		g.index[t.Subject] = indexTriple(g.index[t.Subject], t)
+	for i, t := range g.triples {
+		g.index[t.Subject] = indexTriple(g.index[t.Subject], t, i)
 	}
 	return g.index
 }
@@ -196,22 +329,161 @@ func (g *Graph) subjects() map[Term]*subjectIndex {
 func (g *Graph) Triples() []Triple { return g.triples }
 
 // Has reports whether the graph contains t.
-func (g *Graph) Has(t Triple) bool { return g.set()[t] }
+func (g *Graph) Has(t Triple) bool {
+	if g.seen != nil {
+		return g.seen[t]
+	}
+	if g.index != nil {
+		si := g.index[t.Subject]
+		if si == nil {
+			return false
+		}
+		for _, index := range si.objects[t.Predicate.Value] {
+			if g.triples[index].Object == t.Object {
+				return true
+			}
+		}
+		return false
+	}
+	si := g.subjects()[t.Subject]
+	if si == nil {
+		return false
+	}
+	for _, index := range si.objects[t.Predicate.Value] {
+		if g.triples[index].Object == t.Object {
+			return true
+		}
+	}
+	return false
+}
+
+// Compact releases duplicate detection and excess triple storage.
+func (g *Graph) Compact() {
+	g.seen = nil
+	if cap(g.triples)-len(g.triples) > len(g.triples)/2 {
+		g.triples = append([]Triple(nil), g.triples...)
+	}
+}
+
+// RewriteTriples rewrites the graph in order, removing triples the callback
+// declines. Graph lookups during the rewrite see the original statements.
+func (g *Graph) RewriteTriples(rewrite func(*Triple) bool) {
+	// A rewrite may change or drop a collection's triples, so the graph no
+	// longer vouches for them (see MarkCollectionsSettled).
+	g.settled = false
+	if g.index == nil {
+		g.subjects()
+	}
+	triples := g.triples
+	keep := make([]bool, len(triples))
+	type update struct {
+		index  int
+		triple Triple
+	}
+	var updates []update
+	removed := false
+	changed := false
+	for i := range triples {
+		triple := triples[i]
+		if !rewrite(&triple) {
+			removed = true
+			continue
+		}
+		keep[i] = true
+		if triple != triples[i] {
+			changed = true
+			updates = append(updates, update{index: i, triple: triple})
+		}
+	}
+	if !removed && !changed {
+		return
+	}
+	retained := triples[:0]
+	nextUpdate := 0
+	for i, triple := range triples {
+		if !keep[i] {
+			continue
+		}
+		if nextUpdate < len(updates) && updates[nextUpdate].index == i {
+			triple = updates[nextUpdate].triple
+			nextUpdate++
+		}
+		retained = append(retained, triple)
+	}
+	seen := g.seen
+	if seen != nil {
+		clear(seen)
+	}
+	unique := retained
+	if seen != nil || changed {
+		if seen == nil {
+			seen = make(map[Triple]bool, len(retained))
+		}
+		unique = retained[:0]
+		for _, triple := range retained {
+			if seen[triple] {
+				continue
+			}
+			seen[triple] = true
+			unique = append(unique, triple)
+		}
+	}
+	g.triples = unique
+	g.seen = nil
+	for _, index := range g.index {
+		for predicate, objects := range index.objects {
+			index.objects[predicate] = objects[:0]
+		}
+		index.predicates = index.predicates[:0]
+	}
+	for i, triple := range unique {
+		g.index[triple.Subject] = indexTriple(g.index[triple.Subject], triple, i)
+	}
+	for subject, index := range g.index {
+		for predicate, objects := range index.objects {
+			if len(objects) == 0 {
+				delete(index.objects, predicate)
+			}
+		}
+		if len(index.predicates) == 0 {
+			delete(g.index, subject)
+		}
+	}
+	g.subjectOrder = g.subjectOrder[:0]
+	if g.subjectSet == nil {
+		g.subjectSet = make(map[string]struct{}, len(unique))
+	} else {
+		clear(g.subjectSet)
+	}
+	for _, triple := range unique {
+		if _, exists := g.subjectSet[triple.Subject.Value]; exists {
+			continue
+		}
+		g.subjectSet[triple.Subject.Value] = struct{}{}
+		g.subjectOrder = append(g.subjectOrder, triple.Subject)
+	}
+	g.subjectsReady = true
+}
 
 // Len returns the number of triples.
 func (g *Graph) Len() int { return len(g.triples) }
 
 // Subjects returns every distinct subject IRI in insertion order.
 func (g *Graph) Subjects() []Term {
-	var out []Term
-	seen := make(map[string]bool)
-	for _, t := range g.triples {
-		if seen[t.Subject.Value] {
-			continue
+	if !g.subjectsReady {
+		g.subjectOrder = make([]Term, 0)
+		g.subjectSet = make(map[string]struct{})
+		for _, t := range g.triples {
+			if _, exists := g.subjectSet[t.Subject.Value]; exists {
+				continue
+			}
+			g.subjectSet[t.Subject.Value] = struct{}{}
+			g.subjectOrder = append(g.subjectOrder, t.Subject)
 		}
-		seen[t.Subject.Value] = true
-		out = append(out, t.Subject)
+		g.subjectsReady = true
 	}
+	out := make([]Term, len(g.subjectOrder))
+	copy(out, g.subjectOrder)
 	return out
 }
 
@@ -239,7 +511,9 @@ func (g *Graph) Objects(subject Term, predicate string) []Term {
 	}
 	// Copied so a caller appending to the result cannot reach into the index.
 	out := make([]Term, len(found))
-	copy(out, found)
+	for i, index := range found {
+		out[i] = g.triples[index].Object
+	}
 	return out
 }
 
@@ -251,7 +525,7 @@ func (g *Graph) Object(subject Term, predicate string) (Term, bool) {
 		return Term{}, false
 	}
 	if found := si.objects[predicate]; len(found) > 0 {
-		return found[0], true
+		return g.triples[found[0]].Object, true
 	}
 	return Term{}, false
 }

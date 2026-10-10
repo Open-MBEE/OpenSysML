@@ -115,8 +115,7 @@ func TestLandingStackModel(t *testing.T) {
 		}
 	}
 	wantLabels := map[string]string{
-		"opensysml": "OpenSysML",
-		"toolkit":   "sysml-toolkit",
+		"opensysml": "OpenSysML Runtime Environment and Development Kit",
 		"pilot":     "SysML v2 Pilot Implementation",
 		"flexo":     "Flexo MMS",
 	}
@@ -129,7 +128,7 @@ func TestLandingStackModel(t *testing.T) {
 		wires = append(wires, portOwner[ref(in, "client")]+","+portOwner[ref(in, "store")])
 	}
 	sort.Strings(wires)
-	if want := []string{"opensysml,flexo", "pilot,flexo", "toolkit,flexo"}; !reflect.DeepEqual(wires, want) {
+	if want := []string{"opensysml,flexo", "pilot,flexo"}; !reflect.DeepEqual(wires, want) {
 		t.Errorf("wires: got %v, want %v", wires, want)
 	}
 
@@ -165,9 +164,9 @@ func TestLandingStackModel(t *testing.T) {
 	if diagramRoot.ID == "" || diagramRoot.Parent != "" {
 		t.Fatalf("stack diagram root = %+v, want a root node", diagramRoot)
 	}
-	wantParts := []string{"opensysml", "toolkit", "pilot", "flexo"}
+	wantParts := []string{"opensysml", "pilot", "flexo"}
 	if len(partsByName) != len(wantParts) {
-		t.Errorf("Project nodes = %+v, want four children of stack", partsByName)
+		t.Errorf("Project nodes = %+v, want three children of stack", partsByName)
 	}
 	portIDs := map[string]string{}
 	for _, name := range wantParts {
@@ -191,11 +190,10 @@ func TestLandingStackModel(t *testing.T) {
 	}
 	wantEdges := map[string]string{
 		"opensysml_flexo": "opensysml",
-		"toolkit_flexo":   "toolkit",
 		"pilot_flexo":     "pilot",
 	}
 	if len(diagram.Edges) != len(wantEdges) {
-		t.Errorf("landing diagram edges = %+v, want three connector edges", diagram.Edges)
+		t.Errorf("landing diagram edges = %+v, want two connector edges", diagram.Edges)
 	}
 	for label, client := range wantEdges {
 		edge, ok := edgesByLabel[label]
@@ -225,8 +223,9 @@ func TestLandingStackModel(t *testing.T) {
 	t.Logf("RenderView landing edges: %+v; API port ids: %+v", diagram.Edges, portIDs)
 
 	var journey struct {
-		StatesVisited []string `json:"statesVisited"`
-		Error         string   `json:"error"`
+		StatesVisited []string             `json:"statesVisited"`
+		Trace         []engine.JTraceEvent `json:"trace"`
+		Error         string               `json:"error"`
 	}
 	call("ExecuteState", map[string]any{
 		"modelHash":            parsed.ModelHash,
@@ -236,8 +235,118 @@ func TestLandingStackModel(t *testing.T) {
 	if journey.Error != "" {
 		t.Fatalf("ExecuteState: %s", journey.Error)
 	}
-	if want := []string{"opensysml", "flexo", "toolkit", "flexo", "pilot"}; !reflect.DeepEqual(journey.StatesVisited, want) {
+	if len(journey.Trace) != 0 {
+		t.Fatalf("unrequested trace has %d records", len(journey.Trace))
+	}
+	if want := []string{"start", "opensysml", "flexo", "pilot", "flexo", "pilot"}; !reflect.DeepEqual(journey.StatesVisited, want) {
 		t.Errorf("journey: got %v, want %v", journey.StatesVisited, want)
+	}
+
+	var tracedJourney struct {
+		Trace []engine.JTraceEvent `json:"trace"`
+		Error string               `json:"error"`
+	}
+	call("ExecuteState", map[string]any{
+		"modelHash":            parsed.ModelHash,
+		"stateMachineSymbolId": "OpenSysMLStack::ModelJourney",
+		"events":               []string{"Commit", "Pull", "Push", "Check"},
+		"trace":                true,
+	}, &tracedJourney)
+	if tracedJourney.Error != "" {
+		t.Fatalf("traced ExecuteState: %s", tracedJourney.Error)
+	}
+	wantTrace := []engine.JTraceEvent{
+		{Kind: "entry", State: "start"},
+		{Kind: "choice", Alternatives: []string{"1->opensysml", "2->flexo"}, Taken: "1->opensysml"},
+		{Kind: "exit", State: "start"},
+		{Kind: "entry", State: "opensysml"},
+		{Kind: "transition", From: "start", To: "opensysml"},
+		{Kind: "accept", Event: "Commit"},
+		{Kind: "exit", State: "opensysml"},
+		{Kind: "entry", State: "flexo"},
+		{Kind: "transition", From: "opensysml", To: "flexo", Event: "accept Commit"},
+		{Kind: "accept", Event: "Pull"},
+		{Kind: "choice", Alternatives: []string{"1->pilot", "2->opensysml"}, Taken: "1->pilot"},
+		{Kind: "exit", State: "flexo"},
+		{Kind: "entry", State: "pilot"},
+		{Kind: "transition", From: "flexo", To: "pilot", Event: "accept Pull"},
+		{Kind: "accept", Event: "Push"},
+		{Kind: "exit", State: "pilot"},
+		{Kind: "entry", State: "flexo"},
+		{Kind: "transition", From: "pilot", To: "flexo", Event: "accept Push"},
+		{Kind: "accept", Event: "Check"},
+		{Kind: "exit", State: "flexo"},
+		{Kind: "entry", State: "pilot"},
+		{Kind: "transition", From: "flexo", To: "pilot", Event: "accept Check"},
+	}
+	if len(tracedJourney.Trace) != len(wantTrace) {
+		t.Fatalf("traced journey has %d records, want %d: %+v", len(tracedJourney.Trace), len(wantTrace), tracedJourney.Trace)
+	}
+	for i, want := range wantTrace {
+		got := tracedJourney.Trace[i]
+		if got.Kind != want.Kind || got.State != want.State || got.From != want.From ||
+			got.To != want.To || got.Event != want.Event ||
+			!reflect.DeepEqual(got.Alternatives, want.Alternatives) || got.Taken != want.Taken {
+			t.Errorf("trace[%d] = %+v, want kind=%q state=%q from=%q to=%q event=%q alternatives=%v taken=%q",
+				i, got, want.Kind, want.State, want.From, want.To, want.Event, want.Alternatives, want.Taken)
+		}
+	}
+
+	var seedFifteen struct {
+		StatesVisited []string             `json:"statesVisited"`
+		Trace         []engine.JTraceEvent `json:"trace"`
+		Error         string               `json:"error"`
+	}
+	call("ExecuteState", map[string]any{
+		"modelHash":            parsed.ModelHash,
+		"stateMachineSymbolId": "OpenSysMLStack::ModelJourney",
+		"events":               []string{"Commit", "Pull", "Push", "Check"},
+		"schedule":             "seed:15",
+		"trace":                true,
+	}, &seedFifteen)
+	if seedFifteen.Error != "" {
+		t.Fatalf("seed:15 ExecuteState: %s", seedFifteen.Error)
+	}
+	if want := []string{"start", "flexo", "opensysml"}; !reflect.DeepEqual(seedFifteen.StatesVisited, want) {
+		t.Errorf("seed:15 journey: got %v, want %v", seedFifteen.StatesVisited, want)
+	}
+	commitIndex := -1
+	for i, event := range seedFifteen.Trace {
+		if event.Kind == "accept" && event.Event == "Commit" {
+			commitIndex = i
+			break
+		}
+	}
+	if commitIndex < 0 || commitIndex+1 >= len(seedFifteen.Trace) ||
+		seedFifteen.Trace[commitIndex+1].Kind != "accept" || seedFifteen.Trace[commitIndex+1].Event != "Pull" {
+		t.Errorf("seed:15 expected consecutive Commit and Pull accepts, got %+v", seedFifteen.Trace)
+	}
+	var lastTransition *engine.JTraceEvent
+	for i := range seedFifteen.Trace {
+		if seedFifteen.Trace[i].Kind == "transition" {
+			lastTransition = &seedFifteen.Trace[i]
+		}
+	}
+	if lastTransition == nil || lastTransition.From != "flexo" || lastTransition.To != "opensysml" ||
+		lastTransition.Event != "accept Pull" {
+		t.Errorf("seed:15 last transition = %+v, want flexo -> opensysml on accept Pull", lastTransition)
+	}
+
+	var seedFive struct {
+		StatesVisited []string `json:"statesVisited"`
+		Error         string   `json:"error"`
+	}
+	call("ExecuteState", map[string]any{
+		"modelHash":            parsed.ModelHash,
+		"stateMachineSymbolId": "OpenSysMLStack::ModelJourney",
+		"events":               []string{"Commit", "Pull", "Push", "Check"},
+		"schedule":             "seed:5",
+	}, &seedFive)
+	if seedFive.Error != "" {
+		t.Fatalf("seed:5 ExecuteState: %s", seedFive.Error)
+	}
+	if want := []string{"start", "flexo", "pilot", "flexo", "pilot"}; !reflect.DeepEqual(seedFive.StatesVisited, want) {
+		t.Errorf("seed:5 journey: got %v, want %v", seedFive.StatesVisited, want)
 	}
 }
 

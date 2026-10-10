@@ -12,6 +12,7 @@ import { create } from "@bufbuild/protobuf";
 import {
   CAPABILITY_APPLY_EDITS,
   CAPABILITY_BIG_INT_VALUES,
+  CAPABILITY_RATIONAL_VALUES,
   CAPABILITY_CONVERT,
   CAPABILITY_DOCUMENT_QUERY,
   CAPABILITY_ENGINES,
@@ -20,9 +21,12 @@ import {
   CAPABILITY_MIGRATE,
   CAPABILITY_PARSE_SOURCES,
   CAPABILITY_PERFORMER,
+  CAPABILITY_STATE_TRACE,
   CAPABILITY_QUERY,
   CAPABILITY_RENDER_DOCUMENT,
   CAPABILITY_RENDER_DOCUMENT_HTML,
+  CAPABILITY_RENDER_VIEW,
+  CAPABILITY_EXPORT_GRAPHS,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
   CAPABILITY_STRICT_CONFORMANCE,
@@ -54,6 +58,8 @@ import {
   ParseSourcesRequestSchema,
   QueryRequestSchema,
   RenderDocumentRequestSchema,
+  RenderViewRequestSchema,
+  ExportGraphsRequestSchema,
   RunAnalysisRequestSchema,
   RunDocumentQueryRequestSchema,
   RunSweepRequestSchema,
@@ -73,6 +79,8 @@ import {
   type Outcome as PbOutcome,
   type Query,
   type RunAnalysisResponse,
+  type RenderViewResponse,
+  type ExportGraphsResponse,
   type Verdict as PbVerdict,
   type VerificationVerdict as PbVerificationVerdict,
 } from "../generated/sysml_pb.js";
@@ -103,11 +111,17 @@ import {
 } from "./query.js";
 import {
   bindingHoldsBigInt,
+  bindingHoldsRational,
+  bindingRationalsAsReals,
   buildBindings,
+  documentEventOf,
   documentResult,
+  DocumentEvent,
   type BindingValues,
   type DocumentQueryResult,
 } from "./document.js";
+import { renderedViewOf, type RenderedView } from "./render-view.js";
+import { type Graphs, graphsOf } from "./graphs.js";
 import {
   engineInfoOf,
   standingOf,
@@ -559,6 +573,12 @@ export class Connection {
     if (wire.some(bindingHoldsBigInt)) {
       requireCapability(this.info, CAPABILITY_BIG_INT_VALUES, upgradeRemedy(CAPABILITY_BIG_INT_VALUES));
     }
+    if (!this.info.has(CAPABILITY_RATIONAL_VALUES)) {
+      wire.forEach(bindingRationalsAsReals);
+    }
+    if (wire.some(bindingHoldsRational)) {
+      requireCapability(this.info, CAPABILITY_RATIONAL_VALUES, upgradeRemedy(CAPABILITY_RATIONAL_VALUES));
+    }
     const response = await callRpc(
       this.rpc.runDocumentQuery(
         create(RunDocumentQueryRequestSchema, {
@@ -649,6 +669,56 @@ export class Connection {
     return form === "html" ? response.html : response.markdown;
   }
 
+  /** Renders a named view or targeted pseudo-view as diagram data. */
+  async renderView(
+    modelHash: string,
+    viewName: string,
+    options: { ports?: "minimal" | "full" } = {},
+  ): Promise<RenderedView> {
+    const ports: string = options.ports ?? "minimal";
+    if (ports !== "minimal" && ports !== "full") {
+      throw new RangeError("ports must be 'minimal' or 'full'");
+    }
+    const capabilities = [CAPABILITY_RENDER_VIEW];
+    for (const capability of capabilities) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+    const response: RenderViewResponse = await callRpc(
+      this.rpc.renderView(
+        create(RenderViewRequestSchema, {
+          modelHash,
+          view: viewName,
+          ports: ports === "minimal" ? "" : ports,
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, capabilities),
+    );
+    return renderedViewOf(response);
+  }
+
+  /**
+   * Exports the lowered graph of an action or state machine, and of every
+   * behavior it performs, as the canonical `graphs:1` JSON an external
+   * analysis engine is sent.
+   */
+  async exportGraphs(modelHash: string, subject: string): Promise<Graphs> {
+    const capabilities = [CAPABILITY_EXPORT_GRAPHS];
+    for (const capability of capabilities) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+    const response: ExportGraphsResponse = await callRpc(
+      this.rpc.exportGraphs(
+        create(ExportGraphsRequestSchema, { modelHash, subject }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, capabilities),
+    );
+    return graphsOf(response);
+  }
+
   /** Executes an action definition. */
   async executeAction(
     modelHash: string,
@@ -735,7 +805,7 @@ export class Connection {
     return response;
   }
 
-  /** Executes a state machine. */
+  /** Executes a state machine; a failed traced run carries its partial trace on ExecutionError. */
   async executeState(
     modelHash: string,
     stateMachineSymbolId: string,
@@ -743,11 +813,14 @@ export class Connection {
       events?: readonly string[];
       schedule?: string;
       performer?: string;
+      trace?: boolean;
     } = {},
   ): Promise<{
     statesVisited: string[];
     finalContext: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
     finalTime: number;
+    trace: DocumentEvent[];
+    traceDropped: number;
   }> {
     refuseExploring(options.schedule, "exploreState");
     const response = await this.sendExecuteState(
@@ -760,12 +833,16 @@ export class Connection {
         response.error,
         "unspecified",
         response.diagnostics.map(decodeDiagnostic),
+        response.trace.map(documentEventOf),
+        response.traceDropped,
       );
     }
     return {
       statesVisited: [...response.statesVisited],
       finalContext: valuesMap(Object.entries(response.finalContext)),
       finalTime: response.finalTime,
+      trace: response.trace.map(documentEventOf),
+      traceDropped: response.traceDropped,
     };
   }
 
@@ -798,11 +875,13 @@ export class Connection {
       events?: readonly string[];
       schedule?: string;
       performer?: string;
+      trace?: boolean;
     },
   ): Promise<ExecuteStateResponse> {
     const capabilities = this.runCapabilities(
       options.schedule,
       options.performer,
+      options.trace,
     );
     const response = await callRpc(
       this.rpc.executeState(
@@ -812,6 +891,7 @@ export class Connection {
           events: [...(options.events ?? [])],
           schedule: options.schedule ?? "",
           performerSymbolId: options.performer ?? "",
+          trace: options.trace ?? false,
         }),
         this.callOptions(),
       ),
@@ -1304,10 +1384,14 @@ export class Connection {
   private runCapabilities(
     schedule: string | undefined,
     performer: string | undefined,
+    trace = false,
   ): string[] {
     const capabilities = scheduleCapabilities(schedule);
     if (performer !== undefined && performer !== "") {
       capabilities.push(CAPABILITY_PERFORMER);
+    }
+    if (trace) {
+      capabilities.push(CAPABILITY_STATE_TRACE);
     }
     for (const capability of capabilities) {
       requireCapability(this.info, capability, upgradeRemedy(capability));

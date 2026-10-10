@@ -101,6 +101,11 @@ func (s *Session) lookupSymbolOfKinds(name string, want ...symbols.SymbolKind) (
 	case 1:
 		return matches[0], idx.GetFQN(matches[0]), nil
 	default:
+		// A root declaration's qualified name is its simple name; nothing more
+		// qualified can be written for it, so it wins over nested namesakes.
+		if roots := s.nameTable().roots[name]; len(roots) == 1 {
+			return roots[0], idx.GetFQN(roots[0]), nil
+		}
 		return nil, "", ambiguousError(name, matches, idx)
 	}
 }
@@ -904,6 +909,7 @@ func ambiguousError(name string, matches []*symbols.Symbol, idx *symbols.Index) 
 type nameTable struct {
 	scopes []*symbols.Scope // the trees the table was built from
 	byName map[string][]*symbols.Symbol
+	roots  map[string][]*symbols.Symbol // the declarations of the documents' root namespaces, by name
 }
 
 // nameTable returns the table over the session's current documents, rebuilt
@@ -919,9 +925,12 @@ func (s *Session) nameTable() *nameTable {
 // buildNameTable tabulates every scope tree in turn, a scope's own members before
 // its children's; a body-local scope is skipped with everything nested in it.
 func buildNameTable(scopes []*symbols.Scope) *nameTable {
-	t := &nameTable{scopes: scopes, byName: make(map[string][]*symbols.Symbol)}
+	t := &nameTable{scopes: scopes, byName: make(map[string][]*symbols.Symbol), roots: make(map[string][]*symbols.Symbol)}
 	for _, scope := range scopes {
 		t.collect(scope)
+		for _, name := range scope.MemberNames() {
+			t.roots[name] = append(t.roots[name], declaredUnder(scope, name)...)
+		}
 	}
 	return t
 }
@@ -931,11 +940,25 @@ func (t *nameTable) collect(scope *symbols.Scope) {
 		return
 	}
 	for _, name := range scope.MemberNames() {
-		t.byName[name] = append(t.byName[name], symbols.PreferDeclared(scope.LookupLocalAll(name))...)
+		t.byName[name] = append(t.byName[name], declaredUnder(scope, name)...)
 	}
 	for _, child := range scope.Children() {
 		t.collect(child)
 	}
+}
+
+// declaredUnder returns the declarations scope itself holds under name, each
+// once although a declaration whose short and primary names coincide is
+// registered under both.
+func declaredUnder(scope *symbols.Scope, name string) []*symbols.Symbol {
+	syms := symbols.PreferDeclared(scope.LookupLocalAll(name))
+	out := syms[:0:0]
+	for _, sym := range syms {
+		if !slices.Contains(out, sym) {
+			out = append(out, sym)
+		}
+	}
+	return out
 }
 
 // lookup returns every declaration of name in scope-tree order. The slice is

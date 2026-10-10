@@ -5,17 +5,17 @@ Java client for OpenSysML: parse, inspect and evaluate SysML v2 models over the
 Eclipse-based tool, a Cameo plugin, a web service.
 
 For a task-oriented walkthrough, see the
-[Java client guide](https://opensysml.org/clients/java/).
+[Java client guide](https://redk.opensysml.org/clients/java/).
 
 ```xml
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.9.1</version>
+  <version>0.9.2</version>
 </dependency>
 ```
 
-The client version follows the core release (`0.9.1`), but the artifact is not on Maven Central.
+The client version follows the core release (`0.9.2`), but the artifact is not on Maven Central.
 Build and install it into the local repository from a checkout:
 
 ```bash
@@ -288,9 +288,11 @@ In order, and each step is a refusal rather than a fallback:
 
 1. **A pinned digest.** `release-digests.json` — this jar's synced copy of
    `client/release-digests.json`, loaded from the classpath — pins a SHA-256
-   per (repository, release, asset). Where a pin exists it is what the bytes
-   must hash to, and a served `.sha256` that disagrees with it is a release
-   republished with another binary: the download is refused.
+   per (repository, release, asset). The release job stamps the release it
+   publishes into the jar's copy before packaging it, so a published jar pins
+   its own release. Where a pin exists it is what the bytes must hash to, and a
+   served `.sha256` that disagrees with it is a release republished with
+   another binary: the download is refused.
 2. **The signed checksum manifest.** For a release nothing is pinned for, the
    client downloads `SHA256SUMS.txt` and its sigstore bundle
    `SHA256SUMS.txt.bundle` and verifies the bundle with
@@ -317,9 +319,10 @@ release is, so only pinned releases install.
 
 ### Limitations
 
-- A release published after this client's `release-digests.json` was synced is
-  installed on its signature, so a jar built with `sigstore-java` excluded needs
-  a client whose table pins that release.
+- A release other than the jar's own, published after its
+  `release-digests.json` was synced, is installed on its signature, so a jar
+  built with `sigstore-java` excluded needs a client whose table pins that
+  release.
 - `latest` is one unauthenticated call to `api.github.com`, so a rate-limited
   host should name the version instead.
 - The cache is one path per user, so two applications asking for different

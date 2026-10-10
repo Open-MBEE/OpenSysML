@@ -262,7 +262,7 @@ calc def NamedParts :> Query {
 
 ```console
 $ sysml cookbook.sysml -run-query "Cookbook::NamedParts"
-✓ Query Cookbook::NamedParts returned 12 rows
+✓ Query Cookbook::NamedParts returned 9 rows
   Row 1: Cookbook::telescope::primaryMirror
   Row 2: Cookbook::telescope::instrumentCluster
   ...
@@ -1823,7 +1823,8 @@ sysml> %run-query Accepted root=spareDome
 
 `kind` names the records to keep — `accept`, `send`, `transition`, `entry`,
 `exit`, `do`, `choice` (a due order or region order the run drew, with
-`alternatives` and `taken`) or `guard` (one it could not evaluate), several
+`alternatives` and `taken`), `guard` (one it could not evaluate) or `terminate`
+(a state machine's performance ending), several
 separated by commas, `all` by default — and a `source` left out reads every
 object's records. `since` and `before` take a duration or a bare number of
 the clock's seconds; a bound that is not a duration (`1 [m]`), or an interval

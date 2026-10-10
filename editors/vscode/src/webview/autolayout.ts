@@ -34,6 +34,10 @@ export const AUTO_LAYOUT_LIMIT = 600;
 
 const elk = new ELK();
 
+// PACK_ASPECT_RATIO is the width to height a container packs its unwired children toward.
+const PACK_ASPECT_RATIO = 2.5;
+const ORDER_STEP = 100000;
+
 /**
  * autoLayout lays the rendering out with ELK, or returns undefined when the kind
  * has no editable canvas, the rendering is too large, or ELK fails.
@@ -107,10 +111,27 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
     ports.add(portId);
     connectedPorts.set(nodeId, ports);
   }
-  const elkNode = (node: RenderNode): ElkNode => {
+  const wired = new Set(edges.flatMap((edge) => [...edge.sources, ...edge.targets]));
+  for (const { nodeId } of portEndpoints) {
+    wired.add(nodeId);
+  }
+  // unwired reports whether no edge reaches a node or anything inside it.
+  const unwired = (node: RenderNode): boolean =>
+    !wired.has(node.id) && (children.get(node.id) ?? []).every(unwired);
+  // packed is each container of unwired children laid out alone by rectpacking: layered
+  // stacks them in one column, and cannot size such a container while its ports have no side.
+  const packed = new Map<string, ElkNode>();
+  const elkNode = (node: RenderNode, packing = false): ElkNode => {
     const size = symbolSize(shapeOf(node.kind)) ?? labelSize(labelLines(node));
     const kids = node.collapsed ? [] : (children.get(node.id) ?? []);
-    const out: ElkNode = { id: node.id, width: size.width, height: size.height };
+    const alone = packed.get(node.id);
+    const order = (children.get(node.parent) ?? []).indexOf(node);
+    const out: ElkNode = alone
+      ? { id: node.id, width: alone.width, height: alone.height }
+      : { id: node.id, width: size.width, height: size.height };
+    // Interactive crossing minimization sorts siblings by the centers of their input
+    // positions, so the seeds stand far enough apart that no node's size can reorder them.
+    out.x = out.y = order * ORDER_STEP;
     const ports = (node.ports ?? []).filter((port) => connectedPorts.get(node.id)?.has(port.id));
     if (ports.length > 0) {
       out.ports = ports.map((port) => {
@@ -124,11 +145,12 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
         };
       });
     }
-    if (kids.length > 0) {
-      out.children = kids.map(elkNode);
+    if (kids.length > 0 && !alone) {
+      out.children = kids.map((kid) => elkNode(kid, packing));
       // A container's label sits above its children, so the top padding is its height.
       out.layoutOptions = {
         ...options,
+        ...(packing ? { "elk.algorithm": "rectpacking", "elk.aspectRatio": `${PACK_ASPECT_RATIO}` } : {}),
         "elk.padding": `[top=${size.height},left=${CONTAINER_PAD},bottom=${CONTAINER_PAD},right=${CONTAINER_PAD}]`,
         "elk.nodeSize.constraints": "MINIMUM_SIZE",
         "elk.nodeSize.minimum": `(${size.width},${size.height})`,
@@ -143,6 +165,18 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
     }
     return out;
   };
+  const packable = (node: RenderNode): boolean => {
+    const kids = node.collapsed ? [] : (children.get(node.id) ?? []);
+    return kids.length > 0 && kids.every(unwired);
+  };
+  for (const node of nodes) {
+    const parent = node.parent === undefined ? undefined : byId.get(node.parent);
+    if (packable(node) && !(parent && packable(parent))) {
+      // The container's own ports stay out of this pass; the layered pass places them.
+      const { ports: _ports, ...graph } = elkNode(node, true);
+      packed.set(node.id, await elk.layout(graph));
+    }
+  }
   const laid = await elk.layout({
     id: "__root__",
     layoutOptions: {
@@ -153,7 +187,7 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
       // geometry relative to its parent, so they read as canvas coordinates.
       "org.eclipse.elk.json.edgeCoords": "ROOT",
     },
-    children: (children.get(undefined) ?? []).map(elkNode),
+    children: (children.get(undefined) ?? []).map((node) => elkNode(node)),
     edges,
   });
   const placed = new Map<string, LayoutGeometry>();
@@ -183,11 +217,11 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
           { side: "south", distance: Math.abs(height - y), along: x, extent: width },
           { side: "west", distance: Math.abs(x), along: y, extent: height },
         ];
-        const nearest = sides.reduce((best, candidate) => candidate.distance < best.distance ? candidate : best);
+        const nearest = sides.reduce((best, candidate) => candidate.distance < best.distance ? candidate : best, sides[0]);
         const offset = nearest.extent > 0 ? Math.max(0, Math.min(1, nearest.along / nearest.extent)) : 0.5;
         ports.set(port.id, { side: nearest.side, offset });
       }
-      walk(child, x, y);
+      walk(packed.get(child.id) ?? child, x, y);
     }
   };
   walk(laid, 0, 0);
@@ -319,6 +353,9 @@ function spacingOptions(kind: string): Record<string, string> {
   return {
     "elk.edgeRouting": "ORTHOGONAL",
     "elk.direction": kind === "tree" || kind === "action" ? "DOWN" : "RIGHT",
+    // Siblings in a layer keep the model's declaration order (seeded through the input positions)
+    // rather than whatever crossing minimization settles on, so a diagram reads as the model is written.
+    "elk.layered.crossingMinimization.strategy": "INTERACTIVE",
     "elk.spacing.nodeNode": `${GAP}`,
     "elk.layered.spacing.nodeNodeBetweenLayers": `${GAP * 2}`,
     "elk.spacing.edgeNode": `${GAP / 2}`,

@@ -100,6 +100,7 @@ than a message with optional fields:
 switch (value.kind) {
   case "int":      value.value;                  // bigint, never lossy, beyond int64 too
   case "real":     value.value;                  // number
+  case "rational": value.numerator; value.denominator;  // bigint terms: exact; answered only when no double holds it, sent as rationalValue always
   case "complex":  value.value.real; value.value.imaginary;  // one value, not two floats
   case "boolean":
   case "string":   value.value;
@@ -150,7 +151,7 @@ knowing its members.
 | `ClosedConnectionError` | the connection was closed and cannot be used again |
 | `ParseError` | a file could not be read, or its content did not parse; carries `diagnostics` |
 | `EvaluationError` | the call succeeded and the answer reports a model failure |
-| `ExecutionError` | an execution the service ran failed; carries `diagnostics` |
+| `ExecutionError` | an execution the service ran failed; carries `diagnostics`; a failed traced `executeState` also carries its partial `trace` and `traceDropped` |
 | `WrongKindError` | a verification or analysis named a symbol of another kind |
 | `AnalysisRunError` | an analysis run failed before it could report |
 | `ConversionError` | the service could not write the notation asked for |
@@ -245,10 +246,14 @@ Beside the model reads above, the client covers every RPC the service offers:
   `save(migration, path)` writes beside the notation; a v2 `fromFormat` is refused
   with a pointer at `convert`;
 - **`model.query`** (OSLC or structured), **`model.runDocumentQuery`** with
-  `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or HTML;
+  `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or
+  HTML, and **`model.renderView`** for typed view data with minimal or full ports;
 - **`model.executeAction`/`executeState`** for runs and
   **`exploreAction`/`exploreState`/`exploreAnalysis`** for explorations of every
-  schedule — the two families refuse each other's `schedule`, as the wire does;
+  schedule — the two families refuse each other's `schedule`, as the wire does.
+  `model.executeState(symbolId, { trace: true })` requests typed `DocumentEvent`
+  records in `trace` and reports discarded records in `traceDropped`; it requires
+  `state_trace` and cannot be combined with an explore schedule;
 - **`model.verifyConstraint`/`verifyRequirement`/`verifySatisfaction`/`satisfied`,
   `validateInstance`, `calc`, `runAnalysis`, `runSweep`** (ranges as
   `parameter → [from, to]` or `[from, to, step]`), all taking `engine`,

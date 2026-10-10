@@ -55,10 +55,10 @@ package System {
     attribute def Torque {
         @Tailoring::'Ring A';
     }
-    part def 'Lost Thing' {
+    occurrence def 'Lost Thing' {
         @Tailoring::Lost;
     }
-    part def 'Foreign Thing' {
+    occurrence def 'Foreign Thing' {
         @Tailoring::Foreign;
     }
     dependency Spin to 'Speed Requirement' {
@@ -75,8 +75,8 @@ package System {
         @Tailoring::'Derived From';
     }
     allocation def 'Spin to Shaft' {
-        end spin : Spin;
-        end shaft : Shaft;
+        end :>> source : Spin;
+        end :>> target : Shaft;
         @Tailoring::'Assigned To';
     }
     metadata MigrationMetadata::SynthesizedName about 'Spin to Shaft';

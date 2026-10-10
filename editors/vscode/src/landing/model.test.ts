@@ -8,10 +8,13 @@ import {
   EngineInstance,
   JOURNEY_EVENTS,
   JOURNEY_SYMBOL,
+  debugSteps,
   landingModel,
   journey,
   readModel,
   rpc,
+  runJourney,
+  TraceRecord,
 } from "./model";
 
 interface LandingFixture {
@@ -23,30 +26,66 @@ interface LandingFixture {
 const fixture = JSON.parse(readFileSync("src/landing/stack.json", "utf8")) as LandingFixture;
 const fixtureRender = fixture.render as RenderResult;
 
-test("landingModel keeps the four ported project parts and their interface edges", () => {
+const PROJECTS = ["flexo", "opensysml", "pilot"];
+const COMPONENTS: Record<string, string[]> = {
+  opensysml: [
+    "analyzers", "clients", "docgen", "editors", "engine", "interchange", "jupyter", "lsp", "migration", "oslc",
+    "parser", "repl", "service", "solver", "stdlib", "validation",
+  ],
+  pilot: ["editors", "evaluator", "grammars", "jupyter", "plantuml", "stdlib", "validation", "xmi"],
+  flexo: ["auth", "layer1", "quadstore", "sysmlv2"],
+};
+const COMPONENT_PATHS = Object.entries(COMPONENTS).flatMap(([project, features]) =>
+  features.map((feature) => `${project}.${feature}`),
+);
+
+test("landingModel keeps the three ported project parts and their interface edges", () => {
   const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
-  assert.equal(model.parts.size, 4);
-  assert.deepEqual(
-    [...model.parts.keys()].sort(),
-    ["flexo", "opensysml", "pilot", "toolkit"],
-  );
+  assert.deepEqual([...model.parts.keys()].sort(), [...COMPONENT_PATHS, ...PROJECTS].sort());
   assert.ok(model.render.nodes.every((node) => node.kind !== "attribute"));
-  assert.ok(model.render.nodes.every((node) => node.parent === undefined));
+  const nodeOf = (feature: string) => model.render.nodes.find(({ id }) => id === model.parts.get(feature)?.id)!;
+  for (const feature of PROJECTS) {
+    assert.equal(nodeOf(feature).parent, undefined, `${feature} should be lifted to the top level`);
+  }
 
   const ports = new Map<string, string>();
-  for (const part of model.parts.values()) {
+  for (const feature of PROJECTS) {
+    const part = model.parts.get(feature)!;
     const node = model.render.nodes.find(({ id }) => id === part.id)!;
     const api = node.ports?.find(({ name }) => name === "api");
     assert.ok(api, `${part.feature} should keep its api port`);
     ports.set(part.feature, api.id);
   }
-  assert.equal(model.render.edges.length, 3);
+  assert.equal(model.render.edges.length, 2);
   assert.ok(model.render.edges.every((edge) => edge.toPort === ports.get("flexo")));
   assert.deepEqual(
     model.render.edges.map((edge) => edge.label).sort(),
-    ["opensysml_flexo", "pilot_flexo", "toolkit_flexo"],
+    ["opensysml_flexo", "pilot_flexo"],
   );
-  assert.equal(model.parts.get("opensysml")?.attrs.label, "OpenSysML");
+  assert.equal(model.parts.get("opensysml")?.attrs.label, "OpenSysML Runtime Environment and Development Kit");
+});
+
+test("landingModel keeps each project's components inside it, with their own attributes", () => {
+  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
+  for (const [project, features] of Object.entries(COMPONENTS)) {
+    const owner = model.parts.get(project)!;
+    for (const feature of features) {
+      const part = model.parts.get(`${project}.${feature}`)!;
+      const node = model.render.nodes.find(({ id }) => id === part.id)!;
+      assert.equal(node.parent, owner.id, `${feature} should stay inside ${project}`);
+      assert.equal(part.feature, feature);
+      assert.equal(part.owner, project);
+      assert.equal(part.symbol, `OpenSysMLStack::stack::${project}::${feature}`);
+      assert.equal(part.attrs.kind, "component");
+      assert.ok(part.attrs.role, `${project}.${feature} should state its role`);
+    }
+  }
+  // The same feature name in two projects names two parts.
+  assert.equal(model.parts.get("opensysml.interchange")?.attrs.label, "Interchange");
+  assert.equal(model.parts.get("pilot.xmi")?.attrs.role, "XMI");
+  assert.equal(model.parts.get("opensysml.oslc")?.attrs.label, "OSLC query");
+  assert.equal(model.parts.get("opensysml.docgen")?.attrs.label, "Document generation");
+  assert.equal(model.parts.get("flexo.layer1")?.attrs.label, "Layer 1 service");
 });
 
 test("readModel returns parse diagnostics without requesting a rendering", () => {
@@ -117,12 +156,201 @@ test("journey maps visited feature names to node ids and drops unknown states", 
         events: JOURNEY_EVENTS,
       });
       return JSON.stringify({
-        result: { statesVisited: ["opensysml", "unknown", "flexo", "toolkit", "flexo", "pilot"] },
+        result: { statesVisited: ["start", "opensysml", "unknown", "flexo", "pilot", "flexo", "pilot"] },
       });
     },
   };
   assert.deepEqual(
     journey(engine, model),
-    ["opensysml", "flexo", "toolkit", "flexo", "pilot"].map((feature) => model.parts.get(feature)!.id),
+    ["opensysml", "flexo", "pilot", "flexo", "pilot"].map((feature) => model.parts.get(feature)!.id),
   );
+});
+
+test("journey adds a seed only when defined", () => {
+  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
+  const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
+  const engine: EngineClient = {
+    call(method, params) {
+      calls.push({ method, params: JSON.parse(params) as Record<string, unknown> });
+      return JSON.stringify({ result: { statesVisited: [] } });
+    },
+  };
+
+  journey(engine, model, 42);
+  journey(engine, model);
+
+  assert.deepEqual(calls, [
+    {
+      method: "ExecuteState",
+      params: {
+        modelHash: fixture.hash,
+        stateMachineSymbolId: JOURNEY_SYMBOL,
+        events: JOURNEY_EVENTS,
+        schedule: "seed:42",
+      },
+    },
+    {
+      method: "ExecuteState",
+      params: {
+        modelHash: fixture.hash,
+        stateMachineSymbolId: JOURNEY_SYMBOL,
+        events: JOURNEY_EVENTS,
+      },
+    },
+  ]);
+});
+
+test("runJourney requests a trace and adds a seed only when defined", () => {
+  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
+  const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
+  const engine: EngineClient = {
+    call(method, params) {
+      calls.push({ method, params: JSON.parse(params) as Record<string, unknown> });
+      return JSON.stringify({
+        result: {
+          statesVisited: ["start", "flexo"],
+          trace: [
+            {
+              kind: "entry",
+              state: "start",
+              text: "entry start",
+              machine: "ModelJourney",
+              at: 0,
+            },
+            { kind: "accept", event: "Commit", text: "accept Commit" },
+          ],
+        },
+      });
+    },
+  };
+  const unseededEvents = ["Commit", "Pull", "Check", "Push"];
+  const unseeded = runJourney(engine, model, unseededEvents);
+  assert.deepEqual(calls[0], {
+    method: "ExecuteState",
+    params: {
+      modelHash: fixture.hash,
+      stateMachineSymbolId: JOURNEY_SYMBOL,
+      events: unseededEvents,
+      trace: true,
+    },
+  });
+  assert.deepEqual(unseeded, {
+    visited: ["start", "flexo"],
+    trace: [
+      { kind: "entry", state: "start", text: "entry start" },
+      { kind: "accept", event: "Commit", text: "accept Commit" },
+    ],
+  });
+  assert.equal(Object.hasOwn(unseeded.trace[1], "state"), false);
+
+  const seededEvents = ["Commit", "Pull"];
+  runJourney(engine, model, seededEvents, 2);
+  assert.deepEqual(calls[1], {
+    method: "ExecuteState",
+    params: {
+      modelHash: fixture.hash,
+      stateMachineSymbolId: JOURNEY_SYMBOL,
+      events: seededEvents,
+      trace: true,
+      schedule: "seed:2",
+    },
+  });
+});
+
+test("runJourney returns partial traces on result errors and throws envelope errors", () => {
+  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
+  const failed: EngineClient = {
+    call: () => JSON.stringify({
+      result: {
+        statesVisited: ["start", "flexo"],
+        trace: [
+          { kind: "entry", state: "start", text: "entry start" },
+          { kind: "accept", event: "Commit", text: "accept Commit" },
+        ],
+        error: "state machine execution failed: incomplete run",
+      },
+    }),
+  };
+  assert.deepEqual(runJourney(failed, model, ["Commit"]), {
+    visited: ["start", "flexo"],
+    trace: [
+      { kind: "entry", state: "start", text: "entry start" },
+      { kind: "accept", event: "Commit", text: "accept Commit" },
+    ],
+    error: "state machine execution failed: incomplete run",
+  });
+
+  const unavailable: EngineClient = {
+    call: () => JSON.stringify({ error: { message: "engine unavailable" } }),
+  };
+  assert.throws(() => runJourney(unavailable, model, ["Commit"]), /engine unavailable/);
+});
+
+test("debugSteps tracks active state, transitions, accepts, and ignored events", () => {
+  const trace: TraceRecord[] = [
+    { kind: "entry", state: "flexo", text: "entry flexo" },
+    { kind: "accept", event: "Commit", text: "accept Commit" },
+    { kind: "accept", event: "Pull", text: "accept Pull" },
+    {
+      kind: "choice",
+      alternatives: ["1->toolkit", "2->pilot"],
+      taken: "1->toolkit",
+      text: "choice",
+    },
+    { kind: "exit", state: "flexo", text: "exit flexo" },
+    { kind: "transition", from: "flexo", to: "toolkit", text: "transition" },
+    { kind: "entry", state: "toolkit", text: "entry toolkit" },
+    { kind: "accept", event: "Check", text: "accept Check" },
+  ];
+  const steps = debugSteps(trace);
+  assert.deepEqual(
+    steps.map(({ state }) => state),
+    ["flexo", "flexo", "flexo", "flexo", "flexo", "flexo", "toolkit", "toolkit"],
+  );
+  assert.deepEqual(steps.map(({ accepted }) => accepted), [0, 1, 2, 2, 2, 2, 2, 3]);
+  assert.equal(steps[1].ignored, true);
+  assert.equal(Object.hasOwn(steps[2], "ignored"), false);
+  assert.equal(Object.hasOwn(steps[3], "ignored"), false);
+  assert.equal(steps[4].state, "flexo");
+  assert.deepEqual(steps[5].edge, { from: "flexo", to: "toolkit" });
+  assert.equal(steps[7].ignored, true);
+  assert.equal(Object.hasOwn(steps[5], "ignored"), false);
+});
+
+test("debugSteps marks the seed:2 Commit ignored and Pull fired", () => {
+  const trace: TraceRecord[] = [
+    { kind: "entry", state: "start", text: "entry start" },
+    {
+      kind: "choice",
+      alternatives: ["1->opensysml", "2->flexo"],
+      taken: "2->flexo",
+      text: "choice",
+    },
+    { kind: "exit", state: "start", text: "exit start" },
+    { kind: "entry", state: "flexo", text: "entry flexo" },
+    { kind: "transition", from: "start", to: "flexo", text: "transition" },
+    { kind: "accept", event: "Commit", text: "accept Commit" },
+    { kind: "accept", event: "Pull", text: "accept Pull" },
+    {
+      kind: "choice",
+      alternatives: ["1->toolkit", "2->pilot", "3->opensysml"],
+      taken: "3->opensysml",
+      text: "choice",
+    },
+    { kind: "exit", state: "flexo", text: "exit flexo" },
+    { kind: "entry", state: "opensysml", text: "entry opensysml" },
+    {
+      kind: "transition",
+      from: "flexo",
+      to: "opensysml",
+      event: "accept Pull",
+      text: "transition",
+    },
+  ];
+  const steps = debugSteps(trace);
+  assert.equal(steps[5].ignored, true);
+  assert.equal(Object.hasOwn(steps[6], "ignored"), false);
+  assert.equal(steps[5].accepted, 1);
+  assert.equal(steps[6].accepted, 2);
+  assert.deepEqual(steps[10].edge, { from: "flexo", to: "opensysml" });
 });

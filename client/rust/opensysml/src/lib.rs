@@ -11,10 +11,12 @@ mod domain;
 mod edit;
 mod encode;
 mod error;
+mod graphs;
 mod migration;
 mod model;
 mod operations;
 mod query;
+mod rational;
 mod results;
 mod sources;
 mod typefacts;
@@ -33,6 +35,8 @@ pub use domain::{
     TensorQuantity, Undetermined, UnitFactor, UnitTerm, Value, Vector, VectorQuantity,
 };
 pub use error::{Error, Status};
+pub use graphs::Graphs;
+pub use rational::Rational;
 pub use wire::FailureReason;
 
 pub use capabilities::*;
@@ -41,8 +45,10 @@ pub use conversion::{
     EXPERIMENTAL_NOTICE, FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE,
 };
 pub use document::{
-    DocumentEvent, DocumentForm, DocumentQueryResult, DocumentRow, DocumentState, DocumentValue,
-    DocumentVerdict, ElementRef, ObjectRef,
+    document_event_to_wire, DocumentEvent, DocumentForm, DocumentQueryResult, DocumentRow,
+    DocumentState, DocumentValue, DocumentVerdict, ElementRef, ObjectRef, RenderCanvas, RenderEdge,
+    RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow, RenderSpan,
+    RenderStyle, RenderViewPorts, RenderedView,
 };
 pub use edit::{
     ActionOptions, AppliedEdit, Body, CalcOptions, CommentOptions, ConnectionOptions,

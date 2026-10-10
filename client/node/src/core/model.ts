@@ -16,6 +16,8 @@ import type { ModelDiagnostic } from "./errors.js";
 import type { Conversion } from "./conversion.js";
 import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
 import type { BindingValues, DocumentQueryResult } from "./document.js";
+import type { RenderedView } from "./render-view.js";
+import type { Graphs } from "./graphs.js";
 import type { Editor } from "./edit.js";
 import type { Exploration } from "./exploration.js";
 import type {
@@ -422,6 +424,19 @@ export class Model {
     return this.connection.renderDocument(this.hash, documentId, options);
   }
 
+  /** Renders a named view or targeted pseudo-view as diagram data. */
+  renderView(
+    viewName: string,
+    options: { ports?: "minimal" | "full" } = {},
+  ): Promise<RenderedView> {
+    return this.connection.renderView(this.hash, viewName, options);
+  }
+
+  /** Exports the lowered graph of an action or state machine of this model as `graphs:1` JSON. */
+  exportGraphs(subject: string): Promise<Graphs> {
+    return this.connection.exportGraphs(this.hash, subject);
+  }
+
   /** Starts an edit of this model, to be applied in one call. */
   edit(): Editor {
     return this.connection.edit(this.hash);
@@ -454,7 +469,12 @@ export class Model {
   /** Executes a state machine of this model. */
   executeState(
     stateMachineSymbolId: string,
-    options: { events?: readonly string[]; schedule?: string; performer?: string } = {},
+    options: {
+      events?: readonly string[];
+      schedule?: string;
+      performer?: string;
+      trace?: boolean;
+    } = {},
   ) {
     return this.connection.executeState(this.hash, stateMachineSymbolId, options);
   }

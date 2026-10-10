@@ -180,6 +180,12 @@ func TestSetRouteOnTransitionAndConnection(t *testing.T) {
 		t.Fatalf("route not stated in the view body:\n%s", got)
 	}
 
+	got = applyLayout(t, plantModel, SetRoute("Plant::Loop::pump", "", route))
+	requireReplaced(t, plantModel,
+		"        part pump : Pump;\n",
+		"        part pump : Pump {\n            @DiagramLayout::Route { points = (100, 50, 150, 75.5); }\n        }\n",
+		got)
+
 	routed := strings.Replace(plantModel,
 		"        transition t first off then on;\n",
 		"        transition t first off then on { @DiagramLayout::Route { points = (1, 2, 3, 4); } }\n", 1)
@@ -807,8 +813,8 @@ func TestSetLayoutRefusals(t *testing.T) {
 			message: "as a node",
 		},
 		{
-			name:    "route of a node",
-			op:      SetRoute("Plant::Loop::pump", "", &semantics.Route{Points: []semantics.Waypoint{{X: 1, Y: 2}}}),
+			name:    "route of a node without an edge",
+			op:      SetRoute("Plant::Motor::off", "", &semantics.Route{Points: []semantics.Waypoint{{X: 1, Y: 2}}}),
 			failure: FailureNotDrawn,
 			message: "as an edge",
 		},

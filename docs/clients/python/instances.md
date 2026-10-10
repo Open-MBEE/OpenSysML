@@ -46,7 +46,8 @@ they are not serialized to strings or untyped dictionaries. Examples include:
 
 | SysML value | Python value |
 | --- | --- |
-| `Real`, `Rational`, `Integer`, `Boolean`, `String` | `float`, `int`, `bool`, `str` |
+| `Real`, `Integer`, `Boolean`, `String` | `float`, `int`, `bool`, `str` |
+| `Rational` | `float` where a double holds it exactly (`0.5`), else `fractions.Fraction` (`1/3`, `0.1`); a `Fraction` is sent as `rational_value` to a service with `rational_values`, and a `float` is always a Real |
 | `Complex` | `complex` |
 | array values | `opensysml.Array`, with dimensions and row-major elements |
 | numeric vectors | `opensysml.Vector` |

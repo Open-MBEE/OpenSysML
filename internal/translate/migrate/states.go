@@ -3067,6 +3067,11 @@ func isElseGuard(spec *sysmlv1.Element) bool {
 		text, _ = opaqueBody(spec)
 	case "LiteralString":
 		text = spec.Attrs["value"]
+	case "Expression":
+		if len(spec.Owned("operand")) > 0 {
+			return false
+		}
+		text = spec.Attrs["symbol"]
 	default:
 		return false
 	}

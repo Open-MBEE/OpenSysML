@@ -58,7 +58,8 @@ func doc() usage.Doc {
 				usage.Ex("sysml -instantiate p -constraint C model.sysml", "Check C against an object of p"),
 				usage.Ex("sysml -validate model.sysml", "Report diagnostics only"),
 				usage.Ex("sysml -validate -strict model.sysml", "...asking whether it is conforming SysML v2"),
-				usage.Ex("sysml -self-check model.sysml", "Apply the 13 SysML validation constraints"),
+				usage.Ex("sysml -self-check model.sysml", "Apply the SysMLValidation constraints"),
+				usage.Ex("sysml -self-check-package Acme::Rules m.sysml", "...plus a rule package's constraints"),
 				usage.Ex("sysml -instantiate car -validate=car m.sysml", "Check every assertion about an object"),
 				usage.Ex(`sysml -calc "Fall(3, 4)" model.sysml`, "Invoke a calculation"),
 				usage.Ex("sysml -analysis shipCost model.sysml", "Run an analysis case"),
@@ -78,6 +79,11 @@ func doc() usage.Doc {
 					"-self-check applies the OpenSysML SysMLValidation constraints to " +
 					"each reflectively classified element; underived reflective features " +
 					"are reported as unevaluated, not as violations. " +
+					"-self-check-package adds the constraint defs of a package the loaded " +
+					"files declare to the same walk, as -self-check-package " +
+					"Acme::ModelingRules: a rule is a constraint def whose first in " +
+					"parameter is typed by a SysML or KerML metaclass, and it applies to " +
+					"every element that metaclass conforms to. " +
 					"-requirement and -satisfy report beside each verdict the verdict of " +
 					"every verification case verifying the requirement. -analysis takes " +
 					"arguments for the case's inputs and an object as its subject, as " +
@@ -426,10 +432,14 @@ func doc() usage.Doc {
 					"by its qualified name with :: as . and every byte unsafe in a filename " +
 					"(/, \\, :, ., %, control characters, what Windows reserves) as %XX; " +
 					"a name past 255 bytes is cut and tagged ~ and a hash of the whole. " +
-					"A graph-shaped rendering is written as a Mermaid diagram by " +
-					"default, as Graphviz DOT with -render-form dot and as PlantUML with " +
-					"-render-form plantuml or as D2 with -render-form d2, which both also write a sequence " +
-					"rendering; neither Graphviz, PlantUML nor D2 is needed to write them. A table is written as a " +
+					"A graph-shaped rendering defaults to Mermaid. DOT writes tree, " +
+					"interconnection, state, action, case, mixed, requirement, definition and " +
+					"package renderings; PlantUML writes those kinds and sequence. D2 writes " +
+					"tree, interconnection, state, action, sequence, requirement, definition " +
+					"and package renderings; case and mixed renderings refuse D2 with a typed " +
+					"error. Table and matrix renderings refuse graph forms with a typed error. Neither " +
+					"Graphviz, PlantUML nor D2 is needed to write graph forms. A table or matrix is " +
+					"written as a " +
 					"Markdown table by default, and as comma- or tab-separated values with " +
 					"-render-form csv or tsv: a header record of the columns, then a record " +
 					"per row, quoted as RFC 4180 quotes a field. Graph forms are drawn in the " +
@@ -441,8 +451,9 @@ func doc() usage.Doc {
 					"the Pilot visualizer's, or cameo, the look of Cameo Systems Modeler — a " +
 					"diagram frame with a header tab, Arial text, gradient fills, compartments " +
 					"and the UML pseudo-state symbols — for a diagram migrated from Cameo " +
-					"to keep its look. An interconnection draws on each part the ports " +
-					"its connectors end at, each a small square on the part's border " +
+					"to keep its look. An interconnection or mixed rendering draws on " +
+					"each part the ports its interconnection edges end at, each a small " +
+					"square on the part's border " +
 					"named beside it; -render-ports full draws every port a part has, " +
 					"labelled name : Type. A DiagramLayout Style on a member colours it over " +
 					"either look, and a Note is drawn beside the member it is about. " +
@@ -454,6 +465,32 @@ func doc() usage.Doc {
 					"unplaced members too, in rows in a strip below a DOT drawing. " +
 					"The same setting shapes the diagrams of -render-document and " +
 					"-render-documents.",
+			},
+		}, {
+			Title: "Listing documents and views",
+			Examples: []usage.Example{
+				usage.Ex("sysml model.sysml -list documents", "the names -render-document reads"),
+				usage.Ex("sysml model.sysml -list views", "the names -render reads, with their kinds"),
+				usage.Ex("sysml model.sysml -list diagrams -list-kind state,action", ""),
+				usage.Ex("sysml model.sysml -list all -list-form json", ""),
+			},
+			Paragraphs: []string{
+				"-list documents lists the document definitions the loaded model declares, " +
+					"-list views its views with the rendering kind each states, a view whose kind " +
+					"this build does not produce marked unsupported with the reason, -list diagrams " +
+					"the graph-shaped views — tree, interconnection, state, action, case, mixed, " +
+					"sequence, requirement, definition and package, the kinds a document draws as " +
+					"a diagram — -list pseudo-views the pseudo-views a document declaring no view " +
+					"is rendered through, and -list all the documents followed by the views. " +
+					"Each name is the qualified name as the notation writes it, every segment " +
+					"quoted that needs it and a line break escaped as \\n, so it is passed back " +
+					"unchanged to -render-document or -render.",
+				"-list-kind keeps the views of the comma-separated kinds it names. -list-form " +
+					"text (default) writes one aligned line per item; tsv writes a header record " +
+					"category, kind, supported, file, line, name and reason, then a record per item; " +
+					"json writes an array of objects with those fields, each omitted when empty. " +
+					"file is the path the declaration was loaded from and line its 1-based line. " +
+					"A model declaring nothing to list writes nothing.",
 			},
 		}, {
 			Title: "Rendering a document",
@@ -485,7 +522,9 @@ func doc() usage.Doc {
 					"view is Mermaid source; with Graphviz absent a positioned view falls " +
 					"back to Mermaid under a notice saying so. -diagram-form mermaid, dot, " +
 					"plantuml or d2 writes every graph-shaped one in that form instead, in " +
-					"Markdown and HTML alike, while a table-kind view stays a table. Neither " +
+					"Markdown and HTML alike, while a table or matrix view stays a table. D2 " +
+					"writes tree, interconnection, state, action, sequence, requirement, " +
+					"definition and package renderings, and refuses case and mixed diagrams. Neither " +
 					"Graphviz, PlantUML nor D2 is needed to write a fence.",
 				"-doc-form html writes semantic HTML instead, carrying each element's " +
 					"identity and kind, styled by a stylesheet in a cascade layer your " +
@@ -607,11 +646,13 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&queryText, "query", "", "Evaluate this OSLC Query text against the model and exit")
 
 	fs.Var(&modelChecks.validate, "validate", "Report the model's diagnostics and exit, nonzero on an error; -validate=<object> checks instead every assertion about that object (repeatable)")
-	fs.Var(&disabledLints, "disable-lint", "Leave this lint out of the model's diagnostics: undeclared-signal, port-type-mismatch or deferred-keeper-unmarked, comma-separated or repeated")
+	fs.Var(&disabledLints, "disable-lint", "Leave this lint out of the model's diagnostics: undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or rounded-real-literal, comma-separated or repeated")
+	fs.Var(&enabledLints, "enable-lint", "Report this opt-in lint, off by default, in the model's diagnostics: rounded-real-literal, comma-separated or repeated; -disable-lint wins")
 	fs.BoolVar(&noRecordCache, "no-record-cache", false, "Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning; a SysML v1 migration writes none of it")
 	fs.Var(&modelChecks.constraints, "constraint", "Evaluate this constraint and exit (repeatable)")
 	fs.BoolVar(&modelChecks.selfCheck, "self-check", false, "Apply the SysMLValidation constraints to every reflectively classified model element and exit")
+	fs.Var(&modelChecks.selfCheckPackages, "self-check-package", "Apply this package's constraint defs with the SysMLValidation ones, as -self-check-package Acme::ModelingRules; implies -self-check (repeatable)")
 	fs.Var(&modelChecks.requirements, "requirement", "Evaluate this requirement, and every verification case verifying it, and exit (repeatable)")
 	fs.Var(&modelChecks.satisfy, "satisfy", "Evaluate every satisfaction assertion, or with -satisfy=<name> those the named element states, and exit (repeatable)")
 	fs.Var(&modelChecks.calcs, "calc", "Invoke this calculation and report its result, as -calc \"Fall(3, 4)\" (repeatable)")
@@ -663,24 +704,30 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&outputPath, "o", "", outputUsage())
 	fs.StringVar(&modelChecks.compare, "compare-results", "", "Run every configuration this -migration-results file indexes — or those -action names — with its recorded runs and duration mode, or the -runs and -draws given, seeded from -seed, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference")
 
-	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states; #<kind> renders every file loaded and #<kind>:<element> one element, kind being tree, interconnection, state, action, sequence or table, without a declared view")
+	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states; #<kind> renders every file loaded and #<kind>:<element> one element, kind being tree, interconnection, state, action, case, mixed, sequence, table or matrix, without a declared view")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
-	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot, plantuml, d2, csv or tsv (csv and tsv for a table); default from the destination for -render, each kind's machine form for -render-all")
+	fs.StringVar(&graphsSubject, "graphs", "", "Write the lowered graph of this action or state machine, and of every behavior it performs, as the canonical graphs:1 JSON an external analysis engine is sent, to stdout or -output")
+	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot, plantuml, d2, csv or tsv (csv and tsv for a table or matrix); D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; default from the destination for -render, each kind's machine form for -render-all")
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid, plantuml or d2 form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
-	fs.StringVar(&renderLink, "render-link", "", "Link template for rendered elements: {file} is the path as loaded; use absolute paths for vscode:// or file:// links. Placeholders: {file}, {line}, {col}, {qname}, {id}")
+	fs.StringVar(&renderLink, "render-link", "", "Source link template for -render, -render-all, -render-document, -render-documents and -render-run. Placeholders: {file}, {line}, {col}, {qname}, {id}; {file} is the path as loaded (use absolute paths for vscode:// or file:// links)")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
-	fs.StringVar(&renderPorts, "render-ports", "", "How much of a part's ports -render or -render-all draws on an interconnection: minimal (default), the ports its connectors end at, each a small square on the part's border named beside it, or full, every port, labelled name : Type")
+	fs.StringVar(&renderPorts, "render-ports", "", "How much of a part's ports -render or -render-all draws on an interconnection or mixed rendering: minimal (default), the ports its interconnection edges end at, each a small square on the part's border named beside it, or full, every port, labelled name : Type")
+	fs.StringVar(&renderOverlay, "render-overlay", "", "What -render or -render-all draws over a requirement rendering's structure: verdicts runs the verification cases verifying each requirement and colours and labels it by their verdicts; default none, a purely structural drawing")
 	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
+	fs.StringVar(&listWhat, "list", "", "List the model's documents, views, diagrams (the graph-shaped views), pseudo-views or all of them, by the qualified names -render-document and -render read: documents, views, diagrams, pseudo-views or all")
+	fs.StringVar(&listKinds, "list-kind", "", "Comma-separated view kinds -list views, diagrams or all keeps, as state,action")
+	fs.StringVar(&listForm, "list-form", "", "Form -list writes: text (default), one aligned line per item, tsv or json")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory; a document that cannot be rendered gets a page stating why and the run exits 3")
 	fs.StringVar(&docForm, "doc-form", "", docFormUsage())
-	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid, dot, plantuml or d2; unset, a positioned view is dot and any other mermaid; a table-kind view is a table either way")
+	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid, dot, plantuml or d2; D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; unset, a positioned view is dot and any other mermaid; a table or matrix view is a table either way")
 	fs.BoolVar(&docNumberFigures, "doc-number-figures", false, docNumberFiguresUsage())
 
 	fs.BoolVar(&debugMode, "debug", false, "Report every diagnostic over the whole session buffer, with the pass that produced it")
 	fs.BoolVar(&quietMode, "quiet", false, "Report errors only, suppressing warnings")
 	fs.BoolVar(&traceMode, "trace", false, "Report each execution step: expression evaluation, calc invocation, action tokens, state transitions")
+	fs.Var(&renderRuns, "render-run", "Render the trace of a run as timeline or sequence into path (`-` is stdout); form comes from -render-form or the path extension")
 	fs.BoolVar(&memStats, "memstats", false, "Report on stderr what the run cost: wall time, memory allocated, memory taken from the OS")
 
 	fs.Var(&deprecatedFlag{instead: "-to has been replaced by -convert, as `sysml model.sysml -convert ttl`"}, "to", "Replaced by -convert, which names the output format")
@@ -710,9 +757,11 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("validate", "[=<object>]"),
 			usage.Opt("strict", ""),
 			usage.Opt("disable-lint", "<code>"),
+			usage.Opt("enable-lint", "<code>"),
 			usage.Opt("no-record-cache", ""),
 			usage.Opt("constraint", nameArg),
 			usage.Opt("self-check", ""),
+			usage.Opt("self-check-package", "<package>"),
 			usage.Opt("requirement", nameArg),
 			usage.Opt("satisfy", "[=<name>]"),
 			usage.Opt("calc", callArg),
@@ -791,12 +840,21 @@ func optionGroups() []usage.OptionGroup {
 		Options: []usage.Option{
 			usage.Opt("render", "<view>"),
 			usage.Opt("render-all", "<dir>"),
+			usage.Opt("graphs", nameArg),
 			usage.Opt("render-form", formArg),
 			usage.Opt("render-palette", "<palette>"),
 			usage.Opt("render-link", "<template>"),
 			usage.Opt("render-unplaced", "<placement>"),
 			usage.Opt("render-style", "<style>"),
 			usage.Opt("render-ports", "<display>"),
+			usage.Opt("render-overlay", "<overlay>"),
+		},
+	}, {
+		Title: "Listing documents and views",
+		Options: []usage.Option{
+			usage.Opt("list", "<what>"),
+			usage.Opt("list-kind", "<kinds>"),
+			usage.Opt("list-form", formArg),
 		},
 	}, {
 		Title: "Rendering documents",
@@ -839,6 +897,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("debug", ""),
 			usage.Opt("quiet", ""),
 			usage.Opt("trace", ""),
+			usage.Opt("render-run", "<kind>=<path>"),
 			usage.Opt("cpuprofile", fileArg),
 			usage.Opt("memprofile", fileArg),
 			usage.Opt("memstats", ""),

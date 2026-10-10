@@ -81,7 +81,7 @@
       "error": "index out of range: BaseFunctions::'#': index 2 is 4, dimension 2 has 1..3"
     },
     "nonIntegerIndex": {
-      "error": "type mismatch: BaseFunctions::'#' requires an Integer index, got a Real"
+      "error": "type mismatch: BaseFunctions::'#' requires an Integer index, got a Rational"
     },
     "short": {
       "error": "multiplicity violation: function TensorCalculations::'[': 7 elements for a reference of dimensions [2, 2, 2]: the declaration `in elements: Number[1..n]` has `n = mRef.flattenedSize` = 8, and Array binds mRefs to one reference per component"

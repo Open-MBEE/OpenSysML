@@ -97,6 +97,9 @@ type AdmittedOutcome struct {
 	FinalState  string                   `json:"finalState,omitempty"`
 	Terminated  bool                     `json:"terminated,omitempty"`
 	StateVisits []string                 `json:"stateVisits,omitempty"`
+	// Error is the text a run of an action case fails with under the schedules
+	// reaching this outcome, matched as a substring; it states nothing else.
+	Error string `json:"error,omitempty"`
 	// Probability states the exact probability from model-weighted draws.
 	Probability *float64 `json:"probability,omitempty"`
 	// ProbabilityRange states the minimum and maximum probability over schedulers.
@@ -137,6 +140,9 @@ type ExpectedOutcome struct {
 	// ExploreBudget raises the budget the harness explores the case's outcomes
 	// under, for a case whose choice tree the default budget does not cover.
 	ExploreBudget *ExpectedExploreBudget `json:"exploreBudget,omitempty"`
+	// SolverBudget lowers the moves the SMT referee unrolls the case to, for a case
+	// whose every run ends well within them but the default unrolling outlasts the solver.
+	SolverBudget *ExpectedSolverBudget `json:"solverBudget,omitempty"`
 
 	// Action fields
 	Outputs    map[string]ExpectedValue `json:"outputs,omitempty"`
@@ -589,7 +595,7 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 	}
 	for _, explored := range exploration.Outcomes {
 		witness := FormatChoices(explored.Witness)
-		if explored.Outcome.Err != nil {
+		if explored.Outcome.Err != nil && !listsError(expected.Outcomes) {
 			t.Errorf("exploration reached an error the case does not list: %v\n  witness: %s", explored.Outcome.Err, witness)
 			continue
 		}
@@ -681,12 +687,37 @@ func conformanceRun(t *testing.T, idx *symbols.Index, path string, expected Expe
 // validateOutcome checks an outcome a run reached against one the case admits.
 func validateOutcome(r reporter, ctx *Context, want AdmittedOutcome, got Outcome) {
 	r.Helper()
+	if validateOutcomeError(r, want.Error, got.Err) {
+		return
+	}
 	validateTerminated(r, got.Terminated, want.Terminated)
 	validateFinalState(r, got.FinalState, want.FinalState)
 	validateStateVisits(r, got.StateVisits, want.StateVisits)
 	if want.Outputs != nil {
 		validateOutputs(r, ctx, want.Outputs, got.Outputs)
 	}
+}
+
+// listsError reports whether an admissible set lists a run failing as an outcome.
+func listsError(outcomes []AdmittedOutcome) bool {
+	return slices.ContainsFunc(outcomes, func(o AdmittedOutcome) bool { return o.Error != "" })
+}
+
+// validateOutcomeError checks a run's failure against an outcome's error, reporting
+// whether either states one, so that the outcome's result is not checked besides.
+func validateOutcomeError(r reporter, want string, got error) bool {
+	r.Helper()
+	switch {
+	case want == "" && got == nil:
+		return false
+	case want == "":
+		r.Errorf("the run failed with %q, this outcome states a result", got)
+	case got == nil:
+		r.Errorf("the run completed, this outcome states the error %q", want)
+	case !strings.Contains(got.Error(), want):
+		r.Errorf("the run failed with %q, this outcome states an error containing %q", got, want)
+	}
+	return true
 }
 
 // oraclePath is the semantic oracle an admissible set must cite a section of.
@@ -733,6 +764,12 @@ func (b *ExpectedExploreBudget) budget() ExploreBudget {
 	return budget
 }
 
+// ExpectedSolverBudget is the solverBudget of a case: the moves the SMT referee
+// encodes its action to, in place of the engine's default.
+type ExpectedSolverBudget struct {
+	Moves *int `json:"moves,omitempty"`
+}
+
 // admissibleSchemaProblems reports how a case misuses outcomes and admissible:
 // the two go together, replace the single outcome rather than sit beside it,
 // list at least two distinct results, and cite a section the oracle has.
@@ -742,13 +779,28 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 		if expected.Admissible != "" {
 			problems = append(problems, "admissible is stated without outcomes to admit")
 		}
-		if expected.ExploreBudget != nil {
+		hasSingleOutcome := expected.Outputs != nil || expected.FinalState != "" || expected.StateVisits != nil || expected.Terminated
+		if expected.ExploreBudget != nil && !hasSingleOutcome {
 			problems = append(problems, "exploreBudget is stated without outcomes to explore")
+		}
+		if expected.SolverBudget != nil {
+			problems = append(problems, "solverBudget is stated without outcomes to referee")
+		}
+		if expected.ExploreBudget != nil && hasSingleOutcome {
+			if expected.Type != "action" && expected.Type != "state" {
+				problems = append(problems, fmt.Sprintf("exploreBudget applies to action and state cases, not %q", expected.Type))
+			}
+			if _, err := ExplorePolicy(expected.ExploreBudget.budget()); err != nil {
+				problems = append(problems, "exploreBudget: "+err.Error())
+			}
 		}
 		return problems
 	}
 	if _, err := ExplorePolicy(expected.ExploreBudget.budget()); err != nil {
 		problems = append(problems, "exploreBudget: "+err.Error())
+	}
+	if b := expected.SolverBudget; b != nil && (b.Moves == nil || *b.Moves < 1) {
+		problems = append(problems, "solverBudget: moves must be stated and at least 1")
 	}
 	if expected.Type != "action" && expected.Type != "state" {
 		problems = append(problems, fmt.Sprintf("outcomes apply to action and state cases, not %q", expected.Type))
@@ -763,7 +815,15 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 		problems = append(problems, "outcomes lists one result; state it as the single outcome")
 	}
 	for i, outcome := range expected.Outcomes {
-		if outcome.Outputs == nil && outcome.FinalState == "" && outcome.StateVisits == nil && !outcome.Terminated {
+		if outcome.Error != "" {
+			if expected.Type != "action" {
+				problems = append(problems, fmt.Sprintf("outcome %d states an error; error outcomes apply to action cases", i+1))
+			}
+			if outcome.Outputs != nil || outcome.FinalState != "" || outcome.StateVisits != nil || outcome.Terminated ||
+				outcome.Probability != nil || outcome.ProbabilityRange != nil {
+				problems = append(problems, fmt.Sprintf("outcome %d states an error beside a result", i+1))
+			}
+		} else if outcome.Outputs == nil && outcome.FinalState == "" && outcome.StateVisits == nil && !outcome.Terminated {
 			problems = append(problems, fmt.Sprintf("outcome %d states nothing", i+1))
 		}
 		if p := outcome.Probability; p != nil && (*p < 0 || *p > 1) {
@@ -953,6 +1013,12 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 	// Execute action
 	outcome, err := ctx.ActionOutcomePerformedBy(actionSym, nil, nil)
 	outputs := outcome.Outputs
+	if err != nil && listsError(expected.Outcomes) {
+		matchOutcome(t, expected.Outcomes, func(r reporter, admitted AdmittedOutcome) {
+			validateOutcomeError(r, admitted.Error, err)
+		})
+		return
+	}
 	if expected.Error != "" {
 		if err == nil {
 			t.Fatalf("expected execution to fail with %q, it completed with outputs %v", expected.Error, outputs)
@@ -970,6 +1036,9 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 	validateOutputs(t, ctx, expected.Outputs, outputs)
 	if len(expected.Outcomes) > 0 {
 		matchOutcome(t, expected.Outcomes, func(r reporter, admitted AdmittedOutcome) {
+			if validateOutcomeError(r, admitted.Error, nil) {
+				return
+			}
 			validateTerminated(r, outcome.Terminated, admitted.Terminated)
 			validateOutputs(r, ctx, admitted.Outputs, outputs)
 		})
@@ -2102,6 +2171,17 @@ func expectedInteger(v any) (semantics.Value, bool) {
 	return semantics.Value{}, false
 }
 
+// expectedRational reads a case's Rational, written as the exact text ToString
+// prints (`"0.1"`, `"1/3"`) so no decimal is read through a binary64.
+func expectedRational(v any) (semantics.Value, bool) {
+	s, ok := v.(string)
+	if !ok {
+		return semantics.Value{}, false
+	}
+	r, err := semantics.ParseRationalText(s, semantics.DefaultMaxIntegerBits)
+	return r, err == nil
+}
+
 // expectedToRuntimeValue converts ExpectedValue to runtime Value
 func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 	switch ev.Type {
@@ -2116,6 +2196,11 @@ func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 			return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: v}}
 		}
 		t.Fatalf("invalid Real value type: %T", ev.Value)
+	case "Rational":
+		if r, ok := expectedRational(ev.Value); ok {
+			return Value{Kind: ValConst, Const: r}
+		}
+		t.Fatalf("invalid Rational value %v (%T)", ev.Value, ev.Value)
 	case "Boolean":
 		if v, ok := ev.Value.(bool); ok {
 			return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: v}}
@@ -2258,8 +2343,21 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 			return
 		}
 		want := expected.Value.(float64)
-		if actual.Const.Real != want {
-			t.Errorf("%s: value = %f, want %f", name, actual.Const.Real, want)
+		if actual.Const.AsReal() != want {
+			t.Errorf("%s: value = %f, want %f", name, actual.Const.AsReal(), want)
+		}
+	case "Rational":
+		if actual.Kind != ValConst || actual.Const.Kind != semantics.ValRational {
+			t.Errorf("%s: type = %v (Const.Kind=%v), want Rational", name, actual.Kind, actual.Const.Kind)
+			return
+		}
+		want, ok := expectedRational(expected.Value)
+		if !ok {
+			t.Errorf("%s: invalid Rational value %v (%T)", name, expected.Value, expected.Value)
+			return
+		}
+		if semantics.CompareRat(actual.Const, want) != 0 {
+			t.Errorf("%s: value = %s, want %s", name, actual.Const.FormatRational(), want.FormatRational())
 		}
 	case "Boolean":
 		if actual.Kind != ValConst || actual.Const.Kind != semantics.ValBool {
@@ -2337,6 +2435,10 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 		case semantics.ValInt:
 			if float64(got.Int) != want {
 				t.Errorf("%s: magnitude = %d, want %v", name, got.Int, want)
+			}
+		case semantics.ValRational:
+			if f := got.AsReal(); math.Abs(f-want) > 1e-9*math.Max(1, math.Abs(want)) {
+				t.Errorf("%s: magnitude = %s, want %v", name, got.FormatRational(), want)
 			}
 		default:
 			t.Errorf("%s: magnitude kind = %v, want a number", name, got.Kind)
@@ -2432,12 +2534,17 @@ func TestAdmissibleOutcomesSchema(t *testing.T) {
 		{Outputs: map[string]ExpectedValue{"x": one}},
 		{Outputs: map[string]ExpectedValue{"x": two}},
 	}
+	zero, twenty := 0, 20
+	runs := 65536
 	tests := []struct {
 		name     string
 		expected ExpectedOutcome
 		problems int
 	}{
 		{"single outcome", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs}, 0},
+		{"single outcome explore budget", ExpectedOutcome{
+			Type: "action", Outputs: outcomes[0].Outputs, ExploreBudget: &ExpectedExploreBudget{Runs: &runs},
+		}, 0},
 		{"admissible set", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited}, 0},
 		{"state admissible set", ExpectedOutcome{Type: "state", Outcomes: []AdmittedOutcome{{FinalState: "A"}, {FinalState: "B"}}, Admissible: cited}, 0},
 		{"outcomes beside outputs", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, Outcomes: outcomes, Admissible: cited}, 1},
@@ -2449,6 +2556,10 @@ func TestAdmissibleOutcomesSchema(t *testing.T) {
 		{"one outcome listed", ExpectedOutcome{Type: "action", Outcomes: outcomes[:1], Admissible: cited}, 1},
 		{"empty outcome", ExpectedOutcome{Type: "action", Outcomes: []AdmittedOutcome{outcomes[0], {}}, Admissible: cited}, 1},
 		{"calc case", ExpectedOutcome{Type: "calc", Outcomes: outcomes, Admissible: cited}, 1},
+		{"solver budget", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited, SolverBudget: &ExpectedSolverBudget{Moves: &twenty}}, 0},
+		{"solver budget without moves", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited, SolverBudget: &ExpectedSolverBudget{}}, 1},
+		{"solver budget of no moves", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited, SolverBudget: &ExpectedSolverBudget{Moves: &zero}}, 1},
+		{"solver budget without outcomes", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, SolverBudget: &ExpectedSolverBudget{Moves: &twenty}}, 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

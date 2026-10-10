@@ -208,6 +208,20 @@ class PublicTypesTest {
   }
 
   @Test
+  void aRationalMeetsARealAtRealPrecision() {
+    Value third = new Value.RationalValue(Rational.of(1, 3));
+    assertTrue(third.sameValue(new Value.RealValue(1.0 / 3.0)));
+    assertTrue(new Value.RealValue(1.0 / 3.0).sameValue(third));
+    assertFalse(third.sameValue(new Value.RealValue(0.3333)));
+    assertFalse(
+        third.sameValue(
+            new Value.RationalValue(Rational.of(6004799503160661L, 18014398509481984L))));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new Value.SetValue(List.of(third, new Value.RealValue(1.0 / 3.0))));
+  }
+
+  @Test
   void aNullAndTheEmptyCollectionsAreOneMember() {
     Value one = new Value.IntegerValue(1);
 
@@ -585,7 +599,24 @@ class PublicTypesTest {
                 "unresolved",
                 Optional.of(new Diagnostic.Span("model.sysml", 2, 3, 2, 8))),
             new Diagnostic(Diagnostic.Severity.WARNING, "unlocated", "", Optional.empty()));
-    ModelException original = new ModelException("rejected", diagnostics);
+    DocumentValue.DocumentEvent event =
+        new DocumentValue.DocumentEvent(
+            "entry",
+            new DocumentValue.RealValue(1.5),
+            "enter: active",
+            Optional.empty(),
+            "Machine",
+            "active",
+            "",
+            "",
+            Optional.empty(),
+            "",
+            List.of(),
+            List.of(),
+            "");
+    ModelException original =
+        new ModelException(
+            "rejected", FailureReason.UNSPECIFIED, diagnostics, List.of(event), 2);
 
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
@@ -595,6 +626,8 @@ class PublicTypesTest {
         new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
       ModelException restored = (ModelException) input.readObject();
       assertEquals(original.getMessage(), restored.getMessage());
+      assertEquals(List.of(event), restored.trace());
+      assertEquals(2, restored.traceDropped());
       List<Diagnostic> restoredDiagnostics = restored.diagnostics();
       Diagnostic first = diagnostics.get(0);
       assertEquals(diagnostics, restoredDiagnostics);

@@ -4,10 +4,12 @@ package repl
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -47,11 +49,16 @@ func parseDocName(origin string) string {
 type snippet struct {
 	src   string
 	names []string
+	kind  source.Kind
 	// origin is the file this snippet was read from, empty for a submission
 	// typed at the prompt, and key identifies that file across the ways its path
 	// can be written.
 	origin string
 	key    string
+	// of is the key of the file this snippet was read from along with others —
+	// a notebook, each of whose cells is a snippet — so that re-reading the
+	// file whole drops every snippet of it; empty for a source of its own file.
+	of string
 	// gen is the submission that appended this snippet, which is what scopes a
 	// report to the files just loaded rather than the whole buffer.
 	gen int
@@ -69,6 +76,9 @@ type snippet struct {
 	diags []diag.Diagnostic
 }
 
+// SourceConverter transforms a named source file before the REPL parses it.
+type SourceConverter func(name string, data []byte, warn func(string)) (text []byte, converted bool, err error)
+
 // Session accumulates submissions: what is typed into the transcript document,
 // and each loaded file into a document of its own.
 type Session struct {
@@ -79,9 +89,17 @@ type Session struct {
 	mu    sync.Mutex
 	state sync.Mutex
 
-	ws       *model.Workspace
-	snippets []snippet
-	version  int
+	// interrupt is raised by Interrupt to stop the command under way; every
+	// runtime context the session builds watches it. command holds the context
+	// that command's plans run under, cancelled by Interrupt too, and raises
+	// and lowers the flag with the command.
+	interrupt *atomic.Bool
+	command   commandContext
+
+	ws              *model.Workspace
+	sourceConverter SourceConverter
+	snippets        []snippet
+	version         int
 
 	// Runtime execution context
 	rtCtx *runtime.Context
@@ -130,10 +148,16 @@ type Session struct {
 	notedBlocker blockerNote
 
 	// trace records execution steps while tracing is on, nil otherwise.
-	trace *runtime.TraceRecorder
+	trace       *runtime.TraceRecorder
+	traceSilent bool
 
 	// budgets bounds every runtime context this session creates.
 	budgets runtime.Budgets
+
+	// repoURL is the base URL %repo set, empty until it does; repoState is the
+	// branch the model was last loaded from or published to.
+	repoURL   string
+	repoState *replext.ProjectState
 
 	// schedule is the policy runs started from here on resolve choice points under.
 	schedule runtime.SchedulePolicy
@@ -290,15 +314,28 @@ func (s *stateSession) selfOf() string {
 
 // NewSession returns a session over a fresh workspace.
 func NewSession() *Session {
+	return newSession(nil)
+}
+
+// NewSessionWithSourceConverter returns a fresh session that converts named
+// source files before parsing them.
+func NewSessionWithSourceConverter(converter SourceConverter) *Session {
+	return newSession(converter)
+}
+
+func newSession(converter SourceConverter) *Session {
 	s := &Session{
-		ws:          model.NewWorkspace(),
-		instances:   make(map[string]*runtime.Instance),
-		budgets:     runtime.DefaultBudgets(),
-		engines:     engines.Default(),
-		verbosity:   VerbosityNormal,
-		toolVersion: "sysml dev",
-		now:         time.Now,
+		ws:              model.NewWorkspace(),
+		sourceConverter: converter,
+		instances:       make(map[string]*runtime.Instance),
+		budgets:         runtime.DefaultBudgets(),
+		engines:         engines.Default(),
+		verbosity:       VerbosityNormal,
+		toolVersion:     "sysml dev",
+		now:             time.Now,
+		interrupt:       new(atomic.Bool),
 	}
+	s.command.flag = s.interrupt
 	s.setJobs(analysis.DefaultJobs())
 	return s
 }
@@ -316,9 +353,12 @@ func (s *Session) Text() string {
 
 // enter takes the session for one command; the function returned leaves it.
 func (s *Session) enter() func() {
+	s.command.request()
 	s.mu.Lock()
 	s.state.Lock()
+	end := s.command.begin()
 	return func() {
+		end()
 		s.state.Unlock()
 		s.mu.Unlock()
 	}
@@ -381,6 +421,11 @@ func (s *Session) List() []string {
 func (s *Session) list() []string {
 	out := make([]string, 0, len(s.snippets))
 	for _, sn := range s.snippets {
+		// A file read whole that holds no text keeps a snippet, so re-reading it
+		// is a refresh; there is nothing of it to list.
+		if strings.TrimSpace(sn.src) == "" {
+			continue
+		}
 		out = append(out, sn.src)
 	}
 	return out
@@ -412,7 +457,7 @@ func (s *Session) accept(origin, src string) {
 // A loaded file supersedes only itself and what the prompt said about the same
 // names, since several files of one model commonly open the same package.
 func (s *Session) acceptFrom(origin, src string) (declared []string, drops []dropReport) {
-	return s.acceptParsed(origin, src, preparse(origin, src))
+	return s.acceptParsed(origin, fileKeyOf(origin), "", src, preparse(origin, src), source.KindUnknown)
 }
 
 // parsed is what a submission's text parses to, taken before it is accepted so
@@ -426,13 +471,27 @@ type parsed struct {
 // preparse parses src as the submission from origin, and probes whether it
 // closes its own text.
 func preparse(origin, src string) parsed {
+	return preparseWithKind(origin, src, source.KindUnknown)
+}
+
+func preparseWithKind(origin, src string, kind source.Kind) parsed {
 	doc := parseDocName(origin)
-	p := parser.New(source.New(doc, []byte(src)))
+	data := []byte(src)
+	p := parser.New(sourceForKind(doc, data, kind))
 	return parsed{p: p, root: p.ParseFile(), closes: closesItsOwnText(doc, src)}
 }
 
-// acceptParsed is acceptFrom over a parse already taken.
-func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []string, drops []dropReport) {
+func sourceForKind(name string, data []byte, kind source.Kind) *source.SourceFile {
+	if kind == source.KindUnknown {
+		return source.New(name, data)
+	}
+	return source.NewWithKind(name, data, kind)
+}
+
+// acceptParsed is acceptFrom over a parse already taken; key identifies origin
+// across its spellings, and of is the key of the file origin was read from along
+// with other sources, empty otherwise.
+func (s *Session) acceptParsed(origin, key, of, src string, pre parsed, kind source.Kind) (declared []string, drops []dropReport) {
 	p, root := pre.p, pre.root
 	names := declaredNames(root)
 	declared = names
@@ -441,7 +500,6 @@ func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []strin
 	// rather than left to absorb the submissions after it, and declares nothing:
 	// what the parser recovered from it is not what was meant.
 	if !pre.closes {
-		key := fileKeyOf(origin)
 		if key != "" {
 			// Re-reading the file supersedes what it declared before, which it no
 			// longer does.
@@ -459,6 +517,8 @@ func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []strin
 			src:    src,
 			origin: origin,
 			key:    key,
+			of:     of,
+			kind:   kind,
 			gen:    s.version,
 			open:   true,
 			diags:  parser.AsDiagnostics(p.Diagnostics, p.Warnings),
@@ -471,7 +531,6 @@ func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []strin
 	)
 	if origin != "" {
 		set := nameSet(names)
-		key := fileKeyOf(origin)
 		top := topLevelMembers(root)
 		kept := s.snippets[:0]
 		for _, sn := range s.snippets {
@@ -488,7 +547,7 @@ func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []strin
 				kept = append(kept, sn)
 			}
 		}
-		s.snippets = append(kept, snippet{src: src, names: names, origin: origin, key: key, gen: s.version})
+		s.snippets = append(kept, snippet{src: src, names: names, origin: origin, key: key, of: of, kind: kind, gen: s.version})
 		return declared, append(drops, s.reopenedNamespaces(key, root)...)
 	}
 	if len(names) > 0 {
@@ -525,6 +584,7 @@ func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []strin
 		src:    comments + text,
 		names:  names,
 		origin: origin,
+		kind:   kind,
 		gen:    s.version,
 		prefix: len(comments),
 		own:    mergedOwn,
@@ -700,7 +760,7 @@ func (s *Session) openDocuments() {
 		}
 		live[sn.origin] = true
 		if doc := s.ws.Document(sn.origin); doc == nil || doc.Version != sn.gen {
-			inputs = append(inputs, model.Input{Name: sn.origin, Content: []byte(sn.src), Version: sn.gen})
+			inputs = append(inputs, model.Input{Name: sn.origin, Content: []byte(sn.src), Version: sn.gen, Kind: sn.kind})
 		}
 	}
 	for _, name := range s.ws.DocumentNames() {
@@ -837,6 +897,26 @@ func (s *Session) Submit(src string) Result {
 type SourceFile struct {
 	Name string
 	Text string
+	Kind source.Kind
+	// Of names the file this source was read from along with others — the
+	// notebook a cell is one of — empty for a source that is its own file.
+	Of string
+	// Whole is set when Of was read whole, so that re-reading it drops what an
+	// earlier reading declared and this one no longer holds.
+	Whole    bool
+	Warnings []string
+	// Key identifies the source across the spellings of its path where Name is
+	// no file's — a notebook cell's is its notebook's key and its position;
+	// empty for a source whose Name is its path.
+	Key string
+}
+
+// key identifies f across the spellings of its path.
+func (f SourceFile) key() string {
+	if f.Key != "" {
+		return f.Key
+	}
+	return fileKeyOf(f.Name)
 }
 
 // SubmitAll accumulates every src as one submission, from no file in particular.
@@ -902,10 +982,11 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	byFile = make([][]string, len(files))
 	parses := make([]parsed, len(files))
 	model.ParallelFor(s.jobs, len(files), func(i int) {
-		parses[i] = preparse(files[i].Name, files[i].Text)
+		parses[i] = preparseWithKind(files[i].Name, files[i].Text, files[i].Kind)
 	})
+	drops = s.dropReadWhole(files)
 	for i, f := range files {
-		names, dropped := s.acceptParsed(f.Name, f.Text, parses[i])
+		names, dropped := s.acceptParsed(f.Name, f.key(), fileKeyOf(f.Of), f.Text, parses[i], f.Kind)
 		for _, name := range names {
 			if !seen[name] {
 				seen[name] = true
@@ -947,6 +1028,32 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	return res, byFile, whole
 }
 
+// dropReadWhole drops every snippet of a file the submission read whole, a
+// notebook's cells among them, so what the file no longer holds is gone; the
+// cells it still holds are then accepted afresh.
+func (s *Session) dropReadWhole(files []SourceFile) []dropReport {
+	whole := map[string]bool{}
+	for _, f := range files {
+		if f.Whole {
+			whole[fileKeyOf(f.Of)] = true
+		}
+	}
+	if len(whole) == 0 {
+		return nil
+	}
+	var drops []dropReport
+	kept := s.snippets[:0]
+	for _, sn := range s.snippets {
+		if sn.of != "" && whole[sn.of] {
+			drops = append(drops, dropReport{gone: sn.names})
+			continue
+		}
+		kept = append(kept, sn)
+	}
+	s.snippets = kept
+	return drops
+}
+
 // rebuildOver replaces the open documents and everything derived from them — the
 // runtime context, the resolutions held objects and debugging sessions were
 // made against — after the snippets changed, reporting what it carried over.
@@ -970,10 +1077,10 @@ func (s *Session) rebuildOver(drops []dropReport) []string {
 	return whole
 }
 
-// fileSpan is where the current submission's text from the named file sits in the
-// joined buffer, through the newline closing it, where a parse that ran out of text reports.
-func (s *Session) fileSpan(name string) source.Span {
-	key := fileKeyOf(name)
+// fileSpan is where the current submission's text from the file key identifies
+// sits in the joined buffer, through the newline closing it, where a parse that
+// ran out of text reports.
+func (s *Session) fileSpan(key string) source.Span {
 	acc := 0
 	for _, sn := range s.snippets {
 		if sn.gen == s.version && sn.key == key {
@@ -1209,6 +1316,7 @@ func (s *Session) clear() []string {
 	}
 	s.snippets = nil
 	s.version = 0
+	s.repoState = nil
 	s.rtCtx, s.replaced = nil, nil
 	s.dropIndexedDocs()
 	s.instances = make(map[string]*runtime.Instance)
@@ -1283,7 +1391,7 @@ func (s *Session) runtimeModel() (*runtime.Model, error) {
 	// the line it was submitted on rather than a byte offset, and the buffer's
 	// scope tree, so a carried object is rebound to the symbols the prompt reaches.
 	for _, doc := range s.sessionDocs() {
-		model.RegisterSource(source.New(doc.Name, doc.Content))
+		model.RegisterSource(sourceForKind(doc.Name, doc.Content, doc.Kind()))
 		model.RegisterScope(doc.Scope)
 	}
 	return model, nil
@@ -1299,6 +1407,7 @@ func (s *Session) newRuntimeOver(model *runtime.Model) (*runtime.Context, error)
 	if err := ctx.SetSchedule(s.drivenSchedule()); err != nil {
 		return nil, err
 	}
+	ctx.SetInterrupt(s.interrupt)
 	s.applyDraws(ctx)
 	return ctx, nil
 }

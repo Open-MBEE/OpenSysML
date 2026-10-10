@@ -4,6 +4,7 @@ import org.openmbee.opensysml.ActionRun;
 import org.openmbee.opensysml.Analysis;
 import org.openmbee.opensysml.AppliedEdit;
 import org.openmbee.opensysml.Calculation;
+import org.openmbee.opensysml.Capabilities;
 import org.openmbee.opensysml.CaseEvaluation;
 import org.openmbee.opensysml.Condition;
 import org.openmbee.opensysml.Conversion;
@@ -26,6 +27,7 @@ import org.openmbee.opensysml.MigrationEntry;
 import org.openmbee.opensysml.MigrationReport;
 import org.openmbee.opensysml.Outcome;
 import org.openmbee.opensysml.Quantity;
+import org.openmbee.opensysml.Rational;
 import org.openmbee.opensysml.Query;
 import org.openmbee.opensysml.QueryElement;
 import org.openmbee.opensysml.Referrer;
@@ -109,6 +111,7 @@ public final class Protos {
       case INT_VALUE -> Optional.of(new Value.IntegerValue(value.getIntValue()));
       case BIG_INT_VALUE ->
           Optional.of(new Value.BigIntegerValue(bigInteger(value.getBigIntValue())));
+      case RATIONAL_VALUE -> Optional.of(new Value.RationalValue(rational(value.getRationalValue())));
       case REAL_VALUE -> Optional.of(new Value.RealValue(value.getRealValue()));
       case COMPLEX ->
           Optional.of(
@@ -157,6 +160,54 @@ public final class Protos {
     return integer;
   }
 
+  /**
+   * The rational a {@code rational_value} spells: canonical decimal terms in lowest terms over a
+   * positive denominator, and not a number a {@code double} holds, which {@code real_value}
+   * carries.
+   */
+  private static Rational rational(org.openmbee.opensysml.proto.Rational wire) {
+    String spelled = wire.getNumerator() + "/" + wire.getDenominator();
+    if (!canonicalDigits(wire.getNumerator(), true)
+        || !canonicalDigits(wire.getDenominator(), false)
+        || wire.getDenominator().equals("0")) {
+      throw new TransportException(
+          "the service answered a malformed rational: " + spelled + " is not decimal terms", null);
+    }
+    java.math.BigInteger numerator = new java.math.BigInteger(wire.getNumerator());
+    java.math.BigInteger denominator = new java.math.BigInteger(wire.getDenominator());
+    Rational rational = Rational.of(numerator, denominator);
+    if (!rational.numerator().equals(numerator) || !rational.denominator().equals(denominator)) {
+      throw new TransportException(
+          "the service answered a malformed rational: " + spelled + " is not in lowest terms",
+          null);
+    }
+    if (rational.isBinary64()) {
+      throw new TransportException(
+          "the service answered a malformed rational: " + spelled + " is a double, which"
+              + " real_value carries",
+          null);
+    }
+    return rational;
+  }
+
+  // Decimal digits with no leading zero or '+', a '-' only where signed; zero is "0", not "-0".
+  private static boolean canonicalDigits(String digits, boolean signed) {
+    if (digits.equals("0")) {
+      return true;
+    }
+    String magnitude = signed && digits.startsWith("-") ? digits.substring(1) : digits;
+    return !magnitude.isEmpty()
+        && !magnitude.startsWith("0")
+        && magnitude.chars().allMatch(c -> c >= '0' && c <= '9');
+  }
+
+  private static org.openmbee.opensysml.proto.Rational proto(Rational rational) {
+    return org.openmbee.opensysml.proto.Rational.newBuilder()
+        .setNumerator(rational.numerator().toString())
+        .setDenominator(rational.denominator().toString())
+        .build();
+  }
+
   /** Only an asserted arm carries the unbounded value. */
   private static Value infinity(org.openmbee.opensysml.proto.Value value) {
     if (!value.getInfinity()) {
@@ -194,6 +245,7 @@ public final class Protos {
             case INT_VALUE -> new Value.IntegerValue(component.getIntValue());
             case BIG_INT_VALUE ->
                 new Value.BigIntegerValue(bigInteger(component.getBigIntValue()));
+            case RATIONAL_VALUE -> new Value.RationalValue(rational(component.getRationalValue()));
             case REAL_VALUE -> new Value.RealValue(component.getRealValue());
             default ->
                 throw new TransportException(
@@ -311,6 +363,7 @@ public final class Protos {
         switch (quantity.getMagnitudeCase()) {
           case INT_MAGNITUDE -> Long.valueOf(quantity.getIntMagnitude());
           case BIG_INT_MAGNITUDE -> bigInteger(quantity.getBigIntMagnitude());
+          case RATIONAL_MAGNITUDE -> rational(quantity.getRationalMagnitude());
           case REAL_MAGNITUDE -> Double.valueOf(quantity.getRealMagnitude());
           case MAGNITUDE_NOT_SET ->
               throw new TransportException(
@@ -499,6 +552,8 @@ public final class Protos {
       builder.setIntValue(integral.value());
     } else if (value instanceof Value.BigIntegerValue integral) {
       builder.setBigIntValue(integral.value().toString());
+    } else if (value instanceof Value.RationalValue rational) {
+      builder.setRationalValue(proto(rational.value()));
     } else if (value instanceof Value.RealValue real) {
       builder.setRealValue(real.value());
     } else if (value instanceof Value.ComplexValue complex) {
@@ -603,6 +658,150 @@ public final class Protos {
     return values.stream().map(Protos::proto).toList();
   }
 
+  /**
+   * Values by name, as a request to a service advertising {@code capabilities} carries them.
+   *
+   * @param values the immutable values by name
+   * @param capabilities what the service reads
+   * @return the generated values by name
+   */
+  public static Map<String, org.openmbee.opensysml.proto.Value> protos(
+      Map<String, Value> values, Capabilities capabilities) {
+    Map<String, org.openmbee.opensysml.proto.Value> out = new LinkedHashMap<>();
+    values.forEach((name, value) -> out.put(name, fitted(proto(value), capabilities)));
+    return out;
+  }
+
+  /**
+   * Values in order, as a request to a service advertising {@code capabilities} carries them.
+   *
+   * @param values the immutable values
+   * @param capabilities what the service reads
+   * @return the generated values, in order
+   */
+  public static List<org.openmbee.opensysml.proto.Value> protos(
+      List<Value> values, Capabilities capabilities) {
+    return values.stream().map(value -> fitted(proto(value), capabilities)).toList();
+  }
+
+  private static org.openmbee.opensysml.proto.Value fitted(
+      org.openmbee.opensysml.proto.Value value, Capabilities capabilities) {
+    return capabilities.has(Capabilities.RATIONAL_VALUES) ? value : rationalsAsReals(value);
+  }
+
+  /**
+   * The value with each Rational a {@code double} holds exactly as that {@code double}: the form a
+   * service without {@code rational_values} reads.
+   *
+   * @param value the generated value
+   * @return the value, rewritten
+   */
+  public static org.openmbee.opensysml.proto.Value rationalsAsReals(
+      org.openmbee.opensysml.proto.Value value) {
+    org.openmbee.opensysml.proto.Value.Builder builder = value.toBuilder();
+    switch (value.getKindCase()) {
+      case RATIONAL_VALUE -> {
+        Rational rational = sent(value.getRationalValue());
+        if (rational.isBinary64()) {
+          builder.setRealValue(rational.doubleValue());
+        }
+      }
+      case QUANTITY -> builder.setQuantity(quantityRationalAsReal(value.getQuantity()));
+      case SEQUENCE -> {
+        ValueSequence.Builder sequence = value.getSequence().toBuilder();
+        for (int i = 0; i < sequence.getElementsCount(); i++) {
+          sequence.setElements(i, rationalsAsReals(sequence.getElements(i)));
+        }
+        builder.setSequence(sequence);
+      }
+      case SET -> {
+        ValueSet.Builder set = value.getSet().toBuilder();
+        for (int i = 0; i < set.getElementsCount(); i++) {
+          set.setElements(i, rationalsAsReals(set.getElements(i)));
+        }
+        builder.setSet(set);
+      }
+      case ARRAY -> {
+        org.openmbee.opensysml.proto.Array.Builder array = value.getArray().toBuilder();
+        for (int i = 0; i < array.getElementsCount(); i++) {
+          array.setElements(i, rationalsAsReals(array.getElements(i)));
+        }
+        builder.setArray(array);
+      }
+      case VECTOR -> {
+        org.openmbee.opensysml.proto.Vector.Builder vector = value.getVector().toBuilder();
+        for (int i = 0; i < vector.getComponentsCount(); i++) {
+          vector.setComponents(i, rationalsAsReals(vector.getComponents(i)));
+        }
+        builder.setVector(vector);
+      }
+      case VECTOR_QUANTITY -> {
+        org.openmbee.opensysml.proto.VectorQuantity.Builder vector =
+            value.getVectorQuantity().toBuilder();
+        for (int i = 0; i < vector.getComponentsCount(); i++) {
+          vector.setComponents(i, quantityRationalAsReal(vector.getComponents(i)));
+        }
+        builder.setVectorQuantity(vector);
+      }
+      case TENSOR_QUANTITY -> {
+        TensorQuantity.Builder tensor = value.getTensorQuantity().toBuilder();
+        for (int i = 0; i < tensor.getComponentsCount(); i++) {
+          tensor.setComponents(i, quantityRationalAsReal(tensor.getComponents(i)));
+        }
+        builder.setTensorQuantity(tensor);
+      }
+      case ENUM_LITERAL -> {
+        if (value.getEnumLiteral().hasValue()) {
+          builder.setEnumLiteral(
+              value.getEnumLiteral().toBuilder()
+                  .setValue(rationalsAsReals(value.getEnumLiteral().getValue())));
+        }
+      }
+      default -> {}
+    }
+    return builder.build();
+  }
+
+  /**
+   * The binding with each Rational a {@code double} holds exactly as that {@code double}, for a
+   * service without {@code rational_values}.
+   *
+   * @param binding the wire binding
+   * @return the binding, rewritten
+   */
+  public static org.openmbee.opensysml.proto.DocumentQueryBinding rationalsAsReals(
+      org.openmbee.opensysml.proto.DocumentQueryBinding binding) {
+    org.openmbee.opensysml.proto.DocumentQueryBinding.Builder builder = binding.toBuilder();
+    for (int i = 0; i < builder.getValuesCount(); i++) {
+      org.openmbee.opensysml.proto.DocumentValue value = builder.getValues(i);
+      if (value.hasRationalValue() && sent(value.getRationalValue()).isBinary64()) {
+        builder.setValues(
+            i, value.toBuilder().setRealValue(sent(value.getRationalValue()).doubleValue()));
+      } else if (value.hasQuantity()) {
+        builder.setValues(
+            i, value.toBuilder().setQuantity(quantityRationalAsReal(value.getQuantity())));
+      }
+    }
+    return builder.build();
+  }
+
+  private static org.openmbee.opensysml.proto.Quantity quantityRationalAsReal(
+      org.openmbee.opensysml.proto.Quantity quantity) {
+    if (quantity.hasRationalMagnitude() && sent(quantity.getRationalMagnitude()).isBinary64()) {
+      return quantity.toBuilder()
+          .setRealMagnitude(sent(quantity.getRationalMagnitude()).doubleValue())
+          .build();
+    }
+    return quantity;
+  }
+
+  // The rational a request's own rational_value spells, which this client wrote in lowest terms.
+  private static Rational sent(org.openmbee.opensysml.proto.Rational wire) {
+    return Rational.of(
+        new java.math.BigInteger(wire.getNumerator()),
+        new java.math.BigInteger(wire.getDenominator()));
+  }
+
   private static org.openmbee.opensysml.proto.Quantity proto(Quantity quantity) {
     org.openmbee.opensysml.proto.Quantity.Builder builder =
         org.openmbee.opensysml.proto.Quantity.newBuilder();
@@ -610,6 +809,8 @@ public final class Protos {
       builder.setIntMagnitude(integral);
     } else if (quantity.magnitude() instanceof java.math.BigInteger integral) {
       builder.setBigIntMagnitude(integral.toString());
+    } else if (quantity.magnitude() instanceof Rational rational) {
+      builder.setRationalMagnitude(proto(rational));
     } else {
       builder.setRealMagnitude(quantity.magnitude().doubleValue());
     }
@@ -978,7 +1179,15 @@ public final class Protos {
         response.getStatesVisitedList(),
         values(response.getFinalContextMap()),
         finalTimeReported ? OptionalDouble.of(response.getFinalTime()) : OptionalDouble.empty(),
+        documentEvents(response.getTraceList()),
+        response.getTraceDropped(),
         diagnostics(response.getDiagnosticsList()));
+  }
+
+  /** Decodes the typed records in a state-run trace. */
+  public static List<DocumentValue.DocumentEvent> documentEvents(
+      List<org.openmbee.opensysml.proto.DocumentEvent> events) {
+    return events.stream().map(Protos::documentEvent).toList();
   }
 
   /**
@@ -1476,6 +1685,7 @@ public final class Protos {
           case INT_VALUE -> new DocumentValue.IntegerValue(value.getIntValue());
           case BIG_INT_VALUE ->
               new DocumentValue.BigIntegerValue(bigInteger(value.getBigIntValue()));
+          case RATIONAL_VALUE -> new DocumentValue.RationalValue(rational(value.getRationalValue()));
           case REAL_VALUE -> new DocumentValue.RealValue(value.getRealValue());
           case BOOL_VALUE -> new DocumentValue.BooleanValue(value.getBoolValue());
           case INFINITY -> new DocumentValue.InfinityValue();
@@ -1574,6 +1784,21 @@ public final class Protos {
   }
 
   /**
+   * Whether a document-query binding sends an exact Rational, which a service reads only when it
+   * advertises {@code rational_values}.
+   *
+   * @param binding the wire binding
+   * @return whether a value or a quantity magnitude is a {@code rational_value}
+   */
+  public static boolean holdsRational(org.openmbee.opensysml.proto.DocumentQueryBinding binding) {
+    return binding.getValuesList().stream()
+        .anyMatch(
+            value ->
+                value.hasRationalValue()
+                    || (value.hasQuantity() && value.getQuantity().hasRationalMagnitude()));
+  }
+
+  /**
    * A document-query value as a request's binding carries it.
    *
    * @param value the immutable value
@@ -1602,6 +1827,8 @@ public final class Protos {
       builder.setIntValue(integer.value());
     } else if (value instanceof DocumentValue.BigIntegerValue integer) {
       builder.setBigIntValue(integer.value().toString());
+    } else if (value instanceof DocumentValue.RationalValue rational) {
+      builder.setRationalValue(proto(rational.value()));
     } else if (value instanceof DocumentValue.RealValue real) {
       builder.setRealValue(real.value());
     } else if (value instanceof DocumentValue.BooleanValue flag) {

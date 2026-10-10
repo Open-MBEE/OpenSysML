@@ -15,12 +15,16 @@ type Binding struct {
 	Multiplicity *ast.Multiplicity
 }
 
-// BindingEnd is one binding endpoint. Path is the runtime lvalue path; Expr
-// retains the lossless expression for diagnostics and calc evaluation;
-// Multiplicity is the end multiplicity as written (`bind [0..1] a = b`), nil when none.
+// BindingEnd is one binding endpoint. Path is the runtime lvalue path, empty for
+// an end that is read as an expression — an indexed end `xs#(2)` selects one
+// element of a feature and is no feature to write through; Expr retains the
+// lossless expression for diagnostics and calc evaluation; Multiplicity is the
+// end multiplicity as written (`bind [0..1] a = b`), nil when none.
 type BindingEnd struct {
-	Path         string
-	Expr         ast.Node
+	Path string
+	Expr ast.Node
+	// Index selects one element of the feature Path reaches (`xs#(2)`), nil for the whole feature.
+	Index        ast.Node
 	Multiplicity *ast.Multiplicity
 }
 
@@ -51,6 +55,28 @@ func ToBindings(decl ast.Node, scope *symbols.Scope) []Binding {
 	return out
 }
 
+// NamespaceBindings lowers the binding connectors a namespace scope owns
+// directly. ToBindings reads a declaration's members, which a package or
+// namespace body is not, so bindings owned there are collected from the
+// scope's own symbols.
+func NamespaceBindings(scope *symbols.Scope) []Binding {
+	if scope == nil {
+		return nil
+	}
+	var out []Binding
+	scope.ForEachMember(func(sym *symbols.Symbol) bool {
+		u, ok := sym.Decl.(*ast.Usage)
+		if !ok || u.Kind != ast.UsageBinding {
+			return true
+		}
+		if binding, ok := lowerBinding(u, scope); ok {
+			out = append(out, binding)
+		}
+		return true
+	})
+	return out
+}
+
 func lowerBinding(u *ast.Usage, scope *symbols.Scope) (Binding, bool) {
 	if u == nil {
 		return Binding{}, false
@@ -72,6 +98,9 @@ func lowerBinding(u *ast.Usage, scope *symbols.Scope) (Binding, bool) {
 			return Binding{}, false
 		}
 		ends[i] = BindingEnd{Path: FeaturePath(target), Expr: target, Multiplicity: end.Multiplicity}
+		if index := end.AttachedIndex(); index != nil {
+			ends[i].Expr, ends[i].Index = end.AttachedSelection(), index
+		}
 	}
 	return Binding{Ends: ends, Scope: scope, Decl: u, Multiplicity: u.Multiplicity}, true
 }

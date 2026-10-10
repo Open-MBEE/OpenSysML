@@ -215,7 +215,7 @@ func TestDiagramViews(t *testing.T) {
 			 </packagedElement>`,
 			diagram("_d", "Levels", "_tank", "SysML Block Definition Diagram", "_level",
 				"http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"),
-			[]string{"part def ScalarValuesModel;", "view Levels {\n        expose level;\n        expose ScalarValues::Real;\n        render Views::asTreeDiagram;\n    }",
+			[]string{"occurrence def ScalarValuesModel;", "view Levels {\n        expose level;\n        expose ScalarValues::Real;\n        render Views::asTreeDiagram;\n    }",
 				`metadata MigrationMetadata::LibraryNameAvoided about ScalarValuesModel { sourceName = "ScalarValues"; }`}, Mapped, ""},
 		{"a diagram of a user stereotype is written in its metadata def",
 			`<packagedElement xmi:type="uml:Profile" xmi:id="_marks" name="Marks">
@@ -266,7 +266,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Modes", "_sm", "SysML State Machine Diagram", "_idle"),
-			[]string{"part def Controller {\n    state def Modes {\n        view Modes : StandardViewDefinitions::StateTransitionView {\n            expose Controller::Modes;\n            render Views::asInterconnectionDiagram;\n        }", "exhibit state modes : Modes;"}, Mapped,
+			[]string{"occurrence def Controller {\n    state def Modes {\n        view Modes : StandardViewDefinitions::StateTransitionView {\n            expose Controller::Modes;\n            render Views::asInterconnectionDiagram;\n        }", "exhibit state modes : Modes;"}, Mapped,
 			"the view exposes state def Controller::Modes, whose graph the rendering draws with the 1 shown nodes and edges of it"},
 		{"an activity diagram of a package draws no graph",
 			``, diagram("_d", "Flows", "_sys", "SysML Activity Diagram", "_pump"),

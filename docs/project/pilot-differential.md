@@ -95,16 +95,22 @@ bridges print identical diagnostics). That is what a model checked together with
 libraries needs: two of them, `RandomFunctions.kerml` and `OpenSysMLMathFunctions.kerml`, are
 KerML, and a model that calls `RandomFunctions::uniform` would otherwise report every such call
 as `Couldn't resolve reference to Element 'RandomFunctions::uniform'` plus `Must invoke a
-behavior or a behavioral feature`. Pass the whole library directory:
+behavior or a behavioral feature`. Both bridges take `--extension-library DIR` (repeatable),
+which loads a directory's `.kerml` and `.sysml` files the way `sysml.library` is loaded —
+resolved against, never validated — and the harness hands the OpenSysML libraries over that
+way on every batch (`internal/workspace/libs/stdlib/OpenSysML Libraries`, the copy this
+implementation compiles against — or the same directory under `OPENSYSML_LIBRARY_PATH` when that
+names another library root, so an override moves both sides of the comparison together; see the
+[supplied-libraries round](#supplied-libraries-round)). To ask the reference the same question
+by hand:
 
 ```bash
-build/pilot-sysml-validator/validate-sysml-batch model.sysml \
-    "internal/workspace/libs/stdlib/OpenSysML Libraries"
+build/pilot-sysml-validator/validate-sysml-batch \
+    --extension-library "internal/workspace/libs/stdlib/OpenSysML Libraries" model.sysml
 ```
 
 This harness still hands each language to its own bridge (a `.kerml` file of a root goes to
-`validate-kerml`), so the committed baseline's verdicts are unchanged by this; only the bridge's
-source digest in its provenance moved.
+`validate-kerml`, with the same libraries).
 
 EMF renders object references with an identity hash code and an absolute `file:` URI, which
 would differ between runs and machines; the bridge rewrites those to the display path, so
@@ -126,6 +132,13 @@ repeated runs are byte-identical.
 
 `kerml-examples` is collected as KerML; every other root is collected as SysML, which leaves our
 own `.kerml` fixtures out of the comparison (see the known limitation below).
+
+Beside the roots, every batch hands the reference the OpenSysML libraries
+(`internal/workspace/libs/stdlib/OpenSysML Libraries`, 15 files), loaded like the standard
+library: resolved against, never validated. They are not a compared root — library files report
+nothing — but they are part of what a run measured, so the baseline's provenance records them as
+the `opensysml-libraries` input, and a changed library is a movement to adjudicate like a changed
+corpus.
 
 The OMG corpora are not vendored, for the same licensing reason as the training corpus, and the
 pilot release they are fetched at is pinned once in `scripts/pilot-pin.sh` — the same pin the
@@ -228,18 +241,18 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 384 files)
+## Results (pilot `2026-08`, 391 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `examples/sysml-v2-training` | 100 | 99 | 1 | 0 | 0 | 0 | 1 | 0 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 91 | 12 | 0 | 0 | 0 | 12 | 0 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
-| `tests/testdata` | 21 | 11 | 55 | 90 | 45 | 1 | 9 | 44 |
-| `examples` | 46 | 31 | 11 | 1601 | 4 | 1 | 6 | 1596 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 88 | 235 | 0 | 0 | 0 | 235 | 0 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 54 | 8 | 0 | 0 | 0 | 8 | 0 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 55 | 13 | 0 | 0 | 0 | 13 | 0 |
+| `tests/testdata` | 22 | 11 | 57 | 77 | 45 | 1 | 11 | 31 |
+| `examples` | 52 | 45 | 8 | 61 | 0 | 0 | 8 | 61 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **384** | **345** | **94** | **1691** | **49** | **2** | **43** | **1640** |
+| **Total** | **391** | **353** | **328** | **138** | **45** | **1** | **282** | **92** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -260,7 +273,7 @@ report `action-step-multiplicity-not-fixed` because the executor refuses non-fix
 training corpus gate still asserts zero semantic errors. This brings the current reference-corpus
 total to 21 only-ours diagnostics, of which 20 remain candidate conformance mismatches and the
 Camera warning is an intentional execution-scope warning. The
-`examples` root carries 1 outside the demos that draw diagnostics on purpose (the five MOSA
+`examples` root carries 1 outside the demos that draw diagnostics on purpose (the six MOSA
 warnings of the [MOSA library round](#mosa-library-round) and the unbound-parameter advisory of
 the [runtime showcase round](#runtime-showcase-round)): the non-standard-notation warning on the
 `junction` of `pseudostates-demo.sysml`, the one demo that keeps the pseudostate notation because
@@ -272,17 +285,138 @@ fixture that exists to draw them (see [Value uniqueness](#value-uniqueness--only
 pilot has no value-level uniqueness constraint, so all 5 are one-sided by construction. **Those that remain are
 true positives about our own examples, not candidate false positives about our implementation** — the
 column header is wrong for them, and the honest count of suspect diagnostics of ours against the
-reference corpora is **20** (11 on `sysml-examples`, 9 on `kerml-examples`) — of which six, the
-`Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
+reference corpora is **20** (11 on `sysml-examples`, 9 on `kerml-examples`) once the 235 imported-member
+distinguishability warnings (223 on `sysml-examples`, 8 on `sysml-validation`, 4 on `kerml-examples`)
+are set aside as the known pilot omission they are (see the imported-membership round below) — of which six, the
+`Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (1) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
 
-Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 4
-`unmapped`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `kerml-examples` 9 `unmapped`;
-`testdata` 8 `unmapped`, 1 `multiplicity`; `examples` 4 `unmapped`, 2 `multiplicity`; `probes`
-6 `unmapped`. Only-pilot: `testdata` 20 `kind-mismatch`, 14 `unmapped`, 3 `syntax`, 7
-`unresolved-reference`; `examples` 6 `syntax`, 29 `unmapped`, 673 `kind-mismatch`, 888
-`unresolved-reference`.
+Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 227
+`unmapped`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`;
+`kerml-examples` 13 `unmapped`; `testdata` 10 `unmapped`, 1 `multiplicity`; `examples` 5
+`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`. Only-pilot: `testdata` 12 `kind-mismatch`, 14 `unmapped`,
+3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`.
+
+### View concern framing round
+
+`%view` used to demand that a view restate, in its own body, every concern the viewpoints it
+`satisfy`s frame — a concern framed by the viewpoint but not by the view was `violated (framed by
+the viewpoint but not by the view)` — so `views-demo.sysml`, `disposal-robot-demo/robot.sysml` and
+`self-model/views.sysml` each wrote `frame concern …;` inside a `view def` or `view` body. SysML v2
+admits `frame` (FramedConcernMember, §8.3.20/§8.3.26) only in a requirement, concern or viewpoint
+body, and the reference failed to parse each of those lines (`mismatched input 'frame' expecting
+'}'`, then `extraneous input '}' expecting EOF`): two `syntax` rows per demo. The evaluator now
+checks every concern a viewpoint frames directly against what the view exposes, the three demos drop
+the view-body framings with their `%view` output unchanged, and a `frame` left in a view body draws
+the `nonstandard-notation` warning that `-strict` escalates to an error, as the reference rejects it.
+The six `syntax` rows go, the three demos become fully agreeing, and `examples` keeps only the 37
+`DocumentQueries` binding warnings and the 17 duplicate-inherited-name warnings on the pilot side.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 352 | **355** |
+| only pilot | 91 | **85** |
+| pilot diagnostics | 137 | **131** |
+| `examples`: fully agreeing / only pilot | 38 / 60 | **41 / 54** |
+
+### Single-objective round
+
+Two demos stated a second objective in one analysis case for a lexicographic `%optimize` —
+`MassThenScience` in `solver-demo.sysml` and `FarthestThenTool` in
+`disposal-robot-demo/robot.sysml` — which SysML v2 forbids (`validateCaseDefinitionOnlyOneObjective`)
+and the reference reported as `Only one objective is allowed.` on each. Both cases are dropped from
+the demos, with the walkthrough passages that ran them; the lexicographic semantics themselves stay
+implemented and tested (`spec-compliance.md`). The two `unmapped` rows go with them, `solver-demo.sysml`
+becomes fully agreeing, and the only-pilot column on `examples` now holds the six `frame concern`
+`syntax` rows, the 37 `DocumentQueries` binding warnings and the 17 duplicate-inherited-name
+warnings read in the round below, nothing else.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 351 | **352** |
+| only pilot | 93 | **91** |
+| pilot diagnostics | 139 | **137** |
+| `examples`: fully agreeing / only pilot | 37 / 62 | **38 / 60** |
+
+### Supplied-libraries round
+
+The reference validators are now handed the OpenSysML libraries beside the standard library on
+every batch: both bridges take `--extension-library DIR`, which loads a directory the way
+`sysml.library` is loaded — resolved against, never validated — and the harness passes
+`internal/workspace/libs/stdlib/OpenSysML Libraries` (15 files, the copy this implementation
+compiles against) through it. The directory is not an option of the harness: it is the
+`OpenSysML Libraries` directory of the standard-library root this implementation itself loads
+(the bundled tree, or `OPENSYSML_LIBRARY_PATH` when set), so both validators always resolve the
+same library text, and the provenance records the one used as the `opensysml-libraries` input. Until now a model that imported
+`DocumentQueries`, `OOSEM`, `MOSA`, `AnalysisRecords`, `StateMachines` or
+`OpenSysMLMathFunctions` was compared against the reference's cascade from a namespace it could
+not resolve — the rounds below record 347 such rows on `self-model/document.sysml`, 294 on
+`oosem-demo/oosem-demo.sysml`, 440 on `mosa-demo/mosa-demo.sysml` and 397 on
+`analysis-results-demo/lander-results.sysml` — and the `examples` only-pilot column measured how
+much the demos asked of our libraries rather than conformance. Those cascades are gone: only-pilot
+on `examples` 1590 → **62**, on `testdata` 44 → **31** (the 13 rows of `passes/deferred_keeper.sysml`,
+the same cause), pilot diagnostics 1681 → **139**. The pinned roots do not move, since nothing in
+them imports a library of ours, and nothing we report moved.
+
+What remains on `examples` is read row by row. The six `syntax` rows are the two deliberate
+deviations: `frame concern` inside a `view` body (`views-demo.sysml`,
+`disposal-robot-demo/robot.sysml`, `self-model/views.sysml`, two rows each), which the grammar
+allows only in requirement and viewpoint bodies; and the two `unmapped` `Only one objective is
+allowed.` rows (`solver-demo.sysml`:183, `robot.sysml`:564), the second objective of a
+lexicographic `%optimize`. The 37 `kind-mismatch` rows are all the warning `Bound features should
+have conforming types` on a part, package or view bound to a feature the `DocumentQueries` library
+types as `Element` — `in root = Landers::scout` (`lander-results.sysml`:542), `in :>> root =
+vehicle` (`mosa-demo.sysml` 342–362), `in root = rover` (`verdicts-demo/rover.sysml` 138–152)
+and the `root` and diagram `source` bindings of `self-model/document.sysml` (29 rows) — a question
+about the library's parameter typing, not about the demos. The 17 `unmapped` rows are `Duplicate
+of inherited member name` warnings at `document.sysml`:409, where the invariant table's source
+inherits same-named features (`goPackage`, `tree`, `index`, …) from several self-model parts at
+once. One pair moved column: the reference's error at `mosa-demo.sysml`:195 belonged to the
+cascade, so our deliberate `conforms to no standard` warning there is no longer severity-only but
+only-ours — the demo's six intentional warnings now all sit in that column (5 → **6**), and
+severity-only falls 2 → **1**.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 347 | **351** |
+| only ours | 43 | **44** |
+| only pilot | 1634 | **93** |
+| severity-only | 2 | **1** |
+| our diagnostics / pilot diagnostics | 90 / 1681 | **90 / 139** |
+| `examples`: fully agreeing / only pilot | 33 / 1590 | **37 / 62** |
+| `testdata`: only pilot | 44 | **31** |
+
+### Demo validity round
+
+Three demos that validated clean on our side drew rows from the reference that were not
+extensions of ours but mistakes of the demos', each with a standard spelling both tools accept
+and the same answers under it. `disposal-team-demo/team.sysml` and
+`runtime-showcase/mass-rollup.sysml` summed `MassValue`s with `RealFunctions::sum`, declared over
+`Real`; both now import `QuantityCalculations::sum`, the library's sum over quantities, so the four
+agreed `Bound features should have conforming types` warnings the
+[argument-binding conformance round](#argument-binding-conformance-round) recorded are gone, the
+walkthroughs no longer present them as expected output, and the payload and rollup still evaluate
+in kilograms. `team.sysml` also assigned `accepted := accepted + 1` inside a state, where the
+reference resolved the name to the `accepted : Transfer[0..1]` every state inherits from
+`StatePerformances::StatePerformance` ahead of the part's `attribute accepted : Integer`
+([the team demo](#the-team-demo)); the counter is `commandsAccepted`, a name nothing inherited
+shadows, so the line-117 pair is retired by the demo rather than adjudicated. The name-resolution
+difference itself stands: our resolver still finds the part's attribute first, and the row's
+verdict records that. `expressions-demo.sysml` passed `calc def`s as function values —
+`Apply(Square, a)`, `Sample(Square, xs)` — which the reference refuses as `Must be a valid
+feature` and we accept as an extension; the file now declares `calc square : Square;` and
+`calc halve : Halve;` and passes those, which both accept, and the
+[expressions walkthrough](#expressions-walkthrough-round)'s four pilot-only rows are retired with
+it. Nothing we report moved.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 345 | **347** |
+| agreed | 49 | **45** |
+| only pilot | 1640 | **1634** |
+| our diagnostics / pilot diagnostics | 94 / 1691 | **90 / 1681** |
+| `examples`: fully agreeing / agreed / only pilot | 31 / 4 / 1596 | **33 / 0 / 1590** |
 
 ### Legend of the Red Dragon departure round
 
@@ -791,8 +925,8 @@ the library's `eval` calculation):
 
 | Row | The reference's reading | Verdict |
 |---|---|---|
-| `:29` (2 `warning: Bound features should have conforming types`) | `attribute payload : MassValue = sum(robots.mass) + sum(cradles.mass);` — each `MassValue`-typed argument is bound to the `Real`-typed `collection` parameter of the imported `RealFunctions::sum`, and the reference judges that implied binding | **Agreed** since the [argument-binding conformance round](#argument-binding-conformance-round): we warn on the same two arguments at the same columns |
-| `:117` (`error: Referent must be time varying.` + the same warning) | `assign accepted := accepted + 1;` in a state's entry action, where the enclosing `part def` declares `attribute accepted : Integer` | A name-resolution difference, not a rule difference. The reference resolves `accepted` inside the state to the `accepted : Transfer[0..1]` that `StatePerformances::StatePerformance` contributes to every state, ahead of the part definition's own attribute; a `Transfer` is neither time-varying nor a `Real`, hence both rows. We resolve it to the declared attribute, an `Integer`, and the same two rules are then rightly silent. The identical assignment in an `action` of the same part def is clean on both sides, which is what isolates the state's inherited scope as the difference |
+| `:29` (2 `warning: Bound features should have conforming types`) | `attribute payload : MassValue = sum(robots.mass) + sum(cradles.mass);` — each `MassValue`-typed argument is bound to the `Real`-typed `collection` parameter of the imported `RealFunctions::sum`, and the reference judges that implied binding | **Agreed** since the [argument-binding conformance round](#argument-binding-conformance-round): we warn on the same two arguments at the same columns. Retired by the [demo validity round](#demo-validity-round), which imports `QuantityCalculations::sum` instead |
+| `:117` (`error: Referent must be time varying.` + the same warning) | `assign accepted := accepted + 1;` in a state's entry action, where the enclosing `part def` declares `attribute accepted : Integer` | A name-resolution difference, not a rule difference. The reference resolves `accepted` inside the state to the `accepted : Transfer[0..1]` that `StatePerformances::StatePerformance` contributes to every state, ahead of the part definition's own attribute; a `Transfer` is neither time-varying nor a `Real`, hence both rows. We resolve it to the declared attribute, an `Integer`, and the same two rules are then rightly silent. The identical assignment in an `action` of the same part def is clean on both sides, which is what isolates the state's inherited scope as the difference. Retired by the [demo validity round](#demo-validity-round), which names the counter `commandsAccepted`; the resolution difference is unchanged |
 
 ### Package-keyword round
 
@@ -827,9 +961,9 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1640** |
-| pilot diagnostics | 123 | **1691** |
-| severity-only | 9 | **2** |
+| only pilot | 82 | **92** |
+| pilot diagnostics | 123 | **138** |
+| severity-only | 9 | **1** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -841,7 +975,8 @@ agreeing files, only-ours and every OMG root were unmoved by the rewrite, so not
 conformance change: it is our own demo written in a spelling the reference accepts. The rewrite itself
 left only-pilot at 61 and pilot diagnostics at 101; the `Now` column tracks the current baseline, so it
 also carries the interface-flow pairing round, the library-inherited-name round, the end-to-end
-demo round and the package-keyword round that followed, and the Results table above states every figure as it is now.
+demo round, the package-keyword round and the later rounds up to the view concern framing round that
+followed, and the Results table above states every figure as it is now.
 
 ### End-to-end demo round
 
@@ -1051,14 +1186,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **345 / 43 / 94** |
-| only pilot | **1640** |
-| pilot diagnostics | **1691** |
-| severity-only | **2** |
-| unmapped, our side | **46** |
-| kerml-examples: only ours | **9** |
-| pilot-examples: only ours | **12** |
-| examples: only pilot | **1596** |
+| overall: fully agreeing / only ours / our diagnostics | **353 / 282 / 328** |
+| only pilot | **92** |
+| pilot diagnostics | **138** |
+| severity-only | **1** |
+| unmapped, our side | **284** |
+| kerml-examples: only ours | **13** |
+| pilot-examples: only ours | **235** |
+| examples: only pilot | **61** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and
@@ -2826,7 +2961,15 @@ moved count is a claim about one of the two implementations, and it needs a reas
 
 `-update` records a run as the committed baseline; `-check` re-runs the comparison and fails
 unless the fresh report reproduces it, printing the differing fields. Both flags exist on all
-three oracles, and `-check` is what a reader should run before quoting a figure.
+three oracles, and `-check` is what a reader should run before quoting a figure. The library
+directory the reference is handed beside the standard one is not a flag: it is
+`OpenSysML Libraries` under the standard-library root OpenSysML loads
+(`internal/workspace/libs/stdlib`, or `OPENSYSML_LIBRARY_PATH` when set), so the two sides
+cannot be given different libraries; it must lie inside the repository, since the baseline
+records it. Without an override OpenSysML loads the libraries embedded in the build, so a
+`-repo` naming another checkout is refused when that checkout's `OpenSysML Libraries` differ
+from the embedded ones; setting `OPENSYSML_LIBRARY_PATH` to that checkout's library root has both
+sides load its text.
 
 ### How this record is kept true
 
@@ -2835,7 +2978,8 @@ describe this repository:
 
 - **Provenance in every baseline.** `provenance` records the pinned tag and artifact, a digest of
   each validator bridge's source, and a digest and file count of every corpus root the run
-  compared, alongside the ISO date it was recorded. No absolute path is an identity, so two
+  compared and of the library directory the reference was handed, alongside the ISO date it was
+  recorded. No absolute path is an identity, so two
   machines that agree on the pin and the inputs record the same provenance.
 - **A Java-free guard in the normal suite.** `TestCommittedBaselineStatesThisRepositorysProvenance`
   (in each oracle's package) compares that record against the repository as it stands. If the pin
@@ -2978,6 +3122,45 @@ pilot accepts the notation but reads the original value — a pilot-evaluator ga
 divergence to report — so the pass reports nothing for a plain chain, and only a chain crossing
 a `ref`, port or subject is an error (`redefinition-through-reference`). The differential
 baseline did not move.
+
+### Imported-membership distinguishability round
+
+The duplicate-name warning now covers the memberships imports bring in as well as the owned
+and inherited ones ([spec-pilot-gap-register.md](spec-pilot-gap-register.md) §13, "Imported
+memberships"): two imports surfacing members of one name or short name whose metaclasses conform
+warn once per name, on the import bringing the later membership, naming the colliding members
+and their imports — `Duplicate of imported member name 'Engine': A::Engine (import A::*),
+B::Engine (import B::*)`. KerML 7.2.5.4 hides such a pair from the importing namespace; the pilot
+instead binds the first import's member and compares owned and inherited memberships only, so
+every one of these rows is only-ours and the pilot is expected to stay silent; they are a known
+pilot omission, not candidate false positives. Nothing else moved: the agreed, severity-only
+and only-pilot columns are what they were, and the `testdata` root gained one file,
+`resolve/imports.sysml`, the fixture of the new rule (two rows).
+
+The 238 new rows: `13a-Model Containment.sysml` 6 (`Engine`, `Transmission`, `ClutchPort`,
+`DrivePwrPort`, `EngineToTransmissionInterface`, `vehicle1_c1` from `'2a-Parts Interconnection'::*`
+and `'8-Requirements'::*`), `4a-Functional Allocation.sysml` 2 (`Definitions`, `Usages`),
+`Simple Tests/Imports.kerml` 4, `AHFNorwayTopics.sysml` 2, `Annex_A_VehicleViews.sysml` 87 and
+`SysML v2 Spec Annex A SimpleVehicleModel.sysml` 134 — the Annex A model's four recursive
+`import …VehicleConfiguration_b::**` each surface, besides the three `vehicle_b`, some forty
+nested feature names (`vehicle_b::mass` beside `vehicle_b::fuelTank::mass`,
+`rearWheel1::diameter` beside `rearWheel2::diameter`, …), since a recursive import reaches every
+nested namespace, types and features included — plus `general-views-demo/vehicle.sysml` 1 and
+the fixture's 2. The per-file ratchet in `tests/corpus/testdata/pilot_corpora_expected.txt`
+records the six corpus files' new counts; the training corpus is unmoved.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 360 | **353** |
+| only ours | 44 | **282** |
+| only pilot | 92 | 92 |
+| severity-only | 1 | 1 |
+| our diagnostics / pilot diagnostics | 90 / 138 | **328** / 138 |
+| `pilot-examples`: fully agreeing / only ours | 91 / 12 | **88 / 235** |
+| `pilot-validation`: fully agreeing / only ours | 56 / 0 | **54 / 8** |
+| `kerml-examples`: fully agreeing / only ours | 56 / 9 | **55 / 13** |
+| `testdata`: files / only ours | 21 / 9 | **22 / 11** |
+| `examples`: only ours | 7 | **8** |
 
 ## Current branch movement and adjudications
 

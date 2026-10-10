@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -48,10 +48,12 @@ BIN_DIR := bin
 # WebAssembly output, one directory per Go wasm target.
 WASM_DIR := $(BIN_DIR)/wasm
 PYTHON_DIR := client/python
+JUPYTER_KERNEL_DIR := client/jupyter-kernel
 NODE_DIR := client/node
 # The TypeScript protobuf plugin, installed by `npm ci` from the client's lockfile.
 PROTOC_GEN_ES := $(NODE_DIR)/node_modules/.bin/protoc-gen-es
 VSCODE_DIR := editors/vscode
+JUPYTERLAB_DIR := editors/jupyterlab
 PYTHON ?= python3
 # api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
@@ -67,9 +69,14 @@ LIBS_DIR := internal/workspace/libs
 # The development tools are a nested module; go's ./... at the root stops at
 # its go.mod, so every whole-tree target runs go a second time in it.
 TOOLS_DIR := tools
+# make coverage's scope; coverage-shard narrows it to one CI shard.
+COVERAGE_PACKAGES ?= ./...
+COVERAGE_TOOLS ?= ./...
+COVERAGE_PROFILE ?= coverage.txt
+COVERAGE_SHARDS := runtime model export rest
 
 # The commands whose manual pages are generated and shipped, in section 1.
-COMMANDS := sysml sysml-lsp sysml-grpc
+COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel
 # sysml-engine, sysml-syntax, sysml-core and sysml-wasm serve JSON RPC surfaces
 # without protobuf. Natively they are built only on request and stay out of
 # `build`, `install`, the release and the manual pages.
@@ -89,7 +96,7 @@ INSTALL ?= install
 
 all: build test python-test ## Build and test everything
 
-build: build-sysml build-lsp build-grpc ## Build all binaries
+build: build-sysml build-lsp build-grpc build-jupyter-kernel ## Build all binaries
 
 build-sysml: ## Build sysml binary
 	@echo "Building sysml..."
@@ -120,6 +127,13 @@ build-grpc: ## Build sysml-grpc binary
 	$(call winres,sysml-grpc)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-grpc ./cmd/sysml-grpc
 	@echo "✓ Built $(BIN_DIR)/sysml-grpc ($(VERSION))"
+
+build-jupyter-kernel: ## Build sysml-jupyter-kernel binary
+	@echo "Building sysml-jupyter-kernel..."
+	@mkdir -p $(BIN_DIR)
+	$(call winres,sysml-jupyter-kernel)
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-jupyter-kernel ./cmd/sysml-jupyter-kernel
+	@echo "✓ Built $(BIN_DIR)/sysml-jupyter-kernel ($(VERSION))"
 
 # The JSON commands, natively: each serves its JSON-RPC over stdio. Opt-in:
 # nothing builds, installs or releases them.
@@ -205,7 +219,7 @@ man: ## Regenerate the shipped manual pages from each command's description
 
 man-check: ## Verify the shipped pages are current and formatter-clean
 	@echo "Checking the manual pages..."
-	go test -count=1 -run 'TestTheShippedManualPage|TestTheManualPage' ./cmd/sysml ./cmd/sysml-lsp ./cmd/sysml-grpc
+	go test -count=1 -run 'TestTheShippedManualPage|TestTheManualPage' ./cmd/sysml ./cmd/sysml-lsp ./cmd/sysml-grpc ./cmd/sysml-jupyter-kernel
 	@# mandoc is the strictest reader; groff is the one always at hand.
 	@if command -v mandoc >/dev/null 2>&1; then \
 		mandoc -T lint -W warning $(MAN_PAGES) || exit 1; \
@@ -262,19 +276,28 @@ conformance-pkg: ## Run the conformance suite through the public Go API (client/
 
 test: ## Run Go tests with race detection and coverage
 	@echo "Running Go race tests..."
-	@# Per-package timeout: under -race the runtime package runs 22-29 minutes on CI runners.
+	@# Per-package timeout: under -race the runtime package runs 31-47 minutes on CI runners.
 	@# -pgo=off: coverage plus cmd/*/default.pgo trips golang/go#80891 (link: fingerprint mismatch).
 	go test -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic ./...
 	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 45m ./...
 
 # Run race-free by their own gate steps in the PR workflow's static-and-integrity job.
 RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
+# The runtime-corpus shard: the suites that run every model of the conformance corpus,
+# about half the package's time under -race.
+RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
-test-shard: ## Run one CI shard of the race suite (SHARD=runtime|model|export|rest)
+test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|rest)
 	@echo "Running Go race tests, shard $(SHARD)..."
-	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic $$pkgs
-	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 45m ./...; fi
+	@# 55m per package; its job's ceiling is 60. Whole, internal/exec/runtime took 31-57 minutes
+	@# under -race on the CI runners, so it runs as two shards of about half that each.
+	pkgs=$$(scripts/race-shard.sh $(SHARD)) && case "$(SHARD)" in \
+	  runtime-corpus) go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  runtime) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	esac
+	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./...; fi
 
 coverage: ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."
@@ -288,14 +311,28 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	@# it at this directory; go test folds in only its own binary's counters.
 	rm -rf $(GO_COUNTER_DIR)
 	mkdir -p $(GO_COUNTER_DIR)
-	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic ./...
+	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=$(COVERAGE_PROFILE) -covermode=atomic $(COVERAGE_PACKAGES)
 	go tool covdata textfmt -i=$(GO_COUNTER_DIR) -o $(GO_COUNTER_DIR)/profile.txt
-	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> coverage.txt
+	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> $(COVERAGE_PROFILE)
 	@# The tools' tests exercise product packages too; their profile credits those.
-	go test -C $(TOOLS_DIR) -count=1 -pgo=off -timeout 30m -coverpkg=github.com/Open-MBEE/OpenSysML/... -coverprofile=../coverage-tools.txt -covermode=atomic ./...
-	tail -n +2 coverage-tools.txt >> coverage.txt
-	rm coverage-tools.txt
+	if [ -n "$(COVERAGE_TOOLS)" ]; then \
+		go test -C $(TOOLS_DIR) -count=1 -pgo=off -timeout 30m -coverpkg=github.com/Open-MBEE/OpenSysML/... -coverprofile=../coverage-tools.txt -covermode=atomic $(COVERAGE_TOOLS) && \
+		tail -n +2 coverage-tools.txt >> $(COVERAGE_PROFILE) && \
+		rm coverage-tools.txt; \
+	fi
 	@# -coverpkg repeats every block once per test binary; see the script's header.
+	python3 scripts/dedupe-coverage.py $(COVERAGE_PROFILE)
+	@go tool cover -func=$(COVERAGE_PROFILE) | tail -n 1
+
+coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|rest)
+	@# The race shards' packages; tests/wasm and the tools, which no race shard runs, go with runtime.
+	pkgs=$$(scripts/race-shard.sh $(SHARD)) && \
+	$(MAKE) --no-print-directory coverage COVERAGE_PROFILE=coverage-$(SHARD).txt \
+		COVERAGE_PACKAGES="$$(echo $$pkgs) $(if $(filter runtime,$(SHARD)),./tests/wasm)" \
+		COVERAGE_TOOLS="$(if $(filter runtime,$(SHARD)),./...)"
+
+coverage-merge: ## Merge the shard profiles coverage-runtime/model/export/rest.txt into coverage.txt
+	{ echo "mode: atomic"; for shard in $(COVERAGE_SHARDS); do tail -n +2 coverage-$$shard.txt || exit 1; done; } > coverage.txt
 	python3 scripts/dedupe-coverage.py coverage.txt
 	@go tool cover -func=coverage.txt | tail -n 1
 
@@ -349,7 +386,7 @@ clean: ## Remove build artifacts
 	rm -rf $(BIN_DIR)
 	rm -f coverage.txt coverage-python.xml coverage-scripts.xml .coverage-scripts coverage-node.lcov
 	rm -rf $(GO_COUNTER_DIR)
-	rm -f sysml sysml-lsp sysml-grpc
+	rm -f sysml sysml-lsp sysml-grpc sysml-jupyter-kernel
 	rm -f cmd/*/rsrc_windows_*.syso
 	rm -rf $(SITE_DIR)
 	@# Only the default destination; an overridden SELF_MODEL_OUT is the caller's.
@@ -361,6 +398,7 @@ install: build ## Install binaries to $GOPATH/bin
 	$(GO_INSTALL) ./cmd/sysml
 	$(GO_INSTALL) ./cmd/sysml-lsp
 	$(GO_INSTALL) ./cmd/sysml-grpc
+	$(GO_INSTALL) ./cmd/sysml-jupyter-kernel
 	@echo "✓ Installed"
 
 # What a distribution's package build calls: staged under DESTDIR, into the
@@ -429,6 +467,17 @@ python-test: ## Run Python client tests
 	cd $(PYTHON_DIR) && pytest tests/ -v
 	@echo "✓ Python client tests passed"
 
+jupyter-kernel-install: ## Install the jupyter-opensysml-kernel package in editable mode
+	@echo "Installing jupyter-opensysml-kernel..."
+	cd $(JUPYTER_KERNEL_DIR) && pip install -e .
+	@echo "✓ Installed jupyter-opensysml-kernel"
+
+# The wheel tests build with python -m build, so it must be installed too.
+jupyter-kernel-test: ## Run the jupyter-opensysml-kernel package tests and type check
+	@echo "Running jupyter-opensysml-kernel tests..."
+	cd $(JUPYTER_KERNEL_DIR) && pytest tests/ -v && mypy jupyter_opensysml_kernel
+	@echo "✓ jupyter-opensysml-kernel tests passed"
+
 # Run from the repo root so the report records repo-relative paths, which is
 # what the SonarCloud scan resolves against.
 python-coverage: ## Run Python client tests and write coverage-python.xml
@@ -448,12 +497,13 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(SCRIPTS_COVERAGE) scripts/changelog.py check
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_suite_figures-test.py
+	$(SCRIPTS_COVERAGE) scripts/mkdocs_install_scripts-test.py
 	$(SCRIPTS_COVERAGE) scripts/dedupe-coverage-test.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-links.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-ids.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-figures.py
 	$(SCRIPTS_COVERAGE) scripts/sync-release-digests.py --check
-	$(SCRIPTS_COVERAGE) -m pytest -q $(PYTHON_DIR)/tests/test_check_version.py $(PYTHON_DIR)/tests/test_pin_release_checksums.py
+	$(SCRIPTS_COVERAGE) -m pytest -q $(PYTHON_DIR)/tests/test_check_version.py $(PYTHON_DIR)/tests/test_pin_release_checksums.py $(PYTHON_DIR)/tests/test_snapshot_version.py
 	$(PYTHON) -m coverage xml --rcfile=scripts/coverage-scripts.ini
 	$(PYTHON) -m coverage report --rcfile=scripts/coverage-scripts.ini
 	@echo "✓ Wrote coverage-scripts.xml"
@@ -466,10 +516,27 @@ node-coverage: ## Run Node client tests and write coverage-node.lcov
 	sed -e 's|^SF:|SF:$(NODE_DIR)/|' $(NODE_DIR)/coverage/lcov.info > coverage-node.lcov
 	@echo "✓ Wrote coverage-node.lcov"
 
-vscode-grammar: ## Regenerate the VS Code TextMate grammars from the keyword lists
-	@echo "Generating TextMate grammars..."
-	go run ./$(VSCODE_DIR)/tools/gengrammar -out $(VSCODE_DIR)/syntaxes
+vscode-grammar: ## Regenerate the VS Code TextMate grammars and the JupyterLab CodeMirror syntax table from the keyword lists
+	@echo "Generating TextMate grammars and the CodeMirror syntax table..."
+	go run ./$(VSCODE_DIR)/tools/gengrammar -out $(VSCODE_DIR)/syntaxes -codemirror-out $(JUPYTERLAB_DIR)/src/syntax.json
 	@echo "✓ Grammars generated"
+
+# `jupyter labextension build` needs the jupyterlab Python package on PATH
+# beside Node; the bundle lands in the kernel package, which ships it.
+jupyterlab-build: ## Build the JupyterLab extension into client/jupyter-kernel (needs Node and the jupyterlab package)
+	@echo "Building the JupyterLab extension..."
+	cd $(JUPYTERLAB_DIR) && npm ci && npm run build
+	cp $(JUPYTERLAB_DIR)/install.json $(JUPYTER_KERNEL_DIR)/labextension/
+	@echo "✓ Built $(JUPYTER_KERNEL_DIR)/labextension"
+
+jupyterlab-test: ## Run the JupyterLab extension's tokenizer tests
+	@echo "Running the JupyterLab extension tests..."
+	cd $(JUPYTERLAB_DIR) && npm ci && npm test
+	@echo "✓ JupyterLab extension tests passed"
+
+jupyterlab-install: jupyterlab-build ## Link the built JupyterLab extension into the current Jupyter environment for development
+	jupyter labextension develop --overwrite $(JUPYTER_KERNEL_DIR)
+	@echo "✓ Linked jupyterlab-opensysml; restart JupyterLab to load it"
 
 vscode-build: ## Type-check and bundle the VS Code extension
 	@echo "Building the VS Code extension..."
@@ -510,6 +577,7 @@ docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle
 	$(PYTHON) scripts/mkdocs_census-test.py
 	$(PYTHON) scripts/mkdocs_suite_figures-test.py
 	$(PYTHON) scripts/griffe_sphinx_roles-test.py
+	$(PYTHON) scripts/mkdocs_install_scripts-test.py
 
 changelog-check: ## Verify every changelog fragment under changes/unreleased/ and the folding script
 	$(PYTHON) scripts/changelog-test.py

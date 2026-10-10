@@ -397,7 +397,7 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 			// A restated run-to-completion default is what the executor implements, not a slot.
 		case isStateDatum(m):
 			if name, _ := ast.EffectiveName(m); name != "" {
-				content.attrs = append(content.attrs, Attribute{Name: name, Direction: m.Direction, IsResult: m.IsResult, Type: TypeText(m), Value: m.Value, Node: m, Scope: scope})
+				content.attrs = append(content.attrs, Attribute{Name: name, Direction: m.Direction, IsResult: m.IsResult, Type: TypeText(m), Value: m.Value, Binding: valueIsBinding(m.Value, m.ValueIsInitial, m.ValueIsDefault), Node: m, Scope: scope})
 				g.attributeScope[m] = scope
 			}
 		default:
@@ -426,12 +426,13 @@ func loweredElsewhere(member ast.Node) bool {
 	switch n := member.(type) {
 	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation,
 		*ast.SuccessionEdge, *ast.TransitionEdge, *ast.TransitionMember,
-		*ast.InitialNode, *ast.FinalNode,
+		*ast.InitialNode, *ast.FinalNode, *ast.PrefixMetadata,
 		*ast.Definition, *ast.Package, *ast.ErrorNode:
 		return true
 	case *ast.Usage:
 		switch n.Kind {
-		case ast.UsageSuccession, ast.UsageTransition, ast.UsagePort:
+		case ast.UsageSuccession, ast.UsageTransition, ast.UsagePort,
+			ast.UsageView, ast.UsageViewpoint, ast.UsageRendering, ast.UsageViewRendering, ast.UsageMetadata:
 			return true
 		}
 	}

@@ -68,6 +68,11 @@ let external = Connection::external("localhost", 50051)?; // a service someone e
 | `apply_edits(hash, document, operations)` | one atomic batch of source-preserving edits |
 | `call(method, request)` | sends any `opensysml::wire` request message, for a field not yet wrapped |
 
+`Model::render_view(name, RenderViewPorts::Minimal)` returns a typed
+`RenderedView`; use `RenderViewPorts::Full` to include every declared port.
+Unset geometry, style and canvas are represented as absent optionals. The RPC
+requires the `render_view` capability.
+
 A private child is started with `-port 0 -health-port 0 -report-address
 -exit-with-parent` and its address read from its first stdout line, so no port is
 chosen or probed. One child serves the process, so its parse cache is shared, and
@@ -121,6 +126,9 @@ satisfaction assertion; `Validation` one per assertion about an object. `CalcRes
 `ActionRun` or `StateRun` its outputs, the states visited and the final clock instant; an
 `Exploration` its distinct `Outcome`s and whether it explored every order. A `SweepTable`
 is one `SweepRow` per point, and a failed row keeps the outputs and verdicts it reached.
+`RunOptions.trace` opts a state run into typed `DocumentEvent` records in
+`StateRun.trace`, with `StateRun.trace_dropped` reporting records the service
+discarded. The option requires `state_trace` and is refused with exploration.
 
 ## Editing
 
@@ -153,12 +161,13 @@ the elements that still refer to it.
 match value {
     Value::Integer(v) => (),
     Value::Real(v) => (),
+    Value::Rational(r) => (),          // exact; answered only when no f64 holds it, sent as rational_value always: r.numerator(), r.denominator() as decimal text; r.to_f64() rounds once
     Value::Complex(z) => (),           // z.real, z.imaginary; one value, Display as `1.5 - 2.0i`
     Value::Boolean(v) => (),
     Value::Text(v) => (),
     Value::InstanceRef(id) => (),
     Value::Sequence(values) => (),
-    Value::Quantity(q) => (),          // Magnitude::Integer | ::Real, unit, unit_term
+    Value::Quantity(q) => (),          // Magnitude::Integer | ::BigInteger | ::Rational | ::Real, unit, unit_term
     Value::Array(a) => (),             // a.dimensions(), a.elements() row-major, a.get(&[i, j])
     Value::Vector(v) => (),            // v.components: Vec<Magnitude>, Integer and Real apart
     Value::VectorQuantity(q) => (),    // q.components(): one Quantity per component; q.unit() when shared
@@ -207,7 +216,7 @@ model failure.
 | `Conversion { message, diagnostics }` | the service could not write the model in that format |
 | `Migration { message }` | the service could not read the SysML v1 model it was asked to migrate |
 | `Unwritable(String)` | `Migration::write` refused its destination: it names the v1 model, or an image would land outside the model's directory |
-| `Execution { message, reason, diagnostics }` | a run, verification, calculation or analysis could not be answered; `reason` is the `FailureReason` |
+| `Execution { message, reason, diagnostics, trace, trace_dropped }` | a run, verification, calculation or analysis could not be answered; a failed traced state run keeps its partial trace and discarded count |
 | `WrongKind { message, diagnostics }` | the call named an element of another kind |
 | `AnalysisRun { message, result }` | an analysis failed, keeping what it established |
 | `Edit(Box<EditError>)` | the service refused an edit; nothing was written |

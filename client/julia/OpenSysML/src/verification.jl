@@ -2,15 +2,16 @@ _failure_reason(answer) = uppercase(String(get(answer, "failureReason", "")))
 _diagnostics(answer) = Diagnostic[Diagnostic(d) for d in get(answer, "diagnostics", Any[])]
 _is_wrong_kind(answer) = occursin("WRONG_KIND", _failure_reason(answer))
 
-function _raise_answer_error(answer; diagnostics=_diagnostics(answer), result=nothing)
+function _raise_answer_error(answer; diagnostics=_diagnostics(answer), result=nothing,
+                             trace=DocumentEvent[], trace_dropped=0)
     message = String(get(answer, "error", ""))
     isempty(message) && return nothing
     if _is_wrong_kind(answer)
-        throw(WrongKindError(message, diagnostics))
+        throw(WrongKindError(message, diagnostics; trace, trace_dropped))
     elseif result !== nothing
         throw(AnalysisRunError(message, diagnostics, result))
     end
-    throw(ExecutionFailure(message, diagnostics))
+    throw(ExecutionFailure(message, diagnostics; trace, trace_dropped))
 end
 
 function _engine_preflight(conn::Connection, engine)
@@ -29,7 +30,8 @@ function _encoded(conn::Connection, value)
     for capability in sort!(collect(value_capabilities(value)))
         require_capability(conn, capability)
     end
-    encode_value(value)
+    wire = encode_value(value)
+    has_capability(conn, CAPABILITY_RATIONAL_VALUES) ? wire : rationals_as_reals!(wire)
 end
 
 function _encoded_arguments(conn::Connection, arguments)

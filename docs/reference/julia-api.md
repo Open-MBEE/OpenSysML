@@ -91,10 +91,15 @@ separate from `strict`. `parse_sources` preserves input order and accepts
 
 Model operations include `evaluate(model, expression; context, subject)`,
 `instantiate(model, symbol_id)`, `execute_action(model, symbol_id; inputs,
-schedule)`, and `execute_state(model, symbol_id; events, schedule)`.
+schedule)`, and `execute_state(model, symbol_id; events, schedule, trace)`.
 `execute_action` returns an `ActionOutputs` dictionary of output parameters;
 performer attributes are available separately as `performer`. `execute_state`
-returns a `StateRun` with `states_visited`, `final_context`, and `final_time`.
+returns a `StateRun` with `states_visited`, `final_context`, `final_time`,
+`trace::Vector{DocumentEvent}`, and `trace_dropped`. Requesting a trace checks
+the `state_trace` capability locally and cannot be combined with exploration.
+A failed traced run keeps its existing `ExecutionFailure` or `WrongKindError`
+classification, with partial records on `trace` and the discarded count on
+`trace_dropped`.
 `Instance`, `InstanceRef`, `TypeFacts`, `SymbolFacts`, `SymbolInfo`,
 `Multiplicity`, and `Diagnostic` carry decoded model and service results.
 
@@ -102,7 +107,10 @@ returns a `StateRun` with `states_visited`, `final_context`, and `final_time`.
 
 `decode_value` decodes the service's value oneof and `encode_value` creates
 request values. The mapping retains exact `Int64` values and `BigInt` ones
-beyond `Int64`, decodes sequences and sets recursively, and exposes
+beyond `Int64`, decodes an exact Rational no `Float64` holds (`rationalValue`, a quantity's
+`rationalMagnitude`) as `Rational{BigInt}`, sends every `Rational` (`1//4` included) as
+`rationalValue` to a service with the `rational_values` capability and, to one without it, one a
+`Float64` holds as that `realValue` while refusing any other (a `Float64` sent is always a Real), decodes sequences and sets recursively, and exposes
 structured values through `Quantity`, `EnumLiteral`, `ArrayValue`,
 `VectorValue`, `VectorQuantity`, `TensorQuantity`, `MeasurementRef`,
 `FunctionRef`, `Metaobject`, `Undetermined`, `Unset`, and `Infinity`.
@@ -142,7 +150,9 @@ stable parameter order.
 `build_query(; scope, select, where)` constructs an OSLC query;
 `query(model, payload; scope, select, where)` runs it. Document APIs are
 `build_document_bindings`, `run_document_query(model, query; bindings,
-options)`, and `render_document(model, query; bindings, format)`.
+options)`, `render_document(model, query; bindings, format)`, and
+`render_view(model, name; ports="minimal")`, returning typed query and view
+data. `ports="full"` includes all declared ports.
 
 Conversion is available through `convert_file(conn, path, to_format; ...)`,
 `convert_source(conn, content, to_format; from_format, ...)`,

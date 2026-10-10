@@ -33,6 +33,22 @@ type bodyWork interface {
 	spell(*stateSpeller) string
 }
 
+func (ctx *Context) enclosingExecutorStep() int {
+	if ctx.body == nil {
+		return 0
+	}
+	switch work := ctx.body.work.(type) {
+	case *usageWork:
+		return work.exec.stepCount + 1
+	case *statementWork:
+		return work.exec.stepCount + 1
+	case *executionWork:
+		return work.exec.stepCount + 1
+	default:
+		return 0
+	}
+}
+
 // bodyFrame is where one level of a body's work paused; abandon ends what it
 // holds open, clone copies it as it stands, for a snapshot to restore it to, and
 // spell writes it into a state's canonical form.
@@ -67,9 +83,70 @@ type bodyRun struct {
 	// yields has the run pause at the statement boundary after the statement,
 	// loop iteration or flow step it performed since resumed, which performed marks.
 	yields, performed bool
+	// guards has it yield between an `if`'s guard and its branch as well.
+	guards bool
+	// nodesYield makes a loop or `if` node of the flow the run states yield as a statement of its body does.
+	nodesYield bool
+	// draws has a seeded run draw whether to yield at each such boundary, by the
+	// token the run is for and how many boundaries it drew at before.
+	draws    bool
+	token    int64
+	boundary uint64
 	// steps has the run pause after each token move of the flows and actions it
-	// drives where a step is one move, its machine going on between the moves.
-	steps bool
+	// drives where a step is one move, its machine going on between the moves;
+	// shared only in a flow two of whose moves may touch what another does.
+	steps, shared bool
+	// stepDraws has a seeded run draw whether to pause after a callee's start shot or a
+	// move of its flow where two of its moves may touch what another does.
+	stepDraws bool
+	// lists are the unordered statement lists running, outermost first.
+	lists []*listLevel
+}
+
+// listLevel is an unordered statement list running in a body: moved is whether its
+// statement running made a move since it started or went on.
+type listLevel struct {
+	frame *stmtListFrame
+	order *lower.StatementOrder
+	moved bool
+}
+
+// enterList notes f running in the body on the stack; nil where none is.
+func (ctx *Context) enterList(f *stmtListFrame, order *lower.StatementOrder) *listLevel {
+	if ctx.body == nil {
+		return nil
+	}
+	level := &listLevel{frame: f, order: order}
+	ctx.body.lists = append(ctx.body.lists, level)
+	return level
+}
+
+// leaveList notes the innermost list entered, level, done running.
+func (ctx *Context) leaveList(level *listLevel) {
+	if level == nil {
+		return
+	}
+	lists := ctx.body.lists
+	ctx.body.lists = lists[:len(lists)-1]
+}
+
+// switchStrand pauses the body on the stack back to the innermost unordered list
+// whose statement running has moved and does not commute with one it may set
+// aside for; nil, going on, where none is.
+func (ctx *Context) switchStrand() error {
+	run := ctx.body
+	if run == nil {
+		return nil
+	}
+	for k := len(run.lists) - 1; k >= 0; k-- {
+		l := run.lists[k]
+		f := l.frame
+		if f.i < 0 || !l.moved || len(l.order.Rivals(f.i, f.done, f.divided)) == 0 {
+			continue
+		}
+		return ctx.pauseBody(bodyPause{yielded: true, strand: f})
+	}
+	return nil
 }
 
 // bodyPause is why a body run paused: at the breakpoint, on a wait, yielded at a
@@ -80,6 +157,9 @@ type bodyPause struct {
 	wait       bodyWait
 	yielded    bool
 	tokenStep  bool
+	// strand is the unordered statement list the pause unwinds to, which sets the
+	// statement it unwound from aside rather than pausing the body; nil for none.
+	strand *stmtListFrame
 }
 
 // bodyWait is the wait a body's run paused on: of the action it performs (held),
@@ -205,21 +285,46 @@ func (run *bodyRun) end(ctx *Context) {
 // endPerformed ends perf where a body statement of the paused run was performing it,
 // abandoning the levels within it: the run resumed goes on past the node as completed.
 func (run *bodyRun) endPerformed(ctx *Context, perf *actionFrame) bool {
-	for i, f := range run.cursor {
-		pf, ok := f.(*performFrame)
-		if !ok || pf.perf != perf {
-			continue
-		}
-		for _, inner := range run.cursor[:i] {
-			inner.abandon(ctx)
-		}
-		run.cursor = run.cursor[i:]
+	rest, pf, inStrand := endPerformedIn(ctx, run.cursor, perf)
+	if pf == nil {
+		return false
+	}
+	if !inStrand {
+		run.cursor = rest
 		run.traceLevels = pf.levels
 		run.paused = bodyPause{}
-		pf.ended = true
-		return true
 	}
-	return false
+	return true
+}
+
+// endPerformedIn finds the frame performing perf in cursor, or in a statement an
+// unordered list in it set aside, abandoning the levels within it; rest is what of
+// cursor is left, unchanged where the frame was in a statement set aside.
+func endPerformedIn(ctx *Context, cursor []bodyFrame, perf *actionFrame) (rest []bodyFrame, ended *performFrame, inStrand bool) {
+	for i, f := range cursor {
+		switch f := f.(type) {
+		case *performFrame:
+			if f.perf != perf {
+				continue
+			}
+			for _, inner := range cursor[:i] {
+				inner.abandon(ctx)
+			}
+			f.ended = true
+			return cursor[i:], f, false
+		case *stmtListFrame:
+			for _, s := range f.strands {
+				if s == nil {
+					continue
+				}
+				if left, pf, _ := endPerformedIn(ctx, s.cursor, perf); pf != nil {
+					s.cursor, s.levels, s.paused = left, pf.levels-f.levels, bodyPause{}
+					return cursor, pf, true
+				}
+			}
+		}
+	}
+	return cursor, nil, false
 }
 
 // bodyLevels is the trace nesting the body on the stack holds open at this point
@@ -325,6 +430,9 @@ func (w *usageWork) perform() error {
 			w.phase = usageBody
 		default:
 			w.phase = usageBody
+			if lower.ReadsAtStart(w.graph, w.usage) {
+				e.ctx.bodyPerformed()
+			}
 		}
 	}
 	if w.phase == usageBody {
@@ -376,7 +484,9 @@ type statementWork struct {
 	token int64
 	frame *actionFrame
 	node  ast.Node
-	done  bool
+	// step is the node's performance, owning the nodes its body performs.
+	step *actionFrame
+	done bool
 }
 
 func (w *statementWork) clone() bodyWork { c := *w; return &c }
@@ -384,9 +494,10 @@ func (w *statementWork) clone() bodyWork { c := *w; return &c }
 func (w *statementWork) perform() error {
 	e := w.exec
 	if !w.done {
-		if err := e.executeBody(w.frame, w.frame.graph, w.node); err != nil {
+		if err := e.executeStatementBody(w.step, w.frame.graph); err != nil {
 			return err
 		}
+		w.step.ended = true
 		w.done = true
 	}
 	idx, err := e.workToken(w.token)
@@ -443,14 +554,83 @@ func (e *ActionExecutor) workToken(id int64) (int, error) {
 	return idx, nil
 }
 
+// bodyDivides reports whether another performance may interleave inside work's
+// body with an effect on an outcome, so a run going one move at a time yields in it;
+// open where moves outside its flow may interleave too.
+func (e *ActionExecutor) bodyDivides(work bodyWork, open bool) bool {
+	var graph *lower.ActionGraph
+	var node ast.Node
+	switch w := work.(type) {
+	case *usageWork:
+		if w.performs {
+			return false
+		}
+		graph, node = w.graph, w.usage
+	case *statementWork:
+		graph, node = w.frame.graph, w.node
+	default:
+		return false
+	}
+	if graph == nil {
+		return false
+	}
+	key := bodyDivision{node: node, open: open}
+	divides, known := e.divides[key]
+	if !known {
+		divides = lower.BodyDivides(graph, node) || open && lower.BodySharesMoves(graph, node)
+		if e.divides == nil {
+			e.divides = make(map[bodyDivision]bool)
+		}
+		e.divides[key] = divides
+	}
+	return divides
+}
+
+// bodyDivision keys the cache of bodyDivides.
+type bodyDivision struct {
+	node ast.Node
+	open bool
+}
+
 // runBody starts work for the token at tokenIdx and drives it to its first pause or end.
+// A run one move at a time with another move open goes one move at a time inside
+// the work too, through the flows and actions it performs (stepsTokens).
 func (e *ActionExecutor) runBody(tokenIdx int, work bodyWork) error {
 	run := &bodyRun{work: work, awaitsMessages: true}
 	if outer := e.ctx.body; outer != nil {
-		run.awaitsMessages, run.steps = outer.awaitsMessages, outer.steps
+		run.awaitsMessages, run.steps, run.shared = outer.awaitsMessages, outer.steps, outer.shared
+		run.stepDraws, run.token = outer.stepDraws, outer.token
+	}
+	open := run.steps
+	scheduling := e.ctx.scheduling()
+	if scheduling.oneMove() && len(e.tokens) > 1 && !run.steps {
+		run.steps, run.shared = true, true
+	}
+	if _, draws := scheduling.bodyYields(len(e.tokens) > 1); draws && !run.stepDraws {
+		run.stepDraws, run.token = true, e.tokens[tokenIdx].ID
+	}
+	if yields, draws := scheduling.bodyYields(len(e.tokens) > 1 || open); yields && (open || !e.tokens[tokenIdx].drivenByBody()) && e.bodyDivides(work, open) {
+		run.yields, run.draws, run.token, run.guards = yields, draws, e.tokens[tokenIdx].ID, true
+	}
+	if outer := e.ctx.body; outer != nil && outer.nodesYield && yieldsAsStatement(work) {
+		run.yields, run.nodesYield = true, true
+		run.guards = run.guards || outer.guards
 	}
 	e.tokens[tokenIdx].body = run
 	return e.resumeBody(tokenIdx)
+}
+
+// yieldsAsStatement reports work that is a loop or `if` written as a node of a flow.
+func yieldsAsStatement(work bodyWork) bool {
+	w, ok := work.(*statementWork)
+	if !ok {
+		return false
+	}
+	switch w.node.(type) {
+	case *ast.WhileLoopActionNode, *ast.IfActionNode:
+		return true
+	}
+	return false
 }
 
 // Release ends the run for good: the work of every token a breakpoint left
@@ -511,7 +691,12 @@ func (e *ActionExecutor) resumeBody(tokenIdx int) error {
 	if pause, paused := run.resume(e.ctx); paused {
 		e.pauses++
 		run.pausedAt = e.pauses
-		if !pause.onWait && !pause.tokenStep {
+		switch {
+		case pause.yielded || pause.tokenStep:
+			if i := e.tokenIndex(id); i >= 0 {
+				e.tokens[i].moved = e.sweep
+			}
+		case !pause.onWait:
 			e.pausedAt = pause.breakpoint
 			e.state = StateSuspended
 		}
@@ -546,8 +731,17 @@ func (ctx *Context) pauseBody(pause bodyPause) error {
 // yieldBody pauses the body on the stack before its next statement where its run
 // goes one at a time and has performed one since resumed; nil, going on, else.
 func (ctx *Context) yieldBody() error {
+	if err := ctx.switchStrand(); err != nil {
+		return err
+	}
 	if ctx.body == nil || !ctx.body.yields || !ctx.body.performed {
 		return nil
+	}
+	if ctx.body.draws {
+		ctx.body.boundary++
+		if !ctx.scheduling().drawYield(ctx.body.token, ctx.body.boundary) {
+			return nil
+		}
 	}
 	return ctx.pauseBody(bodyPause{yielded: true})
 }
@@ -557,6 +751,14 @@ func (ctx *Context) yieldBody() error {
 func (ctx *Context) bodyPerformed() {
 	if ctx.body != nil {
 		ctx.body.performed = true
+		ctx.body.listsMoved()
+	}
+}
+
+// listsMoved notes a move made by the statement each unordered list running runs.
+func (run *bodyRun) listsMoved() {
+	for _, l := range run.lists {
+		l.moved = true
 	}
 }
 
@@ -565,13 +767,60 @@ func (ctx *Context) stepsTokens() bool {
 	return ctx.body != nil && ctx.body.steps
 }
 
-// tokenStepBody pauses the body on the stack after one token move where its run
-// goes one move at a time; nil, going on, else.
-func (ctx *Context) tokenStepBody() error {
-	if !ctx.stepsTokens() {
+// guardPerformed notes an `if`'s guard read by the body on the stack, after which a
+// run yielding between a guard and its branch yields.
+func (ctx *Context) guardPerformed() {
+	if ctx.body == nil {
+		return
+	}
+	ctx.body.listsMoved()
+	if ctx.body.guards {
+		ctx.body.performed = true
+	}
+}
+
+// tokenStepBody pauses the body on the stack after one token move of graph's flow
+// where its run goes one move at a time there, or a seeded draw says so; nil, going on, else.
+func (ctx *Context) tokenStepBody(graph *lower.ActionGraph) error {
+	switch {
+	case ctx.stepsTokens():
+		if ctx.body.shared && !ctx.flowSharesMoves(graph) {
+			return nil
+		}
+	case ctx.drawsTokenSteps():
+		if !ctx.flowSharesMoves(graph) {
+			return nil
+		}
+		ctx.body.boundary++
+		if !ctx.scheduling().drawYield(ctx.body.token, ctx.body.boundary) {
+			return nil
+		}
+	default:
 		return nil
 	}
 	return ctx.pauseBody(bodyPause{tokenStep: true})
+}
+
+// drawsTokenSteps reports whether the body on the stack is a seeded run drawing
+// whether to pause after the moves of the callees it performs.
+func (ctx *Context) drawsTokenSteps() bool {
+	return ctx.body != nil && ctx.body.stepDraws
+}
+
+// flowSharesMoves caches lower.FlowSharesMoves by graph.
+func (ctx *Context) flowSharesMoves(graph *lower.ActionGraph) bool {
+	if graph == nil {
+		return false
+	}
+	shares, known := ctx.flowShares[graph]
+	if !known {
+		shares = lower.FlowSharesMoves(graph)
+		if ctx.flowShares == nil {
+			ctx.flowShares = make(map[*lower.ActionGraph]bool)
+		}
+		ctx.flowShares[graph] = shares
+	}
+	return shares
 }
 
 // yieldedHere reports the frame just popped as the one the body yielded in: its

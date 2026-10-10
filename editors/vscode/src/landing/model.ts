@@ -1,5 +1,5 @@
 import { normalizeRender } from "../protocol";
-import type { RenderResult } from "../protocol";
+import type { RenderNode, RenderResult } from "../protocol";
 
 export interface EngineClient {
   call(method: string, params: string): string;
@@ -17,6 +17,10 @@ export interface LandingPart {
   feature: string;
   symbol: string;
   attrs: Record<string, string>;
+  /** The features from the stack down to this part, dotted: `pilot.editors`. Keys `LandingModel.parts`. */
+  path: string;
+  /** The feature of the part this one is nested in; absent for a project. */
+  owner?: string;
 }
 
 export interface LandingModel {
@@ -46,6 +50,35 @@ export const STACK_SYMBOL = "OpenSysMLStack::stack";
 export const JOURNEY_SYMBOL = "OpenSysMLStack::ModelJourney";
 export const JOURNEY_EVENTS = ["Commit", "Pull", "Push", "Check"] as const;
 
+export interface TraceRecord {
+  kind: string; // entry | exit | accept | transition | choice | send | do | guard
+  state?: string;
+  from?: string;
+  to?: string;
+  event?: string;
+  alternatives?: string[];
+  taken?: string;
+  text: string;
+}
+
+export interface JourneyRun {
+  visited: string[];
+  trace: TraceRecord[];
+  error?: string;
+}
+
+export interface DebugStep {
+  record: TraceRecord;
+  /** The state after this record: the last state entered, or undefined before the first entry. */
+  state?: string;
+  /** This record's transition, when it is one. */
+  edge?: { from: string; to: string };
+  /** How many events have been accepted up to and including this record. */
+  accepted: number;
+  /** An accept record that fired no transition before the next accept or the end of the trace. */
+  ignored?: true;
+}
+
 type EngineRender = Omit<RenderResult, "form" | "artifact" | "version">;
 
 interface EngineDiagnostic extends Diagnostic {
@@ -66,6 +99,8 @@ interface InstantiateResult {
 
 interface ExecuteStateResult {
   statesVisited?: string[];
+  trace?: TraceRecord[];
+  error?: unknown;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -82,7 +117,7 @@ function errorMessage(error: unknown): string {
   return JSON.stringify(error) ?? String(error);
 }
 
-export function rpc<T>(engine: EngineClient, method: string, params: object): T {
+function rpcResult<T>(engine: EngineClient, method: string, params: object): T {
   const envelope: unknown = JSON.parse(engine.call(method, JSON.stringify(params)));
   if (!isRecord(envelope)) {
     throw new Error(`${method} returned an invalid response`);
@@ -93,7 +128,11 @@ export function rpc<T>(engine: EngineClient, method: string, params: object): T 
   if (!("result" in envelope)) {
     throw new Error(`${method} returned no result`);
   }
-  const result = envelope.result;
+  return envelope.result as T;
+}
+
+export function rpc<T>(engine: EngineClient, method: string, params: object): T {
+  const result = rpcResult<T>(engine, method, params);
   if (isRecord(result) && result.error !== undefined && result.error !== null) {
     throw new Error(errorMessage(result.error));
   }
@@ -114,7 +153,7 @@ export function landingModel(hash: string, render: RenderResult, instances: Engi
   );
   const nodes = render.nodes
     .filter((node) => node.id !== root.id && node.kind !== "attribute")
-    .map((node) => {
+    .map((node): RenderNode => {
       if (node.parent !== root.id) {
         return node;
       }
@@ -127,13 +166,24 @@ export function landingModel(hash: string, render: RenderResult, instances: Engi
     nodes,
     edges: render.edges.filter((edge) => retained.has(edge.from) && retained.has(edge.to)),
   });
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  // instanceOf follows feature values down from the stack's instance to a node's.
+  const instanceOf = (node: RenderNode): EngineInstance | undefined => {
+    const parent = node.parent === undefined ? undefined : nodesById.get(node.parent);
+    const owner = parent === undefined ? rootInstance : instanceOf(parent);
+    const instanceId = owner?.featureValues?.[node.name]?.value?.instanceId;
+    return instanceId === undefined ? undefined : instancesById.get(instanceId);
+  };
+  const pathOf = (node: RenderNode): string => {
+    const parent = node.parent === undefined ? undefined : nodesById.get(node.parent);
+    return parent === undefined ? node.name : `${pathOf(parent)}.${node.name}`;
+  };
   const parts = new Map<string, LandingPart>();
   for (const node of nodes) {
     if (node.kind !== "part") {
       continue;
     }
-    const instanceId = rootInstance?.featureValues?.[node.name]?.value?.instanceId;
-    const instance = instanceId === undefined ? undefined : instancesById.get(instanceId);
+    const instance = instanceOf(node);
     const attrs: Record<string, string> = {};
     for (const [name, featureValue] of Object.entries(instance?.featureValues ?? {})) {
       const value = featureValue.value?.stringValue;
@@ -145,10 +195,15 @@ export function landingModel(hash: string, render: RenderResult, instances: Engi
     const part: LandingPart = {
       id: node.id,
       feature: node.name,
+      path: pathOf(node),
       symbol: instance?.typeSymbolId ?? node.type,
       attrs,
     };
-    parts.set(part.feature, part);
+    const owner = node.parent === undefined ? undefined : nodesById.get(node.parent)?.name;
+    if (owner !== undefined) {
+      part.owner = owner;
+    }
+    parts.set(part.path, part);
   }
   return { hash, render: normalized, parts };
 }
@@ -184,15 +239,82 @@ export function readModel(engine: EngineClient, source: string): ModelRead {
   };
 }
 
-export function journey(engine: EngineClient, model: LandingModel): string[] {
+export function journey(engine: EngineClient, model: LandingModel, seed?: number): string[] {
   const result = rpc<ExecuteStateResult>(engine, "ExecuteState", {
     modelHash: model.hash,
     stateMachineSymbolId: JOURNEY_SYMBOL,
     events: JOURNEY_EVENTS,
+    ...(seed === undefined ? {} : { schedule: `seed:${seed}` }),
   });
-  const idsByFeature = new Map([...model.parts.values()].map((part) => [part.feature, part.id]));
   return (result.statesVisited ?? []).flatMap((state) => {
-    const id = idsByFeature.get(state);
+    const id = model.parts.get(state)?.id;
     return id === undefined ? [] : [id];
+  });
+}
+
+/** Runs ModelJourney on `events` with its trace; a seed picks each free choice. */
+export function runJourney(
+  engine: EngineClient,
+  model: LandingModel,
+  events: readonly string[],
+  seed?: number,
+): JourneyRun {
+  const result = rpcResult<ExecuteStateResult>(engine, "ExecuteState", {
+    modelHash: model.hash,
+    stateMachineSymbolId: JOURNEY_SYMBOL,
+    events,
+    trace: true,
+    ...(seed === undefined ? {} : { schedule: `seed:${seed}` }),
+  });
+  const trace = (result.trace ?? []).map((record) => ({
+    kind: record.kind,
+    ...(record.state === undefined ? {} : { state: record.state }),
+    ...(record.from === undefined ? {} : { from: record.from }),
+    ...(record.to === undefined ? {} : { to: record.to }),
+    ...(record.event === undefined ? {} : { event: record.event }),
+    ...(record.alternatives === undefined ? {} : { alternatives: [...record.alternatives] }),
+    ...(record.taken === undefined ? {} : { taken: record.taken }),
+    text: record.text,
+  }));
+  return {
+    visited: result.statesVisited ?? [],
+    trace,
+    ...(result.error === undefined || result.error === null
+      ? {}
+      : { error: errorMessage(result.error) }),
+  };
+}
+
+export function debugSteps(trace: readonly TraceRecord[]): DebugStep[] {
+  let state: string | undefined;
+  let accepted = 0;
+  return trace.map((record, index) => {
+    if (record.kind === "entry" && record.state !== undefined) {
+      state = record.state;
+    }
+    if (record.kind === "accept") {
+      accepted += 1;
+    }
+    const step: DebugStep = {
+      record,
+      ...(state === undefined ? {} : { state }),
+      ...(record.kind === "transition" && record.from !== undefined && record.to !== undefined
+        ? { edge: { from: record.from, to: record.to } }
+        : {}),
+      accepted,
+    };
+    if (record.kind === "accept") {
+      let fired = false;
+      for (let next = index + 1; next < trace.length && trace[next].kind !== "accept"; next += 1) {
+        if (trace[next].kind === "transition") {
+          fired = true;
+          break;
+        }
+      }
+      if (!fired) {
+        step.ignored = true;
+      }
+    }
+    return step;
   });
 }

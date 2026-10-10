@@ -219,7 +219,7 @@ func (s *Snapshot) Restore() {
 	ctx.snapshots = ctx.snapshots[:at+1]
 	ctx.rollbackJournal(s.journal)
 	s.run.restore(ctx)
-	s.executorCaptures.restore()
+	s.executorCaptures.restore(ctx)
 }
 
 // captureAction captures an action executor once, with the executors the work of
@@ -267,7 +267,7 @@ func (s *executorCaptures) captureBehavior(behavior *ObjectBehavior) {
 	})
 }
 
-func (s *executorCaptures) restore() {
+func (s *executorCaptures) restore(ctx *Context) {
 	for _, capture := range s.runStates {
 		capture.restore()
 	}
@@ -285,6 +285,9 @@ func (s *executorCaptures) restore() {
 		capture.behavior.State = capture.state
 		capture.behavior.Err = capture.err
 		capture.behavior.deferred = capture.deferred
+		if capture.deferred != nil {
+			ctx.behaviorHeld()
+		}
 	}
 }
 
@@ -294,6 +297,8 @@ type bodyCapture struct {
 	run    *bodyRun
 	saved  bodyRun
 	frames []bodyFrame
+	cells  []bodyCellsCapture
+	locals []mapState[string, Value]
 }
 
 // captureBody captures the run and, into the set, the executors its paused work
@@ -301,16 +306,43 @@ type bodyCapture struct {
 func (s *executorCaptures) captureBody(run *bodyRun) *bodyCapture {
 	c := &bodyCapture{run: run, saved: *run}
 	c.saved.work, c.saved.cursor, c.saved.resuming = run.work.clone(), nil, nil
-	for _, f := range run.cursor {
-		c.frames = append(c.frames, f.clone())
-		switch f := f.(type) {
-		case *calleeFrame:
-			s.captureAction(f.exec)
-		case *caseStepFrame:
-			if f.run == nil {
-				s.captureAction(f.start.host.flow)
+	var captureFrames func([]bodyFrame)
+	captureFrames = func(frames []bodyFrame) {
+		for _, f := range frames {
+			switch f := f.(type) {
+			case *engineFrame:
+				if locals := f.engine.env.locals; locals != nil {
+					c.locals = append(c.locals, captureMap(locals))
+				}
+				if cells := f.engine.env.localCells; cells != nil && !bodyCellsCaptured(c.cells, cells) {
+					c.cells = append(c.cells, captureBodyCells(cells))
+				}
+			case *blockFrame:
+				if f.cells != nil && !bodyCellsCaptured(c.cells, f.cells) {
+					c.cells = append(c.cells, captureBodyCells(f.cells))
+				}
+			case *loopFrame:
+				if f.cells != nil && !bodyCellsCaptured(c.cells, f.cells) {
+					c.cells = append(c.cells, captureBodyCells(f.cells))
+				}
+			case *stmtListFrame:
+				for _, strand := range f.strands {
+					if strand != nil {
+						captureFrames(strand.cursor)
+					}
+				}
+			case *calleeFrame:
+				s.captureAction(f.exec)
+			case *caseStepFrame:
+				if f.run == nil {
+					s.captureAction(f.start.host.flow)
+				}
 			}
 		}
+	}
+	captureFrames(run.cursor)
+	for _, f := range run.cursor {
+		c.frames = append(c.frames, f.clone())
 	}
 	if held := run.paused.wait.held; held != nil {
 		s.captureAction(held)
@@ -322,12 +354,28 @@ func (s *executorCaptures) captureBody(run *bodyRun) *bodyCapture {
 }
 
 func (c *bodyCapture) restore() {
+	for _, locals := range c.locals {
+		locals.restore()
+	}
+	for _, cells := range c.cells {
+		cells.restore()
+	}
 	*c.run = c.saved
 	c.run.work = c.saved.work.clone()
 	c.run.cursor = make([]bodyFrame, len(c.frames))
 	for i, f := range c.frames {
 		c.run.cursor[i] = f.clone()
 	}
+}
+
+// bodyCellsCaptured reports whether a snapshot journals the given cell store.
+func bodyCellsCaptured(captures []bodyCellsCapture, cells *bodyCells) bool {
+	for _, capture := range captures {
+		if capture.cells == cells {
+			return true
+		}
+	}
+	return false
 }
 
 // Release ends the snapshot: it is no longer restorable, and the journal keeps
@@ -569,6 +617,11 @@ func (e *ActionExecutor) reachableFrames() []*actionFrame {
 	visit(e.root)
 	for _, token := range e.tokens {
 		visit(token.frame)
+		if token.body != nil {
+			if w, ok := token.body.work.(*statementWork); ok {
+				visit(w.step)
+			}
+		}
 		for _, perf := range token.performed() {
 			visit(perf)
 		}
@@ -580,16 +633,24 @@ func (e *ActionExecutor) reachableFrames() []*actionFrame {
 // frameCapture is one performance's state by value; the maps it holds are
 // restored in place, so a frame reading one of them as its own sees the restored values.
 type frameCapture struct {
-	perf   *actionFrame
-	saved  actionFrame
-	locals []mapState[string, Value]
-	data   mapState[string, Value]
+	perf       *actionFrame
+	saved      actionFrame
+	locals     []mapState[string, Value]
+	data       mapState[string, Value]
+	cells      bodyCellsCapture
+	localCells []bodyCellsCapture
 }
 
 func captureFrame(perf *actionFrame) frameCapture {
-	c := frameCapture{perf: perf, saved: *perf, data: captureMap(perf.data)}
+	c := frameCapture{
+		perf: perf, saved: *perf, data: captureMap(perf.data),
+		cells: captureBodyCells(perf.cells),
+	}
 	for _, local := range perf.locals {
 		c.locals = append(c.locals, captureMap(local))
+	}
+	for _, cells := range perf.localCells {
+		c.localCells = append(c.localCells, captureBodyCells(cells))
 	}
 	c.saved.outer = slices.Clone(perf.outer)
 	c.saved.connections = slices.Clone(perf.connections)
@@ -616,6 +677,13 @@ func (c frameCapture) restore() {
 		perf.locals = append(perf.locals, local.restore())
 	}
 	perf.data = c.data.restore()
+	c.cells.restore()
+	perf.cells = c.cells.cells
+	perf.localCells = make([]*bodyCells, len(c.localCells))
+	for i, cells := range c.localCells {
+		cells.restore()
+		perf.localCells[i] = cells.cells
+	}
 	perf.outer = slices.Clone(c.saved.outer)
 	perf.connections = slices.Clone(c.saved.connections)
 	perf.features = maps.Clone(c.saved.features)
@@ -712,6 +780,8 @@ type stateCapture struct {
 	events             eventHeap
 	stateData          mapState[string, Value]
 	stateAttrs         map[*ast.StateNode]mapState[string, Value]
+	stateCells         bodyCellsCapture
+	stateAttrCells     map[*ast.StateNode]bodyCellsCapture
 	stateVisits        []string
 	stateStack         []*ast.StateNode
 	fired              []FiredTransition
@@ -769,6 +839,8 @@ func (e *StateExecutor) capture() stateCapture {
 		nextEventID:        e.nextEventID,
 		stateData:          captureMap(e.stateData),
 		stateAttrs:         make(map[*ast.StateNode]mapState[string, Value], len(e.stateAttrs)),
+		stateCells:         captureBodyCells(e.stateCells),
+		stateAttrCells:     make(map[*ast.StateNode]bodyCellsCapture, len(e.stateAttrCells)),
 		stateVisits:        slices.Clone(e.stateVisits),
 		stateStack:         slices.Clone(e.stateStack),
 		fired:              slices.Clone(e.fired),
@@ -803,6 +875,9 @@ func (e *StateExecutor) capture() stateCapture {
 	for node, attrs := range e.stateAttrs {
 		c.stateAttrs[node] = captureMap(attrs)
 	}
+	for node, cells := range e.stateAttrCells {
+		c.stateAttrCells[node] = captureBodyCells(cells)
+	}
 	for node, record := range e.history {
 		c.history[node] = historyRecord{child: record.child, regions: maps.Clone(record.regions)}
 	}
@@ -819,11 +894,18 @@ func (c stateCapture) restore() {
 		e.eventQueue.events = slices.Clone(c.events)
 	}
 	e.stateData = c.stateData.restore()
+	c.stateCells.restore()
+	e.stateCells = c.stateCells.cells
 	if e.stateAttrs != nil {
 		clear(e.stateAttrs)
 		for node, attrs := range c.stateAttrs {
 			e.stateAttrs[node] = attrs.restore()
 		}
+	}
+	e.stateAttrCells = make(map[*ast.StateNode]*bodyCells, len(c.stateAttrCells))
+	for node, cells := range c.stateAttrCells {
+		cells.restore()
+		e.stateAttrCells[node] = cells.cells
 	}
 	e.stateVisits, e.stateStack = slices.Clone(c.stateVisits), slices.Clone(c.stateStack)
 	e.fired, e.firedBase = slices.Clone(c.fired), c.firedBase
@@ -954,5 +1036,5 @@ func (m *moveMark) undo() {
 	m.run.steps, m.run.elements, m.run.notes = m.steps, m.elements, m.notes
 	e.ctx.choices, e.ctx.draws = e.ctx.choices[:m.choices], e.ctx.draws[:m.draws]
 	m.trace.restore(e.ctx.trace)
-	m.state.restore()
+	m.state.restore(e.ctx)
 }

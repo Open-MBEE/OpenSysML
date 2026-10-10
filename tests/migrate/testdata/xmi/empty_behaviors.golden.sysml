@@ -1,7 +1,7 @@
 item def Go;
 item def Stop;
-part def Log;
-part def Gate {
+occurrence def Log;
+occurrence def Gate {
     attribute count : ScalarValues::Integer default = 0;
     action def Reset;
     state def Blink {
@@ -32,7 +32,7 @@ part def Gate {
                     /* not migrated: CreateObjectAction 'new log' — no v2 form for a UML CreateObjectAction */
                 }
                 action 'drop log' {
-                    /* not migrated: DestroyObjectAction 'drop log' — no v2 form for a UML DestroyObjectAction */
+                    /* not migrated: DestroyObjectAction 'drop log' — the action has no target pin */
                 }
                 metadata MigrationMetadata::SynthesizedName about 'fork';
                 metadata MigrationMetadata::StandIn about 'fork';

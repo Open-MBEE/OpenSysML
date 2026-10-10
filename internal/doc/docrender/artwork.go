@@ -111,7 +111,7 @@ func drawAutomatic(document *docir.Document, opts *DiagramOptions, drawer Diagra
 }
 
 // Diagrams lists the document's graph-shaped diagrams in document order, each
-// with the source the backends write for it as opts says. A table-kind view
+// with the source the backends write for it as opts says. A tabular view
 // is a table, not a diagram, and is left out.
 func Diagrams(document *docir.Document, opts DiagramOptions) ([]Diagram, error) {
 	if document == nil {
@@ -134,10 +134,10 @@ func Diagrams(document *docir.Document, opts DiagramOptions) ([]Diagram, error) 
 			if rendering == nil {
 				return &Error{Kind: ErrorMissingRendering, Content: node.Name()}
 			}
-			if rendering.Kind == view.KindTable {
+			if rendering.Kind.Tabular() {
 				continue
 			}
-			if !rendering.Kind.Supported() {
+			if !rendering.Kind.GraphShaped() {
 				return &Error{Kind: ErrorUnrenderableDiagram, Content: node.Name(), Actual: string(rendering.Kind)}
 			}
 			form, fallback := opts.formFor(rendering)

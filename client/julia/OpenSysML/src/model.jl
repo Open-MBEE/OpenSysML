@@ -83,13 +83,6 @@ Base.iterate(outputs::ActionOutputs, state...) = iterate(outputs.outputs, state.
 Base.getindex(outputs::ActionOutputs, key::String) = outputs.outputs[key]
 Base.haskey(outputs::ActionOutputs, key::String) = haskey(outputs.outputs, key)
 
-"""The states, context, and simulation time produced by a state-machine run."""
-struct StateRun
-    states_visited::Vector{String}
-    final_context::Dict{String,Any}
-    final_time::Float64
-end
-
 mutable struct Instance
     id::Int64
     type_symbol_id::String
@@ -145,14 +138,14 @@ function features(inst::Instance)
         for (name, value) in getfield(inst, :feature_values))
 end
 
-function _check_error(answer, method)
+function _check_error(answer, method; trace=DocumentEvent[], trace_dropped=0)
     msg = String(get(answer, "error", ""))
     isempty(msg) && return answer
     diags = Diagnostic[Diagnostic(d) for d in get(answer, "diagnostics", Any[])]
     if method in ("ParseFile", "ParseSources")
         throw(ModelError(msg, diags))
     end
-    return _raise_answer_error(answer; diagnostics=diags)
+    return _raise_answer_error(answer; diagnostics=diags, trace, trace_dropped)
 end
 
 function _model_from_answer(conn, answer; documents=String[], source_path=nothing, strict=false)
@@ -365,7 +358,9 @@ function _encoded_inputs(model::Model, inputs)
         for capability in sort!(collect(value_capabilities(value)))
             require_capability(model.connection, capability)
         end
-        encoded[String(key)] = encode_value(value)
+        wire = encode_value(value)
+        has_capability(model.connection, CAPABILITY_RATIONAL_VALUES) || rationals_as_reals!(wire)
+        encoded[String(key)] = wire
     end
     return encoded
 end
@@ -401,14 +396,16 @@ function execute_action(model::Model, action_id::AbstractString; inputs=Dict(),
                          get(decoded, "performerAttributes", Dict{String,Any}()))
 end
 
-"""Execute a state machine with optional events, scheduling, or performer."""
+"""Execute a state machine with optional events, scheduling, performer, or trace."""
 function execute_state(model::Model, state_id::AbstractString; events=Any[],
-                       schedule::AbstractString="", performer=nothing)
+                       schedule::AbstractString="", performer=nothing, trace::Bool=false)
     _check_schedule(schedule)
     _schedule_preflight(model.connection, schedule)
     performer !== nothing && require_capability(model.connection, CAPABILITY_PERFORMER)
+    trace && require_capability(model.connection, CAPABILITY_STATE_TRACE)
     needed = String[_schedule_capabilities(schedule)...]
     performer !== nothing && push!(needed, CAPABILITY_PERFORMER)
+    trace && push!(needed, CAPABILITY_STATE_TRACE)
     request = Dict{String,Any}("modelHash" => model.hash, "stateMachineSymbolId" => String(state_id),
                                "events" => Any[String(e) for e in events])
     if !isempty(schedule)
@@ -417,14 +414,21 @@ function execute_state(model::Model, state_id::AbstractString; events=Any[],
     if performer !== nothing
         request["performerSymbolId"] = String(performer)
     end
+    trace && (request["trace"] = true)
     answer = _translate(; capabilities=Tuple(unique(needed)), connection=model.connection) do
         call(model.connection, "ExecuteState", request)
     end
-    _check_error(answer, "ExecuteState")
+    trace_events = DocumentEvent[
+        _document_value(Dict{String,Any}("event" => event))
+        for event in get(answer, "trace", Any[])
+    ]
+    _check_error(answer, "ExecuteState"; trace=trace_events,
+                 trace_dropped=Int(get(answer, "traceDropped", 0)))
     decoded = decode_values(answer)
     return StateRun(String[String(state) for state in get(decoded, "statesVisited", Any[])],
                     Dict{String,Any}(get(decoded, "finalContext", Dict{String,Any}())),
-                    Float64(get(decoded, "finalTime", 0.0)))
+                    Float64(get(decoded, "finalTime", 0.0)), trace_events,
+                    Int(get(answer, "traceDropped", 0)))
 end
 
 """Run a legacy OSLC query and return its decoded response dictionary."""

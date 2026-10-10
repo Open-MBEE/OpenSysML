@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "instantiate": "test::Subject",
+  "slots": {
+    "amount": {"type": "Integer", "value": 5}
+  },
+  "constraints": {
+    "positive": true
+  }
+}

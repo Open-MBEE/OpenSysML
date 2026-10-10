@@ -16,6 +16,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
@@ -751,6 +752,13 @@ func toProtoValue(t *testing.T, ev expectedValue) *pb.Value {
 		return &pb.Value{Kind: &pb.Value_IntValue{IntValue: int64(mustFloat(t, ev))}}
 	case "real_value":
 		return &pb.Value{Kind: &pb.Value_RealValue{RealValue: mustFloat(t, ev)}}
+	case "rational_value":
+		text, _ := ev.Value.(string)
+		num, den, ok := strings.Cut(text, "/")
+		if !ok {
+			t.Fatalf("rational_value: %v is not \"<numerator>/<denominator>\"", ev.Value)
+		}
+		return &pb.Value{Kind: &pb.Value_RationalValue{RationalValue: &pb.Rational{Numerator: num, Denominator: den}}}
 	case "bool_value":
 		b, ok := ev.Value.(bool)
 		if !ok {
@@ -812,6 +820,8 @@ func describeValue(v *pb.Value) (string, interface{}) {
 		return "int_value", k.IntValue
 	case *pb.Value_RealValue:
 		return "real_value", k.RealValue
+	case *pb.Value_RationalValue:
+		return "rational_value", k.RationalValue.GetNumerator() + "/" + k.RationalValue.GetDenominator()
 	case *pb.Value_BoolValue:
 		return "bool_value", k.BoolValue
 	case *pb.Value_StringValue:
@@ -843,6 +853,10 @@ func describeQuantity(q *pb.Quantity) string {
 		magnitude = strconv.FormatInt(m.IntMagnitude, 10)
 	case *pb.Quantity_RealMagnitude:
 		magnitude = strconv.FormatFloat(m.RealMagnitude, 'g', -1, 64)
+	case *pb.Quantity_RationalMagnitude:
+		if r, ok := semantics.CanonicalRational(m.RationalMagnitude.GetNumerator(), m.RationalMagnitude.GetDenominator()); ok {
+			magnitude = r.FormatRational()
+		}
 	}
 	return fmt.Sprintf("%s [%s] = %s", magnitude, q.GetUnit(), unitTermText(q.GetUnitTerm()))
 }

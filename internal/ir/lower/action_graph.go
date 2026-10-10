@@ -111,6 +111,13 @@ type ActionGraph struct {
 	// keyed by the first statement of the run, whose name names no step.
 	StatementRuns map[ast.Node]bool
 
+	// StatementOrders holds order metadata for body lists lowered as part of a
+	// calculation block's own flow.
+	StatementOrders map[ast.Node]*StatementOrder
+
+	// UnstatedCaseFlow marks an unordered case body lifted into an action graph.
+	UnstatedCaseFlow bool
+
 	// BlockNodes lists, per node, the action nodes its body's blocks (an `if` branch,
 	// a loop body) declare, in declaration order: subperformances reached by name from it.
 	BlockNodes map[ast.Node][]ast.Node
@@ -231,6 +238,7 @@ type Send struct {
 	Message   ast.Node
 	Target    string
 	TargetSym *symbols.Symbol
+	Node      ast.Node
 	// TargetPath records that Target is a feature chain (`a.b`) reaching through
 	// the sender's features, rather than a name in a namespace (`R`, `P::R`).
 	TargetPath bool
@@ -336,10 +344,12 @@ func flattenChain(chain *ast.FeatureChainExpr) (ast.Node, []string) {
 // that block, so the executor binds it in the block's own frame and discards it
 // when the block exits. Value is nil when the declaration carried none.
 type Declare struct {
-	Name  string
-	Value ast.Node
-	Node  ast.Node       // the declaration itself, for diagnostics
-	Scope *symbols.Scope // the scope the declaration was written in
+	Name     string
+	Value    ast.Node
+	Binding  bool
+	BodyData bool           // expression-valued state action execution stored as state data
+	Node     ast.Node       // the declaration itself, for diagnostics
+	Scope    *symbols.Scope // the scope the declaration was written in
 }
 
 func (Declare) statement() { /* marker: closed Statement set */ }
@@ -363,6 +373,9 @@ func (DeclareUsage) statement() { /* marker: closed Statement set */ }
 type Block struct {
 	Statements []Statement
 	Node       ast.Node // the loop or branch the block belongs to
+	// Order is the lowered statement order for a calculation or constraint block.
+	// Action blocks leave it nil and derive their order from the enclosing graph.
+	Order *StatementOrder
 	// Scope is the block's own scope, which its declarations, and a loop's
 	// condition, resolve in.
 	Scope *symbols.Scope
@@ -635,9 +648,10 @@ type Attribute struct {
 	Direction ast.FeatureDirection
 	IsResult  bool // a `return` parameter, what the behavior yields
 	// Type is the declared type as written (`Natural`, `Vehicle::Mode`), "" without one.
-	Type  string
-	Value ast.Node
-	Node  ast.Node // the declaration itself, for diagnostics
+	Type    string
+	Value   ast.Node
+	Binding bool
+	Node    ast.Node // the declaration itself, for diagnostics
 	// Scope is the scope the declaration was written in, in which its default
 	// resolves; nil where the owner's own scope resolves it.
 	Scope *symbols.Scope
@@ -683,8 +697,14 @@ type Feature struct {
 	Direction ast.FeatureDirection
 	IsResult  bool // a `return` parameter, what the node stands for read as a value
 	Value     ast.Node
+	Binding   bool
 	Node      ast.Node // the declaration, for diagnostics
 	Scope     *symbols.Scope
+}
+
+// valueIsBinding reports whether the declaration uses a live `=` value.
+func valueIsBinding(value ast.Node, isInitial, isDefault bool) bool {
+	return value != nil && !isInitial && !isDefault
 }
 
 // Output reports whether the feature is written back rather than read: an `out`
@@ -1389,6 +1409,7 @@ func declaredFeature(m *ast.Usage, scope *symbols.Scope) (Feature, bool) {
 		Direction: m.Direction,
 		IsResult:  m.IsResult,
 		Value:     m.Value,
+		Binding:   valueIsBinding(m.Value, m.ValueIsInitial, m.ValueIsDefault),
 		Node:      m,
 		Scope:     scope,
 	}, true
@@ -1716,7 +1737,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 	case *ast.Usage:
 		return lowerUsageStatement(m, scope)
 	default:
-		return Unsupported{Description: fmt.Sprintf("%T", member), Node: member, Scope: scope}
+		return Unsupported{Description: statedFlowKeyword(member), Node: member, Scope: scope}
 	}
 }
 
@@ -1759,6 +1780,7 @@ func lowerSend(m *ast.SendStatement, scope *symbols.Scope) Statement {
 		Message:      message,
 		Target:       target,
 		TargetSym:    targetSym,
+		Node:         m,
 		TargetPath:   isPath,
 		TargetExpr:   targetExpr,
 		IsVia:        m.IsVia,
@@ -1912,7 +1934,7 @@ func lowerAttributes(members []ast.Node) []Attribute {
 		if name == "" {
 			continue
 		}
-		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Node: usage})
+		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Binding: valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault), Node: usage})
 	}
 	return attrs
 }
@@ -2249,6 +2271,16 @@ func getNodeName(node ast.Node) string {
 // is reported rather than dropped.
 func lowerFlow(nodes nodeLookup, flow *ast.Usage) (ast.Node, ObjectFlow, error) {
 	name, _ := ast.EffectiveName(flow)
+	// An indexed end selects one element of a feature of the flow's owner; a
+	// flow between the pins of action nodes moves whole pin values.
+	for _, end := range []ast.Node{flow.FlowEnds.From, flow.FlowEnds.To} {
+		if _, index := ast.EndSelection(end); index != nil {
+			return nil, ObjectFlow{}, fmt.Errorf(
+				"flow %s: end %s selects one element of a pin, which a flow between action nodes does not address; flow the whole pin",
+				orAnonymous(name), flowEndText(end),
+			)
+		}
+	}
 	sourceNode, sourcePin := flowEnd(nodes, flow.FlowEnds.From)
 	targetNode, targetPin := flowEnd(nodes, flow.FlowEnds.To)
 
@@ -2359,6 +2391,8 @@ func flowEndText(end ast.Node) string {
 		return strconv.Quote(base + "." + ast.SimpleName(e.Member))
 	case *ast.FeatureReference:
 		return edgeEndName(e.Name)
+	case *ast.IndexExpr:
+		return strconv.Quote(strings.Trim(flowEndText(e.Operand), `"`) + "#(…)")
 	}
 	return "(nothing)"
 }

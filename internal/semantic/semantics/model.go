@@ -53,6 +53,9 @@ type Model struct {
 	typingArgs map[*ast.InvocationExpr]bool
 	composed   map[composedKey][]*symbols.Symbol
 	ends       map[*symbols.Symbol][]connectorEnd
+	// chainTargets memoizes the feature each relationship object's chain
+	// target denotes.
+	chainTargets map[*symbols.Symbol]*symbols.Symbol
 	// subtracting memoizes whether a type reaches a difference (see cast.go).
 	subtracting map[*symbols.Symbol]bool
 	// referential memoizes a parameter's referentiality (see shape.go).
@@ -140,6 +143,9 @@ type Model struct {
 	// assumedSupers holds the supertypes a reducer's first parameter is judged under
 	// while its reducer's result is typed (see bodyparam.go).
 	assumedSupers map[*symbols.Symbol]assumedSupertypes
+	// implicitRels memoizes each element's reflected relationship objects
+	// (see reflective_relationships.go).
+	implicitRels map[*symbols.Symbol][]*symbols.Symbol
 }
 
 // NewModel creates a semantic model backed by the given name resolver. The
@@ -167,6 +173,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		typingArgs:          make(map[*ast.InvocationExpr]bool),
 		composed:            make(map[composedKey][]*symbols.Symbol),
 		ends:                make(map[*symbols.Symbol][]connectorEnd),
+		chainTargets:        make(map[*symbols.Symbol]*symbols.Symbol),
 		subtracting:         make(map[*symbols.Symbol]bool),
 		referential:         make(map[*symbols.Symbol]bool),
 		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),
@@ -207,6 +214,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		bodyApplications:      make(map[*ast.BodyExpr]bodyApplication),
 		bodyIndexed:           make(map[*symbols.Scope]bool),
 		assumedSupers:         make(map[*symbols.Symbol]assumedSupertypes),
+		implicitRels:          make(map[*symbols.Symbol][]*symbols.Symbol),
 	}
 	if resolver != nil {
 		resolver.SetModel(m)
@@ -235,10 +243,14 @@ func GeneralizationKind(k ast.RelationshipKind) bool {
 // RelationshipsOf returns the declared relationships of a symbol's def/usage
 // declaration, or nil for symbols that are not def/usage.
 func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
-	if oc, ok := ast.OwnedConstraintOf(sym.Decl); ok {
+	if sym == nil {
+		return nil
+	}
+	decl := sym.Decl
+	if oc, ok := ast.OwnedConstraintOf(decl); ok {
 		return oc.Relationships
 	}
-	switch d := sym.Decl.(type) {
+	switch d := decl.(type) {
 	case *ast.Definition:
 		return d.Relationships
 	case *ast.Usage:
@@ -330,40 +342,9 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		if rel == nil || rel.Target == nil || !GeneralizationKind(rel.Kind) {
 			continue
 		}
-		// Unwrap FeatureReference if needed
-		targetNode := rel.Target
-		if fr, ok := targetNode.(*ast.FeatureReference); ok {
-			targetNode = fr.Name
-		}
-		qn, isQN := targetNode.(*ast.QualifiedName)
-		if !isQN {
-			// A chain target (`subsets b.f`) generalizes to the chain's final feature.
-			if fc, isChain := targetNode.(*ast.FeatureChainExpr); isChain {
-				target, ok := m.chainTarget(sym, rel.Kind, fc)
-				if ok && target != nil && target != sym && !seen[target] {
-					seen[target] = true
-					out = append(out, target)
-				}
-			}
+		target := m.GeneralizationTargetOf(sym, rel)
+		if target == nil {
 			continue
-		}
-		target, ok := m.generalizationTarget(sym, rel.Kind, qn)
-		if !ok || target == nil {
-			continue
-		}
-		if resolved, aliasOK := m.resolver.ResolveAliasTarget(target); aliasOK {
-			target = resolved
-		} else {
-			continue
-		}
-		// A same-named subsetting targets the inherited feature, not the binding
-		// that resolves first in the owner's scope.
-		if len(qn.Parts) == 1 && rel.Kind == ast.RelSubsets && !subsetsSibling(sym, target) {
-			if redefined := m.inheritedFeature(sym, qn); redefined != nil {
-				target = redefined
-			} else if target == sym {
-				continue
-			}
 		}
 		if seen[target] {
 			continue
@@ -576,6 +557,16 @@ func (m *Model) recordedElements(sym *symbols.Symbol, refs []symbols.ElementRef)
 	return out
 }
 
+func (m *Model) recordedSequence(refs []symbols.ElementRef) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, ref := range refs {
+		if target := m.recordedElement(ref); target != nil {
+			out = append(out, target)
+		}
+	}
+	return out
+}
+
 // recordedElement restores the element a fact names, or nil when the name no
 // longer declares one.
 func (m *Model) recordedElement(ref symbols.ElementRef) *symbols.Symbol {
@@ -595,6 +586,49 @@ func (m *Model) recordedElement(ref symbols.ElementRef) *symbols.Symbol {
 // may still change and must not be recorded as a fact.
 func (m *Model) SupertypesProvisional(sym *symbols.Symbol) bool {
 	return m.provisionalSupers[sym]
+}
+
+// GeneralizationTargetOf is the supertype a generalization relationship of sym
+// names, as DirectSupertypes reads it: a same-named subsetting targets the
+// inherited feature; nil when the target does not resolve or is sym itself.
+func (m *Model) GeneralizationTargetOf(sym *symbols.Symbol, rel *ast.Relationship) *symbols.Symbol {
+	if sym == nil || rel == nil || rel.Target == nil {
+		return nil
+	}
+	targetNode := rel.Target
+	if fr, ok := targetNode.(*ast.FeatureReference); ok {
+		targetNode = fr.Name
+	}
+	qn, isQN := targetNode.(*ast.QualifiedName)
+	if !isQN {
+		// A chain target (`subsets b.f`) generalizes to the chain's final feature.
+		if fc, isChain := targetNode.(*ast.FeatureChainExpr); isChain {
+			if target, ok := m.chainTarget(sym, rel.Kind, fc); ok && target != nil && target != sym {
+				return target
+			}
+		}
+		return nil
+	}
+	target, ok := m.generalizationTarget(sym, rel.Kind, qn)
+	if !ok || target == nil {
+		return nil
+	}
+	resolved, aliasOK := m.resolver.ResolveAliasTarget(target)
+	if !aliasOK {
+		return nil
+	}
+	target = resolved
+	// A same-named subsetting targets the inherited feature, not the binding
+	// that resolves first in the owner's scope.
+	if len(qn.Parts) == 1 && rel.Kind == ast.RelSubsets && !subsetsSibling(sym, target) {
+		if redefined := m.inheritedFeature(sym, qn); redefined != nil {
+			return redefined
+		}
+		if target == sym {
+			return nil
+		}
+	}
+	return target
 }
 
 // supersUnstable reports whether sym's supertype answer may still change: it was
@@ -1055,6 +1089,14 @@ func IsElementType(sym *symbols.Symbol) bool {
 func IsAnything(sym *symbols.Symbol) bool {
 	return sym != nil && (sym.Name == "Base::Anything" ||
 		(sym.Name == "Anything" && sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil &&
+			sym.OwnerScope.Owner().Name == "Base"))
+}
+
+// IsDataValue reports whether sym is the library's Base::DataValue, the result
+// every DataFunctions operator declares and so the type of nothing in particular.
+func IsDataValue(sym *symbols.Symbol) bool {
+	return sym != nil && (sym.Name == "Base::DataValue" ||
+		(sym.Name == "DataValue" && sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil &&
 			sym.OwnerScope.Owner().Name == "Base"))
 }
 

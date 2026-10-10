@@ -107,22 +107,83 @@ func TestTraceRecordsCarryTheBehaviorThatMadeThem(t *testing.T) {
 	}
 }
 
+func TestStateTraceRecordsCarryWrittenPathsAndInnermostRegions(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			attribute def Ping;
+			state def Machine {
+				entry; then open;
+				state open parallel {
+					state pointing {
+						entry; then slewing;
+						state slewing;
+						state settled;
+						transition first slewing accept Ping then settled;
+					}
+					state power {
+						entry; then awake;
+						state awake;
+					}
+				}
+			}
+		}`))
+	exec, err := ctx.CreateStateExecutor(oneSymbol(t, idx, "test::Machine"))
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	trace := NewTraceRecorder()
+	exec.SetTrace(trace)
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	exec.SendSignal("Ping", nil)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	got := make(map[string]map[TraceKind]TraceRecord)
+	for _, record := range trace.Records() {
+		if (record.Kind == TraceEntry || record.Kind == TraceExit) &&
+			(record.State == "slewing" || record.State == "awake") {
+			if got[record.State] == nil {
+				got[record.State] = make(map[TraceKind]TraceRecord)
+			}
+			got[record.State][record.Kind] = record
+		}
+	}
+	for state, region := range map[string]string{"slewing": "open.pointing", "awake": "open.power"} {
+		record, ok := got[state][TraceEntry]
+		if !ok {
+			t.Fatalf("trace has no entry record for %s: %+v", state, trace.Records())
+		}
+		wantPath := "open." + state
+		if record.Path != wantPath || record.Region != region {
+			t.Errorf("%s path/region = %q / %q, want %q / %q", state, record.Path, record.Region, wantPath, region)
+		}
+	}
+	if record, ok := got["slewing"][TraceExit]; !ok {
+		t.Errorf("trace has no exit record for slewing: %+v", trace.Records())
+	} else if record.Path != "open.slewing" || record.Region != "open.pointing" {
+		t.Errorf("slewing exit path/region = %q / %q, want open.slewing / open.pointing", record.Path, record.Region)
+	}
+}
+
 // An event recorder keeps the most recent limit records, no printed lines, and
 // places a late accept by its whole-run mark.
 func TestEventRecorderKeepsTheMostRecentRecords(t *testing.T) {
 	tr := NewEventRecorder(3)
 	at := func(t float64, object *Instance) TraceOrigin { return TraceOrigin{At: t, Object: object} }
 	tr.line("printed only")
-	tr.RecordStateEntry(at(0, nil), "a", false)
-	tr.RecordStateEntry(at(1, nil), "b", false)
+	tr.RecordStateEntry(at(0, nil), "a", "a", "", false)
+	tr.RecordStateEntry(at(1, nil), "b", "b", "", false)
 	if dropped, _ := tr.Dropped(); dropped != 0 || len(tr.Records()) != 2 {
 		t.Fatalf("records = %d dropped = %d, want the two entries and no line", len(tr.Records()), dropped)
 	}
 	tr.Clear()
 	mark := tr.Mark()
-	tr.RecordStateEntry(at(2, nil), "c", false)
-	tr.RecordStateEntry(at(3, nil), "d", false)
-	tr.RecordAcceptAt(mark, at(2, nil), "Go", nil)
+	tr.RecordStateEntry(at(2, nil), "c", "c", "", false)
+	tr.RecordStateEntry(at(3, nil), "d", "d", "", false)
+	tr.RecordAcceptAt(mark, at(2, nil), 0, "Go", nil)
 	states := func() string {
 		var out []string
 		for _, r := range tr.Records() {
@@ -150,7 +211,7 @@ func TestEventRecorderCaptureRestoresTruncation(t *testing.T) {
 	tr := NewEventRecorder(3)
 	at := func(t float64) TraceOrigin { return TraceOrigin{At: t} }
 	for i, s := range []string{"a", "b", "c", "d"} {
-		tr.RecordStateEntry(at(float64(i)), s, false)
+		tr.RecordStateEntry(at(float64(i)), s, s, "", false)
 	}
 	states := func() string {
 		var out []string
@@ -160,8 +221,8 @@ func TestEventRecorderCaptureRestoresTruncation(t *testing.T) {
 		return strings.Join(out, " ")
 	}
 	capture := captureTrace(tr)
-	tr.RecordStateEntry(at(4), "e", false)
-	tr.RecordStateEntry(at(5), "f", false)
+	tr.RecordStateEntry(at(4), "e", "e", "", false)
+	tr.RecordStateEntry(at(5), "f", "f", "", false)
 	if dropped, upTo := tr.Dropped(); states() != "d e f" || dropped != 3 || upTo != 2 {
 		t.Fatalf("after the mark: %s dropped %d up to %v", states(), dropped, upTo)
 	}

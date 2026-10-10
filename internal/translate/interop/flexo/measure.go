@@ -15,6 +15,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/sysmlapi"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -466,11 +467,11 @@ func deliveredKind(raw json.RawMessage) string {
 // refusalReason is the refused write's diagnostic, kept to one stable line:
 // no request shape, no fresh project id, no line breaks.
 func refusalReason(err error, projectID string) string {
-	var se *statusError
+	var se *sysmlapi.StatusError
 	if !errors.As(err, &se) {
 		return "the write failed"
 	}
-	reason := strings.Join(strings.Fields(se.body), " ")
+	reason := strings.Join(strings.Fields(se.Body), " ")
 	reason = strings.ReplaceAll(reason, projectID, "<project>")
 	if len(reason) > 200 {
 		reason = reason[:200]

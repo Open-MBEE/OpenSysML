@@ -103,23 +103,50 @@ type scalarCheck struct {
 	countOK bool
 	// Whether the declared type holds a value of each lattice type a scalar has.
 	boolOK, naturalOK, integerOK, rationalOK, realOK bool
+	// holdsReal: the declared type is Real, which holds a Rational as its nearest binary64.
+	holdsReal bool
 	// least is the smallest integer a Natural-holding declaration takes: 1 for Positive.
 	least int64
+	// plain has bit 1<<kind set for each constant kind the declaration holds
+	// whatever the value, decided once so accepts answers them with one test.
+	plain uint8
+}
+
+// settle decides plain from the lattice answers.
+func (c *scalarCheck) settle() {
+	c.plain = 0
+	if !c.countOK {
+		return
+	}
+	if c.integerOK {
+		c.plain |= 1 << semantics.ValInt
+	}
+	if c.boolOK {
+		c.plain |= 1 << semantics.ValBool
+	}
+	if c.rationalOK {
+		c.plain |= 1 << semantics.ValRational
+	}
 }
 
 // accepts reports whether the declaration surely holds v, deciding on the
 // scalar lattice alone; a value it declines is left to refuse.
 func (c *scalarCheck) accepts(v scalar) bool {
+	return c.plain&(1<<v.Kind) != 0 || c.acceptsByValue(v)
+}
+
+// acceptsByValue is accepts for the kinds plain does not settle.
+func (c *scalarCheck) acceptsByValue(v scalar) bool {
 	if !c.countOK {
 		return false
 	}
-	switch v.kind {
-	case scalarInt:
-		if v.big != nil {
-			return c.integerOK || (c.naturalOK && v.big.Sign() > 0)
+	switch v.Kind {
+	case semantics.ValInt:
+		if i, ok := v.smallInt(); ok {
+			return c.integerOK || (c.naturalOK && i >= c.least)
 		}
-		return c.integerOK || (c.naturalOK && v.int() >= c.least)
-	case scalarBool:
+		return c.integerOK || (c.naturalOK && v.Unpack().BigIntView().Sign() > 0)
+	case semantics.ValBool:
 		return c.boolOK
 	}
 	return c.acceptsReal(v)
@@ -134,6 +161,29 @@ func (c *scalarCheck) acceptsReal(v scalar) bool {
 		return c.realOK
 	}
 	return false
+}
+
+// holds reports whether the declaration takes v as it is, so held has nothing to do.
+func (c *scalarCheck) holds(v scalar) bool {
+	return !c.holdsReal || v.Kind != semantics.ValRational
+}
+
+// held is v as the declaration holds it: a Rational a Real declaration takes as its
+// nearest binary64, refused when no finite Real is; what, if any, names the declaration.
+func (c *scalarCheck) held(v scalar, what func() string) (scalar, error) {
+	if c.holds(v) {
+		return v, nil
+	}
+	exact := v.Unpack()
+	real, err := semantics.RealOf(exact)
+	if err != nil {
+		err = fmt.Errorf("%s as a Real: %w", exact.FormatRational(), err)
+		if what != nil {
+			err = fmt.Errorf("%s: %w", what(), err)
+		}
+		return scalar{}, err
+	}
+	return realScalar(real.Real), nil
 }
 
 // refuse is the evaluator's verdict on a value accepts declined, so a refusal
@@ -203,7 +253,7 @@ func (b *compileBatch) call(member, callee *calcShape) {
 }
 
 // settle withdraws eligibility from every member calling an ineligible shape,
-// to a fixpoint, and marks a member reading a library constant via a callee.
+// to a fixpoint, and propagates execution requirements through the call graph.
 func (b *compileBatch) settle() {
 	for changed := true; changed; {
 		changed = false
@@ -369,11 +419,13 @@ func (c *calcCompiler) scalarCheckFor(decl *calcMemberDecl) (scalarCheck, bool) 
 	check := scalarCheck{decl: decl, countOK: true,
 		boolOK: true, naturalOK: true, integerOK: true, rationalOK: true, realOK: true}
 	if decl.Target == nil {
+		check.settle()
 		return check, true
 	}
 	one := Value{Kind: ValConst}
 	check.countOK = c.ctx.writeCountRefusal(decl.Target, &one) == ""
 	if decl.Target.typ == nil {
+		check.settle()
 		return check, true
 	}
 	if decl.Target.typ.Kind == symbols.SymbolEnumerationDef {
@@ -389,9 +441,11 @@ func (c *calcCompiler) scalarCheckFor(decl *calcMemberDecl) (scalarCheck, bool) 
 	check.integerOK = holds(semantics.PrimInteger)
 	check.rationalOK = holds(semantics.PrimRational)
 	check.realOK = holds(semantics.PrimReal)
+	check.holdsReal = prim == semantics.PrimReal
 	if c.ctx.positiveScalar(decl.Target.typ) {
 		check.least = 1
 	}
+	check.settle()
 	return check, true
 }
 
@@ -428,11 +482,13 @@ func (c *calcCompiler) compileNode(n ast.Node, scope *symbols.Scope, layout *fra
 		s, _ := scalarOfConst(v)
 		return constNode(s), nil
 	case *ast.LiteralReal:
-		v, err := semantics.ParseReal(e.Value)
+		// One beyond the least budget is left to the evaluator, which checks it against the run's.
+		v, err := semantics.ParseRational(e.Value, semantics.MinMaxIntegerBits)
 		if err != nil {
-			return nil, ineligible(fmt.Sprintf("real literal %s outside the range", e.Value))
+			return nil, ineligible(fmt.Sprintf("rational literal %s beyond the least size budget", e.Value))
 		}
-		return constNode(realScalar(v)), nil
+		s, _ := scalarOfConst(v)
+		return constNode(s), nil
 	case *ast.LiteralBool:
 		return constNode(boolScalar(e.Value)), nil
 	case *ast.FeatureReference:
@@ -788,37 +844,60 @@ func (c *compiledCalc) invoke(ctx *Context, base int, bound paramSet) (scalar, e
 	for i := range c.params {
 		p := &c.params[i]
 		v := frame[i]
-		source := "argument"
-		if !bound.has(i) {
+		defaulted := !bound.has(i)
+		if defaulted {
 			var err error
 			if v, err = p.dflt(ctx, frame); err != nil {
 				ctx.leaveCalc()
 				return scalar{}, calcDefaultError(c.kind, c.name, p.name, err)
 			}
-			source = "default"
 			frame[i] = v
 		}
-		if !p.check.accepts(v) {
-			err := p.check.refuse(ctx, v, func() string {
-				return fmt.Sprintf("%s %s: %s for parameter %q", c.kind, c.name, source, p.name)
-			})
-			if err != nil {
-				ctx.leaveCalc()
-				return scalar{}, err
-			}
+		if p.check.accepts(v) && p.check.holds(v) {
+			continue
 		}
+		held, err := c.holdParam(ctx, p, v, defaulted)
+		if err != nil {
+			ctx.leaveCalc()
+			return scalar{}, err
+		}
+		frame[i] = held
 	}
 	result, err := c.body(ctx, frame)
 	ctx.leaveCalc()
 	if err != nil {
 		return scalar{}, calcFrame(c.kind, c.name, fmt.Errorf("%s%w", c.bodyErr, err))
 	}
-	if c.result != nil && !c.result.accepts(result) {
-		if err := c.result.refuse(ctx, result, func() string { return c.resultWhat }); err != nil {
+	if c.result != nil && !(c.result.accepts(result) && c.result.holds(result)) {
+		what := func() string { return c.resultWhat }
+		if !c.result.accepts(result) {
+			if err := c.result.refuse(ctx, result, what); err != nil {
+				return scalar{}, calcFrame(c.kind, c.name, err)
+			}
+		}
+		if result, err = c.result.held(result, what); err != nil {
 			return scalar{}, calcFrame(c.kind, c.name, err)
 		}
 	}
 	return result, nil
+}
+
+// holdParam settles a parameter value its check did not take as it is: the
+// reference's verdict on a value accepts declined, then the declaration's hold.
+func (c *compiledCalc) holdParam(ctx *Context, p *compiledParam, v scalar, defaulted bool) (scalar, error) {
+	source := "argument"
+	if defaulted {
+		source = "default"
+	}
+	what := func() string {
+		return fmt.Sprintf("%s %s: %s for parameter %q", c.kind, c.name, source, p.name)
+	}
+	if !p.check.accepts(v) {
+		if err := p.check.refuse(ctx, v, what); err != nil {
+			return scalar{}, err
+		}
+	}
+	return p.check.held(v, what)
 }
 
 // frameAt extends the scalar stack to hold a frame of size slots at base; the

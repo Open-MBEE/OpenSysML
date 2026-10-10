@@ -51,6 +51,10 @@ type LibraryFacts struct {
 	// Direction is the declared feature direction of a usage.
 	Direction ast.FeatureDirection
 
+	// Portion is the `snapshot` or `timeslice` prefix of a usage, or
+	// PortionNone when the declaration has no portion keyword.
+	Portion ast.PortionKind
+
 	// Modifiers are the declaration's boolean modifiers (`end`, `derived`, ...).
 	Modifiers Modifiers
 
@@ -72,6 +76,19 @@ type LibraryFacts struct {
 	// its `connect` clause, then its body's `end` features. A zero entry is
 	// an end with no symbol of its own (`connect a to b`).
 	Ends []ElementRef
+
+	// RelatedFeatures are the features a connector's ends reference, in end
+	// order, as derived from the declaration.
+	RelatedFeatures []ElementRef
+
+	// EndPaths are the features each end of a connector object usage names in
+	// order, outermost first (`connect a.b to c` has [a b] and [c]), in end
+	// order; an end whose attachment resolves to nothing has an empty path.
+	EndPaths [][]ElementRef
+
+	// MetadataType is the type named by a prefix metadata usage, zero when it
+	// does not resolve.
+	MetadataType ElementRef
 
 	// Node is the class of declaration the symbol was made from.
 	Node NodeKind
@@ -178,12 +195,16 @@ func (f LibraryFacts) Clone() LibraryFacts {
 	f.Redefines = cloneRefs(f.Redefines)
 	f.About = cloneRefs(f.About)
 	f.Ends = cloneRefs(f.Ends)
+	f.RelatedFeatures = cloneRefs(f.RelatedFeatures)
+	f.EndPaths = clonePaths(f.EndPaths)
 	f.Alias = f.Alias.Clone()
 	f.References = f.References.Clone()
 	f.BaseType = f.BaseType.Clone()
+	f.MetadataType = f.MetadataType.Clone()
 	f.Relationships = slices.Clone(f.Relationships)
 	for i := range f.Relationships {
 		f.Relationships[i].Target = f.Relationships[i].Target.Clone()
+		f.Relationships[i].Path = cloneRefs(f.Relationships[i].Path)
 	}
 	f.Annotations = slices.Clone(f.Annotations)
 	for i := range f.Annotations {
@@ -210,6 +231,8 @@ func (f LibraryFacts) Clone() LibraryFacts {
 	f.Default = slices.Clone(f.Default)
 	if f.Relationship != nil {
 		r := *f.Relationship
+		r.Source = r.Source.Clone()
+		r.Target = r.Target.Clone()
 		f.Relationship = &r
 	}
 	return f
@@ -230,13 +253,26 @@ type RelationshipFacts struct {
 	Kind       ast.RelationshipKind
 	Target     ElementRef
 	Conjugated bool
+	// Chain marks a target written as a feature chain (`subsets a.b`), whose
+	// recorded reference reaches only the chain's final feature.
+	Chain bool
+	// Echo marks the `includes` the parser repeats of a use case's typing
+	// target (`include use case uc : UC`), which declares no relationship.
+	Echo bool
+	// Path is the features a chain target is written as, outermost first;
+	// empty when a feature of the chain resolves to nothing.
+	Path []ElementRef
 }
 
 // RelationshipDecl is the relationship a keyword-first member declares, which
 // conjugation writes as a form of its own (`conjugation C conjugate A ~ B;`).
+// Source and Target are the ends the member names, zero when one resolved to
+// nothing; a record carries them only.
 type RelationshipDecl struct {
 	Kind       ast.RelationshipKind
 	Conjugated bool
+	Source     ElementRef
+	Target     ElementRef
 }
 
 // RelationshipDecl is the relationship the symbol's keyword-first member

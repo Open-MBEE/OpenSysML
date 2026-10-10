@@ -1,9 +1,79 @@
 # 1. Install
 
-This chapter covers installing `sysml`, `sysml-lsp` and `sysml-grpc` and checking that they
+This chapter covers installing `sysml`, `sysml-lsp`, `sysml-grpc` and `sysml-jupyter-kernel` and checking that they
 work. Nothing else is needed for the rest of this guide.
 
 ## From a release build (recommended)
+
+### With the install script
+
+One command installs the current release's `sysml` and `sysml-lsp` on any supported
+platform. The script works out the operating system and architecture, downloads the matching
+bundle with the release's `SHA256SUMS.txt`, refuses to install anything whose digest does not
+match, and runs each installed binary's `--version` before reporting where it went.
+
+**Linux and macOS:**
+```bash
+curl -fsSL https://opensysml.org/install.sh | sh
+```
+Binaries go to `/usr/local/bin` when it is writable and to `~/.local/bin` otherwise, with the
+manual pages beside them under `share/man/man1`; the script says so when the directory is not
+on your `PATH`. It needs `curl` or `wget`, `tar`, and `sha256sum`, `shasum` or `openssl` —
+all present on a stock Linux or macOS system — and it never edits a shell profile. On macOS
+the download is made by `curl`, so Gatekeeper raises none of the prompts described in
+[macOS: Gatekeeper](#macos-gatekeeper).
+
+**Windows (PowerShell 5.1 or later, no administrator rights):**
+```powershell
+irm https://opensysml.org/install.ps1 | iex
+```
+The portable ZIP is installed to `%LOCALAPPDATA%\Programs\OpenSysML`, which is added to the
+*user* `PATH` (new terminals see it; `-NoPath` leaves `PATH` alone). When the release carries
+the SignPath-signed build, `opensysml-windows-amd64-signed.zip` is installed in preference to
+the unsigned one, and every executable's Authenticode signature must verify first
+(`Get-AuthenticodeSignature`: valid, the project's SignPath Foundation certificate, a
+`VERSIONINFO` naming the release); `SHA256SUMS-windows-signed.txt` only says which bytes to
+expect. Staged from Linux or macOS with `-Os windows`, where that check is impossible, the
+unsigned build that `SHA256SUMS.txt` covers is used instead. The ZIP has no solver; the [MSI](#windows-msi) remains the route to a
+system-wide install with Z3 bundled.
+
+Options are passed after `sh -s --` on Unix and as parameters on Windows; each also has an
+environment variable for unattended installs:
+
+| Choice | `install.sh` | `install.ps1` | Environment |
+|---|---|---|---|
+| Release: a tag, `latest` or `nightly` | `--version v0.9.1` | `-Version v0.9.1` | `OPENSYSML_VERSION` |
+| Tools: `sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-jupyter-kernel` or `all` | `--tools sysml` | `-Tools sysml` | `OPENSYSML_TOOLS` |
+| Where to install | `--prefix ~/opt` or `--bin-dir ~/bin` | `-InstallDir D:\Tools\OpenSysML` | `OPENSYSML_PREFIX`, `OPENSYSML_BIN_DIR`, `OPENSYSML_INSTALL_DIR` |
+| A mirror of the GitHub release tree | `--base-url URL` | `-BaseUrl URL` | `OPENSYSML_DOWNLOAD_BASE` |
+| Show the choice, install nothing | `--dry-run` | `-DryRun` | |
+| Also verify the manifest's cosign signature | `--verify-signature` | | |
+
+```bash
+# the language server alone, into a directory of your own, from the nightly snapshot
+curl -fsSL https://opensysml.org/install.sh | sh -s -- --tools sysml-lsp --bin-dir ~/bin --version nightly
+
+# everything the release publishes, with the checksum manifest's signature checked by cosign
+curl -fsSL https://opensysml.org/install.sh | sh -s -- --tools all --verify-signature
+```
+```powershell
+# the REPL alone, pinned to a release
+& ([scriptblock]::Create((irm https://opensysml.org/install.ps1))) -Tools sysml -Version v0.9.1
+```
+
+`--verify-signature` checks `SHA256SUMS.txt` against the signature the release pipeline
+publishes beside it (see [the signed checksum manifest](../project/releasing.md#the-signed-checksum-manifest)); it needs
+[cosign](https://docs.sigstore.dev/cosign/system_config/installation/) on `PATH`. Without it
+the script still verifies every download against the manifest; the signature additionally
+proves the manifest itself came from the project's CI.
+
+The scripts are [`install.sh`](https://github.com/Open-MBEE/OpenSysML/blob/main/install.sh)
+and [`install.ps1`](https://github.com/Open-MBEE/OpenSysML/blob/main/install.ps1) at the root
+of the repository, so a checkout runs `./install.sh`, and `--os`/`--arch` (`-Os`/`-Arch`)
+stage another platform's build into a directory without running it, for an image or an
+offline machine.
+
+### By hand
 
 Download the latest release for your platform from [GitHub Releases](https://github.com/Open-MBEE/OpenSysML/releases)
 — the [downloads page](../downloads.md) summarizes every artifact and package-manager
@@ -40,6 +110,7 @@ tar xzf opensysml.tar.gz
 sudo mv sysml sysml-lsp /usr/local/bin/
 ```
 
+<a id="windows-msi"></a>
 **Windows — use the installer.** Download `opensysml-<x.y.z>-windows-amd64.msi` from
 [releases](https://github.com/Open-MBEE/OpenSysML/releases/latest) and run it. A setup wizard
 lets you pick the destination folder and the optional components; by default it installs
@@ -71,8 +142,14 @@ as a dependency.
 
 `sysml-grpc`, the service the Python bindings talk to, is published as a bare
 `sysml-grpc-<os>-<arch>` file with a `.sha256` sidecar rather than inside an archive, because
-the `opensysml` Python package downloads and verifies it itself (see [client/python/README.md](../../client/python/README.md)).
+the `opensysml` Python package downloads and verifies it itself (see [client/python/DEVELOPING.md](../../client/python/DEVELOPING.md)).
 `make build-grpc` builds it from source.
+
+`sysml-jupyter-kernel`, the Jupyter kernel, is published the same way, as a bare
+`sysml-jupyter-kernel-<os>-<arch>` file with a `.sha256` sidecar: `pip install
+jupyter-opensysml-kernel` downloads and verifies it when it registers the kernel (see
+[Jupyter notebooks](12-jupyter.md)). `make build-jupyter-kernel` builds it from source, and
+`sysml-jupyter-kernel -install` registers a binary installed by hand.
 
 **Archive layout:** the `opensysml-<os>-<arch>.tar.gz` bundles contain both binaries under their
 plain names (`sysml`, `sysml-lsp`). The older single-binary `sysml-<os>-<arch>.tar.gz` and
@@ -88,9 +165,11 @@ shasum -a 256 -c SHA256SUMS.txt --ignore-missing   # macOS; use sha256sum -c on 
 ```
 
 **Ahead of the next release:** the same archives are built from `develop` every night and
-published as the prerelease `nightly`. It is a development build, replaced nightly and never
-the `latest` release; [Nightly snapshots](../project/nightly.md) says what it contains, how to
-verify one, and what to expect from it.
+published as the prerelease `nightly-<yyyymmdd>-<commit>`, kept for 14 days, with `nightly`
+as the moving alias of the newest; the Python and Node clients go to PyPI and npm as
+development versions. It is a development build, never the `latest` release;
+[Nightly snapshots](../project/nightly.md) says what it contains, how to verify one, and what
+to expect from it.
 
 ## macOS: Gatekeeper
 
@@ -111,6 +190,8 @@ Ways to avoid it, best first:
    go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest
    go install github.com/Open-MBEE/OpenSysML/cmd/sysml-lsp@latest
    ```
+   `sysml -version` reports the release the binary was built from, or the commit when it was
+   installed from a checkout.
 4. **Clear the attribute** if you already downloaded the archive in a browser. Verify the
    checksum first: clearing the attribute disables a security check, so make sure the file
    really is the published one:

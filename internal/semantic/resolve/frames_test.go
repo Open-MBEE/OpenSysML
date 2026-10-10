@@ -224,3 +224,37 @@ func TestFramesReadingTheWholeIndexSurviveAJudgmentChange(t *testing.T) {
 		t.Fatalf("the refreshed table still declares X as %v", got)
 	}
 }
+
+// A document replaced by one stating the same wildcard import registers the
+// names the import surfaces again, as they were; a document that resolved
+// through one keeps what it memoized. Stated otherwise, the import moves them.
+func TestFramesSurviveAReexportRegisteredAgainAsItWas(t *testing.T) {
+	w := newTrackedIndex(t, map[string]string{
+		"lib.sysml":  "package Lib { part def Base; }",
+		"gate.sysml": "package P { public import Lib::*; }",
+		"user.sysml": "package P { part def Derived :> P::Base; }",
+	})
+	w.idx.ExpandWildcardImports()
+	w.idx.TakeChanges()
+	w.analyzeAll()
+	// As the workspace does: the imports are expanded again before the changes
+	// are read.
+	edit := func(src string) []string {
+		w.roots["gate.sysml"] = parsedRoot(t, "gate.sysml", src)
+		w.idx.AddDocument("gate.sysml", w.roots["gate.sysml"])
+		w.idx.ExpandWildcardImports()
+		ch := w.idx.TakeChanges()
+		ch.Docs = map[string]bool{"gate.sysml": true}
+		return w.r.Invalidate(ch)
+	}
+	if dropped := edit("package P { public import Lib::*; } // edited"); !reflect.DeepEqual(dropped, []string{"gate.sysml"}) {
+		t.Fatalf("dropped %v, want [gate.sysml]", dropped)
+	}
+	if !w.owned("user.sysml") {
+		t.Fatal("user.sysml, resolving through a re-export registered again as it was, lost what it memoized")
+	}
+	w.analyzeAll()
+	if dropped := edit("package P { private import Lib::*; }"); !reflect.DeepEqual(dropped, []string{"gate.sysml", "user.sysml"}) {
+		t.Fatalf("dropped %v, want [gate.sysml user.sysml]", dropped)
+	}
+}

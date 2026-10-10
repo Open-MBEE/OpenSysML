@@ -11,8 +11,8 @@ package test {
 		first start;
 		then action c1 {
 			assign x := 1;
-			terminate;
-			assign y := 2;
+			then terminate;
+			then assign y := 2;
 		}
 		then action after { assign z := 3; }
 		then done;

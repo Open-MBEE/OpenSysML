@@ -16,10 +16,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// ErrAmbiguousSuccession reports a node whose flow could continue along more
-// than one succession, which the token semantics do not resolve.
-var ErrAmbiguousSuccession = errors.New("more than one succession is enabled")
-
 // actionLabelPrefix opens the text naming an action in diagnostics and choices.
 const actionLabelPrefix = "action "
 
@@ -47,6 +43,8 @@ type ActionExecutor struct {
 	occurrence *Instance
 	graph      *lower.ActionGraph // Execution IR
 	stepCounts map[stepMultiplicityKey]stepMultiplicityResult
+	// divides caches, by node, whether a body's moves may interleave with another's (lower.BodyDivides).
+	divides map[bodyDivision]bool
 	// features are the attributes and parameters the performance holds: those the
 	// graph declares, then the inherited ones none of them redefines.
 	features         []lower.Attribute
@@ -89,8 +87,8 @@ type ActionExecutor struct {
 	stepsSpent int64
 	// inRun is set while RunToCompletion drives the steps, whose budget they share.
 	inRun bool
-	// held marks a run paused on this action's waits by the body performing it,
-	// which resumes the run; the clock leaves a held action to its holder.
+	// held marks a run paused on this action's waits or at its start by the body
+	// performing it, which resumes the run; the clock leaves a held action to its holder.
 	held bool
 	// moved is set once a token acted — a failed step included — or the body wrote a
 	// feature, and cleared when the start that attached the execution to its object settles.
@@ -103,6 +101,9 @@ type ActionExecutor struct {
 // chargeActionStep spends one step of the action's token-flow budget
 // (MaxActionStepsEnvVar), which the tokens of every flow of the run share.
 func (e *ActionExecutor) chargeActionStep() error {
+	if e.ctx.interrupted() {
+		return ErrInterrupted
+	}
 	if e.stepsSpent+e.steps >= e.ctx.maxActionSteps {
 		return budgetExceeded(ErrActionStepLimitExceeded,
 			fmt.Sprintf("execution exceeded max steps (%d steps; raise %s to allow more), possible infinite loop",
@@ -296,6 +297,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 		features = append(features, lower.Attribute{
 			Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: lower.TypeText(usage),
 			Value: value, Node: usage, Scope: scope, Optional: e.ctx.admitsNoValue(member),
+			Binding: value != nil && !usage.ValueIsInitial && !usage.ValueIsDefault,
 		})
 	}
 	return features
@@ -390,7 +392,10 @@ func (e *ActionExecutor) Step() error {
 	if acted {
 		e.moved = true
 	}
-	progressMade := e.tokensProgressed(tokenCountBefore, tokenLocationsBefore)
+	// A one-move step ends at its move with the other tokens untried, so the move is
+	// progress even when the work it resumed parks again where it was.
+	progressMade := e.tokensProgressed(tokenCountBefore, tokenLocationsBefore) ||
+		acted && e.ctx.scheduling().oneMove()
 	if err != nil {
 		e.endPausedBodies()
 		return err
@@ -669,6 +674,11 @@ func (e *ActionExecutor) RunToCompletion() error {
 // run is the RunToCompletion loop, holding the clock where it is when
 // atCurrentTime is set.
 func (e *ActionExecutor) run(atCurrentTime bool) error {
+	return e.runSteps(atCurrentTime, false)
+}
+
+// runSteps is run, stopping after one step where single is set.
+func (e *ActionExecutor) runSteps(atCurrentTime, single bool) error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	if e.released {
@@ -731,6 +741,14 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 			e.held = true
 			return err
 		}
+		if single {
+			break
+		}
+		if !atCurrentTime {
+			if err := e.ctx.yieldTurn(e, &progress); err != nil {
+				return err
+			}
+		}
 	}
 	if e.state == StateWaiting && !atCurrentTime {
 		err := e.deadlockError(nil)
@@ -743,10 +761,10 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 // pauseAfterMove pauses the body performing this action after one token move where
 // its run goes one move at a time and another move is open now; nil else.
 func (e *ActionExecutor) pauseAfterMove() error {
-	if !e.ctx.stepsTokens() || e.state != StateRunning || !e.canAct(nil) {
+	if !e.ctx.stepsTokens() && !e.ctx.drawsTokenSteps() || e.state != StateRunning || !e.canAct(nil) {
 		return nil
 	}
-	return e.ctx.tokenStepBody()
+	return e.ctx.tokenStepBody(e.graph)
 }
 
 // StepToBreakpoint is Step with the breakpoints a run stops at: a token sitting
@@ -858,6 +876,7 @@ func (e *ActionExecutor) canProceed(perf *actionFrame) bool {
 // changeWaitHolds reports a token of perf's flow (the action's for nil) parked at
 // an accept whose condition holds now; one the step cannot evaluate counts, so the step reports it.
 func (e *ActionExecutor) changeWaitHolds(perf *actionFrame) bool {
+	defer e.ctx.beginProbe()()
 	return e.changeWaitHoldsIn(perf, make(map[waitTarget]bool))
 }
 
@@ -1259,6 +1278,11 @@ func (e *ActionExecutor) NodeNames() []string {
 	return append(names, e.subflowNodeNames(e.graph)...)
 }
 
+// readsAtStart reports whether the performance evaluated an initial value at its start shot.
+func (e *ActionExecutor) readsAtStart() bool {
+	return slices.ContainsFunc(e.features, func(attr lower.Attribute) bool { return attr.Value != nil })
+}
+
 // initializeAttributes fills the features no supplied input holds: from the occurrence's
 // slots, else the declared defaults in order, each evaluated where it was declared.
 func (e *ActionExecutor) initializeAttributes() error {
@@ -1286,8 +1310,21 @@ func (e *ActionExecutor) initializeAttributes() error {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
 					ErrActionPerformanceOccurrence, attr.Name, e.occurrence.ID, err)
 			}
-			if value := fv.HeldValue(); value.Kind != ValInvalid {
-				e.root.data[e.root.key(attr.Name)] = value
+			if attr.Binding && !fv.Written && !e.occurrenceRedefinesAttribute(attr, fv) {
+				value, seeded, err := e.ctx.seedBodyBindingFromFeatureValue(e.root.cells, e.root.key(attr.Name), fv)
+				if err != nil {
+					return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
+				}
+				if seeded {
+					if err := e.streamInitialOutput(attr.Name, value); err != nil {
+						return err
+					}
+					continue
+				}
+			}
+			if value := fv.HeldValue(); value.Kind != ValInvalid &&
+				(!attr.Binding || fv.Written || e.occurrenceRedefinesAttribute(attr, fv)) {
+				e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(attr.Name), value)
 				if err := e.streamInitialOutput(attr.Name, value); err != nil {
 					return err
 				}
@@ -1300,20 +1337,48 @@ func (e *ActionExecutor) initializeAttributes() error {
 			}
 			continue
 		}
-		value, err := evalDefaults().evalIn(attr.Scope).Eval(attr.Value)
+		var value Value
+		var err error
+		if attr.Binding {
+			value, err = e.ctx.deriveBodyCell(
+				e.root.cells, e.root.key(attr.Name), e.root.cells.existingCell(e.root.key(attr.Name)),
+			)
+		} else {
+			value, err = evalDefaults().evalIn(attr.Scope).Eval(attr.Value)
+		}
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
 		}
-		if value, err = e.mirrorOccurrence(attr.Name, value); err != nil {
-			return err
+		if err := e.holdAttributeAsReal(attr, &value); err != nil {
+			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
 		}
-		e.root.data[e.root.key(attr.Name)] = value
+		if !attr.Binding {
+			if value, err = e.mirrorOccurrence(attr.Name, value); err != nil {
+				return err
+			}
+		}
+		if !attr.Binding {
+			e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(attr.Name), value)
+		}
 		if err := e.streamInitialOutput(attr.Name, value); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// holdAttributeAsReal holds an attribute default as the Real its declaration states.
+func (e *ActionExecutor) holdAttributeAsReal(attr lower.Attribute, value *Value) error {
+	scope := attr.Scope
+	if scope == nil {
+		scope = e.graph.Scope
+	}
+	sym, ok := resolve.FeatureSymbolInScope(scope, []string{attr.Name})
+	if !ok {
+		return nil
+	}
+	return e.ctx.holdAsReal(value, e.ctx.extractType(sym))
 }
 
 // bindContextDefault binds an unbound `in ref` parameter of a behavior started on an
@@ -1341,7 +1406,7 @@ func (e *ActionExecutor) bindContextDefault(attr lower.Attribute) bool {
 	if err != nil {
 		return false
 	}
-	e.root.data[e.root.key(attr.Name)] = value
+	e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(attr.Name), value)
 	return true
 }
 
@@ -1387,16 +1452,23 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.occurrence = inst
+	e.performances.occurrence = inst
 	for _, attr := range e.features {
 		if value, held := e.root.data[e.root.key(attr.Name)]; held {
+			if cell := e.root.cells.existingCell(e.root.key(attr.Name)); cell != nil && cell.binding != nil && !cell.fv.Written {
+				if _, err := e.mirrorBindingOccurrence(attr.Name, value, cell); err != nil {
+					return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+						ErrActionPerformanceOccurrence, attr.Name, inst.ID, err)
+				}
+				continue
+			}
 			if err := inst.BindFeatureValue(e.ctx, attr.Name, value); err != nil {
 				return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
 					ErrActionPerformanceOccurrence, attr.Name, inst.ID, err)
 			}
 		}
 	}
-	e.occurrence = inst
-	e.performances.occurrence = inst
 	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
 	return inst, nil
 }
@@ -1434,6 +1506,24 @@ func (e *ActionExecutor) mirrorOccurrence(name string, value Value) (Value, erro
 	return fv.HeldValue(), nil
 }
 
+// mirrorBindingOccurrence exposes a tracked body feature through its occurrence.
+func (e *ActionExecutor) mirrorBindingOccurrence(name string, value Value, cell *bodyCell) (Value, error) {
+	if e.occurrence == nil || !e.declaresAttribute(name) {
+		return value, nil
+	}
+	mirrored, err := e.ctx.mirrorBodyCell(e.occurrence, name, cell, value)
+	if err != nil {
+		return value, fmt.Errorf("%w: write %s of object #%d: %w",
+			ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	return mirrored, nil
+}
+
+// occurrenceRedefinesAttribute reports whether the occurrence supplies another declaration's default.
+func (e *ActionExecutor) occurrenceRedefinesAttribute(attr lower.Attribute, fv *FeatureValue) bool {
+	return occurrenceHasRedefinedDefault(fv, attr, e.graph.Scope)
+}
+
 // setFeature writes into the action's feature space, through the performance
 // occurrence for a feature the action declares: the occurrence is authoritative
 // for those, and data mirrors what it holds after the write.
@@ -1443,12 +1533,12 @@ func (e *ActionExecutor) setFeature(name string, value Value) error {
 		if value, err = e.mirrorOccurrence(name, value); err != nil {
 			return err
 		}
-	} else if err := e.ctx.checkNamedWrite(e.graph.Scope, actionLabelPrefix+symbolText(e.action), name, &value); err != nil {
+	} else if err := e.ctx.checkNamedWriteAs(e.graph.Scope, func() string { return actionLabelPrefix + symbolText(e.action) }, name, &value); err != nil {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
 		return err
 	}
-	e.root.data[e.root.key(name)] = value
+	e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(name), value)
 	e.moved = true
 	return e.streamOutput(name, value)
 }
@@ -1507,19 +1597,27 @@ func (e *ActionExecutor) hasFlow() bool {
 		e.dynamicsKind != lower.NotStateSpace)
 }
 
+// completeRoot freezes the root bindings and ends its performance.
+func (e *ActionExecutor) completeRoot() error {
+	if err := e.ctx.freezeBodyCells(e.root.cells); err != nil {
+		return err
+	}
+	e.state = StateCompleted
+	e.endRootPerformance()
+	return nil
+}
+
 // completeWithoutFlow completes an action stating no flow: it performs no step,
 // so its performance begins, takes its inputs, and ends at once.
 func (e *ActionExecutor) completeWithoutFlow() error {
 	if err := e.checkResultParameters(); err != nil {
 		return err
 	}
-	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
+	e.beginRootPerformance()
 	if err := e.bindInputs(); err != nil {
 		return err
 	}
-	e.state = StateCompleted
-	e.ctx.endPerformanceLife(e.occurrence)
-	return nil
+	return e.completeRoot()
 }
 
 // bindInputs writes the supplied inputs into the performance, then the
@@ -1538,6 +1636,20 @@ func (e *ActionExecutor) bindInputs() error {
 		return inputBindingError{Err: fmt.Errorf("initialize attributes: %w", err)}
 	}
 	return nil
+}
+
+// beginRootPerformance starts the root performance's dependency lifetime.
+func (e *ActionExecutor) beginRootPerformance() {
+	if e.root.began == 0 {
+		e.root.began = e.ctx.newActivation()
+	}
+	e.ctx.beginPerformanceLife(e.occurrence, e.root.began)
+}
+
+// endRootPerformance ends the root performance's dependency lifetime.
+func (e *ActionExecutor) endRootPerformance() {
+	e.ctx.endPerformanceLife(e.occurrence)
+	e.ctx.endActivation(e.root.began)
 }
 
 type inputBindingError struct{ Err error }
@@ -1656,7 +1768,7 @@ func (e *ActionExecutor) initialize() error {
 		return err
 	}
 
-	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
+	e.beginRootPerformance()
 	if err := e.bindInputs(); err != nil {
 		return err
 	}
@@ -1667,9 +1779,7 @@ func (e *ActionExecutor) initialize() error {
 		if err := checkStreamsReceived(e.root); err != nil {
 			return err
 		}
-		e.state = StateCompleted
-		e.ctx.endPerformanceLife(e.occurrence)
-		return nil
+		return e.completeRoot()
 	}
 	e.seedTokens(e.root, starts, 0)
 
@@ -1727,10 +1837,15 @@ func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 		if node.Kind == ast.UsageAction || lower.IsCaseNode(node) {
 			return e.stepNestedAction(tokenIdx)
 		}
-		if node.Kind == ast.UsageConstraint {
+		if e.tokenGraph(tokenIdx).StatementRuns[node] || node.Kind == ast.UsageConstraint {
 			return e.stepStatementNode(tokenIdx)
 		}
 		return fmt.Errorf("unsupported usage kind in action: %v", node.Kind)
+	case *ast.PerformActionNode:
+		if e.tokenGraph(tokenIdx).UnstatedCaseFlow {
+			return e.stepStatementNode(tokenIdx)
+		}
+		return fmt.Errorf("unsupported node type: %T", node)
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
 		// An action node member written as a statement (`then send x via p;`,
@@ -1967,15 +2082,17 @@ func (e *ActionExecutor) enabledSuccessions(frame *actionFrame, node ast.Node) (
 // guardHolds evaluates the guard a succession out of node carries; a succession
 // carrying none is unconditional.
 func (e *ActionExecutor) guardHolds(ec *EvalContext, node, guard ast.Node) (bool, error) {
-	result, err := guardResult(ec, guard)
-	if err != nil {
-		return false, fmt.Errorf("eval guard of %s: %w", nodeDescription(node), err)
-	}
-	if !result.isBool() {
-		return false, fmt.Errorf("%w: %s: guard must evaluate to boolean, got %v",
-			ErrTypeMismatch, nodeDescription(node), result.Kind)
-	}
-	return result.Const.Bool, nil
+	return e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, ec.scope, func() (bool, error) {
+		result, err := guardResult(ec, guard)
+		if err != nil {
+			return false, fmt.Errorf("eval guard of %s: %w", nodeDescription(node), err)
+		}
+		if !result.isBool() {
+			return false, fmt.Errorf("%w: %s: guard must evaluate to boolean, got %v",
+				ErrTypeMismatch, nodeDescription(node), result.Kind)
+		}
+		return result.Const.Bool, nil
+	})
 }
 
 // guardResult is what a guard evaluates to; no guard is true.
@@ -1990,21 +2107,34 @@ func guardResult(ec *EvalContext, guard ast.Node) (Value, error) {
 // node whose branch is already decided, as a probe the context undoes whole: the
 // read reports a choice and leaves the run as it was. A guard with no result is
 // noted and not selected.
-func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, i int) bool {
-	result, err := func() (Value, error) {
+func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, i int) (bool, error) {
+	guard := successors[i].Guard
+	scope := e.graphOf(frame).Scope
+	var holds bool
+	var err error
+	func() {
 		defer e.ctx.beginProbe()()
-		ec := e.evalContextFor(frame, e.graphOf(frame).Scope)
-		defer ec.beginStep()()
-		return guardResult(ec, successors[i].Guard)
+		holds, err = e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, scope, func() (bool, error) {
+			ec := e.evalContextFor(frame, e.graphOf(frame).Scope)
+			defer ec.beginStep()()
+			result, err := guardResult(ec, guard)
+			if err != nil {
+				return false, err
+			}
+			if !result.isBool() {
+				return false, fmt.Errorf("%w: guard must evaluate to boolean, got %v", ErrTypeMismatch, result.Kind)
+			}
+			return result.Const.Bool, nil
+		})
 	}()
-	if err == nil && !result.isBool() {
-		err = fmt.Errorf("%w: guard must evaluate to boolean, got %v", ErrTypeMismatch, result.Kind)
-	}
 	if err != nil {
+		if errors.Is(err, ErrOrderDependentPreview) || errors.Is(err, ErrOrderDependentGuardEffect) {
+			return false, err
+		}
 		e.noteUnevaluableGuard(frame, node, successors, i, err)
-		return false
+		return false, nil
 	}
-	return result.Const.Bool
+	return holds, nil
 }
 
 // scheduleTokens hands the step the tokens it may move, those eligible now, in
@@ -2165,14 +2295,8 @@ func (e *ActionExecutor) stepInitialNode(tokenIdx int) error {
 		return err
 	}
 
-	// A guard ruling out the succession the flow starts with ends it here.
-	if len(successors) == 0 {
-		return e.retireToken(tokenIdx)
-	}
-
-	// Move token to first successor (initial should have exactly 1)
-	e.move(token, successors[0])
-	return nil
+	// A guard ruling out every succession the flow starts with ends it here.
+	return e.follow(tokenIdx, successors)
 }
 
 // stepFinalNode consumes token and checks for completion.
@@ -2198,8 +2322,7 @@ func (e *ActionExecutor) retireToken(tokenIdx int) error {
 			if err := checkStreamsReceived(e.root); err != nil {
 				return err
 			}
-			e.state = StateCompleted
-			e.ctx.endPerformanceLife(e.occurrence)
+			return e.completeRoot()
 		}
 		return nil
 	}
@@ -2240,8 +2363,28 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 	if len(successors) == 0 {
 		return e.retireToken(tokenIdx)
 	}
+	e.split(tokenIdx, successors)
+	return nil
+}
 
-	// Create N tokens (one per successor), in the flow the fork belongs to
+// follow takes the token at tokenIdx along every enabled succession: none retires
+// it, one moves it on, and several split it as a fork does (Occurrences::HappensBefore).
+func (e *ActionExecutor) follow(tokenIdx int, successors []lower.ActionEdge) error {
+	switch len(successors) {
+	case 0:
+		return e.retireToken(tokenIdx)
+	case 1:
+		e.move(&e.tokens[tokenIdx], successors[0])
+		return nil
+	}
+	e.split(tokenIdx, successors)
+	return nil
+}
+
+// split replaces the token at tokenIdx with a fresh one per succession, appended
+// in declaration order, in the flow the token belongs to.
+func (e *ActionExecutor) split(tokenIdx int, successors []lower.ActionEdge) {
+	frame := e.tokens[tokenIdx].frame
 	newTokens := make([]Token, 0, len(successors))
 	for _, edge := range successors {
 		newToken := Token{
@@ -2255,13 +2398,9 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 		newTokens = append(newTokens, newToken)
 		e.noteTraversal(&newToken, edge)
 	}
-
-	// Remove original token, add new tokens
 	e.removeToken(tokenIdx)
 	e.tokens = append(e.tokens, newTokens...)
 	frame.live += len(successors) - 1
-
-	return nil
 }
 
 // stepJoinNode passes the one token a join performs with — synchronize has
@@ -2392,7 +2531,10 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 
 		var holds bool
 		if len(holding) > 0 {
-			holds = e.probeGuard(token.frame, decisionNode, successors, i)
+			var err error
+			if holds, err = e.probeGuard(token.frame, decisionNode, successors, i); err != nil {
+				return err
+			}
 		} else {
 			var err error
 			if holds, err = e.guardHolds(ec, decisionNode, edge.Guard); err != nil {
@@ -2481,13 +2623,9 @@ func (e *ActionExecutor) stepActionExecutionNode(tokenIdx int) error {
 // leaveExecutionNode takes the token at tokenIdx on from node, whose result its
 // data flows carry, retiring it where the flow leads no further.
 func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, node *ast.ActionExecutionNode) error {
-	// Advance to a succession its guard, where it carries one, leaves enabled.
+	// Advance along every succession its guard, where it carries one, leaves enabled.
 	successors, err := e.enabledSuccessions(frame, node)
 	if err != nil {
-		return err
-	}
-
-	if err := ambiguousSuccession("action node "+node.Name, successors); err != nil {
 		return err
 	}
 
@@ -2495,7 +2633,7 @@ func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, no
 	if err := e.applyDataFlows(frame, frame.graph, node, nil, frame.data, nil, successors); err != nil {
 		return err
 	}
-	return e.advance(tokenIdx, successors)
+	return e.follow(tokenIdx, successors)
 }
 
 // stepNestedAction performs a nested action usage in a frame of its own.
@@ -2534,7 +2672,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 		}
 	}
 
-	perf, err := e.beginPerformance(token.frame, graph, usage, nil)
+	perf, err := e.beginPerformance(token.frame, graph, usage, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -2562,7 +2700,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 // node until the trigger is ready.
 func (e *ActionExecutor) awaitTrigger(token *Token, accept lower.Accept) (bool, error) {
 	ready, err := e.triggerReady(token, accept)
-	if ready || err != nil {
+	if _, change := accept.Trigger.(*ast.ChangeEvent); !change {
 		ready, err = e.triggerHolds(token, accept)
 	}
 	if err != nil {
@@ -2612,7 +2750,7 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 	token.Wait = nil
 	if tr := e.trace(); tr != nil {
 		tr.RecordAccept(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action},
-			acceptedEventName(msg), msg.Payload)
+			msg.Serial, acceptedEventName(msg), msg.Payload)
 	}
 	if accept.ParamName == "" {
 		return nil, true, nil
@@ -2658,12 +2796,9 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 		e.tokens[tokenIdx].repetitionGroup = 0
 	}
 
-	// Advance to a succession its guard, where it carries one, leaves enabled.
+	// Advance along every succession its guard, where it carries one, leaves enabled.
 	successors, err := e.enabledSuccessions(frame, node)
 	if err != nil {
-		return err
-	}
-	if err := ambiguousSuccession("action node "+ActionNodeName(node), successors); err != nil {
 		return err
 	}
 
@@ -2675,50 +2810,14 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 
 	// A node the flow leads no further from is where this flow ends: the action
 	// inherits its `done` snapshot, so no succession to a final node is needed.
-	return e.advance(tokenIdx, successors)
+	return e.follow(tokenIdx, successors)
 }
 
-// ambiguousSuccession reports successions out of node that state a choice no order
-// resolves: two not of succession flows, guarded or not, which a fork states.
-// The successions of succession flows each follow the node beside another.
-func ambiguousSuccession(node string, successors []lower.ActionEdge) error {
-	control := 0
-	for _, edge := range successors {
-		if !edge.Carries {
-			control++
-		}
-	}
-	if control > 1 {
-		return fmt.Errorf("%w: %s has multiple successors", ErrAmbiguousSuccession, node)
-	}
-	return nil
-}
-
-// advance takes the token at tokenIdx along every enabled succession out of an action
-// node, each target following it as after a fork; none retires the token.
-func (e *ActionExecutor) advance(tokenIdx int, successors []lower.ActionEdge) error {
-	if len(successors) == 0 {
-		return e.retireToken(tokenIdx)
-	}
-	frame := e.tokens[tokenIdx].frame
-	e.move(&e.tokens[tokenIdx], successors[0])
-	for _, edge := range successors[1:] {
-		token := Token{ID: e.nextTokenID, frame: frame}
-		e.nextTokenID++
-		e.move(&token, edge)
-		e.tokens = append(e.tokens, token)
-		frame.live++
-	}
-	return nil
-}
-
-// triggerReady probes a change event's condition first: a test finding it not
-// holding is no move and leaves no trace. A time event parks visibly, so it is not probed.
+// triggerReady reports whether a change event's condition currently holds.
 func (e *ActionExecutor) triggerReady(token *Token, accept lower.Accept) (bool, error) {
 	if _, changes := accept.Trigger.(*ast.ChangeEvent); !changes {
 		return true, nil
 	}
-	defer e.ctx.beginProbe()()
 	return e.triggerHolds(token, accept)
 }
 
@@ -2733,14 +2832,16 @@ func (e *ActionExecutor) triggerHolds(token *Token, accept lower.Accept) (bool, 
 	case *ast.ChangeEvent:
 		ec := e.evalContextFor(frame, frame.graph.Scope)
 		defer ec.beginStep()()
-		result, err := ec.Eval(t.Condition)
-		if err != nil {
-			return false, fmt.Errorf("eval accept condition: %w", err)
-		}
-		if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
-			return false, fmt.Errorf("%w: accept when: condition must evaluate to boolean, got %v", ErrTypeMismatch, result.Kind)
-		}
-		return result.Const.Bool, nil
+		return e.ctx.guardUnderStatementOrders(t.Condition, e.stepCount+1, frame.graph.Scope, func() (bool, error) {
+			result, err := ec.Eval(t.Condition)
+			if err != nil {
+				return false, fmt.Errorf("eval accept condition: %w", err)
+			}
+			if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
+				return false, fmt.Errorf("%w: accept when: condition must evaluate to boolean, got %v", ErrTypeMismatch, result.Kind)
+			}
+			return result.Const.Bool, nil
+		})
 	case *ast.TimeEvent:
 		if token.Wait != nil && token.Wait.Timed {
 			return e.ctx.clock.now >= token.Wait.Due, nil
@@ -2956,9 +3057,18 @@ func (e *ActionExecutor) watchesChangeIn(perf *actionFrame, seen map[waitTarget]
 // runDue runs the action to quiescence at the current instant; the steps it takes
 // count against the drive's budget together with those already taken.
 func (e *ActionExecutor) runDue(progress *dueProgress) (bool, error) {
+	return e.runDueSteps(progress, false)
+}
+
+// runMove is runDue stopping after one step.
+func (e *ActionExecutor) runMove(progress *dueProgress) (bool, error) {
+	return e.runDueSteps(progress, true)
+}
+
+func (e *ActionExecutor) runDueSteps(progress *dueProgress, single bool) (bool, error) {
 	before, positions, taken := e.stepCount, e.tokenPositions(), e.dynamicsSteps()
 	e.stepsSpent = progress.steps
-	err := e.run(true)
+	err := e.runSteps(true, single)
 	e.stepsSpent = 0
 	progress.steps += int64(e.stepCount - before)
 	return e.state != StateWaiting || !maps.Equal(positions, e.tokenPositions()) || e.dynamicsSteps() != taken, err
@@ -2990,7 +3100,32 @@ func performerSuffix(self *Instance) string {
 // runs the statements lowering recorded for it, then leaves for its successor.
 func (e *ActionExecutor) stepStatementNode(tokenIdx int) error {
 	token := e.tokens[tokenIdx]
-	return e.runBody(tokenIdx, &statementWork{exec: e, token: token.ID, frame: token.frame, node: token.Location})
+	step := e.beginStatementStep(token.frame, token.Location)
+	return e.runBody(tokenIdx, &statementWork{exec: e, token: token.ID, frame: token.frame, node: token.Location, step: step})
+}
+
+// beginStatementStep is a token's step of a statement node in frame: a transparent performance
+// owning what the step's body performs, so a `terminate` there names the step's own.
+func (e *ActionExecutor) beginStatementStep(frame *actionFrame, node ast.Node) *actionFrame {
+	scope := frame.graph.Scopes[node]
+	if scope == nil {
+		scope = frame.scope
+	}
+	return &actionFrame{
+		node:        node,
+		flow:        frame.graph,
+		scope:       scope,
+		parent:      frame,
+		connections: frame.connections,
+		data:        make(map[string]Value),
+		features:    make(map[string]ast.FeatureDirection),
+		subactions:  make(map[ast.Node]*actionFrame),
+		perfs:       &e.performances,
+		run:         frame.run,
+		began:       e.ctx.newActivation(),
+		label:       frame.describe(),
+		body:        true,
+	}
 }
 
 // leaveStatementNode takes the token at tokenIdx on from node, retiring it where
@@ -3000,31 +3135,7 @@ func (e *ActionExecutor) leaveStatementNode(tokenIdx int, frame *actionFrame, no
 	if err != nil {
 		return err
 	}
-	if err := ambiguousSuccession(statementNodeKeyword(node)+" node", successors); err != nil {
-		return err
-	}
-	return e.advance(tokenIdx, successors)
-}
-
-// statementNodeKeyword names a statement node for a message about it, since a
-// node written as a statement has no name to report.
-func statementNodeKeyword(node ast.Node) string {
-	switch n := node.(type) {
-	case *ast.WhileLoopActionNode:
-		return "a '" + n.Kind.String() + "' loop"
-	case *ast.IfActionNode:
-		return "an 'if'"
-	case *ast.AssignmentActionNode:
-		return "an 'assign'"
-	case *ast.SendStatement:
-		return "a 'send'"
-	case *ast.TerminateStatement:
-		return "a 'terminate'"
-	case *ast.Usage:
-		return "the assertion " + ActionNodeName(n)
-	default:
-		return fmt.Sprintf("a %T", node)
-	}
+	return e.follow(tokenIdx, successors)
 }
 
 // applyDataFlows moves what the completed performance produced along graph's flows out
@@ -3217,10 +3328,17 @@ func (e *ActionExecutor) State() ExecutionState {
 // each nested non-repeated node's latest performance and under `part.attribute` what the one
 // object each of its own parts denotes holds; a performed usage's mirror its occurrence.
 func (e *ActionExecutor) Results() map[string]Value {
-	results := make(map[string]Value, len(e.root.data))
-	e.root.collect("", results)
-	e.collectPartsHeld(results)
+	results, _ := e.ResultsWithError()
 	return results
+}
+
+// ResultsWithError returns the values the action's features hold and the first binding
+// derivation error; a feature whose binding fails to derive is omitted.
+func (e *ActionExecutor) ResultsWithError() (map[string]Value, error) {
+	results := make(map[string]Value, len(e.root.data))
+	err := e.root.collect("", results)
+	e.collectPartsHeld(results)
+	return results, err
 }
 
 // collectPartsHeld adds the attributes held by the object each part or item usage the

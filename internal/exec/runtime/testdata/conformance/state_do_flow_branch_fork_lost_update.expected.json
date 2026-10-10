@@ -1,0 +1,10 @@
+{
+	"type": "state",
+	"libraries": true,
+	"trace": true,
+	"outcomes": [
+		{"finalState": "finished", "outputs": {"c": {"type": "Integer", "value": 1}}},
+		{"finalState": "finished", "outputs": {"c": {"type": "Integer", "value": 2}}}
+	],
+	"admissible": "A leaf body's start shot and its assignments: another performance may run between them"
+}

@@ -12,16 +12,19 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // Input is one document a batch opens: the name it is indexed under, its text
-// and its version. A Transient input is a buffer no file holds, the REPL's
-// transcript: it is never read from or written to the record cache.
+// and its version. Kind is optional; when unknown the name determines it. A
+// Transient input is a buffer no file holds, the REPL's transcript: it is never
+// read from or written to the record cache.
 type Input struct {
 	Name      string
 	Content   []byte
 	Version   int
+	Kind      source.Kind
 	Transient bool
 }
 
@@ -60,26 +63,65 @@ func (w *Workspace) SetWorkers(n int) error {
 // the documents opened (see libs.Provenance); the others, and the records that
 // do not hold, are parsed.
 func (w *Workspace) OpenAll(inputs []Input) {
+	w.installBatch(inputs, true)
+}
+
+// SetOnDiskAll is SetOnDisk over the inputs as one batch: the files' content is
+// recorded for them all, and those without an open buffer are parsed on the
+// workers, added to the index in order and wildcard imports expanded once, as
+// OpenAll does; an open buffer stays authoritative. Version is each file's
+// document version, zero as SetOnDisk gives it.
+func (w *Workspace) SetOnDiskAll(inputs []Input) {
+	w.installBatch(w.recordOnDisk(inputs), false)
+}
+
+// recordOnDisk records each input's content as its file's, and returns the
+// inputs whose name has no open buffer, each of the kind of the document it replaces.
+func (w *Workspace) recordOnDisk(inputs []Input) []Input {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	closed := make([]Input, 0, len(inputs))
+	for _, in := range inputs {
+		w.onDisk[in.Name] = bytes.Clone(in.Content)
+		if w.open[in.Name] {
+			continue
+		}
+		if held := w.docs[in.Name]; held != nil && in.Kind == source.KindUnknown {
+			in.Kind = held.Kind()
+		}
+		closed = append(closed, in)
+	}
+	return closed
+}
+
+// installBatch parses the inputs on the workers and installs them as one batch,
+// marking them open when open says so.
+func (w *Workspace) installBatch(inputs []Input, open bool) {
+	if len(inputs) == 0 {
+		return
+	}
 	was := w.reserveBatch(inputs)
-	recs := w.cachedRecords(inputs)
+	recs, keys := w.cachedRecords(inputs)
 	docs := make([]batchDoc, len(inputs))
 	ParallelFor(w.Workers(), len(inputs), func(i int) {
 		in := inputs[i]
 		if rec := recs[i]; rec != nil {
 			if scope, err := symbols.BuildRecorded(rec.Scope, rec.Name); err == nil {
-				docs[i] = batchDoc{rec: rec, scope: scope, content: bytes.Clone(in.Content), version: in.Version}
+				docs[i] = batchDoc{rec: rec, key: keys[i], scope: scope, content: bytes.Clone(in.Content), version: in.Version}
 				return
 			}
 		}
-		docs[i] = batchDoc{doc: newDocument(in.Name, bytes.Clone(in.Content), in.Version)}
+		docs[i] = batchDoc{doc: newDocument(in.Name, bytes.Clone(in.Content), in.Version, in.Kind)}
 	})
-	w.commitBatch(was, docs)
+	w.commitBatch(was, docs, open)
 }
 
-// batchDoc is one document a batch installs: parsed, or built from its record.
+// batchDoc is one document a batch installs: parsed, or built from its record,
+// with the key the record was found under.
 type batchDoc struct {
 	doc     *Document
 	rec     *libs.InterfaceRecord
+	key     string
 	scope   *symbols.Scope
 	content []byte
 	version int
@@ -92,16 +134,16 @@ func (d batchDoc) name() string {
 	return d.rec.Name
 }
 
-// cachedRecords is the record cache's record of each input's content, nil where
-// there is none, no cache, or the record answers another question.
-func (w *Workspace) cachedRecords(inputs []Input) []*libs.InterfaceRecord {
+// cachedRecords is the record cache's record of each input's content and the
+// key it was found under; nil where there is none or the record answers another question.
+func (w *Workspace) cachedRecords(inputs []Input) ([]*libs.InterfaceRecord, []string) {
 	recs := make([]*libs.InterfaceRecord, len(inputs))
+	keys := make([]string, len(inputs))
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.records == nil {
-		return recs
+		return recs, keys
 	}
-	keys := make([]string, len(inputs))
 	for i, in := range inputs {
 		if !in.Transient {
 			keys[i], _ = w.recordKeyLocked(in.Name, in.Content)
@@ -112,10 +154,19 @@ func (w *Workspace) cachedRecords(inputs []Input) []*libs.InterfaceRecord {
 			return
 		}
 		if rec, ok := w.records.LoadInterface(keys[i]); ok && w.recordAcceptedLocked(rec) == nil {
-			recs[i] = rec
+			if rec.Kind == inputKind(inputs[i]) {
+				recs[i] = rec
+			}
 		}
 	})
-	return recs
+	return recs, keys
+}
+
+func inputKind(in Input) source.Kind {
+	if in.Kind != source.KindUnknown {
+		return in.Kind
+	}
+	return source.KindOf(in.Name)
 }
 
 // reserveBatch is each input's name's change count as the batch starts, which is
@@ -133,8 +184,8 @@ func (w *Workspace) reserveBatch(inputs []Input) map[string]uint64 {
 
 // commitBatch installs the parsed and recorded documents whose name is as the
 // batch reserved it; a name changed since keeps its newer state. A record whose
-// provenance does not hold among the documents installed is parsed in its place.
-func (w *Workspace) commitBatch(was map[string]uint64, docs []batchDoc) {
+// provenance or key does not hold once the batch is in is parsed in its place.
+func (w *Workspace) commitBatch(was map[string]uint64, docs []batchDoc, open bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	var installed, recorded []string
@@ -144,7 +195,9 @@ func (w *Workspace) commitBatch(was map[string]uint64, docs []batchDoc) {
 			continue
 		}
 		if d.doc != nil {
-			w.open[name] = true
+			if open {
+				w.open[name] = true
+			}
 			w.docs[name] = d.doc
 			w.changes[name]++
 			w.installLocked(d.doc)
@@ -170,7 +223,12 @@ func (w *Workspace) commitBatch(was map[string]uint64, docs []batchDoc) {
 	}
 	var stale []string
 	for _, name := range recorded {
-		if doc := w.docs[name]; doc.Recorded() && !byName[name].rec.Provenance.Valid(src) {
+		doc := w.docs[name]
+		if !doc.Recorded() {
+			continue
+		}
+		// A library version among the documents moves the identity the key names.
+		if key, ok := w.recordKeyLocked(name, doc.Content); !ok || key != byName[name].key || !byName[name].rec.Provenance.Valid(src) {
 			stale = append(stale, name)
 		}
 	}
@@ -180,7 +238,7 @@ func (w *Workspace) commitBatch(was map[string]uint64, docs []batchDoc) {
 	parsed := make([]*Document, len(stale))
 	ParallelFor(w.workers, len(stale), func(i int) {
 		held := w.docs[stale[i]]
-		parsed[i] = newDocument(held.Name, held.Content, held.Version)
+		parsed[i] = newDocument(held.Name, held.Content, held.Version, held.Kind())
 	})
 	for i, name := range stale {
 		w.docs[name] = parsed[i]
@@ -226,13 +284,14 @@ func (w *Workspace) DiagnosticsAll(names []string) [][]diag.Diagnostic {
 	for i, name := range pending {
 		w.diagCache[name] = analyzed[i]
 		w.batched[name] = reads[i]
+		w.stampLocked(name)
 	}
 	w.writeRecordsLocked(pending, batch)
 	for i, name := range names {
 		if doc := w.docs[name]; out[i] == nil && doc != nil && !doc.Recorded() {
 			out[i] = w.diagCache[name]
 		}
-		out[i] = passes.WithoutLints(out[i], w.disabledLints)
+		out[i] = passes.WithoutLints(out[i], w.disabledLints, w.enabledLints)
 	}
 	return out
 }

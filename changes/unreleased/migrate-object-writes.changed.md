@@ -1,0 +1,1 @@
+- **The SysML v1 migrator writes object-feature actions as assignments and library calls.** Add, remove, optional clear and destroy actions preserve result values, collection operations respect ordering and uniqueness, and required-feature or UML-only differences are reported instead of emitted as invalid v2 notation.

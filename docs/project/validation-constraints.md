@@ -12,7 +12,7 @@ reader who only wants the verdicts can ignore them.
 
 ## OpenSysML self-model validation
 
-The `SysMLValidation` standard-library package states 13 validation constraints as SysML
+The `SysMLValidation` standard-library package states 50 validation constraints as SysML
 constraint definitions over reflective KerML and SysML metaclasses. `sysml -self-check`
 applies each constraint to every reflectively classified element in the non-library workspace.
 The library currently states:
@@ -30,6 +30,83 @@ The library currently states:
 - `validateControlNodeIsComposite`
 - `validatePortDefinitionOwnedUsagesNotComposite`
 - `validatePortUsageNestedUsagesNotComposite`
+- `validateFlowEndIsEnd`
+- `validateFlowEndNestedFeature`
+- `validateMetadataFeatureMetaclass`
+- `validateBindingConnectorIsBinary`
+- `validateConnectorRelatedFeatures`
+- `validateFeatureEndNoDirection`
+- `validateTypeOwnedMultiplicity`
+- `validateConnectionDefinitionIsSufficient`
+- `validateDefinitionVariationIsAbstract`
+- `validateUsageVariationIsAbstract`
+- `validateForLoopActionUsageLoopVariable`
+- `validateControlNodeOwningType`
+- `validatePortUsageIsReference`
+- `validateUsageIsReferential`
+- `validateCaseDefinitionSubjectParameterPosition`
+- `validateCaseUsageSubjectParameterPosition`
+- `validateRequirementDefinitionSubjectParameterPosition`
+- `validateRequirementUsageSubjectParameterPosition`
+- `validateOccurrenceUsageIsPortion`
+- `validateOccurrenceUsagePortionKind`
+- `validateOccurrenceUsageIndividualDefinition`
+- `validateOccurrenceUsageIndividualUsage`
+- `validatePartUsagePartDefinition`
+- `validateTypeUnioningTypesNotSelf`
+- `validateTypeIntersectingTypesNotSelf`
+- `validateTypeDifferencingTypesNotSelf`
+- `validateAssociationEndTypes`
+- `validateMetadataFeatureMetaclassNotAbstract`
+- `validateSpecializationSpecificNotConjugated`
+- `validateBehaviorSpecialization`
+- `validateStructureSpecialization`
+- `validateClassSpecialization`
+- `validateDataTypeSpecialization`
+- `validateFeatureOwnedReferenceSubsetting`
+- `validateFeatureOwnedCrossSubsetting`
+- `validateUsageVariationSpecialization`
+- `validateDefinitionVariationSpecialization`
+
+### Reflective relationship objects
+
+The constraints that read relationship-valued features evaluate over *reflective relationship
+objects*: a relationship written as notation on an element (`:`, `:>`, `:>>`, `::>`, `=>`,
+`~`, `conjugates`, `subsets`, `redefines`, `references`, `crosses`, typed/defined by) is
+reflected as an element of its own — a `Subclassification`, `FeatureTyping`, `Subsetting`,
+`Redefinition`, `ReferenceSubsetting`, `CrossSubsetting`, `Conjugation`, `Specialization` or
+`ConjugatedPortTyping` — and reached from its owner through `ownedSpecialization`,
+`ownedSubclassification`, `ownedTyping`, `ownedSubsetting`, `ownedRedefinition`,
+`ownedReferenceSubsetting`, `ownedCrossSubsetting` and `ownedConjugator`. Only written
+relationships are reflected: relationships implied by implicit supertypes are not
+synthesized; the `includes` the parser echoes for `include use case uc : UC` (the full
+IncludeUseCaseUsage form declares no ReferenceSubsetting, so the echo is no relationship
+object, though it keeps its ordinal); and a feature-chain target (`:> a.b`, `::> a.b`,
+`crosses a.b`) derives no target-side feature, so an application that needs it is reported
+unevaluated. The membership family (`OwningMembership`, `FeatureMembership`,
+`ownedRelationship`, `membership`, `ownedMembership`, `ownedImport`) is not yet reflected and
+stays unsupported. An extended definition (`#service def X`) classifies as Definition, so
+the constraints that apply to that metaclass reach it.
+
+Three further constraints are excluded because their applications on a relationship with a
+feature-chain target cannot be evaluated yet: `validateSubsettingUniquenessConformance`,
+`validateSubsettingConstantConformance` and `validateRedefinitionEndConformance`. Each reads
+the subsetted or redefined feature, which for a chain target (`subsets a.b`, `redefines a.b`,
+`crosses a.b`) is the implicit chaining Feature of KerML 8.3.3.3 — an element OpenSysML does
+not yet reflect — so every such application would report unevaluated. They become evaluable
+once chaining features are reflected.
+
+`validateClassSpecialization` likewise deviates from its published OCL, whose precedence
+makes the DataType conjunct vacuous (`(A and not Assoc) implies B`); the library states the
+strong form the spec prose and `internal/check/passes/w11a_kerml_specialization.go` read.
+
+`validateUsageVariationSpecialization` and `validateDefinitionVariationSpecialization` follow
+the pilot's and the handwritten validator's reading, not the published OCL's: as written, each
+reads `ownedSpecialization.specific` — which is always the element itself — so the spec text
+rejects every variation with any written specialization (a corpus probe reported 43 such
+failures, including `7b-Variant Configurations.sysml` and `Variation Definitions.sysml`).
+The library states the bodies over the specialization's *general*, as
+`internal/check/passes/w8d_variability.go` `checkSpecializations` and the pilot do.
 
 Constraints whose OCL reads reflective features the current model does not derive are omitted
 from the library. If an included constraint cannot be evaluated because a reflective feature is
@@ -46,7 +123,7 @@ the diagnostic it reports was recorded as that row's probe.
 
 ## Summary
 
-**Census:** 164 of 217 named constraints are reported by OpenSysML — 156 ✅ faithful and 8 ⚠️ approximate; 0 ❌ not implemented, 1 ⛔ deliberate, 0 🚧 known failure, 52 ❔ unknown.
+**Census:** 164 of 217 named constraints are reported by OpenSysML — 155 ✅ faithful and 9 ⚠️ approximate; 0 ❌ not implemented, 1 ⛔ deliberate, 0 🚧 known failure, 52 ❔ unknown.
 
 The figures on that line, and the pin and digest quoted above, are written by
 `go run -C tools ./cmd/validation-census` from the baseline; `-check` fails on a hand-edited figure or
@@ -191,7 +268,7 @@ parser/resolver location. *Our message* is given only where OpenSysML's wording 
 | `validateMetadataFeatureMetadataNotAbstract` | KerML | A metadata feature's metaclass is not abstract (`Must have a concrete type`); also what the pilot reports for a metadata feature typed by a non-metaclass, see `validateMetadataFeatureMetadata` | internal/check/passes/w8c_metadata_type.go:MetadataTypePass.Run | — | `xpect/p24-metadata-abstract-type.sysml`, `semantic/k40-metadata-typed-by-class.kerml` | ✅ faithful |
 | `validateMultiplicityRangeBounds` | KerML | A multiplicity range's bound expressions are its first two owned members (`Bound expressions must be first two owned members`); grammar-unconstructable: the pilot's `MultiplicityBounds`/`MultiplicityRange` productions write the bound `OwningMembership`s first and admit nothing before them, and a `multiplicity m [..] { … }` body member follows the bounds; `[1..2]`, `[*]`, `[1..*]`, a body holding a feature or a doc comment, and a `multiplicity` with no bounds (`subsets` only) all validate clean in both tools | — | — | none | ❔ unknown — no case and no identifiable pass yet |
 | `validateMultiplicityRangeResultTypes` | KerML | A model-level-evaluable bound must evaluate to a non-negative integer or `*`; a bound that is not model-level evaluable must have an Integer-conforming result type (`Must have a Natural value`) | internal/check/passes/w8c_multiplicity_bounds.go:MultiplicityBoundsPass.Run | same wording; package-level model-level-evaluable feature references must evaluate to a non-negative value, while non-evaluable type members are judged by result type; evaluable expressions the evaluator cannot fold (such as casts) also fall back to result-type checking; only a folded value other than a non-negative integer or `*`, or an evaluation that reaches a feature with no value directly or through another feature's value, is rejected; an unresolved or untyped bound that is not model-level evaluable stays silent; see [gap register §28](spec-pilot-gap-register.md#28-multiplicity-bound-non-negativity-kerml-199) | `semantic/k37-multiplicity-bound-not-natural.kerml` | ✅ faithful |
-| `validateNamespaceDistinguishablity` | KerML | Memberships of a namespace are distinguishable by name and short name, unless their member elements' metaclasses conform in neither direction (KerML 8.3.2.4.3; warning; the pilot's constant is spelled `Distinguishablity`, and the pilot does not implement the metaclass clause) | internal/semantic/resolve/distinguishability.go:checkOwnedNames; internal/semantic/resolve/distinguishability.go:Resolver.DistinguishableByMetaclass | — | none | ✅ faithful |
+| `validateNamespaceDistinguishablity` | KerML | Memberships of a namespace — owned, inherited and imported — are distinguishable by name and short name, unless their member elements' metaclasses conform in neither direction (KerML 8.3.2.4.3; warning; the pilot's constant is spelled `Distinguishablity`, the pilot does not implement the metaclass clause, and it never compares an imported membership with another imported or an inherited one). For imported memberships the constraint is reached through KerML 7.2.5.4, which hides a name two imports bring; the warning reports the hidden pair, but resolution binds the first import's member, as the pilot does, where the clause leaves the reference unresolved — hence approximate. One membership two imports reach, two memberships of one element, an imported name an owned member hides and library content are not reported | internal/semantic/resolve/distinguishability.go:checkOwnedNames; internal/semantic/resolve/distinguishability.go:checkInheritedNames; internal/semantic/resolve/distinguishability.go:checkImportedNames; internal/semantic/resolve/distinguishability.go:Resolver.DistinguishableByMetaclass | — | none | ⚠️ approximate |
 | `validateOperatorExpressionBracketOperator` | KerML | `[` as an operator should be `#(...)` indexing (warning `Use #(...) for indexing`); not in the specification, which gives `[` no function in KerML | internal/check/passes/typecheck_expr.go:exprChecker.checkBracket | `` `x[i]` is not an index in KerML: `[` invokes BaseFunctions::'[', which the kernel library leaves abstract; index a sequence with `x#(i)` `` — every bracket in a `.kerml` document, at the operator expression; a `.sysml` document is judged by `validateOperatorExpressionQuantity` instead | none | ✅ faithful |
 | `validateOperatorExpressionCastConformance` | KerML | A cast (`as`) argument has a type conforming to the target (warning `Cast argument should have conforming types`) | internal/check/passes/typecheck_expr.go:exprChecker.checkCast; internal/semantic/semantics/operator_conformance.go:Model.CastConformance | `cast argument is typed by A, unrelated to the target C: neither type specializes the other, so the cast selects no value` — as the pilot, either direction of specialization between any type of the argument (all its typings, inherited and redefined ones included) and the target conforms; an argument whose type is not statically known is silent; also reported in SysML documents, which declare the same operator; see [gap register §26](spec-pilot-gap-register.md#26-validation-constraints-marked-todo-in-the-pilot-source) | none | ✅ faithful |
 | `validateOwnedDifferencingNotOne` | KerML | A type does not difference exactly one type | internal/check/passes/w8c_type_relationships.go:TypeRelationshipsPass.Run | — | `semantic/k02-differences-one-type.kerml` | ✅ faithful |

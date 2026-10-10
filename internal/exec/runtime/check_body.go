@@ -89,10 +89,41 @@ func (h *stateStmtHost) spell(s *stateSpeller) string {
 // spell of an engine is the frames its statements read past its data — the
 // blocks it paused in keep theirs, so these are the values declared outside any.
 func (f *engineFrame) spell(s *stateSpeller) string {
-	return "engine{" + s.localFrames(f.engine.env.frames, f.engine.env.unvalued) + "}"
+	return "engine{" + s.localBodyFrames(f.engine.env) + "}"
 }
 
-func (f *stmtListFrame) spell(*stateSpeller) string { return fmt.Sprintf("stmt %d", f.i) }
+func (f *stmtListFrame) spell(s *stateSpeller) string {
+	if f.done == nil {
+		return fmt.Sprintf("stmt %d", f.i)
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "stmt %d of ", f.i)
+	for i, done := range f.done {
+		switch {
+		case done:
+			b.WriteByte('+')
+		case f.blocked[i]:
+			b.WriteByte('!')
+		default:
+			b.WriteByte('-')
+		}
+	}
+	if f.switched >= 0 {
+		fmt.Fprintf(&b, " after %d", f.switched)
+	}
+	for i, strand := range f.strands {
+		if strand == nil {
+			continue
+		}
+		fmt.Fprintf(&b, " [%d:", i)
+		for _, inner := range strand.cursor {
+			b.WriteString(" ")
+			b.WriteString(inner.spell(s))
+		}
+		b.WriteString("]")
+	}
+	return b.String()
+}
 
 func (f *branchFrame) spell(*stateSpeller) string {
 	if f.elseBranch {
@@ -102,13 +133,45 @@ func (f *branchFrame) spell(*stateSpeller) string {
 }
 
 func (f *blockFrame) spell(s *stateSpeller) string {
-	return "block{" + s.locals(f.locals, f.unvalued) + "}"
+	return "block{" + s.bodyLocals(f.locals, f.cells, f.unvalued) + "}"
 }
 
 func (f *flowNodeFrame) spell(*stateSpeller) string { return "flow at " + nodeKey(f.node) }
 
 func (f *loopFrame) spell(s *stateSpeller) string {
-	return fmt.Sprintf("loop %d of (%s){%s}", f.iteration, s.elements(f.elements), s.locals(f.locals, f.unvalued))
+	return fmt.Sprintf("loop %d of (%s){%s}", f.iteration, s.elements(f.elements), s.bodyLocals(f.locals, f.cells, f.unvalued))
+}
+
+func (s *stateSpeller) bodyLocals(locals map[string]Value, cells *bodyCells, unvalued map[string]bool) string {
+	spelled := s.bodyValues(locals, cells)
+	names := make([]string, 0, len(unvalued))
+	for name := range unvalued {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	if len(names) > 0 {
+		spelled += " unvalued " + strings.Join(names, ", ")
+	}
+	return spelled
+}
+
+func (s *stateSpeller) localBodyFrames(env *stmtEnv) string {
+	locals, cells := env.localFrames()
+	frames := make([]string, len(locals))
+	for i, values := range locals {
+		var unvalued map[string]bool
+		if i == 0 {
+			unvalued = env.unvaluedLocal
+		} else if i-1 < len(env.unvalued) {
+			unvalued = env.unvalued[i-1]
+		}
+		var localCells *bodyCells
+		if i < len(cells) {
+			localCells = cells[i]
+		}
+		frames[i] = "{" + s.bodyLocals(values, localCells, unvalued) + "}"
+	}
+	return strings.Join(frames, " ")
 }
 
 func (f *performFrame) spell(s *stateSpeller) string {
@@ -145,31 +208,4 @@ func (f *subflowFrame) spell(s *stateSpeller) string {
 
 func (f *calleeFrame) spell(s *stateSpeller) string {
 	return "callee " + f.name + " " + s.nested(f.exec)
-}
-
-// locals spells the values a block or loop declared, the unvalued marked.
-func (s *stateSpeller) locals(locals map[string]Value, unvalued map[string]bool) string {
-	names := make([]string, 0, len(unvalued))
-	for name := range unvalued {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	spelled := s.values(locals)
-	if len(names) > 0 {
-		spelled += " unvalued " + strings.Join(names, ", ")
-	}
-	return spelled
-}
-
-// localFrames spells a stack of local frames, outermost first.
-func (s *stateSpeller) localFrames(frames []map[string]Value, unvalued []map[string]bool) string {
-	parts := make([]string, len(frames))
-	for i, locals := range frames {
-		var marks map[string]bool
-		if i < len(unvalued) {
-			marks = unvalued[i]
-		}
-		parts[i] = "{" + s.locals(locals, marks) + "}"
-	}
-	return strings.Join(parts, " ")
 }

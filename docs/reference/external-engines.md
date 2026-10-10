@@ -185,7 +185,10 @@ The question, in the model's own names, and the model in the forms the entry dec
 performs, as canonical JSON — keys in a fixed order, no insignificant whitespace, elements in
 the order the lowering fixes — so the same model exports byte for byte the same form on every
 run and under every `-jobs` count. It is what the runtime executes and nothing less: what the
-graph carries, the form carries.
+graph carries, the form carries. The same form is a public artifact: `sysml -graphs <subject>`,
+`%graphs <name>` and the service's `ExportGraphs` RPC write it for any action or state machine,
+so a tool outside the engine protocol reads what an engine is sent
+([API](api.md#native-documents-and-views-over-grpc)).
 
 ```json
 {"version": 1, "subject": "Mission::race",

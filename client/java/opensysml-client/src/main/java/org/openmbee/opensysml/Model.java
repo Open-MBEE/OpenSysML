@@ -22,6 +22,10 @@ import org.openmbee.opensysml.proto.QueryRequest;
 import org.openmbee.opensysml.proto.QueryResponse;
 import org.openmbee.opensysml.proto.RenderDocumentRequest;
 import org.openmbee.opensysml.proto.RenderDocumentResponse;
+import org.openmbee.opensysml.proto.ExportGraphsRequest;
+import org.openmbee.opensysml.proto.ExportGraphsResponse;
+import org.openmbee.opensysml.proto.RenderViewRequest;
+import org.openmbee.opensysml.proto.RenderViewResponse;
 import org.openmbee.opensysml.proto.RunAnalysisRequest;
 import org.openmbee.opensysml.proto.RunAnalysisResponse;
 import org.openmbee.opensysml.proto.RunDocumentQueryRequest;
@@ -604,7 +608,7 @@ public final class Model {
    * @param options the schedule the run resolves its choice points under and the object performing
    *     it; an exploring schedule belongs to {@link #exploreAction}
    * @return the outputs it produced
-   * @throws IllegalArgumentException if the schedule explores
+   * @throws IllegalArgumentException if the schedule explores or a state trace is requested
    * @throws ModelException if the action could not be executed
    * @throws ServiceException if the service does not hold this model, or the schedule names no
    *     policy
@@ -641,7 +645,7 @@ public final class Model {
    * @param options the exploring schedule ({@code "explore"}, the default when none is named, or
    *     {@code "explore:runs=<n>,depth=<d>"}) and the object performing each run, made anew for it
    * @return every distinct outcome reached, and how the search ended
-   * @throws IllegalArgumentException if the schedule does not explore
+   * @throws IllegalArgumentException if the schedule does not explore or a state trace is requested
    * @throws ModelException if the action could not be explored at all
    * @throws ServiceException if the service does not hold this model, or the schedule's budget is
    *     malformed
@@ -658,11 +662,15 @@ public final class Model {
       String actionSymbolId, Map<String, Value> inputs, ExecutionOptions options, boolean explore) {
     Objects.requireNonNull(actionSymbolId, "actionSymbolId");
     Objects.requireNonNull(inputs, "inputs");
+    Objects.requireNonNull(options, NAME_OPTIONS);
+    if (options.trace()) {
+      throw new IllegalArgumentException("a state trace is only valid for a state run");
+    }
     ExecuteActionRequest.Builder request =
         ExecuteActionRequest.newBuilder()
             .setModelHash(hash)
             .setActionSymbolId(actionSymbolId)
-            .putAllInputs(Protos.protos(inputs))
+            .putAllInputs(Protos.protos(inputs, connection.capabilities()))
             .setSchedule(schedule(options, explore));
     options.performer().ifPresent(request::setPerformerSymbolId);
     ExecuteActionResponse response =
@@ -677,7 +685,8 @@ public final class Model {
    * @param stateMachineSymbolId qualified name of the state definition or usage
    * @param events the events to send it, in order
    * @return the states it visited and its final context
-   * @throws ModelException if the machine could not be executed
+   * @throws ModelException if the machine could not be executed; a traced failure carries its
+   *     partial trace and dropped-record count
    * @throws ServiceException if the service does not hold this model
    */
   public StateRun executeState(String stateMachineSymbolId, List<String> events) {
@@ -745,6 +754,13 @@ public final class Model {
       String stateMachineSymbolId, List<String> events, ExecutionOptions options, boolean explore) {
     Objects.requireNonNull(stateMachineSymbolId, "stateMachineSymbolId");
     Objects.requireNonNull(events, "events");
+    Objects.requireNonNull(options, NAME_OPTIONS);
+    if (options.trace() && explore) {
+      throw new IllegalArgumentException("a trace describes one run, not an exploration");
+    }
+    if (options.trace()) {
+      connection.capabilities().require(Capabilities.STATE_TRACE);
+    }
     ExecuteStateRequest.Builder request =
         ExecuteStateRequest.newBuilder()
             .setModelHash(hash)
@@ -752,9 +768,17 @@ public final class Model {
             .addAllEvents(events)
             .setSchedule(schedule(options, explore));
     options.performer().ifPresent(request::setPerformerSymbolId);
+    request.setTrace(options.trace());
     ExecuteStateResponse response =
         connection.call("ExecuteState", request.build(), ExecuteStateResponse.getDefaultInstance());
-    failed(response.getError(), FailureReason.UNSPECIFIED, response.getDiagnosticsList());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(
+          response.getError(),
+          FailureReason.UNSPECIFIED,
+          Protos.diagnostics(response.getDiagnosticsList()),
+          Protos.documentEvents(response.getTraceList()),
+          response.getTraceDropped());
+    }
     return response;
   }
 
@@ -1042,7 +1066,7 @@ public final class Model {
         EvaluateCalcRequest.newBuilder()
             .setModelHash(hash)
             .setSymbolId(symbolId)
-            .addAllArguments(Protos.protos(arguments));
+            .addAllArguments(Protos.protos(arguments, connection.capabilities()));
     engine.ifPresent(request::setEngine);
     EvaluateCalcResponse response =
         connection.call("EvaluateCalc", request.build(), EvaluateCalcResponse.getDefaultInstance());
@@ -1139,8 +1163,8 @@ public final class Model {
         RunAnalysisRequest.newBuilder()
             .setModelHash(hash)
             .setSymbolId(symbolId)
-            .addAllArguments(Protos.protos(options.arguments()))
-            .putAllNamedArguments(Protos.protos(options.namedArguments()))
+            .addAllArguments(Protos.protos(options.arguments(), connection.capabilities()))
+            .putAllNamedArguments(Protos.protos(options.namedArguments(), connection.capabilities()))
             .setSchedule(schedule(options.schedule(), options.explores(), explore));
     options.subject().ifPresent(request::setSubjectSymbolId);
     engine.ifPresent(request::setEngine);
@@ -1503,8 +1527,8 @@ public final class Model {
         RunSweepRequest.newBuilder()
             .setModelHash(hash)
             .setSymbolId(symbolId)
-            .addAllArguments(Protos.protos(options.arguments()))
-            .putAllNamedArguments(Protos.protos(options.namedArguments()))
+            .addAllArguments(Protos.protos(options.arguments(), connection.capabilities()))
+            .putAllNamedArguments(Protos.protos(options.namedArguments(), connection.capabilities()))
             .setSamples(options.samples())
             .setSeed(options.seed());
     options.subject().ifPresent(request::setSubjectSymbolId);
@@ -1562,6 +1586,14 @@ public final class Model {
     if (request.getBindingsList().stream().anyMatch(Protos::holdsBigInt)) {
       connection.capabilities().require(Capabilities.BIG_INT_VALUES);
     }
+    if (!connection.capabilities().has(Capabilities.RATIONAL_VALUES)) {
+      for (int i = 0; i < request.getBindingsCount(); i++) {
+        request.setBindings(i, Protos.rationalsAsReals(request.getBindings(i)));
+      }
+    }
+    if (request.getBindingsList().stream().anyMatch(Protos::holdsRational)) {
+      connection.capabilities().require(Capabilities.RATIONAL_VALUES);
+    }
     RunDocumentQueryResponse response =
         connection.call(
             "RunDocumentQuery", request.build(), RunDocumentQueryResponse.getDefaultInstance());
@@ -1608,6 +1640,55 @@ public final class Model {
             RenderDocumentResponse.getDefaultInstance());
     return new RenderedDocument(
         form, form == DocumentForm.HTML ? response.getHtml() : response.getMarkdown());
+  }
+
+  /**
+   * Renders a named or targeted pseudo-view as machine-readable diagram data.
+   *
+   * @param viewName qualified view name or {@code #<kind>:<qualified name>} pseudo-view
+   * @return every field the view renderer produced
+   * @throws CapabilityException if the service does not advertise {@code render_view}
+   * @throws ServiceException if the view cannot be selected or rendered
+   */
+  public RenderedView renderView(String viewName) {
+    return renderView(viewName, RenderViewPorts.MINIMAL);
+  }
+
+  /** Renders a view with an explicit port selection. */
+  public RenderedView renderView(String viewName, RenderViewPorts ports) {
+    Objects.requireNonNull(viewName, "viewName");
+    Objects.requireNonNull(ports, "ports");
+    connection.capabilities().require(Capabilities.RENDER_VIEW);
+    RenderViewResponse response =
+        connection.call(
+            "RenderView",
+            RenderViewRequest.newBuilder()
+                .setModelHash(hash)
+                .setView(viewName)
+                .setPorts(ports.wireName())
+                .build(),
+            RenderViewResponse.getDefaultInstance());
+    return RenderedView.from(response);
+  }
+
+  /**
+   * Exports the lowered graph of an action or state machine, and of every behavior it performs, as
+   * the canonical {@code graphs:1} JSON an external analysis engine is sent.
+   *
+   * @param subject qualified name of the action or state machine, definition or usage
+   * @return the form, its version and the subject as resolved
+   * @throws ServiceException if the model declares no such element, or it is no behavior
+   * @throws CapabilityException if the service does not advertise {@code export_graphs}
+   */
+  public Graphs exportGraphs(String subject) {
+    Objects.requireNonNull(subject, "subject");
+    connection.capabilities().require(Capabilities.EXPORT_GRAPHS);
+    ExportGraphsResponse response =
+        connection.call(
+            "ExportGraphs",
+            ExportGraphsRequest.newBuilder().setModelHash(hash).setSubject(subject).build(),
+            ExportGraphsResponse.getDefaultInstance());
+    return new Graphs(response.getContent(), response.getVersion(), response.getSubject());
   }
 
   private String schedule(ExecutionOptions options, boolean explore) {

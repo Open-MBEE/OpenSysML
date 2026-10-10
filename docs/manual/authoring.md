@@ -507,7 +507,8 @@ part structure : Diagram {
 - A **view** source carries its own rendering kind from its `render` clause;
   stating a `kind` on the diagram too is a conflict error.
 - A **plain element** source requires a `kind`: `"tree"`,
-  `"interconnection"`, `"state"`, `"action"`, `"table"` or `"sequence"`.
+  `"interconnection"`, `"state"`, `"action"`, `"case"`, `"mixed"`, `"table"`
+  or `"sequence"`.
 - `caption` is optional and renders in emphasis above the diagram.
 - `direction` — `"TB"`, `"LR"`, `"RL"` or `"BT"` — is accepted only by kinds
   drawn as directed graphs; it becomes the Mermaid flowchart direction or a
@@ -518,7 +519,8 @@ part structure : Diagram {
   sequence diagram is a typed error.
 - `palette` — `"okabe-ito"`, `"tol-bright"`, `"tol-muted"`, `"tol-light"`,
   `"brewer-set2"`, `"brewer-dark2"`, `"viridis"` or `"cividis"` — is accepted
-  for graph-shaped kinds (tree, interconnection, state, action, sequence).
+  for graph-shaped kinds (tree, interconnection, state, action, case, mixed,
+  sequence).
   Mermaid, DOT, PlantUML and D2 fill applicable nodes by keyword family from that
   colourblind-safe palette, a `part def` and its `part` usages sharing a hue,
   with black text kept legible on every fill
@@ -526,12 +528,19 @@ part structure : Diagram {
   sequence diagrams note that individual participants cannot be filled; HTML
   figures carry the palette as `data-palette`. Any other name, or a palette on
   a table diagram, is a typed error.
-  `ports` — `"minimal"` or `"full"` — is accepted by an interconnection
-  diagram alone. `"minimal"`, the default, draws on each part the ports a
-  connector of the view ends at and no other, each a small square on the
+  D2 fills nodes for tree, interconnection, state, action and sequence renderings;
+  it does not yet write case or mixed renderings and refuses them with a typed
+  `WrongFormError`.
+  `ports` — `"minimal"` or `"full"` — is accepted by an interconnection or
+  mixed diagram. `"minimal"`, the default, draws on each part the ports an
+  interconnection edge ends at and no other, each a small square on the
   part's border named beside it; `"full"` draws every port a part has,
   labelled `name : Type`. Any other name, or `ports` on another kind, is a
   typed error.
+  `overlay` — `"verdicts"` — is accepted by a requirement diagram alone: it
+  runs the verification cases verifying each requirement drawn and labels
+  and colours the requirement by their verdicts. Any other name, or
+  `overlay` on another kind, is a typed error.
 
 A diagram block states *what* is drawn, not the notation it is written in:
 that is a choice made when the document is rendered. By default most kinds
@@ -544,19 +553,16 @@ render as a fenced ` ```mermaid ` block:
 ---
 config:
   themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["«part»<br>imagingChain"]
+  subgraph n0 ["`*«part»* **imagingChain**`"]
     direction LR
-    subgraph n1 ["«part»<br>camera : Camera"]
+    subgraph n1 ["`*«part»* **camera : Camera**`"]
       direction LR
       n1.0["«port»<br>output : DataPort"]
     end
-    subgraph n2 ["«part»<br>recorder : Recorder"]
+    subgraph n2 ["`*«part»* **recorder : Recorder**`"]
       direction LR
       n2.0["«port»<br>input : DataPort"]
     end
@@ -567,7 +573,8 @@ flowchart LR
 
 Rendered with `-diagram-form dot` (`%render-document <name> dot` in the REPL,
 `diagramForm: "dot"` over the LSP), every graph-shaped diagram of the
-document — a `tree`, `interconnection`, `state` or `action` rendering — is a
+document — a `tree`, `interconnection`, `state`, `action`, `case` or `mixed`
+rendering — is a
 fenced ` ```dot ` block of Graphviz DOT instead, for a toolchain that lays
 diagrams out with Graphviz. No Graphviz installation is needed to write it:
 
@@ -637,9 +644,10 @@ it as source under a notice. PlantUML pins no positions, so a view's
 honours it ([the PlantUML form](../project/view-rendering-forms.md#plantuml)).
 
 Rendered with `-diagram-form d2` (`%render-document <name> d2`, `diagramForm: "d2"`),
-every diagram — the `sequence` kind included — is a fenced ` ```d2 ` block for a
-[D2](https://d2lang.com) toolchain, in the same B&W look as a `classes` block the
-nodes and edges name; a part's parts and drawn ports are containers nested in it.
+each `tree`, `interconnection`, `state`, `action` or `sequence` diagram is a fenced
+` ```d2 ` block for a [D2](https://d2lang.com) toolchain, in the same B&W look as a
+`classes` block the nodes and edges name; a part's parts and drawn ports are containers
+nested in it. Case and mixed diagrams are refused with a typed unrenderable-form error.
 No `d2` is needed to write it:
 
 ```markdown

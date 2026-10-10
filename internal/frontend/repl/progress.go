@@ -39,8 +39,18 @@ func (s *Session) SetProgress(w io.Writer) {
 // planContext is the context every plan of the session runs under, with the progress
 // reporter installed when the session prints progress.
 func (s *Session) planContext() context.Context {
+	return s.reporting(s.command.context())
+}
+
+// heldPlanContext is planContext for a plan put from state kept across commands —
+// the runtime the debuggers step — so it follows the command under way when put.
+func (s *Session) heldPlanContext() context.Context {
+	return s.reporting(s.command.scoped())
+}
+
+func (s *Session) reporting(ctx context.Context) context.Context {
 	if s.progress == nil {
-		return context.Background()
+		return ctx
 	}
-	return analysis.WithReporter(context.Background(), s.progress.report)
+	return analysis.WithReporter(ctx, s.progress.report)
 }

@@ -8,6 +8,7 @@ import (
 
 const diagramModel = `
 	private import Views::*;
+	private import StandardViewDefinitions::*;
 
 	part def Camera;
 	part def Recorder;
@@ -34,6 +35,18 @@ const diagramModel = `
 	view textualView {
 		expose imagingChain;
 		render asTextualNotation;
+	}
+
+	requirement def MatrixRequirement;
+	requirement matrixRequirement : MatrixRequirement;
+	part def MatrixSubject {
+		satisfy matrixRequirement;
+	}
+	view def RelationshipMatrix :> GridView {
+		filter @SysML::SatisfyRequirementUsage;
+	}
+	view relationshipMatrix : RelationshipMatrix {
+		expose MatrixSubject;
 	}
 `
 
@@ -84,6 +97,41 @@ func TestCompileDiagramWithDeclaredView(t *testing.T) {
 	}
 }
 
+func TestCompileDiagramWithMatrixView(t *testing.T) {
+	fixture := loadPlanningFixture(t, diagramDocument(`
+		part relationships : Diagram {
+			ref redefines source = relationshipMatrix;
+		}
+	`))
+	plan := fixture.mustCompile(t, "Report")
+	reference := plan.Content()[0].Diagram()
+	declared, ok := reference.View()
+	if !ok || declared == nil {
+		t.Fatal("diagram reference names no matrix view")
+	}
+	if reference.Kind() != view.KindMatrix {
+		t.Fatalf("kind = %q, want matrix", reference.Kind())
+	}
+}
+
+func TestCompileDiagramWithMatrixPseudoView(t *testing.T) {
+	fixture := loadPlanningFixture(t, diagramDocument(`
+		part relationships : Diagram {
+			attribute redefines kind = "matrix";
+			ref redefines source = MatrixSubject;
+		}
+	`))
+	plan := fixture.mustCompile(t, "Report")
+	reference := plan.Content()[0].Diagram()
+	target, ok := reference.Target()
+	if !ok || target == nil {
+		t.Fatal("matrix pseudo-view has no target")
+	}
+	if reference.Kind() != view.KindMatrix {
+		t.Fatalf("kind = %q, want matrix", reference.Kind())
+	}
+}
+
 func TestCompileDiagramWithElementAndKind(t *testing.T) {
 	fixture := loadPlanningFixture(t, diagramDocument(`
 		part states : Diagram {
@@ -103,6 +151,28 @@ func TestCompileDiagramWithElementAndKind(t *testing.T) {
 	}
 	if reference.Direction() != view.DirectionLeftRight {
 		t.Fatalf("direction = %q", reference.Direction())
+	}
+}
+
+func TestCompileDiagramWithCaseAndMixedPseudoKinds(t *testing.T) {
+	for _, kind := range []view.Kind{view.KindCase, view.KindMixed} {
+		t.Run(string(kind), func(t *testing.T) {
+			fixture := loadPlanningFixture(t, diagramDocument(`
+				part selected : Diagram {
+					attribute redefines kind = "`+string(kind)+`";
+					ref redefines source = imagingChain;
+				}
+			`))
+			plan := fixture.mustCompile(t, "Report")
+			reference := plan.Content()[0].Diagram()
+			target, ok := reference.Target()
+			if !ok || target == nil {
+				t.Fatal("reference names no target element")
+			}
+			if reference.Kind() != kind {
+				t.Fatalf("kind = %q, want %q", reference.Kind(), kind)
+			}
+		})
 	}
 }
 
@@ -339,5 +409,104 @@ func TestCompileDiagramRejectsPortsOnATree(t *testing.T) {
 	want := `document Observatory::Report diagram Observatory::Report::imaging states ports "full", but a tree rendering draws no part's ports`
 	if planning.Error() != want {
 		t.Fatalf("error = %q, want %q", planning.Error(), want)
+	}
+}
+
+func overlayDocument(body string) string {
+	return diagramModel + `
+	requirement def Resolution;
+	requirement resolution : Resolution;
+
+	view requirementView : StandardViewDefinitions::GeneralView {
+		filter @SysML::RequirementUsage;
+		expose resolution;
+	}
+
+	part def Report :> Document {
+		attribute redefines title = "Report";
+` + body + `
+	}
+`
+}
+
+func TestCompileDiagramRejectsInvalidOverlay(t *testing.T) {
+	fixture := loadPlanningFixture(t, overlayDocument(`
+		part imaging : Diagram {
+			attribute redefines overlay = "colours";
+			ref redefines source = requirementView;
+		}
+	`))
+	_, err := fixture.compile(t, "Report")
+	planning := planningError(t, err)
+	if planning.Kind != ErrorInvalidOverlay || planning.Actual != "colours" {
+		t.Fatalf("error = %+v", planning)
+	}
+	want := `document Observatory::Report diagram Observatory::Report::imaging overlay must be one of verdicts, got "colours"`
+	if planning.Error() != want {
+		t.Fatalf("error = %q, want %q", planning.Error(), want)
+	}
+}
+
+func TestCompileDiagramRejectsVerdictsOnATree(t *testing.T) {
+	fixture := loadPlanningFixture(t, diagramDocument(`
+		part imaging : Diagram {
+			attribute redefines kind = "tree";
+			attribute redefines overlay = "verdicts";
+			ref redefines source = imagingChain;
+		}
+	`))
+	_, err := fixture.compile(t, "Report")
+	planning := planningError(t, err)
+	if planning.Kind != ErrorUnsupportedOverlay || planning.Expected != "tree" || planning.Actual != "verdicts" {
+		t.Fatalf("error = %+v", planning)
+	}
+	want := `document Observatory::Report diagram Observatory::Report::imaging states overlay "verdicts", but a tree rendering draws none; it is drawn on a requirement rendering`
+	if planning.Error() != want {
+		t.Fatalf("error = %q, want %q", planning.Error(), want)
+	}
+}
+
+func TestCompileDiagramOfAGeneralViewCaseRoute(t *testing.T) {
+	fixture := loadPlanningFixture(t, diagramModel+`
+	use case def Observe;
+	use case observe : Observe;
+
+	view useCaseView : StandardViewDefinitions::GeneralView {
+		filter @SysML::UseCaseUsage;
+		expose observe;
+	}
+
+	part def Report :> Document {
+		attribute redefines title = "Report";
+		part useCases : Diagram {
+			ref redefines source = useCaseView;
+		}
+		part verdicts : Diagram {
+			attribute redefines overlay = "verdicts";
+			ref redefines source = useCaseView;
+		}
+	}
+`)
+	_, err := fixture.compile(t, "Report")
+	planning := planningError(t, err)
+	if planning.Kind != ErrorUnsupportedOverlay || planning.Expected != "case" {
+		t.Fatalf("error = %+v", planning)
+	}
+}
+
+func TestCompileDiagramTakesVerdictsOnARequirementRendering(t *testing.T) {
+	fixture := loadPlanningFixture(t, overlayDocument(`
+		part imaging : Diagram {
+			attribute redefines overlay = "verdicts";
+			ref redefines source = requirementView;
+		}
+	`))
+	plan, err := fixture.compile(t, "Report")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reference := plan.Content()[0].Diagram()
+	if reference.Kind() != view.KindRequirement || reference.Overlay() != view.OverlayVerdicts {
+		t.Fatalf("kind %q overlay %q", reference.Kind(), reference.Overlay())
 	}
 }

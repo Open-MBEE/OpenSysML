@@ -21,21 +21,9 @@ import (
 // are owned by the unnamed root Namespace the pilot's documents carry, which
 // the Turtle form leaves out (see docs/reference/rdf-mapping.md).
 func WriteAPIJSON(graph *rdf.Graph) ([]byte, error) {
-	wrapped, err := withRootNamespace(graph)
+	elements, err := apiJSONElements(graph)
 	if err != nil {
 		return nil, err
-	}
-	settled, err := rdf.ReconcileCollections(wrapped)
-	if err != nil {
-		return nil, err
-	}
-	elements := make([]apiJSONObject, 0, len(settled.Subjects()))
-	for _, subject := range settled.Subjects() {
-		element, err := apiJSONElement(settled, subject)
-		if err != nil {
-			return nil, err
-		}
-		elements = append(elements, element)
 	}
 	// Written compact in one pass and indented once. Encoding the array through
 	// each object's MarshalJSON had the encoder parse and re-indent every
@@ -59,6 +47,29 @@ func WriteAPIJSON(graph *rdf.Graph) ([]byte, error) {
 	}
 	out.WriteByte('\n')
 	return out.Bytes(), nil
+}
+
+// apiJSONElements builds the element object of every subject of the graph,
+// once its collections are settled and the root Namespace wraps it.
+func apiJSONElements(graph *rdf.Graph) ([]apiJSONObject, error) {
+	wrapped, err := withRootNamespace(graph)
+	if err != nil {
+		return nil, err
+	}
+	settled, err := rdf.ReconcileCollections(wrapped)
+	if err != nil {
+		return nil, err
+	}
+	subjects := settled.Subjects()
+	elements := make([]apiJSONObject, 0, len(subjects))
+	for _, subject := range subjects {
+		element, err := apiJSONElement(settled, subject)
+		if err != nil {
+			return nil, err
+		}
+		elements = append(elements, element)
+	}
+	return elements, nil
 }
 
 // apiJSONWriter writes element objects compact into one buffer. Strings keep
@@ -241,6 +252,24 @@ func apiJSONType(typ rdf.Term) string {
 // multi-valued, or its single object as a scalar.
 func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metaclass string, objectProperty bool) (any, error) {
 	objects := graph.Objects(subject, predicate)
+	if _, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok && graph.CollectionsSettled() {
+		// The typed triples state the collection in the annotation's order (see
+		// rdf.Graph.MarkCollectionsSettled), so its members are read from them
+		// rather than from the annotation's JSON, which spells the same members.
+		values := make([]any, 0, len(objects))
+		for _, object := range objects {
+			if object.IsIRI() {
+				values = append(values, apiJSONReference{ID: rdf.ReferenceID(subject, object)})
+				continue
+			}
+			value, err := apiJSONScalar(subject, key, object, objectProperty)
+			if err != nil {
+				return nil, err
+			}
+			values = append(values, value)
+		}
+		return values, nil
+	}
 	if annotation, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok {
 		if !annotation.IsLiteral() {
 			return nil, &UnsupportedError{

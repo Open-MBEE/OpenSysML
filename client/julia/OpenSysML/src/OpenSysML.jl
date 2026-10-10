@@ -45,7 +45,9 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        VERDICT_MAPPED, VERDICT_APPROXIMATED, VERDICT_UNMAPPED, VERDICT_SKIPPED,
        ElementRef, ObjectRef, DocumentVerdict, DocumentState, DocumentEvent,
        DocumentRow, DocumentQueryResult, build_document_bindings,
-       run_document_query, render_document, Editor, Body, operations, applied, AppliedEdit,
+       run_document_query, render_document, RenderedView, RenderNode, RenderPort, RenderEdge,
+       RenderGeometry, RenderCanvas, RenderStyle, RenderPoint, RenderRow, RenderNote, RenderSpan,
+       render_view, Graphs, export_graphs, Editor, Body, operations, applied, AppliedEdit,
        EditedDocument, EditResult, edit, apply, apply_edits,
        ActionOutputs, StateRun,
        decode_value, encode_value, resolve_binary, ensure_binary, download_binary,
@@ -53,6 +55,7 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        as_str, as_quantity, as_enum_literal, as_object, as_typed, feature_value,
        optional_feature_value, list_feature_value, generate_source, generate_main
 
+include("document_types.jl")
 include("errors.jl")
 include("binary.jl")
 include("values.jl")
@@ -97,7 +100,8 @@ for capability in (
     :CAPABILITY_TYPE_FACTS, :CAPABILITY_CONVERT, :CAPABILITY_MIGRATE, :CAPABILITY_VERIFICATION,
     :CAPABILITY_VERIFICATION_QUESTIONS, :CAPABILITY_QUERY, :CAPABILITY_OSLC_QUERY,
     :CAPABILITY_DOCUMENT_QUERY,
-    :CAPABILITY_RENDER_DOCUMENT, :CAPABILITY_RENDER_DOCUMENT_HTML, :CAPABILITY_ENUM_VALUES,
+    :CAPABILITY_RENDER_DOCUMENT, :CAPABILITY_RENDER_DOCUMENT_HTML, :CAPABILITY_RENDER_VIEW,
+    :CAPABILITY_EXPORT_GRAPHS, :CAPABILITY_ENUM_VALUES,
     :CAPABILITY_EVALUATE_SUBJECT, :CAPABILITY_SYMBOL_ATTRIBUTES, :CAPABILITY_UNSET_VALUE,
     :CAPABILITY_FEATURE_VALUES, :CAPABILITY_APPLY_EDITS, :CAPABILITY_AUTHORING,
     :CAPABILITY_CONNECTION_AUTHORING, :CAPABILITY_SATISFY_AUTHORING,
@@ -114,8 +118,11 @@ for capability in (
     :CAPABILITY_TENSOR_VALUES, :CAPABILITY_METAOBJECT_VALUES,
     :CAPABILITY_VERIFICATION_VERDICTS, :CAPABILITY_INFINITY_VALUE,
     :CAPABILITY_DIAGNOSTIC_CODES, :CAPABILITY_SCHEDULE, :CAPABILITY_CASE_EVALUATIONS,
-    :CAPABILITY_SCHEDULE_EXPLORE, :CAPABILITY_PERFORMER, :CAPABILITY_FINAL_TIME,
-    :CAPABILITY_ENGINES, :CAPABILITY_UNDETERMINED_VALUE, :CAPABILITY_BIG_INT_VALUES
+    :CAPABILITY_SCHEDULE_EXPLORE, :CAPABILITY_PERFORMER, :CAPABILITY_STATE_TRACE,
+    :CAPABILITY_FINAL_TIME,
+    :CAPABILITY_ENGINES, :CAPABILITY_UNDETERMINED_VALUE, :CAPABILITY_BIG_INT_VALUES,
+    :CAPABILITY_RATIONAL_VALUES, :CAPABILITY_CONVERT_DOCUMENTS, :CAPABILITY_CONVERT_COMPACT,
+    :CAPABILITY_PARSE_SOURCES_AFFECTED
 )
     @eval export $capability
 end

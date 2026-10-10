@@ -1,0 +1,89 @@
+# Source of the conda-forge recipe for jupyter-opensysml-kernel. The __TAG__ and
+# __SHA256_*__ placeholders are filled by scripts/render-conda-recipe.sh from a
+# release's SHA256SUMS.txt; the rendered recipe is what is submitted to
+# conda-forge/staged-recipes (and later maintained in its feedstock).
+{% set name = "jupyter-opensysml-kernel" %}
+{% set version = "__VERSION__" %}
+{% set tag = "__TAG__" %}
+{% set release = "https://github.com/Open-MBEE/OpenSysML/releases/download/" ~ tag %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  # The Python package, from the same release the kernel binary below is from.
+  - url: https://pypi.org/packages/source/j/{{ name }}/jupyter_opensysml_kernel-{{ version }}.tar.gz
+    sha256: __SHA256_SDIST__
+    folder: python
+  # The kernel binary for the target platform, published raw with its digest in
+  # the release's SHA256SUMS.txt.
+  - url: {{ release }}/sysml-jupyter-kernel-linux-amd64   # [linux64]
+    sha256: __SHA256_LINUX_AMD64__  # [linux64]
+    fn: sysml-jupyter-kernel  # [linux64]
+  - url: {{ release }}/sysml-jupyter-kernel-linux-arm64   # [aarch64]
+    sha256: __SHA256_LINUX_ARM64__  # [aarch64]
+    fn: sysml-jupyter-kernel  # [aarch64]
+  - url: {{ release }}/sysml-jupyter-kernel-darwin-amd64   # [osx and x86_64]
+    sha256: __SHA256_DARWIN_AMD64__  # [osx and x86_64]
+    fn: sysml-jupyter-kernel  # [osx and x86_64]
+  - url: {{ release }}/sysml-jupyter-kernel-darwin-arm64   # [osx and arm64]
+    sha256: __SHA256_DARWIN_ARM64__  # [osx and arm64]
+    fn: sysml-jupyter-kernel  # [osx and arm64]
+  - url: {{ release }}/sysml-jupyter-kernel-windows-amd64.exe   # [win64]
+    sha256: __SHA256_WINDOWS_AMD64__  # [win64]
+    fn: sysml-jupyter-kernel.exe  # [win64]
+
+build:
+  number: 0
+  # The binary is prebuilt and statically linked, so nothing here is compiled;
+  # the package is still per platform because of it.
+  binary_relocation: false
+  script:
+    - cd python && {{ PYTHON }} -m pip install . --no-deps --no-build-isolation -vv && cd ..  # [not win]
+    - {{ PYTHON }} -m jupyter_opensysml_kernel install --prefix "$PREFIX" --binary sysml-jupyter-kernel  # [not win]
+    - cd python && %PYTHON% -m pip install . --no-deps --no-build-isolation -vv && cd ..  # [win]
+    - '%PYTHON% -m jupyter_opensysml_kernel install --prefix "%PREFIX%" --binary sysml-jupyter-kernel.exe'  # [win]
+  entry_points:
+    - jupyter-opensysml-kernel = jupyter_opensysml_kernel.__main__:main
+  missing_dso_whitelist:
+    - "*"  # [win]
+
+requirements:
+  host:
+    - python >=3.10
+    - pip
+    - setuptools >=77
+  run:
+    - python >=3.10
+    - jupyter_client >=7.0
+
+test:
+  imports:
+    - jupyter_opensysml_kernel
+  requires:
+    - jupyter_core
+  commands:
+    - python -m jupyter_opensysml_kernel kernelspec
+    - jupyter kernelspec list | grep -F sysml  # [not win]
+    - jupyter kernelspec list | findstr sysml  # [win]
+    - test -x "$PREFIX/share/jupyter/kernels/sysml/sysml-jupyter-kernel"  # [not win]
+    - "$PREFIX/share/jupyter/kernels/sysml/sysml-jupyter-kernel" -version  # [not win]
+    - '"%PREFIX%\share\jupyter\kernels\sysml\sysml-jupyter-kernel.exe" -version'  # [win]
+
+about:
+  home: https://github.com/Open-MBEE/OpenSysML
+  license: Apache-2.0
+  license_file: python/LICENSE
+  summary: Jupyter kernel for SysML v2, backed by the OpenSysML REPL
+  description: |
+    A Jupyter kernel that runs SysML v2 in notebook cells with the OpenSysML
+    REPL's semantics: declarations accumulate across cells, bare expressions
+    evaluate, and the REPL's `%` commands instantiate, run, debug and render
+    the model. The kernelspec is named `sysml`.
+  doc_url: https://open-mbee.github.io/OpenSysML/guide/12-jupyter/
+  dev_url: https://github.com/Open-MBEE/OpenSysML
+
+extra:
+  recipe-maintainers:
+    - Open-MBEE

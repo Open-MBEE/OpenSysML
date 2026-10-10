@@ -44,6 +44,15 @@ func (w *Workspace) standInLocked(name string, doc *Document) {
 	})
 }
 
+// StandsIn reports whether the workspace document name stands in for a bundled
+// library file: a version of it, which the index marks with the file's tier.
+func (w *Workspace) StandsIn(name string) bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	_, ok := w.standIns[name]
+	return ok
+}
+
 // releaseStandInLocked forgets that name stands in for a bundled library file
 // and puts the file back where nothing else displaces it. Caller holds the lock.
 func (w *Workspace) releaseStandInLocked(name string) {
@@ -173,7 +182,7 @@ func (w *Workspace) libraryDocumentLocked(name string) *Document {
 	if err != nil {
 		return nil
 	}
-	doc := newDocument(name, bytes.Clone(content), 0)
+	doc := newDocument(name, bytes.Clone(content), 0, source.KindUnknown)
 	w.libDocs[name] = doc
 	return doc
 }

@@ -19,6 +19,10 @@ func pathsOf(f LibraryFacts) [][]int32 {
 	add(f.Redefines...)
 	add(f.About...)
 	add(f.Ends...)
+	add(f.RelatedFeatures...)
+	for _, path := range f.EndPaths {
+		add(path...)
+	}
 	add(f.Alias, f.References, f.BaseType)
 	for _, rel := range f.Relationships {
 		add(rel.Target)
@@ -35,20 +39,22 @@ func pathsOf(f LibraryFacts) [][]int32 {
 func TestLibraryFactsCloneOwnsEveryPath(t *testing.T) {
 	ref := func(fqn string) ElementRef { return ElementRef{FQN: fqn, Path: []int32{1, 2}, Doc: "a.sysml"} }
 	facts := LibraryFacts{
-		Supers:        []ElementRef{ref("S")},
-		Redefines:     []ElementRef{ref("R")},
-		About:         []ElementRef{ref("A")},
-		Ends:          []ElementRef{ref("E")},
-		Alias:         ref("L"),
-		References:    ref("F"),
-		BaseType:      ref("B"),
-		Relationships: []RelationshipFacts{{Kind: ast.RelSubsets, Target: ref("T")}},
-		Annotations:   []AnnotationFacts{{TypeFQN: "M", Type: ref("M")}},
-		Annotation:    &AnnotationFacts{TypeFQN: "N", Type: ref("N")},
+		Supers:          []ElementRef{ref("S")},
+		Redefines:       []ElementRef{ref("R")},
+		About:           []ElementRef{ref("A")},
+		Ends:            []ElementRef{ref("E")},
+		RelatedFeatures: []ElementRef{ref("RF")},
+		EndPaths:        [][]ElementRef{{ref("H"), ref("RF")}},
+		Alias:           ref("L"),
+		References:      ref("F"),
+		BaseType:        ref("B"),
+		Relationships:   []RelationshipFacts{{Kind: ast.RelSubsets, Target: ref("T")}},
+		Annotations:     []AnnotationFacts{{TypeFQN: "M", Type: ref("M")}},
+		Annotation:      &AnnotationFacts{TypeFQN: "N", Type: ref("N")},
 	}
 	clone := facts.Clone()
 	cloned := pathsOf(clone)
-	if want := 10; len(cloned) != want {
+	if want := 13; len(cloned) != want {
 		t.Fatalf("the clone holds %d references, want %d", len(cloned), want)
 	}
 	for _, p := range cloned {

@@ -3,16 +3,19 @@
 A *lint* is a warning about a model the specification accepts: nothing in SysML v2 or KerML
 makes the written model wrong, but it is almost always a slip. Each lint has a stable code,
 carried as the diagnostic's `code` under `-json`, in the editor and over the wire, and each
-can be switched off by that code. A lint is a warning in every mode:
+can be switched off by that code. A lint marked *opt-in* below is off until it is switched on
+by its code, since what it reports holds of ordinary models more often than it marks a slip.
+A lint is a warning in every mode:
 [`-strict`](../guide/03-command-line.md#strict-conformance) promotes notation no SysML v2
 production admits, and a lint is not about notation, so it stays a warning and never changes
 the exit status or blocks a check.
 
-| Code | Reported on | Tier |
-|------|-------------|------|
-| `undeclared-signal` | a transition's `when <name>` whose name matches no declaration visible where it is written and no signal the model sends | name resolution |
-| `port-type-mismatch` | a `connect`, an interface usage or a `flow` joining two ports whose definitions are unrelated | constraint |
-| `deferred-keeper-unmarked` | an accept of a deferred signal at the root of the do action of a state annotated `MigrationMetadata::DeferredEvent` that is not marked `MigrationMetadata::DeferredKeeper` | name resolution |
+| Code | Reported on | Tier | Default |
+|------|-------------|------|---------|
+| `undeclared-signal` | a transition's `when <name>` whose name matches no declaration visible where it is written and no signal the model sends | name resolution | on |
+| `port-type-mismatch` | a `connect`, an interface usage or a `flow` joining two ports whose definitions are unrelated | constraint | on |
+| `deferred-keeper-unmarked` | an accept of a deferred signal at the root of the do action of a state annotated `MigrationMetadata::DeferredEvent` that is not marked `MigrationMetadata::DeferredKeeper` | name resolution | on |
+| `rounded-real-literal` | a decimal literal bound or assigned to a feature typed by `Real` that no binary64 value equals, so the feature holds it rounded | type | opt-in |
 
 ## Action-step multiplicity warnings
 
@@ -27,18 +30,56 @@ source `action-step-multiplicity`; they are not lints and cannot be disabled wit
 | `action-step-order-unsatisfiable` | A succession end forces an endpoint count that it does not admit |
 | `action-step-order-open` | The declared or defaulted succession ends do not force the endpoint counts under both readings of an unwritten end |
 
-## Switching a lint off
+## Duplicate member names
 
-| Surface | Setting |
-|---------|---------|
-| CLI | `-disable-lint <code>[,<code>…]`, repeatable; an unknown code is a usage error (exit 2) |
-| REPL | `%lint` lists every lint, on or off; `%lint <code> on\|off` switches one and reprints the session's diagnostics |
-| Language server | `disabledLints`, a list of codes, in `initializationOptions` or `workspace/didChangeConfiguration` ([LSP extensions](lsp.md#disabled-lints-setting)) |
-| Go | `model.WithDisabledLints(codes...)` when the workspace is made, or `(*model.Workspace).SetDisabledLints(codes)` |
+The name-resolution tier reports KerML's distinguishability rule (`validateNamespaceDistinguishibility`)
+as warnings with code `name-conflict`; they are not lints and cannot be switched off. Two
+memberships of one namespace are indistinguishable when one's name or short name is the other's
+and their metaclasses are related (a `part def` beside a `part def`, or beside an `item def`
+that it specializes; a `part def` beside an `attribute` is distinguishable whatever the names).
+Resolution is not affected: a reference to the name still takes the first membership, in
+declaration order and then in import order. For two *imported* members KerML (7.2.5.4) hides
+both from the importing namespace instead, leaving an unqualified reference unresolved; OpenSysML
+binds the first import's member, as the OMG pilot implementation does, and the warning marks
+where the two readings part. Qualify the name to choose a member explicitly.
 
-A disabled lint is left out of what the workspace reports, not out of the analysis, so
-switching it back on needs no re-analysis. The gRPC service and the clients report both lints
-with their codes; a client that does not want one drops the diagnostics carrying its code.
+| Wording | Reported on |
+|---------|-------------|
+| `Duplicate of other owned member name 'x'` | the later of two owned members of one namespace |
+| `Duplicate of inherited member name 'x' from T` | an owned member of a type whose name an inherited member already has |
+| `Duplicate of imported member name 'x': P::x (import P::*), Q::x (import Q::*)` | the import that brings the later of two imported members, naming each member and the import that brought it; a member a type inherits that an imported one repeats is named `(inherited)` |
+
+An imported name hidden by an owned member of the same name, one membership reached through two
+imports (`import P::*` beside `import Q::*` where `Q` publicly re-imports `P`), an alias or a
+membership import of an element beside the membership that owns it, and the standard library's
+own members are not reported. An alias under another name (`alias Spare for P::x`) binds only
+that name and does not stand in for `P::x`.
+
+The standard library has eight such pairs of its own, which `import ISQ::*` brings in without a
+warning: `MagneticDipoleMomentValue`, `MagneticDipoleMomentUnit`,
+`CartesianMagneticDipoleMoment3dVector`, `CartesianMagneticDipoleMoment3dCoordinateFrame`,
+`magneticDipoleMoment` and `cartesianMagneticDipoleMoment3dVector` are defined in both
+`ISQElectromagnetism` (IEC 80000-6) and `ISQAtomicNuclear` (ISO 80000-10) as two different
+quantities, and `CartesianDisplacement3dVector` and `cartesianDisplacement3dVector` in both
+`ISQSpaceTime` and `ISQCondensedMatter`. Unqualified, each binds the `ISQElectromagnetism` or
+`ISQSpaceTime` member; write `ISQAtomicNuclear::MagneticDipoleMomentValue` (or
+`ISQCondensedMatter::…`) for the other.
+
+## Switching a lint off or on
+
+| Surface | Off | On (opt-in lints) |
+|---------|-----|-------------------|
+| CLI | `-disable-lint <code>[,<code>…]`, repeatable; an unknown code is a usage error (exit 2) | `-enable-lint <code>[,<code>…]`, the same way |
+| REPL | `%lint <code> off` | `%lint <code> on` |
+| Language server | `disabledLints`, a list of codes, in `initializationOptions` or `workspace/didChangeConfiguration` ([LSP extensions](lsp.md#disabled-lints-setting)) | `enabledLints`, the same way |
+| Go | `model.WithDisabledLints(codes...)` when the workspace is made, or `(*model.Workspace).SetDisabledLints(codes)` | `model.WithEnabledLints(codes...)` or `(*model.Workspace).SetEnabledLints(codes)` |
+
+`%lint` alone lists every lint, on or off, and switching one reprints the session's
+diagnostics. A lint both disabled and enabled is off. Enabling a lint that is on by default
+changes nothing. A lint left out is left out of what the workspace reports, not out of the
+analysis, so switching it back needs no re-analysis. The gRPC service and the clients report
+every lint that is on by default, with its code, and no opt-in lint; a client that does not
+want one drops the diagnostics carrying its code.
 
 ## `undeclared-signal`
 
@@ -147,3 +188,29 @@ it. Re-migrate the model, which writes the marker on every keeping accept, or wr
 below the do action's root, one beside a marked keeper of the signal, or one under a state the
 annotation does not name, is an ordinary accept by design and is not reported, nor is an
 accept whose signal does not resolve, which name resolution reports.
+
+## `rounded-real-literal`
+
+A decimal literal is the exact Rational it spells (`0.1` is 1/10, KerML 1.0 §8.4.4.9.2), while
+a feature typed by `Real` holds an IEEE 754 binary64 value, so a literal written to one is
+rounded once to the nearest double. Where that double differs from the literal, a model reading
+the feature back gets a value other than the one it wrote, and the lint names the value held:
+
+```text
+m.sysml:3:24: warning: 0.1 is rounded to the nearest Real, 0.10000000000000001, since a feature typed by Real holds a binary64 value; type the feature by Rational to keep the literal exact
+```
+
+It reports a literal, signed or not, written as a feature's value (`attribute x : Real = 0.1;`,
+a parameter's default, a redefinition such as `attribute :>> x = 0.2;` of a `Real` feature) or
+written by an `assign`, and each element of a sequence written out (`(0.25, 0.1)` reports
+`0.1`). The feature is `Real` by its declared type, or else by the type it inherits. A literal
+binary64 holds exactly (`0.25`, `1.5e3`), an Integer literal, a feature typed by `Rational`
+and a computed value (`1 / 3`, `0.1 + 0.2`) are not reported, and neither is a literal beyond
+the binary64 range, which the run refuses. Comparison with the feature is at Real precision
+([exact Rationals](../project/exact-rational-evaluation.md#comparing-a-rational-with-a-binary64-real)),
+so `x == 0.1` still holds; the lint is about the value the feature holds and reports.
+
+The lint is opt-in: a decimal written to a `Real` feature is how ordinary models state
+measured values (`efficiency = 0.92`), and nearly all of them round. Switch it on with
+`-enable-lint rounded-real-literal`, `%lint rounded-real-literal on` or the `enabledLints`
+editor setting to find the literals whose rounding matters.

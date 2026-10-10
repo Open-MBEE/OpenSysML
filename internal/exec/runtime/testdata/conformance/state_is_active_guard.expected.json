@@ -1,0 +1,15 @@
+{
+  "type": "state",
+  "libraries": true,
+  "events": [
+    {
+      "signal": "Go"
+    }
+  ],
+  "finalState": "right",
+  "stateVisits": [
+    "a",
+    "right"
+  ],
+  "outputs": {}
+}

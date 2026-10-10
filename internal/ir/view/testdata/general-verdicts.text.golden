@@ -1,0 +1,37 @@
+GeneralViews::requirementView - requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
+
+requirement def VehicleRequirements::MassRequirement (id R1, “The total mass of the vehicle shall not exceed the stated...”)
+requirement def VehicleRequirements::StoppingRequirement (id R2, “The vehicle shall stop within the stated distance.”)
+requirement def VehicleRequirements::EmergencyStopRequirement (id R3)
+requirement VehicleRequirements::vehicleMass : MassRequirement (id R1.1, verdict pass by Cases::light, fail by Cases::heavy)
+requirement VehicleRequirements::chassisMass : MassRequirement (id R1.2, verdict pass by Cases::chassis)
+requirement VehicleRequirements::emergencyStop : EmergencyStopRequirement (id R3.1, verdict inconclusive by Cases::stop (no verdict bound), error by Cases::brake (division by zero))
+part def VehicleStructure::LightChassis
+part VehicleStructure::vehicle : Vehicle
+part VehicleStructure::heavyVehicle : Vehicle
+action VehicleStructure::brake : Brake
+verification def VehicleVerification::MassTest
+verification VehicleVerification::lightMassTest : MassTest
+verification VehicleVerification::heavyMassTest : MassTest
+verification def VehicleVerification::StopTest
+verification VehicleVerification::stopTest : StopTest
+
+relationships:
+  VehicleRequirements::EmergencyStopRequirement --|> VehicleRequirements::StoppingRequirement
+  VehicleRequirements::vehicleMass ..|> VehicleRequirements::MassRequirement
+  VehicleRequirements::chassisMass ..|> VehicleRequirements::MassRequirement
+  VehicleRequirements::emergencyStop ..|> VehicleRequirements::EmergencyStopRequirement
+  VehicleRequirements::chassisMass ..> VehicleRequirements::vehicleMass: derive
+  VehicleStructure::LightChassis ..> VehicleRequirements::chassisMass: refine
+  VehicleStructure::vehicle ..> VehicleRequirements::vehicleMass: satisfy
+  VehicleStructure::heavyVehicle ..> VehicleRequirements::vehicleMass: satisfy
+  VehicleStructure::vehicle ..> VehicleRequirements::emergencyStop: satisfy
+  VehicleRequirements::emergencyStop ..> VehicleStructure::brake: allocate
+  VehicleVerification::MassTest ..> VehicleRequirements::vehicleMass: verify
+  VehicleVerification::lightMassTest ..> VehicleRequirements::vehicleMass: verify
+  VehicleVerification::heavyMassTest ..> VehicleRequirements::vehicleMass: verify
+  VehicleVerification::StopTest ..> VehicleRequirements::emergencyStop: verify
+  VehicleVerification::stopTest ..> VehicleRequirements::emergencyStop: verify
+
+not represented:
+  - 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
