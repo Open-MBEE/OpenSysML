@@ -71,14 +71,14 @@ func TestBehaviorMembersUnwritten(t *testing.T) {
 			   <ownedPort xmi:type="uml:Port" xmi:id="_q" name="q"/>
 			 </packagedElement>`,
 			[]string{"_q"}, []string{"_r", "_p"}, 1,
-			[]string{"action def Run {\n    view Rules {\n        expose Run;\n        expose p;\n        render Views::asTextualNotation;\n    }\n    /* not migrated: Port 'q' — owned by a Activity, whose v2 body is its parameters and flow, not a place for a Port */\n    ref p;\n    assert constraint keep { true }\n}"}},
+			[]string{"action def Run {\n    view Rules {\n        expose Run;\n        expose p;\n        render Views::asTextualNotation;\n    }\n    /* not migrated: Port 'q' — owned by a Activity, whose v2 body is its parameters and flow, not a place for a Port */\n    attribute p;\n    assert constraint keep { true }\n}"}},
 		{"a state machine writes its constraint and attribute, and has no place for a port",
 			`<packagedElement xmi:type="uml:StateMachine" xmi:id="_b" name="Modes">` + rule("_r", "keep") + `
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p"/>
 			   <ownedPort xmi:type="uml:Port" xmi:id="_q" name="q"/>
 			 </packagedElement>`,
 			[]string{"_q"}, []string{"_r", "_p"}, 1,
-			[]string{"state def Modes {\n    view Rules {\n        expose Modes;\n        expose p;\n        render Views::asTextualNotation;\n    }\n    /* not migrated: Port 'q' — owned by a StateMachine, whose v2 body is its parameters and states, not a place for a Port */\n    assert constraint keep { true }\n    ref p;"}},
+			[]string{"state def Modes {\n    view Rules {\n        expose Modes;\n        expose p;\n        render Views::asTextualNotation;\n    }\n    /* not migrated: Port 'q' — owned by a StateMachine, whose v2 body is its parameters and states, not a place for a Port */\n    assert constraint keep { true }\n    attribute p;"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			shown := append(append([]string{"_b"}, tc.unwritten...), tc.written...)

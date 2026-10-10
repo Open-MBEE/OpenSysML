@@ -4,7 +4,7 @@ package Structure {
         part hook : Hook;
         ref part cable : Cable;
         ref part operator : Operator;
-        ref counterweight;
+        part counterweight;
         connect hook to cable;
         view 'Crane Internals' {
             expose hook;

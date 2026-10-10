@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -117,15 +118,63 @@ func TestAnalyzeRefusesMessages(t *testing.T) {
 	}
 }
 
-func TestAnalyzeRefusesRepeatedActionSteps(t *testing.T) {
+// TestAnalyzeCountsRepeatedActionSteps: the exact-count case encodes, recording
+// the step's three performances and the slots the split needs.
+func TestAnalyzeCountsRepeatedActionSteps(t *testing.T) {
 	graph := conformanceAction(t, "action_step_multiplicity_exact.sysml", "test::Rep")
-	_, err := Analyze(graph, nil, 10)
-	var unsupported *UnsupportedError
-	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
-		t.Fatalf("Analyze: got %v, want a typed ErrNotEncoded refusal", err)
+	f, err := Analyze(graph, nil, 10)
+	if err != nil {
+		t.Fatalf("Analyze: %v, want a[3] encoded", err)
 	}
-	if unsupported.Node != "a" || unsupported.Construct != "action step multiplicity [3]" {
-		t.Errorf("refusal names %q/%q, want node a, multiplicity [3]", unsupported.Node, unsupported.Construct)
+	var a ast.Node
+	for _, node := range f.Nodes {
+		if f.label(node) == "a" {
+			a = node
+		}
+	}
+	if a == nil || f.Repeats[a] != 3 {
+		t.Fatalf("repeats: got %v at %v, want 3 at a", f.Repeats, a)
+	}
+	if f.Slots != 3 {
+		t.Errorf("slots: got %d, want 3", f.Slots)
+	}
+}
+
+// TestAnalyzeCountsInheritedRepeatedActionSteps: a redefining step declaring
+// no multiplicity encodes the redefined step's `[n]` like a declared count.
+func TestAnalyzeCountsInheritedRepeatedActionSteps(t *testing.T) {
+	ctx, idx := fixture(t, "<inherited-multiplicity>", `
+		package test {
+			private import ScalarValues::*;
+			action def Base {
+				attribute c : Integer = 0;
+				first start then a;
+				action a[3] { assign c := c + 1; }
+				then done;
+			}
+			action def Keep :> Base { action :>> a; }
+		}`)
+	matches := idx.LookupQualified("test::Keep")
+	if len(matches) != 1 {
+		t.Fatalf("test::Keep matched %d symbols, want one", len(matches))
+	}
+	graph, err := lower.ToActionGraphWith(matches[0].Decl, matches[0].Scope, resolve.New(idx))
+	if err != nil {
+		t.Fatalf("lower Keep: %v", err)
+	}
+	lower.StartFlow(graph)
+	f, err := Analyze(graph, ctx.Semantics(), 10)
+	if err != nil {
+		t.Fatalf("Analyze: %v, want the inherited a[3] encoded", err)
+	}
+	var a ast.Node
+	for _, node := range f.Nodes {
+		if f.label(node) == "a" {
+			a = node
+		}
+	}
+	if a == nil || f.Repeats[a] != 3 {
+		t.Fatalf("repeats: got %v at %v, want 3 at a", f.Repeats, a)
 	}
 }
 
@@ -186,7 +235,7 @@ func TestAnalyzeResolvesNamedStepMultiplicity(t *testing.T) {
 		wantText    string
 	}{
 		{name: "Single", wantEncoded: true},
-		{name: "Double", wantText: "[two]"},
+		{name: "Double", wantEncoded: true},
 		{name: "Unresolved", wantText: "[missing]"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

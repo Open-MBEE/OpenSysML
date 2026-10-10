@@ -1,0 +1,1 @@
+- **The README names the REDK as MDK2.** Its title reads "OpenSysML REDK — Runtime Environment and Development Kit (MDK2)", and the introduction says the REDK is the second generation of OpenMBEE's Model Development Kit, expanded and updated for SysML v2, with the Cameo plugin carrying the OpenSysML MDK name.

@@ -1891,7 +1891,7 @@ func (m *migration) valueSlot(e, slot, f *sysmlv1.Element, dir string) ([]string
 // instanceSlot resolves a slot holding instances: one redefines the feature
 // typed by its individual; several each subset it under a redefinition counting them.
 func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string) ([]string, string, bool) {
-	t := m.model.Ref(f, "type")
+	types := m.effectiveTypes(f)
 	var refs []string
 	for _, v := range slot.Owned("value") {
 		if v.Type != "InstanceValue" {
@@ -1913,8 +1913,11 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 		if kind == catNone || !individualTypes(kind, kw) {
 			return nil, slotValueSubject + describe(inst) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw, false
 		}
-		if !m.instanceOf(classifiers, t) {
-			return nil, slotValueSubject + describe(inst) + " is not an instance of " + qualifiedName(t) + ", the type of " + f.Name, false
+		// A property with no type, its own or inherited, takes any individual of its kind.
+		for _, t := range types {
+			if !m.instanceOf(classifiers, t) {
+				return nil, slotValueSubject + describe(inst) + " is not an instance of " + qualifiedName(t) + ", the type of " + f.Name, false
+			}
 		}
 		// The default individual types the property, so a slot can only repeat it.
 		if d, _ := m.typingIndividual(f, kw); d != nil && d != inst {
@@ -1946,6 +1949,39 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 		}
 	}
 	return lines, "", true
+}
+
+// effectiveTypes are the types a property's usage must conform to: its own,
+// else those of every written property it redefines, subsets or shadows by name.
+func (m *migration) effectiveTypes(f *sysmlv1.Element) []*sysmlv1.Element {
+	var types []*sysmlv1.Element
+	seen := map[*sysmlv1.Element]bool{}
+	var walk func(*sysmlv1.Element)
+	walk = func(p *sysmlv1.Element) {
+		if p == nil || seen[p] {
+			return
+		}
+		seen[p] = true
+		if t := m.model.Ref(p, "type"); t != nil {
+			if !seen[t] {
+				seen[t] = true
+				types = append(types, t)
+			}
+			return
+		}
+		for _, role := range []string{"redefinedProperty", "subsettedProperty"} {
+			for _, r := range m.model.Refs(p, role) {
+				if m.written(r) {
+					walk(r)
+				}
+			}
+		}
+		if r, redefinable := m.shadowed(p); redefinable {
+			walk(r)
+		}
+	}
+	walk(f)
+	return types
 }
 
 // article is the indefinite article before a word: "an item", "a part".
@@ -2244,7 +2280,7 @@ func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword,
 		return "port", "", ""
 	}
 	if t == nil {
-		return "ref", "", "the untyped property is written as a reference usage"
+		return m.untypedKeyword(p)
 	}
 	if owner == catUseCase && t.Type == "Actor" && m.written(t) {
 		return "actor", "", ""
@@ -2286,6 +2322,22 @@ func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword,
 		return kw, "ref ", note
 	}
 	return kw, "", note
+}
+
+// untypedKeyword is the usage an untyped property is written as: the kind its
+// tool's marker gives it, a ref its default individual can type, else a part
+// when composite and an attribute otherwise.
+func (m *migration) untypedKeyword(p *sysmlv1.Element) (keyword, prefix, note string) {
+	if kind := m.markedPropertyKind(p); kind != "" {
+		return kind, "", ""
+	}
+	if m.defaultIndividual(p) != nil {
+		return "ref", "", ""
+	}
+	if p.Attrs["aggregation"] == "composite" {
+		return "part", "", "the untyped composite property is written as a part"
+	}
+	return "attribute", "", "the untyped property is written as an attribute"
 }
 
 // typeKeyword is the usage keyword a property takes from its type alone,
@@ -4238,9 +4290,8 @@ var propertyKindMarkers = map[string]string{
 // isPropertyKindMarker recognises MagicDraw's marker of a property's kind, which
 // the usage's keyword already says; a same-named stereotype from elsewhere is kept.
 func (m *migration) isPropertyKindMarker(e *sysmlv1.Element, s *sysmlv1.Stereotype) bool {
-	kind, ok := propertyKindMarkers[s.Name]
-	if !ok || len(s.Tags) > 0 || e.Type != "Property" || e.Parent == nil ||
-		!isMagicDrawCustomization(s.Namespace) {
+	kind := propertyKindMarker(e, s)
+	if kind == "" || e.Parent == nil {
 		return false
 	}
 	owner, _ := m.classify(e.Parent)
@@ -4249,6 +4300,26 @@ func (m *migration) isPropertyKindMarker(e *sysmlv1.Element, s *sysmlv1.Stereoty
 		kind = "ref" // a constraint parameter is a reference by necessity
 	}
 	return usageKind(kw, prefix) == kind
+}
+
+// propertyKindMarker is the kind of usage MagicDraw's marker s says property e
+// is, or empty when s is not such a marker.
+func propertyKindMarker(e *sysmlv1.Element, s *sysmlv1.Stereotype) string {
+	kind, ok := propertyKindMarkers[s.Name]
+	if !ok || len(s.Tags) > 0 || e.Type != "Property" || !isMagicDrawCustomization(s.Namespace) {
+		return ""
+	}
+	return kind
+}
+
+// markedPropertyKind is the kind MagicDraw's marker on property e gives it, if any.
+func (m *migration) markedPropertyKind(e *sysmlv1.Element) string {
+	for _, s := range e.Stereotypes {
+		if kind := propertyKindMarker(e, s); kind != "" {
+			return kind
+		}
+	}
+	return ""
 }
 
 // usageKind is the kind of property a usage keyword and its `ref ` prefix express.

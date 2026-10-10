@@ -3,4 +3,5 @@
   interleaving of them instead of only declaration order, so a case such as
   `action s1 { assign x := x * 10; } action s2 { assign x := x + 2; }` reports both `12` and `30`.
   `declared` and the default `reverse` schedule still perform the steps in declaration order, so
-  default results do not change.
+  default results do not change. A case inherited as an action step keeps its case-body lowering and
+  declaring scope.
