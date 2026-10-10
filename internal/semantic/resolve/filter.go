@@ -255,9 +255,13 @@ func (r *Resolver) AdmittedChildrenOf(scope *symbols.Scope, fqn string, children
 // a name another document's import borrowed, or one this document's import
 // filter rejects, is no member of this document's root namespace.
 func (r *Resolver) AdmittedTopLevel(doc string, bindings []symbols.RootBinding) []*symbols.Symbol {
+	var root *symbols.Scope
+	if r.idx != nil {
+		root = r.idx.DocumentRoot(doc)
+	}
 	kept := make([]*symbols.Symbol, 0, len(bindings))
 	for _, b := range bindings {
-		if r.admitsUnderName(doc, "", b.Name, b.Sym) {
+		if r.admitsUnderName(doc, "", b.Name, b.Sym) && len(r.withoutHiddenImports(root, b.Name, []*symbols.Symbol{b.Sym})) == 1 {
 			kept = append(kept, b.Sym)
 		}
 	}

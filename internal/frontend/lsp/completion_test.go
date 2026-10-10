@@ -452,3 +452,36 @@ func TestCompletionDocumentationStaysPlainTextWithoutMarkdown(t *testing.T) {
 		t.Errorf("documentation = %q, want the declaration's comment", doc.Value)
 	}
 }
+
+// A root-level name two imports bring as distinct elements is hidden from the
+// document's root namespace, so completion does not offer it there.
+func TestCompletionOmitsHiddenRootImports(t *testing.T) {
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	name := uri.File("/tmp/hidden.sysml").Filename()
+	src := "package Left { part def Engine; }\npackage Right { part def Engine; }\nprivate import Left::*;\nprivate import Right::*;\npart e : Eng"
+	ws.Open(name, []byte(src), 1)
+
+	pos := offsetToPosition([]byte(src), len(src))
+	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
+			Position:     pos,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Completion err = %v", err)
+	}
+	labels := map[string]bool{}
+	for _, it := range list.Items {
+		labels[it.Label] = true
+	}
+	if labels["Engine"] {
+		t.Error("completion offers the hidden 'Engine'")
+	}
+	for _, want := range []string{"Left", "Right", "e"} {
+		if !labels[want] {
+			t.Errorf("completion missing %q", want)
+		}
+	}
+}

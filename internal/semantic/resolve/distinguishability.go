@@ -298,14 +298,31 @@ func (r *Resolver) hiddenImportMember(scope *symbols.Scope, sym *symbols.Symbol)
 	return false
 }
 
-// withoutHiddenImports drops from syms, reached under name, what scope hides.
+// withoutHiddenImports drops from syms, reached under name, what scope hides
+// and what a namespace its imports re-export from hides: a membership hidden
+// there is no member of that namespace, so no import brings it on from there.
 func (r *Resolver) withoutHiddenImports(scope *symbols.Scope, name string, syms []*symbols.Symbol) []*symbols.Symbol {
-	if scope == nil || r.overloading > 0 || len(r.importedCollisions(scope).hidden) == 0 {
+	if scope == nil || r.overloading > 0 || len(syms) == 0 {
+		return syms
+	}
+	through := r.collidedThrough(scope, name, map[*symbols.Scope]bool{})
+	if len(through) == 0 && len(r.importedCollisions(scope).hidden) == 0 {
 		return syms
 	}
 	out := syms[:0:0]
 	for _, sym := range syms {
-		if !r.hiddenImport(scope, name, sym) {
+		if r.hiddenImport(scope, name, sym) {
+			continue
+		}
+		key := symbols.KeyOf(r.aliasTarget(sym))
+		hidden := false
+		for _, member := range through {
+			if symbols.KeyOf(r.aliasTarget(member.sym)) == key {
+				hidden = true
+				break
+			}
+		}
+		if !hidden {
 			out = append(out, sym)
 		}
 	}

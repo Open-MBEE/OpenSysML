@@ -127,6 +127,30 @@ package Use { private import Left::*; private import Right::*; part l : Left::En
 	}
 }
 
+// A re-export namespace that hides a name has no member of it, so a qualified
+// name into the namespace importing from it reaches nothing: unresolved, not
+// ambiguous between the hidden memberships.
+func TestHiddenImportedMembershipsQualifiedThroughReexport(t *testing.T) {
+	r, root, scope := resolvedDoc(t, `package Left { part def Engine; }
+package Right { part def Engine; }
+package Both { public import Left::*; public import Right::*; }
+package Use { private import Both::*; part e : Use::Engine; part b : Both::Engine; }`)
+	for _, ref := range []string{"Use::Engine", "Both::Engine"} {
+		if got := bindingOf(t, r, root, scope, ref); got != "" {
+			t.Errorf("%s binds %q, want nothing", ref, got)
+		}
+	}
+	_, errors := diagnosticsOf(r)
+	if len(errors) != 2 {
+		t.Fatalf("errors = %v, want two unresolved references", errors)
+	}
+	for _, err := range errors {
+		if !strings.HasPrefix(err, "unresolved reference: ") {
+			t.Errorf("error %q, want an unresolved reference", err)
+		}
+	}
+}
+
 // A membership is hidden whole: a short name two imports share hides both
 // memberships under their names too.
 func TestHiddenImportedMembershipsShortName(t *testing.T) {
