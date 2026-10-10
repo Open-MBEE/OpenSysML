@@ -83,7 +83,7 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 	if r.idx.DocumentLibraryTier(r.document).Library() {
 		return
 	}
-	names, collisions := r.importCollisions(scope, scope)
+	names, collisions := r.importCollisions(scope, scope, r.inheritedAgainstImports(scope))
 	for _, name := range names {
 		kept := collisions[name]
 		imported := 0
@@ -103,8 +103,10 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 // least one of them imported, with the memberships that are indistinguishable
 // under it, in the order the names are first imported: the memberships KerML
 // 7.2.5.4 hides. The rest of the imported memberships conflict with nothing.
-// into is the namespace the imports are admitted into (see ImportedElementsInto).
-func (r *Resolver) importCollisions(into, scope *symbols.Scope) ([]string, map[string][]importedMember) {
+// into is the namespace the imports are admitted into (see ImportedElementsInto);
+// inherited is what the namespace inherits, by name, for the imports to be
+// told apart from as well (nil to judge them against owned names and each other).
+func (r *Resolver) importCollisions(into, scope *symbols.Scope, inherited map[string][]*symbols.Symbol) ([]string, map[string][]importedMember) {
 	imports := r.scopeImports(scope)
 	if len(imports) == 0 {
 		return nil, nil
@@ -145,7 +147,6 @@ func (r *Resolver) importCollisions(into, scope *symbols.Scope) ([]string, map[s
 			}
 		}
 	}
-	inherited := r.inheritedAgainstImports(scope)
 	var colliding []string
 	collisions := map[string][]importedMember{}
 	for _, name := range names {
@@ -495,8 +496,9 @@ func (r *Resolver) importedMembers(owner, sup *symbols.Symbol) []*symbols.Symbol
 
 // hiddenImports is the imported memberships of a namespace that are no
 // memberships of it, so that a subtype inherits none of them: those an owned
-// name hides and those sharing a name with another imported or an inherited
-// membership (KerML 7.2.5.4, 7.3.2.1, 8.3.2.4.5 importedMemberships).
+// name hides and those sharing a name with another imported membership (KerML
+// 7.2.5.4, 8.3.2.4.5 importedMemberships). What the namespace inherits is not
+// consulted: that would walk its generals, which may lead back here.
 func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool {
 	imports := r.scopeImports(scope)
 	if len(imports) == 0 {
@@ -522,7 +524,7 @@ func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool 
 			}
 		}
 	}
-	_, collisions := r.importCollisions(scope, scope)
+	_, collisions := r.importCollisions(scope, scope, nil)
 	for _, kept := range collisions {
 		for _, member := range kept {
 			if member.imp != nil {

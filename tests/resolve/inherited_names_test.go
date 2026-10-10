@@ -558,3 +558,23 @@ func TestHiddenImportsOfAGeneralAreNotInherited(t *testing.T) {
 		}
 	}
 }
+
+// A specialization cycle whose types both import must still be answered: the
+// hidden imports of a general are computed without walking its inheritance.
+func TestCyclicGeneralsWithImportsAreAnswered(t *testing.T) {
+	r, _, _ := resolvedDoc(t, `package P {
+		package X { part x; }
+		package Y { part y; }
+		part def A :> B { import X::*; }
+		part def B :> A { import Y::*; }
+		part def S :> A { part x; }
+	}`)
+	var got []string
+	for _, d := range diagnosticsWithCode(r, resolve.CodeNameConflict) {
+		got = append(got, d.Message)
+	}
+	want := []string{"Duplicate of inherited member name 'x' from X"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("name conflicts = %q, want %q", got, want)
+	}
+}
