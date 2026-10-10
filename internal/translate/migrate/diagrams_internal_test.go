@@ -151,7 +151,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Shutting", "_shutting", "SysML Activity Diagram", "_pump"),
-			[]string{"action def Shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n        rep language \"JavaScript\" /* 1; */"}, Mapped,
+			[]string{"action def Shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n        rep language \"JavaScript\" /* 1;*/"}, Mapped,
 			"its owner OpaqueBehavior Valve::Shutting is written as the body of action def Valve::Shut, whose method it is"},
 		{"a diagram owned by an action node is written in the body of the node's activity",
 			`<packagedElement xmi:type="uml:Activity" xmi:id="_fill" name="Fill">
