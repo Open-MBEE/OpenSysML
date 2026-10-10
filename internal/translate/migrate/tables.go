@@ -472,11 +472,8 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 	return rows
 }
 
-// packageOwnedUsages keeps the usages among rows (usages all) that a package
-// owns — the instances of the scope — dropping the features its types own: a
-// property, a slot bound to an instance. Descendants yields no element of its
-// source, so the nested elements are those of the types the scope's packages
-// own directly, and of a root that is itself a type: a classifier scope.
+// packageOwnedUsages keeps the usages a package owns — the scope's instances —
+// dropping those nested in a type the scope's packages own or that a root is.
 func packageOwnedUsages(rows, src qx, roots []string) qx {
 	packages := whereType(src, "Package")
 	var members qx
