@@ -6,3 +6,6 @@ mkdocs-redirects==1.2.3
 mkdocstrings==1.0.6
 mkdocstrings-python==2.0.9
 griffelib==2.3.0
+# pymdown-extensions 12.2 changed Highlight's constructor; mkdocstrings 1.0.6
+# still calls the 12.1 form, so the site build fails on every mkdocstrings page.
+pymdown-extensions==12.1

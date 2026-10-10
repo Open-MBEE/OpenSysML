@@ -1,0 +1,1 @@
+- **The documentation site builds again.** `docs-requirements.txt` pins `pymdown-extensions` to 12.1: 12.2 changed the `Highlight` extension's constructor, which `mkdocstrings` 1.0.6 still calls in the old form, so `make docs` failed on every page that documents a Python API.
