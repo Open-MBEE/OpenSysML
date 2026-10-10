@@ -28,6 +28,9 @@ func (r Result) Standing() string {
 		strength += " over " + over(r.Question.Free)
 	}
 	evidence := r.evidence()
+	if r.Reason != "" && r.Strength == Observed {
+		evidence += "; " + r.Reason
+	}
 	for _, scope := range r.Scope {
 		evidence += "; " + string(scope)
 	}

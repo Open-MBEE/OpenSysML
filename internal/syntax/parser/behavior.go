@@ -662,8 +662,13 @@ func (p *Parser) parseInitialNode(tok lexer.Token) ast.Node {
 	}
 
 	var successor *ast.QualifiedName
+	var targetMultiplicity *ast.Multiplicity
 	if p.atKeyword("then") {
 		p.advance() // consume 'then'
+		// The target end may carry a crossing multiplicity: `then [m] y`.
+		if p.at(lexer.LBracket) {
+			targetMultiplicity = p.parseMultiplicity()
+		}
 		successor = p.parseChainedName()
 	}
 
@@ -678,11 +683,12 @@ func (p *Parser) parseInitialNode(tok lexer.Token) ast.Node {
 	members, hasBody := p.parseNodeBodyContext(start, "initial node", bodyOther)
 
 	node := &ast.InitialNode{
-		First:     first,
-		Successor: successor,
-		Guard:     guard,
-		Members:   members,
-		HasBody:   hasBody,
+		First:              first,
+		Successor:          successor,
+		Guard:              guard,
+		TargetMultiplicity: targetMultiplicity,
+		Members:            members,
+		HasBody:            hasBody,
 	}
 	node.NodeSpan = p.spanFrom(start)
 
@@ -3333,6 +3339,11 @@ func (p *Parser) parseTransitionTail(start int, name ast.NameSegment, source *as
 			p.advance() // consume 'then'
 			if node.Target != nil {
 				p.error(p.peek().Span, "a transition has one target: the name after 'then'")
+			}
+			// An action body's guarded succession admits a written target end:
+			// `then [m] target` (SysML.xtext GuardedSuccession → ConnectorEnd).
+			if p.bodyContext().carriesActions() && p.at(lexer.LBracket) {
+				node.TargetMultiplicity = p.parseMultiplicity()
 			}
 			node.Target = p.parseChainedName()
 			continue
