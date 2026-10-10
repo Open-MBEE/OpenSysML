@@ -191,10 +191,19 @@ a case that hits it fails with a message telling the author to raise it:
   timeout; the referee's completion query still proves every run ends within N, so a
   budget too low fails the case rather than hiding behavior.
 
-`TestExecutionConformance` explores cases with `outcomes`; the check corpus can
-also explore a single-result case with a `.check.expected.json` entry. The
-default schedule is deterministic, so a case with an admissible set still keeps
-its exact golden trace.
+- `exploreNotes`: optional; the coverage notes exploring the case must record,
+  each matched exactly and in canonical order — a schedule oracle's own
+  disclaimer about the orders it could not vary. Stating it explores the case
+  even without `outcomes`; the exact set it explores to is then asserted only
+  where the case also carries `outcomes` or `outputs`. Where the default budget
+  leaves that exploration incomplete, a case pairs `exploreNotes` with
+  `exploreBudget` for completeness only — a budget never changes a result's
+  standing.
+
+`TestExecutionConformance` explores cases with `outcomes` or `exploreNotes`; the
+check corpus can also explore a single-result case with a `.check.expected.json`
+entry. The default schedule is deterministic, so a case with an admissible set
+still keeps its exact golden trace.
 
 ### Scheduling Policy
 

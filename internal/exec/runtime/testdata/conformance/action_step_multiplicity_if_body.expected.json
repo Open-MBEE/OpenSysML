@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"libraries": true,
+	"exploreNotes": [
+		"the performances of a repeated step in a loop or if body are each run as one move, so their interleavings were not explored"
+	],
+	"outputs": {
+		"c": {"type": "Integer", "value": 10}
+	}
+}

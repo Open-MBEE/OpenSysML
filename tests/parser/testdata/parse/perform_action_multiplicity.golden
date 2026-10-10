@@ -1,0 +1,24 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Host"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="count" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (Membership visibility="default"
+            (Usage kind="state" name="life" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="exhibit state"
+              (EntryMember)
+              (SuccessionEdge source="@entry" target="idle")
+              (SubstateMember name="idle")))
+          (Membership visibility="default"
+            (Usage kind="action" name="run" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+              (Multiplicity range=false
+                (LiteralInteger value="2"))
+              (Membership visibility="default"
+                (Usage kind="action" name="step" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (*ast.AssignmentActionNode)))
+              (InitialNode name="step" successor=""))))))))
