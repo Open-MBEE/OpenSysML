@@ -2316,7 +2316,8 @@ func (a *activity) callCalc(n *sysmlv1.Element, name string, b *sysmlv1.Element)
 	}
 	cat, _ := a.m.classify(b)
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, nil)
+		ins, outs := inputPins(n), outputPins(n)
+		a.prepareInputPinNames(n, ins)
 		var args []string
 		if ctxArg != "" && a.m.contextLeads(b, cat) {
 			args = append(args, ctxArg)
@@ -2330,13 +2331,15 @@ func (a *activity) callCalc(n *sysmlv1.Element, name string, b *sysmlv1.Element)
 		results := n.Owned("result")
 		call := a.m.ref(b, a.def) + "(" + strings.Join(args, ", ") + ")"
 		if len(results) == 0 {
+			a.declarePinsWithValues(n, ins, outs, nil, nil)
 			a.m.w.lines(commentLines("evaluates " + call + ", whose result no pin takes"))
 			return
 		}
+		// The result pin is declared once, taking the call's value.
+		a.declarePinsWithValues(n, ins, outs, nil, map[*sysmlv1.Element]string{results[0]: call})
 		for _, r := range results[1:] {
 			a.m.add(r, Unmapped, "", "a calc has one result; the pin takes nothing")
 		}
-		a.m.w.line("out " + writeName(a.names[results[0]]) + "[1] = " + call + ";")
 	})
 	a.m.add(n, Approximated, name, joinNotes(cnote, "the calc "+qualifiedName(b)+" is evaluated when the action runs; a calc is no action node"))
 }

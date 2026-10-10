@@ -25,9 +25,9 @@ package ViewsModel {
             subject;
             stakeholder reviewer : Reviewer;
             frame 'concern 2';
-            frame 'concern';
-            frame ViewsModel::'concern';
-            frame $::'concern';
+            frame concern 'concern 3' ::> 'concern';
+            frame concern 'concern 4' ::> ViewsModel::'concern';
+            frame concern 'concern 5' ::> $::'concern';
             frame concern {
                 doc /* legacy concern */
             }
@@ -37,7 +37,7 @@ package ViewsModel {
             require constraint {
                 doc /* review purpose */
             }
-            metadata MigrationMetadata::SynthesizedName about reviewer;
+            metadata MigrationMetadata::SynthesizedName about reviewer, 'concern 3', 'concern 4', 'concern 5';
         }
         satisfy 'review Viewpoint';
         rendering {

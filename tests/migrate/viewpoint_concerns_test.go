@@ -35,7 +35,10 @@ func TestViewpointConcernMigration(t *testing.T) {
 		"doc /* language: English",
 		" * presentation: dashboard",
 		"frame 'concern 2';",
-		"frame ViewsModel::'concern';",
+		"frame concern 'concern 3' ::> 'concern';",
+		"frame concern 'concern 4' ::> ViewsModel::'concern';",
+		"frame concern 'concern 5' ::> $::'concern';",
+		"metadata MigrationMetadata::SynthesizedName about reviewer, 'concern 3', 'concern 4', 'concern 5';",
 		"doc /* legacy concern */",
 		"concern 'concern' {",
 		"concern 'concern 2' {",
@@ -103,6 +106,15 @@ func TestViewpointConcernMigration(t *testing.T) {
 	}
 	if diagnostics := errors(t, "viewpoint_concerns.sysml", r.Notation); len(diagnostics) != 0 {
 		t.Fatalf("migrated notation has %d errors: %v", len(diagnostics), diagnostics)
+	}
+	if n := strings.Count(string(r.Notation), "frame 'concern 2';"); n != 1 {
+		t.Errorf("the one frame whose effective name is its own appears %d times unnamed, want 1", n)
+	}
+	for _, id := range []string{"_cVp", "_shared", "_cRoot"} {
+		if entries := entriesFor(r, id); len(entries) != 1 ||
+			!strings.Contains(entries[0].Note, "since an unnamed frame would repeat the name 'concern' of another member") {
+			t.Errorf("concern %s framed under a fresh name has entries %+v, want the frame's name explained", id, entries)
+		}
 	}
 
 	for _, id := range []string{"_cPkg", "_shared", "_cRoot"} {

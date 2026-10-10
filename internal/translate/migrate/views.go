@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -481,17 +482,21 @@ func (m *migration) viewpointTags(e *sysmlv1.Element) {
 	}
 	m.w.line("subject;")
 	wroteStakeholder := false
+	bound := map[string]bool{}
 	for _, id := range vp.IDs("stakeholder") {
 		wroteStakeholder = wroteStakeholder || m.stakeholderWritable(e, id)
-		m.stakeholder(e, id)
+		if name := m.stakeholder(e, id); name != "" {
+			bound[name] = true
+		}
 	}
 	if wroteStakeholder {
 		m.add(e, Mapped, "", subjectNote("stakeholders"))
 	}
+	unnamed := m.unnamedFrames(e, bound)
 	for _, c := range m.concernLists[e] {
 		text := m.commentBody(c)
 		if info := m.concerns[c]; info != nil && info.homed {
-			m.w.line("frame " + m.ref(c, e) + ";")
+			m.frameHomed(e, c, unnamed, bound)
 			continue
 		}
 		if text == "" {
@@ -515,6 +520,54 @@ func (m *migration) viewpointTags(e *sysmlv1.Element) {
 	if vp.Tag("language") != "" || vp.Tag("presentation") != "" {
 		m.downgrade(e, "SysMLv1Library::ViewpointData is unavailable, so language and presentation are retained as documentation")
 	}
+}
+
+// unnamedFrames is the set of homed concerns a viewpoint frames in the
+// reference form `frame <ref>;`. An unnamed usage takes the effective name of
+// the feature it references (KerML 8.3.3.3 Feature::effectiveName), so a frame
+// stays unnamed only where no other member of the viewpoint — a stakeholder in
+// bound, or another frame — binds that name. The names kept are added to bound.
+func (m *migration) unnamedFrames(e *sysmlv1.Element, bound map[string]bool) map[*sysmlv1.Element]bool {
+	count := map[string]int{}
+	var homed []*sysmlv1.Element
+	for _, c := range m.concernLists[e] {
+		if info := m.concerns[c]; info != nil && info.homed {
+			homed = append(homed, c)
+			count[m.nameOf(c)]++
+		}
+	}
+	unnamed := map[*sysmlv1.Element]bool{}
+	for _, c := range homed {
+		name := m.nameOf(c)
+		if count[name] > 1 || bound[name] {
+			continue
+		}
+		unnamed[c] = true
+		bound[name] = true
+	}
+	return unnamed
+}
+
+// frameHomed frames a concern declared elsewhere: `frame <ref>;`, or, where
+// that frame's effective name would repeat another member's, the named form
+// `frame concern <name> ::> <ref>;` under a name fresh in the viewpoint, so its
+// memberships stay distinguishable (KerML 8.3.2.4.5).
+func (m *migration) frameHomed(e, c *sysmlv1.Element, unnamed map[*sysmlv1.Element]bool, bound map[string]bool) {
+	ref := m.ref(c, e)
+	if unnamed[c] {
+		m.w.line("frame " + ref + ";")
+		return
+	}
+	base := m.nameOf(c)
+	name := base
+	for i := 2; bound[name] || m.nameTakenBut(nil, e, name); i++ {
+		name = fmt.Sprintf("%s %d", base, i)
+	}
+	m.take(e, name)
+	bound[name] = true
+	m.w.line("frame concern " + writeName(name) + " ::> " + ref + ";")
+	m.w.madeUp(writeName(name))
+	m.add(c, Mapped, "", "framed by "+m.nameFor(e)+" as "+writeName(name)+", since an unnamed frame would repeat the name "+writeName(base)+" of another member")
 }
 
 // viewpointDoc is the documentation a viewpoint's unsupported tags write.
@@ -704,26 +757,27 @@ func (m *migration) stakeholderWritable(vp *sysmlv1.Element, id string) bool {
 
 // stakeholder writes one stakeholder usage of a viewpoint, typed by the
 // definition the stakeholder class becomes.
-func (m *migration) stakeholder(vp *sysmlv1.Element, id string) {
+func (m *migration) stakeholder(vp *sysmlv1.Element, id string) string {
 	s := m.model.Lookup(id)
 	switch {
 	case s == nil:
 		m.downgrade(vp, "the stakeholder tag names "+id+notInDocument)
-		return
+		return ""
 	case s.IsProxy():
 		m.downgrade(vp, stakeholderSubject+qualifiedName(s)+livesOutsideDocument)
-		return
+		return ""
 	case !m.written(s):
 		m.downgrade(vp, stakeholderSubject+qualifiedName(s)+" is not migrated and is not written")
-		return
+		return ""
 	}
 	if cat, _ := m.classify(s); cat != catPartDef && cat != catOccurrenceDef {
 		m.downgrade(vp, stakeholderSubject+qualifiedName(s)+" becomes a "+cat.keyword()+", which cannot type a stakeholder")
-		return
+		return ""
 	}
 	name := m.freshName(vp, lowerFirst(m.nameFor(s)))
 	m.w.madeUp(writeName(name))
 	m.w.line("stakeholder " + writeName(name) + " : " + m.ref(s, vp) + ";")
+	return name
 }
 
 // frameConcern writes a concern a viewpoint frames, documented by its text.

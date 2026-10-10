@@ -510,6 +510,15 @@ mode (see [Imported memberships](#imported-memberships) below). The body-sensiti
 pilot's alone; ours follows the specification. On the metaclass clause the specification is
 clear and the pilot is short: it does not implement the clause, and ours does.
 
+**Referee note, framed concerns.** An unnamed `frame <concern>;` takes the referenced concern's
+name, so two frames of one name in a viewpoint are the owned-name case above — both tools warn.
+The named form `frame concern <name> ::> <concern>;` (SysML.xtext `FramedConcernUsage`) is clean
+here; the pilot adds `Duplicate of inherited member name 'this' from ownedPerformances,
+subperformances` at it where the framed concern declares a `subject` and is owned by the view
+definition enclosing the viewpoint (silent for a package-level concern, or one without a
+subject). The message names two library features as the supertypes a `this` is inherited from,
+which no clause of KerML provides for; left as the pilot's.
+
 **Question for the authors:** for two `perform a;` in one body, are the memberships
 indistinguishable regardless of whether the usages have bodies?
 
