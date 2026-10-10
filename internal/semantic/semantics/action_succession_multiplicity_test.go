@@ -45,6 +45,35 @@ func TestActionSuccessionTargetEndMultiplicity(t *testing.T) {
 	}
 }
 
+// A guarded succession's `then [m] b` writes the same target end on the
+// transition it declares, whether spelled `succession first a if g then [m] b`
+// or the keyword-optional `first a if g then [m] b` — both a TransitionMember.
+func TestGuardedSuccessionTargetEndMultiplicity(t *testing.T) {
+	m, root := buildModel(t, `action def A {
+		action a; action b; action c;
+		succession first a if true then [0..1] b;
+		first a if true then [*] c;
+	}`)
+	var found int
+	for _, succession := range m.ActionSuccessions(sym(t, root, "A")) {
+		decl, ok := succession.Decl.(*ast.TransitionMember)
+		if !ok {
+			continue
+		}
+		if decl.TargetMultiplicity == nil {
+			t.Errorf("guarded succession to %v lost its parsed target end", decl.Target)
+			continue
+		}
+		if succession.Target.Multiplicity != decl.TargetMultiplicity {
+			t.Error("guarded succession's semantic target end did not retain the parsed multiplicity")
+		}
+		found++
+	}
+	if found != 2 {
+		t.Fatalf("found %d guarded successions carrying a target end, want 2", found)
+	}
+}
+
 // `then [m] fork;` after `action fork;` reaches the declared member by name and
 // carries the multiplicity on that target end; no fork node is declared.
 func TestActionSuccessionTargetMultiplicityReachesADeclaredNodeWordMember(t *testing.T) {

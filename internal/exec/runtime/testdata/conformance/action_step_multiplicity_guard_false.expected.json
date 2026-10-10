@@ -1,0 +1,6 @@
+{
+	"type": "action",
+	"libraries": true,
+	"schedule": "declared",
+	"error": "a false guard leaves the performances of the repeated step unordered with respect to its source"
+}
