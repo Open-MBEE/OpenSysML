@@ -58,9 +58,7 @@ func moduleGenerals(e *xmi.Element) []string {
 		if local(g.Tag) != "generalization" {
 			continue
 		}
-		for _, id := range strings.Fields(g.Attr("general")) {
-			ids = append(ids, id)
-		}
+		ids = append(ids, strings.Fields(g.Attr("general"))...)
 		for _, target := range g.Children {
 			if local(target.Tag) != "general" {
 				continue
