@@ -3788,7 +3788,7 @@ func (m *migration) verify(d, client, req *sysmlv1.Element, name string) (string
 // definitionEnd reports whether e is written as a v2 definition, which an
 // allocation usage cannot take as an end: only a feature is a usage end.
 func (m *migration) definitionEnd(e *sysmlv1.Element) bool {
-	if m.asUsage[e] {
+	if m.asUsage[e] || m.selfUsage(e) {
 		return false
 	}
 	switch c, _ := m.classify(e); c {

@@ -84,7 +84,7 @@ func (m *Model) satisfactionEdges(sym *symbols.Symbol, kind RelationshipKind) []
 	if !ok || usage.Kind != ast.UsageSatisfy || (usage.Keyword == "verify") != (kind == RelationshipVerification) {
 		return nil
 	}
-	var requirement, definition, subject *symbols.Symbol
+	var requirement, original, subject *symbols.Symbol
 	for _, rel := range usage.Relationships {
 		if rel == nil || rel.Target == nil {
 			continue
@@ -95,12 +95,15 @@ func (m *Model) satisfactionEdges(sym *symbols.Symbol, kind RelationshipKind) []
 		}
 		switch rel.Kind {
 		case ast.RelSubsets:
-			if !usage.DeclaresRequirement {
+			switch {
+			case !usage.DeclaresRequirement:
 				requirement = target
+			case target.Kind == symbols.SymbolRequirementUsage:
+				original = target
 			}
 		case ast.RelTyping:
 			if usage.DeclaresRequirement && target.Kind == symbols.SymbolRequirementDef {
-				definition = target
+				original = target
 			}
 		case ast.RelSubject:
 			subject = target
@@ -119,8 +122,8 @@ func (m *Model) satisfactionEdges(sym *symbols.Symbol, kind RelationshipKind) []
 		return nil
 	}
 	out := []RelationshipEdge{{Source: subject, Target: requirement}}
-	if definition != nil {
-		out = append(out, RelationshipEdge{Source: subject, Target: definition})
+	if original != nil {
+		out = append(out, RelationshipEdge{Source: subject, Target: original})
 	}
 	return out
 }

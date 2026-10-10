@@ -56,6 +56,23 @@ func TestAllocateFromActionToPartIsAnAllocationDef(t *testing.T) {
 	}
 }
 
+// An «Allocate» whose end is a requirement, written as a usage no allocation
+// end can be typed by, stays a dependency and the report says why.
+func TestAllocateToARequirementStaysADependency(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_flow" name="Flow"/>
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_allocation" client="_pump" supplier="_flow"/>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_pump"/>
+  <sysml:Requirement xmi:id="_s2" base_Class="_flow"/>
+  <sysml:Allocate xmi:id="_allocate" base_Abstraction="_allocation"/>`)
+	wantLine(t, r.Notation, "requirement Flow;")
+	wantNoLine(t, r.Notation, "allocation def")
+	wantLine(t, r.Notation, "dependency Pump to Flow;")
+	wantNote(t, r, "_allocation", migrate.Approximated, "its end Flow has no enclosing written definition to type an allocation end, so a plain dependency stands for it")
+	wantClean(t, "allocate-to-requirement.sysml", r)
+}
+
 func TestAllocateFromDefinitionToFeatureKeepsTheFeature(t *testing.T) {
 	members := `
     <packagedElement xmi:type="uml:Class" xmi:id="_target" name="Target">
