@@ -46,7 +46,10 @@ model → queries → document plan → document tree → Markdown or HTML → (
 Everything the engine understands is declared in one bundled library package,
 `DocumentQueries`. It is a non-normative OpenSysML extension — the types are
 ordinary SysML v2 declarations, so a model using them still parses everywhere,
-but only OpenSysML gives them document semantics.
+but only OpenSysML gives them document semantics. The extension libraries are
+maintained upstream at
+[Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library)
+and vendored here pinned.
 
 **Query operations** (each a `calc def` taking and returning ordered element
 sequences):

@@ -47,10 +47,11 @@ model changes: its renderings are byte-identical to what they were.
 Six metadata definitions, shipped as a non-normative OpenSysML library extension in the
 same tier as `IdentityMetadata` (`internal/workspace/libs/stdlib/OpenSysML
 Libraries/DiagramLayout.sysml`, counted by the stdlib conformance gate with the other
-extensions):
+extensions; maintained upstream at Open-MBEE/OpenSysML-Extensions-Library and vendored
+here pinned by `scripts/extension-libraries-pin.sh`):
 
 ```sysml
-standard library package DiagramLayout {
+library package DiagramLayout {
     metadata def Layout {
         attribute x : ScalarValues::Real;
         attribute y : ScalarValues::Real;

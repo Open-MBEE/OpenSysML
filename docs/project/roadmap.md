@@ -2362,7 +2362,7 @@ supplies it, and the seam is the one the runtime already has.
 
 ## B1 — the binding vocabulary in the notation
 
-A `Bindings` package under `OpenSysML Libraries/`, beside `IdentityMetadata`, as standard
+A `Bindings` package under `OpenSysML Libraries/` — the extension libraries now maintained upstream at [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library) and vendored here pinned — beside `IdentityMetadata`, as standard
 user-defined metadata so every conforming tool reads a bound model as an annotated one: an
 `@External` on a calc or function definition whose body is absent (the host computes it), an
 `@ExternalValue` on an attribute or item usage with no value expression (the host supplies it,
