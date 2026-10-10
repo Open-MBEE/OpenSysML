@@ -37,6 +37,32 @@ type changePoll struct {
 	waited      map[*lower.Transition]bool
 }
 
+// changeMark is a transition's change-trigger bookkeeping, with each entry's presence.
+type changeMark struct {
+	pending, hadPending, observed, hadObserved, fired, hadFired bool
+}
+
+func (e *StateExecutor) changeMarkOf(trans *lower.Transition) changeMark {
+	var m changeMark
+	m.pending, m.hadPending = e.changePending[trans]
+	m.observed, m.hadObserved = e.changeObserved[trans]
+	m.fired, m.hadFired = e.changeFired[trans]
+	return m
+}
+
+func (e *StateExecutor) restoreChangeMark(trans *lower.Transition, m changeMark) {
+	restore := func(values map[*lower.Transition]bool, value, present bool) {
+		if present {
+			values[trans] = value
+		} else {
+			delete(values, trans)
+		}
+	}
+	restore(e.changePending, m.pending, m.hadPending)
+	restore(e.changeObserved, m.observed, m.hadObserved)
+	restore(e.changeFired, m.fired, m.hadFired)
+}
+
 // pollChangeEvents re-tests the ChangeEvent conditions the active configuration
 // watches and takes the transitions they enable, reporting whether the rise was
 // dispatched: taken, or consumed by transitions it enabled without firing any, as
@@ -339,50 +365,20 @@ func (e *StateExecutor) observeChangedValue(relevant func([]*FeatureValue) bool)
 			if err != nil {
 				continue
 			}
-			pending, hadPending := e.changePending[trans]
-			observed, hadObserved := e.changeObserved[trans]
-			fired, hadFired := e.changeFired[trans]
-			nextPending, hasPending := pending, hadPending
-			nextObserved, hasObserved := holds, true
-			nextFired, hasFired := fired, hadFired
+			prior := e.changeMarkOf(trans)
+			observed := e.changeObserved[trans]
 			if !holds {
-				nextFired, hasFired = false, false
+				e.changeObserved[trans] = false
+				delete(e.changeFired, trans)
 			} else {
-				if !observed && !fired {
-					nextPending, hasPending = true, true
+				if !observed && !e.changeFired[trans] {
+					e.changePending[trans] = true
 				}
+				e.changeObserved[trans] = true
 			}
-			changed := hadPending != hasPending || hadPending && pending != nextPending ||
-				hadObserved != hasObserved || hadObserved && observed != nextObserved ||
-				hadFired != hasFired || hadFired && fired != nextFired
-			if changed {
-				trans := trans
-				e.ctx.noteProbeUndo(func() {
-					restore := func(values map[*lower.Transition]bool, value bool, present bool) {
-						if present {
-							values[trans] = value
-						} else {
-							delete(values, trans)
-						}
-					}
-					restore(e.changePending, pending, hadPending)
-					restore(e.changeObserved, observed, hadObserved)
-					restore(e.changeFired, fired, hadFired)
-				})
+			if e.changeMarkOf(trans) != prior {
+				e.ctx.noteProbeUndo(func() { e.restoreChangeMark(trans, prior) })
 			}
-			apply := func(values map[*lower.Transition]bool, old bool, hadOld bool, value bool, present bool) {
-				if hadOld == present && (!hadOld || old == value) {
-					return
-				}
-				if present {
-					values[trans] = value
-				} else {
-					delete(values, trans)
-				}
-			}
-			apply(e.changePending, pending, hadPending, nextPending, hasPending)
-			apply(e.changeObserved, observed, hadObserved, nextObserved, hasObserved)
-			apply(e.changeFired, fired, hadFired, nextFired, hasFired)
 		}
 	}
 	for _, leaf := range e.activeLeaves() {
