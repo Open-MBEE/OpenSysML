@@ -561,6 +561,17 @@ names count as names, and two members whose metaclasses conform in neither direc
   member, which it reaches first. An owned member of that name hides both and silences the
   warning, as it does for two imports. The pilot never compares imported with inherited
   memberships either.
+- *A hidden import is not inherited.* A membership §7.2.5.4 hides — colliding with another
+  import's name or with an owned name — is excluded from `importedMemberships` and so is no
+  membership of the importing namespace; a type specializing that namespace inherits none of it
+  (`Type::inheritedMembership` draws on the general's memberships, §8.3.3.1.10). `view v :>
+  Introduction;` where `Introduction` has `expose Fleet::**` bringing two parts' `payload` draws
+  the import warning at `Introduction` alone; `v` is clean (`resolve.Resolver.hiddenImports`,
+  which reads the same collisions `checkImportedNames` reports, through `importCollisions`). The
+  pilot reports `Duplicate of inherited member name 'payload' from Trailer, Truck` at `v` as
+  well: its `NamespaceImportAdapter` adds every visible membership (above), so the hidden pair is
+  inherited there — the same shortfall, one level down. Locked by
+  `TestHiddenImportsOfAGeneralAreNotInherited`.
 - *An imported name an owned member hides takes no part:* `Namespace::importedMemberships(excluded)`
   excludes a membership whose names an owned membership repeats, so `part def Engine;` declared in
   `C` silences both imports.

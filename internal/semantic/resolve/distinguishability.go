@@ -80,9 +80,34 @@ type boundName struct {
 // pass leaves library supertypes out. Resolution still takes the first
 // membership, so the warning sits on the import bringing the later one.
 func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
-	imports := r.scopeImports(scope)
-	if len(imports) == 0 || r.idx.DocumentLibraryTier(r.document).Library() {
+	if r.idx.DocumentLibraryTier(r.document).Library() {
 		return
+	}
+	names, collisions := r.importCollisions(scope, scope)
+	for _, name := range names {
+		kept := collisions[name]
+		imported := 0
+		for _, member := range kept {
+			if member.imp != nil {
+				imported++
+			}
+		}
+		if imported == 0 {
+			continue
+		}
+		r.duplicateImported(name, kept)
+	}
+}
+
+// importCollisions is each name several memberships of a namespace share, at
+// least one of them imported, with the memberships that are indistinguishable
+// under it, in the order the names are first imported: the memberships KerML
+// 7.2.5.4 hides. The rest of the imported memberships conflict with nothing.
+// into is the namespace the imports are admitted into (see ImportedElementsInto).
+func (r *Resolver) importCollisions(into, scope *symbols.Scope) ([]string, map[string][]importedMember) {
+	imports := r.scopeImports(scope)
+	if len(imports) == 0 {
+		return nil, nil
 	}
 	hidden := map[string]bool{}
 	owned, aliases := r.DistinguishableMembers(scope)
@@ -100,7 +125,7 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 		if !ok || target == nil || r.idx.Library(target) {
 			continue
 		}
-		for _, sym := range r.ImportedElementsInto(scope, scope, imp) {
+		for _, sym := range r.ImportedElementsInto(into, scope, imp) {
 			if sym.Name == "" || r.idx.Library(sym) || !contributesName(sym) || !r.BindsName(sym) {
 				continue
 			}
@@ -121,6 +146,8 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 		}
 	}
 	inherited := r.inheritedAgainstImports(scope)
+	var colliding []string
+	collisions := map[string][]importedMember{}
 	for _, name := range names {
 		members := byName[name]
 		for _, sym := range inherited[name] {
@@ -132,20 +159,18 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 		// Keep the members some other member is indistinguishable from; the
 		// rest conflict with nothing.
 		var kept []importedMember
-		imported := 0
 		for i, member := range members {
 			if len(r.duplicatesOf(member.sym, importedSymbolsExcept(members, i))) > 0 {
 				kept = append(kept, member)
-				if member.imp != nil {
-					imported++
-				}
 			}
 		}
-		if len(kept) < 2 || imported == 0 {
+		if len(kept) < 2 {
 			continue
 		}
-		r.duplicateImported(name, kept)
+		colliding = append(colliding, name)
+		collisions[name] = kept
 	}
+	return colliding, collisions
 }
 
 // inheritedAgainstImports is what a type inherits, by name, for its imported
@@ -453,18 +478,59 @@ func (r *Resolver) inheritableMembers(owner, sup *symbols.Symbol, model supertyp
 // membership is inherited whether the namespace owns it or imported it
 // (KerML 8.4.3.2). Library elements are left out, as library supertypes are.
 func (r *Resolver) importedMembers(owner, sup *symbols.Symbol) []*symbols.Symbol {
+	hidden := r.hiddenImports(sup.Scope)
 	var out []*symbols.Symbol
 	for _, imp := range r.scopeImports(sup.Scope) {
 		if imp.Visibility == ast.VisibilityPrivate {
 			continue
 		}
 		for _, sym := range r.ImportedElementsInto(owner.Scope, sup.Scope, imp) {
-			if sym != nil && sym.Name != "" && !r.idx.Library(sym) && contributesName(sym) && r.BindsName(sym) {
+			if sym != nil && sym.Name != "" && !r.idx.Library(sym) && contributesName(sym) && r.BindsName(sym) && !hidden[sym] {
 				out = append(out, sym)
 			}
 		}
 	}
 	return out
+}
+
+// hiddenImports is the imported memberships of a namespace that are no
+// memberships of it, so that a subtype inherits none of them: those an owned
+// name hides and those sharing a name with another imported or an inherited
+// membership (KerML 7.2.5.4, 7.3.2.1, 8.3.2.4.5 importedMemberships).
+func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool {
+	imports := r.scopeImports(scope)
+	if len(imports) == 0 {
+		return nil
+	}
+	hidden := map[*symbols.Symbol]bool{}
+	ownedNames := map[string]bool{}
+	owned, aliases := r.DistinguishableMembers(scope)
+	for _, sym := range append(owned, aliases...) {
+		for _, name := range memberNames(sym) {
+			ownedNames[name] = true
+		}
+	}
+	for _, imp := range imports {
+		for _, sym := range r.ImportedElementsInto(scope, scope, imp) {
+			if sym == nil {
+				continue
+			}
+			for _, name := range memberNames(sym) {
+				if ownedNames[name] {
+					hidden[sym] = true
+				}
+			}
+		}
+	}
+	_, collisions := r.importCollisions(scope, scope)
+	for _, kept := range collisions {
+		for _, member := range kept {
+			if member.imp != nil {
+				hidden[member.sym] = true
+			}
+		}
+	}
+	return hidden
 }
 
 // removeRedefinedFeatures drops the inherited members that are no longer
