@@ -19,7 +19,7 @@ occurrence def Gate {
                 }
             }
             exit action flush {
-                rep language "Fortran" /* CALL FLUSH(count) */
+                rep language "Fortran" /* CALL FLUSH(count)*/
             }
         }
         state Busy {
@@ -38,13 +38,13 @@ occurrence def Gate {
                 metadata MigrationMetadata::StandIn about 'fork';
             }
             do action poll {
-                rep language "Fortran" /* CALL POLL(count) */
+                rep language "Fortran" /* CALL POLL(count)*/
             }
             exit action close;
         }
         state Cool {
             entry action vent {
-                rep language "Fortran" /* CALL VENT(count) */
+                rep language "Fortran" /* CALL VENT(count)*/
             }
             do action wait;
             exit action seal {
@@ -73,7 +73,7 @@ occurrence def Gate {
             then Cool;
         transition first Cool accept Go
             do action effect {
-                rep language "Fortran" /* CALL WARM(count) */
+                rep language "Fortran" /* CALL WARM(count)*/
             }
             then Warm;
         transition first Warm
@@ -89,7 +89,7 @@ occurrence def Gate {
             then Off;
         transition first Off
             do action effect {
-                rep language "Fortran" /* CALL RESTART(count) */
+                rep language "Fortran" /* CALL RESTART(count)*/
             }
             then Idle;
         transition first Off accept Go

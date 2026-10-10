@@ -86,7 +86,7 @@ package Behavior {
         state Idle;
         state Running {
             do action spin {
-                rep language "English" /* keep turning */
+                rep language "English" /* keep turning*/
             }
         }
         state Halted;

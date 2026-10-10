@@ -331,7 +331,7 @@ func TestLocalsABodyDeclaresAreNoReadsOfTheOwner(t *testing.T) {
 	r := migrateDocument(t, localsModel, `<sysml:Block xmi:id="_b1" base_Class="_counter"/>`)
 	for _, line := range []string{
 		"action def Compute {",
-		`rep language "JavaScript" /* let count = 1; count += 1; */`,
+		`rep language "JavaScript" /* let count = 1; count += 1;*/`,
 		"action tally {",
 		"attribute n : ScalarValues::Integer;",
 		"assign count := n + 1;",

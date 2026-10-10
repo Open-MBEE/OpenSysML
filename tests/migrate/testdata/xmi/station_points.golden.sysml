@@ -18,11 +18,11 @@ occurrence def Station {
         state Idle;
         state Work parallel {
             entry action {
-                rep language "JavaScript" /* trace = trace * 100 + 11; */
+                rep language "JavaScript" /* trace = trace * 100 + 11;*/
                 assign context.trace := context.trace * 100 + 11;
             }
             exit action {
-                rep language "JavaScript" /* trace = trace * 100 + 12; */
+                rep language "JavaScript" /* trace = trace * 100 + 12;*/
                 assign context.trace := context.trace * 100 + 12;
             }
             state steps {
@@ -32,17 +32,17 @@ occurrence def Station {
                 entry; then Prep;
                 state Prep {
                     entry action {
-                        rep language "JavaScript" /* trace = trace * 100 + 13; */
+                        rep language "JavaScript" /* trace = trace * 100 + 13;*/
                         assign context.trace := context.trace * 100 + 13;
                     }
                 }
                 state Run parallel {
                     entry action {
-                        rep language "JavaScript" /* trace = trace * 100 + 14; */
+                        rep language "JavaScript" /* trace = trace * 100 + 14;*/
                         assign context.trace := context.trace * 100 + 14;
                     }
                     exit action {
-                        rep language "JavaScript" /* trace = trace * 100 + 15; */
+                        rep language "JavaScript" /* trace = trace * 100 + 15;*/
                         assign context.trace := context.trace * 100 + 15;
                     }
                     state pace {
@@ -52,19 +52,19 @@ occurrence def Station {
                         state Slow;
                         state Fast {
                             entry action {
-                                rep language "JavaScript" /* trace = trace * 100 + 17; */
+                                rep language "JavaScript" /* trace = trace * 100 + 17;*/
                                 assign context.trace := context.trace * 100 + 17;
                             }
                         }
                         transition first Deep
                             do action {
-                                rep language "JavaScript" /* trace = trace * 100 + 21; */
+                                rep language "JavaScript" /* trace = trace * 100 + 21;*/
                                 assign context.trace := context.trace * 100 + 21;
                             }
                             then Fast;
                         transition first Fast accept Back
                             do action {
-                                rep language "JavaScript" /* trace = trace * 100 + 22; */
+                                rep language "JavaScript" /* trace = trace * 100 + 22;*/
                                 assign context.trace := context.trace * 100 + 22;
                             }
                             then Out;
@@ -74,20 +74,20 @@ occurrence def Station {
                 transition first Prep accept Next then Run;
                 transition first Start
                     do action {
-                        rep language "JavaScript" /* trace = trace * 100 + 23; */
+                        rep language "JavaScript" /* trace = trace * 100 + 23;*/
                         assign context.trace := context.trace * 100 + 23;
                     }
                     then Run;
                 /* not migrated: Transition (_tThrough) — the source 'Through' has no v2 form: (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior */
                 transition first Run accept Finish
                     do action {
-                        rep language "JavaScript" /* trace = trace * 100 + 24; */
+                        rep language "JavaScript" /* trace = trace * 100 + 24;*/
                         assign context.trace := context.trace * 100 + 24;
                     }
                     then Leave;
                 transition first steps.Run.pace.Out
                     do action {
-                        rep language "JavaScript" /* trace = trace * 100 + 25; */
+                        rep language "JavaScript" /* trace = trace * 100 + 25;*/
                         assign context.trace := context.trace * 100 + 25;
                     }
                     then Prep;
@@ -95,12 +95,12 @@ occurrence def Station {
         }
         state Sync {
             entry action {
-                rep language "JavaScript" /* trace = trace * 100 + 31; */
+                rep language "JavaScript" /* trace = trace * 100 + 31;*/
                 assign context.trace := context.trace * 100 + 31;
             }
             then regions;
             exit action {
-                rep language "JavaScript" /* trace = trace * 100 + 32; */
+                rep language "JavaScript" /* trace = trace * 100 + 32;*/
                 assign context.trace := context.trace * 100 + 32;
             }
             fork Both;
@@ -111,11 +111,11 @@ occurrence def Station {
                     state A0;
                     state A1 {
                         entry action {
-                            rep language "JavaScript" /* trace = trace * 100 + 33; */
+                            rep language "JavaScript" /* trace = trace * 100 + 33;*/
                             assign context.trace := context.trace * 100 + 33;
                         }
                         exit action {
-                            rep language "JavaScript" /* trace = trace * 100 + 34; */
+                            rep language "JavaScript" /* trace = trace * 100 + 34;*/
                             assign context.trace := context.trace * 100 + 34;
                         }
                     }
@@ -126,11 +126,11 @@ occurrence def Station {
                     state B0;
                     state B1 {
                         entry action {
-                            rep language "JavaScript" /* trace = trace * 100 + 35; */
+                            rep language "JavaScript" /* trace = trace * 100 + 35;*/
                             assign context.trace := context.trace * 100 + 35;
                         }
                         exit action {
-                            rep language "JavaScript" /* trace = trace * 100 + 36; */
+                            rep language "JavaScript" /* trace = trace * 100 + 36;*/
                             assign context.trace := context.trace * 100 + 36;
                         }
                     }
@@ -141,14 +141,14 @@ occurrence def Station {
             transition first Both then regions.a.A1;
             transition first regions.a.A1
                 do action {
-                    rep language "JavaScript" /* trace = trace * 100 + 37; */
+                    rep language "JavaScript" /* trace = trace * 100 + 37;*/
                     assign context.trace := context.trace * 100 + 37;
                 }
                 then Gather;
             transition first Both then regions.b.B1;
             transition first regions.b.B1
                 do action {
-                    rep language "JavaScript" /* trace = trace * 100 + 38; */
+                    rep language "JavaScript" /* trace = trace * 100 + 38;*/
                     assign context.trace := context.trace * 100 + 38;
                 }
                 then Gather;
@@ -156,7 +156,7 @@ occurrence def Station {
         }
         transition first Idle accept Go
             do action {
-                rep language "JavaScript" /* trace = trace * 100 + 41; */
+                rep language "JavaScript" /* trace = trace * 100 + 41;*/
                 assign context.trace := context.trace * 100 + 41;
             }
             then Work.steps.Start;
@@ -164,7 +164,7 @@ occurrence def Station {
         transition first Idle accept Enter then Work;
         transition first Idle accept Dive
             do action {
-                rep language "JavaScript" /* trace = trace * 100 + 42; */
+                rep language "JavaScript" /* trace = trace * 100 + 42;*/
                 assign context.trace := context.trace * 100 + 42;
             }
             then Work.steps.Run.pace.Deep;
@@ -172,13 +172,13 @@ occurrence def Station {
         /* not migrated: Transition (_tSkip) — the target 'Through' has no v2 form: (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior */
         transition first Work.steps.Leave
             do action {
-                rep language "JavaScript" /* trace = trace * 100 + 43; */
+                rep language "JavaScript" /* trace = trace * 100 + 43;*/
                 assign context.trace := context.trace * 100 + 43;
             }
             then Idle;
         transition first Work accept Stop
             do action {
-                rep language "JavaScript" /* trace = trace * 100 + 44; */
+                rep language "JavaScript" /* trace = trace * 100 + 44;*/
                 assign context.trace := context.trace * 100 + 44;
             }
             then Idle;
@@ -186,7 +186,7 @@ occurrence def Station {
         transition first Idle accept Split then Sync.Both;
         transition first Sync.Gather
             do action {
-                rep language "JavaScript" /* trace = trace * 100 + 46; */
+                rep language "JavaScript" /* trace = trace * 100 + 46;*/
                 assign context.trace := context.trace * 100 + 46;
             }
             then Idle;

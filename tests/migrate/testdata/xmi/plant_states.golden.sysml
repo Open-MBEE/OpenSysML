@@ -19,7 +19,7 @@ part def Plant {
         state Idle;
         state Work parallel {
             exit action tally {
-                rep language "JavaScript" /* count = count + 1; */
+                rep language "JavaScript" /* count = count + 1;*/
                 assign context.count := context.count + 1;
             }
             state steps {
@@ -62,7 +62,7 @@ part def Plant {
         transition first Work accept Hold then Pause;
         transition first Pause accept Resume
             do action log {
-                rep language "JavaScript" /* println("resuming at " + count); */
+                rep language "JavaScript" /* println("resuming at " + count);*/
             }
             then Work.steps.last;
         transition first Idle accept Enter then Cell.warmStart;

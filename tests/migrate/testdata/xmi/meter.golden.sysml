@@ -59,18 +59,18 @@ part def Meter {
         action sense {
             in x : ScalarValues::Real[1] = 1.5;
             out y : ScalarValues::Real[1];
-            rep language "JavaScript" /* y = x * 2; */
+            rep language "JavaScript" /* y = x * 2;*/
             assign y := x * 2;
         }
         action record {
             in v : ScalarValues::Real[1];
-            rep language "JavaScript" /* total = v + 1; peak = Math.max(v); */
+            rep language "JavaScript" /* total = v + 1; peak = Math.max(v);*/
             assign total := v + 1;
             assign peak := v;
         }
         first record then split;
         action split {
-            rep language "Java" /* half = ticks / 2; ratio = total / 2; floored = Math.floor(total) / 8; rounded = Math.round(total) / 8; */
+            rep language "Java" /* half = ticks / 2; ratio = total / 2; floored = Math.floor(total) / 8; rounded = Math.round(total) / 8;*/
             assign half := OpenSysMLMathFunctions::quotient(ticks, 2);
             assign ratio := total / 2;
             assign floored := RealFunctions::floor(total) / 8;
@@ -78,12 +78,12 @@ part def Meter {
         }
         first split then quarterly;
         action quarterly {
-            rep language "Java 1.8.0_202" /* quarter = ticks / 4; */
+            rep language "Java 1.8.0_202" /* quarter = ticks / 4;*/
             assign quarter := OpenSysMLMathFunctions::quotient(ticks, 4);
         }
         first quarterly then cc;
         action cc {
-            rep language "JavaCC" /* eighth = ticks / 8; */
+            rep language "JavaCC" /* eighth = ticks / 8;*/
             assign eighth := ticks / 8;
         }
         first cc then judge;
@@ -91,20 +91,19 @@ part def Meter {
             in ok : ScalarValues::Boolean[1];
             in n : ScalarValues::Integer[1] = RealFunctions::floor(total);
             in m : ScalarValues::Integer[1] = 2;
-            rep language "JavaScript" /* count = n + m; */
+            rep language "JavaScript" /* count = n + m;*/
             assign count := n + m;
         }
         first judge then log;
         action log {
             rep language "JavaScript" /* print("total so far: " + (total + 1));
              * ticks = ticks + 1;
-             * println(ticks);
-             */
+             * println(ticks);*/
             assign ticks := ticks + 1;
         }
         first log then shout;
         action shout {
-            rep language "JavaScript" /* println("done"); */
+            rep language "JavaScript" /* println("done");*/
         }
         first shout then final;
         action final terminate;
@@ -115,24 +114,24 @@ part def Meter {
         first start then idle;
         action idle {
             out z : ScalarValues::Real[1];
-            rep language "JavaScript" /* total = total * 1; */
+            rep language "JavaScript" /* total = total * 1;*/
             assign total := total * 1;
         }
         first idle then sink;
         action sink {
             in w : ScalarValues::Real[0..1];
-            rep language "JavaScript" /* total = w; */
+            rep language "JavaScript" /* total = w;*/
             if w->SequenceFunctions::notEmpty() { assign total := w; }
         }
         first sink then dark;
         action dark {
             out q : ScalarValues::Real[1];
-            rep language "Python" /* q = 1 */
+            rep language "Python" /* q = 1*/
         }
         first dark then drain;
         action drain {
             in w : ScalarValues::Real[0..1];
-            rep language "JavaScript" /* total = w; */
+            rep language "JavaScript" /* total = w;*/
             if w->SequenceFunctions::notEmpty() { assign total := w; }
         }
         first drain then final;
@@ -144,43 +143,43 @@ part def Meter {
     action flip {
         first start then bump;
         action bump {
-            rep language "JavaScript" /* count = mode + 1; */
+            rep language "JavaScript" /* count = mode + 1;*/
         }
         first bump then pick;
         action pick {
-            rep language "JavaScript" /* count = mode; */
+            rep language "JavaScript" /* count = mode;*/
         }
         first pick then match;
         action match {
-            rep language "JavaScript" /* mode = dial; */
+            rep language "JavaScript" /* mode = dial;*/
         }
         first match then widen;
         action widen {
-            rep language "JavaScript" /* dial = hand; */
+            rep language "JavaScript" /* dial = hand;*/
             assign dial := hand;
         }
         first widen then narrow;
         action narrow {
-            rep language "JavaScript" /* hand = dial; */
+            rep language "JavaScript" /* hand = dial;*/
         }
         first narrow then huge;
         action huge {
-            rep language "JavaScript" /* count = 9007199254740993; */
+            rep language "JavaScript" /* count = 9007199254740993;*/
         }
         first huge then smile;
         action smile {
-            rep language "JavaScript" /* label = "\uD83D\uDE00"; count = 9007199254740991; */
+            rep language "JavaScript" /* label = "\uD83D\uDE00"; count = 9007199254740991;*/
             assign label := "😀";
             assign count := 9007199254740991;
         }
         first smile then same;
         action same {
-            rep language "Java" /* lit = label.equals("\uD83D\uDE00"); */
+            rep language "Java" /* lit = label.equals("\uD83D\uDE00");*/
             assign lit := label == "😀";
         }
         first same then 'alias';
         action 'alias' {
-            rep language "Java" /* lit = label == "\uD83D\uDE00"; */
+            rep language "Java" /* lit = label == "\uD83D\uDE00";*/
         }
         first 'alias' then final;
         action final terminate;
@@ -193,12 +192,12 @@ part def Meter {
         in limit : ScalarValues::Integer[1] default = count + 1;
         first start then fuse;
         action fuse {
-            rep language "JavaScript" /* flag = ready and enabled */
+            rep language "JavaScript" /* flag = ready and enabled*/
         }
         /* guard not migrated: [{JavaScript} ready and enabled] — the text "and" is not expression syntax: text follows the expression */
         first fuse then latch;
         action latch {
-            rep language "JavaScript" /* flag = ready && enabled */
+            rep language "JavaScript" /* flag = ready && enabled*/
             assign flag := ready and enabled;
         }
         first latch then final;
@@ -208,38 +207,38 @@ part def Meter {
     action sweep {
         first start then spread;
         action spread {
-            rep language "JavaScript" /* total = cells.reading + 1; */
+            rep language "JavaScript" /* total = cells.reading + 1;*/
         }
         first spread then reset;
         action reset {
-            rep language "JavaScript" /* cells.reading = 1; */
+            rep language "JavaScript" /* cells.reading = 1;*/
         }
         first reset then peak;
         action peak {
-            rep language "JavaScript" /* total = java.util.Collections.max(cells.reading); */
+            rep language "JavaScript" /* total = java.util.Collections.max(cells.reading);*/
             assign total := cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };
         }
         first peak then calib;
         action calib {
-            rep language "JavaScript" /* reading = 2; */
+            rep language "JavaScript" /* reading = 2;*/
         }
         first calib then span;
         action span {
-            rep language "JavaScript" /* total = reading; */
+            rep language "JavaScript" /* total = reading;*/
         }
         first span then ticking;
         action ticking : Gauge::Tick;
         first ticking then tally;
         action tally {
-            rep language "JavaScript" /* total = banks.level + 1; */
+            rep language "JavaScript" /* total = banks.level + 1;*/
         }
         first tally then charge;
         action charge {
-            rep language "JavaScript" /* level = 1; */
+            rep language "JavaScript" /* level = 1;*/
         }
         first charge then settle;
         action settle {
-            rep language "JavaScript" /* level = 0; */
+            rep language "JavaScript" /* level = 0;*/
         }
         first settle then final;
         action final terminate;

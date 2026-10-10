@@ -33,7 +33,7 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 		"transition first Idle accept Resume then Work.steps.Run;",
 		"transition first Pause accept Resume",
 		"do action log {",
-		`rep language "JavaScript" /* println("resuming at " + count); */`,
+		`rep language "JavaScript" /* println("resuming at " + count);*/`,
 		"then Work.steps.last;",
 		"transition first Idle accept Enter then Cell.warmStart;",
 		"transition first Cell.spent then Idle;",

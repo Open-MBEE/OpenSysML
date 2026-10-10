@@ -1025,7 +1025,7 @@ func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 func (m *migration) textualReps(e *sysmlv1.Element) {
 	for _, pair := range opaqueBodyPairs(e) {
 		if pair.body != "" && pair.language != "" {
-			m.w.lines(prefixFirst("rep language "+stringLiteral(pair.language)+" ", commentLines(pair.body)))
+			m.w.lines(prefixFirst("rep language "+stringLiteral(pair.language)+" ", opaqueRepresentationCommentLines(pair.body)))
 		}
 	}
 }

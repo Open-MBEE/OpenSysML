@@ -392,7 +392,7 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	wantNote(t, r, "_shout", migrate.Approximated, "the JavaScript body is translated to v2; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model")
 	wantLine(t, r.Notation, "assign ticks := ticks + 1;")
 	wantLine(t, r.Notation, "action shout {")
-	wantLine(t, r.Notation, `rep language "JavaScript" /* println("done"); */`)
+	wantLine(t, r.Notation, `rep language "JavaScript" /* println("done");*/`)
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
@@ -435,7 +435,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 		`/* default value not migrated: {JavaScript} Math.sqrt(total) — the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted */`,
 		"in limit : ScalarValues::Integer[1] default = count + 1;",
 		"/* guard not migrated: [{JavaScript} ready and enabled] — the text \"and\" is not expression syntax: text follows the expression */",
-		`rep language "JavaScript" /* flag = ready and enabled */`,
+		`rep language "JavaScript" /* flag = ready and enabled*/`,
 		"assign flag := ready and enabled;",
 	} {
 		wantLine(t, r.Notation, line)

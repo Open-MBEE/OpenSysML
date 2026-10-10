@@ -4,6 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
@@ -22,14 +25,14 @@ func opaqueActionDocument(t *testing.T, body string) *migrate.Result {
 func TestOpaqueActionTextualRepresentations(t *testing.T) {
 	t.Run("translated", func(t *testing.T) {
 		r := opaqueActionDocument(t, `<language>JavaScript</language><body>x = 1;</body>`)
-		wantLine(t, r.Notation, `rep language "JavaScript" /* x = 1; */`)
+		wantLine(t, r.Notation, `rep language "JavaScript" /* x = 1;*/`)
 		wantLine(t, r.Notation, "assign x := 1;")
 		wantClean(t, "t.sysml", r)
 	})
 
 	t.Run("untranslated", func(t *testing.T) {
 		r := opaqueActionDocument(t, `<language>Java</language><body>work();</body>`)
-		wantLine(t, r.Notation, `rep language "Java" /* work(); */`)
+		wantLine(t, r.Notation, `rep language "Java" /* work();*/`)
 		wantNoLine(t, r.Notation, "body not migrated")
 		wantNote(t, r, "_opaque", migrate.Approximated, "the body is kept as a textual representation, which is not executed")
 		wantClean(t, "t.sysml", r)
@@ -45,8 +48,8 @@ func TestOpaqueActionTextualRepresentations(t *testing.T) {
 
 	t.Run("pairs by index", func(t *testing.T) {
 		r := opaqueActionDocument(t, `<language>Java</language><body>first();</body><language>Python</language><body>second()</body>`)
-		wantLine(t, r.Notation, `rep language "Java" /* first(); */`)
-		wantLine(t, r.Notation, `rep language "Python" /* second() */`)
+		wantLine(t, r.Notation, `rep language "Java" /* first();*/`)
+		wantLine(t, r.Notation, `rep language "Python" /* second()*/`)
 		wantNoLine(t, r.Notation, "body not migrated")
 		wantClean(t, "t.sysml", r)
 	})
@@ -60,7 +63,7 @@ func TestOpaqueActionTextualRepresentations(t *testing.T) {
       <edge xmi:type="uml:ControlFlow" xmi:id="_first" source="_initial" target="_opaque"/>
       <edge xmi:type="uml:ControlFlow" xmi:id="_last" source="_opaque" target="_final"/>
     </packagedElement>`, "")
-		wantLine(t, r.Notation, `rep language "Java" /* work(); */`)
+		wantLine(t, r.Notation, `rep language "Java" /* work();*/`)
 		wantClean(t, "t.sysml", r)
 	})
 
@@ -74,7 +77,7 @@ func TestOpaqueActionTextualRepresentations(t *testing.T) {
 
 	t.Run("comment terminator", func(t *testing.T) {
 		r := opaqueActionDocument(t, `<language>Python</language><body>print("*/")</body>`)
-		wantLine(t, r.Notation, `rep language "Python" /* print("* /") */`)
+		wantLine(t, r.Notation, `rep language "Python" /* print("* /")*/`)
 		wantClean(t, "t.sysml", r)
 	})
 }
@@ -87,7 +90,7 @@ func TestOpaqueBehaviorTextualRepresentations(t *testing.T) {
       <body>work();</body>
     </packagedElement>`, "")
 		wantLine(t, r.Notation, "action def Work {")
-		wantLine(t, r.Notation, `rep language "Java" /* work(); */`)
+		wantLine(t, r.Notation, `rep language "Java" /* work();*/`)
 		wantNoLine(t, r.Notation, "body not migrated")
 		wantNote(t, r, "_behavior", migrate.Approximated, "the body is kept as a textual representation, which is not executed")
 		wantClean(t, "t.sysml", r)
@@ -99,7 +102,7 @@ func TestOpaqueBehaviorTextualRepresentations(t *testing.T) {
       <language>JavaScript</language>
       <body>1 + 2</body>
     </packagedElement>`, "")
-		wantLine(t, r.Notation, `rep language "JavaScript" /* 1 + 2 */`)
+		wantLine(t, r.Notation, `rep language "JavaScript" /* 1 + 2*/`)
 		rep := strings.Index(string(r.Notation), `rep language "JavaScript"`)
 		result := strings.LastIndex(string(r.Notation), "1 + 2")
 		if rep < 0 || result < 0 || rep >= result {
@@ -130,7 +133,41 @@ func TestOpaqueBehaviorTextualRepresentations(t *testing.T) {
         <body>work();</body>
       </ownedBehavior>
     </packagedElement>`, `<sysml:Block xmi:id="_block" base_Class="_owner"/>`)
-		wantLine(t, r.Notation, `rep language "Java" /* work(); */`)
+		wantLine(t, r.Notation, `rep language "Java" /* work();*/`)
 		wantClean(t, "t.sysml", r)
 	})
+}
+
+func TestOpaqueRepresentationBodyRoundTrip(t *testing.T) {
+	for _, body := range []struct {
+		name string
+		text string
+	}{
+		{name: "leading indentation and trailing spaces", text: "    command\n      argument  \n"},
+		{name: "leading blank line", text: "\n    command\n      argument  \n"},
+	} {
+		t.Run(body.name, func(t *testing.T) {
+			r := opaqueActionDocument(t, `<language>Java</language><body>`+body.text+`</body>`)
+			sf := source.New("migrated.sysml", r.Notation)
+			p := parser.New(sf)
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("migrated notation did not parse: %v", p.Diagnostics)
+			}
+			var bodies []string
+			ast.Inspect(root, func(n ast.Node) bool {
+				if rep, ok := n.(*ast.TextualRepresentation); ok {
+					bodies = append(bodies, source.CommentBody(sf.Text(rep.BodySpan)))
+				}
+				return true
+			})
+			// source.CommentBody drops the comment delimiters, opener whitespace through its first line terminator, and each continuation line's indentation, `*`, and one following space.
+			if len(bodies) != 1 {
+				t.Fatalf("found %d textual representations, want one", len(bodies))
+			}
+			if bodies[0] != body.text {
+				t.Errorf("parsed representation body = %q, want %q\n%s", bodies[0], body.text, r.Notation)
+			}
+		})
+	}
 }
