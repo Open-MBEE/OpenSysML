@@ -383,6 +383,7 @@ var constructFixtures = []string{
 	"tables",
 	"metaclass_tables",
 	"classifier_usages",
+	"empty_classifier_tables",
 	"documents",
 	"figures",
 	"collectors",

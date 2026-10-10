@@ -393,23 +393,31 @@ func fromTypes(label string, t v2Types) typeFilter {
 // query selects from src the rows of the filter's types, less the excluded
 // ones, and the rows among its named usages.
 func (f typeFilter) query(src qx) qx {
+	var rows qx
+	typed := len(f.types) > 0
+	if typed {
+		rows = whereType(src, f.types...)
+		if f.excluding != nil {
+			outside := qcall("Except",
+				qarg1("source", whereType(src, f.excluding.source...)),
+				qarg1("exclude", whereType(src, f.excluding.keep...)))
+			rows = qcall("Except", qarg1("source", rows), qarg1("exclude", outside))
+		}
+	}
+	if len(f.usages) == 0 {
+		if !typed {
+			// Named takes at least one name; no usage written means no row.
+			return qcall("Except", qarg1("source", src), qarg1("exclude", src))
+		}
+		return rows
+	}
 	named := qcall("Named", qstrs("qualifiedName", f.usages...))
 	// Named ∩ src, as the difference of named and what of it is outside src.
 	usages := qcall("Except",
 		qarg1("source", named),
 		qarg1("exclude", qcall("Except", qarg1("source", named), qarg1("exclude", src))))
-	if len(f.types) == 0 {
+	if !typed {
 		return usages
-	}
-	rows := whereType(src, f.types...)
-	if f.excluding != nil {
-		outside := qcall("Except",
-			qarg1("source", whereType(src, f.excluding.source...)),
-			qarg1("exclude", whereType(src, f.excluding.keep...)))
-		rows = qcall("Except", qarg1("source", rows), qarg1("exclude", outside))
-	}
-	if len(f.usages) == 0 {
-		return rows
 	}
 	return qcall("Union", qarg1("source", rows), qarg1("other", usages))
 }

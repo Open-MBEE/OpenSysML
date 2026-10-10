@@ -31,3 +31,13 @@ func TestClassifierTablesListActorAndUseCaseUsages(t *testing.T) {
 	cases := rows(t, s, "Tables::'Use Cases Rows'")
 	wantInOrder(t, "Use Cases rows", cases, "returned 2 rows", "Operations::Focus\n", "Operations::Scan\n")
 }
+
+// Actor and UseCase tables over a model with neither list no rows, rather than
+// naming nothing.
+func TestEmptyActorAndUseCaseTablesExecute(t *testing.T) {
+	s := session(t, migrateFixtureFile(t, "empty_classifier_tables"))
+	for _, name := range []string{"Actors", "Use Cases"} {
+		got := rows(t, s, "Tables::'"+name+" Rows'")
+		wantInOrder(t, name+" rows", got, "returned 0 rows")
+	}
+}
