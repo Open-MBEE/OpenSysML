@@ -40,7 +40,10 @@ package 'Use Cases' {
     use case 'Leave Garage' {
         /* not migrated: Include (_incLost) — the included use case is not in the document; 1 addition reference(s) resolve to nothing in the document (_lostCase) */
         /* not migrated: Extend (_extLost) — the extended use case is not in the document; 1 extendedCase reference(s) resolve to nothing in the document (_lostCase) */
-        /* applied stereotype «HyperlinkOwner» */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "HyperlinkOwner";
+            profile = "http://www.example.org/profiles/Custom";
+        }
     }
     use case 'Valet Park' :> 'Park Car';
     part def 'Valet Service' {

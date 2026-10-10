@@ -2116,7 +2116,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2143,7 +2143,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2170,7 +2170,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2197,7 +2197,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2224,7 +2224,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2251,7 +2251,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2278,7 +2278,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2305,7 +2305,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -3282,7 +3282,7 @@
       "tests": [
         "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "A «Stakeholder» class is written as a part def that types viewpoint stakeholder usages and homed concern stakeholder parameters; the deprecated concern tag remains a comment. candidate erratum: the mapping maps «Stakeholder» to an ItemDefinition, but a v2 stakeholder parameter is a PartUsage (StakeholderMembership::ownedStakeholderParameter), which requires a PartDefinition among its definitions; a PartDefinition is the type that can be used",
+      "reason": "A «Stakeholder» class is written as a part def that types viewpoint stakeholder usages and homed concern stakeholder parameters; the deprecated concern tag remains a tag of an `AppliedStereotype` marker. candidate erratum: the mapping maps «Stakeholder» to an ItemDefinition, but a v2 stakeholder parameter is a PartUsage (StakeholderMembership::ownedStakeholderParameter), which requires a PartDefinition among its definitions; a PartDefinition is the type that can be used",
       "scope": [
         "sysml:Stakeholder"
       ]
@@ -5761,14 +5761,17 @@
         "annotatingElement"
       ],
       "ocl": "sha256:4db026f09f3716d47d639eda7b32fabda8a23238173c7e82a92ab5fbf6206215",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5788,14 +5791,17 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:54657901c121954c1680ad715416dd9707794c50d7f4030ac217fcd743efeeb5",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5815,14 +5821,17 @@
         "value"
       ],
       "ocl": "sha256:374d6139041fea74e9bbabacb7fb542caa2e2ea6efdcdc9adbdc1325926872fa",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5842,14 +5851,17 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:841dc25fd55c9a48a67984526b81453685662d42a2f2d0ae156c97daabd97a1c",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5869,14 +5881,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:2fa20084af57553c7512381a4bc5d03575fa8b4e419b952d54321480815c17cf",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5896,14 +5911,17 @@
         "type"
       ],
       "ocl": "sha256:d1696ebe9c6ccf4df18dc03ab76b267e7ca2b0fdea32e64c46e01efa3a3ac88a",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5923,14 +5941,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:04707285b1e32932084145ce1134c947c3fb4a20e006b5a60eb449ba87a182da",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5950,14 +5971,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:66db148db5823133b118df30e324b46a841188f4ab9d6679c1c8d8f8fcd114ac",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]

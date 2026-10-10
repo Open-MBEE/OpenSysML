@@ -41,7 +41,7 @@ Diagram	Shop::Custom Table	_diag_custom_table	-> Shop::'Custom Table'	(a Generic
 Diagram	Shop::Deep Map	_diag_deep_map	-> Shop::'Deep Map'	(a Relation Map written as a view rendered asTreeDiagram)
 Diagram	Shop::Ghost Column	_diag_ghost_column	-> Shop::'Ghost Column'	(a Generic Table written as a view rendered asElementTable)
 «Block» Class	Shop::Ledger	_blk_ledger	-> Shop::Ledger
-«Block» Class	Shop::Report	_blk_report	-> Shop::Report	(«Document» from http://www.magicdraw.com/schemas/manual/Document_Profile_Custom.xmi is applied from a profile the document does not define; the application is kept as a comment)
+«Block» Class	Shop::Report	_blk_report	-> Shop::Report	(«Document» from http://www.magicdraw.com/schemas/manual/Document_Profile_Custom.xmi is applied from a profile the document does not define; the application is kept as metadata)
 «Block» Class	Shop::SeasonalCatalog	_blk_seasonal	-> Shop::SeasonalCatalog
 InstanceSpecification	Shop::c1	_inst_c1	-> Shop::c1
 Slot	Shop::c1::<Slot>	_slot_c1_price	-> Shop::c1::price

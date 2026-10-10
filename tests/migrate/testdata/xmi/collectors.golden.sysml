@@ -20,7 +20,11 @@ package Structure {
         part hook : Hook;
     }
     part def Cable {
-        /* applied stereotype «TODO_Owner»: TODO = Rate the cable. */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "TODO_Owner";
+            profile = "http://www.omg.org/spec/UML/20131001/MagicDrawProfile";
+            tags = "TODO = Rate the cable.";
+        }
     }
     part def Operator;
     part def Gantry {
@@ -571,7 +575,9 @@ package 'Yard Handbook' {
         view ownerSortedDiagrams :> 'Owner Sorted Diagrams';
         view unnamedDrafts :> 'Unnamed Drafts';
         view optionalDrafts :> 'Optional Drafts';
-        /* applied stereotype «Document» */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "Document";
+        }
     }
     view 'Block Diagrams' : 'Yard Viewpoints'::'Block Diagrams Viewpoint' {
         expose Structure::'Crane Structure';

@@ -10,7 +10,7 @@
 ## approximated (13)
 Package	Requirements	_pkg_reqs	-> RequirementsModel	(written as RequirementsModel since a root package named Requirements would be hidden by the standard library's Requirements)
 «Refine» Abstraction	Requirements::<Abstraction>	_dep_refine	-> 'Drive refines Speed Requirement'	(written as a connection between usages of its ends, which a diagram draws; the standard Refinement metadata annotates only a dependency, so the connection's name says it refines)
-«Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	(a trace is written as a plain dependency)
+«Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	-> RequirementsModel::'Speed Requirement traces Engine'	(a trace is written as a plain dependency named by its kind)
 «TestCase» Activity	Requirements::Mass Test	_tc_mass	-> RequirementsModel::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
 Diagram	Vehicle BDD	_diag_bdd	-> 'Vehicle BDD'	(a diagram of unknown kind written as a view rendered asTextualNotation; the diagram names no owner; written at the top level, which holds it; no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing)
 Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part usage)
@@ -48,7 +48,7 @@ Property	Vehicle Design::Drives::vehicle	_ae_vehicle_3	-> 'Vehicle Design'::Driv
 «Block» Class	Vehicle Design::Electric Vehicle	_blk_ev	-> 'Vehicle Design'::'Electric Vehicle'
 Property	Vehicle Design::Electric Vehicle::engine	_prop_ev_engine	-> 'Vehicle Design'::'Electric Vehicle'::engine
 Property	Vehicle Design::Electric Vehicle::spare	_prop_ev_spare	-> 'Vehicle Design'::'Electric Vehicle'::spare
-«Block» Class	Vehicle Design::Engine	_blk_engine	-> 'Vehicle Design'::Engine	(«Critical» from http://example.com/profiles/Safety is applied from a profile the document does not define; the application is kept as a comment)
+«Block» Class	Vehicle Design::Engine	_blk_engine	-> 'Vehicle Design'::Engine	(«Critical» from http://example.com/profiles/Safety is applied from a profile the document does not define; the application is kept as metadata)
 «ProxyPort» Port	Vehicle Design::Engine::fuelPort	_port_engine_fuel	-> 'Vehicle Design'::Engine::fuelPort
 Property	Vehicle Design::Engine::mass	_prop_engine_mass	-> 'Vehicle Design'::Engine::mass
 Property	Vehicle Design::Engine::piston	_prop_piston	-> 'Vehicle Design'::Engine::piston

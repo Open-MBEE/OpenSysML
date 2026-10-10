@@ -61,9 +61,11 @@ package System {
     occurrence def 'Foreign Thing' {
         @Tailoring::Foreign;
     }
-    dependency 'Speed Requirement' to Gear {
-        /* «Trace» */
+    dependency 'Speed Requirement traces Gear' from 'Speed Requirement' to Gear {
         @Tailoring::'Linked To';
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "Trace";
+        }
     }
     connection def 'Derive Speed Requirement' :> RequirementDerivation::Derivation {
         end #RequirementDerivation::original originalRequirement :> 'Torque Requirement';

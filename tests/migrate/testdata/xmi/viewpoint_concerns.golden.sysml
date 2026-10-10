@@ -14,7 +14,10 @@ package ViewsModel {
         metadata MigrationMetadata::SynthesizedName about reviewer;
     }
     part def Reviewer {
-        /* «Stakeholder» tags with no v2 form: concern = legacy stakeholder concern */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "Stakeholder";
+            tags = "concern = legacy stakeholder concern";
+        }
     }
     view def 'Review Viewpoint' {
         concern 'concern' {
@@ -46,11 +49,17 @@ package ViewsModel {
             action : 'Tag Method';
         }
         action def createView {
-            /* applied stereotype «Create» */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "Create";
+                profile = "http://www.omg.org/spec/UML/20161101/StandardProfile";
+            }
         }
         action 'createView 2' : createView;
         abstract action def makeView {
-            /* applied stereotype «Create» */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "Create";
+                profile = "http://www.omg.org/spec/UML/20161101/StandardProfile";
+            }
         }
         action 'makeView 2' : makeView;
         action def 'Tag Method';

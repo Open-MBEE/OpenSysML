@@ -63,7 +63,9 @@ package Documents {
     occurrence def 'Statistics Report' {
         view scoped :> ViewsModel::'Scoped Statistics';
         view recorded :> ViewsModel::'Recorded Statistics';
-        /* applied stereotype «Document» */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "Document";
+        }
     }
     calc def 'Statistics Report Statistics Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(

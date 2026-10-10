@@ -142,7 +142,9 @@ package 'Plant Documents' {
         view behaviors :> Behaviors;
         view pictures :> Pictures;
         view shown :> Shown;
-        /* applied stereotype «Document» */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "Document";
+        }
     }
     view Behaviors : 'Plant Viewpoints'::'Figures Viewpoint' {
         expose Plant::Pump::Modes::'Pump Modes';

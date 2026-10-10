@@ -527,7 +527,7 @@ func (m *migration) monteCarloConnector(c *sysmlv1.Element) bool {
 		note += "the returned " + stat + ", bound to " + b.member
 	}
 	m.add(c, Approximated, target, joinNotes(note, cs.returnNote(stat)))
-	m.stereotypeComments(c)
+	m.stereotypeNotes(c)
 	for _, fl := range m.flows[c] {
 		m.flowDone(fl, nil, []string{"realizing connector " + describe(c) + " is written as no connection: " + note})
 	}

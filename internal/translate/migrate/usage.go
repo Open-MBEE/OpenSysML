@@ -415,7 +415,7 @@ func (m *migration) placeAllocation(d *sysmlv1.Element) {
 				alloc = "allocation " + writeName(name) + " " + alloc
 				m.madeUp(d, writeName(name))
 			}
-			m.w.block(alloc, func() { m.metadataUsages(d) })
+			m.w.block(alloc, func() { m.stereotypeAnnotations(d) })
 		})
 		pl.write(target)
 	}

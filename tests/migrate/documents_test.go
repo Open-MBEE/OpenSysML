@@ -987,7 +987,7 @@ func TestTableHomonymsAndMalformedTables(t *testing.T) {
 		"metadata def TableStructure {", "metadata def InstanceTable {", "metadata def Document;",
 		"part def Catalog {", "@'Shop Profile'::InstanceTable {", `scope = "Shop";`,
 		"part def Ledger {", "@'Shop Profile'::TableStructure {", "rows = 12;",
-		"part def Report {", "@'Shop Profile'::Document;", "/* applied stereotype «Document» */")
+		"part def Report {", "@'Shop Profile'::Document;", `stereotype = "Document";`)
 	wantNote(t, r, "_blk_report", migrate.Mapped,
 		"«Document» from http://www.magicdraw.com/schemas/manual/Document_Profile_Custom.xmi is applied from a profile the document does not define")
 	for _, name := range []string{"Catalog Table", "Custom Table"} {

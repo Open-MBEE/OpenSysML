@@ -68,7 +68,8 @@ func TestAllocateToARequirementStaysADependency(t *testing.T) {
   <sysml:Allocate xmi:id="_allocate" base_Abstraction="_allocation"/>`)
 	wantLine(t, r.Notation, "requirement Flow;")
 	wantNoLine(t, r.Notation, "allocation def")
-	wantLine(t, r.Notation, "dependency Pump to Flow;")
+	wantLine(t, r.Notation, "dependency 'Pump allocated to Flow' from Pump to Flow {")
+	wantLine(t, r.Notation, `stereotype = "Allocate";`)
 	wantNote(t, r, "_allocation", migrate.Approximated, "its end Flow has no enclosing written definition to type an allocation end, so a plain dependency stands for it")
 	wantClean(t, "allocate-to-requirement.sysml", r)
 }

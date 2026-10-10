@@ -34,8 +34,8 @@ Generalization	Views::Multiple Bases::<Generalization>	_gBaseOne	-> ViewsModel::
 Generalization	Views::Multiple Bases::<Generalization>	_gBaseTwo	-> ViewsModel::'Multiple Bases'
 Activity	Views::Review Viewpoint::Render View	_method	-> ViewsModel::'Review Viewpoint'::createView	(written as the body of the operation Views::Review Viewpoint::createView, whose method it is)
 Activity	Views::Review Viewpoint::Tag Method	_methodTag	-> ViewsModel::'Review Viewpoint'::'Tag Method'
-«Create» Operation	Views::Review Viewpoint::createView	_opMethod	-> ViewsModel::'Review Viewpoint'::createView	(«Create» from http://www.omg.org/spec/UML/20161101/StandardProfile is applied from a profile the document does not define; the application is kept as a comment; its owner's usage createView 2 performs it, as a call on an object does)
-«Create» Operation	Views::Review Viewpoint::makeView	_opNoMethod	-> ViewsModel::'Review Viewpoint'::makeView	(«Create» from http://www.omg.org/spec/UML/20161101/StandardProfile is applied from a profile the document does not define; the application is kept as a comment; its owner's usage makeView 2 performs it, as a call on an object does)
+«Create» Operation	Views::Review Viewpoint::createView	_opMethod	-> ViewsModel::'Review Viewpoint'::createView	(«Create» from http://www.omg.org/spec/UML/20161101/StandardProfile is applied from a profile the document does not define; the application is kept as metadata; its owner's usage createView 2 performs it, as a call on an object does)
+«Create» Operation	Views::Review Viewpoint::makeView	_opNoMethod	-> ViewsModel::'Review Viewpoint'::makeView	(«Create» from http://www.omg.org/spec/UML/20161101/StandardProfile is applied from a profile the document does not define; the application is kept as metadata; its owner's usage makeView 2 performs it, as a call on an object does)
 «Viewpoint» Class	Views::Safety Viewpoint	_vp2	-> ViewsModel::'Safety Viewpoint'
 «View» Class	Views::Tagged View	_tagView	-> ViewsModel::'Tagged View'
 InstanceSpecification	Views::review	_instance	-> ViewsModel::review

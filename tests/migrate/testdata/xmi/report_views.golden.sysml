@@ -13,7 +13,10 @@ package 'Pump System' {
 }
 package Stakeholders {
     part def Operator {
-        /* «Stakeholder» tags with no v2 form: concern = Keep the pump running. */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "Stakeholder";
+            tags = "concern = Keep the pump running.";
+        }
     }
     part def 'Safety Inspector';
     part Maintainer;

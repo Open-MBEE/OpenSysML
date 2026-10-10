@@ -97,7 +97,7 @@ need attention first:
 «QuantityKind» InstanceSpecification	Vehicle Design::Value Types::mass	_qk_mass	(units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «QuantityKind»)
 
 ## approximated (11)
-«Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	(a trace is written as a plain dependency)
+«Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	-> RequirementsModel::'Speed Requirement traces Engine'	(a trace is written as a plain dependency named by its kind)
 «TestCase» Activity	Requirements::Mass Test	_tc_mass	-> Requirements::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
 Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part usage)
 «FlowPort» Port	Vehicle Design::Engine::speedIn	_port_speedIn	-> 'Vehicle Design'::Engine::speedIn	(a port typed by a DataType is written as a port holding one directed attribute)
@@ -255,7 +255,10 @@ saying so, at the place in the v2 model where the element belongs:
 ```sysml
 package 'Value Types' {
     attribute def Mass :> ScalarValues::Real {
-        /* «ValueType» tags with no v2 form: quantityKind = Vehicle Design::Value Types::mass; unit = Vehicle Design::Value Types::kilogram */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "ValueType";
+            tags = ("quantityKind = Vehicle Design::Value Types::mass", "unit = Vehicle Design::Value Types::kilogram");
+        }
     }
     attribute def Speed :> Mass;
     /* not migrated: «Unit» InstanceSpecification 'kilogram' — units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «Unit» (quantityKind = Vehicle Design::Value Types::mass; symbol = kg) */
@@ -282,8 +285,10 @@ Each comment is a to-do, and its note says which way to go:
   means; read those, and rewrite any that relied on v1 semantics. English and JavaScript bodies
   are translated where the subset reaches, and the report's `translated to v2` notes say so.
 - **Tags with no v2 form.** `isEncapsulated`, a stereotype applied from a profile the document
-  does not define (`«Critical»` on `Engine` here), a value type's `unit`: keep the comment as
-  documentation, or express the intent in v2 terms. A profile the document *does* define is
+  does not define (`«Critical»` on `Engine` here), a value type's `unit`: each is kept in a
+  `@MigrationMetadata::AppliedStereotype` marker in the element's body, never as a comment a
+  diagram would show as a note; query it, or express the intent in v2 terms. A «Trace» is a
+  `dependency` named by its kind (`'Speed Requirement traces Engine'`) carrying the same marker. A profile the document *does* define is
   migrated to `metadata def`s and applied as metadata, so nothing needs doing for those.
 
 ## Checking the result

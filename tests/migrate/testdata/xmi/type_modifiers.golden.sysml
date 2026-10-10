@@ -10,20 +10,35 @@ package Signals {
         attribute samples : ScalarValues::Real[0..*] ordered nonunique;
         attribute row : ScalarValues::Real[3] ordered nonunique;
         attribute grid : ScalarValues::Real {
-            /* applied stereotype «typeModifier»: typeModifier = [][] */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "typeModifier";
+                tags = "typeModifier = [][]";
+            }
         }
         attribute rect : ScalarValues::Real {
-            /* applied stereotype «typeModifier»: typeModifier = [2*3] */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "typeModifier";
+                tags = "typeModifier = [2*3]";
+            }
         }
         attribute history : ScalarValues::Real[0..*] {
-            /* applied stereotype «typeModifier»: typeModifier = [] */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "typeModifier";
+                tags = "typeModifier = []";
+            }
         }
         attribute stray : ScalarValues::Real {
-            /* applied stereotype «typeModifier»: typeModifier = [] */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "typeModifier";
+                tags = "typeModifier = []";
+            }
         }
         attribute taps : ScalarValues::Real[4] ordered nonunique;
         attribute level : ScalarValues::Real {
-            /* applied stereotype «typeModifier»: typeModifier = * */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "typeModifier";
+                tags = "typeModifier = *";
+            }
         }
         attribute count : ScalarValues::Integer {
             @'Shapes Profile'::typeModifier {
@@ -31,10 +46,16 @@ package Signals {
             }
         }
         attribute blank : ScalarValues::Real {
-            /* applied stereotype «typeModifier»: typeModifier =  */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "typeModifier";
+                tags = "typeModifier = ";
+            }
         }
         attribute odd : ScalarValues::Real {
-            /* applied stereotype «typeModifier»: typeModifier = [2x] */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "typeModifier";
+                tags = "typeModifier = [2x]";
+            }
         }
         ref part drive : Actuator;
         ref part probe : Sensor;
@@ -42,7 +63,10 @@ package Signals {
             in values : ScalarValues::Real[0..*] ordered nonunique;
             in window : ScalarValues::Real[4] ordered nonunique;
             in handle : ScalarValues::Real[1] {
-                /* applied stereotype «typeModifier»: typeModifier = * */
+                @MigrationMetadata::AppliedStereotype {
+                    stereotype = "typeModifier";
+                    tags = "typeModifier = *";
+                }
             }
             out result : ScalarValues::Real[0..*] ordered nonunique;
         }

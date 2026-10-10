@@ -22,10 +22,10 @@ func TestTypeModifierCollectionsBecomeMultiplicities(t *testing.T) {
 			t.Errorf("%s entries = %+v", id, es)
 		}
 	}
-	// A modifier the declaration writes is not repeated as a comment: the []
-	// comments left are history's and stray's, whose [] is refused.
-	if n := strings.Count(string(r.Notation), "typeModifier = [] */"); n != 2 {
-		t.Errorf("%d comments of typeModifier = [], want 2", n)
+	// A modifier the declaration writes is not repeated as a marker: the []
+	// markers left are history's and stray's, whose [] is refused.
+	if n := strings.Count(string(r.Notation), `tags = "typeModifier = []";`); n != 2 {
+		t.Errorf("%d markers of typeModifier = [], want 2", n)
 	}
 	wantNoLine(t, r.Notation, "typeModifier = [3]")
 	wantNoLine(t, r.Notation, "typeModifier = [4]")
@@ -42,10 +42,10 @@ func TestTypeModifierPointersBecomeReferences(t *testing.T) {
 		}
 	}
 	wantLine(t, r.Notation, "attribute level : ScalarValues::Real {")
-	wantLine(t, r.Notation, "/* applied stereotype «typeModifier»: typeModifier = * */")
-	wantNote(t, r, "_level", migrate.Approximated, "«typeModifier» * is kept as a comment: the type modifier * has no v2 form: only a part or item is held by reference, not an attribute")
+	wantLine(t, r.Notation, `tags = "typeModifier = *";`)
+	wantNote(t, r, "_level", migrate.Approximated, "«typeModifier» * is kept as a marker: the type modifier * has no v2 form: only a part or item is held by reference, not an attribute")
 	wantLine(t, r.Notation, "in handle : ScalarValues::Real[1] {")
-	wantNote(t, r, "_par_handle", migrate.Approximated, "«typeModifier» * is kept as a comment: the type modifier * has no v2 form: a parameter is not held by reference")
+	wantNote(t, r, "_par_handle", migrate.Approximated, "«typeModifier» * is kept as a marker: the type modifier * has no v2 form: a parameter is not held by reference")
 }
 
 // A shape with two dimensions, one over a declared collection or a malformed
@@ -54,16 +54,16 @@ func TestTypeModifierPointersBecomeReferences(t *testing.T) {
 func TestTypeModifierRefusalsStayComments(t *testing.T) {
 	r := migrateFixtureFile(t, "type_modifiers")
 	wantLine(t, r.Notation, "attribute grid : ScalarValues::Real {")
-	wantLine(t, r.Notation, "/* applied stereotype «typeModifier»: typeModifier = [][] */")
-	wantNote(t, r, "_grid", migrate.Approximated, "«typeModifier» [][] is kept as a comment: the type modifier [][] has no v2 form: a multiplicity has one dimension")
-	wantLine(t, r.Notation, "/* applied stereotype «typeModifier»: typeModifier = [2*3] */")
-	wantNote(t, r, "_rect", migrate.Approximated, "«typeModifier» [2*3] is kept as a comment: the type modifier [2*3] has no v2 form: a multiplicity has one dimension")
+	wantLine(t, r.Notation, `tags = "typeModifier = [][]";`)
+	wantNote(t, r, "_grid", migrate.Approximated, "«typeModifier» [][] is kept as a marker: the type modifier [][] has no v2 form: a multiplicity has one dimension")
+	wantLine(t, r.Notation, `tags = "typeModifier = [2*3]";`)
+	wantNote(t, r, "_rect", migrate.Approximated, "«typeModifier» [2*3] is kept as a marker: the type modifier [2*3] has no v2 form: a multiplicity has one dimension")
 	wantLine(t, r.Notation, "attribute history : ScalarValues::Real[0..*] {")
-	wantNote(t, r, "_history", migrate.Approximated, "«typeModifier» [] is kept as a comment: the type modifier [] has no v2 form: the declared multiplicity [0..*] is already a collection, and a collection of collections has no multiplicity")
+	wantNote(t, r, "_history", migrate.Approximated, "«typeModifier» [] is kept as a marker: the type modifier [] has no v2 form: the declared multiplicity [0..*] is already a collection, and a collection of collections has no multiplicity")
 	wantLine(t, r.Notation, "attribute stray : ScalarValues::Real {")
-	wantNote(t, r, "_stray", migrate.Approximated, "multiplicity n..n is not a range of natural numbers and is not written; «typeModifier» [] is kept as a comment: the type modifier [] has no v2 form: the declared multiplicity n..n is not a range of natural numbers and is not written")
-	wantNote(t, r, "_odd", migrate.Approximated, "«typeModifier» [2x] is kept as a comment: the type modifier [2x] is not one the migrator reads")
-	wantNote(t, r, "_blank", migrate.Approximated, "an empty «typeModifier» is kept as a comment: it says nothing of the type")
+	wantNote(t, r, "_stray", migrate.Approximated, "multiplicity n..n is not a range of natural numbers and is not written; «typeModifier» [] is kept as a marker: the type modifier [] has no v2 form: the declared multiplicity n..n is not a range of natural numbers and is not written")
+	wantNote(t, r, "_odd", migrate.Approximated, "«typeModifier» [2x] is kept as a marker: the type modifier [2x] is not one the migrator reads")
+	wantNote(t, r, "_blank", migrate.Approximated, "an empty «typeModifier» is kept as a marker: it says nothing of the type")
 	for _, id := range []string{"_grid", "_rect", "_history", "_stray", "_odd", "_blank", "_level", "_par_handle"} {
 		es := entriesFor(r, id)
 		if len(es) != 1 || es[0].Verdict != migrate.Approximated {

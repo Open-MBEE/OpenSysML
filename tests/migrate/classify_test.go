@@ -287,7 +287,8 @@ func TestDanglingDependencyEndIsReported(t *testing.T) {
     <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B"/>
     <packagedElement xmi:type="uml:Abstraction" xmi:id="_d" client="_a _gone" supplier="_b"/>`,
 		`<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/><sysml:Trace xmi:id="_s3" base_Abstraction="_d"/>`)
-	wantLine(t, r.Notation, "dependency A to B;")
+	wantLine(t, r.Notation, "dependency 'A traces B' from A to B {")
+	wantLine(t, r.Notation, `stereotype = "Trace";`)
 	es := entriesFor(r, "_d")
 	if len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "_gone") {
 		t.Errorf("entries = %+v", es)
@@ -296,7 +297,8 @@ func TestDanglingDependencyEndIsReported(t *testing.T) {
 
 func TestBlockEncapsulationIsKeptAndReported(t *testing.T) {
 	r := migrateFixture(t)
-	wantLine(t, r.Notation, "/* «Block» tags with no v2 form: isEncapsulated = true */")
+	wantLine(t, r.Notation, `stereotype = "Block";`)
+	wantLine(t, r.Notation, `tags = "isEncapsulated = true";`)
 	es := entriesFor(r, "_blk_vehicle")
 	if len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "isEncapsulated") {
 		t.Errorf("entries = %+v", es)
@@ -440,13 +442,14 @@ func TestCustomStereotypesWithStandardNamesAreNotConsumed(t *testing.T) {
 			custom("FlowProperty", "Property", "_fp")+custom("Satisfy", "Abstraction", "_d")+`<sysml:Block xmi:id="_s" base_Class="_lb"/>`)
 	wantNoLine(t, r.Notation, "requirement Req")
 	wantLine(t, r.Notation, "occurrence def Req {")
-	wantLine(t, r.Notation, "applied stereotype «Requirement»")
-	wantLine(t, r.Notation, "applied stereotype «Block»")
-	wantLine(t, r.Notation, "applied stereotype «ModelLibrary»")
-	wantLine(t, r.Notation, "applied stereotype «FlowProperty»")
+	wantLine(t, r.Notation, `stereotype = "Requirement";`)
+	wantLine(t, r.Notation, `stereotype = "Block";`)
+	wantLine(t, r.Notation, `stereotype = "ModelLibrary";`)
+	wantLine(t, r.Notation, `stereotype = "FlowProperty";`)
 	wantLine(t, r.Notation, "part def InLib;")
 	wantLine(t, r.Notation, "ref occurrence x : Req {")
-	wantLine(t, r.Notation, "dependency link from Thing to Req;")
+	wantLine(t, r.Notation, "dependency link from Thing to Req {")
+	wantLine(t, r.Notation, `stereotype = "Satisfy";`)
 	wantNoLine(t, r.Notation, "satisfy")
 	if es := entriesFor(r, "_r"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 		t.Errorf("_r entries = %+v", es)
@@ -470,7 +473,8 @@ func TestRequirementTagsComeOnlyFromStandardStereotypes(t *testing.T) {
 			wantLine(t, r.Notation, "doc /* Shall. */")
 			wantNoLine(t, r.Notation, "X9> Req")
 			wantNoLine(t, r.Notation, "doc /* Custom text. */")
-			wantLine(t, r.Notation, "applied stereotype «Requirement»: Id = X9; Text = Custom text.")
+			wantLine(t, r.Notation, `stereotype = "Requirement";`)
+			wantLine(t, r.Notation, `tags = ("Id = X9", "Text = Custom text.");`)
 		})
 	}
 }
@@ -513,13 +517,13 @@ func TestPapyrusProfileClassifiesAndToolCustomizationsDoNot(t *testing.T) {
 	wantLine(t, r.Notation, "attribute def Rate;")
 	wantLine(t, r.Notation, "attribute throughput : Rate {")
 	wantLine(t, r.Notation, "requirement <R1> Req {")
-	wantLine(t, r.Notation, "applied stereotype «ValueProperty»")
-	wantLine(t, r.Notation, "applied stereotype «performanceRequirement»")
+	wantLine(t, r.Notation, `stereotype = "ValueProperty";`)
+	wantLine(t, r.Notation, `stereotype = "performanceRequirement";`)
 	wantLine(t, r.Notation, "occurrence def Plain {")
-	wantLine(t, r.Notation, "applied stereotype «Block»")
+	wantLine(t, r.Notation, `stereotype = "Block";`)
 	wantLine(t, r.Notation, "occurrence def Nested {")
 	wantLine(t, r.Notation, "occurrence def Lookalike {")
-	wantLine(t, r.Notation, "applied stereotype «Requirement»")
+	wantLine(t, r.Notation, `stereotype = "Requirement";`)
 	wantNoLine(t, r.Notation, "<X1>")
 	wantNoLine(t, r.Notation, "<X2>")
 	for id, kind := range map[string]string{"_b": "«Block» Class", "_r": "«Requirement» Class", "_p": "«ValueProperty» Property"} {
