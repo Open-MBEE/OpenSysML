@@ -1,0 +1,27 @@
+# SysML v1 to v2 migration report: terminate_orthogonal.xmi
+# migrated 21 element(s): 20 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (1)
+StateMachine	Machine::Run	_run	-> Machine::Run	(the classifier behavior is run by every object of Machine as its usage run)
+
+## mapped (20)
+SignalEvent	<SignalEvent>	_stopEvent	(written where a trigger refers to it, as accept Stop)
+SignalEvent	<SignalEvent>	_pingEvent	(written where a trigger refers to it, as accept Ping)
+«Block» Class	Machine	_machine	-> Machine
+Region	Machine::Run::R1	_r1	-> R1	(an orthogonal region is written as a sub-state of the parallel state regions)
+Pseudostate	Machine::Run::R1::<Pseudostate>	_r1Initial	(written as the entry of the region)
+Pseudostate	Machine::Run::R1::<Pseudostate>	_end	-> terminated	(written as a terminate action, which ends the state machine's performance in every region)
+Transition	Machine::Run::R1::<Transition>	_r1Start
+Transition	Machine::Run::R1::<Transition>	_stopTransition
+Trigger	Machine::Run::R1::<Transition>::<Trigger>	_stopTrigger
+State	Machine::Run::R1::A	_a	-> A
+Region	Machine::Run::R2	_r2	-> R2	(an orthogonal region is written as a sub-state of the parallel state regions)
+Pseudostate	Machine::Run::R2::<Pseudostate>	_r2Initial	(written as the entry of the region)
+Transition	Machine::Run::R2::<Transition>	_r2Start
+Transition	Machine::Run::R2::<Transition>	_pingTransition
+Trigger	Machine::Run::R2::<Transition>::<Trigger>	_pingTrigger
+State	Machine::Run::R2::B	_b	-> B
+State	Machine::Run::R2::C	_c	-> C
+Model	Model	_m	(the root model's members are written at the top level)
+Signal	Ping	_ping	-> Ping
+Signal	Stop	_stop	-> Stop

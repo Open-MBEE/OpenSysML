@@ -24,7 +24,8 @@ type StateConfiguration struct {
 	simpleState *ast.StateNode
 
 	// For composite states with regions: map of region → active state in that region
-	regionStates map[*ast.StateRegion]*ast.StateNode
+	regionStates    map[*ast.StateRegion]*ast.StateNode
+	defaultComplete map[*ast.StateRegion]bool
 }
 
 // StateExecutor executes state machines using event-driven semantics.
@@ -318,7 +319,8 @@ func newStateExecutorOn(
 		breakpointNodes:    make(map[ast.Node]bool),
 		dispatchMark:       -1,
 		activeConfig: &StateConfiguration{
-			regionStates: make(map[*ast.StateRegion]*ast.StateNode),
+			regionStates:    make(map[*ast.StateRegion]*ast.StateNode),
+			defaultComplete: make(map[*ast.StateRegion]bool),
 		},
 		entering: make(map[*ast.StateNode]bool),
 	}
@@ -824,8 +826,7 @@ func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) erro
 	return nil
 }
 
-// completesAtEntry reports whether entering state as the end of an entry path queues
-// its completion at once: it has a completion transition and nothing below to enter.
+// completesAtEntry reports whether entering a bodyless state queues its completion at once.
 func (e *StateExecutor) completesAtEntry(state *ast.StateNode) bool {
 	return !e.hasBody(state) && completionCount(e.graph.Transitions[state]) > 0
 }
@@ -2604,6 +2605,7 @@ func (e *StateExecutor) abandonMachine() []string {
 	e.clearEntryState()
 	e.activeConfig.simpleState = nil
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
+	e.activeConfig.defaultComplete = make(map[*ast.StateRegion]bool)
 	e.stateStack = nil
 	e.completionDue = false
 	// Nothing dispatches on an ended machine: what it queued is discarded.
@@ -2703,9 +2705,12 @@ func (e *StateExecutor) completeInto(trans *lower.Transition, fromName string, t
 	return nil
 }
 
-// regionComplete reports whether region rests at its own completion vertex (not a
-// nested composite's `done`), or at its owner once a transition into the owner left it empty.
+// regionComplete reports whether region reached its completion vertex, was left empty by default entry, or was left at its owner.
 func (e *StateExecutor) regionComplete(region *ast.StateRegion) bool {
+	if e.activeConfig.defaultComplete[region] {
+		standIn := e.graph.RegionState[region]
+		return standIn == nil || !e.hasRunningDoAction(standIn)
+	}
 	active, ok := e.activeConfig.regionStates[region]
 	if !ok {
 		return false
@@ -2714,6 +2719,19 @@ func (e *StateExecutor) regionComplete(region *ast.StateRegion) bool {
 		return e.graph.RegionOf[active] == region
 	}
 	return active == e.graph.RegionOwner[region]
+}
+
+func (e *StateExecutor) allRegionsDefaultComplete(state *ast.StateNode) bool {
+	regions := e.graph.CompositeStates[state]
+	if len(regions) == 0 {
+		return false
+	}
+	for _, region := range regions {
+		if !e.activeConfig.defaultComplete[region] || !e.regionComplete(region) {
+			return false
+		}
+	}
+	return true
 }
 
 // stateComplete reports whether state's body has completed: it is a completion
@@ -3050,14 +3068,15 @@ func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, owner *ast.State
 }
 
 // hasDefaultEntry reports whether entering state with no branch chosen has a
-// state to start in: an entry transition of its body, or of each of its regions.
+// valid default configuration, including regions left empty by default entry.
 func (e *StateExecutor) hasDefaultEntry(state *ast.StateNode) bool {
 	regions, orthogonal := e.graph.CompositeStates[state]
 	if !orthogonal {
 		return len(e.graph.StartOf(state)) > 0
 	}
 	for _, region := range regions {
-		if e.graph.RegionState[region] == nil && len(e.graph.StartOf(region)) == 0 {
+		standIn := e.graph.RegionState[region]
+		if standIn != nil && len(e.graph.CompositeStates[standIn]) > 0 && len(e.graph.StartOf(region)) == 0 {
 			return false
 		}
 	}
@@ -3379,6 +3398,7 @@ func (e *StateExecutor) fireJoinSegment(trans *lower.Transition, plan *lower.Joi
 		if active, isActive := e.activeConfig.regionStates[region]; isActive {
 			e.recordRegionHistory(region, active)
 			delete(e.activeConfig.regionStates, region)
+			delete(e.activeConfig.defaultComplete, region)
 		}
 	}
 	if err := e.exitStates(e.exitPath(leaving, plan.Owner, nil)); err != nil {
@@ -3418,6 +3438,7 @@ func (e *StateExecutor) joinIncoming(join *ast.PseudostateNode) []*lower.Transit
 // setRegionState clears arrivals from a region before its active state changes.
 func (e *StateExecutor) setRegionState(region *ast.StateRegion, state *ast.StateNode) {
 	e.clearJoinArrivalsForRegion(region)
+	delete(e.activeConfig.defaultComplete, region)
 	e.activeConfig.regionStates[region] = state
 }
 
@@ -4527,7 +4548,7 @@ func doBehaviorDescription(state *ast.StateNode) string {
 }
 
 // settleDoActions drops the do behaviors that have finished and schedules the
-// completion of their states; a do action whose state was exited is already gone.
+// completion of their states and newly completed owners.
 func (e *StateExecutor) settleDoActions() error {
 	finished := make([]*ast.StateNode, 0, len(e.doActions))
 	kept := e.doActions[:0]
@@ -4546,12 +4567,27 @@ func (e *StateExecutor) settleDoActions() error {
 	// A state completes once its do behavior has finished and its body, where it
 	// runs one, has reached `done`; completeIfDone schedules the latter case, and a
 	// body the move has yet to enter completes nothing.
+	scheduledOwners := make(map[*ast.StateNode]struct{}, len(finished))
 	for _, state := range finished {
 		if e.bodyAhead(state) || (e.bodyRunning(state) && !e.stateComplete(state)) {
 			continue
 		}
 		if err := e.scheduleCompletionTransitions(state); err != nil {
 			return fmt.Errorf("schedule completion of state %s: %w", state.Name, err)
+		}
+		if region := e.RegionOf(state); region != nil && e.graph.RegionState[region] == state {
+			owner := e.graph.RegionOwner[region]
+			if owner != nil && e.stateComplete(owner) {
+				if _, ok := scheduledOwners[owner]; !ok {
+					scheduledOwners[owner] = struct{}{}
+					if err := e.scheduleCompletionTransitions(owner); err != nil {
+						return fmt.Errorf("schedule completion of state %s: %w", owner.Name, err)
+					}
+				}
+			}
+		}
+		if err := e.completeIfDone(state); err != nil {
+			return fmt.Errorf("complete after do behavior of state %s: %w", state.Name, err)
 		}
 	}
 	return nil
@@ -5153,6 +5189,7 @@ func (e *StateExecutor) initialize() (err error) {
 
 	e.state = StateRunning
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
+	e.activeConfig.defaultComplete = make(map[*ast.StateRegion]bool)
 	e.activeConfig.simpleState = nil
 	return e.enterMachineRegions()
 }
@@ -5535,6 +5572,11 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 		if e.state == StateTerminated {
 			return nil
 		}
+		if e.allRegionsDefaultComplete(state) {
+			if err := e.scheduleCompletionTransitions(state); err != nil {
+				return fmt.Errorf("schedule completion of state %s: %w", state.Name, err)
+			}
+		}
 	}
 
 	// The completion goes into the pool behind those queued by the entries performed
@@ -5777,6 +5819,7 @@ func (e *StateExecutor) exitRegionsBelow(owner *ast.StateNode, regions []*ast.St
 		// Clear the entry first: the recursive exit walks the same map, and the
 		// region still pointing at regionState would exit it a second time.
 		delete(e.activeConfig.regionStates, region)
+		delete(e.activeConfig.defaultComplete, region)
 		bodies = append(bodies, func() error {
 			for current := regionState; current != nil && current != owner; current = e.graph.ParentState[current] {
 				if err := e.exitState(current); err != nil {
@@ -5918,6 +5961,7 @@ func (e *StateExecutor) getCurrentState() *ast.StateNode {
 func (e *StateExecutor) setCurrentState(state *ast.StateNode) {
 	e.activeConfig.simpleState = state
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode) // Clear regions
+	e.activeConfig.defaultComplete = make(map[*ast.StateRegion]bool)
 }
 
 // StateStack returns a copy of the state stack (active configuration).

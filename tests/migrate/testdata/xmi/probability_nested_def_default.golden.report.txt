@@ -1,14 +1,12 @@
 # SysML v1 to v2 migration report: probability_nested_def_default.xmi
-# migrated 19 element(s): 14 mapped, 5 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 19 element(s): 16 mapped, 3 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (5)
+## approximated (3)
 Activity	Mission::Sub::Run	_run	-> Mission::Sub::Run	(acts on its owner Mission::Sub, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Mission::Sub as its usage run)
 ControlFlow	Mission::Sub::Run::Inner::<ControlFlow>	_eb	(the edge carries no «Probability»: it is weighted 0.75, its share of what the marked branches leave of 1)
 «Probability» ControlFlow	Mission::Sub::Run::Inner::<ControlFlow>	_ea	(the probability is written as 0.25, the default of property Mission::pr, since the action acts on a Mission::Sub, which neither holds Mission::pr nor has one part that does; a run no longer reads the property, so an object whose value differs is still weighted by the default)
-OpaqueAction	Mission::Sub::Run::Inner::a	_a	-> a	(the body is kept as a comment: the body is empty)
-OpaqueAction	Mission::Sub::Run::Inner::b	_b	-> b	(the body is kept as a comment: the body is empty)
 
-## mapped (14)
+## mapped (16)
 «Block» Class	Mission	_mission	-> Mission
 «Block» Class	Mission::Sub	_sub	-> Mission::Sub
 ActivityFinalNode	Mission::Sub::Run::<ActivityFinalNode>	_rf	-> final
@@ -20,6 +18,8 @@ ControlFlow	Mission::Sub::Run::Inner::<ControlFlow>	_fa
 ControlFlow	Mission::Sub::Run::Inner::<ControlFlow>	_fb
 DecisionNode	Mission::Sub::Run::Inner::<DecisionNode>	_decide	-> 'decide'
 InitialNode	Mission::Sub::Run::Inner::<InitialNode>	_ii	-> start
+OpaqueAction	Mission::Sub::Run::Inner::a	_a	-> a	(its body is empty, so it is written as an action that does nothing)
+OpaqueAction	Mission::Sub::Run::Inner::b	_b	-> b	(its body is empty, so it is written as an action that does nothing)
 CallBehaviorAction	Mission::Sub::Run::call	_call	-> call
 Property	Mission::pr	_pr	-> Mission::pr
 Model	Model	_m	(the root model's members are written at the top level)

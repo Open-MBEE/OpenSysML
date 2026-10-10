@@ -126,7 +126,7 @@ func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 		for _, cp := range sm.Owned("connectionPoint") {
 			m.connectionPoint(cp)
 		}
-		m.regions(sm, m.populatedRegions(sm), false, func() { /* no extra nesting to write */ })
+		m.regions(sm, m.populatedRegions(sm), false, func() {}, nil)
 		m.writeRelocatedTransitions(sm)
 	})
 }
@@ -199,10 +199,8 @@ func (m *migration) indexTransitions(sm *sysmlv1.Element) {
 	walk(sm)
 }
 
-// nameRegions names the vertices of the regions of a state machine or state:
-// one region shares its owner's body, several become the sub-states of one
-// parallel state, each with a body of its own; owner is the element whose body
-// used names, nil for a body no v1 element owns.
+// nameRegions names a machine or state's regions: a State's one region and
+// several regions become state usages; a StateMachine's one stays inline.
 func (m *migration) nameRegions(regions []*sysmlv1.Element, owner *sysmlv1.Element, used map[string]bool) {
 	if len(regions) > 1 {
 		name := m.freshMember(owner, used, "regions")
@@ -213,8 +211,24 @@ func (m *migration) nameRegions(regions []*sysmlv1.Element, owner *sysmlv1.Eleme
 				rname, m.synthesized[r] = "region", true
 			}
 			m.names[r] = freshIn(inner, rname)
-			m.parallel[r] = name
+			m.regionStates[r] = name
 			m.nameRegion(r, nil, inheritedStateNamesSet())
+		}
+		return
+	}
+	if len(regions) == 1 && owner.Type == "State" {
+		r := regions[0]
+		rname := m.nameOf(r)
+		if rname == "" {
+			rname, m.synthesized[r] = "region", true
+		}
+		m.names[r] = m.freshMemberExcept(owner, r, used, rname)
+		m.regionStates[r] = ""
+		inner := inheritedStateNamesSet()
+		m.namePoints(owner, inner)
+		m.nameRegion(r, nil, inner)
+		for _, pr := range pointRegions(owner) {
+			m.regionUsed[pr] = inner
 		}
 		return
 	}
@@ -366,10 +380,10 @@ func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
 		note := "no transition leaves the entry point, so entering through it enters " + describe(owner) + " by its default entry; a transition to it is written to the state"
 		withoutInitial, withoutEntry := m.regionsWithoutEntry(m.populatedRegions(owner))
 		if len(withoutInitial) > 0 {
-			note += "; no initial pseudostate starts the " + pluralRegion(len(withoutInitial)) + " " + strings.Join(withoutInitial, ", ") + ", which v1 too leaves inactive on entering the state"
+			note += "; no initial pseudostate starts the state stand-in for " + pluralRegion(len(withoutInitial)) + " " + strings.Join(withoutInitial, ", ") + ", so its body has no active substate, as in v1"
 		}
 		if len(withoutEntry) > 0 {
-			note += "; no initial pseudostate of the " + pluralRegion(len(withoutEntry)) + " " + strings.Join(withoutEntry, ", ") + " enters it, so no entry is written for it"
+			note += "; no initial pseudostate starts the state stand-in for " + pluralRegion(len(withoutEntry)) + " " + strings.Join(withoutEntry, ", ") + ", so its body has no active substate, as in v1"
 		}
 		return pointForm{defaultEntry: true, note: note}
 	}
@@ -572,15 +586,26 @@ func (m *migration) vertexWritten(v *sysmlv1.Element) bool {
 	return ok
 }
 
-// regionWritten reports whether region r is written as a member of its own: a sub-state
-// of the parallel state an orthogonal state's regions become, in a machine that is written.
+// regionWritten reports whether r is written as a sub-state in a written machine.
 func (m *migration) regionWritten(r *sysmlv1.Element) bool {
 	sm := machineOf(r)
 	if sm == nil || !m.written(sm) {
 		return false
 	}
 	m.nameMachine(sm)
-	return m.parallel[r] != ""
+	return m.regionWrittenAsState(r)
+}
+
+// regionWrittenAsState reports whether r is a sub-state that supplies a
+// region of a parallel state rather than an inline region body.
+func (m *migration) regionWrittenAsState(r *sysmlv1.Element) bool {
+	_, ok := m.regionStates[r]
+	return ok
+}
+
+func (m *migration) wrappedRegion(owner *sysmlv1.Element, regions []*sysmlv1.Element) bool {
+	return owner.Type == "State" && len(regions) == 1 &&
+		m.regionWrittenAsState(regions[0]) && m.regionStates[regions[0]] == ""
 }
 
 // nameVertex gives a vertex that is written as a member its name in the body
@@ -616,6 +641,15 @@ func (m *migration) freshMember(owner *sysmlv1.Element, used map[string]bool, ba
 	return name
 }
 
+func (m *migration) freshMemberExcept(owner, except *sysmlv1.Element, used map[string]bool, base string) string {
+	name := base
+	for i := 2; used[name] || m.nameTakenExcept(owner, name, except); i++ {
+		name = base + strconv.Itoa(i)
+	}
+	used[name] = true
+	return name
+}
+
 // vertexBase is the name a vertex of a kind that is written as a member takes
 // when anonymous; "" for a kind that is not.
 func vertexBase(v *sysmlv1.Element) string {
@@ -628,16 +662,16 @@ func vertexBase(v *sysmlv1.Element) string {
 			return k
 		case "shallowHistory", "deepHistory":
 			return "history"
+		case "terminate":
+			return "terminated"
 		}
 	}
 	return ""
 }
 
-// regions writes the regions of a state machine or composite state: one inline,
-// several as the sub-states of one parallel state. The entry succession follows
-// the body's entry action when entered says one was written; between writes
-// the members that come after it and before the states.
-func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, entered bool, between func()) {
+// regions writes the regions of a state machine or composite state: a State's
+// one region is a parallel sub-state, while one machine region stays inline.
+func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, entered bool, between func(), wrapped func(*stateRegion)) {
 	switch len(regions) {
 	case 0:
 		between()
@@ -648,22 +682,21 @@ func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, 
 		}
 	case 1:
 		st := m.region(regions[0])
-		st.enter(entered)
-		between()
-		st.write()
-	default:
-		name := m.parallel[regions[0]]
-		withoutInitial, withoutEntry := m.regionsWithoutEntry(regions)
-		switch {
-		case len(withoutInitial) == 0 && len(withoutEntry) == 0:
-			m.w.line(entryThen(entered, "", writeName(name)))
-		case len(withoutEntry) == 0:
-			m.w.lines(commentLines("no default entry: the " + pluralRegion(len(withoutInitial)) + " " + strings.Join(withoutInitial, ", ") +
-				" have no initial pseudostate, so only a fork or a transition naming a nested state enters the regions"))
-		default:
-			m.w.lines(commentLines("no default entry: these regions have no written entry: " + strings.Join(slices.Concat(withoutInitial, withoutEntry), ", ") +
-				"; only a fork or a transition naming a nested state enters them"))
+		if wrapped == nil {
+			st.enter(entered)
+			between()
+			st.write()
+			return
 		}
+		between()
+		name := writeName(m.names[regions[0]])
+		m.w.block(stateKw+name, func() { wrapped(st) })
+		m.madeUp(regions[0], name)
+		state := writeName(m.nameFor(owner))
+		m.add(regions[0], Mapped, name, "the region is written as the sub-state "+name+" of the parallel state "+state+", as a composite state's regions are")
+	default:
+		name := m.regionStates[regions[0]]
+		m.w.line(entryThen(entered, "", writeName(name)))
 		between()
 		m.w.block(stateKw+writeName(name)+" parallel", func() {
 			for _, r := range regions {
@@ -680,22 +713,6 @@ func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, 
 		m.w.madeUp(writeName(name))
 		m.w.line("transition first " + writeName(name) + " then done;")
 	}
-}
-
-// regionsWithoutEntry names the regions nothing enters: those no initial pseudostate
-// starts, and apart those whose initial pseudostates enter other regions or nothing.
-func (m *migration) regionsWithoutEntry(regions []*sysmlv1.Element) (withoutInitial, withoutEntry []string) {
-	for _, r := range regions {
-		e := m.regionEntry(r)
-		switch {
-		case e.init != nil:
-		case len(e.strays) == 0 && len(e.dangling) == 0:
-			withoutInitial = append(withoutInitial, describe(r))
-		default:
-			withoutEntry = append(withoutEntry, describe(r))
-		}
-	}
-	return withoutInitial, withoutEntry
 }
 
 // regionEntry is what enters a region: the initial pseudostate written as its
@@ -896,10 +913,25 @@ func pluralRegion(n int) string {
 	return "regions"
 }
 
+// regionsWithoutEntry names regions no initial pseudostate enters.
+func (m *migration) regionsWithoutEntry(regions []*sysmlv1.Element) (withoutInitial, withoutEntry []string) {
+	for _, r := range regions {
+		e := m.regionEntry(r)
+		switch {
+		case e.init != nil:
+		case len(e.strays) == 0 && len(e.dangling) == 0:
+			withoutInitial = append(withoutInitial, describe(r))
+		default:
+			withoutEntry = append(withoutEntry, describe(r))
+		}
+	}
+	return withoutInitial, withoutEntry
+}
+
 // region prepares to write region r of the machine that nameMachine named.
 func (m *migration) region(r *sysmlv1.Element) *stateRegion {
 	s := &stateRegion{m: m, r: r, owner: r.Parent, used: m.regionUsed[r], machine: machineOf(r)}
-	if _, parallel := m.parallel[r]; parallel {
+	if m.regionWrittenAsState(r) {
 		s.owner = nil
 	}
 	return s
@@ -972,7 +1004,9 @@ func (s *stateRegion) write() {
 		}
 	}
 	s.m.writeComments(s.r, false)
-	s.m.add(s.r, Mapped, "", "the one region is written as the body of its owner")
+	if !s.m.regionWrittenAsState(s.r) {
+		s.m.add(s.r, Mapped, "", "the one region is written as the body of its owner")
+	}
 }
 
 // name returns the v2 name nameMachine gave a vertex.
@@ -1169,7 +1203,10 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 			s.m.madeUp(v, name)
 			s.m.add(v, Mapped, name, "written as a `#StateMachines::"+kind+" state` "+historyWords[kind])
 		case "terminate":
-			s.m.add(v, Approximated, "done", "a terminate pseudostate ends the machine; a transition to it is written to done, which ends its region")
+			name := writeName(s.name(v))
+			s.m.w.line(actionKw + name + " terminate;")
+			s.m.madeUp(v, name)
+			s.m.add(v, Mapped, name, "written as a terminate action, which ends the state machine's performance in every region")
 		case "entryPoint", "exitPoint":
 			if pointOwner(v).Type == "State" {
 				// Written in the body of the state it belongs to.
@@ -1245,6 +1282,10 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 	defers := s.deferrals(v, do, exit)
 	head := s.stateHead(v, name)
 	regions := s.m.populatedRegions(v)
+	wrapped := s.m.wrappedRegion(v, regions)
+	if wrapped {
+		head += " parallel"
+	}
 	inv := firstOwned(v, "stateInvariant")
 	points := s.m.connectionPoints(v)
 	pointRegs := pointRegions(v)
@@ -1274,20 +1315,39 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 			s.m.invariant(inv)
 		}
 		entered := entry != nil && s.m.inlineBehavior("entry action", entry, v)
-		between := s.betweenActions(v, do, exit, points, defers)
+		between := s.betweenActions(v, do, exit, defers)
+		if !wrapped && len(points) > 0 {
+			writePoints := between
+			between = func() {
+				writePoints()
+				s.m.statePoints(v)
+			}
+		}
 		if len(regions) == 0 {
 			between()
 		} else {
-			s.m.regions(v, regions, entered, between)
+			var writeWrapped func(*stateRegion)
+			if wrapped {
+				writeWrapped = func(region *stateRegion) {
+					s.m.statePoints(v)
+					region.enter(false)
+					region.write()
+					s.pointTransitions(regions, pointRegs)
+					s.m.writeRelocatedTransitions(v)
+				}
+			}
+			s.m.regions(v, regions, entered, between, writeWrapped)
 		}
-		s.pointTransitions(regions, pointRegs)
-		s.m.writeRelocatedTransitions(v)
+		if !wrapped {
+			s.pointTransitions(regions, pointRegs)
+			s.m.writeRelocatedTransitions(v)
+		}
 	})
 }
 
 // betweenActions is a state's block body after its entry action: its do and
-// exit actions and its connection points.
-func (s *stateRegion) betweenActions(v, do, exit *sysmlv1.Element, points []*sysmlv1.Element, defers *deferrals) func() {
+// exit actions and the encoding of any deferred triggers.
+func (s *stateRegion) betweenActions(v, do, exit *sysmlv1.Element, defers *deferrals) func() {
 	return func() {
 		switch {
 		case defers.encoded():
@@ -1300,9 +1360,6 @@ func (s *stateRegion) betweenActions(v, do, exit *sysmlv1.Element, points []*sys
 			if exit != nil {
 				s.m.inlineBehavior(exitAction, exit, v)
 			}
-		}
-		if len(points) > 0 {
-			s.m.statePoints(v)
 		}
 	}
 }
@@ -1862,10 +1919,9 @@ func (s *stateRegion) acceptsSignal(t, sig *sysmlv1.Element) bool {
 
 // transitionWritten reports whether transition t is one the output writes, so
 // it accepts its trigger or completes its source: its ends resolve as
-// transitionEnds requires, and its target is one target names — a state of the
-// machine, a final or terminate state of the transition's own region, a
-// pseudostate with a v2 form, or a connection point reference into a
-// submachine state. It decides as target does, noting nothing.
+// transitionEnds requires, and its target is one target names — a state, final
+// or terminate action, pseudostate with a v2 form, or connection point reference
+// into a submachine state. It decides as target does.
 func (s *stateRegion) transitionWritten(t *sysmlv1.Element) bool {
 	src, tgt := s.m.model.Ref(t, "source"), s.m.model.Ref(t, "target")
 	internal := t.Attrs["kind"] == "internal"
@@ -1890,7 +1946,7 @@ func (s *stateRegion) transitionWritten(t *sysmlv1.Element) bool {
 	case "Pseudostate":
 		switch pseudoKind(tgt) {
 		case "terminate":
-			return true
+			return named(tgt)
 		case "exitPoint":
 			return s.m.points[tgt].why == "" && (named(tgt) || pointOwner(tgt).Type != "State")
 		case "entryPoint":
@@ -2230,13 +2286,15 @@ func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header
 	case "OpaqueBehavior", "FunctionBehavior":
 		body, lang := opaqueBody(b)
 		lines, ok, note := m.statements(body, lang, b)
+		empty := !ok && note == "the body is empty" && opaqueBodiesEmpty(b)
 		enclose(header, func() {
 			m.comments(b)
 			m.parameters(b, b)
+			m.textualReps(b)
 			if ok {
 				m.w.lines(lines)
-			} else {
-				m.opaqueComment(body, lang, note)
+			} else if !empty {
+				m.opaqueBodyComments(b, note)
 			}
 			if m.keeping != "" {
 				m.w.line(m.keeping)
@@ -2244,8 +2302,14 @@ func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header
 		})
 		if ok {
 			m.add(b, Approximated, m.v2Name(b), "the "+langName(lang)+" body is written as v2 assignments")
+		} else if empty {
+			m.add(b, Mapped, m.v2Name(b), "")
 		} else {
-			m.add(b, Approximated, m.v2Name(b), "the body is kept as a comment: "+note)
+			keptAs := "a textual representation, which is not executed"
+			if lang == "" {
+				keptAs = "a comment"
+			}
+			m.add(b, Approximated, m.v2Name(b), "the body is kept as "+keptAs+": "+note)
 		}
 		return true
 	}
@@ -2340,7 +2404,8 @@ func (s *stateRegion) path(v *sysmlv1.Element) (string, bool) {
 	if !ok || machineOf(v) != s.machine {
 		return "", false
 	}
-	if owner := memberOwner(v); owner == s.machine || owner == s.r && !s.ownerScope {
+	owner := memberOwner(v)
+	if owner == s.machine || owner == s.r && !s.ownerScope || s.pointInWrappedRegion(v) {
 		return writeName(name), true
 	}
 	segs := s.m.segments(v)
@@ -2349,6 +2414,12 @@ func (s *stateRegion) path(v *sysmlv1.Element) (string, bool) {
 		base = s.machine
 	}
 	return qualifiedStatePathWithSeparator(segs[len(s.m.segments(base)):], "."), true
+}
+
+func (s *stateRegion) pointInWrappedRegion(v *sysmlv1.Element) bool {
+	return !s.ownerScope && s.r.Parent != nil && s.r.Parent.Type == "State" &&
+		s.m.regionWrittenAsState(s.r) && s.m.regionStates[s.r] == "" &&
+		pointOwner(v) == s.r.Parent
 }
 
 // qualifiedStatePathWithSeparator joins state path segments with the requested separator.
@@ -2367,15 +2438,15 @@ func (s *stateRegion) endpoint(t, v *sysmlv1.Element, role string) (string, bool
 	if !ok {
 		return "", false
 	}
-	if owner := memberOwner(v); owner != s.r && owner != s.machine {
+	if owner := memberOwner(v); owner != s.r && owner != s.machine && !s.pointInWrappedRegion(v) {
 		s.m.add(t, Mapped, "", "the "+role+" "+describe(v)+" lies in another region and is named by its path "+p)
 	}
 	return p, true
 }
 
 // target names what a transition leads to: a state or pseudostate of the machine
-// by its path, done for a final or terminate state of the region, or the entry
-// state of a submachine state a connection point reference enters.
+// by its path, done for a final state of the region, or the entry state of a
+// submachine state a connection point reference enters.
 func (s *stateRegion) target(t, v *sysmlv1.Element) (string, bool) {
 	if v == nil {
 		return "", false
@@ -2392,7 +2463,7 @@ func (s *stateRegion) target(t, v *sysmlv1.Element) (string, bool) {
 	case "Pseudostate":
 		switch pseudoKind(v) {
 		case "terminate":
-			return "done", true
+			return s.endpoint(t, v, "target")
 		case "exitPoint":
 			if s.m.points[v].why != "" {
 				return "", false
@@ -2658,9 +2729,13 @@ func (m *migration) writeRelocatedTransitions(host *sysmlv1.Element) {
 		return
 	}
 	s := m.region(regions[0])
-	s.owner = host
-	s.ownerScope = true
-	if host.Type == "State" {
+	if m.wrappedRegion(host, regions) {
+		s.owner = host
+	} else {
+		s.owner = host
+		s.ownerScope = true
+	}
+	if host.Type == "State" && !m.wrappedRegion(host, regions) {
 		s.used = m.stateUsed[host]
 	}
 	for _, transition := range transitions {

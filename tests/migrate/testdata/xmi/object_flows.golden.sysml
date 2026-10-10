@@ -7,10 +7,12 @@ part def Pipeline {
         first start then produce;
         action produce {
             out y : ScalarValues::Real[1];
+            rep language "JavaScript" /* y = 2.5;*/
             assign y := 2.5;
         }
         action consume {
             in v : ScalarValues::Real[1];
+            rep language "JavaScript" /* a = v;*/
             assign a := v;
         }
         first consume then final;
@@ -22,10 +24,12 @@ part def Pipeline {
         first start then produce;
         action produce {
             out y : ScalarValues::Real[1];
+            rep language "JavaScript" /* y = 4.0;*/
             assign y := 4.0;
         }
         action consume {
             in v : ScalarValues::Real[1];
+            rep language "JavaScript" /* a = v;*/
             assign a := v;
         }
         first consume then final;
@@ -38,6 +42,7 @@ part def Pipeline {
         first start then produce;
         action produce {
             out y : ScalarValues::Real[1];
+            rep language "JavaScript" /* y = 3.0;*/
             assign y := 3.0;
         }
         fork copy {
@@ -47,11 +52,13 @@ part def Pipeline {
         }
         action left {
             in v : ScalarValues::Real[1];
+            rep language "JavaScript" /* a = v;*/
             assign a := v;
         }
         first left then both;
         action right {
             in v : ScalarValues::Real[1];
+            rep language "JavaScript" /* b = v * 2;*/
             assign b := v * 2;
         }
         first right then both;
@@ -67,14 +74,17 @@ part def Pipeline {
         first start then produce;
         action produce {
             out y : ScalarValues::Real[1];
+            rep language "JavaScript" /* y = 5.0;*/
             assign y := 5.0;
         }
         action left {
             in v : ScalarValues::Real[1];
+            rep language "JavaScript" /* a = v;*/
             assign a := v;
         }
         action right {
             in v : ScalarValues::Real[1];
+            rep language "JavaScript" /* b = v + 1;*/
             assign b := v + 1;
         }
         succession flow of ScalarValues::Real from produce.y to left.v;
@@ -87,9 +97,11 @@ part def Pipeline {
         first 'start both' then warm;
         action produce {
             out y : ScalarValues::Real[1];
+            rep language "JavaScript" /* y = 7.0;*/
             assign y := 7.0;
         }
         action warm {
+            rep language "JavaScript" /* n = n + 1;*/
             assign n := n + 1;
         }
         first warm then ready;
@@ -99,6 +111,7 @@ part def Pipeline {
         }
         action consume {
             in v : ScalarValues::Real[1];
+            rep language "JavaScript" /* a = v;*/
             assign a := v;
         }
         first consume then final;
@@ -114,10 +127,12 @@ part def Pipeline {
         first which if not on then low;
         action high {
             out y : ScalarValues::Real[1];
+            rep language "JavaScript" /* y = 9.0;*/
             assign y := 9.0;
         }
         action low {
             out y : ScalarValues::Real[1];
+            rep language "JavaScript" /* y = 1.0;*/
             assign y := 1.0;
         }
         merge pick {
@@ -127,6 +142,7 @@ part def Pipeline {
         }
         action consume {
             in v : ScalarValues::Real[1];
+            rep language "JavaScript" /* a = v;*/
             assign a := v;
         }
         first consume then final;
@@ -140,6 +156,7 @@ part def Pipeline {
         first start then zero;
         action zero {
             out y : ScalarValues::Integer[1];
+            rep language "JavaScript" /* y = 0;*/
             assign y := 0;
         }
         merge again {
@@ -150,6 +167,8 @@ part def Pipeline {
         action 'step' {
             in x : ScalarValues::Integer[1];
             out y : ScalarValues::Integer[1];
+            rep language "JavaScript" /* y = x + 1;
+             * n = y;*/
             assign y := x + 1;
             assign n := y;
         }
@@ -174,10 +193,12 @@ part def Pipeline {
         first both then high;
         action low {
             out y : ScalarValues::Real[1];
+            rep language "JavaScript" /* y = 1.5;*/
             assign y := 1.5;
         }
         action high {
             out y : ScalarValues::Real[1];
+            rep language "JavaScript" /* y = 8.5;*/
             assign y := 8.5;
         }
         join gather {
@@ -187,7 +208,6 @@ part def Pipeline {
         }
         action keep {
             in v : ScalarValues::Real[2];
-            /* body not migrated (the body is empty) */
         }
         succession flow of ScalarValues::Real from low.y to gather.inputObject1;
         succession flow of ScalarValues::Real from high.y to gather.inputObject2;
@@ -201,6 +221,7 @@ part def Pipeline {
         first start then produce;
         action produce {
             out y : ScalarValues::Real[1];
+            rep language "JavaScript" /* y = 6.0;*/
             assign y := 6.0;
         }
         first produce then feed;

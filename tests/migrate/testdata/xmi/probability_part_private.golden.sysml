@@ -11,13 +11,9 @@ part def Mission {
                 decide 'decide';
                 first 'decide' then a { @Stochastic::Probability { p = 0.25; } }
                 first 'decide' then b { @Stochastic::Probability { p = 0.75; } }
-                action a {
-                    /* body not migrated (the body is empty) */
-                }
+                action a;
                 first a then 'merge';
-                action b {
-                    /* body not migrated (the body is empty) */
-                }
+                action b;
                 first b then 'merge';
                 merge 'merge';
                 first 'merge' then final;

@@ -1,0 +1,7 @@
+exit: init
+enter: outer
+choice fork split: next split->a(effect), split->b(effect) (unordered; took split->a(effect) first)
+enter: inner
+enter: a
+enter: b
+transition: init -> split

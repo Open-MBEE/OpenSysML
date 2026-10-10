@@ -985,24 +985,32 @@ func (m *migration) calcBody(e *sysmlv1.Element) {
 	m.parameters(e, e)
 	expr, _, _, translated := m.calcExprHow(e)
 	_, lang := opaqueBody(e)
+	m.textualReps(e)
 	m.w.line(expr)
 	if lang != "" && !translated {
 		m.downgrade(e, "the "+lang+" body is written verbatim as the result expression, since it is also v2 expression syntax")
 	}
 }
 
-// opaqueBehaviorBody writes an opaque or function behavior's body that is no single
-// expression: as assignments when every statement is one, else as a comment.
+// opaqueBehaviorBody writes assignments when possible and keeps every body as text.
 func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 	m.unwrittenMembers(e)
+	m.textualReps(e)
 	body, lang := opaqueBody(e)
 	lines, ok, note := m.statements(body, lang, scope)
 	if !ok {
+		if note == "the body is empty" && opaqueBodiesEmpty(e) {
+			return
+		}
 		if r := m.resultRefusal(e); r != "" && r != note {
 			note = "as the result expression, " + r + "; as statements, " + note
 		}
-		m.opaqueComment(body, lang, note)
-		m.downgrade(e, "the body is kept as a comment: "+note)
+		m.opaqueBodyComments(e, note)
+		keptAs := "a textual representation, which is not executed"
+		if lang == "" {
+			keptAs = "a comment"
+		}
+		m.downgrade(e, "the body is kept as "+keptAs+": "+note)
 		return
 	}
 	name := m.freshName(scope, "body")
@@ -1011,6 +1019,22 @@ func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 	m.w.line(firstKw + writeName(name) + " then done;")
 	if note != "" {
 		m.downgrade(e, note)
+	}
+}
+
+func (m *migration) textualReps(e *sysmlv1.Element) {
+	for _, pair := range opaqueBodyPairs(e) {
+		if strings.TrimSpace(pair.body) != "" && pair.language != "" {
+			m.w.lines(prefixFirst("rep language "+stringLiteral(pair.language)+" ", opaqueRepresentationCommentLines(pair.body)))
+		}
+	}
+}
+
+func (m *migration) opaqueBodyComments(e *sysmlv1.Element, note string) {
+	for _, pair := range opaqueBodyPairs(e) {
+		if pair.body != "" && pair.language == "" {
+			m.opaqueComment(pair.body, "", note)
+		}
 	}
 }
 

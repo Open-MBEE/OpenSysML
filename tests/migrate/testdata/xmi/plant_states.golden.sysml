@@ -17,17 +17,20 @@ part def Plant {
         attribute dawn : Time::TimeInstantValue = 21600.0 [SI::s];
         entry; then Idle;
         state Idle;
-        state Work {
-            entry; then Prep;
+        state Work parallel {
             exit action tally {
+                rep language "JavaScript" /* count = count + 1;*/
                 assign context.count := context.count + 1;
             }
-            state Prep;
-            state Run;
-            #StateMachines::shallowHistory state last;
-            #StateMachines::deepHistory state deepest;
-            transition first Prep accept Next then Run;
-            transition first last then Prep;
+            state steps {
+                entry; then Prep;
+                state Prep;
+                state Run;
+                #StateMachines::shallowHistory state last;
+                #StateMachines::deepHistory state deepest;
+                transition first Prep accept Next then Run;
+                transition first last then Prep;
+            }
         }
         state Pause;
         state Cell : CellMachine { in ref :>> context = Line::context; }
@@ -35,7 +38,7 @@ part def Plant {
         fork spread;
         join gather;
         state Both {
-            /* no default entry: the regions 'a', 'b' have no initial pseudostate, so only a fork or a transition naming a nested state enters the regions */
+            entry; then regions;
             state regions parallel {
                 state a {
                     /* the region has no initial pseudostate: nothing enters it */
@@ -54,12 +57,14 @@ part def Plant {
             metadata MigrationMetadata::SynthesizedName about regions;
         }
         transition first Idle accept Go then Work;
-        transition first Work.Run accept Stop then Idle;
-        transition first Idle accept Resume then Work.Run;
+        transition first Work.steps.Run accept Stop then Idle;
+        transition first Idle accept Resume then Work.steps.Run;
         transition first Work accept Hold then Pause;
         transition first Pause accept Resume
-            do action log { }
-            then Work.last;
+            do action log {
+                rep language "JavaScript" /* println("resuming at " + count);*/
+            }
+            then Work.steps.last;
         transition first Idle accept Enter then Cell.warmStart;
         transition first Cell.spent then Idle;
         transition first Idle accept Route then route;
@@ -72,7 +77,7 @@ part def Plant {
         transition first Both.regions.b.B2 then gather;
         transition first gather then Idle;
         transition first Idle accept Ping then Idle;
-        transition first Work accept Bump then Work.Prep;
+        transition first Work accept Bump then Work.steps.Prep;
         transition first Pause accept at dawn then Idle;
         /* transition (_tNever) from Pause to done not migrated — a trigger is dropped: the time event's time is not written: the instant "next Tuesday" is neither a number with a time unit nor an expression: not v2 expression syntax */
     }

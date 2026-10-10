@@ -350,6 +350,58 @@ func opaqueBody(v *sysmlv1.Element) (body, lang string) {
 	return body, lang
 }
 
+type opaqueBodyPair struct {
+	body     string
+	language string
+}
+
+func opaqueBodyPairs(v *sysmlv1.Element) []opaqueBodyPair {
+	bodies := opaqueTexts(v, "body")
+	languages := opaqueTexts(v, "language")
+	n := max(len(bodies), len(languages))
+	pairs := make([]opaqueBodyPair, n)
+	for i := range pairs {
+		if i < len(bodies) {
+			pairs[i].body = bodies[i]
+		}
+		if i < len(languages) {
+			pairs[i].language = languages[i]
+		}
+	}
+	return pairs
+}
+
+func opaqueTexts(v *sysmlv1.Element, role string) []string {
+	owned := v.Owned(role)
+	if len(owned) > 0 {
+		texts := make([]string, len(owned))
+		for i, e := range owned {
+			texts[i] = e.Text
+			if role == "language" {
+				texts[i] = strings.TrimSpace(texts[i])
+			}
+		}
+		return texts
+	}
+	text := v.Attrs[role]
+	if role == "language" {
+		text = strings.TrimSpace(text)
+	}
+	if text != "" {
+		return []string{text}
+	}
+	return nil
+}
+
+func opaqueBodiesEmpty(v *sysmlv1.Element) bool {
+	for _, pair := range opaqueBodyPairs(v) {
+		if strings.TrimSpace(pair.body) != "" {
+			return false
+		}
+	}
+	return true
+}
+
 // reference is one name an expression refers to: the segments of a qualified
 // name, then the members feature chains select from it (chain is true). A
 // chain on a name the expression's own body declares (local) starts from that
@@ -1221,4 +1273,11 @@ func commentLines(text string) []string {
 	}
 	out = append(out, " */")
 	return out
+}
+
+func opaqueRepresentationCommentLines(text string) []string {
+	text = strings.ReplaceAll(text, "*/", "* /")
+	text = strings.ReplaceAll(strings.ReplaceAll(text, "\r\n", "\n"), "\r", "\n")
+	comment, _ := source.CommentText(text, "")
+	return strings.Split(comment, "\n")
 }

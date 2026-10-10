@@ -1,0 +1,14 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Leave"},
+    {"signal": "ReturnShallow"},
+    {"signal": "Leave"},
+    {"signal": "ReturnDeep"}
+  ],
+  "finalState": "active+b",
+  "outputs": {
+    "log": {"type": "String", "value": "A(entry) A(exit) A(entry) A(exit) A(entry) "}
+  },
+  "trace": true
+}

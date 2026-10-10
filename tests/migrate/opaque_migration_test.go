@@ -281,8 +281,8 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 		"_mixed":   `the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset`,
 		"_python":  `the Python body is written as v2 assignments`,
 		"_partial": `the call "label.trim" is not in the translated function table`,
-		"_root":    `the body is kept as a comment: as the result expression, the types at "Math.sqrt(x)" disagree: the expression is a Real, not the Boolean wanted; as statements, the call "Math.sqrt" is not in the translated function table: a call is not a statement of the subset`,
-		"_split":   `the body is kept as a comment: as the result expression, the behavior has 2 output parameters; one result expression can stand for none of them; as statements, the construct "x" is outside the translated subset: an expression that assigns nothing is not a statement of the subset`,
+		"_root":    `the body is kept as a textual representation, which is not executed: as the result expression, the types at "Math.sqrt(x)" disagree: the expression is a Real, not the Boolean wanted; as statements, the call "Math.sqrt" is not in the translated function table: a call is not a statement of the subset`,
+		"_split":   `the body is kept as a textual representation, which is not executed: as the result expression, the behavior has 2 output parameters; one result expression can stand for none of them; as statements, the construct "x" is outside the translated subset: an expression that assigns nothing is not a statement of the subset`,
 	} {
 		wantNote(t, r, id, migrate.Approximated, want)
 	}
@@ -391,8 +391,8 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	wantNote(t, r, "_log", migrate.Approximated, "the JavaScript body is translated to v2; the console print print(…) is left out, as it writes to the tool's console and changes nothing of the model; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model")
 	wantNote(t, r, "_shout", migrate.Approximated, "the JavaScript body is translated to v2; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model")
 	wantLine(t, r.Notation, "assign ticks := ticks + 1;")
-	wantLine(t, r.Notation, "action shout;")
-	wantNoLine(t, r.Notation, "print(")
+	wantLine(t, r.Notation, "action shout {")
+	wantLine(t, r.Notation, `rep language "JavaScript" /* println("done");*/`)
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
@@ -435,7 +435,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 		`/* default value not migrated: {JavaScript} Math.sqrt(total) — the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted */`,
 		"in limit : ScalarValues::Integer[1] default = count + 1;",
 		"/* guard not migrated: [{JavaScript} ready and enabled] — the text \"and\" is not expression syntax: text follows the expression */",
-		"/* body not migrated (the text \"and\" is not expression syntax: a statement ends at `;` or a newline) {JavaScript}:",
+		`rep language "JavaScript" /* flag = ready and enabled*/`,
 		"assign flag := ready and enabled;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -507,7 +507,7 @@ func TestPluralPathsStayCollections(t *testing.T) {
 	wantNote(t, r, "_peak", migrate.Mapped, "the JavaScript body is translated to v2")
 	for id, want := range map[string]string{
 		"_spread":  `the types at "+" disagree: an operand is a collection, not a number`,
-		"_reset":   `the body is kept as a comment: the construct "cells.reading" is outside the translated subset: cells is a collection, so the assignment would write through several objects`,
+		"_reset":   `the body is kept as a textual representation, which is not executed: the construct "cells.reading" is outside the translated subset: cells is a collection, so the assignment would write through several objects`,
 		"_calib":   `the construct "reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects`,
 		"_span":    `the types at "total =" disagree: one side is a collection and the other a single value`,
 		"_ticking": "its swimlane represents this.cells, a collection of objects, so none of them performs the call, which runs in the caller's context; the behavior acts on a Gauge through its parameter context, which is left unbound: the caller is a Meter, which is no Gauge and has 4 parts that are one, so no one of them is chosen; the behavior belongs to Gauge and runs here in the caller's context",

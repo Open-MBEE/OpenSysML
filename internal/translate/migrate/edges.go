@@ -169,10 +169,10 @@ func (m *migration) wroteEdgeEnding(e, owner *sysmlv1.Element, keyword, name str
 }
 
 // edgePlaceIn locates a member declared in owner's body within the actions nest
-// names; a lone region's members are its owner's, a method's its operation's.
+// names; an inline region's members are its owner's, a method's its operation's.
 func (m *migration) edgePlaceIn(owner *sysmlv1.Element, nest []string, name string) edgePlace {
 	for owner != nil && owner.Type == "Region" && owner.Role == "region" {
-		if _, parallel := m.parallel[owner]; parallel {
+		if m.regionWrittenAsState(owner) {
 			break
 		}
 		owner = owner.Parent
@@ -536,7 +536,7 @@ func (m *migration) drawsNode(el *sysmlv1.Element, f viewForm) bool {
 		k := nodeKind(el)
 		return el.Role == "node" && k != nodePin && k != nodeParam
 	case "StateTransitionView":
-		return el.Role == "subvertex" || el.Type == "Region" && m.parallel[el] != ""
+		return el.Role == "subvertex" || el.Type == "Region" && m.regionWrittenAsState(el)
 	}
 	return false
 }

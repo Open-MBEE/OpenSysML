@@ -1,13 +1,10 @@
 # SysML v1 to v2 migration report: probability_part_shadowed.xmi
-# migrated 17 element(s): 13 mapped, 4 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 17 element(s): 16 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (4)
+## approximated (1)
 ControlFlow	Mission::Sub::Run::<ControlFlow>	_eb	(the edge carries no «Probability»: it is weighted 1.0 - Sub::mission.pr, its share of what the marked branches leave of 1, read when the decision is reached)
-OpaqueAction	Mission::Sub::Run::a	_a	-> a	(the body is kept as a comment: the body is empty)
-OpaqueAction	Mission::Sub::Run::b	_b	-> b	(the body is kept as a comment: the body is empty)
-OpaqueAction	Mission::Sub::Run::mission	_shadow	-> mission	(the body is kept as a comment: the body is empty)
 
-## mapped (13)
+## mapped (16)
 «Block» Class	Mission	_mission	-> Mission
 «Block» Class	Mission::Sub	_sub	-> Mission::Sub
 Activity	Mission::Sub::Run	_run	-> Mission::Sub::run	(written as an action usage every object of Mission::Sub performs from creation, so its body runs on the object and reaches its features)
@@ -18,6 +15,9 @@ ControlFlow	Mission::Sub::Run::<ControlFlow>	_fb
 ControlFlow	Mission::Sub::Run::<ControlFlow>	_fs
 DecisionNode	Mission::Sub::Run::<DecisionNode>	_decide	-> 'decide'
 InitialNode	Mission::Sub::Run::<InitialNode>	_ri	-> start
+OpaqueAction	Mission::Sub::Run::a	_a	-> a	(its body is empty, so it is written as an action that does nothing)
+OpaqueAction	Mission::Sub::Run::b	_b	-> b	(its body is empty, so it is written as an action that does nothing)
+OpaqueAction	Mission::Sub::Run::mission	_shadow	-> mission	(its body is empty, so it is written as an action that does nothing)
 Property	Mission::Sub::mission	_mpart	-> Mission::Sub::mission
 Property	Mission::pr	_pr	-> Mission::pr
 Model	Model	_m	(the root model's members are written at the top level)

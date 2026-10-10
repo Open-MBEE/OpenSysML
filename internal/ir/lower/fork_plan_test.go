@@ -191,9 +191,9 @@ func TestToStateGraph_ForkBranchesNestedInOneRegionFail(t *testing.T) {
 	}
 }
 
-// A region with neither an entry transition nor a fork branch has no way in.
-func TestToStateGraph_RegionWithoutInitialOrForkFails(t *testing.T) {
-	_, err := ToStateGraph(stateDefinitionIn(t, `
+// A region with neither an entry transition nor a fork branch stays inactive.
+func TestToStateGraph_RegionWithoutInitialOrForkRemainsInactive(t *testing.T) {
+	graph, err := ToStateGraph(stateDefinitionIn(t, `
 		package test {
 			state def Machine {
 				entry; then idle;
@@ -210,61 +210,50 @@ func TestToStateGraph_RegionWithoutInitialOrForkFails(t *testing.T) {
 			}
 		}
 	`), nil)
-	if err == nil {
-		t.Fatal("region no fork enters succeeded")
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
 	}
-	if !strings.Contains(err.Error(), "region third has no initial state") {
-		t.Fatalf("error = %q, want missing initial for third", err)
-	}
+	requireRegionInitial(t, graph, "work", "third", false, false)
 }
 
-// A region only a fork enters must be entered only by that fork: any other way
-// into its composite state would start the region by default, which it cannot.
-func TestToStateGraph_ForkOnlyRegionEnteredByDefaultFails(t *testing.T) {
-	for name, tc := range map[string]struct{ entry, extra, want string }{
+// A fork-only region stays inactive on default entry, whatever names the move.
+func TestToStateGraph_ForkOnlyRegionEnteredByDefaultLeavesItInactive(t *testing.T) {
+	for name, tc := range map[string]struct{ entry, extra string }{
 		"transition into the composite state": {
 			`entry; then idle;`,
 			`transition first idle accept Go then work;`,
-			"the transition from idle to work enters work",
 		},
 		"transition into the other region": {
 			`entry; then idle;`,
 			`transition first idle accept Go then b;`,
-			"the transition from idle to b enters work",
 		},
 		"self-transition of the composite state": {
 			`entry; then idle;`,
 			`transition first work accept Go then work;`,
-			"the transition from work to work enters work",
 		},
 		"transition into the composite state's history": {
 			`entry; then idle;`,
 			`transition first idle accept Go then back;`,
-			"the transition from idle to back enters work",
 		},
 		"entry transition naming the composite state": {
 			`entry; then work;`,
 			``,
-			"the entry transition naming work",
 		},
 		"entry transition naming a state in the other region": {
 			`entry; then b;`,
 			``,
-			"the entry transition naming b",
 		},
 		"guarded entry transition naming a state in the other region": {
 			`entry; if false then idle; then b;`,
 			``,
-			"the entry transition naming b",
 		},
 		"junction outside leading into the other region": {
 			`entry; then idle;`,
 			`junction j; transition first idle accept Go then j; transition first j then b;`,
-			"the transition from idle to b enters work",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := ToStateGraph(stateDefinitionIn(t, `
+			graph, err := ToStateGraph(stateDefinitionIn(t, `
 				package test {
 					attribute def Go;
 					state def Machine {
@@ -283,19 +272,16 @@ func TestToStateGraph_ForkOnlyRegionEnteredByDefaultFails(t *testing.T) {
 					}
 				}
 			`), nil)
-			if err == nil {
-				t.Fatal("default entry into a fork-only region succeeded")
+			if err != nil {
+				t.Fatalf("ToStateGraph: %v", err)
 			}
-			if !strings.Contains(err.Error(), "region left in state work has no initial state") || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("error = %q, want %q", err, tc.want)
-			}
+			requireRegionInitial(t, graph, "work", "left", false, true)
 		})
 	}
 }
 
-// An enclosing state's entry transition naming a state in the other region enters
-// the composite state from outside it too; the other region's own is fine.
-func TestToStateGraph_ForkOnlyRegionEnteredByAnEnclosingEntryFails(t *testing.T) {
+// An enclosing entry may enter a sibling region while the fork-only region stays inactive.
+func TestToStateGraph_ForkOnlyRegionEnteredByAnEnclosingEntryLeavesItInactive(t *testing.T) {
 	machine := func(outerEntry, rightEntry string) string {
 		return `
 			package test {
@@ -320,18 +306,21 @@ func TestToStateGraph_ForkOnlyRegionEnteredByAnEnclosingEntryFails(t *testing.T)
 			}
 		`
 	}
-	_, err := ToStateGraph(stateDefinitionIn(t, machine(`entry; then b;`, ``)), nil)
-	if err == nil || !strings.Contains(err.Error(), "the entry transition naming b") {
-		t.Fatalf("outer's entry naming b: error = %v, want the entry transition naming b", err)
+	graph, err := ToStateGraph(stateDefinitionIn(t, machine(`entry; then b;`, ``)), nil)
+	if err != nil {
+		t.Fatalf("outer entry naming b: %v", err)
 	}
-	if _, err := ToStateGraph(stateDefinitionIn(t, machine(`entry; then start;`, `entry; then b;`)), nil); err != nil {
+	requireRegionInitial(t, graph, "work", "left", false, true)
+	graph, err = ToStateGraph(stateDefinitionIn(t, machine(`entry; then start;`, `entry; then b;`)), nil)
+	if err != nil {
 		t.Fatalf("right's own entry naming b: %v", err)
 	}
+	requireRegionInitial(t, graph, "work", "left", false, true)
+	requireRegionInitial(t, graph, "work", "right", true, true)
 }
 
-// A fork that omits a region starts it by default, so a region another fork
-// alone enters is refused; with an entry transition the omission is fine.
-func TestToStateGraph_ForkOnlyRegionOmittedByAnotherForkFails(t *testing.T) {
+// A fork that omits a region leaves it inactive, even when another fork enters it.
+func TestToStateGraph_ForkOmissionLeavesRegionInactive(t *testing.T) {
 	machine := func(third string) string {
 		return `
 			package test {
@@ -356,22 +345,21 @@ func TestToStateGraph_ForkOnlyRegionOmittedByAnotherForkFails(t *testing.T) {
 			}
 		`
 	}
-	_, err := ToStateGraph(stateDefinitionIn(t, machine(``)), nil)
-	if err == nil || !strings.Contains(err.Error(), "region left in state work has no initial state") || !strings.Contains(err.Error(), "fork f2 enters work") {
-		t.Fatalf("f2 omitting left: error = %v, want fork f2 enters work", err)
+	graph, err := ToStateGraph(stateDefinitionIn(t, machine(``)), nil)
+	if err != nil {
+		t.Fatalf("f2 omitting left: %v", err)
 	}
-	_, err = ToStateGraph(stateDefinitionIn(t, machine(`entry; then c;`)), nil)
-	if err == nil || !strings.Contains(err.Error(), "region left in state work has no initial state") {
-		t.Fatalf("third with its own entry: error = %v, want left still refused", err)
+	requireRegionInitial(t, graph, "work", "left", false, true)
+	graph, err = ToStateGraph(stateDefinitionIn(t, machine(`entry; then c;`)), nil)
+	if err != nil {
+		t.Fatalf("third with its own entry: %v", err)
 	}
+	requireRegionInitial(t, graph, "work", "left", false, true)
+	requireRegionInitial(t, graph, "work", "third", true, true)
 }
 
-// A fork's branches enter every composite state above their targets, so a fork
-// into a nested composite state starts an outer sibling region by default, and a
-// fork above a composite state whose branch names it starts the regions of that
-// state the nearer fork alone enters. A fork reached from inside the outer state
-// leaves its other region as it is.
-func TestToStateGraph_ForkOnlyRegionEnteredByANestedForkFails(t *testing.T) {
+// Nested forks leave every omitted region inactive until a branch or transition enters it.
+func TestToStateGraph_NestedForkLeavesUnenteredRegionsInactive(t *testing.T) {
 	machine := func(o2Entry, leftEntry, routes string) string {
 		return `
 			package test {
@@ -401,24 +389,44 @@ func TestToStateGraph_ForkOnlyRegionEnteredByANestedForkFails(t *testing.T) {
 			}
 		`
 	}
-	_, err := ToStateGraph(stateDefinitionIn(t, machine(``, ``,
+	graph, err := ToStateGraph(stateDefinitionIn(t, machine(``, ``,
 		`transition first idle then split;
 		 transition first split2 then hold;
 		 transition first idle accept Go then split2;`)), nil)
-	if err == nil || !strings.Contains(err.Error(), "region o2 in state outer has no initial state") || !strings.Contains(err.Error(), "the transition from idle to split enters outer") {
-		t.Fatalf("nested fork from outside: error = %v, want the transition from idle to split", err)
+	if err != nil {
+		t.Fatalf("nested fork from outside: %v", err)
 	}
-	_, err = ToStateGraph(stateDefinitionIn(t, machine(``, `entry; then a;`,
+	requireRegionInitial(t, graph, "outer", "o2", false, true)
+	graph, err = ToStateGraph(stateDefinitionIn(t, machine(``, `entry; then a;`,
 		`transition first idle then split2;
 		 transition first split2 then inner;`)), nil)
-	if err == nil || !strings.Contains(err.Error(), "region right in state inner has no initial state") || !strings.Contains(err.Error(), "the transition from idle to split2 enters inner") {
-		t.Fatalf("outer fork naming inner: error = %v, want the transition from idle to split2", err)
+	if err != nil {
+		t.Fatalf("outer fork naming inner: %v", err)
 	}
+	requireRegionInitial(t, graph, "inner", "right", false, true)
 	if _, err := ToStateGraph(stateDefinitionIn(t, machine(``, ``,
 		`transition first idle then split2;
 		 transition first split2 then hold;`)), nil); err != nil {
 		t.Fatalf("nested fork reached from inside outer: %v", err)
 	}
+}
+
+func requireRegionInitial(t *testing.T, graph *StateGraph, ownerName, regionName string, wantStart, wantFork bool) {
+	t.Helper()
+	for region, start := range graph.RegionInitials {
+		owner := graph.RegionOwner[region]
+		if owner == nil || owner.Name != ownerName || region.Name != regionName {
+			continue
+		}
+		if (start != nil) != wantStart {
+			t.Fatalf("region %s.%s start = %v, want initial present %t", ownerName, regionName, start, wantStart)
+		}
+		if graph.ForkStarted(region) != wantFork {
+			t.Fatalf("region %s.%s fork-started = %t, want %t", ownerName, regionName, graph.ForkStarted(region), wantFork)
+		}
+		return
+	}
+	t.Fatalf("region %s.%s not recorded", ownerName, regionName)
 }
 
 // A transition that names a state inside the fork-only region, or one that stays

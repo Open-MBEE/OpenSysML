@@ -6,17 +6,11 @@ part def Sorter {
         first 'decide' then left { @Stochastic::Probability { p = bias; } }
         first 'decide' then right { @Stochastic::Probability { p = 0.3; } }
         first 'decide' then reject { @Stochastic::Probability { p = 1.0 - (bias + 0.3); } }
-        action left {
-            /* body not migrated (the body is empty) */
-        }
+        action left;
         first left then 'merge';
-        action right {
-            /* body not migrated (the body is empty) */
-        }
+        action right;
         first right then 'merge';
-        action reject {
-            /* body not migrated (the body is empty) */
-        }
+        action reject;
         first reject then 'merge';
         merge 'merge';
         first 'merge' then final;

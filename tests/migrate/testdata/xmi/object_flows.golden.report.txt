@@ -1,11 +1,10 @@
 # SysML v1 to v2 migration report: object_flows.xmi
-# migrated 126 element(s): 124 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 126 element(s): 125 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (2)
+## approximated (1)
 OpaqueAction	Pipeline::Count::step	_cs	-> 'step'	(the JavaScript body is translated to v2; several edges leave the node, which a fork fork carries)
-OpaqueAction	Pipeline::Pair::keep	_pc	-> keep	(the body is kept as a comment: the body is empty)
 
-## mapped (124)
+## mapped (125)
 Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Pipeline	_pipe	-> Pipeline
 Activity	Pipeline::Count	_count	-> Pipeline::count	(written as an action usage of Pipeline, which a call on an object performs, so its body runs on the object and reaches its features)
@@ -87,6 +86,7 @@ ForkNode	Pipeline::Pair::both	_pfk	-> both
 JoinNode	Pipeline::Pair::gather	_pj	-> gather
 OpaqueAction	Pipeline::Pair::high	_ph	-> high	(the JavaScript body is translated to v2)
 OutputPin	Pipeline::Pair::high::y	_phy	-> Pipeline::Pair::high.y
+OpaqueAction	Pipeline::Pair::keep	_pc	-> keep	(its body is empty, so it is written as an action that does nothing)
 InputPin	Pipeline::Pair::keep::v	_pcv	-> Pipeline::Pair::keep.v
 OpaqueAction	Pipeline::Pair::low	_pl	-> low	(the JavaScript body is translated to v2)
 OutputPin	Pipeline::Pair::low::y	_ply	-> Pipeline::Pair::low.y

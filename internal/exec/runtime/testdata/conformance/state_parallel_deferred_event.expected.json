@@ -1,0 +1,9 @@
+{
+  "type": "state",
+  "libraries": true,
+  "events": [
+    {"signal": "Ping"},
+    {"signal": "Leave"}
+  ],
+  "finalState": "done"
+}

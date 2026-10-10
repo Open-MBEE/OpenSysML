@@ -1,11 +1,7 @@
 # SysML v1 to v2 migration report: decision_rejected_probability_default.xmi
-# migrated 14 element(s): 12 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 14 element(s): 14 mapped, 0 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (2)
-OpaqueAction	Chooser::Route::defaulted	_defaulted	-> defaulted	(the body is kept as a comment: the body is empty)
-OpaqueAction	Chooser::Route::missing	_missingBranch	-> missing	(the body is kept as a comment: the body is empty)
-
-## mapped (12)
+## mapped (14)
 «Block» Class	Chooser	_chooser	-> Chooser
 Activity	Chooser::Route	_route	-> Chooser::route	(written as an action usage every object of Chooser performs from creation, so its body runs on the object and reaches its features)
 ActivityFinalNode	Chooser::Route::<ActivityFinalNode>	_final	-> final
@@ -15,6 +11,8 @@ ControlFlow	Chooser::Route::<ControlFlow>	_finishDefault
 ControlFlow	Chooser::Route::<ControlFlow>	_finishMissing
 InitialNode	Chooser::Route::<InitialNode>	_initial	-> start
 DecisionNode	Chooser::Route::decide	_decide	-> 'decide'
+OpaqueAction	Chooser::Route::defaulted	_defaulted	-> defaulted	(its body is empty, so it is written as an action that does nothing)
+OpaqueAction	Chooser::Route::missing	_missingBranch	-> missing	(its body is empty, so it is written as an action that does nothing)
 Property	Chooser::pDefault	_default	-> Chooser::pDefault
 Property	Chooser::pMissing	_missing	-> Chooser::pMissing
 Model	Model	_m	(the root model's members are written at the top level)

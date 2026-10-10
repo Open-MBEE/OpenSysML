@@ -129,6 +129,10 @@ func (m *migration) nameTaken(owner *sysmlv1.Element, name string) bool {
 	return m.nameTakenBut(nil, owner, name)
 }
 
+func (m *migration) nameTakenExcept(owner *sysmlv1.Element, name string, except *sysmlv1.Element) bool {
+	return m.nameTakenBut(except, owner, name)
+}
+
 // nameTakenBut is nameTaken disregarding e, whose own name the declaration
 // written for it is free to keep.
 func (m *migration) nameTakenBut(e, owner *sysmlv1.Element, name string) bool {
@@ -255,8 +259,7 @@ func upperFirst(s string) string {
 }
 
 // segments returns the v2 qualified-name segments of an element: the names
-// from the top-level declaration down, the root Model not being written. A
-// lone region is its owner's body; one of several is a sub-state of a parallel state.
+// from the top-level declaration down, the root Model not being written.
 // A connection point is a member of its owner, whichever region a tool listed it in;
 // a method is the body of its operation.
 func (m *migration) segments(e *sysmlv1.Element) []string {
@@ -292,9 +295,20 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 		if cur.Parent == nil && cur.Type == "Model" {
 			break
 		}
+		var wrappedPointRegion *sysmlv1.Element
+		if owner := pointOwner(cur); owner != nil && owner.Type == "State" {
+			if regions := m.populatedRegions(owner); len(regions) == 1 &&
+				m.regionWrittenAsState(regions[0]) && m.regionStates[regions[0]] == "" {
+				wrappedPointRegion = regions[0]
+			}
+		}
 		if cur.Type == "Region" && cur.Role == "region" {
-			if p, ok := m.parallel[cur]; ok {
-				segs = append([]segment{{name: p}, {name: m.nameFor(cur)}}, segs...)
+			if m.regionWrittenAsState(cur) {
+				if p := m.regionStates[cur]; p != "" {
+					segs = append([]segment{{name: p}, {name: m.nameFor(cur)}}, segs...)
+				} else {
+					segs = append([]segment{{name: m.nameFor(cur), feature: true, elem: cur}}, segs...)
+				}
 			}
 			continue
 		}
@@ -304,6 +318,9 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 		segs = append([]segment{{name: m.nameFor(cur), feature: m.isUsage(cur), elem: cur}}, segs...)
 		if within, ok := m.nestedIn[cur]; ok {
 			segs = append([]segment{{name: within, feature: true}}, segs...)
+		}
+		if wrappedPointRegion != nil {
+			segs = append([]segment{{name: m.nameFor(wrappedPointRegion), feature: true, elem: wrappedPointRegion}}, segs...)
 		}
 	}
 	return segs
