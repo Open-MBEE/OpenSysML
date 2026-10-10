@@ -1,0 +1,58 @@
+materialize: controller #1
+start: exhibited state machine monitor of #1
+materialize: monitor #2
+enter: outer
+enter: waiting
+run: exhibited state machine monitor of #1
+    eval feature pulse -> ()
+    eval null -> null
+  eval operator != -> false
+eval operator and -> false
+enter: outer
+enter: waiting
+    eval feature pulse -> ()
+    eval null -> null
+  eval operator != -> false
+eval operator and -> false
+exit: waiting
+stmt assign pulse
+materialize: Pulse #3
+  eval construct Pulse -> instance#3
+start: performed action pulsing of #3
+materialize: pulsing #4
+run: performed action pulsing of #3
+step 1: token 1@rise
+  stmt assign ready
+    eval literal true -> true
+step 2: token 1@fall
+  stmt assign ready
+    eval literal false -> false
+step 3: token 1@done
+step 4: no active tokens
+enter: armed
+transition: waiting -> armed (event: accept Go)
+    eval feature pulse -> instance#3
+    eval null -> null
+  eval operator != -> true
+      eval feature pulse -> instance#3
+      eval literal 1 -> 1
+    eval index -> instance#3
+  eval chain ready -> false
+eval operator and -> false
+exit: armed
+exit: outer
+enter: done
+transition: armed -> done (event: change)
+run: exhibited state machine monitor of #1
+    eval feature pulse -> instance#3
+    eval null -> null
+  eval operator != -> true
+      eval feature pulse -> instance#3
+      eval literal 1 -> 1
+    eval index -> instance#3
+  eval chain ready -> false
+eval operator and -> false
+exit: waiting
+exit: outer
+enter: done
+transition: waiting -> done (event: change)

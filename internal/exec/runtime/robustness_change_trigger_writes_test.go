@@ -6,6 +6,64 @@ import (
 )
 
 func TestRuntimeRobustnessChangeTriggerWrites(t *testing.T) {
+	t.Run("started classifier behavior writes are observed individually", func(t *testing.T) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+			package test {
+				private import ScalarValues::*;
+
+				attribute def Go;
+
+				part def Pulse { attribute ready : Boolean = false; }
+
+				part def Controller {
+					part pulse : Pulse[0..1] {
+						perform action pulsing {
+							first start;
+							then action rise { assign ready := true; }
+							then action fall { assign ready := false; }
+							then done;
+						}
+					}
+					exhibit state monitor {
+						entry; then outer;
+						state outer {
+							entry; then waiting;
+							state waiting;
+							state armed;
+							transition first waiting accept Go
+								do assign pulse := new Pulse()
+								then armed;
+						}
+						state done;
+						transition first outer accept when pulse != null and pulse#(1).ready then done;
+					}
+				}
+
+				part controller : Controller;
+			}
+		`))
+		matches := idx.LookupQualified("test::controller")
+		if len(matches) != 1 {
+			t.Fatalf("controller: got %d matching symbols, want 1", len(matches))
+		}
+		controller, err := ctx.occurrenceOf(matches[0])
+		if err != nil {
+			t.Fatalf("occurrenceOf(controller): %v", err)
+		}
+		exec := controller.ExhibitedStates()[0].State
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("initial run: %v", err)
+		}
+		exec.SendSignal("Go", nil)
+		if err := exec.ProcessNextEvent(); err != nil {
+			t.Fatalf("ProcessNextEvent(Go): %v", err)
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("RunToCompletion after Go: %v", err)
+		}
+		assertCurrentState(t, exec, "done")
+	})
+
 	t.Run("write-time condition error is deferred to poll", func(t *testing.T) {
 		exec := stateExecutorForSource(t, "Machine", `package test {
 			state Machine {

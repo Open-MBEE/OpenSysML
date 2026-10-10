@@ -23,6 +23,22 @@ func (ctx *Context) beginFeatureWrite(fv *FeatureValue) func() {
 	}
 }
 
+// suspendFeatureWrite completes the write under way, so the behaviors it starts write after it.
+func (ctx *Context) suspendFeatureWrite() (resume func()) {
+	if ctx.featureWriteDepth == 0 {
+		return func() {}
+	}
+	depth := ctx.featureWriteDepth
+	ctx.featureWriteDepth = 1
+	ctx.endFeatureWrite()
+	return func() {
+		ctx.featureWriteDepth = depth
+		ctx.featureWriteBefore = make(map[*FeatureValue]featureWriteValue)
+		ctx.featureWriteOrder = nil
+		ctx.featureWriteState = false
+	}
+}
+
 func (ctx *Context) noteFeatureWrite(fv *FeatureValue) {
 	if ctx.probes > 0 || ctx.featureWriteDepth == 0 || fv == nil {
 		return

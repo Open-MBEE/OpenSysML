@@ -832,8 +832,49 @@ func (ctx *Context) runAttachedBehaviors() error {
 		return nil
 	}
 	ctx.behaviorRunDepth++
-	defer func() { ctx.behaviorRunDepth-- }()
+	var resume func()
+	defer func() {
+		ctx.behaviorRunDepth--
+		if resume != nil {
+			resume()
+		}
+	}()
+	if ctx.hasRunnableBehavior() {
+		resume = ctx.suspendFeatureWrite()
+	}
 	return ctx.drainObjectBehaviors()
+}
+
+func (ctx *Context) hasRunnableBehavior() bool {
+	first, attached := 0, 0
+	if n := len(ctx.runBoundaries); n > 0 {
+		boundary := ctx.runBoundaries[n-1]
+		first = min(boundary.pending, len(ctx.pendingBehaviors))
+		attached = min(boundary.behaviors, len(ctx.objectBehaviors))
+	}
+	for _, behavior := range ctx.pendingBehaviors[first:] {
+		if !behavior.completed() {
+			return true
+		}
+	}
+	if ctx.quiescent.holds(ctx) || attached >= len(ctx.objectBehaviors) {
+		return false
+	}
+	memo := &pendingMemo{}
+	saved := ctx.polling
+	ctx.polling = memo
+	defer func() {
+		ctx.polling = saved
+		if saved != nil && memo.readsData {
+			saved.readsData = true
+		}
+	}()
+	for _, behavior := range ctx.objectBehaviors[attached:] {
+		if !ctx.heldBehaviors[behavior] && behavior.hasPendingWork() {
+			return true
+		}
+	}
+	return false
 }
 
 // forgetBehaviorsFrom drops the behaviors attached since a start began, and the
