@@ -17,13 +17,13 @@ package test {
 			assign x := x + 5;
 			then assign innerSeen := x;
 		}
-		action after {
+		action later {
 			assign seen := x;
 		}
 		done;
 
 		succession first start then inner;
-		succession first inner then after;
-		succession first after then done;
+		succession first inner then later;
+		succession first later then done;
 	}
 }

@@ -4,6 +4,6 @@
 	"outputs": {
 		"x": {"type": "Integer", "value": 100},
 		"log": {"type": "Integer", "value": 4020},
-		"after": {"type": "Integer", "value": 100}
+		"later": {"type": "Integer", "value": 100}
 	}
 }

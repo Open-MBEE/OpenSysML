@@ -6,7 +6,7 @@ package test {
 	private import ScalarValues::*;
 
 	action def Base {
-		attribute x : Integer = 1;
+		attribute x : Integer default 1;
 		out path : String = "";
 
 		first start;

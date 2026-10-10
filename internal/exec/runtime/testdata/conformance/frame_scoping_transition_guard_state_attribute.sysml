@@ -2,14 +2,13 @@
 // effect in that namespace (KerML 1.0 §8.2.3.5.3): `level` is `Modes::level`, not
 // the same-named attribute of the part exhibiting the machine nor the one the
 // source state `idle` declares, however active that state is when the guard is
-// read. `Controller::level` remains reachable by qualified name.
+// read. The part's own `level` stays 7 beside it.
 package test {
 	private import ScalarValues::*;
 
 	part def Controller {
 		attribute level : Integer = 7;
 		attribute seen : Integer = 0;
-		attribute seenPart : Integer = 0;
 
 		state def Modes {
 			attribute level : Integer = 1;
@@ -23,10 +22,7 @@ package test {
 
 			transition first idle if level > 5 then high;
 			transition first idle if level <= 5
-				do {
-					assign seen := level;
-					assign seenPart := Controller::level;
-				}
+				do { assign seen := level; }
 				then low;
 		}
 

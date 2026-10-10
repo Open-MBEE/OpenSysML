@@ -22,9 +22,8 @@ spelling without either hiding the other for resolution:
   of the transition, so its attribute is not in reach, however active the state);
 - a body attribute and an accept node's payload of the same name (the payload is a
   parameter of the accept node; the body's own declaration is nearer);
-- a feature written under one of its names and read under another: a short name
-  (`attribute <sx> x`, KerML 1.0 §7.3.4.5) or a redefined name (`attribute y :>> base`,
-  §7.3.4.6) denotes the same feature as the declared name.
+- a feature written under its declared name and read under its short name
+  (`attribute <sx> x`, KerML 1.0 §7.3.4.5), which names the same feature.
 
 The nested cases — a nested node's attribute, a block-local declaration, a calc
 parameter beside a body attribute, an inherited feature redefined by the
@@ -76,8 +75,8 @@ them; identity is the resolved feature.
 - Aliases (`frame.aliases`, `actionFrame.aliases`) still canonicalize a redefined
   name to the redefining one for writes and for `node.pin` reads.
 - The check's canonical state is spelled from the same values; the reduction
-  corpus's `por_alias` pin moved because its short-name and redefined-name reads now
-  observe the written value rather than the declaration's default, so the
+  corpus's `por_alias` pin moved because its short-name reads now observe the
+  written value rather than the declaration's default, so the
   interleavings reach more distinct states (`TestCheckReductionIsSound` still holds).
 
 ## Invariant

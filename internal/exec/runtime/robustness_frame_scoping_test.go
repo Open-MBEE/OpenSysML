@@ -20,11 +20,11 @@ func testFrameScopingBlockLocalUnresolved(t *testing.T) {
 	_, err := executeActionSource(t, "run", `package test {
 		private import ScalarValues::*;
 		action run {
-			attribute after : Integer = 0;
+			attribute later : Integer = 0;
 			first start;
 			then action body {
 				if true { attribute x : Integer = 5; }
-				then assign after := x;
+				then assign later := x;
 			}
 			then done;
 		}
@@ -38,10 +38,10 @@ func testFrameScopingNestedAttributeUnresolved(t *testing.T) {
 	_, err := executeActionSource(t, "run", `package test {
 		private import ScalarValues::*;
 		action run {
-			attribute after : Integer = 0;
+			attribute later : Integer = 0;
 			first start;
 			then action inner { attribute x : Integer = 5; }
-			then action reader { assign after := x; }
+			then action reader { assign later := x; }
 			then done;
 		}
 	}`)

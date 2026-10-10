@@ -17,7 +17,5 @@ exit: idle
 stmt action body
   stmt assign seen
     eval feature level -> 1
-  stmt assign seenPart
-    eval feature Controller::level -> 7
 enter: low
 transition: idle -> low

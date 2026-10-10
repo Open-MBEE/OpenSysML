@@ -8,7 +8,7 @@ package test {
 	action def Loop {
 		attribute x : Integer = 100;
 		out log : Integer = 0;
-		out after : Integer = 0;
+		out later : Integer = 0;
 
 		first start;
 		action body {
@@ -19,7 +19,7 @@ package test {
 				then action peek { assign log := log + x; }
 				then assign n := n - 1;
 			}
-			then assign after := x;
+			then assign later := x;
 		}
 		done;
 
