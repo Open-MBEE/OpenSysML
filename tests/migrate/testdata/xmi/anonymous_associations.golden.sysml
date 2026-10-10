@@ -2,6 +2,7 @@ package Fleet {
     part def Car {
         ref part wheels : Wheel[4];
         ref part driver : Driver;
+        ref occurrence garage : Garage;
     }
     part def Wheel {
         ref part car : Car;
@@ -9,6 +10,13 @@ package Fleet {
     connection def WheelToCar {
         end wheels : Wheel crosses car.wheels;
         end car : Car crosses wheels.car;
+    }
+    occurrence def Garage {
+        ref part cars : Car;
+    }
+    connection def CarToGarage {
+        end cars : Car crosses garage.cars;
+        end garage : Garage crosses cars.garage;
     }
     part def Driver;
     connection def DriverToCar {
@@ -55,6 +63,8 @@ package Fleet {
     part wheel : Wheel;
     part car : Car;
     connection 'wheel to car' : WheelToCar connect wheel to car;
+    occurrence garage : Garage;
+    connection 'car to garage' : CarToGarage connect car to garage;
     part driver : Driver;
     connection 'driver to car' : DriverToCar connect driver to car;
     part pump : Pump;
@@ -66,5 +76,5 @@ package Fleet {
         expose WheelToCar;
         render Views::asTreeDiagram;
     }
-    metadata MigrationMetadata::SynthesizedName about WheelToCar, DriverToCar, ReadingToSource, SinkToLogger, PumpToTank;
+    metadata MigrationMetadata::SynthesizedName about WheelToCar, CarToGarage, DriverToCar, ReadingToSource, SinkToLogger, PumpToTank;
 }

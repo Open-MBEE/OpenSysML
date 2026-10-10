@@ -324,6 +324,13 @@ func (m *migration) planAssociations(assocs []*sysmlv1.Element, links []*actorLi
 		if len(ends) != 2 {
 			continue
 		}
+		for _, end := range ends {
+			// A crossed property is reached from the def, so it cannot stay private.
+			typ, _ := m.typeRef(m.model.Ref(end, "type"), e)
+			if opp, _ := m.crossedProperty(e, end, typ); opp != nil {
+				m.expose(end, "the connection def of the association "+describe(e)+" in "+qualifiedName(e.Parent)+" crosses it")
+			}
+		}
 		from, to := m.model.Ref(ends[0], "type"), m.model.Ref(ends[1], "type")
 		if from == nil || to == nil {
 			continue

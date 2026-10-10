@@ -1,17 +1,19 @@
 # SysML v1 to v2 migration report: anonymous_associations.xmi
-# migrated 31 element(s): 23 mapped, 8 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 35 element(s): 25 mapped, 10 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (8)
+## approximated (10)
 Association	Fleet::<Association>	_carWheel	-> Fleet::WheelToCar	(the anonymous Association is written as connection def WheelToCar; its one usage is the connection wheel to car joining wheel and car)
+Association	Fleet::<Association>	_garageCarAssoc	-> Fleet::CarToGarage	(the anonymous Association is written as connection def CarToGarage; its one usage is the connection car to garage joining car and garage)
 Association	Fleet::<Association>	_carDriverAssoc	-> Fleet::DriverToCar	(the anonymous Association is written as connection def DriverToCar; its one usage is the connection driver to car joining driver and car)
 Association	Fleet::<Association>	_sensorReadingAssoc	-> Fleet::ReadingToSource	(the anonymous Association is written as connection def ReadingToSource; no connection usage joins usages of its end types: end source is untyped; end reading crosses no property: the opposite end is untyped, so the property cannot be reached through it)
 Association	Fleet::<Association>	_loggerSinkAssoc	-> Fleet::SinkToLogger	(the anonymous Association is written as connection def SinkToLogger; no connection usage joins usages of its end types: no usage can be written of External.xmi#_sink; end sink crosses no property: the end's type is not written)
 Association	Fleet::<Association>	_tankPumpAssoc	-> Fleet::PumpToTank	(the anonymous Association is written as connection def PumpToTank; its one usage is the connection pump to tank joining pump and tank)
+Property	Fleet::Garage::cars	_garageCars	-> Fleet::Garage::cars	(private visibility is not written: the connection def of the association (_garageCarAssoc) in Fleet crosses it)
 Property	Fleet::Logger::sink	_loggerSink	-> Fleet::Logger::sink	(typed by library element  with no known v2 counterpart; type External.xmi#_sink lives outside the document and is not written)
 Association	Fleet::Operates	_operates	-> Fleet::Operates	(its one usage is the connection operates joining Operator and console; end operator crosses no property: its type Fleet::Operator is written as a usage, not a definition, so the property's type and the end's cannot be the same)
 Actor	Fleet::Operator	_operator	-> Fleet::Operator	(a UML actor is written as a part usage)
 
-## mapped (23)
+## mapped (25)
 Package	Fleet	_fleet	-> Fleet
 Property	Fleet::<Association>::<Property>	_driverCars	-> Fleet::DriverToCar::car
 Property	Fleet::<Association>::<Property>	_sinkLogger	-> Fleet::SinkToLogger::logger
@@ -19,10 +21,12 @@ Property	Fleet::<Association>::<Property>	_pumpTank	-> Fleet::PumpToTank::tank
 Property	Fleet::<Association>::source	_readingSource	-> Fleet::ReadingToSource::source
 «Block» Class	Fleet::Car	_car	-> Fleet::Car
 Property	Fleet::Car::driver	_carDriver	-> Fleet::Car::driver
+Property	Fleet::Car::garage	_carGarage	-> Fleet::Car::garage
 Property	Fleet::Car::wheels	_carWheels	-> Fleet::Car::wheels
 «Block» Class	Fleet::Console	_console	-> Fleet::Console
 Property	Fleet::Console::operator	_consoleOperator	-> Fleet::Console::operator
 «Block» Class	Fleet::Driver	_driver	-> Fleet::Driver
+Class	Fleet::Garage	_garage	-> Fleet::Garage
 «Block» Class	Fleet::Logger	_logger	-> Fleet::Logger
 Property	Fleet::Operates::<Property>	_operatorConsole	-> Fleet::Operates::console
 «Block» Class	Fleet::Pump	_pump	-> Fleet::Pump

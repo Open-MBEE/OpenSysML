@@ -15,11 +15,17 @@
           <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_carWheelsU" value="4"/>
         </ownedAttribute>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_carDriver" name="driver" type="_driver" association="_carDriverAssoc"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_carGarage" name="garage" type="_garage" association="_garageCarAssoc"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_wheel" name="Wheel">
         <ownedAttribute xmi:type="uml:Property" xmi:id="_wheelCar" name="car" type="_car" association="_carWheel"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Association" xmi:id="_carWheel" memberEnd="_carWheels _wheelCar"/>
+      <!-- A private class-owned end: the def crosses it, so it is written visible. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_garage" name="Garage">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_garageCars" name="cars" type="_car" visibility="private" association="_garageCarAssoc"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_garageCarAssoc" memberEnd="_garageCars _carGarage"/>
       <!-- One end class-owned, the other owned by the association: the owned
            end carries its multiplicity as the cross multiplicity. -->
       <packagedElement xmi:type="uml:Class" xmi:id="_driver" name="Driver"/>

@@ -2231,7 +2231,11 @@ func (m *migration) associationEnd(e, end *sysmlv1.Element) {
 	typ, tnote := m.typeRef(t, e)
 	endName := m.endNames[end]
 	decl := "end"
-	cross, crossNote := m.crossedProperty(e, end, typ)
+	opp, crossNote := m.crossedProperty(e, end, typ)
+	cross := ""
+	if opp != nil {
+		cross = writeName(m.endNames[opp]) + "." + writeName(m.nameOf(end))
+	}
 	mnote := ""
 	if cross == "" {
 		// The end's multiplicity is the cross multiplicity, how many of its
@@ -2284,47 +2288,47 @@ func (m *migration) associationEnd(e, end *sysmlv1.Element) {
 	}
 }
 
-// crossedProperty is the feature chain the end of a connection def crosses and
-// the reason it crosses none. A member end a class owns is written as that
+// crossedProperty is the opposite end through which the end of a connection
+// def crosses its property, or nil and the reason it crosses none. A member end a class owns is written as that
 // class's property; the def's end for it crosses the property through the
 // opposite end (`end wheels : Wheel crosses car.wheels;`), the mapping's
 // end-to-subsetted-feature chain, which is sound only for a binary association
 // whose both ends are typed by written definitions and whose property is
 // written in the opposite end's type. An end the association owns is no
 // property, so it crosses nothing and carries its multiplicity itself.
-func (m *migration) crossedProperty(e, end *sysmlv1.Element, typ string) (chain, note string) {
+func (m *migration) crossedProperty(e, end *sysmlv1.Element, typ string) (opp *sysmlv1.Element, note string) {
 	if end.Parent == e {
-		return "", ""
+		return nil, ""
 	}
 	ends := m.model.Refs(e, "memberEnd")
 	label := "end " + writeName(m.endNames[end]) + " crosses no property: "
 	if len(ends) != 2 {
-		return "", label + "the association has " + strconv.Itoa(len(ends)) + " ends"
+		return nil, label + "the association has " + strconv.Itoa(len(ends)) + " ends"
 	}
-	opp := ends[0]
+	opp = ends[0]
 	if opp == end {
 		opp = ends[1]
 	}
 	if typ == "" {
-		return "", label + "the end's type is not written"
+		return nil, label + "the end's type is not written"
 	}
 	if t := m.model.Ref(end, "type"); strings.TrimSpace(m.typing(t)) != ":" {
-		return "", label + "its type " + qualifiedName(t) + " is written as a usage, not a definition, so the property's type and the end's cannot be the same"
+		return nil, label + "its type " + qualifiedName(t) + " is written as a usage, not a definition, so the property's type and the end's cannot be the same"
 	}
 	ot := m.model.Ref(opp, "type")
 	if ot == nil {
-		return "", label + "the opposite end is untyped, so the property cannot be reached through it"
+		return nil, label + "the opposite end is untyped, so the property cannot be reached through it"
 	}
 	if oref, _ := m.typeRef(ot, e); oref == "" {
-		return "", label + "the opposite end's type " + qualifiedName(ot) + " is not written"
+		return nil, label + "the opposite end's type " + qualifiedName(ot) + " is not written"
 	}
 	if end.Parent != ot {
-		return "", label + "the end property is owned by " + qualifiedName(end.Parent) + ", not by the opposite end's type " + qualifiedName(ot)
+		return nil, label + "the end property is owned by " + qualifiedName(end.Parent) + ", not by the opposite end's type " + qualifiedName(ot)
 	}
 	if end.Type != "Property" || !m.written(end) || toolContent(end) != "" {
-		return "", label + "the end property is not written as a feature of " + qualifiedName(ot)
+		return nil, label + "the end property is not written as a feature of " + qualifiedName(ot)
 	}
-	return writeName(m.endNames[opp]) + "." + writeName(m.nameOf(end)), ""
+	return opp, ""
 }
 
 // reportAssociationUsage notes on a connection def's entry the connection

@@ -21,6 +21,11 @@ func TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound(t *testing.T) {
 		"end wheels : Wheel crosses car.wheels;",
 		"end car : Car crosses wheels.car;",
 		"connection 'wheel to car' : WheelToCar connect wheel to car;",
+		"connection def CarToGarage {",
+		"end cars : Car crosses garage.cars;",
+		"end garage : Garage crosses cars.garage;",
+		"ref part cars : Car;",
+		"connection 'car to garage' : CarToGarage connect car to garage;",
 		"connection def DriverToCar {",
 		"end driver : Driver crosses car.driver;",
 		"end [0..*] ref car : Car;",
@@ -40,11 +45,13 @@ func TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound(t *testing.T) {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "connection 'operates 2'")
-	if got := strings.Count(string(r.Notation), " connect "); got != 4 {
+	wantNoLine(t, r.Notation, "private ref part cars")
+	if got := strings.Count(string(r.Notation), " connect "); got != 5 {
 		t.Errorf("connections = %d, want one for each def whose end types have usages\n%s", got, r.Notation)
 	}
 	wantNote(t, r, "_carWheel", migrate.Approximated, "the anonymous Association is written as connection def WheelToCar; its one usage is the connection wheel to car joining wheel and car")
 	wantNote(t, r, "_carDriverAssoc", migrate.Approximated, "its one usage is the connection driver to car joining driver and car")
+	wantNote(t, r, "_garageCars", migrate.Approximated, "private visibility is not written: the connection def of the association (_garageCarAssoc) in Fleet crosses it")
 	wantNote(t, r, "_sensorReadingAssoc", migrate.Approximated, "end reading crosses no property: the opposite end is untyped, so the property cannot be reached through it")
 	wantNote(t, r, "_sensorReadingAssoc", migrate.Approximated, "no connection usage joins usages of its end types: end source is untyped")
 	wantNote(t, r, "_loggerSinkAssoc", migrate.Approximated, "end sink crosses no property: the end's type is not written")
