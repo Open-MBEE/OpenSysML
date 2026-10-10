@@ -29,7 +29,7 @@ func (e *ActionExecutor) stepMultiplicity(graph *lower.ActionGraph, node ast.Nod
 	if graph == nil {
 		return 1, nil
 	}
-	if _, declared := graph.Multiplicities[node]; !declared {
+	if !graph.HasStepMultiplicity(node, e.ctx.Semantics()) {
 		return 1, nil
 	}
 	if e.stepCounts == nil {

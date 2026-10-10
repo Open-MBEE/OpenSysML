@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"evaluate": "test::S",
+	"trace": true,
+	"outputs": {
+		"level": {"type": "Integer", "value": 1}
+	}
+}

@@ -143,7 +143,7 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 		}
 	}
 	for _, node := range f.Nodes {
-		if frame := f.FrameOf[node]; frame != nil && frame.Graph.Multiplicities[node] != nil {
+		if frame := f.FrameOf[node]; frame != nil && frame.Graph.HasStepMultiplicity(node, model) {
 			count, err := frame.Graph.StepCount(node, model)
 			if err != nil || count != 1 {
 				multiplicity := frame.Graph.MultiplicityText(node, model)

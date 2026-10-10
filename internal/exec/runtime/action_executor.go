@@ -190,6 +190,16 @@ func newActionExecutorOf(
 	self *Instance,
 	occurrence *Instance,
 ) (*ActionExecutor, error) {
+	return newActionExecutorOfGraph(ctx, performed, action, self, occurrence, nil)
+}
+
+func newActionExecutorOfGraph(
+	ctx *Context,
+	performed, action *symbols.Symbol,
+	self *Instance,
+	occurrence *Instance,
+	graph *lower.ActionGraph,
+) (*ActionExecutor, error) {
 	if action.Kind != symbols.SymbolActionUsage && action.Kind != symbols.SymbolActionDef {
 		return nil, fmt.Errorf("symbol %s is not an action", action.Name)
 	}
@@ -197,15 +207,25 @@ func newActionExecutorOf(
 		return nil, err
 	}
 
-	// A usage stating no body of its own performs the body of the action it names — the
-	// definition typing it — as a classifier behavior binding does; under a tool, none.
-	action, tool, err := ctx.performanceBody(performed, action)
-	if err != nil {
-		return nil, err
-	}
-	graph, err := lowerPerformance(action, tool, ctx.Resolver())
-	if err != nil {
-		return nil, err
+	var tool *toolExecution
+	if graph == nil {
+		var err error
+		action, tool, graph, err = ctx.performanceBody(performed, action)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		held, found, err := ctx.toolPerformance(performed, action)
+		if err != nil {
+			return nil, err
+		}
+		if found != nil {
+			graph, err = lower.ToActionInterface(held.Decl, DeclScope(held))
+			if err != nil {
+				return nil, fmt.Errorf("lower action interface: %w", err)
+			}
+			action, tool = held, found
+		}
 	}
 	return newActionExecutorOn(ctx, performed, action, tool, graph, self, occurrence), nil
 }
@@ -244,24 +264,6 @@ func newActionExecutorOn(
 	exec.driven.exec = exec
 	ctx.clock.attach(exec)
 	return exec
-}
-
-// lowerPerformance lowers what a performance of action runs, in the scope it was written
-// in: its token flow, or under a tool only its own interface, the body never running.
-func lowerPerformance(action *symbols.Symbol, tool *toolExecution, resolver *resolve.Resolver) (*lower.ActionGraph, error) {
-	if tool != nil {
-		graph, err := lower.ToActionInterface(action.Decl, DeclScope(action))
-		if err != nil {
-			return nil, fmt.Errorf("lower action interface: %w", err)
-		}
-		return graph, nil
-	}
-	graph, err := lower.ToActionGraphWith(action.Decl, DeclScope(action), resolver)
-	if err != nil {
-		return nil, fmt.Errorf("lower action graph: %w", err)
-	}
-	lower.StartFlow(graph)
-	return graph, nil
 }
 
 // performanceFeatures lists the graph's attributes, then the inherited ones none
@@ -2689,7 +2691,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	work := &usageWork{exec: e, token: token.ID, perf: perf, graph: graph, usage: usage}
 	if isCaseStep(usage) {
 		work.isCase = true
-	} else if inv, ok := nestedInvocation(usage); ok {
+	} else if inv, ok := nestedInvocationInGraph(graph, usage); ok {
 		work.inv, work.performs = inv, true
 	}
 	return e.runBody(tokenIdx, work)
@@ -3337,6 +3339,17 @@ func (e *ActionExecutor) Results() map[string]Value {
 func (e *ActionExecutor) ResultsWithError() (map[string]Value, error) {
 	results := make(map[string]Value, len(e.root.data))
 	err := e.root.collect("", results)
+	if e.occurrence != nil {
+		for _, attr := range e.features {
+			fv, featureErr := e.occurrence.GetFeatureValue(e.ctx, attr.Name)
+			if featureErr != nil {
+				continue
+			}
+			if value := fv.HeldValue(); value.Kind != ValInvalid {
+				results[attr.Name] = value
+			}
+		}
+	}
 	e.collectPartsHeld(results)
 	return results, err
 }

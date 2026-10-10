@@ -1,12 +1,16 @@
 package lower
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 func TestToActionGraphInheritedActionNode(t *testing.T) {
@@ -28,6 +32,118 @@ func TestToActionGraphInheritedActionNode(t *testing.T) {
 	}
 }
 
+func TestToActionGraphRedefinedInheritedActionNodeBodyBindings(t *testing.T) {
+	src := `
+		action def Adder {
+			in a : Integer;
+			in b : Integer;
+			out sum : Integer;
+			first step;
+			action step { assign sum := a + b; }
+		}
+		action def Base {
+			attribute x : Integer = 5;
+			action add : Adder { in b = 2; }
+			bind add.a = x;
+		}
+		action def Redefined :> Base {
+			action add :>> add : Adder { in b = 100; }
+			first start then add;
+		}
+	`
+	graph := scopedActionGraph(t, src, "Redefined")
+	add := namedNode(graph, "add")
+	if add == nil {
+		t.Fatal("redefined inherited action node was not collected")
+	}
+	var bFeatures []Feature
+	for _, feature := range graph.Features[add] {
+		if feature.Name == "b" {
+			bFeatures = append(bFeatures, feature)
+		}
+	}
+	if len(bFeatures) != 1 {
+		t.Fatalf("add has %d features named b, want only its specialized binding", len(bFeatures))
+	}
+	binding, ok := bFeatures[0].Value.(*ast.LiteralInteger)
+	if !ok || binding.Value != "100" {
+		t.Fatalf("add.b value = %#v, want specialized binding 100", bFeatures[0].Value)
+	}
+}
+
+func TestToActionGraphInheritsTerminateUsageBodyFlow(t *testing.T) {
+	src := `
+		action def G {
+			out attribute x : Integer = 0;
+			out attribute later : Integer = 0;
+			first start then stop;
+			action stop terminate {
+				first start;
+				then action inner { assign x := 1; }
+				then done;
+			}
+			then action tail { assign later := 1; }
+			then done;
+		}
+		action def S :> G;
+	`
+	derived, scope, root := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(derived, scope)
+	if err != nil {
+		t.Fatalf("ToActionGraph: %v", err)
+	}
+	stop := actionMember(t, root, "G", "stop")
+	if namedNode(graph, "stop") != stop {
+		t.Fatalf("stop node = %p, want inherited terminate usage %p", namedNode(graph, "stop"), stop)
+	}
+	body := graph.Bodies[stop]
+	if len(body) != 2 {
+		t.Fatalf("stop body has %d statements, want stated flow and terminate effect", len(body))
+	}
+	flow, ok := body[0].(Block)
+	if !ok || flow.Graph == nil {
+		t.Fatalf("stop body first statement = %T, want flow block", body[0])
+	}
+	if namedNode(flow.Graph, "inner") == nil {
+		t.Fatal("inherited terminate body flow has no inner action step")
+	}
+	if _, ok := graph.TerminateUsage(stop); !ok {
+		t.Fatal("inherited terminate usage has no terminate effect")
+	}
+}
+
+func TestToActionGraphInheritsCaseAsCaseStep(t *testing.T) {
+	src := `
+		action def G {
+			analysis nested {
+				return : Integer;
+				attribute x : Integer := 1;
+				action multiply { assign x := x * 10; }
+				action add { assign x := x + 2; }
+				x
+			}
+			first start then nested;
+			first nested then done;
+		}
+		action def S :> G;
+	`
+	derived, scope, root := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(derived, scope)
+	if err != nil {
+		t.Fatalf("ToActionGraph: %v", err)
+	}
+	nested := actionMember(t, root, "G", "nested")
+	if namedNode(graph, "nested") != nested {
+		t.Fatalf("nested node = %p, want inherited case %p", namedNode(graph, "nested"), nested)
+	}
+	if scope := graph.Scopes[nested]; scope == nil || scope.Node() != nested {
+		t.Fatalf("inherited case scope = %v, want its declaring case scope", scope)
+	}
+	if _, owns := graph.Subflows[nested]; owns {
+		t.Fatal("inherited case has an action subflow; its body belongs to case lowering")
+	}
+}
+
 func TestToActionGraphInheritedActionNodeThroughTwoSpecializations(t *testing.T) {
 	src := `
 		action def Grand { action a; }
@@ -41,6 +157,35 @@ func TestToActionGraphInheritedActionNodeThroughTwoSpecializations(t *testing.T)
 	}
 	if namedNode(graph, "a") == nil {
 		t.Fatal("two-level inherited action node was not collected")
+	}
+}
+
+func TestToActionGraphInheritsAssertionOrderedByIntermediateGeneral(t *testing.T) {
+	src := `
+		action def G { assert constraint check { true } }
+		action def M :> G {
+			first start then check;
+			first check then done;
+		}
+		action def S :> M;
+	`
+	derived, scope, root := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(derived, scope)
+	if err != nil {
+		t.Fatalf("ToActionGraph: %v", err)
+	}
+	assertion := actionMember(t, root, "G", "check")
+	if got := namedNode(graph, "check"); got != assertion {
+		t.Fatalf("check node = %p, want inherited assertion %p", got, assertion)
+	}
+	count := 0
+	for _, node := range graph.Nodes {
+		if node == assertion {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("inherited assertion occurs %d times in graph nodes, want once", count)
 	}
 }
 
@@ -122,8 +267,8 @@ func TestToActionGraphInheritedActionNodeCycleTerminates(t *testing.T) {
 		action def Derived :> A { first start then missing; }
 	`
 	derived, scope, _ := inheritedActionDecl(t, src, "Derived")
-	if _, err := ToActionGraph(derived, scope); err == nil {
-		t.Fatal("expected an undefined endpoint error")
+	if _, err := ToActionGraph(derived, scope); !errors.Is(err, ErrCyclicSpecialization) {
+		t.Fatalf("ToActionGraph error = %v, want ErrCyclicSpecialization", err)
 	}
 }
 
@@ -193,6 +338,1019 @@ func namedNode(graph *ActionGraph, name string) ast.Node {
 	return nil
 }
 
+func TestToActionGraphInheritedActionContentAndMultiplicity(t *testing.T) {
+	idx, base, keep, narrow := inheritedStepModel(t)
+	resolver := resolve.New(idx)
+	graph, err := ToActionGraphWith(keep.Decl, keep.Scope, resolver)
+	if err != nil {
+		t.Fatalf("lower Keep: %v", err)
+	}
+	replacement := namedNode(graph, "a")
+	if replacement == nil {
+		t.Fatal("Keep graph has no action node answering to a")
+	}
+	var count int
+	for _, node := range graph.Nodes {
+		if nodeAnswersTo(node, "a") {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("Keep graph has %d nodes answering to a, want one", count)
+	}
+	baseStep, ok := base.Scope.LookupLocal("a")
+	if !ok {
+		t.Fatal("Base has no action node a")
+	}
+	var inheritedEdge ast.Node
+	for _, edges := range graph.Edges {
+		for _, edge := range edges {
+			if edge.Target == replacement && edge.Decl != nil && graph.declaredIn[edge.Decl] == base.Scope {
+				inheritedEdge = edge.Decl
+			}
+			if edge.Target == baseStep.Decl {
+				t.Fatal("inherited succession still targets Base::a")
+			}
+		}
+	}
+	if inheritedEdge == nil {
+		t.Fatal("Keep graph has no inherited succession targeting its redefining node")
+	}
+	baseNode, ok := baseStep.Scope.Node().(*ast.Usage)
+	if !ok {
+		t.Fatalf("Base::a declaration is %T, want *ast.Usage", baseStep.Scope.Node())
+	}
+	var inheritedStatement ast.Node
+	for _, member := range baseNode.Members {
+		if _, ok := unwrapMembership(member).(*ast.AssignmentActionNode); ok {
+			inheritedStatement = unwrapMembership(member)
+			break
+		}
+	}
+	if inheritedStatement == nil {
+		t.Fatal("Base::a has no assignment statement")
+	}
+	if got := graph.declaredIn[inheritedStatement]; got != baseStep.Scope {
+		t.Fatalf("inherited statement scope = %p, want Base::a scope %p", got, baseStep.Scope)
+	}
+
+	model := semantics.NewModel(resolver)
+	multiplicity, scope := graph.StepMultiplicity(replacement, model)
+	if multiplicity == nil || scope != base.Scope {
+		t.Fatalf("Keep::a multiplicity = %v in %p, want Base's declaration in %p", multiplicity, scope, base.Scope)
+	}
+	if got, err := graph.StepCount(replacement, model); err != nil || got != 3 {
+		t.Fatalf("Keep::a StepCount = %d, %v; want 3", got, err)
+	}
+
+	narrowGraph, err := ToActionGraphWith(narrow.Decl, narrow.Scope, resolver)
+	if err != nil {
+		t.Fatalf("lower Narrow: %v", err)
+	}
+	narrowStep := namedNode(narrowGraph, "a")
+	multiplicity, scope = narrowGraph.StepMultiplicity(narrowStep, model)
+	if multiplicity == nil || scope != narrowGraph.Scopes[narrowStep] {
+		t.Fatalf("Narrow::a multiplicity = %v in %p, want its own node scope %p", multiplicity, scope, narrowGraph.Scopes[narrowStep])
+	}
+	if got, err := narrowGraph.StepCount(narrowStep, model); err != nil || got != 2 {
+		t.Fatalf("Narrow::a StepCount = %d, %v; want 2", got, err)
+	}
+}
+
+func TestToActionGraphInheritsPerformStatements(t *testing.T) {
+	src := `
+		action def Foo;
+		action def Base { perform action p : Foo; }
+		action def Derived :> Base;
+	`
+	derived, scope, root := inheritedActionDecl(t, src, "Derived")
+	graph, err := ToActionGraph(derived, scope)
+	if err != nil {
+		t.Fatalf("lower Derived: %v", err)
+	}
+	base := actionDefinition(t, root, "Base")
+	baseScope := scope.Parent().ChildFor(base)
+	for _, node := range graph.Nodes {
+		usage, ok := node.(*ast.Usage)
+		if !ok || !IsPerformedActionUsage(usage) {
+			continue
+		}
+		if got := graph.declaredIn[node]; got != baseScope {
+			t.Fatalf("inherited perform scope = %p, want Base scope %p", got, baseScope)
+		}
+		return
+	}
+	t.Fatal("Derived graph has no inherited perform node")
+}
+
+func TestToActionGraphInheritedFlowStartsAlongsideUnorderedLocalNode(t *testing.T) {
+	src := `
+		action def B1 {
+			attribute c : Integer = 0;
+			first start then a;
+			action a { assign c := c + 1; }
+			then done;
+		}
+		action def P0 :> B1;
+		action def P3 :> B1 {
+			action b { assign c := c + 100; }
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "P3")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower P3: %v", err)
+	}
+	StartFlow(graph)
+	if graph.Initial == nil || getNodeName(graph.Initial) != "start" {
+		t.Fatalf("P3 initial = %v, want the inherited start marker", graph.Initial)
+	}
+	a, b := namedNode(graph, "a"), namedNode(graph, "b")
+	if a == nil || b == nil {
+		t.Fatalf("P3 nodes: inherited a = %v, local b = %v", a, b)
+	}
+	if edges := graph.Edges[graph.Initial]; len(edges) != 1 || edges[0].Target != a {
+		t.Fatalf("inherited start edges = %v, want one edge to a", edges)
+	}
+	if len(graph.Concurrent) != 1 || graph.Concurrent[0] != b {
+		t.Fatalf("concurrent starts = %d, want only local b", len(graph.Concurrent))
+	}
+}
+
+func TestToActionGraphInheritsGatedSuccessionFlow(t *testing.T) {
+	src := `
+		private import ScalarValues::*;
+		action def G {
+			attribute go : Boolean = true;
+			first start then a;
+			action a { out y : Integer; assign y := 1; }
+			action c { out y : Integer; assign y := 2; }
+			action b { in v : Integer; }
+			first a if go then f;
+			first a if not go then c;
+			succession flow f of Integer from a.y to b.v;
+			succession flow of Integer from c.y to b.v;
+		}
+		action def S :> G;
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower S: %v", err)
+	}
+
+	a := namedNode(graph, "a")
+	if a == nil {
+		t.Fatal("S graph has no inherited action a")
+	}
+	var flow *ObjectFlow
+	for i := range graph.DataFlows[a] {
+		if graph.DataFlows[a][i].Name == "f" {
+			flow = &graph.DataFlows[a][i]
+			break
+		}
+	}
+	if flow == nil || flow.Kind != FlowSuccession || flow.Gate == nil {
+		t.Fatalf("inherited succession flow = %+v, want gated succession flow f", flow)
+	}
+	for _, edge := range graph.Edges[a] {
+		if edge.Carries && edge.Decl == flow.Decl {
+			if edge.Guard == nil || edge.Gate != flow.Gate {
+				t.Fatalf("carrying edge = %+v, want the inherited gate and guard", edge)
+			}
+			return
+		}
+	}
+	t.Fatal("inherited succession flow f has no carrying edge")
+}
+
+func TestToActionGraphOwnFlowConnectsInheritedActionNodes(t *testing.T) {
+	src := `
+		private import ScalarValues::*;
+		action def G {
+			action a { out y : Integer; assign y := 7; }
+			action b { in v : Integer; }
+			first start then a;
+			first a then b;
+			first b then done;
+		}
+		action def S :> G {
+			flow f2 from a.y to b.v;
+		}
+	`
+	decl, scope, root := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower S: %v", err)
+	}
+
+	a, b := namedNode(graph, "a"), namedNode(graph, "b")
+	if a == nil || b == nil {
+		t.Fatalf("inherited action nodes: a = %v, b = %v", a, b)
+	}
+	if edges := graph.Edges[graph.Initial]; len(edges) != 1 || edges[0].Target != a {
+		t.Fatalf("initial edges = %v, want one edge to a", edges)
+	}
+	if edges := graph.Edges[a]; len(edges) != 1 || edges[0].Target != b {
+		t.Fatalf("a edges = %v, want one edge to b", edges)
+	}
+	done := namedNode(graph, "done")
+	if edges := graph.Edges[b]; len(edges) != 1 || edges[0].Target != done {
+		t.Fatalf("b edges = %v, want one edge to done", edges)
+	}
+	flowDecl := actionMember(t, root, "S", "f2")
+	var ownFlow *ObjectFlow
+	for i := range graph.DataFlows[a] {
+		if graph.DataFlows[a][i].Decl == flowDecl {
+			ownFlow = &graph.DataFlows[a][i]
+			break
+		}
+	}
+	if ownFlow == nil || ownFlow.Target != b || ownFlow.SourcePin != "y" || ownFlow.TargetPin != "v" {
+		t.Fatalf("S's flow = %+v, want a.y to b.v", ownFlow)
+	}
+	for _, inherited := range []ast.Node{a, b} {
+		count := 0
+		for _, node := range graph.Nodes {
+			if node == inherited {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Fatalf("inherited node %s occurs %d times, want once", getNodeName(inherited), count)
+		}
+	}
+}
+
+func TestToActionGraphKeepsDifferentlyGuardedInheritedSuccession(t *testing.T) {
+	src := `
+		private import ScalarValues::*;
+		action def Base {
+			attribute x : Integer = 1;
+			action a;
+			action b;
+			first a if x < 3 then b;
+		}
+		action def S :> Base {
+			first a if x > 5 then b;
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower S: %v", err)
+	}
+	a, b := namedNode(graph, "a"), namedNode(graph, "b")
+	if a == nil || b == nil {
+		t.Fatal("S graph is missing inherited action nodes a or b")
+	}
+	var edges []ActionEdge
+	for _, edge := range graph.Edges[a] {
+		if edge.Source == a && edge.Target == b {
+			edges = append(edges, edge)
+		}
+	}
+	if len(edges) != 2 {
+		t.Fatalf("a to b edges = %d, want both inherited and owned successions", len(edges))
+	}
+	if edges[0].Guard == nil || edges[1].Guard == nil || edges[0].Guard == edges[1].Guard {
+		t.Fatalf("a to b guards = (%v, %v), want distinct non-nil guards", edges[0].Guard, edges[1].Guard)
+	}
+}
+
+func TestToActionGraphDeduplicatesRestatedUnguardedSuccession(t *testing.T) {
+	src := `
+		action def Base {
+			action a;
+			action b;
+			first a then b;
+		}
+		action def S :> Base {
+			first a then b;
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower S: %v", err)
+	}
+	a, b := namedNode(graph, "a"), namedNode(graph, "b")
+	if a == nil || b == nil {
+		t.Fatal("S graph is missing action nodes a or b")
+	}
+	var edges int
+	for _, edge := range graph.Edges[a] {
+		if edge.Source == a && edge.Target == b {
+			edges++
+		}
+	}
+	if edges != 1 {
+		t.Fatalf("a to b edges = %d, want one restated unguarded succession", edges)
+	}
+}
+
+func TestToActionGraphResolvesInheritedGateInDeclaringScope(t *testing.T) {
+	src := `
+		private import ScalarValues::*;
+		action def G {
+			attribute go : Boolean = false;
+			action a { out y : Integer; assign y := 7; }
+			action b { in v : Integer; }
+			first start then a;
+			first a if go then f;
+			succession flow f of Integer from a.y to b.v;
+		}
+		action def S :> G {
+			action c { in v : Integer; }
+			succession flow f of Integer from a.y to c.v;
+		}
+	`
+	decl, scope, root := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower S: %v", err)
+	}
+
+	a := namedNode(graph, "a")
+	if a == nil {
+		t.Fatal("S graph has no inherited action a")
+	}
+	generalFlowDecl := actionMember(t, root, "G", "f")
+	specializedFlowDecl := actionMember(t, root, "S", "f")
+	var generalFlow, specializedFlow *ObjectFlow
+	for i := range graph.DataFlows[a] {
+		flow := &graph.DataFlows[a][i]
+		switch flow.Decl {
+		case generalFlowDecl:
+			generalFlow = flow
+		case specializedFlowDecl:
+			specializedFlow = flow
+		}
+	}
+	b, c := namedNode(graph, "b"), namedNode(graph, "c")
+	if generalFlow == nil || generalFlow.Target != b || generalFlow.Gate == nil {
+		t.Fatalf("G's flow = %+v, want gated flow to b", generalFlow)
+	}
+	if specializedFlow == nil || specializedFlow.Target != c {
+		t.Fatalf("S's flow = %+v, want flow to c", specializedFlow)
+	}
+	if specializedFlow.Gate != nil {
+		t.Fatalf("S's flow gate = %v, want nil", specializedFlow.Gate)
+	}
+
+	var gatedEdge, ownEdge *ActionEdge
+	for i := range graph.Edges[a] {
+		edge := &graph.Edges[a][i]
+		switch edge.Decl {
+		case generalFlowDecl:
+			if edge.Carries {
+				gatedEdge = edge
+			}
+		case specializedFlowDecl:
+			if edge.Carries {
+				ownEdge = edge
+			}
+		}
+	}
+	if gatedEdge == nil || gatedEdge.Guard == nil || gatedEdge.Gate != generalFlow.Gate {
+		t.Fatalf("G's carrying edge = %+v, want its gate and guard", gatedEdge)
+	}
+	if ownEdge == nil || ownEdge.Guard != nil || ownEdge.Gate != nil {
+		t.Fatalf("S's carrying edge = %+v, want ungated", ownEdge)
+	}
+}
+
+func TestToActionGraphCompositeRedefinitionMergesInheritedContent(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+	}{
+		{
+			name: "inherited_statement_with_owned_subaction",
+			src: `
+				action def Base {
+					out attribute c : Integer = 0;
+					action a { assign c := c + 1; }
+				}
+				action def Derived :> Base {
+					action a :>> a {
+						action b { assign c := c + 10; }
+					}
+				}
+			`,
+		},
+		{
+			name: "inherited_subaction_with_owned_statement",
+			src: `
+				action def Base {
+					out attribute c : Integer = 0;
+					action a {
+						action b { assign c := c + 10; }
+					}
+				}
+				action def Derived :> Base {
+					action a :>> a { assign c := c + 1; }
+				}
+			`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			graph := scopedActionGraph(t, test.src, "Derived")
+			a := namedNode(graph, "a")
+			if a == nil {
+				t.Fatal("Derived graph has no redefined action a")
+			}
+			subflow := graph.Subflows[a]
+			if subflow == nil || subflow.Graph == nil {
+				t.Fatal("redefined action a has no composite subflow")
+			}
+			if b := namedNode(subflow.Graph, "b"); b == nil {
+				t.Fatal("redefined action a has no inherited or owned subaction b")
+			}
+
+			seen := make(map[*ActionGraph]bool)
+			var assignmentCount func(*ActionGraph) int
+			assignmentCount = func(current *ActionGraph) int {
+				if current == nil || seen[current] {
+					return 0
+				}
+				seen[current] = true
+				count := 0
+				for _, body := range current.Bodies {
+					for _, statement := range body {
+						if assign, ok := statement.(Assign); ok && assign.Target == "c" {
+							count++
+						}
+					}
+				}
+				for _, nested := range current.Subflows {
+					if nested != nil {
+						count += assignmentCount(nested.Graph)
+					}
+				}
+				return count
+			}
+			if got := assignmentCount(subflow.Graph); got != 2 {
+				t.Fatalf("redefined action flow has %d assignments to c, want inherited and owned statements", got)
+			}
+		})
+	}
+}
+
+func TestToActionGraphMergesBodyStatingTypedActionNode(t *testing.T) {
+	src := `
+		action def B1 {
+			attribute c : Integer = 0;
+			first start then a;
+			action a { assign c := c + 1; }
+			then done;
+		}
+		action def Host {
+			action y : B1 { action b { assign c := c + 100; } }
+		}
+	`
+	host, scope, _ := inheritedActionDecl(t, src, "Host")
+	graph, err := ToActionGraph(host, scope)
+	if err != nil {
+		t.Fatalf("lower Host: %v", err)
+	}
+	y, ok := namedNode(graph, "y").(*ast.Usage)
+	if !ok {
+		t.Fatalf("y node = %T, want *ast.Usage", namedNode(graph, "y"))
+	}
+	subflow := graph.Subflows[y]
+	if subflow == nil || subflow.Graph == nil {
+		t.Fatalf("y subflow = %#v, want a merged typed graph", subflow)
+	}
+	if _, ok := graph.MergedTypedSubflows[y]; !ok {
+		t.Fatal("typed subflow was not marked as already merged")
+	}
+	a, b := namedNode(subflow.Graph, "a"), namedNode(subflow.Graph, "b")
+	if a == nil || b == nil {
+		t.Fatalf("typed subflow nodes: inherited a = %v, local b = %v", a, b)
+	}
+	if edges := subflow.Graph.Edges[subflow.Graph.Initial]; len(edges) != 1 || edges[0].Target != a {
+		t.Fatalf("typed start edges = %v, want one edge to inherited a", edges)
+	}
+	if len(subflow.Graph.Concurrent) != 1 || subflow.Graph.Concurrent[0] != b {
+		t.Fatalf("typed concurrent starts = %v, want local b", subflow.Graph.Concurrent)
+	}
+}
+
+func TestToActionGraphBodyStatingTypedNodeIncludesTypedPins(t *testing.T) {
+	src := `
+		action def Scale {
+			in x : Integer;
+			in factor : Integer = 10;
+			out y : Integer;
+			first start then scaling;
+			action scaling { assign y := x * factor; }
+			then done;
+		}
+		action def Host {
+			action scaled : Scale {
+				in x = 3;
+				assign y := y + 1;
+			}
+		}
+	`
+	host, scope, _ := inheritedActionDecl(t, src, "Host")
+	graph, err := ToActionGraph(host, scope)
+	if err != nil {
+		t.Fatalf("lower Host: %v", err)
+	}
+	node, ok := namedNode(graph, "scaled").(*ast.Usage)
+	if !ok {
+		t.Fatalf("scaled node = %T, want *ast.Usage", namedNode(graph, "scaled"))
+	}
+	features := make(map[string]Feature, len(graph.Features[node]))
+	for _, feature := range graph.Features[node] {
+		features[feature.Name] = feature
+	}
+	for name, direction := range map[string]ast.FeatureDirection{
+		"x":      ast.DirIn,
+		"factor": ast.DirIn,
+		"y":      ast.DirOut,
+	} {
+		feature, ok := features[name]
+		if !ok || feature.Direction != direction {
+			t.Errorf("typed feature %q = %#v, present %v; want direction %v", name, feature, ok, direction)
+		}
+	}
+	if features["factor"].Value == nil {
+		t.Error("typed default for factor was not lowered")
+	}
+}
+
+func TestToActionGraphTypedBodyPreservesInheritedPinBinding(t *testing.T) {
+	src := `
+		action def T {
+			in source : Integer = 1;
+			out y : Integer = source;
+		}
+		action def Host {
+			action m : T { assign source := 2; }
+		}
+	`
+	host, scope, root := inheritedActionDecl(t, src, "Host")
+	graph, err := ToActionGraph(host, scope)
+	if err != nil {
+		t.Fatalf("lower Host: %v", err)
+	}
+	typedScope := scope.Parent().ChildFor(actionDefinition(t, root, "T"))
+	node, ok := namedNode(graph, "m").(*ast.Usage)
+	if !ok {
+		t.Fatalf("m node = %T, want *ast.Usage", namedNode(graph, "m"))
+	}
+	for _, feature := range graph.Features[node] {
+		if feature.Name == "y" {
+			if !feature.Binding {
+				t.Fatal("inherited y pin is not a binding")
+			}
+			if feature.Scope != typedScope {
+				t.Fatalf("inherited y pin scope = %v, want its typed action's scope %v", feature.Scope, typedScope)
+			}
+			pin, ok := feature.Node.(*ast.Usage)
+			if !ok || getNodeName(pin) != "y" {
+				t.Fatalf("inherited y pin node = %T, want T::y", feature.Node)
+			}
+			return
+		}
+	}
+	t.Fatal("typed action node has no inherited y pin")
+}
+
+func TestToActionGraphPinOnlyTypedUsageKeepsInvocation(t *testing.T) {
+	src := `
+		metadata def Marker;
+		action def Base {
+			first start then a;
+			action a;
+			then done;
+		}
+		action usage : Base {
+			metadata marker : Marker;
+			in value = 3;
+		}
+	`
+	p := parser.New(source.New("test.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+	}
+	var usage *ast.Usage
+	for _, member := range root.Members {
+		candidate, ok := unwrapMembership(member).(*ast.Usage)
+		if ok && candidate.Kind == ast.UsageAction && getNodeName(candidate) == "usage" {
+			usage = candidate
+			break
+		}
+	}
+	if usage == nil {
+		t.Fatal("action usage not found")
+	}
+	idx := symbols.NewIndexFromDoc("test.sysml", root)
+	scope := idx.DocumentRoot("test.sysml").ChildFor(usage)
+	if scope == nil {
+		t.Fatal("scope for action usage missing")
+	}
+	graph, err := ToActionGraphWith(usage, scope, resolve.New(idx))
+	if err != nil {
+		t.Fatalf("lower action usage: %v", err)
+	}
+	if inherited := namedNode(graph, "a"); inherited != nil {
+		t.Fatalf("pin-only typed usage adopted type body node %v", inherited)
+	}
+	if _, merged := graph.MergedTypedSubflows[usage]; merged {
+		t.Fatal("pin-only typed usage with metadata was marked as a merged subflow")
+	}
+}
+
+func TestToActionGraphFeatureOnlySelfTypedNodeKeepsInvocation(t *testing.T) {
+	src := `
+		action def A {
+			attribute c : Integer := 0;
+			action x : A[0..*] {
+				ref occurrence r :>> self;
+			}
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "A")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower A: %v", err)
+	}
+	node, ok := namedNode(graph, "x").(*ast.Usage)
+	if !ok {
+		t.Fatalf("x node = %T, want *ast.Usage", namedNode(graph, "x"))
+	}
+	if subflow := graph.Subflows[node]; subflow != nil {
+		t.Fatalf("x subflow = %#v, want no merged typed subflow", subflow)
+	}
+	if _, merged := graph.MergedTypedSubflows[node]; merged {
+		t.Fatal("feature-only self-typed x was marked as a merged typed subflow")
+	}
+}
+
+func TestToActionGraphExecutableSelfTypedNodeRefusesRecursiveMerge(t *testing.T) {
+	src := `
+		action def A {
+			attribute c : Integer := 0;
+			first start then x;
+			action x : A {
+				assign c := c + 1;
+			}
+			then done;
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "A")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower A: %v", err)
+	}
+	node := namedNode(graph, "x")
+	subflow := graph.Subflows[node]
+	if subflow == nil || !errors.Is(subflow.Err, ErrRecursiveActionTyping) {
+		t.Fatalf("x subflow = %#v, want ErrRecursiveActionTyping", subflow)
+	}
+}
+
+func TestToActionGraphBodyStatingTypedNodeMergesFiniteGeneral(t *testing.T) {
+	src := `
+		action def Base {
+			attribute c : Integer := 0;
+		}
+		action def P :> Base {
+			attribute d : Integer := 0;
+			first start then x;
+			action x : Base {
+				assign c := c + 1;
+			}
+			then done;
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "P")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower P: %v", err)
+	}
+	node := namedNode(graph, "x")
+	subflow := graph.Subflows[node]
+	if subflow == nil || subflow.Graph == nil || subflow.Err != nil {
+		t.Fatalf("x subflow = %#v, want a successfully merged typed subflow", subflow)
+	}
+	if _, merged := graph.MergedTypedSubflows[node]; !merged {
+		t.Fatal("x was not marked as a merged typed subflow")
+	}
+}
+
+func TestToActionGraphInheritedTypedBodyRecursionIsRefused(t *testing.T) {
+	src := `
+		action def Base {
+			attribute c : Integer := 0;
+			action x : P {
+				assign c := c + 1;
+			}
+		}
+		action def P :> Base;
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "Base")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower Base: %v", err)
+	}
+	outer := namedNode(graph, "x")
+	outerSubflow := graph.Subflows[outer]
+	if outerSubflow == nil || outerSubflow.Graph == nil || outerSubflow.Err != nil {
+		t.Fatalf("outer x subflow = %#v, want P's graph", outerSubflow)
+	}
+	inner := namedNode(outerSubflow.Graph, "x")
+	innerSubflow := outerSubflow.Graph.Subflows[inner]
+	if innerSubflow == nil || !errors.Is(innerSubflow.Err, ErrRecursiveActionTyping) {
+		t.Fatalf("inner x subflow = %#v, want ErrRecursiveActionTyping", innerSubflow)
+	}
+}
+
+func TestToActionGraphExecutableMutuallyTypedNodesRefuseRecursiveMerge(t *testing.T) {
+	src := `
+		action def A {
+			attribute c : Integer := 0;
+			action y : B {
+				assign c := c + 1;
+			}
+		}
+		action def B {
+			attribute c : Integer := 0;
+			action z : A {
+				assign c := c + 1;
+			}
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "A")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower A: %v", err)
+	}
+	y := namedNode(graph, "y")
+	subflow := graph.Subflows[y]
+	if subflow == nil || subflow.Graph == nil {
+		t.Fatalf("y subflow = %#v, want B's graph", subflow)
+	}
+	z := namedNode(subflow.Graph, "z")
+	recursive := subflow.Graph.Subflows[z]
+	if recursive == nil || !errors.Is(recursive.Err, ErrRecursiveActionTyping) {
+		t.Fatalf("z subflow = %#v, want ErrRecursiveActionTyping", recursive)
+	}
+}
+
+func TestToActionGraphTypedUsageOverridesMatchingInheritedSuccession(t *testing.T) {
+	src := `package test {
+		action def Base {
+			action a;
+			first start then a;
+		}
+		action use : Base {
+			first start then a;
+		}
+	}`
+	p := parser.New(source.New("test.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+	}
+	idx := symbols.NewIndexFromDoc("test.sysml", root)
+	usageSymbols := idx.LookupQualified("test::use")
+	if len(usageSymbols) != 1 {
+		t.Fatalf("test::use matched %d symbols, want one", len(usageSymbols))
+	}
+	usage, ok := usageSymbols[0].Decl.(*ast.Usage)
+	if !ok {
+		t.Fatalf("test::use declaration is %T, want *ast.Usage", usageSymbols[0].Decl)
+	}
+	scope := usageSymbols[0].Scope
+	graph, err := ToActionGraphWith(usage, scope, resolve.New(idx))
+	if err != nil {
+		t.Fatalf("lower typed usage: %v", err)
+	}
+	var edges int
+	for _, outgoing := range graph.Edges {
+		edges += len(outgoing)
+	}
+	if edges != 1 {
+		t.Fatalf("typed usage graph has %d edges, want one own edge overriding the inherited succession", edges)
+	}
+}
+
+func TestToActionGraphPreservesInheritedSuccessionMultiplicitiesWhenRestated(t *testing.T) {
+	src := `
+		action def Base {
+			action p;
+			action a[3];
+			succession first [1] p then [3] a;
+		}
+		action def Plain :> Base {
+			succession first p then a;
+		}
+		action def Matching :> Base {
+			succession first [1] p then [3] a;
+		}
+	`
+	for _, test := range []struct {
+		name      string
+		wantEdges int
+		wantCheck bool
+	}{
+		{name: "plain_restatement", wantEdges: 2, wantCheck: false},
+		{name: "matching_restatement", wantEdges: 1, wantCheck: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			graph := scopedActionGraph(t, src, map[string]string{
+				"plain_restatement":    "Plain",
+				"matching_restatement": "Matching",
+			}[test.name])
+			p, a := namedNode(graph, "p"), namedNode(graph, "a")
+			var edges []ActionEdge
+			for _, edge := range graph.Edges[p] {
+				if edge.Target == a {
+					edges = append(edges, edge)
+				}
+			}
+			if len(edges) != test.wantEdges {
+				t.Fatalf("p to a edges = %d, want %d", len(edges), test.wantEdges)
+			}
+			if test.name == "plain_restatement" {
+				var inherited *ActionEdge
+				for i := range edges {
+					if graph.declaredIn[edges[i].Decl] != nil {
+						inherited = &edges[i]
+						break
+					}
+				}
+				if inherited == nil || inherited.SourceMultiplicity == nil || inherited.TargetMultiplicity == nil {
+					t.Fatal("inherited p to a edge lost its endpoint multiplicities")
+				}
+			}
+			err := graph.CheckStep(a, semantics.NewModel(graph.resolver))
+			if (err == nil) != test.wantCheck {
+				t.Fatalf("CheckStep(a) = %v, want success %t", err, test.wantCheck)
+			}
+			if test.name == "plain_restatement" {
+				var stepErr *StepMultiplicityError
+				if !errors.As(err, &stepErr) || stepErr.Code != StepOrderUnsatisfiableCode {
+					t.Fatalf("CheckStep(a) error = %v, want %s", err, StepOrderUnsatisfiableCode)
+				}
+			}
+		})
+	}
+}
+
+func TestToActionGraphInheritedActionNodeFeaturesKeepDeclarationScope(t *testing.T) {
+	src := `package test {
+		action def Foo {
+			in ref context : Base[1];
+			out c : Integer = 0;
+		}
+		action def Base {
+			action a : Foo {
+				accept payload : Integer;
+				in ref :>> context = this;
+			}
+		}
+		action def Derived :> Base { action :>> a[2]; }
+	}`
+	idx := libs.NewModelIndex()
+	p := parser.New(source.New("test.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+	}
+	idx.AddDocument("test.sysml", root)
+	idx.ExpandWildcardImports()
+	derived := idx.LookupQualified("test::Derived")
+	if len(derived) != 1 {
+		t.Fatalf("Derived matched %d symbols, want one", len(derived))
+	}
+	resolver := resolve.New(idx)
+	graph, err := ToActionGraphWith(derived[0].Decl, derived[0].Scope, resolver)
+	if err != nil {
+		t.Fatalf("lower Derived: %v", err)
+	}
+	node := namedNode(graph, "a")
+	if node == nil {
+		t.Fatal("Derived graph has no action node answering to a")
+	}
+	base := idx.LookupQualified("test::Base")
+	if len(base) != 1 {
+		t.Fatalf("Base matched %d symbols, want one", len(base))
+	}
+	baseStep, ok := base[0].Scope.LookupLocal("a")
+	if !ok {
+		t.Fatal("Base::a not found")
+	}
+	performed, ok := graph.Performs[node]
+	if !ok || performed.Target == nil || performed.Target.Text() != "Foo" || performed.Scope != base[0].Scope {
+		t.Fatalf("Derived::a performed type = %+v, want Foo from Base's scope", performed)
+	}
+	subflow := graph.Subflows[node]
+	if subflow == nil || subflow.Graph == nil {
+		t.Fatal("Derived::a has no inherited accept subflow")
+	}
+	var acceptNode ast.Node
+	for _, candidate := range subflow.Graph.Nodes {
+		usage, ok := candidate.(*ast.Usage)
+		if ok && acceptsMessage(usage) {
+			acceptNode = candidate
+			break
+		}
+	}
+	accept, ok := subflow.Graph.Accepts[acceptNode]
+	if acceptNode == nil || !ok || accept.ParamName != "payload" ||
+		accept.Scope != subflow.Graph.Scopes[acceptNode] {
+		t.Fatalf("Derived::a inherited accept = %+v on %v, want payload in the inherited accept node's scope",
+			accept, acceptNode)
+	}
+	var inheritedPin *ast.Usage
+	for _, feature := range graph.Features[node] {
+		if feature.Name == "context" {
+			inheritedPin, _ = feature.Node.(*ast.Usage)
+			if feature.Scope == nil || feature.Scope.Node() == nil {
+				t.Fatalf("inherited context pin scope = %v, want its declaration scope", feature.Scope)
+			}
+			break
+		}
+	}
+	if inheritedPin == nil {
+		t.Fatal("Derived::a has no inherited context pin")
+	}
+	if got := graph.declaredIn[inheritedPin]; got != baseStep.Scope {
+		t.Fatalf("inherited context pin declaring scope = %v, want Base::a's scope", got)
+	}
+}
+
+func TestToActionGraphInheritsTypingAcrossTwoRedefinitions(t *testing.T) {
+	src := `
+		action def Foo {
+			out c : Integer = 0;
+			assign c := c + 1;
+		}
+		action def Base { action a : Foo; }
+		action def Mid :> Base { action :>> a; }
+		action def Narrow :> Mid { action :>> a[2]; }
+	`
+	narrow, scope, root := inheritedActionDecl(t, src, "Narrow")
+	graph, err := ToActionGraph(narrow, scope)
+	if err != nil {
+		t.Fatalf("lower Narrow: %v", err)
+	}
+	node := namedNode(graph, "a")
+	if node == nil {
+		t.Fatal("Narrow graph has no action node answering to a")
+	}
+	performed, ok := graph.Performs[node]
+	baseScope := scope.Parent().ChildFor(actionDefinition(t, root, "Base"))
+	if !ok || performed.Target == nil || performed.Target.Text() != "Foo" || performed.Scope != baseScope {
+		t.Fatalf("Narrow::a performed type = %s in %p, want Foo from Base's scope %p",
+			ast.SimpleName(performed.Target), performed.Scope, baseScope)
+	}
+}
+
+func inheritedStepModel(t *testing.T) (*symbols.Index, *symbols.Symbol, *symbols.Symbol, *symbols.Symbol) {
+	t.Helper()
+	src := `package test {
+		private import ScalarValues::*;
+		action def Base {
+			attribute c : Integer = 0;
+			first start then a;
+			action a[3] { assign c := c + 1; }
+			then done;
+		}
+		action def Keep :> Base {
+			action :>> a { assign c := c + 10; }
+		}
+		action def Narrow :> Base {
+			action :>> a[2];
+		}
+	}`
+	p := parser.New(source.New("test.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+	}
+	idx := libs.NewModelIndex()
+	idx.AddDocument("test.sysml", root)
+	idx.ExpandWildcardImports()
+	lookup := func(name string) *symbols.Symbol {
+		t.Helper()
+		matches := idx.LookupQualified("test::" + name)
+		if len(matches) != 1 {
+			t.Fatalf("test::%s matched %d symbols, want one", name, len(matches))
+		}
+		return matches[0]
+	}
+	return idx, lookup("Base"), lookup("Keep"), lookup("Narrow")
+}
+
 // A binding or flow a base action states at a pin of a node the derived action
 // inherits reaches the derived graph, in the base's scope and once even when the
 // base is reached along two generalization paths; one at a node the derived
@@ -227,12 +1385,9 @@ func TestToActionGraphInheritedPinConnections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToActionGraph: %v", err)
 	}
-	add, fin, extra := namedNode(graph, "add"), namedNode(graph, "fin"), namedNode(graph, "extra")
-	if add == nil || fin == nil || extra == nil {
+	add, fin, extra, idle := namedNode(graph, "add"), namedNode(graph, "fin"), namedNode(graph, "extra"), namedNode(graph, "idle")
+	if add == nil || fin == nil || extra == nil || idle == nil {
 		t.Fatal("inherited action nodes were not collected")
-	}
-	if namedNode(graph, "idle") != nil {
-		t.Fatal("a node the derived action does not sequence became a node of its graph")
 	}
 
 	baseBody := scope.Parent().ChildFor(actionDefinition(t, root, "Base"))
@@ -247,6 +1402,7 @@ func TestToActionGraphInheritedPinConnections(t *testing.T) {
 		{add, "sum", "extra.m", scope},
 		{extra, "m", "y", midBody},
 		{add, "a", "x", baseBody},
+		{idle, "k", "x", baseBody},
 	}
 	if len(graph.Bindings) != len(want) {
 		t.Fatalf("lowered %d pin bindings, want %d: %+v", len(graph.Bindings), len(want), graph.Bindings)
@@ -263,8 +1419,15 @@ func TestToActionGraphInheritedPinConnections(t *testing.T) {
 	}
 
 	flows := graph.DataFlows[add]
-	if len(flows) != 1 || flows[0].Target != fin || flows[0].SourcePin != "sum" || flows[0].TargetPin != "n" {
-		t.Fatalf("data flows out of add = %+v, want one flow add.sum to fin.n", flows)
+	if len(flows) != 2 {
+		t.Fatalf("data flows out of add = %+v, want inherited flows to fin and idle", flows)
+	}
+	targets := map[ast.Node]bool{}
+	for _, flow := range flows {
+		targets[flow.Target] = true
+	}
+	if !targets[fin] || !targets[idle] {
+		t.Fatalf("data flows out of add target %v, want fin and idle", targets)
 	}
 }
 

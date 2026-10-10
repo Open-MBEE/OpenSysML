@@ -1366,7 +1366,7 @@ func (c *checker) performedBy(graph *lower.ActionGraph, node ast.Node) (settled 
 	if !ok {
 		return nil, nil, false
 	}
-	inv, performs := nestedInvocation(usage)
+	inv, performs := nestedInvocationInGraph(graph, usage)
 	if !performs || lower.IsCaseNode(usage) {
 		return nil, nil, false
 	}
@@ -1383,13 +1383,13 @@ func (c *checker) performedBy(graph *lower.ActionGraph, node ast.Node) (settled 
 // calleeFlow lowers what node's performance of callee runs, as the executor will.
 func (c *checker) calleeFlow(graph *lower.ActionGraph, node ast.Node, callee *symbols.Symbol) (*lower.ActionGraph, error) {
 	usage := node.(*ast.Usage)
-	inv, _ := nestedInvocation(usage)
+	inv, _ := nestedInvocationInGraph(graph, usage)
 	inv.step, _ = stepSymbol(graph, node)
-	body, tool, err := c.ctx.performanceBody(inv.performed(callee), callee)
+	_, _, flow, err := c.ctx.performanceBody(inv.performed(callee), callee)
 	if err != nil {
 		return nil, err
 	}
-	return lowerPerformance(body, tool, c.ctx.Resolver())
+	return flow, nil
 }
 
 // divergeReached fails the check when a path only a performance could tell was held
