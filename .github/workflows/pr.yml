@@ -83,9 +83,8 @@ jobs:
     name: Go race tests (${{ matrix.shard }})
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    # The shards split the suite's slowest packages across runners so each gets its own job cap (see scripts/race-shard.sh).
-    # internal/exec/runtime alone outruns a job under -race, so it is two shards split by test name (see make test-shard);
-    # tests/migrate is the next-longest package, so it is a shard of its own rather than the long pole of rest.
+    # The shards split the suite's slowest packages across runners so each gets its own job cap (see scripts/race-shard.sh);
+    # internal/exec/runtime is two shards split by test name (see make test-shard) and tests/migrate, the next-longest, is one of its own.
     strategy:
       fail-fast: false
       matrix:
