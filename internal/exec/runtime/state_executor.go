@@ -2945,6 +2945,9 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 			if err := e.enterStateInto(state, nil, false); err != nil {
 				return fmt.Errorf("enter state: %w", err)
 			}
+			if e.state == StateTerminated {
+				return nil
+			}
 		}
 		below = owner
 	}
@@ -5177,6 +5180,9 @@ func (e *StateExecutor) enterMachineStart() error {
 	for _, state := range e.stateStack {
 		if err := e.enterStateInto(state, nil, state == start); err != nil {
 			return fmt.Errorf("enter state %s: %w", state.Name, err)
+		}
+		if e.state == StateTerminated {
+			return nil
 		}
 	}
 	leaf, err := e.enterStartOf(start)

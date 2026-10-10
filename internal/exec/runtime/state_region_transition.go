@@ -330,6 +330,9 @@ func (e *StateExecutor) moveBetweenRegions(
 	if err != nil {
 		return err
 	}
+	if e.state == StateTerminated {
+		return nil
+	}
 	if branch, ok := e.branchesTo(nil, deepest)[targetRegion]; ok {
 		leaf = branch
 		e.setRegionState(targetRegion, leaf)
@@ -501,6 +504,9 @@ func (e *StateExecutor) enterOutside(trans *lower.Transition, source, lca, targe
 	entered, deepest, err := e.enterToward(lca, target, nil)
 	if err != nil {
 		return err
+	}
+	if e.state == StateTerminated {
+		return nil
 	}
 
 	// Record the entered path: the deepest entered state of every orthogonal

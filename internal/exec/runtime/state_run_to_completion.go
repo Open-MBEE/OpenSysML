@@ -158,7 +158,7 @@ func (e *StateExecutor) performHeld(item heldEntry) (err error) {
 	} else {
 		var leaf *ast.StateNode
 		leaf, err = e.enterStartOf(item.owner)
-		if err == nil {
+		if err == nil && e.state != StateTerminated {
 			err = e.settleEntered(leaf)
 		}
 	}

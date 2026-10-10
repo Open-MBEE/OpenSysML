@@ -37,6 +37,34 @@ func TestRuntimeRobustnessEntryTransitionEffect(t *testing.T) {
 		}
 	})
 
+	t.Run("machine start termination prevents the targeted region state entry", func(t *testing.T) {
+		exec := stateExecutorForSource(t, "Machine", `package test {
+			state Machine {
+				attribute marker : Integer = 0;
+				entry; then nested;
+				state work parallel {
+					state terminating {
+						entry action boot { }
+						transition boot then route;
+						junction route;
+						transition first route then stop;
+						action stop terminate;
+					}
+					state left {
+						entry; then nested;
+						state nested { entry { assign marker := 1; } }
+					}
+				}
+			}
+		}`)
+		if exec.State() != StateTerminated {
+			t.Fatalf("machine state = %v, want StateTerminated", exec.State())
+		}
+		if got := exec.StateData()["marker"].Const.Int; got != 0 {
+			t.Fatalf("targeted region state entry ran after termination: marker = %d, want 0", got)
+		}
+	})
+
 	t.Run("effect error is returned", func(t *testing.T) {
 		_, _, err := executeStateSource(t, "Machine", `package test {
 			state Machine {

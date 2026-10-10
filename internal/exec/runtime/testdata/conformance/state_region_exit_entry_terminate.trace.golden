@@ -1,0 +1,12 @@
+choice exiting running: next idle(exit), parked(exit) (unordered; took idle(exit) first)
+exit: idle
+exit: parked
+exit: running
+enter: target (entry action)
+stmt action body
+  stmt assign entered
+      eval feature entered -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+transition: boot -> stop
+terminate: stop
