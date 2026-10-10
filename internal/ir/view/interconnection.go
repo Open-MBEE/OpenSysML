@@ -150,8 +150,8 @@ func (w *featureWalk) pinPorts(node *Node, sym *symbols.Symbol) {
 // pin draws sym as a port on node's border, with the given direction.
 func (w *featureWalk) pin(node *Node, sym *symbols.Symbol, direction PortDirection) {
 	id := portID(node.ID, len(node.Ports))
-	node.Ports = append(node.Ports, Port{ID: id, Name: localName(sym), Type: declType(sym),
-		Direction: direction, Origin: symbolOrigin(sym)})
+	node.Ports = append(node.Ports, Port{ID: id, Name: localName(sym), NameSynthesized: w.r.model.NameSynthesized(sym),
+		Type: declType(sym), Direction: direction, Origin: symbolOrigin(sym)})
 	if w.pins[node] == nil {
 		w.pins[node] = map[*symbols.Symbol]string{}
 	}
@@ -173,13 +173,16 @@ func (w *featureWalk) siteOf(sym *symbols.Symbol) edgeEnd {
 	return edgeEnd{}
 }
 
-// casePin reports whether member, a member of an analysis case drawn as a
-// node, is drawn as a pin on its border rather than a node inside it: the
-// case's subject, parameters and attributes, as the graphical notation draws
+// casePin reports whether member, a member of a case drawn as a node, is
+// drawn as a pin on its border rather than a node inside it: the case's
+// subject, actors, parameters and attributes, as the graphical notation draws
 // a case's parameters. Its parts, actions and nested cases are not.
 func casePin(owner, member *symbols.Symbol) bool {
 	switch owner.Kind {
-	case symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage:
+	case symbols.SymbolCaseDef, symbols.SymbolCaseUsage,
+		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
+		symbols.SymbolVerificationCaseDef, symbols.SymbolVerificationCaseUsage,
+		symbols.SymbolUseCaseDef, symbols.SymbolUseCaseUsage:
 	default:
 		return false
 	}
@@ -188,7 +191,7 @@ func casePin(owner, member *symbols.Symbol) bool {
 		return true
 	}
 	usage, ok := member.Decl.(*ast.Usage)
-	return ok && usage.Kind == ast.UsageSubject
+	return ok && (usage.Kind == ast.UsageSubject || usage.Kind == ast.UsageActor || usage.Kind == ast.UsageStakeholder)
 }
 
 // pinDirection is the direction a parameter is declared with: `return` and

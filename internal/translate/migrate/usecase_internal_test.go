@@ -54,13 +54,13 @@ func TestUseCaseForms(t *testing.T) {
 			 </packagedElement>`,
 			`<sysml:Block xmi:id="_st1" base_Class="_rep"/><sysml:Block xmi:id="_st2" base_Class="_sys"/>`,
 			[]string{"use case Review {\n    subject system : Report::System;\n    metadata MigrationMetadata::SynthesizedName about system;\n}"}, "_uc", Mapped},
-		{"an association-owned actor end is a connection between the actor and the use case",
+		{"an association-owned actor end is the use case's actor parameter, which the connection joins",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy"/>
 			 <packagedElement xmi:type="uml:Association" xmi:id="_a" memberEnd="_e1 _e2">
 			   <ownedEnd xmi:type="uml:Property" xmi:id="_e1" type="_user" association="_a"/>
 			   <ownedEnd xmi:type="uml:Property" xmi:id="_e2" type="_uc" association="_a"/>
 			 </packagedElement>`, "",
-			[]string{"part User;", "use case Buy;", "connection 'User to Buy' connect User to Buy;"}, "_a", Mapped},
+			[]string{"part User;", "use case Buy {\n    subject;\n    actor user :> User;\n    metadata MigrationMetadata::SynthesizedName about user;\n}", "connection 'User to Buy' connect User to Buy.user;"}, "_a", Mapped},
 		{"an actor end the use case owns is its actor, subsetting the actor's part",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="customer" type="_user" association="_a"/>

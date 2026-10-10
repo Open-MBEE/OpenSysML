@@ -1517,6 +1517,10 @@ func mermaidPinLabel(ports portView, port Port) string {
 	if !ports.minimal {
 		return "«port»<br>" + label
 	}
+	if label == "" {
+		// A flowchart node needs some text; an unnamed pin is a bare square.
+		return " "
+	}
 	return label
 }
 
