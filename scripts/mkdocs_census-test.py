@@ -26,6 +26,7 @@ Read that as progress.
 | b | x | y | ⚠️ Approximate |
 | c | x | y | ❌ Not implemented |
 | d | x | y | ⛔ Deliberate |
+| g | x | y | 🧩 Extension (UML-derived) |
 | notes | mentions ✅ and ❌ together | y | ⚠️ Approximate |
 
 ### Action
@@ -42,14 +43,15 @@ Read that as progress.
 class CensusTest(unittest.TestCase):
     def test_counts_one_marker_per_row_and_self_assessed_sections(self):
         c = census.count_rules(PAGE)
-        self.assertEqual(c["total"], 6)
-        self.assertEqual((c["✅"], c["⚠"], c["❌"], c["⛔"], c["🚧"]), (3, 1, 1, 1, 0))
+        self.assertEqual(c["total"], 7)
+        self.assertEqual((c["✅"], c["🧩"], c["⚠"], c["❌"], c["⛔"], c["🚧"]), (3, 1, 1, 1, 1, 0))
         self.assertEqual(c["self-assessed"], 2)
 
     def test_replaces_the_block_and_nothing_else(self):
         out = census.census(PAGE)
         self.assertIn(
-            "# Compliance\n\nThe map below tracks 6 semantic rules: **3 ✅ faithful, 1 ⚠️ approximate, "
+            "# Compliance\n\nThe map below tracks 7 semantic rules: **3 ✅ faithful, "
+            "1 🧩 extension (UML-derived or OpenSysML, not a SysML v2 claim), 1 ⚠️ approximate, "
             "1 ❌ not implemented, 1 ⛔ deliberate divergence**; 2 of them have no external referee.\n"
             "Read that as progress.\n",
             out,

@@ -31,13 +31,14 @@ const refereedBlockName = "refereed-figures"
 
 // statusMarkers are the row statuses the compliance map uses. '⚠' is matched
 // without its variation selector, as the map writes both spellings.
-var statusMarkers = []string{"✅", "⚠", "❌", "⛔", "🚧"}
+var statusMarkers = []string{"✅", "🧩", "⚠", "❌", "⛔", "🚧"}
 
 // RuleCounts is the census of the compliance map's rule rows: a row is one table
 // row carrying exactly one status marker.
 type RuleCounts struct {
 	Total          int
 	Faithful       int
+	Extension      int
 	Approximate    int
 	NotImplemented int
 	Deliberate     int
@@ -296,6 +297,8 @@ func CountRules(content string) RuleCounts {
 		switch {
 		case strings.Contains(line, "✅"):
 			counts.Faithful++
+		case strings.Contains(line, "🧩"):
+			counts.Extension++
 		case strings.Contains(line, "⚠"):
 			counts.Approximate++
 		case strings.Contains(line, "❌"):
@@ -306,7 +309,7 @@ func CountRules(content string) RuleCounts {
 			counts.KnownFailure++
 		}
 	}
-	counts.Total = counts.Faithful + counts.Approximate + counts.NotImplemented + counts.Deliberate + counts.KnownFailure
+	counts.Total = counts.Faithful + counts.Extension + counts.Approximate + counts.NotImplemented + counts.Deliberate + counts.KnownFailure
 	return counts
 }
 
