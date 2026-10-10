@@ -134,8 +134,10 @@ per statement, an `assign` writing when it ends. Another performance may run bet
 
 - **Atomic units.** One initialization (every initial value of the body, read at its start
   shot) and one statement are each one move: an assignment reads its value and writes it with
-  no boundary between, since the library places nothing between them. A loop iteration and a
-  step of a flow the body drives are one move each, as they already were.
+  no boundary between, since the library places nothing between them. A loop iteration is one
+  move; a step of a flow the body drives is one move unless its own body divides, as a token of
+  the outer flow's does, so the repeated performances of a counted step in a loop or branch body
+  and the branches of a fork there interleave as they do at the top level.
 - **Scheduler boundaries.** Where a body divides, the run yields after its start shot and after
   each statement (`Context.bodyPerformed`, `Context.yieldBody`, `bodyPause.yielded`): the token
   goes back to the step's steppable tokens with its body frame held, and the next pick among

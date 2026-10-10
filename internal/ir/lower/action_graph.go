@@ -132,6 +132,9 @@ type ActionGraph struct {
 	// lowering holds the declarations whose action content is being lowered on
 	// this path.
 	lowering []ast.Node
+	// unfolded memoizes, on the outermost flow, the flow each deferred typed body
+	// lowered to, keyed by its node, so a recursive definition is lowered once.
+	unfolded map[ast.Node]*ActionGraph
 
 	// inherited are the actions the action specializes, nearest general first.
 	inherited []Inherited
@@ -1943,7 +1946,7 @@ func DeclaresNodeFeature(m *ast.Usage) bool {
 func lowerNodeBody(graph *ActionGraph, node ast.Node, members []ast.Node, scope *symbols.Scope) {
 	body := childScope(scope, node)
 	for _, member := range BodyStatementMembers(members) {
-		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), body, graph.resolver))
+		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), body, graph.resolver, graph.lowering))
 	}
 }
 
@@ -2009,7 +2012,7 @@ func BodyStatementMembers(members []ast.Node) []ast.Node {
 // lowerStatement lowers one executable body statement, in the scope it was
 // written in. Every form it recognizes is lowered losslessly; a form it does not
 // becomes Unsupported, so the executor reports it rather than skipping it.
-func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
+func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Statement {
 	switch m := member.(type) {
 	case *ast.SendStatement:
 		return lowerSend(m, scope)
@@ -2023,17 +2026,17 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 			Until:      m.Until,
 			Variable:   variable,
 			Collection: m.Collection,
-			Body:       lowerBlock(m, m.Body, childScope(scope, m), resolver),
+			Body:       lowerBlock(m, m.Body, childScope(scope, m), resolver, ancestors),
 			Node:       m,
 			Scope:      scope,
 		}
 	case *ast.IfActionNode:
 		lowered := If{Condition: m.Condition, Node: m, Scope: scope}
 		if m.Then != nil {
-			lowered.Then = lowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver)
+			lowered.Then = lowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver, ancestors)
 		}
 		if m.Else != nil {
-			block := lowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver)
+			block := lowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver, ancestors)
 			lowered.Else = &block
 		}
 		return lowered
@@ -2043,7 +2046,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 		target, terminates := terminateTarget(m, scope)
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: m.Target}
 	case *ast.Usage:
-		return lowerUsageStatement(m, scope, resolver)
+		return lowerUsageStatement(m, scope, resolver, ancestors)
 	default:
 		return Unsupported{Description: statedFlowKeyword(member), Node: member, Scope: scope}
 	}
@@ -2132,7 +2135,7 @@ func lowerAssignment(m *ast.AssignmentActionNode, scope *symbols.Scope) Statemen
 // (`loop action charging { … } until charging.done`). An action usage naming
 // the action it performs is a performed action, which the host executes or
 // rejects as its own purity demands.
-func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
+func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Statement {
 	if m.IsTerminate {
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
 	}
@@ -2140,7 +2143,7 @@ func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.R
 		return stmt
 	}
 	if m.Kind == ast.UsageAction && m.IsBodyParameter {
-		return lowerBlock(m, m.Members, childScope(scope, m), resolver)
+		return lowerBlock(m, m.Members, childScope(scope, m), resolver, ancestors)
 	}
 	if m.Kind == ast.UsageAction && performsAction(m) {
 		return performEffect(m, scope)
@@ -2198,13 +2201,13 @@ func redefinedNames(u *ast.Usage) []string {
 // lowerBlock lowers the body of a loop or of one branch of a conditional. owner
 // is the node the block belongs to, which is the element that owns the block's
 // body-local namespace, and scope is the namespace it owns.
-func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) Block {
+func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Block {
 	if statesOwnFlow(members) {
-		return lowerStatedBlock(owner, members, scope, resolver)
+		return lowerStatedBlock(owner, members, scope, resolver, ancestors)
 	}
 	if blockNeedsFlow(members) {
-		graph := lowerBlockFlow(members, scope, false, resolver)
-		return Block{Node: owner, Scope: scope, Graph: graph, Stated: len(graph.Accepts) > 0}
+		graph := lowerBlockFlow(members, scope, false, resolver, ancestors)
+		return Block{Node: owner, Scope: scope, Graph: graph, Stated: flowStated(graph)}
 	}
 	block := Block{Node: owner, Scope: scope}
 	for _, member := range members {
@@ -2212,7 +2215,7 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolv
 		if actual == nil || isAnnotation(actual) {
 			continue
 		}
-		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver))
+		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver, ancestors))
 	}
 	return block
 }

@@ -129,7 +129,7 @@ func calcStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver)
 		if ast.IsExpression(member) {
 			return Return{Value: member, Node: member, Scope: scope}, true
 		}
-		return lowerStatement(member, scope, resolver), true
+		return lowerStatement(member, scope, resolver, nil), true
 	}
 }
 

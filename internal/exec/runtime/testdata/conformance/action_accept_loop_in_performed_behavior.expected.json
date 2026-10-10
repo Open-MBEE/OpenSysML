@@ -2,6 +2,6 @@
 	"type": "action",
 	"libraries": true,
 	"outputs": {
-		"c": {"type": "Integer", "value": 10}
+		"got": {"type": "Integer", "value": 7}
 	}
 }

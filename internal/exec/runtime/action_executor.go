@@ -1763,7 +1763,7 @@ func (e *ActionExecutor) initialize() error {
 
 	// A nested node's own flow is validated here, not at construction, so a
 	// malformed one is a typed error rather than a leaf that silently runs.
-	if err := e.validateSubflows(e.graph); err != nil {
+	if err := validateSubflows(e.graph); err != nil {
 		return err
 	}
 	if err := e.checkResultParameters(); err != nil {
