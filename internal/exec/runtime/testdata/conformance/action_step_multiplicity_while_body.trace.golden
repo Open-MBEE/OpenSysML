@@ -1,0 +1,58 @@
+step 1: token 1@worker
+stmt while
+  iteration 1
+      eval feature passes -> 0
+      eval literal 2 -> 2
+    eval operator < -> true
+enter action node: loop body of action node worker
+choice step 2: tokens 2@start, 3@skip (unordered; took 2@start first)
+    stmt assign c
+        eval feature c -> 0
+        eval literal 1 -> 1
+      eval operator + -> 1
+    stmt assign c
+        eval feature c -> 1
+        eval literal 1 -> 1
+      eval operator + -> 2
+    stmt assign c
+        eval feature c -> 2
+        eval literal 1 -> 1
+      eval operator + -> 3
+choice step 2: writes c := 1 by token 2, c := 2 by token 4, c := 3 by token 5 (unordered; c := 3 by token 5 stood)
+choice step 2: tokens 2@a, 4@a, 5@a (unordered; took 2@a first)
+    stmt assign passes
+        eval feature passes -> 0
+        eval literal 1 -> 1
+      eval operator + -> 1
+leave action node: loop body of action node worker
+  iteration 2
+      eval feature passes -> 1
+      eval literal 2 -> 2
+    eval operator < -> true
+enter action node: loop body of action node worker
+choice step 2: tokens 6@start, 7@skip (unordered; took 6@start first)
+    stmt assign c
+        eval feature c -> 3
+        eval literal 1 -> 1
+      eval operator + -> 4
+    stmt assign c
+        eval feature c -> 4
+        eval literal 1 -> 1
+      eval operator + -> 5
+    stmt assign c
+        eval feature c -> 5
+        eval literal 1 -> 1
+      eval operator + -> 6
+choice step 2: writes c := 4 by token 6, c := 5 by token 8, c := 6 by token 9 (unordered; c := 6 by token 9 stood)
+choice step 2: tokens 6@a, 8@a, 9@a (unordered; took 6@a first)
+    stmt assign passes
+        eval feature passes -> 1
+        eval literal 1 -> 1
+      eval operator + -> 2
+leave action node: loop body of action node worker
+  iteration 3
+      eval feature passes -> 2
+      eval literal 2 -> 2
+    eval operator < -> false
+step 2: token 1@done
+step 3: no active tokens

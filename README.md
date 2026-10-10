@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# OpenSysML REDK — Runtime Environment and Development Kit
+# OpenSysML REDK — Runtime Environment and Development Kit (MDK2)
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/Open-MBEE/OpenSysML/tree/main.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/gh/Open-MBEE/OpenSysML/tree/main)
 [![Quality gate](https://sonarcloud.io/api/project_badges/measure?project=Open-MBEE_OpenSysML&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Open-MBEE_OpenSysML)
@@ -28,7 +28,9 @@ covering the lifecycle from authoring through execution with the integrated tool
 engineers expect from a modern language ecosystem. It is the runtime of
 [OpenSysML](https://opensysml.org/), the open source SysML v2 suite of the
 [OpenMBEE](https://www.openmbee.org) community; this repository is the REDK, and the pages
-below use "OpenSysML" for it where no confusion with the suite is possible.
+below use "OpenSysML" for it where no confusion with the suite is possible. The REDK is
+the second generation of OpenMBEE's Model Development Kit (MDK2), expanded and updated for
+SysML v2; its [Cameo plugin](editors/mdk/README.md) carries the OpenSysML MDK name.
 
 **It runs the model.** A validator reads declarations; an expression evaluator computes a value
 from the ones it is handed. OpenSysML materializes the instances a model describes, evaluates
