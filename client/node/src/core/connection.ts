@@ -32,6 +32,7 @@ import {
   CAPABILITY_STRICT_CONFORMANCE,
   CAPABILITY_VERIFICATION,
   CAPABILITY_VERIFICATION_QUESTIONS,
+  CAPABILITY_VERIFICATION_ARGUMENTS,
   capabilityRefusal,
   mismatchReason,
   requireCapability,
@@ -199,6 +200,21 @@ export interface ConnectionBackend {
 }
 
 /** A connection to a sysml-grpc service. Close it, or use `await using`. */
+/** Argument bindings for a constraint's or requirement's `in` parameters. */
+export interface VerifyArguments {
+  /** Positional arguments, bound in declaration order. */
+  arguments?: readonly ValueInput[];
+  /** Arguments by parameter name. */
+  namedArguments?: Readonly<Record<string, ValueInput>>;
+}
+
+/** Options of verifyConstraint and verifyRequirement. */
+export interface VerifyOptions extends VerifyArguments {
+  subject?: string;
+  engine?: string;
+  question?: string;
+}
+
 export class Connection {
   /**
    * The generated Connect client. The ergonomic API covers what this version
@@ -946,11 +962,16 @@ export class Connection {
   async verifyConstraint(
     modelHash: string,
     symbolId: string,
-    options: { subject?: string; engine?: string; question?: string } = {},
+    options: VerifyOptions = {},
   ): Promise<Verdict> {
     this.requireVerification();
     this.requireEngine(options.engine);
     this.requireQuestion(options.question);
+    this.requireArguments(options);
+    const namedArguments: Record<string, ReturnType<typeof toValue>> = {};
+    for (const [name, arg] of Object.entries(options.namedArguments ?? {})) {
+      namedArguments[name] = toValue(arg, this.info);
+    }
     const response = await callRpc(
       this.rpc.verifyConstraint(
         create(VerifyConstraintRequestSchema, {
@@ -959,6 +980,10 @@ export class Connection {
           subjectSymbolId: options.subject ?? "",
           engine: engineField(options.engine),
           question: questionField(options.question),
+          arguments: (options.arguments ?? []).map((arg) =>
+            toValue(arg, this.info),
+          ),
+          namedArguments,
         }),
         this.callOptions(),
       ),
@@ -967,6 +992,7 @@ export class Connection {
         CAPABILITY_VERIFICATION,
         ...engineCapabilities(options.engine),
         ...questionCapabilities(options.question),
+        ...argumentCapabilities(options),
       ]),
     );
     return this.verdictOf(response);
@@ -976,11 +1002,16 @@ export class Connection {
   async verifyRequirement(
     modelHash: string,
     symbolId: string,
-    options: { subject?: string; engine?: string; question?: string } = {},
+    options: VerifyOptions = {},
   ): Promise<Verdict> {
     this.requireVerification();
     this.requireEngine(options.engine);
     this.requireQuestion(options.question);
+    this.requireArguments(options);
+    const namedArguments: Record<string, ReturnType<typeof toValue>> = {};
+    for (const [name, arg] of Object.entries(options.namedArguments ?? {})) {
+      namedArguments[name] = toValue(arg, this.info);
+    }
     const response = await callRpc(
       this.rpc.verifyRequirement(
         create(VerifyRequirementRequestSchema, {
@@ -989,6 +1020,10 @@ export class Connection {
           subjectSymbolId: options.subject ?? "",
           engine: engineField(options.engine),
           question: questionField(options.question),
+          arguments: (options.arguments ?? []).map((arg) =>
+            toValue(arg, this.info),
+          ),
+          namedArguments,
         }),
         this.callOptions(),
       ),
@@ -997,6 +1032,7 @@ export class Connection {
         CAPABILITY_VERIFICATION,
         ...engineCapabilities(options.engine),
         ...questionCapabilities(options.question),
+        ...argumentCapabilities(options),
       ]),
     );
     return this.verdictOf(response);
@@ -1361,6 +1397,12 @@ export class Connection {
     }
   }
 
+  private requireArguments(options: VerifyArguments): void {
+    for (const capability of argumentCapabilities(options)) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+  }
+
   private requireQuestion(question: string | undefined): void {
     for (const capability of questionCapabilities(question)) {
       requireCapability(this.info, capability, upgradeRemedy(capability));
@@ -1520,6 +1562,13 @@ function engineCapabilities(engine: string | undefined): string[] {
 }
 
 // The capabilities a question needs of the service: none for evaluate.
+function argumentCapabilities(options: VerifyArguments): string[] {
+  return (options.arguments?.length ?? 0) > 0 ||
+    Object.keys(options.namedArguments ?? {}).length > 0
+    ? [CAPABILITY_VERIFICATION_ARGUMENTS]
+    : [];
+}
+
 function questionCapabilities(question: string | undefined): string[] {
   return questionField(question) !== ""
     ? [CAPABILITY_VERIFICATION_QUESTIONS]

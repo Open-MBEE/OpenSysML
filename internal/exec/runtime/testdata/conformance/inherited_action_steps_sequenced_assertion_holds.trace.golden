@@ -1,0 +1,18 @@
+step 1: token 1@raise
+stmt assign level
+  eval literal 3 -> 3
+step 2: token 1@raised
+stmt assert raised
+    eval feature level -> 3
+    eval literal 3 -> 3
+  eval operator == -> true
+step 3: token 1@lower
+stmt assign level
+  eval literal 1 -> 1
+step 4: token 1@high
+stmt assert high
+    eval feature level -> 1
+    eval literal 2 -> 2
+  eval operator > -> false
+step 5: token 1@done
+step 6: no active tokens

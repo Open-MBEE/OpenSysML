@@ -24,6 +24,24 @@ func actionStepMultiplicityDiags(t *testing.T, text string) []diag.Diagnostic {
 	return behavior.ActionStepMultiplicityPass{}.Run(ctx, "t.sysml", root)
 }
 
+func TestActionStepMultiplicityPassReportsLoweringErrors(t *testing.T) {
+	model := `package test {
+		action def Base {
+			first start then a;
+			action a;
+			then done;
+		}
+		action def Inc :> Base { attribute :>> a : Integer; }
+	}`
+	for _, diagnostic := range actionStepMultiplicityDiags(t, model) {
+		if diagnostic.Code == "action-step-lowering" &&
+			strings.Contains(diagnostic.Message, "redefining feature is not an action step") {
+			return
+		}
+	}
+	t.Fatal("diagnostics do not report the inherited action-graph lowering error")
+}
+
 func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 	tests := []struct {
 		name, code, model, step, multiplicity, reason string
@@ -115,8 +133,8 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 			step: "a", multiplicity: "[3]",
 		},
 		{
-			name: "while block ignores repeated count",
-			code: "action-step-multiplicity-unsupported",
+			name: "a body's declaration order is the executor's",
+			code: "action-step-order-open",
 			model: `package P {
 				private import ScalarValues::*;
 				action def A {
@@ -132,71 +150,7 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 				}
 			}`,
 			step: "tick", multiplicity: "[3]",
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
-		},
-		{
-			name: "unordered step in a while block",
-			code: "action-step-multiplicity-unsupported",
-			model: `action def A {
-				first start then worker;
-				action worker {
-					while true {
-						action anchor;
-						first start then anchor;
-						action tick[3] { }
-					}
-				}
-				then done;
-			}`,
-			step: "tick", multiplicity: "[3]",
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
-		},
-		{
-			name: "while block ignores zero count",
-			code: "action-step-multiplicity-unsupported",
-			model: `action def A {
-				first start then worker;
-				action worker {
-					attribute i : Integer = 0;
-					while i < 1 {
-						action tick[0] { }
-						assign i := i + 1;
-					}
-				}
-				then done;
-			}`,
-			step: "tick", multiplicity: "[0]",
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
-		},
-		{
-			name: "if block ignores repeated count",
-			code: "action-step-multiplicity-unsupported",
-			model: `action def A {
-				first start then worker;
-				action worker {
-					if true {
-						action tick[3] { }
-					}
-				}
-				then done;
-			}`,
-			step: "tick", multiplicity: "[3]",
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
-		},
-		{
-			name: "if block ignores zero count",
-			code: "action-step-multiplicity-unsupported",
-			model: `action def A {
-				first start then worker;
-				action worker {
-					if true {
-						action tick[0] { }
-					}
-				}
-				then done;
-			}`,
-			step: "tick", multiplicity: "[0]",
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+			reason: "the body states no succession, so its declaration order is the executor's and does not order every performance",
 		},
 		{
 			name: "unevaluable succession-end count",
@@ -209,24 +163,97 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 			step: "a", multiplicity: "[3]",
 		},
 		{
-			name: "nested external feature read",
-			code: "action-step-multiplicity-unsupported",
-			model: `package P {
-				private import ScalarValues::*;
-				action def A {
-					attribute total : Integer = 0;
-					first start then outer;
-					action outer {
-						first start then inner;
-						action inner[3] { attribute x : Integer = 1; }
-						then done;
-					}
-					then q;
-					action q { assign total := outer.inner.x; }
-					then done;
-				}
+			name: "a fork's predecessor cannot order every crossing",
+			code: "action-step-order-unsatisfiable",
+			model: `action def A {
+				first start then b;
+				action b;
+				then f;
+				fork f;
+				action a[3];
+				succession first f then a;
+				succession first [*] a then [1] done;
 			}`,
-			step: "inner", multiplicity: "[3]",
+			step: "a", multiplicity: "[3]",
+		},
+
+		{
+			name: "a written wildcard into a join contradicts its mandate",
+			code: "action-step-order-unsatisfiable",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first [*] a then j;
+				join j;
+				then done;
+			}`,
+			step: "a", multiplicity: "[3]",
+			reason: "the succession's written end multiplicity contradicts the one SysML requires at a join node",
+		},
+		{
+			name: "a join waits on another incoming succession",
+			code: "action-step-order-unsatisfiable",
+			model: `action def A {
+				first start then b;
+				action b;
+				action a[3];
+				succession first a then j;
+				succession first b then j;
+				join j;
+				then done;
+			}`,
+			step: "a", multiplicity: "[3]",
+		},
+		{
+			name: "a merge's successor orders under the per-performance count",
+			code: "action-step-order-unsatisfiable",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first a then m;
+				merge m;
+				action q;
+				succession first m then q;
+				then done;
+			}`,
+			step: "a", multiplicity: "[3]",
+		},
+		{
+			name: "guarded succession out of a repeated step",
+			code: "action-step-multiplicity-unsupported",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				action q;
+				succession first a if true then q;
+				succession first [*] a then [1] done;
+			}`,
+			step: "a", multiplicity: "[3]",
+		},
+		{
+			name: "guarded succession without a written target end",
+			code: "action-step-multiplicity-unsupported",
+			model: `action def A {
+				first start then p;
+				action p;
+				action a[3];
+				succession first p if true then a;
+				succession first [*] a then [1] done;
+			}`,
+			step: "a", multiplicity: "[3]",
+		},
+		{
+			name: "literal false guard into a repeated step",
+			code: "action-step-order-open",
+			model: `action def A {
+				first start then p;
+				action p;
+				action a[3];
+				succession first p if false then [*] a;
+				succession first [*] a then [1] done;
+			}`,
+			step: "a", multiplicity: "[3]",
+			reason: "a false guard leaves the performances of the repeated step unordered with respect to its source",
 		},
 	}
 	for _, test := range tests {
@@ -246,6 +273,21 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 				t.Errorf("message = %q, want reason %q", d.Message, test.reason)
 			}
 		})
+	}
+}
+
+// A literal-false guard into a step performed once needs no repetition
+// ordering: it prunes the edge, so the pass reports nothing.
+func TestActionStepMultiplicityPassAdmitsFalseGuardIntoSinglePerformance(t *testing.T) {
+	got := actionStepMultiplicityDiags(t, `action def A {
+		first start then p;
+		action p;
+		action a[1];
+		succession first p if false then [1] a;
+		succession first p if true then done;
+	}`)
+	if len(got) != 0 {
+		t.Fatalf("diagnostics = %+v, want none", got)
 	}
 }
 
@@ -422,6 +464,105 @@ func TestActionStepMultiplicityPassLeavesSupportedStepsAlone(t *testing.T) {
 	}
 }
 
+func TestActionStepMultiplicityPassUsesInheritedStepMultiplicity(t *testing.T) {
+	t.Run("non_fixed multiplicity points to base declaration", func(t *testing.T) {
+		model := `package test {
+			action def Base { action a[1..3]; }
+			action def Derived :> Base { action :>> a; }
+		}`
+		diags := actionStepMultiplicityDiags(t, model)
+		want := strings.Index(model, "[1..3]")
+		found := false
+		for _, diagnostic := range diags {
+			if diagnostic.Code == "action-step-multiplicity-not-fixed" && diagnostic.Span.Offset == want {
+				found = true
+				if strings.Contains(diagnostic.Message, "inherited from test::Base::a") {
+					return
+				}
+			}
+		}
+		t.Fatalf("diagnostics = %+v, want a non-fixed inherited multiplicity diagnostic at offset %d (found=%v)",
+			diags, want, found)
+	})
+
+	t.Run("plain then remains open for inherited repeated step", func(t *testing.T) {
+		diags := actionStepMultiplicityDiags(t, `package test {
+			action def Base {
+				action a[3];
+				then action b;
+			}
+			action def Derived :> Base { action :>> a; }
+		}`)
+		for _, diagnostic := range diags {
+			if diagnostic.Code == "action-step-order-open" {
+				return
+			}
+		}
+		t.Fatalf("diagnostics = %+v, want strict plain-then order warning", diags)
+	})
+
+	t.Run("inherited repeated step in an unordered loop body is refused as open order", func(t *testing.T) {
+		diags := actionStepMultiplicityDiags(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				action worker {
+					attribute i : Integer = 0;
+					while i < 1 {
+						action tick[2];
+						assign i := i + 1;
+					}
+				}
+			}
+			action def Derived :> Base { action :>> worker; }
+		}`)
+		for _, diagnostic := range diags {
+			if diagnostic.Code == "action-step-order-open" &&
+				strings.Contains(diagnostic.Message, "tick") &&
+				strings.Contains(diagnostic.Message, "[2]") {
+				return
+			}
+		}
+		t.Fatalf("diagnostics = %+v, want open order on inherited [2] tick in loop body", diags)
+	})
+
+	t.Run("inherited repeated step ordered in a loop body is supported", func(t *testing.T) {
+		diags := actionStepMultiplicityDiags(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				action worker {
+					attribute i : Integer = 0;
+					while i < 2 {
+						first start then tick;
+						action tick[2];
+						action bump { assign i := i + 1; }
+						succession first [*] tick then [1] bump;
+					}
+				}
+			}
+			action def Derived :> Base { action :>> worker; }
+		}`)
+		if len(diags) != 0 {
+			t.Fatalf("diagnostics = %+v, want none", diags)
+		}
+	})
+
+	t.Run("fixed repeated step with explicit first edges remains supported", func(t *testing.T) {
+		model := `package test {
+			action def Base {
+				action p[1];
+				action a[3];
+				action q[1];
+				succession first [1] p then [3] a;
+				succession first [3] a then [1] q;
+			}
+			action def Derived :> Base { action :>> a; }
+		}`
+		if diags := actionStepMultiplicityDiags(t, model); len(diags) != 0 {
+			t.Fatalf("diagnostics = %+v, want none", diags)
+		}
+	})
+}
+
 func TestActionStepMultiplicityPassChecksStateBehaviorAndPartPerformance(t *testing.T) {
 	tests := []struct {
 		name, model, step string
@@ -462,40 +603,6 @@ func TestActionStepMultiplicityPassChecksStateBehaviorAndPartPerformance(t *test
 				}
 			}`,
 			step: "tick",
-		},
-		{
-			name: "part-level performed action multiplicity",
-			model: `package P {
-				action def Act { }
-				part def Host {
-					perform action run[2] : Act;
-				}
-			}`,
-			step: "run",
-		},
-		{
-			name: "part-level performed action nested in part usage",
-			model: `package P {
-				action def Act { }
-				part def Camera { }
-				part def Host {
-					part camera : Camera {
-						perform action takePhoto[2] : Act;
-					}
-				}
-			}`,
-			step: "takePhoto",
-		},
-		{
-			name: "part-level performed action on top-level part usage",
-			model: `package P {
-				action def Act { }
-				part def Camera { }
-				part camera : Camera {
-					perform action takePhoto[2] : Act;
-				}
-			}`,
-			step: "takePhoto",
 		},
 	}
 	for _, test := range tests {
@@ -564,5 +671,174 @@ func TestActionStepMultiplicityPassSkipsElementsWithLowerTierFailures(t *testing
 	independent := strings.Index(text, "action def Independent")
 	if multiplicityWarnings[0].Span.Offset < independent {
 		t.Fatalf("multiplicity warning = %+v, want it in Independent after offset %d", multiplicityWarnings[0], independent)
+	}
+}
+
+func TestActionStepMultiplicityPassAcceptsExecutedRepetition(t *testing.T) {
+	tests := []struct {
+		name  string
+		model string
+	}{
+		{
+			name: "unordered step in a while block",
+			model: `action def A {
+				first start then worker;
+				action worker {
+					while true {
+						action anchor;
+						first start then anchor;
+						action tick[3] { }
+					}
+				}
+				then done;
+			}`,
+		},
+		{
+			name: "while block ignores zero count",
+			model: `action def A {
+				first start then worker;
+				action worker {
+					attribute i : Integer = 0;
+					while i < 1 {
+						action tick[0] { }
+						assign i := i + 1;
+					}
+				}
+				then done;
+			}`,
+		},
+		{
+			name: "if block ignores repeated count",
+			model: `action def A {
+				first start then worker;
+				action worker {
+					if true {
+						action tick[3] { }
+					}
+				}
+				then done;
+			}`,
+		},
+		{
+			name: "if block ignores zero count",
+			model: `action def A {
+				first start then worker;
+				action worker {
+					if true {
+						action tick[0] { }
+					}
+				}
+				then done;
+			}`,
+		},
+		{
+			name: "nested external feature read",
+			model: `package P {
+				private import ScalarValues::*;
+				private import SequenceFunctions::*;
+				action def A {
+					attribute total : Integer = 0;
+					first start then outer;
+					action outer {
+						first start then inner;
+						action inner[3] { attribute x : Integer = 1; }
+						then done;
+					}
+					then q;
+					action q { assign total := size(outer.inner.x); }
+					then done;
+				}
+			}`,
+		},
+		{
+			name: "part-level performed action multiplicity",
+			model: `package P {
+				action def Act { }
+				part def Host {
+					perform action run[2] : Act;
+				}
+			}`,
+		},
+		{
+			name: "part-level performed action nested in part usage",
+			model: `package P {
+				action def Act { }
+				part def Camera { }
+				part def Host {
+					part camera : Camera {
+						perform action takePhoto[2] : Act;
+					}
+				}
+			}`,
+		},
+		{
+			name: "part-level performed action on top-level part usage",
+			model: `package P {
+				action def Act { }
+				part def Camera { }
+				part camera : Camera {
+					perform action takePhoto[2] : Act;
+				}
+			}`,
+		},
+		{
+			name: "repeated step behind a fork barrier",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first [*] a then f;
+				fork f;
+				then done;
+			}`,
+		},
+		{
+			name: "repeated step behind a decision barrier",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first [*] a then d;
+				decide d;
+				if true then done;
+			}`,
+		},
+		{
+			name: "repeated step fanned out of a merge",
+			model: `action def A {
+				first start then p;
+				action p;
+				merge m;
+				first p then m;
+				action a[3];
+				succession first m then [*] a;
+				then done;
+			}`,
+		},
+		{
+			name: "every performance crosses a lone join",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first a then j;
+				join j;
+				then done;
+			}`,
+		},
+		{
+			name: "guarded succession with a written target end",
+			model: `action def A {
+				first start then p;
+				action p;
+				action a[3];
+				succession first p if true then [*] a;
+				succession first [*] a then [1] done;
+			}`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := actionStepMultiplicityDiags(t, test.model); len(got) != 0 {
+				t.Fatalf("diagnostics = %+v, want none", got)
+			}
+		})
 	}
 }

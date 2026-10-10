@@ -3,6 +3,8 @@ package opensysml
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
@@ -258,6 +260,25 @@ type verifyOptions struct {
 	subjectSymbolID string
 	engine          string
 	question        string
+	positional      []Value
+	named           []namedArgument
+}
+
+// VerifyArguments bind the constraint's or requirement's `in` parameters in
+// declaration order, as Arguments binds a case's. Binding any requires the
+// verification_arguments capability, checked before anything is sent; a proof
+// question takes none.
+func VerifyArguments(values ...Value) VerifyOption {
+	return func(o *verifyOptions) { o.positional = append(o.positional, values...) }
+}
+
+// VerifyArgument binds the `in` parameter named, as Argument binds a case's.
+func VerifyArgument(name string, value Value) VerifyOption {
+	return func(o *verifyOptions) { o.named = append(o.named, namedArgument{name, value}) }
+}
+
+func (o *verifyOptions) hasArguments() bool {
+	return len(o.positional) > 0 || len(o.named) > 0
 }
 
 // Against names a part or usage to instantiate and verify against, so the
@@ -289,12 +310,18 @@ func (c *client) VerifyConstraint(
 	if err != nil {
 		return nil, err
 	}
+	arguments, named, err := c.verifyArguments(ctx, &options)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.verifyConstraint(ctx, &pb.VerifyConstraintRequest{
 		ModelHash:       hash,
 		SymbolId:        symbolID,
 		SubjectSymbolId: options.subjectSymbolID,
 		Engine:          engineField(options.engine),
 		Question:        questionField(options.question),
+		Arguments:       arguments,
+		NamedArguments:  named,
 	})
 	if err != nil {
 		return nil, err
@@ -317,12 +344,18 @@ func (c *client) VerifyRequirement(
 	if err != nil {
 		return nil, err
 	}
+	arguments, named, err := c.verifyArguments(ctx, &options)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.verifyRequirement(ctx, &pb.VerifyRequirementRequest{
 		ModelHash:       hash,
 		SymbolId:        symbolID,
 		SubjectSymbolId: options.subjectSymbolID,
 		Engine:          engineField(options.engine),
 		Question:        questionField(options.question),
+		Arguments:       arguments,
+		NamedArguments:  named,
 	})
 	if err != nil {
 		return nil, err
@@ -351,6 +384,12 @@ func (c *client) VerifySatisfaction(
 		return nil, &StatusError{
 			Code:    CodeInvalidArgument,
 			Message: "VerifySatisfaction takes no subject: the assertions name their own",
+		}
+	}
+	if options.hasArguments() {
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "VerifySatisfaction takes no arguments: nothing it checks declares parameters",
 		}
 	}
 	resp, err := c.caller.verifySatisfaction(ctx, &pb.VerifySatisfactionRequest{
@@ -398,6 +437,12 @@ func (c *client) ValidateInstance(
 		return nil, &StatusError{
 			Code:    CodeInvalidArgument,
 			Message: "ValidateInstance takes no subject: the symbol named is the object validated",
+		}
+	}
+	if options.hasArguments() {
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "ValidateInstance takes no arguments: nothing it checks declares parameters",
 		}
 	}
 	resp, err := c.caller.validateInstance(ctx, &pb.ValidateInstanceRequest{
@@ -539,7 +584,47 @@ func (c *client) verifyOptions(ctx context.Context, opts []VerifyOption) (verify
 	if err := c.requireQuestion(ctx, options.question); err != nil {
 		return verifyOptions{}, err
 	}
+	if options.hasArguments() {
+		if err := c.requireArguments(ctx); err != nil {
+			return verifyOptions{}, err
+		}
+		values := append([]Value(nil), options.positional...)
+		for _, arg := range options.named {
+			values = append(values, arg.value)
+		}
+		if err := c.requireValueCapabilities(ctx, values...); err != nil {
+			return verifyOptions{}, err
+		}
+	}
 	return options, nil
+}
+
+// verifyArguments is the request's argument bindings as sent, rationals fitted
+// to the service as a case's are.
+func (c *client) verifyArguments(ctx context.Context, options *verifyOptions) ([]*pb.Value, map[string]*pb.Value, error) {
+	var positional []*pb.Value
+	for _, argument := range options.positional {
+		sent, err := valueToProto(argument)
+		if err != nil {
+			return nil, nil, err
+		}
+		positional = append(positional, sent)
+	}
+	var named map[string]*pb.Value
+	if len(options.named) > 0 {
+		named = make(map[string]*pb.Value, len(options.named))
+		for _, argument := range options.named {
+			sent, err := valueToProto(argument.value)
+			if err != nil {
+				return nil, nil, err
+			}
+			named[argument.name] = sent
+		}
+	}
+	if err := c.fitRationals(ctx, append(slices.Clone(positional), slices.Collect(maps.Values(named))...)...); err != nil {
+		return nil, nil, err
+	}
+	return positional, named, nil
 }
 
 // questionField is the question as sent: empty for evaluate, which every
@@ -566,6 +651,23 @@ func (c *client) requireQuestion(ctx context.Context, question string) error {
 		return &StatusError{
 			Code:    CodeUnimplemented,
 			Message: fmt.Sprintf("capability %q is unavailable", CapabilityVerificationQuestions),
+		}
+	}
+	return nil
+}
+
+// requireArguments refuses to send argument bindings to a service without the
+// verification_arguments capability, which would check the unbound parameters
+// rather than refuse.
+func (c *client) requireArguments(ctx context.Context) error {
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	if !info.Has(CapabilityVerificationArguments) {
+		return &StatusError{
+			Code:    CodeUnimplemented,
+			Message: fmt.Sprintf("capability %q is unavailable", CapabilityVerificationArguments),
 		}
 	}
 	return nil

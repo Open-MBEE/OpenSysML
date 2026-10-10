@@ -425,7 +425,7 @@ func (ctx *Context) constraintBodyStep(node ast.Node, scope *symbols.Scope) (low
 	if stmt, ok := ctx.model.constraintSteps[node]; ok {
 		return stmt, true
 	}
-	stmt, ok := lower.ConstraintStep(node, scope)
+	stmt, ok := lower.ConstraintStep(node, scope, ctx.model.Resolver())
 	if !ok {
 		return nil, false
 	}

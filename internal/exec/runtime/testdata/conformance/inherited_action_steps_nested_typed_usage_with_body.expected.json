@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::Host",
+	"trace": true,
+	"outputs": {
+		"y.c": {"type": "Integer", "value": 101}
+	}
+}

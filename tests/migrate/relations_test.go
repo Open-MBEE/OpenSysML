@@ -377,10 +377,10 @@ func TestUnwritableFeaturePartsAreDroppedWithNotes(t *testing.T) {
     </packagedElement>`, `
   <sysml:Block xmi:id="_s2" base_Class="_h"/>`)
 	wantLine(t, r.Notation, "ref intro;")
-	wantLine(t, r.Notation, "ref grid;")
-	wantLine(t, r.Notation, "ref many[0..*];")
-	wantLine(t, r.Notation, "ref margin {")
-	wantLine(t, r.Notation, `ref exposure default = "4";`)
+	wantLine(t, r.Notation, "attribute grid;")
+	wantLine(t, r.Notation, "attribute many[0..*];")
+	wantLine(t, r.Notation, "attribute margin {")
+	wantLine(t, r.Notation, `attribute exposure default = "4";`)
 	if strings.Contains(string(r.Notation), "= NaN") {
 		t.Errorf("a non-finite real was written:\n%s", r.Notation)
 	}
@@ -426,9 +426,9 @@ func TestClashingSiblingNamesAreDistinguished(t *testing.T) {
   <sysml:Block xmi:id="_s3" base_Class="_c"/>
   <sysml:Block xmi:id="_s4" base_Class="_c2"/>
   <sysml:Block xmi:id="_s5" base_Class="_u"/>`)
-	wantLine(t, r.Notation, "ref unnamed1;")
-	wantLine(t, r.Notation, "ref 'unnamed1 2';")
-	wantLine(t, r.Notation, "ref q :>> 'unnamed1 2';")
+	wantLine(t, r.Notation, "attribute unnamed1;")
+	wantLine(t, r.Notation, "attribute 'unnamed1 2';")
+	wantLine(t, r.Notation, "attribute q :>> 'unnamed1 2';")
 	wantLine(t, r.Notation, "part def 'C 2'")
 	wantLine(t, r.Notation, "part x : 'C 2';")
 	for id, want := range map[string]string{
@@ -501,8 +501,8 @@ func TestExternalSpecializationsAreNotWritten(t *testing.T) {
       </slot>
     </packagedElement>`, `
   <sysml:Block xmi:id="_s1" base_Class="_h"/>`)
-	wantLine(t, r.Notation, "ref a;")
-	wantLine(t, r.Notation, "ref b;")
+	wantLine(t, r.Notation, "attribute a;")
+	wantLine(t, r.Notation, "attribute b;")
 	if strings.Contains(string(r.Notation), "_ext") || strings.Contains(string(r.Notation), "unnamed") {
 		t.Errorf("notation refers to an external feature:\n%s", r.Notation)
 	}
@@ -1310,10 +1310,19 @@ func TestConstraintParametersStoredAsPortsAreInParameters(t *testing.T) {
 
 // MagicDraw's tagless property-kind markers say what the usage keyword says,
 // so they are not written; a same-named stereotype from any other profile, a
-// marker carrying a tag, and one on a property of another kind are kept.
+// marker carrying a tag, and one on a property of another kind are kept. An
+// untyped property takes its marker's kind; without one it is an attribute,
+// or a part when composite.
 func TestPropertyKindMarkersAreNotWritten(t *testing.T) {
 	r := migrateFixtureFile(t, "property_markers")
 	for _, line := range []string{
+		"attribute load;",
+		"part trailer;",
+		"ref depot;",
+		"ref driver;",
+		"constraint rule;",
+		"attribute color;",
+		"part chassis;",
 		"attribute mass : ScalarValues::Real;",
 		"attribute mode : Mode;",
 		"part engine : Engine;",
@@ -1341,11 +1350,14 @@ func TestPropertyKindMarkersAreNotWritten(t *testing.T) {
 			t.Errorf("«%s» written %d times, want %d", name, n, want)
 		}
 	}
-	for _, id := range []string{"_mass", "_mode", "_engine", "_lead", "_limit", "_ms_v", "_ms_wheel", "_ms_hub", "_ms_k", "_odd", "_axle", "_cabin", "_serial"} {
+	for _, id := range []string{"_mass", "_mode", "_engine", "_lead", "_limit", "_ms_v", "_ms_wheel", "_ms_hub", "_ms_k", "_odd", "_axle", "_cabin", "_serial",
+		"_load", "_trailer", "_depot", "_driver", "_rule"} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 			t.Errorf("%s entries = %+v", id, es)
 		}
 	}
+	wantNote(t, r, "_color", migrate.Approximated, "the untyped property is written as an attribute")
+	wantNote(t, r, "_chassis", migrate.Approximated, "the untyped composite property is written as a part")
 	if es := entriesFor(r, "_spare"); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "shared aggregation") {
 		t.Errorf("_spare entries = %+v", es)
 	}

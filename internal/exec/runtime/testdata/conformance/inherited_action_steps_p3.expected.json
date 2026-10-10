@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::P3",
+	"trace": true,
+	"outputs": {
+		"c": {"type": "Integer", "value": 101}
+	}
+}

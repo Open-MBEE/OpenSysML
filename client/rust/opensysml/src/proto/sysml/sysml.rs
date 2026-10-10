@@ -122,7 +122,7 @@ pub struct Bound {
     pub reached: bool,
 }
 /// VerifyConstraintRequest asks whether a constraint holds, as %constraint does.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct VerifyConstraintRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
@@ -151,6 +151,15 @@ pub struct VerifyConstraintRequest {
     /// and need an SMT solver.
     #[prost(string, tag="5")]
     pub question: ::prost::alloc::string::String,
+    /// Values for the constraint's `in` parameters, in declaration order, as
+    /// RunAnalysisRequest.arguments binds a case's; an argument the constraint
+    /// does not take is INVALID_ARGUMENT, as is a parameter left without an
+    /// argument or default. Reported as the "verification_arguments" capability.
+    #[prost(message, repeated, tag="6")]
+    pub arguments: ::prost::alloc::vec::Vec<Value>,
+    /// Values for `in` parameters by name; see arguments.
+    #[prost(map="string, message", tag="7")]
+    pub named_arguments: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
 }
 /// VerifyConstraintResponse carries the verdict; its engine, strength and bounds
 /// are on the verdict.
@@ -171,7 +180,7 @@ pub struct VerifyConstraintResponse {
 }
 /// VerifyRequirementRequest asks whether a requirement is satisfied, as
 /// %requirement does.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct VerifyRequirementRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
@@ -188,6 +197,13 @@ pub struct VerifyRequirementRequest {
     /// The question asked; see VerifyConstraintRequest.question.
     #[prost(string, tag="5")]
     pub question: ::prost::alloc::string::String,
+    /// Values for the requirement's `in` parameters, positional and by name; see
+    /// VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+    /// capability.
+    #[prost(message, repeated, tag="6")]
+    pub arguments: ::prost::alloc::vec::Vec<Value>,
+    #[prost(map="string, message", tag="7")]
+    pub named_arguments: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
 }
 /// VerificationVerdict is what the body of a verification case answered when it
 /// ran: the VerdictKind its return bound, which is a separate answer from whether

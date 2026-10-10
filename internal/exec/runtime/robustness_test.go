@@ -352,7 +352,6 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("non_terminating_do_behavior", testNonTerminatingDoBehavior)
 	t.Run("empty_anonymous_action_body", testEmptyAnonymousActionBody)
 	t.Run("non_terminating_anonymous_do_body", testNonTerminatingAnonymousDoBody)
-	t.Run("behavior_performing_an_action_and_stating_a_body", testBehaviorPerformingAnActionAndStatingABody)
 	t.Run("qualified_assignment_target_in_a_state_effect", testQualifiedAssignmentTargetInAStateEffect)
 	t.Run("call_of_unhandled_operation", testCallOfUnhandledOperation)
 	t.Run("signal_no_level_of_a_composite_state_accepts", testSignalNoLevelOfACompositeStateAccepts)
@@ -3966,32 +3965,6 @@ func testNonTerminatingAnonymousDoBody(t *testing.T) {
 	}`)
 	if !errors.Is(err, ErrStepLimitExceeded) {
 		t.Errorf("expected ErrStepLimitExceeded, got: %v", err)
-	}
-}
-
-// testBehaviorPerformingAnActionAndStatingABody: a behavior that both performs
-// an action and states a body of its own is reported rather than silently
-// choosing one of the two.
-func testBehaviorPerformingAnActionAndStatingABody(t *testing.T) {
-	err := stateRunErrorForSource(t, "Machine", `package test {
-		action def Bump;
-		state Machine {
-			attribute c : Integer = 0;
-			entry; then start;
-			state start;
-			state working {
-				entry action mixed : Bump { assign c := c + 1; }
-			}
-			state done;
-			succession first start then working;
-			succession first working then done;
-		}
-	}`)
-	if err == nil {
-		t.Fatal("expected a behavior stating a body and an action to be reported")
-	}
-	if !strings.Contains(err.Error(), "stating a body of its own") {
-		t.Errorf("expected the report to name the conflict, got: %v", err)
 	}
 }
 
