@@ -8,20 +8,9 @@
     {"signal": "FinishA"},
     {"signal": "FinishB"}
   ],
-  "outcomes": [
-    {
-      "finalState": "outside",
-      "outputs": {
-        "log": {"type": "String", "value": "A(entry) A(entry) B(entry) outside(entry) "}
-      }
-    },
-    {
-      "finalState": "outside",
-      "outputs": {
-        "log": {"type": "String", "value": "A(entry) B(entry) A(entry) outside(entry) "}
-      }
-    }
-  ],
-  "admissible": "Regions of a parallel state entered on one occurrence: each is entered, in which order is open",
+  "finalState": "outside",
+  "outputs": {
+    "log": {"type": "String", "value": "A(entry) outside(entry) "}
+  },
   "trace": true
 }

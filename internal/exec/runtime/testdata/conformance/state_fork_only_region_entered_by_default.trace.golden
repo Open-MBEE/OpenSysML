@@ -2,78 +2,10 @@ exit: init
 enter: working
 transition: init -> working (event: accept Default)
 exit: working
-enter: init
-transition: working -> init (event: accept Back)
-exit: init
-choice fork split: next split->a(effect), split->b(effect) (unordered; took split->a(effect) first)
-enter: working
-enter: a (entry action)
-stmt action body
-  stmt assign log
-      eval feature log -> ""
-      eval literal "a(entry) " -> "a(entry) "
-    eval operator + -> "a(entry) "
-enter: b (entry action)
-stmt action body
-  stmt assign log
-      eval feature log -> "a(entry) "
-      eval literal "b(entry) " -> "b(entry) "
-    eval operator + -> "a(entry) b(entry) "
-transition: init -> split
-exit: a
-enter: done
-transition: a -> done (event: accept FinishA)
-exit: b
-enter: done
-transition: b -> done (event: accept FinishB)
-choice exiting working: next left.done(exit), right.done(exit) (unordered; took left.done(exit) first)
-exit: done
-exit: done
-exit: working
-enter: init
-transition: working -> init (event: accept Back)
-exit: init
-choice fork all: next all->a(effect), all->b(effect), all->c(effect) (unordered; took all->a(effect) first)
-enter: working
-enter: a (entry action)
-stmt action body
-  stmt assign log
-      eval feature log -> "a(entry) b(entry) "
-      eval literal "a(entry) " -> "a(entry) "
-    eval operator + -> "a(entry) b(entry) a(entry) "
-choice fork all: next all->b(effect), all->c(effect) (unordered; took all->b(effect) first)
-enter: b (entry action)
-stmt action body
-  stmt assign log
-      eval feature log -> "a(entry) b(entry) a(entry) "
-      eval literal "b(entry) " -> "b(entry) "
-    eval operator + -> "a(entry) b(entry) a(entry) b(entry) "
-enter: c (entry action)
-stmt action body
-  stmt assign log
-      eval feature log -> "a(entry) b(entry) a(entry) b(entry) "
-      eval literal "c(entry) " -> "c(entry) "
-    eval operator + -> "a(entry) b(entry) a(entry) b(entry) c(entry) "
-transition: init -> all
-exit: a
-enter: done
-transition: a -> done (event: accept FinishA)
-exit: b
-enter: done
-transition: b -> done (event: accept FinishB)
-exit: c
-enter: done
-transition: c -> done (event: accept FinishC)
-choice exiting working: next left.done(exit), right.done(exit), third.done(exit) (unordered; took left.done(exit) first)
-exit: done
-choice exiting working: next right.done(exit), third.done(exit) (unordered; took right.done(exit) first)
-exit: done
-exit: done
-exit: working
 enter: finished (entry action)
 stmt action body
   stmt assign log
-      eval feature log -> "a(entry) b(entry) a(entry) b(entry) c(entry) "
+      eval feature log -> ""
       eval literal "finished(entry) " -> "finished(entry) "
-    eval operator + -> "a(entry) b(entry) a(entry) b(entry) c(entry) finished(entry) "
+    eval operator + -> "finished(entry) "
 transition: working -> finished

@@ -30,8 +30,8 @@ func TestRuntimeRobustnessParallelWrapperLeavesInnerRegionInactive(t *testing.T)
 	if slices.Contains(visits, "A") {
 		t.Errorf("the unstarted body state A was entered: %v", visits)
 	}
-	if slices.Contains(visits, "finished") {
-		t.Errorf("S completed while its stand-in body was unstarted: %v", visits)
+	if !slices.Contains(visits, "finished") {
+		t.Errorf("S did not complete while its stand-in body was unstarted: %v", visits)
 	}
 }
 

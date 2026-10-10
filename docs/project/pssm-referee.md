@@ -836,10 +836,11 @@ By reason, as the classifier names them:
 - A standalone state machine is read as the target class, and a tester's `trace(...)` after a
   call is driven, so neither is a reason any longer; Event 019 A runs and passes.
 - A composite-state region without an entry is valid: default entry enters its state stand-in;
-  when the stand-in has no start in its body, it is active with no active child. A region with
-  no stand-in and no start remains inactive, and either condition blocks owner completion until
-  all regions are final. A later transition or fork branch may activate an inactive region.
-  Entry 002 E remains not-expressible on its entry-point construct;
+  when no child becomes active, the region counts as complete. A region with no stand-in and no
+  start remains inactive and also counts as complete on default entry. A region activated later
+  by a transition or fork branch must reach its final state. PSSM *Entering 004* verifies
+  immediate completion for the single-region case; `state_parallel_region_without_entry_completes`
+  covers it in the runtime. Entry 002 E remains not-expressible on its entry-point construct;
   the no-entry refusal is no longer a classifier reason. Coverage includes
   `TestRuntimeRobustnessInactiveRegion`, `state_parallel_region_without_entry_inactive`,
   `state_parallel_stateless_region_with_behaviors`, `state_fork_only_region_entered_by_default`,

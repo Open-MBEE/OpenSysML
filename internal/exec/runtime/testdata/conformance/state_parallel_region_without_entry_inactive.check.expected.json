@@ -1,12 +1,7 @@
 {
-	"verdict": "divergent",
-	"divergent": {
-		"log": [
-			"\"A(entry) A(entry) B(entry) outside(entry) \"",
-			"\"A(entry) B(entry) A(entry) outside(entry) \""
-		]
-	},
+	"verdict": "no violation, exhaustive",
 	"agreed": {
-		"finalState": "outside"
+		"finalState": "outside",
+		"log": "\"A(entry) outside(entry) \""
 	}
 }

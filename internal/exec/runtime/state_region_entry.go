@@ -138,6 +138,9 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 		return err
 	}
 	if entry == nil {
+		if w.target == nil {
+			e.activeConfig.defaultComplete[w.region] = true
+		}
 		return nil
 	}
 	e.setRegionState(w.region, entry)
@@ -149,6 +152,10 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 	// its own substates declare.
 	if branch, ok := e.branchesTo(nil, deepest)[w.region]; ok {
 		e.setRegionState(w.region, branch)
+	}
+	if w.target == nil && entry == e.graph.RegionState[w.region] && deepest == entry &&
+		len(e.graph.StartOf(entry)) == 0 {
+		e.activeConfig.defaultComplete[w.region] = true
 	}
 	return nil
 }

@@ -385,6 +385,7 @@ func (e *StateExecutor) exitRegionTo(region *ast.StateRegion, stop *ast.StateNod
 	}
 	path := e.regionExitPath(region, stop)
 	delete(e.activeConfig.regionStates, region)
+	delete(e.activeConfig.defaultComplete, region)
 	if stop == nil {
 		// The region keeps no active state, so it has none to restore either.
 		e.forgetRegionHistory(region)
@@ -451,6 +452,7 @@ func (e *StateExecutor) exitRegionOwnerTo(owner, lca *ast.StateNode) error {
 			if active, isActive := e.activeConfig.regionStates[declaring]; isActive && e.isBelowOrEqual(active, current) {
 				e.recordRegionHistory(declaring, active)
 				delete(e.activeConfig.regionStates, declaring)
+				delete(e.activeConfig.defaultComplete, declaring)
 			}
 		}
 		if err := e.exitState(current); err != nil {
@@ -471,6 +473,7 @@ func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, effects []route
 			continue
 		}
 		delete(e.activeConfig.regionStates, region)
+		delete(e.activeConfig.defaultComplete, region)
 		bodies = append(bodies, func() error {
 			leaving := make([]*ast.StateNode, 0)
 			for current := active; current != nil; current = e.graph.ParentState[current] {
@@ -483,6 +486,7 @@ func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, effects []route
 		return err
 	}
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
+	e.activeConfig.defaultComplete = make(map[*ast.StateRegion]bool)
 	e.activeConfig.simpleState = nil
 
 	if err := e.runEffects(effects, e.descendantChain(nil, target)); err != nil {

@@ -12,38 +12,10 @@ enter: done
 transition: A -> done (event: accept FinishA)
 exit: done
 exit: working
-enter: idle
-transition: working -> idle (event: accept Back)
-exit: idle
-enter: working
-choice entering working: next A(entry), B(entry) (unordered; took A(entry) first)
-enter: A (entry action)
-stmt action body
-  stmt assign log
-      eval feature log -> "A(entry) "
-      eval literal "A(entry) " -> "A(entry) "
-    eval operator + -> "A(entry) A(entry) "
-enter: B (entry action)
-stmt action body
-  stmt assign log
-      eval feature log -> "A(entry) A(entry) "
-      eval literal "B(entry) " -> "B(entry) "
-    eval operator + -> "A(entry) A(entry) B(entry) "
-transition: idle -> B (event: accept Direct)
-exit: A
-enter: done
-transition: A -> done (event: accept FinishA)
-exit: B
-enter: done
-transition: B -> done (event: accept FinishB)
-choice exiting working: next a.done(exit), b.done(exit) (unordered; took a.done(exit) first)
-exit: done
-exit: done
-exit: working
 enter: outside (entry action)
 stmt action body
   stmt assign log
-      eval feature log -> "A(entry) A(entry) B(entry) "
+      eval feature log -> "A(entry) "
       eval literal "outside(entry) " -> "outside(entry) "
-    eval operator + -> "A(entry) A(entry) B(entry) outside(entry) "
+    eval operator + -> "A(entry) outside(entry) "
 transition: working -> outside

@@ -22,7 +22,8 @@ func TestRuntimeRobustnessInactiveRegion(t *testing.T) {
 		case "idle", "waiting":
 			t.Errorf("no-entry region state %s was activated", visit)
 		case "finished":
-			t.Fatal("working completed while both regions were inactive")
+			return
 		}
 	}
+	t.Fatal("working did not complete after both regions were left inactive")
 }
