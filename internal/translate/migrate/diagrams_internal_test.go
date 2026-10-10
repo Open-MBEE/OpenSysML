@@ -487,14 +487,15 @@ func TestExposeOfUnhostedDiagramFailsPerClient(t *testing.T) {
 
 func TestLayoutClauseWording(t *testing.T) {
 	for _, tc := range []struct {
-		written, unexposed, dangling, total int
-		want                                string
+		written, unexposed, dangling, onEdges, total int
+		want                                         string
 	}{
-		{1, 0, 0, 1, "1 of 1 shown elements positioned"},
-		{1, 1, 1, 3, "1 of 3 shown elements positioned (1 not exposed, 1 resolving to no element)"},
-		{0, 2, 0, 2, "0 of 2 shown elements positioned (2 not exposed)"},
+		{1, 0, 0, 0, 1, "1 of 1 shown elements positioned"},
+		{1, 1, 1, 0, 3, "1 of 3 shown elements positioned (1 not exposed, 1 resolving to no element)"},
+		{0, 2, 0, 0, 2, "0 of 2 shown elements positioned (2 not exposed)"},
+		{2, 0, 0, 2, 4, "2 of 4 shown elements positioned (2 lying on connections)"},
 	} {
-		got := layoutClause(tc.written, tc.unexposed, tc.dangling, tc.total)
+		got := layoutClause(tc.written, tc.unexposed, tc.dangling, tc.onEdges, tc.total)
 		if got != tc.want {
 			t.Errorf("layoutClause = %q, want %q", got, tc.want)
 		}

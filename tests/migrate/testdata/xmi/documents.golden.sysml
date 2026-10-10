@@ -11,7 +11,7 @@ package Fleet {
             part axles : Axle[2] {
                 attribute mass : ScalarValues::Real;
             }
-            satisfy requirement : Fleet::Requirements::'Load Limit';
+            satisfy Fleet::Requirements::'Load Limit';
             view 'Truck Internals' {
                 expose axles;
                 render Views::asInterconnectionDiagram;
@@ -20,7 +20,7 @@ package Fleet {
         part def Trailer {
             doc /* Carries the load. */
             attribute payload : ScalarValues::Real;
-            satisfy requirement : Fleet::Requirements::'Brake Distance';
+            satisfy Fleet::Requirements::'Brake Distance';
         }
         part def Axle;
         view 'Truck Structure' {
@@ -31,18 +31,18 @@ package Fleet {
         }
     }
     package Requirements {
-        requirement def <'R-1'> 'Load Limit' {
+        requirement <'R-1'> 'Load Limit' {
             doc /* The payload stays under the axle rating. */
             comment /* The payload stays under the axle rating. */
         }
-        requirement def <'R-2'> 'Brake Distance' {
+        requirement <'R-2'> 'Brake Distance' {
             doc /* A loaded truck stops within the legal distance. */
             comment /* A loaded truck stops within the legal distance. */
             @'Fleet Profile'::Safety {
                 level = "brakes";
             }
         }
-        requirement def <'R-3'> 'Axle Count' {
+        requirement <'R-3'> 'Axle Count' {
             doc /* A truck has two axles. */
             @'Fleet Profile'::Safety {
                 level = "many";
@@ -434,11 +434,17 @@ package 'Fleet Documents' {
             maxDepth = 1);
         DocumentQueries::Project(
             source = DocumentQueries::OrderBy(
-                source = DocumentQueries::Except(
-                    source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
-                    exclude = DocumentQueries::Except(
-                        source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
-                        exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
+                source = DocumentQueries::Union(
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
+                            exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
+                    other = DocumentQueries::Except(
+                        source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit", "Fleet::Requirements::Brake Distance", "Fleet::Requirements::Axle Count")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit", "Fleet::Requirements::Brake Distance", "Fleet::Requirements::Axle Count")),
+                            exclude = candidates))),
                 property = "name",
                 direction = "ascending",
                 missing = "last",
@@ -451,23 +457,29 @@ package 'Fleet Documents' {
                 DocumentQueries::Column(name = "Axle Mass", expression = Fleet::Structure::Truck::axles.mass ?? "")))
     }
     calc def 'Fleet Handbook Requirement List Rows' :> DocumentQueries::Query {
+        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+            source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements")));
         DocumentQueries::Project(
             source = DocumentQueries::WhereName(
-                source = DocumentQueries::WhereType(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements"))),
-                    type = ("RequirementDefinition")),
+                source = DocumentQueries::Except(
+                    source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit", "Fleet::Requirements::Brake Distance", "Fleet::Requirements::Axle Count")),
+                    exclude = DocumentQueries::Except(
+                        source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit", "Fleet::Requirements::Brake Distance", "Fleet::Requirements::Axle Count")),
+                        exclude = candidates)),
                 operator = "matches",
                 value = "^(?:Axle.*)$|^(?:Brake.*)$|^(?:Load.*)$"),
             properties = ("name"))
     }
     calc def 'Fleet Handbook Requirement Texts Rows' :> DocumentQueries::Query {
+        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+            source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements")));
         DocumentQueries::Project(
             source = DocumentQueries::WhereName(
-                source = DocumentQueries::WhereType(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements"))),
-                    type = ("RequirementDefinition")),
+                source = DocumentQueries::Except(
+                    source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit", "Fleet::Requirements::Brake Distance", "Fleet::Requirements::Axle Count")),
+                    exclude = DocumentQueries::Except(
+                        source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit", "Fleet::Requirements::Brake Distance", "Fleet::Requirements::Axle Count")),
+                        exclude = candidates)),
                 operator = "matches",
                 value = "^(?:Axle.*)$|^(?:Brake.*)$|^(?:Load.*)$"),
             properties = ("documentation"))

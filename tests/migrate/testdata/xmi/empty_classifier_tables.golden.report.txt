@@ -1,0 +1,19 @@
+# SysML v1 to v2 migration report: empty_classifier_tables.xmi
+# exported by Example UML Tool
+# migrated 12 element(s): 6 mapped, 6 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (6)
+Diagram	Tables::Actors	_diag_actors	-> Tables::Actors	(a Generic Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Diagram	Tables::Classifiers	_diag_classifiers	-> Tables::Classifiers	(a Generic Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Diagram	Tables::Namespaces	_diag_namespaces	-> Tables::Namespaces	(a Generic Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Diagram	Tables::Packageable Elements	_diag_packageable	-> Tables::'Packageable Elements'	(a Generic Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Diagram	Tables::Types	_diag_types	-> Tables::Types	(a Generic Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Diagram	Tables::Use Cases	_diag_usecases	-> Tables::'Use Cases'	(a Generic Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+
+## mapped (6)
+Model	Model	_m	(the root model's members are written at the top level)
+Package	Operations	_pkg_operations	-> Operations
+Class	Operations::Console	_blk_console	-> Operations::Console
+Package	Tables	_pkg_tables	-> Tables
+«DiagramTable» Diagram	Tables::Actors	_tbl_actors	-> part def Tables::'Actors Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Actors Rows')
+«DiagramTable» Diagram	Tables::Use Cases	_tbl_usecases	-> part def Tables::'Use Cases Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Use Cases Rows')

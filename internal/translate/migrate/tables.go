@@ -425,7 +425,7 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 			merged = mergeTypeFilters(filtersToMerge)
 		}
 		source := src
-		if merged.excluding != nil && !l.perRow {
+		if (merged.excluding != nil || len(merged.usages) > 0) && !l.perRow {
 			source = qshared(src)
 		}
 		if len(filtersToMerge) > 0 {

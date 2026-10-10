@@ -1,6 +1,7 @@
 package migrate_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -144,11 +145,11 @@ func TestMultiEndedDependenciesWriteEveryPair(t *testing.T) {
 		"allocation def 'A to C' {", "allocation def 'A to D' {", "allocation def 'B to C' {", "allocation def 'B to D' {",
 		"end :>> source : A;", "end :>> source : B;",
 		"end :>> target : C;", "end :>> target : D;",
-		"satisfy requirement : R1;", "satisfy requirement : R2;",
+		"satisfy R1;", "satisfy R2;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	if n := strings.Count(string(r.Notation), "satisfy requirement : R1;"); n != 2 {
+	if n := strings.Count(string(r.Notation), "satisfy R1;"); n != 2 {
 		t.Errorf("R1 satisfied %d times, want 2", n)
 	}
 	for id, want := range map[string]migrate.Verdict{"_alloc": migrate.Approximated, "_sat": migrate.Approximated, "_sat_half": migrate.Approximated} {
@@ -1382,9 +1383,10 @@ const namedRelationApplications = `
 
 func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 	r := migrateDocument(t, namedRelationModel, namedRelationApplications)
-	wantLine(t, r.Notation, "satisfy requirement sat : Req by piece;")
-	wantLine(t, r.Notation, "verify requirement ver : Req;")
-	wantLine(t, r.Notation, "dependency 'ref' from Thing to Req {")
+	wantLine(t, r.Notation, "satisfy requirement sat :> Req by piece;")
+	wantLine(t, r.Notation, "verify requirement ver :> Req;")
+	wantLine(t, r.Notation, "connection 'ref' connect thing to Req {")
+	wantLine(t, r.Notation, "doc /* Thing refines Req */")
 	wantLine(t, r.Notation, "allocation def alloc {")
 	wantLine(t, r.Notation, "end :>> source : Thing;")
 	wantLine(t, r.Notation, "end :>> target : Piece;")
@@ -1396,7 +1398,7 @@ func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 	}{
 		"_sat":   {migrate.Mapped, "Thing::sat"},
 		"_ver":   {migrate.Mapped, "Check::ver"},
-		"_ref":   {migrate.Mapped, "'ref'"},
+		"_ref":   {migrate.Approximated, "'ref'"},
 		"_alloc": {migrate.Mapped, "alloc"},
 		"_trace": {migrate.Approximated, "trace"},
 		"_copy":  {migrate.Approximated, "copy"},
@@ -1422,7 +1424,7 @@ func TestPlacedRelationshipNameYieldsToAMember(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_b2"/>
   <sysml:Requirement xmi:id="_s3" base_Class="_r" Id="R1" Text="Shall."/>
   <sysml:Satisfy xmi:id="_s6" base_Abstraction="_sat"/>`)
-	wantLine(t, r.Notation, "satisfy requirement 'sat 2' : Req by sat;")
+	wantLine(t, r.Notation, "satisfy requirement 'sat 2' :> Req by sat;")
 	if es := entriesFor(r, "_sat"); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "sat 2") {
 		t.Errorf("entries = %+v", es)
 	}
@@ -1675,4 +1677,147 @@ func TestItemFlowWithEndsStandingForBothIsNotMigrated(t *testing.T) {
 		t.Errorf("entries for _if2 = %+v, want one mapped", es)
 	}
 	wantClean(t, "t.sysml", r)
+}
+
+// An actor or use case is itself a usage a connection joins; a definition gets
+// a package-level usage only when a connection joins it: a v1 association,
+// include, extend or «Refine» names it as an end.
+func TestUsagesOnlyForConnectedDefinitions(t *testing.T) {
+	r := migrateFixtureFile(t, "parking_usecases")
+	for _, line := range []string{"part Driver {", "part Bank;", "use case 'Park Car' {", "use case 'Pay Fee'"} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, line := range []string{"part driver :", "part bank :", "use case 'park Car' :", "use case 'pay Fee' :"} {
+		wantNoLine(t, r.Notation, line)
+	}
+	for _, line := range []string{"part garage :", "part ticket : Ticket;", "part 'valet Service' :", "use case 'valet Park' :"} {
+		wantNoLine(t, r.Notation, line)
+	}
+	// A named association is a connection def with one usage typed by it, named like a usage.
+	wantLine(t, r.Notation, "connection settlement : 'Use Cases'::Settlement connect Context::Bank to 'Use Cases'::'Pay Fee';")
+	wantNoLine(t, r.Notation, "connection Settlement ")
+	v := migrateFixtureFile(t, "vehicle")
+	wantLine(t, v.Notation, "connection drives : Drives connect Driver to vehicle;")
+	wantNoLine(t, v.Notation, "connection Drives ")
+}
+
+const refineEndsModel = `
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_alpha" name="Alpha"/>
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_beta" name="Beta"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_r" name="Req"/>`
+
+const refineEndsApplications = `
+  <sysml:Requirement xmi:id="_s1" base_Class="_r"/>
+  <sysml:Refine xmi:id="_s2" base_Abstraction="_ref"/>`
+
+// A «Refine» with several clients is one connection per client–supplier pair.
+func TestRefineWithSeveralEndsIsAConnectionPerPair(t *testing.T) {
+	r := migrateDocument(t, refineEndsModel+`
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_ref" client="_alpha _beta" supplier="_r"/>`, refineEndsApplications)
+	wantLine(t, r.Notation, "connection 'Alpha refines Req' connect Alpha to Req;")
+	wantLine(t, r.Notation, "connection 'Beta refines Req' connect Beta to Req;")
+	wantNoLine(t, r.Notation, "«Refine»")
+	got := entriesFor(r, "_ref")
+	if len(got) != 1 || got[0].Verdict != migrate.Approximated || !strings.Contains(got[0].Note, "written as 2 relationships, one per client–supplier pair") {
+		t.Errorf("_ref: entries = %+v, want one approximated entry written as 2 relationships", got)
+	}
+	// A named refine keeps its name on the first pair and numbers the others.
+	r = migrateDocument(t, refineEndsModel+`
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_ref" name="Link" client="_alpha _beta" supplier="_r"/>`, refineEndsApplications)
+	wantLine(t, r.Notation, "connection Link connect Alpha to Req {")
+	wantLine(t, r.Notation, "doc /* Alpha refines Req */")
+	wantLine(t, r.Notation, "connection 'Link 2' connect Beta to Req {")
+	wantLine(t, r.Notation, "doc /* Beta refines Req */")
+	wantNoLine(t, r.Notation, "connection 'Link 2 2'")
+}
+
+// A connection named after its relationship yields to a member of the package
+// it is written in that already has that name.
+func TestConnectionNameYieldsToAPackageMember(t *testing.T) {
+	r := migrateDocument(t, refineEndsModel+`
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_link" name="Link"/>
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_ref" name="Link" client="_alpha" supplier="_r"/>`, refineEndsApplications)
+	wantLine(t, r.Notation, "use case Link;")
+	wantLine(t, r.Notation, "connection 'Link 2' connect Alpha to Req {")
+	wantNoLine(t, r.Notation, "connection Link ")
+	if got := entriesFor(r, "_ref"); len(got) != 1 || got[0].Verdict != migrate.Approximated || got[0].Target != "'Link 2'" {
+		t.Errorf("_ref: entries = %+v, want one approximated 'Link 2'", got)
+	}
+	// An association's connection def keeps its name; the usage typed by it yields.
+	r = migrateDocument(t, `
+    <packagedElement xmi:type="uml:Actor" xmi:id="_actor" name="Driver"/>
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Drive"/>
+    <packagedElement xmi:type="uml:Association" xmi:id="_assoc" name="drives" memberEnd="_eA _eU">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_eA" name="driver" type="_actor" association="_assoc"/>
+      <ownedEnd xmi:type="uml:Property" xmi:id="_eU" name="drive" type="_uc" association="_assoc"/>
+    </packagedElement>`, "")
+	wantLine(t, r.Notation, "connection def drives {")
+	wantLine(t, r.Notation, "connection 'drives 2' : drives connect Driver to Drive;")
+}
+
+const actorEndModel = `
+    <packagedElement xmi:type="uml:Package" xmi:id="_p" name="Cases">
+      <packagedElement xmi:type="uml:Actor" xmi:id="_actor" name="Driver"/>
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Drive"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc" memberEnd="_eA _eU">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_eA" name="driver" type="_actor" association="_assoc"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="_eU" type="_uc" association="_assoc"/>
+      </packagedElement>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag" name="%s" ownerOfDiagram="_p">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject xmlns:diagram="http://www.example.com/tool/diagram" type="%s" umlType="%s">
+                <diagramContents>%s</diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>`
+
+func viewBody(t *testing.T, notation []byte, name string) string {
+	t.Helper()
+	s := string(notation)
+	i := strings.Index(s, "view "+name+" {")
+	if i < 0 {
+		t.Fatalf("notation lacks view %s:\n%s", name, s)
+	}
+	j := strings.Index(s[i:], "\n            }")
+	if j < 0 {
+		j = len(s) - i
+	}
+	return s[i : i+j]
+}
+
+// A use case diagram that lists only an association's end still exposes the
+// connection the association is drawn as and both usages it joins.
+func TestUseCaseDiagramShowingAnAssociationEndExposesItsUsages(t *testing.T) {
+	r := migrateDocument(t, fmt.Sprintf(actorEndModel, "Ends", "SysML Use Case Diagram", "Use Case Diagram", "<usedElements>_eA</usedElements>"), "")
+	body := viewBody(t, r.Notation, "Ends")
+	for _, want := range []string{"expose 'Driver to Drive';", "expose Driver;", "expose Drive;"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("view Ends lacks %q:\n%s", want, body)
+		}
+	}
+}
+
+// Only a use case diagram exposes a connection's usages: a block definition
+// diagram showing the same association exposes what it shows.
+func TestTreeDiagramShowingAnAssociationExposesNoUsages(t *testing.T) {
+	r := migrateDocument(t, fmt.Sprintf(actorEndModel, "Blocks", "SysML Block Definition Diagram", "Class Diagram",
+		"<usedElements>_actor</usedElements><usedElements>_uc</usedElements><usedElements>_assoc</usedElements>"), "")
+	body := viewBody(t, r.Notation, "Blocks")
+	for _, want := range []string{"expose Driver;", "expose Drive;"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("view Blocks lacks %q:\n%s", want, body)
+		}
+	}
+	for _, unwanted := range []string{"expose driver;", "expose drive;"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("view Blocks exposes the usage %q:\n%s", unwanted, body)
+		}
+	}
 }

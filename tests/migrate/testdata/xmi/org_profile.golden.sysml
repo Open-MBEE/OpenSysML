@@ -46,7 +46,7 @@ package 'Pump System' {
             precision = 3;
         }
     }
-    requirement def <'REQ-1'> 'Flow Requirement' {
+    requirement <'REQ-1'> 'Flow Requirement' {
         doc /* The pump shall deliver 10 l/s. */
         @'Org Profile'::'Org Requirement' {
             Rationale = "Sized for the peak load.";
@@ -55,7 +55,7 @@ package 'Pump System' {
             weight = 2.0;
         }
     }
-    requirement def <'REQ-2'> 'Safety Requirement' {
+    requirement <'REQ-2'> 'Safety Requirement' {
         doc /* The pump shall stop on overpressure. */
         @'Org Profile'::'Key Requirement' {
             criticality = 'Org Profile'::Criticality::low;
@@ -80,7 +80,7 @@ package 'Pump System' {
                 reviewer = "EE";
             }
         }
-        satisfy requirement : 'Flow Requirement' {
+        satisfy 'Flow Requirement' {
             @'Org Profile'::'Org Satisfy' {
                 verified = true;
             }
