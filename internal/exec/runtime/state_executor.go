@@ -2995,14 +2995,15 @@ func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, owner *ast.State
 }
 
 // hasDefaultEntry reports whether entering state with no branch chosen has a
-// state to start in: an entry transition of its body, or of each of its regions.
+// valid default configuration, including regions left empty by default entry.
 func (e *StateExecutor) hasDefaultEntry(state *ast.StateNode) bool {
 	regions, orthogonal := e.graph.CompositeStates[state]
 	if !orthogonal {
 		return len(e.graph.StartOf(state)) > 0
 	}
 	for _, region := range regions {
-		if e.graph.RegionState[region] == nil && len(e.graph.StartOf(region)) == 0 {
+		standIn := e.graph.RegionState[region]
+		if standIn != nil && len(e.graph.CompositeStates[standIn]) > 0 && len(e.graph.StartOf(region)) == 0 {
 			return false
 		}
 	}

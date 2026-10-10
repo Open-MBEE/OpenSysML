@@ -1,0 +1,12 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Enter"},
+    {"signal": "Go"}
+  ],
+  "finalState": "finished",
+  "outputs": {
+    "log": {"type": "String", "value": "A1(entry);finished(entry);"}
+  },
+  "trace": true
+}
