@@ -59,6 +59,10 @@ func (p *Parser) atMultiplicityFirstSuccession() bool {
 		case lexer.RParen, lexer.RBracket:
 			depth--
 		case lexer.Keyword:
+			if depth == 0 && tok.KeywordID == "if" {
+				// A guard makes the member a GuardedSuccession, read as a transition.
+				return false
+			}
 			if depth == 0 && tok.KeywordID == "then" {
 				return p.peekN(i+1).Kind == lexer.LBracket
 			}

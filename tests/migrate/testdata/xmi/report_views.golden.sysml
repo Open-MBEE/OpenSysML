@@ -3,7 +3,7 @@ package 'Pump System' {
         part motor : Motor;
     }
     part def Motor;
-    requirement def <R1> 'Guard Fitted' {
+    requirement <R1> 'Guard Fitted' {
         doc /* The pump shall carry a guard. */
         comment /* The pump shall carry a guard. */
     }
@@ -16,7 +16,7 @@ package Stakeholders {
         /* «Stakeholder» tags with no v2 form: concern = Keep the pump running. */
     }
     part def 'Safety Inspector';
-    part def Maintainer;
+    part Maintainer;
 }
 package Viewpoints {
     view def 'Safety Viewpoint' {
@@ -28,7 +28,6 @@ package Viewpoints {
         viewpoint 'safety Viewpoint' {
             subject;
             stakeholder 'safety Inspector' : Stakeholders::'Safety Inspector';
-            stakeholder maintainer : Stakeholders::Maintainer;
             frame 'concern';
             frame concern {
                 doc /* Is every moving part guarded? */
@@ -39,7 +38,7 @@ package Viewpoints {
             require constraint {
                 doc /* Show what keeps the pump safe. */
             }
-            metadata MigrationMetadata::SynthesizedName about 'safety Inspector', maintainer;
+            metadata MigrationMetadata::SynthesizedName about 'safety Inspector';
         }
         satisfy 'safety Viewpoint';
         rendering {

@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# OpenSysML REDK — Runtime Environment and Development Kit
+# OpenSysML REDK — Runtime Environment and Development Kit (MDK2)
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/Open-MBEE/OpenSysML/tree/main.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/gh/Open-MBEE/OpenSysML/tree/main)
 [![Quality gate](https://sonarcloud.io/api/project_badges/measure?project=Open-MBEE_OpenSysML&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Open-MBEE_OpenSysML)
@@ -28,7 +28,9 @@ covering the lifecycle from authoring through execution with the integrated tool
 engineers expect from a modern language ecosystem. It is the runtime of
 [OpenSysML](https://opensysml.org/), the open source SysML v2 suite of the
 [OpenMBEE](https://www.openmbee.org) community; this repository is the REDK, and the pages
-below use "OpenSysML" for it where no confusion with the suite is possible.
+below use "OpenSysML" for it where no confusion with the suite is possible. The REDK is
+the second generation of OpenMBEE's Model Development Kit (MDK2), expanded and updated for
+SysML v2; its [Cameo plugin](editors/mdk/README.md) carries the OpenSysML MDK name.
 
 **It runs the model.** A validator reads declarations; an expression evaluator computes a value
 from the ones it is handed. OpenSysML materializes the instances a model describes, evaluates
@@ -347,7 +349,7 @@ The project is under active development, with the core infrastructure operationa
 - **Declared-diagnostic silence:** of the 512 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 245 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](docs/project/pilot-xpect.md), `go run -C tools ./cmd/pilot-xpect`).
 - **Scope agreement:** 230 of 230 declared scope assertions match exactly (same source).
 - **Permissiveness gaps:** of 313 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 300 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](docs/project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
-- **Declared errata:** the registry declares 12 defect(s) in the published reference material — 4 with a specification-derived correction, 8 documented without one, since no intended reading can be inferred ([OMG issues](docs/project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 354 of 391 files agreeing, 281 diagnostics ours alone and 92 the reference's alone, 0 declared rows we are silent on, and 0 of 313 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
+- **Declared errata:** the registry declares 13 defect(s) in the published reference material — 6 with a specification-derived correction, 7 documented without one, since no intended reading can be inferred ([OMG issues](docs/project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 354 of 391 files agreeing, 281 diagnostics ours alone and 92 the reference's alone, 0 declared rows we are silent on, and 0 of 313 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
 - **Self-assessed surface:** the action, state-machine and classifier-behavior rows have no external referee at all — the four refereed figures above cannot see them, because the pinned artifact evaluates expressions but executes neither actions nor state machines. [Spec compliance](docs/project/spec-compliance.md) counts them.
 
 What these numbers cannot show: the OMG corpora are demonstrations rather than an official conformance suite; the differential is one-directional, comparing the diagnostics the two implementations report on the same files; the Xpect suites are the pilot authors' test intent rather than a certification oracle; and none of these is a percentage of the specification — no global compliance figure is claimed anywhere.
@@ -423,7 +425,7 @@ github.com/Open-MBEE/OpenSysML
 - **Parser:** hand-written recursive descent (no framework overhead, full error recovery, sub-millisecond parses)
 - **Grammar source:** OMG pilot Xtext grammars (`SysML.xtext` and `KerMLExpressions`)
 - **Spec compliance:** [OMG SysML v2.1 Beta 1 / KerML 1.1](https://www.omg.org/spec/SysML/2.0) (2026-08 release)
-- **Standard library:** 94 files from [SysML v2 Pilot Implementation 2026-08](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-08), byte-identical, plus the sixteen non-normative `OpenSysML Libraries/` extensions (`OpenSysMLMathFunctions`, `DocumentQueries`, `IdentityMetadata`, `DiagramLayout`, [`OOSEM`](docs/project/oosem-library.md), [`MOSA`](docs/project/mosa-library.md), `StateSpaceIntegration`, `Stochastic`, `RandomFunctions`, `Simulation`, `MigrationMetadata`, `AnalysisRecords`, `OpenSysMLRenderings`, [`StateMachines`](docs/project/statemachines-library.md), [`SysMLValidation`](docs/project/validation-constraints.md) and `StateActivity`)
+- **Standard library:** 94 files from [SysML v2 Pilot Implementation 2026-08](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-08), byte-identical, plus the sixteen non-normative `OpenSysML Libraries/` extensions (`OpenSysMLMathFunctions`, `DocumentQueries`, `IdentityMetadata`, `DiagramLayout`, [`OOSEM`](docs/project/oosem-library.md), [`MOSA`](docs/project/mosa-library.md), `StateSpaceIntegration`, `Stochastic`, `RandomFunctions`, `Simulation`, `MigrationMetadata`, `AnalysisRecords`, `OpenSysMLRenderings`, [`StateMachines`](docs/project/statemachines-library.md), [`SysMLValidation`](docs/project/validation-constraints.md) and `StateActivity`). The extensions are maintained upstream at [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library) — for any SysML v2 tool — and vendored here pinned by `scripts/extension-libraries-pin.sh` ([pin, sync and contract](docs/project/extension-libraries.md))
 - **CI/CD:** GitHub Actions checks pull requests; CircleCI builds and tests `main` and `develop` and publishes releases from tags
 
 ## Releases

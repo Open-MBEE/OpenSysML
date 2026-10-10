@@ -99,7 +99,7 @@ need attention first:
 ## approximated (11)
 «Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	(a trace is written as a plain dependency)
 «TestCase» Activity	Requirements::Mass Test	_tc_mass	-> Requirements::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
-Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part def)
+Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part usage)
 «FlowPort» Port	Vehicle Design::Engine::speedIn	_port_speedIn	-> 'Vehicle Design'::Engine::speedIn	(a port typed by a DataType is written as a port holding one directed attribute)
 …
 Property	Vehicle Design::Vehicle::totalMass	_prop_total	-> 'Vehicle Design'::Vehicle::totalMass	(opaque expression copied verbatim (language SysML))
@@ -119,7 +119,7 @@ how, or why not. The columns are tab-separated, so `cut` and `awk` read them.
   chosen (the root model's members are written at the top level; an English constraint body was
   translated to a v2 expression).
 - **approximated** — written as the nearest v2 construct, and the note says what was lost. Some
-  of these are simply how v2 spells the idea (a UML actor is a `part def`; a flow port typed by a
+  of these are simply how v2 spells the idea (a `«Trace»` is a `dependency`; a flow port typed by a
   data type is a port holding one directed attribute; a `«Trace»` is a `dependency`). Others
   record a v1 tag that v2 has no home for (`isEncapsulated`, a value type's `unit` and
   `quantityKind`), or an opaque expression copied verbatim because its declared language is
@@ -315,24 +315,39 @@ its type: `end [0..1] driver : Driver;`. From this point `%save` in the REPL, `-
 LSP and the clients all take the file as they take any other; nothing remembers that it was
 migrated.
 
-## Portable output with `-strict`
+## Portable output: `-portable` and `-strict`
 
-Pseudostates are written through the `StateMachines` library's metadata
-spellings — `#StateMachines::junction state x;` — with `private import
-StateMachines::*;` added to each package that holds one, so a migrated model
-reads as conforming SysML v2 either way. Pass `-strict` (see
-[Strict conformance](03-command-line.md#strict-conformance)) and the migration
-still writes only notation a pinned grammar admits — the pseudostates keep
-their `StateMachines` metadata spellings in both modes:
+A migrated model refers to OpenSysML's own library packages where v1 has no standard v2
+form: a pseudostate is written through the `StateMachines` library's metadata spellings
+(`#StateMachines::junction state x;`, with `private import StateMachines::*;` added to each
+package that holds one), a branch probability through `Stochastic`, a view's geometry through
+`DiagramLayout`, the names the migration made up through `MigrationMetadata`. OpenSysML ships
+them, so the file loads here as it is; a tool that ships only the standard library — the pilot
+implementation, or a modeling tool built on it — reports every such reference unresolved. Two
+flags make the output portable to such a tool:
 
-```console
-$ sysml Project.xmi -strict -migrate sysml -o Project.sysml
-$ sysml -strict -validate Project.sysml
-✓ Project.sysml: no errors
-```
+- `-portable` keeps the migration as it is and appends the library packages the output refers
+  to, so the one file carries everything it needs; the report names them:
 
-What a strict migration refuses is described in the reference under
-[Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict).
+  ```console
+  $ sysml Project.xmi -migrate sysml -portable -o Project.sysml
+  migration: … inlined 4 OpenSysML library package(s): DiagramLayout, MigrationMetadata, StateMachines, Stochastic
+  ```
+
+- `-strict` (see [Strict conformance](03-command-line.md#strict-conformance)) writes no
+  OpenSysML reference at all — a pseudostate as a plain state, a probability as a comment, a
+  view without geometry — at the cost of what the reference lists under
+  [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict),
+  so the output also reads as conforming SysML v2:
+
+  ```console
+  $ sysml Project.xmi -strict -migrate sysml -o Project.sysml
+  $ sysml -strict -validate Project.sysml
+  ✓ Project.sysml: no errors
+  ```
+
+Both are described in the reference under
+[Portable output with `-portable`](../reference/sysml-v1-migration.md#portable-output-with--portable).
 
 A deferred signal is standard notation in both modes: the state gets an `item` buffer its do
 action fills from an accept loop while the state is active, substates included, and its exit

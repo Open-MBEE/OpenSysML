@@ -72,6 +72,7 @@ type runCapture struct {
 	ids                  *idSequence
 	nextID               int64
 	activations, runs    int64
+	coverageNotes        mapState[string, bool]
 	run                  *runState
 	trace                *TraceRecorder
 	traced               traceCapture
@@ -83,6 +84,7 @@ type runCapture struct {
 	successionOrderNotes mapState[successionOrderNoteKey, bool]
 	holdingDriven        bool
 	clockRun             *runState
+	stateExecutors       []*StateExecutor
 }
 
 // traceCapture is a recorder's state at the mark. Records are only appended to, cut
@@ -439,11 +441,13 @@ func (ctx *Context) captureRun() runCapture {
 		choices:              ctx.choices,
 		draws:                ctx.draws,
 		evaluations:          ctx.evaluations,
+		coverageNotes:        captureMap(ctx.coverageNotes),
 		pendingBehaviors:     slices.Clone(ctx.pendingBehaviors),
 		heldBehaviors:        captureMap(ctx.heldBehaviors),
 		successionOrderNotes: captureMap(ctx.successionOrderNotes),
 		holdingDriven:        ctx.holdingDriven,
 		clockRun:             ctx.clockRun.state,
+		stateExecutors:       slices.Clone(ctx.stateExecutors),
 	}
 	return c
 }
@@ -461,11 +465,13 @@ func (c runCapture) restore(ctx *Context) {
 	c.traced.restore(c.trace)
 	ctx.choices, ctx.draws = c.choices, c.draws
 	ctx.evaluations = c.evaluations
+	ctx.coverageNotes = c.coverageNotes.restore()
 	ctx.pendingBehaviors = slices.Clone(c.pendingBehaviors)
 	ctx.heldBehaviors = c.heldBehaviors.restore()
 	ctx.successionOrderNotes = c.successionOrderNotes.restore()
 	ctx.holdingDriven = c.holdingDriven
 	ctx.clockRun.state = c.clockRun
+	ctx.stateExecutors = slices.Clone(c.stateExecutors)
 	ctx.workChanged()
 }
 
@@ -538,6 +544,7 @@ type actionCapture struct {
 	inRun, held       bool
 	moved             bool
 	awaiting          *actionFrame
+	occurrence        *Instance
 	outputListeners   []outputListener
 	firedBreakpoints  mapState[breakpointVisit, bool]
 	traversals        []Traversal
@@ -558,6 +565,7 @@ func (e *ActionExecutor) capture() actionCapture {
 		stepCount: e.stepCount, sweep: e.sweep, sweeps: e.sweeps,
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
+		occurrence:       e.occurrence,
 		outputListeners:  slices.Clone(e.outputListeners),
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		traversals:       cloneTraversals(e.traversals),
@@ -579,6 +587,7 @@ func (c actionCapture) restore() {
 	e.pausedAt, e.released, e.pauses = c.pausedAt, c.released, c.pauses
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
 	e.moved, e.awaiting = c.moved, c.awaiting
+	e.occurrence, e.performances.occurrence = c.occurrence, c.occurrence
 	e.outputListeners = slices.Clone(c.outputListeners)
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
@@ -609,6 +618,11 @@ func (e *ActionExecutor) reachableFrames() []*actionFrame {
 			}
 			for _, state := range perf.repeats {
 				for _, repeated := range state.live {
+					visit(repeated)
+				}
+			}
+			for _, perfs := range perf.repeatedPerfs {
+				for _, repeated := range perfs {
 					visit(repeated)
 				}
 			}
@@ -659,6 +673,7 @@ func captureFrame(perf *actionFrame) frameCapture {
 	c.saved.outputs = slices.Clone(perf.outputs)
 	c.saved.subactions = maps.Clone(perf.subactions)
 	c.saved.repeats = cloneStepRepetitions(perf.repeats)
+	c.saved.repeatedPerfs = cloneRepeatedPerfs(perf.repeatedPerfs)
 	c.saved.pending = clonePending(perf.pending)
 	c.saved.held = cloneHeld(perf.held)
 	c.saved.staged = cloneStaged(perf.staged)
@@ -691,6 +706,7 @@ func (c frameCapture) restore() {
 	perf.outputs = slices.Clone(c.saved.outputs)
 	perf.subactions = maps.Clone(c.saved.subactions)
 	perf.repeats = cloneStepRepetitions(c.saved.repeats)
+	perf.repeatedPerfs = cloneRepeatedPerfs(c.saved.repeatedPerfs)
 	perf.pending = clonePending(c.saved.pending)
 	perf.held = cloneHeld(c.saved.held)
 	perf.staged = cloneStaged(c.saved.staged)
@@ -710,6 +726,17 @@ func cloneStepRepetitions(repeats map[repetitionGroupID]*stepRepetition) map[rep
 			continue
 		}
 		cloned[group] = &stepRepetition{node: state.node, remaining: state.remaining, live: slices.Clone(state.live)}
+	}
+	return cloned
+}
+
+func cloneRepeatedPerfs(repeated map[ast.Node][]*actionFrame) map[ast.Node][]*actionFrame {
+	if repeated == nil {
+		return nil
+	}
+	cloned := make(map[ast.Node][]*actionFrame, len(repeated))
+	for node, perfs := range repeated {
+		cloned[node] = slices.Clone(perfs)
 	}
 	return cloned
 }
@@ -800,6 +827,9 @@ type stateCapture struct {
 	timerScheduled     mapState[*lower.Transition, bool]
 	timeTriggerVerdict mapState[*lower.Transition, error]
 	changeFired        mapState[*lower.Transition, bool]
+	changeObserved     mapState[*lower.Transition, bool]
+	changePending      mapState[*lower.Transition, bool]
+	changeReads        map[*lower.Transition][]*FeatureValue
 	firingChange       *lower.Transition
 	firingNotes        []RunNote
 	changeRearmed      mapState[*lower.Transition, bool]
@@ -859,6 +889,9 @@ func (e *StateExecutor) capture() stateCapture {
 		timerScheduled:     captureMap(e.timerScheduled),
 		timeTriggerVerdict: captureMap(e.timeTriggerVerdict),
 		changeFired:        captureMap(e.changeFired),
+		changeObserved:     captureMap(e.changeObserved),
+		changePending:      captureMap(e.changePending),
+		changeReads:        maps.Clone(e.changeReads),
 		firingChange:       e.firingChange,
 		firingNotes:        slices.Clone(e.firingNotes),
 		changeRearmed:      captureMap(e.changeRearmed),
@@ -931,6 +964,9 @@ func (c stateCapture) restore() {
 	e.timerScheduled = c.timerScheduled.restore()
 	e.timeTriggerVerdict = c.timeTriggerVerdict.restore()
 	e.changeFired = c.changeFired.restore()
+	e.changeObserved = c.changeObserved.restore()
+	e.changePending = c.changePending.restore()
+	e.changeReads = maps.Clone(c.changeReads)
 	e.firingChange, e.firingNotes = c.firingChange, slices.Clone(c.firingNotes)
 	e.changeRearmed = c.changeRearmed.restore()
 	e.changeWaits = slices.Clone(c.changeWaits)
@@ -951,13 +987,14 @@ func cloneHeldEntries(entries []heldEntry) []heldEntry {
 	cloned := make([]heldEntry, len(entries))
 	for i, entry := range entries {
 		cloned[i] = heldEntry{
-			owner:    entry.owner,
-			regions:  slices.Clone(entry.regions),
-			branches: maps.Clone(entry.branches),
-			chain:    slices.Clone(entry.chain),
-			scopes:   slices.Clone(entry.scopes),
-			machine:  entry.machine,
-			firing:   entry.firing.snapshot(),
+			owner:        entry.owner,
+			regions:      slices.Clone(entry.regions),
+			branches:     maps.Clone(entry.branches),
+			chain:        slices.Clone(entry.chain),
+			scopes:       slices.Clone(entry.scopes),
+			machine:      entry.machine,
+			firing:       entry.firing.snapshot(),
+			routeEffects: cloneRouteEntryEffects(entry.routeEffects),
 		}
 	}
 	return cloned

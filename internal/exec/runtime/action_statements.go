@@ -267,6 +267,9 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 		); err != nil {
 			return flowNext, err
 		}
+		if _, declared := graph.Multiplicities[node]; declared && f.perf.repeatedStep() {
+			e.recordRepetition(parent, node, f.perf)
+		}
 	}
 	// A terminate of the node ends its body where it stands, dropping what a flow nested in
 	// its leaf body still runs (runSubflow drops a flow of its own); the node completes.
@@ -431,7 +434,7 @@ func (e *performances) performNodeBody(f *performFrame, graph *lower.ActionGraph
 		return e.performCase(perf)
 	}
 	if f.phase == performInvoking {
-		if inv, ok := nestedInvocation(node); ok {
+		if inv, ok := nestedInvocationInGraph(graph, node); ok {
 			if err := e.performInvocation(perf, inv); err != nil {
 				return err
 			}

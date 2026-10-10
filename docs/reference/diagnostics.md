@@ -38,7 +38,10 @@ memberships of one namespace are indistinguishable when one's name or short name
 and their metaclasses are related (a `part def` beside a `part def`, or beside an `item def`
 that it specializes; a `part def` beside an `attribute` is distinguishable whatever the names).
 Resolution is not affected: a reference to the name still takes the first membership, in
-declaration order and then in import order.
+declaration order and then in import order. For two *imported* members KerML (7.2.5.4) hides
+both from the importing namespace instead, leaving an unqualified reference unresolved; OpenSysML
+binds the first import's member, as the OMG pilot implementation does, and the warning marks
+where the two readings part. Qualify the name to choose a member explicitly.
 
 | Wording | Reported on |
 |---------|-------------|
@@ -51,6 +54,16 @@ imports (`import P::*` beside `import Q::*` where `Q` publicly re-imports `P`), 
 membership import of an element beside the membership that owns it, and the standard library's
 own members are not reported. An alias under another name (`alias Spare for P::x`) binds only
 that name and does not stand in for `P::x`.
+
+The standard library has eight such pairs of its own, which `import ISQ::*` brings in without a
+warning: `MagneticDipoleMomentValue`, `MagneticDipoleMomentUnit`,
+`CartesianMagneticDipoleMoment3dVector`, `CartesianMagneticDipoleMoment3dCoordinateFrame`,
+`magneticDipoleMoment` and `cartesianMagneticDipoleMoment3dVector` are defined in both
+`ISQElectromagnetism` (IEC 80000-6) and `ISQAtomicNuclear` (ISO 80000-10) as two different
+quantities, and `CartesianDisplacement3dVector` and `cartesianDisplacement3dVector` in both
+`ISQSpaceTime` and `ISQCondensedMatter`. Unqualified, each binds the `ISQElectromagnetism` or
+`ISQSpaceTime` member; write `ISQAtomicNuclear::MagneticDipoleMomentValue` (or
+`ISQCondensedMatter::…`) for the other.
 
 ## Switching a lint off or on
 

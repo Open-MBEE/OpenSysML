@@ -1,0 +1,97 @@
+name: Extension libraries upstream
+
+# Advisory: does the extension-libraries upstream's ref still run under
+# OpenSysML? It syncs the ref into the vendored directory and runs the whole
+# suite. It is scheduled rather than a required check: it downloads from
+# upstream and takes minutes, so a failure here surfaces what broke without
+# blocking pull requests. It never pushes and never opens issues.
+on:
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Extension-libraries ref to sync (branch or tag)'
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  upstream:
+    name: OpenSysML against upstream extension libraries
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      REF: ${{ inputs.ref || 'main' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Z3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y z3
+          z3 --version
+
+      - name: Install cvc5
+        run: |
+          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/cvc5.zip \
+            https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static.zip
+          echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
+          unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
+          sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
+          cvc5 --version | head -1
+
+      - name: Sync the upstream ref
+        id: sync
+        run: |
+          out="$(scripts/sync-extension-libraries.sh --ref "$REF" | tee /dev/stderr)"
+          sha="$(sed -n 's/^Resolved .* to \([0-9a-f]*\)$/\1/p' <<<"$out" | tail -1)"
+          {
+            echo "### Synced upstream \`$REF\` at \`$sha\`"
+            echo '```'
+            git status --porcelain -- "internal/workspace/libs/stdlib/OpenSysML Libraries/"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the library snapshot
+        id: snapshot
+        run: |
+          if make stdlib-snapshot-check; then
+            echo "Snapshot unchanged." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Snapshot regenerated for the synced libraries." >> "$GITHUB_STEP_SUMMARY"
+            make stdlib-snapshot
+          fi
+
+      - name: Run the test suite
+        id: tests
+        run: |
+          go test ./...
+          go test -C tools ./...
+
+      - name: Report the verdict
+        if: always()
+        run: |
+          if [ "${{ steps.tests.outcome }}" = "success" ]; then
+            echo "Upstream \`$REF\` runs clean under OpenSysML." >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "**Upstream \`$REF\` breaks OpenSysML.**"
+              echo ""
+              echo "| step | outcome |"
+              echo "| --- | --- |"
+              echo "| sync | ${{ steps.sync.outcome }} |"
+              echo "| snapshot | ${{ steps.snapshot.outcome }} |"
+              echo "| tests | ${{ steps.tests.outcome }} |"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          git checkout -- "internal/workspace/libs/stdlib/OpenSysML Libraries/" 2>/dev/null || true

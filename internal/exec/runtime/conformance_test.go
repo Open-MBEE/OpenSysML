@@ -140,6 +140,9 @@ type ExpectedOutcome struct {
 	// ExploreBudget raises the budget the harness explores the case's outcomes
 	// under, for a case whose choice tree the default budget does not cover.
 	ExploreBudget *ExpectedExploreBudget `json:"exploreBudget,omitempty"`
+	// SolverBudget lowers the moves the SMT referee unrolls the case to, for a case
+	// whose every run ends well within them but the default unrolling outlasts the solver.
+	SolverBudget *ExpectedSolverBudget `json:"solverBudget,omitempty"`
 
 	// Action fields
 	Outputs    map[string]ExpectedValue `json:"outputs,omitempty"`
@@ -180,6 +183,10 @@ type ExpectedOutcome struct {
 	// Trace opts a case into a golden trace it does not carry yet, so
 	// -update-traces writes one. A case already carrying a golden needs no opt-in.
 	Trace bool `json:"trace,omitempty"`
+	// ExploreNotes are the coverage notes exploring the case must record, each
+	// matched exactly and in canonical order; stated, the case is explored even
+	// without an admissible set.
+	ExploreNotes []string `json:"exploreNotes,omitempty"`
 
 	// Satisfy fields: the verdict expected of each satisfaction assertion the
 	// case states, keyed by the assertion as written ("satisfy r by p"), since
@@ -430,7 +437,7 @@ func runConformanceCaseWithOwned(t *testing.T, conformanceDir, caseName string, 
 	if err := json.Unmarshal(expectedData, &expected); err != nil {
 		t.Fatalf("failed to parse expected.json: %v", err)
 	}
-	for _, problem := range admissibleSchemaProblems(expected, oracleSectionTitles(t)) {
+	for _, problem := range admissibleSchemaProblems(expected, oracleSectionTitles(t), hasCheckExpected(caseName)) {
 		t.Error(problem)
 	}
 	if t.Failed() {
@@ -567,7 +574,7 @@ func casePolicy(t *testing.T, expected ExpectedOutcome, policy SchedulePolicy) S
 // outcomes within budget, naming any unlisted one with a witness.
 func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.Index, path string, expected ExpectedOutcome) {
 	t.Helper()
-	if len(expected.Outcomes) == 0 {
+	if len(expected.Outcomes) == 0 && len(expected.ExploreNotes) == 0 {
 		return
 	}
 	policy, err := ExplorePolicy(expected.ExploreBudget.budget())
@@ -577,6 +584,20 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 	exploration, err := Explore(context.Background(), policy, func() (*Context, error) { return fresh(), nil }, conformanceRun(t, idx, path, expected))
 	if err != nil {
 		t.Fatalf("explore: %v", err)
+	}
+	if expected.ExploreNotes != nil {
+		notes := slices.Clone(expected.ExploreNotes)
+		slices.Sort(notes)
+		if !slices.Equal(exploration.Notes, notes) {
+			t.Errorf("exploration notes = %v, want %v", exploration.Notes, notes)
+		}
+	}
+	if len(expected.Outcomes) == 0 {
+		if !exploration.Complete() {
+			t.Errorf("exploration %s under %s; raise the budget in %s with \"exploreBudget\": {\"runs\": N, \"depth\": D}",
+				exploration.Status(), policy, filepath.Base(strings.TrimSuffix(path, ".sysml"))+".expected.json")
+		}
+		return
 	}
 	ctx := fresh()
 	reached := make([]int, len(expected.Outcomes))
@@ -761,18 +782,32 @@ func (b *ExpectedExploreBudget) budget() ExploreBudget {
 	return budget
 }
 
+// ExpectedSolverBudget is the solverBudget of a case: the moves the SMT referee
+// encodes its action to, in place of the engine's default.
+type ExpectedSolverBudget struct {
+	Moves *int `json:"moves,omitempty"`
+}
+
 // admissibleSchemaProblems reports how a case misuses outcomes and admissible:
 // the two go together, replace the single outcome rather than sit beside it,
 // list at least two distinct results, and cite a section the oracle has.
-func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]bool) []string {
+func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]bool, checked bool) []string {
 	var problems []string
+	if expected.ExploreBudget != nil {
+		if _, err := ExplorePolicy(expected.ExploreBudget.budget()); err != nil {
+			problems = append(problems, "exploreBudget: "+err.Error())
+		}
+	}
 	if len(expected.Outcomes) == 0 {
 		if expected.Admissible != "" {
 			problems = append(problems, "admissible is stated without outcomes to admit")
 		}
 		hasSingleOutcome := expected.Outputs != nil || expected.FinalState != "" || expected.StateVisits != nil || expected.Terminated
-		if expected.ExploreBudget != nil && !hasSingleOutcome {
+		if expected.ExploreBudget != nil && !hasSingleOutcome && !checked && len(expected.ExploreNotes) == 0 {
 			problems = append(problems, "exploreBudget is stated without outcomes to explore")
+		}
+		if expected.SolverBudget != nil {
+			problems = append(problems, "solverBudget is stated without outcomes to referee")
 		}
 		if expected.ExploreBudget != nil && hasSingleOutcome {
 			if expected.Type != "action" && expected.Type != "state" {
@@ -786,6 +821,9 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 	}
 	if _, err := ExplorePolicy(expected.ExploreBudget.budget()); err != nil {
 		problems = append(problems, "exploreBudget: "+err.Error())
+	}
+	if b := expected.SolverBudget; b != nil && (b.Moves == nil || *b.Moves < 1) {
+		problems = append(problems, "solverBudget: moves must be stated and at least 1")
 	}
 	if expected.Type != "action" && expected.Type != "state" {
 		problems = append(problems, fmt.Sprintf("outcomes apply to action and state cases, not %q", expected.Type))
@@ -2513,37 +2551,45 @@ func TestAdmissibleOutcomesSchema(t *testing.T) {
 	if !titles[cited] {
 		t.Fatalf("the oracle no longer has a section titled %q", cited)
 	}
+	runs := 2048
 	one := ExpectedValue{Type: "Integer", Value: 1.0}
 	two := ExpectedValue{Type: "Integer", Value: 2.0}
 	outcomes := []AdmittedOutcome{
 		{Outputs: map[string]ExpectedValue{"x": one}},
 		{Outputs: map[string]ExpectedValue{"x": two}},
 	}
-	runs := 65536
+	zero, twenty := 0, 20
 	tests := []struct {
 		name     string
 		expected ExpectedOutcome
 		problems int
+		checked  bool
 	}{
-		{"single outcome", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs}, 0},
+		{"single outcome", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs}, 0, false},
+		{"admissible set", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited}, 0, false},
+		{"state admissible set", ExpectedOutcome{Type: "state", Outcomes: []AdmittedOutcome{{FinalState: "A"}, {FinalState: "B"}}, Admissible: cited}, 0, false},
+		{"outcomes beside outputs", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, Outcomes: outcomes, Admissible: cited}, 1, false},
+		{"outcomes beside finalState", ExpectedOutcome{Type: "state", FinalState: "A", Outcomes: outcomes, Admissible: cited}, 1, false},
+		{"outcomes beside performers", ExpectedOutcome{Type: "state", Performers: []Performer{{Object: "P::a"}}, Outcomes: outcomes, Admissible: cited}, 1, false},
+		{"missing admissible", ExpectedOutcome{Type: "action", Outcomes: outcomes}, 1, false},
+		{"admissible cites no section", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: "the value is open"}, 1, false},
+		{"admissible without outcomes", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, Admissible: cited}, 1, false},
+		{"one outcome listed", ExpectedOutcome{Type: "action", Outcomes: outcomes[:1], Admissible: cited}, 1, false},
+		{"empty outcome", ExpectedOutcome{Type: "action", Outcomes: []AdmittedOutcome{outcomes[0], {}}, Admissible: cited}, 1, false},
+		{"calc case", ExpectedOutcome{Type: "calc", Outcomes: outcomes, Admissible: cited}, 1, false},
+		{"explore budget on a checked case", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, ExploreBudget: &ExpectedExploreBudget{Runs: &runs}}, 0, true},
+		{"explore budget on a noted case", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, ExploreNotes: []string{"a note"}, ExploreBudget: &ExpectedExploreBudget{Runs: &runs}}, 0, false},
 		{"single outcome explore budget", ExpectedOutcome{
 			Type: "action", Outputs: outcomes[0].Outputs, ExploreBudget: &ExpectedExploreBudget{Runs: &runs},
-		}, 0},
-		{"admissible set", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited}, 0},
-		{"state admissible set", ExpectedOutcome{Type: "state", Outcomes: []AdmittedOutcome{{FinalState: "A"}, {FinalState: "B"}}, Admissible: cited}, 0},
-		{"outcomes beside outputs", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, Outcomes: outcomes, Admissible: cited}, 1},
-		{"outcomes beside finalState", ExpectedOutcome{Type: "state", FinalState: "A", Outcomes: outcomes, Admissible: cited}, 1},
-		{"outcomes beside performers", ExpectedOutcome{Type: "state", Performers: []Performer{{Object: "P::a"}}, Outcomes: outcomes, Admissible: cited}, 1},
-		{"missing admissible", ExpectedOutcome{Type: "action", Outcomes: outcomes}, 1},
-		{"admissible cites no section", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: "the value is open"}, 1},
-		{"admissible without outcomes", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, Admissible: cited}, 1},
-		{"one outcome listed", ExpectedOutcome{Type: "action", Outcomes: outcomes[:1], Admissible: cited}, 1},
-		{"empty outcome", ExpectedOutcome{Type: "action", Outcomes: []AdmittedOutcome{outcomes[0], {}}, Admissible: cited}, 1},
-		{"calc case", ExpectedOutcome{Type: "calc", Outcomes: outcomes, Admissible: cited}, 1},
+		}, 0, false},
+		{"solver budget", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited, SolverBudget: &ExpectedSolverBudget{Moves: &twenty}}, 0, false},
+		{"solver budget without moves", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited, SolverBudget: &ExpectedSolverBudget{}}, 1, false},
+		{"solver budget of no moves", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited, SolverBudget: &ExpectedSolverBudget{Moves: &zero}}, 1, false},
+		{"solver budget without outcomes", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, SolverBudget: &ExpectedSolverBudget{Moves: &twenty}}, 1, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if problems := admissibleSchemaProblems(tt.expected, titles); len(problems) != tt.problems {
+			if problems := admissibleSchemaProblems(tt.expected, titles, tt.checked); len(problems) != tt.problems {
 				t.Errorf("problems = %v, want %d", problems, tt.problems)
 			}
 		})

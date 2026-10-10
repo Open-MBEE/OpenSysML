@@ -1,4 +1,4 @@
-standard library package SysMLValidation {
+library package SysMLValidation {
     doc
     /*
      * Validation constraints of the KerML and SysML abstract syntax, stated over

@@ -39,7 +39,7 @@ func CalcBodyWithOrder(owner ast.Node, members []ast.Node, scope *symbols.Scope,
 		stmts := caseSteps(owner, body, scope, resolver)
 		return stmts, nil
 	}
-	stmts, order := calcBodyStatements(body, scope, !PerformsSteps(owner))
+	stmts, order := calcBodyStatements(body, scope, resolver, !PerformsSteps(owner))
 	if PerformsSteps(owner) {
 		return stmts, nil
 	}
@@ -49,7 +49,7 @@ func CalcBodyWithOrder(owner ast.Node, members []ast.Node, scope *symbols.Scope,
 	return stmts, order
 }
 
-func calcBodyStatements(body []ast.Node, scope *symbols.Scope, ignoreNonStatementSuccessions bool) ([]Statement, *StatementOrder) {
+func calcBodyStatements(body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ignoreNonStatementSuccessions bool) ([]Statement, *StatementOrder) {
 	members := make([]ast.Node, 0, len(body))
 	for _, member := range body {
 		if actual := unwrapMembership(member); actual != nil && !isAnnotation(actual) {
@@ -61,7 +61,7 @@ func calcBodyStatements(body []ast.Node, scope *symbols.Scope, ignoreNonStatemen
 		if _, ok := member.(*ast.SuccessionEdge); ok {
 			continue
 		}
-		stmt, ok := calcBodyStep(member, scope, ignoreNonStatementSuccessions)
+		stmt, ok := calcBodyStep(member, scope, resolver, ignoreNonStatementSuccessions)
 		if !ok {
 			continue
 		}
@@ -76,13 +76,13 @@ func calcBodyStatements(body []ast.Node, scope *symbols.Scope, ignoreNonStatemen
 	return bodyStmts, order
 }
 
-func calcBodyStep(member ast.Node, scope *symbols.Scope, ignoreNonStatementSuccessions bool) (Statement, bool) {
+func calcBodyStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ignoreNonStatementSuccessions bool) (Statement, bool) {
 	if ignoreNonStatementSuccessions {
 		if usage, ok := member.(*ast.Usage); ok && (usage.IsSuccessionFlow() || usage.Kind == ast.UsageSuccession) {
 			return nil, false
 		}
 	}
-	return calcStep(member, scope)
+	return calcStep(member, scope, resolver)
 }
 
 // CalcSteps returns the statements an invocation performs, excluding bindings
@@ -106,7 +106,7 @@ func isOutputBinding(node ast.Node) bool {
 
 // calcStep lowers one member of a calculation body and reports whether it
 // states a step or a result; a result is a Return.
-func calcStep(member ast.Node, scope *symbols.Scope) (Statement, bool) {
+func calcStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (Statement, bool) {
 	switch m := member.(type) {
 	case *ast.Usage:
 		if m.Direction == ast.DirIn || m.Direction == ast.DirInOut {
@@ -129,7 +129,7 @@ func calcStep(member ast.Node, scope *symbols.Scope) (Statement, bool) {
 		if ast.IsExpression(member) {
 			return Return{Value: member, Node: member, Scope: scope}, true
 		}
-		return lowerStatement(member, scope), true
+		return lowerStatement(member, scope, resolver), true
 	}
 }
 

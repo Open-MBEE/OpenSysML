@@ -4,7 +4,7 @@ package Structure {
         part hook : Hook;
         ref part cable : Cable;
         ref part operator : Operator;
-        ref counterweight;
+        part counterweight;
         connect hook to cable;
         view 'Crane Internals' {
             expose hook;
@@ -52,10 +52,10 @@ package Needs {
     doc /* What the yard
      * is asked to do.
      */
-    requirement def <'Y-1'> Lift {
+    requirement <'Y-1'> Lift {
         doc /* The crane lifts a loaded container. */
     }
-    requirement def <'Y-2'> Sway {
+    requirement <'Y-2'> Sway {
         doc /* The load sways less than one degree. */
         comment /* Above the hook. */
         view 'Sway Limits' {
@@ -694,11 +694,14 @@ package 'Yard Handbook' {
             properties = ("name"))
     }
     calc def 'Yard Handbook Requirements Specification Table Rows' :> DocumentQueries::Query {
+        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+            source = DocumentQueries::Named(qualifiedName = ("Needs")));
         DocumentQueries::Project(
-            source = DocumentQueries::WhereType(
-                source = DocumentQueries::Descendants(
-                    source = DocumentQueries::Named(qualifiedName = ("Needs"))),
-                type = ("RequirementDefinition")),
+            source = DocumentQueries::Except(
+                source = DocumentQueries::Named(qualifiedName = ("Needs::Lift", "Needs::Sway")),
+                exclude = DocumentQueries::Except(
+                    source = DocumentQueries::Named(qualifiedName = ("Needs::Lift", "Needs::Sway")),
+                    exclude = candidates)),
             properties = ("shortName", "name", "documentation"))
     }
     calc def 'Yard Handbook Documented Owners Rows' :> DocumentQueries::Query {
@@ -719,7 +722,6 @@ package 'Yard Handbook' {
     part def 'Yard Handbook Document' :> DocumentQueries::Document {
         attribute redefines title = "Yard Handbook";
         ref gantry : Structure::Gantry;
-        ref sway : Needs::Sway;
         ref crane : Structure::Crane;
         ref unnamed : Drafts::unnamed;
         ref sketchy : Drafts::Sketchy;
@@ -760,7 +762,7 @@ package 'Yard Handbook' {
             attribute redefines title = "Kin Diagrams";
             part diagram : DocumentQueries::Diagram {
                 attribute redefines caption = "Sway Limits";
-                ref redefines source = sway.'Sway Limits';
+                ref redefines source = Needs::Sway.'Sway Limits';
             }
             part 'diagram 2' : DocumentQueries::Diagram {
                 attribute redefines caption = "Yard Requirements";
@@ -853,7 +855,7 @@ package 'Yard Handbook' {
             }
             part 'diagram 2' : DocumentQueries::Diagram {
                 attribute redefines caption = "Sway Limits";
-                ref redefines source = sway.'Sway Limits';
+                ref redefines source = Needs::Sway.'Sway Limits';
             }
             part 'diagram 3' : DocumentQueries::Diagram {
                 attribute redefines caption = "Yard Requirements";
@@ -872,7 +874,7 @@ package 'Yard Handbook' {
             }
             part 'diagram 2' : DocumentQueries::Diagram {
                 attribute redefines caption = "Sway Limits";
-                ref redefines source = sway.'Sway Limits';
+                ref redefines source = Needs::Sway.'Sway Limits';
             }
             part 'diagram 3' : DocumentQueries::Diagram {
                 attribute redefines caption = "Crane Internals";

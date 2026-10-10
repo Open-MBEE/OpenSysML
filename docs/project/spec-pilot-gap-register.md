@@ -564,11 +564,38 @@ names count as names, and two members whose metaclasses conform in neither direc
   declarations as two namespaces.
 - *Library content is left out,* as the inherited check leaves out library supertypes: the
   standard library is not the model's to fix. This is load-bearing — read with the library
-  included, `import ISQ::*` alone brings eight indistinguishable pairs
-  (`ISQSpaceTime::CartesianDisplacement3dVector` beside `ISQCondensedMatter::…`,
-  `ISQElectromagnetism::MagneticDipoleMomentValue` beside `ISQAtomicNuclear::…`, …), and
-  `import NumericalFunctions::*; import DataFunctions::*;` sixteen (`'+'`, `'*'`, `'=='`, …).
+  included, `import ISQ::*` alone brings eight colliding pairs, each a quantity ISO 80000
+  defines in two parts: from `ISQElectromagnetism` (IEC 80000-6) and `ISQAtomicNuclear`
+  (ISO 80000-10) `MagneticDipoleMomentValue`, `MagneticDipoleMomentUnit`,
+  `CartesianMagneticDipoleMoment3dVector`, `CartesianMagneticDipoleMoment3dCoordinateFrame`,
+  `magneticDipoleMoment` and `cartesianMagneticDipoleMoment3dVector` (two different
+  quantities, L^3·M·T^-2·I^-1 and L^2·I); from `ISQSpaceTime` (ISO 80000-3) and
+  `ISQCondensedMatter` (ISO 80000-12) `CartesianDisplacement3dVector` and
+  `cartesianDisplacement3dVector`. Under §7.2.5.4 (next paragraph) none of the eight is a
+  member of `ISQ`; a first-match reader binds the Electromagnetism or SpaceTime one, and the
+  library's own `SI.sysml` trips over that at lines 233 and 303, which the declared errata
+  overlay qualifies ([omg-issues.md](omg-issues.md), "Defects in the vendored quantity
+  libraries"). `import NumericalFunctions::*; import DataFunctions::*;` brings sixteen more
+  (`'+'`, `'*'`, `'=='`, …), the operator overloads invocation selects among by argument type.
   Model-vs-library pairs are likewise not reported.
+
+**What the specification makes of an imported collision.** The warning's name says
+"indistinguishable", but KerML does not leave two imported memberships of one name standing to
+be judged by `validateNamespaceDistinguishibility`: §7.2.5.4 — "if the member name or member
+short name of any imported membership conflicts with the name of any owned member, *or with the
+name of any visible membership from any other imported namespace*, then the conflicting
+membership is hidden and is not included in the set of imported memberships of the importing
+namespace" — and §8.3.2.4.5 `Namespace::importedMemberships(excluded)` ("excluding Memberships
+that have distinguishability collisions with each other or with any ownedMembership") remove
+both. The namespace is well-formed; the name resolves to nothing in it, so `resolveLocal` walks
+on to the outer scopes and an unqualified `Engine` in `C` is unresolved. Neither tool does
+that: the pilot's `NamespaceImportAdapter.importMemberships` adds every visible membership of
+the imported namespace, hiding by owned names only, so `C::Engine` resolves to the first import's
+member; OpenSysML resolves the same way (`lookupImports`, in owned-import order), deliberately,
+so that the two implementations agree on what every reference binds to. The warning is what
+marks the deviation: it is reported on exactly the memberships §7.2.5.4 hides, where the spec
+would leave the reference dangling and both tools bind it. A model that wants the spec's
+outcome qualifies the name.
 - *Private imports count:* visibility governs what `C` re-exports, not what it imports.
 - *Overload sets are not exempt.* Two `calc def pick` reached through `import A::*; import B::*;`
   are indistinguishable memberships like two owned `pick` are, which already warn
@@ -604,14 +631,20 @@ Namespace, including (at least) the union of `ownedMemberships` and `importedMem
 as above. §8.3.2.4.4 `Import::importedMemberships`, `Namespace::importedMemberships(excluded)`
 ("excluding … a Membership whose … name is the same as an ownedMembership's").
 
-**Assessment:** spec clear, pilot short: it checks owned and inherited memberships only, so an
-importing namespace whose imports collide is never reported, and the toolkit's use-site error
-reports it in the wrong place. Ours follows the specification on the namespace, with the
-exclusions listed above as the adjudicated readings.
+**Assessment:** spec clear, both implementations short in the same way: §7.2.5.4 hides a name
+two imports bring, so the reference does not resolve; the pilot binds the first import's member
+and reports nothing, and OpenSysML binds the same member and warns at the import that brought
+the collision. The toolkit's use-site error has the spec's outcome (the name is unresolved) but
+reports it as an ambiguity at the reference rather than a hidden name at the namespace. The
+exclusions listed above are the adjudicated readings.
 
-**Question for the authors:** two memberships of one element — an alias beside the element, or a
+**Questions for the authors:** two memberships of one element — an alias beside the element, or a
 membership import beside a wildcard that surfaces it — are indistinguishable by the letter of
-§8.3.2.4.3; is a namespace holding them intended to be ill-formed?
+§8.3.2.4.3; is a namespace holding them intended to be ill-formed? And is the pilot's
+first-import binding of a name §7.2.5.4 hides intended, given that the Quantities and Units
+library itself relies on it (`SI.sysml`:233 and 303, unqualified `MagneticDipoleMomentUnit`
+under `import ISQ::*`), and that the eight `ISQ` names above are unreachable through `ISQ` by
+the letter of the clause?
 
 ### 14. Constraints the pilot declares that the published specification does not contain
 

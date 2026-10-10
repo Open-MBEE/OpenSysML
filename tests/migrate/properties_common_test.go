@@ -29,7 +29,7 @@ func TestPropertyCommonPartsAreWrittenOnTheUsage(t *testing.T) {
 	}
 }
 
-func TestUntypedPropertiesAreReferencesOutsideConstraintDefinitions(t *testing.T) {
+func TestUntypedPropertiesAreAttributesInAndOutsideConstraintDefinitions(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_owner" name="Owner">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_plain" name="plain"/>
@@ -39,6 +39,6 @@ func TestUntypedPropertiesAreReferencesOutsideConstraintDefinitions(t *testing.T
     </packagedElement>`,
 		`<sysml:ConstraintBlock xmi:id="_constraintStereotype" base_Class="_constraint"/>`)
 	wantClean(t, "property_untyped.sysml", r)
-	wantLine(t, r.Notation, "ref plain;")
+	wantLine(t, r.Notation, "attribute plain;")
 	wantLine(t, r.Notation, "in attribute parameter[1];")
 }

@@ -241,6 +241,13 @@ message VerifyConstraintRequest {
   // solver questions are reported as the "verification_questions" capability
   // and need an SMT solver.
   string question = 5;
+  // Values for the constraint's `in` parameters, in declaration order, as
+  // RunAnalysisRequest.arguments binds a case's; an argument the constraint
+  // does not take is INVALID_ARGUMENT, as is a parameter left without an
+  // argument or default. Reported as the "verification_arguments" capability.
+  repeated Value arguments = 6;
+  // Values for `in` parameters by name; see arguments.
+  map<string, Value> named_arguments = 7;
 }
 
 // VerifyConstraintResponse carries the verdict; its engine, strength and bounds
@@ -269,6 +276,11 @@ message VerifyRequirementRequest {
   string engine = 4;
   // The question asked; see VerifyConstraintRequest.question.
   string question = 5;
+  // Values for the requirement's `in` parameters, positional and by name; see
+  // VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+  // capability.
+  repeated Value arguments = 6;
+  map<string, Value> named_arguments = 7;
 }
 
 // VerificationVerdict is what the body of a verification case answered when it

@@ -1,0 +1,35 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Definition kind="action" abstract=false variation=false name="FanOut"
+      (Membership visibility="default"
+        (Usage kind="attribute" name="armed" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Integer
+            (*ast.QualifiedName))
+          (LiteralInteger value="0")))
+      (InitialNode name="start" successor="")
+      (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (SuccessionEdge source="start" target="a")
+      (Usage kind="action" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (Usage kind="action" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (Usage kind="action" name="d" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (Membership visibility="default"
+        (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (ConnectorEnd target="a"
+            (*ast.QualifiedName))
+          (ConnectorEnd target="b"
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (TransitionMember source="a" target="c"
+          (OperatorExpr operator=">"
+            (FeatureReference name="armed")
+            (LiteralInteger value="0"))))
+      (InitialNode name="a" successor="d")
+      (IfActionNode
+        (OperatorExpr operator="=="
+          (FeatureReference name="armed")
+          (LiteralInteger value="0"))
+        (IfBranchNode kind="then"
+          (*ast.AssignmentActionNode)))
+      (SuccessionEdge source="a" target="@if")
+      (SuccessionEdge source="@if" target="b")
+      (SuccessionEdge source="@if" target="c"))))

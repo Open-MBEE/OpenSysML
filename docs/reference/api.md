@@ -79,6 +79,14 @@ satisfiable answer carries `Witness`, the free features' replayed values with th
 spellings; undecided names the reason and reports `ReasonUndecided`. A question other than evaluate
 needs the `verification_questions` capability, checked before anything is sent.
 
+`VerifyConstraint` and `VerifyRequirement` also take `VerifyArguments(values...)` and
+`VerifyArgument(name, value)`, binding the element's `in` parameters positionally in declaration
+order or by name, as `Arguments` and `Argument` bind a case's for `RunAnalysis`. A name no parameter
+has, more positional values than parameters, a parameter left without a value, default or same-named value on the checked object, or a value
+not of the parameter's type is an undecided `Verdict` naming it. Arguments need the
+`verification_arguments` capability, checked before anything is sent, and only the evaluate question
+takes them: `QuestionHolds` and `QuestionSatisfiable` leave the free features to the solver.
+
 ```go
 exploration, err := client.ExploreAction(ctx, model, "Demo::race", nil)
 for _, outcome := range exploration.Outcomes {

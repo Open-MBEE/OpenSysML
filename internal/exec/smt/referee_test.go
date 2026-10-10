@@ -43,6 +43,9 @@ type corpusCase struct {
 		Runs  *int `json:"runs"`
 		Depth *int `json:"depth"`
 	} `json:"exploreBudget"`
+	SolverBudget *struct {
+		Moves *int `json:"moves"`
+	} `json:"solverBudget"`
 }
 
 // refereeCases are the action cases of the corpus that list outcomes, by name.
@@ -262,7 +265,7 @@ func TestRefereeInputs(t *testing.T) {
 // refereeCase holds one case to the interpreter, adding to the tally.
 func refereeCase(t *testing.T, solver *solve.Solver, name string, c corpusCase, tally *refereeTally) {
 	d, action := corpusDocument(t, name, c)
-	budget := analysis.Budget{Depth: DefaultMoves, Solver: solver.Timeout}
+	budget := analysis.Budget{Depth: c.solverMoves(), Solver: solver.Timeout}
 	encoding, refusal := encodeDocument(t, d, action, budget)
 	if refusal != nil {
 		tally.refused++
@@ -598,6 +601,14 @@ func (c corpusCase) exploreBudget() runtime.ExploreBudget {
 		}
 	}
 	return budget
+}
+
+// solverMoves is the moves a case's action is encoded to.
+func (c corpusCase) solverMoves() int {
+	if c.SolverBudget != nil && c.SolverBudget.Moves != nil {
+		return *c.SolverBudget.Moves
+	}
+	return DefaultMoves
 }
 
 // explore runs every linearization of the action under the budget.

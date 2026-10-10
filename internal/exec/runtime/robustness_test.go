@@ -355,7 +355,6 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("non_terminating_do_behavior", testNonTerminatingDoBehavior)
 	t.Run("empty_anonymous_action_body", testEmptyAnonymousActionBody)
 	t.Run("non_terminating_anonymous_do_body", testNonTerminatingAnonymousDoBody)
-	t.Run("behavior_performing_an_action_and_stating_a_body", testBehaviorPerformingAnActionAndStatingABody)
 	t.Run("qualified_assignment_target_in_a_state_effect", testQualifiedAssignmentTargetInAStateEffect)
 	t.Run("call_of_unhandled_operation", testCallOfUnhandledOperation)
 	t.Run("signal_no_level_of_a_composite_state_accepts", testSignalNoLevelOfACompositeStateAccepts)
@@ -1397,14 +1396,16 @@ func testBindingNestedContainerIsNotACycle(t *testing.T) {
 }
 
 // testSuccessionGuardFailureModes: a guard on a succession leaving an ordinary
-// action node is evaluated, so its failure modes — a value that is not Boolean,
-// a guard nothing supplies a name for, and two guards holding at once — are each
-// reported as a typed error rather than a panic, a hang or a chosen branch.
+// action node is evaluated, so its failure modes — a value that is not Boolean and
+// a guard nothing supplies a name for — are each reported as a typed error rather
+// than a panic or a hang. Two guards holding at once are no failure: each
+// succession is its own HappensBefore link, so both targets are performed.
 func testSuccessionGuardFailureModes(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		body string
-		want error
+		name    string
+		body    string
+		want    error
+		results map[string]int64
 	}{
 		{
 			name: "guard is not a boolean",
@@ -1440,7 +1441,7 @@ func testSuccessionGuardFailureModes(t *testing.T) {
 				succession first check if level > 10 then alert;
 				succession first check if level > 5 then idle;
 			`,
-			want: ErrAmbiguousSuccession,
+			results: map[string]int64{"high": 1, "low": 1},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1458,7 +1459,12 @@ func testSuccessionGuardFailureModes(t *testing.T) {
 						done <- fmt.Errorf("panic: %v", r)
 					}
 				}()
-				_, err := ctx.ExecuteAction(sym)
+				results, err := ctx.ExecuteAction(sym)
+				for name, want := range tc.results {
+					if got, ok := results[name]; err == nil && (!ok || got.Const.Int != want) {
+						err = fmt.Errorf("%s = %v, want %d", name, got, want)
+					}
+				}
 				done <- err
 			}()
 			select {
@@ -3962,32 +3968,6 @@ func testNonTerminatingAnonymousDoBody(t *testing.T) {
 	}`)
 	if !errors.Is(err, ErrStepLimitExceeded) {
 		t.Errorf("expected ErrStepLimitExceeded, got: %v", err)
-	}
-}
-
-// testBehaviorPerformingAnActionAndStatingABody: a behavior that both performs
-// an action and states a body of its own is reported rather than silently
-// choosing one of the two.
-func testBehaviorPerformingAnActionAndStatingABody(t *testing.T) {
-	err := stateRunErrorForSource(t, "Machine", `package test {
-		action def Bump;
-		state Machine {
-			attribute c : Integer = 0;
-			entry; then start;
-			state start;
-			state working {
-				entry action mixed : Bump { assign c := c + 1; }
-			}
-			state done;
-			succession first start then working;
-			succession first working then done;
-		}
-	}`)
-	if err == nil {
-		t.Fatal("expected a behavior stating a body and an action to be reported")
-	}
-	if !strings.Contains(err.Error(), "stating a body of its own") {
-		t.Errorf("expected the report to name the conflict, got: %v", err)
 	}
 }
 
@@ -6873,20 +6853,24 @@ func testActionWhoseLastNodeHasNoSuccession(t *testing.T) {
 }
 
 // testFirstNodeWithASecondSuccession: `first s1 then s2;` is a succession out of
-// s1, so a second succession out of that node is ambiguous.
+// s1, so a second succession out of that node is a second HappensBefore link
+// from it, and both s2 and s3 are performed after s1.
 func testFirstNodeWithASecondSuccession(t *testing.T) {
 	src := `
 		package test {
+			private import ScalarValues::*;
 			action seq {
+				attribute two : Integer = 0;
+				attribute three : Integer = 0;
 				action s1;
-				action s2;
-				action s3;
+				action s2 { assign two := 2; }
+				action s3 { assign three := 3; }
 				first s1 then s2;
 				succession first s1 then s3;
 			}
 		}
 	`
-	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 
 	sym := findSymbolByName(idx.DocumentRoot("<test>"), "seq", ast.DefAction)
 	if sym == nil {
@@ -6898,12 +6882,12 @@ func testFirstNodeWithASecondSuccession(t *testing.T) {
 		t.Fatalf("create action executor: %v", err)
 	}
 
-	err = exec.RunToCompletion()
-	if err == nil {
-		t.Fatal("a first node with two successions ran to completion")
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("a first node with two successions: %v", err)
 	}
-	if !strings.Contains(err.Error(), "multiple successors") {
-		t.Fatalf("error = %q, want it to report multiple successors", err)
+	results := exec.Results()
+	if results["two"].Const.Int != 2 || results["three"].Const.Int != 3 {
+		t.Fatalf("two = %v, three = %v, want both successors performed", results["two"], results["three"])
 	}
 }
 
@@ -7965,15 +7949,13 @@ func testNoEntryTransitionGuardHolds(t *testing.T) {
 	}
 }
 
-// testEntryTransitionTargetIsNotAState: an entry transition starts its body in
-// a state; reaching a pseudostate instead is a typed lowering error.
+// testEntryTransitionTargetIsNotAState: a fork remains an unsupported entry target.
 func testEntryTransitionTargetIsNotAState(t *testing.T) {
 	err := stateExecutorError(t, `
 		package test {
 			state Machine {
 				entry; then pick;
-				choice pick;
-				transition first pick then idle;
+				fork pick;
 				state idle;
 			}
 		}
@@ -7982,7 +7964,7 @@ func testEntryTransitionTargetIsNotAState(t *testing.T) {
 	if !errors.As(err, &targetErr) {
 		t.Fatalf("expected EntryTransitionTargetError, got %v", err)
 	}
-	want := "create state executor: lower state machine: " + fmt.Sprintf(lower.EntryTransitionTargetFormat, "the choice pick")
+	want := "create state executor: lower state machine: " + fmt.Sprintf(lower.EntryTransitionTargetFormat, "the fork pick")
 	if err.Error() != want {
 		t.Fatalf("message:\n got %q\nwant %q", err.Error(), want)
 	}
@@ -8003,7 +7985,7 @@ func testEntryTransitionCarriesATrigger(t *testing.T) {
 	if !errors.As(err, &shapeErr) {
 		t.Fatalf("expected EntryTransitionShapeError, got %v", err)
 	}
-	want := "create state executor: lower state machine: " + fmt.Sprintf(lower.EntryTransitionShapeFormat, "a trigger")
+	want := "create state executor: lower state machine: " + lower.EntryTransitionAccepterSourceMessage
 	if err.Error() != want {
 		t.Fatalf("message:\n got %q\nwant %q", err.Error(), want)
 	}

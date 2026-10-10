@@ -226,7 +226,10 @@ specialized view is marked `(from <view>)`. The view restates no framing: every 
 viewpoint frames is checked against what the view exposes. A concern that states no condition,
 or names one that does not resolve, is reported as `unevaluable` with the reason, not as a
 pass. These verdicts are this implementation's own decisions, because SysML v2 leaves
-verification verdict semantics non-normative.
+verification verdict semantics non-normative. (The extension
+libraries these documents name are maintained upstream at
+[Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library)
+and vendored here pinned.)
 
 ```
 sysml> package Demo {

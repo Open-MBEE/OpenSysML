@@ -1669,6 +1669,22 @@ never both.
 one per assertion. All three return the `instances` they built, in the same shape as
 `Instantiate`.
 
+A constraint or requirement whose condition reads `in` parameters takes their values on the
+request: `arguments` is a positional list bound in declaration order, `namedArguments` binds by
+parameter name, and the two may be mixed, as `RunAnalysis` binds a case's inputs; the values are
+`Value` messages in the shapes [`EvaluateCalc`](#evaluatecalc) accepts. A name no parameter has,
+more positional values than parameters, a parameter left without a value, default or same-named value on the checked object, or a value
+not of the parameter's type is an undecided `verdict` whose `error` names it, not a status error.
+Only the evaluate question takes them: `holds` and `satisfiable` with any argument are
+`INVALID_ARGUMENT`, since the solver chooses the free features' values. The service advertises the
+fields as the `verification_arguments` capability; a request binding none needs it no more than
+before.
+
+```console
+$ … /VerifyRequirement -d '{"modelHash":"9794…8610","symbolId":"Demo::Under","subjectSymbolId":"Demo::sedan","namedArguments":{"limit":{"intValue":"5"}}}'
+{"verdict":{"kind":"requirement","elementId":"Demo::Under","element":"Demo::Under","holds":true,"instanceId":"1","instanceTypeId":"Demo::sedan"},"instances":[…]}
+```
+
 ```console
 $ … /VerifyConstraint -d '{"modelHash":"9794…8610","symbolId":"Demo::Vehicle::massPositive"}'
 {"verdict":{"kind":"constraint","elementId":"Demo::Vehicle::massPositive","element":"Demo::Vehicle::massPositive","holds":true}}
@@ -1982,9 +1998,9 @@ $ … /Migrate -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
   "report": {
     "source": "Vehicle.xmi",
     "exporter": "Example UML Tool",
-    "summary": "migrated 93 element(s): 78 mapped, 12 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)",
-    "mapped": 78,
-    "approximated": 12,
+    "summary": "migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)",
+    "mapped": 77,
+    "approximated": 13,
     "unmapped": 3,
     "skipped": 2
   }

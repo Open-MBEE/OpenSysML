@@ -1,0 +1,95 @@
+exit: start
+enter: working (entry action)
+stmt action body
+  stmt declare k
+    eval literal 3 -> 3
+  stmt while
+    iteration 1
+        eval feature k -> 3
+        eval literal 0 -> 0
+      eval operator > -> true
+enter action node: loop body of state behavior <anonymous>
+      stmt assign log
+            eval feature log -> 0
+            eval literal 10 -> 10
+          eval operator * -> 0
+          eval feature k -> 3
+        eval operator + -> 3
+      stmt assign k
+          eval feature k -> 3
+          eval literal 1 -> 1
+        eval operator - -> 2
+leave action node: loop body of state behavior <anonymous>
+    iteration 2
+        eval feature k -> 2
+        eval literal 0 -> 0
+      eval operator > -> true
+enter action node: loop body of state behavior <anonymous>
+      stmt assign log
+            eval feature log -> 3
+            eval literal 10 -> 10
+          eval operator * -> 30
+          eval feature k -> 2
+        eval operator + -> 32
+      stmt assign k
+          eval feature k -> 2
+          eval literal 1 -> 1
+        eval operator - -> 1
+leave action node: loop body of state behavior <anonymous>
+    iteration 3
+        eval feature k -> 1
+        eval literal 0 -> 0
+      eval operator > -> true
+enter action node: loop body of state behavior <anonymous>
+      stmt assign log
+            eval feature log -> 32
+            eval literal 10 -> 10
+          eval operator * -> 320
+          eval feature k -> 1
+        eval operator + -> 321
+      stmt assign k
+          eval feature k -> 1
+          eval literal 1 -> 1
+        eval operator - -> 0
+leave action node: loop body of state behavior <anonymous>
+    iteration 4
+        eval feature k -> 0
+        eval literal 0 -> 0
+      eval operator > -> false
+enter: nstart
+transition: start -> working
+do: working
+stmt action body
+  stmt assign log
+        eval feature log -> 321
+        eval literal 10 -> 10
+      eval operator * -> 3210
+      eval literal 8 -> 8
+    eval operator + -> 3218
+exit: nstart
+enter: nested (entry action)
+stmt action body
+  stmt assign log
+        eval feature log -> 3218
+        eval literal 10 -> 10
+      eval operator * -> 32180
+      eval literal 7 -> 7
+    eval operator + -> 32187
+transition: nstart -> nested
+do: nested
+stmt action body
+exit: nested (exit action)
+stmt action body
+enter: done
+transition: nested -> done
+exit: done
+exit: working (exit action)
+stmt action body
+  stmt assign log
+        eval feature log -> 32187
+        eval literal 10 -> 10
+      eval operator * -> 321870
+      eval literal 9 -> 9
+    eval operator + -> 321879
+enter: finished
+transition: working -> finished

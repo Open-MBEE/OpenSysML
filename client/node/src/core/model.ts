@@ -8,7 +8,7 @@ import {
   requireCapability,
   upgradeRemedy,
 } from "./capabilities.js";
-import type { Connection } from "./connection.js";
+import type { Connection, VerifyOptions } from "./connection.js";
 import { requireString, requireSourceText } from "./arguments.js";
 import { EvaluationError, OpenSysMLError, ParseError, SymbolNotFoundError } from "./errors.js";
 import { requireLanguage } from "./sources.js";
@@ -490,7 +490,7 @@ export class Model {
   /** Asks whether a constraint of this model holds. */
   verifyConstraint(
     symbolId: string,
-    options: { subject?: string; engine?: string; question?: string } = {},
+    options: VerifyOptions = {},
   ): Promise<Verdict> {
     return this.connection.verifyConstraint(this.hash, symbolId, options);
   }
@@ -498,7 +498,7 @@ export class Model {
   /** Asks whether a requirement of this model is satisfied. */
   verifyRequirement(
     symbolId: string,
-    options: { subject?: string; engine?: string; question?: string } = {},
+    options: VerifyOptions = {},
   ): Promise<Verdict> {
     return this.connection.verifyRequirement(this.hash, symbolId, options);
   }

@@ -88,10 +88,10 @@ package Shop {
             maxDepth = 1);
         DocumentQueries::Project(
             source = DocumentQueries::Except(
-                source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
                 exclude = DocumentQueries::Except(
                     source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
-                    exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
+                    exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
             properties = ("qualifiedName", "@type"))
     }
     part def 'Catalog Map Document' :> DocumentQueries::Document {

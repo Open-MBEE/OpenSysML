@@ -36,9 +36,9 @@ package Structure {
             binding 'set speed.value = target' bind 'set speed'.value = target;
             metadata MigrationMetadata::SynthesizedName about 'start to gain', final, 'gain.result to set speed.value', 'set speed.value = target';
         }
-        satisfy requirement 'satisfy Mass Limit' : RequirementsModel::'Mass Limit';
-        satisfy requirement : RequirementsModel::'Speed Limit';
-        satisfy requirement 'satisfy Speed Limit' : RequirementsModel::'Speed Limit';
+        satisfy requirement 'satisfy Mass Limit' :> RequirementsModel::'Mass Limit';
+        satisfy RequirementsModel::'Speed Limit';
+        satisfy requirement 'satisfy Speed Limit' :> RequirementsModel::'Speed Limit';
         view 'Vehicle Internals' {
             expose engine;
             expose wheel;
@@ -53,7 +53,7 @@ package Structure {
         metadata MigrationMetadata::SynthesizedName about 'engine to wheel', 'engine to wheel 2', 'mass = limit', 'satisfy Mass Limit', 'satisfy Speed Limit';
     }
     part def Engine :> Component {
-        satisfy requirement 'satisfy Speed Limit' : RequirementsModel::'Speed Limit';
+        satisfy requirement 'satisfy Speed Limit' :> RequirementsModel::'Speed Limit';
         metadata MigrationMetadata::SynthesizedName about 'satisfy Speed Limit';
     }
     part def Wheel;
@@ -101,15 +101,15 @@ package Behavior {
     }
 }
 package RequirementsModel {
-    requirement def <R1> 'Mass Limit' {
+    requirement <R1> 'Mass Limit' {
         doc /* The vehicle shall weigh less than 1500 kg. */
     }
-    requirement def <R2> 'Speed Limit' {
+    requirement <R2> 'Speed Limit' {
         doc /* The vehicle shall not exceed 120 km/h. */
     }
     verification def 'Mass Test' {
         objective 'objective' {
-            verify requirement 'verify Mass Limit' : 'Mass Limit';
+            verify requirement 'verify Mass Limit' :> 'Mass Limit';
             metadata MigrationMetadata::SynthesizedName about 'verify Mass Limit';
         }
         metadata MigrationMetadata::SynthesizedName about 'objective';
@@ -126,18 +126,19 @@ package RequirementsModel {
     }
 }
 package Usage {
-    use case def 'Drive Vehicle' {
-        include use case 'start Engine' : 'Start Engine';
-        include use case 'stop Engine' : 'Stop Engine';
-        metadata MigrationMetadata::SynthesizedName about 'start Engine', 'stop Engine';
+    use case 'Drive Vehicle' {
+        include 'Start Engine';
+        include 'Stop Engine';
     }
-    use case def 'Start Engine';
-    use case def 'Stop Engine';
+    use case 'Start Engine';
+    use case 'Stop Engine';
+    connection 'Drive Vehicle includes Start Engine' connect 'Drive Vehicle' to 'Start Engine';
+    connection 'Drive Vehicle includes Stop Engine' connect 'Drive Vehicle' to 'Stop Engine';
     view 'Driving Cases' {
         expose 'Drive Vehicle';
         expose 'Start Engine';
-        expose Usage::'Drive Vehicle'::'start Engine';
-        render Views::asTextualNotation;
+        expose 'Drive Vehicle includes Start Engine';
+        render Views::asInterconnectionDiagram;
     }
 }
 metadata MigrationMetadata::LibraryNameAvoided about RequirementsModel { sourceName = "Requirements"; }

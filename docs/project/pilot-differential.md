@@ -109,6 +109,9 @@ build/pilot-sysml-validator/validate-sysml-batch \
     --extension-library "internal/workspace/libs/stdlib/OpenSysML Libraries" model.sysml
 ```
 
+The extensions under it are maintained upstream at Open-MBEE/OpenSysML-Extensions-Library and
+vendored here pinned by `scripts/extension-libraries-pin.sh`.
+
 This harness still hands each language to its own bridge (a `.kerml` file of a root goes to
 `validate-kerml`, with the same libraries).
 
@@ -3125,14 +3128,15 @@ baseline did not move.
 
 ### Imported-membership distinguishability round
 
-`validateNamespaceDistinguishibility` now ranges over the memberships imports bring in as well
-as the owned and inherited ones ([spec-pilot-gap-register.md](spec-pilot-gap-register.md) §13,
-"Imported memberships"): two imports surfacing members of one name or short name whose
-metaclasses conform warn once per name, on the import bringing the later membership, naming the
-colliding members and their imports — `Duplicate of imported member name 'Engine': A::Engine
-(import A::*), B::Engine (import B::*)`. The pilot compares owned and inherited memberships only,
-so every one of these rows is only-ours and the pilot is expected to stay silent; they are a
-known pilot omission, not candidate false positives. Nothing else moved: the agreed, severity-only
+The duplicate-name warning now covers the memberships imports bring in as well as the owned
+and inherited ones ([spec-pilot-gap-register.md](spec-pilot-gap-register.md) §13, "Imported
+memberships"): two imports surfacing members of one name or short name whose metaclasses conform
+warn once per name, on the import bringing the later membership, naming the colliding members
+and their imports — `Duplicate of imported member name 'Engine': A::Engine (import A::*),
+B::Engine (import B::*)`. KerML 7.2.5.4 hides such a pair from the importing namespace; the pilot
+instead binds the first import's member and compares owned and inherited memberships only, so
+every one of these rows is only-ours and the pilot is expected to stay silent; they are a known
+pilot omission, not candidate false positives. Nothing else moved: the agreed, severity-only
 and only-pilot columns are what they were, and the `testdata` root gained one file,
 `resolve/imports.sysml`, the fixture of the new rule (two rows).
 

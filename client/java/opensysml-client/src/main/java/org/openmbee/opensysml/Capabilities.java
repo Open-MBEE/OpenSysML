@@ -30,6 +30,9 @@ public final class Capabilities {
   /** The verification RPCs answer {@code holds} and {@code satisfiable} questions, reporting a verdict's status and witness. */
   public static final String VERIFICATION_QUESTIONS = "verification_questions";
 
+  /** {@code VerifyConstraint} and {@code VerifyRequirement} bind {@code arguments} and {@code named_arguments} to the element's {@code in} parameters. */
+  public static final String VERIFICATION_ARGUMENTS = "verification_arguments";
+
   /** An analysis response carries each call the run made to a calc held as a value, such as a trade study's evaluation of every alternative. */
   public static final String CASE_EVALUATIONS = "case_evaluations";
 

@@ -204,6 +204,9 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 		if len(expected.Performers) > 0 {
 			tracePerformers(t, ctx, idx, trace, stateSym, expected.Performers)
 		} else {
+			if expected.Trace && expected.Terminated && len(expected.Events) == 0 {
+				ctx.SetTrace(trace)
+			}
 			exec, err := ctx.CreateStateExecutor(stateSym)
 			if err != nil {
 				t.Fatalf("create state executor: %v", err)
@@ -215,8 +218,13 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 			// rather than only the initial entry.
 			injectEvents(t, exec, expected.Events)
 
-			if err := exec.RunToCompletion(); err != nil {
-				t.Fatalf("state execution: %v", err)
+			err = exec.RunToCompletion()
+			if expected.Error == "" {
+				if err != nil {
+					t.Fatalf("state execution: %v", err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), expected.Error) {
+				t.Fatalf("state execution error = %v, want an error containing %q", err, expected.Error)
 			}
 		}
 		traceOutput = trace.String()
