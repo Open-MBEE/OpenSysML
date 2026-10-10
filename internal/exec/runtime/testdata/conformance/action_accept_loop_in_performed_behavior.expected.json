@@ -1,0 +1,7 @@
+{
+	"type": "action",
+	"libraries": true,
+	"outputs": {
+		"got": {"type": "Integer", "value": 7}
+	}
+}
