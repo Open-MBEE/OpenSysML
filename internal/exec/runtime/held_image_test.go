@@ -151,13 +151,15 @@ func TestHeldImageCarriesAnEntryBoundary(t *testing.T) {
 	if len(decls) != 1 {
 		t.Fatalf("Host has %d classifier behaviors, want one", len(decls))
 	}
-	behavior, err := ctx.attachClassifierBehavior(host, decls[0])
+	behaviors, err := ctx.attachClassifierBehavior(host, decls[0])
 	if err != nil {
 		t.Fatalf("attachClassifierBehavior: %v", err)
 	}
-	behavior.binding = 0
-	host.behaviors = append(host.behaviors, behavior)
-	ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+	for _, behavior := range behaviors {
+		behavior.binding = 0
+		host.behaviors = append(host.behaviors, behavior)
+	}
+	ctx.objectBehaviors = append(ctx.objectBehaviors, behaviors...)
 	state, ok := host.ExhibitedState()
 	if !ok {
 		t.Fatal("Host exhibits no state machine")
@@ -535,6 +537,31 @@ func TestHeldImageCarriesAParkedAction(t *testing.T) {
 	if original, _ := waiter.Behavior("await"); original.Action.State() != StateWaiting {
 		t.Errorf("the source's await is %v, want still waiting", original.Action.State())
 	}
+}
+
+// A repeated performed action's image binds each copied behavior its own
+// occurrence: the run feature holds one distinct occurrence per performance.
+func TestHeldImageCarriesDistinctRepeatedOccurrences(t *testing.T) {
+	const source = `
+		private import ScalarValues::*;
+		part def Performer {
+			attribute visits : Integer = 0;
+			perform action run[2] {
+				action heard accept g : Integer;
+				first start then heard;
+			}
+		}
+	`
+	idx, _, src := buildRuntimeWithLibraries(t, "repeated-performer.sysml", parseAndBuild(t, source))
+	performer, err := src.Instantiate(resolveSymbol(t, idx.DocumentRoot("repeated-performer.sysml"), "Performer"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	assertDistinctRunOccurrences(t, src, performer)
+
+	dst := imageInto(t, src, performer)
+	copied, _ := dst.Instance(performer.ID)
+	assertDistinctRunOccurrences(t, dst, copied)
 }
 
 // lampMachine is the machine the bulb exhibits.
