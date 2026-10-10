@@ -294,14 +294,32 @@ func (m *migration) planConnections(rels []*sysmlv1.Element) {
 		if from == nil || to == nil || !m.written(from) || !m.written(to) {
 			continue
 		}
-		name := m.nameOf(r)
-		if name == "" {
-			name = spoken(writeName(m.nameFor(from))) + " " + verb + " " + spoken(writeName(m.nameFor(to)))
+		c := m.kindConnection(r, m.nameOf(r), from, to, verb)
+		if c == nil {
+			continue
 		}
-		if c := m.usageConnection(r, name, from, to); c != nil && r.Type == "Extend" && m.extensionDetail(r) != "" {
-			c.doc = m.extendComment(r)
+		if detail := m.extensionDetail(r); detail != "" {
+			if c.doc == "" {
+				c.doc = "extends"
+			}
+			c.doc += " " + detail
 		}
 	}
+}
+
+// kindConnection writes the connection a relationship of a kind is drawn as,
+// named "A refines B" by its kind unless its author named it, when the kind
+// is the connection's doc instead.
+func (m *migration) kindConnection(r *sysmlv1.Element, name string, from, to *sysmlv1.Element, verb string) *defConn {
+	kind := spoken(writeName(m.nameFor(from))) + " " + verb + " " + spoken(writeName(m.nameFor(to)))
+	if m.nameOf(r) == "" {
+		name = kind
+	}
+	c := m.usageConnection(r, name, from, to)
+	if c != nil && name != kind {
+		c.doc = kind
+	}
+	return c
 }
 
 // extendComment is the comment an extend's connection or dependency carries:

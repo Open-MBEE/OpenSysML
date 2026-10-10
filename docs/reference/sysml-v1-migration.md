@@ -145,6 +145,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | Slot of a part, item or constraint property holding one instance | `individual part :>> x : 'the instance';` — `ref` when the property is | mapped |
 | Slot of a part, item or constraint property holding several instances | `part :>> x [n];` then one `individual part : 'the instance' :> x;` each | mapped |
 | InstanceSpecification of a value type | `attribute` typed by it, holding its slot values (an individual cannot specialize an attribute def) | mapped |
+| InstanceSpecification of an actor or of a use case | not written: the classifier is a `part` or `use case` usage once migrated, which an individual cannot specialize | unmapped |
 | InstanceSpecification naming no classifier, under a `SimulationConfig`'s `resultLocation`, whose slots are of features of one lineage of blocks ending in the configuration's target classifier or a general of it (a simulation tool's result snapshot) | the `individual part def` of the most special of those blocks, with its slots; the note says which owner classified it and for which configuration | mapped |
 | InstanceSpecification naming no classifier, anywhere else, or under a `resultLocation` with slots of features of blocks that are no one lineage or none the target is of | comment | **unmapped** — nothing classifies it; under a `resultLocation` the note says which owners its slots have and why they type no snapshot |
 | Slot contradicting its feature (more values than the multiplicity allows, a repeated value of a feature written unique — declared so in v1, or written without its `nonunique` by the rule above — a feature of a classifier the instance is not written to specialize, an instance that is not of the property's type or of its default individual, a value outside the document) | comment | **unmapped** |
@@ -415,10 +416,10 @@ otherwise a name spelled from what it is written between, in the body it is writ
 | Transition | `transition 'S accept Sig then T' first S accept Sig then T;` — the trigger, guard and target as written, the payload binding left out of the name; several triggers are several transitions, each named for its own trigger (a v1 name is numbered, `halt`, `halt2`), and the edge's route pins every one of them |
 | Connector | `connection 'a.p to b.q' connect a.p to b.q;` |
 | BindingConnector, delegation connector | `binding 'a.p = b.q' bind a.p = b.q;` |
-| Dependency, Extend, «Refine» | `dependency 'A to B' from A to B;` (`allocation` for an «Allocate»; `connection 'A extends B' connect A to B;` for an Extend, `connection 'A refines B' connect A to B;` for a «Refine» between usages); several clients or suppliers are several dependencies, one per pair, and the view exposes each |
+| Dependency, Extend, «Refine» | `dependency 'A to B' from A to B;` (`allocation` for an «Allocate»; `connection 'A extends B' connect A to B;` for an Extend, `connection 'A refines B' connect A to B;` for a «Refine» between usages; a relationship its author named keeps that name, and the connection's `doc` is its kind, `doc /* A refines B */`); several clients or suppliers are several dependencies, one per pair, and the view exposes each |
 | «Satisfy» | `satisfy requirement 'satisfy R' : R;` in the satisfying usage's owner, one per client in its own owner's body, and the view exposes each |
 | «Verify» | `verify requirement 'verify R' : R;` in the test case's `objective`, which is named `objective` so the member can be qualified; one per pair, as for a «Satisfy» |
-| Include, Message | `connection 'A includes B' connect A to B;` for an Include; the interaction step `action x …` is an already named member |
+| Include, Message | `connection 'A includes B' connect A to B;` for an Include (a named one keeps its name, the kind its `doc`); the interaction step `action x …` is an already named member |
 
 The name is a spelling, not a value: it derives from the ends' written names, never from ids or
 hashes, so it is stable across runs and readable in the view (`expose 'Wait accept QueryCompleted

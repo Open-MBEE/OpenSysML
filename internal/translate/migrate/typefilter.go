@@ -111,23 +111,24 @@ func occurrenceAwareTypes(types []string, include, exclude, note string) v2Types
 var behaviorTypes = []string{typeActionDef, typeCalcDef, typeStateDef, typeVerificationDef}
 
 // classifierTypes are what a UML type, which is always a classifier, migrates
-// to: a definition, or the view or viewpoint usage a «View» or «Viewpoint»
-// class becomes.
-var classifierTypes = []string{typeDefinition, typeViewUsage, typeViewpointUsage}
+// to: a definition, the view or viewpoint usage a «View» or «Viewpoint» class
+// becomes, or the use case usage a use case becomes. An actor's part usage is
+// left out: by type, a query cannot tell it from the part a property becomes.
+var classifierTypes = []string{typeDefinition, typeViewUsage, typeViewpointUsage, typeUseCaseUsage}
 
 // namespaceTypes add to the classifiers the packages and the states, which are
 // namespaces in UML; a «View» package is a view usage too.
-var namespaceTypes = []string{typePackage, typeDefinition, typeViewUsage, typeViewpointUsage, typeStateUsage}
+var namespaceTypes = []string{typePackage, typeDefinition, typeViewUsage, typeViewpointUsage, typeUseCaseUsage, typeStateUsage}
 
 // packageableTypes are what the elements a package can own migrate to: the
 // classifiers, packages, and the dependencies of every stereotype.
-var packageableTypes = []string{typePackage, typeDefinition, typeViewUsage, typeViewpointUsage,
+var packageableTypes = []string{typePackage, typeDefinition, typeViewUsage, typeViewpointUsage, typeUseCaseUsage,
 	typeDependency, typeSatisfyUsage, typeAllocationUsage}
 
 // Notes on what the broad UML metaclasses list once migrated.
 const (
-	noteDiagramViews    = "the views diagrams became are listed too"
-	noteClassifierExtra = "the views diagrams became and the action defs operations became are listed too"
+	noteDiagramViews    = "the views diagrams became are listed too; actors, part usages once migrated, are not"
+	noteClassifierExtra = "the views diagrams became and the action defs operations became are listed too; actors, part usages once migrated, are not"
 	elementTypeSubject  = "the element type "
 )
 

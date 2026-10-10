@@ -1385,7 +1385,8 @@ func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 	r := migrateDocument(t, namedRelationModel, namedRelationApplications)
 	wantLine(t, r.Notation, "satisfy requirement sat : Req by piece;")
 	wantLine(t, r.Notation, "verify requirement ver : Req;")
-	wantLine(t, r.Notation, "connection 'ref' connect thing to req;")
+	wantLine(t, r.Notation, "connection 'ref' connect thing to req {")
+	wantLine(t, r.Notation, "doc /* Thing refines Req */")
 	wantLine(t, r.Notation, "allocation def alloc {")
 	wantLine(t, r.Notation, "end :>> source : Thing;")
 	wantLine(t, r.Notation, "end :>> target : Piece;")
@@ -1723,8 +1724,10 @@ func TestRefineWithSeveralEndsIsAConnectionPerPair(t *testing.T) {
 	// A named refine keeps its name on the first pair and numbers the others.
 	r = migrateDocument(t, refineEndsModel+`
     <packagedElement xmi:type="uml:Abstraction" xmi:id="_ref" name="Link" client="_alpha _beta" supplier="_r"/>`, refineEndsApplications)
-	wantLine(t, r.Notation, "connection Link connect Alpha to req;")
-	wantLine(t, r.Notation, "connection 'Link 2' connect Beta to req;")
+	wantLine(t, r.Notation, "connection Link connect Alpha to req {")
+	wantLine(t, r.Notation, "doc /* Alpha refines Req */")
+	wantLine(t, r.Notation, "connection 'Link 2' connect Beta to req {")
+	wantLine(t, r.Notation, "doc /* Beta refines Req */")
 	wantNoLine(t, r.Notation, "connection 'Link 2 2'")
 }
 
@@ -1735,7 +1738,7 @@ func TestConnectionNameYieldsToAPackageMember(t *testing.T) {
     <packagedElement xmi:type="uml:UseCase" xmi:id="_link" name="Link"/>
     <packagedElement xmi:type="uml:Abstraction" xmi:id="_ref" name="Link" client="_alpha" supplier="_r"/>`, refineEndsApplications)
 	wantLine(t, r.Notation, "use case Link;")
-	wantLine(t, r.Notation, "connection 'Link 2' connect Alpha to req;")
+	wantLine(t, r.Notation, "connection 'Link 2' connect Alpha to req {")
 	wantNoLine(t, r.Notation, "connection Link ")
 	if got := entriesFor(r, "_ref"); len(got) != 1 || got[0].Verdict != migrate.Approximated || got[0].Target != "'Link 2'" {
 		t.Errorf("_ref: entries = %+v, want one approximated 'Link 2'", got)

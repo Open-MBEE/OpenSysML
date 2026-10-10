@@ -57,7 +57,9 @@ package 'Use Cases' {
         metadata MigrationMetadata::SynthesizedName about 'park Car', 'wait For Space';
     }
     connection 'Park Car includes Pay Fee' connect 'Park Car' to 'Pay Fee';
-    connection authorise connect 'Pay Fee' to 'Authorise Payment';
+    connection authorise connect 'Pay Fee' to 'Authorise Payment' {
+        doc /* Pay Fee includes Authorise Payment */
+    }
     connection 'Wait For Space extends Park Car' connect 'Wait For Space' to 'Park Car' {
         doc /* extends at extension point(s) 'garage full' when {English} no bay is free */
     }

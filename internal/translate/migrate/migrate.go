@@ -3626,11 +3626,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 	if has(d, "Refine") {
 		conn := m.pairConn(d, client, supplier)
 		if conn == nil {
-			connName := name
-			if m.nameOf(d) == "" {
-				connName = spoken(writeName(m.nameFor(client))) + " refines " + spoken(writeName(m.nameFor(supplier)))
-			}
-			conn = m.usageConnection(d, connName, client, supplier)
+			conn = m.kindConnection(d, name, client, supplier, "refines")
 		}
 		if conn != nil {
 			m.wroteEdgeAlso(d, conn.host, "connection", nil, conn.name)
