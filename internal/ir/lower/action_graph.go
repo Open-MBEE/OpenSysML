@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -1065,7 +1066,7 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 func (l *actionEdgeLowerer) addEdge(edge ActionEdge) {
 	if l.nodes != nil {
 		for _, existing := range l.graph.Edges[edge.Source] {
-			if sameUnconditionalActionEdge(existing, edge) && l.graph.declaredIn[existing.Decl] == nil {
+			if sameUnconditionalActionEdge(l.graph, existing, edge) && l.graph.declaredIn[existing.Decl] == nil {
 				return
 			}
 		}
@@ -1073,14 +1074,46 @@ func (l *actionEdgeLowerer) addEdge(edge ActionEdge) {
 	l.graph.Edges[edge.Source] = append(l.graph.Edges[edge.Source], edge)
 }
 
-func sameUnconditionalActionEdge(existing, edge ActionEdge) bool {
+func sameUnconditionalActionEdge(graph *ActionGraph, existing, edge ActionEdge) bool {
 	return existing.Source == edge.Source &&
 		existing.Target == edge.Target &&
 		existing.Guard == nil && edge.Guard == nil &&
 		existing.Probability == nil && edge.Probability == nil &&
 		existing.Name == "" && edge.Name == "" &&
 		existing.Gate == nil && edge.Gate == nil &&
-		!existing.Carries && !edge.Carries
+		!existing.Carries && !edge.Carries &&
+		sameActionEdgeMultiplicities(graph, existing, edge)
+}
+
+func sameActionEdgeMultiplicities(graph *ActionGraph, existing, edge ActionEdge) bool {
+	model := semantics.NewModel(graph.resolver)
+	return sameActionEdgeEndMultiplicity(graph, model,
+		existing.SourceMultiplicity, existing.Decl, existing.Target,
+		edge.SourceMultiplicity, edge.Decl, edge.Target) &&
+		sameActionEdgeEndMultiplicity(graph, model,
+			existing.TargetMultiplicity, existing.Decl, existing.Target,
+			edge.TargetMultiplicity, edge.Decl, edge.Target)
+}
+
+func sameActionEdgeEndMultiplicity(
+	graph *ActionGraph,
+	model *semantics.Model,
+	existing *ast.Multiplicity,
+	existingDecl ast.Node,
+	existingStep ast.Node,
+	edge *ast.Multiplicity,
+	edgeDecl ast.Node,
+	edgeStep ast.Node,
+) bool {
+	if existing == nil || edge == nil {
+		return existing == nil && edge == nil
+	}
+	existingBounds, err := graph.crossingRange(existingStep, existing, existingDecl, model)
+	if err != nil {
+		return false
+	}
+	edgeBounds, err := graph.crossingRange(edgeStep, edge, edgeDecl, model)
+	return err == nil && existingBounds == edgeBounds
 }
 
 func (l *actionEdgeLowerer) endpoint(ref ast.Node, member ast.Node, source bool) (ast.Node, error) {

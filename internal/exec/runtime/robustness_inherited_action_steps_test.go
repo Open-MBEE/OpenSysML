@@ -77,6 +77,50 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		assertIntOutput(t, outputs, "observed", 2)
 	})
 
+	t.Run("inherited_succession_plain_restatement_is_refused", func(t *testing.T) {
+		_, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				out attribute c : Integer = 0;
+				action p;
+				action a[3] { assign c := c + 1; }
+				succession first [1] p then [3] a;
+			}
+			action def Derived :> Base {
+				succession first p then a;
+			}
+		}`, "Derived")
+		if !errors.Is(err, ErrActionStepMultiplicity) {
+			t.Fatalf("ExecuteAction(Derived) error = %v, want ErrActionStepMultiplicity", err)
+		}
+		var stepErr *lower.StepMultiplicityError
+		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderUnsatisfiableCode {
+			t.Fatalf("ExecuteAction(Derived) error = %v, want %s", err, lower.StepOrderUnsatisfiableCode)
+		}
+	})
+
+	t.Run("inherited_succession_matching_restatement_runs_repeated_step", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			action def Base {
+				out attribute c : Integer = 0;
+				action p;
+				action a[3] { assign c := c + 1; }
+				succession first [1] p then [3] a;
+			}
+			action def Derived :> Base {
+				succession first [1] p then [3] a;
+			}
+		}`
+		for _, action := range []string{"Base", "Derived"} {
+			outputs, err := executeInheritedAction(t, src, action)
+			if err != nil {
+				t.Fatalf("ExecuteAction(%s): %v", action, err)
+			}
+			assertIntOutput(t, outputs, "c", 3)
+		}
+	})
+
 	t.Run("specialized_body_binding_replaces_inherited_binding", func(t *testing.T) {
 		outputs, err := executeInheritedAction(t, `package test {
 			private import ScalarValues::*;

@@ -1064,6 +1064,69 @@ func TestToActionGraphTypedUsageOverridesMatchingInheritedSuccession(t *testing.
 	}
 }
 
+func TestToActionGraphPreservesInheritedSuccessionMultiplicitiesWhenRestated(t *testing.T) {
+	src := `
+		action def Base {
+			action p;
+			action a[3];
+			succession first [1] p then [3] a;
+		}
+		action def Plain :> Base {
+			succession first p then a;
+		}
+		action def Matching :> Base {
+			succession first [1] p then [3] a;
+		}
+	`
+	for _, test := range []struct {
+		name      string
+		wantEdges int
+		wantCheck bool
+	}{
+		{name: "plain_restatement", wantEdges: 2, wantCheck: false},
+		{name: "matching_restatement", wantEdges: 1, wantCheck: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			graph := scopedActionGraph(t, src, map[string]string{
+				"plain_restatement":    "Plain",
+				"matching_restatement": "Matching",
+			}[test.name])
+			p, a := namedNode(graph, "p"), namedNode(graph, "a")
+			var edges []ActionEdge
+			for _, edge := range graph.Edges[p] {
+				if edge.Target == a {
+					edges = append(edges, edge)
+				}
+			}
+			if len(edges) != test.wantEdges {
+				t.Fatalf("p to a edges = %d, want %d", len(edges), test.wantEdges)
+			}
+			if test.name == "plain_restatement" {
+				var inherited *ActionEdge
+				for i := range edges {
+					if graph.declaredIn[edges[i].Decl] != nil {
+						inherited = &edges[i]
+						break
+					}
+				}
+				if inherited == nil || inherited.SourceMultiplicity == nil || inherited.TargetMultiplicity == nil {
+					t.Fatal("inherited p to a edge lost its endpoint multiplicities")
+				}
+			}
+			err := graph.CheckStep(a, semantics.NewModel(graph.resolver))
+			if (err == nil) != test.wantCheck {
+				t.Fatalf("CheckStep(a) = %v, want success %t", err, test.wantCheck)
+			}
+			if test.name == "plain_restatement" {
+				var stepErr *StepMultiplicityError
+				if !errors.As(err, &stepErr) || stepErr.Code != StepOrderUnsatisfiableCode {
+					t.Fatalf("CheckStep(a) error = %v, want %s", err, StepOrderUnsatisfiableCode)
+				}
+			}
+		})
+	}
+}
+
 func TestToActionGraphInheritedActionNodeFeaturesKeepDeclarationScope(t *testing.T) {
 	src := `package test {
 		action def Foo {
