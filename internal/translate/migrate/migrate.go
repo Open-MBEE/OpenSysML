@@ -4301,7 +4301,8 @@ func (m *migration) appliedStereotype(stereotype, profile string, tags []string)
 		if len(tags) > 0 {
 			text += ": " + strings.Join(tags, "; ")
 		}
-		for _, line := range strings.Split(text, "\n") {
+		// A line comment ends at any line terminator, a lone CR included.
+		for _, line := range strings.Split(strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(text), "\n") {
 			m.w.line("// " + line)
 		}
 		return

@@ -1845,10 +1845,15 @@ func TestStrictAppliedStereotypeKeepsTagLines(t *testing.T) {
     <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B"/>
     <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_a" supplier="_b"/>`,
 		`<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/>
-  <custom:Critical xmlns:custom="http://example.com/custom" xmi:id="_s3" base_Dependency="_d" level="first line&#10;second&#9;line"/>`,
+  <custom:Critical xmlns:custom="http://example.com/custom" xmi:id="_s3" base_Dependency="_d" level="first line&#10;second&#9;line&#13;third&#13;&#10;fourth"/>`,
 		migrate.Options{Strict: true})
 	wantLine(t, r.Notation, "// applied stereotype «Critical»: level = first line")
 	wantLine(t, r.Notation, "// second\tline")
+	wantLine(t, r.Notation, "// third")
+	wantLine(t, r.Notation, "// fourth")
+	if strings.Contains(string(r.Notation), "\r") {
+		t.Errorf("strict output keeps a carriage return:\n%q", r.Notation)
+	}
 	if strings.Contains(string(r.Notation), "MigrationMetadata") {
 		t.Errorf("strict output references MigrationMetadata:\n%s", r.Notation)
 	}
