@@ -1364,7 +1364,7 @@ func (m *migration) classifierHeader(e *sysmlv1.Element, cat category, name stri
 		b.WriteString(cat.keyword())
 	}
 	b.WriteByte(' ')
-	if cat == catRequirementDef {
+	if cat == catRequirement {
 		if id := m.requirementID(e); id != "" {
 			b.WriteString("<" + writeName(id) + "> ")
 		}
@@ -1409,7 +1409,7 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 	case catConstraintDef:
 		m.w.block(header, func() { m.constraintBody(e) })
 		return
-	case catRequirementDef:
+	case catRequirement:
 		m.w.block(header, func() { m.requirementBody(e) })
 		return
 	case catUseCase:
@@ -2297,7 +2297,7 @@ func (m *migration) typeKeyword(t *sysmlv1.Element) (keyword, note string) {
 			return "port", ""
 		}
 		return "port", "a property typed by an interface block is written as a port"
-	case catRequirementDef:
+	case catRequirement:
 		return "requirement", ""
 	case catActionDef:
 		return "action", ""
@@ -2572,7 +2572,7 @@ func (m *migration) featureTyping(b *strings.Builder, p, ind *sysmlv1.Element, p
 // when the type becomes a usage, as a view does, else typing.
 func (m *migration) typing(t *sysmlv1.Element) string {
 	if t != nil {
-		if cat, _ := m.classify(t); cat == catView || cat == catUseCase || cat == catActor {
+		if cat, _ := m.classify(t); cat == catView || cat == catUseCase || cat == catActor || cat == catRequirement {
 			return " :> "
 		}
 	}
@@ -3692,7 +3692,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 // of the block owning the satisfying property, returning the v2 name written,
 // a note, and whether it was written.
 func (m *migration) satisfy(d, client, req *sysmlv1.Element, name string) (string, string, bool) {
-	if rc, _ := m.classify(req); rc != catRequirementDef {
+	if rc, _ := m.classify(req); rc != catRequirement {
 		return "", "the supplier " + qualifiedName(req) + " is not a requirement", false
 	}
 	scope, by := m.usageContext(client)
@@ -3707,12 +3707,12 @@ func (m *migration) satisfy(d, client, req *sysmlv1.Element, name string) (strin
 	}
 	m.extras[scope] = append(m.extras[scope], func() {
 		m.wroteEdgeAlso(d, scope, "satisfy", nil, name)
-		decl := "satisfy requirement "
+		decl := "satisfy "
 		if name != "" {
-			decl += writeName(name) + " "
+			decl += "requirement " + writeName(name) + " :> "
 			m.madeUp(d, writeName(name))
 		}
-		decl += ": " + m.ref(req, scope)
+		decl += m.ref(req, scope)
 		if by != "" {
 			decl += " by " + by
 		}
@@ -3751,7 +3751,7 @@ func (m *migration) usageContext(client *sysmlv1.Element) (*sysmlv1.Element, str
 
 // verify places `verify requirement` in the objective of the test case.
 func (m *migration) verify(d, client, req *sysmlv1.Element, name string) (string, string, bool) {
-	if rc, _ := m.classify(req); rc != catRequirementDef {
+	if rc, _ := m.classify(req); rc != catRequirement {
 		return "", "the supplier " + qualifiedName(req) + " is not a requirement", false
 	}
 	if cc, _ := m.classify(client); cc != catVerificationDef {
@@ -3772,12 +3772,12 @@ func (m *migration) verify(d, client, req *sysmlv1.Element, name string) (string
 	}
 	m.extras[client] = append(m.extras[client], func() {
 		m.wroteEdgeAlso(d, client, "verify", nest, name)
-		decl := "verify requirement "
+		decl := "verify "
 		if name != "" {
-			decl += writeName(name) + " "
+			decl += "requirement " + writeName(name) + " :> "
 			m.madeUp(d, writeName(name))
 		}
-		m.w.block(decl+": "+m.ref(req, client), func() { m.metadataUsages(d) })
+		m.w.block(decl+m.ref(req, client), func() { m.metadataUsages(d) })
 	})
 	if name == "" {
 		return m.v2Name(client), note, true
@@ -3890,7 +3890,7 @@ func (m *migration) allocationDef(d *sysmlv1.Element, name string, client, suppl
 func (m *migration) derive(d *sysmlv1.Element, name string, derived, original *sysmlv1.Element) (string, string) {
 	dc, _ := m.classify(derived)
 	oc, _ := m.classify(original)
-	if dc != catRequirementDef || oc != catRequirementDef {
+	if dc != catRequirement || oc != catRequirement {
 		return "", "both ends of a derive must be requirements"
 	}
 	if name == "" {
@@ -3902,8 +3902,8 @@ func (m *migration) derive(d *sysmlv1.Element, name string, derived, original *s
 		m.names[d] = name
 	}
 	m.w.block("connection def "+writeName(name)+" :> RequirementDerivation::Derivation", func() {
-		m.w.line("end #RequirementDerivation::original originalRequirement : " + m.ref(original, d) + ";")
-		m.w.line("end #RequirementDerivation::derive derivedRequirement : " + m.ref(derived, d) + ";")
+		m.w.line("end #RequirementDerivation::original originalRequirement" + m.typing(original) + m.ref(original, d) + ";")
+		m.w.line("end #RequirementDerivation::derive derivedRequirement" + m.typing(derived) + m.ref(derived, d) + ";")
 		m.metadataUsages(d)
 	})
 	segs := append(m.segments(m.scope), name)
@@ -4009,7 +4009,7 @@ func (m *migration) documentation(e *sysmlv1.Element) string {
 	if vertexBase(e) != "" || e.Role == "node" || e.Type == "Region" && e.Role == "region" {
 		return ""
 	}
-	if cat, _ := m.classify(e); cat == catRequirementDef {
+	if cat, _ := m.classify(e); cat == catRequirement {
 		if text := requirementText(e); text != "" {
 			return m.proseText(text, e)
 		}

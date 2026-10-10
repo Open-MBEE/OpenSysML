@@ -209,10 +209,23 @@ func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 	return ends
 }
 
+// derivationDefinitionEnds reads a derivation def's ends: each refers to the
+// requirements typing it, and to any requirement usage it subsets or references.
 func (m *Model) derivationDefinitionEnds(sym *symbols.Symbol) []derivationEnd {
 	var ends []derivationEnd
 	for _, feature := range m.EndFeatures(sym) {
-		ends = append(ends, derivationEnd{role: m.derivationRoleOf(feature), referents: m.requirementTypes(feature)})
+		end := derivationEnd{role: m.derivationRoleOf(feature), referents: m.requirementTypes(feature)}
+		for _, rel := range relationshipsOfEnd(feature) {
+			if rel.Kind != ast.RelReferences && rel.Kind != ast.RelSubsets {
+				continue
+			}
+			target, ok := m.resolver.ResolveTarget(feature.OwnerScope, rel.Target)
+			if !ok || target == nil || m.isDerivationRoleFeature(target) || !m.conformsToLibrary(target, "Requirements::RequirementCheck") {
+				continue
+			}
+			end.referents = append(end.referents, target)
+		}
+		ends = append(ends, end)
 	}
 	return ends
 }

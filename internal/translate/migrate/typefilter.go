@@ -48,7 +48,6 @@ type typeFilterExclusion struct {
 // The v2 metaclass names the migrator's declarations report as @type.
 const (
 	typePartDef              = "PartDefinition"
-	typeRequirementDef       = "RequirementDefinition"
 	typeConstraintDef        = "ConstraintDefinition"
 	typePortDef              = "PortDefinition"
 	typeAttributeDef         = "AttributeDefinition"
@@ -91,7 +90,7 @@ const (
 )
 
 // classTypes are the definitions a UML class of any stereotype migrates to.
-var classTypes = []string{typePartDef, typeRequirementDef, typeConstraintDef, typePortDef,
+var classTypes = []string{typePartDef, typeConstraintDef, typePortDef,
 	typeVerificationDef, typeActionDef, typeStateDef, typeCalcDef, typeViewUsage, typeViewpointUsage}
 
 // propertyTypes are the usages a UML property of any type migrates to.
@@ -113,6 +112,12 @@ func occurrenceAwareTypes(types []string, include, exclude, note string) v2Types
 	}
 }
 
+// withUsages adds to t the categories whose classifiers are written as usages.
+func withUsages(t v2Types, usages ...category) v2Types {
+	t.usages = append(t.usages, usages...)
+	return t
+}
+
 // behaviorTypes are the definitions a UML behavior migrates to.
 var behaviorTypes = []string{typeActionDef, typeCalcDef, typeStateDef, typeVerificationDef}
 
@@ -123,7 +128,7 @@ var behaviorTypes = []string{typeActionDef, typeCalcDef, typeStateDef, typeVerif
 // so classifierUsages lists them by name instead.
 var classifierTypes = []string{typeDefinition, typeViewUsage, typeViewpointUsage}
 
-var classifierUsages = []category{catActor, catUseCase}
+var classifierUsages = []category{catActor, catUseCase, catRequirement}
 
 // namespaceTypes add to the classifiers the packages and the states, which are
 // namespaces in UML; a «View» package is a view usage too.
@@ -154,7 +159,7 @@ var metaclassTypes = map[string]v2Types{
 	"Model":              {types: []string{typePackage}, note: "a model is a package once migrated"},
 	"Type":               {types: classifierTypes, usages: classifierUsages, note: noteClassifierExtra},
 	"Classifier":         {types: classifierTypes, usages: classifierUsages, note: noteClassifierExtra},
-	"Class":              occurrenceAwareTypes(classTypes, typeOccurrenceDef, typeItemDef, ""),
+	"Class":              withUsages(occurrenceAwareTypes(classTypes, typeOccurrenceDef, typeItemDef, ""), catRequirement),
 	"Component":          occurrenceAwareTypes([]string{typePartDef}, typeOccurrenceDef, typeItemDef, "a component is a part def once migrated, as a block is"),
 	"Actor":              {usages: []category{catActor}},
 	"Behavior":           {types: behaviorTypes},
@@ -203,8 +208,8 @@ var actionMetaclasses = map[string]bool{"ActivityNode": true, "ExecutableNode": 
 // it migrates to.
 var stereotypeTypes = map[string]v2Types{
 	"Block":               occurrenceAwareTypes([]string{typePartDef}, typeOccurrenceDef, typeItemDef, ""),
-	"Requirement":         {types: []string{typeRequirementDef}},
-	"AbstractRequirement": {types: []string{typeRequirementDef}},
+	"Requirement":         {usages: []category{catRequirement}},
+	"AbstractRequirement": {usages: []category{catRequirement}},
 	"ConstraintBlock":     {types: []string{typeConstraintDef}},
 	"InterfaceBlock":      {types: []string{typePortDef}},
 	"ValueType":           {types: []string{typeAttributeDef, typeEnumDef}},
@@ -255,8 +260,8 @@ func (m *migration) typeFilter(ref sysmlv1.ElementRef) typeFilter {
 		switch {
 		case doc == "UML":
 			return m.nameUsages(metaclassFilter(name))
-		case stereotypeTypes[name].types != nil:
-			return fromTypes("«"+name+"»", stereotypeTypes[name])
+		case stereotypeTypes[name].types != nil || stereotypeTypes[name].usages != nil:
+			return m.nameUsages(fromTypes("«"+name+"»", stereotypeTypes[name]))
 		default:
 			return typeFilter{label: "«" + name + "»", refused: "no v2 metaclass stands for the elements of «" + name + "»"}
 		}
@@ -283,7 +288,7 @@ func (m *migration) proxyTypeFilter(e *sysmlv1.Element) typeFilter {
 	s := m.model.StereotypeRef(e.ID)
 	if s.Name != "" && isStandardNamespace(s.Namespace) {
 		if t, ok := stereotypeTypes[s.Name]; ok {
-			return fromTypes("«"+s.Name+"»", t)
+			return m.nameUsages(fromTypes("«"+s.Name+"»", t))
 		}
 		return typeFilter{label: "«" + s.Name + "»", refused: "no v2 metaclass stands for the elements of «" + s.Name + "»"}
 	}
@@ -297,7 +302,7 @@ func (m *migration) proxyTypeFilter(e *sysmlv1.Element) typeFilter {
 		return typeFilter{label: e.Href, refused: elementTypeSubject + e.Href + " is in a module the archive does not describe"}
 	}
 	if t, ok := stereotypeTypes[name]; ok && customization {
-		return fromTypes("«"+name+"»", t)
+		return m.nameUsages(fromTypes("«"+name+"»", t))
 	}
 	if subs := m.specializers(e); len(subs) > 0 {
 		return typeFilter{classifiers: subs, label: qualifiedName(e),
@@ -309,7 +314,7 @@ func (m *migration) proxyTypeFilter(e *sysmlv1.Element) typeFilter {
 // stereotypeTypeFilter decides how a stereotype of the document filters rows.
 func (m *migration) stereotypeTypeFilter(e *sysmlv1.Element) typeFilter {
 	if t, ok := stereotypeTypes[e.Name]; ok && m.isLibrary(e) && libraryRoots[pathRoot(qualifiedName(e))] {
-		return fromTypes("«"+e.Name+"»", t)
+		return m.nameUsages(fromTypes("«"+e.Name+"»", t))
 	}
 	if m.userStereotype(e) && m.written(e) {
 		return typeFilter{label: "«" + e.Name + "»", metadata: m.plainName(e)}

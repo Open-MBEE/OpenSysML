@@ -40,7 +40,7 @@ var nestedOwners = map[category]semantics.NestedOwner{
 	catAttributeDef:    {Def: ast.DefAttribute, IsDef: true},
 	catEnumDef:         {Def: ast.DefEnumeration, IsDef: true},
 	catConstraintDef:   {Def: ast.DefConstraint, IsDef: true},
-	catRequirementDef:  {Def: ast.DefRequirement, IsDef: true},
+	catRequirement:     {Usage: ast.UsageRequirement},
 	catConnectionDef:   {Def: ast.DefConnection, IsDef: true},
 	catIndividualDef:   {Def: ast.DefIndividual, IsDef: true},
 	catVerificationDef: {Def: ast.DefVerificationCase, IsDef: true},

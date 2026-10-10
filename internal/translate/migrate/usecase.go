@@ -65,7 +65,7 @@ func (m *migration) usageKeyword(def *sysmlv1.Element) string {
 		return "use case"
 	case catActor:
 		return "part"
-	case catRequirementDef:
+	case catRequirement:
 		return "requirement"
 	case catActionDef:
 		return "action"
@@ -118,7 +118,7 @@ func (m *migration) defUsageOf(host, def *sysmlv1.Element, keyword string) *defU
 // selfUsage says whether def is written as a usage a connection joins directly.
 func (m *migration) selfUsage(def *sysmlv1.Element) bool {
 	cat, _ := m.classify(def)
-	return cat == catUseCase || cat == catActor
+	return cat == catUseCase || cat == catActor || cat == catRequirement
 }
 
 // usageIn is the one usage written for def, which a view draws for it; nil for none.

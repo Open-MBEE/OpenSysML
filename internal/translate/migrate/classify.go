@@ -20,7 +20,9 @@ const (
 	catAttributeDef
 	catEnumDef
 	catConstraintDef
-	catRequirementDef
+	// catRequirement is a v1 requirement, written as a requirement usage, as a
+	// tool's users draw one: a satisfy, verify or refine joins it directly.
+	catRequirement
 	catConnectionDef
 	catIndividualDef
 	catVerificationDef
@@ -72,8 +74,8 @@ func (c category) keyword() string {
 		return "enum def"
 	case catConstraintDef:
 		return "constraint def"
-	case catRequirementDef:
-		return "requirement def"
+	case catRequirement:
+		return "requirement"
 	case catConnectionDef:
 		return "connection def"
 	case catIndividualDef:
@@ -123,8 +125,8 @@ func (c category) metaclass() string {
 		return "SysML::EnumerationDefinition"
 	case catConstraintDef:
 		return "SysML::ConstraintDefinition"
-	case catRequirementDef:
-		return "SysML::RequirementDefinition"
+	case catRequirement:
+		return "SysML::RequirementUsage"
 	case catConnectionDef:
 		return "SysML::ConnectionDefinition"
 	case catVerificationDef:
@@ -551,7 +553,7 @@ func classifyClass(e *sysmlv1.Element) (category, string) {
 	case simulationConfig(e) != nil:
 		return catSimConfig, ""
 	case has(e, requirementStereotypes...):
-		return catRequirementDef, ""
+		return catRequirement, ""
 	case has(e, "ConstraintBlock"):
 		return catConstraintDef, ""
 	case has(e, "InterfaceBlock"):
@@ -671,7 +673,7 @@ func (m *migration) instanceClassifiers(e *sysmlv1.Element) (occurrences, values
 			notes = append(notes, classifierSubject+qualifiedName(c)+" is not migrated")
 		case cc == catAttributeDef, cc == catEnumDef:
 			values = append(values, c)
-		case cc == catView, cc == catActor, cc == catUseCase:
+		case cc == catView, cc == catActor, cc == catUseCase, cc == catRequirement:
 			notes = append(notes, classifierSubject+qualifiedName(c)+" is written as a "+cc.keyword()+" usage, which an individual cannot specialize")
 		default:
 			occurrences = append(occurrences, c)

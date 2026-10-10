@@ -354,7 +354,7 @@ func (m *migration) isUsage(e *sysmlv1.Element) bool {
 		return true
 	}
 	cat, _ := m.classify(e)
-	return cat == catView || cat == catUseCase || cat == catActor
+	return cat == catView || cat == catUseCase || cat == catActor || cat == catRequirement
 }
 
 // scopeChain lists scope and its ancestors, innermost first, stopping at the

@@ -395,16 +395,13 @@ func (l *oclLowering) hasStereotype(n *oclNode, v oclValue) (oclValue, error) {
 		}
 		l.need(host.variable, "Property")
 		return oclValue{text: host.text + ".direction->" + l.function("notEmpty") + "()", kind: "Boolean", single: true}, nil
-	case stereotypeTypes[v.tag].types != nil:
+	case stereotypeTypes[v.tag].types != nil || stereotypeTypes[v.tag].usages != nil:
 		t := stereotypeTypes[v.tag]
 		if t.note != "" {
 			l.notes = append(l.notes, t.note)
 		}
-		types := make([]string, len(t.types))
-		for i, typ := range t.types {
-			types[i] = stringLiteral(typ)
-		}
-		return oclValue{text: l.prefix + "WhereType(source = " + host.text + ", type = (" + strings.Join(types, ", ") + "))->" + l.function("notEmpty") + "()", kind: "Boolean", single: true}, nil
+		f := l.m.nameUsages(typeFilter{types: t.types, usageKinds: t.usages})
+		return oclValue{text: f.query(qlit(host.text)).text(l.prefix) + "->" + l.function("notEmpty") + "()", kind: "Boolean", single: true}, nil
 	}
 	if def := l.m.stereotypeNamed(v.tag); def != nil && l.m.written(def) {
 		return oclValue{text: l.prefix + "WhereMetadata(source = " + host.text + ", 'metadata' = (" + stringLiteral(l.m.plainName(def)) + "))->" + l.function("notEmpty") + "()", kind: "Boolean", single: true}, nil

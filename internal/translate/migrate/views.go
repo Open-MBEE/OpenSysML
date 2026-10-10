@@ -600,7 +600,7 @@ func (m *migration) prepareConcerns() {
 				info.homed = !m.isLibrary(owner) && m.written(owner)
 			} else {
 				cat, _ := m.classify(owner)
-				info.homed = (cat == catPartDef || cat == catOccurrenceDef || cat == catActionDef || cat == catRequirementDef ||
+				info.homed = (cat == catPartDef || cat == catOccurrenceDef || cat == catActionDef || cat == catRequirement ||
 					cat == catUseCase || cat == catActor || cat == catView || cat == catViewpoint) && m.written(owner)
 			}
 		}

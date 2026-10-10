@@ -3,7 +3,7 @@ package 'Pump System' {
         part motor : Motor;
     }
     part def Motor;
-    requirement def <R1> 'Guard Fitted' {
+    requirement <R1> 'Guard Fitted' {
         doc /* The pump shall carry a guard. */
         comment /* The pump shall carry a guard. */
     }
