@@ -257,6 +257,8 @@ type Context struct {
 	sharedTaken    int64
 	// verdicts is the span sharing verdicts between objects of one shape; nil outside one.
 	verdicts *verdictMemo
+	// exemplars are the objects `this` denotes in the check about no object under way (exemplar.go).
+	exemplars *exemplars
 	// behaviorsAttached counts the object behaviors attached so far, so a
 	// derivation knows whether one was attached under it.
 	behaviorsAttached int64
@@ -1183,7 +1185,9 @@ func (ctx *Context) registerInstance(inst *Instance) {
 
 // EvaluateConstraint evaluates a constraint definition/usage naming no object:
 // against the single object of this runtime carrying it, the declared defaults
-// when there is none, ErrAmbiguousSubject when there are several.
+// when there is none, ErrAmbiguousSubject when there are several. Checked against
+// the defaults, `this` denotes an exemplar of the type made for the check and
+// abandoned with it (exemplar.go).
 // Returns (satisfied, error). If IsAssert=true, violation is an error.
 // If IsAssert=false (assume), always returns (true, nil) but logs assumptions.
 func (ctx *Context) EvaluateConstraint(sym *symbols.Symbol, scope *symbols.Scope) (bool, error) {
