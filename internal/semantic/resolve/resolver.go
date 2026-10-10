@@ -188,6 +188,21 @@ type Resolver struct {
 	// cross-reference. Without it, resolving each of n sibling imports searched
 	// the others' unresolved targets in every order (issue #636).
 	importTargets map[*ast.Import]resolution
+	// collisions memoizes, per namespace, what its imports bring and the
+	// memberships hidden among them: see (*Resolver).importedCollisions.
+	// colliding marks the namespaces whose collisions are being computed.
+	collisions map[*symbols.Scope]*importCollisions
+	colliding  map[*symbols.Scope]bool
+	// provisional holds, while collisions are being computed, those of the
+	// namespaces met on the way that could not be settled: each is computed
+	// once per outermost computation and dropped when it ends.
+	provisional map[*symbols.Scope]*importCollisions
+	// collisionCut is set when a collision computation met one in progress,
+	// so what it computed is not memoized.
+	collisionCut bool
+	// overloading counts the invocation-name lookups under way: a called name
+	// denotes an overload set, which hiding does not thin (see hiddenImport).
+	overloading int
 	// redefined memoizes the features a declaration redefines, explicitly or as
 	// an end: see (*Resolver).redefinedFeatures.
 	redefined map[*symbols.Symbol][]*symbols.Symbol
@@ -251,7 +266,8 @@ func (r *Resolver) MemoSize() int {
 	return len(r.memo) + len(r.modeMemo) + len(r.filtered) + len(r.featureChains) +
 		len(r.parts) + len(r.aliasNames) + len(r.endpoints) + len(r.readings) +
 		len(r.invocationNames) + len(r.ambiguities) + len(r.reportedQualified) +
-		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets)
+		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets) +
+		len(r.collisions)
 }
 
 // New creates a resolver over the given index.
@@ -280,6 +296,8 @@ func New(idx *symbols.Index) *Resolver {
 		payloads:              map[*symbols.Scope]map[string]*symbols.Symbol{},
 		implicitParams:        map[*symbols.Scope][]*symbols.Symbol{},
 		importTargets:         map[*ast.Import]resolution{},
+		collisions:            map[*symbols.Scope]*importCollisions{},
+		colliding:             map[*symbols.Scope]bool{},
 		importVisits:          map[importVisit]bool{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
 		bodyOwners:            map[*symbols.Scope]*symbols.Symbol{},

@@ -2058,9 +2058,10 @@ func TestAdoptRebindsAnExtentWhenAHierarchyChanges(t *testing.T) {
 	}
 }
 
-// A binding to an extent read the name of the type it is over: a nearer declaration of that
-// name, added in another document, is what the extent is over in the re-analysis; the object a
-// usage the binding did not read denotes is carried.
+// A binding to an extent read the name of the type it is over: a second import of that name,
+// added in another document, hides both from the package (KerML 7.2.5.4), so the binding is
+// re-read and the extent unresolved in the re-analysis; the object a usage the binding did not
+// read denotes is carried.
 func TestAdoptRebindsAnExtentWhenItsTypeNameIsShadowed(t *testing.T) {
 	const model = `package Demo {
 	package A { part def Car; }
@@ -2095,8 +2096,9 @@ func TestAdoptRebindsAnExtentWhenItsTypeNameIsShadowed(t *testing.T) {
 	if _, err := ctx.Adopt(prev, prev.ShapesOf(car), car); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
-	if got := objects(t, ctx, "cars"); len(got) != 0 {
-		t.Errorf("cars in the re-analysis = %v, want none: Car now names B::Car, of which there is no object", got)
+	pkg := lookupOne(t, ctx.Resolver().Index(), "Demo::P")
+	if val, err := evalIn(t, ctx, pkg.Scope, "cars"); err == nil || !strings.Contains(err.Error(), "Car") {
+		t.Errorf("cars in the re-analysis = %v, %v; want unresolved: import A::* and import B::* now hide Car", heldObjects(val), err)
 	}
 	if got := objects(t, ctx, "car"); len(got) != 1 || got[0] != car.ID {
 		t.Errorf("car in the re-analysis = %v, want the carried object %d", got, car.ID)

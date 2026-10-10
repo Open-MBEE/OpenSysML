@@ -374,7 +374,7 @@ func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbo
 		}
 	}
 	if r.idx == nil {
-		return children.elems
+		return r.withoutHiddenMembers(target.Scope, children.elems)
 	}
 	prefix := r.indexedNameOf(target)
 	var indexed []*symbols.Symbol
@@ -388,7 +388,7 @@ func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbo
 			children.add(sym)
 		}
 	}
-	return children.elems
+	return r.withoutHiddenMembers(target.Scope, children.elems)
 }
 
 // indexedNameOf is the qualified name the index keys target's children under. A
@@ -402,6 +402,21 @@ func (r *Resolver) indexedNameOf(target *symbols.Symbol) string {
 		return fqn
 	}
 	return target.Name
+}
+
+// withoutHiddenMembers drops the imported memberships scope hides (KerML
+// 7.2.5.4): they are no members of it, so no import of it re-exports them.
+func (r *Resolver) withoutHiddenMembers(scope *symbols.Scope, syms []*symbols.Symbol) []*symbols.Symbol {
+	if scope == nil || r.overloading > 0 || len(r.importedCollisions(scope).hidden) == 0 {
+		return syms
+	}
+	out := syms[:0:0]
+	for _, sym := range syms {
+		if !r.hiddenImportMember(scope, sym) {
+			out = append(out, sym)
+		}
+	}
+	return out
 }
 
 // appendSubtree adds the descendants of target a recursive import surfaces. The

@@ -75,52 +75,20 @@ type boundName struct {
 // imports both reach is one membership and conflicts with nothing; so are two
 // memberships of one element, an alias and what it names. An imported name an
 // owned member hides takes no part, nor does library content, as the inherited
-// pass leaves library supertypes out. Resolution still takes the first
-// membership, so the warning sits on the import bringing the later one.
+// pass leaves library supertypes out. Two imported memberships colliding are
+// both hidden from the namespace (importedCollisions); an inherited one
+// colliding with an imported one hides neither, the type being ill-formed.
 func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
-	imports := r.scopeImports(scope)
-	if len(imports) == 0 || r.idx.DocumentLibraryTier(r.document).Library() {
+	if r.idx.DocumentLibraryTier(r.document).Library() {
 		return
 	}
-	hidden := map[string]bool{}
-	owned, aliases := r.DistinguishableMembers(scope)
-	for _, sym := range append(owned, aliases...) {
-		for _, name := range memberNames(sym) {
-			hidden[name] = true
-		}
-	}
-	seen := map[boundName]bool{}
-	owners := map[ownedName]bool{}
-	byName := map[string][]importedMember{}
-	var names []string
-	for _, imp := range imports {
-		target, ok := r.resolveImportTarget(scope, imp)
-		if !ok || target == nil || r.idx.Library(target) {
-			continue
-		}
-		for _, sym := range r.ImportedElementsInto(scope, scope, imp) {
-			if sym.Name == "" || r.idx.Library(sym) || !contributesName(sym) || !r.BindsName(sym) {
-				continue
-			}
-			key := symbols.KeyOf(r.aliasTarget(sym))
-			for _, name := range memberNames(sym) {
-				bound := boundName{key: key, name: name}
-				owned := ownedName{owner: ownerKeyOf(sym.OwnerScope), name: name}
-				if hidden[name] || seen[bound] || owners[owned] {
-					continue
-				}
-				seen[bound] = true
-				owners[owned] = true
-				if _, ok := byName[name]; !ok {
-					names = append(names, name)
-				}
-				byName[name] = append(byName[name], importedMember{sym: sym, imp: imp})
-			}
-		}
+	c := r.importedCollisions(scope)
+	if len(c.names) == 0 {
+		return
 	}
 	inherited := r.inheritedAgainstImports(scope)
-	for _, name := range names {
-		members := byName[name]
+	for _, name := range c.names {
+		members := c.byName[name]
 		for _, sym := range inherited[name] {
 			members = append(members, importedMember{sym: sym})
 		}
@@ -144,6 +112,252 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 		}
 		r.duplicateImported(name, kept)
 	}
+}
+
+// importCollisions is what the imports of one namespace bring, by name, and
+// the memberships KerML 7.2.5.4 hides among them: distinct elements two or
+// more imports bring under one name or short name, indistinguishable by
+// metaclass, no owned member hiding them. Library content takes no part, as
+// in checkImportedNames: the warning and the hiding are one computation.
+type importCollisions struct {
+	// names are the imported names in import order and byName their
+	// memberships, one per element reached, less those an owned member hides.
+	names  []string
+	byName map[string][]importedMember
+	// hidden holds every name a colliding membership binds; collided lists,
+	// per colliding name, the memberships hidden under it.
+	hidden   map[boundName]bool
+	collided map[string][]importedMember
+}
+
+var noImportCollisions = &importCollisions{}
+
+// importedCollisions is the importCollisions of scope, computed once: what a
+// namespace imports depends on its own imports alone, so the result is
+// memoized per scope once the resolver is settled — no import target or
+// filter condition resolving, no other namespace's collisions being computed,
+// as what the imports bring is not known until then. Until it is, the result
+// is kept provisionally, so a namespace met many times over one computation is
+// computed once rather than once per path to it (KerML 8.3.2.4.5 excludes the
+// namespaces already visited, which a cycle of imports otherwise repeats).
+func (r *Resolver) importedCollisions(scope *symbols.Scope) *importCollisions {
+	if scope == nil || r.idx == nil {
+		return noImportCollisions
+	}
+	if r.colliding[scope] {
+		r.collisionCut = true
+		return noImportCollisions
+	}
+	if c, done := r.collisions[scope]; done {
+		return c
+	}
+	if r.collisionsSettled() {
+		r.provisional = nil
+	} else if c, ok := r.provisional[scope]; ok {
+		r.collisionCut = true
+		return c
+	}
+	imports := r.scopeImports(scope)
+	if len(imports) == 0 || r.idx.DocumentLibraryTier(symbols.DocNameOf(scope)).Library() {
+		return noImportCollisions
+	}
+	r.colliding[scope] = true
+	cut := r.collisionCut
+	r.collisionCut = false
+	c, complete := r.collectImported(scope, imports)
+	delete(r.colliding, scope)
+	// A cut met while this computation was the outermost is a cycle back to
+	// scope, which excluding it settles; a cut within another's is not.
+	complete = complete && (!r.collisionCut || len(r.colliding) == 0)
+	r.collisionCut = cut || r.collisionCut
+	switch {
+	case complete:
+		journalNew(r, r.collisions, scope, imports[0])
+		r.collisions[scope] = c
+	case !r.collisionsSettled():
+		if r.provisional == nil {
+			r.provisional = map[*symbols.Scope]*importCollisions{}
+		}
+		r.provisional[scope] = c
+	}
+	return c
+}
+
+// collisionsSettled reports whether what every namespace's imports bring can
+// be known now: no import target or filter condition is being resolved and no
+// namespace's collisions are being computed.
+func (r *Resolver) collisionsSettled() bool {
+	return r.inCondition == 0 && len(r.resolvingImports) == 0 && len(r.colliding) == 0
+}
+
+// collectImported gathers what imports bring into scope and decides the
+// collisions among them; complete is false when an import's target could not
+// be settled yet.
+func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) (*importCollisions, bool) {
+	complete := r.inCondition == 0
+	owned := map[string]bool{}
+	members, aliases := r.DistinguishableMembers(scope)
+	for _, sym := range append(members, aliases...) {
+		for _, name := range memberNames(sym) {
+			owned[name] = true
+		}
+	}
+	c := &importCollisions{
+		byName:   map[string][]importedMember{},
+		hidden:   map[boundName]bool{},
+		collided: map[string][]importedMember{},
+	}
+	seen := map[boundName]bool{}
+	owners := map[ownedName]bool{}
+	for _, imp := range imports {
+		if r.resolvingImports[imp] {
+			complete = false
+			continue
+		}
+		target, ok := r.importTargetOf(scope, imp)
+		if !ok {
+			complete = complete && len(r.resolvingImports) == 0
+			continue
+		}
+		if target == nil || r.idx.Library(target) {
+			continue
+		}
+		for _, sym := range r.ImportedElementsInto(scope, scope, imp) {
+			if sym.Name == "" || r.idx.Library(sym) || !contributesName(sym) || !r.BindsName(sym) {
+				continue
+			}
+			key := symbols.KeyOf(r.aliasTarget(sym))
+			for _, name := range memberNames(sym) {
+				bound := boundName{key: key, name: name}
+				owner := ownedName{owner: ownerKeyOf(sym.OwnerScope), name: name}
+				if owned[name] || seen[bound] || owners[owner] {
+					continue
+				}
+				seen[bound] = true
+				owners[owner] = true
+				if _, ok := c.byName[name]; !ok {
+					c.names = append(c.names, name)
+				}
+				c.byName[name] = append(c.byName[name], importedMember{sym: sym, imp: imp})
+			}
+		}
+	}
+	for _, name := range c.names {
+		members := c.byName[name]
+		if len(members) < 2 {
+			continue
+		}
+		var kept []importedMember
+		for i, member := range members {
+			if len(r.duplicatesOf(member.sym, importedSymbolsExcept(members, i))) > 0 {
+				kept = append(kept, member)
+			}
+		}
+		if len(kept) < 2 {
+			continue
+		}
+		c.collided[name] = kept
+		for _, member := range kept {
+			key := symbols.KeyOf(r.aliasTarget(member.sym))
+			for _, bound := range memberNames(member.sym) {
+				c.hidden[boundName{key: key, name: bound}] = true
+			}
+		}
+	}
+	return c, complete
+}
+
+// hiddenImport reports whether sym, reached under name through an import of
+// scope, is a membership scope hides (KerML 7.2.5.4). An invocation name is
+// looked up as an overload set, every membership imported under it a
+// candidate, so nothing is hidden from it (docs/project/spec-compliance.md,
+// "Invocation overload selection").
+func (r *Resolver) hiddenImport(scope *symbols.Scope, name string, sym *symbols.Symbol) bool {
+	if sym == nil || r.overloading > 0 {
+		return false
+	}
+	c := r.importedCollisions(scope)
+	return len(c.hidden) > 0 && c.hidden[boundName{key: symbols.KeyOf(r.aliasTarget(sym)), name: name}]
+}
+
+// hiddenImportMember is hiddenImport under any name sym binds.
+func (r *Resolver) hiddenImportMember(scope *symbols.Scope, sym *symbols.Symbol) bool {
+	if sym == nil || r.overloading > 0 {
+		return false
+	}
+	c := r.importedCollisions(scope)
+	if len(c.hidden) == 0 {
+		return false
+	}
+	key := symbols.KeyOf(r.aliasTarget(sym))
+	for _, name := range memberNames(sym) {
+		if c.hidden[boundName{key: key, name: name}] {
+			return true
+		}
+	}
+	return false
+}
+
+// withoutHiddenImports drops from syms, reached under name, what scope hides.
+func (r *Resolver) withoutHiddenImports(scope *symbols.Scope, name string, syms []*symbols.Symbol) []*symbols.Symbol {
+	if scope == nil || r.overloading > 0 || len(r.importedCollisions(scope).hidden) == 0 {
+		return syms
+	}
+	out := syms[:0:0]
+	for _, sym := range syms {
+		if !r.hiddenImport(scope, name, sym) {
+			out = append(out, sym)
+		}
+	}
+	return out
+}
+
+// collidedThrough is what hides name in scope, or in a namespace an import of
+// scope re-exports from: a hidden membership is no member of that namespace,
+// so the import brings none under the name.
+func (r *Resolver) collidedThrough(scope *symbols.Scope, name string, seen map[*symbols.Scope]bool) []importedMember {
+	if scope == nil || seen[scope] {
+		return nil
+	}
+	seen[scope] = true
+	if hidden := r.importedCollisions(scope).collided[name]; len(hidden) > 0 {
+		return hidden
+	}
+	for _, imp := range r.scopeImports(scope) {
+		if imp.Kind != ast.ImportNamespace || r.resolvingImports[imp] {
+			continue
+		}
+		if target, ok := r.importTargetOf(scope, imp); ok && target != nil && target.Scope != nil {
+			if hidden := r.collidedThrough(target.Scope, name, seen); len(hidden) > 0 {
+				return hidden
+			}
+		}
+	}
+	return nil
+}
+
+// hiddenImportsOf lists, for an unqualified name written in scope that
+// resolves to nothing, the colliding memberships that hide it on the way out:
+// in scope, its enclosing namespaces, and the generals of the types among them.
+func (r *Resolver) hiddenImportsOf(scope *symbols.Scope, name string) []importedMember {
+	for s := scope; s != nil; s = s.Parent() {
+		if hidden := r.collidedThrough(s, name, map[*symbols.Scope]bool{}); len(hidden) > 0 {
+			return hidden
+		}
+		if owner := s.Owner(); owner != nil && r.model != nil {
+			if _, ok := r.model.(supertypeProvider); ok {
+				for _, sup := range r.specializationChain(owner) {
+					if sup.Scope == nil {
+						continue
+					}
+					if hidden := r.importedCollisions(sup.Scope).collided[name]; len(hidden) > 0 {
+						return hidden
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // inheritedAgainstImports is what a type inherits, by name, for its imported
@@ -457,7 +671,8 @@ func (r *Resolver) importedMembers(owner, sup *symbols.Symbol) []*symbols.Symbol
 			continue
 		}
 		for _, sym := range r.ImportedElementsInto(owner.Scope, sup.Scope, imp) {
-			if sym != nil && sym.Name != "" && !r.idx.Library(sym) && contributesName(sym) && r.BindsName(sym) {
+			if sym != nil && sym.Name != "" && !r.idx.Library(sym) && contributesName(sym) && r.BindsName(sym) &&
+				!r.hiddenImportMember(sup.Scope, sym) {
 				out = append(out, sym)
 			}
 		}

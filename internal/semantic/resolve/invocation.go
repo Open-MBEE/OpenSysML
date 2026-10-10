@@ -13,6 +13,8 @@ func (r *Resolver) ResolveInvocationName(scope *symbols.Scope, qn *ast.Qualified
 	}
 	journalNew(r, r.invocationNames, qn, qn)
 	r.invocationNames[qn] = true
+	r.overloading++
+	defer func() { r.overloading-- }()
 	return r.resolveQualified(scope, qn, nil)
 }
 
@@ -25,6 +27,8 @@ func (r *Resolver) InvocationCandidates(scope *symbols.Scope, qn *ast.QualifiedN
 	}
 	journalNew(r, r.invocationNames, qn, qn)
 	r.invocationNames[qn] = true
+	r.overloading++
+	defer func() { r.overloading-- }()
 	if len(qn.Parts) != 1 || qn.Global || scope == nil {
 		var out []*symbols.Symbol
 		r.aside(func() { out = r.qualifiedCandidates(scope, qn) })
@@ -93,7 +97,8 @@ func (r *Resolver) globalCandidates(scope *symbols.Scope, name string) []*symbol
 		return nil
 	}
 	doc := r.documentOf(scope)
-	cands := r.admittedUnder(doc, r.ReferringNamespaceFQN(scope), name, r.idx.LookupQualified(name))
+	cands := r.withoutHiddenImports(rootOf(scope), name,
+		r.admittedUnder(doc, r.ReferringNamespaceFQN(scope), name, r.idx.LookupQualified(name)))
 	if r.idx.IsLibraryDocument(doc) {
 		return cands
 	}

@@ -140,8 +140,8 @@ func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name 
 		if !global {
 			found = notConflatedWith(cur, found)
 		}
-		candidates := r.namedThroughNamespaces(
-			r.admittedUnder(r.documentOf(scope), from, memberFQN, found))
+		candidates := r.withoutHiddenImports(cur.Scope, name, r.namedThroughNamespaces(
+			r.admittedUnder(r.documentOf(scope), from, memberFQN, found)))
 		switch visible := hide.without(candidates); {
 		case len(visible) > 0:
 			return visible
