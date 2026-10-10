@@ -4,15 +4,15 @@ import "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 
 // exemplars are the objects `this` denotes in a check about no object. Such a
 // check reads a type's declared defaults, so `this` there is one exemplar of the
-// type, made when first read and abandoned with the check, which leaves no object
-// behind.
+// type, made when first read and abandoned with the check along with what it
+// holds; any other object the check reads on the way stays what its usage denotes.
 type exemplars struct {
 	mark int
 	made map[*symbols.Symbol]*Instance
 }
 
 // beginExemplars opens a check about no object and returns what closes it,
-// abandoning every object the check made.
+// abandoning the exemplars the check made and the objects they hold.
 func (ctx *Context) beginExemplars() func() {
 	prior := ctx.exemplars
 	set := &exemplars{mark: len(ctx.created)}
@@ -20,7 +20,11 @@ func (ctx *Context) beginExemplars() func() {
 	return func() {
 		ctx.exemplars = prior
 		if len(set.made) > 0 {
-			ctx.abandonInstancesSince(set.mark)
+			roots := make(map[*Instance]bool, len(set.made))
+			for _, inst := range set.made {
+				roots[inst] = true
+			}
+			ctx.abandonInstancesHeldBy(set.mark, roots)
 		}
 	}
 }

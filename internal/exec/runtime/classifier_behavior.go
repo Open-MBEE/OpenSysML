@@ -345,16 +345,50 @@ func (ctx *Context) abandonInstancesSince(mark int) {
 // abandonInstancesBetween removes the objects registered from mark up to end,
 // keeping those registered since, along with occurrences naming the removed.
 func (ctx *Context) abandonInstancesBetween(mark, end int) {
+	ctx.forgetAbandoned(ctx.dropInstances(mark, end, func(*Instance) bool { return true }))
+}
+
+// abandonInstancesHeldBy removes the objects registered since mark that are one
+// of roots or held, directly or below, by one; the others stay, in order.
+func (ctx *Context) abandonInstancesHeldBy(mark int, roots map[*Instance]bool) {
+	ctx.forgetAbandoned(ctx.dropInstances(mark, len(ctx.created), func(inst *Instance) bool {
+		for ; inst != nil; inst = inst.owner {
+			if roots[inst] {
+				return true
+			}
+		}
+		return false
+	}))
+}
+
+// dropInstances unregisters the objects registered from mark up to end that drop
+// accepts, and the dead ones there, answering the identities and objects dropped.
+func (ctx *Context) dropInstances(mark, end int, drop func(*Instance) bool) (map[int64]bool, []*Instance) {
 	abandoned := make(map[int64]bool)
 	var gone []*Instance
-	for _, id := range ctx.created[mark:end] {
-		if inst, live := ctx.instances[id]; live {
-			abandoned[id] = true
-			gone = append(gone, inst)
-			delete(ctx.instances, id)
+	rest := append([]int64(nil), ctx.created[mark:end]...)
+	tail := append([]int64(nil), ctx.created[end:]...)
+	ctx.created = ctx.created[:mark]
+	for _, id := range rest {
+		inst, live := ctx.instances[id]
+		if !live {
+			continue
 		}
+		if !drop(inst) {
+			ctx.created = append(ctx.created, id)
+			continue
+		}
+		abandoned[id] = true
+		gone = append(gone, inst)
+		delete(ctx.instances, id)
 	}
-	ctx.created = append(ctx.created[:mark], ctx.created[end:]...)
+	ctx.created = append(ctx.created, tail...)
+	return abandoned, gone
+}
+
+// forgetAbandoned drops every record naming the objects abandoned: the
+// occurrences, bindings, lives, edges, values and messages that reached them.
+func (ctx *Context) forgetAbandoned(abandoned map[int64]bool, gone []*Instance) {
 	if len(abandoned) == 0 {
 		return
 	}
