@@ -311,7 +311,7 @@ func (ctx *Context) behaviorOrderMatches(inst *Instance, member *symbols.Symbol,
 	return matching
 }
 
-func (ctx *Context) deferredBehaviorFor(inst *Instance, decl classifierBehaviorDecl, binding int) (*ObjectBehavior, error) {
+func (ctx *Context) deferredBehaviorFor(inst *Instance, decl classifierBehaviorDecl, binding int, performance int64) (*ObjectBehavior, error) {
 	chain, err := ctx.classifierBehaviorChain(decl)
 	if err != nil {
 		return nil, err
@@ -319,17 +319,18 @@ func (ctx *Context) deferredBehaviorFor(inst *Instance, decl classifierBehaviorD
 	deferred := decl
 	ctx.behaviorHeld()
 	return &ObjectBehavior{
-		Name:      decl.behavior.Name,
-		Kind:      decl.behavior.Kind,
-		Symbol:    chain[len(chain)-1],
-		Object:    inst,
-		member:    decl.member,
-		bindings:  chain,
-		kinds:     ctx.behaviorKinds(chain),
-		binding:   binding,
-		typeBound: true,
-		ctx:       ctx,
-		deferred:  &deferred,
+		Name:        decl.behavior.Name,
+		Kind:        decl.behavior.Kind,
+		Symbol:      chain[len(chain)-1],
+		Object:      inst,
+		member:      decl.member,
+		bindings:    chain,
+		kinds:       ctx.behaviorKinds(chain),
+		binding:     binding,
+		performance: performance,
+		typeBound:   true,
+		ctx:         ctx,
+		deferred:    &deferred,
 	}, nil
 }
 
@@ -561,7 +562,7 @@ func (ctx *Context) releaseDeferredBehavior(behavior *ObjectBehavior) error {
 		ctx.trace.RecordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, behavior.Object.ID)
 	}
 	ctx.attachBehavior(behavior.Object, decl.member)
-	started, err := ctx.attachClassifierBehavior(behavior.Object, decl)
+	started, err := ctx.attachOneClassifierBehavior(behavior.Object, decl, behavior.performance)
 	ctx.behaviorAttached(behavior.Object, decl.member)
 	if started != nil {
 		behavior.Symbol = started.Symbol
