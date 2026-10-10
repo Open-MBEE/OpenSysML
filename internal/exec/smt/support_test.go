@@ -129,6 +129,37 @@ func TestAnalyzeRefusesRepeatedActionSteps(t *testing.T) {
 	}
 }
 
+func TestAnalyzeRefusesInheritedRepeatedActionSteps(t *testing.T) {
+	ctx, idx := fixture(t, "<inherited-multiplicity>", `
+		package test {
+			private import ScalarValues::*;
+			action def Base {
+				attribute c : Integer = 0;
+				first start then a;
+				action a[3] { assign c := c + 1; }
+				then done;
+			}
+			action def Keep :> Base { action :>> a; }
+		}`)
+	matches := idx.LookupQualified("test::Keep")
+	if len(matches) != 1 {
+		t.Fatalf("test::Keep matched %d symbols, want one", len(matches))
+	}
+	graph, err := lower.ToActionGraphWith(matches[0].Decl, matches[0].Scope, resolve.New(idx))
+	if err != nil {
+		t.Fatalf("lower Keep: %v", err)
+	}
+	lower.StartFlow(graph)
+	_, err = Analyze(graph, ctx.Semantics(), 10)
+	var unsupported *UnsupportedError
+	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
+		t.Fatalf("Analyze: got %v, want a typed ErrNotEncoded refusal", err)
+	}
+	if unsupported.Node != "a" || unsupported.Construct != "action step multiplicity [3]" {
+		t.Errorf("refusal names %q/%q, want node a, multiplicity [3]", unsupported.Node, unsupported.Construct)
+	}
+}
+
 func TestAnalyzeRefusesUnaddressableStepMultiplicityWithCause(t *testing.T) {
 	ctx, idx := fixture(t, "<test>", `
 		package test {

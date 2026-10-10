@@ -66,6 +66,13 @@ package Observatory {
 	part relayControl {
 		satisfy requirement relayRequirement :> massRequirement by relayHub;
 	}
+	requirement powerRequirement;
+	requirement thermalRequirement;
+	alias Thermal for thermalRequirement;
+	part backupHub;
+	part backupControl {
+		satisfy requirement backupRequirement :> powerRequirement, Thermal by backupHub;
+	}
 	verification archiveVerification : MassTest {
 		objective archiveObjective {
 			verify requirement archiveCheck by scienceComputer;

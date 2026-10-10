@@ -1,0 +1,18 @@
+eval feature ready -> false
+exit: waiting
+stmt action body
+  stmt assign ready
+    eval literal true -> true
+  stmt assign ready
+    eval literal false -> false
+enter: pulsing
+transition: waiting -> pulsing (event: accept Go)
+eval feature ready -> false
+exit: pulsing
+exit: outer
+stmt assign log
+    eval feature log -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+enter: done
+transition: pulsing -> done (event: change)

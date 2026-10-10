@@ -29,7 +29,7 @@ func (e *ActionExecutor) stepMultiplicity(graph *lower.ActionGraph, node ast.Nod
 	if graph == nil {
 		return 1, nil
 	}
-	if _, declared := graph.Multiplicities[node]; !declared {
+	if !graph.HasStepMultiplicity(node, e.ctx.Semantics()) {
 		return 1, nil
 	}
 	if e.stepCounts == nil {
@@ -92,10 +92,7 @@ func (e *ActionExecutor) passZeroStep(tokenIdx int, node ast.Node) error {
 	if err != nil {
 		return err
 	}
-	if err := ambiguousSuccession("action node "+ActionNodeName(node), successors); err != nil {
-		return err
-	}
-	return e.advance(tokenIdx, successors)
+	return e.follow(tokenIdx, successors)
 }
 
 func (e *ActionExecutor) trackRepeated(tokenID int64, perf *actionFrame) {

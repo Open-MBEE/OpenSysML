@@ -13,6 +13,8 @@ pub const CAPABILITY_MIGRATE: &str = "migrate";
 pub const CAPABILITY_VERIFICATION: &str = "verification";
 /// The `question` field of the verification RPCs and the verdict's `status` and `witness`.
 pub const CAPABILITY_VERIFICATION_QUESTIONS: &str = "verification_questions";
+/// `arguments` and `named_arguments` on VerifyConstraint and VerifyRequirement.
+pub const CAPABILITY_VERIFICATION_ARGUMENTS: &str = "verification_arguments";
 /// The `Query` RPC.
 pub const CAPABILITY_QUERY: &str = "query";
 /// OSLC Query 3.0 parameter text on the `Query` RPC.

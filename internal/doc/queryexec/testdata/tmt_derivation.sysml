@@ -85,6 +85,14 @@ package Observatory {
 		end #RequirementDerivation::derive derivedRequirement : SegmentMassRequirement;
 	}
 
+	// The migrator's form over requirement usages: ends subsetting the usages.
+	requirement coolingCapacity;
+	requirement fanSpeed;
+	connection def 'Derive Fan Speed' :> RequirementDerivation::Derivation {
+		end #RequirementDerivation::original originalRequirement :> coolingCapacity;
+		end #RequirementDerivation::derive derivedRequirement :> fanSpeed;
+	}
+
 	// Definitions specializing a derivation definition: one redefines the derived
 	// end, one only the original, one nothing; an untyped end relates no requirement.
 	requirement def AlignmentRequirement;

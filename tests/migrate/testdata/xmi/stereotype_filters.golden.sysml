@@ -7,7 +7,7 @@ package 'Cost Profile' {
 }
 package Plant {
     part def Pump {
-        satisfy requirement : 'Flow Rate';
+        satisfy 'Flow Rate';
         view 'Pump Layout' {
             expose Pump;
             render Views::asTreeDiagram;
@@ -28,7 +28,7 @@ package Plant {
         }
         @'Safety Profile'::Vital;
     }
-    requirement def <'D-1'> 'Flow Rate' {
+    requirement <'D-1'> 'Flow Rate' {
         doc /* The pump delivers the rated flow. */
     }
     view 'Plant Layout' {

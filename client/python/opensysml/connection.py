@@ -63,6 +63,7 @@ from opensysml.capabilities import (
     CAPABILITY_TENSOR_VALUES,
     CAPABILITY_VERIFICATION,
     CAPABILITY_VERIFICATION_QUESTIONS,
+    CAPABILITY_VERIFICATION_ARGUMENTS,
     MissingCapabilityError,
     ServerInfo,
     mismatch_reason,
@@ -2262,7 +2263,7 @@ class Connection:
         return [EngineInfo.of(pb) for pb in response.engines]
 
     def verify_constraint(self, symbol_id, model_hash, subject_symbol_id=None, engine=None,
-                          question=None):
+                          question=None, arguments=None, named_arguments=None):
         """Ask whether a constraint holds, as the REPL's ``%constraint`` does.
 
         Args:
@@ -2282,7 +2283,11 @@ class Connection:
                 says which answer was proved; ``witness`` carries the free
                 features' values when the answer is violated or satisfiable,
                 and ``error`` says why nothing was decided otherwise
-
+            arguments (list, optional): Positional arguments, as Python values,
+                bound to the element's ``in`` parameters in declaration order
+            named_arguments (dict, optional): Arguments by parameter name; a
+                parameter with a default may be left unbound, one without must
+                be bound, and a name no parameter has is refused
         Returns:
             Verdict: The answer. A condition that evaluated to false is that
                 answer, not an exception; a failure to evaluate is reported as
@@ -2303,24 +2308,29 @@ class Connection:
         self._require_verification()
         self._require_engine(engine)
         self._require_question(question)
+        self._require_arguments(arguments, named_arguments)
         request = sysml_pb2.VerifyConstraintRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
             subject_symbol_id=subject_symbol_id or "",
             engine=_engine_field(engine),
             question=_question_field(question),
+            arguments=[self._python_to_value(arg) for arg in (arguments or [])],
         )
+        for name, arg in (named_arguments or {}).items():
+            request.named_arguments[name].CopyFrom(self._python_to_value(arg))
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(
                 (CAPABILITY_VERIFICATION,) + self._engine_capabilities(engine)
                 + self._question_capabilities(question)
+                + self._argument_capabilities(arguments, named_arguments)
             )
         ):
             response = self._stub.VerifyConstraint(request)
         return self._verdict_of(response)
 
     def verify_requirement(self, symbol_id, model_hash, subject_symbol_id=None, engine=None,
-                           question=None):
+                           question=None, arguments=None, named_arguments=None):
         """Ask whether a requirement is satisfied, as ``%requirement`` does.
 
         Args:
@@ -2332,7 +2342,11 @@ class Connection:
                 :meth:`verify_constraint`
             question (str, optional): The question to ask, as for
                 :meth:`verify_constraint`
-
+            arguments (list, optional): Positional arguments, as Python values,
+                bound to the element's ``in`` parameters in declaration order
+            named_arguments (dict, optional): Arguments by parameter name; a
+                parameter with a default may be left unbound, one without must
+                be bound, and a name no parameter has is refused
         Returns:
             Verdict: The answer
 
@@ -2350,17 +2364,22 @@ class Connection:
         self._require_verification()
         self._require_engine(engine)
         self._require_question(question)
+        self._require_arguments(arguments, named_arguments)
         request = sysml_pb2.VerifyRequirementRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
             subject_symbol_id=subject_symbol_id or "",
             engine=_engine_field(engine),
             question=_question_field(question),
+            arguments=[self._python_to_value(arg) for arg in (arguments or [])],
         )
+        for name, arg in (named_arguments or {}).items():
+            request.named_arguments[name].CopyFrom(self._python_to_value(arg))
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(
                 (CAPABILITY_VERIFICATION,) + self._engine_capabilities(engine)
                 + self._question_capabilities(question)
+                + self._argument_capabilities(arguments, named_arguments)
             )
         ):
             response = self._stub.VerifyRequirement(request)
@@ -2907,6 +2926,18 @@ class Connection:
         """Refuse to send a question a service without ``verification_questions`` would evaluate."""
         for capability in self._question_capabilities(question):
             require(self.server_info(), capability, upgrade_remedy(capability))
+
+    def _require_arguments(self, arguments, named_arguments):
+        """Refuse to send argument bindings a service without ``verification_arguments`` would ignore."""
+        for capability in self._argument_capabilities(arguments, named_arguments):
+            require(self.server_info(), capability, upgrade_remedy(capability))
+
+    @staticmethod
+    def _argument_capabilities(arguments, named_arguments):
+        """The capabilities verification arguments need of the service: none when there are none."""
+        if arguments or named_arguments:
+            return (CAPABILITY_VERIFICATION_ARGUMENTS,)
+        return ()
 
     @staticmethod
     def _question_capabilities(question):

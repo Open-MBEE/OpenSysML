@@ -967,6 +967,11 @@ func (m *migration) waitOf(e *sysmlv1.Element) wait {
 	case lo == hi:
 		expr = lo
 		note = joinNotes(note, "written as a fixed wait of "+lo+" s before "+describe(e))
+	case m.strict && (lerr != nil || herr != nil):
+		return wait{dc: dc, why: noStrictDraw(lo, hi)}
+	case m.strict:
+		expr = computedLiteral((lf + hf) / 2)
+		note = joinNotes(note, "written as a fixed wait of "+expr+" s, the midpoint of ["+lo+", "+hi+"], before "+describe(e)+strictMidpointWhy)
 	default:
 		expr = "RandomFunctions::uniform(" + lo + ", " + hi + ")"
 		note = joinNotes(note, "written as a wait drawn uniformly over ["+lo+", "+hi+"] s before "+describe(e)+"; a tool's fixed min or max mode is a run setting, not the model's")
@@ -1101,14 +1106,31 @@ func (a *activity) decisionSuccessions(n *sysmlv1.Element, from string, outs []*
 		}
 		a.m.w.lines(guards[i].comment)
 		tail := ";"
-		if weights != nil {
+		verdict, note := Mapped, ""
+		switch {
+		case weights == nil:
+		case a.m.strict:
+			tail = "; // probability " + weights[i]
+			verdict, note = Approximated, "its probability "+weights[i]+" is written as a comment: a strict migration names no OpenSysML library, and Stochastic::Probability is one"
+		default:
 			tail = " { @Stochastic::Probability { p = " + weights[i] + "; } }"
 		}
 		a.succession([]*sysmlv1.Element{e}, from, guards[i].expr, to, tail)
-		if guards[i].ok {
-			a.m.add(e, Mapped, a.m.edgeTarget(e), "")
+		switch {
+		case guards[i].ok:
+			a.m.add(e, verdict, a.m.edgeTarget(e), note)
+		case note != "":
+			a.m.note(e, note)
 		}
 	}
+}
+
+// strictMidpointWhy and noStrictDraw say why a strict migration writes a wait
+// over an interval as its midpoint, or cannot.
+const strictMidpointWhy = ": a strict migration names no OpenSysML library, and a draw over the interval is RandomFunctions::uniform"
+
+func noStrictDraw(lo, hi string) string {
+	return "a wait drawn over [" + lo + ", " + hi + "] is RandomFunctions::uniform, an OpenSysML library a strict migration does not name, and the bounds are no literal numbers to take the midpoint of"
 }
 
 // arbitraryChoice weights the unconditional branches of a decision equally, since

@@ -11,7 +11,7 @@ func TestMetaclassFiltersExcludeNewConformingTypes(t *testing.T) {
 	}{
 		{
 			name: "Class",
-			want: `Except(source = WhereType(source = row, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")), exclude = Except(source = WhereType(source = row, type = ("ItemDefinition")), exclude = WhereType(source = row, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage"))))`,
+			want: `Except(source = WhereType(source = row, type = ("PartDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")), exclude = Except(source = WhereType(source = row, type = ("ItemDefinition")), exclude = WhereType(source = row, type = ("PartDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage"))))`,
 		},
 		{
 			name: "Property",
@@ -50,7 +50,7 @@ func TestMergedTypeFiltersCombineExclusions(t *testing.T) {
 		fromTypes("«Block»", stereotypeTypes["Block"]),
 	})
 	wantTypes := []string{
-		typePartDef, typeRequirementDef, typeConstraintDef, typePortDef, typeVerificationDef,
+		typePartDef, typeConstraintDef, typePortDef, typeVerificationDef,
 		typeActionDef, typeStateDef, typeCalcDef, typeViewUsage, typeViewpointUsage,
 		typeOccurrenceDef, typeAttributeUsage, typePartUsage, typeItemUsage, typeReferenceUsage,
 		typePortUsage, typeConstraintUsage, typeRequirementUse, typeActionUsage, typeStateUsage,
@@ -66,7 +66,7 @@ func TestMergedTypeFiltersCombineExclusions(t *testing.T) {
 		t.Errorf("merged exclusion source = %v, want %v", merged.excluding.source, want)
 	}
 	wantKeep := []string{
-		typePartDef, typeRequirementDef, typeConstraintDef, typePortDef, typeVerificationDef,
+		typePartDef, typeConstraintDef, typePortDef, typeVerificationDef,
 		typeActionDef, typeStateDef, typeCalcDef, typeViewUsage, typeViewpointUsage,
 		typeAttributeUsage, typePartUsage, typeItemUsage, typeReferenceUsage, typePortUsage,
 		typeConstraintUsage, typeRequirementUse, typeActionUsage, typeStateUsage,

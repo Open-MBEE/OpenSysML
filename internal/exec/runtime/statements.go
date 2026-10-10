@@ -1149,7 +1149,7 @@ func (e *stmtEngine) block(block lower.Block) (stmtFlow, error) {
 func (e *stmtEngine) runBlock(block lower.Block) (stmtFlow, error) {
 	if e.restrictedBlockFlow(block) {
 		for _, node := range block.Graph.Nodes {
-			if block.Graph.Multiplicities[node] == nil {
+			if !block.Graph.HasStepMultiplicity(node, e.ctx.Semantics()) {
 				continue
 			}
 			count, err := block.Graph.StepCount(node, e.ctx.Semantics())

@@ -362,6 +362,30 @@ func TestExportPrecedesStream(t *testing.T) {
 		"_diag_modes", "laid out from modes.layout.xml supplemented by the diagram's own symbol stream: 2 of 3 shown elements positioned")
 }
 
+// A strict migration joins the export's record to its view but writes no
+// geometry, so the report counts the omission, not a supplementation.
+func TestStrictExportIsJoinedButNotSupplemented(t *testing.T) {
+	layout, err := mtip.Parse([]byte(modesExport))
+	if err != nil {
+		t.Fatalf("mtip.Parse: %v", err)
+	}
+	r, err := migrate.MigrateOptions("figures.mdzip", mdzip(t, figureStreams),
+		migrate.Options{Layout: layout, LayoutSource: "modes.layout.xml", Strict: true})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	wantNoLine(t, r.Notation, "DiagramLayout")
+	s := r.Report.Layout
+	if s == nil || s.DiagramsJoined != 1 || s.StreamDiagrams != 6 || s.StreamSupplemented != 0 || s.GeometryOmitted != 7 {
+		t.Fatalf("layout summary = %+v; want 1 joined, 6 from streams, none supplemented, 7 omitted", s)
+	}
+	report := reportText(t, r)
+	if strings.Contains(report, "supplemented") {
+		t.Errorf("the strict report claims a supplementation it did not write:\n%s", report)
+	}
+	wantInOrder(t, "omission", report, "_diag_modes", "layout from modes.layout.xml omitted")
+}
+
 // An MTIP export placing and routing everything the Pump Modes stream draws
 // leaves the stream nothing to supplement, yet its frame still sizes the canvas.
 func TestFrameSurvivesCompleteExport(t *testing.T) {

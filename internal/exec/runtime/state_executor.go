@@ -126,7 +126,12 @@ type StateExecutor struct {
 
 	// changeFired holds the change-triggered transitions already taken on a
 	// condition that has stayed true, so an unchanged one does not re-fire.
-	changeFired map[*lower.Transition]bool
+	changeFired       map[*lower.Transition]bool
+	changeObserved    map[*lower.Transition]bool
+	changePending     map[*lower.Transition]bool
+	changeReads       map[*lower.Transition][]*FeatureValue
+	changeEvaluating  bool
+	hasChangeTriggers bool
 
 	// firingChange is the change-triggered transition being taken, whose latch the
 	// state entries it causes must leave alone.
@@ -155,7 +160,8 @@ type StateExecutor struct {
 	moving *moveMark
 	// front is the site under way whose regions' units are drawn one at a time;
 	// it lives within one move, so no snapshot sees it.
-	front *unitFront
+	front                    *unitFront
+	pendingRouteEntryEffects map[*ast.StateRegion][]routeEffect
 	// began are the do behaviors the move under way started, whose due steps its entry sites
 	// draw against the entries left; path is the draw along an entry path no front orders.
 	began []*doAction
@@ -261,6 +267,7 @@ func newStateExecutorForOccurrence(
 		return nil, fmt.Errorf("derive state machine attributes: %w", err)
 	}
 	ctx.clock.attach(exec)
+	ctx.registerStateExecutor(exec)
 
 	return exec, nil
 }
@@ -273,6 +280,18 @@ func newStateExecutorOn(
 	self, occurrence *Instance,
 	graph *lower.StateGraph,
 ) *StateExecutor {
+	hasChangeTriggers := false
+	for _, transitions := range graph.Transitions {
+		for _, trans := range transitions {
+			if _, ok := trans.Trigger.(*ast.ChangeEvent); ok {
+				hasChangeTriggers = true
+				break
+			}
+		}
+		if hasChangeTriggers {
+			break
+		}
+	}
 	exec := &StateExecutor{
 		ctx:                ctx,
 		stateMachine:       stateMachine,
@@ -280,6 +299,7 @@ func newStateExecutorOn(
 		occurrence:         occurrence,
 		state:              StateReady,
 		graph:              graph,
+		hasChangeTriggers:  hasChangeTriggers,
 		nextEventID:        1,
 		eventQueue:         NewEventQueue(),
 		stateData:          make(map[string]Value),
@@ -292,6 +312,9 @@ func newStateExecutorOn(
 		timerScheduled:     make(map[*lower.Transition]bool),
 		timeTriggerVerdict: make(map[*lower.Transition]error),
 		changeFired:        make(map[*lower.Transition]bool),
+		changeObserved:     make(map[*lower.Transition]bool),
+		changePending:      make(map[*lower.Transition]bool),
+		changeReads:        make(map[*lower.Transition][]*FeatureValue),
 		breakpointNodes:    make(map[ast.Node]bool),
 		dispatchMark:       -1,
 		activeConfig: &StateConfiguration{
@@ -625,6 +648,8 @@ func (e *StateExecutor) mirrorBindingOccurrence(name string, value Value, cell *
 }
 
 func (e *StateExecutor) assignAttribute(name string, value Value) error {
+	endWrite := e.ctx.beginFeatureWrite(nil)
+	defer endWrite()
 	if e.occurrence != nil {
 		if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
 			return fmt.Errorf("%w: write %s of object #%d: %w",
@@ -648,6 +673,7 @@ func (e *StateExecutor) assignAttribute(name string, value Value) error {
 		}
 	}
 	e.ctx.writeBodyValue(e.stateCells, e.stateData, name, value)
+	e.ctx.noteStateDataWrite()
 	return nil
 }
 
@@ -2429,13 +2455,23 @@ func (e *StateExecutor) moveTo(trans *lower.Transition, currentState *ast.StateN
 		fromName = currentState.Name
 	}
 	lca := e.moveBoundary(currentState, trans, targetState)
+	immediate, entryEffects := e.routeEntryFrontEffects(effects, e.descendantChain(lca, targetState), targetState)
+	previousEffects := e.pendingRouteEntryEffects
+	e.pendingRouteEntryEffects = cloneRouteEntryEffects(previousEffects)
+	if e.pendingRouteEntryEffects == nil && len(entryEffects) > 0 {
+		e.pendingRouteEntryEffects = make(map[*ast.StateRegion][]routeEffect)
+	}
+	for region, routeEffects := range entryEffects {
+		e.pendingRouteEntryEffects[region] = append(e.pendingRouteEntryEffects[region], routeEffects...)
+	}
+	defer func() { e.pendingRouteEntryEffects = previousEffects }()
 
 	// Exit states (deepest to shallowest)
 	if err := e.exitStates(e.exitPath(currentState, lca, nil)); err != nil {
 		return err
 	}
 
-	if err := e.runEffects(effects, e.descendantChain(lca, targetState)); err != nil {
+	if err := e.runEffects(immediate, e.descendantChain(lca, targetState)); err != nil {
 		return err
 	}
 	if lca == targetState {
@@ -2444,12 +2480,45 @@ func (e *StateExecutor) moveTo(trans *lower.Transition, currentState *ast.StateN
 	return e.enterBelow(trans, fromName, lca, targetState, branches)
 }
 
+func (e *StateExecutor) routeEntryFrontEffects(
+	effects []routeEffect,
+	chain []*ast.StateNode,
+	target *ast.StateNode,
+) ([]routeEffect, map[*ast.StateRegion][]routeEffect) {
+	entering := make(map[*ast.StateNode]bool, len(chain))
+	for _, state := range chain {
+		entering[state] = true
+	}
+	var immediate []routeEffect
+	byRegion := make(map[*ast.StateRegion][]routeEffect)
+	for _, effect := range effects {
+		source, ok := effect.segment.Source.(*ast.PseudostateNode)
+		if !ok {
+			immediate = append(immediate, effect)
+			continue
+		}
+		region := e.graph.PseudostateRegion[source]
+		owner := e.graph.RegionOwner[region]
+		if region == nil || owner == nil || !entering[owner] ||
+			e.regionUnder(owner, target) != region {
+			immediate = append(immediate, effect)
+			continue
+		}
+		byRegion[region] = append(byRegion[region], effect)
+	}
+	return immediate, byRegion
+}
+
 // enterBelow finishes a move whose exits and effects are done: it enters the
 // states below lca down to targetState, then the target's own start.
 func (e *StateExecutor) enterBelow(trans *lower.Transition, fromName string, lca, targetState *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
 	_, leaf, err := e.enterToward(lca, targetState, branches)
 	if err != nil {
 		return err
+	}
+	if e.state == StateTerminated {
+		clear(e.enteredAhead)
+		return nil
 	}
 
 	if err := e.settleEntered(leaf); err != nil {
@@ -2875,6 +2944,9 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 		for _, state := range e.descendantChain(lca, owner) {
 			if err := e.enterStateInto(state, nil, false); err != nil {
 				return fmt.Errorf("enter state: %w", err)
+			}
+			if e.state == StateTerminated {
+				return nil
 			}
 		}
 		below = owner
@@ -5100,16 +5172,25 @@ func (e *StateExecutor) enterMachineStart() error {
 	if err != nil {
 		return err
 	}
+	if e.state == StateTerminated {
+		return nil
+	}
 	e.setCurrentState(start)
 	e.stateStack = e.rootToLeaf(start)
 	for _, state := range e.stateStack {
 		if err := e.enterStateInto(state, nil, state == start); err != nil {
 			return fmt.Errorf("enter state %s: %w", state.Name, err)
 		}
+		if e.state == StateTerminated {
+			return nil
+		}
 	}
 	leaf, err := e.enterStartOf(start)
 	if err != nil {
 		return err
+	}
+	if e.state == StateTerminated {
+		return nil
 	}
 	return e.settleEntered(leaf)
 }
@@ -5118,6 +5199,9 @@ func (e *StateExecutor) enterMachineStart() error {
 func (e *StateExecutor) enterMachineRegions() error {
 	if err := e.enterRegionsInto(nil, e.graph.TopRegions, nil); err != nil {
 		return err
+	}
+	if e.state == StateTerminated {
+		return nil
 	}
 	if err := e.scheduleTransitionEvents(); err != nil {
 		return fmt.Errorf("schedule events: %w", err)
@@ -5133,9 +5217,7 @@ func (e *StateExecutor) enterMachineRegions() error {
 	return nil
 }
 
-// startIn chooses the state owner's body starts in: the target of the first
-// transition out of its entry action whose guard holds, in declaration order.
-// It is nil when the body declares none; when none holds, that is an error.
+// startIn chooses where the owner's body starts and performs its entry route.
 func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
 	transitions := e.graph.StartOf(owner)
 	for _, entry := range transitions {
@@ -5144,10 +5226,30 @@ func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
 			return nil, err
 		}
 		if holds {
-			if entry.Decl != nil {
-				e.fired = append(e.fired, FiredTransition{Decl: entry.Decl, Target: entry.Target, Owner: e.graph.EntryOwner(owner)})
+			var entryRoute route
+			if entry.Via != nil {
+				entryRoute, err = e.resolveEntryRoute(entry.Via)
+				if err != nil {
+					return nil, err
+				}
 			}
-			return entry.Target, nil
+			if err := e.runEntryEffect(owner, entry); err != nil {
+				return nil, err
+			}
+			target := entry.Target
+			if entry.Via != nil {
+				target, err = e.continueEntryRoute(entryFromName(owner, entry), entry.Via, entryRoute)
+				if err != nil {
+					return nil, err
+				}
+			}
+			if e.state == StateTerminated {
+				return nil, nil
+			}
+			if entry.Decl != nil {
+				e.fired = append(e.fired, FiredTransition{Decl: entry.Decl, Target: entryTarget(entry), Owner: e.graph.EntryOwner(owner)})
+			}
+			return target, nil
 		}
 	}
 	if len(transitions) > 0 {
@@ -5155,6 +5257,111 @@ func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
 			ErrNoEntryTransitionHolds, e.describeBody(owner), len(transitions))
 	}
 	return nil, nil
+}
+
+func entryFromName(owner ast.Node, entry *lower.EntryTransition) string {
+	if transition, ok := entry.Decl.(*ast.TransitionMember); ok {
+		if source := lower.EndpointText(transition.Source); source != "" {
+			return source
+		}
+	}
+	switch body := owner.(type) {
+	case *ast.StateNode:
+		return body.Name
+	case *ast.StateRegion:
+		return body.Name
+	default:
+		return ""
+	}
+}
+
+func entryTarget(entry *lower.EntryTransition) ast.Node {
+	if entry.Via != nil {
+		return entry.Via
+	}
+	return entry.Target
+}
+
+func (e *StateExecutor) runEntryEffect(owner ast.Node, entry *lower.EntryTransition) error {
+	if len(entry.Effect) == 0 {
+		return nil
+	}
+	if _, err := e.unit(ChoiceEntryOrder, e.entryTransitionEffectHead(owner, entry)); err != nil {
+		return err
+	}
+	if err := e.executeBehaviors(entry.Effect); err != nil {
+		return fmt.Errorf("entry transition effect: %w", err)
+	}
+	return nil
+}
+
+func (e *StateExecutor) resolveEntryRoute(via *ast.PseudostateNode) (route, error) {
+	route, err := e.followOut(via, route{})
+	if err != nil {
+		return route, fmt.Errorf("entry transition through %s %s: %w", via.Kind, via.Name, err)
+	}
+	return route, nil
+}
+
+func (e *StateExecutor) continueEntryRoute(fromName string, via *ast.PseudostateNode, route route) (*ast.StateNode, error) {
+	var err error
+	for {
+		if route.draw != nil {
+			route, err = e.settleDraws(route)
+			e.noteAll(route.notes)
+			route.notes = nil
+			if err != nil {
+				return nil, fmt.Errorf("entry transition through %s %s: %w", via.Kind, via.Name, err)
+			}
+		}
+		if err := e.runEntryRouteEffects(route.effects(e.graph)); err != nil {
+			return nil, err
+		}
+		e.noteFired(route.segments...)
+		e.noteAll(route.notes)
+		route.notes = nil
+		if route.terminate != nil {
+			if err := e.terminateMachine(fromName, nil, route.terminate); err != nil {
+				return nil, err
+			}
+			return nil, nil
+		}
+		if route.choice == nil {
+			if route.target == nil {
+				return nil, fmt.Errorf("entry transition through %s %s has no state target", via.Kind, via.Name)
+			}
+			return route.target, nil
+		}
+		route, err = e.resolveChoice(route)
+		if err != nil {
+			if errors.Is(err, ErrChoiceWithoutBranch) {
+				err = fmt.Errorf("%w: %w", errNoWayThrough, err)
+			}
+			return nil, fmt.Errorf("entry transition through choice %s: %w", via.Name, err)
+		}
+	}
+}
+
+func (e *StateExecutor) runEntryRouteEffects(effects []routeEffect) error {
+	var ended []ast.Node
+	for i, effect := range effects {
+		if e.endedBefore(ended, effect.behavior) {
+			continue
+		}
+		if i == 0 || effects[i-1].segment != effect.segment {
+			if _, err := e.unit(ChoiceEntryOrder, unitHead{label: e.effectLabel(effect.segment), at: effect.segment.Decl}); err != nil {
+				return err
+			}
+		}
+		terminated, err := e.executeBehavior(effect.behavior)
+		if err != nil {
+			return fmt.Errorf("entry route transition effect: %w", err)
+		}
+		if terminated {
+			ended = append(ended, effect.behavior.Block)
+		}
+	}
+	return nil
 }
 
 // entryGuardHolds evaluates an entry transition's guard in the body it is
@@ -5166,10 +5373,10 @@ func (e *StateExecutor) entryGuardHolds(owner ast.Node, entry *lower.EntryTransi
 	return e.ctx.guardUnderStatementOrders(entry.Guard, e.ctx.enclosingExecutorStep(), entry.Scope, func() (bool, error) {
 		val, err := e.evalStepOf(e.bodyState(owner), entry.Guard, entry.Scope)
 		if err != nil {
-			return false, fmt.Errorf("eval guard of the entry transition into %s: %w", entry.Target.Name, err)
+			return false, fmt.Errorf("eval guard of the entry transition into %s: %w", StateVertexName(entryTarget(entry)), err)
 		}
 		if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
-			return false, fmt.Errorf("guard of the entry transition into %s must be boolean, got %v", entry.Target.Name, val.Kind)
+			return false, fmt.Errorf("guard of the entry transition into %s must be boolean, got %v", StateVertexName(entryTarget(entry)), val.Kind)
 		}
 		return val.Const.Bool, nil
 	})
@@ -5231,12 +5438,18 @@ func (e *StateExecutor) enterStartOf(state *ast.StateNode) (*ast.StateNode, erro
 		if err != nil {
 			return nil, err
 		}
+		if e.state == StateTerminated {
+			return nil, nil
+		}
 		if start == nil {
 			return leaf, nil
 		}
 		for _, descendant := range e.descendantChain(leaf, start) {
 			if err := e.enterStateInto(descendant, nil, descendant == start); err != nil {
 				return nil, fmt.Errorf("enter state %s: %w", descendant.Name, err)
+			}
+			if e.state == StateTerminated {
+				return nil, nil
 			}
 		}
 		leaf = start
@@ -5319,6 +5532,9 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 		if err := e.enterRegionsInto(state, regions, branches); err != nil {
 			return err
 		}
+		if e.state == StateTerminated {
+			return nil
+		}
 	}
 
 	// The completion goes into the pool behind those queued by the entries performed
@@ -5380,6 +5596,9 @@ func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 				e.changeRearmed[trans] = true
 			}
 		}
+		delete(e.changeObserved, trans)
+		delete(e.changePending, trans)
+		delete(e.changeReads, trans)
 	}
 
 	if e.breakpointNodes[state] && e.breakpointHit == nil {
@@ -5459,6 +5678,9 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	timed := make(map[*lower.Transition]bool)
 	for _, trans := range e.graph.Transitions[state] {
 		delete(e.timerScheduled, trans)
+		delete(e.changeObserved, trans)
+		delete(e.changePending, trans)
+		delete(e.changeReads, trans)
 		if _, isTime := trans.Trigger.(*ast.TimeEvent); isTime {
 			timed[trans] = true
 		}
@@ -5595,6 +5817,7 @@ func (e *StateExecutor) writeStateValue(name string, value Value) error {
 		return e.assignAttribute(name, value)
 	}
 	e.ctx.writeBodyValue(e.stateCells, e.stateData, name, value)
+	e.ctx.noteStateDataWrite()
 	return nil
 }
 
@@ -5896,6 +6119,7 @@ func (e *StateExecutor) Release() {
 		}
 	}
 	e.ctx.clock.detach(e)
+	e.ctx.unregisterStateExecutor(e)
 }
 
 // Resume returns a machine suspended at quiescence to running, so a driver that

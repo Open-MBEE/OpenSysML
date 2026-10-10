@@ -1,6 +1,6 @@
-// A typed node in a state's body returns its `out` values once its own body has
-// run: `scaled` performs Scale (y = 30), its body adds one, and the state's `y`
-// reads 31.
+// The typed action's own `assign y := y + 1` is unordered with Scale's inherited
+// `start → scaling → done`: it leaves `y = 31` if it runs after `scaling`, and
+// `y = 30` if it runs first. The following assignment observes either result.
 package test {
     private import ScalarValues::*;
 

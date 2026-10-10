@@ -16,10 +16,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// ErrAmbiguousSuccession reports a node whose flow could continue along more
-// than one succession, which the token semantics do not resolve.
-var ErrAmbiguousSuccession = errors.New("more than one succession is enabled")
-
 // actionLabelPrefix opens the text naming an action in diagnostics and choices.
 const actionLabelPrefix = "action "
 
@@ -194,6 +190,16 @@ func newActionExecutorOf(
 	self *Instance,
 	occurrence *Instance,
 ) (*ActionExecutor, error) {
+	return newActionExecutorOfGraph(ctx, performed, action, self, occurrence, nil)
+}
+
+func newActionExecutorOfGraph(
+	ctx *Context,
+	performed, action *symbols.Symbol,
+	self *Instance,
+	occurrence *Instance,
+	graph *lower.ActionGraph,
+) (*ActionExecutor, error) {
 	if action.Kind != symbols.SymbolActionUsage && action.Kind != symbols.SymbolActionDef {
 		return nil, fmt.Errorf("symbol %s is not an action", action.Name)
 	}
@@ -201,15 +207,25 @@ func newActionExecutorOf(
 		return nil, err
 	}
 
-	// A usage stating no body of its own performs the body of the action it names — the
-	// definition typing it — as a classifier behavior binding does; under a tool, none.
-	action, tool, err := ctx.performanceBody(performed, action)
-	if err != nil {
-		return nil, err
-	}
-	graph, err := lowerPerformance(action, tool, ctx.Resolver())
-	if err != nil {
-		return nil, err
+	var tool *toolExecution
+	if graph == nil {
+		var err error
+		action, tool, graph, err = ctx.performanceBody(performed, action)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		held, found, err := ctx.toolPerformance(performed, action)
+		if err != nil {
+			return nil, err
+		}
+		if found != nil {
+			graph, err = lower.ToActionInterface(held.Decl, DeclScope(held))
+			if err != nil {
+				return nil, fmt.Errorf("lower action interface: %w", err)
+			}
+			action, tool = held, found
+		}
 	}
 	return newActionExecutorOn(ctx, performed, action, tool, graph, self, occurrence), nil
 }
@@ -248,24 +264,6 @@ func newActionExecutorOn(
 	exec.driven.exec = exec
 	ctx.clock.attach(exec)
 	return exec
-}
-
-// lowerPerformance lowers what a performance of action runs, in the scope it was written
-// in: its token flow, or under a tool only its own interface, the body never running.
-func lowerPerformance(action *symbols.Symbol, tool *toolExecution, resolver *resolve.Resolver) (*lower.ActionGraph, error) {
-	if tool != nil {
-		graph, err := lower.ToActionInterface(action.Decl, DeclScope(action))
-		if err != nil {
-			return nil, fmt.Errorf("lower action interface: %w", err)
-		}
-		return graph, nil
-	}
-	graph, err := lower.ToActionGraphWith(action.Decl, DeclScope(action), resolver)
-	if err != nil {
-		return nil, fmt.Errorf("lower action graph: %w", err)
-	}
-	lower.StartFlow(graph)
-	return graph, nil
 }
 
 // performanceFeatures lists the graph's attributes, then the inherited ones none
@@ -2299,14 +2297,8 @@ func (e *ActionExecutor) stepInitialNode(tokenIdx int) error {
 		return err
 	}
 
-	// A guard ruling out the succession the flow starts with ends it here.
-	if len(successors) == 0 {
-		return e.retireToken(tokenIdx)
-	}
-
-	// Move token to first successor (initial should have exactly 1)
-	e.move(token, successors[0])
-	return nil
+	// A guard ruling out every succession the flow starts with ends it here.
+	return e.follow(tokenIdx, successors)
 }
 
 // stepFinalNode consumes token and checks for completion.
@@ -2373,8 +2365,28 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 	if len(successors) == 0 {
 		return e.retireToken(tokenIdx)
 	}
+	e.split(tokenIdx, successors)
+	return nil
+}
 
-	// Create N tokens (one per successor), in the flow the fork belongs to
+// follow takes the token at tokenIdx along every enabled succession: none retires
+// it, one moves it on, and several split it as a fork does (Occurrences::HappensBefore).
+func (e *ActionExecutor) follow(tokenIdx int, successors []lower.ActionEdge) error {
+	switch len(successors) {
+	case 0:
+		return e.retireToken(tokenIdx)
+	case 1:
+		e.move(&e.tokens[tokenIdx], successors[0])
+		return nil
+	}
+	e.split(tokenIdx, successors)
+	return nil
+}
+
+// split replaces the token at tokenIdx with a fresh one per succession, appended
+// in declaration order, in the flow the token belongs to.
+func (e *ActionExecutor) split(tokenIdx int, successors []lower.ActionEdge) {
+	frame := e.tokens[tokenIdx].frame
 	newTokens := make([]Token, 0, len(successors))
 	for _, edge := range successors {
 		newToken := Token{
@@ -2388,13 +2400,9 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 		newTokens = append(newTokens, newToken)
 		e.noteTraversal(&newToken, edge)
 	}
-
-	// Remove original token, add new tokens
 	e.removeToken(tokenIdx)
 	e.tokens = append(e.tokens, newTokens...)
 	frame.live += len(successors) - 1
-
-	return nil
 }
 
 // stepJoinNode passes the one token a join performs with — synchronize has
@@ -2617,13 +2625,9 @@ func (e *ActionExecutor) stepActionExecutionNode(tokenIdx int) error {
 // leaveExecutionNode takes the token at tokenIdx on from node, whose result its
 // data flows carry, retiring it where the flow leads no further.
 func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, node *ast.ActionExecutionNode) error {
-	// Advance to a succession its guard, where it carries one, leaves enabled.
+	// Advance along every succession its guard, where it carries one, leaves enabled.
 	successors, err := e.enabledSuccessions(frame, node)
 	if err != nil {
-		return err
-	}
-
-	if err := ambiguousSuccession("action node "+node.Name, successors); err != nil {
 		return err
 	}
 
@@ -2631,7 +2635,7 @@ func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, no
 	if err := e.applyDataFlows(frame, frame.graph, node, nil, frame.data, nil, successors); err != nil {
 		return err
 	}
-	return e.advance(tokenIdx, successors)
+	return e.follow(tokenIdx, successors)
 }
 
 // stepNestedAction performs a nested action usage in a frame of its own.
@@ -2687,7 +2691,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	work := &usageWork{exec: e, token: token.ID, perf: perf, graph: graph, usage: usage}
 	if isCaseStep(usage) {
 		work.isCase = true
-	} else if inv, ok := nestedInvocation(usage); ok {
+	} else if inv, ok := nestedInvocationInGraph(graph, usage); ok {
 		work.inv, work.performs = inv, true
 	}
 	return e.runBody(tokenIdx, work)
@@ -2794,12 +2798,9 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 		e.tokens[tokenIdx].repetitionGroup = 0
 	}
 
-	// Advance to a succession its guard, where it carries one, leaves enabled.
+	// Advance along every succession its guard, where it carries one, leaves enabled.
 	successors, err := e.enabledSuccessions(frame, node)
 	if err != nil {
-		return err
-	}
-	if err := ambiguousSuccession("action node "+ActionNodeName(node), successors); err != nil {
 		return err
 	}
 
@@ -2811,41 +2812,7 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 
 	// A node the flow leads no further from is where this flow ends: the action
 	// inherits its `done` snapshot, so no succession to a final node is needed.
-	return e.advance(tokenIdx, successors)
-}
-
-// ambiguousSuccession reports successions out of node that state a choice no order
-// resolves: two not of succession flows, guarded or not, which a fork states.
-// The successions of succession flows each follow the node beside another.
-func ambiguousSuccession(node string, successors []lower.ActionEdge) error {
-	control := 0
-	for _, edge := range successors {
-		if !edge.Carries {
-			control++
-		}
-	}
-	if control > 1 {
-		return fmt.Errorf("%w: %s has multiple successors", ErrAmbiguousSuccession, node)
-	}
-	return nil
-}
-
-// advance takes the token at tokenIdx along every enabled succession out of an action
-// node, each target following it as after a fork; none retires the token.
-func (e *ActionExecutor) advance(tokenIdx int, successors []lower.ActionEdge) error {
-	if len(successors) == 0 {
-		return e.retireToken(tokenIdx)
-	}
-	frame := e.tokens[tokenIdx].frame
-	e.move(&e.tokens[tokenIdx], successors[0])
-	for _, edge := range successors[1:] {
-		token := Token{ID: e.nextTokenID, frame: frame}
-		e.nextTokenID++
-		e.move(&token, edge)
-		e.tokens = append(e.tokens, token)
-		frame.live++
-	}
-	return nil
+	return e.follow(tokenIdx, successors)
 }
 
 // triggerReady reports whether a change event's condition currently holds.
@@ -3170,33 +3137,7 @@ func (e *ActionExecutor) leaveStatementNode(tokenIdx int, frame *actionFrame, no
 	if err != nil {
 		return err
 	}
-	if err := ambiguousSuccession(statementNodeKeyword(node)+" node", successors); err != nil {
-		return err
-	}
-	return e.advance(tokenIdx, successors)
-}
-
-// statementNodeKeyword names a statement node for a message about it, since a
-// node written as a statement has no name to report.
-func statementNodeKeyword(node ast.Node) string {
-	switch n := node.(type) {
-	case *ast.WhileLoopActionNode:
-		return "a '" + n.Kind.String() + "' loop"
-	case *ast.IfActionNode:
-		return "an 'if'"
-	case *ast.AssignmentActionNode:
-		return "an 'assign'"
-	case *ast.SendStatement:
-		return "a 'send'"
-	case *ast.TerminateStatement:
-		return "a 'terminate'"
-	case *ast.PerformActionNode:
-		return "a 'perform'"
-	case *ast.Usage:
-		return "the assertion " + ActionNodeName(n)
-	default:
-		return fmt.Sprintf("a %T", node)
-	}
+	return e.follow(tokenIdx, successors)
 }
 
 // applyDataFlows moves what the completed performance produced along graph's flows out
@@ -3398,6 +3339,17 @@ func (e *ActionExecutor) Results() map[string]Value {
 func (e *ActionExecutor) ResultsWithError() (map[string]Value, error) {
 	results := make(map[string]Value, len(e.root.data))
 	err := e.root.collect("", results)
+	if e.occurrence != nil {
+		for _, attr := range e.features {
+			fv, featureErr := e.occurrence.GetFeatureValue(e.ctx, attr.Name)
+			if featureErr != nil {
+				continue
+			}
+			if value := fv.HeldValue(); value.Kind != ValInvalid {
+				results[attr.Name] = value
+			}
+		}
+	}
 	e.collectPartsHeld(results)
 	return results, err
 }
