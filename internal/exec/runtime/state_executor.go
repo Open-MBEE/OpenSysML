@@ -2639,7 +2639,8 @@ func (e *StateExecutor) completeInto(trans *lower.Transition, fromName string, t
 // regionComplete reports whether region reached its completion vertex, was left empty by default entry, or was left at its owner.
 func (e *StateExecutor) regionComplete(region *ast.StateRegion) bool {
 	if e.activeConfig.defaultComplete[region] {
-		return true
+		standIn := e.graph.RegionState[region]
+		return standIn == nil || !e.hasRunningDoAction(standIn)
 	}
 	active, ok := e.activeConfig.regionStates[region]
 	if !ok {
@@ -2657,7 +2658,7 @@ func (e *StateExecutor) allRegionsDefaultComplete(state *ast.StateNode) bool {
 		return false
 	}
 	for _, region := range regions {
-		if !e.activeConfig.defaultComplete[region] {
+		if !e.activeConfig.defaultComplete[region] || !e.regionComplete(region) {
 			return false
 		}
 	}
@@ -4475,7 +4476,7 @@ func doBehaviorDescription(state *ast.StateNode) string {
 }
 
 // settleDoActions drops the do behaviors that have finished and schedules the
-// completion of their states; a do action whose state was exited is already gone.
+// completion of their states and newly completed owners.
 func (e *StateExecutor) settleDoActions() error {
 	finished := make([]*ast.StateNode, 0, len(e.doActions))
 	kept := e.doActions[:0]
@@ -4494,12 +4495,27 @@ func (e *StateExecutor) settleDoActions() error {
 	// A state completes once its do behavior has finished and its body, where it
 	// runs one, has reached `done`; completeIfDone schedules the latter case, and a
 	// body the move has yet to enter completes nothing.
+	scheduledOwners := make(map[*ast.StateNode]struct{}, len(finished))
 	for _, state := range finished {
 		if e.bodyAhead(state) || (e.bodyRunning(state) && !e.stateComplete(state)) {
 			continue
 		}
 		if err := e.scheduleCompletionTransitions(state); err != nil {
 			return fmt.Errorf("schedule completion of state %s: %w", state.Name, err)
+		}
+		if region := e.RegionOf(state); region != nil && e.graph.RegionState[region] == state {
+			owner := e.graph.RegionOwner[region]
+			if owner != nil && e.stateComplete(owner) {
+				if _, ok := scheduledOwners[owner]; !ok {
+					scheduledOwners[owner] = struct{}{}
+					if err := e.scheduleCompletionTransitions(owner); err != nil {
+						return fmt.Errorf("schedule completion of state %s: %w", owner.Name, err)
+					}
+				}
+			}
+		}
+		if err := e.completeIfDone(state); err != nil {
+			return fmt.Errorf("complete after do behavior of state %s: %w", state.Name, err)
 		}
 	}
 	return nil
