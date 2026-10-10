@@ -364,6 +364,9 @@ func routeKindName(exported string, el *sysmlv1.Element) string {
 // routeTarget is every member a route of el is pinned to, as scope's view of
 // form f exposes them; or nil and the reason there is none.
 func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]string, string) {
+	if c := m.connOf(el); f.useCases && c != nil {
+		return m.connRefs(c.of, scope)[:1], ""
+	}
 	if nameableEdge(el) {
 		em, ok := m.edgeMembers[el]
 		switch {
@@ -392,6 +395,9 @@ type viewForm struct {
 	rendering  string
 	definition string
 	subject    *sysmlv1.Element
+	// useCases marks a use case diagram, drawn as the usages and connections
+	// written for its actors and use cases rather than their definitions.
+	useCases bool
 }
 
 // graphDefinitions pairs the words naming a UML behavior diagram family with the
@@ -420,6 +426,9 @@ func (m *migration) form(d *sysmlv1.Diagram) (viewForm, string) {
 		return f, ""
 	}
 	kind := strings.ToLower(d.Kind + " / " + d.UMLKind)
+	if strings.Contains(kind, "use case") {
+		return viewForm{rendering: interconnectionRendering, useCases: true}, ""
+	}
 	for _, g := range graphDefinitions {
 		for _, w := range g.words {
 			if !strings.Contains(kind, w) {

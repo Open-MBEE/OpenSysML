@@ -7,10 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// EntryTransition is a transition out of a body's entry action, naming a state the
-// body starts in: `entry; then s;` always, `entry; if c then s;` when c holds
-// (SysML v2 7.18.3 EntryTransitionMember). A body's alternatives are kept in
-// declaration order, the order the guards are tried in.
+// EntryTransition is a transition out of a body's entry action. Alternatives
+// are kept in declaration order, the order the guards are tried in.
 type EntryTransition struct {
 	// Decl is the member as written: a TransitionMember, a SuccessionEdge, a
 	// succession usage or a `first start then s;` marker.
@@ -18,44 +16,40 @@ type EntryTransition struct {
 	// Guard is nil for an unconditional entry transition.
 	Guard  ast.Node
 	Target *ast.StateNode
+	Via    *ast.PseudostateNode
+	Effect []StateBehavior
 	// Scope is the scope Guard resolves in.
 	Scope *symbols.Scope
 }
 
-// EntryTransitionShapeFormat reports a transition out of the entry action written
-// with a trigger or an effect, which chooses a starting state by its guard alone.
-const EntryTransitionShapeFormat = "transition out of the entry action carries %s: a transition out of the entry action " +
-	"chooses the state its body starts in by its guard alone, `entry; if c then s;` or `entry; then s;` (SysML v2 7.18.3)"
+const (
+	EntryTransitionAccepterSourceMessage = "A transition with an accepter must have a state as its source. " +
+		"(SysML v2; pilot validateTransitionUsageTriggerActions)"
+	EntryTransitionShorthandEffectMessage = "a shorthand transition out of an entry action may carry a guard at most; " +
+		"write `entry action boot; transition boot do action mark then s;` to give the transition an explicit source " +
+		"(SysML v2 7.18.3 EntryTransitionMember)"
+)
 
 // EntryTransitionTargetFormat reports a transition out of the entry action whose
 // target is a vertex the body cannot start in.
 const EntryTransitionTargetFormat = "transition out of the entry action reaches %s, " +
-	"which is not a state to start in (SysML v2 7.18.3)"
+	"which is not a state or junction/choice route the body can start in (SysML v2 7.18.3)"
 
-// EntryTransitionShapeError marks a transition out of the entry action written
-// with a trigger or an effect.
+// EntryTransitionShapeError marks a triggered or shorthand effect transition
+// out of the entry action.
 type EntryTransitionShapeError struct {
 	Transition *ast.TransitionMember
 }
 
 func (e *EntryTransitionShapeError) Error() string {
-	return fmt.Sprintf(EntryTransitionShapeFormat, EntryTransitionCarries(e.Transition))
-}
-
-// EntryTransitionCarries names what a transition out of the entry action was
-// written with beyond its guard: "a trigger", "an effect" or both.
-func EntryTransitionCarries(transition *ast.TransitionMember) string {
-	switch {
-	case transition.Trigger != nil && len(transition.Effect) > 0:
-		return "a trigger and an effect"
-	case transition.Trigger != nil:
-		return "a trigger"
+	if e.Transition.Trigger != nil {
+		return EntryTransitionAccepterSourceMessage
 	}
-	return "an effect"
+	return EntryTransitionShorthandEffectMessage
 }
 
 // EntryTransitionTargetError marks a transition out of the entry action whose
-// Target is a vertex but not a state.
+// target is not a state or an allowed junction/choice.
 type EntryTransitionTargetError struct {
 	Target ast.Node
 }
@@ -89,22 +83,45 @@ func (g *StateGraph) EntryOwner(owner ast.Node) ast.Node {
 	return owner
 }
 
-// UnconditionalStart is the state a body starts in whatever its guards say: its
-// first entry transition's target when unguarded, else nil. owner is as for StartOf.
+// UnconditionalStart is the state a body starts in whatever its guards say.
 func (g *StateGraph) UnconditionalStart(owner ast.Node) *ast.StateNode {
 	transitions := g.StartOf(owner)
 	if len(transitions) == 0 || transitions[0].Guard != nil {
 		return nil
 	}
-	return transitions[0].Target
+	switch target := entryTransitionTarget(transitions[0]).(type) {
+	case *ast.StateNode:
+		return target
+	case *ast.PseudostateNode:
+		return g.unconditionalEntryTarget(target, nil)
+	default:
+		return nil
+	}
 }
 
-// addEntryTransition records a transition out of a body's entry action, which
-// designates its target as a state the machine may start in.
+func (g *StateGraph) unconditionalEntryTarget(target ast.Node, seen map[*ast.PseudostateNode]bool) *ast.StateNode {
+	switch node := target.(type) {
+	case *ast.StateNode:
+		return node
+	case *ast.PseudostateNode:
+		if seen[node] || len(g.Transitions[node]) != 1 || g.Transitions[node][0].Guard != nil {
+			return nil
+		}
+		if seen == nil {
+			seen = make(map[*ast.PseudostateNode]bool)
+		}
+		seen[node] = true
+		return g.unconditionalEntryTarget(g.Transitions[node][0].Target, seen)
+	default:
+		return nil
+	}
+}
+
+// addEntryTransition records a transition out of a body's entry action.
 func (g *StateGraph) addEntryTransition(owner ast.Node, transition *EntryTransition) {
 	g.EntryTransitions[owner] = append(g.EntryTransitions[owner], transition)
 	g.recordDeclaredIn(transition.Decl, transition.Scope)
-	g.designateInitial(transition.Target)
+	g.designateInitial(entryTransitionTarget(transition))
 }
 
 // withOwnEntryTransitions runs collect over the members a body writes itself.
@@ -128,9 +145,16 @@ func (g *StateGraph) redesignateInitials() {
 	g.designatedInitials = make(map[*ast.StateNode]bool)
 	for _, transitions := range g.EntryTransitions {
 		for _, transition := range transitions {
-			g.designateInitial(transition.Target)
+			g.designateInitial(entryTransitionTarget(transition))
 		}
 	}
+}
+
+func entryTransitionTarget(transition *EntryTransition) ast.Node {
+	if transition.Via != nil {
+		return transition.Via
+	}
+	return transition.Target
 }
 
 // entryOwner is the body an entry transition written in state's body starts: the
@@ -142,9 +166,8 @@ func (g *StateGraph) entryOwner(state *ast.StateNode) ast.Node {
 	return state
 }
 
-// lowerEntryTransition lowers `entry; if c then s;` — a sourceless transition whose
-// preceding member is the entry action — into an entry transition of entryOwner's
-// body; owner is the body a `done` target completes.
+// lowerEntryTransition lowers a sourceless transition whose preceding member is
+// the entry action into an entry transition of entryOwner's body.
 func lowerEntryTransition(graph *StateGraph, member *ast.TransitionMember, owner, entryOwner ast.Node, scope *symbols.Scope) error {
 	if member.Trigger != nil || len(member.Effect) > 0 {
 		return &EntryTransitionShapeError{Transition: member}
@@ -156,15 +179,33 @@ func lowerEntryTransition(graph *StateGraph, member *ast.TransitionMember, owner
 	if err != nil || target == nil {
 		return err
 	}
-	state, ok := target.(*ast.StateNode)
-	if !ok {
+	entryScope := symbols.TriggerScope(scope, member)
+	return addEntryTransitionTarget(graph, member, target, entryOwner, member.Guard, nil, scope, entryScope)
+}
+
+func addEntryTransitionTarget(
+	graph *StateGraph,
+	decl ast.Node,
+	target ast.Node,
+	owner ast.Node,
+	guard ast.Node,
+	effect []StateBehavior,
+	targetScope *symbols.Scope,
+	scope *symbols.Scope,
+) error {
+	entry := &EntryTransition{Decl: decl, Guard: guard, Effect: effect, Scope: scope}
+	switch vertex := target.(type) {
+	case *ast.StateNode:
+		entry.Target = vertex
+	case *ast.PseudostateNode:
+		if vertex.Kind != ast.PseudostateJunction && vertex.Kind != ast.PseudostateChoice ||
+			graph.declaredIn[vertex] != targetScope {
+			return &EntryTransitionTargetError{Target: target}
+		}
+		entry.Via = vertex
+	default:
 		return &EntryTransitionTargetError{Target: target}
 	}
-	graph.addEntryTransition(entryOwner, &EntryTransition{
-		Decl:   member,
-		Guard:  member.Guard,
-		Target: state,
-		Scope:  symbols.TriggerScope(scope, member),
-	})
+	graph.addEntryTransition(owner, entry)
 	return nil
 }

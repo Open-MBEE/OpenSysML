@@ -292,7 +292,7 @@ fn a_v1_model_is_migrated_and_refused_by_convert() {
             migrated.report.unmapped,
             migrated.report.skipped
         ),
-        (78, 12, 3, 2)
+        (77, 13, 3, 2)
     );
     assert_eq!(migrated.report.entries.len(), 95);
     assert_eq!(migrated.report.by_verdict("unmapped").len(), 3);
@@ -315,7 +315,7 @@ fn a_v1_model_is_migrated_and_refused_by_convert() {
     assert_eq!(inline.to_format, "ttl");
     assert!(inline.source_path.is_none());
     assert!(inline.report.entries.is_empty());
-    assert_eq!(inline.report.mapped, 78);
+    assert_eq!(inline.report.mapped, 77);
 
     let refused = connection.convert(
         "sysml",

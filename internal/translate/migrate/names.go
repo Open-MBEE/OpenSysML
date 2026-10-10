@@ -126,37 +126,39 @@ func (m *migration) writtenName(e *sysmlv1.Element) string {
 }
 
 func (m *migration) nameTaken(owner *sysmlv1.Element, name string) bool {
-	return m.nameTakenExcept(owner, name, nil)
+	return m.nameTakenBut(nil, owner, name)
 }
 
 func (m *migration) nameTakenExcept(owner *sysmlv1.Element, name string, except *sysmlv1.Element) bool {
+	return m.nameTakenBut(except, owner, name)
+}
+
+// nameTakenBut is nameTaken disregarding e, whose own name the declaration
+// written for it is free to keep.
+func (m *migration) nameTakenBut(e, owner *sysmlv1.Element, name string) bool {
 	if m.taken[owner][name] {
 		return true
 	}
 	if owner == nil {
-		return m.topLevelNamed(name)
+		return m.topLevelNamedBut(e, name)
 	}
 	for _, c := range owner.Children {
-		if c == except {
-			continue
-		}
-		if m.nameOf(c) == name {
+		if c != e && m.nameOf(c) == name {
 			return true
 		}
 	}
 	return false
 }
 
-// topLevelNamed reports whether a declaration at the document's top level is
-// named name: a member of the root model, or a root written as a declaration.
-func (m *migration) topLevelNamed(name string) bool {
+// topLevelNamedBut is topLevelNamed disregarding e (see nameTakenBut).
+func (m *migration) topLevelNamedBut(e *sysmlv1.Element, name string) bool {
 	for _, r := range m.model.Roots {
 		switch {
 		case m.flattened(r):
-			if m.nameTaken(r, name) {
+			if m.nameTakenBut(e, r, name) {
 				return true
 			}
-		case r.Type != "Model" && m.nameOf(r) == name:
+		case r != e && r.Type != "Model" && m.nameOf(r) == name:
 			return true
 		}
 	}
@@ -165,10 +167,56 @@ func (m *migration) topLevelNamed(name string) bool {
 
 // take reserves a synthesized member name in owner's body.
 func (m *migration) take(owner *sysmlv1.Element, name string) {
+	m.takeFor(nil, owner, name)
+}
+
+// takeFor reserves name in owner for the declaration written for e, which
+// claimName hands it to once.
+func (m *migration) takeFor(e, owner *sysmlv1.Element, name string) {
 	if m.taken[owner] == nil {
 		m.taken[owner] = map[string]bool{}
+		m.takenBy[owner] = map[string]*sysmlv1.Element{}
 	}
 	m.taken[owner][name] = true
+	m.takenBy[owner][name] = e
+}
+
+// reserveNameFor is freshNameBut reserving the name for e to claim (see claimName).
+func (m *migration) reserveNameFor(e, owner *sysmlv1.Element, name string) string {
+	name = m.freshNameBut(e, owner, name)
+	m.takenBy[owner][name] = e
+	return name
+}
+
+// claimName is the name a declaration written for e takes in owner: the one
+// reserved for it, consumed, or else name made fresh.
+func (m *migration) claimName(e, owner *sysmlv1.Element, name string) string {
+	if in, ok := m.reservedIn(e, owner, name); ok {
+		m.takenBy[in][name] = nil
+		return name
+	}
+	return m.freshNameBut(e, owner, name)
+}
+
+// reservedIn is the owner, among those nameTakenBut consults for owner, in
+// which name is reserved for e; the top level and a flattened root are one.
+func (m *migration) reservedIn(e, owner *sysmlv1.Element, name string) (*sysmlv1.Element, bool) {
+	if e == nil {
+		return nil, false
+	}
+	if m.takenBy[owner][name] == e {
+		return owner, true
+	}
+	if owner == nil {
+		for _, r := range m.model.Roots {
+			if m.flattened(r) && m.takenBy[r][name] == e {
+				return r, true
+			}
+		}
+	} else if m.flattened(owner) && m.takenBy[nil][name] == e {
+		return nil, true
+	}
+	return nil, false
 }
 
 // identifierSuffix turns a name into the tail of a compound identifier: its
@@ -334,7 +382,7 @@ func (m *migration) isUsage(e *sysmlv1.Element) bool {
 		return true
 	}
 	cat, _ := m.classify(e)
-	return cat == catView
+	return cat == catView || cat == catUseCase || cat == catActor || cat == catRequirement
 }
 
 // scopeChain lists scope and its ancestors, innermost first, stopping at the

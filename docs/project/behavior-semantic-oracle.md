@@ -1985,6 +1985,36 @@ which is drawn against the branches' remaining target entries, six outcomes.
 `state_do_step_machine_before_top_entries` is the same shape at the machine, whose do behavior
 begins before its top regions are entered: six outcomes.
 
+### Effects on the way into the regions of a parallel state: each precedes its own target's entry, the regions interleave
+
+Fixtures: `state_entry_transition_effect_regions` (golden, explored, checked),
+`state_junction_inside_orthogonal_region` (golden, explored, checked).
+
+A transition out of a named entry action, `entry action boot; transition boot do { … } then s;`,
+is a `TransitionUsage` whose source is an action rather than a state, so its performance is a
+`NonStateTransitionPerformance` (`TransitionPerformances.kerml`; `Actions.sysml`
+`DecisionTransitionAction`, `Action::decisionTransitions`): `transitionLinkSource then effect`
+and `effect then transitionLink.laterOccurrence` place the effect after the entry action and
+before the target's `StatePerformance` begins, and `succession transitionLinkSource then
+Performance::self` makes the transition part of the entry, not a step dispatched after it. It
+has no trigger: an accepter needs a state source (the pilot's
+`validateTransitionUsageTriggerActions`). The shorthand `entry; then s;` (§7.18.3
+`EntryTransitionMember`, a `GuardedTargetSuccession`) still carries a guard at most. A segment
+of a compound transition that continues inside a region of the parallel state it enters is the
+same shape one level down: its effect is a `TransitionPerformance` step between the
+pseudostate's predecessor and its target's entry.
+
+The regions of a parallel state are `middle` steps of its `StatePerformance`
+(`StatePerformances.kerml` `succession entry then middle`), concurrent with each other, and
+nothing in either library orders one region's transition performance against another
+region's. So the parallel state's own entry comes first, each region's effect precedes its own
+target's entry, and the regions' chains interleave in every way: for a region whose chain is an
+effect then an entry beside one whose chain is a single entry, three orders. PSSM's *Entering
+010*, *Entering 011* and *Junction 005* admit exactly these linearizations. The executor
+offers each effect as a unit of its region's queue on the entry front
+(`state_unit_front.go` `entryTransitionEffectHead`, `state_region_entry.go` `enterRegion`), so
+`-schedule explore` reaches each order.
+
 ### A succession outside a behavior body orders the performances it relates, wherever they run
 
 Fixtures: `namespace_succession_chain_ends` (golden), `type_succession_performed_actions`

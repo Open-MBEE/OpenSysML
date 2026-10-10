@@ -6,14 +6,14 @@
     "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
-    "recorded": "2026-10-09",
-    "develop": "88af0fea3f4aac4f59af762701a79d51002ce39b"
+    "recorded": "2026-10-10",
+    "develop": "02db635bed117511e859db8d90b4626dd5da1a85"
   },
   "buckets": {
-    "differs-by-design": 5,
-    "fail": 11,
+    "differs-by-design": 7,
+    "fail": 6,
     "not-expressible": 34,
-    "pass": 53
+    "pass": 56
   },
   "tests": [
     {
@@ -630,32 +630,24 @@
       "name": "Entering 010",
       "area": "Entering",
       "class": "standard",
-      "bucket": "fail",
-      "reasons": [
-        "admitted trace not reached: S1(entry)::T2.1(effect)::S1.1(entry)::S2.1(entry)",
-        "admitted trace not reached: S1(entry)::T2.1(effect)::S2.1(entry)::S1.1(entry)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)::S1.1(entry)::T2.1(effect)::S2.1(entry)",
         "S1(entry)::T2.1(effect)::S1.1(entry)::S2.1(entry)",
         "S1(entry)::T2.1(effect)::S2.1(entry)::S1.1(entry)"
       ],
       "reached": [
-        "S1(entry)::S1.1(entry)::T2.1(effect)::S2.1(entry)"
+        "S1(entry)::S1.1(entry)::T2.1(effect)::S2.1(entry)",
+        "S1(entry)::T2.1(effect)::S1.1(entry)::S2.1(entry)",
+        "S1(entry)::T2.1(effect)::S2.1(entry)::S1.1(entry)"
       ],
-      "runs": 4
+      "runs": 20
     },
     {
       "name": "Entering 011",
       "area": "Entering",
       "class": "standard",
-      "bucket": "fail",
-      "reasons": [
-        "admitted trace not reached: S1(entry)::T1.1(effect)::T2.1(effect)::S1.1(entry)::S1.2(entry)",
-        "admitted trace not reached: S1(entry)::T1.1(effect)::T2.1(effect)::S1.2(entry)::S1.1(entry)",
-        "admitted trace not reached: S1(entry)::T2.1(effect)::T1.1(effect)::S1.1(entry)::S1.2(entry)",
-        "admitted trace not reached: S1(entry)::T2.1(effect)::T1.1(effect)::S1.2(entry)::S1.1(entry)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S1.2(entry)",
         "S1(entry)::T1.1(effect)::T2.1(effect)::S1.1(entry)::S1.2(entry)",
@@ -666,9 +658,13 @@
       ],
       "reached": [
         "S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S1.2(entry)",
-        "S1(entry)::T2.1(effect)::S1.2(entry)::T1.1(effect)::S1.1(entry)"
+        "S1(entry)::T1.1(effect)::T2.1(effect)::S1.1(entry)::S1.2(entry)",
+        "S1(entry)::T1.1(effect)::T2.1(effect)::S1.2(entry)::S1.1(entry)",
+        "S1(entry)::T2.1(effect)::S1.2(entry)::T1.1(effect)::S1.1(entry)",
+        "S1(entry)::T2.1(effect)::T1.1(effect)::S1.1(entry)::S1.2(entry)",
+        "S1(entry)::T2.1(effect)::T1.1(effect)::S1.2(entry)::S1.1(entry)"
       ],
-      "runs": 4
+      "runs": 40
     },
     {
       "name": "Exiting 001",
@@ -1438,19 +1434,16 @@
       "name": "Junction 002",
       "area": "Junction",
       "class": "extension",
-      "row": "SM32",
-      "rowKind": "agrees",
-      "bucket": "fail",
+      "row": "SM46",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
       "reasons": [
-        "reached a trace the suite does not admit: S1(entry)",
+        "run error: process event: fire transition out of wait: entry transition through junction S1_Junction1: no way through: junction S1_Junction1: no guard evaluated to true",
         "admitted trace not reached: T3(effect)",
-        "reports on SM32 (Junction or join with no path through): agrees"
+        "reports on SM46 (Junction on a nested default entry): differs because v2 differs"
       ],
       "expected": [
         "T3(effect)"
-      ],
-      "reached": [
-        "S1(entry)"
       ],
       "runs": 1
     },
@@ -1473,40 +1466,35 @@
       "name": "Junction 004",
       "area": "Junction",
       "class": "extension",
-      "row": "SM32",
-      "rowKind": "agrees",
-      "bucket": "fail",
+      "row": "SM46",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
       "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::T1.3(effect)::S1.2(exit)",
+        "run error: process event: fire transition out of wait: enter state: enter starting state in region S1/Region2: entry transition through junction S1_Junction1_2: no way through: junction S1_Junction1_2: no guard evaluated to true",
         "admitted trace not reached: T3(effect)",
-        "reports on SM32 (Junction or join with no path through): agrees"
+        "reports on SM46 (Junction on a nested default entry): differs because v2 differs"
       ],
       "expected": [
         "T3(effect)"
       ],
-      "reached": [
-        "S1(entry)::T1.3(effect)::S1.2(exit)"
-      ],
-      "runs": 2
+      "runs": 6
     },
     {
       "name": "Junction 005",
       "area": "Junction",
       "class": "extension",
-      "bucket": "fail",
-      "reasons": [
-        "admitted trace not reached: S1(entry)::T2.1(effect)::S2.1(entry)::T1.3(effect)::S1.2(exit)::S1(exit)",
-        "admitted trace not reached: S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)",
         "S1(entry)::T2.1(effect)::S2.1(entry)::T1.3(effect)::S1.2(exit)::S1(exit)",
         "S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
       ],
       "reached": [
-        "S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
+        "S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)",
+        "S1(entry)::T2.1(effect)::S2.1(entry)::T1.3(effect)::S1.2(exit)::S1(exit)",
+        "S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
       ],
-      "runs": 4
+      "runs": 20
     },
     {
       "name": "Junction 006",

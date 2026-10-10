@@ -38,6 +38,10 @@ func qshared(src qx) qx {
 	}
 	return qx{shared: &src}
 }
+
+// qempty is the empty sequence, a row set with no rows that walks no scope.
+func qempty() qx { return qlit("()") }
+
 func qarg1(name string, v qx) qarg     { return qarg{name: name, val: v} }
 func qlist(name string, vs ...qx) qarg { return qarg{name: name, list: vs, many: true} }
 

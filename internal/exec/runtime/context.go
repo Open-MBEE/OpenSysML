@@ -142,6 +142,19 @@ type Context struct {
 	// behaviorRunDepth is the number of classifier-behavior starts under way.
 	behaviorRunDepth int
 
+	// stateExecutors are the live state machines this context can notify of a
+	// completed feature write, in creation order.
+	stateExecutors []*StateExecutor
+
+	// featureWriteDepth coalesces nested stores into one completed write.
+	featureWriteDepth  int
+	featureWriteState  bool
+	featureWriteBefore map[*FeatureValue]featureWriteValue
+	featureWriteOrder  []*FeatureValue
+
+	// readRecorders collect feature values read by an observed change condition.
+	readRecorders [][]*FeatureValue
+
 	// declarative makes the context read declared values only: no classifier
 	// behavior starts when an object is materialized (see DeclaredReader).
 	declarative bool

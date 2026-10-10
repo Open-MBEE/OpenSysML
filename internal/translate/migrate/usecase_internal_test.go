@@ -31,16 +31,16 @@ func TestUseCaseForms(t *testing.T) {
 		id                        string
 		verdict                   Verdict
 	}{
-		{"a use case with a subject is a use case def",
+		{"a use case with a subject is a use case usage",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy" subject="_shop"/>`, "",
-			[]string{"use case def Buy {\n    subject shop : Shop;\n    metadata MigrationMetadata::SynthesizedName about shop;\n}"}, "_uc", Mapped},
+			[]string{"use case Buy {\n    subject shop : Shop;\n    metadata MigrationMetadata::SynthesizedName about shop;\n}"}, "_uc", Mapped},
 		{"an incidental stereotype does not change the form",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy"/>`,
 			`<Custom:HyperlinkOwner xmi:id="_st" base_Element="_uc"/>`,
-			[]string{"use case def Buy {\n    /* applied stereotype «HyperlinkOwner» */\n}"}, "_uc", Mapped},
+			[]string{"use case Buy {\n    /* applied stereotype «HyperlinkOwner» */\n}"}, "_uc", Mapped},
 		{"a second subject is a reference usage",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy" subject="_shop _user"/>`, "",
-			[]string{"subject shop : Shop;\n    ref part user : User;"}, "_uc", Approximated},
+			[]string{"subject shop : Shop;\n    ref part user :> User;"}, "_uc", Approximated},
 		{"subjects written as usages are subset, not typed",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Review" subject="_ov _sv"/>
 			 <packagedElement xmi:type="uml:Class" xmi:id="_ov" name="Overview"/>
@@ -53,33 +53,33 @@ func TestUseCaseForms(t *testing.T) {
 			   <nestedClassifier xmi:type="uml:Class" xmi:id="_sys" name="System"/>
 			 </packagedElement>`,
 			`<sysml:Block xmi:id="_st1" base_Class="_rep"/><sysml:Block xmi:id="_st2" base_Class="_sys"/>`,
-			[]string{"use case def Review {\n    subject system : Report::System;\n    metadata MigrationMetadata::SynthesizedName about system;\n}"}, "_uc", Mapped},
-		{"an association-owned actor end is an actor of the use case",
+			[]string{"use case Review {\n    subject system : Report::System;\n    metadata MigrationMetadata::SynthesizedName about system;\n}"}, "_uc", Mapped},
+		{"an association-owned actor end is a connection between the actor and the use case",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy"/>
 			 <packagedElement xmi:type="uml:Association" xmi:id="_a" memberEnd="_e1 _e2">
 			   <ownedEnd xmi:type="uml:Property" xmi:id="_e1" type="_user" association="_a"/>
 			   <ownedEnd xmi:type="uml:Property" xmi:id="_e2" type="_uc" association="_a"/>
 			 </packagedElement>`, "",
-			[]string{"use case def Buy {\n    subject;\n    actor user : User;\n}"}, "_a", Mapped},
-		{"an actor end the use case owns is written once, as its actor",
+			[]string{"part User;", "use case Buy;", "connection 'User to Buy' connect User to Buy;"}, "_a", Mapped},
+		{"an actor end the use case owns is its actor, subsetting the actor's part",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="customer" type="_user" association="_a"/>
 			 </packagedElement>
 			 <packagedElement xmi:type="uml:Association" xmi:id="_a" memberEnd="_p _e2">
 			   <ownedEnd xmi:type="uml:Property" xmi:id="_e2" type="_uc" association="_a"/>
 			 </packagedElement>`, "",
-			[]string{"use case def Buy {\n    subject;\n    actor customer : User;\n}"}, "_p", Mapped},
-		{"an include is an include use case usage",
+			[]string{"use case Buy {\n    subject;\n    actor customer :> User;\n}"}, "_p", Mapped},
+		{"an include is an include of the included use case",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy">
 			   <include xmi:type="uml:Include" xmi:id="_inc" includingCase="_uc" addition="_browse"/>
 			 </packagedElement>`, "",
-			[]string{"include use case browse : Browse;"}, "_inc", Mapped},
+			[]string{"use case Buy {\n    include Browse;\n}"}, "_inc", Mapped},
 		{"an include of a use case outside the document is refused",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy">
 			   <include xmi:type="uml:Include" xmi:id="_inc" includingCase="_uc" addition="_gone"/>
 			 </packagedElement>`, "",
 			[]string{"not migrated: Include (_inc) — the included use case is not in the document"}, "_inc", Unmapped},
-		{"an extend is a dependency keeping its point and condition",
+		{"an extend is a connection documenting its point and condition",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy">
 			   <extend xmi:type="uml:Extend" xmi:id="_ext" extension="_uc" extendedCase="_browse" extensionLocation="_ep">
 			     <condition xmi:type="uml:Constraint" xmi:id="_cond">
@@ -90,18 +90,18 @@ func TestUseCaseForms(t *testing.T) {
 			 <packagedElement xmi:type="uml:UseCase" xmi:id="_ext2" name="Search">
 			   <extensionPoint xmi:type="uml:ExtensionPoint" xmi:id="_ep" name="found"/>
 			 </packagedElement>`, "",
-			[]string{"dependency Buy to Browse; /* extends at extension point(s) 'found' when true */",
+			[]string{"connection 'Buy extends Browse' connect Buy to Browse {\n    doc /* extends at extension point(s) 'found' when true */\n}",
 				"not migrated: ExtensionPoint 'found'"}, "_ext", Approximated},
 		{"an extend keeps an extension point that is not in the document",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy">
 			   <extend xmi:type="uml:Extend" xmi:id="_ext" extension="_uc" extendedCase="_browse" extensionLocation="_gone"/>
 			 </packagedElement>`, "",
-			[]string{"dependency Buy to Browse; /* extends at extension point(s) _gone (not in the document) */"}, "_ext", Approximated},
+			[]string{"connection 'Buy extends Browse' connect Buy to Browse {\n    doc /* extends at extension point(s) _gone (not in the document) */\n}"}, "_ext", Approximated},
 		{"a block property typed by a use case is a reference use case usage",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_c" name="Site">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="visit" type="_browse"/>
 			 </packagedElement>`, `<sysml:Block xmi:id="_st" base_Class="_c"/>`,
-			[]string{"part def Site {\n    ref use case visit : Browse;\n}"}, "_p", Approximated},
+			[]string{"part def Site {\n    ref use case visit :> Browse;\n}"}, "_p", Approximated},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := Migrate("cases.xmi", []byte(useCaseModel(tc.members, tc.stereotype)))
@@ -145,7 +145,7 @@ func TestUseCaseSubjectFeaturedElsewhere(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(r.Notation)
-	if !strings.Contains(got, "use case def Review;") || strings.Contains(got, "subject overview") {
+	if !strings.Contains(got, "use case Review;") || strings.Contains(got, "subject overview") {
 		t.Errorf("notation names the nested view:\n%s", got)
 	}
 	want := "the subject is not written: the view Report::Overview is a feature of the part def Report, which only its members can name"

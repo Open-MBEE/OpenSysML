@@ -1,0 +1,9 @@
+{
+  "type": "state",
+  "schedule": "reverse",
+  "trace": true,
+  "terminated": true,
+  "outputs": {
+    "marker": {"type": "Integer", "value": 0}
+  }
+}

@@ -7875,15 +7875,13 @@ func testNoEntryTransitionGuardHolds(t *testing.T) {
 	}
 }
 
-// testEntryTransitionTargetIsNotAState: an entry transition starts its body in
-// a state; reaching a pseudostate instead is a typed lowering error.
+// testEntryTransitionTargetIsNotAState: a fork remains an unsupported entry target.
 func testEntryTransitionTargetIsNotAState(t *testing.T) {
 	err := stateExecutorError(t, `
 		package test {
 			state Machine {
 				entry; then pick;
-				choice pick;
-				transition first pick then idle;
+				fork pick;
 				state idle;
 			}
 		}
@@ -7892,7 +7890,7 @@ func testEntryTransitionTargetIsNotAState(t *testing.T) {
 	if !errors.As(err, &targetErr) {
 		t.Fatalf("expected EntryTransitionTargetError, got %v", err)
 	}
-	want := "create state executor: lower state machine: " + fmt.Sprintf(lower.EntryTransitionTargetFormat, "the choice pick")
+	want := "create state executor: lower state machine: " + fmt.Sprintf(lower.EntryTransitionTargetFormat, "the fork pick")
 	if err.Error() != want {
 		t.Fatalf("message:\n got %q\nwant %q", err.Error(), want)
 	}
@@ -7913,7 +7911,7 @@ func testEntryTransitionCarriesATrigger(t *testing.T) {
 	if !errors.As(err, &shapeErr) {
 		t.Fatalf("expected EntryTransitionShapeError, got %v", err)
 	}
-	want := "create state executor: lower state machine: " + fmt.Sprintf(lower.EntryTransitionShapeFormat, "a trigger")
+	want := "create state executor: lower state machine: " + lower.EntryTransitionAccepterSourceMessage
 	if err.Error() != want {
 		t.Fatalf("message:\n got %q\nwant %q", err.Error(), want)
 	}

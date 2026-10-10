@@ -99,7 +99,7 @@ need attention first:
 ## approximated (11)
 «Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	(a trace is written as a plain dependency)
 «TestCase» Activity	Requirements::Mass Test	_tc_mass	-> Requirements::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
-Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part def)
+Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part usage)
 «FlowPort» Port	Vehicle Design::Engine::speedIn	_port_speedIn	-> 'Vehicle Design'::Engine::speedIn	(a port typed by a DataType is written as a port holding one directed attribute)
 …
 Property	Vehicle Design::Vehicle::totalMass	_prop_total	-> 'Vehicle Design'::Vehicle::totalMass	(opaque expression copied verbatim (language SysML))
@@ -119,7 +119,7 @@ how, or why not. The columns are tab-separated, so `cut` and `awk` read them.
   chosen (the root model's members are written at the top level; an English constraint body was
   translated to a v2 expression).
 - **approximated** — written as the nearest v2 construct, and the note says what was lost. Some
-  of these are simply how v2 spells the idea (a UML actor is a `part def`; a flow port typed by a
+  of these are simply how v2 spells the idea (a `«Trace»` is a `dependency`; a flow port typed by a
   data type is a port holding one directed attribute; a `«Trace»` is a `dependency`). Others
   record a v1 tag that v2 has no home for (`isEncapsulated`, a value type's `unit` and
   `quantityKind`), or an opaque expression copied verbatim because its declared language is
