@@ -51,10 +51,12 @@ update of the same element rather than a delete and a create.
 ## The metadata library
 
 Two metadata definitions, shipped as a non-normative OpenSysML library extension (the
-stdlib already carries two such files; the conformance gate counts them separately):
+stdlib already carries two such files; the conformance gate counts them separately;
+maintained upstream at Open-MBEE/OpenSysML-Extensions-Library and vendored here pinned
+by `scripts/extension-libraries-pin.sh`):
 
 ```sysml
-standard library package IdentityMetadata {
+library package IdentityMetadata {
     doc /* Binds notation to repository identity. Non-normative OpenSysML
          * extension, proposed for standardization; see the design record. */
 

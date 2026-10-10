@@ -3259,7 +3259,8 @@ derivation links have no dedicated semantic representation yet and are unknown k
 
 **Standard:** none. This is the document layer of the OpenSysML document-query extension: a document
 authored natively in SysML v2 as a part definition specializing the bundled, non-normative
-`DocumentQueries::Document`, compiled into an immutable document plan, and evaluated into an
+`DocumentQueries::Document` (the extension libraries are maintained upstream at
+Open-MBEE/OpenSysML-Extensions-Library and vendored here pinned), compiled into an immutable document plan, and evaluated into an
 immutable, backend-agnostic document tree by executing its queries through the execution engine
 above. It does not alter SysML v2 language semantics.
 
