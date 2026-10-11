@@ -14,10 +14,11 @@ of the following is a deliberate property of the mapping rather than a defect to
 report:
 
 - **What is not mapped is refused, not partly converted**, and the refusal names
-  the construct. Every one of the 346 models under `examples/` (committed, training and
+  the construct. Every one of the 365 models under `examples/` (committed, training and
   pilot corpora) converts to Turtle, and a second
   conversion of the written-back notation reproduces the Turtle byte for byte for
-  every one — the notation is written from the [source text](#source-text) the
+  all but seven, whose two graphs differ only in the whitespace inside their
+  source-text literals — the notation is written from the [source text](#source-text) the
   graph carries. These figures are the
   per-file ratchet in `tests/corpus/roundtrip_test.go`, described
   in [rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md). See
@@ -1349,15 +1350,12 @@ The conditions and expressions these nodes carry are expression trees, like
 every other expression-valued position ([Expressions](#expressions)): they
 convert back exactly *and* SPARQL can see inside them.
 
-What is still refused, naming the node:
-
-- **A succession that does not name both of its ends.** `then fork;` and
-  `then monitorPedal;` written after a preceding member express an order whose
-  source end the notation leaves implicit, and the parser records the node the
-  statement introduces separately from the edge into it. Reconstructing that
-  shape would mean inferring which node an edge belongs to from member position,
-  which could silently reattach edges, so it is reported instead. Nine of the
-  eighteen remaining refusals under `examples/` are this shape.
+A succession that names neither of its ends (`then fork;`, `then monitorPedal;`
+written after a preceding member) is no longer refused: it is carried by the
+members it sequences, as `sysx:sourceMember` and `sysx:targetMember`
+([End-binding heads](#end-binding-heads)). Nothing under `examples/` is refused
+today; the per-file verdicts are in
+[rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md).
 
 ## Limitations
 
@@ -1831,7 +1829,7 @@ including a parallel state's regions, calculation and requirement) reads these
 forms back as the same node, and on the fixtures a second conversion writes the
 same Turtle byte for byte (`export_test.go:TestSuccessionRoundTripsInEveryBody`).
 That is a statement about the fixtures, not the mapping: over the example corpus
-the second hop reproduces the graph for all 303 files that convert, but from
+the second hop reproduces the graph for all 365 files, but from
 the source text they carry, which the corpus gate does not strip
 ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)). An end
 whose name needs quotes (`first a then 'drive vehicle';`) is a reference to the
