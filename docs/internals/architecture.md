@@ -343,15 +343,15 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - **Calc bodies** — `return` expressions + mixed parameter declarations (✅ **fully executable**)
 - **Constraint bodies** — `assert`/`assume` with optional `not` negation (✅ **fully executable**)
 - **Requirement bodies** — `subject`/`assume`/`require`/`actor` declarations (✅ **fully executable**)
-- **Action bodies** — Control flow nodes (initial/final/fork/join/merge/decision) + action execution nodes + succession edges (✅ **parsed**, executor infrastructure complete)
-- **State bodies** — Entry/do/exit behaviors, substates, transitions with triggers/guards/effects (✅ **parsed**, executor infrastructure complete)
+- **Action bodies** — Control flow nodes (initial/final/fork/join/merge/decision) + action execution nodes + succession edges (✅ **parsed**; executed for the subset the compliance map lists)
+- **State bodies** — Entry/do/exit behaviors, substates, transitions with triggers/guards/effects (✅ **parsed**; executed for the subset the compliance map lists)
 - **Unified Grammar:** Body parsers use graceful fallback to general member grammar (no terminal keyword whitelists)
-- **Status:** All parsers complete. Calc/constraint/requirement **fully executable**. Action/state **executors complete** with control flow keywords, nested invocation, send statement.
+- **Status:** All parsers complete. Calc/constraint/requirement executable and refereed against the pilot's evaluator. Action/state executed for the subset below — control flow keywords, nested invocation, send statement — with no external referee.
 
-### Tier 5 — Behavioral Interpreter ✅ Complete
+### Tier 5 — Behavioral Interpreter ✅ Supported subset
 
 **Package:** `internal/exec/runtime`  
-**Status:** Complete. Conformance gate: every case passing (calc/constraint/requirement/satisfy/action/state all functional); count in [the measured counts](../project/spec-compliance.md).  
+**Status:** Executes the subset the [compliance map](../project/spec-compliance.md#detailed-semantic-compliance-map) lists row by row — action flows (successions, fork/join/merge/decision, nested and typed action usages, accept and send, timed waits), state machines (hierarchical and orthogonal states, transitions with triggers/guards/effects, entry/do/exit, history, pseudostates, deferred events) and classifier behaviors over objects. Evidence: every conformance case passes (`TestExecutionConformance`; count in [the measured counts](../project/spec-compliance.md)), self-assessed against the Kernel Semantic Library — the pinned pilot evaluates expressions but executes neither actions nor state machines, so behavioral execution has **no external referee** ([what cannot be claimed](../project/spec-compliance.md#what-cant-be-claimed-for-spec-compliance)). How many rows are ✅ faithful, how many ⚠️ approximate and how many 🧩 extension (UML/PSSM-derived or OpenSysML, not a SysML v2 claim) is counted from the map when the documentation site is built, not typed in here. A default run is one tool-chosen linearization (the `reverse` policy, [scheduling](design/scheduling.md)) of the partial order the model states; `explore` and `-engine check` are how the whole outcome set is seen.  
 **Spec Alignment:** The governing reference is the SysML v2 metamodel or the bundled KerML semantic library (`internal/workspace/libs/stdlib/`); UML 2.5.1 is a fallback only where the SysML v2 notation has no production for a concept *and* the KerML library no performance for it (state-body `fork`/`join`, history, regions). The runtime is not a UML or fUML activity engine: "token" names the executor's bookkeeping for where each performance is along the successions of the lowered graph, an implementation device, not the semantic model. What the tokens realize is succession order: a succession is a KerML `HappensBefore` link (`Occurrences.kerml`), which orders occurrences in time and carries no values — a `SuccessionFlow` is the form that carries a payload (`KerML.kerml`: `Succession specializes Connector`, `SuccessionFlow specializes Succession, Flow`). State machine execution is `Occurrences::Occurrence::isRunToCompletion` over its `runToCompletionScope` ("determines whether transition performances might happen during state entry performances within the run to completion scope"), with event dispatch `isDispatch` / `dispatchScope`. See [SPEC_COMPLIANCE.md](../project/spec-compliance.md) for the detailed compliance mapping, and [the pilot differential](../project/pilot-differential.md) for what is checked against the reference implementation.
 
 **Architecture:**
@@ -657,8 +657,8 @@ See [the guide](../guide/) for VS Code configuration.
 | Workspace/reindex/file watching | ✅ Complete |
 | Behavioral parser (all behavioral bodies) | ✅ Complete |
 | Calc invocation & constraint evaluation | ✅ Complete |
-| Action execution engine (Tier 5) | ✅ Complete |
-| State machine runtime (Tier 5) | ✅ Complete |
+| Action execution engine (Tier 5) | ✅ Supported subset — every conformance case passes; self-assessed, no external referee; the ✅/⚠️/🧩 rows are counted in the [compliance map](../project/spec-compliance.md) at site build |
+| State machine runtime (Tier 5) | ✅ Supported subset — every conformance case passes; self-assessed, no external referee; pseudostates, call-event triggers and completion semantics are UML/PSSM-derived (🧩 in the [compliance map](../project/spec-compliance.md)) |
 | REPL debugging commands | ✅ Complete |
 | REPL implementation | ✅ Complete |
 | Standard library bundling | ✅ Complete |
@@ -853,7 +853,7 @@ What these numbers cannot show: the OMG corpora are demonstrations rather than a
 **Row bookkeeping:** the ✅/⚠️/❌/⛔ status of each tracked rule stays in [spec compliance](../project/spec-compliance.md) as a census of our own row list, counted when the documentation site is built rather than committed. It moves when rows are rewritten and does not move when an oracle does, so it is not the progress measure.
 <!-- doc-counts:end refereed-figures -->
 
-Calc/constraint/requirement functional. Action/state executor infrastructure complete (fork/join/decision, TimeEvent/ChangeEvent, guards, hierarchy, orthogonal regions all tested); every conformance case passes. Fork/join, shallow/deep history and deferred events are implemented and reachable from source text — see docs/project/spec-compliance.md and docs/reference/grammar/README.md.
+Calc/constraint/requirement functional and refereed. Action/state executed for the supported subset (fork/join/decision, TimeEvent/ChangeEvent, guards, hierarchy, orthogonal regions all tested); every conformance case passes, with no external behavioral referee. Fork/join, shallow/deep history and deferred events are implemented and reachable from source text — see docs/project/spec-compliance.md and docs/reference/grammar/README.md.
 
 ---
 

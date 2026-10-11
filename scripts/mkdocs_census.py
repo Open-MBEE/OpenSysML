@@ -14,7 +14,7 @@ PAGE = "project/spec-compliance.md"
 BEGIN = "<!-- doc-counts:begin census -->\n"
 END = "<!-- doc-counts:end census -->\n"
 # '⚠' without its variation selector: the map writes both spellings.
-MARKERS = ("✅", "⚠", "❌", "⛔", "🚧")
+MARKERS = ("✅", "🧩", "⚠", "❌", "⛔", "🚧")
 UNREFEREED = "**No external referee:**"
 
 
@@ -61,6 +61,7 @@ def census(markdown: str) -> str:
         raise ValueError(f"{PAGE}: {c['🚧']} 🚧 rows; give them a status the census states")
     sentence = (
         f"The map below tracks {c['total']} semantic rules: **{c['✅']} ✅ faithful, "
+        f"{c['🧩']} 🧩 extension (UML-derived or OpenSysML, not a SysML v2 claim), "
         f"{c['⚠']} ⚠️ approximate, {c['❌']} ❌ not implemented, {c['⛔']} ⛔ deliberate divergence**; "
         f"{c['self-assessed']} of them have no external referee.\n"
     )

@@ -19,12 +19,13 @@ const complianceFixture = `# Compliance
 | b | x | y | ⚠️ Approximate |
 | c | x | y | ❌ Not implemented |
 | d | x | y | ⛔ Deliberate |
+| e | x | y | 🧩 Extension (UML-derived) |
 | notes | mentions ✅ and ❌ together | y | ⚠️ Approximate |
 `
 
 func TestCountRulesCountsOneMarkerPerRow(t *testing.T) {
 	counts := CountRules(complianceFixture)
-	want := RuleCounts{Total: 4, Faithful: 1, Approximate: 1, NotImplemented: 1, Deliberate: 1}
+	want := RuleCounts{Total: 5, Faithful: 1, Extension: 1, Approximate: 1, NotImplemented: 1, Deliberate: 1}
 	if counts != want {
 		t.Fatalf("census: want %+v, got %+v", want, counts)
 	}
