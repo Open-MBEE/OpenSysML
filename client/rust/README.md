@@ -43,7 +43,7 @@ The minimum supported Rust version is **Rust 1.83**.
 ## Why blocking
 
 The client is blocking by default and has no asynchronous runtime anywhere in
-its normal dependency tree. All 22 service RPCs are unary, and the usual
+its normal dependency tree. All 25 service RPCs are unary, and the usual
 consumer talks to a local child that answers in milliseconds. Async buys the
 average consumer little here, while putting a private `tokio::Runtime` in a
 library taxes every consumer. That is why this client does not use `tonic`.

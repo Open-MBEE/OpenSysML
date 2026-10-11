@@ -370,9 +370,11 @@ geometry, style and canvas remain `Optional` when the view does not state them.
 Use `RenderViewPorts.FULL` to include every declared port; the default is
 `MINIMAL`. This call requires the `render_view` capability.
 
-`DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an `Instance` plus its
-element ids), `Verdict`, `State`, `Event`, `LiteralValue` (wrapping a `Value`),
-`Quantity`, `Range`, `QuantityRange`, `InstanceRef` and `Unit` — the kinds a
+`DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an object the service
+holds, by id or by path, with the `ElementRef` it is held under), `DocumentVerdict`,
+`DocumentState`, `DocumentEvent`, the literal kinds `StringValue`, `IntegerValue`,
+`BigIntegerValue`, `RealValue`, `RationalValue` and `BooleanValue`, `InfinityValue`
+(an unbounded multiplicity) and `QuantityValue` — the kinds a
 native document's cells and bindings speak. A `DocumentRow` carries its subject
 whichever kind it is — `element()` for an element row, `verdict()`/
 `state()`/`event()`/`object()` as `Optional`s for the typed rows — beside the
@@ -508,7 +510,7 @@ not a compatibility promise.
 
 `opensysml-conformance` runs the language-neutral scenarios **through the public
 API** and writes the report shape `tools/cmd/conformance` writes; `mvn -f
-client/java/pom.xml test` is what CI runs. Of 138 scenarios, 133 run and pass over
+client/java/pom.xml test` is what CI runs. Of 166 scenarios, 161 run and pass over
 both `connect` and `connect-json`, and 5 are skipped — the requests the public API
 cannot express: a
 `ParseFile` naming no source, a `Query` with both a structured and an OSLC query or

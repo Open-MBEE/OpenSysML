@@ -65,7 +65,7 @@ extension, start the server in strict mode instead:
 or the preview button in its title bar, *Open Diagram* in its right-click menu or the Explorer's,
 or `SysML: Open Diagram` from the command palette — shows a diagram of the model beside the
 editor; the same key pressed in the diagram returns to the source. The panel draws the same renderings the
-REPL's `%view` command prints, as an SVG canvas of its own, and redraws as you edit the model.
+REPL's `%render` command prints, as an SVG canvas of its own, and redraws as you edit the model.
 
 - **Content.** The panel draws a view the document declares (chosen from a dropdown when there
   are several) or, as is usual for a model under development, the document itself, rendered as a
@@ -106,7 +106,7 @@ The geometry is on every node and edge the server sends (`x`, `y`,
 `width`, `height`, `route`) and in the Mermaid the REPL and the document pipeline write as
 `%% layout:` comments, so other clients can honor it; see
 [Diagram layout annotations](../project/diagram-layout-annotations.md). A drag applies to the
-tree, interconnection, state, action, case and mixed diagrams, which read the annotations back.
+tree, interconnection, state and action diagrams, which read the annotations back.
 
 #### Exporting a diagram
 

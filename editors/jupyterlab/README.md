@@ -19,7 +19,7 @@ keywords only in context (`chain`, `deep`, `done`, `history`, `junction`, `shall
 `var` in KerML), the literals `true`, `false` and `null`, `//` and `/* */` comments, the
 bodies of `doc` and `comment` as documentation, strings with their escapes, numbers,
 `'unrestricted names'`, the `A::B` of qualified names, operators and punctuation, and a
-cell's first token when it is a kernel command (`%help`, `%run`, …).
+cell's first token when it is a kernel command (`%help`, `%render`, …).
 
 The keyword and operator tables are `src/syntax.json`, generated from the lexer's keyword
 list (`internal/syntax/source.Keywords()`, `lexer.ContextualWords()`) by

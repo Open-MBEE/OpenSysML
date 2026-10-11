@@ -279,8 +279,8 @@ Beside the model reads above, the client covers every RPC the service offers:
 
 `npm run conformance -- --allow-skips --report report.json` runs the
 language-neutral suite through the public API, and emits the report shape
-`tools/cmd/conformance` emits. 158 scenarios per protocol over `grpc`, `connect` and
-`connect-json`: 155 pass and 3 are skipped, being the requests the public API
+`tools/cmd/conformance` emits. 166 scenarios per protocol over `grpc`, `connect` and
+`connect-json`: 163 pass and 3 are skipped, being the requests the public API
 refuses eagerly (a `ParseFile` naming no source, a `ParseSources` naming no
 document or two alike); a refusal the client makes in the service's own words and
 status (a v1 model offered to `convert`, a v2 one to `migrate`) runs as that status.
