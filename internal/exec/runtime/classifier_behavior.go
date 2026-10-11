@@ -1593,11 +1593,13 @@ func (ctx *Context) typeHoldsFeature(typeSym, feature *symbols.Symbol) bool {
 	if owner == nil {
 		return false
 	}
-	if owner == typeSym {
+	// The owner and the type may be symbols of separate scope trees for one
+	// declaration, so they are compared as elements, not as pointers.
+	if symbols.SameElement(owner, typeSym) {
 		return true
 	}
 	for _, super := range ctx.model.semantics.AllSupertypes(typeSym) {
-		if super == owner {
+		if symbols.SameElement(super, owner) {
 			return true
 		}
 	}

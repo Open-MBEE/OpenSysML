@@ -60,6 +60,15 @@ top-level one is. `instantiate` names an instance case's type the same way.
   drives the same execution to the end.
 - `schedule`: the scheduling policy the case was recorded under (see
   [Scheduling Policy](#scheduling-policy)); omitted means the default.
+- `performers`: objects that each perform the action, for a case whose contract
+  is what the body does on its performer — an action usage a part definition
+  owns, performed on a part of that type, writes that part's features. Each
+  entry names the object's usage plus the `outputs` and `terminated` expected
+  of that object's performance, the `slots` the object holds afterwards (keyed
+  by path from the object, `runs` or `tank.volume`), or the `error` the
+  performance must fail with:
+  `{"object": "test::plant", "slots": {"runs": {"type": "Integer", "value": 1}}}`.
+  Omit for an action performed by no object.
 
 ### For States (`ExecuteState`)
 

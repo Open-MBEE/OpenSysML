@@ -1,0 +1,12 @@
+{
+  "type": "action",
+  "libraries": true,
+  "documents": ["standalone_action_writes_performer_feature_across_documents.defs.sysml"],
+  "evaluate": "touchDefs::Touch",
+  "performers": [
+    {
+      "object": "test::host",
+      "error": "name is not in scope of the behavior body"
+    }
+  ]
+}
