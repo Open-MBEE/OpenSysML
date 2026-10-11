@@ -276,6 +276,11 @@ func rootOf(scope *symbols.Scope) *symbols.Scope {
 // only an unqualified one is second-guessed.
 func (r *Resolver) unresolved(scope *symbols.Scope, qn *ast.QualifiedName) {
 	delete(r.ambiguities, qn)
+	if r.quiet > 0 {
+		// Nothing is reported, and the hint would resolve the imports around qn
+		// in turn, each unresolved one asking for its own hint.
+		return
+	}
 	msg := unresolvedReferencePrefix + qnText(qn)
 	var fixes []diag.Fix
 	if len(qn.Parts) == 1 && !qn.Global {

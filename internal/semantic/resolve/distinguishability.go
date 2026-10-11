@@ -411,7 +411,9 @@ func (r *Resolver) hiddenOnRoute(scope *symbols.Scope, sym *symbols.Symbol) bool
 // scope re-exports from: a hidden membership is no member of that namespace,
 // so the import brings none under the name.
 func (r *Resolver) collidedThrough(scope *symbols.Scope, name string, seen map[*symbols.Scope]bool) []importedMember {
-	if scope == nil || seen[scope] {
+	if scope == nil || seen[scope] || r.idx == nil || r.idx.DocumentLibraryTier(symbols.DocNameOf(scope)).Library() {
+		// A library namespace hides nothing (importedCollisions), nor do the
+		// libraries it imports.
 		return nil
 	}
 	seen[scope] = true

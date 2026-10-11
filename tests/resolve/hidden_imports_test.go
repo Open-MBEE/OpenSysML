@@ -363,3 +363,30 @@ package Use { private import Both::*; private import Left::*; part e : Engine; p
 		t.Errorf("warnings = %v, want the one on Both's second import", warnings)
 	}
 }
+
+// Namespaces that re-export each other and each import several namespaces that
+// do not exist: the unresolved reference's hint reads their imports once, and an
+// import target resolved on its behalf asks for no hint of its own.
+func TestUnresolvedNameHintAmongUnresolvedImports(t *testing.T) {
+	var sb strings.Builder
+	names := []string{"A", "B", "C", "D"}
+	for i, name := range names {
+		fmt.Fprintf(&sb, "package %s { public import %s::*;", name, names[(i+1)%len(names)])
+		for j := 1; j <= 6; j++ {
+			fmt.Fprintf(&sb, " private import M%d::*;", j)
+		}
+		sb.WriteString(" }\n")
+	}
+	sb.WriteString("package Use { private import A::*; part x : Nope; }\n")
+	r, root, scope := resolvedDoc(t, sb.String())
+	if got := bindingOf(t, r, root, scope, "Nope"); got != "" {
+		t.Errorf("Nope binds %q, want unresolved", got)
+	}
+	warnings, errors := diagnosticsOf(r)
+	if len(warnings) != 0 {
+		t.Errorf("unexpected warnings: %v", warnings)
+	}
+	if want := 4*6 + 1; len(errors) != want {
+		t.Errorf("got %d errors, want %d: %v", len(errors), want, errors)
+	}
+}
