@@ -5127,11 +5127,12 @@
         "internal/translate/migrate/migrate.go:requirementBody"
       ],
       "tests": [
+        "tests/migrate/classify_test.go:TestRequirementsAreUsages",
         "tests/migrate/classify_test.go:TestRequirementTextKeepsCommentsAboutOthers",
         "tests/migrate/classify_test.go:TestRequirementIDDropsHTML",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a v1 requirement is a classifier and is written as a `requirement def` (id and text as its declared short name and doc), not a requirement usage, so v1 generalizations between requirements and «DeriveReqt»/«Satisfy» ends stay definitions",
+      "reason": "a v1 requirement is written as a `requirement` usage, as a tool's users draw one (id and text as its declared short name and doc), not a `requirement def`: a nested requirement is its subrequirement, «Satisfy»/«Verify»/«DeriveReqt» ends and a property it types subset it, and an instance of it is reported rather than written",
       "scope": []
     },
     {
@@ -5155,11 +5156,12 @@
         "internal/translate/migrate/migrate.go:requirementBody"
       ],
       "tests": [
+        "tests/migrate/classify_test.go:TestRequirementsAreUsages",
         "tests/migrate/classify_test.go:TestRequirementTextKeepsCommentsAboutOthers",
         "tests/migrate/classify_test.go:TestRequirementIDDropsHTML",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a v1 requirement is a classifier and is written as a `requirement def` (id and text as its declared short name and doc), not a requirement usage, so v1 generalizations between requirements and «DeriveReqt»/«Satisfy» ends stay definitions",
+      "reason": "a v1 requirement is written as a `requirement` usage, as a tool's users draw one (id and text as its declared short name and doc), not a `requirement def`: a nested requirement is its subrequirement, «Satisfy»/«Verify»/«DeriveReqt» ends and a property it types subset it, and an instance of it is reported rather than written",
       "scope": []
     },
     {
@@ -5183,11 +5185,12 @@
         "internal/translate/migrate/migrate.go:requirementBody"
       ],
       "tests": [
+        "tests/migrate/classify_test.go:TestRequirementsAreUsages",
         "tests/migrate/classify_test.go:TestRequirementTextKeepsCommentsAboutOthers",
         "tests/migrate/classify_test.go:TestRequirementIDDropsHTML",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a v1 requirement is a classifier and is written as a `requirement def` (id and text as its declared short name and doc), not a requirement usage, so v1 generalizations between requirements and «DeriveReqt»/«Satisfy» ends stay definitions",
+      "reason": "a v1 requirement is written as a `requirement` usage, as a tool's users draw one (id and text as its declared short name and doc), not a `requirement def`: a nested requirement is its subrequirement, «Satisfy»/«Verify»/«DeriveReqt» ends and a property it types subset it, and an instance of it is reported rather than written",
       "scope": []
     },
     {
@@ -5211,11 +5214,12 @@
         "internal/translate/migrate/migrate.go:requirementBody"
       ],
       "tests": [
+        "tests/migrate/classify_test.go:TestRequirementsAreUsages",
         "tests/migrate/classify_test.go:TestRequirementTextKeepsCommentsAboutOthers",
         "tests/migrate/classify_test.go:TestRequirementIDDropsHTML",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a v1 requirement is a classifier and is written as a `requirement def` (id and text as its declared short name and doc), not a requirement usage, so v1 generalizations between requirements and «DeriveReqt»/«Satisfy» ends stay definitions",
+      "reason": "a v1 requirement is written as a `requirement` usage, as a tool's users draw one (id and text as its declared short name and doc), not a `requirement def`: a nested requirement is its subrequirement, «Satisfy»/«Verify»/«DeriveReqt» ends and a property it types subset it, and an instance of it is reported rather than written",
       "scope": []
     },
     {
@@ -5241,11 +5245,12 @@
         "internal/translate/migrate/migrate.go:requirementBody"
       ],
       "tests": [
+        "tests/migrate/classify_test.go:TestRequirementsAreUsages",
         "tests/migrate/classify_test.go:TestRequirementTextKeepsCommentsAboutOthers",
         "tests/migrate/classify_test.go:TestRequirementIDDropsHTML",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a v1 requirement is a classifier and is written as a `requirement def` (id and text as its declared short name and doc), not a requirement usage, so v1 generalizations between requirements and «DeriveReqt»/«Satisfy» ends stay definitions",
+      "reason": "a v1 requirement is written as a `requirement` usage, as a tool's users draw one (id and text as its declared short name and doc), not a `requirement def`: a nested requirement is its subrequirement, «Satisfy»/«Verify»/«DeriveReqt» ends and a property it types subset it, and an instance of it is reported rather than written",
       "scope": []
     },
     {
@@ -20996,12 +21001,17 @@
       "status": "approximate",
       "implementation": [
         "internal/translate/migrate/usecase.go:actorLink",
+        "internal/translate/migrate/usecase.go:placeActors",
         "internal/translate/migrate/classify.go:classifyClass"
       ],
       "tests": [
+        "tests/migrate/usecase_actor_parameters_test.go:TestActorAssociationIsTheUseCasesActorParameter",
+        "tests/migrate/usecase_actor_parameters_test.go:TestRepeatedActorAssociationsGetDistinctParameters",
+        "tests/migrate/usecase_actor_parameters_test.go:TestUseCaseOwnedActorEndIsReused",
+        "tests/migrate/usecase_actor_parameters_test.go:TestNamedActorAssociationConnectsTheUseCaseUsage",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "an actor is written as a part usage, not a part def: the actor lines of a use case diagram are connections, which join usages",
+      "reason": "an actor is written as one part usage, not a part def: the actor lines of a use case diagram are connections, which join usages, and each use case associated with it declares an `actor` parameter subsetting that one usage",
       "scope": [
         "uml:Actor"
       ]
@@ -21071,15 +21081,19 @@
         "type"
       ],
       "ocl": "sha256:719917ab2ec0a4e8566e0084ac378f0182dd8f3ed98522ab6c780ed6a5001349",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/usecase.go:connectActor",
-        "internal/translate/migrate/classify.go:classifyClass"
+        "internal/translate/migrate/usecase.go:actorParameters",
+        "internal/translate/migrate/usecase.go:connectActor"
       ],
       "tests": [
+        "tests/migrate/usecase_actor_parameters_test.go:TestActorAssociationIsTheUseCasesActorParameter",
+        "tests/migrate/usecase_actor_parameters_test.go:TestRepeatedActorAssociationsGetDistinctParameters",
+        "tests/migrate/usecase_actor_parameters_test.go:TestUseCaseOwnedActorEndIsReused",
+        "tests/migrate/usecase_actor_parameters_test.go:TestNamedActorAssociationConnectsTheUseCaseUsage",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "the use case owns no actor member: the association is written as a connection between the actor's part usage and the use case usage",
+      "reason": "the actor parameter subsets the actor's one part usage (`actor operator :> Operator;`) rather than being typed, since the actor is a usage, not a definition, and the parameter is a role of that one actor, not a second one",
       "scope": [
         "uml:Actor"
       ]
@@ -21099,15 +21113,19 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:350dd57e7124d89991e86930a62206324b4913cc22f5dfbc212c7fb53353cc02",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/usecase.go:connectActor",
-        "internal/translate/migrate/classify.go:classifyClass"
+        "internal/translate/migrate/usecase.go:actorParameters",
+        "internal/translate/migrate/usecase.go:useCaseBody"
       ],
       "tests": [
+        "tests/migrate/usecase_actor_parameters_test.go:TestActorAssociationIsTheUseCasesActorParameter",
+        "tests/migrate/usecase_actor_parameters_test.go:TestRepeatedActorAssociationsGetDistinctParameters",
+        "tests/migrate/usecase_actor_parameters_test.go:TestUseCaseOwnedActorEndIsReused",
+        "tests/migrate/usecase_actor_parameters_test.go:TestNamedActorAssociationConnectsTheUseCaseUsage",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "the use case owns no actor member: the association is written as a connection between the actor's part usage and the use case usage",
+      "reason": "the `actor` parameter is a member of the use case usage's body, written after its subject (`subject;` when the use case declares none, as v2 requires the subject first)",
       "scope": [
         "uml:Actor"
       ]
@@ -21128,15 +21146,20 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:a3c87cbca08a5c2087397677178ad9e15063e3bad7ab80893904b89e3c79001c",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/usecase.go:connectActor",
-        "internal/translate/migrate/classify.go:classifyClass"
+        "internal/translate/migrate/usecase.go:placeActors",
+        "internal/translate/migrate/usecase.go:actorParameters",
+        "internal/translate/migrate/usecase.go:connectActor"
       ],
       "tests": [
+        "tests/migrate/usecase_actor_parameters_test.go:TestActorAssociationIsTheUseCasesActorParameter",
+        "tests/migrate/usecase_actor_parameters_test.go:TestRepeatedActorAssociationsGetDistinctParameters",
+        "tests/migrate/usecase_actor_parameters_test.go:TestUseCaseOwnedActorEndIsReused",
+        "tests/migrate/usecase_actor_parameters_test.go:TestNamedActorAssociationConnectsTheUseCaseUsage",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "the use case owns no actor member: the association is written as a connection between the actor's part usage and the use case usage",
+      "reason": "the use case declares an `actor` parameter per actor association, named after the association's end (else the actor, made unique and marked as synthesized), which the association's connection joins as `<use case>.<parameter>`; an actor end the use case owns is that parameter itself",
       "scope": [
         "uml:Actor"
       ]
