@@ -139,7 +139,7 @@ inherited one; a usage writing none starts where its definition says.
 
 ```sysml
 state def Heater {
-    attribute cold : Boolean = true;
+    attribute cold : ScalarValues::Boolean = true;
     entry;
     if cold then heating;
     if not cold then idle;
@@ -552,6 +552,7 @@ package Tank {
 	state def Step {
 		attribute level : Real = 0.0;
 		attribute maxLevel : Real = 1.0;
+		entry; then fill;
 		state fill;
 		state drain {
 			entry assign level := if fill.isActive ? 0.0 else level;
@@ -688,6 +689,7 @@ $ sysml -action test::race action_explore_three_writers.sysml
     bRan = true
     cRan = true
     x = 1
+  standing: value (observed: 1 run under reverse)
 ```
 
 The same line closes `%step`, `%continue` and `%advance` in the REPL, and reads `2 choice points`
@@ -760,6 +762,7 @@ $ sysml -schedule seed:1 -action test::race action_explore_three_writers.sysml
     bRan = true
     cRan = true
     x = 2
+  standing: value (observed: 1 run under seed:1)
 ```
 
 The policy is spelled the same everywhere — `sysml -schedule` for `-action`, `-state` and
@@ -800,6 +803,7 @@ aRan = true; bRan = true; cRan = true; x = 1 | 2              | possible    | st
 aRan = true; bRan = true; cRan = true; x = 2 | 2              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
 aRan = true; bRan = true; cRan = true; x = 3 | 2              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 complete (6 runs)
+  standing: outcomes (proved over schedules: 6 linearizations, inputs as written)
 ```
 
 Runs that agree on what the conformance harness compares — an action's outputs; a state machine's
@@ -894,6 +898,7 @@ outcome                                      | linearizations | probability | wi
 aRan = true; bRan = true; cRan = true; x = 2 | 1              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
 aRan = true; bRan = true; cRan = true; x = 3 | 2              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 incomplete: runs budget 3 hit after 3 runs
+  standing: outcomes (observed: 3 linearizations, inputs as written, runs=3 (reached))
 $ echo $?
 2
 ```
@@ -2200,6 +2205,7 @@ when it completes.
 $ sysml -action ActionExecutorDemo::forkJoin examples/action-executor-demo.sysml
 ✓ Action completed
   Final state: Completed
+  1 choice point; %trace on to see them
   Results:
     task1 = 10
     task2 = 20
@@ -2365,6 +2371,7 @@ $ sysml -action FailureHandling::bySignal failure_handling.sysml
 ✓ Action completed
   Final state: Completed
   Results:
+    caught.fault = Instance(ID: 1)
     fault = Instance(ID: 1)
     handled = "sensor offline"
     progress = 1
