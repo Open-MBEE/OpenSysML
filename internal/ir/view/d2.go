@@ -500,7 +500,7 @@ func (w *d2Writer) writeEdge(indent string, edge Edge) {
 	switch edge.Kind {
 	case EdgeConnection:
 		arrow, class = "--", "connection"
-	case EdgeBinding:
+	case EdgeBinding, EdgeAssociation:
 		arrow = "--"
 	case EdgeFlow:
 		class = "flow"

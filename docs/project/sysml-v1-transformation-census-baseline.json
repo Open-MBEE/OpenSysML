@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 103
+        "files": 104
       }
     ],
     "counts": {
@@ -100,7 +100,7 @@
       },
       "uml:Actor": {
         "pssm": 0,
-        "fixtures": 8
+        "fixtures": 9
       },
       "uml:AddStructuralFeatureValueAction": {
         "pssm": 525,
@@ -112,7 +112,7 @@
       },
       "uml:Association": {
         "pssm": 4,
-        "fixtures": 15
+        "fixtures": 23
       },
       "uml:BroadcastSignalAction": {
         "pssm": 0,
@@ -140,7 +140,7 @@
       },
       "uml:Class": {
         "pssm": 311,
-        "fixtures": 490
+        "fixtures": 500
       },
       "uml:ClearAssociationAction": {
         "pssm": 0,
@@ -248,7 +248,7 @@
       },
       "uml:Property": {
         "pssm": 25,
-        "fixtures": 475
+        "fixtures": 493
       },
       "uml:Property[qualifier]": {
         "pssm": 0,
@@ -2039,7 +2039,7 @@
         "internal/translate/migrate/migrate.go:association"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
+        "tests/migrate/classify_test.go:TestAnonymousAssociationIsAConnectionDef",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
       "reason": "",
@@ -13965,9 +13965,9 @@
       ],
       "tests": [
         "tests/migrate/instance_links_test.go:TestInstanceSpecificationLink",
-        "tests/migrate/instance_links_test.go:TestInstanceSpecificationLinkWithoutConnectionDefinitionIsUnmapped"
+        "tests/migrate/instance_links_test.go:TestInstanceSpecificationLinkOfAnonymousAssociationSpecializesItsConnectionDef"
       ],
-      "reason": "a link is written as an individual connection def specializing its association with its ends redefined by the linked instances' individual defs, matching how instances are written (see InstanceSpecification); the mapping's connection usage would connect part usages the migration does not write; a link of an association written only as its member-end properties is not written; neither the PSSM suite nor the TMT model has a link",
+      "reason": "a link is written as an individual connection def specializing its association with its ends redefined by the linked instances' individual defs, matching how instances are written (see InstanceSpecification); the mapping's connection usage would connect part usages the migration does not write; neither the PSSM suite nor the TMT model has a link",
       "scope": [
         "uml:InstanceSpecification"
       ]
@@ -19974,15 +19974,18 @@
         "filter"
       ],
       "ocl": "sha256:05dd7d1db91cf8438fafcb92b8b96ad960bd9f858c87bf9d70ff427906c8f1d0",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationAsConnectionDef"
+        "internal/translate/migrate/migrate.go:associationAsConnectionDef",
+        "internal/translate/migrate/usecase.go:planAssociations",
+        "internal/translate/migrate/names.go:associationBase"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten"
+        "tests/migrate/classify_test.go:TestAnonymousAssociationIsAConnectionDef",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "every association, named or not, is a connection def whose one usage is a connection typed by it joining usages of the two end types, hosted by the nearest package holding both; an anonymous one is named after its end types (CarToWheel), the name marked MigrationMetadata::SynthesizedName, and its ends cross the member-end properties where that is sound (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20218,14 +20221,15 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:d3bc8573ac09a66b5eba75b3c0ffd58567f0e3108de388089dfc540c204c9a3b",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "an end is written as an end feature typed by its member end's type; an end the association owns carries its multiplicity as the cross multiplicity, `end [0..*] ref car : Car;`, and a classifier-owned end crosses the property it is written as (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20245,14 +20249,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:7a43ccab9d43b8077d2e8c042a63424b11d5580480bf81f965cda5350bec668b",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "an end is written as an end feature typed by its member end's type; an end the association owns carries its multiplicity as the cross multiplicity, `end [0..*] ref car : Car;`, and a classifier-owned end crosses the property it is written as (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20459,15 +20464,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:d375413e8c7a8f6288aacbc22a577b1edfde5ec792ecc4b1f0cde2dd049630ea",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationAsConnectionDef"
+        "internal/translate/migrate/migrate.go:associationAsConnectionDef",
+        "internal/translate/migrate/usecase.go:planAssociations",
+        "internal/translate/migrate/names.go:associationBase"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten"
+        "tests/migrate/classify_test.go:TestAnonymousAssociationIsAConnectionDef",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "every association, named or not, is a connection def whose one usage is a connection typed by it joining usages of the two end types, hosted by the nearest package holding both; an anonymous one is named after its end types (CarToWheel), the name marked MigrationMetadata::SynthesizedName, and its ends cross the member-end properties where that is sound (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20535,14 +20543,15 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "an end is written as an end feature typed by its member end's type; an end the association owns carries its multiplicity as the cross multiplicity, `end [0..*] ref car : Car;`, and a classifier-owned end crosses the property it is written as (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20563,15 +20572,17 @@
         "declaredName"
       ],
       "ocl": "sha256:1cb19960ae17644127814b6d9b6318ee72d63a89a522de68b26debba4a8452db",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20591,15 +20602,17 @@
         "filter"
       ],
       "ocl": "sha256:2be7311465d10cc7d82d53b8e0a93a12ba5f9ff4f1046a946da18bc6364427cd",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20619,14 +20632,15 @@
         "filter"
       ],
       "ocl": "sha256:eebbf2a35d8a720c4dd9d8833da16c4ea42e1243b82814bfa08fa7601b7548af",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "an end is written as an end feature typed by its member end's type; an end the association owns carries its multiplicity as the cross multiplicity, `end [0..*] ref car : Car;`, and a classifier-owned end crosses the property it is written as (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20670,15 +20684,17 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20698,15 +20714,17 @@
         "filter"
       ],
       "ocl": "sha256:a211d20a3d243a7b221101c4c11c4e1d5346b26f3bef11980d1e7aa7aaccb5f0",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20726,15 +20744,17 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:2844d8ede6e5b37dc972888ed3c043ff33c77b1391c4c841274a8b1c27cd6f92",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20754,15 +20774,17 @@
         "subsettedFeature"
       ],
       "ocl": "sha256:3f00fd722e7fb82f3ee95d2fa09215d9db1fdb8d2623854e4d39b0706750012b",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20783,15 +20805,17 @@
         "filter"
       ],
       "ocl": "sha256:d299e629443d7f291980468e437230e18a2f8d6e62ac109e22057afe7fac311d",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20812,15 +20836,17 @@
         "declaredName"
       ],
       "ocl": "sha256:e34e31df2c22e60ab52ed27c79256e3ad9016ab5707fed7da6e98b0283f9e19a",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20840,14 +20866,15 @@
         "filter"
       ],
       "ocl": "sha256:f26b5183e76e27482fa8b927433664360bf2d9b9dab083d32119b77fb2f26cec",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "an end is written as an end feature typed by its member end's type; an end the association owns carries its multiplicity as the cross multiplicity, `end [0..*] ref car : Car;`, and a classifier-owned end crosses the property it is written as (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20868,14 +20895,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:2a033629a690b962b2337bf943a0dff4ae6051c1dd871903edf35ee96a3bc0d5",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "an end is written as an end feature typed by its member end's type; an end the association owns carries its multiplicity as the cross multiplicity, `end [0..*] ref car : Car;`, and a classifier-owned end crosses the property it is written as (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]

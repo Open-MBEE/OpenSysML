@@ -795,6 +795,7 @@ func (m *migration) prepare() {
 	}
 	m.indexSnapshots(configs)
 	m.placeActors(links)
+	m.planAssociations(associations, links)
 	m.planConnections(joined)
 	for _, e := range reachers {
 		m.exposeReached(e)
@@ -2124,30 +2125,22 @@ func (m *migration) subjectName(e *sysmlv1.Element) string {
 	return freshIn(used, "context")
 }
 
-// ownsEveryEnd reports whether no classifier property carries the association:
-// every member end is owned by the association itself.
-func ownsEveryEnd(e *sysmlv1.Element, ends []*sysmlv1.Element) bool {
-	for _, end := range ends {
-		if end.Parent != e {
-			return false
-		}
-	}
-	return true
-}
-
+// associationAsConnectionDef reports whether e is written as a connection def:
+// every association and association block is, except the anonymous association
+// of an actor, which is the connection between the actor and what it uses.
 func (m *migration) associationAsConnectionDef(e *sysmlv1.Element) bool {
 	switch e.Type {
 	case "AssociationClass":
 		return true
 	case "Association":
-		return e.Name != "" || m.actors[e] == nil && ownsEveryEnd(e, m.model.Refs(e, "memberEnd"))
+		return e.Name != "" || m.actors[e] == nil
 	}
 	return false
 }
 
 // association writes an association or association block as a connection def
-// with its member ends. An anonymous association with a classifier-owned end
-// is already written as that property, so it writes nothing.
+// with its member ends (associationEnd), and reports the connection
+// planAssociations wrote as its one usage.
 func (m *migration) association(e *sysmlv1.Element) {
 	ends := m.model.Refs(e, "memberEnd")
 	name := m.nameOf(e)
@@ -2162,15 +2155,14 @@ func (m *migration) association(e *sysmlv1.Element) {
 			m.add(e, Mapped, link.conn.target(m), joinNotes("the anonymous association to the actor is written as a connection between the actor and the use case", missing))
 			return
 		}
-		if e.Type == "Association" && !m.associationAsConnectionDef(e) {
-			m.add(e, verdictFor(missing), "", joinNotes("the anonymous association is written as its member-end properties", missing))
-			return
-		}
 		name = m.nameFor(e)
-		m.add(e, Approximated, m.v2Name(e), joinNotes("the anonymous "+e.Type+" owns every end, so it is written as connection def "+name, missing))
+		m.add(e, Approximated, m.v2Name(e), joinNotes("the anonymous "+e.Type+" is written as connection def "+name, missing))
 	}
 	if link != nil && link.conn != nil {
 		m.add(e, Mapped, m.v2Name(e), "the association's one usage is the connection "+link.conn.name+" joining the actor and the use case "+m.v2Name(link.useCase))
+	}
+	if link == nil {
+		m.reportAssociationUsage(e, ends)
 	}
 	header := "connection def " + writeName(name)
 	if gens, _ := m.generals(e, catConnectionDef); gens != "" {
@@ -2224,6 +2216,11 @@ func (m *migration) nameEnds(e *sysmlv1.Element) {
 		}
 		used[name] = true
 		m.endNames[end] = name
+		if end.Parent != e && name != "" {
+			// The def declares the end, so a reference from inside it to a type
+			// named like the end is qualified past it.
+			m.take(e, name)
+		}
 	}
 }
 
@@ -2234,16 +2231,48 @@ func (m *migration) associationEnd(e, end *sysmlv1.Element) {
 	typ, tnote := m.typeRef(t, e)
 	endName := m.endNames[end]
 	decl := "end"
+	opp, crossNote := m.crossedProperty(e, end, typ)
+	cross := ""
+	if opp != nil {
+		cross = writeName(m.endNames[opp]) + "." + writeName(m.nameOf(end))
+	}
+	mnote := ""
+	if cross == "" {
+		// The end's multiplicity is the cross multiplicity, how many of its
+		// type one of the opposite type is linked to; a crossed end takes it
+		// from the property.
+		var mult string
+		mult, mnote = m.multiplicity(end)
+		if ordering := collection(end, false); ordering != "" {
+			if mult == "" {
+				mult = "[1]"
+			}
+			mult += ordering
+		}
+		if mult != "" {
+			// A cross multiplicity precedes the end's kind, which it needs spelt.
+			decl += " " + mult + " ref"
+		}
+	}
 	if endName != "" {
 		decl += " " + writeName(endName)
 	}
 	if typ != "" {
 		decl += m.typing(t) + typ
 	}
-	mult, mnote := m.multiplicity(end)
-	decl += mult + collection(end, false) + ";"
+	if cross != "" {
+		decl += " crosses " + cross
+	}
+	decl += ";"
 	tnote = joinNotes(tnote, mnote)
+	if crossNote != "" {
+		m.downgrade(e, crossNote)
+	}
 	qualifiers := end.Owned("qualifier")
+	if cross != "" {
+		// The end inherits them through the property it crosses.
+		qualifiers = nil
+	}
 	if len(qualifiers) == 0 {
 		m.w.line(decl)
 	} else {
@@ -2257,6 +2286,79 @@ func (m *migration) associationEnd(e, end *sysmlv1.Element) {
 	if end.Parent == e {
 		m.add(end, verdictFor(tnote), m.v2Name(e)+"::"+writeName(endName), tnote)
 	}
+}
+
+// crossedProperty is the opposite end through which the end of a connection
+// def crosses its property, or nil and the reason it crosses none. A member end a class owns is written as that
+// class's property; the def's end for it crosses the property through the
+// opposite end (`end wheels : Wheel crosses car.wheels;`), the mapping's
+// end-to-subsetted-feature chain, which is sound only for a binary association
+// whose both ends are typed by written definitions and whose property is
+// written in the opposite end's type. An end the association owns is no
+// property, so it crosses nothing and carries its multiplicity itself.
+func (m *migration) crossedProperty(e, end *sysmlv1.Element, typ string) (opp *sysmlv1.Element, note string) {
+	if end.Parent == e {
+		return nil, ""
+	}
+	ends := m.model.Refs(e, "memberEnd")
+	label := "end " + writeName(m.endNames[end]) + " crosses no property: "
+	if len(ends) != 2 {
+		return nil, label + "the association has " + strconv.Itoa(len(ends)) + " ends"
+	}
+	opp = ends[0]
+	if opp == end {
+		opp = ends[1]
+	}
+	if typ == "" {
+		return nil, label + "the end's type is not written"
+	}
+	if t := m.model.Ref(end, "type"); strings.TrimSpace(m.typing(t)) != ":" {
+		return nil, label + "its type " + qualifiedName(t) + " is written as a usage, not a definition, so the property's type and the end's cannot be the same"
+	}
+	ot := m.model.Ref(opp, "type")
+	if ot == nil {
+		return nil, label + "the opposite end is untyped, so the property cannot be reached through it"
+	}
+	if oref, _ := m.typeRef(ot, e); oref == "" {
+		return nil, label + "the opposite end's type " + qualifiedName(ot) + " is not written"
+	}
+	if end.Parent != ot {
+		return nil, label + "the end property is owned by " + qualifiedName(end.Parent) + ", not by the opposite end's type " + qualifiedName(ot)
+	}
+	if end.Type != "Property" || !m.written(end) || toolContent(end) != "" {
+		return nil, label + "the end property is not written as a feature of " + qualifiedName(ot)
+	}
+	return opp, ""
+}
+
+// reportAssociationUsage notes on a connection def's entry the connection
+// planAssociations wrote as its one usage, or why none could be.
+func (m *migration) reportAssociationUsage(e *sysmlv1.Element, ends []*sysmlv1.Element) {
+	if c := m.conns[e]; c != nil {
+		m.note(e, "its one usage is the connection "+c.name+" joining "+c.from.name+" and "+c.to.name)
+		return
+	}
+	why := "no connection usage joins usages of its end types: "
+	switch {
+	case len(ends) != 2:
+		why += "the association has " + strconv.Itoa(len(ends)) + " ends"
+	default:
+		for _, end := range ends {
+			t := m.model.Ref(end, "type")
+			switch {
+			case t == nil:
+				why += "end " + writeName(m.endNames[end]) + " is untyped"
+			case m.usageKeyword(t) == "":
+				why += "no usage can be written of " + qualifiedName(t)
+			default:
+				continue
+			}
+			m.downgrade(e, why)
+			return
+		}
+		why += "no package holds both ends"
+	}
+	m.downgrade(e, why)
 }
 
 // featureKeyword decides the v2 usage keyword of a v1 property from its type

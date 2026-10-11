@@ -42,7 +42,9 @@ func TestInstanceSpecificationLink(t *testing.T) {
 	wantNote(t, r, "_link", migrate.Mapped, "")
 }
 
-func TestInstanceSpecificationLinkWithoutConnectionDefinitionIsUnmapped(t *testing.T) {
+// A link of an anonymous association specializes the connection def the
+// association is written as, like the link of a named one.
+func TestInstanceSpecificationLinkOfAnonymousAssociationSpecializesItsConnectionDef(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_aEnd" name="b" type="_b" association="_association"/>
@@ -55,12 +57,22 @@ func TestInstanceSpecificationLinkWithoutConnectionDefinitionIsUnmapped(t *testi
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_ib" name="IB" classifier="_b"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_link" name="L" classifier="_association">
       <slot xmi:type="uml:Slot" xmi:id="_slotA" definingFeature="_aEnd">
-        <value xmi:type="uml:InstanceValue" xmi:id="_valueA" instance="_ia"/>
+        <value xmi:type="uml:InstanceValue" xmi:id="_valueA" instance="_ib"/>
       </slot>
       <slot xmi:type="uml:Slot" xmi:id="_slotB" definingFeature="_bEnd">
-        <value xmi:type="uml:InstanceValue" xmi:id="_valueB" instance="_ib"/>
+        <value xmi:type="uml:InstanceValue" xmi:id="_valueB" instance="_ia"/>
       </slot>
     </packagedElement>`, "")
-	wantNote(t, r, "_link", migrate.Unmapped, "the link's association is written as its member-end properties, so there is no connection def to specialize")
-	wantNoLine(t, r.Notation, "individual connection def L")
+	wantClean(t, "instance_links_anonymous.sysml", r)
+	for _, line := range []string{
+		"connection def BToA {",
+		"end b : B crosses a.b;",
+		"end a : A crosses b.a;",
+		"individual connection def L :> BToA {",
+		"end :>> b : IB;",
+		"end :>> a : IA;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_link", migrate.Mapped, "")
 }

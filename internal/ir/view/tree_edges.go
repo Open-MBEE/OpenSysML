@@ -1,6 +1,9 @@
 package view
 
 import (
+	"slices"
+	"strings"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -35,6 +38,7 @@ type treeGraph struct {
 	nodes  map[symbols.ElementKey]*Node // the first node drawn for each element
 	parent map[string]string            // node ID -> the ID of the node it is nested in
 	edges  map[treeEdgeKey]bool
+	lined  map[linedEdge]bool // property edges an association line stands for
 }
 
 // treeEdgeKey identifies an edge a tree draws once: a relationship between
@@ -50,7 +54,7 @@ type treeEdgeKey struct {
 // in the order of the nodes they leave. An element drawn more than once draws
 // its edges from the first node, the one that shows its members.
 func (r *Renderer) treeEdges(out *Rendering) {
-	g := &treeGraph{r: r, out: out, nodes: map[symbols.ElementKey]*Node{}, parent: map[string]string{}, edges: map[treeEdgeKey]bool{}}
+	g := &treeGraph{r: r, out: out, nodes: map[symbols.ElementKey]*Node{}, parent: map[string]string{}, edges: map[treeEdgeKey]bool{}, lined: map[linedEdge]bool{}}
 	var index func(node *Node, parent string)
 	index = func(node *Node, parent string) {
 		if parent != "" {
@@ -69,6 +73,7 @@ func (r *Renderer) treeEdges(out *Rendering) {
 	for _, root := range out.Roots {
 		index(root, "")
 	}
+	g.associationLines()
 	var walk func(node *Node)
 	walk = func(node *Node) {
 		if site, ok := out.sites[node]; ok && g.nodes[symbols.KeyOf(site.sym)] == node {
@@ -82,6 +87,151 @@ func (r *Renderer) treeEdges(out *Rendering) {
 		walk(root)
 	}
 	out.sites = nil
+}
+
+// associationLines redraws each connection def the tree would show as a box
+// as a line between the nodes of its two end types, the way a block definition
+// diagram draws an association, and drops its node. Its ends are labelled on
+// the line; its own name is, unless a migration made the name up.
+func (g *treeGraph) associationLines() {
+	var prune func(nodes []*Node) []*Node
+	prune = func(nodes []*Node) []*Node {
+		kept := nodes[:0]
+		for _, node := range nodes {
+			site := g.out.sites[node]
+			if line, ok := g.associationLine(node, site); ok {
+				def := site.sym
+				delete(g.nodes, symbols.KeyOf(def))
+				name := ""
+				if !g.r.model.NameSynthesized(def) {
+					name = localName(def)
+				}
+				edge := Edge{From: line.from.ID, To: line.to.ID, Kind: EdgeAssociation, Name: name, Origin: symbolOrigin(def),
+					Route: g.r.routeOf(site.view, def, g.out), Style: node.Style}
+				var labels []string
+				for i, end := range line.ends {
+					label := ""
+					if p := line.crossed[i]; p != nil {
+						g.lined[linedEdge{symbols.KeyOf(p), symbols.KeyOf(line.types[i])}] = true
+						label = g.r.usageLabel(p)
+						if compositeUsage(p) && edge.Kind != EdgeComposition {
+							from, to := g.node(p.Owner()).ID, g.node(line.types[i]).ID
+							if from != edge.From {
+								// The def's route runs from its first end's type to its second's.
+								slices.Reverse(edge.Route)
+							}
+							edge.Kind, edge.From, edge.To = EdgeComposition, from, to
+						}
+						if edge.Route == nil {
+							edge.Route = g.r.routeOf(site.view, p, g.out)
+						}
+						if edge.Style == nil {
+							edge.Style = g.r.styleOf(site.view, p, g.out)
+						}
+					} else if !g.r.model.NameSynthesized(end) {
+						label = g.r.usageLabel(end)
+					}
+					if label != "" {
+						labels = append(labels, label)
+					}
+				}
+				edge.Label = associationLabel(name, labels)
+				g.add(edge, def)
+				for i := range g.out.Notes {
+					if n := &g.out.Notes[i]; n.Anchor == node.ID {
+						n.Anchor, n.EdgeFrom, n.EdgeTo = "", edge.From, edge.To
+					}
+				}
+				continue
+			}
+			node.Children = prune(node.Children)
+			kept = append(kept, node)
+		}
+		return kept
+	}
+	g.out.Roots = prune(g.out.Roots)
+}
+
+// linedEdge is the edge from a property to one of its types that an
+// association line stands for; the property's other types keep their edges.
+type linedEdge struct {
+	property, typ symbols.ElementKey
+}
+
+// association is a connection def drawn as a line: the nodes of its two end
+// types, its ends, and for each end the drawn property it crosses, nil for none.
+type association struct {
+	from, to *Node
+	ends     []*symbols.Symbol
+	types    [2]*symbols.Symbol
+	crossed  [2]*symbols.Symbol
+}
+
+// associationLine is the line the connection def of node is drawn as: between
+// the nodes of its two ends' types, each one drawn definition the def is not
+// nested in. An end crossing a part or reference property the tree draws as
+// an edge from its owner takes that edge over: the association is one line,
+// a composition when the property is composite. A def with other ends, with
+// inherited ends, with a specialization or other relationship a box would
+// draw, with a member a box would show (a qualifier of an end included), or
+// with an end type the tree does not draw stays a box.
+func (g *treeGraph) associationLine(node *Node, site treeSite) (line association, ok bool) {
+	def := site.sym
+	if def == nil || def.Kind != symbols.SymbolConnectionDef || g.nodes[symbols.KeyOf(def)] != node {
+		return line, false
+	}
+	line.ends = g.r.model.EndFeatures(def)
+	if len(line.ends) != 2 {
+		return line, false
+	}
+	for _, rel := range semantics.RelationshipsOf(def) {
+		if _, _, ok := structuralEdgeKind(rel.Kind); ok && rel.Target != nil {
+			return line, false
+		}
+	}
+	members := g.r.containedMembers(def)
+	var typed [2]*Node
+	for i, end := range line.ends {
+		if !slices.Contains(members, end) || g.endHasContent(end) {
+			return line, false
+		}
+		types := g.r.model.DeclaredTypes(end)
+		if len(types) != 1 {
+			return line, false
+		}
+		line.types[i] = types[0]
+		typed[i] = g.node(types[0])
+		if typed[i] == nil || typed[i] == node || g.nested(node, typed[i]) || types[0].Kind == symbols.SymbolConnectionDef {
+			return line, false
+		}
+	}
+	for _, member := range members {
+		if !slices.Contains(line.ends, member) {
+			return line, false
+		}
+	}
+	for i, end := range line.ends {
+		p := g.r.model.CrossFeature(end)
+		if p == nil || !structuralUsage(p) || g.node(p.Owner()) != typed[1-i] || !slices.Contains(g.r.model.DeclaredTypes(p), line.types[i]) {
+			continue
+		}
+		line.crossed[i] = p
+	}
+	line.from, line.to = typed[0], typed[1]
+	return line, true
+}
+
+// associationLabel labels the line a connection def is drawn as: its name, if
+// it has one of its own, and the labels of its ends.
+func associationLabel(name string, ends []string) string {
+	label := strings.Join(ends, " / ")
+	switch {
+	case name == "":
+		return label
+	case label == "":
+		return name
+	}
+	return name + ": " + label
 }
 
 // edgesOf draws what the element of node states of itself and of the usages
@@ -120,13 +270,24 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 		}
 		for _, typ := range g.r.model.DeclaredTypes(member) {
 			to := g.node(typ)
-			if to == nil || to == node || g.nested(node, to) {
+			if to == nil || to == node || g.nested(node, to) || g.lined[linedEdge{symbols.KeyOf(member), symbols.KeyOf(typ)}] {
 				continue
 			}
 			g.add(Edge{From: node.ID, To: to.ID, Kind: kind, Label: g.r.usageLabel(member), Origin: symbolOrigin(member),
 				Route: g.r.routeOf(site.view, member, g.out), Style: g.r.styleOf(site.view, member, g.out)}, member)
 		}
 	}
+}
+
+// endHasContent reports whether an end declares more than its cross feature,
+// such as a qualifier, which only a box shows.
+func (g *treeGraph) endHasContent(end *symbols.Symbol) bool {
+	for _, member := range g.r.containedMembers(end) {
+		if _, cross := member.Decl.(*ast.CrossFeatureMember); !cross {
+			return true
+		}
+	}
+	return false
 }
 
 // node is the node drawing sym, nil when the tree draws none.
@@ -191,10 +352,19 @@ func (r *Renderer) usageLabel(sym *symbols.Symbol) string {
 		label = nameText(sym.Name)
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || usage.Multiplicity == nil {
+	if !ok {
 		return label
 	}
-	return label + r.multiplicityText(sym.DocName, usage.Multiplicity)
+	mult := usage.Multiplicity
+	if mult == nil && usage.CrossFeature != nil {
+		// An end's cross multiplicity, `end [0..1] ref trailer`, is how many
+		// of it one of the other end's type is linked to.
+		mult = usage.CrossFeature.Multiplicity
+	}
+	if mult == nil {
+		return label
+	}
+	return label + r.multiplicityText(sym.DocName, mult)
 }
 
 // multiplicityText spells a multiplicity as written, `[4]` or `[0..*]`, from

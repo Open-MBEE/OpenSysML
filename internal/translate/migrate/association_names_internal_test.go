@@ -7,7 +7,7 @@ import (
 
 // Sibling associations sharing a name are declared under the distinct names
 // their references and report rows use, and an anonymous association a diagram
-// shows is still written as its member-end properties.
+// shows is a connection def named after its end types.
 func TestSameNamedAssociationsDeclareDistinctNames(t *testing.T) {
 	src := `<?xml version="1.0" encoding="UTF-8"?>
 <xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
@@ -44,13 +44,16 @@ func TestSameNamedAssociationsDeclareDistinctNames(t *testing.T) {
 		"connection def 'Feeds 2' {",
 		"expose Sys::'Feeds 2';",
 		"ref occurrence outlet : Valve;",
+		"connection def ValveToPump {",
+		"end outlet : Valve crosses pump.outlet;",
+		"connection 'valve to pump' : ValveToPump connect valve to pump;",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}
 	}
-	if strings.Count(out, "connection def") != 2 {
-		t.Errorf("want exactly the two named associations as connection defs:\n%s", out)
+	if strings.Count(out, "connection def") != 3 {
+		t.Errorf("want the three associations as connection defs:\n%s", out)
 	}
 	for _, e := range r.Report.Entries {
 		switch e.ID {
@@ -59,7 +62,7 @@ func TestSameNamedAssociationsDeclareDistinctNames(t *testing.T) {
 				t.Errorf("_feeds2 target = %q, want Sys::'Feeds 2'", e.Target)
 			}
 		case "_loose":
-			if e.Target != "" || !strings.Contains(e.Note, "member-end properties") {
+			if e.Target != "Sys::ValveToPump" || !strings.Contains(e.Note, "written as connection def ValveToPump") {
 				t.Errorf("_loose entry = %+v", e)
 			}
 		}

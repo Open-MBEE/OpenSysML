@@ -312,6 +312,7 @@ func TestRejectsNonXMI(t *testing.T) {
 // constructFixtures are the XMI documents under testdata/xmi that each exercise
 // one family of behavioral or profile constructs; their notation and report are golden.
 var constructFixtures = []string{
+	"anonymous_associations",
 	"docgen_columns",
 	"plant_states",
 	"instant_waits",

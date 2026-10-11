@@ -210,7 +210,7 @@ func TestGoldenEdgeLayout(t *testing.T) {
 	if l == nil {
 		t.Fatal("no layout summary")
 	}
-	if l.Routes != 22 || l.RoutesWritten != 11 || l.RoutesUnexposed != 10 || l.RoutesDangling != 1 {
+	if l.Routes != 24 || l.RoutesWritten != 12 || l.RoutesUnexposed != 11 || l.RoutesDangling != 1 {
 		t.Errorf("routes: %+v", l)
 	}
 	// An edge of the graph the activity's rendering does not draw is exposed, not swallowed.
@@ -248,6 +248,8 @@ func TestGoldenEdgeLayout(t *testing.T) {
 		t.Errorf("placements: %+v", l)
 	}
 	wantKinds := []migrate.RouteKind{
+		{Kind: "Association", Reason: "written", Count: 1},
+		{Kind: "AssociationClass", Reason: "not drawn", Count: 1},
 		{Kind: "BindingConnector", Reason: "written", Count: 1},
 		{Kind: "Connector", Reason: "unnamed", Count: 1},
 		{Kind: "Connector", Reason: "written", Count: 3},

@@ -154,7 +154,11 @@ func TestExternalScalarsFromToolLibraryReferences(t *testing.T) {
 	}
 }
 
-func TestAnonymousAssociationOwningEveryEndIsWritten(t *testing.T) {
+// Every anonymous association is a connection def named after its end types,
+// with one connection typed by it joining usages of the two types: the end a
+// class owns crosses the property it is written as, the end the association
+// owns carries its multiplicity as the cross multiplicity.
+func TestAnonymousAssociationIsAConnectionDef(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B">
@@ -169,17 +173,23 @@ func TestAnonymousAssociationOwningEveryEndIsWritten(t *testing.T) {
     <packagedElement xmi:type="uml:Association" xmi:id="_as2" memberEnd="_ba _e3">
       <ownedEnd xmi:type="uml:Property" xmi:id="_e3" type="_b" association="_as2"/>
     </packagedElement>`, `<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/>`)
-	wantLine(t, r.Notation, "connection def unnamed {")
-	wantLine(t, r.Notation, "end a : A[1..*];")
-	wantLine(t, r.Notation, "end b : B;")
-	if es := entriesFor(r, "_as1"); len(es) != 1 || es[0].Verdict != migrate.Approximated {
-		t.Errorf("_as1 entries = %+v", es)
+	wantClean(t, "anonymous_associations.sysml", r)
+	for _, line := range []string{
+		"connection def AToB {",
+		"end [1..*] ref a : A;",
+		"end b : B;",
+		"connection def AToB2 {",
+		"end a : A crosses b.a;",
+		"metadata MigrationMetadata::SynthesizedName about AToB, AToB2;",
+		"connection 'a to b' : AToB connect a to b;",
+		"connection 'a to b 2' : AToB2 connect a to b;",
+	} {
+		wantLine(t, r.Notation, line)
 	}
-	if es := entriesFor(r, "_as2"); len(es) != 1 || es[0].Verdict != migrate.Mapped || es[0].Target != "" {
-		t.Errorf("_as2 entries = %+v", es)
-	}
-	if strings.Count(string(r.Notation), "connection def") != 1 {
-		t.Errorf("expected one connection def:\n%s", r.Notation)
+	wantNote(t, r, "_as1", migrate.Approximated, "the anonymous Association is written as connection def AToB; its one usage is the connection a to b joining a and b")
+	wantNote(t, r, "_as2", migrate.Approximated, "the anonymous Association is written as connection def AToB2; its one usage is the connection a to b 2 joining a and b")
+	if strings.Count(string(r.Notation), "connection def") != 2 {
+		t.Errorf("expected two connection defs:\n%s", r.Notation)
 	}
 }
 

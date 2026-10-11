@@ -45,12 +45,45 @@ func (m *migration) nameFor(e *sysmlv1.Element) string {
 	if t := m.model.Ref(e, "type"); t != nil && t.Name != "" {
 		base = lowerFirst(t.Name)
 	}
+	if n := m.associationBase(e); n != "" {
+		base = n
+	}
 	name := base
 	for i := 2; m.nameTaken(e.Parent, name); i++ {
 		name = fmt.Sprintf("%s%d", base, i)
 	}
 	m.names[e], m.synthesized[e] = name, true
 	return name
+}
+
+// associationBase names an anonymous association's connection def after what
+// it joins: the type of each end, or the end's name where it is untyped,
+// joined as `CarToWheel`; "" for an element that is no association or whose
+// ends name nothing.
+func (m *migration) associationBase(e *sysmlv1.Element) string {
+	if e.Type != "Association" && e.Type != "AssociationClass" {
+		return ""
+	}
+	var parts []string
+	for _, end := range m.model.Refs(e, "memberEnd") {
+		part := end.Name
+		if t := m.model.Ref(end, "type"); t != nil && t.Name != "" {
+			part = t.Name
+		}
+		if part != "" {
+			parts = append(parts, upperCamel(part))
+		}
+	}
+	return strings.Join(parts, "To")
+}
+
+// upperCamel joins the words of a name capitalized: "Park Car" to "ParkCar".
+func upperCamel(s string) string {
+	var b strings.Builder
+	for _, word := range strings.Fields(s) {
+		b.WriteString(upperFirst(word))
+	}
+	return b.String()
 }
 
 // madeUp records that the block being written declares e under name, a name

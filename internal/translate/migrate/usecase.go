@@ -307,6 +307,46 @@ func (m *migration) planConnections(rels []*sysmlv1.Element) {
 	}
 }
 
+// planAssociations writes, before any view is, the one usage of each
+// association written as a connection def: a connection typed by it joining
+// usages of its two end types, in the nearest package holding both. An actor's
+// association is placed by placeActors instead, whether or not it is written.
+func (m *migration) planAssociations(assocs []*sysmlv1.Element, links []*actorLink) {
+	linked := map[*sysmlv1.Element]bool{}
+	for _, link := range links {
+		linked[link.assoc] = true
+	}
+	for _, e := range assocs {
+		if linked[e] || !m.written(e) || !m.associationAsConnectionDef(e) {
+			continue
+		}
+		ends := m.model.Refs(e, "memberEnd")
+		if len(ends) != 2 {
+			continue
+		}
+		for _, end := range ends {
+			// A crossed property is reached from the def, so it cannot stay private.
+			typ, _ := m.typeRef(m.model.Ref(end, "type"), e)
+			if opp, _ := m.crossedProperty(e, end, typ); opp != nil {
+				m.expose(end, "the connection def of the association "+describe(e)+" in "+qualifiedName(e.Parent)+" crosses it")
+			}
+		}
+		from, to := m.model.Ref(ends[0], "type"), m.model.Ref(ends[1], "type")
+		if from == nil || to == nil {
+			continue
+		}
+		fromKw, toKw := m.usageKeyword(from), m.usageKeyword(to)
+		if fromKw == "" || toKw == "" {
+			continue
+		}
+		host, ok := m.connHost(e, from, to)
+		if !ok {
+			continue
+		}
+		m.connectTyped(e, e, host, from, to, fromKw, toKw, lowerFirst(m.nameOf(e)))
+	}
+}
+
 // kindConnection writes the connection a relationship of a kind is drawn as,
 // named "A refines B" by its kind unless its author named it, when the kind
 // is the connection's doc instead.

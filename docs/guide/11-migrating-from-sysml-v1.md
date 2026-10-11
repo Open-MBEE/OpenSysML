@@ -300,9 +300,6 @@ as a hand-written one. This model's `Vehicle` and its instance `myCar` are intac
 
 ```console
 $ sysml Vehicle.sysml -eval "'Vehicle Design'::myCar::mass"
-Vehicle.sysml:91:9: warning: End feature must have multiplicity 1: an end relates exactly one thing per link; write `[1]` or take it from a feature the end subsets or redefines
-        end driver :> Driver[0..1];
-        ^~~~~~~~~~~~~~~~~~~~~~~~~~~
 ✓ package 'Vehicle Design'
 ✓ package RequirementsModel
 ✓ package 'Empty Package'
@@ -314,8 +311,8 @@ Vehicle.sysml:91:9: warning: End feature must have multiplicity 1: an end relate
 ```
 
 Findings on the migrated file are read as on any model, and point at what to revise in the v2
-notation — here the association `Drives`, whose v1 end multiplicity `0..1` v2 writes on the end
-rather than after the feature it subsets: `end [0..1] driver :> Driver;`. From this point `%save` in the REPL, `-convert ttl`, the
+notation; this model raises none, its `Drives` end carrying the v1 multiplicity `0..1` on the end
+it subsets, `end [0..1] ref driver :> Driver;`. From this point `%save` in the REPL, `-convert ttl`, the
 LSP and the clients all take the file as they take any other; nothing remembers that it was
 migrated.
 

@@ -158,8 +158,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | Constraint whose specification is a literal, instance or opaque body yielding no Boolean (an integer, a real, a string spelling no `true`/`false`, an enumeration literal) | comment naming the value and the Boolean the constraint yields | **unmapped** — no v2 checker accepts a constraint body of another type; a string `"true"`/`"false"` is written as the Boolean it spells |
 | Constraint whose specification is a `uml:Expression` tree with no symbol at any node and, as leaves, only `InstanceValue`s naming no instance (a tool's presentation constraint on a document, a Cameo Collaborator marker) | nothing: the tree spells nothing | skipped — notation only; a tree with a symbol, or a leaf naming an instance, is translated or refused like any other expression |
 | Association with a name, «AssociationBlock» | `connection def`; an association to an Actor also has its one usage, `connection <name> : <Def> connect <actor> to <use case>;` between the actor's `part` usage and the `use case` usage, hosted by the nearest package holding both | mapped |
-| Anonymous association with a classifier-owned end | nothing: the end property carries it | mapped |
-| Anonymous association owning every end | a named `connection def` | approximated |
+| Anonymous association | a `connection def` named after its end types (`WheelToCar`, marked `MigrationMetadata::SynthesizedName`), plus its one usage, `connection 'wheel to car' : WheelToCar connect wheel to car;` between `part` usages of the two end types, hosted by the nearest package holding both and written only for this connection; an end a class owns crosses the property it is written as, `end wheels : Wheel crosses car.wheels;`, where that is sound — a `private` or `protected` property so crossed is written visible, as one a connector reaches is; an end the association owns carries its multiplicity as the cross multiplicity, `end [0..*] ref car : Car;` | approximated — the name is made up; the entry also says which end crosses nothing and why (the opposite end is untyped, the end's type is not written or is an actor written as a usage, the association is not binary, the property is not written in the opposite end's type), or why no connection joins the end types |
 | Value property | `attribute`, with multiplicity and default | mapped |
 | Composite part property | `part` | mapped |
 | Property with `isOrdered` / `isUnique="false"` | `ordered` / `nonunique` after the multiplicity — except `nonunique` on a usage that must be unique: one that implicitly subsets a unique library feature (a composite `part` or `item` in a part or item, `Items::Item::subparts`/`subitems`; a composite `action` in an action, `Actions::Action::subactions`, or in a part, `Parts::Part::ownedActions`; likewise `substates`, `subcalculations`, `subcases`, `ownedPorts`, `suboccurrences`…), or that redefines or subsets a feature written unique. The target is the one `ImplicitSubsettings` gives the written usage, its uniqueness read from the bundled library, so an `attribute` (`Base::dataValues`) and a `ref part` (no implicit subsetting) keep `nonunique`. The modifier is dropped and the entry notes which unique feature forbade it | mapped; approximated when `nonunique` is dropped ("nonunique is not written: …") |
@@ -172,7 +171,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | Port, «ProxyPort», «FullPort» typed by an InterfaceBlock / Block | `port`, `~` when conjugated | mapped |
 | «FlowPort» typed by a value type | `port` holding one `in`/`out`/`inout` attribute | approximated |
 | «FlowProperty» | directed `attribute`/`item` in the port def | mapped |
-| `private` feature reached from outside by a connector, a slot, a redefinition, a subset or an expression | visibility dropped so the reference resolves; the report names the reacher — a connector or slot that is itself left as a comment reaches nothing | approximated |
+| `private` feature reached from outside by a connector, a slot, a redefinition, a subset, an expression or the end of a connection def that crosses it | visibility dropped so the reference resolves; the report names the reacher — a connector or slot that is itself left as a comment reaches nothing | approximated |
 | `private`, `package` or `protected` packaged element (a block, value type, enumeration…) | visibility dropped: a v2 private member is out of reach of every other package, which v1 tools do not enforce, so an import brings it in | approximated |
 | Property or port sharing the name of an inherited feature without redefining it | `:>>` the inherited feature when both are the same kind of usage; otherwise the collision is reported and left | approximated |
 | Connector, nested ends | `connect a.b to c.d` | mapped |
@@ -437,17 +436,30 @@ whole model is, so it names members declared after it. Naming an edge leaves it 
 the element is unchanged, and the report's target column now names the member.
 
 Edges with no v2 member of their own are not given one: a Generalization or InterfaceRealization
-is a `:>` clause or a port's conjugation, a Composition, Aggregation or Association between blocks
-is the `part`/`ref` end usage, a constraint or information flow edge nothing realizes is not
+is a `:>` clause or a port's conjugation, a Composition or Aggregation between blocks is the
+`part`/`ref` end usage, a constraint or information flow edge nothing realizes is not
 written, and a decision's `else` branch is a clause of the node it leaves, not a member. Their
 placements on a diagram expose the ends as before; their routes are reported (below), not
 attached to a member that is not an edge. The rendered view still draws them: a tree draws a
 specialization from each exposed element to the general it specializes, and a composition
 (filled diamond, labelled with the end usage's name and multiplicity) or reference (hollow
 diamond) from each to the definition typing a part or `ref` it owns, wherever both ends are
-drawn, so a migrated block definition diagram shows its generalization and association lines
-between the blocks it exposes; the lines are laid out by the drawing, since nothing in the
-model routes them. A region's initial transition is the bare entry
+drawn, and draws a `connection def` whose two ends are typed by drawn definitions as a line
+between them, labelled with its ends, rather than as a box of its own, so a migrated block
+definition diagram shows its generalization and association lines between the blocks it
+exposes; such a line wears the def's `Style` and `Route` and carries its `Note`s, and is laid
+out by the drawing where the model routes nothing. An end that crosses a `part` or `ref` the
+tree draws as a composition or reference from its owner takes that edge over, so a composite
+association is one line, with the composition's diamond, the part's name and multiplicity and
+the def's `Style` and `Route`, not a composition and a line. The line is plain, as a block
+definition diagram draws an association, not the heavy connector of an interconnection diagram.
+An association block, whose def carries members of its own, a def that inherits its ends or
+specializes another, and one whose end holds a qualifier stay boxes. Because the tree draws such a
+def as a line, a v1 association's diagram route is pinned to it (`Route about WheelToCar`); the
+route of one the tree keeps as a box, an association block with members say, stays `not drawn`.
+A shown
+end the association owns exposes the def rather than the end, so two defs with a same-named end
+shown on one diagram import no duplicate name. A region's initial transition is the bare entry
 `entry; then s;` until a diagram draws it; then it is a member of its own, `transition 'start
 then s' first start then s;` (under its v1 name when it has one, else that made-up name), so the
 view can route it from the region's `start` symbol, and its row names the member.
