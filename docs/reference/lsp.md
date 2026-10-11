@@ -50,7 +50,7 @@ the text it drew; from a server without it, a client reads every named node as
 the requested document's own, since that is all such a server named.
 
 None of these methods writes to a document. The rendering methods render what a
-document says, with the same renderer [`%view`](repl-commands.md) and `sysml -render`
+document says, with the same renderer [`%render`](repl-commands.md) and `sysml -render`
 use; `opensysml/applyModelEdit` computes the edits that would make a document say
 something else and hands them back for the client to apply, so the change lands
 in the editor's own buffer and undo history.
