@@ -1,0 +1,1 @@
+- The Go client package documentation no longer claims that no operation uses an SMT solver: `QuestionHolds` and `QuestionSatisfiable` are put to the service's `solve` engine, which runs z3 or cvc5 when one is on `PATH`.
