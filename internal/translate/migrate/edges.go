@@ -389,6 +389,34 @@ func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]strin
 	return nil, routeNoMember
 }
 
+// endEdge is a classifier-owned member end an anonymous association is
+// written as: ref names it from inside the view's body, owner is the classifier
+// whose node the tree rendering draws its edge from.
+type endEdge struct {
+	ref   string
+	owner *sysmlv1.Element
+}
+
+// endEdges is the ends an anonymous association is written as, when a
+// tree rendering draws each as the composition or reference edge from its owner
+// that a Route about the usage shapes; nil for an association written as a
+// connection def, an actor's link, or a diagram of another form.
+func (m *migration) endEdges(e, scope *sysmlv1.Element, f viewForm) []endEdge {
+	if e.Type != "Association" || f.rendering != treeRendering || m.actors[e] != nil || m.associationAsConnectionDef(e) {
+		return nil
+	}
+	var ends []endEdge
+	for _, end := range m.model.Refs(e, "memberEnd") {
+		if end == nil || end.Parent == e || !m.written(end) {
+			continue
+		}
+		if ref := m.exposure(end, scope); ref != "" {
+			ends = append(ends, endEdge{ref: ref, owner: end.Parent})
+		}
+	}
+	return ends
+}
+
 // viewForm is how a diagram's view is drawn: its Views rendering, the standard view
 // definition it specializes ("" for none) and, for a graph, the behavior it draws.
 type viewForm struct {

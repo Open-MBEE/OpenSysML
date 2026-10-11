@@ -37,6 +37,9 @@ type Diagram struct {
 type Placement struct {
 	ID, Type            string
 	X, Y, Width, Height float64
+	// OnPath reports a shape the tool draws on a path symbol — an association
+	// end or connector end at the line's end — rather than as a node of its own.
+	OnPath bool
 }
 
 // Connector is one drawn edge's route, source to target, flattened as
@@ -44,6 +47,9 @@ type Placement struct {
 type Connector struct {
 	ID, Type string
 	Points   []float64
+	// Ends are the element ids at the path's first and second end, "" when the
+	// record does not say; a symbol stream names them, the export does not.
+	Ends [2]string
 }
 
 // node is one decoded HUDS element: its tag, text, key and children. HUDS

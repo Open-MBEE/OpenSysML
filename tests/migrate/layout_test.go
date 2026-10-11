@@ -3,11 +3,15 @@ package migrate_test
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
@@ -51,23 +55,63 @@ func migrateLaidOutOptions(t *testing.T, name string, opts migrate.Options) *mig
 
 func migrateStreamLaidOut(t *testing.T, name string, strict bool) *migrate.Result {
 	t.Helper()
+	archive := streamArchive(t, name)
+	layoutData, err := os.ReadFile("testdata/xmi/" + name + ".layout.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	layout, err := mtip.Parse(layoutData)
+	if err != nil {
+		t.Fatalf("mtip.Parse: %v", err)
+	}
+	r, err := migrate.MigrateOptions(name+".xmi", archive, migrate.Options{
+		Layout: layout, LayoutSource: name + ".layout.xml", Strict: strict,
+	})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	return r
+}
+
+// migrateStream migrates a fixture whose diagrams are laid out from their own
+// symbol streams alone, with no export record.
+func migrateStream(t *testing.T, name string) *migrate.Result {
+	t.Helper()
+	r, err := migrate.MigrateOptions(name+".xmi", streamArchive(t, name), migrate.Options{})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	return r
+}
+
+// streamArchive zips a fixture's XMI with the symbol stream its diagram names.
+func streamArchive(t *testing.T, name string) []byte {
+	t.Helper()
 	data, err := os.ReadFile("testdata/xmi/" + name + ".xmi")
 	if err != nil {
 		t.Fatal(err)
 	}
-	stream, err := os.ReadFile("testdata/xmi/" + name + ".stream.xml")
-	if err != nil {
-		t.Fatal(err)
+	type entry struct {
+		name string
+		data []byte
+	}
+	entries := []entry{{name: name + ".xmi", data: data}}
+	for _, pattern := range []string{name + ".stream.xml", name + ".*.stream.xml"} {
+		streams, err := filepath.Glob("testdata/xmi/" + pattern)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, path := range streams {
+			stream, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			entries = append(entries, entry{name: "BINARY-" + strings.TrimSuffix(filepath.Base(path), ".stream.xml"), data: stream})
+		}
 	}
 	var archive bytes.Buffer
 	zw := zip.NewWriter(&archive)
-	for _, entry := range []struct {
-		name string
-		data []byte
-	}{
-		{name: name + ".xmi", data: data},
-		{name: "BINARY-" + name, data: stream},
-	} {
+	for _, entry := range entries {
 		w, err := zw.Create(entry.name)
 		if err != nil {
 			t.Fatal(err)
@@ -79,21 +123,7 @@ func migrateStreamLaidOut(t *testing.T, name string, strict bool) *migrate.Resul
 	if err := zw.Close(); err != nil {
 		t.Fatal(err)
 	}
-	layoutData, err := os.ReadFile("testdata/xmi/" + name + ".layout.xml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	layout, err := mtip.Parse(layoutData)
-	if err != nil {
-		t.Fatalf("mtip.Parse: %v", err)
-	}
-	r, err := migrate.MigrateOptions(name+".xmi", archive.Bytes(), migrate.Options{
-		Layout: layout, LayoutSource: name + ".layout.xml", Strict: strict,
-	})
-	if err != nil {
-		t.Fatalf("MigrateOptions: %v", err)
-	}
-	return r
+	return archive.Bytes()
 }
 
 // The notation and report of the augmented migration are pinned, and the
@@ -667,4 +697,213 @@ func TestLayoutOfTableDiagram(t *testing.T) {
 	s := session(t, r)
 	wantInOrder(t, "laid-out Pump Table rows", rows(t, s, "Plant::Inventory::'Pump Table Rows'"),
 		"returned 4 rows", "Plant::Inventory::r1", "Plant::Inventory::p1", "Plant::Spares::s1", "Plant::Spares::s2")
+}
+
+// An association end's role symbol — the 10×10 box Cameo keeps at the line's end,
+// inside the association's symbol — is the end's position on the line, which the
+// association's route carries, pinned to the member-end usage the tree rendering
+// draws as the composition edge: no Layout is written for the end property, so the
+// rendering lists the part in its definition unplaced and routes the edge, rather
+// than drawing a 10×10 node. A property drawn as its own box keeps its Layout.
+func TestGoldenAssociationEndLayoutLiesOnTheEdge(t *testing.T) {
+	r := migrateStream(t, "association_end_layout")
+	l := r.Report.Layout
+	if l == nil || l.StreamDiagrams != 1 || l.Placements != 6 || l.PlacementsWritten != 3 || l.PlacementsOnEdges != 3 || l.PlacementsUnexposed != 0 || l.RoutesWritten != 1 {
+		t.Fatalf("layout summary: %+v", l)
+	}
+	checkGolden(t, "testdata/xmi/association_end_layout.golden.sysml", r.Notation)
+	var report bytes.Buffer
+	if err := r.Report.WriteText(&report); err != nil {
+		t.Fatal(err)
+	}
+	checkGolden(t, "testdata/xmi/association_end_layout.golden.report.txt", report.Bytes())
+	for _, d := range errors(t, "association_end_layout.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+	notation := string(r.Notation)
+	for _, want := range []string{
+		"metadata DiagramLayout::Layout about Vehicle { x = 40; y = 20; width = 120; height = 50; }",
+		"metadata DiagramLayout::Layout about Engine { x = 40; y = 160; width = 120; height = 90; }",
+		"metadata DiagramLayout::Layout about Blocks::Engine::piston { x = 55; y = 200; width = 90; height = 30; }",
+		"metadata DiagramLayout::Route about Blocks::Vehicle::engine { points = (100, 70, 100, 160); }",
+		"3 of 6 shown elements positioned (3 lying on connections)",
+	} {
+		if !strings.Contains(notation, want) && !strings.Contains(report.String(), want) {
+			t.Errorf("output does not contain %q:\n%s\n%s", want, notation, report.String())
+		}
+	}
+	if strings.Contains(notation, "width = 10;") {
+		t.Errorf("a Layout the size of an end symbol was written:\n%s", notation)
+	}
+	s := session(t, r)
+	rendering, err := s.ViewRendering("Blocks::'Vehicle BDD'")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
+	}
+	var drawn []string
+	names := map[string]string{}
+	var visit func([]*view.Node)
+	visit = func(list []*view.Node) {
+		for _, node := range list {
+			names[node.ID] = node.Name
+			g := ""
+			if node.Geometry != nil {
+				g = fmt.Sprintf(" at (%v, %v) size %vx%v", node.Geometry.X, node.Geometry.Y, node.Geometry.Width, node.Geometry.Height)
+			}
+			drawn = append(drawn, node.Kind+" "+node.Name+g)
+			visit(node.Children)
+		}
+	}
+	visit(rendering.Roots)
+	wantDrawn := []string{
+		"part def Blocks::Vehicle at (40, 20) size 120x50",
+		"part engine",
+		"part def Blocks::Engine at (40, 160) size 120x90",
+		"part piston at (55, 200) size 90x30",
+	}
+	if !slices.Equal(drawn, wantDrawn) {
+		t.Errorf("nodes drawn = %q, want %q", drawn, wantDrawn)
+	}
+	var edges []string
+	for _, edge := range rendering.Edges {
+		edges = append(edges, fmt.Sprintf("%s %s %s: %s", names[edge.From], edge.Kind, names[edge.To], edge.Label))
+	}
+	wantEdges := []string{"Blocks::Vehicle composition Blocks::Engine: engine"}
+	if !slices.Equal(edges, wantEdges) {
+		t.Errorf("edges = %q, want %q", edges, wantEdges)
+	}
+}
+
+// An anonymous association whose two ends are both classifier-owned is two
+// edges, each drawn from its owner: the line's points pin the end whose owner
+// is at the line's first end as read, the other end reversed; an end the view
+// does not expose is skipped without losing the other's route.
+func TestGoldenAssociationEndPairRoutesEachEnd(t *testing.T) {
+	r := migrateStream(t, "association_end_pair")
+	l := r.Report.Layout
+	if l == nil || l.StreamDiagrams != 2 || l.Placements != 7 || l.PlacementsWritten != 4 || l.PlacementsOnEdges != 3 || l.Routes != 2 || l.RoutesWritten != 2 || l.RoutesUnexposed != 0 {
+		t.Fatalf("layout summary: %+v", l)
+	}
+	checkGolden(t, "testdata/xmi/association_end_pair.golden.sysml", r.Notation)
+	var report bytes.Buffer
+	if err := r.Report.WriteText(&report); err != nil {
+		t.Fatal(err)
+	}
+	checkGolden(t, "testdata/xmi/association_end_pair.golden.report.txt", report.Bytes())
+	for _, d := range errors(t, "association_end_pair.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+	notation := string(r.Notation)
+	wantInOrder(t, "pair view", notation,
+		"view 'Pair BDD' {",
+		"metadata DiagramLayout::Route about Blocks::Controller::sensors { points = (100, 70, 100, 130, 100, 200); }",
+		"metadata DiagramLayout::Route about Blocks::Sensor::controller { points = (100, 200, 100, 130, 100, 70); }",
+		"view 'Sensor BDD' {",
+		"metadata DiagramLayout::Route about Blocks::Sensor::controller { points = (160, 225, 300, 225, 300, 70); }",
+	)
+	if strings.Contains(notation, "width = 10;") {
+		t.Errorf("a Layout the size of an end symbol was written:\n%s", notation)
+	}
+	s := session(t, r)
+	for name, want := range map[string][]string{
+		"Blocks::'Pair BDD'":   {"Blocks::Controller composition Blocks::Sensor: sensors", "Blocks::Sensor reference Blocks::Controller: controller"},
+		"Blocks::'Sensor BDD'": {"Blocks::Controller composition Blocks::Sensor: sensors", "Blocks::Sensor reference Blocks::Controller: controller"},
+	} {
+		rendering, err := s.ViewRendering(name)
+		if err != nil {
+			t.Fatalf("render %s: %v", name, err)
+		}
+		if len(rendering.Notices) != 0 {
+			t.Errorf("%s: notices = %v, want none", name, rendering.Notices)
+		}
+		names := map[string]string{}
+		var visit func([]*view.Node)
+		visit = func(list []*view.Node) {
+			for _, node := range list {
+				names[node.ID] = node.Name
+				if node.Geometry != nil && node.Geometry.Width == 10 && node.Geometry.Height == 10 {
+					t.Errorf("%s: %s %s drawn as a 10x10 node", name, node.Kind, node.Name)
+				}
+				visit(node.Children)
+			}
+		}
+		visit(rendering.Roots)
+		var edges []string
+		for _, edge := range rendering.Edges {
+			edges = append(edges, fmt.Sprintf("%s %s %s: %s", names[edge.From], edge.Kind, names[edge.To], edge.Label))
+		}
+		if !slices.Equal(edges, want) {
+			t.Errorf("%s: edges = %q, want %q", name, edges, want)
+		}
+	}
+}
+
+// An export that places an end symbol the stream shows on the association's
+// path keeps the end on the line: the export's bounds win, the stream's nesting holds.
+func TestExportPlacementOfAnEndSymbolStaysOnTheEdge(t *testing.T) {
+	layout := &mtip.Export{Diagrams: []mtip.Diagram{{
+		ID:   "_diag_bdd",
+		Name: "Vehicle BDD",
+		Type: "sysml.BlockDefinitionDiagram",
+		Placements: []mtip.Placement{
+			{ID: "_blk_vehicle", X: 40, Y: 20, Width: 120, Height: 50},
+			{ID: "_prop_engine", X: 95, Y: 150, Width: 10, Height: 10},
+		},
+		Unsupported: map[string]int{},
+	}}}
+	r, err := migrate.MigrateOptions("association_end_layout.xmi", streamArchive(t, "association_end_layout"), migrate.Options{Layout: layout, LayoutSource: "association_end_layout.xml"})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	l := r.Report.Layout
+	if l == nil || l.DiagramsJoined != 1 || l.Placements != 5 || l.PlacementsWritten != 3 || l.PlacementsOnEdges != 2 || l.RoutesWritten != 1 {
+		t.Fatalf("layout summary: %+v", l)
+	}
+	notation := string(r.Notation)
+	wantInOrder(t, "joined view", notation,
+		"metadata DiagramLayout::Layout about Vehicle { x = 40; y = 20; width = 120; height = 50; }",
+		"metadata DiagramLayout::Layout about Blocks::Engine::piston { x = 55; y = 200; width = 90; height = 30; }",
+		"metadata DiagramLayout::Route about Blocks::Vehicle::engine { points = (100, 70, 100, 160); }",
+	)
+	if strings.Contains(notation, "width = 10;") {
+		t.Errorf("a Layout the size of an end symbol was written:\n%s", notation)
+	}
+}
+
+// An export's route of an association wins over the stream's, but which
+// element is at which end of the line is the stream's to say: the end owned by
+// the element at the line's second end is still routed in reverse.
+func TestExportRouteOfAnAssociationReadsItsEndsFromTheStream(t *testing.T) {
+	for name, points := range map[string][]float64{
+		"drawn the stream's way":     {110, 70, 110, 200},
+		"drawn against the stream's": {110, 200, 110, 70},
+	} {
+		t.Run(name, func(t *testing.T) {
+			layout := &mtip.Export{Diagrams: []mtip.Diagram{{
+				ID:   "_diag_pair",
+				Name: "Pair BDD",
+				Type: "sysml.BlockDefinitionDiagram",
+				Connectors: []mtip.Connector{
+					{ID: "_assoc_pair", Type: "Association", Points: points},
+				},
+				Unsupported: map[string]int{},
+			}}}
+			r, err := migrate.MigrateOptions("association_end_pair.xmi", streamArchive(t, "association_end_pair"), migrate.Options{Layout: layout, LayoutSource: "association_end_pair.xml"})
+			if err != nil {
+				t.Fatalf("MigrateOptions: %v", err)
+			}
+			l := r.Report.Layout
+			if l == nil || l.DiagramsJoined != 1 || l.Routes != 2 || l.RoutesWritten != 2 {
+				t.Fatalf("layout summary: %+v", l)
+			}
+			wantInOrder(t, "joined pair view", string(r.Notation),
+				"view 'Pair BDD' {",
+				"metadata DiagramLayout::Route about Blocks::Controller::sensors { points = (110, 70, 110, 200); }",
+				"metadata DiagramLayout::Route about Blocks::Sensor::controller { points = (110, 200, 110, 70); }",
+			)
+		})
+	}
 }
