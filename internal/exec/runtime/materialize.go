@@ -1,6 +1,10 @@
 package runtime
 
-import "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+import (
+	"errors"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+)
 
 const (
 	// maxMaterializeDepth bounds how deep a materialization walk descends into the
@@ -84,7 +88,12 @@ func (w *materializeWalk) walk(inst *Instance, depth int) {
 		w.budget--
 		fv, err := inst.GetFeatureValue(w.ctx, of.Name)
 		if err != nil {
-			w.errs = append(w.errs, err)
+			// A feature valued by bindings that link one unspecified value of it holds
+			// something the model leaves open, as an unset attribute does: not a finding.
+			var undetermined *UndeterminedBindingError
+			if !errors.As(err, &undetermined) {
+				w.errs = append(w.errs, err)
+			}
 			continue
 		}
 		values, cut, err := w.ctx.heldUpTo(fv.HeldValue(), w.budget+1)

@@ -143,6 +143,49 @@ func TestMaterializationErrorsPassOverAnUnsetQuantity(t *testing.T) {
 
 // A destroyed object holds no feature values to materialize, so the walk passes
 // it over rather than reporting each of its features as unreadable.
+// A feature bound only by partial bindings holds what the model leaves open, as an
+// unset attribute does: the check reports nothing for it, and reading it is still
+// the typed error.
+func TestMaterializationErrorsPassOverAnUndeterminedBinding(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::Real;
+			part def Peg;
+			part def Side {
+				part p1 : Peg; part p2 : Peg;
+				part pegs : Peg [2] = (p1, p2);
+			}
+			part def Rig {
+				part top : Side;
+				part front : Side;
+				part shared : Peg [1];
+				attribute wrong : Real[3] = 1.0;
+				binding [1] bind [0..1] top.pegs = [0..1] shared;
+				binding [1] bind [0..1] front.pegs = [0..1] shared;
+			}
+		}
+	`))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Rig", ast.DefPart)
+	if sym == nil {
+		t.Fatal("Rig part def not found")
+	}
+	inst, err := ctx.Instantiate(sym)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+
+	errs, bounded := ctx.MaterializationErrors(inst)
+	if bounded {
+		t.Error("bounded = true, want a small object read in full")
+	}
+	if len(errs) != 1 || !errors.Is(errs[0], ErrMultiplicityViolation) || !containsError(errs, "Rig.wrong") {
+		t.Fatalf("MaterializationErrors = %v, want only the multiplicity violation of Rig.wrong", errs)
+	}
+	if _, err := inst.GetFeatureValue(ctx, "shared"); !errors.Is(err, ErrBindingEnd) {
+		t.Fatalf("reading shared = %v, want ErrBindingEnd", err)
+	}
+}
+
 func TestMaterializationErrorsSkipsDestroyedObjects(t *testing.T) {
 	inst, ctx := instantiateHolder(t, `
 		package test {
