@@ -872,3 +872,31 @@ func TestExportPlacementOfAnEndSymbolStaysOnTheEdge(t *testing.T) {
 		t.Errorf("a Layout the size of an end symbol was written:\n%s", notation)
 	}
 }
+
+// An export's route of an association wins over the stream's, but which
+// element is at which end of the line is the stream's to say: the end owned by
+// the element at the line's second end is still routed in reverse.
+func TestExportRouteOfAnAssociationReadsItsEndsFromTheStream(t *testing.T) {
+	layout := &mtip.Export{Diagrams: []mtip.Diagram{{
+		ID:   "_diag_pair",
+		Name: "Pair BDD",
+		Type: "sysml.BlockDefinitionDiagram",
+		Connectors: []mtip.Connector{
+			{ID: "_assoc_pair", Type: "Association", Points: []float64{110, 70, 110, 200}},
+		},
+		Unsupported: map[string]int{},
+	}}}
+	r, err := migrate.MigrateOptions("association_end_pair.xmi", streamArchive(t, "association_end_pair"), migrate.Options{Layout: layout, LayoutSource: "association_end_pair.xml"})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	l := r.Report.Layout
+	if l == nil || l.DiagramsJoined != 1 || l.Routes != 2 || l.RoutesWritten != 2 {
+		t.Fatalf("layout summary: %+v", l)
+	}
+	wantInOrder(t, "joined pair view", string(r.Notation),
+		"view 'Pair BDD' {",
+		"metadata DiagramLayout::Route about Blocks::Controller::sensors { points = (110, 70, 110, 200); }",
+		"metadata DiagramLayout::Route about Blocks::Sensor::controller { points = (110, 200, 110, 70); }",
+	)
+}

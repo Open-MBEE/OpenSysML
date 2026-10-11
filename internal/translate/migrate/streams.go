@@ -136,6 +136,16 @@ func (m *migration) layoutRecord(v *view) (*mtip.Diagram, layoutSources) {
 	for _, c := range export.Connectors {
 		routed[c.ID] = true
 	}
+	// The export says nothing about which element is at which end of a line either.
+	ends := map[string][2]string{}
+	for _, c := range stream.Connectors {
+		ends[c.ID] = c.Ends
+	}
+	for i := range merged.Connectors {
+		if c := &merged.Connectors[i]; c.Ends == [2]string{} {
+			c.Ends = ends[c.ID]
+		}
+	}
 	src := layoutSources{export: true, frame: frame}
 	for _, p := range stream.Placements {
 		if !placed[p.ID] {
