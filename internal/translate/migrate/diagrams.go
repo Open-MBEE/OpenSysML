@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
@@ -716,11 +717,11 @@ func exposureName(ref string) string {
 	quoted := false
 	for i := 0; i < len(ref); i++ {
 		switch {
-		case ref[i] == '\'' && quoted && i+1 < len(ref) && ref[i+1] == '\'':
+		case quoted && ref[i] == '\\':
 			i++
 		case ref[i] == '\'':
 			quoted = !quoted
-		case !quoted && i+1 < len(ref) && ref[i:i+2] == "::":
+		case !quoted && strings.HasPrefix(ref[i:], "::"):
 			start = i + 2
 			i++
 		}
@@ -730,7 +731,7 @@ func exposureName(ref string) string {
 		return ""
 	}
 	if len(name) >= 2 && name[0] == '\'' && name[len(name)-1] == '\'' {
-		name = strings.ReplaceAll(name[1:len(name)-1], "''", "'")
+		name = source.Unescape(name[1 : len(name)-1])
 	}
 	return name
 }

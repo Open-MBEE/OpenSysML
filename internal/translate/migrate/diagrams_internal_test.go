@@ -33,7 +33,8 @@ func TestExposureNameUsesFinalUnquotedSegment(t *testing.T) {
 	}{
 		{"Scale::height", "height"},
 		{"Scale::'Height::Sample'", "Height::Sample"},
-		{"Scale::'John''s Height'", "John's Height"},
+		{"Scale::'John\\'s Height'", "John's Height"},
+		{"'a\\\\b'::'tab\\there'", "tab\there"},
 		{"Scale::*", ""},
 		{"Scale::**", ""},
 	} {
@@ -522,12 +523,34 @@ func TestRouteClauseWording(t *testing.T) {
 
 func TestExposuresHideAllButSimplyExposedNames(t *testing.T) {
 	x := exposures{names: map[string]bool{}, by: map[string][]string{}}
-	for _, ref := range []string{"GUI", "Sub::GUI", "Panel", "Sub::panel", "'Control Panel'", "Scale::'John''s Height'"} {
+	for _, ref := range []string{"GUI", "Sub::GUI", "Panel", "Sub::panel", "'Control Panel'", "Scale::'John\\'s Height'"} {
 		name := exposureName(ref)
 		x.names[name] = true
 		x.by[name] = append(x.by[name], ref)
 	}
 	want := columnNames{"GUI": true, "panel": true, "John's Height": true}
+	if got := x.hides(); !reflect.DeepEqual(got, want) {
+		t.Errorf("hides() = %v, want %v", got, want)
+	}
+}
+
+func TestExposureNameReadsBackWrittenNames(t *testing.T) {
+	for _, name := range []string{"GUI", "Control Panel", "John's Height", `back\slash`, "line\nbreak", "if"} {
+		ref := "Owner::" + writeName(name)
+		if got := exposureName(ref); got != name {
+			t.Errorf("exposureName(%s) = %q, want %q", ref, got, name)
+		}
+	}
+}
+
+func TestExposuresHideEscapedNamesExposedTwice(t *testing.T) {
+	x := exposures{names: map[string]bool{}, by: map[string][]string{}}
+	for _, ref := range []string{writeName("John's Height"), "Box::" + writeName("John's Height"), writeName("Bob's Width")} {
+		name := exposureName(ref)
+		x.names[name] = true
+		x.by[name] = append(x.by[name], ref)
+	}
+	want := columnNames{"John's Height": true}
 	if got := x.hides(); !reflect.DeepEqual(got, want) {
 		t.Errorf("hides() = %v, want %v", got, want)
 	}
