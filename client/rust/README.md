@@ -4,7 +4,7 @@
 is published to crates.io with each core release, at the core's version.
 
 For a task-oriented walkthrough, see the
-[Rust client guide](https://redk.opensysml.org/clients/rust/).
+[Rust client guide](https://runtime.opensysml.org/clients/rust/).
 
 ## Installation
 
