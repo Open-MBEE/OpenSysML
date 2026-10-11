@@ -59,9 +59,10 @@ func importDuplicates(r *Resolver) []Diagnostic {
 }
 
 // Two wildcard imports bringing different members of one name make the
-// importing namespace's memberships indistinguishable (KerML 8.3.2.4.5). The
-// warning sits on the import bringing the later membership — resolution keeps
-// taking the first — and names both members and both imports.
+// importing namespace's memberships indistinguishable (KerML 8.3.2.4.5), and
+// both memberships are hidden from it (KerML 7.2.5.4). The warning sits on the
+// import bringing the later membership and names both members and both
+// imports; the unqualified name resolves to nothing, and its diagnostic says why.
 func TestImportedMemberNamesIndistinguishable(t *testing.T) {
 	const src = `package A { part def Engine; }
 package B { part def Engine; }
@@ -71,20 +72,32 @@ package C {
 	part e : Engine;
 }`
 	r := resolveDoc(t, "d.sysml", src)
-	if len(r.Diagnostics) != 1 {
-		t.Fatalf("got %d diagnostics, want 1: %v", len(r.Diagnostics), r.Diagnostics)
+	if len(r.Diagnostics) != 2 {
+		t.Fatalf("got %d diagnostics, want 2: %v", len(r.Diagnostics), r.Diagnostics)
 	}
-	d := r.Diagnostics[0]
+	d := importDuplicates(r)
+	if len(d) != 1 {
+		t.Fatalf("got %d import warnings, want 1: %v", len(d), r.Diagnostics)
+	}
 	want := "Duplicate of imported member name 'Engine': A::Engine (import A::*), B::Engine (import B::*)"
-	if !d.Warning || d.Code != CodeNameConflict || d.Message != want {
-		t.Errorf("got warning=%v %s %q, want a warning %s %q", d.Warning, d.Code, d.Message, CodeNameConflict, want)
+	if !d[0].Warning || d[0].Code != CodeNameConflict || d[0].Message != want {
+		t.Errorf("got warning=%v %s %q, want a warning %s %q", d[0].Warning, d[0].Code, d[0].Message, CodeNameConflict, want)
 	}
-	if got := src[d.Span.Offset:d.Span.End()]; got != "B" {
+	if got := src[d[0].Span.Offset:d[0].Span.End()]; got != "B" {
 		t.Errorf("diagnostic sits on %q, want the second import's name", got)
 	}
-	sym, ok := r.LookupName(r.idx.Declaring("C").Scope, "Engine")
-	if !ok || symbols.FQNOf(sym) != "A::Engine" {
-		t.Errorf("Engine resolves to %v in C, want A::Engine (the first membership)", sym)
+	var unresolved *Diagnostic
+	for i := range r.Diagnostics {
+		if !r.Diagnostics[i].Warning {
+			unresolved = &r.Diagnostics[i]
+		}
+	}
+	wantHint := "The name is hidden here: import A::* and import B::* bring distinct elements named 'Engine', so none is a member; qualify the one meant: A::Engine or B::Engine."
+	if unresolved == nil || !strings.HasPrefix(unresolved.Message, "unresolved reference: Engine") || !strings.HasSuffix(unresolved.Message, wantHint) {
+		t.Errorf("got %v, want an unresolved reference to Engine ending in %q", unresolved, wantHint)
+	}
+	if sym, ok := r.LookupName(r.idx.Declaring("C").Scope, "Engine"); ok {
+		t.Errorf("Engine resolves to %v in C, want nothing: both imported memberships are hidden", sym)
 	}
 }
 

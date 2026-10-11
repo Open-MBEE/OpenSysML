@@ -413,3 +413,14 @@ func TestVisibleNamesRecursiveImportDescentOmitsImplicitMembers(t *testing.T) {
 	names := namesAt(t, src, "classifier X", VisibleNamesOptions{LibraryRoots: []string{"Base"}})
 	has(t, names, []string{"A", "A.a", "Lib.A.self"}, []string{"A.self"})
 }
+
+// Two imports bringing distinct elements under one name hide both memberships
+// (KerML 7.2.5.4), so neither is visible in the importing namespace; what only
+// one import brings is.
+func TestVisibleNamesOmitHiddenImports(t *testing.T) {
+	src := "package Left {\n\tclassifier Engine;\n\tclassifier Wheel;\n}\n" +
+		"package Right {\n\tclassifier Engine;\n}\n" +
+		"package Use {\n\tprivate import Left::*;\n\tprivate import Right::*;\n\tclassifier X;\n}\n"
+	names := namesAt(t, src, "classifier X", VisibleNamesOptions{})
+	has(t, names, []string{"Wheel", "Left.Engine", "Right.Engine"}, []string{"Engine"})
+}

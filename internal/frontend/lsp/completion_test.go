@@ -452,3 +452,78 @@ func TestCompletionDocumentationStaysPlainTextWithoutMarkdown(t *testing.T) {
 		t.Errorf("documentation = %q, want the declaration's comment", doc.Value)
 	}
 }
+
+// A root-level name two imports bring as distinct elements is hidden from the
+// document's root namespace, so completion does not offer it there.
+func TestCompletionOmitsHiddenRootImports(t *testing.T) {
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	name := uri.File("/tmp/hidden.sysml").Filename()
+	src := "package Left { part def Engine; }\npackage Right { part def Engine; }\nprivate import Left::*;\nprivate import Right::*;\npart e : Eng"
+	ws.Open(name, []byte(src), 1)
+
+	pos := offsetToPosition([]byte(src), len(src))
+	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
+			Position:     pos,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Completion err = %v", err)
+	}
+	labels := map[string]bool{}
+	for _, it := range list.Items {
+		labels[it.Label] = true
+	}
+	if labels["Engine"] {
+		t.Error("completion offers the hidden 'Engine'")
+	}
+	for _, want := range []string{"Left", "Right", "e"} {
+		if !labels[want] {
+			t.Errorf("completion missing %q", want)
+		}
+	}
+}
+
+// A namespace that hides an imported name has no member of it, so completing
+// a qualified name under it does not offer the name; the namespaces that own
+// the elements still do.
+func TestCompletionOmitsHiddenQualifiedMembers(t *testing.T) {
+	src := "package Left { part def Engine; part def Wheel; }\npackage Right { part def Engine; }\npackage Both { public import Left::*; public import Right::*; }\npart b : Both::\npart l : Left::\n"
+	both := completionAt(t, src, "part b : Both::")
+	if _, ok := both["Engine"]; ok {
+		t.Error("completion under Both:: offers the hidden 'Engine'")
+	}
+	if _, ok := both["Wheel"]; !ok {
+		t.Errorf("completion under Both:: missing 'Wheel'; got %v", labelsOf(both))
+	}
+	left := completionAt(t, src, "part l : Left::")
+	if _, ok := left["Engine"]; !ok {
+		t.Errorf("completion under Left:: missing 'Engine'; got %v", labelsOf(left))
+	}
+}
+
+// An element a hiding re-export cannot bring is still offered where a direct
+// import of its own namespace brings it.
+func TestCompletionOffersDirectImportBesideHidingReexport(t *testing.T) {
+	src := "package Left { part def Engine; }\npackage Right { part def Engine; }\npackage Both { public import Left::*; public import Right::*; }\nprivate import Both::*;\nprivate import Left::*;\npart e : Eng"
+	items := completionAt(t, src, "part e : Eng")
+	if _, ok := items["Engine"]; !ok {
+		t.Errorf("completion missing 'Engine', which import Left::* brings; got %v", labelsOf(items))
+	}
+}
+
+// An unrelated recursive import beside a hiding re-export brings nothing under
+// the hidden name, so qualified completion into the importer still omits it.
+func TestCompletionIgnoresUnrelatedRecursiveImportRoute(t *testing.T) {
+	src := "package Left { part def Engine; }\npackage Right { part def Engine; }\npackage Both { public import Left::*; public import Right::*; }\npackage Other { part def Wheel; package Inner { part def Axle; } }\npackage Use { public import Both::*; public import Other::**; }\npart u : Use::\npart o : Other::\n"
+	use := completionAt(t, src, "part u : Use::")
+	if _, ok := use["Engine"]; ok {
+		t.Error("completion under Use:: offers the hidden 'Engine'")
+	}
+	other := completionAt(t, src, "part o : Other::")
+	if _, ok := other["Wheel"]; !ok {
+		t.Errorf("completion under Other:: missing 'Wheel'; got %v", labelsOf(other))
+	}
+}

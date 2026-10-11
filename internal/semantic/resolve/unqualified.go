@@ -495,29 +495,16 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	if r.resolvingImports[imp] {
 		return
 	}
-	// Resolved aside: a miss here may only mean sibling imports were suspended
-	// for cycle safety, so it must not be memoized or reported as unresolved.
-	// A hit is memoized (importTargets), except while a filter condition's own
-	// names resolve: that lookup is unfiltered, and its answers reach nothing
-	// else (InCondition).
-	var target *symbols.Symbol
-	var ok bool
-	remember := r.inCondition == 0
-	if res, done := r.importTargets[imp]; done && remember {
-		target, ok = res.sym, res.ok
-	} else {
-		r.resolvingImports[imp] = true
-		r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
-		delete(r.resolvingImports, imp)
-		if ok && remember {
-			journalNew(r, r.importTargets, imp, imp)
-			r.importTargets[imp] = resolution{sym: target, ok: true}
-		}
-	}
+	target, ok := r.importTargetOf(scope, imp)
 	if !ok {
 		return
 	}
-	admit := r.importAdmitsInto(into, scope, imp)
+	// A membership the import brings under a name another import of scope
+	// also brings a distinct element under is hidden (KerML 7.2.5.4).
+	admitted := r.importAdmitsInto(into, scope, imp)
+	admit := func(sym *symbols.Symbol) bool {
+		return admitted(sym) && !r.hiddenImport(scope, name, sym)
+	}
 	if imp.Kind == ast.ImportMembership {
 		// A membership import names a membership: `import P::Car` where Car is an
 		// alias imports that name, so the alias is what it surfaces.
@@ -570,6 +557,9 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 		// The import names one namespace, so a same-named other namespace's
 		// members registered under the same path are not what it surfaces.
 		children = notConflatedWith(target, children)
+		// An entry re-exported under the target through a namespace that hides
+		// it is no member of the target, so the import does not bring it on.
+		children = r.withoutHiddenReexports(target.Scope, targetFQN, name, children)
 		for _, sym := range children {
 			// The target may itself have surfaced the name through an import of
 			// its own, filtered by its `filter` members: what it re-exports
@@ -587,6 +577,29 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	if imp.IsRecursive {
 		r.eachSubtreeMatch(scope, target, name, imp, admit, yield)
 	}
+}
+
+// importTargetOf resolves what imp, declared in scope, names. Resolved aside:
+// a miss may only mean sibling imports were suspended for cycle safety, so it
+// is neither memoized nor reported as unresolved. A hit is memoized
+// (importTargets), except while a filter condition's own names resolve: that
+// lookup is unfiltered, and its answers reach nothing else (InCondition).
+func (r *Resolver) importTargetOf(scope *symbols.Scope, imp *ast.Import) (*symbols.Symbol, bool) {
+	remember := r.inCondition == 0
+	if res, done := r.importTargets[imp]; done && remember {
+		return res.sym, res.ok
+	}
+	var target *symbols.Symbol
+	var ok bool
+	r.resolvingImports[imp] = true
+	// The target is an ordinary reference, whatever lookup needs it.
+	r.ordinary(func() { r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) }) })
+	delete(r.resolvingImports, imp)
+	if ok && remember {
+		journalNew(r, r.importTargets, imp, imp)
+		r.importTargets[imp] = resolution{sym: target, ok: true}
+	}
+	return target, ok
 }
 
 // importPrefixAvailable reports whether imp can surface name from scope: a

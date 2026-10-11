@@ -86,9 +86,9 @@
     "filesFullyAgreeing": 353,
     "agreement": 45,
     "severityMismatch": 1,
-    "openSysMLOnly": 282,
+    "openSysMLOnly": 315,
     "pilotOnly": 92,
-    "openSysMLDiagnostics": 328,
+    "openSysMLDiagnostics": 361,
     "pilotDiagnostics": 138
   },
   "roots": [
@@ -130,9 +130,9 @@
         "filesFullyAgreeing": 88,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 235,
+        "openSysMLOnly": 261,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 235,
+        "openSysMLDiagnostics": 261,
         "pilotDiagnostics": 0
       },
       "files": [
@@ -310,10 +310,46 @@
               "count": 42
             },
             {
+              "line": 659,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 670,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 671,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 672,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
               "line": 678,
               "severity": "warning",
               "category": "unmapped",
               "count": 42
+            },
+            {
+              "line": 686,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 712,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
             },
             {
               "line": 730,
@@ -342,16 +378,136 @@
               "count": 42
             },
             {
+              "line": 1094,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1106,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1107,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1108,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1166,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1169,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1172,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1173,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1174,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1178,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1181,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1182,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1183,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1198,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
               "line": 1203,
               "severity": "warning",
               "category": "unmapped",
               "count": 42
             },
             {
+              "line": 1216,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1241,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
               "line": 1312,
               "severity": "warning",
               "category": "unmapped",
               "count": 42
+            },
+            {
+              "line": 1472,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1474,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1477,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 1478,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
             }
           ],
           "pilotOnly": []
@@ -362,9 +518,9 @@
         "filesFullyAgreeing": 89,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 234,
+        "openSysMLOnly": 260,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 234,
+        "openSysMLDiagnostics": 260,
         "pilotDiagnostics": 0
       }
     },
@@ -376,9 +532,9 @@
         "filesFullyAgreeing": 54,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 8,
+        "openSysMLOnly": 11,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 8,
+        "openSysMLDiagnostics": 11,
         "pilotDiagnostics": 0
       },
       "files": [
@@ -406,6 +562,24 @@
               "severity": "warning",
               "category": "unmapped",
               "count": 6
+            },
+            {
+              "line": 21,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 56,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 57,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
             }
           ],
           "pilotOnly": []
@@ -420,9 +594,9 @@
         "filesFullyAgreeing": 55,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 13,
+        "openSysMLOnly": 16,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 13,
+        "openSysMLDiagnostics": 16,
         "pilotDiagnostics": 0
       },
       "files": [
@@ -508,9 +682,27 @@
               "count": 3
             },
             {
+              "line": 35,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 36,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
               "line": 42,
               "severity": "warning",
               "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 44,
+              "severity": "error",
+              "category": "unresolved-reference",
               "count": 1
             }
           ],
@@ -526,9 +718,9 @@
         "filesFullyAgreeing": 11,
         "agreement": 45,
         "severityMismatch": 1,
-        "openSysMLOnly": 11,
+        "openSysMLOnly": 12,
         "pilotOnly": 31,
-        "openSysMLDiagnostics": 57,
+        "openSysMLDiagnostics": 58,
         "pilotDiagnostics": 77
       },
       "files": [
@@ -1067,6 +1259,12 @@
               "line": 6,
               "severity": "warning",
               "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 7,
+              "severity": "error",
+              "category": "unresolved-reference",
               "count": 1
             },
             {
@@ -2296,9 +2494,9 @@
       "filesFullyAgreeing": 354,
       "agreement": 45,
       "severityMismatch": 1,
-      "openSysMLOnly": 281,
+      "openSysMLOnly": 314,
       "pilotOnly": 92,
-      "openSysMLDiagnostics": 327,
+      "openSysMLDiagnostics": 360,
       "pilotDiagnostics": 138
     },
     "findings": [
