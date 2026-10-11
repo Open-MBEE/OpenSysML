@@ -2,7 +2,7 @@
 # GitHub, and MkDocs is only the renderer. The landing page is the exception: it
 # frames docs/README.md with a hero that only makes sense on a web page.
 site_name: OpenSysML REDK
-site_description: The OpenSysML Runtime Environment and Development Kit — a SysML v2 and KerML implementation in Go with a language server, REPL, execution runtime, and Go, Python, Node, Java and Rust clients
+site_description: The OpenSysML Runtime Environment and Development Kit — a SysML v2 and KerML implementation in Go with a language server, REPL, execution runtime, and Go, Python, Node, Java, Rust, Julia and MATLAB clients
 site_url: https://runtime.opensysml.org/
 repo_url: https://github.com/Open-MBEE/OpenSysML
 repo_name: Open-MBEE/OpenSysML

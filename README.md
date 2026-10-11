@@ -23,7 +23,7 @@
 
 The OpenSysML Runtime Environment and Development Kit (OpenSysML REDK) is a SysML v2 and
 KerML 1.1 implementation in Go. It provides a language server, an interactive REPL, an execution
-runtime, an embeddable Go API, and Python, Node/TypeScript, Java and Rust client libraries,
+runtime, an embeddable Go API, and Python, Node/TypeScript, Java, Rust, Julia and MATLAB client libraries,
 covering the lifecycle from authoring through execution with the integrated tooling systems
 engineers expect from a modern language ecosystem. It is the runtime of
 [OpenSysML](https://opensysml.org/), the open source SysML v2 suite of the
@@ -63,7 +63,7 @@ certification is claimed.
 [document generation manual](docs/manual/README.md)
 
 **Complete searchable documentation:** <https://runtime.opensysml.org/> — the same pages as
-[docs/](docs/), rendered from `main`.
+[docs/](docs/), rendered from `develop`.
 
 ### Install
 
@@ -78,7 +78,7 @@ curl -fsSL https://opensysml.org/install.sh | sh
 irm https://opensysml.org/install.ps1 | iex
 ```
 Both scripts take a release (`--version v0.9.1`, `nightly`), a tool list (`--tools sysml`,
-`sysml-lsp`, `sysml-grpc`, `all`) and a destination (`--prefix`, or `-InstallDir` on Windows),
+`sysml-lsp`, `sysml-grpc`, `sysml-jupyter-kernel`, `all`) and a destination (`--prefix`, or `-InstallDir` on Windows),
 and `--dry-run` shows the choice without installing; `sh -s -- --help` lists the rest. The
 scripts are [`install.sh`](install.sh) and [`install.ps1`](install.ps1) in this repository,
 so a checkout runs them as `./install.sh`.
@@ -283,7 +283,7 @@ The project provides the tooling familiar from the Python, Rust and Go ecosystem
 SysML v2:
 
 - **Execution Runtime** — More than a validator: instantiate parts, evaluate constraints against concrete values and execute calc and analysis cases. Action and state executor infrastructure is complete (activity fork/join parallelism, decision guards, hierarchical/orthogonal states, choice/junction pseudostates, TimeEvent/ChangeEvent/AcceptEvent, sourceless transitions). See [spec compliance](docs/project/spec-compliance.md) for measured behavioral coverage and the [runtime showcase](examples/runtime-showcase/README.md) for what running a model finds that validating it cannot.
-- **Language Server** — A standard LSP server (`sysml-lsp`) with live diagnostics, semantic hover, go-to-definition, find references, completion, signature help, workspace-wide symbol search, formatting, rename, semantic tokens, quick fixes, code lenses and inlay hints. A VS Code extension with TextMate grammars for `.sysml` and `.kerml` ships in [editors/vscode](editors/vscode), and any editor with a generic LSP client can drive the server directly — [guide chapter 8](docs/guide/08-editors.md) walks through both. *Not yet:* the extension is built from source rather than published to a marketplace, and the server answers no semantic token delta requests.
+- **Language Server** — A standard LSP server (`sysml-lsp`) with live diagnostics, semantic hover, go-to-definition, find references, completion, signature help, workspace-wide symbol search, formatting, rename, semantic tokens, quick fixes, code lenses and inlay hints. A VS Code extension with TextMate grammars for `.sysml` and `.kerml` ships in [editors/vscode](editors/vscode), and any editor with a generic LSP client can drive the server directly — [guide chapter 8](docs/guide/08-editors.md) walks through both. *Not yet:* the extension is not on a marketplace — install the nightly `opensysml-sysml.vsix` or build it from source — and the server answers no semantic token delta requests.
 - **Interactive REPL** — An exploratory modeling environment: define models incrementally, evaluate expressions interactively, instantiate parts, run calculations and inspect runtime state, comparable to IPython or Jupyter for systems engineering.
 - **Jupyter Kernel** — `sysml-jupyter-kernel` runs the REPL session behind the Jupyter protocol, so notebook cells hold SysML: declarations accumulate across cells, expressions evaluate, every `%` command works as at the prompt, and views and documents render as Mermaid, SVG, Markdown, tables, HTML or JSON. `pip install jupyter-opensysml-kernel && python -m jupyter_opensysml_kernel install` registers it ([guide chapter 12](docs/guide/12-jupyter.md)).
 - **Constraint Solving** *(experimental)* — In addition to evaluating what holds of an object, an external SMT solver determines whether a constraint, requirement or satisfaction assertion *can* hold, which conditions conflict when it cannot, which values would satisfy it, which variants a model permits, and what optimizes an `analysis def`'s objectives. The solver is optional and discovered at runtime. [The REPL command reference](docs/reference/repl-commands.md) documents each command, and [installing a solver](docs/guide/01-install.md#installing-a-solver-optional) describes how to obtain one. The design follows OpenMBEE's [HMF](https://github.com/hivecore-dev/hmf) (see [Acknowledgements](#acknowledgements)).
@@ -295,7 +295,7 @@ SysML v2:
 - **Julia Client Package** — `OpenSysML`, a thin JSON-over-HTTP client (`HTTP.jl` + `JSON.jl` only) for Julia 1.10+: parse, evaluate, instantiate, execute and query, with `call` reaching the whole RPC surface ([client/julia/OpenSysML/README.md](client/julia/OpenSysML/README.md)).
 - **MATLAB/Octave Client Package** — `+opensysml`, the same thin JSON-over-HTTP client for MATLAB R2019b+ and GNU Octave 7+, so the environment a modeler already runs talks to the service directly ([client/matlab/README.md](client/matlab/README.md)).
 
-Guidance on selecting a client, the coverage of the four newer clients, and the functionality they intentionally defer to a future version is provided in [docs/reference/clients.md](docs/reference/clients.md).
+Guidance on selecting a client, the coverage of the six clients, and the functionality they intentionally defer to a future version is provided in [docs/reference/clients.md](docs/reference/clients.md).
 - **Modern Toolchain** — Incremental compilation, a bundled standard library and persistent semantic caches. A model is a set of files, named on the command line or opened by the editor.
 
 ## Goals
@@ -395,19 +395,22 @@ What these numbers cannot show: the OMG corpora are demonstrations rather than a
 ```
 github.com/Open-MBEE/OpenSysML
 ├── cmd/
+│   ├── sysml/              # Interactive REPL and CLI binary
 │   ├── sysml-lsp/          # LSP server binary
-│   ├── sysml-grpc/         # gRPC server binary (Python bindings)
-│   └── sysml/              # Interactive REPL binary
+│   ├── sysml-grpc/         # Service binary the clients talk to (gRPC, gRPC-Web, Connect)
+│   ├── sysml-jupyter-kernel/ # Jupyter kernel binary
+│   ├── sysml-wasm/         # Combined WebAssembly module
+│   └── sysml-engine/, sysml-core/, sysml-syntax/   # Smaller WebAssembly builds
 ├── internal/               # One directory per layer; a package imports only the layers below it
-│   ├── syntax/             # source, diag, lexer, parser, ast, pack, format
+│   ├── syntax/             # source, diag, lexer, parser, ast, pack, format, semtok
 │   ├── semantic/           # symbols, resolve, suggest, semantics, identity, highlight, query
-│   ├── ir/                 # lower, queryplan, docplan, view
+│   ├── ir/                 # lower, queryplan, docplan, view, imagefile
 │   ├── check/              # passes, edit
-│   ├── exec/               # runtime, solve, smt, analysis, engines, objref
-│   ├── translate/          # rdf, export, xmi, migrate, convert, codegen, interop
+│   ├── exec/               # runtime, solve, smt, analysis, engines, objref, fmi, hostcap, ingest, runtrace, simresults
+│   ├── translate/          # rdf, export, xmi, mtip, migrate, deferred, convert, codegen, interop, fmi, filename
 │   ├── doc/                # queryexec, docir, docrender, docpdf
-│   ├── workspace/          # model, libs, project, envvar
-│   └── frontend/           # protoconv, grpc, lsp, repl, stdiorpc, usage
+│   ├── workspace/          # model, modeldoc, modelrt, notebook, libs, project, envvar
+│   └── frontend/           # core, engine, combined, protoconv, grpc, jsonrpc, lsp, repl, jupyter, stdiorpc, symbolfacts, syntax, buildinfo, usage
 ├── client/opensysml/       # The public Go API (in-process and remote)
 ├── client/java/           # Java client (org.openmbee:opensysml)
 ├── client/node/           # Node/TypeScript client (@openmbee/opensysml)
@@ -447,8 +450,9 @@ Pre-built binaries for Linux, macOS, and Windows are available on the [Releases 
   the core's version — `v0.9.0` publishes `opensysml` 0.9.0 — so pinning one version
   (`pip install opensysml==0.9.0`, `OPENSYSML_GRPC_VERSION=v0.9.0`) gets the package and
   the `sysml-grpc` binary that were tested together
-- The Java client is released by the same `v*` tag, which publishes
-  `org.openmbee:opensysml` to Maven Central at the core's version
+- The Java client is released by the same `v*` tag, whose `release` workflow signs and
+  uploads `org.openmbee:opensysml` to Maven Central at the core's version; no release is on
+  Central yet, so until one is, install the client from a checkout
 - The Node client is released by the same `v*` tag, which publishes
   `@openmbee/opensysml` and the five per-platform packages that carry the service binary
   at the core's version
@@ -565,7 +569,7 @@ The suites themselves are described in [conformance/README.md](conformance/READM
 
 ## Clients
 
-Five surfaces reach the same engine: the Go API, used in the calling process, and four clients of
+Seven surfaces reach the same engine: the Go API, used in the calling process, and six clients of
 the `sysml-grpc` service. [Client libraries](docs/reference/clients.md) states what each covers and
 how to choose; [guide chapter 9](docs/guide/09-clients.md) works through each one.
 
@@ -576,6 +580,8 @@ how to choose; [guide chapter 9](docs/guide/09-clients.md) works through each on
 | Node/TypeScript, `@openmbee/opensysml` | Connect, from Node or a browser page | npm, with per-platform binary packages | [Node API](docs/reference/node-api.md) |
 | Java, `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | not on Maven Central; build from a checkout | [Java API](docs/reference/java-api.md) |
 | Rust, `opensysml` | Connect, blocking, no async runtime | crates.io, on core `v*` tags | [Rust API](docs/reference/rust-api.md) |
+| Julia, `OpenSysML` | Connect-JSON, over `HTTP.jl` | not in General; develop from a checkout | [Julia API](docs/reference/julia-api.md) |
+| MATLAB/Octave, `+opensysml` | Connect-JSON, over `matlab.net.http` or, under GNU Octave, a `curl` subprocess | source files; add to the MATLAB path | [MATLAB API](docs/reference/matlab-api.md) |
 
 The Go and Python clients cover every RPC the service serves; Node, Java and Rust cover a v1
 subset — connection lifecycle, capability negotiation, parsing, diagnostics, symbol lookup,
@@ -651,15 +657,15 @@ mass, err := client.Evaluate(ctx, model, "mass", opensysml.WithSubject("Demo::se
 The Go API is documented type by type in [Go packages](docs/reference/api.md) and
 [client/opensysml/README.md](client/opensysml/README.md). The Java client is a `try`-with-resources
 `Connection` over the JDK's HTTP client ([Java API](docs/reference/java-api.md),
-[client/java/README.md](client/java/README.md)); the Rust client is published to crates.io as
-`opensysml = "0.9"` and is blocking, with no async runtime in its default dependency tree
+[client/java/README.md](client/java/README.md)); the Rust client is published to crates.io at the core's version
+(`cargo add opensysml`) and is blocking, with no async runtime in its default dependency tree
 ([Rust API](docs/reference/rust-api.md), [client/rust/README.md](client/rust/README.md)). The Java
 artifact is not on Maven Central yet; install it from a checkout.
 
 ## Documentation
 
 - **[The guide](docs/guide/)** — install, first model, CLI, REPL, checks, behavior, saving, editors, and [driving it from your own program](docs/guide/09-clients.md)
-- **[Client libraries](docs/reference/clients.md)** — the Go, Python, Node, Java and Rust surfaces, and how to choose between them
+- **[Client libraries](docs/reference/clients.md)** — the Go, Python, Node, Java, Rust, Julia and MATLAB surfaces, and how to choose between them
 - **[Reference](docs/reference/)** — CLI flags, REPL commands, environment, each client's API, service transports, RDF mapping
 - **[Internals](docs/internals/architecture.md)** — the pipeline, the tiers, testing and performance
 - **[Project status](docs/project/spec-compliance.md)** — spec compliance, roadmap and releasing

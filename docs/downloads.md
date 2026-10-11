@@ -37,7 +37,8 @@ irm https://opensysml.org/install.ps1 | iex             # Windows
 Each archive contains only the named tool. The `sysml-grpc` service and the
 `sysml-jupyter-kernel` Jupyter kernel are separate downloads; most
 [client libraries](reference/clients.md) fetch the service themselves, and
-`pip install jupyter-opensysml-kernel` bundles the kernel for the platform (see the
+`pip install jupyter-opensysml-kernel` carries the kernel in its platform wheels and downloads
+it otherwise (see the
 [Jupyter chapter](guide/12-jupyter.md)). Both are raw binaries, each with a sidecar SHA-256 file.
 
 | Tool | Linux x64 | Linux arm64 | macOS Intel | macOS Apple Silicon | Windows x64 |
@@ -46,6 +47,9 @@ Each archive contains only the named tool. The `sysml-grpc` service and the
 | `sysml-lsp` | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-linux-amd64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-linux-arm64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-darwin-amd64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-darwin-arm64.tar.gz) | [ZIP](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-windows-amd64.zip) |
 | `sysml-grpc` | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-linux-amd64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-linux-amd64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-linux-arm64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-linux-arm64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-darwin-amd64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-darwin-amd64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-darwin-arm64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-darwin-arm64.sha256) | [EXE](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-windows-amd64.exe) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-windows-amd64.exe.sha256) |
 | `sysml-jupyter-kernel` | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-linux-amd64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-linux-amd64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-linux-arm64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-linux-arm64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-darwin-amd64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-darwin-amd64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-darwin-arm64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-darwin-arm64.sha256) | [EXE](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-windows-amd64.exe) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-windows-amd64.exe.sha256) |
+
+The combined WebAssembly module, `sysml-wasm.wasm` with its `wasm_exec.js`, is published the
+same way; [WebAssembly builds](reference/wasm.md) says how to run it.
 
 ## Verify
 
@@ -71,7 +75,7 @@ For signature verification with cosign, see the [install guide](guide/01-install
 - **Node:** [`@openmbee/opensysml` on npm](https://www.npmjs.com/package/@openmbee/opensysml) —
   `npm install @openmbee/opensysml`; its per-platform packages carry `sysml-grpc`.
 - **Rust:** [`opensysml` on crates.io](https://crates.io/crates/opensysml) —
-  `opensysml = "0.9"`.
+  `cargo add opensysml`, at the core's version.
 - **Go:** `go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest`, or use the
   [Go client](reference/api.md).
 - **Java:** not on Maven Central; build from a checkout with

@@ -147,7 +147,8 @@ the `opensysml` Python package downloads and verifies it itself (see [client/pyt
 
 `sysml-jupyter-kernel`, the Jupyter kernel, is published the same way, as a bare
 `sysml-jupyter-kernel-<os>-<arch>` file with a `.sha256` sidecar: `pip install
-jupyter-opensysml-kernel` downloads and verifies it when it registers the kernel (see
+jupyter-opensysml-kernel` carries it in its platform wheels, and downloads and verifies it when it
+registers the kernel from the source distribution (see
 [Jupyter notebooks](12-jupyter.md)). `make build-jupyter-kernel` builds it from source, and
 `sysml-jupyter-kernel -install` registers a binary installed by hand.
 
@@ -155,9 +156,9 @@ jupyter-opensysml-kernel` downloads and verifies it when it registers the kernel
 plain names (`sysml`, `sysml-lsp`). The older single-binary `sysml-<os>-<arch>.tar.gz` and
 `sysml-lsp-<os>-<arch>.tar.gz` archives are still published. The bundles and
 `SHA256SUMS.txt` exist from v0.0.4 onward; for earlier releases use the
-single-binary archives. The `sysml-grpc` binaries and their sidecars are published from the
-next release onward. `SHA256SUMS.txt` covers every archive and every published
-`sysml-grpc` binary:
+single-binary archives. The `sysml-jupyter-kernel` binaries, their sidecars and the
+WebAssembly module are published from 0.10.0 onward. `SHA256SUMS.txt` covers every archive and
+every published `sysml-grpc` and `sysml-jupyter-kernel` binary:
 
 ```bash
 curl -fLO https://github.com/Open-MBEE/OpenSysML/releases/latest/download/SHA256SUMS.txt
@@ -374,7 +375,7 @@ error: no SMT solver found: install z3 (`apt install z3`, `brew install z3`) or 
 ```bash
 git clone https://github.com/Open-MBEE/OpenSysML.git
 cd OpenSysML
-make build       # builds bin/sysml, bin/sysml-lsp, and bin/sysml-grpc
+make build       # builds bin/sysml, bin/sysml-lsp, bin/sysml-grpc and bin/sysml-jupyter-kernel
 # OR
 go build -o sysml ./cmd/sysml
 go build -o sysml-lsp ./cmd/sysml-lsp
@@ -421,8 +422,9 @@ install.
 
 ## WebAssembly builds (optional)
 
-No release ships a WebAssembly artifact, but the same source builds for both of
-Go's WebAssembly targets, for a host that runs modules rather than executables:
+Releases ship the combined `sysml-wasm.wasm` module with its `wasm_exec.js` (see
+[WebAssembly builds](../reference/wasm.md)); the same source builds for both of Go's
+WebAssembly targets, for a host that runs modules rather than executables:
 
 ```bash
 make build-wasm
