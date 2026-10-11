@@ -456,6 +456,7 @@ one the arguments already bind, and a sweep or sample without an `-analysis`/`-c
 
 ```bash
 $ sysml -calc "An::Sum(2.0, 3.0)" -sweep "b=0.0..10.0" analysis.sysml; echo "exit=$?"
+✓ package An
 sysml: invalid sweep parameter: b is both an argument of the invocation and swept
 exit=2
 ```
