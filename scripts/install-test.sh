@@ -29,8 +29,9 @@ other=$([[ "$host" = linux-arm64 ]] && echo darwin-arm64 || echo linux-arm64)
 good=v9.9.9-test       # a complete release
 signed=v9.9.8-test     # one that also carries the signed Windows build
 tampered=v9.9.7-test   # one whose manifest lies about the bundle
-unlisted=v9.9.6-test   # one whose manifest omits sysml-grpc
+unlisted=v9.9.6-test   # one whose manifest omits sysml-grpc and sysml-jupyter-kernel
 mismatch=v9.9.5-test   # one whose binaries report another version
+nokernel=v9.9.4-test   # one published before the kernel was, so it has no kernel asset
 
 sha256() {
 	if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi
@@ -98,8 +99,13 @@ sed -i.bak "s/^[0-9a-f]\{64\}\(  opensysml-$host\.tar\.gz\)$/$(printf '0%.0s' $(
 rm "$work/site/releases/download/$tampered/SHA256SUMS.txt.bak"
 
 release "$unlisted" "${unlisted#v}"
-sed -i.bak "/ sysml-grpc-/d" "$work/site/releases/download/$unlisted/SHA256SUMS.txt"
+sed -i.bak "/ sysml-grpc-/d; / sysml-jupyter-kernel-/d" "$work/site/releases/download/$unlisted/SHA256SUMS.txt"
 rm "$work/site/releases/download/$unlisted/SHA256SUMS.txt.bak"
+
+release "$nokernel" "${nokernel#v}"
+rm "$work/site/releases/download/$nokernel"/sysml-jupyter-kernel-*
+sed -i.bak "/ sysml-jupyter-kernel-/d" "$work/site/releases/download/$nokernel/SHA256SUMS.txt"
+rm "$work/site/releases/download/$nokernel/SHA256SUMS.txt.bak"
 
 # A mirror that serves latest/download/ but has no /latest redirect to a tag.
 mkdir -p "$work/site/mirror/latest"
@@ -310,13 +316,21 @@ if fails "tampered bundle" "opensysml-$host.tar.gz does not match SHA256SUMS.txt
 	[[ ! -e "$prefix" ]] || { echo "FAIL: a tampered release left files under $prefix" >&2; failures=$((failures + 1)); }
 fi
 fails "asset the manifest omits" "does not list sysml-grpc-$host" --version "$unlisted" --tools sysml-grpc --prefix @P@
+if fails "kernel the manifest omits" "does not list sysml-jupyter-kernel-$host" --version "$unlisted" --tools sysml-jupyter-kernel --prefix @P@; then
+	said "sysml-jupyter-kernel from v0.10.0"
+fi
+if fails "unpublished kernel" "could not download $base/download/$nokernel/sysml-jupyter-kernel-$host" --version "$nokernel" --tools sysml-jupyter-kernel --prefix @P@; then
+	[[ ! -e "$prefix" ]] || { echo "FAIL: a release without the kernel left files under $prefix" >&2; failures=$((failures + 1)); }
+fi
 if fails "binary reporting another version" "reports 'sysml $good', not $mismatch" --version "$mismatch" --prefix @P@; then
 	installed bin/sysml
 fi
 fails "unpublished release" "could not download $base/download/v0.0.0/SHA256SUMS.txt" --version v0.0.0 --prefix @P@
 fails "unpublished windows arm64" "no windows/arm64 build is published" --os windows --arch arm64 --prefix @P@
 fails "bad version" "--version must be a release tag" --version main --prefix @P@
-fails "bad tool" "unknown tool 'sysml-repl'" --tools sysml-repl --prefix @P@
+if fails "bad tool" "unknown tool 'sysml-repl'" --tools sysml-repl --prefix @P@; then
+	said "the released tools are sysml, sysml-lsp, sysml-grpc and sysml-jupyter-kernel"
+fi
 fails "no tool" "--tools names nothing to install" --tools , --prefix @P@
 fails "bad os" "--os must be linux, darwin or windows" --os freebsd --prefix @P@
 fails "bad option" "unknown option '--prefix-dir'" --prefix-dir @P@
@@ -372,7 +386,8 @@ fi
 
 if command -v pwsh >/dev/null 2>&1; then
 	pwsh -NoProfile -File "$root/scripts/install-test.ps1" -Script "$root/install.ps1" -BaseUrl "$base" -MirrorUrl "$mirror" \
-		-HostPlatform "$host" -Good "$good" -Signed "$signed" -Tampered "$tampered" || failures=$((failures + 1))
+		-HostPlatform "$host" -Good "$good" -Signed "$signed" -Tampered "$tampered" -Unlisted "$unlisted" -NoKernel "$nokernel" ||
+		failures=$((failures + 1))
 else
 	echo "skip install.ps1: pwsh not on PATH"
 fi

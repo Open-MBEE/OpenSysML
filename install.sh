@@ -355,7 +355,7 @@ fi
 
 verify() { # <asset>: against the manifest
 	expected=$(awk -v name="$1" '{ n = $2; sub(/^\*/, "", n); if (n == name) print $1 }' "$work/SHA256SUMS.txt")
-	[ -n "$expected" ] || fail "SHA256SUMS.txt of $release_name does not list $1; releases before v0.0.4 have no bundle, sysml-grpc is published from v0.9.0 and sysml-jupyter-kernel from v0.9.2"
+	[ -n "$expected" ] || fail "SHA256SUMS.txt of $release_name does not list $1; releases before v0.0.4 have no bundle, sysml-grpc is published from v0.9.0 and sysml-jupyter-kernel from v0.10.0"
 	actual=$(sha256_of "$work/$1")
 	[ "$actual" = "$expected" ] || fail "$1 does not match SHA256SUMS.txt (expected $expected, got $actual); the download is corrupt or tampered with"
 	info "  $1 verified"

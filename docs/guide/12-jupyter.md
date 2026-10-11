@@ -46,7 +46,8 @@ python -m jupyter_opensysml_kernel uninstall                  # removes what ins
 ```
 
 A `sysml-jupyter-kernel` you built yourself (`make build-jupyter-kernel`) or installed with
-[`install.sh --tools sysml-jupyter-kernel`](01-install.md) is registered without a download:
+[`install.sh --tools sysml-jupyter-kernel`](01-install.md) (`install.ps1 -Tools
+sysml-jupyter-kernel` on Windows) is registered without a download:
 
 ```bash
 python -m jupyter_opensysml_kernel install --binary bin/sysml-jupyter-kernel
