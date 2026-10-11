@@ -2,12 +2,20 @@ name: PR
 
 # The only CI a pull request runs. Pushes to main and develop, and tags, are covered
 # by the CircleCI config; this workflow mirrors its build-test workflow, not release.
+#
+# Two tiers, decided by the Changed areas job. A draft pull request runs the quick
+# tier: the binaries, the race-free Go suite in three shards, the cheap static
+# checks, the WebAssembly, Xpect and conformance gates, and only the clients and
+# docs whose own paths changed. A push to a non-draft pull request, marking one
+# ready for review, or the label ci:full runs the full tier: the whole suite.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  # Any other label re-runs the tier that applies, but waits for the running one rather than cancelling it.
+  cancel-in-progress: ${{ github.event.action != 'labeled' || github.event.label.name == 'ci:full' }}
 
 env:
   # The OMG training corpus is not vendored. Requiring it here turns "corpus
@@ -46,6 +54,8 @@ jobs:
       contents: read
     timeout-minutes: 5
     outputs:
+      tier: ${{ steps.tier.outputs.tier }}
+      go_shards: ${{ steps.tier.outputs.go_shards }}
       go: ${{ steps.areas.outputs.go }}
       docs: ${{ steps.areas.outputs.docs }}
       node: ${{ steps.areas.outputs.node }}
@@ -67,10 +77,27 @@ jobs:
       - name: Test the area filter
         run: scripts/ci-changed-areas-test.sh
 
+      # go_shards is the Go test job's matrix: the race shards under the full tier,
+      # three race-free groups of them under quick (see make test-shard, make test-quick).
+      - name: Decide the tier
+        id: tier
+        env:
+          DRAFT: ${{ github.event.pull_request.draft }}
+          CI_FULL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'ci:full') }}
+        run: |
+          if [ "$DRAFT" != true ] || [ "$CI_FULL_LABEL" = true ]; then
+            echo "tier=full"
+            echo 'go_shards=["runtime","runtime-corpus","model","export","rest","migrate"]'
+          else
+            echo "tier=quick"
+            echo 'go_shards=["runtime","model export","rest migrate"]'
+          fi | tee -a "$GITHUB_OUTPUT"
+
       - name: Decide which areas to run
         id: areas
         env:
           BASE_REF: ${{ github.base_ref }}
+          CI_TIER: ${{ steps.tier.outputs.tier }}
         run: scripts/ci-changed-areas.sh "origin/$BASE_REF" HEAD | tee -a "$GITHUB_OUTPUT"
 
       # The vendored copy is checked in this job, not static-and-integrity: the
@@ -79,17 +106,18 @@ jobs:
       - name: Check the vendored extension libraries against their pin
         run: make extension-libraries-check
 
-  race-tests:
-    name: Go race tests (${{ matrix.shard }})
+  go-tests:
+    name: Go ${{ needs.changes.outputs.tier == 'full' && 'race ' || '' }}tests (${{ matrix.shard }})
     needs: changes
     if: needs.changes.outputs.go == 'true'
     # The shards split the suite's slowest packages across runners so each gets its own job cap (see scripts/race-shard.sh).
     # internal/exec/runtime alone outruns a job under -race, so it is two shards split by test name (see make test-shard);
     # tests/migrate is the next-longest package, so it is a shard of its own rather than the long pole of rest.
+    # The quick tier runs the same packages without -race, grouped three ways (see make test-quick).
     strategy:
       fail-fast: false
       matrix:
-        shard: [runtime, runtime-corpus, model, export, rest, migrate]
+        shard: ${{ fromJSON(needs.changes.outputs.go_shards) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -116,7 +144,7 @@ jobs:
       # Pinned by digest, so a substituted asset is not run. The release binary rather
       # than `go run` keeps buf's own module tree out of the checksum-database path.
       - name: Install buf
-        if: matrix.shard == 'rest'
+        if: contains(matrix.shard, 'rest')
         run: |
           curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/buf \
             https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
@@ -128,7 +156,7 @@ jobs:
       # classes, so without this check the committed stubs can drift from the schema.
       # `git add -N` puts a regenerated file the commit had deleted into the diff.
       - name: Verify the committed Go and Java stubs are current
-        if: matrix.shard == 'rest'
+        if: contains(matrix.shard, 'rest')
         run: |
           make proto-buf BUF=buf
           git add -N api/proto \
@@ -262,12 +290,15 @@ jobs:
 
       # Per-package timeout: under -race the whole runtime package ran 31-57 minutes
       # on these runners, hence its two shards. Matches `make test-shard`.
-      - name: Run Go race tests
+      - name: Run Go tests
         env:
+          TIER: ${{ needs.changes.outputs.tier }}
           SHARD: ${{ matrix.shard }}
-        run: make test-shard SHARD="$SHARD"
+        run: |
+          if [ "$TIER" = full ]; then make test-shard SHARD="$SHARD"; else make test-quick SHARDS="$SHARD"; fi
 
       - name: Upload coverage artifact
+        if: needs.changes.outputs.tier == 'full'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.shard }}
@@ -276,7 +307,8 @@ jobs:
 
   race-coverage:
     name: Go race coverage
-    needs: race-tests
+    needs: [changes, go-tests]
+    if: needs.changes.outputs.tier == 'full'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -297,7 +329,7 @@ jobs:
         run: |
           set -euo pipefail
           profiles=(shards/coverage-*/coverage.txt)
-          # One per race-tests shard.
+          # One per go-tests shard.
           if [ "${#profiles[@]}" -ne 6 ]; then echo "error: expected 6 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
           for f in "${profiles[@]}"; do
             [ "$(head -n 1 "$f")" = "mode: atomic" ] || { echo "error: $f is not an atomic-mode profile" >&2; exit 1; }
@@ -316,6 +348,8 @@ jobs:
     name: Go static and integrity checks
     needs: changes
     if: needs.changes.outputs.go == 'true'
+    # The quick tier runs the download-free checks (gofmt, vet, the prod build, the library
+    # snapshot, grpc imports, proto lint and breaking); the lint and every corpus and solver gate are full-tier steps.
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -335,12 +369,14 @@ jobs:
         run: go mod download
 
       - name: Install Z3
+        if: needs.changes.outputs.tier == 'full'
         run: |
           sudo apt-get update
           sudo apt-get install -y z3
           z3 --version
 
       - name: Install cvc5
+        if: needs.changes.outputs.tier == 'full'
         run: |
           curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/cvc5.zip \
             https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static.zip
@@ -358,15 +394,18 @@ jobs:
         run: scripts/install-test.sh
 
       - name: Cache the OMG training corpus
+        if: needs.changes.outputs.tier == 'full'
         uses: actions/cache@v4
         with:
           path: examples/sysml-v2-training
           key: training-corpus-${{ hashFiles('scripts/download-training-examples.sh', 'scripts/pilot-pin.sh') }}
 
       - name: Download the OMG training corpus
+        if: needs.changes.outputs.tier == 'full'
         run: ./scripts/download-training-examples.sh
 
       - name: Verify the OMG training corpus
+        if: needs.changes.outputs.tier == 'full'
         run: |
           count=$(find examples/sysml-v2-training -name '*.sysml' | wc -l)
           echo "training corpus: $count .sysml files"
@@ -376,15 +415,18 @@ jobs:
           fi
 
       - name: Cache the OMG pilot corpora
+        if: needs.changes.outputs.tier == 'full'
         uses: actions/cache@v4
         with:
           path: examples/pilot-corpora
           key: pilot-corpora-${{ hashFiles('scripts/download-pilot-corpora.sh', 'scripts/pilot-pin.sh') }}
 
       - name: Download the OMG pilot corpora
+        if: needs.changes.outputs.tier == 'full'
         run: ./scripts/download-pilot-corpora.sh
 
       - name: Verify the OMG pilot corpora
+        if: needs.changes.outputs.tier == 'full'
         run: |
           for root in sysml-examples sysml-validation kerml-examples; do
             count=$(find "examples/pilot-corpora/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
@@ -396,41 +438,49 @@ jobs:
           done
 
       - name: Cache the OMG PSSM test suite
+        if: needs.changes.outputs.tier == 'full'
         uses: actions/cache@v4
         with:
           path: build/pssm
           key: pssm-suite-${{ hashFiles('scripts/download-pssm-suite.sh', 'scripts/pssm-pin.sh') }}
 
       - name: Download the OMG PSSM test suite
+        if: needs.changes.outputs.tier == 'full'
         run: ./scripts/download-pssm-suite.sh
 
       - name: Cache the SysML v1 to v2 transformation model
+        if: needs.changes.outputs.tier == 'full'
         uses: actions/cache@v4
         with:
           path: build/sysml-v1tov2
           key: sysml-v1tov2-${{ hashFiles('scripts/download-sysml-v1tov2.sh', 'scripts/sysml-v1tov2-pin.sh') }}
 
       - name: Download the SysML v1 to v2 transformation model
+        if: needs.changes.outputs.tier == 'full'
         run: ./scripts/download-sysml-v1tov2.sh
 
       - name: Cache the fUML reference-implementation suite
+        if: needs.changes.outputs.tier == 'full'
         uses: actions/cache@v4
         with:
           path: build/fuml
           key: fuml-suite-${{ hashFiles('scripts/download-fuml-suite.sh', 'scripts/fuml-pin.sh') }}
 
       - name: Download the fUML reference-implementation suite
+        if: needs.changes.outputs.tier == 'full'
         run: ./scripts/download-fuml-suite.sh
 
       # The pilot's XMI of the standard library, one subtree of the release
       # repository; keyed on its download script and the shared pilot pin.
       - name: Cache the pilot library XMI
+        if: needs.changes.outputs.tier == 'full'
         uses: actions/cache@v4
         with:
           path: build/pilot-library-xmi
           key: pilot-library-xmi-${{ hashFiles('scripts/download-pilot-library-xmi.sh', 'scripts/pilot-pin.sh') }}
 
       - name: Download the pilot library XMI
+        if: needs.changes.outputs.tier == 'full'
         run: ./scripts/download-pilot-library-xmi.sh
 
       - name: Check Go formatting
@@ -453,6 +503,7 @@ jobs:
           go test -count=1 -tags sysml_prod ./cmd/sysml -run TestProdBuild
 
       - name: Run static analysis (staticcheck + gosec)
+        if: needs.changes.outputs.tier == 'full'
         run: make lint
 
       # The embedded library snapshot is generated from the bundled OMG files;
@@ -480,6 +531,7 @@ jobs:
       # and a skip is impossible to miss. TestCorpusGates is the shared
       # cache-independence case over all four OMG roots, which skips with them.
       - name: Run training corpus gate
+        if: needs.changes.outputs.tier == 'full'
         run: |
           set -o pipefail
           go test -count=1 -v ./tests/corpus -run 'TestTrainingExamples|TestCorpusGates' | tee corpus-gate.log
@@ -494,6 +546,7 @@ jobs:
       # It gates our own diagnostics only; the comparison against the reference
       # implementation (tools/referee/diff) needs Java validators and is not run here.
       - name: Run pilot corpora gate
+        if: needs.changes.outputs.tier == 'full'
         run: |
           set -o pipefail
           go test -count=1 -v ./tests/corpus -run 'TestPilotCorpora' | tee pilot-corpora-gate.log
@@ -506,6 +559,7 @@ jobs:
       # The normative-identity gate alone, for the same reason: its one verdict
       # line names the counts, and a skip cannot hide behind a green suite.
       - name: Run pilot library identity gate
+        if: needs.changes.outputs.tier == 'full'
         run: |
           set -o pipefail
           go test -count=1 -v ./tests/identity -run 'TestPilotLibraryXMI' | tee pilot-library-xmi-gate.log
@@ -517,6 +571,7 @@ jobs:
 
       # The PSSM suite gates on their own, so a skip cannot hide behind a green suite.
       - name: Run PSSM suite gates
+        if: needs.changes.outputs.tier == 'full'
         run: |
           set -o pipefail
           go test -C tools -count=1 -v ./referee/pssm -run 'TestSuiteRead|TestSuiteClassification|TestEmitSuite' | tee pssm-gate.log
@@ -527,18 +582,21 @@ jobs:
 
       # Bucket counts only, never pass/fail; see docs/project/pssm-referee.md.
       - name: PSSM referee reproduces its baseline counts
+        if: needs.changes.outputs.tier == 'full'
         run: go run -C tools ./cmd/pssm-referee -check
 
       # The transformation census's baseline lists the mapping classes the
       # pinned model declares; here the model is provisioned, so the baseline
       # is compared against a fresh extraction.
       - name: Transformation census lists what the pinned model contains
+        if: needs.changes.outputs.tier == 'full'
         run: go run -C tools ./cmd/transformation-census -check -require-xmi
 
       # The migration of the PSSM suite to v2 notation on its own, so its report
       # totals are legible in the log and a skip must not pass; see
       # docs/project/pssm-migration.md.
       - name: Run PSSM migration gate
+        if: needs.changes.outputs.tier == 'full'
         run: |
           set -o pipefail
           go test -count=1 -v ./tests/corpus -run 'TestPSSMSuiteMigration' | tee pssm-migration-gate.log
@@ -550,6 +608,7 @@ jobs:
 
       # The fUML reader and classifier over the pinned models on their own, likewise.
       - name: Run fUML suite gates
+        if: needs.changes.outputs.tier == 'full'
         run: |
           set -o pipefail
           go test -C tools -count=1 -v ./referee/fuml -run 'TestSuite' | tee fuml-gate.log
@@ -560,12 +619,14 @@ jobs:
 
       # Bucket counts only, never pass/fail; see docs/project/fuml-referee.md.
       - name: fUML referee reproduces its baseline counts
+        if: needs.changes.outputs.tier == 'full'
         run: go run -C tools ./cmd/fuml-referee -check
 
       # The RDF round-trip ratchet over every example on its own, so its
       # per-verdict counts are legible in the log and a skip must not pass.
       # The round-trip gates stay in the race shards too: their worker pool converts files concurrently.
       - name: Run RDF corpus round-trip gate
+        if: needs.changes.outputs.tier == 'full'
         run: |
           set -o pipefail
           go test -count=1 -v ./tests/corpus -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
@@ -576,6 +637,7 @@ jobs:
           fi
 
       - name: Run api-json corpus round-trip gate
+        if: needs.changes.outputs.tier == 'full'
         run: |
           set -o pipefail
           go test -count=1 -v ./tests/corpus -run 'TestCorpusAPIJSONRoundTrip' | tee api-json-roundtrip-gate.log
@@ -588,6 +650,7 @@ jobs:
       # Re-run the solver gate on its own, as the corpus gate is, so a skip
       # cannot hide behind a green suite.
       - name: Run solver gate (Z3)
+        if: needs.changes.outputs.tier == 'full'
         run: |
           set -o pipefail
           go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl -run 'TestSolver|TestDiscovery|TestSolved|TestDivisor|TestCheck|TestSolve|TestConfigure|TestSynthesis|TestPinned|TestFixed|TestOptimize|TestOptimum' | tee solver-gate.log
@@ -599,6 +662,7 @@ jobs:
       # The differential gate compares the solver against the normative
       # evaluator; its summary counts make coverage drift reviewable in the log.
       - name: Run solver differential gate
+        if: needs.changes.outputs.tier == 'full'
         run: |
           set -o pipefail
           go test -count=1 -v ./internal/exec/solve -run TestDifferential | tee differential-gate.log
@@ -612,6 +676,7 @@ jobs:
       # feature one of them refuses is reported rather than discovered by a user.
       # OPENSYSML_REQUIRE_SMT makes an absent solver a failure, not a skip.
       - name: Run solver portability gate
+        if: needs.changes.outputs.tier == 'full'
         run: |
           set -o pipefail
           for solver in z3 cvc5; do
@@ -627,6 +692,7 @@ jobs:
       # The solver gate again against the second backend, not only the
       # portability subset: what z3 answers, cvc5 must answer too.
       - name: Run solver gate (cvc5)
+        if: needs.changes.outputs.tier == 'full'
         run: |
           set -o pipefail
           OPENSYSML_SMT=cvc5 go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl \
@@ -643,6 +709,7 @@ jobs:
       # exist, which is discovery's absent case, and the requirement flag is
       # dropped so a skip is the expected outcome here.
       - name: Run solver-absent gate
+        if: needs.changes.outputs.tier == 'full'
         run: |
           set -o pipefail
           env -u OPENSYSML_REQUIRE_SMT OPENSYSML_SMT=/nonexistent/no-such-solver \
@@ -805,7 +872,7 @@ jobs:
       - node-test
       - pdf-toolchain
       - python-test
-      - race-tests
+      - go-tests
       - race-coverage
       - rust-test
       - static-and-integrity
@@ -832,7 +899,7 @@ jobs:
           NODE_TEST_RESULT: ${{ needs.node-test.result }}
           PDF_TOOLCHAIN_RESULT: ${{ needs.pdf-toolchain.result }}
           PYTHON_TEST_RESULT: ${{ needs.python-test.result }}
-          RACE_TESTS_RESULT: ${{ needs.race-tests.result }}
+          GO_TESTS_RESULT: ${{ needs.go-tests.result }}
           RACE_COVERAGE_RESULT: ${{ needs.race-coverage.result }}
           RUST_TEST_RESULT: ${{ needs.rust-test.result }}
           STATIC_AND_INTEGRITY_RESULT: ${{ needs.static-and-integrity.result }}
@@ -854,7 +921,7 @@ jobs:
              ! ok "$NODE_TEST_RESULT" ||
              ! ok "$PDF_TOOLCHAIN_RESULT" ||
              ! ok "$PYTHON_TEST_RESULT" ||
-             ! ok "$RACE_TESTS_RESULT" ||
+             ! ok "$GO_TESTS_RESULT" ||
              ! ok "$RACE_COVERAGE_RESULT" ||
              ! ok "$RUST_TEST_RESULT" ||
              ! ok "$STATIC_AND_INTEGRITY_RESULT" ||
@@ -874,7 +941,7 @@ jobs:
             echo "node-test=$NODE_TEST_RESULT"
             echo "pdf-toolchain=$PDF_TOOLCHAIN_RESULT"
             echo "python-test=$PYTHON_TEST_RESULT"
-            echo "race-tests=$RACE_TESTS_RESULT"
+            echo "go-tests=$GO_TESTS_RESULT"
             echo "race-coverage=$RACE_COVERAGE_RESULT"
             echo "rust-test=$RUST_TEST_RESULT"
             echo "static-and-integrity=$STATIC_AND_INTEGRITY_RESULT"
@@ -892,7 +959,7 @@ jobs:
   pdf-toolchain:
     name: PDF toolchain tests
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    if: needs.changes.outputs.go == 'true' && needs.changes.outputs.tier == 'full'
     runs-on: ubuntu-latest
     permissions:
       contents: read

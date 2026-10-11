@@ -6,6 +6,10 @@
 # Prints one `area=true|false` line per area, in the shape a GitHub Actions job
 # output file takes. A file no area claims turns every area on, so a path this
 # script has not been taught about is never silently untested.
+#
+# CI_TIER=quick (draft pull requests) drops the fan-out from a service change to
+# every client, editor and the docs: each of those runs only when its own paths
+# change. The full tier, which every non-draft push runs, keeps the fan-out.
 set -euo pipefail
 
 base=${1:?usage: ci-changed-areas.sh <base> [head]}
@@ -51,20 +55,23 @@ emit() {
   echo "$area=$enabled"
 }
 
+fanout=$service
+[[ "${CI_TIER:-full}" = quick ]] && fanout=false
+
 emit go "$service"
-emit docs "$( { [[ "$service" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
-emit node "$( { [[ "$service" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
+emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
+emit node "$( { [[ "$fanout" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
 # The client-manifest/Python version lockstep tests live in the Python suite,
 # so the Node, Java and Rust manifests, every editor manifest
 # check_version.py --editors reads, and the editors' client references have
 # to run it too.
-emit python "$( { [[ "$service" = true ]] || matches "$python_pattern" || matches '^client/node/package\.json$' || matches '^client/java/pom\.xml$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|jupyterlab|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
-emit java "$( { [[ "$service" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
-emit rust "$( { [[ "$service" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
-emit julia "$( { [[ "$service" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"
-emit matlab "$( { [[ "$service" = true ]] || matches "$matlab_pattern"; } && echo true || echo false)"
-emit vscode "$( { [[ "$service" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
-emit jupyterlab "$( { [[ "$service" = true ]] || matches "$jupyterlab_pattern"; } && echo true || echo false)"
+emit python "$( { [[ "$fanout" = true ]] || matches "$python_pattern" || matches '^client/node/package\.json$' || matches '^client/java/pom\.xml$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|jupyterlab|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
+emit java "$( { [[ "$fanout" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
+emit rust "$( { [[ "$fanout" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
+emit julia "$( { [[ "$fanout" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"
+emit matlab "$( { [[ "$fanout" = true ]] || matches "$matlab_pattern"; } && echo true || echo false)"
+emit vscode "$( { [[ "$fanout" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
+emit jupyterlab "$( { [[ "$fanout" = true ]] || matches "$jupyterlab_pattern"; } && echo true || echo false)"
 # The MDK plugin builds on the Java client, so a client change re-runs it too.
-emit mdk "$( { [[ "$service" = true ]] || matches "$mdk_pattern" || matches "$java_pattern"; } && echo true || echo false)"
-emit syson "$( { [[ "$service" = true ]] || matches "$syson_pattern"; } && echo true || echo false)"
+emit mdk "$( { [[ "$fanout" = true ]] || matches "$mdk_pattern" || matches "$java_pattern"; } && echo true || echo false)"
+emit syson "$( { [[ "$fanout" = true ]] || matches "$syson_pattern"; } && echo true || echo false)"
