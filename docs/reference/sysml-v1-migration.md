@@ -364,7 +364,11 @@ their own outside their body) is dropped and counted in the note. A diagram show
 with no `expose`, so the model's inventory of diagrams is complete. Each `expose` names one
 shown element by the qualified name the migrator writes elsewhere — `Package::Def::feature`,
 never a package's `::**` — so a diagram of a package exposes the members it pictures, not
-the package.
+the package. Each `expose` also imports the exposed element's name into the view, where the
+`expose` targets and the layout's `about`s resolve before the enclosing scopes do, so a name
+the exposes import for anything but the element it names outside the view — a definition
+shown beside a usage named after it, say — is written in full (`Package::Def`) in the view's
+body, and a name one `expose` imports under its simple spelling is written as it is elsewhere.
 
 The view takes the diagram's name unless the body already has a member so named: a tool
 names a view's diagram after the «View» class, a state's after the state, and both are

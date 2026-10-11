@@ -1,0 +1,24 @@
+# SysML v1 to v2 migration report: layout_same_named_usage.xmi
+# exported by Example UML Tool
+# migrated 10 element(s): 9 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 1 of 1 diagrams from layout_same_named_usage.layout.xml: 5 elements positioned, 0 connectors routed, 0 styled, 0 notes
+
+## layout
+# source: layout_same_named_usage.layout.xml (2022x v1.0.0, cameo 2022x Refresh2, exported 2025-06-12T21:38:50.779458500Z)
+# 1 diagram records: 1 joined, 0 matching no diagram; 0 views laid out from their own symbol stream, 0 without layout
+# placements: 5 of 5 written (0 not exposed, 0 resolving to no element); routes: 0 of 2 written (2 not pinned, 0 resolving to no element); malformed: 0
+# styles: 0 of 0 written; notes: 0 written (0 anchored, 0 freed of an anchor the view does not lay out)
+# routes of Association: 2 no v2 member
+
+## approximated (1)
+Diagram	UI::Console BDD	_diag_bdd	-> UI::'Console BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 2 of 7 shown elements are not written and not exposed; laid out from layout_same_named_usage.layout.xml: 5 of 5 shown elements positioned, 0 of 2 connectors routed (2 no v2 member))
+
+## mapped (9)
+Model	Model	_m	(the root model's members are written at the top level)
+Package	UI	_pkg_ui	-> UI
+Association	UI::<Association>	_assoc_console_gui	(the anonymous association is written as its member-end properties)
+Association	UI::<Association>	_assoc_console_panel	(the anonymous association is written as its member-end properties)
+«Block» Class	UI::Console	_blk_console	-> UI::Console
+Property	UI::Console::GUI	_prop_console_gui	-> UI::Console::GUI
+Property	UI::Console::panel	_prop_console_panel	-> UI::Console::panel
+«Block» Class	UI::GUI	_blk_gui	-> UI::GUI
+«Block» Class	UI::Panel	_blk_panel	-> UI::Panel

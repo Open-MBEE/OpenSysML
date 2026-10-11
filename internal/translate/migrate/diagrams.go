@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
@@ -336,6 +337,8 @@ func (m *migration) shadows(scopes []*sysmlv1.Element, name string) bool {
 type exposures struct {
 	refs  []string
 	names map[string]bool
+	// by lists the refs importing each name, in shown order.
+	by map[string][]string
 	// drawn counts shown members of the form's subject, drawn by its graph.
 	drawn int
 	// unwritten counts shown elements nothing written stands for.
@@ -357,6 +360,20 @@ func (x exposures) exposed(ref string) bool {
 // shadows reports whether a view exposure uses name.
 func (x exposures) shadows(name string) bool {
 	return x.names[name]
+}
+
+// hides lists the exposed names a reference written in the view's body cannot
+// use as the host would: all but a name one expose imports by its simple
+// spelling, which denotes inside the view what it does outside it.
+func (x exposures) hides() columnNames {
+	hidden := columnNames{}
+	for name := range x.names {
+		if refs := x.by[name]; len(refs) == 1 && refs[0] == writeName(name) {
+			continue
+		}
+		hidden[name] = true
+	}
+	return hidden
 }
 
 // diagramLayoutAttribute qualifies an attribute when its name is shadowed in the view.
@@ -522,6 +539,22 @@ func (m *migration) writeView(v *view) {
 	d, host := v.d, v.host
 	form := m.formOf(d)
 	x := m.exposures(d, host, form)
+	// The exposes import their names into the view, where every reference in
+	// its body resolves first: the writer avoids those that hide what it means.
+	hidden := x.hides()
+	for _, scope := range scopeChain(host) {
+		for name := range m.viewNames[scope] {
+			hidden[name] = true
+		}
+	}
+	m.inside(hidden, func() { m.writeViewBody(v, form) })
+}
+
+// writeViewBody writes v's declaration and body, with references resolving
+// through the names its exposes import.
+func (m *migration) writeViewBody(v *view, form viewForm) {
+	d, host := v.d, v.host
+	x := m.exposures(d, host, form)
 	for _, scope := range scopeChain(host) {
 		for name := range m.viewNames[scope] {
 			x.names[name] = true
@@ -633,7 +666,7 @@ func (m *migration) viewShownNote(d *sysmlv1.Diagram, x exposures, geo viewGeome
 // scope of the view's host. A view of a form drawing a graph exposes the
 // behavior whose graph it is in place of the shown nodes and edges it draws.
 func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form viewForm) exposures {
-	x := exposures{names: map[string]bool{}}
+	x := exposures{names: map[string]bool{}, by: map[string][]string{}}
 	seen := map[string]bool{}
 	add := func(ref string) {
 		if !seen[ref] {
@@ -641,6 +674,7 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 			x.refs = append(x.refs, ref)
 			if name := exposureName(ref); name != "" {
 				x.names[name] = true
+				x.by[name] = append(x.by[name], ref)
 			}
 		}
 	}
@@ -683,11 +717,11 @@ func exposureName(ref string) string {
 	quoted := false
 	for i := 0; i < len(ref); i++ {
 		switch {
-		case ref[i] == '\'' && quoted && i+1 < len(ref) && ref[i+1] == '\'':
+		case quoted && ref[i] == '\\':
 			i++
 		case ref[i] == '\'':
 			quoted = !quoted
-		case !quoted && i+1 < len(ref) && ref[i:i+2] == "::":
+		case !quoted && strings.HasPrefix(ref[i:], "::"):
 			start = i + 2
 			i++
 		}
@@ -697,7 +731,7 @@ func exposureName(ref string) string {
 		return ""
 	}
 	if len(name) >= 2 && name[0] == '\'' && name[len(name)-1] == '\'' {
-		name = strings.ReplaceAll(name[1:len(name)-1], "''", "'")
+		name = source.Unescape(name[1 : len(name)-1])
 	}
 	return name
 }
@@ -783,7 +817,7 @@ func (m *migration) exposable(e *sysmlv1.Element) *sysmlv1.Element {
 // shadowsLibrary reports whether a member named like a standard library
 // package hides it from scope: one of a scope on the chain, or a top-level one.
 func (m *migration) shadowsLibrary(lib string, scope *sysmlv1.Element) bool {
-	return m.shadows(scopeChain(scope), lib) || m.nameTaken(nil, lib)
+	return m.hidden(lib) || m.shadows(scopeChain(scope), lib) || m.nameTaken(nil, lib)
 }
 
 // diagramEntry builds the report row of a diagram: named under its owner, as
