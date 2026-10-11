@@ -20,7 +20,7 @@ Plus `GET /health`, described below. A Connect unary call is an ordinary POST to
 `/sysml.SysMLService/<Method>` whose whole body is the request message, so `curl` is a
 first-class client and no generated code is needed to reach the service.
 
-One implementation sits behind all of them: the same fifteen RPCs of
+One implementation sits behind all of them: the same twenty-five RPCs of
 [`api/proto/sysml.proto`](https://github.com/Open-MBEE/OpenSysML/blob/main/api/proto/sysml.proto),
 the same semantics, the same status codes. An existing gRPC client (including a generated
 `grpc-go` stub, `grpcurl` and the `opensysml` Python client) reaches the default server
@@ -56,8 +56,8 @@ capability's definition rather than something a client has to guess:
 
 | The capability describes | A request that needs it | What a client should do |
 |---|---|---|
-| what the service can be *asked*: `strict_conformance`, `inline_language`, `parse_sources`, `evaluate_subject`, `verification`, `convert`, `apply_edits`, `authoring`, `connection_authoring`, `edit_documents`, `query`, `oslc_query`, `document_query`, `render_document`, `render_document_html`, `render_view`, `export_graphs`, `schedule`, `performer`, `state_trace`, `satisfy_authoring`, `requirement_constraint_authoring`, `member_modifiers`, `transition_authoring`, `verification_objective_authoring`, `metadata_authoring`, `metadata_prefix_authoring`, `sequence_authoring`, `implicit_parameters`, `action_body_statement_authoring`, `constraint_body_authoring`, `state_action_authoring`, `import_authoring`, `documentation_authoring`, `comment_authoring`, `migrate`, `convert_documents`, `convert_compact`, `parse_sources_affected` | is **refused** with `UNIMPLEMENTED`, naming the capability | check the advertised list first, and report the missing capability locally rather than spending a round trip |
-| how a response is *populated*: `type_facts`, `symbol_attributes`, `feature_values`, `enum_values`, `unset_value`, `undetermined_value`, `complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values`, `big_int_values`, `rational_values`, `verification_verdicts`, `case_evaluations`, `infinity_value`, `diagnostic_codes`, `final_time`, `edit_documents` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
+| what the service can be *asked*: `strict_conformance`, `inline_language`, `parse_sources`, `evaluate_subject`, `verification`, `convert`, `apply_edits`, `authoring`, `connection_authoring`, `edit_documents`, `query`, `oslc_query`, `document_query`, `render_document`, `render_document_html`, `render_view`, `export_graphs`, `schedule`, `performer`, `state_trace`, `satisfy_authoring`, `requirement_constraint_authoring`, `member_modifiers`, `transition_authoring`, `verification_objective_authoring`, `metadata_authoring`, `metadata_prefix_authoring`, `sequence_authoring`, `implicit_parameters`, `action_body_statement_authoring`, `constraint_body_authoring`, `state_action_authoring`, `import_authoring`, `documentation_authoring`, `comment_authoring`, `migrate`, `convert_documents`, `convert_compact`, `parse_sources_affected`, `schedule_explore`, `verification_questions`, `verification_arguments`, `engines_external`, `set_values`, `tensor_values` | is **refused** with `UNIMPLEMENTED`, naming the capability | check the advertised list first, and report the missing capability locally rather than spending a round trip |
+| how a response is *populated*: `type_facts`, `symbol_attributes`, `feature_values`, `enum_values`, `unset_value`, `undetermined_value`, `complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values`, `set_values`, `tensor_values`, `big_int_values`, `rational_values`, `verification_verdicts`, `case_evaluations`, `infinity_value`, `diagnostic_codes`, `final_time`, `engines`, `edit_documents` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
 
 `edit_documents` sits in both rows: without it `ApplyEdits` still edits a model of one document
 and answers `content`, but omits `documents`, `referrers` and each applied edit's `document`;
@@ -65,9 +65,9 @@ a request naming a `document` is refused with `UNIMPLEMENTED`, and a model of se
 with `FAILED_PRECONDITION` (a service advertising it refuses such a model the same way when the
 request leaves `accept_documents` unset; see [the wire contract](wire-contract.md)).
 
-`complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values` and `infinity_value` sit in both
+`complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values`, `set_values`, `tensor_values` and `infinity_value` sit in both
 rows: a complex — or an array, vector or vector quantity, a bare measurement reference, a calc held as a
-value, a metaobject, or the unbounded value `*` — in a response is
+value, a metaobject, a set, a tensor quantity, or the unbounded value `*` — in a response is
 reported as an `unsupported` null without it, and one in an action input or calc argument is
 refused with `UNIMPLEMENTED` rather than read as another value — a service that predates the
 arm would read it as an unknown field, so every client checks the list before sending one
@@ -205,8 +205,8 @@ It no longer has to, so `-health-port` is **deprecated**:
 | `-transport grpc` | unchanged — 8081 is the only health surface, and no warning is logged |
 
 Poll the main port. Nothing in this repository polls 8081: the Python client's readiness probe
-is a `GetDiagnostics` call over gRPC, not an HTTP GET, so it is unaffected by every row of that
-table.
+is its `GetServerInfo` handshake over gRPC, not an HTTP GET, so it is unaffected by every row of
+that table.
 
 ## `-transport stdio`, and why not to build on it
 
