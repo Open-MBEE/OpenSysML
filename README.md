@@ -78,7 +78,7 @@ curl -fsSL https://opensysml.org/install.sh | sh
 irm https://opensysml.org/install.ps1 | iex
 ```
 Both scripts take a release (`--version v0.9.1`, `nightly`), a tool list (`--tools sysml`,
-`sysml-lsp`, `sysml-grpc`, `sysml-jupyter-kernel`, `all`) and a destination (`--prefix`, or `-InstallDir` on Windows),
+`sysml-lsp`, `sysml-grpc`, `all`; `install.sh` also takes `sysml-jupyter-kernel`) and a destination (`--prefix`, or `-InstallDir` on Windows),
 and `--dry-run` shows the choice without installing; `sh -s -- --help` lists the rest. The
 scripts are [`install.sh`](install.sh) and [`install.ps1`](install.ps1) in this repository,
 so a checkout runs them as `./install.sh`.
