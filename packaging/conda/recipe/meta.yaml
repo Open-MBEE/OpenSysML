@@ -81,7 +81,7 @@ about:
     REPL's semantics: declarations accumulate across cells, bare expressions
     evaluate, and the REPL's `%` commands instantiate, run, debug and render
     the model. The kernelspec is named `sysml`.
-  doc_url: https://redk.opensysml.org/guide/12-jupyter/
+  doc_url: https://runtime.opensysml.org/guide/12-jupyter/
   dev_url: https://github.com/Open-MBEE/OpenSysML
 
 extra:
