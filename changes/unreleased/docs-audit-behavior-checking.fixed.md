@@ -1,0 +1,3 @@
+- The behavior guide's transcripts now show what the binary prints: the `standing:` line that ends every `-action` and `-schedule explore` run, the `1 choice point` note a fork/join run reports, and the `caught.fault` result the signal-handling example lists; the `Heater` and `Tank` state machines on that page now run as written (`ScalarValues::Boolean` is qualified, and `Step` declares its entry transition).
+- The `-engines` listing in the external-engines reference matches this build: the `check` and `solve` rows name every question kind they answer, and the `smt` and `tool:fmi` engines are listed.
+- The grammar reference states the current size of the parser's golden AST and negative test suites.
