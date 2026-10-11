@@ -6,9 +6,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // intArgument is an integer argument of an invocation.
@@ -3337,5 +3341,102 @@ func TestStateTransitionReadsTheMachinesQualifiedContext(t *testing.T) {
 		if !slices.Contains(visits, "done") {
 			t.Errorf("%s visits = %v, want done: the qualified context read did not fire the transition", name, visits)
 		}
+	}
+}
+
+const ownerScopeDefsSrc = `package plantDefs {
+	private import ScalarValues::*;
+	part def Tank { attribute volume : Real default = 1.0; }
+	part def Plant {
+		part tank : Tank;
+		attribute runs : Integer default = 0;
+		action fill {
+			action 'fill tank' { assign tank.volume := tank.volume * 2 + 2; }
+			first start then 'fill tank';
+			action 'count run' { assign runs := runs + 1; }
+			first 'fill tank' then 'count run';
+		}
+	}
+	action def Touch {
+		action step { assign touched := 1; }
+		first step;
+	}
+}`
+
+const ownerScopeUsesSrc = `package test {
+	private import ScalarValues::*;
+	private import plantDefs::*;
+	part plant : Plant;
+	part def Host { attribute touched : Integer = 0; }
+	part host : Host;
+}`
+
+// documentsContextOver indexes each document over the standard library and
+// registers the scope tree each builds for itself, as a workspace of several
+// files resolves references: a declaration one file names from another is the
+// index's symbol there, while its own file reaches the tree's.
+func documentsContextOver(t *testing.T, docs map[string]string) (*Context, map[string]*symbols.Scope) {
+	t.Helper()
+	idx := libs.NewModelIndex()
+	scopes := make(map[string]*symbols.Scope, len(docs))
+	for name, src := range docs {
+		file := parser.New(source.New(name, []byte(src))).ParseFile()
+		idx.AddDocument(name, file)
+		scopes[name] = symbols.Build(file)
+		symbols.SetDocName(scopes[name], name)
+	}
+	idx.ExpandWildcardImports()
+	resolver := resolve.New(idx)
+	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
+	for name, src := range docs {
+		ctx.Model().RegisterSource(source.New(name, []byte(src)))
+		ctx.Model().RegisterScope(scopes[name])
+	}
+	return ctx, scopes
+}
+
+// An action usage a part definition owns, performed on a part another file
+// declares, writes that part's features: the body names them through its owning
+// definition, which is the performer's type even where the two files hold
+// symbols of their own for it.
+func TestPartOwnedActionPerformedOnPartDeclaredInAnotherFile(t *testing.T) {
+	ctx, scopes := documentsContextOver(t, map[string]string{"defs.sysml": ownerScopeDefsSrc, "uses.sysml": ownerScopeUsesSrc})
+	plantDefs := resolveSymbol(t, scopes["defs.sysml"], "plantDefs").Scope
+	fill := resolveSymbol(t, resolveSymbol(t, plantDefs, "Plant").Scope, "fill")
+	plant, err := ctx.Instantiate(resolveSymbol(t, resolveSymbol(t, scopes["uses.sysml"], "test").Scope, "plant"))
+	if err != nil {
+		t.Fatalf("Instantiate plant: %v", err)
+	}
+	if _, err := ctx.ActionOutcomePerformedBy(fill, plant, nil); err != nil {
+		t.Fatalf("perform fill on plant: %v", err)
+	}
+	for path, want := range map[string]string{"runs": "1", "tank.volume": "4.0"} {
+		fv, err := featureValueAtPath(t, ctx, plant, path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		got, err := fv.ReadValue(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		if FormatValue(got) != want {
+			t.Errorf("%s after fill = %s, want %s", path, FormatValue(got), want)
+		}
+	}
+}
+
+// A part performing an action definition declared on its own, in another file,
+// does not lend the body its features: the performer is not a namespace the
+// body's names resolve in, so the write is refused as it is in one file.
+func TestStandaloneActionPerformedOnPartDeclaredInAnotherFileKeepsScope(t *testing.T) {
+	ctx, scopes := documentsContextOver(t, map[string]string{"defs.sysml": ownerScopeDefsSrc, "uses.sysml": ownerScopeUsesSrc})
+	touch := resolveSymbol(t, resolveSymbol(t, scopes["defs.sysml"], "plantDefs").Scope, "Touch")
+	host, err := ctx.Instantiate(resolveSymbol(t, resolveSymbol(t, scopes["uses.sysml"], "test").Scope, "host"))
+	if err != nil {
+		t.Fatalf("Instantiate host: %v", err)
+	}
+	_, err = ctx.ActionOutcomePerformedBy(touch, host, nil)
+	if !errors.Is(err, ErrPerformerFeatureNotInScope) {
+		t.Fatalf("perform Touch on host: %v, want ErrPerformerFeatureNotInScope", err)
 	}
 }

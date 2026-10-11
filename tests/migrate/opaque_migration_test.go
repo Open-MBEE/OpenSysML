@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
@@ -534,5 +537,32 @@ func TestPluralPathsStayCollections(t *testing.T) {
 	runs := strings.Join(s.RunRuns("Meter::sweep", []string{"Meter"}, 1, seedOf(1), []string{"this.total"}).Lines, "\n")
 	if want := "this.total: 1 run(s), min 3"; !strings.Contains(runs, want) {
 		t.Errorf("runs lack %q:\n%s", want, runs)
+	}
+}
+
+// The migrated plant's activity is an action usage of the block, so performing it on a
+// part declared in another file, as the migration guide walks through, runs on that
+// object and writes its own attribute and its tank's.
+func TestMigratedActivityPerformedOnPartDeclaredElsewhere(t *testing.T) {
+	r := migrateXMI(t, "plant")
+	s := repl.NewSession()
+	res := s.SubmitFiles([]repl.SourceFile{
+		{Name: "Plant.sysml", Text: string(r.Notation), Kind: source.KindSysML},
+		{Name: "plant_inst.sysml", Text: "part plant : Plant;\n", Kind: source.KindSysML},
+	})
+	if res.Refused != nil {
+		t.Fatalf("submit: %v", res.Refused)
+	}
+	for _, d := range res.Diagnostics {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("submit: %v", d)
+		}
+	}
+	meta(t, s, "%instantiate plant")
+	wantVerdict(t, s.RunAction("Plant::fill", "plant"))
+	for path, want := range map[string]string{"plant.runs": "= 1", "plant.tank.volume": "= 4.0"} {
+		if got := meta(t, s, "%eval "+path); !strings.HasSuffix(got, want) {
+			t.Errorf("%s after Plant::fill: got %q, want suffix %q", path, got, want)
+		}
 	}
 }

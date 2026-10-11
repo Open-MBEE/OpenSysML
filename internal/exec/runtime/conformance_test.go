@@ -88,6 +88,13 @@ type Performer struct {
 	Terminated  bool                     `json:"terminated,omitempty"`
 	StateVisits []string                 `json:"stateVisits,omitempty"`
 	Outputs     map[string]ExpectedValue `json:"outputs,omitempty"`
+	// Slots are the feature values the object holds after its performance, by
+	// path from the object, for an action case whose contract is what the body
+	// wrote on its performer.
+	Slots map[string]ExpectedValue `json:"slots,omitempty"`
+	// Error is the text the object's performance must fail with, for a performer
+	// the body may not run on.
+	Error string `json:"error,omitempty"`
 }
 
 // AdmittedOutcome is one complete result a case admits: an action run's outputs, or a
@@ -1032,6 +1039,10 @@ func TestLoadLibrariesKeepsDeclarationsAndRestoresFacts(t *testing.T) {
 func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome) {
 	rootScope := idx.DocumentRoot(path)
 	actionSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefAction, ast.UsageAction)
+	if len(expected.Performers) > 0 {
+		runActionPerformers(t, ctx, idx, actionSym, expected.Performers)
+		return
+	}
 
 	// Execute action
 	outcome, err := ctx.ActionOutcomePerformedBy(actionSym, nil, nil)
@@ -1072,6 +1083,44 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 		// Token count validation requires instrumentation in executor
 		// For now, skip - can add later if needed
 		t.Logf("token count validation not yet implemented (expected %d)", *expected.TokenCount)
+	}
+}
+
+// runActionPerformers performs an action once per object performing it and
+// checks each performance against what that object expects: its outputs, the
+// feature values the body left on the object, or the error it must fail with.
+func runActionPerformers(t *testing.T, ctx *Context, idx *symbols.Index, actionSym *symbols.Symbol, performers []Performer) {
+	t.Helper()
+	for _, performer := range performers {
+		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
+		if err != nil {
+			t.Fatalf("instantiate %s: %v", performer.Object, err)
+		}
+		t.Run(performer.Object, func(t *testing.T) {
+			outcome, err := ctx.ActionOutcomePerformedBy(actionSym, self, nil)
+			if performer.Error != "" {
+				requireError(t, "performance by "+performer.Object, err, performer.Error)
+				return
+			}
+			if err != nil {
+				t.Fatalf("performance by %s failed: %v", performer.Object, err)
+			}
+			validateTerminated(t, outcome.Terminated, performer.Terminated)
+			validateOutputs(t, ctx, performer.Outputs, outcome.Outputs)
+			for path, expectedVal := range performer.Slots {
+				fv, err := featureValueAtPath(t, ctx, self, path)
+				if err != nil {
+					t.Errorf("feature value %q of %s: %v", path, performer.Object, err)
+					continue
+				}
+				value, err := fv.ReadValue(path)
+				if err != nil {
+					t.Errorf("feature value %q of %s: %v", path, performer.Object, err)
+					continue
+				}
+				validateValue(t, ctx, path, expectedVal, value)
+			}
+		})
 	}
 }
 
