@@ -309,7 +309,7 @@ func TestMonteCarloParametricViewExposesTheAnalysis(t *testing.T) {
 	wantNote(t, r, "_bindDeviation", migrate.Approximated, "the binding to the simulation tool's MonteCarloAnalysis::Deviation is written in the analysis def 'Settling Analysis Monte Carlo' as the returned Deviation, bound to deviation")
 	wantNote(t, r, "_diag_par", migrate.Approximated, "a SysML Parametric Diagram written as a view rendered asInterconnectionDiagram; "+
 		"6 of 14 shown elements are not written and not exposed; laid out from the diagram's own symbol stream: "+
-		"5 of 11 shown elements positioned (6 not exposed), 1 of 3 connectors routed (2 not drawn)")
+		"5 of 11 shown elements positioned (6 lying on connections), 1 of 3 connectors routed (2 not drawn)")
 	for _, e := range entriesFor(r, "_diag_par") {
 		if strings.Contains(e.Note, "not written)") {
 			t.Errorf("diagram note reports a binding's route as not written: %s", e.Note)
@@ -317,7 +317,7 @@ func TestMonteCarloParametricViewExposesTheAnalysis(t *testing.T) {
 	}
 	report := reportText(t, r)
 	for _, want := range []string{"# routes of Connector: 1 written", "# routes of Connector: 2 not drawn",
-		"placements: 5 of 11 written (6 not exposed, 0 resolving to no element); routes: 1 of 3 written (2 not pinned, 0 resolving to no element)"} {
+		"placements: 5 of 11 written (0 not exposed, 6 lying on connections, 0 resolving to no element); routes: 1 of 3 written (2 not pinned, 0 resolving to no element)"} {
 		if !strings.Contains(report, want) {
 			t.Errorf("report lacks %q:\n%s", want, report)
 		}

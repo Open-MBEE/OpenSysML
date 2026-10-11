@@ -383,10 +383,33 @@ func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]strin
 		}
 		return m.routeRefs(el, scope, f), ""
 	}
+	if refs := m.endRefs(el, scope, f); len(refs) > 0 {
+		return refs, ""
+	}
 	if m.exposure(el, scope) != "" {
 		return nil, routeNotDrawn
 	}
 	return nil, routeNoMember
+}
+
+// endRefs names the classifier-owned member ends an anonymous association is
+// written as, from inside scope's body, when a tree rendering draws each as the
+// composition or reference edge from its owner that a Route about the usage shapes;
+// nil for an association written as a connection def or drawn in another form.
+func (m *migration) endRefs(e, scope *sysmlv1.Element, f viewForm) []string {
+	if e.Type != "Association" || f.rendering != treeRendering || m.actors[e] != nil || m.associationAsConnectionDef(e) {
+		return nil
+	}
+	var refs []string
+	for _, end := range m.model.Refs(e, "memberEnd") {
+		if end == nil || end.Parent == e || !m.written(end) {
+			continue
+		}
+		if ref := m.exposure(end, scope); ref != "" {
+			refs = append(refs, ref)
+		}
+	}
+	return refs
 }
 
 // viewForm is how a diagram's view is drawn: its Views rendering, the standard view

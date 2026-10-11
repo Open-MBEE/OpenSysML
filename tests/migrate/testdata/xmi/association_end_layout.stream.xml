@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_diag_bdd'></elementID>
+    <geometry>0, 0, 400, 300</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_vehicle'>
+    <elementID xmi:idref='_blk_vehicle'></elementID>
+    <geometry>40, 20, 120, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_engine'>
+    <elementID xmi:idref='_blk_engine'></elementID>
+    <geometry>40, 160, 120, 90</geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Part' xmi:id='_sym_piston'>
+        <elementID xmi:idref='_prop_piston'></elementID>
+        <geometry>55, 200, 90, 30</geometry>
+      </mdElement>
+    </mdOwnedViews>
+  </mdElement>
+  <mdElement elementClass='Association' xmi:id='_sym_assoc_engine'>
+    <elementID xmi:idref='_assoc_engine'></elementID>
+    <linkFirstEndID xmi:idref='_sym_vehicle'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_engine'></linkSecondEndID>
+    <geometry>100, 70; 100, 160; </geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Role' xmi:id='_sym_end_vehicle'>
+        <elementID xmi:idref='_ae_vehicle'></elementID>
+        <geometry>95, 70, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+      <mdElement elementClass='Role' xmi:id='_sym_end_engine'>
+        <elementID xmi:idref='_prop_engine'></elementID>
+        <geometry>95, 150, 10, 10</geometry>
+        <mdOwnedViews>
+          <mdElement elementClass='TextBox' xmi:id='_sym_end_engine_name'>
+            <elementID xmi:idref='_prop_engine'></elementID>
+            <geometry>105, 140, 40, 12</geometry>
+            <mdOwnedViews/>
+            <text>engine</text>
+          </mdElement>
+        </mdOwnedViews>
+        <roleNameID xmi:idref='_sym_end_engine_name'></roleNameID>
+      </mdElement>
+    </mdOwnedViews>
+    <associationFirstEndID xmi:idref='_sym_end_vehicle'></associationFirstEndID>
+    <associationSecondEndID xmi:idref='_sym_end_engine'></associationSecondEndID>
+  </mdElement>
+</mdOwnedViews>

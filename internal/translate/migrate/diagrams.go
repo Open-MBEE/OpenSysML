@@ -970,8 +970,9 @@ func (p *layoutPlan) placements(rec *mtip.Diagram) []string {
 			p.dangling++
 			continue
 		}
-		if c := m.connOf(el); p.form.useCases && c != nil && c.of != el {
-			// An association end's label lies on the connection's route.
+		if c := m.connOf(el); pl.OnPath || p.form.useCases && c != nil && c.of != el {
+			// An end's symbol lies on the connection's route, which carries the end.
+			s.PlacementsOnEdges++
 			p.onEdges++
 			continue
 		}

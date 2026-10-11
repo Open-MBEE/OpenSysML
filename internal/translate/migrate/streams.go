@@ -66,11 +66,23 @@ func (m *migration) streamRecord(d *sysmlv1.Diagram) *mtip.Diagram {
 		case s.Bounds != nil:
 			b := s.Bounds
 			rec.Placements = append(rec.Placements, mtip.Placement{
-				ID: s.ElementID, Type: s.Class, X: b.X, Y: b.Y, Width: b.Width, Height: b.Height,
+				ID: s.ElementID, Type: s.Class, X: b.X, Y: b.Y, Width: b.Width, Height: b.Height, OnPath: onPath(s),
 			})
 		}
 	}
 	return rec
+}
+
+// onPath reports a shape nested in a path symbol: the tool keeps a line's end
+// symbols there (an association's Role, a connector's ConnectorEnd), so the
+// shape marks where the line ends and stands for no node of its own.
+func onPath(s *sysmlv1.Symbol) bool {
+	for p := s.Parent; p != nil; p = p.Parent {
+		if p.IsPath() {
+			return true
+		}
+	}
+	return false
 }
 
 // layoutSources names where a view's geometry came from.

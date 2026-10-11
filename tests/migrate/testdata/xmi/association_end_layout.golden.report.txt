@@ -1,0 +1,23 @@
+# SysML v1 to v2 migration report: association_end_layout.xmi
+# exported by Example UML Tool
+# migrated 9 element(s): 8 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 1 of 1 diagrams from the diagrams' own symbol streams: 3 elements positioned, 1 connectors routed, 0 styled, 0 notes
+
+## layout
+# source: the diagrams' own symbol streams
+# 1 views laid out from their own symbol stream, 0 without layout
+# placements: 3 of 6 written (0 not exposed, 3 lying on connections, 0 resolving to no element); routes: 1 of 1 written (0 not pinned, 0 resolving to no element); malformed: 0
+# styles: 0 of 0 written; notes: 0 written (0 anchored, 0 freed of an anchor the view does not lay out)
+# routes of Association: 1 written
+
+## approximated (1)
+Diagram	Blocks::Vehicle BDD	_diag_bdd	-> Blocks::'Vehicle BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 2 of 6 shown elements are not written and not exposed; laid out from the diagram's own symbol stream: 3 of 6 shown elements positioned (3 lying on connections), 1 of 1 connectors routed)
+
+## mapped (8)
+Package	Blocks	_pkg_blocks	-> Blocks
+Association	Blocks::<Association>	_assoc_engine	(the anonymous association is written as its member-end properties)
+«Block» Class	Blocks::Engine	_blk_engine	-> Blocks::Engine
+Property	Blocks::Engine::piston	_prop_piston	-> Blocks::Engine::piston
+«Block» Class	Blocks::Piston	_blk_piston	-> Blocks::Piston
+«Block» Class	Blocks::Vehicle	_blk_vehicle	-> Blocks::Vehicle
+Property	Blocks::Vehicle::engine	_prop_engine	-> Blocks::Vehicle::engine
+Model	Model	_m	(the root model's members are written at the top level)

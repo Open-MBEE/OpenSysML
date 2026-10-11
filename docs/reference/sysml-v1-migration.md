@@ -474,7 +474,19 @@ Geometry is written only for what the view draws: a placement whose element reso
 `expose` the view carries, or which the graph a typed view exposes draws as a node (a state's
 inline `entry`, `do` or `exit` action is listed inside the state's node, and an internal
 transition Cameo places as text in its state's box is an edge to the rendering, so their
-placements are counted as not exposed rather than pinned to a node the rendering never draws); a route whose
+placements are counted as not exposed rather than pinned to a node the rendering never draws). A shape
+the tool nests in a path's symbol — an association end's role symbol or a connector end's, a 10×10
+box at the end of the line, and the role-name label nested in it — is the end's position on the line,
+not a box of its own: its placement is counted as lying on a connection on every diagram kind and
+no `Layout` is written for the end property, since the line's `Route` carries where the end is
+drawn and a tree rendering labels the edge with it; a `Layout` of the property would make the
+rendering draw the usage a second time, as a nested node under its definition. The line of an
+anonymous association, which is written as its member-end properties and not as a connection def,
+is routed on a tree rendering as a `Route` about each classifier-owned end the view exposes — the
+part usage the rendering draws as the composition or reference edge from its owner to its type —
+and is otherwise counted under `no v2 member`. A property drawn as its own box in a block's
+compartment, or as a part on an internal block diagram, is not nested in a path and keeps its
+`Layout`. A route whose
 connector's element is written as a named member (see [Edges a diagram shows](#edges-a-diagram-shows))
 that the view exposes, or that its graph draws, *and* that the view's rendering draws as an edge —
 a succession or flow in an `ActionFlowView`, a transition in a `StateTransitionView`, a connection
@@ -482,7 +494,7 @@ or binding `asInterconnectionDiagram`. A route for an edge the rendering does no
 satisfy or include on a tree diagram, a message step) is not written: the geometry would pin
 nothing. Everything else is counted, not dropped: the report's `layout`
 summary section and each diagram's note say how many shown elements were positioned, how many were
-not exposed, and how many resolved to no element; the routes are itemized by the connector's v1 kind
+not exposed, how many lay on connections, and how many resolved to no element; the routes are itemized by the connector's v1 kind
 and what became of each — `written`, `no v2 member`, `not written`, `unnamed`, `not drawn`,
 `not exposed`, `duplicate`, `dangling` — in the report (`# routes of Transition: 2 written`) and
 the results sidecar's `routesByKind`; an export record matching no diagram of the model,
