@@ -43,7 +43,7 @@ environment variable for unattended installs:
 | Choice | `install.sh` | `install.ps1` | Environment |
 |---|---|---|---|
 | Release: a tag, `latest` or `nightly` | `--version v0.9.1` | `-Version v0.9.1` | `OPENSYSML_VERSION` |
-| Tools: `sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-jupyter-kernel` or `all` | `--tools sysml` | `-Tools sysml` | `OPENSYSML_TOOLS` |
+| Tools: `sysml`, `sysml-lsp`, `sysml-grpc` or `all` (`install.sh` also `sysml-jupyter-kernel`) | `--tools sysml` | `-Tools sysml` | `OPENSYSML_TOOLS` |
 | Where to install | `--prefix ~/opt` or `--bin-dir ~/bin` | `-InstallDir D:\Tools\OpenSysML` | `OPENSYSML_PREFIX`, `OPENSYSML_BIN_DIR`, `OPENSYSML_INSTALL_DIR` |
 | A mirror of the GitHub release tree | `--base-url URL` | `-BaseUrl URL` | `OPENSYSML_DOWNLOAD_BASE` |
 | Show the choice, install nothing | `--dry-run` | `-DryRun` | |
