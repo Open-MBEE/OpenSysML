@@ -464,7 +464,9 @@ jobs:
               timeout=30m; [ "$shard" = migrate ] && timeout=55m
               go test -v -race -pgo=off -timeout "$timeout" $pkgs
             fi
-          no_output_timeout: 30m
+          # go test prints a package's -v output only once it finishes, so the silence
+          # limit has to outlast the longest package (tests/migrate, 55m) rather than 30m.
+          no_output_timeout: 60m
           environment:
             # Turns "corpus absent" into a failure rather than a skip, as the
             # GitHub Actions PR workflow already does.
