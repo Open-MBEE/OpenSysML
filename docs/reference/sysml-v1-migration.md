@@ -352,8 +352,9 @@ quoted (`'Vehicle Design'`).
 
 ### Diagrams
 
-A diagram is a v2 `view`: what it shows is exposed, how it is drawn is not migrated (a layout
-has no v2 form). The view is named after the diagram and written in the body of the v2
+A diagram is a v2 `view`: what it shows is exposed; how it is drawn has no standard v2 form, and
+is carried only through the `DiagramLayout` library's metadata when the source supplies the
+geometry (see [Layout from an MTIP export](#layout-from-an-mtip-export)). The view is named after the diagram and written in the body of the v2
 element `ownerOfDiagram` names — a `package`, or the `part def`, `state def`, `action def`,
 `metadata def`… written for a classifier; for a behavior that is the method of an operation, the
 operation's definition, whose body the behavior is written as, so the behavior's members are
@@ -1989,9 +1990,9 @@ library packages — `StateMachines` for a pseudostate, `Stochastic` for a branc
 profile — which OpenSysML ships and a tool built on the standard library alone does not.
 `-portable` leaves the migration as it is and appends those packages to the output: every
 library package the notation refers to by qualified name, and every one those refer to in
-turn, follows the model under a comment saying so, written as the library ships it except
-that a `standard library package` becomes a `library package`, which is what a file of one's
-own may declare. A KerML library (`RandomFunctions`, `OpenSysMLMathFunctions`) is written in
+turn, follows the model under a comment saying so, written as the library ships it — a
+`library package`, not a `standard library package`, which is what a file of one's own may
+declare. A KerML library (`RandomFunctions`, `OpenSysMLMathFunctions`) is written in
 its SysML spelling, its functions as `calc def`s; one with no SysML spelling is left
 referenced, and the report says so. The report's summary names the packages inlined —
 `inlined 5 OpenSysML library package(s): DiagramLayout, DocumentQueries, MigrationMetadata,
