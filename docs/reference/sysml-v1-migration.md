@@ -490,7 +490,8 @@ and an association no exposed end is written for is counted under `no v2 member`
 as its own box in a block's compartment, or as a part on an internal block diagram, is not nested
 in a path and keeps its `Layout`; when an MTIP export places an element the diagram's own stream
 shows only on a path, the export's bounds win but the end stays on the line, and an exported line
-takes which element is at which of its ends from the stream, which the export does not record. A route whose
+takes which element is at which of its ends from the stream, which the export does not record,
+matching the two drawings' end points so a line the export lists the other way round is still read correctly. A route whose
 connector's element is written as a named member (see [Edges a diagram shows](#edges-a-diagram-shows))
 that the view exposes, or that its graph draws, *and* that the view's rendering draws as an edge —
 a succession or flow in an `ActionFlowView`, a transition in a `StateTransitionView`, a connection

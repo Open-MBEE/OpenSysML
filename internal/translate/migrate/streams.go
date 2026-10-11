@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"fmt"
+	"math"
 	"path"
 	"slices"
 	"sort"
@@ -137,13 +138,13 @@ func (m *migration) layoutRecord(v *view) (*mtip.Diagram, layoutSources) {
 		routed[c.ID] = true
 	}
 	// The export says nothing about which element is at which end of a line either.
-	ends := map[string][2]string{}
+	lines := map[string]mtip.Connector{}
 	for _, c := range stream.Connectors {
-		ends[c.ID] = c.Ends
+		lines[c.ID] = c
 	}
 	for i := range merged.Connectors {
 		if c := &merged.Connectors[i]; c.Ends == [2]string{} {
-			c.Ends = ends[c.ID]
+			c.Ends = endsAlong(c.Points, lines[c.ID])
 		}
 	}
 	src := layoutSources{export: true, frame: frame}
@@ -656,4 +657,28 @@ func (m *migration) styleLine(host *sysmlv1.Element, prefix, ref string, st sysm
 		return ""
 	}
 	return "metadata " + prefix + "Style about " + ref + " { " + strings.Join(attrs, " ") + " }"
+}
+
+// endsAlong reads the elements at the ends of a line drawn through points from
+// the stream's drawing of the same line, whose points may run the other way;
+// it returns no ends when the two drawings do not say which way that is.
+func endsAlong(points []float64, line mtip.Connector) [2]string {
+	if len(points) < 4 || len(line.Points) < 4 {
+		return [2]string{}
+	}
+	first, last := points[:2], points[len(points)-2:]
+	lineFirst, lineLast := line.Points[:2], line.Points[len(line.Points)-2:]
+	same := gap(first, lineFirst) + gap(last, lineLast)
+	opposite := gap(first, lineLast) + gap(last, lineFirst)
+	switch {
+	case same < opposite:
+		return line.Ends
+	case opposite < same:
+		return [2]string{line.Ends[1], line.Ends[0]}
+	}
+	return [2]string{}
+}
+
+func gap(a, b []float64) float64 {
+	return math.Hypot(a[0]-b[0], a[1]-b[1])
 }
