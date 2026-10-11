@@ -420,11 +420,11 @@ jobs:
               client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
 
   # The race-enabled suite. It is the longest single step in the pipeline, so
-  # it gets the larger class and four executors, one named package shard each.
+  # it gets the larger class and five executors, one named package shard each.
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 4
+    parallelism: 5
     steps:
       - checkout
       - go/load-cache
@@ -444,7 +444,7 @@ jobs:
           name: Run Go race tests
           command: |
             set -o pipefail
-            shards=(runtime model export rest)
+            shards=(runtime model export rest migrate)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
               exit 1
@@ -459,7 +459,10 @@ jobs:
               go test -v -race -pgo=off -timeout 30m ./tests/wasm
               go test -C tools -v -race -pgo=off -timeout 30m ./...
             else
-              go test -v -race -pgo=off -timeout 30m $pkgs
+              # tests/migrate alone runs 23-32 minutes under -race on this class, so its
+              # shard gets the Makefile's per-package timeout (see make test-shard).
+              timeout=30m; [ "$shard" = migrate ] && timeout=55m
+              go test -v -race -pgo=off -timeout "$timeout" $pkgs
             fi
           no_output_timeout: 30m
           environment:
@@ -483,11 +486,11 @@ jobs:
   # A second, race-free pass, because the profile the scan reads is written
   # with -coverpkg, which is too slow to instrument under -race. Serially the
   # instrumented suite overran the 60-minute job limit even on large, so it runs
-  # as the race test's four package shards, and go-coverage-merge joins them.
+  # as the race test's five package shards, and go-coverage-merge joins them.
   go-coverage:
     executor: go-executor
     resource_class: large
-    parallelism: 4
+    parallelism: 5
     steps:
       - checkout
       - go/load-cache
@@ -501,7 +504,7 @@ jobs:
       - run:
           name: Write this shard's coverage profile
           command: |
-            shards=(runtime model export rest)
+            shards=(runtime model export rest migrate)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
               exit 1

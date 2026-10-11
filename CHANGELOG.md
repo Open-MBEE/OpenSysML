@@ -444,6 +444,7 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 - The non-normative `OpenSysML Libraries/` extension libraries are now maintained upstream at [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library); the bundled copy is pinned by `scripts/extension-libraries-pin.sh`, refreshed by `scripts/sync-extension-libraries.sh` (`make extension-libraries-sync`), checked for drift on every pull request (`make extension-libraries-check`), and carries `engine-contract.json` recording the qualified names the engine binds.
 
 - **Declare the bundled OpenSysML extension libraries as non-standard.** `DiagramLayout`, `IdentityMetadata`, `MigrationMetadata` and `SysMLValidation` were written `standard library package`, which both asserted membership of the normative Kernel/SysML libraries and drew a pilot warning (`User library packages should not be marked as standard`); they are project extensions and now read `library package`. RDF export no longer marks them `sysml:isStandard true`.
+- **`tests/migrate` is a race shard of its own.** The SysML v1 migrator's suite ran as part of the `rest` shard, where under `-race` it grew past 24 minutes on the pull-request runners and past the 30-minute package timeout on CircleCI's `develop` builds, failing every merge. `scripts/race-shard.sh migrate` names it, `make test-shard SHARD=migrate` and `make coverage-shard SHARD=migrate` run it, and both CI configurations run six race shards and five coverage shards.
 
 ### Deprecated
 
