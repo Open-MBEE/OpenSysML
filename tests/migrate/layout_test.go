@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -90,19 +91,27 @@ func streamArchive(t *testing.T, name string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stream, err := os.ReadFile("testdata/xmi/" + name + ".stream.xml")
-	if err != nil {
-		t.Fatal(err)
+	type entry struct {
+		name string
+		data []byte
+	}
+	entries := []entry{{name: name + ".xmi", data: data}}
+	for _, pattern := range []string{name + ".stream.xml", name + ".*.stream.xml"} {
+		streams, err := filepath.Glob("testdata/xmi/" + pattern)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, path := range streams {
+			stream, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			entries = append(entries, entry{name: "BINARY-" + strings.TrimSuffix(filepath.Base(path), ".stream.xml"), data: stream})
+		}
 	}
 	var archive bytes.Buffer
 	zw := zip.NewWriter(&archive)
-	for _, entry := range []struct {
-		name string
-		data []byte
-	}{
-		{name: name + ".xmi", data: data},
-		{name: "BINARY-" + name, data: stream},
-	} {
+	for _, entry := range entries {
 		w, err := zw.Create(entry.name)
 		if err != nil {
 			t.Fatal(err)
@@ -765,5 +774,101 @@ func TestGoldenAssociationEndLayoutLiesOnTheEdge(t *testing.T) {
 	wantEdges := []string{"Blocks::Vehicle composition Blocks::Engine: engine"}
 	if !slices.Equal(edges, wantEdges) {
 		t.Errorf("edges = %q, want %q", edges, wantEdges)
+	}
+}
+
+// An anonymous association whose two ends are both classifier-owned is two
+// edges, each drawn from its owner: the line's points pin the end whose owner
+// is at the line's first end as read, the other end reversed; an end the view
+// does not expose is skipped without losing the other's route.
+func TestGoldenAssociationEndPairRoutesEachEnd(t *testing.T) {
+	r := migrateStream(t, "association_end_pair")
+	l := r.Report.Layout
+	if l == nil || l.StreamDiagrams != 2 || l.Placements != 7 || l.PlacementsWritten != 4 || l.PlacementsOnEdges != 3 || l.Routes != 2 || l.RoutesWritten != 2 || l.RoutesUnexposed != 0 {
+		t.Fatalf("layout summary: %+v", l)
+	}
+	checkGolden(t, "testdata/xmi/association_end_pair.golden.sysml", r.Notation)
+	var report bytes.Buffer
+	if err := r.Report.WriteText(&report); err != nil {
+		t.Fatal(err)
+	}
+	checkGolden(t, "testdata/xmi/association_end_pair.golden.report.txt", report.Bytes())
+	for _, d := range errors(t, "association_end_pair.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+	notation := string(r.Notation)
+	wantInOrder(t, "pair view", notation,
+		"view 'Pair BDD' {",
+		"metadata DiagramLayout::Route about Blocks::Controller::sensors { points = (100, 70, 100, 130, 100, 200); }",
+		"metadata DiagramLayout::Route about Blocks::Sensor::controller { points = (100, 200, 100, 130, 100, 70); }",
+		"view 'Sensor BDD' {",
+		"metadata DiagramLayout::Route about Blocks::Sensor::controller { points = (160, 225, 300, 225, 300, 70); }",
+	)
+	if strings.Contains(notation, "width = 10;") {
+		t.Errorf("a Layout the size of an end symbol was written:\n%s", notation)
+	}
+	s := session(t, r)
+	for name, want := range map[string][]string{
+		"Blocks::'Pair BDD'":   {"Blocks::Controller composition Blocks::Sensor: sensors", "Blocks::Sensor reference Blocks::Controller: controller"},
+		"Blocks::'Sensor BDD'": {"Blocks::Controller composition Blocks::Sensor: sensors", "Blocks::Sensor reference Blocks::Controller: controller"},
+	} {
+		rendering, err := s.ViewRendering(name)
+		if err != nil {
+			t.Fatalf("render %s: %v", name, err)
+		}
+		if len(rendering.Notices) != 0 {
+			t.Errorf("%s: notices = %v, want none", name, rendering.Notices)
+		}
+		names := map[string]string{}
+		var visit func([]*view.Node)
+		visit = func(list []*view.Node) {
+			for _, node := range list {
+				names[node.ID] = node.Name
+				if node.Geometry != nil && node.Geometry.Width == 10 && node.Geometry.Height == 10 {
+					t.Errorf("%s: %s %s drawn as a 10x10 node", name, node.Kind, node.Name)
+				}
+				visit(node.Children)
+			}
+		}
+		visit(rendering.Roots)
+		var edges []string
+		for _, edge := range rendering.Edges {
+			edges = append(edges, fmt.Sprintf("%s %s %s: %s", names[edge.From], edge.Kind, names[edge.To], edge.Label))
+		}
+		if !slices.Equal(edges, want) {
+			t.Errorf("%s: edges = %q, want %q", name, edges, want)
+		}
+	}
+}
+
+// An export that places an end symbol the stream shows on the association's
+// path keeps the end on the line: the export's bounds win, the stream's nesting holds.
+func TestExportPlacementOfAnEndSymbolStaysOnTheEdge(t *testing.T) {
+	layout := &mtip.Export{Diagrams: []mtip.Diagram{{
+		ID:   "_diag_bdd",
+		Name: "Vehicle BDD",
+		Type: "sysml.BlockDefinitionDiagram",
+		Placements: []mtip.Placement{
+			{ID: "_blk_vehicle", X: 40, Y: 20, Width: 120, Height: 50},
+			{ID: "_prop_engine", X: 95, Y: 150, Width: 10, Height: 10},
+		},
+		Unsupported: map[string]int{},
+	}}}
+	r, err := migrate.MigrateOptions("association_end_layout.xmi", streamArchive(t, "association_end_layout"), migrate.Options{Layout: layout, LayoutSource: "association_end_layout.xml"})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	l := r.Report.Layout
+	if l == nil || l.DiagramsJoined != 1 || l.Placements != 5 || l.PlacementsWritten != 3 || l.PlacementsOnEdges != 2 || l.RoutesWritten != 1 {
+		t.Fatalf("layout summary: %+v", l)
+	}
+	notation := string(r.Notation)
+	wantInOrder(t, "joined view", notation,
+		"metadata DiagramLayout::Layout about Vehicle { x = 40; y = 20; width = 120; height = 50; }",
+		"metadata DiagramLayout::Layout about Blocks::Engine::piston { x = 55; y = 200; width = 90; height = 30; }",
+		"metadata DiagramLayout::Route about Blocks::Vehicle::engine { points = (100, 70, 100, 160); }",
+	)
+	if strings.Contains(notation, "width = 10;") {
+		t.Errorf("a Layout the size of an end symbol was written:\n%s", notation)
 	}
 }

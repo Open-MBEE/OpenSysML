@@ -51,6 +51,10 @@ func (m *migration) streamRecord(d *sysmlv1.Diagram) *mtip.Diagram {
 		return nil
 	}
 	rec := &mtip.Diagram{ID: d.ID, Name: d.Name, Type: d.Kind}
+	elementAt := map[string]string{}
+	for _, s := range d.Symbols {
+		elementAt[s.ID] = s.ElementID
+	}
 	for _, s := range d.Symbols {
 		switch {
 		case s.Hidden || s.Free() || s.Class == "DiagramFrame" || s.ElementID == d.ID || isNoteSymbol(s, m):
@@ -58,7 +62,7 @@ func (m *migration) streamRecord(d *sysmlv1.Diagram) *mtip.Diagram {
 			if len(s.Points) < 2 {
 				continue
 			}
-			c := mtip.Connector{ID: s.ElementID, Type: s.Class}
+			c := mtip.Connector{ID: s.ElementID, Type: s.Class, Ends: [2]string{elementAt[s.Ends[0]], elementAt[s.Ends[1]]}}
 			for _, p := range s.Points {
 				c.Points = append(c.Points, p.X, p.Y)
 			}
@@ -114,6 +118,19 @@ func (m *migration) layoutRecord(v *view) (*mtip.Diagram, layoutSources) {
 	placed := map[string]bool{}
 	for _, p := range export.Placements {
 		placed[p.ID] = true
+	}
+	// The export says nothing about nesting, so an end symbol the stream shows
+	// only on a path keeps lying on the line when the export's bounds win.
+	onPath := map[string]bool{}
+	for _, p := range stream.Placements {
+		if v, ok := onPath[p.ID]; !ok || v {
+			onPath[p.ID] = p.OnPath
+		}
+	}
+	for i := range merged.Placements {
+		if onPath[merged.Placements[i].ID] {
+			merged.Placements[i].OnPath = true
+		}
 	}
 	routed := map[string]bool{}
 	for _, c := range export.Connectors {

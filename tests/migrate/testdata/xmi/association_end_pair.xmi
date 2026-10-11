@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_blocks" name="Blocks">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_controller" name="Controller">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_sensors" name="sensors" type="_blk_sensor" aggregation="composite" association="_assoc_pair"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_sensor" name="Sensor">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_controller" name="controller" type="_blk_controller" association="_assoc_pair"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_pair" memberEnd="_prop_sensors _prop_controller"/>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_pair" name="Pair BDD" ownerOfDiagram="_pkg_blocks">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_controller</usedElements>
+                  <usedElements>_blk_sensor</usedElements>
+                  <usedElements>_prop_sensors</usedElements>
+                  <usedElements>_prop_controller</usedElements>
+                  <usedElements>_assoc_pair</usedElements>
+                </diagramContents>
+                <binaryObject streamContentID="BINARY-association_end_pair"/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_sensor" name="Sensor BDD" ownerOfDiagram="_pkg_blocks">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_controller</usedElements>
+                  <usedElements>_blk_sensor</usedElements>
+                  <usedElements>_prop_controller</usedElements>
+                  <usedElements>_assoc_pair</usedElements>
+                </diagramContents>
+                <binaryObject streamContentID="BINARY-association_end_pair.sensor"/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+  <sysml:Block xmi:id="_s_controller" base_Class="_blk_controller"/>
+  <sysml:Block xmi:id="_s_sensor" base_Class="_blk_sensor"/>
+</xmi:XMI>

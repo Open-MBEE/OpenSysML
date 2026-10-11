@@ -482,11 +482,14 @@ no `Layout` is written for the end property, since the line's `Route` carries wh
 drawn and a tree rendering labels the edge with it; a `Layout` of the property would make the
 rendering draw the usage a second time, as a nested node under its definition. The line of an
 anonymous association, which is written as its member-end properties and not as a connection def,
-is routed on a tree rendering as a `Route` about each classifier-owned end the view exposes — the
+is routed on a tree rendering as one `Route` per classifier-owned end the view exposes — the
 part usage the rendering draws as the composition or reference edge from its owner to its type —
-and is otherwise counted under `no v2 member`. A property drawn as its own box in a block's
-compartment, or as a part on an internal block diagram, is not nested in a path and keeps its
-`Layout`. A route whose
+with the line's points read from the owner's end, so when both ends are owned the second `Route`
+lists them reversed; an end the view does not expose is skipped without losing the other's route,
+and an association no exposed end is written for is counted under `no v2 member`. A property drawn
+as its own box in a block's compartment, or as a part on an internal block diagram, is not nested
+in a path and keeps its `Layout`; when an MTIP export places an element the diagram's own stream
+shows only on a path, the export's bounds win but the end stays on the line. A route whose
 connector's element is written as a named member (see [Edges a diagram shows](#edges-a-diagram-shows))
 that the view exposes, or that its graph draws, *and* that the view's rendering draws as an edge —
 a succession or flow in an `ActionFlowView`, a transition in a `StateTransitionView`, a connection

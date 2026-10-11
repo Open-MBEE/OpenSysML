@@ -1,0 +1,23 @@
+# SysML v1 to v2 migration report: association_end_pair.xmi
+# exported by Example UML Tool
+# migrated 9 element(s): 7 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 2 of 2 diagrams from the diagrams' own symbol streams: 4 elements positioned, 2 connectors routed, 0 styled, 0 notes
+
+## layout
+# source: the diagrams' own symbol streams
+# 2 views laid out from their own symbol stream, 0 without layout
+# placements: 4 of 7 written (0 not exposed, 3 lying on connections, 0 resolving to no element); routes: 2 of 2 written (0 not pinned, 0 resolving to no element); malformed: 0
+# styles: 0 of 0 written; notes: 0 written (0 anchored, 0 freed of an anchor the view does not lay out)
+# routes of Association: 2 written
+
+## approximated (2)
+Diagram	Blocks::Pair BDD	_diag_pair	-> Blocks::'Pair BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 5 shown elements are not written and not exposed; laid out from the diagram's own symbol stream: 2 of 4 shown elements positioned (2 lying on connections), 1 of 1 connectors routed)
+Diagram	Blocks::Sensor BDD	_diag_sensor	-> Blocks::'Sensor BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 4 shown elements are not written and not exposed; laid out from the diagram's own symbol stream: 2 of 3 shown elements positioned (1 lying on connections), 1 of 1 connectors routed)
+
+## mapped (7)
+Package	Blocks	_pkg_blocks	-> Blocks
+Association	Blocks::<Association>	_assoc_pair	(the anonymous association is written as its member-end properties)
+«Block» Class	Blocks::Controller	_blk_controller	-> Blocks::Controller
+Property	Blocks::Controller::sensors	_prop_sensors	-> Blocks::Controller::sensors
+«Block» Class	Blocks::Sensor	_blk_sensor	-> Blocks::Sensor
+Property	Blocks::Sensor::controller	_prop_controller	-> Blocks::Sensor::controller
+Model	Model	_m	(the root model's members are written at the top level)

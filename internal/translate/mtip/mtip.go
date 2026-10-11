@@ -47,6 +47,9 @@ type Placement struct {
 type Connector struct {
 	ID, Type string
 	Points   []float64
+	// Ends are the element ids at the path's first and second end, "" when the
+	// record does not say; a symbol stream names them, the export does not.
+	Ends [2]string
 }
 
 // node is one decoded HUDS element: its tag, text, key and children. HUDS

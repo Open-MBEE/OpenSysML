@@ -1022,13 +1022,35 @@ func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
 			continue
 		}
 		kind := routeKindName(c.Type, el)
-		refs, why := m.routeTarget(el, v.host, p.form)
+		var refs []string
+		var points [][]float64
+		why := ""
+		if ends := m.endEdges(el, v.host, p.form); ends != nil {
+			// Each end the view exposes is its own edge, drawn from the end's
+			// owner; the line's points run the other way when the owner is at its target.
+			for _, e := range ends {
+				if !p.x.exposed(e.ref) {
+					continue
+				}
+				refs = append(refs, e.ref)
+				if e.owner != nil && c.Ends[1] == e.owner.ID {
+					points = append(points, reversePoints(c.Points))
+				} else {
+					points = append(points, c.Points)
+				}
+			}
+			if len(refs) == 0 {
+				why = routeNotExposed
+			}
+		} else if refs, why = m.routeTarget(el, v.host, p.form); why == "" {
+			if !m.draws(p.x, p.form, el, refs[0]) {
+				why = routeNotExposed
+			}
+			refs = []string{strings.Join(refs, ", ")}
+			points = [][]float64{c.Points}
+		}
 		ref := strings.Join(refs, ", ")
-		switch {
-		case why != "":
-		case !m.draws(p.x, p.form, el, refs[0]):
-			why = routeNotExposed
-		case pinned[ref]:
+		if why == "" && pinned[ref] {
 			p.refOf[c.ID] = ref
 			why = routeDuplicate
 		}
@@ -1043,24 +1065,40 @@ func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
 		s.RoutesWritten++
 		p.reasons[routeWritten]++
 		m.routeKinds.add(kind, routeWritten)
-		var b strings.Builder
-		b.WriteString("metadata " + p.prefix + "Route about " + ref + " { ")
-		b.WriteString(m.diagramLayoutAttributeForHost(p.prefix, "Route", "points", "(", v.host, p.x))
-		for i, n := range c.Points {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			b.WriteString(layoutNumber(n))
-			if i%2 == 0 {
-				p.grow(n, p.maxY)
-			} else {
-				p.grow(p.maxX, n)
-			}
+		for i, r := range refs {
+			routes = append(routes, p.route(r, points[i]))
 		}
-		b.WriteString("); }")
-		routes = append(routes, b.String())
 	}
 	return routes
+}
+
+// route writes a Route pinning points, x then y per point, to the member ref names.
+func (p *layoutPlan) route(ref string, points []float64) string {
+	var b strings.Builder
+	b.WriteString("metadata " + p.prefix + "Route about " + ref + " { ")
+	b.WriteString(p.m.diagramLayoutAttributeForHost(p.prefix, "Route", "points", "(", p.v.host, p.x))
+	for i, n := range points {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(layoutNumber(n))
+		if i%2 == 0 {
+			p.grow(n, p.maxY)
+		} else {
+			p.grow(p.maxX, n)
+		}
+	}
+	b.WriteString("); }")
+	return b.String()
+}
+
+// reversePoints is the flattened point list read from its last point to its first.
+func reversePoints(points []float64) []float64 {
+	out := make([]float64, 0, len(points))
+	for i := len(points) - 2; i >= 0; i -= 2 {
+		out = append(out, points[i], points[i+1])
+	}
+	return out
 }
 
 // drawnRef names the element id as the view of form f exposing x draws it, as a

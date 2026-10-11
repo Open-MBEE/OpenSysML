@@ -383,33 +383,38 @@ func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]strin
 		}
 		return m.routeRefs(el, scope, f), ""
 	}
-	if refs := m.endRefs(el, scope, f); len(refs) > 0 {
-		return refs, ""
-	}
 	if m.exposure(el, scope) != "" {
 		return nil, routeNotDrawn
 	}
 	return nil, routeNoMember
 }
 
-// endRefs names the classifier-owned member ends an anonymous association is
-// written as, from inside scope's body, when a tree rendering draws each as the
-// composition or reference edge from its owner that a Route about the usage shapes;
-// nil for an association written as a connection def or drawn in another form.
-func (m *migration) endRefs(e, scope *sysmlv1.Element, f viewForm) []string {
+// endEdge is a classifier-owned member end an anonymous association is
+// written as: ref names it from inside the view's body, owner is the classifier
+// whose node the tree rendering draws its edge from.
+type endEdge struct {
+	ref   string
+	owner *sysmlv1.Element
+}
+
+// endEdges is the ends an anonymous association is written as, when a
+// tree rendering draws each as the composition or reference edge from its owner
+// that a Route about the usage shapes; nil for an association written as a
+// connection def, an actor's link, or a diagram of another form.
+func (m *migration) endEdges(e, scope *sysmlv1.Element, f viewForm) []endEdge {
 	if e.Type != "Association" || f.rendering != treeRendering || m.actors[e] != nil || m.associationAsConnectionDef(e) {
 		return nil
 	}
-	var refs []string
+	var ends []endEdge
 	for _, end := range m.model.Refs(e, "memberEnd") {
 		if end == nil || end.Parent == e || !m.written(end) {
 			continue
 		}
 		if ref := m.exposure(end, scope); ref != "" {
-			refs = append(refs, ref)
+			ends = append(ends, endEdge{ref: ref, owner: end.Parent})
 		}
 	}
-	return refs
+	return ends
 }
 
 // viewForm is how a diagram's view is drawn: its Views rendering, the standard view
