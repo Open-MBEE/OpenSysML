@@ -185,16 +185,20 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 
 	// Try action execution
 	if actionSym := entryBehavior(idx, actionEntry, rootScope, ast.DefAction, ast.UsageAction); actionSym != nil {
-		exec, err := ctx.CreateActionExecutor(actionSym)
-		if err != nil {
-			t.Fatalf("create action executor: %v", err)
-		}
-		exec.SetTrace(trace)
+		if len(expected.Performers) > 0 {
+			traceActionPerformers(t, ctx, idx, trace, actionSym, expected.Performers)
+		} else {
+			exec, err := ctx.CreateActionExecutor(actionSym)
+			if err != nil {
+				t.Fatalf("create action executor: %v", err)
+			}
+			exec.SetTrace(trace)
 
-		// Drive the traced executor itself: ctx.ExecuteAction would build a
-		// second, untraced one and leave the recorder empty.
-		if err := exec.RunToCompletion(); err != nil {
-			t.Fatalf("action execution: %v", err)
+			// Drive the traced executor itself: ctx.ExecuteAction would build a
+			// second, untraced one and leave the recorder empty.
+			if err := exec.RunToCompletion(); err != nil {
+				t.Fatalf("action execution: %v", err)
+			}
 		}
 		traceOutput = trace.String()
 	}
@@ -421,6 +425,22 @@ func tracePerformers(t *testing.T, ctx *Context, idx *symbols.Index, trace *Trac
 		injectEvents(t, exec, performer.Events)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("state execution by %s: %v", performer.Object, err)
+		}
+	}
+}
+
+// traceActionPerformers performs the action once per listed object, as the
+// conformance harness does, so the trace records each owner-bound run.
+func traceActionPerformers(t *testing.T, ctx *Context, idx *symbols.Index, trace *TraceRecorder, actionSym *symbols.Symbol, performers []Performer) {
+	t.Helper()
+	ctx.SetTrace(trace)
+	for _, performer := range performers {
+		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
+		if err != nil {
+			t.Fatalf("instantiate %s: %v", performer.Object, err)
+		}
+		if _, err := ctx.ActionOutcomePerformedBy(actionSym, self, nil); err != nil && performer.Error == "" {
+			t.Fatalf("action performance by %s: %v", performer.Object, err)
 		}
 	}
 }
