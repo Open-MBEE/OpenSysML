@@ -557,6 +557,9 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 		// The import names one namespace, so a same-named other namespace's
 		// members registered under the same path are not what it surfaces.
 		children = notConflatedWith(target, children)
+		// An entry re-exported under the target through a namespace that hides
+		// it is no member of the target, so the import does not bring it on.
+		children = r.withoutHiddenReexports(target.Scope, targetFQN, name, children)
 		for _, sym := range children {
 			// The target may itself have surfaced the name through an import of
 			// its own, filtered by its `filter` members: what it re-exports
@@ -564,7 +567,7 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 			if !r.admitsUnderName("", r.ReferringNamespaceFQN(scope), targetFQN+"::"+name, sym) {
 				continue
 			}
-			if r.importSurfaces(imp, targetFQN, sym) && admit(sym) && !r.hiddenImport(target.Scope, name, sym) {
+			if r.importSurfaces(imp, targetFQN, sym) && admit(sym) {
 				if !yield(sym) {
 					return
 				}

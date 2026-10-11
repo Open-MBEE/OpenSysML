@@ -410,11 +410,23 @@ func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbo
 		indexed = r.idx.LookupDirectChildrenFrom(prefix, r.ReferringNamespaceFQN(scope))
 	}
 	for _, sym := range indexed {
-		if r.admitsUnderName("", r.ReferringNamespaceFQN(scope), prefix+"::"+localNameOf(sym), sym) {
+		// An entry re-exported under target through a namespace that hides it is
+		// no member of target (see withoutHiddenImports).
+		if r.admitsUnderName("", r.ReferringNamespaceFQN(scope), prefix+"::"+localNameOf(sym), sym) && !(r.reexportedUnder(prefix, sym) && r.hiddenOnRoute(target.Scope, sym)) {
 			children.add(sym)
 		}
 	}
 	return r.withoutHiddenMembers(target.Scope, children.elems)
+}
+
+// reexportedUnder reports whether the index entry sym under prefix is a
+// re-export: an element declared elsewhere that a wildcard import registered there.
+func (r *Resolver) reexportedUnder(prefix string, sym *symbols.Symbol) bool {
+	if r.idx == nil {
+		return false
+	}
+	fqn := r.idx.GetFQN(sym)
+	return fqn != "" && fqn != prefix+"::"+localNameOf(sym)
 }
 
 // indexedNameOf is the qualified name the index keys target's children under. A

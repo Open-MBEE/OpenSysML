@@ -300,6 +300,11 @@ func (r *Resolver) withoutHiddenImports(scope *symbols.Scope, name string, syms 
 	if scope == nil || r.overloading > 0 || len(syms) == 0 {
 		return syms
 	}
+	// A route read through a cycle of imports still being computed is undecided
+	// (collisionCut): what it brings is kept, as the cycle's closure, not dropped.
+	cut := r.collisionCut
+	r.collisionCut = false
+	defer func() { r.collisionCut = cut || r.collisionCut }()
 	through := r.collidedThrough(scope, name, map[*symbols.Scope]bool{})
 	if len(through) == 0 && len(r.importedCollisions(scope).hidden) == 0 {
 		return syms
@@ -317,44 +322,85 @@ func (r *Resolver) withoutHiddenImports(scope *symbols.Scope, name string, syms 
 				break
 			}
 		}
-		if !hidden || r.importBrings(scope, name, sym, map[*symbols.Scope]bool{}) {
+		if !hidden || r.importBrings(scope, name, sym) || r.collisionCut {
 			out = append(out, sym)
 		}
 	}
 	return out
 }
 
-// importBrings reports whether sym is a member of scope under name by a route
-// hiding does not cut: owned by scope, named by a membership import, or a
-// member, by the same measure, of a namespace a namespace import of scope
-// names. A route hiding cannot be decided on (a recursive import's subtree, a
-// library namespace without a scope) is taken to bring it.
-func (r *Resolver) importBrings(scope *symbols.Scope, name string, sym *symbols.Symbol, seen map[*symbols.Scope]bool) bool {
-	if scope == nil || seen[scope] || r.hiddenImport(scope, name, sym) {
+// importBrings reports whether an owned membership or an import of scope brings
+// sym under name: what an import surfaces is decided by eachImportMatch, so a
+// route counts only where the element is actually a visible, admitted member
+// along it, hidden nowhere on the way. A recursive import brings only what its
+// subtree holds, and a namespace import nothing of a non-namespace target.
+func (r *Resolver) importBrings(scope *symbols.Scope, name string, sym *symbols.Symbol) bool {
+	if scope == nil || r.hiddenImport(scope, name, sym) {
 		return false
 	}
-	seen[scope] = true
+	if asked, ok := r.bringing[scope]; ok {
+		// A namespace asked before brings nothing new; one still being asked is a
+		// cycle back, undecided here (collisionCut).
+		r.collisionCut = r.collisionCut || asked
+		return false
+	}
 	key := symbols.KeyOf(r.aliasTarget(sym))
 	for _, owned := range r.LocalBindings(scope, name) {
 		if symbols.KeyOf(r.aliasTarget(owned)) == key {
 			return true
 		}
 	}
+	// One search asks each namespace once: one found to bring nothing brings
+	// nothing by a longer route either, so a cycle of re-exports stays linear.
+	if len(r.bringing) == 0 {
+		defer clear(r.bringing)
+	}
+	r.bringing[scope] = true
+	defer func() { r.bringing[scope] = false }()
 	for _, imp := range r.scopeImports(scope) {
-		if r.resolvingImports[imp] {
-			continue
-		}
-		target, ok := r.importTargetOf(scope, imp)
-		if !ok || target == nil {
-			continue
-		}
-		if imp.Kind == ast.ImportMembership {
-			if imp.IsRecursive || symbols.KeyOf(r.aliasTarget(target)) == key {
+		for _, found := range r.importMatchesAll(scope, imp, name) {
+			if symbols.KeyOf(r.aliasTarget(found)) == key {
 				return true
 			}
-			continue
 		}
-		if imp.IsRecursive || target.Scope == nil || r.importBrings(target.Scope, name, sym, seen) {
+	}
+	return false
+}
+
+// withoutHiddenReexports is withoutHiddenImports over the index entries under
+// prefix that are re-exports; what the namespace declares is kept as it is.
+func (r *Resolver) withoutHiddenReexports(scope *symbols.Scope, prefix, name string, syms []*symbols.Symbol) []*symbols.Symbol {
+	var reexported []*symbols.Symbol
+	for _, sym := range syms {
+		if r.reexportedUnder(prefix, sym) {
+			reexported = append(reexported, sym)
+		}
+	}
+	if len(reexported) == 0 {
+		return syms
+	}
+	kept := map[*symbols.Symbol]bool{}
+	for _, sym := range r.withoutHiddenImports(scope, name, reexported) {
+		kept[sym] = true
+	}
+	out := syms[:0:0]
+	for _, sym := range syms {
+		if !r.reexportedUnder(prefix, sym) || kept[sym] {
+			out = append(out, sym)
+		}
+	}
+	return out
+}
+
+// hiddenOnRoute reports whether sym, an index entry registered under scope's
+// namespace, reaches scope only through a namespace that hides it, under any
+// name sym binds (see withoutHiddenImports).
+func (r *Resolver) hiddenOnRoute(scope *symbols.Scope, sym *symbols.Symbol) bool {
+	if scope == nil || sym == nil || r.overloading > 0 {
+		return false
+	}
+	for _, name := range memberNames(sym) {
+		if len(r.withoutHiddenImports(scope, name, []*symbols.Symbol{sym})) == 0 {
 			return true
 		}
 	}

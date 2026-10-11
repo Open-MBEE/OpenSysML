@@ -193,6 +193,9 @@ type Resolver struct {
 	// colliding marks the namespaces whose collisions are being computed.
 	collisions map[*symbols.Scope]*importCollisions
 	colliding  map[*symbols.Scope]bool
+	// bringing marks the namespaces one importBrings search has asked, so a
+	// cycle of re-exports is asked once per search.
+	bringing map[*symbols.Scope]bool
 	// provisional holds, while collisions are being computed, those of the
 	// namespaces met on the way that could not be settled: each is computed
 	// once per outermost computation and dropped when it ends.
@@ -298,6 +301,7 @@ func New(idx *symbols.Index) *Resolver {
 		importTargets:         map[*ast.Import]resolution{},
 		collisions:            map[*symbols.Scope]*importCollisions{},
 		colliding:             map[*symbols.Scope]bool{},
+		bringing:              map[*symbols.Scope]bool{},
 		importVisits:          map[importVisit]bool{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
 		bodyOwners:            map[*symbols.Scope]*symbols.Symbol{},

@@ -513,3 +513,17 @@ func TestCompletionOffersDirectImportBesideHidingReexport(t *testing.T) {
 		t.Errorf("completion missing 'Engine', which import Left::* brings; got %v", labelsOf(items))
 	}
 }
+
+// An unrelated recursive import beside a hiding re-export brings nothing under
+// the hidden name, so qualified completion into the importer still omits it.
+func TestCompletionIgnoresUnrelatedRecursiveImportRoute(t *testing.T) {
+	src := "package Left { part def Engine; }\npackage Right { part def Engine; }\npackage Both { public import Left::*; public import Right::*; }\npackage Other { part def Wheel; package Inner { part def Axle; } }\npackage Use { public import Both::*; public import Other::**; }\npart u : Use::\npart o : Other::\n"
+	use := completionAt(t, src, "part u : Use::")
+	if _, ok := use["Engine"]; ok {
+		t.Error("completion under Use:: offers the hidden 'Engine'")
+	}
+	other := completionAt(t, src, "part o : Other::")
+	if _, ok := other["Wheel"]; !ok {
+		t.Errorf("completion under Other:: missing 'Wheel'; got %v", labelsOf(other))
+	}
+}

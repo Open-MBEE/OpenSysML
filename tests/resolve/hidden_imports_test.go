@@ -59,6 +59,9 @@ func diagnosticsOf(r *resolve.Resolver) (warnings, errors []string) {
 // names the imports and the qualified names that still reach each element.
 func TestHiddenImportedMemberships(t *testing.T) {
 	const left, right = "package Left { part def Engine; }\n", "package Right { part def Engine; }\n"
+	const both = "package Both { public import Left::*; public import Right::*; }\n"
+	const other = "package Other { part def Wheel; package Inner { part def Axle; } }\n"
+	const mid = "package Mid { public import Both::*; part def Wheel; }\n"
 	cases := []struct {
 		name, src string
 		ref       string // the reference examined
@@ -78,6 +81,11 @@ func TestHiddenImportedMemberships(t *testing.T) {
 		{"qualified into the importing namespace", left + right + "package Use { private import Left::*; private import Right::*; }\npart u : Use::Engine;", "Use::Engine", "", 1, false},
 		{"qualified into the importing namespace through a re-export", left + right + "package Both { public import Left::*; public import Right::*; }\npackage Use { private import Both::*; }\npart u : Use::Engine;", "Use::Engine", "", 1, false},
 		{"qualified into the exporter", left + right + "package Use { private import Left::*; private import Right::*; part l : Left::Engine; }", "Left::Engine", "Left::Engine", 1, false},
+		{"unrelated recursive import beside a hiding re-export", left + right + both + other + "package Use { private import Both::*; private import Other::**; part a : Axle; }\npart u : Use::Engine;", "Use::Engine", "", 1, false},
+		{"unrelated recursive import does not revive the hidden name", left + right + both + other + "package Use { private import Both::*; private import Other::**; part e : Engine; }", "Engine", "", 1, true},
+		{"qualified through two re-exports", left + right + both + mid + "package Use { private import Mid::*; }\npart u : Use::Engine;", "Use::Engine", "", 1, false},
+		{"hidden through two re-exports", left + right + both + mid + "package Use { private import Mid::*; part e : Engine; }", "Engine", "", 1, true},
+		{"the rest of a two-level re-export still arrives", left + right + both + mid + "package Use { private import Mid::*; part w : Wheel; }", "Wheel", "Mid::Wheel", 1, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
