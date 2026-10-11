@@ -29,7 +29,7 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|model|export|rest)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|model|export|rest|migrate)
 make test-short       # faster, no race detector
 make clean            # remove build artifacts
 ```
