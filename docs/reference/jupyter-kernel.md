@@ -241,5 +241,5 @@ Each release publishes `sysml-jupyter-kernel-<os>-<arch>` for `linux-amd64`, `li
 `darwin-amd64`, `darwin-arm64` and `windows-amd64.exe`, raw with a `.sha256` sidecar and
 listed in the signed `SHA256SUMS.txt`, beside the five `jupyter_opensysml_kernel` platform
 wheels that bundle them and the sdist that pins them. `install.sh --tools
-sysml-jupyter-kernel` installs the binary and verifies it against the manifest; see
-[downloads](../downloads.md).
+sysml-jupyter-kernel` (`install.ps1 -Tools sysml-jupyter-kernel` on Windows) installs the
+binary and verifies it against the manifest; see [downloads](../downloads.md).

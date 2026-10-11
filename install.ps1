@@ -31,8 +31,8 @@ Needs: PowerShell 5.1+ (Windows) or PowerShell 7 (elsewhere, with tar).
 Release tag (v0.9.1), `latest` (default) or `nightly`. [OPENSYSML_VERSION]
 
 .PARAMETER Tools
-Subset of sysml, sysml-lsp, sysml-grpc, or `all`; default sysml and sysml-lsp.
-[OPENSYSML_TOOLS, comma-separated]
+Subset of sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel, or `all`; default
+sysml and sysml-lsp. [OPENSYSML_TOOLS, comma-separated]
 
 .PARAMETER InstallDir
 Where the binaries go; default $env:LOCALAPPDATA\Programs\OpenSysML on Windows,
@@ -102,14 +102,16 @@ switch -Regex ($Version) {
 }
 
 $Tools = @($Tools | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-if ($Tools -contains 'all') { $Tools = @('sysml', 'sysml-lsp', 'sysml-grpc') }
+$ReleasedTools = @('sysml', 'sysml-lsp', 'sysml-grpc', 'sysml-jupyter-kernel')
+if ($Tools -contains 'all') { $Tools = $ReleasedTools }
 if ($Tools.Count -eq 0) { Fail '-Tools names nothing to install' }
 foreach ($tool in $Tools) {
-    if ($tool -notin @('sysml', 'sysml-lsp', 'sysml-grpc')) {
-        Fail "unknown tool '$tool'; the released tools are sysml, sysml-lsp and sysml-grpc"
+    if ($tool -notin $ReleasedTools) {
+        Fail "unknown tool '$tool'; the released tools are sysml, sysml-lsp, sysml-grpc and sysml-jupyter-kernel"
     }
 }
 $WantGrpc = $Tools -contains 'sysml-grpc'
+$WantKernel = $Tools -contains 'sysml-jupyter-kernel'
 
 $BaseUrl = $BaseUrl.TrimEnd('/')
 
@@ -222,7 +224,7 @@ function Test-Checksum([string]$Asset, [string]$Manifest) {
         $fields = $line.Trim() -split '\s+', 2
         if ($fields.Count -eq 2 -and $fields[1].TrimStart('*') -eq $Asset) { $expected = $fields[0].ToLowerInvariant(); break }
     }
-    if (-not $expected) { Fail "$Manifest of $ReleaseName does not list $Asset; releases before v0.0.4 have no bundle, and sysml-grpc is published from v0.9.0" }
+    if (-not $expected) { Fail "$Manifest of $ReleaseName does not list $Asset; releases before v0.0.4 have no bundle, sysml-grpc is published from v0.9.0 and sysml-jupyter-kernel from v0.10.0" }
     $actual = (Get-FileHash -LiteralPath (Join-Path $Work $Asset) -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actual -ne $expected) { Fail "$Asset does not match $Manifest (expected $expected, got $actual); the download is corrupt or tampered with" }
     Write-Host "  $Asset verified"
@@ -259,6 +261,10 @@ try {
     $Manifest = 'SHA256SUMS.txt'
     $Bundle = if ($Os -eq 'windows') { "opensysml-$Platform.zip" } else { "opensysml-$Platform.tar.gz" }
     $GrpcAsset = "sysml-grpc-$Platform$Exe"
+    # The signed Windows build has no kernel; it is always the release's own
+    # asset, listed in SHA256SUMS.txt.
+    $KernelAsset = "sysml-jupyter-kernel-$Platform$Exe"
+    $KernelManifest = 'SHA256SUMS.txt'
     $CanVerifyAuthenticode = $HostIsWindows -and [bool](Get-Command Get-AuthenticodeSignature -ErrorAction SilentlyContinue)
     $SignedBuild = $false
     $SignedBuildNote = ''
@@ -280,7 +286,9 @@ try {
     Write-Host "  binaries: $InstallDir"
     Write-Host "  from:     $(Get-AssetUrl $Bundle)"
     if ($WantGrpc) { Write-Host "            $(Get-AssetUrl $GrpcAsset)" }
+    if ($WantKernel) { Write-Host "            $(Get-AssetUrl $KernelAsset)" }
     if ($SignedBuild) { Write-Host "  the release carries the signed Windows build (its $Manifest was fetched to tell); installing $Bundle" }
+    if ($SignedBuild -and $WantKernel) { Write-Host "  sysml-jupyter-kernel is not among the signed assets; $KernelAsset is checked against $KernelManifest" }
     if ($SignedBuildNote) { Write-Host $SignedBuildNote }
     if ($DryRun) {
         Write-Host 'Dry run: nothing installed.'
@@ -294,6 +302,11 @@ try {
     if ($WantGrpc) {
         Get-Asset $GrpcAsset | Out-Null
         Test-Checksum $GrpcAsset $Manifest
+    }
+    if ($WantKernel) {
+        if (-not (Test-Path -LiteralPath (Join-Path $Work $KernelManifest))) { Get-Asset $KernelManifest | Out-Null }
+        Get-Asset $KernelAsset | Out-Null
+        Test-Checksum $KernelAsset $KernelManifest
     }
 
     # --- install ------------------------------------------------------------
@@ -318,9 +331,13 @@ try {
     # never leaves a mix of old and new tools behind.
     $Sources = @{}
     foreach ($tool in $Tools) {
-        $source = if ($tool -eq 'sysml-grpc') { Join-Path $Work $GrpcAsset } else { Join-Path $Extracted "$tool$Exe" }
+        $source = switch ($tool) {
+            'sysml-grpc' { Join-Path $Work $GrpcAsset }
+            'sysml-jupyter-kernel' { Join-Path $Work $KernelAsset }
+            default { Join-Path $Extracted "$tool$Exe" }
+        }
         if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { Fail "$Bundle has no $tool$Exe" }
-        if ($SignedBuild) { Test-Authenticode $source "$tool$Exe" }
+        if ($SignedBuild -and $tool -ne 'sysml-jupyter-kernel') { Test-Authenticode $source "$tool$Exe" }
         $Sources[$tool] = $source
     }
 
