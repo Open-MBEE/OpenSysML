@@ -106,7 +106,7 @@ The geometry is on every node and edge the server sends (`x`, `y`,
 `width`, `height`, `route`) and in the Mermaid the REPL and the document pipeline write as
 `%% layout:` comments, so other clients can honor it; see
 [Diagram layout annotations](../project/diagram-layout-annotations.md). A drag applies to the
-tree, interconnection, state, action, case and mixed diagrams, which read the annotations back.
+tree, interconnection, state and action diagrams, which read the annotations back.
 
 #### Exporting a diagram
 

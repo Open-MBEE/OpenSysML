@@ -654,7 +654,7 @@ await using connection = await connect({
 A running service that reports another version is a `StaleServiceError`
 naming the required and reported versions — the remedy is to point at a service
 of the required version, or accept what is running by omitting `version`
-(`$OPENSYSML_VERSION` is the environment form). A service missing a required
+(`$OPENSYSML_GRPC_VERSION` is the environment form). A service missing a required
 capability is likewise refused at connect, rather than at the first gated call.
 
 ## Typed module generation
@@ -728,10 +728,10 @@ npm run conformance -- --allow-skips --report report.json
 
 | protocol | ran | passed | failed | skipped |
 | --- | --: | --: | --: | --: |
-| `grpc` | 158 | 155 | 0 | 3 |
-| `connect` | 158 | 155 | 0 | 3 |
-| `connect-json` | 158 | 155 | 0 | 3 |
-| **total** | **474** | **465** | **0** | **9** |
+| `grpc` | 166 | 163 | 0 | 3 |
+| `connect` | 166 | 163 | 0 | 3 |
+| `connect-json` | 166 | 163 | 0 | 3 |
+| **total** | **498** | **489** | **0** | **9** |
 
 The 3 skips per protocol are the requests the public API cannot express because
 it validates them before calling: a `ParseFile` naming no source (`load` and

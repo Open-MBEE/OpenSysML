@@ -393,12 +393,12 @@ unnoticed.
 
 Or as a test, which is what CI runs: `mvn -f client/java/pom.xml test`.
 
-Per protocol, of 138 scenarios:
+Per protocol, of 166 scenarios:
 
 | protocol       | ran | passed | failed | skipped |
 | -------------- | --: | -----: | -----: | ------: |
-| `connect`      | 133 |    133 |      0 |       5 |
-| `connect-json` | 133 |    133 |      0 |       5 |
+| `connect`      | 161 |    161 |      0 |       5 |
+| `connect-json` | 161 |    161 |      0 |       5 |
 
 **5 skipped**: only the requests the public API cannot express —
 `parse/naming_no_source_is_invalid` (the API always names a

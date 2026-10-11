@@ -111,7 +111,7 @@ The tokenizer marks reserved keywords, the words that are keywords only in conte
 `deep`, `done`, `history`, `junction`, `shallow`, …), the literals `true`, `false` and `null`,
 `//` and `/* */` comments, the bodies of `doc` and `comment` as documentation, strings with
 their escapes, numbers, `'unrestricted names'`, the `A::B` of qualified names, operators and
-punctuation, and a cell's first token when it is a kernel command (`%help`, `%run`, …). The
+punctuation, and a cell's first token when it is a kernel command (`%help`, `%render`, …). The
 keyword tables are generated from the lexer's keyword list by the same tool that generates the
 VS Code grammars (`make vscode-grammar`), and a test holds the committed table to the lexer.
 
