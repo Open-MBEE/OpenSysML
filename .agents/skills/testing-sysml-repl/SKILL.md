@@ -1475,9 +1475,9 @@ Recipes that actually distinguish working from broken here (used to verify PR #1
   way to prove a case actually discriminates — but include that intermediate read in both runs.
   Conversely, the *anonymous* connector-id case must also be checked with **no** read in between
   (two unrelated submissions back to back, then one `%features`), which is a separate code path.
-- **Never put a literal TAB in piped REPL input** (`printf '…\t…' | ./bin/sysml`): readline enters
-  completion mode and the process dies with `panic: bytes: negative Repeat count`. Use spaces in
-  one-line rehearsal snippets.
+- A literal TAB in piped REPL input (`printf '…\t…' | ./bin/sysml`) is plain input: when stdin is
+  not a terminal the REPL reads lines without readline, so TABs in indentation, string literals and
+  comments reach the parser byte for byte (`%list` echoes them back unchanged).
 
 Also: analysis still runs over the whole accumulated buffer, but since PR #65 the **report** is
 scoped to the submission just made, so one bad snippet no longer keeps re-printing its error on
@@ -2783,9 +2783,9 @@ the top, or quit and restart the REPL for a clean screen.
 This section and the next describe behavior added by PR #148 (which also adds `%search` and
 `%builtins`), so they apply only once that PR is on `main`.
 
-`cmd/sysml` installs an `AutoComplete` on the readline config, and **readline disables completion
-when the terminal reports a width of 0** — which is what a plain pipe reports. So
-`printf '%%bui\t\n' | ./bin/sysml` proves nothing about completion: the TAB is just swallowed.
+`cmd/sysml` installs an `AutoComplete` on the readline config, but **readline is only used when
+stdin is a terminal**; a pipe gets a plain line reader with no key handling at all. So
+`printf '%%bui\t\n' | ./bin/sysml` proves nothing about completion: the TAB is submitted as text.
 Two ways to drive it:
 
 1. **Konsole** (what belongs in a recording): send TAB with the computer tool's
