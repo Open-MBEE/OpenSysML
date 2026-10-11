@@ -3,11 +3,15 @@ package migrate_test
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
+	"maps"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
@@ -667,4 +671,66 @@ func TestLayoutOfTableDiagram(t *testing.T) {
 	s := session(t, r)
 	wantInOrder(t, "laid-out Pump Table rows", rows(t, s, "Plant::Inventory::'Pump Table Rows'"),
 		"returned 4 rows", "Plant::Inventory::r1", "Plant::Inventory::p1", "Plant::Spares::s1", "Plant::Spares::s2")
+}
+
+// A view exposes a definition and a same-named usage, and each expose imports
+// its name into the view: inside it the simple name denotes neither, so the
+// writer qualifies both, the def keeps its own position and the association
+// to it is drawn as the composition edge the tree renders.
+func TestGoldenLayoutQualifiesNamesTheExposesHide(t *testing.T) {
+	r := migrateLaidOut(t, "layout_same_named_usage")
+	if l := r.Report.Layout; l == nil || l.DiagramsJoined != 1 || l.PlacementsWritten != 5 {
+		t.Fatalf("layout summary: %+v", l)
+	}
+	checkGolden(t, "testdata/xmi/layout_same_named_usage.layout.golden.sysml", r.Notation)
+	var report bytes.Buffer
+	if err := r.Report.WriteText(&report); err != nil {
+		t.Fatal(err)
+	}
+	checkGolden(t, "testdata/xmi/layout_same_named_usage.layout.golden.report.txt", report.Bytes())
+	for _, d := range errors(t, "layout_same_named_usage.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+	notation := string(r.Notation)
+	for _, want := range []string{
+		"expose UI::GUI;",
+		"expose UI::Console::GUI;",
+		"expose Panel;",
+		"metadata DiagramLayout::Layout about UI::GUI { x = 20; y = 200;",
+		"metadata DiagramLayout::Layout about UI::Console::GUI { x = 110; y = 90;",
+		"metadata DiagramLayout::Layout about Panel { x = 250; y = 200;",
+	} {
+		if !strings.Contains(notation, want) {
+			t.Errorf("layout output does not contain %q:\n%s", want, notation)
+		}
+	}
+	s := session(t, r)
+	rendering, err := s.ViewRendering("UI::'Console BDD'")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
+	}
+	nodes, names := map[string]*view.Node{}, map[string]string{}
+	var visit func([]*view.Node)
+	visit = func(list []*view.Node) {
+		for _, node := range list {
+			nodes[node.Name], names[node.ID] = node, node.Name
+			visit(node.Children)
+		}
+	}
+	visit(rendering.Roots)
+	gui := nodes["UI::GUI"]
+	if gui == nil || gui.Geometry == nil || *gui.Geometry != (view.Geometry{X: 20, Y: 200, Width: 80, Height: 37, HasSize: true}) {
+		t.Fatalf("GUI def node = %+v, want one at its own position; drawn: %v", gui, slices.Sorted(maps.Keys(nodes)))
+	}
+	var edges []string
+	for _, edge := range rendering.Edges {
+		edges = append(edges, fmt.Sprintf("%s %s %s: %s", names[edge.From], edge.Kind, names[edge.To], edge.Label))
+	}
+	want := []string{"UI::Console composition UI::GUI: GUI", "UI::Console composition UI::Panel: panel"}
+	if !reflect.DeepEqual(edges, want) {
+		t.Errorf("edges = %q, want %q", edges, want)
+	}
 }

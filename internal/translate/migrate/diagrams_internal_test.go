@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -516,5 +517,18 @@ func TestRouteClauseWording(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("routeClause(%v) = %q, want %q", tc.reasons, got, tc.want)
 		}
+	}
+}
+
+func TestExposuresHideAllButSimplyExposedNames(t *testing.T) {
+	x := exposures{names: map[string]bool{}, by: map[string][]string{}}
+	for _, ref := range []string{"GUI", "Sub::GUI", "Panel", "Sub::panel", "'Control Panel'", "Scale::'John''s Height'"} {
+		name := exposureName(ref)
+		x.names[name] = true
+		x.by[name] = append(x.by[name], ref)
+	}
+	want := columnNames{"GUI": true, "panel": true, "John's Height": true}
+	if got := x.hides(); !reflect.DeepEqual(got, want) {
+		t.Errorf("hides() = %v, want %v", got, want)
 	}
 }
