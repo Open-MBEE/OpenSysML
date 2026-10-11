@@ -23,7 +23,10 @@ package Shop {
         attribute a;
         attribute b;
         @'Shop Profile'::Document;
-        /* applied stereotype «Document» */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "Document";
+            profile = "http://www.magicdraw.com/schemas/manual/Document_Profile_Custom.xmi";
+        }
     }
     part def SeasonalCatalog :> Catalog;
     individual part def c1 :> Catalog {

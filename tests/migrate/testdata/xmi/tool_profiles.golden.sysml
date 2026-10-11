@@ -20,10 +20,15 @@ package Mockups {
             state Running;
         }
         exhibit state ticking : Ticking;
-        /* applied stereotype «Frame»: title = Clock */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "Frame";
+            tags = "title = Clock";
+        }
     }
     part def Gauge {
-        /* applied stereotype «Panel» */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "Panel";
+        }
     }
 }
 package Runs {

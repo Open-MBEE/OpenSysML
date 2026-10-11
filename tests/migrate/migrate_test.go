@@ -186,7 +186,7 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		"abstract action def start {",
 		"action def Drive;",
 		"/* not migrated: «Unit» InstanceSpecification 'kilogram'",
-		"applied stereotype «Critical»",
+		`stereotype = "Critical";`,
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("notation lacks %q", want)
@@ -463,5 +463,21 @@ func TestStrictMigrationAnalysesCleanUnderStrictConformance(t *testing.T) {
 				t.Errorf("%v", d)
 			}
 		})
+	}
+}
+
+// A stereotype or kind is never carried by a comment: a package-owned comment
+// is a note on every diagram a modeling tool draws, so the kind is in the
+// element's name or an AppliedStereotype marker, in default and strict output.
+func TestNoStereotypeIsKeptAsAComment(t *testing.T) {
+	for _, name := range append([]string{"vehicle"}, constructFixtures...) {
+		for _, opts := range []migrate.Options{{}, {Strict: true}} {
+			r := migrateFixtureFileOptions(t, name, opts)
+			for i, line := range strings.Split(string(r.Notation), "\n") {
+				if strings.Contains(line, "/* «") {
+					t.Errorf("%s (strict=%v) line %d keeps a stereotype as a comment: %s", name, opts.Strict, i+1, strings.TrimSpace(line))
+				}
+			}
+		}
 	}
 }

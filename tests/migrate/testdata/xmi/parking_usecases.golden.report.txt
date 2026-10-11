@@ -22,7 +22,7 @@ Include	Use Cases::Pay Fee::authorise	_incAuth	-> 'Use Cases'::'Pay Fee'	(an inc
 Property	Use Cases::Settlement::<Property>	_ePayB	-> settlement	(the end at the use case is the connection's end at the use case usage)
 Property	Use Cases::Settlement::bank	_eBank	-> settlement	(the end at the actor is the connection's end at the actor's part usage)
 Property	Use Cases::Valet Service::offer	_svcCase	-> 'Use Cases'::'Valet Service'::offer	(a property typed by a behavior is written as a reference use case usage)
-Extend	Use Cases::Wait For Space::<Extend>	_extFull	-> 'Use Cases'::'Wait For Space extends Park Car'	(v2 has no extend: the extension is written as a connection between usages of the extending use case and the extended use case; it applies at extension point(s) 'garage full' when {English} no bay is free, which only a comment keeps)
+Extend	Use Cases::Wait For Space::<Extend>	_extFull	-> 'Use Cases'::'Wait For Space extends Park Car'	(v2 has no extend: the extension is written as a connection between usages of the extending use case and the extended use case; it applies at extension point(s) 'garage full' when {English} no bay is free, which only its doc keeps)
 
 ## mapped (25)
 Package	Context	_ctx	-> Context
@@ -38,7 +38,7 @@ Property	Use Cases::<Association>::<Property>	_ePW1	-> 'Use Cases'::unnamed::'pa
 Property	Use Cases::<Association>::<Property>	_ePW2	-> 'Use Cases'::unnamed::'wait For Space'
 UseCase	Use Cases::Authorise Payment	_authorise	-> 'Use Cases'::'Authorise Payment'	(v2 places the subject before the actors, so an anonymous subject is declared)
 Property	Use Cases::Authorise Payment::bank	_authBank	-> 'Use Cases'::'Authorise Payment'::bank
-«HyperlinkOwner» UseCase	Use Cases::Leave Garage	_leave	-> 'Use Cases'::'Leave Garage'	(«HyperlinkOwner» from http://www.example.org/profiles/Custom is applied from a profile the document does not define; the application is kept as a comment)
+«HyperlinkOwner» UseCase	Use Cases::Leave Garage	_leave	-> 'Use Cases'::'Leave Garage'	(«HyperlinkOwner» from http://www.example.org/profiles/Custom is applied from a profile the document does not define; the application is kept as metadata)
 UseCase	Use Cases::Park Car	_park	-> 'Use Cases'::'Park Car'
 Comment	Use Cases::Park Car::<Comment>	_parkDoc
 Include	Use Cases::Park Car::<Include>	_incPay	-> 'Use Cases'::'Park Car'

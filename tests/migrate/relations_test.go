@@ -229,9 +229,11 @@ func TestDependencyStereotypeTagsAreKept(t *testing.T) {
 		`<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/>
   <custom:Critical xmlns:custom="http://example.com/custom" xmi:id="_s3" base_Dependency="_d" level="high"/>
   <custom:Reviewed xmlns:custom="http://example.com/custom" xmi:id="_s4" base_Dependency="_d" by="QA"/>`)
-	wantLine(t, r.Notation, "dependency A to B;")
-	wantLine(t, r.Notation, "/* applied stereotype «Critical»: level = high */")
-	wantLine(t, r.Notation, "/* applied stereotype «Reviewed»: by = QA */")
+	wantLine(t, r.Notation, "dependency A to B {")
+	wantLine(t, r.Notation, `stereotype = "Critical";`)
+	wantLine(t, r.Notation, `tags = "level = high";`)
+	wantLine(t, r.Notation, `stereotype = "Reviewed";`)
+	wantLine(t, r.Notation, `tags = "by = QA";`)
 	es := entriesFor(r, "_d")
 	if len(es) != 1 || !strings.Contains(es[0].Note, "«Critical» «Reviewed»") {
 		t.Errorf("entries = %+v", es)
@@ -1288,10 +1290,10 @@ func TestConstraintParametersStoredAsPortsAreInParameters(t *testing.T) {
 	wantLine(t, r.Notation, "constraint inner : Positive;")
 	wantLine(t, r.Notation, "in ref part timer : Timer[1];")
 	wantLine(t, r.Notation, "in attribute tolerance : ScalarValues::Real[1] {")
-	wantLine(t, r.Notation, "/* applied stereotype «ConstraintParameter» */")
+	wantLine(t, r.Notation, `stereotype = "ConstraintParameter";`)
 	wantLine(t, r.Notation, "bind elapsed = limit.t;")
 	wantNoLine(t, r.Notation, "port")
-	if n := strings.Count(string(r.Notation), "«ConstraintParameter»"); n != 1 {
+	if n := strings.Count(string(r.Notation), `stereotype = "ConstraintParameter";`); n != 1 {
 		t.Errorf("«ConstraintParameter» written %d times, want once, for the user profile's", n)
 	}
 	for _, id := range []string{"_p1", "_p2", "_p3", "_p6"} {
@@ -1333,11 +1335,12 @@ func TestPropertyKindMarkersAreNotWritten(t *testing.T) {
 		"in ref part wheel : Wheel[1];",
 		"in ref part hub : Wheel[1] {",
 		"in attribute k : ScalarValues::Real[1] {",
-		"/* applied stereotype «ReferenceProperty» */",
+		`stereotype = "ReferenceProperty";`,
 		"part odd : Wheel {",
-		"/* applied stereotype «ValueProperty» */",
+		`stereotype = "ValueProperty";`,
 		"part axle : Wheel {",
-		"/* applied stereotype «PartProperty»: ordering = rear */",
+		`stereotype = "PartProperty";`,
+		`tags = "ordering = rear";`,
 		"part cabin : Engine {",
 		"@'Vehicle Profile'::PartProperty;",
 		"attribute serial : ScalarValues::String {",
@@ -1346,7 +1349,7 @@ func TestPropertyKindMarkersAreNotWritten(t *testing.T) {
 	}
 	for _, name := range []string{"PartProperty", "ValueProperty", "SharedProperty", "ReferenceProperty", "ConstraintProperty"} {
 		want := map[string]int{"PartProperty": 1, "ValueProperty": 3, "ReferenceProperty": 1}[name]
-		if n := strings.Count(string(r.Notation), "«"+name+"»"); n != want {
+		if n := strings.Count(string(r.Notation), `stereotype = "`+name+`";`); n != want {
 			t.Errorf("«%s» written %d times, want %d", name, n, want)
 		}
 	}
@@ -1402,8 +1405,10 @@ func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 	wantLine(t, r.Notation, "allocation def alloc {")
 	wantLine(t, r.Notation, "end :>> source : Thing;")
 	wantLine(t, r.Notation, "end :>> target : Piece;")
-	wantLine(t, r.Notation, "dependency trace from Thing to Req; /* «Trace» */")
-	wantLine(t, r.Notation, "dependency copy from Req2 to Req; /* «Copy» */")
+	wantLine(t, r.Notation, "dependency trace from Thing to Req {")
+	wantLine(t, r.Notation, "dependency copy from Req2 to Req {")
+	wantLine(t, r.Notation, `stereotype = "Trace";`)
+	wantLine(t, r.Notation, `stereotype = "Copy";`)
 	for id, want := range map[string]struct {
 		verdict migrate.Verdict
 		target  string
@@ -1831,5 +1836,28 @@ func TestTreeDiagramShowingAnAssociationExposesNoUsages(t *testing.T) {
 		if strings.Contains(body, unwanted) {
 			t.Errorf("view Blocks exposes the usage %q:\n%s", unwanted, body)
 		}
+	}
+}
+
+func TestStrictAppliedStereotypeKeepsTagLines(t *testing.T) {
+	r := migrateDocumentOptions(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B"/>
+    <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_a" supplier="_b"/>`,
+		`<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/>
+  <custom:Critical xmlns:custom="http://example.com/custom" xmi:id="_s3" base_Dependency="_d" level="first line&#10;second&#9;line&#13;third&#13;&#10;fourth"/>`,
+		migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "// applied stereotype «Critical»: level = first line")
+	wantLine(t, r.Notation, "// second\tline")
+	wantLine(t, r.Notation, "// third")
+	wantLine(t, r.Notation, "// fourth")
+	if strings.Contains(string(r.Notation), "\r") {
+		t.Errorf("strict output keeps a carriage return:\n%q", r.Notation)
+	}
+	if strings.Contains(string(r.Notation), "MigrationMetadata") {
+		t.Errorf("strict output references MigrationMetadata:\n%s", r.Notation)
+	}
+	for _, d := range errors(t, "strict_tags.sysml", r.Notation) {
+		t.Errorf("%v", d)
 	}
 }

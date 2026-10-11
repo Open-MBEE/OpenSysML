@@ -177,7 +177,7 @@ func (m *migration) simulationConfig(e *sysmlv1.Element, header, note string) {
 			m.w.lines(commentLines(resultsComment(results)))
 		}
 		if len(unread) > 0 {
-			m.w.lines(commentLines("«SimulationConfig» settings of the simulation tool: " + strings.Join(unread, "; ")))
+			m.appliedStereotype("SimulationConfig", "", unread)
 		}
 		m.members(e)
 		m.scope = saved

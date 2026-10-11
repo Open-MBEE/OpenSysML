@@ -10,10 +10,15 @@ package Fleet {
         ref part lead : Wheel;
         constraint limit : MaxSpeed;
         part odd : Wheel {
-            /* applied stereotype «ValueProperty» */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "ValueProperty";
+            }
         }
         part axle : Wheel {
-            /* applied stereotype «PartProperty»: ordering = rear */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "PartProperty";
+                tags = "ordering = rear";
+            }
         }
         part cabin : Engine {
             @'Vehicle Profile'::PartProperty;
@@ -26,7 +31,10 @@ package Fleet {
         attribute color;
         part chassis;
         attribute serial : ScalarValues::String {
-            /* applied stereotype «ValueProperty» */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "ValueProperty";
+                profile = "http://example.com/legacy/customization";
+            }
         }
     }
     part def Engine;
@@ -39,10 +47,14 @@ package Fleet {
         in attribute v : ScalarValues::Real[1];
         in ref part wheel : Wheel[1];
         in ref part hub : Wheel[1] {
-            /* applied stereotype «ValueProperty» */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "ValueProperty";
+            }
         }
         in attribute k : ScalarValues::Real[1] {
-            /* applied stereotype «ReferenceProperty» */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "ReferenceProperty";
+            }
         }
         v <= 120.0
     }

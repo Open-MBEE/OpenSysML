@@ -16,7 +16,7 @@
 ## mapped (59)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Plant	_pkg_plant	-> Plant
-«auxiliaryResource» Profile	Plant Profile	_plant_profile	-> 'Plant Profile'	(«auxiliaryResource» from http://www.omg.org/spec/UML/20131001/MagicDrawProfile is applied from a profile the document does not define; the application is kept as a comment)
+«auxiliaryResource» Profile	Plant Profile	_plant_profile	-> 'Plant Profile'	(«auxiliaryResource» from http://www.omg.org/spec/UML/20131001/MagicDrawProfile is applied from a profile the document does not define; the application is kept as metadata)
 Stereotype	Plant Profile::Critical	_st_critical	-> 'Plant Profile'::Critical
 Property	Plant Profile::Critical::grade	_st_critical_grade	-> 'Plant Profile'::Critical::grade
 Property	Plant Profile::Critical::level	_st_critical_level	-> 'Plant Profile'::Critical::level

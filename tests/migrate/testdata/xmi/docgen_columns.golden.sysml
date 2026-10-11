@@ -217,7 +217,10 @@ package Observatory {
                 first 'The Part' then final;
                 action final terminate;
                 metadata MigrationMetadata::SynthesizedName about final;
-                /* applied stereotype «Dynamic_View»: loop = true; title = One Part */
+                @MigrationMetadata::AppliedStereotype {
+                    stereotype = "Dynamic_View";
+                    tags = ("loop = true", "title = One Part");
+                }
             }
             perform action 'per Part Method' : 'Per Part Method';
             metadata MigrationMetadata::SynthesizedName about 'per Part Viewpoint';
@@ -229,11 +232,15 @@ package Observatory {
             view connections :> Connections;
             view interfaces :> Interfaces;
             view perPart :> 'Per Part';
-            /* applied stereotype «Document» */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "Document";
+            }
         }
         occurrence def 'Interface Summary' {
             view interfaces :> Interfaces;
-            /* applied stereotype «Document» */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "Document";
+            }
         }
         view 'Interface Totals' : Observatory::Viewpoints::'Totals Viewpoint' {
             expose 'Interface Types'::**;

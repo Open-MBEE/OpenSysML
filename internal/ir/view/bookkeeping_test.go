@@ -19,7 +19,8 @@ func allNodes(roots []*Node) []*Node {
 
 // A tree shows the model, not the picture of it: a view's `render` member and
 // every DiagramLayout annotation are left out, whether stated inline on the
-// element, about a member, or in a view's body. Ordinary metadata stays.
+// element, about a member, or in a view's body, as is a migration's
+// AppliedStereotype marker. Ordinary metadata stays.
 func TestTreeLeavesOutLayoutAndRenderMembers(t *testing.T) {
 	rendering := render(t, "bookkeeping.sysml", "BudgetViews::budgetView")
 	names := nodeNames(rendering.Roots)
@@ -30,13 +31,13 @@ func TestTreeLeavesOutLayoutAndRenderMembers(t *testing.T) {
 	}
 	for _, node := range allNodes(rendering.Roots) {
 		switch {
-		case node.Kind == "metadata" && node.Type != "Approved":
-			t.Errorf("layout annotation drawn as node %q : %q", node.Name, node.Type)
+		case strings.HasPrefix(node.Kind, "metadata") && node.Kind != "metadata def" && node.Type != "Approved":
+			t.Errorf("bookkeeping annotation drawn as node %q : %q (%s)", node.Name, node.Type, node.Kind)
 		case node.Kind == "render" || node.Name == "asTreeDiagram":
 			t.Errorf("render member drawn as node %q", node.Name)
 		}
 	}
-	for _, name := range []string{"x", "y", "width", "height", "unit", "placed"} {
+	for _, name := range []string{"x", "y", "width", "height", "unit", "placed", "stereotype", "tags"} {
 		if names[name] {
 			t.Errorf("layout bookkeeping %q drawn as a node", name)
 		}

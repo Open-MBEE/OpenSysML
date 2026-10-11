@@ -8,7 +8,10 @@ package 'Plant Profile' {
         high;
         low;
     }
-    /* applied stereotype «auxiliaryResource» */
+    @MigrationMetadata::AppliedStereotype {
+        stereotype = "auxiliaryResource";
+        profile = "http://www.omg.org/spec/UML/20131001/MagicDrawProfile";
+    }
 }
 package Plant {
     package Structure {

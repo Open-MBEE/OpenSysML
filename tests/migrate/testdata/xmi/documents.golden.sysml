@@ -325,7 +325,10 @@ package 'Fleet Viewpoints' {
             first 'Per Truck Again' then final;
             action final terminate;
             metadata MigrationMetadata::SynthesizedName about final;
-            /* applied stereotype «Dynamic_View»: loop = true; title = Per Truck */
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "Dynamic_View";
+                tags = ("loop = true", "title = Per Truck");
+            }
         }
         perform action 'oddities Method' : 'Oddities Method';
         metadata MigrationMetadata::SynthesizedName about 'oddities Viewpoint';
@@ -378,7 +381,9 @@ package 'Fleet Documents' {
         view headless :> Headless;
         view notes :> Notes;
         attribute author : ScalarValues::String;
-        /* applied stereotype «Document» */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "Document";
+        }
     }
     occurrence def 'Fleet Brief' {
         view figures :> Figures;
@@ -389,7 +394,9 @@ package 'Fleet Documents' {
         view owners :> 'Fleet Views'::'Figure Owners';
         view noFigures :> 'Fleet Views'::'No Figures';
         view safety :> Safety;
-        /* applied stereotype «Document» */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "Document";
+        }
     }
     view Introduction : 'Fleet Viewpoints'::'Parts Viewpoint' {
         doc /* The fleet, in brief. */
@@ -403,7 +410,9 @@ package 'Fleet Documents' {
     view Safety : 'Fleet Viewpoints'::'Safety Viewpoint' {
         doc /* Safety comes first. */
         public import Fleet::*;
-        /* applied stereotype «view» */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "view";
+        }
     }
     view Figures : 'Fleet Viewpoints'::'Figures Viewpoint' {
         expose Fleet::Structure::'Truck Structure';

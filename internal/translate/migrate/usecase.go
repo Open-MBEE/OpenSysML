@@ -157,7 +157,7 @@ func (m *migration) connectTyped(e, def, host, from, to *sysmlv1.Element, fromKw
 			typed = " : " + m.ref(def, host)
 		}
 		header := "connection " + writeName(name) + typed + " connect " + m.usageRef(fu, host) + " to " + m.usageRef(tu, host)
-		m.w.trailed(header, ";", "", func() {
+		m.w.trailed(header, ";", func() {
 			if def != nil {
 				return // the connection def carries the association's metadata
 			}
@@ -166,7 +166,7 @@ func (m *migration) connectTyped(e, def, host, from, to *sysmlv1.Element, fromKw
 			}
 			saved := m.scope
 			m.scope = host
-			m.metadataUsages(e)
+			m.stereotypeAnnotations(e)
 			m.scope = saved
 		})
 	})
@@ -421,7 +421,7 @@ func (m *migration) useCaseBody(e *sysmlv1.Element) {
 	m.subjects(e)
 	m.members(e)
 	m.classifierBehavior(e)
-	m.stereotypeComments(e)
+	m.stereotypeMarkers(e)
 	m.scope = saved
 }
 
@@ -491,21 +491,23 @@ func (m *migration) include(inc *sysmlv1.Element) {
 		return
 	}
 	m.wroteEdge(inc, m.scope, "include", "")
-	m.w.line("include " + m.ref(added, m.scope) + ";")
 	verdict, note := Mapped, ""
 	if name := m.nameOf(inc); name != "" {
 		verdict, note = Approximated, "an include referring to a use case usage has no name, so "+name+" is dropped"
 	}
 	if conn := m.conns[inc]; conn != nil {
+		// The connection drawn for the include carries its annotations.
+		m.w.line("include " + m.ref(added, m.scope) + ";")
 		m.wroteEdgeAlso(inc, conn.host, "connection", nil, conn.name)
+	} else {
+		m.w.trailed("include "+m.ref(added, m.scope), ";", func() { m.stereotypeAnnotations(inc) })
 	}
 	m.add(inc, verdict, m.qualified(m.segments(inc.Parent)), note)
-	m.stereotypeComments(inc)
 }
 
 // extend writes a UML Extend as a dependency of the extending use case on the
-// extended one, keeping the extension points and condition as a comment: v2
-// has no extend relationship.
+// extended one, named by its kind, keeping the extension points and condition
+// as its doc: v2 has no extend relationship.
 func (m *migration) extend(ext *sysmlv1.Element) {
 	extended := m.model.Ref(ext, "extendedCase")
 	switch {
@@ -517,34 +519,36 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 		return
 	}
 	note := "v2 has no extend: the extension is written as a plain dependency on the extended use case"
-	comment := m.extendComment(ext)
-	if detail := m.extensionDetail(ext); detail != "" {
-		note += "; it applies " + detail + ", which only a comment keeps"
+	detail := m.extensionDetail(ext)
+	if detail != "" {
+		note += "; it applies " + detail + ", which only its doc keeps"
 	}
 	if conn := m.conns[ext]; conn != nil {
 		m.wroteEdgeAlso(ext, conn.host, "connection", nil, conn.name)
 		m.add(ext, Approximated, conn.target(m), strings.Replace(note, "a plain dependency on", "a connection between usages of the extending use case and", 1))
-		m.stereotypeComments(ext)
 		return
 	}
 	from, to := m.ref(ext.Parent, m.scope), m.ref(extended, m.scope)
-	decl, target := "dependency ", ""
-	name := m.nameOf(ext)
+	kind := spoken(from) + " extends " + spoken(to)
+	name, doc := m.nameOf(ext), ""
 	if name == "" {
-		if base := m.edgeName(ext, spoken(from)+" to "+spoken(to)); base != "" {
-			name = m.freshName(m.scope, base)
-			m.names[ext] = name
-		}
+		name = m.freshName(m.scope, kind)
+		m.names[ext], m.synthesized[ext] = name, true
+	} else {
+		doc = kind
 	}
-	if name != "" {
-		decl += writeName(name) + " from "
-		target = m.v2Name(ext)
-		m.madeUp(ext, writeName(name))
+	if detail != "" {
+		doc = m.extendComment(ext)
 	}
 	m.wroteEdge(ext, m.scope, "dependency", name)
-	m.w.line(decl + from + " to " + to + "; /* " + comment + " */")
-	m.add(ext, Approximated, target, note)
-	m.stereotypeComments(ext)
+	m.madeUp(ext, writeName(name))
+	m.w.trailed("dependency "+writeName(name)+" from "+from+" to "+to, ";", func() {
+		if doc != "" {
+			m.w.line("doc /* " + doc + " */")
+		}
+		m.stereotypeAnnotations(ext)
+	})
+	m.add(ext, Approximated, m.v2Name(ext), note)
 }
 
 // extensionDetail says where and when an extension applies: at its extension
