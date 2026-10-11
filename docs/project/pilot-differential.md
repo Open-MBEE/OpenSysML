@@ -109,6 +109,9 @@ build/pilot-sysml-validator/validate-sysml-batch \
     --extension-library "internal/workspace/libs/stdlib/OpenSysML Libraries" model.sysml
 ```
 
+The extensions under it are maintained upstream at Open-MBEE/OpenSysML-Extensions-Library and
+vendored here pinned by `scripts/extension-libraries-pin.sh`.
+
 This harness still hands each language to its own bridge (a `.kerml` file of a root goes to
 `validate-kerml`, with the same libraries).
 

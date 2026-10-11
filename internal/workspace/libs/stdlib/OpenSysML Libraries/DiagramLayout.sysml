@@ -1,4 +1,4 @@
-standard library package DiagramLayout {
+library package DiagramLayout {
     doc /* Diagram geometry in notation: where a view draws an element, the
          * waypoints an edge is drawn through and the extent of the drawing
          * surface. Units are pixels, y down, origin at the top left.

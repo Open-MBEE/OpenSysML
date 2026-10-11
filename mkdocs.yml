@@ -208,6 +208,7 @@ exclude_docs: |
   project/oosem-library.md
   project/mosa-library.md
   project/statemachines-library.md
+  project/extension-libraries.md
 
 nav:
   - Home: README.md
