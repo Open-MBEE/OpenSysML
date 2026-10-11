@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// TestPipedLinesKeepTabs checks that lines piped into the prompt are taken byte
-// for byte: a TAB is indentation, string content or comment text there, never a
-// completion keystroke, so the session ends as the lines say and exits clean.
+// TestPipedLinesKeepTabs checks that piped lines are taken byte for byte: a TAB is
+// indentation, string or comment text, never a completion keystroke, and the exit is clean.
 func TestPipedLinesKeepTabs(t *testing.T) {
 	binary := buildCLI(t)
 

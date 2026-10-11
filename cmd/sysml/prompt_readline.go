@@ -27,10 +27,8 @@ func (r *rlReader) ReadLine(prompt string) (string, error) {
 	return line, err
 }
 
-// newLineInput opens the prompt's line reader. At a terminal that is readline,
-// with the session's history file and completion; a pipe or redirected file is
-// read plainly, each line taken byte for byte, since nothing typed it. The
-// returned function closes the reader.
+// newLineInput opens the prompt's line reader: readline with history and completion
+// at a terminal, a plain byte-for-byte reader on a pipe. The returned function closes it.
 func newLineInput(sess *repl.Session) (repl.LineReader, func() error, error) {
 	if !atTerminal() {
 		return &plainReader{in: bufio.NewReader(os.Stdin)}, func() error { return nil }, nil
