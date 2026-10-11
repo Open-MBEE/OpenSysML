@@ -59,13 +59,13 @@ is printed:
 ```console
 $ sysml Vehicle.xmi -migrate sysml -o Vehicle.sysml -migration-report Vehicle.report.txt
 note: SysML v1 migration is experimental: the mapping covers structure, ports and connectors, requirements, constraints, instances and allocations, reports every element it approximates or leaves behind, and what it writes for a v1 element may change without a compatibility path; see docs/reference/sysml-v1-migration.md § Status
-wrote Vehicle.report.txt (migration report: migrated 92 element(s): 78 mapped, 11 approximated, 3 unmapped (3 skipped as profile, library or notation-only content, 0 as model elements nothing refers to))
-wrote Vehicle.sysml (sysml, 5793 bytes)
+wrote Vehicle.report.txt (migration report: migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to))
+wrote Vehicle.sysml (sysml, 6808 bytes)
 ```
 
-The summary is the first thing to read: 92 v1 elements, of which 78 have a direct v2 form, 11
-were written as the nearest v2 construct, and 3 have none. The 3 skipped are the SysML profile
-application, the profile itself and a diagram — not model content, so they count against
+The summary is the first thing to read: 93 v1 elements, of which 77 have a direct v2 form, 13
+were written as the nearest v2 construct, and 3 have none. The 2 skipped are the SysML profile
+application and the profile itself — not model content, so they count against
 nothing; the other skipped count is for the model's own elements nothing refers to, such as an
 event no trigger names. The command exits 0 when the notation was written, whatever the report
 says; it exits non-zero and writes nothing when the input cannot be read as XMI at all, or holds
@@ -89,22 +89,25 @@ need attention first:
 ```text
 # SysML v1 to v2 migration report: Vehicle.xmi
 # exported by Example UML Tool
-# migrated 92 element(s): 78 mapped, 11 approximated, 3 unmapped (3 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (3)
 «Verify» Abstraction	Requirements::<Abstraction>	_dep_verify_block	(a verify whose client is not a test case has no v2 form; applied stereotypes «Verify»)
 «Unit» InstanceSpecification	Vehicle Design::Value Types::kilogram	_unit_kg	(units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «Unit» (quantityKind = Vehicle Design::Value Types::mass; symbol = kg))
 «QuantityKind» InstanceSpecification	Vehicle Design::Value Types::mass	_qk_mass	(units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «QuantityKind»)
 
-## approximated (11)
+## approximated (13)
+Package	Requirements	_pkg_reqs	-> RequirementsModel	(written as RequirementsModel since a root package named Requirements would be hidden by the standard library's Requirements)
+«Refine» Abstraction	Requirements::<Abstraction>	_dep_refine	-> 'Drive refines Speed Requirement'	(written as a connection between usages of its ends, which a diagram draws; the standard Refinement metadata annotates only a dependency, so the connection's name says it refines)
 «Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	-> RequirementsModel::'Speed Requirement traces Engine'	(a trace is written as a plain dependency named by its kind)
-«TestCase» Activity	Requirements::Mass Test	_tc_mass	-> Requirements::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
+«TestCase» Activity	Requirements::Mass Test	_tc_mass	-> RequirementsModel::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
+Diagram	Vehicle BDD	_diag_bdd	-> 'Vehicle BDD'	(a diagram of unknown kind written as a view rendered asTextualNotation; the diagram names no owner; written at the top level, which holds it; no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing)
 Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part usage)
 «FlowPort» Port	Vehicle Design::Engine::speedIn	_port_speedIn	-> 'Vehicle Design'::Engine::speedIn	(a port typed by a DataType is written as a port holding one directed attribute)
 …
 Property	Vehicle Design::Vehicle::totalMass	_prop_total	-> 'Vehicle Design'::Vehicle::totalMass	(opaque expression copied verbatim (language SysML))
 
-## mapped (78)
+## mapped (77)
 …
 Operation	Vehicle Design::Vehicle::start	_op_start	-> 'Vehicle Design'::Vehicle::start	(its owner's usage start 2 performs it, as a call on an object does)
 …
@@ -120,7 +123,9 @@ how, or why not. The columns are tab-separated, so `cut` and `awk` read them.
   translated to a v2 expression).
 - **approximated** — written as the nearest v2 construct, and the note says what was lost. Some
   of these are simply how v2 spells the idea (a `«Trace»` is a `dependency`; a flow port typed by a
-  data type is a port holding one directed attribute; a `«Trace»` is a `dependency`). Others
+  data type is a port holding one directed attribute; a `«Refine»` is a `connection` between
+  usages of its ends; a root package named `Requirements` is written as `RequirementsModel`, since
+  the standard library's `Requirements` would hide it). Others
   record a v1 tag that v2 has no home for (`isEncapsulated`, a value type's `unit` and
   `quantityKind`), or an opaque expression copied verbatim because its declared language is
   already SysML.
@@ -159,18 +164,18 @@ part def Vehicle :> System {
 The vehicle's behaviors are deliberately empty, so the plant fixture beside it,
 [`plant.xmi`](../../tests/migrate/testdata/xmi/plant.xmi), is the one to migrate to see a
 behavior that *runs*. Its activity `Fill` has opaque JavaScript actions in swimlanes, and each
-becomes an `assign` on the part the swimlane represents, in the `action def` notation of
-[chapter 6](06-behavior.md):
+becomes an `assign` on the part the swimlane represents, written as an action usage of the block
+`Plant`, in the notation of [chapter 6](06-behavior.md):
 
 ```sysml
-action def Fill {
+action fill {
     first start then 'open valve';
     action 'open valve' {
-        assign this.tank.valve.open := true;
+        assign tank.valve.open := true;
     }
     first 'open valve' then 'fill tank';
     action 'fill tank' {
-        assign this.tank.volume := this.tank.volume * 2 + (if this.tank.valve.open ? 1 else 0);
+        assign tank.volume := tank.volume * 2 + (if tank.valve.open ? 1 else 0);
     }
     first 'fill tank' then torn;
     action torn {
@@ -180,7 +185,7 @@ action def Fill {
     }
     …
     action 'count run' {
-        assign this.runs := this.runs + 1;
+        assign runs := runs + 1;
     }
     …
 }
@@ -197,8 +202,8 @@ $ printf 'part plant : Plant;\n' > plant_inst.sysml
 $ sysml Plant.sysml plant_inst.sysml
 sysml> %instantiate plant
 ✓ Created instance of plant
-sysml> %action Plant::Fill plant
-✓ Started action executor for "Plant::Fill"
+sysml> %action Plant::fill plant
+✓ Started action executor for "Plant::fill"
 sysml> %continue
 ✓ Action completed
   Final state: Completed
@@ -300,23 +305,22 @@ as a hand-written one. This model's `Vehicle` and its instance `myCar` are intac
 
 ```console
 $ sysml Vehicle.sysml -eval "'Vehicle Design'::myCar::mass"
-Vehicle.sysml:51:29: warning: Duplicate of inherited member name 'start' from Part
-        abstract action def start {
-                            ^~~~~
 Vehicle.sysml:91:9: warning: End feature must have multiplicity 1: an end relates exactly one thing per link; write `[1]` or take it from a feature the end subsets or redefines
-        end driver : Driver[0..1];
-        ^~~~~~~~~~~~~~~~~~~~~~~~~~
+        end driver :> Driver[0..1];
+        ^~~~~~~~~~~~~~~~~~~~~~~~~~~
 ✓ package 'Vehicle Design'
-✓ package Requirements
+✓ package RequirementsModel
 ✓ package 'Empty Package'
+✓ metadata <anonymous>
+✓ connection 'Drive refines Speed Requirement'
+✓ view 'Vehicle BDD'
 ✓ 'Vehicle Design'::myCar::mass
   = 1350.5
 ```
 
 Findings on the migrated file are read as on any model, and point at what to revise in the v2
-notation — here a v1 name that collides with one the `Parts` library gives every part, and the
-association `Drives`, whose v1 end multiplicity `0..1` v2 writes on the end rather than after
-its type: `end [0..1] driver : Driver;`. From this point `%save` in the REPL, `-convert ttl`, the
+notation — here the association `Drives`, whose v1 end multiplicity `0..1` v2 writes on the end
+rather than after the feature it subsets: `end [0..1] driver :> Driver;`. From this point `%save` in the REPL, `-convert ttl`, the
 LSP and the clients all take the file as they take any other; nothing remembers that it was
 migrated.
 

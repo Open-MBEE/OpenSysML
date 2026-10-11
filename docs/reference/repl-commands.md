@@ -95,7 +95,7 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%draws [<policy>]` | Show or set how the runs started from then on — `%action`, `%state`, `%analysis`, a `%runs` row, the debugger's session — resolve the draws of `RandomFunctions` (`uniform`, `uniformInteger`, `triangular`, `normal`): `random` (the initial state) draws each call from the model seed; `min`, `max` and `average` resolve each call to the least, greatest or mean value of its distribution instead and need no seed (`min` and `max` read a bounded call's interval closed at both ends, so `uniform(lo, hi)` is `lo` or `hi`), so a run whose only randomness is its durations completes deterministically; `normal` with a positive deviation has no least or greatest value, so a run that calls it under `min` or `max` stops with an error naming the call and the policy (`normal(m, 0)` is `m` under every policy, `random` included, and needs no seed). Weighted decisions are not durations: they draw from the seed under every policy, and unseeded take their most probable branch. The policy is applied to the context the session holds as well, so a debugging session started after `%draws max` draws at the max, while a run under way — a paused debugging session included — keeps the policy it started under; a spelling that is none of the four, or more than one word, is refused and the policy left as it was. Every witness `%check-witness` writes records a fixed policy as `draws by <policy>`, which `%replay` runs under. Same policy as the CLI's [`-draws`](cli.md#running-an-action-many-times) |
 | `%clock-step [<seconds>]` | Show or set the step the clock of the runs started from then on — `%action`, `%state`, `%analysis`, a `%runs` row, the debugger's session — ticks by, as a simulation tool's fixed-step clock does: a wait comes due at the first multiple of the step not before the instant it ends, so under `%clock-step 1` a wait of `2.3 [s]` set at `t=0` comes due at `t=3.0`; `0` (the initial state) is a continuous clock, on which a wait comes due exactly when it ends. The step is applied to the context the session holds as well, so a debugging session's waits set after `%clock-step 10` come due on tens, while a wait already queued keeps its instant; a step that is no finite, non-negative number, or more than one word, is refused and the step left as it was. Every witness `%check-witness` writes for a stepped run records it as `clock steps by <seconds>`, which `%replay` runs on. Same step as the CLI's [`-clock-step`](cli.md#running-an-action-many-times) |
 | `%constraint <name>[(<args>)] [<object>]` | Evaluate constraint (assert/assume). Arguments in parentheses bind the constraint's `in` parameters, positionally in declaration order (`%constraint Pkg::Between(3)`) or by name (`%constraint Pkg::Between(low = 3, high = 4)`), evaluated at the prompt like `%calc`'s; an [object reference](#object-references) after them is the subject the verdict is about (`%constraint Pkg::Fits(3.0) Pkg::part`), the object the session holds for the constraint's carrier otherwise. A name no parameter has, more positional arguments than parameters, a parameter left without an argument, default or same-named value on the checked object, or a value not of the parameter's type is refused naming it |
-| `%invoke <object> <op> [<p>=<expr>]` | Invoke an operation of an object's type (an action it owns), performed by that object, given as an [object reference](#object-references) (`%invoke car start`, `%invoke #3 start`, `%invoke car.engine start`), with arguments given as a positional list or as `<parameter>=<expression>` pairs; mixing named and positional forms is refused. Assignments in the body write that object's feature values; declared outputs are reported. An operation given as a `calc` or `constraint` is not supported through this command |
+| `%invoke <object> <op> [<expr>... \| <p>=<expr>...]` | Invoke an operation of an object's type (an action it owns), performed by that object, given as an [object reference](#object-references) (`%invoke car start`, `%invoke #3 start`, `%invoke car.engine start`), with arguments given as a positional list or as `<parameter>=<expression>` pairs; mixing named and positional forms is refused. Assignments in the body write that object's feature values; declared outputs are reported. An operation given as a `calc` or `constraint` is not supported through this command |
 | `%requirement <name>[(<args>)] [<object>]` | Evaluate requirement (subject/assume/require/actor), reporting beside its verdict the `VerdictKind` the body of every verification case verifying it produced. Arguments for its `in` parameters and an object as its subject are written as for `%constraint` (`%requirement Pkg::Under(limit = 5) Pkg::part`) |
 | `%satisfy [name]` | Evaluate satisfaction assertions of the model, or of one element, reporting beside each verdict the `VerdictKind` the body of every verification case verifying the requirement produced |
 | `%validate <object>` | Evaluate every assertion about an object the session holds and the objects it holds in turn, given as an [object reference](#object-references) (`%validate car`, `%validate #3`, `%validate car.wheels[2]`): each `assert constraint` the carrier's type declares or inherits, each requirement usage it carries, and each `satisfy` assertion whose subject is in the tree — one verdict per assertion per object, root first and then each held object as the walk reaches it, each naming its object by the path from the one validated (`Demo::car.wheels[2]`, indexes counted from 1), then one verdict about the object as a whole with its `standing:`. An assertion that could not be evaluated is `?` undecided with the reason, not `✗`; the object is valid only when every assertion holds and every held object was reached, so an undecided assertion, or a walk cut short by an object graph without end, leaves it `not shown valid` rather than valid, and an object no assertion is about `states no assertion to validate` and is not shown valid either. A constraint declared without `assert` is not swept; `%constraint` checks it by name. Verifying verification cases are reported beside a requirement's verdict as `%requirement` reports them. Refuses a name no object is held under (`no instance of "car" (use %instantiate first)`) |
@@ -444,19 +444,35 @@ view Demo::summary::detail
   part def Demo::Wheel
     attribute diameter : Real
 
+relationships:
+  Demo::Vehicle *-- Demo::Wheel: wheel
+
 sysml> %render Demo::summary mermaid
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  …
+---
 %% Demo::summary — tree rendering
 flowchart TD
-  n0["«part def»<br>Vehicle"]
-  n1["«attribute»<br>mass : Real"]
+  n0["`*«part def»*
+**Vehicle**`"]
+    n1("`*«attribute»*
+**mass : Real**`")
   n0 --- n1
-  n2["«part»<br>wheel : Wheel"]
+    n2("`*«part»*
+**wheel : Wheel**`")
   n0 --- n2
-  n3["«view»<br>summary::detail"]
-  n4["«part def»<br>Wheel"]
-  n5["«attribute»<br>diameter : Real"]
+  n3("`*«view»*
+**summary::detail**`")
+    n4["`*«part def»*
+**Wheel**`"]
+      n5("`*«attribute»*
+**diameter : Real**`")
   n4 --- n5
   n3 --- n4
+  n0 ---|"◆ wheel"| n4
 ```
 
 A diagram node's label leads with the kind in guillemets and puts the element's name on the next
@@ -526,6 +542,7 @@ digraph "Demo::summary" {
   "n5" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>diameter : Real</b>>];
   "n4" -> "n5" [arrowhead=none];
   "n3" -> "n4" [arrowhead=none];
+  "n0" -> "n4" [label="wheel", dir=back, arrowtail=diamond];
 }
 ```
 

@@ -78,16 +78,19 @@ entry is not served.
 
 ```console
 $ OPENSYSML_ENGINES=/etc/opensysml/engines sysml -engines
-engine       kind      protocol  authority    answers          status
-check        built-in  -         bounded      outcomes, holds  ready
-explore      built-in  -         proved       outcomes         ready
-priority     policy    stdio/1   not covered                   unavailable: policy "priority" is not served in this build: scheduling policies are the strategies stage
-run          built-in  -         observed     evaluate         ready
-solve        built-in  -         proved       satisfiable      ready (z3 at /usr/bin/z3)
-spin-bridge  engine    stdio/1   bounded      holds, outcomes  ready (spin-bridge 1.4.0 at /opt/spin-bridge/bin/spin-bridge)
-sweep        built-in  -         observed     sweep            ready
+engine       kind      protocol  authority    answers                     status
+check        built-in  -         bounded      outcomes, holds, sensitive  ready
+explore      built-in  -         proved       outcomes                    ready
+priority     policy    stdio/1   not covered                              unavailable: policy "priority" is not served in this build: scheduling policies are the strategies stage
+run          built-in  -         observed     evaluate                    ready
+smt          built-in  -         proved       holds, sensitive            ready (z3 at /usr/bin/z3)
+solve        built-in  -         proved       satisfiable, holds          ready (z3 at /usr/bin/z3)
+spin-bridge  engine    stdio/1   bounded      holds, outcomes             ready (spin-bridge 1.4.0 at /opt/spin-bridge/bin/spin-bridge)
+sweep        built-in  -         observed     sweep                       ready
+tool:fmi     tool      fmi/1     observed     compute                     unavailable: OPENSYSML_FMI_RUNNER is not set: the fmi engine runs an FMU's native code through the runner that variable names
 priority 0.3: policy from /etc/opensysml/engines/priority.json, runs /etc/opensysml/engines/priority-policy
 spin-bridge 1.4.0: engine from /etc/opensysml/engines/spin-bridge.json, runs /opt/spin-bridge/bin/spin-bridge, not admitted
+tool:fmi: tool
 ```
 
 `-engines -probe` and `%engines probe` are the one listing that spawns: each external entry is
