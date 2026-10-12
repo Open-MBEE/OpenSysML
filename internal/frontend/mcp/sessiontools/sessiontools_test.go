@@ -361,7 +361,7 @@ func TestDebugCurrentDescribesTheRunStillGoing(t *testing.T) {
 		t.Errorf("after the machine started: %+v", st)
 	}
 	must(t, cs, "debug_current", args(), &st)
-	if st.Kind != "state" || st.CurrentState != "off" || !strings.Contains(st.Text, "Current state: off") {
+	if st.Kind != "state" || st.CurrentState != "off" || !strings.Contains(st.Text, "Current state: off") || strings.Contains(st.Text, "tokens") {
 		t.Errorf("current = %+v", st)
 	}
 	must(t, cs, "debug_step", args(), &st)
@@ -584,5 +584,69 @@ func TestGetAnswersFromInsideACallOnTheSameSession(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Get from inside a call on the same session hangs")
+	}
+}
+
+func TestASubmissionIsAcceptedDespiteAnOlderErrorAtDebugVerbosity(t *testing.T) {
+	cs := connect(t, t.TempDir())
+	must(t, cs, "repl_command", args("line", "%verbosity debug"), nil)
+	var sub SubmitResult
+	call(t, cs, "session_submit", args("text", "package Broken { part b : Missing; }"), &sub)
+	if sub.Accepted {
+		t.Fatalf("a submission with an error of its own was accepted: %+v", sub)
+	}
+	must(t, cs, "session_submit", args("text", "package Good;"), &sub)
+	if !sub.Accepted || len(sub.Diagnostics) != 0 {
+		t.Errorf("a clean submission beside an older error = %+v", sub)
+	}
+}
+
+func TestResolveExpandsHomeAndAnswersAbsolutePaths(t *testing.T) {
+	root := t.TempDir()
+	m := NewManager(root, func() (*repl.Session, error) { return repl.NewSession(), nil })
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip(err)
+	}
+	for in, want := range map[string]string{
+		"~/model.sysml":                filepath.Join(home, "model.sysml"),
+		"sub/../model.ttl":             filepath.Join(root, "model.ttl"),
+		filepath.Join(root, "x.sysml"): filepath.Join(root, "x.sysml"),
+	} {
+		got, err := m.Resolve(in)
+		if err != nil || got != want {
+			t.Errorf("Resolve(%q) = %q, %v; want %q", in, got, err, want)
+		}
+	}
+}
+
+func TestACancellationBeforeTheCommandBeginsStillStopsIt(t *testing.T) {
+	m := NewManager(t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
+	sess, err := m.Get("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess.Submit(actionModel)
+	ctx, cancel := context.WithCancel(context.Background())
+	var v repl.Verdict
+	_ = m.Use(ctx, "", func(sess *repl.Session) error {
+		// The client leaves before the command enters the session.
+		cancel()
+		time.Sleep(20 * time.Millisecond)
+		v = sess.RunAction("Debug::tally")
+		return nil
+	})
+	if joined := strings.Join(v.Lines, "\n"); !strings.Contains(joined, "interrupted") || strings.Contains(joined, "total = ") {
+		t.Errorf("the run went on after the cancellation: %q", joined)
+	}
+	err = m.Use(context.Background(), "", func(sess *repl.Session) error {
+		ev, err := sess.Evaluate("1 + 1")
+		if err == nil && ev.Text != "2" {
+			err = errors.New("the next call answered " + ev.Text)
+		}
+		return err
+	})
+	if err != nil {
+		t.Errorf("after the withdrawn interrupt: %v", err)
 	}
 }

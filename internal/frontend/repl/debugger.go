@@ -66,17 +66,12 @@ func (s *Session) DebugStatus() (DebugReport, bool) {
 	if s.actionExec == nil && s.stateExec == nil {
 		return DebugReport{}, false
 	}
+	// The lines describe the debugger the report does, and that one only.
 	var lines []string
-	if s.actionExec != nil {
-		tokens, _, _ := s.doTokens()
-		lines = append(lines, tokens...)
-	}
-	if s.stateExec != nil {
-		current, _, _ := s.doCurrent()
-		if len(lines) > 0 {
-			lines = append(lines, "")
-		}
-		lines = append(lines, current...)
+	if s.debuggedAction() != nil {
+		lines, _, _ = s.doTokens()
+	} else {
+		lines, _, _ = s.doCurrent()
 	}
 	return s.debugReport(lines), true
 }

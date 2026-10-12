@@ -250,7 +250,7 @@ func Register(s *mcp.Server, m *Manager) {
 		res := sess.Submit(in.Text)
 		verbosity := sess.Verbosity()
 		out := SubmitResult{
-			Accepted:    res.Refused == nil && !res.Failed(verbosity),
+			Accepted:    !res.Rejected(),
 			Declared:    orEmpty(res.Declared),
 			Notices:     orEmpty(res.Notices),
 			Diagnostics: diagnostics(sess.Locate(res.OwnDiagnostics(verbosity))),

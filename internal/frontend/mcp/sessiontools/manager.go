@@ -127,6 +127,9 @@ func (m *Manager) Use(ctx context.Context, name string, fn func(*repl.Session) e
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	// Expected before the callback is armed, so a cancellation that lands
+	// before fn's first command begins still stops that command.
+	defer h.sess.Expecting()()
 	interrupted := make(chan struct{})
 	stop := context.AfterFunc(ctx, func() {
 		defer close(interrupted)
@@ -184,9 +187,10 @@ func (m *Manager) CloseAll() {
 	}
 }
 
-// Resolve makes a path absolute against the workspace root; an absolute path
-// or one under the user's home (`~`) is kept as written. Standard input is no
-// file a tool can read, so a lone "-" is refused.
+// Resolve makes a path absolute: against the workspace root unless it is
+// absolute already or under the user's home (`~`), which is expanded, so the
+// path answered names the file touched. Standard input is no file a tool can
+// read, so a lone "-" is refused.
 func (m *Manager) Resolve(path string) (string, error) {
 	path = strings.TrimSpace(path)
 	switch {
@@ -194,8 +198,10 @@ func (m *Manager) Resolve(path string) (string, error) {
 		return "", errors.New("a path is required")
 	case path == "-":
 		return "", errors.New("standard input is not available to a tool; name a file")
-	case filepath.IsAbs(path), path == "~", strings.HasPrefix(path, "~/"), strings.HasPrefix(path, `~\`):
-		return path, nil
 	}
-	return filepath.Join(m.root, path), nil
+	path = repl.ExpandHome(path)
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(m.root, path)
+	}
+	return filepath.Clean(path), nil
 }
