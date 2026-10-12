@@ -328,7 +328,13 @@ try {
         Write-Host "$fromLabel$(Get-AssetUrl $asset)"
         $fromLabel = '            '
     }
-    if ($SignedBuild) { Write-Host "  the release carries the signed Windows build (its $Manifest was fetched to tell); installing $Bundle" }
+    if ($SignedBuild) {
+        $signedAssets = @()
+        if ($WantBundle) { $signedAssets += $Bundle }
+        if ($WantGrpc) { $signedAssets += $GrpcAsset }
+        $use = if ($signedAssets.Count -gt 0) { "installing $($signedAssets -join ' and ')" } else { 'none of the requested tools is among its assets' }
+        Write-Host "  the release carries the signed Windows build (its $Manifest was fetched to tell); $use"
+    }
     if ($SignedBuild -and $WantKernel) { Write-Host "  sysml-jupyter-kernel is not among the signed assets; $KernelAsset is checked against $ReleaseManifest" }
     if ($SignedBuildNote) { Write-Host $SignedBuildNote }
     if ($DryRun) {

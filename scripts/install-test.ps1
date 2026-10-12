@@ -269,6 +269,8 @@ if (-not $HostIsWindows) {
     # release and is checked against SHA256SUMS.txt; alone it needs no Authenticode.
     if (Test-Ok 'kernel from the signed release' -Version $Signed -Os windows -Tools sysml-jupyter-kernel) {
         Assert-Said 'the release carries the signed Windows build'
+        Assert-Said 'none of the requested tools is among its assets'
+        Assert-Unsaid 'installing opensysml-windows-amd64-signed.zip'
         Assert-Said 'sysml-jupyter-kernel is not among the signed assets'
         Assert-Said "download/$Signed/sysml-jupyter-kernel-windows-amd64.exe"
         Assert-Said 'sysml-jupyter-kernel-windows-amd64.exe verified'
