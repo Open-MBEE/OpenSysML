@@ -31,9 +31,12 @@ tar xzf sysml-mcp-linux-amd64.tar.gz && sudo install sysml-mcp /usr/local/bin/
 go install github.com/Open-MBEE/OpenSysML/cmd/sysml-mcp@latest
 ```
 
+The install scripts' default tool list stays `sysml,sysml-lsp`, so a pinned older release
+still installs; `sysml-mcp` is installed when it is named (`--tools sysml,sysml-lsp,sysml-mcp`)
+or with `--tools all`, which installs every tool the chosen release published.
 `irm https://opensysml.org/install.ps1 | iex` with `-Tools sysml,sysml-lsp,sysml-mcp` does the
 same on Windows, the Homebrew formula and the Scoop manifest install it beside `sysml` and
-`sysml-lsp`, and the Windows MSI has it as the *MCP server* feature. A checkout builds it with
+`sysml-lsp` by default, and the Windows MSI has it as the *MCP server* feature. A checkout builds it with
 `make build-mcp` (into `bin/sysml-mcp`) or as part of `make build`. `sysml-mcp -version` reports
 the build.
 
