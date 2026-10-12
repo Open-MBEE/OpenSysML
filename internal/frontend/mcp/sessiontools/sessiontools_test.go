@@ -195,10 +195,10 @@ func TestSaveWritesOnlyWhenApplied(t *testing.T) {
 
 	var saved SaveResult
 	must(t, cs, "session_save", args("path", "out/model.sysml"), &saved)
-	if saved.Applied || !strings.Contains(saved.Text, "Saved") {
+	if saved.Applied || !strings.Contains(saved.Content, "part def P") || saved.Text != "" {
 		t.Errorf("preview = %+v", saved)
 	}
-	preview := saved.Text
+	preview := saved.Content
 	if _, err := os.Stat(filepath.Join(root, "out", "model.sysml")); !os.IsNotExist(err) {
 		t.Fatalf("a save without apply touched the disk: %v", err)
 	}
@@ -215,6 +215,50 @@ func TestSaveWritesOnlyWhenApplied(t *testing.T) {
 	}
 	if string(data) != preview {
 		t.Errorf("the preview %q is not the file written %q", preview, data)
+	}
+
+	must(t, cs, "session_save", args("path", "out/model.ttl"), &saved)
+	if saved.Applied || !strings.Contains(saved.Content, "sysml:PartDefinition") || !strings.Contains(saved.Text, "note:") {
+		t.Errorf("a .ttl preview = %+v", saved)
+	}
+	if _, err := os.Stat(filepath.Join(root, "out", "model.ttl")); !os.IsNotExist(err) {
+		t.Errorf("a .ttl preview touched the disk: %v", err)
+	}
+
+	must(t, cs, "session_open", args("session", "empty"), nil)
+	saved = SaveResult{}
+	must(t, cs, "session_save", args("session", "empty", "path", "empty.sysml", "apply", true), &saved)
+	if saved.Applied || saved.Content != "" || !strings.Contains(saved.Text, "nothing to save") {
+		t.Errorf("saving an empty session = %+v", saved)
+	}
+	if _, err := os.Stat(filepath.Join(root, "empty.sysml")); !os.IsNotExist(err) {
+		t.Errorf("an empty session wrote a file: %v", err)
+	}
+	saved = SaveResult{}
+	must(t, cs, "session_save", args("session", "empty", "path", "empty.sysml"), &saved)
+	if saved.Applied || saved.Content != "" || !strings.Contains(saved.Text, "nothing to save") {
+		t.Errorf("previewing an empty session = %+v", saved)
+	}
+}
+
+func TestAnUnsetFeatureEvaluatesAsUnset(t *testing.T) {
+	cs := connect(t, t.TempDir())
+	must(t, cs, "session_submit", args("text", "package Unset { part def P { attribute x : ScalarValues::Real; } part p : P; }"), nil)
+	must(t, cs, "repl_command", args("line", "%instantiate Unset::p"), nil)
+	var ev EvalResult
+	must(t, cs, "session_eval", args("expression", "Unset::p.x"), &ev)
+	value, _ := ev.Value.(map[string]any)
+	if ev.Text != "<unset>" || value["unset"] != true {
+		t.Errorf("an unset feature evaluated to %q, %v", ev.Text, ev.Value)
+	}
+}
+
+func TestConfigureRefusesSelectionsWithAll(t *testing.T) {
+	cs := connect(t, t.TempDir())
+	must(t, cs, "session_submit", args("text", solverModel), nil)
+	res := call(t, cs, "configure", args("name", "Check::Bound", "selections", []string{"a=b"}, "all", true), nil)
+	if !res.IsError || !strings.Contains(errText(res), "exclusive") {
+		t.Errorf("selections with all was accepted: %+v", res)
 	}
 }
 
@@ -316,6 +360,13 @@ func TestDebugCurrentDescribesTheRunStillGoing(t *testing.T) {
 	must(t, cs, "debug_current", args(), &st)
 	if st.Kind != "state" || st.CurrentState != "off" || !strings.Contains(st.Text, "Current state: off") {
 		t.Errorf("current = %+v", st)
+	}
+	must(t, cs, "debug_step", args(), &st)
+	if st.Kind != "state" || strings.Contains(st.Text, "already") {
+		t.Errorf("a step with the action over moved the action, not the machine: %+v", st)
+	}
+	if res := call(t, cs, "debug_continue", args(), nil); !res.IsError {
+		t.Errorf("continue with the action over succeeded: %+v", res.StructuredContent)
 	}
 }
 

@@ -3,6 +3,7 @@ package sessiontools
 import (
 	"encoding/json"
 	"fmt"
+	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -14,6 +15,9 @@ import (
 // is structured content rather than a string holding JSON.
 func valueJSON(ev repl.EvalResult) (any, error) {
 	pv := protoconv.ValueToProtoIn(ev.Context, ev.Value, ev.Index)
+	if ev.Unset {
+		pv = &pb.Value{Kind: &pb.Value_Unset{Unset: true}}
+	}
 	raw, err := protojson.Marshal(pv)
 	if err != nil {
 		return nil, fmt.Errorf("encoding the value: %w", err)

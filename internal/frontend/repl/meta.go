@@ -1015,8 +1015,10 @@ func (s *Session) evalValue(expr string) (evaluated, error) {
 				if err != nil {
 					return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
 				}
-				val, _ := fv.ReadValue(fv.Feature.Name)
-				return answered(expr+onInstance(inst, owner), ctx, val, formatFeatureValue(ctx, fv)), nil
+				val, readErr := fv.ReadValue(fv.Feature.Name)
+				ev := answered(expr+onInstance(inst, owner), ctx, val, formatFeatureValue(ctx, fv))
+				ev.unset = errors.Is(readErr, runtime.ErrUninitializedFeatureValue)
+				return ev, nil
 			}
 		}
 		// An enumeration literal is a value even though it declares none.
@@ -2598,15 +2600,27 @@ func (s *Session) startAction(name string, performer []string) ([]string, error)
 
 // doStep advances the action executor one step, or the state machine one event
 // when the session debugs a machine instead.
+// debuggedAction is the action %step and %continue act on: the one debugged,
+// unless it has ended while a machine is still running, which is then what a
+// step moves.
+func (s *Session) debuggedAction() *actionSession {
+	a := s.actionExec
+	if a != nil && s.stateExec != nil && a.executor.State().Ended() && !s.stateExec.executor.State().Ended() {
+		return nil
+	}
+	return a
+}
+
 func (s *Session) doStep() ([]string, bool, error) {
-	if s.actionExec == nil {
+	a := s.debuggedAction()
+	if a == nil {
 		if s.stateExec != nil {
 			return s.stepState()
 		}
 		return []string{s.noActionSessionMsg()}, false, nil
 	}
 
-	exec := s.actionExec.executor
+	exec := a.executor
 
 	if exec.State().Ended() {
 		return []string{"✓ Action already " + strings.ToLower(exec.State().String())}, false, nil
@@ -2653,7 +2667,7 @@ func (s *Session) doContinue() ([]string, bool, error) {
 // continueAction runs the active action to completion, or to the first
 // breakpoint hit, reporting a failed run as an error.
 func (s *Session) continueAction() ([]string, []NamedValue, error) {
-	if s.actionExec == nil {
+	if s.debuggedAction() == nil {
 		return nil, nil, s.noActionSessionErr()
 	}
 

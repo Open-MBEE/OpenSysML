@@ -22,8 +22,8 @@ type SolveInput struct {
 type ConfigureInput struct {
 	SessionName
 	Name       string   `json:"name" jsonschema:"qualified name of the element whose variations are configured"`
-	Selections []string `json:"selections,omitempty" jsonschema:"variants to fix, written variation=variant; the rest are chosen consistently with them"`
-	All        bool     `json:"all,omitempty" jsonschema:"enumerate every consistent selection instead of one"`
+	Selections []string `json:"selections,omitempty" jsonschema:"variants to fix, written variation=variant; the selection is checked and a conflict named. Not with all"`
+	All        bool     `json:"all,omitempty" jsonschema:"enumerate every consistent selection instead of one. Not with selections"`
 	Limit      int      `json:"limit,omitempty" jsonschema:"with all: at most this many selections"`
 }
 
@@ -63,6 +63,9 @@ func registerSolve(s *mcp.Server, m *Manager) {
 	}, handler(m, func(_ context.Context, sess *repl.Session, in ConfigureInput) (SolveResult, error) {
 		if strings.TrimSpace(in.Name) == "" {
 			return SolveResult{}, errors.New("name is required")
+		}
+		if in.All && len(in.Selections) > 0 {
+			return SolveResult{}, errors.New("selections and all are exclusive: %configure checks the selection given, or enumerates every consistent one")
 		}
 		args := append([]string{}, in.Selections...)
 		if in.All {

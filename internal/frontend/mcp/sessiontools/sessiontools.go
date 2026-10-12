@@ -156,8 +156,9 @@ type SaveInput struct {
 // SaveResult is what a save wrote, or would write.
 type SaveResult struct {
 	Path    string `json:"path" jsonschema:"the file, resolved"`
-	Applied bool   `json:"applied" jsonschema:"whether the file was written"`
-	Text    string `json:"text" jsonschema:"what %save printed when applied; otherwise the notation the file would hold"`
+	Applied bool   `json:"applied" jsonschema:"whether the file was written; false for an empty session, which has nothing to save"`
+	Content string `json:"content,omitempty" jsonschema:"without apply: the file's bytes, in the format the extension names"`
+	Text    string `json:"text" jsonschema:"what %save printed: notes, warnings, and what was or would be saved"`
 }
 
 // ClearResult is what a reset took with it.
@@ -291,7 +292,7 @@ func Register(s *mcp.Server, m *Manager) {
 	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "session_save",
-		Description: "Write a session's model to a file, as %save does: .sysml notation with comments preserved, or .ttl/.json RDF (experimental). Without apply nothing is written and the notation the file would hold is returned.",
+		Description: "Write a session's model to a file, as %save does: .sysml notation with comments preserved, or .ttl/.json RDF (experimental). Without apply nothing is written and the file's content, in the format the extension names, is returned as content.",
 		Annotations: toolkit.Mutating("Save model", true),
 	}, handler(m, func(_ context.Context, sess *repl.Session, in SaveInput) (SaveResult, error) {
 		path, err := m.Resolve(in.Path)
@@ -299,18 +300,17 @@ func Register(s *mcp.Server, m *Manager) {
 			return SaveResult{}, err
 		}
 		if !in.Apply {
-			lines, err := sess.Print("")
+			content, lines, err := sess.SavePreview(path)
 			if err != nil {
-				return SaveResult{}, failed(err, lines)
+				return SaveResult{Path: path}, failed(err, lines)
 			}
-			// The file a save writes ends with a newline; the preview is its bytes.
-			return SaveResult{Path: path, Text: text(lines) + "\n"}, nil
+			return SaveResult{Path: path, Content: string(content), Text: text(lines)}, nil
 		}
-		lines, err := sess.Save(path)
+		lines, written, err := sess.Save(path)
 		if err != nil {
 			return SaveResult{Path: path}, failed(err, lines)
 		}
-		return SaveResult{Path: path, Applied: true, Text: text(lines)}, nil
+		return SaveResult{Path: path, Applied: written, Text: text(lines)}, nil
 	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "session_clear",

@@ -107,9 +107,18 @@ func (m *Manager) Use(ctx context.Context, name string, fn func(*repl.Session) e
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	stop := context.AfterFunc(ctx, h.sess.Interrupt)
-	defer stop()
-	return fn(h.sess)
+	interrupted := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		defer close(interrupted)
+		h.sess.Interrupt()
+	})
+	err = fn(h.sess)
+	// A callback already under way finishes before the lock is released, or it
+	// would interrupt the next call's command.
+	if !stop() {
+		<-interrupted
+	}
+	return err
 }
 
 // Close ends the session called name, releasing what it holds; a command it is

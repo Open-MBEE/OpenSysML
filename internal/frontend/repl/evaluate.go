@@ -14,6 +14,8 @@ type evaluated struct {
 	val   runtime.Value
 	text  string
 	lines []string
+	// unset marks a feature holding no value, which val then does not describe.
+	unset bool
 }
 
 // answered is the evaluation of label to val, spelled text, as %eval reports it.
@@ -32,7 +34,9 @@ func answered(label string, ctx *runtime.Context, val runtime.Value, text string
 type EvalResult struct {
 	Expression string
 	// Text is the value as the prompt prints it.
-	Text    string
+	Text string
+	// Unset is a feature holding no value, printed `<unset>`; Value is then invalid.
+	Unset   bool
 	Value   runtime.Value
 	Context *runtime.Context
 	Index   *symbols.Index
@@ -50,6 +54,7 @@ func (s *Session) Evaluate(expr string) (EvalResult, error) {
 	return EvalResult{
 		Expression: expr,
 		Text:       ev.text,
+		Unset:      ev.unset,
 		Value:      ev.val,
 		Context:    ev.ctx,
 		Index:      s.symbolIndex(),

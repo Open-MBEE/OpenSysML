@@ -227,12 +227,8 @@ func (s *Session) debugReport(lines []string) DebugReport {
 	if lines == nil {
 		report.Lines = []string{}
 	}
-	action := s.actionExec != nil
-	if action && s.stateExec != nil && s.actionExec.executor.State().Ended() && !s.stateExec.executor.State().Ended() {
-		action = false
-	}
 	switch {
-	case action:
+	case s.debuggedAction() != nil:
 		a := s.actionExec
 		exec := a.executor
 		report.Kind, report.Name, report.Qualified, report.Performer = "action", a.name, a.fqn, a.selfFQN
