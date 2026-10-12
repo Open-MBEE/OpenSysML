@@ -51,7 +51,7 @@ type Token struct {
 
 // DebugState is where a debugging session stands.
 type DebugState struct {
-	Kind      string `json:"kind" jsonschema:"action or state for the executor described; check when the behavior was checked over every schedule rather than stepped; empty when no debugging session runs"`
+	Kind      string `json:"kind" jsonschema:"action or state for the executor described (with both debugged, the one still running, else the action); check when the behavior was checked over every schedule rather than stepped; empty when no debugging session runs"`
 	Name      string `json:"name,omitempty" jsonschema:"the behavior as named"`
 	Qualified string `json:"qualified,omitempty" jsonschema:"its qualified name"`
 	Performer string `json:"performer,omitempty" jsonschema:"the object performing it"`

@@ -218,15 +218,21 @@ func failedLine(lines []string) error {
 	return nil
 }
 
-// debugReport describes the debugging session under way: the action's when one
-// runs, as %step prefers it, else the machine's.
+// debugReport describes the debugging session under way. With both an action
+// and a machine debugged it describes the one still running, as a completed
+// run is no longer what a caller steps, and the action when both run, as %step
+// prefers it.
 func (s *Session) debugReport(lines []string) DebugReport {
 	report := DebugReport{Lines: lines}
 	if lines == nil {
 		report.Lines = []string{}
 	}
+	action := s.actionExec != nil
+	if action && s.stateExec != nil && s.actionExec.executor.State().Ended() && !s.stateExec.executor.State().Ended() {
+		action = false
+	}
 	switch {
-	case s.actionExec != nil:
+	case action:
 		a := s.actionExec
 		exec := a.executor
 		report.Kind, report.Name, report.Qualified, report.Performer = "action", a.name, a.fqn, a.selfFQN

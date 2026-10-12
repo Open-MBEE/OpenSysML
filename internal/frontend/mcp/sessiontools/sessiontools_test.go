@@ -294,6 +294,43 @@ func TestDebuggerDrivesAMachineWithSignals(t *testing.T) {
 	}
 }
 
+func TestDebugCurrentDescribesTheRunStillGoing(t *testing.T) {
+	cs := connect(t, t.TempDir())
+	must(t, cs, "session_submit", args("text", actionModel+machineModel), nil)
+	var v Verdict
+	must(t, cs, "session_run", args("kind", "action", "name", "Debug::tally"), &v)
+	var st DebugState
+	must(t, cs, "debug_current", args(), &st)
+	if st.Kind != "action" || !st.Ended {
+		t.Fatalf("after the action ran: %+v", st)
+	}
+	must(t, cs, "repl_command", args("line", "%instantiate Lamps::bulb"), nil)
+	must(t, cs, "debug_start", args("kind", "state", "name", "bulb"), &st)
+	if st.Kind != "state" || st.CurrentState != "off" {
+		t.Errorf("after the machine started: %+v", st)
+	}
+	must(t, cs, "debug_current", args(), &st)
+	if st.Kind != "state" || st.CurrentState != "off" || !strings.Contains(st.Text, "Current state: off") {
+		t.Errorf("current = %+v", st)
+	}
+}
+
+func TestACancelledCallInterruptsTheRunAndFails(t *testing.T) {
+	cs := connect(t, t.TempDir())
+	must(t, cs, "session_submit", args("text", actionModel), nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	res, err := cs.CallTool(ctx, &sdk.CallToolParams{Name: "runs", Arguments: args("name", "Debug::tally", "count", 1000, "seed", 7)})
+	if err == nil && !res.IsError {
+		t.Fatalf("a cancelled run succeeded: %+v", res.StructuredContent)
+	}
+	var ev EvalResult
+	must(t, cs, "session_eval", args("expression", "1 + 1"), &ev)
+	if ev.Text != "2" {
+		t.Errorf("after the interruption the session answered %q", ev.Text)
+	}
+}
+
 func TestSolverChecksAndExplains(t *testing.T) {
 	if _, err := solve.Discover(); err != nil {
 		t.Skipf("no SMT solver installed: %v", err)

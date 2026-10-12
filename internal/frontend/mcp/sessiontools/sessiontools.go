@@ -37,6 +37,11 @@ func handler[In named, Out any](m *Manager, fn func(context.Context, *repl.Sessi
 			out, err = fn(ctx, s, in)
 			return err
 		})
+		// A call the client abandoned interrupted the session's command, so what
+		// it reports is the run cut short, not an answer.
+		if ctxErr := ctx.Err(); ctxErr != nil && err == nil {
+			err = fmt.Errorf("the call was cancelled and the session's command interrupted: %w", ctxErr)
+		}
 		return nil, out, err
 	}
 }
