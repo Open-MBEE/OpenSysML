@@ -195,10 +195,9 @@ catalogue small for an agent that needs only one of them. The catalogue below is
 own `tools/list`, with each tool's description cut to its first sentence; the tool's full
 description, read by the agent, says what every argument does.
 
-`render_document` and `render_view` are named by both the `lsp` and the `runtime` group; the
-`runtime` group's definition — which takes the model as `paths`, inline `sources` or a
-`modelHash` — is the one served when both groups are on, and the `lsp` group's, over a document
-of the workspace, when `-tools lsp` leaves `runtime` out.
+No two groups share a tool name: the `lsp` group's `render_view` and `render_document` draw a
+document of the workspace, the `runtime` group's `render_model_view` and
+`render_model_document` a model given as `paths`, inline `sources` or a `modelHash`.
 
 ### `lsp`
 
@@ -218,6 +217,8 @@ of the workspace, when `-tools lsp` leaves `runtime` out.
 | `open_document` | Hold a document open with the given text, as an editor buffer the server analyzes instead of the file on disk, so text can be checked (diagnostics, hover, render) before it is written. | yes |
 | `references` | Find every place in the workspace that refers to the element at a position. | no |
 | `rename` | Rename the element declared or referenced at a position, everywhere in the workspace. | yes |
+| `render_document` | Render a document definition (doc def) to Markdown, its queries evaluated over the workspace and its diagrams embedded. | no |
+| `render_view` | Render a diagram or table of a document: a declared view or a pseudo-view, as Mermaid, Graphviz dot, PlantUML, D2, text, Markdown, CSV or TSV. | no |
 | `signature_help` | Describe the invocation enclosing a position: the callable's parameters and which one the position is at. | no |
 | `update_document` | Replace the text of a document held open by open_document and re-analyze it. | yes |
 | `views` | List the views a document declares and the pseudo-views (#tree, #interconnection, ...) render_view can draw of it. | no |
@@ -240,8 +241,8 @@ of the workspace, when `-tools lsp` leaves `runtime` out.
 | `migrate` | Migrate a SysML v1 model — UML XMI with the SysML profile, an Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2 in one of the representations convert writes (the Migrate RPC, the CLI's -migrate). | no |
 | `parse` | Parse SysML v2 / KerML documents as one model and return its modelHash, the root namespace of each document and every diagnostic (the ParseSources RPC). | no |
 | `query` | Select elements of a parsed model with a SysML v2 API & Services Query — scope, select, where — or OSLC query text (the Query RPC). | no |
-| `render_document` | Render a named document — a part def specializing DocumentQueries::Document — to Markdown or HTML (the RenderDocument RPC, the CLI's -render-document), byte for byte what the CLI writes. | no |
-| `render_view` | Render a declared view or a targeted pseudo-view as diagram data (the RenderView RPC): nodes flattened parents first, edges with their ports, table columns and rows, canvas, notes and notices. | no |
+| `render_model_document` | Render a named document of a model given by modelHash, paths or sources (the workspace group's render_document renders by name over the root) — a part def specializing DocumentQueries::Document — to Markdown or HTML (the RenderDocument RPC, the CLI's -render-document), byte for byte what the CLI writes. | no |
+| `render_model_view` | Render a declared view or a targeted pseudo-view of a model given by modelHash, paths or sources as diagram data (the RenderView RPC; the workspace group's render_view renders by name over the root): nodes flattened parents first, edges with their ports, table columns and rows, canvas, notes and notices. | no |
 | `run_analysis` | Run an analysis case (the RunAnalysis RPC, the REPL's %analysis): its subject and inputs bound from the arguments and its own declarations, its body run, every declared output answered with the verdict of its objective and of each assertion in its body; a verification case also answers its own verdict. | no |
 | `run_document_query` | Run a named document query with parameter bindings and answer its typed rows (the RunDocumentQuery RPC, the REPL's %run-query). | no |
 | `run_sweep` | Run an analysis case or calc once per row of a parameter sweep (the RunSweep RPC, the CLI's -sweep): each row an ordinary run with the swept parameters bound to that row's values, stepped through the ranges' cartesian product or drawn with samples and seed. | no |
