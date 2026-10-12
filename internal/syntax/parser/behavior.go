@@ -342,7 +342,7 @@ func (p *Parser) parseDirectionOrMember() ast.Node {
 			rank = 5
 		}
 		if rank == 0 {
-			if hasRefPrefix {
+			if hasRefPrefix || p.directedUsageKindAt(i) {
 				return p.parseBodyMember()
 			}
 			return p.parseDirectionParameter()
@@ -361,6 +361,24 @@ func (p *Parser) parseDirectionOrMember() ast.Node {
 			highestKeyword = tok.KeywordID
 		}
 	}
+}
+
+// directedUsageKindAt reports whether the keyword at offset i, after a direction, is a usage kind
+// the parameter path does not read (`in concern c`, `out use case u`): a direction prefixes every
+// usage (SysML.xtext RefPrefix), so the member is read as the usage it declares.
+func (p *Parser) directedUsageKindAt(i int) bool {
+	tok := p.peekN(i)
+	if tok.KeywordID == "use" {
+		next := p.peekN(i + 1)
+		return next.Kind == lexer.Keyword && next.KeywordID == "case"
+	}
+	if _, ok := parameterKindKeywords[tok.KeywordID]; ok {
+		return false
+	}
+	if _, ok := p.usageKind(tok.KeywordID); !ok {
+		return false
+	}
+	return !namesDeclaration(p.peekN(i + 1))
 }
 
 // parameterKindKeywords are the kind keywords a directed parameter may state; any

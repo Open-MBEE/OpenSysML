@@ -481,3 +481,44 @@ func TestTerminateMarkerClosesTheDeclaration(t *testing.T) {
 		}
 	}
 }
+
+// A string or unrestricted name the file never closes is reported once, at the
+// quote that opens it, and is taken to end with its line, so the declarations
+// after that line are still in the tree; one that closes on a later line is a
+// single literal and no error (KerMLExpressions.xtext:562-566).
+func TestUnterminatedLiteralIsReportedOnceAtItsOpeningQuote(t *testing.T) {
+	for _, tt := range []struct {
+		name, src, want, at string
+	}{
+		{"string", "package P {\n    attribute s = \"open\n    attribute t = 1;\n}\n", `unterminated string literal: missing closing "`, `"open`},
+		{"name", "package P {\n    part def 'A;\n    part def B;\n}\n", "unterminated name: missing closing '", "'A;"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			sf := source.New("t.sysml", []byte(tt.src))
+			p := New(sf)
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 1 || p.Diagnostics[0].Message != tt.want {
+				t.Fatalf("diagnostics = %v, want exactly %q", p.Diagnostics, tt.want)
+			}
+			if got := sf.Text(p.Diagnostics[0].Span); got != tt.at {
+				t.Fatalf("diagnostic over %q, want the opening quote through the end of its line %q", got, tt.at)
+			}
+			members := root.Members[0].(*ast.Membership).Member.(*ast.Package).Members
+			if len(members) != 2 {
+				t.Fatalf("got %d members after the unterminated literal, want both declarations read:\n%s", len(members), ast.Dump(root))
+			}
+		})
+	}
+	src := "package P {\n    attribute s = \"line one\n    line two\";\n    part def 'multi\nline';\n}\n"
+	p := New(source.New("t.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("literals closing on a later line reported: %v", p.Diagnostics)
+	}
+	dump := ast.Dump(root)
+	for _, want := range []string{`value="\"line one\n    line two\""`, `name="multi\nline"`} {
+		if !strings.Contains(dump, want) {
+			t.Fatalf("tree lacks %s:\n%s", want, dump)
+		}
+	}
+}

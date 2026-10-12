@@ -53,6 +53,34 @@ func TestLoopEndToEnd(t *testing.T) {
 	}
 }
 
+// A blank line at the continuation prompt submits an unbalanced buffer, but
+// inside an open string it is the string's own empty line.
+func TestLoopKeepsBlankLineInsideOpenLiteral(t *testing.T) {
+	script := []string{
+		"attribute s = \"first",
+		"",
+		"last\";",
+		"s == \"first\\n\\nlast\"",
+	}
+	var out strings.Builder
+	if err := Loop(&scriptReader{lines: script}, &out, NewSession()); err != nil {
+		t.Fatalf("Loop error: %v", err)
+	}
+	got := out.String()
+	if strings.Contains(got, "unterminated") || !strings.Contains(got, "true") {
+		t.Errorf("blank line did not stay inside the string:\n%s", got)
+	}
+
+	// The escape hatch for an unbalanced bracket is unchanged.
+	out.Reset()
+	if err := Loop(&scriptReader{lines: []string{"package P {", "", "%list"}}, &out, NewSession()); err != nil {
+		t.Fatalf("Loop error: %v", err)
+	}
+	if got := out.String(); !strings.Contains(got, "expected") && !strings.Contains(got, "missing") {
+		t.Errorf("blank line did not force-submit the open package:\n%s", got)
+	}
+}
+
 // TestActionDebuggerCommands tests %action command error handling.
 func TestActionDebuggerCommands(t *testing.T) {
 	script := []string{

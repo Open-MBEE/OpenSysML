@@ -15,10 +15,15 @@ func IsEscapeChar(c byte) bool {
 // StringValue reads the text a STRING_VALUE token spells: the quotes come off
 // and the backslash escapes KerML §8.2.2 defines stand for the characters they
 // name. A backslash before anything else (rejected by the scanner) stands for
-// that character itself.
+// that character itself, and a token the scanner reported unterminated has
+// only its opening quote to come off.
 func StringValue(raw string) string {
-	if len(raw) >= 2 && (raw[0] == '"' || raw[0] == '\'') && raw[len(raw)-1] == raw[0] {
-		raw = raw[1 : len(raw)-1]
+	if len(raw) >= 1 && (raw[0] == '"' || raw[0] == '\'') {
+		if len(raw) >= 2 && raw[len(raw)-1] == raw[0] {
+			raw = raw[1 : len(raw)-1]
+		} else {
+			raw = raw[1:]
+		}
 	}
 	return Unescape(raw)
 }

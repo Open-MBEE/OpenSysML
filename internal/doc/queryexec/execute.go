@@ -546,11 +546,7 @@ func (e *executor) evaluateLiteral(expression queryplan.Expression) (sequence, e
 	var value Value
 	switch kind {
 	case queryplan.LiteralString:
-		text, err := strconv.Unquote(raw)
-		if err != nil {
-			return sequence{}, e.invalidArgument(expression, "", raw)
-		}
-		value = StringValue(text)
+		value = StringValue(source.StringValue(raw))
 	case queryplan.LiteralInteger:
 		integer, ok := semantics.ParseInteger(strings.ReplaceAll(raw, "_", ""))
 		if !ok {

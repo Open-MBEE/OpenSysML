@@ -163,8 +163,8 @@ var compiledCases = []compiledCase{
 	{"Seq::UniqLocInit", []string{"(1,2)"}}, {"Seq::UniqLocInit", []string{"(1,1)"}},
 	{"Seq::UniqLocFree", []string{"(1,2)"}}, {"Seq::UniqLocFree", []string{"(1,1)"}},
 	{"Seq::UniqLocAny", []string{"(1,1)"}},
-	{"Overloads::PickInt", []string{"7"}}, {"Overloads::PickReal", []string{"7.0"}}, {"Overloads::PickFlag", []string{"true"}},
-	{"Overloads::PickQualified", []string{"7"}}, {"Overloads::PickQualified", []string{"-7"}},
+	{"Overloads::Picks::PickInt", []string{"7"}}, {"Overloads::Picks::PickReal", []string{"7.0"}}, {"Overloads::Picks::PickFlag", []string{"true"}},
+	{"Overloads::Picks::PickQualified", []string{"7"}}, {"Overloads::Picks::PickQualified", []string{"-7"}},
 	{"Rec::Read", []string{"1.5"}},
 	{"Rec::Local", []string{"1.5"}},
 	{"Rec::Named", []string{"1.5"}},
@@ -1116,17 +1116,18 @@ func TestCompileRefusesAmbiguousCall(t *testing.T) {
 	s := NewSession()
 	s.Submit(`package Amb {
 		private import ScalarValues::*;
-		package A { calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { calc def pick { in x : Integer; return : Integer = 2; } }
-		private import A::*;
-		private import B::*;
+		package Overloads {
+			calc def pick { in x : Integer; return : Integer = 1; }
+			calc def pick { in x : Integer; return : Integer = 2; }
+		}
+		private import Overloads::*;
 		calc def Pick { in n : Integer; return : Integer = pick(n); }
 	}`)
 	_, err := s.CompileCalc("Amb::Pick", codegen.TargetGo)
 	if !errors.Is(err, codegen.ErrUnsupported) {
 		t.Fatalf("got %v, want an ErrUnsupported refusal", err)
 	}
-	for _, want := range []string{"ambiguous", "Amb::A::pick", "Amb::B::pick"} {
+	for _, want := range []string{"ambiguous", "Amb::Overloads::pick", "Amb::Overloads::pick"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("%v does not mention %q", err, want)
 		}

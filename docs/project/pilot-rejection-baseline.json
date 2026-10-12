@@ -31,7 +31,7 @@
         "digest": "sha256:4063e6eb535e7b65158b64b17e2afff63af3d3b5caa35d851c797744b9d521c4"
       }
     ],
-    "recorded": "2026-10-09"
+    "recorded": "2026-10-12"
   },
   "totals": {
     "cases": 313,
@@ -663,7 +663,7 @@
       "rule": "A string literal must be closed (KerMLExpressions.xtext:514 LiteralString).",
       "mode": "default",
       "bucket": "both-reject",
-      "oursErrors": 2,
+      "oursErrors": 1,
       "pilotErrors": 1
     },
     {
@@ -708,7 +708,7 @@
       "rule": "An unrestricted name must be closed (KerMLExpressions.xtext:536 Name, UNRESTRICTED_NAME).",
       "mode": "default",
       "bucket": "both-reject",
-      "oursErrors": 2,
+      "oursErrors": 1,
       "pilotErrors": 1
     },
     {

@@ -16,7 +16,8 @@ import (
 // Failure modes of overload selection: each returns a typed error naming the
 // declarations at play, never a silent pick.
 func TestInvocationSelectionRobustness(t *testing.T) {
-	t.Run("calc_call_ambiguous_between_two_imports", testCalcCallAmbiguousBetweenTwoImports)
+	t.Run("calc_call_through_two_imports_is_unresolved", testCalcCallThroughTwoImportsIsUnresolved)
+	t.Run("calc_call_ambiguous_between_two_generals", testCalcCallAmbiguousBetweenTwoGenerals)
 	t.Run("calc_call_ambiguity_names_only_the_tied_best", testCalcCallAmbiguityNamesOnlyTheTiedBest)
 	t.Run("calc_call_fits_no_visible_candidate", testCalcCallFitsNoVisibleCandidate)
 	t.Run("calc_call_fits_no_visible_candidate_behind_a_non_callable", testCalcCallFitsNoVisibleCandidateBehindANonCallable)
@@ -42,10 +43,11 @@ func TestInvocationSelectionRobustness(t *testing.T) {
 	t.Run("calc_call_repeated_named_argument_is_refused", testCalcCallRepeatedNamedArgumentIsRefused)
 	t.Run("calc_call_names_a_parameter_as_the_checker_does", testCalcCallNamesAParameterAsTheCheckerDoes)
 	t.Run("calc_call_selects_among_owned_inherited_and_recursive_import", testCalcCallSelectsAmongOwnedInheritedAndRecursiveImport)
-	t.Run("calc_call_selects_among_inherited_imports", testCalcCallSelectsAmongInheritedImports)
+	t.Run("calc_call_through_inherited_imports_is_unresolved", testCalcCallThroughInheritedImportsIsUnresolved)
 	t.Run("calc_call_selects_by_collection_literal_element_type", testCalcCallSelectsByCollectionLiteralElementType)
 	t.Run("action_call_selects_by_argument_type", testActionCallSelectsByArgumentType)
-	t.Run("action_call_ambiguous_between_two_imports", testActionCallAmbiguousBetweenTwoImports)
+	t.Run("action_call_through_two_imports_is_unresolved", testActionCallThroughTwoImportsIsUnresolved)
+	t.Run("action_call_ambiguous_between_two_generals", testActionCallAmbiguousBetweenTwoGenerals)
 	t.Run("action_call_undetermined_statically_is_settled_by_the_values", testActionCallUndeterminedStaticallyIsSettledByTheValues)
 	t.Run("action_call_undetermined_statically_reports_a_tie_the_values_leave", testActionCallUndeterminedStaticallyReportsATieTheValuesLeave)
 	t.Run("action_call_selects_an_action_over_a_more_specific_calc", testActionCallSelectsAnActionOverAMoreSpecificCalc)
@@ -65,12 +67,10 @@ func TestInvocationSelectionRobustness(t *testing.T) {
 // selecting on weaker, untyped arguments.
 func TestInvocationSelectionRequiresArgumentTyper(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
-		package test {
+		part def A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			calc chooseInt { in v : Integer; pick(v) }
 		}
 	`
@@ -98,18 +98,16 @@ func TestInvocationSelectionRequiresArgumentTyper(t *testing.T) {
 // overloadedActionsSrc declares two imported same-named actions, told apart
 // by the type of their one input.
 const overloadedActionsSrc = `
-	package A {
+	part def A {
 		private import ScalarValues::*;
 		action def tag { in x : Integer; out code : Integer; first start; action set { assign code := 1; } done; succession first start then set; succession first set then done; }
 	}
-	package B {
+	part def B {
 		private import ScalarValues::*;
 		action def tag { in x : %s; out code : Integer; first start; action set { assign code := 2; } done; succession first start then set; succession first set then done; }
 	}
-	package test {
+	part def test :> A, B {
 		private import ScalarValues::*;
-		private import A::*;
-		private import B::*;
 		action def Outer {
 			attribute code : Integer = 0;
 			first start;
@@ -151,18 +149,16 @@ func testActionCallSelectsByArgumentType(t *testing.T) {
 // candidate for an action performance.
 func testActionCallSelectsAnActionOverAMoreSpecificCalc(t *testing.T) {
 	src := `
-		package A {
+		part def A {
 			private import ScalarValues::*;
 			calc def tag { in x : Integer; return : Integer = x + 1; }
 		}
-		package B {
+		part def B {
 			private import ScalarValues::*;
 			action def tag { in x : Real; out code : Integer; first start; action set { assign code := 2; } done; succession first start then set; succession first set then done; }
 		}
-		package test {
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			action def Outer {
 				attribute code : Integer = 0;
 				first start;
@@ -191,18 +187,16 @@ func testActionCallSelectsAnActionOverAMoreSpecificCalc(t *testing.T) {
 // whether the name denotes one calc or several.
 func testActionCallNamingOnlyACalcIsNotAnAction(t *testing.T) {
 	const src = `
-		package A {
+		part def A {
 			private import ScalarValues::*;
 			calc def tag { in x : Integer; return : Integer = x + 1; }
 		}
-		package B {
+		part def B {
 			private import ScalarValues::*;
 			calc def tag { in x : String; return : Integer = 2; }
 		}
-		package test {
+		part def test :> %s {
 			private import ScalarValues::*;
-			private import A::*;
-			%s
 			action def Outer {
 				attribute code : Integer = 0;
 				first start;
@@ -213,15 +207,15 @@ func testActionCallNamingOnlyACalcIsNotAnAction(t *testing.T) {
 			}
 		}
 	`
-	for _, imports := range []string{``, `private import B::*;`} {
-		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(src, imports)))
+	for _, generals := range []string{"A", "A, B"} {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(src, generals)))
 		outer := findSymbolByName(idx.DocumentRoot("<test>"), "Outer", ast.DefAction)
 		if outer == nil {
 			t.Fatal("Outer action not found")
 		}
 		_, err := ctx.ExecuteAction(outer)
 		if err == nil || !strings.Contains(err.Error(), "tag is not an action (calcDef)") {
-			t.Errorf("imports %q: error = %v, want 'tag is not an action (calcDef)'", imports, err)
+			t.Errorf("generals %q: error = %v, want 'tag is not an action (calcDef)'", generals, err)
 		}
 	}
 }
@@ -229,18 +223,16 @@ func testActionCallNamingOnlyACalcIsNotAnAction(t *testing.T) {
 // receiverActionsSrc declares two same-named actions whose outputs depend on
 // the input, so a call shows both which one ran and what it was bound to.
 const receiverActionsSrc = `
-	package A {
+	part def A {
 		private import ScalarValues::*;
 		action def tag { in x : Integer; out code : Integer; first start; action set { assign code := x + 10; } done; succession first start then set; succession first set then done; }
 	}
-	package B {
+	part def B {
 		private import ScalarValues::*;
 		action def tag { in x : Integer; in y : Integer[1]; out code : Integer; first start; action set { assign code := x * 100 + y; } done; succession first start then set; succession first set then done; }
 	}
-	package test {
+	part def test :> A, B {
 		private import ScalarValues::*;
-		private import A::*;
-		private import B::*;
 		action def Outer {
 			attribute code : Integer = 0;
 			first start;
@@ -387,9 +379,8 @@ func testActionCallNamesAParameterAsTheCheckerDoes(t *testing.T) {
 // default reaches it along its redefinitions; an input with neither stays unbound.
 func testActionCallOmitsOptionalInputs(t *testing.T) {
 	const outer = `
-		package test {
+		part def test :> B {
 			private import ScalarValues::*;
-			private import B::*;
 			action def Outer {
 				attribute code : Integer = 0;
 				first start;
@@ -410,7 +401,7 @@ func testActionCallOmitsOptionalInputs(t *testing.T) {
 	}
 
 	outputs, err := run(`
-		package B {
+		part def B {
 			private import ScalarValues::*;
 			private import SequenceFunctions::*;
 			action def tag { in x : Integer[0..1]; out code : Integer; first start; action set { assign code := x->size() + (if x->isEmpty() ? 100 else 200); } done; succession first start then set; succession first set then done; }
@@ -423,7 +414,7 @@ func testActionCallOmitsOptionalInputs(t *testing.T) {
 	}
 
 	outputs, err = run(`
-		package B {
+		part def B {
 			private import ScalarValues::*;
 			action def base { in x : Integer = 3; out code : Integer; }
 			action def tag :> base { in x : Integer :>> x; first start; action set { assign code := x + 10; } done; succession first start then set; succession first set then done; }
@@ -436,7 +427,7 @@ func testActionCallOmitsOptionalInputs(t *testing.T) {
 	}
 
 	_, err = run(`
-		package B {
+		part def B {
 			private import ScalarValues::*;
 			action def base { in x : Integer = 3; out code : Integer; }
 			action def tag :> base { in x : Integer :>> x; in y : Integer[1]; first start; action set { assign code := x + y; } done; succession first start then set; succession first set then done; }
@@ -449,7 +440,7 @@ func testActionCallOmitsOptionalInputs(t *testing.T) {
 // performedCallSrc has a part perform a behavior calling an action with the part's own
 // feature, whose instance value differs from the default; receiver and argument forms.
 const performedCallSrc = `
-	package P {
+	part def P {
 		private import ScalarValues::*;
 		action def report { in x : Integer; out code : Integer; first start; action set { assign code := x + 10; } done; succession first start then set; succession first set then done; }
 		part def Rover {
@@ -518,7 +509,7 @@ func testStateBehaviorCallArgumentsReadThePerformingObject(t *testing.T) {
 // An argument reaches the performing object only through names the caller's
 // scope resolves to its features, not through every feature the instance has.
 func testActionCallArgumentCannotNameAFeatureOutOfScope(t *testing.T) {
-	src := `package P {
+	src := `part def P {
 		private import ScalarValues::*;
 		action def report { in x : Integer; out code : Integer; first start; action set { assign code := x + 10; } done; succession first start then set; succession first set then done; }
 		part def Rover { attribute speed : Integer = 7; }
@@ -547,7 +538,35 @@ func testActionCallArgumentCannotNameAFeatureOutOfScope(t *testing.T) {
 }
 
 // Two imported actions taking the same argument type are refused as ambiguous.
-func testActionCallAmbiguousBetweenTwoImports(t *testing.T) {
+func testActionCallThroughTwoImportsIsUnresolved(t *testing.T) {
+	src := `
+		package A { private import ScalarValues::*; action def tag { in x : Integer; out code : Integer; first start; action set { assign code := 1; } done; succession first start then set; succession first set then done; } }
+		package B { private import ScalarValues::*; action def tag { in x : String; out code : Integer; first start; action set { assign code := 2; } done; succession first start then set; succession first set then done; } }
+		package test {
+			private import ScalarValues::*;
+			private import A::*;
+			private import B::*;
+			action def Outer {
+				first start;
+				action call = tag(3);
+				done;
+				succession first start then call;
+				succession first call then done;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	outer := findSymbolByName(idx.DocumentRoot("<test>"), "Outer", ast.DefAction)
+	if outer == nil {
+		t.Fatal("Outer action not found")
+	}
+	outputs, err := ctx.ExecuteAction(outer)
+	if err == nil || !strings.Contains(err.Error(), "unresolved action reference: tag") {
+		t.Fatalf("err = %v, outputs %v; want the unresolved action reference", err, outputs)
+	}
+}
+
+func testActionCallAmbiguousBetweenTwoGenerals(t *testing.T) {
 	outputs, err := runOverloadedAction(t, "Integer", "3")
 	if err == nil {
 		t.Fatalf("expected an ambiguity error, action returned %v", outputs)
@@ -565,18 +584,16 @@ func testActionCallAmbiguousBetweenTwoImports(t *testing.T) {
 // undeterminedActionsSrc calls same-named imported actions with arguments the checker
 // cannot type: untyped calcs yield them, so only the run's values tell the overloads apart.
 const undeterminedActionsSrc = `
-	package A {
+	part def A {
 		private import ScalarValues::*;
 		action def tag { in x : Integer; in y : Real[1]; out code : Integer; first start; action set { assign code := 1; } done; succession first start then set; succession first set then done; }
 	}
-	package B {
+	part def B {
 		private import ScalarValues::*;
 		action def tag { in x : Real; in y : Integer[1]; out code : Integer; first start; action set { assign code := 2; } done; succession first start then set; succession first set then done; }
 	}
-	package test {
+	part def test :> A, B {
 		private import ScalarValues::*;
-		private import A::*;
-		private import B::*;
 		calc def same { in v; v }
 		action def Outer {
 			attribute code : Integer = 0;
@@ -643,14 +660,12 @@ func testActionCallUndeterminedStaticallyReportsATieTheValuesLeave(t *testing.T)
 
 // Two imported calcs with the same name take the same argument type, and the
 // call is refused as ambiguous rather than answered by whichever came first.
-func testCalcCallAmbiguousBetweenTwoImports(t *testing.T) {
+func testCalcCallAmbiguousBetweenTwoGenerals(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 2; } }
-		package test {
+		part def A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 2; } }
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			calc choose { in v : Integer; pick(v) }
 		}
 	`
@@ -675,18 +690,57 @@ func testCalcCallAmbiguousBetweenTwoImports(t *testing.T) {
 	}
 }
 
-// A broader overload the arguments also fit is beaten by the tied ones, so the
-// ambiguity error names only those.
-func testCalcCallAmbiguityNamesOnlyTheTiedBest(t *testing.T) {
+// Two imports bringing distinct calcs of one name hide it from the importing
+// namespace (KerML 7.2.5.4): the call is unresolved there, and the error carries the
+// hint naming the qualified names that reach each.
+func testCalcCallThroughTwoImportsIsUnresolved(t *testing.T) {
 	src := `
 		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 2; } }
-		package C { private import ScalarValues::*; calc def pick { in x : Real; return : Integer = 3; } }
+		package B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
 		package test {
 			private import ScalarValues::*;
 			private import A::*;
 			private import B::*;
-			private import C::*;
+			calc choose { in v : Integer; pick(v) }
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	rootScope := idx.DocumentRoot("<test>")
+	sym := findSymbolByName(rootScope, "choose", ast.DefCalc)
+	if sym == nil {
+		t.Fatal("choose calc not found")
+	}
+	arg := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 3}}
+	result, err := ctx.InvokeCalc(sym, []Value{arg}, rootScope)
+	if err == nil {
+		t.Fatalf("expected an unresolved-reference error, calc returned %+v", result)
+	}
+	wantUnresolvedHiddenName(t, err, "pick", "A::pick or B::pick")
+}
+
+// wantUnresolvedHiddenName asserts err is the unresolved-reference error of a name
+// two imports hide, carrying the hint that names the qualified names reaching each.
+func wantUnresolvedHiddenName(t *testing.T, err error, name, qualified string) {
+	t.Helper()
+	for _, want := range []string{
+		"unresolved reference: " + name,
+		"bring distinct elements named '" + name + "', so none is a member; qualify the one meant: " + qualified,
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not contain %q", err, want)
+		}
+	}
+}
+
+// A broader overload the arguments also fit is beaten by the tied ones, so the
+// ambiguity error names only those.
+func testCalcCallAmbiguityNamesOnlyTheTiedBest(t *testing.T) {
+	src := `
+		part def A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 2; } }
+		part def C { private import ScalarValues::*; calc def pick { in x : Real; return : Integer = 3; } }
+		part def test :> A, B, C {
+			private import ScalarValues::*;
 			calc choose { pick(3) }
 		}
 	`
@@ -709,12 +763,10 @@ func testCalcCallAmbiguityNamesOnlyTheTiedBest(t *testing.T) {
 // still names the first candidate's expectation.
 func testCalcCallFitsNoVisibleCandidate(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in x : Boolean; return : Integer = 2; } }
-		package test {
+		part def A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in x : Boolean; return : Integer = 2; } }
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			calc choose { in v : String; pick(v) }
 		}
 	`
@@ -738,12 +790,10 @@ func testCalcCallFitsNoVisibleCandidate(t *testing.T) {
 // call: the mismatch is reported against the callable's parameter.
 func testCalcCallFitsNoVisibleCandidateBehindANonCallable(t *testing.T) {
 	src := `
-		package A { attribute def pick; }
-		package B { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = x; } }
-		package test {
+		part def A { attribute def pick; }
+		part def B { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = x; } }
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			calc choose { in v : String; pick(v) }
 		}
 	`
@@ -765,12 +815,10 @@ func testCalcCallFitsNoVisibleCandidateBehindANonCallable(t *testing.T) {
 // The candidate whose parameter type the argument conforms to is the one run.
 func testCalcCallSelectsByArgumentType(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
-		package test {
+		part def A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			calc chooseInt { in v : Integer; pick(v) }
 			calc chooseStr { in v : String; pick(v) }
 		}
@@ -805,12 +853,10 @@ func testCalcCallSelectsByArgumentType(t *testing.T) {
 // a candidate the argument binds completely is run instead when there is one.
 func testCalcCallOmittingAnInputRunsTheFittingCandidate(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in s : String; in y : Real[1]; return : Integer = 2; } }
-		package test {
+		part def A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in s : String; in y : Real[1]; return : Integer = 2; } }
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			calc choose { in v : String; pick(v) }
 			calc complete { in v : Integer; pick(v) }
 		}
@@ -846,12 +892,10 @@ func testCalcCallOmittingAnInputRunsTheFittingCandidate(t *testing.T) {
 // rather than dispatched to whichever is found first.
 func testCalcCallOmittingEveryInputIsAmbiguous(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in s : String; return : Integer = 2; } }
-		package test {
+		part def A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in s : String; return : Integer = 2; } }
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			calc choose { pick() }
 		}
 	`
@@ -874,16 +918,14 @@ func testCalcCallOmittingEveryInputIsAmbiguous(t *testing.T) {
 // only its signature fits, and the same-named calc when only that one does.
 func testCalcCallSelectsAFeatureTypedByACalc(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 1; } }
-		package B {
+		part def A { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 1; } }
+		part def B {
 			private import ScalarValues::*;
 			calc def Twice { in x : Integer; return : Integer = 2 * x; }
 			ref pick : Twice;
 		}
-		package test {
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			calc chooseInt { in v : Integer; pick(v) }
 			calc chooseStr { in v : String; pick(v) }
 		}
@@ -1109,21 +1151,17 @@ func testCalcCallBindsALibraryFunctionThroughRedeclaredInputs(t *testing.T) {
 // actions declare is still refused as not a calc.
 func testCalcCallSelectsACalcOverAMoreSpecificAction(t *testing.T) {
 	const src = `
-		package A { private import ScalarValues::*; action def pick { in x : Integer; out r : Integer; } }
-		package B { private import ScalarValues::*; calc def pick { in x : Real; return : Integer = 2; } }
-		package test {
+		part def A { private import ScalarValues::*; action def pick { in x : Integer; out r : Integer; } }
+		part def B { private import ScalarValues::*; calc def pick { in x : Real; return : Integer = 2; } }
+		part def test :> %s {
 			private import ScalarValues::*;
-			%s
 			calc choose { in v : Integer; pick(v) }
 			calc chooseAction { in v : Integer; A::pick(v) }
 		}
 	`
 	three := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 3}}
-	for _, imports := range []string{
-		"private import A::*; private import B::*;",
-		"private import B::*; private import A::*;",
-	} {
-		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(src, imports)))
+	for _, generals := range []string{"A, B", "B, A"} {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(src, generals)))
 		rootScope := idx.DocumentRoot("<test>")
 		choose := findSymbolByName(rootScope, "choose", ast.DefCalc)
 		if choose == nil {
@@ -1131,23 +1169,23 @@ func testCalcCallSelectsACalcOverAMoreSpecificAction(t *testing.T) {
 		}
 		result, err := ctx.InvokeCalc(choose, []Value{three}, rootScope)
 		if err != nil {
-			t.Fatalf("%s: pick(3): %v", imports, err)
+			t.Fatalf("%s: pick(3): %v", generals, err)
 		}
 		if result.Kind != ValConst || result.Const.Int != 2 {
-			t.Fatalf("%s: pick(3) = %+v, want 2 from B::pick", imports, result)
+			t.Fatalf("%s: pick(3) = %+v, want 2 from B::pick", generals, result)
 		}
 		chooseAction := findSymbolByName(rootScope, "chooseAction", ast.DefCalc)
 		if chooseAction == nil {
 			t.Fatal("chooseAction calc not found")
 		}
 		if _, err := ctx.InvokeCalc(chooseAction, []Value{three}, rootScope); !errors.Is(err, ErrNotACalc) {
-			t.Fatalf("%s: A::pick(3) error = %v, want ErrNotACalc", imports, err)
+			t.Fatalf("%s: A::pick(3) error = %v, want ErrNotACalc", generals, err)
 		}
 	}
 	// With only the action fitting the argument, the calc is still the one called, and
 	// the argument is refused against it as the checker reports it.
 	onlyAction := strings.Replace(src, "in x : Real; return : Integer = 2;", "in x : String; return : Integer = 2;", 1)
-	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(onlyAction, "private import A::*; private import B::*;")))
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(onlyAction, "A, B")))
 	rootScope := idx.DocumentRoot("<test>")
 	choose := findSymbolByName(rootScope, "choose", ast.DefCalc)
 	_, err := ctx.InvokeCalc(choose, []Value{three}, rootScope)
@@ -1282,12 +1320,10 @@ func testBareCallReachesPrivateRootDeclarationsOfOtherDocuments(t *testing.T) {
 // arguments it fits, whichever import lists first.
 func testCalcCallTypedParameterBeatsUntyped(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in x : Real; in y[1]; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in x : Real; in y : Integer[1]; return : Integer = 2; } }
-		package test {
+		part def A { private import ScalarValues::*; calc def pick { in x : Real; in y[1]; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in x : Real; in y : Integer[1]; return : Integer = 2; } }
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			calc typed { in v : Integer; pick(1, v) }
 			calc loose { in v : Integer; pick(1, "b") }
 		}
@@ -1314,12 +1350,10 @@ func testCalcCallTypedParameterBeatsUntyped(t *testing.T) {
 // so two candidates differing only in that spelling tie and the call is refused.
 func testCalcCallExplicitAnythingTiesWithUntyped(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; private import Base::Anything; calc def pick { in x : Real; in y : Anything; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in x : Real; in y; return : Integer = 2; } }
-		package test {
+		part def A { private import ScalarValues::*; private import Base::Anything; calc def pick { in x : Real; in y : Anything; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in x : Real; in y; return : Integer = 2; } }
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			calc choose { in w : Real; in v : Integer; pick(w, v) }
 		}
 	`
@@ -1350,13 +1384,11 @@ func testCalcCallExplicitAnythingTiesWithUntyped(t *testing.T) {
 func testCalcCallCrossedSpecificityIsAmbiguous(t *testing.T) {
 	src := `
 		package Types { attribute def Foo; }
-		package A { private import ScalarValues::*; private import Base::Anything; calc def pick { in x : Anything; in y : Real; return : Integer = 1; } }
-		package B { private import ScalarValues::*; private import Types::Foo; calc def pick { in x : Foo; in y; return : Integer = 2; } }
-		package test {
+		part def A { private import ScalarValues::*; private import Base::Anything; calc def pick { in x : Anything; in y : Real; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; private import Types::Foo; calc def pick { in x : Foo; in y; return : Integer = 2; } }
+		part def test :> A, B {
 			private import ScalarValues::*;
 			private import Types::Foo;
-			private import A::*;
-			private import B::*;
 			calc choose { in f : Foo; in w : Real; pick(f, w) }
 		}
 	`
@@ -1390,15 +1422,11 @@ func testCalcCallCrossedSpecificityIsAmbiguous(t *testing.T) {
 // the run selects by the values' types, and refuses values that still tie.
 func testCalcCallUndeterminedStaticallyIsSettledByTheValues(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
-		package C { private import ScalarValues::*; calc def pick { in x : Integer; in y : Real[1]; return : Integer = 3; } }
-		package D { private import ScalarValues::*; calc def pick { in x : Real; in y : Integer[1]; return : Integer = 4; } }
-		package test {
-			private import A::*;
-			private import B::*;
-			private import C::*;
-			private import D::*;
+		part def A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
+		part def C { private import ScalarValues::*; calc def pick { in x : Integer; in y : Real[1]; return : Integer = 3; } }
+		part def D { private import ScalarValues::*; calc def pick { in x : Real; in y : Integer[1]; return : Integer = 4; } }
+		part def test :> A, B, C, D {
 			calc choose { in v; pick(v) }
 			calc choosePair { in v; in w; pick(v, w) }
 		}
@@ -1450,17 +1478,12 @@ func testCalcCallUndeterminedStaticallyIsSettledByTheValues(t *testing.T) {
 // checker selects for the same value written as a literal.
 func testCalcCallUndeterminedStaticallyTypesAValueAsItsLiteral(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in x : Natural; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 2; } }
-		package C { private import ScalarValues::*; calc def pick { in x : Real; return : Integer = 3; } }
-		package D { private import ScalarValues::*; calc def count { in xs : Natural[*]; return : Integer = 1; } }
-		package E { private import ScalarValues::*; calc def count { in xs : Integer[*]; return : Integer = 2; } }
-		package test {
-			private import A::*;
-			private import B::*;
-			private import C::*;
-			private import D::*;
-			private import E::*;
+		part def A { private import ScalarValues::*; calc def pick { in x : Natural; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 2; } }
+		part def C { private import ScalarValues::*; calc def pick { in x : Real; return : Integer = 3; } }
+		part def D { private import ScalarValues::*; calc def count { in xs : Natural[*]; return : Integer = 1; } }
+		part def E { private import ScalarValues::*; calc def count { in xs : Integer[*]; return : Integer = 2; } }
+		part def test :> A, B, C, D, E {
 			calc choose { in v; pick(v) }
 			calc chooseAll { in vs[*]; count(vs) }
 			calc literalOne { pick(1) }
@@ -1526,7 +1549,7 @@ func testCalcCallUndeterminedStaticallyTypesAValueAsItsLiteral(t *testing.T) {
 // selects never runs the branch, and a calc selected instead evaluates it once.
 func testCalcCallUndeterminedStaticallyKeepsADeferredArgumentUnevaluated(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def 'and' { in x : Integer; in y : Integer; return : Integer = x + y; } }
+		part def A { private import ScalarValues::*; calc def 'and' { in x : Integer; in y : Integer; return : Integer = x + y; } }
 		package test {
 			private import ScalarValues::*;
 			private import ControlFunctions::*;
@@ -1568,11 +1591,9 @@ func testCalcCallUndeterminedStaticallyKeepsADeferredArgumentUnevaluated(t *test
 // not only the one the run lists first: the exact fit beats the loose one found first.
 func testCalcCallUndeterminedStaticallyIsSettledByEveryClassifier(t *testing.T) {
 	src := `
-		package P { private import ScalarValues::*; item def A; item def B :> A; calc def pick { in v : B; return : Integer = 1; } }
-		package Q { private import ScalarValues::*; item def C :> P::A; calc def pick { in v : C; return : Integer = 2; } }
-		package test {
-			private import Q::*;
-			private import P::*;
+		part def P { private import ScalarValues::*; item def A; item def B :> A; calc def pick { in v : B; return : Integer = 1; } }
+		part def Q { private import ScalarValues::*; item def C :> P::A; calc def pick { in v : C; return : Integer = 2; } }
+		part def test :> Q, P {
 			item def Rack {
 				item x : A [1];
 				item b : B [1] = x;
@@ -1609,12 +1630,10 @@ func testCalcCallUndeterminedStaticallyIsSettledByEveryClassifier(t *testing.T) 
 // one, naming the parameter, rather than binding the later value.
 func testCalcCallRepeatedNamedArgumentIsRefused(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
-		package test {
+		part def A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			calc twice { in i : Integer; in s : String; pick(x = i, x = s) }
 		}
 	`
@@ -1697,13 +1716,11 @@ func testCalcCallNamesAParameterAsTheCheckerDoes(t *testing.T) {
 func testCalcCallSelectsBySiblingScalarType(t *testing.T) {
 	src := `
 		package Q { private import ScalarValues::*; attribute def Mass :> Real; attribute def Volume :> Real; }
-		package A { private import ScalarValues::*; private import Q::*; calc def pick { in m : Mass; return : Integer = 1; } }
-		package B { private import ScalarValues::*; private import Q::*; calc def pick { in v : Volume; return : Integer = 2; } }
-		package test {
-			private import ScalarValues::*;
+		part def A { private import ScalarValues::*; private import Q::*; calc def pick { in m : Mass; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; private import Q::*; calc def pick { in v : Volume; return : Integer = 2; } }
+		part def test :> A, B {
 			private import Q::*;
-			private import A::*;
-			private import B::*;
+			private import ScalarValues::*;
 			calc byMass { in kg : Mass; pick(kg) }
 			calc byVolume { in litre : Volume; pick(litre) }
 		}
@@ -1728,10 +1745,13 @@ func testCalcCallSelectsBySiblingScalarType(t *testing.T) {
 
 // Every protected import of a general type contributes its overload to the
 // specializing body, not only the first import's.
-func testCalcCallSelectsAmongInheritedImports(t *testing.T) {
+// A general's protected imports bringing distinct calcs of one name hide it there
+// (KerML 7.2.5.4), so a specialization finds no `pick`: reading the attributes fails
+// with the unresolved reference and its hint.
+func testCalcCallThroughInheritedImportsIsUnresolved(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
+		part def A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
 		package test {
 			private import ScalarValues::*;
 			part def Base { protected import A::*; protected import B::*; }
@@ -1750,14 +1770,12 @@ func testCalcCallSelectsAmongInheritedImports(t *testing.T) {
 	if err != nil {
 		t.Fatalf("instantiate: %v", err)
 	}
-	for attr, want := range map[string]string{"i": "1", "s": "2"} {
+	for _, attr := range []string{"i", "s"} {
 		fv, err := inst.GetFeatureValue(ctx, attr)
-		if err != nil {
-			t.Fatalf("%s: %v", attr, err)
+		if err == nil {
+			t.Fatalf("%s = %s, want the unresolved reference", attr, FormatTraceValue(fv.HeldValue()))
 		}
-		if got := FormatTraceValue(fv.HeldValue()); got != want {
-			t.Fatalf("%s = %s, want %s", attr, got, want)
-		}
+		wantUnresolvedHiddenName(t, err, "pick", "A::pick or B::pick")
 	}
 }
 
@@ -1765,12 +1783,10 @@ func testCalcCallSelectsAmongInheritedImports(t *testing.T) {
 // in element type are told apart.
 func testCalcCallSelectsByCollectionLiteralElementType(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def count { in xs : String[*]; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def count { in xs : Integer[*]; return : Integer = 2; } }
-		package test {
+		part def A { private import ScalarValues::*; calc def count { in xs : String[*]; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def count { in xs : Integer[*]; return : Integer = 2; } }
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			calc ofText { count(("a", "b")) }
 			calc ofNumbers { count((1, 2, 3)) }
 		}
@@ -1824,7 +1840,7 @@ func testCalcCallSelectsAmongOwnedInheritedAndRecursiveImport(t *testing.T) {
 				package Numbers { calc def pick { in x : Integer; return : Integer = 1; } }
 				package Text { calc def pick { in x : String; return : Integer = 2; } }
 			}
-			package C {
+			part def C {
 				private import ScalarValues::*;
 				private import Lib::**;
 				calc byInt { in v : Integer; pick(v) }
@@ -1833,8 +1849,8 @@ func testCalcCallSelectsAmongOwnedInheritedAndRecursiveImport(t *testing.T) {
 		}
 		package Qualified {
 			private import ScalarValues::*;
-			package A { calc def pick { in x : Integer; return : Integer = 1; } }
-			package B { calc def pick { in x : String; return : Integer = 2; } }
+			part def A { calc def pick { in x : Integer; return : Integer = 1; } }
+			part def B { calc def pick { in x : String; return : Integer = 2; } }
 			package Both {
 				public import A::*;
 				public import B::*;
@@ -1865,10 +1881,6 @@ func testCalcCallSelectsAmongOwnedInheritedAndRecursiveImport(t *testing.T) {
 		{"Inherited::byStr", NewStringValue("s"), 2},
 		{"Inherited::oneBaseInt", intArg, 1},
 		{"Inherited::oneBaseStr", NewStringValue("s"), 2},
-		{"Recursive::C::byInt", intArg, 1},
-		{"Recursive::C::byStr", NewStringValue("s"), 2},
-		{"Qualified::reexportedInt", intArg, 1},
-		{"Qualified::reexportedStr", NewStringValue("s"), 2},
 		{"Qualified::inheritedInt", intArg, 1},
 		{"Qualified::inheritedStr", NewStringValue("s"), 2},
 		{"Qualified::inheritedHidesImportStr", NewStringValue("s"), 2},
@@ -1886,6 +1898,27 @@ func testCalcCallSelectsAmongOwnedInheritedAndRecursiveImport(t *testing.T) {
 			t.Fatalf("%s = %+v, want %d", tc.qual, result, tc.want)
 		}
 	}
+	// A recursive import reaching two distinct `pick`, and a namespace re-exporting
+	// two imports that bring them, hide the name (KerML 7.2.5.4): the calls are unresolved.
+	for _, tc := range []struct {
+		qual string
+		arg  Value
+		want string
+	}{
+		{"Recursive::C::byInt", intArg, "qualify the one meant: Recursive::Lib::Numbers::pick or Recursive::Lib::Text::pick"},
+		{"Recursive::C::byStr", NewStringValue("s"), "qualify the one meant: Recursive::Lib::Numbers::pick or Recursive::Lib::Text::pick"},
+		{"Qualified::reexportedInt", intArg, "unresolved reference: Both::pick"},
+		{"Qualified::reexportedStr", NewStringValue("s"), "unresolved reference: Both::pick"},
+	} {
+		matches := idx.LookupQualified(tc.qual)
+		if len(matches) != 1 {
+			t.Fatalf("%s: %d symbols, want 1", tc.qual, len(matches))
+		}
+		result, err := ctx.InvokeCalc(matches[0], []Value{tc.arg}, rootScope)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Fatalf("%s: err = %v, result %+v; want the unresolved reference %q", tc.qual, err, result, tc.want)
+		}
+	}
 	hidden := idx.LookupQualified("Qualified::inheritedHidesImportInt")
 	if len(hidden) != 1 {
 		t.Fatalf("inheritedHidesImportInt: %d symbols, want 1", len(hidden))
@@ -1900,12 +1933,10 @@ func testCalcCallSelectsAmongOwnedInheritedAndRecursiveImport(t *testing.T) {
 // same-arity candidates apart.
 func testCalcCallSelectsByNamedArgument(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in width : Integer; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in height : Integer; return : Integer = 2; } }
-		package test {
+		part def A { private import ScalarValues::*; calc def pick { in width : Integer; return : Integer = 1; } }
+		part def B { private import ScalarValues::*; calc def pick { in height : Integer; return : Integer = 2; } }
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			calc byWidth { in v : Integer; pick(width = v) }
 			calc byHeight { in v : Integer; pick(height = v) }
 		}

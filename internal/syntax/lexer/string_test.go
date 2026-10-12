@@ -27,6 +27,11 @@ func TestStringValue(t *testing.T) {
 		{`"héllo 🚗"`, "héllo 🚗"},
 		{`"trailing\"`, `trailing\`},
 		{"unquoted", "unquoted"},
+		{"\"line one\n    line two\"", "line one\n    line two"},
+		{"'multi\nline'", "multi\nline"},
+		{`"open`, "open"},
+		{`'open`, "open"},
+		{`"`, ""},
 	}
 	for _, tt := range tests {
 		if got := source.StringValue(tt.raw); got != tt.want {

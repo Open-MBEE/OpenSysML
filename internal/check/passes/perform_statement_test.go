@@ -58,18 +58,16 @@ func rebuildMember(n ast.Node, replaced *bool) ast.Node {
 }
 
 const performStatementSrc = `
-	package A {
+	part def A {
 		private import ScalarValues::*;
 		%s def tag { in x : %s; %s }
 	}
-	package B {
+	part def B {
 		private import ScalarValues::*;
 		%s def tag { in x : %s; %s }
 	}
-	package test {
+	part def test :> A, B {
 		private import ScalarValues::*;
-		private import A::*;
-		private import B::*;
 		action def Outer {
 			action call = tag(%s);
 		}

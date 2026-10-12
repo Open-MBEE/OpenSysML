@@ -72,7 +72,7 @@ const (
 
 	Keyword // generic keyword marker; specific keyword identity via Token.KeywordID
 
-	Error // illegal char / unterminated literal
+	Error // illegal char
 )
 
 var kindNames = map[Kind]string{
@@ -133,7 +133,9 @@ type Token struct {
 	KeywordID string // populated for Kind==Keyword
 	// Unterminated marks a comment or note the scanner ran to the end of the
 	// file without finding its closing "*/", so everything after the opener —
-	// possibly the rest of the document — is inside it.
+	// possibly the rest of the document — is inside it; and a string or
+	// unrestricted name whose closing quote the file never has, cut at the end
+	// of the line it opens on.
 	Unterminated bool
 	// BadEscape marks a string or unrestricted name spelling a backslash escape
 	// outside the set its terminal admits; InvalidEscapes locates them.

@@ -14,24 +14,21 @@ import (
 // ambiguousNavigationSrc imports two equally specific `pick(Integer)` overloads and a
 // broader `pick(Real)`, so `pick(2)` is tied between the two while `pick("s")` selects
 // the String one.
-const ambiguousNavigationSrc = `package A {
+const ambiguousNavigationSrc = `part def A {
 	private import ScalarValues::*;
 	calc def pick { in x : Integer; return : Integer = 1; }
 }
-package B {
+part def B {
 	private import ScalarValues::*;
 	calc def pick { in x : Integer; return : Integer = 2; }
 	calc def pick { in x : String; return : Integer = 3; }
 }
-package C {
+part def C {
 	private import ScalarValues::*;
 	calc def pick { in x : Real; return : Integer = 4; }
 }
-package P {
+part def P :> A, B, C {
 	private import ScalarValues::*;
-	private import A::*;
-	private import B::*;
-	private import C::*;
 	attribute i : Integer = pick(2);
 	attribute s : Integer = pick("s");
 }
@@ -234,29 +231,23 @@ func TestAmbiguousHoverSurvivesDocumentRemoval(t *testing.T) {
 // qualifiedAmbiguitySrc reaches two equally specific `pick(Integer)` overloads through
 // the qualifier `Both` and through two aliases named `choose`, so `Both::pick(2)` and
 // `choose(2)` are tied while `Both::pick("s")` selects the String one.
-const qualifiedAmbiguitySrc = `package A {
+const qualifiedAmbiguitySrc = `part def A {
 	private import ScalarValues::*;
 	calc def pick { in x : Integer; return : Integer = 1; }
 }
-package B {
+part def B {
 	private import ScalarValues::*;
 	calc def pick { in x : Integer; return : Integer = 2; }
 }
-package S {
+part def S {
 	private import ScalarValues::*;
 	calc def pick { in x : String; return : Integer = 3; }
 }
-package Both {
-	public import A::*;
-	public import B::*;
-	public import S::*;
-}
-package AL { alias choose for A::pick; }
-package BL { alias choose for B::pick; }
+part def Both :> A, B, S;
 package Q {
 	private import ScalarValues::*;
-	private import AL::*;
-	private import BL::*;
+	alias choose for A::pick;
+	alias choose for B::pick;
 	attribute qi : Integer = Both::pick(2);
 	attribute qs : Integer = Both::pick("s");
 	attribute ci : Integer = choose(2);
@@ -287,7 +278,7 @@ func TestDefinitionOnQualifiedAmbiguousCall(t *testing.T) {
 	src := qualifiedAmbiguitySrc
 
 	locs := definitionOf(t, s, name, src, "Both::pick(2)")
-	if want := []uint32{lineOfSrc(t, src, "package Both")}; !equalLines(startLines(locs), want) {
+	if want := []uint32{lineOfSrc(t, src, "part def Both")}; !equalLines(startLines(locs), want) {
 		t.Errorf("qualifier Both: lines = %v, want %v", startLines(locs), want)
 	}
 
@@ -314,7 +305,7 @@ func TestReferencesOnQualifiedAmbiguousCall(t *testing.T) {
 	src := qualifiedAmbiguitySrc
 
 	wantBoth := []uint32{lineOfSrc(t, src, "Both::pick(2)"), lineOfSrc(t, src, `Both::pick("s")`)}
-	for _, at := range []string{"Both {", "Both::pick(2)"} {
+	for _, at := range []string{"def Both", "Both::pick(2)"} {
 		locs := referencesAt(t, s, name, src, at)
 		if !equalLines(startLines(locs), wantBoth) {
 			t.Errorf("from %q: reference lines = %v, want both qualified calls %v", at, startLines(locs), wantBoth)
@@ -376,16 +367,12 @@ package B {
 	private import ScalarValues::*;
 	calc def toText { in x : String; return : String = x; }
 }
-package AL { alias conv for A::toText; }
-package BL { alias conv for B::toText; }
-package Names {
-	public import AL::*;
-	public import BL::*;
+part def Names {
+	alias conv for A::toText;
+	alias conv for B::toText;
 }
-package Q {
+part def Q :> Names {
 	private import ScalarValues::*;
-	private import AL::*;
-	private import BL::*;
 	attribute i : String = conv(2);
 	attribute s : String = conv("s");
 	attribute qi : String = Names::conv(3);
