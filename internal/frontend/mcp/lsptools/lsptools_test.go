@@ -837,3 +837,28 @@ func TestEditsWaitForEachOther(t *testing.T) {
 		t.Fatal("format did not run once the workspace was released")
 	}
 }
+
+func TestWritesCannotLeaveTheRoot(t *testing.T) {
+	f := newFixture(t)
+	outside := filepath.Join(filepath.Dir(f.root), "outside-write.sysml")
+	write(t, filepath.Dir(f.root), "outside-write.sysml", "package Outside;\n")
+	t.Cleanup(func() { _ = os.Remove(outside) })
+	if err := os.Symlink(filepath.Dir(f.root), filepath.Join(f.root, "up")); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(f.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = root.Close() }()
+	// A path that leaves the root lexically or through a link the write finds
+	// in place is refused by the root the writes go through.
+	for _, name := range []string{"../outside-write.sysml", "up/outside-write.sysml"} {
+		if err := writeFile(root, name, []byte("package Hijacked;\n")); err == nil {
+			t.Errorf("writing %s through the root succeeded", name)
+		}
+	}
+	if got, _ := os.ReadFile(outside); string(got) != "package Outside;\n" {
+		t.Errorf("the file outside the root was written: %q", got)
+	}
+}

@@ -6,6 +6,8 @@ package lsptools
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -260,9 +262,16 @@ type pendingWrite struct {
 
 // writeAll puts every pending write on disk, or none: a file whose text on
 // disk is no longer what its change was computed from refuses the whole
-// change, and a failed write restores the files written before it. The index,
+// change, and a failed write restores the files written before it. Every file
+// operation goes through an os.Root at the resolved root, so a link repointed
+// while the change is in flight cannot carry a write outside it. The index,
 // and an open buffer of a written document, then follow the new text.
 func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
+	root, err := os.OpenRoot(h.realRoot)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Close() }()
 	type original struct {
 		target  string
 		content []byte
@@ -274,7 +283,7 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 		if err != nil {
 			return err
 		}
-		prev, err := os.ReadFile(target) // #nosec G304 -- target lies under the workspace root
+		prev, err := root.ReadFile(target)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
@@ -285,15 +294,15 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	}
 	var written []string
 	for _, w := range writes {
-		if err := writeFile(originals[w.name].target, w.content); err != nil {
+		if err := writeFile(root, originals[w.name].target, w.content); err != nil {
 			var restore []string
 			for _, name := range written {
 				o := originals[name]
 				var rerr error
 				if o.existed {
-					rerr = writeFile(o.target, o.content)
+					rerr = writeFile(root, o.target, o.content)
 				} else {
-					rerr = os.Remove(o.target)
+					rerr = root.Remove(o.target)
 				}
 				if rerr != nil {
 					restore = append(restore, h.display(uri.File(name)))
@@ -317,10 +326,10 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	return nil
 }
 
-// target is the file a write to name reaches: name with symlinks resolved,
-// checked at write time to lie under the root, since a link may have been
-// repointed after the path was resolved. A file not yet on disk lands in its
-// resolved directory.
+// target is the file a write to name reaches, relative to the resolved root:
+// name with symlinks resolved, checked at write time to lie under the root,
+// since a link may have been repointed after the path was resolved. A file not
+// yet on disk lands in its resolved directory.
 func (h *Host) target(name string) (string, error) {
 	if !under(h.Root, name) {
 		return "", fmt.Errorf("%s is outside the workspace root %s", name, h.Root)
@@ -338,33 +347,38 @@ func (h *Host) target(name string) (string, error) {
 	if !under(h.realRoot, real) {
 		return "", fmt.Errorf("%s resolves to %s, outside the workspace root %s", h.display(uri.File(name)), real, h.Root)
 	}
-	return real, nil
+	return filepath.Rel(h.realRoot, real)
 }
 
-// writeFile replaces name, a resolved path, with content in one step: the
+// writeFile replaces name, relative to root, with content in one step: the
 // bytes go to a temporary file beside it that is renamed over it, so a failure
 // part-way leaves the file as it was. An existing file keeps its mode.
-func writeFile(name string, content []byte) error {
+func writeFile(root *os.Root, name string, content []byte) error {
 	mode := os.FileMode(0o600)
-	if info, err := os.Stat(name); err == nil {
+	if info, err := root.Stat(name); err == nil {
 		mode = info.Mode().Perm()
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(name), "."+filepath.Base(name)+".*.tmp")
+	var suffix [6]byte
+	if _, err := rand.Read(suffix[:]); err != nil {
+		return err
+	}
+	tmp := filepath.Join(filepath.Dir(name), "."+filepath.Base(name)+"."+hex.EncodeToString(suffix[:])+".tmp")
+	f, err := root.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
 	if err != nil {
 		return err
 	}
-	_, err = tmp.Write(content)
-	if cerr := tmp.Close(); err == nil {
+	_, err = f.Write(content)
+	if cerr := f.Close(); err == nil {
 		err = cerr
 	}
 	if err == nil {
-		err = os.Chmod(tmp.Name(), mode)
+		err = root.Chmod(tmp, mode)
 	}
 	if err == nil {
-		err = os.Rename(tmp.Name(), name)
+		err = root.Rename(tmp, name)
 	}
 	if err != nil {
-		_ = os.Remove(tmp.Name())
+		_ = root.Remove(tmp)
 	}
 	return err
 }
