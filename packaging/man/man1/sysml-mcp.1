@@ -40,6 +40,15 @@ Write this command's manual page, in roff, to stdout and exit
 Parse every document and hold it loaded, reading no interface record from the
 record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0
 .TP
+.B \-print\-config
+Write the configuration block declaring this server to an agent host \(em
+opencode, claude\-code, cursor, codex, vscode, gemini, devin \(em to stdout
+and exit; alone, list the hosts
+.TP
+.BI \-print\-config\-command " string"
+Command the \-print\-config block names instead of this binary's absolute
+path, such as sysml\-mcp when it is on PATH
+.TP
 .BI \-root " string"
 Workspace folder whose model documents the server indexes and edits; default
 the current directory, which an agent host sets to the project. The default is
@@ -78,6 +87,27 @@ sysml\-mcp \-tools lsp,runtime
 An agent host declares the server in its configuration, as {"mcp": {"sysml":
 {"type": "local", "command": ["sysml\-mcp"]}}} in OpenCode's opencode.json,
 and starts it with the project as the working directory.
+.SH CONFIGURING A HOST
+\-print\-config writes the block a host reads, naming this binary by its
+absolute path so the host finds it wherever it was installed;
+\-print\-config\-command names another command instead, such as sysml\-mcp
+when it is on PATH. The hosts, with the file each reads, are opencode
+(opencode.json), claude\-code (.mcp.json), cursor (.cursor/mcp.json), codex
+(~/.codex/config.toml), vscode (.vscode/mcp.json), gemini
+(.gemini/settings.json), devin (Settings > MCP Marketplace > Add custom).
+.PP
+.RS 2
+.nf
+# List the hosts
+sysml\-mcp \-print\-config
+# The mcp block of opencode.json
+sysml\-mcp \-print\-config opencode
+# Append the [mcp_servers.sysml] table
+sysml\-mcp \-print\-config codex >> ~/.codex/config.toml
+# A block that finds the server on PATH
+sysml\-mcp \-print\-config cursor \-print\-config\-command sysml\-mcp
+.fi
+.RE
 .SH EXIT STATUS
 The status reports how the session ended:
 .TP
