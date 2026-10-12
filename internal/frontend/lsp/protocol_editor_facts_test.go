@@ -39,7 +39,7 @@ func TestRunServesSignatureHelpCodeLensAndInlayHints(t *testing.T) {
 			}}},
 		{"jsonrpc": "2.0", "id": 3, "method": "textDocument/codeLens",
 			"params": map[string]any{"textDocument": doc}},
-		{"jsonrpc": "2.0", "id": 4, "method": "textDocument/InlayHint",
+		{"jsonrpc": "2.0", "id": 4, "method": "textDocument/inlayHint",
 			"params": map[string]any{"textDocument": doc, "range": map[string]any{
 				"start": map[string]any{"line": 0, "character": 0},
 				"end":   map[string]any{"line": lines, "character": 0},

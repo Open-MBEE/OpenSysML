@@ -39,8 +39,9 @@ type Host struct {
 	Server    *lsp.Server
 	Workspace *model.Workspace
 
-	mu     sync.Mutex
-	stamps map[string]stamp // on-disk state each indexed document was last read in
+	realRoot string // Root with symlinks resolved, which every document must lie under
+	mu       sync.Mutex
+	stamps   map[string]stamp // on-disk state each indexed document was last read in
 }
 
 // stamp is what a document looked like on disk when it was last indexed.
@@ -67,7 +68,10 @@ func NewHost(ctx context.Context, root string, ws *model.Workspace, version stri
 	if err := srv.Initialized(ctx, &protocol.InitializedParams{}); err != nil {
 		return nil, fmt.Errorf("indexing %s: %w", root, err)
 	}
-	h := &Host{Root: root, Server: srv, Workspace: ws, stamps: map[string]stamp{}}
+	h := &Host{Root: root, Server: srv, Workspace: ws, realRoot: root, stamps: map[string]stamp{}}
+	if real, err := filepath.EvalSymlinks(root); err == nil {
+		h.realRoot = real
+	}
 	for _, name := range ws.DocumentNames() {
 		if !ws.IsLibraryDocument(name) {
 			h.stamps[name] = statOf(name)
@@ -138,10 +142,43 @@ func (h *Host) resolve(path string) (docRef, error) {
 		path = filepath.Join(h.Root, path)
 	}
 	path = filepath.Clean(path)
-	if rel, err := filepath.Rel(h.Root, path); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if !under(h.Root, path) {
 		return docRef{}, fmt.Errorf("%s is outside the workspace root %s", path, h.Root)
 	}
+	if err := h.contained(path); err != nil {
+		return docRef{}, err
+	}
 	return docRef{name: path}, nil
+}
+
+// under reports whether path lies under root, both clean and absolute.
+func under(root, path string) bool {
+	rel, err := filepath.Rel(root, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// contained checks that path, with symlinks resolved, still lies under the
+// root, so a link inside the workspace cannot reach a file outside it. A path
+// that does not exist yet is checked through its nearest existing ancestor.
+func (h *Host) contained(path string) error {
+	probe := path
+	for {
+		real, err := filepath.EvalSymlinks(probe)
+		if err == nil {
+			if !under(h.realRoot, real) {
+				return fmt.Errorf("%s resolves to %s, outside the workspace root %s", path, real, h.Root)
+			}
+			return nil
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		parent := filepath.Dir(probe)
+		if parent == probe {
+			return nil
+		}
+		probe = parent
+	}
 }
 
 func (h *Host) resolveLibrary(name string) (docRef, error) {
@@ -163,25 +200,50 @@ func (h *Host) document(ctx context.Context, path string) (docRef, error) {
 	return ref, nil
 }
 
+// outcome is what a refresh did to a document.
+type outcome int
+
+const (
+	unchanged outcome = iota
+	added
+	changed
+	removed
+)
+
 // refresh reindexes name when the file changed on disk since it was last read,
 // adds it when it is new, and drops it when it was deleted. An open buffer is
 // authoritative and left alone.
-func (h *Host) refresh(ctx context.Context, name string) {
-	if h.Workspace.Document(name) != nil && slices(h.Workspace.OpenNames(), name) {
-		return
+func (h *Host) refresh(ctx context.Context, name string) outcome {
+	if slices(h.Workspace.OpenNames(), name) {
+		return unchanged
 	}
 	now := statOf(name)
 	h.mu.Lock()
 	before, known := h.stamps[name]
 	h.mu.Unlock()
-	if now == (stamp{}) {
-		if known {
-			h.watched(ctx, name, protocol.FileChangeTypeDeleted)
-		}
-		return
-	}
-	if !known || before != now {
+	switch {
+	case now == (stamp{}) && known:
+		h.watched(ctx, name, protocol.FileChangeTypeDeleted)
+		return removed
+	case now == (stamp{}):
+		return unchanged
+	case !known:
 		h.watched(ctx, name, protocol.FileChangeTypeChanged)
+		return added
+	case before != now:
+		h.watched(ctx, name, protocol.FileChangeTypeChanged)
+		return changed
+	}
+	return unchanged
+}
+
+// refreshAll brings every indexed workspace document up to date with disk, for
+// the tools whose answer spans documents.
+func (h *Host) refreshAll(ctx context.Context) {
+	for _, name := range h.Workspace.DocumentNames() {
+		if !h.Workspace.IsLibraryDocument(name) {
+			h.refresh(ctx, name)
+		}
 	}
 }
 
@@ -324,21 +386,70 @@ func slices(names []string, name string) bool {
 	return false
 }
 
-// write puts content on disk at name, keeping the file's mode when it exists,
-// and brings the index (and an open buffer of it) up to date with the text.
-func (h *Host) write(ctx context.Context, name string, content []byte) error {
+// pendingWrite is one file of a change and the text it is to hold.
+type pendingWrite struct {
+	name    string
+	content []byte
+}
+
+// writeAll puts every pending write on disk, or none: a file that changed on
+// disk since it was read refuses the whole change, and a failed write restores
+// the files written before it. The index, and an open buffer of a written
+// document, then follow the new text.
+func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
+	type original struct {
+		content []byte
+		existed bool
+	}
+	originals := make(map[string]original, len(writes))
+	for _, w := range writes {
+		if !slices(h.Workspace.OpenNames(), w.name) {
+			h.mu.Lock()
+			before, known := h.stamps[w.name]
+			h.mu.Unlock()
+			if known && before != statOf(w.name) {
+				return fmt.Errorf("%s changed on disk since it was read; call the tool again", h.display(uri.File(w.name)))
+			}
+		}
+		prev, err := os.ReadFile(w.name)
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		originals[w.name] = original{content: prev, existed: err == nil}
+	}
+	var written []string
+	for _, w := range writes {
+		if err := writeFile(w.name, w.content); err != nil {
+			for _, name := range written {
+				if o := originals[name]; o.existed {
+					_ = writeFile(name, o.content)
+				} else {
+					_ = os.Remove(name)
+				}
+			}
+			return fmt.Errorf("writing %s: %w (no file was changed)", h.display(uri.File(w.name)), err)
+		}
+		written = append(written, w.name)
+	}
+	for _, w := range writes {
+		if slices(h.Workspace.OpenNames(), w.name) {
+			if err := h.replace(ctx, w.name, string(w.content)); err != nil {
+				return err
+			}
+			continue
+		}
+		h.watched(ctx, w.name, protocol.FileChangeTypeChanged)
+	}
+	return nil
+}
+
+// writeFile writes content to name, keeping the file's mode when it exists.
+func writeFile(name string, content []byte) error {
 	mode := os.FileMode(0o600)
 	if info, err := os.Stat(name); err == nil {
 		mode = info.Mode().Perm()
 	}
-	if err := os.WriteFile(name, content, mode); err != nil {
-		return err
-	}
-	if slices(h.Workspace.OpenNames(), name) {
-		return h.replace(ctx, name, string(content))
-	}
-	h.watched(ctx, name, protocol.FileChangeTypeChanged)
-	return nil
+	return os.WriteFile(name, content, mode)
 }
 
 // replace makes text the content of the open document name, as the next

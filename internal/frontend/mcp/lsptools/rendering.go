@@ -16,19 +16,19 @@ import (
 type RenderViewInput struct {
 	Path         string `json:"path" jsonschema:"the document, absolute or relative to the workspace root"`
 	View         string `json:"view,omitempty" jsonschema:"the qualified name of a view the document declares, a pseudo-view such as #tree, #interconnection, #state, #action, #sequence or #tree:Pkg::Part (see the views tool), or omitted for the one view the document declares (a document declaring none needs a pseudo-view)"`
-	Form         string `json:"form,omitempty" jsonschema:"the artifact's notation: dot (the default), mermaid, plantuml, d2, svg, or json"`
-	Palette      string `json:"palette,omitempty" jsonschema:"the colors: pilot (default) or cameo"`
-	Style        string `json:"style,omitempty" jsonschema:"the drawing style of dot/mermaid: pilot (default) or cameo"`
-	Ports        string `json:"ports,omitempty" jsonschema:"how ports are drawn: shown, hidden or nested"`
-	Overlay      string `json:"overlay,omitempty" jsonschema:"an overlay of analysis results on the diagram, as the LSP's opensysml/render accepts"`
-	LinkTemplate string `json:"linkTemplate,omitempty" jsonschema:"a URL template for node links, with {fqn} substituted"`
+	Form         string `json:"form,omitempty" jsonschema:"the artifact's notation: mermaid, dot (Graphviz), plantuml, d2, text, markdown, csv or tsv; omitted, markdown for a table or matrix and mermaid otherwise"`
+	Palette      string `json:"palette,omitempty" jsonschema:"fill colors by keyword family for dot/mermaid/plantuml/d2: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; omitted draws black and white"`
+	Style        string `json:"style,omitempty" jsonschema:"the drawing style of dot/mermaid: pilot (the default, the Pilot visualizer's look) or cameo (Cameo Systems Modeler's)"`
+	Ports        string `json:"ports,omitempty" jsonschema:"ports drawn on an interconnection or mixed rendering: minimal (the default, only connected ports) or full (every port, labelled name : Type)"`
+	Overlay      string `json:"overlay,omitempty" jsonschema:"verdicts, on a requirement rendering: runs the verification cases and colors each requirement by its verdict; omitted runs nothing"`
+	LinkTemplate string `json:"linkTemplate,omitempty" jsonschema:"a template for source links on elements, with {file}, {line}, {col}, {qname} and {id} placeholders"`
 }
 
 // RenderDocumentInput names a document definition to render.
 type RenderDocumentInput struct {
 	Name         string `json:"name" jsonschema:"the qualified name of a document definition (doc def), as documents lists"`
-	DiagramForm  string `json:"diagramForm,omitempty" jsonschema:"the notation of embedded diagrams: mermaid (default), dot, plantuml, d2 or svg"`
-	LinkTemplate string `json:"linkTemplate,omitempty" jsonschema:"a URL template for element links, with {fqn} substituted"`
+	DiagramForm  string `json:"diagramForm,omitempty" jsonschema:"the notation of every graph-shaped diagram block: mermaid, dot, plantuml or d2; omitted, chosen per diagram as the CLI chooses it"`
+	LinkTemplate string `json:"linkTemplate,omitempty" jsonschema:"a template for source links on elements, with {file}, {line}, {col}, {qname} and {id} placeholders"`
 }
 
 // NoInput takes no arguments.
@@ -37,7 +37,7 @@ type NoInput struct{}
 func registerRendering(s *mcp.Server, h *Host) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "render_view",
-		Description: "Render a diagram of a document: a declared view or a pseudo-view, as Graphviz dot, Mermaid, PlantUML, D2, SVG or JSON text. " +
+		Description: "Render a diagram or table of a document: a declared view or a pseudo-view, as Mermaid, Graphviz dot, PlantUML, D2, text, Markdown, CSV or TSV. " +
 			"The result also lists the nodes and edges drawn with their qualified names (for apply_model_edit) and their declaration ranges in LSP form (0-based).",
 		Annotations: toolkit.ReadOnly("Render view"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in RenderViewInput) (*mcp.CallToolResult, *lsp.RenderResult, error) {
@@ -85,6 +85,7 @@ func registerRendering(s *mcp.Server, h *Host) {
 		Description: "List the document definitions (doc def) declared across the workspace, which render_document renders to Markdown.",
 		Annotations: toolkit.ReadOnly("Document definitions"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ NoInput) (*mcp.CallToolResult, *lsp.DocumentsResult, error) {
+		h.refreshAll(ctx)
 		res := h.Server.Documents()
 		var b strings.Builder
 		for _, d := range res.Documents {
@@ -103,6 +104,7 @@ func registerRendering(s *mcp.Server, h *Host) {
 		if strings.TrimSpace(in.Name) == "" {
 			return nil, nil, fmt.Errorf("name is required")
 		}
+		h.refreshAll(ctx)
 		res, err := h.Server.RenderDocument(&lsp.RenderDocumentParams{Name: in.Name, DiagramForm: in.DiagramForm, LinkTemplate: in.LinkTemplate})
 		if err != nil {
 			return nil, nil, err

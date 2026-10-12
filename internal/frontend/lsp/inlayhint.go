@@ -13,9 +13,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// methodInlayHint is textDocument/InlayHint (LSP 3.17), which the protocol
+// methodInlayHint is textDocument/inlayHint (LSP 3.17), which the protocol
 // library predates; its shapes are declared here.
-const methodInlayHint = "textDocument/InlayHint"
+const methodInlayHint = "textDocument/inlayHint"
 
 // InlayHintParams asks for the hints of one range of a document.
 type InlayHintParams struct {
@@ -165,7 +165,7 @@ func constantText(v semantics.Value) (string, bool) {
 	return "", false
 }
 
-// inlayHintHandler serves textDocument/InlayHint, which the protocol library
+// inlayHintHandler serves textDocument/inlayHint, which the protocol library
 // does not dispatch, and adds the method's capability to the initialize result,
 // which the library's capability type has no field for.
 func (s *Server) inlayHintHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {

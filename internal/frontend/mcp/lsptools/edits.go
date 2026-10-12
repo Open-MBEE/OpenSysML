@@ -98,7 +98,7 @@ func registerEdits(s *mcp.Server, h *Host) {
 		}
 		res := FormatResult{Path: h.display(ref.uri()), Edits: convertEdits(content, edits), Text: string(formatted)}
 		if in.Apply && len(edits) > 0 {
-			if err := h.write(ctx, ref.name, formatted); err != nil {
+			if err := h.writeAll(ctx, []pendingWrite{{name: ref.name, content: formatted}}); err != nil {
 				return nil, FormatResult{}, err
 			}
 			res.Applied = true
@@ -118,6 +118,7 @@ func registerEdits(s *mcp.Server, h *Host) {
 		if strings.TrimSpace(in.NewName) == "" {
 			return nil, WorkspaceEditResult{}, errors.New("newName is required")
 		}
+		h.refreshAll(ctx)
 		ref, content, err := h.editable(ctx, in.Path)
 		if err != nil {
 			return nil, WorkspaceEditResult{}, err
@@ -149,6 +150,7 @@ func registerEdits(s *mcp.Server, h *Host) {
 		if len(in.Operations) == 0 {
 			return nil, ModelEditResult{}, errors.New("operations is required")
 		}
+		h.refreshAll(ctx)
 		ref, _, err := h.editable(ctx, in.Path)
 		if err != nil {
 			return nil, ModelEditResult{}, err
@@ -161,6 +163,9 @@ func registerEdits(s *mcp.Server, h *Host) {
 		})
 		if err != nil {
 			return nil, ModelEditResult{}, err
+		}
+		if result.Stale {
+			return nil, ModelEditResult{}, fmt.Errorf("%s changed while the edit was computed; call the tool again", h.display(ref.uri()))
 		}
 		res := ModelEditResult{Changes: []FileEdits{}, Refused: result.Refused, Version: result.Version}
 		if result.Edit != nil {
@@ -215,6 +220,7 @@ func (h *Host) workspaceEdit(ctx context.Context, edit *protocol.WorkspaceEdit, 
 	sort.Strings(uris)
 	res := WorkspaceEditResult{Changes: []FileEdits{}}
 	var b strings.Builder
+	var writes []pendingWrite
 	for _, u := range uris {
 		ref := h.refOf(protocol.DocumentURI(u))
 		content := h.contentOf(protocol.DocumentURI(u))
@@ -234,12 +240,13 @@ func (h *Host) workspaceEdit(ctx context.Context, edit *protocol.WorkspaceEdit, 
 		if err != nil {
 			return nil, WorkspaceEditResult{}, fmt.Errorf("%s: %w", h.display(ref.uri()), err)
 		}
-		if err := h.write(ctx, ref.name, edited); err != nil {
+		writes = append(writes, pendingWrite{name: ref.name, content: edited})
+	}
+	if len(writes) > 0 {
+		if err := h.writeAll(ctx, writes); err != nil {
 			return nil, WorkspaceEditResult{}, err
 		}
-	}
-	res.Applied = apply && len(res.Changes) > 0
-	if res.Applied {
+		res.Applied = true
 		b.WriteString("written to disk")
 	}
 	return text(strings.TrimSpace(b.String())), res, nil

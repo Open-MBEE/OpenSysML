@@ -129,15 +129,12 @@ func registerSync(s *mcp.Server, h *Host) {
 			if err != nil || ref.library {
 				return nil, ReloadResult{}, orLibrary(err, "a standard library document is not read from disk")
 			}
-			before := h.Workspace.Document(ref.name) != nil
-			h.refresh(ctx, ref.name)
-			after := h.Workspace.Document(ref.name) != nil
-			switch {
-			case before && !after:
+			switch h.refresh(ctx, ref.name) {
+			case removed:
 				res.Removed = append(res.Removed, h.display(ref.uri()))
-			case !before && after:
+			case added:
 				res.Added = append(res.Added, h.display(ref.uri()))
-			case after:
+			case changed:
 				res.Changed = append(res.Changed, h.display(ref.uri()))
 			}
 		}

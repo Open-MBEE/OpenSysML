@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -115,6 +116,10 @@ func (f *fixture) call(name string, args any, out any) *mcp.CallToolResult {
 	if err != nil {
 		f.t.Fatal(err)
 	}
+	// Decode into a zeroed value, so a field the result omits does not keep
+	// what an earlier call left there.
+	target := reflect.ValueOf(out).Elem()
+	target.Set(reflect.Zero(target.Type()))
 	if err := json.Unmarshal(raw, out); err != nil {
 		f.t.Fatalf("%s: decoding %s: %v", name, raw, err)
 	}
@@ -239,6 +244,13 @@ func TestUnknownPathsAndPositionsOffTheEndFail(t *testing.T) {
 		}
 	}
 	f.fails("open_document", map[string]any{"path": "../outside.sysml", "text": "package X;"})
+	if err := os.Symlink(outside, filepath.Join(f.root, "link.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	if msg := f.fails("diagnostics", map[string]any{"path": "link.sysml"}); !strings.Contains(msg, "outside the workspace root") {
+		t.Errorf("error for a symlink out of the root = %q", msg)
+	}
+	f.fails("format", map[string]any{"path": "link.sysml", "apply": true})
 	if _, err := f.cs.ReadResource(context.Background(), &mcp.ReadResourceParams{URI: "sysml://workspace/../outside.sysml"}); err == nil {
 		t.Error("reading a resource outside the root succeeded")
 	}
@@ -391,6 +403,9 @@ func TestRenameAcrossFiles(t *testing.T) {
 	}
 	f.unchanged(before)
 
+	// An edit made with another tool after indexing must survive the apply and
+	// be renamed with the rest.
+	write(t, f.root, "b.sysml", fleet+"package More { part extra : Vehicles::Wheel; }\n")
 	f.ok("rename", map[string]any{"path": "a.sysml", "position": pos(2, 14), "newName": "Tyre", "apply": true}, &res)
 	if !res.Applied {
 		t.Fatalf("rename with apply = %+v", res)
@@ -398,7 +413,7 @@ func TestRenameAcrossFiles(t *testing.T) {
 	if a := f.read("a.sysml"); !strings.Contains(a, "part def Tyre {") || !strings.Contains(a, "part wheels : Tyre[4];") || strings.Contains(a, "Wheel") {
 		t.Errorf("a.sysml after rename:\n%s", a)
 	}
-	if b := f.read("b.sysml"); !strings.Contains(b, "part frontLeft : Tyre;") || !strings.Contains(b, "Vehicles::Tyre;") {
+	if b := f.read("b.sysml"); !strings.Contains(b, "part frontLeft : Tyre;") || !strings.Contains(b, "Vehicles::Tyre;") || !strings.Contains(b, "part extra : Vehicles::Tyre;") {
 		t.Errorf("b.sysml after rename:\n%s", b)
 	}
 	var diags DiagnosticsResult
@@ -412,6 +427,29 @@ func TestRenameAcrossFiles(t *testing.T) {
 	f.ok("hover", map[string]any{"path": "b.sysml", "position": pos(4, 26)}, &hover)
 	if !strings.Contains(hover.Markdown, "Tyre") {
 		t.Errorf("hover after rename = %+v", hover)
+	}
+}
+
+func TestAFailedWriteLeavesNoFileChanged(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root can write a read-only file")
+	}
+	f := newFixture(t)
+	before := f.snapshot()
+	locked := filepath.Join(f.root, "b.sysml")
+	if err := os.Chmod(locked, 0o400); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o600) })
+	msg := f.fails("rename", map[string]any{"path": "a.sysml", "position": pos(2, 14), "newName": "Tyre", "apply": true})
+	if !strings.Contains(msg, "b.sysml") || !strings.Contains(msg, "no file was changed") {
+		t.Errorf("error = %q", msg)
+	}
+	f.unchanged(before)
+	var hover HoverResult
+	f.ok("hover", map[string]any{"path": "b.sysml", "position": pos(4, 26)}, &hover)
+	if !strings.Contains(hover.Markdown, "Wheel") {
+		t.Errorf("index after the failed rename = %+v", hover)
 	}
 }
 
@@ -605,7 +643,12 @@ func TestReloadAndRefreshPickUpExternalEdits(t *testing.T) {
 		t.Fatalf("documents = %v", info.Documents)
 	}
 
-	write(t, f.root, "bad.sysml", "package Bad {\n    part p : Vehicles::Wheel;\n}\n")
+	write(t, f.root, "bad.sysml", "package Bad {\n    part def Fixed;\n    part p : Vehicles::Wheel;\n}\n")
+	var ws0 WorkspaceSymbolsResult
+	f.ok("workspace_symbols", map[string]any{"query": "Fixed"}, &ws0)
+	if len(ws0.Symbols) != 1 {
+		t.Errorf("workspace symbols after an external edit = %+v", ws0)
+	}
 	var diags DiagnosticsResult
 	f.ok("diagnostics", map[string]any{"path": "bad.sysml"}, &diags)
 	if diags.Errors != 0 {
@@ -635,6 +678,14 @@ func TestReloadAndRefreshPickUpExternalEdits(t *testing.T) {
 	f.ok("reload", map[string]any{"paths": []string{"e.sysml"}}, &reload)
 	if len(reload.Added) != 1 || reload.Documents != 5 {
 		t.Errorf("reload of one path = %+v", reload)
+	}
+	f.ok("reload", map[string]any{"paths": []string{"e.sysml", "a.sysml"}}, &reload)
+	if len(reload.Added)+len(reload.Changed)+len(reload.Removed) != 0 {
+		t.Errorf("reload of unchanged paths = %+v", reload)
+	}
+	f.ok("reload", map[string]any{}, &reload)
+	if len(reload.Added)+len(reload.Changed)+len(reload.Removed) != 0 {
+		t.Errorf("second reload = %+v", reload)
 	}
 }
 
