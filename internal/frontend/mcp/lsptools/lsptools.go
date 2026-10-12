@@ -307,8 +307,12 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 
 // writeFile replaces name with content in one step: the bytes go to a
 // temporary file beside it that is renamed over it, so a failure part-way
-// leaves the file as it was. An existing file keeps its mode.
+// leaves the file as it was. A symlink is followed, so the link stays and its
+// target is what changes; an existing file keeps its mode.
 func writeFile(name string, content []byte) error {
+	if real, err := filepath.EvalSymlinks(name); err == nil {
+		name = real
+	}
 	mode := os.FileMode(0o600)
 	if info, err := os.Stat(name); err == nil {
 		mode = info.Mode().Perm()

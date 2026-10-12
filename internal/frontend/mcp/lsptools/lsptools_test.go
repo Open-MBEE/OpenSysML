@@ -489,6 +489,20 @@ func TestFormatReturnsEditsAndWritesOnlyWithApply(t *testing.T) {
 	if res.Applied || len(res.Edits) != 0 {
 		t.Errorf("second format = %+v", res)
 	}
+
+	// Writing through a symlink inside the root changes the target and keeps
+	// the link.
+	write(t, f.root, "target.sysml", "package Linked {\npart def L;\n}\n")
+	if err := os.Symlink(filepath.Join(f.root, "target.sysml"), filepath.Join(f.root, "alias.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	f.ok("format", map[string]any{"path": "alias.sysml", "apply": true}, &res)
+	if !res.Applied || f.read("target.sysml") != res.Text {
+		t.Errorf("target through the link = %q, want %q", f.read("target.sysml"), res.Text)
+	}
+	if info, err := os.Lstat(filepath.Join(f.root, "alias.sysml")); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("alias.sysml is no longer a symlink: %v %v", info, err)
+	}
 }
 
 func TestApplyModelEdit(t *testing.T) {
