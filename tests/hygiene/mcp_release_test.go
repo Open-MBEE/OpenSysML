@@ -129,6 +129,16 @@ func TestMCPServerShipsAsItsOwnArchive(t *testing.T) {
 		"zip -q ../../release/sysml-mcp-windows-amd64-signed.zip sysml-mcp.exe LICENSE",
 		"dist/unsigned/sysml-grpc-windows-amd64.exe dist/unsigned/sysml-mcp-windows-amd64.exe",
 	)
+	// publish-signed checks nothing out, so the LICENSE the signed zip carries
+	// has to arrive as the packaging-inputs artifact the build job uploads.
+	publish := windows[strings.Index(windows, "\n  publish-signed:\n"):]
+	if next := nextJobHeader.FindStringIndex(publish[1:]); next != nil {
+		publish = publish[:1+next[0]]
+	}
+	requireFragments(t, ".github/workflows/release-windows.yml (publish-signed)", publish,
+		"name: ${{ env.MSI_INPUTS_ARTIFACT }}",
+		"cp ../../LICENSE stage-mcp/LICENSE",
+	)
 
 	// Everything that installs from the release knows the archive.
 	for _, probe := range []struct{ path, fragment string }{

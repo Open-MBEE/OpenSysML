@@ -439,6 +439,14 @@ jobs:
           name: windows-amd64-msi-signed
           path: dist/release
 
+      # No checkout here either; the LICENSE the sysml-mcp zip carries comes
+      # from the packaging inputs the build job uploaded.
+      - name: Download the MSI packaging inputs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.MSI_INPUTS_ARTIFACT }}
+          path: .
+
       - name: Package the signed assets
         run: |
           # Same layouts as the CircleCI assets of the same base name, under a
