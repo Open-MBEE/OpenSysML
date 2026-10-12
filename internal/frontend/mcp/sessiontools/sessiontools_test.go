@@ -198,6 +198,7 @@ func TestSaveWritesOnlyWhenApplied(t *testing.T) {
 	if saved.Applied || !strings.Contains(saved.Text, "Saved") {
 		t.Errorf("preview = %+v", saved)
 	}
+	preview := saved.Text
 	if _, err := os.Stat(filepath.Join(root, "out", "model.sysml")); !os.IsNotExist(err) {
 		t.Fatalf("a save without apply touched the disk: %v", err)
 	}
@@ -211,6 +212,9 @@ func TestSaveWritesOnlyWhenApplied(t *testing.T) {
 	data, err := os.ReadFile(saved.Path)
 	if err != nil || !strings.Contains(string(data), "part def P") {
 		t.Errorf("written file = %q, %v", data, err)
+	}
+	if string(data) != preview {
+		t.Errorf("the preview %q is not the file written %q", preview, data)
 	}
 }
 

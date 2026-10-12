@@ -303,7 +303,8 @@ func Register(s *mcp.Server, m *Manager) {
 			if err != nil {
 				return SaveResult{}, failed(err, lines)
 			}
-			return SaveResult{Path: path, Text: text(lines)}, nil
+			// The file a save writes ends with a newline; the preview is its bytes.
+			return SaveResult{Path: path, Text: text(lines) + "\n"}, nil
 		}
 		lines, err := sess.Save(path)
 		if err != nil {
