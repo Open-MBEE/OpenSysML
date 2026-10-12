@@ -86,8 +86,8 @@ func TestTheServerRegistersTheGroupsAskedFor(t *testing.T) {
 		groups []Group
 		want   []string
 	}{
-		{nil, []string{"server_info", "session_close", "session_list", "session_open", "workspace_info"}},
-		{[]Group{GroupLSP}, []string{"workspace_info"}},
+		{nil, []string{"apply_model_edit", "close_document", "code_actions", "completion", "definition", "diagnostics", "document_symbols", "documents", "format", "hover", "inlay_hints", "open_document", "references", "reload", "rename", "render_document", "render_view", "server_info", "session_close", "session_list", "session_open", "signature_help", "update_document", "views", "workspace_info", "workspace_symbols"}},
+		{[]Group{GroupLSP}, []string{"apply_model_edit", "close_document", "code_actions", "completion", "definition", "diagnostics", "document_symbols", "documents", "format", "hover", "inlay_hints", "open_document", "references", "reload", "rename", "render_document", "render_view", "signature_help", "update_document", "views", "workspace_info", "workspace_symbols"}},
 		{[]Group{GroupRuntime}, []string{"server_info"}},
 		{[]Group{GroupSession}, []string{"session_close", "session_list", "session_open"}},
 	}

@@ -39,11 +39,13 @@ func (p Position) ToProtocol(lineText string) protocol.Position {
 	line := max(p.Line-1, 0)
 	want := max(p.Column-1, 0)
 	var units uint32
-	for i, r := range lineText {
-		if i >= want {
+	chars := 0
+	for _, r := range lineText {
+		if chars >= want {
 			break
 		}
 		units += utf16Len(r)
+		chars++
 	}
 	return protocol.Position{Line: lineNumber(line), Character: units}
 }

@@ -32,6 +32,17 @@ func TestPositionRoundTripsThroughUTF16(t *testing.T) {
 	}
 }
 
+func TestColumnsCountCharactersNotBytes(t *testing.T) {
+	line := "ÀÀÀÀx : A;"
+	got := Position{1, 5}.ToProtocol(line)
+	if got != (protocol.Position{Line: 0, Character: 4}) {
+		t.Errorf("column 5 of %q = %+v, want character 4", line, got)
+	}
+	if back := FromProtocol(got, line); back != (Position{1, 5}) {
+		t.Errorf("FromProtocol(%+v) = %+v", got, back)
+	}
+}
+
 func TestAnnotationsSayWhatAToolDoes(t *testing.T) {
 	if a := ReadOnly("Hover"); !a.ReadOnlyHint || a.Title != "Hover" || *a.OpenWorldHint {
 		t.Errorf("ReadOnly = %+v", a)
