@@ -199,7 +199,7 @@ func advanceBy(session string, time float64) *debugAdvanceParams {
 }
 
 // ids maps the names of a rendering's nodes to their IDs; names must be unique.
-func ids(t *testing.T, r *renderResult) map[string]string {
+func ids(t *testing.T, r *RenderResult) map[string]string {
 	t.Helper()
 	out := make(map[string]string, len(r.Nodes))
 	for _, n := range r.Nodes {
@@ -216,7 +216,7 @@ func ids(t *testing.T, r *renderResult) map[string]string {
 
 // edgeIndex is the position of the edge from one node to another in a render
 // result, which is what a snapshot's edges are indexed by.
-func edgeIndex(t *testing.T, r *renderResult, from, to string) int {
+func edgeIndex(t *testing.T, r *RenderResult, from, to string) int {
 	t.Helper()
 	for i, e := range r.Edges {
 		if e.From == from && e.To == to {
