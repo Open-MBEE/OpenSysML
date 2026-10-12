@@ -862,3 +862,49 @@ func TestWritesCannotLeaveTheRoot(t *testing.T) {
 		t.Errorf("the file outside the root was written: %q", got)
 	}
 }
+
+func TestAnOpenBufferIsNotWrittenOverAnEditMadeMeanwhile(t *testing.T) {
+	f := newFixture(t)
+	var state DocumentState
+	f.ok("open_document", map[string]any{"path": "b.sysml", "text": fleet}, &state)
+	// Writing the buffer is fine while the file is as it was when opened, and
+	// again after our own write.
+	var res FormatResult
+	f.ok("format", map[string]any{"path": "b.sysml", "apply": true}, &res)
+	f.ok("format", map[string]any{"path": "b.sysml", "apply": true}, &res)
+	if res.Applied {
+		t.Errorf("second format of a formatted buffer = %+v", res)
+	}
+	// An edit made on disk while the buffer is held is not overwritten.
+	external := "package Fleet {\n    private import Vehicles::*;\n    part edited : Wheel;\n}\n"
+	write(t, f.root, "b.sysml", external)
+	f.ok("update_document", map[string]any{"path": "b.sysml", "text": "package Fleet {\npart p : Vehicles::Wheel;\n}\n"}, &state)
+	msg := f.fails("format", map[string]any{"path": "b.sysml", "apply": true})
+	if !strings.Contains(msg, "changed on disk while it was held open") {
+		t.Errorf("error = %q", msg)
+	}
+	var rename WorkspaceEditResult
+	if res := f.call("rename", map[string]any{"path": "a.sysml", "position": pos(2, 14), "newName": "Tyre", "apply": true}, &rename); !res.IsError || !strings.Contains(textOf(res), "b.sysml") {
+		t.Errorf("rename reaching the open buffer = %+v", textOf(res))
+	}
+	if f.read("b.sysml") != external || f.read("a.sysml") != vehicles {
+		t.Error("a file was written over the external edit")
+	}
+	// Closing releases the buffer; the external text is what the tools see,
+	// and may be written again.
+	f.ok("close_document", map[string]any{"path": "b.sysml"}, &state)
+	f.ok("format", map[string]any{"path": "b.sysml", "apply": true}, &res)
+	if res.Applied {
+		t.Errorf("formatting the external text = %+v", res)
+	}
+	// A buffer for a file that does not exist yet is refused once the file
+	// appears underneath it.
+	f.ok("open_document", map[string]any{"path": "new.sysml", "text": "package New {\npart def  N;\n}\n"}, &state)
+	write(t, f.root, "new.sysml", "package New;\n")
+	if msg := f.fails("format", map[string]any{"path": "new.sysml", "apply": true}); !strings.Contains(msg, "changed on disk while it was held open") {
+		t.Errorf("error for a file created under a buffer = %q", msg)
+	}
+	if f.read("new.sysml") != "package New;\n" {
+		t.Error("new.sysml was overwritten")
+	}
+}

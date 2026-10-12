@@ -41,6 +41,7 @@ func registerSync(s *mcp.Server, h *Host) {
 		Name: "open_document",
 		Description: "Hold a document open with the given text, as an editor buffer the server analyzes instead of the file on disk, " +
 			"so text can be checked (diagnostics, hover, render) before it is written. Nothing is written to disk; close_document reverts to the file. " +
+			"format, rename and apply_model_edit with apply=true write the buffer, unless the file changed on disk since it was opened. " +
 			"Returns the diagnostics of the text.",
 		Annotations: toolkit.Mutating("Open document", true),
 	}, writing(h, func(ctx context.Context, _ *mcp.CallToolRequest, in OpenDocumentInput) (*mcp.CallToolResult, DocumentState, error) {
@@ -48,12 +49,17 @@ func registerSync(s *mcp.Server, h *Host) {
 		if err != nil || ref.library {
 			return nil, DocumentState{}, orLibrary(err, "a standard library document cannot be opened for editing")
 		}
+		disk, err := readDisk(ref.name)
+		if err != nil {
+			return nil, DocumentState{}, err
+		}
 		err = h.Server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{TextDocument: protocol.TextDocumentItem{
 			URI: ref.uri(), LanguageID: "sysml", Version: 1, Text: in.Text,
 		}})
 		if err != nil {
 			return nil, DocumentState{}, err
 		}
+		h.opened[ref.name] = disk
 		return h.state(ref)
 	}))
 	mcp.AddTool(s, &mcp.Tool{
@@ -88,6 +94,7 @@ func registerSync(s *mcp.Server, h *Host) {
 		if err := h.Server.DidClose(ctx, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: ref.uri()}}); err != nil {
 			return nil, DocumentState{}, err
 		}
+		delete(h.opened, ref.name)
 		h.Refresh(ctx)
 		state := DocumentState{Path: h.display(ref.uri()), Diagnostics: []Diagnostic{}}
 		if doc := h.Workspace.Document(ref.name); doc != nil {

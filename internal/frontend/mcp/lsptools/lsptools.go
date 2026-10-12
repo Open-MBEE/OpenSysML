@@ -47,6 +47,32 @@ type Host struct {
 	// mu holds the workspace for a tool: shared while it reads, exclusive
 	// while it edits, so an edit is computed and written over one revision.
 	mu sync.RWMutex
+	// opened is the file on disk as it was when each open document was opened
+	// or last written, so a buffer is not written over an edit made meanwhile.
+	opened map[string]diskState
+}
+
+// diskState is a file's content on disk, or its absence.
+type diskState struct {
+	content []byte
+	existed bool
+}
+
+// readDisk is the state of the file at name, which may not exist.
+func readDisk(name string) (diskState, error) {
+	content, err := os.ReadFile(name) // #nosec G304 -- a workspace document resolve admitted
+	if errors.Is(err, fs.ErrNotExist) {
+		return diskState{}, nil
+	}
+	if err != nil {
+		return diskState{}, err
+	}
+	return diskState{content: content, existed: true}, nil
+}
+
+// same reports whether two disk states hold the same file.
+func (d diskState) same(o diskState) bool {
+	return d.existed == o.existed && bytes.Equal(d.content, o.content)
 }
 
 // NewHost starts a language server over root and indexes the model documents
@@ -67,7 +93,7 @@ func NewHost(ctx context.Context, root string, ws *model.Workspace, version stri
 	if err := srv.Initialized(ctx, &protocol.InitializedParams{}); err != nil {
 		return nil, fmt.Errorf("indexing %s: %w", root, err)
 	}
-	h := &Host{Root: root, Server: srv, Workspace: ws, realRoot: root}
+	h := &Host{Root: root, Server: srv, Workspace: ws, realRoot: root, opened: map[string]diskState{}}
 	if real, err := filepath.EvalSymlinks(root); err == nil {
 		h.realRoot = real
 	}
@@ -261,11 +287,12 @@ type pendingWrite struct {
 }
 
 // writeAll puts every pending write on disk, or none: a file whose text on
-// disk is no longer what its change was computed from refuses the whole
-// change, and a failed write restores the files written before it. Every file
-// operation goes through an os.Root at the resolved root, so a link repointed
-// while the change is in flight cannot carry a write outside it. The index,
-// and an open buffer of a written document, then follow the new text.
+// disk is no longer what its change was computed from, or that changed under
+// an open buffer since the buffer was opened, refuses the whole change, and a
+// failed write restores the files written before it. Every file operation
+// goes through an os.Root at the resolved root, so a link repointed while the
+// change is in flight cannot carry a write outside it. The index, and an open
+// buffer of a written document, then follow the new text.
 func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	root, err := os.OpenRoot(h.realRoot)
 	if err != nil {
@@ -273,9 +300,8 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	}
 	defer func() { _ = root.Close() }()
 	type original struct {
-		target  string
-		content []byte
-		existed bool
+		target string
+		diskState
 	}
 	originals := make(map[string]original, len(writes))
 	for _, w := range writes {
@@ -287,10 +313,15 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
-		if !slices(h.Workspace.OpenNames(), w.name) && (err != nil || !bytes.Equal(prev, w.base)) {
+		now := diskState{content: prev, existed: err == nil}
+		if seen, open := h.opened[w.name]; open {
+			if !now.same(seen) {
+				return fmt.Errorf("%s changed on disk while it was held open; close_document and open it again with the text to keep", h.display(uri.File(w.name)))
+			}
+		} else if !now.same(diskState{content: w.base, existed: true}) {
 			return fmt.Errorf("%s changed on disk since it was read; call the tool again", h.display(uri.File(w.name)))
 		}
-		originals[w.name] = original{target: target, content: prev, existed: err == nil}
+		originals[w.name] = original{target: target, diskState: now}
 	}
 	var written []string
 	for _, w := range writes {
@@ -316,7 +347,8 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 		written = append(written, w.name)
 	}
 	for _, w := range writes {
-		if slices(h.Workspace.OpenNames(), w.name) {
+		if _, open := h.opened[w.name]; open {
+			h.opened[w.name] = diskState{content: w.content, existed: true}
 			if err := h.replace(ctx, w.name, string(w.content)); err != nil {
 				return err
 			}
