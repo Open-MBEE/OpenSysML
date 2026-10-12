@@ -6363,3 +6363,33 @@ None for these local REPL/gRPC checks.
 ### Devin Secrets Needed
 
 None for native local CLI/REPL tests.
+
+## Driving `sysml-mcp` through a real MCP host (`cmd/sysml-mcp`)
+
+- Build the checkout under test: `go build -o /tmp/sysml-mcp ./cmd/sysml-mcp`. Do not rely on an installed binary.
+- Drive it with a client on the module's pinned `github.com/modelcontextprotocol/go-sdk/mcp`: a small Go program
+  run with `go run` from the module root (keep it outside the checkout), using `mcp.CommandTransport` to start
+  `/tmp/sysml-mcp -stdio -root <temporary fixture directory> -tools runtime` (`-tools all` for the whole
+  catalogue). This exercises process startup and wire serialization, which the in-memory transport of
+  `internal/frontend/mcp/server_test.go` does not. `cmd/sysml-mcp/lifecycle_test.go` shows the pattern.
+- Fixtures: the `demoModel` of `internal/frontend/mcp/runtimetools/runtimetools_test.go` (actions, a state
+  machine, calcs, constraints, requirements, satisfactions, an analysis case, a view); write it to the root as
+  `demo.sysml`. `internal/doc/docrender/testdata/telescope_report.sysml` supplies `Observatory::SubsystemTable`
+  (bind `root` to `{"elementId":"Observatory::telescope"}`) and `Observatory::MassReport` for Markdown/HTML
+  rendering; `tests/migrate/testdata/xmi/*.xmi` supplies `migrate` inputs.
+- Arguments use the proto JSON names and `Value` arms (`inputs: {"lo":{"intValue":"41"}}`); int64 fields in
+  answers are strings. Tell apart a transport error, a `CallToolResult.IsError` (a refused RPC, text
+  `NOT_FOUND: …` / `INVALID_ARGUMENT: …`) and a successful answer whose `structuredContent.error` is set.
+- Progress: `CallToolParams.SetProgressToken` on the request and `ClientOptions.ProgressNotificationHandler`
+  on the client (guard the slice with a mutex; notifications are asynchronous, so wait with a bound). A call
+  without a token must produce none.
+- Stdout hygiene: beside the SDK's parsed message log, capture the child's raw stdout and check it holds only
+  JSON-RPC frames; logging must be on stderr. `ClientSession.Close()` closes stdin and waits; read
+  `exec.Cmd.ProcessState.ExitCode()` and how long the close took, since a 0 after an SDK timeout and SIGTERM
+  does not prove graceful EOF handling.
+- Budgets: start a separate child with `OPENSYSML_MAX_ACTION_STEPS=1` so the setting cannot leak into the other
+  fixtures; exhaustion must be a response-level `error`, not a hang or a crash, and the child must still answer
+  a later call.
+- Read-only edits: compare the fixture's bytes before and after `apply_edits`, and evaluate the original model
+  hash afterwards; the edited `content` in the answer is not evidence that nothing was written.
+- The server has no GUI: the request/response log is the evidence. Do not record an idle desktop.
