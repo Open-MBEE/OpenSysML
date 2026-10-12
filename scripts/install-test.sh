@@ -297,6 +297,18 @@ fi
 if ok "the kernel alone" --version "$good" --tools sysml-jupyter-kernel --bin-dir @P@/k; then
 	[[ -x "$prefix/k/sysml-jupyter-kernel" ]] || { echo "FAIL: $prefix/k/sysml-jupyter-kernel missing" >&2; failures=$((failures + 1)); }
 	absent k/sysml k/sysml-lsp k/sysml-grpc
+	unsaid "opensysml-$host.tar.gz"
+	said "download/$good/sysml-jupyter-kernel-$host"
+fi
+
+# A tool published on its own does not pull the bundle in.
+if ok "sysml-grpc alone" --version "$good" --tools sysml-grpc --bin-dir @P@/g; then
+	[[ -x "$prefix/g/sysml-grpc" ]] || { echo "FAIL: $prefix/g/sysml-grpc missing" >&2; failures=$((failures + 1)); }
+	absent g/sysml g/sysml-lsp g/sysml-jupyter-kernel
+	unsaid "opensysml-$host.tar.gz"
+	said "  from:     $base/download/$good/sysml-grpc-$host"
+	said "sysml-grpc-$host verified"
+	said "Installed: $prefix/g/sysml-grpc"
 fi
 
 if ok "one tool into a bin dir" --version "$good" --tools sysml --bin-dir @P@/b; then

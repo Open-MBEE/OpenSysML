@@ -164,7 +164,18 @@ if (Test-Ok 'the kernel alone' -Version $Good -Tools sysml-jupyter-kernel) {
     Assert-Installed sysml-jupyter-kernel
     Assert-Absent sysml, sysml-lsp, sysml-grpc
     Assert-Said "download/$Good/sysml-jupyter-kernel-$HostPlatform"
+    Assert-Unsaid "opensysml-$HostPlatform.tar.gz"
     Assert-Said "Installed: $script:dir/sysml-jupyter-kernel"
+}
+
+# A tool published on its own does not pull the bundle in.
+if (Test-Ok 'sysml-grpc alone' -Version $Good -Tools sysml-grpc) {
+    Assert-Installed sysml-grpc
+    Assert-Absent sysml, sysml-lsp, sysml-jupyter-kernel
+    Assert-Unsaid "opensysml-$HostPlatform.tar.gz"
+    Assert-Said "  from:     $BaseUrl/download/$Good/sysml-grpc-$HostPlatform"
+    Assert-Said "sysml-grpc-$HostPlatform verified"
+    Assert-Said "Installed: $script:dir/sysml-grpc"
 }
 
 if (Test-Ok 'one tool' -Version $Good -Tools sysml) {
@@ -203,6 +214,7 @@ if (Test-Ok 'kernel staged for windows' -Version $Good -Os windows -Tools sysml-
     Assert-Installed sysml-jupyter-kernel.exe
     Assert-Absent sysml.exe, sysml-lsp.exe, sysml-grpc.exe, sysml-jupyter-kernel
     Assert-Said "download/$Good/sysml-jupyter-kernel-windows-amd64.exe"
+    Assert-Unsaid 'opensysml-windows-amd64.zip'
     Assert-Said 'sysml-jupyter-kernel-windows-amd64.exe verified'
     Assert-Said "Installed: $(Join-Path $script:dir sysml-jupyter-kernel.exe)"
     if ((Get-Content -LiteralPath (Join-Path $script:dir sysml-jupyter-kernel.exe) -Raw) -notlike "sysml-jupyter-kernel $($Good.Substring(1)) for windows*") {

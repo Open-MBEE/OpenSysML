@@ -380,9 +380,22 @@ fi
 info "  tools:    $tool_list"
 info "  binaries: $bin_dir"
 [ -z "$man_dir" ] || info "  manuals:  $man_dir"
-info "  from:     $(asset_url "$bundle")"
-! want sysml-grpc || info "            $(asset_url "$grpc_asset")"
-! want sysml-jupyter-kernel || info "            $(asset_url "$kernel_asset")"
+# The bundle is fetched only for the tools it carries; a tool published on
+# its own (sysml-grpc, sysml-jupyter-kernel) alone does not pull it in.
+want_bundle=false
+for tool in $tool_list; do
+	case "$tool" in
+	sysml | sysml-lsp) want_bundle=true ;;
+	esac
+done
+from_label="  from:     "
+from() { # <url>: one line per asset, the first labelled
+	info "$from_label$1"
+	from_label="            "
+}
+[ "$want_bundle" = false ] || from "$(asset_url "$bundle")"
+! want sysml-grpc || from "$(asset_url "$grpc_asset")"
+! want sysml-jupyter-kernel || from "$(asset_url "$kernel_asset")"
 if [ "$dry_run" = true ]; then
 	info "Dry run: nothing installed."
 	exit 0
@@ -401,8 +414,10 @@ verify() { # <asset>: against the manifest
 	info "  $1 verified"
 }
 
-fetch "$bundle"
-verify "$bundle"
+if [ "$want_bundle" = true ]; then
+	fetch "$bundle"
+	verify "$bundle"
+fi
 if want sysml-grpc; then
 	fetch "$grpc_asset"
 	verify "$grpc_asset"
@@ -415,14 +430,16 @@ fi
 # --- install ----------------------------------------------------------------
 
 mkdir -p "$work/bundle"
-if [ "$target_os" = windows ]; then
-	if have unzip; then
-		unzip -q "$work/$bundle" -d "$work/bundle"
+if [ "$want_bundle" = true ]; then
+	if [ "$target_os" = windows ]; then
+		if have unzip; then
+			unzip -q "$work/$bundle" -d "$work/bundle"
+		else
+			tar -xf "$work/$bundle" -C "$work/bundle"
+		fi
 	else
-		tar -xf "$work/$bundle" -C "$work/bundle"
+		tar -xzf "$work/$bundle" -C "$work/bundle"
 	fi
-else
-	tar -xzf "$work/$bundle" -C "$work/bundle"
 fi
 
 install_file() { # <source> <destination> <mode>
