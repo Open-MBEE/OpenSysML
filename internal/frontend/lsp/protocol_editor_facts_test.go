@@ -11,7 +11,7 @@ import (
 )
 
 // Drives a real framed session through signatureHelp, codeLens, codeLens/resolve
-// and inlayHint, which the embedded default server answered with method-not-found,
+// and InlayHint, which the embedded default server answered with method-not-found,
 // and checks initialize advertises each.
 func TestRunServesSignatureHelpCodeLensAndInlayHints(t *testing.T) {
 	client, server := net.Pipe()
@@ -39,7 +39,7 @@ func TestRunServesSignatureHelpCodeLensAndInlayHints(t *testing.T) {
 			}}},
 		{"jsonrpc": "2.0", "id": 3, "method": "textDocument/codeLens",
 			"params": map[string]any{"textDocument": doc}},
-		{"jsonrpc": "2.0", "id": 4, "method": "textDocument/inlayHint",
+		{"jsonrpc": "2.0", "id": 4, "method": "textDocument/InlayHint",
 			"params": map[string]any{"textDocument": doc, "range": map[string]any{
 				"start": map[string]any{"line": 0, "character": 0},
 				"end":   map[string]any{"line": lines, "character": 0},
@@ -128,7 +128,7 @@ func TestRunServesSignatureHelpCodeLensAndInlayHints(t *testing.T) {
 
 	hints, ok := responses[4]["result"].([]any)
 	if !ok || len(hints) == 0 {
-		t.Fatalf("inlayHint result = %v", responses[4]["result"])
+		t.Fatalf("InlayHint result = %v", responses[4]["result"])
 	}
 	labels := map[string]bool{}
 	for _, h := range hints {
