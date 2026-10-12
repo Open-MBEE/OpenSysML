@@ -102,7 +102,7 @@ func unorderedSubactions(graph *ActionGraph) []ast.Node {
 func startsConcurrently(node ast.Node) bool {
 	switch n := node.(type) {
 	case *ast.Usage:
-		if n.Kind != ast.UsageAction && !IsCaseNode(n) {
+		if !n.Kind.IsAction() && !IsCaseNode(n) {
 			return false
 		}
 		return semantics.UsageDeclIsComposite(n) && !n.IsAbstract && !n.IsPerformedAction() && !n.IsBodyParameter

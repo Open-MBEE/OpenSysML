@@ -210,7 +210,7 @@ func mergedTypedActionBody(node *ast.Usage, scope *symbols.Scope) (bool, Perform
 		return false, PerformedType{}
 	}
 	for _, rel := range node.Relationships {
-		if rel == nil || (rel.Kind != ast.RelTyping && rel.Kind != ast.RelReferences) {
+		if rel == nil || (rel.Kind != ast.RelTyping && !rel.Kind.ReferenceSubsets()) {
 			continue
 		}
 		target, ok := rel.Target.(*ast.QualifiedName)
@@ -255,7 +255,7 @@ func effectiveActionMembers(node *ast.Usage, scope *symbols.Scope) ([]effectiveA
 		}
 		for _, target := range resolve.ActionNodeRedefinitionTargets(declaringBody, usage, true) {
 			general, ok := target.(*ast.Usage)
-			if !ok || general.Kind != ast.UsageAction {
+			if !ok || !general.Kind.IsAction() {
 				continue
 			}
 			generalOwner := resolve.ActionNodeDeclaringScope(declaringBody, target)

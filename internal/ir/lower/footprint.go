@@ -611,9 +611,9 @@ func (b *footprintBuilder) invokesDeclaredBehavior(scope *symbols.Scope, qn *ast
 	}
 	switch d := decl.(type) {
 	case *ast.Definition:
-		return d.Kind == ast.DefCalc || d.Kind == ast.DefAction
+		return d.Kind == ast.DefCalc || d.Kind.IsAction()
 	case *ast.Usage:
-		return d.Kind == ast.UsageCalc || d.Kind == ast.UsageAction
+		return d.Kind == ast.UsageCalc || d.Kind.IsAction()
 	}
 	return false
 }

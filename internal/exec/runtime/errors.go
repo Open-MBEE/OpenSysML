@@ -736,3 +736,19 @@ func calcFrame(kind, calc string, err error) error {
 func calcDefaultError(kind, calc, param string, err error) error {
 	return calcFrame(kind, calc, fmt.Errorf("default for parameter %q: %w", param, err))
 }
+
+// UnresolvedActionError reports a perform, include or action reference naming
+// no behavior the runtime can find. It is a kind of ErrUnresolvedReference.
+type UnresolvedActionError struct {
+	Name   string // the name as written
+	Detail string // why the name resolves to nothing, when there is more to say
+}
+
+func (e *UnresolvedActionError) Error() string {
+	if e.Detail != "" {
+		return fmt.Sprintf("unresolved action reference: %s (%s)", e.Name, e.Detail)
+	}
+	return "unresolved action reference: " + e.Name
+}
+
+func (e *UnresolvedActionError) Unwrap() error { return ErrUnresolvedReference }

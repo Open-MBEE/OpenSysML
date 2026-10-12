@@ -293,7 +293,8 @@ states exactly what each reports.
 
 The debuggers have non-interactive forms that run to completion and report the values they
 produce. `-calc` takes a call expression, while `-action` and `-state` take the name of the
-behavior, optionally followed by the object performing it:
+behavior, optionally followed by the object performing it. A use case definition or usage is an
+action, so `-action` runs its body too (`-analysis` does not take one):
 
 ```bash
 $ sysml -calc "MyModel::Margin(20.0, 100.0)" checks.sysml
