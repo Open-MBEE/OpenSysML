@@ -372,7 +372,7 @@ jobs:
         env:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          bash scripts/build-msi.sh "$VERSION" dist/signed/sysml-windows-amd64.exe dist/signed/sysml-lsp-windows-amd64.exe dist/signed/sysml-grpc-windows-amd64.exe
+          bash scripts/build-msi.sh "$VERSION" dist/signed/sysml-windows-amd64.exe dist/signed/sysml-lsp-windows-amd64.exe dist/signed/sysml-grpc-windows-amd64.exe dist/signed/sysml-mcp-windows-amd64.exe
           msi=$(ls dist/opensysml-*-windows-amd64.msi)
           wix msi validate "$msi"
           mkdir -p dist/presign

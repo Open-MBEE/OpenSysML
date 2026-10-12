@@ -128,6 +128,7 @@ func TestMCPServerShipsAsItsOwnArchive(t *testing.T) {
 		"for name in sysml sysml-lsp sysml-grpc sysml-mcp; do",
 		"zip -q ../../release/sysml-mcp-windows-amd64-signed.zip sysml-mcp.exe LICENSE",
 		"dist/unsigned/sysml-grpc-windows-amd64.exe dist/unsigned/sysml-mcp-windows-amd64.exe",
+		"dist/signed/sysml-grpc-windows-amd64.exe dist/signed/sysml-mcp-windows-amd64.exe",
 	)
 	// publish-signed checks nothing out, so the LICENSE the signed zip carries
 	// has to arrive as the packaging-inputs artifact the build job uploads.

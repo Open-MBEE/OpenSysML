@@ -32,7 +32,7 @@ else
   wixpath() { local host="$1"; printf '%s%s' "$WIX_PATH_PREFIX" "$host"; }
 fi
 
-if [[ $# -lt 4 || $# -gt 5 ]]; then
+if [[ $# -lt 5 || $# -gt 6 ]]; then
   echo "usage: $0 <tag> <sysml.exe> <sysml-lsp.exe> <sysml-grpc.exe> <sysml-mcp.exe> [out.msi]" >&2
   exit 2
 fi
