@@ -351,6 +351,12 @@ func renderSyntax(r Result, v Verbosity) []string {
 	return renderDiagnostics(diags, r.Source, r.diagLocation, false)
 }
 
+// OwnDiagnostics are the diagnostics of the submission r reports, scoped as
+// the verbosity scopes the prompt's report of it: errors alone when quiet.
+func (r Result) OwnDiagnostics(v Verbosity) []diag.Diagnostic {
+	return scopedDiagnostics(r, v)
+}
+
 // scopedDiagnostics keeps the diagnostics of this submission that the verbosity
 // admits: errors always, warnings and below only above quiet.
 func scopedDiagnostics(r Result, v Verbosity) []diag.Diagnostic {
