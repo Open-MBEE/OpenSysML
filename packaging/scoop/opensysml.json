@@ -1,7 +1,7 @@
 {
     "##": "Template rendered by scripts/render-scoop-manifest.sh; __TAG__ / __VERSION__ / __SHA256_*__ are placeholders. See packaging/scoop/README.md.",
     "version": "__VERSION__",
-    "description": "SysML v2 and KerML toolchain: REPL/CLI (sysml) and language server (sysml-lsp)",
+    "description": "SysML v2 and KerML toolchain: REPL/CLI (sysml), language server (sysml-lsp) and MCP server for coding agents (sysml-mcp)",
     "homepage": "https://github.com/Open-MBEE/OpenSysML",
     "license": "Apache-2.0",
     "notes": [
@@ -11,13 +11,20 @@
     "depends": "z3",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/Open-MBEE/OpenSysML/releases/download/__TAG__/opensysml-windows-amd64.zip",
-            "hash": "__SHA256_WINDOWS_AMD64__"
+            "url": [
+                "https://github.com/Open-MBEE/OpenSysML/releases/download/__TAG__/opensysml-windows-amd64.zip",
+                "https://github.com/Open-MBEE/OpenSysML/releases/download/__TAG__/sysml-mcp-windows-amd64.zip"
+            ],
+            "hash": [
+                "__SHA256_WINDOWS_AMD64__",
+                "__SHA256_MCP_WINDOWS_AMD64__"
+            ]
         }
     },
     "bin": [
         "sysml.exe",
-        "sysml-lsp.exe"
+        "sysml-lsp.exe",
+        "sysml-mcp.exe"
     ],
     "checkver": {
         "github": "https://github.com/Open-MBEE/OpenSysML"
@@ -25,7 +32,10 @@
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/Open-MBEE/OpenSysML/releases/download/v$version/opensysml-windows-amd64.zip",
+                "url": [
+                    "https://github.com/Open-MBEE/OpenSysML/releases/download/v$version/opensysml-windows-amd64.zip",
+                    "https://github.com/Open-MBEE/OpenSysML/releases/download/v$version/sysml-mcp-windows-amd64.zip"
+                ],
                 "hash": {
                     "url": "$baseurl/SHA256SUMS.txt"
                 }

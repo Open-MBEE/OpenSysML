@@ -23,7 +23,11 @@ type NotationWriter interface {
 	// Save writes src, the session buffer named origin, to path in the format
 	// its extension names, and is the lines reporting what it did. The error is
 	// only the write's own.
-	Save(origin string, src []byte, path string) ([]string, error)
+	Save(origin string, src []byte, path string) (lines []string, written bool, err error)
+	// Preview is the file Save would write to path, in the format its extension
+	// names, with the lines Save prints before writing; ok is false when the
+	// save would be refused, the lines then saying why.
+	Preview(origin string, src []byte, path string) (content []byte, lines []string, ok bool)
 }
 
 // GraphWriter writes an object and what is reachable from it as the API's

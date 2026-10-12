@@ -13,6 +13,7 @@ no Burn bootstrapper bundle and no custom-action code.
 |---|---|---|---|
 | **OpenSysML** (required) | `sysml.exe`, `sysml-lsp.exe`, `LICENSE.txt` | on | The install folder (`%ProgramFiles%\OpenSysML` unless changed in the wizard) is appended to the system `PATH` and recorded under `HKLM\Software\Open-MBEE\OpenSysML\InstallFolder`, so upgrades propose the same folder. |
 | **gRPC service (sysml-grpc)** | `sysml-grpc.exe` | on | Optional because the release bundle `opensysml-windows-amd64.zip` does not carry it either: the Python/Node/Java/Rust clients download their own verified copy, so it is only needed to run the service by hand. |
+| **MCP server (sysml-mcp)** | `sysml-mcp.exe` | on | The Model Context Protocol server coding agents start; it is published apart from the bundle as `sysml-mcp-windows-amd64.zip`, and `sysml-mcp -print-config <host>` writes the block that declares it to OpenCode, Claude Code, Cursor, Codex, VS Code, Gemini CLI or Devin. |
 | **SMT solver (Z3)** | `z3\z3.exe`, `z3\msvcp140.dll`, `z3\vcruntime140.dll`, `z3\vcruntime140_1.dll`, `z3\LICENSE-z3.txt` | on | The `z3` subfolder of the install folder is appended to the system `PATH`, so `sysml` finds `z3.exe` by PATH discovery. Deselect it to use your own solver (`OPENSYSML_SMT`). |
 
 ## The setup wizard
@@ -24,7 +25,7 @@ Double-clicking the MSI runs a wizard: *Welcome* → *Destination Folder*
 terminal for the updated `PATH`. Running the MSI again on a machine where
 that version is installed offers *Repair* and *Remove*; a newer MSI upgrades
 in place after the same wizard, proposing the previously chosen folder. If
-`sysml`, `sysml-lsp`, or `sysml-grpc` is running during an upgrade, it is
+`sysml`, `sysml-lsp`, `sysml-grpc` or `sysml-mcp` is running during an upgrade, it is
 listed on a *Files in use* page. An `INSTALLFOLDER` command-line value wins
 over the remembered folder.
 
@@ -83,7 +84,8 @@ below), the .NET SDK, and:
 dotnet tool install --global wix --version 5.0.2
 
 scripts/build-msi.sh v0.5.0 \
-  dist/sysml-windows-amd64.exe dist/sysml-lsp-windows-amd64.exe dist/grpc/sysml-grpc-windows-amd64.exe
+  dist/sysml-windows-amd64.exe dist/sysml-lsp-windows-amd64.exe \
+  dist/grpc/sysml-grpc-windows-amd64.exe dist/mcp/sysml-mcp-windows-amd64.exe
 # -> dist/opensysml-0.5.0-windows-amd64.msi
 wix msi validate dist/opensysml-0.5.0-windows-amd64.msi   # ICE validation
 ```
@@ -171,7 +173,7 @@ To move to a new release:
   release zip, which redistributes them under the Visual Studio runtime
   redistribution terms.
 - **Signing.** When SignPath Foundation signing is configured the release
-  workflow signs `sysml.exe`, `sysml-lsp.exe`, `sysml-grpc.exe` and the MSI
+  workflow signs `sysml.exe`, `sysml-lsp.exe`, `sysml-grpc.exe`, `sysml-mcp.exe` and the MSI
   itself. `z3.exe` and its DLLs are never signed with the Foundation
   certificate: SignPath's terms allow unsigned upstream open-source binaries
   inside a signed installer but do not allow signing them. The SignPath

@@ -1,8 +1,8 @@
 # Releasing OpenSysML
 
 A release is cut by pushing a `v*` tag. Everything after that is CircleCI: the
-`release` workflow runs the test suite, cross-compiles `sysml`, `sysml-lsp` and
-`sysml-grpc` for five platforms, builds the combined `sysml-wasm` module and the
+`release` workflow runs the test suite, cross-compiles `sysml`, `sysml-lsp`,
+`sysml-grpc` and `sysml-mcp` for five platforms, builds the combined `sysml-wasm` module and the
 Python client's wheel and sdist; release assets go to GitHub and the Python
 package to PyPI. Nothing is
 published from a laptop.
@@ -245,6 +245,14 @@ so that `dist/` holds:
 
 - per-binary archives — `sysml-<os>-<arch>.tar.gz`,
   `sysml-lsp-<os>-<arch>.tar.gz` (`.zip` on Windows);
+- `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows), the MCP server's own
+  archive: `sysml-mcp` under its plain name, the `LICENSE` and, in the Unix
+  archives, `share/man/man1/sysml-mcp.1`. It is deliberately neither in the
+  bundle (an editor install does not need it) nor a raw binary (no client
+  downloads it); `install.sh --tools sysml-mcp`, the Homebrew formula's
+  `sysml-mcp` resource, the Scoop manifest's second URL and the MSI's *MCP
+  server* feature take it from here, and `tests/hygiene`
+  (`TestMCPServerShipsAsItsOwnArchive`) holds every one of those to the asset;
 - bundle archives — `opensysml-<os>-<arch>.tar.gz` holding both binaries under
   their plain names, which is the layout Homebrew and a PATH install expect,
   plus their section 1 manual pages under `share/man/man1` (the Unix archives
@@ -621,7 +629,9 @@ included, together with `SHA256SUMS.txt` and its cosign bundle.
 
 The signed files are **additional** assets — `sysml-windows-amd64-signed.zip`,
 `sysml-lsp-windows-amd64-signed.zip`, `sysml-grpc-windows-amd64-signed.exe`
-(with a `.sha256` sidecar, as the unsigned one has) and
+(with a `.sha256` sidecar, as the unsigned one has),
+`sysml-mcp-windows-amd64-signed.zip` (the same layout as the unsigned archive:
+`sysml-mcp.exe` and `LICENSE`) and
 `opensysml-windows-amd64-signed.zip`, listed in `SHA256SUMS-windows-signed.txt`.
 They do not replace the unsigned ones, on purpose: the cosign-signed manifest is
 what the Python and Node clients trust, and its certificate identity is this
@@ -710,7 +720,7 @@ unsigned and again on the signed executables.
 `packaging/msi/opensysml.wxs` (WiX Toolset v5, plain MSI, no bootstrapper) and
 `scripts/build-msi.sh` produce `opensysml-<x.y.z>-windows-amd64.msi`: a
 per-machine x64 installer of `sysml.exe`, `sysml-lsp.exe`, `LICENSE.txt` and,
-as separately deselectable features, `sysml-grpc.exe` and the Z3 solver
+as separately deselectable features, `sysml-grpc.exe`, `sysml-mcp.exe` and the Z3 solver
 (`z3\z3.exe` with its runtime DLLs and `LICENSE-z3.txt`), both directories on
 the system `PATH`. `MajorUpgrade` makes a newer MSI replace an older install;
 the `ProductVersion` is the tag without `v` and without any pre-release suffix

@@ -202,6 +202,21 @@ build first with `PATH="$PWD/bin:$PATH" opencode`. Two details of the configurat
 key disables them all), and OpenCode starts a declared server with the project directory as its
 workspace root, so the whole checkout is the server's workspace.
 
+The same file's `mcp` block gives OpenCode's agent the toolchain as tools, through
+[`sysml-mcp`](#coding-agents-and-sysml-mcp):
+
+```json
+{
+  "mcp": {
+    "sysml": {
+      "type": "local",
+      "command": ["sysml-mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
 **What the server indexes.** Every `.sysml` and `.kerml` file under the editor's workspace
 folders is indexed at start-up, so a name declared in a file you never opened still resolves,
 and an open buffer's text stands in for its file on disk. A file opened from outside every
@@ -329,3 +344,33 @@ To check the installation in an editor, open a file containing
 ---
 
 Next: [client libraries](../clients.md).
+
+## Coding agents and `sysml-mcp`
+
+A language server tells an agent what is wrong with a file; `sysml-mcp` lets the agent *ask*: it
+is a [Model Context Protocol](https://modelcontextprotocol.io) server that an agent host —
+OpenCode, Claude Code, Cursor, Codex, VS Code's Copilot, Gemini CLI, Devin — starts in the
+project directory and calls as tools. Three groups are served: the language server's workspace
+(`diagnostics`, `hover`, `definition`, `references`, `rename`, `format`, `render_view`, ... over
+the documents under the root), the runtime (`parse`, `evaluate`, `instantiate`, `execute_action`,
+`verify_requirement`, `run_analysis`, `convert`, `migrate`, ...) and REPL sessions
+(`session_open`, `session_submit`, `session_run`, the debugger, the solver commands, ...) whose
+model, objects and runs persist across the agent's calls. An agent asked to fix a model runs
+`diagnostics`, edits, runs them again; asked whether a requirement holds, it instantiates the
+part and calls `verify_requirement` instead of reasoning about the arithmetic.
+
+The server speaks the protocol over stdin and stdout, so it is never run at a prompt; the host
+starts it from a configuration block that `sysml-mcp -print-config <host>` writes:
+
+```bash
+sysml-mcp -print-config                 # opencode, claude-code, cursor, codex, vscode, gemini, devin
+sysml-mcp -print-config claude-code > .mcp.json
+sysml-mcp -print-config codex >> ~/.codex/config.toml
+```
+
+The block names the binary by its absolute path, or by the command `-print-config-command`
+gives; `-tools lsp,runtime` or `-root models` go into its `args`. The
+[MCP server reference](../reference/sysml-mcp.md) has every host's block, the full tool
+catalogue with what each tool does, and the conventions the tools share: 1-based line and
+column positions, paths relative to the root, and nothing written to disk without
+`"apply": true`.

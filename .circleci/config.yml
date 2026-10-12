@@ -2349,6 +2349,26 @@ jobs:
             # packages that download it read. The package jobs check the binaries
             # they bundle against these, and build-release checks them again
             # before folding them into the signed manifest.
+            # sysml-mcp is built apart from the other sysml-* binaries so the
+            # per-binary archive loop below does not pack it bare; it ships in
+            # its own archive with its manual page and the LICENSE.
+            mkdir -p dist/mcp
+
+            GOOS=linux GOARCH=amd64 make build-mcp VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-mcp dist/mcp/sysml-mcp-linux-amd64
+
+            GOOS=linux GOARCH=arm64 make build-mcp VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-mcp dist/mcp/sysml-mcp-linux-arm64
+
+            GOOS=darwin GOARCH=amd64 make build-mcp VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-mcp dist/mcp/sysml-mcp-darwin-amd64
+
+            GOOS=darwin GOARCH=arm64 make build-mcp VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-mcp dist/mcp/sysml-mcp-darwin-arm64
+
+            GOOS=windows GOARCH=amd64 make build-mcp VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-mcp dist/mcp/sysml-mcp-windows-amd64.exe
+
             (cd dist/grpc && for f in sysml-grpc-*; do sha256sum "$f" > "$f.sha256"; done)
             (cd dist/jupyter && for f in sysml-jupyter-kernel-*; do sha256sum "$f" > "$f.sha256"; done)
 
@@ -2388,9 +2408,25 @@ jobs:
             (cd stage/windows-amd64 && zip -q ../../opensysml-windows-amd64.zip sysml.exe sysml-lsp.exe)
             rm -rf stage
 
+            # sysml-mcp's own archives: the binary under its plain name, the
+            # LICENSE and its manual page; not in the bundle, not a raw asset.
+            for platform in linux-amd64 linux-arm64 darwin-amd64 darwin-arm64; do
+              stage="stage/mcp-${platform}"
+              mkdir -p "$stage/share/man/man1"
+              cp "mcp/sysml-mcp-${platform}" "${stage}/sysml-mcp"
+              cp ../LICENSE "${stage}/LICENSE"
+              cp ../packaging/man/man1/sysml-mcp.1 "${stage}/share/man/man1/"
+              tar czf "sysml-mcp-${platform}.tar.gz" -C "$stage" sysml-mcp LICENSE share
+            done
+            mkdir -p stage/mcp-windows-amd64
+            cp mcp/sysml-mcp-windows-amd64.exe stage/mcp-windows-amd64/sysml-mcp.exe
+            cp ../LICENSE stage/mcp-windows-amd64/LICENSE
+            (cd stage/mcp-windows-amd64 && zip -q ../../sysml-mcp-windows-amd64.zip sysml-mcp.exe LICENSE)
+            rm -rf stage
+
             # The checksum manifest and the per-file sidecars are
             # build-release's, once the Python distributions exist to list.
-            ls -l . grpc jupyter
+            ls -l . grpc jupyter mcp
 
       # A Linux binary linked against this executor's glibc would not start on
       # older distributions; the Makefile builds without cgo, and this proves it.
@@ -2401,6 +2437,7 @@ jobs:
               dist/sysml-linux-amd64 dist/sysml-linux-arm64 \
               dist/sysml-lsp-linux-amd64 dist/sysml-lsp-linux-arm64 \
               dist/grpc/sysml-grpc-linux-amd64 dist/grpc/sysml-grpc-linux-arm64 \
+              dist/mcp/sysml-mcp-linux-amd64 dist/mcp/sysml-mcp-linux-arm64 \
               dist/jupyter/sysml-jupyter-kernel-linux-amd64 dist/jupyter/sysml-jupyter-kernel-linux-arm64
 
       # A binary whose version disagrees with its tag looks identical on the
@@ -2423,18 +2460,19 @@ jobs:
             }
             for binary in dist/sysml-linux-amd64 dist/sysml-lsp-linux-amd64 \
                           dist/grpc/sysml-grpc-linux-amd64 \
-                          dist/jupyter/sysml-jupyter-kernel-linux-amd64; do
+                          dist/jupyter/sysml-jupyter-kernel-linux-amd64 \
+                          dist/mcp/sysml-mcp-linux-amd64; do
               reported="$("$binary" --version 2>&1 | head -n 1)"
               case " $reported " in
                 *" ${CIRCLE_TAG} "*) echo "ok: $binary reports ${CIRCLE_TAG}" ;;
                 *) fail "$binary" "it reports '${reported}'" ;;
               esac
             done
-            for binary in dist/sysml-* dist/grpc/sysml-grpc-* dist/jupyter/sysml-jupyter-kernel-* dist/wasm/sysml-wasm.wasm; do
+            for binary in dist/sysml-* dist/grpc/sysml-grpc-* dist/jupyter/sysml-jupyter-kernel-* dist/mcp/sysml-mcp-* dist/wasm/sysml-wasm.wasm; do
               case "$binary" in
                 *.tar.gz|*.zip|*.sha256) continue ;;
                 dist/sysml-linux-amd64|dist/sysml-lsp-linux-amd64) continue ;;
-                dist/grpc/sysml-grpc-linux-amd64|dist/jupyter/sysml-jupyter-kernel-linux-amd64) continue ;;
+                dist/grpc/sysml-grpc-linux-amd64|dist/jupyter/sysml-jupyter-kernel-linux-amd64|dist/mcp/sysml-mcp-linux-amd64) continue ;;
               esac
               if grep -qa -- "${CIRCLE_TAG}" "$binary"; then
                 echo "ok: $binary carries ${CIRCLE_TAG}"

@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
@@ -19,6 +20,8 @@ type options struct {
 	showVersion   bool
 	showHelp      bool
 	showMan       bool
+	printConfig   hostFlag
+	configCommand string
 }
 
 // registerFlags declares the server's flags on fs, so a run, the help and the
@@ -39,6 +42,10 @@ func registerFlags(fs *flag.FlagSet) *options {
 	fs.IntVar(&o.cacheSize, "cache-size", 100, "Maximum number of parsed models the runtime tools hold; at least 1")
 	fs.StringVar(&o.logLevel, "log-level", "warn", "Lowest level logged to stderr: debug, info, warn or error")
 	fs.Bool("stdio", false, "Serve over stdin/stdout (the only transport; accepted for hosts that name it)")
+	fs.Var(&o.printConfig, "print-config",
+		"Write the configuration block declaring this server to an agent host — "+strings.Join(hostNames(), ", ")+" — to stdout and exit; alone, list the hosts")
+	fs.StringVar(&o.configCommand, "print-config-command", "",
+		"Command the -print-config block names instead of this binary's absolute path, such as sysml-mcp when it is on PATH")
 	fs.BoolVar(&o.showVersion, "version", false, "Show version information")
 	fs.BoolVar(&o.showVersion, "v", false, "Show version (shorthand)")
 	fs.BoolVar(&o.showHelp, "help", false, "Show this help and exit")
@@ -53,6 +60,15 @@ func docFlags() *flag.FlagSet {
 	fs := flag.NewFlagSet(mcpCommand, flag.ContinueOnError)
 	registerFlags(fs)
 	return fs
+}
+
+// hostList names the hosts -print-config knows, each with the file it reads.
+func hostList() string {
+	parts := make([]string, len(hosts))
+	for i, h := range hosts {
+		parts[i] = h.name + " (" + h.file + ")"
+	}
+	return strings.Join(parts, ", ")
 }
 
 // doc describes the server for both the terminal help and the man page, so a
@@ -89,6 +105,21 @@ func doc() usage.Doc {
 					"{\"mcp\": {\"sysml\": {\"type\": \"local\", \"command\": [\"sysml-mcp\"]}}} " +
 					"in OpenCode's opencode.json, and starts it with the project as the " +
 					"working directory.",
+			},
+		}, {
+			Title: "Configuring a host",
+			Lead: []string{
+				"-print-config writes the block a host reads, naming this binary by " +
+					"its absolute path so the host finds it wherever it was installed; " +
+					"-print-config-command names another command instead, such as " +
+					"sysml-mcp when it is on PATH. The hosts, with the file each reads, are " +
+					hostList() + ".",
+			},
+			Examples: []usage.Example{
+				usage.Ex("sysml-mcp -print-config", "List the hosts"),
+				usage.Ex("sysml-mcp -print-config opencode", "The mcp block of opencode.json"),
+				usage.Ex("sysml-mcp -print-config codex >> ~/.codex/config.toml", "Append the [mcp_servers.sysml] table"),
+				usage.Ex("sysml-mcp -print-config cursor -print-config-command sysml-mcp", "A block that finds the server on PATH"),
 			},
 		}, {
 			Title: "Exit status",

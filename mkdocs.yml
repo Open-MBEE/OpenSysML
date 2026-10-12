@@ -279,6 +279,7 @@ nav:
       - Environment variables: reference/environment.md
       - External engines: reference/external-engines.md
       - Language server: reference/lsp.md
+      - MCP server: reference/sysml-mcp.md
       - Jupyter kernel: reference/jupyter-kernel.md
       - Diagnostics (lints): reference/diagnostics.md
       - Client libraries: reference/clients.md

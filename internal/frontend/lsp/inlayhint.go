@@ -17,16 +17,16 @@ import (
 // library predates; its shapes are declared here.
 const methodInlayHint = "textDocument/inlayHint"
 
-// inlayHintParams asks for the hints of one range of a document.
-type inlayHintParams struct {
+// InlayHintParams asks for the hints of one range of a document.
+type InlayHintParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	Range        protocol.Range                  `json:"range"`
 }
 
-// inlayHint is text the editor shows inline at a position without it being in
+// InlayHint is text the editor shows inline at a position without it being in
 // the document: a type after a name declared without one, a value after an
 // expression evaluated from the model alone.
-type inlayHint struct {
+type InlayHint struct {
 	Position     protocol.Position `json:"position"`
 	Label        string            `json:"label"`
 	Kind         int               `json:"kind,omitempty"`
@@ -45,7 +45,7 @@ var inlayHintProvider = map[string]any{"resolveProvider": false}
 // declared without one, and the constant each non-literal feature value
 // evaluates to from the model alone. Only the declarations in the range are
 // read, so hints cost nothing until an editor asks for them.
-func (s *Server) InlayHint(params *inlayHintParams) ([]inlayHint, error) {
+func (s *Server) InlayHint(params *InlayHintParams) ([]InlayHint, error) {
 	name := uriToName(params.TextDocument.URI)
 	doc := s.document(name)
 	if doc == nil || doc.Scope == nil {
@@ -54,12 +54,12 @@ func (s *Server) InlayHint(params *inlayHintParams) ([]inlayHint, error) {
 	want := rangeToSpan(doc.Content, params.Range)
 	syms := usagesIn(doc.Scope, want)
 	if len(syms) == 0 {
-		return []inlayHint{}, nil
+		return []InlayHint{}, nil
 	}
 	pos := positionsOf(doc)
-	out := []inlayHint{}
+	out := []InlayHint{}
 	// A declaration spanning several lines may put a hint outside the range.
-	add := func(hint inlayHint) {
+	add := func(hint InlayHint) {
 		if inRange(hint.Position, params.Range) {
 			out = append(out, hint)
 		}
@@ -68,7 +68,7 @@ func (s *Server) InlayHint(params *inlayHintParams) ([]inlayHint, error) {
 		usage := hint.Symbol.Decl.(*ast.Usage)
 		if hint.Type != nil {
 			if at, ok := typeHintOffset(hint.Symbol, usage); ok {
-				add(inlayHint{
+				add(InlayHint{
 					Position:    pos.position(at),
 					Label:       ": " + typeName(hint.Type),
 					Kind:        inlayHintKindType,
@@ -78,7 +78,7 @@ func (s *Server) InlayHint(params *inlayHintParams) ([]inlayHint, error) {
 			}
 		}
 		if text, ok := constantText(hint.Value); hint.HasValue && ok {
-			add(inlayHint{
+			add(InlayHint{
 				Position:    pos.position(usage.Value.Span().End()),
 				Label:       "= " + text,
 				Tooltip:     "value evaluated from the model",
@@ -172,7 +172,7 @@ func (s *Server) inlayHintHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 	return func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
 		switch req.Method() {
 		case methodInlayHint:
-			var params inlayHintParams
+			var params InlayHintParams
 			if err := json.Unmarshal(req.Params(), &params); err != nil {
 				return reply(ctx, nil, err)
 			}
