@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -188,6 +189,50 @@ func TestWatchedFileCreateAndChangeReindex(t *testing.T) {
 	}
 	if msgs := diagnosticsFor(fc, main); len(msgs) == 0 {
 		t.Fatalf("diagnostics for main = none, want an unresolved Gizmo")
+	}
+}
+
+func TestRescanReconcilesTheFoldersWithDisk(t *testing.T) {
+	s, _, dir, lib, main := multiFileWorkspace(t)
+	ctx := context.Background()
+	openFile(t, s, main, mainSource)
+
+	// A file created, one rewritten and one deleted with no watcher to report
+	// them: one rescan sees all three, and leaves the open buffer alone.
+	extra := filepath.Join(dir, "extra.sysml")
+	if err := os.WriteFile(extra, []byte("package Extra {\n    part def Gizmo;\n}\n"), 0o600); err != nil {
+		t.Fatalf("write extra: %v", err)
+	}
+	if err := os.WriteFile(lib, []byte("package Lib {\n    part def Doohickey;\n}\n"), 0o600); err != nil {
+		t.Fatalf("rewrite lib: %v", err)
+	}
+	if err := os.Remove(main); err != nil {
+		t.Fatalf("remove main: %v", err)
+	}
+	s.Rescan(ctx)
+
+	if s.ws.Document(extra) == nil {
+		t.Errorf("rescan did not index the created %q", extra)
+	}
+	if content, _ := s.ws.OnDisk(lib); !strings.Contains(string(content), "Doohickey") {
+		t.Errorf("rescan did not reread the rewritten %q: %q", lib, content)
+	}
+	if s.ws.Document(main) == nil {
+		t.Errorf("rescan dropped the open %q, whose buffer is authoritative", main)
+	}
+
+	// Closed and gone from disk, the document leaves the workspace.
+	if err := s.DidClose(ctx, &protocol.DidCloseTextDocumentParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(main)},
+	}); err != nil {
+		t.Fatalf("DidClose err = %v", err)
+	}
+	s.Rescan(ctx)
+	if s.ws.Document(main) != nil {
+		t.Errorf("rescan kept the deleted, closed %q", main)
+	}
+	if s.ws.Document(extra) == nil || s.ws.Document(lib) == nil {
+		t.Errorf("rescan dropped a document still on disk")
 	}
 }
 

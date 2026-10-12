@@ -403,6 +403,15 @@ func (w *Workspace) SetOnDisk(name string, content []byte) {
 	}
 }
 
+// OnDisk returns a copy of the bytes last recorded as name's file on disk, and
+// whether any were.
+func (w *Workspace) OnDisk(name string) ([]byte, bool) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	content, ok := w.onDisk[name]
+	return bytes.Clone(content), ok
+}
+
 // DeleteOnDisk forgets the on-disk bytes recorded for name. An open document
 // keeps its authoritative buffer; a closed one leaves the document set.
 func (w *Workspace) DeleteOnDisk(name string) {

@@ -635,7 +635,7 @@ func TestOpenUpdateCloseHoldAnUnsavedBuffer(t *testing.T) {
 	f.unchanged(before)
 }
 
-func TestReloadAndRefreshPickUpExternalEdits(t *testing.T) {
+func TestExternalEditsAreSeenWithoutBeingAnnounced(t *testing.T) {
 	f := newFixture(t)
 	var info WorkspaceInfo
 	f.ok("workspace_info", map[string]any{}, &info)
@@ -644,10 +644,10 @@ func TestReloadAndRefreshPickUpExternalEdits(t *testing.T) {
 	}
 
 	write(t, f.root, "bad.sysml", "package Bad {\n    part def Fixed;\n    part p : Vehicles::Wheel;\n}\n")
-	var ws0 WorkspaceSymbolsResult
-	f.ok("workspace_symbols", map[string]any{"query": "Fixed"}, &ws0)
-	if len(ws0.Symbols) != 1 {
-		t.Errorf("workspace symbols after an external edit = %+v", ws0)
+	var ws WorkspaceSymbolsResult
+	f.ok("workspace_symbols", map[string]any{"query": "Fixed"}, &ws)
+	if len(ws.Symbols) != 1 {
+		t.Errorf("workspace symbols after an external edit = %+v", ws)
 	}
 	var diags DiagnosticsResult
 	f.ok("diagnostics", map[string]any{"path": "bad.sysml"}, &diags)
@@ -659,12 +659,6 @@ func TestReloadAndRefreshPickUpExternalEdits(t *testing.T) {
 	if err := os.Remove(filepath.Join(f.root, "c.sysml")); err != nil {
 		t.Fatal(err)
 	}
-	var reload ReloadResult
-	f.ok("reload", map[string]any{}, &reload)
-	if reload.Documents != 4 || len(reload.Added) != 1 || reload.Added[0] != "d.sysml" || len(reload.Removed) != 1 || reload.Removed[0] != "c.sysml" {
-		t.Errorf("reload = %+v", reload)
-	}
-	var ws WorkspaceSymbolsResult
 	f.ok("workspace_symbols", map[string]any{"query": "Fresh"}, &ws)
 	if len(ws.Symbols) != 1 || ws.Symbols[0].Location.Path != "d.sysml" {
 		t.Errorf("Fresh = %+v", ws)
@@ -673,19 +667,10 @@ func TestReloadAndRefreshPickUpExternalEdits(t *testing.T) {
 	if len(ws.Symbols) != 0 {
 		t.Errorf("deleted document still indexed: %+v", ws)
 	}
-
-	write(t, f.root, "e.sysml", "package E { part def Later; }\n")
-	f.ok("reload", map[string]any{"paths": []string{"e.sysml"}}, &reload)
-	if len(reload.Added) != 1 || reload.Documents != 5 {
-		t.Errorf("reload of one path = %+v", reload)
-	}
-	f.ok("reload", map[string]any{"paths": []string{"e.sysml", "a.sysml"}}, &reload)
-	if len(reload.Added)+len(reload.Changed)+len(reload.Removed) != 0 {
-		t.Errorf("reload of unchanged paths = %+v", reload)
-	}
-	f.ok("reload", map[string]any{}, &reload)
-	if len(reload.Added)+len(reload.Changed)+len(reload.Removed) != 0 {
-		t.Errorf("second reload = %+v", reload)
+	f.fails("document_symbols", map[string]any{"path": "c.sysml"})
+	f.ok("workspace_info", map[string]any{}, &info)
+	if len(info.Documents) != 4 {
+		t.Errorf("documents after the external changes = %v", info.Documents)
 	}
 }
 

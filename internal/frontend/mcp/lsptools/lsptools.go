@@ -4,6 +4,7 @@
 package lsptools
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -13,7 +14,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.lsp.dev/protocol"
@@ -40,14 +40,6 @@ type Host struct {
 	Workspace *model.Workspace
 
 	realRoot string // Root with symlinks resolved, which every document must lie under
-	mu       sync.Mutex
-	stamps   map[string]stamp // on-disk state each indexed document was last read in
-}
-
-// stamp is what a document looked like on disk when it was last indexed.
-type stamp struct {
-	size    int64
-	modTime int64
 }
 
 // NewHost starts a language server over root and indexes the model documents
@@ -68,34 +60,26 @@ func NewHost(ctx context.Context, root string, ws *model.Workspace, version stri
 	if err := srv.Initialized(ctx, &protocol.InitializedParams{}); err != nil {
 		return nil, fmt.Errorf("indexing %s: %w", root, err)
 	}
-	h := &Host{Root: root, Server: srv, Workspace: ws, realRoot: root, stamps: map[string]stamp{}}
+	h := &Host{Root: root, Server: srv, Workspace: ws, realRoot: root}
 	if real, err := filepath.EvalSymlinks(root); err == nil {
 		h.realRoot = real
-	}
-	for _, name := range ws.DocumentNames() {
-		if !ws.IsLibraryDocument(name) {
-			h.stamps[name] = statOf(name)
-		}
 	}
 	return h, nil
 }
 
-// Close shuts the language server down.
+// Refresh reconciles the workspace with the root as it is on disk now. An
+// editor reports file changes to the language server as they happen; an agent
+// edits files with its own tools and tells no one, so every tool that reads the
+// workspace refreshes it first.
+func (h *Host) Refresh(ctx context.Context) { h.Server.Rescan(ctx) }
+
+// Close ends the language server session, releasing what it holds.
 func (h *Host) Close(ctx context.Context) error {
 	return h.Server.Shutdown(ctx)
 }
 
 // URI is the document URI of a workspace path.
 func (h *Host) URI(path string) protocol.DocumentURI { return uri.File(path) }
-
-// statOf records the on-disk state of path; a missing file is the zero stamp.
-func statOf(path string) stamp {
-	info, err := os.Stat(path)
-	if err != nil {
-		return stamp{}
-	}
-	return stamp{size: info.Size(), modTime: info.ModTime().UnixNano()}
-}
 
 // docRef names a document the tools address: a workspace file by absolute
 // path, or a bundled library document by its library-relative name.
@@ -188,136 +172,11 @@ func (h *Host) resolveLibrary(name string) (docRef, error) {
 	return docRef{name: name, library: true}, nil
 }
 
-// refToURI resolves a path and brings its indexed text up to date with disk.
+// document resolves a path after bringing the workspace up to date with disk,
+// so the answer is about the file as the agent's own tools left it.
 func (h *Host) document(ctx context.Context, path string) (docRef, error) {
-	ref, err := h.resolve(path)
-	if err != nil {
-		return docRef{}, err
-	}
-	if !ref.library {
-		h.refresh(ctx, ref.name)
-	}
-	return ref, nil
-}
-
-// outcome is what a refresh did to a document.
-type outcome int
-
-const (
-	unchanged outcome = iota
-	added
-	changed
-	removed
-)
-
-// refresh reindexes name when the file changed on disk since it was last read,
-// adds it when it is new, and drops it when it was deleted. An open buffer is
-// authoritative and left alone.
-func (h *Host) refresh(ctx context.Context, name string) outcome {
-	if slices(h.Workspace.OpenNames(), name) {
-		return unchanged
-	}
-	now := statOf(name)
-	h.mu.Lock()
-	before, known := h.stamps[name]
-	h.mu.Unlock()
-	switch {
-	case now == (stamp{}) && known:
-		h.watched(ctx, name, protocol.FileChangeTypeDeleted)
-		return removed
-	case now == (stamp{}):
-		return unchanged
-	case !known:
-		h.watched(ctx, name, protocol.FileChangeTypeChanged)
-		return added
-	case before != now:
-		h.watched(ctx, name, protocol.FileChangeTypeChanged)
-		return changed
-	}
-	return unchanged
-}
-
-// refreshAll brings every indexed workspace document up to date with disk, for
-// the tools whose answer spans documents.
-func (h *Host) refreshAll(ctx context.Context) {
-	for _, name := range h.Workspace.DocumentNames() {
-		if !h.Workspace.IsLibraryDocument(name) {
-			h.refresh(ctx, name)
-		}
-	}
-}
-
-// watched tells the server about one file change and records the state read.
-func (h *Host) watched(ctx context.Context, name string, kind protocol.FileChangeType) {
-	_ = h.Server.DidChangeWatchedFiles(ctx, &protocol.DidChangeWatchedFilesParams{
-		Changes: []*protocol.FileEvent{{URI: uri.File(name), Type: kind}},
-	})
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if kind == protocol.FileChangeTypeDeleted {
-		delete(h.stamps, name)
-		return
-	}
-	h.stamps[name] = statOf(name)
-}
-
-// rescan walks the root for model files and reconciles the index with disk:
-// new and changed files are (re)indexed, deleted ones dropped.
-func (h *Host) rescan(ctx context.Context) (ReloadResult, error) {
-	onDisk := map[string]bool{}
-	err := filepath.WalkDir(h.Root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if path != h.Root && strings.HasPrefix(d.Name(), ".") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if model.IsModelSource(path) {
-			onDisk[path] = true
-		}
-		return nil
-	})
-	if err != nil {
-		return ReloadResult{}, fmt.Errorf("scanning %s: %w", h.Root, err)
-	}
-	var res ReloadResult
-	open := h.Workspace.OpenNames()
-	for _, name := range h.Workspace.DocumentNames() {
-		if h.Workspace.IsLibraryDocument(name) || slices(open, name) || onDisk[name] || !strings.HasPrefix(name, h.Root) {
-			continue
-		}
-		h.watched(ctx, name, protocol.FileChangeTypeDeleted)
-		res.Removed = append(res.Removed, h.display(uri.File(name)))
-	}
-	for name := range onDisk {
-		if slices(open, name) {
-			continue
-		}
-		h.mu.Lock()
-		before, known := h.stamps[name]
-		h.mu.Unlock()
-		if known && before == statOf(name) {
-			continue
-		}
-		h.watched(ctx, name, protocol.FileChangeTypeChanged)
-		if known {
-			res.Changed = append(res.Changed, h.display(uri.File(name)))
-		} else {
-			res.Added = append(res.Added, h.display(uri.File(name)))
-		}
-	}
-	sort.Strings(res.Added)
-	sort.Strings(res.Changed)
-	sort.Strings(res.Removed)
-	for _, name := range h.Workspace.DocumentNames() {
-		if !h.Workspace.IsLibraryDocument(name) {
-			res.Documents++
-		}
-	}
-	return res, nil
+	h.Refresh(ctx)
+	return h.resolve(path)
 }
 
 // content is the text the workspace holds of ref: the open buffer, else the
@@ -393,9 +252,9 @@ type pendingWrite struct {
 }
 
 // writeAll puts every pending write on disk, or none: a file that changed on
-// disk since it was read refuses the whole change, and a failed write restores
-// the files written before it. The index, and an open buffer of a written
-// document, then follow the new text.
+// disk since the workspace read it refuses the whole change, and a failed
+// write restores the files written before it. The index, and an open buffer of
+// a written document, then follow the new text.
 func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	type original struct {
 		content []byte
@@ -403,17 +262,12 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	}
 	originals := make(map[string]original, len(writes))
 	for _, w := range writes {
-		if !slices(h.Workspace.OpenNames(), w.name) {
-			h.mu.Lock()
-			before, known := h.stamps[w.name]
-			h.mu.Unlock()
-			if known && before != statOf(w.name) {
-				return fmt.Errorf("%s changed on disk since it was read; call the tool again", h.display(uri.File(w.name)))
-			}
-		}
-		prev, err := os.ReadFile(w.name)
+		prev, err := os.ReadFile(w.name) // #nosec G304 -- a workspace document resolve admitted
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
+		}
+		if held, ok := h.Workspace.OnDisk(w.name); ok && !slices(h.Workspace.OpenNames(), w.name) && (err != nil || !bytes.Equal(prev, held)) {
+			return fmt.Errorf("%s changed on disk since it was read; call the tool again", h.display(uri.File(w.name)))
 		}
 		originals[w.name] = original{content: prev, existed: err == nil}
 	}
@@ -436,10 +290,9 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 			if err := h.replace(ctx, w.name, string(w.content)); err != nil {
 				return err
 			}
-			continue
 		}
-		h.watched(ctx, w.name, protocol.FileChangeTypeChanged)
 	}
+	h.Refresh(ctx)
 	return nil
 }
 
@@ -480,12 +333,14 @@ func Register(s *mcp.Server, h *Host) {
 		Description: "Describe the SysML v2 workspace the server has indexed: its root folder and the model documents found under it.",
 		Annotations: toolkit.ReadOnly("Workspace info"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ WorkspaceInfoInput) (*mcp.CallToolResult, WorkspaceInfo, error) {
+		h.Refresh(ctx)
 		info := WorkspaceInfo{Root: h.Root, Documents: []string{}}
 		for _, name := range h.Workspace.DocumentNames() {
 			if !h.Workspace.IsLibraryDocument(name) {
 				info.Documents = append(info.Documents, name)
 			}
 		}
+		sort.Strings(info.Documents)
 		info.Open = h.Workspace.OpenNames()
 		return nil, info, nil
 	})

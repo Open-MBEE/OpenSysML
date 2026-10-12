@@ -99,10 +99,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 	root, err := filepath.Abs(opts.root)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s-root %q: %v\n", commandPrefix, opts.root, err)
+		printUsage(stderr, fs)
 		return exitUnservable
 	}
 	if info, err := os.Stat(root); err != nil || !info.IsDir() {
 		fmt.Fprintf(stderr, "%s-root %q is not a directory\n", commandPrefix, opts.root)
+		printUsage(stderr, fs)
+		return exitUnservable
+	}
+	if opts.cacheSize < 1 {
+		fmt.Fprintf(stderr, "%s-cache-size %d: the runtime tools need room for at least one model\n", commandPrefix, opts.cacheSize)
+		printUsage(stderr, fs)
 		return exitUnservable
 	}
 	level, err := parseLogLevel(opts.logLevel)

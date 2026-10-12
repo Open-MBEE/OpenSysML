@@ -86,10 +86,11 @@ func TestTheServerRegistersTheGroupsAskedFor(t *testing.T) {
 		groups []Group
 		want   []string
 	}{
-		{nil, []string{"apply_model_edit", "close_document", "code_actions", "completion", "definition", "diagnostics", "document_symbols", "documents", "format", "hover", "inlay_hints", "open_document", "references", "reload", "rename", "render_document", "render_view", "server_info", "session_close", "session_list", "session_open", "signature_help", "update_document", "views", "workspace_info", "workspace_symbols"}},
-		{[]Group{GroupLSP}, []string{"apply_model_edit", "close_document", "code_actions", "completion", "definition", "diagnostics", "document_symbols", "documents", "format", "hover", "inlay_hints", "open_document", "references", "reload", "rename", "render_document", "render_view", "signature_help", "update_document", "views", "workspace_info", "workspace_symbols"}},
+		{nil, []string{"apply_model_edit", "close_document", "code_actions", "completion", "definition", "diagnostics", "document_symbols", "documents", "format", "hover", "inlay_hints", "open_document", "references", "rename", "render_document", "render_view", "server_info", "session_close", "session_list", "session_open", "signature_help", "update_document", "views", "workspace_info", "workspace_symbols"}},
+		{[]Group{GroupLSP}, []string{"apply_model_edit", "close_document", "code_actions", "completion", "definition", "diagnostics", "document_symbols", "documents", "format", "hover", "inlay_hints", "open_document", "references", "rename", "render_document", "render_view", "signature_help", "update_document", "views", "workspace_info", "workspace_symbols"}},
 		{[]Group{GroupRuntime}, []string{"server_info"}},
 		{[]Group{GroupSession}, []string{"session_close", "session_list", "session_open"}},
+		{[]Group{GroupSession, GroupRuntime, GroupSession}, []string{"server_info", "session_close", "session_list", "session_open"}},
 	}
 	for _, tc := range cases {
 		cs := connect(t, Config{Root: root, Groups: tc.groups, Version: "test"})
@@ -118,10 +119,21 @@ func TestWorkspaceInfoListsTheIndexedDocuments(t *testing.T) {
 	if info.Root != root {
 		t.Errorf("root = %q, want %q", info.Root, root)
 	}
-	slices.Sort(info.Documents)
 	want := []string{filepath.Join(root, "a.sysml"), filepath.Join(root, "b.kerml")}
 	if !slices.Equal(info.Documents, want) {
 		t.Errorf("documents = %v, want %v", info.Documents, want)
+	}
+
+	// Files the agent creates or deletes with its own tools, with no watcher to
+	// report them, show up on the next call.
+	writeModel(t, root, "c.sysml", "package C;\n")
+	if err := os.Remove(filepath.Join(root, "a.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	call(t, cs, "workspace_info", map[string]any{}, &info)
+	want = []string{filepath.Join(root, "b.kerml"), filepath.Join(root, "c.sysml")}
+	if !slices.Equal(info.Documents, want) {
+		t.Errorf("documents after edits = %v, want %v", info.Documents, want)
 	}
 }
 

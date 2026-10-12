@@ -118,7 +118,6 @@ func registerEdits(s *mcp.Server, h *Host) {
 		if strings.TrimSpace(in.NewName) == "" {
 			return nil, WorkspaceEditResult{}, errors.New("newName is required")
 		}
-		h.refreshAll(ctx)
 		ref, content, err := h.editable(ctx, in.Path)
 		if err != nil {
 			return nil, WorkspaceEditResult{}, err
@@ -150,7 +149,6 @@ func registerEdits(s *mcp.Server, h *Host) {
 		if len(in.Operations) == 0 {
 			return nil, ModelEditResult{}, errors.New("operations is required")
 		}
-		h.refreshAll(ctx)
 		ref, _, err := h.editable(ctx, in.Path)
 		if err != nil {
 			return nil, ModelEditResult{}, err

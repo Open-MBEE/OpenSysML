@@ -186,7 +186,7 @@ func registerQueries(s *mcp.Server, h *Host) {
 			}
 			refs = append(refs, ref)
 		} else {
-			h.refreshAll(ctx)
+			h.Refresh(ctx)
 			names := h.Workspace.DocumentNames()
 			sort.Strings(names)
 			for _, name := range names {
@@ -301,7 +301,7 @@ func registerQueries(s *mcp.Server, h *Host) {
 		Description: "Search the workspace's declared elements by name substring.",
 		Annotations: toolkit.ReadOnly("Workspace symbols"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in WorkspaceSymbolsInput) (*mcp.CallToolResult, WorkspaceSymbolsResult, error) {
-		h.refreshAll(ctx)
+		h.Refresh(ctx)
 		syms, err := h.Server.Symbols(ctx, &protocol.WorkspaceSymbolParams{Query: in.Query})
 		if err != nil {
 			return nil, WorkspaceSymbolsResult{}, err

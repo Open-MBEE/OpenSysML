@@ -85,7 +85,7 @@ func registerRendering(s *mcp.Server, h *Host) {
 		Description: "List the document definitions (doc def) declared across the workspace, which render_document renders to Markdown.",
 		Annotations: toolkit.ReadOnly("Document definitions"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ NoInput) (*mcp.CallToolResult, *lsp.DocumentsResult, error) {
-		h.refreshAll(ctx)
+		h.Refresh(ctx)
 		res := h.Server.Documents()
 		var b strings.Builder
 		for _, d := range res.Documents {
@@ -104,7 +104,7 @@ func registerRendering(s *mcp.Server, h *Host) {
 		if strings.TrimSpace(in.Name) == "" {
 			return nil, nil, fmt.Errorf("name is required")
 		}
-		h.refreshAll(ctx)
+		h.Refresh(ctx)
 		res, err := h.Server.RenderDocument(&lsp.RenderDocumentParams{Name: in.Name, DiagramForm: in.DiagramForm, LinkTemplate: in.LinkTemplate})
 		if err != nil {
 			return nil, nil, err
