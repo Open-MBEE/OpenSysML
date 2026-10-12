@@ -166,7 +166,7 @@ func TestLoadSubmitAndEvaluate(t *testing.T) {
 		t.Errorf("eval text = %q (output %q)", ev.Text, ev.Output)
 	}
 	value, _ := ev.Value.(map[string]any)
-	if value == nil || len(value) == 0 {
+	if len(value) == 0 {
 		t.Errorf("eval value = %#v, want the API's typed value", ev.Value)
 	}
 	if res := call(t, cs, "session_eval", args("expression", "nosuch + 1"), nil); !res.IsError {
