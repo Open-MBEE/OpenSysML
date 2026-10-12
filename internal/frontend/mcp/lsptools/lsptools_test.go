@@ -229,6 +229,19 @@ func TestUnknownPathsAndPositionsOffTheEndFail(t *testing.T) {
 	f.fails("close_document", map[string]any{"path": "a.sysml"})
 	f.fails("render_document", map[string]any{"name": "Nowhere::Doc"})
 	f.fails("hover", map[string]any{"path": "sysml://stdlib/Nope.kerml", "position": pos(1, 1)})
+
+	outside := filepath.Join(filepath.Dir(f.root), "outside.sysml")
+	write(t, filepath.Dir(f.root), "outside.sysml", "package Outside;\n")
+	t.Cleanup(func() { _ = os.Remove(outside) })
+	for _, path := range []string{"../outside.sysml", outside} {
+		if msg := f.fails("diagnostics", map[string]any{"path": path}); !strings.Contains(msg, "outside the workspace root") {
+			t.Errorf("error for %s = %q", path, msg)
+		}
+	}
+	f.fails("open_document", map[string]any{"path": "../outside.sysml", "text": "package X;"})
+	if _, err := f.cs.ReadResource(context.Background(), &mcp.ReadResourceParams{URI: "sysml://workspace/../outside.sysml"}); err == nil {
+		t.Error("reading a resource outside the root succeeded")
+	}
 }
 
 func TestNavigation(t *testing.T) {

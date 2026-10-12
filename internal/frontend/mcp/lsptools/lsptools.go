@@ -109,8 +109,9 @@ func (d docRef) uri() protocol.DocumentURI {
 }
 
 // resolve turns a tool's path argument into a document reference: a path
-// relative to the root or absolute, a `sysml://stdlib/<file>` resource URI or a
-// `sysml-stdlib:` document URI of the standard library.
+// relative to the root or absolute, which must lie under the root, a
+// `sysml://stdlib/<file>` resource URI or a `sysml-stdlib:` document URI of
+// the standard library.
 func (h *Host) resolve(path string) (docRef, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -136,7 +137,11 @@ func (h *Host) resolve(path string) (docRef, error) {
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(h.Root, path)
 	}
-	return docRef{name: filepath.Clean(path)}, nil
+	path = filepath.Clean(path)
+	if rel, err := filepath.Rel(h.Root, path); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return docRef{}, fmt.Errorf("%s is outside the workspace root %s", path, h.Root)
+	}
+	return docRef{name: path}, nil
 }
 
 func (h *Host) resolveLibrary(name string) (docRef, error) {
