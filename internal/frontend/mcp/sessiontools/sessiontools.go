@@ -328,6 +328,9 @@ func Register(s *mcp.Server, m *Manager) {
 			return CommandResult{}, fmt.Errorf("%q is no %% command; declarations go to session_submit and expressions to session_eval", line)
 		}
 		lines, quit, err := sess.RunMeta(line)
+		if fields := repl.MetaArgs(line); len(fields) > 0 && !repl.KnownMeta(fields[0]) {
+			return CommandResult{}, failed(fmt.Errorf("%q is no command this build serves", fields[0]), lines)
+		}
 		if err != nil {
 			var usage *repl.UsageError
 			if errors.As(err, &usage) {

@@ -348,6 +348,9 @@ func TestReplCommandReachesCommandsWithoutATypedTool(t *testing.T) {
 	if res := call(t, cs, "repl_command", args("line", "part def P;"), nil); !res.IsError {
 		t.Error("a declaration was accepted as a command")
 	}
+	if res := call(t, cs, "repl_command", args("line", "%nonesuch"), nil); !res.IsError || !strings.Contains(errText(res), "%help") {
+		t.Errorf("an unknown command was not refused with guidance: %+v", res)
+	}
 	if res := call(t, cs, "repl_command", args("line", "%instantiate Nowhere::x"), nil); !res.IsError {
 		t.Error("instantiating an unknown name succeeded")
 	}
