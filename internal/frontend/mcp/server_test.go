@@ -92,6 +92,13 @@ func allTools() []string {
 	return all
 }
 
+// sessionAndRuntimeTools is the session group's tool list with the runtime group's, sorted.
+func sessionAndRuntimeTools() []string {
+	tools := append([]string{"server_info"}, sessionTools()...)
+	slices.Sort(tools)
+	return tools
+}
+
 func TestTheServerRegistersTheGroupsAskedFor(t *testing.T) {
 	root := t.TempDir()
 	cases := []struct {
@@ -102,6 +109,7 @@ func TestTheServerRegistersTheGroupsAskedFor(t *testing.T) {
 		{[]Group{GroupLSP}, []string{"workspace_info"}},
 		{[]Group{GroupRuntime}, []string{"server_info"}},
 		{[]Group{GroupSession}, sessionTools()},
+		{[]Group{GroupSession, GroupRuntime, GroupSession}, sessionAndRuntimeTools()},
 	}
 	for _, tc := range cases {
 		cs := connect(t, Config{Root: root, Groups: tc.groups, Version: "test"})
@@ -130,10 +138,21 @@ func TestWorkspaceInfoListsTheIndexedDocuments(t *testing.T) {
 	if info.Root != root {
 		t.Errorf("root = %q, want %q", info.Root, root)
 	}
-	slices.Sort(info.Documents)
 	want := []string{filepath.Join(root, "a.sysml"), filepath.Join(root, "b.kerml")}
 	if !slices.Equal(info.Documents, want) {
 		t.Errorf("documents = %v, want %v", info.Documents, want)
+	}
+
+	// Files the agent creates or deletes with its own tools, with no watcher to
+	// report them, show up on the next call.
+	writeModel(t, root, "c.sysml", "package C;\n")
+	if err := os.Remove(filepath.Join(root, "a.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	call(t, cs, "workspace_info", map[string]any{}, &info)
+	want = []string{filepath.Join(root, "b.kerml"), filepath.Join(root, "c.sysml")}
+	if !slices.Equal(info.Documents, want) {
+		t.Errorf("documents after edits = %v, want %v", info.Documents, want)
 	}
 }
 

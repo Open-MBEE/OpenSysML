@@ -6,6 +6,7 @@ package lsptools
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.lsp.dev/protocol"
@@ -45,6 +46,12 @@ func NewHost(ctx context.Context, root string, ws *model.Workspace, version stri
 	return &Host{Root: root, Server: srv, Workspace: ws}, nil
 }
 
+// Refresh reconciles the workspace with the root as it is on disk now. An
+// editor reports file changes to the language server as they happen; an agent
+// edits files with its own tools and tells no one, so every tool that reads the
+// workspace refreshes it first.
+func (h *Host) Refresh(ctx context.Context) { h.Server.Rescan(ctx) }
+
 // Close ends the language server session, releasing what it holds.
 func (h *Host) Close(ctx context.Context) error {
 	return h.Server.Shutdown(ctx)
@@ -70,12 +77,14 @@ func Register(s *mcp.Server, h *Host) {
 		Description: "Describe the SysML v2 workspace the server has indexed: its root folder and the model documents found under it.",
 		Annotations: toolkit.ReadOnly("Workspace info"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ WorkspaceInfoInput) (*mcp.CallToolResult, WorkspaceInfo, error) {
+		h.Refresh(ctx)
 		info := WorkspaceInfo{Root: h.Root, Documents: []string{}}
 		for _, name := range h.Workspace.DocumentNames() {
 			if !h.Workspace.IsLibraryDocument(name) {
 				info.Documents = append(info.Documents, name)
 			}
 		}
+		sort.Strings(info.Documents)
 		info.Open = h.Workspace.OpenNames()
 		return nil, info, nil
 	})

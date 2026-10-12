@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io/fs"
@@ -126,8 +127,15 @@ func (s *Server) loadFolder(folder string) { s.scanFolder(folder, -1) }
 // The sources found are indexed as one batch, not one at a time: each document
 // added alone would re-derive the imports of every package that reads it.
 func (s *Server) scanFolder(folder string, budget int) {
+	s.loadFilesFromDisk(walkFolder(folder, budget))
+}
+
+// walkFolder lists the model sources under folder, visiting at most budget
+// directories (every directory when budget is negative) and skipping hidden and
+// vendored directories, unreadable entries and files too large to serve.
+func walkFolder(folder string, budget int) []string {
 	if folder == "" {
-		return
+		return nil
 	}
 	var paths []string
 	_ = filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
@@ -156,7 +164,64 @@ func (s *Server) scanFolder(folder string, budget int) {
 		paths = append(paths, path)
 		return nil
 	})
-	s.loadFilesFromDisk(paths)
+	return paths
+}
+
+// Rescan reconciles the workspace with the session's folders as they are on
+// disk now, for a client with no file watcher: sources added or rewritten since
+// the last walk are reindexed as one batch, and closed sources gone from disk
+// are dropped. An open buffer stays authoritative, as for a watched change.
+func (s *Server) Rescan(ctx context.Context) {
+	s.mu.Lock()
+	folders := append([]string(nil), s.folders...)
+	s.mu.Unlock()
+	if len(folders) == 0 {
+		return
+	}
+	s.debugEdit(ctx, "", func() {
+		onDisk := map[string]bool{}
+		var changed []string
+		for _, folder := range folders {
+			for _, path := range walkFolder(folder, -1) {
+				onDisk[path] = true
+				if s.changedOnDisk(path) {
+					changed = append(changed, path)
+				}
+			}
+		}
+		s.loadFilesFromDisk(changed)
+		for _, name := range s.ws.DocumentNames() {
+			if onDisk[name] || s.ws.IsLibraryDocument(name) || s.ws.IsOpen(name) || !underFolders(name, folders) {
+				continue
+			}
+			if _, err := os.Stat(name); errors.Is(err, fs.ErrNotExist) {
+				s.ws.DeleteOnDisk(name)
+			}
+		}
+	})
+	s.refreshOpenDiagnostics(ctx, "")
+}
+
+// changedOnDisk reports whether path's bytes differ from those the workspace
+// recorded for it, a file it has not recorded included.
+func (s *Server) changedOnDisk(path string) bool {
+	held, ok := s.ws.OnDisk(path)
+	if !ok {
+		return true
+	}
+	// #nosec G304 -- path comes from the folder the client asked to serve.
+	content, err := os.ReadFile(path)
+	return err != nil || !bytes.Equal(content, held)
+}
+
+// underFolders reports whether name lies in one of the folders.
+func underFolders(name string, folders []string) bool {
+	for _, folder := range folders {
+		if rel, err := filepath.Rel(folder, name); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 // loadFilesFromDisk is loadFromDisk over the paths as one batch of the workspace.

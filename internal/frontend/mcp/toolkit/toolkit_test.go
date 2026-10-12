@@ -14,8 +14,14 @@ func TestPositionRoundTripsThroughUTF16(t *testing.T) {
 	}{
 		{Position{1, 1}, protocol.Position{Line: 0, Character: 0}},
 		{Position{3, 6}, protocol.Position{Line: 2, Character: 5}},
-		// The emoji is one character and two UTF-16 units.
+		// The emoji is one character, four bytes and two UTF-16 units: columns
+		// past it are one more unit than characters, never bytes.
+		{Position{1, 6}, protocol.Position{Line: 0, Character: 5}},
 		{Position{1, 7}, protocol.Position{Line: 0, Character: 7}},
+		{Position{1, 8}, protocol.Position{Line: 0, Character: 8}},
+		{Position{1, 12}, protocol.Position{Line: 0, Character: 12}},
+		// A column past the end of the line is the end of the line.
+		{Position{1, 40}, protocol.Position{Line: 0, Character: 13}},
 		{Position{0, 0}, protocol.Position{Line: 0, Character: 0}},
 	}
 	for _, tc := range cases {
@@ -23,7 +29,7 @@ func TestPositionRoundTripsThroughUTF16(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("%+v.ToProtocol = %+v, want %+v", tc.pos, got, tc.want)
 		}
-		if tc.pos.Line < 1 || tc.pos.Column < 1 {
+		if tc.pos.Line < 1 || tc.pos.Column < 1 || tc.pos.Column > 13 {
 			continue
 		}
 		if back := FromProtocol(got, line); back != tc.pos {

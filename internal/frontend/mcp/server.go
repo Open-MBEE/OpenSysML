@@ -59,7 +59,8 @@ func ParseGroups(spec string) ([]Group, error) {
 type Config struct {
 	// Root is the workspace folder the language server indexes.
 	Root string
-	// Groups are the tool groups to register; nil is every group.
+	// Groups are the tool groups to register; nil is every group, and a group
+	// named twice is registered once.
 	Groups []Group
 	// Version is what the server reports as its version.
 	Version string
@@ -91,6 +92,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	if groups == nil {
 		groups = AllGroups
 	}
+	groups = slices.Compact(slices.Sorted(slices.Values(groups)))
 	s := &Server{sdk: sdk.NewServer(&sdk.Implementation{
 		Name:       "sysml-mcp",
 		Title:      "OpenSysML",
