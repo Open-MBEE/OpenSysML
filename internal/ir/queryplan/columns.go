@@ -129,16 +129,13 @@ func (c *compiler) compileColumn(
 	case pathNode != nil:
 		literal, ok := pathNode.(*ast.LiteralString)
 		if ok {
-			var text string
-			text, err = strconv.Unquote(literal.Value)
-			if err == nil {
-				ok = c.validColumnPath(text)
-				if ok {
-					expression = Expression{
-						operation: OperationRowMember,
-						target:    text,
-						origin:    symbols.NodeOrigin(owner.DocName, pathNode),
-					}
+			text := source.StringValue(literal.Value)
+			ok = c.validColumnPath(text)
+			if ok {
+				expression = Expression{
+					operation: OperationRowMember,
+					target:    text,
+					origin:    symbols.NodeOrigin(owner.DocName, pathNode),
 				}
 			}
 		}
@@ -188,10 +185,6 @@ func (c *compiler) validColumnPath(path string) bool {
 // columnName reads a column's name, which must be a string literal.
 func (c *compiler) columnName(query, owner *symbols.Symbol, nameNode ast.Node) (string, error) {
 	literal, ok := nameNode.(*ast.LiteralString)
-	if ok {
-		_, err := strconv.Unquote(literal.Value)
-		ok = err == nil
-	}
 	if !ok {
 		return "", &Error{
 			Kind:   ErrorColumnName,
@@ -199,8 +192,7 @@ func (c *compiler) columnName(query, owner *symbols.Symbol, nameNode ast.Node) (
 			Origin: symbols.NodeOrigin(owner.DocName, nameNode),
 		}
 	}
-	name, _ := strconv.Unquote(literal.Value)
-	return name, nil
+	return source.StringValue(literal.Value), nil
 }
 
 // columnArguments normalizes Column's positional or named arguments into its
@@ -791,9 +783,7 @@ func staticStrings(value Expression) []string {
 // staticString reads a planned string literal; false for any other value.
 func staticString(value Expression) (string, bool) {
 	if value.operation == OperationLiteral && value.literal == LiteralString {
-		if text, err := strconv.Unquote(value.value); err == nil {
-			return text, true
-		}
+		return source.StringValue(value.value), true
 	}
 	return "", false
 }

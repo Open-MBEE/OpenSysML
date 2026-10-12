@@ -515,8 +515,9 @@ the KerML validation work is closing: `Must be model-level evaluable` (`p11`, `p
 (`p12`, `p21`), the variation rules (`p08`–`p10`), and the typing, cardinality, redefinition,
 port/interface, verification and view families. 13 are agreements and 14 are new permissiveness
 gaps, listed above. Candidates the pinned validator accepted were discarded rather than kept as
-reach: `(1, 2,)` (a trailing comma in a sequence expression) and a String transition guard, both of
-which we reject and the reference does not.
+reach: `(1, 2,)` (a trailing comma in a sequence expression, which we rejected at the time; the
+grammar admits it — `SequenceExpression` in KerMLExpressions.xtext — and we accept it now) and a
+String transition guard, which we reject and the reference does not.
 
 Two agreements are agreements on the bucket, not on the rule: `p19` (a parallel state with a
 transition) is rejected by us with `expected '{' or ';'` — our parser does not accept the pinned

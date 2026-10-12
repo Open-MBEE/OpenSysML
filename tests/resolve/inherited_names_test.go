@@ -559,9 +559,11 @@ func TestHiddenImportsOfAGeneralAreNotInherited(t *testing.T) {
 	}
 }
 
-// A specialization cycle whose types both import must still be answered: the
-// hidden imports of a general are computed without walking its inheritance.
-func TestImportsHiddenByInheritedNamesAreNotInherited(t *testing.T) {
+// An import colliding with an inherited name of the same type is not hidden
+// (KerML 8.3.2.4.5 excludes only collisions with each other or with an owned
+// membership): the type is warned, and its subtypes inherit both members and
+// are warned in turn, as the pilot does.
+func TestImportsCollidingWithInheritedNamesAreInherited(t *testing.T) {
 	r, _, _ := resolvedDoc(t, `package P {
 		part def Base { part x; }
 		package Q { part x; }
@@ -573,7 +575,11 @@ func TestImportsHiddenByInheritedNamesAreNotInherited(t *testing.T) {
 	for _, d := range diagnosticsWithCode(r, resolve.CodeNameConflict) {
 		got = append(got, d.Message)
 	}
-	want := []string{"Duplicate of imported member name 'x': P::Q::x (import Q::*), P::Base::x (inherited)"}
+	want := []string{
+		"Duplicate of imported member name 'x': P::Q::x (import Q::*), P::Base::x (inherited)",
+		"Duplicate of inherited member name 'x' from Base, Q",
+		"Duplicate of inherited member name 'x' from Base, Q",
+	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("name conflicts = %q, want %q", got, want)
 	}

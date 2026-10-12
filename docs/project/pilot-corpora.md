@@ -108,6 +108,27 @@ repeated runs:
 | `sysml-validation` | 6 / 56 | 22 |
 | `kerml-examples` | 20 / 58 | 80 |
 
+## Imported memberships the specification hides
+
+KerML 7.2.5.4 hides from a namespace every imported membership whose name another import also
+brings for a distinct element, so an unqualified reference to such a name in that namespace is
+unresolved unless an enclosing namespace has it ([spec-pilot-gap-register.md](spec-pilot-gap-register.md),
+"Imported memberships"). The pilot binds the first import's member and is silent; its acceptance
+does not make the models valid. Four files reference a hidden name unqualified, and the ratchet
+moved by the 32 diagnostics they gain — each an `unresolved reference` error with the hint naming
+the imports that hide the name, or a consequence of one:
+
+| File | Before → after | What moved |
+|---|---|---|
+| `kerml-examples/Simple Tests/Imports.kerml` | 4 → 7 | `class X :> A;` twice and `class Y :> D;` once: `A` is brought by `import P::*` and `import Q::**` (and, in the second namespace, `import R::*`), `D` twice by `import Q::**` (`Q::D` and `Q::Q1::D`); each pair is two classes, so each name is hidden |
+| `sysml-validation/13-Model Containment/13a-Model Containment.sysml` | 6 → 9 | `alias 'Sport Sedan' for vehicle1_c1;`, `public import Engine;` and `public import Transmission;` name members that `'2a-Parts Interconnection'::*` and `'8-Requirements'::*` both bring as distinct definitions and usages |
+| `sysml-examples/Vehicle Example/Annex_A_VehicleViews.sysml` | 87 → 93 | six unqualified `vehicle_b` in the analysis and verification cases (`subject = vehicle_b;`, `vehicle_b.engine`, `vehicle_b.mass`, `:> vehicle_b`): the recursive `import …VehicleConfiguration_b::**` brings `PartsTree::vehicle_b` and the two `CruiseControl…::vehicle_b` |
+| `sysml-examples/Vehicle Example/SysML v2 Spec Annex A SimpleVehicleModel.sysml` | 134 → 154 | the same `vehicle_b` references (eleven), `part engine redefines engine` twice (`engine` is brought three times, once under each `vehicle_b`) and `perform … redefines providePower` (`PartsTree::vehicle_b::providePower` beside `ActionTree::providePower`); the other six — `peakHorsePower`, `fuelEfficiency` and `cost` redefined under each unresolved `engine`, and `vehicle_b_1.ignitionCmdPort`, `vehicle_b_1.vehicleToRoadPort` where `vehicle_b_1 :> vehicle_b` — are consequences of those, a redefinition or a member read through a feature whose general did not resolve |
+
+`AHFSequences.sysml` and `AHFNorwayTopics.sysml` warn about hidden names but reference none of
+them unqualified, so their counts stand. The training corpus references no hidden name and stays
+clean.
+
 ## Local runs
 
 The corpora are not vendored, so the gate skips while they are absent — and announces the skip on

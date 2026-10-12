@@ -11,6 +11,8 @@ package 'Use Cases' {
     use case 'Park Car' {
         doc /* A driver parks a car in the garage. */
         subject garage : Context::Garage;
+        actor driver :> Context::Driver;
+        actor attendant [0..1] :> Context::Attendant;
         include 'Pay Fee';
         /* not migrated: ExtensionPoint 'garage full' — v2 has no extension points; an extending use case is written as a connection to the extended one */
         action def 'Park Flow' {
@@ -23,11 +25,12 @@ package 'Use Cases' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'park Flow' : 'Park Flow';
-        metadata MigrationMetadata::SynthesizedName about garage;
+        metadata MigrationMetadata::SynthesizedName about garage, attendant;
     }
     use case 'Pay Fee' {
         subject garage : Context::Garage;
         ref part ticket : Context::Ticket;
+        actor bank :> Context::Bank;
         include 'Authorise Payment';
         attribute amount : Real;
         metadata MigrationMetadata::SynthesizedName about garage, ticket;
@@ -66,6 +69,6 @@ package 'Use Cases' {
     metadata MigrationMetadata::SynthesizedName about unnamed;
 }
 attribute def Real;
-connection 'Driver to Park Car' connect Context::Driver to 'Use Cases'::'Park Car';
-connection 'Attendant to Park Car' connect Context::Attendant to 'Use Cases'::'Park Car';
+connection 'Driver to Park Car' connect Context::Driver to 'Use Cases'::'Park Car'.driver;
+connection 'Attendant to Park Car' connect Context::Attendant to 'Use Cases'::'Park Car'.attendant;
 connection settlement : 'Use Cases'::Settlement connect Context::Bank to 'Use Cases'::'Pay Fee';

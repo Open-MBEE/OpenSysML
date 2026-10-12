@@ -2376,7 +2376,9 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 			preRels = append(preRels, &ast.Relationship{Kind: ast.RelTyping, Target: metaType})
 		}
 	}
-	if !skipIdentification {
+	// FeatureDeclaration: `Identification FeatureSpecializationPart? | FeatureSpecializationPart`,
+	// so a part begun ahead of the name leaves no name: `:>> values ordered` continues the part.
+	if !skipIdentification && len(preRels) == 0 {
 		u.Ident = p.parseUsageIdentification(kind)
 	}
 
@@ -4434,7 +4436,7 @@ func (p *Parser) parseEndIndex(feature ast.Node) (ast.Node, bool) {
 	defer p.release()
 	p.advance() // '#'
 	p.advance() // '('
-	index := p.parseSequenceExpr()
+	index := p.parseSequenceExpr(lexer.RParen)
 	whole := index != nil && p.accept2(lexer.RParen) && len(p.Diagnostics) == cp.diagnosticLen
 	if !whole || p.atExpressionOperator() || p.at(lexer.Dot) {
 		p.restore(cp)

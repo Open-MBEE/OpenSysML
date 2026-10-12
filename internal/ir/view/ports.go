@@ -137,7 +137,7 @@ func (v portView) interconnectionPort(port Port) bool {
 // pinLabel is the text a drawn pin is named by: `name : Type` under full and
 // the name alone under minimal.
 func (v portView) pinLabel(port Port) string {
-	if !v.minimal {
+	if !v.minimal || port.NameSynthesized {
 		return port.label()
 	}
 	return port.Name

@@ -93,6 +93,32 @@ func TestPreservesStringContents(t *testing.T) {
 	}
 }
 
+// A string literal or quoted name spanning lines is one token whose text is
+// the literal's value, so it is emitted as written — its own lines neither
+// re-indented nor trimmed — and the line after it is laid out from where it ends.
+func TestPreservesLiteralsSpanningLines(t *testing.T) {
+	src := "package P {\n  attribute a = \"line one\n\n      line two  \";\n  part def 'multi\nline';\n  part def Car;\n}\n"
+	want := "package P {\n    attribute a = \"line one\n\n      line two  \";\n    part def 'multi\nline';\n    part def Car;\n}\n"
+	if got := format(t, src); got != want {
+		t.Fatalf("format(%q):\ngot:  %q\nwant: %q", src, got, want)
+	}
+}
+
+// A literal's line endings are its value, so they stay as written even when the
+// rest of the document is rewritten to its dominant ending.
+func TestKeepsLineEndingsInsideLiterals(t *testing.T) {
+	src := "package P {\n  attribute a = \"one\r\ntwo\";\n  part def 'x\r\ny';\n  part def Car;\n}\n"
+	want := "package P {\n    attribute a = \"one\r\ntwo\";\n    part def 'x\r\ny';\n    part def Car;\n}\n"
+	if got := format(t, src); got != want {
+		t.Fatalf("format(%q):\ngot:  %q\nwant: %q", src, got, want)
+	}
+	src = "package P {\r\n  attribute a = \"one\ntwo\";\r\n  part def Car;\r\n}\r\n"
+	want = "package P {\r\n    attribute a = \"one\ntwo\";\r\n    part def Car;\r\n}\r\n"
+	if got := format(t, src); got != want {
+		t.Fatalf("format(%q):\ngot:  %q\nwant: %q", src, got, want)
+	}
+}
+
 func TestDoesNotInsertSpacesTheAuthorOmitted(t *testing.T) {
 	got := format(t, "package P { calc def c { return 1+2; } }\n")
 	if !strings.Contains(got, "1+2") {
@@ -284,5 +310,18 @@ func TestSourceIndentsAClosingBracketAtStatementLevel(t *testing.T) {
 	}
 	if string(out) != want {
 		t.Errorf("Source() =\n%s\nwant\n%s", out, want)
+	}
+}
+
+func TestKeepsTrailingSequenceComma(t *testing.T) {
+	// The formatter rewrites whitespace only, so a trailing comma in a sequence
+	// expression stays where the author put it, tightened like any other comma.
+	got := format(t, "package P { attribute s = ( 1 , 2 , ) ; }\n")
+	if want := "package P { attribute s = (1, 2,); }\n"; got != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
+	}
+	got = format(t, "package P {\nattribute s = (\n1,\n2,\n);\n}\n")
+	if want := "package P {\n    attribute s = (\n        1,\n        2,\n    );\n}\n"; got != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
 	}
 }

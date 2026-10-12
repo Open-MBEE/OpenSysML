@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -829,18 +830,35 @@ func TestLongRunningToolsReportProgressWhenAsked(t *testing.T) {
 	if err != nil || res.IsError {
 		t.Fatalf("execute_action: %v %s", err, text(res))
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if len(h.progress) < 2 {
-		t.Fatalf("progress notifications = %d, want the start and the finish", len(h.progress))
+	// The client dispatches notifications on its own goroutine, so the finish
+	// may land after the result does.
+	progress := h.progressUntil(t, "finished")
+	if len(progress) < 2 {
+		t.Fatalf("progress notifications = %v, want the start and the finish", progress)
 	}
-	for _, p := range h.progress {
+	for _, p := range progress {
 		if p.ProgressToken != "spin-1" {
 			t.Errorf("progress token = %v", p.ProgressToken)
 		}
 	}
-	if first, last := h.progress[0], h.progress[len(h.progress)-1]; first.Progress >= last.Progress || !strings.Contains(last.Message, "finished") {
+	if first, last := progress[0], progress[len(progress)-1]; first.Progress >= last.Progress || !strings.Contains(last.Message, "finished") {
 		t.Errorf("progress ran %v to %v", first, last)
+	}
+}
+
+// progressUntil returns the notifications received once one carries message,
+// or whatever arrived within the deadline.
+func (h *harness) progressUntil(t *testing.T, message string) []*mcp.ProgressNotificationParams {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		h.mu.Lock()
+		got := append([]*mcp.ProgressNotificationParams(nil), h.progress...)
+		h.mu.Unlock()
+		if n := len(got); n > 0 && strings.Contains(got[n-1].Message, message) || time.Now().After(deadline) {
+			return got
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 

@@ -114,8 +114,11 @@ package Behavior {
 package Usage {
     comment /* The driver drives. */
     part Driver;
-    use case 'Drive Vehicle';
-    connection 'Driver to Drive Vehicle' connect Driver to 'Drive Vehicle';
+    use case 'Drive Vehicle' {
+        subject;
+        actor driver :> Driver;
+    }
+    connection 'Driver to Drive Vehicle' connect Driver to 'Drive Vehicle'.driver;
     view Driving {
         expose Driver;
         expose 'Drive Vehicle';

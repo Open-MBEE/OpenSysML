@@ -1,0 +1,95 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="MultiplicityPartAfterSpecialization" library=false standard=false
+      (Import visibility="private" all=false kind=membership recursive=false imported="ScalarValues::Real" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="class" abstract=false variation=false name="Base"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="values" ref=false direction="none" composite=false derived=false ordered=false nonunique=true keyword="feature"
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInfinity))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="more" ref=false direction="none" composite=false derived=false ordered=false nonunique=true keyword="feature"
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInfinity))))))
+      (Membership visibility="default"
+        (Definition kind="class" abstract=false variation=false name="Sub"
+          (Relationship kind="specializes" target=Base
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=true nonunique=false keyword="feature"
+              (Relationship kind="redefines" target=values
+                (*ast.QualifiedName))
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=true nonunique=true keyword="feature"
+              (Relationship kind="redefines" target=more
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="class" abstract=false variation=false name="Sub2"
+          (Relationship kind="specializes" target=Base
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=true nonunique=true keyword="feature"
+              (Relationship kind="redefines" target=values
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=true nonunique=true keyword="feature"
+              (Relationship kind="redefines" target=more
+                (*ast.QualifiedName))
+              (Relationship kind="subsets" target=values
+                (*ast.QualifiedName))
+              (Multiplicity range=true
+                (LiteralInteger value="1")
+                (LiteralInfinity))))))
+      (Membership visibility="default"
+        (Definition kind="class" abstract=false variation=false name="Sub3"
+          (Relationship kind="specializes" target=Base
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=true nonunique=false keyword="feature"
+              (Relationship kind="redefines" target=values
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="5"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=true nonunique=true
+              (Relationship kind="redefines" target=more
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="2"))))))
+      (Membership visibility="default"
+        (Definition kind="class" abstract=false variation=false name="Sub4"
+          (Relationship kind="specializes" target=Base
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=true nonunique=false keyword="feature"
+              (Relationship kind="subsets" target=values
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=true keyword="feature"
+              (Relationship kind="references" target=more
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=true nonunique=true keyword="feature"
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (Relationship kind="subsets" target=values
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="2"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=true nonunique=true keyword="feature"
+              (Relationship kind="redefines" target=more
+                (*ast.QualifiedName))
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=true keyword="feature"
+              (Relationship kind="subsets" target=values
+                (*ast.QualifiedName)))))))))
