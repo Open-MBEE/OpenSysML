@@ -221,6 +221,12 @@ the default port instead. The prototype is kept behind the flag and tested (`int
 covers the protocol and `cmd/sysml-grpc` covers the binary answering a framed call) so that it
 cannot rot unnoticed while it is still in the tree.
 
+The stdio transport this project does support is a different protocol for a different caller:
+[`sysml-mcp`](sysml-mcp.md) serves the Model Context Protocol over stdin/stdout to a coding
+agent's host, which starts the process itself — the one situation where a child process is the
+right shape. Its `runtime` tool group is this service's RPC surface, one tool per RPC with the
+RPC's request and response, so an agent gets the same contract the clients on this page do.
+
 ## Every protocol is tested, not merely served
 
 A second protocol surface that no test exercises will rot. The conformance suite
