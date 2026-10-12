@@ -87,7 +87,7 @@ func lspTools() []string {
 
 // runtimeTools is the runtime group's tool list, sorted.
 func runtimeTools() []string {
-	return []string{"apply_edits", "convert", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs", "instantiate", "list_engines", "migrate", "parse", "query", "render_document", "render_view", "run_analysis", "run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}
+	return []string{"apply_edits", "convert", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs", "instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}
 }
 
 // sessionTools is the session group's tool list, sorted.
@@ -243,5 +243,19 @@ func TestParseGroups(t *testing.T) {
 	}
 	if _, err := ParseGroups("lsp,debugger"); err == nil {
 		t.Error("ParseGroups accepted an unknown group")
+	}
+}
+
+// With every group on, the catalogue is the sum of the groups' catalogues: the
+// SDK replaces a same-name tool silently, so two groups must never share a name.
+func TestGroupsShareNoToolName(t *testing.T) {
+	sum := 0
+	for _, g := range []Group{GroupLSP, GroupRuntime, GroupSession} {
+		cs := connect(t, Config{Root: t.TempDir(), Groups: []Group{g}, Version: "test"})
+		sum += len(toolNames(t, cs))
+	}
+	cs := connect(t, Config{Root: t.TempDir(), Groups: []Group{GroupLSP, GroupRuntime, GroupSession}, Version: "test"})
+	if all := len(toolNames(t, cs)); all != sum {
+		t.Fatalf("all groups register %d tools, the groups alone %d: a name is shared", all, sum)
 	}
 }

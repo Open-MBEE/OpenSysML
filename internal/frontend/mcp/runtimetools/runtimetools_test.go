@@ -292,7 +292,7 @@ func TestEveryToolTakingAModelTakesPathsAndSources(t *testing.T) {
 	}
 	slices.Sort(names)
 	want := []string{"apply_edits", "convert", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs",
-		"instantiate", "list_engines", "migrate", "parse", "query", "render_document", "render_view", "run_analysis",
+		"instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis",
 		"run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint",
 		"verify_requirement", "verify_satisfaction"}
 	if !slices.Equal(names, want) {
@@ -591,24 +591,24 @@ func TestQueriesAndRenderings(t *testing.T) {
 	if len(documents) == 0 {
 		t.Fatal("the telescope fixture declares no document")
 	}
-	_, out = h.ok("render_document", map[string]any{"paths": []string{telescope}, "documentId": documents[0]}, &doc)
+	_, out = h.ok("render_model_document", map[string]any{"paths": []string{telescope}, "documentId": documents[0]}, &doc)
 	if doc.GetMarkdown() == "" || !strings.Contains(out, strings.TrimRight(doc.GetMarkdown(), "\n")) {
 		t.Errorf("markdown of %s:\n%s", documents[0], out)
 	}
-	h.ok("render_document", map[string]any{"paths": []string{telescope}, "documentId": documents[0], "form": "html"}, &doc)
+	h.ok("render_model_document", map[string]any{"paths": []string{telescope}, "documentId": documents[0], "form": "html"}, &doc)
 	if doc.GetHtml() == "" || doc.GetMarkdown() != "" {
 		t.Errorf("html form: markdown %d bytes, html %d bytes", len(doc.GetMarkdown()), len(doc.GetHtml()))
 	}
-	if msg := h.fails("render_document", map[string]any{"paths": []string{telescope}, "documentId": documents[0], "form": "pdf"}); !strings.Contains(msg, "INVALID_ARGUMENT") {
+	if msg := h.fails("render_model_document", map[string]any{"paths": []string{telescope}, "documentId": documents[0], "form": "pdf"}); !strings.Contains(msg, "INVALID_ARGUMENT") {
 		t.Errorf("pdf form: %s", msg)
 	}
 
 	var view pb.RenderViewResponse
-	_, out = h.ok("render_view", map[string]any{"modelHash": hash, "view": "Demo::overview"}, &view)
+	_, out = h.ok("render_model_view", map[string]any{"modelHash": hash, "view": "Demo::overview"}, &view)
 	if len(view.GetNodes()) == 0 || !strings.Contains(out, "node ") {
 		t.Errorf("overview: %v\n%s", view.GetNodes(), out)
 	}
-	h.ok("render_view", map[string]any{"modelHash": hash, "view": "#tree:Demo"}, &view)
+	h.ok("render_model_view", map[string]any{"modelHash": hash, "view": "#tree:Demo"}, &view)
 	if view.GetKind() != "tree" {
 		t.Errorf("pseudo-view kind = %q", view.GetKind())
 	}
@@ -757,25 +757,25 @@ func TestListEnginesAndServerInfo(t *testing.T) {
 func TestAnUnknownModelHashIsNotFound(t *testing.T) {
 	h := attach(t, newService(t))
 	for name, args := range map[string]map[string]any{
-		"symbol":              {"symbolId": "Demo"},
-		"evaluate":            {"expression": "1"},
-		"instantiate":         {"symbolId": "Demo::sedan"},
-		"execute_action":      {"actionSymbolId": "Demo::Spin"},
-		"execute_state":       {"stateMachineSymbolId": "Demo::Lamp"},
-		"verify_constraint":   {"symbolId": "Demo::Vehicle::massPositive"},
-		"verify_requirement":  {"symbolId": "Demo::massLimit"},
-		"verify_satisfaction": {},
-		"validate_instance":   {"symbolId": "Demo::sedan"},
-		"evaluate_calc":       {"symbolId": "Demo::add"},
-		"run_analysis":        {"symbolId": "Demo::sedanCost"},
-		"run_sweep":           {"symbolId": "Demo::Twice", "ranges": []any{}},
-		"query":               {},
-		"run_document_query":  {"queryId": "Q"},
-		"render_document":     {"documentId": "D"},
-		"render_view":         {"view": "Demo::overview"},
-		"export_graphs":       {"subject": "Demo::Lamp"},
-		"convert":             {"toFormat": "ttl"},
-		"apply_edits":         {"operations": []any{map[string]any{"setValue": map[string]any{"target": "x", "value": "1"}}}},
+		"symbol":                {"symbolId": "Demo"},
+		"evaluate":              {"expression": "1"},
+		"instantiate":           {"symbolId": "Demo::sedan"},
+		"execute_action":        {"actionSymbolId": "Demo::Spin"},
+		"execute_state":         {"stateMachineSymbolId": "Demo::Lamp"},
+		"verify_constraint":     {"symbolId": "Demo::Vehicle::massPositive"},
+		"verify_requirement":    {"symbolId": "Demo::massLimit"},
+		"verify_satisfaction":   {},
+		"validate_instance":     {"symbolId": "Demo::sedan"},
+		"evaluate_calc":         {"symbolId": "Demo::add"},
+		"run_analysis":          {"symbolId": "Demo::sedanCost"},
+		"run_sweep":             {"symbolId": "Demo::Twice", "ranges": []any{}},
+		"query":                 {},
+		"run_document_query":    {"queryId": "Q"},
+		"render_model_document": {"documentId": "D"},
+		"render_model_view":     {"view": "Demo::overview"},
+		"export_graphs":         {"subject": "Demo::Lamp"},
+		"convert":               {"toFormat": "ttl"},
+		"apply_edits":           {"operations": []any{map[string]any{"setValue": map[string]any{"target": "x", "value": "1"}}}},
 	} {
 		args["modelHash"] = "0000000000000000000000000000000000000000000000000000000000000000"
 		msg := h.fails(name, args)

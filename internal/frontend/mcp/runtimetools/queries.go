@@ -126,8 +126,8 @@ func (g *group) registerQueries(s *mcp.Server) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "render_document",
-		Description: "Render a named document — a part def specializing DocumentQueries::Document — to Markdown or HTML (the " +
+		Name: "render_model_document",
+		Description: "Render a named document of a model given by modelHash, paths or sources (the workspace group's render_document renders by name over the root) — a part def specializing DocumentQueries::Document — to Markdown or HTML (the " +
 			"RenderDocument RPC, the CLI's -render-document), byte for byte what the CLI writes. The text is the rendered document; " +
 			"the result is the RenderDocumentResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Render document"),
@@ -148,8 +148,8 @@ func (g *group) registerQueries(s *mcp.Server) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "render_view",
-		Description: "Render a declared view or a targeted pseudo-view as diagram data (the RenderView RPC): nodes flattened " +
+		Name: "render_model_view",
+		Description: "Render a declared view or a targeted pseudo-view of a model given by modelHash, paths or sources as diagram data (the RenderView RPC; the workspace group's render_view renders by name over the root): nodes flattened " +
 			"parents first, edges with their ports, table columns and rows, canvas, notes and notices. The result is the " +
 			"RenderViewResponse as protojson writes it; the text lists the nodes and edges.",
 		Annotations: toolkit.ReadOnly("Render view"),
