@@ -3,12 +3,15 @@ package sessiontools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -507,6 +510,54 @@ func TestConcurrentCallsOnOneSessionAreSerialized(t *testing.T) {
 	for i := range n {
 		if !strings.Contains(cmd.Output, "package "+string(rune('A'+i))) {
 			t.Errorf("%%list lacks %c: %q", 'A'+i, cmd.Output)
+		}
+	}
+}
+
+func TestACloseRacingAQueuedCallRunsItFirstOrFailsIt(t *testing.T) {
+	for range 25 {
+		m := NewManager(t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
+		if _, err := m.Open("raced"); err != nil {
+			t.Fatal(err)
+		}
+		running, release := make(chan struct{}), make(chan struct{})
+		go func() {
+			_ = m.Use(context.Background(), "raced", func(*repl.Session) error {
+				close(running)
+				<-release
+				return nil
+			})
+		}()
+		<-running
+		var closed atomic.Bool
+		queued, closing := make(chan error, 1), make(chan error, 1)
+		go func() {
+			queued <- m.Use(context.Background(), "raced", func(sess *repl.Session) error {
+				if closed.Load() {
+					return errors.New("the call ran on the closed session")
+				}
+				return nil
+			})
+		}()
+		go func() {
+			err := m.Close("raced")
+			closed.Store(true)
+			closing <- err
+		}()
+		// Both wait on the session's lock before the running call lets go of it.
+		time.Sleep(5 * time.Millisecond)
+		close(release)
+		if err := <-queued; err != nil && !errors.Is(err, ErrNoSession) {
+			t.Fatal(err)
+		}
+		if err := <-closing; err != nil {
+			t.Fatal(err)
+		}
+		if slices.Contains(m.Names(), "raced") {
+			t.Fatal("the closed session is still listed")
+		}
+		if _, err := m.Get("raced"); !errors.Is(err, ErrNoSession) {
+			t.Fatalf("Get after close = %v", err)
 		}
 	}
 }

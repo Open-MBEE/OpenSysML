@@ -30,9 +30,13 @@ type Manager struct {
 }
 
 // held is one open session and the lock serializing the calls made on it.
+// closed is set under that lock when the session is closed, so a call that
+// was waiting for the lock finds the session gone rather than cleared.
 type held struct {
-	mu   sync.Mutex
-	sess *repl.Session
+	name   string
+	mu     sync.Mutex
+	sess   *repl.Session
+	closed bool
 }
 
 // NewManager returns a manager with no sessions open; root is the workspace
@@ -59,18 +63,28 @@ func (m *Manager) Open(name string) (string, error) {
 	if err != nil {
 		return name, err
 	}
-	m.sessions[name] = &held{sess: sess}
+	m.sessions[name] = &held{name: name, sess: sess}
 	return name, nil
 }
 
 // Get returns the session called name, opening the default session on first
-// use; any other name must have been opened.
+// use; any other name must have been opened and not closed since.
 func (m *Manager) Get(name string) (*repl.Session, error) {
 	h, err := m.get(name)
 	if err != nil {
 		return nil, err
 	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return nil, h.closedErr()
+	}
 	return h.sess, nil
+}
+
+// closedErr reports a session closed while a call waited for it.
+func (h *held) closedErr() error {
+	return fmt.Errorf("%w: %q was closed while the call waited for it", ErrNoSession, h.name)
 }
 
 func (m *Manager) get(name string) (*held, error) {
@@ -89,14 +103,15 @@ func (m *Manager) get(name string) (*held, error) {
 	if err != nil {
 		return nil, err
 	}
-	h := &held{sess: sess}
+	h := &held{name: name, sess: sess}
 	m.sessions[name] = h
 	return h, nil
 }
 
 // Use runs fn on the session called name, after any call already running on
-// it has finished. A ctx that ends while fn runs interrupts the session's
-// command under way, so a run abandoned by the client stops at its next step.
+// it has finished; a session closed meanwhile is ErrNoSession. A ctx that ends
+// while fn runs interrupts the session's command under way, so a run abandoned
+// by the client stops at its next step.
 func (m *Manager) Use(ctx context.Context, name string, fn func(*repl.Session) error) error {
 	h, err := m.get(name)
 	if err != nil {
@@ -104,6 +119,9 @@ func (m *Manager) Use(ctx context.Context, name string, fn func(*repl.Session) e
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.closed {
+		return h.closedErr()
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -122,7 +140,8 @@ func (m *Manager) Use(ctx context.Context, name string, fn func(*repl.Session) e
 }
 
 // Close ends the session called name, releasing what it holds; a command it is
-// running is interrupted first.
+// running is interrupted first, and a call still waiting for the session fails
+// rather than running on the cleared one.
 func (m *Manager) Close(name string) error {
 	if name == "" {
 		name = DefaultSession
@@ -139,6 +158,7 @@ func (m *Manager) Close(name string) error {
 	h.sess.Interrupt()
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	h.closed = true
 	h.sess.Clear()
 	return nil
 }
