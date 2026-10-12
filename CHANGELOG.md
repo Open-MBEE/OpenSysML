@@ -416,9 +416,9 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   each framed concern is evaluated, in the viewpoint's order, against the exposed elements its subject
   admits; the other verdicts (`conforms`, `violated` naming the element and condition, `unevaluable`
   for no condition or an unresolved reference, `(from <view>)` on an inherited `satisfy`) are as before.
-  A `frame` written in a view definition or usage body is a parser error, since
-  `FramedConcernMember` appears only in `RequirementBodyItem` — the pinned OMG pilot rejects it
-  the same way. The views, disposal-robot and self-model demos and the REPL handbook transcript drop
+  A `frame` written in a view definition or usage body is still parsed but draws the
+  `nonstandard-notation` warning, which `-strict` escalates to an error as the pinned OMG pilot
+  rejects it. The views, disposal-robot and self-model demos and the REPL handbook transcript drop
   their view-body framings; their `%view` output is unchanged.
 
 - **Route a moved node's edges at right angles around the other boxes in the diagram panel.** An edge at a node the model places was drawn as a straight line; the panel now routes it orthogonally around the other boxes — out of every container except the ones its ends lie inside — with libavoid whenever it lays the canvas out, separating edges that share a box and keeping it straight only until the router has loaded, during a drag, or when no route fits. The route is not written to the model unless one of its waypoints is edited.
