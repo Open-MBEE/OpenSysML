@@ -127,20 +127,22 @@ func (s *Server) loadFolder(folder string) { s.scanFolder(folder, -1) }
 // The sources found are indexed as one batch, not one at a time: each document
 // added alone would re-derive the imports of every package that reads it.
 func (s *Server) scanFolder(folder string, budget int) {
-	s.loadFilesFromDisk(walkFolder(folder, budget))
+	paths, _ := walkFolder(folder, budget)
+	s.loadFilesFromDisk(paths)
 }
 
 // walkFolder lists the model sources under folder, visiting at most budget
 // directories (every directory when budget is negative) and skipping hidden and
-// vendored directories, unreadable entries and files too large to serve.
-func walkFolder(folder string, budget int) []string {
+// vendored directories, unreadable entries and files too large to serve. It also
+// lists the directories it could not enumerate, whose sources it cannot vouch for.
+func walkFolder(folder string, budget int) (paths, unlisted []string) {
 	if folder == "" {
-		return nil
+		return nil, nil
 	}
-	var paths []string
 	_ = filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if d != nil && d.IsDir() {
+				unlisted = append(unlisted, path)
 				return fs.SkipDir
 			}
 			return nil
@@ -158,13 +160,16 @@ func walkFolder(folder string, budget int) []string {
 		if !model.IsModelSource(path) {
 			return nil
 		}
-		if info, statErr := d.Info(); statErr != nil || info.Size() > maxScannedFileSize {
+		if d.Type()&fs.ModeSymlink != 0 && !linksWithin(path, folder) {
+			return nil
+		}
+		if info, statErr := os.Stat(path); statErr != nil || info.Size() > maxScannedFileSize {
 			return nil
 		}
 		paths = append(paths, path)
 		return nil
 	})
-	return paths
+	return paths, unlisted
 }
 
 // Rescan reconciles the workspace with the session's folders as they are on
@@ -180,9 +185,11 @@ func (s *Server) Rescan(ctx context.Context) {
 	}
 	s.debugEdit(ctx, "", func() {
 		onDisk := map[string]bool{}
-		var changed []string
+		var changed, unlisted []string
 		for _, folder := range folders {
-			for _, path := range walkFolder(folder, -1) {
+			paths, failed := walkFolder(folder, -1)
+			unlisted = append(unlisted, failed...)
+			for _, path := range paths {
 				onDisk[path] = true
 				if s.changedOnDisk(path) {
 					changed = append(changed, path)
@@ -194,7 +201,13 @@ func (s *Server) Rescan(ctx context.Context) {
 			if onDisk[name] || s.ws.IsLibraryDocument(name) || s.ws.IsOpen(name) || !underFolders(name, folders) {
 				continue
 			}
-			if _, err := os.Stat(name); errors.Is(err, fs.ErrNotExist) {
+			// Not walked: gone, grown past the size limit, or moved under a
+			// directory the walk skips. readFromDisk drops the first two as a
+			// watched change would; the third is dropped as the walk never
+			// indexed it, unless its directory could not be listed, when the
+			// source is still there as far as anyone can tell. A file that
+			// cannot be read right now is kept.
+			if _, readable := s.readFromDisk(name); readable && !underFolders(name, unlisted) {
 				s.ws.DeleteOnDisk(name)
 			}
 		}
@@ -212,6 +225,21 @@ func (s *Server) changedOnDisk(path string) bool {
 	// #nosec G304 -- path comes from the folder the client asked to serve.
 	content, err := os.ReadFile(path)
 	return err != nil || !bytes.Equal(content, held)
+}
+
+// linksWithin reports whether the symlink at path resolves to a file under
+// folder: a link out of the workspace is not the workspace's to index, so a
+// query over the whole workspace shows nothing a path argument would refuse.
+func linksWithin(path, folder string) bool {
+	target, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return false
+	}
+	root, err := filepath.EvalSymlinks(folder)
+	if err != nil {
+		return false
+	}
+	return underFolders(target, []string{root})
 }
 
 // underFolders reports whether name lies in one of the folders.

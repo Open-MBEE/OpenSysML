@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -233,6 +234,80 @@ func TestRescanReconcilesTheFoldersWithDisk(t *testing.T) {
 	}
 	if s.ws.Document(extra) == nil || s.ws.Document(lib) == nil {
 		t.Errorf("rescan dropped a document still on disk")
+	}
+
+	// A file grown past the size limit leaves the workspace, as a watched
+	// change to it would make it leave.
+	if err := os.WriteFile(lib, bytes.Repeat([]byte("// padding\n"), maxScannedFileSize/11+1), 0o600); err != nil {
+		t.Fatalf("grow lib: %v", err)
+	}
+	s.Rescan(ctx)
+	if s.ws.Document(lib) != nil {
+		t.Errorf("rescan kept %q after it grew past the size limit", lib)
+	}
+}
+
+func TestRescanKeepsSourcesUnderADirectoryItCannotList(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root lists every directory")
+	}
+	s, _, dir, _, _ := multiFileWorkspace(t)
+	ctx := context.Background()
+	sub := filepath.Join(dir, "models")
+	nested := filepath.Join(sub, "nested.sysml")
+	if err := os.Mkdir(sub, 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(nested, []byte("package Nested;\n"), 0o600); err != nil {
+		t.Fatalf("write nested: %v", err)
+	}
+	s.Rescan(ctx)
+	if s.ws.Document(nested) == nil {
+		t.Fatalf("rescan did not index %q", nested)
+	}
+
+	// The directory can be traversed and written and its file read, but not
+	// listed: the walk cannot say what it holds, so what was indexed there stays.
+	if err := os.Chmod(sub, 0o311); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(sub, 0o750) })
+	s.Rescan(ctx)
+	if s.ws.Document(nested) == nil {
+		t.Errorf("rescan dropped %q under a directory it could not list", nested)
+	}
+
+	// Its path is still known, so its deletion is still seen.
+	if err := os.Remove(nested); err != nil {
+		t.Fatalf("remove nested: %v", err)
+	}
+	s.Rescan(ctx)
+	if s.ws.Document(nested) != nil {
+		t.Errorf("rescan kept the deleted %q because its directory could not be listed", nested)
+	}
+}
+
+func TestFolderScanFollowsSymlinksOnlyWithinTheFolder(t *testing.T) {
+	outside := t.TempDir()
+	away := filepath.Join(outside, "away.sysml")
+	if err := os.WriteFile(away, []byte("package Away;\n"), 0o600); err != nil {
+		t.Fatalf("write away: %v", err)
+	}
+	s, _, dir, lib, _ := multiFileWorkspace(t)
+	escape := filepath.Join(dir, "escape.sysml")
+	alias := filepath.Join(dir, "alias.sysml")
+	if err := os.Symlink(away, escape); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.Symlink(lib, alias); err != nil {
+		t.Fatalf("symlink alias: %v", err)
+	}
+	s.Rescan(context.Background())
+	if s.ws.Document(escape) != nil {
+		t.Errorf("indexed %q, a link out of the workspace", escape)
+	}
+	if s.ws.Document(alias) == nil {
+		t.Errorf("did not index %q, a link within the workspace", alias)
 	}
 }
 
