@@ -1373,16 +1373,13 @@ func TestCheckRejectsAnUnknownDeepDivergePathWhenNoScheduleCompletes(t *testing.
 func TestCheckKeepsABoundedReportWhenAPathUnderATiedCallIsUnreached(t *testing.T) {
 	m := parseLibraryModel(t, `package test {
 		private import ScalarValues::*;
-		package A {
+		package Tags {
 			action def tag { in x : Integer; in y : Real; out mark : Integer; first step; action step { assign mark := 1; } }
-		}
-		package B {
 			action def tag { in x : Real; in y : Integer; out result : Integer; first step; action step { assign result := 2; } }
 		}
 		calc def same { in v; v }
 		action outer {
-			private import A::*;
-			private import B::*;
+			private import Tags::*;
 			attribute p = same(1.5);
 			attribute q = same(2);
 			first start;

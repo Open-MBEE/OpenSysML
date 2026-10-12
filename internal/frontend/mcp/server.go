@@ -126,7 +126,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			}
 			svc.Prewarm()
 			s.runtime = svc
-			runtimetools.Register(s.sdk, svc)
+			runtimetools.Register(s.sdk, svc, cfg.Root)
 		case GroupSession:
 			if cfg.NewSession == nil {
 				s.Close(ctx)

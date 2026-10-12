@@ -71,7 +71,9 @@ func (r *Resolver) walkQualifiedTail(scope *symbols.Scope, qn *ast.QualifiedName
 	hide = hide.forTail()
 	last := len(qn.Parts) - 1
 	for i := start; i <= last; i++ {
-		all, ok := r.qualifiedSegment(scope, qn, cur, i, hide)
+		var all []*symbols.Symbol
+		var ok bool
+		all, ok = r.qualifiedSegment(scope, qn, cur, i, hide)
 		if !ok {
 			return resolution{nil, false}
 		}
@@ -140,8 +142,8 @@ func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name 
 		if !global {
 			found = notConflatedWith(cur, found)
 		}
-		candidates := r.namedThroughNamespaces(
-			r.admittedUnder(r.documentOf(scope), from, memberFQN, found))
+		candidates := r.withoutHiddenImports(cur.Scope, name, r.namedThroughNamespaces(
+			r.admittedUnder(r.documentOf(scope), from, memberFQN, found)))
 		switch visible := hide.without(candidates); {
 		case len(visible) > 0:
 			return visible
@@ -266,6 +268,11 @@ func rootOf(scope *symbols.Scope) *symbols.Scope {
 // only an unqualified one is second-guessed.
 func (r *Resolver) unresolved(scope *symbols.Scope, qn *ast.QualifiedName) {
 	delete(r.ambiguities, qn)
+	if r.quiet > 0 {
+		// Nothing is reported, and the hint would resolve the imports around qn
+		// in turn, each unresolved one asking for its own hint.
+		return
+	}
 	msg := unresolvedReferencePrefix + qnText(qn)
 	var fixes []diag.Fix
 	if len(qn.Parts) == 1 && !qn.Global {

@@ -4,7 +4,7 @@ package test {
 	// The arguments come from an untyped calc, so the checker cannot tell the two
 	// same-named actions apart: the run settles the call by the values, binding
 	// them to the parameters of the action they fit exactly.
-	package A {
+	package Tags {
 		action def tag {
 			in x : Integer;
 			in y : Real;
@@ -12,9 +12,7 @@ package test {
 			first step;
 			action step { assign code := 1; }
 		}
-	}
 
-	package B {
 		action def tag {
 			in x : Real;
 			in y : Integer;
@@ -27,8 +25,7 @@ package test {
 	calc def same { in v; v }
 
 	action outer {
-		private import A::*;
-		private import B::*;
+		private import Tags::*;
 		attribute p = same(1.5);
 		attribute q = same(2);
 		out attribute chosen : Integer;

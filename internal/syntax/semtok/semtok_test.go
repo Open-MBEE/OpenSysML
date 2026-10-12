@@ -5,6 +5,7 @@ package semtok
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -153,5 +154,27 @@ func TestLexicalKerMLNames(t *testing.T) {
 	}
 	if sysmlWhiles != 2 {
 		t.Errorf("SysML classified %d 'while' spans as keywords, want 2", sysmlWhiles)
+	}
+}
+
+// A string literal spanning lines is classified as one token and encoded one
+// part per line, since the encoding has no way to express a token that spans
+// lines; the line breaks themselves are not highlighted.
+func TestStringSpanningLinesIsEncodedPerLine(t *testing.T) {
+	content := []byte("attribute s = \"line one\r\n  line two\";")
+	toks := Lexical(content, source.KindSysML)
+	if len(toks) != 2 || toks[1].Class != ClassString {
+		t.Fatalf("Lexical = %+v, want the keyword and one string token", toks)
+	}
+	if got, want := string(content[toks[1].Span.Offset:toks[1].Span.End()]), "\"line one\r\n  line two\""; got != want {
+		t.Fatalf("string token text = %q, want %q", got, want)
+	}
+	data := Encode(content, toks[1:])
+	want := []uint32{
+		0, 14, 9, uint32(ClassString), 0, // "line one
+		1, 0, 11, uint32(ClassString), 0, //   line two"
+	}
+	if !slices.Equal(data, want) {
+		t.Fatalf("Encode = %v, want %v", data, want)
 	}
 }

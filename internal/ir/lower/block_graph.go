@@ -78,9 +78,11 @@ func isFlowNode(member ast.Node) bool {
 // IsCaseNode reports whether a usage is a case nested in a body as a step of it:
 // an analysis usage (SysML v2 §7.22) or a verification usage (§7.23), performed as
 // the calculation it is. Its own body is the case's, run by the case, so the flow it
-// is a node of lowers none of it.
+// is a node of lowers none of it. A directed one is a parameter, referential and so
+// no subperformance (Kernel Semantic Library `composite step subperformances`).
 func IsCaseNode(u *ast.Usage) bool {
-	return (u.Kind == ast.UsageAnalysisCase || u.Kind == ast.UsageVerificationCase) && !u.IsBodyParameter
+	return (u.Kind == ast.UsageAnalysisCase || u.Kind == ast.UsageVerificationCase) &&
+		!u.IsBodyParameter && u.Direction == ast.DirNone
 }
 
 // recordNodeScope records a node's own namespace, which its members resolve in.

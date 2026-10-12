@@ -20,7 +20,7 @@ func kermlLibraryDiags(t *testing.T, src string) []diag.Diagnostic {
 	idx.ExpandWildcardImports()
 	var out []diag.Diagnostic
 	for _, d := range Analyze("<t>.kerml", root, nil, idx) {
-		if (d.Source == "type" || d.Source == "name-resolution") && !importedNameConflict(d) {
+		if (d.Source == "type" || d.Source == "name-resolution") && !overloadSetNameConflict(d) {
 			out = append(out, d)
 		}
 	}
@@ -77,12 +77,12 @@ func TestInvocationDuplicateParameterBindingKerML(t *testing.T) {
 func TestInvocationOverloadSelectedByResolvedParameterName(t *testing.T) {
 	const model = `package P {
 		class T;
-		package A { function f { in x : T; in a : T; return r : T; } }
-		package B { function f { in x : T; in b : T; alias bs for b; return r : T; } }
-		private import A::*;
-		private import B::*;
-		feature t : T;
-		feature v : T = %s;
+		struct A { function f { in x : T; in a : T; return r : T; } }
+		struct B { function f { in x : T; in b : T; alias bs for b; return r : T; } }
+		struct U :> A, B {
+			feature t : T;
+			feature v : T = %s;
+		}
 	}`
 	for _, call := range []string{"f(x = t, B::f::b = t)", "f(x = t, bs = t)", "f(x = t, A::f::a = t)"} {
 		if diags := kermlLibraryDiags(t, fmt.Sprintf(model, call)); len(diags) != 0 {

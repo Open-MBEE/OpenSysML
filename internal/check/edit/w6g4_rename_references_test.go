@@ -257,21 +257,24 @@ func TestRenameLeavingAQualifiedSegmentAmbiguousIsRefused(t *testing.T) {
 // A renamed call selects by arguments among the overloads its new spelling denotes:
 // another overload chosen, a tie, or an alias is refused; the target still chosen applies.
 func TestRenameSelectsAmongOverloadsOfRenamedCall(t *testing.T) {
-	const lib = "package Lib {\n\tcalc def g { in v : ScalarValues::Integer; return r : ScalarValues::Integer = v; }\n" +
+	const lib = "part def Lib {\n\tcalc def g { in v : ScalarValues::Integer; return r : ScalarValues::Integer = v; }\n" +
 		"\tcalc def h { in v : ScalarValues::Integer; return r : ScalarValues::Integer = v; }\n\talias gg for h;\n}\n"
-	const realF = "package P {\n\tcalc def f { in v : ScalarValues::Real; return r : ScalarValues::Real = v; }\n}\n"
-	const intF = "package P {\n\tcalc def f { in v : ScalarValues::Integer; return r : ScalarValues::Integer = v; }\n}\n"
+	const realF = "part def P {\n\tcalc def f { in v : ScalarValues::Real; return r : ScalarValues::Real = v; }\n}\n"
+	const intF = "part def P {\n\tcalc def f { in v : ScalarValues::Integer; return r : ScalarValues::Integer = v; }\n}\n"
 	call := func(imports, arg string) string {
 		return "package R {\n" + imports + "\tattribute c : ScalarValues::Real = f(" + arg + ");\n}\n"
+	}
+	// Selection among overloads needs a set the arguments choose from, which two
+	// imports would hide: R inherits Lib's and P's calcs instead.
+	inherits := func(arg string) string {
+		return "part def R :> P, Lib {\n\tattribute c : ScalarValues::Real = f(" + arg + ");\n}\n"
 	}
 	const both = "\tprivate import P::*;\n\tprivate import Lib::*;\n"
 
 	for _, tt := range []struct{ name, src, newName, want string }{
-		{"other", lib + realF + call(both, "1"), "g", "would read Lib::g instead"},
-		{"tie", lib + intF + call(both, "1"), "g", "would name 2 elements at once"},
-		{"alias", lib + realF + call(both, "1"), "gg", "would read Lib::gg instead"},
-		// The name alone still reads the target through its short name; the arguments do not.
-		{"short", lib + strings.Replace(realF, "def f", "def <g> f", 1) + call(both, "1"), "g", "would read Lib::g instead"},
+		{"other", lib + realF + inherits("1"), "g", "would read Lib::g instead"},
+		{"tie", lib + intF + inherits("1"), "g", "would name 2 elements at once"},
+		{"alias", lib + realF + inherits("1"), "gg", "would read Lib::gg instead"},
 	} {
 		e := refusedRename(t, "overload-"+tt.name+".sysml", tt.src, "P::f", tt.newName)
 		if e.Failure != FailureInvalidName {
@@ -285,16 +288,41 @@ func TestRenameSelectsAmongOverloadsOfRenamedCall(t *testing.T) {
 		}
 	}
 
+	// A short name of the target already reads it: renaming to that short name
+	// changes nothing the call reads. (Imported beside Lib::g the short name would
+	// collide and hide f, so Lib is not imported here.)
+	short := loadContent(t, "overload-short.sysml", lib+strings.Replace(realF, "def f", "def <g> f", 1)+call("\tprivate import P::*;\n", "1"))
+	requireClean(t, short)
+	if _, err := Apply(short, []Operation{Rename("P::f", "g")}); err != nil {
+		t.Fatalf("short: rename to the target's own short name refused: %v", err)
+	}
+
+	// Another import bringing a part def g is another metaclass, not a collision
+	// (KerML 8.3.2.4.5 isDistinguishableFrom), so the renamed call still reads f.
+	distinct := loadContent(t, "overload-distinct.sysml", "package Lib {\n\tpart def g;\n}\n"+realF+call(both, "1.5"))
+	requireClean(t, distinct)
+	if _, err := Apply(distinct, []Operation{Rename("P::f", "g")}); err != nil {
+		t.Fatalf("rename beside an imported part def g refused: %v", err)
+	}
+	// An imported alias g for the target is the same element, so nothing is hidden;
+	// the call would be read through the alias, which is the usual alias capture.
+	e := refusedRename(t, "overload-alias-self.sysml", "package Lib {\n\talias g for P::f;\n}\n"+realF+call(both, "1.5"), "P::f", "g")
+	if !strings.Contains(e.Message, "would read Lib::g instead") || strings.Contains(e.Message, "hidden") {
+		t.Fatalf("alias of the target: refusal %q, want alias capture, not hiding", e.Message)
+	}
+
+	// Renaming onto a name another import brings leaves the call reading a hidden
+	// name (KerML 7.2.5.4): `g(1.5)` would be unresolved in R, so the rename is refused
+	// even though the arguments would tell the Real one from Lib's Integer one.
 	for _, imports := range []string{both, "\tprivate import Lib::*;\n\tprivate import P::*;\n"} {
-		m := loadContent(t, "overload-kept.sysml", lib+realF+call(imports, "1.5"))
-		requireClean(t, m)
-		res, err := Apply(m, []Operation{Rename("P::f", "g")})
-		if err != nil {
-			t.Fatalf("rename refused: %v", err)
+		e := refusedRename(t, "overload-hidden.sysml", lib+realF+call(imports, "1.5"), "P::f", "g")
+		if e.Failure != FailureInvalidName {
+			t.Fatalf("%q: failure is %s (%s), want invalid-name", imports, e.Failure, e.Message)
 		}
-		want := lib + strings.Replace(realF, "def f", "def g", 1) + strings.Replace(call(imports, "1.5"), "= f(", "= g(", 1)
-		if string(res.Content) != want {
-			t.Fatalf("got:\n%s\nwant:\n%s", res.Content, want)
+		for _, want := range []string{"reference to it in R", "Lib::g beside it", "hidden there"} {
+			if !strings.Contains(e.Message, want) {
+				t.Fatalf("%q: refusal %q does not say %q", imports, e.Message, want)
+			}
 		}
 	}
 }

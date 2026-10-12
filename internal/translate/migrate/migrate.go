@@ -217,6 +217,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		pictureOf:         map[*sysmlv1.Diagram]*pictures{},
 		buried:            map[*sysmlv1.Element]bool{},
 		actors:            map[*sysmlv1.Element]*actorLink{},
+		linkedActors:      map[*sysmlv1.Element][]*actorLink{},
 		defUsages:         map[*sysmlv1.Element]map[*sysmlv1.Element]*defUsage{},
 		conns:             map[*sysmlv1.Element]*defConn{},
 		moreConns:         map[*sysmlv1.Element][]*defConn{},
@@ -543,6 +544,8 @@ type migration struct {
 	// actors gives each association linking a use case to an actor the actor
 	// usage it is written as in the use case's body.
 	actors map[*sysmlv1.Element]*actorLink
+	// linkedActors are the links to a use case: the actor parameters its body declares.
+	linkedActors map[*sysmlv1.Element][]*actorLink
 	// defUsages are the usages written in a package, by definition, for the
 	// connections joining them; conns the connection written for an association or «Refine».
 	defUsages map[*sysmlv1.Element]map[*sysmlv1.Element]*defUsage

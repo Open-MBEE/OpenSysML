@@ -302,12 +302,28 @@ func TestFolderScanFollowsSymlinksOnlyWithinTheFolder(t *testing.T) {
 	if err := os.Symlink(lib, alias); err != nil {
 		t.Fatalf("symlink alias: %v", err)
 	}
-	s.Rescan(context.Background())
+	ctx := context.Background()
+	s.Rescan(ctx)
 	if s.ws.Document(escape) != nil {
 		t.Errorf("indexed %q, a link out of the workspace", escape)
 	}
 	if s.ws.Document(alias) == nil {
 		t.Errorf("did not index %q, a link within the workspace", alias)
+	}
+
+	// A link out of the workspace that a watcher reported, and so was indexed
+	// by path, is dropped by the next rescan: the walk does not yield it.
+	if err := s.DidChangeWatchedFiles(ctx, &protocol.DidChangeWatchedFilesParams{
+		Changes: []*protocol.FileEvent{{URI: uri.File(escape), Type: protocol.FileChangeTypeCreated}},
+	}); err != nil {
+		t.Fatalf("DidChangeWatchedFiles err = %v", err)
+	}
+	if s.ws.Document(escape) == nil {
+		t.Fatalf("the watched creation of %q was not indexed", escape)
+	}
+	s.Rescan(ctx)
+	if s.ws.Document(escape) != nil {
+		t.Errorf("rescan kept %q, a link out of the workspace", escape)
 	}
 }
 

@@ -13858,14 +13858,12 @@ func testNodeReadAsAValueWithoutAResult(t *testing.T) {
 // another candidate declares, which would leave the read waiting for a value never written.
 func testSettledNodeReadAsAValueByAnotherCandidatesResult(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*;
-			action def tag { in x : Integer; in y : Real; out mark : Integer; first step; action step { assign mark := 1; } } }
-		package B { private import ScalarValues::*;
+		package Tags { private import ScalarValues::*;
+			action def tag { in x : Integer; in y : Real; out mark : Integer; first step; action step { assign mark := 1; } }
 			action def tag { in x : Real; in y : Integer; out result : Integer; first step; action step { assign result := 2; } } }
 		package test {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
+			private import Tags::*;
 			calc def same { in v; v }
 			action outer {
 				attribute p = same(1);
