@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 )
@@ -31,12 +32,13 @@ type Manager struct {
 
 // held is one open session and the lock serializing the calls made on it.
 // closed is set under that lock when the session is closed, so a call that
-// was waiting for the lock finds the session gone rather than cleared.
+// was waiting for the lock finds the session gone rather than cleared; it is
+// atomic so a lookup can read it without the lock, from inside a call too.
 type held struct {
 	name   string
 	mu     sync.Mutex
 	sess   *repl.Session
-	closed bool
+	closed atomic.Bool
 }
 
 // NewManager returns a manager with no sessions open; root is the workspace
@@ -68,15 +70,15 @@ func (m *Manager) Open(name string) (string, error) {
 }
 
 // Get returns the session called name, opening the default session on first
-// use; any other name must have been opened and not closed since.
+// use; any other name must have been opened and not closed since. It does not
+// wait for the calls on the session, so it can be made from inside one; Use is
+// how a caller has the session to itself.
 func (m *Manager) Get(name string) (*repl.Session, error) {
 	h, err := m.get(name)
 	if err != nil {
 		return nil, err
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.closed {
+	if h.closed.Load() {
 		return nil, h.closedErr()
 	}
 	return h.sess, nil
@@ -119,7 +121,7 @@ func (m *Manager) Use(ctx context.Context, name string, fn func(*repl.Session) e
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if h.closed {
+	if h.closed.Load() {
 		return h.closedErr()
 	}
 	if err := ctx.Err(); err != nil {
@@ -158,7 +160,7 @@ func (m *Manager) Close(name string) error {
 	h.sess.Interrupt()
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.closed = true
+	h.closed.Store(true)
 	h.sess.Clear()
 	return nil
 }

@@ -561,3 +561,28 @@ func TestACloseRacingAQueuedCallRunsItFirstOrFailsIt(t *testing.T) {
 		}
 	}
 }
+
+func TestGetAnswersFromInsideACallOnTheSameSession(t *testing.T) {
+	m := NewManager(t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
+	done := make(chan error, 1)
+	go func() {
+		done <- m.Use(context.Background(), "", func(sess *repl.Session) error {
+			got, err := m.Get("")
+			if err != nil {
+				return err
+			}
+			if got != sess {
+				return errors.New("Get found another session")
+			}
+			return nil
+		})
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Get from inside a call on the same session hangs")
+	}
+}
