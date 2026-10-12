@@ -132,14 +132,10 @@ definition typing it says, within the conditions the case requires:
   SolverDemo::PowerBudget::sciencePower = 160
 ```
 
-`MassBudget` has a quantity-valued objective, reported with its unit, and
-`MassThenScience` has two objectives, improved lexicographically in declaration
-order — the least mass first, and among the platforms achieving it the most
-science power:
+`MassBudget` has a quantity-valued objective, reported with its unit:
 
 ```
 %optimize SolverDemo::MassBudget
-%optimize SolverDemo::MassThenScience
 ```
 
 Under cvc5 the same `%optimize` is an error rather than a plain satisfiability
@@ -163,7 +159,7 @@ with `(get-objectives)`, a solver extension: … install z3 or set OPENSYSML_SMT
 | `OverbookedBudget` | conditions that conflict, for `%explain` |
 | `rover1` | a satisfaction assertion, asserted of an object |
 | `roverFamily` | interacting variation points, for `%configure` |
-| `PowerBudget`, `MassBudget`, `MassThenScience` | one objective, a quantity-valued one, and two improved in order |
+| `PowerBudget`, `MassBudget` | an objective, and a quantity-valued one |
 
 Every command is documented in
 [the REPL command reference](../docs/reference/repl-commands.md), which is

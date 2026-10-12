@@ -231,8 +231,9 @@ func UsageMultiplicityOf(sym *symbols.Symbol) *ast.Multiplicity {
 }
 
 // AssumedRange is the multiplicity of a feature that declares none: a feature
-// holds exactly one value unless it says otherwise (KerML 1.0 §7.4.5). It is
-// the one notion of implicit multiplicity every layer holds a feature to.
+// holds exactly one value unless it says otherwise. The assumed range is the
+// project's — KerML 1.0 §7.4.5 names "the usual default of 0..*" instead — and
+// it is the one notion of implicit multiplicity every layer holds a feature to.
 func AssumedRange() Range {
 	return Range{
 		Lower: Bound{Value: 1, Known: true},

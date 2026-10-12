@@ -3,86 +3,60 @@ package runtime
 import (
 	"fmt"
 	"math"
-	"math/big"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// scalar is an unboxed Integer, Real or Boolean, the values the compiled calc
-// tier computes over; it is boxed into a Value only at an invocation boundary.
-// An Integer beyond int64 is held in big, immutable, with bits zero.
-type scalar struct {
-	kind scalarKind
-	bits uint64
-	big  *big.Int
-}
-
-type scalarKind uint8
-
-const (
-	scalarInt scalarKind = iota
-	scalarReal
-	scalarBool
-)
+// scalar is an Integer, Rational, Real or Boolean constant packed into three
+// words, the value the compiled calc tier passes between nodes and holds in frames.
+type scalar struct{ semantics.Packed }
 
 // #nosec G115 -- the Integer's two's-complement bits are stored, not its magnitude.
-func intScalar(i int64) scalar { return scalar{kind: scalarInt, bits: uint64(i)} }
+func intScalar(i int64) scalar {
+	return scalar{semantics.Packed{Kind: semantics.ValInt, Bits: uint64(i)}}
+}
 
-func realScalar(f float64) scalar { return scalar{kind: scalarReal, bits: math.Float64bits(f)} }
+func realScalar(f float64) scalar {
+	return scalar{semantics.Packed{Kind: semantics.ValReal, Bits: math.Float64bits(f)}}
+}
 
 func boolScalar(b bool) scalar {
 	if b {
-		return scalar{kind: scalarBool, bits: 1}
+		return scalar{semantics.Packed{Kind: semantics.ValBool, Bits: 1}}
 	}
-	return scalar{kind: scalarBool, bits: 0}
+	return scalar{semantics.Packed{Kind: semantics.ValBool}}
 }
 
 // #nosec G115 -- the inverse of intScalar: the same bits read back as an Integer.
-func (s scalar) int() int64 { return int64(s.bits) }
+func (s scalar) int() int64 { return int64(s.Bits) }
 
-func (s scalar) real() float64 { return math.Float64frombits(s.bits) }
+func (s scalar) truth() bool { return s.Bits != 0 }
 
-func (s scalar) truth() bool { return s.bits != 0 }
+// smallInt answers s as an int64 when it is an Integer within int64.
+func (s scalar) smallInt() (int64, bool) {
+	return s.int(), s.Kind == semantics.ValInt && s.Ext == nil
+}
 
-// smallInts reports whether l and r are both Integers within int64.
-func smallInts(l, r scalar) bool {
-	return l.kind == scalarInt && r.kind == scalarInt && l.big == nil && r.big == nil
+// smallInts answers l and r as int64 when both are Integers within int64.
+func smallInts(l, r scalar) (a, b int64, ok bool) {
+	return l.int(), r.int(), l.Kind == semantics.ValInt && r.Kind == semantics.ValInt && l.Ext == nil && r.Ext == nil
 }
 
 // semantic is the constant the scalar stands for.
-func (s scalar) semantic() semantics.Value {
-	switch s.kind {
-	case scalarInt:
-		if s.big != nil {
-			return semantics.BigIntValue(s.big)
-		}
-		return semantics.IntValue(s.int())
-	case scalarReal:
-		return semantics.Value{Kind: semantics.ValReal, Real: s.real()}
-	default:
-		return semantics.Value{Kind: semantics.ValBool, Bool: s.truth()}
-	}
-}
+func (s scalar) semantic() semantics.Value { return s.Unpack() }
 
 // boxed is the scalar as the evaluator's Value.
 func (s scalar) boxed() Value {
-	return Value{Kind: ValConst, Const: s.semantic()}
+	return Value{Kind: ValConst, Const: s.Unpack()}
 }
 
 // scalarOfConst unboxes a scalar constant, declining any other constant kind.
 func scalarOfConst(c semantics.Value) (scalar, bool) {
 	switch c.Kind {
-	case semantics.ValInt:
-		if i, ok := c.Int64(); ok {
-			return intScalar(i), true
-		}
-		return scalar{kind: scalarInt, big: c.BigIntView()}, true
-	case semantics.ValReal:
-		return realScalar(c.Real), true
-	case semantics.ValBool:
-		return boolScalar(c.Bool), true
+	case semantics.ValInt, semantics.ValReal, semantics.ValRational, semantics.ValBool:
+		return scalar{c.Pack()}, true
 	}
 	return scalar{}, false
 }
@@ -102,12 +76,23 @@ type compiledExpr func(ctx *Context, args []scalar) (scalar, error)
 // chargeSteps spends n evaluation steps at once, for a subtree of nodes none of
 // which can fail. It leaves the counter where the evaluator's would stop.
 func (ctx *Context) chargeSteps(n int64) error {
-	ctx.run.steps += n
-	if ctx.run.steps > ctx.maxSteps {
-		ctx.run.steps = ctx.maxSteps + 1
-		return ctx.stepLimitExceeded()
+	if n > ctx.maxSteps-ctx.run.steps {
+		return ctx.stepsExhausted()
 	}
+	ctx.run.steps += n
 	return nil
+}
+
+// stepsExhausted is the refusal of a charge the budget cannot meet, kept out
+// of line so chargeSteps inlines into every compiled node.
+//
+//go:noinline
+func (ctx *Context) stepsExhausted() error {
+	ctx.run.steps = ctx.maxSteps
+	if ctx.run.steps < math.MaxInt64 {
+		ctx.run.steps++
+	}
+	return ctx.stepLimitExceeded()
 }
 
 // binaryOp combines two evaluated operands.
@@ -126,8 +111,7 @@ func arithmeticOp(op ast.OperatorKind) binaryOp {
 }
 
 func addScalars(ctx *Context, l, r scalar) (scalar, error) {
-	if smallInts(l, r) {
-		a, b := l.int(), r.int()
+	if a, b, ok := smallInts(l, r); ok {
 		if res := a + b; (b <= 0 || res > a) && (b >= 0 || res < a) {
 			return intScalar(res), nil
 		}
@@ -136,8 +120,7 @@ func addScalars(ctx *Context, l, r scalar) (scalar, error) {
 }
 
 func subScalars(ctx *Context, l, r scalar) (scalar, error) {
-	if smallInts(l, r) {
-		a, b := l.int(), r.int()
+	if a, b, ok := smallInts(l, r); ok {
 		if res := a - b; (b >= 0 || res > a) && (b <= 0 || res < a) {
 			return intScalar(res), nil
 		}
@@ -171,29 +154,29 @@ func comparisonOp(op ast.OperatorKind) binaryOp {
 	switch op {
 	case ast.OpLt:
 		return func(_ *Context, l, r scalar) (scalar, error) {
-			if smallInts(l, r) {
-				return boolScalar(l.int() < r.int()), nil
+			if a, b, ok := smallInts(l, r); ok {
+				return boolScalar(a < b), nil
 			}
 			return compareScalars(op, l, r)
 		}
 	case ast.OpLe:
 		return func(_ *Context, l, r scalar) (scalar, error) {
-			if smallInts(l, r) {
-				return boolScalar(l.int() <= r.int()), nil
+			if a, b, ok := smallInts(l, r); ok {
+				return boolScalar(a <= b), nil
 			}
 			return compareScalars(op, l, r)
 		}
 	case ast.OpGt:
 		return func(_ *Context, l, r scalar) (scalar, error) {
-			if smallInts(l, r) {
-				return boolScalar(l.int() > r.int()), nil
+			if a, b, ok := smallInts(l, r); ok {
+				return boolScalar(a > b), nil
 			}
 			return compareScalars(op, l, r)
 		}
 	case ast.OpGe:
 		return func(_ *Context, l, r scalar) (scalar, error) {
-			if smallInts(l, r) {
-				return boolScalar(l.int() >= r.int()), nil
+			if a, b, ok := smallInts(l, r); ok {
+				return boolScalar(a >= b), nil
 			}
 			return compareScalars(op, l, r)
 		}
@@ -232,7 +215,7 @@ func unaryScalar(op ast.OperatorKind, v scalar) (scalar, error) {
 // scalarTruth reads a Boolean operand, reporting any other scalar as the
 // evaluator's boolOperand does.
 func scalarTruth(what string, v scalar) (bool, error) {
-	if v.kind != scalarBool {
+	if v.Kind != semantics.ValBool {
 		return boolOperand(what, v.boxed())
 	}
 	return v.truth(), nil

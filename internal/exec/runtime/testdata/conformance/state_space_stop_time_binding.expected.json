@@ -1,0 +1,14 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::decay",
+  "outputs": {
+    "stateSpace": {"type": "VectorQuantity", "elements": [
+      {"type": "Quantity", "value": 0.3584859224085422, "unit": "m"}
+    ]},
+    "output": {"type": "VectorQuantity", "elements": [
+      {"type": "Quantity", "value": 0.7169718448170844, "unit": "m"}
+    ]},
+    "time": {"type": "Quantity", "value": 2.0, "unit": "s"}
+  }
+}

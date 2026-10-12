@@ -916,12 +916,37 @@ func (m *Model) constantFeatureValues(member *symbols.Symbol, seen map[*symbols.
 			}
 			values = append(values, m.declaredValue(member.OwnerScope, element))
 		}
-		return values, true, nil
+		return m.heldAsDeclared(member, values), true, nil
 	}
 	if _, empty := usage.Value.(*ast.NullExpr); empty {
 		return nil, true, nil
 	}
-	return []symbols.FilterValue{m.declaredValue(member.OwnerScope, usage.Value)}, true, nil
+	return m.heldAsDeclared(member, []symbols.FilterValue{m.declaredValue(member.OwnerScope, usage.Value)}), true, nil
+}
+
+// heldAsDeclared holds each exact Rational a Real-typed feature declares as its nearest
+// binary64; one no binary64 holds stays undetermined, for evaluation to refuse.
+func (m *Model) heldAsDeclared(member *symbols.Symbol, values []symbols.FilterValue) []symbols.FilterValue {
+	isReal := false
+	for _, typ := range m.FeatureTypes(member) {
+		isReal = isReal || m.PrimTypeOf(typ) == PrimReal
+	}
+	if !isReal {
+		return values
+	}
+	for i, value := range values {
+		if value.Kind != symbols.FilterValueRational {
+			continue
+		}
+		number, _ := FilterNumber(value)
+		held, err := RealOf(number)
+		if err != nil {
+			values[i] = symbols.FilterValue{}
+			continue
+		}
+		values[i] = symbols.FilterValue{Kind: symbols.FilterValueReal, Real: held.Real}
+	}
+	return values
 }
 
 // declaredValue is annotationValue for a feature's own value, where a reference
@@ -957,6 +982,16 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
+	// The feature a relationship's chain target denotes is a KerML Feature in
+	// either language.
+	if sym.Chain != nil {
+		return m.kermlMetaclass("Feature")
+	}
+	// A relationship written as notation is classified by the metaclass its
+	// kind and owner's classification select.
+	if sym.Implicit != nil {
+		return m.implicitRelationshipMetaclass(sym)
+	}
 	// A relationship written keyword-first is classified by its own kind in
 	// either language, since no symbol kind distinguishes its forms.
 	if rel, ok := sym.RelationshipDecl(); ok {
@@ -987,6 +1022,13 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	}
 	if meta := m.kermlMetaclass(kermlMetaclassName(sym, m.isKerMLDoc(sym))); meta != nil {
 		return meta
+	}
+	// An extended definition (`#service def X`) is a SysML Definition however
+	// its extension keywords name it (SysML.xtext).
+	if sym.Kind == symbols.SymbolKerMLType && !m.isKerMLDoc(sym) && extendedDefinition(sym) {
+		if meta := m.sysmlMetaclass("Definition"); meta != nil {
+			return meta
+		}
 	}
 	return m.sysmlMetaclass(sysmlMetaclassName(sym))
 }
@@ -1039,6 +1081,18 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		}
 	}
 	return metaclassName(sym.Kind)
+}
+
+// extendedDefinition reports whether sym is an extended definition: a
+// `#kw def X` declaration, parsed as a def-keyworded Definition with no kind
+// keyword (SysML.xtext ExtendedDefinition).
+func extendedDefinition(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Node == symbols.NodeDefinition &&
+			sym.Facts.Keyword == "" && sym.Facts.DefKind == ast.DefClass
+	}
+	d, ok := sym.Decl.(*ast.Definition)
+	return ok && d.Keyword == "" && d.HasDefKeyword
 }
 
 // ConnectorEndMetaclassName is the SysML metaclass of a connector end: a
@@ -1285,6 +1339,19 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	if m == nil || sym == nil {
 		return nil, false
 	}
+	// A reflected relationship object answers only the features its metaclass
+	// owns; no generic Element path applies to a synthetic symbol.
+	if sym.Implicit != nil {
+		return m.implicitRelationshipElements(sym, feature)
+	}
+	if rel, ok := sym.RelationshipDecl(); ok {
+		if elems, derived := m.relationshipMemberElements(sym, rel, feature); derived {
+			return elems, true
+		}
+	}
+	if elems, ok := m.implicitOwnerElements(sym, feature); ok {
+		return elems, true
+	}
 	switch feature {
 	case "owningNamespace":
 		if !m.reflectiveMetaclassConforms(sym, "Element") {
@@ -1423,21 +1490,28 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return m.conformingTypes(sym, "Metaclass"), true
-	case "endFeature", "ownedEndFeature":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
+	case "endFeature", "ownedEndFeature", "connectorEnd":
+		// Connector::connectorEnd redefines Type::endFeature.
+		metaclass := "Type"
+		if feature == "connectorEnd" {
+			metaclass = "Connector"
+		}
+		if !m.reflectiveMetaclassConforms(sym, metaclass) {
 			return nil, false
 		}
-		ends := m.EndFeatures(sym)
-		if feature == "endFeature" {
-			return ends, true
-		}
-		owned := make([]*symbols.Symbol, 0, len(ends))
-		for _, end := range ends {
-			if end != nil && m.ownerOf(end) == sym {
-				owned = append(owned, end)
+		// An end with no symbol of its own holds its position as a nil entry.
+		var ends []*symbols.Symbol
+		for _, end := range m.EndFeatures(sym) {
+			if end != nil && (feature != "ownedEndFeature" || m.ownerOf(end) == sym) {
+				ends = append(ends, end)
 			}
 		}
-		return owned, true
+		return ends, true
+	case "chainingFeature":
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false
+		}
+		return m.chainingFeaturesOf(sym), true
 	case "unioningType":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1705,7 +1779,7 @@ func (m *Model) dependencyEnds(sym *symbols.Symbol, names []*ast.QualifiedName) 
 
 // ownedElementsOf is Element::ownedElement: the members sym's body declares,
 // the named ones in declaration order and then those declared without a
-// name, and its documentation.
+// name, its documentation, and the chaining features its relationships own.
 func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	members := ownedMembersOf(sym)
 	seen := make(map[*symbols.Symbol]bool, len(members))
@@ -1725,6 +1799,14 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		if !seen[doc] {
 			seen[doc] = true
 			members = append(members, doc)
+		}
+	}
+	// A relationship's chain target is an element the declaration owns through
+	// the relationship (`::> a.b`), KerML 8.3.2.1.
+	for _, rel := range m.ImplicitRelationships(sym) {
+		if chain := m.chainTargetFeature(rel); chain != nil && !seen[chain] {
+			seen[chain] = true
+			members = append(members, chain)
 		}
 	}
 	return members
@@ -1777,8 +1859,8 @@ func (m *Model) reflectiveConnectorEndPaths(sym *symbols.Symbol) []ConnectorEndP
 	if usage, ok := sym.Decl.(*ast.Usage); ok &&
 		usage.Kind == ast.UsageFlow && usage.Keyword == "message" && usage.FlowEnds != nil {
 		return []ConnectorEndPath{
-			{Name: "source", Features: m.attachmentPath(sym.OwnerScope, usage.FlowEnds.From)},
-			{Name: "target", Features: m.attachmentPath(sym.OwnerScope, usage.FlowEnds.To)},
+			{Name: "source", Features: m.attachmentPath(sym.OwnerScope, ast.EndTarget(usage.FlowEnds.From))},
+			{Name: "target", Features: m.attachmentPath(sym.OwnerScope, ast.EndTarget(usage.FlowEnds.To))},
 		}
 	}
 	return m.ConnectorEndPaths(sym)
@@ -1935,6 +2017,9 @@ func (m *Model) ReflectiveFeatureValues(sym *symbols.Symbol, feature string) ([]
 	if m == nil || sym == nil {
 		return nil, false
 	}
+	if sym.Implicit != nil {
+		return m.implicitRelationshipValues(sym, feature)
+	}
 	if feature == "documentation" {
 		bodies := m.DocumentationOf(sym)
 		values := make([]symbols.FilterValue, 0, len(bodies))
@@ -1966,7 +2051,19 @@ func (m *Model) ReflectiveFeatureValues(sym *symbols.Symbol, feature string) ([]
 // metaclass feature of it, and whether that feature is derived here at all
 // (KerML 1.1 §8.2.4); an underived one is unevaluable, not false.
 func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, bool) {
+	if sym.Implicit != nil {
+		return m.implicitRelationshipValue(sym, feature)
+	}
 	switch feature {
+	case "isImplied":
+		if _, ok := sym.RelationshipDecl(); ok {
+			return boolValue(false), true
+		}
+	case "isConjugated":
+		if !m.reflectiveMetaclassConforms(sym, "Type") {
+			return symbols.FilterValue{}, false
+		}
+		return boolValue(len(m.ownedImplicitRelationships(sym, conjugationMetaclass)) > 0), true
 	case "name", "declaredName":
 		return stringOrEmpty(simpleSymbolName(sym)), true
 	case "shortName":
@@ -2013,7 +2110,8 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 	switch feature {
 	case "isVariation":
 		isDefinition := sym.Kind.IsDefinition() &&
-			sym.Kind != symbols.SymbolMetaclass && sym.Kind != symbols.SymbolKerMLType &&
+			sym.Kind != symbols.SymbolMetaclass &&
+			(sym.Kind != symbols.SymbolKerMLType || extendedDefinition(sym)) &&
 			!m.isKerMLDoc(sym)
 		if !isDefinition &&
 			!m.reflectiveMetaclassConforms(sym, "Usage") {

@@ -60,6 +60,15 @@ top-level one is. `instantiate` names an instance case's type the same way.
   drives the same execution to the end.
 - `schedule`: the scheduling policy the case was recorded under (see
   [Scheduling Policy](#scheduling-policy)); omitted means the default.
+- `performers`: objects that each perform the action, for a case whose contract
+  is what the body does on its performer — an action usage a part definition
+  owns, performed on a part of that type, writes that part's features. Each
+  entry names the object's usage plus the `outputs` and `terminated` expected
+  of that object's performance, the `slots` the object holds afterwards (keyed
+  by path from the object, `runs` or `tank.volume`), or the `error` the
+  performance must fail with:
+  `{"object": "test::plant", "slots": {"runs": {"type": "Integer", "value": 1}}}`.
+  Omit for an action performed by no object.
 
 ### For States (`ExecuteState`)
 
@@ -128,7 +137,7 @@ one:
 }
 ```
 
-- `outcomes`: at least two complete results. Each entry carries the `outputs` of
+- `outcomes`: one or more complete results. Each entry carries the `outputs` of
   an action case, or the `finalState` / `stateVisits` / `outputs` of a state
   case, with the meaning those keys have above, plus an optional `probability`:
   the exact model-draw probability when every matched explored outcome has an
@@ -177,15 +186,33 @@ a case that hits it fails with a message telling the author to raise it:
 }
 ```
 
-- `exploreBudget`: optional beside `outcomes`; each of `runs` and `depth` defaults
-  to the default budget's when omitted. A budget without `outcomes`, a `runs`
-  below 1 or a `depth` below 0 is a schema error the test reports. Raising a
-  budget is the answer to a model with more linearizations than the default
-  covers, never to an outcome the set is missing: an unlisted outcome is a
-  derivation to add to the oracle or a bug to fix.
+- `exploreBudget`: optional for an action or state case with a single result or
+  `outcomes`; each of `runs` and `depth` defaults to the default budget's when
+  omitted. A budget without a result to check, a `runs` below 1 or a `depth`
+  below 0 is a schema error the test reports. Raising a budget is the answer to
+  a model with more linearizations than the default covers, never to an outcome
+  the set is missing: an unlisted outcome is a derivation to add to the oracle
+  or a bug to fix.
+- `solverBudget`: optional beside `outcomes`, `{"moves": N}` with N at least 1. The
+  SMT referee (`TestRefereeCorpus`) encodes the case's action to N moves instead of
+  the engine's default 40. State it only for a case whose every run ends well within
+  N moves but whose default unrolling the solver cannot decide within the referee's
+  timeout; the referee's completion query still proves every run ends within N, so a
+  budget too low fails the case rather than hiding behavior.
 
-Cases without `outcomes` are not explored by the harness. The default schedule is
-deterministic, so a case with an admissible set still keeps its exact golden trace.
+- `exploreNotes`: optional; the coverage notes exploring the case must record,
+  each matched exactly and in canonical order — a schedule oracle's own
+  disclaimer about the orders it could not vary. Stating it explores the case
+  even without `outcomes`; the exact set it explores to is then asserted only
+  where the case also carries `outcomes` or `outputs`. Where the default budget
+  leaves that exploration incomplete, a case pairs `exploreNotes` with
+  `exploreBudget` for completeness only — a budget never changes a result's
+  standing.
+
+`TestExecutionConformance` explores cases with `outcomes` or `exploreNotes`; the
+check corpus can also explore a single-result case with a `.check.expected.json`
+entry. The default schedule is deterministic, so a case with an admissible set
+still keeps its exact golden trace.
 
 ### Scheduling Policy
 
@@ -267,9 +294,9 @@ regenerates them beside the default golden.
 
 ### Checking Every Schedule (`.check.expected.json`)
 
-An action case with an admissible set also owns a `<case>.check.expected.json`:
-what the explicit-state checker (`runtime.CheckAction`, the `check` engine)
-finds when it searches every schedule of the action, derived from the library
+A case with an admissible set also owns a `<case>.check.expected.json`: what the
+explicit-state checker (`runtime.Check`, the `check` engine) finds when it
+searches every schedule of the action or state machine, derived from the library
 text as the admissible set was:
 
 ```json

@@ -7,7 +7,7 @@
     "pilotTag": "2026-08",
     "pilotCommit": "692170b71867353b8f90341e61556f49a5beb0e5",
     "pilotArtifact": "0.62.0",
-    "errataRegistry": "sha256:d8d6e72f9e47d9579fed32b6daf79ac960bd52d0bc71f18deeca733beced139c",
+    "errataRegistry": "sha256:d5782936c5c92f29f24a077477b148fc5d178f83f174b143d1bb95c3693ab1b9",
     "tools": [
       {
         "name": "pilot-sysml-validator",
@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 317,
-        "digest": "sha256:bfbaaaa8dcd73173f98774ddbd20f6124788fc7f377fb45a419f4dca3a8ef272"
+        "files": 318,
+        "digest": "sha256:f5e4205972ab9ea14a384cef64b3c3d0d85db905639e5a36083a306c1c9f65c9"
       }
     ],
-    "recorded": "2026-10-05"
+    "recorded": "2026-10-12"
   },
   "totals": {
-    "cases": 317,
-    "bothReject": 308,
+    "cases": 318,
+    "bothReject": 309,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -43,13 +43,14 @@
   "strictOnlyAgreements": [
     "extensions/x06-history-member.sysml",
     "extensions/x09-expose-in-view-def-body.sysml",
-    "extensions/x10-connector-in-sysml.sysml"
+    "extensions/x10-connector-in-sysml.sysml",
+    "extensions/x11-indexed-connector-end.sysml"
   ],
   "sources": [
     {
       "source": "extensions",
-      "cases": 11,
-      "bothReject": 11,
+      "cases": 12,
+      "bothReject": 12,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
@@ -188,7 +189,17 @@
       "defaultBucket": "pilot-only-rejects"
     },
     {
-      "path": "extensions/x11-target-succession-outside-action-body.sysml",
+      "path": "extensions/x11-indexed-connector-end.sysml",
+      "source": "extensions",
+      "rule": "a connector end is a feature chain, so `#( index )` after it has no production — the index operator belongs to expressions (SysML.xtext ConnectorEndMember, ConnectorEnd; KerML.xtext IndexExpression).",
+      "mode": "strict",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 4,
+      "defaultBucket": "pilot-only-rejects"
+    },
+    {
+      "path": "extensions/x12-target-succession-outside-action-body.sysml",
       "source": "extensions",
       "rule": "TargetSuccessionMember is an ActionBodyItem; a view body admits no 'then \u003ctarget\u003e;' succession (SysML.xtext:1367 ActionBodyItem, :1693 TargetSuccessionMember, :2359 ViewBodyItem).",
       "mode": "strict",
@@ -663,7 +674,7 @@
       "rule": "A string literal must be closed (KerMLExpressions.xtext:514 LiteralString).",
       "mode": "default",
       "bucket": "both-reject",
-      "oursErrors": 2,
+      "oursErrors": 1,
       "pilotErrors": 1
     },
     {
@@ -708,7 +719,7 @@
       "rule": "An unrestricted name must be closed (KerMLExpressions.xtext:536 Name, UNRESTRICTED_NAME).",
       "mode": "default",
       "bucket": "both-reject",
-      "oursErrors": 2,
+      "oursErrors": 1,
       "pilotErrors": 1
     },
     {
@@ -2981,9 +2992,9 @@
     }
   ],
   "errata": {
-    "registryEntries": 12,
-    "corrections": 4,
-    "documentedWithoutCorrection": 8,
+    "registryEntries": 13,
+    "corrections": 6,
+    "documentedWithoutCorrection": 7,
     "correctionsApplied": 0,
     "entries": [
       {
@@ -3039,8 +3050,8 @@
         "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
         "line": 233,
         "citation": "KerML 7.4.9",
-        "corrected": false,
-        "derivation": "`ISQ::*` re-exports two MagneticDipoleMomentUnits, the electromagnetic one (L^3·M·T^-2·I^-1, IEC 80000-6 item 6-30) and the atomic one (L^2·I, ISO 80000-10 item 10-9.1); `m^2*A` is the atomic unit, the unqualified name resolves to the electromagnetic one, and the ISQ library rather than this line is where the name clash is fixed, so the defect is documented without a correction."
+        "corrected": true,
+        "derivation": "`ISQ::*` re-exports two MagneticDipoleMomentUnits, the electromagnetic one (L^3·M·T^-2·I^-1, IEC 80000-6 item 6-30) and the atomic one (L^2·I, ISO 80000-10 item 10-9.1), so KerML 7.2.5.4 hides the name from `SI` and a first-match reader binds the electromagnetic one; `m^2*A` is the atomic unit, and `ISQAtomicNuclear::MagneticDipoleMomentUnit` is the one qualified name with the declared dimension."
       },
       {
         "id": "SI-239",
@@ -3075,6 +3086,14 @@
         "derivation": "`W/kg` is L^2·T^-3, a dose-equivalent rate (ISO 80000-10 item 10-83.2), while DoseEquivalentUnit is L^2·T^-2; as at line 239, no rate unit exists to retype the line by, so the defect is documented without a correction."
       },
       {
+        "id": "SI-303",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "line": 303,
+        "citation": "KerML 7.2.5.4",
+        "corrected": true,
+        "derivation": "`ISQ::*` re-exports two MagneticDipoleMomentUnits (IEC 80000-6 item 6-30 and ISO 80000-10 item 10-9.1), and KerML 7.2.5.4 hides an imported name two imports bring, so the unqualified name resolves to nothing in `SI`; `Wb*m` is L^3·M·T^-2·I^-1, the electromagnetic unit, and `ISQElectromagnetism::MagneticDipoleMomentUnit` is the one qualified name with that dimension."
+      },
+      {
         "id": "USCustomaryUnits-255",
         "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/USCustomaryUnits.sysml",
         "line": 255,
@@ -3084,8 +3103,8 @@
       }
     ],
     "totals": {
-      "cases": 317,
-      "bothReject": 308,
+      "cases": 318,
+      "bothReject": 309,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

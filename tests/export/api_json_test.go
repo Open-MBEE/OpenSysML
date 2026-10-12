@@ -241,7 +241,7 @@ func TestReadAPIJSONRejectsNonElements(t *testing.T) {
 func TestReadAPIJSONValueForms(t *testing.T) {
 	document := `[{
 		"@type": "Package", "@id": "P",
-		"integer": 42, "decimal": 0.0, "double": 1.5e3, "flag": true,
+		"integer": 42, "decimal": 0.0, "double": 1.5e3, "tenth": 1e-1, "flag": true,
 		"absent": null, "empty": [], "declaredName": "P",
 		"specializes": "A < B", "ownedMember": [{"@id": "Q"}, {"@id": "R"}],
 		"sysx:sourceText": "package P {}",
@@ -256,6 +256,7 @@ func TestReadAPIJSONValueForms(t *testing.T) {
 		{Subject: subject, Predicate: rdf.SysMLTerm("integer"), Object: rdf.TypedLiteral("42", rdf.XSD+"integer")},
 		{Subject: subject, Predicate: rdf.SysMLTerm("decimal"), Object: rdf.TypedLiteral("0.0", rdf.XSD+"decimal")},
 		{Subject: subject, Predicate: rdf.SysMLTerm("double"), Object: rdf.TypedLiteral("1.5e3", rdf.XSD+"double")},
+		{Subject: subject, Predicate: rdf.SysMLTerm("tenth"), Object: rdf.TypedLiteral("0.1", rdf.XSD+"decimal")},
 		{Subject: subject, Predicate: rdf.SysMLTerm("flag"), Object: rdf.Bool(true)},
 		{Subject: subject, Predicate: rdf.SysMLTerm("declaredName"), Object: rdf.String("P")},
 		{Subject: subject, Predicate: rdf.SysMLTerm("specializes"), Object: rdf.TypedLiteral("A < B", rdf.OpenSysML+"Expression")},

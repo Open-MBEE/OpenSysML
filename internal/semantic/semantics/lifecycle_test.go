@@ -142,3 +142,28 @@ func TestMemberSourcesReadersDependOnTheDeclaringDocument(t *testing.T) {
 		t.Fatalf("MemberSources(Derived) after the edit = %v, want none", got)
 	}
 }
+
+// The implicit-relationship memo is owned by the document declaring the
+// symbol: replacing the document drops its entries, and the next query builds
+// fresh objects for the new symbols.
+func TestImplicitRelationshipsFollowTheDeclaringDocument(t *testing.T) {
+	m, _, replace := trackedModel(t, stdlibIndex(t), "rels.sysml")
+	scope := replace(`package P { part def B; part def A :> B; }`)
+	oldA := nestedSym(t, scope, "P::A")
+	old := m.ImplicitRelationships(oldA)
+	if len(old) != 1 {
+		t.Fatalf("ImplicitRelationships(A) = %d objects, want 1", len(old))
+	}
+	scope = replace(`package P { part def B; part def A :> B; }`)
+	if _, stale := m.implicitRels[oldA]; stale {
+		t.Fatal("the previous document's ImplicitRelationships entry survived the edit")
+	}
+	newA := nestedSym(t, scope, "P::A")
+	fresh := m.ImplicitRelationships(newA)
+	if len(fresh) != 1 {
+		t.Fatalf("ImplicitRelationships(new A) = %d objects, want 1", len(fresh))
+	}
+	if fresh[0] == old[0] {
+		t.Fatal("the new document's relationship object is the previous one's")
+	}
+}

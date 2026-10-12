@@ -1,16 +1,15 @@
 # SysML v1 to v2 migration report: empty_behaviors.xmi
-# migrated 60 element(s): 37 mapped, 17 approximated, 6 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 60 element(s): 39 mapped, 15 approximated, 6 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (6)
 CreateObjectAction	Gate::Cycle::main::<Transition>::effect::new log	_effGoCoolNew	-> 'new log'	(no edge leads to the node, so it starts with the activity; no v2 form for a UML CreateObjectAction)
 CreateObjectAction	Gate::Cycle::main::<Transition>::effect::new log	_effColdOffNew	-> 'new log'	(no edge leads to the node, so it starts with the activity; no v2 form for a UML CreateObjectAction)
-DestroyObjectAction	Gate::Cycle::main::Busy::open::drop log	_busyOpenOld	-> 'drop log'	(no edge leads to the node, so it starts with the activity; no v2 form for a UML DestroyObjectAction)
+DestroyObjectAction	Gate::Cycle::main::Busy::open::drop log	_busyOpenOld	-> 'drop log'	(no edge leads to the node, so it starts with the activity; the action has no target pin)
 CreateObjectAction	Gate::Cycle::main::Busy::open::new log	_busyOpenNew	-> 'new log'	(no edge leads to the node, so it starts with the activity; no v2 form for a UML CreateObjectAction)
 CreateObjectAction	Gate::Cycle::main::Cool::seal::new log	_coolSealNew	-> 'new log'	(no edge leads to the node, so it starts with the activity; no v2 form for a UML CreateObjectAction)
 CreateObjectAction	Gate::Cycle::main::Idle::spin::new log	_idleSpinNew	-> 'new log'	(no edge leads to the node, so it starts with the activity; no v2 form for a UML CreateObjectAction)
 
-## approximated (17)
-Class	Gate	_gate	-> Gate	(a plain UML class without «Block» is written as a part def)
+## approximated (15)
 StateMachine	Gate::Blink	_blink	-> Gate::Blink	('Warm' names it as its entry action, which a state def cannot be; (_tStopOff) names it as its do action, which a state def cannot be)
 StateMachine	Gate::Cycle	_cycle	-> Gate::Cycle	(the classifier behavior is run by every object of Gate as its usage cycle)
 Transition	Gate::Cycle::main::<Transition>	_tStopOff	(its do action Gate::Blink is not run: it is written as a state def)
@@ -26,11 +25,11 @@ OpaqueBehavior	Gate::Cycle::main::Idle::flush	_idleExit	-> Gate::Cycle::Idle::fl
 Activity	Gate::Cycle::main::Idle::spin	_idleDo	-> Gate::Cycle::Idle::spin	(written as the do action of 'Idle'; none of its 1 action is migrated, so it runs nothing)
 State	Gate::Cycle::main::Warm	_warm	-> Warm	(its entry action Gate::Blink is not run: it is written as a state def)
 Activity	Gate::Reset	_reset	-> Gate::Reset	(also run as the do action of (_tGoHot); also run as the do action of (_tHotIdle))
-Class	Log	_log	-> Log	(a plain UML class without «Block» is written as a part def)
 
-## mapped (37)
+## mapped (39)
 SignalEvent	<SignalEvent>	_goEv	(written where a trigger refers to it, as accept Go)
 SignalEvent	<SignalEvent>	_stopEv	(written where a trigger refers to it, as accept Stop)
+Class	Gate	_gate	-> Gate
 Region	Gate::Blink::main	_blinkMain	(the one region is written as the body of its owner)
 Pseudostate	Gate::Blink::main::<Pseudostate>	_blinkInit	(written as the entry of the region)
 Transition	Gate::Blink::main::<Transition>	_tBlink0
@@ -64,5 +63,6 @@ Activity	Gate::Cycle::main::Idle::prime	_idleEntry	-> Gate::Cycle::Idle::prime	(
 State	Gate::Cycle::main::Off	_off	-> Off
 Property	Gate::count	_count	-> Gate::count
 Signal	Go	_go	-> Go
+Class	Log	_log	-> Log
 Model	Model	_m	(the root model's members are written at the top level)
 Signal	Stop	_stop	-> Stop

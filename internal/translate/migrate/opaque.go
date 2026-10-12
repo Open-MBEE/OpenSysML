@@ -179,7 +179,9 @@ const (
 	looseRelational
 	looseEquality
 	looseAnd
+	looseXor
 	looseOr
+	looseImplies
 	looseConditional
 )
 
@@ -271,14 +273,24 @@ func javaLabel(l string) bool {
 // translateExpr translates body as one expression read in sc yielding what
 // want asks for. The expression is complete or refused.
 func translateExpr(body, lang string, sc featureResolver, want wanted) (translated, *refusal) {
+	return translateExprKerml(body, lang, sc, want, false)
+}
+
+// translateTreeExpr is translateExpr for a lowered Expression tree's script
+// text, the only body read admitting the KerML connectives xor and implies.
+func translateTreeExpr(body string, sc featureResolver, want wanted) (translated, *refusal) {
+	return translateExprKerml(body, "", sc, want, true)
+}
+
+func translateExprKerml(body, lang string, sc featureResolver, want wanted, kerml bool) (translated, *refusal) {
 	d := dialectOf(lang)
 	if d == dialectNone {
 		return translated{}, &refusal{kind: refusedLanguage, token: lang}
 	}
-	if _, err := wholeExprIn(body, d, anyScope{}); err != nil && err.kind != refusedType {
+	if _, err := wholeExprKerml(body, d, anyScope{}, kerml); err != nil && err.kind != refusedType {
 		return translated{}, err
 	}
-	t, err := wholeExprIn(body, d, sc)
+	t, err := wholeExprKerml(body, d, sc, kerml)
 	if err != nil {
 		return translated{}, err
 	}
@@ -311,12 +323,15 @@ func translateStatements(body, lang string, sc featureResolver) (lines, notes []
 	return statementsIn(body, d, sc)
 }
 
-// wholeExprIn parses body as one expression of dialect d, its names answered by sc.
-func wholeExprIn(body string, d dialect, sc featureResolver) (translated, *refusal) {
+// wholeExprKerml parses body as one expression of dialect d, its names answered
+// by sc; kerml admits the KerML connectives xor and implies, which no source
+// dialect spells.
+func wholeExprKerml(body string, d dialect, sc featureResolver, kerml bool) (translated, *refusal) {
 	p, err := newOpaqueParser(body, d, sc)
 	if err != nil {
 		return translated{}, err
 	}
+	p.kerml = kerml
 	return p.wholeExpr()
 }
 
@@ -731,6 +746,8 @@ type opaqueParser struct {
 	toks     []token
 	i        int
 	d        dialect
+	kerml    bool // a lowered Expression tree may spell the KerML connectives xor and implies
+	strict   bool // write the standard library's functions only, never OpenSysMLMathFunctions
 	sc       featureResolver
 	locals   map[string]local    // names a `var`, `let` or `const` declared
 	assigns  bool                // whether `=` assigns (a statement) rather than compares
@@ -755,7 +772,16 @@ func newOpaqueParser(body string, d dialect, sc featureResolver) (*opaqueParser,
 	if err != nil {
 		return nil, err
 	}
-	return &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]local{}, assigned: map[string]bool{}, guarded: map[string][]string{}}, nil
+	p := &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]local{}, assigned: map[string]bool{}, guarded: map[string][]string{}}
+	if s, ok := sc.(strictTeller); ok {
+		p.strict = s.strictMigration()
+	}
+	return p, nil
+}
+
+// strictTeller is a featureResolver telling whether the migration is strict.
+type strictTeller interface {
+	strictMigration() bool
 }
 
 // local is a name a declaration introduced: the scalar it holds and whether
@@ -1258,7 +1284,7 @@ func (p *opaqueParser) spacedName(first string) (string, *refusal) {
 
 // expr reads a conditional expression, the top of the operator ladder.
 func (p *opaqueParser) expr() (translated, *refusal) {
-	cond, err := p.or()
+	cond, err := p.logicalTop()
 	if err != nil {
 		return translated{}, err
 	}
@@ -1290,9 +1316,27 @@ func (p *opaqueParser) expr() (translated, *refusal) {
 // binaryOp is an operator of the ladder: how it is spelled in the source and in v2.
 type binaryOp struct{ src, v2 string }
 
+// logicalTop reads the ladder's loosest level: `implies` where the tree
+// dialect admits it, else `or`.
+func (p *opaqueParser) logicalTop() (translated, *refusal) {
+	if p.kerml {
+		return p.logical(p.or, binaryOp{"", "implies"}, "implies", looseImplies)
+	}
+	return p.or()
+}
+
 // or reads `a || b`, in English `a or b`.
 func (p *opaqueParser) or() (translated, *refusal) {
-	return p.logical(p.and, binaryOp{"||", "or"}, "or", looseOr)
+	next := p.and
+	if p.kerml {
+		next = p.xor
+	}
+	return p.logical(next, binaryOp{"||", "or"}, "or", looseOr)
+}
+
+// xor reads `a xor b`, a connective only a lowered Expression tree spells.
+func (p *opaqueParser) xor() (translated, *refusal) {
+	return p.logical(p.and, binaryOp{"", "xor"}, "xor", looseXor)
 }
 
 // and reads `a && b`, in English `a and b`.
@@ -1308,7 +1352,8 @@ func (p *opaqueParser) logical(next func() (translated, *refusal), op binaryOp, 
 	}
 	for {
 		tok := p.peek(true)
-		if !tok.isPunct(op.src) && !(p.d == dialectEnglish && tok.word(word)) {
+		wordOk := (p.d == dialectEnglish || p.kerml) && tok.word(word)
+		if !tok.isPunct(op.src) && !wordOk {
 			return left, nil
 		}
 		p.next(true)
@@ -1469,7 +1514,7 @@ func (p *opaqueParser) arithmeticOf(left translated, op string, right translated
 	if op == "/" && p.d == dialectJava {
 		switch {
 		case wholeScalar(left.scalar) && wholeScalar(right.scalar):
-			return javaQuotient(left, right), nil
+			return javaQuotient(left, right, p.strict), nil
 		case !realScalar(left.scalar) && !realScalar(right.scalar):
 			side := left
 			if side.scalar != "" {
@@ -1485,7 +1530,12 @@ func (p *opaqueParser) arithmeticOf(left translated, op string, right translated
 // javaQuotient writes Java's `/` over whole numbers x and y: the exact quotient
 // truncated toward zero, which the extension library's quotient computes and
 // reports as overflow for the one pair (the least Integer by -1) outside the range.
-func javaQuotient(x, y translated) translated {
+// A strict migration computes it from the standard remainder, x % y having
+// the sign of x: (x - x % y) / y is exact, and its floor is itself.
+func javaQuotient(x, y translated, strict bool) translated {
+	if strict {
+		return translated{expr: "RealFunctions::floor((" + x.operand() + " - " + x.operand() + " % " + y.operand() + ") / " + y.operand() + ")", scalar: "Integer", atomic: true}
+	}
 	return translated{expr: "OpenSysMLMathFunctions::quotient(" + x.expr + ", " + y.expr + ")", scalar: "Integer", atomic: true}
 }
 
@@ -1781,6 +1831,9 @@ func (p *opaqueParser) mathRoundish(fn string, args []translated, arity func(int
 	switch fn {
 	case mathCeilFn:
 		// -floor(-x) would overflow at the least Integer; the extension library's ceiling does not.
+		if p.strict {
+			return translated{expr: "-RealFunctions::floor(-" + args[0].operand() + ")", scalar: yields, atomic: true}, nil
+		}
 		return translated{expr: "OpenSysMLMathFunctions::ceiling(" + args[0].expr + ")", scalar: yields, atomic: true}, nil
 	case mathRound:
 		// JavaScript and Java round a half toward +∞, where RealFunctions::round rounds it away from zero.

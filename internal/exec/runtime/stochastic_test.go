@@ -222,14 +222,14 @@ func TestModelSeedIsIndependentOfTheScheduleSeed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a["d"].Const.Real != b["d"].Const.Real || a["d"].Const.Real != c["d"].Const.Real {
+	if a["d"].Const.AsReal() != b["d"].Const.AsReal() || a["d"].Const.AsReal() != c["d"].Const.AsReal() {
 		t.Errorf("model seed 7 drew %v, %v, %v under three schedules", a["d"], b["d"], c["d"])
 	}
 	_, d, err := runAction(t, m, "draw", "seed:7")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d["d"].Const.Real != a["d"].Const.Real {
+	if d["d"].Const.AsReal() != a["d"].Const.AsReal() {
 		t.Errorf("`seed:7` drew %v, model seed 7 %v; want one modeled stream per seed", d["d"], a["d"])
 	}
 }
@@ -738,16 +738,16 @@ func TestRandomFunctionsDrawWithinTheirSupport(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if u := out["u"].Const.Real; u < 2 || u >= 3 {
+		if u := out["u"].Const.AsReal(); u < 2 || u >= 3 {
 			t.Errorf("uniform(2.0, 3.0) drew %v", u)
 		}
-		if x := out["tri"].Const.Real; x < 0 || x > 4 {
+		if x := out["tri"].Const.AsReal(); x < 0 || x > 4 {
 			t.Errorf("triangular(0.0, 1.0, 4.0) drew %v", x)
 		}
-		if x := out["flat"].Const.Real; x != 5 {
+		if x := out["flat"].Const.AsReal(); x != 5 {
 			t.Errorf("normal(5.0, 0.0) drew %v, want the mean", x)
 		}
-		if x := out["g"].Const.Real; math.IsNaN(x) || math.IsInf(x, 0) {
+		if x := out["g"].Const.AsReal(); math.IsNaN(x) || math.IsInf(x, 0) {
 			t.Errorf("normal(0.0, 1.0) drew %v", x)
 		}
 		last = out
@@ -757,7 +757,7 @@ func TestRandomFunctionsDrawWithinTheirSupport(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"u", "tri", "g"} {
-		if again[name].Const.Real != last[name].Const.Real {
+		if again[name].Const.AsReal() != last[name].Const.AsReal() {
 			t.Errorf("seed 30 drew %s = %v then %v", name, last[name], again[name])
 		}
 	}
@@ -785,7 +785,7 @@ func TestNormalDrawsStayFiniteNearTheLargestReal(t *testing.T) {
 		if err != nil {
 			t.Fatalf("seed %d: %v", seed, err)
 		}
-		x := out["x"].Const.Real
+		x := out["x"].Const.AsReal()
 		if math.IsInf(x, 0) || math.IsNaN(x) {
 			t.Fatalf("seed %d drew normal(1.0e308, 1.0e308) = %v", seed, x)
 		}
@@ -799,8 +799,8 @@ func TestNormalDrawsStayFiniteNearTheLargestReal(t *testing.T) {
 		if err != nil {
 			t.Fatalf("seed %d: replay: %v\n%s", seed, err, w)
 		}
-		if got["x"].Const.Real != x {
-			t.Errorf("seed %d: replay gave x = %v, want %v", seed, got["x"].Const.Real, x)
+		if got["x"].Const.AsReal() != x {
+			t.Errorf("seed %d: replay gave x = %v, want %v", seed, got["x"].Const.AsReal(), x)
 		}
 	}
 	if overflowed == 0 {
@@ -835,7 +835,7 @@ func TestWideBoundsStillBoundTheDraws(t *testing.T) {
 			t.Fatalf("seed %d: %v", seed, err)
 		}
 		for name, bound := range bounds {
-			x := out[name].Const.Real
+			x := out[name].Const.AsReal()
 			if math.IsInf(x, 0) || math.IsNaN(x) || x < bound[0] || x > bound[1] || (name == "u" && x == bound[1]) {
 				t.Fatalf("seed %d drew %s = %v, outside its bounds %v", seed, name, x, bound)
 			}
@@ -854,8 +854,8 @@ func TestWideBoundsStillBoundTheDraws(t *testing.T) {
 			t.Fatalf("seed %d: replay: %v\n%s", seed, err, w)
 		}
 		for name := range bounds {
-			if got[name].Const.Real != out[name].Const.Real {
-				t.Errorf("seed %d: replay gave %s = %v, want %v", seed, name, got[name].Const.Real, out[name].Const.Real)
+			if got[name].Const.AsReal() != out[name].Const.AsReal() {
+				t.Errorf("seed %d: replay gave %s = %v, want %v", seed, name, got[name].Const.AsReal(), out[name].Const.AsReal())
 			}
 		}
 	}

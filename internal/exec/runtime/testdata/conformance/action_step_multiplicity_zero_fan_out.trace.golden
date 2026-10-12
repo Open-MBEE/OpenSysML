@@ -1,0 +1,8 @@
+step 1: token 1@a
+step 2: token 2@q, token 3@r
+stmt assign d
+  eval literal 8 -> 8
+stmt assign c
+  eval literal 7 -> 7
+choice step 3: tokens 2@q, 3@r (unordered; took 3@r first)
+step 3: no active tokens

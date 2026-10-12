@@ -358,6 +358,14 @@ type Symbol struct {
 	// that reference must not see the name it gave away, or it would resolve to
 	// the feature that borrowed it (KerML 7.3.4.5).
 	NamingTarget ast.Node
+
+	// Implicit is the written relationship this symbol reflects, or nil for
+	// every ordinary symbol (see ImplicitRelationship).
+	Implicit *ImplicitRelationship
+
+	// Chain is the chain target this symbol denotes as a feature, or nil for
+	// every ordinary symbol (see ChainingFeature).
+	Chain *ChainingFeature
 }
 
 // Naming tells where a symbol's Name comes from.

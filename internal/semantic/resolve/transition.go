@@ -212,6 +212,101 @@ func RedefinesActionNode(body *symbols.Scope, node *ast.Usage, decl ast.Node) bo
 	return redefinesActionNode(body, node, decl, make(map[*ast.Usage]bool))
 }
 
+// ActionNodeRedefinitionTargets returns inherited action nodes named by a
+// member's redefines and, when subsets is true, subsets relationships.
+func ActionNodeRedefinitionTargets(body *symbols.Scope, decl ast.Node, subsets bool) []ast.Node {
+	if body == nil || decl == nil {
+		return nil
+	}
+	var rels []*ast.Relationship
+	switch node := decl.(type) {
+	case *ast.Usage:
+		rels = node.Relationships
+	case *ast.Definition:
+		rels = node.Relationships
+	default:
+		return nil
+	}
+	var targets []ast.Node
+	seen := make(map[ast.Node]bool)
+	for _, rel := range rels {
+		if rel == nil || (rel.Kind != ast.RelRedefines && (!subsets || rel.Kind != ast.RelSubsets)) {
+			continue
+		}
+		target := rel.Target
+		if fr, ok := target.(*ast.FeatureReference); ok {
+			target = fr.Name
+		}
+		qn, ok := target.(*ast.QualifiedName)
+		if !ok || len(qn.Parts) == 0 {
+			continue
+		}
+		var qualifier *symbols.Symbol
+		if len(qn.Parts) > 1 {
+			qualifier, _ = lookupScopeParts(body.Parent(), qn.Parts[:len(qn.Parts)-1])
+			if qualifier != nil && qualifier.Decl == body.Node() {
+				qualifier = nil
+			}
+		}
+		node, _, found, _ := inheritedActionNode(body, qn.Parts[len(qn.Parts)-1].Text, qualifier, make(map[*symbols.Symbol]bool))
+		if found && !seen[node] {
+			seen[node] = true
+			targets = append(targets, node)
+		}
+	}
+	return targets
+}
+
+// ActionNodeDeclaringScope returns the action body that declares an inherited
+// action node.
+func ActionNodeDeclaringScope(scope *symbols.Scope, decl ast.Node) *symbols.Scope {
+	body := enclosingActionScope(scope)
+	if body == nil || decl == nil {
+		return nil
+	}
+	candidates := append([]*symbols.Scope{body}, ActionGeneralBodies(body)...)
+	for _, candidate := range candidates {
+		for _, member := range candidate.AllMembers() {
+			if member != nil && member.Decl == decl {
+				return candidate
+			}
+		}
+	}
+	return nil
+}
+
+// MissingRedefinedActionNode returns the name of a target a nested action
+// usage says it redefines but which is not an inherited action node.
+func MissingRedefinedActionNode(body *symbols.Scope, usage *ast.Usage) string {
+	if body == nil || usage == nil || !isActionNode(usage) {
+		return ""
+	}
+	for _, rel := range usage.Relationships {
+		if rel == nil || rel.Kind != ast.RelRedefines {
+			continue
+		}
+		target := rel.Target
+		if fr, ok := target.(*ast.FeatureReference); ok {
+			target = fr.Name
+		}
+		qn, ok := target.(*ast.QualifiedName)
+		if !ok || len(qn.Parts) == 0 {
+			continue
+		}
+		var qualifier *symbols.Symbol
+		if len(qn.Parts) > 1 {
+			qualifier, _ = lookupScopeParts(body.Parent(), qn.Parts[:len(qn.Parts)-1])
+			if qualifier != nil && qualifier.Decl == body.Node() {
+				qualifier = nil
+			}
+		}
+		if _, _, found, _ := inheritedActionNode(body, qn.Parts[len(qn.Parts)-1].Text, qualifier, make(map[*symbols.Symbol]bool)); !found {
+			return qnText(qn)
+		}
+	}
+	return ""
+}
+
 func redefinesActionNode(body *symbols.Scope, node *ast.Usage, decl ast.Node, seen map[*ast.Usage]bool) bool {
 	if body == nil || node == nil || seen[node] {
 		return false
@@ -266,35 +361,52 @@ func enclosingActionScope(scope *symbols.Scope) *symbols.Scope {
 	return nil
 }
 
-// ActionGeneralBodies returns the bodies of the actions the action enclosing
-// scope specializes or is typed by, nearest first and each once, found from the
-// scope tree alone — where a member the action inherits was declared.
-func ActionGeneralBodies(scope *symbols.Scope) []*symbols.Scope {
+// ActionGeneralization returns the bodies of the actions the action enclosing
+// scope specializes, subsets, redefines, or is typed by, nearest first and each
+// once, found from the scope tree alone — where a member the action inherits was
+// declared. cyclic reports a generalization cycle; a diamond is not a cycle.
+func ActionGeneralization(scope *symbols.Scope, typing bool) (bodies []*symbols.Scope, cyclic bool) {
 	body := enclosingActionScope(scope)
 	if body == nil {
-		return nil
+		return nil, false
 	}
-	var bodies []*symbols.Scope
-	seen := make(map[*symbols.Symbol]bool)
+	seen := make(map[*symbols.Scope]bool)
+	onStack := map[*symbols.Scope]bool{body: true}
 	var collect func(body *symbols.Scope)
 	collect = func(body *symbols.Scope) {
-		supers, _ := declaredGenerals(body)
+		supers, _ := declaredGenerals(body, typing)
 		for _, super := range supers {
-			if seen[super] || super.Scope == nil {
+			if super == nil || super.Scope == nil {
 				continue
 			}
-			seen[super] = true
+			if onStack[super.Scope] {
+				cyclic = true
+				continue
+			}
+			if seen[super.Scope] {
+				continue
+			}
+			seen[super.Scope] = true
 			bodies = append(bodies, super.Scope)
+			onStack[super.Scope] = true
 			collect(super.Scope)
+			delete(onStack, super.Scope)
 		}
 	}
 	collect(body)
+	return bodies, cyclic
+}
+
+// ActionGeneralBodies returns the bodies of the actions the action enclosing
+// scope specializes or is typed by, nearest first and each once.
+func ActionGeneralBodies(scope *symbols.Scope) []*symbols.Scope {
+	bodies, _ := ActionGeneralization(scope, true)
 	return bodies
 }
 
 // declaredGenerals returns the symbols the generalizations body's declaration
 // states, in declaration order, and whether one of them resolves to nothing.
-func declaredGenerals(body *symbols.Scope) ([]*symbols.Symbol, bool) {
+func declaredGenerals(body *symbols.Scope, typing bool) ([]*symbols.Symbol, bool) {
 	var rels []*ast.Relationship
 	switch n := body.Node().(type) {
 	case *ast.Definition:
@@ -307,8 +419,9 @@ func declaredGenerals(body *symbols.Scope) ([]*symbols.Symbol, bool) {
 	var supers []*symbols.Symbol
 	var uncertain bool
 	for _, rel := range rels {
-		if rel == nil || (rel.Kind != ast.RelSpecializes && rel.Kind != ast.RelTyping &&
-			rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines) {
+		if rel == nil || (rel.Kind != ast.RelSpecializes && rel.Kind != ast.RelSubsets &&
+			rel.Kind != ast.RelRedefines && (!typing ||
+			(rel.Kind != ast.RelTyping && rel.Kind != ast.RelReferences))) {
 			continue
 		}
 		target := rel.Target
@@ -320,6 +433,28 @@ func declaredGenerals(body *symbols.Scope) ([]*symbols.Symbol, bool) {
 			continue
 		}
 		super, ok := lookupScopeQualified(body.Parent(), qn)
+		// A nested redefining action may answer to its own name in its owner's
+		// scope. Its target is the inherited action node of that name, not itself.
+		if ok && super != nil && super.Decl == body.Node() {
+			if owner := body.Parent(); owner != nil {
+				var qualifier *symbols.Symbol
+				if len(qn.Parts) > 1 {
+					qualifier, _ = lookupScopeParts(owner.Parent(), qn.Parts[:len(qn.Parts)-1])
+					if qualifier != nil && qualifier.Decl == owner.Node() {
+						qualifier = nil
+					}
+				}
+				if inherited, inheritedScope, found, unknown := inheritedActionNode(owner, qn.Parts[len(qn.Parts)-1].Text, qualifier, make(map[*symbols.Symbol]bool)); found {
+					super = symbolDeclaring(inheritedScope, inherited)
+					if unknown {
+						uncertain = true
+					}
+					ok = super != nil
+				} else {
+					ok = false
+				}
+			}
+		}
 		if !ok || super == nil {
 			uncertain = true
 			continue
@@ -329,8 +464,20 @@ func declaredGenerals(body *symbols.Scope) ([]*symbols.Symbol, bool) {
 	return supers, uncertain
 }
 
+func symbolDeclaring(scope *symbols.Scope, decl ast.Node) *symbols.Symbol {
+	if scope == nil || decl == nil {
+		return nil
+	}
+	for _, member := range scope.AllMembers() {
+		if member.Decl == decl {
+			return member
+		}
+	}
+	return nil
+}
+
 func inheritedActionNode(body *symbols.Scope, name string, qualifier *symbols.Symbol, seen map[*symbols.Symbol]bool) (ast.Node, *symbols.Scope, bool, bool) {
-	supers, uncertain := declaredGenerals(body)
+	supers, uncertain := declaredGenerals(body, true)
 	for _, super := range supers {
 		if qualifier != nil && super != qualifier {
 			continue
@@ -494,10 +641,12 @@ func lookupScopePartsText(scope *symbols.Scope, parts []string) (*symbols.Symbol
 func isActionNode(decl ast.Node) bool {
 	switch n := decl.(type) {
 	case *ast.Usage:
-		return n.Kind == ast.UsageAction || IsAssertion(n)
-	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode,
-		*ast.ActionExecutionNode, *ast.WhileLoopActionNode, *ast.IfActionNode,
-		*ast.AssignmentActionNode, *ast.SendStatement, *ast.TerminateStatement:
+		return n.Kind == ast.UsageAction || n.Kind == ast.UsageAnalysisCase ||
+			n.Kind == ast.UsageVerificationCase || IsAssertion(n)
+	case *ast.InitialNode, *ast.FinalNode, *ast.ForkNode, *ast.JoinNode, *ast.MergeNode,
+		*ast.DecisionNode, *ast.ActionExecutionNode, *ast.PerformActionNode,
+		*ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
+		*ast.SendStatement, *ast.TerminateStatement:
 		return true
 	}
 	return false
@@ -538,7 +687,7 @@ func (r *Resolver) lookupEndpoint(scope *symbols.Scope, qn *ast.QualifiedName) (
 func (r *Resolver) lookupEndpointChain(scope *symbols.Scope, chain *ast.FeatureChainExpr, owner *symbols.Symbol) (*symbols.Symbol, bool) {
 	var sym *symbols.Symbol
 	var ok bool
-	r.aside(func() { sym, ok = r.memberChain(owner, chain.Member, chain) })
+	r.aside(func() { sym, ok = r.memberChain(scope, owner, chain.Member, chain) })
 	machine := machineScope(scope)
 	if ok && r.endpointIsVertex(scope, chain.Member, sym) && declaredWithin(machine, sym) {
 		return sym, true

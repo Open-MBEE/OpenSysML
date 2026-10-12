@@ -1,0 +1,8 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::Raising",
+	"outputs": {
+		"reached": {"type": "Integer", "value": 0}
+	}
+}

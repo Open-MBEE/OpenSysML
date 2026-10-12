@@ -337,6 +337,17 @@ func (l labeller) lines(node *Node) []string {
 	return append(lines, l.details(node)...)
 }
 
+// titleLines joins the keyword to the first head line for a container title.
+func (l labeller) titleLines(node *Node) []string {
+	head := l.headLines(node)
+	lines := make([]string, 0, len(head)+len(l.details(node)))
+	if keyword := l.keyword(node); keyword != "" {
+		head[0] = keyword + " " + head[0]
+	}
+	lines = append(lines, head...)
+	return append(lines, l.details(node)...)
+}
+
 // cameoStateDetails splits a state's detail into Cameo's compartment lines, one
 // per behaviour, and drops the `initial` marker the initial dot already draws.
 // The detail is split as notation, so a name quoting a comma stays one; the

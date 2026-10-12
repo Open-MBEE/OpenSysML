@@ -1,0 +1,6 @@
+run - timeline rendering (the trace of a run to t = 2)
+
+#1.modes
+  0 .. 2  waiting  (held at the end)
+  noted:
+    t=1 unevaluable guard waiting: transition accept Ping: unbound (not selected)

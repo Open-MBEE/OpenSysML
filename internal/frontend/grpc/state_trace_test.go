@@ -99,6 +99,55 @@ func TestExecuteStateTraceOrderAndOptIn(t *testing.T) {
 	}
 }
 
+func TestExecuteStateTraceReportsTerminateAtTerminationInstant(t *testing.T) {
+	service := mustNewService(t, 10)
+	modelHash := parseStateTraceModel(t, service, `
+package Termination {
+  private import ScalarValues::*;
+  private import SI::*;
+  part def Stopper {
+    exhibit state modes {
+      entry; then waiting;
+      state waiting {
+        do action stop {
+          first start;
+          then action wait accept after 2 [s];
+          then terminate this;
+        }
+      }
+    }
+  }
+  part stopper : Stopper;
+}
+`)
+	response, err := service.ExecuteState(context.Background(), &pb.ExecuteStateRequest{
+		ModelHash:            modelHash,
+		StateMachineSymbolId: "Termination::Stopper::modes",
+		PerformerSymbolId:    "Termination::stopper",
+		Trace:                true,
+	})
+	if err != nil {
+		t.Fatalf("ExecuteState: %v", err)
+	}
+	if response.Error != "" {
+		t.Fatalf("execution error: %s", response.Error)
+	}
+	var termination *pb.DocumentEvent
+	for _, event := range response.Trace {
+		if event.Kind == "terminate" {
+			termination = event
+			break
+		}
+	}
+	if termination == nil {
+		t.Fatalf("trace has no terminate record: %v", response.Trace)
+	}
+	time := termination.Time.GetQuantity()
+	if time == nil || protoMagnitude(time) != 2 || time.GetUnit() != "s" {
+		t.Fatalf("terminate time = %v, want 2 [s]", termination.Time)
+	}
+}
+
 func TestExecuteStateTraceReportsChoice(t *testing.T) {
 	service := mustNewService(t, 10)
 	modelHash := parseStateTraceModel(t, service, `

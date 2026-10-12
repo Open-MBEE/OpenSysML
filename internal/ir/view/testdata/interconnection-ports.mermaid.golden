@@ -20,22 +20,16 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
 ---
 %% ToasterViews::toasterView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["`*«part def»*
-**Toaster**`"]
+  subgraph n0 ["`*«part def»* **Toaster**`"]
     direction LR
-    subgraph n1 ["`*«part»*
-**heating : HeatingSystem**`"]
+    subgraph n1 ["`*«part»* **heating : HeatingSystem**`"]
       direction LR
       n1.0["durationIn"]
     end
-    subgraph n2 ["`*«part»*
-**control : ControlSystem**`"]
+    subgraph n2 ["`*«part»* **control : ControlSystem**`"]
       direction LR
       n2.0["durationOut"]
     end

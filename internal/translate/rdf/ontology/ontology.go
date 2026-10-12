@@ -152,6 +152,27 @@ func LookupEnumeration(name string) (Enumeration, bool) {
 // declarations qualify, the one declared on the most specific class. It
 // reports false when no declaration qualifies.
 func PropertyOf(metaclass, name string) (Property, bool) {
+	// The ontology is fixed once indexed, so an answer is computed once.
+	key := metaclass + "\x00" + name
+	if known, ok := propertyOfCache.Load(key); ok {
+		answer := known.(propertyAnswer)
+		return answer.property, answer.found
+	}
+	property, found := propertyOf(metaclass, name)
+	propertyOfCache.Store(key, propertyAnswer{property, found})
+	return property, found
+}
+
+// propertyAnswer is a PropertyOf result as propertyOfCache keeps it.
+type propertyAnswer struct {
+	property Property
+	found    bool
+}
+
+// propertyOfCache holds PropertyOf's answers by metaclass and name.
+var propertyOfCache sync.Map
+
+func propertyOf(metaclass, name string) (Property, bool) {
 	var best Property
 	found := false
 	for _, p := range LookupProperty(name) {
@@ -204,22 +225,34 @@ func IsAncestorOrSelf(class, ancestor string) bool {
 	if class == ancestor {
 		return true
 	}
+	return ancestorsOf(class)[ancestor]
+}
+
+// ancestorCache holds each class's transitive rdfs:subClassOf parents, by class:
+// the ontology is fixed once indexed, so a class's are walked once.
+var ancestorCache sync.Map
+
+// ancestorsOf is the set of class's transitive parents, not including class.
+func ancestorsOf(class string) map[string]bool {
+	if known, ok := ancestorCache.Load(class); ok {
+		return known.(map[string]bool)
+	}
+	ancestors := map[string]bool{}
 	seen := map[string]bool{class: true}
 	queue := []string{class}
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
 		for _, parent := range classesByName[current].Parents {
-			if parent == ancestor {
-				return true
-			}
+			ancestors[parent] = true
 			if !seen[parent] {
 				seen[parent] = true
 				queue = append(queue, parent)
 			}
 		}
 	}
-	return false
+	known, _ := ancestorCache.LoadOrStore(class, ancestors)
+	return known.(map[string]bool)
 }
 
 // LocalName returns the part of an IRI after the '#', or the IRI itself.

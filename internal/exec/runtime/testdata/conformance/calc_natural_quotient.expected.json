@@ -5,5 +5,5 @@
     {"type": "Integer", "value": 5},
     {"type": "Integer", "value": 2}
   ],
-  "result": {"type": "Real", "value": 2.5}
+  "result": {"type": "Rational", "value": "2.5"}
 }

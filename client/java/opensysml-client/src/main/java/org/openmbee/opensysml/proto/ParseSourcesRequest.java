@@ -35,6 +35,7 @@ private static final long serialVersionUID = 0L;
   }
   private ParseSourcesRequest() {
     documents_ = java.util.Collections.emptyList();
+    baseModelHash_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -106,6 +107,57 @@ private static final long serialVersionUID = 0L;
     return strictConformance_;
   }
 
+  public static final int BASE_MODEL_HASH_FIELD_NUMBER = 3;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object baseModelHash_ = "";
+  /**
+   * <pre>
+   * The model_hash of a model of these documents the client holds results of,
+   * typically the one its previous ParseSources returned. The answer's affected
+   * is relative to it. Reported as the "parse_sources_affected" capability.
+   * </pre>
+   *
+   * <code>string base_model_hash = 3 [json_name = "baseModelHash"];</code>
+   * @return The baseModelHash.
+   */
+  @java.lang.Override
+  public java.lang.String getBaseModelHash() {
+    java.lang.Object ref = baseModelHash_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      baseModelHash_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The model_hash of a model of these documents the client holds results of,
+   * typically the one its previous ParseSources returned. The answer's affected
+   * is relative to it. Reported as the "parse_sources_affected" capability.
+   * </pre>
+   *
+   * <code>string base_model_hash = 3 [json_name = "baseModelHash"];</code>
+   * @return The bytes for baseModelHash.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getBaseModelHashBytes() {
+    java.lang.Object ref = baseModelHash_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      baseModelHash_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -126,6 +178,9 @@ private static final long serialVersionUID = 0L;
     if (strictConformance_ != false) {
       output.writeBool(2, strictConformance_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(baseModelHash_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 3, baseModelHash_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -142,6 +197,9 @@ private static final long serialVersionUID = 0L;
     if (strictConformance_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(2, strictConformance_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(baseModelHash_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(3, baseModelHash_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -162,6 +220,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getDocumentsList())) return false;
     if (getStrictConformance()
         != other.getStrictConformance()) return false;
+    if (!getBaseModelHash()
+        .equals(other.getBaseModelHash())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -180,6 +240,8 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + STRICT_CONFORMANCE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getStrictConformance());
+    hash = (37 * hash) + BASE_MODEL_HASH_FIELD_NUMBER;
+    hash = (53 * hash) + getBaseModelHash().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -325,6 +387,7 @@ private static final long serialVersionUID = 0L;
       }
       bitField0_ = (bitField0_ & ~0x00000001);
       strictConformance_ = false;
+      baseModelHash_ = "";
       return this;
     }
 
@@ -374,6 +437,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000002) != 0)) {
         result.strictConformance_ = strictConformance_;
       }
+      if (((from_bitField0_ & 0x00000004) != 0)) {
+        result.baseModelHash_ = baseModelHash_;
+      }
     }
 
     @java.lang.Override
@@ -416,6 +482,11 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getStrictConformance() != false) {
         setStrictConformance(other.getStrictConformance());
+      }
+      if (!other.getBaseModelHash().isEmpty()) {
+        baseModelHash_ = other.baseModelHash_;
+        bitField0_ |= 0x00000004;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -461,6 +532,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000002;
               break;
             } // case 16
+            case 26: {
+              baseModelHash_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000004;
+              break;
+            } // case 26
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -758,6 +834,108 @@ private static final long serialVersionUID = 0L;
     public Builder clearStrictConformance() {
       bitField0_ = (bitField0_ & ~0x00000002);
       strictConformance_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object baseModelHash_ = "";
+    /**
+     * <pre>
+     * The model_hash of a model of these documents the client holds results of,
+     * typically the one its previous ParseSources returned. The answer's affected
+     * is relative to it. Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>string base_model_hash = 3 [json_name = "baseModelHash"];</code>
+     * @return The baseModelHash.
+     */
+    public java.lang.String getBaseModelHash() {
+      java.lang.Object ref = baseModelHash_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        baseModelHash_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The model_hash of a model of these documents the client holds results of,
+     * typically the one its previous ParseSources returned. The answer's affected
+     * is relative to it. Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>string base_model_hash = 3 [json_name = "baseModelHash"];</code>
+     * @return The bytes for baseModelHash.
+     */
+    public com.google.protobuf.ByteString
+        getBaseModelHashBytes() {
+      java.lang.Object ref = baseModelHash_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        baseModelHash_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The model_hash of a model of these documents the client holds results of,
+     * typically the one its previous ParseSources returned. The answer's affected
+     * is relative to it. Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>string base_model_hash = 3 [json_name = "baseModelHash"];</code>
+     * @param value The baseModelHash to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBaseModelHash(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      baseModelHash_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The model_hash of a model of these documents the client holds results of,
+     * typically the one its previous ParseSources returned. The answer's affected
+     * is relative to it. Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>string base_model_hash = 3 [json_name = "baseModelHash"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearBaseModelHash() {
+      baseModelHash_ = getDefaultInstance().getBaseModelHash();
+      bitField0_ = (bitField0_ & ~0x00000004);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The model_hash of a model of these documents the client holds results of,
+     * typically the one its previous ParseSources returned. The answer's affected
+     * is relative to it. Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>string base_model_hash = 3 [json_name = "baseModelHash"];</code>
+     * @param value The bytes for baseModelHash to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBaseModelHashBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      baseModelHash_ = value;
+      bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }

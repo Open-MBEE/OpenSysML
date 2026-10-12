@@ -1,0 +1,10 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [{"signal": "Go"}],
+  "terminated": true,
+  "outputs": {
+    "parentEntered": {"type": "Integer", "value": 1},
+    "childEntered": {"type": "Integer", "value": 0}
+  }
+}

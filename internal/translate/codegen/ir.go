@@ -5,6 +5,7 @@ package codegen
 import (
 	"math/big"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -12,11 +13,16 @@ import (
 // A collection value is the interpreter's dynamic view of a multi-valued
 // feature: null, one bare scalar, or a sequence of any length (its shape).
 // An enumeration-literal type names its enumeration in Enum, a function
-// type the functions its values range over in Fns.
+// type the functions its values range over in Fns, a record type its
+// attribute definition in Rec.
 type Type struct {
 	k    typeKind
-	Enum *Enum
-	Fns  *FnSet
+	many bool
+	// unset marks a scalar that may be a materialized unset value instead.
+	unset bool
+	Enum  *Enum
+	Fns   *FnSet
+	Rec   *Record
 }
 
 type typeKind uint8
@@ -30,35 +36,32 @@ const (
 	kindString
 	kindEnum
 	kindFunc
+	kindRec
 	kindNull
 	kindRun
-	kindSeqInt
-	kindSeqReal
-	kindSeqBool
-	kindSeqNum
-	kindSeqString
-	kindSeqEnum
-	kindSeqFunc
 )
 
 var (
 	TypeInvalid   = Type{}
-	TypeInt       = Type{k: kindInt}       // Integer and its subtypes, unbounded (int64 until a result leaves it)
-	TypeReal      = Type{k: kindReal}      // Real and Rational, IEEE 754 binary64
-	TypeBool      = Type{k: kindBool}      // Boolean
-	TypeNum       = Type{k: kindNum}       // a Real-typed value, an Integer or a Real by run-time kind
-	TypeString    = Type{k: kindString}    // a String, its characters Unicode code points held as UTF-8
-	TypeNull      = Type{k: kindNull}      // `null` before context fixes its collection type
-	TypeRun       = Type{k: kindRun}       // the identity of one run of a calc body, which its closures carry
-	TypeSeqInt    = Type{k: kindSeqInt}    // collection of Integers
-	TypeSeqReal   = Type{k: kindSeqReal}   // collection of Reals
-	TypeSeqBool   = Type{k: kindSeqBool}   // collection of Booleans
-	TypeSeqNum    = Type{k: kindSeqNum}    // collection of numbers, each element of its own kind
-	TypeSeqString = Type{k: kindSeqString} // collection of Strings
+	TypeInt       = Type{k: kindInt}                // Integer and its subtypes, unbounded (int64 until a result leaves it)
+	TypeReal      = Type{k: kindReal}               // Real and Rational, IEEE 754 binary64
+	TypeBool      = Type{k: kindBool}               // Boolean
+	TypeNum       = Type{k: kindNum}                // a Real-typed value, an Integer or a Real by run-time kind
+	TypeString    = Type{k: kindString}             // a String, its characters Unicode code points held as UTF-8
+	TypeNull      = Type{k: kindNull}               // `null` before context fixes its collection type
+	TypeRun       = Type{k: kindRun}                // the identity of one run of a calc body, which its closures carry
+	TypeSeqInt    = Type{k: kindInt, many: true}    // collection of Integers
+	TypeSeqReal   = Type{k: kindReal, many: true}   // collection of Reals
+	TypeSeqBool   = Type{k: kindBool, many: true}   // collection of Booleans
+	TypeSeqNum    = Type{k: kindNum, many: true}    // collection of numbers, each element of its own kind
+	TypeSeqString = Type{k: kindString, many: true} // collection of Strings
 )
 
 // EnumType is the type of e's literals.
 func EnumType(e *Enum) Type { return Type{k: kindEnum, Enum: e} }
+
+// RecType is the type of r's values.
+func RecType(r *Record) Type { return Type{k: kindRec, Rec: r} }
 
 // Enum is an enumeration definition whose literals are identified by
 // themselves: literal i is the value Base+i of the program's literal table.
@@ -73,7 +76,41 @@ type Enum struct {
 // Literal is the text the interpreter prints literal i as: `Color::red`.
 func (e *Enum) Literal(i int) string { return e.Short + "::" + e.Literals[i] }
 
+// Record is an attribute definition whose values are data values with
+// features, each identified by itself as the interpreter's objects are.
+type Record struct {
+	Name   string // qualified name
+	Short  string // the definition's own name, which diagnostics name it by
+	Fields []Field
+	ID     int // position in Program.Records
+	sym    *symbols.Symbol
+	pass   int
+	why    string
+}
+
+// Field is one feature of a record, in the definition's shape order.
+type Field struct {
+	Name string
+	T    Type
+	b    binding
+	// def is the constant default the feature holds when a constructor binds none.
+	def Expr
+}
+
+// Field is the index of the feature named name, or -1.
+func (r *Record) Field(name string) int {
+	for i, f := range r.Fields {
+		if f.Name == name {
+			return i
+		}
+	}
+	return -1
+}
+
 func (t Type) String() string {
+	if t.many {
+		return t.Elem().String() + "[0..*]"
+	}
 	switch t.k {
 	case kindInt:
 		return "Integer"
@@ -87,26 +124,55 @@ func (t Type) String() string {
 		return t.Enum.Name
 	case kindFunc:
 		return "function"
+	case kindRec:
+		return t.Rec.Name
 	case kindNull:
 		return "null"
 	case kindRun:
 		return "run"
 	}
-	if t.Many() {
-		return t.Elem().String() + "[0..*]"
-	}
 	return "invalid"
 }
 
+// elemKind reports whether k is the kind of a value a collection may hold.
+func elemKind(k typeKind) bool {
+	switch k {
+	case kindInt, kindReal, kindBool, kindNum, kindString, kindEnum, kindFunc, kindRec:
+		return true
+	}
+	return false
+}
+
 // Scalar reports whether t is exactly one Integer, Real, Boolean, number,
-// String, enumeration literal or function.
-func (t Type) Scalar() bool { return t.k >= kindInt && t.k <= kindFunc }
+// String, enumeration literal, function or record.
+func (t Type) Scalar() bool { return !t.many && !t.unset && elemKind(t.k) }
+
+// MayUnset reports whether t is a scalar that may instead be unset: the
+// interpreter's materialized value of a required feature nothing was written
+// to, which counts as one value, has an identity, and fails where a concrete
+// value is required.
+func (t Type) MayUnset() bool { return t.unset }
+
+// Unsettable is the scalar t admitting an unset value too.
+func (t Type) Unsettable() Type {
+	t.unset = true
+	return t
+}
+
+// Concrete is t without an unset value.
+func (t Type) Concrete() Type {
+	t.unset = false
+	return t
+}
 
 // IsEnum reports whether t's values are enumeration literals.
-func (t Type) IsEnum() bool { return t.Elem().k == kindEnum }
+func (t Type) IsEnum() bool { return t.k == kindEnum }
 
 // IsFn reports whether t's values are functions.
-func (t Type) IsFn() bool { return t.Elem().k == kindFunc }
+func (t Type) IsFn() bool { return t.k == kindFunc }
+
+// IsRec reports whether t's values are records.
+func (t Type) IsRec() bool { return t.k == kindRec }
 
 // numeric reports whether t's values are Integers, Reals or numbers.
 func numeric(t Type) bool {
@@ -115,22 +181,20 @@ func numeric(t Type) bool {
 }
 
 // Many reports whether t is a collection type.
-func (t Type) Many() bool { return t.k >= kindSeqInt }
+func (t Type) Many() bool { return t.many }
 
 // Elem is the scalar type of t's values: t itself for a scalar.
 func (t Type) Elem() Type {
-	if t.Many() {
-		return Type{k: t.k - kindSeqInt + kindInt, Enum: t.Enum, Fns: t.Fns}
-	}
+	t.many, t.unset = false, false
 	return t
 }
 
 // Seq is the collection type over t's scalar type.
 func (t Type) Seq() Type {
-	if !t.Scalar() {
-		return t
+	if !t.many && elemKind(t.k) {
+		t.many, t.unset = true, false
 	}
-	return Type{k: t.k - kindInt + kindSeqInt, Enum: t.Enum, Fns: t.Fns}
+	return t
 }
 
 // Mult is a declared multiplicity, checked on the count of values a collection
@@ -185,6 +249,7 @@ func (r Range) Lower() int64 {
 type Program struct {
 	Funcs       []*Func
 	Enums       []*Enum
+	Records     []*Record
 	FnCases     []*FnCase
 	Entry       *Func
 	Collections bool
@@ -208,6 +273,9 @@ type Func struct {
 	// Run names the variable holding this run's identity, which the closures
 	// the body declares carry; empty when none is read.
 	Run string
+	// self is the record a record's calc is compiled against, held by its
+	// last parameter.
+	self *Record
 }
 
 // Param is one input parameter; Range and, for a collection, Mult and Unique
@@ -231,7 +299,11 @@ type IntLit struct {
 	Value int64
 	Big   *big.Int
 }
-type RealLit struct{ Value float64 }
+type RealLit struct {
+	Value float64
+	// Rat is the exact Rational a decimal literal denotes; nil for a Real.
+	Rat *big.Rat
+}
 type BoolLit struct{ Value bool }
 
 // StrLit is a String literal, Value its characters as UTF-8.
@@ -249,6 +321,14 @@ type Binary struct {
 	Op   ast.OperatorKind
 	L, R Expr
 	T    Type
+	// Exact is a Rational operation over operands binary64 holds exactly,
+	// computed as one correctly rounded binary64 operation; an Integer
+	// quotient is then compared exactly against a whole number.
+	Exact bool
+	// Whole is an Exact sum, difference or product of whole numbers.
+	Whole bool
+	// Guard requires a Whole result below 2^53, where binary64 holds it exactly.
+	Guard bool
 }
 
 // Unary applies `-`, `+` or `not`.
@@ -256,6 +336,8 @@ type Unary struct {
 	Op ast.OperatorKind
 	X  Expr
 	T  Type
+	// Exact negates an exact Rational, whose zero is unsigned.
+	Exact bool
 }
 
 // Cond is `if c ? a else b`, both branches of type T.
@@ -306,7 +388,11 @@ type LibCall struct {
 
 // ToReal widens an Integer, or a number of either kind, to a Real; over a
 // collection, every element.
-type ToReal struct{ X Expr }
+type ToReal struct {
+	X Expr
+	// Exact requires the Integer to be one binary64 holds exactly.
+	Exact bool
+}
 
 // ToNum views an Integer or a Real as a number keeping its kind; over a
 // collection, every element.
@@ -357,6 +443,96 @@ type Checked struct {
 	Unique bool
 	Where  string
 }
+
+// Narrowed is the scalar X checked against the range R of the feature it is
+// written to.
+type Narrowed struct {
+	X     Expr
+	R     Range
+	Where string
+}
+
+func (x Narrowed) Type() Type { return x.X.Type() }
+
+// RecNew is a new record of Rec, its features bound to Fields in field
+// order, each already evaluated and checked.
+type RecNew struct {
+	Rec    *Record
+	Fields []Expr
+}
+
+func (x RecNew) Type() Type { return RecType(x.Rec) }
+
+// RecGet reads feature Field of the record X.
+type RecGet struct {
+	X     Expr
+	Field int
+	T     Type
+}
+
+func (x RecGet) Type() Type { return x.T }
+
+// NewUnset is a fresh unset value of the scalar type T, which MayUnset, of a
+// feature whose Integer values R narrows.
+type NewUnset struct {
+	T Type
+	R Range
+}
+
+func (x NewUnset) Type() Type { return x.T }
+
+// Lift is the concrete scalar X as a value of T, its type admitting unset.
+type Lift struct {
+	X Expr
+	T Type
+}
+
+func (x Lift) Type() Type { return x.T }
+
+// Need is the value X holds, failing with Fail when X is unset.
+type Need struct {
+	X    Expr
+	Fail string
+}
+
+func (x Need) Type() Type { return x.X.Type().Concrete() }
+
+// Strip is the value X holds, which the program has found is not unset.
+type Strip struct{ X Expr }
+
+func (x Strip) Type() Type { return x.X.Type().Concrete() }
+
+// Relabel is the concrete V as a value of T that is unset exactly when Of
+// is, keeping Of's identity; Of is a Var.
+type Relabel struct {
+	V, Of Expr
+	T     Type
+}
+
+func (x Relabel) Type() Type { return x.T }
+
+// IsUnset reports whether X, a Var, is unset.
+type IsUnset struct{ X Expr }
+
+func (x IsUnset) Type() Type { return TypeBool }
+
+// SameUnset reports, Neq negated, whether L and R, Vars of which one is
+// unset, are the same value.
+type SameUnset struct {
+	L, R Expr
+	Neq  bool
+}
+
+func (x SameUnset) Type() Type { return TypeBool }
+
+// Named is X, which may be unset, under the text the interpreter names its
+// expression by when it holds no value.
+type Named struct {
+	X       Expr
+	Feature string
+}
+
+func (x Named) Type() Type { return x.X.Type() }
 
 // Let evaluates Value into the temporary Name, then In, which reads it as a Var.
 type Let struct {

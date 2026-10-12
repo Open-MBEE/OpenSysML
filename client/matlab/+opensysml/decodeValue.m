@@ -12,7 +12,7 @@ end
 
 function val = decodeValueInner(v, resolveInstance)
 %DECODEVALUE Decode one wire Value: an object with exactly one of the
-%twenty-two arm keys. Contract violations are errors, never defaults.
+%twenty-three arm keys. Contract violations are errors, never defaults.
 
     if isa(v, 'containers.Map')
         kinds = v.keys;
@@ -36,6 +36,7 @@ function val = decodeValueInner(v, resolveInstance)
     switch kind
         case 'intValue',    val = asInt64(v.intValue);
         case 'bigIntValue', val = bigIntegerOf(v.bigIntValue);
+        case 'rationalValue', val = opensysml.internal.rationalOf(v.rationalValue);
         case 'realValue',   val = asReal(v.realValue);
         case 'boolValue',   val = logical(v.boolValue);
         case 'stringValue', val = char(v.stringValue);
@@ -208,6 +209,8 @@ function n = decodeNumeric(c)
         n = opensysml.parseInt64(c.intValue);
     elseif isfield(c, 'bigIntValue')
         n = bigIntegerOf(c.bigIntValue);
+    elseif isfield(c, 'rationalValue')
+        n = opensysml.internal.rationalOf(c.rationalValue);
     elseif isfield(c, 'realValue')
         n = realOf(c.realValue);
     else
@@ -220,6 +223,8 @@ function q = decodeQuantity(b)
         mag = opensysml.parseInt64(b.intMagnitude);
     elseif isfield(b, 'bigIntMagnitude')
         mag = bigIntegerOf(b.bigIntMagnitude);
+    elseif isfield(b, 'rationalMagnitude')
+        mag = opensysml.internal.rationalOf(b.rationalMagnitude);
     elseif isfield(b, 'realMagnitude')
         mag = realOf(b.realMagnitude);
     else

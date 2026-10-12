@@ -41,7 +41,7 @@ func TestActionBodyLocalUsageBindsCurrentValues(t *testing.T) {
 	}
 	// 2.0 is the declared default of v doubled, which the assignment before the
 	// usage replaced.
-	if got := out["r"].Const.Real; got != 4.0 {
+	if got := out["r"].Const.AsReal(); got != 4.0 {
 		t.Errorf("r = %v, want 4", got)
 	}
 }
@@ -81,7 +81,7 @@ func TestActionBodyLocalUsageBindsPerIteration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExecuteAction: %v", err)
 	}
-	if got := out["acc"].Const.Real; got != 12.0 {
+	if got := out["acc"].Const.AsReal(); got != 12.0 {
 		t.Errorf("acc = %v, want 12 (2+4+6)", got)
 	}
 }

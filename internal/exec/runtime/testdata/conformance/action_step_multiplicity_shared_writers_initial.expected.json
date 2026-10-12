@@ -1,0 +1,11 @@
+{
+	"type": "action",
+	"exploreBudget": {"runs": 65536},
+	"libraries": true,
+	"outcomes": [
+		{"outputs": {"c": {"type": "Integer", "value": 1}}},
+		{"outputs": {"c": {"type": "Integer", "value": 2}}},
+		{"outputs": {"c": {"type": "Integer", "value": 3}}}
+	],
+	"admissible": "Repeated action steps and shared writes"
+}

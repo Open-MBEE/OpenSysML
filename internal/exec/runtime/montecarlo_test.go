@@ -260,7 +260,7 @@ func TestMonteCarloSampleTakesQuantitiesInTheFirstRunsUnit(t *testing.T) {
 	if stats.Runs != 3 || stats.Mean != 5.0/3 || stats.Unit == nil || stats.Unit.Text != "SI::km" {
 		t.Errorf("stats = %+v; want 3 runs with mean 5/3 in SI::km", stats)
 	}
-	if got := stats.statistic(stats.Mean).Quantity(); got == nil || got.Num.Real != 5.0/3 || got.Unit.Text != "SI::km" {
+	if got := stats.statistic(stats.Mean).Quantity(); got == nil || got.Num.AsReal() != 5.0/3 || got.Unit.Text != "SI::km" {
 		t.Errorf("Mean = %s; want 1.6666666666666667 [SI::km]", FormatValue(stats.statistic(stats.Mean)))
 	}
 

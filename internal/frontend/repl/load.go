@@ -6,6 +6,7 @@ import (
 	"io/fs"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/notebook"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
@@ -21,11 +22,11 @@ import (
 // lines from its start.
 func (s *Session) LoadPaths(paths []string) ([]string, error) {
 	defer s.enter()()
-	return s.loadPaths(paths)
+	return s.loadPaths(paths, loadOptions{})
 }
 
-func (s *Session) loadPaths(paths []string) ([]string, error) {
-	rep, err := s.loadPathsReport(paths)
+func (s *Session) loadPaths(paths []string, opts loadOptions) ([]string, error) {
+	rep, err := s.loadPathsReport(paths, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +37,7 @@ func (s *Session) loadPaths(paths []string) ([]string, error) {
 // LoadReport is what a load produced, in parts so a caller can keep what the
 // analysis found off the stream it prints results on.
 type LoadReport struct {
-	Loaded   []string // the files read, when more than one was
+	Loaded   []string // the files read, when more than one was, and what each notebook contributed
 	Found    []string // diagnostics and the notes that belong with them
 	Declared []string // what the load declared, empty if the analysis errored
 	Errors   bool     // whether the analysis found an error
@@ -46,28 +47,47 @@ type LoadReport struct {
 // analysis found apart from what the load declared.
 func (s *Session) LoadPathsReport(paths []string) (LoadReport, error) {
 	defer s.enter()()
-	return s.loadPathsReport(paths)
+	return s.loadPathsReport(paths, loadOptions{})
 }
 
-func (s *Session) loadPathsReport(paths []string) (LoadReport, error) {
+func (s *Session) loadPathsReport(paths []string, opts loadOptions) (LoadReport, error) {
 	files, err := ExpandPaths(paths)
 	if err != nil {
 		return LoadReport{}, err
 	}
-	srcs, err := s.readSources(s.withDependencies(files))
+	read, err := s.readWithDependencies(files, opts)
 	if err != nil {
 		return LoadReport{}, err
 	}
-	var loaded []string
-	if len(srcs) > 1 {
-		loaded = append(loaded, fmt.Sprintf("loaded %d files:", len(srcs)))
-		for _, src := range srcs {
-			loaded = append(loaded, "  "+src.Name)
-		}
+	srcs := read.files
+	loaded := append(loadedFiles(srcs), read.notes...)
+	if len(srcs) == 0 {
+		return LoadReport{Loaded: loaded, Errors: s.hasAnalysisErrors()}, nil
 	}
 	found, declared := renderSplit(s.submitFiles(srcs), s.verbosity)
 	found = append(found, conversionWarnings(srcs, s.verbosity)...)
 	return LoadReport{Loaded: loaded, Found: found, Declared: declared, Errors: s.hasAnalysisErrors()}, nil
+}
+
+// loadedFiles lists the files a load read when it read more than one, a
+// notebook counted once however many cells it contributed.
+func loadedFiles(srcs []SourceFile) []string {
+	var names []string
+	seen := map[string]bool{}
+	for _, src := range srcs {
+		name := src.Name
+		if src.Of != "" {
+			name = src.Of
+		}
+		if !seen[name] {
+			seen[name] = true
+			names = append(names, "  "+name)
+		}
+	}
+	if len(names) < 2 {
+		return nil
+	}
+	return append([]string{fmt.Sprintf("loaded %d files:", len(names))}, names...)
 }
 
 func conversionWarnings(files []SourceFile, verbosity Verbosity) []string {
@@ -84,8 +104,8 @@ func conversionWarnings(files []SourceFile, verbosity Verbosity) []string {
 }
 
 // ExpandPaths turns the paths a caller was given — files, directories to walk
-// for .sysml/.kerml files, or glob patterns — into the model files to load, in a
-// deterministic order and without duplicates.
+// for .sysml/.kerml files and .ipynb notebooks, or glob patterns — into the
+// sources to load, in a deterministic order and without duplicates.
 func ExpandPaths(paths []string) ([]string, error) {
 	files, err := project.Expand(expandHomes(paths))
 	if err != nil {
@@ -97,10 +117,34 @@ func ExpandPaths(paths []string) ([]string, error) {
 	return files, nil
 }
 
-// withDependencies appends to files the model files beside and below them that
-// declare a root namespace they import and neither they nor the library declare.
-func (s *Session) withDependencies(files []string) []string {
-	return append(files, project.Dependencies(files, s.ws.IsLibraryRoot)...)
+// reading is what readSources read: the sources a load submits, and what the
+// notebooks among them report of their cells.
+type reading struct {
+	files []SourceFile
+	notes []string
+	// deps is the same text under the paths the dependency search starts
+	// from, a notebook's cells under the notebook's path.
+	deps []project.Source
+}
+
+// readWithDependencies reads paths, then the model files beside and below them
+// that declare a root namespace they import and neither they nor the library
+// declare.
+func (s *Session) readWithDependencies(paths []string, opts loadOptions) (reading, error) {
+	read, err := s.readSources(paths, opts)
+	if err != nil {
+		return reading{}, err
+	}
+	deps := project.DependenciesOf(read.deps, s.ws.IsLibraryRoot)
+	if len(deps) == 0 {
+		return read, nil
+	}
+	more, err := s.readSources(deps, loadOptions{})
+	if err != nil {
+		return reading{}, err
+	}
+	read.files = append(read.files, more.files...)
+	return read, nil
 }
 
 // expandHomes expands a leading ~ in every path.
@@ -112,17 +156,33 @@ func expandHomes(paths []string) []string {
 	return out
 }
 
-// readSources reads every path into the file a load submits, under the name it
-// is reported by; the error is a *ReadError or a *ReservedNameError.
-func (s *Session) readSources(paths []string) ([]SourceFile, error) {
-	files := make([]SourceFile, 0, len(paths))
+// readSources reads every path into the sources a load submits, under the names
+// they are reported by — a notebook's cells each under its own; the error is a
+// *ReadError, a *ReservedNameError, or a notebook's refusal. opts picks the
+// cells of the notebooks; it is an error when no notebook was named.
+func (s *Session) readSources(paths []string, opts loadOptions) (reading, error) {
+	var read reading
+	notebooks := 0
 	for _, path := range paths {
+		if notebook.IsNotebook(path) {
+			notebooks++
+			cells, note, err := s.readNotebook(path, opts.cells)
+			if err != nil {
+				return reading{}, err
+			}
+			read.files = append(read.files, cells...)
+			read.notes = append(read.notes, note...)
+			for _, cell := range cells {
+				read.deps = append(read.deps, project.Source{Path: path, Content: []byte(cell.Text)})
+			}
+			continue
+		}
 		name, data, err := project.ReadFile(path)
 		if err != nil {
-			return nil, readError(name, err)
+			return reading{}, readError(name, err)
 		}
 		if err := reservedName(name); err != nil {
-			return nil, err
+			return reading{}, err
 		}
 		var warnings []string
 		text, converted := data, false
@@ -132,16 +192,20 @@ func (s *Session) readSources(paths []string) ([]SourceFile, error) {
 				warnings = append(warnings, message)
 			})
 			if err != nil {
-				return nil, fmt.Errorf("cannot convert %s: %w", name, err)
+				return reading{}, fmt.Errorf("cannot convert %s: %w", name, err)
 			}
 		}
 		var kind source.Kind
 		if converted {
 			kind = source.KindSysML
 		}
-		files = append(files, SourceFile{Name: name, Text: string(text), Kind: kind, Warnings: warnings})
+		read.files = append(read.files, SourceFile{Name: name, Text: string(text), Kind: kind, Warnings: warnings})
+		read.deps = append(read.deps, project.Source{Path: path, Content: text})
 	}
-	return files, nil
+	if notebooks == 0 && !opts.cells.IsZero() {
+		return reading{}, errors.New("--cells picks the cells of a notebook, and no .ipynb was named")
+	}
+	return read, nil
 }
 
 // ReservedNameError is a file a load refused because its name is the one the

@@ -59,7 +59,7 @@ func (g *StateGraph) lowerFootprints() {
 // behaviorFootprint is what running the behavior's statements touches, and the
 // activity of the state it belongs to, which stopping it writes.
 func behaviorFootprint(graph *StateGraph, behavior StateBehavior) Footprint {
-	b := &footprintBuilder{}
+	b := &footprintBuilder{resolver: graph.resolver}
 	b.statements(behavior.Body)
 	if behavior.Owner != nil {
 		b.read(graph.activity(behavior.Owner))
@@ -74,12 +74,39 @@ func (g *StateGraph) activity(state *ast.StateNode) Place {
 
 // transitionFootprint projects the footprint of a transition out of a state.
 func transitionFootprint(graph *StateGraph, trans *Transition) Footprint {
-	b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{}, graph: graph, crossed: make(map[*ast.PseudostateNode]bool)}
+	return transitionBuilder(graph, trans, false).footprint
+}
+
+// transitionBuilder projects a transition out of a state, without the do
+// behaviors of the states it enters when withoutDo is set.
+func transitionBuilder(graph *StateGraph, trans *Transition, withoutDo bool) *stateFootprintBuilder {
+	b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: graph.resolver}, graph: graph, crossed: make(map[*ast.PseudostateNode]bool), withoutDo: withoutDo}
 	source := trans.Source.(*ast.StateNode)
 	b.read(graph.activity(source))
 	b.trigger(trans)
 	b.segment(source, trans)
-	return b.footprint
+	return b
+}
+
+// TransitionStep is what firing a transition may do short of the do behaviors it
+// starts: its Footprint, and every state it may enter, whose do behaviors start.
+type TransitionStep struct {
+	Footprint Footprint
+	Enters    []*ast.StateNode
+}
+
+// TransitionSteps is transition out of a state → its TransitionStep, computed on
+// first use as TransitionFootprints is.
+func (g *StateGraph) TransitionSteps() map[*Transition]TransitionStep {
+	g.lowerFootprints()
+	g.stepsOnce.Do(func() {
+		g.transitionSteps = make(map[*Transition]TransitionStep)
+		for trans := range g.transitionFootprints {
+			b := transitionBuilder(g, trans, true)
+			g.transitionSteps[trans] = TransitionStep{Footprint: b.footprint, Enters: b.entered}
+		}
+	})
+	return g.transitionSteps
 }
 
 type stateFootprintBuilder struct {
@@ -87,6 +114,9 @@ type stateFootprintBuilder struct {
 	graph *StateGraph
 	// crossed are the pseudostates followed, so a cycle through one ends.
 	crossed map[*ast.PseudostateNode]bool
+	// withoutDo leaves out the do behaviors of the states entered, listed in entered.
+	withoutDo bool
+	entered   []*ast.StateNode
 }
 
 // trigger adds what the trigger reads: a change condition or a time duration. An
@@ -263,8 +293,15 @@ func (b *stateFootprintBuilder) exits(state *ast.StateNode) {
 // entry, or the region it completes.
 func (b *stateFootprintBuilder) enters(state *ast.StateNode) {
 	b.write(b.graph.activity(state))
+	if !slices.Contains(b.entered, state) {
+		b.entered = append(b.entered, state)
+	}
 	if behaviors := b.graph.Behaviors[state]; behaviors != nil {
-		for _, behavior := range slices.Concat(behaviors.Entry, behaviors.Do) {
+		started := behaviors.Do
+		if b.withoutDo {
+			started = nil
+		}
+		for _, behavior := range slices.Concat(behaviors.Entry, started) {
 			b.merge(b.graph.behaviorFootprints[behavior.Node])
 		}
 	}

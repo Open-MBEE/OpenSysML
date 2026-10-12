@@ -184,7 +184,7 @@ func TestEvalInDeclarationScopeCompoundsOverValuelessFeaturesAreUndetermined(t *
 	}
 	// A chain over the four wheels holds four values, which no scalar operator takes.
 	got := run(t, s, "%eval in car : wheels.radius * 2.0")
-	wants(t, got, "type mismatch", "an undetermined Real sequence and a Real")
+	wants(t, got, "type mismatch", "an undetermined Real sequence and a Rational")
 	rejects(t, got, "no value for feature", "= "+runtime.UndeterminedText)
 	for _, expr := range []string{"car::unsetMass + 1.0", "car::doubled"} {
 		got := run(t, s, "%eval "+expr)

@@ -17,6 +17,9 @@ type Diagnostic struct {
 	// Warning reports a well-formedness rule the reference states as a warning:
 	// the model still resolves, so validation continues past it.
 	Warning bool
+	// IllFormed marks a Warning the specification states as a validation
+	// constraint, so strict conformance reports it as an error.
+	IllFormed bool
 }
 
 // CodeNameConflict marks a name declared twice in one namespace, counting the

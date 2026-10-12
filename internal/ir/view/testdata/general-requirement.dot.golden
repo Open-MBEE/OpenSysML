@@ -1,0 +1,40 @@
+// view: GeneralViews::requirementView
+// kind: requirement
+// stated: view def GeneralView, filter @RequirementDefinition or @RequirementUsage
+// not represented: 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
+// layout: dot
+digraph "GeneralViews::requirementView" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<font point-size="10"><i>«requirement def»</i></font><br/><b>VehicleRequirements::MassRequirement</b><br/>id R1, “The total mass of the vehicle shall not exceed the stated...”>];
+  "n1" [label=<<font point-size="10"><i>«requirement def»</i></font><br/><b>VehicleRequirements::StoppingRequirement</b><br/>id R2, “The vehicle shall stop within the stated distance.”>];
+  "n2" [label=<<font point-size="10"><i>«requirement def»</i></font><br/><b>VehicleRequirements::EmergencyStopRequirement</b><br/>id R3>];
+  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«requirement»</i></font><br/><b>VehicleRequirements::vehicleMass : MassRequirement</b><br/>id R1.1>];
+  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«requirement»</i></font><br/><b>VehicleRequirements::chassisMass : MassRequirement</b><br/>id R1.2>];
+  "n5" [style="rounded,filled", label=<<font point-size="10"><i>«requirement»</i></font><br/><b>VehicleRequirements::emergencyStop : EmergencyStopRequirement</b><br/>id R3.1>];
+  "n6" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>VehicleStructure::LightChassis</b>>];
+  "n7" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>VehicleStructure::vehicle : Vehicle</b>>];
+  "n8" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>VehicleStructure::heavyVehicle : Vehicle</b>>];
+  "n9" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>VehicleStructure::brake : Brake</b>>];
+  "n10" [label=<<font point-size="10"><i>«verification def»</i></font><br/><b>VehicleVerification::MassTest</b>>];
+  "n11" [style="rounded,filled", label=<<font point-size="10"><i>«verification»</i></font><br/><b>VehicleVerification::lightMassTest : MassTest</b>>];
+  "n12" [style="rounded,filled", label=<<font point-size="10"><i>«verification»</i></font><br/><b>VehicleVerification::heavyMassTest : MassTest</b>>];
+  "n13" [label=<<font point-size="10"><i>«verification def»</i></font><br/><b>VehicleVerification::StopTest</b>>];
+  "n14" [style="rounded,filled", label=<<font point-size="10"><i>«verification»</i></font><br/><b>VehicleVerification::stopTest : StopTest</b>>];
+  "n2" -> "n1" [arrowhead=empty];
+  "n3" -> "n0" [arrowhead=empty, style=dashed];
+  "n4" -> "n0" [arrowhead=empty, style=dashed];
+  "n5" -> "n2" [arrowhead=empty, style=dashed];
+  "n4" -> "n3" [label="derive", arrowhead=vee, style=dashed];
+  "n6" -> "n4" [label="refine", arrowhead=vee, style=dashed];
+  "n7" -> "n3" [label="satisfy", arrowhead=vee, style=dashed];
+  "n8" -> "n3" [label="satisfy", arrowhead=vee, style=dashed];
+  "n7" -> "n5" [label="satisfy", arrowhead=vee, style=dashed];
+  "n5" -> "n9" [label="allocate", arrowhead=vee, style=dashed];
+  "n10" -> "n3" [label="verify", arrowhead=vee, style=dashed];
+  "n11" -> "n3" [label="verify", arrowhead=vee, style=dashed];
+  "n12" -> "n3" [label="verify", arrowhead=vee, style=dashed];
+  "n13" -> "n5" [label="verify", arrowhead=vee, style=dashed];
+  "n14" -> "n5" [label="verify", arrowhead=vee, style=dashed];
+}

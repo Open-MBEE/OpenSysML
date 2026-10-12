@@ -305,11 +305,13 @@ func TestFootprintPinsAndBindings(t *testing.T) {
 	}
 }
 
-// A `via` send, a chain from a computed base, a nested performance and a
-// constructor are dynamic targets, dependent on every other move.
+// A chain from a computed base, a nested performance and a constructor of a type
+// that evaluates or starts anything are dynamic targets, dependent on every other
+// move; a plain constructor creates and a `via` send routes and creates.
 func TestFootprintDynamicTargets(t *testing.T) {
 	graph := scopedActionGraph(t, `
 		item def Ping;
+		item def Busy { attribute a : Integer = 1; }
 		action def Dynamic {
 			attribute x : Integer = 0;
 			attribute made : Ping;
@@ -326,6 +328,7 @@ func TestFootprintDynamicTargets(t *testing.T) {
 			}
 			action construct { assign made := new Ping(); }
 			action sendNew { send new Ping() to p; }
+			action constructBusy { assign made := new Busy(); }
 			join sync;
 			done;
 			succession first start then split;
@@ -335,12 +338,14 @@ func TestFootprintDynamicTargets(t *testing.T) {
 			succession first split then nested;
 			succession first split then construct;
 			succession first split then sendNew;
+			succession first split then constructBusy;
 			succession first viaSend then sync;
 			succession first writeX then sync;
 			succession first typed then sync;
 			succession first nested then sync;
 			succession first construct then sync;
 			succession first sendNew then sync;
+			succession first constructBusy then sync;
 			succession first sync then done;
 		}
 		action def Add { in a : Integer; out r : Integer; }
@@ -350,21 +355,31 @@ func TestFootprintDynamicTargets(t *testing.T) {
 		t.Errorf("a node performing an action is not dynamic:\n%s", typed)
 	}
 	for _, name := range []string{"construct", "sendNew"} {
-		if fp := footprintNamed(t, graph, name); !fp.Dynamic {
-			t.Errorf("%s materializes an object yet is not dynamic:\n%s", name, fp)
+		if fp := footprintNamed(t, graph, name); fp.Dynamic || !fp.Creates {
+			t.Errorf("%s creates a plain object: want it creating, not dynamic:\n%s", name, fp)
 		}
+	}
+	if busy := footprintNamed(t, graph, "constructBusy"); !busy.Dynamic {
+		t.Errorf("constructing a type that evaluates a default is not dynamic:\n%s", busy)
+	}
+	construct, sendNew := footprintNamed(t, graph, "construct"), footprintNamed(t, graph, "sendNew")
+	if !construct.Dependent(sendNew) || !sendNew.Dependent(construct) {
+		t.Error("two creations commute")
 	}
 
 	viaSend := footprintNamed(t, graph, "viaSend")
-	if !viaSend.Dynamic {
-		t.Errorf("via send footprint:\n%s\nwant dynamic", viaSend)
+	if viaSend.Dynamic || !viaSend.Routes || !viaSend.Creates {
+		t.Errorf("via send footprint:\n%s\nwant routing and creating, not dynamic", viaSend)
 	}
 	if len(viaSend.Sends) != 1 || viaSend.Sends[0].Port != "p" {
 		t.Errorf("via send channels = %v, want [via p]", viaSend.Sends)
 	}
+	if !viaSend.Dependent(construct) || !construct.Dependent(viaSend) {
+		t.Error("a via send commutes with a creation")
+	}
 	writeX := footprintNamed(t, graph, "writeX")
-	if !viaSend.Dependent(writeX) || !writeX.Dependent(viaSend) {
-		t.Error("a dynamic move is independent of a write")
+	if apart := (Relation{Apart: true}); viaSend.DependentBy(writeX, apart) || writeX.DependentBy(viaSend, apart) {
+		t.Error("another executor's via send depends on a write of an attribute routing reads none of")
 	}
 	nested := footprintNamed(t, graph, "nested")
 	if nested.Dynamic {

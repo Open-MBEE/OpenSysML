@@ -83,23 +83,29 @@ func int32Clamp(n int) int32 {
 	return int32(n)
 }
 
+func sourceSpanToProto(sf *source.SourceFile, span source.Span) *pb.Span {
+	if sf == nil {
+		return nil
+	}
+	li := sf.Lines()
+	start := li.PosAt(span.Offset)
+	end := li.PosAt(span.End())
+	return &pb.Span{
+		File:      sf.Name(),
+		StartLine: int32Clamp(start.Line),
+		StartCol:  int32Clamp(start.Col),
+		EndLine:   int32Clamp(end.Line),
+		EndCol:    int32Clamp(end.Col),
+	}
+}
+
 // DiagnosticToProto converts a diag.Diagnostic to protobuf.
 func DiagnosticToProto(diag diag.Diagnostic, sf *source.SourceFile) *pb.Diagnostic {
-	li := sf.Lines()
-	start := li.PosAt(diag.Span.Offset)
-	end := li.PosAt(diag.Span.End())
-
 	return &pb.Diagnostic{
 		Severity: diag.Severity.String(),
 		Message:  diag.Message,
 		Code:     diag.Code,
-		Span: &pb.Span{
-			File:      sf.Name(),
-			StartLine: int32Clamp(start.Line),
-			StartCol:  int32Clamp(start.Col),
-			EndLine:   int32Clamp(end.Line),
-			EndCol:    int32Clamp(end.Col),
-		},
+		Span:     sourceSpanToProto(sf, diag.Span),
 	}
 }
 
@@ -129,20 +135,10 @@ const SyntaxDiagnosticCode = parser.CodeSyntax
 
 // ParserDiagnosticToProto converts a parser error to protobuf.
 func ParserDiagnosticToProto(diag parser.Diagnostic, sf *source.SourceFile) *pb.Diagnostic {
-	li := sf.Lines()
-	start := li.PosAt(diag.Span.Offset)
-	end := li.PosAt(diag.Span.End())
-
 	return &pb.Diagnostic{
 		Severity: "error", // Parser diagnostics are always errors
 		Message:  diag.Message,
 		Code:     diag.ErrorCode(),
-		Span: &pb.Span{
-			File:      sf.Name(),
-			StartLine: int32Clamp(start.Line),
-			StartCol:  int32Clamp(start.Col),
-			EndLine:   int32Clamp(end.Line),
-			EndCol:    int32Clamp(end.Col),
-		},
+		Span:     sourceSpanToProto(sf, diag.Span),
 	}
 }

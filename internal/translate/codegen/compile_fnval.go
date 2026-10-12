@@ -295,6 +295,9 @@ func (fc *funcCompiler) dispatch(fx Expr, n *ast.InvocationExpr) (Expr, error) {
 
 // applyCase is the application, with n's arguments, of case k held in held.
 func (fc *funcCompiler) applyCase(k *FnCase, held Var, n *ast.InvocationExpr) (Expr, error) {
+	if k.Self != nil {
+		return fc.callRecordCalc(k.val.sym, k.Self, FnSelf{Name: held.Name, T: RecType(k.Self)}, n)
+	}
 	if !k.Closure {
 		return fc.applyFunction(k.val, n)
 	}

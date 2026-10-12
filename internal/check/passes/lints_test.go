@@ -204,11 +204,11 @@ func TestWithoutLints(t *testing.T) {
 		{Code: CodePortTypeMismatch, Source: lintSource},
 		{Code: CodeUndeclaredSignal, Source: "name-resolution"},
 	}
-	got := WithoutLints(diags, map[string]bool{CodeUndeclaredSignal: true})
+	got := WithoutLints(diags, map[string]bool{CodeUndeclaredSignal: true}, nil)
 	if len(got) != 2 || got[0].Code != CodePortTypeMismatch || got[1].Source != "name-resolution" {
 		t.Fatalf("got %+v", got)
 	}
-	if got := WithoutLints(diags, nil); len(got) != len(diags) {
+	if got := WithoutLints(diags, nil, nil); len(got) != len(diags) {
 		t.Fatalf("nothing disabled dropped %+v", got)
 	}
 	for _, code := range LintCodes() {
@@ -218,6 +218,27 @@ func TestWithoutLints(t *testing.T) {
 	}
 	if IsLintCode("unresolved") {
 		t.Error("unresolved is not a lint")
+	}
+}
+
+// An opt-in lint is left out until enabled, and disabling it wins over enabling it.
+func TestWithoutLintsLeavesOptInLintsOut(t *testing.T) {
+	diags := []diag.Diagnostic{
+		{Code: CodeRoundedRealLiteral, Source: lintSource},
+		{Code: CodeUndeclaredSignal, Source: lintSource},
+	}
+	if !IsOptInLint(CodeRoundedRealLiteral) || IsOptInLint(CodeUndeclaredSignal) {
+		t.Fatal("want rounded-real-literal, and only it, opt-in")
+	}
+	if got := WithoutLints(diags, nil, nil); len(got) != 1 || got[0].Code != CodeUndeclaredSignal {
+		t.Fatalf("by default got %+v, want only the on-by-default lint", got)
+	}
+	enabled := map[string]bool{CodeRoundedRealLiteral: true}
+	if got := WithoutLints(diags, nil, enabled); len(got) != len(diags) {
+		t.Fatalf("enabled got %+v, want both", got)
+	}
+	if got := WithoutLints(diags, enabled, enabled); len(got) != 1 || got[0].Code != CodeUndeclaredSignal {
+		t.Fatalf("enabled and disabled got %+v, want it left out", got)
 	}
 }
 

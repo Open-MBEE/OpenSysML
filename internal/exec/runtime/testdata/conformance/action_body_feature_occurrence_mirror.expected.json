@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Host",
+  "slots": {
+    "mirrored": {"type": "Integer", "value": 10},
+    "result": {"type": "Integer", "value": 10}
+  }
+}

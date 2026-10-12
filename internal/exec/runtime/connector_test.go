@@ -100,7 +100,7 @@ func TestWritingAConnectedPortIsReadThroughTheEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFeatureValue rate through the end: %v", err)
 	}
-	if read.Value.Const.Real != 9.5 {
+	if read.Value.Const.AsReal() != 9.5 {
 		t.Errorf("link.source.rate = %v, want the 9.5 written on a.p", read.Value)
 	}
 }

@@ -328,15 +328,28 @@ func (v *verifyContext) verificationVerdicts(verdicts []runtime.VerificationVerd
 // so a quantity keeps the units it is commensurable with. One the service
 // cannot read answers the request; one needing a capability it lacks fails the call.
 func (v *verifyContext) analysisArgument(arg *pb.Value) (runtime.Value, *pb.RunAnalysisResponse, error) {
+	val, readErr, err := v.argument(arg)
+	if err != nil {
+		return runtime.Value{}, nil, err
+	}
+	if readErr != nil {
+		return runtime.Value{}, &pb.RunAnalysisResponse{
+			Error:         fmt.Sprintf("analysis argument could not be read: %v", readErr),
+			FailureReason: failureReason(readErr),
+		}, nil
+	}
+	return val, nil, nil
+}
+
+// argument reads one argument value. A value the service cannot serve is the
+// second error (a status); one that does not read as a value is the first.
+func (v *verifyContext) argument(arg *pb.Value) (runtime.Value, error, error) {
 	if err := v.service.requireValueCapabilities(arg); err != nil {
 		return runtime.Value{}, nil, err
 	}
 	val, err := protoconv.ProtoToRuntimeValue(v.runtime, arg, v.cached.Index, v.sem())
 	if err != nil {
-		return runtime.Value{}, &pb.RunAnalysisResponse{
-			Error:         fmt.Sprintf("analysis argument could not be read: %v", err),
-			FailureReason: failureReason(err),
-		}, nil
+		return runtime.Value{}, err, nil
 	}
 	return val, nil, nil
 }

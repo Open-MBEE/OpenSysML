@@ -48,3 +48,30 @@ func TestSameElementOfNil(t *testing.T) {
 		t.Error("a nil symbol was taken for an element")
 	}
 }
+
+// Each relationship written on an element keys as its own element: distinct
+// from its owner, its siblings, and stable across Models.
+func TestKeyOfImplicitRelationships(t *testing.T) {
+	owner := &Symbol{Name: "p", DocName: "pkg.sysml", DeclSpan: source.Span{Offset: 5, Len: 10}}
+	first := &Symbol{Kind: SymbolRelationship, DocName: "pkg.sysml",
+		DeclSpan: source.Span{Offset: 20, Len: 3},
+		Implicit: &ImplicitRelationship{Owner: owner, Ordinal: 0}}
+	second := &Symbol{Kind: SymbolRelationship, DocName: "pkg.sysml",
+		DeclSpan: source.Span{Offset: 30, Len: 4},
+		Implicit: &ImplicitRelationship{Owner: owner, Ordinal: 1}}
+	firstAgain := &Symbol{Kind: SymbolRelationship, DocName: "pkg.sysml",
+		DeclSpan: source.Span{Offset: 20, Len: 3},
+		Implicit: &ImplicitRelationship{Owner: owner, Ordinal: 0}}
+	if !SameElement(first, firstAgain) || KeyOf(first) != KeyOf(firstAgain) {
+		t.Error("one written relationship rebuilt is not the same element")
+	}
+	if SameElement(first, second) || KeyOf(first) == KeyOf(second) {
+		t.Error("two written relationships of one owner are one element")
+	}
+	if SameElement(first, owner) || KeyOf(first) == KeyOf(owner) {
+		t.Error("a written relationship is its owner")
+	}
+	if KeyOf(first).String() == KeyOf(owner).String() {
+		t.Error("key strings collide for a relationship and its owner")
+	}
+}

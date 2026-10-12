@@ -358,7 +358,7 @@ func TestMeasurementRefReport(t *testing.T) {
 		{"m - s", ErrTypeMismatch, "operator '-' is not defined for a measurement reference and a measurement reference"},
 		{"m * 3", ErrTypeMismatch, "operator '*' is not defined for a measurement reference and an Integer"},
 		{"3 * m", ErrTypeMismatch, "operator '*' is not defined for an Integer and a measurement reference"},
-		{"m / 2.0", ErrTypeMismatch, "operator '/' is not defined for a measurement reference and a Real"},
+		{"m / 2.0", ErrTypeMismatch, "operator '/' is not defined for a measurement reference and a Rational"},
 		{"m ** s", ErrTypeMismatch, "operator '**' is not defined for a measurement reference and a measurement reference"},
 		{"-m", ErrTypeMismatch, "unary '-' requires numeric operand, got measurement reference"},
 		{"m < s", ErrTypeMismatch, "operator '<' is not defined for a measurement reference and a measurement reference; DataFunctions::'<' is abstract and no library function declares '<' for a measurement reference, which is no ScalarValue"},

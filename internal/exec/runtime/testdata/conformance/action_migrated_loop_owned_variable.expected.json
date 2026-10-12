@@ -1,0 +1,8 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::MigratedLoopOwnedVariable",
+	"outputs": {
+		"acc.iOut": {"type": "Integer", "value": 4}
+	}
+}

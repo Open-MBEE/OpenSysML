@@ -1,0 +1,39 @@
+# GeneralViews::requirementView — requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
+# not represented: 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  typing: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+  dependency: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+}
+n0: "«requirement def»\nVehicleRequirements::MassRequirement\nid R1, “The total mass of the vehicle shall not exceed the stated...”" { class: definition; link: "https://example.test/src/general.sysml#L33" }
+n1: "«requirement def»\nVehicleRequirements::StoppingRequirement\nid R2, “The vehicle shall stop within the stated distance.”" { class: definition; link: "https://example.test/src/general.sysml#L39" }
+n2: "«requirement def»\nVehicleRequirements::EmergencyStopRequirement\nid R3" { class: definition; link: "https://example.test/src/general.sysml#L42" }
+n3: "«requirement»\nVehicleRequirements::vehicleMass : MassRequirement\nid R1.1" { class: usage; link: "https://example.test/src/general.sysml#L44" }
+n4: "«requirement»\nVehicleRequirements::chassisMass : MassRequirement\nid R1.2" { class: usage; link: "https://example.test/src/general.sysml#L47" }
+n5: "«requirement»\nVehicleRequirements::emergencyStop : EmergencyStopRequirement\nid R3.1" { class: usage; link: "https://example.test/src/general.sysml#L48" }
+n6: "«part def»\nVehicleStructure::LightChassis" { class: definition; link: "https://example.test/src/general.sysml#L10" }
+n7: "«part»\nVehicleStructure::vehicle : Vehicle" { class: usage; link: "https://example.test/src/general.sysml#L14" }
+n8: "«part»\nVehicleStructure::heavyVehicle : Vehicle" { class: usage; link: "https://example.test/src/general.sysml#L17" }
+n9: "«action»\nVehicleStructure::brake : Brake" { class: usage; link: "https://example.test/src/general.sysml#L20" }
+n10: "«verification def»\nVehicleVerification::MassTest" { class: definition; link: "https://example.test/src/general.sysml#L67" }
+n11: "«verification»\nVehicleVerification::lightMassTest : MassTest" { class: usage; link: "https://example.test/src/general.sysml#L74" }
+n12: "«verification»\nVehicleVerification::heavyMassTest : MassTest" { class: usage; link: "https://example.test/src/general.sysml#L77" }
+n13: "«verification def»\nVehicleVerification::StopTest" { class: definition; link: "https://example.test/src/general.sysml#L80" }
+n14: "«verification»\nVehicleVerification::stopTest : StopTest" { class: usage; link: "https://example.test/src/general.sysml#L86" }
+n2 -> n1: { class: specialization; link: "https://example.test/src/general.sysml#L42" }
+n3 -> n0: { class: typing; link: "https://example.test/src/general.sysml#L44" }
+n4 -> n0: { class: typing; link: "https://example.test/src/general.sysml#L47" }
+n5 -> n2: { class: typing; link: "https://example.test/src/general.sysml#L48" }
+n4 -> n3: "derive" { class: dependency; link: "https://example.test/src/general.sysml#L50" }
+n6 -> n4: "refine" { class: dependency; link: "https://example.test/src/general.sysml#L54" }
+n7 -> n3: "satisfy" { class: dependency; link: "https://example.test/src/general.sysml#L56" }
+n8 -> n3: "satisfy" { class: dependency; link: "https://example.test/src/general.sysml#L57" }
+n7 -> n5: "satisfy" { class: dependency; link: "https://example.test/src/general.sysml#L58" }
+n5 -> n9: "allocate" { class: dependency; link: "https://example.test/src/general.sysml#L59" }
+n10 -> n3: "verify" { class: dependency; link: "https://example.test/src/general.sysml#L70" }
+n11 -> n3: "verify" { class: dependency; link: "https://example.test/src/general.sysml#L70" }
+n12 -> n3: "verify" { class: dependency; link: "https://example.test/src/general.sysml#L70" }
+n13 -> n5: "verify" { class: dependency; link: "https://example.test/src/general.sysml#L83" }
+n14 -> n5: "verify" { class: dependency; link: "https://example.test/src/general.sysml#L83" }

@@ -5,7 +5,7 @@
     {
       "finalState": "tripped",
       "stateVisits": ["go", "tripped"],
-      "slots": {"s.reading": {"type": "Real", "value": 4.5}}
+      "slots": {"s.reading": {"type": "Rational", "value": "4.5"}}
     }
   ]
 }

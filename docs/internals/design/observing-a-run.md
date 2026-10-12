@@ -60,12 +60,13 @@ element, and the values.
 
 - **The trace is already an event stream, not a log.** `TraceRecord` (`internal/exec/runtime/trace.go`)
   carries a `TraceKind` — `transition`, `entry`, `exit`, `do`, `accept`, `send`, `choice`,
-  `guard`, and `line` for the printed-only records — a `TraceOrigin` (the clock instant, the
-  object whose behavior made it, that behavior), the state or the transition's `From`/`To`, the
-  event and its typed `Payload`, and the `Target` of a send. `NewEventRecorder` already keeps the
-  stream for queries (`DocumentQueries`, the checker's state stream) without printing it; the
-  REPL's `%trace on` and the CLI's `-trace` print it. Every kind a listener needs to fire on is
-  already recorded at the point it happens; what is missing is a *sink other than the slice*.
+  `guard`, `terminate`, and `line` for the printed-only records — a `TraceOrigin` (the clock
+  instant, the object whose behavior made it, that behavior), the state or the transition's
+  `From`/`To`, the event and its typed `Payload`, and the `Target` of a send. `NewEventRecorder`
+  already keeps the stream for queries (`DocumentQueries`, the checker's state stream) without
+  printing it; the REPL's `%trace on` and the CLI's `-trace` print it. Every kind a listener needs
+  to fire on is already recorded at the point it happens; what is missing is a *sink other than the
+  slice*.
 - **The configuration is already a fact the executor answers.** `StateExecutor.ActiveStates()`
   and `ActiveLeaves()` give the active-state set with its region structure (a composite with
   regions is active with one leaf per region — [orthogonal regions](orthogonal-regions.md));

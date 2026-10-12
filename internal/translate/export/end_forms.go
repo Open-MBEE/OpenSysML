@@ -595,6 +595,11 @@ func (d *decoder) standardEndText(end rdf.Term, in *element) (string, error) {
 			return "", err
 		}
 	}
+	element, err := d.endElementText(end, in)
+	if err != nil {
+		return "", err
+	}
+	text += element
 	name, err := d.standardEndName(end, in)
 	if err != nil {
 		return "", err
@@ -980,7 +985,11 @@ func (d *decoder) flowEndText(end rdf.Term, in *element) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	text := strings.Join(parts, ".")
+	element, err := d.endElementText(end, in)
+	if err != nil {
+		return "", err
+	}
+	text := strings.Join(parts, ".") + element
 	mult, err := d.endMultiplicity(end, in)
 	if err != nil {
 		return "", err
@@ -989,6 +998,21 @@ func (d *decoder) flowEndText(end rdf.Term, in *element) (string, error) {
 		text = mult + " " + text
 	}
 	return text, nil
+}
+
+// endElementText is the `#( index )` an indexed end selects its element with,
+// the expression node sysx:endElement states written back as notation; "" for
+// an end attaching the whole feature.
+func (d *decoder) endElementText(end rdf.Term, in *element) (string, error) {
+	node, ok := d.graph.Object(end, rdf.OpenSysML+xEndElement)
+	if !ok {
+		return "", nil
+	}
+	index, err := d.expressionNodeText(node, in)
+	if err != nil {
+		return "", err
+	}
+	return "#(" + index + ")", nil
 }
 
 func (d *decoder) flowFeatureImplied(el, parent *element) (bool, error) {

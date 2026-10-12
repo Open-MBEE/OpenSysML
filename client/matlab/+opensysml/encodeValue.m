@@ -52,6 +52,15 @@ function v = encodeStruct(x, conn)
     elseif isfield(x, 'bigInteger')
         requireCapability(conn, 'big_int_values');
         v = struct('bigIntValue', char(x.bigInteger));
+    elseif isRational(x)
+        terms = rationalTerms(x);
+        exact = opensysml.internal.rationalDouble(terms);
+        if isempty(exact) || isempty(conn) || conn.hasCapability('rational_values')
+            requireCapability(conn, 'rational_values');
+            v = struct('rationalValue', terms);
+        else
+            v = struct('realValue', exact);
+        end
     elseif isfield(x, 'instanceRef')
         id = integerValue(x.instanceRef, 'instance reference id');
         v = struct('instanceId', sprintf('%d', id));
@@ -166,6 +175,15 @@ function body = encodeQuantityBody(q, conn)
     if isstruct(magnitude) && isfield(magnitude, 'bigInteger')
         requireCapability(conn, 'big_int_values');
         body.bigIntMagnitude = char(magnitude.bigInteger);
+    elseif isRational(magnitude)
+        terms = rationalTerms(magnitude);
+        exact = opensysml.internal.rationalDouble(terms);
+        if isempty(exact) || isempty(conn) || conn.hasCapability('rational_values')
+            requireCapability(conn, 'rational_values');
+            body.rationalMagnitude = terms;
+        else
+            body.realMagnitude = exact;
+        end
     elseif ~isnumeric(magnitude) || ~isscalar(magnitude) || ~isreal(magnitude)
         opensysml.internal.raise('opensysml:encode', 'quantity magnitude must be a real scalar');
     elseif isinteger(magnitude)
@@ -246,6 +264,19 @@ function list = valueList(raw)
         list = {};
     else
         list = num2cell(raw(:)');
+    end
+end
+
+function tf = isRational(value)
+    tf = isstruct(value) && isscalar(value) && isfield(value, 'numerator') && ...
+        isfield(value, 'denominator');
+end
+
+function terms = rationalTerms(value)
+    try
+        terms = opensysml.internal.rationalOf(value, false);
+    catch e
+        opensysml.internal.raise('opensysml:encode', e.message);
     end
 end
 

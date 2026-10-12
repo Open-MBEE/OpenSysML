@@ -132,13 +132,13 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	if err := checkOptions(converter, opts); err != nil {
 		return nil, err
 	}
-	if err := converter.Available(); err != nil {
-		return nil, err
-	}
 	forms := docrender.DiagramOptions{Form: opts.DiagramForm, Unplaced: opts.Unplaced, Style: opts.Style, LinkTemplate: opts.LinkTemplate}
 	forms.WithoutGraphviz = opts.DiagramForm == "" && !Graphviz{}.Available()
 	diagrams, err := docrender.Diagrams(document, forms)
 	if err != nil {
+		return nil, err
+	}
+	if err := converter.Available(); err != nil {
 		return nil, err
 	}
 	formulas := docrender.Formulas(document)

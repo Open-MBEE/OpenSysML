@@ -304,6 +304,7 @@ elmt:FlowsAndViews__FuelInterface___402
     sysml:connectorEnd expr:FlowsAndViews__FuelInterface___402_pend0, expr:FlowsAndViews__FuelInterface___402_pend1 ;
     sysml:ownedRelationship expr:FlowsAndViews__FuelInterface___402_pend0_om, expr:FlowsAndViews__FuelInterface___402_pend1_om ;
     sysml:ownedMembership expr:FlowsAndViews__FuelInterface___402_pend0_om, expr:FlowsAndViews__FuelInterface___402_pend1_om ;
+    sysml:ownedMember expr:FlowsAndViews__FuelInterface___402_pend0, expr:FlowsAndViews__FuelInterface___402_pend1 ;
     sysml:ownedFeatureMembership expr:FlowsAndViews__FuelInterface___402_pend0_om, expr:FlowsAndViews__FuelInterface___402_pend1_om ;
     sysml:ownedFeature expr:FlowsAndViews__FuelInterface___402_pend0, expr:FlowsAndViews__FuelInterface___402_pend1 ;
     sysml:ownedEndFeature expr:FlowsAndViews__FuelInterface___402_pend0, expr:FlowsAndViews__FuelInterface___402_pend1 ;
@@ -313,6 +314,7 @@ elmt:FlowsAndViews__FuelInterface___402
     json:connectorEnd "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_om\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_om\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_om\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1\"}]" .
@@ -793,6 +795,7 @@ elmt:FlowsAndViews__vehicle___404
     sysml:connectorEnd expr:FlowsAndViews__vehicle___404_pend0, expr:FlowsAndViews__vehicle___404_pend1 ;
     sysml:ownedRelationship expr:FlowsAndViews__vehicle___404_pend0_om, expr:FlowsAndViews__vehicle___404_pend1_om ;
     sysml:ownedMembership expr:FlowsAndViews__vehicle___404_pend0_om, expr:FlowsAndViews__vehicle___404_pend1_om ;
+    sysml:ownedMember expr:FlowsAndViews__vehicle___404_pend0, expr:FlowsAndViews__vehicle___404_pend1 ;
     sysml:ownedFeatureMembership expr:FlowsAndViews__vehicle___404_pend0_om, expr:FlowsAndViews__vehicle___404_pend1_om ;
     sysml:ownedFeature expr:FlowsAndViews__vehicle___404_pend0, expr:FlowsAndViews__vehicle___404_pend1 ;
     sysml:ownedEndFeature expr:FlowsAndViews__vehicle___404_pend0, expr:FlowsAndViews__vehicle___404_pend1 ;
@@ -806,6 +809,7 @@ elmt:FlowsAndViews__vehicle___404
     json:connectorEnd "[{\"@id\":\"FlowsAndViews__vehicle___404_pend0\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"FlowsAndViews__vehicle___404_pend0_om\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"FlowsAndViews__vehicle___404_pend0_om\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"FlowsAndViews__vehicle___404_pend0\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"FlowsAndViews__vehicle___404_pend0_om\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"FlowsAndViews__vehicle___404_pend0\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"FlowsAndViews__vehicle___404_pend0\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend1\"}]" ;

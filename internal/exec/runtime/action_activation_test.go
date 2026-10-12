@@ -35,7 +35,7 @@ func TestActionBodyActivationEndsWithTheBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExecuteAction: %v", err)
 	}
-	if got := out["v"].Const.Real; got != 6.0 {
+	if got := out["v"].Const.AsReal(); got != 6.0 {
 		t.Errorf("v = %v, want 6", got)
 	}
 	if len(ctx.run.calcUsageRuns) != 0 {

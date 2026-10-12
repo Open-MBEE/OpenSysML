@@ -1,0 +1,11 @@
+run - sequence rendering (the trace of a run to t = 4)
+
+object #1 : sender
+object #2 : receiver
+environment environment
+
+messages:
+  #1 => #2: t=0 Unmatched (not accepted)
+  environment => environment: t=1 Outside (not accepted)
+  #1 => #2: t=2..2.5 Broadcast
+  environment => #2: t=3 Missing

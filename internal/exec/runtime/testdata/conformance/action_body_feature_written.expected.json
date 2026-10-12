@@ -1,0 +1,9 @@
+{
+  "type": "action",
+  "evaluate": "test::run",
+  "outputs": {
+    "source": {"type": "Integer", "value": 5},
+    "live": {"type": "Integer", "value": 99},
+    "result": {"type": "Integer", "value": 99}
+  }
+}

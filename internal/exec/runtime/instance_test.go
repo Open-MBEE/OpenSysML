@@ -37,8 +37,8 @@ func TestInstantiate_SimplePartDef(t *testing.T) {
 	if diameterFeatureValue.Value.Kind != ValConst {
 		t.Errorf("expected ValConst, got %v", diameterFeatureValue.Value.Kind)
 	}
-	if diameterFeatureValue.Value.Const.Real != 0.5 {
-		t.Errorf("expected Real=0.5, got %f", diameterFeatureValue.Value.Const.Real)
+	if diameterFeatureValue.Value.Const.AsReal() != 0.5 {
+		t.Errorf("expected Real=0.5, got %f", diameterFeatureValue.Value.Const.AsReal())
 	}
 }
 
@@ -160,7 +160,7 @@ func TestMultiValuedDefaultMaterializes(t *testing.T) {
 		t.Fatalf("Values.Kind = %v, want a sequence", fv.Values.Kind)
 	}
 	elements := fv.Values.Sequence().Elements()
-	if len(elements) != 1 || elements[0].Const.Real != 200.0 {
+	if len(elements) != 1 || elements[0].Const.AsReal() != 200.0 {
 		t.Errorf("doubles = %v, want [200]", elements)
 	}
 }
@@ -436,7 +436,7 @@ func nestedReal(t *testing.T, ctx *Context, inst *Instance, featureName, nestedN
 	if err != nil {
 		t.Fatalf("GetFeatureValue(%q) failed: %v", nestedName, err)
 	}
-	return nestedFeatureValue.Value.Const.Real
+	return nestedFeatureValue.Value.Const.AsReal()
 }
 
 // A default that is no value at all holds nothing, so what the multiplicity

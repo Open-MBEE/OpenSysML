@@ -1,0 +1,17 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "trace": true,
+  "instantiate": "test::P",
+  "objects": [
+    {
+      "events": [{"signal": "Go"}],
+      "finalState": "waiting",
+      "stateVisits": ["outer", "waiting", "writing", "waiting"],
+      "slots": {
+        "a": {"type": "Integer", "value": 1},
+		"b": {"type": "Integer", "value": 1}
+      }
+    }
+  ]
+}

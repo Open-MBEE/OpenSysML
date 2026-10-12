@@ -18,6 +18,13 @@ package Fleet {
         part cabin : Engine {
             @'Vehicle Profile'::PartProperty;
         }
+        attribute load;
+        part trailer;
+        ref depot;
+        ref driver;
+        constraint rule;
+        attribute color;
+        part chassis;
         attribute serial : ScalarValues::String {
             /* applied stereotype «ValueProperty» */
         }

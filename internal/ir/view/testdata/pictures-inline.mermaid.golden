@@ -20,9 +20,6 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
 ---
 %% Site::mixedView — interconnection rendering (render asInterconnectionDiagram)
 %% canvas: unit=px w=900 h=600
@@ -31,8 +28,7 @@ config:
 %% layout: picture0 x=0 y=0 w=823 h=577
 %% layout: picture1 x=700 y=20 w=80 h=40 above
 flowchart LR
-  subgraph n0 ["`*«part def»*
-**Table**`"]
+  subgraph n0 ["`*«part def»* **Table**`"]
     direction LR
     n1("`*«part»*
 **bench : Bench**`")

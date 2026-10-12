@@ -42,7 +42,7 @@ func (W8DFlowEndPass) Run(ctx *Context, name string, root *ast.RootNamespace) []
 			if end == nil {
 				continue
 			}
-			qn, ok := end.(*ast.QualifiedName)
+			qn, ok := ast.EndTarget(end).(*ast.QualifiedName)
 			if !ok || len(qn.Parts) < 2 {
 				continue
 			}

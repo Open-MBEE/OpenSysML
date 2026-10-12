@@ -60,8 +60,8 @@ func wantReal(t *testing.T, outputs []CalcOutputValue, name string, want float64
 	if value.Kind != ValConst || value.Const.Kind != semantics.ValReal {
 		t.Fatalf("%s = %s, want a real", name, FormatTraceValue(value))
 	}
-	if diff := value.Const.Real - want; diff > 1e-9 || diff < -1e-9 {
-		t.Errorf("%s = %v, want %v", name, value.Const.Real, want)
+	if diff := value.Const.AsReal() - want; diff > 1e-9 || diff < -1e-9 {
+		t.Errorf("%s = %v, want %v", name, value.Const.AsReal(), want)
 	}
 }
 

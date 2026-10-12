@@ -361,19 +361,16 @@ Subsystems at or above 10 kg:
 ---
 config:
   themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["«part»<br>imagingChain"]
+  subgraph n0 ["`*«part»* **imagingChain**`"]
     direction LR
-    subgraph n1 ["«part»<br>camera : Camera"]
+    subgraph n1 ["`*«part»* **camera : Camera**`"]
       direction LR
       n1.0["«port»<br>output : DataPort"]
     end
-    subgraph n2 ["«part»<br>recorder : Recorder"]
+    subgraph n2 ["`*«part»* **recorder : Recorder**`"]
       direction LR
       n2.0["«port»<br>input : DataPort"]
     end

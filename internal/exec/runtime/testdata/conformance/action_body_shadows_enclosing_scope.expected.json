@@ -1,9 +1,9 @@
 {
 	"type": "action",
 	"outputs": {
-		"h": {"type": "Real", "value": 1.0},
-		"seen": {"type": "Real", "value": 1.0},
-		"inBlock": {"type": "Real", "value": 50.0},
-		"afterBlock": {"type": "Real", "value": 1.0}
+		"h": {"type": "Rational", "value": "1.0"},
+		"seen": {"type": "Rational", "value": "1.0"},
+		"inBlock": {"type": "Rational", "value": "50.0"},
+		"afterBlock": {"type": "Rational", "value": "1.0"}
 	}
 }

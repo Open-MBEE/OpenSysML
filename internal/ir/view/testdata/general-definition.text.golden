@@ -1,0 +1,31 @@
+GeneralViews::definitionView - definition rendering (view def GeneralView, filter @Definition or @Usage)
+
+part def VehicleStructure::Vehicle
+part def VehicleStructure::Chassis
+part def VehicleStructure::LightChassis
+part def VehicleStructure::Driver
+action def VehicleStructure::Brake
+part VehicleStructure::vehicle : Vehicle
+part VehicleStructure::heavyVehicle : Vehicle
+action VehicleStructure::brake : Brake
+attribute VehicleStructure::Vehicle::mass : Real
+part VehicleStructure::Vehicle::chassis : Chassis
+part VehicleStructure::Vehicle::driver : Driver
+attribute VehicleStructure::vehicle::mass
+attribute VehicleStructure::heavyVehicle::mass
+part def VehicleStructure::Powertrain::Engine
+
+relationships:
+  VehicleStructure::LightChassis --|> VehicleStructure::Chassis
+  VehicleStructure::vehicle ..|> VehicleStructure::Vehicle
+  VehicleStructure::heavyVehicle ..|> VehicleStructure::Vehicle
+  VehicleStructure::brake ..|> VehicleStructure::Brake
+  VehicleStructure::Vehicle o-- VehicleStructure::Vehicle::mass
+  VehicleStructure::Vehicle::chassis ..|> VehicleStructure::Chassis
+  VehicleStructure::Vehicle *-- VehicleStructure::Vehicle::chassis
+  VehicleStructure::Vehicle::driver ..|> VehicleStructure::Driver
+  VehicleStructure::Vehicle o-- VehicleStructure::Vehicle::driver
+  VehicleStructure::vehicle::mass --|> VehicleStructure::Vehicle::mass: redefines
+  VehicleStructure::vehicle o-- VehicleStructure::vehicle::mass
+  VehicleStructure::heavyVehicle::mass --|> VehicleStructure::Vehicle::mass: redefines
+  VehicleStructure::heavyVehicle o-- VehicleStructure::heavyVehicle::mass

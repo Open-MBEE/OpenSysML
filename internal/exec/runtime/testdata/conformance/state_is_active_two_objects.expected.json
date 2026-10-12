@@ -1,0 +1,17 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::System",
+  "objects": [
+    {"path": "a", "finalState": "ready", "stateVisits": ["armed", "ready"]},
+    {"path": "b", "finalState": "armed", "stateVisits": ["armed"]}
+  ],
+  "constraints": {
+    "aReady": true,
+    "aNotArmed": true,
+    "bArmed": true,
+    "bNotReady": true,
+    "bothMachinesActive": true,
+    "bReadyWrong": false
+  }
+}

@@ -264,119 +264,13 @@ func (e *executor) scanSymbol(edges *relationshipEdges, kind string, sym *symbol
 		}
 		return
 	}
-	switch kind {
-	case relationshipConnection, relationshipAllocation:
-		e.scanConnector(edges, kind, sym)
-	case relationshipSatisfaction, relationshipVerification:
-		e.scanSatisfaction(edges, kind, sym)
-	case relationshipDerivation:
-		e.scanDerivation(edges, sym)
-	case relationshipRefinement:
-		e.scanRefinement(edges, sym)
+	for _, edge := range e.context.Model.RelationshipEdgesOf(sym, semanticRelationshipKind(kind)) {
+		addEdge(edges, edge.Source, edge.Target)
 	}
 }
 
-// scanConnector records the edges a connector usage states: from the feature
-// its first end attaches to, to the feature of each later end, in declaration
-// order.
-func (e *executor) scanConnector(edges *relationshipEdges, kind string, sym *symbols.Symbol) {
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || !connectorRelationship(usage.Kind, kind) || !e.context.Model.IsConnectorUsage(sym) {
-		return
-	}
-	var ends []*symbols.Symbol
-	for _, attachment := range e.context.Model.ConnectorEndAttachments(sym) {
-		if attachment.Attachment == nil {
-			continue
-		}
-		target, ok := e.context.Resolver.ResolveTarget(sym.OwnerScope, attachment.Attachment)
-		if !ok || target == nil {
-			continue
-		}
-		ends = append(ends, target)
-	}
-	if len(ends) < 2 {
-		return
-	}
-	for _, target := range ends[1:] {
-		addEdge(edges, ends[0], target)
-	}
-}
-
-// connectorRelationship reports whether a connector usage of the given AST
-// kind carries edges of the named relationship kind. Connection covers the
-// connection, connector, and interface usages; allocation stands alone.
-func connectorRelationship(usage ast.UsageKind, kind string) bool {
-	switch kind {
-	case relationshipConnection:
-		return usage == ast.UsageConnection || usage == ast.UsageConnector || usage == ast.UsageInterface
-	case relationshipAllocation:
-		return usage == ast.UsageAllocation
-	}
-	return false
-}
-
-// scanSatisfaction records the edge a satisfy or verify assertion states: from
-// the subject its `by` clause names — else the element stating the assertion —
-// to the requirement it references, or to the assertion itself when it
-// declares its requirement (`satisfy requirement r by v { ... }`) — and then
-// also to the requirement definition the declaration is typed by, which is
-// the requirement a v1 model states the satisfaction of.
-func (e *executor) scanSatisfaction(edges *relationshipEdges, kind string, sym *symbols.Symbol) {
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || usage.Kind != ast.UsageSatisfy {
-		return
-	}
-	if (usage.Keyword == "verify") != (kind == relationshipVerification) {
-		return
-	}
-	var requirement, definition, subject *symbols.Symbol
-	for _, rel := range usage.Relationships {
-		if rel == nil || rel.Target == nil {
-			continue
-		}
-		target, ok := e.context.Resolver.ResolveTarget(sym.OwnerScope, rel.Target)
-		if !ok || target == nil {
-			continue
-		}
-		switch rel.Kind {
-		case ast.RelSubsets:
-			// A declaration form's subsettings refine the declared requirement;
-			// only the reference form names the requirement this way.
-			if !usage.DeclaresRequirement {
-				requirement = target
-			}
-		case ast.RelTyping:
-			if usage.DeclaresRequirement && target.Kind == symbols.SymbolRequirementDef {
-				definition = target
-			}
-		case ast.RelSubject:
-			subject = target
-		}
-	}
-	if usage.DeclaresRequirement {
-		requirement = sym
-	}
-	if subject == nil && sym.OwnerScope != nil {
-		subject = sym.OwnerScope.Owner()
-		// A verify lives in the objective of a verification case; the case is
-		// the verifier.
-		if kind == relationshipVerification && subject != nil && isObjectiveUsage(subject.Decl) && subject.OwnerScope != nil {
-			subject = subject.OwnerScope.Owner()
-		}
-	}
-	if subject == nil || requirement == nil {
-		return
-	}
-	addEdge(edges, subject, requirement)
-	if definition != nil {
-		addEdge(edges, subject, definition)
-	}
-}
-
-func isObjectiveUsage(decl ast.Node) bool {
-	usage, ok := decl.(*ast.Usage)
-	return ok && usage.Kind == ast.UsageObjective
+func semanticRelationshipKind(kind string) semantics.RelationshipKind {
+	return semantics.RelationshipKind(kind)
 }
 
 // addEdge records one source-to-target edge in both directions.

@@ -1,0 +1,6 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [{"signal": "Go"}],
+  "finalState": "a"
+}

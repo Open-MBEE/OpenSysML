@@ -42,7 +42,7 @@ func registerQuantityCalculations() {
 	registerValueFunction("QuantityCalculations::round", []string{"x"}, 1, quantityMagnitudeUnary(roundToInteger))
 	registerValueFunction("QuantityCalculations::ToString", []string{"x"}, 1, quantityToString)
 	registerValueFunction("QuantityCalculations::ToInteger", []string{"x"}, 1, quantityToInteger)
-	registerValueFunction("QuantityCalculations::ToRational", []string{"x"}, 1, quantityToReal)
+	registerValueFunction("QuantityCalculations::ToRational", []string{"x"}, 1, quantityToRational)
 	registerValueFunction("QuantityCalculations::ToReal", []string{"x"}, 1, quantityToReal)
 	registerValueFunction("QuantityCalculations::ToDimensionOneValue", []string{"x"}, 1, toDimensionOneValue)
 	registerValueFunction("QuantityCalculations::sum", []string{"collection"}, 0, quantityAggregate(ast.OpAdd))
@@ -182,13 +182,13 @@ func quantityArg(name, param string, val Value) (*Quantity, error) {
 
 // quantityPredicate is isZero or isUnit: whether the magnitude is the given
 // number, as the library bodies test `x.num`.
-func quantityPredicate(magnitude float64) libraryApply {
+func quantityPredicate(magnitude int64) libraryApply {
 	return func(name string, _ *Context, args []Value) (Value, error) {
 		q, err := quantityArg(name, "x", args[0])
 		if err != nil {
 			return Value{}, err
 		}
-		return boolValue(toReal(q.Num) == magnitude), nil
+		return boolValue(numberEquals(q.Num, magnitude)), nil
 	}
 }
 
@@ -335,8 +335,8 @@ func quantityToInteger(name string, _ *Context, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	if x.Num.Kind == semantics.ValInt {
-		return Value{Kind: ValConst, Const: x.Num}, nil
+	if x.Num.IsExact() {
+		return Value{Kind: ValConst, Const: semantics.RatTrunc(x.Num)}, nil
 	}
 	num, err := integerResult(math.Trunc(x.Num.Real))
 	if err != nil {
@@ -345,7 +345,17 @@ func quantityToInteger(name string, _ *Context, args []Value) (Value, error) {
 	return Value{Kind: ValConst, Const: num}, nil
 }
 
-// quantityToReal is ToReal and ToRational: the magnitude as a Real.
+// quantityToRational is QuantityCalculations::ToRational: an exact magnitude
+// itself, a Real one the Rational it exactly is.
+func quantityToRational(name string, ctx *Context, args []Value) (Value, error) {
+	x, err := quantityArg(name, "x", args[0])
+	if err != nil {
+		return Value{}, err
+	}
+	return realToRational(name, ctx, []Value{{Kind: ValConst, Const: x.Num}})
+}
+
+// quantityToReal is ToReal: the magnitude as a Real.
 func quantityToReal(name string, _ *Context, args []Value) (Value, error) {
 	x, err := quantityArg(name, "x", args[0])
 	if err != nil {
@@ -368,7 +378,7 @@ func toDimensionOneValue(name string, _ *Context, args []Value) (Value, error) {
 // unit; an empty collection has no unit, so it is the dimensionless 0 or 1.
 func quantityAggregate(op ast.OperatorKind) libraryApply {
 	return func(name string, ctx *Context, args []Value) (Value, error) {
-		return ctx.aggregate(name, args, op, false)
+		return ctx.aggregate(name, args, op, aggregateNumber)
 	}
 }
 

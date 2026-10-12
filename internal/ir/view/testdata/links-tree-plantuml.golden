@@ -56,4 +56,5 @@ n5 -- n6
 class "<size:10>//«part»//</size>\n**cylinder : Cylinder**" as n7 <<part>> <<usage>> [[https://example.test/src/tree.sysml#L6]]
 n5 -- n7
 n4 -- n5
+n0 *-- n5 : engine [[https://example.test/src/tree.sysml#L12]]
 @enduml

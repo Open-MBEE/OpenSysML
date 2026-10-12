@@ -1,0 +1,9 @@
+{
+	"type": "instance",
+	"libraries": true,
+	"instantiate": "test::Machine",
+	"trace": true,
+	"slots": {
+		"hits": {"type": "Integer", "value": 101}
+	}
+}

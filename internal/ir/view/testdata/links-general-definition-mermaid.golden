@@ -1,0 +1,80 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% GeneralViews::definitionView — definition rendering (view def GeneralView, filter @Definition or @Usage)
+flowchart TD
+  n0["`*«part def»*
+**Vehicle**`"]
+  n1["`*«part def»*
+**Chassis**`"]
+  n2["`*«part def»*
+**LightChassis**`"]
+  n3["`*«part def»*
+**Driver**`"]
+  n4["`*«action def»*
+**Brake**`"]
+  n5("`*«part»*
+**vehicle : Vehicle**`")
+  n6("`*«part»*
+**heavyVehicle : Vehicle**`")
+  n7("`*«action»*
+**brake : Brake**`")
+  n8("`*«attribute»*
+**mass : Real**`")
+  n9("`*«part»*
+**chassis : Chassis**`")
+  n10("`*«part»*
+**driver : Driver**`")
+  n11("`*«attribute»*
+**mass**`")
+  n12("`*«attribute»*
+**mass**`")
+  n13["`*«part def»*
+**Powertrain::Engine**`"]
+  n2 -->|"specialization"| n1
+  n5 -.->|"typing"| n0
+  n6 -.->|"typing"| n0
+  n7 -.->|"typing"| n4
+  n0 ---|"◇"| n8
+  n9 -.->|"typing"| n1
+  n0 ---|"◆"| n9
+  n10 -.->|"typing"| n3
+  n0 ---|"◇"| n10
+  n11 -->|"redefines"| n8
+  n5 ---|"◇"| n11
+  n12 -->|"redefines"| n8
+  n6 ---|"◇"| n12
+  click n0 href "https://example.test/src/general.sysml#L4"
+  click n1 href "https://example.test/src/general.sysml#L9"
+  click n2 href "https://example.test/src/general.sysml#L10"
+  click n3 href "https://example.test/src/general.sysml#L11"
+  click n4 href "https://example.test/src/general.sysml#L12"
+  click n5 href "https://example.test/src/general.sysml#L14"
+  click n6 href "https://example.test/src/general.sysml#L17"
+  click n7 href "https://example.test/src/general.sysml#L20"
+  click n8 href "https://example.test/src/general.sysml#L5"
+  click n9 href "https://example.test/src/general.sysml#L6"
+  click n10 href "https://example.test/src/general.sysml#L7"
+  click n11 href "https://example.test/src/general.sysml#L15"
+  click n12 href "https://example.test/src/general.sysml#L18"
+  click n13 href "https://example.test/src/general.sysml#L23"

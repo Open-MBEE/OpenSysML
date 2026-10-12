@@ -1,6 +1,7 @@
 package migrate_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -92,7 +93,7 @@ const flowApplications = `
 func TestItemFlowFollowsSourceAndTargetNotEndOrder(t *testing.T) {
 	r := migrateDocument(t, flowModel, flowApplications)
 	wantLine(t, r.Notation, "connect sink to source;")
-	wantLine(t, r.Notation, "flow source.fuelOut to sink.fuelIn;")
+	wantLine(t, r.Notation, "flow of Fuel from source.fuelOut to sink.fuelIn;")
 	if strings.Contains(string(r.Notation), "flow sink.") {
 		t.Errorf("a flow runs from the sink:\n%s", r.Notation)
 	}
@@ -106,7 +107,7 @@ func TestItemFlowFollowsSourceAndTargetNotEndOrder(t *testing.T) {
 
 func TestMultiItemFlowReportsOnce(t *testing.T) {
 	r := migrateDocument(t, flowModel, flowApplications)
-	if n := strings.Count(string(r.Notation), "flow source.fuelOut to sink.fuelIn;"); n != 2 {
+	if n := strings.Count(string(r.Notation), "flow of Fuel from source.fuelOut to sink.fuelIn;"); n != 2 {
 		t.Errorf("fuel flow written %d times, want 2 (one per item flow)", n)
 	}
 	es := entriesFor(r, "_if2")
@@ -142,12 +143,13 @@ func TestMultiEndedDependenciesWriteEveryPair(t *testing.T) {
 	r := migrateDocument(t, members, applications)
 	for _, line := range []string{
 		"allocation def 'A to C' {", "allocation def 'A to D' {", "allocation def 'B to C' {", "allocation def 'B to D' {",
-		"end a : A;", "end c : C;", "end d : D;", "end b : B;",
-		"satisfy requirement : R1;", "satisfy requirement : R2;",
+		"end :>> source : A;", "end :>> source : B;",
+		"end :>> target : C;", "end :>> target : D;",
+		"satisfy R1;", "satisfy R2;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	if n := strings.Count(string(r.Notation), "satisfy requirement : R1;"); n != 2 {
+	if n := strings.Count(string(r.Notation), "satisfy R1;"); n != 2 {
 		t.Errorf("R1 satisfied %d times, want 2", n)
 	}
 	for id, want := range map[string]migrate.Verdict{"_alloc": migrate.Approximated, "_sat": migrate.Approximated, "_sat_half": migrate.Approximated} {
@@ -375,10 +377,10 @@ func TestUnwritableFeaturePartsAreDroppedWithNotes(t *testing.T) {
     </packagedElement>`, `
   <sysml:Block xmi:id="_s2" base_Class="_h"/>`)
 	wantLine(t, r.Notation, "ref intro;")
-	wantLine(t, r.Notation, "ref grid;")
-	wantLine(t, r.Notation, "ref many[0..*];")
-	wantLine(t, r.Notation, "ref margin {")
-	wantLine(t, r.Notation, `ref exposure default = "4";`)
+	wantLine(t, r.Notation, "attribute grid;")
+	wantLine(t, r.Notation, "attribute many[0..*];")
+	wantLine(t, r.Notation, "attribute margin {")
+	wantLine(t, r.Notation, `attribute exposure default = "4";`)
 	if strings.Contains(string(r.Notation), "= NaN") {
 		t.Errorf("a non-finite real was written:\n%s", r.Notation)
 	}
@@ -424,9 +426,9 @@ func TestClashingSiblingNamesAreDistinguished(t *testing.T) {
   <sysml:Block xmi:id="_s3" base_Class="_c"/>
   <sysml:Block xmi:id="_s4" base_Class="_c2"/>
   <sysml:Block xmi:id="_s5" base_Class="_u"/>`)
-	wantLine(t, r.Notation, "ref unnamed1;")
-	wantLine(t, r.Notation, "ref 'unnamed1 2';")
-	wantLine(t, r.Notation, "ref q :>> 'unnamed1 2';")
+	wantLine(t, r.Notation, "attribute unnamed1;")
+	wantLine(t, r.Notation, "attribute 'unnamed1 2';")
+	wantLine(t, r.Notation, "attribute q :>> 'unnamed1 2';")
 	wantLine(t, r.Notation, "part def 'C 2'")
 	wantLine(t, r.Notation, "part x : 'C 2';")
 	for id, want := range map[string]string{
@@ -464,8 +466,8 @@ func TestConnectionEndYieldsItsNameToAMember(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_b"/>
   <sysml:Block xmi:id="_s3" base_Class="_ab"/>
   <sysml:ParticipantProperty xmi:id="_s4" base_Property="_pp" end="_toB"/>`)
-	wantLine(t, r.Notation, "end toB2 : B;")
-	wantLine(t, r.Notation, "end toA : A;")
+	wantLine(t, r.Notation, "end toB2 : B crosses toA.toB;")
+	wantLine(t, r.Notation, "end toA : A crosses toB2.toA;")
 	wantLine(t, r.Notation, "ref part toB : B")
 	es := entriesFor(r, "_ab")
 	if len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "end toB is written as toB2") {
@@ -499,8 +501,8 @@ func TestExternalSpecializationsAreNotWritten(t *testing.T) {
       </slot>
     </packagedElement>`, `
   <sysml:Block xmi:id="_s1" base_Class="_h"/>`)
-	wantLine(t, r.Notation, "ref a;")
-	wantLine(t, r.Notation, "ref b;")
+	wantLine(t, r.Notation, "attribute a;")
+	wantLine(t, r.Notation, "attribute b;")
 	if strings.Contains(string(r.Notation), "_ext") || strings.Contains(string(r.Notation), "unnamed") {
 		t.Errorf("notation refers to an external feature:\n%s", r.Notation)
 	}
@@ -668,7 +670,7 @@ func TestFlowOverSeveralConnectorsIsReportedOnce(t *testing.T) {
 	})
 	t.Run("one broken", func(t *testing.T) {
 		r := multiConnectorFlow(t, "_missing", "_p_spare")
-		wantLine(t, r.Notation, "flow 'out'.fuel to spare.'in'.fuel;")
+		wantLine(t, r.Notation, "flow of Gas from 'out'.fuel to spare.'in'.fuel;")
 		es := entriesFor(r, "_if")
 		if len(es) != 1 || es[0].Verdict != migrate.Approximated ||
 			!strings.Contains(es[0].Note, "only the flow of Gas is written; realizing connector 'feed1' is not migrated") {
@@ -683,8 +685,8 @@ func TestFlowOverSeveralConnectorsIsReportedOnce(t *testing.T) {
 	})
 	t.Run("both written", func(t *testing.T) {
 		r := multiConnectorFlow(t, "_p_engine", "_p_spare")
-		wantLine(t, r.Notation, "flow 'out'.fuel to engine.'in'.fuel;")
-		wantLine(t, r.Notation, "flow 'out'.fuel to spare.'in'.fuel;")
+		wantLine(t, r.Notation, "flow of Gas from 'out'.fuel to engine.'in'.fuel;")
+		wantLine(t, r.Notation, "flow of Gas from 'out'.fuel to spare.'in'.fuel;")
 		if es := entriesFor(r, "_if"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 			t.Errorf("entries for _if = %+v, want one mapped entry", es)
 		}
@@ -1145,7 +1147,7 @@ func TestCollectionModifiersAreWritten(t *testing.T) {
 	wantLine(t, r.Notation, "part n : A[2];")
 	wantLine(t, r.Notation, "ref part b : A ordered :> n;")
 	wantLine(t, r.Notation, "ref part u : A;")
-	wantLine(t, r.Notation, "end 'first' : A[0..*] ordered;")
+	wantLine(t, r.Notation, "end [0..*] ordered ref 'first' : A;")
 	for _, id := range []string{"_o", "_u", "_e1"} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 			t.Errorf("%s entries = %+v", id, es)
@@ -1308,10 +1310,19 @@ func TestConstraintParametersStoredAsPortsAreInParameters(t *testing.T) {
 
 // MagicDraw's tagless property-kind markers say what the usage keyword says,
 // so they are not written; a same-named stereotype from any other profile, a
-// marker carrying a tag, and one on a property of another kind are kept.
+// marker carrying a tag, and one on a property of another kind are kept. An
+// untyped property takes its marker's kind; without one it is an attribute,
+// or a part when composite.
 func TestPropertyKindMarkersAreNotWritten(t *testing.T) {
 	r := migrateFixtureFile(t, "property_markers")
 	for _, line := range []string{
+		"attribute load;",
+		"part trailer;",
+		"ref depot;",
+		"ref driver;",
+		"constraint rule;",
+		"attribute color;",
+		"part chassis;",
 		"attribute mass : ScalarValues::Real;",
 		"attribute mode : Mode;",
 		"part engine : Engine;",
@@ -1339,11 +1350,14 @@ func TestPropertyKindMarkersAreNotWritten(t *testing.T) {
 			t.Errorf("«%s» written %d times, want %d", name, n, want)
 		}
 	}
-	for _, id := range []string{"_mass", "_mode", "_engine", "_lead", "_limit", "_ms_v", "_ms_wheel", "_ms_hub", "_ms_k", "_odd", "_axle", "_cabin", "_serial"} {
+	for _, id := range []string{"_mass", "_mode", "_engine", "_lead", "_limit", "_ms_v", "_ms_wheel", "_ms_hub", "_ms_k", "_odd", "_axle", "_cabin", "_serial",
+		"_load", "_trailer", "_depot", "_driver", "_rule"} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 			t.Errorf("%s entries = %+v", id, es)
 		}
 	}
+	wantNote(t, r, "_color", migrate.Approximated, "the untyped property is written as an attribute")
+	wantNote(t, r, "_chassis", migrate.Approximated, "the untyped composite property is written as a part")
 	if es := entriesFor(r, "_spare"); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "shared aggregation") {
 		t.Errorf("_spare entries = %+v", es)
 	}
@@ -1381,12 +1395,13 @@ const namedRelationApplications = `
 
 func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 	r := migrateDocument(t, namedRelationModel, namedRelationApplications)
-	wantLine(t, r.Notation, "satisfy requirement sat : Req by piece;")
-	wantLine(t, r.Notation, "verify requirement ver : Req;")
-	wantLine(t, r.Notation, "dependency 'ref' from Thing to Req {")
+	wantLine(t, r.Notation, "satisfy requirement sat :> Req by piece;")
+	wantLine(t, r.Notation, "verify requirement ver :> Req;")
+	wantLine(t, r.Notation, "connection 'ref' connect thing to Req {")
+	wantLine(t, r.Notation, "doc /* Thing refines Req */")
 	wantLine(t, r.Notation, "allocation def alloc {")
-	wantLine(t, r.Notation, "end thing : Thing;")
-	wantLine(t, r.Notation, "end piece : Piece;")
+	wantLine(t, r.Notation, "end :>> source : Thing;")
+	wantLine(t, r.Notation, "end :>> target : Piece;")
 	wantLine(t, r.Notation, "dependency trace from Thing to Req; /* «Trace» */")
 	wantLine(t, r.Notation, "dependency copy from Req2 to Req; /* «Copy» */")
 	for id, want := range map[string]struct {
@@ -1395,7 +1410,7 @@ func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 	}{
 		"_sat":   {migrate.Mapped, "Thing::sat"},
 		"_ver":   {migrate.Mapped, "Check::ver"},
-		"_ref":   {migrate.Mapped, "'ref'"},
+		"_ref":   {migrate.Approximated, "'ref'"},
 		"_alloc": {migrate.Mapped, "alloc"},
 		"_trace": {migrate.Approximated, "trace"},
 		"_copy":  {migrate.Approximated, "copy"},
@@ -1421,7 +1436,7 @@ func TestPlacedRelationshipNameYieldsToAMember(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_b2"/>
   <sysml:Requirement xmi:id="_s3" base_Class="_r" Id="R1" Text="Shall."/>
   <sysml:Satisfy xmi:id="_s6" base_Abstraction="_sat"/>`)
-	wantLine(t, r.Notation, "satisfy requirement 'sat 2' : Req by sat;")
+	wantLine(t, r.Notation, "satisfy requirement 'sat 2' :> Req by sat;")
 	if es := entriesFor(r, "_sat"); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "sat 2") {
 		t.Errorf("entries = %+v", es)
 	}
@@ -1555,4 +1570,266 @@ func TestOpaqueExpressionsMayNameImportedMembers(t *testing.T) {
 	wantLine(t, r.Notation, "enum def Gear {")
 	wantNote(t, r, "_gear", migrate.Approximated, "private visibility is not written: v2 lets nothing outside the package reach a private member")
 	wantClean(t, "imports.sysml", r)
+}
+
+// partFlowModel is a system whose item flow names the blocks typing the parts on
+// the realizing connector's ends, as Cameo writes a flow drawn between parts, and
+// a second connector from the system's own port whose flow names the system.
+const partFlowModel = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_fuel" name="Fuel"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_out_if" name="Outlet">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_out_fuel" name="fuelOut" type="_fuel"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_in_if" name="Inlet">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_in_fuel" name="fuelIn" type="_fuel"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_pump_out" name="outlet" type="_out_if" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_engine" name="Engine">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_engine_in" name="inlet" type="_in_if" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_sys" name="System">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_sys_in" name="supply" type="_in_if" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="pump" type="_pump" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_e" name="engine" type="_engine" aggregation="composite"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_conn">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e1" partWithPort="_e" role="_engine_in"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e2" partWithPort="_p" role="_pump_out"/>
+      </ownedConnector>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_conn2">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e3" partWithPort="_p" role="_pump_out"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e4" role="_sys_in"/>
+      </ownedConnector>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if" informationSource="_pump" informationTarget="_engine" conveyed="_fuel" realizingConnector="_conn"/>
+    <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if2" informationSource="_p" informationTarget="_sys" conveyed="_fuel" realizingConnector="_conn2"/>
+    <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if3" informationSource="_engine" informationTarget="_sys" conveyed="_fuel" realizingConnector="_conn2"/>`
+
+const partFlowApplications = `
+  <sysml:Block xmi:id="_s1" base_Class="_sys"/>
+  <sysml:Block xmi:id="_s2" base_Class="_fuel"/>
+  <sysml:Block xmi:id="_s3" base_Class="_pump"/>
+  <sysml:Block xmi:id="_s4" base_Class="_engine"/>
+  <sysml:InterfaceBlock xmi:id="_s5" base_Class="_out_if"/>
+  <sysml:InterfaceBlock xmi:id="_s6" base_Class="_in_if"/>
+  <sysml:FlowProperty xmi:id="_s7" base_Property="_out_fuel" direction="out"/>
+  <sysml:FlowProperty xmi:id="_s8" base_Property="_in_fuel" direction="in"/>
+  <sysml:ProxyPort xmi:id="_s9" base_Port="_pump_out"/>
+  <sysml:ProxyPort xmi:id="_s10" base_Port="_engine_in"/>
+  <sysml:ProxyPort xmi:id="_s11" base_Port="_sys_in"/>
+  <sysml:ItemFlow xmi:id="_s12" base_InformationFlow="_if"/>
+  <sysml:ItemFlow xmi:id="_s13" base_InformationFlow="_if2"/>
+  <sysml:ItemFlow xmi:id="_s14" base_InformationFlow="_if3"/>`
+
+// An item flow whose source and target are the parts on the realizing
+// connector's ends, the blocks typing them, or the connector's owner at its
+// own port, flows between the ports those ends name; one naming an element on
+// neither end is left as a comment.
+func TestItemFlowEndsMayBeThePartsOrBlocksOnTheConnector(t *testing.T) {
+	r := migrateDocument(t, partFlowModel, partFlowApplications)
+	wantLine(t, r.Notation, "flow of Fuel from pump.outlet.fuelOut to engine.inlet.fuelIn;")
+	wantLine(t, r.Notation, "flow of Fuel from pump.outlet.fuelOut to supply.fuelIn;")
+	for _, id := range []string{"_if", "_if2"} {
+		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
+			t.Errorf("entries for %s = %+v, want one mapped", id, es)
+		}
+	}
+	wantNote(t, r, "_if3", migrate.Unmapped, "the item flow's source and target are not the ends of realizing connector")
+	wantNote(t, r, "_if3", migrate.Unmapped, "nor the parts or blocks on its ends' paths")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("migrated notation has errors: %v", diags)
+	}
+}
+
+// twinFlowModel joins two parts of one block at ports of one type, so a flow
+// from the block to the port type stands for either end; one from one port to
+// the other is told apart by the ends' roles.
+const twinFlowModel = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_fuel" name="Fuel"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_out_if" name="Outlet">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_out_fuel" name="fuel" type="_fuel"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_pump_out" name="outlet" type="_out_if" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_sys" name="System">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_l" name="left" type="_pump" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_r" name="right" type="_pump" aggregation="composite"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_conn">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e1" partWithPort="_l" role="_pump_out"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e2" partWithPort="_r" role="_pump_out"/>
+      </ownedConnector>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_conn2">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e3" partWithPort="_r" role="_pump_out"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e4" partWithPort="_l" role="_pump_out"/>
+      </ownedConnector>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if" informationSource="_pump" informationTarget="_out_if" conveyed="_fuel" realizingConnector="_conn"/>
+    <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if2" informationSource="_l" informationTarget="_r" conveyed="_fuel" realizingConnector="_conn2"/>`
+
+const twinFlowApplications = `
+  <sysml:Block xmi:id="_s1" base_Class="_sys"/>
+  <sysml:Block xmi:id="_s2" base_Class="_fuel"/>
+  <sysml:Block xmi:id="_s3" base_Class="_pump"/>
+  <sysml:InterfaceBlock xmi:id="_s5" base_Class="_out_if"/>
+  <sysml:FlowProperty xmi:id="_s7" base_Property="_out_fuel" direction="inout"/>
+  <sysml:ProxyPort xmi:id="_s9" base_Port="_pump_out"/>
+  <sysml:ItemFlow xmi:id="_s12" base_InformationFlow="_if"/>
+  <sysml:ItemFlow xmi:id="_s13" base_InformationFlow="_if2"/>`
+
+// An item flow whose source and target each stand for both ends of the
+// connector is not given the connector's end order as its direction: it is
+// left as a comment, while one the parts tell apart still follows them.
+func TestItemFlowWithEndsStandingForBothIsNotMigrated(t *testing.T) {
+	r := migrateDocument(t, twinFlowModel, twinFlowApplications)
+	wantNote(t, r, "_if", migrate.Unmapped, "each stand for both ends of realizing connector")
+	wantLine(t, r.Notation, "flow of Fuel from left.outlet.fuel to right.outlet.fuel;")
+	if es := entriesFor(r, "_if2"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
+		t.Errorf("entries for _if2 = %+v, want one mapped", es)
+	}
+	wantClean(t, "t.sysml", r)
+}
+
+// An actor or use case is itself a usage a connection joins; a definition gets
+// a package-level usage only when a connection joins it: a v1 association,
+// include, extend or «Refine» names it as an end.
+func TestUsagesOnlyForConnectedDefinitions(t *testing.T) {
+	r := migrateFixtureFile(t, "parking_usecases")
+	for _, line := range []string{"part Driver {", "part Bank;", "use case 'Park Car' {", "use case 'Pay Fee'"} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, line := range []string{"part driver :", "part bank :", "use case 'park Car' :", "use case 'pay Fee' :"} {
+		wantNoLine(t, r.Notation, line)
+	}
+	for _, line := range []string{"part garage :", "part ticket : Ticket;", "part 'valet Service' :", "use case 'valet Park' :"} {
+		wantNoLine(t, r.Notation, line)
+	}
+	// A named association is a connection def with one usage typed by it, named like a usage.
+	wantLine(t, r.Notation, "connection settlement : 'Use Cases'::Settlement connect Context::Bank to 'Use Cases'::'Pay Fee';")
+	wantNoLine(t, r.Notation, "connection Settlement ")
+	v := migrateFixtureFile(t, "vehicle")
+	wantLine(t, v.Notation, "connection drives : Drives connect Driver to vehicle;")
+	wantNoLine(t, v.Notation, "connection Drives ")
+}
+
+const refineEndsModel = `
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_alpha" name="Alpha"/>
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_beta" name="Beta"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_r" name="Req"/>`
+
+const refineEndsApplications = `
+  <sysml:Requirement xmi:id="_s1" base_Class="_r"/>
+  <sysml:Refine xmi:id="_s2" base_Abstraction="_ref"/>`
+
+// A «Refine» with several clients is one connection per client–supplier pair.
+func TestRefineWithSeveralEndsIsAConnectionPerPair(t *testing.T) {
+	r := migrateDocument(t, refineEndsModel+`
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_ref" client="_alpha _beta" supplier="_r"/>`, refineEndsApplications)
+	wantLine(t, r.Notation, "connection 'Alpha refines Req' connect Alpha to Req;")
+	wantLine(t, r.Notation, "connection 'Beta refines Req' connect Beta to Req;")
+	wantNoLine(t, r.Notation, "«Refine»")
+	got := entriesFor(r, "_ref")
+	if len(got) != 1 || got[0].Verdict != migrate.Approximated || !strings.Contains(got[0].Note, "written as 2 relationships, one per client–supplier pair") {
+		t.Errorf("_ref: entries = %+v, want one approximated entry written as 2 relationships", got)
+	}
+	// A named refine keeps its name on the first pair and numbers the others.
+	r = migrateDocument(t, refineEndsModel+`
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_ref" name="Link" client="_alpha _beta" supplier="_r"/>`, refineEndsApplications)
+	wantLine(t, r.Notation, "connection Link connect Alpha to Req {")
+	wantLine(t, r.Notation, "doc /* Alpha refines Req */")
+	wantLine(t, r.Notation, "connection 'Link 2' connect Beta to Req {")
+	wantLine(t, r.Notation, "doc /* Beta refines Req */")
+	wantNoLine(t, r.Notation, "connection 'Link 2 2'")
+}
+
+// A connection named after its relationship yields to a member of the package
+// it is written in that already has that name.
+func TestConnectionNameYieldsToAPackageMember(t *testing.T) {
+	r := migrateDocument(t, refineEndsModel+`
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_link" name="Link"/>
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_ref" name="Link" client="_alpha" supplier="_r"/>`, refineEndsApplications)
+	wantLine(t, r.Notation, "use case Link;")
+	wantLine(t, r.Notation, "connection 'Link 2' connect Alpha to Req {")
+	wantNoLine(t, r.Notation, "connection Link ")
+	if got := entriesFor(r, "_ref"); len(got) != 1 || got[0].Verdict != migrate.Approximated || got[0].Target != "'Link 2'" {
+		t.Errorf("_ref: entries = %+v, want one approximated 'Link 2'", got)
+	}
+	// An association's connection def keeps its name; the usage typed by it yields.
+	r = migrateDocument(t, `
+    <packagedElement xmi:type="uml:Actor" xmi:id="_actor" name="Driver"/>
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Drive"/>
+    <packagedElement xmi:type="uml:Association" xmi:id="_assoc" name="drives" memberEnd="_eA _eU">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_eA" name="driver" type="_actor" association="_assoc"/>
+      <ownedEnd xmi:type="uml:Property" xmi:id="_eU" name="drive" type="_uc" association="_assoc"/>
+    </packagedElement>`, "")
+	wantLine(t, r.Notation, "connection def drives {")
+	wantLine(t, r.Notation, "connection 'drives 2' : drives connect Driver to Drive;")
+}
+
+const actorEndModel = `
+    <packagedElement xmi:type="uml:Package" xmi:id="_p" name="Cases">
+      <packagedElement xmi:type="uml:Actor" xmi:id="_actor" name="Driver"/>
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Drive"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc" memberEnd="_eA _eU">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_eA" name="driver" type="_actor" association="_assoc"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="_eU" type="_uc" association="_assoc"/>
+      </packagedElement>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag" name="%s" ownerOfDiagram="_p">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject xmlns:diagram="http://www.example.com/tool/diagram" type="%s" umlType="%s">
+                <diagramContents>%s</diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>`
+
+func viewBody(t *testing.T, notation []byte, name string) string {
+	t.Helper()
+	s := string(notation)
+	i := strings.Index(s, "view "+name+" {")
+	if i < 0 {
+		t.Fatalf("notation lacks view %s:\n%s", name, s)
+	}
+	j := strings.Index(s[i:], "\n            }")
+	if j < 0 {
+		j = len(s) - i
+	}
+	return s[i : i+j]
+}
+
+// A use case diagram that lists only an association's end still exposes the
+// connection the association is drawn as and both usages it joins.
+func TestUseCaseDiagramShowingAnAssociationEndExposesItsUsages(t *testing.T) {
+	r := migrateDocument(t, fmt.Sprintf(actorEndModel, "Ends", "SysML Use Case Diagram", "Use Case Diagram", "<usedElements>_eA</usedElements>"), "")
+	body := viewBody(t, r.Notation, "Ends")
+	for _, want := range []string{"expose 'Driver to Drive';", "expose Driver;", "expose Drive;"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("view Ends lacks %q:\n%s", want, body)
+		}
+	}
+}
+
+// Only a use case diagram exposes a connection's usages: a block definition
+// diagram showing the same association exposes what it shows.
+func TestTreeDiagramShowingAnAssociationExposesNoUsages(t *testing.T) {
+	r := migrateDocument(t, fmt.Sprintf(actorEndModel, "Blocks", "SysML Block Definition Diagram", "Class Diagram",
+		"<usedElements>_actor</usedElements><usedElements>_uc</usedElements><usedElements>_assoc</usedElements>"), "")
+	body := viewBody(t, r.Notation, "Blocks")
+	for _, want := range []string{"expose Driver;", "expose Drive;"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("view Blocks lacks %q:\n%s", want, body)
+		}
+	}
+	for _, unwanted := range []string{"expose driver;", "expose drive;"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("view Blocks exposes the usage %q:\n%s", unwanted, body)
+		}
+	}
 }

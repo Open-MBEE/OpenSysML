@@ -233,6 +233,11 @@ func (u *Union) Regather(ctx *kit.Context, g *kit.Gathers, doc string, changed m
 	var cur *Contribution
 	if g.Gathered(doc) {
 		g.Gather(ctx, doc, func(root *symbols.Scope) {
+			// An annotation body's owner, which its elements' qualified names run
+			// through, is the metadata definition once the document is resolved and
+			// the annotated element before: link them as resolving would, so a
+			// regather names what the first gather did, whichever came first.
+			ctx.Resolver().LinkMetadataBodies(doc)
 			table := ids.Build(ctx.Model(), ctx.Resolver(), root)
 			cur = contribute(table, func(info *ids.Info) bool {
 				return info.Symbol.DocName == doc

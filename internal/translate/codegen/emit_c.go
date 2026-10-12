@@ -60,16 +60,17 @@ static sysml_int sysml_max_steps = SYSML_DEFAULT_MAX_STEPS;
 static void sysml_step_fail(void) __attribute__((noreturn));
 static void sysml_step_fail(void) {
 	static char msg[128];
-	sysml_steps = sysml_max_steps + 1;
+	sysml_steps = sysml_max_steps < INT64_MAX ? sysml_max_steps + 1 : sysml_max_steps;
 	snprintf(msg, sizeof msg, "evaluation step limit exceeded (%lld steps; raise OPENSYSML_MAX_STEPS to allow more)", (long long)sysml_max_steps);
 	sysml_fail(msg);
 	__builtin_unreachable();
 }
 
-/* Spends n evaluation steps of the run's budget. */
+/* Spends n evaluation steps of the run's budget, checking the room left
+   before spending it so the counter never overflows. */
 static inline void sysml_step(sysml_int n) {
+	if (__builtin_expect(n > sysml_max_steps - sysml_steps, 0)) sysml_step_fail();
 	sysml_steps += n;
-	if (__builtin_expect(sysml_steps > sysml_max_steps, 0)) sysml_step_fail();
 }
 
 /* The positive budget the variable env sets, def when it is unset or blank. */
@@ -150,6 +151,15 @@ static sysml_real sysml_quot(sysml_int a, sysml_int b) {
 	return negative ? -r : r;
 }
 
+static inline sysml_int sysml_at_least_at(sysml_int v, sysml_int lo, const char *type, const char *where) {
+	if (__builtin_expect(v < lo, 0)) {
+		static char msg[512];
+		snprintf(msg, sizeof msg, "%s: type mismatch: cannot write %lld (an Integer) to a feature typed by %s", where, (long long)v, type);
+		sysml_fail(msg);
+	}
+	return v;
+}
+
 static inline sysml_int sysml_at_least(sysml_int v, sysml_int lo, const char *type) {
 	if (__builtin_expect(v < lo, 0)) {
 		static char msg[128];
@@ -167,6 +177,34 @@ static inline int sysml_cmp_ir(sysml_int a, sysml_real r) {
 	sysml_int w = (sysml_int)t;
 	if (a != w) return a < w ? -1 : 1;
 	return r > t ? -1 : (r < t ? 1 : 0);
+}
+
+/* An Integer in exact Rational arithmetic, computed in binary64 only over values binary64 holds. */
+static inline sysml_real sysml_to_real_exact(sysml_int a) {
+	if (__builtin_expect(a > (1LL << 53) || a < -(1LL << 53), 0)) sysml_fail("unsupported: exact Rational arithmetic over an Integer beyond 2^53, which binary64 does not hold exactly");
+	return (sysml_real)a;
+}
+
+/* r with an exact Rational's unsigned zero. */
+static inline sysml_real sysml_unsigned_zero(sysml_real r) { return r == 0 ? 0.0 : r; }
+
+/* The exact whole number r, which binary64 holds below 2^53. */
+static inline sysml_real sysml_whole(sysml_real r) {
+	if (__builtin_expect(r >= 9007199254740992.0 || r <= -9007199254740992.0, 0)) sysml_fail("unsupported: exact Rational arithmetic reaching 2^53, beyond which binary64 does not hold a whole number exactly");
+	return sysml_unsigned_zero(r);
+}
+
+/* Orders the exact quotient a/b, b nonzero, against the whole number c. */
+static inline int sysml_cmp_q(sysml_int a, sysml_int b, __int128 c) {
+	__int128 n = a, d = b;
+	if (d < 0) { n = -n; d = -d; }
+	__int128 m = c * d;
+	return n < m ? -1 : (n > m ? 1 : 0);
+}
+
+static inline sysml_int sysml_nonzero(sysml_int b) {
+	if (__builtin_expect(b == 0, 0)) sysml_fail("division by zero");
+	return b;
 }
 
 /* A value of a Real-typed feature: an Integer unless real is set. */
@@ -497,7 +535,7 @@ static sysml_real sysml_parse_real(const char *s, const char *name) {
 		fprintf(stderr, "argument %s: arithmetic overflow: %s is outside the Real range\n", name, s);
 		exit(1);
 	}
-	return v;
+	return v == 0 ? 0.0 : v;
 }
 
 static sysml_num sysml_parse_num(const char *s, const char *name) {
@@ -521,6 +559,7 @@ func EmitC(w io.Writer, p *Program, withMain bool) error {
 	}
 	e := &cEmitter{w: w}
 	e.collections = p.Collections
+	e.records = len(p.Records) > 0
 	e.raw(cBudgetDefines())
 	e.raw(cPrelude)
 	e.raw(cEnumRuntime(p))
@@ -530,6 +569,7 @@ func EmitC(w io.Writer, p *Program, withMain bool) error {
 		e.raw(cSeqRuntime())
 		e.raw(cEnumSeqRuntime(p))
 		e.raw(cFnSeqRuntime(p))
+		e.raw(cRecSeqRuntime(p))
 	}
 	for _, fn := range p.Funcs {
 		e.linef("static %s %s(%s);", cType(fn.Result), fn.Ident, cParams(fn))
@@ -552,6 +592,8 @@ type cEmitter struct {
 	temps       int
 	// collections brackets every statement with the element budget's release.
 	collections bool
+	// records frees the previous run's records when a run begins.
+	records bool
 }
 
 // pure is an operand whose evaluation cannot fail, so its order is immaterial.
@@ -588,9 +630,13 @@ func (e *cEmitter) sequenced(operands []Expr, body func(names []string) string) 
 }
 
 // narrowed checks v against the range of the feature it is written to.
-func cNarrowed(v string, r Range) string {
-	if r == RangeAny {
+// An unset value is checked only where strict.
+func cNarrowed(v string, t Type, r Range, strict bool) string {
+	switch {
+	case r == RangeAny:
 		return v
+	case t.MayUnset():
+		return fmt.Sprintf("sysml_narrow_opt(%s, %d, \"%s\", NULL, %t)", v, r.Lower(), r, strict)
 	}
 	return fmt.Sprintf("sysml_at_least(%s, %d, \"%s\")", v, r.Lower(), r)
 }
@@ -607,9 +653,15 @@ func (e *cEmitter) linef(format string, args ...any) {
 }
 
 func cType(t Type) string {
-	if t.IsEnum() || t.IsFn() {
+	if t.MayUnset() {
+		return "sysml_opt_" + cCapField(t.Concrete())
+	}
+	if t.IsEnum() || t.IsFn() || t.IsRec() {
 		if t.Many() {
 			return "sysml_seq_" + cSeqSuffix(t)
+		}
+		if t.IsRec() {
+			return "sysml_rec *"
 		}
 		if t.IsFn() {
 			return "sysml_fn"
@@ -671,7 +723,7 @@ func (e *cEmitter) function(fn *Func) {
 				e.linef(cAssign, cLocal(p.Name), v)
 			}
 		case p.Range != RangeAny:
-			e.linef(cAssign, cLocal(p.Name), cNarrowed(cLocal(p.Name), p.Range))
+			e.linef(cAssign, cLocal(p.Name), cNarrowed(cLocal(p.Name), p.Type, p.Range, true))
 		}
 	}
 	e.result = cType(fn.Result)
@@ -799,9 +851,9 @@ func escapingSeqs(s Stmt) []Var {
 func (e *cEmitter) stmt(s Stmt) {
 	switch s := s.(type) {
 	case Declare:
-		e.linef("%s %s = %s;", cType(s.T), cLocal(s.Name), cNarrowed(e.declInit(s), s.Range))
+		e.linef("%s %s = %s;", cType(s.T), cLocal(s.Name), cNarrowed(e.declInit(s), s.T, s.Range, false))
 	case Assign:
-		e.linef(cAssign, cLocal(s.Name), cNarrowed(e.expr(s.Value), s.Range))
+		e.linef(cAssign, cLocal(s.Name), cNarrowed(e.expr(s.Value), s.Value.Type(), s.Range, true))
 	case If:
 		e.linef("if (%s) {", e.expr(s.Cond))
 		e.indent++
@@ -843,7 +895,7 @@ func (e *cEmitter) stmt(s Stmt) {
 	case Sample:
 		e.linef("%s", e.sample(s))
 	case Return:
-		e.linef("{ %s sysml_r = %s; sysml_leave(); return sysml_r; }", e.result, cNarrowed(e.expr(s.Value), e.resultRange))
+		e.linef("{ %s sysml_r = %s; sysml_leave(); return sysml_r; }", e.result, cNarrowed(e.expr(s.Value), s.Value.Type(), e.resultRange, true))
 	default:
 		e.err = fmt.Errorf("codegen: C emitter has no case for %T", s)
 	}
@@ -859,6 +911,8 @@ func (e *cEmitter) declInit(d Declare) string {
 
 func cZero(t Type) string {
 	switch {
+	case t.MayUnset():
+		return fmt.Sprintf("((%s){0})", cType(t))
 	case t == TypeBool:
 		return "false"
 	case t.Many():
@@ -903,6 +957,9 @@ func (e *cEmitter) expr(x Expr) string {
 		}
 		if x.X.Type() == TypeNum {
 			return "sysml_num_real(" + e.expr(x.X) + ")"
+		}
+		if x.Exact {
+			return "sysml_to_real_exact(" + e.expr(x.X) + ")"
 		}
 		return "(sysml_real)" + e.expr(x.X)
 	case ToNum:
@@ -1000,6 +1057,9 @@ func (e *cEmitter) unary(x Unary) string {
 		if x.T == TypeInt {
 			return "sysml_neg(" + operand + ")"
 		}
+		if x.Exact {
+			return "(0.0 - " + operand + ")"
+		}
 		return "(-" + operand + ")"
 	}
 	e.err = fmt.Errorf("codegen: C emitter has no unary case for %s", x.Op)
@@ -1007,6 +1067,18 @@ func (e *cEmitter) unary(x Unary) string {
 }
 
 func (e *cEmitter) binary(x Binary) string {
+	if q, ok := exactQuotient(x.L); ok && isComparison(x.Op) {
+		return e.sequenced([]Expr{q.L, q.R}, func(v []string) string {
+			return fmt.Sprintf("({ sysml_nonzero(%s); %s; })", v[1], e.sequenced([]Expr{wholeOperand(x.R)}, func(c []string) string {
+				return fmt.Sprintf("(sysml_cmp_q(%s, %s, (__int128)%s) %s 0)", v[0], v[1], c[0], cOperator(x.Op))
+			}))
+		})
+	}
+	if q, ok := exactQuotient(x.R); ok && isComparison(x.Op) {
+		return e.sequenced([]Expr{wholeOperand(x.L), q.L, q.R}, func(v []string) string {
+			return fmt.Sprintf("(-sysml_cmp_q(%s, sysml_nonzero(%s), (__int128)%s) %s 0)", v[1], v[2], v[0], cOperator(x.Op))
+		})
+	}
 	if i, ok := widenedInt(x.L); ok && isComparison(x.Op) && !isWidenedInt(x.R) {
 		return e.sequenced([]Expr{i, x.R}, func(v []string) string {
 			return fmt.Sprintf("(sysml_cmp_ir(%s, %s) %s 0)", v[0], v[1], cOperator(x.Op))
@@ -1055,21 +1127,26 @@ func (e *cEmitter) strict(x Binary, l, r string) string {
 		return fmt.Sprintf("(sysml_ncmp(%s, %s) %s 0)", l, r, cOperator(x.Op))
 	}
 	switch x.Op {
-	case ast.OpAdd, ast.OpSub, ast.OpMul:
+	case ast.OpAdd, ast.OpSub:
 		if operands == TypeInt {
-			return fmt.Sprintf("sysml_%s(%s, %s)", map[ast.OperatorKind]string{ast.OpAdd: "add", ast.OpSub: "sub", ast.OpMul: "mul"}[x.Op], l, r)
+			return fmt.Sprintf("sysml_%s(%s, %s)", map[ast.OperatorKind]string{ast.OpAdd: "add", ast.OpSub: "sub"}[x.Op], l, r)
 		}
-		return fmt.Sprintf("sysml_finite(%s %s %s)", l, cOperator(x.Op), r)
+		return cUnsignedZero(x, fmt.Sprintf("sysml_finite(%s %s %s)", l, cOperator(x.Op), r))
+	case ast.OpMul:
+		if operands == TypeInt {
+			return fmt.Sprintf("sysml_mul(%s, %s)", l, r)
+		}
+		return cUnsignedZero(x, fmt.Sprintf("sysml_finite(%s * %s)", l, r))
 	case ast.OpDiv:
 		if operands == TypeInt {
 			return fmt.Sprintf("sysml_quot(%s, %s)", l, r)
 		}
-		return fmt.Sprintf("sysml_rdiv(%s, %s)", l, r)
+		return cUnsignedZero(x, fmt.Sprintf("sysml_rdiv(%s, %s)", l, r))
 	case ast.OpMod:
 		if operands == TypeInt {
 			return fmt.Sprintf("sysml_mod(%s, %s)", l, r)
 		}
-		return fmt.Sprintf("sysml_rmod(%s, %s)", l, r)
+		return cUnsignedZero(x, fmt.Sprintf("sysml_rmod(%s, %s)", l, r))
 	case ast.OpPow:
 		return e.pow(x, l, r)
 	case ast.OpLt, ast.OpLe, ast.OpGt, ast.OpGe, ast.OpEq, ast.OpNeq:
@@ -1079,6 +1156,17 @@ func (e *cEmitter) strict(x Binary, l, r string) string {
 	}
 	e.err = fmt.Errorf("codegen: C emitter has no binary case for %s", x.Op)
 	return "0"
+}
+
+// cUnsignedZero gives an exact Rational operation's zero result no sign.
+func cUnsignedZero(x Binary, r string) string {
+	if x.Whole && x.Guard {
+		return "sysml_whole(" + r + ")"
+	}
+	if x.Exact {
+		return "sysml_unsigned_zero(" + r + ")"
+	}
+	return r
 }
 
 // pow follows semantics.Pow: Integer ** Integer is an Integer, anything else a
@@ -1131,6 +1219,9 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	e.linef("sysml_steps = 0;")
 	if e.collections {
 		e.linef("sysml_run_begin();")
+	}
+	if e.records {
+		e.linef("sysml_recs_release();")
 	}
 	e.linef("if (setjmp(sysml_escape)) return 1;")
 	args := make([]string, len(fn.Params))
@@ -1187,23 +1278,28 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	e.linef("}")
 	e.indent--
 	e.linef("}")
+	result, res := "result", fn.Result
+	if res.MayUnset() {
+		e.linef("if (result.u) { puts(\"%s\"); return 0; }", runtime.UnsetText)
+		result, res = "result.v", res.Concrete()
+	}
 	switch {
-	case fn.Result.IsEnum() && !fn.Result.Many():
-		e.linef("sysml_print_enum(result);")
-	case fn.Result.IsFn() && !fn.Result.Many():
-		e.linef("sysml_print_fn(result);")
-	case fn.Result == TypeInt:
-		e.linef("printf(\"%%\" PRId64 \"\\n\", result);")
-	case fn.Result == TypeReal:
-		e.linef("sysml_print_real(result);")
-	case fn.Result == TypeBool:
-		e.linef("puts(result ? \"true\" : \"false\");")
-	case fn.Result == TypeNum:
-		e.linef("sysml_print_num(result);")
-	case fn.Result == TypeString:
-		e.linef("sysml_print_str(result);")
+	case res.IsEnum() && !res.Many():
+		e.linef("sysml_print_enum(%s);", result)
+	case res.IsFn() && !res.Many():
+		e.linef("sysml_print_fn(%s);", result)
+	case res == TypeInt:
+		e.linef("printf(\"%%\" PRId64 \"\\n\", %s);", result)
+	case res == TypeReal:
+		e.linef("sysml_print_real(%s);", result)
+	case res == TypeBool:
+		e.linef("puts(%s ? \"true\" : \"false\");", result)
+	case res == TypeNum:
+		e.linef("sysml_print_num(%s);", result)
+	case res == TypeString:
+		e.linef("sysml_print_str(%s);", result)
 	default:
-		e.linef("sysml_print_seq_%s(result);", cSeqSuffix(fn.Result))
+		e.linef("sysml_print_seq_%s(%s);", cSeqSuffix(res), result)
 	}
 	e.linef("return 0;")
 	e.indent--

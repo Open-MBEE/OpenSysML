@@ -84,6 +84,49 @@ func TestRuntimeRobustnessConstraintBodySteps(t *testing.T) {
 		}
 	})
 
+	t.Run("a root unvalued declaration is missing until written and reaches the verdict", func(t *testing.T) {
+		env := &stmtEnv{
+			data:          mapFrame(map[string]Value{"x": constInt(9)}),
+			locals:        make(map[string]Value),
+			unvaluedLocal: map[string]bool{"x": true},
+		}
+		ctx := &Context{}
+		if _, ok, err := env.localFrame().read(ctx, "x"); ok || !errors.Is(err, ErrNoValue) {
+			t.Fatalf("read of unvalued x = %v, %v, want ErrNoValue", ok, err)
+		}
+		if !env.assignLocal(nil, "x", constInt(5)) {
+			t.Fatal("write to root unvalued x did not bind it")
+		}
+		if value, ok, err := env.localFrame().read(ctx, "x"); err != nil || !ok || FormatValue(value) != "5" {
+			t.Fatalf("read of bound x = %s, %v, %v; want 5", FormatValue(value), ok, err)
+		}
+
+		src := `package test {
+			private import ScalarValues::*;
+			part def Rig {
+				attribute x : Integer = 9;
+				constraint writes {
+					attribute x : Integer;
+					assign x := 5;
+					x == 5
+				}
+			}
+		}`
+		ctx, idx := contextForSource(t, src)
+		rig := lookupOne(t, idx, "test::Rig")
+		feat := featureNamed(ctx, rig, "writes")
+		if feat == nil || feat.Symbol == nil {
+			t.Fatal("constraint writes not found")
+		}
+		satisfied, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), nil)
+		if err != nil {
+			t.Fatalf("err = %v", err)
+		}
+		if !satisfied {
+			t.Error("the constraint result must read the root local's bound value")
+		}
+	})
+
 	t.Run("two checks of one body share no state", func(t *testing.T) {
 		src := `package test {
 			private import ScalarValues::*;

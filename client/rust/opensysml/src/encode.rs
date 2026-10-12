@@ -3,11 +3,12 @@
 use crate::capabilities::{
     upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_COMPLEX_VALUES, CAPABILITY_ENUM_VALUES,
     CAPABILITY_FUNCTION_VALUES, CAPABILITY_INFINITY_VALUE, CAPABILITY_MEASUREMENT_REFS,
-    CAPABILITY_METAOBJECT_VALUES, CAPABILITY_SET_VALUES, CAPABILITY_STRUCTURED_VALUES,
-    CAPABILITY_TENSOR_VALUES,
+    CAPABILITY_METAOBJECT_VALUES, CAPABILITY_RATIONAL_VALUES, CAPABILITY_SET_VALUES,
+    CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES,
 };
-use crate::domain::{Capabilities, Magnitude, Quantity, UnitTerm, Value};
+use crate::domain::{rational_to_wire, Capabilities, Magnitude, Quantity, UnitTerm, Value};
 use crate::error::Error;
+use crate::rational::Rational;
 use crate::wire;
 
 /// Deepest nesting a sent value may have, so a cyclic-looking builder cannot exhaust the stack.
@@ -29,13 +30,20 @@ fn require(capabilities: &Capabilities, capability: &str) -> Result<(), Error> {
     capabilities.require(capability, upgrade_remedy(capability))
 }
 
-/// Refuse an Integer beyond int64 to a service that would read its arm as null.
+/// Refuse an Integer beyond int64 or an exact Rational no `f64` holds to a service that would read its arm as null.
 fn require_magnitudes<'a>(
     capabilities: &Capabilities,
-    mut magnitudes: impl Iterator<Item = &'a Magnitude>,
+    magnitudes: impl Iterator<Item = &'a Magnitude>,
 ) -> Result<(), Error> {
-    if magnitudes.any(|magnitude| matches!(magnitude, Magnitude::BigInteger(_))) {
-        require(capabilities, CAPABILITY_BIG_INT_VALUES)?;
+    for magnitude in magnitudes {
+        match magnitude {
+            Magnitude::BigInteger(_) => require(capabilities, CAPABILITY_BIG_INT_VALUES)?,
+            Magnitude::Rational(v) if v.exact_f64().is_none() => {
+                require(capabilities, CAPABILITY_RATIONAL_VALUES)?
+            }
+            Magnitude::Rational(_) => {}
+            Magnitude::Integer(_) | Magnitude::Real(_) => {}
+        }
     }
     Ok(())
 }
@@ -48,11 +56,18 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
         )));
     }
     let nested = |item: &Value| encode(item, capabilities, depth + 1);
-    Ok(match value {
+    let mut sent = match value {
         Value::Integer(v) => kind(Kind::IntValue(*v)),
         Value::BigInteger(v) => {
             require(capabilities, CAPABILITY_BIG_INT_VALUES)?;
             kind(Kind::BigIntValue(v.as_str().to_owned()))
+        }
+        Value::Rational(v) => {
+            require_magnitudes(
+                capabilities,
+                std::iter::once(&Magnitude::Rational(v.clone())),
+            )?;
+            kind(Kind::RationalValue(rational_to_wire(v)))
         }
         Value::Real(v) => kind(Kind::RealValue(*v)),
         Value::Boolean(v) => kind(Kind::BoolValue(*v)),
@@ -112,6 +127,7 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
                         kind(match component {
                             Magnitude::Integer(v) => Kind::IntValue(*v),
                             Magnitude::BigInteger(v) => Kind::BigIntValue(v.as_str().to_owned()),
+                            Magnitude::Rational(v) => Kind::RationalValue(rational_to_wire(v)),
                             Magnitude::Real(v) => Kind::RealValue(*v),
                         })
                     })
@@ -213,7 +229,51 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
                 "undetermined is an answer the model leaves open, not an argument".to_owned(),
             ))
         }
-    })
+    };
+    if !capabilities.has(CAPABILITY_RATIONAL_VALUES) {
+        rationals_as_reals(&mut sent);
+    }
+    Ok(sent)
+}
+
+// Rewrite in place each Rational arm of this value an f64 holds exactly as that f64:
+// the form a service without rational_values reads. Nested values are encoded on their own.
+fn rationals_as_reals(value: &mut wire::Value) {
+    use wire::value::Kind;
+    match &mut value.kind {
+        Some(Kind::RationalValue(terms)) => {
+            if let Some(x) = wire_exact_f64(terms) {
+                value.kind = Some(Kind::RealValue(x));
+            }
+        }
+        Some(Kind::Quantity(quantity)) => quantity_rational_as_real(quantity),
+        Some(Kind::Vector(vector)) => vector.components.iter_mut().for_each(rationals_as_reals),
+        Some(Kind::VectorQuantity(vector)) => vector
+            .components
+            .iter_mut()
+            .for_each(quantity_rational_as_real),
+        Some(Kind::TensorQuantity(tensor)) => tensor
+            .components
+            .iter_mut()
+            .for_each(quantity_rational_as_real),
+        _ => {}
+    }
+}
+
+/// Rewrite a quantity's Rational magnitude an f64 holds exactly as `real_magnitude`.
+pub(crate) fn quantity_rational_as_real(quantity: &mut wire::Quantity) {
+    use wire::quantity::Magnitude;
+    if let Some(Magnitude::RationalMagnitude(terms)) = &quantity.magnitude {
+        if let Some(x) = wire_exact_f64(terms) {
+            quantity.magnitude = Some(Magnitude::RealMagnitude(x));
+        }
+    }
+}
+
+pub(crate) fn wire_exact_f64(terms: &wire::Rational) -> Option<f64> {
+    Rational::parse(&terms.numerator, &terms.denominator)
+        .ok()
+        .and_then(|rational| rational.exact_f64())
 }
 
 fn unit_label(unit: &str) -> &str {
@@ -263,6 +323,9 @@ pub(crate) fn quantity_to_wire(q: &Quantity) -> Result<wire::Quantity, Error> {
             Magnitude::BigInteger(v) => {
                 wire::quantity::Magnitude::BigIntMagnitude(v.as_str().to_owned())
             }
+            Magnitude::Rational(v) => {
+                wire::quantity::Magnitude::RationalMagnitude(rational_to_wire(v))
+            }
             Magnitude::Real(v) => wire::quantity::Magnitude::RealMagnitude(*v),
         }),
     })
@@ -304,6 +367,7 @@ mod tests {
         CAPABILITY_METAOBJECT_VALUES,
         CAPABILITY_INFINITY_VALUE,
         CAPABILITY_BIG_INT_VALUES,
+        CAPABILITY_RATIONAL_VALUES,
     ];
 
     fn capabilities(names: &[&str]) -> Capabilities {
@@ -591,6 +655,106 @@ mod tests {
                 other => panic!("{value:?}: expected {expected}, got {other:?}"),
             }
         }
+    }
+
+    #[test]
+    fn an_exact_rational_needs_rational_values_bare_or_nested() {
+        let third = crate::Rational::parse("1", "3").unwrap();
+        let quantity = metres(Magnitude::Rational(third.clone()));
+        let without: Vec<&str> = ALL
+            .iter()
+            .copied()
+            .filter(|name| *name != CAPABILITY_RATIONAL_VALUES)
+            .collect();
+        for value in [
+            Value::Rational(third.clone()),
+            Value::Sequence(vec![Value::Sequence(vec![Value::Rational(third.clone())])]),
+            Value::Quantity(quantity.clone()),
+            Value::Vector(Vector {
+                components: vec![Magnitude::Integer(1), Magnitude::Rational(third.clone())],
+            }),
+            Value::VectorQuantity(VectorQuantity::new(vec![quantity.clone()]).unwrap()),
+        ] {
+            match value_to_wire(&value, &capabilities(&without)) {
+                Err(Error::MissingCapability { capability, .. }) => {
+                    assert_eq!(capability, CAPABILITY_RATIONAL_VALUES, "{value:?}")
+                }
+                other => panic!("{value:?}: expected rational_values, got {other:?}"),
+            }
+            let sent = value_to_wire(&value, &capabilities(ALL)).unwrap();
+            assert!(
+                Value::try_from(sent).unwrap().same_value(&value),
+                "{value:?}"
+            );
+        }
+        assert!(Value::Rational(third.clone()).same_value(&Value::Real(third.to_f64())));
+        let kilometres = Quantity {
+            magnitude: Magnitude::Rational(third),
+            unit: "km".to_owned(),
+            unit_term: Some(UnitTerm {
+                scale_num: 1000.0,
+                scale_den: 1.0,
+                factors: quantity.unit_term.clone().unwrap().factors,
+            }),
+        };
+        let metres_value = metres(Magnitude::Rational(
+            crate::Rational::parse("1000", "3").unwrap(),
+        ));
+        assert!(Value::Quantity(kilometres).same_value(&Value::Quantity(metres_value)));
+    }
+
+    #[test]
+    fn a_rational_an_f64_holds_is_sent_exactly_or_as_that_f64_to_an_older_service() {
+        use wire::value::Kind;
+        let quarter = crate::Rational::parse("1", "4").unwrap();
+        let without: Vec<&str> = ALL
+            .iter()
+            .copied()
+            .filter(|name| *name != CAPABILITY_RATIONAL_VALUES)
+            .collect();
+        let value = Value::Rational(quarter.clone());
+        match value_to_wire(&value, &capabilities(ALL)).unwrap().kind {
+            Some(Kind::RationalValue(terms)) => {
+                assert_eq!(
+                    (terms.numerator.as_str(), terms.denominator.as_str()),
+                    ("1", "4")
+                )
+            }
+            other => panic!("expected rational_value, got {other:?}"),
+        }
+        assert_eq!(
+            value_to_wire(&value, &capabilities(&without)).unwrap().kind,
+            Some(Kind::RealValue(0.25))
+        );
+        let nested = Value::Sequence(vec![value.clone()]);
+        match value_to_wire(&nested, &capabilities(&without))
+            .unwrap()
+            .kind
+        {
+            Some(Kind::Sequence(sequence)) => {
+                assert_eq!(sequence.elements[0].kind, Some(Kind::RealValue(0.25)))
+            }
+            other => panic!("expected a sequence, got {other:?}"),
+        }
+        match value_to_wire(
+            &Value::Quantity(metres(Magnitude::Rational(quarter))),
+            &capabilities(&without),
+        )
+        .unwrap()
+        .kind
+        {
+            Some(Kind::Quantity(quantity)) => assert_eq!(
+                quantity.magnitude,
+                Some(wire::quantity::Magnitude::RealMagnitude(0.25))
+            ),
+            other => panic!("expected a quantity, got {other:?}"),
+        }
+        assert_eq!(
+            value_to_wire(&Value::Real(0.25), &capabilities(ALL))
+                .unwrap()
+                .kind,
+            Some(Kind::RealValue(0.25))
+        );
     }
 
     #[test]

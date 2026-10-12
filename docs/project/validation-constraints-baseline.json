@@ -677,7 +677,7 @@
     {
       "name": "validateNamespaceDistinguishablity",
       "source": "kerml",
-      "status": "faithful"
+      "status": "approximate"
     },
     {
       "name": "validateObjectiveMembershipIsComposite",

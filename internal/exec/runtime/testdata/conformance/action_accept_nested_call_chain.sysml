@@ -29,7 +29,8 @@ package test {
 		attribute received : Integer = 0;
 		first start;
 		fork split;
-		action m : Mid2 { assign received := m.got; }
+		action m : Mid2;
+		action take { assign received := m.got; }
 		action gate1;
 		action gate2;
 		action gate3;
@@ -42,7 +43,8 @@ package test {
 		succession first gate1 then gate2;
 		succession first gate2 then gate3;
 		succession first gate3 then sender;
-		succession first m then sync;
+		succession first m then take;
+		succession first take then sync;
 		succession first sender then sync;
 		succession first sync then done;
 	}

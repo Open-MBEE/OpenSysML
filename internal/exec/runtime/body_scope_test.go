@@ -54,17 +54,17 @@ func TestBodyScopeImportSpellings(t *testing.T) {
 		if got, want := val.Quantity().Unit.String(), "s"; got != want {
 			t.Errorf("%s import: unit of t = %q, want %q", visibility, got, want)
 		}
-		if got, want := val.Quantity().Num.Real, 0.5; got != want {
+		if got, want := val.Quantity().Num.AsReal(), 0.5; got != want {
 			t.Errorf("%s import: magnitude of t = %v, want %v", visibility, got, want)
 		}
 		outputs[visibility] = val
 	}
 
 	private, public := outputs["private"], outputs["public"]
-	if private.Quantity().Num.Real != public.Quantity().Num.Real ||
+	if private.Quantity().Num.AsReal() != public.Quantity().Num.AsReal() ||
 		private.Quantity().Unit.String() != public.Quantity().Unit.String() {
 		t.Errorf("private import gave %v %s, public import gave %v %s; want the same",
-			private.Quantity().Num.Real, private.Quantity().Unit,
-			public.Quantity().Num.Real, public.Quantity().Unit)
+			private.Quantity().Num.AsReal(), private.Quantity().Unit,
+			public.Quantity().Num.AsReal(), public.Quantity().Unit)
 	}
 }

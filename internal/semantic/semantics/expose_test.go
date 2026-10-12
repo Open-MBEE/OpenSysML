@@ -208,6 +208,52 @@ func TestExposedElementsOfANonView(t *testing.T) {
 	}
 }
 
+func TestExposedMembersIncludesUnnamedAndLeavesExposedElementsUnchanged(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `
+		package Model {
+			part vehicle;
+			requirement r1;
+			satisfy r1 by vehicle;
+			part unrelated;
+		}
+		view matrix { expose Model::**; filter @SysML::SatisfyRequirementUsage; }
+	`)
+	view := sym(t, root, "matrix")
+	exposed, err := m.ExposedElements(view)
+	if err != nil {
+		t.Fatalf("ExposedElements: %v", err)
+	}
+	if got := sortedNames(exposed); slices.Contains(got, "") {
+		t.Fatalf("ExposedElements unexpectedly contains unnamed members: %v", got)
+	}
+	members, err := m.ExposedMembers(view)
+	if err != nil {
+		t.Fatalf("ExposedMembers: %v", err)
+	}
+	if len(members) != 1 {
+		t.Fatalf("ExposedMembers = %v, want the one satisfy member", sortedNames(members))
+	}
+	if usage, ok := members[0].Decl.(*ast.Usage); !ok || usage.Kind != ast.UsageSatisfy {
+		t.Fatalf("ExposedMembers[0] = %T (%v), want unnamed satisfy usage", members[0].Decl, members[0].Kind)
+	}
+}
+
+func TestExposedMembersAppliesInheritedAndExposeFilters(t *testing.T) {
+	m, root := buildModel(t, `
+		metadata def Pick;
+		metadata def Include;
+		package Model { #Pick part def A; #Pick #Include part def B; #Include part def C; }
+		view def Base { filter @Pick; expose Model::*[@Include]; }
+		view def Child :> Base { filter @Include; }
+		view v : Child;
+	`)
+	members, err := m.ExposedMembers(sym(t, root, "v"))
+	if err != nil {
+		t.Fatalf("ExposedMembers: %v", err)
+	}
+	wantNames(t, "ExposedMembers(v)", sortedNames(members), []string{"B"})
+}
+
 // A filtered recursive expose reaches an annotated element through namespaces
 // the filter itself rejects, as a lookup through the same expose does.
 func TestExposedElementsRecursiveExposeWithAFilterReachesNestedElements(t *testing.T) {

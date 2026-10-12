@@ -6,7 +6,7 @@ package runtime
 // derivable reports whether fv's value is derived from what it reads: bound by `=`,
 // neither a fallback default nor assigned by a run nor propagated by a binding.
 func (ctx *Context) derivable(fv *FeatureValue) bool {
-	return !fv.Written && !fv.BindingDerived && !fv.Feature.DefaultIsFallback()
+	return !fv.Written && !fv.BindingDerived && (fv.Feature == nil || !fv.Feature.DefaultIsFallback())
 }
 
 // derivation is a `=` value being derived; stale once a value it read was written
@@ -26,15 +26,15 @@ func (ctx *Context) deriveFeatureValue(inst *Instance, fv *FeatureValue, name st
 		clean, reads := ctx.endTrace(top)
 		return val, clean, reads, err
 	}
-	for {
-		ctx.forgetReads(fv)
+	var clean bool
+	var reads []sharedRead
+	val, err := ctx.deriveWith(fv, func() (Value, error) {
 		top := ctx.beginTrace(inst, fv)
-		val, stale, err := ctx.deriveOnce(inst, fv, name)
-		clean, reads := ctx.endTrace(top)
-		if err != nil || !stale {
-			return val, clean, reads, err
-		}
-	}
+		value, err := ctx.evalFeatureValueDefault(inst, fv, name)
+		clean, reads = ctx.endTrace(top)
+		return value, err
+	})
+	return val, clean, reads, err
 }
 
 // forgetReads delists fv from what its last derivation read: this one reads afresh,
@@ -98,21 +98,55 @@ func (ctx *Context) forgetEdgesOf(objects []*Instance) {
 	}
 }
 
-// deriveOnce derives fv under a frame of its own, reporting whether it went stale.
-func (ctx *Context) deriveOnce(inst *Instance, fv *FeatureValue, name string) (val Value, stale bool, err error) {
+// deriveWith evaluates fv under a frame of its own, retrying when it went stale.
+func (ctx *Context) deriveWith(fv *FeatureValue, eval func() (Value, error)) (Value, error) {
+	for {
+		ctx.forgetReads(fv)
+		val, stale, err := ctx.deriveOnceWith(fv, eval)
+		if err != nil || !stale {
+			return val, err
+		}
+	}
+}
+
+// deriveOnceWith evaluates one dependency-tracked attempt and reports invalidation.
+func (ctx *Context) deriveOnceWith(fv *FeatureValue, eval func() (Value, error)) (val Value, stale bool, err error) {
 	top := len(ctx.deriving)
 	ctx.deriving = append(ctx.deriving, derivation{fv: fv})
 	defer func() {
 		stale = ctx.deriving[top].stale
 		ctx.deriving = ctx.deriving[:top]
 	}()
-	val, err = ctx.evalFeatureValueDefault(inst, fv, name)
+	val, err = eval()
 	return val, false, err
+}
+
+// derivingValue reports whether fv is already on the active derivation stack.
+func (ctx *Context) derivingValue(fv *FeatureValue) bool {
+	for i := range ctx.deriving {
+		if ctx.deriving[i].fv == fv {
+			return true
+		}
+	}
+	return false
 }
 
 // noteRead lists the value being derived, if any, as a dependent of the fv just read,
 // held by inst, and fv among what it reads; a derivation being observed sees the read.
 func (ctx *Context) noteRead(inst *Instance, fv *FeatureValue) {
+	if len(ctx.readRecorders) != 0 {
+		reads := ctx.readRecorders[len(ctx.readRecorders)-1]
+		found := false
+		for _, read := range reads {
+			if read == fv {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ctx.readRecorders[len(ctx.readRecorders)-1] = append(reads, fv)
+		}
+	}
 	if len(ctx.tracing) != 0 {
 		ctx.observeRead(inst, fv)
 	}
@@ -299,6 +333,8 @@ func (ctx *Context) invalidateDependents(fv *FeatureValue) {
 // invalidate unmaterializes the dependents, transitively, returning those being
 // derived right now: each stays listed, its derivation stale as its source changed under it.
 func (ctx *Context) invalidate(dependents []*FeatureValue) (deriving []*FeatureValue) {
+	endWrite := ctx.beginFeatureWrite(nil)
+	defer endWrite()
 	for _, dep := range dependents {
 		switch {
 		case ctx.markStale(dep):
@@ -309,7 +345,11 @@ func (ctx *Context) invalidate(dependents []*FeatureValue) (deriving []*FeatureV
 			ctx.invalidateDependents(dep)
 		default:
 			ctx.noteProbeWrite(dep)
+			ctx.noteFeatureWrite(dep)
 			dep.Value, dep.Values, dep.Materialized, dep.intrinsic = Value{}, Value{}, false, false
+			if dep.body != nil && dep.body.owner != nil {
+				delete(dep.body.owner.vars, dep.body.name)
+			}
 			ctx.invalidateDependents(dep)
 		}
 	}

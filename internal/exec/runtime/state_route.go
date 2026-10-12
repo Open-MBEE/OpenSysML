@@ -75,6 +75,17 @@ type routeEffect struct {
 	segment  *lower.Transition
 }
 
+func cloneRouteEntryEffects(effects map[*ast.StateRegion][]routeEffect) map[*ast.StateRegion][]routeEffect {
+	if effects == nil {
+		return nil
+	}
+	cloned := make(map[*ast.StateRegion][]routeEffect, len(effects))
+	for region, routeEffects := range effects {
+		cloned[region] = slices.Clone(routeEffects)
+	}
+	return cloned
+}
+
 // effects are the behaviors the route's segments perform, in path order, each
 // with the state enclosing it.
 func (r route) effects(g *lower.StateGraph) []routeEffect {
@@ -752,6 +763,10 @@ func (e *StateExecutor) travel(trans *lower.Transition, from *ast.StateNode, r r
 	defer func() { e.leftAhead, e.enteredAhead = savedLeft, savedEntered }()
 	if err := e.moveWhole(func() error { return e.travelResolving(trans, from, r, exits, enters, move) }); err != nil {
 		return err
+	}
+	if e.state == StateTerminated {
+		clear(e.enteredAhead)
+		return nil
 	}
 	return e.entriesSettled()
 }

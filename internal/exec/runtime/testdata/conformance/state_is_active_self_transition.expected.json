@@ -1,0 +1,33 @@
+{
+  "type": "state",
+  "libraries": true,
+  "events": [
+    {
+      "signal": "Again"
+    }
+  ],
+  "finalState": "fill",
+  "stateVisits": [
+    "fill",
+    "fill"
+  ],
+  "trace": true,
+  "outputs": {
+    "entries": {
+      "type": "Integer",
+      "value": 2
+    },
+    "activeInEntry": {
+      "type": "Boolean",
+      "value": true
+    },
+    "activeInExit": {
+      "type": "Boolean",
+      "value": true
+    },
+    "activeInEffect": {
+      "type": "Boolean",
+      "value": false
+    }
+  }
+}

@@ -195,12 +195,40 @@ func (m *migration) planDocument(d *sysmlv1.DocGenDocument) {
 	if title == "" {
 		title = "Document"
 	}
+	if m.strict {
+		m.strictDocument(d, host, title)
+		return
+	}
 	dp := &docPlan{d: d, host: host, refused: map[string]bool{}}
 	dp.root = &sectionPlan{v: d.Root, title: title, names: columnNames{}}
 	dp.root.name = m.viewName(host, title+docSuffix)
 	m.planSection(dp, dp.root)
 	m.nameAnchors(dp)
 	m.extras[host] = append(m.extras[host], func() { m.writeDocument(dp) })
+}
+
+// strictDocument accounts for a document a strict migration does not write,
+// before any of its content is planned: a comment where the Document would
+// be, and an Unmapped entry for it and for every view and paragraph in it.
+func (m *migration) strictDocument(d *sysmlv1.DocGenDocument, host *sysmlv1.Element, title string) {
+	note := "its v2 form is a Document of OpenSysML's DocumentQueries library, which a strict migration does not name"
+	m.extras[host] = append(m.extras[host], func() {
+		m.w.lines(commentLines("not migrated: «Document» '" + title + "' — " + note))
+	})
+	m.report.Entries = append(m.report.Entries, *m.docEntry(d, Unmapped, "", note))
+	var walk func(v *sysmlv1.DocGenView)
+	walk = func(v *sysmlv1.DocGenView) {
+		if v.Class != d.Class {
+			m.report.Entries = append(m.report.Entries, *m.nodeEntry(v.Class, viewApplication(v.Class), Unmapped, "it belongs to «Document» '"+title+"', which is not migrated: "+note))
+		}
+		for _, p := range v.Paragraphs {
+			m.report.Entries = append(m.report.Entries, *m.nodeEntry(p.Comment, p.Application, Unmapped, "it belongs to «Document» '"+title+"', which is not migrated: "+note))
+		}
+		for _, c := range v.Children {
+			walk(c)
+		}
+	}
+	walk(d.Root)
 }
 
 // nameAnchors names the anchors after their definitions, clear of every
@@ -984,7 +1012,7 @@ func (c *chain) keepDiagrams(s *sysmlv1.DocGenStep, keep func(*sysmlv1.Diagram) 
 }
 
 // empty reports whether the chain has no elements to work on.
-func (c *chain) empty() bool { return c.ctx.op == "" && c.ctx.lit == "" }
+func (c *chain) empty() bool { return !c.ctx.isCall() && c.ctx.lit == "" }
 
 // idle reports whether a query step has nothing at all to transform.
 func (c *chain) idle() bool {
@@ -1636,7 +1664,7 @@ func (c *chain) filterTypes(s *sysmlv1.DocGenStep, tag string) {
 	if c.empty() {
 		return
 	}
-	l := &lowered{}
+	l := &lowered{perRow: c.perRow}
 	kept := c.m.typedRows(c.ctx, refs, true, false, l)
 	if l.refused != "" {
 		c.fail(s, l.refused)
@@ -1649,7 +1677,11 @@ func (c *chain) filterTypes(s *sysmlv1.DocGenStep, tag string) {
 		c.note("elements of the stereotypes specializing " + strings.Join(c.labels(refs), ", ") + " are kept too")
 	}
 	if s.Application.Tag("include") == "false" {
-		c.ctx = qcall("Except", qarg1("source", c.ctx), qarg1("exclude", kept))
+		source := c.ctx
+		if !c.perRow {
+			source = qshared(source)
+		}
+		c.ctx = qcall("Except", qarg1("source", source), qarg1("exclude", kept))
 		return
 	}
 	c.ctx = kept
@@ -2810,7 +2842,7 @@ func (c *chain) dynamicView(s *sysmlv1.DocGenStep) {
 // writeDocument writes a planned document: its queries first, then the
 // Document definition holding its sections and blocks.
 func (m *migration) writeDocument(dp *docPlan) {
-	m.writeQueries(dp.root, m.queryPrefix(dp.host))
+	m.writeQueries(dp.root, m.queryPrefix(dp.host), dp.host)
 	var notes []string
 	target := m.qualified(append(m.segments(dp.host), dp.root.name))
 	dp.target = target
@@ -2854,10 +2886,10 @@ func uniqueNotes(notes []string) []string {
 }
 
 // writeQueries writes the row queries of every query-backed block under sec.
-func (m *migration) writeQueries(sec *sectionPlan, prefix string) {
+func (m *migration) writeQueries(sec *sectionPlan, prefix string, host *sysmlv1.Element) {
 	for _, cp := range m.blocks(sec) {
 		if cp.query != "" && cp.refused == "" && cp.table == nil {
-			m.writeQueryDef(cp.query, prefix, cp.rows)
+			m.writeQueryDef(cp.query, prefix, host, cp.rows)
 		}
 	}
 }

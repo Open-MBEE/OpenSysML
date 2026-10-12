@@ -457,7 +457,7 @@ func TestSubjectRedefinesEveryInheritedSubject(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Both.%s: %v", name, err)
 		}
-		if got.Kind != ValConst || got.Const.Real != 2.5 {
+		if got.Kind != ValConst || got.Const.AsReal() != 2.5 {
 			t.Errorf("Both.%s = %s, want 2.5 through the one subject", name, FormatValue(got))
 		}
 	}

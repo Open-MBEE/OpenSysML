@@ -93,6 +93,15 @@ test("an integer beyond int64 travels as its decimal and reads as one bigint", (
   });
   assert.ok(valuesEqual(back, { kind: "real", value: 2 ** 70 }));
   assert.ok(!valuesEqual(back, { kind: "real", value: 2 ** 69 }));
+
+  // A Rational meets a Real at Real precision; an Integer meets one exactly.
+  const third: SysMLValue = { kind: "rational", numerator: 1n, denominator: 3n };
+  assert.ok(valuesEqual(third, { kind: "real", value: 1 / 3 }));
+  assert.ok(valuesEqual({ kind: "real", value: 1 / 3 }, third));
+  assert.ok(!valuesEqual(third, { kind: "real", value: 0.3333 }));
+  assert.ok(valuesEqual({ kind: "rational", numerator: 1n, denominator: 4n }, { kind: "real", value: 0.25 }));
+  assert.ok(!valuesEqual(third, { kind: "rational", numerator: 6004799503160661n, denominator: 18014398509481984n }));
+  assert.ok(!valuesEqual({ kind: "int", value: 2n ** 53n + 1n }, { kind: "real", value: 2 ** 53 }));
   assert.throws(
     () => decodeValue(create(ValueSchema, { kind: { case: "bigIntValue", value: "1e30" } })),
     MalformedValueError,

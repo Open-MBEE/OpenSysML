@@ -2,7 +2,7 @@
   "type": "instance",
   "instantiate": "test::Car",
   "slots": {
-    "enginePower": {"type": "Real", "value": 250.0},
-    "seatCount": {"type": "Real", "value": 4.0}
+    "enginePower": {"type": "Rational", "value": "250.0"},
+    "seatCount": {"type": "Rational", "value": "4.0"}
   }
 }

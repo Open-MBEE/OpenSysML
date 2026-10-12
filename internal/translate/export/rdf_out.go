@@ -136,8 +136,10 @@ const (
 	xEndRole              = "endRole"
 	xEndName              = "endName"
 	// The ReferencesKeyword a named end spells, when it is not `::>`.
-	xEndReferencesKeyword         = "endReferencesKeyword"
-	xEndForm                      = "endForm"
+	xEndReferencesKeyword = "endReferencesKeyword"
+	xEndForm              = "endForm"
+	// The expression node an indexed end (`s.y#(1)`) selects one element of its feature with.
+	xEndElement                   = "endElement"
 	xSourceMultiplicityBeforeThen = "sourceMultiplicityBeforeThen"
 	xConjugatedTyping             = "conjugatedTyping"
 	xEndVerb                      = "endVerb"
@@ -272,6 +274,9 @@ type mintedSubject struct{ iri, fqn, at string }
 type ModelDocument struct {
 	File *source.SourceFile
 	Root *ast.RootNamespace
+	// Referenced is a document analyzed with the model but not written: a
+	// reference into it links the id its element is written under on its own.
+	Referenced bool
 }
 
 // modelEncoders are the encoders of one model's documents, over one analysis.
@@ -315,7 +320,8 @@ func (m *modelEncoders) declaringEncoder(node ast.Node) *encoder {
 // document to an element another declares links the subject that document
 // writes for it, as a reference within one document does. Each document's
 // root elements name it (sysx:sourceDocument), since one graph no longer keeps
-// the documents apart.
+// the documents apart. A Referenced document's elements are left out; its
+// declarations' ids are still checked against those the written documents mint.
 func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) {
 	out, _, _, err := modelToRDF(documents, form)
 	return out, err
@@ -350,15 +356,20 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 			e.ids.qualified = true
 		}
 	}
-	out := rdf.NewGraph()
 	// declaredIn is the document and declaration each subject was minted for:
 	// two documents declaring one subject would merge two elements into one.
 	declaredIn := map[string]mintedSubject{}
 	for i, e := range encoders {
-		if err := e.encodeDocument(documents[i].Root); err != nil {
-			return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+		var minted []mintedSubject
+		if documents[i].Referenced {
+			minted = e.declaredSubjects()
+		} else {
+			if err := e.encodeDocument(documents[i].Root); err != nil {
+				return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+			}
+			minted = e.minted
 		}
-		for _, minted := range e.minted {
+		for _, minted := range minted {
 			if prior, taken := declaredIn[minted.iri]; taken {
 				return nil, nil, nil, &UnsupportedError{
 					What: fmt.Sprintf("the declaration of %s at %s", minted.fqn, minted.at),
@@ -366,20 +377,87 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 				}
 			}
 		}
-		for _, minted := range e.minted {
+		for _, minted := range minted {
 			declaredIn[minted.iri] = minted
 		}
+	}
+	out := mergeDocumentGraphs(encoders, documents)
+	// Each document's encoder annotated its collections from its own triples,
+	// in their order, and no two documents declare one subject (refused above).
+	out.MarkCollectionsSettled()
+	return out, res, encoders, nil
+}
+
+// mergeDocumentGraphs is the written documents' graphs as one (a Referenced
+// document's are left out), in document order, each triple once, with each
+// document's roots naming it (sysx:sourceDocument).
+//
+// It is the graph adding every triple in turn would build, without testing every
+// triple against a set of all the others: a document's own graph holds each of
+// its triples once, so a triple can repeat only across documents, and then only
+// about a subject more than one document states (a library element several
+// reference). Only those subjects' triples are tested.
+func mergeDocumentGraphs(encoders []*encoder, documents []ModelDocument) *rdf.Graph {
+	stated := map[rdf.Term]int{} // subject to the number of documents stating it
+	total := 0
+	for i, e := range encoders {
+		if documents[i].Referenced {
+			continue
+		}
+		for _, subject := range e.graph.Subjects() {
+			stated[subject]++
+		}
+		total += e.graph.Len()
+	}
+	prefixes := map[string]string{}
+	triples := make([]rdf.Triple, 0, total+len(encoders))
+	seen := map[rdf.Triple]bool{} // the triples of subjects more than one document states
+	add := func(t rdf.Triple) {
+		if stated[t.Subject] > 1 {
+			if seen[t] {
+				return
+			}
+			seen[t] = true
+		}
+		triples = append(triples, t)
+	}
+	for i, e := range encoders {
+		if documents[i].Referenced {
+			continue
+		}
 		for prefix, ns := range e.graph.Prefixes {
-			out.Prefixes[prefix] = ns
+			prefixes[prefix] = ns
 		}
 		for _, triple := range e.graph.Triples() {
-			out.AddTriple(triple)
+			add(triple)
 			if triple.Predicate.Value == rdf.OpenSysML+xSourceLanguage {
-				out.Add(triple.Subject, rdf.OpenSysMLTerm(xSourceDocument), rdf.String(documents[i].File.Name()))
+				add(rdf.Triple{Subject: triple.Subject, Predicate: rdf.OpenSysMLTerm(xSourceDocument), Object: rdf.String(documents[i].File.Name())})
 			}
 		}
 	}
-	return out, res, encoders, nil
+	return rdf.NewGraphOf(triples, prefixes)
+}
+
+// declaredSubjects are the subjects the document mints for its named
+// declarations and those carrying an id of their own, read from what collect
+// fixed, in source order, without encoding it. Every other subject is derived
+// under a named owner's, so another document reaches it only by also declaring
+// that owner.
+func (e *encoder) declaredSubjects() []mintedSubject {
+	nodes := make([]ast.Node, 0, len(e.fqn))
+	for node := range e.fqn {
+		el, identified := e.ids.byNode[node]
+		if name, _ := declaredNameAndMembers(node); name != "" || identified && el.source != identity.SourceDerived {
+			nodes = append(nodes, node)
+		}
+	}
+	slices.SortFunc(nodes, func(a, b ast.Node) int { return a.Span().Offset - b.Span().Offset })
+	out := make([]mintedSubject, 0, len(nodes))
+	for _, node := range nodes {
+		fqn := e.fqn[node]
+		out = append(out, mintedSubject{iri: e.ids.subjectForNode(node, fqn).Value, fqn: fqn, at: e.where(node)})
+	}
+	return out
 }
 
 // encodeDocument converts a parsed document, returning the encoder that holds
@@ -472,6 +550,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		performed:          map[ast.Node]bool{},
 		effects:            map[ast.Node]bool{},
 		triggerParams:      map[ast.Node]string{},
+		acceptPayloads:     map[ast.Node]rdf.Term{},
 		triggerMembers:     map[ast.Node]string{},
 		payloads:           map[*ast.Usage]*ast.Usage{},
 		payloadFeatures:    map[*ast.Usage]bool{},
@@ -527,7 +606,10 @@ type encoder struct {
 	effects map[ast.Node]bool
 	// triggerParams holds the parameters of a transition's trigger action: each
 	// maps to the AcceptActionUsage property that names it, if any.
-	triggerParams  map[ast.Node]string
+	triggerParams map[ast.Node]string
+	// acceptPayloads holds the payload parameter of each accept node, mapped
+	// to the AcceptActionUsage that owns it as its payloadParameter.
+	acceptPayloads map[ast.Node]rdf.Term
 	triggerMembers map[ast.Node]string
 	// payloads holds the PayloadFeature each flow's `of` clause declares, keyed
 	// by the flow: the declared feature of `of p : T`, or one made up for
@@ -571,6 +653,14 @@ type encoder struct {
 
 func (e *encoder) indexTriggerMembers() {
 	for node, fqn := range e.fqn {
+		// A named send or assignment node is the statement it is written as,
+		// so a name the statement writes is written from the node.
+		if usage, ok := node.(*ast.Usage); ok {
+			if statement := nodeStatement(usage); statement != nil {
+				e.triggerMembers[statement] = fqn
+			}
+			continue
+		}
 		transition, ok := node.(*ast.TransitionMember)
 		if !ok || transition.Trigger == nil {
 			continue
@@ -1252,6 +1342,16 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(ownerTerm, e.sysml(pEffectAction), subject)
 		}
 	}
+	if accepter, ok := e.acceptPayloads[node]; ok {
+		// An accept node's payload is its payloadParameter, owned as a
+		// parameter (SysML.xtext AcceptNodeDeclaration, PayloadParameterMember).
+		h.membershipClass = mParameterMembership
+		h.membershipExtra = func(membership rdf.Term) {
+			e.graph.Add(membership, e.sysml(pOwnedMemberParameter), subject)
+			e.graph.Add(accepter, e.sysml(pParameter), subject)
+			e.graph.Add(accepter, e.sysml(pPayloadParameter), subject)
+		}
+	}
 	if property, ok := e.triggerParams[node]; ok {
 		h.membershipClass = mParameterMembership
 		h.membershipExtra = func(membership rdf.Term) {
@@ -1340,6 +1440,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		metaclass, ok := usageMetaclassOf(n, inBody)
 		if e.performed[n] {
 			metaclass = mPerform
+		}
+		if metaclass == mAcceptAction {
+			e.acceptPayloads[acceptPayload(n)] = subject
 		}
 		payload := e.payloadFeatures[n]
 		if payload {
@@ -1491,7 +1594,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		if n.IsEnd {
 			relationships := make([]*ast.Relationship, 0, len(n.Relationships))
-			for _, rel := range n.Relationships {
+			for _, rel := range nodeRelationships(n, metaclass) {
 				if rel != nil && rel.Kind == ast.RelReferences && rel.Target != nil {
 					if err := e.endReferences(subject, rel.Target); err != nil {
 						return err
@@ -1502,7 +1605,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			}
 			e.relationships(subject, owner, relationships)
 		} else {
-			e.relationships(subject, owner, n.Relationships)
+			e.relationships(subject, owner, nodeRelationships(n, metaclass))
 		}
 		if err := e.multiplicity(subject, within, n.Multiplicity); err != nil {
 			return err
@@ -1540,11 +1643,25 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				return err
 			}
 		}
+		if statement := nodeStatement(n); statement != nil {
+			// The node is the statement it is written as: its parts are the
+			// node's own, not a member's.
+			_, err := e.encodeBehavior(statement, func(rdf.Term) {}, subject, fqn, within, 0)
+			return err
+		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
 		if !local && (inBody || n.Kind == ast.UsageMetadata) {
 			e.metadataBodies[fqn] = true
 		}
-		return members(bodyMembers(n))
+		if err := members(bodyMembers(n)); err != nil {
+			return err
+		}
+		if metaclass == mAcceptAction {
+			// After the payload: the receiver is the action's second parameter
+			// (AcceptActionUsage::receiverArgument).
+			return e.acceptReceiver(n, subject, fqn)
+		}
+		return nil
 
 	case *ast.Import:
 		if n.FilterExpr != nil {
@@ -2182,7 +2299,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			name = declared.Name
 			keyword = e.referencesKeyword(end)
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: slot, index: i, ends: endCount, target: end.AttachedTarget(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: slot, index: i, ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
 			return err
 		}
 	}
@@ -2203,7 +2320,8 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			}
 			continue
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: target, flow: true}); err != nil {
+		feature, element := ast.EndSelection(target)
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: feature, element: element, flow: true}); err != nil {
 			return err
 		}
 	}
@@ -2250,7 +2368,9 @@ type connectorEndSpec struct {
 	target      ast.Node
 	// targetTerm is a resolved member IRI the end references, for an end
 	// whose target the notation reaches by position rather than by name.
-	targetTerm    rdf.Term
+	targetTerm rdf.Term
+	// element is the expression an indexed end selects one element of target with.
+	element       ast.Node
 	mult          *ast.Multiplicity
 	name, keyword string
 	// port types the end a PortUsage rather than a ReferenceUsage: an
@@ -2289,6 +2409,7 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	e.graph.Add(subject, e.sysml(pConnectorEnd), feature)
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMember), feature)
 	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
 	e.graph.Add(subject, e.sysml(pOwnedEndFeature), feature)
@@ -2302,7 +2423,14 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	}
 	e.emitMembershipCore(membership, feature, subject, mEndFeatureMembership, true)
 	if end.target != nil {
-		e.graph.Add(feature, e.sysx(xSourceText), rdf.String(e.text(end.target)))
+		written := e.text(end.target)
+		if end.element != nil {
+			written += "#(" + e.text(end.element) + ")"
+			if err := e.expressionAs(feature, e.sysx(xEndElement), "element", end.owner, end.element, mOwningMembership); err != nil {
+				return err
+			}
+		}
+		e.graph.Add(feature, e.sysx(xSourceText), rdf.String(written))
 	}
 	if end.name != "" {
 		e.graph.Add(feature, e.sysml(pDeclaredName), rdf.String(end.name))
@@ -3190,19 +3318,94 @@ func referencesFeature(n *ast.Usage) bool {
 
 // prefixCarriedByGraph reports a prefix the graph already states structurally:
 // a state's `entry`/`do`/`exit` by the subaction membership that owns the
-// action, an `include` by the inclusion relationship.
+// action, an `include` by the IncludeUseCaseUsage metaclass.
 func prefixCarriedByGraph(n *ast.Usage) bool {
 	switch n.PrefixKeyword {
 	case "entry", "do", "exit":
 		return n.Kind == ast.UsageAction
 	case "include":
-		for _, rel := range n.Relationships {
-			if rel.Kind == ast.RelIncludes {
-				return true
-			}
-		}
+		return n.Kind == ast.UsageUseCase
 	}
 	return false
+}
+
+// nodeRelationships is a usage's head relationships as the graph states them:
+// an accept node's `via` is its receiver parameter (acceptReceiver), not a
+// relationship of its own, and an inclusion is as inclusionRelationships has it.
+func nodeRelationships(n *ast.Usage, metaclass string) []*ast.Relationship {
+	rels := inclusionRelationships(n)
+	if metaclass != mAcceptAction {
+		return rels
+	}
+	return slices.DeleteFunc(slices.Clone(rels), func(rel *ast.Relationship) bool {
+		return rel != nil && rel.Kind == ast.RelVia
+	})
+}
+
+// acceptReceiver emits an accept node's `via p` as a transition's trigger has it
+// (encodeTrigger): a receiver parameter whose value is the FeatureReferenceExpression
+// to p, owned after the node's members, which the AcceptActionUsage names as its
+// receiverArgument (SysML.xtext AcceptNodeDeclaration, AcceptParameterPart).
+func (e *encoder) acceptReceiver(n *ast.Usage, subject rdf.Term, fqn string) error {
+	var via *ast.QualifiedName
+	for _, rel := range n.Relationships {
+		if rel != nil && rel.Kind == ast.RelVia {
+			via, _ = rel.Target.(*ast.QualifiedName)
+		}
+	}
+	if via == nil {
+		return nil
+	}
+	ref := &ast.FeatureReference{Name: via}
+	ref.NodeSpan = via.Span()
+	receiver := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn, Value: ref}
+	receiver.NodeSpan = via.Span()
+	e.triggerParams[receiver] = ""
+	// After the node's members and the prefix metadata its head writes, which
+	// take the indexes following them (prefixes).
+	index := len(e.kept(n.Members))
+	for _, prefix := range n.Prefixes {
+		if prefix != nil && !e.ids.skip(prefix) {
+			index++
+		}
+	}
+	if err := e.encodeInlineAt([]ast.Node{receiver}, index, fqn, subject); err != nil {
+		return err
+	}
+	param := e.ids.subjectFor(qualify(fqn, "", index))
+	if value, ok := e.graph.Object(param, rdf.SysML+pValue); ok {
+		e.graph.Add(subject, e.sysml(pReceiverArgument), value)
+	}
+	return nil
+}
+
+// inclusionRelationships is a usage's head relationships as the metamodel
+// states an inclusion (SysML.xtext IncludeUseCaseUsage): `include <ref>;`
+// names the use case it includes through an OwnedReferenceSubsetting, and
+// `include use case u : T` includes itself, which its metaclass says, so the
+// inclusion the parser records alongside its typing is no relationship of
+// its own. Every other usage's are returned as they are.
+func inclusionRelationships(n *ast.Usage) []*ast.Relationship {
+	if n.Kind != ast.UsageUseCase || !slices.ContainsFunc(n.Relationships, func(rel *ast.Relationship) bool {
+		return rel != nil && rel.Kind == ast.RelIncludes
+	}) {
+		return n.Relationships
+	}
+	declared := n.PrefixKeyword == "include"
+	out := make([]*ast.Relationship, 0, len(n.Relationships))
+	for _, rel := range n.Relationships {
+		if rel == nil || rel.Kind != ast.RelIncludes {
+			out = append(out, rel)
+			continue
+		}
+		if declared {
+			continue
+		}
+		referenced := *rel
+		referenced.Kind = ast.RelReferences
+		out = append(out, &referenced)
+	}
+	return out
 }
 
 // declaredPrefixes is the `#M` annotations written ahead of a declaration.

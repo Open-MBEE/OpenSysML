@@ -1,0 +1,8 @@
+{
+	"rpc": "EvaluateCalc",
+	"symbol_id": "test::twice",
+	"arguments": [
+		{"kind": "rational_value", "value": "1/4"}
+	],
+	"expected_result": {"kind": "real_value", "value": 0.5}
+}

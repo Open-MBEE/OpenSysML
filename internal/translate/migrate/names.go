@@ -45,12 +45,45 @@ func (m *migration) nameFor(e *sysmlv1.Element) string {
 	if t := m.model.Ref(e, "type"); t != nil && t.Name != "" {
 		base = lowerFirst(t.Name)
 	}
+	if n := m.associationBase(e); n != "" {
+		base = n
+	}
 	name := base
 	for i := 2; m.nameTaken(e.Parent, name); i++ {
 		name = fmt.Sprintf("%s%d", base, i)
 	}
 	m.names[e], m.synthesized[e] = name, true
 	return name
+}
+
+// associationBase names an anonymous association's connection def after what
+// it joins: the type of each end, or the end's name where it is untyped,
+// joined as `CarToWheel`; "" for an element that is no association or whose
+// ends name nothing.
+func (m *migration) associationBase(e *sysmlv1.Element) string {
+	if e.Type != "Association" && e.Type != "AssociationClass" {
+		return ""
+	}
+	var parts []string
+	for _, end := range m.model.Refs(e, "memberEnd") {
+		part := end.Name
+		if t := m.model.Ref(end, "type"); t != nil && t.Name != "" {
+			part = t.Name
+		}
+		if part != "" {
+			parts = append(parts, upperCamel(part))
+		}
+	}
+	return strings.Join(parts, "To")
+}
+
+// upperCamel joins the words of a name capitalized: "Park Car" to "ParkCar".
+func upperCamel(s string) string {
+	var b strings.Builder
+	for _, word := range strings.Fields(s) {
+		b.WriteString(upperFirst(word))
+	}
+	return b.String()
 }
 
 // madeUp records that the block being written declares e under name, a name
@@ -81,9 +114,20 @@ func (m *migration) standInNames(written []string) string {
 	return m.migrationMarker(standInFQN, written)
 }
 
+// strictMarkerText words the comment a strict migration writes instead of
+// each MigrationMetadata marker, the library being OpenSysML's, not the standard's.
+var strictMarkerText = map[string]string{
+	synthesizedNameFQN: "names the migration made up",
+	standInFQN:         "members standing for no source element",
+}
+
 // migrationMarker is the metadata usage of the MigrationMetadata definition
-// fqn about the written names, qualified past a member shadowing the library.
+// fqn about the written names, qualified past a member shadowing the library;
+// a strict migration writes a comment instead.
 func (m *migration) migrationMarker(fqn string, written []string) string {
+	if m.strict {
+		return "// " + strictMarkerText[fqn] + ": " + strings.Join(written, ", ")
+	}
 	prefix := ""
 	if m.shadowsLibrary("MigrationMetadata", m.scope) {
 		prefix = "$::"
@@ -107,7 +151,7 @@ func (m *migration) writtenName(e *sysmlv1.Element) string {
 			return ""
 		}
 	case "Association", "AssociationClass":
-		if m.actors[e] != nil || (e.Type == "Association" && !ownsEveryEnd(e, m.model.Refs(e, "memberEnd"))) {
+		if !m.associationAsConnectionDef(e) {
 			return ""
 		}
 	}
@@ -115,30 +159,35 @@ func (m *migration) writtenName(e *sysmlv1.Element) string {
 }
 
 func (m *migration) nameTaken(owner *sysmlv1.Element, name string) bool {
+	return m.nameTakenBut(nil, owner, name)
+}
+
+// nameTakenBut is nameTaken disregarding e, whose own name the declaration
+// written for it is free to keep.
+func (m *migration) nameTakenBut(e, owner *sysmlv1.Element, name string) bool {
 	if m.taken[owner][name] {
 		return true
 	}
 	if owner == nil {
-		return m.topLevelNamed(name)
+		return m.topLevelNamedBut(e, name)
 	}
 	for _, c := range owner.Children {
-		if m.nameOf(c) == name {
+		if c != e && m.nameOf(c) == name {
 			return true
 		}
 	}
 	return false
 }
 
-// topLevelNamed reports whether a declaration at the document's top level is
-// named name: a member of the root model, or a root written as a declaration.
-func (m *migration) topLevelNamed(name string) bool {
+// topLevelNamedBut is topLevelNamed disregarding e (see nameTakenBut).
+func (m *migration) topLevelNamedBut(e *sysmlv1.Element, name string) bool {
 	for _, r := range m.model.Roots {
 		switch {
 		case m.flattened(r):
-			if m.nameTaken(r, name) {
+			if m.nameTakenBut(e, r, name) {
 				return true
 			}
-		case r.Type != "Model" && m.nameOf(r) == name:
+		case r != e && r.Type != "Model" && m.nameOf(r) == name:
 			return true
 		}
 	}
@@ -147,10 +196,56 @@ func (m *migration) topLevelNamed(name string) bool {
 
 // take reserves a synthesized member name in owner's body.
 func (m *migration) take(owner *sysmlv1.Element, name string) {
+	m.takeFor(nil, owner, name)
+}
+
+// takeFor reserves name in owner for the declaration written for e, which
+// claimName hands it to once.
+func (m *migration) takeFor(e, owner *sysmlv1.Element, name string) {
 	if m.taken[owner] == nil {
 		m.taken[owner] = map[string]bool{}
+		m.takenBy[owner] = map[string]*sysmlv1.Element{}
 	}
 	m.taken[owner][name] = true
+	m.takenBy[owner][name] = e
+}
+
+// reserveNameFor is freshNameBut reserving the name for e to claim (see claimName).
+func (m *migration) reserveNameFor(e, owner *sysmlv1.Element, name string) string {
+	name = m.freshNameBut(e, owner, name)
+	m.takenBy[owner][name] = e
+	return name
+}
+
+// claimName is the name a declaration written for e takes in owner: the one
+// reserved for it, consumed, or else name made fresh.
+func (m *migration) claimName(e, owner *sysmlv1.Element, name string) string {
+	if in, ok := m.reservedIn(e, owner, name); ok {
+		m.takenBy[in][name] = nil
+		return name
+	}
+	return m.freshNameBut(e, owner, name)
+}
+
+// reservedIn is the owner, among those nameTakenBut consults for owner, in
+// which name is reserved for e; the top level and a flattened root are one.
+func (m *migration) reservedIn(e, owner *sysmlv1.Element, name string) (*sysmlv1.Element, bool) {
+	if e == nil {
+		return nil, false
+	}
+	if m.takenBy[owner][name] == e {
+		return owner, true
+	}
+	if owner == nil {
+		for _, r := range m.model.Roots {
+			if m.flattened(r) && m.takenBy[r][name] == e {
+				return r, true
+			}
+		}
+	} else if m.flattened(owner) && m.takenBy[nil][name] == e {
+		return nil, true
+	}
+	return nil, false
 }
 
 // identifierSuffix turns a name into the tail of a compound identifier: its
@@ -303,7 +398,7 @@ func (m *migration) isUsage(e *sysmlv1.Element) bool {
 		return true
 	}
 	cat, _ := m.classify(e)
-	return cat == catView || cat == catViewpoint
+	return cat == catView || cat == catUseCase || cat == catActor || cat == catRequirement
 }
 
 // scopeChain lists scope and its ancestors, innermost first, stopping at the

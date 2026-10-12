@@ -1,0 +1,9 @@
+{
+	"type": "instance",
+	"instantiate": "test::Sensor",
+	"slots": {
+		"gain": {"type": "Integer", "value": 100},
+		"reading": {"type": "Integer", "value": 6},
+		"own": {"type": "Integer", "value": 100}
+	}
+}

@@ -18,6 +18,7 @@ from opensysml.errors import (
     ServiceTimeoutError,
     SymbolNotFoundError,
     UnsupportedOperationError,
+    ViewNotFoundError,
     from_rpc_error,
     translate_rpc_errors,
 )
@@ -210,6 +211,62 @@ class TestSymbolNotFoundError:
 
     def test_it_is_a_key_error_because_the_lookup_is_a_subscript(self):
         assert isinstance(SymbolNotFoundError("X"), KeyError)
+
+
+class TestViewNotFoundError:
+    def test_it_keeps_the_requested_name_and_service_message(self):
+        message = "#interconnection:Nope: Nope names nothing in this model"
+        error = ViewNotFoundError(
+            "#interconnection:Nope", message, grpc.StatusCode.NOT_FOUND
+        )
+        assert error.name == "#interconnection:Nope"
+        assert error.suggestions == []
+        assert str(error) == message
+        assert error.code == grpc.StatusCode.NOT_FOUND
+        assert isinstance(error, SymbolNotFoundError)
+        assert isinstance(error, KeyError)
+
+    def test_a_not_found_factory_receives_the_message_and_code(self):
+        message = "no view named Demo::Missing"
+        error = from_rpc_error(
+            FakeRpcError(grpc.StatusCode.NOT_FOUND, message),
+            not_found=lambda details, code: ViewNotFoundError(
+                "Demo::Missing", details, code=code
+            ),
+        )
+        assert isinstance(error, ViewNotFoundError)
+        assert error.name == "Demo::Missing"
+        assert str(error) == message
+        assert error.code == grpc.StatusCode.NOT_FOUND
+
+    def test_translate_rpc_errors_accepts_a_not_found_factory(self):
+        message = "no view named Demo::Missing"
+        original = FakeRpcError(grpc.StatusCode.NOT_FOUND, message)
+        with pytest.raises(ViewNotFoundError) as excinfo:
+            with translate_rpc_errors(
+                not_found=lambda details, code: ViewNotFoundError(
+                    "Demo::Missing", details, code=code
+                )
+            ):
+                raise original
+        assert excinfo.value.name == "Demo::Missing"
+        assert str(excinfo.value) == message
+        assert excinfo.value.code == grpc.StatusCode.NOT_FOUND
+        assert excinfo.value.__cause__ is original
+
+    def test_special_not_found_messages_still_override_a_factory(self):
+        factory = lambda message, code: ViewNotFoundError("ignored", message, code)
+        model = from_rpc_error(
+            FakeRpcError(grpc.StatusCode.NOT_FOUND, "model not found: abc123"),
+            not_found=factory,
+        )
+        symbol = from_rpc_error(
+            FakeRpcError(grpc.StatusCode.NOT_FOUND, "symbol not found: Demo::Missing"),
+            not_found=factory,
+        )
+        assert isinstance(model, ModelNotFoundError)
+        assert isinstance(symbol, SymbolNotFoundError)
+        assert not isinstance(symbol, ViewNotFoundError)
 
 
 class TestPackageSurface:

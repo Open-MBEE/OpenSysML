@@ -1,6 +1,6 @@
 # 1. Install
 
-This chapter covers installing `sysml`, `sysml-lsp` and `sysml-grpc` and checking that they
+This chapter covers installing `sysml`, `sysml-lsp`, `sysml-grpc` and `sysml-jupyter-kernel` and checking that they
 work. Nothing else is needed for the rest of this guide.
 
 ## From a release build (recommended)
@@ -43,7 +43,7 @@ environment variable for unattended installs:
 | Choice | `install.sh` | `install.ps1` | Environment |
 |---|---|---|---|
 | Release: a tag, `latest` or `nightly` | `--version v0.9.1` | `-Version v0.9.1` | `OPENSYSML_VERSION` |
-| Tools: `sysml`, `sysml-lsp`, `sysml-grpc` or `all` | `--tools sysml` | `-Tools sysml` | `OPENSYSML_TOOLS` |
+| Tools: `sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-jupyter-kernel`, or `all` for every tool the chosen release published | `--tools sysml` | `-Tools sysml` | `OPENSYSML_TOOLS` |
 | Where to install | `--prefix ~/opt` or `--bin-dir ~/bin` | `-InstallDir D:\Tools\OpenSysML` | `OPENSYSML_PREFIX`, `OPENSYSML_BIN_DIR`, `OPENSYSML_INSTALL_DIR` |
 | A mirror of the GitHub release tree | `--base-url URL` | `-BaseUrl URL` | `OPENSYSML_DOWNLOAD_BASE` |
 | Show the choice, install nothing | `--dry-run` | `-DryRun` | |
@@ -60,6 +60,11 @@ curl -fsSL https://opensysml.org/install.sh | sh -s -- --tools all --verify-sign
 # the REPL alone, pinned to a release
 & ([scriptblock]::Create((irm https://opensysml.org/install.ps1))) -Tools sysml -Version v0.9.1
 ```
+
+`all` is resolved against the chosen release's `SHA256SUMS.txt`: it installs the tools that
+release published for this platform, and says which of the four it lacks (`sysml-grpc` is
+published from v0.9.0, `sysml-jupyter-kernel` from v0.10.0). Naming such a tool explicitly on
+an older release fails instead.
 
 `--verify-signature` checks `SHA256SUMS.txt` against the signature the release pipeline
 publishes beside it (see [the signed checksum manifest](../project/releasing.md#the-signed-checksum-manifest)); it needs
@@ -145,13 +150,20 @@ as a dependency.
 the `opensysml` Python package downloads and verifies it itself (see [client/python/DEVELOPING.md](../../client/python/DEVELOPING.md)).
 `make build-grpc` builds it from source.
 
+`sysml-jupyter-kernel`, the Jupyter kernel, is published the same way, as a bare
+`sysml-jupyter-kernel-<os>-<arch>` file with a `.sha256` sidecar: `pip install
+jupyter-opensysml-kernel` carries it in its platform wheels, and downloads and verifies it when it
+registers the kernel from the source distribution (see
+[Jupyter notebooks](12-jupyter.md)). `make build-jupyter-kernel` builds it from source, and
+`sysml-jupyter-kernel -install` registers a binary installed by hand.
+
 **Archive layout:** the `opensysml-<os>-<arch>.tar.gz` bundles contain both binaries under their
 plain names (`sysml`, `sysml-lsp`). The older single-binary `sysml-<os>-<arch>.tar.gz` and
 `sysml-lsp-<os>-<arch>.tar.gz` archives are still published. The bundles and
 `SHA256SUMS.txt` exist from v0.0.4 onward; for earlier releases use the
-single-binary archives. The `sysml-grpc` binaries and their sidecars are published from the
-next release onward. `SHA256SUMS.txt` covers every archive and every published
-`sysml-grpc` binary:
+single-binary archives. The `sysml-jupyter-kernel` binaries, their sidecars and the
+WebAssembly module are published from 0.10.0 onward. `SHA256SUMS.txt` covers every archive and
+every published `sysml-grpc` and `sysml-jupyter-kernel` binary:
 
 ```bash
 curl -fLO https://github.com/Open-MBEE/OpenSysML/releases/latest/download/SHA256SUMS.txt
@@ -159,9 +171,11 @@ shasum -a 256 -c SHA256SUMS.txt --ignore-missing   # macOS; use sha256sum -c on 
 ```
 
 **Ahead of the next release:** the same archives are built from `develop` every night and
-published as the prerelease `nightly`. It is a development build, replaced nightly and never
-the `latest` release; [Nightly snapshots](../project/nightly.md) says what it contains, how to
-verify one, and what to expect from it.
+published as the prerelease `nightly-<yyyymmdd>-<commit>`, kept for 14 days, with `nightly`
+as the moving alias of the newest; the Python and Node clients go to PyPI and npm as
+development versions. It is a development build, never the `latest` release;
+[Nightly snapshots](../project/nightly.md) says what it contains, how to verify one, and what
+to expect from it.
 
 ## macOS: Gatekeeper
 
@@ -182,6 +196,8 @@ Ways to avoid it, best first:
    go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest
    go install github.com/Open-MBEE/OpenSysML/cmd/sysml-lsp@latest
    ```
+   `sysml -version` reports the release the binary was built from, or the commit when it was
+   installed from a checkout.
 4. **Clear the attribute** if you already downloaded the archive in a browser. Verify the
    checksum first: clearing the attribute disables a security check, so make sure the file
    really is the published one:
@@ -364,7 +380,7 @@ error: no SMT solver found: install z3 (`apt install z3`, `brew install z3`) or 
 ```bash
 git clone https://github.com/Open-MBEE/OpenSysML.git
 cd OpenSysML
-make build       # builds bin/sysml, bin/sysml-lsp, and bin/sysml-grpc
+make build       # builds bin/sysml, bin/sysml-lsp, bin/sysml-grpc and bin/sysml-jupyter-kernel
 # OR
 go build -o sysml ./cmd/sysml
 go build -o sysml-lsp ./cmd/sysml-lsp
@@ -411,8 +427,9 @@ install.
 
 ## WebAssembly builds (optional)
 
-No release ships a WebAssembly artifact, but the same source builds for both of
-Go's WebAssembly targets, for a host that runs modules rather than executables:
+Releases ship the combined `sysml-wasm.wasm` module with its `wasm_exec.js` (see
+[WebAssembly builds](../reference/wasm.md)); the same source builds for both of Go's
+WebAssembly targets, for a host that runs modules rather than executables:
 
 ```bash
 make build-wasm

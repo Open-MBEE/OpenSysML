@@ -1,9 +1,10 @@
 """Publish the install scripts at the site root.
 
 install.sh and install.ps1 live at the repository root, where a checkout runs them;
-the site serves the same files as https://opensysml.org/install.sh and
-https://opensysml.org/install.ps1, the addresses the install guide's one-liners
-fetch. One copy, so the published script cannot drift from the committed one.
+the site serves the same files at /install.sh and /install.ps1, which the stubs at
+https://opensysml.org/install.sh and https://opensysml.org/install.ps1 (the addresses
+the install guide's one-liners fetch, published from Open-MBEE/opensysml.github.io)
+hand off to. One copy, so the published script cannot drift from the committed one.
 """
 
 from pathlib import Path

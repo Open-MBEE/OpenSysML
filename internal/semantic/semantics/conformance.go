@@ -27,12 +27,12 @@ const (
 	// VerdictConforms is a question answered in the affirmative.
 	VerdictConforms Verdict = iota
 	// VerdictViolated is a question answered in the negative: a condition that
-	// evaluated to false.
+	// evaluated to false of an exposed element.
 	VerdictViolated
 	// VerdictUnevaluable is a question no answer could be reached for.
 	VerdictUnevaluable
-	// VerdictNotEvaluated is a concern whose conditions were not evaluated,
-	// because the caller supplied no evaluator.
+	// VerdictNotEvaluated is a structurally conforming concern whose conditions
+	// were not evaluated, because the caller supplied no evaluator.
 	VerdictNotEvaluated
 )
 
@@ -119,10 +119,8 @@ type ViewConformance struct {
 	Verdict    Verdict
 }
 
-// ViewConformance evaluates whether view conforms to the viewpoints its body
-// satisfies: every concern a viewpoint frames must hold of what the view
-// exposes. A nil evaluator answers the structural question alone; a non-view
-// is ErrNotAView, a view satisfying nothing no error.
+// ViewConformance checks every concern framed by a viewpoint the view satisfies against
+// what the view exposes; a nil evaluator answers the structural question alone.
 func (m *Model) ViewConformance(view *symbols.Symbol, eval ConcernEvaluator) (*ViewConformance, error) {
 	if view == nil || !IsView(view) {
 		return nil, ErrNotAView
@@ -296,10 +294,8 @@ func (m *Model) viewpointConformance(view, sat *symbols.Symbol, exposed []*symbo
 	return out
 }
 
-// concernConformance answers whether one concern of the viewpoint holds of
-// what the view exposes. A view frames nothing of its own — a view body admits
-// no FramedConcernMember — so the concern is reported and, when an evaluator
-// is supplied, evaluated.
+// concernConformance answers whether one concern the viewpoint frames resolves
+// and, when an evaluator is supplied, whether it holds of what the view exposes.
 func (m *Model) concernConformance(fc *symbols.Symbol, exposed []*symbols.Symbol, eval ConcernEvaluator) ConcernConformance {
 	out := ConcernConformance{Concern: fc, Target: m.FramedConcernTarget(fc), Name: framedConcernName(fc)}
 	if ref := m.unresolvedConcernRef(fc); ref != "" {
@@ -316,7 +312,7 @@ func (m *Model) concernConformance(fc *symbols.Symbol, exposed []*symbols.Symbol
 }
 
 // unresolvedConcernRef names what a framing references and could not resolve, so
-// the concern it frames is unknown rather than unframed by the view.
+// the concern it frames is unknown and nothing can be evaluated.
 func (m *Model) unresolvedConcernRef(fc *symbols.Symbol) string {
 	for _, rel := range RelationshipsOf(fc) {
 		if rel == nil || rel.Target == nil {

@@ -1,0 +1,55 @@
+{
+  "name": "jupyterlab-opensysml",
+  "version": "0.10.0",
+  "description": "SysML v2 and KerML syntax highlighting for JupyterLab and Notebook, matching the OpenSysML sysml kernel.",
+  "keywords": [
+    "jupyter",
+    "jupyterlab",
+    "jupyterlab-extension",
+    "sysml",
+    "kerml"
+  ],
+  "homepage": "https://github.com/Open-MBEE/OpenSysML",
+  "bugs": {
+    "url": "https://github.com/Open-MBEE/OpenSysML/issues"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Open-MBEE"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Open-MBEE/OpenSysML.git",
+    "directory": "editors/jupyterlab"
+  },
+  "private": true,
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib/**/*.{js,d.ts,json}"
+  ],
+  "scripts": {
+    "build": "npm run build:lib && npm run build:labextension",
+    "build:lib": "tsc -p tsconfig.json",
+    "build:labextension": "jupyter labextension build .",
+    "clean": "rimraf lib out tsconfig.tsbuildinfo tsconfig.test.tsbuildinfo ../../client/jupyter-kernel/labextension",
+    "test": "tsc -p tsconfig.test.json && node --test out/test/*.test.js"
+  },
+  "dependencies": {
+    "@codemirror/language": "^6.0.0",
+    "@codemirror/state": "^6.0.0",
+    "@jupyterlab/application": "^4.0.0",
+    "@jupyterlab/codemirror": "^4.0.0"
+  },
+  "devDependencies": {
+    "@jupyter/builder": "^1.2.3",
+    "@jupyterlab/core-meta": "~4.6.4",
+    "@types/node": "^22.0.0",
+    "rimraf": "^6.0.0",
+    "typescript": "~5.7.3"
+  },
+  "jupyterlab": {
+    "extension": true,
+    "outputDir": "../../client/jupyter-kernel/labextension"
+  }
+}

@@ -1,10 +1,15 @@
 package Reviews {
-    viewpoint 'Review Viewpoint' {
+    view def 'Review Viewpoint' {
+        viewpoint 'review Viewpoint' {
+            subject;
+        }
+        satisfy 'review Viewpoint';
         port tx;
+        metadata MigrationMetadata::SynthesizedName about 'review Viewpoint';
     }
     item def Ping;
     action def Inspect {
-        in ref context :> 'Review Viewpoint'[1];
+        in ref context : 'Review Viewpoint'[1];
         first start then 'send ping';
         action 'send ping' {
             send new Ping() via context.tx;
@@ -14,7 +19,7 @@ package Reviews {
         metadata MigrationMetadata::SynthesizedName about final;
     }
     action def Review {
-        in ref context :> 'Review Viewpoint'[1];
+        in ref context : 'Review Viewpoint'[1];
         first start then inspect;
         action inspect : Inspect { in ref :>> context = Review::context; }
         first inspect then final;

@@ -116,8 +116,10 @@ export function cssEscape(value: string): string {
 }
 
 // markers are the arrowheads edges end in: a filled head for a transition or a
-// succession, an open one for a flow. A connection ends in none. The defs also
-// hold Cameo's pale-yellow gradient, which the cameo look fills shapes from.
+// succession, an open one for a flow, a hollow triangle at the general end of a
+// specialization or typing, a diamond at the owner end of a composition (filled)
+// or reference (hollow). A connection ends in none. The defs also hold Cameo's
+// pale-yellow gradient, which the cameo look fills shapes from.
 function markers(): SVGDefsElement {
   const defs = element("defs", {});
   const gradient = element("linearGradient", { id: "cameo-fill", x1: "0", y1: "0", x2: "0", y2: "1" });
@@ -136,7 +138,24 @@ function markers(): SVGDefsElement {
     markerWidth: "9", markerHeight: "9", orient: "auto-start-reverse",
   });
   open.append(element("path", { d: "M 0 0 L 10 5 L 0 10", class: "arrow-line" }));
-  defs.append(filled, open);
+  const triangle = element("marker", {
+    id: "triangle-hollow", viewBox: "0 0 12 12", refX: "11", refY: "6",
+    markerWidth: "12", markerHeight: "12", orient: "auto-start-reverse",
+  });
+  triangle.append(element("path", { d: "M 0.5 0.5 L 11.5 6 L 0.5 11.5 z", class: "arrow-hollow" }));
+  // A diamond sits at the edge's start, pointing along it: orient="auto" keeps
+  // its x axis on the line's direction and refX="0" puts its near corner on the node.
+  const diamondFilled = element("marker", {
+    id: "diamond-filled", viewBox: "0 0 14 8", refX: "0", refY: "4",
+    markerWidth: "14", markerHeight: "8", orient: "auto",
+  });
+  diamondFilled.append(element("path", { d: "M 0 4 L 7 0 L 14 4 L 7 8 z", class: "arrow-fill" }));
+  const diamondHollow = element("marker", {
+    id: "diamond-hollow", viewBox: "0 0 14 8", refX: "0", refY: "4",
+    markerWidth: "14", markerHeight: "8", orient: "auto",
+  });
+  diamondHollow.append(element("path", { d: "M 0.5 4 L 7 0.5 L 13.5 4 L 7 7.5 z", class: "arrow-hollow" }));
+  defs.append(filled, open, triangle, diamondFilled, diamondHollow);
   return defs;
 }
 
@@ -312,7 +331,9 @@ function boxClass(kind: string): "package" | "definition" | "region" | "usage" {
 }
 
 // drawEdge is an edge's polyline with the arrowhead its kind takes and its label
-// at the midpoint.
+// at the midpoint. A specialization or typing points its hollow triangle at the
+// general end; a composition or reference wears its diamond at the owner end,
+// where the edge starts, and no arrowhead at the part it leads to.
 function drawEdge(edge: PlacedEdge): SVGGElement {
   const group = element("g", { class: `opensysml-edge ${edge.edge.kind}`, "data-edge": String(edge.index) });
   const attrs: Record<string, string> = { points: polyline(edge.points), class: "line" };
@@ -321,6 +342,16 @@ function drawEdge(edge: PlacedEdge): SVGGElement {
       attrs["marker-end"] = "url(#arrow-open)";
       break;
     case "connection":
+      break;
+    case "specialization":
+    case "typing":
+      attrs["marker-end"] = "url(#triangle-hollow)";
+      break;
+    case "composition":
+      attrs["marker-start"] = "url(#diamond-filled)";
+      break;
+    case "reference":
+      attrs["marker-start"] = "url(#diamond-hollow)";
       break;
     default:
       attrs["marker-end"] = "url(#arrow)";

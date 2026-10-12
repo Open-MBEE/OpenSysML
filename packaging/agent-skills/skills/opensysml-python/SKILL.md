@@ -15,8 +15,10 @@ description: Parse, query, instantiate, execute and verify SysML v2 models from 
 pip install opensysml       # CPython 3.10+
 ```
 
-The client looks for `sysml-grpc` at `$OPENSYSML_BINARY`, then `~/.opensysml/bin/sysml-grpc`, then on
-`PATH`. If none is there, download the release build, which is checked against a pinned digest:
+The client looks for `sysml-grpc` at `$OPENSYSML_BINARY`, then in the shared cache
+`~/.opensysml/bin`, then downloads the release build, which is checked against a pinned digest,
+and falls back to `sysml-grpc` on `PATH` only when no release can be downloaded. To fill the
+cache ahead of time:
 
 ```bash
 python -c "from opensysml.binary import download_binary; download_binary('latest')"

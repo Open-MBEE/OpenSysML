@@ -1,8 +1,9 @@
 # OOSEM library — design
 
 Status: **implemented.** `internal/workspace/libs/stdlib/OpenSysML Libraries/OOSEM.sysml` is bundled
-with the other OpenSysML extensions, enters the same conformance, strict-notation and snapshot
-gates, and is exercised by `examples/oosem-demo/oosem-demo.sysml`
+with the other OpenSysML extensions — maintained upstream at Open-MBEE/OpenSysML-Extensions-Library
+and vendored here pinned by `scripts/extension-libraries-pin.sh` — enters the same conformance,
+strict-notation and snapshot gates, and is exercised by `examples/oosem-demo/oosem-demo.sysml`
 (`TestExamplesAnalyseCleanly`). Both the library and the example also validate cleanly under the
 pinned OMG pilot implementation, so the notation they use is standard SysML v2.
 

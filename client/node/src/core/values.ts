@@ -10,6 +10,7 @@ import type {
   MeasurementRef,
   Metaobject as MetaobjectMessage,
   Quantity,
+  Rational,
   TensorQuantity,
   UnitTerm,
   Value,
@@ -27,6 +28,7 @@ import {
   MeasurementRefSchema,
   MetaobjectSchema,
   QuantitySchema,
+  RationalSchema,
   TensorQuantitySchema,
   UnitFactorSchema,
   UnitTermSchema,
@@ -43,6 +45,7 @@ import {
   CAPABILITY_INFINITY_VALUE,
   CAPABILITY_MEASUREMENT_REFS,
   CAPABILITY_METAOBJECT_VALUES,
+  CAPABILITY_RATIONAL_VALUES,
   CAPABILITY_SET_VALUES,
   CAPABILITY_STRUCTURED_VALUES,
   CAPABILITY_TENSOR_VALUES,
@@ -52,8 +55,17 @@ import {
 } from "./capabilities.js";
 import { MalformedValueError, UnsupportedValueError, type FailureCause } from "./errors.js";
 
-/** A quantity's magnitude: an integer or a real, never both. */
-export type Magnitude = { kind: "int"; value: bigint } | { kind: "real"; value: number };
+/** An exact Rational in lowest terms over a positive denominator. */
+export interface RationalValue {
+  numerator: bigint;
+  denominator: bigint;
+}
+
+/** A quantity's magnitude: an Integer, an exact Rational or a Real, kept apart. */
+export type Magnitude =
+  | { kind: "int"; value: bigint }
+  | ({ kind: "rational" } & RationalValue)
+  | { kind: "real"; value: number };
 
 /** One unit raised to an exponent, as the service factorises a derived unit. */
 export interface UnitFactor {
@@ -172,6 +184,7 @@ export interface UndeterminedValue {
  */
 export type SysMLValue =
   | { kind: "int"; value: bigint }
+  | ({ kind: "rational" } & RationalValue)
   | { kind: "real"; value: number }
   | { kind: "complex"; value: ComplexValue }
   | { kind: "boolean"; value: boolean }
@@ -323,6 +336,8 @@ export function decodeValue(value: Value | undefined): SysMLValue {
       return { kind: "int", value: kind.value };
     case "bigIntValue":
       return { kind: "int", value: decodeBigInteger(kind.value) };
+    case "rationalValue":
+      return { kind: "rational", ...decodeRational(kind.value) };
     case "realValue":
       return { kind: "real", value: kind.value };
     case "complex":
@@ -387,6 +402,7 @@ export function decodeValue(value: Value | undefined): SysMLValue {
 export function encodeValue(value: SysMLValue): Value {
   switch (value.kind) {
     case "int":
+    case "rational":
       return encodeMagnitude(value);
     case "real":
       return create(ValueSchema, { kind: { case: "realValue", value: value.value } });
@@ -575,6 +591,8 @@ export function formatValue(value: SysMLValue): string {
   switch (value.kind) {
     case "int":
       return value.value.toString();
+    case "rational":
+      return formatRational(value);
     case "real":
       return formatReal(value.value);
     case "complex":
@@ -627,7 +645,38 @@ function formatReal(value: number): string {
 }
 
 function formatMagnitude(magnitude: Magnitude): string {
-  return magnitude.kind === "int" ? magnitude.value.toString() : formatReal(magnitude.value);
+  switch (magnitude.kind) {
+    case "int":
+      return magnitude.value.toString();
+    case "rational":
+      return formatRational(magnitude);
+    case "real":
+      return formatReal(magnitude.value);
+  }
+}
+
+/** A terminating Rational as its decimal, `0.1`; any other as `numerator/denominator`, `1/3`. */
+export function formatRational(value: RationalValue): string {
+  let twos = 0;
+  let fives = 0;
+  let rest = value.denominator;
+  while (rest % 2n === 0n) {
+    rest /= 2n;
+    twos++;
+  }
+  while (rest % 5n === 0n) {
+    rest /= 5n;
+    fives++;
+  }
+  if (rest !== 1n) {
+    return `${value.numerator.toString()}/${value.denominator.toString()}`;
+  }
+  const places = Math.max(twos, fives, 1);
+  const scaled = (value.numerator * 10n ** BigInt(places)) / value.denominator;
+  const negative = scaled < 0n;
+  const digits = (negative ? -scaled : scaled).toString().padStart(places + 1, "0");
+  const point = digits.length - places;
+  return `${negative ? "-" : ""}${digits.slice(0, point)}.${digits.slice(point)}`;
 }
 
 /** `Tensor(2, 2, 2)[1.0, …, 8.0][Pa]` when every component shares a unit; else each with its own. */
@@ -659,6 +708,9 @@ function decodeQuantity(quantity: Quantity): QuantityValue {
       break;
     case "realMagnitude":
       magnitude = { kind: "real", value: quantity.magnitude.value };
+      break;
+    case "rationalMagnitude":
+      magnitude = { kind: "rational", ...decodeRational(quantity.magnitude.value) };
       break;
     default:
       throw new MalformedValueError(`a quantity in [${quantity.unit}] has no magnitude`);
@@ -751,9 +803,27 @@ function formatUnitTerm(term: UnitFactorization): string {
   return parts.length === 0 ? "1" : parts.join("·");
 }
 
+/** A quantity magnitude as the wire's `Quantity.magnitude` oneof writes it. */
+export function encodeQuantityMagnitude(magnitude: Magnitude): Quantity["magnitude"] {
+  switch (magnitude.kind) {
+    case "real":
+      return { case: "realMagnitude", value: magnitude.value };
+    case "rational": {
+      return { case: "rationalMagnitude", value: encodeRational(magnitude) };
+    }
+    case "int":
+      return fitsInt64(magnitude.value)
+        ? { case: "intMagnitude", value: magnitude.value }
+        : { case: "bigIntMagnitude", value: magnitude.value.toString() };
+  }
+}
+
 function encodeMagnitude(magnitude: Magnitude): Value {
   if (magnitude.kind === "real") {
     return create(ValueSchema, { kind: { case: "realValue", value: magnitude.value } });
+  }
+  if (magnitude.kind === "rational") {
+    return create(ValueSchema, { kind: { case: "rationalValue", value: encodeRational(magnitude) } });
   }
   return fitsInt64(magnitude.value)
     ? create(ValueSchema, { kind: { case: "intValue", value: magnitude.value } })
@@ -768,22 +838,172 @@ export function fitsInt64(value: bigint): boolean {
   return value >= INT64_MIN && value <= INT64_MAX;
 }
 
-/** A quantity's magnitude on the wire: a real, or an integer as int64 when it fits and as decimal text otherwise. */
-export function encodeQuantityMagnitude(magnitude: Magnitude): Quantity["magnitude"] {
-  if (magnitude.kind === "real") {
-    return { case: "realMagnitude", value: magnitude.value };
-  }
-  return fitsInt64(magnitude.value)
-    ? { case: "intMagnitude", value: magnitude.value }
-    : { case: "bigIntMagnitude", value: magnitude.value.toString() };
-}
-
 /** Reads the decimal of a `big_int_value` or `big_int_magnitude`. */
 export function decodeBigInteger(text: string): bigint {
   if (!/^-?\d+$/.test(text)) {
     throw new MalformedValueError(`a big Integer ${JSON.stringify(text)} is not decimal`);
   }
   return BigInt(text);
+}
+
+/**
+ * Rewrites in place each Rational arm of a wire value a double holds exactly as
+ * that double: the form a service without `rational_values` reads. A Rational
+ * no double holds is left as it is; a collection's elements are values of their own.
+ */
+export function rationalsAsReals(value: Value): void {
+  switch (value.kind.case) {
+    case "rationalValue": {
+      const double = wireRationalAsDouble(value.kind.value);
+      if (double !== undefined) {
+        value.kind = { case: "realValue", value: double };
+      }
+      return;
+    }
+    case "quantity":
+      quantityRationalAsReal(value.kind.value);
+      return;
+    case "vector":
+      value.kind.value.components.forEach(rationalsAsReals);
+      return;
+    case "vectorQuantity":
+      value.kind.value.components.forEach(quantityRationalAsReal);
+      return;
+    case "tensorQuantity":
+      value.kind.value.components.forEach(quantityRationalAsReal);
+      return;
+    default:
+      return;
+  }
+}
+
+/** Rewrites a quantity's Rational magnitude a double holds exactly as `real_magnitude`. */
+export function quantityRationalAsReal(quantity: Quantity): void {
+  if (quantity.magnitude.case === "rationalMagnitude") {
+    const double = wireRationalAsDouble(quantity.magnitude.value);
+    if (double !== undefined) {
+      quantity.magnitude = { case: "realMagnitude", value: double };
+    }
+  }
+}
+
+function wireRationalAsDouble(wire: Rational): number | undefined {
+  return rationalAsDouble({ numerator: BigInt(wire.numerator), denominator: BigInt(wire.denominator) });
+}
+
+/** The `Rational` message of an exact Rational, numerator and denominator in full. */
+export function encodeRational(value: RationalValue): Rational {
+  return create(RationalSchema, {
+    numerator: value.numerator.toString(),
+    denominator: value.denominator.toString(),
+  });
+}
+
+/**
+ * Reads a `rational_value` or `rational_magnitude`.
+ *
+ * @throws {MalformedValueError} for one not in lowest terms over a positive
+ *   denominator, or one a double holds, which travels as `real_value`.
+ */
+export function decodeRational(rational: Rational): RationalValue {
+  const numerator = decodeBigInteger(rational.numerator);
+  const denominator = decodeBigInteger(rational.denominator);
+  const text = `${rational.numerator}/${rational.denominator}`;
+  if (denominator <= 0n || gcd(numerator, denominator) !== 1n) {
+    throw new MalformedValueError(`a Rational ${text} is not in lowest terms over a positive denominator`);
+  }
+  if (rationalAsDouble({ numerator, denominator }) !== undefined) {
+    throw new MalformedValueError(`a Rational ${text} is a double, which travels as real_value`);
+  }
+  return { numerator, denominator };
+}
+
+/** The exact Rational `numerator/denominator`, reduced; throws a RangeError over a zero denominator. */
+export function rational(numerator: bigint, denominator = 1n): { kind: "rational" } & RationalValue {
+  if (denominator === 0n) {
+    throw new RangeError("a Rational's denominator is not zero");
+  }
+  const sign = denominator < 0n ? -1n : 1n;
+  const divisor = gcd(numerator, denominator);
+  return { kind: "rational", numerator: (sign * numerator) / divisor, denominator: (sign * denominator) / divisor };
+}
+
+function gcd(a: bigint, b: bigint): bigint {
+  a = a < 0n ? -a : a;
+  b = b < 0n ? -b : b;
+  while (b !== 0n) {
+    [a, b] = [b, a % b];
+  }
+  return a;
+}
+
+function bitLength(n: bigint): number {
+  return n === 0n ? 0 : (n < 0n ? -n : n).toString(2).length;
+}
+
+/** The exact Rational a finite double holds. */
+export function rationalOfDouble(x: number): { kind: "rational" } & RationalValue {
+  if (!Number.isFinite(x)) {
+    throw new RangeError(`${x} is no Rational`);
+  }
+  let whole = x;
+  let denominator = 1n;
+  while (!Number.isInteger(whole)) {
+    whole *= 2;
+    denominator *= 2n;
+  }
+  return rational(BigInt(whole), denominator);
+}
+
+/** The double that holds a reduced Rational exactly, or undefined where none does. */
+export function rationalAsDouble(value: RationalValue): number | undefined {
+  const { numerator, denominator } = value;
+  if ((denominator & (denominator - 1n)) !== 0n) {
+    return undefined;
+  }
+  const shift = bitLength(denominator) - 1;
+  let odd = numerator;
+  let zeros = 0;
+  while (odd !== 0n && odd % 2n === 0n) {
+    odd /= 2n;
+    zeros++;
+  }
+  if (bitLength(odd) > 53 || zeros - shift < -1074 || bitLength(numerator) - shift > 1024) {
+    return undefined;
+  }
+  return scaleByPowerOfTwo(Number(odd), zeros - shift);
+}
+
+/** The double nearest the Rational: how a Real reads one. */
+export function rationalToNumber(value: RationalValue): number {
+  const exact = rationalAsDouble(value);
+  if (exact !== undefined) {
+    return exact;
+  }
+  const negative = value.numerator < 0n;
+  const magnitude = negative ? -value.numerator : value.numerator;
+  // A quotient of at least 55 bits, its last bit sticky, rounds once to 53.
+  const shift = 55 - (bitLength(magnitude) - bitLength(value.denominator));
+  const num = shift >= 0 ? magnitude << BigInt(shift) : magnitude;
+  const den = shift >= 0 ? value.denominator : value.denominator << BigInt(-shift);
+  let quotient = num / den;
+  if (num % den !== 0n) {
+    quotient |= 1n;
+  }
+  const result = scaleByPowerOfTwo(Number(quotient), -shift);
+  return negative ? -result : result;
+}
+
+function scaleByPowerOfTwo(x: number, exponent: number): number {
+  while (exponent > 1000) {
+    x *= 2 ** 1000;
+    exponent -= 1000;
+  }
+  while (exponent < -1000) {
+    x *= 2 ** -1000;
+    exponent += 1000;
+  }
+  return x * 2 ** exponent;
 }
 
 /** The flattened size the dimensions demand, refusing a dimension that is not positive. */
@@ -842,6 +1062,7 @@ export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
   }
   switch (a.kind) {
     case "int":
+    case "rational":
     case "real":
     case "complex":
       return numbersEqual(a, b);
@@ -955,17 +1176,42 @@ function numbersEqual(a: NumberValue, b: SysMLValue): boolean {
     }
     b = { kind: "real", value: b.value.real };
   }
-  if (a.kind === "int") {
-    if (b.kind === "int") return a.value === b.value;
-    return b.kind === "real" && realIsInt(b.value, a.value);
+  if (a.kind === "real" && b.kind === "real") {
+    return a.value === b.value;
   }
-  if (b.kind === "int") return realIsInt(a.value, b.value);
-  return b.kind === "real" && a.value === b.value;
+  // A Rational meets a Real at Real precision, as the service compares them.
+  if (a.kind === "rational" && b.kind === "real") {
+    return rationalToNumber(a) === b.value;
+  }
+  if (a.kind === "real" && b.kind === "rational") {
+    return a.value === rationalToNumber(b);
+  }
+  const x = exactOf(a);
+  const y = exactOf(b);
+  return x !== undefined && y !== undefined && x.numerator * y.denominator === y.numerator * x.denominator;
 }
 
-// Whether r is exactly the integer n, never rounding n.
-function realIsInt(r: number, n: bigint): boolean {
-  return Number.isInteger(r) && BigInt(r) === n;
+// The exact number a value holds, a finite Real's double included, never rounding.
+function exactOf(value: SysMLValue | Magnitude): RationalValue | undefined {
+  switch (value.kind) {
+    case "int":
+      return { numerator: value.value, denominator: 1n };
+    case "rational":
+      return value;
+    case "real":
+      return Number.isFinite(value.value) ? doubleAsRational(value.value) : undefined;
+    default:
+      return undefined;
+  }
+}
+
+function doubleAsRational(x: number): RationalValue {
+  let denominator = 1n;
+  while (!Number.isInteger(x)) {
+    x *= 2;
+    denominator *= 2n;
+  }
+  return { numerator: BigInt(x), denominator };
 }
 
 function magnitudesEqual(a: Magnitude[], b: Magnitude[]): boolean {
@@ -996,23 +1242,22 @@ function quantitiesEqual(a: QuantityValue, b: QuantityValue): boolean {
   ) {
     return false;
   }
-  if (
-    a.magnitude.kind === "int" &&
-    b.magnitude.kind === "int" &&
-    wholeScale(a.unitTerm) &&
-    wholeScale(b.unitTerm)
-  ) {
+  const x = a.magnitude.kind === "real" ? undefined : exactOf(a.magnitude);
+  const y = b.magnitude.kind === "real" ? undefined : exactOf(b.magnitude);
+  if (x !== undefined && y !== undefined && wholeScale(a.unitTerm) && wholeScale(b.unitTerm)) {
     // m₁·n₁/d₁ = m₂·n₂/d₂ exactly, cross-multiplied in bigint.
     return (
-      a.magnitude.value * BigInt(a.unitTerm.scaleNum) * BigInt(b.unitTerm.scaleDen) ===
-      b.magnitude.value * BigInt(b.unitTerm.scaleNum) * BigInt(a.unitTerm.scaleDen)
+      x.numerator * y.denominator * BigInt(a.unitTerm.scaleNum) * BigInt(b.unitTerm.scaleDen) ===
+      y.numerator * x.denominator * BigInt(b.unitTerm.scaleNum) * BigInt(a.unitTerm.scaleDen)
     );
   }
   return baseMagnitude(a.magnitude, a.unitTerm) === baseMagnitude(b.magnitude, b.unitTerm);
 }
 
 function baseMagnitude(magnitude: Magnitude, term: UnitFactorization): number {
-  return (Number(magnitude.value) * term.scaleNum) / term.scaleDen;
+  const value =
+    magnitude.kind === "rational" ? rationalToNumber(magnitude) : Number(magnitude.value);
+  return (value * term.scaleNum) / term.scaleDen;
 }
 
 // The reduction as base unit → exponent, repeated base units summed and
@@ -1099,6 +1344,8 @@ function decodeVector(vector: Vector): Magnitude[] {
         return { kind: "int", value: decodeBigInteger(component.kind.value) };
       case "realValue":
         return { kind: "real", value: component.kind.value };
+      case "rationalValue":
+        return { kind: "rational", ...decodeRational(component.kind.value) };
       default:
         throw new MalformedValueError(
           `a vector component is ${component.kind.case ?? "empty"}, not a number`,
@@ -1278,8 +1525,13 @@ function encodeInput(value: SysMLValue, info: ServerInfo): Value {
           }),
         },
       });
-    default:
-      return encodeValue(value);
+    default: {
+      const wire = encodeValue(value);
+      if (!info.has(CAPABILITY_RATIONAL_VALUES)) {
+        rationalsAsReals(wire);
+      }
+      return wire;
+    }
   }
 }
 
@@ -1292,9 +1544,13 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
     if (magnitudes.some((magnitude) => magnitude.kind === "int" && !fitsInt64(magnitude.value))) {
       require(CAPABILITY_BIG_INT_VALUES);
     }
+    if (magnitudes.some((magnitude) => magnitude.kind === "rational" && rationalAsDouble(magnitude) === undefined)) {
+      require(CAPABILITY_RATIONAL_VALUES);
+    }
   };
   switch (value.kind) {
     case "int":
+    case "rational":
       requireMagnitudes([value]);
       return;
     case "complex":

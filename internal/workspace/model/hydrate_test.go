@@ -357,3 +357,34 @@ func TestLibraryDiamondDiagnosticsMatchColdAndWarm(t *testing.T) {
 		}
 	}
 }
+
+// A record whose diagnostic suggests names for an unresolved one read the
+// names spelled: adding one it could mean hydrates it, and it then reports the
+// suggestion a loaded document does.
+func TestNewSpellingHydratesARecordedSuggestion(t *testing.T) {
+	inputs := []Input{
+		{Name: "broken.sysml", Content: []byte("package Broken { part car : Enginee; }"), Version: 1},
+		{Name: "other.sysml", Content: []byte("package Other { part def Wheel; }"), Version: 1},
+	}
+	cache, err := libs.NewCacheIn(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cold := NewWorkspace(WithRecordCache(cache))
+	cold.OpenAll(inputs)
+	cold.DiagnosticsAll([]string{"broken.sysml", "other.sysml"})
+
+	ws := NewWorkspace(WithRecordCache(cache))
+	ws.OpenAll(inputs)
+	if !ws.Recorded("broken.sysml") {
+		t.Fatal("broken.sysml is not recorded from a warm cache")
+	}
+	added := []byte("package Other { part def Wheel; part def Enginee; }")
+	ws.Update("other.sysml", added, 2)
+	loaded := NewWorkspace()
+	loaded.OpenAll([]Input{inputs[0], {Name: "other.sysml", Content: added, Version: 1}})
+	want := messagesOf(loaded.Diagnostics("broken.sysml"))
+	if got := messagesOf(ws.Diagnostics("broken.sysml")); !reflect.DeepEqual(got, want) {
+		t.Fatalf("broken.sysml reports %v after a name it could mean was added; loaded beside the same documents %v", got, want)
+	}
+}

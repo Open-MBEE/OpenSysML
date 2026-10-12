@@ -1,0 +1,141 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="IndexedConnectorEnds" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="port" abstract=false variation=false name="P"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="value" ref=false direction="none" composite=false derived=false ordered=false nonunique=false default=true
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (LiteralReal value="0.0")))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Source"
+          (Membership visibility="default"
+            (Usage kind="port" name="y" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=P
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="2"))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Sink"
+          (Membership visibility="default"
+            (Usage kind="port" name="u" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=P
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="connection" abstract=false variation=false name="C"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="source" ref=false direction="none" composite=false derived=false ordered=false nonunique=false end=true
+              (Relationship kind="typing" target=P
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="1"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="target" ref=false direction="none" composite=false derived=false ordered=false nonunique=false end=true
+              (Relationship kind="typing" target=P
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="1"))))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="i" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Integer
+            (*ast.QualifiedName))
+          (LiteralInteger value="2")))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Asm"
+          (Membership visibility="default"
+            (Usage kind="part" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Source
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="k" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Sink
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="connection" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=C
+                (*ast.QualifiedName))
+              (ConnectorEnd target="*ast.IndexExpr"
+                (Multiplicity range=false
+                  (LiteralInteger value="1"))
+                (IndexExpr
+                  (FeatureChainExpr member="y"
+                    (FeatureReference name="s"))
+                  (LiteralInteger value="1")))
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (Multiplicity range=false
+                  (LiteralInteger value="1"))
+                (FeatureChainExpr member="u"
+                  (FeatureReference name="k")))))
+          (Membership visibility="default"
+            (Usage kind="connection" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="connect"
+              (ConnectorEnd target="*ast.IndexExpr"
+                (IndexExpr
+                  (FeatureChainExpr member="y"
+                    (FeatureReference name="s"))
+                  (FeatureReference name="i")))
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="u"
+                  (FeatureReference name="k")))))
+          (Membership visibility="default"
+            (Usage kind="connection" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="connect"
+              (ConnectorEnd target="*ast.IndexExpr"
+                (IndexExpr
+                  (FeatureChainExpr member="y"
+                    (FeatureReference name="s"))
+                  (LiteralInteger value="1")))
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="u"
+                  (FeatureReference name="k")))
+              (ConnectorEnd target="*ast.IndexExpr"
+                (IndexExpr
+                  (FeatureChainExpr member="y"
+                    (FeatureReference name="s"))
+                  (LiteralInteger value="2")))))
+          (Membership visibility="default"
+            (Usage kind="interface" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="*ast.IndexExpr"
+                (IndexExpr
+                  (FeatureChainExpr member="y"
+                    (FeatureReference name="s"))
+                  (LiteralInteger value="1")))
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="u"
+                  (FeatureReference name="k")))))
+          (Membership visibility="default"
+            (Usage kind="allocation" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="allocate"
+              (ConnectorEnd target="*ast.IndexExpr"
+                (IndexExpr
+                  (FeatureChainExpr member="y"
+                    (FeatureReference name="s"))
+                  (LiteralInteger value="1")))
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="u"
+                  (FeatureReference name="k")))))
+          (Membership visibility="default"
+            (Usage kind="binding" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="bind"
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="u"
+                  (FeatureReference name="k")))
+              (ConnectorEnd target="*ast.IndexExpr"
+                (IndexExpr
+                  (FeatureChainExpr member="y"
+                    (FeatureReference name="s"))
+                  (LiteralInteger value="2")))))
+          (Membership visibility="default"
+            (Usage kind="flow" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FlowEnds from="*ast.IndexExpr" to="k.u" payload="nil" declared=false
+                (IndexExpr
+                  (FeatureChainExpr member="y"
+                    (FeatureReference name="s"))
+                  (LiteralInteger value="1")))))
+          (Membership visibility="default"
+            (Usage kind="flow" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FlowEnds from="*ast.IndexExpr" to="k.u" payload="Real" declared=false
+                (IndexExpr
+                  (FeatureChainExpr member="y"
+                    (FeatureReference name="s"))
+                  (OperatorExpr operator="+"
+                    (FeatureReference name="i")
+                    (LiteralInteger value="0")))))))))))

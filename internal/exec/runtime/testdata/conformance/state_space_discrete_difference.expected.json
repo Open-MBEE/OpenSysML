@@ -4,11 +4,11 @@
   "evaluate": "test::account",
   "outputs": {
     "stateSpace": {"type": "Vector", "elements": [
-      {"type": "Real", "value": 1628.894626777441},
-      {"type": "Real", "value": 10.0}
+      {"type": "Rational", "value": "1628.89462677744140625"},
+      {"type": "Rational", "value": "10.0"}
     ]},
     "output": {"type": "Vector", "elements": [
-      {"type": "Real", "value": 1628.894626777441}
+      {"type": "Rational", "value": "1628.89462677744140625"}
     ]},
     "time": {"type": "Quantity", "value": 10.0, "unit": "s"}
   }

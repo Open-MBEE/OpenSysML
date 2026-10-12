@@ -1,0 +1,7 @@
+exit: idle
+enter: target (entry action)
+stmt action body
+  stmt assign parentEntered
+    eval literal 1 -> 1
+transition: boot -> stop
+terminate: stop

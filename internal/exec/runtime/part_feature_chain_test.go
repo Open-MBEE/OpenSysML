@@ -67,7 +67,7 @@ func TestCalcUsageReadThroughPartChain(t *testing.T) {
 			t.Errorf("%s: %v", tt.name, err)
 			continue
 		}
-		if got.Const.Real != tt.want {
+		if got.Const.AsReal() != tt.want {
 			t.Errorf("%s = %s, want %v", tt.name, FormatTraceValue(got), tt.want)
 		}
 	}
@@ -113,7 +113,7 @@ func TestPartChainReadsTheObjectInHand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Car.r: %v", err)
 	}
-	if fv.Value.Const.Real != 5.0 {
+	if fv.Value.Const.AsReal() != 5.0 {
 		t.Errorf("Car.r = %s, want 5 (the radius this car's wheel carries)", FormatTraceValue(fv.Value))
 	}
 }
@@ -138,7 +138,7 @@ func TestPartChainThroughSeveralOccurrences(t *testing.T) {
 		t.Fatalf("wheels.radius = %s, want the radius of each of the four wheels", FormatValue(got))
 	}
 	for i, radius := range got.Sequence().Elements() {
-		if radius.Kind != ValConst || radius.Const.Real != 1.0 {
+		if radius.Kind != ValConst || radius.Const.AsReal() != 1.0 {
 			t.Errorf("wheels.radius #%d = %s, want 1.0", i+1, FormatValue(radius))
 		}
 	}

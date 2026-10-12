@@ -59,6 +59,11 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 			return nil, err
 		}
 	}
+	if slices.ContainsFunc(req.Bindings, bindingHoldsRational) {
+		if err := s.requireCapability(CapabilityRationalValues); err != nil {
+			return nil, err
+		}
+	}
 	bindings, err := documentBindings(qctx.Index, qctx.Model, held, req.Bindings)
 	if err != nil {
 		return nil, err
@@ -73,7 +78,22 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 		return nil, statusErrorf(connect.CodeUnimplemented,
 			"capability %q is unavailable: query %s answers an Integer beyond int64", CapabilityBigIntValues, req.QueryId)
 	}
+	if !s.capabilities.has(CapabilityRationalValues) && slices.ContainsFunc(response.Rows, rowHoldsRational) {
+		return nil, statusErrorf(connect.CodeUnimplemented,
+			"capability %q is unavailable: query %s answers an exact Rational", CapabilityRationalValues, req.QueryId)
+	}
 	return response, nil
+}
+
+func bindingHoldsRational(binding *pb.DocumentQueryBinding) bool {
+	return slices.ContainsFunc(binding.GetValues(), protoconv.DocumentValueHoldsRational)
+}
+
+func rowHoldsRational(row *pb.DocumentQueryRow) bool {
+	return protoconv.DocumentValueHoldsRational(row.GetElement()) ||
+		slices.ContainsFunc(row.GetCells(), func(cell *pb.DocumentQueryCell) bool {
+			return slices.ContainsFunc(cell.GetValues(), protoconv.DocumentValueHoldsRational)
+		})
 }
 
 func bindingHoldsBigInt(binding *pb.DocumentQueryBinding) bool {
@@ -224,6 +244,12 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, "binding %s: %v", parameter, err)
 		}
 		return queryexec.IntegerOf(integer), nil
+	case *pb.DocumentValue_RationalValue:
+		rational, err := protoconv.ProtoToRational(kind.RationalValue)
+		if err != nil {
+			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, "binding %s: %v", parameter, err)
+		}
+		return queryexec.RationalOf(rational), nil
 	case *pb.DocumentValue_RealValue:
 		return queryexec.RealValue(kind.RealValue), nil
 	case *pb.DocumentValue_BoolValue:
@@ -317,6 +343,12 @@ func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue 
 			return &pb.DocumentValue{Kind: &pb.DocumentValue_IntValue{IntValue: n}}
 		}
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_BigIntValue{BigIntValue: integer.FormatInt()}}
+	case queryexec.ValueRational:
+		rational, _ := value.Rational()
+		if f, exact := rational.BinaryExact(); exact {
+			return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: f}}
+		}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_RationalValue{RationalValue: protoconv.RationalToProto(rational)}}
 	case queryexec.ValueReal:
 		realVal, _ := value.Real()
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: realVal}}

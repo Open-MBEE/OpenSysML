@@ -29,9 +29,9 @@ func PerformsSteps(decl ast.Node) bool {
 // control nodes is the token flow an action body is (ToActionGraph); otherwise
 // its action nodes and statements are unordered subactions.
 func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []Statement {
-	trailing := trailingResults(body, scope)
+	trailing := trailingResults(body, scope, resolver)
 	if !statesOwnFlow(body) {
-		trailing = caseTrailingResults(body, scope, trailing)
+		trailing = caseTrailingResults(body, scope, resolver, trailing)
 		var locals, results []Statement
 		var members []ast.Node
 		statementRuns := make(map[ast.Node]Statement)
@@ -47,7 +47,7 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 				flowStarted = true
 				continue
 			}
-			stmt, states := calcStep(member, scope)
+			stmt, states := calcStep(member, scope, resolver)
 			if !states {
 				members = append(members, member)
 				continue
@@ -110,7 +110,7 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 		if isFlowNode(member) || outsideBlockFlow(member) || sequenced[member] || nodes[unwrapMembership(member)] {
 			continue
 		}
-		stmt, states := calcStep(member, scope)
+		stmt, states := calcStep(member, scope, resolver)
 		if !states {
 			continue
 		}
@@ -157,7 +157,7 @@ func caseOutputBinding(node ast.Node) bool {
 	return false
 }
 
-func caseTrailingResults(body []ast.Node, scope *symbols.Scope, trailing map[ast.Node]bool) map[ast.Node]bool {
+func caseTrailingResults(body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, trailing map[ast.Node]bool) map[ast.Node]bool {
 	for i := len(body) - 1; i >= 0; i-- {
 		member := body[i]
 		if trailing[member] || statesNoStep(unwrapMembership(member)) {
@@ -166,7 +166,7 @@ func caseTrailingResults(body []ast.Node, scope *symbols.Scope, trailing map[ast
 		if isFlowNode(unwrapMembership(member)) {
 			break
 		}
-		stmt, states := calcStep(member, scope)
+		stmt, states := calcStep(member, scope, resolver)
 		if !states {
 			continue
 		}
@@ -233,7 +233,7 @@ func isReturn(stmt Statement) bool {
 // trailingResults marks the members ending a body with results: the statements
 // after its last step, each returning on some path through it (IsResult). Control
 // flow returning among the steps stays a step, its effects in declared order.
-func trailingResults(body []ast.Node, scope *symbols.Scope) map[ast.Node]bool {
+func trailingResults(body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) map[ast.Node]bool {
 	trailing := map[ast.Node]bool{}
 	for i := len(body) - 1; i >= 0; i-- {
 		member := body[i]
@@ -243,7 +243,7 @@ func trailingResults(body []ast.Node, scope *symbols.Scope) map[ast.Node]bool {
 		if isFlowNode(member) {
 			break
 		}
-		stmt, states := calcStep(member, scope)
+		stmt, states := calcStep(member, scope, resolver)
 		if !states {
 			continue
 		}

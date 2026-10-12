@@ -4,9 +4,9 @@
   "instantiate": "test::Probe",
   "slots": {
     "absInteger": {"type": "Integer", "value": 2},
-    "absReal": {"type": "Real", "value": 2.5},
+    "absReal": {"type": "Rational", "value": "2.5"},
     "absComplex": {"type": "Real", "value": 5.0},
     "zeroComplex": {"type": "Boolean", "value": true},
-    "maxMixed": {"type": "Real", "value": 3.0}
+    "maxMixed": {"type": "Rational", "value": "3.0"}
   }
 }

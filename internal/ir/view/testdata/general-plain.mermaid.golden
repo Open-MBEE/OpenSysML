@@ -1,0 +1,102 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% GeneralViews::plainView — tree rendering (view def GeneralView)
+flowchart TD
+  n0["`*«part def»*
+**VehicleStructure::Vehicle**`"]
+    n1("`*«attribute»*
+**mass : Real**`")
+  n0 --- n1
+    n2("`*«part»*
+**chassis : Chassis**`")
+  n0 --- n2
+    n3("`*«part»*
+**driver : Driver**`")
+  n0 --- n3
+  n4["`*«part def»*
+**VehicleStructure::Chassis**`"]
+  n5["`*«part def»*
+**VehicleStructure::LightChassis**`"]
+  n6["`*«part def»*
+**VehicleStructure::Driver**`"]
+  n7["`*«action def»*
+**VehicleStructure::Brake**`"]
+  n8("`*«part»*
+**VehicleStructure::vehicle : Vehicle**`")
+    n9("`*«attribute»*
+**mass**`")
+  n8 --- n9
+  n10("`*«part»*
+**VehicleStructure::heavyVehicle : Vehicle**`")
+    n11("`*«attribute»*
+**mass**`")
+  n10 --- n11
+  n12("`*«action»*
+**VehicleStructure::brake : Brake**`")
+  n13["`*«package»*
+**VehicleStructure::Powertrain**`"]
+    n14["`*«part def»*
+**Engine**`"]
+  n13 --- n14
+  n15["`*«datatype»*
+**ScalarValues::Boolean**`"]
+  n16["`*«datatype»*
+**ScalarValues::Complex**`"]
+  n17["`*«datatype»*
+**ScalarValues::Integer**`"]
+  n18["`*«datatype»*
+**ScalarValues::Natural**`"]
+  n19["`*«datatype»*
+**ScalarValues::Number**`"]
+  n20["`*«datatype»*
+**ScalarValues::NumericalValue**`"]
+  n21["`*«datatype»*
+**ScalarValues::Positive**`"]
+  n22["`*«datatype»*
+**ScalarValues::Rational**`"]
+  n23["`*«datatype»*
+**ScalarValues::Real**`"]
+  n24["`*«datatype»*
+**ScalarValues::ScalarValue**`"]
+  n25["`*«datatype»*
+**ScalarValues::String**`"]
+  n0 ---|"◇ mass"| n23
+  n0 ---|"◆ chassis"| n4
+  n0 ---|"◇ driver"| n6
+  n5 -->|"specialization"| n4
+  n8 -.->|"typing"| n0
+  n9 -->|"redefines"| n1
+  n10 -.->|"typing"| n0
+  n11 -->|"redefines"| n1
+  n12 -.->|"typing"| n7
+  n15 -->|"specialization"| n24
+  n16 -->|"specialization"| n19
+  n17 -->|"specialization"| n22
+  n18 -->|"specialization"| n17
+  n19 -->|"specialization"| n20
+  n20 -->|"specialization"| n24
+  n21 -->|"specialization"| n18
+  n22 -->|"specialization"| n23
+  n23 -->|"specialization"| n16
+  n25 -->|"specialization"| n24

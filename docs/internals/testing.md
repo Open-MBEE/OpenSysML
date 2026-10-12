@@ -19,7 +19,7 @@ internal/
 │       ├── conformance_test.go     # Execution outcome verification, under every policy
 │       ├── trace_test.go           # Execution ordering/scheduling
 │       ├── explore_test.go         # Every linearization within a budget
-│       ├── robustness_test.go      # Failure mode handling
+│       ├── robustness_*_test.go    # Failure modes, one file per feature
 │       └── testdata/conformance/   # Behavioral test cases
 └── workspace/
     └── libs/
@@ -37,7 +37,7 @@ New grammar features require a **four-layer test contract**:
 **Purpose:** Ensure standard library continues to parse cleanly
 
 - **Test:** `TestStdlibConformance` (internal/workspace/libs/)
-- **Coverage:** 106/106 bundled library files — the 94 official SysML v2 standard library files and twelve non-normative OpenSysML extensions
+- **Coverage:** 110/110 bundled library files — the 94 official SysML v2 standard library files and sixteen non-normative OpenSysML extensions
 - **Acceptance:** All stdlib files parse without errors
 - **Allowlist:** `testdata/stdlib_known_failures.txt` (currently empty)
 
@@ -157,7 +157,7 @@ go test -run TestExecutionTrace -update-traces ./internal/exec/runtime
 
 **Purpose:** Verify malformed/pathological behaviors fail gracefully
 
-- **Test:** `TestRuntimeRobustness` (internal/exec/runtime/)
+- **Test:** `TestRuntimeRobustness*` (internal/exec/runtime/robustness_<feature>_test.go)
 - **Coverage:** one subtest per failure mode — count in [the measured counts](../project/spec-compliance.md)
 - **Acceptance:** Typed errors, never panic, 60s timeout guard
 

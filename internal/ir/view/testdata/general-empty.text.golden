@@ -1,0 +1,3 @@
+RobustViews::noRequirements - requirement rendering (view def GeneralView, filter @RequirementUsage)
+
+the view exposes nothing; the rendering is empty

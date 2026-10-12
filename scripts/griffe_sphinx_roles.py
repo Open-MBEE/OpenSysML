@@ -11,7 +11,7 @@ from griffe import Alias, Class, Extension, Module
 
 
 _ROLE = re.compile(r":(?:py:)?(?P<role>class|meth|func|attr|exc|mod|data|obj):`(?P<short>~?)(?P<name>[^`]+)`")
-_LABEL_TARGET = re.compile(r"^(?P<label>.*?)\s*<(?P<target>[^<>]+)>$")
+_LABEL_TARGET = re.compile(r"^(?P<label>|.*\S)\s*<(?P<target>[^<>]+)>$")
 _FENCE_START = re.compile(r"^[ \t]*(`{3,})([^`]*)$")
 _FENCE_END = re.compile(r"^[ \t]*(`{3,})[ \t]*$")
 

@@ -103,4 +103,92 @@ public interface VerifyRequirementRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getQuestionBytes();
+
+  /**
+   * <pre>
+   * Values for the requirement's `in` parameters, positional and by name; see
+   * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+   * capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.Value> 
+      getArgumentsList();
+  /**
+   * <pre>
+   * Values for the requirement's `in` parameters, positional and by name; see
+   * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+   * capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  org.openmbee.opensysml.proto.Value getArguments(int index);
+  /**
+   * <pre>
+   * Values for the requirement's `in` parameters, positional and by name; see
+   * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+   * capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  int getArgumentsCount();
+  /**
+   * <pre>
+   * Values for the requirement's `in` parameters, positional and by name; see
+   * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+   * capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.ValueOrBuilder> 
+      getArgumentsOrBuilderList();
+  /**
+   * <pre>
+   * Values for the requirement's `in` parameters, positional and by name; see
+   * VerifyConstraintRequest.arguments. Reported as the "verification_arguments"
+   * capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  org.openmbee.opensysml.proto.ValueOrBuilder getArgumentsOrBuilder(
+      int index);
+
+  /**
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  int getNamedArgumentsCount();
+  /**
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  boolean containsNamedArguments(
+      java.lang.String key);
+  /**
+   * Use {@link #getNamedArgumentsMap()} instead.
+   */
+  @java.lang.Deprecated
+  java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value>
+  getNamedArguments();
+  /**
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value>
+  getNamedArgumentsMap();
+  /**
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  /* nullable */
+org.openmbee.opensysml.proto.Value getNamedArgumentsOrDefault(
+      java.lang.String key,
+      /* nullable */
+org.openmbee.opensysml.proto.Value defaultValue);
+  /**
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  org.openmbee.opensysml.proto.Value getNamedArgumentsOrThrow(
+      java.lang.String key);
 }

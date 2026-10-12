@@ -521,8 +521,8 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		if !strings.Contains(res.Markdown, want.fence+want.header) {
 			t.Errorf("diagramForm %q: markdown missing %q:\n%s", form, want.fence+want.header, res.Markdown)
 		}
-		if (form == "" || form == "mermaid") && !strings.Contains(res.Markdown, "subGraphTitleMargin:\n      bottom: 24\n") {
-			t.Errorf("diagramForm %q: Mermaid lacks its cluster-title margin:\n%s", form, res.Markdown)
+		if (form == "" || form == "mermaid") && strings.Contains(res.Markdown, "subGraphTitleMargin") {
+			t.Errorf("diagramForm %q: Mermaid reserves unnecessary cluster-title height:\n%s", form, res.Markdown)
 		}
 		if strings.Count(res.Markdown, "```") != 2 {
 			t.Errorf("diagramForm %q: want exactly one fenced block:\n%s", form, res.Markdown)

@@ -1,0 +1,6 @@
+{
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {},
+  "result": {"type": "Integer", "value": 12}
+}

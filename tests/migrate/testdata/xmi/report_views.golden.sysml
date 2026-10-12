@@ -3,7 +3,7 @@ package 'Pump System' {
         part motor : Motor;
     }
     part def Motor;
-    requirement def <R1> 'Guard Fitted' {
+    requirement <R1> 'Guard Fitted' {
         doc /* The pump shall carry a guard. */
         comment /* The pump shall carry a guard. */
     }
@@ -16,40 +16,54 @@ package Stakeholders {
         /* «Stakeholder» tags with no v2 form: concern = Keep the pump running. */
     }
     part def 'Safety Inspector';
-    part def Maintainer;
+    part Maintainer;
 }
 package Viewpoints {
-    viewpoint 'Safety Viewpoint' {
+    view def 'Safety Viewpoint' {
         doc /* What the safety inspector must see. */
-        doc /* Show what keeps the pump safe.
-         * language: English
-         * method: Viewpoints::Safety Viewpoint::Collect Guards
-         * presentation: table
-         */
-        subject;
-        stakeholder 'safety Inspector' : Stakeholders::'Safety Inspector';
-        stakeholder maintainer : Stakeholders::Maintainer;
-        frame concern {
-            doc /* Is every moving part guarded? */
-        }
-        frame concern {
+        concern 'concern' {
             doc /* Which hazards does the pump control? */
+            subject;
+        }
+        viewpoint 'safety Viewpoint' {
+            subject;
+            stakeholder 'safety Inspector' : Stakeholders::'Safety Inspector';
+            frame 'concern';
+            frame concern {
+                doc /* Is every moving part guarded? */
+            }
+            doc /* language: English
+             * presentation: table
+             */
+            require constraint {
+                doc /* Show what keeps the pump safe. */
+            }
+            metadata MigrationMetadata::SynthesizedName about 'safety Inspector';
+        }
+        satisfy 'safety Viewpoint';
+        rendering {
+            action : 'Collect Guards';
         }
         action def 'Collect Guards';
-        metadata MigrationMetadata::SynthesizedName about 'safety Inspector', maintainer;
+        metadata MigrationMetadata::SynthesizedName about 'concern', 'safety Viewpoint';
     }
-    viewpoint 'Operations Viewpoint' {
-        doc /* Show how the pump is run. */
-        subject;
-        stakeholder operator : Stakeholders::Operator;
-        metadata MigrationMetadata::SynthesizedName about operator;
+    view def 'Operations Viewpoint' {
+        viewpoint 'operations Viewpoint' {
+            subject;
+            stakeholder operator : Stakeholders::Operator;
+            require constraint {
+                doc /* Show how the pump is run. */
+            }
+            metadata MigrationMetadata::SynthesizedName about operator;
+        }
+        satisfy 'operations Viewpoint';
+        metadata MigrationMetadata::SynthesizedName about 'operations Viewpoint';
     }
     part def 'Plain Block';
 }
 package ViewsModel {
-    view 'Safety View' {
+    view 'Safety View' : Viewpoints::'Safety Viewpoint' {
         doc /* Everything that keeps the pump safe. */
-        satisfy Viewpoints::'Safety Viewpoint';
         view detail :> 'Guard Detail';
         view appendices :> 'Guard Detail'[0..*];
         ref view seeAlso :> 'Operations View';
@@ -59,12 +73,11 @@ package ViewsModel {
         expose 'Pump System'::'Pump BDD';
     }
     view 'Guard Detail';
-    view 'Operations View' {
-        satisfy Viewpoints::'Operations Viewpoint';
+    view 'Operations View' : Viewpoints::'Operations Viewpoint' {
         expose Viewpoints::'Safety Viewpoint';
     }
     view Handbook {
-        part def Chapter;
+        occurrence def Chapter;
     }
     view 'Odd View';
     /* not migrated: «Expose» Dependency (_exposeGone) — the exposed element _nowhere is not in the document; applied stereotypes «Expose» */

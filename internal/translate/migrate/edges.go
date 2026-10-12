@@ -25,8 +25,9 @@ type edgeMember struct {
 // edgePlace is where one member an edge was written as is declared.
 type edgePlace struct {
 	owner *sysmlv1.Element
-	// nest names the anonymous actions the member is declared within, in
-	// owner's body, when it is not a direct member.
+	// nest names the members the member is declared within, in owner's body,
+	// when it is not a direct one: anonymous actions, or the analysis def
+	// written beside a block of the Monte Carlo pattern.
 	nest []string
 	name string
 	// keyword is the usage kind this member is declared as; see edgeMember.keyword.
@@ -363,6 +364,15 @@ func routeKindName(exported string, el *sysmlv1.Element) string {
 // routeTarget is every member a route of el is pinned to, as scope's view of
 // form f exposes them; or nil and the reason there is none.
 func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]string, string) {
+	if c := m.connOf(el); f.useCases && c != nil {
+		return m.connRefs(c.of, scope)[:1], ""
+	}
+	if m.associationDef(el) {
+		if !f.drawsEdge("connection def") || !m.associationLine(el) {
+			return nil, routeNotDrawn
+		}
+		return []string{m.exposure(el, scope)}, ""
+	}
 	if nameableEdge(el) {
 		em, ok := m.edgeMembers[el]
 		switch {
@@ -385,12 +395,55 @@ func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]strin
 	return nil, routeNoMember
 }
 
+// associationDef reports whether e is an association written as a connection
+// def, which a tree draws as a line between its end types' boxes.
+func (m *migration) associationDef(e *sysmlv1.Element) bool {
+	return e != nil && (e.Type == "Association" || e.Type == "AssociationClass") && m.written(e) && m.associationAsConnectionDef(e)
+}
+
+// associationLine reports whether a tree draws the connection def written for
+// association e as a line rather than a box, as the renderer decides it: the
+// def is binary, its ends are typed by written definitions, it specializes
+// nothing and holds no member but its ends, and no end keeps a qualifier of
+// its own. The diagram shows both end types when it draws the association.
+func (m *migration) associationLine(e *sysmlv1.Element) bool {
+	ends := m.model.Refs(e, "memberEnd")
+	if len(ends) != 2 || len(m.extras[e]) > 0 || len(m.hosted[e]) > 0 || len(m.annotated(e)) > 0 {
+		return false
+	}
+	if gens, _ := m.generals(e, catConnectionDef); gens != "" {
+		return false
+	}
+	for _, c := range e.Children {
+		if c.Role != "ownedEnd" && c.Role != "ownedComment" && m.written(c) {
+			return false
+		}
+	}
+	for _, end := range ends {
+		t := m.model.Ref(end, "type")
+		if t == nil || t == e {
+			return false
+		}
+		typ, _ := m.typeRef(t, e)
+		if typ == "" || strings.TrimSpace(m.typing(t)) != ":" {
+			return false
+		}
+		if opp, _ := m.crossedProperty(e, end, typ); opp == nil && len(end.Owned("qualifier")) > 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // viewForm is how a diagram's view is drawn: its Views rendering, the standard view
 // definition it specializes ("" for none) and, for a graph, the behavior it draws.
 type viewForm struct {
 	rendering  string
 	definition string
 	subject    *sysmlv1.Element
+	// useCases marks a use case diagram, drawn as the usages and connections
+	// written for its actors and use cases rather than their definitions.
+	useCases bool
 }
 
 // graphDefinitions pairs the words naming a UML behavior diagram family with the
@@ -419,6 +472,9 @@ func (m *migration) form(d *sysmlv1.Diagram) (viewForm, string) {
 		return f, ""
 	}
 	kind := strings.ToLower(d.Kind + " / " + d.UMLKind)
+	if strings.Contains(kind, "use case") {
+		return viewForm{rendering: interconnectionRendering, useCases: true}, ""
+	}
 	for _, g := range graphDefinitions {
 		for _, w := range g.words {
 			if !strings.Contains(kind, w) {
@@ -479,7 +535,13 @@ func (f viewForm) drawsEdge(keyword string) bool {
 	case "StateTransitionView":
 		return keyword == "transition"
 	}
-	return f.rendering == interconnectionRendering && (keyword == "connection" || keyword == "binding")
+	switch f.rendering {
+	case interconnectionRendering:
+		return keyword == "connection" || keyword == "binding"
+	case treeRendering:
+		return keyword == "connection def"
+	}
+	return false
 }
 
 // drawsPictures reports whether the form's rendering draws the Pictures its

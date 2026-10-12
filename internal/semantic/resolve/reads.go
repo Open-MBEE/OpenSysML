@@ -18,6 +18,9 @@ type Reads struct {
 	Segments   []string
 	// All is set once a frame enumerated the whole name table.
 	All bool
+	// Spellings is set once a frame read the set of names spelled, as a
+	// suggestion for an unresolved name does (Resolver.ReadSpellings).
+	Spellings bool
 	// Docs are the documents whose roots or kinds were read or whose frames
 	// were entered, sorted; the document itself is not among them.
 	Docs []string
@@ -44,6 +47,7 @@ func (r *Resolver) ReadsOf(doc string) (reads Reads, ok bool) {
 		maps.Copy(namespaces, f.namespaces)
 		maps.Copy(segments, f.segments)
 		reads.All = reads.All || f.all
+		reads.Spellings = reads.Spellings || f.spellings
 		for d := range f.docs {
 			docs[d] = true
 		}
@@ -68,7 +72,7 @@ func (r *Resolver) ReadsOf(doc string) (reads Reads, ok bool) {
 // Stale reports whether ch moved anything the reads saw: what frame.stale
 // asks of a live frame, asked of a recorded one.
 func (rd Reads) Stale(ch symbols.Changes) bool {
-	if rd.All && ch.Registered() {
+	if rd.All && ch.Registered() || rd.Spellings && ch.Spellings {
 		return true
 	}
 	for _, n := range rd.Docs {
@@ -103,6 +107,7 @@ func (rd Reads) Clone() Reads {
 		Namespaces: slices.Clone(rd.Namespaces),
 		Segments:   slices.Clone(rd.Segments),
 		All:        rd.All,
+		Spellings:  rd.Spellings,
 		Docs:       slices.Clone(rd.Docs),
 	}
 }

@@ -10,6 +10,96 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+func TestActionGeneralizationOrderTypingAndCycles(t *testing.T) {
+	scope := actionBodyScope(t, `package test {
+		action def Core;
+		action def Left :> Core;
+		action def Right :> Core;
+		action def Diamond :> Left, Right;
+		action def Typed;
+		action Base : Typed;
+		action def Derived :> Base;
+		action def A :> B;
+		action def B :> A;
+	}`)
+
+	diamond, cyclic := ActionGeneralization(scope("Diamond"), true)
+	if cyclic {
+		t.Fatal("Diamond generalization reported a cycle")
+	}
+	if got, want := actionGeneralizationNames(diamond), []string{"Left", "Core", "Right"}; !equalNames(got, want) {
+		t.Fatalf("Diamond generals = %v, want %v", got, want)
+	}
+
+	derived, cyclic := ActionGeneralization(scope("Derived"), false)
+	if cyclic {
+		t.Fatal("Derived specialization reported a cycle")
+	}
+	if got, want := actionGeneralizationNames(derived), []string{"Base"}; !equalNames(got, want) {
+		t.Fatalf("Derived non-typing generals = %v, want %v", got, want)
+	}
+	typed, cyclic := ActionGeneralization(scope("Derived"), true)
+	if cyclic {
+		t.Fatal("Derived typing-inclusive generalization reported a cycle")
+	}
+	if got, want := actionGeneralizationNames(typed), []string{"Base", "Typed"}; !equalNames(got, want) {
+		t.Fatalf("Derived typing-inclusive generals = %v, want %v", got, want)
+	}
+
+	_, cyclic = ActionGeneralization(scope("A"), false)
+	if !cyclic {
+		t.Fatal("A -> B -> A did not report a cycle")
+	}
+}
+
+func actionBodyScope(t *testing.T, src string) func(string) *symbols.Scope {
+	t.Helper()
+	const name = "generalization.sysml"
+	p := parser.New(source.New(name, []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+	}
+	index := symbols.NewIndexFromDoc(name, root)
+	doc := index.DocumentRoot(name)
+	pkg, ok := doc.LookupLocal("test")
+	if !ok {
+		t.Fatal("package test not found")
+	}
+	return func(action string) *symbols.Scope {
+		t.Helper()
+		sym, ok := pkg.Scope.LookupLocal(action)
+		if !ok || sym.Scope == nil {
+			t.Fatalf("action body scope %s not found", action)
+		}
+		return sym.Scope
+	}
+}
+
+func actionGeneralizationNames(scopes []*symbols.Scope) []string {
+	names := make([]string, 0, len(scopes))
+	for _, scope := range scopes {
+		if owner := scope.Owner(); owner != nil {
+			names = append(names, owner.Name)
+		} else {
+			names = append(names, "")
+		}
+	}
+	return names
+}
+
+func equalNames(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // transitionTargetIn returns the target name of the first transition declared
 // in root, the name node name resolution keyed its verdict by.
 func transitionTargetIn(t *testing.T, root *ast.RootNamespace) *ast.QualifiedName {

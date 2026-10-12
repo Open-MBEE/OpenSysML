@@ -9,7 +9,81 @@ include(joinpath(@__DIR__, "..", "conformance", "compare.jl"))
 
 const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformance", "fixtures"))
 
-@testset "decode_value: the twenty-two arms" begin
+@testset "rendered view decoder preserves typed fields and message presence" begin
+    raw = Dict{String,Any}(
+        "view" => "Demo::view", "kind" => "interconnection", "stated" => "rendered",
+        "nodes" => [Dict{String,Any}(
+            "id" => "n0", "kind" => "part", "name" => "root", "nameSynthesized" => true,
+            "type" => "Demo::Part", "detail" => "detail", "text" => "text", "standIn" => true,
+            "ports" => [Dict("id" => "n0.0", "name" => "api", "type" => "Demo::API", "direction" => "inout")],
+            "origin" => Dict("file" => "views.sysml", "startLine" => 4),
+            "geometry" => Dict("x" => 1, "y" => 2, "width" => 3, "height" => 4, "hasSize" => true, "collapsed" => true),
+            "style" => Dict("fill" => "#fff", "fontSize" => 12, "bold" => true, "italic" => true),
+        )],
+        "edges" => [Dict("from" => "n0", "to" => "n1", "fromPort" => "n0.0",
+            "toPort" => "n1.0", "label" => "wire", "name" => "wire", "kind" => "connection",
+            "route" => [Dict("x" => 2, "y" => 3)], "style" => Dict("line" => "#222"))],
+        "columns" => ["a"],
+        "rows" => [Dict("cells" => ["x"], "origin" => Dict("file" => "views.sysml"))],
+        "canvas" => Dict("unit" => "px", "width" => 800, "height" => 400, "hasSize" => true),
+        "notes" => [Dict("text" => "note", "anchor" => "n0", "edgeFrom" => "n0",
+            "edgeTo" => "n1", "x" => 1, "y" => 2, "width" => 3, "height" => 4, "hasSize" => true)],
+        "notices" => ["notice"],
+    )
+    rendered = OpenSysML.rendered_view_result(raw)
+    @test rendered.view == "Demo::view"
+    @test rendered.nodes[1].name_synthesized
+    @test rendered.nodes[1].ports[1].direction == "inout"
+    @test rendered.nodes[1].origin.start_line == 4
+    @test rendered.nodes[1].geometry.collapsed
+    @test rendered.nodes[1].style.font_size == 12
+    @test rendered.edges[1].from_port == "n0.0"
+    @test rendered.edges[1].route[1].x == 2
+    @test rendered.rows[1].cells == ["x"]
+    @test rendered.canvas.has_size
+    @test rendered.notes[1].edge_to == "n1"
+    @test rendered.notices == ["notice"]
+    @test OpenSysML.rendered_view_result(Dict{String,Any}()).canvas === nothing
+    sparse = OpenSysML.rendered_view_result(Dict{String,Any}(
+        "nodes" => [Dict{String,Any}()], "edges" => [Dict{String,Any}()],
+        "rows" => [Dict{String,Any}()], "notes" => [Dict{String,Any}()]))
+    @test isnothing(sparse.nodes[1].origin)
+    @test isnothing(sparse.nodes[1].geometry)
+    @test isnothing(sparse.nodes[1].style)
+    @test isnothing(sparse.edges[1].origin)
+    @test isnothing(sparse.edges[1].style)
+    @test isnothing(sparse.rows[1].origin)
+    @test isnothing(sparse.notes[1].origin)
+end
+
+@testset "RenderView preserves service not-found messages" begin
+    factory = (text, _) -> SymbolNotFoundError("Demo::missing"; service_message=text)
+    for (view, message) in (("Demo::missing", "no view named Demo::missing"),
+                            ("#interconnection:Nope",
+                             "#interconnection:Nope: Nope names nothing in this model"))
+        err = try
+            OpenSysML._translate(; not_found=(text, _) ->
+                SymbolNotFoundError(view; service_message=text)) do
+                throw(OpenSysML.ConnectError("not_found", message, 404))
+            end
+        catch caught
+            caught
+        end
+        @test err isa SymbolNotFoundError
+        @test err.name == view
+        @test sprint(showerror, err) == message
+    end
+    model_error = try
+        OpenSysML._translate(; not_found=factory) do
+            throw(OpenSysML.ConnectError("not_found", "model not found: abc", 404))
+        end
+    catch caught
+        caught
+    end
+    @test model_error isa ModelNotFoundError
+end
+
+@testset "decode_value: the twenty-three arms" begin
     @test decode_value(nothing) === missing
     @test decode_value(JSON.parse("""{"intValue":"9007199254740993"}""")) === Int64(9007199254740993)
     @test decode_value(JSON.parse("""{"intValue":"-9223372036854775808"}""")) === typemin(Int64)
@@ -20,6 +94,32 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
     end
     @test decode_value(JSON.parse("""{"quantity":{"bigIntMagnitude":"9223372036854775808","unit":"kg"}}""")).magnitude == big(2)^63
     @test encode_value(big(2)^70) == Dict("bigIntValue" => "1180591620717411303424")
+    third = decode_value(JSON.parse("""{"rationalValue":{"numerator":"-1","denominator":"3"}}"""))
+    @test third isa Rational{BigInt} && third == -1//3
+    @test encode_value(third) == Dict("rationalValue" => Dict("numerator" => "-1", "denominator" => "3"))
+    @test encode_value(1//4) == Dict("rationalValue" => Dict("numerator" => "1", "denominator" => "4"))
+    @test OpenSysML.rationals_as_reals!(encode_value(1//4)) == Dict("realValue" => 0.25)
+    @test same_value(third, -1/3) && same_value(-1/3, third) && !same_value(third, -0.3333)
+    @test !same_value(1//3, 6004799503160661//18014398509481984)
+    @test same_value(0//1, -0.0) && same_value(-0.0, 0//1) && !same_value(1//3, NaN)
+    @test OpenSysML.rationals_as_reals!(encode_value(Any[1//3, 1//2])) ==
+          Dict("sequence" => Dict("elements" => Any[
+              Dict("rationalValue" => Dict("numerator" => "1", "denominator" => "3")),
+              Dict("realValue" => 0.5)]))
+    @test encode_value(big(10)^400 // 1)["rationalValue"]["denominator"] == "1"
+    for (n, d) in (("2", "6"), ("1", "-3"), ("1", "0"), ("1", "2"), ("3", "1"), ("0", "1"),
+                   ("-0", "3"), ("01", "3"), ("+1", "3"), ("1.5", "7"), ("", "3"))
+        @test_throws ErrorException decode_value(Dict("rationalValue" => Dict("numerator" => n, "denominator" => d)))
+    end
+    km = decode_value(JSON.parse("""{"quantity":{"rationalMagnitude":{"numerator":"1","denominator":"3"},"unit":"km","unitTerm":{"scaleNum":1000,"scaleDen":1,"factors":[{"unitId":"SI::m","exponent":1}]}}}"""))
+    @test km.magnitude == 1//3
+    m = Quantity(1000//3, "m", Dict("scaleNum" => 1, "scaleDen" => 1, "factors" => Any[Dict("unitId" => "SI::m", "exponent" => 1)]))
+    @test same_value(km, m)
+    @test encode_value(km)["quantity"]["rationalMagnitude"] == Dict("numerator" => "1", "denominator" => "3")
+    for value in (1//3, Any[Any[1//10]], Set([1//3]), km, VectorQuantity([km]))
+        @test CAPABILITY_RATIONAL_VALUES in value_capabilities(value)
+    end
+    @test !(CAPABILITY_RATIONAL_VALUES in value_capabilities(1//2))
     @test encode_value(big(7)) == Dict("intValue" => "7")
     @test encode_value(Quantity(big(2)^63, "kg", nothing)) == Dict("quantity" => Dict("bigIntMagnitude" => "9223372036854775808", "unit" => "kg"))
     wide = Quantity(big(2)^63, "kg", nothing)

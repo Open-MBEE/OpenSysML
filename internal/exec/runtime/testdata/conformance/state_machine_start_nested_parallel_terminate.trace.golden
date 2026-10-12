@@ -1,0 +1,7 @@
+eval literal 0 -> 0
+enter: work
+choice entering work: next terminating(entry), nested(entry) (unordered; took terminating(entry) first)
+stmt action body
+choice entering work: next start of state terminating, nested(entry) (unordered; took start of state terminating first)
+transition: boot -> stop
+terminate: stop

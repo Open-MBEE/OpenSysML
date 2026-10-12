@@ -1,0 +1,171 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Records" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="Point"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="x" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="y" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="Scaled"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="k" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="calc" name="scale" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="v" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Real
+                    (*ast.QualifiedName))))
+              (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=Real
+                  (*ast.QualifiedName))
+                (OperatorExpr operator="*"
+                  (FeatureReference name="v")
+                  (FeatureReference name="k")))))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Apply"
+          (Membership visibility="default"
+            (Usage kind="calc" name="f" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="v" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Real
+                    (*ast.QualifiedName))))
+              (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=Real
+                  (*ast.QualifiedName)))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))
+            (InvocationExpr type="f"
+              (FeatureReference name="a")))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Sum"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="p" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Point
+                (*ast.QualifiedName))
+              (ConstructorExpr type="Point"
+                (NamedArg name="y"
+                  (LiteralReal value="2.0"))
+                (NamedArg name="x"
+                  (FeatureReference name="a")))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))
+            (OperatorExpr operator="+"
+              (FeatureChainExpr member="x"
+                (FeatureReference name="p"))
+              (FeatureChainExpr member="y"
+                (ConstructorExpr type="Point"
+                  (LiteralReal value="1.0")
+                  (FeatureReference name="a")))))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Same"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="p" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Point
+                (*ast.QualifiedName))
+              (ConstructorExpr type="Point"
+                (FeatureReference name="a")
+                (FeatureReference name="a"))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Boolean
+              (*ast.QualifiedName))
+            (OperatorExpr operator="and"
+              (OperatorExpr operator="=="
+                (FeatureReference name="p")
+                (FeatureReference name="p"))
+              (OperatorExpr operator="!=="
+                (FeatureReference name="p")
+                (ConstructorExpr type="Point"
+                  (FeatureReference name="a")
+                  (FeatureReference name="a")))))))
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="Seg"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Point
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Point
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Nest"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="p" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Point
+                (*ast.QualifiedName))
+              (ConstructorExpr type="Point"
+                (FeatureReference name="a")
+                (LiteralReal value="1.0"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Seg
+                (*ast.QualifiedName))
+              (ConstructorExpr type="Seg"
+                (FeatureReference name="p")
+                (ConstructorExpr type="Point"
+                  (LiteralReal value="2.0")
+                  (FeatureReference name="a")))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Boolean
+              (*ast.QualifiedName))
+            (OperatorExpr operator="and"
+              (OperatorExpr operator="=="
+                (FeatureChainExpr member="a"
+                  (FeatureReference name="s"))
+                (FeatureReference name="p"))
+              (OperatorExpr operator="=="
+                (FeatureChainExpr member="y"
+                  (FeatureChainExpr member="b"
+                    (FeatureReference name="s")))
+                (FeatureReference name="a"))))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Direct"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Scaled
+                (*ast.QualifiedName))
+              (ConstructorExpr type="Scaled"
+                (FeatureReference name="a"))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))
+            (OperatorExpr operator="+"
+              (InvocationExpr type=""
+                (FeatureChainExpr member="scale"
+                  (FeatureReference name="s"))
+                (LiteralReal value="2.0"))
+              (InvocationExpr type="Apply"
+                (FeatureChainExpr member="scale"
+                  (FeatureReference name="s"))
+                (LiteralReal value="3.0")))))))))

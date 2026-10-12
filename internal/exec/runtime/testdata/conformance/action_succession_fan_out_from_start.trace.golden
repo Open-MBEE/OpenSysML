@@ -1,0 +1,7 @@
+step 1: token 2@a, token 3@b
+stmt assign y
+  eval literal 1 -> 1
+stmt assign x
+  eval literal 1 -> 1
+choice step 2: tokens 2@a, 3@b (unordered; took 3@b first)
+step 2: no active tokens

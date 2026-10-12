@@ -5,7 +5,7 @@
     {
       "finalState": "settled",
       "stateVisits": ["waiting", "settled"],
-      "slots": {"s.reading": {"type": "Real", "value": 2.5}}
+      "slots": {"s.reading": {"type": "Rational", "value": "2.5"}}
     }
   ]
 }

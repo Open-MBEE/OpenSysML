@@ -1,0 +1,22 @@
+{
+	"libraries": true,
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 1},
+				"leftRan": {"type": "Boolean", "value": true},
+				"rightRan": {"type": "Boolean", "value": true}
+			}
+		},
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 2},
+				"leftRan": {"type": "Boolean", "value": true},
+				"rightRan": {"type": "Boolean", "value": true}
+			}
+		}
+	],
+	"admissible": "Several successions out of an ordinary action node: every target follows, in which order is open"
+}

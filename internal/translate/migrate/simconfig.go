@@ -144,12 +144,20 @@ func (m *migration) simulationConfig(e *sysmlv1.Element, header, note string) {
 	results.Notes = append(results.Notes, lost...)
 	notes = append(notes, lost...)
 	note = joinNotes(note, strings.Join(notes, "; "))
+	if m.strict {
+		note = joinNotes(note, "its run settings are written as a comment: a strict migration names no OpenSysML library, and Simulation::Configuration is one's")
+	}
 	m.add(e, verdictFor(note), m.v2Name(e), note)
 	m.w.block(header, func() {
 		saved := m.scope
 		m.scope = e
 		m.comments(e)
-		m.w.block("@Simulation::Configuration", func() { m.w.lines(settings.lines) })
+		if m.strict {
+			m.w.lines(commentLines("simulation run settings, a comment since their v2 form is an OpenSysML library's: " +
+				strings.ReplaceAll(strings.Join(settings.lines, " "), "Simulation::DrawPolicy::", "")))
+		} else {
+			m.w.block("@Simulation::Configuration", func() { m.w.lines(settings.lines) })
+		}
 		if target.element != nil {
 			part := m.freshName(e, "target")
 			results.Target = part
@@ -374,11 +382,11 @@ func (m *migration) targetClassifiers(s *sysmlv1.Stereotype) (t *sysmlv1.Element
 	}
 	cat, why := m.classify(t)
 	switch cat {
-	case catPartDef:
+	case catPartDef, catOccurrenceDef:
 		classifiers = []*sysmlv1.Element{t}
 	case catIndividualDef:
 		kind, written, _ := m.individualClassifiers(t)
-		if kind != catPartDef {
+		if kind != catPartDef && kind != catOccurrenceDef {
 			return nil, nil, targetNote + describe(t) + " is written as an " + individualKeyword(kind) + ", which no part can be typed by, so the configuration runs no behavior"
 		}
 		classifiers = written
@@ -486,7 +494,7 @@ func (m *migration) constraintNetwork(classifiers []*sysmlv1.Element) string {
 				}
 				blocks[t] = true
 				usages = append(usages, usage)
-			case catPartDef:
+			case catPartDef, catOccurrenceDef:
 				if p.Attrs["aggregation"] == "composite" {
 					queue = append(queue, t)
 				}

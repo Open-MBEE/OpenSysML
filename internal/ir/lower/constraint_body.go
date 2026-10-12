@@ -1,6 +1,7 @@
 package lower
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -14,7 +15,11 @@ import (
 // parameter redefinition writes, and members declaring nothing a step can run.
 // Successions between steps supply precedence; other successions and control
 // nodes remain unexecutable because a verdict does not run a token flow.
-func ConstraintStep(member ast.Node, scope *symbols.Scope) (Statement, bool) {
+func ConstraintStep(member ast.Node, scope *symbols.Scope, resolvers ...*resolve.Resolver) (Statement, bool) {
+	var resolver *resolve.Resolver
+	if len(resolvers) > 0 {
+		resolver = resolvers[0]
+	}
 	if actual := unwrapMembership(member); actual != nil {
 		member = actual
 	}
@@ -33,24 +38,24 @@ func ConstraintStep(member ast.Node, scope *symbols.Scope) (Statement, bool) {
 			Until:      m.Until,
 			Variable:   m.Variable.Name,
 			Collection: m.Collection,
-			Body:       constraintLowerBlock(m, m.Body, childScope(scope, m)),
+			Body:       constraintLowerBlock(m, m.Body, childScope(scope, m), resolver),
 			Node:       m,
 			Scope:      scope,
 		}, true
 	case *ast.IfActionNode:
 		lowered := If{Condition: m.Condition, Node: m, Scope: scope}
 		if m.Then != nil {
-			block := constraintLowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then))
+			block := constraintLowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver)
 			lowered.Then = block
 		}
 		if m.Else != nil {
-			block := constraintLowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else))
+			block := constraintLowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver)
 			lowered.Else = &block
 		}
 		return lowered, true
 	case *ast.Usage:
 		if m.Kind == ast.UsageAction && m.IsBodyParameter {
-			return constraintLowerBlock(m, m.Members, childScope(scope, m)), true
+			return constraintLowerBlock(m, m.Members, childScope(scope, m), resolver), true
 		}
 		if m.Direction == ast.DirIn || m.Direction == ast.DirInOut {
 			// A parameter is bound by the check, not by the body.
@@ -80,18 +85,18 @@ func ConstraintStep(member ast.Node, scope *symbols.Scope) (Statement, bool) {
 		if ast.IsExpression(member) {
 			return nil, false
 		}
-		return lowerStatement(member, scope), true
+		return lowerStatement(member, scope, resolver), true
 	}
 }
 
-func constraintLowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope) Block {
+func constraintLowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) Block {
 	block := Block{Node: owner, Scope: scope}
 	for _, member := range members {
 		actual := unwrapMembership(member)
 		if actual == nil || isAnnotation(actual) {
 			continue
 		}
-		if stmt, ok := ConstraintStep(actual, scope); ok {
+		if stmt, ok := ConstraintStep(actual, scope, resolver); ok {
 			block.Statements = append(block.Statements, stmt)
 		}
 	}

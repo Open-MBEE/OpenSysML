@@ -100,6 +100,10 @@ func cellTexts(t *testing.T, result *RowSet, column int) []string {
 			out = append(out, semantics.FormatReal(realVal))
 			continue
 		}
+		if rational, ok := value.Rational(); ok {
+			out = append(out, rational.FormatRational())
+			continue
+		}
 		if sym, ok := value.Element(); ok {
 			out = append(out, symbols.FQNOf(sym))
 			continue
@@ -413,7 +417,7 @@ calc def Derived :> Query {
 		{1, []string{"4580000 [kg]", "238000 [kg]"}},
 		{2, []string{"2290.0 [kg]", "119.0 [kg]"}},
 		{3, []string{"1145000.0 [kg]", "59500.0 [kg]"}},
-		{4, []string{"54523.80952380953 [SI::'kg⋅m⁻¹']", "6611.111111111111 [SI::'kg⋅m⁻¹']"}},
+		{4, []string{"1145000/21 [SI::'kg⋅m⁻¹']", "59500/9 [SI::'kg⋅m⁻¹']"}},
 		{5, []string{"1.0", "1.0"}},
 		{6, []string{"4580000 [kg]", "238000 [kg]"}},
 	}

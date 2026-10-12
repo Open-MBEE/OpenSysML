@@ -3,11 +3,8 @@ package test {
 	private import ISQ::*;
 	private import SI::*;
 
-	// Three tokens reach the loop node through the merge a step apart, each running its
-	// body. The first two nap in a flow inside slow, so two performances of slow are
-	// paused at once, each held where its token's body paused, while the third skips
-	// the nap and its `terminate slow;` names the node: both paused performances end,
-	// their naps dropped and neither later assignment run, and both bodies go on past slow.
+	// Each loop body's slow naps while a watch inside it, due first, runs `terminate slow;`:
+	// that ends the paused slow of its own loop body's performance, its nap dropped.
 	action host {
 		out attribute entered : Integer = 0;
 		out attribute napped : Integer = 0;
@@ -29,19 +26,19 @@ package test {
 		then loop {
 			action slow {
 				assign entered := entered + 1;
-				if entered <= 2 {
-					action inner {
-						first start;
-						then action nap accept after 10 [s];
-						then done;
-					}
-					assign napped := napped + 1;
+				action inner {
+					first start;
+					then fork f;
+					succession first f then nap;
+					succession first f then watch;
+					action nap accept after 10 [s];
+					action watch accept after 5 [s];
+					succession first watch then stop;
+					action stop { terminate slow; }
 				}
+				assign napped := napped + 1;
 			}
 			assign passed := passed + 1;
-			if passed == 1 {
-				terminate slow;
-			}
 			assign later := later + 1;
 		} until true;
 		then done;

@@ -3,6 +3,6 @@
 	"instantiate": "test::bay",
 	"slots": {
 		"stowed": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
-		"volumes": {"type": "Sequence", "elements": [{"type": "Real", "value": 2.0}, {"type": "Real", "value": 3.5}]}
+		"volumes": {"type": "Sequence", "elements": [{"type": "Rational", "value": "2.0"}, {"type": "Rational", "value": "3.5"}]}
 	}
 }

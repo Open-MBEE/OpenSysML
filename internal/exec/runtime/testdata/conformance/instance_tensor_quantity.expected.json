@@ -36,7 +36,7 @@
     "order": {"type": "Integer", "value": 2},
     "flattenedSize": {"type": "Integer", "value": 4},
     "num": {"type": "Sequence", "elements": [
-      {"type": "Real", "value": 1.0}, {"type": "Real", "value": 2.0}, {"type": "Real", "value": 3.0}, {"type": "Real", "value": 4.0}
+      {"type": "Rational", "value": "1.0"}, {"type": "Rational", "value": "2.0"}, {"type": "Rational", "value": "3.0"}, {"type": "Rational", "value": "4.0"}
     ]},
     "unbound": {"type": "Boolean", "value": false},
     "isBound": {"type": "Boolean", "value": true},

@@ -22,6 +22,7 @@ package test {
 		out stringFromNull = BaseFunctions::ToString(null);
 		out stringFromLiteral = BaseFunctions::ToString(Color::red);
 		out roundTrip = RealFunctions::ToReal(RealFunctions::ToString(0.1)) == 0.1;
+		out realTenthIsTenth = RealFunctions::ToReal("0.1") == 0.1;
 		out naturalFromInteger = IntegerFunctions::ToNatural(9);
 		out integerFromReal = RealFunctions::ToInteger(2.7);
 		out integerFromNegativeReal = RealFunctions::ToInteger(-2.7);

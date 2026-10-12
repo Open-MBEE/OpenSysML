@@ -1,8 +1,10 @@
 package repl
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -83,7 +85,7 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 			}
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.ownedSpecialization->isEmpty();
+				element.ownedRelationship->isEmpty();
 			}
 			part def P { part c; }
 		}
@@ -137,7 +139,7 @@ func TestSelfCheckUnevaluatedOnlyDoesNotFailSummary(t *testing.T) {
 			private import SequenceFunctions::*;
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.ownedSpecialization->isEmpty();
+				element.ownedRelationship->isEmpty();
 			}
 			part def P;
 		}
@@ -665,4 +667,665 @@ func assertSelfCheckViolation(t *testing.T, verdicts []Verdict, constraint, elem
 		}
 	}
 	t.Fatalf("no %s violation for %s in %+v", constraint, element, verdicts)
+}
+
+func loadSelfCheckFixture(t *testing.T, files ...SourceFile) *Session {
+	t.Helper()
+	s := NewSession()
+	result := s.SubmitFiles(files)
+	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
+		t.Fatalf("fixtures did not load cleanly: %v", errs)
+	}
+	if s.HasErrors() {
+		t.Fatal("fixtures have model errors")
+	}
+	return s
+}
+
+func TestSelfCheckPackageAppliesARuleThatHolds(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M {
+			part def P { doc /* stated */ }
+			part def Q { doc /* also stated */ }
+		}`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				private import SequenceFunctions::*;
+				constraint def partDefinitionHasDocumentation {
+					in pd : SysML::PartDefinition;
+					not pd.documentation->isEmpty();
+				}
+			}
+		}`})
+
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := stats.applications["Acme::Rules::partDefinitionHasDocumentation"]; got == 0 {
+		t.Fatalf("rule was not applied: %+v", stats.applications)
+	}
+	if stats.violations != 0 || stats.evaluationErrors != 0 {
+		t.Fatalf("documented part defs produced %d violations and %d errors: %+v", stats.violations, stats.evaluationErrors, verdicts)
+	}
+}
+
+func TestSelfCheckPackageReportsAViolationUnderItsQualifiedName(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M {
+			part def P;
+		}`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				private import SequenceFunctions::*;
+				constraint def partDefinitionHasDocumentation {
+					in pd : SysML::PartDefinition;
+					not pd.documentation->isEmpty();
+				}
+			}
+		}`})
+
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.violations == 0 {
+		t.Fatalf("undocumented part def produced no violation: %+v", verdicts)
+	}
+	found := false
+	for _, verdict := range verdicts {
+		text := verdict.Subject + "\n" + strings.Join(verdict.Lines, "\n")
+		if verdict.Status == VerdictFails && strings.HasPrefix(verdict.Subject, "Acme::Rules::") &&
+			strings.Contains(text, "fails for M::P") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no violation under the rule's qualified name: %+v", verdicts)
+	}
+}
+
+func TestSelfCheckPackageEvaluationErrorLeavesSummaryUnresolved(t *testing.T) {
+	// The division analyses cleanly but fails at runtime, so the run reports an
+	// evaluation error rather than a model error the CLI would gate on.
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P; }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				private import SequenceFunctions::*;
+				constraint def divideByZero {
+					in pd : SysML::PartDefinition;
+					pd.name->size() / 0 > 0;
+				}
+			}
+		}`})
+
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.evaluationErrors == 0 {
+		t.Fatalf("non-Boolean rule produced no evaluation error: %+v", stats)
+	}
+	if summary := verdicts[len(verdicts)-1]; summary.Status != VerdictUnresolved {
+		t.Fatalf("summary = %+v, want unresolved", summary)
+	}
+}
+
+func TestSelfCheckPackageUnknownNameEvaluatesNothing(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P; }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme { package Rules { } }`})
+
+	verdicts, err := s.SelfCheckPackages([]string{"Acme::Nope", "Acme::AlsoNope"})
+	if verdicts != nil {
+		t.Fatalf("verdicts = %+v, want nil", verdicts)
+	}
+	if !errors.Is(err, ErrSelfCheckPackageNotFound) {
+		t.Fatalf("err = %v, want ErrSelfCheckPackageNotFound", err)
+	}
+	for _, name := range []string{"Acme::Nope", "Acme::AlsoNope"} {
+		if !strings.Contains(err.Error(), name) {
+			t.Fatalf("error does not name %s: %v", name, err)
+		}
+	}
+	if err := s.ResolveSelfCheckPackages([]string{"Acme::Nope"}); !errors.Is(err, ErrSelfCheckPackageNotFound) {
+		t.Fatalf("ResolveSelfCheckPackages = %v, want ErrSelfCheckPackageNotFound", err)
+	}
+	if err := s.ResolveSelfCheckPackages([]string{"Acme::Rules"}); err != nil {
+		t.Fatalf("ResolveSelfCheckPackages = %v, want nil", err)
+	}
+}
+
+func TestSelfCheckPackageSkipsANonMetaclassParameterWithAWarning(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P; }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				private import ScalarValues::*;
+				private import SequenceFunctions::*;
+				constraint def integerRule {
+					in x : ScalarValues::Integer;
+					true;
+				}
+				constraint def modelTypeRule {
+					in x : M::P;
+					true;
+				}
+				constraint def holdsRule {
+					in pd : SysML::PartDefinition;
+					true;
+				}
+			}
+		}`})
+
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"Acme::Rules::integerRule", "Acme::Rules::modelTypeRule"} {
+		if stats.applications[name] != 0 {
+			t.Errorf("skipped rule %s was applied", name)
+		}
+		found := false
+		for _, verdict := range verdicts {
+			text := strings.Join(verdict.Lines, "\n")
+			if verdict.Subject == name && strings.Contains(text, "warning:") &&
+				strings.Contains(text, "is skipped") {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("no skip warning for %s: %+v", name, verdicts)
+		}
+	}
+	if stats.applications["Acme::Rules::holdsRule"] == 0 {
+		t.Error("the metaclass-typed rule was not applied")
+	}
+}
+
+func TestSelfCheckPackageWarnsWhenAPackageYieldsNoConstraints(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P; }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme { package Rules { part def Z; } }`})
+
+	verdicts, _, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, verdict := range verdicts {
+		if strings.Contains(strings.Join(verdict.Lines, "\n"), "has no applicable constraint definitions") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no empty-package warning: %+v", verdicts)
+	}
+	if summary := verdicts[len(verdicts)-1]; !strings.Contains(strings.Join(summary.Lines, "\n"), "Self-model check:") {
+		t.Fatalf("run did not complete: %+v", summary)
+	}
+}
+
+func TestSelfCheckPackageAppliesNestedPackageConstraints(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P { doc /* stated */ } }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				package Nested {
+					private import SequenceFunctions::*;
+					constraint def partDefinitionHasDocumentation {
+						in pd : SysML::PartDefinition;
+						not pd.documentation->isEmpty();
+					}
+				}
+			}
+		}`})
+
+	_, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := stats.applications["Acme::Rules::Nested::partDefinitionHasDocumentation"]; got == 0 {
+		t.Fatalf("nested constraint was not applied: %+v", stats.applications)
+	}
+}
+
+func TestSelfCheckAppliesSeveralPackagesAtOnce(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P { doc /* stated */ } }`},
+		SourceFile{Name: "rules_a.sysml", Text: `package Acme {
+			package Rules {
+				private import SequenceFunctions::*;
+				constraint def documented {
+					in pd : SysML::PartDefinition;
+					not pd.documentation->isEmpty();
+				}
+			}
+		}`},
+		SourceFile{Name: "rules_b.sysml", Text: `package Beta {
+			constraint def anything {
+				in pd : SysML::PartDefinition;
+				true;
+			}
+		}`})
+
+	_, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules", "Beta"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"Acme::Rules::documented", "Beta::anything"} {
+		if stats.applications[name] == 0 {
+			t.Errorf("%s was not applied: %+v", name, stats.applications)
+		}
+	}
+}
+
+func TestSelfCheckPackageElementsAreNotChecked(t *testing.T) {
+	const model = `package M { part def P { doc /* stated */ } }`
+	const rules = `package Acme {
+		package Rules {
+			private import SequenceFunctions::*;
+			constraint def documented {
+				in pd : SysML::PartDefinition;
+				not pd.documentation->isEmpty();
+			}
+		}
+	}`
+	modelOnly := loadSelfCheckFixture(t, SourceFile{Name: "model.sysml", Text: model})
+	_, baseline, err := modelOnly.selfCheckRun("SysMLValidation", false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: model},
+		SourceFile{Name: "rules.sysml", Text: rules})
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.elements != baseline.elements {
+		t.Errorf("elements = %d, want %d as checked of the model alone", stats.elements, baseline.elements)
+	}
+	for _, verdict := range verdicts {
+		if strings.Contains(verdict.Subject, "for Acme::") {
+			t.Errorf("a rule-package element was checked: %+v", verdict)
+		}
+	}
+}
+
+func TestSelfCheckIgnoresRulePackagesWithoutTheFlag(t *testing.T) {
+	files := []SourceFile{
+		{Name: "model.sysml", Text: `package M { part def P { doc /* stated */ } }`},
+		{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				constraint def anything {
+					in pd : SysML::PartDefinition;
+					false;
+				}
+			}
+		}`},
+	}
+	s := loadSelfCheckFixture(t, files...)
+	for _, verdict := range s.SelfCheck() {
+		if strings.Contains(verdict.Subject, "Acme::") {
+			t.Fatalf("SelfCheck() applied a rule-package constraint: %+v", verdict)
+		}
+	}
+	got, err := s.SelfCheckPackages(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := s.SelfCheck(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("SelfCheckPackages(nil) = %+v, want SelfCheck() = %+v", got, want)
+	}
+}
+
+func TestSelfCheckPackageNamingTheBundledPackageDoesNotDoubleApply(t *testing.T) {
+	s := loadSelfCheckFixture(t, SourceFile{Name: "model.sysml", Text: `package M { part def P; }`})
+
+	_, bundled, err := s.selfCheckRun("SysMLValidation", false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verdicts, doubled, err := s.selfCheckRun("SysMLValidation", false, []string{"SysMLValidation"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range bundled.applications {
+		if doubled.applications[name] != want {
+			t.Errorf("%s applications = %d, want %d", name, doubled.applications[name], want)
+		}
+	}
+	for _, verdict := range verdicts {
+		if strings.Contains(strings.Join(verdict.Lines, "\n"), "has no applicable constraint definitions") {
+			t.Errorf("SysMLValidation warned as empty: %+v", verdict)
+		}
+	}
+}
+
+func TestSelfCheckPackageReopenedAcrossFilesAppliesOnce(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P { doc /* stated */ } }`},
+		SourceFile{Name: "rules_a.sysml", Text: `package Acme {
+			package Rules {
+				private import SequenceFunctions::*;
+				constraint def documented {
+					in pd : SysML::PartDefinition;
+					not pd.documentation->isEmpty();
+				}
+			}
+		}`},
+		SourceFile{Name: "rules_b.sysml", Text: `package Acme {
+			package Rules {
+				part def Stub;
+			}
+		}`})
+
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.applications["Acme::Rules::documented"] == 0 {
+		t.Fatalf("re-opened rule was not applied: %+v", stats.applications)
+	}
+	for _, verdict := range verdicts {
+		if strings.Contains(strings.Join(verdict.Lines, "\n"), "has no applicable constraint definitions") {
+			t.Errorf("one declaration being empty warned the whole package: %+v", verdict)
+		}
+	}
+}
+
+func TestSelfCheckPackageParentAndNestedBothRequestedWarnForNeither(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P { doc /* stated */ } }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				package Nested {
+					private import SequenceFunctions::*;
+					constraint def documented {
+						in pd : SysML::PartDefinition;
+						not pd.documentation->isEmpty();
+					}
+				}
+			}
+		}`})
+
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false,
+		[]string{"Acme::Rules", "Acme::Rules::Nested"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.applications["Acme::Rules::Nested::documented"] == 0 {
+		t.Fatalf("nested rule was not applied: %+v", stats.applications)
+	}
+	for _, verdict := range verdicts {
+		if strings.Contains(strings.Join(verdict.Lines, "\n"), "has no applicable constraint definitions") {
+			t.Errorf("a requested package warned as empty: %+v", verdict)
+		}
+	}
+}
+
+func TestSelfCheckPackageQuotedSegmentsResolve(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P { doc /* stated */ } }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
+			package 'Modeling Rules' {
+				private import SequenceFunctions::*;
+				constraint def documented {
+					in pd : SysML::PartDefinition;
+					not pd.documentation->isEmpty();
+				}
+			}
+		}`})
+
+	_, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::'Modeling Rules'"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.applications["Acme::Modeling Rules::documented"] == 0 {
+		t.Fatalf("quoted rule was not applied: %+v", stats.applications)
+	}
+}
+
+func TestSelfCheckPackageQuotedSegmentHoldingColonsStaysDistinct(t *testing.T) {
+	files := []SourceFile{
+		{Name: "model.sysml", Text: `package M { part def P; }`},
+		{Name: "rules.sysml", Text: `package 'A::' {
+			constraint def anything {
+				in pd : SysML::PartDefinition;
+				true;
+			}
+		}`},
+	}
+	for _, order := range [][]string{{"'A::'", "A::"}, {"A::", "'A::'"}} {
+		s := loadSelfCheckFixture(t, files...)
+		verdicts, err := s.SelfCheckPackages(order)
+		if verdicts != nil {
+			t.Fatalf("%v: verdicts = %+v, want nil", order, verdicts)
+		}
+		if !errors.Is(err, ErrSelfCheckPackageNotFound) {
+			t.Fatalf("%v: err = %v, want ErrSelfCheckPackageNotFound", order, err)
+		}
+		if !strings.Contains(err.Error(), "A::") {
+			t.Fatalf("%v: error does not name A::: %v", order, err)
+		}
+	}
+}
+
+func TestSelfCheckPackageUnparseableNameIsMissing(t *testing.T) {
+	s := loadSelfCheckFixture(t, SourceFile{Name: "model.sysml", Text: `package M { part def P; }`})
+
+	verdicts, err := s.SelfCheckPackages([]string{"Acme::"})
+	if verdicts != nil {
+		t.Fatalf("verdicts = %+v, want nil", verdicts)
+	}
+	if !errors.Is(err, ErrSelfCheckPackageNotFound) {
+		t.Fatalf("err = %v, want ErrSelfCheckPackageNotFound", err)
+	}
+	if !strings.Contains(err.Error(), "Acme::") {
+		t.Fatalf("error does not name Acme::: %v", err)
+	}
+}
+
+// Relationship notation is reflected as metaobjects, so the relationship-valued
+// constraints of the validation library evaluate over them.
+func TestSelfCheckReflectiveRelationshipConstraints(t *testing.T) {
+	const sysmlSrc = `
+package M {
+    part def T;
+    port def Pd;
+    part def Base {
+        part c;
+    }
+    part def D :> Base {
+        part a;
+        part b subsets a;
+        part e references a;
+        part d :>> c;
+        port p : ~Pd;
+    }
+    part def S :> T;
+    action def B;
+    attribute def AD;
+}`
+	const kermlSrc = `
+class ShoppingCart { feature selectedProducts : Product[*]; }
+class Product { feature inCart : ShoppingCart[0..1]; }
+assoc ProductSelection {
+    end feature cart : ShoppingCart[1] crosses selectedProduct.inCart;
+    end feature selectedProduct : Product[1] crosses cart.selectedProducts;
+}
+class K;
+assoc A {
+    end feature x : K;
+    end feature y : K;
+}
+assoc A2 specializes A {
+    end feature x2 redefines x;
+    end feature y2 redefines y;
+}
+class KB { feature f1; }
+class KD specializes KB {
+    feature g redefines f1;
+}
+class K2 conjugates KB;
+`
+	s := NewSession()
+	result := s.SubmitFiles([]SourceFile{
+		{Name: "rel_self_check.sysml", Text: sysmlSrc},
+		{Name: "rel_self_check.kerml", Text: kermlSrc},
+	})
+	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
+		t.Fatalf("fixtures did not load cleanly: %v", errs)
+	}
+	if s.HasErrors() {
+		t.Fatal("fixtures have model errors")
+	}
+	verdicts, stats := s.selfCheckWithCounts("SysMLValidation", false)
+	for _, constraint := range []string{
+		"validateSpecializationSpecificNotConjugated",
+		"validateBehaviorSpecialization",
+		"validateStructureSpecialization",
+		"validateClassSpecialization",
+		"validateDataTypeSpecialization",
+		"validateFeatureOwnedReferenceSubsetting",
+		"validateFeatureOwnedCrossSubsetting",
+	} {
+		if stats.applications["SysMLValidation::"+constraint] == 0 {
+			t.Errorf("%s was never applied", constraint)
+		}
+	}
+	if stats.violations != 0 {
+		t.Errorf("clean fixtures produced %d violations: %+v", stats.violations, verdicts)
+	}
+	if stats.evaluationErrors != 0 {
+		t.Errorf("relationship constraints had %d evaluation errors: %+v", stats.evaluationErrors, verdicts)
+	}
+}
+
+func TestSelfCheckKerMLNotationTypesKeepBaseClassification(t *testing.T) {
+	file := SourceFile{Name: "kerml_notation.sysml", Text: `package P {
+	class x;
+	metadata def service;
+	#service def S;
+	#service s;
+}`}
+	s := NewSession()
+	result := s.SubmitFiles([]SourceFile{file})
+	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
+		t.Fatalf("fixture did not load cleanly: %v", errs)
+	}
+	if s.HasErrors() {
+		t.Fatal("fixture has model errors")
+	}
+	_, stats := s.selfCheckWithCounts("SysMLValidation", true)
+	if stats.violations != 0 || stats.evaluationErrors != 0 {
+		t.Errorf("self-check had %d violations and %d errors", stats.violations, stats.evaluationErrors)
+	}
+}
+
+// A class specializing a datatype violates validateClassSpecialization: the
+// library states the strong form, which the published OCL's precedence drops.
+func TestSelfCheckClassSpecializingDataType(t *testing.T) {
+	file := SourceFile{Name: "class_datatype.kerml", Text: `class C specializes D;
+datatype D;
+`}
+	s := NewSession()
+	s.SubmitFiles([]SourceFile{file})
+	verdicts, _ := s.selfCheckWithCounts("SysMLValidation", false)
+	assertSelfCheckViolation(t, verdicts, "validateClassSpecialization", "C")
+}
+
+func TestSelfCheckRelationshipConstraintViolations(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		source     SourceFile
+		constraint string
+		element    string
+	}{
+		{name: "behavior specializes struct",
+			source:     SourceFile{Name: "bh.kerml", Text: "behavior B specializes S;\nstruct S;\n"},
+			constraint: "validateBehaviorSpecialization", element: "B"},
+		{name: "struct specializes behavior",
+			source:     SourceFile{Name: "st.kerml", Text: "struct S specializes B;\nbehavior B;\n"},
+			constraint: "validateStructureSpecialization", element: "S"},
+		{name: "datatype specializes class",
+			source:     SourceFile{Name: "dc.kerml", Text: "datatype D specializes C;\nclass C;\n"},
+			constraint: "validateDataTypeSpecialization", element: "D"},
+		{name: "datatype specializes assoc",
+			source:     SourceFile{Name: "da.kerml", Text: "datatype D specializes A;\nassoc A;\n"},
+			constraint: "validateDataTypeSpecialization", element: "D"},
+		{name: "feature with two references",
+			source:     SourceFile{Name: "rr.sysml", Text: "package P {\n\tpart def B;\n\tpart def A :> B {\n\t\tpart a;\n\t\tpart r references a references b;\n\t\tpart b;\n\t}\n}"},
+			constraint: "validateFeatureOwnedReferenceSubsetting", element: "r"},
+		{name: "feature with two crosses",
+			source:     SourceFile{Name: "cc.kerml", Text: "class K {\n\tfeature f;\n\tfeature g;\n}\nclass L :> K {\n\tfeature x crosses f crosses g;\n}"},
+			constraint: "validateFeatureOwnedCrossSubsetting", element: "x"},
+		{name: "conjugated specific",
+			source:     SourceFile{Name: "cj.kerml", Text: "class B;\nclass A conjugates B;\nspecialization S subtype A specializes B;\n"},
+			constraint: "validateSpecializationSpecificNotConjugated", element: "S"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewSession()
+			s.SubmitFiles([]SourceFile{tt.source})
+			verdicts, _ := s.selfCheckWithCounts("SysMLValidation", false)
+			assertSelfCheckViolation(t, verdicts, tt.constraint, tt.element)
+		})
+	}
+}
+
+// A variation definition or usage must not specialize another variation. The
+// w8d pass already rejects the model, but the constraint still reports the
+// violation once the model is held for self-check.
+func TestSelfCheckVariationSpecializesVariation(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		source     SourceFile
+		constraint string
+		element    string
+	}{
+		{name: "definition",
+			source:     SourceFile{Name: "vd.sysml", Text: "package P {\n\tvariation part def V;\n\tvariation part def W :> V;\n}"},
+			constraint: "validateDefinitionVariationSpecialization", element: "W"},
+		{name: "usage",
+			source:     SourceFile{Name: "vu.sysml", Text: "package P {\n\tpart def T;\n\tvariation part v : T;\n\tvariation part w :> v;\n}"},
+			constraint: "validateUsageVariationSpecialization", element: "w"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewSession()
+			s.SubmitFiles([]SourceFile{tt.source})
+			verdicts, _ := s.selfCheckWithCounts("SysMLValidation", false)
+			assertSelfCheckViolation(t, verdicts, tt.constraint, tt.element)
+		})
+	}
+}
+
+// Variations that specialize no variation pass the variation specialization
+// constraints.
+func TestSelfCheckVariationSpecializesNonVariation(t *testing.T) {
+	file := SourceFile{Name: "vpass.sysml", Text: `package P {
+	part def T;
+	variation part def V;
+	variation part v : T;
+}`}
+	s := NewSession()
+	result := s.SubmitFiles([]SourceFile{file})
+	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
+		t.Fatalf("fixture did not load cleanly: %v", errs)
+	}
+	if s.HasErrors() {
+		t.Fatal("fixture has model errors")
+	}
+	verdicts, stats := s.selfCheckWithCounts("SysMLValidation", false)
+	if stats.applications["SysMLValidation::validateDefinitionVariationSpecialization"] == 0 {
+		t.Fatal("validateDefinitionVariationSpecialization was never applied")
+	}
+	if stats.applications["SysMLValidation::validateUsageVariationSpecialization"] == 0 {
+		t.Fatal("validateUsageVariationSpecialization was never applied")
+	}
+	if stats.violations != 0 {
+		t.Errorf("clean fixture produced %d violations: %+v", stats.violations, verdicts)
+	}
 }

@@ -81,8 +81,8 @@ func init() {
 
 		"IntegerFunctions::sum":      builtinNumericalSum,
 		"IntegerFunctions::product":  builtinNumericalProduct,
-		"RationalFunctions::sum":     builtinRealSum,
-		"RationalFunctions::product": builtinRealProduct,
+		"RationalFunctions::sum":     builtinRationalSum,
+		"RationalFunctions::product": builtinRationalProduct,
 		"RealFunctions::sum":         builtinRealSum,
 		"RealFunctions::product":     builtinRealProduct,
 	}

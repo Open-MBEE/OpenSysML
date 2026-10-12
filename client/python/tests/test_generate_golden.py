@@ -94,7 +94,7 @@ def test_golden_module_is_importable_and_typed():
         "engine": module.Vehicle.engine.fget.__annotations__["return"],
         "power": module.Engine.power.fget.__annotations__["return"],
     }
-    assert annotations == {"mass": "float", "engine": "Engine", "power": "float"}
+    assert annotations == {"mass": "_t.Fraction", "engine": "Engine", "power": "_t.Fraction"}
 
 
 @pytest.mark.skipif(not mypy_available(), reason="mypy not installed")
@@ -104,11 +104,13 @@ def test_generated_code_is_mypy_clean_and_flags_misuse(tmp_path):
     (tmp_path / "usage_ok.py").write_text(
         textwrap.dedent(
             """
+            from fractions import Fraction
+
             from opensysml.instance import Instance
             from vehicle_types import Vehicle
 
 
-            def check(inst: Instance) -> float:
+            def check(inst: Instance) -> Fraction:
                 v: Vehicle = Vehicle.from_instance(inst)
                 return v.mass + v.engine.power
             """
@@ -135,7 +137,7 @@ def test_generated_code_is_mypy_clean_and_flags_misuse(tmp_path):
     misuse = run_mypy(tmp_path, "usage_bad.py")
     assert misuse.returncode != 0
     assert 'has no attribute "mas"' in misuse.stdout
-    assert 'Unsupported operand types for + ("float" and "str")' in misuse.stdout
+    assert 'No overload variant of "__add__" of "Fraction" matches argument type "str"' in misuse.stdout
 
 
 @pytest.mark.integration

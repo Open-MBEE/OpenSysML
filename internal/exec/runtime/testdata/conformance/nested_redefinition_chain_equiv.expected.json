@@ -2,12 +2,12 @@
   "type": "instance",
   "instantiate": "test::World",
   "slots": {
-    "shorthand.mid.leaf.value": {"type": "Real", "value": 99.0},
-    "shorthand.mid.scale": {"type": "Real", "value": 4.0},
-    "nestedBody.mid.leaf.value": {"type": "Real", "value": 99.0},
-    "nestedBody.mid.scale": {"type": "Real", "value": 4.0},
-    "outerRead.mid.leaf.value": {"type": "Real", "value": 14.0},
-    "outerRead.mid.scale": {"type": "Real", "value": 7.0}
+    "shorthand.mid.leaf.value": {"type": "Rational", "value": "99.0"},
+    "shorthand.mid.scale": {"type": "Rational", "value": "4.0"},
+    "nestedBody.mid.leaf.value": {"type": "Rational", "value": "99.0"},
+    "nestedBody.mid.scale": {"type": "Rational", "value": "4.0"},
+    "outerRead.mid.leaf.value": {"type": "Rational", "value": "14.0"},
+    "outerRead.mid.scale": {"type": "Rational", "value": "7.0"}
   },
   "constraints": {
     "wheelsRedefined": true

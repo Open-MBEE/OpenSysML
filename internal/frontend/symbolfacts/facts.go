@@ -355,6 +355,8 @@ func primOfValue(sem *semantics.Model, value ast.Node) (string, bool) {
 	switch val.Kind {
 	case semantics.ValInt:
 		return semantics.PrimInteger.String(), true
+	case semantics.ValRational:
+		return semantics.PrimRational.String(), true
 	case semantics.ValReal:
 		return semantics.PrimReal.String(), true
 	case semantics.ValBool:

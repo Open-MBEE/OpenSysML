@@ -36,7 +36,7 @@ package 'Vehicle Design' {
         derived attribute totalMass : 'Vehicle Design'::'Value Types'::Mass default = mass + engine.mass;
         part engine : Engine[1..2];
         part wheels : Wheel[4..*];
-        ref part driver : Driver[0..1];
+        ref part driver :> Driver[0..1];
         private ref part sharedCharger : Engine;
         constraint massLimit : MassLimit;
         port fuelIn : ~'Vehicle Design'::Interfaces::FuelInterface;
@@ -45,7 +45,7 @@ package 'Vehicle Design' {
         }
         port diag;
         binding 'fuel line' bind fuelIn = engine.fuelPort;
-        flow fuelIn.fuel to engine.fuelPort.fuel;
+        flow of 'Vehicle Design'::Interfaces::Fuel from fuelIn.fuel to engine.fuelPort.fuel;
         bind mass = massLimit.m;
         bind speedOut = engine.piston.p;
         abstract action def start {
@@ -56,12 +56,12 @@ package 'Vehicle Design' {
             /* the region has no initial pseudostate: nothing enters it */
             state Off;
         }
-        constraint 'positive mass' { mass > 0 }
+        assert constraint 'positive mass' { mass > 0 }
         part def Chassis {
             attribute mass : 'Vehicle Design'::'Value Types'::Mass;
         }
-        satisfy requirement : RequirementsModel::'Mass Requirement';
-        satisfy requirement : RequirementsModel::'Engine Mass Requirement' by engine;
+        satisfy RequirementsModel::'Mass Requirement';
+        satisfy RequirementsModel::'Engine Mass Requirement' by engine;
         /* «Block» tags with no v2 form: isEncapsulated = true */
     }
     abstract part def System;
@@ -85,10 +85,20 @@ package 'Vehicle Design' {
         part spare : Wheel :> wheels;
     }
     part def Motor :> Engine;
-    part def Driver;
-    part def Helper;
+    part Driver;
+    occurrence def Helper;
+    connection def EngineToVehicle {
+        end engine : Engine crosses vehicle.engine;
+        end vehicle : Vehicle;
+        metadata MigrationMetadata::SynthesizedName about vehicle;
+    }
+    connection def WheelToVehicle {
+        end wheels : Wheel crosses vehicle.wheels;
+        end vehicle : Vehicle;
+        metadata MigrationMetadata::SynthesizedName about vehicle;
+    }
     connection def Drives {
-        end driver : Driver[0..1];
+        end [0..1] ref driver :> Driver;
         end vehicle : Vehicle;
     }
     constraint def MassLimit {
@@ -101,47 +111,53 @@ package 'Vehicle Design' {
         attribute :>> color = 'Vehicle Design'::'Value Types'::Color::blue;
     }
     action def Drive;
+    part vehicle : Vehicle;
+    connection drives : Drives connect Driver to vehicle;
+    part engine : Engine;
+    connection 'engine to vehicle' : EngineToVehicle connect engine to vehicle;
+    part wheel : Wheel;
+    connection 'wheel to vehicle' : WheelToVehicle connect wheel to vehicle;
+    action drive : Drive;
+    metadata MigrationMetadata::SynthesizedName about EngineToVehicle, WheelToVehicle;
 }
 package RequirementsModel {
-    requirement def <R1> 'Mass Requirement' {
+    requirement <R1> 'Mass Requirement' {
         doc /* The vehicle shall have a mass of less than 1500 kg. */
-        requirement def <'R1.1'> 'Chassis Mass' {
+        requirement <'R1.1'> 'Chassis Mass' {
             doc /* The chassis shall have a mass of less than 400 kg. */
         }
     }
-    requirement def <R2> 'Speed Requirement' {
+    requirement <R2> 'Speed Requirement' {
         doc /* The vehicle shall reach 100 km/h "quickly". */
     }
-    requirement def <'R1.2'> 'Engine Mass Requirement' {
+    requirement <'R1.2'> 'Engine Mass Requirement' {
         doc /* The engine shall have a mass of less than 300 kg. */
     }
     connection def 'Derive Engine Mass Requirement' :> RequirementDerivation::Derivation {
-        end #RequirementDerivation::original originalRequirement : 'Mass Requirement';
-        end #RequirementDerivation::derive derivedRequirement : 'Engine Mass Requirement';
+        end #RequirementDerivation::original originalRequirement :> 'Mass Requirement';
+        end #RequirementDerivation::derive derivedRequirement :> 'Engine Mass Requirement';
     }
     /* not migrated: «Verify» Abstraction (_dep_verify_block) — a verify whose client is not a test case has no v2 form; applied stereotypes «Verify» */
-    dependency 'Vehicle Design'::Drive to 'Speed Requirement' {
-        @ModelingMetadata::Refinement;
-    }
     dependency 'Speed Requirement' to 'Vehicle Design'::Engine; /* «Trace» */
     allocation def 'Drive to Engine' {
-        end drive : 'Vehicle Design'::Drive;
-        end engine : 'Vehicle Design'::Engine;
+        end :>> source : 'Vehicle Design'::Drive;
+        end :>> target : 'Vehicle Design'::Engine;
     }
     allocation def 'Motor to Engine' {
-        end motor : 'Vehicle Design'::Motor;
-        end engine : 'Vehicle Design'::Engine;
+        end :>> source : 'Vehicle Design'::Motor;
+        end :>> target : 'Vehicle Design'::Engine;
     }
     dependency 'Vehicle Design'::Wheel to 'Vehicle Design'::Engine;
     verification def 'Mass Test' {
         objective {
-            verify requirement : 'Mass Requirement';
+            verify 'Mass Requirement';
         }
     }
     metadata MigrationMetadata::SynthesizedName about 'Drive to Engine', 'Motor to Engine';
 }
 package 'Empty Package';
 metadata MigrationMetadata::LibraryNameAvoided about RequirementsModel { sourceName = "Requirements"; }
+connection 'Drive refines Speed Requirement' connect 'Vehicle Design'::drive to RequirementsModel::'Speed Requirement';
 view 'Vehicle BDD' {
     render Views::asTextualNotation;
 }

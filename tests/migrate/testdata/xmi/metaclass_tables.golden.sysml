@@ -25,7 +25,13 @@ package Plant {
     }
     package Views {
         view Overview;
-        viewpoint Operations;
+        view def Operations {
+            viewpoint operations {
+                subject;
+            }
+            satisfy operations;
+            metadata MigrationMetadata::SynthesizedName about operations;
+        }
     }
 }
 package Tables {

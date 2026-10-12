@@ -1,0 +1,10 @@
+{
+	"rpc": "ExecuteAction",
+	"symbol_id": "test::addThird",
+	"inputs": {
+		"x": {"kind": "real_value", "value": 0.25}
+	},
+	"expected_outputs": {
+		"y": {"kind": "real_value", "value": 0.5833333333333333}
+	}
+}

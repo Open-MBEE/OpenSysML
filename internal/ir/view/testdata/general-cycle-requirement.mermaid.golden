@@ -1,0 +1,32 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% RobustViews::loopRequirements — requirement rendering (view def GeneralView, filter @RequirementUsage)
+%% not represented: 2 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
+flowchart TD
+  n0("`*«requirement»*
+**primary : Looped**`")
+  n1("`*«requirement»*
+**secondary : Looped**`")
+  n1 -.->|"derive"| n0
+  n0 -.->|"derive"| n1

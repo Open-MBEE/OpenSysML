@@ -39,7 +39,10 @@ type Sources struct {
 	// Digest reports the content digest of a workspace document, false when
 	// the workspace holds none of the name.
 	Digest func(doc string) (string, bool)
-	memo   *sourcesMemo
+	// Library names the library document a workspace document stands in for,
+	// "" for one that stands in for none (see model.Workspace.StandsInFor).
+	Library func(doc string) string
+	memo    *sourcesMemo
 }
 
 // sourcesMemo keeps the index's answers about a read across the records one
@@ -49,16 +52,37 @@ type sourcesMemo struct {
 	segments   map[string][]string
 }
 
-// NewSources is a Sources over index, contributors and digest as they stand
-// now, memoizing the index's answers: use one for every record checked or
-// attributed against the same state, and a fresh one once the index changes.
-func NewSources(index *symbols.Index, contributors func(string) ([]string, bool), digest func(string) (string, bool)) Sources {
+// NewSources is a Sources over index, contributors, digest and library as they
+// stand now, memoizing the index's answers: use one for every record checked or
+// attributed against the same state, and a fresh one once the index changes. A
+// nil library is one no document stands in for.
+func NewSources(index *symbols.Index, contributors func(string) ([]string, bool), digest func(string) (string, bool), library func(string) string) Sources {
 	return Sources{
 		Index:        index,
 		Contributors: contributors,
 		Digest:       digest,
+		Library:      library,
 		memo:         &sourcesMemo{namespaces: map[string][]string{}, segments: map[string][]string{}},
 	}
+}
+
+// held names the documents among docs that src holds a digest of. A version of
+// a library file is seen as the library document it stands in for, which has
+// none: the record's key names the library, the version among it, as a whole.
+func (s Sources) held(docs []string) []string {
+	out := docs[:0:0]
+	for _, doc := range docs {
+		if s.Library != nil {
+			if library := s.Library(doc); library != "" {
+				doc = library
+			}
+		}
+		if _, ok := s.Digest(doc); ok {
+			out = append(out, doc)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func (s Sources) namespaceAnswerers(ns string) []string {
@@ -87,9 +111,10 @@ func (s Sources) segmentAnswerers(seg string) []string {
 
 // Attribute records where the reads were answered from, as src stands now,
 // which is as it stood for the analysis that made them. Documents src has no
-// digest for — the library's — are not attributed: the record's key names the
-// library as a whole. It fails when a read names shared state nothing of src's
-// answers for: such a record could not tell where it holds.
+// digest for — the library's, and the versions of its files standing in for
+// them — are not attributed: the record's key names the library as a whole.
+// It fails when a read names shared state nothing of src's answers for: such
+// a record could not tell where it holds.
 func Attribute(reads resolve.Reads, src Sources) (*Provenance, error) {
 	p := &Provenance{Reads: reads.Clone(), Answerers: map[string][]string{}, Digests: map[string]string{}}
 	err := p.each(src, func(key string, docs []string) bool {
@@ -150,23 +175,20 @@ func (p *Provenance) Valid(src Sources) bool {
 // take part in its answer, until visit returns false, which it reports as the
 // read that did not hold.
 func (p *Provenance) each(src Sources, visit func(key string, docs []string) bool) error {
-	held := func(docs []string) []string {
-		out := docs[:0:0]
-		for _, doc := range docs {
-			if _, ok := src.Digest(doc); ok {
-				out = append(out, doc)
-			}
-		}
-		sort.Strings(out)
-		return out
-	}
-	see := func(key string, docs []string) bool { return visit(key, held(docs)) }
+	see := func(key string, docs []string) bool { return visit(key, src.held(docs)) }
 	fail := func(what, name string) error {
 		return fmt.Errorf("%w: %s %q", ErrUnrecordable, what, strings.ReplaceAll(name, "\x00", "@"))
 	}
 	if p.Reads.All {
 		if !see("all", src.Index.WorkspaceDocuments()) {
 			return fail("the name table read as a whole", "")
+		}
+	}
+	// The names spelled are every document's to answer: a record whose
+	// suggestions read them holds while no document changed.
+	if p.Reads.Spellings {
+		if !see("spellings", src.Index.WorkspaceDocuments()) {
+			return fail("the names spelled", "")
 		}
 	}
 	for _, name := range p.Reads.Names {

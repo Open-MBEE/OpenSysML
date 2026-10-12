@@ -85,10 +85,11 @@ type transitionChecker struct {
 // machine holds what checking one state machine needs: the vertices it owns,
 // those its transitions leave, and its routing pseudostates in source order.
 type machine struct {
-	vertices   map[ast.Node]bool
-	sources    map[ast.Node]bool
-	unresolved map[string]bool
-	routing    []routingDecl
+	vertices            map[ast.Node]bool
+	sources             map[ast.Node]bool
+	unresolved          map[string]bool
+	invalidEntryTargets map[ast.Node]bool
+	routing             []routingDecl
 }
 
 // routingDecl is a routing pseudostate as declared: a PseudostateNode of the
@@ -139,14 +140,15 @@ func (c *transitionChecker) checkMachine(decl ast.Node, scope *symbols.Scope) {
 		return
 	}
 	m := &machine{
-		vertices:   vertices,
-		sources:    map[ast.Node]bool{},
-		unresolved: map[string]bool{},
+		vertices:            vertices,
+		sources:             map[ast.Node]bool{},
+		unresolved:          map[string]bool{},
+		invalidEntryTargets: map[ast.Node]bool{},
 	}
 	c.walkBody(m, scope, ast.DeclMembers(decl), decl)
 
 	for _, ps := range m.routing {
-		if m.sources[ps.decl] || m.unresolved[ps.name] {
+		if m.sources[ps.decl] || m.unresolved[ps.name] || m.invalidEntryTargets[ps.decl] {
 			continue
 		}
 		c.report(ps.decl.Span(), CodeNoOutgoingTransition, fmt.Sprintf(
@@ -341,10 +343,13 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 
 // walkTransition checks the two ends of a transition member of a machine body.
 func (c *transitionChecker) walkTransition(m *machine, scope *symbols.Scope, members []ast.Node, n *ast.TransitionMember, starts map[ast.Node]bool) {
-	if n.Source == nil {
+	switch {
+	case n.Source == nil:
 		c.checkImplicitSource(m, scope, members, n)
-	} else if !c.checkAccepterSource(scope, n) {
-		bare := n.Trigger == nil && len(n.Effect) == 0
+	case n.Trigger == nil && c.entryActionSource(scope, n.Source, starts):
+		c.checkEntryTransitionTarget(m, scope, n.Target)
+	case !c.checkAccepterSource(scope, n):
+		bare := n.Trigger == nil
 		m.markLeft(c.checkEndpoint(m, scope, n.Source, false, c.startsOf(m, scope, n.Target, bare, starts)), n.Source)
 	}
 	c.checkEndpoint(m, scope, n.Target, true, nil)
@@ -406,13 +411,48 @@ func (c *transitionChecker) checkEntryTransition(m *machine, scope *symbols.Scop
 		c.report(n.Span(), CodeEntryTransitionShape, (&lower.EntryTransitionShapeError{Transition: n}).Error())
 		return
 	}
-	if n.Target == nil {
+	c.checkEntryTransitionTarget(m, scope, n.Target)
+}
+
+func (c *transitionChecker) checkEntryTransitionTarget(m *machine, scope *symbols.Scope, target ast.Node) {
+	if target == nil {
 		return
 	}
-	sym, ok := c.resolver.EndpointSymbol(scope, n.Target)
-	if ok && m.vertices[sym.Decl] && !lower.IsStateSourceDecl(c.resolver, scope, sym.Decl) {
-		c.report(n.Target.Span(), CodeEntryTransitionTarget, (&lower.EntryTransitionTargetError{Target: sym.Decl}).Error())
+	sym, ok := c.resolver.EndpointSymbol(scope, target)
+	if !ok || !m.vertices[sym.Decl] {
+		return
 	}
+	if lower.IsStateSourceDecl(c.resolver, scope, sym.Decl) {
+		return
+	}
+	if _, routing := entryRoutingKind(c.resolver, scope, sym.Decl); routing && sym.OwnerScope == scope {
+		return
+	}
+	if _, pseudo := sym.Decl.(*ast.PseudostateNode); pseudo {
+		m.invalidEntryTargets[sym.Decl] = true
+	} else if usage, usageDecl := sym.Decl.(*ast.Usage); usageDecl {
+		if _, annotated := lower.PseudostateMetadata(c.resolver, scope, usage); annotated {
+			m.invalidEntryTargets[sym.Decl] = true
+		}
+	}
+	c.report(target.Span(), CodeEntryTransitionTarget, (&lower.EntryTransitionTargetError{Target: sym.Decl}).Error())
+}
+
+func entryRoutingKind(resolver *resolve.Resolver, scope *symbols.Scope, decl ast.Node) (ast.PseudostateKind, bool) {
+	switch node := decl.(type) {
+	case *ast.PseudostateNode:
+		return node.Kind, node.Kind == ast.PseudostateJunction || node.Kind == ast.PseudostateChoice
+	case *ast.Usage:
+		kind, ok := lower.PseudostateMetadata(resolver, scope, node)
+		return kind, ok && (kind == ast.PseudostateJunction || kind == ast.PseudostateChoice)
+	default:
+		return -1, false
+	}
+}
+
+func (c *transitionChecker) entryActionSource(scope *symbols.Scope, source ast.Node, starts map[ast.Node]bool) bool {
+	sym, ok := c.resolver.EndpointSymbol(scope, source)
+	return ok && starts[sym.Decl]
 }
 
 // startsOf returns the entry actions a transition of this shape may leave: only a
@@ -436,12 +476,16 @@ func (c *transitionChecker) startsOf(
 	if !m.vertices[decl] {
 		return nil
 	}
-	if _, pseudostate := decl.(*ast.PseudostateNode); pseudostate {
-		return nil
+	if pseudostate, ok := decl.(*ast.PseudostateNode); ok {
+		if pseudostate.Kind != ast.PseudostateJunction && pseudostate.Kind != ast.PseudostateChoice {
+			return nil
+		}
 	}
 	if usage, ok := decl.(*ast.Usage); ok {
-		if _, annotated := lower.PseudostateMetadata(c.resolver, scope, usage); annotated {
-			return nil
+		if kind, annotated := lower.PseudostateMetadata(c.resolver, scope, usage); annotated {
+			if kind != ast.PseudostateJunction && kind != ast.PseudostateChoice {
+				return nil
+			}
 		}
 	}
 	return starts

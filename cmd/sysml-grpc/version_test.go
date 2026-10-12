@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
@@ -26,5 +27,35 @@ func TestVersionReportsWhatTheLinkerSet(t *testing.T) {
 		if !strings.Contains(string(out), want) {
 			t.Errorf("-version is missing %q:\n%s", want, out)
 		}
+	}
+}
+
+// Builds without -X flags, as `go install` does, so the binary reports the
+// commit and time the toolchain recorded from the checkout rather than "unknown".
+func TestVersionReportsTheEmbeddedBuildInfoWithoutLinkerStamps(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "sysml-grpc")
+	if out, err := exec.Command("go", gobuild.Args(binary)...).CombinedOutput(); err != nil {
+		t.Fatalf("build: %v\n%s", err, out)
+	}
+	info, err := gobuild.ReadBuildInfo(binary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := buildinfo.ResolveFrom(buildinfo.Stamps{}, info)
+	if want.Commit == buildinfo.Unknown {
+		if exec.Command("git", "rev-parse", "--is-inside-work-tree").Run() != nil {
+			t.Skip("not built from a checkout: the toolchain recorded no VCS metadata")
+		}
+		t.Fatalf("built from a checkout, but resolved %+v from %+v", want, info.Settings)
+	}
+
+	out, err := exec.Command(binary, "-version").CombinedOutput()
+	if err != nil {
+		t.Fatalf("-version: %v\n%s", err, out)
+	}
+	got := strings.Split(strings.TrimSpace(string(out)), "\n")
+	wantLines := []string{"sysml-grpc version " + want.Version, "commit: " + want.Commit, "built: " + want.BuildTime}
+	if strings.Join(got, "\n") != strings.Join(wantLines, "\n") {
+		t.Errorf("-version printed:\n%s\nwant:\n%s", out, strings.Join(wantLines, "\n"))
 	}
 }

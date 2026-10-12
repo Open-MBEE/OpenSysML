@@ -1,0 +1,8 @@
+{
+	"rpc": "EvaluateCalc",
+	"symbol_id": "test::third",
+	"arguments": [
+		{"kind": "rational_value", "value": "1/4"}
+	],
+	"expected_result": {"kind": "rational_value", "value": "1/12"}
+}

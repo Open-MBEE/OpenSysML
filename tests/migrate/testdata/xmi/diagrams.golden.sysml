@@ -58,6 +58,14 @@ package Structure {
         metadata MigrationMetadata::SynthesizedName about wheel;
     }
     part def Wheel;
+    connection def EngineToVehicle {
+        end engine : Engine crosses vehicle.engine;
+        end vehicle : Vehicle;
+        metadata MigrationMetadata::SynthesizedName about vehicle;
+    }
+    part engine : Engine;
+    part vehicle : Vehicle;
+    connection 'engine to vehicle' : EngineToVehicle connect engine to vehicle;
     view 'Vehicle Structure' {
         doc /* The blocks the vehicle is built from. */
         expose Vehicle;
@@ -66,6 +74,7 @@ package Structure {
         expose Structure::Vehicle::engine;
         expose Structure::Vehicle::mass;
         expose Structure::Engine::wheel;
+        expose EngineToVehicle;
         expose Behavior::Drive;
         expose ScalarValues::Real;
         render Views::asTreeDiagram;
@@ -76,9 +85,10 @@ package Structure {
         render Views::asTreeDiagram;
     }
     view 'Engine 2' {
-        expose Engine;
-        render Views::asTextualNotation;
+        expose engine;
+        render Views::asInterconnectionDiagram;
     }
+    metadata MigrationMetadata::SynthesizedName about EngineToVehicle;
 }
 package Behavior {
     action def Drive {
@@ -113,16 +123,17 @@ package Behavior {
 }
 package Usage {
     comment /* The driver drives. */
-    part def Driver;
-    use case def 'Drive Vehicle' {
+    part Driver;
+    use case 'Drive Vehicle' {
         subject;
-        actor driver : Driver;
+        actor driver :> Driver;
     }
+    connection 'Driver to Drive Vehicle' connect Driver to 'Drive Vehicle'.driver;
     view Driving {
         expose Driver;
         expose 'Drive Vehicle';
-        expose 'Drive Vehicle'::driver;
-        render Views::asTextualNotation;
+        expose 'Driver to Drive Vehicle';
+        render Views::asInterconnectionDiagram;
     }
 }
 package Reports {

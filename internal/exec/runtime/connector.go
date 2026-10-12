@@ -187,7 +187,14 @@ func (ctx *Context) attachConnectorEnd(owner *Instance, connSym *symbols.Symbol,
 	}
 	ec := NewEvalContextIn(ctx, scope, owner)
 	defer ec.beginStep()()
-	val, err := ec.Eval(end.Attachment)
+	// An indexed end holds the one element its index selects, read as the
+	// `#(` expression it was written as, so an index that selects nothing
+	// is the expression's error.
+	read := end.Attachment
+	if end.Selection != nil {
+		read = end.Selection
+	}
+	val, err := ec.Eval(read)
 	if err != nil {
 		return Value{}, ctx.connectorEndError(connSym, end, err)
 	}
@@ -554,6 +561,9 @@ func (e *ConnectorEndError) Unwrap() error { return e.Err }
 
 // endText renders the feature an end names as it was written, for a message.
 func endText(node ast.Node) string {
+	if ix, ok := node.(*ast.IndexExpr); ok && !ix.Bracket {
+		return endText(ix.Operand) + "#(" + exprText(ix.Index) + ")"
+	}
 	if chain, ok := node.(*ast.FeatureChainExpr); ok {
 		return endText(chain.Operand) + "." + ast.SimpleName(chain.Member)
 	}
@@ -575,6 +585,9 @@ func (e *ConnectorEndError) Is(target error) bool { return target == ErrConnecto
 // connectorEndError builds the diagnostic for an end that cannot be attached.
 func (ctx *Context) connectorEndError(connSym *symbols.Symbol, end semantics.ConnectorEndAttachment, cause error) error {
 	written := endText(end.Attachment)
+	if end.Selection != nil {
+		written = endText(end.Selection)
+	}
 	if written == "" {
 		written = end.Name
 	}

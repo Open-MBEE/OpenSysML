@@ -16,6 +16,10 @@ const strictConformanceKey = "strictConformance"
 // diagnostics, spelled as the CLI's -disable-lint flag.
 const disabledLintsKey = "disabledLints"
 
+// enabledLintsKey is the setting naming the opt-in lints an editor keeps in the
+// diagnostics, spelled as the CLI's -enable-lint flag.
+const enabledLintsKey = "enabledLints"
+
 // settingsSection is the section an editor nests this server's settings under.
 const settingsSection = "sysml"
 
@@ -38,8 +42,8 @@ func (s *Server) applyConformanceSettings(ctx context.Context, payload any) bool
 }
 
 // DidChangeConfiguration applies the settings the client pushed. Only the
-// conformance mode and the disabled lints are read; a payload that mentions
-// neither changes nothing.
+// conformance mode and the disabled and enabled lints are read; a payload that
+// mentions none of them changes nothing.
 func (s *Server) DidChangeConfiguration(ctx context.Context, params *protocol.DidChangeConfigurationParams) error {
 	if params == nil {
 		return nil
@@ -53,11 +57,20 @@ func (s *Server) DidChangeConfiguration(ctx context.Context, params *protocol.Di
 	return nil
 }
 
-// applyLintSettings replaces the lints the workspace leaves out with the ones a
-// settings payload names, and reports whether it named any setting: a payload
-// without it leaves the lints alone, and an unknown code is shown the client.
+// applyLintSettings replaces the lints the workspace leaves out, and the opt-in
+// lints it keeps, with the ones a settings payload names, and reports whether it
+// named either setting: a payload without one leaves those lints alone.
 func (s *Server) applyLintSettings(ctx context.Context, payload any) bool {
-	value, ok := sysmlSetting(payload, disabledLintsKey)
+	disabled := s.applyLintSetting(ctx, payload, disabledLintsKey, s.ws.SetDisabledLints)
+	enabled := s.applyLintSetting(ctx, payload, enabledLintsKey, s.ws.SetEnabledLints)
+	return disabled || enabled
+}
+
+// applyLintSetting hands set the codes the list setting key names, and reports
+// whether it took them: a value that is not a list of strings is ignored, and
+// an unknown code is shown the client.
+func (s *Server) applyLintSetting(ctx context.Context, payload any, key string, set func([]string) error) bool {
+	value, ok := sysmlSetting(payload, key)
 	if !ok {
 		return false
 	}
@@ -73,7 +86,7 @@ func (s *Server) applyLintSettings(ctx context.Context, payload any) bool {
 		}
 		codes = append(codes, code)
 	}
-	if err := s.ws.SetDisabledLints(codes); err != nil {
+	if err := set(codes); err != nil {
 		if s.client != nil {
 			_ = s.client.ShowMessage(ctx, &protocol.ShowMessageParams{Type: protocol.MessageTypeError, Message: err.Error()})
 		}

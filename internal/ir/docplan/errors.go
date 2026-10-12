@@ -43,6 +43,8 @@ const (
 	ErrorUnsupportedPalette      ErrorKind = "unsupported-palette"
 	ErrorInvalidPorts            ErrorKind = "invalid-ports"
 	ErrorUnsupportedPorts        ErrorKind = "unsupported-ports"
+	ErrorInvalidOverlay          ErrorKind = "invalid-overlay"
+	ErrorUnsupportedOverlay      ErrorKind = "unsupported-overlay"
 	ErrorConflictingRuns         ErrorKind = "conflicting-runs"
 	ErrorAmbiguousRun            ErrorKind = "ambiguous-run"
 	ErrorMissingRunText          ErrorKind = "missing-run-text"
@@ -176,6 +178,10 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("document %s diagram %s ports must be one of %s, got %q", e.Document, e.Content, view.PortsNames(), e.Actual)
 	case ErrorUnsupportedPorts:
 		return fmt.Sprintf("document %s diagram %s states ports %q, but a %s rendering draws no part's ports", e.Document, e.Content, e.Actual, e.Expected)
+	case ErrorInvalidOverlay:
+		return fmt.Sprintf("document %s diagram %s overlay must be one of %s, got %q", e.Document, e.Content, view.OverlayNames(), e.Actual)
+	case ErrorUnsupportedOverlay:
+		return fmt.Sprintf("document %s diagram %s states overlay %q, but a %s rendering draws none; it is drawn on a requirement rendering", e.Document, e.Content, e.Actual, e.Expected)
 	case ErrorConflictingRuns:
 		return fmt.Sprintf("document %s paragraph %s declares inline runs alongside text or a query", e.Document, e.Content)
 	case ErrorAmbiguousRun:

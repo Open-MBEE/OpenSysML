@@ -104,6 +104,9 @@ var paletteForms = []Form{FormDot, FormMermaid, FormPlantUML, FormD2}
 // SupportsPalette reports whether a rendering of the kind is drawn as nodes a
 // palette can fill: the kinds a form that fills nodes is written for.
 func (k Kind) SupportsPalette() bool {
+	if k == KindTimeline {
+		return false
+	}
 	return slices.ContainsFunc(paletteForms, k.SupportsForm)
 }
 
@@ -286,6 +289,7 @@ var familyWords = map[string]string{
 	"interface": "interface", "case": "case", "allocation": "allocation", "allocate": "allocation",
 	"analysis": "analysis", "verification": "verification", "enum": "enum", "occurrence": "occurrence",
 	"flow": "flow", "message": "flow", "perform": "action",
+	"actor": "use case", "subject": "case", "objective": "requirement",
 }
 
 // paletteFamily is the keyword family of a node kind: `part def` and `part`

@@ -1,0 +1,37 @@
+FleetViews::structure - tree rendering (the view states no rendering; a tree is the default)
+
+part def Fleet::Vehicle
+  part chassis : Chassis
+  part wheels : Wheel
+  part driver : Driver
+  attribute total : Mass
+  part def Cabin
+  part cabin : Cabin
+  part radio : Radio
+  part trailer : Trailer
+part def Fleet::SportsCar
+  part chassis : LightChassis
+  part spare : Wheel
+part def Fleet::Chassis
+  attribute mass : Mass
+part def Fleet::LightChassis
+  attribute mass
+part def Fleet::Wheel
+part def Fleet::Driver
+attribute def Fleet::Mass
+part Fleet::fleetCar : Vehicle
+
+relationships:
+  Fleet::Vehicle *-- Fleet::Chassis: chassis
+  Fleet::Vehicle *-- Fleet::Wheel: wheels[4]
+  Fleet::Vehicle o-- Fleet::Driver: driver[0..1]
+  Fleet::Vehicle o-- Fleet::Mass: total
+  Fleet::SportsCar --|> Fleet::Vehicle
+  Fleet::SportsCar *-- Fleet::LightChassis: chassis
+  Fleet::SportsCar *-- Fleet::Wheel: spare
+  chassis --|> chassis: redefines
+  spare --|> wheels: subsets
+  Fleet::Chassis o-- Fleet::Mass: mass
+  Fleet::LightChassis --|> Fleet::Chassis
+  mass --|> mass: redefines
+  Fleet::fleetCar ..|> Fleet::Vehicle

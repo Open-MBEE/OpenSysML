@@ -12,6 +12,7 @@ import (
 	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -57,6 +58,17 @@ type Server struct {
 	completionMarkdown bool
 	// crossDocument records that the client advertised CrossDocumentCapability.
 	crossDocument bool
+	// version is what initialize reports as the server's version.
+	version string
+}
+
+// Option configures a Server at construction.
+type Option func(*Server)
+
+// WithVersion sets the version initialize reports in serverInfo, which is the
+// version of the binary serving: the one its -version flag prints.
+func WithVersion(version string) Option {
+	return func(s *Server) { s.version = version }
 }
 
 // notifier sends a notification by method name, which a client connection does.
@@ -68,15 +80,21 @@ type notifier interface {
 // other open documents are re-analyzed.
 const crossDocRefreshWindow = 200 * time.Millisecond
 
-// NewServer returns a Server bound to ws.
-func NewServer(ws *model.Workspace) *Server {
-	return &Server{
+// NewServer returns a Server bound to ws; without WithVersion it reports an
+// unversioned build.
+func NewServer(ws *model.Workspace, opts ...Option) *Server {
+	s := &Server{
 		ws:           ws,
 		exited:       make(chan struct{}),
 		crossDoc:     model.NewDebouncer(crossDocRefreshWindow),
 		renderNotify: model.NewDebouncer(crossDocRefreshWindow),
 		debug:        newDebugService(),
+		version:      buildinfo.Unversioned,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // Run wires the server to a stdio-style stream and blocks until the connection

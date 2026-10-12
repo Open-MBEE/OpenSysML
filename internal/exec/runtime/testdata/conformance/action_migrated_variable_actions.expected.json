@@ -1,0 +1,15 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::MigratedVariables",
+	"outputs": {
+		"v": {
+			"type": "Sequence",
+			"elements": [{"type": "Integer", "value": 5}]
+		},
+		"read.result": {
+			"type": "Sequence",
+			"elements": [{"type": "Integer", "value": 5}]
+		}
+	}
+}

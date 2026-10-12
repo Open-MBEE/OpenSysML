@@ -22,8 +22,14 @@ package ResultsB {
     }
 }
 package Viewpoints {
-    viewpoint 'Statistics Viewpoint' {
-        doc /* List the statistics. */
+    view def 'Statistics Viewpoint' {
+        viewpoint 'statistics Viewpoint' {
+            subject;
+            require constraint {
+                doc /* List the statistics. */
+            }
+        }
+        satisfy 'statistics Viewpoint';
         action def 'Statistics Method' {
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements' {
@@ -42,20 +48,19 @@ package Viewpoints {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'statistics Method' : 'Statistics Method';
+        metadata MigrationMetadata::SynthesizedName about 'statistics Viewpoint';
     }
 }
 package ViewsModel {
-    view 'Scoped Statistics' {
-        satisfy Viewpoints::'Statistics Viewpoint';
+    view 'Scoped Statistics' : Viewpoints::'Statistics Viewpoint' {
         expose ResultsB::**;
     }
-    view 'Recorded Statistics' {
-        satisfy Viewpoints::'Statistics Viewpoint';
+    view 'Recorded Statistics' : Viewpoints::'Statistics Viewpoint' {
         expose ResultsA::**;
     }
 }
 package Documents {
-    part def 'Statistics Report' {
+    occurrence def 'Statistics Report' {
         view scoped :> ViewsModel::'Scoped Statistics';
         view recorded :> ViewsModel::'Recorded Statistics';
         /* applied stereotype «Document» */

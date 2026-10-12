@@ -2,8 +2,8 @@
   "type": "instance",
   "instantiate": "test::craft",
   "slots": {
-    "mass": {"type": "Real", "value": 120.0},
-    "postSeparation.mass": {"type": "Real", "value": 118.0},
-    "postFlyby.mass": {"type": "Real", "value": 96.0}
+    "mass": {"type": "Rational", "value": "120.0"},
+    "postSeparation.mass": {"type": "Rational", "value": "118.0"},
+    "postFlyby.mass": {"type": "Rational", "value": "96.0"}
   }
 }

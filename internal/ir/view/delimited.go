@@ -22,7 +22,11 @@ func (r *Rendering) delimited(form Form, comma rune) (string, error) {
 	}
 	columns := r.Columns
 	if len(columns) == 0 {
-		columns = tableColumns
+		if r.Kind == KindTable {
+			columns = tableColumns
+		} else {
+			return "", nil
+		}
 	}
 	var b strings.Builder
 	w := csv.NewWriter(&b)

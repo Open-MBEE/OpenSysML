@@ -653,9 +653,9 @@ func TestCompileAcceptsSignedNumericBindings(t *testing.T) {
 	if !bindings[1].Values()[0].Origin().Located() {
 		t.Fatalf("offset origin = %+v", bindings[1].Values()[0].Origin())
 	}
-	factor, ok := bindings[2].Values()[0].Real()
-	if !ok || factor != 2.5 {
-		t.Fatalf("factor = %g %v", factor, ok)
+	factor, ok := bindings[2].Values()[0].Rational()
+	if !ok || factor.FormatRational() != "2.5" {
+		t.Fatalf("factor = %s %v", factor.FormatRational(), ok)
 	}
 }
 
@@ -986,6 +986,28 @@ func TestCompileReportsInheritedInvalidContent(t *testing.T) {
 	}
 	if planning.Content != "Observatory::BadSection::stray" {
 		t.Fatalf("content = %q", planning.Content)
+	}
+}
+
+// A document's string attributes are read as the KerML STRING_VALUE terminal
+// spells them: a literal may span lines, and its escapes are KerML's, not Go's.
+func TestCompileDecodesStringAttributesAsKerML(t *testing.T) {
+	fixture := loadPlanningFixture(t, `
+		part def Report :> Document {
+			attribute redefines title = "Mass
+report";
+			part intro : Paragraph {
+				attribute redefines text = "line one
+line two with a \'quote\' and a \"double\"";
+			}
+		}
+	`)
+	plan := fixture.mustCompile(t, "Report")
+	if plan.Title() != "Mass\nreport" {
+		t.Fatalf("title = %q", plan.Title())
+	}
+	if text := plan.Content()[0].Text(); text != "line one\nline two with a 'quote' and a \"double\"" {
+		t.Fatalf("intro text = %q", text)
 	}
 }
 

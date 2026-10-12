@@ -1,1 +1,0 @@
-- `make build-engine`, `make build-core` and `make build-syntax` build `sysml-engine`, `sysml-core` and `sysml-syntax` as native executables that serve their JSON-RPC over standard input and output. They are opt-in: `make build`, `make install` and the release artifacts do not include them. See `docs/reference/wasm.md`.

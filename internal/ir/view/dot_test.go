@@ -21,12 +21,18 @@ func TestGoldenDOT(t *testing.T) {
 		kind Kind
 	}{
 		{"tree", "tree.sysml", "VehicleViews::vehicleView", KindTree},
+		{"tree-edges", "tree-edges.sysml", "FleetViews::structure", KindTree},
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection},
 		{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", KindInterconnection},
 		{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
+		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
+		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
+		{"general-requirement", "general.sysml", "GeneralViews::requirementView", KindRequirement},
+		{"general-definition", "general.sysml", "GeneralViews::definitionView", KindDefinition},
+		{"general-package", "general.sysml", "GeneralViews::packageView", KindPackage},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -49,7 +55,9 @@ func TestGoldenDOT(t *testing.T) {
 					t.Errorf("DOT lacks %q:\n%s", want, dot)
 				}
 			}
-			if strings.Contains(dot, "rankdir") {
+			if tc.kind == KindCase && !strings.Contains(dot, "rankdir=LR") {
+				t.Errorf("case DOT does not use its LR default:\n%s", dot)
+			} else if tc.kind != KindCase && strings.Contains(dot, "rankdir") {
 				t.Errorf("DOT states a rankdir with no direction asked for:\n%s", dot)
 			}
 		})
@@ -60,7 +68,8 @@ func TestGoldenDOT(t *testing.T) {
 // diagram have none, and asking is a typed error naming the kind and the form.
 func TestDOTFormSupport(t *testing.T) {
 	for _, kind := range Kinds() {
-		want := kind == KindTree || kind == KindInterconnection || kind == KindState || kind == KindAction
+		want := kind == KindTree || kind == KindInterconnection || kind == KindState || kind == KindAction ||
+			kind == KindCase || kind == KindMixed || kind == KindRequirement || kind == KindDefinition || kind == KindPackage
 		if got := kind.SupportsForm(FormDot); got != want {
 			t.Errorf("%s.SupportsForm(dot) = %v, want %v", kind, got, want)
 		}
@@ -79,6 +88,9 @@ func TestDOTFormSupport(t *testing.T) {
 	}
 	if got := KindTable.SupportedForms(); fmt.Sprint(got) != "[text markdown csv tsv]" {
 		t.Errorf("table forms = %v", got)
+	}
+	if got := KindMatrix.SupportedForms(); fmt.Sprint(got) != "[text markdown csv tsv]" {
+		t.Errorf("matrix forms = %v", got)
 	}
 	unsupported := []struct {
 		file, view string
@@ -328,36 +340,64 @@ func TestDOTDirections(t *testing.T) {
 // Every edge kind is drawn in the style parallel to its Mermaid arrow.
 func TestDOTEdgeKinds(t *testing.T) {
 	styles := map[EdgeKind]string{
-		EdgeConnection: `"a" -> "b" [label="k", arrowhead=none, penwidth=3];`,
-		EdgeTransition: `"a" -> "b" [label="k"];`,
-		EdgeSuccession: `"a" -> "b" [label="k"];`,
-		EdgeFlow:       `"a" -> "b" [label="k", style=dashed];`,
-		EdgeBinding:    `"a" -> "b" [label="k", arrowhead=none];`,
+		EdgeConnection:     `"a" -> "b" [label="k", arrowhead=none, penwidth=3];`,
+		EdgeTransition:     `"a" -> "b" [label="k"];`,
+		EdgeSuccession:     `"a" -> "b" [label="k"];`,
+		EdgeFlow:           `"a" -> "b" [label="k", style=dashed];`,
+		EdgeBinding:        `"a" -> "b" [label="k", arrowhead=none];`,
+		EdgeSpecialization: `"a" -> "b" [label="k", arrowhead=empty];`,
+		EdgeTyping:         `"a" -> "b" [label="k", arrowhead=empty, style=dashed];`,
+		EdgeComposition:    `"a" -> "b" [label="k", dir=back, arrowtail=diamond];`,
+		EdgeReference:      `"a" -> "b" [label="k", dir=back, arrowtail=odiamond];`,
+		EdgeContainment:    `"a" -> "b" [label="k", dir=back, arrowtail=odot];`,
+		EdgeImport:         `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
+		EdgeSatisfy:        `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
+		EdgeVerify:         `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
+		EdgeDerive:         `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
+		EdgeRefine:         `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
+		EdgeAllocate:       `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
+		EdgeAssociation:    `"a" -> "b" [label="k", dir=none];`,
+		EdgeInclude:        `"a" -> "b" [label="k", style=dashed];`,
+		EdgeAnchor:         `"a" -> "b" [label="k", dir=none, style=dashed];`,
 	}
-	for kind := EdgeConnection; kind.String() != "edge"; kind++ {
-		want, ok := styles[kind]
-		if !ok {
-			t.Fatalf("edge kind %s has no DOT style under test", kind)
-		}
-		rendering := &Rendering{View: "V", Kind: KindAction,
-			Roots: []*Node{{ID: "a", Kind: "action", Name: "a"}, {ID: "b", Kind: "action", Name: "b"}},
-			Edges: []Edge{{From: "a", To: "b", Label: "k", Kind: kind}}}
-		dot, err := rendering.DOT()
-		if err != nil {
-			t.Fatalf("DOT: %v", err)
-		}
-		checkDOTSyntax(t, dot)
-		if !strings.Contains(dot, want) {
-			t.Errorf("%s edge: DOT lacks %q:\n%s", kind, want, dot)
-		}
-		// Mermaid draws the same distinction: a line, a dashed arrow, an arrow.
-		arrow := mermaidArrow(kind)
-		undirected := arrow == "---" || arrow == "==="
-		switch {
-		case strings.Contains(want, "arrowhead=none") != undirected:
-			t.Errorf("%s: DOT arrowhead and Mermaid arrow %q disagree", kind, arrow)
-		case strings.Contains(want, "dashed") != strings.Contains(arrow, "."):
-			t.Errorf("%s: DOT style and Mermaid arrow %q disagree", kind, arrow)
+	// A case or mixed diagram draws composition, typing and reference in its own notation.
+	caseStyles := map[EdgeKind]string{
+		EdgeComposition: `"a" -> "b" [label="k", arrowtail=diamond, dir=back];`,
+		EdgeTyping:      `"a" -> "b" [label="k", style=dashed, arrowhead=open];`,
+		EdgeReference:   `"a" -> "b" [label="k", style=dashed, arrowhead=open];`,
+	}
+	for _, rk := range []Kind{KindAction, KindCase, KindMixed} {
+		for kind := EdgeConnection; kind.String() != "edge"; kind++ {
+			want, ok := styles[kind]
+			if !ok {
+				t.Fatalf("edge kind %s has no DOT style under test", kind)
+			}
+			if caseStyle, ok := caseStyles[kind]; ok && caseNotation(rk) {
+				want = caseStyle
+			}
+			rendering := &Rendering{View: "V", Kind: rk,
+				Roots: []*Node{{ID: "a", Kind: "action", Name: "a"}, {ID: "b", Kind: "action", Name: "b"}},
+				Edges: []Edge{{From: "a", To: "b", Label: "k", Kind: kind}}}
+			dot, err := rendering.DOT()
+			if err != nil {
+				t.Fatalf("DOT: %v", err)
+			}
+			checkDOTSyntax(t, dot)
+			if !strings.Contains(dot, want) {
+				t.Errorf("%s edge under %s: DOT lacks %q:\n%s", kind, rk, want, dot)
+			}
+			// Mermaid draws the same distinction: a line, a dashed arrow, an arrow. An
+			// edge DOT draws backward has no head at its target, which a line shows.
+			arrow := mermaidArrow(rk, kind)
+			undirected := !strings.Contains(arrow, ">")
+			dotUndirected := strings.Contains(want, "dir=none") || strings.Contains(want, "arrowhead=none") ||
+				strings.Contains(want, dotDirBack)
+			switch {
+			case dotUndirected != undirected:
+				t.Errorf("%s under %s: DOT direction and Mermaid arrow %q disagree", kind, rk, arrow)
+			case strings.Contains(want, "dashed") != strings.Contains(arrow, "."):
+				t.Errorf("%s under %s: DOT style and Mermaid arrow %q disagree", kind, rk, arrow)
+			}
 		}
 	}
 	// An edge with no label has no label attribute, and none at all when plain.

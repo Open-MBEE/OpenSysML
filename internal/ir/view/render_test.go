@@ -109,12 +109,15 @@ func TestGoldenRenderings(t *testing.T) {
 		kind Kind
 	}{
 		{"tree", "tree.sysml", "VehicleViews::vehicleView", KindTree},
+		{"tree-edges", "tree-edges.sysml", "FleetViews::structure", KindTree},
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection},
 		{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", KindInterconnection},
 		{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 		{"state-pseudostates", "cameo-behavior.sysml", "NotationViews::alignmentView", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
+		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
+		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
 		{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
 		{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
@@ -126,12 +129,26 @@ func TestGoldenRenderings(t *testing.T) {
 		{"sequence-order", "sequence-order.sysml", "OrderingViews::relayView", KindSequence},
 		{"sequence-cycle", "sequence-order.sysml", "OrderingViews::deadlockView", KindSequence},
 		{"sequence-empty", "errors.sysml", "ErrorViews::emptySequenceView", KindSequence},
+		{"general-requirement", "general.sysml", "GeneralViews::requirementView", KindRequirement},
+		{"general-definition", "general.sysml", "GeneralViews::definitionView", KindDefinition},
+		{"general-package", "general.sysml", "GeneralViews::packageView", KindPackage},
+		{"general-plain", "general.sysml", "GeneralViews::plainView", KindTree},
+		{"general-unrecognized", "general-robust.sysml", "RobustViews::unrecognized", KindTree},
+		{"general-cycle-definition", "general-robust.sysml", "RobustViews::loopDefinitions", KindDefinition},
+		{"general-cycle-requirement", "general-robust.sysml", "RobustViews::loopRequirements", KindRequirement},
+		{"general-import-cycle", "general-robust.sysml", "RobustViews::importCycle", KindPackage},
+		{"general-empty", "general-robust.sysml", "RobustViews::noRequirements", KindRequirement},
+		{"general-case", "general-case.sysml", "UseCaseViews::useCaseView", KindCase},
+		{"general-case-definitions", "general-case.sysml", "UseCaseViews::caseDefinitionView", KindCase},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			rendering := render(t, tc.file, tc.view)
 			if rendering.Kind != tc.kind {
 				t.Errorf("kind = %q, want %q", rendering.Kind, tc.kind)
+			}
+			if tc.kind == KindCase || tc.kind == KindMixed {
+				assertRenderingEdgeEndpoints(t, rendering)
 			}
 			checkGolden(t, filepath.Join("testdata", tc.name+".text.golden"), rendering.Text())
 			form := tc.kind.MachineForm()
@@ -358,12 +375,13 @@ func TestActionRenderingLabelsWeightedSuccessions(t *testing.T) {
 func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 	cases := []struct {
 		view, name, label, kind, typ, detail string
+		container                            bool
 	}{
-		{"TypedViews::cycleView", "Typed::run", "run", "action", "Cycle", ""},
-		{"TypedViews::cycleView", "warm", "warm", "action", "Warm", ""},
-		{"TypedViews::cycleView", "start", "start", "initial", "", ""},
-		{"TypedViews::boilerView", "heating", "heating", "state", "Heating", ""},
-		{"TypedViews::boilerView", "idle", "idle", "state", "", "initial"},
+		{view: "TypedViews::cycleView", name: "Typed::run", label: "run", kind: "action", typ: "Cycle", container: true},
+		{view: "TypedViews::cycleView", name: "warm", label: "warm", kind: "action", typ: "Warm"},
+		{view: "TypedViews::cycleView", name: "start", label: "start", kind: "initial"},
+		{view: "TypedViews::boilerView", name: "heating", label: "heating", kind: "state", typ: "Heating"},
+		{view: "TypedViews::boilerView", name: "idle", label: "idle", kind: "state", detail: "initial"},
 	}
 	for _, tc := range cases {
 		rendering := render(t, "typed-behavior.sysml", tc.view)
@@ -381,8 +399,13 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 		head := tc.label + " : " + tc.typ
 		mermaid := rendering.Mermaid()
 		label := "*«" + tc.kind + "»*\n**" + head + "**"
-		if rendering.Kind == KindState || rendering.Kind == KindSequence {
+		switch {
+		case rendering.Kind == KindState && tc.container:
+			label = "«" + tc.kind + "» " + head
+		case rendering.Kind == KindState || rendering.Kind == KindSequence:
 			label = "«" + tc.kind + "»<br>" + head
+		case tc.container:
+			label = "*«" + tc.kind + "»* **" + head + "**"
 		}
 		if !strings.Contains(mermaid, label) {
 			t.Errorf("%s: Mermaid lacks the label for %q:\n%s", tc.view, head, mermaid)
@@ -830,6 +853,8 @@ func TestMermaidSizeCountsEdges(t *testing.T) {
 		{"state-entry.sysml", "MachineViews::thermostat"},
 		{"action.sysml", "FlowViews::driveView"},
 		{"sequence-vehicle.sysml", "VehicleSequenceViews::startVehicleView"},
+		{"case.sysml", "CaseExamples::caseDiagram"},
+		{"mixed.sysml", "MixedExamples::mixedDiagram"},
 	} {
 		rendering := render(t, tc.file, tc.view)
 		drawn := len(rendering.Edges)

@@ -1623,6 +1623,11 @@ func (s *scenario) waitExpr(dc *sysmlv1.Element) (expr, note string, ok bool) {
 		return "", "the interval's min " + lo + " exceeds its max " + hi, false
 	case lo == hi:
 		return lo, joinNotes(note, "a fixed wait of "+lo+" s"), true
+	case m.strict && (lerr != nil || herr != nil):
+		return "", noStrictDraw(lo, hi), false
+	case m.strict:
+		mid := computedLiteral((lf + hf) / 2)
+		return mid, joinNotes(note, "a fixed wait of "+mid+" s, the midpoint of ["+lo+", "+hi+"]"+strictMidpointWhy), true
 	}
 	return "RandomFunctions::uniform(" + lo + ", " + hi + ")",
 		joinNotes(note, "a wait drawn uniformly over ["+lo+", "+hi+"] s; a tool's fixed min or max mode is a run setting, not the model's"), true

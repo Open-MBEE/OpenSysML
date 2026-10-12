@@ -26,6 +26,11 @@ package RenderViews {
 		render asInterconnectionDiagram;
 	}
 
+	view relationshipMatrix : GridView {
+		filter @SysML::ConnectionUsage;
+		expose RenderDemo::Link::**;
+	}
+
 	view geometryView : GeometryView {
 		expose RenderDemo::Link;
 	}

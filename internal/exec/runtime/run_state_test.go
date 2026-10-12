@@ -285,7 +285,7 @@ func TestPausedActivationKeepsItsCalcUsageEvaluations(t *testing.T) {
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("resume: %v", err)
 	}
-	if total := exec.Results()["total"]; total.Const.Real != 13.0 {
+	if total := exec.Results()["total"]; total.Const.AsReal() != 13.0 {
 		t.Errorf("total = %v, want 13", total)
 	}
 	if got := strings.Count(trace.String(), "enter calc test::outer::t"); got != 1 {

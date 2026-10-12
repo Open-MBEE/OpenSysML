@@ -911,12 +911,10 @@ func TestExprBodyValueIsTheExpression(t *testing.T) {
 		calc def KE { in e : Performances::Evaluation; return : Integer = 1; }
 		calc def KF { in calc f : Performances::Evaluation; return : Integer = 1; }
 		calc def KC { in c : Base::Anything[0..*]; return : Integer = 1; }
-		package A { calc def K { in t : Temp; return : Integer = 1; } }
-		package B { calc def K { in e : Performances::Evaluation; return : Integer = 2; } }
+		part def A { calc def K { in t : Temp; return : Integer = 1; } }
+		part def B { calc def K { in e : Performances::Evaluation; return : Integer = 2; } }
 		part def Box { attribute inner : Temp; }
-		part def H {
-			private import A::*;
-			private import B::*;
+		part def H :> A, B {
 			attribute flag : Boolean;
 			attribute n : Integer;
 			%s

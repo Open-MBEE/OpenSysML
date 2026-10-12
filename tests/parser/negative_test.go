@@ -27,15 +27,46 @@ func TestNegative(t *testing.T) {
 		{"empty_expression", "attribute x = ;"},
 		{"numeric_name", "part def 123;"},
 		{"missing_semicolon", "part def Engine"},
+		{"ref_anonymous_unclosed_multiplicity", "package P { ref [1 = x; }"},
+		// Visibility, direction, `abstract`, `variation` and `constant` alone
+		// declare no feature; the multiplicity form is the one exception
+		// (SysML.xtext UsageDeclaration).
+		{"visibility_without_feature", "part def D { private ; }"},
+		{"visibility_body_without_feature", "part def D { private { } }"},
+		{"visibility_value_without_feature", "part def D { private = x; }"},
+		{"derived_value_without_name", "part def D { derived = x; }"},
+		{"composite_body_without_name", "part def D { composite { } }"},
+		{"end_value_without_name", "part def D { end = x; }"},
+		// `composite` or `portion` closes the feature prefix: no other feature
+		// modifier may follow it (SysML.xtext BasicFeaturePrefix).
+		{"composite_ref_decl", "part def D { composite ref; }"},
+		{"composite_ref_body", "part def D { composite ref { } }"},
+		{"portion_ref_body", "part def D { portion ref { } }"},
+		{"composite_readonly", "part def D { composite readonly; }"},
+		{"composite_derived", "part def D { composite derived x; }"},
+		{"composite_visibility", "part def D { composite private x; }"},
+		{"composite_direction", "part def D { composite in x; }"},
+		{"composite_abstract", "part def D { composite abstract x; }"},
 		{"invalid_keyword_combo", "def usage MyPart;"},
 		{"incomplete_connection", "connector c connect a"},
 		// A connector end is a feature chain (SysML BNF 8.2.2.13.1), never an
-		// expression: `#(…)`, `[…]` and `->` continue it into one.
-		{"connect_end_element_selection", "part def A { part s; part k; connect [1] s.y#(1) to [1] k.u; }"},
+		// expression: `[…]` and `->` continue it into one, as does a `#(…)`
+		// anywhere but whole at the end of the chain (the indexed-end extension).
+		{"connect_end_element_selection_chain", "part def A { part s; part k; connect [1] s.y#(1).v to [1] k.u; }"},
+		{"connect_end_empty_element_selection", "part def A { part s; part k; connect [1] s.y#() to [1] k.u; }"},
 		{"connect_end_index", "part def A { part s; part k; connect [1] s.y[1] to [1] k.u; }"},
 		{"connect_end_invocation", "part def A { part s; part k; connect [1] s.y->first to [1] k.u; }"},
 		{"unterminated_string", `part p { doc /* comment `},
+		{"unterminated_string_literal", "package P {\n    attribute s = \"open\n    attribute t = 1;\n}"},
+		{"unterminated_unrestricted_name", "package P {\n    part def 'A;\n    part def B;\n}"},
 		{"double_colon_only", "attribute ::x;"},
+		// A declaration opening with a specialization states no name
+		// (SysML.xtext FeatureDeclaration), and its MultiplicityPart puts the
+		// bracketed multiplicity ahead of `ordered`/`nonunique`, once each.
+		{"name_after_specialization_part", "part def D { :>> values ordered x; }"},
+		{"short_name_after_specialization_part", "part def D { :>> values <s> ordered; }"},
+		{"duplicate_ordered_after_specialization", "part def D { :>> values ordered ordered; }"},
+		{"multiplicity_after_ordered", "part def D { :>> values ordered [2]; }"},
 		// A classifier declaration admits one specialization list.
 		{"def_two_specialization_lists", "part def X :> A :> B;"},
 
@@ -226,6 +257,11 @@ func TestNegative(t *testing.T) {
 		{"keyword_named_parameter_no_type", "action a { in 'type' : ; }"},
 		{"parameter_default_no_value", "action a { in x default ; }"},
 		{"parameter_redefines_no_target", "action a { in redefines ; }"},
+		// A direction before a usage kind declares that usage (SysML.xtext
+		// RefPrefix), so its declaration is held to the same shape.
+		{"directed_concern_no_type", "action a { in concern c : ; }"},
+		{"directed_use_case_no_type", "action a { out use case u : ; }"},
+		{"directed_requirement_unclosed_body", "action a { out requirement r : R { }"},
 
 		// A member-attached `then` sequences the members either side of it, so
 		// a body with nothing on one side, or a member the notation does not
@@ -475,6 +511,15 @@ func TestNegative(t *testing.T) {
 		{"out_parameter_multiplicity_redefines_no_target", "action def A { out x : Integer[1] redefines ; }"},
 		{"inout_parameter_multiplicity_redefines_no_target", "action def A { inout x : Integer[1] :>> ; }"},
 		{"return_multiplicity_redefines_no_target", "calc def C { return : Integer[1] ordered :>> ; }"},
+
+		// A sequence expression admits one trailing comma after an operand
+		// (KerMLExpressions.xtext SequenceExpression); an argument list admits
+		// none (PositionalArgumentList, NamedArgumentList).
+		{"sequence_two_trailing_commas", "package P { attribute s = (1, 2,,); }"},
+		{"sequence_comma_only", "package P { attribute s = (,); }"},
+		{"sequence_index_comma_only", "package P { attribute s = (1, 2); attribute e = s#(,); }"},
+		{"argument_list_trailing_comma", "package P { attribute s = f(1,); }"},
+		{"named_argument_list_trailing_comma", "package P { attribute s = f(x = 1,); }"},
 	}
 
 	for _, tt := range tests {
@@ -592,6 +637,10 @@ func TestNegativeKerML(t *testing.T) {
 		{"featured_by_no_terminator", "package P { class A; feature f featured by A }"},
 		{"by_without_featured", "package P { class A; feature f by A; }"},
 
+		// In KerML the word `ordered` names the feature after `composite`, so
+		// a name may not follow it.
+		{"composite_ordered_name", "class C { composite ordered x; }"},
+
 		// A parenthesized end list holds at least two ends and closes
 		// (KerML.xtext:842).
 		{"nary_connector_unclosed", "package P { feature a; feature b; connector c (a, b; }"},
@@ -607,6 +656,11 @@ func TestNegativeKerML(t *testing.T) {
 		{"binary_connector_end_multiplicity_no_target", "package P { feature a; feature b; connector [1] to b; }"},
 		{"binary_connector_named_end_no_target", "package P { feature a; feature b; connector e ::> to b; }"},
 		{"binary_connector_name_without_from", "package P { feature a; feature b; connector c : L a to b; }"},
+
+		// A parenthesized sequence admits one trailing comma after an operand
+		// (KerMLExpressions.xtext SequenceExpression), never in its place.
+		{"sequence_two_trailing_commas", "package P { feature s = (1, 2,,); }"},
+		{"sequence_comma_only", "package P { feature s = (,); }"},
 
 		// A succession states both ends around `then` (KerML.xtext:891).
 		{"succession_declaration_no_then", "package P { behavior B { step a; step b; succession s : L [1] first a b; } }"},
@@ -641,11 +695,14 @@ func TestNegativeKerML(t *testing.T) {
 		{"multiplicity_bounds_and_subsets", "package P { multiplicity zeroOrMore [0..*]; multiplicity m [0..*] subsets zeroOrMore; }"},
 
 		// An index states a sequence of at least one expression and closes
-		// (KerMLExpressions.xtext PrimaryExpression).
+		// (KerMLExpressions.xtext PrimaryExpression); the sequence admits one
+		// trailing comma after an operand (SequenceExpression), never in its place.
 		{"index_sequence_unclosed", "package P { feature a; feature b = a#(1, 2; }"},
 		{"index_sequence_empty", "package P { feature a; feature b = a#(); }"},
-		{"index_sequence_trailing_comma", "package P { feature a; feature b = a#(1,); }"},
+		{"index_sequence_two_trailing_commas", "package P { feature a; feature b = a#(1,,); }"},
+		{"index_sequence_comma_only", "package P { feature a; feature b = a#(,); }"},
 		{"index_bracket_unclosed", "package P { feature a; feature b = a[1, 2; }"},
+		{"index_bracket_comma_only", "package P { feature a; feature b = a[,]; }"},
 
 		// A word the KerML grammar does not reserve names a feature, so a
 		// declaration so named that is malformed is still reported.

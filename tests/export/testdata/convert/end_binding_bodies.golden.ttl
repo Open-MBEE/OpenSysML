@@ -481,18 +481,19 @@ elmt:R89__Ctx__seam
     sysml:connectorEnd expr:R89__Ctx__seam_pend0, expr:R89__Ctx__seam_pend1 ;
     sysml:ownedRelationship expr:R89__Ctx__seam_pend0_om, expr:R89__Ctx__seam_pend1_om, elmt:R89__Ctx__seam__coupling_om ;
     sysml:ownedMembership expr:R89__Ctx__seam_pend0_om, expr:R89__Ctx__seam_pend1_om, elmt:R89__Ctx__seam__coupling_om ;
+    sysml:ownedMember expr:R89__Ctx__seam_pend0, expr:R89__Ctx__seam_pend1, elmt:R89__Ctx__seam__coupling ;
     sysml:ownedFeatureMembership expr:R89__Ctx__seam_pend0_om, expr:R89__Ctx__seam_pend1_om, elmt:R89__Ctx__seam__coupling_om ;
     sysml:ownedFeature expr:R89__Ctx__seam_pend0, expr:R89__Ctx__seam_pend1, elmt:R89__Ctx__seam__coupling ;
     sysml:ownedEndFeature expr:R89__Ctx__seam_pend0, expr:R89__Ctx__seam_pend1 ;
     sysx:endForm "to" ;
     sysx:endVerb "connect" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:R89__Ctx__seam__coupling ;
     sysx:sourceText "        interface seam connect w.outp to r.inp {\n" ;
     sysx:sourceTail "        }\n" ;
     json:connectorEnd "[{\"@id\":\"R89__Ctx__seam_pend0\"},{\"@id\":\"R89__Ctx__seam_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"R89__Ctx__seam_pend0_om\"},{\"@id\":\"R89__Ctx__seam_pend1_om\"},{\"@id\":\"R89__Ctx__seam__coupling_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"R89__Ctx__seam_pend0_om\"},{\"@id\":\"R89__Ctx__seam_pend1_om\"},{\"@id\":\"R89__Ctx__seam__coupling_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"R89__Ctx__seam_pend0\"},{\"@id\":\"R89__Ctx__seam_pend1\"},{\"@id\":\"R89__Ctx__seam__coupling\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"R89__Ctx__seam_pend0_om\"},{\"@id\":\"R89__Ctx__seam_pend1_om\"},{\"@id\":\"R89__Ctx__seam__coupling_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"R89__Ctx__seam_pend0\"},{\"@id\":\"R89__Ctx__seam_pend1\"},{\"@id\":\"R89__Ctx__seam__coupling\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"R89__Ctx__seam_pend0\"},{\"@id\":\"R89__Ctx__seam_pend1\"}]" .
@@ -1205,18 +1206,19 @@ elmt:Bodies__Ctx__c
     sysml:connectorEnd expr:Bodies__Ctx__c_pend0, expr:Bodies__Ctx__c_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx__c_pend0_om, expr:Bodies__Ctx__c_pend1_om, elmt:Bodies__Ctx__c__w_om ;
     sysml:ownedMembership expr:Bodies__Ctx__c_pend0_om, expr:Bodies__Ctx__c_pend1_om, elmt:Bodies__Ctx__c__w_om ;
+    sysml:ownedMember expr:Bodies__Ctx__c_pend0, expr:Bodies__Ctx__c_pend1, elmt:Bodies__Ctx__c__w ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx__c_pend0_om, expr:Bodies__Ctx__c_pend1_om, elmt:Bodies__Ctx__c__w_om ;
     sysml:ownedFeature expr:Bodies__Ctx__c_pend0, expr:Bodies__Ctx__c_pend1, elmt:Bodies__Ctx__c__w ;
     sysml:ownedEndFeature expr:Bodies__Ctx__c_pend0, expr:Bodies__Ctx__c_pend1 ;
     sysx:endForm "to" ;
     sysx:endVerb "connect" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Bodies__Ctx__c__w ;
     sysx:sourceText "        connection c connect x.p to y.q {\n" ;
     sysx:sourceTail "        }\n" ;
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx__c_pend0\"},{\"@id\":\"Bodies__Ctx__c_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__c_pend0_om\"},{\"@id\":\"Bodies__Ctx__c_pend1_om\"},{\"@id\":\"Bodies__Ctx__c__w_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__c_pend0_om\"},{\"@id\":\"Bodies__Ctx__c_pend1_om\"},{\"@id\":\"Bodies__Ctx__c__w_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__c_pend0\"},{\"@id\":\"Bodies__Ctx__c_pend1\"},{\"@id\":\"Bodies__Ctx__c__w\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__c_pend0_om\"},{\"@id\":\"Bodies__Ctx__c_pend1_om\"},{\"@id\":\"Bodies__Ctx__c__w_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx__c_pend0\"},{\"@id\":\"Bodies__Ctx__c_pend1\"},{\"@id\":\"Bodies__Ctx__c__w\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx__c_pend0\"},{\"@id\":\"Bodies__Ctx__c_pend1\"}]" .
@@ -1438,18 +1440,19 @@ elmt:Bodies__Ctx___403
     sysml:connectorEnd expr:Bodies__Ctx___403_pend0, expr:Bodies__Ctx___403_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx___403_pend0_om, expr:Bodies__Ctx___403_pend1_om, elmt:Bodies__Ctx___403__w_om ;
     sysml:ownedMembership expr:Bodies__Ctx___403_pend0_om, expr:Bodies__Ctx___403_pend1_om, elmt:Bodies__Ctx___403__w_om ;
+    sysml:ownedMember expr:Bodies__Ctx___403_pend0, expr:Bodies__Ctx___403_pend1, elmt:Bodies__Ctx___403__w ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx___403_pend0_om, expr:Bodies__Ctx___403_pend1_om, elmt:Bodies__Ctx___403__w_om ;
     sysml:ownedFeature expr:Bodies__Ctx___403_pend0, expr:Bodies__Ctx___403_pend1, elmt:Bodies__Ctx___403__w ;
     sysml:ownedEndFeature expr:Bodies__Ctx___403_pend0, expr:Bodies__Ctx___403_pend1 ;
     sysx:endForm "to" ;
     sysx:declaredKeyword "connect" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Bodies__Ctx___403__w ;
     sysx:sourceText "        connect x.p to y.q {\n" ;
     sysx:sourceTail "        }\n" ;
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx___403_pend0\"},{\"@id\":\"Bodies__Ctx___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx___403_pend0_om\"},{\"@id\":\"Bodies__Ctx___403_pend1_om\"},{\"@id\":\"Bodies__Ctx___403__w_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx___403_pend0_om\"},{\"@id\":\"Bodies__Ctx___403_pend1_om\"},{\"@id\":\"Bodies__Ctx___403__w_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx___403_pend0\"},{\"@id\":\"Bodies__Ctx___403_pend1\"},{\"@id\":\"Bodies__Ctx___403__w\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx___403_pend0_om\"},{\"@id\":\"Bodies__Ctx___403_pend1_om\"},{\"@id\":\"Bodies__Ctx___403__w_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx___403_pend0\"},{\"@id\":\"Bodies__Ctx___403_pend1\"},{\"@id\":\"Bodies__Ctx___403__w\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx___403_pend0\"},{\"@id\":\"Bodies__Ctx___403_pend1\"}]" .
@@ -1672,17 +1675,18 @@ elmt:Bodies__Ctx__f
     sysml:connectorEnd expr:Bodies__Ctx__f_pend0, expr:Bodies__Ctx__f_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx__f_pend0_om, expr:Bodies__Ctx__f_pend1_om, elmt:Bodies__Ctx__f__w_om ;
     sysml:ownedMembership expr:Bodies__Ctx__f_pend0_om, expr:Bodies__Ctx__f_pend1_om, elmt:Bodies__Ctx__f__w_om ;
+    sysml:ownedMember expr:Bodies__Ctx__f_pend0, expr:Bodies__Ctx__f_pend1, elmt:Bodies__Ctx__f__w ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx__f_pend0_om, expr:Bodies__Ctx__f_pend1_om, elmt:Bodies__Ctx__f__w_om ;
     sysml:ownedFeature expr:Bodies__Ctx__f_pend0, expr:Bodies__Ctx__f_pend1, elmt:Bodies__Ctx__f__w ;
     sysml:ownedEndFeature expr:Bodies__Ctx__f_pend0, expr:Bodies__Ctx__f_pend1 ;
     sysx:endForm "fromTo" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Bodies__Ctx__f__w ;
     sysx:sourceText "        flow f from x.i to y.j {\n" ;
     sysx:sourceTail "        }\n" ;
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx__f_pend0\"},{\"@id\":\"Bodies__Ctx__f_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__f_pend0_om\"},{\"@id\":\"Bodies__Ctx__f_pend1_om\"},{\"@id\":\"Bodies__Ctx__f__w_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__f_pend0_om\"},{\"@id\":\"Bodies__Ctx__f_pend1_om\"},{\"@id\":\"Bodies__Ctx__f__w_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__f_pend0\"},{\"@id\":\"Bodies__Ctx__f_pend1\"},{\"@id\":\"Bodies__Ctx__f__w\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__f_pend0_om\"},{\"@id\":\"Bodies__Ctx__f_pend1_om\"},{\"@id\":\"Bodies__Ctx__f__w_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx__f_pend0\"},{\"@id\":\"Bodies__Ctx__f_pend1\"},{\"@id\":\"Bodies__Ctx__f__w\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx__f_pend0\"},{\"@id\":\"Bodies__Ctx__f_pend1\"}]" .
@@ -1883,18 +1887,19 @@ elmt:Bodies__Ctx__bd
     sysml:connectorEnd expr:Bodies__Ctx__bd_pend0, expr:Bodies__Ctx__bd_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx__bd_pend0_om, expr:Bodies__Ctx__bd_pend1_om, elmt:Bodies__Ctx__bd__w_om ;
     sysml:ownedMembership expr:Bodies__Ctx__bd_pend0_om, expr:Bodies__Ctx__bd_pend1_om, elmt:Bodies__Ctx__bd__w_om ;
+    sysml:ownedMember expr:Bodies__Ctx__bd_pend0, expr:Bodies__Ctx__bd_pend1, elmt:Bodies__Ctx__bd__w ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx__bd_pend0_om, expr:Bodies__Ctx__bd_pend1_om, elmt:Bodies__Ctx__bd__w_om ;
     sysml:ownedFeature expr:Bodies__Ctx__bd_pend0, expr:Bodies__Ctx__bd_pend1, elmt:Bodies__Ctx__bd__w ;
     sysml:ownedEndFeature expr:Bodies__Ctx__bd_pend0, expr:Bodies__Ctx__bd_pend1 ;
     sysx:endForm "equals" ;
     sysx:endVerb "bind" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Bodies__Ctx__bd__w ;
     sysx:sourceText "        binding bd bind x.a = y.b {\n" ;
     sysx:sourceTail "        }\n" ;
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx__bd_pend0\"},{\"@id\":\"Bodies__Ctx__bd_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__bd_pend0_om\"},{\"@id\":\"Bodies__Ctx__bd_pend1_om\"},{\"@id\":\"Bodies__Ctx__bd__w_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__bd_pend0_om\"},{\"@id\":\"Bodies__Ctx__bd_pend1_om\"},{\"@id\":\"Bodies__Ctx__bd__w_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__bd_pend0\"},{\"@id\":\"Bodies__Ctx__bd_pend1\"},{\"@id\":\"Bodies__Ctx__bd__w\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__bd_pend0_om\"},{\"@id\":\"Bodies__Ctx__bd_pend1_om\"},{\"@id\":\"Bodies__Ctx__bd__w_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx__bd_pend0\"},{\"@id\":\"Bodies__Ctx__bd_pend1\"},{\"@id\":\"Bodies__Ctx__bd__w\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx__bd_pend0\"},{\"@id\":\"Bodies__Ctx__bd_pend1\"}]" .
@@ -2116,18 +2121,19 @@ elmt:Bodies__Ctx___406
     sysml:connectorEnd expr:Bodies__Ctx___406_pend0, expr:Bodies__Ctx___406_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx___406_pend0_om, expr:Bodies__Ctx___406_pend1_om, elmt:Bodies__Ctx___406__w_om ;
     sysml:ownedMembership expr:Bodies__Ctx___406_pend0_om, expr:Bodies__Ctx___406_pend1_om, elmt:Bodies__Ctx___406__w_om ;
+    sysml:ownedMember expr:Bodies__Ctx___406_pend0, expr:Bodies__Ctx___406_pend1, elmt:Bodies__Ctx___406__w ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx___406_pend0_om, expr:Bodies__Ctx___406_pend1_om, elmt:Bodies__Ctx___406__w_om ;
     sysml:ownedFeature expr:Bodies__Ctx___406_pend0, expr:Bodies__Ctx___406_pend1, elmt:Bodies__Ctx___406__w ;
     sysml:ownedEndFeature expr:Bodies__Ctx___406_pend0, expr:Bodies__Ctx___406_pend1 ;
     sysx:endForm "equals" ;
     sysx:declaredKeyword "bind" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Bodies__Ctx___406__w ;
     sysx:sourceText "        bind x.a = y.b {\n" ;
     sysx:sourceTail "        }\n" ;
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx___406_pend0\"},{\"@id\":\"Bodies__Ctx___406_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx___406_pend0_om\"},{\"@id\":\"Bodies__Ctx___406_pend1_om\"},{\"@id\":\"Bodies__Ctx___406__w_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx___406_pend0_om\"},{\"@id\":\"Bodies__Ctx___406_pend1_om\"},{\"@id\":\"Bodies__Ctx___406__w_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx___406_pend0\"},{\"@id\":\"Bodies__Ctx___406_pend1\"},{\"@id\":\"Bodies__Ctx___406__w\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx___406_pend0_om\"},{\"@id\":\"Bodies__Ctx___406_pend1_om\"},{\"@id\":\"Bodies__Ctx___406__w_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx___406_pend0\"},{\"@id\":\"Bodies__Ctx___406_pend1\"},{\"@id\":\"Bodies__Ctx___406__w\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx___406_pend0\"},{\"@id\":\"Bodies__Ctx___406_pend1\"}]" .
@@ -2350,6 +2356,7 @@ elmt:Bodies__Ctx__al
     sysml:connectorEnd expr:Bodies__Ctx__al_pend0, expr:Bodies__Ctx__al_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx__al_pend0_om, expr:Bodies__Ctx__al_pend1_om, elmt:Bodies__Ctx__al__w_om ;
     sysml:ownedMembership expr:Bodies__Ctx__al_pend0_om, expr:Bodies__Ctx__al_pend1_om, elmt:Bodies__Ctx__al__w_om ;
+    sysml:ownedMember expr:Bodies__Ctx__al_pend0, expr:Bodies__Ctx__al_pend1, elmt:Bodies__Ctx__al__w ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx__al_pend0_om, expr:Bodies__Ctx__al_pend1_om, elmt:Bodies__Ctx__al__w_om ;
     sysml:ownedFeature expr:Bodies__Ctx__al_pend0, expr:Bodies__Ctx__al_pend1, elmt:Bodies__Ctx__al__w ;
     sysml:ownedEndFeature expr:Bodies__Ctx__al_pend0, expr:Bodies__Ctx__al_pend1 ;
@@ -2359,12 +2366,12 @@ elmt:Bodies__Ctx__al
     sysx:endForm "to" ;
     sysx:endVerb "allocate" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Bodies__Ctx__al__w ;
     sysx:sourceText "        allocation al allocate x to y {\n" ;
     sysx:sourceTail "        }\n" ;
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx__al_pend0\"},{\"@id\":\"Bodies__Ctx__al_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__al_pend0_om\"},{\"@id\":\"Bodies__Ctx__al_pend1_om\"},{\"@id\":\"Bodies__Ctx__al__w_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__al_pend0_om\"},{\"@id\":\"Bodies__Ctx__al_pend1_om\"},{\"@id\":\"Bodies__Ctx__al__w_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__al_pend0\"},{\"@id\":\"Bodies__Ctx__al_pend1\"},{\"@id\":\"Bodies__Ctx__al__w\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__al_pend0_om\"},{\"@id\":\"Bodies__Ctx__al_pend1_om\"},{\"@id\":\"Bodies__Ctx__al__w_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx__al_pend0\"},{\"@id\":\"Bodies__Ctx__al_pend1\"},{\"@id\":\"Bodies__Ctx__al__w\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx__al_pend0\"},{\"@id\":\"Bodies__Ctx__al_pend1\"}]" ;
@@ -2514,6 +2521,7 @@ elmt:Bodies__Ctx__s
     sysml:connectorEnd expr:Bodies__Ctx__s_pend0, expr:Bodies__Ctx__s_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx__s_pend0_om, expr:Bodies__Ctx__s_pend1_om, elmt:Bodies__Ctx__s__w_om ;
     sysml:ownedMembership expr:Bodies__Ctx__s_pend0_om, expr:Bodies__Ctx__s_pend1_om, elmt:Bodies__Ctx__s__w_om ;
+    sysml:ownedMember expr:Bodies__Ctx__s_pend0, expr:Bodies__Ctx__s_pend1, elmt:Bodies__Ctx__s__w ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx__s_pend0_om, expr:Bodies__Ctx__s_pend1_om, elmt:Bodies__Ctx__s__w_om ;
     sysml:ownedFeature expr:Bodies__Ctx__s_pend0, expr:Bodies__Ctx__s_pend1, elmt:Bodies__Ctx__s__w ;
     sysml:ownedEndFeature expr:Bodies__Ctx__s_pend0, expr:Bodies__Ctx__s_pend1 ;
@@ -2523,12 +2531,12 @@ elmt:Bodies__Ctx__s
     sysx:endForm "firstThen" ;
     sysx:endVerb "first" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Bodies__Ctx__s__w ;
     sysx:sourceText "        succession s first x then y {\n" ;
     sysx:sourceTail "        }\n" ;
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx__s_pend0\"},{\"@id\":\"Bodies__Ctx__s_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__s_pend0_om\"},{\"@id\":\"Bodies__Ctx__s_pend1_om\"},{\"@id\":\"Bodies__Ctx__s__w_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__s_pend0_om\"},{\"@id\":\"Bodies__Ctx__s_pend1_om\"},{\"@id\":\"Bodies__Ctx__s__w_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__s_pend0\"},{\"@id\":\"Bodies__Ctx__s_pend1\"},{\"@id\":\"Bodies__Ctx__s__w\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__s_pend0_om\"},{\"@id\":\"Bodies__Ctx__s_pend1_om\"},{\"@id\":\"Bodies__Ctx__s__w_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx__s_pend0\"},{\"@id\":\"Bodies__Ctx__s_pend1\"},{\"@id\":\"Bodies__Ctx__s__w\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx__s_pend0\"},{\"@id\":\"Bodies__Ctx__s_pend1\"}]" ;
@@ -2773,6 +2781,7 @@ elmt:Bodies__Ctx__Act___402
     sysml:connectorEnd expr:Bodies__Ctx__Act___402_pend0, expr:Bodies__Ctx__Act___402_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx__Act___402_pend0_om, expr:Bodies__Ctx__Act___402_pend1_om, elmt:Bodies__Ctx__Act___402__w_om ;
     sysml:ownedMembership expr:Bodies__Ctx__Act___402_pend0_om, expr:Bodies__Ctx__Act___402_pend1_om, elmt:Bodies__Ctx__Act___402__w_om ;
+    sysml:ownedMember expr:Bodies__Ctx__Act___402_pend0, expr:Bodies__Ctx__Act___402_pend1, elmt:Bodies__Ctx__Act___402__w ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx__Act___402_pend0_om, expr:Bodies__Ctx__Act___402_pend1_om, elmt:Bodies__Ctx__Act___402__w_om ;
     sysml:ownedFeature expr:Bodies__Ctx__Act___402_pend0, expr:Bodies__Ctx__Act___402_pend1, elmt:Bodies__Ctx__Act___402__w ;
     sysml:ownedEndFeature expr:Bodies__Ctx__Act___402_pend0, expr:Bodies__Ctx__Act___402_pend1 ;
@@ -2782,12 +2791,12 @@ elmt:Bodies__Ctx__Act___402
     sysx:endForm "firstThen" ;
     sysx:endVerb "first" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Bodies__Ctx__Act___402__w ;
     sysx:sourceText "            succession first a1 then a2 {\n" ;
     sysx:sourceTail "            }\n" ;
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx__Act___402_pend0\"},{\"@id\":\"Bodies__Ctx__Act___402_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Act___402_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___402_pend1_om\"},{\"@id\":\"Bodies__Ctx__Act___402__w_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Act___402_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___402_pend1_om\"},{\"@id\":\"Bodies__Ctx__Act___402__w_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__Act___402_pend0\"},{\"@id\":\"Bodies__Ctx__Act___402_pend1\"},{\"@id\":\"Bodies__Ctx__Act___402__w\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Act___402_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___402_pend1_om\"},{\"@id\":\"Bodies__Ctx__Act___402__w_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Act___402_pend0\"},{\"@id\":\"Bodies__Ctx__Act___402_pend1\"},{\"@id\":\"Bodies__Ctx__Act___402__w\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx__Act___402_pend0\"},{\"@id\":\"Bodies__Ctx__Act___402_pend1\"}]" ;
@@ -2939,16 +2948,17 @@ elmt:Bodies__Ctx__Act___403
     sysml:connectorEnd expr:Bodies__Ctx__Act___403_pend0, expr:Bodies__Ctx__Act___403_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx__Act___403_pend0_om, expr:Bodies__Ctx__Act___403_pend1_om, elmt:Bodies__Ctx__Act___403__w_om ;
     sysml:ownedMembership expr:Bodies__Ctx__Act___403_pend0_om, expr:Bodies__Ctx__Act___403_pend1_om, elmt:Bodies__Ctx__Act___403__w_om ;
+    sysml:ownedMember expr:Bodies__Ctx__Act___403_pend0, expr:Bodies__Ctx__Act___403_pend1, elmt:Bodies__Ctx__Act___403__w ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx__Act___403_pend0_om, expr:Bodies__Ctx__Act___403_pend1_om, elmt:Bodies__Ctx__Act___403__w_om ;
     sysml:ownedFeature expr:Bodies__Ctx__Act___403_pend0, expr:Bodies__Ctx__Act___403_pend1, elmt:Bodies__Ctx__Act___403__w ;
     sysml:ownedEndFeature expr:Bodies__Ctx__Act___403_pend0, expr:Bodies__Ctx__Act___403_pend1 ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Bodies__Ctx__Act___403__w ;
     sysx:sourceText "            first a1 then a2 {\n" ;
     sysx:sourceTail "            }\n" ;
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx__Act___403_pend0\"},{\"@id\":\"Bodies__Ctx__Act___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Act___403_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___403_pend1_om\"},{\"@id\":\"Bodies__Ctx__Act___403__w_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Act___403_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___403_pend1_om\"},{\"@id\":\"Bodies__Ctx__Act___403__w_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__Act___403_pend0\"},{\"@id\":\"Bodies__Ctx__Act___403_pend1\"},{\"@id\":\"Bodies__Ctx__Act___403__w\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Act___403_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___403_pend1_om\"},{\"@id\":\"Bodies__Ctx__Act___403__w_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Act___403_pend0\"},{\"@id\":\"Bodies__Ctx__Act___403_pend1\"},{\"@id\":\"Bodies__Ctx__Act___403__w\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx__Act___403_pend0\"},{\"@id\":\"Bodies__Ctx__Act___403_pend1\"}]" .
@@ -3127,6 +3137,7 @@ elmt:Bodies__Ctx__Act___405
     sysml:connectorEnd expr:Bodies__Ctx__Act___405_pend0, expr:Bodies__Ctx__Act___405_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx__Act___405_pend0_om, expr:Bodies__Ctx__Act___405_pend1_om ;
     sysml:ownedMembership expr:Bodies__Ctx__Act___405_pend0_om, expr:Bodies__Ctx__Act___405_pend1_om ;
+    sysml:ownedMember expr:Bodies__Ctx__Act___405_pend0, expr:Bodies__Ctx__Act___405_pend1 ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx__Act___405_pend0_om, expr:Bodies__Ctx__Act___405_pend1_om ;
     sysml:ownedFeature expr:Bodies__Ctx__Act___405_pend0, expr:Bodies__Ctx__Act___405_pend1 ;
     sysml:ownedEndFeature expr:Bodies__Ctx__Act___405_pend0, expr:Bodies__Ctx__Act___405_pend1 ;
@@ -3135,6 +3146,7 @@ elmt:Bodies__Ctx__Act___405
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx__Act___405_pend0\"},{\"@id\":\"Bodies__Ctx__Act___405_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Act___405_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___405_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Act___405_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___405_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__Act___405_pend0\"},{\"@id\":\"Bodies__Ctx__Act___405_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Act___405_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___405_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Act___405_pend0\"},{\"@id\":\"Bodies__Ctx__Act___405_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx__Act___405_pend0\"},{\"@id\":\"Bodies__Ctx__Act___405_pend1\"}]" .
@@ -3278,6 +3290,7 @@ elmt:Bodies__Ctx__Act___407
     sysml:connectorEnd expr:Bodies__Ctx__Act___407_pend0, expr:Bodies__Ctx__Act___407_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx__Act___407_pend0_om, expr:Bodies__Ctx__Act___407_pend1_om ;
     sysml:ownedMembership expr:Bodies__Ctx__Act___407_pend0_om, expr:Bodies__Ctx__Act___407_pend1_om ;
+    sysml:ownedMember expr:Bodies__Ctx__Act___407_pend0, expr:Bodies__Ctx__Act___407_pend1 ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx__Act___407_pend0_om, expr:Bodies__Ctx__Act___407_pend1_om ;
     sysml:ownedFeature expr:Bodies__Ctx__Act___407_pend0, expr:Bodies__Ctx__Act___407_pend1 ;
     sysml:ownedEndFeature expr:Bodies__Ctx__Act___407_pend0, expr:Bodies__Ctx__Act___407_pend1 ;
@@ -3288,6 +3301,7 @@ elmt:Bodies__Ctx__Act___407
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx__Act___407_pend0\"},{\"@id\":\"Bodies__Ctx__Act___407_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Act___407_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___407_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Act___407_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___407_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__Act___407_pend0\"},{\"@id\":\"Bodies__Ctx__Act___407_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Act___407_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___407_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Act___407_pend0\"},{\"@id\":\"Bodies__Ctx__Act___407_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx__Act___407_pend0\"},{\"@id\":\"Bodies__Ctx__Act___407_pend1\"}]" .
@@ -3380,6 +3394,7 @@ elmt:Bodies__Ctx__Act___408
     sysml:connectorEnd expr:Bodies__Ctx__Act___408_pend0, expr:Bodies__Ctx__Act___408_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx__Act___408_pend0_om, expr:Bodies__Ctx__Act___408_pend1_om ;
     sysml:ownedMembership expr:Bodies__Ctx__Act___408_pend0_om, expr:Bodies__Ctx__Act___408_pend1_om ;
+    sysml:ownedMember expr:Bodies__Ctx__Act___408_pend0, expr:Bodies__Ctx__Act___408_pend1 ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx__Act___408_pend0_om, expr:Bodies__Ctx__Act___408_pend1_om ;
     sysml:ownedFeature expr:Bodies__Ctx__Act___408_pend0, expr:Bodies__Ctx__Act___408_pend1 ;
     sysml:ownedEndFeature expr:Bodies__Ctx__Act___408_pend0, expr:Bodies__Ctx__Act___408_pend1 ;
@@ -3389,6 +3404,7 @@ elmt:Bodies__Ctx__Act___408
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx__Act___408_pend0\"},{\"@id\":\"Bodies__Ctx__Act___408_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Act___408_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___408_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Act___408_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___408_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__Act___408_pend0\"},{\"@id\":\"Bodies__Ctx__Act___408_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Act___408_pend0_om\"},{\"@id\":\"Bodies__Ctx__Act___408_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Act___408_pend0\"},{\"@id\":\"Bodies__Ctx__Act___408_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx__Act___408_pend0\"},{\"@id\":\"Bodies__Ctx__Act___408_pend1\"}]" .
@@ -3638,6 +3654,7 @@ elmt:Bodies__Ctx__Machine__t1_succession
     sysml:connectorEnd expr:Bodies__Ctx__Machine__t1_succession_pend0, expr:Bodies__Ctx__Machine__t1_succession_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx__Machine__t1_succession_pend0_om, expr:Bodies__Ctx__Machine__t1_succession_pend1_om ;
     sysml:ownedMembership expr:Bodies__Ctx__Machine__t1_succession_pend0_om, expr:Bodies__Ctx__Machine__t1_succession_pend1_om ;
+    sysml:ownedMember expr:Bodies__Ctx__Machine__t1_succession_pend0, expr:Bodies__Ctx__Machine__t1_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx__Machine__t1_succession_pend0_om, expr:Bodies__Ctx__Machine__t1_succession_pend1_om ;
     sysml:ownedFeature expr:Bodies__Ctx__Machine__t1_succession_pend0, expr:Bodies__Ctx__Machine__t1_succession_pend1 ;
     sysml:ownedEndFeature expr:Bodies__Ctx__Machine__t1_succession_pend0, expr:Bodies__Ctx__Machine__t1_succession_pend1 ;
@@ -3647,6 +3664,7 @@ elmt:Bodies__Ctx__Machine__t1_succession
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend0\"},{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend0_om\"},{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend0_om\"},{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend0\"},{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend0_om\"},{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend0\"},{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend0\"},{\"@id\":\"Bodies__Ctx__Machine__t1_succession_pend1\"}]" .
@@ -3830,6 +3848,7 @@ elmt:Bodies__Ctx__Machine___403_succession
     sysml:connectorEnd expr:Bodies__Ctx__Machine___403_succession_pend0, expr:Bodies__Ctx__Machine___403_succession_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx__Machine___403_succession_pend0_om, expr:Bodies__Ctx__Machine___403_succession_pend1_om ;
     sysml:ownedMembership expr:Bodies__Ctx__Machine___403_succession_pend0_om, expr:Bodies__Ctx__Machine___403_succession_pend1_om ;
+    sysml:ownedMember expr:Bodies__Ctx__Machine___403_succession_pend0, expr:Bodies__Ctx__Machine___403_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx__Machine___403_succession_pend0_om, expr:Bodies__Ctx__Machine___403_succession_pend1_om ;
     sysml:ownedFeature expr:Bodies__Ctx__Machine___403_succession_pend0, expr:Bodies__Ctx__Machine___403_succession_pend1 ;
     sysml:ownedEndFeature expr:Bodies__Ctx__Machine___403_succession_pend0, expr:Bodies__Ctx__Machine___403_succession_pend1 ;
@@ -3839,6 +3858,7 @@ elmt:Bodies__Ctx__Machine___403_succession
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend0\"},{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend0_om\"},{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend0_om\"},{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend0\"},{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend0_om\"},{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend0\"},{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend0\"},{\"@id\":\"Bodies__Ctx__Machine___403_succession_pend1\"}]" .
@@ -4169,6 +4189,7 @@ elmt:Bodies__Ctx__Machine___404_succession
     sysml:connectorEnd expr:Bodies__Ctx__Machine___404_succession_pend0, expr:Bodies__Ctx__Machine___404_succession_pend1 ;
     sysml:ownedRelationship expr:Bodies__Ctx__Machine___404_succession_pend0_om, expr:Bodies__Ctx__Machine___404_succession_pend1_om ;
     sysml:ownedMembership expr:Bodies__Ctx__Machine___404_succession_pend0_om, expr:Bodies__Ctx__Machine___404_succession_pend1_om ;
+    sysml:ownedMember expr:Bodies__Ctx__Machine___404_succession_pend0, expr:Bodies__Ctx__Machine___404_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Bodies__Ctx__Machine___404_succession_pend0_om, expr:Bodies__Ctx__Machine___404_succession_pend1_om ;
     sysml:ownedFeature expr:Bodies__Ctx__Machine___404_succession_pend0, expr:Bodies__Ctx__Machine___404_succession_pend1 ;
     sysml:ownedEndFeature expr:Bodies__Ctx__Machine___404_succession_pend0, expr:Bodies__Ctx__Machine___404_succession_pend1 ;
@@ -4178,6 +4199,7 @@ elmt:Bodies__Ctx__Machine___404_succession
     json:connectorEnd "[{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend0\"},{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend0_om\"},{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend0_om\"},{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend0\"},{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend0_om\"},{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend0\"},{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend0\"},{\"@id\":\"Bodies__Ctx__Machine___404_succession_pend1\"}]" .

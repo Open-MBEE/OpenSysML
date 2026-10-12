@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1"
+         xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:StandardProfile="http://www.omg.org/spec/UML/20161101/StandardProfile"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <ownedComment xmi:type="uml:Comment" xmi:id="_cRoot">
+      <body>Root concern</body>
+    </ownedComment>
+    <packagedElement xmi:type="uml:Package" xmi:id="_p" name="Views">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_cPkg">
+        <body>Package concern</body>
+      </ownedComment>
+      <ownedComment xmi:type="uml:Comment" xmi:id="_shared">
+        <body>Shared concern</body>
+      </ownedComment>
+      <packagedElement xmi:type="uml:Class" xmi:id="_stake" name="Reviewer"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp1" name="Review Viewpoint">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cVp" annotatedElement="_vp2">
+          <body>Viewpoint concern</body>
+        </ownedComment>
+        <ownedOperation xmi:type="uml:Operation" xmi:id="_opMethod" name="createView" method="_method"/>
+        <ownedOperation xmi:type="uml:Operation" xmi:id="_opNoMethod" name="makeView"/>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_method" name="Render View" specification="_opMethod"/>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_methodTag" name="Tag Method"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety Viewpoint"/>
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="_enum" name="Fallback">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cEnum">
+          <body>Enumeration concern</body>
+        </ownedComment>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_inheritedBase" name="Inherited Base">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gInheritedBase" general="_vp1"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_inheritedDerived" name="Inherited Derived">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gInheritedDerived" general="_inheritedBase"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_inheritedSame" name="Inherited Same">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gInheritedSame" general="_inheritedBase"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_multipleBases" name="Multiple Bases">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gBaseOne" general="_genView"/>
+        <generalization xmi:type="uml:Generalization" xmi:id="_gBaseTwo" general="_tagView"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_genView" name="Generalized View">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g" general="_vp1"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_tagView" name="Tagged View"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_depView" name="Conforming View"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_bothView" name="Combined View">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g2" general="_vp1"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_instance" name="review" classifier="_vp1"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_conform" client="_depView" supplier="_vp1"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_conform2" client="_bothView" supplier="_vp2"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_inheritedConform" client="_inheritedDerived" supplier="_vp2"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_inheritedSameConform" client="_inheritedSame" supplier="_vp1"/>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Viewpoint xmi:id="_svp1" base_Class="_vp1"
+                   stakeholder="_stake" concernList="_cPkg _cVp _shared _cRoot"
+                   concern="legacy concern" purpose="review purpose"
+                   language="English" presentation="dashboard" method="_method _methodTag"/>
+  <sysml:Viewpoint xmi:id="_svp2" base_Class="_vp2" concernList="_shared"/>
+  <sysml:Stakeholder xmi:id="_sstake" base_Class="_stake" concernList="_shared _cEnum" concern="legacy stakeholder concern"/>
+  <sysml:Concern xmi:id="_scPkg" base_Comment="_cPkg"/>
+  <sysml:Concern xmi:id="_scVp" base_Comment="_cVp"/>
+  <sysml:Concern xmi:id="_scEnum" base_Comment="_cEnum"/>
+  <sysml:Concern xmi:id="_scRoot" base_Comment="_cRoot"/>
+  <sysml:Concern xmi:id="_cShared" base_Comment="_shared"/>
+  <sysml:View xmi:id="_svGen" base_Class="_genView"/>
+  <sysml:View xmi:id="_svTag" base_Class="_tagView" viewpoint="_vp2"/>
+  <sysml:View xmi:id="_svDep" base_Class="_depView"/>
+  <sysml:View xmi:id="_svBoth" base_Class="_bothView" viewpoint="_vp2"/>
+  <sysml:View xmi:id="_svInheritedBase" base_Class="_inheritedBase"/>
+  <sysml:View xmi:id="_svInheritedDerived" base_Class="_inheritedDerived"/>
+  <sysml:View xmi:id="_svInheritedSame" base_Class="_inheritedSame"/>
+  <sysml:View xmi:id="_svMultipleBases" base_Class="_multipleBases"/>
+  <sysml:Conform xmi:id="_conformStereo" base_Dependency="_conform"/>
+  <sysml:Conform xmi:id="_conformStereo2" base_Dependency="_conform2"/>
+  <sysml:Conform xmi:id="_inheritedConformStereo" base_Dependency="_inheritedConform"/>
+  <sysml:Conform xmi:id="_inheritedSameConformStereo" base_Dependency="_inheritedSameConform"/>
+  <StandardProfile:Create xmi:id="_create1" base_Operation="_opMethod"/>
+  <StandardProfile:Create xmi:id="_create2" base_Operation="_opNoMethod"/>
+</xmi:XMI>

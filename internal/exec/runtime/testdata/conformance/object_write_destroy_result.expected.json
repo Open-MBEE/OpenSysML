@@ -1,0 +1,9 @@
+{
+  "type": "action",
+  "evaluate": "test::destroyTarget",
+  "libraries": true,
+  "outputs": {
+    "result": {"type": "Instance"},
+    "alive": {"type": "Boolean", "value": false}
+  }
+}

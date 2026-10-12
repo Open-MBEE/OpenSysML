@@ -119,6 +119,23 @@ public sealed interface DocumentValue {
   record RealValue(double value) implements DocumentValue {}
 
   /**
+   * An exact rational. A service answers one a {@code double} holds exactly as a {@link
+   * RealValue}.
+   *
+   * @param value the rational
+   */
+  record RationalValue(Rational value) implements DocumentValue {
+    /**
+     * Creates an exact rational.
+     *
+     * @param value the rational, never {@code null}
+     */
+    public RationalValue {
+      Objects.requireNonNull(value, "value");
+    }
+  }
+
+  /**
    * A boolean.
    *
    * @param value the boolean
@@ -247,7 +264,7 @@ public sealed interface DocumentValue {
    * binding one is refused.
    *
    * @param kind {@code "accept"}, {@code "send"}, {@code "transition"}, {@code "entry"}, {@code
-   *     "exit"}, {@code "do"}, {@code "choice"} or {@code "guard"}
+   *     "exit"}, {@code "do"}, {@code "choice"}, {@code "guard"} or {@code "terminate"}
    * @param time the instant the record was written at, in the runtime clock's unit — a {@link
    *     QuantityValue} when the clock carries a unit, a plain number otherwise
    * @param text the record as the trace prints it

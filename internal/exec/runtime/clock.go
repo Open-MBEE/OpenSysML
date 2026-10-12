@@ -314,10 +314,8 @@ func (ctx *Context) timeMagnitude(val Value, what string) (float64, error) {
 	switch val.Kind {
 	case ValConst:
 		switch val.Const.Kind {
-		case semantics.ValInt:
+		case semantics.ValInt, semantics.ValRational, semantics.ValReal:
 			return val.Const.AsReal(), nil
-		case semantics.ValReal:
-			return val.Const.Real, nil
 		default:
 			return 0, fmt.Errorf("%s must be numeric, got %v", what, val.Const.Kind)
 		}

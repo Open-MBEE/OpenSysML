@@ -12,8 +12,8 @@
       "finalState": "gotLabelled",
       "stateVisits": ["standingBy", "gotPositional", "gotLabelled"],
       "slots": {
-        "positional": {"type": "Real", "value": 46.0},
-        "labelled": {"type": "Real", "value": 5.0}
+        "positional": {"type": "Rational", "value": "46.0"},
+        "labelled": {"type": "Rational", "value": "5.0"}
       }
     }
   ]

@@ -140,7 +140,7 @@ func TestQuantityExpressionsFold(t *testing.T) {
 		{"affirmed", symbols.FilterValueQuantity, "3 [kg]"},
 		{"chosen", symbols.FilterValueQuantity, "1 [kg]"},
 		{"quotient", symbols.FilterValueQuantity, "3.0 [m/s]"},
-		{"ratio", symbols.FilterValueReal, "2.0"},
+		{"ratio", symbols.FilterValueRational, "2.0"},
 		{"heavier", symbols.FilterValueBool, "true"},
 	}
 	for _, tc := range cases {
@@ -156,6 +156,8 @@ func TestQuantityExpressionsFold(t *testing.T) {
 				got = q.String()
 			case symbols.FilterValueReal:
 				got = semantics.FormatReal(value.Real)
+			case symbols.FilterValueRational:
+				got = semantics.RatValue(value.Rat).FormatRational()
 			case symbols.FilterValueBool:
 				if value.Bool {
 					got = "true"
@@ -222,8 +224,8 @@ func TestCompareQuantitiesConvertsCommensurableUnits(t *testing.T) {
 
 // TestCompareMagnitudesKeepsLargeIntegersExact: Integer magnitudes above 2^53,
 // which one float64 cannot tell apart, stay ordered in one unit and across a
-// whole scale ratio; a Real operand or a fractional scale still compares as
-// float64, so 1 m and 100 cm remain equal.
+// whole scale ratio. A decimal literal is an exact Rational, so 2^53+1 kg is
+// above 9007199254740992.0 kg, and 1 m and 100 cm remain equal.
 func TestCompareMagnitudesKeepsLargeIntegersExact(t *testing.T) {
 	m, idx := quantityFixture(t)
 	q := func(expr string) semantics.Quantity { return fold(t, m, idx, expr) }
@@ -237,7 +239,7 @@ func TestCompareMagnitudesKeepsLargeIntegersExact(t *testing.T) {
 		{"9007199254740993 [kg]", "9007199254740992000 [g]", 1},
 		{"9007199254740992000 [g]", "9007199254740993 [kg]", -1},
 		{"9007199254740992000 [g]", "9007199254740992 [kg]", 0},
-		{"9007199254740993 [kg]", "9007199254740992.0 [kg]", 0},
+		{"9007199254740993 [kg]", "9007199254740992.0 [kg]", 1},
 		{"1 [m]", "100 [cm]", 0},
 		{"1 [m]", "101 [cm]", -1},
 	}

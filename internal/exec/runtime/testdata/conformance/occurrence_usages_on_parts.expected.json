@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "OccurrenceUsagesOnParts::Holder",
+  "slots": {
+    "o.level": {"type": "Integer", "value": 7},
+    "r.level": {"type": "Integer", "value": 7}
+  }
+}

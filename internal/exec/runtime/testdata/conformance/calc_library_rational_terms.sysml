@@ -1,7 +1,7 @@
-// A Rational is a binary64 here (docs/project/exact-rational-evaluation.md):
-// rat(n, d) is the quotient `/` computes, and numer/denom read the exact
-// numerator and denominator of that binary64, so rat(numer(x), denom(x)) is x
-// while numer(0.1) is the 16-digit numerator of the double nearest 0.1.
+// A Rational is exact (KerML 1.0 §9.3.2.2.8, docs/project/exact-rational-evaluation.md):
+// rat(n, d) is the quotient `/` computes, numer/denom read its lowest terms, so
+// rat(numer(x), denom(x)) is x, numer(0.1) is 1, and the double nearest 0.1 is
+// another Rational than 0.1.
 package test {
 	private import ScalarValues::*;
 
@@ -13,7 +13,8 @@ package test {
 		out negativeDenominator = RationalFunctions::rat(3, -4);
 		out zero = RationalFunctions::rat(0, 1);
 		out whole = RationalFunctions::rat(4, 2);
-		out tenth = RationalFunctions::rat(3602879701896397, 36028797018963968) == 0.1;
+		out tenth = RationalFunctions::rat(1, 10) == 0.1;
+		out binaryTenthIsNotTenth = RationalFunctions::rat(3602879701896397, 36028797018963968) == 0.1;
 		out numerOfThreeQuarters = RationalFunctions::numer(0.75);
 		out denomOfThreeQuarters = RationalFunctions::denom(0.75);
 		out numerOfNegative = RationalFunctions::numer(-0.75);

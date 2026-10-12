@@ -78,10 +78,35 @@ func TestEngineRenderView(t *testing.T) {
 	if tree.Kind != "tree" {
 		t.Errorf("#tree kind = %q, want tree", tree.Kind)
 	}
+	matrix := engineRenderView(t, eng, parsed.ModelHash, "RenderViews::relationshipMatrix", "")
+	if matrix.Kind != string(view.KindMatrix) || len(matrix.Columns) < 2 || len(matrix.Rows) == 0 {
+		t.Fatalf("declared matrix = kind %q, columns %v, rows %v", matrix.Kind, matrix.Columns, matrix.Rows)
+	}
+	if len(matrix.Rows[0].Cells) != len(matrix.Columns) {
+		t.Fatalf("matrix first row has %d cells, want %d columns", len(matrix.Rows[0].Cells), len(matrix.Columns))
+	}
+	hasConnect := false
+	for _, row := range matrix.Rows {
+		for _, cell := range row.Cells {
+			if cell == "connect" {
+				hasConnect = true
+			}
+		}
+	}
+	if !hasConnect {
+		t.Fatalf("matrix rows contain no connect relationship: %v", matrix.Rows)
+	}
+	pseudoMatrix := engineRenderView(t, eng, parsed.ModelHash, "#matrix:RenderDemo::Link", "")
+	if pseudoMatrix.Kind != string(view.KindMatrix) || len(pseudoMatrix.Columns) < 2 || len(pseudoMatrix.Rows) == 0 {
+		t.Fatalf("matrix pseudo-view = kind %q, columns %v, rows %v", pseudoMatrix.Kind, pseudoMatrix.Columns, pseudoMatrix.Rows)
+	}
 
 	ws := model.NewWorkspace()
 	ws.Open("render-view.sysml", src, 1)
-	for _, viewName := range []string{"RenderViews::link", "#interconnection:RenderDemo::Link"} {
+	for _, viewName := range []string{
+		"RenderViews::link", "#interconnection:RenderDemo::Link",
+		"RenderViews::relationshipMatrix", "#matrix:RenderDemo::Link",
+	} {
 		for _, display := range []string{"minimal", "full"} {
 			rendering, _, err := ws.RenderView("render-view.sysml", viewName)
 			if err != nil {
@@ -152,6 +177,16 @@ func assertRenderDataParity(t *testing.T, got engine.JRenderViewResponse, want v
 	if got.View != want.View || got.Kind != string(want.Kind) || got.Stated != want.Stated {
 		t.Errorf("render metadata = %q/%q/%q, workspace has %q/%q/%q",
 			got.View, got.Kind, got.Stated, want.View, want.Kind, want.Stated)
+	}
+	if !reflect.DeepEqual(got.Columns, want.Columns) {
+		t.Errorf("engine columns differ from workspace data: engine=%v workspace=%v", got.Columns, want.Columns)
+	}
+	var rows []engine.JRenderRow
+	for _, row := range want.Rows {
+		rows = append(rows, engine.JRenderRow{Cells: row.Cells})
+	}
+	if !reflect.DeepEqual(got.Rows, rows) {
+		t.Errorf("engine rows differ from workspace data: engine=%+v workspace=%+v", got.Rows, rows)
 	}
 	nodes := make([]engine.JRenderNode, 0, len(want.Nodes))
 	for _, node := range want.Nodes {

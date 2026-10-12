@@ -94,21 +94,22 @@ def test_is_feature_kind_excludes_behavioral_usages():
 
 
 @pytest.mark.parametrize(
-    "primitive,expected",
+    "primitive,expected,decoder",
     [
-        ("Boolean", "bool"),
-        ("String", "str"),
-        ("Natural", "int"),
-        ("Integer", "int"),
-        ("Rational", "float"),
-        ("Real", "float"),
+        ("Boolean", "bool", "_t.as_bool"),
+        ("String", "str", "_t.as_str"),
+        ("Natural", "int", "_t.as_int"),
+        ("Integer", "int", "_t.as_int"),
+        ("Rational", "_t.Fraction", "_t.as_rational"),
+        ("Real", "float", "_t.as_float"),
+        ("Complex", "complex", "_t.as_complex"),
     ],
 )
-def test_element_type_primitives(primitive, expected):
-    """Library scalars map to their Python counterparts."""
+def test_element_type_primitives(primitive, expected, decoder):
+    """Library scalars map to their Python counterparts; a Rational is an exact Fraction."""
     mapped = element_type(TypeFacts(primitive=primitive), {})
     assert mapped.annotation == expected
-    assert mapped.decoder == f"_t.as_{expected}"
+    assert mapped.decoder == decoder
     assert mapped.comment == ""
 
 

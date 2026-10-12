@@ -7,4 +7,5 @@ import (
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/instancegraph" // registers the instance-graph REPL commands
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/notation"      // registers the notation REPL commands
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional"    // registers the positional REPL commands
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/repository"    // registers the repository REPL commands
 )

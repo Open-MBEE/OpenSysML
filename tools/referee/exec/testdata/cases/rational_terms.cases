@@ -1,6 +1,6 @@
 model: tools/referee/exec/testdata/models/rational_terms.sysml
 
-# RationalFunctions::rat, numer and denom over the binary64 Rational
+# RationalFunctions::rat, numer and denom over the exact Rational
 # (docs/project/exact-rational-evaluation.md). The pinned pilot leaves every
 # one of these calls unevaluated, so they land in pilot-unevaluated; only the
 # operator quotient is refereeable, and it agrees.

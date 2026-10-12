@@ -19,6 +19,7 @@ import (
 	"time"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -51,6 +52,18 @@ func serviceBinary(t *testing.T) string {
 		t.Fatalf("building the service: %v", buildErr)
 	}
 	return builtServer
+}
+
+// builtVersion is the version the built binary resolves for itself: the module
+// version the toolchain recorded when the checkout is a release tag, as a `go
+// install` build reports it, and buildinfo.Unversioned otherwise.
+func builtVersion(t *testing.T) string {
+	t.Helper()
+	info, err := gobuild.ReadBuildInfo(serviceBinary(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return buildinfo.ResolveFrom(buildinfo.Stamps{}, info).Version
 }
 
 // service is a started binary, driven the way a client drives it.
@@ -244,8 +257,8 @@ func TestServiceServesRPCsAndShutsDownCleanly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetServerInfo: %v\nlogs: %s", err, s.logs.String())
 	}
-	if info.Version != "dev" {
-		t.Errorf("version = %q, want %q (the default when the linker set none)", info.Version, "dev")
+	if want := builtVersion(t); info.Version != want {
+		t.Errorf("version = %q, want %q (what the toolchain recorded when the linker set none)", info.Version, want)
 	}
 	if len(info.Capabilities) == 0 {
 		t.Error("the service reported no capabilities")
@@ -326,7 +339,7 @@ func TestHealthEndpointReportsTheBuild(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	for _, want := range []string{`"status":"ok"`, `"service":"sysml-grpc"`, `"version":"dev"`} {
+	for _, want := range []string{`"status":"ok"`, `"service":"sysml-grpc"`, `"version":"` + builtVersion(t) + `"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("/health body is missing %s:\n%s", want, body)
 		}
@@ -343,7 +356,7 @@ func TestDefaultTransportServesConnectAndHealthOnMainPort(t *testing.T) {
 	addr := s.address(30 * time.Second)
 
 	body := getHealth(t, addr)
-	for _, want := range []string{`"status":"ok"`, `"service":"sysml-grpc"`, `"version":"dev"`} {
+	for _, want := range []string{`"status":"ok"`, `"service":"sysml-grpc"`, `"version":"` + builtVersion(t) + `"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("/health body is missing %s:\n%s", want, body)
 		}

@@ -29,9 +29,10 @@ stmt assign got
   eval chain got -> 7
 step 4: token 1@done
 step 5: no active tokens
+choice step 6: tokens 2@m, 3@sender (unordered; took 3@sender first)
+step 6: token 2@take, token 3@sync
 stmt assign received
   eval chain got -> 7
-choice step 6: tokens 2@m, 3@sender (unordered; took 3@sender first)
-step 6: token 2@sync, token 3@sync
-step 7: token 4@done
-step 8: no active tokens
+step 7: token 2@sync, token 3@sync
+step 8: token 4@done
+step 9: no active tokens

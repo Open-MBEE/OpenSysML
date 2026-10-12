@@ -34,10 +34,11 @@ sections are the design as written before the work, kept for the reasoning behin
 
 - **`internal/ir/view`** renders a view of the semantic model into a `Rendering`:
   nodes, edges, table rows, and the notices for what the kind could not represent.
-  Five kinds are produced — `tree`, `interconnection`, `state`, `action`, `table` —
-  read from `semantics.Model.ExposedElements`, the model's connectors, and the
+  Eight kinds are produced — `tree`, `interconnection`, `state`, `action`, `case`,
+  `mixed`, `sequence` and `table` — read from `semantics.Model.ExposedElements`,
+  the model's connectors, and the
   lowered `ActionGraph`/`StateGraph`, never from source text. `Rendering.Write`
-  writes it as `text`, `mermaid` or `markdown`.
+  writes it as `text`, `mermaid`, `dot`, `plantuml` or `markdown`.
 - **The frontends that use it** are `sysml <model> -render <view> -render-form
   mermaid` and the REPL's `%view`/`%render`. `Session.viewRenderer`
   (`internal/frontend/repl/view.go`) is the pattern: build a resolver and a
@@ -76,7 +77,7 @@ opensysml/render  (request)
   params: { textDocument: { uri }, view?: string, form?: "mermaid" | "text" | "markdown" }
   result: {
     view: string,            // qualified name, as the notation writes it
-    kind: string,            // tree | interconnection | state | action | table
+    kind: string,            // tree | interconnection | state | action | case | mixed | sequence | table
     stated: string,          // how the kind was decided, "" for the default
     form: string,            // the form actually written
     artifact: string,        // the Mermaid / text / Markdown document

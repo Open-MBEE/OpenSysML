@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::P2",
+	"outputs": {
+		"c": {"type": "Integer", "value": 1},
+		"z": {"type": "Integer", "value": 0}
+	}
+}

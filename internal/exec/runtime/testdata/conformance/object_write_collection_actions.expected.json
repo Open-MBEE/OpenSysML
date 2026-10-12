@@ -1,0 +1,15 @@
+{
+  "type": "instance",
+  "instantiate": "test::Fleet",
+  "libraries": true,
+  "trace": true,
+  "slots": {
+    "box.values": {
+      "type": "Sequence",
+      "elements": [
+        {"type": "Integer", "value": 2},
+        {"type": "Integer", "value": 4}
+      ]
+    }
+  }
+}

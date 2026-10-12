@@ -231,27 +231,29 @@ func TestExpressionEndIsReportedOnce(t *testing.T) {
 		member  string
 		message string
 	}{
-		{"connect_element_selection", "connection : C connect [1] s.y#(1) to [1] k.u;", msgConnectorEndExpression},
 		{"connect_index", "connection : C connect [1] s.y[1] to [1] k.u;", msgConnectorEndExpression},
 		{"connect_invocation", "connection : C connect [1] s.y->first to [1] k.u;", msgConnectorEndExpression},
-		{"connect_shorthand", "connect s.y#(1) to k.u;", msgConnectorEndExpression},
-		{"connect_second_end", "connect s.y to k.u#(1);", msgConnectorEndExpression},
-		{"connect_nary", "connect (s.y#(1), k.u);", msgConnectorEndExpression},
 		{"connect_arithmetic", "connect s.y + 1 to k.u;", msgConnectorEndExpression},
 		{"connect_unbalanced", "connect s.y#(1 to k.u;", msgConnectorEndExpression},
 		{"connect_nested_keyword", "connect s.y#(f(, to)) to k.u;", msgConnectorEndExpression},
 		{"connect_dangling_operator", "connect s.y ? k to k.u;", msgConnectorEndExpression},
 		{"connect_dangling_operators", "connect s.y ? k ? s to k.u;", msgConnectorEndExpression},
-		{"interface_shorthand", "interface s.y#(1) to k.u;", msgConnectorEndExpression},
-		{"allocate_shorthand", "allocate s.y#(1) to k.u;", msgConnectorEndExpression},
-		{"allocation_declared", "allocation : C allocate s.y#(1) to k.u;", msgConnectorEndExpression},
+		// Only a whole `#(…)` ending the end is the indexed-end extension: an
+		// empty index, a second one, a chain or an operator after it is an expression.
+		{"connect_empty_index", "connect s.y#() to k.u;", msgConnectorEndExpression},
+		{"connect_double_index", "connect s.y#(1)#(1) to k.u;", msgConnectorEndExpression},
+		{"connect_index_then_chain", "connect s.y#(1).value to k.u;", msgConnectorEndExpression},
+		{"connect_index_then_operator", "connect s.y#(1) + 1 to k.u;", msgConnectorEndExpression},
+		{"connect_bracket_index", "connect s.y[1] to k.u;", msgConnectorEndExpression},
+		{"interface_index_then_chain", "interface s.y#(1).value to k.u;", msgConnectorEndExpression},
 		{"succession_source", "succession s#(1) then k;", msgConnectorEndExpression},
 		{"succession_target", "succession first s then k->first;", msgConnectorEndExpression},
-		{"bind_left", "bind s.y#(1) = k.u;", msgBindingEndExpression},
 		{"bind_right", "bind s.y = k.u[1];", msgBindingEndExpression},
-		{"flow_shorthand", "flow s.y#(1) to k.u;", msgFlowEndExpression},
+		{"bind_index_then_chain", "bind s.y#(1).value = k.u;", msgBindingEndExpression},
 		{"flow_from", "flow f from s.y[1] to k.u;", msgFlowEndExpression},
 		{"flow_to", "flow of X from s.y to k.u->first;", msgFlowEndExpression},
+		{"flow_index_then_chain", "flow s.y#(1).value to k.u;", msgFlowEndExpression},
+		{"flow_unbalanced", "flow s.y#(1 to k.u;", msgFlowEndExpression},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -266,6 +268,65 @@ func TestExpressionEndIsReportedOnce(t *testing.T) {
 			}
 			if !strings.Contains(dump, `name="z"`) {
 				t.Errorf("member after the malformed end was not parsed:\n%s", dump)
+			}
+		})
+	}
+}
+
+// A whole `#( index )` ending a connector, binding or flow end is the indexed-end
+// extension: the end parses clean, with an IndexExpr target over the feature it
+// names, in every notation that attaches ends to features. A succession's ends
+// name occurrences, so the extension does not reach them (see above).
+func TestIndexedEndParsesAsAnEnd(t *testing.T) {
+	const asm = "package P { part def Source { port y[2]; } part def Sink { port u; } " +
+		"connection def C { end source[1]; end target[1]; } attribute i : Integer = 1; " +
+		"part def Asm { part s : Source; part k : Sink; "
+	const rest = " part z; } }"
+	tests := []struct {
+		name   string
+		file   string
+		member string
+		ends   int // IndexExpr ends wanted
+	}{
+		{"connect_declared", "a.sysml", "connection : C connect [1] s.y#(1) to [1] k.u;", 1},
+		{"connect_shorthand", "a.sysml", "connect s.y#(1) to k.u;", 1},
+		{"connect_second_end", "a.sysml", "connect s.y to k.u#(1);", 1},
+		{"connect_both_ends", "a.sysml", "connect s.y#(1) to k.u#(1);", 2},
+		{"connect_nary", "a.sysml", "connect (s.y#(1), k.u);", 1},
+		{"connect_expression_index", "a.sysml", "connect s.y#(i + 1) to k.u;", 1},
+		{"connect_qualified_index", "a.sysml", "connect s.y#(P::i) to k.u;", 1},
+		{"connect_named", "a.sysml", "connection c : C connect s.y#(1) to k.u;", 1},
+		{"connect_body", "a.sysml", "connect s.y#(1) to k.u { doc /* d */ }", 1},
+		{"interface_shorthand", "a.sysml", "interface s.y#(1) to k.u;", 1},
+		{"interface_declared", "a.sysml", "interface : C connect s.y#(1) to k.u;", 1},
+		{"allocate_shorthand", "a.sysml", "allocate s.y#(1) to k.u;", 1},
+		{"allocation_declared", "a.sysml", "allocation : C allocate s.y#(1) to k.u;", 1},
+		{"bind_left", "a.sysml", "bind s.y#(1) = k.u;", 1},
+		{"bind_right", "a.sysml", "bind k.u = s.y#(2);", 1},
+		{"binding_declared", "a.sysml", "binding b bind s.y#(1) = k.u;", 1},
+		{"flow_shorthand", "a.sysml", "flow s.y#(1) to k.u;", 1},
+		{"flow_from_to", "a.sysml", "flow f from s.y#(1) to k.u#(1);", 2},
+		{"flow_payload", "a.sysml", "flow of X from s.y#(1) to k.u;", 1},
+		{"kerml_connector", "a.kerml", "connector c from s.y#(1) to k.u;", 1},
+		{"kerml_connector_nary", "a.kerml", "connector (s.y#(1), k.u);", 1},
+		{"kerml_binding", "a.kerml", "binding of s.y#(1) = k.u;", 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(source.New(tt.file, []byte(asm+tt.member+rest)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("want no diagnostic, got %v", p.Diagnostics)
+			}
+			dump := ast.Dump(root)
+			if got := strings.Count(dump, "(IndexExpr"); got != tt.ends {
+				t.Fatalf("want %d IndexExpr end(s), got %d:\n%s", tt.ends, got, dump)
+			}
+			if strings.Contains(dump, "ErrorNode") {
+				t.Fatalf("unexpected ErrorNode:\n%s", dump)
+			}
+			if !strings.Contains(dump, `name="z"`) {
+				t.Errorf("member after the indexed end was not parsed:\n%s", dump)
 			}
 		})
 	}
@@ -417,6 +478,47 @@ func TestTerminateMarkerClosesTheDeclaration(t *testing.T) {
 		stop := findUsageNamed(f, "stop")
 		if stop == nil || !stop.IsTerminate || len(stop.Relationships) != 0 || stop.Value != nil || len(stop.Members) != 1 {
 			t.Errorf("ParseFile(%q) = %s, want a terminate usage with only its body", src, ast.Dump(stop))
+		}
+	}
+}
+
+// A string or unrestricted name the file never closes is reported once, at the
+// quote that opens it, and is taken to end with its line, so the declarations
+// after that line are still in the tree; one that closes on a later line is a
+// single literal and no error (KerMLExpressions.xtext:562-566).
+func TestUnterminatedLiteralIsReportedOnceAtItsOpeningQuote(t *testing.T) {
+	for _, tt := range []struct {
+		name, src, want, at string
+	}{
+		{"string", "package P {\n    attribute s = \"open\n    attribute t = 1;\n}\n", `unterminated string literal: missing closing "`, `"open`},
+		{"name", "package P {\n    part def 'A;\n    part def B;\n}\n", "unterminated name: missing closing '", "'A;"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			sf := source.New("t.sysml", []byte(tt.src))
+			p := New(sf)
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 1 || p.Diagnostics[0].Message != tt.want {
+				t.Fatalf("diagnostics = %v, want exactly %q", p.Diagnostics, tt.want)
+			}
+			if got := sf.Text(p.Diagnostics[0].Span); got != tt.at {
+				t.Fatalf("diagnostic over %q, want the opening quote through the end of its line %q", got, tt.at)
+			}
+			members := root.Members[0].(*ast.Membership).Member.(*ast.Package).Members
+			if len(members) != 2 {
+				t.Fatalf("got %d members after the unterminated literal, want both declarations read:\n%s", len(members), ast.Dump(root))
+			}
+		})
+	}
+	src := "package P {\n    attribute s = \"line one\n    line two\";\n    part def 'multi\nline';\n}\n"
+	p := New(source.New("t.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("literals closing on a later line reported: %v", p.Diagnostics)
+	}
+	dump := ast.Dump(root)
+	for _, want := range []string{`value="\"line one\n    line two\""`, `name="multi\nline"`} {
+		if !strings.Contains(dump, want) {
+			t.Fatalf("tree lacks %s:\n%s", want, dump)
 		}
 	}
 }

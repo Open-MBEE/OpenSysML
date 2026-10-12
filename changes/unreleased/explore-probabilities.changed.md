@@ -1,1 +1,0 @@
-- **Exploration probabilities now describe model weights, not schedules.** Outcomes report an exact value or minimum-to-maximum range over schedulers only when weighted model choices occur; unweighted outcomes have no probability, and the wire API reports probability ranges and failed linearization counts.

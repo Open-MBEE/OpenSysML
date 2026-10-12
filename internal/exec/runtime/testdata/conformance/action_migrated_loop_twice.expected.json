@@ -1,0 +1,23 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::Twice",
+	"outputs": {
+		"run1.post.xOut": {
+			"type": "Sequence",
+			"elements": [
+				{"type": "Integer", "value": 1},
+				{"type": "Integer", "value": 7},
+				{"type": "Integer", "value": 7}
+			]
+		},
+		"run2.post.xOut": {
+			"type": "Sequence",
+			"elements": [
+				{"type": "Integer", "value": 1},
+				{"type": "Integer", "value": 7},
+				{"type": "Integer", "value": 7}
+			]
+		}
+	}
+}

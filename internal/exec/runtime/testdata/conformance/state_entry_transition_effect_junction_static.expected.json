@@ -1,0 +1,9 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [{"signal": "Go"}],
+  "finalState": "waiting",
+  "outputs": {
+    "ready": {"type": "Boolean", "value": true}
+  }
+}

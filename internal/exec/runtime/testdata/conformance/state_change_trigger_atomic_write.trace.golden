@@ -1,0 +1,29 @@
+materialize: P #1
+start: exhibited state machine machine of #1
+materialize: machine #2
+enter: outer
+enter: waiting
+run: exhibited state machine machine of #1
+  eval feature a -> 0
+    eval literal 0 -> 0
+  eval feature b -> 0
+eval operator != -> false
+  eval feature a -> 0
+    eval literal 0 -> 0
+  eval feature b -> 0
+eval operator != -> false
+exit: waiting
+enter: writing (entry action)
+stmt action body
+  stmt assign a
+    eval literal 1 -> 1
+transition: waiting -> writing (event: accept Go)
+  eval feature a -> 1
+  eval feature b -> 1
+eval operator != -> false
+exit: writing
+enter: waiting
+transition: writing -> waiting
+  eval feature a -> 1
+  eval feature b -> 1
+eval operator != -> false

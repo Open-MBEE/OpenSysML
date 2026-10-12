@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
-	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
 // captionNumbering counts the figures and tables written so far, so every
@@ -40,7 +39,7 @@ func (c caption) String() string {
 }
 
 // caption labels the next figure (a drawn diagram, an image) or table (a query
-// table, a table-kind diagram) in document order; a formula is not numbered.
+// table, a tabular diagram) in document order; a formula is not numbered.
 func (n *captionNumbering) caption(node docir.Content) caption {
 	c := caption{text: node.Caption()}
 	if !n.on {
@@ -63,5 +62,5 @@ func (n *captionNumbering) caption(node docir.Content) caption {
 // isTableDiagram reports a diagram rendered as a table rather than drawn.
 func isTableDiagram(node docir.Content) bool {
 	rendering := node.Rendering()
-	return rendering != nil && rendering.Kind == view.KindTable
+	return rendering != nil && rendering.Kind.Tabular()
 }

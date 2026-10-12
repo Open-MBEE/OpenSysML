@@ -140,9 +140,13 @@ func (ec *exprChecker) checkBoundValue(valueScope, declScope *symbols.Scope, d f
 	// The elements the lattice typed are its to judge; the rest are judged by
 	// their static result types.
 	latticeTyped := make(map[ast.Node]bool)
+	real := ec.holdsReal(declScope, d, want)
 	// A collection literal binds elementwise, so each element is checked
 	// against the feature's type rather than the sequence as a whole.
 	for _, element := range valueElements(value) {
+		if real {
+			ec.lintRoundedReal(element)
+		}
 		// A collection value binds the elements its body or collection produces. Inferring
 		// the value checks and reports on them; their types are then read silently.
 		if elements, collection := ec.model.CollectionElements(valueScope, element); collection {
@@ -170,7 +174,7 @@ func (ec *exprChecker) checkBoundValue(valueScope, declScope *symbols.Scope, d f
 	// Uniqueness is judged last, as the run time judges it: a value refused for
 	// its type, dimension or count is not also refused for repeating an element.
 	if !ec.errorsSince(reported) {
-		ec.checkValueUniqueness(valueScope, declScope, d, value)
+		ec.checkValueUniqueness(valueScope, declScope, d, value, want)
 	}
 }
 
@@ -1834,4 +1838,51 @@ func declaredParameters(sym *symbols.Symbol) []parameter {
 		}
 	}
 	return params
+}
+
+// checkIndexedEnds types the index of each indexed connector, binding or flow end
+// (`s.y#(1)`): an Integer, and when both are known, within the multiplicity of
+// the feature it selects from, which the ends resolve in the connector's scope.
+func (ec *exprChecker) checkIndexedEnds(scope *symbols.Scope, u *ast.Usage) {
+	for _, end := range u.ConnectorEnds {
+		if end != nil {
+			ec.checkEndIndex(scope, end.AttachedTarget(), end.AttachedIndex())
+		}
+	}
+	if u.FlowEnds != nil {
+		for _, end := range []ast.Node{u.FlowEnds.From, u.FlowEnds.To} {
+			feature, index := ast.EndSelection(end)
+			ec.checkEndIndex(scope, feature, index)
+		}
+	}
+}
+
+func (ec *exprChecker) checkEndIndex(scope *symbols.Scope, feature, index ast.Node) {
+	if index == nil {
+		return
+	}
+	if got := ec.infer(scope, index); !semantics.PrimConforms(got, semantics.PrimInteger) {
+		ec.errorf(index.Span(), "connector end index must be an Integer, found %s", got)
+		return
+	}
+	value, known := ec.model.EvalIn(scope, index)
+	if !known {
+		return
+	}
+	n, whole := value.WholeNumber()
+	if !whole {
+		return
+	}
+	if n < 1 {
+		ec.errorf(index.Span(), "connector end index %d selects no element: the first element is #(1)", n)
+		return
+	}
+	sym, ok := ec.resolver.ResolveTarget(scope, feature)
+	if !ok || sym == nil {
+		return
+	}
+	bound := ec.model.GoverningMultiplicityOf(sym)
+	if bound.Upper.Known && !bound.Upper.Infinite && n > bound.Upper.Value {
+		ec.errorf(index.Span(), "connector end index %d is outside the multiplicity %s of the feature it selects from", n, bound.Text())
+	}
 }

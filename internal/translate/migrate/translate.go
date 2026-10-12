@@ -89,6 +89,8 @@ func (m *migration) lanesAround(e *sysmlv1.Element) (*lanes, *sysmlv1.Element) {
 // first, then what the scope sees, each further step a feature of the last.
 // The result is plural once any object the name reads through is, and a
 // write through a collection is refused: it would reach several objects.
+func (s *bodyScope) strictMigration() bool { return s.m.strict }
+
 func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 	m := s.m
 	full := strings.Join(path, ".")
@@ -234,11 +236,16 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
 			why:     joinNotes("nothing visible from "+qualifiedName(s.scope)+" is called "+name, s.clash),
 			unknown: s.clash == "" && !m.laneKnows(s.lane, name)}}
-	case f.Type != "Property" && f.Type != "Port" && f.Type != "Parameter":
+	case f.Role != "variable" && f.Type != "Property" && f.Type != "Port" && f.Type != "Parameter":
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
 			why: "it is " + kindOf(f) + " " + qualifiedName(f) + ", not a feature a body reads"}}
 	}
 	expr := writeName(m.nameOf(f))
+	if f.Role == "variable" {
+		if n, ok := m.nodeNames[f]; ok {
+			expr = writeName(n)
+		}
+	}
 	if s.probe {
 		return featureAnchor{expr: expr, f: f}
 	}
@@ -319,6 +326,8 @@ type nameReads struct {
 	s     *bodyScope
 	names []string
 }
+
+func (r *nameReads) strictMigration() bool { return r.s.strictMigration() }
 
 func (r *nameReads) feature(path []string, write bool) (opaqueRef, *refusal) {
 	if r.s.m.pinCalled(r.s.scope, path[0]) != nil {
@@ -513,6 +522,21 @@ func (m *migration) translateIn(body, lang string, sc featureResolver, want want
 	if err != nil {
 		return "", err
 	}
+	return checkedExpr(body, want, t)
+}
+
+// translateTreeIn is translateIn for a lowered Expression tree's script text,
+// the only body read admitting the KerML connectives xor and implies.
+func (m *migration) translateTreeIn(body string, sc featureResolver, want wanted) (string, *refusal) {
+	t, err := translateTreeExpr(body, sc, want)
+	if err != nil {
+		return "", err
+	}
+	return checkedExpr(body, want, t)
+}
+
+// checkedExpr spells t for want's scalar and checks the v2 text parses.
+func checkedExpr(body string, want wanted, t translated) (string, *refusal) {
 	expr := spellFor(want.scalar, t)
 	if _, ok := parseExpr(expr); !ok {
 		return "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(expr) + " is not v2 expression syntax"}

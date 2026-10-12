@@ -89,7 +89,8 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 	if value == nil {
 		return
 	}
-	if !s.capabilities.has(CapabilityBigIntValues) && protoconv.ValueHoldsBigInt(value) {
+	if !s.capabilities.has(CapabilityBigIntValues) && protoconv.ValueHoldsBigInt(value) ||
+		!s.capabilities.has(CapabilityRationalValues) && protoconv.ValueHoldsRational(value) {
 		value.Kind = protoconv.UnsupportedShown(displayValue(value))
 		return
 	}
@@ -248,6 +249,10 @@ func displayQuantity(pq *pb.Quantity) runtime.Value {
 		if big, err := protoconv.ProtoToBigInteger(m.BigIntMagnitude); err == nil {
 			num = big
 		}
+	case *pb.Quantity_RationalMagnitude:
+		if rational, err := protoconv.ProtoToRational(m.RationalMagnitude); err == nil {
+			num = rational
+		}
 	case *pb.Quantity_RealMagnitude:
 		num = semantics.Value{Kind: semantics.ValReal, Real: m.RealMagnitude}
 	}
@@ -266,7 +271,7 @@ func describeUnitTerm(term *pb.UnitTerm) string {
 	}
 	var parts []string
 	if term.GetScaleNum() != term.GetScaleDen() {
-		parts = append(parts, fmt.Sprintf("%g/%g", term.GetScaleNum(), term.GetScaleDen()))
+		parts = append(parts, semantics.FormatScaleTerm(term.GetScaleNum())+"/"+semantics.FormatScaleTerm(term.GetScaleDen()))
 	}
 	for _, factor := range term.GetFactors() {
 		if factor.GetExponent() == 1 {

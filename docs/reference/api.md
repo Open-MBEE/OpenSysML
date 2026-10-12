@@ -79,6 +79,14 @@ satisfiable answer carries `Witness`, the free features' replayed values with th
 spellings; undecided names the reason and reports `ReasonUndecided`. A question other than evaluate
 needs the `verification_questions` capability, checked before anything is sent.
 
+`VerifyConstraint` and `VerifyRequirement` also take `VerifyArguments(values...)` and
+`VerifyArgument(name, value)`, binding the element's `in` parameters positionally in declaration
+order or by name, as `Arguments` and `Argument` bind a case's for `RunAnalysis`. A name no parameter
+has, more positional values than parameters, a parameter left without a value, default or same-named value on the checked object, or a value
+not of the parameter's type is an undecided `Verdict` naming it. Arguments need the
+`verification_arguments` capability, checked before anything is sent, and only the evaluate question
+takes them: `QuestionHolds` and `QuestionSatisfiable` leave the free features to the solver.
+
 ```go
 exploration, err := client.ExploreAction(ctx, model, "Demo::race", nil)
 for _, outcome := range exploration.Outcomes {
@@ -285,15 +293,15 @@ OpenSysML is organized into layer directories under `internal/`, with frontends 
 ```
 github.com/Open-MBEE/OpenSysML
 ├── internal/               # One directory per layer; a package imports only the layers below it
-│   ├── syntax/             # source, diag, lexer, parser, ast, pack, format
+│   ├── syntax/             # source, diag, lexer, parser, ast, pack, format, semtok
 │   ├── semantic/           # symbols, resolve, suggest, semantics, identity, highlight, query
-│   ├── ir/                 # lower, queryplan, docplan, view
+│   ├── ir/                 # lower, queryplan, docplan, view, imagefile
 │   ├── check/              # passes, edit
-│   ├── exec/               # runtime, solve, smt, analysis, engines, objref
-│   ├── translate/          # rdf, export, xmi, migrate, convert, codegen, interop
+│   ├── exec/               # runtime, solve, smt, analysis, engines, objref, fmi, hostcap, ingest, runtrace, simresults
+│   ├── translate/          # rdf, export, xmi, migrate, mtip, convert, codegen, interop, deferred, filename, fmi
 │   ├── doc/                # queryexec, docir, docrender, docpdf
-│   ├── workspace/          # model, libs, project, envvar
-│   └── frontend/           # protoconv, grpc, lsp, repl, stdiorpc, usage
+│   ├── workspace/          # model, libs, project, envvar, modeldoc, modelrt, notebook
+│   └── frontend/           # protoconv, grpc, lsp, repl, stdiorpc, jsonrpc, jupyter, core, combined, engine, syntax, symbolfacts, buildinfo, usage
 ```
 
 ---
@@ -1166,7 +1174,7 @@ one:
 
 ---
 
-## Native document queries and rendering over gRPC
+## Native documents and views over gRPC
 
 The native document pipeline — document queries (`calc def` specializing
 `DocumentQueries::Query`) and documents (`part def` specializing
@@ -1177,6 +1185,8 @@ REPL or a script:
 ```proto
 rpc RunDocumentQuery(RunDocumentQueryRequest) returns (RunDocumentQueryResponse);
 rpc RenderDocument(RenderDocumentRequest) returns (RenderDocumentResponse);
+rpc RenderView(RenderViewRequest) returns (RenderViewResponse);
+rpc ExportGraphs(ExportGraphsRequest) returns (ExportGraphsResponse);
 ```
 
 **Implementation:** `internal/frontend/grpc/docquery.go` (`Service.RunDocumentQuery`,
@@ -1205,6 +1215,33 @@ byte-identical to `-render-document` on the same model. Its `form` field
 instead, answered in `html` and byte-identical to `-doc-form html`; asking for
 HTML needs the `render_document_html` capability, and PDF is not offered, since
 it needs the CLI's converter toolchain.
+
+`RenderView` answers a named view or targeted pseudo-view as ordered nodes,
+edges, table and matrix rows, notes, source spans and optional canvas/geometry/style data,
+using the engine renderer's `view.Data` rather than diagram pictures. Its
+`ports` field is empty or `minimal` by default; `full` includes all declared
+ports. It is advertised by `render_view`, and a service without that capability
+refuses the request with `UNIMPLEMENTED`.
+Python exposes this as `model.render_view(view_name, ports="minimal")`, returning
+a typed `RenderedView`.
+
+`ExportGraphs` answers the lowered graph of an action or state machine — the
+subject's `ActionGraph`/`StateGraph` IR and that of every behavior it performs —
+as the canonical `graphs:1` JSON an external analysis engine is sent
+([the `graphs:1` model form](external-engines.md#the-graphs1-model-form)):
+`content` is the JSON with one trailing newline, `version` its `version` field,
+`subject` the qualified name as resolved. It is what `sysml -graphs <subject>`
+and `%graphs <name>` write, produced by `modelform.GraphsOf` from the same
+lowering the runtime executes, so a tool that drives work from a model — a
+workflow generator reading its steps, flows and successions — reads the
+executed form rather than the notation. The subject may be an action or state
+machine, definition or usage, by qualified name; one no element is named by is
+`NOT_FOUND` (`symbol not found: <subject>`), one that is no behavior is
+`INVALID_ARGUMENT`, as is one the model declares more than once — a declaration
+of the model's shadows the library's of the same name, but two of the model's
+denote nothing.
+It is advertised by `export_graphs`. Python exposes this as
+`model.export_graphs(subject)`, returning a typed `Graphs`.
 
 Both run over the model's runtime and the objects it holds. `Instantiate`
 creates an object for the model named by hash and the service keeps it, under
@@ -1267,8 +1304,9 @@ it.
 
 Known limitations: the response carries no provenance for *successful* rows
 (only failures name their source), and the document IR is not exposed in a
-structured form — Markdown is the only document form served, as it is the only
-form the build writes.
+structured form — Markdown, and HTML under the `render_document_html`
+capability, are the document forms served; the PDF form `sysml -render-document
+-doc-form pdf` writes is not.
 
 ---
 

@@ -1,0 +1,7 @@
+run - timeline rendering (the trace of a run to t = 4)
+
+#1.modes
+  4 .. 4  held  (held at the end)
+
+not represented:
+  - 3 earlier records up to t = 2 were dropped; a lane starts at its first state entry kept

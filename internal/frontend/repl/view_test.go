@@ -174,8 +174,9 @@ func conformanceSession(t *testing.T) *Session {
 }
 
 // %view reports the conformance of a view to the viewpoint it satisfies: a
-// concern that holds, one that does not, one stating no condition, and where
-// the satisfy came from.
+// concern that holds, one that does not, one that states no condition, and
+// where the satisfy came from. The view frames nothing itself: every concern
+// the viewpoint frames is evaluated against what the view exposes.
 func TestViewReportsViewpointConformance(t *testing.T) {
 	out, _, err := conformanceSession(t).RunMeta("%view Demo::report")
 	if err != nil {
@@ -184,8 +185,10 @@ func TestViewReportsViewpointConformance(t *testing.T) {
 	text := strings.Join(out, "\n")
 	for _, want := range []string{
 		"viewpoint conformance",
-		"satisfy structure (from Demo::StructureView)",
+		"satisfy structure (from Demo::StructureView): violated",
 		"concern budget: violated",
+		"Demo::vehicle: ",
+		"s.mass < 1000.0",
 		"concern modularity: conforms",
 		"concern documented: unevaluable",
 		"states no condition to evaluate",

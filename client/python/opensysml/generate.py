@@ -32,7 +32,7 @@ _OBJECT_DECODER = "_t.as_object"
 
 # Emission schema, bumped when this generator's output changes for an unchanged
 # model. Not the opensysml release version, which would churn every module.
-GENERATOR_VERSION = "4"
+GENERATOR_VERSION = "5"
 
 # The stamp hashes the model source client-side. A path, a timestamp or the
 # service version would churn without the module's content changing.
@@ -66,14 +66,16 @@ GENERALIZATION_KINDS = frozenset({"specializes", "subsets", "redefines"})
 # How far a generalization chain is followed for a fact a declaration leaves out.
 MAX_GENERALIZATION_DEPTH = 16
 
+# Each library scalar's annotation and decoder. A Rational is exact, so it is a
+# Fraction whichever wire arm carried it.
 PRIMITIVE_TYPES = {
-    "Boolean": "bool",
-    "String": "str",
-    "Natural": "int",
-    "Integer": "int",
-    "Rational": "float",
-    "Real": "float",
-    "Complex": "complex",
+    "Boolean": ("bool", "_t.as_bool"),
+    "String": ("str", "_t.as_str"),
+    "Natural": ("int", "_t.as_int"),
+    "Integer": ("int", "_t.as_int"),
+    "Rational": ("_t.Fraction", "_t.as_rational"),
+    "Real": ("float", "_t.as_float"),
+    "Complex": ("complex", "_t.as_complex"),
 }
 
 # Library scalars with no sound Python counterpart, mapped to `object`: Number is
@@ -327,8 +329,8 @@ def element_type(type_facts: Optional[TypeFacts], names: Dict[str, str]) -> Pyth
     # instance, even when it has a generated class of its own.
     primitive = type_facts.primitive
     if primitive in PRIMITIVE_TYPES:
-        python = PRIMITIVE_TYPES[primitive]
-        return PythonType(python, f"_t.as_{python}")
+        annotation, decoder = PRIMITIVE_TYPES[primitive]
+        return PythonType(annotation, decoder)
 
     # An enumeration-typed feature holds one of the enumeration's literals, which
     # is a value of its own rather than an instance of the generated class.

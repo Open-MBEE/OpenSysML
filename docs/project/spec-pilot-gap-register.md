@@ -59,7 +59,7 @@ turned out to rest on a clause after all — retained so it is not re-audited).
 | 10 | Spurious error | A calculation usage named as a value is the calculation, not its result (`n as String`) | warns | warns, as the pilot | spec ambiguous |
 | 11 | Missed diagnostic | Eight control-node succession constraints (SysML §8.3.17) | unimplemented `TODO`s | reported | spec clear; pilot short |
 | 12 | Missed diagnostic | Non-Boolean transition guard | accepted with the full library | rejected | spec clear; pilot short |
-| 13 | Missed diagnostic | Indistinguishable memberships reported as a warning; repeated anonymous `perform a;` depends on bodies in the pilot | warning; silent for bodiless repeats | warning for every repeat | spec clear (a validation constraint), both tools under-report |
+| 13 | Missed diagnostic | Indistinguishable memberships reported as a warning; repeated anonymous `perform a;` depends on bodies in the pilot | warning; silent for bodiless repeats | warning for every repeat by default, error under strict conformance | spec clear (a validation constraint); the pilot under-reports, ours does by default |
 | 14 | Missed diagnostic | Constraints the pilot declares but never reports, absent from the published specification (`validateSubsettingPortionConformance`, `validateBindingConnectorArgumentTypeConformance`, `validatePartUsageType`, `validateItemUsageType`, …) | declared, unreported | not implemented | needs author opinion: are these normative? |
 | 15 | Missed diagnostic | Lower-tier errors suppress later diagnostics the pilot still reports | reports secondary diagnostics over unresolved names | gates higher tiers | not a spec matter; recorded so it is not mistaken for one |
 | 16 | Missed diagnostic | Body expression `{ … }` as a value typed `BooleanEvaluation` when its result is Boolean | so typed | as the pilot | spec ambiguous (implied typing of an expression body) |
@@ -468,7 +468,12 @@ and for the `'p' from A2` warning of `RedefinitionDiamond_Invalid.sysml.xt` and
 `p :>> p` (a `ReferenceUsage`).
 
 **OpenSysML:** a warning for every repeat, bodies or not; `part def A; part def A;` is likewise
-a warning. `part def A; attribute def A;` and `class A; datatype A;` are clean, as are the 55
+a warning. Under strict conformance (`-strict`, `%strict`, `strictConformance`,
+`strict_conformance`) every such finding — `Duplicate of other owned member name`, `Duplicate of
+owned member name` (an alias), `Duplicate of other alias name`, the short-name variant, and
+`Duplicate of inherited member name` for an owned member repeating an inherited one, a name
+inherited from two supertypes, and the library-base variant of both — is an error; the finding
+and its wording are those of the default mode. `part def A; attribute def A;` and `class A; datatype A;` are clean, as are the 55
 diamonds and the two `RedefinitionDiamond` members above: two memberships whose member elements'
 metaclasses conform in neither direction are distinguishable whatever their names
 (`resolve.Resolver.DistinguishableByMetaclass`). Same or specializing metaclasses
@@ -490,15 +495,247 @@ metaclass is the other's or a specialization of it. §8.3.3.3.4
 Two `perform a;` therefore both have `memberName` `a`, whatever their bodies.
 
 **Assessment:** spec clear on both counts. The rule is a `validate…` constraint — a violating model
-is not well-formed — so a warning under-reports it; both tools do so (a warning was chosen so that
-duplicated names in the training corpus do not fail its clean gate). The body-sensitivity is the
+is not well-formed — so a warning under-reports it. The pilot does so; OpenSysML does so by
+default (a warning was chosen so that duplicated names in the training corpus do not fail its
+clean gate, and so that the pilot differential compares like with like) and reports the error
+the specification calls for under strict conformance, the mode that judges a model as conforming
+SysML v2. Inherited memberships are in scope: `Type::inheritedMembership` "subsets membership"
+and is "included in the derived union for the memberships of the Type" (§8.3.3.1.10), §7.3.2.1
+spells it out ("The member names of all inherited memberships must be distinct from each other
+and from the member names of all owned memberships"), and a library supertype's members are
+inherited like any other, so the resolver's and the library-base pass's inherited findings are
+escalated alike. Imported collisions are not: §7.2.5.4 hides them, so the namespace keeps no
+indistinguishable membership and `Duplicate of imported member name` stays a warning in every
+mode (see [Imported memberships](#imported-memberships) below). The body-sensitivity is the
 pilot's alone; ours follows the specification. On the metaclass clause the specification is
 clear and the pilot is short: it does not implement the clause, and ours does.
 
-**Question for the authors:** is a namespace with indistinguishable memberships intended to be
-rejected (an error) or is a tool free to report it as a warning and keep resolving? And for
-two `perform a;` in one body, are the memberships indistinguishable regardless of whether the
-usages have bodies?
+**Referee note, framed concerns.** An unnamed `frame <concern>;` takes the referenced concern's
+name, so two frames of one name in a viewpoint are the owned-name case above — both tools warn.
+The named form `frame concern <name> ::> <concern>;` (SysML.xtext `FramedConcernUsage`) is clean
+here; the pilot adds `Duplicate of inherited member name 'this' from ownedPerformances,
+subperformances` at it where the framed concern declares a `subject` and is owned by the view
+definition enclosing the viewpoint (silent for a package-level concern, or one without a
+subject). The message names two library features as the supertypes a `this` is inherited from,
+which no clause of KerML provides for; left as the pilot's.
+
+**Question for the authors:** for two `perform a;` in one body, are the memberships
+indistinguishable regardless of whether the usages have bodies?
+
+#### Imported memberships
+
+**Model text**
+
+```sysml
+package A { part def Engine; }
+package B { part def Engine; }
+package C {
+    private import A::*;
+    private import B::*;
+    part e : Engine;
+}
+```
+
+**Pilot:** silent. `KerMLValidator.checkNamespace` compares each *owned* membership with the
+namespace's memberships and, for a type, with its inherited ones; two memberships that both
+arrive by import are never compared (pilot `2026-08`, reading of `KerMLValidator.class` and
+`NamespaceAdapter.getImportedMembership`). `e` is typed by `A::Engine`. For contrast, the Rust
+sysml-toolkit (v0.10.2) reports `error: ambiguous reference 'Engine' resolves to multiple
+memberships` at `part e : Engine;` — a use-site error the specification does not provide for.
+
+**OpenSysML:** `Engine` is not a member of `C`. The two imported memberships collide, so
+§7.2.5.4 hides both: `warning: Duplicate of imported member name 'Engine': A::Engine (import A::*),
+B::Engine (import B::*)` is reported on `B::*` — once per colliding name per importing namespace,
+on the import that brings the later membership, naming every hidden member and the import each
+came through — and the reference `part e : Engine;` is resolved as any name `C` lacks is: outward
+through the enclosing namespaces, and where none has an `Engine`, `error: unresolved reference:
+Engine — did you mean A::Engine or B::Engine? The name is hidden here: import A::* and import
+B::* bring distinct elements named 'Engine', so none is a member; qualify the one meant: A::Engine
+or B::Engine.` — in default and strict mode alike (`sysml -validate` exits 2, the file not analysing cleanly). The warning and the
+hiding are one computation (`resolve.Resolver.importedCollisions`, memoized per namespace;
+`checkImportedNames` reports it, `lookupImports`, `lookupInheritedImports` and the qualified and
+re-export paths read it), so what is warned is exactly what is hidden. Qualified `A::Engine` and
+`B::Engine` resolve everywhere; `C::Engine` does not, a hidden membership being no membership of
+`C` — so `package Both { public import A::*; public import B::*; }` has no `Engine` to re-export
+and `import Both::*;` brings none, and a specialization looking `Engine` up through the
+`protected import`s of its general finds nothing under a name the general hides. The same clauses
+as for owned names apply — short names count as names, and two members whose metaclasses conform
+in neither direction (`part def Engine` beside `attribute def Engine`) are distinguishable, so
+neither is hidden — and:
+
+- *One membership reached twice is one membership.* `import A::*; import Q::*;` where `Q`
+  publicly re-imports `A` surfaces one `Membership` of `A::Engine` through two imports; it is
+  neither hidden nor warned (`visibleMemberships` is an `OrderedSet(Membership)`).
+- *Two memberships of one element do not collide either:* an alias beside the element it names
+  (`package B { alias Engine for A::Engine; }`) and a membership import beside a wildcard that
+  also surfaces the member (`import A::Engine; import A::*;`). Read literally, §8.3.2.4.3 makes
+  these indistinguishable — they are distinct `Membership`s with equal names and one metaclass —
+  but whichever membership `resolveLocal` takes first, the name denotes the same element, so the
+  model has nothing to fix; the owned check treats an alias beside its target the same way
+  (`sameElement`), and the pilot reports neither. Both keep resolving. An alias under another name is no such case:
+  `alias Spare for A::Engine` binds `Spare`, and `A::Engine` reached after it still collides with a
+  third `Engine` under its own name.
+- *An imported name a type inherits is warned, not hidden.* §8.3.2.4.5 `Namespace::importedMemberships(excluded)`
+  excludes memberships colliding "with each other or with any ownedMembership" — imported with
+  imported, imported with owned — and says nothing of inherited ones; `Type::membership` is the
+  owned, imported and inherited memberships together (`Type::nonPrivateMemberships` is the union
+  of the public, protected and inherited memberships), and `inheritedMemberships` removes
+  only redefined features. So in `part def Child :> Base { private import A::*; }` where both
+  `Base` and `A` declare a `part x`, both memberships stand and the type is ill-formed by
+  `validateNamespaceDistinguishability`: the import warns (`A::x (import A::*), Base::x
+  (inherited)`) and a reference to `x` binds the inherited member, which `resolveLocal` reaches
+  first. An owned member of that name hides the import and silences the warning, as it does for
+  two imports. The pilot never compares imported with inherited memberships either; it does
+  compare what a type inherits from a general's own imports: on the `Sub :> Base` fixture below
+  it reports `Duplicate of inherited member name 'Engine' from Left, Right` on `Sub` and binds
+  the first. The reading holds at every level: the import stays a membership of the type, so a
+  specialization inherits both members and is warned in turn (`part def G :> Base { public import
+  Q::*; } part def S :> G;` draws `Duplicate of inherited member name 'x' from Base, Q` at `S`, as
+  the pilot does). Locked by `TestImportsCollidingWithInheritedNamesAreInherited`.
+- *A hidden import is not inherited.* A membership §7.2.5.4 hides — colliding with another
+  import's name or with an owned name — is excluded from `importedMemberships` and so is no
+  membership of the importing namespace; a type specializing that namespace inherits none of it
+  (`Type::inheritedMembership` draws on the general's memberships, §8.3.3.1.10). `view v :>
+  Introduction;` where `Introduction` has `expose Fleet::**` bringing two parts' `payload` draws
+  the import warning at `Introduction` alone; `v` is clean (`Resolver.importedMembers` reads the
+  same `importedCollisions` the warning and every lookup read, and `hiddenImports` leaves out
+  what an owned name of the general hides; an inherited name hides nothing, above). The
+  pilot reports `Duplicate of inherited member name 'payload' from Trailer, Truck` at `v` as
+  well: its `NamespaceImportAdapter` adds every visible membership (above), so the hidden pair is
+  inherited there — the same shortfall, one level down. Locked by
+  `TestHiddenImportsOfAGeneralAreNotInherited`.
+- *An imported name an owned member hides takes no part:* `Namespace::importedMemberships(excluded)`
+  excludes a membership whose names an owned membership repeats, so `part def Engine;` declared in
+  `C` silences both imports.
+- *A repeat among the imported namespace's own members is that namespace's duplicate,* reported
+  where it is declared (or, for one package declared in two documents of a workspace, not at all),
+  never at the importer. Only a package's declarations are one namespace this way; two types of
+  one qualified name (`part def P { part x; } part def P { part x; }`) are two namespaces, and
+  the `x` of each collides at an `import A::**` that reaches both.
+- *Each declaration of a package carries its own imports.* The resolver reads a package declared
+  in two documents as one namespace for its members but resolves the body of each declaration
+  against the imports that declaration writes, so `package P { private import A::*; }` in one
+  document and `package P { private import B::*; }` in another never bring `A::Engine` and
+  `B::Engine` into one body, and no warning is reported for the pair. The pilot reads the two
+  declarations as two namespaces.
+- *Library content is left out,* as the inherited check leaves out library supertypes: the
+  standard library is not the model's to fix. This is load-bearing — read with the library
+  included, `import ISQ::*` alone brings eight colliding pairs, each a quantity ISO 80000
+  defines in two parts: from `ISQElectromagnetism` (IEC 80000-6) and `ISQAtomicNuclear`
+  (ISO 80000-10) `MagneticDipoleMomentValue`, `MagneticDipoleMomentUnit`,
+  `CartesianMagneticDipoleMoment3dVector`, `CartesianMagneticDipoleMoment3dCoordinateFrame`,
+  `magneticDipoleMoment` and `cartesianMagneticDipoleMoment3dVector` (two different
+  quantities, L^3·M·T^-2·I^-1 and L^2·I); from `ISQSpaceTime` (ISO 80000-3) and
+  `ISQCondensedMatter` (ISO 80000-12) `CartesianDisplacement3dVector` and
+  `cartesianDisplacement3dVector`. Under §7.2.5.4 (next paragraph) none of the eight is a
+  member of `ISQ`; a first-match reader binds the Electromagnetism or SpaceTime one, and the
+  library's own `SI.sysml` trips over that at lines 233 and 303, which the declared errata
+  overlay qualifies ([omg-issues.md](omg-issues.md), "Defects in the vendored quantity
+  libraries"). The library is read as its authors and the pilot read it: a model's `import
+  ISQ::*` still binds the eight names first-match, and so does the library's own, rather than
+  OpenSysML hiding what the library it ships relies on; a model that means one of them qualifies
+  it. `import NumericalFunctions::*; import DataFunctions::*;` brings sixteen more
+  (`'+'`, `'*'`, `'=='`, …), the operator overloads invocation selects among by argument type.
+  Model-vs-library pairs are likewise not reported.
+
+**What the specification makes of an imported collision.** KerML does not leave two imported
+memberships of one name standing to be judged by `validateNamespaceDistinguishibility`: §7.2.5.4 —
+"if the member name or member short name of any imported membership conflicts with the name of any
+owned member, *or with the name of any visible membership from any other imported namespace*, then
+the conflicting membership is hidden and is not included in the set of imported memberships of the
+importing namespace" — and §8.3.2.4.5 `Namespace::importedMemberships(excluded)` ("excluding
+Memberships that have distinguishability collisions with each other or with any ownedMembership")
+remove both. The namespace is well-formed; the name resolves to nothing in it, so `resolveLocal`
+walks on to the outer scopes and an unqualified `Engine` in `C` is unresolved. OpenSysML does
+this. The pilot does not: its `NamespaceImportAdapter.importMemberships` adds every visible
+membership of the imported namespace, hiding by owned names only, so `C::Engine` resolves to the
+first import's member and nothing is reported. The warning marks exactly the memberships §7.2.5.4
+hides; the use-site error says which imports hide the name and that qualifying it resolves it. The
+pinned validator accepts every fixture below silently, except that on `Sub :> Base` it warns
+`Duplicate of inherited member name 'Engine' from Left, Right`.
+
+```sysml
+package Left { part def Engine; }
+package Right { part def Engine; }
+part def Engine;                                  // only in the last fixture
+package Alias { public import Left::Engine; }
+package Both { public import Left::*; public import Right::*; }
+part def Base { protected import Left::*; protected import Right::*; }
+```
+
+| Fixture | Reference | OpenSysML | Pilot |
+|---|---|---|---|
+| `private import Left::*; private import Right::*; part e : Engine;` at the root | `Engine` | unresolved | `Left::Engine` |
+| the same inside `package Use { … }` | `Engine` | unresolved | `Left::Engine` |
+| `package Use { private import Left::*; private import Alias::*; part e : Engine; }` | `Engine` | `Left::Engine`, no warning | `Left::Engine` |
+| `package Use { private import Left::*; private import Right::*; part def Engine; part e : Engine; }` | `Engine` | `Use::Engine`, no warning | `Use::Engine` |
+| `part def Sub :> Base { part e : Engine; }` | `Engine` | unresolved | `Left::Engine`, warns |
+| `package Use { private import Both::*; part e : Engine; }` | `Engine` | unresolved | `Left::Engine` |
+| `package Use { private import Left::*; private import Right::*; part e : Engine; }` with the root `part def Engine` | `Engine` | the root `Engine` | `Left::Engine` |
+| any of these | `Left::Engine`, `Right::Engine` | resolve | resolve |
+| any of these | `Use::Engine` | unresolved | `Left::Engine` |
+
+- *Private imports count:* visibility governs what `C` re-exports, not what it imports.
+- *Overload sets two imports bring are hidden like any other collision.* Two `calc def pick`
+  reached through `import A::*; import B::*;` are indistinguishable memberships like two owned
+  `pick` are, which already warn (`Duplicate of other owned member name`), and §7.2.5.4 hides
+  them from every lookup, a called name included: `pick(2)` in that namespace is unresolved with
+  the hint above (`resolve.Resolver.InvocationCandidates` reads the same collision set;
+  `TestInvocationOverloadCandidatesThroughInheritedImports`,
+  `TestHiddenImportedMembershipsOverloadSet`). The specification has no overloading to keep such a
+  set for. Selection by signature ([spec-compliance.md](spec-compliance.md), "Invocation overload
+  selection") stays for the sets the specification leaves in the namespace: overloads one namespace
+  owns, a type inherits, or one import brings, and the Kernel Function Library sets
+  (`IntegerFunctions`/`RealFunctions`, `ISQ`; `TestInvocationOverloadSetWithinOneNamespaceSelects`).
+  The namespaces qualifying a called name are ordinary references too, so `Engine::build()` is
+  unresolved where `Engine` is hidden. Operator expressions (`'+'`, `'=='`, …) resolve against the
+  Kernel Function Library packages, library content the collision computation leaves out, so they
+  are untouched.
+
+Over the OMG corpora this reports 238 warnings, every one a same-metaclass pair under the
+rule above, and the hiding leaves 32 references unresolved (adjudicated per file in
+[pilot-corpora.md](pilot-corpora.md), "Imported memberships the specification hides"): `13a-Model Containment.sysml` (six names — `Engine`, `Transmission`, `ClutchPort`,
+`DrivePwrPort`, `EngineToTransmissionInterface`, `vehicle1_c1` — from
+`'2a-Parts Interconnection'::*` and `'8-Requirements'::*`), `4a-Functional Allocation.sysml`
+(`Definitions` and `Usages` from `'2a-Parts Interconnection'::*` and
+`'3a-Function-based Behavior-1'::*`), the kerml-examples `Imports.kerml` (`P::A` beside `Q::A`,
+and `Q::D` beside `Q::Q1::D` under `import Q::**`), `AHFNorwayTopics.sysml` (two names under
+`AHFCoreLib::**`), and the Annex A vehicle model, where a recursive `import … ::**` of
+`VehicleConfiguration_b` surfaces, besides the three `vehicle_b` (`PartsTree::vehicle_b`,
+`DiscreteInteractions::CruiseControl1::vehicle_b`, `…CruiseControl2::vehicle_b`), forty-odd
+nested feature names — `vehicle_b::mass` beside `vehicle_b::fuelTank::mass`,
+`rearWheel1::diameter` beside `rearWheel2::diameter`, the requirement short name `'1'` of
+`vehicleMassRequirement` beside that of `engineMassRequirement` — at each of the four importing
+namespaces; `VehiclePartDef::Vehicle::*` beside `FuelTankPartDef::FuelTank::*` brings two `mass`.
+Recursive imports reach that far because `Namespace::visibleMemberships(…, isRecursive = true)`
+recurses into every owned member that is a `Namespace`, types and features included; the pilot's
+`NamespaceUtil.getVisibleMembershipsFor` does the same. The pilot is silent on all 238, which the
+differential records as only-ours rows ([pilot-differential.md](pilot-differential.md)); the Xpect
+suite declares none of them and no agreeing row moves.
+
+**Specification:** KerML §8.3.2.4.5 `Namespace::membership` is "all Memberships in this
+Namespace, including (at least) the union of `ownedMemberships` and `importedMemberships`", and
+`validateNamespaceDistinguishibility` ranges over `membership`. §8.3.2.4.5 `resolveLocal` and
+`resolveVisible` select the memberships whose `memberShortName` or `memberName` match and take
+`->first()`, so resolution never fails on multiplicity. §8.3.2.4.3 `Membership::isDistinguishableFrom`
+as above. §8.3.2.4.4 `Import::importedMemberships`, `Namespace::importedMemberships(excluded)`
+("excluding … a Membership whose … name is the same as an ownedMembership's").
+
+**Assessment:** spec clear, OpenSysML follows it, the pilot does not: §7.2.5.4 hides a name
+two imports bring, so the reference does not resolve; OpenSysML warns at the import that brought
+the collision and leaves the reference unresolved with the hint; the pilot binds the first import's
+member and reports nothing. The toolkit's use-site error has the spec's outcome (the name is
+unresolved) but reports it as an ambiguity at the reference rather than a hidden name at the
+namespace. The exclusions listed above — one element reached twice, the inherited reading, the
+library, the overload set a call gathers — are the adjudicated readings.
+
+**Questions for the authors:** two memberships of one element — an alias beside the element, or a
+membership import beside a wildcard that surfaces it — are indistinguishable by the letter of
+§8.3.2.4.3; is a namespace holding them intended to be ill-formed? And is the pilot's
+first-import binding of a name §7.2.5.4 hides intended, given that the Quantities and Units
+library itself relies on it (`SI.sysml`:233 and 303, unqualified `MagneticDipoleMomentUnit`
+under `import ISQ::*`), and that the eight `ISQ` names above are unreachable through `ISQ` by
+the letter of the clause?
 
 ### 14. Constraints the pilot declares that the published specification does not contain
 

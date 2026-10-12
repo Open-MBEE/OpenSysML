@@ -93,6 +93,7 @@ const (
 	ValReal
 	ValBool
 	ValInfinity // the `*` bound / unbounded value
+	ValRational // an exact Rational, held in lowest terms
 )
 
 // StringTypeName names the scalar type of a string value, as a sent signal's type.
@@ -106,6 +107,8 @@ func ScalarTypeName(kind ValueKind) string {
 		return "Integer"
 	case ValReal:
 		return "Real"
+	case ValRational:
+		return "Rational"
 	case ValBool:
 		return "Boolean"
 	}
@@ -113,13 +116,18 @@ func ScalarTypeName(kind ValueKind) string {
 }
 
 // SentScalarTypes names the scalar types a send of node's value may send, as
-// the runtime names them: one when node's scalar type is known, Integer and Real
-// for a number of unknown kind, and none when node's value is not a scalar.
+// the runtime names them: one when node's scalar type is known (a Rational also
+// as a Real), Integer and Real for a number of unknown kind, and none when
+// node's value is not a scalar.
 func (m *Model) SentScalarTypes(scope *symbols.Scope, node ast.Node) []string {
 	if _, ok := node.(*ast.LiteralString); ok {
 		return []string{StringTypeName}
 	}
 	if value, ok := m.Eval(node); ok {
+		// A Rational is a Real (ScalarValues::Rational specializes Real).
+		if value.Kind == ValRational {
+			return []string{ScalarTypeName(ValRational), ScalarTypeName(ValReal)}
+		}
 		if name := ScalarTypeName(value.Kind); name != "" {
 			return []string{name}
 		}
@@ -151,16 +159,62 @@ func (m *Model) SentScalarTypes(scope *symbols.Scope, node ast.Node) []string {
 // as an immutable big.Int, with Int zero, so each Integer has one
 // representation. Read an Integer through Int64, BigInt or the Int functions
 // rather than through Int, which is meaningful only when IsBigInt is false.
+//
+// A Rational is exact (rational.go): its numerator in Int and positive
+// denominator in den when both fit int64, an immutable big.Rat otherwise. A
+// Real is an IEEE 754 binary64.
 type Value struct {
 	Kind ValueKind
 	Bool bool
+	den  uint32
 	Int  int64
 	Real float64
-	big  *big.Int
+	ext  *big.Rat
 }
 
-// IsNumeric reports whether the value is an integer or a real.
-func (v Value) IsNumeric() bool { return v.Kind == ValInt || v.Kind == ValReal }
+// Packed is an Integer, Rational, Real or Boolean Value in three words, for a
+// holder that keeps or passes many; Unpack restores the Value it was packed from.
+type Packed struct {
+	Kind ValueKind
+	Den  uint32
+	Bits uint64
+	Ext  *big.Rat
+}
+
+// Pack is v as a Packed.
+func (v Value) Pack() Packed {
+	p := Packed{Kind: v.Kind, Den: v.den, Ext: v.ext}
+	switch v.Kind {
+	case ValReal:
+		p.Bits = math.Float64bits(v.Real)
+	case ValBool:
+		if v.Bool {
+			p.Bits = 1
+		}
+	default:
+		p.Bits = uint64(v.Int) // #nosec G115 -- the Integer's two's-complement bits are stored, not its magnitude.
+	}
+	return p
+}
+
+// Unpack is the Value p packs.
+func (p Packed) Unpack() Value {
+	v := Value{Kind: p.Kind, den: p.Den, ext: p.Ext}
+	switch p.Kind {
+	case ValReal:
+		v.Real = math.Float64frombits(p.Bits)
+	case ValBool:
+		v.Bool = p.Bits != 0
+	default:
+		v.Int = int64(p.Bits) // #nosec G115 -- the inverse of Pack: the same bits read back as an Integer.
+	}
+	return v
+}
+
+// IsNumeric reports whether the value is an Integer, a Rational or a Real.
+func (v Value) IsNumeric() bool {
+	return v.Kind == ValInt || v.Kind == ValReal || v.Kind == ValRational
+}
 
 // WholeNumber returns the value as an int64 when it is a whole number within
 // that range: an integer, or a finite real with no fractional part (4 / 2 is 2.0).
@@ -168,6 +222,11 @@ func (v Value) WholeNumber() (int64, bool) {
 	switch v.Kind {
 	case ValInt:
 		return v.Int64()
+	case ValRational:
+		if !v.RatIsWhole() {
+			return 0, false
+		}
+		return v.RatNumer().Int64()
 	case ValReal:
 		// MaxInt64 has no float64; 2^63 is the next value up and is out of range.
 		if v.Real != math.Trunc(v.Real) || v.Real >= -float64(math.MinInt64) || v.Real < math.MinInt64 {
@@ -210,12 +269,15 @@ func UnboundedOrder(l, r Value) (order int, ok bool) {
 	}
 }
 
-// AsReal returns the value as a float64 (int and real only). An Integer rounds
-// to the nearest float64, ties to even, and one beyond the float64 range to the
-// infinity of its sign.
+// AsReal returns the number as a float64. An Integer or a Rational rounds to
+// the nearest float64, ties to even, and one beyond the float64 range to the
+// infinity of its sign: the one conversion mixed Rational/Real arithmetic makes.
 func (v Value) AsReal() float64 {
-	if v.Kind == ValInt {
+	switch v.Kind {
+	case ValInt:
 		return intToFloat(v)
+	case ValRational:
+		return ratToFloat(v)
 	}
 	return v.Real
 }
@@ -402,11 +464,11 @@ func evalConst(n ast.Node, maxBits int64) (Value, bool) {
 	case *ast.LiteralInteger:
 		return ParseInteger(e.Value)
 	case *ast.LiteralReal:
-		f, err := ParseReal(e.Value)
+		v, err := ParseRational(e.Value, maxBits)
 		if err != nil {
 			return Value{}, false
 		}
-		return Value{Kind: ValReal, Real: f}, true
+		return v, true
 	case *ast.LiteralBool:
 		return Value{Kind: ValBool, Bool: e.Value}, true
 	case *ast.LiteralInfinity:
@@ -452,6 +514,9 @@ func EvalUnary(op ast.OperatorKind, v Value) (Value, bool) {
 	case ast.OpNeg:
 		if v.Kind == ValInt {
 			return IntNeg(v), true
+		}
+		if v.Kind == ValRational {
+			return RatNeg(v), true
 		}
 		if v.Kind == ValReal {
 			return Value{Kind: ValReal, Real: -v.Real}, true
@@ -539,10 +604,12 @@ func evalEquality(op ast.OperatorKind, l, r Value) (Value, bool) {
 		eq = order == 0
 	case l.Kind == ValInt && r.Kind == ValInt:
 		eq = CompareInt(l, r) == 0
-	case l.Kind == ValInt && r.Kind == ValReal:
-		eq = !math.IsNaN(r.Real) && CompareIntReal(l, r.Real) == 0
-	case l.Kind == ValReal && r.Kind == ValInt:
-		eq = !math.IsNaN(l.Real) && CompareIntReal(r, l.Real) == 0
+	case l.IsExact() && r.IsExact():
+		eq = CompareRat(l, r) == 0
+	case l.IsExact() && r.Kind == ValReal:
+		eq = !math.IsNaN(r.Real) && CompareReal(l, r.Real) == 0
+	case l.Kind == ValReal && r.IsExact():
+		eq = !math.IsNaN(l.Real) && CompareReal(r, l.Real) == 0
 	case l.IsNumeric() && r.IsNumeric():
 		eq = l.AsReal() == r.AsReal()
 	default:
@@ -573,12 +640,16 @@ func evalComparison(op ast.OperatorKind, l, r Value) (Value, bool) {
 		res, _ := OrderSatisfies(op, CompareInt(l, r))
 		return Value{Kind: ValBool, Bool: res}, true
 	}
-	if l.Kind == ValInt && r.Kind == ValReal && !math.IsNaN(r.Real) {
-		res, _ := OrderSatisfies(op, CompareIntReal(l, r.Real))
+	if l.IsExact() && r.IsExact() {
+		res, _ := OrderSatisfies(op, CompareRat(l, r))
 		return Value{Kind: ValBool, Bool: res}, true
 	}
-	if l.Kind == ValReal && r.Kind == ValInt && !math.IsNaN(l.Real) {
-		res, _ := OrderSatisfies(op, -CompareIntReal(r, l.Real))
+	if l.IsExact() && r.Kind == ValReal && !math.IsNaN(r.Real) {
+		res, _ := OrderSatisfies(op, CompareReal(l, r.Real))
+		return Value{Kind: ValBool, Bool: res}, true
+	}
+	if l.Kind == ValReal && r.IsExact() && !math.IsNaN(l.Real) {
+		res, _ := OrderSatisfies(op, -CompareReal(r, l.Real))
 		return Value{Kind: ValBool, Bool: res}, true
 	}
 	lf, rf := l.AsReal(), r.AsReal()
@@ -624,17 +695,18 @@ func evalArithmetic(op ast.OperatorKind, l, r Value, maxBits int64) (Value, bool
 		}
 		return v, true
 	}
-	// Integer arithmetic when both operands are integers (except division,
-	// which may be fractional — keep it real to avoid silent truncation).
-	if l.Kind == ValInt && r.Kind == ValInt {
-		if op == ast.OpDiv {
-			q, ok := IntQuotient(l, r)
-			if !ok || math.IsInf(q, 0) {
-				return Value{}, false
-			}
-			return Value{Kind: ValReal, Real: q}, true
-		}
+	// Integer arithmetic stays Integer except division, which IntegerFunctions
+	// declares Rational; exact operands give an exact Rational; a Real operand
+	// makes the operation binary64.
+	if l.Kind == ValInt && r.Kind == ValInt && op != ast.OpDiv {
 		return evalIntArith(op, l, r, maxBits)
+	}
+	if l.IsExact() && r.IsExact() {
+		res, err := RatArith(op, l, r, maxBits)
+		if err != nil {
+			return Value{}, false
+		}
+		return res, true
 	}
 	return evalRealArith(op, l.AsReal(), r.AsReal())
 }
@@ -688,8 +760,10 @@ func RealArith(op ast.OperatorKind, a, b float64) (float64, bool) {
 // constant folder and the runtime share, so a folded and an evaluated
 // exponentiation agree. Integer operands with a non-negative exponent give an
 // Integer, as IntegerFunctions::'**' declares, refused with ErrIntegerSizeLimit
-// when it would need more than maxBits; every other numeric combination gives a
-// Real, as RealFunctions::'**' does. A Real result that is not finite is an
+// when it would need more than maxBits; an exact base with any other whole
+// exponent gives the exact Rational RationalFunctions::'**' declares, refused
+// with ErrRationalSizeLimit; every other numeric combination gives a Real, as
+// RealFunctions::'**' does. A Real result that is not finite is an
 // error rather than a NaN or an infinity: the folder declines on it, the
 // runtime reports it.
 func Pow(l, r Value, maxBits int64) (Value, error) {
@@ -699,6 +773,10 @@ func Pow(l, r Value, maxBits int64) (Value, error) {
 
 	if l.Kind == ValInt && r.Kind == ValInt && r.IntSign() >= 0 {
 		return IntPow(l, r, maxBits)
+	}
+	// RationalFunctions::'**' takes an Integer exponent; a Rational one is RealFunctions'.
+	if l.IsExact() && r.Kind == ValInt {
+		return RatPow(l, r, maxBits)
 	}
 
 	base, exp := l.AsReal(), r.AsReal()

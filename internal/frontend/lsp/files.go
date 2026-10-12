@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io/fs"
@@ -123,13 +124,25 @@ func (s *Server) loadFolder(folder string) { s.scanFolder(folder, -1) }
 
 // scanFolder is loadFolder over at most budget directories, every directory
 // when budget is negative; a walk that runs out of budget stops where it is.
+// The sources found are indexed as one batch, not one at a time: each document
+// added alone would re-derive the imports of every package that reads it.
 func (s *Server) scanFolder(folder string, budget int) {
+	paths, _ := walkFolder(folder, budget)
+	s.loadFilesFromDisk(paths)
+}
+
+// walkFolder lists the model sources under folder, visiting at most budget
+// directories (every directory when budget is negative) and skipping hidden and
+// vendored directories, unreadable entries and files too large to serve. It also
+// lists the directories it could not enumerate, whose sources it cannot vouch for.
+func walkFolder(folder string, budget int) (paths, unlisted []string) {
 	if folder == "" {
-		return
+		return nil, nil
 	}
 	_ = filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if d != nil && d.IsDir() {
+				unlisted = append(unlisted, path)
 				return fs.SkipDir
 			}
 			return nil
@@ -147,12 +160,107 @@ func (s *Server) scanFolder(folder string, budget int) {
 		if !model.IsModelSource(path) {
 			return nil
 		}
-		if info, statErr := d.Info(); statErr != nil || info.Size() > maxScannedFileSize {
+		if d.Type()&fs.ModeSymlink != 0 && !linksWithin(path, folder) {
 			return nil
 		}
-		s.loadFromDisk(path)
+		if info, statErr := os.Stat(path); statErr != nil || info.Size() > maxScannedFileSize {
+			return nil
+		}
+		paths = append(paths, path)
 		return nil
 	})
+	return paths, unlisted
+}
+
+// Rescan reconciles the workspace with the session's folders as they are on
+// disk now, for a client with no file watcher: sources added or rewritten since
+// the last walk are reindexed as one batch, and closed sources gone from disk
+// are dropped. An open buffer stays authoritative, as for a watched change.
+func (s *Server) Rescan(ctx context.Context) {
+	s.mu.Lock()
+	folders := append([]string(nil), s.folders...)
+	s.mu.Unlock()
+	if len(folders) == 0 {
+		return
+	}
+	s.debugEdit(ctx, "", func() {
+		onDisk := map[string]bool{}
+		var changed, unlisted []string
+		for _, folder := range folders {
+			paths, failed := walkFolder(folder, -1)
+			unlisted = append(unlisted, failed...)
+			for _, path := range paths {
+				onDisk[path] = true
+				if s.changedOnDisk(path) {
+					changed = append(changed, path)
+				}
+			}
+		}
+		s.loadFilesFromDisk(changed)
+		for _, name := range s.ws.DocumentNames() {
+			if onDisk[name] || s.ws.IsLibraryDocument(name) || s.ws.IsOpen(name) || !underFolders(name, folders) {
+				continue
+			}
+			// Not walked: gone, grown past the size limit, or moved under a
+			// directory the walk skips. readFromDisk drops the first two as a
+			// watched change would; the third is dropped as the walk never
+			// indexed it, unless its directory could not be listed, when the
+			// source is still there as far as anyone can tell. A file that
+			// cannot be read right now is kept.
+			if _, readable := s.readFromDisk(name); readable && !underFolders(name, unlisted) {
+				s.ws.DeleteOnDisk(name)
+			}
+		}
+	})
+	s.refreshOpenDiagnostics(ctx, "")
+}
+
+// changedOnDisk reports whether path's bytes differ from those the workspace
+// recorded for it, a file it has not recorded included.
+func (s *Server) changedOnDisk(path string) bool {
+	held, ok := s.ws.OnDisk(path)
+	if !ok {
+		return true
+	}
+	// #nosec G304 -- path comes from the folder the client asked to serve.
+	content, err := os.ReadFile(path)
+	return err != nil || !bytes.Equal(content, held)
+}
+
+// linksWithin reports whether the symlink at path resolves to a file under
+// folder: a link out of the workspace is not the workspace's to index, so a
+// query over the whole workspace shows nothing a path argument would refuse.
+func linksWithin(path, folder string) bool {
+	target, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return false
+	}
+	root, err := filepath.EvalSymlinks(folder)
+	if err != nil {
+		return false
+	}
+	return underFolders(target, []string{root})
+}
+
+// underFolders reports whether name lies in one of the folders.
+func underFolders(name string, folders []string) bool {
+	for _, folder := range folders {
+		if rel, err := filepath.Rel(folder, name); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
+}
+
+// loadFilesFromDisk is loadFromDisk over the paths as one batch of the workspace.
+func (s *Server) loadFilesFromDisk(paths []string) {
+	inputs := make([]model.Input, 0, len(paths))
+	for _, path := range paths {
+		if content, ok := s.readFromDisk(path); ok {
+			inputs = append(inputs, model.Input{Name: path, Content: content})
+		}
+	}
+	s.ws.SetOnDiskAll(inputs)
 }
 
 // skipDir reports whether a directory holds no model sources worth indexing.
@@ -165,9 +273,17 @@ func skipDir(name string) bool {
 // serve, is forgotten; any other read failure leaves what was indexed in place,
 // since it may be transient.
 func (s *Server) loadFromDisk(path string) {
+	if content, ok := s.readFromDisk(path); ok {
+		s.ws.SetOnDisk(path, content)
+	}
+}
+
+// readFromDisk reads a file's bytes for the workspace, forgetting a file that is
+// gone or too large to serve; it reports whether there is content to record.
+func (s *Server) readFromDisk(path string) ([]byte, bool) {
 	if info, err := os.Stat(path); err == nil && info.Size() > maxScannedFileSize {
 		s.ws.DeleteOnDisk(path)
-		return
+		return nil, false
 	}
 	// #nosec G304 -- path comes from the folder the client asked to serve.
 	content, err := os.ReadFile(path)
@@ -175,9 +291,9 @@ func (s *Server) loadFromDisk(path string) {
 		if errors.Is(err, fs.ErrNotExist) {
 			s.ws.DeleteOnDisk(path)
 		}
-		return
+		return nil, false
 	}
-	s.ws.SetOnDisk(path, content)
+	return content, true
 }
 
 // DidChangeWatchedFiles reindexes model files changed outside the editor.

@@ -148,28 +148,28 @@ func init() {
 // compute alike over that representation, so both are registered.
 func registerVectorFunctions() {
 	registerValueFunction("VectorFunctions::isZeroVector", []string{"v"}, 1, vectorIsZero)
-	registerValueFunction("VectorFunctions::isCartesianZeroVector", []string{"v"}, 1, vectorIsZero)
+	registerValueFunction("VectorFunctions::isCartesianZeroVector", []string{"v"}, 1, cartesian(vectorIsZero))
 	registerValueFunction("VectorFunctions::+", []string{"v", "w"}, 1, vectorAdd)
-	registerValueFunction("VectorFunctions::cartesian+", []string{"v", "w"}, 1, vectorAdd)
+	registerValueFunction("VectorFunctions::cartesian+", []string{"v", "w"}, 1, cartesian(vectorAdd))
 	registerValueFunction("VectorFunctions::-", []string{"v", "w"}, 1, vectorSubtract)
-	registerValueFunction("VectorFunctions::cartesian-", []string{"v", "w"}, 1, vectorSubtract)
+	registerValueFunction("VectorFunctions::cartesian-", []string{"v", "w"}, 1, cartesian(vectorSubtract))
 	registerValueFunction("VectorFunctions::VectorOf", []string{"components"}, 1, vectorOf)
 	registerValueFunction("VectorFunctions::CartesianVectorOf", []string{"components"}, 0, cartesianVectorOf)
 	registerValueFunction("VectorFunctions::CartesianThreeVectorOf", []string{"components"}, 1, cartesianThreeVectorOf)
 	registerValueFunction("VectorFunctions::inner", []string{"v", "w"}, 2, vectorInner)
-	registerValueFunction("VectorFunctions::cartesianInner", []string{"v", "w"}, 2, vectorInner)
+	registerValueFunction("VectorFunctions::cartesianInner", []string{"v", "w"}, 2, cartesian(vectorInner))
 	registerValueFunction("VectorFunctions::norm", []string{"v"}, 1, vectorNorm)
-	registerValueFunction("VectorFunctions::cartesianNorm", []string{"v"}, 1, vectorNorm)
+	registerValueFunction("VectorFunctions::cartesianNorm", []string{"v"}, 1, cartesian(vectorNorm))
 	registerValueFunction("VectorFunctions::angle", []string{"v", "w"}, 2, vectorAngle)
-	registerValueFunction("VectorFunctions::cartesianAngle", []string{"v", "w"}, 2, vectorAngle)
+	registerValueFunction("VectorFunctions::cartesianAngle", []string{"v", "w"}, 2, cartesian(vectorAngle))
 
 	// scalarVectorMult takes the scalar first and vectorScalarMult the vector,
 	// and the library aliases '*' for the former.
 	registerValueFunction("VectorFunctions::scalarVectorMult", []string{"x", "v"}, 2, scalarVectorMult)
 	registerValueFunction("VectorFunctions::*", []string{"x", "v"}, 2, scalarVectorMult)
-	registerValueFunction("VectorFunctions::cartesianScalarVectorMult", []string{"x", "v"}, 2, scalarVectorMult)
+	registerValueFunction("VectorFunctions::cartesianScalarVectorMult", []string{"x", "v"}, 2, cartesian(scalarVectorMult))
 	registerValueFunction("VectorFunctions::vectorScalarMult", []string{"v", "x"}, 2, vectorScalarMult)
-	registerValueFunction("VectorFunctions::cartesianVectorScalarMult", []string{"v", "x"}, 2, vectorScalarMult)
+	registerValueFunction("VectorFunctions::cartesianVectorScalarMult", []string{"v", "x"}, 2, cartesian(vectorScalarMult))
 	registerValueFunction("VectorFunctions::vectorScalarDiv", []string{"v", "x"}, 2, vectorScalarDiv)
 
 	registerDeclaredFunction("VectorFunctions::sum0", []declaredParam{optionalParam("coll"), param("zero")}, vectorSum0)
@@ -678,27 +678,37 @@ func atan2Real(args []semantics.Value) (semantics.Value, error) {
 	return semantics.RealResult(math.Atan2(y, x))
 }
 
-// floorToInteger is RealFunctions::floor, which returns Integer.
+// floorToInteger is RealFunctions::floor and RationalFunctions::floor, which
+// return Integer; an exact argument is floored exactly.
 func floorToInteger(args []semantics.Value) (semantics.Value, error) {
+	if args[0].IsExact() {
+		return semantics.RatFloor(args[0]), nil
+	}
 	return integerResult(math.Floor(asReal(args[0])))
 }
 
 // ceilingToInteger is OpenSysMLMathFunctions::ceiling, which returns Integer.
 func ceilingToInteger(args []semantics.Value) (semantics.Value, error) {
+	if args[0].IsExact() {
+		return semantics.IntNeg(semantics.RatFloor(semantics.RatNeg(args[0]))), nil
+	}
 	return integerResult(math.Ceil(asReal(args[0])))
 }
 
-// roundToInteger is RealFunctions::round, which returns Integer. Halves round
-// away from zero, as math.Round does.
+// roundToInteger is RealFunctions::round and RationalFunctions::round, which
+// return Integer. Halves round away from zero, as math.Round does.
 func roundToInteger(args []semantics.Value) (semantics.Value, error) {
+	if args[0].IsExact() {
+		return semantics.RatRound(args[0]), nil
+	}
 	return integerResult(math.Round(asReal(args[0])))
 }
 
 // numericAbs is the kind-preserving absolute value NumericalFunctions declares
-// over NumericalValue: an Integer argument gives an Integer.
+// over NumericalValue: an Integer argument gives an Integer, a Rational a Rational.
 func numericAbs(args []semantics.Value) (semantics.Value, error) {
-	if args[0].Kind == semantics.ValInt {
-		return integerAbs(args)
+	if args[0].IsExact() {
+		return semantics.RatAbs(args[0]), nil
 	}
 	return semantics.RealResult(math.Abs(args[0].Real))
 }
@@ -716,6 +726,12 @@ func numericExtremum(larger bool) func([]semantics.Value) (semantics.Value, erro
 	return func(args []semantics.Value) (semantics.Value, error) {
 		if args[0].Kind == semantics.ValInt && args[1].Kind == semantics.ValInt {
 			return integerExtremum(larger)(args)
+		}
+		if args[0].IsExact() && args[1].IsExact() {
+			if order := semantics.CompareRat(args[0], args[1]); (larger && order >= 0) || (!larger && order <= 0) {
+				return semantics.RatOf(args[0]), nil
+			}
+			return semantics.RatOf(args[1]), nil
 		}
 		return semantics.RealResult(pickReal(larger, asReal(args[0]), asReal(args[1])))
 	}
@@ -764,11 +780,19 @@ func naturalDomain(v semantics.Value) error {
 // isZero and isUnit are the NumericalFunctions predicates the library's sum0
 // and product1 assert on their identity element.
 func isZero(args []semantics.Value) (semantics.Value, error) {
-	return semantics.Value{Kind: semantics.ValBool, Bool: asReal(args[0]) == 0}, nil
+	return semantics.Value{Kind: semantics.ValBool, Bool: numberEquals(args[0], 0)}, nil
 }
 
 func isUnit(args []semantics.Value) (semantics.Value, error) {
-	return semantics.Value{Kind: semantics.ValBool, Bool: asReal(args[0]) == 1}, nil
+	return semantics.Value{Kind: semantics.ValBool, Bool: numberEquals(args[0], 1)}, nil
+}
+
+// numberEquals reports whether the number x is n, an exact x compared exactly.
+func numberEquals(x semantics.Value, n int64) bool {
+	if x.IsExact() {
+		return semantics.CompareRat(x, semantics.IntValue(n)) == 0
+	}
+	return asReal(x) == float64(n)
 }
 
 // pickReal returns the larger or the smaller of two reals.
@@ -791,7 +815,8 @@ func asReal(v semantics.Value) float64 {
 // not ask for.
 func asInteger(v semantics.Value) (semantics.Value, error) {
 	if v.Kind != semantics.ValInt {
-		return semantics.Value{}, fmt.Errorf("%w: requires an Integer argument, got a Real", ErrTypeMismatch)
+		return semantics.Value{}, fmt.Errorf("%w: requires an Integer argument, got %s", ErrTypeMismatch,
+			describeValue(Value{Kind: ValConst, Const: v}))
 	}
 	return v, nil
 }
@@ -1089,7 +1114,7 @@ func complexProduct(name string, ctx *Context, args []Value) (Value, error) {
 func (ctx *Context) aggregateComplex(name string, collection Value, operator ast.OperatorKind) (Value, error) {
 	elements := elementsOf(collection)
 	if len(elements) > 0 && !holdsComplex(elements) {
-		return ctx.aggregate(name, []Value{collection}, operator, false)
+		return ctx.aggregate(name, []Value{collection}, operator, aggregateNumber)
 	}
 	acc := complex(0, 0)
 	if operator == ast.OpMul {

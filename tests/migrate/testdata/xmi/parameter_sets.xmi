@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- Parameter sets: an activity's {a} and {b, r} sets, an operation's set,
+         an unnamed set, and a set carrying a condition, which has no target. -->
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="Sets">
+      <packagedElement xmi:type="uml:Activity" xmi:id="_act_measure" name="Measure">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_pm_a" name="a" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_pm_a_lo" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_pm_a_up" value="1"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_pm_b" name="b" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_pm_b_lo" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_pm_b_up" value="*"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_pm_r" name="r" direction="out">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <ownedParameterSet xmi:type="uml:ParameterSet" xmi:id="_ps_inputs" name="inputs" parameter="_pm_a"/>
+        <ownedParameterSet xmi:type="uml:ParameterSet" xmi:id="_ps_results" name="results" parameter="_pm_b _pm_r"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_tool" name="Tool">
+        <ownedOperation xmi:type="uml:Operation" xmi:id="_op_run" name="Run">
+          <ownedParameter xmi:type="uml:Parameter" xmi:id="_po_x" name="x" direction="in">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          </ownedParameter>
+          <ownedParameterSet xmi:type="uml:ParameterSet" xmi:id="_ps_run" name="args" parameter="_po_x"/>
+        </ownedOperation>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_spin" name="Spin">
+          <ownedParameter xmi:type="uml:Parameter" xmi:id="_ps_v" name="v" direction="in">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          </ownedParameter>
+          <ownedParameterSet xmi:type="uml:ParameterSet" xmi:id="_ps_anon" parameter="_ps_v"/>
+          <ownedParameterSet xmi:type="uml:ParameterSet" xmi:id="_ps_cond" name="bounded" parameter="_ps_v">
+            <ownedRule xmi:type="uml:Constraint" xmi:id="_ps_c" name="positive">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_ps_c_spec">
+                <body>v &gt; 0</body>
+                <language>English</language>
+              </specification>
+            </ownedRule>
+          </ownedParameterSet>
+        </ownedBehavior>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s_tool" base_Class="_blk_tool"/>
+</xmi:XMI>

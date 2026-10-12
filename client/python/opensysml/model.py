@@ -8,6 +8,7 @@ from opensysml.conversion import (
     FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, format_of_path,
 )
 from opensysml.diagnostic import Diagnostic
+from opensysml.document import Graphs, RenderedView
 from opensysml.edit import Editor
 from opensysml.errors import ModelError, ServiceError, SymbolNotFoundError
 from opensysml.proto import sysml_pb2
@@ -381,6 +382,51 @@ class Model:
         """
         return self.connection.render_document(self._hash, document_id, form=form)
 
+    def render_view(self, view_name, ports="minimal") -> RenderedView:
+        """Render one named view as typed diagram data.
+
+        Args:
+            view_name (str): Qualified view name or targeted pseudo-view
+            ports (str): ``"minimal"`` (the default) or ``"full"``
+
+        Returns:
+            RenderedView: Ordered nodes, edges, table data and optional layout
+
+        Raises:
+            ValueError: If ``ports`` is neither ``"minimal"`` nor ``"full"``
+            MissingCapabilityError: If the service cannot render views
+            InvalidRequestError: If the view is malformed or does not render
+            ViewNotFoundError: If the view or pseudo-view target is missing;
+                also a SymbolNotFoundError and KeyError
+            ModelNotFoundError: If the service no longer holds this model
+        """
+        return self.connection.render_view(self._hash, view_name, ports=ports)
+
+
+    def export_graphs(self, subject) -> Graphs:
+        """Export the lowered graph of an action or state machine.
+
+        The graph is the subject's and that of every behavior it performs, in
+        the canonical ``graphs:1`` JSON an external analysis engine is sent:
+        nodes, edges, flows, parameters, guards, triggers and effects, with
+        source spans.
+
+        Args:
+            subject (str): Qualified name of an action or state machine,
+                definition or usage
+
+        Returns:
+            Graphs: The JSON, its version and the subject as resolved
+
+        Raises:
+            MissingCapabilityError: If the service cannot export graphs
+            SymbolNotFoundError: If the model declares no such element
+            InvalidRequestError: If the element is no action or state machine,
+                or the name is shared by several elements
+            ModelNotFoundError: If the service no longer holds this model
+        """
+        return self.connection.export_graphs(self._hash, subject)
+
     def find(self, name):
         """Find symbol by short name or fully-qualified name.
 
@@ -711,7 +757,8 @@ class Model:
             state_machine_symbol_id, self._hash, events=events, schedule=schedule, performer=performer
         )
 
-    def verify_constraint(self, symbol_id, subject=None, engine=None, question=None):
+    def verify_constraint(self, symbol_id, subject=None, engine=None, question=None,
+                          arguments=None, named_arguments=None):
         """Ask whether one of this model's constraints holds.
 
         Args:
@@ -725,6 +772,9 @@ class Model:
                 default), ``"holds"`` whether the claim holds for every
                 assignment the free features can take, or ``"satisfiable"``
                 whether any assignment satisfies it
+            arguments (list, optional): Positional arguments bound to the
+                element's ``in`` parameters in declaration order
+            named_arguments (dict, optional): Arguments by parameter name
 
         Returns:
             Verdict: The answer; false is the model's answer, not an exception
@@ -736,10 +786,11 @@ class Model:
         """
         return self._client.verify_constraint(
             symbol_id, self._hash, subject_symbol_id=subject, engine=engine,
-            question=question,
+            question=question, arguments=arguments, named_arguments=named_arguments,
         )
 
-    def verify_requirement(self, symbol_id, subject=None, engine=None, question=None):
+    def verify_requirement(self, symbol_id, subject=None, engine=None, question=None,
+                           arguments=None, named_arguments=None):
         """Ask whether one of this model's requirements is satisfied.
 
         Args:
@@ -750,6 +801,9 @@ class Model:
                 :meth:`verify_constraint`
             question (str, optional): The question to ask, as for
                 :meth:`verify_constraint`
+            arguments (list, optional): Positional arguments bound to the
+                element's ``in`` parameters in declaration order
+            named_arguments (dict, optional): Arguments by parameter name
 
         Returns:
             Verdict: The answer
@@ -761,7 +815,7 @@ class Model:
         """
         return self._client.verify_requirement(
             symbol_id, self._hash, subject_symbol_id=subject, engine=engine,
-            question=question,
+            question=question, arguments=arguments, named_arguments=named_arguments,
         )
 
     def verify_satisfaction(self, symbol_id=None, engine=None, question=None):

@@ -67,7 +67,7 @@ $ echo $?
 | No `source` | `missing-view-source` |
 | A plain-element source without a `kind` | `missing-diagram-kind` |
 | A `kind` on a declared view (which brings its own) | `conflicting-diagram-kind` |
-| A kind other than `tree`/`interconnection`/`state`/`action`/`table`/`sequence` | `unsupported-diagram-kind` |
+| A kind other than `tree`/`interconnection`/`state`/`action`/`case`/`mixed`/`table`/`sequence` | `unsupported-diagram-kind` |
 | A direction other than `TB`/`LR`/`RL`/`BT` | `invalid-direction` |
 | A direction on a kind that is not a directed graph (e.g. sequence) | `unsupported-direction` |
 | A palette other than `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` | `invalid-palette` |
@@ -113,7 +113,9 @@ position; they are tracked in the project's compliance record.
 
 - **The vocabulary is non-normative.** `DocumentQueries` is an OpenSysML
   extension; other SysML v2 tools will parse models that use it but will not
-  render documents from them.
+  render documents from them. The extension libraries are maintained upstream
+  at [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library)
+  and vendored here pinned.
 - **Query-generated runs cannot cross-reference.** Column runs restyle
   query-produced text and can link to external URLs, but `Ref`-style
   cross-references to other content blocks apply to statically-authored runs

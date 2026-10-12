@@ -1,0 +1,10 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"go(effect);both(entry);r0(entry);split(effect);l1(entry);both(exit);\"",
+			"\"go(effect);both(entry);split(effect);l1(entry);r0(entry);both(exit);\"",
+			"\"go(effect);both(entry);split(effect);r0(entry);l1(entry);both(exit);\""
+		]
+	}
+}

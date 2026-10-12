@@ -133,7 +133,7 @@ func TestExecuteRelatedConnectionsAllocationsAndAssertions(t *testing.T) {
 	assertRelated(t, fixture, "telescope", "satisfaction", "outgoing", 1,
 		[]string{"massRequirement"})
 	assertRelated(t, fixture, "massRequirement", "satisfaction", "incoming", 1,
-		[]string{"telescope"})
+		[]string{"telescope", "relayHub"})
 	// A satisfy without `by` relates the element stating it.
 	assertRelated(t, fixture, "groundStation", "satisfaction", "outgoing", 1,
 		[]string{"pointingRequirement"})
@@ -151,8 +151,8 @@ func TestExecuteRelatedDeclaredRequirements(t *testing.T) {
 	fixture := loadExecutionFixtureFile(t, "testdata/tmt_relationships.sysml")
 
 	// A satisfy or verify assertion that declares its requirement relates the
-	// subject to the declared requirement usage itself and, when the
-	// declaration is typed, to its requirement definition.
+	// subject to the declared requirement usage itself and to the requirement
+	// definition typing it or the requirement usage it subsets.
 	assertRelated(t, fixture, "scienceComputer", "satisfaction", "outgoing", 1,
 		[]string{"dataArchive::archiveRequirement", "DataRequirement"})
 	assertRelated(t, fixture, "dataArchive::archiveRequirement", "satisfaction", "incoming", 1,
@@ -164,9 +164,16 @@ func TestExecuteRelatedDeclaredRequirements(t *testing.T) {
 	assertRelated(t, fixture, "archiveVerification::archiveObjective::archiveCheck", "verification", "incoming", 1,
 		[]string{"scienceComputer"})
 
-	// A declared requirement that subsets another is still the edge target.
+	// A declared requirement that subsets another is an edge target beside it.
 	assertRelated(t, fixture, "relayHub", "satisfaction", "outgoing", 1,
-		[]string{"relayControl::relayRequirement"})
+		[]string{"relayControl::relayRequirement", "massRequirement"})
+	// Every subsetted requirement is, an alias followed to the requirement it names.
+	assertRelated(t, fixture, "backupHub", "satisfaction", "outgoing", 1,
+		[]string{"backupControl::backupRequirement", "powerRequirement", "thermalRequirement"})
+	assertRelated(t, fixture, "powerRequirement", "satisfaction", "incoming", 1,
+		[]string{"backupHub"})
+	assertRelated(t, fixture, "thermalRequirement", "satisfaction", "incoming", 1,
+		[]string{"backupHub"})
 	assertRelated(t, fixture, "relayControl::relayRequirement", "satisfaction", "incoming", 1,
 		[]string{"relayHub"})
 
@@ -340,7 +347,7 @@ func TestExecuteRelatedComposesWithFiltersProjectionAndInvocation(t *testing.T) 
 		t.Fatalf("execute invoked: %v", err)
 	}
 	names = rowNames(invoked)
-	if len(names) != 1 || names[0] != "Observatory::telescope" {
+	if len(names) != 2 || names[0] != "Observatory::telescope" || names[1] != "Observatory::relayHub" {
 		t.Fatalf("rows = %v", names)
 	}
 

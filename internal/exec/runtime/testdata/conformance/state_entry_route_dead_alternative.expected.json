@@ -1,0 +1,6 @@
+{
+  "type": "state",
+  "schedule": "reverse",
+  "events": [{"signal": "Go"}],
+  "finalState": "good"
+}

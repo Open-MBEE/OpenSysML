@@ -108,7 +108,7 @@ func TestDiagramViews(t *testing.T) {
 			[]string{"view Pumps {\n        expose Pump;\n        expose Sys::Pump::rate;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
 		{"a diagram of a block is written in its part def",
 			``, diagram("_d", "Pump IBD", "_pump", "SysML Internal Block Diagram", "_rate"),
-			[]string{"part def Pump {\n        ref rate;\n        view 'Pump IBD' {\n            expose rate;\n            render Views::asInterconnectionDiagram;\n        }\n    }"}, Mapped, ""},
+			[]string{"part def Pump {\n        attribute rate;\n        view 'Pump IBD' {\n            expose rate;\n            render Views::asInterconnectionDiagram;\n        }\n    }"}, Mapped, ""},
 		{"a diagram naming no owner is written where its extension is held",
 			``, diagram("_d", "Loose", "", "Class Diagram", "_pump"),
 			[]string{"view Loose {\n    expose Sys::Pump;\n    render Views::asTreeDiagram;\n}"}, Approximated, "the diagram names no owner; written at the top level"},
@@ -183,7 +183,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Valves", "_sys", "SysML Block Definition Diagram", "_status"),
-			[]string{"action def Open {\n        ref status;", "view Valves {\n        expose Valve::Open::status;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+			[]string{"action def Open {\n        attribute status;", "view Valves {\n        expose Valve::Open::status;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
 		{"a diagram of a method activity named like one of its members is numbered, the member keeping its name",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
 			   <ownedOperation xmi:type="uml:Operation" xmi:id="_open" name="Open" method="_opening"/>
@@ -195,9 +195,9 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d1", "status", "_opening", "SysML Activity Diagram", "_status") + diagram("_d", "turn", "_opening", "SysML Activity Diagram", "_turn"),
-			[]string{"action def Open {\n        view 'status 2' {\n            expose Valve::Open::status;\n            render Views::asTextualNotation;", "view 'turn 2' : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            render Views::asInterconnectionDiagram;", "ref status;", "action turn {"}, Approximated,
+			[]string{"action def Open {\n        view 'status 2' {\n            expose Valve::Open::status;\n            render Views::asTextualNotation;", "view 'turn 2' : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            render Views::asInterconnectionDiagram;", "attribute status;", "action turn {"}, Approximated,
 			"written as turn 2"},
-		{"a shown association end is exposed under the name its connection def declares",
+		{"a shown association end exposes the connection def declaring it, not the end by itself",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_t_end" name="pump" type="_pump" association="_feeds"/>
 			 </packagedElement>
@@ -205,7 +205,7 @@ func TestDiagramViews(t *testing.T) {
 			   <ownedEnd xmi:type="uml:Property" xmi:id="_a_end" type="_pump" association="_feeds"/>
 			 </packagedElement>`,
 			diagram("_d", "Feeding", "_sys", "SysML Block Definition Diagram", "_a_end"),
-			[]string{"connection def Feeds {\n    end pump2 : Sys::Pump;\n    end pump : Sys::Pump;\n    metadata MigrationMetadata::SynthesizedName about pump;\n}", "view Feeding {\n        expose Feeds::pump;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+			[]string{"connection def Feeds {\n    end pump2 : Sys::Pump;\n    end pump : Sys::Pump;\n    metadata MigrationMetadata::SynthesizedName about pump;\n}", "view Feeding {\n        expose Feeds;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
 		{"a member named like a library package is renamed, so a shown primitive still exposes the library's",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_svs" name="ScalarValues"/>
 			 <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
@@ -215,7 +215,7 @@ func TestDiagramViews(t *testing.T) {
 			 </packagedElement>`,
 			diagram("_d", "Levels", "_tank", "SysML Block Definition Diagram", "_level",
 				"http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"),
-			[]string{"part def ScalarValuesModel;", "view Levels {\n        expose level;\n        expose ScalarValues::Real;\n        render Views::asTreeDiagram;\n    }",
+			[]string{"occurrence def ScalarValuesModel;", "view Levels {\n        expose level;\n        expose ScalarValues::Real;\n        render Views::asTreeDiagram;\n    }",
 				`metadata MigrationMetadata::LibraryNameAvoided about ScalarValuesModel { sourceName = "ScalarValues"; }`}, Mapped, ""},
 		{"a diagram of a user stereotype is written in its metadata def",
 			`<packagedElement xmi:type="uml:Profile" xmi:id="_marks" name="Marks">
@@ -266,7 +266,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Modes", "_sm", "SysML State Machine Diagram", "_idle"),
-			[]string{"part def Controller {\n    state def Modes {\n        view Modes : StandardViewDefinitions::StateTransitionView {\n            expose Controller::Modes;\n            render Views::asInterconnectionDiagram;\n        }", "exhibit state modes : Modes;"}, Mapped,
+			[]string{"occurrence def Controller {\n    state def Modes {\n        view Modes : StandardViewDefinitions::StateTransitionView {\n            expose Controller::Modes;\n            render Views::asInterconnectionDiagram;\n        }", "exhibit state modes : Modes;"}, Mapped,
 			"the view exposes state def Controller::Modes, whose graph the rendering draws with the 1 shown nodes and edges of it"},
 		{"an activity diagram of a package draws no graph",
 			``, diagram("_d", "Flows", "_sys", "SysML Activity Diagram", "_pump"),
@@ -328,7 +328,7 @@ func TestDiagramNotesDoNotNameOmittedVertices(t *testing.T) {
 		strict   bool
 		anchored bool
 	}{
-		{name: "strict", strict: true, anchored: true},
+		{name: "strict", strict: true},
 		{name: "non-strict", anchored: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -348,6 +348,13 @@ func TestDiagramNotesDoNotNameOmittedVertices(t *testing.T) {
 			}
 			r := FromModelOptions("diagrams.xmi", model, Options{Strict: tc.strict})
 			got := string(r.Notation)
+			if tc.strict {
+				// A strict migration writes no layout, DiagramLayout being OpenSysML's.
+				if strings.Contains(got, "DiagramLayout") {
+					t.Errorf("strict notation names DiagramLayout:\n%s", got)
+				}
+				return
+			}
 			anchored := strings.Contains(got, "metadata DiagramLayout::Note about")
 			if anchored != tc.anchored {
 				t.Errorf("note anchored = %t, want %t:\n%s", anchored, tc.anchored, got)
@@ -480,14 +487,15 @@ func TestExposeOfUnhostedDiagramFailsPerClient(t *testing.T) {
 
 func TestLayoutClauseWording(t *testing.T) {
 	for _, tc := range []struct {
-		written, unexposed, dangling, total int
-		want                                string
+		written, unexposed, dangling, onEdges, total int
+		want                                         string
 	}{
-		{1, 0, 0, 1, "1 of 1 shown elements positioned"},
-		{1, 1, 1, 3, "1 of 3 shown elements positioned (1 not exposed, 1 resolving to no element)"},
-		{0, 2, 0, 2, "0 of 2 shown elements positioned (2 not exposed)"},
+		{1, 0, 0, 0, 1, "1 of 1 shown elements positioned"},
+		{1, 1, 1, 0, 3, "1 of 3 shown elements positioned (1 not exposed, 1 resolving to no element)"},
+		{0, 2, 0, 0, 2, "0 of 2 shown elements positioned (2 not exposed)"},
+		{2, 0, 0, 2, 4, "2 of 4 shown elements positioned (2 lying on connections)"},
 	} {
-		got := layoutClause(tc.written, tc.unexposed, tc.dangling, tc.total)
+		got := layoutClause(tc.written, tc.unexposed, tc.dangling, tc.onEdges, tc.total)
 		if got != tc.want {
 			t.Errorf("layoutClause = %q, want %q", got, tc.want)
 		}

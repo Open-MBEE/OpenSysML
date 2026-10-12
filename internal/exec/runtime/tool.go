@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -409,7 +410,10 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 		reads := param.Direction == ast.DirIn || param.Direction == ast.DirInOut
 		writes := param.Direction == ast.DirOut || param.Direction == ast.DirInOut
 		if reads {
-			held, bound := e.root.data[e.root.key(name)]
+			held, bound, err := e.ctx.readBodyValue(e.root.cells, e.root.data, e.root.key(name))
+			if err != nil {
+				return nil, err
+			}
 			if !bound && !e.ctx.model.semantics.OptionalParameter(param.Symbol) {
 				return nil, fmt.Errorf("%w: action %s: input parameter %s is bound by no argument",
 					ErrUnboundParameter, symbolText(e.performed), name)
@@ -452,17 +456,24 @@ func (ctx *Context) toolPerformance(performed, callee *symbols.Symbol) (*symbols
 	return nil, nil, nil
 }
 
-// performanceBody is the action a performance of performed, of callee, holds the features
-// of: the body callee states, or under a tool, which runs no body, the declaration it binds.
-func (ctx *Context) performanceBody(performed, callee *symbols.Symbol) (*symbols.Symbol, *toolExecution, error) {
+// performanceBody is the selected lowered flow for a performance, or a tool's action interface.
+func (ctx *Context) performanceBody(performed, callee *symbols.Symbol) (*symbols.Symbol, *toolExecution, *lower.ActionGraph, error) {
 	held, tool, err := ctx.toolPerformance(performed, callee)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if tool != nil {
-		return held, tool, nil
+		graph, err := lower.ToActionInterface(held.Decl, DeclScope(held))
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("lower action interface: %w", err)
+		}
+		return held, tool, graph, nil
 	}
-	return ctx.actionBodySymbol(callee), nil, nil
+	body, graph, err := ctx.actionBodyGraph(callee)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return body, nil, graph, nil
 }
 
 // performanceInterface is the declaration whose parameters a performance of performed, of

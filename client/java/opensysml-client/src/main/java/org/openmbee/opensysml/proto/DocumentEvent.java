@@ -66,7 +66,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object kind_ = "";
   /**
    * <pre>
-   * "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+   * "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
    * </pre>
    *
    * <code>string kind = 1 [json_name = "kind"];</code>
@@ -87,7 +87,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+   * "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
    * </pre>
    *
    * <code>string kind = 1 [json_name = "kind"];</code>
@@ -1321,7 +1321,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object kind_ = "";
     /**
      * <pre>
-     * "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+     * "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
      * </pre>
      *
      * <code>string kind = 1 [json_name = "kind"];</code>
@@ -1341,7 +1341,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+     * "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
      * </pre>
      *
      * <code>string kind = 1 [json_name = "kind"];</code>
@@ -1362,7 +1362,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+     * "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
      * </pre>
      *
      * <code>string kind = 1 [json_name = "kind"];</code>
@@ -1379,7 +1379,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+     * "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
      * </pre>
      *
      * <code>string kind = 1 [json_name = "kind"];</code>
@@ -1393,7 +1393,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+     * "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
      * </pre>
      *
      * <code>string kind = 1 [json_name = "kind"];</code>

@@ -1,0 +1,9 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [{"signal": "Reset"}],
+  "finalState": "inner",
+  "outputs": {
+    "log": {"type": "Integer", "value": 12313}
+  }
+}

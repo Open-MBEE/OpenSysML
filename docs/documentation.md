@@ -1,5 +1,5 @@
 ---
-description: OpenSysML guide, manual, reference, internals and project documentation.
+description: OpenSysML REDK guide, manual, reference, internals and project documentation.
 ---
 
 # Documentation

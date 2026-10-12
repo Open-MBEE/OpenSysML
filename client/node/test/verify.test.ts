@@ -209,3 +209,55 @@ test("verifyRequirement reports the verdicts of the case verifying it", async ()
   assert.ok(verdict.verdict.verifications.length > 0);
   assert.ok(verdict.verdict.verifications.some((v) => /checkZero/.test(v.caseId)));
 });
+
+const BOUND = `package Demo {
+    private import ScalarValues::*;
+    part def Thing { attribute v : Integer = 2; }
+    part t : Thing;
+    requirement def Under {
+        subject s : Thing;
+        in limit : Integer;
+        in slack : Integer = 0;
+        require constraint { s.v + slack < limit }
+    }
+    constraint def Between {
+        in low : Integer;
+        in high : Integer = 10;
+        low < high
+    }
+}`;
+
+test("arguments bind a requirement's and a constraint's in parameters", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(BOUND);
+  const holds = await model.verifyRequirement("Demo::Under", {
+    subject: "Demo::t",
+    namedArguments: { limit: 5n },
+  });
+  assert.equal(holds.verdict.kind, "holds", holds.verdict.kind === "undecided" ? holds.verdict.error : "");
+  const fails = await model.verifyRequirement("Demo::Under", {
+    subject: "Demo::t",
+    arguments: [5n, 4n],
+  });
+  assert.equal(fails.verdict.kind, "fails", fails.verdict.kind);
+  const between = await model.verifyConstraint("Demo::Between", { arguments: [3n] });
+  assert.equal(between.verdict.kind, "holds", between.verdict.kind);
+  const unknown = await model.verifyRequirement("Demo::Under", {
+    subject: "Demo::t",
+    namedArguments: { limit: 5n, bound: 1n },
+  });
+  assert.equal(unknown.verdict.kind, "undecided");
+  assert.match(unknown.verdict.error, /bound/);
+});
+
+test("arguments are refused before the call without verification_arguments", async () => {
+  const conn = await fakeConnection(["verification"]);
+  await assert.rejects(
+    () => conn.verifyRequirement("hash", "r", { namedArguments: { limit: 5n } }),
+    MissingCapabilityError,
+  );
+  await assert.rejects(
+    () => conn.verifyConstraint("hash", "c", { arguments: [3] }),
+    MissingCapabilityError,
+  );
+});

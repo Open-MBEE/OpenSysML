@@ -4,6 +4,6 @@
   "slots": {
     "base": {"type": "Integer", "value": 8},
     "total": {"type": "Integer", "value": 10},
-    "margin": {"type": "Real", "value": 5.0}
+    "margin": {"type": "Rational", "value": "5.0"}
   }
 }

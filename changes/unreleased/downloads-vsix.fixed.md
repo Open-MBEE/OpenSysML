@@ -1,2 +1,0 @@
-- The downloads page now links the prebuilt `opensysml-sysml.vsix` from the nightly release.
-- The install guide now points at the downloads page for the full list of artifacts and package-manager routes.

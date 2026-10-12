@@ -13,9 +13,9 @@ import (
 )
 
 // tableDiagramDocument is a report whose captioned artwork is, in order, two
-// table-kind diagrams, a Mermaid diagram, a table whose caption is padded to
-// CommonMark's indented-code width, a table whose caption is blank and a
-// captioned table, with an emphasized paragraph of prose between them that
+// table-kind diagrams, a Mermaid diagram, a matrix diagram, a table whose
+// caption is padded to CommonMark's indented-code width, a table whose caption
+// is blank and a captioned table, with emphasized prose between them that
 // repeats a caption's text.
 func tableDiagramDocument(t *testing.T) *docir.Document {
 	t.Helper()
@@ -23,6 +23,7 @@ func tableDiagramDocument(t *testing.T) *docir.Document {
 	private import DocumentQueries::*;
 	private import KerML::Root::Element;
 	private import ScalarValues::*;
+	private import StandardViewDefinitions::*;
 
 	part def Subsystem { attribute mass : Real; }
 	part imagingChain {
@@ -31,6 +32,12 @@ func tableDiagramDocument(t *testing.T) *docir.Document {
 		connect optics to sensor;
 	}
 	part emptyChain;
+	view def RelationshipMatrix :> GridView {
+		filter @SysML::ConnectionUsage;
+	}
+	view imagingMatrix : RelationshipMatrix {
+		expose imagingChain::**;
+	}
 
 	calc def Names :> Query {
 		in root : Element;
@@ -57,6 +64,10 @@ func tableDiagramDocument(t *testing.T) *docir.Document {
 			attribute redefines kind = "interconnection";
 			ref redefines source = imagingChain;
 		}
+		part relationships : Diagram {
+			attribute redefines caption = "Relationships";
+			ref redefines source = imagingMatrix;
+		}
 		part names : Table {
 			attribute redefines caption = "    Subsystems by name ";
 			calc rows : Names { in root = imagingChain; }
@@ -75,7 +86,7 @@ func tableDiagramDocument(t *testing.T) *docir.Document {
 }
 
 // TestArtworkFilterMarksCaptionsPastTableRenderings runs the caption filter
-// under an installed pandoc over a document whose table-kind diagrams put a
+// under an installed pandoc over a document whose table and matrix diagrams put a
 // rendering comment between caption and table, and checks every caption is
 // marked while the emphasized prose between them is not.
 func TestArtworkFilterMarksCaptionsPastTableRenderings(t *testing.T) {
@@ -85,14 +96,21 @@ func TestArtworkFilterMarksCaptionsPastTableRenderings(t *testing.T) {
 	}
 	document := tableDiagramDocument(t)
 	captions := docrender.Captions(document, false)
-	if want := []string{"Masses", "Everything else", "Imaging chain", "Subsystems by name", "Total mass"}; strings.Join(captions, "|") != strings.Join(want, "|") {
+	if want := []string{"Masses", "Everything else", "Imaging chain", "Relationships", "Subsystems by name", "Total mass"}; strings.Join(captions, "|") != strings.Join(want, "|") {
 		t.Fatalf("captions = %q, want %q", captions, want)
 	}
 	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"*Masses*\n\n<!-- table rendering", "*Everything else*\n\n<!-- table rendering", "\n*Subsystems by name*\n", "*Total mass*\n\n|"} {
+	for _, want := range []string{
+		"*Masses*\n\n<!-- table rendering",
+		"*Everything else*\n\n<!-- table rendering",
+		"*Relationships*\n\n<!-- Tables::imagingMatrix — matrix rendering",
+		"| Source / Target |",
+		"\n*Subsystems by name*\n",
+		"*Total mass*\n\n|",
+	} {
 		if !strings.Contains(markdown, want) {
 			t.Fatalf("Markdown lacks %q:\n%s", want, markdown)
 		}

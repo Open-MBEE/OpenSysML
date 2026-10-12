@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::Narrow",
+	"outputs": {
+		"c": {"type": "Integer", "value": 2}
+	}
+}

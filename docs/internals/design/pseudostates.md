@@ -24,7 +24,10 @@ Pseudostates are transient vertices in state machines that enable complex contro
 - Used to merge multiple incoming transitions or split paths
 - Several enabled branches are a transition choice point (`ChoiceTaken` at the junction,
   enumerated by `explore`); an unguarded branch is the else branch
-- No enabled branch disables the compound transition (PSSM *Junction 002*)
+- No enabled branch on the transition's own route disables it; a junction on a composite's
+  nested default entry belongs to a separate transition out of `entry`, is read after the outer
+  effect and composite entry, and fails at run time with a typed no-way-through error if no
+  branch is enabled (SM46; PSSM *Junction 002* differs by design)
 
 ### Semantics
 
@@ -134,11 +137,14 @@ choice point at the junction the schedule policy draws and records only as the t
 candidate another region's reaction disarms draws nothing; the unguarded segments are the
 default when no guard holds — and goes on until the route reaches a state or a choice. The
 guards read the data as it stands before the incoming transition's effect. If no static
-branch is available, only `errNoWayThrough` leaves the compound transition unenabled before
-selection; the occurrence remains available to another enabled transition, deferral, or unmatched
-discard. A completion with no path is dropped. A history default route is checked this way only
-when the source is outside the history owner, because leaving the owner may record the history
-before its default route is read (see the precise-semantics alignment note, SM29 and SM32).
+branch is available on the transition's own route, only `errNoWayThrough` leaves that transition
+unenabled before selection; the occurrence remains available to another enabled transition,
+deferral, or unmatched discard. A completion with no path is dropped. A junction on a composite's
+nested default entry is read when its separate entry transition is taken, after the outer effect
+and composite entry; if no branch is enabled, the run fails with a typed no-way-through error
+(SM46). A history default route is checked this way only when the source is outside the history
+owner, because leaving the owner may record the history before its default route is read (see the
+precise-semantics alignment note, SM29, SM32 and SM46).
 
 **Choice evaluation** is dynamic. `followOut` leaves the route open at a choice. Firing
 (`travel`) then exits the states every branch of the open choice leaves — the source's ancestors
@@ -256,9 +262,10 @@ package JunctionTest {
 2. **Junction:**
    - Guards read before the incoming transition fires, in definition order; several holding is a
      recorded choice point, as at a choice
-   - No way through leaves the compound transition unenabled before selection, so the occurrence
-     is handled as unmatched: another enabled transition may take it, it may be deferred, or it
-     may be discarded; a completion with no way through is dropped
+   - No way through on the transition's own route leaves it unenabled before selection, so the
+     occurrence is handled as unmatched: another enabled transition may take it, it may be
+     deferred, or it may be discarded; a completion with no way through is dropped. A dead
+     junction on a nested default entry instead fails when that entry transition is taken (SM46)
    - Only `errNoWayThrough` disables; route cycles, unevaluable guards and binding failures remain
      run errors, and static route checking stops at the first choice
 

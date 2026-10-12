@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const (
@@ -1100,11 +1101,7 @@ func (c *compiler) optionalLabels(member *symbols.Symbol) ([]string, error) {
 	labels := make([]string, 0, len(literals))
 	for _, literal := range literals {
 		text, ok := literal.(*ast.LiteralString)
-		label, err := "", error(nil)
-		if ok {
-			label, err = strconv.Unquote(text.Value)
-		}
-		if !ok || err != nil {
+		if !ok {
 			return nil, &Error{
 				Kind:      ErrorInvalidColumnLabels,
 				Document:  c.document,
@@ -1113,7 +1110,7 @@ func (c *compiler) optionalLabels(member *symbols.Symbol) ([]string, error) {
 				Origin:    candidate.Origin(),
 			}
 		}
-		labels = append(labels, label)
+		labels = append(labels, source.StringValue(text.Value))
 	}
 	return labels, nil
 }
@@ -1251,11 +1248,7 @@ func literalStrings(value queryplan.Expression) ([]string, bool) {
 	}
 	if value.Operation() == queryplan.OperationLiteral {
 		if kind, raw := value.Literal(); kind == queryplan.LiteralString {
-			text, err := strconv.Unquote(raw)
-			if err != nil {
-				return nil, false
-			}
-			return []string{text}, true
+			return []string{source.StringValue(raw)}, true
 		}
 	}
 	return nil, false
@@ -1483,6 +1476,10 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 	if err != nil {
 		return Content{}, err
 	}
+	overlayText, overlayStated, err := c.optionalText(member, "overlay")
+	if err != nil {
+		return Content{}, err
+	}
 	source, err := c.diagramSource(member)
 	if err != nil {
 		return Content{}, err
@@ -1609,6 +1606,29 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			}
 		}
 		reference.ports = ports
+	}
+	if overlayStated {
+		overlay, ok := view.ParseOverlay(overlayText)
+		if !ok || overlayText == "" {
+			return Content{}, &Error{
+				Kind:     ErrorInvalidOverlay,
+				Document: c.document,
+				Content:  symbols.FQNOf(member),
+				Actual:   overlayText,
+				Origin:   member.Origin(),
+			}
+		}
+		if !reference.kind.SupportsOverlay(overlay) {
+			return Content{}, &Error{
+				Kind:     ErrorUnsupportedOverlay,
+				Document: c.document,
+				Content:  symbols.FQNOf(member),
+				Expected: string(reference.kind),
+				Actual:   overlayText,
+				Origin:   member.Origin(),
+			}
+		}
+		reference.overlay = overlay
 	}
 	if err := c.rejectQuery(member); err != nil {
 		return Content{}, err
@@ -2026,11 +2046,7 @@ func (c *compiler) bindingValue(
 	case *ast.FeatureChainExpr:
 		return c.chainBinding(content, member, entry, parameter, expression, origin)
 	case *ast.LiteralString:
-		text, err := strconv.Unquote(expression.Value)
-		if err != nil {
-			return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
-		}
-		return BindingValue{kind: BindingString, text: text, origin: origin}, nil
+		return BindingValue{kind: BindingString, text: source.StringValue(expression.Value), origin: origin}, nil
 	case *ast.LiteralInteger:
 		integer, ok := semantics.ParseInteger(expression.Value)
 		if !ok {
@@ -2038,11 +2054,11 @@ func (c *compiler) bindingValue(
 		}
 		return BindingValue{kind: BindingInteger, integer: integer, origin: origin}, nil
 	case *ast.LiteralReal:
-		realVal, err := strconv.ParseFloat(expression.Value, 64)
+		rational, err := semantics.ParseRational(expression.Value, semantics.DefaultMaxIntegerBits)
 		if err != nil {
 			return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 		}
-		return BindingValue{kind: BindingReal, real: realVal, origin: origin}, nil
+		return rationalBinding(rational, origin), nil
 	case *ast.LiteralBool:
 		return BindingValue{kind: BindingBoolean, boolean: expression.Value, origin: origin}, nil
 	case *ast.OperatorExpr:
@@ -2076,11 +2092,11 @@ func (c *compiler) signedBinding(
 		}
 		return BindingValue{kind: BindingInteger, integer: integer, origin: origin}, nil
 	case *ast.LiteralReal:
-		realVal, err := strconv.ParseFloat(sign+operand.Value, 64)
+		rational, err := semantics.ParseRational(sign+operand.Value, semantics.DefaultMaxIntegerBits)
 		if err != nil {
 			return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 		}
-		return BindingValue{kind: BindingReal, real: realVal, origin: origin}, nil
+		return rationalBinding(rational, origin), nil
 	default:
 		return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 	}
@@ -2216,6 +2232,14 @@ func (c *compiler) valueConforms(value BindingValue, expected string) bool {
 	return false
 }
 
+// rationalBinding binds a decimal literal's exact value, an Integer when it is one.
+func rationalBinding(value semantics.Value, origin symbols.Origin) BindingValue {
+	if value.Kind == semantics.ValInt {
+		return BindingValue{kind: BindingInteger, integer: value, origin: origin}
+	}
+	return BindingValue{kind: BindingRational, integer: value, origin: origin}
+}
+
 func scalarBindingType(value BindingValue) (semantics.PrimType, bool) {
 	switch value.Kind() {
 	case BindingBoolean:
@@ -2224,6 +2248,8 @@ func scalarBindingType(value BindingValue) (semantics.PrimType, bool) {
 		return semantics.PrimString, true
 	case BindingInteger:
 		return semantics.PrimInteger, true
+	case BindingRational:
+		return semantics.PrimRational, true
 	case BindingReal:
 		return semantics.PrimReal, true
 	default:
@@ -2279,11 +2305,7 @@ func (c *compiler) attributeText(
 		if !ok {
 			return "", false, c.invalidAttribute(member, candidate, attribute)
 		}
-		text, err := strconv.Unquote(literal.Value)
-		if err != nil {
-			return "", false, c.invalidAttribute(member, candidate, attribute)
-		}
-		return text, true, nil
+		return source.StringValue(literal.Value), true, nil
 	}
 	for _, target := range c.model.RedefinedFeatures(candidate) {
 		text, stated, err := c.attributeText(member, target, attribute, seen)

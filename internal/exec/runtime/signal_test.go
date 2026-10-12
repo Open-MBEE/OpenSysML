@@ -12,6 +12,51 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
+func TestMessageSerialsStayMonotonicAcrossSnapshotRestore(t *testing.T) {
+	_, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, "package P {}"))
+	trace := NewTraceRecorder()
+	ctx.SetTrace(trace)
+	ctx.PostMessage(Message{SignalType: "Ping"})
+	snapshot, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	defer snapshot.Release()
+
+	ctx.PostMessage(Message{SignalType: "Ping"})
+	snapshot.Restore()
+	ctx.PostMessage(Message{SignalType: "Ping"})
+
+	messages := ctx.PendingMessages()
+	if len(messages) != 2 || messages[0].Serial != 1 || messages[1].Serial != 3 {
+		t.Fatalf("pending messages = %+v, want serials 1 and 3", messages)
+	}
+	records := trace.Records()
+	if len(records) != 2 || records[0].Message != 1 || records[1].Message != 3 {
+		t.Fatalf("send records = %+v, want serials 1 and 3", records)
+	}
+}
+
+func TestMessageSerialsStayMonotonicAcrossJournalRollback(t *testing.T) {
+	_, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, "package P {}"))
+	trace := NewTraceRecorder()
+	ctx.SetTrace(trace)
+	ctx.PostMessage(Message{SignalType: "Ping"})
+	_, rollback := ctx.beginJournal()
+	ctx.PostMessage(Message{SignalType: "Ping"})
+	rollback()
+	ctx.PostMessage(Message{SignalType: "Ping"})
+
+	messages := ctx.PendingMessages()
+	if len(messages) != 2 || messages[0].Serial != 1 || messages[1].Serial != 3 {
+		t.Fatalf("pending messages = %+v, want serials 1 and 3", messages)
+	}
+	records := trace.Records()
+	if len(records) != 2 || records[0].Message != 1 || records[1].Message != 3 {
+		t.Fatalf("send records = %+v, want serials 1 and 3", records)
+	}
+}
+
 // A message built outside a send carries its payload by feature name: a feature
 // redefined under another name is one slot, reported when two entries name it
 // rather than resolved by map order, and an entry naming no feature is refused.
@@ -2351,7 +2396,7 @@ func testActionSendCallsLibraryTypedFeature(t *testing.T, decls string) {
 	if err != nil {
 		t.Fatalf("execute action: %v", err)
 	}
-	if got := outputs["got"]; got.Const.Kind != semantics.ValReal || got.Const.Real != 4 {
+	if got := outputs["got"]; got.Const.Kind != semantics.ValReal || got.Const.AsReal() != 4 {
 		t.Errorf("got = %+v, want 4.0", got)
 	}
 	if pending := ctx.PendingMessages(); len(pending) != 0 {

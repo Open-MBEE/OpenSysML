@@ -144,7 +144,7 @@ func reservedNumber(call *runtime.ToolCall, in runtime.ToolInput, unit string) (
 	switch value.Kind {
 	case semantics.ValReal:
 		return value.Real, nil
-	case semantics.ValInt:
+	case semantics.ValInt, semantics.ValRational:
 		return value.AsReal(), nil
 	}
 	return 0, &runtime.ToolError{Tool: call.ToolName, Kind: runtime.ToolUnsentInput,
@@ -210,7 +210,8 @@ func scalarValue(call *runtime.ToolCall, in runtime.ToolInput, d *Description, v
 		switch tv.Value.Kind {
 		case semantics.ValReal:
 			return tv.Value.Real, nil
-		case semantics.ValInt:
+		// An FMU Real variable is a binary64, so an exact Rational crosses it rounded once.
+		case semantics.ValInt, semantics.ValRational:
 			return tv.Value.AsReal(), nil
 		}
 	case KindInteger, KindEnumeration:

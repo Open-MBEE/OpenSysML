@@ -19,4 +19,5 @@ digraph "VehicleViews::vehicleView" {
   "n7" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>cylinder : Cylinder</b>>, URL="https://example.test/src/tree.sysml#L6", tooltip="Vehicles::Engine::cylinder"];
   "n5" -> "n7" [arrowhead=none];
   "n4" -> "n5" [arrowhead=none];
+  "n0" -> "n5" [label="engine", dir=back, arrowtail=diamond, URL="https://example.test/src/tree.sysml#L12", tooltip="Vehicles::Vehicle::engine"];
 }

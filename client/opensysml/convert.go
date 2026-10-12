@@ -6,6 +6,7 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // The conversions from the wire types to the public ones. Every conversion
@@ -98,6 +99,12 @@ func valueFromProto(value *pb.Value) Value {
 			return Null("unsupported: a big integer that is not decimal")
 		}
 		return NewInteger(n)
+	case *pb.Value_RationalValue:
+		rational, ok := rationalFromProto(kind.RationalValue)
+		if !ok {
+			return Null("unsupported: a rational that is not in lowest terms")
+		}
+		return rational
 	case *pb.Value_RealValue:
 		return Real(kind.RealValue)
 	case *pb.Value_Complex:
@@ -238,6 +245,8 @@ func valueToProto(value Value) (*pb.Value, error) {
 			return &pb.Value{Kind: &pb.Value_IntValue{IntValue: n.Int64()}}, nil
 		}
 		return &pb.Value{Kind: &pb.Value_BigIntValue{BigIntValue: n.String()}}, nil
+	case Rational:
+		return &pb.Value{Kind: &pb.Value_RationalValue{RationalValue: rationalToProto(v)}}, nil
 	case Real:
 		return &pb.Value{Kind: &pb.Value_RealValue{RealValue: float64(v)}}, nil
 	case Complex:
@@ -386,6 +395,8 @@ func quantityToProto(quantity Quantity) (*pb.Quantity, error) {
 		} else {
 			out.Magnitude = &pb.Quantity_BigIntMagnitude{BigIntMagnitude: n.String()}
 		}
+	case Rational:
+		out.Magnitude = &pb.Quantity_RationalMagnitude{RationalMagnitude: rationalToProto(magnitude)}
 	case Real:
 		out.Magnitude = &pb.Quantity_RealMagnitude{RealMagnitude: float64(magnitude)}
 	default:
@@ -454,6 +465,12 @@ func quantityFromProto(quantity *pb.Quantity) (Quantity, bool) {
 			return Quantity{}, false
 		}
 		out.Magnitude = NewInteger(n)
+	case *pb.Quantity_RationalMagnitude:
+		rational, ok := rationalFromProto(magnitude.RationalMagnitude)
+		if !ok {
+			return Quantity{}, false
+		}
+		out.Magnitude = rational
 	case *pb.Quantity_RealMagnitude:
 		out.Magnitude = Real(magnitude.RealMagnitude)
 	default:
@@ -532,4 +549,20 @@ func migrationReportFromProto(report *pb.MigrationReport) *MigrationReport {
 		}
 	}
 	return out
+}
+
+// rationalToProto marshals a Rational in lowest terms.
+func rationalToProto(q Rational) *pb.Rational {
+	r := q.Rat()
+	return &pb.Rational{Numerator: r.Num().String(), Denominator: r.Denom().String()}
+}
+
+// rationalFromProto is false for a Rational not in lowest terms or one a double
+// holds exactly, which a service never sends.
+func rationalFromProto(pr *pb.Rational) (Rational, bool) {
+	v, ok := semantics.CanonicalRational(pr.GetNumerator(), pr.GetDenominator())
+	if !ok {
+		return Rational{}, false
+	}
+	return Rational{r: v.Rat()}, true
 }

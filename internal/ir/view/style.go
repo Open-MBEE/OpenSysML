@@ -88,7 +88,7 @@ func (f Form) TakesStyle() bool { return f == FormDot || f == FormMermaid }
 func (r *Rendering) countStyled() (nodes, edges int) {
 	var walk func(node *Node)
 	walk = func(node *Node) {
-		if node.Style != nil {
+		if node.Style != nil && !node.verdictStyled {
 			nodes++
 		}
 		for _, child := range node.Children {
@@ -119,7 +119,17 @@ func (r *Rendering) visualNotices(what string, withNotes bool) []string {
 		notices = append(notices, fmt.Sprintf("%d note(s); the dot form draws notes", len(r.Notes)))
 	}
 	if withNotes && len(r.Pictures) > 0 {
-		notices = append(notices, pictureNotice(r.Pictures, "the dot form draws pictures"))
+		refusals := r.pictureRefusals()
+		notices = append(notices, refusedPictureNotices(r.Pictures, refusals)...)
+		drawable := make([]Picture, 0, len(r.Pictures))
+		for i, picture := range r.Pictures {
+			if refusals[i] == nil {
+				drawable = append(drawable, picture)
+			}
+		}
+		if len(drawable) > 0 {
+			notices = append(notices, pictureNotice(drawable, "the dot form draws pictures"))
+		}
 	}
 	return notices
 }
@@ -207,6 +217,14 @@ func cameoFrameKind(kind Kind) string {
 		return "stm"
 	case KindAction:
 		return "act"
+	case KindRequirement:
+		return "req"
+	case KindDefinition:
+		return "bdd"
+	case KindPackage:
+		return "pkg"
+	case KindCase:
+		return "uc"
 	}
 	return string(kind)
 }

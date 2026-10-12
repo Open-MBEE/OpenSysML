@@ -52,11 +52,12 @@ The registry as it stands:
 | SI-137 | `Domain Libraries/Quantities and Units/SI.sysml`:137 | KerML 7.4.9 | corrected — `eV*m^-2/kg` → `eV*m^2/kg` |
 | SI-149 | `Domain Libraries/Quantities and Units/SI.sysml`:149 | KerML 7.4.9 | documented without a correction |
 | SI-163 | `Domain Libraries/Quantities and Units/SI.sysml`:163 | KerML 7.4.9 | documented without a correction |
-| SI-233 | `Domain Libraries/Quantities and Units/SI.sysml`:233 | KerML 7.4.9 | documented without a correction |
+| SI-233 | `Domain Libraries/Quantities and Units/SI.sysml`:233 | KerML 7.4.9 | corrected — `: MagneticDipoleMomentUnit` → `: ISQAtomicNuclear::MagneticDipoleMomentUnit` |
 | SI-239 | `Domain Libraries/Quantities and Units/SI.sysml`:239 | KerML 7.4.9 | documented without a correction |
 | SI-247 | `Domain Libraries/Quantities and Units/SI.sysml`:247 | KerML 7.4.9 | corrected — `m^3/C*m^3*s^-1*A^-1` → `m^3/C` |
 | SI-286 | `Domain Libraries/Quantities and Units/SI.sysml`:286 | KerML 7.4.9 | documented without a correction |
 | SI-299 | `Domain Libraries/Quantities and Units/SI.sysml`:299 | KerML 7.4.9 | documented without a correction |
+| SI-303 | `Domain Libraries/Quantities and Units/SI.sysml`:303 | KerML 7.2.5.4 | corrected — `: MagneticDipoleMomentUnit` → `: ISQElectromagnetism::MagneticDipoleMomentUnit` |
 | USCustomaryUnits-255 | `Domain Libraries/Quantities and Units/USCustomaryUnits.sysml`:255 | SysML v2 §9.8.9.1 | corrected — `229835/900 [K]` → `(229835/900) [K]` |
 
 The library entries are derived in [omg-issues.md](omg-issues.md) under "Defects in the vendored
@@ -100,11 +101,15 @@ verification failed and the entry was removed rather than re-pointed.
 - **Errata are not a reclassification route.** The overlay changes no category in
   [the adjudications record](adjudications.md)'s terms and no analyzer behaviour. F82 stays a
   true positive of ours; what the overlay records is that the *examples* are wrong.
-- **A library correction is only declared for a line the checker rejects.** Two gates
-  in `internal/workspace/model` pin the expression type checker's verdict on the standard
-  library as exact sets: all nine findings over the published text, and exactly the
-  six documented-only ones over the bundled library. A correction the checker still
-  reports at, or a finding that vanishes without an entry, fails a gate.
+- **A library correction is only declared for a line the checker rejects, or a line whose
+  type name the library hides.** Three gates in `internal/workspace/model` pin the expression
+  type checker's verdict on the standard library as exact sets: all nine findings over the
+  published text, exactly the five documented-only ones over the bundled library, and every
+  correction accounted for as one of those findings or as a listed hidden-name correction — a
+  line naming a member two imports bring, which KerML 7.2.5.4 hides from the importing
+  namespace (`SI.sysml`:303, the one such line). A correction the checker still reports at, a
+  finding that vanishes without an entry, or a correction of a line nothing rejects, fails a
+  gate.
 
 ## Both figures, and which one is the statement
 

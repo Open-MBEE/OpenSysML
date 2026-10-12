@@ -1,4 +1,9 @@
 {
 	"type": "action",
-	"error": "has multiple successors"
+	"trace": true,
+	"outputs": {
+		"level": {"type": "Integer", "value": 12},
+		"low": {"type": "Integer", "value": 1},
+		"high": {"type": "Integer", "value": 1}
+	}
 }

@@ -87,10 +87,18 @@ $ sysml -satisfy checks.sysml
   standing: violated (witnessed: 1 run under reverse)
 ```
 
-`-self-check` applies the 41 constraints in OpenSysML's `SysMLValidation` library to every
+`-self-check` applies the 50 constraints in OpenSysML's `SysMLValidation` library to every
 reflectively classified element in the workspace. A clean run reports the number of checked
 elements and applications; constraints whose reflective features are not derived are counted
 as unevaluated rather than treated as violations. See the [validation-constraint census page](../project/validation-constraints.md).
+
+`-self-check-package <QualifiedName>` adds the `constraint def`s of a package the loaded
+files declare — nested packages included — to the same walk; it implies `-self-check` and
+is repeatable. A rule is a `constraint def` whose first `in` parameter is typed by a
+`SysML::…` or `KerML::…` metaclass, and it applies to every element that metaclass conforms
+to; its verdicts carry the constraint's qualified name. See
+[Writing self-check rules](../reference/cli.md#writing-self-check-rules) and the worked
+example in `examples/self-check-rules/`.
 
 The `standing:` line under each verdict says what the verdict rests on: the claim, the strength
 of the evidence and what earned it. One run under the default schedule is *observed* evidence
@@ -216,9 +224,13 @@ OpenSysML accepts several notations of its own that no SysML v2 production admit
 what the `StateMachines` library states as metadata — `#choice state pick;` and
 friends — reported as warnings that name the replacement, so a model that uses them
 still analyses cleanly. `-strict` promotes those warnings
-to errors, which turns the run into a test of whether the file is conforming SysML v2. The flag
+to errors, which turns the run into a test of whether the file is conforming SysML v2. It also
+promotes the one well-formedness warning the default mode keeps a warning: a namespace whose
+memberships are indistinguishable (`Duplicate of other owned member name` and its alias and
+inherited wordings, [Duplicate member names](../reference/diagnostics.md#duplicate-member-names)),
+which KerML's `validateNamespaceDistinguishibility` forbids. The flag
 applies to `-migrate` too: a strict SysML v1 migration writes no extension notation
-at all — see [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict).
+at all and refers to no OpenSysML library — see [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict); `-portable` instead appends the OpenSysML library packages a default migration refers to, so the one file loads elsewhere unchanged.
 
 The state machine below uses the `choice` extension so the difference is visible:
 
@@ -260,7 +272,30 @@ is added. `-strict` does not
 change what parses: the same file produces the same tree and the same findings in the same
 places. Only their severity changes, and with it the exit status and the tier gate. It is a
 portability check, so turn it on when another SysML v2 tool has to read the model and leave
-it off otherwise. Each finding names the standard notation to use instead, and
+it off otherwise.
+
+The same promotion applies to a namespace that declares one name twice, which the specification
+makes ill-formed (KerML §8.3.2.4.5, "All memberships of a Namespace must be distinguishable
+from each other") and the default mode reports as a warning so that published corpora still
+analyse cleanly:
+
+```bash
+$ sysml -strict -validate dup.sysml; echo "exit=$?"
+dup.sysml:2:14: error: Duplicate of other owned member name
+    part def A;
+             ^
+dup.sysml:3:14: error: Duplicate of other owned member name
+    part def A;
+             ^
+sysml: dup.sysml did not analyse cleanly; no check was made
+exit=2
+```
+
+Two members whose metaclasses are unrelated — `part def A;` beside `attribute def A;` — are
+distinguishable whatever their names and draw nothing in either mode. A collision between two
+*imported* names stays a warning under `-strict`: KerML §7.2.5.4 hides both from the importing
+namespace rather than leaving it ill-formed, and the warning marks where OpenSysML binds the
+first import's member instead. Each finding names the standard notation to use instead, and
 [the conformance audit](../reference/grammar/conformance-audit.md) cites the grammar production
 each extension is measured against. The same setting is available as `%strict` at the prompt
 ([4. The REPL](04-repl.md)), as the `sysml.strictConformance` editor setting
@@ -269,13 +304,16 @@ each extension is measured against. The same setting is available as `%strict` a
 
 ## Lints
 
-Three further warnings, `undeclared-signal`, `port-type-mismatch` and
-`deferred-keeper-unmarked`, are *lints*: the model is valid SysML v2, but a `when <name>` that
-no declaration or `send` accounts for, a connection between ports whose definitions are
-unrelated, or a deferred signal's accept loop written without the `DeferredKeeper` marker that
-names it as the keeper, is almost always a slip. `-strict` leaves them warnings, since they are not about notation.
+Four further warnings, `undeclared-signal`, `port-type-mismatch`,
+`deferred-keeper-unmarked` and `rounded-real-literal`, are *lints*: the model is valid SysML v2,
+but a `when <name>` that no declaration or `send` accounts for, a connection between ports whose
+definitions are unrelated, a deferred signal's accept loop written without the `DeferredKeeper`
+marker that names it as the keeper, or a decimal literal such as `0.1` that a `Real` feature can
+only hold rounded, is almost always a slip or a surprise. `-strict` leaves them warnings, since they are not about notation.
 `-disable-lint <code>` switches one off (`%lint <code> off` at the prompt,
-`disabledLints` in an editor); [the diagnostics reference](../reference/diagnostics.md)
+`disabledLints` in an editor). `rounded-real-literal` is opt-in, since most decimals written
+to a `Real` round: `-enable-lint rounded-real-literal` switches it on (`%lint
+rounded-real-literal on`, `enabledLints`). [The diagnostics reference](../reference/diagnostics.md)
 states exactly what each reports.
 
 ## Running behavior
@@ -445,6 +483,7 @@ one the arguments already bind, and a sweep or sample without an `-analysis`/`-c
 
 ```bash
 $ sysml -calc "An::Sum(2.0, 3.0)" -sweep "b=0.0..10.0" analysis.sysml; echo "exit=$?"
+✓ package An
 sysml: invalid sweep parameter: b is both an argument of the invocation and swept
 exit=2
 ```

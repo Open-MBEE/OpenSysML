@@ -60,6 +60,11 @@
     "comments": {
       "patterns": [
         {
+          "name": "comment.block.note.source.sysml",
+          "begin": "//\\*",
+          "end": "\\*/"
+        },
+        {
           "name": "comment.line.double-slash.source.sysml",
           "match": "//.*$"
         },

@@ -148,7 +148,10 @@ func TestNegativeF50F70F81F82F83AndF62F63(t *testing.T) {
 		{"sysml_attribute_definition_multiplicity", "package P { attribute def A [1]; }", ""},
 		{"sysml_calc_definition_multiplicity", "package P { calc def C [1] { return x; } }", ""},
 		{"exhibit", "package P { part v { exhibit .on { } } }", ""},
-		{"reference", "package P { part v { ref { } } }", ""},
+		// `ref` alone admits a nameless declaration (SysML.xtext
+		// DefaultReferenceUsage), so the member is malformed only when its
+		// value is missing: `ref { }` is legal, `ref = ;` is not.
+		{"reference", "package P { part v { ref = ; } }", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

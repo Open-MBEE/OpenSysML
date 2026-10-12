@@ -16,10 +16,13 @@ const (
 	CapabilityMigrate                        = sysmlgrpc.CapabilityMigrate
 	CapabilityVerification                   = sysmlgrpc.CapabilityVerification
 	CapabilityVerificationQuestions          = sysmlgrpc.CapabilityVerificationQuestions
+	CapabilityVerificationArguments          = sysmlgrpc.CapabilityVerificationArguments
 	CapabilityQuery                          = sysmlgrpc.CapabilityQuery
 	CapabilityOSLCQuery                      = sysmlgrpc.CapabilityOSLCQuery
 	CapabilityDocumentQuery                  = sysmlgrpc.CapabilityDocumentQuery
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
+	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
+	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs
 	CapabilityEnumValues                     = sysmlgrpc.CapabilityEnumValues
 	CapabilityEvaluateSubject                = sysmlgrpc.CapabilityEvaluateSubject
 	CapabilitySymbolAttributes               = sysmlgrpc.CapabilitySymbolAttributes
@@ -65,6 +68,10 @@ const (
 	CapabilityEngines                        = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue
 	CapabilityBigIntValues                   = sysmlgrpc.CapabilityBigIntValues
+	CapabilityRationalValues                 = sysmlgrpc.CapabilityRationalValues
+	CapabilityConvertDocuments               = sysmlgrpc.CapabilityConvertDocuments
+	CapabilityConvertCompact                 = sysmlgrpc.CapabilityConvertCompact
+	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
 )
 
 // ServerInfo describes the implementation answering a Client's calls.

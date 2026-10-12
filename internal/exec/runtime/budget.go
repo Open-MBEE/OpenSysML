@@ -200,7 +200,7 @@ func budgetFromValue(v budgetVar, raw string) (int64, error) {
 // integerSizeHint names the variable raising the Integer size budget on an
 // error reporting it spent; any other error passes through.
 func integerSizeHint(err error) error {
-	if errors.Is(err, ErrIntegerSizeLimit) {
+	if errors.Is(err, ErrIntegerSizeLimit) || errors.Is(err, semantics.ErrRationalSizeLimit) {
 		return fmt.Errorf("%w (raise %s to allow more)", err, MaxIntegerBitsEnvVar)
 	}
 	return err

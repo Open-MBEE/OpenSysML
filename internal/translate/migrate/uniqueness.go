@@ -17,6 +17,7 @@ var usageKinds = map[string]ast.UsageKind{
 	"attribute":   ast.UsageAttribute,
 	"ref":         ast.UsageAttribute,
 	"part":        ast.UsagePart,
+	"occurrence":  ast.UsageOccurrence,
 	"item":        ast.UsageItem,
 	"port":        ast.UsagePort,
 	"action":      ast.UsageAction,
@@ -34,11 +35,12 @@ var usageKinds = map[string]ast.UsageKind{
 // take are written as.
 var nestedOwners = map[category]semantics.NestedOwner{
 	catPartDef:         {Def: ast.DefPart, IsDef: true},
+	catOccurrenceDef:   {Def: ast.DefOccurrence, IsDef: true},
 	catPortDef:         {Def: ast.DefPort, IsDef: true},
 	catAttributeDef:    {Def: ast.DefAttribute, IsDef: true},
 	catEnumDef:         {Def: ast.DefEnumeration, IsDef: true},
 	catConstraintDef:   {Def: ast.DefConstraint, IsDef: true},
-	catRequirementDef:  {Def: ast.DefRequirement, IsDef: true},
+	catRequirement:     {Usage: ast.UsageRequirement},
 	catConnectionDef:   {Def: ast.DefConnection, IsDef: true},
 	catIndividualDef:   {Def: ast.DefIndividual, IsDef: true},
 	catVerificationDef: {Def: ast.DefVerificationCase, IsDef: true},
@@ -47,10 +49,11 @@ var nestedOwners = map[category]semantics.NestedOwner{
 	catSimConfig:       {Def: ast.DefAction, IsDef: true},
 	catCalcDef:         {Def: ast.DefCalc, IsDef: true},
 	catStateDef:        {Def: ast.DefState, IsDef: true},
-	catUseCaseDef:      {Def: ast.DefUseCase, IsDef: true},
+	catUseCase:         {Usage: ast.UsageUseCase},
+	catActor:           {Usage: ast.UsagePart},
 	catMetadataDef:     {Def: ast.DefMetadata, IsDef: true},
 	catView:            {Usage: ast.UsageView},
-	catViewpoint:       {Usage: ast.UsageViewpoint},
+	catViewpoint:       {Def: ast.DefViewpoint, IsDef: true},
 	catValue:           {Usage: ast.UsageAttribute},
 }
 

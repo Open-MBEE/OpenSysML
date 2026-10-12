@@ -20,6 +20,10 @@ var extensionInventory = []string{
 	"action def A { action a; decide d; succession s first d if true then a; else a; }",
 	"action def A { action a; merge m; succession first m then a; then a; }",
 	"action def A { action a; comment /* c */ if true then a; }",
+	"part def A { part s; part k; connect s.y#(1) to k.u; }",
+	"part def A { part s; part k; interface s.y#(1) to k.u; }",
+	"part def A { part s; part k; flow s.y#(1) to k.u; }",
+	"part def A { part s; part k; bind s.y#(1) = k.u; }",
 }
 
 // notationDiags runs the pass over a document in the named mode.
@@ -93,11 +97,11 @@ func TestStandardNotationIsSilentUnderStrictMode(t *testing.T) {
 
 // The strict severity is chosen by the mode alone, so an unnamed mode is the
 // default one.
-func TestNotationSeverity(t *testing.T) {
-	if got := notationSeverity(diag.ConformanceStrict); got != diag.SeverityError {
+func TestStrictSeverity(t *testing.T) {
+	if got := strictSeverity(diag.ConformanceStrict); got != diag.SeverityError {
 		t.Errorf("strict severity = %v, want error", got)
 	}
-	if got := notationSeverity(diag.ConformanceDefault); got != diag.SeverityWarning {
+	if got := strictSeverity(diag.ConformanceDefault); got != diag.SeverityWarning {
 		t.Errorf("default severity = %v, want warning", got)
 	}
 }

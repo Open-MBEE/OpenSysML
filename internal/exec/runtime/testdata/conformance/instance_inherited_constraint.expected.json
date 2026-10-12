@@ -2,7 +2,7 @@
   "type": "instance",
   "instantiate": "test::Vehicle",
   "slots": {
-    "mass": {"type": "Real", "value": 1500.0}
+    "mass": {"type": "Rational", "value": "1500.0"}
   },
   "constraints": {
     "headroom": true,

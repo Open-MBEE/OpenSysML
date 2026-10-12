@@ -16,7 +16,9 @@ order:
 2. The shared cache at `~/.opensysml/bin/sysml-grpc`
    (`sysml-grpc.exe` on Windows).
 3. A download of the requested release, or the release this client was built
-   against when no version is configured.
+   against when no version is configured — for a [nightly
+   snapshot](../../project/nightly.md#the-client-packages) of the client, the
+   `nightly-<yyyymmdd>-<commit>` release it pins.
 4. The first executable `sysml-grpc` on `$PATH`.
 
 `OPENSYSML_GRPC_VERSION` requests another release. An explicit `version=`

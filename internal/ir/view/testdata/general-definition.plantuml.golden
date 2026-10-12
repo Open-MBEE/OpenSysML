@@ -1,0 +1,72 @@
+@startuml
+' GeneralViews::definitionView — definition rendering (view def GeneralView, filter @Definition or @Usage)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>
+class "<size:10>//«part def»//</size>\n**Chassis**" as n1 <<part def>>
+class "<size:10>//«part def»//</size>\n**LightChassis**" as n2 <<part def>>
+class "<size:10>//«part def»//</size>\n**Driver**" as n3 <<part def>>
+class "<size:10>//«action def»//</size>\n**Brake**" as n4 <<action def>>
+class "<size:10>//«part»//</size>\n**vehicle : Vehicle**" as n5 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**heavyVehicle : Vehicle**" as n6 <<part>> <<usage>>
+class "<size:10>//«action»//</size>\n**brake : Brake**" as n7 <<action>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**mass : Real**" as n8 <<attribute>> <<usage>>
+class "<size:10>//«part»//</size>\n**chassis : Chassis**" as n9 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**driver : Driver**" as n10 <<part>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**mass**" as n11 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**mass**" as n12 <<attribute>> <<usage>>
+class "<size:10>//«part def»//</size>\n**Powertrain::Engine**" as n13 <<part def>>
+n2 --|> n1
+n5 ..|> n0
+n6 ..|> n0
+n7 ..|> n4
+n0 o-- n8
+n9 ..|> n1
+n0 *-- n9
+n10 ..|> n3
+n0 o-- n10
+n11 --|> n8 : redefines
+n5 o-- n11
+n12 --|> n8 : redefines
+n6 o-- n12
+@enduml

@@ -592,6 +592,17 @@ model holds between edits nearly doubles — the memo tables that were allocated
 and discarded during every analysis now stay — and a thousand edits grow it by
 4.5%.
 
+The language server's folder scan is a batch of the same shape
+(`model.(*Workspace).SetOnDiskAll`): the files found are parsed on the pool and
+installed together, wildcard imports expanded once, where installing each alone
+would re-expand them for every package that reads it. An editor then opening a
+file the scan indexed sends the text already held, and `Workspace.Open` only
+marks the document open and moves its version: the index, its memoized
+resolution and its cached diagnostics stand, and `DidOpen` refreshes the other
+open documents only when the open moved the workspace generation. The first
+request on a 28-file model after opening every file thereby waits on nothing the
+scan did not already do.
+
 ### What the bookkeeping costs a one-shot validation
 
 Every memoized read records that the current document depends on the owner of

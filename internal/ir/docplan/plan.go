@@ -168,7 +168,9 @@ const (
 	BindingString  BindingKind = "string"
 	BindingInteger BindingKind = "integer"
 	BindingReal    BindingKind = "real"
-	BindingBoolean BindingKind = "boolean"
+	// BindingRational is an exact decimal literal, `0.1`.
+	BindingRational BindingKind = "rational"
+	BindingBoolean  BindingKind = "boolean"
 )
 
 // BindingValue is one statically planned value for a query parameter.
@@ -206,6 +208,11 @@ func (v BindingValue) Integer() (int64, bool) {
 // integer.
 func (v BindingValue) IntegerConst() (semantics.Value, bool) {
 	return v.integer, v.kind == BindingInteger
+}
+
+// Rational returns the bound exact Rational when the value is a rational.
+func (v BindingValue) Rational() (semantics.Value, bool) {
+	return v.integer, v.kind == BindingRational
 }
 
 // Real returns the bound real when the value is a real.
@@ -273,6 +280,7 @@ type DiagramRef struct {
 	direction view.Direction
 	palette   view.Palette
 	ports     view.Ports
+	overlay   view.Overlay
 	origin    symbols.Origin
 }
 
@@ -296,6 +304,9 @@ func (d *DiagramRef) Palette() view.Palette { return d.palette }
 
 // Ports returns the stated port display, empty for the default, minimal.
 func (d *DiagramRef) Ports() view.Ports { return d.ports }
+
+// Overlay returns the stated overlay, empty for a purely structural drawing.
+func (d *DiagramRef) Overlay() view.Overlay { return d.overlay }
 
 // Origin returns the source declaration behind the reference.
 func (d *DiagramRef) Origin() symbols.Origin { return d.origin }

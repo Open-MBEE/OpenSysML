@@ -792,9 +792,112 @@ func TestPartSlotWithoutAConformingIndividualIsUnmapped(t *testing.T) {
 	wantNote(t, r, "_sl3", migrate.Unmapped, "the slot's value 'other 1' is not an instance of MCS, the type of mcs")
 	wantNote(t, r, "_sl4", migrate.Unmapped, "the slot of port bus is not written: v2 has no individual port for it to be typed by")
 	wantNote(t, r, "_sl5", migrate.Unmapped, "the slot of port link is not written: v2 has no individual port for it to be typed by")
-	wantNote(t, r, "_sl6", migrate.Unmapped, "the slot of loose is not written: the property is written as a plain ref, which cannot be typed by an individual")
+	wantNote(t, r, "_sl6", migrate.Unmapped, "the individual mcs 1 is a definition, which is not a v2 value")
 	wantNote(t, r, "_sl7", migrate.Unmapped, "the slot's value 'other 1' is an individual part def, which cannot type an item")
 	wantClean(t, "bad-part-slots.sysml", r)
+}
+
+// A slot of an untyped part — composite, or marked «PartProperty» — holds any
+// individual part: the property has no type to check the instance against.
+func TestUntypedPartSlotIsTypedByItsIndividual(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_wheel" name="Wheel"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_w" name="wheel" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_s" name="spare"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_w1" name="wheel 1" classifier="_wheel"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_c1" name="car 1" classifier="_car">
+      <slot xmi:type="uml:Slot" xmi:id="_sw" definingFeature="_w">
+        <value xmi:type="uml:InstanceValue" xmi:id="_vw" instance="_w1"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_ss" definingFeature="_s">
+        <value xmi:type="uml:InstanceValue" xmi:id="_vs" instance="_w1"/>
+      </slot>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_wheel"/>
+  <sysml:Block xmi:id="_s2" base_Class="_car"/>
+  <MD_Customization_for_SysML__additional_stereotypes:PartProperty xmlns:MD_Customization_for_SysML__additional_stereotypes="http://www.magicdraw.com/spec/Customization/180/SysML" xmi:id="_mk" base_Property="_s"/>`)
+	wantLine(t, r.Notation, "part wheel;")
+	wantLine(t, r.Notation, "part spare;")
+	wantLine(t, r.Notation, "individual part :>> wheel : 'wheel 1';")
+	wantLine(t, r.Notation, "individual part :>> spare : 'wheel 1';")
+	wantNote(t, r, "_sw", migrate.Mapped, "")
+	wantNote(t, r, "_ss", migrate.Mapped, "")
+	wantClean(t, "untyped-part-slots.sysml", r)
+}
+
+// An untyped part that redefines a typed one, by declaration or by sharing its
+// name, inherits the type: a slot holding an individual of another type is unmapped.
+func TestUntypedRedefiningPartSlotKeepsTheInheritedType(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_wheel" name="Wheel"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_engine" name="Engine"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_base" name="Base">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_bw" name="wheel" type="_wheel" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_bs" name="spare" type="_wheel" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g" general="_base"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_w" name="wheel" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_s" name="front" aggregation="composite" redefinedProperty="_bs"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_w1" name="wheel 1" classifier="_wheel"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_e1" name="engine 1" classifier="_engine"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_c1" name="car 1" classifier="_car">
+      <slot xmi:type="uml:Slot" xmi:id="_sw" definingFeature="_w">
+        <value xmi:type="uml:InstanceValue" xmi:id="_vw" instance="_e1"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_ss" definingFeature="_s">
+        <value xmi:type="uml:InstanceValue" xmi:id="_vs" instance="_w1"/>
+      </slot>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_wheel"/>
+  <sysml:Block xmi:id="_s2" base_Class="_engine"/>
+  <sysml:Block xmi:id="_s3" base_Class="_base"/>
+  <sysml:Block xmi:id="_s4" base_Class="_car"/>`)
+	wantLine(t, r.Notation, "part wheel :>> wheel;")
+	wantLine(t, r.Notation, "part front :>> spare;")
+	wantNoLine(t, r.Notation, "individual part :>> wheel : 'engine 1';")
+	wantNote(t, r, "_sw", migrate.Unmapped, "the slot's value 'engine 1' is not an instance of Wheel, the type of wheel")
+	wantLine(t, r.Notation, "individual part :>> front : 'wheel 1';")
+	wantNote(t, r, "_ss", migrate.Mapped, "")
+	wantClean(t, "redefining-part-slots.sysml", r)
+}
+
+// An untyped part subsetting several typed ones must hold an instance of every
+// type: an individual of only the first is unmapped, one of all is written.
+func TestUntypedPartSlotKeepsEveryInheritedType(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_vehicle" name="Vehicle"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_wheel" name="Wheel">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g" general="_vehicle"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_v" name="vehicle" type="_vehicle" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_w" name="wheel" type="_wheel" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_s" name="spare" aggregation="composite" subsettedProperty="_v _w"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_t" name="trailer" aggregation="composite" subsettedProperty="_v _w"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_v1" name="vehicle 1" classifier="_vehicle"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_w1" name="wheel 1" classifier="_wheel"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_c1" name="car 1" classifier="_car">
+      <slot xmi:type="uml:Slot" xmi:id="_ss" definingFeature="_s">
+        <value xmi:type="uml:InstanceValue" xmi:id="_vs" instance="_v1"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_st" definingFeature="_t">
+        <value xmi:type="uml:InstanceValue" xmi:id="_vt" instance="_w1"/>
+      </slot>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_vehicle"/>
+  <sysml:Block xmi:id="_s2" base_Class="_wheel"/>
+  <sysml:Block xmi:id="_s3" base_Class="_car"/>`)
+	wantLine(t, r.Notation, "part spare :> vehicle :> wheel;")
+	wantNoLine(t, r.Notation, "individual part :>> spare : 'vehicle 1';")
+	wantNote(t, r, "_ss", migrate.Unmapped, "the slot's value 'vehicle 1' is not an instance of Wheel, the type of spare")
+	wantLine(t, r.Notation, "individual part :>> trailer : 'wheel 1';")
+	wantNote(t, r, "_st", migrate.Mapped, "")
+	wantClean(t, "subsetting-part-slots.sysml", r)
 }
 
 // An individual takes the kind of its classifier — `individual constraint
@@ -872,4 +975,16 @@ func TestConstraintSlotHoldingAVerdictIsUnmappedAsOne(t *testing.T) {
 	wantNoLine(t, r.Notation, ":>> fits")
 	wantNote(t, r, "_sl1", migrate.Unmapped, "the slot of constraint fits holds the literal SysML::Requirements::VerdictKind::pass, the run's verdict on the constraint rather than an instance of its type; an individual has no slot for a verdict")
 	wantClean(t, "verdict-slot.sysml", r)
+}
+
+// An instance classified by an actor, a part usage once migrated, specializes
+// nothing of it: an individual cannot specialize a usage.
+func TestInstanceOfActorSpecializesNoUsage(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Actor" xmi:id="_d" name="Driver"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_alice" name="alice" classifier="_d"/>`, ``)
+	wantLine(t, r.Notation, "/* not migrated: InstanceSpecification 'alice' — the instance's classifier Driver is written as a part usage, which an individual cannot specialize */")
+	wantNoLine(t, r.Notation, "individual part alice")
+	wantNote(t, r, "_alice", migrate.Unmapped, "the instance's classifier Driver is written as a part usage, which an individual cannot specialize")
+	wantClean(t, "actor-instance.sysml", r)
 }

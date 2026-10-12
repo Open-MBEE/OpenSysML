@@ -45,6 +45,7 @@ CAPABILITY_VERIFICATION = "verification"
 #: and ``witness``. Without it the service refuses such a question with
 #: ``UNIMPLEMENTED``.
 CAPABILITY_VERIFICATION_QUESTIONS = "verification_questions"
+CAPABILITY_VERIFICATION_ARGUMENTS = "verification_arguments"
 
 #: The ``Query`` RPC, which evaluates a SysML v2 API & Services ``Query`` over a
 #: loaded model. Without it the service refuses queries with ``UNIMPLEMENTED``.
@@ -57,6 +58,13 @@ CAPABILITY_DOCUMENT_QUERY = "document_query"
 #: The ``RenderDocument`` RPC, which renders a named document to Markdown.
 #: Without it the service refuses with ``UNIMPLEMENTED``.
 CAPABILITY_RENDER_DOCUMENT = "render_document"
+
+#: The ``RenderView`` RPC, which returns typed diagram data.
+CAPABILITY_RENDER_VIEW = "render_view"
+
+#: The ``ExportGraphs`` RPC, which exports the lowered graph of an action or
+#: state machine as the canonical ``graphs:1`` JSON an external engine is sent.
+CAPABILITY_EXPORT_GRAPHS = "export_graphs"
 
 #: ``form`` on ``RenderDocumentRequest``, which asks ``RenderDocument`` for the
 #: HTML page instead of Markdown. Without it the service would render Markdown
@@ -251,6 +259,22 @@ CAPABILITY_UNDETERMINED_VALUE = "undetermined_value"
 #: An Integer beyond int64 as ``Value.big_int_value``, ``Quantity.big_int_magnitude`` and
 #: ``DocumentValue.big_int_value``; a service without it reads one sent to it as null.
 CAPABILITY_BIG_INT_VALUES = "big_int_values"
+
+#: An exact Rational no double holds as ``Value.rational_value``, ``Quantity.rational_magnitude``
+#: and ``DocumentValue.rational_value``; a service without it reads one sent to it as null.
+CAPABILITY_RATIONAL_VALUES = "rational_values"
+
+#: ``ConvertRequest.documents``: a model converted with only the named documents written, the
+#: references into the others linked by id.
+CAPABILITY_CONVERT_DOCUMENTS = "convert_documents"
+
+#: ``ConvertRequest.compact``, ``omit_derived`` and ``keep_derived``: api-json written as the
+#: compact document (an id table and handles), optionally without derived properties.
+CAPABILITY_CONVERT_COMPACT = "convert_compact"
+
+#: ``ParseSourcesRequest.base_model_hash`` and ``ParseSourcesResponse.affected``: the documents
+#: whose results may differ from the base model's, so a client re-reads only those after an edit.
+CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected"
 
 
 @dataclass(frozen=True)

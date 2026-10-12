@@ -18,7 +18,7 @@ const (
 )
 
 type sysmlElem interface {
-	sysmlInt | float64 | bool | sysmlNum | string | sysmlEnum | sysmlFn
+	sysmlInt | float64 | bool | sysmlNum | string | sysmlEnum | sysmlFn | *sysmlRec
 }
 
 // sysmlSeq is a collection value: null, one bare value, or a sequence.
@@ -131,8 +131,19 @@ func sysmlElemKind[T sysmlElem](v T) string {
 		return "enumeration literal"
 	case sysmlFn:
 		return "function"
+	case *sysmlRec:
+		return "an object"
 	}
 	return "a Boolean"
+}
+
+// sysmlElemText is v with its kind, as a diagnostic names it; a record has no
+// object number, so it is named by its type alone.
+func sysmlElemText[T sysmlElem](v T) string {
+	if _, ok := any(v).(*sysmlRec); ok {
+		return sysmlFormat(v)
+	}
+	return sysmlFormat(v) + " (" + sysmlElemKind(v) + ")"
 }
 
 // sysmlUnique refuses the first element of s equal to an earlier one, as a
@@ -142,7 +153,7 @@ func sysmlUnique[T sysmlElem](s sysmlSeq[T], where string) sysmlSeq[T] {
 	for i, v := range s.data {
 		k := sysmlKey(v)
 		if first, dup := seen[k]; dup {
-			sysmlFailf("%s: uniqueness violation: %s (%s) is written at positions %d and %d of a unique feature", where, sysmlFormat(v), sysmlElemKind(v), first+1, i+1)
+			sysmlFailf("%s: uniqueness violation: %s is written at positions %d and %d of a unique feature", where, sysmlElemText(v), first+1, i+1)
 		}
 		seen[k] = i
 	}
@@ -172,7 +183,7 @@ func sysmlKey[T sysmlElem](v T) any {
 		return i.small
 	}
 	if f, ok := any(v).(sysmlFn); ok {
-		return sysmlFnKey{f.c, f.run}
+		return sysmlFnKey{f.c, f.run, f.self}
 	}
 	return v
 }

@@ -145,8 +145,9 @@ func (g *StateGraph) defaultEntryInto(owner *ast.StateNode, region *ast.StateReg
 			continue
 		}
 		for _, t := range g.EntryTransitions[body] {
-			if g.entersByDefault(owner, region, nil, t.Target) {
-				return "the entry transition naming " + t.Target.Name
+			target := entryTransitionTarget(t)
+			if state := g.defaultStart(owner, region, nil, target, nil); state != nil {
+				return "the entry transition naming " + vertexName(state)
 			}
 		}
 	}

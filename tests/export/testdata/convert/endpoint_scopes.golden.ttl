@@ -381,6 +381,7 @@ elmt:Machines__Lamp__on__heat___404_succession
     sysml:connectorEnd expr:Machines__Lamp__on__heat___404_succession_pend0, expr:Machines__Lamp__on__heat___404_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp__on__heat___404_succession_pend0_om, expr:Machines__Lamp__on__heat___404_succession_pend1_om ;
     sysml:ownedMembership expr:Machines__Lamp__on__heat___404_succession_pend0_om, expr:Machines__Lamp__on__heat___404_succession_pend1_om ;
+    sysml:ownedMember expr:Machines__Lamp__on__heat___404_succession_pend0, expr:Machines__Lamp__on__heat___404_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Machines__Lamp__on__heat___404_succession_pend0_om, expr:Machines__Lamp__on__heat___404_succession_pend1_om ;
     sysml:ownedFeature expr:Machines__Lamp__on__heat___404_succession_pend0, expr:Machines__Lamp__on__heat___404_succession_pend1 ;
     sysml:ownedEndFeature expr:Machines__Lamp__on__heat___404_succession_pend0, expr:Machines__Lamp__on__heat___404_succession_pend1 ;
@@ -390,6 +391,7 @@ elmt:Machines__Lamp__on__heat___404_succession
     json:connectorEnd "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1\"}]" .
@@ -671,6 +673,7 @@ elmt:Machines__Lamp__on__light___404_succession
     sysml:connectorEnd expr:Machines__Lamp__on__light___404_succession_pend0, expr:Machines__Lamp__on__light___404_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp__on__light___404_succession_pend0_om, expr:Machines__Lamp__on__light___404_succession_pend1_om ;
     sysml:ownedMembership expr:Machines__Lamp__on__light___404_succession_pend0_om, expr:Machines__Lamp__on__light___404_succession_pend1_om ;
+    sysml:ownedMember expr:Machines__Lamp__on__light___404_succession_pend0, expr:Machines__Lamp__on__light___404_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Machines__Lamp__on__light___404_succession_pend0_om, expr:Machines__Lamp__on__light___404_succession_pend1_om ;
     sysml:ownedFeature expr:Machines__Lamp__on__light___404_succession_pend0, expr:Machines__Lamp__on__light___404_succession_pend1 ;
     sysml:ownedEndFeature expr:Machines__Lamp__on__light___404_succession_pend0, expr:Machines__Lamp__on__light___404_succession_pend1 ;
@@ -680,6 +683,7 @@ elmt:Machines__Lamp__on__light___404_succession
     json:connectorEnd "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1\"}]" .
@@ -822,6 +826,7 @@ elmt:Machines__Lamp__on__light___405_succession
     sysml:connectorEnd expr:Machines__Lamp__on__light___405_succession_pend0, expr:Machines__Lamp__on__light___405_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp__on__light___405_succession_pend0_om, expr:Machines__Lamp__on__light___405_succession_pend1_om ;
     sysml:ownedMembership expr:Machines__Lamp__on__light___405_succession_pend0_om, expr:Machines__Lamp__on__light___405_succession_pend1_om ;
+    sysml:ownedMember expr:Machines__Lamp__on__light___405_succession_pend0, expr:Machines__Lamp__on__light___405_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Machines__Lamp__on__light___405_succession_pend0_om, expr:Machines__Lamp__on__light___405_succession_pend1_om ;
     sysml:ownedFeature expr:Machines__Lamp__on__light___405_succession_pend0, expr:Machines__Lamp__on__light___405_succession_pend1 ;
     sysml:ownedEndFeature expr:Machines__Lamp__on__light___405_succession_pend0, expr:Machines__Lamp__on__light___405_succession_pend1 ;
@@ -831,6 +836,7 @@ elmt:Machines__Lamp__on__light___405_succession
     json:connectorEnd "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1\"}]" .
@@ -973,6 +979,7 @@ elmt:Machines__Lamp___404_succession
     sysml:connectorEnd expr:Machines__Lamp___404_succession_pend0, expr:Machines__Lamp___404_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp___404_succession_pend0_om, expr:Machines__Lamp___404_succession_pend1_om ;
     sysml:ownedMembership expr:Machines__Lamp___404_succession_pend0_om, expr:Machines__Lamp___404_succession_pend1_om ;
+    sysml:ownedMember expr:Machines__Lamp___404_succession_pend0, expr:Machines__Lamp___404_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Machines__Lamp___404_succession_pend0_om, expr:Machines__Lamp___404_succession_pend1_om ;
     sysml:ownedFeature expr:Machines__Lamp___404_succession_pend0, expr:Machines__Lamp___404_succession_pend1 ;
     sysml:ownedEndFeature expr:Machines__Lamp___404_succession_pend0, expr:Machines__Lamp___404_succession_pend1 ;
@@ -982,6 +989,7 @@ elmt:Machines__Lamp___404_succession
     json:connectorEnd "[{\"@id\":\"Machines__Lamp___404_succession_pend0\"},{\"@id\":\"Machines__Lamp___404_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Machines__Lamp___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___404_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Machines__Lamp___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___404_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Machines__Lamp___404_succession_pend0\"},{\"@id\":\"Machines__Lamp___404_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___404_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Machines__Lamp___404_succession_pend0\"},{\"@id\":\"Machines__Lamp___404_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Machines__Lamp___404_succession_pend0\"},{\"@id\":\"Machines__Lamp___404_succession_pend1\"}]" .
@@ -1124,6 +1132,7 @@ elmt:Machines__Lamp___405_succession
     sysml:connectorEnd expr:Machines__Lamp___405_succession_pend0, expr:Machines__Lamp___405_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp___405_succession_pend0_om, expr:Machines__Lamp___405_succession_pend1_om ;
     sysml:ownedMembership expr:Machines__Lamp___405_succession_pend0_om, expr:Machines__Lamp___405_succession_pend1_om ;
+    sysml:ownedMember expr:Machines__Lamp___405_succession_pend0, expr:Machines__Lamp___405_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Machines__Lamp___405_succession_pend0_om, expr:Machines__Lamp___405_succession_pend1_om ;
     sysml:ownedFeature expr:Machines__Lamp___405_succession_pend0, expr:Machines__Lamp___405_succession_pend1 ;
     sysml:ownedEndFeature expr:Machines__Lamp___405_succession_pend0, expr:Machines__Lamp___405_succession_pend1 ;
@@ -1133,6 +1142,7 @@ elmt:Machines__Lamp___405_succession
     json:connectorEnd "[{\"@id\":\"Machines__Lamp___405_succession_pend0\"},{\"@id\":\"Machines__Lamp___405_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Machines__Lamp___405_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___405_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Machines__Lamp___405_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___405_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Machines__Lamp___405_succession_pend0\"},{\"@id\":\"Machines__Lamp___405_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp___405_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___405_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Machines__Lamp___405_succession_pend0\"},{\"@id\":\"Machines__Lamp___405_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Machines__Lamp___405_succession_pend0\"},{\"@id\":\"Machines__Lamp___405_succession_pend1\"}]" .
@@ -1275,6 +1285,7 @@ elmt:Machines__Lamp___406_succession
     sysml:connectorEnd expr:Machines__Lamp___406_succession_pend0, expr:Machines__Lamp___406_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp___406_succession_pend0_om, expr:Machines__Lamp___406_succession_pend1_om ;
     sysml:ownedMembership expr:Machines__Lamp___406_succession_pend0_om, expr:Machines__Lamp___406_succession_pend1_om ;
+    sysml:ownedMember expr:Machines__Lamp___406_succession_pend0, expr:Machines__Lamp___406_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Machines__Lamp___406_succession_pend0_om, expr:Machines__Lamp___406_succession_pend1_om ;
     sysml:ownedFeature expr:Machines__Lamp___406_succession_pend0, expr:Machines__Lamp___406_succession_pend1 ;
     sysml:ownedEndFeature expr:Machines__Lamp___406_succession_pend0, expr:Machines__Lamp___406_succession_pend1 ;
@@ -1284,6 +1295,7 @@ elmt:Machines__Lamp___406_succession
     json:connectorEnd "[{\"@id\":\"Machines__Lamp___406_succession_pend0\"},{\"@id\":\"Machines__Lamp___406_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Machines__Lamp___406_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___406_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Machines__Lamp___406_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___406_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Machines__Lamp___406_succession_pend0\"},{\"@id\":\"Machines__Lamp___406_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp___406_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___406_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Machines__Lamp___406_succession_pend0\"},{\"@id\":\"Machines__Lamp___406_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Machines__Lamp___406_succession_pend0\"},{\"@id\":\"Machines__Lamp___406_succession_pend1\"}]" .

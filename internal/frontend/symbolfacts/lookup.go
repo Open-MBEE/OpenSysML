@@ -3,6 +3,7 @@ package symbolfacts
 import (
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -22,6 +23,66 @@ func LookupNamed(idx *symbols.Index, id string) []*symbols.Symbol {
 		return modelFirst(idx, idx.LookupQualified(plain))
 	}
 	return nil
+}
+
+// LookupNamedMember is LookupNamed for an ID the index registers no declaration
+// under because its last segments name members the type of the segment before
+// them contributes: a member a subtype inherits (Sub::inherited) or one reached
+// through a feature's type (Outer::inner::b). Such a name is walked through the
+// model's member lookup, so the member a redefinition replaces is answered by
+// the redefinition, as a reference in the notation resolves.
+func LookupNamedMember(idx *symbols.Index, model *semantics.Model, id string) []*symbols.Symbol {
+	if syms := LookupNamed(idx, id); len(syms) > 0 {
+		return syms
+	}
+	name := id
+	if plain, ok := UnquotedName(id); ok {
+		name = plain
+	}
+	if sym, _ := MemberChain(idx, model, name); sym != nil {
+		return []*symbols.Symbol{sym}
+	}
+	return nil
+}
+
+// MemberChain resolves a qualified name, in the unquoted spelling the index
+// records, whose later segments are members of the type of the segment before
+// them: the longest prefix one declaration answers to is the chain's root, and
+// the rest is walked through model's member lookup, which follows typing and
+// specialization. The second result is the fully-qualified name the member is
+// declared under; nil and "" when no prefix is a declaration the rest walks from.
+func MemberChain(idx *symbols.Index, model *semantics.Model, name string) (*symbols.Symbol, string) {
+	if idx == nil || model == nil {
+		return nil, ""
+	}
+	segments := strings.Split(name, "::")
+	// The longest prefix is tried first, so a nested feature is preferred over
+	// the type it happens to share a name with.
+	for i := len(segments) - 1; i > 0; i-- {
+		matches := idx.LookupQualified(strings.Join(segments[:i], "::"))
+		if len(matches) != 1 {
+			continue
+		}
+		sym := matches[0]
+		walked := true
+		for _, seg := range segments[i:] {
+			member, ok := model.LookupMember(sym, seg)
+			if !ok || member == nil {
+				walked = false
+				break
+			}
+			sym = member
+		}
+		if !walked {
+			continue
+		}
+		fqn := idx.GetFQN(sym)
+		if fqn == "" {
+			fqn = name
+		}
+		return sym, fqn
+	}
+	return nil, ""
 }
 
 // modelFirst reorders matches so the ones the model declares precede the ones

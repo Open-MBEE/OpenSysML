@@ -81,4 +81,10 @@ package Site {
 		render asInterconnectionDiagram;
 		@Picture { location = "https://example.org/bench.png"; x = 0; y = 0; width = 400; height = 300; }
 	}
+
+	view schemeView {
+		expose Site::Bench;
+		render asInterconnectionDiagram;
+		@Picture { location = "javascript:alert(1)"; x = 0; y = 0; width = 400; height = 300; }
+	}
 }

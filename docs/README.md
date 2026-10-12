@@ -1,4 +1,4 @@
-# OpenSysML documentation
+# OpenSysML REDK documentation
 
 - [Guide](guide/README.md) — install and use OpenSysML.
 - [Manual](manual/README.md) — generate documents from models.

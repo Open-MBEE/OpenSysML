@@ -2,7 +2,7 @@
   "type": "instance",
   "instantiate": "test::Vehicle",
   "slots": {
-    "gross": {"type": "Real", "value": 1800.0}
+    "gross": {"type": "Rational", "value": "1800.0"}
   },
   "constraints": {
     "withinLimit": true,

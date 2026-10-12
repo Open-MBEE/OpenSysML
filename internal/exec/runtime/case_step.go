@@ -99,7 +99,7 @@ func (e *performances) performCase(perf *actionFrame) error {
 	}
 	for _, out := range outputs {
 		perf.features[out.Name] = ast.DirOut
-		perf.data[perf.key(out.Name)] = out.Value
+		e.ctx.writeBodyValue(perf.cells, perf.data, perf.key(out.Name), out.Value)
 	}
 	if out := run.shape.resultOutput(); out != nil {
 		perf.result = out.Name

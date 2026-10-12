@@ -123,19 +123,53 @@ func TestAllConcurrentFaultStopsThePlanAtTheFaultInNameOrder(t *testing.T) {
 	}
 }
 
+// expiring is a context whose deadline a test meets at a known point in the plan, not on a
+// clock that a loaded machine can overrun.
+type expiring struct {
+	context.Context
+	done chan struct{}
+	once sync.Once
+}
+
+func newExpiring() *expiring {
+	return &expiring{Context: context.Background(), done: make(chan struct{})}
+}
+
+func (e *expiring) Done() <-chan struct{} { return e.done }
+
+func (e *expiring) Err() error {
+	select {
+	case <-e.done:
+		return context.DeadlineExceeded
+	default:
+		return nil
+	}
+}
+
+func (e *expiring) expire() { e.once.Do(func() { close(e.done) }) }
+
 func TestAllConcurrentDeadlineKeepsWhatFinishedAndMarksTheRest(t *testing.T) {
+	ctx := newExpiring()
 	block := func(name string, authority Strength) fakeEngine {
 		return fakeEngine{name: name, kinds: []Kind{Holds}, authority: authority, run: func(ctx context.Context) (Result, error) {
 			<-ctx.Done()
 			return Result{}, ctx.Err()
 		}}
 	}
+	// Two jobs: a holds one and b the other, so c starts only once b's step is kept, and meets the deadline.
+	c := block("c", Proved)
+	c.run = func(runCtx context.Context) (Result, error) {
+		ctx.expire()
+		<-runCtx.Done()
+		return Result{}, runCtx.Err()
+	}
 	r := registered(t,
 		block("a", Proved),
 		fakeEngine{name: "b", kinds: []Kind{Holds}, authority: Observed, result: Result{Claim: ClaimHolds, Strength: Observed}},
-		block("c", Proved),
+		c,
 	)
-	plan, err := r.AnswerWith(context.Background(), nil, Question{Kind: Holds}, Budget{Jobs: 3, Deadline: time.Now().Add(20 * time.Millisecond)}, All())
+	// The budget's deadline is the bound the cancelled steps name; ctx meets it.
+	plan, err := r.AnswerWith(ctx, nil, Question{Kind: Holds}, Budget{Jobs: 2, Deadline: time.Now().Add(time.Hour)}, All())
 	if err != nil || !sameNames(stepNames(plan), []string{"a", "b", "c"}) {
 		t.Fatalf("answer: %v, steps %v; want b's finished result to stand", err, stepNames(plan))
 	}

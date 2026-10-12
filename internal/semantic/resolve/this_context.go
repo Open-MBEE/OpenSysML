@@ -19,7 +19,12 @@ func (r *Resolver) IsOccurrenceThis(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
-	return sym.Name == thisFeatureName || strings.HasSuffix(sym.Name, thisFeatureSuffix) ||
+	if sym.Name == thisFeatureName || strings.HasSuffix(sym.Name, thisFeatureSuffix) {
+		return true
+	}
+	// Only a name that is itself a tail of `::this` can qualify to that suffix,
+	// so the qualified name is built for those alone.
+	return strings.HasSuffix(thisFeatureSuffix, sym.Name) &&
 		strings.HasSuffix(r.registeredFQN(sym), thisFeatureSuffix)
 }
 

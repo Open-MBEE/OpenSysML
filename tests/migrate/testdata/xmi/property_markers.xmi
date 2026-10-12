@@ -30,6 +30,13 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_odd" name="odd" type="_wheel" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_axle" name="axle" type="_wheel" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_cabin" name="cabin" type="_engine_def" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_load" name="load"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_trailer" name="trailer"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_depot" name="depot"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_driver" name="driver"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_rule" name="rule"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_color" name="color"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_chassis" name="chassis" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_serial" name="serial">
           <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.String"/>
         </ownedAttribute>
@@ -74,6 +81,11 @@
   <MD_Customization_for_SysML__additional_stereotypes:ReferenceProperty xmi:id="_mk_ms_k" base_Property="_ms_k"/>
   <MD_Customization_for_SysML__additional_stereotypes:ValueProperty xmi:id="_mk_odd" base_Property="_odd"/>
   <MD_Customization_for_SysML__additional_stereotypes:PartProperty xmi:id="_mk_axle" base_Property="_axle" ordering="rear"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ValueProperty xmi:id="_mk_load" base_Property="_load"/>
+  <MD_Customization_for_SysML__additional_stereotypes:PartProperty xmi:id="_mk_trailer" base_Property="_trailer"/>
+  <MD_Customization_for_SysML__additional_stereotypes:SharedProperty xmi:id="_mk_depot" base_Property="_depot"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ReferenceProperty xmi:id="_mk_driver" base_Property="_driver"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ConstraintProperty xmi:id="_mk_rule" base_Property="_rule"/>
   <Vehicle_Profile:PartProperty xmi:id="_mk_cabin" base_Property="_cabin"/>
   <Legacy_Tool:ValueProperty xmi:id="_mk_serial" base_Property="_serial"/>
 </xmi:XMI>

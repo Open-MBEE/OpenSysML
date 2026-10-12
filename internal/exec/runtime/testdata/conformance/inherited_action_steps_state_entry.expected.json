@@ -1,0 +1,9 @@
+{
+	"type": "state",
+	"evaluate": "test::Machine",
+	"finalState": "active",
+	"stateVisits": ["active"],
+	"outputs": {
+		"hits": {"type": "Integer", "value": 1}
+	}
+}

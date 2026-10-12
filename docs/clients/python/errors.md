@@ -16,6 +16,7 @@ service error came from an RPC, the original `grpc.RpcError` is available as
 | `StaleServiceError` | an explicitly reached service reports another release |
 | `ModelError` | strict loading found error diagnostics |
 | `SymbolNotFoundError` | a requested symbol is absent |
+| `ViewNotFoundError` | a declared view or pseudo-view target is absent; also a `SymbolNotFoundError` and `KeyError`, with the requested name and service message preserved |
 | `FeatureValueError` | a feature value could not be evaluated |
 | `ExecutionError` | evaluation, execution or verification could not be answered |
 | `WrongKindError` | a valid symbol has the wrong kind for the operation |

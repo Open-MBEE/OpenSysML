@@ -78,6 +78,38 @@ func TestReferences(t *testing.T) {
 	}
 }
 
+func TestAssociationEndQualifierChildrenAreRetained(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:DataType" xmi:id="_key" name="Key"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_classifierEnd" name="b" type="_b" association="_assoc">
+        <qualifier xmi:type="uml:Property" xmi:id="_classifierQualifier" name="memberKey" type="_key"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B"/>
+    <packagedElement xmi:type="uml:Association" xmi:id="_assoc" name="Link" memberEnd="_ownedEnd _classifierEnd">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_ownedEnd" name="a" type="_a" association="_assoc">
+        <qualifier xmi:type="uml:Property" xmi:id="_ownedQualifier" name="ownedKey" type="_key"/>
+      </ownedEnd>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"_ownedEnd", "_classifierEnd"} {
+		end := m.Lookup(id)
+		qualifiers := end.Owned("qualifier")
+		if len(qualifiers) != 1 || qualifiers[0].Type != "Property" {
+			t.Errorf("qualifiers of %s = %+v, want one Property child", id, qualifiers)
+		}
+	}
+}
+
 func TestStereotypes(t *testing.T) {
 	m := readFixture(t)
 	vehicle := m.Lookup("_blk_vehicle")

@@ -32,6 +32,7 @@ var Rows = map[string]Row{
 	"SM28": {"SM28", RowAgrees, "History with nothing to restore"},
 	"SM30": {"SM30", RowAgrees, "Choice: guards read on arrival"},
 	"SM32": {"SM32", RowAgrees, "Junction or join with no path through"},
+	"SM46": {"SM46", RowDiffersByDesign, "Junction on a nested default entry"},
 	"SM34": {"SM34", RowToolChoice, "Join: where the owner is left"},
 }
 
@@ -59,10 +60,10 @@ var TestRows = map[string]string{
 	// A choice's guards read what the incoming transition's effect wrote.
 	"Choice 001": "SM30",
 	"Choice 002": "SM30",
-	// A junction or a join's way out none of whose outgoing guards holds disables the
-	// compound transition before it is selected, wherever on the path it lies (a sibling region's entry, a join's exit).
-	"Junction 002": "SM32",
-	"Junction 004": "SM32",
+	// PSSM reads a nested default-entry junction at the outer transition's selection;
+	// v2 reads it when the composite's separate entry transition is taken (SM46).
+	"Junction 002": "SM46",
+	"Junction 004": "SM46",
 	"Join003":      "SM32",
 	// Join001 measures owner-exit timing. Transition 019's remaining mismatch
 	// ties silent target-entry order to effects, not to when the owner is left.

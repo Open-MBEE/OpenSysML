@@ -320,7 +320,7 @@ func (p *Parser) parsePostfixes(start int, expr ast.Node) ast.Node {
 			// so a multi-dimensional index `arr#(1,3)` is one operand.
 			p.advance() // #
 			p.expect(lexer.LParen, "expected '(' after '#'")
-			idx := p.parseSequenceExpr()
+			idx := p.parseSequenceExpr(lexer.RParen)
 			p.expect(lexer.RParen, msgExpectedCloseParen)
 			ix := &ast.IndexExpr{Operand: expr, Index: idx}
 			ix.NodeSpan = p.spanFrom(start)
@@ -329,7 +329,7 @@ func (p *Parser) parsePostfixes(start int, expr ast.Node) ast.Node {
 		case p.at(lexer.LBracket):
 			// `[ index ]` operator index.
 			p.advance() // [
-			idx := p.parseSequenceExpr()
+			idx := p.parseSequenceExpr(lexer.RBracket)
 			p.expect(lexer.RBracket, "expected ']'")
 			ix := &ast.IndexExpr{Operand: expr, Index: idx, Bracket: true}
 			ix.NodeSpan = p.spanFrom(start)
@@ -500,11 +500,7 @@ func (p *Parser) parseParenOrSequence(start int) ast.Node {
 	// Regular parenthesized expression or sequence
 	var elems []ast.Node
 	if !p.at(lexer.RParen) {
-		elems = append(elems, p.ParseExpression())
-		for p.at(lexer.Comma) {
-			p.advance() // ,
-			elems = append(elems, p.ParseExpression())
-		}
+		elems = p.parseSequenceElements(lexer.RParen)
 	}
 	p.expect(lexer.RParen, msgExpectedCloseParen)
 	switch len(elems) {
@@ -520,21 +516,34 @@ func (p *Parser) parseParenOrSequence(start int) ast.Node {
 	return seq
 }
 
-// parseSequenceExpr parses a KerMLExpressions SequenceExpression: one
-// expression, or a comma-separated sequence of them (`1, 3`), as one node.
-func (p *Parser) parseSequenceExpr() ast.Node {
+// parseSequenceExpr parses a KerMLExpressions SequenceExpression closed by
+// close: one expression, or a comma-separated sequence of them (`1, 3`), as
+// one node.
+func (p *Parser) parseSequenceExpr(close lexer.Kind) ast.Node {
 	start := p.peek().Span.Offset
-	elems := []ast.Node{p.ParseExpression()}
-	for p.at(lexer.Comma) {
-		p.advance() // ,
-		elems = append(elems, p.ParseExpression())
-	}
+	elems := p.parseSequenceElements(close)
 	if len(elems) == 1 {
 		return elems[0]
 	}
 	seq := &ast.SequenceExpr{Elements: elems}
 	seq.NodeSpan = p.spanFrom(start)
 	return seq
+}
+
+// parseSequenceElements parses the operands of a SequenceExpression up to
+// close. KerMLExpressions.xtext admits a trailing comma (`OwnedExpression ','`
+// is one of its alternatives), so `a,` and `a, b,` end at close with the comma
+// adding no operand: `(a,)` is `a`, as `(a)` is.
+func (p *Parser) parseSequenceElements(close lexer.Kind) []ast.Node {
+	elems := []ast.Node{p.ParseExpression()}
+	for p.at(lexer.Comma) {
+		p.advance() // ,
+		if p.at(close) {
+			break
+		}
+		elems = append(elems, p.ParseExpression())
+	}
+	return elems
 }
 
 // parseConstructor parses `new QualifiedName ( args )`.

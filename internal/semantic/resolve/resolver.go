@@ -110,6 +110,9 @@ type Resolver struct {
 	// resolving holds the depth (see enter) of each lookup on the stack, so a
 	// re-entrant query of the same name fails instead of recursing.
 	resolving map[ast.Node]int
+	// featuring holds the depth of each featured-member lookup (featuredMember)
+	// on the stack, whose scope walk may resolve the very chain that began it.
+	featuring map[featuredKey]int
 	// redefining holds the depth of each redefinition target being resolved,
 	// whose generals are found by resolving the targets of other redefinitions.
 	redefining map[*ast.QualifiedName]int
@@ -144,7 +147,13 @@ type Resolver struct {
 	// own (see freshImportVisits).
 	importVisits map[importVisit]bool
 	importDepth  int
-	Diagnostics  []Diagnostic
+	// enumMembers are the members each import edge surfaces, kept while the
+	// enumeration in progress nests (enumDepth): the members an import brings
+	// do not depend on the path that reached its namespace, so a cycle of
+	// re-imports is enumerated once per edge, not once per path (issue #633).
+	enumMembers map[enumEdge][]*symbols.Symbol
+	enumDepth   int
+	Diagnostics []Diagnostic
 	// quiet is nonzero while a lookup is made on behalf of a semantic query
 	// rather than a reference in the document being resolved.
 	quiet int
@@ -179,6 +188,21 @@ type Resolver struct {
 	// cross-reference. Without it, resolving each of n sibling imports searched
 	// the others' unresolved targets in every order (issue #636).
 	importTargets map[*ast.Import]resolution
+	// collisions memoizes, per namespace, what its imports bring and the
+	// memberships hidden among them: see (*Resolver).importedCollisions.
+	// colliding marks the namespaces whose collisions are being computed.
+	collisions map[*symbols.Scope]*importCollisions
+	colliding  map[*symbols.Scope]bool
+	// bringing marks the namespaces one importBrings search has asked, so a
+	// cycle of re-exports is asked once per search.
+	bringing map[*symbols.Scope]bool
+	// provisional holds, while collisions are being computed, those of the
+	// namespaces met on the way that could not be settled: each is computed
+	// once per outermost computation and dropped when it ends.
+	provisional map[*symbols.Scope]*importCollisions
+	// collisionCut is set when a collision computation met one in progress,
+	// so what it computed is not memoized.
+	collisionCut bool
 	// redefined memoizes the features a declaration redefines, explicitly or as
 	// an end: see (*Resolver).redefinedFeatures.
 	redefined map[*symbols.Symbol][]*symbols.Symbol
@@ -242,7 +266,8 @@ func (r *Resolver) MemoSize() int {
 	return len(r.memo) + len(r.modeMemo) + len(r.filtered) + len(r.featureChains) +
 		len(r.parts) + len(r.aliasNames) + len(r.endpoints) + len(r.readings) +
 		len(r.invocationNames) + len(r.ambiguities) + len(r.reportedQualified) +
-		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets)
+		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets) +
+		len(r.collisions)
 }
 
 // New creates a resolver over the given index.
@@ -261,6 +286,7 @@ func New(idx *symbols.Index) *Resolver {
 		initials:              map[*ast.InitialNode]*symbols.Symbol{},
 		imports:               map[ast.Node][]*ast.Import{},
 		importStack:           map[*ast.Import]bool{},
+		enumMembers:           map[enumEdge][]*symbols.Symbol{},
 		resolvingImports:      map[*ast.Import]bool{},
 		naming:                map[*symbols.Symbol]bool{},
 		valuesInProgress:      map[*ast.Usage]bool{},
@@ -270,6 +296,9 @@ func New(idx *symbols.Index) *Resolver {
 		payloads:              map[*symbols.Scope]map[string]*symbols.Symbol{},
 		implicitParams:        map[*symbols.Scope][]*symbols.Symbol{},
 		importTargets:         map[*ast.Import]resolution{},
+		collisions:            map[*symbols.Scope]*importCollisions{},
+		colliding:             map[*symbols.Scope]bool{},
+		bringing:              map[*symbols.Scope]bool{},
 		importVisits:          map[importVisit]bool{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
 		bodyOwners:            map[*symbols.Scope]*symbols.Symbol{},

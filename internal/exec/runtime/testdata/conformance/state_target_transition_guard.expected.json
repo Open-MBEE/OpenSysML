@@ -4,7 +4,7 @@
   "finalState": "decelerating",
   "stateVisits": ["coasting", "decelerating"],
   "outputs": {
-    "alt": {"type": "Real", "value": 10.0},
+    "alt": {"type": "Rational", "value": "10.0"},
     "fired": {"type": "Integer", "value": 1}
   }
 }

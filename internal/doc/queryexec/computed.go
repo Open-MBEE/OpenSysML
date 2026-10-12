@@ -581,6 +581,12 @@ func (e *executor) applyColumnOperator(
 				integer = semantics.IntNeg(integer)
 			}
 			return IntegerOf(integer), nil
+		case ValueRational:
+			rational, _ := values[0].Rational()
+			if operator == "-" {
+				rational = semantics.RatNeg(rational)
+			}
+			return RationalOf(rational), nil
 		case ValueReal:
 			realVal, _ := values[0].Real()
 			if operator == "-" {
@@ -620,6 +626,21 @@ func (e *executor) applyColumnOperator(
 			return IntegerOf(q), nil
 		}
 	}
+	if exactKind(left.Kind()) && exactKind(right.Kind()) {
+		op, ok := map[string]ast.OperatorKind{"+": ast.OpAdd, "-": ast.OpSub, "*": ast.OpMul, "/": ast.OpDiv}[operator]
+		if ok {
+			l, r := exactOperand(left), exactOperand(right)
+			if operator == "/" && r.RatSign() == 0 {
+				return Value{}, e.columnError(
+					ErrorColumnDivisionByZero, column, row, expression.Origin(), operator, "")
+			}
+			result, err := semantics.RatArith(op, l, r, semantics.DefaultMaxIntegerBits)
+			if err != nil {
+				return Value{}, err
+			}
+			return numberOf(result), nil
+		}
+	}
 	l := realOperand(left)
 	r := realOperand(right)
 	switch operator {
@@ -640,7 +661,28 @@ func (e *executor) applyColumnOperator(
 }
 
 func arithmeticKind(kind ValueKind) bool {
-	return kind == ValueInteger || kind == ValueReal
+	return kind == ValueInteger || kind == ValueRational || kind == ValueReal
+}
+
+func exactKind(kind ValueKind) bool {
+	return kind == ValueInteger || kind == ValueRational
+}
+
+// exactOperand is an Integer or Rational operand's exact value.
+func exactOperand(value Value) semantics.Value {
+	if integer, ok := value.IntegerConst(); ok {
+		return integer
+	}
+	rational, _ := value.Rational()
+	return rational
+}
+
+// numberOf is the query value of an exact Integer or Rational result.
+func numberOf(value semantics.Value) Value {
+	if value.Kind == semantics.ValInt {
+		return IntegerOf(value)
+	}
+	return RationalOf(value)
 }
 
 func hasQuantity(values []Value) bool {
@@ -714,6 +756,9 @@ func quantityOperand(value Value) (semantics.Quantity, bool) {
 	case ValueInteger:
 		integer, _ := value.IntegerConst()
 		return semantics.Quantity{Num: integer, Unit: semantics.UnitOne()}, true
+	case ValueRational:
+		rational, _ := value.Rational()
+		return semantics.Quantity{Num: rational, Unit: semantics.UnitOne()}, true
 	case ValueReal:
 		realVal, _ := value.Real()
 		return semantics.Quantity{Num: semantics.Value{Kind: semantics.ValReal, Real: realVal}, Unit: semantics.UnitOne()}, true
@@ -742,8 +787,8 @@ func columnOperatorKind(operator string, unary bool) (ast.OperatorKind, bool) {
 }
 
 func realOperand(value Value) float64 {
-	if integer, ok := value.IntegerConst(); ok {
-		return integer.AsReal()
+	if exactKind(value.Kind()) {
+		return exactOperand(value).AsReal()
 	}
 	realVal, _ := value.Real()
 	return realVal

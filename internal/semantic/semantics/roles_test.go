@@ -529,6 +529,49 @@ func TestActorsRedefineByPosition(t *testing.T) {
 	}
 }
 
+func TestIsActorUsageIncludesStakeholder(t *testing.T) {
+	_, root := buildModel(t, `package P {
+		part def Person;
+		requirement def R {
+			actor driver : Person;
+			stakeholder owner : Person;
+		}
+	}`)
+	requirement := nested(t, sym(t, root, "P").Scope, "R")
+	for _, name := range []string{"driver", "owner"} {
+		if usage := nested(t, requirement.Scope, name); !IsActorUsage(usage) {
+			t.Errorf("IsActorUsage(%s) = false, want true", name)
+		}
+	}
+}
+
+func TestActorsOfReturnsOwnedAndInheritedRoles(t *testing.T) {
+	m, root := buildModel(t, `package P {
+		part def Person;
+		requirement def Base {
+			actor driver : Person;
+			stakeholder sponsor : Person;
+		}
+		requirement def Trip :> Base;
+		requirement def Trip2 :> Base { actor :>> driver; }
+	}`)
+	p := sym(t, root, "P")
+	base := nested(t, p.Scope, "Base")
+	driver := nested(t, base.Scope, "driver")
+	sponsor := nested(t, base.Scope, "sponsor")
+	if owned, inherited := m.ActorsOf(nested(t, p.Scope, "Trip")); len(owned) != 0 ||
+		!slices.Equal(inherited, []*symbols.Symbol{driver, sponsor}) {
+		t.Errorf("ActorsOf(Trip) = %v, %v; want [], [driver sponsor]", owned, inherited)
+	}
+	owned, inherited := m.ActorsOf(nested(t, p.Scope, "Trip2"))
+	if len(owned) != 1 || len(inherited) != 1 || inherited[0] != sponsor {
+		t.Errorf("ActorsOf(Trip2) = %v, %v; want one owned redefinition and inherited sponsor", owned, inherited)
+	}
+	if len(inherited) == 1 && !IsActorUsage(inherited[0]) {
+		t.Errorf("inherited stakeholder %s is not classified as an actor usage", inherited[0].Name)
+	}
+}
+
 // A restatement of an actor met through one branch of a diamond stands for the actor it
 // restates met through the other, whichever branch is written first.
 func TestActorRestatementWinsAcrossDiamond(t *testing.T) {

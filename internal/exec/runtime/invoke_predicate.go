@@ -182,6 +182,9 @@ func flattenFrames(frames []frame) frame {
 		if f.firing != nil {
 			out.firing = f.firing
 		}
+		if f.machine != nil {
+			out.machine = f.machine
+		}
 		if run := f.running(); run != nil {
 			out.merged = append(out.merged, run)
 		}

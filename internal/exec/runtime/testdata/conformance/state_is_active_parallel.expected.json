@@ -1,0 +1,28 @@
+{
+  "type": "state",
+  "libraries": true,
+  "events": [
+    {
+      "signal": "Go"
+    }
+  ],
+  "finalState": "finished",
+  "outputs": {
+    "parentFromLeft": {
+      "type": "Boolean",
+      "value": true
+    },
+    "parentFromRight": {
+      "type": "Boolean",
+      "value": true
+    },
+    "allActiveInGuard": {
+      "type": "Boolean",
+      "value": true
+    },
+    "finishedFromGuard": {
+      "type": "Boolean",
+      "value": false
+    }
+  }
+}

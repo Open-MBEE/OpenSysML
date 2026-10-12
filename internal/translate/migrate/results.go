@@ -206,7 +206,7 @@ func (m *migration) snapshotNotes(r *simresults.ConfigurationResults, scan *snap
 }
 
 // sortedKeys is the keys of counts, sorted.
-func sortedKeys(counts map[string]int) []string {
+func sortedKeys[V any](counts map[string]V) []string {
 	keys := make([]string, 0, len(counts))
 	for k := range counts {
 		keys = append(keys, k)

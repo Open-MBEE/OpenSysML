@@ -237,13 +237,33 @@ func (r *Resolver) AdmittedChildrenOf(scope *symbols.Scope, fqn string, children
 		return children
 	}
 	doc, from := r.documentOf(scope), r.ReferringNamespaceFQN(scope)
+	// An imported membership the namespace hides is no member of it (KerML
+	// 7.2.5.4), though the index still holds the name under it.
+	var hiding []*symbols.Scope
+	if r.idx != nil {
+		for _, ns := range symbols.PreferDeclared(r.idx.LookupQualified(fqn)) {
+			if ns != nil && ns.Scope != nil {
+				hiding = append(hiding, ns.Scope)
+			}
+		}
+	}
 	kept := make([]*symbols.Symbol, 0, len(children))
 	for _, sym := range children {
 		// A qualified name reaches only the namespace's visible memberships.
 		if !r.namedThroughNamespace(sym) {
 			continue
 		}
-		if r.admitsUnderName(doc, from, fqn+"::"+localNameOf(sym), sym) {
+		if !r.admitsUnderName(doc, from, fqn+"::"+localNameOf(sym), sym) {
+			continue
+		}
+		hidden := false
+		for _, ns := range hiding {
+			if len(r.withoutHiddenImports(ns, localNameOf(sym), []*symbols.Symbol{sym})) == 0 {
+				hidden = true
+				break
+			}
+		}
+		if !hidden {
 			kept = append(kept, sym)
 		}
 	}
@@ -255,9 +275,13 @@ func (r *Resolver) AdmittedChildrenOf(scope *symbols.Scope, fqn string, children
 // a name another document's import borrowed, or one this document's import
 // filter rejects, is no member of this document's root namespace.
 func (r *Resolver) AdmittedTopLevel(doc string, bindings []symbols.RootBinding) []*symbols.Symbol {
+	var root *symbols.Scope
+	if r.idx != nil {
+		root = r.idx.DocumentRoot(doc)
+	}
 	kept := make([]*symbols.Symbol, 0, len(bindings))
 	for _, b := range bindings {
-		if r.admitsUnderName(doc, "", b.Name, b.Sym) {
+		if r.admitsUnderName(doc, "", b.Name, b.Sym) && len(r.withoutHiddenImports(root, b.Name, []*symbols.Symbol{b.Sym})) == 1 {
 			kept = append(kept, b.Sym)
 		}
 	}
@@ -267,17 +291,42 @@ func (r *Resolver) AdmittedTopLevel(doc string, bindings []symbols.RootBinding) 
 // ImportedElements enumerates the elements imp surfaces into scope, with the
 // same admission a lookup through imp makes: the import's filter clause and the
 // `filter` members of the declaring namespace (see importAdmitsInto).
+// A membership scope hides (KerML 7.2.5.4) is left out: an import brings
+// nothing under a name another import of scope brings a distinct element under.
 func (r *Resolver) ImportedElements(scope *symbols.Scope, imp *ast.Import) []*symbols.Symbol {
-	return r.ImportedElementsInto(scope, scope, imp)
+	return r.withoutHiddenMembers(scope, r.importedMembersInto(scope, scope, imp, false))
 }
 
 // ImportedElementsInto enumerates the elements imp, declared in scope, surfaces
 // into the namespace owning into, which inherits it: an inherited `expose` is
 // admitted against the inheriting view's conditions too (see importAdmitsInto).
 func (r *Resolver) ImportedElementsInto(into, scope *symbols.Scope, imp *ast.Import) []*symbols.Symbol {
+	return r.importedMembersInto(into, scope, imp, false)
+}
+
+// ImportedMembersInto enumerates the named and unnamed members imp surfaces
+// into into, applying the same visibility and filter admission as a lookup.
+func (r *Resolver) ImportedMembersInto(into, scope *symbols.Scope, imp *ast.Import) []*symbols.Symbol {
+	return r.importedMembersInto(into, scope, imp, true)
+}
+
+// enumEdge is an import edge an enumeration traversed, with the member kinds asked of it.
+type enumEdge struct {
+	imp     *ast.Import
+	unnamed bool
+}
+
+func (r *Resolver) importedMembersInto(into, scope *symbols.Scope, imp *ast.Import, includeUnnamed bool) []*symbols.Symbol {
 	if scope == nil || imp == nil || imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return nil
 	}
+	r.enumDepth++
+	defer func() {
+		r.enumDepth--
+		if r.enumDepth == 0 {
+			clear(r.enumMembers)
+		}
+	}()
 	if into == nil {
 		into = scope
 	}
@@ -299,17 +348,17 @@ func (r *Resolver) ImportedElementsInto(into, scope *symbols.Scope, imp *ast.Imp
 			out.add(named)
 		}
 	} else {
-		r.appendNamespaceMembers(out, scope, target, imp, admit)
+		r.appendNamespaceMembers(out, scope, target, imp, admit, includeUnnamed)
 	}
 	if imp.IsRecursive {
-		r.appendSubtree(out, scope, target, imp, admit, map[symbols.ElementKey]bool{})
+		r.appendSubtree(out, scope, target, imp, admit, map[symbols.ElementKey]bool{}, includeUnnamed)
 	}
 	return out.elems
 }
 
 // appendNamespaceMembers adds the members of target a namespace import surfaces.
-func (r *Resolver) appendNamespaceMembers(out *elementList, scope *symbols.Scope, target *symbols.Symbol, imp *ast.Import, admit func(*symbols.Symbol) bool) {
-	for _, sym := range r.namespaceChildren(scope, target, imp) {
+func (r *Resolver) appendNamespaceMembers(out *elementList, scope *symbols.Scope, target *symbols.Symbol, imp *ast.Import, admit func(*symbols.Symbol) bool, includeUnnamed bool) {
+	for _, sym := range r.namespaceChildren(scope, target, imp, includeUnnamed) {
 		if visibleThroughImport(imp, sym) && admit(sym) {
 			out.add(sym)
 		}
@@ -320,25 +369,38 @@ func (r *Resolver) appendNamespaceMembers(out *elementList, scope *symbols.Scope
 // ones first and then the ones only the index holds — wildcard imports and
 // restored libraries populate the index rather than a scope. Reachability under
 // the name is decided here; visibility and element filters are not.
-func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbol, imp *ast.Import) []*symbols.Symbol {
+func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbol, imp *ast.Import, includeUnnamed bool) []*symbols.Symbol {
 	children := newElementList()
 	if target.Scope != nil {
-		for _, sym := range target.Scope.Members() {
-			children.add(sym)
+		if includeUnnamed {
+			target.Scope.ForEachMember(func(sym *symbols.Symbol) bool {
+				children.add(sym)
+				return true
+			})
+		} else {
+			for _, sym := range target.Scope.Members() {
+				children.add(sym)
+			}
 		}
 		for _, childImp := range r.scopeImports(target.Scope) {
 			if !r.importVisibleFrom(target, scope, childImp) || r.importStack[childImp] {
 				continue
 			}
-			r.importStack[childImp] = true
-			for _, sym := range r.ImportedElements(target.Scope, childImp) {
+			edge := enumEdge{imp: childImp, unnamed: includeUnnamed}
+			members, done := r.enumMembers[edge]
+			if !done {
+				r.importStack[childImp] = true
+				members = r.importedMembersInto(target.Scope, target.Scope, childImp, includeUnnamed)
+				delete(r.importStack, childImp)
+				r.enumMembers[edge] = members
+			}
+			for _, sym := range members {
 				children.add(sym)
 			}
-			delete(r.importStack, childImp)
 		}
 	}
 	if r.idx == nil {
-		return children.elems
+		return r.withoutHiddenMembers(target.Scope, children.elems)
 	}
 	prefix := r.indexedNameOf(target)
 	var indexed []*symbols.Symbol
@@ -348,11 +410,23 @@ func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbo
 		indexed = r.idx.LookupDirectChildrenFrom(prefix, r.ReferringNamespaceFQN(scope))
 	}
 	for _, sym := range indexed {
-		if r.admitsUnderName("", r.ReferringNamespaceFQN(scope), prefix+"::"+localNameOf(sym), sym) {
+		// An entry re-exported under target through a namespace that hides it is
+		// no member of target (see withoutHiddenImports).
+		if r.admitsUnderName("", r.ReferringNamespaceFQN(scope), prefix+"::"+localNameOf(sym), sym) && !(r.reexportedUnder(prefix, sym) && r.hiddenOnRoute(target.Scope, sym)) {
 			children.add(sym)
 		}
 	}
-	return children.elems
+	return r.withoutHiddenMembers(target.Scope, children.elems)
+}
+
+// reexportedUnder reports whether the index entry sym under prefix is a
+// re-export: an element declared elsewhere that a wildcard import registered there.
+func (r *Resolver) reexportedUnder(prefix string, sym *symbols.Symbol) bool {
+	if r.idx == nil {
+		return false
+	}
+	fqn := r.idx.GetFQN(sym)
+	return fqn != "" && fqn != prefix+"::"+localNameOf(sym)
 }
 
 // indexedNameOf is the qualified name the index keys target's children under. A
@@ -368,10 +442,25 @@ func (r *Resolver) indexedNameOf(target *symbols.Symbol) string {
 	return target.Name
 }
 
+// withoutHiddenMembers drops the imported memberships scope hides (KerML
+// 7.2.5.4): they are no members of it, so no import of it re-exports them.
+func (r *Resolver) withoutHiddenMembers(scope *symbols.Scope, syms []*symbols.Symbol) []*symbols.Symbol {
+	if scope == nil || len(r.importedCollisions(scope).hidden) == 0 {
+		return syms
+	}
+	out := syms[:0:0]
+	for _, sym := range syms {
+		if !r.hiddenImportMember(scope, sym) {
+			out = append(out, sym)
+		}
+	}
+	return out
+}
+
 // appendSubtree adds the descendants of target a recursive import surfaces. The
 // walk descends through the members the import can see, as the lookup does: a
 // namespace it cannot surface hides its own contents too (see eachSubtreeMatch).
-func (r *Resolver) appendSubtree(out *elementList, scope *symbols.Scope, target *symbols.Symbol, imp *ast.Import, admit func(*symbols.Symbol) bool, seen map[symbols.ElementKey]bool) {
+func (r *Resolver) appendSubtree(out *elementList, scope *symbols.Scope, target *symbols.Symbol, imp *ast.Import, admit func(*symbols.Symbol) bool, seen map[symbols.ElementKey]bool, includeUnnamed bool) {
 	if target == nil || (target.Scope != nil && target.Scope.BodyLocal()) {
 		return
 	}
@@ -380,7 +469,7 @@ func (r *Resolver) appendSubtree(out *elementList, scope *symbols.Scope, target 
 		return
 	}
 	seen[key] = true
-	children := r.namespaceChildren(scope, target, imp)
+	children := r.namespaceChildren(scope, target, imp, includeUnnamed)
 	for _, sym := range children {
 		if visibleThroughImport(imp, sym) && admit(sym) {
 			out.add(sym)
@@ -390,8 +479,72 @@ func (r *Resolver) appendSubtree(out *elementList, scope *symbols.Scope, target 
 		if !visibleThroughImport(imp, sym) {
 			continue
 		}
-		r.appendSubtree(out, scope, sym, imp, admit, seen)
+		r.appendSubtree(out, scope, sym, imp, admit, seen, includeUnnamed)
 	}
+}
+
+// ViewExposureConditions returns the view's own and inherited filters and the
+// filter clauses on each expose those views state.
+func (r *Resolver) ViewExposureConditions(view *symbols.Symbol) []symbols.ElementFilter {
+	if view == nil || !isViewSymbol(view) {
+		return nil
+	}
+	conditions := append([]symbols.ElementFilter{}, r.viewOwnConditions(view)...)
+	conditions = appendConditions(conditions, r.inheritedViewConditions(view.Scope))
+	provider, ok := r.model.(supertypeProvider)
+	if !ok {
+		for _, imp := range exposesInView(view.Decl) {
+			conditions = appendExposeFilter(conditions, view.Scope, imp)
+		}
+		return conditions
+	}
+	seen := map[*symbols.Symbol]bool{view: true}
+	queue := provider.DirectSupertypes(view)
+	for len(queue) != 0 {
+		super := queue[0]
+		queue = queue[1:]
+		if super == nil || seen[super] || !isViewSymbol(super) {
+			continue
+		}
+		seen[super] = true
+		conditions = appendConditions(conditions, r.viewOwnConditions(super))
+		for _, imp := range exposesInView(super.Decl) {
+			conditions = appendExposeFilter(conditions, super.Scope, imp)
+		}
+		queue = append(queue, provider.DirectSupertypes(super)...)
+	}
+	for _, imp := range exposesInView(view.Decl) {
+		conditions = appendExposeFilter(conditions, view.Scope, imp)
+	}
+	return conditions
+}
+
+func appendExposeFilter(conditions []symbols.ElementFilter, scope *symbols.Scope, imp *ast.Import) []symbols.ElementFilter {
+	if imp == nil || imp.FilterExpr == nil {
+		return conditions
+	}
+	filter := symbols.ElementFilter{Expr: imp.FilterExpr, Scope: scope, Span: imp.FilterExpr.Span()}
+	if statesCondition(conditions, filter) {
+		return conditions
+	}
+	return append(conditions, filter)
+}
+
+func exposesInView(decl ast.Node) []*ast.Import {
+	var members []ast.Node
+	switch node := decl.(type) {
+	case *ast.Definition:
+		members = node.Members
+	case *ast.Usage:
+		members = node.Members
+	}
+	var out []*ast.Import
+	for _, member := range members {
+		if imp, ok := member.(*ast.Import); ok && imp.IsExpose {
+			out = append(out, imp)
+		}
+	}
+	return out
 }
 
 // elementList collects elements in the order they were surfaced, once each,
@@ -458,4 +611,39 @@ func (r *Resolver) admits(filters []symbols.ElementFilter, cand *symbols.Symbol)
 		}
 	})
 	return admitted
+}
+
+// ImportedBeside reports an element another import of the namespace sym is
+// imported into, along scope's lookup path, brings under name and that sym
+// read as name would be indistinguishable from: both would be hidden there
+// (KerML 7.2.5.4). Nothing where sym is not imported, where the namespace owns
+// the name, or where every other is sym itself (an alias of it) or another metaclass.
+func (r *Resolver) ImportedBeside(scope *symbols.Scope, name string, sym *symbols.Symbol) (*symbols.Symbol, bool) {
+	for s := scope; s != nil; s = s.Parent() {
+		var brought bool
+		var others []*symbols.Symbol
+		for _, imp := range r.scopeImports(s) {
+			for _, m := range r.importedMembersInto(s, s, imp, false) {
+				if m.Name == "" || r.idx.Library(m) || !contributesName(m) || !r.BindsName(m) {
+					continue
+				}
+				if symbols.SameElement(m, sym) {
+					brought = true
+				} else if slices.Contains(memberNames(m), name) {
+					others = append(others, m)
+				}
+			}
+		}
+		if !brought {
+			continue
+		}
+		if slices.Contains(r.ownedNames(s), name) {
+			return nil, false
+		}
+		if dup := r.duplicatesOf(sym, others); len(dup) > 0 {
+			return dup[0], true
+		}
+		return nil, false
+	}
+	return nil, false
 }

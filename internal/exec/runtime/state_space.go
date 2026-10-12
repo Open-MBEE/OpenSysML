@@ -132,7 +132,10 @@ func (e *ActionExecutor) initializeDynamics() error {
 func (e *ActionExecutor) readStep(run *stateSpaceRun) error {
 	dyn := run.dyn
 	what := fmt.Sprintf("%s of action %s", lower.TimeStepFeature, symbolText(e.action))
-	step, ok := e.root.data[e.root.key(lower.TimeStepFeature)]
+	step, ok, err := e.ctx.readBodyValue(e.root.cells, e.root.data, e.root.key(lower.TimeStepFeature))
+	if err != nil {
+		return fmt.Errorf("%w: %s: %w", ErrStateSpaceStep, what, err)
+	}
 	if dyn.TimeStep == nil || !ok {
 		return fmt.Errorf("%w: action %s states no %s; specialize %s or declare one",
 			ErrStateSpaceStep, symbolText(e.action), lower.TimeStepFeature, lower.FixedStepDynamicsFQN)
@@ -148,11 +151,14 @@ func (e *ActionExecutor) readStep(run *stateSpaceRun) error {
 	if dyn.StopTime == nil {
 		return nil
 	}
-	stop, ok := e.root.data[e.root.key(lower.StopTimeFeature)]
+	what = fmt.Sprintf("%s of action %s", lower.StopTimeFeature, symbolText(e.action))
+	stop, ok, err := e.ctx.readBodyValue(e.root.cells, e.root.data, e.root.key(lower.StopTimeFeature))
+	if err != nil {
+		return fmt.Errorf("%w: %s: %w", ErrStateSpaceStep, what, err)
+	}
 	if !ok || stop.Kind == ValNull {
 		return nil
 	}
-	what = fmt.Sprintf("%s of action %s", lower.StopTimeFeature, symbolText(e.action))
 	if run.stop, err = e.ctx.timeMagnitude(stop, what); err != nil {
 		return fmt.Errorf("%w: %w", ErrStateSpaceStep, err)
 	}
@@ -165,7 +171,11 @@ func (e *ActionExecutor) readStep(run *stateSpaceRun) error {
 
 // stateVector is the state the action holds, checked to be a vector.
 func (e *ActionExecutor) stateVector() (Value, error) {
-	state, ok := e.root.data[e.root.key(lower.StateSpaceFeature)]
+	state, ok, err := e.ctx.readBodyValue(e.root.cells, e.root.data, e.root.key(lower.StateSpaceFeature))
+	if err != nil {
+		return Value{}, fmt.Errorf("%w: action %s: read %s: %w",
+			ErrStateSpaceValue, symbolText(e.action), lower.StateSpaceFeature, err)
+	}
 	if !ok || state.Kind == ValNull {
 		return Value{}, fmt.Errorf("%w: action %s binds no %s; give it an initial value",
 			ErrStateSpaceValue, symbolText(e.action), lower.StateSpaceFeature)
@@ -184,7 +194,11 @@ func (e *ActionExecutor) dynamicsSteps() int {
 // inputVector is the input the action holds; nil when it binds none, so a calc
 // that does not need one runs and one that does reports its parameter unbound.
 func (e *ActionExecutor) inputVector() (*Value, error) {
-	input, ok := e.root.data[e.root.key(lower.InputFeature)]
+	input, ok, err := e.ctx.readBodyValue(e.root.cells, e.root.data, e.root.key(lower.InputFeature))
+	if err != nil {
+		return nil, fmt.Errorf("%w: action %s: read %s: %w",
+			ErrStateSpaceValue, symbolText(e.action), lower.InputFeature, err)
+	}
 	if !ok || input.Kind == ValNull {
 		return nil, nil
 	}

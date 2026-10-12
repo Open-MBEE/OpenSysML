@@ -1,7 +1,7 @@
 function value = decodeDocumentValue(raw)
 %DECODEDOCUMENTVALUE Decode one answered DocumentValue.
 
-    arms = {'elementId','stringValue','intValue','bigIntValue','realValue','boolValue', ...
+    arms = {'elementId','stringValue','intValue','bigIntValue','rationalValue','realValue','boolValue', ...
         'infinity','quantity','object','verdict','state','event'};
     arm = '';
     for i = 1:numel(arms)
@@ -22,6 +22,8 @@ function value = decodeDocumentValue(raw)
             value = opensysml.parseInt64(valueString(raw.intValue));
         case 'bigIntValue'
             value = opensysml.decodeValue(struct('bigIntValue', raw.bigIntValue));
+        case 'rationalValue'
+            value = opensysml.decodeValue(struct('rationalValue', raw.rationalValue));
         case 'realValue'
             value = realValue(raw.realValue);
         case 'boolValue'

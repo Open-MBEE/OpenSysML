@@ -19,4 +19,5 @@ digraph "VehicleViews::vehicleView" {
   "n7" [style="rounded,filled", fillcolor="#B499BB", color="#440154", penwidth=1, label=<<font point-size="10"><i>«part»</i></font><br/><b>cylinder : Cylinder</b>>];
   "n5" -> "n7" [arrowhead=none];
   "n4" -> "n5" [arrowhead=none];
+  "n0" -> "n5" [label="engine", dir=back, arrowtail=diamond];
 }

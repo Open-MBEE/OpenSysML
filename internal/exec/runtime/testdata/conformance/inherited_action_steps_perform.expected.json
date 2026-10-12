@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::W",
+	"outputs": {
+		"p.c": {"type": "Integer", "value": 1}
+	}
+}

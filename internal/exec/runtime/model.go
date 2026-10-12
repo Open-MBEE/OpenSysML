@@ -84,7 +84,14 @@ type Model struct {
 
 	// constraintSteps memoizes the step each member of a constraint body lowers
 	// to, one lowering per member node however often a check reads the body.
-	constraintSteps  map[ast.Node]lower.Statement
+	constraintSteps map[ast.Node]lower.Statement
+	// activityOperands memoizes, per read of a state's activity (`fill.sub.isActive`),
+	// the node naming the state the read is of (`fill.sub`), so a chain spelled in
+	// one qualified name is resolved as an endpoint once rather than per evaluation.
+	activityOperands map[*ast.FeatureChainExpr]ast.Node
+	// activitySplits memoizes, per such read, the operand split at one of its
+	// members into the prefix naming a machine usage and the state path within it.
+	activitySplits   map[activitySplitKey]activitySplit
 	constraintBodies sync.Map
 
 	// predicateShapes memoizes the invocation interfaces of constraints and
@@ -110,7 +117,7 @@ type Model struct {
 	// integerLiterals and realLiterals memoize the value each numeric literal
 	// node spells, so a literal in a recursion is parsed once per model.
 	integerLiterals map[*ast.LiteralInteger]semantics.Value
-	realLiterals    map[*ast.LiteralReal]float64
+	realLiterals    map[*ast.LiteralReal]semantics.Value
 
 	// census memoizes the object usages the model's namespaces declare; see modelUsages.
 	census *usageCensus
@@ -160,6 +167,8 @@ type Model struct {
 	// machine judges every message in flight against every trigger it holds each step.
 	triggerTypes  map[triggerTypeKey]*symbols.Symbol
 	signalMatches map[signalMatchKey]bool
+	// conformers memoizes, by an accept type's declaration, what may carry it.
+	conformers map[ast.Node]*signalConformers
 
 	// sources holds the text of the files the model was read from, by name, so an
 	// error about a declaration can say where it was written. A file no caller
@@ -222,12 +231,14 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		calcShapes:          make(map[*symbols.Symbol]*calcShape),
 		predicateShapes:     make(map[*symbols.Symbol]*calcShape),
 		constraintSteps:     make(map[ast.Node]lower.Statement),
+		activityOperands:    make(map[*ast.FeatureChainExpr]ast.Node),
+		activitySplits:      make(map[activitySplitKey]activitySplit),
 		librarySymbols:      make(map[string]*symbols.Symbol),
 		verificationCases:   make(map[*symbols.Scope][]*symbols.Symbol),
 		libraryPerformances: make(map[*symbols.Symbol]*libraryPerformance),
 		invocationTargets:   make(map[invocationKey]*invocationTarget),
 		integerLiterals:     make(map[*ast.LiteralInteger]semantics.Value),
-		realLiterals:        make(map[*ast.LiteralReal]float64),
+		realLiterals:        make(map[*ast.LiteralReal]semantics.Value),
 		behaving:            make(map[*symbols.Symbol]bool),
 		behavingFeatures:    make(map[*symbols.Symbol][]int),
 		redefGroups:         make(map[*symbols.Symbol][][]string),
@@ -292,6 +303,7 @@ func (m *Model) RegisterScope(scope *symbols.Scope) {
 	m.scopes = append(m.scopes, scope)
 	m.declared = nil
 	m.census = nil
+	m.conformers = nil
 	m.namespaceUsageIndex = nil
 	m.behaviorOrdersReady = false
 	m.behaviorOrders = nil

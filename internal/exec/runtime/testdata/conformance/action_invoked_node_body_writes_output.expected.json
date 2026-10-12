@@ -2,9 +2,21 @@
 	"type": "action",
 	"evaluate": "test::Adjust",
 	"libraries": true,
-	"outputs": {
-		"y": {"type": "Integer", "value": 31},
-		"seen": {"type": "Integer", "value": 31},
-		"scaled.y": {"type": "Integer", "value": 31}
-	}
+	"outcomes": [
+		{
+			"outputs": {
+				"y": {"type": "Integer", "value": 30},
+				"seen": {"type": "Integer", "value": 30},
+				"scaled.y": {"type": "Integer", "value": 30}
+			}
+		},
+		{
+			"outputs": {
+				"y": {"type": "Integer", "value": 31},
+				"seen": {"type": "Integer", "value": 31},
+				"scaled.y": {"type": "Integer", "value": 31}
+			}
+		}
+	],
+	"admissible": "Body-stating typed usages and mixed state behaviors"
 }

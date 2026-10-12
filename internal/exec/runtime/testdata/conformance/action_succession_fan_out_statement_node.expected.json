@@ -1,0 +1,10 @@
+{
+	"libraries": true,
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"x": {"type": "Integer", "value": 1},
+		"bRan": {"type": "Boolean", "value": true},
+		"cRan": {"type": "Boolean", "value": true}
+	}
+}

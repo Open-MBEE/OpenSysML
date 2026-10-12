@@ -134,7 +134,7 @@ func arrivingObject(frame *actionFrame, graph *lower.ActionGraph, node ast.Node,
 func (e *performances) queueControlObject(frame *actionFrame, graph *lower.ActionGraph, flow lower.ObjectFlow, value Value) error {
 	for _, f := range graph.Features[flow.Target] {
 		if f.Name == flow.TargetPin && f.Direction == ast.DirIn {
-			if err := e.ctx.checkNamedWrite(graph.Scopes[flow.Target], nodeDescription(flow.Target), f.Name, &value); err != nil {
+			if err := e.ctx.checkNamedWriteAs(graph.Scopes[flow.Target], func() string { return nodeDescription(flow.Target) }, f.Name, &value); err != nil {
 				return fmt.Errorf("%s: %w", flowDescription(flow), err)
 			}
 			frame.hold(flow.Target, f.Name, nodeObject{value: value, flow: flow.Decl, carried: flow.Kind == lower.FlowSuccession})

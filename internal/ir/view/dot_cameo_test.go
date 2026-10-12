@@ -50,6 +50,8 @@ func TestDOTPilotIsTheDefault(t *testing.T) {
 		{"state.sysml", "MachineViews::vehicleStates"},
 		{"action.sysml", "FlowViews::driveView"},
 		{"layout.sysml", "PlantViews::placedView"},
+		{"case.sysml", "CaseExamples::caseDiagram"},
+		{"mixed.sysml", "MixedExamples::mixedDiagram"},
 	} {
 		rendering := render(t, tc.file, tc.view)
 		plain, err := rendering.DOT()
@@ -74,12 +76,14 @@ func TestDOTPilotIsTheDefault(t *testing.T) {
 // keeps the default `dot` engine of an unplaced rendering.
 func TestGoldenDOTCameo(t *testing.T) {
 	cases := []struct {
-		name, file, view, header, fill string
+		name, file, view, header, fill, frame string
 	}{
-		{"tree", "tree.sysml", "VehicleViews::vehicleView", "<b>bdd</b> [Block] Vehicle [ vehicleView ]", cameoBlockFill},
-		{"interconnection", "interconnection.sysml", "PlantViews::loopView", "<b>ibd</b> [Block] Loop [ loopView ]", cameoBlockFill},
-		{"state", "state.sysml", "MachineViews::vehicleStates", "<b>stm</b> [State Machine] VehicleStates [ vehicleStates ]", cameoStateFill},
-		{"action", "action.sysml", "FlowViews::driveView", "<b>act</b> [Activity] Drive [ driveView ]", cameoActionFill},
+		{"tree", "tree.sysml", "VehicleViews::vehicleView", "<b>bdd</b> [Block] Vehicle [ vehicleView ]", cameoBlockFill, ""},
+		{"interconnection", "interconnection.sysml", "PlantViews::loopView", "<b>ibd</b> [Block] Loop [ loopView ]", cameoBlockFill, ""},
+		{"state", "state.sysml", "MachineViews::vehicleStates", "<b>stm</b> [State Machine] VehicleStates [ vehicleStates ]", cameoStateFill, ""},
+		{"action", "action.sysml", "FlowViews::driveView", "<b>act</b> [Activity] Drive [ driveView ]", cameoActionFill, ""},
+		{"case", "case.sysml", "CaseExamples::caseDiagram", "", cameoBlockFill, "uc"},
+		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", "", cameoBlockFill, "mixed"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -93,13 +97,20 @@ func TestGoldenDOTCameo(t *testing.T) {
 			for _, want := range []string{
 				"// layout: dot\n",
 				`subgraph "cluster_frame" {`,
-				"label=<" + tc.header + ">;",
 				`node [shape=box, style=filled, fillcolor="` + cameoBlockFill + `", gradientangle=0, color="` + cameoBlockLine + `", fontname="Arial", fontsize=11, fontcolor="` + cameoTextColor + `", penwidth=1];`,
 				`edge [color="` + cameoEdgeColor + `", fontname="Arial", fontsize=9, fontcolor="` + cameoTextColor + `", penwidth=1, arrowhead=open];`,
 				`fillcolor="` + tc.fill + `"`,
 			} {
 				if !strings.Contains(dot, want) {
 					t.Errorf("cameo DOT lacks %q:\n%s", want, dot)
+				}
+			}
+			if tc.header != "" && !strings.Contains(dot, "label=<"+tc.header+">;") {
+				t.Errorf("cameo DOT frame header lacks %q:\n%s", tc.header, dot)
+			}
+			if tc.frame != "" && !strings.Contains(dot, "label=<b>"+tc.frame+"</b>") {
+				if !strings.Contains(dot, "label=<<b>"+tc.frame+"</b>") {
+					t.Errorf("cameo DOT frame kind lacks %q:\n%s", tc.frame, dot)
 				}
 			}
 			if strings.Contains(dot, "Helvetica") || strings.Contains(dot, "#181818") {

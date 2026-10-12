@@ -6,6 +6,10 @@ type Changes struct {
 	Names      map[string]bool
 	Namespaces map[string]bool
 	Docs       map[string]bool
+	// Spellings reports that the set of names the index registers changed: a
+	// name came or went, or is spelled otherwise. A name registered again under
+	// the same spelling leaves it unset, whatever symbol it now names.
+	Spellings bool
 }
 
 // Empty reports whether nothing changed.
@@ -31,14 +35,142 @@ func (idx *Index) TrackChanges() {
 	}
 }
 
-// TakeChanges returns what changed since the last call and starts over.
+// TakeChanges returns what changed since the last call and starts over. A
+// name registered again exactly as it was (the same symbols, re-exported and
+// hidden alike, claimed by the same documents on the same routes) is left
+// out: a document replaced by one declaring the same names re-registers every
+// re-export its wildcard imports surface, and none of them reads differently.
 func (idx *Index) TakeChanges() Changes {
 	if idx.changes == nil {
 		return Changes{}
 	}
 	out := *idx.changes
+	for fqn := range out.Names {
+		before, noted := idx.changesBefore[fqn]
+		now := registrationOf(idx, fqn)
+		if !noted || before.spelling(fqn) != now.spelling(fqn) {
+			out.Spellings = true
+		}
+		if noted && before.same(now) {
+			delete(out.Names, fqn)
+		}
+	}
 	idx.changes = newChanges()
+	idx.changesBefore = nil
 	return out
+}
+
+// noteBefore keeps how fqn was registered before the first write to it since
+// the last TakeChanges, for TakeChanges to tell a name that changed from one
+// registered again as it was. Callers note before they write.
+func (idx *Index) noteBefore(fqn string) {
+	if idx.changes == nil {
+		return
+	}
+	if _, noted := idx.changesBefore[fqn]; noted {
+		return
+	}
+	if idx.changesBefore == nil {
+		idx.changesBefore = map[string]registration{}
+	}
+	idx.changesBefore[fqn] = registrationOf(idx, fqn)
+}
+
+// registration is everything a lookup of a name reads from the index's
+// tables: the symbols registered under it, in order, each with its re-export
+// and hidden marks and the claims and routes that surfaced it. It holds the
+// symbols themselves, so one dropped since cannot have its address reused by
+// a new symbol that would then compare equal to it. The claims are the index's
+// own maps, not copies: a write replaces a claims map rather than changing it
+// (see Index.reexportDocs), so the one noted stays as it was read.
+type registration []registeredSymbol
+
+type registeredSymbol struct {
+	sym                *Symbol
+	reexported, hidden bool
+	claims             map[string]*reexportClaim
+}
+
+func registrationOf(idx *Index, fqn string) registration {
+	syms := idx.fqn.at(fqn)
+	if len(syms) == 0 {
+		return nil
+	}
+	reexported, _ := idx.reexported.get(fqn)
+	hidden, _ := idx.hidden.get(fqn)
+	out := make(registration, len(syms))
+	for i, sym := range syms {
+		out[i] = registeredSymbol{
+			sym:        sym,
+			reexported: reexported.has(sym),
+			hidden:     hidden.has(sym),
+			claims:     idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym}),
+		}
+	}
+	return out
+}
+
+// spelling is the simple name a registration is filed under (SpelledName), ""
+// when nothing is registered there.
+func (r registration) spelling(fqn string) string {
+	if len(r) == 0 {
+		return ""
+	}
+	syms := make([]*Symbol, len(r))
+	for i, entry := range r {
+		syms[i] = entry.sym
+	}
+	return SpelledName(fqn, syms)
+}
+
+// SpelledName is the name fqn registers a declaration under, which a
+// suggestion table files it by: the declared name of the first of syms
+// registered under fqn as its own, which may hold `::` of its own, else
+// fqn's last segment (as a short name is).
+func SpelledName(fqn string, syms []*Symbol) string {
+	for _, sym := range syms {
+		if sym != nil && HasFQN(sym, fqn) {
+			if sym.Name != "" {
+				return sym.Name
+			}
+			break
+		}
+	}
+	return LastSegment(fqn)
+}
+
+// same reports whether two registrations read alike: the same symbols, by
+// identity, so a declaration parsed again is a change, with the same marks,
+// claims and routes, a route's filters compared by the expression and scope
+// they were written with.
+func (r registration) same(other registration) bool {
+	if len(r) != len(other) {
+		return false
+	}
+	for i, a := range r {
+		b := other[i]
+		if a.sym != b.sym || a.reexported != b.reexported || a.hidden != b.hidden || len(a.claims) != len(b.claims) {
+			return false
+		}
+		for doc, claim := range a.claims {
+			them, ok := b.claims[doc]
+			if !ok || claim.public != them.public || len(claim.routes) != len(them.routes) {
+				return false
+			}
+			for k, route := range claim.routes {
+				theirs := them.routes[k]
+				if route.private != theirs.private || len(route.filters) != len(theirs.filters) {
+					return false
+				}
+				for f, filter := range route.filters {
+					if filter.Expr != theirs.filters[f].Expr || filter.Scope != theirs.filters[f].Scope {
+						return false
+					}
+				}
+			}
+		}
+	}
+	return true
 }
 
 func (idx *Index) changedName(fqn string) {

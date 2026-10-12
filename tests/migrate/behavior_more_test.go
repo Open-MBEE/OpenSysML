@@ -174,11 +174,14 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 	wantNote(t, r, "_dNoon", migrate.Unmapped, "only a signal event can be deferred, not a TimeEvent")
 
 	// Strict output carries the deferral in the same standard notation; the
-	// choice pseudostate is written as metadata in both modes.
+	// choice pseudostate is written as a plain state, StateMachines being
+	// OpenSysML's library.
 	strict := migrateDocumentOptions(t, ovenMachine, ovenApplications, migrate.Options{Strict: true})
 	wantDeferredDoorEncoding(t, strict)
 	wantNote(t, strict, "_dNoon", migrate.Unmapped, "only a signal event can be deferred, not a TimeEvent")
-	wantNote(t, strict, "_pick", migrate.Mapped, "written as a #StateMachines::choice state pseudostate")
+	wantNote(t, strict, "_pick", migrate.Approximated, "written as a plain state standing for the choice pseudostate")
+	wantLine(t, strict.Notation, "state choice;")
+	wantNoLine(t, strict.Notation, "StateMachines::choice")
 	wantNoLine(t, strict.Notation, "choice choice;")
 	noExtensionStatement(t, strict.Notation)
 	wantNote(t, strict, "_gWorn", migrate.Mapped, "")
@@ -259,14 +262,14 @@ func wantDeferredDoorEncoding(t *testing.T, r *migrate.Result) {
 		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 		"then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }",
 		"then receive;",
-		"metadata MigrationMetadata::SynthesizedName about receive, keep;",
 		"exit action flush {",
 		"for kept in deferred { send kept to self; }",
 		"then action clear { assign deferred := (); }",
-		"metadata MigrationMetadata::SynthesizedName about deferred, buffer, flush;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	wantMadeUp(t, r.Notation, "receive, keep")
+	wantMadeUp(t, r.Notation, "deferred, buffer, flush")
 	wantNote(t, r, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush: the standard SysML v2 encoding of a deferred signal, which the state's @MigrationMetadata::DeferredEvent annotation records")
 	wantNote(t, r, "_doorEv", migrate.Approximated, "deferred by 'Off' through the standard SysML v2 encoding, an accept loop keeping the signal while the state is active and an exit action sending it to self")
 }
@@ -363,8 +366,8 @@ func TestStrictDeferredSignalsAreKeptAndReplayed(t *testing.T) {
 			checkDeferredSignalsAreKeptAndReplayed(t, migrateDocumentOptions(t, deferringMachine, deferringApplications, mode.opts))
 		})
 	}
-	if d, s := migrateDocument(t, deferringMachine, deferringApplications), migrateDocumentOptions(t, deferringMachine, deferringApplications, migrate.Options{Strict: true}); string(d.Notation) != string(s.Notation) {
-		t.Errorf("default and strict migrations of the deferring machine differ:\n--- default\n%s\n--- strict\n%s", d.Notation, s.Notation)
+	if d, s := migrateDocument(t, deferringMachine, deferringApplications), migrateDocumentOptions(t, deferringMachine, deferringApplications, migrate.Options{Strict: true}); withoutNameMarkers(d.Notation) != withoutNameMarkers(s.Notation) {
+		t.Errorf("default and strict migrations of the deferring machine differ past the made-up name markers:\n--- default\n%s\n--- strict\n%s", d.Notation, s.Notation)
 	}
 }
 
@@ -397,7 +400,6 @@ func checkDeferredSignalsAreKeptAndReplayed(t *testing.T, r *migrate.Result) {
 		"#MigrationMetadata::DeferredKeeper action receiveBeep accept keptBeep : Beep;",
 		"then action keepBeep { assign deferredBeep := SequenceFunctions::including(deferredBeep, receiveBeep.keptBeep); }",
 		"then receiveBeep;",
-		"metadata MigrationMetadata::SynthesizedName about split, run, receiveAlarm, keepAlarm, receiveBeep, keepBeep;",
 		"exit action flush {",
 		"action leave {",
 		"assign context.exits := context.exits + 1;",
@@ -405,14 +407,15 @@ func checkDeferredSignalsAreKeptAndReplayed(t *testing.T, r *migrate.Result) {
 		"then action clearAlarm { assign deferredAlarm := (); }",
 		"then for keptBeep in deferredBeep { send keptBeep to self; }",
 		"then action clearBeep { assign deferredBeep := (); }",
-		"metadata MigrationMetadata::SynthesizedName about clearAlarm, clearBeep;",
-		"metadata MigrationMetadata::SynthesizedName about deferredAlarm, deferredBeep, buffer, flush;",
 		"transition first Waiting accept Go then Working;",
 		"transition first Busy accept Alarm then Alarmed;",
 		"transition first Working accept Beep then Done;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	wantMadeUp(t, r.Notation, "split, run, receiveAlarm, keepAlarm, receiveBeep, keepBeep")
+	wantMadeUp(t, r.Notation, "clearAlarm, clearBeep")
+	wantMadeUp(t, r.Notation, "deferredAlarm, deferredBeep, buffer, flush")
 	wantNote(t, r, "_dGo", migrate.Approximated, "the transition (_tGo) out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @MigrationMetadata::DeferredEvent annotation records the deferral")
 	wantNoLine(t, r.Notation, "item deferredGo : Go[*] ordered;")
 	wantNote(t, r, "_goDeferredEv", migrate.Approximated, "deferred by 'Waiting', which the state's @MigrationMetadata::DeferredEvent annotation records; the state does not keep the signal, the transition (_tGo) accepting it")
@@ -1047,7 +1050,7 @@ func TestDeferralYieldsToChoiceTransitionOnlyWhereWritten(t *testing.T) {
 	wantNoLine(t, strict.Notation, "choice pick;")
 	wantNoLine(t, strict.Notation, "item deferred : Door[*] ordered;")
 	for _, line := range []string{
-		"#StateMachines::choice state pick;",
+		"state pick;",
 		"transition first Off accept Door then pick;",
 		"transition first pick then Idle;",
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Door; }",
@@ -2435,5 +2438,28 @@ func TestDeferralCountsTransitionsToUnnamedTargets(t *testing.T) {
 	}
 	if out := meta(t, s, "%current"); !strings.Contains(out, "Sub") {
 		t.Errorf("Idle did not complete into the submachine state:\n%s", out)
+	}
+}
+
+// withoutNameMarkers is the notation less the markers of made-up names, which
+// a default migration writes as MigrationMetadata and a strict one as comments.
+func withoutNameMarkers(notation []byte) string {
+	var kept []string
+	for _, line := range strings.Split(string(notation), "\n") {
+		if strings.Contains(line, "SynthesizedName about") || strings.Contains(line, "// names the migration made up") {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.Join(kept, "\n")
+}
+
+// wantMadeUp checks the marker of the made-up names, which a default migration
+// writes as MigrationMetadata and a strict one as a comment.
+func wantMadeUp(t *testing.T, notation []byte, names string) {
+	t.Helper()
+	got := string(notation)
+	if !strings.Contains(got, "metadata MigrationMetadata::SynthesizedName about "+names+";") && !strings.Contains(got, "// names the migration made up: "+names) {
+		t.Errorf("notation marks no made-up names %q:\n%s", names, got)
 	}
 }

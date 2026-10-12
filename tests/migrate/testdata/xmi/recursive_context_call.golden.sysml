@@ -1,7 +1,11 @@
 package Library {
-    viewpoint 'Recursive Viewpoint' {
+    view def 'Recursive Viewpoint' {
+        viewpoint 'recursive Viewpoint' {
+            subject;
+        }
+        satisfy 'recursive Viewpoint';
         action def View {
-            in ref context :> 'Recursive Viewpoint'[1];
+            in ref context : 'Recursive Viewpoint'[1];
             first start then 'recursive call';
             action 'recursive call' : View { in ref :>> context = View::context; }
             first 'recursive call' then final;
@@ -9,5 +13,6 @@ package Library {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         action 'view' : View;
+        metadata MigrationMetadata::SynthesizedName about 'recursive Viewpoint';
     }
 }

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MagicDraw_Profile="http://www.omg.org/spec/UML/20131001/MagicDrawProfile"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_operations" name="Operations">
+      <packagedElement xmi:type="uml:Actor" xmi:id="_act_operator" name="Operator"/>
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_uc_scan" name="Scan">
+        <include xmi:type="uml:Include" xmi:id="_inc_focus" addition="_uc_focus"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_uc_focus" name="Focus"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_console" name="Console">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_current" name="current" type="_uc_scan"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_user" name="user" type="_act_operator"/>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_tables" name="Tables"/>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+      <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_classifiers" name="Classifiers" ownerOfDiagram="_pkg_tables">
+        <xmi:Extension extender="Example UML Tool 1.0">
+          <diagramRepresentation>
+            <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+              <diagramContents/>
+            </diagram:DiagramRepresentationObject>
+          </diagramRepresentation>
+        </xmi:Extension>
+      </ownedDiagram>
+      <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_types" name="Types" ownerOfDiagram="_pkg_tables">
+        <xmi:Extension extender="Example UML Tool 1.0">
+          <diagramRepresentation>
+            <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+              <diagramContents/>
+            </diagram:DiagramRepresentationObject>
+          </diagramRepresentation>
+        </xmi:Extension>
+      </ownedDiagram>
+      <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_namespaces" name="Namespaces" ownerOfDiagram="_pkg_tables">
+        <xmi:Extension extender="Example UML Tool 1.0">
+          <diagramRepresentation>
+            <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+              <diagramContents/>
+            </diagram:DiagramRepresentationObject>
+          </diagramRepresentation>
+        </xmi:Extension>
+      </ownedDiagram>
+      <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_packageable" name="Packageable Elements" ownerOfDiagram="_pkg_tables">
+        <xmi:Extension extender="Example UML Tool 1.0">
+          <diagramRepresentation>
+            <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+              <diagramContents/>
+            </diagram:DiagramRepresentationObject>
+          </diagramRepresentation>
+        </xmi:Extension>
+      </ownedDiagram>
+      <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_actors" name="Actors" ownerOfDiagram="_pkg_tables">
+        <xmi:Extension extender="Example UML Tool 1.0">
+          <diagramRepresentation>
+            <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+              <diagramContents/>
+            </diagram:DiagramRepresentationObject>
+          </diagramRepresentation>
+        </xmi:Extension>
+      </ownedDiagram>
+      <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_usecases" name="Use Cases" ownerOfDiagram="_pkg_tables">
+        <xmi:Extension extender="Example UML Tool 1.0">
+          <diagramRepresentation>
+            <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+              <diagramContents/>
+            </diagram:DiagramRepresentationObject>
+          </diagramRepresentation>
+        </xmi:Extension>
+      </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_classifiers" base_Diagram="_diag_classifiers" scope="_pkg_operations" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Classifier"/>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_types" base_Diagram="_diag_types" scope="_pkg_operations" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Type"/>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_namespaces" base_Diagram="_diag_namespaces" scope="_pkg_operations" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Namespace"/>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_packageable" base_Diagram="_diag_packageable" scope="_pkg_operations" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#PackageableElement"/>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_actors" base_Diagram="_diag_actors" scope="_pkg_operations" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Actor"/>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_usecases" base_Diagram="_diag_usecases" scope="_pkg_operations" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#UseCase"/>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+</xmi:XMI>

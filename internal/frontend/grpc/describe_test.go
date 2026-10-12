@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 )
 
 // describeValue reports the set oneof arm of a pb.Value and its payload.
@@ -45,6 +46,10 @@ func describeQuantity(q *pb.Quantity) string {
 		magnitude = strconv.FormatInt(m.IntMagnitude, 10)
 	case *pb.Quantity_RealMagnitude:
 		magnitude = strconv.FormatFloat(m.RealMagnitude, 'g', -1, 64)
+	case *pb.Quantity_RationalMagnitude:
+		if r, err := protoconv.ProtoToRational(m.RationalMagnitude); err == nil {
+			magnitude = r.FormatRational()
+		}
 	}
 	return fmt.Sprintf("%s [%s] = %s", magnitude, q.GetUnit(), describeUnitTerm(q.GetUnitTerm()))
 }

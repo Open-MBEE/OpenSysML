@@ -237,7 +237,7 @@ func (m *migration) typingIndividual(p *sysmlv1.Element, kw string) (*sysmlv1.El
 		return nil, individualSubject + qualifiedName(ind) + " cannot type a port: v2 has no individual port def"
 	}
 	kind, classifiers, _ := m.individualClassifiers(ind)
-	if kind == catNone || kind.keyword() != kw+" def" {
+	if kind == catNone || !individualTypes(kind, kw) {
 		return nil, individualSubject + qualifiedName(ind) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw
 	}
 	if t := m.model.Ref(p, "type"); t != nil && !m.instanceOf(classifiers, t) {

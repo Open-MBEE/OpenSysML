@@ -19,8 +19,24 @@ var serviceAssets = []string{
 	"sysml-grpc-windows-amd64.exe",
 }
 
+// The five Jupyter kernel binaries a release publishes beside the service;
+// jupyter-opensysml-kernel pins them the same way.
+var kernelAssets = []string{
+	"sysml-jupyter-kernel-darwin-amd64",
+	"sysml-jupyter-kernel-darwin-arm64",
+	"sysml-jupyter-kernel-linux-amd64",
+	"sysml-jupyter-kernel-linux-arm64",
+	"sysml-jupyter-kernel-windows-amd64.exe",
+}
+
 type circleConfig struct {
-	Jobs map[string]struct{ Steps []yaml.Node } `yaml:"jobs"`
+	Executors map[string]struct {
+		Docker []struct{ Image string } `yaml:"docker"`
+	} `yaml:"executors"`
+	Jobs map[string]struct {
+		Executor string      `yaml:"executor"`
+		Steps    []yaml.Node `yaml:"steps"`
+	} `yaml:"jobs"`
 	// A workflows entry is a workflow, apart from the `version` key.
 	Workflows map[string]yaml.Node `yaml:"workflows"`
 }
@@ -43,6 +59,22 @@ func (c circleConfig) workflow(t *testing.T, name string) workflow {
 type runStep struct {
 	Name    string
 	Command string
+}
+
+// jobRunsOnImage reports whether the named job's executor is backed by the
+// Docker image.
+func (c circleConfig) jobRunsOnImage(t *testing.T, job, image string) bool {
+	t.Helper()
+	executor, ok := c.Executors[c.Jobs[job].Executor]
+	if !ok {
+		t.Fatalf("%s names no executor of the config's", job)
+	}
+	for _, docker := range executor.Docker {
+		if docker.Image == image {
+			return true
+		}
+	}
+	return false
 }
 
 func loadCircleConfig(t *testing.T) circleConfig {
@@ -241,6 +273,202 @@ func TestPythonDistributionIsStampedWithItsReleaseDigests(t *testing.T) {
 	requireAll(t, "Publish GitHub release", requiresOf(t, release, "Publish GitHub release"), "Build release artifacts")
 }
 
+// TestJupyterKernelDistributionIsStampedWithItsReleaseDigests holds the
+// kernel's distributions to the Python wheel's contract: the kernel binaries
+// are built into dist/jupyter beside the service, stamped into the kernel
+// package's own table before the sdist and the five platform wheels are
+// built from them, asserted after, and the manifest build-release signs is
+// checked against every kernel wheel's pins.
+func TestJupyterKernelDistributionIsStampedWithItsReleaseDigests(t *testing.T) {
+	config := loadCircleConfig(t)
+
+	script, err := os.ReadFile("../../scripts/build-jupyter-kernel-dist.sh")
+	if err != nil {
+		t.Fatalf("the kernel distribution build script is missing: %v", err)
+	}
+	for _, platform := range []string{"linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64", "windows-amd64"} {
+		if !strings.Contains(string(script), platform) {
+			t.Errorf("build-jupyter-kernel-dist.sh builds no wheel for %s", platform)
+		}
+	}
+	for _, want := range []string{"JUPYTER_OPENSYSML_KERNEL_PLATFORM", "-m build --sdist", "-m build --wheel", "sha256sum --check"} {
+		if !strings.Contains(string(script), want) {
+			t.Errorf("build-jupyter-kernel-dist.sh does not use %q", want)
+		}
+	}
+	// The JupyterLab extension is built once, before the sdist and the wheels,
+	// and every distribution is opened and held to carry that one build.
+	extension := strings.Index(string(script), "make jupyterlab-build")
+	sdist := strings.Index(string(script), "-m build --sdist")
+	switch {
+	case extension < 0:
+		t.Error("build-jupyter-kernel-dist.sh does not build the JupyterLab extension with make jupyterlab-build")
+	case extension > sdist:
+		t.Error("build-jupyter-kernel-dist.sh builds the JupyterLab extension after the sdist, which ships without it")
+	}
+	for _, want := range []string{"jupyter_opensysml_kernel.labextension import SHARED_DATA", `"package.json"`, `"install.json"`, "static/remoteEntry.", "ship the same labextension"} {
+		if !strings.Contains(string(script), want) {
+			t.Errorf("build-jupyter-kernel-dist.sh does not check every distribution carries the labextension (%q)", want)
+		}
+	}
+
+	binaries, ok := config.Jobs["build-release-binaries"]
+	if !ok {
+		t.Fatal("no build-release-binaries job")
+	}
+	binarySteps := runSteps(t, binaries.Steps)
+	build := stepIndex(binarySteps, "make build-jupyter-kernel", "dist/jupyter/sysml-jupyter-kernel-windows-amd64.exe")
+	if build < 0 {
+		t.Fatal("build-release-binaries does not build the sysml-jupyter-kernel binaries into dist/jupyter")
+	}
+	for _, asset := range kernelAssets {
+		if !strings.Contains(binarySteps[build].Command, "dist/jupyter/"+asset) {
+			t.Errorf("build-release-binaries does not build dist/jupyter/%s", asset)
+		}
+	}
+	if stepIndex(binarySteps, "check-static-binaries.sh", "dist/jupyter/sysml-jupyter-kernel-linux-amd64", "dist/jupyter/sysml-jupyter-kernel-linux-arm64") < 0 {
+		t.Error("build-release-binaries does not check the Linux kernel binaries are statically linked")
+	}
+	if stepIndex(binarySteps, "--version", "dist/jupyter/sysml-jupyter-kernel-linux-amd64", "dist/jupyter/sysml-jupyter-kernel-*") < 0 {
+		t.Error("build-release-binaries does not verify the kernel binaries report the tag")
+	}
+	if stepIndex(binarySteps, `cd dist/jupyter && for f in sysml-jupyter-kernel-*; do sha256sum "$f" > "$f.sha256"; done`) < 0 {
+		t.Error("build-release-binaries does not write the kernel binaries' .sha256 sidecars, which the kernel distribution build checks the binaries it bundles against")
+	}
+
+	python, ok := config.Jobs["build-python-package"]
+	if !ok {
+		t.Fatal("no build-python-package job")
+	}
+	if stepIndex(runSteps(t, python.Steps), "check_version.py --jupyter-kernel") < 0 {
+		t.Error("build-python-package does not check the kernel package declares the tag's version")
+	}
+
+	kernel, ok := config.Jobs["build-jupyter-kernel-package"]
+	if !ok {
+		t.Fatal("no build-jupyter-kernel-package job")
+	}
+	if !stepHasBareStep(kernel.Steps, "attach_workspace") {
+		t.Error("build-jupyter-kernel-package does not attach the workspace that carries dist/jupyter")
+	}
+	kernelSteps := runSteps(t, kernel.Steps)
+	version := stepIndex(kernelSteps, "check_version.py --jupyter-kernel")
+	stamp := stepIndex(kernelSteps,
+		"client/python/scripts/pin_release_checksums.py",
+		`--version "${CIRCLE_TAG}"`,
+		"--from-binaries dist/jupyter",
+		"--table client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json",
+	)
+	wheel := stepIndex(kernelSteps, "scripts/build-jupyter-kernel-dist.sh dist/jupyter client/jupyter-kernel/dist", "-py3-none-*.whl")
+	assert := stepIndex(kernelSteps, "jupyter_opensysml_kernel/release-digests.json", "zipfile", "tarfile", "pinned_digest", "-py3-none-*.whl")
+	switch {
+	case version < 0:
+		t.Error("build-jupyter-kernel-package does not resolve the version from the tag")
+	case stamp < 0:
+		t.Error("build-jupyter-kernel-package does not stamp the release's digests from dist/jupyter into the distribution's table")
+	case wheel < 0:
+		t.Error("build-jupyter-kernel-package does not build the sdist and the five platform wheels with scripts/build-jupyter-kernel-dist.sh")
+	case stamp > wheel:
+		t.Errorf("the digest stamp (step %d) runs after the distributions are built (step %d), so they ship without it", stamp, wheel)
+	}
+	switch {
+	case assert < 0:
+		t.Error("build-jupyter-kernel-package does not assert every built wheel and the sdist pin the release's kernel digests")
+	case assert < wheel:
+		t.Errorf("the distribution assertion (step %d) runs before the distributions are built (step %d)", assert, wheel)
+	default:
+		for _, asset := range kernelAssets {
+			if !strings.Contains(kernelSteps[assert].Command, asset) {
+				t.Errorf("the distribution assertion does not require %s", asset)
+			}
+		}
+	}
+	if stepIndex(kernelSteps, "python -m jupyter_opensysml_kernel kernelspec") < 0 {
+		t.Error("build-jupyter-kernel-package does not render the kernelspec from the installed wheel")
+	}
+	if stepIndex(kernelSteps, "-py3-none-manylinux*_x86_64*.whl", "jupyter_client.kernelspecapp", `"share", "jupyter", "kernels", "sysml"`, `"jupyter_opensysml_kernel", "-version"`) < 0 {
+		t.Error("build-jupyter-kernel-package does not install this platform's wheel alone and check it registers the sysml kernelspec and starts the bundled kernel")
+	}
+	// The extension is built with Node and `jupyter labextension build`, so
+	// the job needs both before the distributions are built, and the
+	// installed wheel is checked to have put the extension where JupyterLab
+	// loads federated extensions from.
+	if !config.jobRunsOnImage(t, "build-jupyter-kernel-package", "cimg/python:3.11-node") {
+		t.Error("build-jupyter-kernel-package does not run on an image with Node, which make jupyterlab-build needs")
+	}
+	tooling := stepIndex(kernelSteps, "pip install", "jupyterlab==")
+	switch {
+	case tooling < 0:
+		t.Error("build-jupyter-kernel-package does not install jupyterlab, which provides `jupyter labextension build`")
+	case tooling > wheel:
+		t.Error("build-jupyter-kernel-package installs jupyterlab after the distributions are built")
+	}
+	if stepIndex(kernelSteps, `"share", "jupyter", "labextensions", "jupyterlab-opensysml"`, `["jupyterlab"]["_build"]["load"]`, `"install.json"`) < 0 {
+		t.Error("build-jupyter-kernel-package does not check the installed wheel registered a loadable jupyterlab-opensysml labextension")
+	}
+
+	releaseJob, ok := config.Jobs["build-release"]
+	if !ok {
+		t.Fatal("no build-release job")
+	}
+	releaseSteps := runSteps(t, releaseJob.Steps)
+	manifest := stepIndex(releaseSteps, "> SHA256SUMS.txt", "jupyter_opensysml_kernel-*.whl", "cd jupyter && sha256sum --check --strict sysml-jupyter-kernel-*.sha256")
+	check := stepIndex(releaseSteps, "SHA256SUMS.txt", "jupyter_opensysml_kernel/release-digests.json", "zipfile", "nothing was signed", "jupyter_opensysml_kernel-*-py3-none-*.whl")
+	sign := stepIndex(releaseSteps, "cosign sign-blob SHA256SUMS.txt")
+	switch {
+	case manifest < 0:
+		t.Error("build-release does not write SHA256SUMS.txt over the kernel distribution and the kernel binaries")
+	case check < 0:
+		t.Error("build-release does not check every kernel wheel's pins against the manifest it signs")
+	case sign < 0:
+		t.Error("build-release does not sign SHA256SUMS.txt")
+	case !(manifest < check && check < sign):
+		t.Errorf("build-release must write the manifest (step %d), check the kernel wheel against it (step %d), then sign it (step %d)", manifest, check, sign)
+	}
+	if stepIndex(releaseSteps, "dist/jupyter_opensysml_kernel-*-py3-none-*.whl", "dist/jupyter_opensysml_kernel-[0-9]*.tar.gz", "not the five platform wheels", "Nothing was published") < 0 {
+		t.Error("build-release does not verify the release carries the tag's kernel sdist and five platform wheels")
+	}
+	if stepIndex(releaseSteps, "cosign verify-blob-attestation", "jupyter_opensysml_kernel-*-py3-none-*.whl") < 0 {
+		t.Error("build-release does not verify the provenance names the kernel wheels")
+	}
+
+	publish, ok := config.Jobs["publish-pypi-jupyter-kernel"]
+	if !ok {
+		t.Fatal("no publish-pypi-jupyter-kernel job")
+	}
+	publishSteps := runSteps(t, publish.Steps)
+	index := stepIndex(publishSteps, "/pypi/jupyter-opensysml-kernel/", "already on")
+	upload := stepIndex(publishSteps, "twine upload client/jupyter-kernel/dist/*")
+	switch {
+	case index < 0:
+		t.Error("publish-pypi-jupyter-kernel does not refuse a version the index already has")
+	case upload < 0:
+		t.Error("publish-pypi-jupyter-kernel does not upload the kernel distribution")
+	case upload < index:
+		t.Errorf("twine upload (step %d) runs before the index check (step %d)", upload, index)
+	}
+	if upload >= 0 {
+		for _, line := range strings.Split(publishSteps[upload].Command, "\n") {
+			if trimmed := strings.TrimSpace(line); !strings.HasPrefix(trimmed, "#") && strings.Contains(trimmed, "--skip-existing") {
+				t.Error("publish-pypi-jupyter-kernel uploads with --skip-existing, so a version that appeared since the check would pass silently")
+			}
+		}
+	}
+
+	github, ok := config.Jobs["publish-github-release"]
+	if !ok {
+		t.Fatal("no publish-github-release job")
+	}
+	if stepIndex(runSteps(t, github.Steps), "mv dist/jupyter/* dist/release/") < 0 {
+		t.Error("publish-github-release does not publish the kernel binaries and their sidecars")
+	}
+
+	release := config.workflow(t, "release")
+	requireAll(t, "Build Jupyter kernel distribution", requiresOf(t, release, "Build Jupyter kernel distribution"), "Build release binaries")
+	requireAll(t, "Build release artifacts", requiresOf(t, release, "Build release artifacts"), "Build Jupyter kernel distribution")
+	requireAll(t, "Publish jupyter-opensysml-kernel to PyPI", requiresOf(t, release, "Publish jupyter-opensysml-kernel to PyPI"), "Publish GitHub release", "Python client tests")
+}
+
 // TestRustCrateIsStampedWithItsReleaseDigests holds publish-crates to the same
 // contract: stamp from the signed manifest before cargo package, then assert
 // the packaged crate pins all five assets for the tag.
@@ -330,7 +558,8 @@ func TestReleaseJobsPersistDisjointWorkspaceLayers(t *testing.T) {
 	requireAll(t, "build-release-binaries persists", upstream, "dist")
 
 	// Everything build-release writes into dist: the manifest and what signs
-	// it, the sidecars opensysml reads, and the Python distribution it copies in.
+	// it, the wasm sidecars, and the Python distributions it copies in. The
+	// binaries' sidecars are written beside them by build-release-binaries.
 	own := func(path string) bool {
 		if !strings.HasPrefix(path, "dist/") {
 			return false
@@ -340,7 +569,8 @@ func TestReleaseJobsPersistDisjointWorkspaceLayers(t *testing.T) {
 			strings.Contains(path, "provenance.intoto.json"),
 			strings.HasSuffix(path, ".sha256"),
 			strings.HasSuffix(path, ".whl"),
-			strings.HasPrefix(path, "dist/opensysml-[0-9]"):
+			strings.HasPrefix(path, "dist/opensysml-[0-9]"),
+			strings.HasPrefix(path, "dist/jupyter_opensysml_kernel-[0-9]"):
 			return true
 		}
 		return false
@@ -355,8 +585,181 @@ func TestReleaseJobsPersistDisjointWorkspaceLayers(t *testing.T) {
 		"dist/SHA256SUMS.txt",
 		"dist/SHA256SUMS.txt.bundle",
 		"dist/provenance.intoto.json.bundle",
-		"dist/grpc/*.sha256",
+		"dist/wasm/*.sha256",
 		"dist/opensysml-*-py3-none-any.whl",
 		"dist/opensysml-[0-9]*.tar.gz",
+		"dist/jupyter_opensysml_kernel-*-py3-none-*.whl",
+		"dist/jupyter_opensysml_kernel-[0-9]*.tar.gz",
 	)
+}
+
+// TestNodePackageIsStampedWithItsReleaseDigests holds publish-npm to the same
+// contract as the Python wheel: the digests of the binaries in dist/grpc are
+// stamped into the package's table before it is packed, the packed tarball is
+// asserted to pin all five assets for the tag, and that verified tarball is
+// what is published.
+func TestNodePackageIsStampedWithItsReleaseDigests(t *testing.T) {
+	config := loadCircleConfig(t)
+	npm, ok := config.Jobs["publish-npm"]
+	if !ok {
+		t.Fatal("no publish-npm job")
+	}
+	if !stepHasBareStep(npm.Steps, "attach_workspace") {
+		t.Error("publish-npm does not attach the workspace that carries dist/grpc")
+	}
+	steps := runSteps(t, npm.Steps)
+	stamp := stepIndex(steps,
+		"client/python/scripts/pin_release_checksums.py",
+		`--version "${CIRCLE_TAG}"`,
+		"--from-binaries dist/grpc",
+		"--table client/node/release-digests.json",
+	)
+	test := stepIndex(steps, "npm test")
+	pack := stepIndex(steps, "npm pack --pack-destination")
+	assert := stepIndex(steps, "package/release-digests.json", "tarfile", "hashlib")
+	publish := stepIndex(steps, "npm publish", "--access public", "NPM_TARBALL")
+	switch {
+	case stamp < 0:
+		t.Error("publish-npm does not stamp the release's digests from dist/grpc into the package's table")
+	case test < 0:
+		t.Error("publish-npm does not run the Node suite")
+	case stamp > test:
+		t.Errorf("the digest stamp (step %d) runs after npm test (step %d), so the suite cannot check it", stamp, test)
+	case pack < 0:
+		t.Error("publish-npm does not pack the client into a tarball")
+	case stamp > pack:
+		t.Errorf("the digest stamp (step %d) runs after npm pack (step %d), so the tarball ships without it", stamp, pack)
+	}
+	if test >= 0 && !strings.Contains(steps[test].Command, `OPENSYSML_EXPECT_PINNED_RELEASE="${CIRCLE_TAG}"`) {
+		t.Error("publish-npm runs the Node suite without OPENSYSML_EXPECT_PINNED_RELEASE, so the suite does not assert the stamped pin")
+	}
+	switch {
+	case assert < 0:
+		t.Fatal("publish-npm does not assert the packed tarball pins the release's service digests")
+	case assert != pack:
+		t.Errorf("the tarball assertion (step %d) must run in the step that packs it (step %d)", assert, pack)
+	}
+	for _, asset := range serviceAssets {
+		if !strings.Contains(steps[assert].Command, asset) {
+			t.Errorf("the tarball assertion does not require %s", asset)
+		}
+	}
+	switch {
+	case publish < 0:
+		t.Error("publish-npm does not publish the verified tarball; publishing the directory would pack it again unverified")
+	case publish < assert:
+		t.Errorf("npm publish (step %d) runs before the tarball is verified (step %d)", publish, assert)
+	}
+	if stepIndex(steps, "cd client/node", "npm pack --dry-run") >= 0 {
+		t.Error("publish-npm packs the client a second time instead of using the verified tarball")
+	}
+
+	release := config.workflow(t, "release")
+	requireAll(t, "Publish opensysml to npm", requiresOf(t, release, "Publish opensysml to npm"), "Publish GitHub release")
+}
+
+// TestJavaJarIsStampedWithItsReleaseDigests holds publish-maven to the same
+// contract: attach the workspace that carries dist/grpc, stamp the digests
+// into the jar's resource before mvn package, assert the packaged jar pins all
+// five assets for the tag, and only then deploy.
+func TestJavaJarIsStampedWithItsReleaseDigests(t *testing.T) {
+	config := loadCircleConfig(t)
+	maven, ok := config.Jobs["publish-maven"]
+	if !ok {
+		t.Fatal("no publish-maven job")
+	}
+	if !stepHasBareStep(maven.Steps, "attach_workspace") {
+		t.Error("publish-maven does not attach the workspace that carries dist/grpc")
+	}
+	steps := runSteps(t, maven.Steps)
+	stamp := stepIndex(steps,
+		"client/python/scripts/pin_release_checksums.py",
+		`--version "${CIRCLE_TAG}"`,
+		"--from-binaries dist/grpc",
+		"--table client/java/opensysml-client/src/main/resources/release-digests.json",
+	)
+	pack := stepIndex(steps, "mvn -B -f client/java/pom.xml", "package -pl :opensysml -am")
+	assert := stepIndex(steps, "release-digests.json", "zipfile", "hashlib")
+	deploy := stepIndex(steps, "mvn -B -f client/java/pom.xml", "deploy -pl :opensysml -am")
+	switch {
+	case stamp < 0:
+		t.Error("publish-maven does not stamp the release's digests from dist/grpc into the jar's resource")
+	case pack < 0:
+		t.Error("publish-maven does not run mvn package before deploying")
+	case stamp > pack:
+		t.Errorf("the digest stamp (step %d) runs after mvn package (step %d), so the jar ships without it", stamp, pack)
+	}
+	if pack >= 0 {
+		if !strings.Contains(steps[pack].Command, `OPENSYSML_EXPECT_PINNED_RELEASE="${CIRCLE_TAG}"`) {
+			t.Error("publish-maven packages without OPENSYSML_EXPECT_PINNED_RELEASE, so ReleaseAssetsTest does not assert the stamped pin")
+		}
+		if !strings.Contains(steps[pack].Command, "-Dtest=ReleaseAssetsTest") {
+			t.Error("publish-maven packages without re-running ReleaseAssetsTest over the stamped resource")
+		}
+	}
+	switch {
+	case assert < 0:
+		t.Fatal("publish-maven does not assert the packaged jar pins the release's service digests")
+	case assert != pack:
+		t.Errorf("the jar assertion (step %d) must run in the step that packages it (step %d)", assert, pack)
+	}
+	for _, asset := range serviceAssets {
+		if !strings.Contains(steps[assert].Command, asset) {
+			t.Errorf("the jar assertion does not require %s", asset)
+		}
+	}
+	switch {
+	case deploy < 0:
+		t.Error("publish-maven does not deploy")
+	case deploy < assert:
+		t.Errorf("mvn deploy (step %d) runs before the jar is verified (step %d)", deploy, assert)
+	}
+
+	release := config.workflow(t, "release")
+	requireAll(t, "Publish opensysml to Maven Central", requiresOf(t, release, "Publish opensysml to Maven Central"), "Publish GitHub release")
+}
+
+// TestSharedTableIsPinnedAfterTheRelease holds the release workflow to the
+// pull request that brings the committed table up to date: opened against
+// develop once the GitHub release exists, stamping the shared table (so every
+// client copy is synced) from the manifest the release signed.
+func TestSharedTableIsPinnedAfterTheRelease(t *testing.T) {
+	config := loadCircleConfig(t)
+	job, ok := config.Jobs["pin-release-digests"]
+	if !ok {
+		t.Fatal("no pin-release-digests job")
+	}
+	if !stepHasBareStep(job.Steps, "attach_workspace") {
+		t.Error("pin-release-digests does not attach the workspace carrying dist/SHA256SUMS.txt")
+	}
+	steps := runSteps(t, job.Steps)
+	stamp := stepIndex(steps,
+		"client/python/scripts/pin_release_checksums.py",
+		"--from-manifest dist/SHA256SUMS.txt",
+	)
+	if stamp < 0 {
+		t.Fatal("pin-release-digests does not stamp the release from the manifest")
+	}
+	if strings.Contains(steps[stamp].Command, "--table") {
+		t.Error("the stamp names a package-local table; the shared table, and every copy synced from it, is the target")
+	}
+	for _, want := range []string{"origin/develop", "scripts/sync-release-digests.py --check"} {
+		if !strings.Contains(steps[stamp].Command, want) {
+			t.Errorf("the stamp step does not use %q", want)
+		}
+	}
+	if stepIndex(steps, "chore/pin-") < 0 {
+		t.Error("pin-release-digests does not name its branch chore/pin-<tag>")
+	}
+	open := stepIndex(steps, "push --force", "refs/heads/", "/pulls", `"base": "develop"`)
+	switch {
+	case open < 0:
+		t.Error("pin-release-digests does not push the branch and open a pull request against develop")
+	case open < stamp:
+		t.Errorf("the pull request (step %d) is opened before the stamp (step %d)", open, stamp)
+	}
+
+	release := config.workflow(t, "release")
+	const name = "Pin the release in the shared digest table"
+	requireAll(t, name, requiresOf(t, release, name), "Publish GitHub release")
 }

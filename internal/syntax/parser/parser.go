@@ -24,6 +24,10 @@ type Parser struct {
 	pos  int
 	// checkpoints counts the outstanding checkpoints; they pin the window.
 	checkpoints int
+	// indexedEnds admits `#( index )` after a connector end while the ends of a
+	// connector, binding or flow parse: an OpenSysML extension selecting one
+	// element of a collection-valued feature (see parseEndIndex).
+	indexedEnds bool
 	triv        []ast.Trivia // trivia pending attachment to the next node
 	// trivLog logs every trivia appended to triv while a checkpoint is open,
 	// so restore can replay what the abandoned attempt consumed.
@@ -233,6 +237,17 @@ func (p *Parser) fill(n int) {
 	}
 }
 
+// reportUnterminated reports a string or unrestricted name the file never
+// closes, once, at the quote that opens it; the token is cut at the end of its
+// opening line, so the declarations after that line are still read.
+func (p *Parser) reportUnterminated(tok lexer.Token) {
+	if tok.Kind == lexer.UnrestrictedName {
+		p.error(tok.Span, "unterminated name: missing closing '")
+		return
+	}
+	p.error(tok.Span, `unterminated string literal: missing closing "`)
+}
+
 // reportBadEscapes reports each escape a quoted token's terminal does not admit
 // (KerMLExpressions.xtext STRING_VALUE, UNRESTRICTED_NAME); it runs on consumption, not buffering.
 func (p *Parser) reportBadEscapes(tok lexer.Token) {
@@ -304,6 +319,9 @@ func (p *Parser) advance() lexer.Token {
 	tok := p.buf[p.pos-p.base]
 	if tok.Kind != lexer.EOF {
 		p.pos++
+		if tok.Unterminated {
+			p.reportUnterminated(tok)
+		}
 		if tok.BadEscape {
 			p.reportBadEscapes(tok)
 		}
@@ -450,6 +468,11 @@ func (p *Parser) missingTerminator(unexpected, missing string, fixes ...diag.Fix
 	last, ok := p.lastToken()
 	if !ok {
 		p.errorWithFixes(next.Span, unexpected, fixes...)
+		return
+	}
+	if last.Unterminated {
+		// A literal the file never closes was reported where it opens, and the
+		// construct's end is wherever the author meant it to close: nothing to add.
 		return
 	}
 	lines := p.src.Lines()

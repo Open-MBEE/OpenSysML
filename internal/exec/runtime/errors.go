@@ -17,6 +17,10 @@ var (
 	// ErrStepLimitExceeded is returned when the evaluation step counter exceeds maxSteps.
 	ErrStepLimitExceeded = errors.New("evaluation step limit exceeded")
 
+	// ErrInterrupted is returned when a run is stopped from outside, through the
+	// flag Context.SetInterrupt installs, before it ended on its own.
+	ErrInterrupted = errors.New("interrupted")
+
 	// ErrElementLimitExceeded is returned when the collection elements one run
 	// materializes exceed maxElements. It is a bound on memory rather than on
 	// work, so it is its own error and its own budget.

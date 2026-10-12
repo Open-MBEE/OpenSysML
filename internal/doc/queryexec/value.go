@@ -5,6 +5,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"strings"
 )
 
 // ValueKind classifies one scalar query value.
@@ -23,10 +24,12 @@ const (
 	ValueState ValueKind = "state"
 	// ValueEvent is one record of a session's trace, carried as a row whose
 	// declaration is the behavior that made it.
-	ValueEvent    ValueKind = "event"
-	ValueString   ValueKind = "string"
-	ValueInteger  ValueKind = "integer"
-	ValueReal     ValueKind = "real"
+	ValueEvent   ValueKind = "event"
+	ValueString  ValueKind = "string"
+	ValueInteger ValueKind = "integer"
+	ValueReal    ValueKind = "real"
+	// ValueRational is an exact non-integer Rational, `1/3` or `0.1`.
+	ValueRational ValueKind = "rational"
 	ValueBoolean  ValueKind = "boolean"
 	ValueInfinity ValueKind = "infinity"
 	// ValueQuantity is a magnitude in a measurement unit, `2290000 [kg]`.
@@ -89,6 +92,11 @@ func IntegerOf(value semantics.Value) Value {
 	return Value{kind: ValueInteger, integer: value}
 }
 
+// RationalOf constructs the value of the exact Rational constant value.
+func RationalOf(value semantics.Value) Value {
+	return Value{kind: ValueRational, integer: value}
+}
+
 // RealValue constructs a real value.
 func RealValue(value float64) Value {
 	return Value{kind: ValueReal, real: value}
@@ -112,6 +120,8 @@ func constantValue(constant semantics.Value) (Value, bool) {
 	switch constant.Kind {
 	case semantics.ValInt:
 		return IntegerOf(constant), true
+	case semantics.ValRational:
+		return RationalOf(constant), true
 	case semantics.ValReal:
 		return RealValue(constant.Real), true
 	case semantics.ValBool:
@@ -203,6 +213,15 @@ func (v Value) Integer() (int64, bool) {
 // IntegerConst returns the value's Integer, of any size, and whether it is an
 // integer value.
 func (v Value) IntegerConst() (semantics.Value, bool) { return v.integer, v.kind == ValueInteger }
+
+// RationalText spells an exact Rational as a document spells a number: a terminating
+// one in decimal, as strconv's shortest 'g' form spells a Real, else `numer/denom`.
+func RationalText(value semantics.Value) string {
+	return strings.TrimSuffix(value.FormatRational(), ".0")
+}
+
+// Rational returns the value's exact Rational and whether it is a rational value.
+func (v Value) Rational() (semantics.Value, bool) { return v.integer, v.kind == ValueRational }
 
 // Real returns the value's real and whether it is a real value.
 func (v Value) Real() (float64, bool) { return v.real, v.kind == ValueReal }

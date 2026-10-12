@@ -79,6 +79,45 @@ func imageInto(t *testing.T, ctx *Context, objects ...*Instance) *Context {
 	return dst
 }
 
+func TestHeldImageImportRemapsMessageSerialsBeforeAccept(t *testing.T) {
+	_, ctx, bulb := lampBulb(t)
+	ctx.PostMessage(Message{Object: bulb.ID, SignalType: "Ping"})
+	ctx.messages = append(ctx.messages, Message{Object: bulb.ID, SignalType: "Ping"})
+	img, err := ctx.Image(bulb)
+	if err != nil {
+		t.Fatalf("Image: %v", err)
+	}
+
+	trace := NewTraceRecorder()
+	dst := NewContext(ctx.Model(), 10000)
+	dst.SetTrace(trace)
+	dst.PostMessage(Message{SignalType: "Ping"})
+	if records := trace.Records(); len(records) != 1 || records[0].Kind != TraceSend || records[0].Message != 1 {
+		t.Fatalf("destination trace = %+v, want a send of serial 1", records)
+	}
+	if err := img.Materialize(dst); err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
+
+	messages := dst.PendingMessages()
+	if len(messages) != 3 || messages[0].Serial != 1 || messages[1].Serial != 2 || messages[2].Serial != 0 {
+		t.Fatalf("messages = %+v, want destination serial 1, imported serial 2, and imported serial 0", messages)
+	}
+	accepted, ok := dst.TakeMessage(func(msg Message) bool { return msg.Serial == 2 })
+	if !ok {
+		t.Fatal("could not take the imported message")
+	}
+	trace.RecordAccept(TraceOrigin{}, accepted.Serial, accepted.SignalType, nil)
+	records := trace.Records()
+	if len(records) != 2 || records[0].Message != 1 || records[1].Kind != TraceAccept || records[1].Message != 2 {
+		t.Fatalf("trace records = %+v, want send serial 1 and accept serial 2", records)
+	}
+	dst.PostMessage(Message{SignalType: "Pong"})
+	if got := dst.PendingMessages()[len(dst.PendingMessages())-1].Serial; got != 3 {
+		t.Errorf("next message serial = %d, want 3", got)
+	}
+}
+
 // A held entry survives a portable image: the copy remains at the same entry
 // boundary and finishes with the same result as the source.
 func TestHeldImageCarriesAnEntryBoundary(t *testing.T) {
@@ -112,13 +151,15 @@ func TestHeldImageCarriesAnEntryBoundary(t *testing.T) {
 	if len(decls) != 1 {
 		t.Fatalf("Host has %d classifier behaviors, want one", len(decls))
 	}
-	behavior, err := ctx.attachClassifierBehavior(host, decls[0])
+	behaviors, err := ctx.attachClassifierBehavior(host, decls[0])
 	if err != nil {
 		t.Fatalf("attachClassifierBehavior: %v", err)
 	}
-	behavior.binding = 0
-	host.behaviors = append(host.behaviors, behavior)
-	ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+	for _, behavior := range behaviors {
+		behavior.binding = 0
+		host.behaviors = append(host.behaviors, behavior)
+	}
+	ctx.objectBehaviors = append(ctx.objectBehaviors, behaviors...)
 	state, ok := host.ExhibitedState()
 	if !ok {
 		t.Fatal("Host exhibits no state machine")
@@ -496,6 +537,31 @@ func TestHeldImageCarriesAParkedAction(t *testing.T) {
 	if original, _ := waiter.Behavior("await"); original.Action.State() != StateWaiting {
 		t.Errorf("the source's await is %v, want still waiting", original.Action.State())
 	}
+}
+
+// A repeated performed action's image binds each copied behavior its own
+// occurrence: the run feature holds one distinct occurrence per performance.
+func TestHeldImageCarriesDistinctRepeatedOccurrences(t *testing.T) {
+	const source = `
+		private import ScalarValues::*;
+		part def Performer {
+			attribute visits : Integer = 0;
+			perform action run[2] {
+				action heard accept g : Integer;
+				first start then heard;
+			}
+		}
+	`
+	idx, _, src := buildRuntimeWithLibraries(t, "repeated-performer.sysml", parseAndBuild(t, source))
+	performer, err := src.Instantiate(resolveSymbol(t, idx.DocumentRoot("repeated-performer.sysml"), "Performer"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	assertDistinctRunOccurrences(t, src, performer)
+
+	dst := imageInto(t, src, performer)
+	copied, _ := dst.Instance(performer.ID)
+	assertDistinctRunOccurrences(t, dst, copied)
 }
 
 // lampMachine is the machine the bulb exhibits.

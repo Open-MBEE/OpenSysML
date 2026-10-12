@@ -1,0 +1,51 @@
+@startuml
+' run — sequence rendering (the trace of a run to t = 6)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+participant "RunTimeline::mission.controller : Controller" as n0 <<object>> <<usage>>
+participant "RunTimeline::mission.instrument : Instrument" as n1 <<object>> <<usage>>
+n0 -> n1 : t=1 Ping (seq = 1)
+n1 -> n0 : t=1 Ack (seq = 1)
+n0 -> n1 : t=3 Ping (seq = 1)
+n1 -> n0 : t=3 Ack (seq = 1)
+n0 -> n1 : t=5 Ping (seq = 1)
+n1 -> n0 : t=5 Ack (seq = 1)
+@enduml

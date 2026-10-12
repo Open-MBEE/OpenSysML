@@ -3,7 +3,7 @@
 
 import * as _t from "@openmbee/opensysml";
 
-export const SYSML_GENERATOR_VERSION = "4";
+export const SYSML_GENERATOR_VERSION = "5";
 export const SYSML_MODEL_HASH = "sha256:31eb18ac5d0577683b21c4854fc751385d8b92f724943e91f8548d00c6986016";
 
 
@@ -13,8 +13,8 @@ export class Engine extends _t.TypedObject {
   static { _t.registerTyped(this); }
 
   /** attributeUsage Demo::Engine::power. */
-  get power(): number {
-    return _t.featureValue(this, "power", _t.asReal);
+  get power(): _t.RationalValue {
+    return _t.featureValue(this, "power", _t.asRational);
   }
 }
 
@@ -30,7 +30,7 @@ export class Vehicle extends _t.TypedObject {
   }
 
   /** attributeUsage Demo::Vehicle::mass. */
-  get mass(): number {
-    return _t.featureValue(this, "mass", _t.asReal);
+  get mass(): _t.RationalValue {
+    return _t.featureValue(this, "mass", _t.asRational);
   }
 }

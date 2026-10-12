@@ -18,16 +18,13 @@ const triggerFixture = `package P {
 	private import MeasurementReferences::*;
 	private import Time::*;
 	private import ScalarValues::*;
-	private import Overloads::Durations::*;
-	private import Overloads::Instants::*;
-	private import Overloads::Flags::*;
-	private import Overloads::Lengths::*;
+	private import Overloads::*;
 
 	package Overloads {
-		package Durations { calc def Pick { in d : DurationValue; return : DurationValue = d; } }
-		package Instants { calc def Pick { in t : TimeInstantValue; return : TimeInstantValue = t; } }
-		package Flags { calc def Pick { in b : Boolean; return : Boolean = b; } }
-		package Lengths { calc def Pick { in l : LengthValue; return : LengthValue = l; } }
+		calc def Pick { in d : DurationValue; return : DurationValue = d; }
+		calc def Pick { in t : TimeInstantValue; return : TimeInstantValue = t; }
+		calc def Pick { in b : Boolean; return : Boolean = b; }
+		calc def Pick { in l : LengthValue; return : LengthValue = l; }
 	}
 
 	attribute <ms> millisecond : DurationUnit {

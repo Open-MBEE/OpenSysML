@@ -210,7 +210,7 @@ func (run *applyRun) round(ctx context.Context, name string, local *rdf.Graph, g
 		round.Changes = append(round.Changes, fmt.Sprintf("%s\t%s\t%s", change.Kind, change.ID, orNone(change.Metaclass)))
 	}
 
-	before, err := run.client.Commits(ctx, run.repo.project)
+	before, err := run.client.Commits(ctx, run.repo.Project())
 	if err != nil {
 		return nil, fmt.Errorf("list commits: %w", err)
 	}
@@ -265,7 +265,7 @@ func (run *applyRun) round(ctx context.Context, name string, local *rdf.Graph, g
 
 // commitCount lists the project's commits; want >= 0 asserts the count held.
 func (run *applyRun) commitCount(ctx context.Context, want int) (int, error) {
-	commits, err := run.client.Commits(ctx, run.repo.project)
+	commits, err := run.client.Commits(ctx, run.repo.Project())
 	if err != nil {
 		return 0, fmt.Errorf("list commits: %w", err)
 	}
@@ -280,7 +280,7 @@ func (run *applyRun) commitCount(ctx context.Context, want int) (int, error) {
 func (run *applyRun) readBack(ctx context.Context, round *ApplyRound, result *reposync.Result) error {
 	commit := run.state.LastSeenCommit
 	for _, change := range result.Applied {
-		element, err := run.client.ElementByID(ctx, run.repo.project, commit, change.ID)
+		element, err := run.client.ElementByID(ctx, run.repo.Project(), commit, change.ID)
 		switch {
 		case change.Kind == reposync.KindDelete && Status(err) == http.StatusNotFound:
 			round.Absent++

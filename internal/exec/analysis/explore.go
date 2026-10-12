@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -82,7 +83,11 @@ func (e exploreEngine) Run(ctx context.Context, model *Model, q Question, budget
 		Values:  []Evaluation{{Name: q.Subject, Explored: x}},
 		Elapsed: time.Since(started),
 	}
-	if x.Complete() && x.FailedLinearizations() == 0 {
+	switch {
+	case !x.Complete() || x.FailedLinearizations() > 0:
+	case len(x.Notes) > 0:
+		result.Reason = strings.Join(x.Notes, "; ")
+	default:
 		result.Strength = Proved
 	}
 	return result, nil

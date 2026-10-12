@@ -52,8 +52,8 @@ func (r *Rendering) DOT() (string, error) {
 // control nodes a migration made up are elided (withoutStandIns). The layout is
 // the same whatever the palette: it changes fills and borders alone.
 func (r *Rendering) DOTWith(options Options) (string, error) {
-	if !r.Kind.SupportsForm(FormDot) {
-		return "", &WrongFormError{Form: FormDot, Kind: r.Kind, View: r.View}
+	if !r.supportsForm(FormDot) {
+		return "", r.wrongFormError(FormDot)
 	}
 	if err := options.Palette.check(); err != nil {
 		return "", err
@@ -68,6 +68,9 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		return "", err
 	}
 	direction := options.Direction
+	if direction == "" && r.Kind == KindCase {
+		direction = DirectionLeftRight
+	}
 	if options.Unplaced != UnplacedStrip {
 		r = withoutStandIns(r)
 	}
@@ -243,9 +246,10 @@ func (w *dotWriter) dotBB(box nodeBox) string {
 // the minimal display, the pins of the edges left drawn.
 func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	skin := skinOf(options.Style)
-	w := &dotWriter{tree: r.Kind == KindTree, action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
+	w := &dotWriter{kind: r.Kind, tree: r.Kind == KindTree, action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, pins: map[string]nodeBox{}, ported: map[string]*Node{}, omitted: map[string]bool{},
-		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures, links: options.Links}
+		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures, pictureRefusals: r.pictureRefusals(), links: options.Links}
+	w.notices = append(w.notices, refusedPictureNotices(w.pictures, w.pictureRefusals)...)
 	w.sources = map[string]bool{}
 	for _, edge := range r.Edges {
 		if edge.FromPort != "" {
@@ -435,34 +439,36 @@ func (w *dotWriter) stripBox(node *Node, corner Point, across float64) nodeBox {
 
 // dotWriter holds what one rendering's DOT form needs across nodes and edges.
 type dotWriter struct {
-	b         strings.Builder
-	tree      bool                // containment as edges, not clusters
-	action    bool                // the pins name what a flow carries
-	sources   map[string]bool     // port IDs an edge leaves from
-	clusters  map[string]bool     // node IDs drawn as clusters
-	enclosing map[string][]string // node ID -> the cluster IDs around it
-	compound  bool                // an edge is clipped at a cluster
-	canvas    *Canvas             // the surface positions are flipped against
-	placement *placement          // which nodes have a place, shared with every form
-	drawn     map[string]bool     // node ID -> in the rendering's trees
-	boxes     map[string]nodeBox  // node ID -> the box it is drawn in, for every node that has one
-	pins      map[string]nodeBox  // port ID -> the box its pin is drawn in, for every port of a boxed node
-	ported    map[string]*Node    // port ID -> the node it is a port of
-	ports     portView            // the ports drawn of each node, and how they are named
-	stated    map[string]bool     // node IDs the drawing itself boxes, once a strip adds boxes of its own
-	omitted   map[string]bool     // node IDs left undrawn for want of a box
-	edges     []Edge              // the rendering's edges, each route led on to the ends it stopped short of
-	routed    int                 // edges with a route to write
-	notices   []string            // geometry the form cannot draw
-	fills     familyFills         // the palette fills, by keyword family
-	labels    labeller            // the node labels, headed relative to the roots' namespace
-	skin      dotSkin             // the drawing style's defaults
-	links     Links
-	notes     []Note    // the notes the drawing keeps, those of the nodes it draws
-	noteBoxes []nodeBox // where each positioned note is drawn, by index in notes
-	noteShown []int     // note index -> the index of the note drawn for it, itself unless a twin at the same place is
-	pictures  []Picture // the pictures drawn, each at its stated bounds
-	frameRoot string    // the root the Cameo frame header names, drawn untitled
+	b               strings.Builder
+	kind            Kind
+	tree            bool                // containment as edges, not clusters
+	action          bool                // the pins name what a flow carries
+	sources         map[string]bool     // port IDs an edge leaves from
+	clusters        map[string]bool     // node IDs drawn as clusters
+	enclosing       map[string][]string // node ID -> the cluster IDs around it
+	compound        bool                // an edge is clipped at a cluster
+	canvas          *Canvas             // the surface positions are flipped against
+	placement       *placement          // which nodes have a place, shared with every form
+	drawn           map[string]bool     // node ID -> in the rendering's trees
+	boxes           map[string]nodeBox  // node ID -> the box it is drawn in, for every node that has one
+	pins            map[string]nodeBox  // port ID -> the box its pin is drawn in, for every port of a boxed node
+	ported          map[string]*Node    // port ID -> the node it is a port of
+	ports           portView            // the ports drawn of each node, and how they are named
+	stated          map[string]bool     // node IDs the drawing itself boxes, once a strip adds boxes of its own
+	omitted         map[string]bool     // node IDs left undrawn for want of a box
+	edges           []Edge              // the rendering's edges, each route led on to the ends it stopped short of
+	routed          int                 // edges with a route to write
+	notices         []string            // geometry the form cannot draw
+	fills           familyFills         // the palette fills, by keyword family
+	labels          labeller            // the node labels, headed relative to the roots' namespace
+	skin            dotSkin             // the drawing style's defaults
+	links           Links
+	notes           []Note    // the notes the drawing keeps, those of the nodes it draws
+	noteBoxes       []nodeBox // where each positioned note is drawn, by index in notes
+	noteShown       []int     // note index -> the index of the note drawn for it, itself unless a twin at the same place is
+	pictures        []Picture // the pictures drawn, each at its stated bounds
+	pictureRefusals []error
+	frameRoot       string // the root the Cameo frame header names, drawn untitled
 }
 
 // The Standard B&W style, after the sysmlbw PlantUML skin: Helvetica text,
@@ -1104,7 +1110,20 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	case w.pinned(node):
 		attrs = w.dotPinnedAttributes(node, w.labels.dotLabel(node))
 	default:
-		if w.skin.rounded(node.Kind) {
+		if (w.kind == KindCase || w.kind == KindMixed) && caseNodeKind(node.Kind) {
+			attrs = append(attrs, "shape=ellipse")
+		} else if w.kind == KindCase || w.kind == KindMixed {
+			switch node.Kind {
+			case "objective":
+				attrs = append(attrs, "shape=note")
+			case "actor", "subject":
+				attrs = append(attrs, "shape=box")
+			default:
+				if w.skin.rounded(node.Kind) {
+					attrs = append(attrs, `style="rounded,filled"`)
+				}
+			}
+		} else if w.skin.rounded(node.Kind) {
 			attrs = append(attrs, `style="rounded,filled"`)
 		}
 		attrs = append(attrs, w.fillAttributes(node)...)
@@ -1817,6 +1836,33 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		attrs = append(attrs, dotStyleDashed)
 	case EdgeBinding:
 		attrs = append(attrs, dotArrowheadNone)
+	case EdgeSpecialization:
+		attrs = append(attrs, "arrowhead=empty")
+	case EdgeComposition:
+		if caseNotation(w.kind) {
+			attrs = append(attrs, "arrowtail=diamond", dotDirBack)
+		} else {
+			attrs = append(attrs, dotDirBack, "arrowtail=diamond")
+		}
+	case EdgeTyping, EdgeReference:
+		switch {
+		case caseNotation(w.kind):
+			attrs = append(attrs, dotStyleDashed, "arrowhead=open")
+		case edge.Kind == EdgeTyping:
+			attrs = append(attrs, "arrowhead=empty", dotStyleDashed)
+		default:
+			attrs = append(attrs, dotDirBack, "arrowtail=odiamond")
+		}
+	case EdgeContainment:
+		attrs = append(attrs, dotDirBack, "arrowtail=odot")
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+		attrs = append(attrs, "arrowhead=vee", dotStyleDashed)
+	case EdgeAssociation:
+		attrs = append(attrs, "dir=none")
+	case EdgeInclude:
+		attrs = append(attrs, dotStyleDashed)
+	case EdgeAnchor:
+		attrs = append(attrs, "dir=none", dotStyleDashed)
 	}
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {
@@ -2006,6 +2052,9 @@ func pictureBox(p Picture) nodeBox {
 func (w *dotWriter) writePictures(depth int, above bool) {
 	for i, p := range w.pictures {
 		if p.Above != above {
+			continue
+		}
+		if w.pictureRefusals[i] != nil {
 			continue
 		}
 		attrs := []string{"shape=none", `style=""`, `label=""`, "image=" + dotQuote(p.Path()), "imagescale=both", dotFixedSize,

@@ -113,3 +113,13 @@ func IsSubjectUsage(sym *symbols.Symbol) bool {
 	}
 	return false
 }
+
+// IsActorUsage reports whether sym is an actor or stakeholder membership.
+func IsActorUsage(sym *symbols.Symbol) bool {
+	return roleOf(sym) == actorRole
+}
+
+// IsObjectiveUsage reports whether sym is an objective membership.
+func IsObjectiveUsage(sym *symbols.Symbol) bool {
+	return roleOf(sym) == objectiveRole
+}

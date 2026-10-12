@@ -1,5 +1,5 @@
 function test_decode_value()
-%TEST_DECODE_VALUE All twenty-two Value arms and the failure modes.
+%TEST_DECODE_VALUE All twenty-three Value arms and the failure modes.
 
     % the double literal cannot write -2^63; decodeValue must go through
     % the int64 accumulator
@@ -14,6 +14,18 @@ function test_decode_value()
     assert_error(@() opensysml.decodeValue(struct('bigIntValue', '007')), 'opensysml:decode', 'bigIntValue leading zero');
     q = opensysml.decodeValue(struct('quantity', struct('bigIntMagnitude', '9223372036854775808', 'unit', 'kg')));
     assert_equal(q.magnitude.bigInteger, '9223372036854775808', 'quantity bigIntMagnitude');
+    third = struct('numerator', '-1', 'denominator', '3');
+    assert_equal(opensysml.decodeValue(struct('rationalValue', third)), third, 'rationalValue');
+    q = opensysml.decodeValue(struct('quantity', struct('rationalMagnitude', third, 'unit', 'kg')));
+    assert_equal(q.magnitude, third, 'quantity rationalMagnitude');
+    wideRational = struct('numerator', '1', 'denominator', ['1' repmat('0', 1, 30)]);
+    assert_equal(opensysml.decodeValue(struct('rationalValue', wideRational)), wideRational, 'rationalValue beyond double terms');
+    bad = {{'2', '6'}, {'1', '-3'}, {'1', '0'}, {'1', '2'}, {'3', '1'}, {'0', '1'}, {'01', '3'}, {'+1', '3'}, {'', '3'}};
+    for i = 1:numel(bad)
+        assert_error(@() opensysml.decodeValue(struct('rationalValue', ...
+            struct('numerator', bad{i}{1}, 'denominator', bad{i}{2}))), 'opensysml:decode', ...
+            sprintf('rationalValue %s/%s', bad{i}{1}, bad{i}{2}));
+    end
     assert_equal(opensysml.decodeValue(struct('realValue', 1.5)), 1.5, 'realValue');
     assert_equal(opensysml.decodeValue(struct('realValue', 'NaN')), NaN, 'realValue NaN');
     assert_equal(opensysml.decodeValue(struct('realValue', 'Infinity')), Inf, 'realValue Infinity');

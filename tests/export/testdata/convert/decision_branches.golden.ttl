@@ -1,0 +1,1429 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Branches
+    a sysml:Package ;
+    sysml:qualifiedName "Branches" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Branches" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Branches" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:Branches___400, elmt:Branches__Charge_om ;
+    sysml:ownedImport elmt:Branches___400 ;
+    sysml:ownedMember elmt:Branches__Charge ;
+    sysml:ownedMembership elmt:Branches__Charge_om ;
+    sysx:sourceText "package Branches {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedRelationship "[{\"@id\":\"Branches___400\"},{\"@id\":\"Branches__Charge_om\"}]" .
+
+elmt:Branches___400
+    a sysml:MembershipImport ;
+    sysml:qualifiedName "Branches::@0" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "42"^^xsd:integer ;
+    sysml:elementId "Branches___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches ;
+    sysml:owner elmt:Branches ;
+    sysml:owningRelatedElement elmt:Branches ;
+    sysml:importOwningNamespace elmt:Branches ;
+    sysml:visibility "private" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:importedMembership <urn:sysmlv2:element:5fe9f6f1-ce05-5285-b333-41374fe9f447> ;
+    sysx:sourceText "    private import ScalarValues::Integer;\n" .
+
+elmt:Branches__Charge
+    a sysml:ActionDefinition ;
+    sysml:qualifiedName "Branches::Charge" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "Branches__Charge" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches ;
+    sysml:owner elmt:Branches ;
+    sysml:owningRelationship elmt:Branches__Charge_om ;
+    sysml:owningMembership elmt:Branches__Charge_om ;
+    sysml:declaredName "Charge" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Branches__Charge__level, elmt:Branches__Charge__check, elmt:Branches__Charge___402, elmt:Branches__Charge___403, elmt:Branches__Charge___404, elmt:Branches__Charge___405, elmt:Branches__Charge__addCharge, elmt:Branches__Charge__stop, elmt:Branches__Charge__pick, elmt:Branches__Charge___409, elmt:Branches__Charge___4010 ;
+    sysml:ownedMembership elmt:Branches__Charge__level_om, elmt:Branches__Charge__check_om, elmt:Branches__Charge___402_om, elmt:Branches__Charge___403_om, elmt:Branches__Charge___404_om, elmt:Branches__Charge___405_om, elmt:Branches__Charge__addCharge_om, elmt:Branches__Charge__stop_om, elmt:Branches__Charge__pick_om, elmt:Branches__Charge___409_om, elmt:Branches__Charge___4010_om ;
+    sysml:ownedRelationship elmt:Branches__Charge__level_om, elmt:Branches__Charge__check_om, elmt:Branches__Charge___402_om, elmt:Branches__Charge___403_om, elmt:Branches__Charge___404_om, elmt:Branches__Charge___405_om, elmt:Branches__Charge__addCharge_om, elmt:Branches__Charge__stop_om, elmt:Branches__Charge__pick_om, elmt:Branches__Charge___409_om, elmt:Branches__Charge___4010_om ;
+    sysml:ownedFeature elmt:Branches__Charge__level, elmt:Branches__Charge__check, elmt:Branches__Charge___402, elmt:Branches__Charge___403, elmt:Branches__Charge___404, elmt:Branches__Charge___405, elmt:Branches__Charge__addCharge, elmt:Branches__Charge__stop, elmt:Branches__Charge__pick, elmt:Branches__Charge___409, elmt:Branches__Charge___4010 ;
+    sysml:ownedFeatureMembership elmt:Branches__Charge__level_om, elmt:Branches__Charge__check_om, elmt:Branches__Charge___402_om, elmt:Branches__Charge___403_om, elmt:Branches__Charge___404_om, elmt:Branches__Charge___405_om, elmt:Branches__Charge__addCharge_om, elmt:Branches__Charge__stop_om, elmt:Branches__Charge__pick_om, elmt:Branches__Charge___409_om, elmt:Branches__Charge___4010_om ;
+    sysx:sourceText "    action def Charge {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"Branches__Charge__level\"},{\"@id\":\"Branches__Charge__check\"},{\"@id\":\"Branches__Charge___402\"},{\"@id\":\"Branches__Charge___403\"},{\"@id\":\"Branches__Charge___404\"},{\"@id\":\"Branches__Charge___405\"},{\"@id\":\"Branches__Charge__addCharge\"},{\"@id\":\"Branches__Charge__stop\"},{\"@id\":\"Branches__Charge__pick\"},{\"@id\":\"Branches__Charge___409\"},{\"@id\":\"Branches__Charge___4010\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge__level_om\"},{\"@id\":\"Branches__Charge__check_om\"},{\"@id\":\"Branches__Charge___402_om\"},{\"@id\":\"Branches__Charge___403_om\"},{\"@id\":\"Branches__Charge___404_om\"},{\"@id\":\"Branches__Charge___405_om\"},{\"@id\":\"Branches__Charge__addCharge_om\"},{\"@id\":\"Branches__Charge__stop_om\"},{\"@id\":\"Branches__Charge__pick_om\"},{\"@id\":\"Branches__Charge___409_om\"},{\"@id\":\"Branches__Charge___4010_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge__level_om\"},{\"@id\":\"Branches__Charge__check_om\"},{\"@id\":\"Branches__Charge___402_om\"},{\"@id\":\"Branches__Charge___403_om\"},{\"@id\":\"Branches__Charge___404_om\"},{\"@id\":\"Branches__Charge___405_om\"},{\"@id\":\"Branches__Charge__addCharge_om\"},{\"@id\":\"Branches__Charge__stop_om\"},{\"@id\":\"Branches__Charge__pick_om\"},{\"@id\":\"Branches__Charge___409_om\"},{\"@id\":\"Branches__Charge___4010_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Branches__Charge__level\"},{\"@id\":\"Branches__Charge__check\"},{\"@id\":\"Branches__Charge___402\"},{\"@id\":\"Branches__Charge___403\"},{\"@id\":\"Branches__Charge___404\"},{\"@id\":\"Branches__Charge___405\"},{\"@id\":\"Branches__Charge__addCharge\"},{\"@id\":\"Branches__Charge__stop\"},{\"@id\":\"Branches__Charge__pick\"},{\"@id\":\"Branches__Charge___409\"},{\"@id\":\"Branches__Charge___4010\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge__level_om\"},{\"@id\":\"Branches__Charge__check_om\"},{\"@id\":\"Branches__Charge___402_om\"},{\"@id\":\"Branches__Charge___403_om\"},{\"@id\":\"Branches__Charge___404_om\"},{\"@id\":\"Branches__Charge___405_om\"},{\"@id\":\"Branches__Charge__addCharge_om\"},{\"@id\":\"Branches__Charge__stop_om\"},{\"@id\":\"Branches__Charge__pick_om\"},{\"@id\":\"Branches__Charge___409_om\"},{\"@id\":\"Branches__Charge___4010_om\"}]" .
+
+elmt:Branches__Charge_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Branches__Charge_om" ;
+    sysml:owner elmt:Branches ;
+    sysml:memberElement elmt:Branches__Charge ;
+    sysml:ownedMemberElement elmt:Branches__Charge ;
+    sysml:ownedRelatedElement elmt:Branches__Charge ;
+    sysml:owningRelatedElement elmt:Branches ;
+    sysml:membershipOwningNamespace elmt:Branches .
+
+elmt:Branches__Charge__level
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "Branches::Charge::level" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
+    sysml:elementId "Branches__Charge__level" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches__Charge ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:owningRelationship elmt:Branches__Charge__level_om ;
+    sysml:owningMembership elmt:Branches__Charge__level_om ;
+    sysml:declaredName "level" ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Branches__Charge__level_ft0 ;
+    sysml:ownedSpecialization elmt:Branches__Charge__level_ft0 ;
+    sysml:ownedRelationship elmt:Branches__Charge__level_ft0 ;
+    sysx:sourceText "        attribute level : Integer;\n" .
+
+elmt:Branches__Charge__level_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Branches__Charge__level_om" ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:memberElement elmt:Branches__Charge__level ;
+    sysml:ownedMemberElement elmt:Branches__Charge__level ;
+    sysml:ownedRelatedElement elmt:Branches__Charge__level ;
+    sysml:owningRelatedElement elmt:Branches__Charge ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge ;
+    sysml:ownedMemberFeature elmt:Branches__Charge__level ;
+    sysml:owningType elmt:Branches__Charge .
+
+elmt:Branches__Charge__check
+    a sysml:ActionUsage ;
+    sysml:qualifiedName "Branches::Charge::check" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
+    sysml:elementId "Branches__Charge__check" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches__Charge ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:owningRelationship elmt:Branches__Charge__check_om ;
+    sysml:owningMembership elmt:Branches__Charge__check_om ;
+    sysml:declaredName "check" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        action check;\n" .
+
+elmt:Branches__Charge__check_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Branches__Charge__check_om" ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:memberElement elmt:Branches__Charge__check ;
+    sysml:ownedMemberElement elmt:Branches__Charge__check ;
+    sysml:ownedRelatedElement elmt:Branches__Charge__check ;
+    sysml:owningRelatedElement elmt:Branches__Charge ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge ;
+    sysml:ownedMemberFeature elmt:Branches__Charge__check ;
+    sysml:owningType elmt:Branches__Charge .
+
+elmt:Branches__Charge___402
+    a sysml:DecisionNode ;
+    sysml:qualifiedName "Branches::Charge::@2" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
+    sysml:elementId "Branches__Charge___402" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches__Charge ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:owningRelationship elmt:Branches__Charge___402_om ;
+    sysml:owningMembership elmt:Branches__Charge___402_om ;
+    sysx:sourceText "        then decide;\n" .
+
+elmt:Branches__Charge___402_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Branches__Charge___402_om" ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:memberElement elmt:Branches__Charge___402 ;
+    sysml:ownedMemberElement elmt:Branches__Charge___402 ;
+    sysml:ownedRelatedElement elmt:Branches__Charge___402 ;
+    sysml:owningRelatedElement elmt:Branches__Charge ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge ;
+    sysml:ownedMemberFeature elmt:Branches__Charge___402 ;
+    sysml:owningType elmt:Branches__Charge .
+
+elmt:Branches__Charge___403
+    a sysml:SuccessionAsUsage ;
+    sysml:qualifiedName "Branches::Charge::@3" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
+    sysml:elementId "Branches__Charge___403" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches__Charge ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:owningRelationship elmt:Branches__Charge___403_om ;
+    sysml:owningMembership elmt:Branches__Charge___403_om ;
+    sysx:endForm "then" ;
+    sysml:connectorEnd expr:Branches__Charge___403_pend0, expr:Branches__Charge___403_pend1 ;
+    sysml:ownedRelationship expr:Branches__Charge___403_pend0_om, expr:Branches__Charge___403_pend1_om ;
+    sysml:ownedMembership expr:Branches__Charge___403_pend0_om, expr:Branches__Charge___403_pend1_om ;
+    sysml:ownedMember expr:Branches__Charge___403_pend0, expr:Branches__Charge___403_pend1 ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___403_pend0_om, expr:Branches__Charge___403_pend1_om ;
+    sysml:ownedFeature expr:Branches__Charge___403_pend0, expr:Branches__Charge___403_pend1 ;
+    sysml:ownedEndFeature expr:Branches__Charge___403_pend0, expr:Branches__Charge___403_pend1 ;
+    sysml:sourceFeature elmt:Branches__Charge__check ;
+    sysx:targetMember elmt:Branches__Charge___402 ;
+    sysx:sourceText "" ;
+    json:connectorEnd "[{\"@id\":\"Branches__Charge___403_pend0\"},{\"@id\":\"Branches__Charge___403_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___403_pend0_om\"},{\"@id\":\"Branches__Charge___403_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___403_pend0_om\"},{\"@id\":\"Branches__Charge___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Branches__Charge___403_pend0\"},{\"@id\":\"Branches__Charge___403_pend1\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___403_pend0_om\"},{\"@id\":\"Branches__Charge___403_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Branches__Charge___403_pend0\"},{\"@id\":\"Branches__Charge___403_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"Branches__Charge___403_pend0\"},{\"@id\":\"Branches__Charge___403_pend1\"}]" .
+
+elmt:Branches__Charge___403_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Branches__Charge___403_om" ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:memberElement elmt:Branches__Charge___403 ;
+    sysml:ownedMemberElement elmt:Branches__Charge___403 ;
+    sysml:ownedRelatedElement elmt:Branches__Charge___403 ;
+    sysml:owningRelatedElement elmt:Branches__Charge ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge ;
+    sysml:ownedMemberFeature elmt:Branches__Charge___403 ;
+    sysml:owningType elmt:Branches__Charge .
+
+expr:Branches__Charge___403_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "Branches__Charge___403_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:Branches__Charge___403 ;
+    sysml:owningRelationship expr:Branches__Charge___403_pend0_om ;
+    sysml:owningMembership expr:Branches__Charge___403_pend0_om .
+
+expr:Branches__Charge___403_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Branches__Charge___403_pend0_om" ;
+    sysml:owner elmt:Branches__Charge___403 ;
+    sysml:memberElement expr:Branches__Charge___403_pend0 ;
+    sysml:ownedMemberElement expr:Branches__Charge___403_pend0 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___403_pend0 ;
+    sysml:owningRelatedElement elmt:Branches__Charge___403 ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___403 .
+
+expr:Branches__Charge___403_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "Branches__Charge___403_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:Branches__Charge___403 ;
+    sysml:owningRelationship expr:Branches__Charge___403_pend1_om ;
+    sysml:owningMembership expr:Branches__Charge___403_pend1_om ;
+    sysml:ownedReferenceSubsetting expr:Branches__Charge___403_pend1_prs ;
+    sysml:ownedSubsetting expr:Branches__Charge___403_pend1_prs ;
+    sysml:ownedSpecialization expr:Branches__Charge___403_pend1_prs ;
+    sysml:ownedRelationship expr:Branches__Charge___403_pend1_prs .
+
+expr:Branches__Charge___403_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Branches__Charge___403_pend1_om" ;
+    sysml:owner elmt:Branches__Charge___403 ;
+    sysml:memberElement expr:Branches__Charge___403_pend1 ;
+    sysml:ownedMemberElement expr:Branches__Charge___403_pend1 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___403_pend1 ;
+    sysml:owningRelatedElement elmt:Branches__Charge___403 ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___403 .
+
+expr:Branches__Charge___403_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Branches__Charge___403_pend1_prs" ;
+    sysml:referencingFeature expr:Branches__Charge___403_pend1 ;
+    sysml:subsettingFeature expr:Branches__Charge___403_pend1 ;
+    sysml:specific expr:Branches__Charge___403_pend1 ;
+    sysml:source expr:Branches__Charge___403_pend1 ;
+    sysml:owningFeature expr:Branches__Charge___403_pend1 ;
+    sysml:owningType expr:Branches__Charge___403_pend1 ;
+    sysml:referencedFeature elmt:Branches__Charge___402 ;
+    sysml:subsettedFeature elmt:Branches__Charge___402 ;
+    sysml:general elmt:Branches__Charge___402 ;
+    sysml:target elmt:Branches__Charge___402 ;
+    sysml:relatedElement expr:Branches__Charge___403_pend1, elmt:Branches__Charge___402 ;
+    sysml:owner expr:Branches__Charge___403_pend1 ;
+    sysml:owningRelatedElement expr:Branches__Charge___403_pend1 ;
+    json:relatedElement "[{\"@id\":\"Branches__Charge___403_pend1\"},{\"@id\":\"Branches__Charge___402\"}]" .
+
+elmt:Branches__Charge___404
+    a sysml:TransitionUsage ;
+    sysml:qualifiedName "Branches::Charge::@4" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "43"^^xsd:integer ;
+    sysml:elementId "Branches__Charge___404" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches__Charge ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:owningRelationship elmt:Branches__Charge___404_om ;
+    sysml:owningMembership elmt:Branches__Charge___404_om ;
+    sysx:transitionSyntax "target" ;
+    sysx:guard expr:Branches__Charge___404_pguard ;
+    sysml:ownedRelationship expr:Branches__Charge___404_pguard_om, elmt:Branches__Charge___404_succession_om ;
+    sysml:ownedMembership expr:Branches__Charge___404_pguard_om, elmt:Branches__Charge___404_succession_om ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___404_pguard_om ;
+    sysml:ownedFeature expr:Branches__Charge___404_pguard ;
+    sysml:guardExpression expr:Branches__Charge___404_pguard ;
+    sysml:succession elmt:Branches__Charge___404_succession ;
+    sysml:source elmt:Branches__Charge___402 ;
+    sysml:target elmt:Branches__Charge__addCharge ;
+    sysx:sourceText "            if level < 100 then addCharge;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___404_pguard_om\"},{\"@id\":\"Branches__Charge___404_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___404_pguard_om\"},{\"@id\":\"Branches__Charge___404_succession_om\"}]" .
+
+elmt:Branches__Charge___404_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Branches__Charge___404_om" ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:memberElement elmt:Branches__Charge___404 ;
+    sysml:ownedMemberElement elmt:Branches__Charge___404 ;
+    sysml:ownedRelatedElement elmt:Branches__Charge___404 ;
+    sysml:owningRelatedElement elmt:Branches__Charge ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge ;
+    sysml:ownedMemberFeature elmt:Branches__Charge___404 ;
+    sysml:owningType elmt:Branches__Charge .
+
+expr:Branches__Charge___404_pguard
+    a sysml:OperatorExpression ;
+    sysx:sourceText "level < 100" ;
+    sysml:elementId "Branches__Charge___404_pguard" ;
+    sysml:operator "<" ;
+    sysml:argument expr:Branches__Charge___404_pguard_pa0, expr:Branches__Charge___404_pguard_pa1 ;
+    sysml:ownedRelationship expr:Branches__Charge___404_pguard_pin0_om, expr:Branches__Charge___404_pguard_pin1_om, expr:Branches__Charge___404_pguard_pout_om ;
+    sysml:ownedMembership expr:Branches__Charge___404_pguard_pin0_om, expr:Branches__Charge___404_pguard_pin1_om, expr:Branches__Charge___404_pguard_pout_om ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___404_pguard_pin0_om, expr:Branches__Charge___404_pguard_pin1_om, expr:Branches__Charge___404_pguard_pout_om ;
+    sysml:ownedFeature expr:Branches__Charge___404_pguard_pin0, expr:Branches__Charge___404_pguard_pin1, expr:Branches__Charge___404_pguard_pout ;
+    sysml:parameter expr:Branches__Charge___404_pguard_pin0, expr:Branches__Charge___404_pguard_pin1, expr:Branches__Charge___404_pguard_pout ;
+    sysml:input expr:Branches__Charge___404_pguard_pin0, expr:Branches__Charge___404_pguard_pin1 ;
+    sysml:result expr:Branches__Charge___404_pguard_pout ;
+    sysml:owner elmt:Branches__Charge___404 ;
+    sysml:owningRelationship expr:Branches__Charge___404_pguard_om ;
+    sysml:owningMembership expr:Branches__Charge___404_pguard_om ;
+    json:argument "[{\"@id\":\"Branches__Charge___404_pguard_pa0\"},{\"@id\":\"Branches__Charge___404_pguard_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___404_pguard_pin0_om\"},{\"@id\":\"Branches__Charge___404_pguard_pin1_om\"},{\"@id\":\"Branches__Charge___404_pguard_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___404_pguard_pin0_om\"},{\"@id\":\"Branches__Charge___404_pguard_pin1_om\"},{\"@id\":\"Branches__Charge___404_pguard_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___404_pguard_pin0_om\"},{\"@id\":\"Branches__Charge___404_pguard_pin1_om\"},{\"@id\":\"Branches__Charge___404_pguard_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Branches__Charge___404_pguard_pin0\"},{\"@id\":\"Branches__Charge___404_pguard_pin1\"},{\"@id\":\"Branches__Charge___404_pguard_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Branches__Charge___404_pguard_pin0\"},{\"@id\":\"Branches__Charge___404_pguard_pin1\"},{\"@id\":\"Branches__Charge___404_pguard_pout\"}]" ;
+    json:input "[{\"@id\":\"Branches__Charge___404_pguard_pin0\"},{\"@id\":\"Branches__Charge___404_pguard_pin1\"}]" .
+
+expr:Branches__Charge___404_pguard_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "level" ;
+    sysml:elementId "Branches__Charge___404_pguard_pa0" ;
+    sysml:referent elmt:Branches__Charge__level ;
+    sysml:ownedRelationship expr:Branches__Charge___404_pguard_pa0_pout_om, expr:Branches__Charge___404_pguard_pa0_preferent ;
+    sysml:ownedMembership expr:Branches__Charge___404_pguard_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___404_pguard_pa0_pout_om ;
+    sysml:ownedFeature expr:Branches__Charge___404_pguard_pa0_pout ;
+    sysml:parameter expr:Branches__Charge___404_pguard_pa0_pout ;
+    sysml:result expr:Branches__Charge___404_pguard_pa0_pout ;
+    sysml:owner expr:Branches__Charge___404_pguard_pin0 ;
+    sysml:owningRelationship expr:Branches__Charge___404_pguard_pa0_om ;
+    sysml:owningMembership expr:Branches__Charge___404_pguard_pa0_om ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___404_pguard_pa0_pout_om\"},{\"@id\":\"Branches__Charge___404_pguard_pa0_preferent\"}]" .
+
+expr:Branches__Charge___404_pguard_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Branches__Charge___404_pguard_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Branches__Charge___404_pguard_pa0 ;
+    sysml:owningRelationship expr:Branches__Charge___404_pguard_pa0_pout_om ;
+    sysml:owningMembership expr:Branches__Charge___404_pguard_pa0_pout_om .
+
+expr:Branches__Charge___404_pguard_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Branches__Charge___404_pguard_pa0_pout_om" ;
+    sysml:owner expr:Branches__Charge___404_pguard_pa0 ;
+    sysml:memberElement expr:Branches__Charge___404_pguard_pa0_pout ;
+    sysml:ownedMemberElement expr:Branches__Charge___404_pguard_pa0_pout ;
+    sysml:ownedRelatedElement expr:Branches__Charge___404_pguard_pa0_pout ;
+    sysml:owningRelatedElement expr:Branches__Charge___404_pguard_pa0 ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___404_pguard_pa0 ;
+    sysml:ownedMemberFeature expr:Branches__Charge___404_pguard_pa0_pout ;
+    sysml:ownedMemberParameter expr:Branches__Charge___404_pguard_pa0_pout .
+
+expr:Branches__Charge___404_pguard_pin0
+    a sysml:Feature ;
+    sysml:elementId "Branches__Charge___404_pguard_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Branches__Charge___404_pguard ;
+    sysml:owningRelationship expr:Branches__Charge___404_pguard_pin0_om ;
+    sysml:owningMembership expr:Branches__Charge___404_pguard_pin0_om ;
+    sysml:ownedRelationship expr:Branches__Charge___404_pguard_pa0_om ;
+    sysml:ownedMembership expr:Branches__Charge___404_pguard_pa0_om .
+
+expr:Branches__Charge___404_pguard_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Branches__Charge___404_pguard_pin0_om" ;
+    sysml:owner expr:Branches__Charge___404_pguard ;
+    sysml:memberElement expr:Branches__Charge___404_pguard_pin0 ;
+    sysml:ownedMemberElement expr:Branches__Charge___404_pguard_pin0 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___404_pguard_pin0 ;
+    sysml:owningRelatedElement expr:Branches__Charge___404_pguard ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___404_pguard ;
+    sysml:ownedMemberFeature expr:Branches__Charge___404_pguard_pin0 ;
+    sysml:ownedMemberParameter expr:Branches__Charge___404_pguard_pin0 .
+
+expr:Branches__Charge___404_pguard_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Branches__Charge___404_pguard_pa0_om" ;
+    sysml:owner expr:Branches__Charge___404_pguard_pin0 ;
+    sysml:memberElement expr:Branches__Charge___404_pguard_pa0 ;
+    sysml:ownedMemberElement expr:Branches__Charge___404_pguard_pa0 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___404_pguard_pa0 ;
+    sysml:owningRelatedElement expr:Branches__Charge___404_pguard_pin0 ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___404_pguard_pin0 ;
+    sysml:featureWithValue expr:Branches__Charge___404_pguard_pin0 ;
+    sysml:value expr:Branches__Charge___404_pguard_pa0 .
+
+expr:Branches__Charge___404_pguard_pa1
+    a sysml:LiteralInteger ;
+    sysx:sourceText "100" ;
+    sysml:elementId "Branches__Charge___404_pguard_pa1" ;
+    sysml:value "100"^^xsd:integer ;
+    sysml:owner expr:Branches__Charge___404_pguard_pin1 ;
+    sysml:owningRelationship expr:Branches__Charge___404_pguard_pa1_om ;
+    sysml:owningMembership expr:Branches__Charge___404_pguard_pa1_om .
+
+expr:Branches__Charge___404_pguard_pin1
+    a sysml:Feature ;
+    sysml:elementId "Branches__Charge___404_pguard_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Branches__Charge___404_pguard ;
+    sysml:owningRelationship expr:Branches__Charge___404_pguard_pin1_om ;
+    sysml:owningMembership expr:Branches__Charge___404_pguard_pin1_om ;
+    sysml:ownedRelationship expr:Branches__Charge___404_pguard_pa1_om ;
+    sysml:ownedMembership expr:Branches__Charge___404_pguard_pa1_om .
+
+expr:Branches__Charge___404_pguard_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Branches__Charge___404_pguard_pin1_om" ;
+    sysml:owner expr:Branches__Charge___404_pguard ;
+    sysml:memberElement expr:Branches__Charge___404_pguard_pin1 ;
+    sysml:ownedMemberElement expr:Branches__Charge___404_pguard_pin1 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___404_pguard_pin1 ;
+    sysml:owningRelatedElement expr:Branches__Charge___404_pguard ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___404_pguard ;
+    sysml:ownedMemberFeature expr:Branches__Charge___404_pguard_pin1 ;
+    sysml:ownedMemberParameter expr:Branches__Charge___404_pguard_pin1 .
+
+expr:Branches__Charge___404_pguard_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Branches__Charge___404_pguard_pa1_om" ;
+    sysml:owner expr:Branches__Charge___404_pguard_pin1 ;
+    sysml:memberElement expr:Branches__Charge___404_pguard_pa1 ;
+    sysml:ownedMemberElement expr:Branches__Charge___404_pguard_pa1 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___404_pguard_pa1 ;
+    sysml:owningRelatedElement expr:Branches__Charge___404_pguard_pin1 ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___404_pguard_pin1 ;
+    sysml:featureWithValue expr:Branches__Charge___404_pguard_pin1 ;
+    sysml:value expr:Branches__Charge___404_pguard_pa1 .
+
+expr:Branches__Charge___404_pguard_pout
+    a sysml:Feature ;
+    sysml:elementId "Branches__Charge___404_pguard_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Branches__Charge___404_pguard ;
+    sysml:owningRelationship expr:Branches__Charge___404_pguard_pout_om ;
+    sysml:owningMembership expr:Branches__Charge___404_pguard_pout_om .
+
+expr:Branches__Charge___404_pguard_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Branches__Charge___404_pguard_pout_om" ;
+    sysml:owner expr:Branches__Charge___404_pguard ;
+    sysml:memberElement expr:Branches__Charge___404_pguard_pout ;
+    sysml:ownedMemberElement expr:Branches__Charge___404_pguard_pout ;
+    sysml:ownedRelatedElement expr:Branches__Charge___404_pguard_pout ;
+    sysml:owningRelatedElement expr:Branches__Charge___404_pguard ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___404_pguard ;
+    sysml:ownedMemberFeature expr:Branches__Charge___404_pguard_pout ;
+    sysml:ownedMemberParameter expr:Branches__Charge___404_pguard_pout .
+
+expr:Branches__Charge___404_pguard_om
+    a sysml:TransitionFeatureMembership ;
+    sysml:elementId "Branches__Charge___404_pguard_om" ;
+    sysml:owner elmt:Branches__Charge___404 ;
+    sysml:memberElement expr:Branches__Charge___404_pguard ;
+    sysml:ownedMemberElement expr:Branches__Charge___404_pguard ;
+    sysml:ownedRelatedElement expr:Branches__Charge___404_pguard ;
+    sysml:owningRelatedElement elmt:Branches__Charge___404 ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___404 ;
+    sysml:ownedMemberFeature expr:Branches__Charge___404_pguard ;
+    sysml:owningType elmt:Branches__Charge___404 ;
+    sysml:kind "guard" ;
+    sysml:transitionFeature expr:Branches__Charge___404_pguard .
+
+elmt:Branches__Charge___404_succession
+    a sysml:SuccessionAsUsage ;
+    sysml:elementId "Branches__Charge___404_succession" ;
+    sysml:connectorEnd expr:Branches__Charge___404_succession_pend0, expr:Branches__Charge___404_succession_pend1 ;
+    sysml:ownedRelationship expr:Branches__Charge___404_succession_pend0_om, expr:Branches__Charge___404_succession_pend1_om ;
+    sysml:ownedMembership expr:Branches__Charge___404_succession_pend0_om, expr:Branches__Charge___404_succession_pend1_om ;
+    sysml:ownedMember expr:Branches__Charge___404_succession_pend0, expr:Branches__Charge___404_succession_pend1 ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___404_succession_pend0_om, expr:Branches__Charge___404_succession_pend1_om ;
+    sysml:ownedFeature expr:Branches__Charge___404_succession_pend0, expr:Branches__Charge___404_succession_pend1 ;
+    sysml:ownedEndFeature expr:Branches__Charge___404_succession_pend0, expr:Branches__Charge___404_succession_pend1 ;
+    sysml:owner elmt:Branches__Charge___404 ;
+    sysml:owningRelationship elmt:Branches__Charge___404_succession_om ;
+    sysml:owningMembership elmt:Branches__Charge___404_succession_om ;
+    json:connectorEnd "[{\"@id\":\"Branches__Charge___404_succession_pend0\"},{\"@id\":\"Branches__Charge___404_succession_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___404_succession_pend0_om\"},{\"@id\":\"Branches__Charge___404_succession_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___404_succession_pend0_om\"},{\"@id\":\"Branches__Charge___404_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Branches__Charge___404_succession_pend0\"},{\"@id\":\"Branches__Charge___404_succession_pend1\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___404_succession_pend0_om\"},{\"@id\":\"Branches__Charge___404_succession_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Branches__Charge___404_succession_pend0\"},{\"@id\":\"Branches__Charge___404_succession_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"Branches__Charge___404_succession_pend0\"},{\"@id\":\"Branches__Charge___404_succession_pend1\"}]" .
+
+expr:Branches__Charge___404_succession_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "Branches__Charge___404_succession_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:Branches__Charge___404_succession ;
+    sysml:owningRelationship expr:Branches__Charge___404_succession_pend0_om ;
+    sysml:owningMembership expr:Branches__Charge___404_succession_pend0_om .
+
+expr:Branches__Charge___404_succession_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Branches__Charge___404_succession_pend0_om" ;
+    sysml:owner elmt:Branches__Charge___404_succession ;
+    sysml:memberElement expr:Branches__Charge___404_succession_pend0 ;
+    sysml:ownedMemberElement expr:Branches__Charge___404_succession_pend0 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___404_succession_pend0 ;
+    sysml:owningRelatedElement elmt:Branches__Charge___404_succession ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___404_succession .
+
+expr:Branches__Charge___404_succession_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "Branches__Charge___404_succession_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:Branches__Charge___404_succession ;
+    sysml:owningRelationship expr:Branches__Charge___404_succession_pend1_om ;
+    sysml:owningMembership expr:Branches__Charge___404_succession_pend1_om ;
+    sysml:ownedReferenceSubsetting expr:Branches__Charge___404_succession_pend1_prs ;
+    sysml:ownedSubsetting expr:Branches__Charge___404_succession_pend1_prs ;
+    sysml:ownedSpecialization expr:Branches__Charge___404_succession_pend1_prs ;
+    sysml:ownedRelationship expr:Branches__Charge___404_succession_pend1_prs .
+
+expr:Branches__Charge___404_succession_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Branches__Charge___404_succession_pend1_om" ;
+    sysml:owner elmt:Branches__Charge___404_succession ;
+    sysml:memberElement expr:Branches__Charge___404_succession_pend1 ;
+    sysml:ownedMemberElement expr:Branches__Charge___404_succession_pend1 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___404_succession_pend1 ;
+    sysml:owningRelatedElement elmt:Branches__Charge___404_succession ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___404_succession .
+
+expr:Branches__Charge___404_succession_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Branches__Charge___404_succession_pend1_prs" ;
+    sysml:referencingFeature expr:Branches__Charge___404_succession_pend1 ;
+    sysml:subsettingFeature expr:Branches__Charge___404_succession_pend1 ;
+    sysml:specific expr:Branches__Charge___404_succession_pend1 ;
+    sysml:source expr:Branches__Charge___404_succession_pend1 ;
+    sysml:owningFeature expr:Branches__Charge___404_succession_pend1 ;
+    sysml:owningType expr:Branches__Charge___404_succession_pend1 ;
+    sysml:referencedFeature elmt:Branches__Charge__addCharge ;
+    sysml:subsettedFeature elmt:Branches__Charge__addCharge ;
+    sysml:general elmt:Branches__Charge__addCharge ;
+    sysml:target elmt:Branches__Charge__addCharge ;
+    sysml:relatedElement expr:Branches__Charge___404_succession_pend1, elmt:Branches__Charge__addCharge ;
+    sysml:owner expr:Branches__Charge___404_succession_pend1 ;
+    sysml:owningRelatedElement expr:Branches__Charge___404_succession_pend1 ;
+    json:relatedElement "[{\"@id\":\"Branches__Charge___404_succession_pend1\"},{\"@id\":\"Branches__Charge__addCharge\"}]" .
+
+elmt:Branches__Charge___404_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Branches__Charge___404_succession_om" ;
+    sysml:owner elmt:Branches__Charge___404 ;
+    sysml:memberElement elmt:Branches__Charge___404_succession ;
+    sysml:ownedMemberElement elmt:Branches__Charge___404_succession ;
+    sysml:ownedRelatedElement elmt:Branches__Charge___404_succession ;
+    sysml:owningRelatedElement elmt:Branches__Charge___404 ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___404 .
+
+elmt:Branches__Charge___405
+    a sysml:TransitionUsage ;
+    sysml:qualifiedName "Branches::Charge::@5" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "39"^^xsd:integer ;
+    sysml:elementId "Branches__Charge___405" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches__Charge ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:owningRelationship elmt:Branches__Charge___405_om ;
+    sysml:owningMembership elmt:Branches__Charge___405_om ;
+    sysx:transitionSyntax "target" ;
+    sysx:guard expr:Branches__Charge___405_pguard ;
+    sysml:ownedRelationship expr:Branches__Charge___405_pguard_om, elmt:Branches__Charge___405_succession_om ;
+    sysml:ownedMembership expr:Branches__Charge___405_pguard_om, elmt:Branches__Charge___405_succession_om ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___405_pguard_om ;
+    sysml:ownedFeature expr:Branches__Charge___405_pguard ;
+    sysml:guardExpression expr:Branches__Charge___405_pguard ;
+    sysml:succession elmt:Branches__Charge___405_succession ;
+    sysml:source elmt:Branches__Charge___402 ;
+    sysml:target elmt:Branches__Charge__stop ;
+    sysx:sourceText "            if level >= 100 then stop;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___405_pguard_om\"},{\"@id\":\"Branches__Charge___405_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___405_pguard_om\"},{\"@id\":\"Branches__Charge___405_succession_om\"}]" .
+
+elmt:Branches__Charge___405_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Branches__Charge___405_om" ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:memberElement elmt:Branches__Charge___405 ;
+    sysml:ownedMemberElement elmt:Branches__Charge___405 ;
+    sysml:ownedRelatedElement elmt:Branches__Charge___405 ;
+    sysml:owningRelatedElement elmt:Branches__Charge ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge ;
+    sysml:ownedMemberFeature elmt:Branches__Charge___405 ;
+    sysml:owningType elmt:Branches__Charge .
+
+expr:Branches__Charge___405_pguard
+    a sysml:OperatorExpression ;
+    sysx:sourceText "level >= 100" ;
+    sysml:elementId "Branches__Charge___405_pguard" ;
+    sysml:operator ">=" ;
+    sysml:argument expr:Branches__Charge___405_pguard_pa0, expr:Branches__Charge___405_pguard_pa1 ;
+    sysml:ownedRelationship expr:Branches__Charge___405_pguard_pin0_om, expr:Branches__Charge___405_pguard_pin1_om, expr:Branches__Charge___405_pguard_pout_om ;
+    sysml:ownedMembership expr:Branches__Charge___405_pguard_pin0_om, expr:Branches__Charge___405_pguard_pin1_om, expr:Branches__Charge___405_pguard_pout_om ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___405_pguard_pin0_om, expr:Branches__Charge___405_pguard_pin1_om, expr:Branches__Charge___405_pguard_pout_om ;
+    sysml:ownedFeature expr:Branches__Charge___405_pguard_pin0, expr:Branches__Charge___405_pguard_pin1, expr:Branches__Charge___405_pguard_pout ;
+    sysml:parameter expr:Branches__Charge___405_pguard_pin0, expr:Branches__Charge___405_pguard_pin1, expr:Branches__Charge___405_pguard_pout ;
+    sysml:input expr:Branches__Charge___405_pguard_pin0, expr:Branches__Charge___405_pguard_pin1 ;
+    sysml:result expr:Branches__Charge___405_pguard_pout ;
+    sysml:owner elmt:Branches__Charge___405 ;
+    sysml:owningRelationship expr:Branches__Charge___405_pguard_om ;
+    sysml:owningMembership expr:Branches__Charge___405_pguard_om ;
+    json:argument "[{\"@id\":\"Branches__Charge___405_pguard_pa0\"},{\"@id\":\"Branches__Charge___405_pguard_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___405_pguard_pin0_om\"},{\"@id\":\"Branches__Charge___405_pguard_pin1_om\"},{\"@id\":\"Branches__Charge___405_pguard_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___405_pguard_pin0_om\"},{\"@id\":\"Branches__Charge___405_pguard_pin1_om\"},{\"@id\":\"Branches__Charge___405_pguard_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___405_pguard_pin0_om\"},{\"@id\":\"Branches__Charge___405_pguard_pin1_om\"},{\"@id\":\"Branches__Charge___405_pguard_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Branches__Charge___405_pguard_pin0\"},{\"@id\":\"Branches__Charge___405_pguard_pin1\"},{\"@id\":\"Branches__Charge___405_pguard_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Branches__Charge___405_pguard_pin0\"},{\"@id\":\"Branches__Charge___405_pguard_pin1\"},{\"@id\":\"Branches__Charge___405_pguard_pout\"}]" ;
+    json:input "[{\"@id\":\"Branches__Charge___405_pguard_pin0\"},{\"@id\":\"Branches__Charge___405_pguard_pin1\"}]" .
+
+expr:Branches__Charge___405_pguard_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "level" ;
+    sysml:elementId "Branches__Charge___405_pguard_pa0" ;
+    sysml:referent elmt:Branches__Charge__level ;
+    sysml:ownedRelationship expr:Branches__Charge___405_pguard_pa0_pout_om, expr:Branches__Charge___405_pguard_pa0_preferent ;
+    sysml:ownedMembership expr:Branches__Charge___405_pguard_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___405_pguard_pa0_pout_om ;
+    sysml:ownedFeature expr:Branches__Charge___405_pguard_pa0_pout ;
+    sysml:parameter expr:Branches__Charge___405_pguard_pa0_pout ;
+    sysml:result expr:Branches__Charge___405_pguard_pa0_pout ;
+    sysml:owner expr:Branches__Charge___405_pguard_pin0 ;
+    sysml:owningRelationship expr:Branches__Charge___405_pguard_pa0_om ;
+    sysml:owningMembership expr:Branches__Charge___405_pguard_pa0_om ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___405_pguard_pa0_pout_om\"},{\"@id\":\"Branches__Charge___405_pguard_pa0_preferent\"}]" .
+
+expr:Branches__Charge___405_pguard_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Branches__Charge___405_pguard_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Branches__Charge___405_pguard_pa0 ;
+    sysml:owningRelationship expr:Branches__Charge___405_pguard_pa0_pout_om ;
+    sysml:owningMembership expr:Branches__Charge___405_pguard_pa0_pout_om .
+
+expr:Branches__Charge___405_pguard_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Branches__Charge___405_pguard_pa0_pout_om" ;
+    sysml:owner expr:Branches__Charge___405_pguard_pa0 ;
+    sysml:memberElement expr:Branches__Charge___405_pguard_pa0_pout ;
+    sysml:ownedMemberElement expr:Branches__Charge___405_pguard_pa0_pout ;
+    sysml:ownedRelatedElement expr:Branches__Charge___405_pguard_pa0_pout ;
+    sysml:owningRelatedElement expr:Branches__Charge___405_pguard_pa0 ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___405_pguard_pa0 ;
+    sysml:ownedMemberFeature expr:Branches__Charge___405_pguard_pa0_pout ;
+    sysml:ownedMemberParameter expr:Branches__Charge___405_pguard_pa0_pout .
+
+expr:Branches__Charge___405_pguard_pin0
+    a sysml:Feature ;
+    sysml:elementId "Branches__Charge___405_pguard_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Branches__Charge___405_pguard ;
+    sysml:owningRelationship expr:Branches__Charge___405_pguard_pin0_om ;
+    sysml:owningMembership expr:Branches__Charge___405_pguard_pin0_om ;
+    sysml:ownedRelationship expr:Branches__Charge___405_pguard_pa0_om ;
+    sysml:ownedMembership expr:Branches__Charge___405_pguard_pa0_om .
+
+expr:Branches__Charge___405_pguard_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Branches__Charge___405_pguard_pin0_om" ;
+    sysml:owner expr:Branches__Charge___405_pguard ;
+    sysml:memberElement expr:Branches__Charge___405_pguard_pin0 ;
+    sysml:ownedMemberElement expr:Branches__Charge___405_pguard_pin0 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___405_pguard_pin0 ;
+    sysml:owningRelatedElement expr:Branches__Charge___405_pguard ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___405_pguard ;
+    sysml:ownedMemberFeature expr:Branches__Charge___405_pguard_pin0 ;
+    sysml:ownedMemberParameter expr:Branches__Charge___405_pguard_pin0 .
+
+expr:Branches__Charge___405_pguard_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Branches__Charge___405_pguard_pa0_om" ;
+    sysml:owner expr:Branches__Charge___405_pguard_pin0 ;
+    sysml:memberElement expr:Branches__Charge___405_pguard_pa0 ;
+    sysml:ownedMemberElement expr:Branches__Charge___405_pguard_pa0 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___405_pguard_pa0 ;
+    sysml:owningRelatedElement expr:Branches__Charge___405_pguard_pin0 ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___405_pguard_pin0 ;
+    sysml:featureWithValue expr:Branches__Charge___405_pguard_pin0 ;
+    sysml:value expr:Branches__Charge___405_pguard_pa0 .
+
+expr:Branches__Charge___405_pguard_pa1
+    a sysml:LiteralInteger ;
+    sysx:sourceText "100" ;
+    sysml:elementId "Branches__Charge___405_pguard_pa1" ;
+    sysml:value "100"^^xsd:integer ;
+    sysml:owner expr:Branches__Charge___405_pguard_pin1 ;
+    sysml:owningRelationship expr:Branches__Charge___405_pguard_pa1_om ;
+    sysml:owningMembership expr:Branches__Charge___405_pguard_pa1_om .
+
+expr:Branches__Charge___405_pguard_pin1
+    a sysml:Feature ;
+    sysml:elementId "Branches__Charge___405_pguard_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Branches__Charge___405_pguard ;
+    sysml:owningRelationship expr:Branches__Charge___405_pguard_pin1_om ;
+    sysml:owningMembership expr:Branches__Charge___405_pguard_pin1_om ;
+    sysml:ownedRelationship expr:Branches__Charge___405_pguard_pa1_om ;
+    sysml:ownedMembership expr:Branches__Charge___405_pguard_pa1_om .
+
+expr:Branches__Charge___405_pguard_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Branches__Charge___405_pguard_pin1_om" ;
+    sysml:owner expr:Branches__Charge___405_pguard ;
+    sysml:memberElement expr:Branches__Charge___405_pguard_pin1 ;
+    sysml:ownedMemberElement expr:Branches__Charge___405_pguard_pin1 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___405_pguard_pin1 ;
+    sysml:owningRelatedElement expr:Branches__Charge___405_pguard ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___405_pguard ;
+    sysml:ownedMemberFeature expr:Branches__Charge___405_pguard_pin1 ;
+    sysml:ownedMemberParameter expr:Branches__Charge___405_pguard_pin1 .
+
+expr:Branches__Charge___405_pguard_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Branches__Charge___405_pguard_pa1_om" ;
+    sysml:owner expr:Branches__Charge___405_pguard_pin1 ;
+    sysml:memberElement expr:Branches__Charge___405_pguard_pa1 ;
+    sysml:ownedMemberElement expr:Branches__Charge___405_pguard_pa1 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___405_pguard_pa1 ;
+    sysml:owningRelatedElement expr:Branches__Charge___405_pguard_pin1 ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___405_pguard_pin1 ;
+    sysml:featureWithValue expr:Branches__Charge___405_pguard_pin1 ;
+    sysml:value expr:Branches__Charge___405_pguard_pa1 .
+
+expr:Branches__Charge___405_pguard_pout
+    a sysml:Feature ;
+    sysml:elementId "Branches__Charge___405_pguard_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Branches__Charge___405_pguard ;
+    sysml:owningRelationship expr:Branches__Charge___405_pguard_pout_om ;
+    sysml:owningMembership expr:Branches__Charge___405_pguard_pout_om .
+
+expr:Branches__Charge___405_pguard_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Branches__Charge___405_pguard_pout_om" ;
+    sysml:owner expr:Branches__Charge___405_pguard ;
+    sysml:memberElement expr:Branches__Charge___405_pguard_pout ;
+    sysml:ownedMemberElement expr:Branches__Charge___405_pguard_pout ;
+    sysml:ownedRelatedElement expr:Branches__Charge___405_pguard_pout ;
+    sysml:owningRelatedElement expr:Branches__Charge___405_pguard ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___405_pguard ;
+    sysml:ownedMemberFeature expr:Branches__Charge___405_pguard_pout ;
+    sysml:ownedMemberParameter expr:Branches__Charge___405_pguard_pout .
+
+expr:Branches__Charge___405_pguard_om
+    a sysml:TransitionFeatureMembership ;
+    sysml:elementId "Branches__Charge___405_pguard_om" ;
+    sysml:owner elmt:Branches__Charge___405 ;
+    sysml:memberElement expr:Branches__Charge___405_pguard ;
+    sysml:ownedMemberElement expr:Branches__Charge___405_pguard ;
+    sysml:ownedRelatedElement expr:Branches__Charge___405_pguard ;
+    sysml:owningRelatedElement elmt:Branches__Charge___405 ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___405 ;
+    sysml:ownedMemberFeature expr:Branches__Charge___405_pguard ;
+    sysml:owningType elmt:Branches__Charge___405 ;
+    sysml:kind "guard" ;
+    sysml:transitionFeature expr:Branches__Charge___405_pguard .
+
+elmt:Branches__Charge___405_succession
+    a sysml:SuccessionAsUsage ;
+    sysml:elementId "Branches__Charge___405_succession" ;
+    sysml:connectorEnd expr:Branches__Charge___405_succession_pend0, expr:Branches__Charge___405_succession_pend1 ;
+    sysml:ownedRelationship expr:Branches__Charge___405_succession_pend0_om, expr:Branches__Charge___405_succession_pend1_om ;
+    sysml:ownedMembership expr:Branches__Charge___405_succession_pend0_om, expr:Branches__Charge___405_succession_pend1_om ;
+    sysml:ownedMember expr:Branches__Charge___405_succession_pend0, expr:Branches__Charge___405_succession_pend1 ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___405_succession_pend0_om, expr:Branches__Charge___405_succession_pend1_om ;
+    sysml:ownedFeature expr:Branches__Charge___405_succession_pend0, expr:Branches__Charge___405_succession_pend1 ;
+    sysml:ownedEndFeature expr:Branches__Charge___405_succession_pend0, expr:Branches__Charge___405_succession_pend1 ;
+    sysml:owner elmt:Branches__Charge___405 ;
+    sysml:owningRelationship elmt:Branches__Charge___405_succession_om ;
+    sysml:owningMembership elmt:Branches__Charge___405_succession_om ;
+    json:connectorEnd "[{\"@id\":\"Branches__Charge___405_succession_pend0\"},{\"@id\":\"Branches__Charge___405_succession_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___405_succession_pend0_om\"},{\"@id\":\"Branches__Charge___405_succession_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___405_succession_pend0_om\"},{\"@id\":\"Branches__Charge___405_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Branches__Charge___405_succession_pend0\"},{\"@id\":\"Branches__Charge___405_succession_pend1\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___405_succession_pend0_om\"},{\"@id\":\"Branches__Charge___405_succession_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Branches__Charge___405_succession_pend0\"},{\"@id\":\"Branches__Charge___405_succession_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"Branches__Charge___405_succession_pend0\"},{\"@id\":\"Branches__Charge___405_succession_pend1\"}]" .
+
+expr:Branches__Charge___405_succession_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "Branches__Charge___405_succession_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:Branches__Charge___405_succession ;
+    sysml:owningRelationship expr:Branches__Charge___405_succession_pend0_om ;
+    sysml:owningMembership expr:Branches__Charge___405_succession_pend0_om .
+
+expr:Branches__Charge___405_succession_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Branches__Charge___405_succession_pend0_om" ;
+    sysml:owner elmt:Branches__Charge___405_succession ;
+    sysml:memberElement expr:Branches__Charge___405_succession_pend0 ;
+    sysml:ownedMemberElement expr:Branches__Charge___405_succession_pend0 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___405_succession_pend0 ;
+    sysml:owningRelatedElement elmt:Branches__Charge___405_succession ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___405_succession .
+
+expr:Branches__Charge___405_succession_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "Branches__Charge___405_succession_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:Branches__Charge___405_succession ;
+    sysml:owningRelationship expr:Branches__Charge___405_succession_pend1_om ;
+    sysml:owningMembership expr:Branches__Charge___405_succession_pend1_om ;
+    sysml:ownedReferenceSubsetting expr:Branches__Charge___405_succession_pend1_prs ;
+    sysml:ownedSubsetting expr:Branches__Charge___405_succession_pend1_prs ;
+    sysml:ownedSpecialization expr:Branches__Charge___405_succession_pend1_prs ;
+    sysml:ownedRelationship expr:Branches__Charge___405_succession_pend1_prs .
+
+expr:Branches__Charge___405_succession_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Branches__Charge___405_succession_pend1_om" ;
+    sysml:owner elmt:Branches__Charge___405_succession ;
+    sysml:memberElement expr:Branches__Charge___405_succession_pend1 ;
+    sysml:ownedMemberElement expr:Branches__Charge___405_succession_pend1 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___405_succession_pend1 ;
+    sysml:owningRelatedElement elmt:Branches__Charge___405_succession ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___405_succession .
+
+expr:Branches__Charge___405_succession_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Branches__Charge___405_succession_pend1_prs" ;
+    sysml:referencingFeature expr:Branches__Charge___405_succession_pend1 ;
+    sysml:subsettingFeature expr:Branches__Charge___405_succession_pend1 ;
+    sysml:specific expr:Branches__Charge___405_succession_pend1 ;
+    sysml:source expr:Branches__Charge___405_succession_pend1 ;
+    sysml:owningFeature expr:Branches__Charge___405_succession_pend1 ;
+    sysml:owningType expr:Branches__Charge___405_succession_pend1 ;
+    sysml:referencedFeature elmt:Branches__Charge__stop ;
+    sysml:subsettedFeature elmt:Branches__Charge__stop ;
+    sysml:general elmt:Branches__Charge__stop ;
+    sysml:target elmt:Branches__Charge__stop ;
+    sysml:relatedElement expr:Branches__Charge___405_succession_pend1, elmt:Branches__Charge__stop ;
+    sysml:owner expr:Branches__Charge___405_succession_pend1 ;
+    sysml:owningRelatedElement expr:Branches__Charge___405_succession_pend1 ;
+    json:relatedElement "[{\"@id\":\"Branches__Charge___405_succession_pend1\"},{\"@id\":\"Branches__Charge__stop\"}]" .
+
+elmt:Branches__Charge___405_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Branches__Charge___405_succession_om" ;
+    sysml:owner elmt:Branches__Charge___405 ;
+    sysml:memberElement elmt:Branches__Charge___405_succession ;
+    sysml:ownedMemberElement elmt:Branches__Charge___405_succession ;
+    sysml:ownedRelatedElement elmt:Branches__Charge___405_succession ;
+    sysml:owningRelatedElement elmt:Branches__Charge___405 ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___405 .
+
+elmt:Branches__Charge__addCharge
+    a sysml:ActionUsage ;
+    sysml:qualifiedName "Branches::Charge::addCharge" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
+    sysml:elementId "Branches__Charge__addCharge" ;
+    sysx:memberIndex "6"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches__Charge ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:owningRelationship elmt:Branches__Charge__addCharge_om ;
+    sysml:owningMembership elmt:Branches__Charge__addCharge_om ;
+    sysml:declaredName "addCharge" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        action addCharge;\n" .
+
+elmt:Branches__Charge__addCharge_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Branches__Charge__addCharge_om" ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:memberElement elmt:Branches__Charge__addCharge ;
+    sysml:ownedMemberElement elmt:Branches__Charge__addCharge ;
+    sysml:ownedRelatedElement elmt:Branches__Charge__addCharge ;
+    sysml:owningRelatedElement elmt:Branches__Charge ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge ;
+    sysml:ownedMemberFeature elmt:Branches__Charge__addCharge ;
+    sysml:owningType elmt:Branches__Charge .
+
+elmt:Branches__Charge__stop
+    a sysml:ActionUsage ;
+    sysml:qualifiedName "Branches::Charge::stop" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
+    sysml:elementId "Branches__Charge__stop" ;
+    sysx:memberIndex "7"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches__Charge ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:owningRelationship elmt:Branches__Charge__stop_om ;
+    sysml:owningMembership elmt:Branches__Charge__stop_om ;
+    sysml:declaredName "stop" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        action stop;\n" .
+
+elmt:Branches__Charge__stop_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Branches__Charge__stop_om" ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:memberElement elmt:Branches__Charge__stop ;
+    sysml:ownedMemberElement elmt:Branches__Charge__stop ;
+    sysml:ownedRelatedElement elmt:Branches__Charge__stop ;
+    sysml:owningRelatedElement elmt:Branches__Charge ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge ;
+    sysml:ownedMemberFeature elmt:Branches__Charge__stop ;
+    sysml:owningType elmt:Branches__Charge .
+
+elmt:Branches__Charge__pick
+    a sysml:DecisionNode ;
+    sysml:qualifiedName "Branches::Charge::pick" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
+    sysml:elementId "Branches__Charge__pick" ;
+    sysx:memberIndex "8"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches__Charge ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:owningRelationship elmt:Branches__Charge__pick_om ;
+    sysml:owningMembership elmt:Branches__Charge__pick_om ;
+    sysml:declaredName "pick" ;
+    sysx:sourceText "        decide pick;\n" .
+
+elmt:Branches__Charge__pick_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Branches__Charge__pick_om" ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:memberElement elmt:Branches__Charge__pick ;
+    sysml:ownedMemberElement elmt:Branches__Charge__pick ;
+    sysml:ownedRelatedElement elmt:Branches__Charge__pick ;
+    sysml:owningRelatedElement elmt:Branches__Charge ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge ;
+    sysml:ownedMemberFeature elmt:Branches__Charge__pick ;
+    sysml:owningType elmt:Branches__Charge .
+
+elmt:Branches__Charge___409
+    a sysml:TransitionUsage ;
+    sysml:qualifiedName "Branches::Charge::@9" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "41"^^xsd:integer ;
+    sysml:elementId "Branches__Charge___409" ;
+    sysx:memberIndex "9"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches__Charge ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:owningRelationship elmt:Branches__Charge___409_om ;
+    sysml:owningMembership elmt:Branches__Charge___409_om ;
+    sysx:transitionSyntax "target" ;
+    sysx:guard expr:Branches__Charge___409_pguard ;
+    sysml:ownedRelationship expr:Branches__Charge___409_pguard_om, elmt:Branches__Charge___409_succession_om ;
+    sysml:ownedMembership expr:Branches__Charge___409_pguard_om, elmt:Branches__Charge___409_succession_om ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___409_pguard_om ;
+    sysml:ownedFeature expr:Branches__Charge___409_pguard ;
+    sysml:guardExpression expr:Branches__Charge___409_pguard ;
+    sysml:succession elmt:Branches__Charge___409_succession ;
+    sysml:source elmt:Branches__Charge__pick ;
+    sysml:target elmt:Branches__Charge__addCharge ;
+    sysx:sourceText "            if level > 1 then addCharge;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___409_pguard_om\"},{\"@id\":\"Branches__Charge___409_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___409_pguard_om\"},{\"@id\":\"Branches__Charge___409_succession_om\"}]" .
+
+elmt:Branches__Charge___409_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Branches__Charge___409_om" ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:memberElement elmt:Branches__Charge___409 ;
+    sysml:ownedMemberElement elmt:Branches__Charge___409 ;
+    sysml:ownedRelatedElement elmt:Branches__Charge___409 ;
+    sysml:owningRelatedElement elmt:Branches__Charge ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge ;
+    sysml:ownedMemberFeature elmt:Branches__Charge___409 ;
+    sysml:owningType elmt:Branches__Charge .
+
+expr:Branches__Charge___409_pguard
+    a sysml:OperatorExpression ;
+    sysx:sourceText "level > 1" ;
+    sysml:elementId "Branches__Charge___409_pguard" ;
+    sysml:operator ">" ;
+    sysml:argument expr:Branches__Charge___409_pguard_pa0, expr:Branches__Charge___409_pguard_pa1 ;
+    sysml:ownedRelationship expr:Branches__Charge___409_pguard_pin0_om, expr:Branches__Charge___409_pguard_pin1_om, expr:Branches__Charge___409_pguard_pout_om ;
+    sysml:ownedMembership expr:Branches__Charge___409_pguard_pin0_om, expr:Branches__Charge___409_pguard_pin1_om, expr:Branches__Charge___409_pguard_pout_om ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___409_pguard_pin0_om, expr:Branches__Charge___409_pguard_pin1_om, expr:Branches__Charge___409_pguard_pout_om ;
+    sysml:ownedFeature expr:Branches__Charge___409_pguard_pin0, expr:Branches__Charge___409_pguard_pin1, expr:Branches__Charge___409_pguard_pout ;
+    sysml:parameter expr:Branches__Charge___409_pguard_pin0, expr:Branches__Charge___409_pguard_pin1, expr:Branches__Charge___409_pguard_pout ;
+    sysml:input expr:Branches__Charge___409_pguard_pin0, expr:Branches__Charge___409_pguard_pin1 ;
+    sysml:result expr:Branches__Charge___409_pguard_pout ;
+    sysml:owner elmt:Branches__Charge___409 ;
+    sysml:owningRelationship expr:Branches__Charge___409_pguard_om ;
+    sysml:owningMembership expr:Branches__Charge___409_pguard_om ;
+    json:argument "[{\"@id\":\"Branches__Charge___409_pguard_pa0\"},{\"@id\":\"Branches__Charge___409_pguard_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___409_pguard_pin0_om\"},{\"@id\":\"Branches__Charge___409_pguard_pin1_om\"},{\"@id\":\"Branches__Charge___409_pguard_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___409_pguard_pin0_om\"},{\"@id\":\"Branches__Charge___409_pguard_pin1_om\"},{\"@id\":\"Branches__Charge___409_pguard_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___409_pguard_pin0_om\"},{\"@id\":\"Branches__Charge___409_pguard_pin1_om\"},{\"@id\":\"Branches__Charge___409_pguard_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Branches__Charge___409_pguard_pin0\"},{\"@id\":\"Branches__Charge___409_pguard_pin1\"},{\"@id\":\"Branches__Charge___409_pguard_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Branches__Charge___409_pguard_pin0\"},{\"@id\":\"Branches__Charge___409_pguard_pin1\"},{\"@id\":\"Branches__Charge___409_pguard_pout\"}]" ;
+    json:input "[{\"@id\":\"Branches__Charge___409_pguard_pin0\"},{\"@id\":\"Branches__Charge___409_pguard_pin1\"}]" .
+
+expr:Branches__Charge___409_pguard_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "level" ;
+    sysml:elementId "Branches__Charge___409_pguard_pa0" ;
+    sysml:referent elmt:Branches__Charge__level ;
+    sysml:ownedRelationship expr:Branches__Charge___409_pguard_pa0_pout_om, expr:Branches__Charge___409_pguard_pa0_preferent ;
+    sysml:ownedMembership expr:Branches__Charge___409_pguard_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___409_pguard_pa0_pout_om ;
+    sysml:ownedFeature expr:Branches__Charge___409_pguard_pa0_pout ;
+    sysml:parameter expr:Branches__Charge___409_pguard_pa0_pout ;
+    sysml:result expr:Branches__Charge___409_pguard_pa0_pout ;
+    sysml:owner expr:Branches__Charge___409_pguard_pin0 ;
+    sysml:owningRelationship expr:Branches__Charge___409_pguard_pa0_om ;
+    sysml:owningMembership expr:Branches__Charge___409_pguard_pa0_om ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___409_pguard_pa0_pout_om\"},{\"@id\":\"Branches__Charge___409_pguard_pa0_preferent\"}]" .
+
+expr:Branches__Charge___409_pguard_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Branches__Charge___409_pguard_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Branches__Charge___409_pguard_pa0 ;
+    sysml:owningRelationship expr:Branches__Charge___409_pguard_pa0_pout_om ;
+    sysml:owningMembership expr:Branches__Charge___409_pguard_pa0_pout_om .
+
+expr:Branches__Charge___409_pguard_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Branches__Charge___409_pguard_pa0_pout_om" ;
+    sysml:owner expr:Branches__Charge___409_pguard_pa0 ;
+    sysml:memberElement expr:Branches__Charge___409_pguard_pa0_pout ;
+    sysml:ownedMemberElement expr:Branches__Charge___409_pguard_pa0_pout ;
+    sysml:ownedRelatedElement expr:Branches__Charge___409_pguard_pa0_pout ;
+    sysml:owningRelatedElement expr:Branches__Charge___409_pguard_pa0 ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___409_pguard_pa0 ;
+    sysml:ownedMemberFeature expr:Branches__Charge___409_pguard_pa0_pout ;
+    sysml:ownedMemberParameter expr:Branches__Charge___409_pguard_pa0_pout .
+
+expr:Branches__Charge___409_pguard_pin0
+    a sysml:Feature ;
+    sysml:elementId "Branches__Charge___409_pguard_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Branches__Charge___409_pguard ;
+    sysml:owningRelationship expr:Branches__Charge___409_pguard_pin0_om ;
+    sysml:owningMembership expr:Branches__Charge___409_pguard_pin0_om ;
+    sysml:ownedRelationship expr:Branches__Charge___409_pguard_pa0_om ;
+    sysml:ownedMembership expr:Branches__Charge___409_pguard_pa0_om .
+
+expr:Branches__Charge___409_pguard_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Branches__Charge___409_pguard_pin0_om" ;
+    sysml:owner expr:Branches__Charge___409_pguard ;
+    sysml:memberElement expr:Branches__Charge___409_pguard_pin0 ;
+    sysml:ownedMemberElement expr:Branches__Charge___409_pguard_pin0 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___409_pguard_pin0 ;
+    sysml:owningRelatedElement expr:Branches__Charge___409_pguard ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___409_pguard ;
+    sysml:ownedMemberFeature expr:Branches__Charge___409_pguard_pin0 ;
+    sysml:ownedMemberParameter expr:Branches__Charge___409_pguard_pin0 .
+
+expr:Branches__Charge___409_pguard_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Branches__Charge___409_pguard_pa0_om" ;
+    sysml:owner expr:Branches__Charge___409_pguard_pin0 ;
+    sysml:memberElement expr:Branches__Charge___409_pguard_pa0 ;
+    sysml:ownedMemberElement expr:Branches__Charge___409_pguard_pa0 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___409_pguard_pa0 ;
+    sysml:owningRelatedElement expr:Branches__Charge___409_pguard_pin0 ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___409_pguard_pin0 ;
+    sysml:featureWithValue expr:Branches__Charge___409_pguard_pin0 ;
+    sysml:value expr:Branches__Charge___409_pguard_pa0 .
+
+expr:Branches__Charge___409_pguard_pa1
+    a sysml:LiteralInteger ;
+    sysx:sourceText "1" ;
+    sysml:elementId "Branches__Charge___409_pguard_pa1" ;
+    sysml:value "1"^^xsd:integer ;
+    sysml:owner expr:Branches__Charge___409_pguard_pin1 ;
+    sysml:owningRelationship expr:Branches__Charge___409_pguard_pa1_om ;
+    sysml:owningMembership expr:Branches__Charge___409_pguard_pa1_om .
+
+expr:Branches__Charge___409_pguard_pin1
+    a sysml:Feature ;
+    sysml:elementId "Branches__Charge___409_pguard_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Branches__Charge___409_pguard ;
+    sysml:owningRelationship expr:Branches__Charge___409_pguard_pin1_om ;
+    sysml:owningMembership expr:Branches__Charge___409_pguard_pin1_om ;
+    sysml:ownedRelationship expr:Branches__Charge___409_pguard_pa1_om ;
+    sysml:ownedMembership expr:Branches__Charge___409_pguard_pa1_om .
+
+expr:Branches__Charge___409_pguard_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Branches__Charge___409_pguard_pin1_om" ;
+    sysml:owner expr:Branches__Charge___409_pguard ;
+    sysml:memberElement expr:Branches__Charge___409_pguard_pin1 ;
+    sysml:ownedMemberElement expr:Branches__Charge___409_pguard_pin1 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___409_pguard_pin1 ;
+    sysml:owningRelatedElement expr:Branches__Charge___409_pguard ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___409_pguard ;
+    sysml:ownedMemberFeature expr:Branches__Charge___409_pguard_pin1 ;
+    sysml:ownedMemberParameter expr:Branches__Charge___409_pguard_pin1 .
+
+expr:Branches__Charge___409_pguard_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Branches__Charge___409_pguard_pa1_om" ;
+    sysml:owner expr:Branches__Charge___409_pguard_pin1 ;
+    sysml:memberElement expr:Branches__Charge___409_pguard_pa1 ;
+    sysml:ownedMemberElement expr:Branches__Charge___409_pguard_pa1 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___409_pguard_pa1 ;
+    sysml:owningRelatedElement expr:Branches__Charge___409_pguard_pin1 ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___409_pguard_pin1 ;
+    sysml:featureWithValue expr:Branches__Charge___409_pguard_pin1 ;
+    sysml:value expr:Branches__Charge___409_pguard_pa1 .
+
+expr:Branches__Charge___409_pguard_pout
+    a sysml:Feature ;
+    sysml:elementId "Branches__Charge___409_pguard_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Branches__Charge___409_pguard ;
+    sysml:owningRelationship expr:Branches__Charge___409_pguard_pout_om ;
+    sysml:owningMembership expr:Branches__Charge___409_pguard_pout_om .
+
+expr:Branches__Charge___409_pguard_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Branches__Charge___409_pguard_pout_om" ;
+    sysml:owner expr:Branches__Charge___409_pguard ;
+    sysml:memberElement expr:Branches__Charge___409_pguard_pout ;
+    sysml:ownedMemberElement expr:Branches__Charge___409_pguard_pout ;
+    sysml:ownedRelatedElement expr:Branches__Charge___409_pguard_pout ;
+    sysml:owningRelatedElement expr:Branches__Charge___409_pguard ;
+    sysml:membershipOwningNamespace expr:Branches__Charge___409_pguard ;
+    sysml:ownedMemberFeature expr:Branches__Charge___409_pguard_pout ;
+    sysml:ownedMemberParameter expr:Branches__Charge___409_pguard_pout .
+
+expr:Branches__Charge___409_pguard_om
+    a sysml:TransitionFeatureMembership ;
+    sysml:elementId "Branches__Charge___409_pguard_om" ;
+    sysml:owner elmt:Branches__Charge___409 ;
+    sysml:memberElement expr:Branches__Charge___409_pguard ;
+    sysml:ownedMemberElement expr:Branches__Charge___409_pguard ;
+    sysml:ownedRelatedElement expr:Branches__Charge___409_pguard ;
+    sysml:owningRelatedElement elmt:Branches__Charge___409 ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___409 ;
+    sysml:ownedMemberFeature expr:Branches__Charge___409_pguard ;
+    sysml:owningType elmt:Branches__Charge___409 ;
+    sysml:kind "guard" ;
+    sysml:transitionFeature expr:Branches__Charge___409_pguard .
+
+elmt:Branches__Charge___409_succession
+    a sysml:SuccessionAsUsage ;
+    sysml:elementId "Branches__Charge___409_succession" ;
+    sysml:connectorEnd expr:Branches__Charge___409_succession_pend0, expr:Branches__Charge___409_succession_pend1 ;
+    sysml:ownedRelationship expr:Branches__Charge___409_succession_pend0_om, expr:Branches__Charge___409_succession_pend1_om ;
+    sysml:ownedMembership expr:Branches__Charge___409_succession_pend0_om, expr:Branches__Charge___409_succession_pend1_om ;
+    sysml:ownedMember expr:Branches__Charge___409_succession_pend0, expr:Branches__Charge___409_succession_pend1 ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___409_succession_pend0_om, expr:Branches__Charge___409_succession_pend1_om ;
+    sysml:ownedFeature expr:Branches__Charge___409_succession_pend0, expr:Branches__Charge___409_succession_pend1 ;
+    sysml:ownedEndFeature expr:Branches__Charge___409_succession_pend0, expr:Branches__Charge___409_succession_pend1 ;
+    sysml:owner elmt:Branches__Charge___409 ;
+    sysml:owningRelationship elmt:Branches__Charge___409_succession_om ;
+    sysml:owningMembership elmt:Branches__Charge___409_succession_om ;
+    json:connectorEnd "[{\"@id\":\"Branches__Charge___409_succession_pend0\"},{\"@id\":\"Branches__Charge___409_succession_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___409_succession_pend0_om\"},{\"@id\":\"Branches__Charge___409_succession_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___409_succession_pend0_om\"},{\"@id\":\"Branches__Charge___409_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Branches__Charge___409_succession_pend0\"},{\"@id\":\"Branches__Charge___409_succession_pend1\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___409_succession_pend0_om\"},{\"@id\":\"Branches__Charge___409_succession_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Branches__Charge___409_succession_pend0\"},{\"@id\":\"Branches__Charge___409_succession_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"Branches__Charge___409_succession_pend0\"},{\"@id\":\"Branches__Charge___409_succession_pend1\"}]" .
+
+expr:Branches__Charge___409_succession_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "Branches__Charge___409_succession_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:Branches__Charge___409_succession ;
+    sysml:owningRelationship expr:Branches__Charge___409_succession_pend0_om ;
+    sysml:owningMembership expr:Branches__Charge___409_succession_pend0_om .
+
+expr:Branches__Charge___409_succession_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Branches__Charge___409_succession_pend0_om" ;
+    sysml:owner elmt:Branches__Charge___409_succession ;
+    sysml:memberElement expr:Branches__Charge___409_succession_pend0 ;
+    sysml:ownedMemberElement expr:Branches__Charge___409_succession_pend0 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___409_succession_pend0 ;
+    sysml:owningRelatedElement elmt:Branches__Charge___409_succession ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___409_succession .
+
+expr:Branches__Charge___409_succession_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "Branches__Charge___409_succession_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:Branches__Charge___409_succession ;
+    sysml:owningRelationship expr:Branches__Charge___409_succession_pend1_om ;
+    sysml:owningMembership expr:Branches__Charge___409_succession_pend1_om ;
+    sysml:ownedReferenceSubsetting expr:Branches__Charge___409_succession_pend1_prs ;
+    sysml:ownedSubsetting expr:Branches__Charge___409_succession_pend1_prs ;
+    sysml:ownedSpecialization expr:Branches__Charge___409_succession_pend1_prs ;
+    sysml:ownedRelationship expr:Branches__Charge___409_succession_pend1_prs .
+
+expr:Branches__Charge___409_succession_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Branches__Charge___409_succession_pend1_om" ;
+    sysml:owner elmt:Branches__Charge___409_succession ;
+    sysml:memberElement expr:Branches__Charge___409_succession_pend1 ;
+    sysml:ownedMemberElement expr:Branches__Charge___409_succession_pend1 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___409_succession_pend1 ;
+    sysml:owningRelatedElement elmt:Branches__Charge___409_succession ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___409_succession .
+
+expr:Branches__Charge___409_succession_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Branches__Charge___409_succession_pend1_prs" ;
+    sysml:referencingFeature expr:Branches__Charge___409_succession_pend1 ;
+    sysml:subsettingFeature expr:Branches__Charge___409_succession_pend1 ;
+    sysml:specific expr:Branches__Charge___409_succession_pend1 ;
+    sysml:source expr:Branches__Charge___409_succession_pend1 ;
+    sysml:owningFeature expr:Branches__Charge___409_succession_pend1 ;
+    sysml:owningType expr:Branches__Charge___409_succession_pend1 ;
+    sysml:referencedFeature elmt:Branches__Charge__addCharge ;
+    sysml:subsettedFeature elmt:Branches__Charge__addCharge ;
+    sysml:general elmt:Branches__Charge__addCharge ;
+    sysml:target elmt:Branches__Charge__addCharge ;
+    sysml:relatedElement expr:Branches__Charge___409_succession_pend1, elmt:Branches__Charge__addCharge ;
+    sysml:owner expr:Branches__Charge___409_succession_pend1 ;
+    sysml:owningRelatedElement expr:Branches__Charge___409_succession_pend1 ;
+    json:relatedElement "[{\"@id\":\"Branches__Charge___409_succession_pend1\"},{\"@id\":\"Branches__Charge__addCharge\"}]" .
+
+elmt:Branches__Charge___409_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Branches__Charge___409_succession_om" ;
+    sysml:owner elmt:Branches__Charge___409 ;
+    sysml:memberElement elmt:Branches__Charge___409_succession ;
+    sysml:ownedMemberElement elmt:Branches__Charge___409_succession ;
+    sysml:ownedRelatedElement elmt:Branches__Charge___409_succession ;
+    sysml:owningRelatedElement elmt:Branches__Charge___409 ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___409 .
+
+elmt:Branches__Charge___4010
+    a sysml:TransitionUsage ;
+    sysml:qualifiedName "Branches::Charge::@10" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "23"^^xsd:integer ;
+    sysml:elementId "Branches__Charge___4010" ;
+    sysx:memberIndex "10"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches__Charge ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:owningRelationship elmt:Branches__Charge___4010_om ;
+    sysml:owningMembership elmt:Branches__Charge___4010_om ;
+    sysx:transitionSyntax "target" ;
+    sysx:isElse "true"^^xsd:boolean ;
+    sysml:succession elmt:Branches__Charge___4010_succession ;
+    sysml:ownedRelationship elmt:Branches__Charge___4010_succession_om ;
+    sysml:ownedMembership elmt:Branches__Charge___4010_succession_om ;
+    sysml:source elmt:Branches__Charge__pick ;
+    sysml:target elmt:Branches__Charge__stop ;
+    sysx:sourceText "            else stop;\n" .
+
+elmt:Branches__Charge___4010_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Branches__Charge___4010_om" ;
+    sysml:owner elmt:Branches__Charge ;
+    sysml:memberElement elmt:Branches__Charge___4010 ;
+    sysml:ownedMemberElement elmt:Branches__Charge___4010 ;
+    sysml:ownedRelatedElement elmt:Branches__Charge___4010 ;
+    sysml:owningRelatedElement elmt:Branches__Charge ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge ;
+    sysml:ownedMemberFeature elmt:Branches__Charge___4010 ;
+    sysml:owningType elmt:Branches__Charge .
+
+elmt:Branches__Charge___4010_succession
+    a sysml:SuccessionAsUsage ;
+    sysml:elementId "Branches__Charge___4010_succession" ;
+    sysml:connectorEnd expr:Branches__Charge___4010_succession_pend0, expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:ownedRelationship expr:Branches__Charge___4010_succession_pend0_om, expr:Branches__Charge___4010_succession_pend1_om ;
+    sysml:ownedMembership expr:Branches__Charge___4010_succession_pend0_om, expr:Branches__Charge___4010_succession_pend1_om ;
+    sysml:ownedMember expr:Branches__Charge___4010_succession_pend0, expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:ownedFeatureMembership expr:Branches__Charge___4010_succession_pend0_om, expr:Branches__Charge___4010_succession_pend1_om ;
+    sysml:ownedFeature expr:Branches__Charge___4010_succession_pend0, expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:ownedEndFeature expr:Branches__Charge___4010_succession_pend0, expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:owner elmt:Branches__Charge___4010 ;
+    sysml:owningRelationship elmt:Branches__Charge___4010_succession_om ;
+    sysml:owningMembership elmt:Branches__Charge___4010_succession_om ;
+    json:connectorEnd "[{\"@id\":\"Branches__Charge___4010_succession_pend0\"},{\"@id\":\"Branches__Charge___4010_succession_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___4010_succession_pend0_om\"},{\"@id\":\"Branches__Charge___4010_succession_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___4010_succession_pend0_om\"},{\"@id\":\"Branches__Charge___4010_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Branches__Charge___4010_succession_pend0\"},{\"@id\":\"Branches__Charge___4010_succession_pend1\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___4010_succession_pend0_om\"},{\"@id\":\"Branches__Charge___4010_succession_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Branches__Charge___4010_succession_pend0\"},{\"@id\":\"Branches__Charge___4010_succession_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"Branches__Charge___4010_succession_pend0\"},{\"@id\":\"Branches__Charge___4010_succession_pend1\"}]" .
+
+expr:Branches__Charge___4010_succession_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "Branches__Charge___4010_succession_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:Branches__Charge___4010_succession ;
+    sysml:owningRelationship expr:Branches__Charge___4010_succession_pend0_om ;
+    sysml:owningMembership expr:Branches__Charge___4010_succession_pend0_om .
+
+expr:Branches__Charge___4010_succession_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Branches__Charge___4010_succession_pend0_om" ;
+    sysml:owner elmt:Branches__Charge___4010_succession ;
+    sysml:memberElement expr:Branches__Charge___4010_succession_pend0 ;
+    sysml:ownedMemberElement expr:Branches__Charge___4010_succession_pend0 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___4010_succession_pend0 ;
+    sysml:owningRelatedElement elmt:Branches__Charge___4010_succession ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___4010_succession .
+
+expr:Branches__Charge___4010_succession_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "Branches__Charge___4010_succession_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:Branches__Charge___4010_succession ;
+    sysml:owningRelationship expr:Branches__Charge___4010_succession_pend1_om ;
+    sysml:owningMembership expr:Branches__Charge___4010_succession_pend1_om ;
+    sysml:ownedReferenceSubsetting expr:Branches__Charge___4010_succession_pend1_prs ;
+    sysml:ownedSubsetting expr:Branches__Charge___4010_succession_pend1_prs ;
+    sysml:ownedSpecialization expr:Branches__Charge___4010_succession_pend1_prs ;
+    sysml:ownedRelationship expr:Branches__Charge___4010_succession_pend1_prs .
+
+expr:Branches__Charge___4010_succession_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Branches__Charge___4010_succession_pend1_om" ;
+    sysml:owner elmt:Branches__Charge___4010_succession ;
+    sysml:memberElement expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:ownedMemberElement expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:ownedRelatedElement expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:owningRelatedElement elmt:Branches__Charge___4010_succession ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___4010_succession .
+
+expr:Branches__Charge___4010_succession_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Branches__Charge___4010_succession_pend1_prs" ;
+    sysml:referencingFeature expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:subsettingFeature expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:specific expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:source expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:owningFeature expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:owningType expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:referencedFeature elmt:Branches__Charge__stop ;
+    sysml:subsettedFeature elmt:Branches__Charge__stop ;
+    sysml:general elmt:Branches__Charge__stop ;
+    sysml:target elmt:Branches__Charge__stop ;
+    sysml:relatedElement expr:Branches__Charge___4010_succession_pend1, elmt:Branches__Charge__stop ;
+    sysml:owner expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:owningRelatedElement expr:Branches__Charge___4010_succession_pend1 ;
+    json:relatedElement "[{\"@id\":\"Branches__Charge___4010_succession_pend1\"},{\"@id\":\"Branches__Charge__stop\"}]" .
+
+elmt:Branches__Charge___4010_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Branches__Charge___4010_succession_om" ;
+    sysml:owner elmt:Branches__Charge___4010 ;
+    sysml:memberElement elmt:Branches__Charge___4010_succession ;
+    sysml:ownedMemberElement elmt:Branches__Charge___4010_succession ;
+    sysml:ownedRelatedElement elmt:Branches__Charge___4010_succession ;
+    sysml:owningRelatedElement elmt:Branches__Charge___4010 ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge___4010 .
+
+elmt:Branches__Charge__level_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Branches__Charge__level_ft0" ;
+    sysml:typedFeature elmt:Branches__Charge__level ;
+    sysml:owningFeature elmt:Branches__Charge__level ;
+    sysml:specific elmt:Branches__Charge__level ;
+    sysml:source elmt:Branches__Charge__level ;
+    sysml:owningRelatedElement elmt:Branches__Charge__level ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:general elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:target elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:owner elmt:Branches__Charge__level ;
+    sysml:relatedElement elmt:Branches__Charge__level, elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    json:relatedElement "[{\"@id\":\"Branches__Charge__level\"},{\"@id\":\"f2350199-2ab1-5258-8514-58812ef25dc6\"}]" .
+
+expr:Branches__Charge___404_pguard_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Branches__Charge___404_pguard_pa0_preferent" ;
+    sysml:memberElement elmt:Branches__Charge__level ;
+    sysml:owner expr:Branches__Charge___404_pguard_pa0 ;
+    sysml:owningRelatedElement expr:Branches__Charge___404_pguard_pa0 .
+
+expr:Branches__Charge___405_pguard_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Branches__Charge___405_pguard_pa0_preferent" ;
+    sysml:memberElement elmt:Branches__Charge__level ;
+    sysml:owner expr:Branches__Charge___405_pguard_pa0 ;
+    sysml:owningRelatedElement expr:Branches__Charge___405_pguard_pa0 .
+
+expr:Branches__Charge___409_pguard_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Branches__Charge___409_pguard_pa0_preferent" ;
+    sysml:memberElement elmt:Branches__Charge__level ;
+    sysml:owner expr:Branches__Charge___409_pguard_pa0 ;
+    sysml:owningRelatedElement expr:Branches__Charge___409_pguard_pa0 .
+
+elmt:f2350199-2ab1-5258-8514-58812ef25dc6
+    a sysml:DataType ;
+    sysml:elementId "f2350199-2ab1-5258-8514-58812ef25dc6" ;
+    sysml:qualifiedName "ScalarValues::Integer" ;
+    sysml:declaredName "Integer" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:5fe9f6f1-ce05-5285-b333-41374fe9f447>
+    a sysml:OwningMembership ;
+    sysml:elementId "5fe9f6f1-ce05-5285-b333-41374fe9f447" ;
+    sysml:memberElement elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .

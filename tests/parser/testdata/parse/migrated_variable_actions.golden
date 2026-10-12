@@ -1,0 +1,96 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="item" abstract=false variation=false name="Ball"))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Run"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="feed" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=ScalarValues::Integer
+                (*ast.QualifiedName))))
+          (Membership visibility="private"
+            (Usage kind="attribute" name="count" ref=false direction="none" composite=false derived=false ordered=true nonunique=false
+              (Relationship kind="typing" target=ScalarValues::Integer
+                (*ast.QualifiedName))
+              (Multiplicity range=true
+                (LiteralInteger value="0")
+                (LiteralInfinity))))
+          (Membership visibility="private"
+            (Usage kind="item" name="ball" ref=true direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Ball
+                (*ast.QualifiedName))))
+          (Membership visibility="private"
+            (Usage kind="attribute" name="any" ref=true direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="action" name="add" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="value" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=ScalarValues::Integer
+                    (*ast.QualifiedName))))
+              (*ast.AssignmentActionNode)))
+          (Membership visibility="default"
+            (Usage kind="action" name="addAt" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="value" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=ScalarValues::Integer
+                    (*ast.QualifiedName))))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="insertAt" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=ScalarValues::Integer
+                    (*ast.QualifiedName))))
+              (*ast.AssignmentActionNode)))
+          (Membership visibility="default"
+            (Usage kind="action" name="removeAt" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="removeAt" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=ScalarValues::Integer
+                    (*ast.QualifiedName))))
+              (*ast.AssignmentActionNode)))
+          (Membership visibility="default"
+            (Usage kind="action" name="remove" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="value" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=ScalarValues::Integer
+                    (*ast.QualifiedName))))
+              (*ast.AssignmentActionNode)))
+          (Membership visibility="default"
+            (Usage kind="action" name="clear" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (*ast.AssignmentActionNode)))
+          (Membership visibility="default"
+            (Usage kind="action" name="read" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="result" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=ScalarValues::Integer
+                    (*ast.QualifiedName))
+                  (Multiplicity range=true
+                    (LiteralInteger value="0")
+                    (LiteralInfinity))
+                  (FeatureReference name="count")))))
+          (Membership visibility="default"
+            (Usage kind="action" name="reduce" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="collection" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=ScalarValues::Integer
+                    (*ast.QualifiedName))
+                  (Multiplicity range=true
+                    (LiteralInteger value="0")
+                    (LiteralInfinity))))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="result" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=ScalarValues::Integer
+                    (*ast.QualifiedName))
+                  (InvocationExpr type="ControlFunctions::reduce"
+                    (FeatureReference name="collection")
+                    (BodyExpr params=[x,y]
+                      (InvocationExpr type="IntegerFunctions::+"
+                        (FeatureReference name="x")
+                        (FeatureReference name="y"))))))))
+          (Membership visibility="default"
+            (Usage kind="action" name="raise" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="exception" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=ScalarValues::Integer
+                    (*ast.QualifiedName))))))
+          (Usage kind="action" name="terminate" ref=false direction="none" composite=false derived=false ordered=false nonunique=false terminate=true)
+          (InitialNode name="raise" successor="terminate"))))))

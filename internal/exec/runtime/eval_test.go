@@ -443,13 +443,13 @@ func TestEval_NegationArithmetic(t *testing.T) {
 	}
 }
 
-func TestEval_NegationArithmeticReal(t *testing.T) {
+func TestEval_NegationArithmeticRational(t *testing.T) {
 	tests := []struct {
 		src      string
-		expected float64
+		expected string
 	}{
-		{"-3.14", -3.14},
-		{"-(-2.5)", 2.5},
+		{"-3.14", "-3.14"},
+		{"-(-2.5)", "2.5"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -461,11 +461,11 @@ func TestEval_NegationArithmeticReal(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Eval failed: %v", err)
 			}
-			if result.Kind != ValConst || result.Const.Kind != semantics.ValReal {
-				t.Fatalf("expected real, got %v", result)
+			if result.Kind != ValConst || result.Const.Kind != semantics.ValRational {
+				t.Fatalf("expected rational, got %v", result)
 			}
-			if result.Const.Real != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result.Const.Real)
+			if got := result.Const.FormatRational(); got != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, got)
 			}
 		})
 	}

@@ -448,7 +448,7 @@ sysml: vehicles.sysml did not analyse cleanly; no check was made
 
 <div class="osml-pane" id="osml-pane-rdf" role="tabpanel" aria-labelledby="osml-tab-rdf" data-title="sysml — the model as RDF">
 <pre><code><span class="osml-prompt">$</span> sysml vehicles.sysml -convert ttl -o vehicles.ttl
-<span class="osml-dim">note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, …</span>
+<span class="osml-dim">note: RDF conversion — Turtle and the API's JSON element form alike — is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, …</span>
 wrote vehicles.ttl (ttl, 5562 bytes)
 <span class="osml-prompt">$</span> grep -A5 '^elmt:Vehicles__Wheel$' vehicles.ttl
 <span class="osml-hl">elmt:Vehicles__Wheel</span>
@@ -459,7 +459,7 @@ wrote vehicles.ttl (ttl, 5562 bytes)
     sysml:owningNamespace elmt:Vehicles ;
 
 <span class="osml-prompt">$</span> sysml vehicles.ttl -convert sysml   <span class="osml-dim"># and back again</span>
-<span class="osml-dim">note: RDF conversion is experimental: …</span>
+<span class="osml-dim">note: RDF conversion — Turtle and the API's JSON element form alike — is experimental: …</span>
 package Vehicles {
     part def Wheel;
   <span class="osml-dim">…</span>
@@ -729,14 +729,14 @@ synchronization, SysML v1 migration, FMI and PDF rendering. Everything else in t
   <p class="osml-eco__links"><a href="../guide/04-repl/">The REPL</a> · <a href="../reference/repl-commands/">REPL commands</a></p>
 </div>
 <div class="osml-eco__card">
-  <span class="osml-eco__tag">-check</span>
+  <span class="osml-eco__tag">-validate</span>
   <h3>Validate and check</h3>
   <p>Name resolution, typing and constraint tiers — and what a validator alone cannot
   reach, which the runtime modes below do.</p>
   <p class="osml-eco__links"><a href="../guide/05-checking/">Checking models</a></p>
 </div>
 <div class="osml-eco__card">
-  <span class="osml-eco__tag">-run</span>
+  <span class="osml-eco__tag">-action</span>
   <h3>Run behavior</h3>
   <p>Actions, state machines, calculations, analyses and requirements, run on a clock —
   with a step budget if a model does not finish on its own.</p>

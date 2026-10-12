@@ -1,0 +1,3 @@
+stmt action body
+transition: boot -> stop
+terminate: stop

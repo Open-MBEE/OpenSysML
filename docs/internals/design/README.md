@@ -54,6 +54,9 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
 - **[Orthogonal regions](orthogonal-regions.md)** — concurrent substates, in the standard
   `parallel` notation; the bundled libraries give them no performance, so UML 2.5.1 supplies
   the semantics
+- **[Frame feature identity](frame-feature-identity.md)** — how a performance's frames
+  index their values by the feature name resolution denotes, beside the simple name a body
+  writes and a user reads, so same-named features in one performance's reach never share a cell.
 - **[Pseudostates](pseudostates.md)** — choice, junction, fork, join
   and history
 - **[Alignment with the UML precise-semantics specifications](precise-semantics-alignment.md)** —

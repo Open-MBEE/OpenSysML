@@ -1,0 +1,6 @@
+step 1: token 1@a
+stmt assign y
+  eval literal 7 -> 7
+step 2: token 1@b
+step 3: token 1@done
+step 4: no active tokens

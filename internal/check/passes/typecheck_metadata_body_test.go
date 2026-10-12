@@ -80,7 +80,7 @@ func TestMetadataBodyValueIsBoundByTheRestatedFeatureWhole(t *testing.T) {
 		"2 value(s) bound to a feature with multiplicity upper bound 1",
 		"2 value(s) bound to a feature with multiplicity upper bound 1",
 		"2 value(s) bound to a feature with multiplicity upper bound 1",
-		"0.3 (a Real) is written at positions 1 and 2 of a unique feature",
+		"0.3 (a Rational) is written at positions 1 and 2 of a unique feature",
 		"cannot bind Natural value to a feature typed by Level",
 		"cannot bind Natural value to a feature typed by Wheel")
 }

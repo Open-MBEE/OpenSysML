@@ -2,6 +2,6 @@
 	"type": "action",
 	"outputs": {
 		"i": {"type": "Integer", "value": 3},
-		"log": {"type": "Real", "value": 12.0}
+		"log": {"type": "Rational", "value": "12.0"}
 	}
 }

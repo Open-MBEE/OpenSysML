@@ -86,7 +86,11 @@ package Plant {
     }
 }
 package 'Plant Viewpoints' {
-    viewpoint 'Figures Viewpoint' {
+    view def 'Figures Viewpoint' {
+        viewpoint 'figures Viewpoint' {
+            subject;
+        }
+        satisfy 'figures Viewpoint';
         action def 'Figures Method' {
             first start then Image;
             action Image;
@@ -95,8 +99,13 @@ package 'Plant Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'figures Method' : 'Figures Method';
+        metadata MigrationMetadata::SynthesizedName about 'figures Viewpoint';
     }
-    viewpoint 'Pictures Viewpoint' {
+    view def 'Pictures Viewpoint' {
+        viewpoint 'pictures Viewpoint' {
+            subject;
+        }
+        satisfy 'pictures Viewpoint';
         action def 'Pictures Method' {
             first start then Image;
             action Image;
@@ -105,8 +114,13 @@ package 'Plant Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'pictures Method' : 'Pictures Method';
+        metadata MigrationMetadata::SynthesizedName about 'pictures Viewpoint';
     }
-    viewpoint 'Shown Viewpoint' {
+    view def 'Shown Viewpoint' {
+        viewpoint 'shown Viewpoint' {
+            subject;
+        }
+        satisfy 'shown Viewpoint';
         action def 'Shown Method' {
             first start then 'Collect Things On Diagram';
             action 'Collect Things On Diagram';
@@ -120,22 +134,21 @@ package 'Plant Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'shown Method' : 'Shown Method';
+        metadata MigrationMetadata::SynthesizedName about 'shown Viewpoint';
     }
 }
 package 'Plant Documents' {
-    part def 'Plant Handbook' {
+    occurrence def 'Plant Handbook' {
         view behaviors :> Behaviors;
         view pictures :> Pictures;
         view shown :> Shown;
         /* applied stereotype «Document» */
     }
-    view Behaviors {
-        satisfy 'Plant Viewpoints'::'Figures Viewpoint';
+    view Behaviors : 'Plant Viewpoints'::'Figures Viewpoint' {
         expose Plant::Pump::Modes::'Pump Modes';
         expose Plant::Pump::Prime::Priming;
     }
-    view Pictures {
-        satisfy 'Plant Viewpoints'::'Pictures Viewpoint';
+    view Pictures : 'Plant Viewpoints'::'Pictures Viewpoint' {
         expose Plant::Blank;
         expose Plant::Poster;
         expose Plant::Unlisted;
@@ -143,8 +156,7 @@ package 'Plant Documents' {
         expose Plant::Stale;
         expose Plant::Roster;
     }
-    view Shown {
-        satisfy 'Plant Viewpoints'::'Shown Viewpoint';
+    view Shown : 'Plant Viewpoints'::'Shown Viewpoint' {
         expose Plant::Partial;
         expose Plant::Unlisted;
     }

@@ -27,7 +27,9 @@ The protocols and what the service serves on a single port are described in
   that starts a service to talk to itself is paying for a child process whose only job is to run
   code the program already links.
 - **In a notebook: Python.** `opensysml` adds generated typed classes, Jupyter display hooks and
-  DataFrame integration to the full RPC surface.
+  DataFrame integration to the full RPC surface. To write SysML itself in the cells, install the
+  [Jupyter kernel](jupyter-kernel.md) (`pip install jupyter-opensysml-kernel`) instead: it runs the
+  REPL's session in the notebook, and is not a client of the service.
 - **In a browser or a Node service: `@openmbee/opensysml`.** No native addon, and the browser entry
   point needs only `fetch` against a service that allows the page's origin. Node and browser
   callers can also use the combined `sysml-wasm` module without a service.
@@ -67,6 +69,7 @@ The Java client covers the whole service surface, as typed immutable results:
 - the edit API (`applyEdits`, with the `Edit` kinds sealed over set-value, rename, add-member,
   delete and move);
 - `Query` and OSLC query, and the native document calls (`runDocumentQuery`, `renderDocument`).
+- `ExportGraphs`, the lowered graph of an action or state machine as `graphs:1` JSON (`exportGraphs`).
 
 It leaves out only the generated model-ergonomics types; [the Java
 API](java-api.md#what-the-client-does-not-do) says why.

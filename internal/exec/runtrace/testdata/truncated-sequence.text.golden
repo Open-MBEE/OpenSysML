@@ -1,0 +1,10 @@
+run - sequence rendering (the trace of a run to t = 4)
+
+object #1 : sender
+object #2 : receiver
+
+messages:
+  #1 => #2: t=2..3 Ping
+
+not represented:
+  - 2 earlier records up to t = 1 were dropped; senders or acceptors of earlier messages may be missing

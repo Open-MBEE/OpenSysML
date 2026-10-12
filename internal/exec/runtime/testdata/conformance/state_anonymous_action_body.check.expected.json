@@ -1,0 +1,6 @@
+{
+  "verdict": "divergent",
+  "divergent": {
+    "log": ["321789", "321879"]
+  }
+}

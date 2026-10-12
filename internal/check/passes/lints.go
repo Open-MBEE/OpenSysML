@@ -25,7 +25,11 @@ const CodePortTypeMismatch = "port-type-mismatch"
 const CodeDeferredKeeperUnmarked = "deferred-keeper-unmarked"
 
 // lintCodes are the codes of the lints, in the order surfaces list them.
-var lintCodes = []string{CodeUndeclaredSignal, CodePortTypeMismatch, CodeDeferredKeeperUnmarked}
+var lintCodes = []string{CodeUndeclaredSignal, CodePortTypeMismatch, CodeDeferredKeeperUnmarked, CodeRoundedRealLiteral}
+
+// optInLints are the lints left out of the diagnostics until a surface enables
+// them: their findings hold of ordinary models more often than they mark a slip.
+var optInLints = []string{CodeRoundedRealLiteral}
 
 // LintCodes returns the codes of the diagnostics a surface may disable.
 func LintCodes() []string { return slices.Clone(lintCodes) }
@@ -33,13 +37,16 @@ func LintCodes() []string { return slices.Clone(lintCodes) }
 // IsLintCode reports whether code is the code of a lint.
 func IsLintCode(code string) bool { return slices.Contains(lintCodes, code) }
 
-// WithoutLints returns diags without the lint findings whose codes disabled
-// holds; diags itself is returned when it has none to drop.
-func WithoutLints(diags []diag.Diagnostic, disabled map[string]bool) []diag.Diagnostic {
-	if len(disabled) == 0 {
-		return diags
+// IsOptInLint reports whether code is a lint reported only once enabled.
+func IsOptInLint(code string) bool { return slices.Contains(optInLints, code) }
+
+// WithoutLints returns diags without the lint findings a surface leaves out:
+// those whose codes disabled holds, and those of the opt-in lints enabled does
+// not hold; diags itself is returned when it has none to drop.
+func WithoutLints(diags []diag.Diagnostic, disabled, enabled map[string]bool) []diag.Diagnostic {
+	drop := func(d diag.Diagnostic) bool {
+		return d.Source == lintSource && (disabled[d.Code] || IsOptInLint(d.Code) && !enabled[d.Code])
 	}
-	drop := func(d diag.Diagnostic) bool { return d.Source == lintSource && disabled[d.Code] }
 	if !slices.ContainsFunc(diags, drop) {
 		return diags
 	}

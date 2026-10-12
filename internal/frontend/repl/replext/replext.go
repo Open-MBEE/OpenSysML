@@ -3,6 +3,8 @@
 package replext
 
 import (
+	"context"
+
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -95,3 +97,91 @@ func Positional() PositionalNamer { return positional }
 
 // Drawer is the registered diagram drawer, nil when none is linked.
 func Drawer() docrender.DiagramDrawer { return drawer }
+
+// ProjectInfo names one project of a repository.
+type ProjectInfo struct {
+	ID   string
+	Name string
+}
+
+// ProjectState is the branch a session's model was loaded from or published
+// to: what a later publish commits on top of. LastSeenCommit is the head the
+// session last read or wrote.
+type ProjectState struct {
+	Base           string // the server the state was read from
+	ProjectID      string
+	ProjectName    string
+	Branch         string
+	BranchName     string
+	LastSeenCommit string
+}
+
+// LoadRequest picks the project and branch %load reads: a project by id or
+// else by name, a branch by name or id or else the project's default.
+type LoadRequest struct {
+	ProjectID string
+	Name      string
+	Branch    string
+}
+
+// LoadResult is a loaded branch: its notation, ready to submit, and where it
+// came from.
+type LoadResult struct {
+	State    ProjectState
+	Notation []byte
+	Warnings []string
+}
+
+// PublishRequest publishes the elements rooted in one element of the session
+// model: Root is its qualified name, Project the project name (the element's
+// own name when empty), Branch the branch name (the default when empty), State
+// the branch the session loaded the project from, if it did.
+type PublishRequest struct {
+	Origin  string
+	Source  []byte
+	Root    string
+	Project string
+	Branch  string
+	Derived bool
+	State   *ProjectState
+}
+
+// PublishResult is what a publish did: the project and branch it wrote, the
+// commit it made (empty when the branch already agreed), and how many elements
+// it created, updated and deleted. Created reports a project made anew.
+type PublishResult struct {
+	State                     ProjectState
+	Commit                    string
+	Created, Updated, Deleted int
+	NewProject                bool
+	Notes                     []string
+}
+
+// Repository is what %repo, %projects, %load and %publish drive: a SysML v2 API
+// server addressed by base URL. Commands that reach the network take the base
+// URL every time, as %repo may change it between them.
+type Repository interface {
+	// DefaultURL is the base URL a session starts with, from the environment.
+	DefaultURL() string
+	// CheckURL refuses a base URL the transport policy does not allow.
+	CheckURL(base string) error
+	// Projects lists every project, paged through completely.
+	Projects(ctx context.Context, base string) ([]ProjectInfo, error)
+	// Load reads a branch head as notation.
+	Load(ctx context.Context, base string, req LoadRequest) (*LoadResult, error)
+	// Publish writes the elements rooted in one element as a project or a commit.
+	Publish(ctx context.Context, base string, req PublishRequest) (*PublishResult, error)
+}
+
+var repository Repository
+
+// RegisterRepository installs the repository the %repo family of commands drives.
+func RegisterRepository(r Repository) {
+	if repository != nil {
+		panic("replext: repository registered twice")
+	}
+	repository = r
+}
+
+// Repo returns the registered repository, nil when no binary linked one.
+func Repo() Repository { return repository }

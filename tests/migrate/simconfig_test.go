@@ -221,9 +221,12 @@ func TestSimulationConfigOfAnotherProfileIsNotARunConfiguration(t *testing.T) {
 	wantLine(t, r.Notation, "action def 'Group 0' {")
 	wantNote(t, r, "_g0", migrate.Mapped, "")
 	for _, id := range []string{"_g1", "_g2", "_g3"} {
-		wantNote(t, r, id, migrate.Approximated, "a plain UML class without «Block» is written as a part def")
+		es := entriesFor(r, id)
+		if len(es) != 1 || es[0].Verdict != migrate.Mapped {
+			t.Errorf("entries for %s = %+v, want one mapped plain class", id, es)
+		}
 	}
-	for _, line := range []string{"part def 'Group 1' {", "part def 'Group 2' {", "part def 'Group 3' {"} {
+	for _, line := range []string{"occurrence def 'Group 1' {", "occurrence def 'Group 2' {", "occurrence def 'Group 3' {"} {
 		wantLine(t, r.Notation, line)
 	}
 	for _, line := range []string{"action def 'Group 1'", "action def 'Group 2'", "action def 'Group 3'"} {

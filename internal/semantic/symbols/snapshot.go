@@ -320,6 +320,11 @@ func (e *snapshotEncoder) writeFacts(f *LibraryFacts) {
 	e.w.Bool(f.Abstract)
 	e.w.Bool(f.RelatedFeatures != nil)
 	e.refs(f.RelatedFeatures)
+	e.w.Bool(f.EndPaths != nil)
+	e.w.Len(len(f.EndPaths))
+	for _, path := range f.EndPaths {
+		e.refs(path)
+	}
 	e.refs([]ElementRef{f.MetadataType})
 }
 
@@ -820,6 +825,13 @@ func (d *sectionReader) readFacts(f *LibraryFacts) {
 	f.RelatedFeatures = d.refs()
 	if hasRelatedFeatures && f.RelatedFeatures == nil {
 		f.RelatedFeatures = []ElementRef{}
+	}
+	hasEndPaths := d.r.Bool()
+	if n := d.r.Len(); n > 0 || hasEndPaths {
+		f.EndPaths = make([][]ElementRef, n)
+		for i := range f.EndPaths {
+			f.EndPaths[i] = d.refs()
+		}
 	}
 	metadataType := d.refs()
 	if len(metadataType) != 1 {

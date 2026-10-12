@@ -41,3 +41,24 @@ func TestLintListAcceptsRepeatsAndCommas(t *testing.T) {
 		t.Fatal("an unknown code was accepted")
 	}
 }
+
+const roundedLiteral = `package P { private import ScalarValues::*; attribute x : Real = 0.1; }`
+
+// An opt-in lint is silent until -enable-lint names it, and -disable-lint wins.
+func TestEnableLintReportsAnOptInLint(t *testing.T) {
+	binary := buildCLI(t)
+	quiet := check(t, binary, roundedLiteral, "-validate")
+	wantReport(t, quiet, 0)
+	if strings.Contains(quiet.output(), "rounded") {
+		t.Fatalf("an opt-in lint reported by default:\n%s", quiet.output())
+	}
+	wantReport(t, check(t, binary, roundedLiteral, "-enable-lint", passes.CodeRoundedRealLiteral, "-validate"), 0,
+		"warning: 0.1 is rounded to the nearest Real, 0.10000000000000001")
+	both := check(t, binary, roundedLiteral, "-enable-lint", passes.CodeRoundedRealLiteral,
+		"-disable-lint", passes.CodeRoundedRealLiteral, "-validate")
+	wantReport(t, both, 0)
+	if strings.Contains(both.output(), "rounded") {
+		t.Fatalf("a disabled lint reported:\n%s", both.output())
+	}
+	wantReport(t, check(t, binary, roundedLiteral, "-enable-lint", "no-such-lint", "-validate"), 2, "no-such-lint")
+}

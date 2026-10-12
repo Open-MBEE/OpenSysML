@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::Multi",
+	"trace": true,
+	"outputs": {
+		"c": {"type": "Integer", "value": 11}
+	}
+}

@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"evaluate": "test::Act",
+	"outputs": {
+		"a": {"type": "Integer", "value": 4},
+		"r": {"type": "Integer", "value": 1},
+		"calcResult": {"type": "Integer", "value": 1}
+	}
+}

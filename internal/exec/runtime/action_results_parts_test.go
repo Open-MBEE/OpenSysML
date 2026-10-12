@@ -37,14 +37,14 @@ func TestResultsReportPartsOfEachActivation(t *testing.T) {
 		return exec
 	}
 	first := run(1)
-	if got, ok := first.Results()["target.total"]; !ok || got.Const.Real != 1 {
+	if got, ok := first.Results()["target.total"]; !ok || got.Const.AsReal() != 1 {
 		t.Fatalf("first target.total = %v, %v; want 1", got, ok)
 	}
 	second := run(2)
-	if got, ok := second.Results()["target.total"]; !ok || got.Const.Real != 2 {
+	if got, ok := second.Results()["target.total"]; !ok || got.Const.AsReal() != 2 {
 		t.Fatalf("second target.total = %v, %v; want 2", got, ok)
 	}
-	if got, ok := first.Results()["target.total"]; !ok || got.Const.Real != 2 {
+	if got, ok := first.Results()["target.total"]; !ok || got.Const.AsReal() != 2 {
 		t.Fatalf("first target.total after the second run = %v, %v; want 2", got, ok)
 	}
 }

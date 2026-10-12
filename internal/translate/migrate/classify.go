@@ -15,11 +15,14 @@ const (
 	catNone category = iota
 	catPackage
 	catPartDef
+	catOccurrenceDef
 	catPortDef
 	catAttributeDef
 	catEnumDef
 	catConstraintDef
-	catRequirementDef
+	// catRequirement is a v1 requirement, written as a requirement usage, as a
+	// tool's users draw one: a satisfy, verify or refine joins it directly.
+	catRequirement
 	catConnectionDef
 	catIndividualDef
 	catVerificationDef
@@ -30,12 +33,14 @@ const (
 	// catCalcDef is an opaque or function behavior computing a result.
 	catCalcDef
 	catStateDef
-	// catUseCaseDef is a UML use case, whatever incidental stereotype it carries.
-	catUseCaseDef
-	// catView is a v1 «View», written as a view usage: only a usage exposes
-	// elements and satisfies a viewpoint in standard v2.
+	// catUseCase is a UML use case, whatever incidental stereotype it carries,
+	// written as a use case usage: v2 draws connections between usages, not definitions.
+	catUseCase
+	// catActor is a UML actor, written as a part usage a use case's connections join.
+	catActor
+	// catView is a v1 «View», written as a view usage typed by its viewpoints.
 	catView
-	// catViewpoint is a v1 «Viewpoint», written as a viewpoint usage a view satisfies.
+	// catViewpoint is a v1 «Viewpoint», written as a view definition.
 	catViewpoint
 	// catSimConfig is a simulation tool's run configuration: an action def
 	// that instantiates its execution target and performs its behavior.
@@ -59,6 +64,8 @@ func (c category) keyword() string {
 		return "package"
 	case catPartDef:
 		return "part def"
+	case catOccurrenceDef:
+		return "occurrence def"
 	case catPortDef:
 		return "port def"
 	case catAttributeDef:
@@ -67,8 +74,8 @@ func (c category) keyword() string {
 		return "enum def"
 	case catConstraintDef:
 		return "constraint def"
-	case catRequirementDef:
-		return "requirement def"
+	case catRequirement:
+		return "requirement"
 	case catConnectionDef:
 		return "connection def"
 	case catIndividualDef:
@@ -83,12 +90,14 @@ func (c category) keyword() string {
 		return "calc def"
 	case catStateDef:
 		return "state def"
-	case catUseCaseDef:
-		return "use case def"
+	case catUseCase:
+		return "use case"
+	case catActor:
+		return "part"
 	case catView:
 		return "view"
 	case catViewpoint:
-		return "viewpoint"
+		return "view def"
 	case catSimConfig:
 		return "action def"
 	case catValue:
@@ -106,6 +115,8 @@ func (c category) metaclass() string {
 	switch c {
 	case catPartDef:
 		return "SysML::PartDefinition"
+	case catOccurrenceDef:
+		return "SysML::OccurrenceDefinition"
 	case catPortDef:
 		return "SysML::PortDefinition"
 	case catAttributeDef:
@@ -114,8 +125,8 @@ func (c category) metaclass() string {
 		return "SysML::EnumerationDefinition"
 	case catConstraintDef:
 		return "SysML::ConstraintDefinition"
-	case catRequirementDef:
-		return "SysML::RequirementDefinition"
+	case catRequirement:
+		return "SysML::RequirementUsage"
 	case catConnectionDef:
 		return "SysML::ConnectionDefinition"
 	case catVerificationDef:
@@ -128,8 +139,10 @@ func (c category) metaclass() string {
 		return "SysML::CalculationDefinition"
 	case catStateDef:
 		return "SysML::StateDefinition"
-	case catUseCaseDef:
-		return "SysML::UseCaseDefinition"
+	case catUseCase:
+		return "SysML::UseCaseUsage"
+	case catActor:
+		return "SysML::PartUsage"
 	case catMetadataDef:
 		return "SysML::MetadataDefinition"
 	}
@@ -494,7 +507,7 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	case "Class", "Component":
 		return classifyClass(e)
 	case "Actor":
-		return catPartDef, "a UML actor is written as a part def"
+		return catActor, "a UML actor is written as a part usage"
 	case "AssociationClass":
 		return catConnectionDef, ""
 	case "Association":
@@ -508,7 +521,7 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 		return catAttributeDef, ""
 	case "Enumeration":
 		return catEnumDef, ""
-	case "Signal":
+	case "Signal", "InformationItem":
 		return catItemDef, ""
 	case "Interface":
 		return catPortDef, "a UML interface is written as a port def"
@@ -524,7 +537,7 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	case "Reception":
 		return catUnmapped, "a reception names the signal its owner accepts, which the owner's behaviors carry as accept"
 	case "UseCase":
-		return catUseCaseDef, ""
+		return catUseCase, ""
 	case "Collaboration", "Node", "Device", "ExecutionEnvironment", "Artifact":
 		return catUnmapped, "no v2 form for a UML " + e.Type
 	case "DurationObservation", "TimeObservation":
@@ -540,7 +553,7 @@ func classifyClass(e *sysmlv1.Element) (category, string) {
 	case simulationConfig(e) != nil:
 		return catSimConfig, ""
 	case has(e, requirementStereotypes...):
-		return catRequirementDef, ""
+		return catRequirement, ""
 	case has(e, "ConstraintBlock"):
 		return catConstraintDef, ""
 	case has(e, "InterfaceBlock"):
@@ -554,7 +567,7 @@ func classifyClass(e *sysmlv1.Element) (category, string) {
 	case has(e, "Viewpoint"):
 		return catViewpoint, ""
 	}
-	return catPartDef, "a plain UML class without «Block» is written as a part def"
+	return catOccurrenceDef, ""
 }
 
 // classifyInstance decides whether an instance specification becomes an
@@ -565,6 +578,12 @@ func (m *migration) classifyInstance(e *sysmlv1.Element) (category, string) {
 	}
 	if len(m.classifiersOf(e)) == 0 {
 		return catUnmapped, joinNotes("an instance specification without a classifier has no v2 form", m.snapshots[e].note)
+	}
+	if association := m.instanceAssociation(e); association != nil && !m.associationAsConnectionDef(association) {
+		if m.actors[association] != nil {
+			return catUnmapped, "the link's association is written as a connection between the actor and the use case, so there is no connection def to specialize"
+		}
+		return catUnmapped, "the link's association is written as its member-end properties, so there is no connection def to specialize"
 	}
 	occurrences, values, note := m.instanceClassifiers(e)
 	switch {
@@ -577,6 +596,15 @@ func (m *migration) classifyInstance(e *sysmlv1.Element) (category, string) {
 		note = joinNotes(note, classifierSubject+qualifiedName(v)+" is not written: an individual cannot specialize a value type")
 	}
 	return catIndividualDef, note
+}
+
+func (m *migration) instanceAssociation(e *sysmlv1.Element) *sysmlv1.Element {
+	for _, c := range m.classifiersOf(e) {
+		if c.Type == "Association" || c.Type == "AssociationClass" {
+			return c
+		}
+	}
+	return nil
 }
 
 // classifyTestCase decides a «TestCase» behavior: a verification def, whose
@@ -645,7 +673,7 @@ func (m *migration) instanceClassifiers(e *sysmlv1.Element) (occurrences, values
 			notes = append(notes, classifierSubject+qualifiedName(c)+" is not migrated")
 		case cc == catAttributeDef, cc == catEnumDef:
 			values = append(values, c)
-		case cc == catView, cc == catViewpoint:
+		case cc == catView, cc == catActor, cc == catUseCase, cc == catRequirement:
 			notes = append(notes, classifierSubject+qualifiedName(c)+" is written as a "+cc.keyword()+" usage, which an individual cannot specialize")
 		default:
 			occurrences = append(occurrences, c)
@@ -664,8 +692,8 @@ func (m *migration) classifiersOf(e *sysmlv1.Element) []*sysmlv1.Element {
 	return m.snapshots[e].classifiers
 }
 
-// individualClassifiers returns the kind an individual takes from its first classifier
-// of a kind (part def, constraint def; a port def gives none) and the classifiers of that kind.
+// individualClassifiers returns the kind an individual takes from its first classifier of a kind
+// (a port def gives none; a part def outranks an occurrence def) and the classifiers it specializes.
 func (m *migration) individualClassifiers(e *sysmlv1.Element) (kind category, written []*sysmlv1.Element, note string) {
 	occurrences, _, _ := m.instanceClassifiers(e)
 	kinds := make([]category, len(occurrences))
@@ -679,10 +707,18 @@ func (m *migration) individualClassifiers(e *sysmlv1.Element) (kind category, wr
 			kind = cc
 		}
 	}
+	if kind == catOccurrenceDef {
+		for _, k := range kinds {
+			if k == catPartDef {
+				kind = catPartDef
+				break
+			}
+		}
+	}
 	var notes []string
 	for i, c := range occurrences {
 		switch {
-		case kinds[i] == kind:
+		case kinds[i] == kind || kind == catPartDef && kinds[i] == catOccurrenceDef:
 			written = append(written, c)
 		case kinds[i] == catNone:
 			notes = append(notes, classifierSubject+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a port def")
@@ -700,4 +736,9 @@ func individualKeyword(kind category) string {
 		return "individual def"
 	}
 	return "individual " + kind.keyword()
+}
+
+// individualTypes reports whether an individual of the kind can type a kw usage.
+func individualTypes(kind category, kw string) bool {
+	return kind.keyword() == kw+" def" || kw == "occurrence" && kind == catPartDef
 }

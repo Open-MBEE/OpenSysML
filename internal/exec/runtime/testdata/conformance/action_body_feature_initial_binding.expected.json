@@ -1,0 +1,10 @@
+{
+  "type": "action",
+  "evaluate": "test::run",
+  "outputs": {
+    "source": {"type": "Integer", "value": 5},
+    "snapshot": {"type": "Integer", "value": 2},
+    "fallback": {"type": "Integer", "value": 9},
+    "result": {"type": "Integer", "value": 29}
+  }
+}

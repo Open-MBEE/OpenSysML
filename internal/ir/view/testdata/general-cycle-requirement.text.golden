@@ -1,0 +1,11 @@
+RobustViews::loopRequirements - requirement rendering (view def GeneralView, filter @RequirementUsage)
+
+requirement Loops::primary : Looped
+requirement Loops::secondary : Looped
+
+relationships:
+  Loops::secondary ..> Loops::primary: derive
+  Loops::primary ..> Loops::secondary: derive
+
+not represented:
+  - 2 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements

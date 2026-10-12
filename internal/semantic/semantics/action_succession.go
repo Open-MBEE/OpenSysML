@@ -116,11 +116,13 @@ func (m *Model) DeclaredSuccessions(scope *symbols.Scope, owner *symbols.Symbol,
 			if n.Successor == nil {
 				continue
 			}
+			target := m.referenceEnd(scope, owner, n.Successor)
+			target.Multiplicity = n.TargetMultiplicity
 			out = append(out, ActionSuccession{
 				Decl:   n,
 				Owner:  owner,
 				Source: m.referenceEnd(scope, owner, n.First),
-				Target: m.referenceEnd(scope, owner, n.Successor),
+				Target: target,
 			})
 		case *ast.SuccessionEdge:
 			source := m.edgeEnd(scope, owner, n.Source, n.SourceMember)
@@ -150,11 +152,13 @@ func (m *Model) DeclaredSuccessions(scope *symbols.Scope, owner *symbols.Symbol,
 			if n.Source != nil {
 				source = m.referenceEnd(scope, owner, n.Source)
 			}
+			target := m.referenceEnd(scope, owner, n.Target)
+			target.Multiplicity = n.TargetMultiplicity
 			out = append(out, ActionSuccession{
 				Decl:   n,
 				Owner:  owner,
 				Source: source,
-				Target: m.referenceEnd(scope, owner, n.Target),
+				Target: target,
 			})
 		}
 	}

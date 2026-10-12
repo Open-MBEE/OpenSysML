@@ -103,12 +103,12 @@ func TestDelimitedFormsOfAnEmptyTable(t *testing.T) {
 	}
 }
 
-// Only a table is written as CSV or TSV; any other kind is a typed error
+// Tabular kinds are written as CSV or TSV; any other kind is a typed error
 // naming the forms it is written in.
 func TestDelimitedFormsAreForTablesOnly(t *testing.T) {
 	for _, kind := range Kinds() {
 		for _, form := range []Form{FormCSV, FormTSV} {
-			if got := kind.SupportsForm(form); got != (kind == KindTable) {
+			if got := kind.SupportsForm(form); got != kind.Tabular() {
 				t.Errorf("%s.SupportsForm(%s) = %v", kind, form, got)
 			}
 		}

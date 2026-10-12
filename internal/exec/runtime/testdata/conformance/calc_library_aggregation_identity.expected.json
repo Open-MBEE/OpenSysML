@@ -4,9 +4,9 @@
   "evaluate": "test::c",
   "outputs": {
     "total": {"type": "Integer", "value": 6},
-    "realTotal": {"type": "Real", "value": 3.5},
+    "realTotal": {"type": "Rational", "value": "3.5"},
     "emptyTotal": {"type": "Integer", "value": 0},
-    "emptyRealTotal": {"type": "Real", "value": 0.0},
+    "emptyRealTotal": {"type": "Rational", "value": "0.0"},
     "product": {"type": "Integer", "value": 24},
     "emptyProduct": {"type": "Integer", "value": 1},
     "unqualifiedTotal": {"type": "Integer", "value": 9}

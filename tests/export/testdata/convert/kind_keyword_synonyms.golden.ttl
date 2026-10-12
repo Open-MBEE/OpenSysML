@@ -245,6 +245,7 @@ elmt:Synonyms___407
     sysml:connectorEnd expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
     sysml:ownedRelationship expr:Synonyms___407_pend0_om, expr:Synonyms___407_pend1_om ;
     sysml:ownedMembership expr:Synonyms___407_pend0_om, expr:Synonyms___407_pend1_om ;
+    sysml:ownedMember expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
     sysml:ownedFeatureMembership expr:Synonyms___407_pend0_om, expr:Synonyms___407_pend1_om ;
     sysml:ownedFeature expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
     sysml:ownedEndFeature expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
@@ -258,6 +259,7 @@ elmt:Synonyms___407
     json:connectorEnd "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms___407_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Synonyms___407_pend0_om\"},{\"@id\":\"Synonyms___407_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Synonyms___407_pend0_om\"},{\"@id\":\"Synonyms___407_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms___407_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Synonyms___407_pend0_om\"},{\"@id\":\"Synonyms___407_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms___407_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms___407_pend1\"}]" ;

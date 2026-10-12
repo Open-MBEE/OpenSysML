@@ -1,0 +1,12 @@
+{
+  "type": "state",
+  "trace": true,
+  "evaluate": "test::Controller::monitor",
+  "performers": [
+    {
+      "object": "test::controller",
+      "events": [{"signal": "Go"}],
+      "finalState": "done"
+    }
+  ]
+}

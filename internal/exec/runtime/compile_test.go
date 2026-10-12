@@ -152,7 +152,7 @@ func wantOutcomesEqual(t *testing.T, name string, compiled, reference calcOutcom
 func outcomeValuesIdentical(compiled, reference Value) bool {
 	if compiled.Kind == ValConst && reference.Kind == ValConst &&
 		compiled.Const.Kind == semantics.ValReal && reference.Const.Kind == semantics.ValReal {
-		return math.Float64bits(compiled.Const.Real) == math.Float64bits(reference.Const.Real)
+		return math.Float64bits(compiled.Const.AsReal()) == math.Float64bits(reference.Const.AsReal())
 	}
 	return valueIdentical(compiled, reference)
 }
@@ -295,11 +295,11 @@ func TestCompiledCalcErrorParity(t *testing.T) {
 // Defaults literal in the declaration bind as the evaluator binds them.
 func TestCompiledCalcDefaults(t *testing.T) {
 	full := wantSameOutcome(t, "Dflt", intArg(1), intArg(2), realArg(3))
-	if full.err != nil || full.value.Const.Real != 7 {
+	if full.err != nil || full.value.Const.AsReal() != 7 {
 		t.Fatalf("Dflt(1, 2, 3) = %s, %v", FormatTraceValue(full.value), full.err)
 	}
 	partial := wantSameOutcome(t, "Dflt", intArg(1))
-	if partial.err != nil || partial.value.Const.Real != 26 {
+	if partial.err != nil || partial.value.Const.AsReal() != 26 {
 		t.Fatalf("Dflt(1) = %s, %v", FormatTraceValue(partial.value), partial.err)
 	}
 	// An inherited body binds the flattened parameters, a redeclared one in the
@@ -307,7 +307,7 @@ func TestCompiledCalcDefaults(t *testing.T) {
 	inherited := wantSameOutcome(t, "Inherits", intArg(2), intArg(3))
 	wantOutcomeInt(t, "Inherits(2, 3)", inherited, 5)
 	redeclared := wantSameOutcome(t, "Redeclares", intArg(1))
-	if redeclared.err != nil || redeclared.value.Const.Real != 8.5 {
+	if redeclared.err != nil || redeclared.value.Const.AsReal() != 8.5 {
 		t.Fatalf("Redeclares(1) = %s, %v", FormatTraceValue(redeclared.value), redeclared.err)
 	}
 }

@@ -1,0 +1,10 @@
+{
+  "type": "action",
+  "evaluate": "test::run",
+  "outputs": {
+    "source": {"type": "Integer", "value": 8},
+    "result": {"type": "Integer", "value": 4},
+    "consume.value": {"type": "Integer", "value": 4},
+    "consume.result": {"type": "Integer", "value": 4}
+  }
+}

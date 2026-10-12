@@ -20,31 +20,32 @@ import (
 // they are carried out: objects are created first, so a verdict is about them,
 // and behavior runs after the conditions the model states about it.
 type checks struct {
-	validate     optionalNames
-	selfCheck    bool
-	instantiate  stringSlice
-	constraints  stringSlice
-	requirements stringSlice
-	satisfy      optionalNames
-	calcs        stringSlice
-	analyses     stringSlice
-	toolDryRuns  stringSlice
-	records      stringSlice
-	recordInto   string
-	sweeps       stringSlice
-	samples      sweepCount
-	seed         sweepSeed
-	draws        drawPolicy
-	clockStep    clockStep
-	runs         runCount
-	observe      stringSlice
-	compare      string
-	queries      stringSlice
-	actions      stringSlice
-	states       stringSlice
-	advance      advanceTime
-	jsonOut      bool
-	checker      checkerOptions
+	validate          optionalNames
+	selfCheck         bool
+	selfCheckPackages stringSlice
+	instantiate       stringSlice
+	constraints       stringSlice
+	requirements      stringSlice
+	satisfy           optionalNames
+	calcs             stringSlice
+	analyses          stringSlice
+	toolDryRuns       stringSlice
+	records           stringSlice
+	recordInto        string
+	sweeps            stringSlice
+	samples           sweepCount
+	seed              sweepSeed
+	draws             drawPolicy
+	clockStep         clockStep
+	runs              runCount
+	observe           stringSlice
+	compare           string
+	queries           stringSlice
+	actions           stringSlice
+	states            stringSlice
+	advance           advanceTime
+	jsonOut           bool
+	checker           checkerOptions
 }
 
 // checkerOptions are the -check-* flags: what the check and smt engines are asked
@@ -601,6 +602,9 @@ func runChecks(files []string, exprs []string, c checks) int {
 	}
 
 	sess := newSession()
+	if len(renderRuns) > 0 {
+		sess.SetRecording(true)
+	}
 	sess.SetCheckDiverge(c.checker.diverge)
 	sess.SetCheckProperties(c.checker.properties)
 	sess.SetCheckInputs(c.checker.inputs)
@@ -653,6 +657,15 @@ func runChecks(files []string, exprs []string, c checks) int {
 	// What analysis found is reported as data whatever was checked, so a caller
 	// parsing the report reads the warnings the printed load output carries.
 	rep.diags(sess.LocatedDiagnostics())
+
+	// A rule package nothing declares refuses the run before anything is
+	// evaluated or reported, as a name mistyped checks nothing.
+	if c.selfCheck && len(c.selfCheckPackages) > 0 {
+		if err := sess.ResolveSelfCheckPackages(c.selfCheckPackages); err != nil {
+			rep.failed(err.Error())
+			return rep.finish()
+		}
+	}
 
 	rep.info(loaded)
 
@@ -729,7 +742,12 @@ func runChecks(files []string, exprs []string, c checks) int {
 	}
 
 	if c.selfCheck {
-		rep.selfCheck(sess.SelfCheck())
+		verdicts, err := sess.SelfCheckPackages(c.selfCheckPackages)
+		if err != nil {
+			rep.failed(err.Error())
+			return rep.finish()
+		}
+		rep.selfCheck(verdicts)
 	}
 
 	for _, name := range c.constraints {
@@ -774,7 +792,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 			rep.verdict(v)
 		}
 		c.runQueries(sess, rep)
-		return rep.finish()
+		return finishRunCheck(rep, sess)
 	}
 	for _, value := range c.actions {
 		name, performer := repl.SplitBehavior(value)
@@ -790,7 +808,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 	}
 	c.runQueries(sess, rep)
 
-	return rep.finish()
+	return finishRunCheck(rep, sess)
 }
 
 // runQueries executes each -run-query after the behaviors named have run, so a

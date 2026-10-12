@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::P0",
+	"outputs": {
+		"c": {"type": "Integer", "value": 1}
+	}
+}

@@ -14,14 +14,15 @@ import (
 // provenanceWorkspace is an index over user documents with their digests, the
 // Sources a Provenance is attributed and checked against.
 type provenanceWorkspace struct {
-	idx     *symbols.Index
-	digests map[string]string
-	shared  map[string][]string
+	idx      *symbols.Index
+	digests  map[string]string
+	shared   map[string][]string
+	standIns map[string]string
 }
 
 func newProvenanceWorkspace(t *testing.T, docs map[string]string) *provenanceWorkspace {
 	t.Helper()
-	w := &provenanceWorkspace{idx: symbols.NewIndex(), digests: map[string]string{}, shared: map[string][]string{}}
+	w := &provenanceWorkspace{idx: symbols.NewIndex(), digests: map[string]string{}, shared: map[string][]string{}, standIns: map[string]string{}}
 	for name, src := range docs {
 		w.add(t, name, src)
 	}
@@ -43,7 +44,8 @@ func (w *provenanceWorkspace) add(t *testing.T, name, src string) {
 func (w *provenanceWorkspace) sources() Sources {
 	return NewSources(w.idx,
 		func(name string) ([]string, bool) { docs, ok := w.shared[name]; return docs, ok },
-		func(doc string) (string, bool) { d, ok := w.digests[doc]; return d, ok })
+		func(doc string) (string, bool) { d, ok := w.digests[doc]; return d, ok },
+		func(doc string) string { return w.standIns[doc] })
 }
 
 func TestAttributeNamesTheAnsweringDocumentsWithTheirDigests(t *testing.T) {
@@ -232,5 +234,40 @@ func TestSourcesMemoizeTheIndexForOneState(t *testing.T) {
 	}
 	if p.Valid(Sources{Index: w.idx, Contributors: src.Contributors, Digest: src.Digest}) {
 		t.Fatal("an unmemoized Sources did not see the change")
+	}
+}
+
+// A version of a library file standing in for it answers as the library
+// document it displaces: a record written under the library holds beside the
+// version, and one written beside it names it nowhere, since the key's library
+// identity covers its text.
+func TestProvenanceSeesAVersionAsTheLibraryDocument(t *testing.T) {
+	w := newProvenanceWorkspace(t, map[string]string{
+		"a.sysml": "package P { part def Y; }",
+	})
+	w.shared["\x00identity/a.sysml"] = []string{"a.sysml"}
+	reads := resolve.Reads{Names: []string{"\x00identity/a.sysml", "P::Y"}}
+	p, err := Attribute(reads, w.sources())
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+
+	w.add(t, "copy.kerml", "package ScalarValues { datatype Real; }")
+	w.idx.ExpandWildcardImports()
+	w.shared["\x00identity/a.sysml"] = []string{"a.sysml", "copy.kerml"}
+	if p.Valid(w.sources()) {
+		t.Fatal("a workspace document the record never saw joined an answer, yet the record holds")
+	}
+	w.standIns["copy.kerml"] = "Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml"
+	if !p.Valid(w.sources()) {
+		t.Error("the version stands in for a library document, yet the record does not hold beside it")
+	}
+
+	beside, err := Attribute(reads, w.sources())
+	if err != nil {
+		t.Fatalf("Attribute beside the version: %v", err)
+	}
+	if !reflect.DeepEqual(beside.Answerers, p.Answerers) || !reflect.DeepEqual(beside.Digests, p.Digests) {
+		t.Errorf("attributed beside the version: %v %v, want %v %v", beside.Answerers, beside.Digests, p.Answerers, p.Digests)
 	}
 }

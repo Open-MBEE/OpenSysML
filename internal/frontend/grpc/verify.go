@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -295,12 +296,19 @@ func (s *Service) VerifyConstraint(ctx context.Context, req *pb.VerifyConstraint
 	if err != nil {
 		return &pb.VerifyConstraintResponse{Error: err.Error()}, nil
 	}
+	args, readErr, err := v.checkArgs(question, req.Arguments, req.NamedArguments)
+	if err != nil {
+		return nil, err
+	}
+	if readErr != nil {
+		return &pb.VerifyConstraintResponse{Error: readErr.Error()}, nil
+	}
 	if question != questionEvaluate {
 		return v.proveConstraint(ctx, question, sym, inst)
 	}
 
 	result, plan, evalErr := v.check(ctx, req.SymbolId, func(rt *runtime.Context) (runtime.CheckResult, error) {
-		return rt.CheckConstraintOn(sym, v.declaringScope(sym), inst)
+		return rt.CheckConstraintWith(sym, v.declaringScope(sym), inst, args)
 	})
 	if err := callerGone(ctx, evalErr); err != nil {
 		return nil, err
@@ -310,6 +318,55 @@ func (s *Service) VerifyConstraint(ctx context.Context, req *pb.VerifyConstraint
 		Verdict:   v.verdict(verdictConstraint, sym, "", subject, result.Holds, evalErr, plan),
 		Instances: v.instanceGraph(subject),
 	}, nil
+}
+
+// checkArgs reads a verification request's argument bindings. Naming any needs
+// the verification_arguments capability; a proof question takes none, the
+// parameters' values being the solver's to find. The first error is a value
+// that does not read, spelled for the response; the second is a status.
+func (v *verifyContext) checkArgs(question string, positional []*pb.Value, named map[string]*pb.Value) (runtime.CheckArgs, error, error) {
+	if len(positional) == 0 && len(named) == 0 {
+		return runtime.CheckArgs{}, nil, nil
+	}
+	if err := v.service.requireCapability(CapabilityVerificationArguments); err != nil {
+		return runtime.CheckArgs{}, nil, err
+	}
+	if question != questionEvaluate {
+		return runtime.CheckArgs{}, nil, statusErrorf(connect.CodeInvalidArgument,
+			"question %q takes no arguments: the solver finds the parameters' values", question)
+	}
+	var args runtime.CheckArgs
+	for _, arg := range positional {
+		val, readErr, err := v.argument(arg)
+		if readErr != nil || err != nil {
+			return runtime.CheckArgs{}, wrapArgumentRead(readErr), err
+		}
+		args.Positional = append(args.Positional, val)
+	}
+	if len(named) > 0 {
+		// Read in name order so a failure names the same argument every time.
+		names := make([]string, 0, len(named))
+		for name := range named {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		args.Named = make(map[string]runtime.Value, len(names))
+		for _, name := range names {
+			val, readErr, err := v.argument(named[name])
+			if readErr != nil || err != nil {
+				return runtime.CheckArgs{}, wrapArgumentRead(readErr), err
+			}
+			args.Named[name] = val
+		}
+	}
+	return args, nil, nil
+}
+
+func wrapArgumentRead(err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("argument could not be read: %w", err)
 }
 
 // VerifyRequirement evaluates a requirement definition or usage, as the REPL's
@@ -335,12 +392,19 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 	if err != nil {
 		return &pb.VerifyRequirementResponse{Error: err.Error()}, nil
 	}
+	args, readErr, err := v.checkArgs(question, req.Arguments, req.NamedArguments)
+	if err != nil {
+		return nil, err
+	}
+	if readErr != nil {
+		return &pb.VerifyRequirementResponse{Error: readErr.Error()}, nil
+	}
 	if question != questionEvaluate {
 		return v.proveRequirement(ctx, question, sym, inst)
 	}
 
 	result, plan, evalErr := v.check(ctx, req.SymbolId, func(rt *runtime.Context) (runtime.CheckResult, error) {
-		return rt.CheckRequirementOn(sym, v.declaringScope(sym), inst)
+		return rt.CheckRequirementWith(sym, v.declaringScope(sym), inst, args)
 	})
 	if err := callerGone(ctx, evalErr); err != nil {
 		return nil, err

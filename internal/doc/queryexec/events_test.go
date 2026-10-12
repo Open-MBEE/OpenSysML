@@ -324,6 +324,12 @@ func TestExecuteEventsByKind(t *testing.T) {
 	}
 }
 
+func TestEventKindsIncludeTerminate(t *testing.T) {
+	if got, ok := eventKinds["terminate"]; !ok || got != runtime.TraceTerminate {
+		t.Fatalf("terminate event kind = %q, %t; want %q", got, ok, runtime.TraceTerminate)
+	}
+}
+
 // The interval is [since, before): kept at since, dropped at before; bounds are
 // durations in any unit of time or bare clock seconds, either left open.
 func TestExecuteEventsIntervalIsClosedOpen(t *testing.T) {

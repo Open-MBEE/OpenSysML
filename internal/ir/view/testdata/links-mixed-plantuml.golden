@@ -1,0 +1,110 @@
+@startuml
+' MixedExamples::mixedDiagram — mixed rendering (render asMixedDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+package "<size:10>//«package»//</size>\n**MixedExamples**" as n0 <<package>> [[https://example.test/src/mixed.sysml#L1]] {
+  rectangle "<size:10>//«port def»//</size>\n**FluidPort**" as n19 <<port def>> [[https://example.test/src/mixed.sysml#L5]]
+  rectangle "<size:10>//«part def»//</size>\n**BaseUnit**" as n20 <<part def>> [[https://example.test/src/mixed.sysml#L6]]
+  rectangle "<size:10>//«part def»//</size>\n**Pump**" as n21 <<part def>> [[https://example.test/src/mixed.sysml#L8]] {
+    rectangle "<size:10>//«port»//</size>\n**outlet : FluidPort**" as n22 <<port>> <<usage>> [[https://example.test/src/mixed.sysml#L9]]
+  }
+  rectangle "<size:10>//«part def»//</size>\n**Tank**" as n23 <<part def>> [[https://example.test/src/mixed.sysml#L12]] {
+    rectangle "<size:10>//«port»//</size>\n**inlet : FluidPort**" as n24 <<port>> <<usage>> [[https://example.test/src/mixed.sysml#L13]]
+  }
+  rectangle "<size:10>//«part def»//</size>\n**Plant**" as n25 <<part def>> [[https://example.test/src/mixed.sysml#L16]] {
+    rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n26 <<part>> <<usage>> [[https://example.test/src/mixed.sysml#L17]] {
+      port "outlet" as n26.0
+    }
+    rectangle "<size:10>//«part»//</size>\n**tank : Tank**" as n27 <<part>> <<usage>> [[https://example.test/src/mixed.sysml#L18]] {
+      port "inlet" as n27.0
+    }
+  }
+  rectangle "<size:10>//«connection def»//</size>\n**Connection**" as n28 <<connection def>> [[https://example.test/src/mixed.sysml#L22]] {
+    rectangle "<size:10>//«part»//</size>\n**a**" as n29 <<part>> <<usage>> [[https://example.test/src/mixed.sysml#L23]]
+    rectangle "<size:10>//«part»//</size>\n**b**" as n30 <<part>> <<usage>> [[https://example.test/src/mixed.sysml#L24]]
+  }
+  rectangle "<size:10>//«state def»//</size>\n**Ready**\ndeclares no states" as n1 <<state def>> [[https://example.test/src/mixed.sysml#L27]]
+  rectangle "<size:10>//«state def»//</size>\n**Modes**" as n2 <<state def>> [[https://example.test/src/mixed.sysml#L29]] {
+    circle "**start**" as n4 <<start>> <<usage>>
+    rectangle "<size:10>//«state»//</size>\n**ready : Ready**\ninitial" as n3 <<state>> <<usage>> [[https://example.test/src/mixed.sysml#L31]]
+  }
+  rectangle "<size:10>//«action def»//</size>\n**Operate**" as n5 <<action def>> [[https://example.test/src/mixed.sysml#L34]] {
+    circle "**initial**" as n6 <<start>> [[https://example.test/src/mixed.sysml#L35]]
+    rectangle "<size:10>//«action»//</size>\n**'step'**" as n7 <<action>> <<usage>> [[https://example.test/src/mixed.sysml#L36]]
+    circle "**final**" as n8 <<end>> [[https://example.test/src/mixed.sysml#L37]]
+  }
+  usecase "<size:10>//«use case def»//</size>\n**Inspection**" as n9 <<use case def>> [[https://example.test/src/mixed.sysml#L42]]
+  actor "<size:10>//«actor»//</size>\n**operator : Person**" as n10 <<actor>> <<usage>> [[https://example.test/src/mixed.sysml#L43]]
+  rectangle "<size:10>//«subject»//</size>\n**plant : Plant**" as n11 <<subject>> <<usage>> [[https://example.test/src/mixed.sysml#L44]]
+  note as n12
+    **[[https://example.test/src/mixed.sysml#L45 objective]]**
+    [[https://example.test/src/mixed.sysml#L45 Inspect the plant and report its operating state.]]
+  end note
+  rectangle "<size:10>//«perform action»//</size>\n**run : Operate**\ndeclares no nodes" as n13 <<perform action>> <<usage>> [[https://example.test/src/mixed.sysml#L48]]
+  rectangle "<size:10>//«exhibit state»//</size>\n**mode : Modes**" as n14 <<exhibit state>> <<usage>> [[https://example.test/src/mixed.sysml#L49]] {
+    circle "**start**" as n16 <<start>> <<usage>>
+    rectangle "<size:10>//«state»//</size>\n**ready : Ready**\ninitial" as n15 <<state>> <<usage>> [[https://example.test/src/mixed.sysml#L31]]
+  }
+  rectangle "<size:10>//«part def»//</size>\n**Person**" as n31 <<part def>> [[https://example.test/src/mixed.sysml#L52]]
+  rectangle "<size:10>//«view»//</size>\n**mixedDiagram**" as n17 <<view>> <<usage>> [[https://example.test/src/mixed.sysml#L54]]
+  rectangle "<size:10>//«view»//</size>\n**mixedLayout**" as n18 <<view>> <<usage>> [[https://example.test/src/mixed.sysml#L59]]
+}
+n4 --> n3 : [[https://example.test/src/mixed.sysml#L30]]
+n6 --> n7 : [[https://example.test/src/mixed.sysml#L38]]
+n7 --> n8 : [[https://example.test/src/mixed.sysml#L39]]
+n10 -- n9 : [[https://example.test/src/mixed.sysml#L43]]
+n9 -- n11 : <U+00AB>subject<U+00BB> [[https://example.test/src/mixed.sysml#L44]]
+n9 .. n12 : [[https://example.test/src/mixed.sysml#L45]]
+n16 --> n15 : [[https://example.test/src/mixed.sysml#L30]]
+n26.0 -[thickness=3]- n27.0 : supply [[https://example.test/src/mixed.sysml#L19]]
+n3 ..> n1 : [[https://example.test/src/mixed.sysml#L31]]
+n10 ..> n31 : [[https://example.test/src/mixed.sysml#L43]]
+n11 ..> n25 : [[https://example.test/src/mixed.sysml#L44]]
+n13 ..> n5 : <U+00AB>perform<U+00BB> [[https://example.test/src/mixed.sysml#L48]]
+n14 ..> n2 : <U+00AB>exhibit<U+00BB> [[https://example.test/src/mixed.sysml#L49]]
+n21 --|> n20 : <U+00AB>specializes<U+00BB> [[https://example.test/src/mixed.sysml#L8]]
+n22 ..> n19 : [[https://example.test/src/mixed.sysml#L9]]
+n23 --|> n20 : <U+00AB>specializes<U+00BB> [[https://example.test/src/mixed.sysml#L12]]
+n24 ..> n19 : [[https://example.test/src/mixed.sysml#L13]]
+n25 --|> n20 : <U+00AB>specializes<U+00BB> [[https://example.test/src/mixed.sysml#L16]]
+n26 ..> n21 : [[https://example.test/src/mixed.sysml#L17]]
+n27 ..> n23 : [[https://example.test/src/mixed.sysml#L18]]
+@enduml

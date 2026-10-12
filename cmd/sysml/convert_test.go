@@ -524,6 +524,8 @@ func TestMigrateMigratesXMI(t *testing.T) {
 		"migrate several models":                       {[]string{v1, v1, "-migrate", "sysml"}, "-migrate migrates one SysML v1 model per run"},
 		"id with migrate":                              {[]string{v1, "-migrate", "ttl", "-id", "uuid"}, "-id accompanies -convert"},
 		"image base URL with convert":                  {[]string{model, "-convert", "ttl", "-image-base-url", "https://ve.example.org"}, "-image-base-url accompanies -migrate"},
+		"portable with convert":                        {[]string{model, "-convert", "ttl", "-portable"}, "-portable accompanies -migrate"},
+		"portable with validate":                       {[]string{model, "-validate", "-portable"}, "-portable accompanies -migrate"},
 		"report over the model":                        {[]string{xmi, "-migrate", "sysml", "-o", textReport, "-migration-report", textReport}, "-migration-report and -o both name"},
 		"report over the model through dangling links": {[]string{xmi, "-migrate", "sysml", "-o", danglingLink(t, dir, "model-link", "shared.txt"), "-migration-report", danglingLink(t, dir, "report-link", "shared.txt")}, "-migration-report and -o both name"},
 		"report over the input":                        {[]string{xmi, "-migrate", "sysml", "-migration-report", xmi}, "names the model being migrated"},

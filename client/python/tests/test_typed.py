@@ -1,5 +1,7 @@
 """Tests for the typed view runtime that generated classes are built on."""
 
+from fractions import Fraction
+
 import pytest
 
 import opensysml
@@ -111,6 +113,17 @@ def test_integer_widens_to_float_but_bool_does_not():
         _t.as_float("x", True)
     with pytest.raises(TypeMismatchError):
         _t.as_int("x", True)
+
+
+def test_rational_decodes_exactly_and_real_widens_to_nearest():
+    """A Rational is the exact Fraction whichever arm carried it; a Real rounds a Fraction once."""
+    assert _t.as_rational("x", Fraction(1, 3)) == Fraction(1, 3)
+    assert _t.as_rational("x", 0.25) == Fraction(1, 4)
+    assert _t.as_rational("x", 3) == Fraction(3)
+    assert _t.as_float("x", Fraction(1, 3)) == 1 / 3
+    for bad in (True, float("inf"), float("nan"), "1/3"):
+        with pytest.raises(TypeMismatchError):
+            _t.as_rational("x", bad)
 
 
 def test_optional_feature_value_returns_none_when_absent():

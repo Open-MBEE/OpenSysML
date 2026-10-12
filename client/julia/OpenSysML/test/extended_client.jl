@@ -265,6 +265,34 @@ end
     end
 end
 
+@testset "verification argument capability preflight" begin
+    server, requests, address = recording_service(["verification"])
+    conn = external(address)
+    try
+        model = Model(conn, "hash", Diagnostic[])
+        err = try
+            verify_requirement(model, "R"; named_arguments=Dict("limit" => 5))
+            nothing
+        catch exception
+            exception
+        end
+        @test err isa MissingCapabilityError
+        @test err.capability == CAPABILITY_VERIFICATION_ARGUMENTS
+        err = try
+            verify_constraint(model, "C"; arguments=[3])
+            nothing
+        catch exception
+            exception
+        end
+        @test err isa MissingCapabilityError
+        @test err.capability == CAPABILITY_VERIFICATION_ARGUMENTS
+        @test [request.method for request in requests] == ["GetServerInfo"]
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
 @testset "OSLC query capability preflight" begin
     server, requests, address = recording_service(["query"])
     conn = external(address)
@@ -591,6 +619,31 @@ end
                 @test verify_constraint(verification, "Demo::Vehicle::massPositive").holds
                 @test verify_requirement(verification, "Demo::Vehicle::lightEnough";
                     subject="Demo::sedan").holds
+                bound = parse_source(conn, """
+                    package Bound {
+                        private import ScalarValues::*;
+                        part def Thing { attribute v : Integer = 2; }
+                        part t : Thing;
+                        requirement def Under {
+                            subject s : Thing;
+                            in limit : Integer;
+                            in slack : Integer = 0;
+                            require constraint { s.v + slack < limit }
+                        }
+                        constraint def Between {
+                            in low : Integer;
+                            in high : Integer = 10;
+                            low < high
+                        }
+                    }
+                """)
+                @test verify_requirement(bound, "Bound::Under"; subject="Bound::t",
+                    named_arguments=Dict("limit" => 5)).holds
+                @test !verify_requirement(bound, "Bound::Under"; subject="Bound::t",
+                    arguments=[5, 4]).holds
+                @test verify_constraint(bound, "Bound::Between"; arguments=[3]).holds
+                @test !verify_constraint(bound, "Bound::Between";
+                    named_arguments=Dict("low" => 3, "high" => 1)).holds
                 @test !isempty(verify_satisfaction(verification))
                 @test !isempty(verify_satisfaction(verification; symbol="Demo::analysis"))
                 @test !satisfied(verification; symbol="Demo::analysis")
@@ -636,6 +689,40 @@ end
                 @test length(rows) == 4
                 @test !isempty(render_document(document_model, "Observatory::MassReport"))
                 @test !isempty(render_document(document_model, "Observatory::MassReport"; form="html"))
+                views_model = parse_file(conn, joinpath(FIXTURES, "views.sysml"))
+                rendered_view = render_view(views_model, "RenderViewDemo::connections")
+                @test rendered_view.kind == "interconnection"
+                @test length(rendered_view.edges) == 1
+                @test !isempty(rendered_view.edges[1].from_port)
+                @test !isempty(rendered_view.edges[1].to_port)
+                @test all(node -> node.origin !== nothing, rendered_view.nodes)
+                full_view = render_view(views_model, "RenderViewDemo::connections"; ports="full")
+                @test any(port.name == "spare" for node in full_view.nodes for port in node.ports)
+                behavior_model = parse_file(conn, joinpath(FIXTURES, "behavior.sysml"))
+                graphs = export_graphs(behavior_model, "Test::race")
+                @test graphs isa Graphs
+                @test graphs.version == 1
+                @test graphs.subject == "Test::race"
+                @test startswith(graphs.content, "{\"version\":1,\"subject\":\"Test::race\"")
+                @test endswith(graphs.content, "}\n")
+                @test occursin("\"actions\"", graphs.content)
+                @test_throws SymbolNotFoundError export_graphs(behavior_model, "Test::Missing")
+                @test_throws OpenSysMLError export_graphs(behavior_model, "Test")
+                for (view, message) in (
+                    ("RenderViewDemo::Missing", "no view named RenderViewDemo::Missing"),
+                    ("#interconnection:Nope",
+                     "#interconnection:Nope: Nope names nothing in this model"),
+                )
+                    missing_view = try
+                        render_view(views_model, view)
+                        nothing
+                    catch error
+                        error
+                    end
+                    @test missing_view isa SymbolNotFoundError
+                    @test missing_view.name == view
+                    @test sprint(showerror, missing_view) == message
+                end
                 @test !isempty(convert_model(document_model, "sysml").content)
                 @test !isempty(to_turtle(document_model).content)
                 @test !isempty(to_api_json(document_model).content)
@@ -648,12 +735,12 @@ end
                 @test occursin("part def Vehicle", migrated.content)
                 @test migrated.from_format == "xmi"
                 @test (migrated.report.mapped, migrated.report.approximated,
-                       migrated.report.unmapped, migrated.report.skipped) == (77, 13, 3, 2)
-                @test length(migrated.report.entries) == 95
+                       migrated.report.unmapped, migrated.report.skipped) == (76, 16, 3, 2)
+                @test length(migrated.report.entries) == 97
                 @test length(by_verdict(migrated.report, VERDICT_UNMAPPED)) == 3
                 @test migrated.source_path == abspath(vehicle)
                 inline = migrate_source(conn, read(vehicle), "ttl"; from_format=" XMI ")
-                @test inline.to_format == "ttl" && inline.report.mapped == 77
+                @test inline.to_format == "ttl" && inline.report.mapped == 76
                 @test isempty(inline.report.entries) && inline.source_path === nothing
                 mktempdir() do directory
                     output = joinpath(directory, "Vehicle.sysml")

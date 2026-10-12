@@ -1,10 +1,23 @@
 {
 	"type": "state",
 	"libraries": true,
-	"finalState": "done",
-	"stateVisits": ["init", "active", "done"],
-	"outputs": {
-		"y": {"type": "Integer", "value": 31},
-		"seen": {"type": "Integer", "value": 31}
-	}
+	"outcomes": [
+		{
+			"finalState": "done",
+			"stateVisits": ["init", "active", "done"],
+			"outputs": {
+				"y": {"type": "Integer", "value": 30},
+				"seen": {"type": "Integer", "value": 30}
+			}
+		},
+		{
+			"finalState": "done",
+			"stateVisits": ["init", "active", "done"],
+			"outputs": {
+				"y": {"type": "Integer", "value": 31},
+				"seen": {"type": "Integer", "value": 31}
+			}
+		}
+	],
+	"admissible": "Body-stating typed usages and mixed state behaviors"
 }

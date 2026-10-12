@@ -175,7 +175,7 @@ type HTMLOptions struct {
 	MathScript string
 
 	// DiagramForm is the source every graph-shaped diagram is written as; a
-	// table-kind view is a table whichever it is. Empty picks per diagram:
+	// a tabular view is a table whichever it is. Empty picks per diagram:
 	// DOT for a rendering a Layout or Route positions, Mermaid otherwise.
 	DiagramForm view.Form
 
@@ -1116,7 +1116,7 @@ func displayMathHTML(source string) string {
 	return displayMathOpen + html.EscapeString(strings.TrimSpace(newlineNormalizer.Replace(source))) + displayMathClose
 }
 
-// writeDiagram writes one diagram as a figure: a table-kind view as a table,
+// writeDiagram writes one diagram as a figure: a tabular view as a table,
 // every other supported kind as the image drawn for it ahead of the render,
 // or else as its source in the render's diagram form — Mermaid, which a loaded
 // Mermaid script draws, or DOT, PlantUML or D2 — shown as text.
@@ -1128,13 +1128,13 @@ func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *vi
 	if rendering == nil {
 		return &Error{Kind: ErrorMissingRendering, Content: name}
 	}
-	if rendering.Kind != view.KindTable && !rendering.Kind.Supported() {
+	if !rendering.Kind.Supported() {
 		return &Error{Kind: ErrorUnrenderableDiagram, Content: name, Actual: string(rendering.Kind), Form: "HTML"}
 	}
 	var source, fallback string
 	var form view.Form
 	mermaidSource := false
-	if rendering.Kind != view.KindTable {
+	if !rendering.Kind.Tabular() {
 		var err error
 		form, fallback = w.forms.formFor(rendering)
 		if source, err = diagramSource(name, rendering, options, form); err != nil {
@@ -1162,7 +1162,7 @@ func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *vi
 		w.b.WriteString("<p class=\"sysml-diagram-notice\"><em>" + html.EscapeString(fallback) + "</em></p>\n")
 	}
 	switch {
-	case rendering.Kind == view.KindTable:
+	case rendering.Kind.Tabular():
 		w.writeRenderingTable(rendering)
 	case w.diagramSVG() != "":
 		w.b.WriteString(svgBlock(w.diagramSVG()) + "\n")
@@ -1206,7 +1206,7 @@ func (w *htmlWriter) diagramSVG() string {
 	return ""
 }
 
-// writeRenderingTable writes a table-kind view's cells, keeping the notices the
+// writeRenderingTable writes a tabular view's cells, keeping the notices the
 // rendering could not represent as comments so none is lost.
 func (w *htmlWriter) writeRenderingTable(rendering *view.Rendering) {
 	for _, notice := range rendering.Notices {
@@ -1220,7 +1220,11 @@ func (w *htmlWriter) writeRenderingTable(rendering *view.Rendering) {
 	if len(columns) == 0 {
 		columns = view.TableColumns()
 	}
-	w.b.WriteString("<table class=\"sysml-table\" data-content=\"table\">\n")
+	content := "table"
+	if rendering.Kind == view.KindMatrix {
+		content = "matrix"
+	}
+	w.b.WriteString("<table class=\"sysml-table\"" + attr("data-content", content) + ">\n")
 	w.writeTableHead(columns, columns)
 	w.b.WriteString("<tbody>\n")
 	for _, row := range rendering.Rows {

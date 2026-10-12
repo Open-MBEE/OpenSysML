@@ -2496,8 +2496,8 @@ func TestActionExecutor_GuardedSuccession_PrunesAForkBranch(t *testing.T) {
 	}
 }
 
-// Two successions out of one node whose guards both hold state no order between
-// them, so the ambiguity is reported rather than resolved.
+// Two successions out of one node whose guards both hold are two HappensBefore
+// links, neither excluding the other: the token splits, one to each target.
 func TestActionExecutor_GuardedSuccession_TwoGuardsHold(t *testing.T) {
 	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	s1 := &ast.ActionExecutionNode{Name: "s1", Expression: &ast.LiteralInteger{Value: "1"}}
@@ -2542,12 +2542,15 @@ func TestActionExecutor_GuardedSuccession_TwoGuardsHold(t *testing.T) {
 		t.Fatalf("step initial: %v", err)
 	}
 
-	err = exec.stepToken(0)
-	if err == nil {
-		t.Fatal("two successions holding at once were traversed without an error")
+	if err := exec.stepToken(0); err != nil { // s1 → s2 and s3
+		t.Fatalf("step s1: %v", err)
 	}
-	if !containsText(err.Error(), "has multiple successors") {
-		t.Errorf("unexpected error: %v", err)
+	locations := make(map[ast.Node]bool, len(exec.tokens))
+	for _, token := range exec.tokens {
+		locations[token.Location] = true
+	}
+	if len(exec.tokens) != 2 || !locations[s2] || !locations[s3] {
+		t.Errorf("s1 left %d tokens at %v, want one each at s2 and s3", len(exec.tokens), locations)
 	}
 }
 

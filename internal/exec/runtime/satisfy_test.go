@@ -212,7 +212,8 @@ func TestReadInSatisfactionReadsThroughTheSubject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadInSatisfaction: %v", err)
 	}
-	if value.Kind != ValConst || value.Const.Kind != semantics.ValReal || value.Const.Real != 7.0 {
+	// Unresolved without the libraries, Real does not hold the literal as a binary64.
+	if value.Kind != ValConst || value.Const.Kind != semantics.ValRational || value.Const.FormatRational() != "7.0" {
 		t.Fatalf("ReadInSatisfaction = %+v, want 7.0", value)
 	}
 }

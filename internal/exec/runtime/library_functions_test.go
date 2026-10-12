@@ -36,6 +36,15 @@ func constReal(f float64) Value {
 	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: f}}
 }
 
+// constRat is the exact Rational a decimal or numer/denom text denotes.
+func constRat(text string) Value {
+	r, err := semantics.ParseRationalText(text, semantics.DefaultMaxIntegerBits)
+	if err != nil {
+		panic(err)
+	}
+	return Value{Kind: ValConst, Const: r}
+}
+
 // applyLibrary applies the function of that fully-qualified name to positional
 // arguments.
 func applyLibrary(t *testing.T, name string, args ...Value) (Value, error) {
@@ -204,7 +213,7 @@ func TestLibraryFunctionErrors(t *testing.T) {
 func TestLibraryFunctionNamedArguments(t *testing.T) {
 	fn, _ := libraryFunctionByName("TrigFunctions::sin")
 	got, err := fn.invoke(libCtx(t), calcArgs{named: map[string]Value{"theta": constReal(0)}})
-	if err != nil || got.Const.Real != 0 {
+	if err != nil || got.Const.AsReal() != 0 {
 		t.Fatalf("sin(theta = 0.0) = %+v, %v", got, err)
 	}
 
@@ -218,7 +227,7 @@ func TestLibraryFunctionNamedArguments(t *testing.T) {
 func TestLibraryFunctionAtan2NamedArguments(t *testing.T) {
 	fn, _ := libraryFunctionByName("OpenSysMLMathFunctions::atan2")
 	got, err := fn.invoke(libCtx(t), calcArgs{named: map[string]Value{"x": constReal(-1), "y": constReal(1)}})
-	if err != nil || got.Const.Real != 3*math.Pi/4 {
+	if err != nil || got.Const.AsReal() != 3*math.Pi/4 {
 		t.Fatalf("atan2(x = -1.0, y = 1.0) = %+v, %v; want 3pi/4", got, err)
 	}
 }
@@ -342,7 +351,7 @@ func TestLibraryFunctionDispatchByResolvedSymbol(t *testing.T) {
 		t.Fatalf("RealFunctions::sqrt did not dispatch to its built-in implementation")
 	}
 	got, err := ctx.InvokeCalc(sym, []Value{constReal(25)}, nil)
-	if err != nil || got.Const.Real != 5 {
+	if err != nil || got.Const.AsReal() != 5 {
 		t.Fatalf("InvokeCalc(sqrt, 25.0) = %+v, %v", got, err)
 	}
 }
@@ -391,13 +400,13 @@ package mine {
 		t.Fatalf("a declaration with a body dispatched to the built-in implementation")
 	}
 	got, err := ctx.InvokeCalc(libSym, []Value{constReal(25)}, nil)
-	if err != nil || got.Const.Real != 25 {
+	if err != nil || got.Const.AsReal() != 25 {
 		t.Fatalf("InvokeCalc(RealFunctions::sqrt, 25.0) = %+v, %v; want the declared body", got, err)
 	}
 
 	ownSym := lookupOne(t, idx, "mine::sqrt")
 	got, err = ctx.InvokeCalc(ownSym, []Value{constReal(25)}, nil)
-	if err != nil || got.Const.Real != 42 {
+	if err != nil || got.Const.AsReal() != 42 {
 		t.Fatalf("InvokeCalc(mine::sqrt, 25.0) = %+v, %v; want the declared body", got, err)
 	}
 }
@@ -414,7 +423,7 @@ func TestLibraryFunctionDoesNotHijackAnOutputAssignedInABody(t *testing.T) {
 		t.Fatalf("a declaration assigning its output dispatched to the built-in implementation")
 	}
 	got, err := ctx.InvokeCalc(sym, []Value{constReal(25)}, nil)
-	if err != nil || got.Const.Real != 42 {
+	if err != nil || got.Const.AsReal() != 42 {
 		t.Fatalf("InvokeCalc(RealFunctions::sqrt, 25.0) = %+v, %v; want the declared body", got, err)
 	}
 }
@@ -432,7 +441,7 @@ func TestLibraryFunctionDispatchByLibraryDeclaration(t *testing.T) {
 		t.Fatalf("the library RealFunctions::sqrt did not dispatch to its built-in implementation")
 	}
 	got, err := ctx.InvokeCalc(fnSym, []Value{constReal(25)}, nil)
-	if err != nil || got.Const.Real != 5 {
+	if err != nil || got.Const.AsReal() != 5 {
 		t.Fatalf("InvokeCalc(RealFunctions::sqrt, 25.0) = %+v, %v; want the built-in", got, err)
 	}
 	attrSym := lookupOne(t, idx, "RealFunctions::tolerance")
@@ -616,7 +625,7 @@ func TestVectorNormAndAngleOfLargeComponents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("norm = error %v", err)
 	}
-	if got := norm.Const.Real; math.Abs(got-5e200) > 1e185 {
+	if got := norm.Const.AsReal(); math.Abs(got-5e200) > 1e185 {
 		t.Fatalf("norm = %g, want 5e200", got)
 	}
 	cases := []struct {
@@ -639,7 +648,7 @@ func TestVectorNormAndAngleOfLargeComponents(t *testing.T) {
 				t.Fatalf("angle = error %v", err)
 			}
 			// The arc cosine magnifies a rounding of the cosine near ±1 to ~1e-8.
-			if got.Kind != ValConst || math.Abs(got.Const.Real-tc.want) > 1e-7 {
+			if got.Kind != ValConst || math.Abs(got.Const.AsReal()-tc.want) > 1e-7 {
 				t.Fatalf("angle = %s, want %g", FormatValue(got), tc.want)
 			}
 		})
@@ -782,7 +791,7 @@ func TestComplexFunctionsRejectNumericPairs(t *testing.T) {
 	}
 	// A one-element collection is the scalar it holds, here a Real on the real axis.
 	got, err := applyLibrary(t, "ComplexFunctions::re", realVec(1))
-	if err != nil || got.Kind != ValConst || !got.Const.IsNumeric() || got.Const.Real != 1 {
+	if err != nil || got.Kind != ValConst || !got.Const.IsNumeric() || got.Const.AsReal() != 1 {
 		t.Errorf("re((1.0)) = (%v, %v), want 1.0", got, err)
 	}
 }
@@ -791,15 +800,15 @@ func TestComplexFunctionsRejectNumericPairs(t *testing.T) {
 // which is what their library bodies read.
 func TestTrigDegreesAndRadians(t *testing.T) {
 	got, err := applyLibrary(t, "TrigFunctions::deg", constReal(math.Pi))
-	if err != nil || got.Const.Real != 180 {
+	if err != nil || got.Const.AsReal() != 180 {
 		t.Fatalf("deg(pi) = %+v, %v; want 180.0", got, err)
 	}
 	got, err = applyLibrary(t, "TrigFunctions::rad", constReal(180))
-	if err != nil || got.Const.Real != math.Pi {
+	if err != nil || got.Const.AsReal() != math.Pi {
 		t.Fatalf("rad(180.0) = %+v, %v; want pi", got, err)
 	}
 	got, err = applyLibrary(t, "TrigFunctions::rad", constInt(0))
-	if err != nil || got.Const.Real != 0 {
+	if err != nil || got.Const.AsReal() != 0 {
 		t.Fatalf("rad(0) = %+v, %v; want 0.0", got, err)
 	}
 }
@@ -1402,7 +1411,7 @@ func TestLibraryFeatureNameReadFromItsLibraryDeclaration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("2 * TrigFunctions::pi = error %v", err)
 	}
-	if got.Kind != ValConst || got.Const.Real != 2*math.Pi {
+	if got.Kind != ValConst || got.Const.AsReal() != 2*math.Pi {
 		t.Fatalf("2 * TrigFunctions::pi = %+v, want %v", got, 2*math.Pi)
 	}
 }
@@ -1431,7 +1440,7 @@ func TestLibraryFeatureValue(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("libraryFeatureValue(TrigFunctions::pi) = %+v, %v, %v", got, ok, err)
 	}
-	if got.Kind != ValConst || got.Const.Real != math.Pi {
+	if got.Kind != ValConst || got.Const.AsReal() != math.Pi {
 		t.Fatalf("TrigFunctions::pi = %+v, want %v", got, math.Pi)
 	}
 }
@@ -1444,7 +1453,7 @@ func TestLibraryFeatureValueOverridesADeclaredLibraryValue(t *testing.T) {
 }`)
 
 	got, ok, err := ctx.libraryFeatureValue(lookupOne(t, idx, "TrigFunctions::pi"))
-	if err != nil || !ok || got.Const.Real != math.Pi {
+	if err != nil || !ok || got.Const.AsReal() != math.Pi {
 		t.Fatalf("TrigFunctions::pi = %+v, %v, %v; want pi", got, ok, err)
 	}
 }
@@ -1543,7 +1552,7 @@ func TestLibraryFunctionAnswersALibraryDeclarationWithABody(t *testing.T) {
 		t.Fatalf("the library's own deg did not dispatch to its built-in implementation")
 	}
 	got, err := ctx.InvokeCalc(sym, []Value{constReal(math.Pi)}, nil)
-	if err != nil || got.Const.Real != 180 {
+	if err != nil || got.Const.AsReal() != 180 {
 		t.Fatalf("InvokeCalc(TrigFunctions::deg, pi) = %+v, %v; want 180.0", got, err)
 	}
 }

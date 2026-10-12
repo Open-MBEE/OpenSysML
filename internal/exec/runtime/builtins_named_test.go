@@ -141,7 +141,7 @@ func TestAggregationsWithIdentityErrors(t *testing.T) {
 		{"NumericalFunctions::sum0((1, 2), 1)", ErrTypeMismatch, "isZero(zero)"},
 		{"NumericalFunctions::product1((1, 2), 0)", ErrTypeMismatch, "isUnit(one)"},
 		{`NumericalFunctions::sum0(("a", "b"), 0)`, ErrTypeMismatch, "numeric elements"},
-		{"NumericalFunctions::product1((1e200, 1e200), 1)", semantics.ErrArithmeticOverflow, "finite"},
+		{"NumericalFunctions::product1((1e200 * (1.0 ** 0.5), 1e200), 1)", semantics.ErrArithmeticOverflow, "finite"},
 		{"NumericalFunctions::sum0((1, 2))", ErrCalcArity, "sum0"},
 	}
 	for _, tc := range cases {

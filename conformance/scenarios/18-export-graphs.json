@@ -1,0 +1,115 @@
+{
+  "scenarios": [
+    {
+      "id": "export_graphs/action_is_the_canonical_graphs_form",
+      "description": "An action's lowered graph is exported as graphs:1 JSON naming the subject.",
+      "rpc": "ExportGraphs",
+      "requires_capabilities": [
+        "export_graphs"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "export_graphs"
+      },
+      "model": {
+        "fixture": "behavior.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "subject": "Test::race"
+      },
+      "expect": {
+        "response": {
+          "version": 1,
+          "subject": "Test::race"
+        },
+        "non_empty": [
+          "content"
+        ],
+        "contains_all": {
+          "content": [
+            "\"version\":1",
+            "\"subject\":\"Test::race\"",
+            "\"actions\""
+          ]
+        }
+      }
+    },
+    {
+      "id": "export_graphs/state_machine_is_the_canonical_graphs_form",
+      "description": "A state machine's lowered graph is exported under the same form.",
+      "rpc": "ExportGraphs",
+      "requires_capabilities": [
+        "export_graphs"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "export_graphs"
+      },
+      "model": {
+        "fixture": "behavior.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "subject": "Test::Machine"
+      },
+      "expect": {
+        "response": {
+          "version": 1,
+          "subject": "Test::Machine"
+        },
+        "contains_all": {
+          "content": [
+            "\"states\""
+          ]
+        }
+      }
+    },
+    {
+      "id": "export_graphs_unknown_subject_is_not_found",
+      "description": "A subject no element is named by is reported as not found.",
+      "rpc": "ExportGraphs",
+      "requires_capabilities": [
+        "export_graphs"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "export_graphs"
+      },
+      "model": {
+        "fixture": "behavior.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "subject": "Test::Missing"
+      },
+      "expect": {
+        "status": "NOT_FOUND",
+        "status_message_contains": "Test::Missing"
+      }
+    },
+    {
+      "id": "export_graphs_non_behavior_is_invalid",
+      "description": "An element that is neither an action nor a state machine has no lowered graph.",
+      "rpc": "ExportGraphs",
+      "requires_capabilities": [
+        "export_graphs"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "export_graphs"
+      },
+      "model": {
+        "fixture": "behavior.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "subject": "Test"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "no lowered graph"
+      }
+    }
+  ]
+}

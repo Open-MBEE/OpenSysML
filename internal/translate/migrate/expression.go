@@ -23,6 +23,7 @@ var treeBinary = map[string]string{
 	"==": "==", "=": "==", "!=": "!=", "<>": "!=", "≠": "!=",
 	"equal": "==", "equals": "==", "notequal": "!=",
 	"&&": "&&", "and": "&&", "∧": "&&", "||": "||", "or": "||", "∨": "||",
+	"xor": "xor", "implies": "implies",
 }
 
 // treeUnary maps the symbols of a unary operator, applied to one operand.
@@ -49,6 +50,8 @@ type treeLowering struct {
 }
 
 // feature answers a placeholder for an instance operand, else asks the scope.
+func (l *treeLowering) strictMigration() bool { return l.s.strictMigration() }
+
 func (l *treeLowering) feature(path []string, write bool) (opaqueRef, *refusal) {
 	if ref, ok := l.leaves[path[0]]; ok && len(path) == 1 {
 		return ref, nil
@@ -65,7 +68,7 @@ func (m *migration) expressionTree(v, scope *sysmlv1.Element, want wanted) (expr
 	l := &treeLowering{s: m.bodyScope(scope), leaves: map[string]opaqueRef{}, spelled: treeWords(v)}
 	text, err := l.lower(v)
 	if err == nil {
-		expr, err = m.translateIn(text, "", l, want)
+		expr, err = m.translateTreeIn(text, l, want)
 	}
 	if err != nil {
 		return "", false, "the UML " + v.Type + " tree has no v2 form: " + err.note()

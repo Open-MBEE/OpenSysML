@@ -1,0 +1,11 @@
+{
+	"libraries": true,
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"armed": {"type": "Integer", "value": 0},
+		"bRan": {"type": "Boolean", "value": false},
+		"cRan": {"type": "Boolean", "value": true},
+		"hits": {"type": "Integer", "value": 1}
+	}
+}

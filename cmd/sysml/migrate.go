@@ -27,6 +27,7 @@ func init() {
 		fs.StringVar(&migrationResults, "migration-results", "", "With -migrate, write the run configurations and the result snapshots the simulation tool stored for them to this JSON file, for -compare-results to read against the migrated model")
 		fs.StringVar(&layoutPath, "layout", "", "With -migrate, read this MTIP export (HUDS XML) and write the diagram geometry it records as DiagramLayout annotations in the migrated views")
 		fs.StringVar(&imageBaseURL, "image-base-url", "", "With -migrate, the http(s) URL a comment's relative <img src> is resolved against, such as the View Editor server")
+		fs.BoolVar(&portableMode, "portable", false, "With -migrate, append the OpenSysML library packages the output refers to, so the one file loads in a tool that ships only the standard library; the report names them")
 	})
 }
 
@@ -139,7 +140,7 @@ func migrateInput(name string, data []byte, _ convert.Format, to convert.Format)
 // options; none were given when the flag was not passed.
 func migrationOptions() (convert.MigrateOptions, error) {
 	if layoutPath == "" {
-		return convert.MigrateOptions{ImageBaseURL: imageBaseURL, Strict: strictMode}, nil
+		return convert.MigrateOptions{ImageBaseURL: imageBaseURL, Strict: strictMode, Portable: portableMode}, nil
 	}
 	data, err := os.ReadFile(layoutPath)
 	if err != nil {
@@ -149,7 +150,7 @@ func migrationOptions() (convert.MigrateOptions, error) {
 	if err != nil {
 		return convert.MigrateOptions{}, fmt.Errorf("%s: %w", layoutPath, err)
 	}
-	return convert.MigrateOptions{Layout: layout, LayoutSource: layoutPath, ImageBaseURL: imageBaseURL, Strict: strictMode}, nil
+	return convert.MigrateOptions{Layout: layout, LayoutSource: layoutPath, ImageBaseURL: imageBaseURL, Strict: strictMode, Portable: portableMode}, nil
 }
 
 // writeMigrationReport writes the report to the -migration-report file (JSON when

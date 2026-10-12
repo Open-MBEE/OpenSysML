@@ -169,8 +169,10 @@ Base.show(io::IO, err::EditError) = print(io, err.message)
 struct SymbolNotFoundError <: OpenSysMLError
     name::String
     suggestions::Vector{String}
-    SymbolNotFoundError(name, suggestions=String[]) =
-        new(String(name), String[s for s in suggestions])
+    service_message::Union{Nothing,String}
+    SymbolNotFoundError(name, suggestions=String[]; service_message=nothing) =
+        new(String(name), String[s for s in suggestions],
+            service_message === nothing ? nothing : String(service_message))
 end
 
 struct MissingCapabilityError <: OpenSysMLError
@@ -232,6 +234,7 @@ Base.showerror(io::IO, e::DiagnosticError) = begin
     end
 end
 Base.showerror(io::IO, e::SymbolNotFoundError) = begin
+    e.service_message !== nothing && return print(io, e.service_message)
     msg = "no symbol named $(repr(e.name)) in this model"
     isempty(e.suggestions) || (msg *= "; did you mean " * join(repr.(e.suggestions), ", ") * "?")
     print(io, msg)

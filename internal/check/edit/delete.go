@@ -351,6 +351,11 @@ func (m Model) symbolContaining(doc string, offset int) *symbols.Symbol {
 			if candidate.Decl == nil || candidate.DocName != doc {
 				return true
 			}
+			// An unnamed connector end is only its connector's `connect` clause,
+			// so a reference in it refers from the connector.
+			if _, isEnd := candidate.Decl.(*ast.ConnectorEnd); isEnd && candidate.Name == "" {
+				return true
+			}
 			span := symbolSpan(candidate)
 			if span.Len == 0 || offset < span.Offset || offset >= span.End() {
 				return true

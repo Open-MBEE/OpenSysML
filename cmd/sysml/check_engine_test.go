@@ -510,13 +510,13 @@ func TestEngineCheckSearchesBehaviorsOnOneClock(t *testing.T) {
 	// Named apart, each behavior is its own search; the action's clock runs to its
 	// end, and the machine stops at its initial transition.
 	wantReport(t, check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow),
-		1, "✗ Action Shine::Lamp::peek: divergent (10 states, 9 moves, depth 5)", "divergent: saw ends as false or true",
+		1, "✗ Action Shine::Lamp::peek: divergent (9 states, 8 moves, depth 5)", "divergent: saw ends as false or true",
 		"✓ State machine Shine::Lamp::glow: no violation, exhaustive (1 states, 0 moves, depth 0)")
 
 	// With -advance they are one invocation: the machine's timer and the action's
 	// wait are due together, and the order the search draws decides what peek saw.
 	got := check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow, "-advance", "3")
-	wantReport(t, got, 1, "✗ Behaviors Shine::Lamp::peek, Shine::Lamp::glow: divergent up to t=3.0 (10 states, 9 moves, depth 5)",
+	wantReport(t, got, 1, "✗ Behaviors Shine::Lamp::peek, Shine::Lamp::glow: divergent up to t=3.0 (9 states, 8 moves, depth 5)",
 		"divergent: Shine::Lamp::peek.saw ends as false or true",
 		`outcome: Shine::Lamp::glow finalState = "on"; Shine::Lamp::glow visits = "off, on"; Shine::Lamp::peek.saw = false; this.isSolid = true; this.lit = true`,
 		`outcome: Shine::Lamp::glow finalState = "on"; Shine::Lamp::glow visits = "off, on"; Shine::Lamp::peek.saw = true; this.isSolid = true; this.lit = true`)
@@ -561,7 +561,7 @@ func TestEngineCheckWitnessOfBehaviorsOnOneClockReplays(t *testing.T) {
 	got := check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow, "-advance", "3", "-check-witness", dir)
 	wantReport(t, got, 1, "divergent: Shine::Lamp::peek.saw ends as false or true",
 		"Shine::Lamp::peek.saw = false (witness "+name(1)+")", "Shine::Lamp::peek.saw = true (witness "+name(2)+")",
-		"standing: sensitive (witnessed: 10 states, 9 moves searched, witness of 1 choice replayed)")
+		"standing: sensitive (witnessed: 9 states, 8 moves searched, witness of 2 choices replayed)")
 
 	for _, c := range []struct {
 		n     int
@@ -575,7 +575,7 @@ func TestEngineCheckWitnessOfBehaviorsOnOneClockReplays(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.HasPrefix(string(content), "object #1 = Shine::Lamp#1\nt=3.0: "+c.first+" first of action peek of object #1, state machine glow of object #1\n\n") ||
+		if !strings.HasPrefix(string(content), "object #1 = Shine::Lamp#1\nt=3.0: action peek of object #1 first of action peek of object #1, state machine glow of object #1\nt=3.0: "+c.first+" first of action peek of object #1, state machine glow of object #1\n\n") ||
 			!strings.Contains(string(content), "choice at t=3.0: due action peek of object #1, state machine glow of object #1 (unordered; ran "+c.first+" first)") {
 			t.Errorf("witness %d:\n%s", c.n, content)
 		}

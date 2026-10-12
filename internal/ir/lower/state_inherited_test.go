@@ -462,3 +462,74 @@ func inheritedTarget(t *testing.T, graph *StateGraph, usage *ast.StateNode, name
 	t.Fatalf("no transition under %s ends at %s", usage.Name, name)
 	return nil
 }
+
+// A view, a viewpoint, a rendering or a metadata annotation a state definition
+// declares is not state content, so a usage of the definition inherits its
+// substates past them.
+func TestToStateGraphTypedStateUsageSkipsInheritedViewsAndMetadata(t *testing.T) {
+	graph := stateGraphOf(t, `
+		package test {
+			metadata def Note;
+			state def Inner {
+				view V : StandardViewDefinitions::StateTransitionView { expose Inner; render Views::asInterconnectionDiagram; }
+				viewpoint P;
+				rendering R;
+				@Note;
+				metadata Note about i1;
+				entry; then i1;
+				state i1;
+				state i2;
+			}
+			state def Machine {
+				entry; then nested;
+				state nested : Inner;
+			}
+		}
+	`, "Machine")
+
+	nested := stateNamed(graph, "nested")
+	if nested == nil {
+		t.Fatal("typed state usage was not collected")
+	}
+	for _, name := range []string{"i1", "i2"} {
+		child := stateNamed(graph, name)
+		if child == nil {
+			t.Fatalf("inherited substate %s was not collected", name)
+		}
+		if graph.ParentState[child] != nested {
+			t.Fatalf("parent of %s = %v, want nested", name, graph.ParentState[child])
+		}
+	}
+}
+
+// A parallel state definition's views and metadata are no regions, so a usage
+// typed by it still lowers to its regions.
+func TestToStateGraphTypedParallelStateUsageSkipsInheritedViewsAndMetadata(t *testing.T) {
+	graph := stateGraphOf(t, `
+		package test {
+			metadata def Note;
+			state def Inner parallel {
+				view V : StandardViewDefinitions::StateTransitionView { expose Inner; render Views::asInterconnectionDiagram; }
+				viewpoint P;
+				rendering R;
+				@Note;
+				state left { entry; then idle; state idle; }
+				state right { entry; then busy; state busy; }
+			}
+			state def Machine {
+				entry; then nested;
+				state nested : Inner;
+			}
+		}
+	`, "Machine")
+
+	nested := stateNamed(graph, "nested")
+	if nested == nil {
+		t.Fatal("typed parallel state usage was not collected")
+	}
+	for _, name := range []string{"idle", "busy"} {
+		if stateNamed(graph, name) == nil {
+			t.Fatalf("inherited region substate %s was not collected", name)
+		}
+	}
+}

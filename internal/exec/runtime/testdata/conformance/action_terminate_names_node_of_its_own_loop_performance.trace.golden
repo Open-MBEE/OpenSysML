@@ -1,0 +1,109 @@
+step 1: token 1@split
+step 2: token 2@gate, token 3@pre, token 4@pre1
+choice step 3: tokens 2@gate, 3@pre, 4@pre1 (unordered; took 4@pre1 first)
+step 3: token 2@loop until, token 3@gate, token 4@pre2
+stmt loop until
+  iteration 1
+    stmt node slow
+      stmt assign entered
+          eval feature entered -> 0
+          eval literal 1 -> 1
+        eval operator + -> 1
+      stmt if
+          eval feature entered -> 1
+          eval literal 2 -> 2
+        eval operator <= -> true
+        stmt node inner
+enter action node: inner
+            eval literal 10 -> 10
+          eval index -> 10 [s]
+choice step 4: tokens 2@loop until, 3@gate, 4@pre2 (unordered; took 4@pre2 first)
+step 4: token 2@loop until, token 3@loop until, token 4@gate, token 5@nap
+stmt loop until
+  iteration 1
+    stmt node slow
+      stmt assign entered
+          eval feature entered -> 1
+          eval literal 1 -> 1
+        eval operator + -> 2
+      stmt if
+          eval feature entered -> 2
+          eval literal 2 -> 2
+        eval operator <= -> true
+        stmt node inner
+enter action node: inner
+            eval literal 10 -> 10
+          eval index -> 10 [s]
+choice step 5: tokens 2@loop until, 3@loop until, 4@gate (unordered; took 4@gate first)
+step 5: token 2@loop until, token 3@loop until, token 4@loop until, token 5@nap, token 6@nap
+stmt loop until
+  iteration 1
+    stmt node slow
+      stmt assign entered
+          eval feature entered -> 2
+          eval literal 1 -> 1
+        eval operator + -> 3
+      stmt if
+          eval feature entered -> 3
+          eval literal 2 -> 2
+        eval operator <= -> false
+        stmt node guard
+enter action node: guard
+            eval literal 5 -> 5
+          eval index -> 5 [s]
+            eval literal 10 -> 10
+          eval index -> 10 [s]
+choice step 6: tokens 2@loop until, 3@loop until, 4@loop until (unordered; took 4@loop until first)
+step 6: token 2@loop until, token 3@loop until, token 4@loop until, token 5@nap, token 6@nap, token 8@nap, token 9@watch
+choice step 7: tokens 2@loop until, 3@loop until, 4@loop until (unordered; took 4@loop until first)
+          stmt terminate
+terminate action node slow: dropped token 8@nap, token 9@stop
+    stmt assign passed
+        eval feature passed -> 0
+        eval literal 1 -> 1
+      eval operator + -> 1
+    stmt assign later
+        eval feature later -> 0
+        eval literal 1 -> 1
+      eval operator + -> 1
+    eval literal true -> true
+choice step 7: tokens 2@loop until, 3@loop until, 4@loop until (unordered; took 4@loop until first)
+step 7: token 2@loop until, token 3@loop until, token 4@done, token 5@nap, token 6@nap
+choice step 8: tokens 2@loop until, 3@loop until, 4@done (unordered; took 4@done first)
+step 8: token 2@loop until, token 3@loop until, token 5@nap, token 6@nap
+choice step 9: tokens 2@loop until, 3@loop until (unordered; took 3@loop until first)
+leave action node: inner
+        stmt assign napped
+            eval feature napped -> 0
+            eval literal 1 -> 1
+          eval operator + -> 1
+    stmt assign passed
+        eval feature passed -> 1
+        eval literal 1 -> 1
+      eval operator + -> 2
+    stmt assign later
+        eval feature later -> 1
+        eval literal 1 -> 1
+      eval operator + -> 2
+    eval literal true -> true
+leave action node: inner
+        stmt assign napped
+            eval feature napped -> 1
+            eval literal 1 -> 1
+          eval operator + -> 2
+    stmt assign passed
+        eval feature passed -> 2
+        eval literal 1 -> 1
+      eval operator + -> 3
+    stmt assign later
+        eval feature later -> 2
+        eval literal 1 -> 1
+      eval operator + -> 3
+    eval literal true -> true
+choice step 9: writes napped := 2 by token 2, napped := 1 by token 3 (unordered; napped := 2 by token 2 stood)
+choice step 9: writes passed := 3 by token 2, passed := 2 by token 3 (unordered; passed := 3 by token 2 stood)
+choice step 9: writes later := 3 by token 2, later := 2 by token 3 (unordered; later := 3 by token 2 stood)
+choice step 9: tokens 2@loop until, 3@loop until (unordered; took 3@loop until first)
+step 9: token 2@done, token 3@done
+choice step 10: tokens 2@done, 3@done (unordered; took 3@done first)
+step 10: no active tokens

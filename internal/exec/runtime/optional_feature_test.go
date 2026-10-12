@@ -493,7 +493,7 @@ func TestOptionalOccurrenceDeclarationIsUndeterminedUntilInstantiated(t *testing
 			t.Errorf("%s = %s, %v; want the one object", src, FormatValue(val), err)
 		}
 	}
-	if val, err := evalIn(t, ctx, pkg.Scope, "fitted.radius"); err != nil || val.Kind != ValConst || val.Const.Real != 0.3 {
+	if val, err := evalIn(t, ctx, pkg.Scope, "fitted.radius"); err != nil || val.Kind != ValConst || val.Const.AsReal() != 0.3 {
 		t.Errorf("fitted.radius = %s, %v; want 0.3", FormatValue(val), err)
 	}
 	car, err := ctx.Instantiate(oneSymbol(t, idx, "test::Car"))

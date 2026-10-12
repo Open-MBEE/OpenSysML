@@ -114,6 +114,7 @@ func (ec *exprChecker) checkUsageBounds(scope *symbols.Scope, u *ast.Usage) {
 	if u.FlowEnds != nil {
 		ec.checkBoundOperators(inner, u.FlowEnds.PayloadMultiplicity)
 	}
+	ec.checkIndexedEnds(scope, u)
 }
 
 // checkMemberOperators applies the operator rules to the values and bounds the

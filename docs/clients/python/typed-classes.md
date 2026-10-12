@@ -63,7 +63,8 @@ is `client/python/tests/golden/vehicle_types.py`.
 
 | SysML construct | Generated Python type |
 | --- | --- |
-| `Real`, `Rational` | `float` |
+| `Real` | `float` |
+| `Rational` | `fractions.Fraction`, exact whichever wire arm carried it (`as_rational`) |
 | `Complex` | `complex` |
 | `Integer`, `Natural` | `int` |
 | `Boolean` | `bool` |

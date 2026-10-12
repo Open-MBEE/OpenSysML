@@ -1,0 +1,48 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  gantt:
+    displayMode: compact
+    leftPadding: 283
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% run — timeline rendering (the trace of a run to t = 6)
+%% not represented: 1 state held for no time is listed in the text form
+%% not represented: Mermaid gantt draws no note; choice and guard records are comments
+%% t=0 choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first)
+gantt
+    dateFormat x
+    axisFormat %M:%S.%L
+    todayMarker off
+    section RunTimeline#58;#58;mission.controller.modes
+        waiting | charged :l0s0, 0, 1000
+        acknowledged | charged (time, accept Ack) :l0s1, 1000, 2000
+        waiting | charged (time) :l0s2, 2000, 3000
+        acknowledged | charged (time, accept Ack) :l0s3, 3000, 4000
+        waiting | charged (time) :l0s4, 4000, 5000
+        acknowledged | charged (time, accept Ack) :l0s5, 5000, 6000
+    section RunTimeline#58;#58;mission.instrument.modes
+        waiting :l1s0, 0, 1000
+        acknowledged (accept Ping) :l1s1, 1000, 2500
+        waiting (time) :l1s2, 2500, 3000
+        acknowledged (accept Ping) :l1s3, 3000, 4500
+        waiting (time) :l1s4, 4500, 5000
+        acknowledged (accept Ping) :l1s5, 5000, 6000

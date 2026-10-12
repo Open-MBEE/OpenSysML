@@ -127,4 +127,117 @@ public interface VerifyConstraintRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getQuestionBytes();
+
+  /**
+   * <pre>
+   * Values for the constraint's `in` parameters, in declaration order, as
+   * RunAnalysisRequest.arguments binds a case's; an argument the constraint
+   * does not take is INVALID_ARGUMENT, as is a parameter left without an
+   * argument or default. Reported as the "verification_arguments" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.Value> 
+      getArgumentsList();
+  /**
+   * <pre>
+   * Values for the constraint's `in` parameters, in declaration order, as
+   * RunAnalysisRequest.arguments binds a case's; an argument the constraint
+   * does not take is INVALID_ARGUMENT, as is a parameter left without an
+   * argument or default. Reported as the "verification_arguments" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  org.openmbee.opensysml.proto.Value getArguments(int index);
+  /**
+   * <pre>
+   * Values for the constraint's `in` parameters, in declaration order, as
+   * RunAnalysisRequest.arguments binds a case's; an argument the constraint
+   * does not take is INVALID_ARGUMENT, as is a parameter left without an
+   * argument or default. Reported as the "verification_arguments" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  int getArgumentsCount();
+  /**
+   * <pre>
+   * Values for the constraint's `in` parameters, in declaration order, as
+   * RunAnalysisRequest.arguments binds a case's; an argument the constraint
+   * does not take is INVALID_ARGUMENT, as is a parameter left without an
+   * argument or default. Reported as the "verification_arguments" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.ValueOrBuilder> 
+      getArgumentsOrBuilderList();
+  /**
+   * <pre>
+   * Values for the constraint's `in` parameters, in declaration order, as
+   * RunAnalysisRequest.arguments binds a case's; an argument the constraint
+   * does not take is INVALID_ARGUMENT, as is a parameter left without an
+   * argument or default. Reported as the "verification_arguments" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.Value arguments = 6 [json_name = "arguments"];</code>
+   */
+  org.openmbee.opensysml.proto.ValueOrBuilder getArgumentsOrBuilder(
+      int index);
+
+  /**
+   * <pre>
+   * Values for `in` parameters by name; see arguments.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  int getNamedArgumentsCount();
+  /**
+   * <pre>
+   * Values for `in` parameters by name; see arguments.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  boolean containsNamedArguments(
+      java.lang.String key);
+  /**
+   * Use {@link #getNamedArgumentsMap()} instead.
+   */
+  @java.lang.Deprecated
+  java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value>
+  getNamedArguments();
+  /**
+   * <pre>
+   * Values for `in` parameters by name; see arguments.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value>
+  getNamedArgumentsMap();
+  /**
+   * <pre>
+   * Values for `in` parameters by name; see arguments.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  /* nullable */
+org.openmbee.opensysml.proto.Value getNamedArgumentsOrDefault(
+      java.lang.String key,
+      /* nullable */
+org.openmbee.opensysml.proto.Value defaultValue);
+  /**
+   * <pre>
+   * Values for `in` parameters by name; see arguments.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; named_arguments = 7 [json_name = "namedArguments"];</code>
+   */
+  org.openmbee.opensysml.proto.Value getNamedArgumentsOrThrow(
+      java.lang.String key);
 }

@@ -29,7 +29,7 @@ func TestPowValues(t *testing.T) {
 		{"zero exponent is one", intVal(7), intVal(0), intVal(1)},
 		{"negative integer base, even exponent", intVal(-3), intVal(2), intVal(9)},
 		{"negative integer base, odd exponent", intVal(-3), intVal(3), intVal(-27)},
-		{"negative exponent gives a Real", intVal(2), intVal(-1), realVal(0.5)},
+		{"negative exponent gives a Rational", intVal(2), intVal(-1), ratVal(1, 2)},
 		{"real base and exponent", realVal(2), realVal(0.5), realVal(math.Sqrt2)},
 		{"mixed operands widen to Real", intVal(9), realVal(0.5), realVal(3)},
 		{"negative base with whole real exponent", realVal(-2), realVal(3), realVal(-8)},
@@ -86,7 +86,7 @@ func TestFoldExponentiation(t *testing.T) {
 		"2 ^ 3":                    intVal(8),
 		"2.0 ** 0.5":               realVal(math.Sqrt2),
 		"9 ** 0.5":                 realVal(3),
-		"2 ** -2":                  realVal(0.25),
+		"2 ** -2":                  ratVal(1, 4),
 		"9223372036854775807 ** 2": bigVal("85070591730234615847396907784232501249"),
 	}
 	for src, want := range folded {
@@ -106,4 +106,12 @@ func TestFoldExponentiation(t *testing.T) {
 			t.Errorf("%q folded to %+v, want declined", src, v)
 		}
 	}
+}
+
+func ratVal(num, den int64) Value {
+	v, ok := FracValue(num, den)
+	if !ok {
+		panic("zero denominator")
+	}
+	return v
 }

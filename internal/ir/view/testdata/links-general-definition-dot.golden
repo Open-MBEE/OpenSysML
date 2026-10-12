@@ -1,0 +1,36 @@
+// view: GeneralViews::definitionView
+// kind: definition
+// stated: view def GeneralView, filter @Definition or @Usage
+// layout: dot
+digraph "GeneralViews::definitionView" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>, URL="https://example.test/src/general.sysml#L4", tooltip="VehicleStructure::Vehicle"];
+  "n1" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Chassis</b>>, URL="https://example.test/src/general.sysml#L9", tooltip="VehicleStructure::Chassis"];
+  "n2" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>LightChassis</b>>, URL="https://example.test/src/general.sysml#L10", tooltip="VehicleStructure::LightChassis"];
+  "n3" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Driver</b>>, URL="https://example.test/src/general.sysml#L11", tooltip="VehicleStructure::Driver"];
+  "n4" [label=<<font point-size="10"><i>«action def»</i></font><br/><b>Brake</b>>, URL="https://example.test/src/general.sysml#L12", tooltip="VehicleStructure::Brake"];
+  "n5" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>vehicle : Vehicle</b>>, URL="https://example.test/src/general.sysml#L14", tooltip="VehicleStructure::vehicle"];
+  "n6" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>heavyVehicle : Vehicle</b>>, URL="https://example.test/src/general.sysml#L17", tooltip="VehicleStructure::heavyVehicle"];
+  "n7" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>brake : Brake</b>>, URL="https://example.test/src/general.sysml#L20", tooltip="VehicleStructure::brake"];
+  "n8" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass : Real</b>>, URL="https://example.test/src/general.sysml#L5", tooltip="VehicleStructure::Vehicle::mass"];
+  "n9" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>chassis : Chassis</b>>, URL="https://example.test/src/general.sysml#L6", tooltip="VehicleStructure::Vehicle::chassis"];
+  "n10" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>driver : Driver</b>>, URL="https://example.test/src/general.sysml#L7", tooltip="VehicleStructure::Vehicle::driver"];
+  "n11" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>, URL="https://example.test/src/general.sysml#L15", tooltip="VehicleStructure::vehicle::mass"];
+  "n12" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>, URL="https://example.test/src/general.sysml#L18", tooltip="VehicleStructure::heavyVehicle::mass"];
+  "n13" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Powertrain::Engine</b>>, URL="https://example.test/src/general.sysml#L23", tooltip="VehicleStructure::Powertrain::Engine"];
+  "n2" -> "n1" [arrowhead=empty, URL="https://example.test/src/general.sysml#L10", tooltip="VehicleStructure::LightChassis"];
+  "n5" -> "n0" [arrowhead=empty, style=dashed, URL="https://example.test/src/general.sysml#L14", tooltip="VehicleStructure::vehicle"];
+  "n6" -> "n0" [arrowhead=empty, style=dashed, URL="https://example.test/src/general.sysml#L17", tooltip="VehicleStructure::heavyVehicle"];
+  "n7" -> "n4" [arrowhead=empty, style=dashed, URL="https://example.test/src/general.sysml#L20", tooltip="VehicleStructure::brake"];
+  "n0" -> "n8" [dir=back, arrowtail=odiamond, URL="https://example.test/src/general.sysml#L5", tooltip="VehicleStructure::Vehicle::mass"];
+  "n9" -> "n1" [arrowhead=empty, style=dashed, URL="https://example.test/src/general.sysml#L6", tooltip="VehicleStructure::Vehicle::chassis"];
+  "n0" -> "n9" [dir=back, arrowtail=diamond, URL="https://example.test/src/general.sysml#L6", tooltip="VehicleStructure::Vehicle::chassis"];
+  "n10" -> "n3" [arrowhead=empty, style=dashed, URL="https://example.test/src/general.sysml#L7", tooltip="VehicleStructure::Vehicle::driver"];
+  "n0" -> "n10" [dir=back, arrowtail=odiamond, URL="https://example.test/src/general.sysml#L7", tooltip="VehicleStructure::Vehicle::driver"];
+  "n11" -> "n8" [label="redefines", arrowhead=empty, URL="https://example.test/src/general.sysml#L15", tooltip="VehicleStructure::vehicle::mass"];
+  "n5" -> "n11" [dir=back, arrowtail=odiamond, URL="https://example.test/src/general.sysml#L15", tooltip="VehicleStructure::vehicle::mass"];
+  "n12" -> "n8" [label="redefines", arrowhead=empty, URL="https://example.test/src/general.sysml#L18", tooltip="VehicleStructure::heavyVehicle::mass"];
+  "n6" -> "n12" [dir=back, arrowtail=odiamond, URL="https://example.test/src/general.sysml#L18", tooltip="VehicleStructure::heavyVehicle::mass"];
+}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
@@ -101,6 +102,11 @@ func (s *Session) lookupSymbolOfKinds(name string, want ...symbols.SymbolKind) (
 	case 1:
 		return matches[0], idx.GetFQN(matches[0]), nil
 	default:
+		// A root declaration's qualified name is its simple name; nothing more
+		// qualified can be written for it, so it wins over nested namesakes.
+		if roots := s.nameTable().roots[name]; len(roots) == 1 {
+			return roots[0], idx.GetFQN(roots[0]), nil
+		}
 		return nil, "", ambiguousError(name, matches, idx)
 	}
 }
@@ -145,48 +151,19 @@ func (s *Session) heldRoot(fqn string) (*runtime.Instance, string, []string) {
 }
 
 // featureChainSymbol resolves a qualified name whose later segments are members
-// of the type of the segment before them (Outer::inner::b::c): the index
-// registers a declaration only under its own owner, so such a chain is walked
-// through the model's member lookup, which follows typing and specialization.
-// The second result is the fully-qualified name the symbol is declared under.
+// of the type of the segment before them — one a subtype inherits
+// (Sub::inherited) or one reached through a feature's type (Outer::inner::b) —
+// which the index registers no declaration under, through the model's member
+// lookup, so typing, specialization and redefinition are followed as the
+// notation resolves them. The second result is the fully-qualified name the
+// symbol is declared under.
 func (s *Session) featureChainSymbol(name string) (*symbols.Symbol, string) {
-	segments := strings.Split(name, "::")
-	if len(segments) < 3 {
-		return nil, ""
-	}
 	idx := s.browseIndex()
 	ctx, err := s.getOrCreateRuntime()
 	if idx == nil || err != nil {
 		return nil, ""
 	}
-	model := ctx.Semantics()
-	// The longest prefix a declaration answers to is the chain's root, so a
-	// nested feature is preferred over the type it happens to share a name with.
-	for i := len(segments) - 1; i > 0; i-- {
-		matches := idx.LookupQualified(strings.Join(segments[:i], "::"))
-		if len(matches) != 1 {
-			continue
-		}
-		sym := matches[0]
-		walked := true
-		for _, seg := range segments[i:] {
-			member, ok := model.LookupMember(sym, seg)
-			if !ok || member == nil {
-				walked = false
-				break
-			}
-			sym = member
-		}
-		if !walked {
-			continue
-		}
-		fqn := idx.GetFQN(sym)
-		if fqn == "" {
-			fqn = name
-		}
-		return sym, fqn
-	}
-	return nil, ""
+	return symbolfacts.MemberChain(idx, ctx.Semantics(), name)
 }
 
 // carrierLimit bounds the object graph a subject is searched through, so a
@@ -904,6 +881,7 @@ func ambiguousError(name string, matches []*symbols.Symbol, idx *symbols.Index) 
 type nameTable struct {
 	scopes []*symbols.Scope // the trees the table was built from
 	byName map[string][]*symbols.Symbol
+	roots  map[string][]*symbols.Symbol // the declarations of the documents' root namespaces, by name
 }
 
 // nameTable returns the table over the session's current documents, rebuilt
@@ -919,9 +897,12 @@ func (s *Session) nameTable() *nameTable {
 // buildNameTable tabulates every scope tree in turn, a scope's own members before
 // its children's; a body-local scope is skipped with everything nested in it.
 func buildNameTable(scopes []*symbols.Scope) *nameTable {
-	t := &nameTable{scopes: scopes, byName: make(map[string][]*symbols.Symbol)}
+	t := &nameTable{scopes: scopes, byName: make(map[string][]*symbols.Symbol), roots: make(map[string][]*symbols.Symbol)}
 	for _, scope := range scopes {
 		t.collect(scope)
+		for _, name := range scope.MemberNames() {
+			t.roots[name] = append(t.roots[name], declaredUnder(scope, name)...)
+		}
 	}
 	return t
 }
@@ -931,11 +912,24 @@ func (t *nameTable) collect(scope *symbols.Scope) {
 		return
 	}
 	for _, name := range scope.MemberNames() {
-		t.byName[name] = append(t.byName[name], symbols.PreferDeclared(scope.LookupLocalAll(name))...)
+		t.byName[name] = append(t.byName[name], declaredUnder(scope, name)...)
 	}
 	for _, child := range scope.Children() {
 		t.collect(child)
 	}
+}
+
+// declaredUnder returns the declarations scope itself holds under name, each once
+// although one whose short and primary names coincide is registered under both.
+func declaredUnder(scope *symbols.Scope, name string) []*symbols.Symbol {
+	syms := symbols.PreferDeclared(scope.LookupLocalAll(name))
+	out := syms[:0:0]
+	for _, sym := range syms {
+		if !slices.Contains(out, sym) {
+			out = append(out, sym)
+		}
+	}
+	return out
 }
 
 // lookup returns every declaration of name in scope-tree order. The slice is

@@ -84,6 +84,39 @@ func TestDidChangeConfigurationRepublishesUnderTheNewMode(t *testing.T) {
 	}
 }
 
+// lspIndistinguishable declares one name twice in one namespace: a warning in
+// the editor by default, an error once the editor asks strictly (KerML 8.3.2.4.5).
+const lspIndistinguishable = "package P { part def A; part def A; }"
+
+func TestStrictConformanceSettingEscalatesIndistinguishableMemberships(t *testing.T) {
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	fc := &fakeClient{}
+	s.client = fc
+
+	ws.Open("a.sysml", []byte(lspIndistinguishable), 1)
+	s.publishDiagnostics(context.Background(), "a.sysml")
+	if sev := firstSeverity(t, fc.all()); sev != protocol.DiagnosticSeverityWarning {
+		t.Fatalf("default severity = %v, want warning", sev)
+	}
+
+	if err := s.DidChangeConfiguration(context.Background(), &protocol.DidChangeConfigurationParams{
+		Settings: map[string]any{"strictConformance": true},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	published := fc.all()
+	last := published[len(published)-1]
+	if len(last.Diagnostics) != 2 {
+		t.Fatalf("strict publish = %+v, want the two duplicate-name findings", last.Diagnostics)
+	}
+	for _, d := range last.Diagnostics {
+		if d.Severity != protocol.DiagnosticSeverityError || d.Message != "Duplicate of other owned member name" {
+			t.Fatalf("strict publish = %+v, want two errors `Duplicate of other owned member name`", last.Diagnostics)
+		}
+	}
+}
+
 // A payload that says nothing about the mode publishes nothing new.
 func TestDidChangeConfigurationIgnoresUnrelatedSettings(t *testing.T) {
 	ws := model.NewWorkspace()

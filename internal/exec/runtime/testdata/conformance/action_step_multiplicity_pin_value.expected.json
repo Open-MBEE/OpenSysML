@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::PinValue",
+	"outputs": {
+		"total": {"type": "Integer", "value": 10}
+	}
+}

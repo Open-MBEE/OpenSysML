@@ -1,0 +1,32 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "tenthsSum": {"type": "Rational", "value": "0.3"},
+    "tenthsSumIsThreeTenths": {"type": "Boolean", "value": true},
+    "third": {"type": "Rational", "value": "1/3"},
+    "thirdTimesThree": {"type": "Rational", "value": "1.0"},
+    "thirdTimesThreeIsOne": {"type": "Boolean", "value": true},
+    "thirds": {"type": "Rational", "value": "2/3"},
+    "difference": {"type": "Rational", "value": "0.2"},
+    "quotient": {"type": "Rational", "value": "1/3"},
+    "power": {"type": "Rational", "value": "8/27"},
+    "inversePower": {"type": "Rational", "value": "2.25"},
+    "exponentLiteral": {"type": "Rational", "value": "1500.0"},
+    "smallExponentLiteral": {"type": "Rational", "value": "0.025"},
+    "thirdIsBelow": {"type": "Boolean", "value": true},
+    "absolute": {"type": "Rational", "value": "1/3"},
+    "floored": {"type": "Integer", "value": -4},
+    "rounded": {"type": "Integer", "value": 3},
+    "largest": {"type": "Rational", "value": "1/3"},
+    "smallest": {"type": "Rational", "value": "0.3"},
+    "total": {"type": "Rational", "value": "0.6"},
+    "product": {"type": "Rational", "value": "0.25"},
+    "gcd": {"type": "Integer", "value": 2},
+    "text": {"type": "String", "value": "1/3"},
+    "fromText": {"type": "Rational", "value": "1/3"},
+    "fromDecimalText": {"type": "Rational", "value": "0.125"},
+    "root": {"type": "Real", "value": 0.5}
+  }
+}

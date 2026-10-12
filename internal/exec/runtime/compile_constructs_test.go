@@ -193,7 +193,7 @@ func wantOutcomeReal(t *testing.T, name string, got calcOutcome, want float64) {
 	if got.err != nil {
 		t.Fatalf("%s: %v", name, got.err)
 	}
-	if got.value.Kind != ValConst || got.value.Const.Kind != semantics.ValReal || got.value.Const.Real != want {
+	if got.value.Kind != ValConst || got.value.Const.Kind != semantics.ValReal || got.value.Const.AsReal() != want {
 		t.Fatalf("%s = %s, want %g", name, FormatTraceValue(got.value), want)
 	}
 }

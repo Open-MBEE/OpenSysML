@@ -9,10 +9,10 @@ import (
 // realValue reports the real a feature value holds.
 func realValue(t *testing.T, v Value) float64 {
 	t.Helper()
-	if v.Kind != ValConst || v.Const.Kind != semantics.ValReal {
-		t.Fatalf("value is %v, want a real", v)
+	if v.Kind != ValConst || (v.Const.Kind != semantics.ValReal && v.Const.Kind != semantics.ValRational) {
+		t.Fatalf("value is %v, want a Real or a Rational", v)
 	}
-	return v.Const.Real
+	return v.Const.AsReal()
 }
 
 // A usage's `that` names the object featuring the usage's values, so a chain

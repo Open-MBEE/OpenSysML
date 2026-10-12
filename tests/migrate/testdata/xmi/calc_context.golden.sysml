@@ -21,7 +21,6 @@ part def Plant {
         }
         action rate {
             in factor[1];
-            out result[1];
             out result[1] = Tank::Rate(Run::context.tank, factor);
         }
         first rate then final;

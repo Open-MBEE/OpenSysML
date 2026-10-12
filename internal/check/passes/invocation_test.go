@@ -24,11 +24,18 @@ func libraryDiagsOf(root *ast.RootNamespace) []diag.Diagnostic {
 	idx.ExpandWildcardImports()
 	var out []diag.Diagnostic
 	for _, d := range Analyze("<t>", root, nil, idx) {
-		if d.Source == "type" || d.Source == "name-resolution" {
+		if (d.Source == "type" || d.Source == "name-resolution") && !overloadSetNameConflict(d) {
 			out = append(out, d)
 		}
 	}
 	return out
+}
+
+// overloadSetNameConflict is the warning an overload set earns for its
+// indistinguishable memberships, owned, inherited or imported; these suites test
+// the selection among the overloads, and distinguishability has tests of its own.
+func overloadSetNameConflict(d diag.Diagnostic) bool {
+	return d.Code == "name-conflict" && strings.HasPrefix(d.Message, "Duplicate of ")
 }
 
 func wantLibraryClean(t *testing.T, src string) {
@@ -141,11 +148,9 @@ func TestInvocationOverloadQuantities(t *testing.T) {
 		private import ScalarValues::*;
 		private import ISQ::*;
 		private import SI::*;
-		package A { calc def weigh { in x : MassValue; return : Boolean = true; } }
-		package B { calc def weigh { in x : LengthValue; return : String = "long"; } }
-		package C {
-			private import A::*;
-			private import B::*;
+		part def A { calc def weigh { in x : MassValue; return : Boolean = true; } }
+		part def B { calc def weigh { in x : LengthValue; return : String = "long"; } }
+		part def C :> A, B {
 			attribute mass : MassValue = 2 [kg];
 			attribute l : LengthValue = 3 [m];
 			attribute %s
@@ -164,13 +169,10 @@ func TestInvocationOverloadDisjointDeclaredTypes(t *testing.T) {
 		private import ScalarValues::*;
 		private import ISQ::*;
 		private import SI::*;
-		package A { calc def weigh { in x : VolumeValue; return : Boolean = true; } }
-		package B { calc def weigh { in x : LengthValue; return : String = "long"; } }
-		package D { calc def single { in x : VolumeValue; return : Boolean = true; } }
-		package C {
-			private import A::*;
-			private import B::*;
-			private import D::*;
+		part def A { calc def weigh { in x : VolumeValue; return : Boolean = true; } }
+		part def B { calc def weigh { in x : LengthValue; return : String = "long"; } }
+		part def D { calc def single { in x : VolumeValue; return : Boolean = true; } }
+		part def C :> A, B, D {
 			attribute mass : MassValue = 2 [kg];
 			attribute q : Quantities::ScalarQuantityValue = 3 [m];
 			attribute %s
@@ -206,15 +208,11 @@ func TestInvocationOverloadElementParameter(t *testing.T) {
 		part telescope : Telescope;
 		part station : GroundStation;
 		part antenna : Antenna;
-		package A { calc def pick { in e : Element; return : Integer = 1; } }
-		package B { calc def pick { in t : Telescope; return : String = "t"; } }
-		package C { calc def pick { in a : Anything; return : Boolean = true; } }
-		package E { calc def single { in e : Element; return : Integer = 5; } }
-		package Use {
-			private import A::*;
-			private import B::*;
-			private import C::*;
-			private import E::*;
+		part def A { calc def pick { in e : Element; return : Integer = 1; } }
+		part def B { calc def pick { in t : Telescope; return : String = "t"; } }
+		part def C { calc def pick { in a : Anything; return : Boolean = true; } }
+		part def E { calc def single { in e : Element; return : Integer = 5; } }
+		part def Use :> A, B, C, E {
 			attribute %s
 		}
 	}`
@@ -231,11 +229,9 @@ func TestInvocationOverloadElementParameter(t *testing.T) {
 func TestInvocationOverloadAmbiguous(t *testing.T) {
 	wantLibraryDiag(t, `package P {
 		private import ScalarValues::*;
-		package A { calc def pick { in x : Integer; in y : Real; return : Integer = 1; } }
-		package B { calc def pick { in x : Real; in y : Integer; return : Integer = 2; } }
-		package C {
-			private import A::*;
-			private import B::*;
+		part def A { calc def pick { in x : Integer; in y : Real; return : Integer = 1; } }
+		part def B { calc def pick { in x : Real; in y : Integer; return : Integer = 2; } }
+		part def C :> A, B {
 			attribute tied = pick(1, 2);
 		}
 	}`, "invocation-ambiguous", "call of pick is ambiguous between P::A::pick, P::B::pick")
@@ -247,13 +243,10 @@ func TestInvocationOverloadAmbiguityNamesOnlyTheTiedBest(t *testing.T) {
 	diags := libraryDiags(t, `package P {
 		private import ScalarValues::*;
 		attribute def Mass :> Real;
-		package A { calc def pick { in x : P::Mass; return : Integer = 1; } }
-		package B { calc def pick { in x : P::Mass; return : Integer = 2; } }
-		package C { calc def pick { in x : Real; return : Integer = 3; } }
-		package D {
-			private import A::*;
-			private import B::*;
-			private import C::*;
+		part def A { calc def pick { in x : P::Mass; return : Integer = 1; } }
+		part def B { calc def pick { in x : P::Mass; return : Integer = 2; } }
+		part def C { calc def pick { in x : Real; return : Integer = 3; } }
+		part def D :> A, B, C {
 			attribute m : Mass;
 			attribute tied = pick(m);
 		}
@@ -269,11 +262,9 @@ func TestInvocationOverloadAmbiguityNamesOnlyTheTiedBest(t *testing.T) {
 func TestInvocationOverloadNoneApplicable(t *testing.T) {
 	wantLibraryDiag(t, `package P {
 		private import ScalarValues::*;
-		package A { calc def pick { in x : Integer; in y : Real; return : Integer = 1; } }
-		package B { calc def pick { in x : Real; in y : Integer; return : Integer = 2; } }
-		package C {
-			private import A::*;
-			private import B::*;
+		part def A { calc def pick { in x : Integer; in y : Real; return : Integer = 1; } }
+		part def B { calc def pick { in x : Real; in y : Integer; return : Integer = 2; } }
+		part def C :> A, B {
 			attribute none = pick("a", 2);
 		}
 	}`, "type.expr", `argument 1 of pick expects Integer, found String (candidates: P::A::pick, P::B::pick)`)
@@ -300,11 +291,9 @@ func TestInvocationOverloadNoneApplicableReportsAgainstTheCallable(t *testing.T)
 func TestInvocationOverloadOmittedInputSelectsTheFittingCandidate(t *testing.T) {
 	wantLibraryWarning(t, `package P {
 		private import ScalarValues::*;
-		package A { calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { calc def pick { in s : String; in y : Real[1]; return : Integer = 2; } }
-		package C {
-			private import A::*;
-			private import B::*;
+		part def A { calc def pick { in x : Integer; return : Integer = 1; } }
+		part def B { calc def pick { in s : String; in y : Real[1]; return : Integer = 2; } }
+		part def C :> A, B {
 			attribute partial = pick("a");
 		}
 	}`, CodeUnboundParameter, "pick leaves parameter y unbound, so the call cannot be evaluated")
@@ -315,11 +304,9 @@ func TestInvocationOverloadOmittedInputSelectsTheFittingCandidate(t *testing.T) 
 func TestInvocationOverloadCompleteCandidateBeatsOmission(t *testing.T) {
 	wantLibraryClean(t, `package P {
 		private import ScalarValues::*;
-		package A { calc def pick { in x : Real; in y : Real; return : Real = x + y; } }
-		package B { calc def pick { in x : Integer; return : Integer = x; } }
-		package C {
-			private import A::*;
-			private import B::*;
+		part def A { calc def pick { in x : Real; in y : Real; return : Real = x + y; } }
+		part def B { calc def pick { in x : Integer; return : Integer = x; } }
+		part def C :> A, B {
 			attribute r : Real = 2.5;
 			attribute exact = pick(2);
 			attribute loose = pick(r);
@@ -333,11 +320,9 @@ func TestInvocationOverloadOmittedInputsAreAmbiguous(t *testing.T) {
 	for _, call := range []string{"pick(1.0)", "pick()"} {
 		wantLibraryDiag(t, `package P {
 			private import ScalarValues::*;
-			package A { calc def pick { in x : Real; in y : Real; return : Real = x + y; } }
-			package B { calc def pick { in x : Real; in z : String; return : Real = x; } }
-			package C {
-				private import A::*;
-				private import B::*;
+			part def A { calc def pick { in x : Real; in y : Real; return : Real = x + y; } }
+			part def B { calc def pick { in x : Real; in z : String; return : Real = x; } }
+			part def C :> A, B {
 				attribute tied = `+call+`;
 			}
 		}`, "invocation-ambiguous", "call of pick is ambiguous between P::A::pick, P::B::pick")
@@ -422,17 +407,12 @@ func TestInvocationOverloadUnknownArgumentType(t *testing.T) {
 
 	const model = `package P {
 		private import ScalarValues::*;
-		package A { calc def pick { in x : Integer; in n : Integer; return : Integer = 1; } }
-		package B { calc def pick { in x : Real; in n : Integer; return : Integer = 2; } }
-		package F { calc def pick { in x : Integer; in flag : Boolean; return : Integer = 3; } }
-		package D { calc def scale { in x; in by : Integer; return : Integer = 1; } }
-		package E { calc def scale { in x; in by : Real; return : Integer = 2; } }
-		package C {
-			private import A::*;
-			private import B::*;
-			private import F::*;
-			private import D::*;
-			private import E::*;
+		part def A { calc def pick { in x : Integer; in n : Integer; return : Integer = 1; } }
+		part def B { calc def pick { in x : Real; in n : Integer; return : Integer = 2; } }
+		part def F { calc def pick { in x : Integer; in flag : Boolean; return : Integer = 3; } }
+		part def D { calc def scale { in x; in by : Integer; return : Integer = 1; } }
+		part def E { calc def scale { in x; in by : Real; return : Integer = 2; } }
+		part def C :> A, B, F, D, E {
 			attribute untyped;
 			attribute %s
 		}
@@ -452,16 +432,12 @@ func TestInvocationOverloadUnknownArgumentType(t *testing.T) {
 	// the error it is under known arguments, not an advisory the run would only repeat.
 	const alike = `package P {
 		private import ScalarValues::*;
-		package A { calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { calc def pick { in x : Integer; return : Integer = 2; } }
-		package D { calc def cross { in x : Integer; in y : Real; in z : Integer; return : Integer = 1; } }
-		package E { calc def cross { in x : Real; in y : Integer; in z : Integer; return : Integer = 2; } }
-		package F { calc def cross { in x : Integer; in y : Real; in z : String; return : Integer = 3; } }
-		package C {
-			private import A::*;
-			private import B::*;
-			private import D::*;
-			private import E::*;
+		part def A { calc def pick { in x : Integer; return : Integer = 1; } }
+		part def B { calc def pick { in x : Integer; return : Integer = 2; } }
+		part def D { calc def cross { in x : Integer; in y : Real; in z : Integer; return : Integer = 1; } }
+		part def E { calc def cross { in x : Real; in y : Integer; in z : Integer; return : Integer = 2; } }
+		part def F { calc def cross { in x : Integer; in y : Real; in z : String; return : Integer = 3; } }
+		part def C :> A, B, D, E {
 			attribute untyped;
 			attribute %s
 		}
@@ -471,7 +447,7 @@ func TestInvocationOverloadUnknownArgumentType(t *testing.T) {
 	wantLibraryDiag(t, fmt.Sprintf(alike, `crossed = cross(1, 2, untyped);`), "invocation-ambiguous",
 		"call of cross is ambiguous between P::D::cross, P::E::cross")
 	// Differing where the unknown argument binds, a value may still single one out.
-	wantLibraryWarning(t, fmt.Sprintf(strings.Replace(alike, "private import E::*;", "private import F::*;", 1),
+	wantLibraryWarning(t, fmt.Sprintf(strings.Replace(alike, "D, E {", "D, F {", 1),
 		`crossed = cross(1, 2, untyped);`), "invocation-ambiguous",
 		"call of cross is undetermined between P::D::cross, P::F::cross")
 }
@@ -482,11 +458,9 @@ func TestInvocationOverloadUnknownArgumentType(t *testing.T) {
 func TestInvocationOverloadUntypedParameterIsLeastSpecific(t *testing.T) {
 	const model = `package P {
 		private import ScalarValues::*;
-		package A { calc def pick { in x : Real; in y%s; return : String = "loose"; } }
-		package B { calc def pick { in x : Real; in y : Integer; return : Integer = 2; } }
-		package C {
-			private import A::*;
-			private import B::*;
+		part def A { calc def pick { in x : Real; in y%s; return : String = "loose"; } }
+		part def B { calc def pick { in x : Real; in y : Integer; return : Integer = 2; } }
+		part def C :> A, B {
 			attribute %s
 		}
 	}`
@@ -506,11 +480,9 @@ func TestInvocationOverloadExplicitAnythingEqualsUntyped(t *testing.T) {
 	const model = `package P {
 		private import ScalarValues::*;
 		private import Base::Anything;
-		package A { calc def pick { in x : Real; in y : Anything; return : String = "a"; } }
-		package B { calc def pick { in x : Real; in y%s; return : Integer = 2; } }
-		package C {
-			private import A::*;
-			private import B::*;
+		part def A { calc def pick { in x : Real; in y : Anything; return : String = "a"; } }
+		part def B { calc def pick { in x : Real; in y%s; return : Integer = 2; } }
+		part def C :> A, B {
 			attribute w : Real = 1.0;
 			attribute v : Integer = 2;
 			attribute %s
@@ -532,11 +504,9 @@ func TestInvocationOverloadCrossedSpecificityIsAmbiguous(t *testing.T) {
 		private import ScalarValues::*;
 		private import Base::Anything;
 		attribute def Foo;
-		package A { calc def pick { in x%s; in y : Real; return : String = "a"; } }
-		package B { calc def pick { in x : Foo; in y%s; return : Integer = 2; } }
-		package C {
-			private import A::*;
-			private import B::*;
+		part def A { calc def pick { in x%s; in y : Real; return : String = "a"; } }
+		part def B { calc def pick { in x : Foo; in y%s; return : Integer = 2; } }
+		part def C :> A, B {
 			attribute f : Foo;
 			attribute w : Real = 1.0;
 			attribute r%s = pick(f, w);
@@ -586,18 +556,16 @@ func TestInvocationOverloadModelShadowsLibrary(t *testing.T) {
 // is checked against the action it does run.
 func TestInvocationPerformedActionSelectsAmongActions(t *testing.T) {
 	const actions = `
-		package A {
+		part def A {
 			private import ScalarValues::*;
 			calc def tag { in x : Integer; return : Integer = x + 1; }
 		}
-		package B {
+		part def B {
 			private import ScalarValues::*;
 			action def tag { in x : %s; out code : Integer; }
 		}
-		package test {
+		part def test :> A, B {
 			private import ScalarValues::*;
-			private import A::*;
-			private import B::*;
 			action def Outer {
 				first start;
 				action call = tag(3);
@@ -613,33 +581,29 @@ func TestInvocationPerformedActionSelectsAmongActions(t *testing.T) {
 
 // An evaluated call prefers a calc it fits over a same-named action whose input fits
 // the argument more closely: the expression's result is the calc's, so its type is
-// checked against that calc, whichever import names it first. An action's inputs
+// checked against that calc, whichever general names it first. An action's inputs
 // fitting where no calc's do does not make it the call: the arguments are reported
 // against the calc, as the runtime would refuse to evaluate the action.
 func TestInvocationEvaluatedCallPrefersACalc(t *testing.T) {
 	const src = `
-		package A {
+		part def A {
 			private import ScalarValues::*;
 			action def pick { in x : Integer; out r : Integer; }
 		}
-		package B {
+		part def B {
 			private import ScalarValues::*;
 			calc def pick { in x : %s; return : String = "s"; }
 		}
-		package test {
+		part def test :> %s {
 			private import ScalarValues::*;
-			%s
 			attribute v : Integer = 3;
 			attribute %s
 		}
 	`
-	for _, imports := range []string{
-		"private import A::*; private import B::*;",
-		"private import B::*; private import A::*;",
-	} {
-		wantLibraryClean(t, fmt.Sprintf(src, "Real", imports, `s : String = pick(v);`))
-		wantLibraryDiag(t, fmt.Sprintf(src, "Real", imports, `i : Integer = pick(v);`), "type.expr", "String")
-		wantLibraryDiag(t, fmt.Sprintf(src, "Boolean", imports, `i : Integer = pick(v);`),
+	for _, generals := range []string{"A, B", "B, A"} {
+		wantLibraryClean(t, fmt.Sprintf(src, "Real", generals, `s : String = pick(v);`))
+		wantLibraryDiag(t, fmt.Sprintf(src, "Real", generals, `i : Integer = pick(v);`), "type.expr", "String")
+		wantLibraryDiag(t, fmt.Sprintf(src, "Boolean", generals, `i : Integer = pick(v);`),
 			"type.expr", "argument 1 of pick expects Boolean, found Integer (candidates: ")
 	}
 }
@@ -649,17 +613,16 @@ func TestInvocationEvaluatedCallPrefersACalc(t *testing.T) {
 // behavior at all keeps its own diagnostic.
 func TestInvocationPerformedActionMustNameAnAction(t *testing.T) {
 	const calcs = `
-		package A {
+		part def A {
 			private import ScalarValues::*;
 			calc def tag { in x : Integer; return : Integer = x + 1; }
 		}
-		package B {
+		part def B {
 			private import ScalarValues::*;
 			calc def tag { in x : String; return : Integer = 2; }
 		}
-		package test {
+		part def test :> A {
 			private import ScalarValues::*;
-			private import A::*;
 			%s
 			part def Wheel;
 			action def Outer {
@@ -714,11 +677,9 @@ func TestInvocationQualifiedLibraryFunctionArgumentsChecked(t *testing.T) {
 func TestInvocationOverloadNamedArguments(t *testing.T) {
 	const model = `package P {
 		private import ScalarValues::*;
-		package A { calc def pick { in width : Integer; return : Integer = 1; } }
-		package B { calc def pick { in height : Integer; return : String = "h"; } }
-		package C {
-			private import A::*;
-			private import B::*;
+		part def A { calc def pick { in width : Integer; return : Integer = 1; } }
+		part def B { calc def pick { in height : Integer; return : String = "h"; } }
+		part def C :> A, B {
 			attribute %s
 		}
 	}`
@@ -733,11 +694,9 @@ func TestInvocationOverloadNamedArguments(t *testing.T) {
 func TestInvocationOverloadRepeatedNamedArgumentIsRefused(t *testing.T) {
 	const model = `package P {
 		private import ScalarValues::*;
-		package A { calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { calc def pick { in x : String; return : String = "s"; } }
-		package C {
-			private import A::*;
-			private import B::*;
+		part def A { calc def pick { in x : Integer; return : Integer = 1; } }
+		part def B { calc def pick { in x : String; return : String = "s"; } }
+		part def C :> A, B {
 			attribute %s
 		}
 		calc def one { in x : Integer; return : Integer = x; }
@@ -777,11 +736,9 @@ func TestInvocationOverloadSiblingScalarTypes(t *testing.T) {
 		private import ScalarValues::*;
 		attribute def Mass :> Real;
 		attribute def Volume :> Real;
-		package A { calc def label { in m : Mass; return : String = "mass"; } }
-		package B { calc def label { in v : Volume; return : Integer = 1; } }
-		package C {
-			private import A::*;
-			private import B::*;
+		part def A { calc def label { in m : Mass; return : String = "mass"; } }
+		part def B { calc def label { in v : Volume; return : Integer = 1; } }
+		part def C :> A, B {
 			attribute kg : Mass = 3.0;
 			attribute litre : Volume = 2.0;
 			attribute r : Real = 1.0;
@@ -817,10 +774,11 @@ func TestInvocationNamedArgumentsAreTypeChecked(t *testing.T) {
 		CodeUnboundParameter, `density leaves parameter v unbound`)
 }
 
-// Candidates come through re-exporting public imports and from general types; an
+// A namespace re-exporting two imports that bring distinct calcs of one name has no
+// such member (KerML 7.2.5.4), so a call through it is unresolved, with the hint; an
 // inherited member hides a same-named import, as for any other name.
 func TestInvocationOverloadReexportedAndInheritedCandidates(t *testing.T) {
-	wantLibraryClean(t, `package P {
+	wantLibraryDiag(t, `package P {
 		private import ScalarValues::*;
 		package A { calc def pick { in x : Integer; return : Integer = 1; } }
 		package B { calc def pick { in x : String; return : String = x; } }
@@ -831,9 +789,9 @@ func TestInvocationOverloadReexportedAndInheritedCandidates(t *testing.T) {
 		package C {
 			private import Both::*;
 			attribute i : Integer = pick(2);
-			attribute s : String = pick("s");
 		}
-	}`)
+	}`, "unresolved", "unresolved reference: pick — did you mean P::A::pick or P::B::pick? The name is hidden here: "+
+		"import A::* and import B::* bring distinct elements named 'pick', so none is a member; qualify the one meant: P::A::pick or P::B::pick.")
 	const inherited = `package P {
 		private import ScalarValues::*;
 		package B { calc def pick { in x : String; return : String = x; } }
@@ -850,10 +808,11 @@ func TestInvocationOverloadReexportedAndInheritedCandidates(t *testing.T) {
 		"type.expr", "argument 1 of pick expects Integer, found String")
 }
 
-// A qualified call reaches every overload its qualifier surfaces through public
-// imports or generals, not only the first; an owned overload hides them.
+// A qualified call reaches every overload its qualifier inherits from its generals,
+// not only the first; an owned overload hides what its public import surfaces; and a
+// qualifier that hides the name (two imports bringing distinct calcs) has no such member.
 func TestInvocationOverloadQualifiedReexportedAndInheritedCandidates(t *testing.T) {
-	wantLibraryClean(t, `package P {
+	diags := libraryDiags(t, `package P {
 		private import ScalarValues::*;
 		package A { calc def pick { in x : Integer; return : Integer = 1; } }
 		package B { calc def pick { in x : String; return : String = x; } }
@@ -864,7 +823,15 @@ func TestInvocationOverloadQualifiedReexportedAndInheritedCandidates(t *testing.
 		attribute i : Integer = Both::pick(2);
 		attribute s : String = Both::pick("s");
 	}`)
-	diags := libraryDiags(t, `package P {
+	if len(diags) != 2 {
+		t.Fatalf("expected both qualified calls unresolved, got %v", diags)
+	}
+	for _, d := range diags {
+		if d.Code != "unresolved" || d.Message != "unresolved reference: Both::pick" {
+			t.Fatalf("expected unresolved Both::pick, got %v", d)
+		}
+	}
+	diags = libraryDiags(t, `package P {
 		private import ScalarValues::*;
 		part def ByNumber { calc def pick { in x : Integer; return : Integer = x; } }
 		part def ByText { calc def pick { in x : String; return : String = x; } }
@@ -872,8 +839,8 @@ func TestInvocationOverloadQualifiedReexportedAndInheritedCandidates(t *testing.
 		attribute i : Integer = Derived::pick(2);
 		attribute s : String = Derived::pick("s");
 	}`)
-	if len(diags) != 1 || diags[0].Code != "name-conflict" || diags[0].Severity != diag.SeverityWarning {
-		t.Fatalf("expected only the inherited name-conflict warning, got %v", diags)
+	if len(diags) != 0 {
+		t.Fatalf("expected the inherited overloads to select, got %v", diags)
 	}
 	wantLibraryDiag(t, `package P {
 		private import ScalarValues::*;
@@ -901,8 +868,10 @@ func TestInvocationOverloadQualifiedInheritedHidesImported(t *testing.T) {
 		"type.expr", "argument 1 of pick expects String, found Natural")
 }
 
-// A general type's protected and public imports each contribute their overloads to
-// the bodies specializing it, not only the first import's.
+// Two calcs of one name a general type's protected or public imports bring as
+// distinct elements are hidden there (KerML 7.2.5.4), so the bodies specializing it
+// find no `pick`: the call is unresolved, with the hint naming the qualified names.
+// The imports collide in Base whatever their visibility, so a private one hides too.
 func TestInvocationOverloadCandidatesThroughInheritedImports(t *testing.T) {
 	const src = `package P {
 		private import ScalarValues::*;
@@ -921,36 +890,46 @@ func TestInvocationOverloadCandidatesThroughInheritedImports(t *testing.T) {
 			attribute s = pick("s");
 		}
 	}`
-	for _, visibility := range []string{"protected", "public"} {
-		for _, d := range libraryDiags(t, fmt.Sprintf(src, visibility)) {
-			if d.Code != "name-conflict" || d.Severity != diag.SeverityWarning {
-				t.Fatalf("%s import: expected only name-conflict warnings, got %v", visibility, d)
-			}
+	const hidden = "unresolved reference: pick — did you mean P::A::pick or P::B::pick? The name is hidden here: " +
+		"import A::* and import B::* bring distinct elements named 'pick', so none is a member; qualify the one meant: P::A::pick or P::B::pick."
+	for _, visibility := range []string{"protected", "public", "private"} {
+		diags := libraryDiags(t, fmt.Sprintf(src, visibility))
+		if len(diags) != 4 {
+			t.Fatalf("%s import: expected one unresolved call per attribute, got %v", visibility, diags)
 		}
-	}
-	// A private import is not inherited, so only A's overload is visible.
-	diags := libraryDiags(t, fmt.Sprintf(src, "private"))
-	if len(diags) != 2 {
-		t.Fatalf("expected one rejected call per body, got %v", diags)
-	}
-	for _, d := range diags {
-		if d.Code != "type.expr" || d.Message != "argument 1 of pick expects Integer, found String" {
-			t.Fatalf("unexpected diagnostic %v", d)
+		for _, d := range diags {
+			if d.Code != "unresolved" || d.Message != hidden {
+				t.Fatalf("%s import: unexpected diagnostic %v", visibility, d)
+			}
 		}
 	}
 }
 
 // A collection literal is typed by the type its elements share, so overloads
 // differing by element type select; a mixed one is of unknown type, which keeps
-// every candidate open.
+// every candidate open. Two imports bringing the overloads as distinct elements
+// hide the name instead (KerML 7.2.5.4): the call is unresolved, whatever the literal.
 func TestInvocationOverloadSelectsByCollectionLiteralElementType(t *testing.T) {
-	const src = `package P {
+	const imported = `package P {
 		private import ScalarValues::*;
 		package A { calc def count { in xs : String[*]; return : Integer = 1; } }
 		package B { calc def count { in xs : Integer[*]; return : Integer = 2; } }
 		package C {
 			private import A::*;
 			private import B::*;
+			attribute n : Integer = count(%s);
+		}
+	}`
+	for _, args := range []string{`("a", "b")`, `(1, 2, 3)`, `(1, "b")`, `()`} {
+		wantLibraryDiag(t, fmt.Sprintf(imported, args), "unresolved",
+			"unresolved reference: count — did you mean P::A::count or P::B::count? The name is hidden here: "+
+				"import A::* and import B::* bring distinct elements named 'count', so none is a member; qualify the one meant: P::A::count or P::B::count.")
+	}
+	const src = `package P {
+		private import ScalarValues::*;
+		part def A { calc def count { in xs : String[*]; return : Integer = 1; } }
+		part def B { calc def count { in xs : Integer[*]; return : Integer = 2; } }
+		part def C :> A, B {
 			attribute n : Integer = count(%s);
 		}
 	}`
@@ -969,11 +948,9 @@ func TestInvocationOverloadSelectsByCollectionLiteralElementType(t *testing.T) {
 		private import ScalarValues::*;
 		attribute def Mass :> Real;
 		attribute def Volume :> Real;
-		package A { calc def total { in ms : P::Mass[*]; return : Integer = 1; } }
-		package B { calc def total { in vs : P::Volume[*]; return : Integer = 2; } }
-		package C {
-			private import A::*;
-			private import B::*;
+		part def A { calc def total { in ms : P::Mass[*]; return : Integer = 1; } }
+		part def B { calc def total { in vs : P::Volume[*]; return : Integer = 2; } }
+		part def C :> A, B {
 			attribute m1 : Mass; attribute m2 : Mass; attribute v : Volume;
 			attribute n : Integer = total((m1, m2));
 			attribute k : Integer = total((v));
@@ -981,8 +958,10 @@ func TestInvocationOverloadSelectsByCollectionLiteralElementType(t *testing.T) {
 	}`)
 }
 
-// Every general type, owned member and recursive-import descendant contributes its
-// declaration; two sharing a name is a warning, not a lost candidate.
+// Every general type and owned member contributes its declaration; two sharing a
+// name is a warning, not a lost candidate. Two descendants of one recursive import
+// declaring the name as distinct elements hide it (KerML 7.2.5.4): the call is
+// unresolved, and the qualified names reach each.
 func TestInvocationOverloadCandidatesFromEveryGeneralAndRecursiveImport(t *testing.T) {
 	diags := libraryDiags(t, `package P {
 		private import ScalarValues::*;
@@ -993,8 +972,8 @@ func TestInvocationOverloadCandidatesFromEveryGeneralAndRecursiveImport(t *testi
 			attribute s : String = pick("s");
 		}
 	}`)
-	if len(diags) != 1 || diags[0].Code != "name-conflict" || diags[0].Severity != diag.SeverityWarning {
-		t.Fatalf("expected only the inherited name-conflict warning, got %v", diags)
+	if len(diags) != 0 {
+		t.Fatalf("expected the inherited overloads to select, got %v", diags)
 	}
 	diags = libraryDiags(t, `package P {
 		private import ScalarValues::*;
@@ -1021,15 +1000,10 @@ func TestInvocationOverloadCandidatesFromEveryGeneralAndRecursiveImport(t *testi
 		attribute qi : Integer = P::pick(2);
 		attribute qs : String = P::pick("s");
 	}`)
-	if len(diags) != 2 {
-		t.Fatalf("expected only the two owned name-conflict warnings, got %v", diags)
+	if len(diags) != 0 {
+		t.Fatalf("expected the owned and inherited overloads to select, got %v", diags)
 	}
-	for _, d := range diags {
-		if d.Code != "name-conflict" || d.Severity != diag.SeverityWarning {
-			t.Fatalf("expected only owned name-conflict warnings, got %v", diags)
-		}
-	}
-	wantLibraryClean(t, `package P {
+	const recursive = `package P {
 		private import ScalarValues::*;
 		package Lib {
 			package Numbers { calc def pick { in x : Integer; return : Integer = x; } }
@@ -1037,10 +1011,60 @@ func TestInvocationOverloadCandidatesFromEveryGeneralAndRecursiveImport(t *testi
 		}
 		package C {
 			private import Lib::**;
+			attribute %s
+		}
+	}`
+	wantLibraryDiag(t, fmt.Sprintf(recursive, `i : Integer = pick(2);`), "unresolved",
+		"unresolved reference: pick — did you mean P::Lib::Text::pick or P::Lib::Numbers::pick? The name is hidden here: "+
+			"import Lib::** brings distinct elements named 'pick', so none is a member; qualify the one meant: P::Lib::Numbers::pick or P::Lib::Text::pick.")
+	wantLibraryClean(t, fmt.Sprintf(recursive, `i : Integer = Numbers::pick(2); attribute s : String = Text::pick("s");`))
+}
+
+// Hiding is as narrow as the collision: an overload set owned by one namespace,
+// reached as its owned members, through one import or by inheritance, and a set
+// qualified through the namespaces that declare it, still select by signature.
+func TestInvocationOverloadSetWithinOneNamespaceSelects(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::*;
+		package Lib {
+			calc def pick { in x : Integer; return : Integer = x; }
+			calc def pick { in x : String; return : String = x; }
+		}
+		package A { calc def tag { in x : Integer; return : Integer = 1; } }
+		package B { calc def tag { in x : String; return : String = "s"; } }
+		part def Base {
+			calc def pick { in x : Integer; return : Integer = x; }
+			calc def pick { in x : String; return : String = x; }
+		}
+		package Owned {
+			calc def pick { in x : Integer; return : Integer = x; }
+			calc def pick { in x : String; return : String = x; }
 			attribute i : Integer = pick(2);
 			attribute s : String = pick("s");
 		}
-	}`)
+		package Imported {
+			private import Lib::*;
+			attribute i : Integer = pick(2);
+			attribute s : String = pick("s");
+			attribute %s
+		}
+		part def Inherited :> Base {
+			attribute i : Integer = pick(2);
+			attribute s : String = pick("s");
+		}
+		package Qualified {
+			private import A::*;
+			private import B::*;
+			attribute i : Integer = A::tag(2);
+			attribute s : String = B::tag("s");
+		}
+	}`
+	diags := libraryDiags(t, fmt.Sprintf(src, ``))
+	if len(diags) != 0 {
+		t.Fatalf("expected the owned, imported, inherited and qualified sets to select, got %v", diags)
+	}
+	wantLibraryDiag(t, fmt.Sprintf(src, `wrong : Integer = pick(true);`),
+		"type.expr", "argument 1 of pick expects Integer, found Boolean (candidates: P::Lib::pick, P::Lib::pick)")
 }
 
 // A performed action's input is omitted when it may hold no value or a default reaches
@@ -1083,14 +1107,14 @@ func TestInvocationOverloadDefaultedSubjectIsOptional(t *testing.T) {
 		private import ScalarValues::*;
 		part def Widget { attribute m : Real; }
 		part light : Widget { attribute :>> m = 1.0; }
-		package A {
+		part def A {
 			requirement def Light {
 				%s
 				in limit : Real;
 				require constraint { limit > 0.0 }
 			}
 		}
-		package B {
+		part def B {
 			requirement def Light {
 				subject w : Widget;
 				in limit : Real;
@@ -1098,9 +1122,7 @@ func TestInvocationOverloadDefaultedSubjectIsOptional(t *testing.T) {
 				require constraint { limit + slack > 0.0 }
 			}
 		}
-		package C {
-			private import A::*;
-			private import B::*;
+		part def C :> A, B {
 			attribute ok : Boolean = Light(limit = 2.0);
 		}
 	}`

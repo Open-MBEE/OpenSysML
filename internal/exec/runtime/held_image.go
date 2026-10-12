@@ -585,7 +585,10 @@ func (img *HeldImage) Materialize(dst *Context) error {
 	if err := img.clockFree(dst); err != nil {
 		return err
 	}
-	m := &materializing{dst: dst, img: img, made: make(map[int64]*Instance, len(img.objects))}
+	m := &materializing{
+		dst: dst, img: img, made: make(map[int64]*Instance, len(img.objects)),
+		nextMessageSerial: dst.messageSerial, messageSerials: make(map[uint64]uint64),
+	}
 	mark := dst.materializeMark()
 	if err := m.run(); err != nil {
 		mark.rollBack(dst)
@@ -691,11 +694,13 @@ func (mark materializeMark) rollBack(ctx *Context) {
 
 // materializing builds one context's objects for an image.
 type materializing struct {
-	dst      *Context
-	img      *HeldImage
-	made     map[int64]*Instance
-	runs     []*runState
-	recorded []sharedKey
+	dst               *Context
+	img               *HeldImage
+	made              map[int64]*Instance
+	runs              []*runState
+	recorded          []sharedKey
+	nextMessageSerial uint64
+	messageSerials    map[uint64]uint64
 }
 
 // bring answers the object made here for an imaged identity.
@@ -793,6 +798,7 @@ func (m *materializing) run() error {
 	}
 	// Nothing below fails: what names the objects made is installed once they all stand.
 	dst.messages = append(dst.messages, messages...)
+	dst.messageSerial = m.nextMessageSerial
 	dst.bus.posts += uint64(len(messages))
 	dst.workChanged()
 	for sym, ids := range img.occurrences {
@@ -959,6 +965,15 @@ func (m *materializing) runState(run imagedRun) *runState {
 // message is a message as dst carries it.
 func (m *materializing) message(msg Message) (Message, error) {
 	out := msg
+	if msg.Serial != 0 {
+		serial, ok := m.messageSerials[msg.Serial]
+		if !ok {
+			m.nextMessageSerial++
+			serial = m.nextMessageSerial
+			m.messageSerials[msg.Serial] = serial
+		}
+		out.Serial = serial
+	}
 	var err error
 	if out.Payload, err = m.values(msg.Payload); err != nil {
 		return Message{}, err

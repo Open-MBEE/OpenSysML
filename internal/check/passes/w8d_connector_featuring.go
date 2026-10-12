@@ -129,10 +129,10 @@ func w8dConnectorEndTargets(u *ast.Usage) []ast.Node {
 	}
 	if u.FlowEnds != nil {
 		if u.FlowEnds.From != nil {
-			ends = append(ends, u.FlowEnds.From)
+			ends = append(ends, ast.EndTarget(u.FlowEnds.From))
 		}
 		if u.FlowEnds.To != nil {
-			ends = append(ends, u.FlowEnds.To)
+			ends = append(ends, ast.EndTarget(u.FlowEnds.To))
 		}
 	}
 	return ends

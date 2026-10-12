@@ -277,6 +277,7 @@ func (c *Core) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (stri
 		for i, document := range documents {
 			document.diagnostics, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind,
 				document.root, document.diagnostics, index, passes.Options{Conformance: mode}, batch)
+			document.diagnostics = passes.WithoutLints(document.diagnostics, nil, nil)
 		}
 	}
 
@@ -435,6 +436,14 @@ func attributeValue(value *symbolfacts.Value) *JValue {
 	switch value.Const.Kind {
 	case semantics.ValInt:
 		return &JValue{IntValue: ptr(I64(value.Const.Int))}
+	case semantics.ValRational:
+		if f, exact := value.Const.BinaryExact(); exact {
+			return &JValue{RealValue: ptr(F64(f))}
+		}
+		return &JValue{RationalValue: &JRational{
+			Numerator:   value.Const.RatNumer().FormatInt(),
+			Denominator: value.Const.RatDenom().FormatInt(),
+		}}
 	case semantics.ValReal:
 		return &JValue{RealValue: ptr(F64(value.Const.Real))}
 	case semantics.ValBool:

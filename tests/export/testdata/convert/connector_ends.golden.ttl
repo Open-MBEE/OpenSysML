@@ -430,6 +430,7 @@ elmt:ConnectorEnds__Vehicle___406
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___406_pend0, expr:ConnectorEnds__Vehicle___406_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___406_pend0_om, expr:ConnectorEnds__Vehicle___406_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___406_pend0_om, expr:ConnectorEnds__Vehicle___406_pend1_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___406_pend0, expr:ConnectorEnds__Vehicle___406_pend1 ;
     sysml:ownedFeatureMembership expr:ConnectorEnds__Vehicle___406_pend0_om, expr:ConnectorEnds__Vehicle___406_pend1_om ;
     sysml:ownedFeature expr:ConnectorEnds__Vehicle___406_pend0, expr:ConnectorEnds__Vehicle___406_pend1 ;
     sysml:ownedEndFeature expr:ConnectorEnds__Vehicle___406_pend0, expr:ConnectorEnds__Vehicle___406_pend1 ;
@@ -441,6 +442,7 @@ elmt:ConnectorEnds__Vehicle___406
     json:connectorEnd "[{\"@id\":\"ConnectorEnds__Vehicle___406_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___406_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ConnectorEnds__Vehicle___406_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ConnectorEnds__Vehicle___406_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ConnectorEnds__Vehicle___406_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ConnectorEnds__Vehicle___406_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ConnectorEnds__Vehicle___406_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend1\"}]" .
@@ -592,6 +594,7 @@ elmt:ConnectorEnds__Vehicle___407
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___407_pend0, expr:ConnectorEnds__Vehicle___407_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___407_pend0_om, expr:ConnectorEnds__Vehicle___407_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___407_pend0_om, expr:ConnectorEnds__Vehicle___407_pend1_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___407_pend0, expr:ConnectorEnds__Vehicle___407_pend1 ;
     sysml:ownedFeatureMembership expr:ConnectorEnds__Vehicle___407_pend0_om, expr:ConnectorEnds__Vehicle___407_pend1_om ;
     sysml:ownedFeature expr:ConnectorEnds__Vehicle___407_pend0, expr:ConnectorEnds__Vehicle___407_pend1 ;
     sysml:ownedEndFeature expr:ConnectorEnds__Vehicle___407_pend0, expr:ConnectorEnds__Vehicle___407_pend1 ;
@@ -603,6 +606,7 @@ elmt:ConnectorEnds__Vehicle___407
     json:connectorEnd "[{\"@id\":\"ConnectorEnds__Vehicle___407_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___407_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ConnectorEnds__Vehicle___407_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ConnectorEnds__Vehicle___407_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ConnectorEnds__Vehicle___407_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ConnectorEnds__Vehicle___407_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ConnectorEnds__Vehicle___407_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend1\"}]" .
@@ -756,6 +760,7 @@ elmt:ConnectorEnds__Vehicle___408
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___408_pend0, expr:ConnectorEnds__Vehicle___408_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___408_pend0_om, expr:ConnectorEnds__Vehicle___408_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___408_pend0_om, expr:ConnectorEnds__Vehicle___408_pend1_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___408_pend0, expr:ConnectorEnds__Vehicle___408_pend1 ;
     sysml:ownedFeatureMembership expr:ConnectorEnds__Vehicle___408_pend0_om, expr:ConnectorEnds__Vehicle___408_pend1_om ;
     sysml:ownedFeature expr:ConnectorEnds__Vehicle___408_pend0, expr:ConnectorEnds__Vehicle___408_pend1 ;
     sysml:ownedEndFeature expr:ConnectorEnds__Vehicle___408_pend0, expr:ConnectorEnds__Vehicle___408_pend1 ;
@@ -767,6 +772,7 @@ elmt:ConnectorEnds__Vehicle___408
     json:connectorEnd "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1\"}]" .
@@ -1029,6 +1035,7 @@ elmt:ConnectorEnds__Vehicle___409
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___409_pend0, expr:ConnectorEnds__Vehicle___409_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___409_pend0_om, expr:ConnectorEnds__Vehicle___409_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___409_pend0_om, expr:ConnectorEnds__Vehicle___409_pend1_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___409_pend0, expr:ConnectorEnds__Vehicle___409_pend1 ;
     sysml:ownedFeatureMembership expr:ConnectorEnds__Vehicle___409_pend0_om, expr:ConnectorEnds__Vehicle___409_pend1_om ;
     sysml:ownedFeature expr:ConnectorEnds__Vehicle___409_pend0, expr:ConnectorEnds__Vehicle___409_pend1 ;
     sysml:ownedEndFeature expr:ConnectorEnds__Vehicle___409_pend0, expr:ConnectorEnds__Vehicle___409_pend1 ;
@@ -1040,6 +1047,7 @@ elmt:ConnectorEnds__Vehicle___409
     json:connectorEnd "[{\"@id\":\"ConnectorEnds__Vehicle___409_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___409_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ConnectorEnds__Vehicle___409_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ConnectorEnds__Vehicle___409_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ConnectorEnds__Vehicle___409_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ConnectorEnds__Vehicle___409_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ConnectorEnds__Vehicle___409_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend1\"}]" .
@@ -1194,6 +1202,7 @@ elmt:ConnectorEnds__Vehicle___4010
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___4010_pend0, expr:ConnectorEnds__Vehicle___4010_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4010_pend0_om, expr:ConnectorEnds__Vehicle___4010_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___4010_pend0_om, expr:ConnectorEnds__Vehicle___4010_pend1_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___4010_pend0, expr:ConnectorEnds__Vehicle___4010_pend1 ;
     sysml:ownedFeatureMembership expr:ConnectorEnds__Vehicle___4010_pend0_om, expr:ConnectorEnds__Vehicle___4010_pend1_om ;
     sysml:ownedFeature expr:ConnectorEnds__Vehicle___4010_pend0, expr:ConnectorEnds__Vehicle___4010_pend1 ;
     sysml:ownedEndFeature expr:ConnectorEnds__Vehicle___4010_pend0, expr:ConnectorEnds__Vehicle___4010_pend1 ;
@@ -1206,6 +1215,7 @@ elmt:ConnectorEnds__Vehicle___4010
     json:connectorEnd "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1\"}]" ;
@@ -1454,6 +1464,7 @@ elmt:ConnectorEnds__Vehicle__link
     sysml:connectorEnd expr:ConnectorEnds__Vehicle__link_pend0, expr:ConnectorEnds__Vehicle__link_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle__link_pend0_om, expr:ConnectorEnds__Vehicle__link_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle__link_pend0_om, expr:ConnectorEnds__Vehicle__link_pend1_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle__link_pend0, expr:ConnectorEnds__Vehicle__link_pend1 ;
     sysml:ownedFeatureMembership expr:ConnectorEnds__Vehicle__link_pend0_om, expr:ConnectorEnds__Vehicle__link_pend1_om ;
     sysml:ownedFeature expr:ConnectorEnds__Vehicle__link_pend0, expr:ConnectorEnds__Vehicle__link_pend1 ;
     sysml:ownedEndFeature expr:ConnectorEnds__Vehicle__link_pend0, expr:ConnectorEnds__Vehicle__link_pend1 ;
@@ -1466,6 +1477,7 @@ elmt:ConnectorEnds__Vehicle__link
     json:connectorEnd "[{\"@id\":\"ConnectorEnds__Vehicle__link_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle__link_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ConnectorEnds__Vehicle__link_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ConnectorEnds__Vehicle__link_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ConnectorEnds__Vehicle__link_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ConnectorEnds__Vehicle__link_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ConnectorEnds__Vehicle__link_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend1\"}]" .
@@ -1618,6 +1630,7 @@ elmt:ConnectorEnds__Vehicle___4012
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___4012_pend0, expr:ConnectorEnds__Vehicle___4012_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4012_pend0_om, expr:ConnectorEnds__Vehicle___4012_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___4012_pend0_om, expr:ConnectorEnds__Vehicle___4012_pend1_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___4012_pend0, expr:ConnectorEnds__Vehicle___4012_pend1 ;
     sysml:ownedFeatureMembership expr:ConnectorEnds__Vehicle___4012_pend0_om, expr:ConnectorEnds__Vehicle___4012_pend1_om ;
     sysml:ownedFeature expr:ConnectorEnds__Vehicle___4012_pend0, expr:ConnectorEnds__Vehicle___4012_pend1 ;
     sysml:ownedEndFeature expr:ConnectorEnds__Vehicle___4012_pend0, expr:ConnectorEnds__Vehicle___4012_pend1 ;
@@ -1630,6 +1643,7 @@ elmt:ConnectorEnds__Vehicle___4012
     json:connectorEnd "[{\"@id\":\"ConnectorEnds__Vehicle___4012_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4012_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ConnectorEnds__Vehicle___4012_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ConnectorEnds__Vehicle___4012_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ConnectorEnds__Vehicle___4012_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ConnectorEnds__Vehicle___4012_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ConnectorEnds__Vehicle___4012_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1\"}]" .
@@ -1782,6 +1796,7 @@ elmt:ConnectorEnds__Vehicle___4013
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___4013_pend0, expr:ConnectorEnds__Vehicle___4013_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4013_pend0_om, expr:ConnectorEnds__Vehicle___4013_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___4013_pend0_om, expr:ConnectorEnds__Vehicle___4013_pend1_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___4013_pend0, expr:ConnectorEnds__Vehicle___4013_pend1 ;
     sysml:ownedFeatureMembership expr:ConnectorEnds__Vehicle___4013_pend0_om, expr:ConnectorEnds__Vehicle___4013_pend1_om ;
     sysml:ownedFeature expr:ConnectorEnds__Vehicle___4013_pend0, expr:ConnectorEnds__Vehicle___4013_pend1 ;
     sysml:ownedEndFeature expr:ConnectorEnds__Vehicle___4013_pend0, expr:ConnectorEnds__Vehicle___4013_pend1 ;
@@ -1793,6 +1808,7 @@ elmt:ConnectorEnds__Vehicle___4013
     json:connectorEnd "[{\"@id\":\"ConnectorEnds__Vehicle___4013_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4013_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ConnectorEnds__Vehicle___4013_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ConnectorEnds__Vehicle___4013_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ConnectorEnds__Vehicle___4013_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ConnectorEnds__Vehicle___4013_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ConnectorEnds__Vehicle___4013_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1\"}]" .
@@ -1944,6 +1960,7 @@ elmt:ConnectorEnds__Vehicle___4014
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___4014_pend0, expr:ConnectorEnds__Vehicle___4014_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4014_pend0_om, expr:ConnectorEnds__Vehicle___4014_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___4014_pend0_om, expr:ConnectorEnds__Vehicle___4014_pend1_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___4014_pend0, expr:ConnectorEnds__Vehicle___4014_pend1 ;
     sysml:ownedFeatureMembership expr:ConnectorEnds__Vehicle___4014_pend0_om, expr:ConnectorEnds__Vehicle___4014_pend1_om ;
     sysml:ownedFeature expr:ConnectorEnds__Vehicle___4014_pend0, expr:ConnectorEnds__Vehicle___4014_pend1 ;
     sysml:ownedEndFeature expr:ConnectorEnds__Vehicle___4014_pend0, expr:ConnectorEnds__Vehicle___4014_pend1 ;
@@ -1956,6 +1973,7 @@ elmt:ConnectorEnds__Vehicle___4014
     json:connectorEnd "[{\"@id\":\"ConnectorEnds__Vehicle___4014_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4014_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ConnectorEnds__Vehicle___4014_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ConnectorEnds__Vehicle___4014_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ConnectorEnds__Vehicle___4014_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ConnectorEnds__Vehicle___4014_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ConnectorEnds__Vehicle___4014_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1\"}]" .
@@ -2107,6 +2125,7 @@ elmt:ConnectorEnds__Vehicle___4015
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___4015_pend0, expr:ConnectorEnds__Vehicle___4015_pend1, expr:ConnectorEnds__Vehicle___4015_pend2 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4015_pend0_om, expr:ConnectorEnds__Vehicle___4015_pend1_om, expr:ConnectorEnds__Vehicle___4015_pend2_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___4015_pend0_om, expr:ConnectorEnds__Vehicle___4015_pend1_om, expr:ConnectorEnds__Vehicle___4015_pend2_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___4015_pend0, expr:ConnectorEnds__Vehicle___4015_pend1, expr:ConnectorEnds__Vehicle___4015_pend2 ;
     sysml:ownedFeatureMembership expr:ConnectorEnds__Vehicle___4015_pend0_om, expr:ConnectorEnds__Vehicle___4015_pend1_om, expr:ConnectorEnds__Vehicle___4015_pend2_om ;
     sysml:ownedFeature expr:ConnectorEnds__Vehicle___4015_pend0, expr:ConnectorEnds__Vehicle___4015_pend1, expr:ConnectorEnds__Vehicle___4015_pend2 ;
     sysml:ownedEndFeature expr:ConnectorEnds__Vehicle___4015_pend0, expr:ConnectorEnds__Vehicle___4015_pend1, expr:ConnectorEnds__Vehicle___4015_pend2 ;
@@ -2117,6 +2136,7 @@ elmt:ConnectorEnds__Vehicle___4015
     json:connectorEnd "[{\"@id\":\"ConnectorEnds__Vehicle___4015_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend2\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4015_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend2_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ConnectorEnds__Vehicle___4015_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend2_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ConnectorEnds__Vehicle___4015_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend2\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ConnectorEnds__Vehicle___4015_pend0_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend2_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ConnectorEnds__Vehicle___4015_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend2\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ConnectorEnds__Vehicle___4015_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend2\"}]" ;

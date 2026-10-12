@@ -169,7 +169,9 @@ calc def TimedRuns :> DocumentQueries::Query {
 ## The AnalysisRecords library
 
 `internal/workspace/libs/stdlib/OpenSysML Libraries/AnalysisRecords.sysml`, a
-non-normative OpenSysML extension bundled like `DocumentQueries`, declares the
+non-normative OpenSysML extension bundled like `DocumentQueries` (maintained upstream at
+[Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library)
+and vendored here pinned), declares the
 vocabulary the records are written in:
 
 - `RecordedRun` — the metadata annotation a record carries: `runAt` (the UTC

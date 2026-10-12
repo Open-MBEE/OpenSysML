@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
@@ -29,6 +30,12 @@ var (
 	Commit    = "unknown"
 	BuildTime = "unknown"
 )
+
+// build is what this binary reports about itself: the linker's stamps, or the
+// module version and VCS metadata the toolchain recorded when none were passed.
+func build() buildinfo.Info {
+	return buildinfo.Resolve(buildinfo.Stamps{Version: Version, Commit: Commit, BuildTime: BuildTime})
+}
 
 func main() {
 	opts := registerFlags(flag.CommandLine)
@@ -72,10 +79,11 @@ func main() {
 		}
 	}
 
+	info := build()
 	if opts.showVersion {
-		fmt.Printf("sysml-grpc version %s\n", Version)
-		fmt.Printf("commit: %s\n", Commit)
-		fmt.Printf("built: %s\n", BuildTime)
+		fmt.Printf("sysml-grpc version %s\n", info.Version)
+		fmt.Printf("commit: %s\n", info.Commit)
+		fmt.Printf("built: %s\n", info.BuildTime)
 		os.Exit(0)
 	}
 
@@ -104,9 +112,9 @@ func main() {
 	slog.SetDefault(logger)
 
 	slog.Info("Starting sysml-grpc server",
-		"version", Version,
-		"commit", Commit,
-		"buildTime", BuildTime,
+		"version", info.Version,
+		"commit", info.Commit,
+		"buildTime", info.BuildTime,
 		"transport", opts.transport,
 	)
 
@@ -118,10 +126,10 @@ func main() {
 	}
 	var svc *sysmlgrpc.Service
 	if len(unavailable) == 0 {
-		svc, err = sysmlgrpc.NewService(opts.cacheSize, Version, serving...)
+		svc, err = sysmlgrpc.NewService(opts.cacheSize, info.Version, serving...)
 	} else {
 		svc, err = sysmlgrpc.NewServiceWithUnavailableCapabilitiesForTesting(
-			opts.cacheSize, Version, unavailable, serving...)
+			opts.cacheSize, info.Version, unavailable, serving...)
 	}
 	if err != nil {
 		slog.Error("Invalid service configuration", "error", err)
@@ -143,7 +151,7 @@ func main() {
 	if opts.healthPort != 0 {
 		healthSrv = &http.Server{
 			Addr:              fmt.Sprintf(":%d", opts.healthPort),
-			Handler:           healthHandler(Version),
+			Handler:           healthHandler(info.Version),
 			ReadHeaderTimeout: 10 * time.Second,
 		}
 		go func() {
@@ -184,7 +192,7 @@ func main() {
 	if opts.transport == transportConnect {
 		serveCtx, cancelServe := context.WithCancel(context.Background())
 		served := make(chan error, 1)
-		go func() { served <- serveConnect(serveCtx, lis, svc, Version, origins, opts.tlsCert, opts.tlsKey) }()
+		go func() { served <- serveConnect(serveCtx, lis, svc, info.Version, origins, opts.tlsCert, opts.tlsKey) }()
 
 		select {
 		case err := <-served:

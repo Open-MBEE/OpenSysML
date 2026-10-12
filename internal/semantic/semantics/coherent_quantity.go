@@ -40,8 +40,13 @@ func (m *Model) CoherentQuantity(q Quantity, declared *symbols.Symbol) (Quantity
 	}
 	num := q.Num
 	if !q.Unit.Term.Same(coherent.Term) {
-		var err error
-		if num, err = RealResult(ConvertMagnitude(q.Num.AsReal(), q.Unit.Term.Scale, coherent.Term.Scale)); err != nil {
+		exact, ok, err := ExactConversion(q.Num, q.Unit.Term.Scale, coherent.Term.Scale, DefaultMaxIntegerBits)
+		if err != nil {
+			return Quantity{}, err
+		}
+		if ok {
+			num = exact
+		} else if num, err = RealResult(ConvertMagnitude(q.Num.AsReal(), q.Unit.Term.Scale, coherent.Term.Scale)); err != nil {
 			return Quantity{}, err
 		}
 	}

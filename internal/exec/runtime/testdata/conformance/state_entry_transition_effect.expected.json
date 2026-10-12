@@ -1,0 +1,9 @@
+{
+  "type": "state",
+  "trace": true,
+  "finalState": "active",
+  "events": [{"signal": "Go"}],
+  "outputs": {
+    "log": {"type": "Integer", "value": 123}
+  }
+}

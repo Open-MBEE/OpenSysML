@@ -1,0 +1,90 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% FleetViews::structure — tree rendering
+flowchart TD
+  n0["`*«part def»*
+**Vehicle**`"]
+    n1("`*«part»*
+**chassis : Chassis**`")
+  n0 --- n1
+    n2("`*«part»*
+**wheels : Wheel**`")
+  n0 --- n2
+    n3("`*«part»*
+**driver : Driver**`")
+  n0 --- n3
+    n4("`*«attribute»*
+**total : Mass**`")
+  n0 --- n4
+    n5["`*«part def»*
+**Cabin**`"]
+  n0 --- n5
+    n6("`*«part»*
+**cabin : Cabin**`")
+  n0 --- n6
+    n7("`*«part»*
+**radio : Radio**`")
+  n0 --- n7
+    n8("`*«part»*
+**trailer : Trailer**`")
+  n0 --- n8
+  n9["`*«part def»*
+**SportsCar**`"]
+    n10("`*«part»*
+**chassis : LightChassis**`")
+  n9 --- n10
+    n11("`*«part»*
+**spare : Wheel**`")
+  n9 --- n11
+  n12["`*«part def»*
+**Chassis**`"]
+    n13("`*«attribute»*
+**mass : Mass**`")
+  n12 --- n13
+  n14["`*«part def»*
+**LightChassis**`"]
+    n15("`*«attribute»*
+**mass**`")
+  n14 --- n15
+  n16["`*«part def»*
+**Wheel**`"]
+  n17["`*«part def»*
+**Driver**`"]
+  n18["`*«attribute def»*
+**Mass**`"]
+  n19("`*«part»*
+**fleetCar : Vehicle**`")
+  n0 ---|"◆ chassis"| n12
+  n0 ---|"◆ wheels[4]"| n16
+  n0 ---|"◇ driver[0..1]"| n17
+  n0 ---|"◇ total"| n18
+  n9 -->|"specialization"| n0
+  n9 ---|"◆ chassis"| n14
+  n9 ---|"◆ spare"| n16
+  n10 -->|"redefines"| n1
+  n11 -->|"subsets"| n2
+  n12 ---|"◇ mass"| n18
+  n14 -->|"specialization"| n12
+  n15 -->|"redefines"| n13
+  n19 -.->|"typing"| n0

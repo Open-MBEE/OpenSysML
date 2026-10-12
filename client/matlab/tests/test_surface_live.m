@@ -68,14 +68,14 @@ function test_surface_live()
     assert_equal(~isempty(strfind(migrated.content, 'part def Vehicle')), true, 'migrate');
     assert_equal(migrated.fromFormat, 'xmi', 'migrate from format');
     assert_equal([migrated.report.mapped, migrated.report.approximated, ...
-        migrated.report.unmapped, migrated.report.skipped], [77 13 3 2], 'migration counts');
-    assert_equal(numel(migrated.report.entries), 95, 'migration entries');
+        migrated.report.unmapped, migrated.report.skipped], [76 16 3 2], 'migration counts');
+    assert_equal(numel(migrated.report.entries), 97, 'migration entries');
     assert_equal(numel(migrated.byVerdict('unmapped')), 3, 'migration unmapped entries');
     assert_equal(migrated.sourcePath, opensysml.internal.absolutePath(vehicle), 'migration source path');
     fid = fopen(vehicle, 'rb'); vehicleBytes = fread(fid, Inf, 'uint8=>uint8')'; fclose(fid);
     inlineMigration = opensysml.migrate(conn, 'ttl', 'content', vehicleBytes, 'fromFormat', ' XMI ');
     assert_equal(inlineMigration.toFormat, 'ttl', 'inline migration to Turtle');
-    assert_equal(inlineMigration.report.mapped, 77, 'inline migration counts');
+    assert_equal(inlineMigration.report.mapped, 76, 'inline migration counts');
     assert_equal(isempty(inlineMigration.report.entries), true, 'inline migration summary only');
     assert_equal(isempty(inlineMigration.sourcePath), true, 'inline migration has no source path');
     migratedPath = [tempname '.sysml'];
@@ -147,6 +147,33 @@ function test_surface_live()
         'Markdown document rendering');
     assert_equal(~isempty(strfind(html, '<!DOCTYPE html>')), true, ...
         'HTML Model.renderDocument');
+    viewModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'views.sysml')), ...
+        'name', 'views.sysml');
+    renderedView = opensysml.renderView(viewModel, 'RenderViewDemo::connections');
+    renderedViewMethod = viewModel.renderView('RenderViewDemo::connections');
+    assert_equal(strcmp(renderedView.kind, 'interconnection'), true, 'RenderView kind');
+    assert_equal(numel(renderedView.edges), 1, 'RenderView edges');
+    assert_equal(~isempty(renderedView.edges(1).fromPort), true, 'RenderView from port');
+    assert_equal(~isempty(renderedView.edges(1).toPort), true, 'RenderView to port');
+
+    behaviorModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'behavior.sysml')), ...
+        'name', 'behavior.sysml');
+    graphs = opensysml.exportGraphs(behaviorModel, 'Test::race');
+    graphsMethod = behaviorModel.exportGraphs('Test::race');
+    assert_equal(graphs.version, 1, 'ExportGraphs version');
+    assert_equal(graphs.subject, 'Test::race', 'ExportGraphs subject');
+    assert_equal(strncmp(graphs.content, '{"version":1,"subject":"Test::race"', 35), true, 'ExportGraphs content');
+    assert_equal(strcmp(graphs.content, graphsMethod.content), true, 'ExportGraphs method');
+    assert_equal(all(arrayfun(@(node) ~isempty(node.origin), renderedView.nodes)), ...
+        true, 'RenderView origins');
+    assert_equal(numel(renderedViewMethod.edges), numel(renderedView.edges), ...
+        'Model.renderView');
+    fullView = opensysml.renderView(viewModel, 'RenderViewDemo::connections', 'ports', 'full');
+    allPortNames = {};
+    for n = 1:numel(fullView.nodes)
+        allPortNames = [allPortNames, {fullView.nodes(n).ports.name}];
+    end
+    assert_equal(any(strcmp(allPortNames, 'spare')), true, 'RenderView full ports');
 
     behavior = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'behavior.sysml')), ...
         'name', 'behavior.sysml');
@@ -212,6 +239,35 @@ function test_surface_live()
     assert_equal(isa(requirementVerdict, 'opensysml.Verdict'), true, 'verifyRequirement');
     assert_equal(isa(requirementMethod, 'opensysml.Verdict'), true, ...
         'Model.verifyRequirement');
+    bound = opensysml.parseSource(conn, sprintf([ ...
+        'package Bound {\n' ...
+        '    private import ScalarValues::*;\n' ...
+        '    part def Thing { attribute v : Integer = 2; }\n' ...
+        '    part t : Thing;\n' ...
+        '    requirement def Under {\n' ...
+        '        subject s : Thing;\n' ...
+        '        in limit : Integer;\n' ...
+        '        in slack : Integer = 0;\n' ...
+        '        require constraint { s.v + slack < limit }\n' ...
+        '    }\n' ...
+        '    constraint def Between { in low : Integer; in high : Integer = 10; low < high }\n' ...
+        '}\n']), 'name', 'bound.sysml');
+    boundNamed = bound.verifyRequirement('Bound::Under', 'subject', 'Bound::t', ...
+        'namedArguments', struct('limit', int64(5)));
+    assert_equal(boundNamed.holds, true, 'verifyRequirement namedArguments');
+    boundPositional = opensysml.verifyRequirement(bound, 'Bound::Under', ...
+        'subject', 'Bound::t', 'arguments', {int64(5), int64(4)});
+    assert_equal(boundPositional.holds, false, 'verifyRequirement arguments');
+    boundConstraint = bound.verifyConstraint('Bound::Between', 'arguments', {int64(3)});
+    assert_equal(boundConstraint.holds, true, 'verifyConstraint arguments');
+    boundMap = bound.verifyConstraint('Bound::Between', ...
+        'namedArguments', containers.Map({'low'}, {int64(3)}));
+    assert_equal(boundMap.holds, true, 'verifyConstraint namedArguments as a Map');
+    boundMapFails = bound.verifyConstraint('Bound::Between', ...
+        'namedArguments', containers.Map({'low'}, {int64(12)}));
+    assert_equal(boundMapFails.holds, false, 'verifyConstraint Map arguments reach the check');
+    assert_error(@() bound.verifyConstraint('Bound::Between', 'namedArguments', 42), ...
+        'opensysml:argument', 'verifyConstraint refuses a non-struct namedArguments');
     satisfaction = opensysml.verifySatisfaction(cases, 'symbol', 'Demo::checks');
     satisfactionMethod = cases.verifySatisfaction('symbol', 'Demo::checks');
     assert_equal(iscell(satisfaction), true, 'verifySatisfaction');

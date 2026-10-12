@@ -6,7 +6,7 @@
 
     <groupId>org.openmbee</groupId>
     <artifactId>opensysml-syson</artifactId>
-    <version>0.9.2</version>
+    <version>0.10.0</version>
     <packaging>pom</packaging>
 
     <name>OpenSysML SysON integration</name>

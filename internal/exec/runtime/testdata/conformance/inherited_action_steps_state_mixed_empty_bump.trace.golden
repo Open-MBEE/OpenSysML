@@ -1,0 +1,12 @@
+exit: ready
+enter: active (entry action)
+stmt action body
+enter action node: state behavior mixed
+enter action node: mixed
+  stmt assign c
+      eval feature c -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+leave action node: mixed
+leave action node: state behavior mixed
+transition: ready -> active (event: accept Go)

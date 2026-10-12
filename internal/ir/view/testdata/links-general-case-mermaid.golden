@@ -1,0 +1,67 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% UseCaseViews::useCaseView — case rendering (view def GeneralView, filter @UseCaseUsage)
+flowchart LR
+  n0(["`*«use case»*
+**VehicleUseCases::'Provide Transportation'**`"])
+  n1["`*«subject»*
+**vehicle : Vehicle**`"]
+  n2["`*«actor»*
+**driver : Person**`"]
+  n3["`*«actor»*
+**passengers : Person**`"]
+  n4@{ shape: notch-rect, label: "objective<br>Deliver the driver and passengers to their destination." }
+  n5(["`*«include use case»*
+**addFuel : 'Add Fuel'**`"])
+  n6["`*«subject»*
+**vehicle**`"]
+  n7["`*«actor»*
+**fueler**`"]
+  n8(["`*«include use case»*
+**'enter vehicle' : 'Enter Vehicle'**`"])
+  n9["`*«subject»*
+**vehicle**`"]
+  n10["`*«actor»*
+**driver**`"]
+  n0 ---|"«subject»"| n1
+  n2 --- n0
+  n3 --- n0
+  n0 -.- n4
+  n0 -.->|"«include»"| n5
+  n5 ---|"«subject»"| n6
+  n7 --- n5
+  n0 -.->|"«include»"| n8
+  n8 ---|"«subject»"| n9
+  n10 --- n8
+  click n0 href "https://example.test/src/general-case.sysml#L13"
+  click n1 href "https://example.test/src/general-case.sysml#L14"
+  click n2 href "https://example.test/src/general-case.sysml#L15"
+  click n3 href "https://example.test/src/general-case.sysml#L16"
+  click n4 href "https://example.test/src/general-case.sysml#L17"
+  click n5 href "https://example.test/src/general-case.sysml#L20"
+  click n6 href "https://example.test/src/general-case.sysml#L21"
+  click n7 href "https://example.test/src/general-case.sysml#L22"
+  click n8 href "https://example.test/src/general-case.sysml#L24"
+  click n9 href "https://example.test/src/general-case.sysml#L25"
+  click n10 href "https://example.test/src/general-case.sysml#L26"

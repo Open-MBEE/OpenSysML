@@ -2,7 +2,7 @@
 	"type": "action",
 	"outputs": {
 		"result": {"type": "Integer", "value": 8},
-		"choose.Halve.halved": {"type": "Real", "value": 4.0},
+		"choose.Halve.halved": {"type": "Rational", "value": "4.0"},
 		"untaken": {"type": "Integer", "value": 0}
 	}
 }

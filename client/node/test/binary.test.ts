@@ -14,6 +14,7 @@ import {
   BinaryNotFoundError,
   ChecksumMismatchError,
   DownloadError,
+  PINNED_SHA256,
   REPO_ENV,
   UnpinnedReleaseError,
   VERSION_ENV,
@@ -38,6 +39,27 @@ import { type Release, serveRelease } from "./release-server.js";
 
 const REPO = "Test-Owner/OpenSysML";
 const VERSION = "v0.9.9";
+// The repository the package's own release-digests.json pins, the service assets
+// every release of it publishes, and the kernel assets published from v0.10.0 on.
+const SHIPPED_REPO = "Open-MBEE/OpenSysML";
+const SERVICE_ASSETS = [
+  "sysml-grpc-darwin-amd64",
+  "sysml-grpc-darwin-arm64",
+  "sysml-grpc-linux-amd64",
+  "sysml-grpc-linux-arm64",
+  "sysml-grpc-windows-amd64.exe",
+];
+const KERNEL_ASSETS = [
+  "sysml-jupyter-kernel-darwin-amd64",
+  "sysml-jupyter-kernel-darwin-arm64",
+  "sysml-jupyter-kernel-linux-amd64",
+  "sysml-jupyter-kernel-linux-arm64",
+  "sysml-jupyter-kernel-windows-amd64.exe",
+];
+// The release job stamps the table it publishes and names the tag here, so
+// the suite proves the package about to ship pins its own release.
+const EXPECT_PINNED_RELEASE_ENV = "OPENSYSML_EXPECT_PINNED_RELEASE";
+const RELEASE_TAG = /^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/;
 const BODY = Buffer.from("sysml-grpc test binary\n");
 const DIGEST = createHash("sha256").update(BODY).digest("hex");
 
@@ -134,6 +156,52 @@ test("a binary on $PATH is used, and with nothing anywhere the error says so", a
   assert.match(error.message, /OPENSYSML_GRPC_VERSION/);
   assert.doesNotMatch(error.message, /never downloads/);
 });
+
+test("the shipped table pins every service asset of every release it lists, and the kernel whole", () => {
+  assert.ok(Object.hasOwn(PINNED_SHA256, SHIPPED_REPO), `nothing is pinned for ${SHIPPED_REPO}`);
+  const releases = PINNED_SHA256[SHIPPED_REPO];
+  assert.ok(Object.keys(releases).length > 0, `no release of ${SHIPPED_REPO} is pinned`);
+  for (const [version, assets] of Object.entries(releases)) {
+    assert.match(version, RELEASE_TAG, `${version} is not a release tag`);
+    const names = Object.keys(assets).sort();
+    const service = names.filter((asset) => asset.startsWith("sysml-grpc-"));
+    const kernel = names.filter((asset) => asset.startsWith("sysml-jupyter-kernel-"));
+    assert.deepEqual(service, SERVICE_ASSETS, `${version} does not pin every service asset`);
+    if (kernel.length > 0) {
+      assert.deepEqual(kernel, KERNEL_ASSETS, `${version} pins the kernel for some platforms only`);
+    }
+    assert.equal(
+      names.length,
+      service.length + kernel.length,
+      `${version} pins an asset of neither the service nor the kernel: ${names.join(", ")}`,
+    );
+    for (const asset of names) {
+      const digest = assets[asset];
+      assert.match(digest, /^[0-9a-f]{64}$/, `${version} ${asset}`);
+      assert.equal(pinnedDigest(version, asset, SHIPPED_REPO), digest);
+    }
+  }
+  assert.equal(pinnedDigest("v0.0.0-never-released", releaseAssetName(), SHIPPED_REPO), undefined);
+});
+
+test(
+  `the shipped table pins the release $${EXPECT_PINNED_RELEASE_ENV} names`,
+  {
+    skip:
+      process.env[EXPECT_PINNED_RELEASE_ENV] === undefined
+        ? `$${EXPECT_PINNED_RELEASE_ENV} is unset; the release job sets it after stamping the table`
+        : false,
+  },
+  () => {
+    const tag = process.env[EXPECT_PINNED_RELEASE_ENV] ?? "";
+    assert.match(tag, RELEASE_TAG, `$${EXPECT_PINNED_RELEASE_ENV}=${tag} is not a release tag`);
+    for (const asset of SERVICE_ASSETS) {
+      const digest = pinnedDigest(tag, asset, SHIPPED_REPO);
+      assert.ok(digest !== undefined, `the package does not pin ${asset} of ${tag}`);
+      assert.match(digest, /^[0-9a-f]{64}$/);
+    }
+  },
+);
 
 test("$OPENSYSML_GITHUB_REPO chooses the repository, and the URLs follow it", () => {
   process.env[REPO_ENV] = REPO;

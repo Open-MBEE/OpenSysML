@@ -1,8 +1,8 @@
 package RationalTerms {
     private import ScalarValues::*;
 
-    // A Rational is a binary64 on both sides; rat is the quotient `/` computes,
-    // numer/denom the exact terms of that binary64.
+    // A Rational is exact here and a binary64 in the pilot; rat is the quotient
+    // `/` computes, numer/denom its terms in lowest form.
     attribute third = RationalFunctions::rat(1, 3);
     attribute sixQuarters = RationalFunctions::rat(6, 4);
     attribute undefined = RationalFunctions::rat(1, 0);

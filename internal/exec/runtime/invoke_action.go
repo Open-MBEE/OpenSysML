@@ -39,6 +39,9 @@ type actionInvocation struct {
 	// step is the usage declaring the invocation, whose metadata and parameters
 	// bind the performance; nil for an invocation no usage of the body declares.
 	step *symbols.Symbol
+	// scope is the declaration scope of an invocation inherited through step
+	// redefinition; nil uses the owning graph's node scope.
+	scope *symbols.Scope
 }
 
 // performed is what the invocation performs: the step declaring it, else the callee itself.
@@ -88,6 +91,35 @@ func nestedInvocation(usage *ast.Usage) (actionInvocation, bool) {
 		}
 	}
 	return actionInvocation{}, false
+}
+
+func nestedInvocationInGraph(graph *lower.ActionGraph, usage *ast.Usage) (actionInvocation, bool) {
+	if graph != nil {
+		if _, merged := graph.MergedTypedSubflows[usage]; merged {
+			return actionInvocation{}, false
+		}
+	}
+	if invocation, ok := nestedInvocation(usage); ok {
+		return invocation, true
+	}
+	if graph == nil {
+		return actionInvocation{}, false
+	}
+	if performed, ok := graph.Performs[usage]; ok && performed.Target != nil {
+		return actionInvocation{target: performed.Target, scope: performed.Scope}, true
+	}
+	return actionInvocation{}, false
+}
+
+func mergedTypedSubflowInvocation(graph *lower.ActionGraph, usage *ast.Usage) (actionInvocation, bool) {
+	if graph == nil {
+		return actionInvocation{}, false
+	}
+	typed, ok := graph.MergedTypedSubflows[usage]
+	if !ok || typed.Target == nil {
+		return actionInvocation{}, false
+	}
+	return actionInvocation{target: typed.Target, scope: typed.Scope}, true
 }
 
 // referencedInvocation reports the action a usage's reference subsetting performs.
@@ -310,6 +342,7 @@ func (ctx *Context) startShotMove(callee *calleeFrame) error {
 		return nil
 	}
 	if err := ctx.tokenStepBody(callee.exec.graph); err != nil {
+		callee.exec.held = paused(err)
 		return ctx.pausing(callee, err)
 	}
 	return nil
@@ -429,6 +462,9 @@ func actionCandidates(
 	scope *symbols.Scope,
 	inv actionInvocation,
 ) (*symbols.Symbol, []*symbols.Symbol, error) {
+	if inv.scope != nil {
+		scope = inv.scope
+	}
 	target := inv.target
 	if target == nil || len(target.Parts) == 0 {
 		return nil, nil, fmt.Errorf("empty action reference")

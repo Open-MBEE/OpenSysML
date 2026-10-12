@@ -14,6 +14,7 @@ import {
   TypedObject,
   asEnum,
   asQuantity,
+  asRational,
   asReal,
   asInt,
   asString,
@@ -154,6 +155,22 @@ test("an integer widens to float but a boolean does not", () => {
   assert.equal(asReal("x", { kind: "int", value: 3n }), 3.0);
   assert.throws(() => asReal("x", { kind: "boolean", value: true }), TypeMismatchError);
   assert.throws(() => asInt("x", { kind: "boolean", value: true }), TypeMismatchError);
+});
+
+test("a Rational decodes exactly whichever arm carried it; a Real rounds one once", () => {
+  const third = { kind: "rational", numerator: 1n, denominator: 3n } as const;
+  assert.deepEqual(asRational("x", third), { numerator: 1n, denominator: 3n });
+  assert.deepEqual(asRational("x", { kind: "real", value: 0.1 }), {
+    numerator: 3602879701896397n,
+    denominator: 36028797018963968n,
+  });
+  assert.deepEqual(asRational("x", { kind: "real", value: -0.25 }), { numerator: -1n, denominator: 4n });
+  assert.deepEqual(asRational("x", { kind: "int", value: 7n }), { numerator: 7n, denominator: 1n });
+  assert.equal(asReal("x", third), 1 / 3);
+  for (const bad of [Infinity, NaN]) {
+    assert.throws(() => asRational("x", { kind: "real", value: bad }), TypeMismatchError);
+  }
+  assert.throws(() => asRational("x", { kind: "boolean", value: true }), TypeMismatchError);
 });
 
 test("optionalFeatureValue returns undefined when absent, present when held", () => {

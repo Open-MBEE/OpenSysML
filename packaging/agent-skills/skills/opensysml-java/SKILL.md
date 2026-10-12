@@ -24,7 +24,7 @@ mvn -f client/java/pom.xml install
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.9.2</version>  <!-- the version in client/java/pom.xml -->
+  <version>0.10.0</version>  <!-- the version in client/java/pom.xml -->
 </dependency>
 ```
 

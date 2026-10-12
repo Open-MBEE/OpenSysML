@@ -46,15 +46,18 @@ usage() {
 usage: install.sh [--version <tag>] [--tools <list>] [--prefix <dir>|--bin-dir <dir>]
                   [--os <os> --arch <arch>] [--base-url <url>] [--verify-signature] [--dry-run]
 
-Installs the OpenSysML command-line tools (sysml, sysml-lsp, sysml-grpc) from a
-GitHub release, checking every download against the release's SHA256SUMS.txt.
+Installs the OpenSysML command-line tools (sysml, sysml-lsp, sysml-grpc,
+sysml-jupyter-kernel) from a GitHub release, checking every download against
+the release's SHA256SUMS.txt.
 
 Options (each has an environment variable, so a piped `sh` can be configured):
 
   --version <tag>      release tag (v0.9.1), `latest` (default) or `nightly`
                        [OPENSYSML_VERSION]
-  --tools <list>       comma-separated subset of sysml,sysml-lsp,sysml-grpc, or
-                       `all`; default `sysml,sysml-lsp`      [OPENSYSML_TOOLS]
+  --tools <list>       comma-separated subset of sysml,sysml-lsp,sysml-grpc,
+                       sysml-jupyter-kernel, or `all` for every tool the chosen
+                       release published (read from its SHA256SUMS.txt);
+                       default `sysml,sysml-lsp`             [OPENSYSML_TOOLS]
   --prefix <dir>       install under <dir>/bin and <dir>/share/man/man1; default
                        /usr/local when writable, else ~/.local [OPENSYSML_PREFIX]
   --bin-dir <dir>      install the binaries into <dir> and no manual pages
@@ -146,15 +149,21 @@ v[0-9]*.[0-9]*.[0-9]*) ;;
 *) fail "--version must be a release tag like v0.9.1, 'latest' or 'nightly', not '$version'" ;;
 esac
 
-[ "$tools" != all ] || tools="sysml,sysml-lsp,sysml-grpc"
+# `all` is resolved against the release's manifest once that is downloaded: a
+# release predating a tool does not have it, and `all` means what it published.
+known_tools="sysml sysml-lsp sysml-grpc sysml-jupyter-kernel"
 tool_list=$(printf '%s' "$tools" | tr ',' ' ')
 [ -n "$(printf '%s' "$tool_list" | tr -d ' ')" ] || fail "--tools names nothing to install"
+install_all=false
 for tool in $tool_list; do
 	case "$tool" in
-	sysml | sysml-lsp | sysml-grpc) ;;
-	*) fail "unknown tool '$tool'; the released tools are sysml, sysml-lsp and sysml-grpc" ;;
+	sysml | sysml-lsp | sysml-grpc | sysml-jupyter-kernel) ;;
+	all) install_all=true ;;
+	*) fail "unknown tool '$tool'; the released tools are sysml, sysml-lsp, sysml-grpc and sysml-jupyter-kernel" ;;
 	esac
 done
+[ "$install_all" = false ] || [ "$(printf '%s\n' "$tool_list" | wc -w)" -eq 1 ] ||
+	fail "'all' names every tool the release published and stands alone in --tools"
 want() { # <tool>: whether it was asked for
 	case " $tool_list " in *" $1 "*) return 0 ;; *) return 1 ;; esac
 }
@@ -209,6 +218,14 @@ exe=""
 bundle="opensysml-$platform.tar.gz"
 [ "$target_os" != windows ] || bundle="opensysml-$platform.zip"
 grpc_asset="sysml-grpc-$platform$exe"
+kernel_asset="sysml-jupyter-kernel-$platform$exe"
+asset_of() { # <tool>: the release asset that carries it
+	case "$1" in
+	sysml-grpc) printf '%s\n' "$grpc_asset" ;;
+	sysml-jupyter-kernel) printf '%s\n' "$kernel_asset" ;;
+	*) printf '%s\n' "$bundle" ;;
+	esac
+}
 
 # --- where it goes ----------------------------------------------------------
 
@@ -310,18 +327,7 @@ asset_url() { printf '%s/%s\n' "$asset_dir" "$1"; }
 release_name="${tag:-the latest release}"
 [ "$version" != nightly ] || release_name="the nightly snapshot"
 
-info "Installing OpenSysML ($release_name) for $platform"
-info "  tools:    $tool_list"
-info "  binaries: $bin_dir"
-[ -z "$man_dir" ] || info "  manuals:  $man_dir"
-info "  from:     $(asset_url "$bundle")"
-! want sysml-grpc || info "            $(asset_url "$grpc_asset")"
-if [ "$dry_run" = true ]; then
-	info "Dry run: nothing downloaded or installed."
-	exit 0
-fi
-
-# --- download and verify ----------------------------------------------------
+# --- the manifest -----------------------------------------------------------
 
 work=$(mktemp -d 2>/dev/null || mktemp -d -t opensysml)
 trap 'rm -rf "$work"' EXIT INT TERM
@@ -331,9 +337,11 @@ fetch() { # <asset>: into the work directory
 		fail "could not download $(asset_url "$1"); is $release_name a published release with a $platform build? Bundles and SHA256SUMS.txt exist from v0.0.4. See $base_url"
 }
 
-info "Downloading..."
-fetch SHA256SUMS.txt
-if [ "$verify_signature" = true ]; then
+# Fetches SHA256SUMS.txt and, when asked, checks its signature before anything
+# is read from it; --tools all needs it before the summary.
+fetch_manifest() {
+	fetch SHA256SUMS.txt
+	[ "$verify_signature" = true ] || return 0
 	fetch SHA256SUMS.txt.bundle
 	if [ "$version" = nightly ]; then
 		cosign verify-blob "$work/SHA256SUMS.txt" --bundle "$work/SHA256SUMS.txt.bundle" \
@@ -347,11 +355,47 @@ if [ "$verify_signature" = true ]; then
 			fail "SHA256SUMS.txt is not signed by the OpenSysML release pipeline"
 	fi
 	info "  signature of SHA256SUMS.txt verified"
+}
+
+manifest_digest() { # <asset>: its digest in the manifest, empty when unlisted
+	awk -v name="$1" '{ n = $2; sub(/^\*/, "", n); if (n == name) print $1 }' "$work/SHA256SUMS.txt"
+}
+
+info "Installing OpenSysML ($release_name) for $platform"
+if [ "$install_all" = true ]; then
+	fetch_manifest
+	tool_list=""
+	missing=""
+	for tool in $known_tools; do
+		if [ -n "$(manifest_digest "$(asset_of "$tool")")" ]; then
+			tool_list="$tool_list $tool"
+		else
+			missing="${missing:+$missing or }$tool"
+		fi
+	done
+	tool_list="${tool_list# }"
+	[ -n "$tool_list" ] || fail "SHA256SUMS.txt of $release_name lists no $platform build; releases before v0.0.4 have no bundle"
+	[ -z "$missing" ] || info "  --tools all: $release_name publishes no $missing for $platform"
+fi
+info "  tools:    $tool_list"
+info "  binaries: $bin_dir"
+[ -z "$man_dir" ] || info "  manuals:  $man_dir"
+info "  from:     $(asset_url "$bundle")"
+! want sysml-grpc || info "            $(asset_url "$grpc_asset")"
+! want sysml-jupyter-kernel || info "            $(asset_url "$kernel_asset")"
+if [ "$dry_run" = true ]; then
+	info "Dry run: nothing installed."
+	exit 0
 fi
 
+# --- download and verify ----------------------------------------------------
+
+info "Downloading..."
+[ -f "$work/SHA256SUMS.txt" ] || fetch_manifest
+
 verify() { # <asset>: against the manifest
-	expected=$(awk -v name="$1" '{ n = $2; sub(/^\*/, "", n); if (n == name) print $1 }' "$work/SHA256SUMS.txt")
-	[ -n "$expected" ] || fail "SHA256SUMS.txt of $release_name does not list $1; releases before v0.0.4 have no bundle, and sysml-grpc is published from v0.9.0"
+	expected=$(manifest_digest "$1")
+	[ -n "$expected" ] || fail "SHA256SUMS.txt of $release_name does not list $1; releases before v0.0.4 have no bundle, sysml-grpc is published from v0.9.0 and sysml-jupyter-kernel from v0.10.0"
 	actual=$(sha256_of "$work/$1")
 	[ "$actual" = "$expected" ] || fail "$1 does not match SHA256SUMS.txt (expected $expected, got $actual); the download is corrupt or tampered with"
 	info "  $1 verified"
@@ -362,6 +406,10 @@ verify "$bundle"
 if want sysml-grpc; then
 	fetch "$grpc_asset"
 	verify "$grpc_asset"
+fi
+if want sysml-jupyter-kernel; then
+	fetch "$kernel_asset"
+	verify "$kernel_asset"
 fi
 
 # --- install ----------------------------------------------------------------
@@ -389,12 +437,13 @@ fi
 
 installed=""
 for tool in $tool_list; do
-	if [ "$tool" = sysml-grpc ]; then
-		source="$work/$grpc_asset"
-	else
+	case "$tool" in
+	sysml-grpc | sysml-jupyter-kernel) source="$work/$(asset_of "$tool")" ;;
+	*)
 		source="$work/bundle/$tool$exe"
 		[ -f "$source" ] || fail "$bundle has no $tool$exe"
-	fi
+		;;
+	esac
 	install_file "$source" "$bin_dir/$tool$exe" 0755
 	installed="$installed $bin_dir/$tool$exe"
 	if [ -n "$man_dir" ] && [ -f "$work/bundle/share/man/man1/$tool.1" ]; then

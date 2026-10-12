@@ -20,7 +20,7 @@
                 (Usage kind="attribute" name="v" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
                   (Relationship kind="typing" target=Integer
                     (*ast.QualifiedName))))))
-          (InitialNode name="a" successor="f"
+          (TransitionMember source="a" target="f"
             (FeatureReference name="go"))
           (Membership visibility="default"
             (Usage kind="flow" name="f" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="succession"

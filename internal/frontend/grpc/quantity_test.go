@@ -93,6 +93,7 @@ func TestQuantityCrossesTheWire(t *testing.T) {
 		expr       string
 		unit       string
 		real       float64
+		rational   string
 		intVal     int64
 		isInt      bool
 		reduction  string
@@ -102,15 +103,16 @@ func TestQuantityCrossesTheWire(t *testing.T) {
 		{expr: "5.0 [SI::kg]", unit: "SI::kg", real: 5.0, reduction: "1000/1·SI::gram", wantScaled: true},
 		{expr: "3 [SI::m]", unit: "SI::m", intVal: 3, isInt: true, reduction: "SI::metre"},
 		{expr: "10.0 [SI::m] / 2.0 [SI::s]", unit: "SI::'m/s'", real: 5.0, reduction: "SI::metre·SI::second^-1"},
-		{expr: "5.4 [SI::km/SI::h]", unit: "SI::km/SI::h", real: 5.4, reduction: "5/18·SI::metre·SI::second^-1", wantScaled: true},
+		{expr: "5.4 [SI::km/SI::h]", unit: "SI::km/SI::h", rational: "27/5", reduction: "5/18·SI::metre·SI::second^-1", wantScaled: true},
 		// Grouping the notation needs survives, so the text reads back as the unit written.
 		{expr: "3.0 [SI::m/(SI::s*SI::kg)]", unit: "SI::m/(SI::s*SI::kg)", real: 3.0, reduction: "1/1000·SI::gram^-1·SI::metre·SI::second^-1", wantScaled: true},
 		{expr: "4.0 [(SI::m*SI::s)**2]", unit: "(SI::m*SI::s)**2", real: 4.0, reduction: "SI::metre^2·SI::second^2"},
 		{expr: "8.0 [(SI::m**2)**3]", unit: "(SI::m**2)**3", real: 8.0, reduction: "SI::metre^6"},
 		// A point on a measurement scale carries the scale by name and as its one
 		// factor: a point reduces to no unit, so the scale itself is the reduction.
-		{expr: "26.85 [SI::'°C_abs']", unit: "'°C_abs'", real: 26.85, reduction: "SI::degree celsius (absolute temperature scale)"},
-		{expr: "26.85 [SI::'°C_abs'] + 10.0 [SI::'°C']", unit: "'°C_abs'", real: 36.85, reduction: "SI::degree celsius (absolute temperature scale)"},
+		// A decimal no double holds crosses exactly, as a Rational.
+		{expr: "26.85 [SI::'°C_abs']", unit: "'°C_abs'", rational: "537/20", reduction: "SI::degree celsius (absolute temperature scale)"},
+		{expr: "26.85 [SI::'°C_abs'] + 10.0 [SI::'°C']", unit: "'°C_abs'", rational: "737/20", reduction: "SI::degree celsius (absolute temperature scale)"},
 		{expr: "30.0 [SI::'°C_abs'] - 20.0 [SI::'°C_abs']", unit: "'°C'", real: 10.0, reduction: "SI::kelvin"},
 		{expr: "5.0 [Time::UTC] + 3.0 [SI::s]", unit: "UTC", real: 8.0, reduction: "Time::Coordinated Universal Time"},
 	}
@@ -124,6 +126,11 @@ func TestQuantityCrossesTheWire(t *testing.T) {
 			if tc.isInt {
 				if got.GetIntMagnitude() != tc.intVal {
 					t.Errorf("int_magnitude = %d, want %d", got.GetIntMagnitude(), tc.intVal)
+				}
+			} else if tc.rational != "" {
+				r := got.GetRationalMagnitude()
+				if r.GetNumerator()+"/"+r.GetDenominator() != tc.rational {
+					t.Errorf("rational_magnitude = %v, want %s", r, tc.rational)
 				}
 			} else if got.GetRealMagnitude() != tc.real {
 				t.Errorf("real_magnitude = %v, want %v", got.GetRealMagnitude(), tc.real)
@@ -660,8 +667,8 @@ package Imperial {
 	// Two packages declaring one short name for the same unit is an ambiguity the
 	// reduction cannot settle: the text stays opaque rather than picked at random.
 	got = describeQuantity(evaluate("Q::Area", fathom, inFull("Nautical::fathom", fathom.GetUnitTerm())))
-	if got != "4 [Nautical::fathom*fathom] = 3.34450944/1·SI::metre^2" {
-		t.Errorf("ambiguous fathom * Nautical::fathom over the wire = %s, want 4 [Nautical::fathom*fathom] = 3.34450944/1·SI::metre^2", got)
+	if got != "4 [Nautical::fathom*fathom] = 1306449/390625·SI::metre^2" {
+		t.Errorf("ambiguous fathom * Nautical::fathom over the wire = %s, want 4 [Nautical::fathom*fathom] = 1306449/390625·SI::metre^2", got)
 	}
 	// One short name written twice may name two units, each read where the
 	// reduction puts it: `cable*cable` over both cables is Nautical::cable times
@@ -701,7 +708,7 @@ package Imperial {
 		{"speed times seconds", "Q::Dist", []*pb.Quantity{unnamed(speed.GetUnitTerm()), second}, "2 [SI::metre] = SI::metre"},
 		{"speed times a metre", "Q::Area", []*pb.Quantity{unnamed(speed.GetUnitTerm()), metre}, "4 [SI::'m²⋅s⁻¹'] = SI::metre^2·SI::second^-1"},
 		{"kilometres times a metre", "Q::Area", []*pb.Quantity{unnamed(byHand.GetUnitTerm()), metre}, "4 ['1000·metre'*m] = 1000/1·SI::metre^2"},
-		{"kilometres alone", "Q::Area", []*pb.Quantity{unnamed(byHand.GetUnitTerm()), unnamed(byHand.GetUnitTerm())}, "4 ['1000·metre'**2] = 1e+06/1·SI::metre^2"},
+		{"kilometres alone", "Q::Area", []*pb.Quantity{unnamed(byHand.GetUnitTerm()), unnamed(byHand.GetUnitTerm())}, "4 ['1000·metre'**2] = 1000000/1·SI::metre^2"},
 	} {
 		if got := describeQuantity(evaluate(tc.calc, tc.args...)); got != tc.want {
 			t.Errorf("%s, sent without unit text, = %s, want %s", tc.name, got, tc.want)
@@ -710,8 +717,8 @@ package Imperial {
 	// A scaled ratio sent nameless names no dimension-one unit: it scales what it
 	// multiplies and cancels to a number, as an unnamed ratio does locally.
 	hundredth := unnamed(&pb.UnitTerm{ScaleNum: 1, ScaleDen: 100})
-	if got := describeQuantity(evaluate("Q::Area", hundredth, metre)); got != "4 ['1/100'*m] = 1/100·SI::metre" {
-		t.Errorf("a nameless hundredth * m = %s, want 4 ['1/100'*m] = 1/100·SI::metre", got)
+	if got := describeQuantity(evaluate("Q::Area", hundredth, metre)); got != "4 ['0.01'*m] = 1/100·SI::metre" {
+		t.Errorf("a nameless hundredth * m = %s, want 4 ['0.01'*m] = 1/100·SI::metre", got)
 	}
 	resp, err := srv.EvaluateCalc(context.Background(), &pb.EvaluateCalcRequest{
 		ModelHash: hash, SymbolId: "Q::Area",
@@ -811,9 +818,9 @@ package Imperial {
 		{
 			"a short name two units bear",
 			sent("fathom", fathomTerm), nauticalFathom,
-			"6 [Nautical::fathom*fathom] = 3.34450944/1·SI::metre^2",
-			"6 [fathom] = 3.34450944/1.8288·SI::metre",
-			"1 [Nautical::fathom] = 3.34450944/1.8288·SI::metre",
+			"6 [Nautical::fathom*fathom] = 1306449/390625·SI::metre^2",
+			"6 [fathom] = 1143/625·SI::metre",
+			"1 [Nautical::fathom] = 1143/625·SI::metre",
 		},
 		{
 			"a short name spelling a keyword",

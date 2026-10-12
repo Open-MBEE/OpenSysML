@@ -450,6 +450,7 @@ elmt:Chains__ctx___402
     sysml:connectorEnd expr:Chains__ctx___402_pend0, expr:Chains__ctx___402_pend1 ;
     sysml:ownedRelationship expr:Chains__ctx___402_pend0_om, expr:Chains__ctx___402_pend1_om ;
     sysml:ownedMembership expr:Chains__ctx___402_pend0_om, expr:Chains__ctx___402_pend1_om ;
+    sysml:ownedMember expr:Chains__ctx___402_pend0, expr:Chains__ctx___402_pend1 ;
     sysml:ownedFeatureMembership expr:Chains__ctx___402_pend0_om, expr:Chains__ctx___402_pend1_om ;
     sysml:ownedFeature expr:Chains__ctx___402_pend0, expr:Chains__ctx___402_pend1 ;
     sysml:ownedEndFeature expr:Chains__ctx___402_pend0, expr:Chains__ctx___402_pend1 ;
@@ -460,6 +461,7 @@ elmt:Chains__ctx___402
     json:connectorEnd "[{\"@id\":\"Chains__ctx___402_pend0\"},{\"@id\":\"Chains__ctx___402_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Chains__ctx___402_pend0_om\"},{\"@id\":\"Chains__ctx___402_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Chains__ctx___402_pend0_om\"},{\"@id\":\"Chains__ctx___402_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Chains__ctx___402_pend0\"},{\"@id\":\"Chains__ctx___402_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__ctx___402_pend0_om\"},{\"@id\":\"Chains__ctx___402_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Chains__ctx___402_pend0\"},{\"@id\":\"Chains__ctx___402_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Chains__ctx___402_pend0\"},{\"@id\":\"Chains__ctx___402_pend1\"}]" .
@@ -662,6 +664,7 @@ elmt:Chains__ctx__ic
     sysml:connectorEnd expr:Chains__ctx__ic_pend0, expr:Chains__ctx__ic_pend1 ;
     sysml:ownedRelationship expr:Chains__ctx__ic_pend0_om, expr:Chains__ctx__ic_pend1_om, elmt:Chains__ctx__ic_ft0 ;
     sysml:ownedMembership expr:Chains__ctx__ic_pend0_om, expr:Chains__ctx__ic_pend1_om ;
+    sysml:ownedMember expr:Chains__ctx__ic_pend0, expr:Chains__ctx__ic_pend1 ;
     sysml:ownedFeatureMembership expr:Chains__ctx__ic_pend0_om, expr:Chains__ctx__ic_pend1_om ;
     sysml:ownedFeature expr:Chains__ctx__ic_pend0, expr:Chains__ctx__ic_pend1 ;
     sysml:ownedEndFeature expr:Chains__ctx__ic_pend0, expr:Chains__ctx__ic_pend1 ;
@@ -674,6 +677,7 @@ elmt:Chains__ctx__ic
     json:connectorEnd "[{\"@id\":\"Chains__ctx__ic_pend0\"},{\"@id\":\"Chains__ctx__ic_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Chains__ctx__ic_pend0_om\"},{\"@id\":\"Chains__ctx__ic_pend1_om\"},{\"@id\":\"Chains__ctx__ic_ft0\"}]" ;
     json:ownedMembership "[{\"@id\":\"Chains__ctx__ic_pend0_om\"},{\"@id\":\"Chains__ctx__ic_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Chains__ctx__ic_pend0\"},{\"@id\":\"Chains__ctx__ic_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__ctx__ic_pend0_om\"},{\"@id\":\"Chains__ctx__ic_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Chains__ctx__ic_pend0\"},{\"@id\":\"Chains__ctx__ic_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Chains__ctx__ic_pend0\"},{\"@id\":\"Chains__ctx__ic_pend1\"}]" .

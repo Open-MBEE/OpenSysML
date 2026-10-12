@@ -2,12 +2,14 @@ package opensysml_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -680,6 +682,80 @@ func TestRenderDocumentAnswersMarkdown(t *testing.T) {
 	}
 	if !strings.Contains(markdown, "mount") {
 		t.Errorf("rendered document does not carry its table rows:\n%s", markdown)
+	}
+}
+
+func TestRenderViewAgainstService(t *testing.T) {
+	client := newClient(t)
+	source, err := os.ReadFile(filepath.Join("..", "..", "conformance", "fixtures", "views.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := parse(t, client, string(source))
+	rendered, err := client.RenderView(context.Background(), model, "RenderViewDemo::connections")
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	if rendered.Kind != "interconnection" || len(rendered.Edges) != 1 {
+		t.Fatalf("rendered view kind/edges = %q/%d", rendered.Kind, len(rendered.Edges))
+	}
+	if rendered.Edges[0].FromPort == "" || rendered.Edges[0].ToPort == "" {
+		t.Errorf("edge ports = %q -> %q, want both endpoints", rendered.Edges[0].FromPort, rendered.Edges[0].ToPort)
+	}
+	for _, node := range rendered.Nodes {
+		if node.Origin == nil || node.Origin.StartLine == 0 {
+			t.Errorf("node %q has no source origin", node.Name)
+		}
+	}
+	full, err := client.RenderView(context.Background(), model, "RenderViewDemo::connections", opensysml.WithFullPorts())
+	if err != nil {
+		t.Fatalf("RenderView with full ports: %v", err)
+	}
+	var names []string
+	for _, node := range full.Nodes {
+		for _, port := range node.Ports {
+			names = append(names, port.Name)
+		}
+	}
+	if !slices.Contains(names, "spare") {
+		t.Errorf("full ports = %v, want spare", names)
+	}
+}
+
+func TestExportGraphsAgainstService(t *testing.T) {
+	client := newClient(t)
+	source, err := os.ReadFile(filepath.Join("..", "..", "conformance", "fixtures", "behavior.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := parse(t, client, string(source))
+	graphs, err := client.ExportGraphs(context.Background(), model, "Test::race")
+	if err != nil {
+		t.Fatalf("ExportGraphs: %v", err)
+	}
+	if graphs.Version != 1 || graphs.Subject != "Test::race" {
+		t.Errorf("graphs version/subject = %d/%q, want 1/Test::race", graphs.Version, graphs.Subject)
+	}
+	var form struct {
+		Version int    `json:"version"`
+		Subject string `json:"subject"`
+		Actions []any  `json:"actions"`
+	}
+	if err := json.Unmarshal([]byte(graphs.Content), &form); err != nil {
+		t.Fatalf("content is not JSON: %v\n%s", err, graphs.Content)
+	}
+	if form.Version != 1 || form.Subject != "Test::race" || len(form.Actions) != 1 {
+		t.Errorf("content = version %d, subject %q, %d actions", form.Version, form.Subject, len(form.Actions))
+	}
+
+	_, err = client.ExportGraphs(context.Background(), model, "Test::Missing")
+	var status *opensysml.StatusError
+	if !errors.As(err, &status) || status.Code != opensysml.CodeNotFound {
+		t.Errorf("unknown subject: %v, want NOT_FOUND", err)
+	}
+	_, err = client.ExportGraphs(context.Background(), model, "Test")
+	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
+		t.Errorf("a package as subject: %v, want INVALID_ARGUMENT", err)
 	}
 }
 

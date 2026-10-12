@@ -43,9 +43,7 @@ func TestDOTStandardDefaults(t *testing.T) {
 	}
 }
 
-// A definition is a square box and a usage a rounded one, by keyword: `… def`
-// and the KerML classifiers are definitions, everything else a usage; a
-// pseudo-state or control node is neither.
+// Definitions are square boxes and usages are rounded by keyword in interconnection views.
 func TestDOTDefinitionsSquareUsagesRounded(t *testing.T) {
 	kinds := map[string]bool{
 		"part def": true, "action def": true, "state def": true, "use case def": true, "class": true, "datatype": true,
@@ -487,6 +485,7 @@ func TestGoldenDOTPalettes(t *testing.T) {
 	}{
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", PaletteOkabeIto},
 		{"state", "state.sysml", "MachineViews::vehicleStates", PaletteOkabeIto},
+		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", PaletteOkabeIto},
 		{"tree", "tree.sysml", "VehicleViews::vehicleView", PaletteViridis},
 	}
 	for _, tc := range cases {

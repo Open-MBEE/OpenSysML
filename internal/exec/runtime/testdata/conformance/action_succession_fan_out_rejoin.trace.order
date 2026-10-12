@@ -1,0 +1,5 @@
+# a precedes both of its targets; d follows both.
+a < b
+a < c
+b < d
+c < d

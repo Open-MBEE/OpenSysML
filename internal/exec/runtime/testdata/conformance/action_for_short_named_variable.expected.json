@@ -1,5 +1,6 @@
 {
 	"type": "action",
+	"libraries": true,
 	"outputs": {
 		"total": {
 			"type": "Real",

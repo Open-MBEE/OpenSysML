@@ -11,15 +11,539 @@ import (
 )
 
 // checkDistinguishability reports the member names of one namespace that are not
-// distinguishable: an owned name repeating another owned name, and — for a type
-// — an owned name repeating one the type inherits (KerML 7.2.2, SysML 7.6.1).
-// Both are warnings, as in the reference implementation.
+// distinguishable: an owned name repeating another owned name, — for a type —
+// an owned name repeating one the type inherits, and an imported name repeating
+// another imported one (KerML 7.2.2, SysML 7.6.1). All are warnings by default,
+// as the reference implementation reports the first two; the first two violate
+// `validateNamespaceDistinguishibility` (KerML 8.3.2.4.5), so strict conformance
+// reports them as errors, while an imported collision is a name 7.2.5.4 hides.
 func (r *Resolver) checkDistinguishability(scope *symbols.Scope) {
 	if scope == nil {
 		return
 	}
 	r.checkOwnedNames(scope)
 	r.checkInheritedNames(scope)
+	r.checkImportedNames(scope)
+}
+
+// importedMember is one membership an import surfaces into a namespace, with
+// the import that brought it, or one the namespace inherits (imp nil).
+type importedMember struct {
+	sym *symbols.Symbol
+	imp *ast.Import
+}
+
+// ownedName is a name among one namespace's own members. A repeat of it there
+// — two documents declaring the same package and member — is that namespace's
+// duplicate, reported where it is declared, not at every importer.
+type ownedName struct {
+	owner ownerKey
+	name  string
+}
+
+// ownerKey identifies a namespace across documents: by qualified name when it
+// and every namespace enclosing it is a package, since one package declared in
+// two documents is one namespace, and by scope otherwise — two types of one
+// name are two namespaces.
+type ownerKey struct {
+	scope *symbols.Scope
+	fqn   string
+}
+
+func ownerKeyOf(scope *symbols.Scope) ownerKey {
+	if scope == nil || scope.Owner() == nil {
+		return ownerKey{scope: scope}
+	}
+	for s := scope; s != nil && s.Owner() != nil; s = s.Owner().OwnerScope {
+		owner := s.Owner()
+		if owner.Name == "" || (owner.Kind != symbols.SymbolPackage && owner.Kind != symbols.SymbolNamespace) {
+			return ownerKey{scope: scope}
+		}
+	}
+	return ownerKey{fqn: symbols.FQNOf(scope.Owner())}
+}
+
+// boundName is one name one element is reached under: an alias and the element
+// it names bind one name to one element, a membership two imports reach too.
+type boundName struct {
+	key  symbols.ElementKey
+	name string
+}
+
+// checkImportedNames reports each name an imported membership shares with
+// another imported membership or, in a type, with an inherited one: a
+// namespace's memberships are its owned, imported and inherited ones together,
+// and all of them must be distinguishable (KerML 8.3.2.4.5). A membership two
+// imports both reach is one membership and conflicts with nothing; so are two
+// memberships of one element, an alias and what it names. An imported name an
+// owned member hides takes no part, nor does library content, as the inherited
+// pass leaves library supertypes out. Two imported memberships colliding are
+// both hidden from the namespace (importedCollisions); an inherited one
+// colliding with an imported one hides neither, the type being ill-formed.
+func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
+	if r.idx.DocumentLibraryTier(r.document).Library() {
+		return
+	}
+	c := r.importedCollisions(scope)
+	if len(c.names) == 0 {
+		return
+	}
+	inherited := r.inheritedAgainstImports(scope)
+	for _, name := range c.names {
+		members := c.byName[name]
+		for _, sym := range inherited[name] {
+			members = append(members, importedMember{sym: sym})
+		}
+		if len(members) < 2 {
+			continue
+		}
+		// Keep the members some other member is indistinguishable from; the
+		// rest conflict with nothing.
+		var kept []importedMember
+		imported := 0
+		for i, member := range members {
+			if len(r.duplicatesOf(member.sym, importedSymbolsExcept(members, i))) > 0 {
+				kept = append(kept, member)
+				if member.imp != nil {
+					imported++
+				}
+			}
+		}
+		if len(kept) < 2 || imported == 0 {
+			continue
+		}
+		r.duplicateImported(name, kept)
+	}
+}
+
+// importCollisions is what the imports of one namespace bring, by name, and
+// the memberships KerML 7.2.5.4 hides among them: distinct elements two or
+// more imports bring under one name or short name, indistinguishable by
+// metaclass, no owned member hiding them. Library content takes no part, as
+// in checkImportedNames: the warning and the hiding are one computation.
+type importCollisions struct {
+	// names are the imported names in import order and byName their
+	// memberships, one per element reached, less those an owned member hides.
+	names  []string
+	byName map[string][]importedMember
+	// hidden holds every name a colliding membership binds; collided lists,
+	// per colliding name, the memberships hidden under it.
+	hidden   map[boundName]bool
+	collided map[string][]importedMember
+}
+
+var noImportCollisions = &importCollisions{}
+
+// importedCollisions is the importCollisions of scope, memoized once the resolver is
+// settled and kept provisionally meanwhile, so an import cycle computes each namespace once.
+func (r *Resolver) importedCollisions(scope *symbols.Scope) *importCollisions {
+	if scope == nil || r.idx == nil {
+		return noImportCollisions
+	}
+	if r.colliding[scope] {
+		r.collisionCut = true
+		return noImportCollisions
+	}
+	if c, done := r.collisions[scope]; done {
+		return c
+	}
+	if r.collisionsSettled() {
+		r.provisional = nil
+	} else if c, ok := r.provisional[scope]; ok {
+		r.collisionCut = true
+		return c
+	}
+	imports := r.scopeImports(scope)
+	if len(imports) == 0 || r.idx.DocumentLibraryTier(symbols.DocNameOf(scope)).Library() {
+		return noImportCollisions
+	}
+	r.colliding[scope] = true
+	cut := r.collisionCut
+	r.collisionCut = false
+	c, complete := r.collectImported(scope, imports)
+	delete(r.colliding, scope)
+	// A cut met while this computation was the outermost is a cycle back to
+	// scope, which excluding it settles; a cut within another's is not.
+	complete = complete && (!r.collisionCut || len(r.colliding) == 0)
+	r.collisionCut = cut || r.collisionCut
+	switch {
+	case complete:
+		journalNew(r, r.collisions, scope, imports[0])
+		r.collisions[scope] = c
+	case !r.collisionsSettled():
+		if r.provisional == nil {
+			r.provisional = map[*symbols.Scope]*importCollisions{}
+		}
+		r.provisional[scope] = c
+	}
+	return c
+}
+
+// collisionsSettled reports whether what every namespace's imports bring can
+// be known now: no import target or filter condition is being resolved and no
+// namespace's collisions are being computed.
+func (r *Resolver) collisionsSettled() bool {
+	return r.inCondition == 0 && len(r.resolvingImports) == 0 && len(r.colliding) == 0
+}
+
+// ownedNames lists the names and short names of scope's own distinguishable members.
+func (r *Resolver) ownedNames(scope *symbols.Scope) []string {
+	var names []string
+	members, aliases := r.DistinguishableMembers(scope)
+	for _, sym := range append(members, aliases...) {
+		names = append(names, memberNames(sym)...)
+	}
+	return names
+}
+
+// collectImported gathers what imports bring into scope and decides the
+// collisions among them; complete is false when an import's target could not
+// be settled yet.
+func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) (*importCollisions, bool) {
+	complete := r.inCondition == 0
+	owned := map[string]bool{}
+	for _, name := range r.ownedNames(scope) {
+		owned[name] = true
+	}
+	c := &importCollisions{
+		byName:   map[string][]importedMember{},
+		hidden:   map[boundName]bool{},
+		collided: map[string][]importedMember{},
+	}
+	seen := map[boundName]bool{}
+	owners := map[ownedName]bool{}
+	for _, imp := range imports {
+		if r.resolvingImports[imp] {
+			complete = false
+			continue
+		}
+		target, ok := r.importTargetOf(scope, imp)
+		if !ok {
+			complete = complete && len(r.resolvingImports) == 0
+			continue
+		}
+		if target == nil || r.idx.Library(target) {
+			continue
+		}
+		for _, sym := range r.importedMembersInto(scope, scope, imp, false) {
+			if sym.Name == "" || r.idx.Library(sym) || !contributesName(sym) || !r.BindsName(sym) {
+				continue
+			}
+			key := symbols.KeyOf(r.aliasTarget(sym))
+			for _, name := range memberNames(sym) {
+				bound := boundName{key: key, name: name}
+				owner := ownedName{owner: ownerKeyOf(sym.OwnerScope), name: name}
+				if owned[name] || seen[bound] || owners[owner] {
+					continue
+				}
+				seen[bound] = true
+				owners[owner] = true
+				if _, ok := c.byName[name]; !ok {
+					c.names = append(c.names, name)
+				}
+				c.byName[name] = append(c.byName[name], importedMember{sym: sym, imp: imp})
+			}
+		}
+	}
+	for _, name := range c.names {
+		members := c.byName[name]
+		if len(members) < 2 {
+			continue
+		}
+		var kept []importedMember
+		for i, member := range members {
+			if len(r.duplicatesOf(member.sym, importedSymbolsExcept(members, i))) > 0 {
+				kept = append(kept, member)
+			}
+		}
+		if len(kept) < 2 {
+			continue
+		}
+		c.collided[name] = kept
+		for _, member := range kept {
+			key := symbols.KeyOf(r.aliasTarget(member.sym))
+			for _, bound := range memberNames(member.sym) {
+				c.hidden[boundName{key: key, name: bound}] = true
+			}
+		}
+	}
+	return c, complete
+}
+
+// hiddenImport reports whether sym, reached under name through an import of
+// scope, is a membership scope hides (KerML 7.2.5.4), a called name's as any.
+func (r *Resolver) hiddenImport(scope *symbols.Scope, name string, sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	c := r.importedCollisions(scope)
+	return len(c.hidden) > 0 && c.hidden[boundName{key: symbols.KeyOf(r.aliasTarget(sym)), name: name}]
+}
+
+// hiddenImportMember is hiddenImport under any name sym binds.
+func (r *Resolver) hiddenImportMember(scope *symbols.Scope, sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	c := r.importedCollisions(scope)
+	if len(c.hidden) == 0 {
+		return false
+	}
+	key := symbols.KeyOf(r.aliasTarget(sym))
+	for _, name := range memberNames(sym) {
+		if c.hidden[boundName{key: key, name: name}] {
+			return true
+		}
+	}
+	return false
+}
+
+// withoutHiddenImports drops from syms, reached under name, what scope hides
+// and what reaches scope only through a namespace that hides it: a membership
+// hidden there is no member of that namespace, so no import brings it on from
+// there, though another import of scope may still bring the element itself.
+func (r *Resolver) withoutHiddenImports(scope *symbols.Scope, name string, syms []*symbols.Symbol) []*symbols.Symbol {
+	if scope == nil || len(syms) == 0 {
+		return syms
+	}
+	// A route read through a cycle of imports still being computed is undecided
+	// (collisionCut): what it brings is kept, as the cycle's closure, not dropped.
+	cut := r.collisionCut
+	r.collisionCut = false
+	defer func() { r.collisionCut = cut || r.collisionCut }()
+	through := r.collidedThrough(scope, name, map[*symbols.Scope]bool{})
+	if len(through) == 0 && len(r.importedCollisions(scope).hidden) == 0 {
+		return syms
+	}
+	out := syms[:0:0]
+	for _, sym := range syms {
+		if r.hiddenImport(scope, name, sym) {
+			continue
+		}
+		key := symbols.KeyOf(r.aliasTarget(sym))
+		hidden := false
+		for _, member := range through {
+			if symbols.KeyOf(r.aliasTarget(member.sym)) == key {
+				hidden = true
+				break
+			}
+		}
+		if !hidden || r.importBrings(scope, name, sym) || r.collisionCut {
+			out = append(out, sym)
+		}
+	}
+	return out
+}
+
+// importBrings reports whether an owned membership or an import of scope brings
+// sym under name: what an import surfaces is decided by eachImportMatch, so a
+// route counts only where the element is actually a visible, admitted member
+// along it, hidden nowhere on the way. A recursive import brings only what its
+// subtree holds, and a namespace import nothing of a non-namespace target.
+func (r *Resolver) importBrings(scope *symbols.Scope, name string, sym *symbols.Symbol) bool {
+	if scope == nil || r.hiddenImport(scope, name, sym) {
+		return false
+	}
+	if asked, ok := r.bringing[scope]; ok {
+		// A namespace asked before brings nothing new; one still being asked is a
+		// cycle back, undecided here (collisionCut).
+		r.collisionCut = r.collisionCut || asked
+		return false
+	}
+	key := symbols.KeyOf(r.aliasTarget(sym))
+	for _, owned := range r.LocalBindings(scope, name) {
+		if symbols.KeyOf(r.aliasTarget(owned)) == key {
+			return true
+		}
+	}
+	// One search asks each namespace once: one found to bring nothing brings
+	// nothing by a longer route either, so a cycle of re-exports stays linear.
+	if len(r.bringing) == 0 {
+		defer clear(r.bringing)
+	}
+	r.bringing[scope] = true
+	defer func() { r.bringing[scope] = false }()
+	for _, imp := range r.scopeImports(scope) {
+		for _, found := range r.importMatchesAll(scope, imp, name) {
+			if symbols.KeyOf(r.aliasTarget(found)) == key {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// withoutHiddenReexports is withoutHiddenImports over the index entries under
+// prefix that are re-exports; what the namespace declares is kept as it is.
+func (r *Resolver) withoutHiddenReexports(scope *symbols.Scope, prefix, name string, syms []*symbols.Symbol) []*symbols.Symbol {
+	var reexported []*symbols.Symbol
+	for _, sym := range syms {
+		if r.reexportedUnder(prefix, sym) {
+			reexported = append(reexported, sym)
+		}
+	}
+	if len(reexported) == 0 {
+		return syms
+	}
+	kept := map[*symbols.Symbol]bool{}
+	for _, sym := range r.withoutHiddenImports(scope, name, reexported) {
+		kept[sym] = true
+	}
+	out := syms[:0:0]
+	for _, sym := range syms {
+		if !r.reexportedUnder(prefix, sym) || kept[sym] {
+			out = append(out, sym)
+		}
+	}
+	return out
+}
+
+// hiddenOnRoute reports whether sym, an index entry registered under scope's
+// namespace, reaches scope only through a namespace that hides it, under any
+// name sym binds (see withoutHiddenImports).
+func (r *Resolver) hiddenOnRoute(scope *symbols.Scope, sym *symbols.Symbol) bool {
+	if scope == nil || sym == nil {
+		return false
+	}
+	for _, name := range memberNames(sym) {
+		if len(r.withoutHiddenImports(scope, name, []*symbols.Symbol{sym})) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// collidedThrough is what hides name in scope, or in a namespace an import of
+// scope re-exports from: a hidden membership is no member of that namespace,
+// so the import brings none under the name.
+func (r *Resolver) collidedThrough(scope *symbols.Scope, name string, seen map[*symbols.Scope]bool) []importedMember {
+	if scope == nil || seen[scope] || r.idx == nil || r.idx.DocumentLibraryTier(symbols.DocNameOf(scope)).Library() {
+		// A library namespace hides nothing (importedCollisions), nor do the
+		// libraries it imports.
+		return nil
+	}
+	seen[scope] = true
+	if hidden := r.importedCollisions(scope).collided[name]; len(hidden) > 0 {
+		return hidden
+	}
+	for _, imp := range r.scopeImports(scope) {
+		if imp.Kind != ast.ImportNamespace || r.resolvingImports[imp] {
+			continue
+		}
+		if target, ok := r.importTargetOf(scope, imp); ok && target != nil && target.Scope != nil {
+			if hidden := r.collidedThrough(target.Scope, name, seen); len(hidden) > 0 {
+				return hidden
+			}
+		}
+	}
+	return nil
+}
+
+// hiddenImportsOf lists, for an unqualified name written in scope that
+// resolves to nothing, the colliding memberships that hide it on the way out:
+// in scope, its enclosing namespaces, and the generals of the types among them.
+func (r *Resolver) hiddenImportsOf(scope *symbols.Scope, name string) []importedMember {
+	for s := scope; s != nil; s = s.Parent() {
+		if hidden := r.collidedThrough(s, name, map[*symbols.Scope]bool{}); len(hidden) > 0 {
+			return hidden
+		}
+		if owner := s.Owner(); owner != nil && r.model != nil {
+			if _, ok := r.model.(supertypeProvider); ok {
+				for _, sup := range r.specializationChain(owner) {
+					if sup.Scope == nil {
+						continue
+					}
+					if hidden := r.importedCollisions(sup.Scope).collided[name]; len(hidden) > 0 {
+						return hidden
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// inheritedAgainstImports is what a type inherits, by name, for its imported
+// memberships to be told apart from: nothing for a namespace that is no type,
+// and nothing while a redefinition the type declares is unresolved, as that
+// may be the one hiding the inherited name (as checkInheritedAmbiguity holds).
+func (r *Resolver) inheritedAgainstImports(scope *symbols.Scope) map[string][]*symbols.Symbol {
+	owner := scope.Owner()
+	if r.model == nil || owner == nil || ParameterizedByName(owner) {
+		return nil
+	}
+	model, ok := r.model.(supertypeProvider)
+	if !ok || len(model.DirectSupertypes(owner)) == 0 || r.hasUnresolvedRedefinitions(scope) {
+		return nil
+	}
+	return r.inheritedMembers(owner, model)
+}
+
+// memberNames are the names a membership binds: the member's name and, when it
+// declares one, its short name (KerML 8.3.2.4.3 compares both).
+func memberNames(sym *symbols.Symbol) []string {
+	names := []string{sym.Name}
+	if sym.ShortName != "" && sym.ShortName != sym.Name {
+		names = append(names, sym.ShortName)
+	}
+	return names
+}
+
+// importedSymbolsExcept is the symbols of members other than the i-th.
+func importedSymbolsExcept(members []importedMember, i int) []*symbols.Symbol {
+	out := make([]*symbols.Symbol, 0, len(members)-1)
+	for j, member := range members {
+		if j != i {
+			out = append(out, member.sym)
+		}
+	}
+	return out
+}
+
+// duplicateImported reports one name several memberships share, at the import
+// that brought the last imported one, naming every colliding member and the
+// import each came through — or that it is inherited — so a reader can rename
+// one, narrow an import or import the member wanted explicitly.
+func (r *Resolver) duplicateImported(name string, members []importedMember) {
+	parts := make([]string, 0, len(members))
+	var last *ast.Import
+	for _, member := range members {
+		origin := "inherited"
+		if member.imp != nil {
+			origin = importText(member.imp)
+			last = member.imp
+		}
+		parts = append(parts, fmt.Sprintf("%s (%s)", source.QualifiedNameOf(symbols.NameChain(member.sym)), origin))
+	}
+	span := last.Span()
+	if last.Imported != nil {
+		span = last.Imported.Span()
+	}
+	r.reportDuplicate(span, fmt.Sprintf("Duplicate of imported member name '%s': %s", name, strings.Join(parts, ", ")), false)
+}
+
+// importText spells an import as its declaration does, visibility aside:
+// `import A::*`, `import A::*::**`, `import A::x` or `import A::x::**`.
+func importText(imp *ast.Import) string {
+	text := "import "
+	if imp.IsAll {
+		text += "all "
+	}
+	names := make([]string, 0, len(imp.Imported.Parts))
+	for _, part := range imp.Imported.Parts {
+		names = append(names, part.Text)
+	}
+	if imp.Imported.Global {
+		text += "$::"
+	}
+	text += source.QualifiedNameOf(names)
+	if imp.Kind == ast.ImportNamespace {
+		text += "::*"
+	}
+	if imp.IsRecursive {
+		text += "::**"
+	}
+	return text
 }
 
 // checkOwnedNames reports each name a namespace declares twice. Aliases are a
@@ -244,18 +768,48 @@ func (r *Resolver) inheritableMembers(owner, sup *symbols.Symbol, model supertyp
 // membership is inherited whether the namespace owns it or imported it
 // (KerML 8.4.3.2). Library elements are left out, as library supertypes are.
 func (r *Resolver) importedMembers(owner, sup *symbols.Symbol) []*symbols.Symbol {
+	hidden := r.hiddenImports(sup.Scope)
 	var out []*symbols.Symbol
 	for _, imp := range r.scopeImports(sup.Scope) {
 		if imp.Visibility == ast.VisibilityPrivate {
 			continue
 		}
-		for _, sym := range r.ImportedElementsInto(owner.Scope, sup.Scope, imp) {
-			if sym != nil && sym.Name != "" && !r.idx.Library(sym) && contributesName(sym) && r.BindsName(sym) {
+		for _, sym := range r.importedMembersInto(owner.Scope, sup.Scope, imp, false) {
+			if sym != nil && sym.Name != "" && !r.idx.Library(sym) && contributesName(sym) && r.BindsName(sym) &&
+				!r.hiddenImportMember(sup.Scope, sym) && !hidden[sym] {
 				out = append(out, sym)
 			}
 		}
 	}
 	return out
+}
+
+// hiddenImports is the imported memberships of scope an owned name hides
+// (KerML 8.3.2.4.5), which no subtype inherits; those hidden by another import
+// are importedCollisions. An inherited name hides nothing: both are inherited on.
+func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool {
+	imports := r.scopeImports(scope)
+	if len(imports) == 0 {
+		return nil
+	}
+	owned := map[string]bool{}
+	for _, name := range r.ownedNames(scope) {
+		owned[name] = true
+	}
+	hidden := map[*symbols.Symbol]bool{}
+	for _, imp := range imports {
+		for _, sym := range r.importedMembersInto(scope, scope, imp, false) {
+			if sym == nil {
+				continue
+			}
+			for _, name := range memberNames(sym) {
+				if owned[name] {
+					hidden[sym] = true
+				}
+			}
+		}
+	}
+	return hidden
 }
 
 // removeRedefinedFeatures drops the inherited members that are no longer
@@ -446,7 +1000,7 @@ func (r *Resolver) duplicateName(sym *symbols.Symbol, message string, from []*sy
 	if names := ownerNames(sym, from); len(names) > 0 {
 		message = fmt.Sprintf("%s '%s' from %s", message, sym.Name, strings.Join(names, ", "))
 	}
-	r.reportDuplicate(span, message)
+	r.reportDuplicate(span, message, true)
 }
 
 // duplicateInherited reports a name owner inherits twice, at owner's own
@@ -456,15 +1010,19 @@ func (r *Resolver) duplicateInherited(owner *symbols.Symbol, name string, from [
 	if names := ownerNames(nil, from); len(names) > 0 {
 		message = fmt.Sprintf("%s '%s' from %s", message, name, strings.Join(names, ", "))
 	}
-	r.reportDuplicate(owner.DeclSpan, message)
+	r.reportDuplicate(owner.DeclSpan, message, true)
 }
 
-func (r *Resolver) reportDuplicate(span source.Span, message string) {
+// reportDuplicate reports one indistinguishable name; illFormed marks the
+// memberships the namespace keeps, which `validateNamespaceDistinguishibility`
+// forbids, as against an imported collision 7.2.5.4 hides.
+func (r *Resolver) reportDuplicate(span source.Span, message string, illFormed bool) {
 	r.report(Diagnostic{
-		Span:    span,
-		Message: message,
-		Code:    CodeNameConflict,
-		Warning: true,
+		Span:      span,
+		Message:   message,
+		Code:      CodeNameConflict,
+		Warning:   true,
+		IllFormed: illFormed,
 	})
 }
 

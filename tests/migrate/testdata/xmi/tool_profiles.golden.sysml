@@ -5,7 +5,7 @@ package 'My Profile' {
 }
 package System {
     part def Pump {
-        ref mass;
+        attribute mass;
         @'My Profile'::Tracked {
             ticket = "T-42";
         }
@@ -13,8 +13,8 @@ package System {
 }
 package Customizations;
 package Mockups {
-    part def Clock {
-        ref ticks;
+    occurrence def Clock {
+        attribute ticks;
         state def Ticking {
             entry; then Running;
             state Running;

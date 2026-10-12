@@ -247,6 +247,7 @@ elmt:ThenAfterMembers__AfterFlow___401
     sysml:connectorEnd expr:ThenAfterMembers__AfterFlow___401_pend0, expr:ThenAfterMembers__AfterFlow___401_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterFlow___401_pend0_om, expr:ThenAfterMembers__AfterFlow___401_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterFlow___401_pend0_om, expr:ThenAfterMembers__AfterFlow___401_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterFlow___401_pend0, expr:ThenAfterMembers__AfterFlow___401_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterFlow___401_pend0_om, expr:ThenAfterMembers__AfterFlow___401_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterFlow___401_pend0, expr:ThenAfterMembers__AfterFlow___401_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterFlow___401_pend0, expr:ThenAfterMembers__AfterFlow___401_pend1 ;
@@ -256,6 +257,7 @@ elmt:ThenAfterMembers__AfterFlow___401
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1\"}]" .
@@ -456,6 +458,7 @@ elmt:ThenAfterMembers__AfterFlow___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterFlow___403_pend0, expr:ThenAfterMembers__AfterFlow___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterFlow___403_pend0_om, expr:ThenAfterMembers__AfterFlow___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterFlow___403_pend0_om, expr:ThenAfterMembers__AfterFlow___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterFlow___403_pend0, expr:ThenAfterMembers__AfterFlow___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterFlow___403_pend0_om, expr:ThenAfterMembers__AfterFlow___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterFlow___403_pend0, expr:ThenAfterMembers__AfterFlow___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterFlow___403_pend0, expr:ThenAfterMembers__AfterFlow___403_pend1 ;
@@ -465,6 +468,7 @@ elmt:ThenAfterMembers__AfterFlow___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403_pend1\"}]" .
@@ -693,6 +697,7 @@ elmt:ThenAfterMembers__AfterBind___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterBind___403_pend0, expr:ThenAfterMembers__AfterBind___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterBind___403_pend0_om, expr:ThenAfterMembers__AfterBind___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterBind___403_pend0_om, expr:ThenAfterMembers__AfterBind___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterBind___403_pend0, expr:ThenAfterMembers__AfterBind___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterBind___403_pend0_om, expr:ThenAfterMembers__AfterBind___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterBind___403_pend0, expr:ThenAfterMembers__AfterBind___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterBind___403_pend0, expr:ThenAfterMembers__AfterBind___403_pend1 ;
@@ -706,6 +711,7 @@ elmt:ThenAfterMembers__AfterBind___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterBind___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterBind___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterBind___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterBind___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterBind___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterBind___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterBind___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterBind___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterBind___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterBind___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterBind___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterBind___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterBind___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterBind___403_pend1\"}]" ;
@@ -855,6 +861,7 @@ elmt:ThenAfterMembers__AfterBind___405
     sysml:connectorEnd expr:ThenAfterMembers__AfterBind___405_pend0, expr:ThenAfterMembers__AfterBind___405_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterBind___405_pend0_om, expr:ThenAfterMembers__AfterBind___405_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterBind___405_pend0_om, expr:ThenAfterMembers__AfterBind___405_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterBind___405_pend0, expr:ThenAfterMembers__AfterBind___405_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterBind___405_pend0_om, expr:ThenAfterMembers__AfterBind___405_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterBind___405_pend0, expr:ThenAfterMembers__AfterBind___405_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterBind___405_pend0, expr:ThenAfterMembers__AfterBind___405_pend1 ;
@@ -864,6 +871,7 @@ elmt:ThenAfterMembers__AfterBind___405
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterBind___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterBind___405_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterBind___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterBind___405_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterBind___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterBind___405_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterBind___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterBind___405_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterBind___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterBind___405_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterBind___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterBind___405_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterBind___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterBind___405_pend1\"}]" .
@@ -1184,6 +1192,7 @@ elmt:ThenAfterMembers__AfterConnect___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterConnect___403_pend0, expr:ThenAfterMembers__AfterConnect___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterConnect___403_pend0_om, expr:ThenAfterMembers__AfterConnect___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterConnect___403_pend0_om, expr:ThenAfterMembers__AfterConnect___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterConnect___403_pend0, expr:ThenAfterMembers__AfterConnect___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterConnect___403_pend0_om, expr:ThenAfterMembers__AfterConnect___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterConnect___403_pend0, expr:ThenAfterMembers__AfterConnect___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterConnect___403_pend0, expr:ThenAfterMembers__AfterConnect___403_pend1 ;
@@ -1197,6 +1206,7 @@ elmt:ThenAfterMembers__AfterConnect___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnect___403_pend1\"}]" ;
@@ -1346,6 +1356,7 @@ elmt:ThenAfterMembers__AfterConnect___405
     sysml:connectorEnd expr:ThenAfterMembers__AfterConnect___405_pend0, expr:ThenAfterMembers__AfterConnect___405_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterConnect___405_pend0_om, expr:ThenAfterMembers__AfterConnect___405_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterConnect___405_pend0_om, expr:ThenAfterMembers__AfterConnect___405_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterConnect___405_pend0, expr:ThenAfterMembers__AfterConnect___405_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterConnect___405_pend0_om, expr:ThenAfterMembers__AfterConnect___405_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterConnect___405_pend0, expr:ThenAfterMembers__AfterConnect___405_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterConnect___405_pend0, expr:ThenAfterMembers__AfterConnect___405_pend1 ;
@@ -1355,6 +1366,7 @@ elmt:ThenAfterMembers__AfterConnect___405
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnect___405_pend1\"}]" .
@@ -1584,6 +1596,7 @@ elmt:ThenAfterMembers__AfterConnection__c
     sysml:connectorEnd expr:ThenAfterMembers__AfterConnection__c_pend0, expr:ThenAfterMembers__AfterConnection__c_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterConnection__c_pend0_om, expr:ThenAfterMembers__AfterConnection__c_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterConnection__c_pend0_om, expr:ThenAfterMembers__AfterConnection__c_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterConnection__c_pend0, expr:ThenAfterMembers__AfterConnection__c_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterConnection__c_pend0_om, expr:ThenAfterMembers__AfterConnection__c_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterConnection__c_pend0, expr:ThenAfterMembers__AfterConnection__c_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterConnection__c_pend0, expr:ThenAfterMembers__AfterConnection__c_pend1 ;
@@ -1597,6 +1610,7 @@ elmt:ThenAfterMembers__AfterConnection__c
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnection__c_pend1\"}]" ;
@@ -1746,6 +1760,7 @@ elmt:ThenAfterMembers__AfterConnection___405
     sysml:connectorEnd expr:ThenAfterMembers__AfterConnection___405_pend0, expr:ThenAfterMembers__AfterConnection___405_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterConnection___405_pend0_om, expr:ThenAfterMembers__AfterConnection___405_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterConnection___405_pend0_om, expr:ThenAfterMembers__AfterConnection___405_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterConnection___405_pend0, expr:ThenAfterMembers__AfterConnection___405_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterConnection___405_pend0_om, expr:ThenAfterMembers__AfterConnection___405_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterConnection___405_pend0, expr:ThenAfterMembers__AfterConnection___405_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterConnection___405_pend0, expr:ThenAfterMembers__AfterConnection___405_pend1 ;
@@ -1755,6 +1770,7 @@ elmt:ThenAfterMembers__AfterConnection___405
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnection___405_pend1\"}]" .
@@ -1985,6 +2001,7 @@ elmt:ThenAfterMembers__AfterInterface__i
     sysml:connectorEnd expr:ThenAfterMembers__AfterInterface__i_pend0, expr:ThenAfterMembers__AfterInterface__i_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterInterface__i_pend0_om, expr:ThenAfterMembers__AfterInterface__i_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterInterface__i_pend0_om, expr:ThenAfterMembers__AfterInterface__i_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterInterface__i_pend0, expr:ThenAfterMembers__AfterInterface__i_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterInterface__i_pend0_om, expr:ThenAfterMembers__AfterInterface__i_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterInterface__i_pend0, expr:ThenAfterMembers__AfterInterface__i_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterInterface__i_pend0, expr:ThenAfterMembers__AfterInterface__i_pend1 ;
@@ -1998,6 +2015,7 @@ elmt:ThenAfterMembers__AfterInterface__i
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend0\"},{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend0\"},{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend0\"},{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend0\"},{\"@id\":\"ThenAfterMembers__AfterInterface__i_pend1\"}]" ;
@@ -2147,6 +2165,7 @@ elmt:ThenAfterMembers__AfterInterface___405
     sysml:connectorEnd expr:ThenAfterMembers__AfterInterface___405_pend0, expr:ThenAfterMembers__AfterInterface___405_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterInterface___405_pend0_om, expr:ThenAfterMembers__AfterInterface___405_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterInterface___405_pend0_om, expr:ThenAfterMembers__AfterInterface___405_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterInterface___405_pend0, expr:ThenAfterMembers__AfterInterface___405_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterInterface___405_pend0_om, expr:ThenAfterMembers__AfterInterface___405_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterInterface___405_pend0, expr:ThenAfterMembers__AfterInterface___405_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterInterface___405_pend0, expr:ThenAfterMembers__AfterInterface___405_pend1 ;
@@ -2156,6 +2175,7 @@ elmt:ThenAfterMembers__AfterInterface___405
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterInterface___405_pend1\"}]" .
@@ -2384,6 +2404,7 @@ elmt:ThenAfterMembers__AfterAllocate___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterAllocate___403_pend0, expr:ThenAfterMembers__AfterAllocate___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterAllocate___403_pend0_om, expr:ThenAfterMembers__AfterAllocate___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterAllocate___403_pend0_om, expr:ThenAfterMembers__AfterAllocate___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterAllocate___403_pend0, expr:ThenAfterMembers__AfterAllocate___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterAllocate___403_pend0_om, expr:ThenAfterMembers__AfterAllocate___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterAllocate___403_pend0, expr:ThenAfterMembers__AfterAllocate___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterAllocate___403_pend0, expr:ThenAfterMembers__AfterAllocate___403_pend1 ;
@@ -2397,6 +2418,7 @@ elmt:ThenAfterMembers__AfterAllocate___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___403_pend1\"}]" ;
@@ -2546,6 +2568,7 @@ elmt:ThenAfterMembers__AfterAllocate___405
     sysml:connectorEnd expr:ThenAfterMembers__AfterAllocate___405_pend0, expr:ThenAfterMembers__AfterAllocate___405_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterAllocate___405_pend0_om, expr:ThenAfterMembers__AfterAllocate___405_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterAllocate___405_pend0_om, expr:ThenAfterMembers__AfterAllocate___405_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterAllocate___405_pend0, expr:ThenAfterMembers__AfterAllocate___405_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterAllocate___405_pend0_om, expr:ThenAfterMembers__AfterAllocate___405_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterAllocate___405_pend0, expr:ThenAfterMembers__AfterAllocate___405_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterAllocate___405_pend0, expr:ThenAfterMembers__AfterAllocate___405_pend1 ;
@@ -2555,6 +2578,7 @@ elmt:ThenAfterMembers__AfterAllocate___405
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocate___405_pend1\"}]" .
@@ -2784,6 +2808,7 @@ elmt:ThenAfterMembers__AfterAllocation__al
     sysml:connectorEnd expr:ThenAfterMembers__AfterAllocation__al_pend0, expr:ThenAfterMembers__AfterAllocation__al_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterAllocation__al_pend0_om, expr:ThenAfterMembers__AfterAllocation__al_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterAllocation__al_pend0_om, expr:ThenAfterMembers__AfterAllocation__al_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterAllocation__al_pend0, expr:ThenAfterMembers__AfterAllocation__al_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterAllocation__al_pend0_om, expr:ThenAfterMembers__AfterAllocation__al_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterAllocation__al_pend0, expr:ThenAfterMembers__AfterAllocation__al_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterAllocation__al_pend0, expr:ThenAfterMembers__AfterAllocation__al_pend1 ;
@@ -2797,6 +2822,7 @@ elmt:ThenAfterMembers__AfterAllocation__al
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocation__al_pend1\"}]" ;
@@ -2946,6 +2972,7 @@ elmt:ThenAfterMembers__AfterAllocation___405
     sysml:connectorEnd expr:ThenAfterMembers__AfterAllocation___405_pend0, expr:ThenAfterMembers__AfterAllocation___405_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterAllocation___405_pend0_om, expr:ThenAfterMembers__AfterAllocation___405_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterAllocation___405_pend0_om, expr:ThenAfterMembers__AfterAllocation___405_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterAllocation___405_pend0, expr:ThenAfterMembers__AfterAllocation___405_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterAllocation___405_pend0_om, expr:ThenAfterMembers__AfterAllocation___405_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterAllocation___405_pend0, expr:ThenAfterMembers__AfterAllocation___405_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterAllocation___405_pend0, expr:ThenAfterMembers__AfterAllocation___405_pend1 ;
@@ -2955,6 +2982,7 @@ elmt:ThenAfterMembers__AfterAllocation___405
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAllocation___405_pend1\"}]" .
@@ -3183,6 +3211,7 @@ elmt:ThenAfterMembers__AfterConnectors___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterConnectors___403_pend0, expr:ThenAfterMembers__AfterConnectors___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterConnectors___403_pend0_om, expr:ThenAfterMembers__AfterConnectors___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterConnectors___403_pend0_om, expr:ThenAfterMembers__AfterConnectors___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterConnectors___403_pend0, expr:ThenAfterMembers__AfterConnectors___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterConnectors___403_pend0_om, expr:ThenAfterMembers__AfterConnectors___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterConnectors___403_pend0, expr:ThenAfterMembers__AfterConnectors___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterConnectors___403_pend0, expr:ThenAfterMembers__AfterConnectors___403_pend1 ;
@@ -3196,6 +3225,7 @@ elmt:ThenAfterMembers__AfterConnectors___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___403_pend1\"}]" ;
@@ -3311,6 +3341,7 @@ elmt:ThenAfterMembers__AfterConnectors___404
     sysml:connectorEnd expr:ThenAfterMembers__AfterConnectors___404_pend0, expr:ThenAfterMembers__AfterConnectors___404_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterConnectors___404_pend0_om, expr:ThenAfterMembers__AfterConnectors___404_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterConnectors___404_pend0_om, expr:ThenAfterMembers__AfterConnectors___404_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterConnectors___404_pend0, expr:ThenAfterMembers__AfterConnectors___404_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterConnectors___404_pend0_om, expr:ThenAfterMembers__AfterConnectors___404_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterConnectors___404_pend0, expr:ThenAfterMembers__AfterConnectors___404_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterConnectors___404_pend0, expr:ThenAfterMembers__AfterConnectors___404_pend1 ;
@@ -3324,6 +3355,7 @@ elmt:ThenAfterMembers__AfterConnectors___404
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___404_pend1\"}]" ;
@@ -3473,6 +3505,7 @@ elmt:ThenAfterMembers__AfterConnectors___406
     sysml:connectorEnd expr:ThenAfterMembers__AfterConnectors___406_pend0, expr:ThenAfterMembers__AfterConnectors___406_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterConnectors___406_pend0_om, expr:ThenAfterMembers__AfterConnectors___406_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterConnectors___406_pend0_om, expr:ThenAfterMembers__AfterConnectors___406_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterConnectors___406_pend0, expr:ThenAfterMembers__AfterConnectors___406_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterConnectors___406_pend0_om, expr:ThenAfterMembers__AfterConnectors___406_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterConnectors___406_pend0, expr:ThenAfterMembers__AfterConnectors___406_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterConnectors___406_pend0, expr:ThenAfterMembers__AfterConnectors___406_pend1 ;
@@ -3482,6 +3515,7 @@ elmt:ThenAfterMembers__AfterConnectors___406
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend0\"},{\"@id\":\"ThenAfterMembers__AfterConnectors___406_pend1\"}]" .
@@ -3711,6 +3745,7 @@ elmt:ThenAfterMembers__AfterAttribute___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterAttribute___403_pend0, expr:ThenAfterMembers__AfterAttribute___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterAttribute___403_pend0_om, expr:ThenAfterMembers__AfterAttribute___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterAttribute___403_pend0_om, expr:ThenAfterMembers__AfterAttribute___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterAttribute___403_pend0, expr:ThenAfterMembers__AfterAttribute___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterAttribute___403_pend0_om, expr:ThenAfterMembers__AfterAttribute___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterAttribute___403_pend0, expr:ThenAfterMembers__AfterAttribute___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterAttribute___403_pend0, expr:ThenAfterMembers__AfterAttribute___403_pend1 ;
@@ -3720,6 +3755,7 @@ elmt:ThenAfterMembers__AfterAttribute___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAttribute___403_pend1\"}]" .
@@ -3942,6 +3978,7 @@ elmt:ThenAfterMembers__AfterDoc___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterDoc___403_pend0, expr:ThenAfterMembers__AfterDoc___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterDoc___403_pend0_om, expr:ThenAfterMembers__AfterDoc___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterDoc___403_pend0_om, expr:ThenAfterMembers__AfterDoc___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterDoc___403_pend0, expr:ThenAfterMembers__AfterDoc___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterDoc___403_pend0_om, expr:ThenAfterMembers__AfterDoc___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterDoc___403_pend0, expr:ThenAfterMembers__AfterDoc___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterDoc___403_pend0, expr:ThenAfterMembers__AfterDoc___403_pend1 ;
@@ -3951,6 +3988,7 @@ elmt:ThenAfterMembers__AfterDoc___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterDoc___403_pend1\"}]" .
@@ -4174,6 +4212,7 @@ elmt:ThenAfterMembers__AfterComment___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterComment___403_pend0, expr:ThenAfterMembers__AfterComment___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterComment___403_pend0_om, expr:ThenAfterMembers__AfterComment___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterComment___403_pend0_om, expr:ThenAfterMembers__AfterComment___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterComment___403_pend0, expr:ThenAfterMembers__AfterComment___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterComment___403_pend0_om, expr:ThenAfterMembers__AfterComment___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterComment___403_pend0, expr:ThenAfterMembers__AfterComment___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterComment___403_pend0, expr:ThenAfterMembers__AfterComment___403_pend1 ;
@@ -4183,6 +4222,7 @@ elmt:ThenAfterMembers__AfterComment___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterComment___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterComment___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterComment___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterComment___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterComment___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterComment___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterComment___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterComment___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterComment___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterComment___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterComment___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterComment___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterComment___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterComment___403_pend1\"}]" .
@@ -4456,6 +4496,7 @@ elmt:ThenAfterMembers__AfterImport___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterImport___403_pend0, expr:ThenAfterMembers__AfterImport___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterImport___403_pend0_om, expr:ThenAfterMembers__AfterImport___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterImport___403_pend0_om, expr:ThenAfterMembers__AfterImport___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterImport___403_pend0, expr:ThenAfterMembers__AfterImport___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterImport___403_pend0_om, expr:ThenAfterMembers__AfterImport___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterImport___403_pend0, expr:ThenAfterMembers__AfterImport___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterImport___403_pend0, expr:ThenAfterMembers__AfterImport___403_pend1 ;
@@ -4465,6 +4506,7 @@ elmt:ThenAfterMembers__AfterImport___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterImport___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterImport___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterImport___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterImport___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterImport___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterImport___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterImport___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterImport___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterImport___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterImport___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterImport___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterImport___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterImport___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterImport___403_pend1\"}]" .
@@ -4680,6 +4722,7 @@ elmt:ThenAfterMembers__AfterAlias___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterAlias___403_pend0, expr:ThenAfterMembers__AfterAlias___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterAlias___403_pend0_om, expr:ThenAfterMembers__AfterAlias___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterAlias___403_pend0_om, expr:ThenAfterMembers__AfterAlias___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterAlias___403_pend0, expr:ThenAfterMembers__AfterAlias___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterAlias___403_pend0_om, expr:ThenAfterMembers__AfterAlias___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterAlias___403_pend0, expr:ThenAfterMembers__AfterAlias___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterAlias___403_pend0, expr:ThenAfterMembers__AfterAlias___403_pend1 ;
@@ -4689,6 +4732,7 @@ elmt:ThenAfterMembers__AfterAlias___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterAlias___403_pend1\"}]" .
@@ -4912,6 +4956,7 @@ elmt:ThenAfterMembers__AfterNestedDefinition___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterNestedDefinition___403_pend0, expr:ThenAfterMembers__AfterNestedDefinition___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterNestedDefinition___403_pend0_om, expr:ThenAfterMembers__AfterNestedDefinition___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterNestedDefinition___403_pend0_om, expr:ThenAfterMembers__AfterNestedDefinition___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterNestedDefinition___403_pend0, expr:ThenAfterMembers__AfterNestedDefinition___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterNestedDefinition___403_pend0_om, expr:ThenAfterMembers__AfterNestedDefinition___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterNestedDefinition___403_pend0, expr:ThenAfterMembers__AfterNestedDefinition___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterNestedDefinition___403_pend0, expr:ThenAfterMembers__AfterNestedDefinition___403_pend1 ;
@@ -4921,6 +4966,7 @@ elmt:ThenAfterMembers__AfterNestedDefinition___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterNestedDefinition___403_pend1\"}]" .
@@ -5144,6 +5190,7 @@ elmt:ThenAfterMembers__AfterNestedPackage___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterNestedPackage___403_pend0, expr:ThenAfterMembers__AfterNestedPackage___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterNestedPackage___403_pend0_om, expr:ThenAfterMembers__AfterNestedPackage___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterNestedPackage___403_pend0_om, expr:ThenAfterMembers__AfterNestedPackage___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterNestedPackage___403_pend0, expr:ThenAfterMembers__AfterNestedPackage___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterNestedPackage___403_pend0_om, expr:ThenAfterMembers__AfterNestedPackage___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterNestedPackage___403_pend0, expr:ThenAfterMembers__AfterNestedPackage___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterNestedPackage___403_pend0, expr:ThenAfterMembers__AfterNestedPackage___403_pend1 ;
@@ -5153,6 +5200,7 @@ elmt:ThenAfterMembers__AfterNestedPackage___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterNestedPackage___403_pend1\"}]" .
@@ -5401,6 +5449,7 @@ elmt:ThenAfterMembers__AfterMultiplicity___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterMultiplicity___403_pend0, expr:ThenAfterMembers__AfterMultiplicity___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterMultiplicity___403_pend0_om, expr:ThenAfterMembers__AfterMultiplicity___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterMultiplicity___403_pend0_om, expr:ThenAfterMembers__AfterMultiplicity___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterMultiplicity___403_pend0, expr:ThenAfterMembers__AfterMultiplicity___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterMultiplicity___403_pend0_om, expr:ThenAfterMembers__AfterMultiplicity___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterMultiplicity___403_pend0, expr:ThenAfterMembers__AfterMultiplicity___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterMultiplicity___403_pend0, expr:ThenAfterMembers__AfterMultiplicity___403_pend1 ;
@@ -5410,6 +5459,7 @@ elmt:ThenAfterMembers__AfterMultiplicity___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterMultiplicity___403_pend1\"}]" .
@@ -5705,6 +5755,7 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures___406
     sysml:connectorEnd expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend0, expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend0_om, expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend0_om, expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend0, expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend0_om, expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend0, expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend0, expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend1 ;
@@ -5714,6 +5765,7 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures___406
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend0\"},{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend0\"},{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend0\"},{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend0\"},{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures___406_pend1\"}]" .
@@ -5963,6 +6015,7 @@ elmt:ThenAfterMembers__AfterNonFeatures___404
     sysml:connectorEnd expr:ThenAfterMembers__AfterNonFeatures___404_pend0, expr:ThenAfterMembers__AfterNonFeatures___404_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterNonFeatures___404_pend0_om, expr:ThenAfterMembers__AfterNonFeatures___404_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterNonFeatures___404_pend0_om, expr:ThenAfterMembers__AfterNonFeatures___404_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterNonFeatures___404_pend0, expr:ThenAfterMembers__AfterNonFeatures___404_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterNonFeatures___404_pend0_om, expr:ThenAfterMembers__AfterNonFeatures___404_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterNonFeatures___404_pend0, expr:ThenAfterMembers__AfterNonFeatures___404_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterNonFeatures___404_pend0, expr:ThenAfterMembers__AfterNonFeatures___404_pend1 ;
@@ -5972,6 +6025,7 @@ elmt:ThenAfterMembers__AfterNonFeatures___404
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterNonFeatures___404_pend1\"}]" .
@@ -6167,6 +6221,7 @@ elmt:ThenAfterMembers__AfterSuccession___402
     sysml:connectorEnd expr:ThenAfterMembers__AfterSuccession___402_pend0, expr:ThenAfterMembers__AfterSuccession___402_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterSuccession___402_pend0_om, expr:ThenAfterMembers__AfterSuccession___402_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterSuccession___402_pend0_om, expr:ThenAfterMembers__AfterSuccession___402_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterSuccession___402_pend0, expr:ThenAfterMembers__AfterSuccession___402_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterSuccession___402_pend0_om, expr:ThenAfterMembers__AfterSuccession___402_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterSuccession___402_pend0, expr:ThenAfterMembers__AfterSuccession___402_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterSuccession___402_pend0, expr:ThenAfterMembers__AfterSuccession___402_pend1 ;
@@ -6180,6 +6235,7 @@ elmt:ThenAfterMembers__AfterSuccession___402
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend0\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend0\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend0\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend0\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___402_pend1\"}]" ;
@@ -6329,6 +6385,7 @@ elmt:ThenAfterMembers__AfterSuccession___404
     sysml:connectorEnd expr:ThenAfterMembers__AfterSuccession___404_pend0, expr:ThenAfterMembers__AfterSuccession___404_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterSuccession___404_pend0_om, expr:ThenAfterMembers__AfterSuccession___404_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterSuccession___404_pend0_om, expr:ThenAfterMembers__AfterSuccession___404_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterSuccession___404_pend0, expr:ThenAfterMembers__AfterSuccession___404_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterSuccession___404_pend0_om, expr:ThenAfterMembers__AfterSuccession___404_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterSuccession___404_pend0, expr:ThenAfterMembers__AfterSuccession___404_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterSuccession___404_pend0, expr:ThenAfterMembers__AfterSuccession___404_pend1 ;
@@ -6338,6 +6395,7 @@ elmt:ThenAfterMembers__AfterSuccession___404
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterSuccession___404_pend1\"}]" .
@@ -6503,6 +6561,7 @@ elmt:ThenAfterMembers__AfterFirstThen___401
     sysml:connectorEnd expr:ThenAfterMembers__AfterFirstThen___401_pend0, expr:ThenAfterMembers__AfterFirstThen___401_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterFirstThen___401_pend0_om, expr:ThenAfterMembers__AfterFirstThen___401_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterFirstThen___401_pend0_om, expr:ThenAfterMembers__AfterFirstThen___401_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterFirstThen___401_pend0, expr:ThenAfterMembers__AfterFirstThen___401_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterFirstThen___401_pend0_om, expr:ThenAfterMembers__AfterFirstThen___401_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterFirstThen___401_pend0, expr:ThenAfterMembers__AfterFirstThen___401_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterFirstThen___401_pend0, expr:ThenAfterMembers__AfterFirstThen___401_pend1 ;
@@ -6510,6 +6569,7 @@ elmt:ThenAfterMembers__AfterFirstThen___401
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___401_pend1\"}]" .
@@ -6657,6 +6717,7 @@ elmt:ThenAfterMembers__AfterFirstThen___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterFirstThen___403_pend0, expr:ThenAfterMembers__AfterFirstThen___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterFirstThen___403_pend0_om, expr:ThenAfterMembers__AfterFirstThen___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterFirstThen___403_pend0_om, expr:ThenAfterMembers__AfterFirstThen___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterFirstThen___403_pend0, expr:ThenAfterMembers__AfterFirstThen___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterFirstThen___403_pend0_om, expr:ThenAfterMembers__AfterFirstThen___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterFirstThen___403_pend0, expr:ThenAfterMembers__AfterFirstThen___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterFirstThen___403_pend0, expr:ThenAfterMembers__AfterFirstThen___403_pend1 ;
@@ -6666,6 +6727,7 @@ elmt:ThenAfterMembers__AfterFirstThen___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstThen___403_pend1\"}]" .
@@ -6879,6 +6941,7 @@ elmt:ThenAfterMembers__AfterFirstStart___402
     sysml:connectorEnd expr:ThenAfterMembers__AfterFirstStart___402_pend0, expr:ThenAfterMembers__AfterFirstStart___402_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterFirstStart___402_pend0_om, expr:ThenAfterMembers__AfterFirstStart___402_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterFirstStart___402_pend0_om, expr:ThenAfterMembers__AfterFirstStart___402_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterFirstStart___402_pend0, expr:ThenAfterMembers__AfterFirstStart___402_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterFirstStart___402_pend0_om, expr:ThenAfterMembers__AfterFirstStart___402_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterFirstStart___402_pend0, expr:ThenAfterMembers__AfterFirstStart___402_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterFirstStart___402_pend0, expr:ThenAfterMembers__AfterFirstStart___402_pend1 ;
@@ -6888,6 +6951,7 @@ elmt:ThenAfterMembers__AfterFirstStart___402
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend1\"}]" .
@@ -6980,6 +7044,7 @@ elmt:ThenAfterMembers__AfterFirstStart___404
     sysml:connectorEnd expr:ThenAfterMembers__AfterFirstStart___404_pend0, expr:ThenAfterMembers__AfterFirstStart___404_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterFirstStart___404_pend0_om, expr:ThenAfterMembers__AfterFirstStart___404_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterFirstStart___404_pend0_om, expr:ThenAfterMembers__AfterFirstStart___404_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterFirstStart___404_pend0, expr:ThenAfterMembers__AfterFirstStart___404_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterFirstStart___404_pend0_om, expr:ThenAfterMembers__AfterFirstStart___404_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterFirstStart___404_pend0, expr:ThenAfterMembers__AfterFirstStart___404_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterFirstStart___404_pend0, expr:ThenAfterMembers__AfterFirstStart___404_pend1 ;
@@ -6989,6 +7054,7 @@ elmt:ThenAfterMembers__AfterFirstStart___404
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend1\"}]" .
@@ -7182,6 +7248,7 @@ elmt:ThenAfterMembers__AfterPerform___401
     sysml:connectorEnd expr:ThenAfterMembers__AfterPerform___401_pend0, expr:ThenAfterMembers__AfterPerform___401_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterPerform___401_pend0_om, expr:ThenAfterMembers__AfterPerform___401_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterPerform___401_pend0_om, expr:ThenAfterMembers__AfterPerform___401_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterPerform___401_pend0, expr:ThenAfterMembers__AfterPerform___401_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterPerform___401_pend0_om, expr:ThenAfterMembers__AfterPerform___401_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterPerform___401_pend0, expr:ThenAfterMembers__AfterPerform___401_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterPerform___401_pend0, expr:ThenAfterMembers__AfterPerform___401_pend1 ;
@@ -7191,6 +7258,7 @@ elmt:ThenAfterMembers__AfterPerform___401
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1\"}]" .
@@ -7391,6 +7459,7 @@ elmt:ThenAfterMembers__AfterPerform___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterPerform___403_pend0, expr:ThenAfterMembers__AfterPerform___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterPerform___403_pend0_om, expr:ThenAfterMembers__AfterPerform___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterPerform___403_pend0_om, expr:ThenAfterMembers__AfterPerform___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterPerform___403_pend0, expr:ThenAfterMembers__AfterPerform___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterPerform___403_pend0_om, expr:ThenAfterMembers__AfterPerform___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterPerform___403_pend0, expr:ThenAfterMembers__AfterPerform___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterPerform___403_pend0, expr:ThenAfterMembers__AfterPerform___403_pend1 ;
@@ -7400,6 +7469,7 @@ elmt:ThenAfterMembers__AfterPerform___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403_pend1\"}]" .
@@ -7562,6 +7632,7 @@ elmt:ThenAfterMembers__ThenAlone___401
     sysml:connectorEnd expr:ThenAfterMembers__ThenAlone___401_pend0, expr:ThenAfterMembers__ThenAlone___401_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__ThenAlone___401_pend0_om, expr:ThenAfterMembers__ThenAlone___401_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__ThenAlone___401_pend0_om, expr:ThenAfterMembers__ThenAlone___401_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__ThenAlone___401_pend0, expr:ThenAfterMembers__ThenAlone___401_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__ThenAlone___401_pend0_om, expr:ThenAfterMembers__ThenAlone___401_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__ThenAlone___401_pend0, expr:ThenAfterMembers__ThenAlone___401_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__ThenAlone___401_pend0, expr:ThenAfterMembers__ThenAlone___401_pend1 ;
@@ -7571,6 +7642,7 @@ elmt:ThenAfterMembers__ThenAlone___401
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1\"}]" .
@@ -7738,6 +7810,7 @@ elmt:ThenAfterMembers__ThenAlone___402
     sysml:connectorEnd expr:ThenAfterMembers__ThenAlone___402_pend0, expr:ThenAfterMembers__ThenAlone___402_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__ThenAlone___402_pend0_om, expr:ThenAfterMembers__ThenAlone___402_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__ThenAlone___402_pend0_om, expr:ThenAfterMembers__ThenAlone___402_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__ThenAlone___402_pend0, expr:ThenAfterMembers__ThenAlone___402_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__ThenAlone___402_pend0_om, expr:ThenAfterMembers__ThenAlone___402_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__ThenAlone___402_pend0, expr:ThenAfterMembers__ThenAlone___402_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__ThenAlone___402_pend0, expr:ThenAfterMembers__ThenAlone___402_pend1 ;
@@ -7747,6 +7820,7 @@ elmt:ThenAfterMembers__ThenAlone___402
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend0_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend0_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend0_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402_pend1\"}]" .
@@ -8052,6 +8126,7 @@ elmt:ThenAfterMembers__Lamp___403_succession
     sysml:connectorEnd expr:ThenAfterMembers__Lamp___403_succession_pend0, expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__Lamp___403_succession_pend0_om, expr:ThenAfterMembers__Lamp___403_succession_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__Lamp___403_succession_pend0_om, expr:ThenAfterMembers__Lamp___403_succession_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__Lamp___403_succession_pend0, expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__Lamp___403_succession_pend0_om, expr:ThenAfterMembers__Lamp___403_succession_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__Lamp___403_succession_pend0, expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__Lamp___403_succession_pend0, expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
@@ -8061,6 +8136,7 @@ elmt:ThenAfterMembers__Lamp___403_succession
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend0\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend0_om\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend0_om\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend0\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend0_om\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend0\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend0\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1\"}]" .
@@ -8179,6 +8255,7 @@ elmt:ThenAfterMembers__Lamp___405
     sysml:connectorEnd expr:ThenAfterMembers__Lamp___405_pend0, expr:ThenAfterMembers__Lamp___405_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__Lamp___405_pend0_om, expr:ThenAfterMembers__Lamp___405_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__Lamp___405_pend0_om, expr:ThenAfterMembers__Lamp___405_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__Lamp___405_pend0, expr:ThenAfterMembers__Lamp___405_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__Lamp___405_pend0_om, expr:ThenAfterMembers__Lamp___405_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__Lamp___405_pend0, expr:ThenAfterMembers__Lamp___405_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__Lamp___405_pend0, expr:ThenAfterMembers__Lamp___405_pend1 ;
@@ -8188,6 +8265,7 @@ elmt:ThenAfterMembers__Lamp___405
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__Lamp___405_pend0\"},{\"@id\":\"ThenAfterMembers__Lamp___405_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__Lamp___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__Lamp___405_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__Lamp___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__Lamp___405_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__Lamp___405_pend0\"},{\"@id\":\"ThenAfterMembers__Lamp___405_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__Lamp___405_pend0_om\"},{\"@id\":\"ThenAfterMembers__Lamp___405_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__Lamp___405_pend0\"},{\"@id\":\"ThenAfterMembers__Lamp___405_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__Lamp___405_pend0\"},{\"@id\":\"ThenAfterMembers__Lamp___405_pend1\"}]" .
@@ -8368,6 +8446,7 @@ elmt:ThenAfterMembers__Switch___402
     sysml:connectorEnd expr:ThenAfterMembers__Switch___402_pend0, expr:ThenAfterMembers__Switch___402_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__Switch___402_pend0_om, expr:ThenAfterMembers__Switch___402_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__Switch___402_pend0_om, expr:ThenAfterMembers__Switch___402_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__Switch___402_pend0, expr:ThenAfterMembers__Switch___402_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__Switch___402_pend0_om, expr:ThenAfterMembers__Switch___402_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__Switch___402_pend0, expr:ThenAfterMembers__Switch___402_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__Switch___402_pend0, expr:ThenAfterMembers__Switch___402_pend1 ;
@@ -8377,6 +8456,7 @@ elmt:ThenAfterMembers__Switch___402
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__Switch___402_pend0\"},{\"@id\":\"ThenAfterMembers__Switch___402_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__Switch___402_pend0_om\"},{\"@id\":\"ThenAfterMembers__Switch___402_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__Switch___402_pend0_om\"},{\"@id\":\"ThenAfterMembers__Switch___402_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__Switch___402_pend0\"},{\"@id\":\"ThenAfterMembers__Switch___402_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__Switch___402_pend0_om\"},{\"@id\":\"ThenAfterMembers__Switch___402_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__Switch___402_pend0\"},{\"@id\":\"ThenAfterMembers__Switch___402_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__Switch___402_pend0\"},{\"@id\":\"ThenAfterMembers__Switch___402_pend1\"}]" .
@@ -8620,6 +8700,7 @@ elmt:ThenAfterMembers__AfterStateComment___403
     sysml:connectorEnd expr:ThenAfterMembers__AfterStateComment___403_pend0, expr:ThenAfterMembers__AfterStateComment___403_pend1 ;
     sysml:ownedRelationship expr:ThenAfterMembers__AfterStateComment___403_pend0_om, expr:ThenAfterMembers__AfterStateComment___403_pend1_om ;
     sysml:ownedMembership expr:ThenAfterMembers__AfterStateComment___403_pend0_om, expr:ThenAfterMembers__AfterStateComment___403_pend1_om ;
+    sysml:ownedMember expr:ThenAfterMembers__AfterStateComment___403_pend0, expr:ThenAfterMembers__AfterStateComment___403_pend1 ;
     sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterStateComment___403_pend0_om, expr:ThenAfterMembers__AfterStateComment___403_pend1_om ;
     sysml:ownedFeature expr:ThenAfterMembers__AfterStateComment___403_pend0, expr:ThenAfterMembers__AfterStateComment___403_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterStateComment___403_pend0, expr:ThenAfterMembers__AfterStateComment___403_pend1 ;
@@ -8629,6 +8710,7 @@ elmt:ThenAfterMembers__AfterStateComment___403
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend0\"},{\"@id\":\"ThenAfterMembers__AfterStateComment___403_pend1\"}]" .

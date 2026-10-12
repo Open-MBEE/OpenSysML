@@ -1,5 +1,5 @@
 {
   "libraries": true,
   "type": "calc",
-  "error": "type mismatch: cannot write ⟨1, 2.5, 3⟩ (vector) to a feature typed by IntegerVector: it declares elements : Integer, got element 2.5 (a Real)"
+  "error": "type mismatch: cannot write ⟨1, 2.5, 3⟩ (vector) to a feature typed by IntegerVector: it declares elements : Integer, got element 2.5 (a Rational)"
 }

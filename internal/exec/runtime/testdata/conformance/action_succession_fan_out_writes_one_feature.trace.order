@@ -1,0 +1,5 @@
+# The ordinary node precedes both of its targets; the join waits for both.
+split < left
+split < right
+left < sync
+right < sync

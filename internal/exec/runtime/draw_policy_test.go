@@ -33,7 +33,7 @@ func realOut(t *testing.T, out map[string]Value, name string) float64 {
 	if !ok || v.Const.Kind != semantics.ValReal {
 		t.Fatalf("%s = %v, want a Real", name, v)
 	}
-	return v.Const.Real
+	return v.Const.AsReal()
 }
 
 // formatDraws spells draws one per line, as a witness lists them.

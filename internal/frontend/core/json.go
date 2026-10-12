@@ -186,6 +186,14 @@ type JValue struct {
 	StringValue *string `json:"stringValue,omitempty"`
 	Null        *string `json:"null,omitempty"`
 	Infinity    *bool   `json:"infinity,omitempty"`
+	// RationalValue is an exact Rational binary64 does not hold exactly.
+	RationalValue *JRational `json:"rationalValue,omitempty"`
+}
+
+// JRational is an exact Rational in lowest terms, its denominator positive.
+type JRational struct {
+	Numerator   string `json:"numerator,omitempty"`
+	Denominator string `json:"denominator,omitempty"`
 }
 
 func oneofArms(message string, arms map[string]bool) error {

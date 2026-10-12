@@ -2,8 +2,8 @@
   "type": "instance",
   "instantiate": "test::truck",
   "slots": {
-    "grossMass": {"type": "Real", "value": 1000.0},
-    "mass": {"type": "Real", "value": 1000.0},
-    "payload": {"type": "Real", "value": 400.0}
+    "grossMass": {"type": "Rational", "value": "1000.0"},
+    "mass": {"type": "Rational", "value": "1000.0"},
+    "payload": {"type": "Rational", "value": "400.0"}
   }
 }

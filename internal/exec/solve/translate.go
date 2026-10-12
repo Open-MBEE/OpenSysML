@@ -868,6 +868,8 @@ func (t *translator) folded(n *ast.OperatorExpr) (*Term, bool) {
 	switch val.Kind {
 	case semantics.ValInt:
 		return BigIntTerm(val.BigInt()), true
+	case semantics.ValRational:
+		return RealTerm(val.Rat()), true
 	case semantics.ValReal:
 		rat := new(big.Rat).SetFloat64(val.Real)
 		if rat == nil {

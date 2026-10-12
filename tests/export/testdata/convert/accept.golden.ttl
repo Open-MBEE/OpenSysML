@@ -1,4 +1,5 @@
 @prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sysml: <https://www.omg.org/spec/SysML#> .
@@ -152,7 +153,7 @@ elmt:Accepts__Observe_om
     sysml:membershipOwningNamespace elmt:Accepts .
 
 elmt:Accepts__Observe__trigger
-    a sysml:ActionUsage ;
+    a sysml:AcceptActionUsage ;
     sysml:qualifiedName "Accepts::Observe::trigger" ;
     sysx:sourceLine "5"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -166,6 +167,8 @@ elmt:Accepts__Observe__trigger
     sysml:owningMembership elmt:Accepts__Observe__trigger_om ;
     sysml:declaredName "trigger" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:parameter elmt:Accepts__Observe__trigger__scene ;
+    sysml:payloadParameter elmt:Accepts__Observe__trigger__scene ;
     sysml:ownedMember elmt:Accepts__Observe__trigger__scene ;
     sysml:ownedMembership elmt:Accepts__Observe__trigger__scene_om ;
     sysml:ownedRelationship elmt:Accepts__Observe__trigger__scene_om ;
@@ -210,7 +213,7 @@ elmt:Accepts__Observe__trigger__scene
     sysml:ownedRelationship elmt:Accepts__Observe__trigger__scene_ft0 .
 
 elmt:Accepts__Observe__trigger__scene_om
-    a sysml:FeatureMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "Accepts__Observe__trigger__scene_om" ;
     sysml:owner elmt:Accepts__Observe__trigger ;
     sysml:memberElement elmt:Accepts__Observe__trigger__scene ;
@@ -218,6 +221,7 @@ elmt:Accepts__Observe__trigger__scene_om
     sysml:ownedRelatedElement elmt:Accepts__Observe__trigger__scene ;
     sysml:owningRelatedElement elmt:Accepts__Observe__trigger ;
     sysml:membershipOwningNamespace elmt:Accepts__Observe__trigger ;
+    sysml:ownedMemberParameter elmt:Accepts__Observe__trigger__scene ;
     sysml:ownedMemberFeature elmt:Accepts__Observe__trigger__scene ;
     sysml:owningType elmt:Accepts__Observe__trigger .
 
@@ -293,7 +297,7 @@ elmt:Accepts__Watch__lens_om
     sysml:owningType elmt:Accepts__Watch .
 
 elmt:Accepts__Watch__framed
-    a sysml:ActionUsage ;
+    a sysml:AcceptActionUsage ;
     sysml:qualifiedName "Accepts::Watch::framed" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -306,14 +310,23 @@ elmt:Accepts__Watch__framed
     sysml:owningRelationship elmt:Accepts__Watch__framed_om ;
     sysml:owningMembership elmt:Accepts__Watch__framed_om ;
     sysml:declaredName "framed" ;
-    sysml:via elmt:Accepts__Watch__lens ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedMember elmt:Accepts__Watch__framed__scene ;
-    sysml:ownedMembership elmt:Accepts__Watch__framed__scene_om ;
-    sysml:ownedRelationship elmt:Accepts__Watch__framed__scene_om ;
-    sysml:ownedFeature elmt:Accepts__Watch__framed__scene ;
-    sysml:ownedFeatureMembership elmt:Accepts__Watch__framed__scene_om ;
-    sysx:sourceText "        action framed accept scene : Scene via lens;\n" .
+    sysml:parameter elmt:Accepts__Watch__framed__scene, elmt:Accepts__Watch__framed___401 ;
+    sysml:payloadParameter elmt:Accepts__Watch__framed__scene ;
+    sysml:ownedMember elmt:Accepts__Watch__framed__scene, elmt:Accepts__Watch__framed___401 ;
+    sysml:ownedMembership elmt:Accepts__Watch__framed__scene_om, elmt:Accepts__Watch__framed___401_om ;
+    sysml:ownedRelationship elmt:Accepts__Watch__framed__scene_om, elmt:Accepts__Watch__framed___401_om ;
+    sysml:ownedFeature elmt:Accepts__Watch__framed__scene, elmt:Accepts__Watch__framed___401 ;
+    sysml:ownedFeatureMembership elmt:Accepts__Watch__framed__scene_om, elmt:Accepts__Watch__framed___401_om ;
+    sysml:input elmt:Accepts__Watch__framed___401 ;
+    sysml:receiverArgument expr:Accepts__Watch__framed___401_pvalue ;
+    sysx:sourceText "        action framed accept scene : Scene via lens;\n" ;
+    json:parameter "[{\"@id\":\"Accepts__Watch__framed__scene\"},{\"@id\":\"Accepts__Watch__framed___401\"}]" ;
+    json:ownedMember "[{\"@id\":\"Accepts__Watch__framed__scene\"},{\"@id\":\"Accepts__Watch__framed___401\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Accepts__Watch__framed__scene_om\"},{\"@id\":\"Accepts__Watch__framed___401_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Accepts__Watch__framed__scene_om\"},{\"@id\":\"Accepts__Watch__framed___401_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Accepts__Watch__framed__scene\"},{\"@id\":\"Accepts__Watch__framed___401\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Accepts__Watch__framed__scene_om\"},{\"@id\":\"Accepts__Watch__framed___401_om\"}]" .
 
 elmt:Accepts__Watch__framed_om
     a sysml:FeatureMembership ;
@@ -352,7 +365,7 @@ elmt:Accepts__Watch__framed__scene
     sysml:ownedRelationship elmt:Accepts__Watch__framed__scene_ft0 .
 
 elmt:Accepts__Watch__framed__scene_om
-    a sysml:FeatureMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "Accepts__Watch__framed__scene_om" ;
     sysml:owner elmt:Accepts__Watch__framed ;
     sysml:memberElement elmt:Accepts__Watch__framed__scene ;
@@ -360,8 +373,91 @@ elmt:Accepts__Watch__framed__scene_om
     sysml:ownedRelatedElement elmt:Accepts__Watch__framed__scene ;
     sysml:owningRelatedElement elmt:Accepts__Watch__framed ;
     sysml:membershipOwningNamespace elmt:Accepts__Watch__framed ;
+    sysml:ownedMemberParameter elmt:Accepts__Watch__framed__scene ;
     sysml:ownedMemberFeature elmt:Accepts__Watch__framed__scene ;
     sysml:owningType elmt:Accepts__Watch__framed .
+
+elmt:Accepts__Watch__framed___401
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "Accepts::Watch::framed::@1" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "48"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "52"^^xsd:integer ;
+    sysml:elementId "Accepts__Watch__framed___401" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Accepts__Watch__framed ;
+    sysml:owner elmt:Accepts__Watch__framed ;
+    sysml:owningRelationship elmt:Accepts__Watch__framed___401_om ;
+    sysml:owningMembership elmt:Accepts__Watch__framed___401_om ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isReference "true"^^xsd:boolean ;
+    sysml:direction "in" ;
+    sysml:value expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:ownedRelationship expr:Accepts__Watch__framed___401_pvalue_om ;
+    sysml:ownedMembership expr:Accepts__Watch__framed___401_pvalue_om ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:Accepts__Watch__framed___401_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Accepts__Watch__framed___401_om" ;
+    sysml:owner elmt:Accepts__Watch__framed ;
+    sysml:memberElement elmt:Accepts__Watch__framed___401 ;
+    sysml:ownedMemberElement elmt:Accepts__Watch__framed___401 ;
+    sysml:ownedRelatedElement elmt:Accepts__Watch__framed___401 ;
+    sysml:owningRelatedElement elmt:Accepts__Watch__framed ;
+    sysml:membershipOwningNamespace elmt:Accepts__Watch__framed ;
+    sysml:ownedMemberParameter elmt:Accepts__Watch__framed___401 ;
+    sysml:ownedMemberFeature elmt:Accepts__Watch__framed___401 ;
+    sysml:owningType elmt:Accepts__Watch__framed .
+
+expr:Accepts__Watch__framed___401_pvalue
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "lens" ;
+    sysml:elementId "Accepts__Watch__framed___401_pvalue" ;
+    sysml:referent elmt:Accepts__Watch__lens ;
+    sysml:ownedRelationship expr:Accepts__Watch__framed___401_pvalue_pout_om, expr:Accepts__Watch__framed___401_pvalue_preferent ;
+    sysml:ownedMembership expr:Accepts__Watch__framed___401_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:Accepts__Watch__framed___401_pvalue_pout_om ;
+    sysml:ownedFeature expr:Accepts__Watch__framed___401_pvalue_pout ;
+    sysml:parameter expr:Accepts__Watch__framed___401_pvalue_pout ;
+    sysml:result expr:Accepts__Watch__framed___401_pvalue_pout ;
+    sysml:owner elmt:Accepts__Watch__framed___401 ;
+    sysml:owningRelationship expr:Accepts__Watch__framed___401_pvalue_om ;
+    sysml:owningMembership expr:Accepts__Watch__framed___401_pvalue_om ;
+    json:ownedRelationship "[{\"@id\":\"Accepts__Watch__framed___401_pvalue_pout_om\"},{\"@id\":\"Accepts__Watch__framed___401_pvalue_preferent\"}]" .
+
+expr:Accepts__Watch__framed___401_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "Accepts__Watch__framed___401_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:owningRelationship expr:Accepts__Watch__framed___401_pvalue_pout_om ;
+    sysml:owningMembership expr:Accepts__Watch__framed___401_pvalue_pout_om .
+
+expr:Accepts__Watch__framed___401_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Accepts__Watch__framed___401_pvalue_pout_om" ;
+    sysml:owner expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:memberElement expr:Accepts__Watch__framed___401_pvalue_pout ;
+    sysml:ownedMemberElement expr:Accepts__Watch__framed___401_pvalue_pout ;
+    sysml:ownedRelatedElement expr:Accepts__Watch__framed___401_pvalue_pout ;
+    sysml:owningRelatedElement expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:membershipOwningNamespace expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:ownedMemberFeature expr:Accepts__Watch__framed___401_pvalue_pout ;
+    sysml:ownedMemberParameter expr:Accepts__Watch__framed___401_pvalue_pout .
+
+expr:Accepts__Watch__framed___401_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Accepts__Watch__framed___401_pvalue_om" ;
+    sysml:owner elmt:Accepts__Watch__framed___401 ;
+    sysml:memberElement expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:ownedMemberElement expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:ownedRelatedElement expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:owningRelatedElement elmt:Accepts__Watch__framed___401 ;
+    sysml:membershipOwningNamespace elmt:Accepts__Watch__framed___401 ;
+    sysml:featureWithValue elmt:Accepts__Watch__framed___401 ;
+    sysml:value expr:Accepts__Watch__framed___401_pvalue .
 
 elmt:Accepts__Observe__trigger__scene_ft0
     a sysml:FeatureTyping ;
@@ -407,3 +503,10 @@ elmt:Accepts__Watch__framed__scene_ft0
     sysml:owner elmt:Accepts__Watch__framed__scene ;
     sysml:relatedElement elmt:Accepts__Watch__framed__scene, elmt:Accepts__Scene ;
     json:relatedElement "[{\"@id\":\"Accepts__Watch__framed__scene\"},{\"@id\":\"Accepts__Scene\"}]" .
+
+expr:Accepts__Watch__framed___401_pvalue_preferent
+    a sysml:Membership ;
+    sysml:elementId "Accepts__Watch__framed___401_pvalue_preferent" ;
+    sysml:memberElement elmt:Accepts__Watch__lens ;
+    sysml:owner expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:owningRelatedElement expr:Accepts__Watch__framed___401_pvalue .

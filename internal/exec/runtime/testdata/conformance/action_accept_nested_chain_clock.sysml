@@ -22,7 +22,8 @@ package test {
 		attribute received : Integer = 0;
 		attribute instant : Real = 0.0;
 		first start;
-		then action m : Mid { assign received := m.got; }
+		then action m : Mid;
+		then action take { assign received := m.got; }
 		then action record { assign instant := localClock.currentTime; }
 		then done;
 	}

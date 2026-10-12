@@ -12,7 +12,7 @@
       "finalState": "logged",
       "stateVisits": ["standingBy", "logged"],
       "slots": {
-        "frames": {"type": "Real", "value": 3.0}
+        "frames": {"type": "Rational", "value": "3.0"}
       }
     }
   ]

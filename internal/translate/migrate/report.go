@@ -84,6 +84,9 @@ type Report struct {
 	// Images counts the attached image files the migration wrote beside the
 	// notation for its Image blocks.
 	Images int `json:"images,omitempty"`
+	// Libraries accounts for the OpenSysML library packages a portable
+	// migration appended to the output; nil when the migration was not portable.
+	Libraries *LibrarySummary `json:"libraries,omitempty"`
 }
 
 // LayoutSummary accounts for what an MTIP export and the diagrams' own symbol
@@ -103,6 +106,9 @@ type LayoutSummary struct {
 	DiagramsUnmatched int `json:"diagramsUnmatched"`
 	// ViewsWithoutLayout counts the written views the export does not cover.
 	ViewsWithoutLayout int `json:"viewsWithoutLayout"`
+	// GeometryOmitted counts the joined or stream-laid-out views whose
+	// geometry a strict migration leaves unwritten, DiagramLayout being OpenSysML's.
+	GeometryOmitted int `json:"geometryOmitted,omitempty"`
 	// Placements counts the shown elements the export positions;
 	// PlacementsWritten those positioned into a view, PlacementsUnexposed
 	// those the view neither exposes nor draws, PlacementsDangling those
@@ -184,12 +190,26 @@ func (r *Report) Summary() string {
 		total, c[Mapped], c[Approximated], c[Unmapped], c[Skipped]-unreferenced, unreferenced)
 	if l := r.Layout; l != nil {
 		laidOut := l.DiagramsJoined + l.StreamDiagrams
-		s += fmt.Sprintf("; laid out %d of %d diagrams from %s: %s elements positioned, %s connectors routed, %s styled, %s notes",
-			laidOut, laidOut+l.ViewsWithoutLayout, l.Source,
-			commas(l.PlacementsWritten), commas(l.RoutesWritten), commas(l.StylesWritten), commas(l.Notes))
+		if l.GeometryOmitted > 0 {
+			s += fmt.Sprintf("; matched %d of %d diagrams to %s, whose geometry the strict migration omits", laidOut, laidOut+l.ViewsWithoutLayout, l.Source)
+		} else {
+			s += fmt.Sprintf("; laid out %d of %d diagrams from %s: %s elements positioned, %s connectors routed, %s styled, %s notes",
+				laidOut, laidOut+l.ViewsWithoutLayout, l.Source,
+				commas(l.PlacementsWritten), commas(l.RoutesWritten), commas(l.StylesWritten), commas(l.Notes))
+		}
 	}
 	if r.Images > 0 {
 		s += fmt.Sprintf("; wrote %d image file(s)", r.Images)
+	}
+	if l := r.Libraries; l != nil {
+		if len(l.Inlined) == 0 {
+			s += "; refers to no OpenSysML library, none inlined"
+		} else {
+			s += fmt.Sprintf("; inlined %d OpenSysML library package(s): %s", len(l.Inlined), strings.Join(l.Inlined, ", "))
+		}
+		for _, name := range sortedKeys(l.NotInlined) {
+			s += fmt.Sprintf("; %s not inlined: %s", name, l.NotInlined[name])
+		}
 	}
 	return s
 }
@@ -277,9 +297,16 @@ func (l *LayoutSummary) writeText(b *strings.Builder) {
 	} else {
 		b.WriteString("# ")
 	}
-	fmt.Fprintf(b, "%d views laid out from their own symbol stream, %d without layout\n", l.StreamDiagrams, l.ViewsWithoutLayout)
+	streamVerb := "laid out from"
+	if l.GeometryOmitted > 0 {
+		streamVerb = "matched to"
+	}
+	fmt.Fprintf(b, "%d views %s their own symbol stream, %d without layout\n", l.StreamDiagrams, streamVerb, l.ViewsWithoutLayout)
 	if l.StreamSupplemented > 0 {
 		fmt.Fprintf(b, "# %d joined views supplemented from their own symbol stream where the record placed or routed nothing\n", l.StreamSupplemented)
+	}
+	if l.GeometryOmitted > 0 {
+		fmt.Fprintf(b, "# %d views' geometry omitted by the strict migration\n", l.GeometryOmitted)
 	}
 	fmt.Fprintf(b, "# placements: %d of %d written (%d not exposed, %d resolving to no element); routes: %d of %d written (%d not pinned, %d resolving to no element); malformed: %d\n",
 		l.PlacementsWritten, l.Placements, l.PlacementsUnexposed, l.PlacementsDangling,

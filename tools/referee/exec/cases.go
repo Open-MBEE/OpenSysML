@@ -13,6 +13,9 @@ type execCase struct {
 	ID         string
 	Target     string
 	Expression string
+	// ByDesign is the specification clause a disagreement of the case follows
+	// from, set by a `by-design:` line for the cases after it.
+	ByDesign string
 }
 
 type execModel struct {
@@ -57,10 +60,18 @@ func readCaseFile(path string) (execCaseFile, error) {
 	file := execCaseFile{Path: path}
 	scanner := bufio.NewScanner(f)
 	lineNumber := 0
+	byDesign := ""
 	for scanner.Scan() {
 		lineNumber++
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "by-design:") {
+			byDesign = strings.TrimSpace(strings.TrimPrefix(line, "by-design:"))
+			if byDesign == "" {
+				return execCaseFile{}, fmt.Errorf("%s:%d: by-design states no clause", path, lineNumber)
+			}
 			continue
 		}
 		if strings.HasPrefix(line, "model:") {
@@ -82,7 +93,7 @@ func readCaseFile(path string) (execCaseFile, error) {
 		if expression == "" {
 			return execCaseFile{}, fmt.Errorf("%s:%d: expression is empty", path, lineNumber)
 		}
-		file.Cases = append(file.Cases, execCase{ID: id, Target: target, Expression: expression})
+		file.Cases = append(file.Cases, execCase{ID: id, Target: target, Expression: expression, ByDesign: byDesign})
 	}
 	if err := scanner.Err(); err != nil {
 		return execCaseFile{}, fmt.Errorf("read %s: %w", path, err)

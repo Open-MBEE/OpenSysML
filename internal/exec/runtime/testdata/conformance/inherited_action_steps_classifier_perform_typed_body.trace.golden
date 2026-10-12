@@ -1,0 +1,21 @@
+materialize: Machine #1
+start: performed action p of #1
+materialize: p #2
+eval feature hits -> 0
+run: performed action p of #1
+eval feature hits -> 0
+enter action node: p
+step 1: token 1@start, token 2@b
+stmt assign n
+    eval feature n -> 0
+    eval literal 100 -> 100
+  eval operator + -> 100
+choice step 2: tokens 1@start, 2@b (unordered; took 2@b first)
+step 2: token 1@a
+stmt assign n
+    eval feature n -> 100
+    eval literal 1 -> 1
+  eval operator + -> 101
+step 3: token 1@done
+leave action node: p
+step 4: no active tokens

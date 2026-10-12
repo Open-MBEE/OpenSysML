@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_diag_par'></elementID>
+    <geometry>5, 5, 460, 140</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_mean'>
+    <elementID href='MD_customization_for_SysML.mdzip#_mcMean'>
+      <xmi:Extension extender='MagicDraw UML 2024x'>
+        <referenceExtension referentPath='MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean' referentType='Property'></referenceExtension>
+      </xmi:Extension>
+    </elementID>
+    <geometry>70, 56, 81, 26</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_deviation'>
+    <elementID href='MD_customization_for_SysML.mdzip#_mcDeviation'>
+      <xmi:Extension extender='MagicDraw UML 2024x'>
+        <referenceExtension referentPath='MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Deviation' referentType='Property'></referenceExtension>
+      </xmi:Extension>
+    </elementID>
+    <geometry>200, 56, 102, 26</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_outofspec'>
+    <elementID href='MD_customization_for_SysML.mdzip#_mcOutOfSpec'>
+      <xmi:Extension extender='MagicDraw UML 2024x'>
+        <referenceExtension referentPath='MD Customization for SysML::analysis patterns::MonteCarloAnalysis::OutOfSpec' referentType='Property'></referenceExtension>
+      </xmi:Extension>
+    </elementID>
+    <geometry>340, 56, 111, 26</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_time'>
+    <elementID xmi:idref='_time'></elementID>
+    <geometry>35, 98, 156, 26</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_misses'>
+    <elementID xmi:idref='_misses'></elementID>
+    <geometry>340, 98, 100, 26</geometry>
+  </mdElement>
+  <mdElement elementClass='Connector' xmi:id='_sym_bind_mean'>
+    <elementID xmi:idref='_bindMean'></elementID>
+    <linkFirstEndID xmi:idref='_sym_mean'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_time'></linkSecondEndID>
+    <geometry>105, 82; 105, 98; </geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='ConnectorEnd' xmi:id='_sym_bind_mean_a'>
+        <elementID xmi:idref='_bindMeanStat'></elementID>
+        <geometry>100, 82, 10, 10</geometry>
+      </mdElement>
+      <mdElement elementClass='ConnectorEnd' xmi:id='_sym_bind_mean_b'>
+        <elementID xmi:idref='_bindMeanTime'></elementID>
+        <geometry>100, 88, 10, 10</geometry>
+      </mdElement>
+    </mdOwnedViews>
+    <connectorEndAID xmi:idref='_sym_bind_mean_a'></connectorEndAID>
+    <connectorEndBID xmi:idref='_sym_bind_mean_b'></connectorEndBID>
+  </mdElement>
+  <mdElement elementClass='Connector' xmi:id='_sym_bind_deviation'>
+    <elementID xmi:idref='_bindDeviation'></elementID>
+    <linkFirstEndID xmi:idref='_sym_deviation'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_time'></linkSecondEndID>
+    <geometry>250, 82; 250, 90; 170, 90; 170, 98; </geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='ConnectorEnd' xmi:id='_sym_bind_deviation_a'>
+        <elementID xmi:idref='_bindDeviationStat'></elementID>
+        <geometry>245, 82, 10, 10</geometry>
+      </mdElement>
+      <mdElement elementClass='ConnectorEnd' xmi:id='_sym_bind_deviation_b'>
+        <elementID xmi:idref='_bindDeviationTime'></elementID>
+        <geometry>165, 88, 10, 10</geometry>
+      </mdElement>
+    </mdOwnedViews>
+    <connectorEndAID xmi:idref='_sym_bind_deviation_a'></connectorEndAID>
+    <connectorEndBID xmi:idref='_sym_bind_deviation_b'></connectorEndBID>
+  </mdElement>
+  <mdElement elementClass='Connector' xmi:id='_sym_bind_outofspec'>
+    <elementID xmi:idref='_bindOutOfSpec'></elementID>
+    <linkFirstEndID xmi:idref='_sym_outofspec'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_misses'></linkSecondEndID>
+    <geometry>390, 82; 390, 98; </geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='ConnectorEnd' xmi:id='_sym_bind_outofspec_a'>
+        <elementID xmi:idref='_bindOutOfSpecStat'></elementID>
+        <geometry>385, 82, 10, 10</geometry>
+      </mdElement>
+      <mdElement elementClass='ConnectorEnd' xmi:id='_sym_bind_outofspec_b'>
+        <elementID xmi:idref='_bindOutOfSpecMisses'></elementID>
+        <geometry>385, 88, 10, 10</geometry>
+      </mdElement>
+    </mdOwnedViews>
+    <connectorEndAID xmi:idref='_sym_bind_outofspec_a'></connectorEndAID>
+    <connectorEndBID xmi:idref='_sym_bind_outofspec_b'></connectorEndBID>
+  </mdElement>
+</mdOwnedViews>

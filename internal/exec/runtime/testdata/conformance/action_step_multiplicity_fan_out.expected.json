@@ -1,0 +1,9 @@
+{
+	"libraries": true,
+	"type": "action",
+	"outputs": {
+		"sum": {"type": "Integer", "value": 3},
+		"seenByQ": {"type": "Integer", "value": 3},
+		"seenByR": {"type": "Integer", "value": 3}
+	}
+}

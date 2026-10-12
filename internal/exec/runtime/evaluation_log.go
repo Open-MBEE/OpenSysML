@@ -37,13 +37,20 @@ func (ctx *Context) endEvaluationLog(log *evaluationLog) {
 	ctx.evaluations = log.enclosing
 }
 
-// record notes one application of fn to args, when fn is a calc of the case
-// being run and no application binding the same arguments was noted before.
-func (log *evaluationLog) record(fn *functionValue, args calcArgs, result Value, err error) {
+// record notes one application of fn to args, as its parameters hold them, when fn is
+// a calc of the case being run and no application binding the same arguments was noted before.
+func (log *evaluationLog) record(ctx *Context, fn *functionValue, args calcArgs, result Value, err error) {
 	if log == nil || fn.shape == nil || !log.calcs[fn.shape.Sym] {
 		return
 	}
 	arguments := fn.shape.argumentsByPosition(args)
+	for i := range arguments {
+		if i < len(fn.shape.Params) && fn.shape.Params[i].Decl.Target != nil {
+			if ctx.holdAsReal(&arguments[i], fn.shape.Params[i].Decl.Target.typ) != nil {
+				arguments[i] = fn.shape.argumentsByPosition(args)[i]
+			}
+		}
+	}
 	if log.seen(fn.shape.Sym, arguments) {
 		return
 	}

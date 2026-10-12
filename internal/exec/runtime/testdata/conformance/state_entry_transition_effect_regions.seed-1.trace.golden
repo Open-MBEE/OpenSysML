@@ -1,0 +1,31 @@
+exit: idle
+enter: working
+choice entering working: next left(entry), right(entry) (unordered; took right(entry) first)
+stmt action body
+choice entering working: next left(entry), boot->active(effect) (unordered; took left(entry) first)
+stmt action body
+choice entering working: next boot->active(effect), boot->active(effect) (unordered; took boot->active(effect) first)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "a-effect " -> "a-effect "
+    eval operator + -> "a-effect "
+choice entering working: next left.active(entry), boot->active(effect) (unordered; took left.active(entry) first)
+enter: active (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "a-effect "
+      eval literal "a-entry " -> "a-entry "
+    eval operator + -> "a-effect a-entry "
+stmt action body
+  stmt assign log
+      eval feature log -> "a-effect a-entry "
+      eval literal "b-effect " -> "b-effect "
+    eval operator + -> "a-effect a-entry b-effect "
+enter: active (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "a-effect a-entry b-effect "
+      eval literal "b-entry " -> "b-entry "
+    eval operator + -> "a-effect a-entry b-effect b-entry "
+transition: idle -> working (event: accept Go)

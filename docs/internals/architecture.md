@@ -419,7 +419,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - **Conformance gate**: `.sysml` + `.expected.json` pairs, all passing - `conformance_test.go` — counts and per-category breakdown in [the measured counts](../project/spec-compliance.md); a case whose model admits several results lists them as `outcomes`, each cited to [the semantic oracle](../project/behavior-semantic-oracle.md), and is explored to prove every one reachable and nothing else; `TestExecutionConformanceUnderPolicies` re-runs the suite under `declared` and `seed:1`
 - **Golden traces**: `.trace.golden` files - `trace_test.go` — count in [the measured counts](../project/spec-compliance.md); `.trace.order` files state the partial order a trace must respect (`a < b`), and a case with `outcomes` owns a `<case>.<policy>.trace.golden` per sweep policy
 - **Exploration**: `explore_test.go` — every linearization reached once, determinism, each budget's incompleteness, an error as an outcome, transition, region and due order
-- **Robustness**: failure-mode cases (deadlock, unbound params, missing features, dangling transitions, sourceless accept, step budget, pseudostate dead ends and cycles, history misuse, send/accept misrouting, calc arity/recursion, `perform` reference failures) - `robustness_test.go` and the per-feature `robustness_*_test.go`
+- **Robustness**: failure-mode cases (deadlock, unbound params, missing features, dangling transitions, sourceless accept, step budget, pseudostate dead ends and cycles, history misuse, send/accept misrouting, calc arity/recursion, `perform` reference failures) - the per-feature `robustness_*_test.go` files, with the shared helpers in `robustness_test.go`
 - **Coverage**: All behavioral types fully functional. Action: 14/14 features ✅. State: 13/13 features ✅. Calc: 8/8 ✅. Constraint: 5/5 ✅. Requirement: 5/5 ✅. Evaluation: 7/7 ✅.
 
 **Measured Compliance:** See [SPEC_COMPLIANCE.md](../project/spec-compliance.md) for semantic rule → implementation → test case mapping with status (✅ faithful / ⚠️ approximate / ❌ not yet implemented).
@@ -572,7 +572,7 @@ See [the guide](../guide/) for VS Code configuration.
 - `%help` — Show help
 - `%list` — List current session declarations
 - `%clear` — Reset session
-- `%load <file>` — Load .sysml file
+- `%load [--cells <sel>] <path>...` — Load .sysml/.kerml files and the code cells of .ipynb notebooks
 
 **Runtime execution:**
 - `%instantiate <name>` — Create instance from part def
@@ -650,7 +650,7 @@ See [the guide](../guide/) for VS Code configuration.
 
 | Component | Status |
 |-----------|--------|
-| Lexer/Parser (structural + behavioral) | ✅ Operational (105/105 stdlib clean - see [conformance gate](../../internal/workspace/libs/stdlib_conformance_test.go)) |
+| Lexer/Parser (structural + behavioral) | ✅ Operational (110/110 stdlib clean - see [conformance gate](../../internal/workspace/libs/stdlib_conformance_test.go)) |
 | Symbol resolution & type system | ✅ Complete |
 | Validation passes (syntax → constraints) | ✅ Complete |
 | Expression evaluator & instance model (Tiers 1-3) | ✅ Complete |
@@ -664,7 +664,7 @@ See [the guide](../guide/) for VS Code configuration.
 | Standard library bundling | ✅ Complete |
 | LSP server implementation | ✅ Complete |
 
-**Parser coverage:** 106/106 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the 12 non-normative OpenSysML extensions: `OpenSysML Libraries/OpenSysMLMathFunctions.kerml`, `DocumentQueries.sysml`, `IdentityMetadata.sysml`, `OOSEM.sysml`, `DiagramLayout.sysml`, `MOSA.sysml`, `RandomFunctions.kerml`, `Simulation.sysml`, `StateSpaceIntegration.sysml`, `Stochastic.sysml`, `AnalysisRecords.sysml` and `MigrationMetadata.sysml`. Conformance verified by [stdlib_conformance_test.go](../../internal/workspace/libs/stdlib_conformance_test.go). Grammar reference available at [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
+**Parser coverage:** 110/110 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the 16 non-normative OpenSysML extensions: `OpenSysML Libraries/AnalysisRecords.sysml`, `DiagramLayout.sysml`, `DocumentQueries.sysml`, `IdentityMetadata.sysml`, `MOSA.sysml`, `MigrationMetadata.sysml`, `OOSEM.sysml`, `OpenSysMLMathFunctions.kerml`, `OpenSysMLRenderings.sysml`, `RandomFunctions.kerml`, `Simulation.sysml`, `StateActivity.kerml`, `StateMachines.sysml`, `StateSpaceIntegration.sysml`, `Stochastic.sysml` and `SysMLValidation.sysml`. The extensions are maintained upstream at [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library) and vendored here pinned by `scripts/extension-libraries-pin.sh`; `engine-contract.json` beside them records the names the engine binds. Conformance verified by [stdlib_conformance_test.go](../../internal/workspace/libs/stdlib_conformance_test.go). Grammar reference available at [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
 
 ---
 
@@ -677,8 +677,8 @@ New grammar features require a **four-layer test contract** to ensure correctnes
 #### 1. Conformance Gate
 - **Purpose:** Ensure stdlib continues to parse cleanly
 - **Location:** `internal/workspace/libs/stdlib_conformance_test.go`
-- **Test:** `TestStdlibConformance` loads all 106 bundled library files
-- **Acceptance:** 106/106 files parse without errors
+- **Test:** `TestStdlibConformance` loads all 110 bundled library files
+- **Acceptance:** 110/110 files parse without errors
 - **Allowlist:** `testdata/stdlib_known_failures.txt` (currently empty)
 - **Failure mode:** Regression breaks previously-working stdlib files
 
@@ -785,7 +785,7 @@ go test -v -run TestExecutionConformance ./internal/exec/runtime
 
 #### 4. Runtime Robustness Tests
 - **Purpose:** Verify malformed/pathological behaviors fail gracefully (typed errors, no panics/hangs)
-- **Location:** `internal/exec/runtime/robustness_test.go` and one `robustness_<feature>_test.go` per feature
+- **Location:** one `internal/exec/runtime/robustness_<feature>_test.go` per feature, with the shared helpers in `robustness_test.go`
 - **Test:** the `TestRuntimeRobustness*` functions, one subtest per failure mode; a feature's cases live in its own file and function, so two features never edit one registry
 - **Acceptance:** All return typed errors, never panic, timeout guard (60s) prevents hangs
 
@@ -841,11 +841,11 @@ Every behavioral feature must have:
 <!-- doc-counts:begin refereed-figures -->
 **Measured against the pinned reference** (`PILOT_TAG=2026-08`, artifact `0.62.0`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.
 
-- **Corpus agreement:** 353 of 384 files agree diagnostic-by-diagnostic; 44 diagnostics are ours alone and 87 the reference's alone, and the first number must be read by root: the aggregate includes candidate conformance differences, intentional execution-scope warnings on reference corpora and diagnostics from our own examples ([differential](../project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
+- **Corpus agreement:** 353 of 391 files agree diagnostic-by-diagnostic; 315 diagnostics are ours alone and 92 the reference's alone, and the first number must be read by root: the aggregate includes candidate conformance differences, intentional execution-scope warnings on reference corpora and diagnostics from our own examples ([differential](../project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
 - **Declared-diagnostic silence:** of the 512 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 245 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](../project/pilot-xpect.md), `go run -C tools ./cmd/pilot-xpect`).
 - **Scope agreement:** 230 of 230 declared scope assertions match exactly (same source).
-- **Permissiveness gaps:** of 317 invalid models we wrote ourselves, the reference rejects 3 that we accept by default, and 305 both reject; 3 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
-- **Declared errata:** the registry declares 12 defect(s) in the published reference material — 4 with a specification-derived correction, 8 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 354 of 384 files agreeing, 43 diagnostics ours alone and 87 the reference's alone, 0 declared rows we are silent on, and 0 of 317 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
+- **Permissiveness gaps:** of 318 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 305 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
+- **Declared errata:** the registry declares 13 defect(s) in the published reference material — 6 with a specification-derived correction, 7 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 354 of 391 files agreeing, 314 diagnostics ours alone and 92 the reference's alone, 0 declared rows we are silent on, and 0 of 318 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
 - **Self-assessed surface:** the action, state-machine and classifier-behavior rows have no external referee at all — the four refereed figures above cannot see them, because the pinned artifact evaluates expressions but executes neither actions nor state machines. [Spec compliance](../project/spec-compliance.md) counts them.
 
 What these numbers cannot show: the OMG corpora are demonstrations rather than an official conformance suite; the differential is one-directional, comparing the diagnostics the two implementations report on the same files; the Xpect suites are the pilot authors' test intent rather than a certification oracle; and none of these is a percentage of the specification — no global compliance figure is claimed anywhere.

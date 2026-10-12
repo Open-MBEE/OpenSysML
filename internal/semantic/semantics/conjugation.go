@@ -326,8 +326,13 @@ func (m *Model) InterfaceEndPortMismatch(sym *symbols.Symbol) (a, b *symbols.Sym
 	return first, second, true
 }
 
-// interfaceFlowPairedFeatures collects, per end, the features an interface's own
-// flow declarations pair with a compatible feature on the other end (§8.2.2.14).
+// interfaceFlowPairedFeatures collects, per end, the features the flows of the
+// interface sym pair with a compatible feature on the other end (§8.2.2.14):
+// the flows it declares and those it inherits, `interface m : Mounting connect
+// a to b` having Mounting's. Each flow end is read as the interface end its
+// chain starts at and the port feature it reaches, so a flow between the two
+// ends pairs them even when both are typed by the same port, and a flow
+// within one end pairs nothing.
 func (m *Model) interfaceFlowPairedFeatures(sym *symbols.Symbol, ends []*symbols.Symbol) map[*symbols.Symbol]map[string]bool {
 	paired := make(map[*symbols.Symbol]map[string]bool)
 	if sym == nil || len(ends) != 2 {
@@ -338,76 +343,75 @@ func (m *Model) interfaceFlowPairedFeatures(sym *symbols.Symbol, ends []*symbols
 		paired[end] = make(map[string]bool)
 		_, features[end], _ = m.endPortFeatures(end)
 	}
-	for _, member := range declMembers(sym) {
-		usage, ok := unwrapUsage(member)
-		if !ok || usage.Kind != ast.UsageFlow || usage.FlowEnds == nil {
+	for _, flow := range m.interfaceFlows(sym) {
+		paths := m.ConnectorEndFeaturePaths(flow)
+		if len(paths) != 2 {
 			continue
 		}
-		fromEnd, fromFeature, ok := interfaceFlowEnd(usage.FlowEnds.From)
-		if !ok {
-			continue
-		}
-		toEnd, toFeature, ok := interfaceFlowEnd(usage.FlowEnds.To)
-		if !ok || fromEnd == toEnd {
-			continue
-		}
-		var fromSym, toSym *symbols.Symbol
-		for _, end := range ends {
-			if end == nil {
-				continue
-			}
-			if end.Name == fromEnd {
-				fromSym = end
-			}
-			if end.Name == toEnd {
-				toSym = end
-			}
-		}
-		if fromSym == nil || toSym == nil {
-			continue
-		}
-		source, sourceOK := findPortFeature(features[fromSym], fromFeature)
-		target, targetOK := findPortFeature(features[toSym], toFeature)
-		if !sourceOK || !targetOK ||
+		from, source, fromOK := m.flowEndFeature(ends, features, paths[0])
+		to, target, toOK := m.flowEndFeature(ends, features, paths[1])
+		if !fromOK || !toOK || from == to ||
 			!flowDirectionsConform(source.Direction, target.Direction) ||
 			!m.featureTypesConform(source.Symbol, target.Symbol) {
 			continue
 		}
-		paired[fromSym][fromFeature] = true
-		paired[toSym][toFeature] = true
+		paired[from][source.Name] = true
+		paired[to][target.Name] = true
 	}
 	return paired
 }
 
-// interfaceFlowEnd reads a flow end written as `<end>.<feature>`.
-func interfaceFlowEnd(node ast.Node) (end, feature string, ok bool) {
-	parts := interfaceFlowParts(node)
-	if len(parts) != 2 {
-		return "", "", false
+// flowEndFeature finds which of the interface ends a flow end's chain starts at
+// (the end itself, or one redefining it, as `connect a to b` ends redefine the
+// interface definition's by position) and the feature of its port it reaches.
+func (m *Model) flowEndFeature(ends []*symbols.Symbol, features map[*symbols.Symbol][]PortFeature, path []*symbols.Symbol) (*symbols.Symbol, PortFeature, bool) {
+	if len(path) < 2 {
+		return nil, PortFeature{}, false
 	}
-	return parts[0].Text, parts[1].Text, true
+	head, tip := path[0], path[len(path)-1]
+	for _, end := range ends {
+		if end != head && !slices.Contains(m.AllRedefinedFeatures(end), head) {
+			continue
+		}
+		if feature, ok := portFeatureOf(features[end], tip); ok {
+			return end, feature, true
+		}
+	}
+	return nil, PortFeature{}, false
 }
 
-func interfaceFlowParts(node ast.Node) []ast.NameSegment {
-	switch n := node.(type) {
-	case *ast.QualifiedName:
-		return n.Parts
-	case *ast.FeatureReference:
-		if n.Name == nil {
-			return nil
+// interfaceFlows returns the flows the interface sym declares or inherits,
+// named or not, in declaration order from sym outward.
+func (m *Model) interfaceFlows(sym *symbols.Symbol) []*symbols.Symbol {
+	var flows []*symbols.Symbol
+	seen := make(map[*symbols.Symbol]bool)
+	collect := func(member *symbols.Symbol) bool {
+		if kind, ok := member.UsageKind(); ok && kind == ast.UsageFlow && !seen[member] {
+			seen[member] = true
+			flows = append(flows, member)
 		}
-		return n.Name.Parts
-	case *ast.FeatureChainExpr:
-		parts := interfaceFlowParts(n.Operand)
-		if n.Member == nil {
-			return parts
-		}
-		out := make([]ast.NameSegment, 0, len(parts)+len(n.Member.Parts))
-		out = append(out, parts...)
-		return append(out, n.Member.Parts...)
-	default:
-		return nil
+		return true
 	}
+	for _, owner := range append([]*symbols.Symbol{sym}, m.AllSupertypes(sym)...) {
+		if owner.Scope == nil {
+			continue
+		}
+		for _, member := range ownedMembersOf(owner) {
+			collect(member)
+		}
+		owner.Scope.ForEachAnonymousMember(collect)
+	}
+	return flows
+}
+
+// portFeatureOf finds the port feature that is sym.
+func portFeatureOf(features []PortFeature, sym *symbols.Symbol) (PortFeature, bool) {
+	for _, feature := range features {
+		if sym != nil && feature.Symbol == sym {
+			return feature, true
+		}
+	}
+	return PortFeature{}, false
 }
 
 // flowDirectionsConform reports whether a flow can leave source and enter target.

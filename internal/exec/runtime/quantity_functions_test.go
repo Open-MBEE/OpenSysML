@@ -370,7 +370,7 @@ func TestTrigFunctionsTakeAngles(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s: %v", tc.src, err)
 			}
-			if got.Kind != ValConst || got.Const.Kind != semantics.ValReal || math.Abs(got.Const.Real-tc.want) > 1e-12 {
+			if got.Kind != ValConst || got.Const.Kind != semantics.ValReal || math.Abs(got.Const.AsReal()-tc.want) > 1e-12 {
 				t.Errorf("%s = %s, want %v", tc.src, FormatValue(got), tc.want)
 			}
 		})
@@ -523,7 +523,7 @@ func TestQuantityPowerAndProductAgree(t *testing.T) {
 		{"side * side", "side ** 2", "9 [SI::'m²']"},
 		{"side * side / side", "side ** 2 / side", "3.0 [SI::m]"},
 		{"2.5 [m] * 2.5 [m]", "2.5 [m] ** 2", "6.25 [SI::'m²']"},
-		{"2 [km/h] * 2 [km/h]", "2 [km/h] ** 2", "0.30864197530864196 [SI::'m²⋅s⁻²']"},
+		{"2 [km/h] * 2 [km/h]", "2 [km/h] ** 2", "25/81 [SI::'m²⋅s⁻²']"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.power, func(t *testing.T) {

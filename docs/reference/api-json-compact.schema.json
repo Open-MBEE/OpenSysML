@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Open-MBEE/OpenSysML/docs/reference/api-json-compact.schema.json",
+  "title": "api-json-compact/1",
+  "description": "The compact form of the SysML v2 API JSON element array that Convert writes under the convert_compact capability. See api-json-compact.md for the rules that expand it to the element array.",
+  "type": "object",
+  "required": ["format", "ids", "elementCount", "referenceKeys", "elements"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "api-json-compact/1" },
+    "ids": {
+      "description": "The id table. A handle is an index into it.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "elementCount": {
+      "description": "ids[0 .. elementCount) are the written elements, in order. It never exceeds the table's length.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "elementIdsAreIds": {
+      "description": "Present only when every element's elementId is its @id, in which case no element writes it.",
+      "const": true
+    },
+    "referenceKeys": {
+      "description": "Keys whose references are bare handles. None of them carries a number.",
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "elements": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/element" }
+    }
+  },
+  "$defs": {
+    "handle": { "type": "integer", "minimum": 0 },
+    "element": {
+      "description": "An element: its @type, then its properties. It carries no @id; element i has the id ids[i].",
+      "type": "object",
+      "required": ["@type"],
+      "properties": {
+        "@type": { "type": "string" },
+        "@id": false
+      },
+      "additionalProperties": { "$ref": "#/$defs/value" }
+    },
+    "value": {
+      "description": "A property value: a scalar, a bare handle under a reference key, an {\"@id\": handle} or {\"@ref\": name} object, or an array of them.",
+      "oneOf": [
+        { "type": ["string", "number", "boolean", "null"] },
+        { "type": "object", "required": ["@id"], "properties": { "@id": { "$ref": "#/$defs/handle" } }, "additionalProperties": false },
+        { "type": "object", "required": ["@ref"], "properties": { "@ref": { "type": "string" } }, "additionalProperties": false },
+        { "type": "array", "items": { "$ref": "#/$defs/value" } }
+      ]
+    }
+  }
+}

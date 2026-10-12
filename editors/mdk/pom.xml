@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml-mdk-parent</artifactId>
-  <version>0.9.2</version>
+  <version>0.10.0</version>
   <packaging>pom</packaging>
   <name>OpenSysML MDK</name>
   <modules>
@@ -22,7 +22,7 @@
     <junit.version>5.11.4</junit.version>
     <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
     <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
-    <opensysml.client.version>0.9.2</opensysml.client.version>
+    <opensysml.client.version>0.10.0</opensysml.client.version>
   </properties>
   <dependencyManagement>
     <dependencies>

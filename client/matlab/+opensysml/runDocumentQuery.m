@@ -15,14 +15,27 @@ function result = runDocumentQuery(model, queryId, varargin)
     end
     model.connection.require('document_query');
     wire = opensysml.buildDocumentBindings(bindings);
+    if ~model.connection.hasCapability('rational_values')
+        wire = cellfun(@opensysml.internal.bindingRationalsAsReals, wire, 'UniformOutput', false);
+    end
     if any(cellfun(@bindingHoldsBigInt, wire))
         model.connection.require('big_int_values');
+    end
+    if any(cellfun(@bindingHoldsRational, wire))
+        model.connection.require('rational_values');
     end
     request = struct('modelHash', model.hash, 'queryId', char(queryId), ...
         'bindings', {wire});
     answer = opensysml.call(model.connection, 'RunDocumentQuery', request, ...
         {'document_query'});
     result = opensysml.internal.decodeDocumentResult(answer);
+end
+
+function exact = bindingHoldsRational(binding)
+%BINDINGHOLDSRATIONAL Whether a wire binding sends an exact Rational.
+    exact = any(cellfun(@(value) isfield(value, 'rationalValue') || ...
+        (isfield(value, 'quantity') && isfield(value.quantity, 'rationalMagnitude')), ...
+        binding.values));
 end
 
 function wide = bindingHoldsBigInt(binding)

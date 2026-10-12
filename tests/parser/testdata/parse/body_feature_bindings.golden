@@ -1,0 +1,98 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="BodyFeatureBindings" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Work"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="source" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="1")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="live" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (OperatorExpr operator="*"
+                (FeatureReference name="source")
+                (LiteralInteger value="2"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="fallback" ref=false direction="none" composite=false derived=false ordered=false nonunique=false default=true
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (FeatureReference name="source")))
+          (Membership visibility="default"
+            (Usage kind="action" name="nested" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="nestedLive" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Integer
+                    (*ast.QualifiedName))
+                  (OperatorExpr operator="+"
+                    (FeatureReference name="source")
+                    (LiteralInteger value="1"))))))
+          (IfActionNode
+            (OperatorExpr operator=">"
+              (FeatureReference name="source")
+              (LiteralInteger value="0"))
+            (IfBranchNode kind="then"
+              (Membership visibility="default"
+                (Usage kind="attribute" name="blockLive" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Integer
+                    (*ast.QualifiedName))
+                  (OperatorExpr operator="*"
+                    (FeatureReference name="source")
+                    (LiteralInteger value="3"))))
+              (*ast.AssignmentActionNode)))))
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="Machine"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="source" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="1")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="live" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (OperatorExpr operator="*"
+                (FeatureReference name="source")
+                (LiteralInteger value="2"))))
+          (Membership visibility="default"
+            (Usage kind="state" name="active" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="stateLive" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Integer
+                    (*ast.QualifiedName))
+                  (OperatorExpr operator="+"
+                    (FeatureReference name="source")
+                    (LiteralInteger value="1"))))
+              (EntryMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="entry"
+                    (Membership visibility="default"
+                      (Usage kind="attribute" name="entryLive" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=Integer
+                          (*ast.QualifiedName))
+                        (OperatorExpr operator="*"
+                          (FeatureReference name="source")
+                          (LiteralInteger value="3")))))))
+              (DoMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="do"
+                    (Membership visibility="default"
+                      (Usage kind="attribute" name="doLive" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=Integer
+                          (*ast.QualifiedName))
+                        (OperatorExpr operator="*"
+                          (FeatureReference name="source")
+                          (LiteralInteger value="4")))))))
+              (ExitMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="exit"
+                    (Membership visibility="default"
+                      (Usage kind="attribute" name="exitLive" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=Integer
+                          (*ast.QualifiedName))
+                        (OperatorExpr operator="*"
+                          (FeatureReference name="source")
+                          (LiteralInteger value="5"))))))))))))))

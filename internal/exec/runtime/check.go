@@ -202,6 +202,9 @@ type CheckReport struct {
 	Divergent  []Divergence
 	// Finals are the distinct outcomes of the complete schedules, in canonical order.
 	Finals []CheckFinal
+	// Notes are the distinct reasons the searched runs' coverage is narrower than
+	// their schedules, so a clean report observed rather than bounded the result.
+	Notes []string
 	// Scope is the distinct reasons the finals were observed short of quiescence.
 	Scope []ObservationReason
 	// MassBounded reports the violations' masses are lower bounds: they are when a
@@ -246,14 +249,13 @@ func (e *CheckStopped) Unwrap() error { return e.Cause }
 // resolving them and the search runs from every state a start reaches.
 func Check(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, opts CheckOptions, props []CheckProperty) (*CheckReport, error) {
 	c := &checker{
-		budget:         budget,
-		opts:           opts,
-		props:          props,
-		visited:        make(map[stateKey]*visitedState),
-		onStack:        make(map[stateKey]int),
-		finals:         make(map[string]int),
-		futures:        make(map[futureKey]lower.Footprint),
-		machineFutures: make(map[*lower.StateGraph]lower.Footprint),
+		budget:           budget,
+		opts:             opts,
+		props:            props,
+		visited:          make(map[stateKey]*visitedState),
+		onStack:          make(map[stateKey]int),
+		finals:           make(map[string]int),
+		futureFootprints: newFutureFootprints(nil),
 	}
 	starts := [][]int{nil}
 	for i := 0; i < len(starts); i++ {
@@ -289,6 +291,7 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 		ctx.SetTrace(NewTraceRecorder())
 	}
 	c.ctx, c.budgets = ctx, ctx.Budgets()
+	c.bind(ctx)
 	run, err := beginInvocation(ctx, start)
 	var setup *SetupError
 	if errors.As(err, &setup) {
@@ -325,6 +328,8 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 	if err := c.search(stop, mass); err != nil {
 		return nil, err
 	}
+	c.foldNotes()
+	slices.Sort(c.notes)
 	return more, nil
 }
 
@@ -341,9 +346,7 @@ type checker struct {
 	// onStack counts the frames on the stack at each state.
 	onStack map[stateKey]int
 	stack   []*checkFrame
-	futures map[futureKey]lower.Footprint
-	// machineFutures is the footprint of a machine's whole graph, by graph.
-	machineFutures map[*lower.StateGraph]lower.Footprint
+	*futureFootprints
 
 	// budgets are the executors' budgets, each a bound on the moves of its kind
 	// along one schedule.
@@ -362,6 +365,8 @@ type checker struct {
 	// nested are the `node.pin` names Diverge selects; untold are those among them only
 	// a performance can tell, each dropped once a state held it.
 	nested, untold map[string]bool
+	// notes are the coverage reasons the searched runs left on their contexts.
+	notes []string
 	// scope is the reasons the finals so far were observed short of quiescence.
 	scope []ObservationReason
 }
@@ -374,6 +379,14 @@ type visitedState struct {
 	depth    int
 	cut      bool
 	violated []string
+	// entry is the mass of the path first reaching the state, on which entryViolated
+	// were false; below maps each violation to the mass credited under the state.
+	entry         float64
+	entryViolated []string
+	below         map[int]float64
+	// exact is set once the search under the state left nothing out, so the share
+	// of a path reaching it again follows from entry and below.
+	exact bool
 }
 
 // checkFrame is one state on the search stack.
@@ -404,6 +417,8 @@ type checkFrame struct {
 	mass     float64
 	units    map[checkedExecutor]int
 	violated []string
+	// inexact is set once a bound, a cycle or a revisit left mass out under the state.
+	inexact bool
 }
 
 // spending counts the moves of one schedule by the executor budget each draws on.
@@ -446,28 +461,64 @@ func (c *checker) hit(bound string) {
 	if !slices.Contains(c.bounds, bound) {
 		c.bounds = append(c.bounds, bound)
 	}
+	c.inexact()
+}
+
+// inexact marks the state searched from as one whose share of mass is not exact.
+func (c *checker) inexact() {
+	if len(c.stack) > 0 {
+		c.stack[len(c.stack)-1].inexact = true
+	}
+}
+
+// spread adds mass to the violation at i and to what every state on the stack holds below it.
+func (c *checker) spread(i int, mass float64) {
+	c.violations[i].Mass += mass
+	for _, f := range c.stack {
+		if seen := c.visited[f.key]; seen != nil {
+			seen.below[i] += mass
+		}
+	}
+}
+
+// carry credits a path reaching a searched state again its share of the masses
+// below it, reporting false where that share is not exact.
+func (c *checker) carry(seen *visitedState, mass float64, violated []string) bool {
+	if !seen.exact || seen.entry <= 0 || !sameNames(violated, seen.entryViolated) {
+		return false
+	}
+	for i, below := range seen.below {
+		c.spread(i, mass*below/seen.entry)
+	}
+	return true
+}
+
+func sameNames(a, b []string) bool {
+	return !slices.ContainsFunc(a, func(n string) bool { return !slices.Contains(b, n) }) &&
+		!slices.ContainsFunc(b, func(n string) bool { return !slices.Contains(a, n) })
 }
 
 // violate records the violation; a property is reported once, by the shortest
 // schedule found to reach a state where it is false, its mass the sum over the
 // schedules reaching such a state.
 func (c *checker) violate(v Violation) {
+	mass := v.Mass
 	if v.Kind == ViolationProperty {
 		for i, seen := range c.violations {
 			if seen.Kind != ViolationProperty || seen.Name != v.Name {
 				continue
 			}
-			seen.Mass += v.Mass
 			if v.Depth < seen.Depth {
 				v.Mass = seen.Mass
 				c.violations[i] = v
-			} else {
-				c.violations[i].Mass = seen.Mass
 			}
+			c.spread(i, mass)
 			return
 		}
 	}
+	v.Mass = 0
 	c.violations = append(c.violations, v)
+	c.spread(len(c.violations)-1, mass)
 }
 
 // shareOf is the share of one choice point's alternative: the stated weight's
@@ -534,6 +585,11 @@ func (c *checker) search(stop context.Context, mass float64) error {
 			if !f.full && len(f.moves) < len(f.all) {
 				c.leftOut = true
 			}
+			if f.inexact || f.cut || len(f.moves) < len(f.all) {
+				c.inexact()
+			} else if seen := c.visited[f.key]; seen.depth == f.depth {
+				seen.exact = true
+			}
 			if f.cut && len(c.stack) > 0 {
 				c.cut(c.stack[len(c.stack)-1])
 			}
@@ -548,8 +604,20 @@ func (c *checker) search(stop context.Context, mass float64) error {
 			c.releaseAll()
 			return err
 		}
+		// The next move's restore rewinds the context's notes, so fold them now.
+		c.foldNotes()
 	}
 	return nil
+}
+
+// foldNotes merges the coverage reasons the run recorded on its context into
+// the checker's, since restoring the context's snapshot drops them.
+func (c *checker) foldNotes() {
+	for _, note := range c.ctx.coverageReasons() {
+		if !slices.Contains(c.notes, note) {
+			c.notes = append(c.notes, note)
+		}
+	}
 }
 
 // stopped is the check ended by its caller, with what it had searched so far.
@@ -649,8 +717,12 @@ func (c *checker) failed(err error, depth int, mass float64) error {
 // complete visits the terminal state the invocation reached: a state like any
 // other, its properties evaluated when new, whose outcome is a final.
 func (c *checker) complete(depth int, mass float64, violated []string) error {
-	if _, _, seen, _, err := c.visit(depth, mass, violated); err != nil || seen == nil {
+	_, _, seen, visited, err := c.visit(depth, mass, violated)
+	if err != nil || seen == nil {
 		return err
+	}
+	if !visited {
+		seen.exact = true
 	}
 	c.final()
 	return nil
@@ -666,12 +738,16 @@ func (c *checker) visit(depth int, mass float64, violated []string) (form canoni
 			c.hit("states")
 			return form, key, nil, false, nil
 		}
-		seen = &visitedState{explored: make(map[string]bool), depth: depth}
+		seen = &visitedState{explored: make(map[string]bool), depth: depth,
+			entry: mass, entryViolated: slices.Clone(violated), below: make(map[int]float64)}
 		c.visited[key] = seen
 		c.tellHeld()
 		c.properties(depth, mass, violated, seen)
 	} else {
-		c.revisit = true
+		if !c.carry(seen, mass, violated) {
+			c.revisit = true
+			c.inexact()
+		}
 		// A path reaching a state where a property is false is credited the first
 		// time it violates it, however the property was found false here before.
 		for _, name := range seen.violated {
@@ -694,7 +770,7 @@ func (c *checker) visit(depth int, mass float64, violated []string) (form canoni
 func (c *checker) credit(name string, mass float64) {
 	for i, v := range c.violations {
 		if v.Kind == ViolationProperty && v.Name == name {
-			c.violations[i].Mass += mass
+			c.spread(i, mass)
 			return
 		}
 	}
@@ -750,19 +826,17 @@ func (s *visitedState) mark(moves []searchMove) {
 // footprints, in canonical order.
 func (c *checker) movesOf(form canonicalForm) []searchMove {
 	enabled := c.run.enabledMoves()
-	draw := len(owners(enabled)) > 1
 	moves := make([]searchMove, 0, len(enabled))
 	for _, m := range enabled {
-		moves = append(moves, c.named(form, m, draw))
+		moves = append(moves, c.named(form, m))
 	}
 	slices.SortFunc(moves, func(a, b searchMove) int { return strings.Compare(a.name, b.name) })
 	return moves
 }
 
 // named gives the move its canonical name — its executor's canonical name, its
-// token's where it moves one, else its label, and its picks — and its footprint:
-// the whole turn's where the move takes the turn, at a state drawing the due order.
-func (c *checker) named(form canonicalForm, m enabledMove, draw bool) searchMove {
+// token's where it moves one, else its label, and its picks — and its footprint.
+func (c *checker) named(form canonicalForm, m enabledMove) searchMove {
 	name := form.names[m.Owner] + ": "
 	if m.Token != 0 {
 		name += form.tokens[tokenKey{m.Owner, m.Token}]
@@ -772,11 +846,7 @@ func (c *checker) named(form canonicalForm, m enabledMove, draw bool) searchMove
 	for _, pick := range m.Picks {
 		name = fmt.Sprintf("%s pick %d", name, pick+1)
 	}
-	footprint := c.footprintOf(m)
-	if draw {
-		footprint = c.turnFootprint(m)
-	}
-	return searchMove{enabledMove: m, name: name, footprint: footprint}
+	return searchMove{enabledMove: m, name: name, footprint: c.footprintOf(m)}
 }
 
 // reveal adds, right after the move, the moves taking each other alternative of
@@ -1315,7 +1385,7 @@ func (c *checker) performedBy(graph *lower.ActionGraph, node ast.Node) (settled 
 	if !ok {
 		return nil, nil, false
 	}
-	inv, performs := nestedInvocation(usage)
+	inv, performs := nestedInvocationInGraph(graph, usage)
 	if !performs || lower.IsCaseNode(usage) {
 		return nil, nil, false
 	}
@@ -1332,13 +1402,13 @@ func (c *checker) performedBy(graph *lower.ActionGraph, node ast.Node) (settled 
 // calleeFlow lowers what node's performance of callee runs, as the executor will.
 func (c *checker) calleeFlow(graph *lower.ActionGraph, node ast.Node, callee *symbols.Symbol) (*lower.ActionGraph, error) {
 	usage := node.(*ast.Usage)
-	inv, _ := nestedInvocation(usage)
+	inv, _ := nestedInvocationInGraph(graph, usage)
 	inv.step, _ = stepSymbol(graph, node)
-	body, tool, err := c.ctx.performanceBody(inv.performed(callee), callee)
+	_, _, flow, err := c.ctx.performanceBody(inv.performed(callee), callee)
 	if err != nil {
 		return nil, err
 	}
-	return lowerPerformance(body, tool, c.ctx.Resolver())
+	return flow, nil
 }
 
 // divergeReached fails the check when a path only a performance could tell was held
@@ -1366,6 +1436,7 @@ func (c *checker) result() *CheckReport {
 		Horizon:    c.horizon(),
 		Violations: c.violations,
 		Finals:     slices.Clone(c.results),
+		Notes:      c.notes,
 		Scope:      c.scope,
 	}
 	sort.Slice(r.Finals, func(i, j int) bool { return r.Finals[i].identity < r.Finals[j].identity })

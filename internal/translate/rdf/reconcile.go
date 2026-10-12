@@ -49,6 +49,10 @@ type collection struct {
 // A graph without annotations, or whose typed triples already state every
 // annotated collection in annotation order, is returned as it is.
 func ReconcileCollections(graph *Graph) (*Graph, error) {
+	// The writer that annotated the collections vouches for them.
+	if graph.CollectionsSettled() {
+		return graph, nil
+	}
 	var annotations []Triple
 	for _, triple := range graph.Triples() {
 		if IsAnnotationJSON(triple.Predicate.Value) {

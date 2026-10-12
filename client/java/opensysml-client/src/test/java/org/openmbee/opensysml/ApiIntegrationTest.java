@@ -863,6 +863,68 @@ class ApiIntegrationTest {
     assertFalse(wrongKind.verdict().error().orElseThrow().isEmpty());
   }
 
+  private static final String BOUND =
+      """
+      package Bound {
+        private import ScalarValues::*;
+        part def Thing { attribute v : Integer = 2; }
+        part t : Thing;
+        requirement def Under {
+          subject s : Thing;
+          in limit : Integer;
+          in slack : Integer = 0;
+          require constraint { s.v + slack < limit }
+        }
+        constraint def Between {
+          in low : Integer;
+          in high : Integer = 10;
+          low < high
+        }
+      }
+      """;
+
+  @Test
+  void argumentsBindTheInParametersOfARequirementOrConstraint() {
+    Model model = connection.parse(BOUND);
+    Verification named =
+        model.verifyRequirement(
+            "Bound::Under",
+            "Bound::t",
+            VerifyOptions.defaults().withNamedArguments(Map.of("limit", new Value.IntegerValue(5))));
+    assertTrue(named.holds());
+    Verification positional =
+        model.verifyRequirement(
+            "Bound::Under",
+            "Bound::t",
+            VerifyOptions.defaults()
+                .withArguments(new Value.IntegerValue(5), new Value.IntegerValue(4)));
+    assertFalse(positional.holds());
+    assertTrue(positional.verdict().violated());
+    assertTrue(
+        model
+            .verifyConstraint(
+                "Bound::Between", VerifyOptions.defaults().withArguments(new Value.IntegerValue(3)))
+            .holds());
+    Verification unknown =
+        model.verifyRequirement(
+            "Bound::Under",
+            "Bound::t",
+            VerifyOptions.defaults()
+                .withNamedArguments(
+                    Map.of("limit", new Value.IntegerValue(5), "bound", new Value.IntegerValue(1))));
+    assertFalse(unknown.holds());
+    assertTrue(unknown.verdict().error().orElse("").contains("bound"), unknown.toString());
+    ServiceException solver =
+        assertThrows(
+            ServiceException.class,
+            () ->
+                model.verifyConstraint(
+                    "Bound::Between",
+                    VerifyOptions.asking(VerifyOptions.QUESTION_HOLDS)
+                        .withArguments(new Value.IntegerValue(3))));
+    assertTrue(solver.getMessage().contains("holds"), solver.getMessage());
+  }
+
   @Test
   void requirementsAndSatisfactionsReportEachVerdict() {
     Model model = connection.parse(VERIFICATION);
@@ -1374,6 +1436,43 @@ class ApiIntegrationTest {
     assertTrue(rendered.html().contains("<h1"), rendered.html());
     assertTrue(rendered.html().contains("Telescope Mass Report"));
     assertEquals("", rendered.markdown());
+  }
+
+  @Test
+  void renderViewReturnsTypedPortsEdgesAndOrigins() {
+    Model model = connection.load(fixture("views.sysml"));
+    RenderedView rendered = model.renderView("RenderViewDemo::connections");
+    assertEquals("interconnection", rendered.kind());
+    assertEquals(1, rendered.edges().size());
+    assertFalse(rendered.edges().get(0).fromPort().isEmpty());
+    assertFalse(rendered.edges().get(0).toPort().isEmpty());
+    assertTrue(rendered.nodes().stream().allMatch(node -> node.origin().isPresent()));
+    assertTrue(
+        model
+            .renderView("RenderViewDemo::connections", RenderViewPorts.FULL)
+            .nodes()
+            .stream()
+            .flatMap(node -> node.ports().stream())
+            .anyMatch(port -> port.name().equals("spare")));
+  }
+
+  @Test
+  void exportGraphsAnswersTheCanonicalFormOfABehavior() {
+    Model model = connection.load(fixture("behavior.sysml"));
+    Graphs graphs = model.exportGraphs("Test::race");
+    assertEquals(1, graphs.version());
+    assertEquals("Test::race", graphs.subject());
+    assertTrue(
+        graphs.content().startsWith("{\"version\":1,\"subject\":\"Test::race\""),
+        graphs.content());
+    assertTrue(graphs.content().endsWith("}\n"), graphs.content());
+    assertTrue(graphs.content().contains("\"actions\""), graphs.content());
+    ServiceException missing =
+        assertThrows(ServiceException.class, () -> model.exportGraphs("Test::Missing"));
+    assertTrue(missing.getMessage().contains("Test::Missing"), missing.getMessage());
+    ServiceException notABehavior =
+        assertThrows(ServiceException.class, () -> model.exportGraphs("Test"));
+    assertTrue(notABehavior.getMessage().contains("no lowered graph"), notABehavior.getMessage());
   }
 
   @Test

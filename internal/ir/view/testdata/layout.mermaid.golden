@@ -20,9 +20,6 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
 ---
 %% PlantViews::placedView — interconnection rendering (render asInterconnectionDiagram)
 %% canvas: unit=px w=1200 h=800
@@ -30,19 +27,16 @@ config:
 %% layout: n2 x=500 y=40 w=120 h=60
 %% route: n1->n2 400,70 450,120 500,70
 flowchart LR
-  subgraph n0 ["`*«part def»*
-**Loop**`"]
+  subgraph n0 ["`*«part def»* **Loop**`"]
     direction LR
-    subgraph n1 ["`*«part»*
-**pump : Pump**`"]
+    subgraph n1 ["`*«part»* **pump : Pump**`"]
       direction LR
       n1_anchor[" "]
       n1.0["outlet"]
       note0@{ shape: notch-rect, label: "always" }
       note2@{ shape: notch-rect, label: "check pressure" }
     end
-    subgraph n2 ["`*«part»*
-**tank : Tank**`"]
+    subgraph n2 ["`*«part»* **tank : Tank**`"]
       direction LR
       n2_anchor[" "]
       n2.0["inlet"]

@@ -1287,7 +1287,7 @@ func TestExploreAdvanceRunsBehaviorsOnOneClock(t *testing.T) {
 		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = false; this.isSolid = true; this.lit = true`,
 		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = true; this.isSolid = true; this.lit = true`,
 		"possible",
-		"complete (2 runs)")
+		"complete (3 runs)")
 
 	// Advanced short of the instant, neither is due: one outcome, no choice, and
 	// the action that did not complete is the run's error.

@@ -15,6 +15,29 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+func TestMermaidStateAndSequencePictureNotices(t *testing.T) {
+	for _, kind := range []Kind{KindState, KindSequence} {
+		t.Run(string(kind), func(t *testing.T) {
+			rendering, _, _ := hardeningPictureRendering(t)
+			rendering.Kind = kind
+			rendering.Pictures = []Picture{rendering.Pictures[0], rendering.Pictures[2]}
+			want := []string{
+				pictureNotice([]Picture{rendering.Pictures[0]}, "the SVG has active content (<script>)"),
+				pictureNotice([]Picture{rendering.Pictures[1]}, fmt.Sprintf("a %s diagram draws no picture", kind)),
+			}
+			got := rendering.mermaidPictureNotices()
+			if len(got) != len(want) {
+				t.Fatalf("mermaidPictureNotices() = %v, want %v", got, want)
+			}
+			for i := range want {
+				if got[i] != want[i] {
+					t.Errorf("notice %d = %q, want %q", i, got[i], want[i])
+				}
+			}
+		})
+	}
+}
+
 func TestMermaidFlowchartShapes(t *testing.T) {
 	labels := labeller{}
 	cases := []struct {
@@ -28,6 +51,10 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 		{"region", "region", false, StylePilot, `["`},
 		{"package", "part package", false, StylePilot, `["`},
 		{"usage", "part", false, StylePilot, `("`},
+		{"case", "analysis case def", false, StylePilot, `([`},
+		{"actor", "actor", false, StylePilot, `["`},
+		{"subject", "subject", false, StylePilot, `["`},
+		{"objective", "objective", false, StylePilot, `@{ shape: notch-rect, label:`},
 		{"cameo", "part", false, StyleCameo, `["`},
 		{"start", startKind, true, StylePilot, `@{ shape: f-circ, label: "" }`},
 		{"initial", "initial", true, StylePilot, `@{ shape: f-circ, label: "" }`},
@@ -44,14 +71,18 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			node := &Node{ID: "n", Kind: tc.kind, Name: tc.kind, NameSynthesized: tc.synth}
-			got := mermaidNodeShape(node, labels, Options{Style: tc.style})
+			kind := KindAction
+			if caseNodeKind(tc.kind) || tc.kind == "actor" || tc.kind == "subject" || tc.kind == "objective" {
+				kind = KindCase
+			}
+			got := mermaidNodeShape(kind, node, labels, Options{Style: tc.style})
 			if !strings.HasPrefix(got, tc.want) {
 				t.Errorf("shape = %q, want prefix %q", got, tc.want)
 			}
 		})
 	}
 	for _, kind := range []string{"decision", "merge", "choice"} {
-		if got := mermaidNodeShape(&Node{ID: "n", Kind: kind}, labels, Options{}); got != `{" "}` {
+		if got := mermaidNodeShape(KindAction, &Node{ID: "n", Kind: kind}, labels, Options{}); got != `{" "}` {
 			t.Errorf("empty %s shape = %q, want blank diamond", kind, got)
 		}
 	}
@@ -274,7 +305,7 @@ func TestGoldenMermaidPalette(t *testing.T) {
 }
 
 func TestMermaidEdgeSyntaxAndLinkStyleIndices(t *testing.T) {
-	if got, want := []string{mermaidArrow(EdgeConnection), mermaidArrow(EdgeBinding), mermaidArrow(EdgeFlow), mermaidArrow(EdgeSuccession)},
+	if got, want := []string{mermaidArrow(KindInterconnection, EdgeConnection), mermaidArrow(KindInterconnection, EdgeBinding), mermaidArrow(KindAction, EdgeFlow), mermaidArrow(KindAction, EdgeSuccession)},
 		[]string{"===", "===", "-.->", "-->"}; fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("arrows = %v, want %v", got, want)
 	}

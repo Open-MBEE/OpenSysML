@@ -29,7 +29,7 @@ func TestSynthesizedNamesMarked(t *testing.T) {
 			   <include xmi:type="uml:Include" xmi:id="_inc" addition="_start"/>
 			 </packagedElement>
 			 <packagedElement xmi:type="uml:UseCase" xmi:id="_start" name="Start"/>`,
-			[]string{"use case def Drive {\n    include use case start : Start;\n    metadata MigrationMetadata::SynthesizedName about start;\n}"}},
+			[]string{"use case Drive {\n    include Start;\n}"}},
 		{"an instance's slot of an anonymous feature",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_f">

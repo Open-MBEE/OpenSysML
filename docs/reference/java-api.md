@@ -11,7 +11,7 @@ dependency footprint, service ownership and release verification are in
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.9.2</version>
+  <version>0.10.0</version>
 </dependency>
 ```
 
@@ -364,9 +364,17 @@ RenderedDocument html = model.renderDocument("Observatory::MassReport", Document
 html.html();                 // the same document as HTML
 ```
 
-`DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an `Instance` plus its
-element ids), `Verdict`, `State`, `Event`, `LiteralValue` (wrapping a `Value`),
-`Quantity`, `Range`, `QuantityRange`, `InstanceRef` and `Unit` — the kinds a
+`model.renderView("Demo::Overview")` returns a typed `RenderedView` with
+ordered nodes, edges, ports, source spans, table data and notes. Optional
+geometry, style and canvas remain `Optional` when the view does not state them.
+Use `RenderViewPorts.FULL` to include every declared port; the default is
+`MINIMAL`. This call requires the `render_view` capability.
+
+`DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an object the service
+holds, by id or by path, with the `ElementRef` it is held under), `DocumentVerdict`,
+`DocumentState`, `DocumentEvent`, the literal kinds `StringValue`, `IntegerValue`,
+`BigIntegerValue`, `RealValue`, `RationalValue` and `BooleanValue`, `InfinityValue`
+(an unbounded multiplicity) and `QuantityValue` — the kinds a
 native document's cells and bindings speak. A `DocumentRow` carries its subject
 whichever kind it is — `element()` for an element row, `verdict()`/
 `state()`/`event()`/`object()` as `Optional`s for the typed rows — beside the
@@ -387,6 +395,7 @@ which JDK 17 offers only as a preview:
 String rendered;
 if (value instanceof Value.IntegerValue v)              rendered = Long.toString(v.value());
 else if (value instanceof Value.RealValue v)            rendered = Double.toString(v.value());
+else if (value instanceof Value.RationalValue v)        rendered = v.value().toString();      // exact; numerator()/denominator() as BigInteger
 else if (value instanceof Value.ComplexValue v)         rendered = v.real() + " + " + v.imaginary() + "i";  // one value
 else if (value instanceof Value.BooleanValue v)         rendered = Boolean.toString(v.value());
 else if (value instanceof Value.StringValue v)          rendered = v.value();
@@ -460,6 +469,14 @@ connection.capabilities().require(Capabilities.FEATURE_VALUES);
 if (connection.capabilities().has(Capabilities.ENUM_VALUES)) { }
 ```
 
+An exact `Rational` sent as an input, argument or document binding crosses as
+`rationalValue` to a service advertising `RATIONAL_VALUES`, one a double holds
+(`Rational.of(1, 4)`) included, and the service reads it as that Rational; a
+`RealValue` is always a binary64 Real. To a service without the capability a
+Rational a double holds is sent as that `realValue` and any other is refused
+before the call. An answered Rational is canonical: one a double holds arrives as
+a `RealValue`.
+
 The client checks before a gated call rather than relying on the refusal, because
 a capability that only describes how a response is *populated* omits its fields
 instead of failing, and a call that relied on failure alone would read an answer
@@ -493,7 +510,7 @@ not a compatibility promise.
 
 `opensysml-conformance` runs the language-neutral scenarios **through the public
 API** and writes the report shape `tools/cmd/conformance` writes; `mvn -f
-client/java/pom.xml test` is what CI runs. Of 138 scenarios, 133 run and pass over
+client/java/pom.xml test` is what CI runs. Of 166 scenarios, 161 run and pass over
 both `connect` and `connect-json`, and 5 are skipped — the requests the public API
 cannot express: a
 `ParseFile` naming no source, a `Query` with both a structured and an OSLC query or
