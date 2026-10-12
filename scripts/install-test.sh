@@ -460,6 +460,36 @@ else
 	echo "skip signature verification without cosign: curl or sha256sum not on PATH"
 fi
 
+# Only the bundle needs tar; a tool published on its own installs without it.
+no_tar=()
+for tool in "${essentials[@]}"; do
+	[[ "$tool" == tar || "$tool" == gzip ]] || no_tar+=("$tool")
+done
+if shim_path=$(shim "${no_tar[@]}" curl sha256sum); then
+	n=$((n + 1)) && prefix="$work/install-$n"
+	set +e
+	out=$(PATH="$shim_path" sh "$root/install.sh" --base-url "$base" --tools sysml-grpc --prefix "$prefix" 2>&1)
+	status=$?
+	set -e
+	if [[ "$status" -eq 0 ]] && [[ -x "$prefix/bin/sysml-grpc" ]] && [[ "$out" != *"opensysml-$host.tar.gz"* ]]; then
+		echo "ok   sysml-grpc alone without tar"
+	else
+		echo "FAIL sysml-grpc alone without tar: exit $status" >&2 && printf '%s\n' "$out" >&2 && failures=$((failures + 1))
+	fi
+	n=$((n + 1)) && prefix="$work/install-$n"
+	set +e
+	out=$(PATH="$shim_path" sh "$root/install.sh" --base-url "$base" --prefix "$prefix" 2>&1)
+	status=$?
+	set -e
+	if [[ "$status" -ne 0 ]] && [[ "$out" == *"tar is needed to extract opensysml-$host.tar.gz"* ]]; then
+		echo "ok   the bundle without tar"
+	else
+		echo "FAIL the bundle without tar: exit $status" >&2 && printf '%s\n' "$out" >&2 && failures=$((failures + 1))
+	fi
+else
+	echo "skip without tar: curl or sha256sum not on PATH"
+fi
+
 if command -v pwsh >/dev/null 2>&1; then
 	pwsh -NoProfile -File "$root/scripts/install-test.ps1" -Script "$root/install.ps1" -BaseUrl "$base" -MirrorUrl "$mirror" \
 		-HostPlatform "$host" -Good "$good" -Signed "$signed" -Tampered "$tampered" -Unlisted "$unlisted" -NoKernel "$nokernel" -NoGrpc "$nogrpc" ||

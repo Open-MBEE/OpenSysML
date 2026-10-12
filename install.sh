@@ -16,8 +16,8 @@
 #
 # Run with --help for the options.
 #
-# Needs: curl or wget; tar (unzip or a zip-capable tar for the Windows archive);
-# sha256sum, shasum or openssl.
+# Needs: curl or wget; sha256sum, shasum or openssl; and, for the bundle, tar
+# (unzip or a zip-capable tar for the Windows archive).
 set -eu
 
 REPO_URL="https://github.com/Open-MBEE/OpenSysML"
@@ -282,11 +282,6 @@ sha256_of() { # <file>: the hex digest
 }
 have sha256sum || have shasum || have openssl || fail "sha256sum, shasum or openssl is needed to verify the download"
 
-if [ "$target_os" = windows ]; then
-	have unzip || have tar || fail "unzip or tar is needed to extract $bundle"
-else
-	have tar || fail "tar is needed to extract $bundle"
-fi
 if [ "$verify_signature" = true ]; then
 	have cosign || fail "--verify-signature needs cosign on PATH (https://docs.sigstore.dev/cosign/system_config/installation/)"
 fi
@@ -388,6 +383,13 @@ for tool in $tool_list; do
 	sysml | sysml-lsp) want_bundle=true ;;
 	esac
 done
+if [ "$want_bundle" = true ]; then
+	if [ "$target_os" = windows ]; then
+		have unzip || have tar || fail "unzip or tar is needed to extract $bundle"
+	else
+		have tar || fail "tar is needed to extract $bundle"
+	fi
+fi
 from_label="  from:     "
 from() { # <url>: one line per asset, the first labelled
 	info "$from_label$1"
