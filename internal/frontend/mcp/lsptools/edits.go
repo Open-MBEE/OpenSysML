@@ -74,7 +74,7 @@ func registerEdits(s *mcp.Server, h *Host) {
 		Description: "Format a SysML v2 / KerML document, or only the lines of a range, in the canonical style. " +
 			"Returns the edits and the resulting text; writes the file only with apply=true. A document that does not parse is left unchanged.",
 		Annotations: toolkit.Mutating("Format document", true),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in FormatInput) (*mcp.CallToolResult, FormatResult, error) {
+	}, writing(h, func(ctx context.Context, _ *mcp.CallToolRequest, in FormatInput) (*mcp.CallToolResult, FormatResult, error) {
 		ref, content, err := h.editable(ctx, in.Path)
 		if err != nil {
 			return nil, FormatResult{}, err
@@ -98,7 +98,7 @@ func registerEdits(s *mcp.Server, h *Host) {
 		}
 		res := FormatResult{Path: h.display(ref.uri()), Edits: convertEdits(content, edits), Text: string(formatted)}
 		if in.Apply && len(edits) > 0 {
-			if err := h.writeAll(ctx, []pendingWrite{{name: ref.name, content: formatted}}); err != nil {
+			if err := h.writeAll(ctx, []pendingWrite{{name: ref.name, content: formatted, base: content}}); err != nil {
 				return nil, FormatResult{}, err
 			}
 			res.Applied = true
@@ -108,13 +108,13 @@ func registerEdits(s *mcp.Server, h *Host) {
 			summary += ", written"
 		}
 		return text(summary + "\n" + res.Text), res, nil
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "rename",
 		Description: "Rename the element declared or referenced at a position, everywhere in the workspace. " +
 			"Returns the edits per document; writes the files only with apply=true.",
 		Annotations: toolkit.Mutating("Rename element", false),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in RenameInput) (*mcp.CallToolResult, WorkspaceEditResult, error) {
+	}, writing(h, func(ctx context.Context, _ *mcp.CallToolRequest, in RenameInput) (*mcp.CallToolResult, WorkspaceEditResult, error) {
 		if strings.TrimSpace(in.NewName) == "" {
 			return nil, WorkspaceEditResult{}, errors.New("newName is required")
 		}
@@ -137,7 +137,7 @@ func registerEdits(s *mcp.Server, h *Host) {
 			return nil, WorkspaceEditResult{}, fmt.Errorf("nothing to rename at %s:%d:%d", h.display(ref.uri()), in.Position.Line, in.Position.Column)
 		}
 		return h.workspaceEdit(ctx, edit, in.Apply, "rename")
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "apply_model_edit",
 		Description: "Edit a model by operations on its elements rather than by text: setValue, rename, addMember, addConnection, addSequence (action-body items), delete, move, " +
@@ -145,7 +145,7 @@ func registerEdits(s *mcp.Server, h *Host) {
 			"Returns the text edits the operations amount to, per document, and the operations refused with why; writes the files only with apply=true.",
 		Annotations: toolkit.Mutating("Apply model edit", false),
 		InputSchema: applyModelEditSchema(),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ApplyModelEditInput) (*mcp.CallToolResult, ModelEditResult, error) {
+	}, writing(h, func(ctx context.Context, _ *mcp.CallToolRequest, in ApplyModelEditInput) (*mcp.CallToolResult, ModelEditResult, error) {
 		if len(in.Operations) == 0 {
 			return nil, ModelEditResult{}, errors.New("operations is required")
 		}
@@ -182,7 +182,7 @@ func registerEdits(s *mcp.Server, h *Host) {
 			fmt.Fprintf(&b, "\noperation %d refused (%s): %s", r.Operation, r.Failure, r.Message)
 		}
 		return text(b.String()), res, nil
-	})
+	}))
 }
 
 // editable resolves a workspace document that may be edited, with its text.
@@ -221,6 +221,11 @@ func (h *Host) workspaceEdit(ctx context.Context, edit *protocol.WorkspaceEdit, 
 	var writes []pendingWrite
 	for _, u := range uris {
 		ref := h.refOf(protocol.DocumentURI(u))
+		if !ref.library {
+			if _, err := h.resolve(ref.name); err != nil {
+				return nil, WorkspaceEditResult{}, fmt.Errorf("%s: %w", what, err)
+			}
+		}
 		content := h.contentOf(protocol.DocumentURI(u))
 		if content == nil {
 			return nil, WorkspaceEditResult{}, fmt.Errorf("%s edits %s, which the workspace does not hold", what, h.display(ref.uri()))
@@ -238,7 +243,7 @@ func (h *Host) workspaceEdit(ctx context.Context, edit *protocol.WorkspaceEdit, 
 		if err != nil {
 			return nil, WorkspaceEditResult{}, fmt.Errorf("%s: %w", h.display(ref.uri()), err)
 		}
-		writes = append(writes, pendingWrite{name: ref.name, content: edited})
+		writes = append(writes, pendingWrite{name: ref.name, content: edited, base: content})
 	}
 	if len(writes) > 0 {
 		if err := h.writeAll(ctx, writes); err != nil {

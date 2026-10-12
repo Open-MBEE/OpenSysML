@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.lsp.dev/protocol"
@@ -40,6 +41,10 @@ type Host struct {
 	Workspace *model.Workspace
 
 	realRoot string // Root with symlinks resolved, which every document must lie under
+
+	// mu holds the workspace for a tool: shared while it reads, exclusive
+	// while it edits, so an edit is computed and written over one revision.
+	mu sync.RWMutex
 }
 
 // NewHost starts a language server over root and indexes the model documents
@@ -245,43 +250,50 @@ func slices(names []string, name string) bool {
 	return false
 }
 
-// pendingWrite is one file of a change and the text it is to hold.
+// pendingWrite is one file of a change: the text it is to hold, and the text
+// the change was computed from.
 type pendingWrite struct {
 	name    string
 	content []byte
+	base    []byte
 }
 
-// writeAll puts every pending write on disk, or none: a file that changed on
-// disk since the workspace read it refuses the whole change, and a failed
-// write restores the files written before it. The index, and an open buffer of
-// a written document, then follow the new text.
+// writeAll puts every pending write on disk, or none: a file whose text on
+// disk is no longer what its change was computed from refuses the whole
+// change, and a failed write restores the files written before it. The index,
+// and an open buffer of a written document, then follow the new text.
 func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	type original struct {
+		target  string
 		content []byte
 		existed bool
 	}
 	originals := make(map[string]original, len(writes))
 	for _, w := range writes {
-		prev, err := os.ReadFile(w.name) // #nosec G304 -- a workspace document resolve admitted
+		target, err := h.target(w.name)
+		if err != nil {
+			return err
+		}
+		prev, err := os.ReadFile(target) // #nosec G304 -- target lies under the workspace root
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
-		if held, ok := h.Workspace.OnDisk(w.name); ok && !slices(h.Workspace.OpenNames(), w.name) && (err != nil || !bytes.Equal(prev, held)) {
+		if !slices(h.Workspace.OpenNames(), w.name) && (err != nil || !bytes.Equal(prev, w.base)) {
 			return fmt.Errorf("%s changed on disk since it was read; call the tool again", h.display(uri.File(w.name)))
 		}
-		originals[w.name] = original{content: prev, existed: err == nil}
+		originals[w.name] = original{target: target, content: prev, existed: err == nil}
 	}
 	var written []string
 	for _, w := range writes {
-		if err := writeFile(w.name, w.content); err != nil {
+		if err := writeFile(originals[w.name].target, w.content); err != nil {
 			var restore []string
 			for _, name := range written {
 				o := originals[name]
 				var rerr error
 				if o.existed {
-					rerr = writeFile(name, o.content)
+					rerr = writeFile(o.target, o.content)
 				} else {
-					rerr = os.Remove(name)
+					rerr = os.Remove(o.target)
 				}
 				if rerr != nil {
 					restore = append(restore, h.display(uri.File(name)))
@@ -305,14 +317,34 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	return nil
 }
 
-// writeFile replaces name with content in one step: the bytes go to a
-// temporary file beside it that is renamed over it, so a failure part-way
-// leaves the file as it was. A symlink is followed, so the link stays and its
-// target is what changes; an existing file keeps its mode.
-func writeFile(name string, content []byte) error {
-	if real, err := filepath.EvalSymlinks(name); err == nil {
-		name = real
+// target is the file a write to name reaches: name with symlinks resolved,
+// checked at write time to lie under the root, since a link may have been
+// repointed after the path was resolved. A file not yet on disk lands in its
+// resolved directory.
+func (h *Host) target(name string) (string, error) {
+	if !under(h.Root, name) {
+		return "", fmt.Errorf("%s is outside the workspace root %s", name, h.Root)
 	}
+	real, err := filepath.EvalSymlinks(name)
+	if errors.Is(err, fs.ErrNotExist) {
+		var dir string
+		if dir, err = filepath.EvalSymlinks(filepath.Dir(name)); err == nil {
+			real = filepath.Join(dir, filepath.Base(name))
+		}
+	}
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", h.display(uri.File(name)), err)
+	}
+	if !under(h.realRoot, real) {
+		return "", fmt.Errorf("%s resolves to %s, outside the workspace root %s", h.display(uri.File(name)), real, h.Root)
+	}
+	return real, nil
+}
+
+// writeFile replaces name, a resolved path, with content in one step: the
+// bytes go to a temporary file beside it that is renamed over it, so a failure
+// part-way leaves the file as it was. An existing file keeps its mode.
+func writeFile(name string, content []byte) error {
 	mode := os.FileMode(0o600)
 	if info, err := os.Stat(name); err == nil {
 		mode = info.Mode().Perm()
@@ -364,7 +396,7 @@ func Register(s *mcp.Server, h *Host) {
 		Name:        "workspace_info",
 		Description: "Describe the SysML v2 workspace the server has indexed: its root folder and the model documents found under it.",
 		Annotations: toolkit.ReadOnly("Workspace info"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ WorkspaceInfoInput) (*mcp.CallToolResult, WorkspaceInfo, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, _ WorkspaceInfoInput) (*mcp.CallToolResult, WorkspaceInfo, error) {
 		h.Refresh(ctx)
 		info := WorkspaceInfo{Root: h.Root, Documents: []string{}}
 		for _, name := range h.Workspace.DocumentNames() {
@@ -375,12 +407,31 @@ func Register(s *mcp.Server, h *Host) {
 		sort.Strings(info.Documents)
 		info.Open = h.Workspace.OpenNames()
 		return nil, info, nil
-	})
+	}))
 	registerQueries(s, h)
 	registerEdits(s, h)
 	registerRendering(s, h)
 	registerSync(s, h)
 	registerResources(s, h)
+}
+
+// reading runs a tool holding the workspace shared with other readers.
+func reading[In, Out any](h *Host, fn mcp.ToolHandlerFor[In, Out]) mcp.ToolHandlerFor[In, Out] {
+	return func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
+		h.mu.RLock()
+		defer h.mu.RUnlock()
+		return fn(ctx, req, in)
+	}
+}
+
+// writing runs a tool holding the workspace exclusively, from the read its
+// edit is computed on to the write, so no other tool changes it in between.
+func writing[In, Out any](h *Host, fn mcp.ToolHandlerFor[In, Out]) mcp.ToolHandlerFor[In, Out] {
+	return func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		return fn(ctx, req, in)
+	}
 }
 
 // text wraps prose as the readable content of a result whose structured

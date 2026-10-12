@@ -8,8 +8,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
@@ -744,5 +747,93 @@ func TestResources(t *testing.T) {
 	}
 	if _, err := f.cs.ReadResource(ctx, &mcp.ReadResourceParams{URI: "sysml://workspace/missing.sysml"}); err == nil {
 		t.Error("reading a missing document succeeded")
+	}
+}
+
+func TestAWriteRechecksWhereALinkPoints(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	outside := filepath.Join(filepath.Dir(f.root), "outside-target.sysml")
+	write(t, filepath.Dir(f.root), "outside-target.sysml", "package Outside;\n")
+	t.Cleanup(func() { _ = os.Remove(outside) })
+	write(t, f.root, "target.sysml", "package Linked;\n")
+	alias := filepath.Join(f.root, "alias.sysml")
+	if err := os.Symlink(filepath.Join(f.root, "target.sysml"), alias); err != nil {
+		t.Fatal(err)
+	}
+	ref, err := f.host.document(ctx, "alias.sysml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The link is repointed out of the root after the path was resolved and
+	// before the write, as a concurrent actor could do.
+	if err := os.Remove(alias); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, alias); err != nil {
+		t.Fatal(err)
+	}
+	err = f.host.writeAll(ctx, []pendingWrite{{name: ref.name, content: []byte("package Hijacked;\n"), base: []byte("package Outside;\n")}})
+	if err == nil || !strings.Contains(err.Error(), "outside the workspace root") {
+		t.Errorf("write through a repointed link: %v", err)
+	}
+	if got, _ := os.ReadFile(outside); string(got) != "package Outside;\n" {
+		t.Errorf("the file outside the root was written: %q", got)
+	}
+}
+
+func TestAWorkspaceEditOutsideTheRootIsRefused(t *testing.T) {
+	f := newFixture(t)
+	outside := filepath.Join(filepath.Dir(f.root), "outside-edit.sysml")
+	write(t, filepath.Dir(f.root), "outside-edit.sysml", "package Outside;\n")
+	t.Cleanup(func() { _ = os.Remove(outside) })
+	edit := &protocol.WorkspaceEdit{Changes: map[protocol.DocumentURI][]protocol.TextEdit{
+		uri.File(outside): {{Range: protocol.Range{}, NewText: "x"}},
+	}}
+	for _, apply := range []bool{false, true} {
+		_, _, err := f.host.workspaceEdit(context.Background(), edit, apply, "rename")
+		if err == nil || !strings.Contains(err.Error(), "outside the workspace root") {
+			t.Errorf("apply=%v: %v", apply, err)
+		}
+	}
+	if got, _ := os.ReadFile(outside); string(got) != "package Outside;\n" {
+		t.Errorf("the file outside the root was written: %q", got)
+	}
+}
+
+func TestAWriteOverTextItWasNotComputedFromIsRefused(t *testing.T) {
+	f := newFixture(t)
+	before := f.snapshot()
+	err := f.host.writeAll(context.Background(), []pendingWrite{{name: filepath.Join(f.root, "a.sysml"), content: []byte("package A;\n"), base: []byte(vehicles + "// changed meanwhile\n")}})
+	if err == nil || !strings.Contains(err.Error(), "changed on disk") {
+		t.Errorf("write over changed text: %v", err)
+	}
+	f.unchanged(before)
+}
+
+func TestEditsWaitForEachOther(t *testing.T) {
+	f := newFixture(t)
+	write(t, f.root, "ugly.sysml", "package Ugly {\npart def  P;\n}\n")
+	// Hold the workspace as another edit would, from its read to its write.
+	f.host.mu.Lock()
+	done := make(chan FormatResult, 1)
+	go func() {
+		var res FormatResult
+		f.ok("format", map[string]any{"path": "ugly.sysml", "apply": true}, &res)
+		done <- res
+	}()
+	select {
+	case <-done:
+		t.Fatal("format ran while another edit held the workspace")
+	case <-time.After(200 * time.Millisecond):
+	}
+	f.host.mu.Unlock()
+	select {
+	case res := <-done:
+		if !res.Applied || f.read("ugly.sysml") != res.Text {
+			t.Errorf("format after the other edit = %+v", res)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("format did not run once the workspace was released")
 	}
 }

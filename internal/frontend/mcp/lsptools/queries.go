@@ -174,7 +174,7 @@ func registerQueries(s *mcp.Server, h *Host) {
 		Description: "Analyze a SysML v2 / KerML document, or the whole workspace, and list the errors, warnings and hints: " +
 			"syntax, unresolved names, type and constraint violations. Positions are 1-based lines and columns.",
 		Annotations: toolkit.ReadOnly("Diagnostics"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in DiagnosticsInput) (*mcp.CallToolResult, DiagnosticsResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in DiagnosticsInput) (*mcp.CallToolResult, DiagnosticsResult, error) {
 		var refs []docRef
 		if strings.TrimSpace(in.Path) != "" {
 			ref, err := h.document(ctx, in.Path)
@@ -208,12 +208,12 @@ func registerQueries(s *mcp.Server, h *Host) {
 			}
 		}
 		return text(renderDiagnostics(res.Diagnostics, fmt.Sprintf("%d documents", len(refs)))), res, nil
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "hover",
 		Description: "Explain the element at a position: its kind, qualified name, type, value and documentation, as Markdown.",
 		Annotations: toolkit.ReadOnly("Hover"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in PositionInput) (*mcp.CallToolResult, HoverResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in PositionInput) (*mcp.CallToolResult, HoverResult, error) {
 		ref, content, pos, err := h.at(ctx, in.Path, in.Position)
 		if err != nil {
 			return nil, HoverResult{}, err
@@ -231,12 +231,12 @@ func registerQueries(s *mcp.Server, h *Host) {
 			res.Range = &r
 		}
 		return text(res.Markdown), res, nil
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "definition",
 		Description: "Find where the name at a position is declared. Standard library declarations are reported as sysml://stdlib/<file> resources.",
 		Annotations: toolkit.ReadOnly("Go to definition"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in PositionInput) (*mcp.CallToolResult, LocationsResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in PositionInput) (*mcp.CallToolResult, LocationsResult, error) {
 		ref, _, pos, err := h.at(ctx, in.Path, in.Position)
 		if err != nil {
 			return nil, LocationsResult{}, err
@@ -246,12 +246,12 @@ func registerQueries(s *mcp.Server, h *Host) {
 			return nil, LocationsResult{}, err
 		}
 		return h.locations(locs)
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "references",
 		Description: "Find every place in the workspace that refers to the element at a position.",
 		Annotations: toolkit.ReadOnly("Find references"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ReferencesInput) (*mcp.CallToolResult, LocationsResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in ReferencesInput) (*mcp.CallToolResult, LocationsResult, error) {
 		ref, _, pos, err := h.at(ctx, in.Path, in.Position)
 		if err != nil {
 			return nil, LocationsResult{}, err
@@ -264,13 +264,13 @@ func registerQueries(s *mcp.Server, h *Host) {
 			return nil, LocationsResult{}, err
 		}
 		return h.locations(locs)
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:         "document_symbols",
 		Description:  "Outline a document: the elements it declares, nested as they are owned, with their kinds and ranges.",
 		Annotations:  toolkit.ReadOnly("Document symbols"),
 		OutputSchema: schemaWithRecursion(reflect.TypeFor[DocumentSymbolsResult](), reflect.TypeFor[Symbol](), "symbol"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in PathInput) (*mcp.CallToolResult, DocumentSymbolsResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in PathInput) (*mcp.CallToolResult, DocumentSymbolsResult, error) {
 		ref, err := h.document(ctx, in.Path)
 		if err != nil {
 			return nil, DocumentSymbolsResult{}, err
@@ -295,12 +295,12 @@ func registerQueries(s *mcp.Server, h *Host) {
 		var b strings.Builder
 		writeOutline(&b, res.Symbols, 0)
 		return text(strings.TrimSpace(b.String())), res, nil
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "workspace_symbols",
 		Description: "Search the workspace's declared elements by name substring.",
 		Annotations: toolkit.ReadOnly("Workspace symbols"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in WorkspaceSymbolsInput) (*mcp.CallToolResult, WorkspaceSymbolsResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in WorkspaceSymbolsInput) (*mcp.CallToolResult, WorkspaceSymbolsResult, error) {
 		h.Refresh(ctx)
 		syms, err := h.Server.Symbols(ctx, &protocol.WorkspaceSymbolParams{Query: in.Query})
 		if err != nil {
@@ -324,12 +324,12 @@ func registerQueries(s *mcp.Server, h *Host) {
 			fmt.Fprintf(&b, "%d of %d matches shown", len(res.Symbols), res.Total)
 		}
 		return text(strings.TrimSpace(b.String())), res, nil
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "completion",
 		Description: "Propose completions at a position: keywords, names in scope and members of the type being accessed.",
 		Annotations: toolkit.ReadOnly("Completion"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in PositionInput) (*mcp.CallToolResult, CompletionResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in PositionInput) (*mcp.CallToolResult, CompletionResult, error) {
 		ref, _, pos, err := h.at(ctx, in.Path, in.Position)
 		if err != nil {
 			return nil, CompletionResult{}, err
@@ -361,12 +361,12 @@ func registerQueries(s *mcp.Server, h *Host) {
 			}
 		}
 		return text(strings.TrimSpace(b.String())), res, nil
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "signature_help",
 		Description: "Describe the invocation enclosing a position: the callable's parameters and which one the position is at.",
 		Annotations: toolkit.ReadOnly("Signature help"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in PositionInput) (*mcp.CallToolResult, SignatureHelpResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in PositionInput) (*mcp.CallToolResult, SignatureHelpResult, error) {
 		ref, _, pos, err := h.at(ctx, in.Path, in.Position)
 		if err != nil {
 			return nil, SignatureHelpResult{}, err
@@ -390,12 +390,12 @@ func registerQueries(s *mcp.Server, h *Host) {
 			b.WriteString(sig.Label + "\n")
 		}
 		return text(strings.TrimSpace(b.String())), res, nil
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "inlay_hints",
 		Description: "List the inferred types and values the editor would show inline for the features of a document or range.",
 		Annotations: toolkit.ReadOnly("Inlay hints"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in RangeInput) (*mcp.CallToolResult, InlayHintsResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in RangeInput) (*mcp.CallToolResult, InlayHintsResult, error) {
 		ref, content, r, err := h.span(ctx, in.Path, in.Range)
 		if err != nil {
 			return nil, InlayHintsResult{}, err
@@ -418,12 +418,12 @@ func registerQueries(s *mcp.Server, h *Host) {
 			fmt.Fprintf(&b, "%s: %s\n", at(h.display(ref.uri()), ih.Position), hint.Label)
 		}
 		return text(strings.TrimSpace(b.String())), res, nil
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "code_actions",
 		Description: "List the quick fixes and refactorings available for a range of a document, each with the edits it would make. Nothing is applied; write the edits with your own file tools or use the rename/format/apply_model_edit tools with apply=true.",
 		Annotations: toolkit.ReadOnly("Code actions"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in RangeInput) (*mcp.CallToolResult, CodeActionsResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in RangeInput) (*mcp.CallToolResult, CodeActionsResult, error) {
 		ref, content, r, err := h.span(ctx, in.Path, in.Range)
 		if err != nil {
 			return nil, CodeActionsResult{}, err
@@ -464,7 +464,7 @@ func registerQueries(s *mcp.Server, h *Host) {
 			fmt.Fprintf(&b, "%s (%s)\n", a.Title, a.Kind)
 		}
 		return text(strings.TrimSpace(b.String())), res, nil
-	})
+	}))
 }
 
 // at resolves a document and converts a 1-based position into the protocol's.

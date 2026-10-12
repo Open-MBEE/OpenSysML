@@ -40,7 +40,7 @@ func registerRendering(s *mcp.Server, h *Host) {
 		Description: "Render a diagram or table of a document: a declared view or a pseudo-view, as Mermaid, Graphviz dot, PlantUML, D2, text, Markdown, CSV or TSV. " +
 			"The result also lists the nodes and edges drawn with their qualified names (for apply_model_edit) and their declaration ranges in LSP form (0-based).",
 		Annotations: toolkit.ReadOnly("Render view"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in RenderViewInput) (*mcp.CallToolResult, *lsp.RenderResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in RenderViewInput) (*mcp.CallToolResult, *lsp.RenderResult, error) {
 		ref, err := h.document(ctx, in.Path)
 		if err != nil {
 			return nil, nil, err
@@ -56,12 +56,12 @@ func registerRendering(s *mcp.Server, h *Host) {
 			return nil, nil, err
 		}
 		return text(res.Artifact), res, nil
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "views",
 		Description: "List the views a document declares and the pseudo-views (#tree, #interconnection, ...) render_view can draw of it.",
 		Annotations: toolkit.ReadOnly("Views"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in PathInput) (*mcp.CallToolResult, *lsp.ViewsResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in PathInput) (*mcp.CallToolResult, *lsp.ViewsResult, error) {
 		ref, err := h.document(ctx, in.Path)
 		if err != nil {
 			return nil, nil, err
@@ -79,12 +79,12 @@ func registerRendering(s *mcp.Server, h *Host) {
 		}
 		fmt.Fprintf(&b, "pseudo-views: %s", strings.Join(res.PseudoViews, ", "))
 		return text(strings.TrimSpace(b.String())), res, nil
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "documents",
 		Description: "List the document definitions (doc def) declared across the workspace, which render_document renders to Markdown.",
 		Annotations: toolkit.ReadOnly("Document definitions"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ NoInput) (*mcp.CallToolResult, *lsp.DocumentsResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, _ NoInput) (*mcp.CallToolResult, *lsp.DocumentsResult, error) {
 		h.Refresh(ctx)
 		res := h.Server.Documents()
 		var b strings.Builder
@@ -95,12 +95,12 @@ func registerRendering(s *mcp.Server, h *Host) {
 			b.WriteString("no document definitions")
 		}
 		return text(strings.TrimSpace(b.String())), res, nil
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "render_document",
 		Description: "Render a document definition (doc def) to Markdown, its queries evaluated over the workspace and its diagrams embedded.",
 		Annotations: toolkit.ReadOnly("Render document"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in RenderDocumentInput) (*mcp.CallToolResult, *lsp.RenderDocumentResult, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in RenderDocumentInput) (*mcp.CallToolResult, *lsp.RenderDocumentResult, error) {
 		if strings.TrimSpace(in.Name) == "" {
 			return nil, nil, fmt.Errorf("name is required")
 		}
@@ -110,5 +110,5 @@ func registerRendering(s *mcp.Server, h *Host) {
 			return nil, nil, err
 		}
 		return text(res.Markdown), res, nil
-	})
+	}))
 }
