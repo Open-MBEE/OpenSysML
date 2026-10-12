@@ -274,12 +274,21 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	var written []string
 	for _, w := range writes {
 		if err := writeFile(w.name, w.content); err != nil {
+			var restore []string
 			for _, name := range written {
-				if o := originals[name]; o.existed {
-					_ = writeFile(name, o.content)
+				o := originals[name]
+				var rerr error
+				if o.existed {
+					rerr = writeFile(name, o.content)
 				} else {
-					_ = os.Remove(name)
+					rerr = os.Remove(name)
 				}
+				if rerr != nil {
+					restore = append(restore, h.display(uri.File(name)))
+				}
+			}
+			if len(restore) > 0 {
+				return fmt.Errorf("writing %s: %w; and %s could not be restored, check them", h.display(uri.File(w.name)), err, strings.Join(restore, ", "))
 			}
 			return fmt.Errorf("writing %s: %w (no file was changed)", h.display(uri.File(w.name)), err)
 		}
@@ -296,13 +305,32 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	return nil
 }
 
-// writeFile writes content to name, keeping the file's mode when it exists.
+// writeFile replaces name with content in one step: the bytes go to a
+// temporary file beside it that is renamed over it, so a failure part-way
+// leaves the file as it was. An existing file keeps its mode.
 func writeFile(name string, content []byte) error {
 	mode := os.FileMode(0o600)
 	if info, err := os.Stat(name); err == nil {
 		mode = info.Mode().Perm()
 	}
-	return os.WriteFile(name, content, mode)
+	tmp, err := os.CreateTemp(filepath.Dir(name), "."+filepath.Base(name)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	_, err = tmp.Write(content)
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Chmod(tmp.Name(), mode)
+	}
+	if err == nil {
+		err = os.Rename(tmp.Name(), name)
+	}
+	if err != nil {
+		_ = os.Remove(tmp.Name())
+	}
+	return err
 }
 
 // replace makes text the content of the open document name, as the next

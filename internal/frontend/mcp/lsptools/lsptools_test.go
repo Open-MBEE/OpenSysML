@@ -166,7 +166,9 @@ func (f *fixture) snapshot() map[string]string {
 		f.t.Fatal(err)
 	}
 	for _, e := range entries {
-		out[e.Name()] = f.read(e.Name())
+		if !e.IsDir() {
+			out[e.Name()] = f.read(e.Name())
+		}
 	}
 	return out
 }
@@ -432,20 +434,31 @@ func TestRenameAcrossFiles(t *testing.T) {
 
 func TestAFailedWriteLeavesNoFileChanged(t *testing.T) {
 	if os.Geteuid() == 0 {
-		t.Skip("root can write a read-only file")
+		t.Skip("root can write into a read-only directory")
 	}
 	f := newFixture(t)
-	before := f.snapshot()
-	locked := filepath.Join(f.root, "b.sysml")
-	if err := os.Chmod(locked, 0o400); err != nil {
+	// A third document in a folder that cannot be written into: the rename
+	// reaches it last, after a.sysml and b.sysml were written, so those two
+	// must be put back.
+	sub := filepath.Join(f.root, "sub")
+	if err := os.Mkdir(sub, 0o750); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(locked, 0o600) })
+	write(t, sub, "more.sysml", "package More {\n    private import Vehicles::*;\n    part extra : Wheel;\n}\n")
+	before := f.snapshot()
+	moreBefore := f.read("sub/more.sysml")
+	if err := os.Chmod(sub, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(sub, 0o750) })
 	msg := f.fails("rename", map[string]any{"path": "a.sysml", "position": pos(2, 14), "newName": "Tyre", "apply": true})
-	if !strings.Contains(msg, "b.sysml") || !strings.Contains(msg, "no file was changed") {
+	if !strings.Contains(msg, "sub/more.sysml") || !strings.Contains(msg, "no file was changed") {
 		t.Errorf("error = %q", msg)
 	}
 	f.unchanged(before)
+	if f.read("sub/more.sysml") != moreBefore {
+		t.Error("sub/more.sysml changed")
+	}
 	var hover HoverResult
 	f.ok("hover", map[string]any{"path": "b.sysml", "position": pos(4, 26)}, &hover)
 	if !strings.Contains(hover.Markdown, "Wheel") {
