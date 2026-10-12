@@ -80,16 +80,28 @@ func writeModel(t *testing.T, root, name, text string) {
 	}
 }
 
+// sessionTools is the session group's tool list, sorted.
+func sessionTools() []string {
+	return []string{"advance", "check", "configure", "debug_breakpoints", "debug_continue", "debug_current", "debug_start", "debug_step", "debug_stop", "explain", "features", "instances", "optimize", "render_run", "repl_command", "runs", "send", "session_clear", "session_close", "session_eval", "session_list", "session_load", "session_open", "session_print", "session_run", "session_save", "session_submit", "solve", "sweep"}
+}
+
+// allTools is every group's tool list, sorted.
+func allTools() []string {
+	all := append([]string{"server_info", "workspace_info"}, sessionTools()...)
+	slices.Sort(all)
+	return all
+}
+
 func TestTheServerRegistersTheGroupsAskedFor(t *testing.T) {
 	root := t.TempDir()
 	cases := []struct {
 		groups []Group
 		want   []string
 	}{
-		{nil, []string{"server_info", "session_close", "session_list", "session_open", "workspace_info"}},
+		{nil, allTools()},
 		{[]Group{GroupLSP}, []string{"workspace_info"}},
 		{[]Group{GroupRuntime}, []string{"server_info"}},
-		{[]Group{GroupSession}, []string{"session_close", "session_list", "session_open"}},
+		{[]Group{GroupSession}, sessionTools()},
 	}
 	for _, tc := range cases {
 		cs := connect(t, Config{Root: root, Groups: tc.groups, Version: "test"})
