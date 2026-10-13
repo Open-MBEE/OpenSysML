@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"fmt"
+	"math"
 	"path"
 	"slices"
 	"sort"
@@ -51,6 +52,10 @@ func (m *migration) streamRecord(d *sysmlv1.Diagram) *mtip.Diagram {
 		return nil
 	}
 	rec := &mtip.Diagram{ID: d.ID, Name: d.Name, Type: d.Kind}
+	elementAt := map[string]string{}
+	for _, s := range d.Symbols {
+		elementAt[s.ID] = s.ElementID
+	}
 	for _, s := range d.Symbols {
 		switch {
 		case s.Hidden || s.Free() || s.Class == "DiagramFrame" || s.ElementID == d.ID || isNoteSymbol(s, m):
@@ -58,7 +63,7 @@ func (m *migration) streamRecord(d *sysmlv1.Diagram) *mtip.Diagram {
 			if len(s.Points) < 2 {
 				continue
 			}
-			c := mtip.Connector{ID: s.ElementID, Type: s.Class}
+			c := mtip.Connector{ID: s.ElementID, Type: s.Class, Ends: [2]string{elementAt[s.Ends[0]], elementAt[s.Ends[1]]}}
 			for _, p := range s.Points {
 				c.Points = append(c.Points, p.X, p.Y)
 			}
@@ -66,11 +71,23 @@ func (m *migration) streamRecord(d *sysmlv1.Diagram) *mtip.Diagram {
 		case s.Bounds != nil:
 			b := s.Bounds
 			rec.Placements = append(rec.Placements, mtip.Placement{
-				ID: s.ElementID, Type: s.Class, X: b.X, Y: b.Y, Width: b.Width, Height: b.Height,
+				ID: s.ElementID, Type: s.Class, X: b.X, Y: b.Y, Width: b.Width, Height: b.Height, OnPath: onPath(s),
 			})
 		}
 	}
 	return rec
+}
+
+// onPath reports a shape nested in a path symbol: the tool keeps a line's end
+// symbols there (an association's Role, a connector's ConnectorEnd), so the
+// shape marks where the line ends and stands for no node of its own.
+func onPath(s *sysmlv1.Symbol) bool {
+	for p := s.Parent; p != nil; p = p.Parent {
+		if p.IsPath() {
+			return true
+		}
+	}
+	return false
 }
 
 // layoutSources names where a view's geometry came from.
@@ -103,9 +120,37 @@ func (m *migration) layoutRecord(v *view) (*mtip.Diagram, layoutSources) {
 	for _, p := range export.Placements {
 		placed[p.ID] = true
 	}
+	// The export says nothing about nesting, so an end symbol the stream shows
+	// only on a path keeps lying on the line when the export's bounds win.
+	onPath := map[string]bool{}
+	for _, p := range stream.Placements {
+		if v, ok := onPath[p.ID]; !ok || v {
+			onPath[p.ID] = p.OnPath
+		}
+	}
+	for i := range merged.Placements {
+		if onPath[merged.Placements[i].ID] {
+			merged.Placements[i].OnPath = true
+		}
+	}
 	routed := map[string]bool{}
 	for _, c := range export.Connectors {
 		routed[c.ID] = true
+	}
+	// The export says nothing about which element is at which end of a line
+	// either; the stream names the two, the export's own boxes place them.
+	lines := map[string][2]string{}
+	for _, c := range stream.Connectors {
+		lines[c.ID] = c.Ends
+	}
+	boxes := map[string]mtip.Placement{}
+	for _, p := range export.Placements {
+		boxes[p.ID] = p
+	}
+	for i := range merged.Connectors {
+		if c := &merged.Connectors[i]; c.Ends == [2]string{} {
+			c.Ends = endsAt(c.Points, lines[c.ID], boxes)
+		}
 	}
 	src := layoutSources{export: true, frame: frame}
 	for _, p := range stream.Placements {
@@ -617,4 +662,38 @@ func (m *migration) styleLine(host *sysmlv1.Element, prefix, ref string, st sysm
 		return ""
 	}
 	return "metadata " + prefix + "Style about " + ref + " { " + strings.Join(attrs, " ") + " }"
+}
+
+// endsAt places the elements named as a line's ends by where the line drawn
+// through points starts and stops against their boxes in the same drawing; it
+// returns no ends when a box is missing or the drawing does not say which is which.
+func endsAt(points []float64, ends [2]string, boxes map[string]mtip.Placement) [2]string {
+	if len(points) < 4 || ends[0] == "" || ends[1] == "" {
+		return [2]string{}
+	}
+	if ends[0] == ends[1] {
+		return ends
+	}
+	a, okA := boxes[ends[0]]
+	b, okB := boxes[ends[1]]
+	if !okA || !okB {
+		return [2]string{}
+	}
+	first, last := points[:2], points[len(points)-2:]
+	same := boxGap(first, a) + boxGap(last, b)
+	opposite := boxGap(first, b) + boxGap(last, a)
+	switch {
+	case same < opposite:
+		return ends
+	case opposite < same:
+		return [2]string{ends[1], ends[0]}
+	}
+	return [2]string{}
+}
+
+// boxGap is the distance from a point to a box, 0 inside it.
+func boxGap(pt []float64, box mtip.Placement) float64 {
+	dx := math.Max(0, math.Max(box.X-pt[0], pt[0]-(box.X+box.Width)))
+	dy := math.Max(0, math.Max(box.Y-pt[1], pt[1]-(box.Y+box.Height)))
+	return math.Hypot(dx, dy)
 }

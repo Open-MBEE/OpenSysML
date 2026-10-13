@@ -28,6 +28,10 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 	if !ok {
 		return nil, statusError(connect.CodeInvalidArgument, (&view.UnknownPortsError{Name: req.Ports}).Error())
 	}
+	shown, err := view.ShownOf(req.Show)
+	if err != nil {
+		return nil, statusError(connect.CodeInvalidArgument, err.Error())
+	}
 
 	worker, release := cached.worker()
 	defer release()
@@ -42,7 +46,7 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 		}
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
-	return renderViewData(cached, rendering.DataFor(ports)), nil
+	return renderViewData(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown})), nil
 }
 
 type renderViewOrigins struct {
@@ -85,6 +89,7 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 		Stated:  data.Stated,
 		Columns: data.Columns,
 		Notices: data.Notices,
+		Shown:   data.Shown,
 		Nodes:   make([]*pb.RenderNode, 0, len(data.Nodes)),
 		Edges:   make([]*pb.RenderEdge, 0, len(data.Edges)),
 		Rows:    make([]*pb.RenderRow, 0, len(data.Rows)),

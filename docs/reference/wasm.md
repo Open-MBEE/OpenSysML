@@ -152,6 +152,12 @@ the view kind, stated rendering, notices, canvas, nodes, edges, and, for tabular
 (tables and matrices), columns and rows; its node and edge fields use the same JSON names as
 `opensysml/render`.
 
+`show` is optional: an array naming the [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
+to draw besides those the view's rendering shows (`parameter-symbols`, `port-symbols`,
+`compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, or `all`),
+as `sysml -render-show` does; an unknown name is an invalid-argument error. The response's
+`shown` lists the elements drawn.
+
 The engine has no current-document context, so a pseudo-view must name an element, for
 example `#tree:OpenSysMLStack::stack`. An untargeted `#tree`, `#interconnection` or `#matrix` is
 refused with InvalidArgument and the supported pseudo-view spellings.

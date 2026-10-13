@@ -8,7 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
-const vizUsage = "usage: %viz [--view=<VIEW>|--view <VIEW>] [--style=<STYLE>...] [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] <name> [<name>...]"
+const vizUsage = "usage: %viz [--view=<VIEW>|--view <VIEW>] [--style=<STYLE>...] [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [show=<elements>] <name> [<name>...]"
 
 // vizDefaultView is the view that chooses the rendering kind from what the names
 // resolve to; it is the view when --view is absent.
@@ -77,7 +77,7 @@ type vizRequest struct {
 }
 
 // parseVizArgs reads %viz's arguments; usage is what to print instead when they
-// do not read. Options and the form are read wherever they stand; an unquoted
+// do not read. Options, show= and the form are read wherever they stand; an unquoted
 // word spelling a form is the form, so an element so named is written with its
 // quotes.
 func parseVizArgs(args []string) (vizRequest, []string) {
@@ -122,6 +122,12 @@ func parseVizArgs(args []string) (vizRequest, []string) {
 			}
 		case strings.HasPrefix(word, "-") && len(word) > 1:
 			return req, vizUsageOf(fmt.Sprintf("unknown option %q; the options are --view and --style", word))
+		case strings.HasPrefix(word, "show="):
+			shown, err := view.ParseShown(strings.TrimPrefix(word, "show="))
+			if err != nil {
+				return req, vizUsageOf(fmt.Sprintf("show= names the optional notation elements to draw, %s; %s", view.ElementNames(), err))
+			}
+			req.opts.Show = req.opts.Show.Union(shown)
 		case slices.Contains(view.Forms(), view.Form(word)):
 			if req.form != "" && req.form != view.Form(word) {
 				if req.formStyle != "" {

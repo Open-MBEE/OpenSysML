@@ -633,6 +633,20 @@
       "consumers": []
     },
     {
+      "name": "MigrationMetadata::AppliedStereotype",
+      "kind": "metadata",
+      "attributes": [
+        "stereotype",
+        "profile",
+        "tags"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/semantic/semantics/synthesized_name.go",
+        "internal/translate/migrate/migrate.go"
+      ]
+    },
+    {
       "name": "MigrationMetadata::DeferredEvent",
       "kind": "metadata",
       "attributes": [

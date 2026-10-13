@@ -47,15 +47,15 @@ func TestSimulationConfigBecomesARunnableActionDef(t *testing.T) {
 		"stepSize = 1.0;",
 		`timeUnit = "second";`,
 		"parallelForks = true;",
-		"part target : sure;",
+		"part target :> sure;",
 		"perform action run ::> target.choose;",
 		"/* results of the simulation tool: 0 snapshot(s) in Results */",
-		"/* «SimulationConfig» settings of the simulation tool: animationSpeed = 95; silent = true */",
+		`tags = ("animationSpeed = 95", "silent = true");`,
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	if strings.Contains(string(r.Notation), "applied stereotype «SimulationConfig»") {
-		t.Errorf("the consumed «SimulationConfig» is also kept as a comment:\n%s", r.Notation)
+	if n := strings.Count(string(r.Notation), `stereotype = "SimulationConfig";`); n != 1 {
+		t.Errorf("«SimulationConfig» marked %d times, want once for its unread settings:\n%s", n, r.Notation)
 	}
 	wantNote(t, r, "_g0", migrate.Mapped, "")
 	wantNote(t, r, "_act", migrate.Mapped, "written as an action usage every object of Chooser performs from creation, so its body runs on the object and reaches its features")
@@ -91,13 +91,13 @@ func TestSimulationConfigReportsWhatItCannotRun(t *testing.T) {
 	for _, line := range []string{
 		"action def 'Group 0' {",
 		"runs = 3;",
-		"part target : other;",
-		"/* «SimulationConfig» settings of the simulation tool: durationSimulationMode = fastest */",
+		"part target :> other;",
+		`tags = "durationSimulationMode = fastest";`,
 		"action def 'Group 1' {",
 		"draws = Simulation::DrawPolicy::random;",
-		"/* «SimulationConfig» settings of the simulation tool: treatAllClassifiersAsActive = false */",
+		`tags = "treatAllClassifiersAsActive = false";`,
 		"action def 'Group 2' {",
-		"/* «SimulationConfig» settings of the simulation tool: numberOfRuns = 9223372036854775808 */",
+		`tags = "numberOfRuns = 9223372036854775808";`,
 		"action def 'Group 3' {",
 	} {
 		wantLine(t, r.Notation, line)
@@ -197,7 +197,7 @@ func TestSimulationConfigRecordsTheClockStepOfTheToolsInternalClock(t *testing.T
 	wantNote(t, r, "_g11", migrate.Approximated, "stepSize is unstated, and endTime = 12 with numberOfSteps = 0 counts no steps, so the tool's default step, 1.0, stands")
 	wantNote(t, r, "_g12", migrate.Approximated, "startTime = 3.0 in timeUnit = \"tick\" started the tool's clock at an instant no number of seconds tells, and a run's clock starts at 0")
 	wantNote(t, r, "_g12", migrate.Approximated, `timeUnit = "tick" is no fixed number of seconds, so the clock's step is not derived and the runs' clock is continuous`)
-	for _, line := range []string{"endTime = 12; numberOfSteps = 4", "endTime = 12; numberOfSteps = 0"} {
+	for _, line := range []string{`tags = ("endTime = 12", "numberOfSteps = 4");`, `tags = ("endTime = 12", "numberOfSteps = 0");`} {
 		wantLine(t, r.Notation, line)
 	}
 	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
@@ -232,8 +232,8 @@ func TestSimulationConfigOfAnotherProfileIsNotARunConfiguration(t *testing.T) {
 	for _, line := range []string{"action def 'Group 1'", "action def 'Group 2'", "action def 'Group 3'"} {
 		wantNoLine(t, r.Notation, line)
 	}
-	if n := strings.Count(string(r.Notation), "applied stereotype «SimulationConfig»"); n != 3 {
-		t.Errorf("%d «SimulationConfig» comment(s), want one per lookalike:\n%s", n, r.Notation)
+	if n := strings.Count(string(r.Notation), `stereotype = "SimulationConfig";`); n != 3 {
+		t.Errorf("%d «SimulationConfig» marker(s), want one per lookalike:\n%s", n, r.Notation)
 	}
 	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
 		t.Errorf("the migrated document does not analyse clean: %v\n%s", errs, r.Notation)
@@ -448,7 +448,7 @@ func TestSimulationConfigNamesTheConstraintsOfAParametricTarget(t *testing.T) {
   <sysml:ConstraintProperty xmi:id="_s8" base_Property="_cPeak"/>
   <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
       executionTarget="_c1" numberOfRuns="1"/>`)
-	wantLine(t, r.Notation, "part target : circuit;")
+	wantLine(t, r.Notation, "part target :> circuit;")
 	wantNoLine(t, r.Notation, "perform action run")
 	wantNote(t, r, "_g0", migrate.Approximated, "neither Circuit nor any general of it has a classifier behavior, so the configuration only holds 'circuit'"+
 		"; the tool solves the constraints it holds for values, which a v2 run checks and does not solve: "+

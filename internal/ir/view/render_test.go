@@ -393,11 +393,11 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 		if tc.typ == "" {
 			continue
 		}
-		if text, head := rendering.Text(), tc.name+" : "+tc.typ; !strings.Contains(text, tc.kind+" "+head) {
+		if text, head := rendering.textWith(fullNotation), tc.name+" : "+tc.typ; !strings.Contains(text, tc.kind+" "+head) {
 			t.Errorf("%s: text lacks %q:\n%s", tc.view, tc.kind+" "+head, text)
 		}
 		head := tc.label + " : " + tc.typ
-		mermaid := rendering.Mermaid()
+		mermaid := rendering.MermaidWith(fullNotation)
 		label := "*«" + tc.kind + "»*\n**" + head + "**"
 		switch {
 		case rendering.Kind == KindState && tc.container:
@@ -410,7 +410,7 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 		if !strings.Contains(mermaid, label) {
 			t.Errorf("%s: Mermaid lacks the label for %q:\n%s", tc.view, head, mermaid)
 		}
-		dot, err := rendering.Write(FormDot)
+		dot, err := rendering.WriteWith(FormDot, fullNotation)
 		if err != nil {
 			t.Fatalf("%s: DOT: %v", tc.view, err)
 		}
@@ -438,7 +438,7 @@ func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 			t.Errorf("node %s: type %q, want %q", name, node.Type, want)
 		}
 	}
-	text := rendering.Text()
+	text := rendering.textWith(fullNotation)
 	for _, want := range []string{
 		"port plug : ~Link", "part rail : 'Frame *rail*'", "part base : Mount, Cart",
 		"part root : $::Spelled::Mount", "port mirrored : ~rail.'Frame *rail*'",
@@ -447,7 +447,7 @@ func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 			t.Errorf("text lacks %q:\n%s", want, text)
 		}
 	}
-	mermaid := rendering.MermaidWith(Options{Ports: PortsFull})
+	mermaid := rendering.MermaidWith(Options{Show: AllShown(), Ports: PortsFull})
 	for _, want := range []string{
 		"`*«part def»*\n**Rig**`", "«port»<br>plug : ~Link", "`*«part»*\n**base : Mount, Cart**`",
 		"`*«part»*\n**root : Mount**`", "«port»<br>mirrored : ~'Frame *rail*'",
@@ -691,7 +691,7 @@ func TestRenderingReportsWhatItCannotRepresent(t *testing.T) {
 // Mermaid labels keep Markdown-safe flowchart text in Markdown and escape
 // unsafe text into the plain-label form.
 func TestMermaidLabelsAreEscaped(t *testing.T) {
-	mermaid := render(t, "action.sysml", "FlowViews::driveView").Mermaid()
+	mermaid := render(t, "action.sysml", "FlowViews::driveView").MermaidWith(fullNotation)
 	lines := strings.Split(mermaid, "\n")
 	for i := 0; i < len(lines); i++ {
 		start := strings.Index(lines[i], `["`)
@@ -718,7 +718,7 @@ func TestMermaidLabelsAreEscaped(t *testing.T) {
 		}
 	}
 	node := &Node{Kind: "part", Name: `a<b> "c" #d`, Type: "T<U>", Detail: "x; y"}
-	if got, want := (labeller{}).mermaid(node), "«part»<br>a#lt;b#gt; #quot;c#quot; #35;d : T#lt;U#gt;<br>x#59; y"; got != want {
+	if got, want := (labeller{shown: AllShown()}).mermaid(node), "«part»<br>a#lt;b#gt; #quot;c#quot; #35;d : T#lt;U#gt;<br>x#59; y"; got != want {
 		t.Errorf("mermaidLabel = %q, want %q", got, want)
 	}
 }
@@ -729,7 +729,7 @@ func TestMermaidTransitionLabelsEscapeColons(t *testing.T) {
 	rendering := &Rendering{View: "V", Kind: KindState,
 		Roots: []*Node{{ID: "a", Kind: "state", Name: "idle"}, {ID: "b", Kind: "state", Name: "busy"}},
 		Edges: []Edge{{From: "a", To: "b", Label: "accept Signals::'Go Now'; [x : T]"}}}
-	mermaid := rendering.Mermaid()
+	mermaid := rendering.MermaidWith(fullNotation)
 	want := "  a --> b : accept Signals#58;#58;'Go Now'#59; [x #58; T]\n"
 	if !strings.Contains(mermaid, want) {
 		t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
@@ -904,4 +904,14 @@ func TestActionRenderingDrawsTheSuccessionGatingAFlow(t *testing.T) {
 	if gated != 1 || flows != 1 {
 		t.Errorf("edges: %d gated successions, %d flows; want one of each:\n%s", gated, flows, rendering.Text())
 	}
+}
+
+// textWithQualifiers is a rendering's text form naming each node by its qualified name.
+func textWithQualifiers(t *testing.T, rendering *Rendering) string {
+	t.Helper()
+	out, err := rendering.WriteWith(FormText, Options{Show: Shown{ElementQualifiers: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
 }

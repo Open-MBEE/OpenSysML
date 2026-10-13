@@ -431,9 +431,9 @@ func TestZeroCanvasExtentIsASize(t *testing.T) {
 // a suffix on each positioned node and edge.
 func TestWritersShowTheGeometry(t *testing.T) {
 	rendering := render(t, "layout.sysml", "PlantViews::placedView")
-	checkGolden(t, filepath.Join("testdata", "layout.text.golden"), rendering.Text())
-	checkGolden(t, filepath.Join("testdata", "layout.mermaid.golden"), rendering.Mermaid())
-	mermaid := rendering.Mermaid()
+	checkGolden(t, filepath.Join("testdata", "layout.text.golden"), rendering.textWith(fullNotation))
+	checkGolden(t, filepath.Join("testdata", "layout.mermaid.golden"), rendering.MermaidWith(fullNotation))
+	mermaid := rendering.MermaidWith(fullNotation)
 	for _, want := range []string{
 		"%% canvas: unit=px w=1200 h=800\n",
 		" x=300 y=40 collapsed\n",
@@ -444,7 +444,7 @@ func TestWritersShowTheGeometry(t *testing.T) {
 			t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
 		}
 	}
-	text := rendering.Text()
+	text := rendering.textWith(fullNotation)
 	for _, want := range []string{"canvas size 1200×800 in px", "pump : Pump at (300, 40) collapsed", "tank : Tank at (500, 40) size 120×60"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)

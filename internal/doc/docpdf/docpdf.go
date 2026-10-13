@@ -64,6 +64,9 @@ type Options struct {
 	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
 	// when empty.
 	Style view.DrawingStyle
+	// Show is the optional notation elements every diagram draws besides the
+	// ones its view's rendering shows.
+	Show view.Shown
 
 	// LinkTemplate fills source links for diagram elements.
 	LinkTemplate string
@@ -132,7 +135,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	if err := checkOptions(converter, opts); err != nil {
 		return nil, err
 	}
-	forms := docrender.DiagramOptions{Form: opts.DiagramForm, Unplaced: opts.Unplaced, Style: opts.Style, LinkTemplate: opts.LinkTemplate}
+	forms := docrender.DiagramOptions{Form: opts.DiagramForm, Unplaced: opts.Unplaced, Style: opts.Style, Show: opts.Show, LinkTemplate: opts.LinkTemplate}
 	forms.WithoutGraphviz = opts.DiagramForm == "" && !Graphviz{}.Available()
 	diagrams, err := docrender.Diagrams(document, forms)
 	if err != nil {
@@ -167,7 +170,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	switch converter.Capabilities().Input {
 	case InputMarkdown:
 		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{
-			DiagramForm: opts.DiagramForm, WithoutGraphviz: forms.WithoutGraphviz, Unplaced: opts.Unplaced, Style: opts.Style, LinkTemplate: opts.LinkTemplate,
+			DiagramForm: opts.DiagramForm, WithoutGraphviz: forms.WithoutGraphviz, Unplaced: opts.Unplaced, Style: opts.Style, Show: opts.Show, LinkTemplate: opts.LinkTemplate,
 			OutputDir: base, NumberFigures: opts.NumberFigures, TableColumns: tableColumns(opts), TableMeasure: tableMeasure(opts),
 		})
 		if err != nil {
@@ -245,6 +248,7 @@ func htmlOptions(opts Options, withoutGraphviz bool, dir, base string, images []
 	}
 	sheets = append(sheets, opts.Stylesheets...)
 	return docrender.HTMLOptions{
+		Show:                opts.Show,
 		NoDefaultStylesheet: opts.NoDefaultStylesheet,
 		Theme:               opts.Theme,
 		Stylesheets:         sheets,

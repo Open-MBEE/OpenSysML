@@ -441,6 +441,7 @@ export class Runner {
     RenderView: (call) =>
       this.model(call).renderView(String(call.request["view"]), {
         ports: call.request["ports"] === "full" ? "full" : "minimal",
+        show: Array.isArray(call.request["show"]) ? call.request["show"].map(String) : [],
       }),
     ExportGraphs: (call) => this.model(call).exportGraphs(String(call.request["subject"])),
     RunAnalysis: (call) =>

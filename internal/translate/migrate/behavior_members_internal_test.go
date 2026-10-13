@@ -50,7 +50,7 @@ func TestBehaviorMembersUnwritten(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			[]string{"_r"}, nil, 0,
-			[]string{"action def Shut {\n        view Rules {\n            expose Shut;\n            render Views::asTextualNotation;\n        }\n        /* not migrated: Constraint 'keep' — owned by a OpaqueBehavior"}},
+			[]string{"action shut {\n        view Rules {\n            expose shut;\n            render Views::asTextualNotation;\n        }\n        /* not migrated: Constraint 'keep' — owned by a OpaqueBehavior"}},
 		{"an interaction written as a scenario has no place for an attribute",
 			`<packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
 			 <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">

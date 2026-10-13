@@ -2,17 +2,15 @@ port def MotorCmd;
 part def Motor {
     attribute speed : ScalarValues::Real default = 0.0;
     port cmd : MotorCmd;
-    action def Spin {
-        in ref context : Motor[1];
+    action spin {
         in rpm : ScalarValues::Real[1];
         first start then 'set speed';
         action 'set speed' {
             in value[1];
-            assign context.speed := value;
+            assign speed := value;
         }
         bind 'set speed'.value = rpm;
     }
-    action spin : Spin;
 }
 part def Drive {
     port p : MotorCmd;
@@ -56,11 +54,15 @@ part def Drive {
         action five {
             out result[1] = 5.0;
         }
-        action 'spin over loose' : Motor::Spin;
+        action 'spin over loose' {
+            in rpm[1];
+        }
         action six {
             out result[1] = 6.0;
         }
-        action 'spin over split' : Motor::Spin;
+        action 'spin over split' {
+            in rpm[1];
+        }
         succession flow five.result to 'spin over loose'.rpm;
         succession flow six.result to 'spin over split'.rpm;
         metadata MigrationMetadata::SynthesizedName about 'fork';

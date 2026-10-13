@@ -30,11 +30,11 @@ config:
 ---
 %% MachineViews::vehicleStates — state rendering (view def StateTransitionView)
 stateDiagram-v2
-  state "«state def» VehicleStates" as n0 {
-    state "«state»<br>off<br>initial" as n1
-    state "«state» operating" as n2 {
-      state "«state»<br>idle<br>initial" as n3
-      state "«state»<br>moving" as n4
+  state "VehicleStates" as n0 {
+    state "off<br>initial" as n1
+    state "operating" as n2 {
+      state "idle<br>initial" as n3
+      state "moving" as n4
       [*] --> n3
     }
     [*] --> n1

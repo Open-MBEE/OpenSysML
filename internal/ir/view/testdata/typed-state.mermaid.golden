@@ -30,9 +30,9 @@ config:
 ---
 %% TypedViews::boilerView — state rendering (view def StateTransitionView)
 stateDiagram-v2
-  state "«state def» Boiler" as n0 {
-    state "«state»<br>idle<br>initial" as n1
-    state "«state»<br>heating : Heating" as n2
+  state "Boiler" as n0 {
+    state "idle<br>initial" as n1
+    state "heating" as n2
     [*] --> n1
   }
   n1 --> n2

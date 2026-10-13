@@ -29,7 +29,7 @@
           "experimental": true
         },
         "contains": {
-          "report.summary": "migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped"
+          "report.summary": "migrated 95 element(s): 76 mapped, 16 approximated, 3 unmapped"
         },
         "non_empty": [
           "experimental_notice",
@@ -63,14 +63,14 @@
         "response": {
           "from_format": "xmi",
           "report": {
-            "mapped": 77,
-            "approximated": 13,
+            "mapped": 76,
+            "approximated": 16,
             "unmapped": 3,
             "skipped": 2
           }
         },
         "counts": {
-          "report.entries": 95
+          "report.entries": 97
         },
         "contains": {
           "report.text": "# SysML v1 to v2 migration report"

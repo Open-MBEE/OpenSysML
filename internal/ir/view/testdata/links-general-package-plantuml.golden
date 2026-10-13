@@ -42,11 +42,11 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "<size:10>//«package»//</size>\n**VehicleStructure**" as n0 <<package>> [[https://example.test/src/general.sysml#L1]]
-class "<size:10>//«package»//</size>\n**Powertrain**" as n1 <<package>> [[https://example.test/src/general.sysml#L22]]
-class "<size:10>//«package»//</size>\n**VehicleRequirements**" as n2 <<package>> [[https://example.test/src/general.sysml#L27]]
-class "<size:10>//«package»//</size>\n**VehicleVerification**" as n3 <<package>> [[https://example.test/src/general.sysml#L62]]
-class "<size:10>//«package»//</size>\n**GeneralViews**" as n4 <<package>> [[https://example.test/src/general.sysml#L91]]
+class "**VehicleStructure**" as n0 <<package>> [[https://example.test/src/general.sysml#L1]]
+class "**Powertrain**" as n1 <<package>> [[https://example.test/src/general.sysml#L22]]
+class "**VehicleRequirements**" as n2 <<package>> [[https://example.test/src/general.sysml#L27]]
+class "**VehicleVerification**" as n3 <<package>> [[https://example.test/src/general.sysml#L62]]
+class "**GeneralViews**" as n4 <<package>> [[https://example.test/src/general.sysml#L91]]
 n0 +-- n1 : [[https://example.test/src/general.sysml#L22]]
 n2 ..> n0 : private import ::* [[https://example.test/src/general.sysml#L31]]
 n3 ..> n0 : private import ::* [[https://example.test/src/general.sysml#L63]]

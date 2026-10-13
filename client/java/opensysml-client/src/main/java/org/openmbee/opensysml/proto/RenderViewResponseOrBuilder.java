@@ -238,4 +238,45 @@ public interface RenderViewResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getNoticesBytes(int index);
+
+  /**
+   * <pre>
+   * The optional notation elements drawn, in registry order.
+   * </pre>
+   *
+   * <code>repeated string shown = 11 [json_name = "shown"];</code>
+   * @return A list containing the shown.
+   */
+  java.util.List<java.lang.String>
+      getShownList();
+  /**
+   * <pre>
+   * The optional notation elements drawn, in registry order.
+   * </pre>
+   *
+   * <code>repeated string shown = 11 [json_name = "shown"];</code>
+   * @return The count of shown.
+   */
+  int getShownCount();
+  /**
+   * <pre>
+   * The optional notation elements drawn, in registry order.
+   * </pre>
+   *
+   * <code>repeated string shown = 11 [json_name = "shown"];</code>
+   * @param index The index of the element to return.
+   * @return The shown at the given index.
+   */
+  java.lang.String getShown(int index);
+  /**
+   * <pre>
+   * The optional notation elements drawn, in registry order.
+   * </pre>
+   *
+   * <code>repeated string shown = 11 [json_name = "shown"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the shown at the given index.
+   */
+  com.google.protobuf.ByteString
+      getShownBytes(int index);
 }

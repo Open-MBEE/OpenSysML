@@ -247,7 +247,8 @@ Beside the model reads above, the client covers every RPC the service offers:
   with a pointer at `convert`;
 - **`model.query`** (OSLC or structured), **`model.runDocumentQuery`** with
   `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or
-  HTML, and **`model.renderView`** for typed view data with minimal or full ports;
+  HTML, and **`model.renderView`** for typed view data with minimal or full ports
+  and the optional notation elements to `show` (its `shown` lists those drawn);
 - **`model.executeAction`/`executeState`** for runs and
   **`exploreAction`/`exploreState`/`exploreAnalysis`** for explorations of every
   schedule — the two families refuse each other's `schedule`, as the wire does.

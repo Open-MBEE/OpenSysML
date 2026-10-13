@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -41,6 +42,10 @@ func TestRuntimeRobustnessPerformedActionInputs(t *testing.T) {
 	t.Run("held_image_carries_recorded_failure", testHeldImageCarriesRecordedFailure)
 	t.Run("advance_records_clock_driven_failure", testAdvanceRecordsClockDrivenFailure)
 	t.Run("shared_clock_records_clock_driven_failure", testSharedClockRecordsClockDrivenFailure)
+	t.Run("performed_action_input_bound_by_nothing", testPerformedActionInputBoundByNothing)
+	t.Run("performed_action_binding_names_nothing", testPerformedActionBindingNamesNothing)
+	t.Run("no_flow_performed_action_checks_its_inputs", testNoFlowPerformedActionChecksItsInputs)
+	t.Run("no_flow_performed_action_refuses_return_parameter", testNoFlowPerformedActionRefusesReturnParameter)
 }
 
 // unboundInputModel is a Toaster performing toastBread, whose applyHeat step
@@ -471,5 +476,115 @@ func testSharedClockRecordsClockDrivenFailure(t *testing.T) {
 	}
 	if l, _ := ctx.OccurrenceLife(behavior.Action.occurrence.ID); l.Ended == 0 {
 		t.Error("performance occurrence life un-ended after the clock-driven failure")
+	}
+}
+
+// testPerformedActionBindingNamesNothing: a performed action's binding names a
+// part that does not exist, reported as the unresolved reference it is rather
+// than materializing the performer without the action's input.
+func testPerformedActionBindingNamesNothing(t *testing.T) {
+	src := `
+		package test {
+			part def Counter { attribute count : Integer = 4; }
+			action def Bump {
+				in c : Counter;
+				out n : Integer = c.count + 1;
+			}
+			part machine {
+				perform action p : Bump { in c = nowhere; }
+			}
+			calc def Probe {
+				in n : Integer;
+				machine.p.n
+			}
+		}
+	`
+	err := calcErrorWithLibraries(t, src, "Probe", []Value{constInt(1)}, 10000)
+	if !errors.Is(err, ErrUnresolvedReference) {
+		t.Errorf("expected ErrUnresolvedReference, got: %v", err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "nowhere") {
+		t.Errorf("error should name the binding that resolves to nothing, got: %v", err)
+	}
+}
+
+// testNoFlowPerformedActionChecksItsInputs: an action stating no flow takes its
+// inputs as a flowed one does, so a binding it cannot take fails the performer.
+func testNoFlowPerformedActionChecksItsInputs(t *testing.T) {
+	for name, tc := range map[string]struct {
+		binding string
+		want    error
+	}{
+		"output":  {"in r = 5;", ErrOutputActionInput},
+		"unknown": {"in bogus = 5;", ErrUnknownActionInput},
+	} {
+		src := `
+			package test {
+				private import ScalarValues::*;
+				action def Report { in n : Integer; out r : Integer; }
+				part def Camera { perform action report : Report { ` + tc.binding + ` } }
+			}
+		`
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+		_, err := ctx.Instantiate(idx.LookupQualified("test::Camera")[0])
+		if !errors.Is(err, tc.want) {
+			t.Errorf("%s: Instantiate(Camera) = %v; want %v", name, err, tc.want)
+		}
+	}
+}
+
+// testNoFlowPerformedActionRefusesReturnParameter: an action stating no flow is
+// refused for a `return` parameter as a flowed one is, so its performer fails.
+func testNoFlowPerformedActionRefusesReturnParameter(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+			action def Report { return r : Integer; }
+			part def Camera { perform action report : Report; }
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	_, err := ctx.Instantiate(idx.LookupQualified("test::Camera")[0])
+	if !errors.Is(err, ErrActionResultParameter) {
+		t.Fatalf("Instantiate(Camera) = %v; want ErrActionResultParameter", err)
+	}
+	if !strings.Contains(err.Error(), "declares `return r`; write `out r`") {
+		t.Errorf("err = %v; want it to name the parameter and the fix", err)
+	}
+}
+
+// testPerformedActionInputBoundByNothing: a `perform` in statement form must bind
+// every input without a default, by argument or by a caller value of its name.
+func testPerformedActionInputBoundByNothing(t *testing.T) {
+	src := `
+		package test {` + adderActionDef + `
+			action def Defaulted {
+				in a : Integer = 1;
+				out doubled : Integer;
+				first step;
+				action step { assign doubled := a * 2; }
+			}
+			action adder : Adder;
+			action defaulted : Defaulted;
+			action outer {
+				attribute a : Integer = 1;
+				attribute doubled : Integer = 0;
+				first start;
+				then action run {
+					if a > 0 {
+						perform defaulted;
+						perform adder;
+					}
+				}
+				then done;
+			}
+		}
+	`
+	err := runOuterAction(t, src)
+	if !errors.Is(err, ErrUnboundParameter) {
+		t.Fatalf("error = %v, want ErrUnboundParameter", err)
+	}
+	if !strings.Contains(err.Error(), "adder") || !strings.Contains(err.Error(), "b") {
+		t.Errorf("error %q does not name the action and its unbound parameter", err)
 	}
 }

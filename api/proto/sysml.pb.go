@@ -11534,7 +11534,12 @@ type RenderViewRequest struct {
 	// A qualified view name or "#<kind>:<qualified name>" pseudo-view.
 	View string `protobuf:"bytes,2,opt,name=view,proto3" json:"view,omitempty"`
 	// "" or "minimal" (the default), or "full", as view.ParsePorts reads it.
-	Ports         string `protobuf:"bytes,3,opt,name=ports,proto3" json:"ports,omitempty"`
+	Ports string `protobuf:"bytes,3,opt,name=ports,proto3" json:"ports,omitempty"`
+	// Optional notation elements to draw besides those the view's rendering
+	// shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+	// "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+	// "qualifiers", or "all".
+	Show          []string `protobuf:"bytes,4,rep,name=show,proto3" json:"show,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -11590,6 +11595,13 @@ func (x *RenderViewRequest) GetPorts() string {
 	return ""
 }
 
+func (x *RenderViewRequest) GetShow() []string {
+	if x != nil {
+		return x.Show
+	}
+	return nil
+}
+
 // RenderViewResponse carries all machine-readable fields of the rendering.
 type RenderViewResponse struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
@@ -11602,9 +11614,11 @@ type RenderViewResponse struct {
 	Columns []string      `protobuf:"bytes,6,rep,name=columns,proto3" json:"columns,omitempty"`
 	Rows    []*RenderRow  `protobuf:"bytes,7,rep,name=rows,proto3" json:"rows,omitempty"`
 	// Unset when the view states no canvas.
-	Canvas        *RenderCanvas `protobuf:"bytes,8,opt,name=canvas,proto3" json:"canvas,omitempty"`
-	Notes         []*RenderNote `protobuf:"bytes,9,rep,name=notes,proto3" json:"notes,omitempty"`
-	Notices       []string      `protobuf:"bytes,10,rep,name=notices,proto3" json:"notices,omitempty"`
+	Canvas  *RenderCanvas `protobuf:"bytes,8,opt,name=canvas,proto3" json:"canvas,omitempty"`
+	Notes   []*RenderNote `protobuf:"bytes,9,rep,name=notes,proto3" json:"notes,omitempty"`
+	Notices []string      `protobuf:"bytes,10,rep,name=notices,proto3" json:"notices,omitempty"`
+	// The optional notation elements drawn, in registry order.
+	Shown         []string `protobuf:"bytes,11,rep,name=shown,proto3" json:"shown,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -11705,6 +11719,13 @@ func (x *RenderViewResponse) GetNotes() []*RenderNote {
 func (x *RenderViewResponse) GetNotices() []string {
 	if x != nil {
 		return x.Notices
+	}
+	return nil
+}
+
+func (x *RenderViewResponse) GetShown() []string {
+	if x != nil {
+		return x.Shown
 	}
 	return nil
 }
@@ -13526,12 +13547,13 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04form\x18\x03 \x01(\tR\x04form\"H\n" +
 	"\x16RenderDocumentResponse\x12\x1a\n" +
 	"\bmarkdown\x18\x01 \x01(\tR\bmarkdown\x12\x12\n" +
-	"\x04html\x18\x02 \x01(\tR\x04html\"\\\n" +
+	"\x04html\x18\x02 \x01(\tR\x04html\"p\n" +
 	"\x11RenderViewRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x12\n" +
 	"\x04view\x18\x02 \x01(\tR\x04view\x12\x14\n" +
-	"\x05ports\x18\x03 \x01(\tR\x05ports\"\xd6\x02\n" +
+	"\x05ports\x18\x03 \x01(\tR\x05ports\x12\x12\n" +
+	"\x04show\x18\x04 \x03(\tR\x04show\"\xec\x02\n" +
 	"\x12RenderViewResponse\x12\x12\n" +
 	"\x04view\x18\x01 \x01(\tR\x04view\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +
@@ -13543,7 +13565,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\x06canvas\x18\b \x01(\v2\x13.sysml.RenderCanvasR\x06canvas\x12'\n" +
 	"\x05notes\x18\t \x03(\v2\x11.sysml.RenderNoteR\x05notes\x12\x18\n" +
 	"\anotices\x18\n" +
-	" \x03(\tR\anotices\"\x8d\x03\n" +
+	" \x03(\tR\anotices\x12\x14\n" +
+	"\x05shown\x18\v \x03(\tR\x05shown\"\x8d\x03\n" +
 	"\n" +
 	"RenderNode\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +

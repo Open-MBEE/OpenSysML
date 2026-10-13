@@ -150,7 +150,7 @@ func TestDOTQuotesEveryIdentifierAndLabel(t *testing.T) {
 		},
 		Edges: []Edge{{From: `a"b`, To: "e", Label: `"quoted" \ <label> & more`, Kind: EdgeConnection}},
 	}
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestDOTLabelShape(t *testing.T) {
 			`<<font point-size="10"><i>«part»</i></font><br/><b>a&lt;b&gt; &amp; &#34;c&#34; : T&lt;U&gt;</b><br/>x &gt; y>`},
 	}
 	for _, tc := range cases {
-		if got := (labeller{}).dotLabel(tc.node); got != "label="+tc.want {
+		if got := (labeller{shown: AllShown()}).dotLabel(tc.node); got != "label="+tc.want {
 			t.Errorf("%s: dotLabel = %s, want %s", tc.name, got, tc.want)
 		}
 	}
@@ -251,7 +251,7 @@ func TestDOTNestedClusters(t *testing.T) {
 			{From: "n2", To: "n0", Kind: EdgeTransition},
 		},
 	}
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -291,7 +291,7 @@ digraph "Nested::view" {
 	}
 	// A tree draws containment as edges, so it declares no cluster.
 	rendering.Kind = KindTree
-	dot, err = rendering.DOT()
+	dot, err = rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT of tree: %v", err)
 	}
@@ -378,7 +378,7 @@ func TestDOTEdgeKinds(t *testing.T) {
 			rendering := &Rendering{View: "V", Kind: rk,
 				Roots: []*Node{{ID: "a", Kind: "action", Name: "a"}, {ID: "b", Kind: "action", Name: "b"}},
 				Edges: []Edge{{From: "a", To: "b", Label: "k", Kind: kind}}}
-			dot, err := rendering.DOT()
+			dot, err := rendering.DOTWith(fullNotation)
 			if err != nil {
 				t.Fatalf("DOT: %v", err)
 			}
@@ -404,7 +404,7 @@ func TestDOTEdgeKinds(t *testing.T) {
 	plain := &Rendering{View: "V", Kind: KindAction,
 		Roots: []*Node{{ID: "a", Kind: "action", Name: "a"}, {ID: "b", Kind: "action", Name: "b"}},
 		Edges: []Edge{{From: "a", To: "b", Kind: EdgeSuccession}}}
-	dot, err := plain.DOT()
+	dot, err := plain.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -417,7 +417,7 @@ func TestDOTEdgeKinds(t *testing.T) {
 // label is carried as the Mermaid form carries it.
 func TestDOTStateShapesAndLabels(t *testing.T) {
 	rendering := render(t, "state-entry.sysml", "MachineViews::thermostat")
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -442,7 +442,7 @@ func TestDOTStateShapesAndLabels(t *testing.T) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
 		}
 	}
-	mermaid := rendering.Mermaid()
+	mermaid := rendering.MermaidWith(fullNotation)
 	for _, edge := range rendering.Edges {
 		if edge.Label == "" {
 			continue
@@ -458,7 +458,7 @@ func TestDOTStateShapesAndLabels(t *testing.T) {
 	// line after its keyword.
 	final := &Rendering{View: "V", Kind: KindAction, Roots: []*Node{
 		{ID: "a", Kind: "final", Name: "done"}, {ID: "b", Kind: "state", Name: "off", Detail: "initial"}, {ID: "c", Kind: "initial", Name: "go"}}}
-	dot, err = final.DOT()
+	dot, err = final.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -531,7 +531,7 @@ digraph "V::empty" {
 // them, so every node is positioned and the header names `neato -n2`.
 func TestDOTWritesTheGeometry(t *testing.T) {
 	rendering := render(t, "layout.sysml", "PlantViews::placedView")
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -565,7 +565,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	// label-fitted box centred 59 back from (200, 45) along the route's last leg.
 	// The route starts at pump's centre, so its port sits on the nearest side,
 	// the top, and the route's first leg is moved to the pin's border.
-	plain, err := render(t, "layout.sysml", "PlantViews::plainView").DOT()
+	plain, err := render(t, "layout.sysml", "PlantViews::plainView").DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -590,7 +590,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	// its 14.4pt dot 20 clear of off's top, on off's centre line. The routed
 	// transitions end at `e,` points 10 short of their last waypoint, so Graphviz
 	// draws their heads; the label of off_on sits right of its vertical run.
-	machine, err := render(t, "layout.sysml", "PlantViews::machineView").DOT()
+	machine, err := render(t, "layout.sysml", "PlantViews::machineView").DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -614,7 +614,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		}
 	}
 	// The Mermaid form keeps the same geometry as comments, so neither drops it.
-	mermaid := rendering.Mermaid()
+	mermaid := rendering.MermaidWith(fullNotation)
 	for _, want := range []string{"%% layout: n1 x=300 y=40 collapsed", "%% layout: n2 x=500 y=40 w=120 h=60", "%% route: n1->n2 400,70 450,120 500,70"} {
 		if !strings.Contains(mermaid, want) {
 			t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
@@ -647,7 +647,7 @@ func TestDOTPinsEveryNode(t *testing.T) {
 			{From: "n2", To: "n3", Kind: EdgeFlow, Route: []Point{{X: 174, Y: 48}}},
 		},
 	}
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -690,7 +690,7 @@ digraph "Pinned::view" {
 	}
 	// Routing the last edge leaves nothing to notice.
 	rendering.Edges[1].Route = append(rendering.Edges[1].Route, Point{X: 300, Y: 220})
-	dot, err = rendering.DOT()
+	dot, err = rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -700,7 +700,7 @@ digraph "Pinned::view" {
 	}
 	// Leaving a node unpositioned leaves it undrawn, the rest pinned as before.
 	rendering.Roots[1].Children[0].Geometry = nil
-	dot, err = rendering.DOT()
+	dot, err = rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -713,7 +713,7 @@ digraph "Pinned::view" {
 	// `bb` is written; the canvas corners are still pinned. Its containment edges
 	// have no route, which `neato -n2` draws beside the routed ones.
 	rendering.Kind = KindTree
-	dot, err = rendering.DOT()
+	dot, err = rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT of tree: %v", err)
 	}
@@ -743,7 +743,7 @@ digraph "Pinned::view" {
 		{ID: "i", Kind: "initial", Name: "go", Geometry: &Geometry{X: 100, Y: 0}},
 		{ID: "f", Kind: "final", Name: "done", Geometry: &Geometry{X: 200, Y: 0, Width: 10, Height: 10, HasSize: true}},
 	}}
-	dot, err = pseudo.DOT()
+	dot, err = pseudo.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -761,7 +761,7 @@ digraph "Pinned::view" {
 	// flipped against nothing.
 	zero := &Rendering{View: "V", Kind: KindTree, Canvas: &Canvas{Unit: "mm", HasSize: true},
 		Roots: []*Node{{ID: "n0", Kind: "part", Name: "a", Geometry: &Geometry{X: 27, Y: 18}}}}
-	dot, err = zero.DOT()
+	dot, err = zero.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -776,7 +776,7 @@ digraph "Pinned::view" {
 	corner := &Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{
 		{ID: "n0", Kind: "part def", Name: "Outer", Geometry: &Geometry{X: 30, Y: 40}, Children: []*Node{{ID: "n1", Kind: "part", Name: "a"}}},
 	}}
-	dot, err = corner.DOT()
+	dot, err = corner.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -787,7 +787,7 @@ digraph "Pinned::view" {
 	// A canvas with a unit alone is named in the header and pins nothing, and
 	// so does a sized one while no node is positioned for it to hold.
 	unit := &Rendering{View: "V", Kind: KindTree, Canvas: &Canvas{Unit: "px"}, Roots: []*Node{{ID: "n0", Kind: "part", Name: "a"}}}
-	dot, err = unit.DOT()
+	dot, err = unit.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -795,7 +795,7 @@ digraph "Pinned::view" {
 		t.Errorf("unit-only canvas DOT:\n%s", dot)
 	}
 	unit.Canvas = &Canvas{Unit: "px", Width: 400, Height: 300, HasSize: true}
-	dot, err = unit.DOT()
+	dot, err = unit.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -834,7 +834,7 @@ func TestDOTPlacesNodesFromRoutes(t *testing.T) {
 			{From: "n3", To: "n4", Kind: EdgeSuccession, Route: []Point{{X: 150, Y: 240}, {X: 150, Y: 280}}},
 		},
 	}
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -874,7 +874,7 @@ digraph "Routed::view" {
 		{ID: "a", Kind: "action", Name: "wait"},
 		{ID: "f", Kind: "final"},
 	}, Edges: []Edge{{From: "a", To: "f", Kind: EdgeSuccession, Route: []Point{{X: 100, Y: 100}, {X: 137, Y: 137}, {X: 200, Y: 137}}}}}
-	dot, err = diagonal.DOT()
+	dot, err = diagonal.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -891,7 +891,7 @@ digraph "Routed::view" {
 	// A route of one waypoint places nothing, nor does an edge with none; the
 	// final node it reaches takes its place below send instead, unrouted to.
 	rendering.Edges[2].Route = rendering.Edges[2].Route[:1]
-	dot, err = rendering.DOT()
+	dot, err = rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -903,7 +903,7 @@ digraph "Routed::view" {
 	}
 	rendering.Edges = rendering.Edges[:2]
 	rendering.Roots[0].Children = append(rendering.Roots[0].Children, &Node{ID: "n5", Kind: "action", Name: "value"})
-	dot, err = rendering.DOT()
+	dot, err = rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -915,7 +915,7 @@ digraph "Routed::view" {
 	// undrawn when nothing routes to it, its children drawn with no edge to it.
 	rendering.Roots[0].Children = rendering.Roots[0].Children[:4]
 	rendering.Kind = KindTree
-	dot, err = rendering.DOT()
+	dot, err = rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -953,7 +953,7 @@ func TestDOTSettlesUnplacedNodes(t *testing.T) {
 			},
 		}
 	}
-	dot, err := rendering().DOT()
+	dot, err := rendering().DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -971,7 +971,7 @@ func TestDOTSettlesUnplacedNodes(t *testing.T) {
 	}
 	// The strip: the canvas is 300 wide but tank reaches to y=170 with its route,
 	// so the strip starts at y=194 and rows wrap at x=300.
-	dot, err = rendering().DOTWith(Options{Unplaced: UnplacedStrip})
+	dot, err = rendering().DOTWith(Options{Show: AllShown(), Unplaced: UnplacedStrip})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -1001,7 +1001,7 @@ func TestDOTSettlesUnplacedNodes(t *testing.T) {
 	// A tree sets each unplaced node on its own, the containment edges drawn to them.
 	tree := rendering()
 	tree.Kind = KindTree
-	dot, err = tree.DOTWith(Options{Unplaced: UnplacedStrip})
+	dot, err = tree.DOTWith(Options{Show: AllShown(), Unplaced: UnplacedStrip})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -1020,7 +1020,7 @@ func TestDOTSettlesUnplacedNodes(t *testing.T) {
 			root.Geometry = nil
 		}
 		plain.Edges[0].Route = nil
-		dot, err = plain.DOTWith(Options{Unplaced: unplaced})
+		dot, err = plain.DOTWith(Options{Show: AllShown(), Unplaced: unplaced})
 		if err != nil {
 			t.Fatalf("%q: DOT: %v", unplaced, err)
 		}
@@ -1029,7 +1029,7 @@ func TestDOTSettlesUnplacedNodes(t *testing.T) {
 		}
 	}
 	// A placement no name has is refused, naming the ones there are.
-	if _, err := rendering().DOTWith(Options{Unplaced: "pile"}); err == nil || !errors.Is(err, ErrUnknownUnplaced) || err.Error() != `unknown placement "pile" of unplaced nodes; the placements are omit, strip` {
+	if _, err := rendering().DOTWith(Options{Show: AllShown(), Unplaced: "pile"}); err == nil || !errors.Is(err, ErrUnknownUnplaced) || err.Error() != `unknown placement "pile" of unplaced nodes; the placements are omit, strip` {
 		t.Errorf("unknown placement: %v", err)
 	}
 }

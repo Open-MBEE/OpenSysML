@@ -23,88 +23,71 @@ config:
 ---
 %% MixedExamples::mixedDiagram — mixed rendering (render asMixedDiagram)
 flowchart TD
-  subgraph n0 ["`*«package»* **MixedExamples**`"]
+  subgraph n0 ["`**MixedExamples**`"]
     direction TD
-    n19["`*«port def»*
-**FluidPort**`"]
-    n20["`*«part def»*
-**BaseUnit**`"]
-    subgraph n21 ["`*«part def»* **Pump**`"]
+    n19["`**FluidPort**`"]
+    n20["`**BaseUnit**`"]
+    subgraph n21 ["`**Pump**`"]
       direction TD
       n21_anchor[" "]
-      n22("`*«port»*
-**outlet : FluidPort**`")
+      n22("`**outlet**`")
     end
-    subgraph n23 ["`*«part def»* **Tank**`"]
+    subgraph n23 ["`**Tank**`"]
       direction TD
       n23_anchor[" "]
-      n24("`*«port»*
-**inlet : FluidPort**`")
+      n24("`**inlet**`")
     end
-    subgraph n25 ["`*«part def»* **Plant**`"]
+    subgraph n25 ["`**Plant**`"]
       direction TD
       n25_anchor[" "]
-      subgraph n26 ["`*«part»* **pump : Pump**`"]
+      subgraph n26 ["`**pump**`"]
         direction TD
         n26_anchor[" "]
         n26.0["outlet"]
       end
-      subgraph n27 ["`*«part»* **tank : Tank**`"]
+      subgraph n27 ["`**tank**`"]
         direction TD
         n27_anchor[" "]
         n27.0["inlet"]
       end
     end
-    subgraph n28 ["`*«connection def»* **Connection**`"]
+    subgraph n28 ["`**Connection**`"]
       direction TD
-      n29("`*«part»*
-**a**`")
-      n30("`*«part»*
-**b**`")
+      n29("`**a**`")
+      n30("`**b**`")
     end
-    n1["`*«state def»*
-**Ready**
+    n1["`**Ready**
 declares no states`"]
-    subgraph n2 ["`*«state def»* **Modes**`"]
+    subgraph n2 ["`**Modes**`"]
       direction TD
       n2_anchor[" "]
       n4@{ shape: f-circ, label: "" }
-      n3("`*«state»*
-**ready : Ready**
+      n3("`**ready**
 initial`")
     end
-    subgraph n5 ["`*«action def»* **Operate**`"]
+    subgraph n5 ["`**Operate**`"]
       direction TD
       n5_anchor[" "]
       n6@{ shape: f-circ, label: "" }
-      n7("`*«action»*
-**'step'**`")
+      n7("`**'step'**`")
       n8@{ shape: fr-circ, label: "" }
     end
-    n9(["`*«use case def»*
-**Inspection**`"])
-    n10["`*«actor»*
-**operator : Person**`"]
-    n11["`*«subject»*
-**plant : Plant**`"]
+    n9(["`**Inspection**`"])
+    n10["`**operator**`"]
+    n11["`**plant**`"]
     n12@{ shape: notch-rect, label: "objective<br>Inspect the plant and report its operating state." }
-    n13("`*«perform action»*
-**run : Operate**
+    n13("`**run**
 declares no nodes`")
-    subgraph n14 ["`*«exhibit state»* **mode : Modes**`"]
+    subgraph n14 ["`**mode**`"]
       direction TD
       n14_anchor[" "]
       n16@{ shape: f-circ, label: "" }
-      n15("`*«state»*
-**ready : Ready**
+      n15("`**ready**
 initial`")
     end
-    n31["`*«part def»*
-**Person**`"]
-    n17("`*«view»*
-**mixedDiagram**`")
-    n18("`*«view»*
-**mixedLayout**`")
+    n31["`**Person**`"]
+    n17("`**mixedDiagram**`")
+    n18("`**mixedLayout**`")
   end
   n4 --> n3
   n6 --> n7
@@ -113,7 +96,7 @@ initial`")
   n9 ---|"«subject»"| n11
   n9 -.- n12
   n16 --> n15
-  n26.0 ===|"supply"| n27.0
+  n26.0 === n27.0
   n3 -.-> n1
   n10 -.-> n31
   n11 -.-> n25_anchor

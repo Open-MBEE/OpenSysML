@@ -5,6 +5,23 @@
 /** The setting that picks the look every diagram panel is drawn in. */
 export const STYLE_SETTING = "opensysml.diagram.style";
 
+/** The setting naming the optional notation elements every diagram draws besides its view's own. */
+export const SHOW_SETTING = "opensysml.diagram.show";
+
+/** shownOf reads the show setting: the element names it lists, each once, in order; anything else names none. */
+export function shownOf(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const names: string[] = [];
+  for (const name of value) {
+    if (typeof name === "string" && name !== "" && !names.includes(name)) {
+      names.push(name);
+    }
+  }
+  return names;
+}
+
 /** The palettes the server fills a rendering from, by keyword family, as `internal/ir/view/palette.go` names them. */
 export const PALETTES = [
   "okabe-ito",

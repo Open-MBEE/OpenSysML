@@ -851,9 +851,10 @@ impl Runner {
             "full" => RenderViewPorts::Full,
             other => return Answer::Unrepresentable(format!("render-view ports {other:?}")),
         };
+        let show: Vec<&str> = request.show.iter().map(String::as_str).collect();
         match self
             .connection
-            .render_view_with_ports(&request.model_hash, &request.view, ports)
+            .render_view_showing(&request.model_hash, &request.view, ports, &show)
         {
             Ok(rendered) => {
                 Answer::Response(self.wire_json("sysml.RenderViewResponse", rendered.wire()))

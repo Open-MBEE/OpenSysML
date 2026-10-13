@@ -358,6 +358,11 @@ library package DocumentQueries {
 		 * small square on the part's border named beside it, or every port,
 		 * labelled name : Type. Minimal when absent. */
 		attribute ports : String[0..1];
+		/* show: the optional notation elements the diagram draws besides those
+		 * its view's rendering shows, comma-separated: "parameter-symbols",
+		 * "port-symbols", "compartments", "edge-labels", "keywords",
+		 * "multiplicities", "typings", "qualifiers", or "all". */
+		attribute show : String[0..1];
 		/* overlay: "verdicts", for a requirement diagram: runs the verification
 		 * cases verifying each requirement and colours and labels it by their
 		 * verdicts. Purely structural when absent. */

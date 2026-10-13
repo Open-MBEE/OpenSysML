@@ -15,9 +15,9 @@ ParameterSet	Sets::Measure::inputs	_ps_inputs	-> Sets::Measure::inputs
 Parameter	Sets::Measure::r	_pm_r	-> Sets::Measure::r
 ParameterSet	Sets::Measure::results	_ps_results	-> Sets::Measure::results
 «Block» Class	Sets::Tool	_blk_tool	-> Sets::Tool
-Operation	Sets::Tool::Run	_op_run	-> Sets::Tool::Run	(its owner's usage run performs it, as a call on an object does)
-ParameterSet	Sets::Tool::Run::args	_ps_run	-> Sets::Tool::Run::args
-Parameter	Sets::Tool::Run::x	_po_x	-> Sets::Tool::Run::x
+Operation	Sets::Tool::Run	_op_run	-> Sets::Tool::run	(written as an action usage of Sets::Tool, which a call on an object performs, so its body runs on the object and reaches its features)
+ParameterSet	Sets::Tool::Run::args	_ps_run	-> Sets::Tool::run::args
+Parameter	Sets::Tool::Run::x	_po_x	-> Sets::Tool::run::x
 Activity	Sets::Tool::Spin	_act_spin	-> Sets::Tool::Spin
 ParameterSet	Sets::Tool::Spin::<ParameterSet>	_ps_anon	-> Sets::Tool::Spin::unnamed
 ParameterSet	Sets::Tool::Spin::bounded	_ps_cond	-> Sets::Tool::Spin::bounded

@@ -1848,8 +1848,8 @@ class Connection:
             response = self._stub.RenderDocument(request)
         return response.html if form == "html" else response.markdown
 
-    def render_view(self, model_hash, view_name, ports="minimal"):
-        """Render a named view with minimal or full ports."""
+    def render_view(self, model_hash, view_name, ports="minimal", show=None):
+        """Render a named view with minimal or full ports and the optional notation elements named."""
         if ports not in ("minimal", "full"):
             raise ValueError("ports must be 'minimal' or 'full'")
         require(self.server_info(), CAPABILITY_RENDER_VIEW, upgrade_remedy(CAPABILITY_RENDER_VIEW))
@@ -1857,6 +1857,7 @@ class Connection:
             model_hash=model_hash,
             view=view_name,
             ports="" if ports == "minimal" else ports,
+            show=list(show or ()),
         )
         with translate_rpc_errors(
             not_found=lambda message, code: ViewNotFoundError(

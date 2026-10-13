@@ -2337,6 +2337,11 @@ message RenderViewRequest {
   string view = 2;
   // "" or "minimal" (the default), or "full", as view.ParsePorts reads it.
   string ports = 3;
+  // Optional notation elements to draw besides those the view's rendering
+  // shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+  // "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+  // "qualifiers", or "all".
+  repeated string show = 4;
 }
 
 // RenderViewResponse carries all machine-readable fields of the rendering.
@@ -2353,6 +2358,8 @@ message RenderViewResponse {
   RenderCanvas canvas = 8;
   repeated RenderNote notes = 9;
   repeated string notices = 10;
+  // The optional notation elements drawn, in registry order.
+  repeated string shown = 11;
 }
 
 // RenderNode is one flattened node of the rendering.

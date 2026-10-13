@@ -17,7 +17,7 @@ import (
 func cameoBehaviorDOT(t *testing.T, view string) (*Rendering, string) {
 	t.Helper()
 	rendering := render(t, "cameo-behavior.sysml", view)
-	source, err := rendering.DOTWith(Options{Style: StyleCameo})
+	source, err := rendering.DOTWith(Options{Show: AllShown(), Style: StyleCameo})
 	if err != nil {
 		t.Fatalf("DOTWith: %v", err)
 	}

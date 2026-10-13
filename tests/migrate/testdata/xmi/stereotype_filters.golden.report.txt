@@ -167,7 +167,7 @@ Stereotype	Safety Profile::Critical	_st_safety_critical	-> 'Safety Profile'::Cri
 Stereotype	Safety Profile::Vital	_st_safety_vital	-> 'Safety Profile'::Vital
 Package	Spares	_pkg_spares	-> Spares
 «Block» Class	Spares::Gasket	_blk_gasket	-> Spares::Gasket
-«Block» Class	Spares::Hose	_blk_hose	-> Spares::Hose	(«Critical» from http://example.com/schemas/Vendor.xmi is applied from a profile the document does not define; the application is kept as a comment)
+«Block» Class	Spares::Hose	_blk_hose	-> Spares::Hose	(«Critical» from http://example.com/schemas/Vendor.xmi is applied from a profile the document does not define; the application is kept as metadata)
 
 ## skipped (4)
 Extension	Cost Profile::<Extension>	_ext_cost_critical	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)

@@ -19,7 +19,7 @@ func (m *migration) viewBody(e *sysmlv1.Element) {
 	m.taggedViewpoints(e)
 	m.members(e)
 	m.classifierBehavior(e)
-	m.stereotypeComments(e)
+	m.stereotypeMarkers(e)
 	m.scope = saved
 }
 
@@ -470,7 +470,7 @@ func (m *migration) viewpointBody(e *sysmlv1.Element) {
 	m.rendering(e)
 	m.members(e)
 	m.classifierBehavior(e)
-	m.stereotypeComments(e)
+	m.stereotypeMarkers(e)
 	m.scope = saved
 }
 

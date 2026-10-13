@@ -42,10 +42,10 @@ func (r *Rendering) MermaidWith(options Options) string {
 	if r.Run && r.Kind == KindTimeline {
 		return r.runTimelineMermaid(options)
 	}
-	r = r.settleUnplaced(options.Unplaced, FormMermaid)
+	r = r.showing(options.Show).settleUnplaced(options.Unplaced, FormMermaid)
 	direction := options.Direction
 	var b strings.Builder
-	labels := labelsOf(r.Roots, false, nil)
+	labels := labelsOf(r.Roots, false, nil, r.Shown)
 	labels.skin = skinOf(options.Style)
 	ports := r.portView(options.Ports)
 	r.writeMermaidFrontmatter(&b, labels, options, ports)

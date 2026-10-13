@@ -101,7 +101,7 @@ of four verdicts.
 
 Test names are conformance fixtures under `internal/exec/runtime/testdata/conformance/` (run by
 `TestExecutionConformance`; a `.trace.golden` beside one is compared by `TestExecutionTrace`),
-subtests of `TestRuntimeRobustness` in `internal/exec/runtime/robustness_test.go`, or unit tests
+subtests of the `TestRuntimeRobustness*` functions in `internal/exec/runtime/robustness_<feature>_test.go`, or unit tests
 in the runtime package. File paths are relative to `internal/exec/runtime/` unless stated.
 
 ### State machines (PSSM)
@@ -484,7 +484,7 @@ own do action (`state_do_body_accept_yields_to_a_transition`), a transition betw
 substates and the state's do action both go on
 (`state_do_body_accept_goes_on_across_a_substate_transition`), and a do action in one region
 and a transition in a sibling region are "dispatched once to both"
-(`state_do_body_accept_shares_the_dispatch_with_a_region`; all `TestRuntimeRobustness`
+(`state_do_body_accept_shares_the_dispatch_with_a_region`; all `TestRuntimeRobustness*`
 subtests). PSSM gives one occurrence to one accepter; the runtime gives it to every dispatch scope
 that accepts it, which is the KerML reading. **differs because v2 differs.**
 
@@ -665,7 +665,7 @@ region that "had reached its FinalState", the history's outgoing transition (the
 transition) is taken; with no such transition "standard default entry of the Region is performed"
 (the region's initial transition). *Runtime, before the decision:* `fireHistoryTransition` took
 the history's own outgoing transition when no configuration was recorded; with neither it failed
-the run with "no recorded configuration" (`robustness_test.go:history_without_record_or_default`),
+the run with "no recorded configuration" (`robustness_state_transitions_test.go:history_without_record_default_or_entry`),
 where PSSM enters the region's initial state. A region that reached `done` was not a case here,
 because that completed the machine (SM11 before its decision); a region left with no active state is forgotten
 (`forgetRegionHistory`). *Differs, v2 silent* as first assessed.
@@ -684,7 +684,7 @@ history entry is a default entry. Implemented in `state_executor.go:historyEntry
 preferred over the entry after a completion too) and
 `history_test.go:TestHistoryOverACompletedConfigurationIsADefaultEntry` (a completed region
 beside a running one, and a body left at `done`) and
-`robustness_test.go:history_without_record_default_or_entry`. **agrees** since the decision.
+`robustness_state_transitions_test.go:history_without_record_default_or_entry`. **agrees** since the decision.
 
 #### Choice and junction
 
@@ -745,7 +745,7 @@ first choice), `followOut` (junctions read statically), `travel`, `resolveChoice
 `state_choice_after_incoming_effect` (*Choice 001*: `assign x := 1 then pick; … if x == 1 then
 seen` reaches `seen`), `state_choice_dynamic_conflict`, `state_pseudostate_chain_junction_choice`,
 `state_pseudostate_chain_choice_junction`, `state_pseudostate_chain_choice_choice`,
-`TestExploreDynamicChoiceBranches` and `robustness_test.go:state_choice_without_an_enabled_branch`;
+`TestExploreDynamicChoiceBranches` and `robustness_state_transitions_test.go:state_choice_without_an_enabled_branch`;
 `state_choice_pseudostate` and the other `state_choice_*` cases keep their outcomes. **agrees**
 since the decision. The two vertices no longer share one rule: a junction's guards on the
 transition's own route are read before the step and decide whether it is enabled (SM29, SM32);
@@ -755,7 +755,7 @@ with none enabled the typed error (SM31).
 **SM31. Choice with no guard true.** PSSM requirement *Choice 003* (§9.4.10): "the model is considered ill formed".
 *Runtime:* `state_route.go:resolveChoice` fails the run at the instant the choice is reached,
 after the incoming segment's effect, with the typed `ErrChoiceWithoutBranch` naming the choice
-(`robustness_test.go:state_choice_without_an_enabled_branch`); a junction with no guard true
+(`robustness_state_transitions_test.go:state_choice_without_an_enabled_branch`); a junction with no guard true
 fails nothing when it lies on the transition's own route, since that transition is not enabled
 (SM32, `region_pseudostate_without_satisfied_guard`). A dead nested default-entry junction fails
 when its separate entry transition is taken (SM46). **agrees.**
@@ -814,7 +814,7 @@ target-route behavior remains on SM32. `state_junction_no_way_through_unmatched`
 `state_history_self_transition_default_no_way_through_restores`,
 `state_join_no_way_out_disables_last_segment` (+ trace goldens),
 `explore_test.go:TestExploreJunctionBranchBeyondWhichNoGuardHolds`,
-`robustness_test.go:region_pseudostate_without_satisfied_guard` (the source stays active),
+`robustness_state_transitions_test.go:region_pseudostate_without_satisfied_guard` (the source stays active),
 `robustness_junction_exit_route_test.go`, and `robustness_junction_join_test.go`
 (`junction_after_choice_keeps_runtime_error`, `junction_cycle_keeps_runtime_error`,
 `junction_unevaluable_guard_keeps_runtime_error`). **agrees** since the decision, for the
@@ -836,7 +836,7 @@ the extension follows UML. *Runtime:* `fireForkTransition` → `forkPlan` enters
 composite with each branch's target as that region's initial configuration; `planFork` refuses a
 guarded branch ("outgoing transitions cannot be guarded"), a triggered one ("cannot have
 triggers", `fork_branch_with_a_trigger`), a branch outside an orthogonal region and two branches
-into one region (`robustness_test.go:fork_branches_share_region`).
+into one region (`robustness_region_fork_join_test.go:fork_branches_share_region`).
 `state_fork_join_pseudostate`. **agrees.**
 
 **SM34. Join.** PSSM requirement *Join 001* (§9.4.12): "all incoming Transitions have to complete before execution
@@ -995,7 +995,7 @@ terminate action usage ends the state-machine performance where it arrives
 is exited and its effect run, the states down to the usage's owner are entered, then nothing
 else is exited, running do behaviors are abandoned (`abandonMachine`), and the outcome is
 `Terminated` rather than a final state. Only a calculation still refuses it, as a side effect
-(`robustness_test.go:calc_terminate_is_rejected`). PSSM's rules for the pseudostate — "does
+(`robustness_calc_invocation_test.go:calc_terminate_is_rejected`). PSSM's rules for the pseudostate — "does
 not exit any States", do activities "automatically aborted" — are these; the source's exit is
 in PSSM's own expected traces (the last step of *Terminate 001*'s admitted trace is the exit of
 the state whose completion transition reaches the pseudostate). **agrees**.
@@ -1059,7 +1059,7 @@ action — before `advanceToNextDue` moves the clock to the earliest queued wait
 with nothing due never moves it (`clock_two_machines_share_clock`, `clock_action_state_due_together`
 with its `.declared` and `.seed-1` goldens, `clock_do_action_while_token_waits`). `Context.Advance`
 runs what is due, advances to each queued wait in turn, and stops at the requested deadline
-(`robustness_test.go:clock_advance`). **agrees** (by exclusion).
+(`robustness_triggers_test.go:clock_advance`). **agrees** (by exclusion).
 
 **SM42. Due order at one instant.** With two executors due at one instant, PSSM has no rule
 (each machine is its own active object; fUML §8.8 leaves inter-object scheduling to the tool).
@@ -1117,7 +1117,7 @@ whatever behaviors remain. PSSM: a machine that reached its final state stays in
 addressed to it are lost. *v2/KerML:* `done` ends the state performance, `Life` of the object is
 separate. *Runtime:* `completeIfDone` ends the performance (`endPerformanceLife`) and the machine
 reports `StateCompleted`; the object remains, later messages to the machine are dropped
-(`robustness_test.go:state_event_after_completion`, `state_completion_rests_in_done`,
+(`robustness_state_transitions_test.go:state_event_after_completion`, `state_completion_rests_in_done`,
 `classifier_behavior_test.go:TestMessageLeftForACompletedMachineDoesNotBlockANewObject`); a
 started classifier behavior completing preserves its owner the same way — the object, its feature
 values and the behavior's writes to them outlive the behavior, and an activity may still hand the
@@ -1202,7 +1202,7 @@ values (compliance record, "Fork node (1→N parallelism)"). *Runtime:*
 branches share the performance's one feature space, which fUML's forked object tokens would not
 (a forked value is a copy). `action_fork_branches_share_features` and its trace golden,
 `TestActionExecutor_ForkNode`, `TestActionExecutor_ForkNode_SharedFeatureSpace`,
-`robustness_test.go:fork_without_a_successor`. The shared space is v2's "one feature space per
+`robustness_action_flow_test.go:fork_without_a_successor`. The shared space is v2's "one feature space per
 performance" rule, quoted in the row above. **agrees.**
 
 **A4. Join.** fUML §8.9.2.18 `JoinNodeActivation`: ready only when every incoming edge has an
@@ -1445,7 +1445,7 @@ holds none, a large bound is held as reserved identities each made when first re
 bound of `*` is `ErrInfiniteLowerBound` (compliance record, "A required lower bound is a count
 of values", "A bracket multiplicity is the
 population", "An optional composite feature fills to its lower bound like a collection";
-`robustness_test.go:multiplicity_infinite_lower_bound`, `:multiplicity_lower_bound_too_large`,
+`robustness_multiplicity_test.go:multiplicity_infinite_lower_bound`, `:multiplicity_lower_bound_too_large`,
 `instance_test.go`). Materialization is on first read rather than at construction, which no
 observable trace distinguishes because a feature is read before it is used. **agrees.**
 
@@ -2306,7 +2306,7 @@ sites of the runtime's fixed, the pool's order and the do step drawn on the entr
    lowering (`lower.Effect.Terminates`, `StateGraph.Terminates`) and the execution
    (`action_terminate.go`, `occurrence_terminate.go`, `state_route.go:terminateAt`) of every
    position the parser accepts; the calculation refusal alone stays
-   (`robustness_test.go:calc_terminate_is_rejected`). That PSSM's *Terminate 001–002* describe
+   (`robustness_calc_invocation_test.go:calc_terminate_is_rejected`). That PSSM's *Terminate 001–002* describe
    the same behavior is a coincidence of the two texts and did not make this a PSSM alignment
    item: the implementation follows §7.17.10, and *Terminate 003* passes as a consequence,
    *Terminate 001* since item 9's region-entry order is drawn, and *002* since item 11's do
@@ -2364,12 +2364,12 @@ sites of the runtime's fixed, the pool's order and the do step drawn on the entr
    branches into a `ForkPlan` — one target state per orthogonal region of one composite state,
    no guard, at least two branches — and `ToStateGraph` accepts a region with no entry
    transition when `ForkStarted` says a fork enters it, still refusing one with neither
-   (`robustness_test.go:fork_leaves_a_region_without_a_way_in`). Such a region has no default
+   (`robustness_region_fork_join_test.go:fork_leaves_a_region_without_a_way_in`). Such a region has no default
    start, so `checkForkOnlyRegion` also refuses a machine where any other way into the composite
    — a transition to the composite itself, to a state in another of its regions or to its
    history, its own self-transition, or the machine's entry naming it, directly or through a
    junction, choice or join — would start the region by default, naming that way in
-   (`robustness_test.go:fork_only_region_entered_by_default`). The runtime consumes the plan
+   (`robustness_region_fork_join_test.go:fork_only_region_entered_by_default`). The runtime consumes the plan
    (`state_executor.go:fireForkTransition` → `state_region_entry.go:enterForkBranches`): the
    source configuration is left down to the least common ancestor of the source and the
    composite, as for a move to a single state (`leaveForFork`), so an active ancestor is
@@ -2405,7 +2405,7 @@ sites of the runtime's fixed, the pool's order and the do step drawn on the entr
    history declared in the machine's own body, restoring the machine's top-level configuration
    (PSSM *History 001-D* is built this way), is owned by the graph's root state. Pinned by
    `state_deep_history_self_transition`, `state_shallow_history_completion_default`,
-   `state_machine_body_deep_history` and `robustness_test.go:history_outside_composite_state`; the
+   `state_machine_body_deep_history` and `robustness_state_transitions_test.go:history_outside_composite_state`; the
    two tests pass, and *History 001-B*, *001-D*, *002-A* and *002-C* with them.
 8. **A junction with several enabled branches took the first in declaration order, where a
    choice with several draws one.** `pseudostates.md` names the choice/junction difference as

@@ -249,7 +249,7 @@ succession into it has delivered, so `both` is performed once by the one token t
 arrivals collapse into (golden: both arrivals held at `both` after step 3, its one
 performance in step 4). A join differs only in what it awaits: every incoming
 succession (source multiplicity 1..1), so a join one of whose sources no token can reach
-deadlocks (`robustness_test.go:deadlock_join_starvation`, `:deadlock_join_same_succession_twice`);
+deadlocks (`robustness_action_flow_test.go:deadlock_join_starvation`, `:deadlock_join_same_succession_twice`);
 a plain node awaits a succession only once it has delivered or while some token of the
 activation, other than one held at the node, can still reach its source without passing through
 the node — the branch a decision did not take, or a loop back over the node itself, imposes no
@@ -658,7 +658,7 @@ zero (not selected)`) so the tool's reading is visible without changing the run
 (`TestLaterGuardErrorIsNotAChoiceNorAFailure`; fixture `action_choice_unevaluable_guard`, golden).
 The first guard read is the run's own, not a preview, and its failure fails the run as it always
 has. A decision whose guards are all false remains an execution error
-(`TestRuntimeRobustness/decision_all_guards_false`), as the library then admits no outgoing link.
+(`TestRuntimeRobustnessActionFlow/decision_all_guards_false`), as the library then admits no outgoing link.
 
 ### Three concurrent writers of one feature: six orders, three values
 
@@ -1252,7 +1252,7 @@ enabled one and records the choice at the choice vertex (`choice choice pick: tr
 2->high (unordered; took 1->low)`); the golden pins that linearization, `seed:1` the other one. As
 for a transition conflict, branches after the first enabled one are read in a preview that is
 undone. A choice with no enabled branch and no unguarded one fails the run at that instant with a
-typed error naming the choice (`TestRuntimeRobustness/state_choice_without_an_enabled_branch`).
+typed error naming the choice (`TestRuntimeRobustnessStateTransitions/state_choice_without_an_enabled_branch`).
 
 ### Two branches of a junction enabled when the transition is selected: exactly one is taken, which one is open
 
@@ -1783,7 +1783,7 @@ and `-> 100`, the third `decide` evaluating `level >= 100 -> true`, then `endCha
 previous two cases): `ActionExecutor.synchronizes` exempts `MergeNode`, since
 `MergePerformance` follows *one* source performance while a plain node or join follows one per
 succession. Loop termination is the guard's and the step budget's job, not the merge's:
-`robustness_test.go:unguarded_loop_through_a_merge` runs `start → m(merge) → a → m` with no
+`robustness_action_flow_test.go:unguarded_loop_through_a_merge` runs `start → m(merge) → a → m` with no
 exit to `ErrActionStepLimitExceeded`, both under `RunToCompletion` and after stepping it.
 
 ### A merge counts one performance per pass of a loop

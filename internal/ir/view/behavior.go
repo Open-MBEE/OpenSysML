@@ -788,7 +788,7 @@ func actionPorts(id string, features []lower.Feature, doc string) []Port {
 		if feature.Direction == ast.DirNone && !feature.IsResult {
 			continue
 		}
-		ports = append(ports, Port{ID: portID(id, len(ports)), Name: nameText(feature.Name),
+		ports = append(ports, Port{ID: portID(id, len(ports)), Parameter: true, Name: nameText(feature.Name),
 			Direction: portDirection(feature), Origin: nodeOrigin(doc, feature.Node)})
 	}
 	return ports
@@ -811,7 +811,7 @@ func (r *Renderer) inheritedPorts(elem *symbols.Symbol, node ast.Node, id string
 		if slices.ContainsFunc(ports, func(port Port) bool { return port.Name == name }) {
 			continue
 		}
-		ports = append(ports, Port{ID: portID(id, len(ports)), Name: name,
+		ports = append(ports, Port{ID: portID(id, len(ports)), Parameter: true, Name: name,
 			Direction: portDirection(lower.Feature{Direction: usage.Direction, IsResult: usage.IsResult}), Origin: member.Origin()})
 	}
 	return ports
@@ -846,7 +846,7 @@ func portNamed(node *Node, name string, direction PortDirection) string {
 			return port.ID
 		}
 	}
-	port := Port{ID: portID(node.ID, len(node.Ports)), Name: name, Direction: direction}
+	port := Port{ID: portID(node.ID, len(node.Ports)), Name: name, Direction: direction, Parameter: true}
 	node.Ports = append(node.Ports, port)
 	return port.ID
 }

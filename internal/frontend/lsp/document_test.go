@@ -514,7 +514,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		"d2":       {"```d2\n", "# Imaging::chainView — interconnection rendering"},
 	}
 	for form, want := range cases {
-		res, err := s.RenderDocument(&RenderDocumentParams{Name: "Imaging::ChainReport", DiagramForm: form})
+		res, err := s.RenderDocument(&RenderDocumentParams{Name: "Imaging::ChainReport", DiagramForm: form, Show: []string{"edge-labels"}})
 		if err != nil {
 			t.Fatalf("diagramForm %q: %v", form, err)
 		}

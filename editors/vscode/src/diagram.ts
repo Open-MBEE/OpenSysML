@@ -23,7 +23,7 @@ import {
   rootOwner,
   validName,
 } from "./edits";
-import { ExportHost, exportRendering, serverForms, serverStyles } from "./export";
+import { ExportHost, exportRendering, serverElements, serverForms, serverStyles } from "./export";
 import {
   admits,
   APPLY_MODEL_EDIT_CAPABILITY,
@@ -54,7 +54,7 @@ import {
   WorkspaceEdit,
 } from "./protocol";
 import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, renamedUri, shouldAutoOpen, TabKind } from "./autoopen";
-import { DiagramStyle, drawingStyleOf, paletteOf, STYLE_SETTING, styleOf } from "./style";
+import { DiagramStyle, drawingStyleOf, paletteOf, SHOW_SETTING, shownOf, STYLE_SETTING, styleOf } from "./style";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
 import {
   chooseView,
@@ -135,7 +135,7 @@ export class DiagramPanels implements vscode.Disposable {
         if (event.affectsConfiguration(AUTO_OPEN_SETTING)) {
           this.autoOpen(vscode.window.activeTextEditor);
         }
-        if (event.affectsConfiguration(STYLE_SETTING)) {
+        if (event.affectsConfiguration(STYLE_SETTING) || event.affectsConfiguration(SHOW_SETTING)) {
           for (const panel of this.panels.values()) {
             panel.restyle();
           }
@@ -422,6 +422,7 @@ export class DiagramPanels implements vscode.Disposable {
     const style = drawing !== undefined && supportsStyle(client, drawing) ? drawing : undefined;
     const outcome = await exportRendering(host, {
       uri, documentName, view, forms: serverForms(experimental(client)), style,
+      show: supportedShown(client, diagramShown(resolved.uri)),
       linkTemplate: `${vscode.env.uriScheme}://file/{file}:{line}:{col}`,
     });
     switch (outcome.kind) {
@@ -574,6 +575,11 @@ function autoOpenEnabled(): boolean {
 /** diagramStyle is the look the setting asks for, as it applies to a document; a value it does not name is the default. */
 function diagramStyle(scope: vscode.Uri): DiagramStyle {
   return styleOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<string>("style"));
+}
+
+/** diagramShown is the optional notation elements the setting asks for, as it applies to a document. */
+function diagramShown(scope: vscode.Uri): string[] {
+  return shownOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("show"));
 }
 
 // setDiagramStyle keeps a style chosen in a panel as the setting, at the level that set the one in force.
@@ -772,11 +778,13 @@ class DiagramPanel {
       const colours = palette !== undefined && supportsPalette(client);
       const drawing = drawingStyleOf(style);
       const styled = drawing !== undefined && supportsStyle(client, drawing);
+      const shown = supportedShown(client, diagramShown(this.docURI));
       const params: RenderParams = {
         textDocument,
         view: this.selected === "" ? undefined : this.selected,
         palette: colours ? palette : undefined,
         style: styled ? drawing : undefined,
+        show: shown.length > 0 ? shown : undefined,
       };
       const result = normalizeRender(await client.sendRequest<RenderResult>(RENDER_METHOD, params));
       // A style chosen meanwhile has its own render queued; a drawing in the old one is dropped.
@@ -1327,6 +1335,12 @@ function supportsEdit(client: LanguageClient): boolean {
 /** supportsPalette reports whether the server colours a rendering's nodes by the palette asked for. */
 function supportsPalette(client: LanguageClient): boolean {
   return experimental(client)?.[RENDER_PALETTE_CAPABILITY] === true;
+}
+
+/** supportsShown is the elements of shown the server lists among those its render request draws; none from a server predating them. */
+function supportedShown(client: LanguageClient, shown: string[]): string[] {
+  const listed = serverElements(experimental(client));
+  return shown.filter((element) => listed.includes(element));
 }
 
 /** supportsStyle reports whether the server lists a drawing style among those its render request draws. */

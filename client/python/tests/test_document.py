@@ -347,7 +347,7 @@ def test_export_graphs_answers_the_canonical_form_of_a_behavior(real_service):
 def test_render_view_decodes_all_fields_and_optional_messages():
     response = sysml_pb2.RenderViewResponse(
         view="Demo::view", kind="interconnection", stated="rendered",
-        columns=["a"], notices=["notice"],
+        columns=["a"], notices=["notice"], shown=["port-symbols", "typings"],
     )
     response.canvas.unit = "px"
     response.canvas.width = 800
@@ -404,6 +404,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     assert rendered.notes[0].text == "note"
     assert rendered.notes[0].origin.file == "views.sysml"
     assert rendered.notices == ("notice",)
+    assert rendered.shown == ("port-symbols", "typings")
 
     sparse = render_view_result(sysml_pb2.RenderViewResponse(
         nodes=[sysml_pb2.RenderNode()],

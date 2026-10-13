@@ -42,9 +42,9 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "<size:10>//«part def»//</size>\n**Radio**" as n0 <<part def>>
-class "<size:10>//«part def»//</size>\n**Airbag**" as n1 <<part def>>
-class "<size:10>//«part def»//</size>\n**Braking::Brake**" as n2 <<part def>>
-class "<size:10>//«part»//</size>\n**pad**" as n3 <<part>> <<usage>>
+class "**Radio**" as n0 <<part def>>
+class "**Airbag**" as n1 <<part def>>
+class "**Brake**" as n2 <<part def>>
+class "**pad**" as n3 <<part>> <<usage>>
 n2 -- n3
 @enduml

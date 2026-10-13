@@ -685,16 +685,22 @@ export class Connection {
     return form === "html" ? response.html : response.markdown;
   }
 
-  /** Renders a named view or targeted pseudo-view as diagram data. */
+  /**
+   * Renders a named view or targeted pseudo-view as diagram data. `show` names
+   * the optional notation elements to draw besides those the view's rendering
+   * shows (`"edge-labels"`, `"all"`, ...); the service refuses a name it does
+   * not know.
+   */
   async renderView(
     modelHash: string,
     viewName: string,
-    options: { ports?: "minimal" | "full" } = {},
+    options: { ports?: "minimal" | "full"; show?: readonly string[] } = {},
   ): Promise<RenderedView> {
     const ports: string = options.ports ?? "minimal";
     if (ports !== "minimal" && ports !== "full") {
       throw new RangeError("ports must be 'minimal' or 'full'");
     }
+    const show = [...(options.show ?? [])];
     const capabilities = [CAPABILITY_RENDER_VIEW];
     for (const capability of capabilities) {
       requireCapability(this.info, capability, upgradeRemedy(capability));
@@ -705,6 +711,7 @@ export class Connection {
           modelHash,
           view: viewName,
           ports: ports === "minimal" ? "" : ports,
+          show,
         }),
         this.callOptions(),
       ),

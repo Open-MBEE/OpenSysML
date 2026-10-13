@@ -13,7 +13,12 @@ import Select from '@mui/material/Select';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
 import { useSelection } from '@eclipse-sirius/sirius-components-core';
-import { GQLRunInputValue, GQLRunOperation, useRunWithOpenSysML } from '../graphql/runWithOpenSysML';
+import {
+  GQLRunDocumentForm,
+  GQLRunInputValue,
+  GQLRunOperation,
+  useRunWithOpenSysML,
+} from '../graphql/runWithOpenSysML';
 import { RunResultsPanel } from '../results/RunResultsPanel';
 
 export interface RunWithOpenSysMLDialogProps {
@@ -35,10 +40,25 @@ const operationOptions: Array<[GQLRunOperation, string]> = [
   ['EVALUATE_CALC', 'Evaluate calculation'],
   ['RUN_ANALYSIS', 'Run analysis'],
   ['VALIDATE_INSTANCE', 'Validate instance'],
+  ['RENDER_DOCUMENT', 'Render document'],
+  ['RUN_DOCUMENT_QUERY', 'Run document query'],
+];
+
+const formOptions: Array<[GQLRunDocumentForm, string]> = [
+  ['MARKDOWN', 'Markdown'],
+  ['HTML', 'HTML'],
 ];
 
 const usesInputs = (operation: GQLRunOperation) =>
-  operation === 'EXECUTE_ACTION' || operation === 'EXPLORE_ACTION' || operation === 'RUN_ANALYSIS';
+  operation === 'EXECUTE_ACTION' ||
+  operation === 'EXPLORE_ACTION' ||
+  operation === 'RUN_ANALYSIS' ||
+  operation === 'RUN_DOCUMENT_QUERY';
+const usesForm = (operation: GQLRunOperation) => operation === 'RENDER_DOCUMENT';
+const inputLabels = (operation: GQLRunOperation): { add: string; name: string; expression: string } =>
+  operation === 'RUN_DOCUMENT_QUERY'
+    ? { add: 'Add binding', name: 'Parameter', expression: 'Value' }
+    : { add: 'Add input', name: 'Name', expression: 'Expression' };
 const usesEvents = (operation: GQLRunOperation) => operation === 'EXECUTE_STATE' || operation === 'EXPLORE_STATE';
 const usesArguments = (operation: GQLRunOperation) => operation === 'EVALUATE_CALC' || operation === 'RUN_ANALYSIS';
 const usesSchedule = (operation: GQLRunOperation) =>
@@ -75,6 +95,7 @@ export const RunWithOpenSysMLDialog = ({
   const [argumentsText, setArgumentsText] = useState<string[]>([]);
   const [schedule, setSchedule] = useState('');
   const [subject, setSubject] = useState('');
+  const [form, setForm] = useState<GQLRunDocumentForm>('MARKDOWN');
   const { run, loading, result } = useRunWithOpenSysML();
   const { setSelection } = useSelection();
   const hasInvalidInputNames = inputs.some((input) => input.name.trim() === '');
@@ -93,6 +114,7 @@ export const RunWithOpenSysMLDialog = ({
       arguments: usesArguments(operation) ? argumentsText.filter(Boolean) : [],
       schedule: usesSchedule(operation) ? schedule || null : null,
       subject: usesSubject(operation) ? subject || null : null,
+      form: usesForm(operation) ? form : null,
     });
   };
 
@@ -141,12 +163,30 @@ export const RunWithOpenSysMLDialog = ({
           </Select>
         </FormControl>
 
+        {usesForm(operation) && (
+          <FormControl fullWidth margin="normal">
+            <InputLabel id="opensysml-form-label">Form</InputLabel>
+            <Select
+              labelId="opensysml-form-label"
+              aria-label="Form"
+              label="Form"
+              value={form}
+              onChange={(event) => setForm(event.target.value as GQLRunDocumentForm)}>
+              {formOptions.map(([value, label]) => (
+                <MenuItem key={value} value={value}>
+                  {label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
+
         {usesInputs(operation) && (
           <div>
             {inputs.map((input, index) => (
               <div key={`${index}-${input.name}`}>
                 <TextField
-                  label="Name"
+                  label={inputLabels(operation).name}
                   value={input.name}
                   error={
                     input.name.trim() === '' ||
@@ -156,7 +196,7 @@ export const RunWithOpenSysMLDialog = ({
                   onChange={(event) => updateInput(index, 'name', event.target.value)}
                 />
                 <TextField
-                  label="Expression"
+                  label={inputLabels(operation).expression}
                   value={input.expression}
                   onChange={(event) => updateInput(index, 'expression', event.target.value)}
                 />
@@ -168,7 +208,7 @@ export const RunWithOpenSysMLDialog = ({
             <Button
               startIcon={<AddIcon />}
               onClick={() => setInputs((previous) => [...previous, { name: '', expression: '' }])}>
-              Add input
+              {inputLabels(operation).add}
             </Button>
           </div>
         )}

@@ -67,6 +67,7 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	if err := options.Ports.check(); err != nil {
 		return "", err
 	}
+	r = r.showing(options.Show)
 	direction := options.Direction
 	if direction == "" && r.Kind == KindCase {
 		direction = DirectionLeftRight
@@ -263,7 +264,7 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 		edges, _ = w.placement.keptEdges(r.Edges)
 	}
 	w.ports = r.portViewOver(options.Ports, edges)
-	w.labels = labelsOf(r.Roots, skin.cameo || w.placement.positioned(), w.omitted)
+	w.labels = labelsOf(r.Roots, skin.cameo || w.placement.positioned(), w.omitted, r.Shown)
 	w.labels.skin = skin
 	w.placeNodes(r.Roots, r.Edges)
 	w.edges = w.ledEdges(r.Edges)

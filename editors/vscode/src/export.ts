@@ -1,7 +1,7 @@
 // Exporting a rendering to a file: which forms the server writes, how each is
 // offered and saved, and the pick → request → save sequence, kept apart from
 // VS Code so the sequence is testable with a fake host.
-import { RENDER_FORMS_CAPABILITY, RENDER_STYLES_CAPABILITY, RenderParams, RenderResult } from "./protocol";
+import { RENDER_ELEMENTS_CAPABILITY, RENDER_FORMS_CAPABILITY, RENDER_STYLES_CAPABILITY, RenderParams, RenderResult } from "./protocol";
 
 /** The forms `opensysml/render` writes, as the wire contract documents them, for a server that lists none itself. */
 export const DOCUMENTED_FORMS: readonly string[] = ["text", "mermaid", "markdown", "dot", "plantuml", "d2"];
@@ -47,6 +47,15 @@ export function serverForms(experimental: Record<string, unknown> | undefined): 
 export function serverStyles(experimental: Record<string, unknown> | undefined): string[] {
   const advertised = experimental?.[RENDER_STYLES_CAPABILITY];
   if (Array.isArray(advertised) && advertised.every((style) => typeof style === "string" && style !== "")) {
+    return [...new Set(advertised as string[])];
+  }
+  return [];
+}
+
+/** serverElements lists the optional notation elements the server advertises, `all` last; empty for a server predating them. */
+export function serverElements(experimental: Record<string, unknown> | undefined): string[] {
+  const advertised = experimental?.[RENDER_ELEMENTS_CAPABILITY];
+  if (Array.isArray(advertised) && advertised.every((element) => typeof element === "string" && element !== "")) {
     return [...new Set(advertised as string[])];
   }
   return [];
@@ -111,6 +120,8 @@ export interface ExportRequest {
   forms: readonly string[];
   /** The drawing style asked of the DOT form, when the panel's style names one the server draws. */
   style?: string;
+  /** The optional notation elements asked for besides the view's own, when the server lists them. */
+  show?: string[];
   /** Links diagram elements to the declaration in the source document. */
   linkTemplate?: string;
 }
@@ -130,6 +141,9 @@ export async function exportRendering(host: ExportHost, request: ExportRequest):
     const params: RenderParams = { textDocument: { uri: request.uri }, view: request.view, form };
     if (request.style !== undefined) {
       params.style = request.style;
+    }
+    if (request.show !== undefined && request.show.length > 0) {
+      params.show = request.show;
     }
     if (request.linkTemplate !== undefined) {
       params.linkTemplate = request.linkTemplate;

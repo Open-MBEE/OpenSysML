@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
@@ -86,7 +87,7 @@ func markdownSection(md, heading string) string {
 // markdown renders a migrated document through the Markdown backend.
 func markdown(t *testing.T, s *repl.Session, name string) string {
 	t.Helper()
-	out, err := s.RenderDocumentMarkdown(name, docrender.MarkdownOptions{})
+	out, err := s.RenderDocumentMarkdown(name, docrender.MarkdownOptions{Show: view.AllShown()})
 	if err != nil {
 		t.Fatalf("render %s as Markdown: %v", name, err)
 	}
@@ -96,7 +97,7 @@ func markdown(t *testing.T, s *repl.Session, name string) string {
 // html renders a migrated document through the HTML backend as a fragment.
 func html(t *testing.T, s *repl.Session, name string) string {
 	t.Helper()
-	out, err := s.RenderDocumentHTML(name, docrender.HTMLOptions{Fragment: true})
+	out, err := s.RenderDocumentHTML(name, docrender.HTMLOptions{Fragment: true, Show: view.AllShown()})
 	if err != nil {
 		t.Fatalf("render %s as HTML: %v", name, err)
 	}
@@ -111,10 +112,10 @@ func TestMigratedTablesExecute(t *testing.T) {
 	r := migrateFixtureFile(t, "tables")
 	s := session(t, r)
 
-	// Instance table: individuals of Pump (and its subtypes) under the scope
+	// Instance table: instances of Pump (and its subtypes) under the scope
 	// plus two explicit rows, less the excluded one, sorted by mass descending
-	// with the empty cell last; the classifier column is the individual's general.
-	// A slot typed by an individual (st1's pumps, holding p1) is not a row.
+	// with the empty cell last; the classifier column is the instance's type.
+	// A slot bound to an instance (st1's pumps, holding p1) is not a row.
 	pumps := rows(t, s, "Plant::Inventory::'Pump Table Rows'")
 	wantInOrder(t, "Pump Table rows", pumps,
 		"returned 4 rows",
@@ -351,11 +352,11 @@ func TestMetaclassTablesExecute(t *testing.T) {
 	wantInOrder(t, "Packageable Elements rows", packageable,
 		"returned 13 rows",
 		"Plant::Structure\n", "Plant::Structure::Mode\n", "Plant::Structure::Pump\n",
-		"Plant::Structure::Pump::Cycle\n", "Plant::Structure::Pump::prime\n", "Plant::Structure::Valve\n",
+		"Plant::Structure::Pump::Cycle\n", "Plant::Structure::Pump::halt\n", "Plant::Structure::Valve\n",
 		"Plant::Structure::needs\n", "Plant::Structure::p1\n",
 		"Plant::Views\n", "Plant::Views::Operations\n", "Plant::Views::Operations::''\n",
 		"Plant::Views::Operations::operations\n", "Plant::Views::Overview\n")
-	for _, feature := range []string{"Pump::mass", "Pump::valve", "Pump::'prime 2'", "Mode::on", "Cycle::Idle", "p1::mass"} {
+	for _, feature := range []string{"Pump::mass", "Pump::valve", "Pump::prime", "Pump::'halt 2'", "Mode::on", "Cycle::Idle", "p1::mass"} {
 		if strings.Contains(packageable, feature) {
 			t.Errorf("Packageable Elements lists the owned feature %s:\n%s", feature, packageable)
 		}
@@ -366,8 +367,9 @@ func TestMetaclassTablesExecute(t *testing.T) {
 		"returned 13 rows",
 		"Plant::Structure\n", "Plant::Structure::Mode\n", "Plant::Structure::Pump\n",
 		"Plant::Structure::Pump::Cycle\n", "Plant::Structure::Pump::Cycle::Idle\n",
-		"Plant::Structure::Pump::Cycle::Running\n", "Plant::Structure::Pump::prime\n",
-		"Plant::Structure::Valve\n", "Plant::Structure::p1\n",
+		"Plant::Structure::Pump::Cycle::Running\n",
+		"Plant::Structure::Pump::halt\n", "Plant::Structure::Pump::prime\n",
+		"Plant::Structure::Valve\n",
 		"Plant::Views\n", "Plant::Views::Operations\n",
 		"Plant::Views::Operations::operations\n", "Plant::Views::Overview\n")
 	if strings.Contains(namespaces, "Plant::Structure::needs") {
@@ -377,14 +379,26 @@ func TestMetaclassTablesExecute(t *testing.T) {
 	for _, name := range []string{"Types", "Classifiers"} {
 		got := rows(t, s, "Tables::'"+name+" Rows'")
 		wantInOrder(t, name+" rows", got,
-			"returned 9 rows",
+			"returned 8 rows",
 			"Plant::Structure::Mode\n", "Plant::Structure::Pump\n", "Plant::Structure::Pump::Cycle\n",
-			"Plant::Structure::Pump::prime\n", "Plant::Structure::Valve\n", "Plant::Structure::p1\n",
+			"Plant::Structure::Pump::halt\n", "Plant::Structure::Valve\n",
 			"Plant::Views::Operations\n", "Plant::Views::Operations::operations\n", "Plant::Views::Overview\n")
-		for _, other := range []string{"Plant::Structure\n", "Plant::Views\n", "Cycle::Idle", "needs"} {
+		for _, other := range []string{"Plant::Structure\n", "Plant::Views\n", "Cycle::Idle", "needs", "Plant::Structure::p1\n", "Pump::prime"} {
 			if strings.Contains(got, other) {
 				t.Errorf("%s lists %q, which is no type:\n%s", name, strings.TrimSpace(other), got)
 			}
+		}
+	}
+
+	// An Operation table lists the block's action usage an operation became by
+	// name, with the action def one a state runs keeps — not the usage performing that def.
+	operations := rows(t, s, "Tables::'Operations Rows'")
+	wantInOrder(t, "Operations rows", operations,
+		"returned 2 rows",
+		"Plant::Structure::Pump::halt\n", "Plant::Structure::Pump::prime\n")
+	for _, other := range []string{"Pump::'halt 2'", "Pump::Cycle", "Pump::mass", "Pump::valve"} {
+		if strings.Contains(operations, other) {
+			t.Errorf("Operations lists %q, which is no operation:\n%s", other, operations)
 		}
 	}
 
@@ -392,9 +406,9 @@ func TestMetaclassTablesExecute(t *testing.T) {
 	// itself owns — written at the top level — included.
 	diagrams := rows(t, s, "Tables::'Diagrams Rows'")
 	wantInOrder(t, "Diagrams rows", diagrams,
-		"returned 7 rows",
+		"returned 8 rows",
 		"Row 1: 'Model Overview'\n", "Plant::Views::Overview\n", "Tables::Classifiers\n", "Tables::Diagrams\n",
-		"Tables::Namespaces\n", "Tables::'Packageable Elements'\n", "Tables::Types\n")
+		"Tables::Namespaces\n", "Tables::Operations\n", "Tables::'Packageable Elements'\n", "Tables::Types\n")
 }
 
 // A criterion that excludes subtypes of its stereotype cannot be told apart
@@ -987,7 +1001,7 @@ func TestTableHomonymsAndMalformedTables(t *testing.T) {
 		"metadata def TableStructure {", "metadata def InstanceTable {", "metadata def Document;",
 		"part def Catalog {", "@'Shop Profile'::InstanceTable {", `scope = "Shop";`,
 		"part def Ledger {", "@'Shop Profile'::TableStructure {", "rows = 12;",
-		"part def Report {", "@'Shop Profile'::Document;", "/* applied stereotype «Document» */")
+		"part def Report {", "@'Shop Profile'::Document;", `stereotype = "Document";`)
 	wantNote(t, r, "_blk_report", migrate.Mapped,
 		"«Document» from http://www.magicdraw.com/schemas/manual/Document_Profile_Custom.xmi is applied from a profile the document does not define")
 	for _, name := range []string{"Catalog Table", "Custom Table"} {
@@ -1026,9 +1040,9 @@ func TestTableHomonymsAndMalformedTables(t *testing.T) {
 
 	s := session(t, r)
 	wantInOrder(t, "Catalog Map rows", rows(t, s, "Shop::'Catalog Map Rows'"),
-		"returned 2 rows", "Shop::SeasonalCatalog", `@type = "PartDefinition"`, "Shop::c1")
+		"returned 1 row", "Shop::SeasonalCatalog", `@type = "PartDefinition"`)
 	wantInOrder(t, "Catalog Map Markdown", markdown(t, s, "Shop::'Catalog Map Document'"),
-		"# Catalog Map", "| qualifiedName | @type |", "| Shop::SeasonalCatalog | PartDefinition |", "| Shop::c1 | PartDefinition |")
+		"# Catalog Map", "| qualifiedName | @type |", "| Shop::SeasonalCatalog | PartDefinition |")
 }
 
 // A stereotype filter tells stereotypes apart by the profile that defines

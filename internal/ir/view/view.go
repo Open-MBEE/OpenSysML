@@ -209,7 +209,8 @@ const (
 	EdgeRefine
 	// EdgeAllocate is an allocation, from the allocated element.
 	EdgeAllocate
-	// EdgeAssociation connects an actor or subject to a case.
+	// EdgeAssociation is an association drawn as a plain line: an actor or subject
+	// to a case, or a connection def between the definitions typing its two ends.
 	EdgeAssociation
 	// EdgeInclude includes one case in another.
 	EdgeInclude
@@ -336,6 +337,9 @@ type Port struct {
 	// Direction is the pin's direction: `in`, `out` or `inout`; PortUndirected
 	// for a part's port, whose features carry the directions.
 	Direction PortDirection
+	// Parameter marks a pin standing for a parameter — a case's subject or
+	// attribute, an action's pin — rather than for a port the part declares.
+	Parameter bool
 	// Origin is where the pin was declared, the zero Origin for one with no
 	// locatable declaration.
 	Origin Origin
@@ -440,6 +444,9 @@ type Rendering struct {
 	Lanes []Lane
 	// RowOrigins is where each row's element was declared, one entry per row.
 	RowOrigins []Origin
+	// Shown is the optional notation elements the view's rendering shows, read
+	// from the rendering the view states; nil is DefaultShown.
+	Shown Shown
 	// Canvas is the drawing surface the view states, nil for a view stating
 	// none.
 	Canvas *Canvas
@@ -458,6 +465,8 @@ type Rendering struct {
 	emptyReason string
 	// drawn collects the elements drawn while rendering, nil when no one asked.
 	drawn *Drawn
+	// narrowed marks a rendering showing() already narrowed to its Shown.
+	narrowed bool
 	// sites records, while a tree renders, what each of its nodes draws; nil
 	// once its edges are drawn and for every other kind.
 	sites map[*Node]treeSite
@@ -534,7 +543,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	if err != nil {
 		return nil, err
 	}
-	out := &Rendering{View: r.notationName(view), Kind: kind, Stated: stated, drawn: drawn}
+	out := &Rendering{View: r.notationName(view), Kind: kind, Stated: stated, Shown: r.shownOf(view), drawn: drawn}
 	switch kind {
 	case KindTree:
 		r.renderTree(view, exposed, out)

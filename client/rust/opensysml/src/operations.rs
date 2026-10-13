@@ -464,6 +464,19 @@ impl Connection {
         view_name: &str,
         ports: RenderViewPorts,
     ) -> Result<RenderedView, Error> {
+        self.render_view_showing(model_hash, view_name, ports, &[])
+    }
+
+    /// Render a named view with the requested port selection, showing the named
+    /// optional notation elements (`"edge-labels"`, `"all"`, ...) besides those the
+    /// view's rendering shows; the service refuses a name it does not know.
+    pub fn render_view_showing(
+        &self,
+        model_hash: &str,
+        view_name: &str,
+        ports: RenderViewPorts,
+        show: &[&str],
+    ) -> Result<RenderedView, Error> {
         self.require_all(&[crate::capabilities::CAPABILITY_RENDER_VIEW])?;
         let response = self.gated_rpc(
             "RenderView",
@@ -474,6 +487,7 @@ impl Connection {
                     RenderViewPorts::Minimal => String::new(),
                     RenderViewPorts::Full => "full".to_owned(),
                 },
+                show: show.iter().map(|s| (*s).to_owned()).collect(),
             },
             &[crate::capabilities::CAPABILITY_RENDER_VIEW],
         )?;

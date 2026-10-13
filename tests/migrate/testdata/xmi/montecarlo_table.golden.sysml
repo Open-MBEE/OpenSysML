@@ -8,18 +8,18 @@ analysis def 'Sweep Analysis Monte Carlo' :> Simulation::MonteCarlo {
     return Mean : ScalarValues::Real[1] = mean;
 }
 package Results {
-    individual part def 'analysis of 6 runs' :> 'Sweep Analysis' {
+    part 'analysis of 6 runs' : 'Sweep Analysis' {
         analysis 'Monte Carlo' : 'Sweep Analysis Monte Carlo' {
-            subject :>> analysed : 'analysis of 6 runs';
+            subject :>> analysed = 'analysis of 6 runs';
             out :>> runs = 6;
             out :>> mean = 2.5;
             out :>> deviation = 0.75;
             out :>> outOfSpec = 2;
         }
     }
-    individual part def 'analysis of 12 runs' :> 'Sweep Analysis' {
+    part 'analysis of 12 runs' : 'Sweep Analysis' {
         analysis 'Monte Carlo' : 'Sweep Analysis Monte Carlo' {
-            subject :>> analysed : 'analysis of 12 runs';
+            subject :>> analysed = 'analysis of 12 runs';
             out :>> runs = 12;
             out :>> mean = 1.25;
         }
@@ -33,16 +33,28 @@ package Results {
     calc def 'Sweep Statistics Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
             source = DocumentQueries::OrderBy(
-                source = DocumentQueries::WhereFeature(
+                source = DocumentQueries::Except(
                     source = DocumentQueries::WhereType(
                         source = DocumentQueries::WhereType(
                             source = DocumentQueries::Descendants(
                                 source = DocumentQueries::Named(qualifiedName = ("Results"))),
                             type = ("Sweep Analysis")),
-                        type = ("Definition")),
-                    'feature' = "isIndividual",
-                    operator = "=",
-                    value = "true"),
+                        type = ("Usage")),
+                    exclude = DocumentQueries::Descendants(
+                        source = DocumentQueries::WhereType(
+                            source = DocumentQueries::Union(
+                                source = DocumentQueries::Named(qualifiedName = ("Results")),
+                                other = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Union(
+                                        source = DocumentQueries::WhereType(
+                                            source = DocumentQueries::Named(qualifiedName = ("Results")),
+                                            type = ("Package")),
+                                        other = DocumentQueries::WhereType(
+                                            source = DocumentQueries::Descendants(
+                                                source = DocumentQueries::Named(qualifiedName = ("Results"))),
+                                            type = ("Package"))),
+                                    maxDepth = 1)),
+                            type = ("Type")))),
                 property = "'Monte Carlo'.mean",
                 direction = "ascending",
                 missing = "last",

@@ -23,61 +23,41 @@ config:
 ---
 %% FleetViews::structure — tree rendering
 flowchart TD
-  n0["`*«part def»*
-**Vehicle**`"]
-    n1("`*«part»*
-**chassis : Chassis**`")
+  n0["`**Vehicle**`"]
+    n1("`**chassis**`")
   n0 --- n1
-    n2("`*«part»*
-**wheels : Wheel**`")
+    n2("`**wheels**`")
   n0 --- n2
-    n3("`*«part»*
-**driver : Driver**`")
+    n3("`**driver**`")
   n0 --- n3
-    n4("`*«attribute»*
-**total : Mass**`")
+    n4("`**total**`")
   n0 --- n4
-    n5["`*«part def»*
-**Cabin**`"]
+    n5["`**Cabin**`"]
   n0 --- n5
-    n6("`*«part»*
-**cabin : Cabin**`")
+    n6("`**cabin**`")
   n0 --- n6
-    n7("`*«part»*
-**radio : Radio**`")
+    n7("`**radio**`")
   n0 --- n7
-    n8("`*«part»*
-**trailer : Trailer**`")
+    n8("`**trailer**`")
   n0 --- n8
-  n9["`*«part def»*
-**SportsCar**`"]
-    n10("`*«part»*
-**chassis : LightChassis**`")
+  n9["`**SportsCar**`"]
+    n10("`**chassis**`")
   n9 --- n10
-    n11("`*«part»*
-**spare : Wheel**`")
+    n11("`**spare**`")
   n9 --- n11
-  n12["`*«part def»*
-**Chassis**`"]
-    n13("`*«attribute»*
-**mass : Mass**`")
+  n12["`**Chassis**`"]
+    n13("`**mass**`")
   n12 --- n13
-  n14["`*«part def»*
-**LightChassis**`"]
-    n15("`*«attribute»*
-**mass**`")
+  n14["`**LightChassis**`"]
+    n15("`**mass**`")
   n14 --- n15
-  n16["`*«part def»*
-**Wheel**`"]
-  n17["`*«part def»*
-**Driver**`"]
-  n18["`*«attribute def»*
-**Mass**`"]
-  n19("`*«part»*
-**fleetCar : Vehicle**`")
+  n16["`**Wheel**`"]
+  n17["`**Driver**`"]
+  n18["`**Mass**`"]
+  n19("`**fleetCar**`")
   n0 ---|"◆ chassis"| n12
-  n0 ---|"◆ wheels[4]"| n16
-  n0 ---|"◇ driver[0..1]"| n17
+  n0 ---|"◆ wheels"| n16
+  n0 ---|"◇ driver"| n17
   n0 ---|"◇ total"| n18
   n9 -->|"specialization"| n0
   n9 ---|"◆ chassis"| n14

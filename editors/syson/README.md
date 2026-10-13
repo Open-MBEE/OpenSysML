@@ -1,8 +1,9 @@
 # OpenSysML SysON integration
 
 This integration lets Eclipse SysON run, explore, instantiate, verify and analyze selected
-models with OpenSysML. The backend adapts the Java client to SysON's Spring and GraphQL APIs;
-the frontend adds the explorer action, operation dialog and mapped run results.
+models with OpenSysML, and render their document definitions and document queries. The backend
+adapts the Java client to SysON's Spring and GraphQL APIs; the frontend adds the explorer action,
+operation dialog and mapped run results.
 
 ## Layout
 
@@ -97,12 +98,34 @@ Java client's exploration schedule string. An explicit dialog schedule takes pre
 
 The backend adds the `runWithOpenSysML(input: RunWithOpenSysMLInput!)` mutation. It supports
 instantiation, action and state execution or exploration, constraint and requirement verification,
-satisfaction verification, calculation evaluation, analysis, and instance validation.
+satisfaction verification, calculation evaluation, analysis, instance validation, document
+rendering and document queries.
 
-Unit tests cover exporting, identity mapping, diagnostic mapping, configuration, GraphQL payloads
-and validation results. Real-service integration tests run the mutation against `sysml-grpc` for
-instantiation, action execution, verification, diagnostics and stored results. Frontend tests
-cover the registry, explorer menu, operation dialog, toast errors, mapped selection, outputs,
-traces, verdicts, instances and diagnostics.
+## Documents and reports
+
+Select a document definition (a `part def` specializing `DocumentQueries::Document`) and choose
+**Render document** to compile it, run its queries and render it as Markdown or HTML, the two forms
+the service renders; PDF needs the converters only the `sysml` CLI drives. The dialog previews the
+result (HTML in a sandboxed frame) and offers it as a file named the way a rendered set names it, so
+links between downloaded documents hold (`Observatory-MassReport.md`, `Observatory-Mass.20Appendix.html`).
+Select a document query (a `calc def` specializing
+`DocumentQueries::Query`) and choose **Run document query** to project its rows into a table; each
+binding names an entry parameter and gives its value, which is the qualified name of an element
+(`Observatory::telescope`) or an expression evaluated to a literal (`"10"`, `3`, `true`); a row whose
+element is in the project selects it when clicked.
+
+A SysON project declares documents against the `DocumentQueries` library, which the service bundles
+and SysON does not ship, so the project holds a copy of `OpenSysML Libraries/DocumentQueries.sysml`
+from `internal/workspace/libs/stdlib/`. The exporter leaves out any `library package` the service
+already provides and says so in the run's messages, so the copy resolves names inside SysON without
+shadowing the service's own library; a copy that adds members the service's library lacks is exported
+and shadows it, with a warning naming the additions.
+
+Unit tests cover exporting, identity mapping, diagnostic mapping, configuration, GraphQL payloads,
+document bindings and validation results. Real-service integration tests run the mutation against
+`sysml-grpc` for instantiation, action execution, verification, diagnostics, document rendering,
+document queries, bundled-library detection and stored results. Frontend tests cover the registry,
+explorer menu, operation dialog, toast errors, mapped selection, outputs, traces, verdicts,
+instances, diagnostics, rendered documents and query rows.
 
 Diagnostics that name a qualified name select that element; span-only diagnostics select the root element of the exported document containing the line. The serializer emits no source map.

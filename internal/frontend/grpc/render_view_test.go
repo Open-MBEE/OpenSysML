@@ -313,7 +313,7 @@ func TestRenderViewMatchesEngineJSON(t *testing.T) {
 func engineProjection(response *pb.RenderViewResponse) engine.JRenderViewResponse {
 	projected := engine.JRenderViewResponse{
 		View: response.View, Kind: response.Kind, Stated: response.Stated,
-		Notices: response.Notices, Columns: response.Columns,
+		Notices: response.Notices, Shown: response.Shown, Columns: response.Columns,
 		Nodes: make([]engine.JRenderNode, 0, len(response.Nodes)),
 		Edges: make([]engine.JRenderEdge, 0, len(response.Edges)),
 	}

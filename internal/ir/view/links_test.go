@@ -645,7 +645,7 @@ func TestMermaidFlowchartDoesNotLinkUsedPortSubgraph(t *testing.T) {
 	if _, ok := links.URL(target.Origin); !ok {
 		t.Fatalf("used-port action %q has no source URL", target.ID)
 	}
-	input, err := rendering.WriteWith(FormMermaid, Options{Links: links})
+	input, err := rendering.WriteWith(FormMermaid, Options{Show: AllShown(), Links: links})
 	if err != nil {
 		t.Fatal(err)
 	}

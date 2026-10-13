@@ -60,7 +60,7 @@ is printed:
 $ sysml Vehicle.xmi -migrate sysml -o Vehicle.sysml -migration-report Vehicle.report.txt
 note: SysML v1 migration is experimental: the mapping covers structure, ports and connectors, requirements, constraints, instances and allocations, reports every element it approximates or leaves behind, and what it writes for a v1 element may change without a compatibility path; see docs/reference/sysml-v1-migration.md § Status
 wrote Vehicle.report.txt (migration report: migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to))
-wrote Vehicle.sysml (sysml, 6369 bytes)
+wrote Vehicle.sysml (sysml, 6808 bytes)
 ```
 
 The summary is the first thing to read: 93 v1 elements, of which 77 have a direct v2 form, 13
@@ -99,7 +99,7 @@ need attention first:
 ## approximated (13)
 Package	Requirements	_pkg_reqs	-> RequirementsModel	(written as RequirementsModel since a root package named Requirements would be hidden by the standard library's Requirements)
 «Refine» Abstraction	Requirements::<Abstraction>	_dep_refine	-> 'Drive refines Speed Requirement'	(written as a connection between usages of its ends, which a diagram draws; the standard Refinement metadata annotates only a dependency, so the connection's name says it refines)
-«Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	(a trace is written as a plain dependency)
+«Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	-> RequirementsModel::'Speed Requirement traces Engine'	(a trace is written as a plain dependency named by its kind)
 «TestCase» Activity	Requirements::Mass Test	_tc_mass	-> RequirementsModel::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
 Diagram	Vehicle BDD	_diag_bdd	-> 'Vehicle BDD'	(a diagram of unknown kind written as a view rendered asTextualNotation; the diagram names no owner; written at the top level, which holds it; no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing)
 Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part usage)
@@ -143,15 +143,14 @@ Requirement'` and a v1 qualified name can be searched for in the v2 file as it s
 
 Open `Vehicle.sysml`. The operation `start` and the state machine `Vehicle States` that an
 earlier reader might have expected to find as comments are written out — an operation is an
-`action def` its owner performs, and a state machine a `state def`:
+`action` usage of its owner, which every call chains to, and a state machine a `state def`:
 
 ```sysml
 part def Vehicle :> System {
     …
-    abstract action def start {
-        in key : ScalarValues::Integer;
+    abstract action start {
+        in key : ScalarValues::Integer[1];
     }
-    action 'start 2' : start;
     state def 'Vehicle States' {
         /* the region has no initial pseudostate: nothing enters it */
         state Off;
@@ -254,13 +253,17 @@ under [Run configurations](../reference/sysml-v1-migration.md#run-configurations
 
 ## Finishing by hand
 
-Alongside every element the report calls unmapped or approximated-with-loss is a comment
-saying so, at the place in the v2 model where the element belongs:
+Every element the report calls unmapped or approximated-with-loss is marked at the place in
+the v2 model where it belongs: what has no v2 form is a `/* not migrated: … */` comment, and
+a stereotype or tag the v2 form does not carry is an `AppliedStereotype` marker holding it:
 
 ```sysml
 package 'Value Types' {
     attribute def Mass :> ScalarValues::Real {
-        /* «ValueType» tags with no v2 form: quantityKind = Vehicle Design::Value Types::mass; unit = Vehicle Design::Value Types::kilogram */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "ValueType";
+            tags = ("quantityKind = Vehicle Design::Value Types::mass", "unit = Vehicle Design::Value Types::kilogram");
+        }
     }
     attribute def Speed :> Mass;
     /* not migrated: «Unit» InstanceSpecification 'kilogram' — units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «Unit» (quantityKind = Vehicle Design::Value Types::mass; symbol = kg) */
@@ -287,8 +290,10 @@ Each comment is a to-do, and its note says which way to go:
   means; read those, and rewrite any that relied on v1 semantics. English and JavaScript bodies
   are translated where the subset reaches, and the report's `translated to v2` notes say so.
 - **Tags with no v2 form.** `isEncapsulated`, a stereotype applied from a profile the document
-  does not define (`«Critical»` on `Engine` here), a value type's `unit`: keep the comment as
-  documentation, or express the intent in v2 terms. A profile the document *does* define is
+  does not define (`«Critical»` on `Engine` here), a value type's `unit`: each is kept in a
+  `@MigrationMetadata::AppliedStereotype` marker in the element's body, never as a comment a
+  diagram would show as a note; query it, or express the intent in v2 terms. A «Trace» is a
+  `dependency` named by its kind (`'Speed Requirement traces Engine'`) carrying the same marker. A profile the document *does* define is
   migrated to `metadata def`s and applied as metadata, so nothing needs doing for those.
 
 ## Checking the result
@@ -300,9 +305,6 @@ as a hand-written one. This model's `Vehicle` and its instance `myCar` are intac
 
 ```console
 $ sysml Vehicle.sysml -eval "'Vehicle Design'::myCar::mass"
-Vehicle.sysml:91:9: warning: End feature must have multiplicity 1: an end relates exactly one thing per link; write `[1]` or take it from a feature the end subsets or redefines
-        end driver :> Driver[0..1];
-        ^~~~~~~~~~~~~~~~~~~~~~~~~~~
 ✓ package 'Vehicle Design'
 ✓ package RequirementsModel
 ✓ package 'Empty Package'
@@ -314,8 +316,11 @@ Vehicle.sysml:91:9: warning: End feature must have multiplicity 1: an end relate
 ```
 
 Findings on the migrated file are read as on any model, and point at what to revise in the v2
-notation — here the association `Drives`, whose v1 end multiplicity `0..1` v2 writes on the end
-rather than after the feature it subsets: `end [0..1] driver :> Driver;`. From this point `%save` in the REPL, `-convert ttl`, the
+notation; OpenSysML raises none on this model, its `Drives` end carrying the v1 multiplicity `0..1`
+on the end it subsets, `end [0..1] ref driver :> Driver;`. The OMG pilot validator does warn on it:
+the v1 operation `start` becomes `abstract action start` inside `Vehicle`, which shadows the inherited
+`Part::start`, a collision OpenSysML's inherited-name check does not yet report; rename the v1
+operation, or the v2 action, if the pilot's silence matters. From this point `%save` in the REPL, `-convert ttl`, the
 LSP and the clients all take the file as they take any other; nothing remembers that it was
 migrated.
 

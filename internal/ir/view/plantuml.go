@@ -39,9 +39,9 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if r.Run && r.Kind == KindTimeline {
 		return r.runTimelinePlantUML(options), nil
 	}
-	r = r.settleUnplaced(options.Unplaced, FormPlantUML)
+	r = r.showing(options.Show).settleUnplaced(options.Unplaced, FormPlantUML)
 	w := &plantumlWriter{kind: r.Kind, borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
-		labels: labelsOf(r.Roots, false, nil), ports: r.portView(options.Ports), links: options.Links,
+		labels: labelsOf(r.Roots, false, nil, r.Shown), ports: r.portView(options.Ports), links: options.Links,
 		writtenPorts: make(map[string]struct{})}
 	for _, root := range r.Roots {
 		w.fills.collect(root)

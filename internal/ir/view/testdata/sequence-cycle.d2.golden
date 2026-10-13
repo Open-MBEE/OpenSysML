@@ -6,8 +6,8 @@ classes: {
 }
 sequence: "" {
   shape: sequence_diagram
-  n0: "«part»\nnear" { class: usage }
-  n1: "«part»\nfar" { class: usage }
+  n0: "near" { class: usage }
+  n1: "far" { class: usage }
   n0 -> n1: "ask" { class: flow }
   n1 -> n0: "reply" { class: flow }
 }

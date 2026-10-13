@@ -11,7 +11,9 @@ result:
     "openSysmlApplyModelEdit": true, "openSysmlDebug": true,
     "openSysmlCrossDocumentLayout": true, "openSysmlRenderPalette": true,
     "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml", "d2", "csv", "tsv"],
-    "openSysmlRenderStyles": ["pilot", "cameo"], "openSysmlRenderPorts": ["minimal", "full"] } } }
+    "openSysmlRenderStyles": ["pilot", "cameo"], "openSysmlRenderPorts": ["minimal", "full"],
+    "openSysmlRenderElements": ["parameter-symbols", "port-symbols", "compartments", "edge-labels",
+      "keywords", "multiplicities", "typings", "qualifiers", "all"] } } }
 ```
 
 `openSysmlRender` covers the view-rendering methods, `openSysmlRenderDocument`
@@ -138,6 +140,7 @@ Renders one view of a document.
 | `palette` | Optional. A palette the `dot`, `mermaid`, `plantuml` and `d2` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
 | `style` | Optional. The drawing style the `dot` or `mermaid` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — 11 pt Arial, gradient fills in Cameo's colours, compartments and UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML and D2 note a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
 | `ports` | Optional. How much of a part's ports an interconnection or mixed rendering draws: `minimal` (the default), the ports an interconnection edge ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
+| `show` | Optional. The notation elements the SysML v2 notation makes optional that the rendering draws besides the ones its view's rendering shows, each a name the `openSysmlRenderElements` capability lists: `parameter-symbols` (a case's actor, subject and stakeholder parameters and an action's parameter pins on the node's boundary; without them a connection ends at the node itself), `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, or `all`. Port symbols and compartments are drawn by default; the result's `shown` lists what was drawn. |
 | `overlay` | Optional. `verdicts` runs the verification cases verifying each requirement of a `requirement` rendering and labels and colours the requirement by their verdicts, each node carrying the worst as `verdict` (`pass`, `inconclusive`, `fail`, `error`). Omitted, nothing runs. Refused on another kind, and when unknown. |
 | `linkTemplate` | Optional. Template for source links on diagram elements, with `{file}`, `{line}`, `{col}`, `{qname}` and `{id}` placeholders. `{file}` is the path as loaded. Only on-disk workspace documents are linked; bundled libraries and non-file documents have no source link. |
 
@@ -157,7 +160,8 @@ one of the eight is refused, and the reply names all eight. A
 `palette` that names none of the eight is refused, and the reply names them
 (`unknown palette "rainbow"; the palettes are okabe-ito, …, cividis`). A `style` that is neither is refused likewise
 (`unknown drawing style "sketch"; the styles are pilot, cameo`), and a `ports` that is neither
-display (`unknown port display "all"; the displays are minimal, full`); an `overlay` that is unknown names the overlays there are (`unknown overlay "colours"; the overlays are verdicts`).
+display (`unknown port display "all"; the displays are minimal, full`), and a `show` element that is none
+(`unknown notation element "boxes"; the elements are parameter-symbols, …, all`); an `overlay` that is unknown names the overlays there are (`unknown overlay "colours"; the overlays are verdicts`).
 
 **Pseudo-views.** A document that is still being written usually declares no `view`,
 so a rendering can be requested as if one had been declared:
@@ -363,6 +367,12 @@ document, or names a document whose planning or query execution fails, the
 request fails with the typed error's message (for example `Observatory::Subsystem
 is not a document: one is a part def specializing DocumentQueries::Document`)
 rather than crashing or answering with partial output.
+
+An optional `show` array names the [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements) every
+diagram draws besides those its view's rendering and its diagram block's `show` attribute show —
+`parameter-symbols`, `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`,
+`typings`, `qualifiers`, or `all` — as `-render-show` does; a name none of them has is an
+`InvalidParams` error naming the elements there are.
 
 An optional `linkTemplate` request field applies `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`
 to linkable diagram elements. Only on-disk workspace documents are linked; bundled libraries and

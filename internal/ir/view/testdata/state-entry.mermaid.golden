@@ -30,24 +30,24 @@ config:
 ---
 %% MachineViews::thermostat — state rendering (view def StateTransitionView)
 stateDiagram-v2
-  state "«state def» Thermostat" as n0 {
-    state "«state»<br>heating" as n1
-    state "«state» idle" as n2 {
-      state "«state»<br>drying" as n3
-      state "«state»<br>resting" as n4
+  state "Thermostat" as n0 {
+    state "heating" as n1
+    state "idle" as n2 {
+      state "drying" as n3
+      state "resting" as n4
       [*] --> n3 : [wet]
       [*] --> n4
     }
-    state "«state» monitoring" as n5 {
-      state "«region» lights" as n6 {
-        state "«state»<br>lit" as n8
-        state "«state»<br>unlit" as n9
+    state "monitoring" as n5 {
+      state "lights" as n6 {
+        state "lit" as n8
+        state "unlit" as n9
         [*] --> n8 : [dark]
         [*] --> n9 : [not dark]
       }
-      state "«region» fans" as n7 {
-        state "«state»<br>off<br>initial" as n10
-        state "«state»<br>on" as n11
+      state "fans" as n7 {
+        state "off<br>initial" as n10
+        state "on" as n11
         [*] --> n10
       }
     }

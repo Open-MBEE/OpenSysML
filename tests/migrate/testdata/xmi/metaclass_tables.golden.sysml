@@ -4,12 +4,20 @@ package Plant {
             doc /* Moves fluid through the plant. */
             attribute mass : ScalarValues::Real;
             part valve : Valve;
-            abstract action def prime;
-            action 'prime 2' : prime;
+            abstract action prime;
+            action def halt {
+                first start then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
+            }
+            action 'halt 2' : halt;
             state def Cycle {
+                in ref context : Pump[1];
                 entry; then Idle;
                 state Idle;
-                state Running;
+                state Running {
+                    entry action : halt { in ref :>> context = Cycle::context; }
+                }
                 transition first Idle then Running;
             }
         }
@@ -18,7 +26,7 @@ package Plant {
             on;
             off;
         }
-        individual part def p1 :> Pump {
+        part p1 : Pump {
             attribute :>> mass = 12.5;
         }
         dependency needs from Pump to Valve;
@@ -41,12 +49,30 @@ package Tables {
         render Views::asElementTable;
     }
     calc def 'Packageable Elements Rows' :> DocumentQueries::Query {
+        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+            source = DocumentQueries::Named(qualifiedName = ("Plant")));
         DocumentQueries::Project(
             source = DocumentQueries::OrderBy(
-                source = DocumentQueries::WhereType(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Plant"))),
-                    type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "Dependency", "SatisfyRequirementUsage", "AllocationUsage")),
+                source = DocumentQueries::Union(
+                    source = DocumentQueries::WhereType(source = candidates, type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "Dependency", "SatisfyRequirementUsage", "AllocationUsage")),
+                    other = DocumentQueries::Except(
+                        source = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(source = candidates, type = ("Usage")),
+                            exclude = DocumentQueries::Union(
+                                source = DocumentQueries::WhereType(source = candidates, type = ("ConnectionUsage")),
+                                other = DocumentQueries::WhereType(source = candidates, type = ("MetadataUsage")))),
+                        exclude = DocumentQueries::Descendants(
+                            source = DocumentQueries::WhereType(
+                                source = DocumentQueries::Union(
+                                    source = DocumentQueries::Named(qualifiedName = ("Plant")),
+                                    other = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Union(
+                                            source = DocumentQueries::WhereType(
+                                                source = DocumentQueries::Named(qualifiedName = ("Plant")),
+                                                type = ("Package")),
+                                            other = DocumentQueries::WhereType(source = candidates, type = ("Package"))),
+                                        maxDepth = 1)),
+                                type = ("Type"))))),
                 property = "qualifiedName",
                 direction = "ascending",
                 missing = "last",
@@ -66,12 +92,17 @@ package Tables {
         render Views::asElementTable;
     }
     calc def 'Namespaces Rows' :> DocumentQueries::Query {
+        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+            source = DocumentQueries::Named(qualifiedName = ("Plant")));
         DocumentQueries::Project(
             source = DocumentQueries::OrderBy(
-                source = DocumentQueries::WhereType(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Plant"))),
-                    type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "StateUsage")),
+                source = DocumentQueries::Union(
+                    source = DocumentQueries::WhereType(source = candidates, type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "StateUsage")),
+                    other = DocumentQueries::Except(
+                        source = DocumentQueries::Named(qualifiedName = ("Plant::Structure::Pump::prime")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::Named(qualifiedName = ("Plant::Structure::Pump::prime")),
+                            exclude = candidates))),
                 property = "qualifiedName",
                 direction = "ascending",
                 missing = "last",
@@ -133,6 +164,38 @@ package Tables {
         part rows : DocumentQueries::Table {
             attribute redefines caption = "Classifiers";
             calc rows : 'Classifiers Rows';
+        }
+    }
+    view Operations {
+        expose Plant::Structure::Pump;
+        expose 'Operations Document';
+        render Views::asElementTable;
+    }
+    calc def 'Operations Rows' :> DocumentQueries::Query {
+        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+            source = DocumentQueries::Named(qualifiedName = ("Plant")));
+        DocumentQueries::Project(
+            source = DocumentQueries::OrderBy(
+                source = DocumentQueries::Union(
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(source = candidates, type = ("ActionDefinition")),
+                        exclude = DocumentQueries::WhereType(source = candidates, type = ("StateDefinition", "CalculationDefinition"))),
+                    other = DocumentQueries::Except(
+                        source = DocumentQueries::Named(qualifiedName = ("Plant::Structure::Pump::prime")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::Named(qualifiedName = ("Plant::Structure::Pump::prime")),
+                            exclude = candidates))),
+                property = "qualifiedName",
+                direction = "ascending",
+                missing = "last",
+                multiple = "first"),
+            properties = ("qualifiedName"))
+    }
+    part def 'Operations Document' :> DocumentQueries::Document {
+        attribute redefines title = "Operations";
+        part rows : DocumentQueries::Table {
+            attribute redefines caption = "Operations";
+            calc rows : 'Operations Rows';
         }
     }
     view Diagrams {

@@ -32,11 +32,11 @@ config:
 ---
 %% SequenceViews::pubSubView — sequence rendering (view def SequenceView)
 sequenceDiagram
-  participant n0 as «part»<br>producer
+  participant n0 as producer
   link n0: Source @ https://example.test/src/sequence.sysml#L26
-  participant n1 as «part»<br>server
+  participant n1 as server
   link n1: Source @ https://example.test/src/sequence.sysml#L32
-  participant n2 as «part»<br>consumer
+  participant n2 as consumer
   link n2: Source @ https://example.test/src/sequence.sysml#L41
   n2->>n1: subscribe_message
   n0->>n1: publish_message

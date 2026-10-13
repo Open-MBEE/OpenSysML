@@ -70,7 +70,7 @@ func TestVizChoosesTheKindTheElementsCallFor(t *testing.T) {
 
 func TestVizDrawsSeveralNamesInOneRendering(t *testing.T) {
 	s := vizSession(t)
-	got := run(t, s, "%viz P::Lamp P::Start")
+	got := run(t, s, "%viz show=qualifiers P::Lamp P::Start")
 	wants(t, got, "rendering P::Lamp, P::Start directly", "state def P::Lamp", "action def P::Start", "off -> on", "a -> b")
 }
 
@@ -103,7 +103,9 @@ func TestVizTakesAFormWhereverItStands(t *testing.T) {
 	wants(t, run(t, s, "%viz --style PUMLCODE P::car"), "@startuml")
 	wants(t, run(t, s, "%viz --style pumlcode plantuml P::car"), "@startuml")
 	// A quoted word is a name, not a form.
-	wants(t, run(t, s, "%viz 'text'"), "tree rendering", "part P::text")
+	wants(t, run(t, s, "%viz show=qualifiers 'text'"), "tree rendering", "part P::text")
+	wants(t, run(t, s, "%viz 'text'"), "tree rendering", "\npart text")
+	wants(t, run(t, s, "%viz show=boxes 'text'"), `unknown notation element "boxes"`, "parameter-symbols", vizUsage)
 	if got := run(t, s, "%viz text P::Car"); !strings.HasPrefix(got, "tree rendering") {
 		t.Errorf("the text form drew %q", strings.SplitN(got, "\n", 2)[0])
 	}

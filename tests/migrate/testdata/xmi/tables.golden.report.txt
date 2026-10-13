@@ -16,7 +16,7 @@
 ## mapped (59)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Plant	_pkg_plant	-> Plant
-«auxiliaryResource» Profile	Plant Profile	_plant_profile	-> 'Plant Profile'	(«auxiliaryResource» from http://www.omg.org/spec/UML/20131001/MagicDrawProfile is applied from a profile the document does not define; the application is kept as a comment)
+«auxiliaryResource» Profile	Plant Profile	_plant_profile	-> 'Plant Profile'	(«auxiliaryResource» from http://www.omg.org/spec/UML/20131001/MagicDrawProfile is applied from a profile the document does not define; the application is kept as metadata)
 Stereotype	Plant Profile::Critical	_st_critical	-> 'Plant Profile'::Critical
 Property	Plant Profile::Critical::grade	_st_critical_grade	-> 'Plant Profile'::Critical::grade
 Property	Plant Profile::Critical::level	_st_critical_level	-> 'Plant Profile'::Critical::level
@@ -67,7 +67,7 @@ Comment	Plant::Structure::Pump::<Comment>	_cmt_pump
 Property	Plant::Structure::Pump::flow	_prop_flow	-> Plant::Structure::Pump::'flow'
 Property	Plant::Structure::Pump::mass	_prop_mass	-> Plant::Structure::Pump::mass
 Property	Plant::Structure::Pump::name	_prop_label	-> Plant::Structure::Pump::name
-Operation	Plant::Structure::Pump::prime	_op_prime	-> Plant::Structure::Pump::prime	(its owner's usage prime 2 performs it, as a call on an object does)
+Operation	Plant::Structure::Pump::prime	_op_prime	-> Plant::Structure::Pump::prime	(written as an action usage of Plant::Structure::Pump, which a call on an object performs, so its body runs on the object and reaches its features)
 «Block» Class	Plant::Structure::ReservePump	_blk_reserve	-> Plant::Structure::ReservePump
 «Block» Class	Plant::Structure::Station	_blk_station	-> Plant::Structure::Station
 Property	Plant::Structure::Station::pumps	_prop_pumps	-> Plant::Structure::Station::pumps

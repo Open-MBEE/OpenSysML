@@ -4,7 +4,7 @@
 
 ## approximated (6)
 «Detailed By» Abstraction	System::<Abstraction>	_refine	-> System::'Spin refines Speed Requirement'	(written as a connection between usages of its ends, which a diagram draws; the standard Refinement metadata annotates only a dependency, so the connection's name says it refines)
-«Linked To» Abstraction	System::<Abstraction>	_trace	(a trace is written as a plain dependency)
+«Linked To» Abstraction	System::<Abstraction>	_trace	-> System::'Speed Requirement traces Gear'	(a trace is written as a plain dependency named by its kind)
 «TestCase» Activity	System::Torque Test::run	_test_act	-> System::'Torque Test'::run	(the test case's behavior is not migrated; only its verified requirements are)
 Stereotype	Tailoring::Foreign	_st_foreign	-> Tailoring::Foreign	(generalization of http://example.com/projects/Shared_Profile.xmi#_shared_req is not written: it is not a user stereotype defined in the document)
 Stereotype	Tailoring::Lost	_st_lost	-> Tailoring::Lost	(a generalization refers to nothing in the document)

@@ -12,6 +12,11 @@ const SynthesizedNameFQN = "MigrationMetadata::SynthesizedName"
 // of its source.
 const StandInFQN = "MigrationMetadata::StandIn"
 
+// AppliedStereotypeFQN is the qualified name of the metadata definition in the
+// bundled library that records a source stereotype a migrated element's form
+// does not carry.
+const AppliedStereotypeFQN = "MigrationMetadata::AppliedStereotype"
+
 // NameSynthesized reports whether sym's name was made up by a migration: a
 // SynthesizedName annotation applies to it, stated on it or about it.
 func (m *Model) NameSynthesized(sym *symbols.Symbol) bool {
@@ -41,8 +46,9 @@ func (m *Model) StandIn(sym *symbols.Symbol) bool {
 }
 
 // IsMigrationAnnotation reports whether sym is a metadata usage typed by
-// SynthesizedName or StandIn: a record of the migration, not model content.
+// SynthesizedName, StandIn or AppliedStereotype: a record of the migration,
+// not model content.
 func (m *Model) IsMigrationAnnotation(sym *symbols.Symbol) bool {
 	fqn := m.annotationTypeFQN(sym)
-	return fqn == SynthesizedNameFQN || fqn == StandInFQN
+	return fqn == SynthesizedNameFQN || fqn == StandInFQN || fqn == AppliedStereotypeFQN
 }

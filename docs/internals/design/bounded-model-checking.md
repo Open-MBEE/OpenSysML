@@ -515,7 +515,7 @@ Written before the code, as the behavioral four-layer contract asks:
    hang and never claim exhaustiveness. A timeout test uses a short `-check-timeout`.
 7. **Witness replay.** Every witness the checker writes for the corpus replays to the state it
    claims, through the replay scheduler, and the replayed trace equals the witness.
-8. **Robustness.** The failure modes in `robustness_test.go` (deadlocks, unbound parameters,
+8. **Robustness.** The failure modes in the `robustness_<feature>_test.go` suites (deadlocks, unbound parameters,
    dangling successions) are reported by the checker as violations with a witness, not as
    exploration errors. An `accept` whose matching message needs a `via` port that does not
    resolve is reported as that routing error, on the schedule that reaches it, not as a

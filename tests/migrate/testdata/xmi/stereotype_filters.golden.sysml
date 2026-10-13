@@ -39,7 +39,10 @@ package Plant {
 }
 package Spares {
     part def Hose {
-        /* applied stereotype «Critical» */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "Critical";
+            profile = "http://example.com/schemas/Vendor.xmi";
+        }
     }
     part def Gasket;
 }
@@ -220,7 +223,9 @@ package 'Depot Handbook' {
         view satisfierFigures :> 'Satisfier Figures';
         view satisfierLayouts :> 'Satisfier Layouts';
         view ownedFigures :> 'Owned Figures';
-        /* applied stereotype «Document» */
+        @MigrationMetadata::AppliedStereotype {
+            stereotype = "Document";
+        }
     }
     view 'Critical Items' : 'Depot Viewpoints'::'Critical Items Viewpoint' {
         expose Plant::**;

@@ -1059,7 +1059,7 @@ final class Api {
     Model model = connection.model(request.getModelHash());
     RenderViewPorts ports =
         request.getPorts().equals("full") ? RenderViewPorts.FULL : RenderViewPorts.MINIMAL;
-    RenderedView rendered = model.renderView(request.getView(), ports);
+    RenderedView rendered = model.renderView(request.getView(), ports, request.getShowList());
     return Rendering.renderedView(rendered);
   }
 
