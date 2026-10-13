@@ -78,7 +78,7 @@ func TestTheBinaryServesTheProtocolOverStdio(t *testing.T) {
 		names = append(names, tool.Name)
 	}
 	slices.Sort(names)
-	want := []string{"session_close", "session_list", "session_open", "workspace_info"}
+	want := []string{"apply_model_edit", "close_document", "code_actions", "completion", "definition", "diagnostics", "document_symbols", "documents", "format", "hover", "inlay_hints", "open_document", "references", "rename", "render_document", "render_view", "session_close", "session_list", "session_open", "signature_help", "update_document", "views", "workspace_info", "workspace_symbols"}
 	if !slices.Equal(names, want) {
 		t.Errorf("tools = %v, want %v", names, want)
 	}
