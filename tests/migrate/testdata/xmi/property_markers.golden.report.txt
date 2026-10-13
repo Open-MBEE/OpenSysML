@@ -32,7 +32,7 @@ EnumerationLiteral	Fleet::Mode::sport	_modes_sport	-> Fleet::Mode::sport
 «ValueProperty» Property	Fleet::Vehicle::mode	_mode	-> Fleet::Vehicle::mode
 «ValueProperty» Property	Fleet::Vehicle::odd	_odd	-> Fleet::Vehicle::odd
 «ConstraintProperty» Property	Fleet::Vehicle::rule	_rule	-> Fleet::Vehicle::rule
-«ValueProperty» Property	Fleet::Vehicle::serial	_serial	-> Fleet::Vehicle::serial	(«ValueProperty» from http://example.com/legacy/customization is applied from a profile the document does not define; the application is kept as a comment)
+«ValueProperty» Property	Fleet::Vehicle::serial	_serial	-> Fleet::Vehicle::serial	(«ValueProperty» from http://example.com/legacy/customization is applied from a profile the document does not define; the application is kept as metadata)
 «PartProperty» Property	Fleet::Vehicle::trailer	_trailer	-> Fleet::Vehicle::trailer
 «Block» Class	Fleet::Wheel	_wheel	-> Fleet::Wheel
 Model	Model	_m	(the root model's members are written at the top level)

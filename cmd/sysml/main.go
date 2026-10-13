@@ -131,6 +131,7 @@ var (
 	renderUnplaced   string
 	renderStyle      string
 	renderPorts      string
+	renderShow       string
 	renderOverlay    string
 	renderDoc        string
 	listWhat         string
@@ -444,6 +445,10 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -render-style is the drawing style of a DOT or Mermaid diagram; name what to render with -render, -render-all, -render-document or -render-documents")
 		return 2
 	}
+	if renderShow != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-show is the optional notation elements a diagram draws; name what to render with -render, -render-all, -render-document or -render-documents")
+		return 2
+	}
 
 	// The default stylesheet is asked for on its own; it needs no model, and
 	// writing it is the whole run, so it cannot stand in for another.
@@ -614,7 +619,7 @@ func runCLI() int {
 		case convertFormat != "" || migrateFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || graphsSubject != "" || len(evalExprs) > 0:
 			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query, -graphs or -eval\n", mode)
 			return 2
-		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderStyle != "" || renderPorts != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
+		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderStyle != "" || renderPorts != "" || renderShow != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
 			return 2
 		case modelChecks.requested():

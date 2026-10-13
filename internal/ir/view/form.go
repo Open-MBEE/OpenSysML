@@ -201,6 +201,9 @@ type Options struct {
 	// Width is the width the text form is written to fit; WidthUnbounded
 	// writes every column as wide as its widest cell.
 	Width int
+	// Show is the optional notation elements drawn besides those the rendering
+	// shows of itself (its Shown, the model's choice or DefaultShown); nil adds none.
+	Show Shown
 }
 
 // Write is the rendering in form, with the default options: no particular

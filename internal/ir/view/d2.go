@@ -37,10 +37,10 @@ func (r *Rendering) D2With(options Options) (string, error) {
 	if err := options.Ports.check(); err != nil {
 		return "", err
 	}
-	r = r.settleUnplaced(options.Unplaced, FormD2)
+	r = r.showing(options.Show).settleUnplaced(options.Unplaced, FormD2)
 	w := &d2Writer{
 		fills:   familyFills{palette: options.Palette, tree: r.Kind == KindTree},
-		labels:  labelsOf(r.Roots, false, nil),
+		labels:  labelsOf(r.Roots, false, nil, r.Shown),
 		ports:   r.portView(options.Ports),
 		nested:  r.Kind != KindTree,
 		glyphs:  r.Kind == KindState || r.Kind == KindAction,
@@ -500,7 +500,7 @@ func (w *d2Writer) writeEdge(indent string, edge Edge) {
 	switch edge.Kind {
 	case EdgeConnection:
 		arrow, class = "--", "connection"
-	case EdgeBinding:
+	case EdgeBinding, EdgeAssociation:
 		arrow = "--"
 	case EdgeFlow:
 		class = "flow"

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import org.eclipse.emf.ecore.EObject;
@@ -12,6 +13,7 @@ import org.eclipse.sirius.components.core.api.IIdentityService;
 import org.eclipse.sirius.components.emf.services.api.IEMFEditingContext;
 import org.eclipse.sirius.components.representations.MessageLevel;
 import org.eclipse.syson.sysml.Element;
+import org.eclipse.syson.sysml.LibraryPackage;
 import org.eclipse.syson.sysml.metamodel.util.ElementUtil;
 import org.eclipse.syson.sysml.metamodel.services.textual.utils.Status;
 import org.openmbee.opensysml.SourceDocument;
@@ -23,10 +25,17 @@ public class ProjectTextExporter implements ProjectExporter {
 
     private final ElementSerializer serializer;
     private final IIdentityService identityService;
+    private final BundledLibraries bundledLibraries;
 
     public ProjectTextExporter(ElementSerializer serializer, IIdentityService identityService) {
+        this(serializer, identityService, BundledLibraries.NONE);
+    }
+
+    public ProjectTextExporter(ElementSerializer serializer, IIdentityService identityService,
+            BundledLibraries bundledLibraries) {
         this.serializer = serializer;
         this.identityService = identityService;
+        this.bundledLibraries = bundledLibraries;
     }
 
     @Override
@@ -48,6 +57,32 @@ public class ProjectTextExporter implements ProjectExporter {
         return new ExportedProject(documents, new ElementIndex(entries, enclosing, byElementId), messages, ranges);
     }
 
+    // A project's copy of a library the service bundles would shadow the service's own, so an
+    // unextended copy is left out; a copy declaring anything, at any depth, that the service's
+    // library lacks is exported with a warning.
+    private boolean skipsBundledCopy(LibraryPackage library, List<ExportedProject.ExportMessage> messages) {
+        Set<String> bundled = bundledLibraries.declarations(library.getName()).orElse(null);
+        if (bundled == null) return false;
+        List<String> added = new ArrayList<>();
+        String prefix = library.getQualifiedName() + "::";
+        for (var iterator = library.eAllContents(); iterator.hasNext();) {
+            if (!(iterator.next() instanceof Element member)) continue;
+            String qualifiedName = member.getQualifiedName();
+            if (qualifiedName == null || !qualifiedName.startsWith(prefix)) continue;
+            String name = qualifiedName.substring(prefix.length()).replace("'", "");
+            if (!bundled.contains(name)) added.add(name);
+        }
+        if (added.isEmpty()) {
+            messages.add(new ExportedProject.ExportMessage(MessageLevel.INFO, "library package " + library.getName()
+                    + " is provided by the OpenSysML service; the project's copy was not exported"));
+            return true;
+        }
+        messages.add(new ExportedProject.ExportMessage(MessageLevel.WARNING, "library package " + library.getName()
+                + " shadows the one the OpenSysML service provides because the project's copy adds "
+                + String.join(", ", added) + "; documents and queries typed by the service's library will not be recognized"));
+        return false;
+    }
+
     // Names one resource: its URI's last segment as a .sysml name, suffixed when taken.
     private String documentName(Resource resource, List<SourceDocument> documents, int documentIndex) {
         String base = resource.getURI() == null ? "" : resource.getURI().lastSegment();
@@ -67,8 +102,13 @@ public class ProjectTextExporter implements ProjectExporter {
             Map<String, IndexedElement> entries, Map<Element, IndexedElement> enclosing,
             Map<String, IndexedElement> byElementId) {
         StringBuilder text = new StringBuilder();
+        boolean skippedLibrary = false;
         for (EObject root : resource.getContents()) {
             if (!(root instanceof Element element)) continue;
+            if (root instanceof LibraryPackage library && skipsBundledCopy(library, messages)) {
+                skippedLibrary = true;
+                continue;
+            }
             if (!text.isEmpty() && text.charAt(text.length() - 1) != '\n') text.append('\n');
             int start = text.isEmpty() ? 1 : lineCount(text);
             List<Status> statuses = new ArrayList<>();
@@ -85,6 +125,7 @@ public class ProjectTextExporter implements ProjectExporter {
                     status.message())));
             index(element, null, entries, enclosing, byElementId);
         }
+        if (skippedLibrary && text.isEmpty()) return;
         documents.add(SourceDocument.inline(name, text.toString()));
     }
 

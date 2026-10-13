@@ -229,9 +229,11 @@ func TestDependencyStereotypeTagsAreKept(t *testing.T) {
 		`<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/>
   <custom:Critical xmlns:custom="http://example.com/custom" xmi:id="_s3" base_Dependency="_d" level="high"/>
   <custom:Reviewed xmlns:custom="http://example.com/custom" xmi:id="_s4" base_Dependency="_d" by="QA"/>`)
-	wantLine(t, r.Notation, "dependency A to B;")
-	wantLine(t, r.Notation, "/* applied stereotype «Critical»: level = high */")
-	wantLine(t, r.Notation, "/* applied stereotype «Reviewed»: by = QA */")
+	wantLine(t, r.Notation, "dependency A to B {")
+	wantLine(t, r.Notation, `stereotype = "Critical";`)
+	wantLine(t, r.Notation, `tags = "level = high";`)
+	wantLine(t, r.Notation, `stereotype = "Reviewed";`)
+	wantLine(t, r.Notation, `tags = "by = QA";`)
 	es := entriesFor(r, "_d")
 	if len(es) != 1 || !strings.Contains(es[0].Note, "«Critical» «Reviewed»") {
 		t.Errorf("entries = %+v", es)
@@ -466,8 +468,8 @@ func TestConnectionEndYieldsItsNameToAMember(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_b"/>
   <sysml:Block xmi:id="_s3" base_Class="_ab"/>
   <sysml:ParticipantProperty xmi:id="_s4" base_Property="_pp" end="_toB"/>`)
-	wantLine(t, r.Notation, "end toB2 : B;")
-	wantLine(t, r.Notation, "end toA : A;")
+	wantLine(t, r.Notation, "end toB2 : B crosses toA.toB;")
+	wantLine(t, r.Notation, "end toA : A crosses toB2.toA;")
 	wantLine(t, r.Notation, "ref part toB : B")
 	es := entriesFor(r, "_ab")
 	if len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "end toB is written as toB2") {
@@ -1147,7 +1149,7 @@ func TestCollectionModifiersAreWritten(t *testing.T) {
 	wantLine(t, r.Notation, "part n : A[2];")
 	wantLine(t, r.Notation, "ref part b : A ordered :> n;")
 	wantLine(t, r.Notation, "ref part u : A;")
-	wantLine(t, r.Notation, "end 'first' : A[0..*] ordered;")
+	wantLine(t, r.Notation, "end [0..*] ordered ref 'first' : A;")
 	for _, id := range []string{"_o", "_u", "_e1"} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 			t.Errorf("%s entries = %+v", id, es)
@@ -1288,10 +1290,10 @@ func TestConstraintParametersStoredAsPortsAreInParameters(t *testing.T) {
 	wantLine(t, r.Notation, "constraint inner : Positive;")
 	wantLine(t, r.Notation, "in ref part timer : Timer[1];")
 	wantLine(t, r.Notation, "in attribute tolerance : ScalarValues::Real[1] {")
-	wantLine(t, r.Notation, "/* applied stereotype «ConstraintParameter» */")
+	wantLine(t, r.Notation, `stereotype = "ConstraintParameter";`)
 	wantLine(t, r.Notation, "bind elapsed = limit.t;")
 	wantNoLine(t, r.Notation, "port")
-	if n := strings.Count(string(r.Notation), "«ConstraintParameter»"); n != 1 {
+	if n := strings.Count(string(r.Notation), `stereotype = "ConstraintParameter";`); n != 1 {
 		t.Errorf("«ConstraintParameter» written %d times, want once, for the user profile's", n)
 	}
 	for _, id := range []string{"_p1", "_p2", "_p3", "_p6"} {
@@ -1333,11 +1335,12 @@ func TestPropertyKindMarkersAreNotWritten(t *testing.T) {
 		"in ref part wheel : Wheel[1];",
 		"in ref part hub : Wheel[1] {",
 		"in attribute k : ScalarValues::Real[1] {",
-		"/* applied stereotype «ReferenceProperty» */",
+		`stereotype = "ReferenceProperty";`,
 		"part odd : Wheel {",
-		"/* applied stereotype «ValueProperty» */",
+		`stereotype = "ValueProperty";`,
 		"part axle : Wheel {",
-		"/* applied stereotype «PartProperty»: ordering = rear */",
+		`stereotype = "PartProperty";`,
+		`tags = "ordering = rear";`,
 		"part cabin : Engine {",
 		"@'Vehicle Profile'::PartProperty;",
 		"attribute serial : ScalarValues::String {",
@@ -1346,7 +1349,7 @@ func TestPropertyKindMarkersAreNotWritten(t *testing.T) {
 	}
 	for _, name := range []string{"PartProperty", "ValueProperty", "SharedProperty", "ReferenceProperty", "ConstraintProperty"} {
 		want := map[string]int{"PartProperty": 1, "ValueProperty": 3, "ReferenceProperty": 1}[name]
-		if n := strings.Count(string(r.Notation), "«"+name+"»"); n != want {
+		if n := strings.Count(string(r.Notation), `stereotype = "`+name+`";`); n != want {
 			t.Errorf("«%s» written %d times, want %d", name, n, want)
 		}
 	}
@@ -1402,8 +1405,10 @@ func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 	wantLine(t, r.Notation, "allocation def alloc {")
 	wantLine(t, r.Notation, "end :>> source : Thing;")
 	wantLine(t, r.Notation, "end :>> target : Piece;")
-	wantLine(t, r.Notation, "dependency trace from Thing to Req; /* «Trace» */")
-	wantLine(t, r.Notation, "dependency copy from Req2 to Req; /* «Copy» */")
+	wantLine(t, r.Notation, "dependency trace from Thing to Req {")
+	wantLine(t, r.Notation, "dependency copy from Req2 to Req {")
+	wantLine(t, r.Notation, `stereotype = "Trace";`)
+	wantLine(t, r.Notation, `stereotype = "Copy";`)
 	for id, want := range map[string]struct {
 		verdict migrate.Verdict
 		target  string
@@ -1473,7 +1478,8 @@ func TestOpaqueExpressionsNeedWrittenAccessibleNames(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_cb"/>`)
 	wantLine(t, r.Notation, "attribute secret : ScalarValues::Real;")
 	wantLine(t, r.Notation, "private attribute hidden : ScalarValues::Real;")
-	wantLine(t, r.Notation, "constraint kept { secret + 1 > 0 }")
+	wantBlock(t, r.Notation, "constraint def Kept {", "in ref context : Bound[1];", "context.secret + 1 > 0", "}",
+		"assert constraint kept : Kept { in ref :>> context = this; }")
 	wantNoLine(t, r.Notation, "constraint ran")
 	wantNote(t, r, "_r1", migrate.Unmapped, "opaque expression names run, which is the action def Bound::run, not a value an expression can read")
 	wantNote(t, r, "_secret", migrate.Approximated, "private visibility is not written: an expression in Bound names it")
@@ -1522,9 +1528,12 @@ func TestOpaqueExpressionsResolveEveryStep(t *testing.T) {
   <sysml:Block xmi:id="_s1" base_Class="_motor"/>
   <sysml:Block xmi:id="_s2" base_Class="_engine"/>
   <sysml:Block xmi:id="_s3" base_Class="_car"/>`)
-	wantLine(t, r.Notation, "constraint hot { engine.temp > 90.0 and engine.rpm > 0.0 }")
-	wantLine(t, r.Notation, "constraint worn { engine.wear < 1.0 }")
-	wantLine(t, r.Notation, "constraint tracking { mode == Mode::TRACK }")
+	wantBlock(t, r.Notation, "constraint def Hot {", "in ref context : Car[1];", "context.engine.temp > 90.0 and context.engine.rpm > 0.0", "}",
+		"assert constraint hot : Hot { in ref :>> context = this; }")
+	wantBlock(t, r.Notation, "constraint def Worn {", "in ref context : Car[1];", "context.engine.wear < 1.0", "}",
+		"assert constraint worn : Worn { in ref :>> context = this; }")
+	wantBlock(t, r.Notation, "constraint def Tracking {", "in ref context : Car[1];", "context.mode == Mode::TRACK", "}",
+		"assert constraint tracking : Tracking { in ref :>> context = this; }")
 	wantLine(t, r.Notation, "attribute wear : ScalarValues::Real;")
 	wantNoLine(t, r.Notation, "constraint broken")
 	wantNoLine(t, r.Notation, "constraint parked")
@@ -1565,8 +1574,10 @@ func TestOpaqueExpressionsMayNameImportedMembers(t *testing.T) {
   <sysml:ValueType xmi:id="_s1" base_DataType="_gear"/>
   <sysml:Block xmi:id="_s2" base_Class="_car"/>`)
 	wantLine(t, r.Notation, "public import Modes::*;")
-	wantLine(t, r.Notation, "constraint tracking { mode == Mode::TRACK }")
-	wantLine(t, r.Notation, "constraint crawling { gear == Gear::LOW }")
+	wantBlock(t, r.Notation, "constraint def Tracking {", "in ref context : Car[1];", "context.mode == Mode::TRACK", "}",
+		"assert constraint tracking : Tracking { in ref :>> context = this; }")
+	wantBlock(t, r.Notation, "constraint def Crawling {", "in ref context : Car[1];", "context.gear == Gear::LOW", "}",
+		"assert constraint crawling : Crawling { in ref :>> context = this; }")
 	wantLine(t, r.Notation, "enum def Gear {")
 	wantNote(t, r, "_gear", migrate.Approximated, "private visibility is not written: v2 lets nothing outside the package reach a private member")
 	wantClean(t, "imports.sysml", r)
@@ -1831,5 +1842,28 @@ func TestTreeDiagramShowingAnAssociationExposesNoUsages(t *testing.T) {
 		if strings.Contains(body, unwanted) {
 			t.Errorf("view Blocks exposes the usage %q:\n%s", unwanted, body)
 		}
+	}
+}
+
+func TestStrictAppliedStereotypeKeepsTagLines(t *testing.T) {
+	r := migrateDocumentOptions(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B"/>
+    <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_a" supplier="_b"/>`,
+		`<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/>
+  <custom:Critical xmlns:custom="http://example.com/custom" xmi:id="_s3" base_Dependency="_d" level="first line&#10;second&#9;line&#13;third&#13;&#10;fourth"/>`,
+		migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "// applied stereotype «Critical»: level = first line")
+	wantLine(t, r.Notation, "// second\tline")
+	wantLine(t, r.Notation, "// third")
+	wantLine(t, r.Notation, "// fourth")
+	if strings.Contains(string(r.Notation), "\r") {
+		t.Errorf("strict output keeps a carriage return:\n%q", r.Notation)
+	}
+	if strings.Contains(string(r.Notation), "MigrationMetadata") {
+		t.Errorf("strict output references MigrationMetadata:\n%s", r.Notation)
+	}
+	for _, d := range errors(t, "strict_tags.sysml", r.Notation) {
+		t.Errorf("%v", d)
 	}
 }

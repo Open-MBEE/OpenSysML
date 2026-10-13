@@ -60,9 +60,9 @@ func TestStubActionsInMethodsKeepTheirPinsAndAllocation(t *testing.T) {
 		"in mode[1];",
 		"out frames : ScalarValues::Integer[0..*];",
 		"allocation def 'sweep to glass' {",
-		"end :>> source : Cam::Scan;",
+		"end :>> source : Cam;",
 		"end :>> target : Cam;",
-		"allocate source.sweep to target.glass;",
+		"allocate source.scan.sweep to target.glass;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -381,7 +381,7 @@ func TestUnfedTargetPinDoesNotPickAPart(t *testing.T) {
 	r := migrateDocument(t, unfedTargetCall, unfedTargetCallApplications)
 	wantLine(t, r.Notation, "action spin;")
 	wantNoLine(t, r.Notation, "::> motor.spin")
-	wantNote(t, r, "_call", migrate.Approximated, "the call runs in the caller's context: no flow feeds its target pin; spin is an action of Motor, performed on an object of it, and the target pin names none read from this, so an empty step stands for the call")
+	wantNote(t, r, "_call", migrate.Approximated, "no object receives the call: no flow feeds its target pin; spin is an action of Motor, performed on an object of it, and the target pin names none read from this, so an empty step stands for the call")
 	wantNote(t, r, "_callTgt", migrate.Approximated, "the target pin is not written: it names no object read from this")
 	wantClean(t, "t.sysml", r)
 }
@@ -421,14 +421,13 @@ const externalMethodCall = `
       </ownedBehavior>
     </packagedElement>`
 
-// A caller of an operation's method is a caller of the operation: one that
-// reaches no object of the block keeps the operation a definition the call
-// names, rather than a usage the call could only stand for by an empty step.
-func TestMethodCallersKeepTheOperationADefinition(t *testing.T) {
+// A caller of an operation's method is a caller of the operation, which stays
+// the block's usage: one that reaches no object of the block is an empty step.
+func TestMethodCallersOutsideTheBlockLeaveAnEmptyStep(t *testing.T) {
 	r := migrateDocument(t, externalMethodCall, `<sysml:Block xmi:id="_b1" base_Class="_motor"/><sysml:Block xmi:id="_b2" base_Class="_rig"/>`)
-	wantLine(t, r.Notation, "action def Spin {")
-	wantLine(t, r.Notation, "action spin : Spin;")
-	wantNote(t, r, "_callSpinning", migrate.Approximated, "which is left unbound: the caller is a Rig, which is no Motor and has no part that is one")
+	wantLine(t, r.Notation, "action spin {")
+	wantNoLine(t, r.Notation, "action def Spin")
+	wantNote(t, r, "_callSpinning", migrate.Approximated, "the caller is a Rig, which is no Motor and has no part that is one, so an empty step stands for the call")
 	wantClean(t, "t.sysml", r)
 }
 

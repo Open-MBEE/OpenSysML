@@ -115,6 +115,17 @@ impl Model {
         self.connection
             .render_view_with_ports(self.hash(), view_name, ports)
     }
+    /// Render a named view showing the named optional notation elements besides
+    /// those its rendering shows.
+    pub fn render_view_showing(
+        &self,
+        view_name: &str,
+        ports: crate::document::RenderViewPorts,
+        show: &[&str],
+    ) -> Result<crate::document::RenderedView, Error> {
+        self.connection
+            .render_view_showing(self.hash(), view_name, ports, show)
+    }
 
     /// Export the lowered graph of an action or state machine as `graphs:1` JSON.
     pub fn export_graphs(&self, subject: &str) -> Result<crate::Graphs, Error> {

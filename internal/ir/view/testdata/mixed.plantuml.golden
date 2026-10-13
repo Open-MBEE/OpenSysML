@@ -40,49 +40,49 @@ note {
 </style>
 skinparam wrapWidth 300
 hide stereotype
-package "<size:10>//«package»//</size>\n**MixedExamples**" as n0 <<package>> {
-  rectangle "<size:10>//«port def»//</size>\n**FluidPort**" as n19 <<port def>>
-  rectangle "<size:10>//«part def»//</size>\n**BaseUnit**" as n20 <<part def>>
-  rectangle "<size:10>//«part def»//</size>\n**Pump**" as n21 <<part def>> {
-    rectangle "<size:10>//«port»//</size>\n**outlet : FluidPort**" as n22 <<port>> <<usage>>
+package "**MixedExamples**" as n0 <<package>> {
+  rectangle "**FluidPort**" as n19 <<port def>>
+  rectangle "**BaseUnit**" as n20 <<part def>>
+  rectangle "**Pump**" as n21 <<part def>> {
+    rectangle "**outlet**" as n22 <<port>> <<usage>>
   }
-  rectangle "<size:10>//«part def»//</size>\n**Tank**" as n23 <<part def>> {
-    rectangle "<size:10>//«port»//</size>\n**inlet : FluidPort**" as n24 <<port>> <<usage>>
+  rectangle "**Tank**" as n23 <<part def>> {
+    rectangle "**inlet**" as n24 <<port>> <<usage>>
   }
-  rectangle "<size:10>//«part def»//</size>\n**Plant**" as n25 <<part def>> {
-    rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n26 <<part>> <<usage>> {
+  rectangle "**Plant**" as n25 <<part def>> {
+    rectangle "**pump**" as n26 <<part>> <<usage>> {
       port "outlet" as n26.0
     }
-    rectangle "<size:10>//«part»//</size>\n**tank : Tank**" as n27 <<part>> <<usage>> {
+    rectangle "**tank**" as n27 <<part>> <<usage>> {
       port "inlet" as n27.0
     }
   }
-  rectangle "<size:10>//«connection def»//</size>\n**Connection**" as n28 <<connection def>> {
-    rectangle "<size:10>//«part»//</size>\n**a**" as n29 <<part>> <<usage>>
-    rectangle "<size:10>//«part»//</size>\n**b**" as n30 <<part>> <<usage>>
+  rectangle "**Connection**" as n28 <<connection def>> {
+    rectangle "**a**" as n29 <<part>> <<usage>>
+    rectangle "**b**" as n30 <<part>> <<usage>>
   }
-  rectangle "<size:10>//«state def»//</size>\n**Ready**\ndeclares no states" as n1 <<state def>>
-  rectangle "<size:10>//«state def»//</size>\n**Modes**" as n2 <<state def>> {
+  rectangle "**Ready**\ndeclares no states" as n1 <<state def>>
+  rectangle "**Modes**" as n2 <<state def>> {
     circle "**start**" as n4 <<start>> <<usage>>
-    rectangle "<size:10>//«state»//</size>\n**ready : Ready**\ninitial" as n3 <<state>> <<usage>>
+    rectangle "**ready**\ninitial" as n3 <<state>> <<usage>>
   }
-  rectangle "<size:10>//«action def»//</size>\n**Operate**" as n5 <<action def>> {
+  rectangle "**Operate**" as n5 <<action def>> {
     circle "**initial**" as n6 <<start>>
-    rectangle "<size:10>//«action»//</size>\n**'step'**" as n7 <<action>> <<usage>>
+    rectangle "**'step'**" as n7 <<action>> <<usage>>
     circle "**final**" as n8 <<end>>
   }
-  usecase "<size:10>//«use case def»//</size>\n**Inspection**" as n9 <<use case def>>
-  actor "<size:10>//«actor»//</size>\n**operator : Person**" as n10 <<actor>> <<usage>>
-  rectangle "<size:10>//«subject»//</size>\n**plant : Plant**" as n11 <<subject>> <<usage>>
+  usecase "**Inspection**" as n9 <<use case def>>
+  actor "**operator**" as n10 <<actor>> <<usage>>
+  rectangle "**plant**" as n11 <<subject>> <<usage>>
   note "**objective**\nInspect the plant and report its operating state." as n12
-  rectangle "<size:10>//«perform action»//</size>\n**run : Operate**\ndeclares no nodes" as n13 <<perform action>> <<usage>>
-  rectangle "<size:10>//«exhibit state»//</size>\n**mode : Modes**" as n14 <<exhibit state>> <<usage>> {
+  rectangle "**run**\ndeclares no nodes" as n13 <<perform action>> <<usage>>
+  rectangle "**mode**" as n14 <<exhibit state>> <<usage>> {
     circle "**start**" as n16 <<start>> <<usage>>
-    rectangle "<size:10>//«state»//</size>\n**ready : Ready**\ninitial" as n15 <<state>> <<usage>>
+    rectangle "**ready**\ninitial" as n15 <<state>> <<usage>>
   }
-  rectangle "<size:10>//«part def»//</size>\n**Person**" as n31 <<part def>>
-  rectangle "<size:10>//«view»//</size>\n**mixedDiagram**" as n17 <<view>> <<usage>>
-  rectangle "<size:10>//«view»//</size>\n**mixedLayout**" as n18 <<view>> <<usage>>
+  rectangle "**Person**" as n31 <<part def>>
+  rectangle "**mixedDiagram**" as n17 <<view>> <<usage>>
+  rectangle "**mixedLayout**" as n18 <<view>> <<usage>>
 }
 n4 --> n3
 n6 --> n7
@@ -91,7 +91,7 @@ n10 -- n9
 n9 -- n11 : <U+00AB>subject<U+00BB>
 n9 .. n12
 n16 --> n15
-n26.0 -[thickness=3]- n27.0 : supply
+n26.0 -[thickness=3]- n27.0
 n3 ..> n1
 n10 ..> n31
 n11 ..> n25

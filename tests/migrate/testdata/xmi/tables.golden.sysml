@@ -8,7 +8,10 @@ package 'Plant Profile' {
         high;
         low;
     }
-    /* applied stereotype «auxiliaryResource» */
+    @MigrationMetadata::AppliedStereotype {
+        stereotype = "auxiliaryResource";
+        profile = "http://www.omg.org/spec/UML/20131001/MagicDrawProfile";
+    }
 }
 package Plant {
     package Structure {
@@ -17,8 +20,7 @@ package Plant {
             attribute mass : ScalarValues::Real;
             attribute 'flow' : ScalarValues::Real;
             attribute name : ScalarValues::String;
-            abstract action def prime;
-            action 'prime 2' : prime;
+            abstract action prime;
             satisfy Plant::Requirements::FlowRequirement;
             @'Plant Profile'::Critical {
                 level = 2;
@@ -67,21 +69,21 @@ package Plant {
         }
     }
     package Inventory {
-        individual part def p1 :> Plant::Structure::Pump {
+        part p1 : Plant::Structure::Pump {
             attribute :>> mass = 12.5;
             attribute :>> 'flow' = 3.0;
             attribute :>> name = "primary";
         }
-        individual part def p2 :> Plant::Structure::Pump {
+        part p2 : Plant::Structure::Pump {
             attribute :>> mass = 9.0;
         }
-        individual part def r1 :> Plant::Structure::ReservePump {
+        part r1 : Plant::Structure::ReservePump {
             attribute :>> mass = 14.0;
         }
-        individual part def st1 :> Plant::Structure::Station {
-            individual part :>> pumps : p1[1];
+        part st1 : Plant::Structure::Station {
+            part :>> pumps = p1;
         }
-        individual part def v1 :> Plant::Structure::Valve {
+        part v1 : Plant::Structure::Valve {
             attribute :>> mass = 2.0;
         }
         view 'Pump Table' {
@@ -96,7 +98,7 @@ package Plant {
                 source = DocumentQueries::Tree(
                     source = DocumentQueries::OrderBy(
                         source = DocumentQueries::Except(
-                            source = DocumentQueries::WhereFeature(
+                            source = DocumentQueries::Except(
                                 source = DocumentQueries::WhereType(
                                     source = DocumentQueries::WhereType(
                                         source = DocumentQueries::Union(
@@ -104,10 +106,24 @@ package Plant {
                                             other = DocumentQueries::Descendants(
                                                 source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")))),
                                         type = ("Plant::Structure::Pump")),
-                                    type = ("Definition")),
-                                'feature' = "isIndividual",
-                                operator = "=",
-                                value = "true"),
+                                    type = ("Usage")),
+                                exclude = DocumentQueries::Descendants(
+                                    source = DocumentQueries::WhereType(
+                                        source = DocumentQueries::Union(
+                                            source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")),
+                                            other = DocumentQueries::Descendants(
+                                                source = DocumentQueries::Union(
+                                                    source = DocumentQueries::WhereType(
+                                                        source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")),
+                                                        type = ("Package")),
+                                                    other = DocumentQueries::WhereType(
+                                                        source = DocumentQueries::Union(
+                                                            source = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2")),
+                                                            other = DocumentQueries::Descendants(
+                                                                source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")))),
+                                                        type = ("Package"))),
+                                                maxDepth = 1)),
+                                        type = ("Type")))),
                             exclude = DocumentQueries::Named(qualifiedName = ("Plant::Inventory::p2"))),
                         property = "mass",
                         direction = "descending",
@@ -136,16 +152,28 @@ package Plant {
         calc def 'Pump Ledger Rows' :> DocumentQueries::Query {
             DocumentQueries::Project(
                 source = DocumentQueries::OrderBy(
-                    source = DocumentQueries::WhereFeature(
+                    source = DocumentQueries::Except(
                         source = DocumentQueries::WhereType(
                             source = DocumentQueries::WhereType(
                                 source = DocumentQueries::Descendants(
                                     source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
                                 type = ("Plant::Structure::Pump")),
-                            type = ("Definition")),
-                        'feature' = "isIndividual",
-                        operator = "=",
-                        value = "true"),
+                            type = ("Usage")),
+                        exclude = DocumentQueries::Descendants(
+                            source = DocumentQueries::WhereType(
+                                source = DocumentQueries::Union(
+                                    source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")),
+                                    other = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Union(
+                                            source = DocumentQueries::WhereType(
+                                                source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")),
+                                                type = ("Package")),
+                                            other = DocumentQueries::WhereType(
+                                                source = DocumentQueries::Descendants(
+                                                    source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
+                                                type = ("Package"))),
+                                        maxDepth = 1)),
+                                type = ("Type")))),
                     property = "name",
                     direction = "ascending",
                     missing = "last",
@@ -165,10 +193,10 @@ package Plant {
         }
     }
     package Spares {
-        individual part def s1 :> Plant::Structure::Pump {
+        part s1 : Plant::Structure::Pump {
             attribute :>> mass = 7.0;
         }
-        individual part def s2 :> Plant::Structure::Pump;
+        part s2 : Plant::Structure::Pump;
     }
     package Requirements {
         requirement <'R-1'> FlowRequirement {

@@ -37,7 +37,7 @@ func TestUseCaseForms(t *testing.T) {
 		{"an incidental stereotype does not change the form",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy"/>`,
 			`<Custom:HyperlinkOwner xmi:id="_st" base_Element="_uc"/>`,
-			[]string{"use case Buy {\n    /* applied stereotype «HyperlinkOwner» */\n}"}, "_uc", Mapped},
+			[]string{"use case Buy {\n    @MigrationMetadata::AppliedStereotype {\n        stereotype = \"HyperlinkOwner\";\n        profile = \"http://www.example.org/profiles/Custom\";\n    }\n}"}, "_uc", Mapped},
 		{"a second subject is a reference usage",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy" subject="_shop _user"/>`, "",
 			[]string{"subject shop : Shop;\n    ref part user :> User;"}, "_uc", Approximated},

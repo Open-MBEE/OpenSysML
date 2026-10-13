@@ -1,14 +1,14 @@
 GeneralViews::packageView - package rendering (view def GeneralView, filter @Package)
 
 package VehicleStructure
-package VehicleStructure::Powertrain
+package Powertrain
 package VehicleRequirements
 package VehicleVerification
 package GeneralViews
 
 relationships:
-  VehicleStructure +-- VehicleStructure::Powertrain
+  VehicleStructure +-- Powertrain
   VehicleRequirements ..> VehicleStructure: private import ::*
   VehicleVerification ..> VehicleStructure: private import ::*
-  VehicleVerification ..> VehicleStructure::Powertrain: private import ::*
+  VehicleVerification ..> Powertrain: private import ::*
   VehicleVerification ..> VehicleRequirements: private import ::*

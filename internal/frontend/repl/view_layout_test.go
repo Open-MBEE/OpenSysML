@@ -60,7 +60,7 @@ func TestRenderKeepsTheLayoutVisible(t *testing.T) {
 			t.Fatalf("the laid-out model drew %v", res.Diagnostics)
 		}
 	}
-	wants(t, run(t, s, "%render Plant::wiring"),
+	wants(t, run(t, s, "%render Plant::wiring text show=typings,qualifiers"),
 		"part Plant::Loop::pump : Pump at (10, 20) size 100×50",
 		"part Plant::Loop::tank : Tank at (300, 20)")
 	wants(t, run(t, s, "%render Plant::wiring mermaid"),

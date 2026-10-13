@@ -23,12 +23,8 @@ config:
 ---
 %% FilteredViews::safetyView — tree rendering
 flowchart TD
-  n0["`*«part def»*
-**Radio**`"]
-  n1["`*«part def»*
-**Airbag**`"]
-  n2["`*«part def»*
-**Braking::Brake**`"]
-    n3("`*«part»*
-**pad**`")
+  n0["`**Radio**`"]
+  n1["`**Airbag**`"]
+  n2["`**Brake**`"]
+    n3("`**pad**`")
   n2 --- n3

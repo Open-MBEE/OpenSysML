@@ -2913,6 +2913,12 @@ pub struct RenderViewRequest {
     /// "" or "minimal" (the default), or "full", as view.ParsePorts reads it.
     #[prost(string, tag="3")]
     pub ports: ::prost::alloc::string::String,
+    /// Optional notation elements to draw besides those the view's rendering
+    /// shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+    /// "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+    /// "qualifiers", or "all".
+    #[prost(string, repeated, tag="4")]
+    pub show: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// RenderViewResponse carries all machine-readable fields of the rendering.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2939,6 +2945,9 @@ pub struct RenderViewResponse {
     pub notes: ::prost::alloc::vec::Vec<RenderNote>,
     #[prost(string, repeated, tag="10")]
     pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The optional notation elements drawn, in registry order.
+    #[prost(string, repeated, tag="11")]
+    pub shown: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// RenderNode is one flattened node of the rendering.
 #[derive(Clone, PartialEq, ::prost::Message)]

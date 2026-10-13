@@ -153,7 +153,7 @@ func TestEmptySequenceRenderingSaysWhy(t *testing.T) {
 // The Mermaid form is a sequence diagram declaring every participant before the
 // first message, which is what the grammar asks for.
 func TestSequenceMermaidDeclaresParticipantsFirst(t *testing.T) {
-	mermaid := render(t, "sequence.sysml", "SequenceViews::pubSubView").Mermaid()
+	mermaid := render(t, "sequence.sysml", "SequenceViews::pubSubView").MermaidWith(fullNotation)
 	if strings.HasPrefix(mermaid, "---\n") {
 		end := strings.Index(mermaid[4:], "\n---\n")
 		if end < 0 {

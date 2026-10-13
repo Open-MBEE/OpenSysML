@@ -82,18 +82,18 @@ config:
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["`*«part»* **imagingChain**`"]
+  subgraph n0 ["`**imagingChain**`"]
     direction LR
-    subgraph n1 ["`*«part»* **camera : Camera**`"]
+    subgraph n1 ["`**camera**`"]
       direction LR
       n1.0["output"]
     end
-    subgraph n2 ["`*«part»* **recorder : Recorder**`"]
+    subgraph n2 ["`**recorder**`"]
       direction LR
       n2.0["input"]
     end
   end
-  n1.0 ===|"link"| n2.0
+  n1.0 === n2.0
   linkStyle 0 stroke-width:3px
 ```
 
@@ -125,33 +125,23 @@ config:
 ---
 %% tree rendering (the diagram states kind "tree")
 flowchart LR
-  n0("`*«part»*
-**telescope**`")
-    n1("`*«part»*
-**optics : Subsystem**`")
-      n2("`*«attribute»*
-**mass**`")
+  n0("`**telescope**`")
+    n1("`**optics**`")
+      n2("`**mass**`")
   n1 --- n2
-      n3("`*«attribute»*
-**zone**`")
+      n3("`**zone**`")
   n1 --- n3
   n0 --- n1
-    n4("`*«part»*
-**segmentControl : Subsystem**`")
-      n5("`*«attribute»*
-**mass**`")
+    n4("`**segmentControl**`")
+      n5("`**mass**`")
   n4 --- n5
-      n6("`*«attribute»*
-**zone**`")
+      n6("`**zone**`")
   n4 --- n6
   n0 --- n4
-    n7("`*«part»*
-**mount : Subsystem**`")
-      n8("`*«attribute»*
-**mass**`")
+    n7("`**mount**`")
+      n8("`**mass**`")
   n7 --- n8
-      n9("`*«attribute»*
-**zone**`")
+      n9("`**zone**`")
   n7 --- n9
   n0 --- n7
 ```

@@ -151,7 +151,7 @@ func (r *Rendering) undrawnPins(drawn func(node *Node, port Port) bool) []string
 	walk = func(node *Node) {
 		for _, port := range node.Ports {
 			if !drawn(node, port) {
-				names = append(names, nodeLabel(node)+"."+port.Name)
+				names = append(names, nodeLabel(node, node.Name)+"."+port.Name)
 			}
 		}
 		for _, child := range node.Children {

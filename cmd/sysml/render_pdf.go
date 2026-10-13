@@ -56,6 +56,7 @@ func pdfOptions() (docpdf.Options, error) {
 		return docpdf.Options{}, err
 	}
 	return docpdf.Options{
+		Show:                shownOrNone(),
 		TitlePage:           pdfTitlePage,
 		TOC:                 pdfTOC,
 		NumberSections:      pdfNumbering,

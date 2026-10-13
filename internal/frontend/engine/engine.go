@@ -320,6 +320,10 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 	if !ok {
 		return nil, statusError(codeInvalidArgument, (&view.UnknownPortsError{Name: req.Ports}).Error())
 	}
+	shown, err := view.ShownOf(req.Show)
+	if err != nil {
+		return nil, statusError(codeInvalidArgument, err.Error())
+	}
 
 	renderer := view.NewRenderer(cached.typedModel(), cached.resolver, cached.sourceText())
 	rendering, err := view.RenderNamed(renderer, req.View, func(name string) []*symbols.Symbol {
@@ -332,7 +336,7 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 		}
 		return nil, statusError(codeInvalidArgument, err.Error())
 	}
-	return marshalRenderView(rendering.DataFor(ports))
+	return marshalRenderView(rendering.DataWith(view.Options{Ports: ports, Show: shown}))
 }
 
 func marshalRenderView(data view.Data) ([]byte, error) {
@@ -341,6 +345,7 @@ func marshalRenderView(data view.Data) ([]byte, error) {
 		Kind:    string(data.Kind),
 		Stated:  data.Stated,
 		Notices: data.Notices,
+		Shown:   data.Shown,
 		Nodes:   make([]JRenderNode, 0, len(data.Nodes)),
 		Edges:   make([]JRenderEdge, 0, len(data.Edges)),
 	}

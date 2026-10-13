@@ -12,13 +12,12 @@ package Sets {
         }
     }
     part def Tool {
-        abstract action def Run {
+        abstract action run {
             in x : ScalarValues::Real[1];
             ref args {
                 ref [1] = x;
             }
         }
-        action run : Run;
         action def Spin {
             in v : ScalarValues::Real[1];
             ref {

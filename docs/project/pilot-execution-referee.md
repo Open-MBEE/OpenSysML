@@ -769,7 +769,7 @@ is declared `Rational` or `Real` where the model computes such a value (the REPL
 fixtures, the compiled-calculation and choice-point fixtures; the disposal-robot demo computes
 no such value and runs unchanged), converts with
 `ToInteger` where it means the integer (`value_conformance_test.go`, the checker's own tests), or
-pins the typed error where the write is the point of the fixture (`runtime/robustness_test.go`, the
+pins the typed error where the write is the point of the fixture (`runtime/robustness_quantities_test.go`, the
 coordinate-frame failure modes, `calc_cast_scalar_values`). Each movement is cited in the
 feature-write conformance row of [spec-compliance.md](spec-compliance.md).
 

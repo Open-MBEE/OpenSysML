@@ -23,9 +23,7 @@ config:
 ---
 %% RobustViews::importCycle — package rendering (view def GeneralView, filter @Package)
 flowchart TD
-  n0["`*«package»*
-**Loops**`"]
-  n1["`*«package»*
-**Cycles**`"]
+  n0["`**Loops**`"]
+  n1["`**Cycles**`"]
   n0 -.->|"private import ::*"| n1
   n1 -.->|"private import ::*"| n0

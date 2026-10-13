@@ -126,7 +126,7 @@ Diagram	Needs::Yard Requirements	_diag_reqs	-> Needs::'Yard Requirements'	(a Req
 Package	Sketches	_pkg_sketches	-> Sketches
 Package	Structure	_pkg_structure	-> Structure
 «Block» Class	Structure::Brake	_blk_brake	-> Structure::Brake
-«Block» Class	Structure::Cable	_blk_cable	-> Structure::Cable	(«TODO_Owner» from http://www.omg.org/spec/UML/20131001/MagicDrawProfile is applied from a profile the document does not define; the application is kept as a comment)
+«Block» Class	Structure::Cable	_blk_cable	-> Structure::Cable	(«TODO_Owner» from http://www.omg.org/spec/UML/20131001/MagicDrawProfile is applied from a profile the document does not define; the application is kept as metadata)
 «Block» Class	Structure::Crane	_blk_crane	-> Structure::Crane
 Comment	Structure::Crane::<Comment>	_cmt_crane
 Connector	Structure::Crane::<Connector>	_conn_hoist

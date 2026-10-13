@@ -117,12 +117,13 @@ func (m *migration) interfaceRealization(ir *sysmlv1.Element) {
 	case realizePort:
 		name := m.freshName(ir.Parent, lowerFirst(m.nameOf(contract)))
 		m.names[ir] = name
-		m.w.line("port " + writeName(name) + " : " + m.ref(contract, m.scope) + ";")
+		m.w.trailed("port "+writeName(name)+" : "+m.ref(contract, m.scope), ";", func() { m.stereotypeAnnotations(ir) })
 		m.add(ir, Approximated, m.v2Name(ir), note)
+		return
 	case realizeCarried:
 		m.add(ir, Approximated, m.v2Name(contract), note)
 	}
-	m.stereotypeComments(ir)
+	m.stereotypeNotes(ir)
 }
 
 // keywordOf is the v2 declaration keyword e is written with.

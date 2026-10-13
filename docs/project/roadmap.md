@@ -1347,7 +1347,7 @@ The outcome is `Outcome.Terminated` with an empty `FinalState`, the executor's s
 performance that ended, a value that is no occurrence, or an occurrence `destroy` emptied is a
 typed error (`ErrPerformanceEnded`, `ErrTerminateOccurrence`, `ErrTerminateTarget`,
 `robustness_terminate_test.go`); a calculation still refuses it as `ErrCalcSideEffect`
-(`robustness_test.go:calc_terminate_is_rejected`). The PSSM referee translates the suite's
+(`robustness_calc_invocation_test.go:calc_terminate_is_rejected`). The PSSM referee translates the suite's
 terminate pseudostate to the same spelling, which retired its `terminate-gap` bucket
 (`docs/project/pssm-referee.md`).
 
@@ -1628,7 +1628,7 @@ point at `choice <name>`, enumerated by `explore`; none enabled is the typed
 reaches it. Pinned by `state_choice_after_incoming_effect` (`assign x := 1 then pick; … if x == 1
 then seen` reaches `seen`), `state_choice_dynamic_conflict`, the three
 `state_pseudostate_chain_*` fixtures, `TestExploreDynamicChoiceBranches` and
-`robustness_test.go:state_choice_without_an_enabled_branch`; every other `state_choice_*` fixture
+`robustness_state_transitions_test.go:state_choice_without_an_enabled_branch`; every other `state_choice_*` fixture
 kept its outcome.
 
 ## Exception handlers (closed)

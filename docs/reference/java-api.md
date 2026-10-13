@@ -368,7 +368,11 @@ html.html();                 // the same document as HTML
 ordered nodes, edges, ports, source spans, table data and notes. Optional
 geometry, style and canvas remain `Optional` when the view does not state them.
 Use `RenderViewPorts.FULL` to include every declared port; the default is
-`MINIMAL`. This call requires the `render_view` capability.
+`MINIMAL`, and `renderView(name, ports, List.of("edge-labels", "typings"))` to draw
+those [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
+besides the ones the view's rendering shows (`"all"` for every one); the
+`RenderedView`'s `shown()` lists the elements drawn. This call requires the
+`render_view` capability.
 
 `DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an object the service
 holds, by id or by path, with the `ElementRef` it is held under), `DocumentVerdict`,

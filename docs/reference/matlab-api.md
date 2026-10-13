@@ -227,7 +227,10 @@ returns a `DocumentQueryResult` with `columns` and `rows`; both are cell collect
 `model.renderView(viewName, 'ports', 'minimal')` returns a typed
 `opensysml.RenderedView` with ordered nodes, edges, ports, rows, notes and
 origins; geometry, style and canvas are empty when absent. Use `'full'` to
-include every declared port. The call requires `render_view`.
+include every declared port, and `'show', {'edge-labels', 'typings'}` to draw
+those [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
+besides the ones the view's rendering shows (`'all'` for every one); `shown`
+lists the elements drawn. The call requires `render_view`.
 
 ## Edit builder
 

@@ -61,4 +61,57 @@ public interface RenderViewRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getPortsBytes();
+
+  /**
+   * <pre>
+   * Optional notation elements to draw besides those the view's rendering
+   * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+   * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+   * "qualifiers", or "all".
+   * </pre>
+   *
+   * <code>repeated string show = 4 [json_name = "show"];</code>
+   * @return A list containing the show.
+   */
+  java.util.List<java.lang.String>
+      getShowList();
+  /**
+   * <pre>
+   * Optional notation elements to draw besides those the view's rendering
+   * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+   * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+   * "qualifiers", or "all".
+   * </pre>
+   *
+   * <code>repeated string show = 4 [json_name = "show"];</code>
+   * @return The count of show.
+   */
+  int getShowCount();
+  /**
+   * <pre>
+   * Optional notation elements to draw besides those the view's rendering
+   * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+   * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+   * "qualifiers", or "all".
+   * </pre>
+   *
+   * <code>repeated string show = 4 [json_name = "show"];</code>
+   * @param index The index of the element to return.
+   * @return The show at the given index.
+   */
+  java.lang.String getShow(int index);
+  /**
+   * <pre>
+   * Optional notation elements to draw besides those the view's rendering
+   * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+   * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+   * "qualifiers", or "all".
+   * </pre>
+   *
+   * <code>repeated string show = 4 [json_name = "show"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the show at the given index.
+   */
+  com.google.protobuf.ByteString
+      getShowBytes(int index);
 }

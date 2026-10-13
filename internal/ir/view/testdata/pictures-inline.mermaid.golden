@@ -28,12 +28,10 @@ config:
 %% layout: picture0 x=0 y=0 w=823 h=577
 %% layout: picture1 x=700 y=20 w=80 h=40 above
 flowchart LR
-  subgraph n0 ["`*«part def»* **Table**`"]
+  subgraph n0 ["`**Table**`"]
     direction LR
-    n1("`*«part»*
-**bench : Bench**`")
-    n2("`*«part»*
-**camera : Camera**`")
+    n1("`**bench**`")
+    n2("`**camera**`")
   end
   picture0@{ img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=", label: "the bench, from above", w: 823, h: 577 }
   picture1@{ img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=", label: "", w: 80, h: 40 }

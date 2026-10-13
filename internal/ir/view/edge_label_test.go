@@ -70,7 +70,7 @@ func TestBindingIsAnInterconnectionEdge(t *testing.T) {
 	if len(rendering.Edges) != 1 || rendering.Edges[0].Kind != EdgeBinding || len(rendering.Edges[0].Route) != 2 {
 		t.Fatalf("edges = %+v, want one routed binding", rendering.Edges)
 	}
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestEdgeLabelsYieldToTheEdgesOwnText(t *testing.T) {
 		if err != nil {
 			t.Fatalf("render %s: %v", tc.view, err)
 		}
-		text := rendering.Text()
+		text := rendering.textWith(fullNotation)
 		for _, want := range tc.want {
 			if !strings.Contains(text, want) {
 				t.Errorf("%s lacks %q:\n%s", tc.view, want, text)

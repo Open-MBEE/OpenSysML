@@ -5,9 +5,9 @@ classes: {
 }
 sequence: "" {
   shape: sequence_diagram
-  n0: "«part»\nproducer" { class: usage }
-  n1: "«part»\nserver" { class: usage }
-  n2: "«part»\nconsumer" { class: usage }
+  n0: "producer" { class: usage }
+  n1: "server" { class: usage }
+  n2: "consumer" { class: usage }
   n2 -> n1: "subscribe_message" { class: flow }
   n0 -> n1: "publish_message" { class: flow }
   n1 -> n2: "deliver_message" { class: flow }

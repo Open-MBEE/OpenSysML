@@ -2,7 +2,7 @@ NotationViews::alignmentView - state rendering (view def StateTransitionView)
 
 canvas size 1000×400
 
-state def Notation::Alignment at (0, 0) size 1000×400
+state def Alignment at (0, 0) size 1000×400
   start at (40, 30) size 15×15
   state Initializing (initial, do / Initialize) at (20, 100) size 140×70
   state Aligning (entry / prime, do / align, exit / Settle) at (260, 100) size 200×110
@@ -24,7 +24,7 @@ state def Notation::Alignment at (0, 0) size 1000×400
   final done at (350, 320) size 20×20
 
 transitions:
-  start of Notation::Alignment -> Initializing via (47, 45) (47, 100)
+  start of Alignment -> Initializing via (47, 45) (47, 100)
   start of Phasing -> Coarse via (567, 75) (567, 120)
   Initializing -> Aligning: accept Done via (160, 130) (260, 130)
   Initializing -> recall: accept Recall via (160, 110) (200, 110) (200, 5) (930, 5) (930, 80)

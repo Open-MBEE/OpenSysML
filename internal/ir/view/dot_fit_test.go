@@ -53,7 +53,7 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 			`label=<<font point-size="13"><b>doughboundhoundpound</b></font>>, margin=0, pos="97.5,-10!"`},
 	}
 	for _, tc := range cases {
-		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{tc.node}}).DOT()
+		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{tc.node}}).DOTWith(fullNotation)
 		if err != nil {
 			t.Fatalf("%s: DOT: %v", tc.name, err)
 		}
@@ -70,7 +70,7 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 	}
 	// A node with no stated size keeps the label-fitted box and the plain label.
 	loose := &Node{ID: "n", Kind: "action", Name: "Execute Find and Identify Algorithm", Geometry: &Geometry{X: 0, Y: 0}}
-	dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{loose}}).DOT()
+	dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{loose}}).DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestDOTSymbolsInStatedBoxes(t *testing.T) {
 		{"untyped anonymous port", stated(&Node{ID: "n", Kind: "port"}, 12, 12), `"n" [label="", pos=`},
 	}
 	for _, tc := range cases {
-		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{tc.node}}).DOT()
+		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{tc.node}}).DOTWith(fullNotation)
 		if err != nil {
 			t.Fatalf("%s: DOT: %v", tc.name, err)
 		}
@@ -183,7 +183,7 @@ func TestDOTSymbolsInStatedBoxes(t *testing.T) {
 		}
 	}
 	// A port under a palette keeps its family fill, so the square is coloured.
-	dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{stated(&Node{ID: "n", Kind: "port", Name: "p"}, 12, 12)}}).DOTWith(Options{Palette: PaletteOkabeIto})
+	dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{stated(&Node{ID: "n", Kind: "port", Name: "p"}, 12, 12)}}).DOTWith(Options{Show: AllShown(), Palette: PaletteOkabeIto})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -208,7 +208,7 @@ func TestDOTSymbolsInStatedBoxes(t *testing.T) {
 		{"unsized initial with a synthesized name", &Node{ID: "n", Kind: "initial", Name: "start", NameSynthesized: true},
 			`"n" [shape=circle, fillcolor=black, label="", width=0.2];`},
 	} {
-		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{tc.node}}).DOT()
+		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{tc.node}}).DOTWith(fullNotation)
 		if err != nil {
 			t.Fatalf("%s: DOT: %v", tc.name, err)
 		}
@@ -230,7 +230,7 @@ func TestDOTSynthesizedNameOnAPlainNode(t *testing.T) {
 			`label=<<font point-size="10"><i>«action»</i></font><br/><b>: doTracking</b>>`},
 		{"untyped", &Node{ID: "n", Kind: "action", Name: "send2", NameSynthesized: true}, `label=<<b>action</b>>`},
 	} {
-		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{stated(tc.node, 140, 40)}}).DOT()
+		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{stated(tc.node, 140, 40)}}).DOTWith(fullNotation)
 		if err != nil {
 			t.Fatalf("%s: DOT: %v", tc.name, err)
 		}
@@ -282,7 +282,7 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 	outer := &Node{ID: "outer", Kind: "part", Name: "'summit Installation'", Type: "'Summit Installation'",
 		Geometry: &Geometry{X: 0, Y: 0, Width: 300, Height: 200, HasSize: true}}
 	beside := &Node{ID: "beside", Kind: "part", Name: "rack", Geometry: &Geometry{X: 400, Y: 0, Width: 300, Height: 200, HasSize: true}}
-	dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{outer, member("computer", 20, 60), member("sensor", 120, 40), beside}}).DOT()
+	dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{outer, member("computer", 20, 60), member("sensor", 120, 40), beside}}).DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 	}
 	// A node the Layout only places, its box sized to its label, is no member: the title is fitted to the whole box.
 	placed := &Node{ID: "loose", Kind: "action", Name: "spare", Geometry: &Geometry{X: 20, Y: 20}}
-	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{outer, placed}}).DOT()
+	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{outer, placed}}).DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -309,7 +309,7 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 	}
 	// A member 10px below the top leaves the title one 8pt line, cut to the width and ellipsized.
 	narrow := &Node{ID: "outer", Kind: "part", Name: outer.Name, Type: outer.Type, Geometry: &Geometry{X: 0, Y: 0, Width: 150, Height: 200, HasSize: true}}
-	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{narrow, member("computer", 20, 10)}}).DOT()
+	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{narrow, member("computer", 20, 10)}}).DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -317,7 +317,7 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 		t.Errorf("DOT lacks %q:\n%s", want, dot)
 	}
 	// A member 9px below the top leaves no room for a line even at the floor: the head is set outside.
-	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{narrow, member("computer", 20, 9)}}).DOT()
+	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{narrow, member("computer", 20, 9)}}).DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -327,7 +327,7 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 	// A cluster's label is fitted to its stated box the same way: the title wrapped
 	// to the 40px strip above its child, the keyword line left out.
 	framed := &Node{ID: "outer", Kind: "part", Name: outer.Name, Type: outer.Type, Geometry: outer.Geometry, Children: []*Node{member("computer", 20, 40)}}
-	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{framed}}).DOT()
+	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{framed}}).DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -337,7 +337,7 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 	}
 	// A cluster's label has no outside to go to: a strip thinner than a line still gets one line at the floor.
 	framed.Children[0].Geometry.Y = 4
-	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{framed}}).DOT()
+	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{framed}}).DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -367,7 +367,7 @@ func TestDOTSetsATinyBoxsHeadOutside(t *testing.T) {
 		{"one line", &Node{ID: "n", Kind: "action", Name: "tick", Geometry: &Geometry{X: 0, Y: 0, Width: 30, Height: 10, HasSize: true}},
 			`"n" [style="rounded,filled", label=<<font point-size="8"><b>tick</b></font>>, margin=0, pos="15,-5!"`},
 	} {
-		dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{tc.node}}).DOT()
+		dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{tc.node}}).DOTWith(fullNotation)
 		if err != nil {
 			t.Fatalf("%s: DOT: %v", tc.name, err)
 		}

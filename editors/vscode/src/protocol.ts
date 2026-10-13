@@ -33,6 +33,9 @@ export const RENDER_PALETTE_CAPABILITY = "openSysmlRenderPalette";
 /** The capability whose value lists the drawing styles a render request's `style` draws the DOT form in, the first the default. */
 export const RENDER_STYLES_CAPABILITY = "openSysmlRenderStyles";
 
+/** The capability whose value lists the optional notation elements a render request's `show` draws, then `all`. */
+export const RENDER_ELEMENTS_CAPABILITY = "openSysmlRenderElements";
+
 /** The URI scheme the server locates standard-library declarations in. */
 export const STDLIB_SCHEME = "sysml-stdlib";
 
@@ -177,6 +180,8 @@ export interface RenderParams {
   palette?: string;
   /** The drawing style the DOT form is drawn in, one the server lists under `openSysmlRenderStyles`; absent is its default, `pilot`. */
   style?: string;
+  /** The optional notation elements drawn besides the ones the view's rendering shows, each one the server lists under `openSysmlRenderElements`, or `all`. */
+  show?: string[];
   /** The link template each diagram element is written with. */
   linkTemplate?: string;
 }
@@ -187,6 +192,8 @@ export interface RenderResult {
   /** The drawing style the artifact was drawn in; absent from a server predating drawing styles. */
   style?: string;
   stated: string;
+  /** The optional notation elements the artifact draws; absent from a server predating them. */
+  shown?: string[];
   form: string;
   artifact: string;
   nodes: RenderNode[];

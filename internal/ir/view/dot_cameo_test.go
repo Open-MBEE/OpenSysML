@@ -136,7 +136,7 @@ func TestDOTCameoFramedRootKeepsTypeAndDetail(t *testing.T) {
 	} {
 		tc.root.Children = []*Node{{ID: "n1", Kind: "state", Name: "off"}}
 		rendering := &Rendering{View: "V", Kind: KindState, Roots: []*Node{tc.root}}
-		source, err := rendering.DOTWith(Options{Style: StyleCameo})
+		source, err := rendering.DOTWith(Options{Show: AllShown(), Style: StyleCameo})
 		if err != nil {
 			t.Fatalf("%s: DOTWith: %v", tc.name, err)
 		}
@@ -183,11 +183,11 @@ func TestDOTCameoPseudonodes(t *testing.T) {
 // Pilot's 14pt Helvetica and keyword line are untouched.
 func TestDOTStateBehaviourNames(t *testing.T) {
 	rendering := render(t, "state-do.sysml", "InstrumentViews::peas")
-	cameo, err := rendering.DOTWith(Options{Style: StyleCameo})
+	cameo, err := rendering.DOTWith(Options{Show: AllShown(), Style: StyleCameo})
 	if err != nil {
 		t.Fatalf("cameo DOT: %v", err)
 	}
-	pilot, err := rendering.DOT()
+	pilot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("pilot DOT: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestDOTStateBehaviourNames(t *testing.T) {
 // options are independent.
 func TestDOTCameoHonoursStylesAndPalettes(t *testing.T) {
 	rendering := render(t, "layout.sysml", "PlantViews::placedView")
-	cameo, err := rendering.DOTWith(Options{Style: StyleCameo})
+	cameo, err := rendering.DOTWith(Options{Show: AllShown(), Style: StyleCameo})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestDOTCameoHonoursStylesAndPalettes(t *testing.T) {
 			t.Errorf("cameo DOT lacks %q:\n%s", want, cameo)
 		}
 	}
-	both, err := rendering.DOTWith(Options{Style: StyleCameo, Palette: PaletteOkabeIto})
+	both, err := rendering.DOTWith(Options{Show: AllShown(), Style: StyleCameo, Palette: PaletteOkabeIto})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestDOTCameoHonoursStylesAndPalettes(t *testing.T) {
 	if !strings.Contains(both, `fillcolor="#FFE8BD", color="#333333", label=`) {
 		t.Errorf("a palette overrides a Style's fill:\n%s", both)
 	}
-	puml, err := rendering.PlantUMLWith(Options{Palette: PaletteOkabeIto})
+	puml, err := rendering.PlantUMLWith(Options{Show: AllShown(), Palette: PaletteOkabeIto})
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}

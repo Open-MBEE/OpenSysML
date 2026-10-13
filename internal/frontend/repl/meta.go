@@ -30,7 +30,7 @@ import (
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
 const (
-	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts] [link=<template>]]"
+	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [palette] [pilot|cameo] [minimal|full] [verdicts] [show=<elements>] [link=<template>]"
 	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|dot] [link=<template>]"
 )
 
@@ -529,6 +529,22 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 	return s.doRender(name, form, opts, overlay)
 }
 
+// renderOptionWord reports whether word is a rendering option rather than a
+// form, so the text form is understood before it.
+func renderOptionWord(word string) bool {
+	if strings.HasPrefix(word, "show=") || strings.HasPrefix(word, "link=") {
+		return true
+	}
+	if o, ok := view.ParseOverlay(word); ok && o != "" {
+		return true
+	}
+	if _, ok := view.ParseDrawingStyle(word); ok {
+		return true
+	}
+	_, ok := view.ParsePorts(word)
+	return ok
+}
+
 // renderUsageOf is what parseRenderArgs answers when the arguments do not read.
 func renderUsageOf(line string) (string, view.Form, view.Options, view.Overlay, []string) {
 	return "", "", view.Options{}, "", []string{line}
@@ -541,19 +557,35 @@ func parseRenderArgs(args []string) (name string, form view.Form, opts view.Opti
 		return renderUsageOf(renderUsage)
 	}
 	form = view.FormText
+	options := min(2, len(args))
 	if len(args) >= 2 {
-		form = view.Form(args[1])
-		if !slices.Contains(view.Forms(), form) {
+		switch {
+		case slices.Contains(view.Forms(), view.Form(args[1])):
+			form = view.Form(args[1])
+		case renderOptionWord(args[1]):
+			options = 1
+		default:
 			return renderUsageOf(fmt.Sprintf("unknown form %q; %s", args[1], renderUsage))
 		}
 	}
 	linkSet := false
-	for _, word := range args[min(2, len(args)):] {
+	for _, word := range args[options:] {
 		if o, ok := view.ParseOverlay(word); ok && o != "" {
 			if overlay != "" {
 				return renderUsageOf(renderUsage)
 			}
 			overlay = o
+			continue
+		}
+		if strings.HasPrefix(word, "show=") {
+			if opts.Show != nil {
+				return renderUsageOf(renderUsage)
+			}
+			shown, err := view.ParseShown(strings.TrimPrefix(word, "show="))
+			if err != nil || shown == nil {
+				return renderUsageOf(fmt.Sprintf("show= names the optional notation elements to draw, %s; %s", view.ElementNames(), renderUsage))
+			}
+			opts.Show = shown
 			continue
 		}
 		if strings.HasPrefix(word, "link=") {

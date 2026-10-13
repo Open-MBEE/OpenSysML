@@ -12,7 +12,7 @@ package Library {
             action final terminate;
             metadata MigrationMetadata::SynthesizedName about final;
         }
-        action 'view' : View;
+        action 'view' : View { in ref :>> context = this; }
         metadata MigrationMetadata::SynthesizedName about 'recursive Viewpoint';
     }
 }

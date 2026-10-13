@@ -696,6 +696,9 @@ end
                 @test !isempty(rendered_view.edges[1].from_port)
                 @test !isempty(rendered_view.edges[1].to_port)
                 @test all(node -> node.origin !== nothing, rendered_view.nodes)
+                @test "port-symbols" in rendered_view.shown
+                shown_view = render_view(views_model, "RenderViewDemo::connections"; show=["edge-labels"])
+                @test "edge-labels" in shown_view.shown
                 full_view = render_view(views_model, "RenderViewDemo::connections"; ports="full")
                 @test any(port.name == "spare" for node in full_view.nodes for port in node.ports)
                 behavior_model = parse_file(conn, joinpath(FIXTURES, "behavior.sysml"))
@@ -735,12 +738,12 @@ end
                 @test occursin("part def Vehicle", migrated.content)
                 @test migrated.from_format == "xmi"
                 @test (migrated.report.mapped, migrated.report.approximated,
-                       migrated.report.unmapped, migrated.report.skipped) == (77, 13, 3, 2)
-                @test length(migrated.report.entries) == 95
+                       migrated.report.unmapped, migrated.report.skipped) == (76, 16, 3, 2)
+                @test length(migrated.report.entries) == 97
                 @test length(by_verdict(migrated.report, VERDICT_UNMAPPED)) == 3
                 @test migrated.source_path == abspath(vehicle)
                 inline = migrate_source(conn, read(vehicle), "ttl"; from_format=" XMI ")
-                @test inline.to_format == "ttl" && inline.report.mapped == 77
+                @test inline.to_format == "ttl" && inline.report.mapped == 76
                 @test isempty(inline.report.entries) && inline.source_path === nothing
                 mktempdir() do directory
                     output = joinpath(directory, "Vehicle.sysml")

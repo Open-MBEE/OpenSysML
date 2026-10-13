@@ -163,11 +163,8 @@ func (m *migration) instanceValue(v, scope *sysmlv1.Element) (expr string, ok bo
 	if inst.Type == "EnumerationLiteral" && inst.Parent != nil {
 		return m.ref(inst.Parent, scope) + "::" + writeName(inst.Name), true, ""
 	}
-	switch cat, _ := m.classify(inst); cat {
-	case catValue:
+	if cat, _ := m.classify(inst); cat == catInstance && m.written(inst) {
 		return m.ref(inst, scope), true, ""
-	case catIndividualDef:
-		return "", false, individualSubject + qualifiedName(inst) + " is a definition, which is not a v2 value"
 	}
 	return "", false, "instance value of a " + inst.Type + " has no v2 expression"
 }
@@ -198,6 +195,11 @@ func (m *migration) opaqueValue(v, scope *sysmlv1.Element, want wanted) (expr st
 	}
 	visible, _ := m.visibleFrom(scope)
 	body = m.renamedRoots(body, refs, visible, nil)
+	if m.selfContext(scope) != nil {
+		// Inside a def the classifier's features read through its context parameter.
+		refs, _ = exprRefs(body)
+		body = m.qualifySelf(body, refs, scope)
+	}
 	return body, true, "opaque expression copied verbatim" + langNote(lang)
 }
 
@@ -208,9 +210,9 @@ func langNote(lang string) string {
 	return " (language " + lang + ")"
 }
 
-// defaultIndividual returns the individual an instance-value default of p
-// names, or nil when its default is anything else.
-func (m *migration) defaultIndividual(p *sysmlv1.Element) *sysmlv1.Element {
+// defaultInstance returns the instance an instance-value default of p names,
+// written as a usage, or nil when its default is anything else.
+func (m *migration) defaultInstance(p *sysmlv1.Element) *sysmlv1.Element {
 	dv := firstOwned(p, "defaultValue")
 	if dv == nil || dv.Type != "InstanceValue" {
 		return nil
@@ -219,31 +221,28 @@ func (m *migration) defaultIndividual(p *sysmlv1.Element) *sysmlv1.Element {
 	if inst == nil || inst.IsProxy() {
 		return nil
 	}
-	if cat, _ := m.classify(inst); cat != catIndividualDef {
+	if cat, _ := m.classify(inst); cat != catInstance {
 		return nil
 	}
 	return inst
 }
 
-// typingIndividual returns p's default individual when it can type the usage
-// p is written as: a plain ref takes any, a part or constraint one of its kind
-// that is an instance of p's type, a port none. The note says why it cannot.
-func (m *migration) typingIndividual(p *sysmlv1.Element, kw string) (*sysmlv1.Element, string) {
-	ind := m.defaultIndividual(p)
-	if ind == nil || kw == "ref" {
-		return ind, ""
+// defaultInstanceNote says why the instance p's default names cannot be the
+// default of the kw usage p is written as: it is of another kind, or no
+// instance of p's type; "" when it can, or the default is no instance.
+func (m *migration) defaultInstanceNote(p *sysmlv1.Element, kw string) string {
+	inst := m.defaultInstance(p)
+	if inst == nil {
+		return ""
 	}
-	if kw == "port" {
-		return nil, individualSubject + qualifiedName(ind) + " cannot type a port: v2 has no individual port def"
+	kind, types, subsets, _ := m.instanceKind(inst)
+	if !instanceFits(kind, kw) {
+		return "the default value " + describe(inst) + " is written as " + kwArticle(kind.usageKeyword()) + ", which cannot be the default of " + article(kw) + kw
 	}
-	kind, classifiers, _ := m.individualClassifiers(ind)
-	if kind == catNone || !individualTypes(kind, kw) {
-		return nil, individualSubject + qualifiedName(ind) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw
+	if t := m.model.Ref(p, "type"); t != nil && !m.instanceOf(append(types, subsets...), t) {
+		return "the default value " + describe(inst) + " is not an instance of " + qualifiedName(t) + ", the type of " + p.Name
 	}
-	if t := m.model.Ref(p, "type"); t != nil && !m.instanceOf(classifiers, t) {
-		return nil, individualSubject + qualifiedName(ind) + " is not an instance of " + qualifiedName(t) + ", the type of " + p.Name
-	}
-	return ind, ""
+	return ""
 }
 
 // valueOwner is the element whose report entry describes value v: the element
@@ -267,8 +266,12 @@ func (m *migration) featureValue(v, f, scope *sysmlv1.Element) (expr string, ok 
 	}
 	if v.Type == "InstanceValue" && t != nil {
 		inst := m.model.Ref(v, "instance")
-		if inst.Type == "InstanceSpecification" && !m.instanceOf(m.model.Refs(inst, "classifier"), t) {
-			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + whichNote + featureHolds
+		if inst.Type == "InstanceSpecification" {
+			// The classifiers the instance is written with, an inferred snapshot classifier included.
+			_, types, subsets, _ := m.instanceKind(inst)
+			if !m.instanceOf(append(types, subsets...), t) {
+				return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + whichNote + featureHolds
+			}
 		}
 		if inst.Type == "EnumerationLiteral" && inst.Parent != t && m.written(t) {
 			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + whichNote + featureHolds
@@ -764,6 +767,15 @@ func chainRef(e *ast.FeatureChainExpr) (reference, bool) {
 	return r, true
 }
 
+// seeingScope is the scope a note names what scope sees from: a rule declares
+// no names, so it sees what its owner sees.
+func seeingScope(scope *sysmlv1.Element) *sysmlv1.Element {
+	if ruleDef(scope) {
+		return scope.Parent
+	}
+	return scope
+}
+
 // invisible says why the references cannot all be seen from scope: the first that
 // resolves to nothing, or reaches through an untyped local. "" if all resolve.
 func (m *migration) invisible(refs []reference, scope *sysmlv1.Element) string {
@@ -777,7 +789,7 @@ func (m *migration) invisible(refs []reference, scope *sysmlv1.Element) string {
 			if r.local != "" && r.typed == 0 {
 				return "reaches " + missing + " through " + writeName(r.local) + ", whose type it does not declare"
 			}
-			return "names " + missing + ", which nothing visible from " + qualifiedName(scope) + " is called"
+			return "names " + missing + ", which nothing visible from " + qualifiedName(seeingScope(scope)) + " is called"
 		}
 		if kw := m.notAValue(e); kw != "" {
 			return "names " + r.text(len(r.steps)) + ", which is " + kw + " " + qualifiedName(e) + ", not a value an expression can read"

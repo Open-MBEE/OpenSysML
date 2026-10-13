@@ -35,6 +35,8 @@ private static final long serialVersionUID = 0L;
     modelHash_ = "";
     view_ = "";
     ports_ = "";
+    show_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -183,6 +185,71 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int SHOW_FIELD_NUMBER = 4;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList show_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * Optional notation elements to draw besides those the view's rendering
+   * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+   * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+   * "qualifiers", or "all".
+   * </pre>
+   *
+   * <code>repeated string show = 4 [json_name = "show"];</code>
+   * @return A list containing the show.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getShowList() {
+    return show_;
+  }
+  /**
+   * <pre>
+   * Optional notation elements to draw besides those the view's rendering
+   * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+   * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+   * "qualifiers", or "all".
+   * </pre>
+   *
+   * <code>repeated string show = 4 [json_name = "show"];</code>
+   * @return The count of show.
+   */
+  public int getShowCount() {
+    return show_.size();
+  }
+  /**
+   * <pre>
+   * Optional notation elements to draw besides those the view's rendering
+   * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+   * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+   * "qualifiers", or "all".
+   * </pre>
+   *
+   * <code>repeated string show = 4 [json_name = "show"];</code>
+   * @param index The index of the element to return.
+   * @return The show at the given index.
+   */
+  public java.lang.String getShow(int index) {
+    return show_.get(index);
+  }
+  /**
+   * <pre>
+   * Optional notation elements to draw besides those the view's rendering
+   * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+   * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+   * "qualifiers", or "all".
+   * </pre>
+   *
+   * <code>repeated string show = 4 [json_name = "show"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the show at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getShowBytes(int index) {
+    return show_.getByteString(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -206,6 +273,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(ports_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 3, ports_);
     }
+    for (int i = 0; i < show_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 4, show_.getRaw(i));
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -223,6 +293,14 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(ports_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(3, ports_);
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < show_.size(); i++) {
+        dataSize += computeStringSizeNoTag(show_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getShowList().size();
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -245,6 +323,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getView())) return false;
     if (!getPorts()
         .equals(other.getPorts())) return false;
+    if (!getShowList()
+        .equals(other.getShowList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -262,6 +342,10 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getView().hashCode();
     hash = (37 * hash) + PORTS_FIELD_NUMBER;
     hash = (53 * hash) + getPorts().hashCode();
+    if (getShowCount() > 0) {
+      hash = (37 * hash) + SHOW_FIELD_NUMBER;
+      hash = (53 * hash) + getShowList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -400,6 +484,8 @@ private static final long serialVersionUID = 0L;
       modelHash_ = "";
       view_ = "";
       ports_ = "";
+      show_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       return this;
     }
 
@@ -442,6 +528,10 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000004) != 0)) {
         result.ports_ = ports_;
       }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        show_.makeImmutable();
+        result.show_ = show_;
+      }
     }
 
     @java.lang.Override
@@ -469,6 +559,16 @@ private static final long serialVersionUID = 0L;
       if (!other.getPorts().isEmpty()) {
         ports_ = other.ports_;
         bitField0_ |= 0x00000004;
+        onChanged();
+      }
+      if (!other.show_.isEmpty()) {
+        if (show_.isEmpty()) {
+          show_ = other.show_;
+          bitField0_ |= 0x00000008;
+        } else {
+          ensureShowIsMutable();
+          show_.addAll(other.show_);
+        }
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -512,6 +612,12 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000004;
               break;
             } // case 26
+            case 34: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureShowIsMutable();
+              show_.add(s);
+              break;
+            } // case 34
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -781,6 +887,180 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       ports_ = value;
       bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList show_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureShowIsMutable() {
+      if (!show_.isModifiable()) {
+        show_ = new com.google.protobuf.LazyStringArrayList(show_);
+      }
+      bitField0_ |= 0x00000008;
+    }
+    /**
+     * <pre>
+     * Optional notation elements to draw besides those the view's rendering
+     * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+     * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+     * "qualifiers", or "all".
+     * </pre>
+     *
+     * <code>repeated string show = 4 [json_name = "show"];</code>
+     * @return A list containing the show.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getShowList() {
+      show_.makeImmutable();
+      return show_;
+    }
+    /**
+     * <pre>
+     * Optional notation elements to draw besides those the view's rendering
+     * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+     * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+     * "qualifiers", or "all".
+     * </pre>
+     *
+     * <code>repeated string show = 4 [json_name = "show"];</code>
+     * @return The count of show.
+     */
+    public int getShowCount() {
+      return show_.size();
+    }
+    /**
+     * <pre>
+     * Optional notation elements to draw besides those the view's rendering
+     * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+     * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+     * "qualifiers", or "all".
+     * </pre>
+     *
+     * <code>repeated string show = 4 [json_name = "show"];</code>
+     * @param index The index of the element to return.
+     * @return The show at the given index.
+     */
+    public java.lang.String getShow(int index) {
+      return show_.get(index);
+    }
+    /**
+     * <pre>
+     * Optional notation elements to draw besides those the view's rendering
+     * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+     * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+     * "qualifiers", or "all".
+     * </pre>
+     *
+     * <code>repeated string show = 4 [json_name = "show"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the show at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getShowBytes(int index) {
+      return show_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * Optional notation elements to draw besides those the view's rendering
+     * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+     * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+     * "qualifiers", or "all".
+     * </pre>
+     *
+     * <code>repeated string show = 4 [json_name = "show"];</code>
+     * @param index The index to set the value at.
+     * @param value The show to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShow(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureShowIsMutable();
+      show_.set(index, value);
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional notation elements to draw besides those the view's rendering
+     * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+     * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+     * "qualifiers", or "all".
+     * </pre>
+     *
+     * <code>repeated string show = 4 [json_name = "show"];</code>
+     * @param value The show to add.
+     * @return This builder for chaining.
+     */
+    public Builder addShow(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureShowIsMutable();
+      show_.add(value);
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional notation elements to draw besides those the view's rendering
+     * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+     * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+     * "qualifiers", or "all".
+     * </pre>
+     *
+     * <code>repeated string show = 4 [json_name = "show"];</code>
+     * @param values The show to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllShow(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureShowIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, show_);
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional notation elements to draw besides those the view's rendering
+     * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+     * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+     * "qualifiers", or "all".
+     * </pre>
+     *
+     * <code>repeated string show = 4 [json_name = "show"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearShow() {
+      show_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000008);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional notation elements to draw besides those the view's rendering
+     * shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+     * "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+     * "qualifiers", or "all".
+     * </pre>
+     *
+     * <code>repeated string show = 4 [json_name = "show"];</code>
+     * @param value The bytes of the show to add.
+     * @return This builder for chaining.
+     */
+    public Builder addShowBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureShowIsMutable();
+      show_.add(value);
+      bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }

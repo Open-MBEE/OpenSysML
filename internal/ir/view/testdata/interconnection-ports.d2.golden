@@ -6,17 +6,17 @@ classes: {
   connection: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 3 } }
   flow: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
 }
-n0: "«part def»\nToaster" {
+n0: "Toaster" {
   class: definition
-  n1: "«part»\nheating : HeatingSystem" {
+  n1: "heating" {
     class: usage
     "n1.0": "durationIn" { class: pin }
   }
-  n2: "«part»\ncontrol : ControlSystem" {
+  n2: "control" {
     class: usage
     "n2.0": "durationOut" { class: pin }
   }
-  n3: "«part»\nchassis : Chassis" { class: usage }
+  n3: "chassis" { class: usage }
 }
-n0.n2."n2.0" -- n0.n1."n1.0": "durationInterface" { class: connection }
-n0.n2."n2.0" -> n0.n1."n1.0": "of Real" { class: flow }
+n0.n2."n2.0" -- n0.n1."n1.0": { class: connection }
+n0.n2."n2.0" -> n0.n1."n1.0": { class: flow }

@@ -1,5 +1,6 @@
 package Operations {
     part Operator;
+    part alice :> Operator;
     use case Scan {
         include Focus;
     }
@@ -7,8 +8,20 @@ package Operations {
     occurrence def Console {
         ref use case current :> Scan;
         ref part user :> Operator;
+        ref occurrence panel : Panel;
     }
+    occurrence def Panel {
+        ref occurrence console : Console;
+    }
+    connection def PanelToConsole {
+        end panel : Panel crosses console.panel;
+        end console : Console crosses panel.console;
+    }
+    occurrence panel : Panel;
+    occurrence console : Console;
+    connection 'panel to console' : PanelToConsole connect panel to console;
     connection 'Scan includes Focus' connect Scan to Focus;
+    metadata MigrationMetadata::SynthesizedName about PanelToConsole;
 }
 package Tables {
     view Classifiers {
@@ -108,12 +121,33 @@ package Tables {
         DocumentQueries::Project(
             source = DocumentQueries::OrderBy(
                 source = DocumentQueries::Union(
-                    source = DocumentQueries::WhereType(source = candidates, type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "Dependency", "SatisfyRequirementUsage", "AllocationUsage")),
-                    other = DocumentQueries::Except(
-                        source = DocumentQueries::Named(qualifiedName = ("Operations::Operator", "Operations::Scan", "Operations::Focus")),
-                        exclude = DocumentQueries::Except(
+                    source = DocumentQueries::Union(
+                        source = DocumentQueries::WhereType(source = candidates, type = ("Package", "Definition", "ViewUsage", "ViewpointUsage", "Dependency", "SatisfyRequirementUsage", "AllocationUsage")),
+                        other = DocumentQueries::Except(
                             source = DocumentQueries::Named(qualifiedName = ("Operations::Operator", "Operations::Scan", "Operations::Focus")),
-                            exclude = candidates))),
+                            exclude = DocumentQueries::Except(
+                                source = DocumentQueries::Named(qualifiedName = ("Operations::Operator", "Operations::Scan", "Operations::Focus")),
+                                exclude = candidates))),
+                    other = DocumentQueries::Except(
+                        source = DocumentQueries::Except(
+                            source = DocumentQueries::Except(
+                                source = DocumentQueries::WhereType(source = candidates, type = ("Usage")),
+                                exclude = DocumentQueries::Union(
+                                    source = DocumentQueries::WhereType(source = candidates, type = ("ConnectionUsage")),
+                                    other = DocumentQueries::WhereType(source = candidates, type = ("MetadataUsage")))),
+                            exclude = DocumentQueries::Descendants(
+                                source = DocumentQueries::WhereType(
+                                    source = DocumentQueries::Union(
+                                        source = DocumentQueries::Named(qualifiedName = ("Operations")),
+                                        other = DocumentQueries::Descendants(
+                                            source = DocumentQueries::Union(
+                                                source = DocumentQueries::WhereType(
+                                                    source = DocumentQueries::Named(qualifiedName = ("Operations")),
+                                                    type = ("Package")),
+                                                other = DocumentQueries::WhereType(source = candidates, type = ("Package"))),
+                                            maxDepth = 1)),
+                                    type = ("Type")))),
+                        exclude = DocumentQueries::Named(qualifiedName = ("Operations::console", "Operations::panel")))),
                 property = "qualifiedName",
                 direction = "ascending",
                 missing = "last",
@@ -179,6 +213,142 @@ package Tables {
         part rows : DocumentQueries::Table {
             attribute redefines caption = "Use Cases";
             calc rows : 'Use Cases Rows';
+        }
+    }
+    view 'Instance Specifications' {
+        expose 'Instance Specifications Document';
+        render Views::asElementTable;
+    }
+    calc def 'Instance Specifications Rows' :> DocumentQueries::Query {
+        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+            source = DocumentQueries::Named(qualifiedName = ("Operations")));
+        DocumentQueries::Project(
+            source = DocumentQueries::OrderBy(
+                source = DocumentQueries::Except(
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::Except(
+                            source = DocumentQueries::Except(
+                                source = DocumentQueries::WhereType(source = candidates, type = ("Usage")),
+                                exclude = DocumentQueries::Union(
+                                    source = DocumentQueries::WhereType(source = candidates, type = ("ConnectionUsage")),
+                                    other = DocumentQueries::WhereType(source = candidates, type = ("MetadataUsage")))),
+                            exclude = DocumentQueries::Named(qualifiedName = ("Operations::Operator", "Operations::Scan", "Operations::Focus"))),
+                        exclude = DocumentQueries::Descendants(
+                            source = DocumentQueries::WhereType(
+                                source = DocumentQueries::Union(
+                                    source = DocumentQueries::Named(qualifiedName = ("Operations")),
+                                    other = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Union(
+                                            source = DocumentQueries::WhereType(
+                                                source = DocumentQueries::Named(qualifiedName = ("Operations")),
+                                                type = ("Package")),
+                                            other = DocumentQueries::WhereType(source = candidates, type = ("Package"))),
+                                        maxDepth = 1)),
+                                type = ("Type")))),
+                    exclude = DocumentQueries::Named(qualifiedName = ("Operations::console", "Operations::panel"))),
+                property = "qualifiedName",
+                direction = "ascending",
+                missing = "last",
+                multiple = "first"),
+            properties = ("qualifiedName"))
+    }
+    part def 'Instance Specifications Document' :> DocumentQueries::Document {
+        attribute redefines title = "Instance Specifications";
+        part rows : DocumentQueries::Table {
+            attribute redefines caption = "Instance Specifications";
+            calc rows : 'Instance Specifications Rows';
+        }
+    }
+    view Operators {
+        expose 'Operators Document';
+        render Views::asElementTable;
+    }
+    calc def 'Operators Rows' :> DocumentQueries::Query {
+        DocumentQueries::Project(
+            source = DocumentQueries::OrderBy(
+                source = DocumentQueries::Except(
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(
+                            source = DocumentQueries::Except(
+                                source = DocumentQueries::WhereType(
+                                    source = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Named(qualifiedName = ("Operations"))),
+                                    type = ("Operations::Operator")),
+                                exclude = DocumentQueries::Named(qualifiedName = ("Operations::Operator"))),
+                            type = ("Usage")),
+                        exclude = DocumentQueries::Descendants(
+                            source = DocumentQueries::WhereType(
+                                source = DocumentQueries::Union(
+                                    source = DocumentQueries::Named(qualifiedName = ("Operations")),
+                                    other = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Union(
+                                            source = DocumentQueries::WhereType(
+                                                source = DocumentQueries::Named(qualifiedName = ("Operations")),
+                                                type = ("Package")),
+                                            other = DocumentQueries::WhereType(
+                                                source = DocumentQueries::Descendants(
+                                                    source = DocumentQueries::Named(qualifiedName = ("Operations"))),
+                                                type = ("Package"))),
+                                        maxDepth = 1)),
+                                type = ("Type")))),
+                    exclude = DocumentQueries::Named(qualifiedName = ("Operations::console", "Operations::panel"))),
+                property = "qualifiedName",
+                direction = "ascending",
+                missing = "last",
+                multiple = "first"),
+            properties = ("qualifiedName"))
+    }
+    part def 'Operators Document' :> DocumentQueries::Document {
+        attribute redefines title = "Operators";
+        part rows : DocumentQueries::Table {
+            attribute redefines caption = "Operators";
+            calc rows : 'Operators Rows';
+        }
+    }
+    view 'Console Operators' {
+        expose 'Console Operators Document';
+        render Views::asElementTable;
+    }
+    calc def 'Console Operators Rows' :> DocumentQueries::Query {
+        DocumentQueries::Project(
+            source = DocumentQueries::OrderBy(
+                source = DocumentQueries::Except(
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(
+                            source = DocumentQueries::Except(
+                                source = DocumentQueries::WhereType(
+                                    source = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Named(qualifiedName = ("Operations::Console"))),
+                                    type = ("Operations::Operator")),
+                                exclude = DocumentQueries::Named(qualifiedName = ("Operations::Operator"))),
+                            type = ("Usage")),
+                        exclude = DocumentQueries::Descendants(
+                            source = DocumentQueries::WhereType(
+                                source = DocumentQueries::Union(
+                                    source = DocumentQueries::Named(qualifiedName = ("Operations::Console")),
+                                    other = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Union(
+                                            source = DocumentQueries::WhereType(
+                                                source = DocumentQueries::Named(qualifiedName = ("Operations::Console")),
+                                                type = ("Package")),
+                                            other = DocumentQueries::WhereType(
+                                                source = DocumentQueries::Descendants(
+                                                    source = DocumentQueries::Named(qualifiedName = ("Operations::Console"))),
+                                                type = ("Package"))),
+                                        maxDepth = 1)),
+                                type = ("Type")))),
+                    exclude = DocumentQueries::Named(qualifiedName = ("Operations::console", "Operations::panel"))),
+                property = "qualifiedName",
+                direction = "ascending",
+                missing = "last",
+                multiple = "first"),
+            properties = ("qualifiedName"))
+    }
+    part def 'Console Operators Document' :> DocumentQueries::Document {
+        attribute redefines title = "Console Operators";
+        part rows : DocumentQueries::Table {
+            attribute redefines caption = "Console Operators";
+            calc rows : 'Console Operators Rows';
         }
     }
 }

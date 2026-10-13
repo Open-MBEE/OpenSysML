@@ -125,7 +125,7 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 		case r.drawsConnector(member):
 			w.connectors = append(w.connectors, member)
 		case casePin(sym, member):
-			w.pin(node, member, pinDirection(member))
+			w.pin(node, member, pinDirection(member), true)
 		case isReferencedIncludedCase(member):
 			// an `include u;` is drawn by the connection to the case it names
 		case w.drawsFeature(member):
@@ -143,15 +143,16 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 // at `heating.durationIn` ends at that pin.
 func (w *featureWalk) pinPorts(node *Node, sym *symbols.Symbol) {
 	for _, port := range w.r.typedPorts(sym) {
-		w.pin(node, port, PortUndirected)
+		w.pin(node, port, PortUndirected, false)
 	}
 }
 
-// pin draws sym as a port on node's border, with the given direction.
-func (w *featureWalk) pin(node *Node, sym *symbols.Symbol, direction PortDirection) {
+// pin draws sym as a port on node's border, with the given direction; a
+// parameter pin stands for a case's subject or attribute, not a port.
+func (w *featureWalk) pin(node *Node, sym *symbols.Symbol, direction PortDirection, parameter bool) {
 	id := portID(node.ID, len(node.Ports))
 	node.Ports = append(node.Ports, Port{ID: id, Name: localName(sym), NameSynthesized: w.r.model.NameSynthesized(sym),
-		Type: declType(sym), Direction: direction, Origin: symbolOrigin(sym)})
+		Type: declType(sym), Direction: direction, Parameter: parameter, Origin: symbolOrigin(sym)})
 	if w.pins[node] == nil {
 		w.pins[node] = map[*symbols.Symbol]string{}
 	}

@@ -43,6 +43,8 @@ private static final long serialVersionUID = 0L;
     notes_ = java.util.Collections.emptyList();
     notices_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+    shown_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -472,6 +474,59 @@ private static final long serialVersionUID = 0L;
     return notices_.getByteString(index);
   }
 
+  public static final int SHOWN_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList shown_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * The optional notation elements drawn, in registry order.
+   * </pre>
+   *
+   * <code>repeated string shown = 11 [json_name = "shown"];</code>
+   * @return A list containing the shown.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getShownList() {
+    return shown_;
+  }
+  /**
+   * <pre>
+   * The optional notation elements drawn, in registry order.
+   * </pre>
+   *
+   * <code>repeated string shown = 11 [json_name = "shown"];</code>
+   * @return The count of shown.
+   */
+  public int getShownCount() {
+    return shown_.size();
+  }
+  /**
+   * <pre>
+   * The optional notation elements drawn, in registry order.
+   * </pre>
+   *
+   * <code>repeated string shown = 11 [json_name = "shown"];</code>
+   * @param index The index of the element to return.
+   * @return The shown at the given index.
+   */
+  public java.lang.String getShown(int index) {
+    return shown_.get(index);
+  }
+  /**
+   * <pre>
+   * The optional notation elements drawn, in registry order.
+   * </pre>
+   *
+   * <code>repeated string shown = 11 [json_name = "shown"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the shown at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getShownBytes(int index) {
+    return shown_.getByteString(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -515,6 +570,9 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < notices_.size(); i++) {
       com.google.protobuf.GeneratedMessage.writeString(output, 10, notices_.getRaw(i));
+    }
+    for (int i = 0; i < shown_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, shown_.getRaw(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -570,6 +628,14 @@ private static final long serialVersionUID = 0L;
       size += dataSize;
       size += 1 * getNoticesList().size();
     }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < shown_.size(); i++) {
+        dataSize += computeStringSizeNoTag(shown_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getShownList().size();
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -608,6 +674,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getNotesList())) return false;
     if (!getNoticesList()
         .equals(other.getNoticesList())) return false;
+    if (!getShownList()
+        .equals(other.getShownList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -652,6 +720,10 @@ private static final long serialVersionUID = 0L;
     if (getNoticesCount() > 0) {
       hash = (37 * hash) + NOTICES_FIELD_NUMBER;
       hash = (53 * hash) + getNoticesList().hashCode();
+    }
+    if (getShownCount() > 0) {
+      hash = (37 * hash) + SHOWN_FIELD_NUMBER;
+      hash = (53 * hash) + getShownList().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -838,6 +910,8 @@ private static final long serialVersionUID = 0L;
       bitField0_ = (bitField0_ & ~0x00000100);
       notices_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
+      shown_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       return this;
     }
 
@@ -934,6 +1008,10 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000200) != 0)) {
         notices_.makeImmutable();
         result.notices_ = notices_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        shown_.makeImmutable();
+        result.shown_ = shown_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1092,6 +1170,16 @@ private static final long serialVersionUID = 0L;
         }
         onChanged();
       }
+      if (!other.shown_.isEmpty()) {
+        if (shown_.isEmpty()) {
+          shown_ = other.shown_;
+          bitField0_ |= 0x00000400;
+        } else {
+          ensureShownIsMutable();
+          shown_.addAll(other.shown_);
+        }
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1204,6 +1292,12 @@ private static final long serialVersionUID = 0L;
               notices_.add(s);
               break;
             } // case 82
+            case 90: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureShownIsMutable();
+              shown_.add(s);
+              break;
+            } // case 90
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2844,6 +2938,153 @@ private static final long serialVersionUID = 0L;
       ensureNoticesIsMutable();
       notices_.add(value);
       bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList shown_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureShownIsMutable() {
+      if (!shown_.isModifiable()) {
+        shown_ = new com.google.protobuf.LazyStringArrayList(shown_);
+      }
+      bitField0_ |= 0x00000400;
+    }
+    /**
+     * <pre>
+     * The optional notation elements drawn, in registry order.
+     * </pre>
+     *
+     * <code>repeated string shown = 11 [json_name = "shown"];</code>
+     * @return A list containing the shown.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getShownList() {
+      shown_.makeImmutable();
+      return shown_;
+    }
+    /**
+     * <pre>
+     * The optional notation elements drawn, in registry order.
+     * </pre>
+     *
+     * <code>repeated string shown = 11 [json_name = "shown"];</code>
+     * @return The count of shown.
+     */
+    public int getShownCount() {
+      return shown_.size();
+    }
+    /**
+     * <pre>
+     * The optional notation elements drawn, in registry order.
+     * </pre>
+     *
+     * <code>repeated string shown = 11 [json_name = "shown"];</code>
+     * @param index The index of the element to return.
+     * @return The shown at the given index.
+     */
+    public java.lang.String getShown(int index) {
+      return shown_.get(index);
+    }
+    /**
+     * <pre>
+     * The optional notation elements drawn, in registry order.
+     * </pre>
+     *
+     * <code>repeated string shown = 11 [json_name = "shown"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the shown at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getShownBytes(int index) {
+      return shown_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * The optional notation elements drawn, in registry order.
+     * </pre>
+     *
+     * <code>repeated string shown = 11 [json_name = "shown"];</code>
+     * @param index The index to set the value at.
+     * @param value The shown to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShown(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureShownIsMutable();
+      shown_.set(index, value);
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The optional notation elements drawn, in registry order.
+     * </pre>
+     *
+     * <code>repeated string shown = 11 [json_name = "shown"];</code>
+     * @param value The shown to add.
+     * @return This builder for chaining.
+     */
+    public Builder addShown(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureShownIsMutable();
+      shown_.add(value);
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The optional notation elements drawn, in registry order.
+     * </pre>
+     *
+     * <code>repeated string shown = 11 [json_name = "shown"];</code>
+     * @param values The shown to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllShown(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureShownIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, shown_);
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The optional notation elements drawn, in registry order.
+     * </pre>
+     *
+     * <code>repeated string shown = 11 [json_name = "shown"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearShown() {
+      shown_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000400);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The optional notation elements drawn, in registry order.
+     * </pre>
+     *
+     * <code>repeated string shown = 11 [json_name = "shown"];</code>
+     * @param value The bytes of the shown to add.
+     * @return This builder for chaining.
+     */
+    public Builder addShownBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureShownIsMutable();
+      shown_.add(value);
+      bitField0_ |= 0x00000400;
       onChanged();
       return this;
     }

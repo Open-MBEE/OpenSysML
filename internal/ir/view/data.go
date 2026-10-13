@@ -29,6 +29,8 @@ type Data struct {
 	Canvas *Canvas
 	// Notes are the note boxes drawn on the canvas, anchored to a node ID or free.
 	Notes []Note
+	// Shown names the optional notation elements the rendering draws.
+	Shown []string
 	// Notices are what the rendering could not represent.
 	Notices []string
 }
@@ -89,13 +91,15 @@ type RowData struct {
 
 // Data is the rendering in machine-consumable form.
 func (r *Rendering) Data() Data {
-	return r.data(nil)
+	return r.showing(nil).data(nil)
 }
 
-// DataFor is the rendering in machine-consumable form with each node's ports
-// filtered for the requested display.
-func (r *Rendering) DataFor(display Ports) Data {
-	ports := r.portView(display)
+// DataWith is the rendering in machine-consumable form with each node's ports
+// filtered for the display options ask, and the optional notation elements
+// they add shown.
+func (r *Rendering) DataWith(options Options) Data {
+	r = r.showing(options.Show)
+	ports := r.portView(options.Ports)
 	return r.data(&ports)
 }
 
@@ -110,6 +114,7 @@ func (r *Rendering) data(ports *portView) Data {
 		Lanes:    r.Lanes,
 		Canvas:   r.Canvas,
 		Notes:    r.Notes,
+		Shown:    r.Shown.Names(),
 		Notices:  r.Notices,
 	}
 	if refusals := refusedPictureNotices(r.Pictures, r.pictureRefusals()); len(refusals) > 0 {

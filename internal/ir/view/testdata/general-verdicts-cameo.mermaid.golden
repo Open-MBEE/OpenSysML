@@ -27,41 +27,27 @@ config:
 %% not represented: Cameo gradients are drawn flat
 %% not represented: Mermaid has no diagram frame with header tab
 flowchart TD
-  n0["`*«requirement def»*
-**VehicleRequirements::MassRequirement**
+  n0["`**MassRequirement**
 id R1, “The total mass of the vehicle shall not exceed the stated...”`"]
-  n1["`*«requirement def»*
-**VehicleRequirements::StoppingRequirement**
+  n1["`**StoppingRequirement**
 id R2, “The vehicle shall stop within the stated distance.”`"]
-  n2["`*«requirement def»*
-**VehicleRequirements::EmergencyStopRequirement**
+  n2["`**EmergencyStopRequirement**
 id R3`"]
-  n3["`*«requirement»*
-**VehicleRequirements::vehicleMass : MassRequirement**
+  n3["`**vehicleMass**
 id R1.1, verdict pass by Cases::light, fail by Cases::heavy`"]
-  n4["`*«requirement»*
-**VehicleRequirements::chassisMass : MassRequirement**
+  n4["`**chassisMass**
 id R1.2, verdict pass by Cases::chassis`"]
-  n5["`*«requirement»*
-**VehicleRequirements::emergencyStop : EmergencyStopRequirement**
+  n5["`**emergencyStop**
 id R3.1, verdict inconclusive by Cases::stop (no verdict bound), error by Cases::brake (division by zero)`"]
-  n6["`*«part def»*
-**VehicleStructure::LightChassis**`"]
-  n7["`*«part»*
-**VehicleStructure::vehicle : Vehicle**`"]
-  n8["`*«part»*
-**VehicleStructure::heavyVehicle : Vehicle**`"]
-  n9("`**VehicleStructure::brake : Brake**`")
-  n10["`*«verification def»*
-**VehicleVerification::MassTest**`"]
-  n11["`*«verification»*
-**VehicleVerification::lightMassTest : MassTest**`"]
-  n12["`*«verification»*
-**VehicleVerification::heavyMassTest : MassTest**`"]
-  n13["`*«verification def»*
-**VehicleVerification::StopTest**`"]
-  n14["`*«verification»*
-**VehicleVerification::stopTest : StopTest**`"]
+  n6["`**LightChassis**`"]
+  n7["`**vehicle**`"]
+  n8["`**heavyVehicle**`"]
+  n9("`**brake**`")
+  n10["`**MassTest**`"]
+  n11["`**lightMassTest**`"]
+  n12["`**heavyMassTest**`"]
+  n13["`**StopTest**`"]
+  n14["`**stopTest**`"]
   n2 -->|"specialization"| n1
   n3 -.->|"typing"| n0
   n4 -.->|"typing"| n0
@@ -71,7 +57,7 @@ id R3.1, verdict inconclusive by Cases::stop (no verdict bound), error by Cases:
   n7 -.->|"satisfy"| n3
   n8 -.->|"satisfy"| n3
   n7 -.->|"satisfy"| n5
-  n5 -.->|"allocate"| n9
+  n5 -.-> n9
   n10 -.->|"verify"| n3
   n11 -.->|"verify"| n3
   n12 -.->|"verify"| n3

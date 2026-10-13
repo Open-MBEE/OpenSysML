@@ -1220,10 +1220,17 @@ it needs the CLI's converter toolchain.
 edges, table and matrix rows, notes, source spans and optional canvas/geometry/style data,
 using the engine renderer's `view.Data` rather than diagram pictures. Its
 `ports` field is empty or `minimal` by default; `full` includes all declared
-ports. It is advertised by `render_view`, and a service without that capability
-refuses the request with `UNIMPLEMENTED`.
-Python exposes this as `model.render_view(view_name, ports="minimal")`, returning
-a typed `RenderedView`.
+ports. Its `show` field names the
+[optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
+to draw besides those the view's rendering shows — `parameter-symbols`,
+`port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`,
+`typings`, `qualifiers`, or `all` — and the response's `shown` lists the ones
+drawn; a name none of them has is refused with `INVALID_ARGUMENT` naming the
+elements there are. It is advertised by `render_view`, and a service without
+that capability refuses the request with `UNIMPLEMENTED`.
+Python exposes this as `model.render_view(view_name, ports="minimal", show=None)`,
+returning a typed `RenderedView` whose `shown` lists the elements drawn; Rust as
+`Model::render_view_showing(name, ports, &["edge-labels"])`.
 
 `ExportGraphs` answers the lowered graph of an action or state machine — the
 subject's `ActionGraph`/`StateGraph` IR and that of every behavior it performs —

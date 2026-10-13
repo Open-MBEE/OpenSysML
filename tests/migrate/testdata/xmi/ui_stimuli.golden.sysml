@@ -52,5 +52,8 @@ package Gui;
 action def Interactive {
     @Simulation::Configuration;
     part target : Controller;
-    /* «SimulationConfig» settings of the simulation tool: UI = Gui::Console */
+    @MigrationMetadata::AppliedStereotype {
+        stereotype = "SimulationConfig";
+        tags = "UI = Gui::Console";
+    }
 }

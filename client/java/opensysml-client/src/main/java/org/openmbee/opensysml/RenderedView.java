@@ -16,7 +16,8 @@ public record RenderedView(
     List<Row> rows,
     Optional<Canvas> canvas,
     List<Note> notes,
-    List<String> notices) {
+    List<String> notices,
+    List<String> shown) {
 
   public RenderedView {
     Objects.requireNonNull(view, "view");
@@ -29,6 +30,7 @@ public record RenderedView(
     Objects.requireNonNull(canvas, "canvas");
     notes = List.copyOf(notes);
     notices = List.copyOf(notices);
+    shown = List.copyOf(shown);
   }
 
   /** A flattened rendered node; parents precede children. */
@@ -213,7 +215,8 @@ public record RenderedView(
                         note.getHasSize(),
                         note.hasOrigin() ? Optional.of(span(note.getOrigin())) : Optional.empty()))
             .toList(),
-        response.getNoticesList());
+        response.getNoticesList(),
+        response.getShownList());
   }
 
   private static Span span(org.openmbee.opensysml.proto.Span span) {

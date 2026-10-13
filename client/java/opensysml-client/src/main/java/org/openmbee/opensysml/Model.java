@@ -1666,8 +1666,19 @@ public final class Model {
 
   /** Renders a view with an explicit port selection. */
   public RenderedView renderView(String viewName, RenderViewPorts ports) {
+    return renderView(viewName, ports, List.of());
+  }
+
+  /**
+   * Renders a view with an explicit port selection, showing the named optional notation elements
+   * ({@code "edge-labels"}, {@code "all"}, ...) besides those the view's rendering shows.
+   *
+   * @throws ServiceException if a name is none the service knows
+   */
+  public RenderedView renderView(String viewName, RenderViewPorts ports, List<String> show) {
     Objects.requireNonNull(viewName, "viewName");
     Objects.requireNonNull(ports, "ports");
+    Objects.requireNonNull(show, "show");
     connection.capabilities().require(Capabilities.RENDER_VIEW);
     RenderViewResponse response =
         connection.call(
@@ -1676,6 +1687,7 @@ public final class Model {
                 .setModelHash(hash)
                 .setView(viewName)
                 .setPorts(ports.wireName())
+                .addAllShow(show)
                 .build(),
             RenderViewResponse.getDefaultInstance());
     return RenderedView.from(response);

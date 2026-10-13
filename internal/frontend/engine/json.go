@@ -327,9 +327,10 @@ type JParseSourcesResponse struct {
 }
 
 type JRenderViewRequest struct {
-	ModelHash string `json:"modelHash,omitempty"`
-	View      string `json:"view,omitempty"`
-	Ports     string `json:"ports,omitempty"`
+	ModelHash string   `json:"modelHash,omitempty"`
+	View      string   `json:"view,omitempty"`
+	Ports     string   `json:"ports,omitempty"`
+	Show      []string `json:"show,omitempty"`
 }
 
 type JRenderViewResponse struct {
@@ -337,6 +338,7 @@ type JRenderViewResponse struct {
 	Kind    string         `json:"kind"`
 	Stated  string         `json:"stated"`
 	Notices []string       `json:"notices"`
+	Shown   []string       `json:"shown,omitempty"`
 	Canvas  *JRenderCanvas `json:"canvas,omitempty"`
 	Nodes   []JRenderNode  `json:"nodes"`
 	Edges   []JRenderEdge  `json:"edges"`

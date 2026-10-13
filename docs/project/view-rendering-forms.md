@@ -1126,6 +1126,60 @@ Mermaid and PlantUML forms share, D2 laying the diagram out itself. A `-render-l
 each located node's and edge's URL as `link: "…"`
 beside its `class` — see [Source links](#source-links).
 
+## Optional notation elements
+
+SysML v2.0 (ptc/25-04-05) leaves several notation elements to the diagram: §7.26.5 says a
+definition or usage node *can* include symbols on its boundary for its ports and parameters
+and *can* include compartments, and the graphical BNF of §8.2.3 offers alternatives for the
+same model content — a case's actors as boundary `distinguished-parameter` symbols joined by
+a `distinguished-parameter-link` or the actor joined to the case node directly, a part's
+ports drawn or not, an edge's label, the `«keyword»` and the name's qualification, a
+multiplicity, a feature's `: Type`. A rendering draws the required notation and, of the
+optional, what it is told to show. `view.DefaultShown` is the default, one named constant:
+port symbols and compartments. Each element has a name every surface uses and a Boolean
+attribute a rendering in the model chooses it by:
+
+| Element | Attribute | What it draws | Optional by |
+| --- | --- | --- | --- |
+| `parameter-symbols` | `showParameterSymbols` | A case's `actor`, `subject` and `stakeholder` parameters and an action's parameter pins as squares on the node's boundary. Without them a connection that ended at a parameter ends at the node that declares it: one line per connection, one node per actor. A tree lists a case's parameters as members, which stay. | §7.26.5; §8.2.3 `distinguished-parameter`, `distinguished-parameter-link` |
+| `port-symbols` | `showPortSymbols` | A part's ports as pins on its boundary. Without them a connection that ended at a port ends at the part; a port drawn as a nested member of a tree is model structure and stays. Default. | §7.26.5; §8.2.3 `port-node` |
+| `compartments` | `showCompartments` | The lists of nested features inside a node. Default. | §7.26.5; §8.2.3 `compartment` |
+| `edge-labels` | `showEdgeLabels` | The names of connections, flows, bindings and allocations along their lines. Without them no label box is left. A sequence diagram's message lines keep their labels: the label is the message. | §8.2.3 `edge-label` |
+| `keywords` | `showKeywords` | The `«keyword»` over each name. | §8.2.3 `keyword-list` |
+| `multiplicities` | `showMultiplicities` | A feature's `[m..n]` after its name and at a composition's part end. | §8.2.3 `multiplicity` |
+| `typings` | `showTypings` | The `: Type` and `:> general` text after a name. | §8.2.3 `feature-typing-text` |
+| `qualifiers` | `showQualifiers` | The qualified-name prefix of each name, in the text form as in the diagram forms; without it a name is the shortest suffix of its qualified name that is its own in the rendering. | §8.2.3 `qualified-name` |
+
+In the model, a view chooses them by rendering a usage or definition that specializes a standard
+`Views` rendering and declares the attributes, each `true` to show the element and `false` to
+leave it out; a switch is declared `default` so that a rendering specializing the one declaring it
+redefines it (`:>>`) to turn it again. The renderer recognises the standard rendering through the specialization chain and
+reads the attributes from the chosen rendering and its generals, the nearest declaration of each
+deciding. An attribute left undeclared keeps the default, so a rendering need only name what it
+changes. The notation stays library-only — `ScalarValues::Boolean`, `rendering def`, `rendering`
+and the standard renderings — and the pilot validates it.
+
+```sysml
+private import ScalarValues::Boolean;
+rendering def PlainInterconnection :> Views::asInterconnectionDiagram {
+    attribute showParameterSymbols : Boolean default = false;
+    attribute showEdgeLabels : Boolean default = true;
+}
+rendering labelled :> PlainInterconnection { attribute :>> showParameterSymbols = true; }
+view useCases { expose Lab::*; render PlainInterconnection; }
+```
+
+Ad hoc, `-render-show <elements>`, the REPL's `show=<elements>` on `%render` and `%render-document`,
+the `show` array of the LSP `opensysml/render` and `opensysml/renderDocument` requests, of the
+sysml-engine `RenderView` request and of the gRPC `RenderView` RPC, the VS Code `opensysml.diagram.show` setting and a document
+diagram's `show` attribute ([authoring](../manual/authoring.md#diagrams)) add elements to what the
+rendering shows (or `all`); they never take one away. The elements are applied once, before any form is written, to a copy
+of the rendering (`Rendering.showing`): hidden parameter symbols and port symbols are removed
+with their edges' ends moved to the node that declared them and a note anchored at one moved
+likewise, hidden labels, typings, multiplicities, keywords, compartments and qualifiers are left
+unwritten, so DOT, Mermaid, PlantUML, D2, text and `Rendering.Data` agree. A name none of the
+elements has is refused with the names there are.
+
 ## Surfaces
 
 `dot`, `mermaid`, `plantuml` and `d2` are accepted wherever a diagram form is chosen,
@@ -1142,6 +1196,7 @@ refuse D2:
 | VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented six for a server without it, which predates `csv` and `tsv`), sends the pick as `form`, and saves `.dot`, `.puml` or `.d2` (`.mmd`, `.md`, `.csv`, `.tsv`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`; `%render <view> mermaid [palette] [pilot\|cameo]`; `"style": "cameo"` on `opensysml/render` and the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. Unsupported style details receive a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`, on `-render`, `-render-all` and the document renderers; `%render <view> dot [palette] [pilot\|cameo]` and `%render-document <name> dot [style]`; `"style": "cameo"` on `opensysml/render`, the styles listed by the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. A form that draws no style writes a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` naming the styles there are | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
+| CLI, REPL, LSP, VS Code, documents | `-render-show <elements>` on `-render`, `-render-all`, `-render-document` and `-render-documents`; `%render <view> <form> show=<elements>` and `%render-document <name> <form> show=<elements>`; `"show": [...]` on `opensysml/render`, `opensysml/renderDocument`, the sysml-engine `RenderView` request and the gRPC `RenderView` RPC (`model.render_view(view, show=[...])` in Python), the `openSysmlRenderElements` capability listing the names and the result's `shown` what was drawn; a document diagram's `show` attribute; the `opensysml.diagram.show` setting in the diagram panel and export; a view's rendering chooses its own in the model ([optional notation elements](#optional-notation-elements)) | [`docs/reference/cli.md`](../reference/cli.md), [`docs/reference/repl-commands.md`](../reference/repl-commands.md), [`docs/reference/lsp.md`](../reference/lsp.md), [`editors/vscode/README.md`](../../editors/vscode/README.md) |
 | CLI, REPL, LSP, documents | `-render-ports minimal\|full` on `-render` and `-render-all`; `%render <view> <form> [minimal\|full]` in any order with the palette and style; `"ports": "full"` on `opensysml/render`, the displays listed by the `openSysmlRenderPorts` capability; `Diagram::ports` in a document, carried as `view.Options.Ports` (`invalid-ports`, `unsupported-ports` errors) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md), [`docs/manual/authoring.md`](../manual/authoring.md#diagrams) |
 | VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
 | CLI, REPL, LSP, VS Code | A table or matrix view takes `csv` or `tsv` as well: `-render <view> -render-form csv\|tsv` (`-render-all` writes `.csv` or `.tsv` for each tabular view and skips every other view), `%render <view> csv\|tsv`, `"form": "csv"` or `"tsv"` on `opensysml/render`. Either is a header record of the columns, then a record per row, fields quoted as RFC 4180 quotes them; a notice is never inside the records: the CLI writes it to standard error, LSP returns it in the response, and `%render` lists it after a blank line | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |

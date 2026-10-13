@@ -12,6 +12,7 @@ classdef RenderedView
         canvas
         notes
         notices
+        shown
     end
 
     methods
@@ -94,6 +95,7 @@ classdef RenderedView
                 result.notes = appendStruct(result.notes, value);
             end
             result.notices = stringSequence(fieldOr(answer, 'notices', {}));
+            result.shown = stringSequence(fieldOr(answer, 'shown', {}));
         end
     end
 end

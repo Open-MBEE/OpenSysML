@@ -118,10 +118,10 @@ func TestFeatureValuesAreBindingEdges(t *testing.T) {
 	if len(e.Route) != 2 || e.Route[0].X != 105 || e.Route[1].Y != 98 {
 		t.Errorf("observed binding route = %v, want the Route stated", e.Route)
 	}
-	if text := r.Text(); strings.Count(text, "==") != 1 {
+	if text := r.textWith(fullNotation); strings.Count(text, "==") != 1 {
 		t.Errorf("text draws %d bindings, want one:\n%s", strings.Count(text, "=="), text)
 	}
-	dot, err := r.DOT()
+	dot, err := r.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatal(err)
 	}

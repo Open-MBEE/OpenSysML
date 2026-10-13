@@ -192,6 +192,10 @@ type HTMLOptions struct {
 	// when empty; the other forms draw one look.
 	Style view.DrawingStyle
 
+	// Show is the optional notation elements every diagram draws besides the
+	// ones its view's rendering shows; nil adds none.
+	Show view.Shown
+
 	// LinkTemplate fills source links for diagram elements. HTML content has no element-anchored sections.
 	LinkTemplate string
 
@@ -321,7 +325,7 @@ func (s Stylesheet) Check() error {
 
 // diagramOptions is the part of the options the diagrams are written by.
 func (o HTMLOptions) diagramOptions() DiagramOptions {
-	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style, LinkTemplate: o.LinkTemplate}
+	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style, Show: o.Show, LinkTemplate: o.LinkTemplate}
 }
 
 // htmlWriter accumulates one rendered document, its diagrams in the forms

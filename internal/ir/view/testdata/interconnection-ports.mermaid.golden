@@ -23,19 +23,18 @@ config:
 ---
 %% ToasterViews::toasterView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["`*«part def»* **Toaster**`"]
+  subgraph n0 ["`**Toaster**`"]
     direction LR
-    subgraph n1 ["`*«part»* **heating : HeatingSystem**`"]
+    subgraph n1 ["`**heating**`"]
       direction LR
       n1.0["durationIn"]
     end
-    subgraph n2 ["`*«part»* **control : ControlSystem**`"]
+    subgraph n2 ["`**control**`"]
       direction LR
       n2.0["durationOut"]
     end
-    n3("`*«part»*
-**chassis : Chassis**`")
+    n3("`**chassis**`")
   end
-  n2.0 ===|"durationInterface"| n1.0
-  n2.0 -.->|"of Real"| n1.0
+  n2.0 === n1.0
+  n2.0 -.-> n1.0
   linkStyle 0 stroke-width:3px

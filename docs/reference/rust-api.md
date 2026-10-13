@@ -70,6 +70,11 @@ let external = Connection::external("localhost", 50051)?; // a service someone e
 
 `Model::render_view(name, RenderViewPorts::Minimal)` returns a typed
 `RenderedView`; use `RenderViewPorts::Full` to include every declared port.
+`Model::render_view_showing(name, ports, &["edge-labels", "typings"])` also names
+the [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
+to draw besides those the view's rendering shows (`"all"` for every one); the
+`RenderedView`'s `shown` lists the elements drawn, and a name none of them has
+is refused as `Error::InvalidArgument`.
 Unset geometry, style and canvas are represented as absent optionals. The RPC
 requires the `render_view` capability.
 

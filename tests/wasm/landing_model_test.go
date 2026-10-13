@@ -133,10 +133,11 @@ func TestLandingStackModel(t *testing.T) {
 	}
 
 	var diagram engine.JRenderViewResponse
-	renderBody := call("RenderView", map[string]string{
+	renderBody := call("RenderView", map[string]any{
 		"modelHash": parsed.ModelHash,
 		"view":      "#interconnection:OpenSysMLStack::stack",
 		"ports":     "minimal",
+		"show":      []string{"edge-labels", "typings", "keywords"},
 	}, &diagram)
 	pinLandingFixture(t, parsed.ModelHash, renderBody, instantiateBody)
 	if diagram.Kind != "interconnection" {
