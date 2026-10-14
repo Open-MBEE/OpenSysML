@@ -19,6 +19,6 @@ Property	Blocks::<Association>::<Property>	_ae_vehicle	-> Model::Blocks::EngineT
 Property	Blocks::Engine::piston	_prop_piston	-> Model::Blocks::Engine::piston
 «Block» Class	Blocks::Piston	_blk_piston	-> Model::Blocks::Piston
 «Block» Class	Blocks::Vehicle	_blk_vehicle	-> Model::Blocks::Vehicle
-Diagram	Blocks::Vehicle BDD	_diag_bdd	-> Model::Blocks::'Vehicle BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; laid out from the diagram's own symbol stream: 3 of 6 shown elements positioned (3 lying on connections), 1 of 1 connectors routed)
+Diagram	Blocks::Vehicle BDD	_diag_bdd	-> Model::Blocks::'Vehicle BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 2 of 6 shown elements are compartment rows or end labels of exposed elements, not exposed; laid out from the diagram's own symbol stream: 3 of 6 shown elements positioned (3 lying on connections), 1 of 1 connectors routed)
 Property	Blocks::Vehicle::engine	_prop_engine	-> Model::Blocks::Vehicle::engine
 Model	Model	_m	-> Model	(written as package Model)

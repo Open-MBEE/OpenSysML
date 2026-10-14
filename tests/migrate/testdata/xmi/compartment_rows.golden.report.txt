@@ -1,0 +1,40 @@
+# SysML v1 to v2 migration report: compartment_rows.xmi
+# exported by Example UML Tool
+# migrated 19 element(s): 17 mapped, 2 approximated, 0 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 1 of 1 diagrams from the diagrams' own symbol streams: 4 elements positioned, 2 connectors routed, 0 styled, 0 notes
+
+## layout
+# source: the diagrams' own symbol streams
+# 1 views laid out from their own symbol stream, 0 without layout
+# placements: 4 of 11 written (0 not exposed, 7 lying on connections, 0 resolving to no element); routes: 2 of 3 written (1 not pinned, 0 resolving to no element); malformed: 0
+# styles: 0 of 0 written; notes: 0 written (0 anchored, 0 freed of an anchor the view does not lay out)
+# routes of Association: 1 not exposed
+# routes of Association: 2 written
+
+## approximated (2)
+Association	Blocks::<Association>	_assoc_engine	-> Model::Blocks::EngineToVehicle	(the anonymous Association is written as connection def EngineToVehicle; its one usage is the connection engine to vehicle joining engine and vehicle)
+Diagram	Blocks::Vehicle BDD	_diag_bdd	-> Model::Blocks::'Vehicle BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 4 of 18 shown elements are not written and not exposed; 9 of 18 shown elements are compartment rows or end labels of exposed elements, not exposed; laid out from the diagram's own symbol stream: 4 of 11 shown elements positioned (7 lying on connections), 2 of 3 connectors routed (1 not exposed))
+
+## mapped (17)
+Package	Blocks	_pkg_blocks	-> Model::Blocks
+Property	Blocks::<Association>::<Property>	_ae_vehicle	-> Model::Blocks::EngineToVehicle::vehicle
+«Block» Class	Blocks::Engine	_blk_engine	-> Model::Blocks::Engine
+«ValueType» DataType	Blocks::Mass	_vt_mass	-> Model::Blocks::Mass
+«ConstraintBlock» Class	Blocks::MaxSpeed	_cb_maxspeed	-> Model::Blocks::MaxSpeed
+Enumeration	Blocks::Mode	_enum_mode	-> Model::Blocks::Mode
+EnumerationLiteral	Blocks::Mode::eco	_lit_eco	-> Model::Blocks::Mode::eco
+EnumerationLiteral	Blocks::Mode::sport	_lit_sport	-> Model::Blocks::Mode::sport
+«Block» Class	Blocks::Vehicle	_blk_vehicle	-> Model::Blocks::Vehicle
+Property	Blocks::Vehicle::engine	_prop_engine	-> Model::Blocks::Vehicle::engine
+Port	Blocks::Vehicle::fuel	_port_fuel	-> Model::Blocks::Vehicle::fuel
+«ConstraintProperty» Property	Blocks::Vehicle::limit	_prop_limit	-> Model::Blocks::Vehicle::limit
+Property	Blocks::Vehicle::mass	_prop_mass	-> Model::Blocks::Vehicle::mass
+Property	Blocks::Vehicle::mode	_prop_mode	-> Model::Blocks::Vehicle::mode
+Property	Blocks::Vehicle::speed	_prop_speed	-> Model::Blocks::Vehicle::speed
+Property	Blocks::Vehicle::trim	_prop_trim	-> Model::Blocks::Vehicle::trim
+Model	Model	_m	-> Model	(written as package Model)
+
+## skipped (4)
+Association	Blocks::<Association>	_assoc_mode	(the association only backs Blocks::Vehicle::mode, which is written as a feature)
+Association	Blocks::<Association>	_assoc_trim	(the association only backs Blocks::Vehicle::trim, which is written as a feature)
+Property	Blocks::<Association>::<Property>	_ae_mode	(the end types the owner of Blocks::Vehicle::mode; the association only backs Blocks::Vehicle::mode, which is written as a feature)
+Property	Blocks::<Association>::<Property>	_ae_trim	(the end types the owner of Blocks::Vehicle::trim; the association only backs Blocks::Vehicle::trim, which is written as a feature)

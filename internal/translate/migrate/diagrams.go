@@ -117,7 +117,11 @@ func (m *migration) planViews() {
 		if d.Owner != nil {
 			where += " in " + qualifiedName(d.Owner)
 		}
+		form := m.formOf(d)
 		for _, shown := range d.Shown {
+			if !symbolized(form, shown) {
+				continue
+			}
 			if x := m.exposable(shown.Element); x != nil && x.Parent != v.host {
 				m.expose(x, where+" exposes it")
 			}
@@ -333,6 +337,15 @@ type exposures struct {
 	unwritten int
 	// dangling counts shown ids that resolve to no element.
 	dangling int
+	// symbolless counts shown elements with no symbol of their own, drawn by an
+	// exposed element's symbol: compartment rows and end labels on lines.
+	symbolless int
+}
+
+// symbolized reports whether a view of form f exposes shown: a tree exposes only what
+// a symbol of its own stands for, not a compartment row or an end label on a line.
+func symbolized(f viewForm, shown sysmlv1.ElementRef) bool {
+	return f.rendering != treeRendering || !shown.Listed && !shown.OnPath
 }
 
 // exposed reports whether the view exposes what ref names.
@@ -417,7 +430,12 @@ func (m *migration) drawsEntry(f viewForm, el *sysmlv1.Element) bool {
 
 // draws reports whether a view of form f exposing x shows el, which ref names, where
 // geometry can pin it: an element it exposes, or a node or edge its subject's graph draws.
-func (m *migration) draws(x exposures, f viewForm, el *sysmlv1.Element, ref string) bool {
+func (m *migration) draws(x exposures, f viewForm, host, el *sysmlv1.Element, ref string) bool {
+	if prop := m.backedProperty(el); prop != nil {
+		// A tree draws an attribute's typing edge between its owner's and its type's
+		// boxes; a private attribute is out of the view's reach.
+		return !m.writtenHidden(prop) && x.exposed(m.exposure(prop.Parent, host)) && x.exposed(m.exposure(m.model.Ref(prop, "type"), host))
+	}
 	return x.exposed(ref) || m.graphPins(f, el)
 }
 
@@ -644,6 +662,9 @@ func (m *migration) viewShownNote(d *sysmlv1.Diagram, x exposures, geo viewGeome
 	if x.unwritten > 0 {
 		note = joinNotes(note, fmt.Sprintf("%d of %d shown elements are not written and not exposed", x.unwritten, shown))
 	}
+	if x.symbolless > 0 {
+		note = joinNotes(note, fmt.Sprintf("%d of %d shown elements are compartment rows or end labels of exposed elements, not exposed", x.symbolless, shown))
+	}
 	if x.dangling > 0 {
 		note = joinNotes(note, fmt.Sprintf("%d of %d shown ids resolve to no element", x.dangling, shown))
 	}
@@ -682,6 +703,8 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 			// written as a Note the view's dressing lays out
 		case ref == "":
 			x.unwritten++
+		case !symbolized(form, shown):
+			x.symbolless++
 		default:
 			add(ref)
 			if c := m.connOf(shown.Element); form.useCases && c != nil {
@@ -1053,7 +1076,7 @@ func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
 		var points [][]float64
 		why := ""
 		if refs, why = m.routeTarget(el, v.host, p.form); why == "" {
-			if !m.draws(p.x, p.form, el, refs[0]) {
+			if !m.draws(p.x, p.form, v.host, el, refs[0]) {
 				why = routeNotExposed
 			}
 			refs = []string{strings.Join(refs, ", ")}
@@ -1108,14 +1131,7 @@ func (m *migration) linePoints(el *sysmlv1.Element, c mtip.Connector) []float64 
 	if el.Type == "Connector" {
 		return m.connectorLinePoints(el, c)
 	}
-	if !m.associationDef(el) {
-		return c.Points
-	}
-	ends := m.model.Refs(el, "memberEnd")
-	if len(ends) != 2 {
-		return c.Points
-	}
-	first, second := m.model.Ref(ends[0], "type"), m.model.Ref(ends[1], "type")
+	first, second := m.lineEnds(el)
 	if first == nil || second == nil || first == second {
 		return c.Points
 	}
@@ -1123,6 +1139,22 @@ func (m *migration) linePoints(el *sysmlv1.Element, c mtip.Connector) []float64 
 		return reversePoints(c.Points)
 	}
 	return c.Points
+}
+
+// lineEnds are the elements at the ends of the line a tree draws for association el, in
+// drawing order: a connection def's end types, or a backed attribute's owner then its type.
+func (m *migration) lineEnds(el *sysmlv1.Element) (first, second *sysmlv1.Element) {
+	if prop := m.backedProperty(el); prop != nil {
+		return prop.Parent, m.model.Ref(prop, "type")
+	}
+	if !m.associationDef(el) {
+		return nil, nil
+	}
+	ends := m.model.Refs(el, "memberEnd")
+	if len(ends) != 2 {
+		return nil, nil
+	}
+	return m.model.Ref(ends[0], "type"), m.model.Ref(ends[1], "type")
 }
 
 // connectorLinePoints is connector el's line run as `bind a = b` names its ends: reversed when
@@ -1168,7 +1200,7 @@ func (m *migration) drawnRef(x exposures, f viewForm, host *sysmlv1.Element, id 
 		return ref
 	}
 	refs, why := m.routeTarget(el, host, f)
-	if why != "" || !m.draws(x, f, el, refs[0]) {
+	if why != "" || !m.draws(x, f, host, el, refs[0]) {
 		return ""
 	}
 	return strings.Join(refs, ", ")
