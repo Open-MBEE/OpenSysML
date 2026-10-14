@@ -132,7 +132,7 @@ satisfaction assertion; `Validation` one per assertion about an object. `CalcRes
 `Exploration` its distinct `Outcome`s and whether it explored every order. A `SweepTable`
 is one `SweepRow` per point, and a failed row keeps the outputs and verdicts it reached.
 `RunOptions` also carries the run options of the `sysml` command — `advance` (simulated seconds to
-run for, reported back in `final_time`), `seed`, `draws` (`"min"`, `"max"`, `"average"` or
+run for, reported back in `final_time`, on `Error::Execution` too when the run stops short), `seed`, `draws` (`"min"`, `"max"`, `"average"` or
 `"random"`) and `clock_step` — `AnalysisOptions.tool_dry_run` previews the first external tool
 call instead of making it, `Connection::probe_engines` starts each external engine and checks its
 handshake before listing it, and `Connection::diagnostics_with_lints` selects the lints of one

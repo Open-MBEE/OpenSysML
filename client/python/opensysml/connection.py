@@ -195,7 +195,7 @@ def _add_sequence_message(add, operation_data, depth=0):
     return extended
 from opensysml.engines import ENGINE_AUTO, EngineInfo, Standing
 from opensysml.verdict import (
-    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Validation,
+    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, ToolDryRun, Validation,
     Verdict, VerificationVerdict,
     QUESTION_EVALUATE,
 )
@@ -2785,6 +2785,9 @@ class Connection:
             verifications=_verifications_of(response),
             evaluations=_evaluations_of(response, resolve),
             standing=Standing.of(response),
+            tool_dry_run=(
+                ToolDryRun(response.tool_dry_run) if response.HasField("tool_dry_run") else None
+            ),
         )
         if response.error:
             raise AnalysisRunError(response.error, result, diagnostics=diagnostics)

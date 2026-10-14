@@ -442,6 +442,7 @@ impl Verdict {
                 diagnostics: self.diagnostics.clone(),
                 trace: Vec::new(),
                 trace_dropped: 0,
+                final_time: 0.0,
             })
         }
     }
@@ -871,6 +872,7 @@ impl Outcome {
                 diagnostics: self.diagnostics.clone(),
                 trace: Vec::new(),
                 trace_dropped: 0,
+                final_time: 0.0,
             })
         } else {
             Ok(self)
@@ -941,6 +943,7 @@ impl Exploration {
                 diagnostics: Vec::new(),
                 trace: Vec::new(),
                 trace_dropped: 0,
+                final_time: 0.0,
             })
         }
     }
@@ -1067,6 +1070,7 @@ pub(crate) fn failure_of(message: &str, reason: i32, diagnostics: Vec<Diagnostic
             diagnostics,
             trace: Vec::new(),
             trace_dropped: 0,
+            final_time: 0.0,
         }
     }
 }
@@ -1147,6 +1151,7 @@ pub(crate) fn single_verdict(
             diagnostics,
             trace: Vec::new(),
             trace_dropped: 0,
+            final_time: 0.0,
         });
     }
     let pb = verdict.ok_or_else(|| Error::Decode("response carries no verdict".to_owned()))?;

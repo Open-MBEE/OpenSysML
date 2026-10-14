@@ -64,6 +64,7 @@ never stopped.
 const model = await connection.load("model.sysml");
 model.hash;                                  // what the service holds it under
 model.diagnostics;                           // in the order the service reported them
+await model.refreshDiagnostics({ enableLint: ["rounded-real-literal"] }); // under a lint selection
 model.hasErrors;                             // any error-severity diagnostic
 
 const car = await model.symbol("Demo::Car"); // short name, FQN or id

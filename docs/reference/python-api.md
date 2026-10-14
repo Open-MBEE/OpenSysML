@@ -194,7 +194,8 @@ records on `trace` and discarded count on `trace_dropped`.
 command: `advance` (simulated seconds to run for, reported back in
 `final_time`), `seed` (the model's own draws), `draws` (`"random"`, `"min"`,
 `"max"` or `"average"`) and `clock_step`. `run_analysis(..., tool_dry_run=True)`
-previews the first external tool call instead of making it, and
+previews the first external tool call instead of making it, as the result's
+`tool_dry_run` (a `ToolDryRun`), and
 `Connection.list_engines(probe=True)` starts each external engine and checks its
 handshake before listing it.
 

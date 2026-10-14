@@ -603,6 +603,7 @@ impl Connection {
                 diagnostics,
                 trace: Vec::new(),
                 trace_dropped: 0,
+                final_time: response.final_time,
             });
         }
         Ok(ActionRun {
@@ -1008,6 +1009,7 @@ fn state_failure(
         diagnostics,
         trace,
         trace_dropped: response.trace_dropped,
+        final_time: response.final_time,
     })
 }
 
