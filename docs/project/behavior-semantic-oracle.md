@@ -2637,6 +2637,28 @@ derived = 13}`, stated as `outcomes` citing this section. The default run marks 
 `derived`, `dep`'s pins, `lit.result` and `fixed` with the two choice points and prints `lit.x`
 bare.
 
+### A sibling node's pin read by its path stands on what the pin stands on
+
+Fixture: `action_order_sibling_pin_read_in_performed_action` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → step { v := x } → finish { result := step.v } → done
+```
+
+where `step` declares `out v : Integer`.
+
+Derived constraints:
+
+- `sync` follows both writes of `x`, so `step` writes its `v` as `1` or `2`.
+- `finish` reads `step.v`, the pin of `step`, so `result` is `1` or `2` with it.
+
+Open: the order of the two writers of `x`. A pin read by its path is the pin of the node named,
+whichever node's body reads it: `result` stands on what `step.v` stands on.
+
+Pinned outcome: `{x = 1, result = 1}` or `{x = 2, result = 2}`, stated as `outcomes` citing
+this section. The default run marks `x`, `result` and `step.v` with the two choice points.
+
 ## What the executor gets wrong
 
 Nothing, at present: every derivation above is met and carries a golden. The table this section

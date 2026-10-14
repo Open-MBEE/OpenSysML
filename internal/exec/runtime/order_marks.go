@@ -251,10 +251,10 @@ func (ctx *Context) standingOf(fp lower.Footprint, dynamicAll bool) []int64 {
 	return deps
 }
 
-// placeOf is the place as the run holds it: a body's own place, which the
-// footprint leaves to whichever performance runs the body, is the performance's.
+// placeOf is the place as the run holds it: a parameter of the action performed,
+// which its footprint leaves to whichever node performs the action, is that node's pin.
 func (ctx *Context) placeOf(p lower.Place) lower.Place {
-	if p.Node == nil && ctx.performing != nil && (p.Local || ctx.performingParams[p.Sym]) {
+	if p.Node == nil && ctx.performing != nil && ctx.performingParams[p.Sym] {
 		p.Node, p.Local = ctx.performing, true
 	}
 	return p

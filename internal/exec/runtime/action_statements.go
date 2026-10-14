@@ -168,16 +168,22 @@ func (h *actionStmtHost) statementFootprint(stmts []lower.Statement, i int) lowe
 	if h.perf == nil || h.perf.node == nil {
 		return fp
 	}
-	// The body's own places are this performance's, as the node's pins are.
-	fp.Reads, fp.Writes = placesOf(fp.Reads, h.perf.node), placesOf(fp.Writes, h.perf.node)
+	// The node's own features are this performance's places, as its pins are;
+	// another node's pin the body reads stays that node's.
+	own := make(map[ast.Node]bool)
+	for _, f := range h.graph.Features[h.perf.node] {
+		own[f.Node] = true
+	}
+	fp.Reads, fp.Writes = placesOf(fp.Reads, h.perf.node, own), placesOf(fp.Writes, h.perf.node, own)
 	return fp
 }
 
-// placesOf is the places with those a body holds as its own stamped as node's.
-func placesOf(places []lower.Place, node ast.Node) []lower.Place {
+// placesOf is the places with those declared by node's own features, the
+// declarations in own, stamped as node's.
+func placesOf(places []lower.Place, node ast.Node, own map[ast.Node]bool) []lower.Place {
 	out := slices.Clone(places)
 	for i := range out {
-		if out[i].Local && out[i].Node == nil {
+		if out[i].Node == nil && out[i].Sym != nil && own[out[i].Sym.Decl] {
 			out[i].Node = node
 		}
 	}
