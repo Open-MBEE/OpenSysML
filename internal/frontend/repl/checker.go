@@ -492,7 +492,6 @@ func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePoli
 	return standing(checkedVerdict(subject, label, answered.Result), &answered)
 }
 
-
 // checkProperties resolves the session's properties and assumptions to the
 // constraint or requirement each names, as analysis.ResolveCheckConditions does.
 func (s *Session) checkProperties() ([]runtime.CheckProperty, []*symbols.Symbol, *symbols.Scope, error) {
@@ -552,7 +551,6 @@ func checkStoppedVerdict(subject, label string, err error) Verdict {
 	}
 	return unresolvedVerdict(subject, err.Error())
 }
-
 
 // checkedVerdict reports what an engine answered to the check, rendered as
 // analysis.CheckLines renders it.
