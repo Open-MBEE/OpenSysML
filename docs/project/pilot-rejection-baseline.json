@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 315,
-        "digest": "sha256:7e23f292a2e0632aeed98b2dc63e46a2b853c513b60b96697eb07a44dded6487"
+        "files": 316,
+        "digest": "sha256:7086dc6ff58c730621f3f15f275cadacf5e67bd7754a5233739140bd1bd9ed63"
       }
     ],
     "recorded": "2026-10-14"
   },
   "totals": {
-    "cases": 315,
-    "bothReject": 306,
+    "cases": 316,
+    "bothReject": 307,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 161,
-      "bothReject": 152,
+      "cases": 162,
+      "bothReject": 153,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
@@ -2149,6 +2149,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/s20b-include-references-definition.sysml",
+      "source": "semantic",
+      "rule": "An include use case usage must reference a use case usage; a use case definition is not a feature (SysML 7.24 Use Cases; pilot validateIncludeUseCaseUsageReference).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
       "path": "semantic/s21-interface-def-end-not-port.sysml",
       "source": "semantic",
       "rule": "An interface definition end must be a port (SysML 7.14 Interfaces; pilot validateInterfaceDefinitionEnd).",
@@ -3074,8 +3083,8 @@
       }
     ],
     "totals": {
-      "cases": 315,
-      "bothReject": 306,
+      "cases": 316,
+      "bothReject": 307,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

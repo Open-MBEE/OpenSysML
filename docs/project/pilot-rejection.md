@@ -164,7 +164,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-315 case(s): 306 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
+316 case(s): 307 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
   of which 3 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -172,7 +172,7 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 11 | 11 | 0 | 0 | 0 |
 | grammar | 108 | 108 | 0 | 0 | 0 |
-| semantic | 161 | 152 | 0 | 9 | 0 |
+| semantic | 162 | 153 | 0 | 9 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the nine ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -643,6 +643,7 @@ for the gaps, and names where in OpenSysML the rule would have to fire.
 | `validateFramedConcernMembershipConstraintKind` | none: `frame` fixes `kind = requirement` in the grammar | no violating model | — | — | — |
 | `validateIfActionUsageParameters` | none: `IfNode` always parses condition and body parameters | no violating model | — | — | — |
 | `validateIncludeUseCaseUsageReference` | `semantic/s20-include-references-non-use-case.sysml` | both-reject | Must reference a use case. | Must reference a use case. | — |
+| `validateIncludeUseCaseUsageReference` | `semantic/s20b-include-references-definition.sysml` | both-reject | Must reference a use case.; includes target must be a usage, found useCaseDef | Couldn't resolve reference to Feature 'UD'.; Must reference a use case. | — |
 | `validateInterfaceDefinitionEnd` | `semantic/s21-interface-def-end-not-port.sysml` | both-reject | An interface definition end must be a port. | An interface definition end must be a port. | — |
 | `validateInterfaceUsageEnd` | existing: `xpect/p27-interface-end-not-port.sysml` | both-reject | An interface end must be a port. | An interface end must be a port. | — |
 | `validateInterfaceUsageType` | `semantic/s22-interface-typed-by-connection-def.sysml` | both-reject | An interface must be typed by interface definitions. | An interface must be typed by interface definitions. | — |
