@@ -611,7 +611,7 @@ func (e *ActionExecutor) runBody(tokenIdx int, work bodyWork) error {
 	if _, draws := scheduling.bodyYields(len(e.tokens) > 1); draws && !run.stepDraws {
 		run.stepDraws, run.token = true, e.tokens[tokenIdx].ID
 	}
-	if yields, draws := scheduling.bodyYields(len(e.tokens) > 1 || open); yields && (open || !e.tokens[tokenIdx].drivenByBody()) && e.bodyDivides(work, open) {
+	if yields, draws := scheduling.bodyYields(len(e.tokens) > 1 || open); yields && e.bodyDivides(work, open) {
 		run.yields, run.draws, run.token, run.guards = yields, draws, e.tokens[tokenIdx].ID, true
 	}
 	if outer := e.ctx.body; outer != nil && outer.nodesYield && yieldsAsStatement(work) {

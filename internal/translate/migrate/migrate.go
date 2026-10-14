@@ -156,6 +156,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		concerns:          map[*sysmlv1.Element]*concernInfo{},
 		concernLists:      map[*sysmlv1.Element][]*sysmlv1.Element{},
 		taken:             map[*sysmlv1.Element]map[string]bool{},
+		regionStates:      map[*sysmlv1.Element]string{},
 		takenBy:           map[*sysmlv1.Element]map[string]*sysmlv1.Element{},
 		parallel:          map[*sysmlv1.Element]string{},
 		exposed:           map[*sysmlv1.Element]string{},
@@ -385,9 +386,10 @@ type migration struct {
 	// opened holds the member names of each synthesized declaration being
 	// written, outermost first; a reference written inside them avoids those names.
 	opened []columnNames
-	// parallel names the parallel state each region of an orthogonal state is
-	// written in; a lone region is written inline and has no name of its own.
-	parallel map[*sysmlv1.Element]string
+	// regionStates marks regions written as state usages; orthogonal regions
+	// name their parallel host, while a wrapped single region has no host name.
+	regionStates map[*sysmlv1.Element]string
+	parallel     map[*sysmlv1.Element]string
 	// exposed notes, for each feature reached from outside its owner (through
 	// a connector path, a slot or a redefinition), what reaches it.
 	exposed map[*sysmlv1.Element]string
@@ -3892,6 +3894,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 		}
 	}
 	from, to := m.ref(client, m.scope), m.ref(supplier, m.scope)
+	qualifiedFrom, qualifiedTo := m.qualifiedRef(client, m.scope), m.qualifiedRef(supplier, m.scope)
 	allocationNote := ""
 	if has(d, "Allocate") {
 		if target, ok := m.allocationDef(d, name, client, supplier); ok {
@@ -3943,7 +3946,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 		decl += writeName(name) + fromKeyword
 		m.madeUp(d, writeName(name))
 	}
-	decl += from + " to " + to
+	decl += qualifiedFrom + " to " + qualifiedTo
 	kept := func() { m.stereotypeAnnotationsKept(d, kind) }
 	switch {
 	case has(d, "Refine"):
@@ -4324,7 +4327,7 @@ func (m *migration) commentAbout(c *sysmlv1.Element, about []*sysmlv1.Element, t
 			omitted = append(omitted, describe(a))
 			continue
 		}
-		refs = append(refs, m.ref(a, scope))
+		refs = append(refs, m.qualifiedRef(a, scope))
 	}
 	if len(refs) == 0 {
 		m.w.lines(prefixFirst(commentPrefix, commentLines(text)))

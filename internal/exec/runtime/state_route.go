@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -740,8 +741,9 @@ func (e *StateExecutor) exitAhead(states []*ast.StateNode) error {
 	if len(states) == 0 {
 		return nil
 	}
-	simple, regions := e.activeConfig.simpleState, e.activeConfig.regionStates
+	simple, regions, complete := e.activeConfig.simpleState, e.activeConfig.regionStates, e.activeConfig.defaultComplete
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode, len(regions))
+	e.activeConfig.defaultComplete = maps.Clone(complete)
 	for region, active := range regions {
 		e.activeConfig.regionStates[region] = active
 	}
@@ -751,7 +753,7 @@ func (e *StateExecutor) exitAhead(states []*ast.StateNode) error {
 	e.exitingAhead = true
 	err := e.exitStates(states)
 	e.exitingAhead = false
-	e.activeConfig.simpleState, e.activeConfig.regionStates = simple, regions
+	e.activeConfig.simpleState, e.activeConfig.regionStates, e.activeConfig.defaultComplete = simple, regions, complete
 	return err
 }
 

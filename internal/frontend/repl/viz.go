@@ -49,10 +49,28 @@ func vizStyles() []string {
 		out = append(out, string(ports))
 	}
 	out = append(out, vizPilotDefaultStyle, vizPlantUMLCodeStyle)
+	out = append(out, vizLinesStyleNames()...)
 	for _, style := range view.PilotStyles() {
 		out = append(out, string(style))
 	}
 	return out
+}
+
+// vizLinesStyles are the pilot's line styles, each the Lines routing the DOT
+// and PlantUML forms draw it as.
+var vizLinesStyles = map[string]view.Lines{
+	"ORTHOLINE": view.LinesOrtho,
+	"POLYLINE":  view.LinesPolyline,
+}
+
+// vizLinesStyleNames lists the pilot's line styles in alphabetical order.
+func vizLinesStyleNames() []string {
+	names := make([]string, 0, len(vizLinesStyles))
+	for name := range vizLinesStyles {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
 }
 
 const (
@@ -187,6 +205,13 @@ func (req *vizRequest) applyStyle(name string) []string {
 			return vizUsageOf(fmt.Sprintf("style %s asks for the plantuml form, but the %s form was asked for", name, req.form))
 		}
 		req.form, req.formStyle = view.FormPlantUML, name
+		return nil
+	}
+	if lines, ok := vizLinesStyles[strings.ToUpper(name)]; ok {
+		if req.opts.Lines != "" && req.opts.Lines != lines {
+			return vizUsageOf(fmt.Sprintf("style %s asks for %s lines, but %s lines were asked for", strings.ToUpper(name), lines, req.opts.Lines))
+		}
+		req.opts.Lines = lines
 		return nil
 	}
 	if style, ok := view.ParsePilotStyle(name); ok {

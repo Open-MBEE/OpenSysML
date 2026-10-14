@@ -111,6 +111,17 @@ func (s *Symbol) IsPath() bool {
 	return s.Ends[0] != "" || s.Ends[1] != "" || len(s.Points) > 0 && s.Bounds == nil
 }
 
+// OnPath reports a shape nested in a path symbol: a line's end symbol (an
+// association's Role, a connector's ConnectorEnd), which is no node of its own.
+func (s *Symbol) OnPath() bool {
+	for p := s.Parent; p != nil; p = p.Parent {
+		if p.IsPath() {
+			return true
+		}
+	}
+	return false
+}
+
 // symbols is what a stream draws: its symbols in serialized order, the model
 // elements they stand for, and the top-level symbols standing for none by class.
 type symbols struct {
@@ -626,6 +637,16 @@ func (m *Model) shownRefs(d *Diagram, syms *symbols) []ElementRef {
 			stood[e] = true
 		}
 	}
+	// own marks the elements a visible symbol off every path stands for.
+	own := map[*Element]bool{}
+	for _, s := range syms.list {
+		if s.Hidden || s.OnPath() {
+			continue
+		}
+		if e := m.shown(s.ElementID); e != nil {
+			own[e] = true
+		}
+	}
 	hidden, hiddenIDs := map[*Element]bool{}, map[string]bool{}
 	for _, id := range syms.hidden {
 		if e := m.shown(id); e != nil {
@@ -640,7 +661,8 @@ func (m *Model) shownRefs(d *Diagram, syms *symbols) []ElementRef {
 	dangling := map[string]bool{}
 	var shown []ElementRef
 	add := func(id string) {
-		if e := m.shown(id); e != nil {
+		e := m.shown(id)
+		if e != nil {
 			if elements[e] {
 				return
 			}
@@ -651,7 +673,7 @@ func (m *Model) shownRefs(d *Diagram, syms *symbols) []ElementRef {
 			}
 			dangling[id] = true
 		}
-		shown = append(shown, ElementRef{ID: id})
+		shown = append(shown, ElementRef{ID: id, Listed: e != nil && !stood[e], OnPath: e != nil && stood[e] && !own[e]})
 	}
 	for _, ref := range d.Shown {
 		e := m.shown(ref.ID)

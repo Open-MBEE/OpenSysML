@@ -16,7 +16,8 @@ import (
 // never re-derived from the source text. Nodes and edges are placed by the
 // Layout and Route annotations positioning their elements in view, nil for a
 // rendering outside any view. An exposed feature another exposed feature draws
-// nested in it is not a second root.
+// nested in it is not a second root, nor is an exposed port a drawn feature
+// pins on its border from its type.
 func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	r.renderInterconnectionWithIDs(view, exposed, out, &nodeIDs{}, false)
 }
@@ -32,6 +33,7 @@ func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []
 		}
 	}
 	descendants := r.exposedDescendants(roots, w.nestedFeatures)
+	var ports []*symbols.Symbol
 	for _, elem := range exposed {
 		switch {
 		case r.drawsConnector(elem):
@@ -40,11 +42,29 @@ func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []
 			if descendants[symbols.KeyOf(elem)] {
 				continue
 			}
+			if elem.Kind == symbols.SymbolPortUsage {
+				ports = append(ports, elem)
+				continue
+			}
 			out.Roots = append(out.Roots, w.featureNode(elem, map[*symbols.Symbol]bool{}, 0, true))
 		default:
 			out.Notices = append(out.Notices, fmt.Sprintf(
 				"%s %s has no place in an interconnection rendering; it is not shown",
 				declKind(elem), r.notationName(elem)))
+		}
+	}
+	// A port one drawn usage of its owner pins is drawn there alone, whatever the display shows.
+	for _, port := range ports {
+		site := w.siteOf(port)
+		switch {
+		case site.node == nil:
+			out.Roots = append(out.Roots, w.featureNode(port, map[*symbols.Symbol]bool{}, 0, true))
+		case site.port != "":
+			for i := range site.node.Ports {
+				if site.node.Ports[i].ID == site.port {
+					site.node.Ports[i].Exposed = true
+				}
+			}
 		}
 	}
 	seen := map[*symbols.Symbol]bool{}
@@ -171,12 +191,27 @@ func (w *featureWalk) siteOf(sym *symbols.Symbol) edgeEnd {
 	if node := w.nodes[sym]; node != nil {
 		return edgeEnd{node: node}
 	}
-	for node, pins := range w.pins {
-		if id, ok := pins[sym]; ok {
-			return edgeEnd{node: node, port: id}
+	return w.pinSite(sym)
+}
+
+// pinSite is the node that pins sym on its border, and the pin, when exactly
+// one drawn node does; the zero edgeEnd when none or several do, since a bare
+// name of the port names no one of them.
+func (w *featureWalk) pinSite(sym *symbols.Symbol) edgeEnd {
+	var site edgeEnd
+	for _, drawn := range w.drawn {
+		node := w.nodes[drawn]
+		if node == nil {
+			continue
+		}
+		if id, ok := w.pins[node][sym]; ok {
+			if site.node != nil {
+				return edgeEnd{}
+			}
+			site = edgeEnd{node: node, port: id}
 		}
 	}
-	return edgeEnd{}
+	return site
 }
 
 // casePin reports whether member, a member of a case drawn as a node, is
@@ -482,7 +517,8 @@ func (w *featureWalk) endNode(connector *symbols.Symbol, attachment ast.Node) ed
 			return edgeEnd{node: node}
 		}
 	}
-	return edgeEnd{}
+	// A port of a definition drawn only as the pin of the one usage typed by it.
+	return w.pinSite(target)
 }
 
 // memberEnd is where a member of what base draws attaches: the node under base

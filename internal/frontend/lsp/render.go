@@ -54,6 +54,11 @@ const RenderStylesCapability = "openSysmlRenderStyles"
 // every port.
 const RenderPortsCapability = "openSysmlRenderPorts"
 
+// RenderLinesCapability is the experimental capability whose value lists the
+// edge routings a render request's `lines` draws the DOT or PlantUML form with,
+// the first the default; a server without it routes every edge as splines.
+const RenderLinesCapability = "openSysmlRenderLines"
+
 // RenderElementsCapability is the experimental capability whose value lists the
 // optional notation elements a render request's `show` names, in the order the
 // writer defines them, then "all", every one of them.
@@ -77,6 +82,15 @@ func renderOverlayNames() []string {
 	names := make([]string, 0, len(view.Overlays()))
 	for _, overlay := range view.Overlays() {
 		names = append(names, string(overlay))
+	}
+	return names
+}
+
+// renderLinesNames lists the edge routings in the order the writer defines them.
+func renderLinesNames() []string {
+	names := make([]string, 0, len(view.LinesChoices()))
+	for _, lines := range view.LinesChoices() {
+		names = append(names, string(lines))
 	}
 	return names
 }
@@ -115,8 +129,10 @@ func renderFormNames() []string {
 // keyword family, in the artifact and as each node's Fill and Border; empty is black and white.
 // Style names the drawing style the DOT and Mermaid forms draw in; empty is the default, pilot.
 // Ports names how much of a part's ports an interconnection or mixed rendering
-// draws; empty is the default, minimal. Show names the optional notation
-// elements drawn besides the ones the view's rendering shows, or "all".
+// draws; empty is the default, minimal. Lines names how the DOT and PlantUML
+// forms route their edges; empty is the default, splines. Show names the
+// optional notation elements drawn besides the ones the view's rendering
+// shows, or "all".
 type renderParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	View         string                          `json:"view,omitempty"`
@@ -124,6 +140,7 @@ type renderParams struct {
 	Palette      string                          `json:"palette,omitempty"`
 	Style        string                          `json:"style,omitempty"`
 	Ports        string                          `json:"ports,omitempty"`
+	Lines        string                          `json:"lines,omitempty"`
 	Show         []string                        `json:"show,omitempty"`
 	Overlay      string                          `json:"overlay,omitempty"`
 	LinkTemplate string                          `json:"linkTemplate,omitempty"`
@@ -403,12 +420,16 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	lines, err := renderLines(params.Lines)
+	if err != nil {
+		return nil, err
+	}
 	shown, err := renderShown(params.Show)
 	if err != nil {
 		return nil, err
 	}
 	artifact, err := rendering.WriteWith(form, view.Options{
-		Palette: colors, Style: style, Ports: ports, Show: shown,
+		Palette: colors, Style: style, Ports: ports, Lines: lines, Show: shown,
 		Links: view.Links{Template: params.LinkTemplate, Sites: snapshot.Sites()},
 	})
 	if err != nil {
@@ -591,6 +612,16 @@ func renderPorts(asked string) (view.Ports, error) {
 		return "", &view.UnknownPortsError{Name: asked}
 	}
 	return ports, nil
+}
+
+// renderLines is the edge routing a request names, the default when it names
+// none, and an error listing the routings there are when it names something else.
+func renderLines(asked string) (view.Lines, error) {
+	lines, ok := view.ParseLines(asked)
+	if !ok {
+		return "", &view.UnknownLinesError{Name: asked}
+	}
+	return lines, nil
 }
 
 // renderShown is the optional notation elements a request's show names,

@@ -16,8 +16,6 @@ package Model {
         view 'Pair BDD' {
             expose Controller;
             expose Sensor;
-            expose Blocks::Controller::sensors;
-            expose Blocks::Sensor::controller;
             expose SensorToController;
             @DiagramLayout::Canvas { unit = "px"; width = 400; height = 300; }
             metadata DiagramLayout::Layout about Controller { x = 40; y = 20; width = 120; height = 50; }
@@ -28,7 +26,6 @@ package Model {
         view 'Sensor BDD' {
             expose Controller;
             expose Sensor;
-            expose Blocks::Sensor::controller;
             expose SensorToController;
             @DiagramLayout::Canvas { unit = "px"; width = 400; height = 300; }
             metadata DiagramLayout::Layout about Controller { x = 240; y = 20; width = 120; height = 50; }

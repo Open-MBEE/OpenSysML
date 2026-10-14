@@ -136,6 +136,9 @@ func (r *Rendering) mermaidNotices(options Options) []string {
 	if options.Style != "" && options.Style != StylePilot && options.Style != StyleCameo {
 		notices = append(notices, styleNotice(options.Style))
 	}
+	if options.Lines.routed() {
+		notices = append(notices, linesNotice(options.Lines, FormMermaid))
+	}
 	return notices
 }
 

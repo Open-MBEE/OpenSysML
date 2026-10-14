@@ -11,8 +11,10 @@ import "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 // its name first and then reads the frame holding that feature, falling back to
 // the name walk only for a name resolution does not bind.
 
-// holdFeature records that held binds sym, and every feature sym redefines,
-// under name: a body written against the redefined feature reads the redefining one.
+// holdFeature records that held binds sym, and every feature sym redefines — by
+// clause or implicitly, as a step's parameter redefines its behavior's at the same
+// position — under name: a body written against the redefined feature reads the
+// redefining one.
 func (ctx *Context) holdFeature(held *map[*symbols.Symbol]string, sym *symbols.Symbol, name string) {
 	if sym == nil || name == "" {
 		return
@@ -24,8 +26,10 @@ func (ctx *Context) holdFeature(held *map[*symbols.Symbol]string, sym *symbols.S
 		return
 	}
 	(*held)[sym] = name
-	for _, redefined := range ctx.model.semantics.RedefinedFeatures(sym) {
-		ctx.holdFeature(held, redefined, name)
+	for _, redefined := range ctx.model.semantics.AllRedefinedFeatures(sym) {
+		if _, bound := (*held)[redefined]; !bound {
+			(*held)[redefined] = name
+		}
 	}
 }
 

@@ -6394,6 +6394,36 @@ None for native local CLI/REPL tests.
   hash afterwards; the edited `content` in the answer is not evidence that nothing was written.
 - The server has no GUI: the request/response log is the evidence. Do not record an idle desktop.
 
+## Edge routing through the real engines (`-render-lines`, `%render … ortho|polyline`)
+
+- Build the current CLI and LSP (`make build-sysml build-lsp`) after any writer change and
+  restart an already-running REPL; it holds the old binary.
+- Use a graph with several connectors and bends. One straight edge cannot tell `splines`,
+  `polyline` and `ortho` apart. Compare the per-edge SVG path `d` values, not just the
+  emitted `splines=` / `skinparam linetype` attribute; default and explicit `splines` output
+  must be byte-identical.
+- Feed DOT to `dot -Tsvg`; a positioned diagram (explicit `Route` metadata) goes through
+  `neato -n2 -Tsvg`. Keep stderr even on exit status zero: Graphviz warns, it does not fail.
+- Graphviz's orthogonal router ignores ports and may cross node bodies; on a pinned ported
+  diagram it can report touching bounding boxes and fall back to straight edges, so a clean
+  compile is no proof that the routing changed. Compare against the default output.
+- Under `ortho` the connector names are `xlabel=`, not `label=` (Graphviz places no `label`
+  on an orthogonal edge). Check the SVG `<text>` elements for every connector name; default
+  and polyline keep ordinary edge labels.
+- The document toolchain may already hold a PlantUML jar under `build/doc-pdf/plantuml/`;
+  look before installing one. `java -jar <jar> -tsvg -pipe` on the emitted PlantUML.
+  `skinparam linetype` sits after the direction and before the body; `hide circle` /
+  `hide empty members` may stand between them.
+- The low-level layout fixtures under `tests/testdata` deliberately include invalid
+  `Canvas`/`Style` members, so a CLI run over them fails validation. Copy the fixture outside
+  the checkout and remove only the explicitly negative members.
+- For a `-render-run` option-misuse check, give a behaviour (`-action …`) and a valid
+  `timeline=<path>` first; otherwise the missing-behaviour guard fires before the option
+  under test.
+- Keep scratch models under `~/scratch`, not `/tmp`, so no unrelated LSP workspace indexing
+  joins in. Real stdio JSON-RPC checks need no editor.
+
+
 ## Expression fixtures must be semantically valid, not just parsed
 
 A probe that only needs the parser to accept a construct still goes through the

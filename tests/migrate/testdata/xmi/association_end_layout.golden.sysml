@@ -18,7 +18,6 @@ package Model {
         view 'Vehicle BDD' {
             expose Vehicle;
             expose Engine;
-            expose Blocks::Vehicle::engine;
             expose Blocks::Engine::piston;
             expose EngineToVehicle;
             @DiagramLayout::Canvas { unit = "px"; width = 400; height = 300; }

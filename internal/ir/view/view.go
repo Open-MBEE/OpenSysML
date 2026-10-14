@@ -346,6 +346,9 @@ type Port struct {
 	// Geometry is where the pin is drawn, from the Layout annotation that
 	// positions it in this view; nil leaves the placement to the writer.
 	Geometry *Geometry `json:",omitempty"`
+	// Exposed marks a pin the view exposes in its own right, drawn whatever
+	// the display shows of the other pins.
+	Exposed bool `json:",omitempty"`
 }
 
 // PortDirection is which way a port's values flow.

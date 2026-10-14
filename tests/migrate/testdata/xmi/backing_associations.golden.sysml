@@ -24,12 +24,11 @@ package Model {
             expose Mass;
             expose Amplifier;
             expose AmplifierToSensor;
-            expose Optics::Sensor::mass;
-            expose Optics::Sensor::amplifier;
             @DiagramLayout::Canvas { unit = "px"; width = 400; height = 300; }
             metadata DiagramLayout::Layout about Sensor { x = 140; y = 20; width = 120; height = 50; }
             metadata DiagramLayout::Layout about Mass { x = 20; y = 180; width = 120; height = 50; }
             metadata DiagramLayout::Layout about Amplifier { x = 260; y = 180; width = 120; height = 50; }
+            metadata DiagramLayout::Route about Optics::Sensor::mass { points = (160, 70, 80, 180); }
             metadata DiagramLayout::Route about AmplifierToSensor { points = (320, 180, 240, 70); }
             render Views::asTreeDiagram;
         }

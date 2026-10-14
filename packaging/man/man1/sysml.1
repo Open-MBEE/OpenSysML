@@ -355,6 +355,12 @@ interconnection or mixed rendering: minimal (default), the ports its
 interconnection edges end at, each a small square on the part's border named
 beside it, or full, every port, labelled name : Type
 .TP
+.BR \-render\-lines " \fIrouting\fP"
+How the dot or plantuml form of \-render or \-render\-all routes its edges:
+splines (default), each engine's curved routing, ortho, axis\-parallel
+segments, or polyline, straight segments; the Pilot visualizer's ORTHOLINE and
+POLYLINE styles. Mermaid and D2 note the routing as not represented
+.TP
 .BR \-render\-show " \fIelements\fP"
 Optional notation elements \-render, \-render\-all and document diagrams draw
 besides the default (port symbols, compartments and keywords),
@@ -962,6 +968,9 @@ sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
 # every port of every part, typed
 sysml model.sysml \-render Views::loopView \-render\-form dot \e
     \-render\-ports full
+# edges as axis\-parallel segments
+sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
+    \-render\-lines ortho
 sysml model.sysml \-render Views::vehicleView \-render\-form plantuml \-o \e
     view.puml
 sysml model.sysml \-render Views::vehicleView \-render\-form d2 \-o view.d2
@@ -1005,15 +1014,18 @@ pseudo\-state symbols \(em for a diagram migrated from Cameo to keep its look.
 An interconnection or mixed rendering draws on each part the ports its
 interconnection edges end at, each a small square on the part's border named
 beside it; \-render\-ports full draws every port a part has, labelled name :
-Type. A DiagramLayout Style on a member colours it over either look, and a
-Note is drawn beside the member it is about. A view whose members carry
-DiagramLayout positions draws the placed members and the edges between them in
-every graph form, and leaves a member with no position undrawn: the DOT form
-pins each at its stated place, so nothing lands on a positioned box, while
-Mermaid, PlantUML and D2 lay the same members out themselves.
-\-render\-unplaced strip draws the unplaced members too, in rows in a strip
-below a DOT drawing. The same setting shapes the diagrams of
-\-render\-document and \-render\-documents.
+Type. \-render\-lines routes the edges of the DOT and PlantUML forms: splines
+(default), each engine's curved routing, ortho, axis\-parallel segments, or
+polyline, straight segments, as the Pilot visualizer's ORTHOLINE and POLYLINE
+styles do; Mermaid and D2 note the routing. A DiagramLayout Style on a member
+colours it over either look, and a Note is drawn beside the member it is
+about. A view whose members carry DiagramLayout positions draws the placed
+members and the edges between them in every graph form, and leaves a member
+with no position undrawn: the DOT form pins each at its stated place, so
+nothing lands on a positioned box, while Mermaid, PlantUML and D2 lay the same
+members out themselves. \-render\-unplaced strip draws the unplaced members
+too, in rows in a strip below a DOT drawing. The same setting shapes the
+diagrams of \-render\-document and \-render\-documents.
 .SH LISTING DOCUMENTS AND VIEWS
 .RS 2
 .nf

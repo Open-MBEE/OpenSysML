@@ -30,7 +30,7 @@ import (
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
 const (
-	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [palette] [pilot|cameo] [minimal|full] [verdicts] [show=<elements>] [link=<template>]"
+	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [show=<elements>] [link=<template>]"
 	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|dot] [link=<template>]"
 )
 
@@ -541,7 +541,10 @@ func renderOptionWord(word string) bool {
 	if _, ok := view.ParseDrawingStyle(word); ok {
 		return true
 	}
-	_, ok := view.ParsePorts(word)
+	if _, ok := view.ParsePorts(word); ok {
+		return true
+	}
+	_, ok := view.ParseLines(word)
 	return ok
 }
 
@@ -553,7 +556,7 @@ func renderUsageOf(line string) (string, view.Form, view.Options, view.Overlay, 
 // parseRenderArgs reads %render's arguments: the view, the form and the options
 // after it; usage is what to print instead when they do not read.
 func parseRenderArgs(args []string) (name string, form view.Form, opts view.Options, overlay view.Overlay, usage []string) {
-	if len(args) < 1 || len(args) > 6 {
+	if len(args) < 1 {
 		return renderUsageOf(renderUsage)
 	}
 	form = view.FormText
@@ -611,6 +614,13 @@ func parseRenderArgs(args []string) (name string, form view.Form, opts view.Opti
 				return renderUsageOf(renderUsage)
 			}
 			opts.Ports = ports
+			continue
+		}
+		if lines, ok := view.ParseLines(word); ok {
+			if opts.Lines != "" {
+				return renderUsageOf(renderUsage)
+			}
+			opts.Lines = lines
 			continue
 		}
 		if !form.TakesPalette() {

@@ -36,6 +36,9 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if err := options.Ports.check(); err != nil {
 		return "", err
 	}
+	if err := options.Lines.check(); err != nil {
+		return "", err
+	}
 	if r.Run && r.Kind == KindTimeline {
 		return r.runTimelinePlantUML(options), nil
 	}
@@ -92,6 +95,9 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	w.writeStyle()
 	if direction != "" {
 		b.WriteString(direction + "\n")
+	}
+	if statement := options.Lines.plantumlStatement(); statement != "" {
+		b.WriteString(statement + "\n")
 	}
 	r.writeGeometryComments(b, "'")
 	switch r.Kind {

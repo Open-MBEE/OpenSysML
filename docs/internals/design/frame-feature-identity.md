@@ -44,8 +44,11 @@ Each frame keeps, beside its name-keyed values, an index from feature to the nam
 it binds that feature under (`frame.held`, `actionFrame.declared`, the
 `held` stack of `stmtEnv`, the attribute frames of `StateExecutor`), filled by
 `Context.holdFeature` — which also indexes every feature the declared one
-redefines, so a body written against the redefined name reads the redefining
-feature (`runtime/feature_identity.go`).
+redefines, by clause or implicitly (a step's parameter redefines its behavior's at
+the same position: a nested `action step : Walk { in depth = depth - 1; }` holds
+`Walk::depth` too, so a recursion's inner performance answers for its own level), so
+a body written against the redefined name reads the redefining feature
+(`runtime/feature_identity.go`).
 
 A read of a simple name resolves it first, in the scope the expression was written
 in, and reads the innermost frame holding the feature it resolved to

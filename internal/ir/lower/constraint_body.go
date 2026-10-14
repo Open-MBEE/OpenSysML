@@ -85,7 +85,7 @@ func ConstraintStep(member ast.Node, scope *symbols.Scope, resolvers ...*resolve
 		if ast.IsExpression(member) {
 			return nil, false
 		}
-		return lowerStatement(member, scope, resolver), true
+		return lowerStatement(member, scope, resolver, nil), true
 	}
 }
 

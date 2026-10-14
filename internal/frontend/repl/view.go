@@ -136,10 +136,10 @@ func renderForms() []string {
 	return out
 }
 
-// renderPalettes are the palette, style, port display and overlay values
-// %render accepts after a form.
+// renderPalettes are the palette, style, port display, edge routing and
+// overlay values %render accepts after a form.
 func renderPalettes() []string {
-	out := make([]string, 0, len(view.Palettes())+len(view.DrawingStyles())+len(view.PortsChoices())+len(view.Overlays()))
+	out := make([]string, 0, len(view.Palettes())+len(view.DrawingStyles())+len(view.PortsChoices())+len(view.LinesChoices())+len(view.Overlays()))
 	for _, palette := range view.Palettes() {
 		out = append(out, string(palette))
 	}
@@ -148,6 +148,9 @@ func renderPalettes() []string {
 	}
 	for _, ports := range view.PortsChoices() {
 		out = append(out, string(ports))
+	}
+	for _, lines := range view.LinesChoices() {
+		out = append(out, string(lines))
 	}
 	for _, overlay := range view.Overlays() {
 		out = append(out, string(overlay))

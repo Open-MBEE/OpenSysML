@@ -5,6 +5,7 @@ package Model {
             in ref context : Tank[1];
             in factor : ScalarValues::Real[1];
             out result : ScalarValues::Real[1];
+            rep language "English" /* level * factor*/
             context.level * factor
         }
     }

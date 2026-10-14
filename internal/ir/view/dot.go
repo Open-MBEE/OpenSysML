@@ -67,6 +67,9 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	if err := options.Ports.check(); err != nil {
 		return "", err
 	}
+	if err := options.Lines.check(); err != nil {
+		return "", err
+	}
 	r = r.showing(options.Show)
 	direction := options.Direction
 	if direction == "" && r.Kind == KindCase {
@@ -264,6 +267,7 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 		edges, _ = w.placement.keptEdges(r.Edges)
 	}
 	w.ports = r.portViewOver(options.Ports, edges)
+	w.lines = options.Lines
 	w.labels = labelsOf(r.Roots, skin.cameo || w.placement.positioned(), w.omitted, r.Shown)
 	w.labels.skin = skin
 	w.placeNodes(r.Roots, r.Edges)
@@ -448,6 +452,7 @@ type dotWriter struct {
 	clusters        map[string]bool         // node IDs drawn as clusters
 	enclosing       map[string][]string     // node ID -> the cluster IDs around it
 	compound        bool                    // an edge is clipped at a cluster
+	lines           Lines                   // the edge routing asked for
 	canvas          *Canvas                 // the surface positions are flipped against
 	placement       *placement              // which nodes have a place, shared with every form
 	drawn           map[string]bool         // node ID -> in the rendering's trees
@@ -747,6 +752,9 @@ func (w *dotWriter) placeNodes(roots []*Node, edges []Edge) {
 		w.placeNode(root, ends, &derived)
 	}
 	for _, root := range roots {
+		w.pinLayoutPorts(root, nil)
+	}
+	for _, root := range roots {
 		w.spreadBoundaries(root, ends)
 	}
 	if len(derived) == 0 && len(w.spread) == 0 {
@@ -967,8 +975,9 @@ func (w *dotWriter) drawnEdges(edges []Edge) []Edge {
 func dotClusterName(id string) string { return "cluster_" + id }
 
 // graphAttributes is the graph attribute list: the font, the layout direction
-// when one is stated, `compound` when an edge is clipped at a cluster, and the
-// pixel scale when a node is positioned.
+// when one is stated, `compound` when an edge is clipped at a cluster, the
+// `splines` routing when one is asked for, and the pixel scale when a node is
+// positioned.
 func (w *dotWriter) graphAttributes(direction Direction) []string {
 	attrs := []string{dotFontAttr(w.skin.font)}
 	if w.skin.text != "" {
@@ -979,6 +988,9 @@ func (w *dotWriter) graphAttributes(direction Direction) []string {
 	}
 	if w.compound {
 		attrs = append(attrs, "compound=true")
+	}
+	if attr := w.lines.dotAttribute(); attr != "" {
+		attrs = append(attrs, attr)
 	}
 	if w.placement.positioned() {
 		attrs = append(attrs, "layout=neato", "inputscale=72", "dpi=72")
@@ -1105,6 +1117,14 @@ func (w *dotWriter) writeEdge(edge Edge, attrs []string) {
 	if len(attrs) == 0 {
 		fmt.Fprintf(&w.b, "  %s -> %s;\n", from, to)
 		return
+	}
+	if w.lines == LinesOrtho {
+		// Graphviz places no label on an orthogonal edge; an xlabel it does.
+		for i, attr := range attrs {
+			if strings.HasPrefix(attr, "label=") {
+				attrs[i] = "x" + attr
+			}
+		}
 	}
 	fmt.Fprintf(&w.b, "  %s -> %s [%s];\n", from, to, strings.Join(attrs, ", "))
 }

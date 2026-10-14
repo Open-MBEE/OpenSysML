@@ -53,6 +53,7 @@ package Model {
         action direct {
             first start then 'write state data';
             action 'write state data' {
+                rep language "JavaScript Rhino" /* k = 2*/
                 assign 'aO Sequencer'.k := 2;
             }
             first 'write state data' then 'decide';

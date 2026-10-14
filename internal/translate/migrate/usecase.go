@@ -665,6 +665,7 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 		return
 	}
 	from, to := m.ref(ext.Parent, m.scope), m.ref(extended, m.scope)
+	qualifiedFrom, qualifiedTo := m.qualifiedRef(ext.Parent, m.scope), m.qualifiedRef(extended, m.scope)
 	kind := spoken(from) + " extends " + spoken(to)
 	name, doc := m.nameOf(ext), ""
 	if name == "" {
@@ -678,7 +679,7 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 	}
 	m.wroteEdge(ext, m.scope, "dependency", name)
 	m.madeUp(ext, writeName(name))
-	m.w.trailed("dependency "+writeName(name)+" from "+from+" to "+to, ";", func() {
+	m.w.trailed("dependency "+writeName(name)+" from "+qualifiedFrom+" to "+qualifiedTo, ";", func() {
 		if doc != "" {
 			m.w.line("doc /* " + doc + " */")
 		}

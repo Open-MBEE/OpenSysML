@@ -162,6 +162,10 @@ func (m *migration) nameTaken(owner *sysmlv1.Element, name string) bool {
 	return m.nameTakenBut(nil, owner, name)
 }
 
+func (m *migration) nameTakenExcept(owner *sysmlv1.Element, name string, except *sysmlv1.Element) bool {
+	return m.nameTakenBut(except, owner, name)
+}
+
 // nameTakenBut is nameTaken disregarding e, whose own name the declaration
 // written for it is free to keep.
 func (m *migration) nameTakenBut(e, owner *sysmlv1.Element, name string) bool {
@@ -308,9 +312,20 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 		if op := m.methodOf[cur]; op != nil {
 			cur = op
 		}
+		var wrappedPointRegion *sysmlv1.Element
+		if owner := pointOwner(cur); owner != nil && owner.Type == "State" {
+			if regions := m.populatedRegions(owner); len(regions) == 1 &&
+				m.regionWrittenAsState(regions[0]) && m.regionStates[regions[0]] == "" {
+				wrappedPointRegion = regions[0]
+			}
+		}
 		if cur.Type == "Region" && cur.Role == "region" {
-			if p, ok := m.parallel[cur]; ok {
-				segs = append([]segment{{name: p}, {name: m.nameFor(cur)}}, segs...)
+			if m.regionWrittenAsState(cur) {
+				if p := m.regionStates[cur]; p != "" {
+					segs = append([]segment{{name: p}, {name: m.nameFor(cur)}}, segs...)
+				} else {
+					segs = append([]segment{{name: m.nameFor(cur), feature: true, elem: cur}}, segs...)
+				}
 			}
 			continue
 		}
@@ -320,6 +335,9 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 		segs = append([]segment{{name: m.nameFor(cur), feature: m.isUsage(cur), elem: cur}}, segs...)
 		if within, ok := m.nestedIn[cur]; ok {
 			segs = append([]segment{{name: within, feature: true}}, segs...)
+		}
+		if wrappedPointRegion != nil {
+			segs = append([]segment{{name: m.nameFor(wrappedPointRegion), feature: true, elem: wrappedPointRegion}}, segs...)
 		}
 	}
 	return segs
@@ -451,6 +469,16 @@ func (m *migration) memberRef(target, scope *sysmlv1.Element) string {
 	return m.refMember(target.Parent, m.nameOf(target), m.path(target), scope, false)
 }
 
+// qualifiedRef writes a reference to target from inside scope's body by qualified
+// name alone, as a dependency end or an annotated element is named; an edge's
+// member is referred to where the writer placed it.
+func (m *migration) qualifiedRef(target, scope *sysmlv1.Element) string {
+	if em, ok := m.edgeMembers[target]; ok && em.name != "" {
+		return m.refEdge(em.edgePlace, scope)
+	}
+	return m.memberRef(target, scope)
+}
+
 // refMember writes a reference from inside scope's body to the member of owner
 // named name, whose qualified name is path: a synthesized declaration written
 // beside owner's members refers like one of them. A feature of a feature is
@@ -468,7 +496,7 @@ func (m *migration) refMember(owner *sysmlv1.Element, name string, path []segmen
 				break
 			}
 		}
-		if !shadowed {
+		if !shadowed && !(chained && path[len(path)-1].feature && m.isUsage(owner) && m.definitionBetween(chain[:i])) {
 			return writeName(path[len(path)-1].name)
 		}
 	}
@@ -485,6 +513,17 @@ func (m *migration) refMember(owner *sysmlv1.Element, name string, path []segmen
 		return writeName(path[len(path)-1].name)
 	}
 	return m.qualifiedFrom(path, chain, chained)
+}
+
+// A definition nested in a usage is not featured within it (KerML isFeaturedWithin),
+// so the usage's features must be reached by a chain.
+func (m *migration) definitionBetween(scopes []*sysmlv1.Element) bool {
+	for _, scope := range scopes {
+		if !m.isUsage(scope) {
+			return true
+		}
+	}
+	return false
 }
 
 // relativeTo shortens path to its tail below the root Model of chain, whose

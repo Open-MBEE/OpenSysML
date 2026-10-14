@@ -161,6 +161,12 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 	if e.state == StateTerminated {
 		return nil
 	}
+	if entry == nil {
+		if w.target == nil {
+			e.activeConfig.defaultComplete[w.region] = true
+		}
+		return nil
+	}
 	e.setRegionState(w.region, entry)
 	_, deepest, err := e.enterToward(w.container, entry, w.branches)
 	if err != nil {
@@ -173,6 +179,10 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 	// its own substates declare.
 	if branch, ok := e.branchesTo(nil, deepest)[w.region]; ok {
 		e.setRegionState(w.region, branch)
+	}
+	if w.target == nil && entry == e.graph.RegionState[w.region] && deepest == entry &&
+		len(e.graph.StartOf(entry)) == 0 {
+		e.activeConfig.defaultComplete[w.region] = true
 	}
 	return nil
 }
@@ -213,9 +223,6 @@ func (e *StateExecutor) regionStart(w *regionEntry) (*ast.StateNode, error) {
 	}
 	if e.state == StateTerminated {
 		return nil, nil
-	}
-	if entry == nil {
-		return nil, fmt.Errorf("region %s has no initial state", w.region.Name)
 	}
 	return entry, nil
 }

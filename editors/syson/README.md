@@ -125,13 +125,19 @@ already provides and says so in the run's messages, so the copy resolves names i
 shadowing the service's own library; a copy that adds members the service's library lacks is exported
 and shadows it, with a warning naming the additions.
 
-SysON 2026.9.2's own SysML serializer, which the exporter drives, writes no `calc def` and reports
-`CalculationDefinition are not yet handled` for each one it meets, so a document query declared in the
-project reaches the service neither as a query nor as a name: a document whose content references one
-fails with `unresolved reference` and `references no query`, and **Run document query** on it fails
-the same way. A document whose content is literal (paragraphs, sections, tables of literal rows)
-renders. SysON files every uploaded document, a user library included, under an unnamed root
-namespace; the exporter walks that namespace's members as the document's roots.
+SysON 2026.9.2's own SysML serializer, which the exporter drives, writes no `calc def`, writes a
+`calc` usage as an `action`, drops a calculation's result expression and flattens named arguments into
+a positional list. The exporter fills those four gaps itself (`CalculationSerializer`), so a document
+query declared in the project reaches the service as the `calc def` it is, with its parameters, its
+result expression and `name = value` arguments intact. What SysON's importer loses cannot be
+recovered: a reference from a calculation's result expression to one of the calculation's own
+parameters (`Descendants(source = root)` inside `calc def Subsystems { in root : Element; ... }`)
+is imported with no referent, so the exporter reports `Feature reference in <calc def> has no referent
+in the SysON model` and the service rejects the hole as a syntax error; references to features
+outside the calculation (`in root = telescope;`) survive. A document whose content is literal
+(paragraphs, sections, tables of literal rows) renders. SysON files every uploaded document, a user
+library included, under an unnamed root namespace; the exporter walks that namespace's members as
+the document's roots.
 
 Unit tests cover exporting, identity mapping, diagnostic mapping, configuration, GraphQL payloads,
 document bindings and validation results. Real-service integration tests run the mutation against

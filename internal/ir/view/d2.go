@@ -108,6 +108,9 @@ func (r *Rendering) d2Notices(options Options, w *d2Writer) []string {
 	if options.Style != "" && options.Style != StylePilot {
 		notices = append(notices, styleNotice(options.Style))
 	}
+	if options.Lines.routed() {
+		notices = append(notices, linesNotice(options.Lines, FormD2))
+	}
 	if r.Kind == KindAction {
 		if pins := r.undrawnPins(func(node *Node, port Port) bool { return w.used[node.ID][port.ID] }); len(pins) > 0 {
 			notices = append(notices, fmt.Sprintf("%d pin(s) not drawn (%s); D2 draws the pins an edge ends at",

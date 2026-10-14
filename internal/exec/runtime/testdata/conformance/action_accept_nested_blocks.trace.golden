@@ -1,0 +1,75 @@
+step 1: token 1@split
+step 2: token 2@reader, token 3@gate1
+stmt while
+  iteration 1
+      eval feature i -> 0
+      eval literal 3 -> 3
+    eval operator < -> true
+enter action node: loop body of action node reader
+    stmt if
+        eval feature i -> 0
+        eval literal 2 -> 2
+      eval operator < -> true
+enter action node: branch body of loop body of action node reader
+choice step 3: tokens 2@reader, 3@gate1 (unordered; took 3@gate1 first)
+step 3: token 2@reader, token 3@gate2, token 4@if, token 5@usage_action
+choice step 4: tokens 2@reader, 3@gate2 (unordered; took 3@gate2 first)
+step 4: token 2@reader, token 3@sender, token 4@if, token 5@usage_action
+stmt send
+  eval literal 4 -> 4
+stmt send
+  eval literal 6 -> 6
+      stmt assign total
+          eval feature total -> 0
+          eval feature n -> 4
+        eval operator + -> 4
+leave action node: branch body of loop body of action node reader
+    stmt assign i
+        eval feature i -> 0
+        eval literal 1 -> 1
+      eval operator + -> 1
+leave action node: loop body of action node reader
+  iteration 2
+      eval feature i -> 1
+      eval literal 3 -> 3
+    eval operator < -> true
+enter action node: loop body of action node reader
+    stmt if
+        eval feature i -> 1
+        eval literal 2 -> 2
+      eval operator < -> true
+enter action node: branch body of loop body of action node reader
+      stmt assign total
+          eval feature total -> 4
+          eval feature n -> 6
+        eval operator + -> 10
+leave action node: branch body of loop body of action node reader
+    stmt assign i
+        eval feature i -> 1
+        eval literal 1 -> 1
+      eval operator + -> 2
+leave action node: loop body of action node reader
+  iteration 3
+      eval feature i -> 2
+      eval literal 3 -> 3
+    eval operator < -> true
+enter action node: loop body of action node reader
+    stmt if
+        eval feature i -> 2
+        eval literal 2 -> 2
+      eval operator < -> false
+      stmt if
+        eval literal false -> false
+    stmt assign i
+        eval feature i -> 2
+        eval literal 1 -> 1
+      eval operator + -> 3
+leave action node: loop body of action node reader
+  iteration 4
+      eval feature i -> 3
+      eval literal 3 -> 3
+    eval operator < -> false
+choice step 5: tokens 2@reader, 3@sender (unordered; took 3@sender first)
+step 5: token 2@sync, token 3@sync
+step 6: token 9@done
+step 7: no active tokens

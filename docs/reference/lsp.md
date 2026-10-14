@@ -12,6 +12,7 @@ result:
     "openSysmlCrossDocumentLayout": true, "openSysmlRenderPalette": true,
     "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml", "d2", "csv", "tsv"],
     "openSysmlRenderStyles": ["pilot", "cameo"], "openSysmlRenderPorts": ["minimal", "full"],
+    "openSysmlRenderLines": ["splines", "ortho", "polyline"],
     "openSysmlRenderElements": ["parameter-symbols", "port-symbols", "compartments", "edge-labels",
       "keywords", "multiplicities", "typings", "qualifiers", "all"] } } }
 ```
@@ -27,7 +28,8 @@ behavior and report where it stands, and `openSysmlRenderPalette` that a
 the forms `opensysml/render` writes and `openSysmlRenderStyles` the drawing styles its `style`
 draws the DOT or Mermaid form in, the first the default (`openSysmlRenderPorts` lists likewise the port
 displays its `ports` draws an interconnection or mixed rendering's parts with, a server without
-it drawing every port; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server
+it drawing every port; `openSysmlRenderLines` the edge routings its `lines` draws the DOT or
+PlantUML form with, a server without it routing every edge as splines; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server
 without it drawing none); a server without the former draws the Pilot look
 alone.
 

@@ -7,17 +7,23 @@ package Model {
             action idle {
                 out z : ScalarValues::Real[1];
                 out y : ScalarValues::Real[1];
+                rep language "JavaScript" /* tdiff = tdiff * 1;*/
                 assign tdiff := tdiff * 1;
             }
             first idle then clamp;
             action clamp {
                 in w : ScalarValues::Real[0..1];
+                rep language "JavaScript" /* tMax = w;
+                 * tdiff = tMax * 2;*/
                 if w->SequenceFunctions::notEmpty() { assign tMax := w; }
                 assign tdiff := tMax * 2;
             }
             first clamp then settle;
             action settle {
                 in w : ScalarValues::Real[0..1];
+                rep language "JavaScript" /* tMax = 1;
+                 * tMax = w;
+                 * tdiff = tMax * 2;*/
                 assign tMax := 1;
                 if w->SequenceFunctions::notEmpty() { assign tMax := w; }
                 assign tdiff := tMax * 2;
@@ -26,6 +32,9 @@ package Model {
             action pick {
                 in w : ScalarValues::Real[0..1];
                 in v : ScalarValues::Real[0..1];
+                rep language "JavaScript" /* tMax = w;
+                 * tMax = v;
+                 * tdiff = tMax * 2;*/
                 if w->SequenceFunctions::notEmpty() { assign tMax := w; }
                 if v->SequenceFunctions::notEmpty() { assign tMax := v; }
                 assign tdiff := tMax * 2;
@@ -34,6 +43,9 @@ package Model {
             action early {
                 in w : ScalarValues::Real[0..1];
                 in v : ScalarValues::Real[0..1];
+                rep language "JavaScript" /* tMax = w;
+                 * tdiff = tMax * 2;
+                 * tMax = v;*/
                 if w->SequenceFunctions::notEmpty() { assign tMax := w; }
                 assign tdiff := tMax * 2;
                 if v->SequenceFunctions::notEmpty() { assign tMax := v; }
