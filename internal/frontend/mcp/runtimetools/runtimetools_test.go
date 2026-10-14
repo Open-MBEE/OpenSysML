@@ -292,7 +292,7 @@ func TestEveryToolTakingAModelTakesPathsAndSources(t *testing.T) {
 		t.Errorf("%d tools take a model, want the model tools: %v", modelTools, names)
 	}
 	slices.Sort(names)
-	want := []string{"apply_edits", "convert", "diagnostics", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs",
+	want := []string{"apply_edits", "check_behavior", "convert", "diagnostics", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs",
 		"instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis",
 		"run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint",
 		"verify_requirement", "verify_satisfaction"}

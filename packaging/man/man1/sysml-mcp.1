@@ -151,6 +151,13 @@ sysml \-render\-document, sysml \-doc\-form).
 runtime: Render a view as its nodes, edges and compartments (rpc RenderView,
 sysml \-render, sysml \-render\-ports, sysml \-render\-show).
 .TP
+.B check_behavior
+runtime: Search every schedule of an action or state machine for violated
+properties, deadlocks, failures and divergent values (rpc CheckBehavior, sysml
+\-check\-property, sysml \-check\-diverge, sysml \-check\-input, sysml
+\-check\-assume, sysml \-check\-witness, sysml \-check\-depth, sysml
+\-check\-states, sysml \-check\-unroll, sysml \-check\-timeout).
+.TP
 .B run_analysis
 runtime: Run an analysis case and report its result (rpc RunAnalysis, sysml
 \-analysis, sysml \-engine).
