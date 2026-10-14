@@ -897,7 +897,8 @@ digraph "PlantViews::placedView" {
   textual notation, as the label shows it: a modifier of its keyword (`ref`), its name, `: Type`
   when typings are shown, `= value` when the usage is bound (`gain : dB = 15.0`,
   `constraint1 : 'Signal Output'`; a value the renderer does not spell, such as an invocation,
-  is its source text). No edge is written to a member drawn as a row, and the
+  is its source text; a member with no name or type to show reads as its keyword, as a head
+  does, so no row is ever empty). No edge is written to a member drawn as a row, and the
   notice counts them (`4 node(s) without a position, drawn as compartment rows of the node
   above them`); a row shows the member alone, so the members nested under a row are left undrawn
   and the notice counts them apart (`, and 1 node(s) under them left undrawn`). A member with a
