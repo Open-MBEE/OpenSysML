@@ -4,7 +4,8 @@
   "advance": 10,
   "expected_outputs": {
     "count": {
-      "int": 1
+      "kind": "int_value",
+      "value": 1
     }
   },
   "expected_final_time": 10

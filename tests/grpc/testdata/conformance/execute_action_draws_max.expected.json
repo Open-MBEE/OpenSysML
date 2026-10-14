@@ -4,10 +4,12 @@
   "draws": "max",
   "expected_outputs": {
     "d": {
-      "real": 1.0
+      "kind": "real_value",
+      "value": 1.0
     },
     "n": {
-      "int": 6
+      "kind": "int_value",
+      "value": 6
     }
   }
 }
