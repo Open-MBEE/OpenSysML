@@ -5921,11 +5921,11 @@ func (e *StateExecutor) exitRegionsBelow(owner *ast.StateNode, regions []*ast.St
 		// Clear the entry first: the recursive exit walks the same map, and the
 		// region still pointing at regionState would exit it a second time.
 		delete(e.activeConfig.regionStates, region)
-		delete(e.activeConfig.defaultComplete, region)
 		var leaving []*ast.StateNode
 		for current := regionState; current != nil && current != owner; current = e.graph.ParentState[current] {
 			leaving = append(leaving, current)
 		}
+		delete(e.activeConfig.defaultComplete, region)
 		units = append(units, unit{
 			run: func() error {
 				for _, current := range leaving {
