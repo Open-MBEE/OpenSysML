@@ -1813,6 +1813,66 @@ class RunCountedValue(_message.Message):
     count: int
     def __init__(self, value: _Optional[_Union[Value, _Mapping]] = ..., count: _Optional[int] = ...) -> None: ...
 
+class SelfCheckRequest(_message.Message):
+    __slots__ = ("model_hash", "self_check_package")
+    MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    SELF_CHECK_PACKAGE_FIELD_NUMBER: _ClassVar[int]
+    model_hash: str
+    self_check_package: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, model_hash: _Optional[str] = ..., self_check_package: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class SelfCheckFinding(_message.Message):
+    __slots__ = ("status", "subject", "location", "constraint", "element", "message", "line")
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    SUBJECT_FIELD_NUMBER: _ClassVar[int]
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    CONSTRAINT_FIELD_NUMBER: _ClassVar[int]
+    ELEMENT_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    LINE_FIELD_NUMBER: _ClassVar[int]
+    status: str
+    subject: str
+    location: str
+    constraint: str
+    element: str
+    message: str
+    line: str
+    def __init__(self, status: _Optional[str] = ..., subject: _Optional[str] = ..., location: _Optional[str] = ..., constraint: _Optional[str] = ..., element: _Optional[str] = ..., message: _Optional[str] = ..., line: _Optional[str] = ...) -> None: ...
+
+class SelfCheckApplication(_message.Message):
+    __slots__ = ("constraint", "count")
+    CONSTRAINT_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    constraint: str
+    count: int
+    def __init__(self, constraint: _Optional[str] = ..., count: _Optional[int] = ...) -> None: ...
+
+class SelfCheckResponse(_message.Message):
+    __slots__ = ("status", "findings", "elements", "checks", "violations", "unevaluated", "evaluation_errors", "applications", "summary", "error", "diagnostics")
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    FINDINGS_FIELD_NUMBER: _ClassVar[int]
+    ELEMENTS_FIELD_NUMBER: _ClassVar[int]
+    CHECKS_FIELD_NUMBER: _ClassVar[int]
+    VIOLATIONS_FIELD_NUMBER: _ClassVar[int]
+    UNEVALUATED_FIELD_NUMBER: _ClassVar[int]
+    EVALUATION_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    APPLICATIONS_FIELD_NUMBER: _ClassVar[int]
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
+    status: str
+    findings: _containers.RepeatedCompositeFieldContainer[SelfCheckFinding]
+    elements: int
+    checks: int
+    violations: int
+    unevaluated: int
+    evaluation_errors: int
+    applications: _containers.RepeatedCompositeFieldContainer[SelfCheckApplication]
+    summary: str
+    error: str
+    diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
+    def __init__(self, status: _Optional[str] = ..., findings: _Optional[_Iterable[_Union[SelfCheckFinding, _Mapping]]] = ..., elements: _Optional[int] = ..., checks: _Optional[int] = ..., violations: _Optional[int] = ..., unevaluated: _Optional[int] = ..., evaluation_errors: _Optional[int] = ..., applications: _Optional[_Iterable[_Union[SelfCheckApplication, _Mapping]]] = ..., summary: _Optional[str] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ...) -> None: ...
+
 class RunRunsResponse(_message.Message):
     __slots__ = ("rows", "observables", "distributions", "lines", "outputs", "verdicts", "unconcluded", "error", "diagnostics", "failure_reason", "instances", "engine", "strength", "bounds", "seed")
     ROWS_FIELD_NUMBER: _ClassVar[int]

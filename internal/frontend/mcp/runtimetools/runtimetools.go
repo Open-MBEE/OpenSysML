@@ -46,6 +46,7 @@ func Register(s *mcp.Server, svc *sysmlgrpc.Service, root string) {
 	g.registerRuntime(s)
 	g.registerVerification(s)
 	g.registerRuns(s)
+	g.registerSelfCheck(s)
 	g.registerQueries(s)
 	g.registerConversion(s)
 }

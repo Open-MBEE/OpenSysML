@@ -105,6 +105,8 @@ var Tools = []Entry{
 		Summary: "Run an action or a Monte Carlo case repeatedly and table what the runs observed."},
 	{Name: "run_sweep", Group: GroupRuntime, RPCs: []string{"RunSweep"}, Flags: []string{"sweep"},
 		Summary: "Run an analysis case over ranges of its parameters."},
+	{Name: "self_check", Group: GroupRuntime, RPCs: []string{"SelfCheck"}, Flags: []string{"self-check", "self-check-package"},
+		Summary: "Apply the reflective SysMLValidation constraints to every element of a model."},
 	{Name: "server_info", Group: GroupRuntime, RPCs: []string{"GetServerInfo"},
 		Summary: "Report the service version and the capabilities it serves."},
 	{Name: "symbol", Group: GroupRuntime, RPCs: []string{"GetSymbol"},
@@ -137,8 +139,6 @@ var RPCsWithoutTools = map[string]string{}
 var Unserved = map[string]string{
 	"disable-lint":        "DiagnosticsRequest has no lint selection",
 	"enable-lint":         "DiagnosticsRequest has no lint selection",
-	"self-check":          "no RPC runs the SysMLValidation reflective check",
-	"self-check-package":  "no RPC runs the SysMLValidation reflective check",
 	"tool-dry-run":        "RunAnalysisRequest has no dry-run field",
 	"record-run":          "no RPC records a run into the model (AnalysisRecords)",
 	"record-into":         "no RPC records a run into the model (AnalysisRecords)",

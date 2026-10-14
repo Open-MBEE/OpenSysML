@@ -130,8 +130,8 @@ public interface RunRunsResponseOrBuilder extends
 
   /**
    * <pre>
-   * The report as the CLI prints it: the table, then the distributions, then
-   * for a case its conclusion.
+   * Each distribution and, for a case, its conclusion as the CLI prints them
+   * under the table; the table itself is `rows`.
    * </pre>
    *
    * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -141,8 +141,8 @@ public interface RunRunsResponseOrBuilder extends
       getLinesList();
   /**
    * <pre>
-   * The report as the CLI prints it: the table, then the distributions, then
-   * for a case its conclusion.
+   * Each distribution and, for a case, its conclusion as the CLI prints them
+   * under the table; the table itself is `rows`.
    * </pre>
    *
    * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -151,8 +151,8 @@ public interface RunRunsResponseOrBuilder extends
   int getLinesCount();
   /**
    * <pre>
-   * The report as the CLI prints it: the table, then the distributions, then
-   * for a case its conclusion.
+   * Each distribution and, for a case, its conclusion as the CLI prints them
+   * under the table; the table itself is `rows`.
    * </pre>
    *
    * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -162,8 +162,8 @@ public interface RunRunsResponseOrBuilder extends
   java.lang.String getLines(int index);
   /**
    * <pre>
-   * The report as the CLI prints it: the table, then the distributions, then
-   * for a case its conclusion.
+   * Each distribution and, for a case, its conclusion as the CLI prints them
+   * under the table; the table itself is `rows`.
    * </pre>
    *
    * <code>repeated string lines = 4 [json_name = "lines"];</code>

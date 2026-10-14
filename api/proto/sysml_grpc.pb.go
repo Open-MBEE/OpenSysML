@@ -39,6 +39,7 @@ const (
 	SysMLService_RunAnalysis_FullMethodName        = "/sysml.SysMLService/RunAnalysis"
 	SysMLService_RunSweep_FullMethodName           = "/sysml.SysMLService/RunSweep"
 	SysMLService_RunRuns_FullMethodName            = "/sysml.SysMLService/RunRuns"
+	SysMLService_SelfCheck_FullMethodName          = "/sysml.SysMLService/SelfCheck"
 	SysMLService_ListEngines_FullMethodName        = "/sysml.SysMLService/ListEngines"
 	SysMLService_Query_FullMethodName              = "/sysml.SysMLService/Query"
 	SysMLService_RunDocumentQuery_FullMethodName   = "/sysml.SysMLService/RunDocumentQuery"
@@ -115,6 +116,10 @@ type SysMLServiceClient interface {
 	// observed with each observable's distribution, as the CLI's -runs/-observe
 	// do. Reported as the "runs" capability.
 	RunRuns(ctx context.Context, in *RunRunsRequest, opts ...grpc.CallOption) (*RunRunsResponse, error)
+	// SelfCheck applies the SysMLValidation constraints, and those of any rule
+	// packages, reflectively to every element of the model, as `sysml -self-check`
+	// does. Reported as the "self_check" capability.
+	SelfCheck(ctx context.Context, in *SelfCheckRequest, opts ...grpc.CallOption) (*SelfCheckResponse, error)
 	// List the analysis engines this build registers, as the CLI's -engines and
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
@@ -332,6 +337,15 @@ func (c *sysMLServiceClient) RunRuns(ctx context.Context, in *RunRunsRequest, op
 	return out, nil
 }
 
+func (c *sysMLServiceClient) SelfCheck(ctx context.Context, in *SelfCheckRequest, opts ...grpc.CallOption) (*SelfCheckResponse, error) {
+	out := new(SelfCheckResponse)
+	err := c.cc.Invoke(ctx, SysMLService_SelfCheck_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sysMLServiceClient) ListEngines(ctx context.Context, in *ListEnginesRequest, opts ...grpc.CallOption) (*ListEnginesResponse, error) {
 	out := new(ListEnginesResponse)
 	err := c.cc.Invoke(ctx, SysMLService_ListEngines_FullMethodName, in, out, opts...)
@@ -454,6 +468,10 @@ type SysMLServiceServer interface {
 	// observed with each observable's distribution, as the CLI's -runs/-observe
 	// do. Reported as the "runs" capability.
 	RunRuns(context.Context, *RunRunsRequest) (*RunRunsResponse, error)
+	// SelfCheck applies the SysMLValidation constraints, and those of any rule
+	// packages, reflectively to every element of the model, as `sysml -self-check`
+	// does. Reported as the "self_check" capability.
+	SelfCheck(context.Context, *SelfCheckRequest) (*SelfCheckResponse, error)
 	// List the analysis engines this build registers, as the CLI's -engines and
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
@@ -547,6 +565,9 @@ func (UnimplementedSysMLServiceServer) RunSweep(context.Context, *RunSweepReques
 }
 func (UnimplementedSysMLServiceServer) RunRuns(context.Context, *RunRunsRequest) (*RunRunsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunRuns not implemented")
+}
+func (UnimplementedSysMLServiceServer) SelfCheck(context.Context, *SelfCheckRequest) (*SelfCheckResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SelfCheck not implemented")
 }
 func (UnimplementedSysMLServiceServer) ListEngines(context.Context, *ListEnginesRequest) (*ListEnginesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListEngines not implemented")
@@ -939,6 +960,24 @@ func _SysMLService_RunRuns_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SysMLService_SelfCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SelfCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).SelfCheck(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_SelfCheck_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).SelfCheck(ctx, req.(*SelfCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SysMLService_ListEngines_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListEnginesRequest)
 	if err := dec(in); err != nil {
@@ -1133,6 +1172,10 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RunRuns",
 			Handler:    _SysMLService_RunRuns_Handler,
+		},
+		{
+			MethodName: "SelfCheck",
+			Handler:    _SysMLService_SelfCheck_Handler,
 		},
 		{
 			MethodName: "ListEngines",

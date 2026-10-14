@@ -2734,6 +2734,90 @@ pub struct RunCountedValue {
     #[prost(int64, tag="2")]
     pub count: i64,
 }
+/// SelfCheckRequest asks for the reflective check of a parsed model.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SelfCheckRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// Qualified names of packages whose constraint definitions apply after the
+    /// bundled SysMLValidation ones (-self-check-package). Each must resolve to a
+    /// package the model or its libraries declare; its own elements are not checked.
+    #[prost(string, repeated, tag="2")]
+    pub self_check_package: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// SelfCheckFinding is one thing the check reports about a constraint applied
+/// to an element, or a constraint or package it skipped.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SelfCheckFinding {
+    /// fails: the element answered the constraint false; unevaluated: the runtime
+    /// cannot yet apply the constraint reflectively; error: the evaluation failed;
+    /// warning: a rule constraint was skipped, or a rule package yielded none.
+    #[prost(string, tag="1")]
+    pub status: ::prost::alloc::string::String,
+    /// "<constraint> for <element>", or the constraint or package alone
+    #[prost(string, tag="2")]
+    pub subject: ::prost::alloc::string::String,
+    /// document:line:col of the element, empty when it has none
+    #[prost(string, tag="3")]
+    pub location: ::prost::alloc::string::String,
+    /// qualified name of the constraint applied
+    #[prost(string, tag="4")]
+    pub constraint: ::prost::alloc::string::String,
+    /// name of the element it was applied to
+    #[prost(string, tag="5")]
+    pub element: ::prost::alloc::string::String,
+    /// the reason, for a warning or an error
+    #[prost(string, tag="6")]
+    pub message: ::prost::alloc::string::String,
+    /// the finding as `sysml -self-check` prints it
+    #[prost(string, tag="7")]
+    pub line: ::prost::alloc::string::String,
+}
+/// SelfCheckApplication counts the elements one constraint was applied to.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SelfCheckApplication {
+    #[prost(string, tag="1")]
+    pub constraint: ::prost::alloc::string::String,
+    #[prost(int64, tag="2")]
+    pub count: i64,
+}
+/// SelfCheckResponse is what the check found: every finding, the counts, and
+/// the verdict over them.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SelfCheckResponse {
+    /// holds: no violation and no evaluation error; fails: a violation;
+    /// unresolved: no violation, but an evaluation that errored.
+    #[prost(string, tag="1")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="2")]
+    pub findings: ::prost::alloc::vec::Vec<SelfCheckFinding>,
+    /// elements the check visited
+    #[prost(int64, tag="3")]
+    pub elements: i64,
+    /// constraint applications made
+    #[prost(int64, tag="4")]
+    pub checks: i64,
+    /// applications answered false
+    #[prost(int64, tag="5")]
+    pub violations: i64,
+    /// applications the runtime could not make
+    #[prost(int64, tag="6")]
+    pub unevaluated: i64,
+    /// applications and collections that errored
+    #[prost(int64, tag="7")]
+    pub evaluation_errors: i64,
+    /// by constraint, in name order
+    #[prost(message, repeated, tag="8")]
+    pub applications: ::prost::alloc::vec::Vec<SelfCheckApplication>,
+    /// the one-line total `sysml -self-check` prints last
+    #[prost(string, tag="9")]
+    pub summary: ::prost::alloc::string::String,
+    /// non-empty if the check could not start: a rule package named is not declared
+    #[prost(string, tag="10")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="11")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+}
 /// RunRunsResponse is the table of the runs, one row per run in run order, each
 /// observable's distribution, and for a case its conclusion over the sample.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2748,8 +2832,8 @@ pub struct RunRunsResponse {
     pub observables: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="3")]
     pub distributions: ::prost::alloc::vec::Vec<RunDistribution>,
-    /// The report as the CLI prints it: the table, then the distributions, then
-    /// for a case its conclusion.
+    /// Each distribution and, for a case, its conclusion as the CLI prints them
+    /// under the table; the table itself is `rows`.
     #[prost(string, repeated, tag="4")]
     pub lines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// A case's conclusion over the completed runs: its outputs and verdicts,

@@ -53,6 +53,10 @@ const CapabilityVerification = "verification"
 // case repeatedly and tables what the runs observed.
 const CapabilityRuns = "runs"
 
+// CapabilitySelfCheck names the SelfCheck RPC, which applies the reflective
+// SysMLValidation constraints to every element of a model.
+const CapabilitySelfCheck = "self_check"
+
 // CapabilityVerificationQuestions names the `question` field of the
 // verification requests — the solver questions "holds" and "satisfiable" —
 // and the `question`, `status` and `witness` fields of every Verdict.
@@ -323,6 +327,7 @@ var capabilities = []string{
 	CapabilityVerificationArguments,
 	CapabilityVerificationObjectiveAuthoring,
 	CapabilityRuns,
+	CapabilitySelfCheck,
 	CapabilityMetadataAuthoring,
 	CapabilityMetadataPrefixAuthoring,
 	CapabilitySequenceAuthoring,

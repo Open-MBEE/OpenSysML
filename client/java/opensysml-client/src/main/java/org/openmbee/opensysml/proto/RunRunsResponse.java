@@ -235,8 +235,8 @@ private static final long serialVersionUID = 0L;
       com.google.protobuf.LazyStringArrayList.emptyList();
   /**
    * <pre>
-   * The report as the CLI prints it: the table, then the distributions, then
-   * for a case its conclusion.
+   * Each distribution and, for a case, its conclusion as the CLI prints them
+   * under the table; the table itself is `rows`.
    * </pre>
    *
    * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -248,8 +248,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The report as the CLI prints it: the table, then the distributions, then
-   * for a case its conclusion.
+   * Each distribution and, for a case, its conclusion as the CLI prints them
+   * under the table; the table itself is `rows`.
    * </pre>
    *
    * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -260,8 +260,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The report as the CLI prints it: the table, then the distributions, then
-   * for a case its conclusion.
+   * Each distribution and, for a case, its conclusion as the CLI prints them
+   * under the table; the table itself is `rows`.
    * </pre>
    *
    * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -273,8 +273,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The report as the CLI prints it: the table, then the distributions, then
-   * for a case its conclusion.
+   * Each distribution and, for a case, its conclusion as the CLI prints them
+   * under the table; the table itself is `rows`.
    * </pre>
    *
    * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -2472,8 +2472,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The report as the CLI prints it: the table, then the distributions, then
-     * for a case its conclusion.
+     * Each distribution and, for a case, its conclusion as the CLI prints them
+     * under the table; the table itself is `rows`.
      * </pre>
      *
      * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -2486,8 +2486,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The report as the CLI prints it: the table, then the distributions, then
-     * for a case its conclusion.
+     * Each distribution and, for a case, its conclusion as the CLI prints them
+     * under the table; the table itself is `rows`.
      * </pre>
      *
      * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -2498,8 +2498,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The report as the CLI prints it: the table, then the distributions, then
-     * for a case its conclusion.
+     * Each distribution and, for a case, its conclusion as the CLI prints them
+     * under the table; the table itself is `rows`.
      * </pre>
      *
      * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -2511,8 +2511,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The report as the CLI prints it: the table, then the distributions, then
-     * for a case its conclusion.
+     * Each distribution and, for a case, its conclusion as the CLI prints them
+     * under the table; the table itself is `rows`.
      * </pre>
      *
      * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -2525,8 +2525,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The report as the CLI prints it: the table, then the distributions, then
-     * for a case its conclusion.
+     * Each distribution and, for a case, its conclusion as the CLI prints them
+     * under the table; the table itself is `rows`.
      * </pre>
      *
      * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -2545,8 +2545,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The report as the CLI prints it: the table, then the distributions, then
-     * for a case its conclusion.
+     * Each distribution and, for a case, its conclusion as the CLI prints them
+     * under the table; the table itself is `rows`.
      * </pre>
      *
      * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -2564,8 +2564,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The report as the CLI prints it: the table, then the distributions, then
-     * for a case its conclusion.
+     * Each distribution and, for a case, its conclusion as the CLI prints them
+     * under the table; the table itself is `rows`.
      * </pre>
      *
      * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -2583,8 +2583,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The report as the CLI prints it: the table, then the distributions, then
-     * for a case its conclusion.
+     * Each distribution and, for a case, its conclusion as the CLI prints them
+     * under the table; the table itself is `rows`.
      * </pre>
      *
      * <code>repeated string lines = 4 [json_name = "lines"];</code>
@@ -2599,8 +2599,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The report as the CLI prints it: the table, then the distributions, then
-     * for a case its conclusion.
+     * Each distribution and, for a case, its conclusion as the CLI prints them
+     * under the table; the table itself is `rows`.
      * </pre>
      *
      * <code>repeated string lines = 4 [json_name = "lines"];</code>

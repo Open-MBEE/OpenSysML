@@ -81,6 +81,10 @@ service SysMLService {
   // observed with each observable's distribution, as the CLI's -runs/-observe
   // do. Reported as the "runs" capability.
   rpc RunRuns(RunRunsRequest) returns (RunRunsResponse);
+  // SelfCheck applies the SysMLValidation constraints, and those of any rule
+  // packages, reflectively to every element of the model, as `sysml -self-check`
+  // does. Reported as the "self_check" capability.
+  rpc SelfCheck(SelfCheckRequest) returns (SelfCheckResponse);
 
   // List the analysis engines this build registers, as the CLI's -engines and
   // the REPL's %engines do: each with the questions it answers, the strongest
@@ -2209,6 +2213,54 @@ message RunHistogramBin {
 message RunCountedValue {
   Value value = 1;
   int64 count = 2;
+}
+
+// SelfCheckRequest asks for the reflective check of a parsed model.
+message SelfCheckRequest {
+  string model_hash = 1;
+  // Qualified names of packages whose constraint definitions apply after the
+  // bundled SysMLValidation ones (-self-check-package). Each must resolve to a
+  // package the model or its libraries declare; its own elements are not checked.
+  repeated string self_check_package = 2;
+}
+
+// SelfCheckFinding is one thing the check reports about a constraint applied
+// to an element, or a constraint or package it skipped.
+message SelfCheckFinding {
+  // fails: the element answered the constraint false; unevaluated: the runtime
+  // cannot yet apply the constraint reflectively; error: the evaluation failed;
+  // warning: a rule constraint was skipped, or a rule package yielded none.
+  string status = 1;
+  string subject = 2;     // "<constraint> for <element>", or the constraint or package alone
+  string location = 3;    // document:line:col of the element, empty when it has none
+  string constraint = 4;  // qualified name of the constraint applied
+  string element = 5;     // name of the element it was applied to
+  string message = 6;     // the reason, for a warning or an error
+  string line = 7;        // the finding as `sysml -self-check` prints it
+}
+
+// SelfCheckApplication counts the elements one constraint was applied to.
+message SelfCheckApplication {
+  string constraint = 1;
+  int64 count = 2;
+}
+
+// SelfCheckResponse is what the check found: every finding, the counts, and
+// the verdict over them.
+message SelfCheckResponse {
+  // holds: no violation and no evaluation error; fails: a violation;
+  // unresolved: no violation, but an evaluation that errored.
+  string status = 1;
+  repeated SelfCheckFinding findings = 2;
+  int64 elements = 3;           // elements the check visited
+  int64 checks = 4;             // constraint applications made
+  int64 violations = 5;         // applications answered false
+  int64 unevaluated = 6;        // applications the runtime could not make
+  int64 evaluation_errors = 7;  // applications and collections that errored
+  repeated SelfCheckApplication applications = 8;  // by constraint, in name order
+  string summary = 9;           // the one-line total `sysml -self-check` prints last
+  string error = 10;            // non-empty if the check could not start: a rule package named is not declared
+  repeated Diagnostic diagnostics = 11;
 }
 
 // RunRunsResponse is the table of the runs, one row per run in run order, each
