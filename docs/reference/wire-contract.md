@@ -798,6 +798,11 @@ type-check, an action has no start, a value overflowed.
 {"severity":"error","message":"expected a namespace member","span":{"file":"syntax_error.sysml","startLine":1,"startCol":16,"endLine":1,"endCol":23},"code":"syntax"}
 ```
 
+`GetDiagnostics` reads a parsed model's findings again under a lint selection: `disableLint`
+(`-disable-lint`) names lint codes left out, and `enableLint` (`-enable-lint`) names opt-in
+lints, off by default, kept in. The selection is per request; the model's cached diagnostics,
+as `ParseSources` reported them, are unchanged. An unknown lint code is an `invalid_argument`.
+
 | Field | Type | Meaning |
 |---|---|---|
 | `severity` | string | `"error"`, `"warning"` or `"info"` |
@@ -1214,6 +1219,21 @@ told apart by `code`, `"choice-point"` and `"guard-unevaluable"`; both are `"inf
 message prefixes `choice point: ` and `guard not evaluable: ` are for reading, not branching.
 `RunAnalysis` carries the same two codes for the runs it makes.
 
+#### Run options
+
+`ExecuteActionRequest` and `ExecuteStateRequest` take the run options the `sysml` command does,
+under the flags' names. `advance` (`-advance`) is a simulated duration in seconds: the run is
+started, the clock advanced by that much, and the response's `finalTime` reports where the
+clock stopped; a run that has not completed by then is an in-body failure ("without
+completing"), still carrying `finalTime`. Absent, the run goes to completion. `seed` (`-seed`)
+seeds the model's own draws so a `RandomFunctions` call answers the same values each run, and
+`draws` (`-draws`) chooses how those draws resolve: `random` (the default), or `min`, `max` or
+`average`, which replace every draw by that moment of its distribution. `clockStep`
+(`-clock-step`) is the tick, in seconds, the run's clock advances by, so an `accept after` wait
+rounds up to the next tick; `0` is a continuous clock. A negative or non-finite `advance`, an
+unknown `draws` or a bad `clockStep` is an `invalid_argument` naming the field; neither changes
+the `schedule` the choice points resolve under.
+
 ### `ExecuteState`
 
 `events` is an ordered list of event names to feed the machine after it enters; `statesVisited`
@@ -1464,6 +1484,19 @@ $ … /RunAnalysis -d '{"modelHash":"e43c…9a2a","symbolId":"An::Ship"}'
 $ … /RunAnalysis -d '{"modelHash":"96c9…994d","symbolId":"Ver::checkSlow"}'
 {"outputs":[{"name":"result","value":{"enumLiteral":{"literalId":"VerificationCases::VerdictKind::pass","enumerationId":"VerificationCases::VerdictKind","name":"VerdictKind::pass"}}}],"verdicts":[{"kind":"objective","element":"obj","holds":true,"instanceId":"1","instanceTypeId":"Ver::slow"}],"instances":[…],"verificationVerdicts":[{"caseId":"Ver::checkSlow","kind":"pass"}]}
 ```
+
+#### Tool dry run
+
+`toolDryRun` (`-tool-dry-run`) runs the case up to its first `ToolExecution`-annotated action
+and, instead of starting the external tool, answers the call that would have been made as a
+`ToolDryRun`: `action`, `tool`, `version`, `manifest` and `executable` identify the step and the
+manifest entry it resolved to; `protocol`, `args`, `env`, `cwd`, `stdin`, `stdinData`,
+`inputFile`, `outputDir`, `inputs` and `outputs` are the process and the values it would have
+been handed and asked for; `replySource` says where the reply would be read from; and `lines`
+is the preview the command prints. A dry run reaches no result, so `outputs`, `verdicts` and
+`instances` stay empty; a case that calls no tool is an in-body failure saying so, and a dry
+run under `"schedule":"explore"` or `"engine":"explore"` is an `invalid_argument`, since an
+exploration runs the case many times.
 
 ### Verification verdicts
 
@@ -1845,7 +1878,9 @@ Every verification, analysis and sweep request is a question put to an analysis 
 service advertising the `engines` capability reports which engine answered and how strongly.
 The transcripts above omit these fields for brevity; a service with the capability adds them.
 
-`ListEngines` takes an empty request and returns the engines of the build in name order, each
+`ListEngines` takes a request with one optional field, `probe` (`-probe`): set, the service
+starts each external engine it serves and checks its handshake, so `ready` and `unavailable`
+report what the process actually said rather than whether it was found. Unset, it returns the engines of the build in name order, each
 an `EngineInfo`: `name`; `authority`, the strongest evidence the engine can produce, spelled as
 `strength` is; `answers`, the question kinds it covers; `bounds`, the budget bounds it takes;
 `process` and `processFound` for an engine that needs an external process, where it was found;
