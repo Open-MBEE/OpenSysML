@@ -492,79 +492,41 @@ func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePoli
 	return standing(checkedVerdict(subject, label, answered.Result), &answered)
 }
 
-// checkProperties resolves the session's properties to the constraint or
-// requirement each names: as the check engine evaluates each at every state
-// about every object the invocation's behaviors perform on, holding when it holds
-// of each; as the symbols the symbolic engine translates; and the scope they resolve in.
+
+// checkProperties resolves the session's properties and assumptions to the
+// constraint or requirement each names, as analysis.ResolveCheckConditions does.
 func (s *Session) checkProperties() ([]runtime.CheckProperty, []*symbols.Symbol, *symbols.Scope, error) {
 	docScopes := s.docScopes()
-	if (len(s.checker.properties) > 0 || len(s.checker.assume) > 0) && len(docScopes) == 0 {
-		return nil, nil, nil, errors.New("no declarations loaded")
-	}
 	var root *symbols.Scope
 	if len(docScopes) > 0 {
 		root = docScopes[0]
 	}
-	properties := make([]runtime.CheckProperty, 0, len(s.checker.properties))
-	conditions := make([]*symbols.Symbol, 0, len(s.checker.properties))
-	for _, name := range s.checker.properties {
-		sym, check, err := s.checkCondition(name)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		scope := declaringScope(sym, root)
-		properties = append(properties, runtime.CheckProperty{Name: name, Holds: func(ctx *runtime.Context, inv *runtime.Invocation) (bool, error) {
-			performers := inv.Performers()
-			if len(performers) == 0 {
-				performers = []*runtime.Instance{nil}
-			}
-			for _, self := range performers {
-				result, err := check(ctx, sym, scope, self)
-				if err != nil && !errors.Is(err, runtime.ErrViolated) {
-					return false, err
-				}
-				if !result.Holds {
-					return false, nil
-				}
-			}
-			return true, nil
-		}})
-		conditions = append(conditions, sym)
+	resolved, err := analysis.ResolveCheckConditions(s.lookupCondition, root, s.checker.properties, nil)
+	if err != nil {
+		return nil, nil, nil, err
 	}
-	return properties, conditions, root, nil
+	return resolved.Properties, resolved.Conditions, resolved.Scope, nil
 }
 
 // checkAssumptions resolves the session's assumptions to the constraint or
 // requirement each names.
 func (s *Session) checkAssumptions() ([]*symbols.Symbol, error) {
-	assume := make([]*symbols.Symbol, 0, len(s.checker.assume))
-	for _, name := range s.checker.assume {
-		sym, _, err := s.checkCondition(name)
-		if err != nil {
-			return nil, err
-		}
-		assume = append(assume, sym)
+	docScopes := s.docScopes()
+	var root *symbols.Scope
+	if len(docScopes) > 0 {
+		root = docScopes[0]
 	}
-	return assume, nil
+	resolved, err := analysis.ResolveCheckConditions(s.lookupCondition, root, nil, s.checker.assume)
+	if err != nil {
+		return nil, err
+	}
+	return resolved.Assume, nil
 }
 
-// conditionCheck evaluates a constraint or requirement about an object.
-type conditionCheck func(*runtime.Context, *symbols.Symbol, *symbols.Scope, *runtime.Instance) (runtime.CheckResult, error)
-
-// checkCondition resolves name to the constraint or requirement it names and
-// how the runtime evaluates it about an object.
-func (s *Session) checkCondition(name string) (*symbols.Symbol, conditionCheck, error) {
+// lookupCondition resolves a property or assumption name in the session.
+func (s *Session) lookupCondition(name string) (*symbols.Symbol, error) {
 	sym, _, err := s.lookupSymbol(name)
-	if err != nil {
-		return nil, nil, err
-	}
-	switch {
-	case runtime.RequireConstraint(sym) == nil:
-		return sym, (*runtime.Context).CheckConstraintOn, nil
-	case runtime.RequireRequirement(sym) == nil:
-		return sym, (*runtime.Context).CheckRequirementOn, nil
-	}
-	return nil, nil, fmt.Errorf("%q is not a constraint or requirement", name)
+	return sym, err
 }
 
 // checkStoppedVerdict reports a check that answered nothing: a refusal, a fault,
