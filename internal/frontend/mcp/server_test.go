@@ -80,17 +80,41 @@ func writeModel(t *testing.T, root, name, text string) {
 	}
 }
 
+// sessionTools is the session group's tool list, sorted.
+func sessionTools() []string {
+	return []string{"advance", "check", "configure", "debug_breakpoints", "debug_continue", "debug_current", "debug_start", "debug_step", "debug_stop", "explain", "features", "instances", "optimize", "render_run", "repl_command", "runs", "send", "session_clear", "session_close", "session_eval", "session_list", "session_load", "session_open", "session_print", "session_run", "session_save", "session_submit", "solve", "sweep"}
+}
+
+// runtimeTools is the runtime group's tool list, sorted.
+func runtimeTools() []string {
+	return []string{"apply_edits", "convert", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs", "instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}
+}
+
+// allTools is every group's tool list, sorted.
+func allTools() []string {
+	all := append(append([]string{"workspace_info"}, runtimeTools()...), sessionTools()...)
+	slices.Sort(all)
+	return all
+}
+
+// sessionAndRuntimeTools is the session group's tool list with the runtime group's, sorted.
+func sessionAndRuntimeTools() []string {
+	tools := append(runtimeTools(), sessionTools()...)
+	slices.Sort(tools)
+	return tools
+}
+
 func TestTheServerRegistersTheGroupsAskedFor(t *testing.T) {
 	root := t.TempDir()
 	cases := []struct {
 		groups []Group
 		want   []string
 	}{
-		{nil, []string{"apply_edits", "convert", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs", "instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_sweep", "server_info", "session_close", "session_list", "session_open", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction", "workspace_info"}},
+		{nil, allTools()},
 		{[]Group{GroupLSP}, []string{"workspace_info"}},
-		{[]Group{GroupRuntime}, []string{"apply_edits", "convert", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs", "instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}},
-		{[]Group{GroupSession}, []string{"session_close", "session_list", "session_open"}},
-		{[]Group{GroupSession, GroupRuntime, GroupSession}, []string{"apply_edits", "convert", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs", "instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_sweep", "server_info", "session_close", "session_list", "session_open", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}},
+		{[]Group{GroupRuntime}, runtimeTools()},
+		{[]Group{GroupSession}, sessionTools()},
+		{[]Group{GroupSession, GroupRuntime, GroupSession}, sessionAndRuntimeTools()},
 	}
 	for _, tc := range cases {
 		cs := connect(t, Config{Root: root, Groups: tc.groups, Version: "test"})

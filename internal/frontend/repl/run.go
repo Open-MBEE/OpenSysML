@@ -220,7 +220,17 @@ type Diagnostic struct {
 // the line and column that file has it on.
 func (s *Session) LocatedDiagnostics() []Diagnostic {
 	defer s.enter()()
-	diags := s.diagnostics()
+	return s.locate(s.diagnostics())
+}
+
+// Locate places diagnostics reported over the session's buffer — a Result's —
+// in the submissions they are about, as LocatedDiagnostics does.
+func (s *Session) Locate(diags []diag.Diagnostic) []Diagnostic {
+	defer s.enter()()
+	return s.locate(diags)
+}
+
+func (s *Session) locate(diags []diag.Diagnostic) []Diagnostic {
 	if len(diags) == 0 {
 		return nil
 	}

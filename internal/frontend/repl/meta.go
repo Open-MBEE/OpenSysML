@@ -999,6 +999,13 @@ func (s *Session) doEval(expr string) ([]string, bool, error) {
 // evalExpr evaluates an expression, reporting a failure as an error rather than
 // as a line of output so a caller outside the prompt can act on it.
 func (s *Session) evalExpr(expr string) ([]string, error) {
+	ev, err := s.evalValue(expr)
+	return ev.lines, err
+}
+
+// evalValue evaluates an expression as evalExpr does, keeping the value beside
+// the lines the prompt prints for it.
+func (s *Session) evalValue(expr string) (evaluated, error) {
 	// Try literal evaluation first (works even with empty session)
 	literalResult, isLiteral, litErr := s.tryEvalLiteral(expr)
 	if isLiteral {
@@ -1013,9 +1020,9 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
 		if !declared {
-			return nil, s.errWithoutDeclarations(expr)
+			return evaluated{}, s.errWithoutDeclarations(expr)
 		}
-		return nil, err
+		return evaluated{}, err
 	}
 
 	// Try feature reference lookup, simple ("%eval x") or qualified
@@ -1033,7 +1040,7 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 		// whichever of them the prompt's scope happens to reach.
 		var ambiguous *AmbiguousNameError
 		if errors.As(lookupErr, &ambiguous) {
-			return nil, lookupErr
+			return evaluated{}, lookupErr
 		}
 	}
 	if sym != nil {
@@ -1042,66 +1049,54 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 		// object actually has, rather than the value the declaration defaults to.
 		inst, owner, subjErr := s.subjectFor(expr, fqn, sym)
 		if subjErr != nil {
-			return nil, subjErr
+			return evaluated{}, subjErr
 		}
 		if inst != nil {
 			if _, ok := inst.FeatureValues[sym.Name]; ok {
 				fv, err := inst.GetFeatureValue(ctx, sym.Name)
 				if err != nil {
-					return nil, fmt.Errorf("evaluation failed: %w", err)
+					return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
 				}
-				return []string{
-					fmt.Sprintf("✓ %s%s", expr, onInstance(inst, owner)),
-					fmt.Sprintf("  = %s", formatFeatureValue(ctx, fv)),
-				}, nil
+				val, readErr := fv.ReadValue(fv.Feature.Name)
+				ev := answered(expr+onInstance(inst, owner), ctx, val, formatFeatureValue(ctx, fv))
+				ev.unset = errors.Is(readErr, runtime.ErrUninitializedFeatureValue)
+				return ev, nil
 			}
 		}
 		// An enumeration literal is a value even though it declares none.
 		if val, isLiteral, err := ctx.EnumerationLiteralValue(sym); isLiteral {
 			if err != nil {
-				return nil, fmt.Errorf("evaluation failed: %w", err)
+				return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
 			}
-			return []string{
-				fmt.Sprintf("✓ %s", expr),
-				fmt.Sprintf("  = %s", formatValue(ctx, val)),
-			}, nil
+			return answered(expr, ctx, val, formatValue(ctx, val)), nil
 		}
 		// A measurement unit is the reference it declares, whatever defines it.
 		if val, isUnit, err := ctx.MeasurementUnitValue(sym); isUnit {
 			if err != nil {
-				return nil, fmt.Errorf("evaluation failed: %w", err)
+				return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
 			}
-			return []string{
-				fmt.Sprintf("✓ %s", expr),
-				fmt.Sprintf("  = %s", formatValue(ctx, val)),
-			}, nil
+			return answered(expr, ctx, val, formatValue(ctx, val)), nil
 		}
 		// A calc definition is the function it declares.
 		if val, isFunction, err := ctx.FunctionValue(sym); isFunction {
 			if err != nil {
-				return nil, fmt.Errorf("evaluation failed: %w", err)
+				return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
 			}
-			return []string{
-				fmt.Sprintf("✓ %s", expr),
-				fmt.Sprintf("  = %s", formatValue(ctx, val)),
-			}, nil
+			return answered(expr, ctx, val, formatValue(ctx, val)), nil
 		}
 		// A valueless usage may still name a value its own features shape.
 		if _, isUsage := sym.Decl.(*ast.Usage); !isUsage && !declaresValue(sym) {
-			return nil, fmt.Errorf("%q has no value to evaluate", expr)
+			return evaluated{}, fmt.Errorf("%q has no value to evaluate", expr)
 		}
 		// Read as the declaration is read: in its own scope, against its declared type.
 		val, err := ctx.EvalDeclaredValue(sym)
 		if err != nil {
 			if !declaresValue(sym) && errors.Is(err, runtime.ErrNoValue) {
-				return nil, fmt.Errorf("%q has no value to evaluate", expr)
+				return evaluated{}, fmt.Errorf("%q has no value to evaluate", expr)
 			}
-			return nil, fmt.Errorf("evaluation failed: %w", err)
+			return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
 		}
-		return []string{
-			fmt.Sprintf("✓ %s", expr),
-			fmt.Sprintf("  = %s", formatValue(ctx, val)),
-		}, nil
+		return answered(expr, ctx, val, formatValue(ctx, val)), nil
 	}
 
 	// A compound expression is evaluated in the session's own namespace; an empty
@@ -1119,15 +1114,15 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 
 	if len(p.Diagnostics) > 0 {
 		if lookupErr != nil {
-			return nil, lookupErr
+			return evaluated{}, lookupErr
 		}
 		// These diagnostics describe the session fragment the expression was
 		// appended to, so the expression is parsed on its own to report the
 		// first error that is about what was typed.
 		if _, diags := parseExprAlone(expr); len(diags) > 0 {
-			return nil, exprError(expr, diags[0].Message, diags[0].Span, len(exprPrefix))
+			return evaluated{}, exprError(expr, diags[0].Message, diags[0].Span, len(exprPrefix))
 		}
-		return nil, fmt.Errorf("parse failed: %s", p.Diagnostics[0].Message)
+		return evaluated{}, fmt.Errorf("parse failed: %s", p.Diagnostics[0].Message)
 	}
 
 	// Find __eval__ attribute (should be last member)
@@ -1146,7 +1141,7 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 	}
 
 	if evalUsage == nil || evalUsage.Value == nil {
-		return nil, errors.New("could not parse expression")
+		return evaluated{}, errors.New("could not parse expression")
 	}
 
 	// Evaluated in the namespace the session is working in, so a compound
@@ -1155,15 +1150,12 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 	val, err := ctx.EvalWithScope(evalUsage.Value, s.promptScope())
 	if err != nil {
 		if lookupErr != nil {
-			return nil, lookupErr
+			return evaluated{}, lookupErr
 		}
-		return nil, evalError(expr, err, len(tempSrc)-len(expr)-1)
+		return evaluated{}, evalError(expr, err, len(tempSrc)-len(expr)-1)
 	}
 
-	return []string{
-		fmt.Sprintf("✓ %s", expr),
-		fmt.Sprintf("  = %s", formatValue(ctx, val)),
-	}, nil
+	return answered(expr, ctx, val, formatValue(ctx, val)), nil
 }
 
 // declaresValue reports whether sym's declaration binds a value of its own: a
@@ -1229,27 +1221,24 @@ func (s *Session) errWithoutDeclarations(expr string) error {
 
 // evalWithoutDeclarations answers an expression over the library alone in the
 // session's runtime, so an object it reaches is one %features shows.
-func (s *Session) evalWithoutDeclarations(ctx *runtime.Context, expr string) ([]string, error) {
+func (s *Session) evalWithoutDeclarations(ctx *runtime.Context, expr string) (evaluated, error) {
 	value, diags := parseExprAlone(expr)
 	if len(diags) > 0 {
-		return nil, exprError(expr, diags[0].Message, diags[0].Span, len(exprPrefix))
+		return evaluated{}, exprError(expr, diags[0].Message, diags[0].Span, len(exprPrefix))
 	}
 	if value == nil {
-		return nil, errors.New(noDeclarationsLoaded)
+		return evaluated{}, errors.New(noDeclarationsLoaded)
 	}
 	val, err := ctx.Eval(value)
 	switch {
 	case err == nil:
-		return []string{
-			fmt.Sprintf("✓ %s", expr),
-			fmt.Sprintf("  = %s", formatValue(ctx, val)),
-		}, nil
+		return answered(expr, ctx, val, formatValue(ctx, val)), nil
 	case !declarationsWouldAnswer(err):
-		return nil, evalError(expr, err, len(exprPrefix))
+		return evaluated{}, evalError(expr, err, len(exprPrefix))
 	case errors.Is(err, runtime.ErrUnresolvedReference):
-		return nil, fmt.Errorf("%s: %w", noDeclarationsLoaded, err)
+		return evaluated{}, fmt.Errorf("%s: %w", noDeclarationsLoaded, err)
 	default:
-		return nil, errors.New(noDeclarationsLoaded)
+		return evaluated{}, errors.New(noDeclarationsLoaded)
 	}
 }
 
@@ -1305,25 +1294,25 @@ func emptyRuntime(budgets runtime.Budgets) (*runtime.Context, error) {
 
 // tryEvalLiteral attempts to evaluate standalone literal expressions. It reports
 // whether the expression is one it answered, and what an answered one failed on.
-func (s *Session) tryEvalLiteral(expr string) ([]string, bool, error) {
+func (s *Session) tryEvalLiteral(expr string) (evaluated, bool, error) {
 	// A name the session declares is answered by that declaration, so the empty
 	// model this pass evaluates in must not answer for it: a library operation
 	// reached by its unqualified name would otherwise stand in for a calc the
 	// session wrote under the same name.
 	if s.declaresANameIn(expr) {
-		return nil, false, nil
+		return evaluated{}, false, nil
 	}
 
 	// Parse as standalone attribute
 	value, diags := parseExprAlone(expr)
 	if len(diags) > 0 || value == nil {
-		return nil, false, nil
+		return evaluated{}, false, nil
 	}
 
 	// Use runtime context with empty model (no symbols needed for literals)
 	ctx, err := emptyRuntime(s.budgets)
 	if err != nil {
-		return nil, false, nil
+		return evaluated{}, false, nil
 	}
 
 	val, err := ctx.Eval(value)
@@ -1335,20 +1324,17 @@ func (s *Session) tryEvalLiteral(expr string) ([]string, bool, error) {
 		// no position, is reported here instead of being hidden behind "no
 		// declarations loaded".
 		if isLiteralAnswerError(err) {
-			return nil, true, evalError(expr, err, len(exprPrefix))
+			return evaluated{}, true, evalError(expr, err, len(exprPrefix))
 		}
-		return nil, false, nil
+		return evaluated{}, false, nil
 	}
 	// An object is one of the session's, where %features can reach it, not of
 	// this throwaway model: the session materializes the declaration itself.
 	if ctx.HoldsObject(val) {
-		return nil, false, nil
+		return evaluated{}, false, nil
 	}
 
-	return []string{
-		fmt.Sprintf("✓ %s", expr),
-		fmt.Sprintf("  = %s", formatValue(ctx, val)),
-	}, true, nil
+	return answered(expr, ctx, val, formatValue(ctx, val)), true, nil
 }
 
 // doBudget lists the bounds one run of this session may spend, each with the
@@ -2656,15 +2642,27 @@ func (s *Session) startAction(name string, performer []string) ([]string, error)
 
 // doStep advances the action executor one step, or the state machine one event
 // when the session debugs a machine instead.
+// debuggedAction is the action %step and %continue act on: the one debugged,
+// unless it has ended while a machine is still running, which is then what a
+// step moves.
+func (s *Session) debuggedAction() *actionSession {
+	a := s.actionExec
+	if a != nil && s.stateExec != nil && a.executor.State().Ended() && !s.stateExec.executor.State().Ended() {
+		return nil
+	}
+	return a
+}
+
 func (s *Session) doStep() ([]string, bool, error) {
-	if s.actionExec == nil {
+	a := s.debuggedAction()
+	if a == nil {
 		if s.stateExec != nil {
 			return s.stepState()
 		}
 		return []string{s.noActionSessionMsg()}, false, nil
 	}
 
-	exec := s.actionExec.executor
+	exec := a.executor
 
 	if exec.State().Ended() {
 		return []string{"✓ Action already " + strings.ToLower(exec.State().String())}, false, nil
@@ -2711,7 +2709,7 @@ func (s *Session) doContinue() ([]string, bool, error) {
 // continueAction runs the active action to completion, or to the first
 // breakpoint hit, reporting a failed run as an error.
 func (s *Session) continueAction() ([]string, []NamedValue, error) {
-	if s.actionExec == nil {
+	if s.debuggedAction() == nil {
 		return nil, nil, s.noActionSessionErr()
 	}
 

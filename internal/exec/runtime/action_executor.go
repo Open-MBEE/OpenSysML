@@ -3464,6 +3464,16 @@ func (e *ActionExecutor) SetBreakpoint(nodeName string) {
 	e.breakpoints[nodeName] = true
 }
 
+// Breakpoints lists the node names breakpoints are set at, sorted.
+func (e *ActionExecutor) Breakpoints() []string {
+	names := make([]string, 0, len(e.breakpoints))
+	for name := range e.breakpoints {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
+}
+
 // ReplaceBreakpointsAt makes bps the breakpoints set by identity, named or not, one
 // occurrence of a node each: a debugger holding the graph (Graph, Token.Within) sets
 // breakpoints this way. A stop already made at one kept stands, so a resumed run
