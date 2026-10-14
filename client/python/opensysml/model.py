@@ -8,6 +8,7 @@ from opensysml.conversion import (
     FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, format_of_path,
 )
 from opensysml.diagnostic import Diagnostic
+from opensysml.check import CheckResult
 from opensysml.document import Graphs, RenderedView
 from opensysml.edit import Editor
 from opensysml.errors import ModelError, ServiceError, SymbolNotFoundError
@@ -408,6 +409,52 @@ class Model:
         """
         return self.connection.render_view(self._hash, view_name, ports=ports, show=show)
 
+
+    def check_action(self, action_symbol_id, inputs=None, performer=None, properties=(), diverge=(),
+                     free_inputs=(), assume=(), witness=False, depth=0, states=0, unroll=0,
+                     timeout=0.0, engine=None) -> CheckResult:
+        """Search every schedule of an action, as ``sysml -check-property`` does.
+
+        Args:
+            action_symbol_id (str): Qualified name of the action definition or usage
+            inputs (dict, optional): Input parameter name to value, bound first
+            performer (str, optional): Qualified name of the part or usage whose
+                object performs the action
+            properties (iterable of str): Constraints or requirements evaluated
+                at every stable state; one false at a state is a violation
+            diverge (iterable of str): Features whose final value the schedule
+                may decide; ``this.<name>`` names the performer's
+            free_inputs (iterable of str): Inputs the symbolic engine ranges over
+            assume (iterable of str): Constraints or requirements it assumes
+            witness (bool): Carry each witness's file in the answer
+            depth, states, unroll (int): Bounds on moves per schedule, states
+                visited and loop unrollings; 0 is the engine's default
+            timeout (float): Seconds the search may take; 0 is none
+            engine (str, optional): ``"check"`` (the default), ``"smt"`` or one
+                :meth:`~opensysml.Connection.list_engines` names
+
+        Returns:
+            CheckResult: The verdict with every violation, divergence and
+                final outcome witnessed
+
+        Raises:
+            MissingCapabilityError: If the service cannot check behaviors
+            ExecutionError: If the behavior, a property or the performer is
+                not found, or the search failed before deciding
+            InvalidRequestError: If a bound is negative or the engine unknown
+            ModelNotFoundError: If the service no longer holds this model
+        """
+        return self.connection.check_action(action_symbol_id, self._hash, inputs, performer,
+                                            properties, diverge, free_inputs, assume, witness,
+                                            depth, states, unroll, timeout, engine)
+
+    def check_state_machine(self, state_machine_symbol_id, performer=None, properties=(),
+                            diverge=(), free_inputs=(), assume=(), witness=False, depth=0,
+                            states=0, unroll=0, timeout=0.0, engine=None) -> CheckResult:
+        """Search every schedule of a state machine; see :meth:`check_action`."""
+        return self.connection.check_state_machine(state_machine_symbol_id, self._hash, performer,
+                                                   properties, diverge, free_inputs, assume,
+                                                   witness, depth, states, unroll, timeout, engine)
 
     def export_graphs(self, subject) -> Graphs:
         """Export the lowered graph of an action or state machine.

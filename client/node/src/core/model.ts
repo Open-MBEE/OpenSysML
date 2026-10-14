@@ -17,6 +17,7 @@ import type { Conversion } from "./conversion.js";
 import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
 import type { BindingValues, DocumentQueryResult } from "./document.js";
 import type { RenderedView } from "./render-view.js";
+import type { CheckOptions, CheckResult } from "./check.js";
 import type { Graphs } from "./graphs.js";
 import type { Editor } from "./edit.js";
 import type { Exploration } from "./exploration.js";
@@ -430,6 +431,19 @@ export class Model {
     options: { ports?: "minimal" | "full"; show?: readonly string[] } = {},
   ): Promise<RenderedView> {
     return this.connection.renderView(this.hash, viewName, options);
+  }
+
+  /** Searches every schedule of an action of this model, as `sysml -check-property` does. */
+  checkAction(
+    actionSymbolId: string,
+    options: CheckOptions & { inputs?: Readonly<Record<string, ValueInput>> } = {},
+  ): Promise<CheckResult> {
+    return this.connection.checkAction(this.hash, actionSymbolId, options);
+  }
+
+  /** Searches every schedule of a state machine of this model. */
+  checkStateMachine(stateMachineSymbolId: string, options: CheckOptions = {}): Promise<CheckResult> {
+    return this.connection.checkStateMachine(this.hash, stateMachineSymbolId, options);
   }
 
   /** Exports the lowered graph of an action or state machine of this model as `graphs:1` JSON. */
