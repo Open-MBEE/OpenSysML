@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
@@ -258,13 +259,13 @@ func TestObservableLinesRefuseMixedUnitsInAnyOrder(t *testing.T) {
 		"quantity first": {row(quantity), row(bare)},
 		"bare first":     {row(bare), row(quantity)},
 	} {
-		got := strings.Join(observableLines(runtime.SweepTable{Target: "MC::x", Rows: rows}, "t"), "\n")
+		got := strings.Join(analysis.Summarize(runtime.SweepTable{Target: "MC::x", Rows: rows}, "t", objectText).Lines(), "\n")
 		if !strings.Contains(got, "more than one unit; no distribution") {
 			t.Errorf("%s: mixed units summarised:\n%s", name, got)
 		}
 	}
 	same := runtime.SweepTable{Target: "MC::x", Rows: []runtime.SweepRow{row(quantity), row(quantity)}}
-	if got := strings.Join(observableLines(same, "t"), "\n"); !strings.Contains(got, "min 2.0 [s]") {
+	if got := strings.Join(analysis.Summarize(same, "t", objectText).Lines(), "\n"); !strings.Contains(got, "min 2.0 [s]") {
 		t.Errorf("one unit not summarised in it:\n%s", got)
 	}
 }
