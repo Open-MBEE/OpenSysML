@@ -2493,7 +2493,7 @@ Fixture: `state_order_effect_reads_racing_attribute` (golden, explored).
 
 ```
 Machine: entry → work (parallel: a { a1 ─Go / last := 1→ a2 }, b { b1 ─Go / last := 2→ b2 })
-         work ─Next / { derived := last + 1; fixed := 5 }→ settled
+         work ─Next / { computed := last + 1; fixed := 5 }→ settled
 ```
 
 Derived constraints:
@@ -2501,14 +2501,14 @@ Derived constraints:
 - One occurrence of Go fires a transition in each region (the regions are orthogonal), both
   writing `last`, and the run-to-completion step ends with `last` at `1` or `2`.
 - Next is dispatched after Go's step has completed, so its effect reads the `last` that stood:
-  `derived` is `2` or `3`, and `fixed` is `5` in every linearization.
+  `computed` is `2` or `3`, and `fixed` is `5` in every linearization.
 
 Open: the order of the two regions' reactions to Go, as in "Two regions reacting to one
-occurrence". The effect of the Next transition computes from `last`, so `derived` is open exactly
+occurrence". The effect of the Next transition computes from `last`, so `computed` is open exactly
 where `last` is; `fixed` reads nothing open.
 
-Pinned outcome: `{last = 1, derived = 2, fixed = 5}` or `{last = 2, derived = 3, fixed = 5}`,
-stated as `outcomes` citing this section. The default run marks `last` and `derived` with the one
+Pinned outcome: `{last = 1, computed = 2, fixed = 5}` or `{last = 2, computed = 3, fixed = 5}`,
+stated as `outcomes` citing this section. The default run marks `last` and `computed` with the one
 region-order choice point and prints `fixed` bare (`orderDependent` states `last: 1, derived: 1`).
 
 ## What the executor gets wrong

@@ -3,15 +3,15 @@ package test {
 
 	// One occurrence of Go fires a transition in each region of the parallel
 	// state `work`, and both effects write `last`; the next occurrence, Next,
-	// fires a transition whose effect computes `derived` from `last` and writes
+	// fires a transition whose effect computes `computed` from `last` and writes
 	// `fixed` from a literal. The library orders neither region's reaction before
-	// the other's, so `last` stands open, and so does `derived`, computed from it
+	// the other's, so `last` stands open, and so does `computed`, computed from it
 	// after both reactions; `fixed` is the same in every order.
 	attribute def Go;
 	attribute def Next;
 	state Machine {
 		attribute last : Integer = 0;
-		attribute derived : Integer = 0;
+		attribute computed : Integer = 0;
 		attribute fixed : Integer = 0;
 
 		entry; then work;
@@ -30,6 +30,6 @@ package test {
 			}
 		}
 		state settled;
-		transition first work accept Next do { assign derived := last + 1; assign fixed := 5; } then settled;
+		transition first work accept Next do { assign computed := last + 1; assign fixed := 5; } then settled;
 	}
 }

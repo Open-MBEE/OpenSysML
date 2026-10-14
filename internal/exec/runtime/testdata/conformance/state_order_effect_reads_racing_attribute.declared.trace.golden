@@ -14,7 +14,7 @@ exit: a2
 exit: b2
 exit: work
 stmt action body
-  stmt assign derived
+  stmt assign computed
       eval feature last -> 2
       eval literal 1 -> 1
     eval operator + -> 3
