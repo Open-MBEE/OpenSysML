@@ -1410,3 +1410,52 @@ func TestAModelThatNoParseAnsweredIsInvalid(t *testing.T) {
 		t.Errorf("err = %v, want CodeInvalidArgument", err)
 	}
 }
+
+func TestCheckActionAgainstService(t *testing.T) {
+	client := newClient(t)
+	source, err := os.ReadFile(filepath.Join("..", "..", "conformance", "fixtures", "tank.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := parse(t, client, string(source))
+	ctx := context.Background()
+	check, err := client.CheckAction(ctx, model, "Plant::Tank::fill",
+		opensysml.CheckPerformer("Plant::tank"), opensysml.CheckProperties("Plant::Tank::low"),
+		opensysml.CheckDiverge("this.level"), opensysml.CheckWitnessFiles())
+	if err != nil {
+		t.Fatalf("CheckAction: %v", err)
+	}
+	if check.Verdict != "fails" || check.Search == nil || check.Search.States != 11 || check.Standing.Engine != "check" {
+		t.Errorf("check = %+v, want fails after 11 states under the check engine", check)
+	}
+	if len(check.Violations) != 1 || check.Violations[0].Property != "Plant::Tank::low" || check.Violations[0].Depth != 3 {
+		t.Errorf("violations = %+v, want Plant::Tank::low false after 3 moves", check.Violations)
+	}
+	if len(check.Violations) == 1 && (check.Violations[0].Witness == nil || check.Violations[0].Witness.FileContent == "") {
+		t.Errorf("the violation's witness file was asked for and not carried: %+v", check.Violations[0].Witness)
+	}
+	if len(check.Divergences) != 1 || check.Divergences[0].Feature != "this.level" || len(check.Divergences[0].Values) != 2 {
+		t.Errorf("divergences = %+v, want this.level ending as two values", check.Divergences)
+	}
+	if !strings.HasPrefix(check.String(), "✗ Plant::Tank::fill") {
+		t.Errorf("report = %q, want the command's", check.String())
+	}
+
+	held, err := client.CheckAction(ctx, model, "Plant::Tank::fill",
+		opensysml.CheckPerformer("Plant::tank"), opensysml.CheckProperties("Plant::Tank::capped"),
+		opensysml.CheckDiverge("this.capacity"))
+	if err != nil || held.Verdict != "holds" || len(held.Finals) == 0 {
+		t.Errorf("capped: %v %+v, want holds with its finals", err, held)
+	}
+
+	_, err = client.CheckAction(ctx, model, "Plant::Tank::drain")
+	var failure *opensysml.FailureError
+	if !errors.As(err, &failure) || failure.Op != "CheckAction" || !strings.Contains(failure.Message, "Plant::Tank::drain") {
+		t.Errorf("unknown action: %v, want an in-band FailureError", err)
+	}
+	_, err = client.CheckAction(ctx, model, "Plant::Tank::fill", opensysml.CheckBounds(-1, 0, 0, 0))
+	var status *opensysml.StatusError
+	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
+		t.Errorf("negative depth: %v, want INVALID_ARGUMENT", err)
+	}
+}

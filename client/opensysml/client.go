@@ -175,6 +175,12 @@ type Client interface {
 	// external analysis engine is sent. Requires the export_graphs capability.
 	ExportGraphs(ctx context.Context, model *Model, subject string) (*Graphs, error)
 
+	// CheckAction searches every schedule of an action for a violated property,
+	// a deadlock, a failure or a divergent final value, and CheckStateMachine
+	// does the same for a state machine. Requires the check capability.
+	CheckAction(ctx context.Context, model *Model, actionID string, opts ...CheckOption) (*Check, error)
+	CheckStateMachine(ctx context.Context, model *Model, stateMachineID string, opts ...CheckOption) (*Check, error)
+
 	// Convert writes the model in another representation, from the source the
 	// parse read, so WithFromFormat does not apply and is refused. Requires the
 	// convert capability, and a model of one document. ConvertFile converts a
@@ -323,6 +329,7 @@ type caller interface {
 	renderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error)
 	renderView(ctx context.Context, req *pb.RenderViewRequest) (*pb.RenderViewResponse, error)
 	exportGraphs(ctx context.Context, req *pb.ExportGraphsRequest) (*pb.ExportGraphsResponse, error)
+	checkBehavior(ctx context.Context, req *pb.CheckBehaviorRequest) (*pb.CheckBehaviorResponse, error)
 	convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error)
 	migrate(ctx context.Context, req *pb.MigrateRequest) (*pb.MigrateResponse, error)
 	applyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*pb.ApplyEditsResponse, error)
