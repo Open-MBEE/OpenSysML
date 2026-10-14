@@ -422,6 +422,7 @@ impl Runner {
             "RenderDocument" => self.render_document(request),
             "RenderView" => self.render_view(request),
             "ExportGraphs" => self.export_graphs(request),
+            "CheckBehavior" => self.check_behavior(request),
             "ExecuteAction" => self.execute_action(request),
             "ExecuteState" => self.execute_state(request),
             "ListEngines" => self.list_engines(),
@@ -858,6 +859,44 @@ impl Runner {
         {
             Ok(rendered) => {
                 Answer::Response(self.wire_json("sysml.RenderViewResponse", rendered.wire()))
+            }
+            Err(error) => classify_error(error),
+        }
+    }
+
+    fn check_behavior(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::CheckBehaviorRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        let inputs = match named_values_of(request.inputs) {
+            Ok(inputs) => inputs,
+            Err(answer) => return answer,
+        };
+        let options = opensysml::CheckOptions {
+            properties: request.check_property,
+            diverge: request.check_diverge,
+            free_inputs: request.check_input,
+            assume: request.check_assume,
+            witness: request.check_witness,
+            depth: request.check_depth,
+            states: request.check_states,
+            unroll: request.check_unroll,
+            timeout: request.check_timeout,
+            engine: Some(request.engine).filter(|e| !e.is_empty()),
+            performer: Some(request.performer_symbol_id).filter(|p| !p.is_empty()),
+        };
+        let hash = &request.model_hash;
+        let checked = if request.state_machine_symbol_id.is_empty() {
+            self.connection
+                .check_action(hash, &request.action_symbol_id, &inputs, &options)
+        } else {
+            self.connection
+                .check_state_machine(hash, &request.state_machine_symbol_id, &options)
+        };
+        match checked {
+            Ok(result) => {
+                Answer::Response(self.wire_json("sysml.CheckBehaviorResponse", result.wire()))
             }
             Err(error) => classify_error(error),
         }

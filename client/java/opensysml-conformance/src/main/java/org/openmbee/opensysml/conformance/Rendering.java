@@ -1,6 +1,7 @@
 package org.openmbee.opensysml.conformance;
 
 import org.openmbee.opensysml.CaseEvaluation;
+import org.openmbee.opensysml.CheckResult;
 import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.EngineInfo;
 import org.openmbee.opensysml.Exploration;
@@ -18,6 +19,13 @@ import org.openmbee.opensysml.VerificationVerdict;
 import org.openmbee.opensysml.internal.Protos;
 import org.openmbee.opensysml.proto.AttributeInfo;
 import org.openmbee.opensysml.proto.Bound;
+import org.openmbee.opensysml.proto.CheckBehaviorResponse;
+import org.openmbee.opensysml.proto.CheckDivergence;
+import org.openmbee.opensysml.proto.CheckDivergentValue;
+import org.openmbee.opensysml.proto.CheckFinal;
+import org.openmbee.opensysml.proto.CheckSearch;
+import org.openmbee.opensysml.proto.CheckViolation;
+import org.openmbee.opensysml.proto.CheckWitness;
 import org.openmbee.opensysml.proto.CalcOutput;
 import org.openmbee.opensysml.proto.ExplorationStatus;
 import org.openmbee.opensysml.proto.FeatureValue;
@@ -90,6 +98,85 @@ final class Rendering {
    * @param standing the immutable standing
    * @return the generated bounds, in order
    */
+  /** A {@code CheckBehaviorResponse} carrying a check result as the service would answer it. */
+  static CheckBehaviorResponse checkResult(CheckResult result) {
+    CheckBehaviorResponse.Builder response =
+        CheckBehaviorResponse.newBuilder()
+            .setVerdict(result.verdict())
+            .addAllLines(result.lines())
+            .addAllViolations(result.violations().stream().map(Rendering::checkViolation).toList())
+            .addAllDivergences(
+                result.divergences().stream().map(Rendering::checkDivergence).toList())
+            .addAllFinals(result.finals().stream().map(Rendering::checkFinal).toList())
+            .setClaim(result.claim())
+            .addAllFreeInputs(result.freeInputs())
+            .addAllAssumptions(result.assumptions())
+            .setEngine(result.standing().engine())
+            .setStrength(result.standing().strength())
+            .addAllBounds(bounds(result.standing()))
+            .setReason(result.reason())
+            .addAllDiagnostics(diagnostics(result.diagnostics()));
+    result.search().ifPresent(s -> response.setSearch(checkSearch(s)));
+    result.witness().ifPresent(w -> response.setWitness(checkWitness(w)));
+    result.contrast().ifPresent(w -> response.setContrast(checkWitness(w)));
+    return response.build();
+  }
+
+  private static CheckSearch checkSearch(CheckResult.Search s) {
+    return CheckSearch.newBuilder()
+        .setStates(s.states())
+        .setMoves(s.moves())
+        .setMaxDepth(s.maxDepth())
+        .addAllBoundsHit(s.boundsHit())
+        .setHorizon(s.horizon())
+        .setHorizonSet(s.horizonSet())
+        .setMassBounded(s.massBounded())
+        .addAllNotes(s.notes())
+        .addAllScope(s.scope())
+        .setStatus(s.status())
+        .build();
+  }
+
+  private static CheckWitness checkWitness(CheckResult.Witness w) {
+    return CheckWitness.newBuilder()
+        .setSchedule(w.schedule())
+        .addAllDraws(w.draws())
+        .addAllChoices(w.choices())
+        .addAllInputs(w.inputs())
+        .setFileName(w.fileName())
+        .setFileContent(w.fileContent())
+        .build();
+  }
+
+  private static CheckViolation checkViolation(CheckResult.Violation v) {
+    CheckViolation.Builder violation =
+        CheckViolation.newBuilder()
+            .setKind(v.kind())
+            .setProperty(v.property())
+            .setError(v.error())
+            .setDepth(v.depth())
+            .setProbability(v.probability())
+            .setText(v.text());
+    v.witness().ifPresent(w -> violation.setWitness(checkWitness(w)));
+    return violation.build();
+  }
+
+  private static CheckDivergence checkDivergence(CheckResult.Divergence d) {
+    CheckDivergence.Builder divergence = CheckDivergence.newBuilder().setFeature(d.feature());
+    for (CheckResult.DivergentValue v : d.values()) {
+      CheckDivergentValue.Builder value = CheckDivergentValue.newBuilder().setValue(v.value());
+      v.witness().ifPresent(w -> value.setWitness(checkWitness(w)));
+      divergence.addValues(value);
+    }
+    return divergence.build();
+  }
+
+  private static CheckFinal checkFinal(CheckResult.Final f) {
+    CheckFinal.Builder fin = CheckFinal.newBuilder().setOutcome(f.outcome()).putAllValues(f.values());
+    f.witness().ifPresent(w -> fin.setWitness(checkWitness(w)));
+    return fin.build();
+  }
+
   static List<Bound> bounds(Standing standing) {
     return standing.bounds().stream()
         .map(

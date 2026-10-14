@@ -102,7 +102,7 @@ pub struct Standing {
 }
 
 impl Standing {
-    fn of(engine: &str, strength: &str, bounds: &[wire::Bound]) -> Self {
+    pub(crate) fn of(engine: &str, strength: &str, bounds: &[wire::Bound]) -> Self {
         Self {
             engine: engine.to_owned(),
             strength: strength.to_owned(),
