@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -163,7 +164,24 @@ func (h *actionStmtHost) statementOrder(stmts []lower.Statement) *lower.Statemen
 }
 
 func (h *actionStmtHost) statementFootprint(stmts []lower.Statement, i int) lower.Footprint {
-	return h.exec.statementOrder(h.graph, h.node, stmts).Footprint(i)
+	fp := h.exec.statementOrder(h.graph, h.node, stmts).Footprint(i)
+	if h.perf == nil || h.perf.node == nil {
+		return fp
+	}
+	// The body's own places are this performance's, as the node's pins are.
+	fp.Reads, fp.Writes = placesOf(fp.Reads, h.perf.node), placesOf(fp.Writes, h.perf.node)
+	return fp
+}
+
+// placesOf is the places with those a body holds as its own stamped as node's.
+func placesOf(places []lower.Place, node ast.Node) []lower.Place {
+	out := slices.Clone(places)
+	for i := range out {
+		if out[i].Local && out[i].Node == nil {
+			out[i].Node = node
+		}
+	}
+	return out
 }
 
 func (h *actionStmtHost) orderStep() int {
@@ -310,17 +328,22 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 }
 
 // markPerformance records what performing node binds, for the marks of the run's
-// values: its inputs stand on what they are bound from as it begins, and its
-// outputs, once ended, on those and on what its body left on its own pins; the
-// body's statements are recorded one by one as they run.
+// values: as it begins, its own features and pins stand on what they are bound
+// from; once ended, its outputs — the pins and the enclosing features they are
+// carried to — stand on what its body left on its pins. The body's statements
+// are recorded one by one as they run, so an ended performance's pins are not
+// bound again from what its initializers read.
 func (e *performances) markPerformance(graph *lower.ActionGraph, node ast.Node, ended bool) {
 	fp := graph.BindingFootprints()[node]
-	by := e.ctx.standingOf(fp, false)
-	if ended {
-		for _, w := range fp.Writes {
-			if w.Local {
-				by = unionSerials(by, e.ctx.run.marks.at(w))
-			}
+	if !ended {
+		own := slices.DeleteFunc(slices.Clone(fp.Writes), func(w lower.Place) bool { return !w.Local })
+		e.ctx.writeMarks(own, e.ctx.standingOf(fp, false))
+		return
+	}
+	by := slices.Clone(e.ctx.controls)
+	for _, w := range fp.Writes {
+		if w.Local {
+			by = unionSerials(by, e.ctx.run.marks.at(w))
 		}
 	}
 	e.ctx.writeMarks(fp.Writes, by)

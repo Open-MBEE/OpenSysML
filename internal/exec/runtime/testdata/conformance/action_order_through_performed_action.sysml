@@ -1,6 +1,22 @@
 package test {
 	private import ScalarValues::*;
 
+	action increment {
+		in x : Integer;
+		out result : Integer;
+
+		first begin;
+
+		action bump {
+			assign result := x + 5;
+		}
+
+		done;
+
+		succession first begin then bump;
+		succession first bump then done;
+	}
+
 	// Two branches between one fork and one join each write `x` once; a performed
 	// action then takes `x` as its input and computes its output from it, which
 	// the outer `result` is bound to: `result` stands on the open order of the
@@ -9,22 +25,6 @@ package test {
 		attribute x : Integer = 0;
 		attribute result : Integer = 0;
 		attribute other : Integer = 0;
-
-		action increment {
-			in x : Integer;
-			out result : Integer;
-
-			first begin;
-
-			action bump {
-				assign result := x + 5;
-			}
-
-			done;
-
-			succession first begin then bump;
-			succession first bump then done;
-		}
 
 		first start;
 		fork split;

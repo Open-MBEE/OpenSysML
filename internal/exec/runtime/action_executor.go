@@ -28,6 +28,10 @@ type ActionExecutor struct {
 	// its subperformances; self is the object performing the action, whose
 	// connections route what it sends.
 	performances
+	// performedAt is the node of another action's graph whose performance this
+	// executor runs, nil for an action run on its own: the body's own places are
+	// that performance's, as its pins are.
+	performedAt ast.Node
 	// action states the body performed; performed is the action as named, a usage
 	// stating no body of its own or the action itself, whose metadata binds the performance.
 	action, performed *symbols.Symbol
@@ -331,6 +335,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 // made and nothing is waiting for a message).
 func (e *ActionExecutor) Step() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -683,6 +688,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 // runSteps is run, stopping after one step where single is set.
 func (e *ActionExecutor) runSteps(atCurrentTime, single bool) error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -1753,6 +1759,7 @@ func (e *ActionExecutor) checkInputNames() error {
 // initialize spawns initial token at InitialNode.
 func (e *ActionExecutor) initialize() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
 
 	if e.dynamicsKind != lower.NotStateSpace {
 		return e.initializeDynamics()
@@ -2636,6 +2643,21 @@ func (e *ActionExecutor) guardsStanding(graph *lower.ActionGraph, successors []l
 		by = unionSerials(by, e.ctx.standingOf(lower.ExpressionFootprint(graph.Scope, successors[i].Guard), true))
 	}
 	return by
+}
+
+// performedParams is the action's own parameters where another action's node
+// performs it, nil where it runs on its own: the places the node's pins are.
+func (e *ActionExecutor) performedParams() map[*symbols.Symbol]bool {
+	if e.performedAt == nil || e.graph == nil {
+		return nil
+	}
+	params := make(map[*symbols.Symbol]bool, len(e.graph.Parameters))
+	for _, f := range e.graph.Parameters {
+		if sym, ok := e.graph.Scope.LookupLocal(f.Name); ok && sym.Decl == f.Node {
+			params[sym] = true
+		}
+	}
+	return params
 }
 
 // stepActionExecutionNode evaluates inline expression or invokes nested action.

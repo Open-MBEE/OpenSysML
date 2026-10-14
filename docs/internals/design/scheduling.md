@@ -223,7 +223,8 @@ Snapshots, held images and a compound transition's rollback capture the marks be
 write it discarded. Reporting never changes the run: marks are read by the surfaces alone.
 
 Approximations, all conservative where they err: a pin's place is its node's (`Place.Node`), so
-the performances a repeated or re-entered node makes share the marks of their pins; a seed held
+the performances a repeated or re-entered node makes share the marks of their pins, and a body
+reading a name its declarations do not resolve reads every value of that name; a seed held
 for the clock's instant marks a same-instant rewrite from a literal that another order could not have changed;
 the guards a route reads on its way through a junction or choice pseudostate are not control for
 what follows them, and a calc or constraint body propagates nothing (the expression reading its

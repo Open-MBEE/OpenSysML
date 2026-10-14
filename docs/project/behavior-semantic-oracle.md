@@ -2585,6 +2585,58 @@ literal, stands on nothing.
 Pinned outcome: `{level = 1}` or `{level = 2}`, stated as `outcomes` citing this section. The
 default run marks `level` with the two choice points and prints `other.level` bare.
 
+### A literal rewrite of a node's own feature clears what its initializer stood on
+
+Fixture: `action_order_literal_rewrite_of_initialized_pin` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → other { level = x; level := 5 } → done
+```
+
+where `other` declares `attribute level : Integer = x` and then assigns `level := 5`.
+
+Derived constraints:
+
+- `sync` follows both writes of `x`, so `other` begins with a `level` of `1` or `2`.
+- Its assignment then writes `level` as `5` from a literal, in every linearization.
+
+Open: the order of the two writers of `x`. The initializer and the assignment write the one
+feature of the one performance of `other`, so the assignment replaces what the initializer
+left: `other.level` stands on nothing, though its initial value was open.
+
+Pinned outcome: `{x = 1}` or `{x = 2}`, stated as `outcomes` citing this section. The default run
+marks `x` with the two choice points and prints `other.level` bare.
+
+### An argument a node writes binds its pin, not the enclosing feature of the pin's name
+
+Fixture: `action_order_explicit_argument_binds_pin` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → mk { y := x + 10 } → lit = Add(x = 5) → dep = Add(x = y) → fin { fixed := lit; derived := dep } → done
+```
+
+where `Add` takes `in x` and answers `out result = x + 1`.
+
+Derived constraints:
+
+- `sync` follows both writes of `x`, so `mk` reads an `x` of `1` or `2` and `y` is `11` or `12`.
+- `lit` binds its `x` from the literal `5`, so its result is `6` and `fixed` is `6` in every
+  linearization; `dep` binds its `x` from `y`, so its result and `derived` are `12` or `13`.
+
+Open: the order of the two writers of `x`. An argument the node writes is what binds the pin,
+whatever the enclosing scope holds under the pin's name: `lit`'s input stands on nothing, while
+`dep`'s pins, its result and `derived` stand on what `y` stands on. The body of `Add` reads its
+own `x` by name, and a definition's body is read conservatively against the enclosing feature of
+that name, so `lit.result` and `fixed` print marked though their value is fixed: the marker errs
+towards reporting, never towards a bare value an order could change.
+
+Pinned outcome: `{x = 1, y = 11, fixed = 6, derived = 12}` or `{x = 2, y = 12, fixed = 6,
+derived = 13}`, stated as `outcomes` citing this section. The default run marks `x`, `y`,
+`derived`, `dep`'s pins, `lit.result` and `fixed` with the two choice points and prints `lit.x`
+bare.
+
 ## What the executor gets wrong
 
 Nothing, at present: every derivation above is met and carries a golden. The table this section

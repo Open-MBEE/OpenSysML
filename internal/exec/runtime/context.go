@@ -181,6 +181,12 @@ type Context struct {
 	// controls is the choice points the move under way stands on by control: the
 	// guards read and branches drawn around it (order_marks.go).
 	controls []int64
+	// performing is the node whose performance the executor running is, nil for a
+	// run of its own: a body's own place is stamped as that performance's.
+	performing ast.Node
+	// performingParams are the parameters of the action performing runs, which
+	// are that performance's own as its pins are.
+	performingParams map[*symbols.Symbol]bool
 
 	// actionDepth is the number of action invocations currently on the stack,
 	// bounding recursion across nested action executors.

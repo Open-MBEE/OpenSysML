@@ -1,22 +1,13 @@
-enter action node: increment
-choice step 1: tokens 1@start, 2@increment (unordered; took 1@start first; independent)
-step 1: token 1@split, token 2@begin
-choice step 2: tokens 1@split, 2@begin (unordered; took 2@begin first; independent)
-step 2: token 2@bump, token 3@a, token 4@b
+step 1: token 1@split
+step 2: token 2@a, token 3@b
 stmt assign x
   eval literal 1 -> 1
-stmt assign result
-    eval feature x -> 1
-    eval literal 5 -> 5
-  eval operator + -> 6
 stmt assign x
   eval literal 2 -> 2
-choice step 3: writes x := 1 by token 3, x := 2 by token 4 (unordered; x := 2 by token 4 stood; order-dependent: x)
-choice step 3: tokens 2@bump, 3@a, 4@b (unordered; took 3@a first; order-dependent: x)
-step 3: token 2@done, token 3@sync, token 4@sync
-leave action node: increment
-choice step 4: tokens 2@done, 3@sync (unordered; took 3@sync first; independent)
-step 4: token 5@doIt
+choice step 3: writes x := 1 by token 2, x := 2 by token 3 (unordered; x := 2 by token 3 stood; order-dependent: x)
+choice step 3: tokens 2@a, 3@b (unordered; took 2@a first; order-dependent: x)
+step 3: token 2@sync, token 3@sync
+step 4: token 4@doIt
 step 1: token 1@bump
 stmt assign result
     eval feature x -> 2
@@ -24,8 +15,8 @@ stmt assign result
   eval operator + -> 7
 step 2: token 1@done
 step 3: no active tokens
-step 5: token 5@keep
+step 5: token 4@keep
 stmt assign other
   eval literal 3 -> 3
-step 6: token 5@done
+step 6: token 4@done
 step 7: no active tokens

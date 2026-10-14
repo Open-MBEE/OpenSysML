@@ -105,7 +105,7 @@ func (c *ChoicePoint) touchWrites(fps ...lower.Footprint) {
 }
 
 func (c *ChoicePoint) touch(p lower.Place) {
-	if p.Local || p.State != nil {
+	if p.Local && p.Node != nil || p.State != nil {
 		return
 	}
 	if !slices.ContainsFunc(c.touched, func(q lower.Place) bool { return q.Name == p.Name && q.Sym == p.Sym }) {
@@ -142,7 +142,7 @@ func (ctx *Context) placeNamed(p lower.Place, name string, selves []*Instance) b
 	if p.Name != name && lastSegment(p.Name) != leaf {
 		return false
 	}
-	if p.Local && qualifier == "" {
+	if p.Local && p.Node != nil && qualifier == "" {
 		return false // a pin or a node's own feature is not the bare name's
 	}
 	if p.Node != nil {
@@ -150,7 +150,7 @@ func (ctx *Context) placeNamed(p lower.Place, name string, selves []*Instance) b
 			return node == lastSegment(qualifier)
 		}
 	}
-	if p.Sym != nil && qualifier != "" && qualifier != "this" {
+	if p.Sym != nil && qualifier != "" && qualifier != "this" && ctx.run.marks.performed(lastSegment(qualifier)) {
 		return declaredUnder(p.Sym, lastSegment(qualifier))
 	}
 	holder := ctx.performerOwning(selves, p.Sym)

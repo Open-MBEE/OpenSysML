@@ -2045,6 +2045,9 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 		return nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
 	callee.name, callee.out, callee.performer = inv.name(), out, perf
+	if callee.exec.performedAt == nil {
+		callee.exec.performedAt = perf.node
+	}
 	return callee, nil
 }
 

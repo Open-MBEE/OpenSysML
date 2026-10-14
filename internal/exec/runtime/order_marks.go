@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -154,17 +155,27 @@ func (m *orderMarks) rewrite(p lower.Place, by []int64, now float64) {
 			}
 		}
 	}
-	m.entries = entries
-	if len(kept) > 0 {
-		m.entries = append(m.entries, orderMark{place: p, by: kept})
+	// A place written stays listed, bare: it witnesses that its node performed.
+	m.entries = append(entries, orderMark{place: p, by: kept})
+}
+
+// performed reports whether a node of the name has written a place of its own:
+// a qualified name reports the node's pin precisely only then, else what the
+// enclosing feature of the name stands on, which an unperformed node's pin reads.
+func (m *orderMarks) performed(node string) bool {
+	for _, e := range m.entries {
+		if e.place.Node != nil && ActionNodeName(e.place.Node) == node {
+			return true
+		}
 	}
+	return false
 }
 
 // samePlace reports whether two places certainly name one value: the same
 // declaration, or the same name where neither is resolved to one. A place that may
 // merely conflict (Place.Conflicts) is read conservatively, never rewritten.
 func samePlace(p, q lower.Place) bool {
-	if p.Node != q.Node {
+	if p.Node != nil && q.Node != nil && p.Node != q.Node {
 		return false
 	}
 	if p.State != nil || q.State != nil {
@@ -235,9 +246,27 @@ func (ctx *Context) standingOf(fp lower.Footprint, dynamicAll bool) []int64 {
 		return unionSerials(deps, marks.all())
 	}
 	for _, r := range fp.Reads {
-		deps = unionSerials(deps, marks.of(r))
+		deps = unionSerials(deps, marks.of(ctx.placeOf(r)))
 	}
 	return deps
+}
+
+// placeOf is the place as the run holds it: a body's own place, which the
+// footprint leaves to whichever performance runs the body, is the performance's.
+func (ctx *Context) placeOf(p lower.Place) lower.Place {
+	if p.Node == nil && ctx.performing != nil && (p.Local || ctx.performingParams[p.Sym]) {
+		p.Node, p.Local = ctx.performing, true
+	}
+	return p
+}
+
+// performingNode runs what follows as the performance of node, nil for a run of
+// its own, until the function returned is called; params are the performed
+// action's own parameters, the node's pins.
+func (ctx *Context) performingNode(node ast.Node, params map[*symbols.Symbol]bool) func() {
+	savedNode, savedParams := ctx.performing, ctx.performingParams
+	ctx.performing, ctx.performingParams = node, params
+	return func() { ctx.performing, ctx.performingParams = savedNode, savedParams }
 }
 
 // propagateMarks records a move with the footprint made: what it wrote stands on
@@ -255,7 +284,7 @@ func (ctx *Context) writeMarks(places []lower.Place, by []int64) {
 		return
 	}
 	for _, w := range places {
-		ctx.run.marks.rewrite(w, by, ctx.clock.now)
+		ctx.run.marks.rewrite(ctx.placeOf(w), by, ctx.clock.now)
 	}
 }
 
