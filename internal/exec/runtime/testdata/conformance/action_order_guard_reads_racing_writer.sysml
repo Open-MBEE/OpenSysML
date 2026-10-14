@@ -4,12 +4,12 @@ package test {
 	// Two branches between one fork and one join each write `x` once; a decision
 	// after the join reads `x` in its guards, and each branch writes `mode`. Which
 	// guard holds is the open order of the writes, so `mode` stands on the same
-	// choice points as `x`; `after`, written past the merge from a literal,
+	// choice points as `x`; `later`, written past the merge from a literal,
 	// depends on no order.
 	action route {
 		attribute x : Integer = 0;
 		attribute mode : Integer = 0;
-		attribute after : Integer = 0;
+		attribute later : Integer = 0;
 
 		first start;
 		fork split;
@@ -19,7 +19,7 @@ package test {
 		action low { assign mode := 10; }
 		action high { assign mode := 20; }
 		merge rejoin;
-		action tail { assign after := 7; }
+		action tail { assign later := 7; }
 		done;
 
 		succession first start then split;

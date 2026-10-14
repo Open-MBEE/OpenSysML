@@ -30,7 +30,7 @@ const orderDependenceTransitiveModel = `package test {
 	action def Guarded {
 		out x : Integer = 0;
 		out mode : Integer = 0;
-		out after : Integer = 0;
+		out later : Integer = 0;
 		first start then split;
 		fork split;
 		first split then a;
@@ -47,7 +47,7 @@ const orderDependenceTransitiveModel = `package test {
 		first high then rejoin;
 		merge rejoin;
 		first rejoin then tail;
-		action tail { assign after := 7; }
+		action tail { assign later := 7; }
 		first tail then done;
 		decide choose;
 		if x == 1 then low;
@@ -198,8 +198,8 @@ func testGuardReadMarksItsBranchWrites(t *testing.T) {
 	if n := ctx.OrderDependent("mode"); n != 2 {
 		t.Errorf("order-dependent mode = %d choice points, want 2: the guard selecting its writer read x", n)
 	}
-	if n := ctx.OrderDependent("after"); n != 0 {
-		t.Errorf("order-dependent after = %d choice points, want 0: written past the merge from a literal", n)
+	if n := ctx.OrderDependent("later"); n != 0 {
+		t.Errorf("order-dependent later = %d choice points, want 0: written past the merge from a literal", n)
 	}
 }
 

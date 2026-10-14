@@ -1,5 +1,5 @@
 {
 	"verdict": "divergent",
 	"divergent": {"x": ["1", "2"], "mode": ["10", "20"]},
-	"agreed": {"after": "7"}
+	"agreed": {"later": "7"}
 }

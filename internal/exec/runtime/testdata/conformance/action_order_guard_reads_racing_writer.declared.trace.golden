@@ -19,7 +19,7 @@ stmt assign mode
   eval literal 20 -> 20
 step 6: token 4@rejoin
 step 7: token 4@tail
-stmt assign after
+stmt assign later
   eval literal 7 -> 7
 step 8: token 4@done
 step 9: no active tokens
