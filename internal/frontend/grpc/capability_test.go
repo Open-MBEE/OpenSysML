@@ -299,6 +299,10 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			_, err := s.ExportGraphs(ctx, &pb.ExportGraphsRequest{ModelHash: "any", Subject: "Any"})
 			return err
 		}},
+		{"check behavior", CapabilityCheck, func(s *Service) error {
+			_, err := s.CheckBehavior(ctx, &pb.CheckBehaviorRequest{ModelHash: "any", ActionSymbolId: "Any"})
+			return err
+		}},
 		{"render document html", CapabilityRenderDocumentHTML, func(s *Service) error {
 			_, err := s.RenderDocument(ctx, &pb.RenderDocumentRequest{
 				ModelHash: "any", DocumentId: "Any", Form: "html",

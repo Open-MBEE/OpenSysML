@@ -22,6 +22,9 @@ import (
 // `sysml` command's -check-* flags do about -action/-state: a violated property, a
 // deadlock, a failure or a divergent feature is witnessed, replayed and reported.
 func (s *Service) CheckBehavior(ctx context.Context, req *pb.CheckBehaviorRequest) (*pb.CheckBehaviorResponse, error) {
+	if err := s.requireCapability(CapabilityCheck); err != nil {
+		return nil, err
+	}
 	action := req.GetActionSymbolId() != ""
 	if action == (req.GetStateMachineSymbolId() != "") {
 		return nil, statusError(connect.CodeInvalidArgument, "name exactly one behavior to check: action_symbol_id or state_machine_symbol_id")
