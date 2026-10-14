@@ -121,6 +121,8 @@ type StateGraph struct {
 	behaviorFootprints   map[ast.Node]Footprint
 	footprintsOnce       sync.Once
 	effectFootprintsMu   sync.Mutex
+	branchFromMu         sync.Mutex
+	branchFrom           map[branchKey]Footprint
 	// transitionSteps: transition out of a state → its step short of do behaviors.
 	transitionSteps map[*Transition]TransitionStep
 	stepsOnce       sync.Once

@@ -119,9 +119,38 @@ func branchFootprint(graph *StateGraph, seg *Transition) Footprint {
 	}
 	if target, ok := seg.Target.(*ast.StateNode); ok {
 		b.enters(target)
+		b.entersBelow(target)
 	} else {
 		b.footprint.Dynamic = true
 	}
+	return b.footprint
+}
+
+// branchKey is a branch out of a pseudostate taken by a transition out of a state.
+type branchKey struct {
+	source *ast.StateNode
+	seg    *Transition
+}
+
+// BranchFootprintFrom is what taking seg, a branch out of a pseudostate, does
+// for a transition that left source: the states left and entered, their exit,
+// entry and do behaviors, and seg's guard, probability and effects, followed
+// through further pseudostates as the transition's own footprint is. Computed on
+// first use per source and branch.
+func (g *StateGraph) BranchFootprintFrom(source *ast.StateNode, seg *Transition) Footprint {
+	g.lowerFootprints()
+	g.branchFromMu.Lock()
+	defer g.branchFromMu.Unlock()
+	key := branchKey{source: source, seg: seg}
+	if fp, ok := g.branchFrom[key]; ok {
+		return fp
+	}
+	b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: g.resolver}, graph: g, crossed: make(map[*ast.PseudostateNode]bool)}
+	b.segment(source, seg)
+	if g.branchFrom == nil {
+		g.branchFrom = make(map[branchKey]Footprint)
+	}
+	g.branchFrom[key] = b.footprint
 	return b.footprint
 }
 

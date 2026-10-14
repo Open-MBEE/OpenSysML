@@ -2,8 +2,10 @@ package runtime
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 )
@@ -106,6 +108,9 @@ func (c *ChoicePoint) touch(p lower.Place) {
 	if p.Local || p.State != nil {
 		return
 	}
+	if !slices.ContainsFunc(c.touched, func(q lower.Place) bool { return q.Name == p.Name && q.Sym == p.Sym }) {
+		c.touched = append(c.touched, p)
+	}
 	name := p.String()
 	i := sort.SearchStrings(c.Touches, name)
 	if i < len(c.Touches) && c.Touches[i] == name {
@@ -120,6 +125,67 @@ func (ctx *Context) futureFootprints() *futureFootprints {
 		ctx.futures = newFutureFootprints(ctx)
 	}
 	return ctx.futures
+}
+
+// choiceTouches reports whether the choice may have left the named value
+// order-dependent. A bare name is a feature of the behavior's own, so a write to
+// a performing object's feature of that name does not touch it; `this.<name>` is
+// the one performing object's feature, touched only by a write to a feature it
+// owns; any other qualifier (an object's name, a state path) is matched by the
+// written feature's name alone, which over-marks rather than under-marks.
+func (ctx *Context) choiceTouches(c ChoicePoint, name string) bool {
+	selves := ctx.performerSelves()
+	for _, p := range c.touched {
+		if ctx.placeNamed(p, name, selves) {
+			return true
+		}
+	}
+	return false
+}
+
+// placeNamed reports whether a value reported under name is the one a write to
+// the place may have left, among the performing objects selves, as choiceTouches
+// describes.
+func (ctx *Context) placeNamed(p lower.Place, name string, selves []*Instance) bool {
+	qualifier, leaf := "", name
+	if i := strings.LastIndex(name, "."); i >= 0 {
+		qualifier, leaf = name[:i], name[i+1:]
+	}
+	if p.Name != name && lastSegment(p.Name) != leaf {
+		return false
+	}
+	holder := ctx.performerOwning(selves, p.Sym)
+	switch {
+	case p.Sym == nil, len(selves) == 0:
+		return true
+	case qualifier == "":
+		return holder == nil
+	case qualifier == "this":
+		return len(selves) == 1 && holder == selves[0]
+	default:
+		return true
+	}
+}
+
+// performerSelves are the distinct objects the run's executors perform on.
+func (ctx *Context) performerSelves() []*Instance {
+	var selves []*Instance
+	for _, w := range ctx.clock.waiters {
+		if self := executorSelf(w); self != nil && !slices.Contains(selves, self) {
+			selves = append(selves, self)
+		}
+	}
+	return selves
+}
+
+// performerOwning is the performing object whose own feature sym is, nil for none.
+func (ctx *Context) performerOwning(selves []*Instance, sym *symbols.Symbol) *Instance {
+	for _, self := range selves {
+		if ctx.ownsFeature(self, sym) {
+			return self
+		}
+	}
+	return nil
 }
 
 // OrderDependenceText is the marker a value nothing fixed prints with: how many
@@ -144,7 +210,8 @@ func pluralChoicePoints(n int) string {
 // written path: those whose alternatives touched it and those what was computed
 // into it stood on (order_marks.go).
 func (ctx *Context) OrderDependent(feature string) int {
-	return ctx.run.marks.standingOn(feature, ctx.liveChoices())
+	selves := ctx.performerSelves()
+	return ctx.run.marks.standingOn(ctx.liveChoices(), func(p lower.Place) bool { return ctx.placeNamed(p, feature, selves) })
 }
 
 // OrderDependentAmong is, for each named value an unresolved choice point of the

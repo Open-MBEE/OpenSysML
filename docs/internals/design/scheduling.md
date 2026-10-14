@@ -164,8 +164,11 @@ footprints already carried (`lower.Footprint`, `lower.StatementOrder`,
 `ActionGraph.BindingFootprints`, `lower.ExpressionFootprint`), never from a second dependence
 tracker and never by re-reading declarations in the runtime:
 
-- **Seed.** A choice point noted unresolved marks every place in its `Touches` with itself
-  (`orderMarks.seed`, from `Context.noteFrom`): another order may have written them otherwise.
+- **Seed.** A choice point noted unresolved marks every place it touched (`ChoicePoint.touched`,
+  the places behind `Touches`) with itself (`orderMarks.seed`, from `Context.noteFrom`): another
+  order may have written them otherwise. A value reported under a name reads the marks of the
+  places that name denotes as `choiceTouches` resolves them (`placeNamed`: a bare name is the
+  behavior's own feature, `this.<name>` the performing object's).
 - **Propagate.** A move with footprint `fp` that writes `w` leaves `w` standing on what `fp` read
   — the union of the marks of every place in `fp.Reads` — together with the *control* the move
   runs under; a footprint the declarations do not decide (`fp.Dynamic`: a property read, a chained

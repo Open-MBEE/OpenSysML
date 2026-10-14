@@ -54,6 +54,57 @@ func TestRuntimeRobustnessOrderDependence(t *testing.T) {
 	t.Run("marker_text_counts_unresolved_choice_points", testMarkerTextCountsUnresolvedChoicePoints)
 	t.Run("replay_of_an_invalid_choice_is_the_typed_error", testReplayOfAnInvalidChoiceIsTheTypedError)
 	t.Run("qualified_names_are_matched_by_their_last_segment", testQualifiedNamesAreMatchedByTheirLastSegment)
+	t.Run("a_performer_feature_is_marked_only_by_writes_to_it", testAPerformerFeatureIsMarkedOnlyByWritesToIt)
+}
+
+// performerShadowModel is a machine with an attribute x of its own, performed by
+// a part with an x of its own: the junction's branches write the machine's.
+const performerShadowModel = `package test {
+	private import ScalarValues::*;
+	attribute def Go;
+	part def Holder {
+		attribute x : Integer = 7;
+		exhibit state machine {
+			attribute x : Integer = 0;
+			entry; then idle;
+			state idle;
+			junction split;
+			state left;
+			state right;
+			transition first idle accept Go then split;
+			transition first split do assign x := 1 then left;
+			transition first split do assign x := 2 then right;
+		}
+	}
+	part holder : Holder;
+}
+`
+
+// The machine's x is order-dependent on the branch drawn; the performer's x,
+// reported as this.x, is not, since nothing wrote it.
+func testAPerformerFeatureIsMarkedOnlyByWritesToIt(t *testing.T) {
+	m := parseExploreModel(t, performerShadowModel)
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	self, err := ctx.Instantiate(oneSymbol(t, m.idx, "test::holder"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	exec, err := ctx.PerformState(m.state(t, "Holder::machine"), self, []QueuedEvent{{Signal: "Go"}})
+	if err != nil {
+		t.Fatalf("PerformState: %v", err)
+	}
+	if got := FormatValue(exec.StateData()["x"]); got != "1" && got != "2" {
+		t.Fatalf("x = %s, want a branch's value", got)
+	}
+	if n := ctx.OrderDependent("x"); n != 1 {
+		t.Errorf("order-dependent x = %d choice points, want the junction's draw", n)
+	}
+	if n := ctx.OrderDependent("this.x"); n != 0 {
+		t.Errorf("order-dependent this.x = %d choice points, want 0: the branches write the machine's x, not the performer's", n)
+	}
 }
 
 // A value reported under a qualified key (`this.x`, a state path) is marked as

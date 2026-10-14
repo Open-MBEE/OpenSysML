@@ -34,7 +34,7 @@ func nextChoiceSerial() int64 {
 type markSeed struct {
 	at      float64
 	clocked bool
-	touches []string
+	touched []lower.Place
 }
 
 // orderMark is one place and the choice points its value stands on.
@@ -78,15 +78,15 @@ func clockedChoice(kind ChoiceKind) bool {
 
 // seed marks what the choice touched as standing on it, at the instant now.
 func (m *orderMarks) seed(c ChoicePoint, now float64) {
-	if c.Independent || c.serial == 0 || len(c.Touches) == 0 {
+	if c.Independent || c.serial == 0 || len(c.touched) == 0 {
 		return
 	}
 	if m.seeds == nil {
 		m.seeds = make(map[int64]markSeed)
 	}
-	m.seeds[c.serial] = markSeed{at: now, clocked: clockedChoice(c.Kind), touches: c.Touches}
-	for _, name := range c.Touches {
-		m.add(lower.Place{Name: name}, []int64{c.serial})
+	m.seeds[c.serial] = markSeed{at: now, clocked: clockedChoice(c.Kind), touched: c.touched}
+	for _, p := range c.touched {
+		m.add(p, []int64{c.serial})
 	}
 }
 
@@ -136,7 +136,7 @@ func (m *orderMarks) rewrite(p lower.Place, by []int64, now float64) {
 			continue
 		}
 		for _, s := range e.by {
-			if seed, ok := m.seeds[s]; ok && seed.clocked && seed.at == now && touchesName(seed.touches, p.Name) {
+			if seed, ok := m.seeds[s]; ok && seed.clocked && seed.at == now && touchesPlace(seed.touched, p) {
 				kept = unionSerials(kept, []int64{s})
 			}
 		}
@@ -147,16 +147,12 @@ func (m *orderMarks) rewrite(p lower.Place, by []int64, now float64) {
 	}
 }
 
-// standingOn is the choice points a value named as a feature stands on, among
-// those live: a mark on the name, alone or as the last segment of a path.
-func (m *orderMarks) standingOn(feature string, live map[int64]bool) int {
-	leaf := lastSegment(feature)
+// standingOn is the choice points a value stands on, among those live: the marks
+// on every place named reports as the value's, a pin or a state's activity aside.
+func (m *orderMarks) standingOn(live map[int64]bool, named func(lower.Place) bool) int {
 	var found []int64
 	for _, e := range m.entries {
-		if e.place.Local || e.place.State != nil {
-			continue
-		}
-		if e.place.Name != feature && lastSegment(e.place.Name) != leaf {
+		if e.place.Local || e.place.State != nil || !named(e.place) {
 			continue
 		}
 		for _, s := range e.by {
@@ -168,10 +164,9 @@ func (m *orderMarks) standingOn(feature string, live map[int64]bool) int {
 	return len(found)
 }
 
-func touchesName(touches []string, name string) bool {
-	leaf := lastSegment(name)
-	for _, t := range touches {
-		if t == name || lastSegment(t) == leaf {
+func touchesPlace(touched []lower.Place, p lower.Place) bool {
+	for _, t := range touched {
+		if t.Conflicts(p) {
 			return true
 		}
 	}

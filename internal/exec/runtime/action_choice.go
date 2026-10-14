@@ -156,6 +156,7 @@ func (l *stepWriteLedger) noteChoices(e *performances) {
 			File:         d.file,
 			Span:         d.span,
 			Touches:      []string{d.feature},
+			touched:      []lower.Place{{Name: d.feature}},
 		})
 	}
 }
