@@ -83,6 +83,8 @@ const (
 	SysMLServiceRunAnalysisProcedure = "/sysml.SysMLService/RunAnalysis"
 	// SysMLServiceRunSweepProcedure is the fully-qualified name of the SysMLService's RunSweep RPC.
 	SysMLServiceRunSweepProcedure = "/sysml.SysMLService/RunSweep"
+	// SysMLServiceRunRunsProcedure is the fully-qualified name of the SysMLService's RunRuns RPC.
+	SysMLServiceRunRunsProcedure = "/sysml.SysMLService/RunRuns"
 	// SysMLServiceListEnginesProcedure is the fully-qualified name of the SysMLService's ListEngines
 	// RPC.
 	SysMLServiceListEnginesProcedure = "/sysml.SysMLService/ListEngines"
@@ -162,6 +164,11 @@ type SysMLServiceClient interface {
 	// swept parameter bound to that row's value. Reported as the "verification"
 	// capability.
 	RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error)
+	// Run an action, or a Simulation::MonteCarlo analysis case, a number of
+	// times, each run seeded from the request's seed, and table what the runs
+	// observed with each observable's distribution, as the CLI's -runs/-observe
+	// do. Reported as the "runs" capability.
+	RunRuns(context.Context, *connect.Request[proto.RunRunsRequest]) (*connect.Response[proto.RunRunsResponse], error)
 	// List the analysis engines this build registers, as the CLI's -engines and
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
@@ -316,6 +323,12 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("RunSweep")),
 			connect.WithClientOptions(opts...),
 		),
+		runRuns: connect.NewClient[proto.RunRunsRequest, proto.RunRunsResponse](
+			httpClient,
+			baseURL+SysMLServiceRunRunsProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("RunRuns")),
+			connect.WithClientOptions(opts...),
+		),
 		listEngines: connect.NewClient[proto.ListEnginesRequest, proto.ListEnginesResponse](
 			httpClient,
 			baseURL+SysMLServiceListEnginesProcedure,
@@ -376,6 +389,7 @@ type sysMLServiceClient struct {
 	evaluateCalc       *connect.Client[proto.EvaluateCalcRequest, proto.EvaluateCalcResponse]
 	runAnalysis        *connect.Client[proto.RunAnalysisRequest, proto.RunAnalysisResponse]
 	runSweep           *connect.Client[proto.RunSweepRequest, proto.RunSweepResponse]
+	runRuns            *connect.Client[proto.RunRunsRequest, proto.RunRunsResponse]
 	listEngines        *connect.Client[proto.ListEnginesRequest, proto.ListEnginesResponse]
 	query              *connect.Client[proto.QueryRequest, proto.QueryResponse]
 	runDocumentQuery   *connect.Client[proto.RunDocumentQueryRequest, proto.RunDocumentQueryResponse]
@@ -479,6 +493,11 @@ func (c *sysMLServiceClient) RunSweep(ctx context.Context, req *connect.Request[
 	return c.runSweep.CallUnary(ctx, req)
 }
 
+// RunRuns calls sysml.SysMLService.RunRuns.
+func (c *sysMLServiceClient) RunRuns(ctx context.Context, req *connect.Request[proto.RunRunsRequest]) (*connect.Response[proto.RunRunsResponse], error) {
+	return c.runRuns.CallUnary(ctx, req)
+}
+
 // ListEngines calls sysml.SysMLService.ListEngines.
 func (c *sysMLServiceClient) ListEngines(ctx context.Context, req *connect.Request[proto.ListEnginesRequest]) (*connect.Response[proto.ListEnginesResponse], error) {
 	return c.listEngines.CallUnary(ctx, req)
@@ -570,6 +589,11 @@ type SysMLServiceHandler interface {
 	// swept parameter bound to that row's value. Reported as the "verification"
 	// capability.
 	RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error)
+	// Run an action, or a Simulation::MonteCarlo analysis case, a number of
+	// times, each run seeded from the request's seed, and table what the runs
+	// observed with each observable's distribution, as the CLI's -runs/-observe
+	// do. Reported as the "runs" capability.
+	RunRuns(context.Context, *connect.Request[proto.RunRunsRequest]) (*connect.Response[proto.RunRunsResponse], error)
 	// List the analysis engines this build registers, as the CLI's -engines and
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
@@ -720,6 +744,12 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sysMLServiceMethods.ByName("RunSweep")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sysMLServiceRunRunsHandler := connect.NewUnaryHandler(
+		SysMLServiceRunRunsProcedure,
+		svc.RunRuns,
+		connect.WithSchema(sysMLServiceMethods.ByName("RunRuns")),
+		connect.WithHandlerOptions(opts...),
+	)
 	sysMLServiceListEnginesHandler := connect.NewUnaryHandler(
 		SysMLServiceListEnginesProcedure,
 		svc.ListEngines,
@@ -796,6 +826,8 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceRunAnalysisHandler.ServeHTTP(w, r)
 		case SysMLServiceRunSweepProcedure:
 			sysMLServiceRunSweepHandler.ServeHTTP(w, r)
+		case SysMLServiceRunRunsProcedure:
+			sysMLServiceRunRunsHandler.ServeHTTP(w, r)
 		case SysMLServiceListEnginesProcedure:
 			sysMLServiceListEnginesHandler.ServeHTTP(w, r)
 		case SysMLServiceQueryProcedure:
@@ -891,6 +923,10 @@ func (UnimplementedSysMLServiceHandler) RunAnalysis(context.Context, *connect.Re
 
 func (UnimplementedSysMLServiceHandler) RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RunSweep is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) RunRuns(context.Context, *connect.Request[proto.RunRunsRequest]) (*connect.Response[proto.RunRunsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RunRuns is not implemented"))
 }
 
 func (UnimplementedSysMLServiceHandler) ListEngines(context.Context, *connect.Request[proto.ListEnginesRequest]) (*connect.Response[proto.ListEnginesResponse], error) {

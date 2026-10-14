@@ -641,7 +641,7 @@ func (t SweepType) admitMagnitude(ctx *Context, param, what string, value Value)
 	if t.num == nil || q == nil {
 		return nil
 	}
-	magnitude := constValue(q.Num)
+	magnitude := ConstValue(q.Num)
 	prim := ctx.model.semantics.PrimTypeOf(t.num)
 	refusal := fmt.Errorf("%w: %s is %s, which num : %s of %s : %s cannot hold",
 		ErrSweepRange, what, describeValue(magnitude), ctx.numTypeText(t.num, prim), param, symbolText(t.Declared()))

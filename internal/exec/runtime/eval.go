@@ -3819,7 +3819,7 @@ func (ctx *Context) vectorEqual(a, b *Vector) bool {
 		return false
 	}
 	for i := range a.Elements {
-		if !ctx.valueEqual(constValue(a.Elements[i]), constValue(b.Elements[i])) {
+		if !ctx.valueEqual(ConstValue(a.Elements[i]), ConstValue(b.Elements[i])) {
 			return false
 		}
 	}

@@ -716,8 +716,8 @@ func intSequence(ns []int64) Value {
 	return sequenceOf(integerValues(ns))
 }
 
-// constValue wraps a numeric constant as a runtime value.
-func constValue(c semantics.Value) Value {
+// ConstValue wraps a numeric constant as a runtime value.
+func ConstValue(c semantics.Value) Value {
 	return Value{Kind: ValConst, Const: c}
 }
 
@@ -725,7 +725,7 @@ func constValue(c semantics.Value) Value {
 func constValues(consts []semantics.Value) []Value {
 	out := make([]Value, len(consts))
 	for i, c := range consts {
-		out[i] = constValue(c)
+		out[i] = ConstValue(c)
 	}
 	return out
 }

@@ -2623,6 +2623,164 @@ pub struct RunSweepResponse {
     #[prost(message, repeated, tag="11")]
     pub bounds: ::prost::alloc::vec::Vec<Bound>,
 }
+/// RunRunsRequest runs one behavior repeatedly: an action, whose features and
+/// clock the runs observe, or a Simulation::MonteCarlo analysis case, whose
+/// declared observable each run reports and which is concluded over the sample.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunRunsRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// FQN of the action to run; exactly one of action_symbol_id and
+    /// analysis_symbol_id is set.
+    #[prost(string, tag="2")]
+    pub action_symbol_id: ::prost::alloc::string::String,
+    /// FQN of the Simulation::MonteCarlo analysis case, definition or usage.
+    #[prost(string, tag="3")]
+    pub analysis_symbol_id: ::prost::alloc::string::String,
+    /// The action's input parameters, by name.
+    #[prost(map="string, message", tag="4")]
+    pub inputs: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// Optional FQN of a part/usage to perform the action on, or a path from one
+    /// to a nested object; see ExecuteActionRequest.performer_symbol_id.
+    #[prost(string, tag="5")]
+    pub performer_symbol_id: ::prost::alloc::string::String,
+    /// Optional FQN of the case's subject; see RunAnalysisRequest.subject_symbol_id.
+    #[prost(string, tag="6")]
+    pub subject_symbol_id: ::prost::alloc::string::String,
+    /// The case's positional and named arguments, as every run binds them.
+    #[prost(message, repeated, tag="7")]
+    pub arguments: ::prost::alloc::vec::Vec<Value>,
+    #[prost(map="string, message", tag="8")]
+    pub named_arguments: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// How many runs to make; must be positive.
+    #[prost(int64, tag="9")]
+    pub runs: i64,
+    /// Seed the runs draw their modeled randomness from, one derived seed per run:
+    /// the same seed makes the same runs on every platform. Required unless the
+    /// draws are fixed by `draws`.
+    #[prost(uint64, optional, tag="10")]
+    pub seed: ::core::option::Option<u64>,
+    /// Draw policy for the model's distributions, as the CLI's -draws: "random"
+    /// (default), "min", "max" or "average".
+    #[prost(string, tag="11")]
+    pub draws: ::prost::alloc::string::String,
+    /// Clock step of each run, as the CLI's -clock-step; 0 keeps the default.
+    #[prost(double, tag="12")]
+    pub clock_step: f64,
+    /// Features of the action each run reports, "clock" for the time it completed
+    /// at; empty reports every feature the action holds and the clock. Refused for
+    /// a case, which observes what it declares.
+    #[prost(string, repeated, tag="13")]
+    pub observe: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The engine the runs are put to; see VerifyConstraintRequest.engine.
+    #[prost(string, tag="14")]
+    pub engine: ::prost::alloc::string::String,
+}
+/// RunDistribution summarises one observable over the completed runs.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunDistribution {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The unit the numbers carry, empty when none or the values are not numbers.
+    #[prost(string, tag="2")]
+    pub unit: ::prost::alloc::string::String,
+    /// Completed runs that produced the observable.
+    #[prost(int64, tag="3")]
+    pub count: i64,
+    /// Whether the values are numbers, so min/max/mean/deviation/percentiles and
+    /// the histogram are set; otherwise `values` counts each distinct value.
+    #[prost(bool, tag="4")]
+    pub numeric: bool,
+    #[prost(message, optional, tag="5")]
+    pub min: ::core::option::Option<Value>,
+    #[prost(message, optional, tag="6")]
+    pub max: ::core::option::Option<Value>,
+    #[prost(message, optional, tag="7")]
+    pub mean: ::core::option::Option<Value>,
+    /// Sample standard deviation of the numbers.
+    #[prost(double, tag="8")]
+    pub deviation: f64,
+    #[prost(message, repeated, tag="9")]
+    pub percentiles: ::prost::alloc::vec::Vec<RunPercentile>,
+    #[prost(message, repeated, tag="10")]
+    pub histogram: ::prost::alloc::vec::Vec<RunHistogramBin>,
+    #[prost(message, repeated, tag="11")]
+    pub values: ::prost::alloc::vec::Vec<RunCountedValue>,
+}
+/// RunPercentile is the value at a percentile of the completed runs.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunPercentile {
+    #[prost(double, tag="1")]
+    pub percentile: f64,
+    #[prost(message, optional, tag="2")]
+    pub value: ::core::option::Option<Value>,
+}
+/// RunHistogramBin counts the runs whose number fell in \[low, high\]; a single
+/// distinct value has low == high.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunHistogramBin {
+    #[prost(message, optional, tag="1")]
+    pub low: ::core::option::Option<Value>,
+    #[prost(message, optional, tag="2")]
+    pub high: ::core::option::Option<Value>,
+    #[prost(int64, tag="3")]
+    pub count: i64,
+}
+/// RunCountedValue counts the runs that produced one distinct value.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunCountedValue {
+    #[prost(message, optional, tag="1")]
+    pub value: ::core::option::Option<Value>,
+    #[prost(int64, tag="2")]
+    pub count: i64,
+}
+/// RunRunsResponse is the table of the runs, one row per run in run order, each
+/// observable's distribution, and for a case its conclusion over the sample.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunRunsResponse {
+    /// One row per run: `inputs` carries the run number as `run`, `outputs` what
+    /// the run observed, `verdicts` the case's in-run verdicts.
+    #[prost(message, repeated, tag="1")]
+    pub rows: ::prost::alloc::vec::Vec<SweepRow>,
+    /// The observables tabled, in column order: those asked for, else every
+    /// feature the action holds and "clock"; "observed" for a case.
+    #[prost(string, repeated, tag="2")]
+    pub observables: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="3")]
+    pub distributions: ::prost::alloc::vec::Vec<RunDistribution>,
+    /// The report as the CLI prints it: the table, then the distributions, then
+    /// for a case its conclusion.
+    #[prost(string, repeated, tag="4")]
+    pub lines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// A case's conclusion over the completed runs: its outputs and verdicts,
+    /// which every row's verdicts were settled by. Empty for an action.
+    #[prost(message, repeated, tag="5")]
+    pub outputs: ::prost::alloc::vec::Vec<CalcOutput>,
+    #[prost(message, repeated, tag="6")]
+    pub verdicts: ::prost::alloc::vec::Vec<Verdict>,
+    /// Why the case has no conclusion: no run completed, or the sample was refused.
+    #[prost(string, tag="7")]
+    pub unconcluded: ::prost::alloc::string::String,
+    /// Set when no run was made at all; a failed run is a row carrying its error.
+    #[prost(string, tag="8")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="9")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    #[prost(enumeration="FailureReason", tag="10")]
+    pub failure_reason: i32,
+    /// Every object a row's verdict is about, so each `instance_id` resolves here.
+    #[prost(message, repeated, tag="11")]
+    pub instances: ::prost::alloc::vec::Vec<Instance>,
+    #[prost(string, tag="12")]
+    pub engine: ::prost::alloc::string::String,
+    #[prost(string, tag="13")]
+    pub strength: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="14")]
+    pub bounds: ::prost::alloc::vec::Vec<Bound>,
+    /// The seed the runs drew from, when they drew.
+    #[prost(uint64, optional, tag="15")]
+    pub seed: ::core::option::Option<u64>,
+}
 /// RunDocumentQueryRequest runs a named document query — a calc def
 /// specializing DocumentQueries::Query — against a model the service already
 /// parsed, binding its entry parameters. It answers as %run-query does, but with

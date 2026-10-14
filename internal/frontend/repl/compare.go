@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -269,7 +270,7 @@ func comparisonRows(cells [][]string, notes []string, cfg *simresults.Configurat
 // pooledRows writes the tool's row for a pooled observable and the notes its
 // per-run summaries earn.
 func pooledRows(cells [][]string, notes []string, cfg *simresults.ConfigurationResults, name string, stored *runtime.Distribution) ([][]string, []string) {
-	cells = append(cells, []string{name, "tool", fmt.Sprint(stored.Count), "", withUnit(drawnMean(stored), ""), "", "", ""})
+	cells = append(cells, []string{name, "tool", fmt.Sprint(stored.Count), "", analysis.WithUnit(analysis.DrawnMean(stored), ""), "", "", ""})
 	for _, snap := range cfg.Summarised(name) {
 		st := snap.Statistics
 		note := fmt.Sprintf("note: %s summarises %d run(s) of %s: mean %s", orUnnamed(snap.Name), st.Runs, name, spell(st.Mean))
@@ -461,7 +462,7 @@ func runRows(cells [][]string, notes []string, name, feature string, table runti
 	switch {
 	case tool == nil:
 	case tool.pooled:
-		cells = append(cells, []string{"", "difference", "", "", relative(drawnMean(tool.stored), drawnMean(d)), "", "", ""})
+		cells = append(cells, []string{"", "difference", "", "", relative(analysis.DrawnMean(tool.stored), analysis.DrawnMean(d)), "", "", ""})
 		switch {
 		case tool.declared != nil:
 			notes = append(notes, statisticsTable(name, feature, tool, d)...)
@@ -489,7 +490,7 @@ func statisticsTable(name, feature string, tool *comparison, d *runtime.Distribu
 		}
 		switch stat {
 		case simresults.StatisticMean:
-			cells = append(cells, []string{stat, of, spell(tool.stored.Mean), spell(d.Mean), relative(drawnMean(tool.stored), drawnMean(d))})
+			cells = append(cells, []string{stat, of, spell(tool.stored.Mean), spell(d.Mean), relative(analysis.DrawnMean(tool.stored), analysis.DrawnMean(d))})
 		case simresults.StatisticDeviation:
 			stored := ""
 			if tool.declared.deviation != nil {
@@ -531,7 +532,7 @@ func statisticsTable(name, feature string, tool *comparison, d *runtime.Distribu
 
 // spell writes a statistic as the tool's numbers are written in the table.
 func spell(v float64) string {
-	return withUnit(realValue(v), "")
+	return analysis.WithUnit(realValue(v), "")
 }
 
 // realValue wraps a statistic as the Real the tool wrote it as.
@@ -658,13 +659,13 @@ func reals(values []float64) []semantics.Value {
 // statisticsRow spells one distribution: its count and five statistics.
 func statisticsRow(observable, source string, d *runtime.Distribution, unit string) []string {
 	return []string{observable, source, fmt.Sprint(d.Count),
-		withUnit(d.Min, unit), withUnit(drawnMean(d), unit), withUnit(d.P50, unit), withUnit(d.P90, unit), withUnit(d.Max, unit)}
+		analysis.WithUnit(d.Min, unit), analysis.WithUnit(analysis.DrawnMean(d), unit), analysis.WithUnit(d.P50, unit), analysis.WithUnit(d.P90, unit), analysis.WithUnit(d.Max, unit)}
 }
 
 // differenceRow is the runs' statistics relative to the tool's, (ran − stored) / stored.
 func differenceRow(stored, ran *runtime.Distribution) []string {
 	return []string{"", "difference", "",
-		relative(stored.Min, ran.Min), relative(drawnMean(stored), drawnMean(ran)),
+		relative(stored.Min, ran.Min), relative(analysis.DrawnMean(stored), analysis.DrawnMean(ran)),
 		relative(stored.P50, ran.P50), relative(stored.P90, ran.P90), relative(stored.Max, ran.Max)}
 }
 

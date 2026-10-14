@@ -76,6 +76,12 @@ service SysMLService {
   // capability.
   rpc RunSweep(RunSweepRequest) returns (RunSweepResponse);
 
+  // Run an action, or a Simulation::MonteCarlo analysis case, a number of
+  // times, each run seeded from the request's seed, and table what the runs
+  // observed with each observable's distribution, as the CLI's -runs/-observe
+  // do. Reported as the "runs" capability.
+  rpc RunRuns(RunRunsRequest) returns (RunRunsResponse);
+
   // List the analysis engines this build registers, as the CLI's -engines and
   // the REPL's %engines do: each with the questions it answers, the strongest
   // evidence it can produce and whether it can run. Reported as the "engines"
@@ -2125,6 +2131,118 @@ message RunSweepResponse {
   string strength = 10;
   repeated Bound bounds = 11;
 }
+
+// RunRunsRequest runs one behavior repeatedly: an action, whose features and
+// clock the runs observe, or a Simulation::MonteCarlo analysis case, whose
+// declared observable each run reports and which is concluded over the sample.
+message RunRunsRequest {
+  string model_hash = 1;
+  // FQN of the action to run; exactly one of action_symbol_id and
+  // analysis_symbol_id is set.
+  string action_symbol_id = 2;
+  // FQN of the Simulation::MonteCarlo analysis case, definition or usage.
+  string analysis_symbol_id = 3;
+  // The action's input parameters, by name.
+  map<string, Value> inputs = 4;
+  // Optional FQN of a part/usage to perform the action on, or a path from one
+  // to a nested object; see ExecuteActionRequest.performer_symbol_id.
+  string performer_symbol_id = 5;
+  // Optional FQN of the case's subject; see RunAnalysisRequest.subject_symbol_id.
+  string subject_symbol_id = 6;
+  // The case's positional and named arguments, as every run binds them.
+  repeated Value arguments = 7;
+  map<string, Value> named_arguments = 8;
+  // How many runs to make; must be positive.
+  int64 runs = 9;
+  // Seed the runs draw their modeled randomness from, one derived seed per run:
+  // the same seed makes the same runs on every platform. Required unless the
+  // draws are fixed by `draws`.
+  optional uint64 seed = 10;
+  // Draw policy for the model's distributions, as the CLI's -draws: "random"
+  // (default), "min", "max" or "average".
+  string draws = 11;
+  // Clock step of each run, as the CLI's -clock-step; 0 keeps the default.
+  double clock_step = 12;
+  // Features of the action each run reports, "clock" for the time it completed
+  // at; empty reports every feature the action holds and the clock. Refused for
+  // a case, which observes what it declares.
+  repeated string observe = 13;
+  // The engine the runs are put to; see VerifyConstraintRequest.engine.
+  string engine = 14;
+}
+
+// RunDistribution summarises one observable over the completed runs.
+message RunDistribution {
+  string name = 1;
+  // The unit the numbers carry, empty when none or the values are not numbers.
+  string unit = 2;
+  // Completed runs that produced the observable.
+  int64 count = 3;
+  // Whether the values are numbers, so min/max/mean/deviation/percentiles and
+  // the histogram are set; otherwise `values` counts each distinct value.
+  bool numeric = 4;
+  Value min = 5;
+  Value max = 6;
+  Value mean = 7;
+  // Sample standard deviation of the numbers.
+  double deviation = 8;
+  repeated RunPercentile percentiles = 9;
+  repeated RunHistogramBin histogram = 10;
+  repeated RunCountedValue values = 11;
+}
+
+// RunPercentile is the value at a percentile of the completed runs.
+message RunPercentile {
+  double percentile = 1;
+  Value value = 2;
+}
+
+// RunHistogramBin counts the runs whose number fell in [low, high]; a single
+// distinct value has low == high.
+message RunHistogramBin {
+  Value low = 1;
+  Value high = 2;
+  int64 count = 3;
+}
+
+// RunCountedValue counts the runs that produced one distinct value.
+message RunCountedValue {
+  Value value = 1;
+  int64 count = 2;
+}
+
+// RunRunsResponse is the table of the runs, one row per run in run order, each
+// observable's distribution, and for a case its conclusion over the sample.
+message RunRunsResponse {
+  // One row per run: `inputs` carries the run number as `run`, `outputs` what
+  // the run observed, `verdicts` the case's in-run verdicts.
+  repeated SweepRow rows = 1;
+  // The observables tabled, in column order: those asked for, else every
+  // feature the action holds and "clock"; "observed" for a case.
+  repeated string observables = 2;
+  repeated RunDistribution distributions = 3;
+  // Each distribution and, for a case, its conclusion as the CLI prints them
+  // under the table; the table itself is `rows`.
+  repeated string lines = 4;
+  // A case's conclusion over the completed runs: its outputs and verdicts,
+  // which every row's verdicts were settled by. Empty for an action.
+  repeated CalcOutput outputs = 5;
+  repeated Verdict verdicts = 6;
+  // Why the case has no conclusion: no run completed, or the sample was refused.
+  string unconcluded = 7;
+  // Set when no run was made at all; a failed run is a row carrying its error.
+  string error = 8;
+  repeated Diagnostic diagnostics = 9;
+  FailureReason failure_reason = 10;
+  // Every object a row's verdict is about, so each `instance_id` resolves here.
+  repeated Instance instances = 11;
+  string engine = 12;
+  string strength = 13;
+  repeated Bound bounds = 14;
+  // The seed the runs drew from, when they drew.
+  optional uint64 seed = 15;
+}
+
 
 // RunDocumentQueryRequest runs a named document query — a calc def
 // specializing DocumentQueries::Query — against a model the service already

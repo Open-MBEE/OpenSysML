@@ -345,25 +345,33 @@ func (g *group) registerVerification(s *mcp.Server) {
 			if len(resp.GetRows()) > 0 {
 				fmt.Fprintf(&b, "%d rows over %s\n", len(resp.GetRows()), strings.Join(resp.GetParameters(), ", "))
 			}
-			for _, row := range resp.GetRows() {
-				cells := make([]string, 0, len(row.GetInputs())+len(row.GetOutputs()))
-				for _, in := range row.GetInputs() {
-					cells = append(cells, fmt.Sprintf("%s=%s", in.GetName(), valueText(in.GetValue())))
-				}
-				cells = append(cells, "->")
-				for _, out := range row.GetOutputs() {
-					cells = append(cells, fmt.Sprintf("%s=%s", out.GetName(), valueText(out.GetValue())))
-				}
-				for _, v := range row.GetVerdicts() {
-					cells = append(cells, verdictText(v))
-				}
-				if row.GetError() != "" {
-					cells = append(cells, "error: "+row.GetError())
-				}
-				b.WriteString(strings.Join(cells, " ") + "\n")
-			}
+			b.WriteString(sweepRowsText(resp.GetRows()))
 			b.WriteString(diagnosticsText(resp.GetDiagnostics()))
 			return b.String()
 		})
 	})
+}
+
+// sweepRowsText spells a table's rows one per line: what each bound, what it
+// produced and decided, and the error that stopped it where it failed.
+func sweepRowsText(rows []*pb.SweepRow) string {
+	var b strings.Builder
+	for _, row := range rows {
+		cells := make([]string, 0, len(row.GetInputs())+len(row.GetOutputs()))
+		for _, in := range row.GetInputs() {
+			cells = append(cells, fmt.Sprintf("%s=%s", in.GetName(), valueText(in.GetValue())))
+		}
+		cells = append(cells, "->")
+		for _, out := range row.GetOutputs() {
+			cells = append(cells, fmt.Sprintf("%s=%s", out.GetName(), valueText(out.GetValue())))
+		}
+		for _, v := range row.GetVerdicts() {
+			cells = append(cells, verdictText(v))
+		}
+		if row.GetError() != "" {
+			cells = append(cells, "error: "+row.GetError())
+		}
+		b.WriteString(strings.Join(cells, " ") + "\n")
+	}
+	return b.String()
 }

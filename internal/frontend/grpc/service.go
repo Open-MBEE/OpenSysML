@@ -49,6 +49,10 @@ const CapabilityMigrate = "migrate"
 // answer.
 const CapabilityVerification = "verification"
 
+// CapabilityRuns names the RunRuns RPC, which runs an action or a Monte Carlo
+// case repeatedly and tables what the runs observed.
+const CapabilityRuns = "runs"
+
 // CapabilityVerificationQuestions names the `question` field of the
 // verification requests — the solver questions "holds" and "satisfiable" —
 // and the `question`, `status` and `witness` fields of every Verdict.
@@ -318,6 +322,7 @@ var capabilities = []string{
 	CapabilityVerificationQuestions,
 	CapabilityVerificationArguments,
 	CapabilityVerificationObjectiveAuthoring,
+	CapabilityRuns,
 	CapabilityMetadataAuthoring,
 	CapabilityMetadataPrefixAuthoring,
 	CapabilitySequenceAuthoring,
