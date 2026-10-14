@@ -350,7 +350,7 @@ func (r *Resolver) withoutHiddenImports(scope *symbols.Scope, name string, syms 
 	cut := r.collisionCut
 	r.collisionCut = false
 	defer func() { r.collisionCut = cut || r.collisionCut }()
-	through := r.collidedThrough(scope, name, map[*symbols.Scope]bool{})
+	through := r.collidedThrough(scope, name)
 	out := syms[:0:0]
 	for _, sym := range syms {
 		if r.hiddenImport(scope, name, sym) {
@@ -451,8 +451,34 @@ func (r *Resolver) hiddenOnRoute(scope *symbols.Scope, sym *symbols.Symbol) bool
 
 // collidedThrough is what hides name in scope, or in a namespace an import of
 // scope re-exports from: a hidden membership is no member of that namespace,
-// so the import brings none under the name.
-func (r *Resolver) collidedThrough(scope *symbols.Scope, name string, seen map[*symbols.Scope]bool) []importedMember {
+// so the import brings none under the name. The walk is memoized per name once
+// nothing it read was provisional, as importedUnder is, so the chain of
+// re-exports below a namespace is walked once per name, not once per route.
+func (r *Resolver) collidedThrough(scope *symbols.Scope, name string) []importedMember {
+	if scope == nil || r.idx == nil {
+		return nil
+	}
+	key := hiddenName{scope: scope, name: name}
+	if hidden, done := r.through[key]; done {
+		return hidden
+	}
+	imports := r.scopeImports(scope)
+	if len(imports) == 0 {
+		return nil
+	}
+	cut := r.collisionCut
+	r.collisionCut = false
+	hidden := r.collidedThroughSeen(scope, name, map[*symbols.Scope]bool{})
+	if !r.collisionCut && r.inCondition == 0 && len(r.resolvingImports) == 0 {
+		journalNew(r, r.through, key, imports[0])
+		r.through[key] = hidden
+	}
+	r.collisionCut = cut || r.collisionCut
+	return hidden
+}
+
+// collidedThroughSeen is collidedThrough's walk, each namespace asked once.
+func (r *Resolver) collidedThroughSeen(scope *symbols.Scope, name string, seen map[*symbols.Scope]bool) []importedMember {
 	if scope == nil || seen[scope] || r.idx == nil || r.idx.DocumentLibraryTier(symbols.DocNameOf(scope)).Library() {
 		// A library namespace hides nothing (importedUnder), nor do the
 		// libraries it imports.
@@ -467,7 +493,7 @@ func (r *Resolver) collidedThrough(scope *symbols.Scope, name string, seen map[*
 			continue
 		}
 		if target, ok := r.importTargetOf(scope, imp); ok && target != nil && target.Scope != nil {
-			if hidden := r.collidedThrough(target.Scope, name, seen); len(hidden) > 0 {
+			if hidden := r.collidedThroughSeen(target.Scope, name, seen); len(hidden) > 0 {
 				return hidden
 			}
 		}
@@ -480,7 +506,7 @@ func (r *Resolver) collidedThrough(scope *symbols.Scope, name string, seen map[*
 // in scope, its enclosing namespaces, and the generals of the types among them.
 func (r *Resolver) hiddenImportsOf(scope *symbols.Scope, name string) []importedMember {
 	for s := scope; s != nil; s = s.Parent() {
-		if hidden := r.collidedThrough(s, name, map[*symbols.Scope]bool{}); len(hidden) > 0 {
+		if hidden := r.collidedThrough(s, name); len(hidden) > 0 {
 			return hidden
 		}
 		if owner := s.Owner(); owner != nil && r.model != nil {

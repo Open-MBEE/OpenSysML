@@ -203,6 +203,9 @@ type Resolver struct {
 	// colliding marks the names whose collisions are being computed.
 	collisions map[hiddenName]*importedUnder
 	colliding  map[hiddenName]bool
+	// through memoizes, per namespace and name, what hides the name on the
+	// routes an import of the namespace re-exports along: see collidedThrough.
+	through map[hiddenName][]importedMember
 	// bringing marks the namespaces one importBrings search has asked, so a
 	// cycle of re-exports is asked once per search.
 	bringing map[*symbols.Scope]bool
@@ -277,7 +280,7 @@ func (r *Resolver) MemoSize() int {
 		len(r.parts) + len(r.aliasNames) + len(r.endpoints) + len(r.readings) +
 		len(r.invocationNames) + len(r.ambiguities) + len(r.reportedQualified) +
 		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets) +
-		len(r.collisions)
+		len(r.collisions) + len(r.through)
 }
 
 // New creates a resolver over the given index.
@@ -309,6 +312,7 @@ func New(idx *symbols.Index) *Resolver {
 		importTargets:         map[*ast.Import]resolution{},
 		collisions:            map[hiddenName]*importedUnder{},
 		colliding:             map[hiddenName]bool{},
+		through:               map[hiddenName][]importedMember{},
 		bringing:              map[*symbols.Scope]bool{},
 		importVisits:          map[importVisit]bool{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
