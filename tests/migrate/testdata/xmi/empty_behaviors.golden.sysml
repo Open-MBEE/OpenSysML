@@ -20,9 +20,7 @@ package Model {
                     }
                 }
                 exit action flush {
-                    /* body not migrated (the statement "CALL FLUSH(count)" is not an assignment of a v2 expression (language Fortran)) {Fortran}:
-                     * CALL FLUSH(count)
-                     */
+                    rep language "Fortran" /* CALL FLUSH(count)*/
                 }
             }
             state Busy {
@@ -41,17 +39,13 @@ package Model {
                     metadata MigrationMetadata::StandIn about 'fork';
                 }
                 do action poll {
-                    /* body not migrated (the statement "CALL POLL(count)" is not an assignment of a v2 expression (language Fortran)) {Fortran}:
-                     * CALL POLL(count)
-                     */
+                    rep language "Fortran" /* CALL POLL(count)*/
                 }
                 exit action close;
             }
             state Cool {
                 entry action vent {
-                    /* body not migrated (the statement "CALL VENT(count)" is not an assignment of a v2 expression (language Fortran)) {Fortran}:
-                     * CALL VENT(count)
-                     */
+                    rep language "Fortran" /* CALL VENT(count)*/
                 }
                 do action wait;
                 exit action seal {
@@ -80,9 +74,7 @@ package Model {
                 then Cool;
             transition first Cool accept Go
                 do action effect {
-                    /* body not migrated (the statement "CALL WARM(count)" is not an assignment of a v2 expression (language Fortran)) {Fortran}:
-                     * CALL WARM(count)
-                     */
+                    rep language "Fortran" /* CALL WARM(count)*/
                 }
                 then Warm;
             transition first Warm
@@ -98,9 +90,7 @@ package Model {
                 then Off;
             transition first Off
                 do action effect {
-                    /* body not migrated (the statement "CALL RESTART(count)" is not an assignment of a v2 expression (language Fortran)) {Fortran}:
-                     * CALL RESTART(count)
-                     */
+                    rep language "Fortran" /* CALL RESTART(count)*/
                 }
                 then Idle;
             transition first Off accept Go

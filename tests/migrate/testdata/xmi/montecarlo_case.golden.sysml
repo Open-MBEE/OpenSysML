@@ -8,6 +8,7 @@ package Model {
         perform action settle {
             first start then 'start timer';
             action 'start timer' {
+                rep language "JavaScript" /* settleTime = simtime;*/
                 assign settleTime := localClock.currentTime;
             }
             first 'start timer' then wait;
@@ -16,6 +17,7 @@ package Model {
             action settle;
             first settle then 'stop timer';
             action 'stop timer' {
+                rep language "JavaScript" /* settleTime = simtime - settleTime;*/
                 assign settleTime := localClock.currentTime - settleTime;
             }
             first 'stop timer' then final;

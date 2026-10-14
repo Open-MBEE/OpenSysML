@@ -64,3 +64,42 @@ func TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound(t *testing.T) {
 		}
 	}
 }
+
+func TestAnonymousAssociationEndChainsToNestedViewFeature(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="Pkg">
+      <packagedElement xmi:type="uml:Class" xmi:id="_cal" name="Calibration">
+        <nestedClassifier xmi:type="uml:Class" xmi:id="_daily" name="Daily Cal">
+          <nestedClassifier xmi:type="uml:Class" xmi:id="_dark" name="Dark Frame"/>
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_dark_frame" name="dark frame" type="_dark" association="_assoc"/>
+        </nestedClassifier>
+        <packagedElement xmi:type="uml:Association" xmi:id="_assoc" memberEnd="_dark_frame _daily_end">
+          <ownedEnd xmi:type="uml:Property" xmi:id="_daily_end" name="daily Cal" type="_daily" association="_assoc"/>
+        </packagedElement>
+      </packagedElement>
+    </packagedElement>`, `
+  <sysml:View xmi:id="_cal_view" base_Class="_cal"/>
+  <sysml:View xmi:id="_daily_view" base_Class="_daily"/>
+  <sysml:View xmi:id="_dark_view" base_Class="_dark"/>`)
+	wantClean(t, "anonymous_association_view.sysml", r)
+	wantLine(t, r.Notation, "end 'daily Cal' :> Pkg::Calibration.'Daily Cal';")
+}
+
+func TestAnonymousAssociationEndChainsToNestedRequirement(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="Pkg">
+      <packagedElement xmi:type="uml:Class" xmi:id="_payload" name="Payload"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req" name="Calibration">
+        <nestedClassifier xmi:type="uml:Class" xmi:id="_daily" name="Daily Requirement"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_payload_end" name="payload" type="_payload" association="_assoc"/>
+        <packagedElement xmi:type="uml:Association" xmi:id="_assoc" memberEnd="_payload_end _daily_end">
+          <ownedEnd xmi:type="uml:Property" xmi:id="_daily_end" name="Daily Requirement" type="_daily" association="_assoc"/>
+        </packagedElement>
+      </packagedElement>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_payload_block" base_Class="_payload"/>
+  <sysml:Requirement xmi:id="_req_outer" base_Class="_req" Id="R1" Text="The system shall be calibrated."/>
+  <sysml:Requirement xmi:id="_req_daily" base_Class="_daily" Id="R1.1" Text="The system shall be calibrated daily."/>`)
+	wantClean(t, "anonymous_association_requirement.sysml", r)
+	wantLine(t, r.Notation, "end 'Daily Requirement' :> Pkg::Calibration.'Daily Requirement';")
+}

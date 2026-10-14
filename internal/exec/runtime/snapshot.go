@@ -1010,7 +1010,11 @@ func cloneConfiguration(config *StateConfiguration) *StateConfiguration {
 	if config == nil {
 		return nil
 	}
-	return &StateConfiguration{simpleState: config.simpleState, regionStates: maps.Clone(config.regionStates)}
+	return &StateConfiguration{
+		simpleState:     config.simpleState,
+		regionStates:    maps.Clone(config.regionStates),
+		defaultComplete: maps.Clone(config.defaultComplete),
+	}
 }
 
 func cloneDispatch(dispatch *Dispatch) *Dispatch {

@@ -6,8 +6,8 @@
     "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
-    "recorded": "2026-10-03",
-    "develop": "3d45ca6fb200339461594cd086004e461633e6d1"
+    "recorded": "2026-10-10",
+    "develop": "02db635bed117511e859db8d90b4626dd5da1a85"
   },
   "buckets": {
     "differs-by-design": 7,
@@ -806,7 +806,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "entry point EntryPoint1; lowerer refuses an orthogonal region with neither an entry transition nor a fork branch into it S1/Region1; lowerer refuses an orthogonal region with neither an entry transition nor a fork branch into it S1/Region2; local transition T1.1; local transition T2.1"
+        "entry point EntryPoint1; local transition T1.1; local transition T2.1"
       ]
     },
     {

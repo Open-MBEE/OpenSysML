@@ -153,7 +153,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Shutting", "_shutting", "SysML Activity Diagram", "_pump"),
-			[]string{"action shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n        /* body not migrated"}, Mapped,
+			[]string{"action shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n        rep language \"JavaScript\" /* 1;*/"}, Mapped,
 			"its owner OpaqueBehavior Valve::Shutting is written as the body of action Model::Valve::shut, whose method it is"},
 		{"a diagram owned by an action node is written in the body of the node's activity",
 			`<packagedElement xmi:type="uml:Activity" xmi:id="_fill" name="Fill">
@@ -251,7 +251,7 @@ func TestDiagramViews(t *testing.T) {
 			   </region>
 			 </packagedElement>`,
 			diagram("_d", "Busy", "_busy", "SysML State Machine Diagram", "_read"),
-			[]string{"state def Modes {\n    view 'Busy 2' : StandardViewDefinitions::StateTransitionView {\n        expose Modes;\n        render Views::asInterconnectionDiagram;\n    }\n    /* the region has no initial pseudostate: nothing enters it */\n    state Busy {\n        /* the region has no initial pseudostate: nothing enters it */\n        state Read;\n    }\n}"},
+			[]string{"state def Modes {\n    view 'Busy 2' : StandardViewDefinitions::StateTransitionView {\n        expose Modes;\n        render Views::asInterconnectionDiagram;\n    }\n    /* the region has no initial pseudostate: nothing enters it */\n    state Busy parallel {\n        state region {\n            /* the region has no initial pseudostate: nothing enters it */\n            state Read;\n        }\n        metadata MigrationMetadata::SynthesizedName about region;\n    }\n}"},
 			Approximated, "the view exposes state def Model::Modes, whose graph the rendering draws with the 1 shown nodes and edges of it; its owner State Modes::<Region>::Busy has no v2 body; written in state def Model::Modes"},
 		{"a state shown by another diagram is exposed as the member its state def declares",
 			machineMembers,
