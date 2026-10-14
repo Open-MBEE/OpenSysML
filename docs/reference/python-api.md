@@ -196,8 +196,7 @@ command: `advance` (simulated seconds to run for, reported back in
 `"max"` or `"average"`) and `clock_step`. `run_analysis(..., tool_dry_run=True)`
 previews the first external tool call instead of making it, and
 `Connection.list_engines(probe=True)` starts each external engine and checks its
-handshake before listing it. `Connection.diagnostics` accepts `disable_lint` and
-`enable_lint` code lists to select the lints of one answer.
+handshake before listing it.
 
 ## opensysml.symbol
 
