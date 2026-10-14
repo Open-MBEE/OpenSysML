@@ -195,7 +195,7 @@ func (r *Resolver) importedUnder(scope *symbols.Scope, name string) *importedUnd
 		return nothingImported
 	}
 	// An owned member binding the name hides every imported one (KerML 8.3.2.4.5).
-	if len(r.LocalBindings(scope, name)) > 0 {
+	if r.ownsName(scope, name) {
 		return nothingImported
 	}
 	r.colliding[key] = true
@@ -235,6 +235,23 @@ func (r *Resolver) ownedNames(scope *symbols.Scope) []string {
 		names = append(names, r.memberNames(sym)...)
 	}
 	return names
+}
+
+// ownsName reports whether scope's own distinguishable members bind name, the
+// way ownedNames lists it: a label borrowed from the member it sequences
+// (`first start`) binds nothing of its own, so it hides no import.
+func (r *Resolver) ownsName(scope *symbols.Scope, name string) bool {
+	for _, sym := range scope.LookupLocalAll(name) {
+		if contributesName(sym) && r.BindsName(sym) {
+			return true
+		}
+	}
+	for _, sym := range r.shortNamedMembers(scope, name, nil) {
+		if contributesName(sym) && r.BindsName(sym) {
+			return true
+		}
+	}
+	return false
 }
 
 // collectImportedUnder looks name up through each import of scope, hiding

@@ -392,3 +392,19 @@ func TestUnresolvedNameHintAmongUnresolvedImports(t *testing.T) {
 		t.Errorf("got %d errors, want %d: %v", len(errors), want, errors)
 	}
 }
+
+// A `first start` label borrows the name of the node it sequences and binds
+// nothing of its own, so it hides no import: two imports bringing distinct
+// elements named `start` still collide in the action.
+func TestHiddenImportedMembershipsBesideBorrowedLabel(t *testing.T) {
+	src := "package Left { item def start; }\npackage Right { item def start; }\n" +
+		"action def Flow { private import Left::*; private import Right::*; first start; then s; action s; }\n"
+	r, _, _ := resolvedDoc(t, src)
+	warnings, errors := diagnosticsOf(r)
+	if len(warnings) != 1 || !strings.HasPrefix(warnings[0], "Duplicate of imported member name 'start': Left::start (import Left::*), Right::start (import Right::*)") {
+		t.Errorf("got warnings %v, want start hidden in Flow", warnings)
+	}
+	if len(errors) != 0 {
+		t.Errorf("unexpected errors: %v", errors)
+	}
+}

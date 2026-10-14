@@ -444,9 +444,21 @@ func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Sy
 // lookupImportedMember resolves a segment surfaced by the namespace being
 // traversed, including a public membership import.
 func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string) (*symbols.Symbol, bool) {
+	var found *symbols.Symbol
+	r.eachImportedMember(target, targetScope, from, name, func(sym *symbols.Symbol) bool {
+		found = sym
+		return false
+	})
+	return found, found != nil
+}
+
+// eachImportedMember calls yield with each element the imports of the namespace
+// being traversed surface under name, until yield returns false: what
+// lookupImportedMember takes the first of, and importedUnder all of.
+func (r *Resolver) eachImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string, yield func(*symbols.Symbol) bool) {
 	visit := importVisit{target: targetScope, from: from, name: name}
 	if r.importVisits[visit] {
-		return nil, false
+		return
 	}
 	r.importVisits[visit] = true
 	r.importDepth++
@@ -472,13 +484,16 @@ func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, fro
 			into = from
 		}
 		r.importStack[imp] = true
-		if sym, ok := r.matchImportInto(into, targetScope, imp, name); ok {
-			delete(r.importStack, imp)
-			return sym, true
-		}
+		more := true
+		r.eachImportMatch(into, targetScope, imp, name, func(sym *symbols.Symbol) bool {
+			more = yield(sym)
+			return more
+		})
 		delete(r.importStack, imp)
+		if !more {
+			return
+		}
 	}
-	return nil, false
 }
 
 func (r *Resolver) importVisibleFrom(target *symbols.Symbol, from *symbols.Scope, imp *ast.Import) bool {
@@ -654,8 +669,23 @@ func (r *Resolver) eachImportMatchHiding(into, scope *symbols.Scope, imp *ast.Im
 				return
 			}
 		}
-		if sym, ok := r.lookupImportedMember(target, target.Scope, scope, name); ok && symbols.VisibleOutside(sym.Visibility) && admit(sym) {
-			if !yield(sym) {
+		if hiding {
+			if sym, ok := r.lookupImportedMember(target, target.Scope, scope, name); ok && symbols.VisibleOutside(sym.Visibility) && admit(sym) {
+				if !yield(sym) {
+					return
+				}
+			}
+		} else {
+			// Deciding a collision needs every member the target imported under
+			// the name, where a lookup takes the first (lookupImportedMember).
+			more := true
+			r.eachImportedMember(target, target.Scope, scope, name, func(sym *symbols.Symbol) bool {
+				if symbols.VisibleOutside(sym.Visibility) && admit(sym) {
+					more = yield(sym)
+				}
+				return more
+			})
+			if !more {
 				return
 			}
 		}
