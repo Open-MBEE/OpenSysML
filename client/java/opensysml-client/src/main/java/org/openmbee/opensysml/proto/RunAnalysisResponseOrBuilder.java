@@ -474,4 +474,37 @@ public interface RunAnalysisResponseOrBuilder extends
    */
   org.openmbee.opensysml.proto.BoundOrBuilder getBoundsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * Set when the request asked for a tool dry run and the case reached a tool
+   * call: what the tool would have been given. The run's outputs, verdicts and
+   * instances are then empty, nothing of it having been kept.
+   * </pre>
+   *
+   * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+   * @return Whether the toolDryRun field is set.
+   */
+  boolean hasToolDryRun();
+  /**
+   * <pre>
+   * Set when the request asked for a tool dry run and the case reached a tool
+   * call: what the tool would have been given. The run's outputs, verdicts and
+   * instances are then empty, nothing of it having been kept.
+   * </pre>
+   *
+   * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+   * @return The toolDryRun.
+   */
+  org.openmbee.opensysml.proto.ToolDryRun getToolDryRun();
+  /**
+   * <pre>
+   * Set when the request asked for a tool dry run and the case reached a tool
+   * call: what the tool would have been given. The run's outputs, verdicts and
+   * instances are then empty, nothing of it having been kept.
+   * </pre>
+   *
+   * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+   */
+  org.openmbee.opensysml.proto.ToolDryRunOrBuilder getToolDryRunOrBuilder();
 }

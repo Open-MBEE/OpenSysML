@@ -47,6 +47,23 @@ private static final long serialVersionUID = 0L;
             org.openmbee.opensysml.proto.ListEnginesRequest.class, org.openmbee.opensysml.proto.ListEnginesRequest.Builder.class);
   }
 
+  public static final int PROBE_FIELD_NUMBER = 1;
+  private boolean probe_ = false;
+  /**
+   * <pre>
+   * Start each external engine's process once and check its handshake against
+   * its manifest, reporting the outcome as its status (`sysml -engines -probe`).
+   * Without it no process is started.
+   * </pre>
+   *
+   * <code>bool probe = 1 [json_name = "probe"];</code>
+   * @return The probe.
+   */
+  @java.lang.Override
+  public boolean getProbe() {
+    return probe_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -61,6 +78,9 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
+    if (probe_ != false) {
+      output.writeBool(1, probe_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -70,6 +90,10 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
+    if (probe_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(1, probe_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -85,6 +109,8 @@ private static final long serialVersionUID = 0L;
     }
     org.openmbee.opensysml.proto.ListEnginesRequest other = (org.openmbee.opensysml.proto.ListEnginesRequest) obj;
 
+    if (getProbe()
+        != other.getProbe()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -96,6 +122,9 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
+    hash = (37 * hash) + PROBE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getProbe());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -230,6 +259,8 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
+      bitField0_ = 0;
+      probe_ = false;
       return this;
     }
 
@@ -256,8 +287,16 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public org.openmbee.opensysml.proto.ListEnginesRequest buildPartial() {
       org.openmbee.opensysml.proto.ListEnginesRequest result = new org.openmbee.opensysml.proto.ListEnginesRequest(this);
+      if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
+    }
+
+    private void buildPartial0(org.openmbee.opensysml.proto.ListEnginesRequest result) {
+      int from_bitField0_ = bitField0_;
+      if (((from_bitField0_ & 0x00000001) != 0)) {
+        result.probe_ = probe_;
+      }
     }
 
     @java.lang.Override
@@ -272,6 +311,9 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(org.openmbee.opensysml.proto.ListEnginesRequest other) {
       if (other == org.openmbee.opensysml.proto.ListEnginesRequest.getDefaultInstance()) return this;
+      if (other.getProbe() != false) {
+        setProbe(other.getProbe());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -298,6 +340,11 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
+            case 8: {
+              probe_ = input.readBool();
+              bitField0_ |= 0x00000001;
+              break;
+            } // case 8
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -311,6 +358,57 @@ private static final long serialVersionUID = 0L;
       } finally {
         onChanged();
       } // finally
+      return this;
+    }
+    private int bitField0_;
+
+    private boolean probe_ ;
+    /**
+     * <pre>
+     * Start each external engine's process once and check its handshake against
+     * its manifest, reporting the outcome as its status (`sysml -engines -probe`).
+     * Without it no process is started.
+     * </pre>
+     *
+     * <code>bool probe = 1 [json_name = "probe"];</code>
+     * @return The probe.
+     */
+    @java.lang.Override
+    public boolean getProbe() {
+      return probe_;
+    }
+    /**
+     * <pre>
+     * Start each external engine's process once and check its handshake against
+     * its manifest, reporting the outcome as its status (`sysml -engines -probe`).
+     * Without it no process is started.
+     * </pre>
+     *
+     * <code>bool probe = 1 [json_name = "probe"];</code>
+     * @param value The probe to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProbe(boolean value) {
+
+      probe_ = value;
+      bitField0_ |= 0x00000001;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Start each external engine's process once and check its handshake against
+     * its manifest, reporting the outcome as its status (`sysml -engines -probe`).
+     * Without it no process is started.
+     * </pre>
+     *
+     * <code>bool probe = 1 [json_name = "probe"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProbe() {
+      bitField0_ = (bitField0_ & ~0x00000001);
+      probe_ = false;
+      onChanged();
       return this;
     }
 

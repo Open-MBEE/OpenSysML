@@ -476,6 +476,26 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     }
   }
 
+  public static final int TOOL_DRY_RUN_FIELD_NUMBER = 8;
+  private boolean toolDryRun_ = false;
+  /**
+   * <pre>
+   * Run the case only to the first call of an external tool its ToolExecution
+   * names and answer what the tool would be given — manifest, executable,
+   * argv, environment, standard input and reply mapping — in `tool_dry_run`,
+   * without starting it (`sysml -tool-dry-run`); nothing the run did is kept.
+   * A run that reaches no tool call reports that in `error`. Refused under an
+   * explore schedule or engine (INVALID_ARGUMENT).
+   * </pre>
+   *
+   * <code>bool tool_dry_run = 8 [json_name = "toolDryRun"];</code>
+   * @return The toolDryRun.
+   */
+  @java.lang.Override
+  public boolean getToolDryRun() {
+    return toolDryRun_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -513,6 +533,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(engine_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 7, engine_);
+    }
+    if (toolDryRun_ != false) {
+      output.writeBool(8, toolDryRun_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -552,6 +575,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(engine_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(7, engine_);
     }
+    if (toolDryRun_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(8, toolDryRun_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -581,6 +608,8 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         .equals(other.getSchedule())) return false;
     if (!getEngine()
         .equals(other.getEngine())) return false;
+    if (getToolDryRun()
+        != other.getToolDryRun()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -610,6 +639,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     hash = (53 * hash) + getSchedule().hashCode();
     hash = (37 * hash) + ENGINE_FIELD_NUMBER;
     hash = (53 * hash) + getEngine().hashCode();
+    hash = (37 * hash) + TOOL_DRY_RUN_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getToolDryRun());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -783,6 +815,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       internalGetMutableNamedArguments().clear();
       schedule_ = "";
       engine_ = "";
+      toolDryRun_ = false;
       return this;
     }
 
@@ -846,6 +879,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       }
       if (((from_bitField0_ & 0x00000040) != 0)) {
         result.engine_ = engine_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.toolDryRun_ = toolDryRun_;
       }
     }
 
@@ -914,6 +950,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         engine_ = other.engine_;
         bitField0_ |= 0x00000040;
         onChanged();
+      }
+      if (other.getToolDryRun() != false) {
+        setToolDryRun(other.getToolDryRun());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -988,6 +1027,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
               bitField0_ |= 0x00000040;
               break;
             } // case 58
+            case 64: {
+              toolDryRun_ = input.readBool();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 64
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2008,6 +2052,65 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       checkByteStringIsUtf8(value);
       engine_ = value;
       bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private boolean toolDryRun_ ;
+    /**
+     * <pre>
+     * Run the case only to the first call of an external tool its ToolExecution
+     * names and answer what the tool would be given — manifest, executable,
+     * argv, environment, standard input and reply mapping — in `tool_dry_run`,
+     * without starting it (`sysml -tool-dry-run`); nothing the run did is kept.
+     * A run that reaches no tool call reports that in `error`. Refused under an
+     * explore schedule or engine (INVALID_ARGUMENT).
+     * </pre>
+     *
+     * <code>bool tool_dry_run = 8 [json_name = "toolDryRun"];</code>
+     * @return The toolDryRun.
+     */
+    @java.lang.Override
+    public boolean getToolDryRun() {
+      return toolDryRun_;
+    }
+    /**
+     * <pre>
+     * Run the case only to the first call of an external tool its ToolExecution
+     * names and answer what the tool would be given — manifest, executable,
+     * argv, environment, standard input and reply mapping — in `tool_dry_run`,
+     * without starting it (`sysml -tool-dry-run`); nothing the run did is kept.
+     * A run that reaches no tool call reports that in `error`. Refused under an
+     * explore schedule or engine (INVALID_ARGUMENT).
+     * </pre>
+     *
+     * <code>bool tool_dry_run = 8 [json_name = "toolDryRun"];</code>
+     * @param value The toolDryRun to set.
+     * @return This builder for chaining.
+     */
+    public Builder setToolDryRun(boolean value) {
+
+      toolDryRun_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Run the case only to the first call of an external tool its ToolExecution
+     * names and answer what the tool would be given — manifest, executable,
+     * argv, environment, standard input and reply mapping — in `tool_dry_run`,
+     * without starting it (`sysml -tool-dry-run`); nothing the run did is kept.
+     * A run that reaches no tool call reports that in `error`. Refused under an
+     * explore schedule or engine (INVALID_ARGUMENT).
+     * </pre>
+     *
+     * <code>bool tool_dry_run = 8 [json_name = "toolDryRun"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearToolDryRun() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      toolDryRun_ = false;
       onChanged();
       return this;
     }

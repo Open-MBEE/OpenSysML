@@ -33,6 +33,10 @@ private static final long serialVersionUID = 0L;
   }
   private DiagnosticsRequest() {
     modelHash_ = "";
+    disableLint_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    enableLint_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -87,6 +91,124 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int DISABLE_LINT_FIELD_NUMBER = 2;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList disableLint_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+   * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+   * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>repeated string disable_lint = 2 [json_name = "disableLint"];</code>
+   * @return A list containing the disableLint.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getDisableLintList() {
+    return disableLint_;
+  }
+  /**
+   * <pre>
+   * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+   * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+   * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>repeated string disable_lint = 2 [json_name = "disableLint"];</code>
+   * @return The count of disableLint.
+   */
+  public int getDisableLintCount() {
+    return disableLint_.size();
+  }
+  /**
+   * <pre>
+   * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+   * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+   * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>repeated string disable_lint = 2 [json_name = "disableLint"];</code>
+   * @param index The index of the element to return.
+   * @return The disableLint at the given index.
+   */
+  public java.lang.String getDisableLint(int index) {
+    return disableLint_.get(index);
+  }
+  /**
+   * <pre>
+   * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+   * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+   * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>repeated string disable_lint = 2 [json_name = "disableLint"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the disableLint at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getDisableLintBytes(int index) {
+    return disableLint_.getByteString(index);
+  }
+
+  public static final int ENABLE_LINT_FIELD_NUMBER = 3;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList enableLint_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+   * rounded-real-literal. Off unless named; disable_lint wins.
+   * </pre>
+   *
+   * <code>repeated string enable_lint = 3 [json_name = "enableLint"];</code>
+   * @return A list containing the enableLint.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getEnableLintList() {
+    return enableLint_;
+  }
+  /**
+   * <pre>
+   * Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+   * rounded-real-literal. Off unless named; disable_lint wins.
+   * </pre>
+   *
+   * <code>repeated string enable_lint = 3 [json_name = "enableLint"];</code>
+   * @return The count of enableLint.
+   */
+  public int getEnableLintCount() {
+    return enableLint_.size();
+  }
+  /**
+   * <pre>
+   * Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+   * rounded-real-literal. Off unless named; disable_lint wins.
+   * </pre>
+   *
+   * <code>repeated string enable_lint = 3 [json_name = "enableLint"];</code>
+   * @param index The index of the element to return.
+   * @return The enableLint at the given index.
+   */
+  public java.lang.String getEnableLint(int index) {
+    return enableLint_.get(index);
+  }
+  /**
+   * <pre>
+   * Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+   * rounded-real-literal. Off unless named; disable_lint wins.
+   * </pre>
+   *
+   * <code>repeated string enable_lint = 3 [json_name = "enableLint"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the enableLint at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getEnableLintBytes(int index) {
+    return enableLint_.getByteString(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -104,6 +226,12 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(modelHash_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 1, modelHash_);
     }
+    for (int i = 0; i < disableLint_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 2, disableLint_.getRaw(i));
+    }
+    for (int i = 0; i < enableLint_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 3, enableLint_.getRaw(i));
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -115,6 +243,22 @@ private static final long serialVersionUID = 0L;
     size = 0;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(modelHash_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(1, modelHash_);
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < disableLint_.size(); i++) {
+        dataSize += computeStringSizeNoTag(disableLint_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getDisableLintList().size();
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < enableLint_.size(); i++) {
+        dataSize += computeStringSizeNoTag(enableLint_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getEnableLintList().size();
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -133,6 +277,10 @@ private static final long serialVersionUID = 0L;
 
     if (!getModelHash()
         .equals(other.getModelHash())) return false;
+    if (!getDisableLintList()
+        .equals(other.getDisableLintList())) return false;
+    if (!getEnableLintList()
+        .equals(other.getEnableLintList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -146,6 +294,14 @@ private static final long serialVersionUID = 0L;
     hash = (19 * hash) + getDescriptor().hashCode();
     hash = (37 * hash) + MODEL_HASH_FIELD_NUMBER;
     hash = (53 * hash) + getModelHash().hashCode();
+    if (getDisableLintCount() > 0) {
+      hash = (37 * hash) + DISABLE_LINT_FIELD_NUMBER;
+      hash = (53 * hash) + getDisableLintList().hashCode();
+    }
+    if (getEnableLintCount() > 0) {
+      hash = (37 * hash) + ENABLE_LINT_FIELD_NUMBER;
+      hash = (53 * hash) + getEnableLintList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -282,6 +438,10 @@ private static final long serialVersionUID = 0L;
       super.clear();
       bitField0_ = 0;
       modelHash_ = "";
+      disableLint_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
+      enableLint_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       return this;
     }
 
@@ -318,6 +478,14 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.modelHash_ = modelHash_;
       }
+      if (((from_bitField0_ & 0x00000002) != 0)) {
+        disableLint_.makeImmutable();
+        result.disableLint_ = disableLint_;
+      }
+      if (((from_bitField0_ & 0x00000004) != 0)) {
+        enableLint_.makeImmutable();
+        result.enableLint_ = enableLint_;
+      }
     }
 
     @java.lang.Override
@@ -335,6 +503,26 @@ private static final long serialVersionUID = 0L;
       if (!other.getModelHash().isEmpty()) {
         modelHash_ = other.modelHash_;
         bitField0_ |= 0x00000001;
+        onChanged();
+      }
+      if (!other.disableLint_.isEmpty()) {
+        if (disableLint_.isEmpty()) {
+          disableLint_ = other.disableLint_;
+          bitField0_ |= 0x00000002;
+        } else {
+          ensureDisableLintIsMutable();
+          disableLint_.addAll(other.disableLint_);
+        }
+        onChanged();
+      }
+      if (!other.enableLint_.isEmpty()) {
+        if (enableLint_.isEmpty()) {
+          enableLint_ = other.enableLint_;
+          bitField0_ |= 0x00000004;
+        } else {
+          ensureEnableLintIsMutable();
+          enableLint_.addAll(other.enableLint_);
+        }
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -368,6 +556,18 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000001;
               break;
             } // case 10
+            case 18: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureDisableLintIsMutable();
+              disableLint_.add(s);
+              break;
+            } // case 18
+            case 26: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureEnableLintIsMutable();
+              enableLint_.add(s);
+              break;
+            } // case 26
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -453,6 +653,327 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       modelHash_ = value;
       bitField0_ |= 0x00000001;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList disableLint_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureDisableLintIsMutable() {
+      if (!disableLint_.isModifiable()) {
+        disableLint_ = new com.google.protobuf.LazyStringArrayList(disableLint_);
+      }
+      bitField0_ |= 0x00000002;
+    }
+    /**
+     * <pre>
+     * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+     * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+     * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>repeated string disable_lint = 2 [json_name = "disableLint"];</code>
+     * @return A list containing the disableLint.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getDisableLintList() {
+      disableLint_.makeImmutable();
+      return disableLint_;
+    }
+    /**
+     * <pre>
+     * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+     * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+     * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>repeated string disable_lint = 2 [json_name = "disableLint"];</code>
+     * @return The count of disableLint.
+     */
+    public int getDisableLintCount() {
+      return disableLint_.size();
+    }
+    /**
+     * <pre>
+     * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+     * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+     * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>repeated string disable_lint = 2 [json_name = "disableLint"];</code>
+     * @param index The index of the element to return.
+     * @return The disableLint at the given index.
+     */
+    public java.lang.String getDisableLint(int index) {
+      return disableLint_.get(index);
+    }
+    /**
+     * <pre>
+     * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+     * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+     * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>repeated string disable_lint = 2 [json_name = "disableLint"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the disableLint at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getDisableLintBytes(int index) {
+      return disableLint_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+     * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+     * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>repeated string disable_lint = 2 [json_name = "disableLint"];</code>
+     * @param index The index to set the value at.
+     * @param value The disableLint to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDisableLint(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureDisableLintIsMutable();
+      disableLint_.set(index, value);
+      bitField0_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+     * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+     * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>repeated string disable_lint = 2 [json_name = "disableLint"];</code>
+     * @param value The disableLint to add.
+     * @return This builder for chaining.
+     */
+    public Builder addDisableLint(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureDisableLintIsMutable();
+      disableLint_.add(value);
+      bitField0_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+     * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+     * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>repeated string disable_lint = 2 [json_name = "disableLint"];</code>
+     * @param values The disableLint to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllDisableLint(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureDisableLintIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, disableLint_);
+      bitField0_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+     * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+     * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>repeated string disable_lint = 2 [json_name = "disableLint"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDisableLint() {
+      disableLint_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000002);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+     * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+     * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>repeated string disable_lint = 2 [json_name = "disableLint"];</code>
+     * @param value The bytes of the disableLint to add.
+     * @return This builder for chaining.
+     */
+    public Builder addDisableLintBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureDisableLintIsMutable();
+      disableLint_.add(value);
+      bitField0_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList enableLint_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureEnableLintIsMutable() {
+      if (!enableLint_.isModifiable()) {
+        enableLint_ = new com.google.protobuf.LazyStringArrayList(enableLint_);
+      }
+      bitField0_ |= 0x00000004;
+    }
+    /**
+     * <pre>
+     * Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+     * rounded-real-literal. Off unless named; disable_lint wins.
+     * </pre>
+     *
+     * <code>repeated string enable_lint = 3 [json_name = "enableLint"];</code>
+     * @return A list containing the enableLint.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getEnableLintList() {
+      enableLint_.makeImmutable();
+      return enableLint_;
+    }
+    /**
+     * <pre>
+     * Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+     * rounded-real-literal. Off unless named; disable_lint wins.
+     * </pre>
+     *
+     * <code>repeated string enable_lint = 3 [json_name = "enableLint"];</code>
+     * @return The count of enableLint.
+     */
+    public int getEnableLintCount() {
+      return enableLint_.size();
+    }
+    /**
+     * <pre>
+     * Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+     * rounded-real-literal. Off unless named; disable_lint wins.
+     * </pre>
+     *
+     * <code>repeated string enable_lint = 3 [json_name = "enableLint"];</code>
+     * @param index The index of the element to return.
+     * @return The enableLint at the given index.
+     */
+    public java.lang.String getEnableLint(int index) {
+      return enableLint_.get(index);
+    }
+    /**
+     * <pre>
+     * Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+     * rounded-real-literal. Off unless named; disable_lint wins.
+     * </pre>
+     *
+     * <code>repeated string enable_lint = 3 [json_name = "enableLint"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the enableLint at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getEnableLintBytes(int index) {
+      return enableLint_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+     * rounded-real-literal. Off unless named; disable_lint wins.
+     * </pre>
+     *
+     * <code>repeated string enable_lint = 3 [json_name = "enableLint"];</code>
+     * @param index The index to set the value at.
+     * @param value The enableLint to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEnableLint(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureEnableLintIsMutable();
+      enableLint_.set(index, value);
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+     * rounded-real-literal. Off unless named; disable_lint wins.
+     * </pre>
+     *
+     * <code>repeated string enable_lint = 3 [json_name = "enableLint"];</code>
+     * @param value The enableLint to add.
+     * @return This builder for chaining.
+     */
+    public Builder addEnableLint(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureEnableLintIsMutable();
+      enableLint_.add(value);
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+     * rounded-real-literal. Off unless named; disable_lint wins.
+     * </pre>
+     *
+     * <code>repeated string enable_lint = 3 [json_name = "enableLint"];</code>
+     * @param values The enableLint to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllEnableLint(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureEnableLintIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, enableLint_);
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+     * rounded-real-literal. Off unless named; disable_lint wins.
+     * </pre>
+     *
+     * <code>repeated string enable_lint = 3 [json_name = "enableLint"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEnableLint() {
+      enableLint_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000004);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+     * rounded-real-literal. Off unless named; disable_lint wins.
+     * </pre>
+     *
+     * <code>repeated string enable_lint = 3 [json_name = "enableLint"];</code>
+     * @param value The bytes of the enableLint to add.
+     * @return This builder for chaining.
+     */
+    public Builder addEnableLintBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureEnableLintIsMutable();
+      enableLint_.add(value);
+      bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }

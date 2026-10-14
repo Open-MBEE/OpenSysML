@@ -141,4 +141,64 @@ public interface ExecuteStateRequestOrBuilder extends
    * @return The trace.
    */
   boolean getTrace();
+
+  /**
+   * <pre>
+   * Simulated time, in seconds, to run the machine for after the events are
+   * sent (`sysml -advance`); see ExecuteActionRequest.advance. Unset runs the
+   * machine to quiescence and advances the clock no further.
+   * </pre>
+   *
+   * <code>optional double advance = 7 [json_name = "advance"];</code>
+   * @return Whether the advance field is set.
+   */
+  boolean hasAdvance();
+  /**
+   * <pre>
+   * Simulated time, in seconds, to run the machine for after the events are
+   * sent (`sysml -advance`); see ExecuteActionRequest.advance. Unset runs the
+   * machine to quiescence and advances the clock no further.
+   * </pre>
+   *
+   * <code>optional double advance = 7 [json_name = "advance"];</code>
+   * @return The advance.
+   */
+  double getAdvance();
+
+  /**
+   * <pre>
+   * See ExecuteActionRequest.seed, .draws and .clock_step.
+   * </pre>
+   *
+   * <code>optional uint64 seed = 8 [json_name = "seed"];</code>
+   * @return Whether the seed field is set.
+   */
+  boolean hasSeed();
+  /**
+   * <pre>
+   * See ExecuteActionRequest.seed, .draws and .clock_step.
+   * </pre>
+   *
+   * <code>optional uint64 seed = 8 [json_name = "seed"];</code>
+   * @return The seed.
+   */
+  long getSeed();
+
+  /**
+   * <code>string draws = 9 [json_name = "draws"];</code>
+   * @return The draws.
+   */
+  java.lang.String getDraws();
+  /**
+   * <code>string draws = 9 [json_name = "draws"];</code>
+   * @return The bytes for draws.
+   */
+  com.google.protobuf.ByteString
+      getDrawsBytes();
+
+  /**
+   * <code>double clock_step = 10 [json_name = "clockStep"];</code>
+   * @return The clockStep.
+   */
+  double getClockStep();
 }

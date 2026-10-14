@@ -454,6 +454,102 @@ pub struct RunAnalysisRequest {
     /// asks what "explore" as the schedule asks, and the response answers alike.
     #[prost(string, tag="7")]
     pub engine: ::prost::alloc::string::String,
+    /// Run the case only to the first call of an external tool its ToolExecution
+    /// names and answer what the tool would be given — manifest, executable,
+    /// argv, environment, standard input and reply mapping — in `tool_dry_run`,
+    /// without starting it (`sysml -tool-dry-run`); nothing the run did is kept.
+    /// A run that reaches no tool call reports that in `error`. Refused under an
+    /// explore schedule or engine (INVALID_ARGUMENT).
+    #[prost(bool, tag="8")]
+    pub tool_dry_run: bool,
+}
+/// ToolDryRun is what one external tool call would be given, composed without
+/// starting the process: the preview `sysml -tool-dry-run` prints.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ToolDryRun {
+    /// The ToolExecution-annotated action the call was made for.
+    #[prost(string, tag="1")]
+    pub action: ::prost::alloc::string::String,
+    /// The tool the entry names, the version its manifest declares, the manifest
+    /// file, the executable it resolved to and the protocol it is spoken under.
+    #[prost(string, tag="2")]
+    pub tool: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub version: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub manifest: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub executable: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub protocol: ::prost::alloc::string::String,
+    /// The argv entries after the executable as the invocation block renders
+    /// them; empty for an entry without one.
+    #[prost(string, repeated, tag="7")]
+    pub args: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The environment in NAME=value pairs, sorted; a variable taken from the
+    /// service's own process is spelled "NAME=<from this process>". Empty when
+    /// the entry has no invocation block and inherits the whole environment.
+    #[prost(string, repeated, tag="8")]
+    pub env: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The working directory; empty inherits the service's.
+    #[prost(string, tag="9")]
+    pub cwd: ::prost::alloc::string::String,
+    /// What standard input carries: "json" (the protocol's request object),
+    /// "none", "csv" or "template", and the bytes it would carry.
+    #[prost(string, tag="10")]
+    pub stdin: ::prost::alloc::string::String,
+    #[prost(string, tag="11")]
+    pub stdin_data: ::prost::alloc::string::String,
+    /// The file the block's `inputFile` writes, absent when it has none.
+    #[prost(message, optional, tag="12")]
+    pub input_file: ::core::option::Option<ToolDryRunFile>,
+    /// True when the entry uses {outputDir}.
+    #[prost(bool, tag="13")]
+    pub output_dir: bool,
+    /// The values the call sends the tool and the bindings it expects back.
+    #[prost(message, repeated, tag="14")]
+    pub inputs: ::prost::alloc::vec::Vec<ToolDryRunInput>,
+    #[prost(message, repeated, tag="15")]
+    pub outputs: ::prost::alloc::vec::Vec<ToolDryRunOutput>,
+    /// Where the reply is read: "stdout", or "file:<template>".
+    #[prost(string, tag="16")]
+    pub reply_source: ::prost::alloc::string::String,
+    /// The preview as the CLI prints it, one element per line, the reply mapping
+    /// included.
+    #[prost(string, repeated, tag="17")]
+    pub lines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// ToolDryRunFile is the input file a dry run would write.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ToolDryRunFile {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// "json" or "csv".
+    #[prost(string, tag="2")]
+    pub format: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub data: ::prost::alloc::string::String,
+}
+/// ToolDryRunInput is one value the call sends: the tool variable it is sent
+/// under, the parameter it came from, and the value as the protocol spells it.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ToolDryRunInput {
+    #[prost(string, tag="1")]
+    pub variable: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub parameter: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub value: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub unit: ::prost::alloc::string::String,
+}
+/// ToolDryRunOutput is one binding the call expects back.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ToolDryRunOutput {
+    #[prost(string, tag="1")]
+    pub variable: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub parameter: ::prost::alloc::string::String,
 }
 /// RunAnalysisResponse carries what the case computed and decided.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -510,6 +606,11 @@ pub struct RunAnalysisResponse {
     pub strength: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="13")]
     pub bounds: ::prost::alloc::vec::Vec<Bound>,
+    /// Set when the request asked for a tool dry run and the case reached a tool
+    /// call: what the tool would have been given. The run's outputs, verdicts and
+    /// instances are then empty, nothing of it having been kept.
+    #[prost(message, optional, tag="14")]
+    pub tool_dry_run: ::core::option::Option<ToolDryRun>,
 }
 /// ProbabilityRange is the model-draw probability of an outcome, bounded by the
 /// least and greatest probabilities over schedulers resolving scheduling choices.
@@ -590,6 +691,11 @@ pub struct ExplorationStatus {
 /// ListEnginesRequest asks for the analysis engines registered in this build.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListEnginesRequest {
+    /// Start each external engine's process once and check its handshake against
+    /// its manifest, reporting the outcome as its status (`sysml -engines -probe`).
+    /// Without it no process is started.
+    #[prost(bool, tag="1")]
+    pub probe: bool,
 }
 /// EngineInfo is one analysis engine: what it answers, how strongly it can, and
 /// whether it can run here.
@@ -788,6 +894,15 @@ pub struct SymbolResponse {
 pub struct DiagnosticsRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
+    /// Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+    /// undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+    /// rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+    #[prost(string, repeated, tag="2")]
+    pub disable_lint: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+    /// rounded-real-literal. Off unless named; disable_lint wins.
+    #[prost(string, repeated, tag="3")]
+    pub enable_lint: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// DiagnosticsResponse contains diagnostic list
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -907,6 +1022,31 @@ pub struct ExecuteActionRequest {
     /// the action outside any object.
     #[prost(string, tag="5")]
     pub performer_symbol_id: ::prost::alloc::string::String,
+    /// Simulated time, in seconds, to run the action for (`sysml -advance`): the
+    /// action is started and its clock advanced by this much, running everything
+    /// due on the way; one that has not completed by then reports that in `error`
+    /// with the instant it waits for. Unset runs the action to completion, the
+    /// clock advancing through every wait.
+    #[prost(double, optional, tag="6")]
+    pub advance: ::core::option::Option<f64>,
+    /// The seed the model's own draws — weighted decisions, random functions —
+    /// are taken from (`sysml -seed`); the same seed draws the same run. Unset
+    /// leaves them to the schedule's own seed, so a run that draws under a
+    /// deterministic schedule is refused.
+    #[prost(uint64, optional, tag="7")]
+    pub seed: ::core::option::Option<u64>,
+    /// How the run resolves the draws of RandomFunctions (`sysml -draws`):
+    /// "random" (the default, from `seed`), "min", "max" or "average", which take
+    /// each call's least, greatest or mean value and need no seed. Any other
+    /// spelling is INVALID_ARGUMENT.
+    #[prost(string, tag="8")]
+    pub draws: ::prost::alloc::string::String,
+    /// The step, in seconds, the run's clock ticks by (`sysml -clock-step`): a
+    /// wait comes due at the first multiple of it not before the wait ends. 0, the
+    /// default, is a continuous clock; a negative or non-finite step is
+    /// INVALID_ARGUMENT.
+    #[prost(double, tag="9")]
+    pub clock_step: f64,
 }
 /// ExecuteActionResponse contains action execution results
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -939,7 +1079,7 @@ pub struct ExecuteActionResponse {
     pub performer_attributes: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
 }
 /// ExecuteStateRequest requests state machine execution
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExecuteStateRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
@@ -966,6 +1106,18 @@ pub struct ExecuteStateRequest {
     /// "state_trace" capability; a service withholding it refuses true with UNIMPLEMENTED.
     #[prost(bool, tag="6")]
     pub trace: bool,
+    /// Simulated time, in seconds, to run the machine for after the events are
+    /// sent (`sysml -advance`); see ExecuteActionRequest.advance. Unset runs the
+    /// machine to quiescence and advances the clock no further.
+    #[prost(double, optional, tag="7")]
+    pub advance: ::core::option::Option<f64>,
+    /// See ExecuteActionRequest.seed, .draws and .clock_step.
+    #[prost(uint64, optional, tag="8")]
+    pub seed: ::core::option::Option<u64>,
+    #[prost(string, tag="9")]
+    pub draws: ::prost::alloc::string::String,
+    #[prost(double, tag="10")]
+    pub clock_step: f64,
 }
 /// ExecuteStateResponse contains state machine execution trace
 #[derive(Clone, PartialEq, ::prost::Message)]

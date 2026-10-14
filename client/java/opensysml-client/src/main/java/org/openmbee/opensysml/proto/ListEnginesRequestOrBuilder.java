@@ -9,4 +9,16 @@ package org.openmbee.opensysml.proto;
 public interface ListEnginesRequestOrBuilder extends
     // @@protoc_insertion_point(interface_extends:sysml.ListEnginesRequest)
     com.google.protobuf.MessageOrBuilder {
+
+  /**
+   * <pre>
+   * Start each external engine's process once and check its handshake against
+   * its manifest, reporting the outcome as its status (`sysml -engines -probe`).
+   * Without it no process is started.
+   * </pre>
+   *
+   * <code>bool probe = 1 [json_name = "probe"];</code>
+   * @return The probe.
+   */
+  boolean getProbe();
 }

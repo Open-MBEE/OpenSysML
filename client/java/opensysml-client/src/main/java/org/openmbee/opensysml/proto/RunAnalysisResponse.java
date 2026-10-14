@@ -760,6 +760,50 @@ private static final long serialVersionUID = 0L;
     return bounds_.get(index);
   }
 
+  public static final int TOOL_DRY_RUN_FIELD_NUMBER = 14;
+  private org.openmbee.opensysml.proto.ToolDryRun toolDryRun_;
+  /**
+   * <pre>
+   * Set when the request asked for a tool dry run and the case reached a tool
+   * call: what the tool would have been given. The run's outputs, verdicts and
+   * instances are then empty, nothing of it having been kept.
+   * </pre>
+   *
+   * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+   * @return Whether the toolDryRun field is set.
+   */
+  @java.lang.Override
+  public boolean hasToolDryRun() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <pre>
+   * Set when the request asked for a tool dry run and the case reached a tool
+   * call: what the tool would have been given. The run's outputs, verdicts and
+   * instances are then empty, nothing of it having been kept.
+   * </pre>
+   *
+   * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+   * @return The toolDryRun.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.ToolDryRun getToolDryRun() {
+    return toolDryRun_ == null ? org.openmbee.opensysml.proto.ToolDryRun.getDefaultInstance() : toolDryRun_;
+  }
+  /**
+   * <pre>
+   * Set when the request asked for a tool dry run and the case reached a tool
+   * call: what the tool would have been given. The run's outputs, verdicts and
+   * instances are then empty, nothing of it having been kept.
+   * </pre>
+   *
+   * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.ToolDryRunOrBuilder getToolDryRunOrBuilder() {
+    return toolDryRun_ == null ? org.openmbee.opensysml.proto.ToolDryRun.getDefaultInstance() : toolDryRun_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -812,6 +856,9 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < bounds_.size(); i++) {
       output.writeMessage(13, bounds_.get(i));
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeMessage(14, getToolDryRun());
     }
     getUnknownFields().writeTo(output);
   }
@@ -871,6 +918,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(13, bounds_.get(i));
     }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(14, getToolDryRun());
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -914,6 +965,11 @@ private static final long serialVersionUID = 0L;
         .equals(other.getStrength())) return false;
     if (!getBoundsList()
         .equals(other.getBoundsList())) return false;
+    if (hasToolDryRun() != other.hasToolDryRun()) return false;
+    if (hasToolDryRun()) {
+      if (!getToolDryRun()
+          .equals(other.getToolDryRun())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -968,6 +1024,10 @@ private static final long serialVersionUID = 0L;
     if (getBoundsCount() > 0) {
       hash = (37 * hash) + BOUNDS_FIELD_NUMBER;
       hash = (53 * hash) + getBoundsList().hashCode();
+    }
+    if (hasToolDryRun()) {
+      hash = (37 * hash) + TOOL_DRY_RUN_FIELD_NUMBER;
+      hash = (53 * hash) + getToolDryRun().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1112,6 +1172,7 @@ private static final long serialVersionUID = 0L;
         internalGetExplorationFieldBuilder();
         internalGetEvaluationsFieldBuilder();
         internalGetBoundsFieldBuilder();
+        internalGetToolDryRunFieldBuilder();
       }
     }
     @java.lang.Override
@@ -1183,6 +1244,11 @@ private static final long serialVersionUID = 0L;
         boundsBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00001000);
+      toolDryRun_ = null;
+      if (toolDryRunBuilder_ != null) {
+        toolDryRunBuilder_.dispose();
+        toolDryRunBuilder_ = null;
+      }
       return this;
     }
 
@@ -1310,6 +1376,12 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000800) != 0)) {
         result.strength_ = strength_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.toolDryRun_ = toolDryRunBuilder_ == null
+            ? toolDryRun_
+            : toolDryRunBuilder_.build();
+        to_bitField0_ |= 0x00000002;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1555,6 +1627,9 @@ private static final long serialVersionUID = 0L;
           }
         }
       }
+      if (other.hasToolDryRun()) {
+        mergeToolDryRun(other.getToolDryRun());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1712,6 +1787,13 @@ private static final long serialVersionUID = 0L;
               }
               break;
             } // case 106
+            case 114: {
+              input.readMessage(
+                  internalGetToolDryRunFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 114
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -4755,6 +4837,181 @@ private static final long serialVersionUID = 0L;
         bounds_ = null;
       }
       return boundsBuilder_;
+    }
+
+    private org.openmbee.opensysml.proto.ToolDryRun toolDryRun_;
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.ToolDryRun, org.openmbee.opensysml.proto.ToolDryRun.Builder, org.openmbee.opensysml.proto.ToolDryRunOrBuilder> toolDryRunBuilder_;
+    /**
+     * <pre>
+     * Set when the request asked for a tool dry run and the case reached a tool
+     * call: what the tool would have been given. The run's outputs, verdicts and
+     * instances are then empty, nothing of it having been kept.
+     * </pre>
+     *
+     * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+     * @return Whether the toolDryRun field is set.
+     */
+    public boolean hasToolDryRun() {
+      return ((bitField0_ & 0x00002000) != 0);
+    }
+    /**
+     * <pre>
+     * Set when the request asked for a tool dry run and the case reached a tool
+     * call: what the tool would have been given. The run's outputs, verdicts and
+     * instances are then empty, nothing of it having been kept.
+     * </pre>
+     *
+     * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+     * @return The toolDryRun.
+     */
+    public org.openmbee.opensysml.proto.ToolDryRun getToolDryRun() {
+      if (toolDryRunBuilder_ == null) {
+        return toolDryRun_ == null ? org.openmbee.opensysml.proto.ToolDryRun.getDefaultInstance() : toolDryRun_;
+      } else {
+        return toolDryRunBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Set when the request asked for a tool dry run and the case reached a tool
+     * call: what the tool would have been given. The run's outputs, verdicts and
+     * instances are then empty, nothing of it having been kept.
+     * </pre>
+     *
+     * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+     */
+    public Builder setToolDryRun(org.openmbee.opensysml.proto.ToolDryRun value) {
+      if (toolDryRunBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        toolDryRun_ = value;
+      } else {
+        toolDryRunBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Set when the request asked for a tool dry run and the case reached a tool
+     * call: what the tool would have been given. The run's outputs, verdicts and
+     * instances are then empty, nothing of it having been kept.
+     * </pre>
+     *
+     * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+     */
+    public Builder setToolDryRun(
+        org.openmbee.opensysml.proto.ToolDryRun.Builder builderForValue) {
+      if (toolDryRunBuilder_ == null) {
+        toolDryRun_ = builderForValue.build();
+      } else {
+        toolDryRunBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Set when the request asked for a tool dry run and the case reached a tool
+     * call: what the tool would have been given. The run's outputs, verdicts and
+     * instances are then empty, nothing of it having been kept.
+     * </pre>
+     *
+     * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+     */
+    public Builder mergeToolDryRun(org.openmbee.opensysml.proto.ToolDryRun value) {
+      if (toolDryRunBuilder_ == null) {
+        if (((bitField0_ & 0x00002000) != 0) &&
+          toolDryRun_ != null &&
+          toolDryRun_ != org.openmbee.opensysml.proto.ToolDryRun.getDefaultInstance()) {
+          getToolDryRunBuilder().mergeFrom(value);
+        } else {
+          toolDryRun_ = value;
+        }
+      } else {
+        toolDryRunBuilder_.mergeFrom(value);
+      }
+      if (toolDryRun_ != null) {
+        bitField0_ |= 0x00002000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Set when the request asked for a tool dry run and the case reached a tool
+     * call: what the tool would have been given. The run's outputs, verdicts and
+     * instances are then empty, nothing of it having been kept.
+     * </pre>
+     *
+     * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+     */
+    public Builder clearToolDryRun() {
+      bitField0_ = (bitField0_ & ~0x00002000);
+      toolDryRun_ = null;
+      if (toolDryRunBuilder_ != null) {
+        toolDryRunBuilder_.dispose();
+        toolDryRunBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Set when the request asked for a tool dry run and the case reached a tool
+     * call: what the tool would have been given. The run's outputs, verdicts and
+     * instances are then empty, nothing of it having been kept.
+     * </pre>
+     *
+     * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+     */
+    public org.openmbee.opensysml.proto.ToolDryRun.Builder getToolDryRunBuilder() {
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return internalGetToolDryRunFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Set when the request asked for a tool dry run and the case reached a tool
+     * call: what the tool would have been given. The run's outputs, verdicts and
+     * instances are then empty, nothing of it having been kept.
+     * </pre>
+     *
+     * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+     */
+    public org.openmbee.opensysml.proto.ToolDryRunOrBuilder getToolDryRunOrBuilder() {
+      if (toolDryRunBuilder_ != null) {
+        return toolDryRunBuilder_.getMessageOrBuilder();
+      } else {
+        return toolDryRun_ == null ?
+            org.openmbee.opensysml.proto.ToolDryRun.getDefaultInstance() : toolDryRun_;
+      }
+    }
+    /**
+     * <pre>
+     * Set when the request asked for a tool dry run and the case reached a tool
+     * call: what the tool would have been given. The run's outputs, verdicts and
+     * instances are then empty, nothing of it having been kept.
+     * </pre>
+     *
+     * <code>.sysml.ToolDryRun tool_dry_run = 14 [json_name = "toolDryRun"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.ToolDryRun, org.openmbee.opensysml.proto.ToolDryRun.Builder, org.openmbee.opensysml.proto.ToolDryRunOrBuilder> 
+        internalGetToolDryRunFieldBuilder() {
+      if (toolDryRunBuilder_ == null) {
+        toolDryRunBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.ToolDryRun, org.openmbee.opensysml.proto.ToolDryRun.Builder, org.openmbee.opensysml.proto.ToolDryRunOrBuilder>(
+                getToolDryRun(),
+                getParentForChildren(),
+                isClean());
+        toolDryRun_ = null;
+      }
+      return toolDryRunBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.RunAnalysisResponse)

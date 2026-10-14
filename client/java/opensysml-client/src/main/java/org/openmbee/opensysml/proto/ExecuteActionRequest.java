@@ -36,6 +36,7 @@ private static final long serialVersionUID = 0L;
     actionSymbolId_ = "";
     schedule_ = "";
     performerSymbolId_ = "";
+    draws_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -63,6 +64,7 @@ private static final long serialVersionUID = 0L;
             org.openmbee.opensysml.proto.ExecuteActionRequest.class, org.openmbee.opensysml.proto.ExecuteActionRequest.Builder.class);
   }
 
+  private int bitField0_;
   public static final int MODEL_HASH_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private volatile java.lang.Object modelHash_ = "";
@@ -356,6 +358,145 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     }
   }
 
+  public static final int ADVANCE_FIELD_NUMBER = 6;
+  private double advance_ = 0D;
+  /**
+   * <pre>
+   * Simulated time, in seconds, to run the action for (`sysml -advance`): the
+   * action is started and its clock advanced by this much, running everything
+   * due on the way; one that has not completed by then reports that in `error`
+   * with the instant it waits for. Unset runs the action to completion, the
+   * clock advancing through every wait.
+   * </pre>
+   *
+   * <code>optional double advance = 6 [json_name = "advance"];</code>
+   * @return Whether the advance field is set.
+   */
+  @java.lang.Override
+  public boolean hasAdvance() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <pre>
+   * Simulated time, in seconds, to run the action for (`sysml -advance`): the
+   * action is started and its clock advanced by this much, running everything
+   * due on the way; one that has not completed by then reports that in `error`
+   * with the instant it waits for. Unset runs the action to completion, the
+   * clock advancing through every wait.
+   * </pre>
+   *
+   * <code>optional double advance = 6 [json_name = "advance"];</code>
+   * @return The advance.
+   */
+  @java.lang.Override
+  public double getAdvance() {
+    return advance_;
+  }
+
+  public static final int SEED_FIELD_NUMBER = 7;
+  private long seed_ = 0L;
+  /**
+   * <pre>
+   * The seed the model's own draws — weighted decisions, random functions —
+   * are taken from (`sysml -seed`); the same seed draws the same run. Unset
+   * leaves them to the schedule's own seed, so a run that draws under a
+   * deterministic schedule is refused.
+   * </pre>
+   *
+   * <code>optional uint64 seed = 7 [json_name = "seed"];</code>
+   * @return Whether the seed field is set.
+   */
+  @java.lang.Override
+  public boolean hasSeed() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <pre>
+   * The seed the model's own draws — weighted decisions, random functions —
+   * are taken from (`sysml -seed`); the same seed draws the same run. Unset
+   * leaves them to the schedule's own seed, so a run that draws under a
+   * deterministic schedule is refused.
+   * </pre>
+   *
+   * <code>optional uint64 seed = 7 [json_name = "seed"];</code>
+   * @return The seed.
+   */
+  @java.lang.Override
+  public long getSeed() {
+    return seed_;
+  }
+
+  public static final int DRAWS_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object draws_ = "";
+  /**
+   * <pre>
+   * How the run resolves the draws of RandomFunctions (`sysml -draws`):
+   * "random" (the default, from `seed`), "min", "max" or "average", which take
+   * each call's least, greatest or mean value and need no seed. Any other
+   * spelling is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>string draws = 8 [json_name = "draws"];</code>
+   * @return The draws.
+   */
+  @java.lang.Override
+  public java.lang.String getDraws() {
+    java.lang.Object ref = draws_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      draws_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * How the run resolves the draws of RandomFunctions (`sysml -draws`):
+   * "random" (the default, from `seed`), "min", "max" or "average", which take
+   * each call's least, greatest or mean value and need no seed. Any other
+   * spelling is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>string draws = 8 [json_name = "draws"];</code>
+   * @return The bytes for draws.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getDrawsBytes() {
+    java.lang.Object ref = draws_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      draws_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int CLOCK_STEP_FIELD_NUMBER = 9;
+  private double clockStep_ = 0D;
+  /**
+   * <pre>
+   * The step, in seconds, the run's clock ticks by (`sysml -clock-step`): a
+   * wait comes due at the first multiple of it not before the wait ends. 0, the
+   * default, is a continuous clock; a negative or non-finite step is
+   * INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>double clock_step = 9 [json_name = "clockStep"];</code>
+   * @return The clockStep.
+   */
+  @java.lang.Override
+  public double getClockStep() {
+    return clockStep_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -388,6 +529,18 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(performerSymbolId_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 5, performerSymbolId_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeDouble(6, advance_);
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeUInt64(7, seed_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(draws_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 8, draws_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(clockStep_) != 0) {
+      output.writeDouble(9, clockStep_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -419,6 +572,21 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(performerSymbolId_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(5, performerSymbolId_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(6, advance_);
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(7, seed_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(draws_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(8, draws_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(clockStep_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(9, clockStep_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -444,6 +612,22 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         .equals(other.getSchedule())) return false;
     if (!getPerformerSymbolId()
         .equals(other.getPerformerSymbolId())) return false;
+    if (hasAdvance() != other.hasAdvance()) return false;
+    if (hasAdvance()) {
+      if (java.lang.Double.doubleToLongBits(getAdvance())
+          != java.lang.Double.doubleToLongBits(
+              other.getAdvance())) return false;
+    }
+    if (hasSeed() != other.hasSeed()) return false;
+    if (hasSeed()) {
+      if (getSeed()
+          != other.getSeed()) return false;
+    }
+    if (!getDraws()
+        .equals(other.getDraws())) return false;
+    if (java.lang.Double.doubleToLongBits(getClockStep())
+        != java.lang.Double.doubleToLongBits(
+            other.getClockStep())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -467,6 +651,21 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     hash = (53 * hash) + getSchedule().hashCode();
     hash = (37 * hash) + PERFORMER_SYMBOL_ID_FIELD_NUMBER;
     hash = (53 * hash) + getPerformerSymbolId().hashCode();
+    if (hasAdvance()) {
+      hash = (37 * hash) + ADVANCE_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          java.lang.Double.doubleToLongBits(getAdvance()));
+    }
+    if (hasSeed()) {
+      hash = (37 * hash) + SEED_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          getSeed());
+    }
+    hash = (37 * hash) + DRAWS_FIELD_NUMBER;
+    hash = (53 * hash) + getDraws().hashCode();
+    hash = (37 * hash) + CLOCK_STEP_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getClockStep()));
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -629,6 +828,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       internalGetMutableInputs().clear();
       schedule_ = "";
       performerSymbolId_ = "";
+      advance_ = 0D;
+      seed_ = 0L;
+      draws_ = "";
+      clockStep_ = 0D;
       return this;
     }
 
@@ -677,6 +880,22 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.performerSymbolId_ = performerSymbolId_;
       }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.advance_ = advance_;
+        to_bitField0_ |= 0x00000001;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.seed_ = seed_;
+        to_bitField0_ |= 0x00000002;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.draws_ = draws_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.clockStep_ = clockStep_;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -713,6 +932,20 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         performerSymbolId_ = other.performerSymbolId_;
         bitField0_ |= 0x00000010;
         onChanged();
+      }
+      if (other.hasAdvance()) {
+        setAdvance(other.getAdvance());
+      }
+      if (other.hasSeed()) {
+        setSeed(other.getSeed());
+      }
+      if (!other.getDraws().isEmpty()) {
+        draws_ = other.draws_;
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getClockStep()) != 0) {
+        setClockStep(other.getClockStep());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -769,6 +1002,26 @@ org.openmbee.opensysml.proto.Value defaultValue) {
               bitField0_ |= 0x00000010;
               break;
             } // case 42
+            case 49: {
+              advance_ = input.readDouble();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 49
+            case 56: {
+              seed_ = input.readUInt64();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 56
+            case 66: {
+              draws_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
+            case 73: {
+              clockStep_ = input.readDouble();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 73
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1362,6 +1615,306 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       checkByteStringIsUtf8(value);
       performerSymbolId_ = value;
       bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+
+    private double advance_ ;
+    /**
+     * <pre>
+     * Simulated time, in seconds, to run the action for (`sysml -advance`): the
+     * action is started and its clock advanced by this much, running everything
+     * due on the way; one that has not completed by then reports that in `error`
+     * with the instant it waits for. Unset runs the action to completion, the
+     * clock advancing through every wait.
+     * </pre>
+     *
+     * <code>optional double advance = 6 [json_name = "advance"];</code>
+     * @return Whether the advance field is set.
+     */
+    @java.lang.Override
+    public boolean hasAdvance() {
+      return ((bitField0_ & 0x00000020) != 0);
+    }
+    /**
+     * <pre>
+     * Simulated time, in seconds, to run the action for (`sysml -advance`): the
+     * action is started and its clock advanced by this much, running everything
+     * due on the way; one that has not completed by then reports that in `error`
+     * with the instant it waits for. Unset runs the action to completion, the
+     * clock advancing through every wait.
+     * </pre>
+     *
+     * <code>optional double advance = 6 [json_name = "advance"];</code>
+     * @return The advance.
+     */
+    @java.lang.Override
+    public double getAdvance() {
+      return advance_;
+    }
+    /**
+     * <pre>
+     * Simulated time, in seconds, to run the action for (`sysml -advance`): the
+     * action is started and its clock advanced by this much, running everything
+     * due on the way; one that has not completed by then reports that in `error`
+     * with the instant it waits for. Unset runs the action to completion, the
+     * clock advancing through every wait.
+     * </pre>
+     *
+     * <code>optional double advance = 6 [json_name = "advance"];</code>
+     * @param value The advance to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAdvance(double value) {
+
+      advance_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Simulated time, in seconds, to run the action for (`sysml -advance`): the
+     * action is started and its clock advanced by this much, running everything
+     * due on the way; one that has not completed by then reports that in `error`
+     * with the instant it waits for. Unset runs the action to completion, the
+     * clock advancing through every wait.
+     * </pre>
+     *
+     * <code>optional double advance = 6 [json_name = "advance"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAdvance() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      advance_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private long seed_ ;
+    /**
+     * <pre>
+     * The seed the model's own draws — weighted decisions, random functions —
+     * are taken from (`sysml -seed`); the same seed draws the same run. Unset
+     * leaves them to the schedule's own seed, so a run that draws under a
+     * deterministic schedule is refused.
+     * </pre>
+     *
+     * <code>optional uint64 seed = 7 [json_name = "seed"];</code>
+     * @return Whether the seed field is set.
+     */
+    @java.lang.Override
+    public boolean hasSeed() {
+      return ((bitField0_ & 0x00000040) != 0);
+    }
+    /**
+     * <pre>
+     * The seed the model's own draws — weighted decisions, random functions —
+     * are taken from (`sysml -seed`); the same seed draws the same run. Unset
+     * leaves them to the schedule's own seed, so a run that draws under a
+     * deterministic schedule is refused.
+     * </pre>
+     *
+     * <code>optional uint64 seed = 7 [json_name = "seed"];</code>
+     * @return The seed.
+     */
+    @java.lang.Override
+    public long getSeed() {
+      return seed_;
+    }
+    /**
+     * <pre>
+     * The seed the model's own draws — weighted decisions, random functions —
+     * are taken from (`sysml -seed`); the same seed draws the same run. Unset
+     * leaves them to the schedule's own seed, so a run that draws under a
+     * deterministic schedule is refused.
+     * </pre>
+     *
+     * <code>optional uint64 seed = 7 [json_name = "seed"];</code>
+     * @param value The seed to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSeed(long value) {
+
+      seed_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The seed the model's own draws — weighted decisions, random functions —
+     * are taken from (`sysml -seed`); the same seed draws the same run. Unset
+     * leaves them to the schedule's own seed, so a run that draws under a
+     * deterministic schedule is refused.
+     * </pre>
+     *
+     * <code>optional uint64 seed = 7 [json_name = "seed"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSeed() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      seed_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object draws_ = "";
+    /**
+     * <pre>
+     * How the run resolves the draws of RandomFunctions (`sysml -draws`):
+     * "random" (the default, from `seed`), "min", "max" or "average", which take
+     * each call's least, greatest or mean value and need no seed. Any other
+     * spelling is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string draws = 8 [json_name = "draws"];</code>
+     * @return The draws.
+     */
+    public java.lang.String getDraws() {
+      java.lang.Object ref = draws_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        draws_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * How the run resolves the draws of RandomFunctions (`sysml -draws`):
+     * "random" (the default, from `seed`), "min", "max" or "average", which take
+     * each call's least, greatest or mean value and need no seed. Any other
+     * spelling is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string draws = 8 [json_name = "draws"];</code>
+     * @return The bytes for draws.
+     */
+    public com.google.protobuf.ByteString
+        getDrawsBytes() {
+      java.lang.Object ref = draws_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        draws_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * How the run resolves the draws of RandomFunctions (`sysml -draws`):
+     * "random" (the default, from `seed`), "min", "max" or "average", which take
+     * each call's least, greatest or mean value and need no seed. Any other
+     * spelling is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string draws = 8 [json_name = "draws"];</code>
+     * @param value The draws to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDraws(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      draws_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * How the run resolves the draws of RandomFunctions (`sysml -draws`):
+     * "random" (the default, from `seed`), "min", "max" or "average", which take
+     * each call's least, greatest or mean value and need no seed. Any other
+     * spelling is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string draws = 8 [json_name = "draws"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDraws() {
+      draws_ = getDefaultInstance().getDraws();
+      bitField0_ = (bitField0_ & ~0x00000080);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * How the run resolves the draws of RandomFunctions (`sysml -draws`):
+     * "random" (the default, from `seed`), "min", "max" or "average", which take
+     * each call's least, greatest or mean value and need no seed. Any other
+     * spelling is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string draws = 8 [json_name = "draws"];</code>
+     * @param value The bytes for draws to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDrawsBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      draws_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private double clockStep_ ;
+    /**
+     * <pre>
+     * The step, in seconds, the run's clock ticks by (`sysml -clock-step`): a
+     * wait comes due at the first multiple of it not before the wait ends. 0, the
+     * default, is a continuous clock; a negative or non-finite step is
+     * INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>double clock_step = 9 [json_name = "clockStep"];</code>
+     * @return The clockStep.
+     */
+    @java.lang.Override
+    public double getClockStep() {
+      return clockStep_;
+    }
+    /**
+     * <pre>
+     * The step, in seconds, the run's clock ticks by (`sysml -clock-step`): a
+     * wait comes due at the first multiple of it not before the wait ends. 0, the
+     * default, is a continuous clock; a negative or non-finite step is
+     * INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>double clock_step = 9 [json_name = "clockStep"];</code>
+     * @param value The clockStep to set.
+     * @return This builder for chaining.
+     */
+    public Builder setClockStep(double value) {
+
+      clockStep_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The step, in seconds, the run's clock ticks by (`sysml -clock-step`): a
+     * wait comes due at the first multiple of it not before the wait ends. 0, the
+     * default, is a continuous clock; a negative or non-finite step is
+     * INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>double clock_step = 9 [json_name = "clockStep"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearClockStep() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      clockStep_ = 0D;
       onChanged();
       return this;
     }

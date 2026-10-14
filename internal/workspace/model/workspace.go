@@ -636,6 +636,18 @@ func (w *Workspace) Diagnostics(name string) []diag.Diagnostic {
 	return passes.WithoutLints(w.diagnosticsLocked(name, doc), w.disabledLints, w.enabledLints)
 }
 
+// UnfilteredDiagnostics is Diagnostics with every lint finding kept, for a
+// reader applying a lint selection of its own (passes.WithoutLints).
+func (w *Workspace) UnfilteredDiagnostics(name string) []diag.Diagnostic {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	doc := w.docs[name]
+	if doc == nil {
+		return nil
+	}
+	return w.diagnosticsLocked(name, doc)
+}
+
 // AnalyzedContent returns a document's diagnostics together with the content
 // they were computed against, so an edit cannot split the two. Reports whether
 // the document exists.

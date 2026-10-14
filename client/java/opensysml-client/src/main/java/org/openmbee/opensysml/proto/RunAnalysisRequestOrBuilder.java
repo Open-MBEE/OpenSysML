@@ -224,4 +224,19 @@ org.openmbee.opensysml.proto.Value defaultValue);
    */
   com.google.protobuf.ByteString
       getEngineBytes();
+
+  /**
+   * <pre>
+   * Run the case only to the first call of an external tool its ToolExecution
+   * names and answer what the tool would be given — manifest, executable,
+   * argv, environment, standard input and reply mapping — in `tool_dry_run`,
+   * without starting it (`sysml -tool-dry-run`); nothing the run did is kept.
+   * A run that reaches no tool call reports that in `error`. Refused under an
+   * explore schedule or engine (INVALID_ARGUMENT).
+   * </pre>
+   *
+   * <code>bool tool_dry_run = 8 [json_name = "toolDryRun"];</code>
+   * @return The toolDryRun.
+   */
+  boolean getToolDryRun();
 }

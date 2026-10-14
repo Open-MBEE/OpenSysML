@@ -153,4 +153,95 @@ org.openmbee.opensysml.proto.Value defaultValue);
    */
   com.google.protobuf.ByteString
       getPerformerSymbolIdBytes();
+
+  /**
+   * <pre>
+   * Simulated time, in seconds, to run the action for (`sysml -advance`): the
+   * action is started and its clock advanced by this much, running everything
+   * due on the way; one that has not completed by then reports that in `error`
+   * with the instant it waits for. Unset runs the action to completion, the
+   * clock advancing through every wait.
+   * </pre>
+   *
+   * <code>optional double advance = 6 [json_name = "advance"];</code>
+   * @return Whether the advance field is set.
+   */
+  boolean hasAdvance();
+  /**
+   * <pre>
+   * Simulated time, in seconds, to run the action for (`sysml -advance`): the
+   * action is started and its clock advanced by this much, running everything
+   * due on the way; one that has not completed by then reports that in `error`
+   * with the instant it waits for. Unset runs the action to completion, the
+   * clock advancing through every wait.
+   * </pre>
+   *
+   * <code>optional double advance = 6 [json_name = "advance"];</code>
+   * @return The advance.
+   */
+  double getAdvance();
+
+  /**
+   * <pre>
+   * The seed the model's own draws — weighted decisions, random functions —
+   * are taken from (`sysml -seed`); the same seed draws the same run. Unset
+   * leaves them to the schedule's own seed, so a run that draws under a
+   * deterministic schedule is refused.
+   * </pre>
+   *
+   * <code>optional uint64 seed = 7 [json_name = "seed"];</code>
+   * @return Whether the seed field is set.
+   */
+  boolean hasSeed();
+  /**
+   * <pre>
+   * The seed the model's own draws — weighted decisions, random functions —
+   * are taken from (`sysml -seed`); the same seed draws the same run. Unset
+   * leaves them to the schedule's own seed, so a run that draws under a
+   * deterministic schedule is refused.
+   * </pre>
+   *
+   * <code>optional uint64 seed = 7 [json_name = "seed"];</code>
+   * @return The seed.
+   */
+  long getSeed();
+
+  /**
+   * <pre>
+   * How the run resolves the draws of RandomFunctions (`sysml -draws`):
+   * "random" (the default, from `seed`), "min", "max" or "average", which take
+   * each call's least, greatest or mean value and need no seed. Any other
+   * spelling is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>string draws = 8 [json_name = "draws"];</code>
+   * @return The draws.
+   */
+  java.lang.String getDraws();
+  /**
+   * <pre>
+   * How the run resolves the draws of RandomFunctions (`sysml -draws`):
+   * "random" (the default, from `seed`), "min", "max" or "average", which take
+   * each call's least, greatest or mean value and need no seed. Any other
+   * spelling is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>string draws = 8 [json_name = "draws"];</code>
+   * @return The bytes for draws.
+   */
+  com.google.protobuf.ByteString
+      getDrawsBytes();
+
+  /**
+   * <pre>
+   * The step, in seconds, the run's clock ticks by (`sysml -clock-step`): a
+   * wait comes due at the first multiple of it not before the wait ends. 0, the
+   * default, is a continuous clock; a negative or non-finite step is
+   * INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>double clock_step = 9 [json_name = "clockStep"];</code>
+   * @return The clockStep.
+   */
+  double getClockStep();
 }
