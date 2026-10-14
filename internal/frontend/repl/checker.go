@@ -553,135 +553,31 @@ func checkStoppedVerdict(subject, label string, err error) Verdict {
 	return unresolvedVerdict(subject, err.Error())
 }
 
-// checkedVerdict reports what the check engine found: a violation or a divergence
-// fails the check, an exhaustive clean search holds, a bounded one is undecided. An
-// answer with no search report is the symbolic engine's or an external one's claim.
+
+// checkedVerdict reports what an engine answered to the check, rendered as
+// analysis.CheckLines renders it.
 func checkedVerdict(subject, label string, result analysis.Result) Verdict {
-	checked := result.Check()
-	if checked == nil {
-		if result.Covered() || result.Engine == analysis.SMTEngineName {
-			return decidedVerdict(subject, result)
-		}
-		return Verdict{Subject: subject, Status: VerdictUnresolved, Lines: []string{
-			fmt.Sprintf("? %s could not be checked", label),
-			"  " + result.Reason,
-		}}
-	}
-	report := checked.Report
-	v := Verdict{Subject: subject}
-	switch {
-	case result.Strength == analysis.NotCovered:
-		v.Status = VerdictUnresolved
-		v.Lines = append(v.Lines, fmt.Sprintf("? %s: %s", label, report.Status()), "  "+result.Reason)
-	case report.Verdict == runtime.CheckViolation, report.Verdict == runtime.CheckDivergent:
-		v.Status = VerdictFails
-		v.Lines = append(v.Lines, fmt.Sprintf("✗ %s: %s", label, report.Status()))
-	case report.Verdict == runtime.CheckExhaustive:
-		v.Status = VerdictHolds
-		v.Lines = append(v.Lines, fmt.Sprintf("✓ %s: %s", label, report.Status()))
-	default:
-		v.Status = VerdictUnresolved
-		v.Lines = append(v.Lines, fmt.Sprintf("? %s: %s", label, report.Status()))
-	}
-	for i, violation := range report.Violations {
-		mass := runtime.FormatWeight(violation.Mass)
-		if report.MassBounded {
-			mass = "≥ " + mass
-		}
-		v.Lines = append(v.Lines, "  violation: "+violation.String()+" (probability "+mass+")"+witnessPath(checked.Violations, i))
-	}
-	for i, d := range report.Divergent {
-		v.Lines = append(v.Lines, "  divergent: "+d.String())
-		for j, value := range d.Values {
-			var path []string
-			if i < len(checked.Divergent) {
-				path = checked.Divergent[i]
-			}
-			v.Lines = append(v.Lines, fmt.Sprintf("    %s = %s%s", d.Feature, value.Value, witnessPath(path, j)))
-		}
-	}
-	for _, final := range report.Finals {
-		v.Lines = append(v.Lines, "  outcome: "+final.Outcome)
-	}
-	return v
+	status, lines, _ := analysis.CheckLines(label, result)
+	return Verdict{Subject: subject, Status: verdictStatusOf(status), Lines: lines}
 }
 
-// decidedVerdict reports an answer carrying no check report, the symbolic engine's or an
-// external one's: a violation or a sensitivity fails, a proof holds, a bounded or uncovered
-// answer is undecided; the inputs, assumptions and witnesses it rests on follow, a
-// sensitivity's two schedules as witness A and witness B.
+// decidedVerdict reports an answer carrying no check report, the symbolic engine's
+// or an external one's, rendered as analysis.CheckLines renders it.
 func decidedVerdict(name string, result analysis.Result) Verdict {
-	v := Verdict{Subject: name}
-	switch {
-	case !result.Covered():
-		v.Status = VerdictUnresolved
-		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: not covered", name), "  "+result.Reason)
-	case result.Claim == analysis.ClaimViolated:
-		v.Status = VerdictFails
-		v.Lines = append(v.Lines, fmt.Sprintf("✗ Action %s: %s", name, result.Reason))
-	case result.Claim == analysis.ClaimSensitive:
-		v.Status = VerdictFails
-		v.Lines = append(v.Lines, fmt.Sprintf("✗ Action %s: sensitive: %s", name, result.Reason))
-	case result.Strength == analysis.Proved:
-		v.Status = VerdictHolds
-		v.Lines = append(v.Lines, fmt.Sprintf("✓ Action %s: %s", name, result.Claim))
-	default:
-		v.Status = VerdictUnresolved
-		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: %s (%s)", name, result.Claim, result.Strength))
-		if result.Question.Kind == analysis.Sensitive && result.Reason != "" {
-			v.Lines = append(v.Lines, "  "+result.Reason)
-		}
-	}
-	if inputs := inputLines(result.Inputs); inputs != "" {
-		v.Lines = append(v.Lines, "  inputs: "+inputs)
-	}
-	if len(result.Assumptions) > 0 {
-		v.Lines = append(v.Lines, "  assumed: "+strings.Join(result.Assumptions, ", "))
-	}
-	switch w := result.Witness; {
-	case w != nil && result.Contrast != nil:
-		v.Lines = append(v.Lines, "  witness A: "+witnessLine(w), "  witness B: "+witnessLine(result.Contrast))
-	case w != nil:
-		v.Lines = append(v.Lines, "  witness: "+witnessLine(w))
-	}
-	return v
+	return checkedVerdict(name, name, result)
 }
 
-// inputLines spells the inputs a symbolic engine reported, "" when it reported none.
-func inputLines(inputs []analysis.Input) string {
-	parts := make([]string, 0, len(inputs))
-	for _, in := range inputs {
-		parts = append(parts, in.String())
+func verdictStatusOf(status analysis.CheckStatus) VerdictStatus {
+	switch status {
+	case analysis.CheckHolds:
+		return VerdictHolds
+	case analysis.CheckFails:
+		return VerdictFails
 	}
-	return strings.Join(parts, ", ")
+	return VerdictUnresolved
 }
 
-// witnessLine spells a witness: the file it was written to, else its draws and
-// choices as one schedule, "no choices" for an empty one.
-func witnessLine(w *analysis.Witness) string {
-	if w.Written != "" {
-		return w.Written
-	}
-	if len(w.Draws) == 0 && len(w.Choices) == 0 {
-		return "no choices"
-	}
-	parts := make([]string, 0, len(w.Draws)+len(w.Choices))
-	for _, d := range w.Draws {
-		parts = append(parts, d.String())
-	}
-	for _, c := range w.Choices {
-		parts = append(parts, c.String())
-	}
-	return strings.Join(parts, "; ")
-}
-
-// witnessPath spells where the i'th witness was written, "" when none was.
-func witnessPath(paths []string, i int) string {
-	if i >= len(paths) || paths[i] == "" {
-		return ""
-	}
-	return " (witness " + paths[i] + ")"
-}
+func witnessLine(w *analysis.Witness) string { return analysis.WitnessLine(w) }
 
 // CheckBounds returns the search bounds a check runs under: depth, states and
 // unroll, 0 for the engines' defaults, and the timeout, 0 for none.
