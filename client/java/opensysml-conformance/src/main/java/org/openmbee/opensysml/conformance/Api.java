@@ -1095,6 +1095,7 @@ final class Api {
       return Rendering.checkResult(result);
     } catch (ModelException e) {
       return CheckBehaviorResponse.newBuilder()
+          .setVerdict("undecided")
           .setError(e.getMessage())
           .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
           .build();
