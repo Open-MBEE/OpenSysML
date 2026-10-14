@@ -40,6 +40,35 @@ type Token struct {
 	// body is the work of this token's step a breakpoint paused, resumed by the
 	// next step (action_body_run.go); nil for a token with none pending.
 	body *bodyRun
+
+	// control is what the token's path stands on: each decision it passed whose
+	// guard read or draw was order-dependent, until the node its branches rejoin at.
+	control []tokenControl
+}
+
+// tokenControl is one decision a token's path stands on: the choice points its
+// guard read or draw stood on, and the nodes every branch of the decision reaches,
+// where the path no longer depends on which branch was taken.
+type tokenControl struct {
+	by   []int64
+	ends map[ast.Node]bool
+}
+
+// controlSerials is every choice point the token's path stands on.
+func (t Token) controlSerials() []int64 {
+	var out []int64
+	for _, c := range t.control {
+		out = unionSerials(out, c.by)
+	}
+	return out
+}
+
+// underControl is the token with its path standing on one more decision.
+func (t *Token) underControl(by []int64, ends map[ast.Node]bool) {
+	if len(by) == 0 {
+		return
+	}
+	t.control = append(slices.Clone(t.control), tokenControl{by: by, ends: ends})
 }
 
 // Within lists the nested action nodes whose own flows the token runs in,
@@ -53,6 +82,9 @@ func (t *Token) travel(edge lower.ActionEdge, sweep uint64) {
 	t.Location = edge.Target
 	t.Via = edge
 	t.moved = sweep
+	if slices.ContainsFunc(t.control, func(c tokenControl) bool { return c.ends[edge.Target] }) {
+		t.control = slices.DeleteFunc(slices.Clone(t.control), func(c tokenControl) bool { return c.ends[edge.Target] })
+	}
 }
 
 // AcceptWait describes the message a parked token is waiting for. It is the

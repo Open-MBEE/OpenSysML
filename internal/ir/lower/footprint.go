@@ -354,6 +354,27 @@ func footprintOf(graph *ActionGraph, node ast.Node, declared map[ast.Node]bool) 
 	return b.footprint
 }
 
+// BindingFootprints is node → what binding the node's own features, pins and
+// accepted payload touches, apart from the statements its body runs: what a
+// performance's inputs are bound from and where its outputs go. Computed on
+// first use, as Footprints is.
+func (g *ActionGraph) BindingFootprints() map[ast.Node]Footprint {
+	g.bindingFootprintsOnce.Do(func() {
+		g.bindingFootprints = make(map[ast.Node]Footprint, len(g.Nodes))
+		declared := declaredFeatures(g)
+		for _, node := range g.Nodes {
+			b := &footprintBuilder{resolver: g.resolver, graph: g, node: node, scope: nodeScopeOf(g, node), declared: declared}
+			b.features()
+			b.bindings()
+			b.flows()
+			b.streams()
+			b.accept()
+			g.bindingFootprints[node] = b.footprint
+		}
+	})
+	return g.bindingFootprints
+}
+
 // nodePerformsAction reports whether a node performs an action declared elsewhere,
 // which runs in an executor of its own.
 func nodePerformsAction(node ast.Node) bool {
@@ -1104,4 +1125,12 @@ func isConvergence(node ast.Node) bool {
 		return true
 	}
 	return false
+}
+
+// ExpressionFootprint is what evaluating expr in scope reads: the places a guard
+// or condition depends on, dynamic where the declarations do not decide them.
+func ExpressionFootprint(scope *symbols.Scope, expr ast.Node) Footprint {
+	b := &footprintBuilder{scope: scope}
+	b.reads(scope, expr)
+	return b.footprint
 }

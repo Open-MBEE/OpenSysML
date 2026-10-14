@@ -40,6 +40,7 @@ func classifyBy(c *ChoicePoint, fps []lower.Footprint, dependent func(i, j int) 
 	if len(fps) != len(c.Alternatives) || len(fps) < 2 {
 		return
 	}
+	c.serial = nextChoiceSerial()
 	found := false
 	for i := range fps {
 		for j := i + 1; j < len(fps); j++ {
@@ -89,6 +90,7 @@ func (c *ChoicePoint) touchMeeting(f, g lower.Footprint, rel lower.Relation) {
 // whatever any of them writes.
 func classifyExclusive(c *ChoicePoint, fps []lower.Footprint) {
 	c.Independent = false
+	c.serial = nextChoiceSerial()
 	c.touchWrites(fps...)
 }
 
@@ -120,19 +122,6 @@ func (ctx *Context) futureFootprints() *futureFootprints {
 	return ctx.futures
 }
 
-// touchesFeature reports whether the choice may have left the feature's value
-// order-dependent: a touch naming it, alone or as the last segment of a path,
-// against the name's own last segment (`this.mark`, `machine.state.mark`).
-func (c ChoicePoint) touchesFeature(name string) bool {
-	leaf := lastSegment(name)
-	for _, t := range c.Touches {
-		if t == name || lastSegment(t) == leaf {
-			return true
-		}
-	}
-	return false
-}
-
 // OrderDependenceText is the marker a value nothing fixed prints with: how many
 // of the run's unresolved choice points touch it, and where the set it stands
 // in is shown. Empty for a value no conflicting alternative wrote.
@@ -150,16 +139,12 @@ func pluralChoicePoints(n int) string {
 	return "choice points"
 }
 
-// OrderDependent reports how many unresolved choice points of the run touch the
-// feature, by its name alone or as the last segment of a written path.
+// OrderDependent reports how many unresolved choice points of the run the
+// feature's value stands on, by its name alone or as the last segment of a
+// written path: those whose alternatives touched it and those what was computed
+// into it stood on (order_marks.go).
 func (ctx *Context) OrderDependent(feature string) int {
-	count := 0
-	for _, n := range ctx.run.notes {
-		if c, ok := n.(ChoicePoint); ok && !c.Independent && c.touchesFeature(feature) {
-			count++
-		}
-	}
-	return count
+	return ctx.run.marks.standingOn(feature, ctx.liveChoices())
 }
 
 // OrderDependentAmong is, for each named value an unresolved choice point of the

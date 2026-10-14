@@ -1802,6 +1802,7 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	}
 	id := e.tokens[tokenIdx].ID
 	defer e.beginTokenStep(id)()
+	defer e.ctx.underControl(e.tokens[tokenIdx].controlSerials())()
 	if err := e.stepTokenAt(tokenIdx); err != nil {
 		return e.endTerminatedFor(id, err)
 	}
@@ -2592,9 +2593,14 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 					ErrNoEnabledSuccession, decisionNode.Name, branchName(successors, holding[pick]))
 			}
 		}
+		by := e.ctx.standingOf(lower.ExpressionFootprint(graph.Scope, successors[holding[pick]].Guard), true)
 		if choice != nil {
 			e.noteChoice(*choice)
+			if !choice.Independent {
+				by = unionSerials(by, []int64{choice.serial})
+			}
 		}
+		token.underControl(by, commonReach(graph, successors))
 		e.move(token, successors[holding[pick]])
 		return nil
 	}
@@ -2784,6 +2790,9 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 	value, err := e.ctx.acceptedValueAs(&msg, accept.SignalType, accept.Scope)
 	if err != nil {
 		return nil, false, fmt.Errorf("accept %s: %w", accept.ParamName, err)
+	}
+	if usage != nil {
+		e.ctx.acceptMarks(e.graphOf(token.frame).Footprints()[usage].Writes, &msg)
 	}
 	// The payload is a feature of the flow the accept sits in, which the nodes
 	// after it read by its name unless a feature of the flow's own holds the name:

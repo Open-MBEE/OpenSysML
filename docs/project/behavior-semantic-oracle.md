@@ -2379,6 +2379,138 @@ not covered: the package-level `connect q::a to q::b;` form. Validation rejects 
 `deriveConnectorDefaultFeaturingType` makes it well-formed. That is a separate validation gap,
 and this change does not touch it.
 
+### Values computed from an order-dependent one stand on the same choice points
+
+Fixture: `action_order_derived_from_racing_writers` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → derive { y := x + 1; z := 5 } → done
+```
+
+Derived constraints:
+
+- `sync` follows both branches (JoinAction), so both writes of `x` have ended before `derive`
+  reads it, and `x` is `1` or `2`.
+- `derive` follows `sync`, so `y` is computed from the `x` that stands after both writes:
+  `y = x + 1`, so `{x = 1, y = 2}` or `{x = 2, y = 3}`; `z` is `5` in every linearization.
+
+Open: the order of the two branches. The library gives no `HappensBefore` link between them, so
+both orders are valid linearizations, and the last write of `x` stands. A later statement that
+reads `x` computes from whichever write stood, so its result is open exactly where `x` is: the
+dependence is the succession `sync < derive` (Performances.kerml) composed with the open order
+of the writes. `z` reads nothing the open order wrote, so it is fixed.
+
+Pinned outcome: the admissible set of two members, stated as `outcomes` citing this section. The
+default run reports both `x` and `y` up to the two choice points its order left open — the token
+order within the step and the write order of `x` — as `x = 1 (order-dependent; 2 choice points —
+explore shows the set)` and `y = 2 (order-dependent; 2 choice points — explore shows the set)`,
+while `z` prints bare (`orderDependent` states `x: 2, y: 2`). The marks follow what was read:
+`y` stands on the same choice points as the `x` it was computed from, not on a choice point of
+its own, since the statement writing it is not itself a choice.
+
+### A guard reading an order-dependent value leaves what its branch writes order-dependent
+
+Fixture: `action_order_guard_reads_racing_writer` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → choose ─[x == 1]→ low  { mode := 10 } ─┐
+                                              ─[x == 2]→ high { mode := 20 } ─┴→ rejoin → tail { after := 7 } → done
+```
+
+Derived constraints:
+
+- `sync` follows both writes of `x` (JoinAction), so `choose` reads an `x` of `1` or `2`, and
+  exactly one guard holds: the decision is not itself a choice point.
+- `low` or `high` follows as the guard decides, so `mode` is `10` where `x` is `1` and `20`
+  where `x` is `2`; `after` is `7` in every linearization.
+
+Open: the order of the two branches before the join, as in the previous case. Which guard
+holds is a function of the write that stood, so which branch runs — and the `mode` it writes —
+is open exactly where `x` is: control dependence through a guard carries the open order on,
+though the decision drew nothing. `after`, written past the merge where the branches rejoin,
+reads nothing open and is not on either branch, so it is fixed: the convergence itself adds no
+dependence.
+
+Pinned outcome: `{x = 1, mode = 10, after = 7}` or `{x = 2, mode = 20, after = 7}`, stated as
+`outcomes` citing this section. The default run marks `x` and `mode` with the two choice points
+of the racing writes and prints `after` bare (`orderDependent` states `x: 2, mode: 2`).
+
+### A performed action's outputs stand on what its inputs were bound from
+
+Fixture: `action_order_through_performed_action` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → doIt (performs increment: in x, out result := x + 5) → keep { other := 3 } → done
+```
+
+Derived constraints:
+
+- `sync` follows both writes of `x`, so `increment` is performed with an input `x` of `1` or
+  `2` (its `in x` is bound by name from the outer `x`), and its `out result` binds the outer
+  `result` to `6` or `7` as its body computed.
+- `keep` follows `doIt`; `other` is `3` in every linearization.
+
+Open: the order of the two branches before the join. The performance's output is computed from
+its input, bound from the `x` that stood, so `result` is open exactly where `x` is: the
+dependence runs through the parameter binding and the performance's own body, over the
+succession `sync < doIt`. `other` reads nothing open.
+
+Pinned outcome: `{x = 1, result = 6, other = 3}` or `{x = 2, result = 7, other = 3}`, stated as
+`outcomes` citing this section. The default run marks `x` and `result` with the two choice
+points of the racing writes and prints `other` bare (`orderDependent` states `x: 2, result: 2`).
+
+### A message's payload carries what it stands on to the accept that binds it
+
+Fixture: `action_order_send_payload_from_racing_writer` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → sender { send new Reading(level = x) to receiver }
+                                      → receiver (accept msg : Reading) → keep { total := msg.level + 10; count := 1 } → done
+```
+
+Derived constraints:
+
+- `sync` follows both writes of `x`, so the message is built with a `level` of `1` or `2`.
+- The accept binds a message the send transferred (Transfers.kerml: the send happens before the
+  accept that takes its payload), so `msg.level` is the `x` that stood, and `total` is `11` or
+  `12`; `count` is `1` in every linearization.
+
+Open: the order of the two branches before the join. The payload was computed from `x`, so what
+the accept binds and what is computed from it are open exactly where `x` is: the transfer carries
+the dependence from the sender's side to the receiver's. `count` reads nothing open.
+
+Pinned outcome: `{x = 1, total = 11, count = 1}` or `{x = 2, total = 12, count = 1}`, stated as
+`outcomes` citing this section. The default run marks `x` and `total` with the two choice points
+of the racing writes and prints `count` bare (`orderDependent` states `x: 2, total: 2`).
+
+### An effect computing from an order-dependent attribute stands on its choice points
+
+Fixture: `state_order_effect_reads_racing_attribute` (golden, explored).
+
+```
+Machine: entry → work (parallel: a { a1 ─Go / last := 1→ a2 }, b { b1 ─Go / last := 2→ b2 })
+         work ─Next / { derived := last + 1; fixed := 5 }→ settled
+```
+
+Derived constraints:
+
+- One occurrence of Go fires a transition in each region (the regions are orthogonal), both
+  writing `last`, and the run-to-completion step ends with `last` at `1` or `2`.
+- Next is dispatched after Go's step has completed, so its effect reads the `last` that stood:
+  `derived` is `2` or `3`, and `fixed` is `5` in every linearization.
+
+Open: the order of the two regions' reactions to Go, as in "Two regions reacting to one
+occurrence". The effect of the Next transition computes from `last`, so `derived` is open exactly
+where `last` is; `fixed` reads nothing open.
+
+Pinned outcome: `{last = 1, derived = 2, fixed = 5}` or `{last = 2, derived = 3, fixed = 5}`,
+stated as `outcomes` citing this section. The default run marks `last` and `derived` with the one
+region-order choice point and prints `fixed` bare (`orderDependent` states `last: 1, derived: 1`).
+
 ## What the executor gets wrong
 
 Nothing, at present: every derivation above is met and carries a golden. The table this section

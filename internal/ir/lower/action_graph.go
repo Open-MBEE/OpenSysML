@@ -52,6 +52,10 @@ type ActionGraph struct {
 	// send, accept and converge on; computed on the first call of Footprints.
 	footprints     map[ast.Node]Footprint
 	footprintsOnce sync.Once
+	// bindingFootprints: node → what binding its features, pins and payload
+	// touches, apart from its body's statements; computed by BindingFootprints.
+	bindingFootprints     map[ast.Node]Footprint
+	bindingFootprintsOnce sync.Once
 
 	// incoming: node → the successions into it; computed on the first call of Incoming.
 	incoming     map[ast.Node][]ActionEdge

@@ -123,6 +123,7 @@ type runStateCapture struct {
 	state           *runState
 	steps, elements int64
 	notes           []RunNote
+	marks           orderMarks
 	scheduler       *scheduler
 	restoreSchedule func()
 	calcUsageRuns   map[int64]map[calcUsageKey]*calcRun
@@ -483,6 +484,7 @@ func (s *executorCaptures) captureRunState(state *runState) {
 	s.runStates = append(s.runStates, runStateCapture{
 		state: state, steps: state.steps, elements: state.elements,
 		notes:           slices.Clone(state.notes),
+		marks:           state.marks.clone(),
 		scheduler:       state.scheduler,
 		restoreSchedule: state.scheduler.mark(),
 		calcUsageRuns:   cloneCalcUsageRuns(state.calcUsageRuns),
@@ -493,6 +495,7 @@ func (s *executorCaptures) captureRunState(state *runState) {
 func (c runStateCapture) restore() {
 	c.state.steps, c.state.elements = c.steps, c.elements
 	c.state.notes = slices.Clone(c.notes)
+	c.state.marks = c.marks.clone()
 	c.state.scheduler = c.scheduler
 	c.restoreSchedule()
 	clear(c.state.calcUsageRuns)
@@ -1026,6 +1029,7 @@ type moveMark struct {
 	run              *runState
 	steps, elements  int64
 	notes            []RunNote
+	marks            orderMarks
 	choices, draws   int
 	trace            traceCapture
 	ids              *idSequence
@@ -1039,7 +1043,7 @@ func (e *StateExecutor) markMove() *moveMark {
 	ctx := e.ctx
 	m := &moveMark{
 		exec: e, outer: e.moving, run: ctx.run, steps: ctx.run.steps, elements: ctx.run.elements,
-		notes: slices.Clone(ctx.run.notes), choices: len(ctx.choices), draws: len(ctx.draws),
+		notes: slices.Clone(ctx.run.notes), marks: ctx.run.marks.clone(), choices: len(ctx.choices), draws: len(ctx.draws),
 		trace: captureTrace(ctx.trace),
 		ids:   ctx.ids, nextID: ctx.ids.next,
 	}
@@ -1071,6 +1075,7 @@ func (m *moveMark) undo() {
 		m.ids.release(e.ctx, m.nextID)
 	}
 	m.run.steps, m.run.elements, m.run.notes = m.steps, m.elements, m.notes
+	m.run.marks = m.marks.clone()
 	e.ctx.choices, e.ctx.draws = e.ctx.choices[:m.choices], e.ctx.draws[:m.draws]
 	m.trace.restore(e.ctx.trace)
 	m.state.restore(e.ctx)

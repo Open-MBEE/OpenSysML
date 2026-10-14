@@ -199,6 +199,12 @@ func (ctx *Context) runConstraintSteps(steps *BodySteps, features map[string]sco
 	return engine.env.constraintResult(ctx)
 }
 
+// statementFootprint keeps no footprint: a constraint's body writes nothing a
+// run's value stands on.
+func (h *constraintStmtHost) statementFootprint([]lower.Statement, int) lower.Footprint {
+	return lower.Footprint{}
+}
+
 // statementOrder returns the lowered order when scheduling or precedence needs it.
 func (h *constraintStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
 	if h.steps != nil {

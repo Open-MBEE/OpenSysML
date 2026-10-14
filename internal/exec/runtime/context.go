@@ -178,6 +178,9 @@ type Context struct {
 	trace *TraceRecorder
 	// stepWrites is the ledger of the action step under way, nil between steps.
 	stepWrites *stepWriteLedger
+	// controls is the choice points the move under way stands on by control: the
+	// guards read and branches drawn around it (order_marks.go).
+	controls []int64
 
 	// actionDepth is the number of action invocations currently on the stack,
 	// bounding recursion across nested action executors.
@@ -757,6 +760,8 @@ type runState struct {
 	steps    int64
 	elements int64
 	notes    []RunNote
+	// marks is what the run's values stand on (order_marks.go).
+	marks orderMarks
 	// scheduler is the resolutions the run's choices draw from (scheduler.go).
 	scheduler *scheduler
 	// calcUsageRuns holds, per activation under way, the evaluation of each calc

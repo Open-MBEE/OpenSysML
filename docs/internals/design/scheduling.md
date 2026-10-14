@@ -147,9 +147,78 @@ points touching a feature, `Context.UnresolvedChoices()` all of them, and
 surfaces (`order_dependent` on `FeatureValue`, `ExecuteActionResponse` and
 `ExecuteStateResponse`; `independent` and `order_dependent` on a `choice-point` diagnostic; the
 `order_dependence` capability) and the Python and Node clients. A value no unresolved choice touches
-prints exactly as before. The classification is per choice point, not transitive: a later
-statement that reads an order-dependent value and writes a third feature is not itself a choice,
-and that feature is not marked — `explore` is what enumerates the set.
+prints exactly as before. The classification is per choice point; what a value computed from a
+touched one stands on is the next section's.
+
+## What a value stands on (`order_marks.go`)
+
+A statement that reads an order-dependent value and writes a third feature is not itself a
+choice point, yet the third feature's value depends on the order as much as the first's. So the
+run keeps, beside its notes, *marks*: per place written (`lower.Place`), the unresolved choice
+points its current value stands on. `Context.OrderDependent(feature)` reads them — the choice
+points marked on the name, alone or as the last segment of a written path, among those the run
+still holds as unresolved — so the marker on every surface is the same typed count, and the
+`choice-point` diagnostic's own `order_dependent` list stays what that choice touched. The marks
+describe the value, not the feature's history, and follow one rule, derived from the lowered
+footprints already carried (`lower.Footprint`, `lower.StatementOrder`,
+`ActionGraph.BindingFootprints`, `lower.ExpressionFootprint`), never from a second dependence
+tracker and never by re-reading declarations in the runtime:
+
+- **Seed.** A choice point noted unresolved marks every place in its `Touches` with itself
+  (`orderMarks.seed`, from `Context.noteFrom`): another order may have written them otherwise.
+- **Propagate.** A move with footprint `fp` that writes `w` leaves `w` standing on what `fp` read
+  — the union of the marks of every place in `fp.Reads` — together with the *control* the move
+  runs under; a footprint the declarations do not decide (`fp.Dynamic`: a property read, a chained
+  target, an invocation of a declared behavior) reads the order-dependent set entire,
+  conservatively (`Context.propagateMarks`, `Context.standingOf`). An assignment propagates by its
+  statement's footprint as it completes (`stmtEngine.statement`, `stmtHost.statementFootprint`); a
+  performance's inputs stand on what they are bound from as it begins and its outputs, as it ends,
+  on those and on what its body left on its own pins (`performances.markPerformance` over
+  `BindingFootprints`: features, pin bindings, flows and the accepted payload, less the body's
+  statements, which are recorded one by one).
+- **Clear.** Since the write *replaces* the marks of `w`, a write that reads nothing
+  order-dependent, under no control, clears `w` from that point on: the mark describes the value.
+- **Control.** A guard or condition that reads an order-dependent value makes everything the
+  selected continuation writes depend on the order, though the guard drew nothing: a decision
+  puts its token under the marks of the guard it took (`Token.underControl`) until a node every
+  succession out of the decision reaches (`commonReach`), where which branch was taken no longer
+  decides the path; an `if`, `while`, `until` or `for` puts its block or iterations under its
+  condition's or collection's marks (`branchFrame.control`, `loopFrame.control`); a transition's
+  firing — exit, effect, entry — runs under its guard's marks (`StateExecutor.taking`). A draw
+  among exclusive alternatives is control too: a decision's branch, a transition chosen among
+  several enabled, a statement an order picked (`stmtEngine.statementUnder`) run under the choice
+  that drew them, so their writes stand on it rather than clearing its seed. Mere convergence adds
+  nothing: a merge or join is where control from the decision ends, never a dependence of its own.
+- **Transfer.** A `send` stamps its message with what its payload expression stood on where it
+  was built (`Message.dependence`, in `Context.send`), and the `accept` that takes it writes its
+  parameter standing on that and on the control at the accept (`Context.acceptMarks`, from
+  `awaitSignal` and `bindAcceptPayload`): the transfer carries the dependence from the sender's
+  side to the receiver's.
+- **The clock.** A choice among the moves of one instant of the shared clock (a transition
+  drawn among several, region, due, dispatch, entry, exit and step order) orders none of that
+  instant's other writes after its alternatives, so a seed it left stands on the places it touched
+  until the clock advances, whatever writes them meanwhile (`markSeed.clocked`); a write at a later
+  instant clears as any other. Action-flow choices need no such hold: token and write order are
+  noted after the step's writes, and a decision or statement order holds through control.
+
+The Kernel Semantic Library is the basis: `Occurrences.kerml` defines `HappensBefore` and
+`Performances.kerml` derives it from successions, so a statement after a join reads the value its
+predecessors left and its result is a function of theirs — open exactly where theirs is;
+`Transfers.kerml` orders a transfer's send before its accept, so what the accept binds is what the
+sender computed. Nothing else orders two moves, which is why a seed stands until something ordered
+after every alternative rewrites the place.
+
+Snapshots, held images and a compound transition's rollback capture the marks beside the notes
+(`runStateCapture`, `moveMark`, `imagedRun`), so a replay or an undone move leaves no mark of a
+write it discarded. Reporting never changes the run: marks are read by the surfaces alone.
+
+Approximations, all conservative where they err: a pin's place is its declaration, so two live
+performances of one action share the marks of their parameters; a seed held for the clock's
+instant marks a same-instant rewrite from a literal that another order could not have changed;
+the guards a route reads on its way through a junction or choice pseudostate are not control for
+what follows them, and a calc or constraint body propagates nothing (the expression reading its
+result stands on what it reads). A feature valued by an expression, evaluated as it is read, is
+not written and so carries no mark.
 
 ## Repeated action-step performances
 

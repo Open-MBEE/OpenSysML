@@ -162,6 +162,10 @@ func (h *actionStmtHost) statementOrder(stmts []lower.Statement) *lower.Statemen
 	return nil
 }
 
+func (h *actionStmtHost) statementFootprint(stmts []lower.Statement, i int) lower.Footprint {
+	return h.exec.statementOrder(h.graph, h.node, stmts).Footprint(i)
+}
+
 func (h *actionStmtHost) orderStep() int {
 	if h.exec.flow == nil {
 		return 0
@@ -267,6 +271,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 		); err != nil {
 			return flowNext, err
 		}
+		e.markPerformance(graph, node, false)
 		if _, declared := graph.Multiplicities[node]; declared && f.perf.repeatedStep() {
 			e.recordRepetition(parent, node, f.perf)
 		}
@@ -299,10 +304,28 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 	if err := e.applyDataFlows(parent, graph, node, f.perf, f.perf.data, f.perf.streamed, nil); err != nil {
 		return flowNext, err
 	}
+	e.markPerformance(graph, node, true)
 	if ended != nil {
 		return flowNext, e.flow.endAlongside(ended)
 	}
 	return flowNext, nil
+}
+
+// markPerformance records what performing node binds, for the marks of the run's
+// values: its inputs stand on what they are bound from as it begins, and its
+// outputs, once ended, on those and on what its body left on its own pins; the
+// body's statements are recorded one by one as they run.
+func (e *performances) markPerformance(graph *lower.ActionGraph, node ast.Node, ended bool) {
+	fp := graph.BindingFootprints()[node]
+	by := e.ctx.standingOf(fp, false)
+	if ended {
+		for _, w := range fp.Writes {
+			if w.Local {
+				by = unionSerials(by, e.ctx.run.marks.of(w))
+			}
+		}
+	}
+	e.ctx.writeMarks(fp.Writes, by)
 }
 
 // performFrame is a node a body performs (performNode) where the body paused: at

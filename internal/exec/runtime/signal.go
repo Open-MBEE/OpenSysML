@@ -67,6 +67,9 @@ type Message struct {
 	// the occurrence `send new T(…)` constructed, or the one an accept built from
 	// Payload; nil until any.
 	Value *Value
+	// dependence is the choice points the payload stood on where it was sent
+	// (order_marks.go), which what an accept binds from it stands on.
+	dependence []int64
 }
 
 // DeliveryKind is what a message's destination resolved to, and so what a
@@ -1179,6 +1182,7 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 		ctx.abandonCreationSince(mark, attached)
 		return err
 	}
+	msg.dependence = ctx.standingOf(lower.ExpressionFootprint(scope, s.Message), true)
 	receivers, err := ec.valuedReceivers(s)
 	if err != nil {
 		ctx.abandonCreationSince(mark, attached)
