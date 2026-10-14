@@ -894,12 +894,19 @@ impl Runner {
             self.connection
                 .check_state_machine(hash, &request.state_machine_symbol_id, &options)
         };
-        match checked {
-            Ok(result) => {
-                Answer::Response(self.wire_json("sysml.CheckBehaviorResponse", result.wire()))
-            }
-            Err(error) => classify_error(error),
-        }
+        let response = match checked {
+            Ok(result) => result.wire().clone(),
+            Err(error) => match Failure::of(error) {
+                Ok(failure) => wire::CheckBehaviorResponse {
+                    verdict: "undecided".to_owned(),
+                    error: failure.error,
+                    diagnostics: failure.diagnostics,
+                    ..Default::default()
+                },
+                Err(answer) => return answer,
+            },
+        };
+        Answer::Response(self.wire_json("sysml.CheckBehaviorResponse", &response))
     }
 
     fn export_graphs(&self, request: &DynamicMessage) -> Answer {
