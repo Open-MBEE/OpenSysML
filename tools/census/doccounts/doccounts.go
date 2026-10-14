@@ -31,13 +31,14 @@ const refereedBlockName = "refereed-figures"
 
 // statusMarkers are the row statuses the compliance map uses. '⚠' is matched
 // without its variation selector, as the map writes both spellings.
-var statusMarkers = []string{"✅", "⚠", "❌", "⛔", "🚧"}
+var statusMarkers = []string{"✅", "🧩", "⚠", "❌", "⛔", "🚧"}
 
 // RuleCounts is the census of the compliance map's rule rows: a row is one table
-// row carrying exactly one status marker.
+// row, its status the one marker in its table's Status column.
 type RuleCounts struct {
 	Total          int
 	Faithful       int
+	Extension      int
 	Approximate    int
 	NotImplemented int
 	Deliberate     int
@@ -269,45 +270,207 @@ func parsePilotRelease(release string) (string, string, error) {
 	return match[1], match[2], nil
 }
 
-// IsRuleRow reports whether a line is a compliance-map table row carrying exactly
-// one status marker. Header, separator and prose lines carry none, and a row
-// naming several statuses in its notes is not a census of one status.
-func IsRuleRow(line string) bool {
-	text := strings.TrimSpace(line)
-	if !strings.HasPrefix(text, "|") {
-		return false
-	}
-	found := 0
-	for _, cell := range strings.Split(strings.Trim(text, "|"), "|") {
-		for _, marker := range statusMarkers {
-			found += strings.Count(cell, marker)
+// statusColumnHeading names the compliance tables' status column.
+const statusColumnHeading = "Status"
+
+// splitCells splits a table row into cells as the documentation site's Markdown
+// renderer (Python-Markdown's tables extension) does: a pipe escaped with a
+// backslash or inside a code span does not split.
+func splitCells(row string) []string {
+	row = strings.Trim(row, " ")
+	row = strings.TrimPrefix(row, "|")
+	row = trimEndBorder(row)
+	type ticRun struct{ start, end, escape, size int }
+	var (
+		pipes []int
+		tics  []ticRun
+	)
+	for i := 0; i < len(row); {
+		switch {
+		case strings.HasPrefix(row[i:], `\\`), strings.HasPrefix(row[i:], `\|`):
+			i += 2
+		case strings.HasPrefix(row[i:], "\\`"):
+			end := i + 1
+			for end < len(row) && row[end] == '`' {
+				end++
+			}
+			tics = append(tics, ticRun{start: i, end: end - 1, escape: 1, size: end - i - 1})
+			i = end
+		case row[i] == '`':
+			end := i
+			for end < len(row) && row[end] == '`' {
+				end++
+			}
+			tics = append(tics, ticRun{start: i, end: end - 1, size: end - i})
+			i = end
+		case row[i] == '|':
+			pipes = append(pipes, i)
+			i++
+		default:
+			i++
 		}
 	}
-	return found == 1
-}
-
-// CountRules counts the status markers of every rule row of the compliance map.
-func CountRules(content string) RuleCounts {
-	counts := RuleCounts{}
-	for _, line := range strings.Split(content, "\n") {
-		if !IsRuleRow(line) {
+	var regions [][2]int
+	for pos := 0; pos < len(tics); {
+		size := tics[pos].size - tics[pos].escape
+		closer := -1
+		if size != 0 {
+			for j := pos + 1; j < len(tics); j++ {
+				if tics[j].size == size {
+					closer = j
+					break
+				}
+			}
+		}
+		if closer < 0 {
+			pos++
 			continue
 		}
-		switch {
-		case strings.Contains(line, "✅"):
-			counts.Faithful++
-		case strings.Contains(line, "⚠"):
-			counts.Approximate++
-		case strings.Contains(line, "❌"):
-			counts.NotImplemented++
-		case strings.Contains(line, "⛔"):
-			counts.Deliberate++
-		case strings.Contains(line, "🚧"):
-			counts.KnownFailure++
+		regions = append(regions, [2]int{tics[pos].start, tics[closer].end})
+		pos = closer + 1
+	}
+	var cells []string
+	start := 0
+	for _, pipe := range pipes {
+		inCode := false
+		for _, region := range regions {
+			if region[0] <= pipe && pipe <= region[1] {
+				inCode = true
+				break
+			}
+		}
+		if inCode {
+			continue
+		}
+		cells = append(cells, strings.TrimSpace(row[start:pipe]))
+		start = pipe + 1
+	}
+	return append(cells, strings.TrimSpace(row[start:]))
+}
+
+// trimEndBorder drops a closing pipe that no odd run of backslashes escapes.
+func trimEndBorder(row string) string {
+	if !strings.HasSuffix(row, "|") {
+		return row
+	}
+	backslashes := 0
+	for i := len(row) - 2; i >= 0 && row[i] == '\\'; i-- {
+		backslashes++
+	}
+	if backslashes%2 == 1 {
+		return row
+	}
+	return row[:len(row)-1]
+}
+
+// statusColumn reports whether a blank-line-delimited block is a table and, if it
+// is, the index of its Status column (-1 for a table without one).
+func statusColumn(block []string) (column int, isTable bool) {
+	if len(block) < 2 || !strings.HasPrefix(strings.Trim(block[0], " "), "|") {
+		return 0, false
+	}
+	header, separator := splitCells(block[0]), splitCells(block[1])
+	if len(header) < 2 || len(separator) != len(header) || strings.Trim(strings.Join(separator, ""), "|:- ") != "" {
+		return 0, false
+	}
+	for i, cell := range header {
+		if strings.Trim(cell, "* ") == statusColumnHeading {
+			return i, true
 		}
 	}
-	counts.Total = counts.Faithful + counts.Approximate + counts.NotImplemented + counts.Deliberate + counts.KnownFailure
-	return counts
+	return -1, true
+}
+
+func carriesMarker(text string) bool {
+	for _, marker := range statusMarkers {
+		if strings.Contains(text, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// rowStatus is the one status marker in a rule row's Status column; a repeated
+// marker is refused as two are, so the cell states its status once.
+func rowStatus(number int, line string, column int) (string, error) {
+	cells := splitCells(line)
+	cell := ""
+	if column < len(cells) {
+		cell = cells[column]
+	}
+	var found []string
+	for _, marker := range statusMarkers {
+		for n := strings.Count(cell, marker); n > 0; n-- {
+			found = append(found, marker)
+		}
+	}
+	switch len(found) {
+	case 0:
+		return "", fmt.Errorf("%s:%d: no status marker in the %s column", SpecCompliancePath, number, statusColumnHeading)
+	case 1:
+		return found[0], nil
+	default:
+		return "", fmt.Errorf("%s:%d: %d status markers in the %s column (%s); state one", SpecCompliancePath, number, len(found), statusColumnHeading, strings.Join(found, ", "))
+	}
+}
+
+// CountRules counts the rule rows of the compliance map by the marker in their
+// table's Status column. A row stating no status or several, a row with a marker
+// outside a table or in a table without a Status column, is an error.
+func CountRules(content string) (RuleCounts, error) {
+	counts := RuleCounts{}
+	lines := strings.Split(content, "\n")
+	for start := 0; start < len(lines); {
+		end := start
+		for end < len(lines) && strings.TrimSpace(lines[end]) != "" {
+			end++
+		}
+		block := lines[start:end]
+		column, isTable := statusColumn(block)
+		for offset, line := range block {
+			number, text := start+offset+1, strings.TrimSpace(line)
+			switch {
+			case !isTable:
+				if strings.HasPrefix(text, "|") && carriesMarker(text) {
+					return RuleCounts{}, fmt.Errorf("%s:%d: a row with a status marker outside a table", SpecCompliancePath, number)
+				}
+			case column < 0:
+				if offset >= 2 && carriesMarker(text) {
+					return RuleCounts{}, fmt.Errorf("%s:%d: a row with a status marker in a table without a %s column", SpecCompliancePath, number, statusColumnHeading)
+				}
+			case offset >= 2:
+				marker, err := rowStatus(number, line, column)
+				if err != nil {
+					return RuleCounts{}, err
+				}
+				counts.add(marker)
+			}
+		}
+		if end > start {
+			start = end
+		} else {
+			start++
+		}
+	}
+	counts.Total = counts.Faithful + counts.Extension + counts.Approximate + counts.NotImplemented + counts.Deliberate + counts.KnownFailure
+	return counts, nil
+}
+
+func (counts *RuleCounts) add(marker string) {
+	switch marker {
+	case "✅":
+		counts.Faithful++
+	case "🧩":
+		counts.Extension++
+	case "⚠":
+		counts.Approximate++
+	case "❌":
+		counts.NotImplemented++
+	case "⛔":
+		counts.Deliberate++
+	case "🚧":
+		counts.KnownFailure++
+	}
 }
 
 var (

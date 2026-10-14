@@ -163,11 +163,27 @@ func TestRunReportsAMapWithNoRuleRows(t *testing.T) {
 	}
 }
 
+// withRow appends a row to the fixture compliance map's one table.
+func withRow(compliance, row string) string {
+	return strings.Replace(compliance, "| b | ⚠️ Approximate |\n", "| b | ⚠️ Approximate |\n"+row, 1)
+}
+
 func TestRunReportsAKnownFailureRow(t *testing.T) {
 	root := writeFixture(t)
-	writeAt(t, root, SpecCompliancePath, fixtureCompliance+"| c | 🚧 Known failure |\n")
+	writeAt(t, root, SpecCompliancePath, withRow(fixtureCompliance, "| c | 🚧 Known failure |\n"))
 	if _, err := run(root, io.Discard); err == nil || !strings.Contains(err.Error(), "🚧") {
 		t.Fatalf("want an error naming the 🚧 row, got %v", err)
+	}
+}
+
+// TestRunReportsARowStatingTwoStatuses keeps the census a gate: a row it cannot
+// attribute stops the rewrite instead of being left out of the count.
+func TestRunReportsARowStatingTwoStatuses(t *testing.T) {
+	root := writeFixture(t)
+	writeAt(t, root, SpecCompliancePath, withRow(fixtureCompliance, "| c | ✅ Faithful; compiled ⚠️ Approximate |\n"))
+	_, err := run(root, io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "docs/project/spec-compliance.md:9: 2 status markers in the Status column") {
+		t.Fatalf("want an error naming the ambiguous row, got %v", err)
 	}
 }
 

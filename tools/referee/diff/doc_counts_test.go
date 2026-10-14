@@ -76,8 +76,8 @@ var (
 // out of scope: this checks numbers, not why they moved. It also guards the five refereed
 // headline numbers the README and architecture guide lead with, each against the
 // baseline of the harness that measured it. The compliance map's own census is counted
-// when the documentation site is built, so no committed line states it; only a 🚧 row,
-// which that census refuses, is guarded here.
+// when the documentation site is built, so no committed line states it; only what that
+// census refuses — a 🚧 row or a row it cannot attribute — is guarded here.
 func TestPilotDifferentialDocumentCountsMatchBaseline(t *testing.T) {
 	lines := docReadNumberedDocument(t)
 	report := docReadBaselineReport(t)
@@ -169,7 +169,11 @@ func docReadSpecComplianceCounts(t *testing.T) doccounts.RuleCounts {
 	if err != nil {
 		t.Fatalf("%s:1: read document: %v", docCountSpecCompliancePath, err)
 	}
-	return doccounts.CountRules(string(content))
+	counts, err := doccounts.CountRules(string(content))
+	if err != nil {
+		t.Fatalf("%s: %v", docCountSpecCompliancePath, err)
+	}
+	return counts
 }
 
 func docReadRefereedCounts(t *testing.T) doccounts.RefereedCounts {
