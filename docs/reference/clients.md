@@ -70,6 +70,7 @@ The Java client covers the whole service surface, as typed immutable results:
   delete and move);
 - `Query` and OSLC query, and the native document calls (`runDocumentQuery`, `renderDocument`).
 - `ExportGraphs`, the lowered graph of an action or state machine as `graphs:1` JSON (`exportGraphs`).
+- `CheckBehavior`, every schedule of an action or state machine searched for violated properties, deadlocks, failures and divergent values, each witnessed by a replay schedule (`checkAction`, `checkStateMachine`).
 
 It leaves out only the generated model-ergonomics types; [the Java
 API](java-api.md#what-the-client-does-not-do) says why.
