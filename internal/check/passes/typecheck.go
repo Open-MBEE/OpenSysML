@@ -535,12 +535,16 @@ func (tc *typeChecker) usageTypeAllowed(decl declKind, typ *symbols.Symbol) bool
 }
 
 // checkKerMLTyping checks a usage typed by a KerML type by the same rule as one
-// typed by a definition; a KerML declaration or a conjugated typing has none.
+// typed by a definition; a KerML declaration or a conjugated typing has none. An
+// `individual`/`snapshot`/`timeslice` usage is an occurrence whatever its keyword.
 func (tc *typeChecker) checkKerMLTyping(decl declKind, typ *symbols.Symbol) {
 	if decl.isDef || decl.isKerML() || decl.conjugated {
 		return
 	}
 	msg, code, ok := pilotTypingMessage(decl)
+	if !ok && decl.isOccurrenceUsage() {
+		msg, code, ok = msgOccurrenceUsageType, "usage-typing", true
+	}
 	if !ok || tc.usageTypeAllowed(decl, typ) {
 		return
 	}

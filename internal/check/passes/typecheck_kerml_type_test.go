@@ -10,7 +10,7 @@ import (
 func TestTypeCheckKerMLTypeTargetNoMismatch(t *testing.T) {
 	for _, src := range []string{
 		"class T; part def Car { part p : T; }",
-		"struct T; part def Car { item i : T; }",
+		"struct T; part def Car { item i : T; snapshot part s : T; }",
 		"behavior B; action def Move { action a : B; }",
 		"datatype D; part def Car { attribute x : D; }",
 		"struct S; part def Car specializes S;",
@@ -26,6 +26,7 @@ func TestTypeCheckKerMLTypeTargetNoMismatch(t *testing.T) {
 func TestTypeCheckKerMLTypeTargetMismatch(t *testing.T) {
 	for _, tc := range []struct{ src, want string }{
 		{"classifier T; part def Car { part p : T; }", "An occurrence, item or part must be typed by occurrence definitions."},
+		{"classifier T; part def Car { snapshot part p : T; }", "An occurrence, item or part must be typed by occurrence definitions."},
 		{"struct S; part def Car { attribute x : S; attribute y :> x; }", "An attribute must be typed by attribute definitions."},
 		{"behavior B; part def Car { attribute x : B; }", "An attribute must be typed by attribute definitions."},
 	} {
