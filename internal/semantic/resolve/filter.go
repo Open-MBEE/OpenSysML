@@ -445,7 +445,7 @@ func (r *Resolver) indexedNameOf(target *symbols.Symbol) string {
 // withoutHiddenMembers drops the imported memberships scope hides (KerML
 // 7.2.5.4): they are no members of it, so no import of it re-exports them.
 func (r *Resolver) withoutHiddenMembers(scope *symbols.Scope, syms []*symbols.Symbol) []*symbols.Symbol {
-	if scope == nil || len(r.importedCollisions(scope).hidden) == 0 {
+	if scope == nil || len(r.scopeImports(scope)) == 0 {
 		return syms
 	}
 	out := syms[:0:0]

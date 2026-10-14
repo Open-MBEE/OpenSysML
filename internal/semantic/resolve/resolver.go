@@ -198,18 +198,18 @@ type Resolver struct {
 	// cross-reference. Without it, resolving each of n sibling imports searched
 	// the others' unresolved targets in every order (issue #636).
 	importTargets map[*ast.Import]resolution
-	// collisions memoizes, per namespace, what its imports bring and the
-	// memberships hidden among them: see (*Resolver).importedCollisions.
-	// colliding marks the namespaces whose collisions are being computed.
-	collisions map[*symbols.Scope]*importCollisions
-	colliding  map[*symbols.Scope]bool
+	// collisions memoizes, per namespace and name, what its imports bring under
+	// the name and whether they hide it: see (*Resolver).importedUnder.
+	// colliding marks the names whose collisions are being computed.
+	collisions map[hiddenName]*importedUnder
+	colliding  map[hiddenName]bool
 	// bringing marks the namespaces one importBrings search has asked, so a
 	// cycle of re-exports is asked once per search.
 	bringing map[*symbols.Scope]bool
 	// provisional holds, while collisions are being computed, those of the
-	// namespaces met on the way that could not be settled: each is computed
-	// once per outermost computation and dropped when it ends.
-	provisional map[*symbols.Scope]*importCollisions
+	// names met on the way that could not be settled: each is computed once
+	// per outermost computation and dropped when it ends.
+	provisional map[hiddenName]*importedUnder
 	// collisionCut is set when a collision computation met one in progress,
 	// so what it computed is not memoized.
 	collisionCut bool
@@ -307,8 +307,8 @@ func New(idx *symbols.Index) *Resolver {
 		implicitParams:        map[*symbols.Scope][]*symbols.Symbol{},
 		derivedNamed:          map[*symbols.Scope][]*symbols.Symbol{},
 		importTargets:         map[*ast.Import]resolution{},
-		collisions:            map[*symbols.Scope]*importCollisions{},
-		colliding:             map[*symbols.Scope]bool{},
+		collisions:            map[hiddenName]*importedUnder{},
+		colliding:             map[hiddenName]bool{},
 		bringing:              map[*symbols.Scope]bool{},
 		importVisits:          map[importVisit]bool{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},

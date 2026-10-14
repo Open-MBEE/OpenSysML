@@ -597,6 +597,12 @@ func (r *Resolver) importMatchesAllInto(into, scope *symbols.Scope, imp *ast.Imp
 // eachImportMatch calls yield with each element imp surfaces under name until
 // yield returns false.
 func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, name string, yield func(*symbols.Symbol) bool) {
+	r.eachImportMatchHiding(into, scope, imp, name, true, yield)
+}
+
+// eachImportMatchHiding is eachImportMatch, leaving the memberships scope hides
+// out when hiding is set; importedUnder reads them unhidden to decide them.
+func (r *Resolver) eachImportMatchHiding(into, scope *symbols.Scope, imp *ast.Import, name string, hiding bool, yield func(*symbols.Symbol) bool) {
 	if imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return
 	}
@@ -611,7 +617,7 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	// also brings a distinct element under is hidden (KerML 7.2.5.4).
 	admitted := r.importAdmitsInto(into, scope, imp)
 	admit := func(sym *symbols.Symbol) bool {
-		return admitted(sym) && !r.hiddenImport(scope, name, sym)
+		return admitted(sym) && !(hiding && r.hiddenImport(scope, name, sym))
 	}
 	if imp.Kind == ast.ImportMembership {
 		// A membership import names a membership: `import P::Car` where Car is an
