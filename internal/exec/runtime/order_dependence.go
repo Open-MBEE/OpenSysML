@@ -127,25 +127,13 @@ func (ctx *Context) futureFootprints() *futureFootprints {
 	return ctx.futures
 }
 
-// choiceTouches reports whether the choice may have left the named value
-// order-dependent. A bare name is a feature of the behavior's own, so a write to
-// a performing object's feature of that name does not touch it; `this.<name>` is
-// the one performing object's feature, touched only by a write to a feature it
-// owns; any other qualifier (an object's name, a state path) is matched by the
-// written feature's name alone, which over-marks rather than under-marks.
-func (ctx *Context) choiceTouches(c ChoicePoint, name string) bool {
-	selves := ctx.performerSelves()
-	for _, p := range c.touched {
-		if ctx.placeNamed(p, name, selves) {
-			return true
-		}
-	}
-	return false
-}
-
 // placeNamed reports whether a value reported under name is the one a write to
-// the place may have left, among the performing objects selves, as choiceTouches
-// describes.
+// the place may have left, among the performing objects selves. A bare name is a
+// feature of the behavior's own, so a write to a performing object's feature of
+// that name does not touch it; `this.<name>` is the one performing object's
+// feature, touched only by a write to a feature it owns; any other qualifier (an
+// object's name, a state path) is matched by the written feature's name alone,
+// which over-marks rather than under-marks.
 func (ctx *Context) placeNamed(p lower.Place, name string, selves []*Instance) bool {
 	qualifier, leaf := "", name
 	if i := strings.LastIndex(name, "."); i >= 0 {
