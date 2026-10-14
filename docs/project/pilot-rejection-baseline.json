@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 315,
-        "digest": "sha256:7e23f292a2e0632aeed98b2dc63e46a2b853c513b60b96697eb07a44dded6487"
+        "files": 318,
+        "digest": "sha256:63665a96c15ce18c53291d9b21b2d9693d726da7d5cba82dde426b594f3246e7"
       }
     ],
     "recorded": "2026-10-14"
   },
   "totals": {
-    "cases": 315,
-    "bothReject": 306,
+    "cases": 318,
+    "bothReject": 309,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 161,
-      "bothReject": 152,
+      "cases": 164,
+      "bothReject": 155,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
@@ -1933,6 +1933,15 @@
       "pilotErrors": 3
     },
     {
+      "path": "semantic/k74-package-level-redefines-featured-feature.kerml",
+      "source": "semantic",
+      "rule": "a package-level feature has no featuring type, so a feature featured by a type is not accessible to it (KerML 8.3.3.3 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s01-action-typed-by-part-def.sysml",
       "source": "semantic",
       "rule": "An action must be typed by action definitions (SysML 7.16 Actions; pilot validateActionUsageType).",
@@ -2053,6 +2062,24 @@
       "path": "semantic/s103-part-redefines-part-def.sysml",
       "source": "semantic",
       "rule": "a usage redefines a Feature, so a part redefining a part definition names nothing that position admits (KerML 8.3.3.3 Redefinition::redefinedFeature is typed Feature, a rule SysML usages inherit; pilot fails to link the Redefinition — `Couldn't resolve reference to Feature 'Engine'`).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s104-root-level-feature-redefined.sysml",
+      "source": "semantic",
+      "rule": "a feature owned by the root namespace is package-level and cannot be redefined by another (KerML 7.4.7 validateRedefinitionFeaturingTypes; pilot validateRedefinitionFeaturingTypes).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s105-package-level-redefines-type-feature.sysml",
+      "source": "semantic",
+      "rule": "a package-level feature has no featuring type, so a feature of a type is not accessible to it (KerML 8.3.3.3 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
@@ -3074,8 +3101,8 @@
       }
     ],
     "totals": {
-      "cases": 315,
-      "bothReject": 306,
+      "cases": 318,
+      "bothReject": 309,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
