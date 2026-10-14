@@ -711,6 +711,32 @@ end
                 @test occursin("\"actions\"", graphs.content)
                 @test_throws SymbolNotFoundError export_graphs(behavior_model, "Test::Missing")
                 @test_throws OpenSysMLError export_graphs(behavior_model, "Test")
+
+                tank_model = parse_file(conn, joinpath(FIXTURES, "tank.sysml"))
+                checked = check_action(tank_model, "Plant::Tank::fill"; performer="Plant::tank",
+                    properties=["Plant::Tank::low"], diverge=["this.level"], witness=true)
+                @test checked isa CheckResult
+                @test checked.verdict == "fails"
+                @test !holds(checked)
+                @test !isempty(checked.lines)
+                @test checked.search !== nothing
+                @test (checked.search.states, checked.search.moves, checked.search.max_depth) == (11, 10, 6)
+                @test length(checked.violations) == 1
+                @test checked.violations[1].kind == "property"
+                @test checked.violations[1].property == "Plant::Tank::low"
+                @test checked.violations[1].depth == 3
+                @test checked.violations[1].witness !== nothing
+                @test startswith(checked.violations[1].witness.schedule, "replay")
+                @test !isempty(checked.violations[1].witness.file_name)
+                @test length(checked.divergences) == 1
+                @test checked.divergences[1].feature == "this.level"
+                @test [v.value for v in checked.divergences[1].values] == ["1", "2"]
+                @test checked.standing.engine == "check"
+                held = check_action(tank_model, "Plant::Tank::fill"; performer="Plant::tank",
+                    properties=["Plant::Tank::capped"], diverge=["this.capacity"])
+                @test holds(held) && isempty(held.violations) && isempty(held.divergences)
+                @test_throws ExecutionError check_action(tank_model, "Plant::Tank::drain")
+                @test_throws OpenSysMLError check_action(tank_model, "Plant::Tank::fill"; depth=-1)
                 for (view, message) in (
                     ("RenderViewDemo::Missing", "no view named RenderViewDemo::Missing"),
                     ("#interconnection:Nope",
