@@ -131,6 +131,13 @@ satisfaction assertion; `Validation` one per assertion about an object. `CalcRes
 `ActionRun` or `StateRun` its outputs, the states visited and the final clock instant; an
 `Exploration` its distinct `Outcome`s and whether it explored every order. A `SweepTable`
 is one `SweepRow` per point, and a failed row keeps the outputs and verdicts it reached.
+`RunOptions` also carries the run options of the `sysml` command — `advance` (simulated seconds to
+run for, reported back in `final_time`), `seed`, `draws` (`"min"`, `"max"`, `"average"` or
+`"random"`) and `clock_step` — `AnalysisOptions.tool_dry_run` previews the first external tool
+call instead of making it, `Connection::probe_engines` starts each external engine and checks its
+handshake before listing it, and `Connection::diagnostics_with_lints` selects the lints of one
+answer.
+
 `RunOptions.trace` opts a state run into typed `DocumentEvent` records in
 `StateRun.trace`, with `StateRun.trace_dropped` reporting records the service
 discarded. The option requires `state_trace` and is refused with exploration.

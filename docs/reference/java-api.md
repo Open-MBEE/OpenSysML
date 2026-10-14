@@ -131,6 +131,11 @@ capabilities (`schedule`, `performer`, `state_trace`) before the call; an unknow
 schedule or trace with exploration is refused as `INVALID_ARGUMENT`. A requested
 trace is returned as typed `DocumentEvent` values in `StateRun.trace()` with
 `traceDropped()` reporting records discarded by the service's bound.
+`ExecutionOptions` also carries the run options of the `sysml` command: `withAdvance(seconds)`
+runs for a simulated duration and reports the clock in `finalTime`, `withSeed(n)` seeds the
+model's own draws, `withDraws("min")` (or `"max"`, `"average"`, `"random"`) chooses how they
+resolve and `withClockStep(seconds)` ticks the clock in fixed steps; `AnalysisOptions` carries
+`toolDryRun`, and `Connection.listEngines(true)` probes each external engine before listing it.
 A failed traced run remains a `ModelException`; its `trace()` and
 `traceDropped()` carry the records made before failure and the discarded count.
 `exploreAction`/`exploreState` take an exploration schedule (`explore`,
