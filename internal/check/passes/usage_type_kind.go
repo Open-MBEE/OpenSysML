@@ -50,6 +50,11 @@ var usageTypeMetaclasses = map[ast.UsageKind]string{
 // by a definition, takes a Class as well as a DataType.
 func kermlTypeTypesUsage(decl declKind, keyword string) bool {
 	metas := kermlTypeMetaclasses[keyword]
+	// An `individual`/`snapshot`/`timeslice` usage is an occurrence whatever its
+	// keyword, so a Class types it as an occurrence definition would.
+	if decl.isOccurrenceUsage() && slices.Contains(metas, "Class") {
+		return true
+	}
 	if decl.useKind == ast.UsageAttribute && decl.direction != ast.DirNone {
 		return slices.Contains(metas, "DataType") || slices.Contains(metas, "Class")
 	}

@@ -12,6 +12,7 @@ func TestTypeCheckKerMLTypeTargetNoMismatch(t *testing.T) {
 		"class T; part def Car { part p : T; }",
 		"struct T; part def Car { item i : T; snapshot part s : T; }",
 		"behavior B; action def Move { action a : B; }",
+		"class T; part def Car { individual action a : T; timeslice part t : T; }",
 		"datatype D; part def Car { attribute x : D; }",
 		"struct S; part def Car specializes S;",
 	} {
