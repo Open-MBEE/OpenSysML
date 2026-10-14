@@ -18,13 +18,16 @@ const msgNoToolReached = "no ToolExecution-annotated action was reached; nothing
 // The run's own results are not kept, so the response carries the preview, the
 // run's notes and, where the run failed otherwise, its error.
 func (s *Service) toolDryRun(ctx context.Context, v *verifyContext, sym *symbols.Symbol, args runtime.AnalysisArgs) (*pb.RunAnalysisResponse, error) {
+	// The preview runs on the request's own runtime, as the REPL's does: the
+	// dry runner is set on that context, and an engine's run of its own would
+	// not see it.
 	runner := s.engines.DryRunner(v.engine)
 	v.runtime.SetToolRunner(runner)
-	_, plan, err := v.runCase(ctx, sym, args)
+	_, err := v.runCaseOn(sym, args)
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone
 	}
-	resp := analysisResponse(&pb.RunAnalysisResponse{}, s.standingOf(plan))
+	resp := &pb.RunAnalysisResponse{}
 	resp.Diagnostics = s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached))
 	dry, reached := runner.Reached()
 	if !reached {

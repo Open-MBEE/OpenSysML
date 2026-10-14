@@ -300,7 +300,7 @@ func TestRunAnalysisToolDryRunPreviewsTheToolCall(t *testing.T) {
 	for _, in := range dry.Inputs {
 		inputs[in.Variable] = in.Value
 	}
-	if inputs["power"] != "250" || inputs["ambient"] != "290" {
+	if inputs["power"] != "250.0" || inputs["ambient"] != "290.0" {
 		t.Errorf("inputs = %v", inputs)
 	}
 	if len(dry.Outputs) != 2 || len(dry.Lines) == 0 || dry.Lines[len(dry.Lines)-1] != "the process was not started" {
