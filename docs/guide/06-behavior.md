@@ -769,7 +769,7 @@ history, and reporting it never changes the run. The conformance fixtures
 `action_order_through_performed_action`, `action_order_send_payload_from_racing_writer`,
 `state_order_effect_reads_racing_attribute` and `action_order_rewrite_clears_mark` show each
 case, and
-[the scheduling design note](../internals/design/scheduling.md#what-a-value-stands-on-order_marksgo)
+[the scheduling design note](../internals/design/scheduling.md#what-a-value-stands-on-ordermarksgo)
 states the rule and its basis in the Kernel Semantic Library.
 
 Reporting never changes the run. Once a guard or transition holds, the ones after it are read in
