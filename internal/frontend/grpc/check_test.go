@@ -54,7 +54,7 @@ func TestCheckBehaviorWitnessesAViolationAndADivergence(t *testing.T) {
 	if resp.Verdict != "fails" {
 		t.Fatalf("verdict %q, want fails; lines %v", resp.Verdict, resp.Lines)
 	}
-	if len(resp.Lines) == 0 || !strings.HasPrefix(resp.Lines[0], "✗ Plant::Tank::fill: violation") {
+	if len(resp.Lines) == 0 || !strings.HasPrefix(resp.Lines[0], "✗ Action Plant::Tank::fill: violation") {
 		t.Errorf("lines %v, want the command's violation report first", resp.Lines)
 	}
 	if resp.Search == nil || resp.Search.States != 11 || resp.Search.Moves != 10 || resp.Search.MaxDepth != 6 || len(resp.Search.BoundsHit) != 0 {

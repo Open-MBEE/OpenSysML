@@ -83,23 +83,23 @@ func CheckLines(label string, result Result) (CheckStatus, []string, bool) {
 
 // decidedLines renders an answer carrying no check report: a violation or a
 // sensitivity fails, a proof holds, a bounded or uncovered answer is undecided.
-func decidedLines(name string, result Result) (CheckStatus, []string) {
+func decidedLines(label string, result Result) (CheckStatus, []string) {
 	var status CheckStatus
 	var lines []string
 	switch {
 	case !result.Covered():
-		lines = append(lines, fmt.Sprintf("? Action %s: not covered", name), "  "+result.Reason)
+		lines = append(lines, fmt.Sprintf("? %s: not covered", label), "  "+result.Reason)
 	case result.Claim == ClaimViolated:
 		status = CheckFails
-		lines = append(lines, fmt.Sprintf("✗ Action %s: %s", name, result.Reason))
+		lines = append(lines, fmt.Sprintf("✗ %s: %s", label, result.Reason))
 	case result.Claim == ClaimSensitive:
 		status = CheckFails
-		lines = append(lines, fmt.Sprintf("✗ Action %s: sensitive: %s", name, result.Reason))
+		lines = append(lines, fmt.Sprintf("✗ %s: sensitive: %s", label, result.Reason))
 	case result.Strength == Proved:
 		status = CheckHolds
-		lines = append(lines, fmt.Sprintf("✓ Action %s: %s", name, result.Claim))
+		lines = append(lines, fmt.Sprintf("✓ %s: %s", label, result.Claim))
 	default:
-		lines = append(lines, fmt.Sprintf("? Action %s: %s (%s)", name, result.Claim, result.Strength))
+		lines = append(lines, fmt.Sprintf("? %s: %s (%s)", label, result.Claim, result.Strength))
 		if result.Question.Kind == Sensitive && result.Reason != "" {
 			lines = append(lines, "  "+result.Reason)
 		}

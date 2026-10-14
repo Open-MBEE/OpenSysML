@@ -199,15 +199,19 @@ func (s *Service) CheckBehavior(ctx context.Context, req *pb.CheckBehaviorReques
 		}
 		return &pb.CheckBehaviorResponse{Verdict: analysis.CheckUndecided.String(), Reason: err.Error()}, nil
 	}
-	return s.checkResponse(id, plan, witnessDir), nil
+	label := "Action " + id
+	if req.StateMachineSymbolId != "" {
+		label = "State machine " + id
+	}
+	return s.checkResponse(label, plan, witnessDir), nil
 }
 
 // checkResponse renders what the engines answered: the report as the command
 // prints it and its parts as data.
-func (s *Service) checkResponse(subject string, plan analysis.Plan, witnessDir string) *pb.CheckBehaviorResponse {
+func (s *Service) checkResponse(label string, plan analysis.Plan, witnessDir string) *pb.CheckBehaviorResponse {
 	result := plan.Result
 	st := s.standingOf(plan)
-	status, lines, _ := analysis.CheckLines(subject, result)
+	status, lines, _ := analysis.CheckLines(label, result)
 	resp := &pb.CheckBehaviorResponse{
 		Verdict:  status.String(),
 		Lines:    lines,
