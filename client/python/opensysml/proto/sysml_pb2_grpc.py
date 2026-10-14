@@ -125,6 +125,11 @@ class SysMLServiceStub:
                 request_serializer=sysml__pb2.RunAnalysisRequest.SerializeToString,
                 response_deserializer=sysml__pb2.RunAnalysisResponse.FromString,
                 _registered_method=True)
+        self.CheckBehavior = channel.unary_unary(
+                '/sysml.SysMLService/CheckBehavior',
+                request_serializer=sysml__pb2.CheckBehaviorRequest.SerializeToString,
+                response_deserializer=sysml__pb2.CheckBehaviorResponse.FromString,
+                _registered_method=True)
         self.RunSweep = channel.unary_unary(
                 '/sysml.SysMLService/RunSweep',
                 request_serializer=sysml__pb2.RunSweepRequest.SerializeToString,
@@ -310,6 +315,15 @@ class SysMLServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CheckBehavior(self, request, context):
+        """CheckBehavior searches every schedule of an action or state machine, as
+        `sysml -check-property`/`-check-diverge` do: a violated property, a
+        deadlock, a failure or a divergent feature is witnessed and replayed.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def RunSweep(self, request, context):
         """Run one analysis case or calc once per row of a parameter sweep, as the
         CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
@@ -469,6 +483,11 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     servicer.RunAnalysis,
                     request_deserializer=sysml__pb2.RunAnalysisRequest.FromString,
                     response_serializer=sysml__pb2.RunAnalysisResponse.SerializeToString,
+            ),
+            'CheckBehavior': grpc.unary_unary_rpc_method_handler(
+                    servicer.CheckBehavior,
+                    request_deserializer=sysml__pb2.CheckBehaviorRequest.FromString,
+                    response_serializer=sysml__pb2.CheckBehaviorResponse.SerializeToString,
             ),
             'RunSweep': grpc.unary_unary_rpc_method_handler(
                     servicer.RunSweep,
@@ -993,6 +1012,33 @@ class SysMLService:
             '/sysml.SysMLService/RunAnalysis',
             sysml__pb2.RunAnalysisRequest.SerializeToString,
             sysml__pb2.RunAnalysisResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CheckBehavior(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/CheckBehavior',
+            sysml__pb2.CheckBehaviorRequest.SerializeToString,
+            sysml__pb2.CheckBehaviorResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -587,6 +587,216 @@ pub struct ExplorationStatus {
     #[prost(int32, tag="7")]
     pub failed_linearizations: i32,
 }
+/// CheckBehaviorRequest searches every schedule of a behavior, as the `sysml`
+/// command's -check-* flags do about `-action`/`-state`.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckBehaviorRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// Exactly one of the two names the behavior searched: an action definition or
+    /// usage, or a state definition or usage.
+    #[prost(string, tag="2")]
+    pub action_symbol_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub state_machine_symbol_id: ::prost::alloc::string::String,
+    /// Inputs bound to the action's parameters before the search.
+    #[prost(map="string, message", tag="4")]
+    pub inputs: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// The object the behavior is performed by, as ExecuteActionRequest names it.
+    #[prost(string, tag="5")]
+    pub performer_symbol_id: ::prost::alloc::string::String,
+    /// Constraints or requirements evaluated at every stable state; one false at a
+    /// state is a violation (-check-property, repeatable).
+    #[prost(string, repeated, tag="6")]
+    pub check_property: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Features whose final value the schedule may decide (-check-diverge): the
+    /// action's own bare, a performed node's as `node.pin`, the performer's as
+    /// `this.<name>`; none names the action's own features and the object's attributes.
+    #[prost(string, repeated, tag="7")]
+    pub check_diverge: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Inputs left free for the symbolic engine to range over (-check-input).
+    #[prost(string, repeated, tag="8")]
+    pub check_input: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Constraints or requirements the symbolic engine assumes (-check-assume).
+    #[prost(string, repeated, tag="9")]
+    pub check_assume: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Whether each violation and divergent value carries its witness file, the
+    /// replay `-schedule replay:<file>` follows (-check-witness).
+    #[prost(bool, tag="10")]
+    pub check_witness: bool,
+    /// Search bounds; 0 leaves each to the engine's default (-check-depth,
+    /// -check-states, -check-unroll). The timeout, in seconds, is the plan's deadline
+    /// and each solver query's limit (-check-timeout); 0 is none.
+    #[prost(int32, tag="11")]
+    pub check_depth: i32,
+    #[prost(int32, tag="12")]
+    pub check_states: i32,
+    #[prost(int32, tag="13")]
+    pub check_unroll: i32,
+    #[prost(double, tag="14")]
+    pub check_timeout: f64,
+    /// The engine that answers: "check" (default), "smt", or an engine ListEngines names.
+    #[prost(string, tag="15")]
+    pub engine: ::prost::alloc::string::String,
+}
+/// CheckWitness is one schedule the interpreter replays: what the run drew and
+/// chose, and the file a replay reads when the request asked for one.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CheckWitness {
+    /// The schedule policy the replay runs under, as -schedule spells it.
+    #[prost(string, tag="1")]
+    pub schedule: ::prost::alloc::string::String,
+    /// The random values the run drew, in the order drawn.
+    #[prost(string, repeated, tag="2")]
+    pub draws: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The choice points the run resolved, in run order, each spelling the
+    /// alternatives and the one taken.
+    #[prost(string, repeated, tag="3")]
+    pub choices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Free inputs the symbolic engine pinned, as `name = value`.
+    #[prost(string, repeated, tag="4")]
+    pub inputs: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The witness file: its name as `sysml -check-witness` writes it, and its content.
+    #[prost(string, tag="5")]
+    pub file_name: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub file_content: ::prost::alloc::string::String,
+}
+/// CheckViolation is one schedule that reached a violated property, a deadlock
+/// or a failure.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckViolation {
+    /// "property", "deadlock" or "failure".
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    /// The property violated; empty for a deadlock or a failure.
+    #[prost(string, tag="2")]
+    pub property: ::prost::alloc::string::String,
+    /// The deadlock or the failure as the executor reported it; empty for a property.
+    #[prost(string, tag="3")]
+    pub error: ::prost::alloc::string::String,
+    /// How many moves the witness makes.
+    #[prost(int32, tag="4")]
+    pub depth: i32,
+    /// The probability of the schedules reaching this violation, a lower bound
+    /// when the report's mass_bounded holds.
+    #[prost(double, tag="5")]
+    pub probability: f64,
+    #[prost(message, optional, tag="6")]
+    pub witness: ::core::option::Option<CheckWitness>,
+    /// The violation as the command reports it.
+    #[prost(string, tag="7")]
+    pub text: ::prost::alloc::string::String,
+}
+/// CheckDivergentValue is one final value a feature can end with and a schedule reaching it.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CheckDivergentValue {
+    #[prost(string, tag="1")]
+    pub value: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub witness: ::core::option::Option<CheckWitness>,
+}
+/// CheckDivergence is a feature whose final value the schedule decides.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckDivergence {
+    #[prost(string, tag="1")]
+    pub feature: ::prost::alloc::string::String,
+    /// Every value some complete schedule leaves it with, in canonical order.
+    #[prost(message, repeated, tag="2")]
+    pub values: ::prost::alloc::vec::Vec<CheckDivergentValue>,
+}
+/// CheckFinal is one distinct outcome of the complete schedules.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckFinal {
+    #[prost(string, tag="1")]
+    pub outcome: ::prost::alloc::string::String,
+    #[prost(map="string, string", tag="2")]
+    pub values: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    #[prost(message, optional, tag="3")]
+    pub witness: ::core::option::Option<CheckWitness>,
+}
+/// CheckSearch is how the check engine's search went.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckSearch {
+    /// Distinct states visited, moves made, and the longest schedule searched.
+    #[prost(int32, tag="1")]
+    pub states: i32,
+    #[prost(int32, tag="2")]
+    pub moves: i32,
+    #[prost(int32, tag="3")]
+    pub max_depth: i32,
+    /// The bounds the search ran into; empty when exhaustive.
+    #[prost(string, repeated, tag="4")]
+    pub bounds_hit: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The simulated time the search stopped the clock at, when it ran to a horizon.
+    #[prost(double, tag="5")]
+    pub horizon: f64,
+    #[prost(bool, tag="6")]
+    pub horizon_set: bool,
+    /// True when the violations' probabilities are lower bounds.
+    #[prost(bool, tag="7")]
+    pub mass_bounded: bool,
+    /// Why the searched runs' coverage is narrower than their schedules.
+    #[prost(string, repeated, tag="8")]
+    pub notes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Why the finals were observed short of quiescence.
+    #[prost(string, repeated, tag="9")]
+    pub scope: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// How the search ended, as `sysml` reports it.
+    #[prost(string, tag="10")]
+    pub status: ::prost::alloc::string::String,
+}
+/// CheckBehaviorResponse is what the search found.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckBehaviorResponse {
+    /// "holds" when every schedule within the bounds was searched clean, "fails"
+    /// on a violation or a divergence, "undecided" when a bound or a refusal
+    /// left schedules unsearched.
+    #[prost(string, tag="1")]
+    pub verdict: ::prost::alloc::string::String,
+    /// The report as the command prints it, one line each.
+    #[prost(string, repeated, tag="2")]
+    pub lines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="3")]
+    pub search: ::core::option::Option<CheckSearch>,
+    #[prost(message, repeated, tag="4")]
+    pub violations: ::prost::alloc::vec::Vec<CheckViolation>,
+    #[prost(message, repeated, tag="5")]
+    pub divergences: ::prost::alloc::vec::Vec<CheckDivergence>,
+    #[prost(message, repeated, tag="6")]
+    pub finals: ::prost::alloc::vec::Vec<CheckFinal>,
+    /// What the symbolic engine asserted and how strongly, when it answered: the
+    /// claim ("holds", "violated", "sensitive", ...), the inputs it ranged over
+    /// and the assumptions it rested on, its witness and, for a sensitivity, the
+    /// contrasting schedule.
+    #[prost(string, tag="7")]
+    pub claim: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="8")]
+    pub free_inputs: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="9")]
+    pub assumptions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="10")]
+    pub witness: ::core::option::Option<CheckWitness>,
+    #[prost(message, optional, tag="11")]
+    pub contrast: ::core::option::Option<CheckWitness>,
+    /// The engine that answered, the strength of its evidence and the bounds it ran
+    /// under, as RunAnalysisResponse reports them.
+    #[prost(string, tag="12")]
+    pub engine: ::prost::alloc::string::String,
+    #[prost(string, tag="13")]
+    pub strength: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="14")]
+    pub bounds: ::prost::alloc::vec::Vec<Bound>,
+    /// Why nothing could be decided, when the verdict is undecided.
+    #[prost(string, tag="15")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="16")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// A request refused before any search: the behavior does not resolve, a
+    /// property names no constraint or requirement, an option is misused.
+    #[prost(string, tag="17")]
+    pub error: ::prost::alloc::string::String,
+}
 /// ListEnginesRequest asks for the analysis engines registered in this build.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListEnginesRequest {

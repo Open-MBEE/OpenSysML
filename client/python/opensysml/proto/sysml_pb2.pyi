@@ -455,6 +455,176 @@ class ExplorationStatus(_message.Message):
     failed_linearizations: int
     def __init__(self, complete: _Optional[bool] = ..., runs: _Optional[int] = ..., budgets_hit: _Optional[_Iterable[str]] = ..., runs_budget: _Optional[int] = ..., depth_budget: _Optional[int] = ..., probabilities_lower_bound: _Optional[bool] = ..., failed_linearizations: _Optional[int] = ...) -> None: ...
 
+class CheckBehaviorRequest(_message.Message):
+    __slots__ = ("model_hash", "action_symbol_id", "state_machine_symbol_id", "inputs", "performer_symbol_id", "check_property", "check_diverge", "check_input", "check_assume", "check_witness", "check_depth", "check_states", "check_unroll", "check_timeout", "engine")
+    class InputsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: Value
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
+    MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    ACTION_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    STATE_MACHINE_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    INPUTS_FIELD_NUMBER: _ClassVar[int]
+    PERFORMER_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    CHECK_PROPERTY_FIELD_NUMBER: _ClassVar[int]
+    CHECK_DIVERGE_FIELD_NUMBER: _ClassVar[int]
+    CHECK_INPUT_FIELD_NUMBER: _ClassVar[int]
+    CHECK_ASSUME_FIELD_NUMBER: _ClassVar[int]
+    CHECK_WITNESS_FIELD_NUMBER: _ClassVar[int]
+    CHECK_DEPTH_FIELD_NUMBER: _ClassVar[int]
+    CHECK_STATES_FIELD_NUMBER: _ClassVar[int]
+    CHECK_UNROLL_FIELD_NUMBER: _ClassVar[int]
+    CHECK_TIMEOUT_FIELD_NUMBER: _ClassVar[int]
+    ENGINE_FIELD_NUMBER: _ClassVar[int]
+    model_hash: str
+    action_symbol_id: str
+    state_machine_symbol_id: str
+    inputs: _containers.MessageMap[str, Value]
+    performer_symbol_id: str
+    check_property: _containers.RepeatedScalarFieldContainer[str]
+    check_diverge: _containers.RepeatedScalarFieldContainer[str]
+    check_input: _containers.RepeatedScalarFieldContainer[str]
+    check_assume: _containers.RepeatedScalarFieldContainer[str]
+    check_witness: bool
+    check_depth: int
+    check_states: int
+    check_unroll: int
+    check_timeout: float
+    engine: str
+    def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., state_machine_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ..., performer_symbol_id: _Optional[str] = ..., check_property: _Optional[_Iterable[str]] = ..., check_diverge: _Optional[_Iterable[str]] = ..., check_input: _Optional[_Iterable[str]] = ..., check_assume: _Optional[_Iterable[str]] = ..., check_witness: _Optional[bool] = ..., check_depth: _Optional[int] = ..., check_states: _Optional[int] = ..., check_unroll: _Optional[int] = ..., check_timeout: _Optional[float] = ..., engine: _Optional[str] = ...) -> None: ...
+
+class CheckWitness(_message.Message):
+    __slots__ = ("schedule", "draws", "choices", "inputs", "file_name", "file_content")
+    SCHEDULE_FIELD_NUMBER: _ClassVar[int]
+    DRAWS_FIELD_NUMBER: _ClassVar[int]
+    CHOICES_FIELD_NUMBER: _ClassVar[int]
+    INPUTS_FIELD_NUMBER: _ClassVar[int]
+    FILE_NAME_FIELD_NUMBER: _ClassVar[int]
+    FILE_CONTENT_FIELD_NUMBER: _ClassVar[int]
+    schedule: str
+    draws: _containers.RepeatedScalarFieldContainer[str]
+    choices: _containers.RepeatedScalarFieldContainer[str]
+    inputs: _containers.RepeatedScalarFieldContainer[str]
+    file_name: str
+    file_content: str
+    def __init__(self, schedule: _Optional[str] = ..., draws: _Optional[_Iterable[str]] = ..., choices: _Optional[_Iterable[str]] = ..., inputs: _Optional[_Iterable[str]] = ..., file_name: _Optional[str] = ..., file_content: _Optional[str] = ...) -> None: ...
+
+class CheckViolation(_message.Message):
+    __slots__ = ("kind", "property", "error", "depth", "probability", "witness", "text")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    PROPERTY_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    DEPTH_FIELD_NUMBER: _ClassVar[int]
+    PROBABILITY_FIELD_NUMBER: _ClassVar[int]
+    WITNESS_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    kind: str
+    property: str
+    error: str
+    depth: int
+    probability: float
+    witness: CheckWitness
+    text: str
+    def __init__(self, kind: _Optional[str] = ..., property: _Optional[str] = ..., error: _Optional[str] = ..., depth: _Optional[int] = ..., probability: _Optional[float] = ..., witness: _Optional[_Union[CheckWitness, _Mapping]] = ..., text: _Optional[str] = ...) -> None: ...
+
+class CheckDivergentValue(_message.Message):
+    __slots__ = ("value", "witness")
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    WITNESS_FIELD_NUMBER: _ClassVar[int]
+    value: str
+    witness: CheckWitness
+    def __init__(self, value: _Optional[str] = ..., witness: _Optional[_Union[CheckWitness, _Mapping]] = ...) -> None: ...
+
+class CheckDivergence(_message.Message):
+    __slots__ = ("feature", "values")
+    FEATURE_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    feature: str
+    values: _containers.RepeatedCompositeFieldContainer[CheckDivergentValue]
+    def __init__(self, feature: _Optional[str] = ..., values: _Optional[_Iterable[_Union[CheckDivergentValue, _Mapping]]] = ...) -> None: ...
+
+class CheckFinal(_message.Message):
+    __slots__ = ("outcome", "values", "witness")
+    class ValuesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    OUTCOME_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    WITNESS_FIELD_NUMBER: _ClassVar[int]
+    outcome: str
+    values: _containers.ScalarMap[str, str]
+    witness: CheckWitness
+    def __init__(self, outcome: _Optional[str] = ..., values: _Optional[_Mapping[str, str]] = ..., witness: _Optional[_Union[CheckWitness, _Mapping]] = ...) -> None: ...
+
+class CheckSearch(_message.Message):
+    __slots__ = ("states", "moves", "max_depth", "bounds_hit", "horizon", "horizon_set", "mass_bounded", "notes", "scope", "status")
+    STATES_FIELD_NUMBER: _ClassVar[int]
+    MOVES_FIELD_NUMBER: _ClassVar[int]
+    MAX_DEPTH_FIELD_NUMBER: _ClassVar[int]
+    BOUNDS_HIT_FIELD_NUMBER: _ClassVar[int]
+    HORIZON_FIELD_NUMBER: _ClassVar[int]
+    HORIZON_SET_FIELD_NUMBER: _ClassVar[int]
+    MASS_BOUNDED_FIELD_NUMBER: _ClassVar[int]
+    NOTES_FIELD_NUMBER: _ClassVar[int]
+    SCOPE_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    states: int
+    moves: int
+    max_depth: int
+    bounds_hit: _containers.RepeatedScalarFieldContainer[str]
+    horizon: float
+    horizon_set: bool
+    mass_bounded: bool
+    notes: _containers.RepeatedScalarFieldContainer[str]
+    scope: _containers.RepeatedScalarFieldContainer[str]
+    status: str
+    def __init__(self, states: _Optional[int] = ..., moves: _Optional[int] = ..., max_depth: _Optional[int] = ..., bounds_hit: _Optional[_Iterable[str]] = ..., horizon: _Optional[float] = ..., horizon_set: _Optional[bool] = ..., mass_bounded: _Optional[bool] = ..., notes: _Optional[_Iterable[str]] = ..., scope: _Optional[_Iterable[str]] = ..., status: _Optional[str] = ...) -> None: ...
+
+class CheckBehaviorResponse(_message.Message):
+    __slots__ = ("verdict", "lines", "search", "violations", "divergences", "finals", "claim", "free_inputs", "assumptions", "witness", "contrast", "engine", "strength", "bounds", "reason", "diagnostics", "error")
+    VERDICT_FIELD_NUMBER: _ClassVar[int]
+    LINES_FIELD_NUMBER: _ClassVar[int]
+    SEARCH_FIELD_NUMBER: _ClassVar[int]
+    VIOLATIONS_FIELD_NUMBER: _ClassVar[int]
+    DIVERGENCES_FIELD_NUMBER: _ClassVar[int]
+    FINALS_FIELD_NUMBER: _ClassVar[int]
+    CLAIM_FIELD_NUMBER: _ClassVar[int]
+    FREE_INPUTS_FIELD_NUMBER: _ClassVar[int]
+    ASSUMPTIONS_FIELD_NUMBER: _ClassVar[int]
+    WITNESS_FIELD_NUMBER: _ClassVar[int]
+    CONTRAST_FIELD_NUMBER: _ClassVar[int]
+    ENGINE_FIELD_NUMBER: _ClassVar[int]
+    STRENGTH_FIELD_NUMBER: _ClassVar[int]
+    BOUNDS_FIELD_NUMBER: _ClassVar[int]
+    REASON_FIELD_NUMBER: _ClassVar[int]
+    DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    verdict: str
+    lines: _containers.RepeatedScalarFieldContainer[str]
+    search: CheckSearch
+    violations: _containers.RepeatedCompositeFieldContainer[CheckViolation]
+    divergences: _containers.RepeatedCompositeFieldContainer[CheckDivergence]
+    finals: _containers.RepeatedCompositeFieldContainer[CheckFinal]
+    claim: str
+    free_inputs: _containers.RepeatedScalarFieldContainer[str]
+    assumptions: _containers.RepeatedScalarFieldContainer[str]
+    witness: CheckWitness
+    contrast: CheckWitness
+    engine: str
+    strength: str
+    bounds: _containers.RepeatedCompositeFieldContainer[Bound]
+    reason: str
+    diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
+    error: str
+    def __init__(self, verdict: _Optional[str] = ..., lines: _Optional[_Iterable[str]] = ..., search: _Optional[_Union[CheckSearch, _Mapping]] = ..., violations: _Optional[_Iterable[_Union[CheckViolation, _Mapping]]] = ..., divergences: _Optional[_Iterable[_Union[CheckDivergence, _Mapping]]] = ..., finals: _Optional[_Iterable[_Union[CheckFinal, _Mapping]]] = ..., claim: _Optional[str] = ..., free_inputs: _Optional[_Iterable[str]] = ..., assumptions: _Optional[_Iterable[str]] = ..., witness: _Optional[_Union[CheckWitness, _Mapping]] = ..., contrast: _Optional[_Union[CheckWitness, _Mapping]] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ..., reason: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., error: _Optional[str] = ...) -> None: ...
+
 class ListEnginesRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...

@@ -152,6 +152,56 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_sysml_ExplorationStatus_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_CheckBehaviorRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_CheckBehaviorRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_CheckBehaviorRequest_InputsEntry_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_CheckBehaviorRequest_InputsEntry_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_CheckWitness_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_CheckWitness_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_CheckViolation_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_CheckViolation_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_CheckDivergentValue_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_CheckDivergentValue_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_CheckDivergence_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_CheckDivergence_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_CheckFinal_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_CheckFinal_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_CheckFinal_ValuesEntry_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_CheckFinal_ValuesEntry_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_CheckSearch_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_CheckSearch_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_CheckBehaviorResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_CheckBehaviorResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_sysml_ListEnginesRequest_descriptor;
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -924,7 +974,67 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       "runsBudget\022!\n\014depth_budget\030\005 \001(\005R\013depthB" +
       "udget\022:\n\031probabilities_lower_bound\030\006 \001(\010" +
       "R\027probabilitiesLowerBound\0223\n\025failed_line" +
-      "arizations\030\007 \001(\005R\024failedLinearizations\"\024" +
+      "arizations\030\007 \001(\005R\024failedLinearizations\"\251" +
+      "\005\n\024CheckBehaviorRequest\022\035\n\nmodel_hash\030\001 " +
+      "\001(\tR\tmodelHash\022(\n\020action_symbol_id\030\002 \001(\t" +
+      "R\016actionSymbolId\0225\n\027state_machine_symbol" +
+      "_id\030\003 \001(\tR\024stateMachineSymbolId\022?\n\006input" +
+      "s\030\004 \003(\0132\'.sysml.CheckBehaviorRequest.Inp" +
+      "utsEntryR\006inputs\022.\n\023performer_symbol_id\030" +
+      "\005 \001(\tR\021performerSymbolId\022%\n\016check_proper" +
+      "ty\030\006 \003(\tR\rcheckProperty\022#\n\rcheck_diverge" +
+      "\030\007 \003(\tR\014checkDiverge\022\037\n\013check_input\030\010 \003(" +
+      "\tR\ncheckInput\022!\n\014check_assume\030\t \003(\tR\013che" +
+      "ckAssume\022#\n\rcheck_witness\030\n \001(\010R\014checkWi" +
+      "tness\022\037\n\013check_depth\030\013 \001(\005R\ncheckDepth\022!" +
+      "\n\014check_states\030\014 \001(\005R\013checkStates\022!\n\014che" +
+      "ck_unroll\030\r \001(\005R\013checkUnroll\022#\n\rcheck_ti" +
+      "meout\030\016 \001(\001R\014checkTimeout\022\026\n\006engine\030\017 \001(" +
+      "\tR\006engine\032G\n\013InputsEntry\022\020\n\003key\030\001 \001(\tR\003k" +
+      "ey\022\"\n\005value\030\002 \001(\0132\014.sysml.ValueR\005value:\002" +
+      "8\001\"\262\001\n\014CheckWitness\022\032\n\010schedule\030\001 \001(\tR\010s" +
+      "chedule\022\024\n\005draws\030\002 \003(\tR\005draws\022\030\n\007choices" +
+      "\030\003 \003(\tR\007choices\022\026\n\006inputs\030\004 \003(\tR\006inputs\022" +
+      "\033\n\tfile_name\030\005 \001(\tR\010fileName\022!\n\014file_con" +
+      "tent\030\006 \001(\tR\013fileContent\"\321\001\n\016CheckViolati" +
+      "on\022\022\n\004kind\030\001 \001(\tR\004kind\022\032\n\010property\030\002 \001(\t" +
+      "R\010property\022\024\n\005error\030\003 \001(\tR\005error\022\024\n\005dept" +
+      "h\030\004 \001(\005R\005depth\022 \n\013probability\030\005 \001(\001R\013pro" +
+      "bability\022-\n\007witness\030\006 \001(\0132\023.sysml.CheckW" +
+      "itnessR\007witness\022\022\n\004text\030\007 \001(\tR\004text\"Z\n\023C" +
+      "heckDivergentValue\022\024\n\005value\030\001 \001(\tR\005value" +
+      "\022-\n\007witness\030\002 \001(\0132\023.sysml.CheckWitnessR\007" +
+      "witness\"_\n\017CheckDivergence\022\030\n\007feature\030\001 " +
+      "\001(\tR\007feature\0222\n\006values\030\002 \003(\0132\032.sysml.Che" +
+      "ckDivergentValueR\006values\"\307\001\n\nCheckFinal\022" +
+      "\030\n\007outcome\030\001 \001(\tR\007outcome\0225\n\006values\030\002 \003(" +
+      "\0132\035.sysml.CheckFinal.ValuesEntryR\006values" +
+      "\022-\n\007witness\030\003 \001(\0132\023.sysml.CheckWitnessR\007" +
+      "witness\0329\n\013ValuesEntry\022\020\n\003key\030\001 \001(\tR\003key" +
+      "\022\024\n\005value\030\002 \001(\tR\005value:\0028\001\"\231\002\n\013CheckSear" +
+      "ch\022\026\n\006states\030\001 \001(\005R\006states\022\024\n\005moves\030\002 \001(" +
+      "\005R\005moves\022\033\n\tmax_depth\030\003 \001(\005R\010maxDepth\022\035\n" +
+      "\nbounds_hit\030\004 \003(\tR\tboundsHit\022\030\n\007horizon\030" +
+      "\005 \001(\001R\007horizon\022\037\n\013horizon_set\030\006 \001(\010R\nhor" +
+      "izonSet\022!\n\014mass_bounded\030\007 \001(\010R\013massBound" +
+      "ed\022\024\n\005notes\030\010 \003(\tR\005notes\022\024\n\005scope\030\t \003(\tR" +
+      "\005scope\022\026\n\006status\030\n \001(\tR\006status\"\205\005\n\025Check" +
+      "BehaviorResponse\022\030\n\007verdict\030\001 \001(\tR\007verdi" +
+      "ct\022\024\n\005lines\030\002 \003(\tR\005lines\022*\n\006search\030\003 \001(\013" +
+      "2\022.sysml.CheckSearchR\006search\0225\n\nviolatio" +
+      "ns\030\004 \003(\0132\025.sysml.CheckViolationR\nviolati" +
+      "ons\0228\n\013divergences\030\005 \003(\0132\026.sysml.CheckDi" +
+      "vergenceR\013divergences\022)\n\006finals\030\006 \003(\0132\021." +
+      "sysml.CheckFinalR\006finals\022\024\n\005claim\030\007 \001(\tR" +
+      "\005claim\022\037\n\013free_inputs\030\010 \003(\tR\nfreeInputs\022" +
+      " \n\013assumptions\030\t \003(\tR\013assumptions\022-\n\007wit" +
+      "ness\030\n \001(\0132\023.sysml.CheckWitnessR\007witness" +
+      "\022/\n\010contrast\030\013 \001(\0132\023.sysml.CheckWitnessR" +
+      "\010contrast\022\026\n\006engine\030\014 \001(\tR\006engine\022\032\n\010str" +
+      "ength\030\r \001(\tR\010strength\022$\n\006bounds\030\016 \003(\0132\014." +
+      "sysml.BoundR\006bounds\022\026\n\006reason\030\017 \001(\tR\006rea" +
+      "son\0223\n\013diagnostics\030\020 \003(\0132\021.sysml.Diagnos" +
+      "ticR\013diagnostics\022\024\n\005error\030\021 \001(\tR\005error\"\024" +
       "\n\022ListEnginesRequest\"\373\002\n\nEngineInfo\022\022\n\004n" +
       "ame\030\001 \001(\tR\004name\022\034\n\tauthority\030\002 \001(\tR\tauth" +
       "ority\022\030\n\007answers\030\003 \003(\tR\007answers\022\026\n\006bound" +
@@ -1119,7 +1229,7 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       "\tdirection\030\013 \001(\tR\tdirection\022+\n\021metadata_" +
       "prefixes\030\016 \003(\tR\020metadataPrefixes\022\020\n\003doc\030" +
       "\014 \001(\tR\003doc\022\'\n\017body_expression\030\r \001(\tR\016bod" +
-      "yExpression\"\267\001\n\016AddSatisfyEdit\022\024\n\005owner\030" +
+      "yExpression\"\267\001\n\016AddSatisfyEdit\022\024\n\005owner\030",
       "\001 \001(\tR\005owner\022 \n\013requirement\030\002 \001(\tR\013requi" +
       "rement\022-\n\022satisfying_feature\030\003 \001(\tR\021sati" +
       "sfyingFeature\022\037\n\013is_asserted\030\004 \001(\010R\nisAs" +
@@ -1179,7 +1289,7 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       "lue\030\002 \001(\tR\005value\"?\n\nRenameEdit\022\026\n\006target" +
       "\030\001 \001(\tR\006target\022\031\n\010new_name\030\002 \001(\tR\007newNam" +
       "e\"\350\002\n\022ApplyEditsResponse\022\030\n\007content\030\001 \001(" +
-      "\tR\007content\022,\n\007applied\030\002 \003(\0132\022.sysml.Appl",
+      "\tR\007content\022,\n\007applied\030\002 \003(\0132\022.sysml.Appl" +
       "iedEditR\007applied\022\024\n\005error\030\003 \001(\tR\005error\022," +
       "\n\007failure\030\004 \001(\0162\022.sysml.EditFailureR\007fai" +
       "lure\0223\n\013diagnostics\030\005 \003(\0132\021.sysml.Diagno" +
@@ -1493,7 +1603,7 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       "\n\027PRIMITIVE_OPERATOR_LESS\020\003*n\n\021Composite" +
       "Operator\022\"\n\036COMPOSITE_OPERATOR_UNSPECIFI" +
       "ED\020\000\022\032\n\026COMPOSITE_OPERATOR_AND\020\001\022\031\n\025COMP" +
-      "OSITE_OPERATOR_OR\020\0022\205\016\n\014SysMLService\022D\n\r" +
+      "OSITE_OPERATOR_OR\020\0022\321\016\n\014SysMLService\022D\n\r" +
       "GetServerInfo\022\030.sysml.ServerInfoRequest\032" +
       "\031.sysml.ServerInfoResponse\022>\n\tParseFile\022" +
       "\027.sysml.ParseFileRequest\032\030.sysml.ParseFi" +
@@ -1519,28 +1629,30 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       "ponse\022V\n\021VerifyRequirement\022\037.sysml.Verif" +
       "yRequirementRequest\032 .sysml.VerifyRequir" +
       "ementResponse\022Y\n\022VerifySatisfaction\022 .sy" +
-      "sml.VerifySatisfactionRequest\032!.sysml.Ve" +
+      "sml.VerifySatisfactionRequest\032!.sysml.Ve",
       "rifySatisfactionResponse\022S\n\020ValidateInst" +
       "ance\022\036.sysml.ValidateInstanceRequest\032\037.s" +
       "ysml.ValidateInstanceResponse\022G\n\014Evaluat" +
       "eCalc\022\032.sysml.EvaluateCalcRequest\032\033.sysm" +
       "l.EvaluateCalcResponse\022D\n\013RunAnalysis\022\031." +
       "sysml.RunAnalysisRequest\032\032.sysml.RunAnal" +
-      "ysisResponse\022;\n\010RunSweep\022\026.sysml.RunSwee" +
-      "pRequest\032\027.sysml.RunSweepResponse\022D\n\013Lis" +
-      "tEngines\022\031.sysml.ListEnginesRequest\032\032.sy" +
-      "sml.ListEnginesResponse\0222\n\005Query\022\023.sysml" +
-      ".QueryRequest\032\024.sysml.QueryResponse\022S\n\020R" +
-      "unDocumentQuery\022\036.sysml.RunDocumentQuery" +
-      "Request\032\037.sysml.RunDocumentQueryResponse" +
-      "\022M\n\016RenderDocument\022\034.sysml.RenderDocumen" +
-      "tRequest\032\035.sysml.RenderDocumentResponse\022" +
-      "A\n\nRenderView\022\030.sysml.RenderViewRequest\032" +
-      "\031.sysml.RenderViewResponse\022G\n\014ExportGrap" +
-      "hs\022\032.sysml.ExportGraphsRequest\032\033.sysml.E" +
-      "xportGraphsResponseBJ\n\034org.openmbee.open" +
-      "sysml.protoP\001Z(github.com/Open-MBEE/Open" +
-      "SysML/api/protob\006proto3"
+      "ysisResponse\022J\n\rCheckBehavior\022\033.sysml.Ch" +
+      "eckBehaviorRequest\032\034.sysml.CheckBehavior" +
+      "Response\022;\n\010RunSweep\022\026.sysml.RunSweepReq" +
+      "uest\032\027.sysml.RunSweepResponse\022D\n\013ListEng" +
+      "ines\022\031.sysml.ListEnginesRequest\032\032.sysml." +
+      "ListEnginesResponse\0222\n\005Query\022\023.sysml.Que" +
+      "ryRequest\032\024.sysml.QueryResponse\022S\n\020RunDo" +
+      "cumentQuery\022\036.sysml.RunDocumentQueryRequ" +
+      "est\032\037.sysml.RunDocumentQueryResponse\022M\n\016" +
+      "RenderDocument\022\034.sysml.RenderDocumentReq" +
+      "uest\032\035.sysml.RenderDocumentResponse\022A\n\nR" +
+      "enderView\022\030.sysml.RenderViewRequest\032\031.sy" +
+      "sml.RenderViewResponse\022G\n\014ExportGraphs\022\032" +
+      ".sysml.ExportGraphsRequest\032\033.sysml.Expor" +
+      "tGraphsResponseBJ\n\034org.openmbee.opensysm" +
+      "l.protoP\001Z(github.com/Open-MBEE/OpenSysM" +
+      "L/api/protob\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -1696,92 +1808,152 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExplorationStatus_descriptor,
         new java.lang.String[] { "Complete", "Runs", "BudgetsHit", "RunsBudget", "DepthBudget", "ProbabilitiesLowerBound", "FailedLinearizations", });
-    internal_static_sysml_ListEnginesRequest_descriptor =
+    internal_static_sysml_CheckBehaviorRequest_descriptor =
       getDescriptor().getMessageType(21);
+    internal_static_sysml_CheckBehaviorRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_CheckBehaviorRequest_descriptor,
+        new java.lang.String[] { "ModelHash", "ActionSymbolId", "StateMachineSymbolId", "Inputs", "PerformerSymbolId", "CheckProperty", "CheckDiverge", "CheckInput", "CheckAssume", "CheckWitness", "CheckDepth", "CheckStates", "CheckUnroll", "CheckTimeout", "Engine", });
+    internal_static_sysml_CheckBehaviorRequest_InputsEntry_descriptor =
+      internal_static_sysml_CheckBehaviorRequest_descriptor.getNestedType(0);
+    internal_static_sysml_CheckBehaviorRequest_InputsEntry_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_CheckBehaviorRequest_InputsEntry_descriptor,
+        new java.lang.String[] { "Key", "Value", });
+    internal_static_sysml_CheckWitness_descriptor =
+      getDescriptor().getMessageType(22);
+    internal_static_sysml_CheckWitness_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_CheckWitness_descriptor,
+        new java.lang.String[] { "Schedule", "Draws", "Choices", "Inputs", "FileName", "FileContent", });
+    internal_static_sysml_CheckViolation_descriptor =
+      getDescriptor().getMessageType(23);
+    internal_static_sysml_CheckViolation_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_CheckViolation_descriptor,
+        new java.lang.String[] { "Kind", "Property", "Error", "Depth", "Probability", "Witness", "Text", });
+    internal_static_sysml_CheckDivergentValue_descriptor =
+      getDescriptor().getMessageType(24);
+    internal_static_sysml_CheckDivergentValue_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_CheckDivergentValue_descriptor,
+        new java.lang.String[] { "Value", "Witness", });
+    internal_static_sysml_CheckDivergence_descriptor =
+      getDescriptor().getMessageType(25);
+    internal_static_sysml_CheckDivergence_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_CheckDivergence_descriptor,
+        new java.lang.String[] { "Feature", "Values", });
+    internal_static_sysml_CheckFinal_descriptor =
+      getDescriptor().getMessageType(26);
+    internal_static_sysml_CheckFinal_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_CheckFinal_descriptor,
+        new java.lang.String[] { "Outcome", "Values", "Witness", });
+    internal_static_sysml_CheckFinal_ValuesEntry_descriptor =
+      internal_static_sysml_CheckFinal_descriptor.getNestedType(0);
+    internal_static_sysml_CheckFinal_ValuesEntry_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_CheckFinal_ValuesEntry_descriptor,
+        new java.lang.String[] { "Key", "Value", });
+    internal_static_sysml_CheckSearch_descriptor =
+      getDescriptor().getMessageType(27);
+    internal_static_sysml_CheckSearch_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_CheckSearch_descriptor,
+        new java.lang.String[] { "States", "Moves", "MaxDepth", "BoundsHit", "Horizon", "HorizonSet", "MassBounded", "Notes", "Scope", "Status", });
+    internal_static_sysml_CheckBehaviorResponse_descriptor =
+      getDescriptor().getMessageType(28);
+    internal_static_sysml_CheckBehaviorResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_CheckBehaviorResponse_descriptor,
+        new java.lang.String[] { "Verdict", "Lines", "Search", "Violations", "Divergences", "Finals", "Claim", "FreeInputs", "Assumptions", "Witness", "Contrast", "Engine", "Strength", "Bounds", "Reason", "Diagnostics", "Error", });
+    internal_static_sysml_ListEnginesRequest_descriptor =
+      getDescriptor().getMessageType(29);
     internal_static_sysml_ListEnginesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ListEnginesRequest_descriptor,
         new java.lang.String[] { });
     internal_static_sysml_EngineInfo_descriptor =
-      getDescriptor().getMessageType(22);
+      getDescriptor().getMessageType(30);
     internal_static_sysml_EngineInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EngineInfo_descriptor,
         new java.lang.String[] { "Name", "Authority", "Answers", "Bounds", "Process", "ProcessFound", "Ready", "Unavailable", "Kind", "Protocol", "Source", "Command", "Version", "Served", });
     internal_static_sysml_ListEnginesResponse_descriptor =
-      getDescriptor().getMessageType(23);
+      getDescriptor().getMessageType(31);
     internal_static_sysml_ListEnginesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ListEnginesResponse_descriptor,
         new java.lang.String[] { "Engines", });
     internal_static_sysml_ParseFileRequest_descriptor =
-      getDescriptor().getMessageType(24);
+      getDescriptor().getMessageType(32);
     internal_static_sysml_ParseFileRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ParseFileRequest_descriptor,
         new java.lang.String[] { "FilePath", "Content", "ContentHash", "Language", "StrictConformance", "Source", });
     internal_static_sysml_SourceDocument_descriptor =
-      getDescriptor().getMessageType(25);
+      getDescriptor().getMessageType(33);
     internal_static_sysml_SourceDocument_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SourceDocument_descriptor,
         new java.lang.String[] { "FilePath", "Content", "Language", "Name", "Source", });
     internal_static_sysml_ParseSourcesRequest_descriptor =
-      getDescriptor().getMessageType(26);
+      getDescriptor().getMessageType(34);
     internal_static_sysml_ParseSourcesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ParseSourcesRequest_descriptor,
         new java.lang.String[] { "Documents", "StrictConformance", "BaseModelHash", });
     internal_static_sysml_ParseSourcesResponse_descriptor =
-      getDescriptor().getMessageType(27);
+      getDescriptor().getMessageType(35);
     internal_static_sysml_ParseSourcesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ParseSourcesResponse_descriptor,
         new java.lang.String[] { "ModelHash", "Roots", "Diagnostics", "Error", "Affected", });
     internal_static_sysml_ParseFileResponse_descriptor =
-      getDescriptor().getMessageType(28);
+      getDescriptor().getMessageType(36);
     internal_static_sysml_ParseFileResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ParseFileResponse_descriptor,
         new java.lang.String[] { "ModelHash", "Root", "Diagnostics", "Error", });
     internal_static_sysml_GetSymbolRequest_descriptor =
-      getDescriptor().getMessageType(29);
+      getDescriptor().getMessageType(37);
     internal_static_sysml_GetSymbolRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_GetSymbolRequest_descriptor,
         new java.lang.String[] { "ModelHash", "SymbolId", });
     internal_static_sysml_SymbolResponse_descriptor =
-      getDescriptor().getMessageType(30);
+      getDescriptor().getMessageType(38);
     internal_static_sysml_SymbolResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SymbolResponse_descriptor,
         new java.lang.String[] { "Symbol", "Error", });
     internal_static_sysml_DiagnosticsRequest_descriptor =
-      getDescriptor().getMessageType(31);
+      getDescriptor().getMessageType(39);
     internal_static_sysml_DiagnosticsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DiagnosticsRequest_descriptor,
         new java.lang.String[] { "ModelHash", });
     internal_static_sysml_DiagnosticsResponse_descriptor =
-      getDescriptor().getMessageType(32);
+      getDescriptor().getMessageType(40);
     internal_static_sysml_DiagnosticsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DiagnosticsResponse_descriptor,
         new java.lang.String[] { "Diagnostics", "Error", });
     internal_static_sysml_EvaluateRequest_descriptor =
-      getDescriptor().getMessageType(33);
+      getDescriptor().getMessageType(41);
     internal_static_sysml_EvaluateRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EvaluateRequest_descriptor,
         new java.lang.String[] { "ModelHash", "Expression", "ContextSymbolId", "SubjectSymbolId", });
     internal_static_sysml_EvaluateResponse_descriptor =
-      getDescriptor().getMessageType(34);
+      getDescriptor().getMessageType(42);
     internal_static_sysml_EvaluateResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EvaluateResponse_descriptor,
         new java.lang.String[] { "Result", "Error", "Diagnostics", });
     internal_static_sysml_Instance_descriptor =
-      getDescriptor().getMessageType(35);
+      getDescriptor().getMessageType(43);
     internal_static_sysml_Instance_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Instance_descriptor,
@@ -1793,25 +1965,25 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_Instance_FeatureValuesEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_FeatureValue_descriptor =
-      getDescriptor().getMessageType(36);
+      getDescriptor().getMessageType(44);
     internal_static_sysml_FeatureValue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_FeatureValue_descriptor,
         new java.lang.String[] { "FeatureName", "Value", "Values", "Materialized", "Error", });
     internal_static_sysml_InstantiateRequest_descriptor =
-      getDescriptor().getMessageType(37);
+      getDescriptor().getMessageType(45);
     internal_static_sysml_InstantiateRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_InstantiateRequest_descriptor,
         new java.lang.String[] { "ModelHash", "SymbolId", });
     internal_static_sysml_InstantiateResponse_descriptor =
-      getDescriptor().getMessageType(38);
+      getDescriptor().getMessageType(46);
     internal_static_sysml_InstantiateResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_InstantiateResponse_descriptor,
         new java.lang.String[] { "Instance", "Error", "Diagnostics", "Instances", });
     internal_static_sysml_ExecuteActionRequest_descriptor =
-      getDescriptor().getMessageType(39);
+      getDescriptor().getMessageType(47);
     internal_static_sysml_ExecuteActionRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExecuteActionRequest_descriptor,
@@ -1823,7 +1995,7 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_ExecuteActionRequest_InputsEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_ExecuteActionResponse_descriptor =
-      getDescriptor().getMessageType(40);
+      getDescriptor().getMessageType(48);
     internal_static_sysml_ExecuteActionResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExecuteActionResponse_descriptor,
@@ -1841,13 +2013,13 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_ExecuteActionResponse_PerformerAttributesEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_ExecuteStateRequest_descriptor =
-      getDescriptor().getMessageType(41);
+      getDescriptor().getMessageType(49);
     internal_static_sysml_ExecuteStateRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExecuteStateRequest_descriptor,
         new java.lang.String[] { "ModelHash", "StateMachineSymbolId", "Events", "Schedule", "PerformerSymbolId", "Trace", });
     internal_static_sysml_ExecuteStateResponse_descriptor =
-      getDescriptor().getMessageType(42);
+      getDescriptor().getMessageType(50);
     internal_static_sysml_ExecuteStateResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExecuteStateResponse_descriptor,
@@ -1859,193 +2031,193 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_ExecuteStateResponse_FinalContextEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_ConvertRequest_descriptor =
-      getDescriptor().getMessageType(43);
+      getDescriptor().getMessageType(51);
     internal_static_sysml_ConvertRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ConvertRequest_descriptor,
         new java.lang.String[] { "FilePath", "Content", "ModelHash", "FromFormat", "ToFormat", "TolerateSyntaxErrors", "IdForm", "Documents", "Compact", "OmitDerived", "KeepDerived", "Source", });
     internal_static_sysml_ConvertResponse_descriptor =
-      getDescriptor().getMessageType(44);
+      getDescriptor().getMessageType(52);
     internal_static_sysml_ConvertResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ConvertResponse_descriptor,
         new java.lang.String[] { "Content", "FromFormat", "ToFormat", "Error", "Diagnostics", "Experimental", "ExperimentalNotice", });
     internal_static_sysml_MigrateRequest_descriptor =
-      getDescriptor().getMessageType(45);
+      getDescriptor().getMessageType(53);
     internal_static_sysml_MigrateRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_MigrateRequest_descriptor,
         new java.lang.String[] { "FilePath", "Content", "FromFormat", "ToFormat", "Report", "Results", "LayoutPath", "LayoutContent", "ImageBaseUrl", "Strict", "Source", "Layout", });
     internal_static_sysml_MigrateResponse_descriptor =
-      getDescriptor().getMessageType(46);
+      getDescriptor().getMessageType(54);
     internal_static_sysml_MigrateResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_MigrateResponse_descriptor,
         new java.lang.String[] { "Content", "FromFormat", "ToFormat", "Error", "Experimental", "ExperimentalNotice", "Report", "Results", "Files", });
     internal_static_sysml_MigrationReport_descriptor =
-      getDescriptor().getMessageType(47);
+      getDescriptor().getMessageType(55);
     internal_static_sysml_MigrationReport_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_MigrationReport_descriptor,
         new java.lang.String[] { "Source", "Exporter", "Summary", "Mapped", "Approximated", "Unmapped", "Skipped", "Entries", "Text", });
     internal_static_sysml_MigrationEntry_descriptor =
-      getDescriptor().getMessageType(48);
+      getDescriptor().getMessageType(56);
     internal_static_sysml_MigrationEntry_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_MigrationEntry_descriptor,
         new java.lang.String[] { "Id", "Kind", "Name", "Target", "Verdict", "Note", });
     internal_static_sysml_MigrationFile_descriptor =
-      getDescriptor().getMessageType(49);
+      getDescriptor().getMessageType(57);
     internal_static_sysml_MigrationFile_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_MigrationFile_descriptor,
         new java.lang.String[] { "Path", "Content", });
     internal_static_sysml_ApplyEditsRequest_descriptor =
-      getDescriptor().getMessageType(50);
+      getDescriptor().getMessageType(58);
     internal_static_sysml_ApplyEditsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ApplyEditsRequest_descriptor,
         new java.lang.String[] { "ModelHash", "Operations", "Document", "AcceptDocuments", });
     internal_static_sysml_EditOperation_descriptor =
-      getDescriptor().getMessageType(51);
+      getDescriptor().getMessageType(59);
     internal_static_sysml_EditOperation_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EditOperation_descriptor,
         new java.lang.String[] { "SetValue", "Rename", "AddMember", "Delete", "Move", "AddConnection", "AddSatisfy", "AddRequirementConstraint", "AddTransition", "AddImport", "AddDocumentation", "AddVerify", "AddMetadata", "AddSequence", "AddMetadataPrefix", "AddComment", "AddNote", "Operation", });
     internal_static_sysml_AddMemberEdit_descriptor =
-      getDescriptor().getMessageType(52);
+      getDescriptor().getMessageType(60);
     internal_static_sysml_AddMemberEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddMemberEdit_descriptor,
         new java.lang.String[] { "Owner", "Kind", "Name", "Type", "Multiplicity", "Value", "Specializes", "IsAbstract", "Redefines", "IsDefault", "Direction", "MetadataPrefixes", "Doc", "BodyExpression", });
     internal_static_sysml_AddSatisfyEdit_descriptor =
-      getDescriptor().getMessageType(53);
+      getDescriptor().getMessageType(61);
     internal_static_sysml_AddSatisfyEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddSatisfyEdit_descriptor,
         new java.lang.String[] { "Owner", "Requirement", "SatisfyingFeature", "IsAsserted", "IsNegated", });
     internal_static_sysml_AddRequirementConstraintEdit_descriptor =
-      getDescriptor().getMessageType(54);
+      getDescriptor().getMessageType(62);
     internal_static_sysml_AddRequirementConstraintEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddRequirementConstraintEdit_descriptor,
         new java.lang.String[] { "Owner", "Kind", "Expression", "Name", });
     internal_static_sysml_AddTransitionEdit_descriptor =
-      getDescriptor().getMessageType(55);
+      getDescriptor().getMessageType(63);
     internal_static_sysml_AddTransitionEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddTransitionEdit_descriptor,
         new java.lang.String[] { "Owner", "Name", "Source", "Target", "Trigger", "Guard", "Effect", "Initial", });
     internal_static_sysml_AddVerifyEdit_descriptor =
-      getDescriptor().getMessageType(56);
+      getDescriptor().getMessageType(64);
     internal_static_sysml_AddVerifyEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddVerifyEdit_descriptor,
         new java.lang.String[] { "Owner", "Requirement", });
     internal_static_sysml_MetadataFeatureValue_descriptor =
-      getDescriptor().getMessageType(57);
+      getDescriptor().getMessageType(65);
     internal_static_sysml_MetadataFeatureValue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_MetadataFeatureValue_descriptor,
         new java.lang.String[] { "Feature", "Value", });
     internal_static_sysml_AddMetadataEdit_descriptor =
-      getDescriptor().getMessageType(58);
+      getDescriptor().getMessageType(66);
     internal_static_sysml_AddMetadataEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddMetadataEdit_descriptor,
         new java.lang.String[] { "Owner", "MetadataType", "Name", "About", "Values", "Shorthand", });
     internal_static_sysml_AddMetadataPrefixEdit_descriptor =
-      getDescriptor().getMessageType(59);
+      getDescriptor().getMessageType(67);
     internal_static_sysml_AddMetadataPrefixEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddMetadataPrefixEdit_descriptor,
         new java.lang.String[] { "Target", "MetadataType", });
     internal_static_sysml_AddImportEdit_descriptor =
-      getDescriptor().getMessageType(60);
+      getDescriptor().getMessageType(68);
     internal_static_sysml_AddImportEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddImportEdit_descriptor,
         new java.lang.String[] { "Owner", "Visibility", "Target", "IsRecursive", "IsImportAll", "Filters", });
     internal_static_sysml_AddDocumentationEdit_descriptor =
-      getDescriptor().getMessageType(61);
+      getDescriptor().getMessageType(69);
     internal_static_sysml_AddDocumentationEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddDocumentationEdit_descriptor,
         new java.lang.String[] { "Target", "Body", "Name", "Locale", "Replace", });
     internal_static_sysml_AddCommentEdit_descriptor =
-      getDescriptor().getMessageType(62);
+      getDescriptor().getMessageType(70);
     internal_static_sysml_AddCommentEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddCommentEdit_descriptor,
         new java.lang.String[] { "Owner", "Body", "Name", "About", "Locale", });
     internal_static_sysml_AddNoteEdit_descriptor =
-      getDescriptor().getMessageType(63);
+      getDescriptor().getMessageType(71);
     internal_static_sysml_AddNoteEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddNoteEdit_descriptor,
         new java.lang.String[] { "Target", "Text", });
     internal_static_sysml_AddSequenceEdit_descriptor =
-      getDescriptor().getMessageType(64);
+      getDescriptor().getMessageType(72);
     internal_static_sysml_AddSequenceEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddSequenceEdit_descriptor,
         new java.lang.String[] { "Owner", "Keyword", "Ref", "MemberKind", "MemberName", "Type", "After", "Condition", "Value", "Target", "Via", "Until", "Body", "ElseBody", "Multiplicity", "Parameter", });
     internal_static_sysml_AddConnectionEdit_descriptor =
-      getDescriptor().getMessageType(65);
+      getDescriptor().getMessageType(73);
     internal_static_sysml_AddConnectionEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddConnectionEdit_descriptor,
         new java.lang.String[] { "Owner", "Kind", "FromEnd", "ToEnd", "Name", "Type", });
     internal_static_sysml_DeleteEdit_descriptor =
-      getDescriptor().getMessageType(66);
+      getDescriptor().getMessageType(74);
     internal_static_sysml_DeleteEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DeleteEdit_descriptor,
         new java.lang.String[] { "Target", "Cascade", });
     internal_static_sysml_MoveEdit_descriptor =
-      getDescriptor().getMessageType(67);
+      getDescriptor().getMessageType(75);
     internal_static_sysml_MoveEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_MoveEdit_descriptor,
         new java.lang.String[] { "Target", "Owner", });
     internal_static_sysml_SetValueEdit_descriptor =
-      getDescriptor().getMessageType(68);
+      getDescriptor().getMessageType(76);
     internal_static_sysml_SetValueEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SetValueEdit_descriptor,
         new java.lang.String[] { "Target", "Value", });
     internal_static_sysml_RenameEdit_descriptor =
-      getDescriptor().getMessageType(69);
+      getDescriptor().getMessageType(77);
     internal_static_sysml_RenameEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenameEdit_descriptor,
         new java.lang.String[] { "Target", "NewName", });
     internal_static_sysml_ApplyEditsResponse_descriptor =
-      getDescriptor().getMessageType(70);
+      getDescriptor().getMessageType(78);
     internal_static_sysml_ApplyEditsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ApplyEditsResponse_descriptor,
         new java.lang.String[] { "Content", "Applied", "Error", "Failure", "Diagnostics", "ReferringElements", "Documents", "Referrers", });
     internal_static_sysml_EditedDocument_descriptor =
-      getDescriptor().getMessageType(71);
+      getDescriptor().getMessageType(79);
     internal_static_sysml_EditedDocument_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EditedDocument_descriptor,
         new java.lang.String[] { "Name", "Content", });
     internal_static_sysml_Referrer_descriptor =
-      getDescriptor().getMessageType(72);
+      getDescriptor().getMessageType(80);
     internal_static_sysml_Referrer_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Referrer_descriptor,
         new java.lang.String[] { "Name", "Document", });
     internal_static_sysml_AppliedEdit_descriptor =
-      getDescriptor().getMessageType(73);
+      getDescriptor().getMessageType(81);
     internal_static_sysml_AppliedEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AppliedEdit_descriptor,
         new java.lang.String[] { "OperationIndex", "Target", "Offset", "Length", "OldText", "NewText", "Document", });
     internal_static_sysml_SymbolInfo_descriptor =
-      getDescriptor().getMessageType(74);
+      getDescriptor().getMessageType(82);
     internal_static_sysml_SymbolInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SymbolInfo_descriptor,
@@ -2057,193 +2229,193 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_SymbolInfo_MetadataEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_Specialization_descriptor =
-      getDescriptor().getMessageType(75);
+      getDescriptor().getMessageType(83);
     internal_static_sysml_Specialization_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Specialization_descriptor,
         new java.lang.String[] { "Kind", "Declared", "TargetId", "TargetKind", });
     internal_static_sysml_TypeInfo_descriptor =
-      getDescriptor().getMessageType(76);
+      getDescriptor().getMessageType(84);
     internal_static_sysml_TypeInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_TypeInfo_descriptor,
         new java.lang.String[] { "Declared", "ResolvedId", "ResolvedKind", "Primitive", "PrimitiveSource", "Quantity", "Unit", });
     internal_static_sysml_MultiplicityInfo_descriptor =
-      getDescriptor().getMessageType(77);
+      getDescriptor().getMessageType(85);
     internal_static_sysml_MultiplicityInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_MultiplicityInfo_descriptor,
         new java.lang.String[] { "Lower", "Upper", });
     internal_static_sysml_AttributeInfo_descriptor =
-      getDescriptor().getMessageType(78);
+      getDescriptor().getMessageType(86);
     internal_static_sysml_AttributeInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AttributeInfo_descriptor,
         new java.lang.String[] { "Name", "Type", "Value", "Unit", });
     internal_static_sysml_Value_descriptor =
-      getDescriptor().getMessageType(79);
+      getDescriptor().getMessageType(87);
     internal_static_sysml_Value_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Value_descriptor,
         new java.lang.String[] { "IntValue", "RealValue", "BoolValue", "StringValue", "InstanceId", "Sequence", "Null", "Quantity", "EnumLiteral", "Unset", "Complex", "Array", "Vector", "VectorQuantity", "MeasurementRef", "Infinity", "Function", "Set", "TensorQuantity", "Metaobject", "Undetermined", "BigIntValue", "RationalValue", "Kind", });
     internal_static_sysml_Rational_descriptor =
-      getDescriptor().getMessageType(80);
+      getDescriptor().getMessageType(88);
     internal_static_sysml_Rational_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Rational_descriptor,
         new java.lang.String[] { "Numerator", "Denominator", });
     internal_static_sysml_Metaobject_descriptor =
-      getDescriptor().getMessageType(81);
+      getDescriptor().getMessageType(89);
     internal_static_sysml_Metaobject_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Metaobject_descriptor,
         new java.lang.String[] { "ElementId", "MetaclassId", });
     internal_static_sysml_Undetermined_descriptor =
-      getDescriptor().getMessageType(82);
+      getDescriptor().getMessageType(90);
     internal_static_sysml_Undetermined_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Undetermined_descriptor,
         new java.lang.String[] { "Reason", "Count", });
     internal_static_sysml_Function_descriptor =
-      getDescriptor().getMessageType(83);
+      getDescriptor().getMessageType(91);
     internal_static_sysml_Function_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Function_descriptor,
         new java.lang.String[] { "CalcId", "SelfId", });
     internal_static_sysml_ValueSet_descriptor =
-      getDescriptor().getMessageType(84);
+      getDescriptor().getMessageType(92);
     internal_static_sysml_ValueSet_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ValueSet_descriptor,
         new java.lang.String[] { "Elements", });
     internal_static_sysml_TensorQuantity_descriptor =
-      getDescriptor().getMessageType(85);
+      getDescriptor().getMessageType(93);
     internal_static_sysml_TensorQuantity_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_TensorQuantity_descriptor,
         new java.lang.String[] { "Dimensions", "Components", });
     internal_static_sysml_Array_descriptor =
-      getDescriptor().getMessageType(86);
+      getDescriptor().getMessageType(94);
     internal_static_sysml_Array_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Array_descriptor,
         new java.lang.String[] { "Dimensions", "Elements", });
     internal_static_sysml_Vector_descriptor =
-      getDescriptor().getMessageType(87);
+      getDescriptor().getMessageType(95);
     internal_static_sysml_Vector_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Vector_descriptor,
         new java.lang.String[] { "Components", });
     internal_static_sysml_VectorQuantity_descriptor =
-      getDescriptor().getMessageType(88);
+      getDescriptor().getMessageType(96);
     internal_static_sysml_VectorQuantity_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_VectorQuantity_descriptor,
         new java.lang.String[] { "Components", });
     internal_static_sysml_Complex_descriptor =
-      getDescriptor().getMessageType(89);
+      getDescriptor().getMessageType(97);
     internal_static_sysml_Complex_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Complex_descriptor,
         new java.lang.String[] { "Real", "Imaginary", });
     internal_static_sysml_EnumLiteral_descriptor =
-      getDescriptor().getMessageType(90);
+      getDescriptor().getMessageType(98);
     internal_static_sysml_EnumLiteral_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EnumLiteral_descriptor,
         new java.lang.String[] { "LiteralId", "EnumerationId", "Name", "Value", });
     internal_static_sysml_ValueSequence_descriptor =
-      getDescriptor().getMessageType(91);
+      getDescriptor().getMessageType(99);
     internal_static_sysml_ValueSequence_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ValueSequence_descriptor,
         new java.lang.String[] { "Elements", });
     internal_static_sysml_Quantity_descriptor =
-      getDescriptor().getMessageType(92);
+      getDescriptor().getMessageType(100);
     internal_static_sysml_Quantity_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Quantity_descriptor,
         new java.lang.String[] { "IntMagnitude", "RealMagnitude", "BigIntMagnitude", "RationalMagnitude", "Unit", "UnitTerm", "Magnitude", });
     internal_static_sysml_MeasurementRef_descriptor =
-      getDescriptor().getMessageType(93);
+      getDescriptor().getMessageType(101);
     internal_static_sysml_MeasurementRef_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_MeasurementRef_descriptor,
         new java.lang.String[] { "Unit", "UnitTerm", "UnitId", });
     internal_static_sysml_UnitTerm_descriptor =
-      getDescriptor().getMessageType(94);
+      getDescriptor().getMessageType(102);
     internal_static_sysml_UnitTerm_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_UnitTerm_descriptor,
         new java.lang.String[] { "ScaleNum", "ScaleDen", "Factors", });
     internal_static_sysml_UnitFactor_descriptor =
-      getDescriptor().getMessageType(95);
+      getDescriptor().getMessageType(103);
     internal_static_sysml_UnitFactor_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_UnitFactor_descriptor,
         new java.lang.String[] { "UnitId", "Exponent", });
     internal_static_sysml_Diagnostic_descriptor =
-      getDescriptor().getMessageType(96);
+      getDescriptor().getMessageType(104);
     internal_static_sysml_Diagnostic_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Diagnostic_descriptor,
         new java.lang.String[] { "Severity", "Message", "Span", "Code", });
     internal_static_sysml_Span_descriptor =
-      getDescriptor().getMessageType(97);
+      getDescriptor().getMessageType(105);
     internal_static_sysml_Span_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Span_descriptor,
         new java.lang.String[] { "File", "StartLine", "StartCol", "EndLine", "EndCol", });
     internal_static_sysml_ServerInfoRequest_descriptor =
-      getDescriptor().getMessageType(98);
+      getDescriptor().getMessageType(106);
     internal_static_sysml_ServerInfoRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ServerInfoRequest_descriptor,
         new java.lang.String[] { });
     internal_static_sysml_ServerInfoResponse_descriptor =
-      getDescriptor().getMessageType(99);
+      getDescriptor().getMessageType(107);
     internal_static_sysml_ServerInfoResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ServerInfoResponse_descriptor,
         new java.lang.String[] { "Version", "Capabilities", });
     internal_static_sysml_QueryRequest_descriptor =
-      getDescriptor().getMessageType(100);
+      getDescriptor().getMessageType(108);
     internal_static_sysml_QueryRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_QueryRequest_descriptor,
         new java.lang.String[] { "ModelHash", "Query", "OslcQuery", });
     internal_static_sysml_QueryResponse_descriptor =
-      getDescriptor().getMessageType(101);
+      getDescriptor().getMessageType(109);
     internal_static_sysml_QueryResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_QueryResponse_descriptor,
         new java.lang.String[] { "Elements", });
     internal_static_sysml_Query_descriptor =
-      getDescriptor().getMessageType(102);
+      getDescriptor().getMessageType(110);
     internal_static_sysml_Query_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Query_descriptor,
         new java.lang.String[] { "Scope", "Select", "Where", });
     internal_static_sysml_Constraint_descriptor =
-      getDescriptor().getMessageType(103);
+      getDescriptor().getMessageType(111);
     internal_static_sysml_Constraint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Constraint_descriptor,
         new java.lang.String[] { "Primitive", "Composite", "Constraint", });
     internal_static_sysml_PrimitiveConstraint_descriptor =
-      getDescriptor().getMessageType(104);
+      getDescriptor().getMessageType(112);
     internal_static_sysml_PrimitiveConstraint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_PrimitiveConstraint_descriptor,
         new java.lang.String[] { "Inverse", "Property", "Operator", "Value", });
     internal_static_sysml_CompositeConstraint_descriptor =
-      getDescriptor().getMessageType(105);
+      getDescriptor().getMessageType(113);
     internal_static_sysml_CompositeConstraint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_CompositeConstraint_descriptor,
         new java.lang.String[] { "Operator", "Constraint", });
     internal_static_sysml_QueryResultElement_descriptor =
-      getDescriptor().getMessageType(106);
+      getDescriptor().getMessageType(114);
     internal_static_sysml_QueryResultElement_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_QueryResultElement_descriptor,
@@ -2255,13 +2427,13 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_QueryResultElement_PropertiesEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_SweepRange_descriptor =
-      getDescriptor().getMessageType(107);
+      getDescriptor().getMessageType(115);
     internal_static_sysml_SweepRange_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SweepRange_descriptor,
         new java.lang.String[] { "Parameter", "Start", "End", "Step", });
     internal_static_sysml_RunSweepRequest_descriptor =
-      getDescriptor().getMessageType(108);
+      getDescriptor().getMessageType(116);
     internal_static_sysml_RunSweepRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunSweepRequest_descriptor,
@@ -2273,169 +2445,169 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_RunSweepRequest_NamedArgumentsEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_SweepRow_descriptor =
-      getDescriptor().getMessageType(109);
+      getDescriptor().getMessageType(117);
     internal_static_sysml_SweepRow_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SweepRow_descriptor,
         new java.lang.String[] { "Inputs", "Outputs", "Verdicts", "ElapsedMicros", "Error", "FailureReason", "Evaluations", });
     internal_static_sysml_RunSweepResponse_descriptor =
-      getDescriptor().getMessageType(110);
+      getDescriptor().getMessageType(118);
     internal_static_sysml_RunSweepResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunSweepResponse_descriptor,
         new java.lang.String[] { "Rows", "Parameters", "Sampled", "Seed", "Error", "Diagnostics", "FailureReason", "Instances", "Engine", "Strength", "Bounds", });
     internal_static_sysml_RunDocumentQueryRequest_descriptor =
-      getDescriptor().getMessageType(111);
+      getDescriptor().getMessageType(119);
     internal_static_sysml_RunDocumentQueryRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunDocumentQueryRequest_descriptor,
         new java.lang.String[] { "ModelHash", "QueryId", "Bindings", });
     internal_static_sysml_DocumentQueryBinding_descriptor =
-      getDescriptor().getMessageType(112);
+      getDescriptor().getMessageType(120);
     internal_static_sysml_DocumentQueryBinding_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentQueryBinding_descriptor,
         new java.lang.String[] { "Parameter", "Values", });
     internal_static_sysml_DocumentValue_descriptor =
-      getDescriptor().getMessageType(113);
+      getDescriptor().getMessageType(121);
     internal_static_sysml_DocumentValue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentValue_descriptor,
         new java.lang.String[] { "ElementId", "StringValue", "IntValue", "RealValue", "BoolValue", "Infinity", "Quantity", "Verdict", "Object", "State", "Event", "BigIntValue", "RationalValue", "ElementType", "Kind", });
     internal_static_sysml_DocumentObject_descriptor =
-      getDescriptor().getMessageType(114);
+      getDescriptor().getMessageType(122);
     internal_static_sysml_DocumentObject_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentObject_descriptor,
         new java.lang.String[] { "InstanceId", "Path", "Element", });
     internal_static_sysml_DocumentVerdict_descriptor =
-      getDescriptor().getMessageType(115);
+      getDescriptor().getMessageType(123);
     internal_static_sysml_DocumentVerdict_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentVerdict_descriptor,
         new java.lang.String[] { "Assertion", "Kind", "Text", "Path", "Verdict", "Condition", "Reason", "Verification", });
     internal_static_sysml_DocumentState_descriptor =
-      getDescriptor().getMessageType(116);
+      getDescriptor().getMessageType(124);
     internal_static_sysml_DocumentState_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentState_descriptor,
         new java.lang.String[] { "Object", "Machine", "Name", "StatePath", "State", "Region", "Enclosing", });
     internal_static_sysml_DocumentEvent_descriptor =
-      getDescriptor().getMessageType(117);
+      getDescriptor().getMessageType(125);
     internal_static_sysml_DocumentEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentEvent_descriptor,
         new java.lang.String[] { "Kind", "Time", "Object", "Machine", "State", "From", "To", "Target", "Event", "Payload", "Alternatives", "Taken", "Text", });
     internal_static_sysml_DocumentQueryColumn_descriptor =
-      getDescriptor().getMessageType(118);
+      getDescriptor().getMessageType(126);
     internal_static_sysml_DocumentQueryColumn_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentQueryColumn_descriptor,
         new java.lang.String[] { "Name", });
     internal_static_sysml_DocumentQueryCell_descriptor =
-      getDescriptor().getMessageType(119);
+      getDescriptor().getMessageType(127);
     internal_static_sysml_DocumentQueryCell_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentQueryCell_descriptor,
         new java.lang.String[] { "Values", });
     internal_static_sysml_DocumentQueryRow_descriptor =
-      getDescriptor().getMessageType(120);
+      getDescriptor().getMessageType(128);
     internal_static_sysml_DocumentQueryRow_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentQueryRow_descriptor,
         new java.lang.String[] { "Element", "Cells", });
     internal_static_sysml_RunDocumentQueryResponse_descriptor =
-      getDescriptor().getMessageType(121);
+      getDescriptor().getMessageType(129);
     internal_static_sysml_RunDocumentQueryResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunDocumentQueryResponse_descriptor,
         new java.lang.String[] { "Columns", "Rows", });
     internal_static_sysml_RenderDocumentRequest_descriptor =
-      getDescriptor().getMessageType(122);
+      getDescriptor().getMessageType(130);
     internal_static_sysml_RenderDocumentRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderDocumentRequest_descriptor,
         new java.lang.String[] { "ModelHash", "DocumentId", "Form", });
     internal_static_sysml_RenderDocumentResponse_descriptor =
-      getDescriptor().getMessageType(123);
+      getDescriptor().getMessageType(131);
     internal_static_sysml_RenderDocumentResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderDocumentResponse_descriptor,
         new java.lang.String[] { "Markdown", "Html", "FileName", });
     internal_static_sysml_RenderViewRequest_descriptor =
-      getDescriptor().getMessageType(124);
+      getDescriptor().getMessageType(132);
     internal_static_sysml_RenderViewRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderViewRequest_descriptor,
         new java.lang.String[] { "ModelHash", "View", "Ports", "Show", });
     internal_static_sysml_RenderViewResponse_descriptor =
-      getDescriptor().getMessageType(125);
+      getDescriptor().getMessageType(133);
     internal_static_sysml_RenderViewResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderViewResponse_descriptor,
         new java.lang.String[] { "View", "Kind", "Stated", "Nodes", "Edges", "Columns", "Rows", "Canvas", "Notes", "Notices", "Shown", });
     internal_static_sysml_RenderNode_descriptor =
-      getDescriptor().getMessageType(126);
+      getDescriptor().getMessageType(134);
     internal_static_sysml_RenderNode_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderNode_descriptor,
         new java.lang.String[] { "Id", "Kind", "Name", "NameSynthesized", "Type", "Detail", "Text", "StandIn", "Parent", "Ports", "Origin", "Geometry", "Style", });
     internal_static_sysml_RenderPort_descriptor =
-      getDescriptor().getMessageType(127);
+      getDescriptor().getMessageType(135);
     internal_static_sysml_RenderPort_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderPort_descriptor,
         new java.lang.String[] { "Id", "Name", "Type", "Direction", });
     internal_static_sysml_RenderEdge_descriptor =
-      getDescriptor().getMessageType(128);
+      getDescriptor().getMessageType(136);
     internal_static_sysml_RenderEdge_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderEdge_descriptor,
         new java.lang.String[] { "From", "To", "FromPort", "ToPort", "Label", "Name", "Kind", "Origin", "Route", "Style", });
     internal_static_sysml_RenderGeometry_descriptor =
-      getDescriptor().getMessageType(129);
+      getDescriptor().getMessageType(137);
     internal_static_sysml_RenderGeometry_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderGeometry_descriptor,
         new java.lang.String[] { "X", "Y", "Width", "Height", "HasSize", "Collapsed", });
     internal_static_sysml_RenderCanvas_descriptor =
-      getDescriptor().getMessageType(130);
+      getDescriptor().getMessageType(138);
     internal_static_sysml_RenderCanvas_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderCanvas_descriptor,
         new java.lang.String[] { "Unit", "Width", "Height", "HasSize", });
     internal_static_sysml_RenderStyle_descriptor =
-      getDescriptor().getMessageType(131);
+      getDescriptor().getMessageType(139);
     internal_static_sysml_RenderStyle_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderStyle_descriptor,
         new java.lang.String[] { "Fill", "Line", "Text", "Font", "FontSize", "Bold", "Italic", });
     internal_static_sysml_RenderPoint_descriptor =
-      getDescriptor().getMessageType(132);
+      getDescriptor().getMessageType(140);
     internal_static_sysml_RenderPoint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderPoint_descriptor,
         new java.lang.String[] { "X", "Y", });
     internal_static_sysml_RenderRow_descriptor =
-      getDescriptor().getMessageType(133);
+      getDescriptor().getMessageType(141);
     internal_static_sysml_RenderRow_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderRow_descriptor,
         new java.lang.String[] { "Cells", "Origin", });
     internal_static_sysml_RenderNote_descriptor =
-      getDescriptor().getMessageType(134);
+      getDescriptor().getMessageType(142);
     internal_static_sysml_RenderNote_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderNote_descriptor,
         new java.lang.String[] { "Text", "Anchor", "EdgeFrom", "EdgeTo", "X", "Y", "Width", "Height", "HasSize", "Origin", });
     internal_static_sysml_ExportGraphsRequest_descriptor =
-      getDescriptor().getMessageType(135);
+      getDescriptor().getMessageType(143);
     internal_static_sysml_ExportGraphsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExportGraphsRequest_descriptor,
         new java.lang.String[] { "ModelHash", "Subject", });
     internal_static_sysml_ExportGraphsResponse_descriptor =
-      getDescriptor().getMessageType(136);
+      getDescriptor().getMessageType(144);
     internal_static_sysml_ExportGraphsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExportGraphsResponse_descriptor,
