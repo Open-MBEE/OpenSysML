@@ -80,6 +80,7 @@ func (tc *typeChecker) walk(scope *symbols.Scope, members []ast.Node) {
 				keyword:      d.Keyword,
 				hasType:      hasTypingRelationship(d.Relationships),
 				span:         d.Span(),
+				sym:          scope.MemberDeclaring(d),
 			})
 			tc.expr.checkUsageBounds(scope, d)
 			switch target := tc.metadataTargets[d]; {
@@ -309,6 +310,8 @@ type declKind struct {
 	span source.Span
 	// conjugated marks a `~T` typing, which the conjugation rule owns.
 	conjugated bool
+	// sym is the declared usage, whose kind's base decides which types are redundant.
+	sym *symbols.Symbol
 }
 
 // isPlainClassifier reports whether the declaration is written with `classifier`
@@ -410,6 +413,10 @@ func (tc *typeChecker) checkTypeTarget(scope *symbols.Scope, target ast.Node, re
 	if relKind == ast.RelSpecializes && w11aFamilyRuleFires(decl, targetSym) {
 		return // a supertype of the wrong classifier family is the family rules' finding
 	}
+	if relKind == ast.RelTyping && targetSym.Kind == symbols.SymbolKerMLType {
+		tc.checkKerMLTyping(decl, targetSym)
+		return
+	}
 	kind := targetSym.Kind
 	if relKind == ast.RelReferences || relKind == ast.RelSubsets {
 		kind = referentKind(targetSym)
@@ -507,10 +514,7 @@ func (tc *typeChecker) checkNearestDeclaredUsageTyping(target *symbols.Symbol, d
 		return false
 	}
 	for _, typ := range nearestDeclaredUsageTypesOf(tc.resolver, target, make(map[*symbols.Symbol]bool)) {
-		if !isDefKind(typ.sym.Kind) {
-			continue
-		}
-		if compatibleTyping(decl.useKind, decl.direction, typ.sym.Kind) {
+		if !isDefKind(typ.sym.Kind) || tc.usageTypeAllowed(decl, typ.sym) {
 			continue
 		}
 		tc.appendUnique(diag.Diagnostic{
@@ -523,6 +527,30 @@ func (tc *typeChecker) checkNearestDeclaredUsageTyping(target *symbols.Symbol, d
 		return true
 	}
 	return false
+}
+
+// usageTypeAllowed judges a type the declared usage has, declared or inherited.
+func (tc *typeChecker) usageTypeAllowed(decl declKind, typ *symbols.Symbol) bool {
+	return usageTypeAllowed(tc.expr.model, tc.resolver, decl, typ)
+}
+
+// checkKerMLTyping checks a usage typed by a KerML type by the same rule as one
+// typed by a definition; a KerML declaration or a conjugated typing has none.
+func (tc *typeChecker) checkKerMLTyping(decl declKind, typ *symbols.Symbol) {
+	if decl.isDef || decl.isKerML() || decl.conjugated {
+		return
+	}
+	msg, code, ok := pilotTypingMessage(decl)
+	if !ok || tc.usageTypeAllowed(decl, typ) {
+		return
+	}
+	tc.appendUnique(diag.Diagnostic{
+		Severity: diag.SeverityError,
+		Span:     decl.span,
+		Message:  msg,
+		Code:     code,
+		Source:   "type",
+	})
 }
 
 func nearestDeclaredUsageTypesOf(resolver *resolve.Resolver, sym *symbols.Symbol, visited map[*symbols.Symbol]bool) []w8dUsageType {
@@ -780,12 +808,6 @@ func compatMessage(decl declKind, rel ast.RelationshipKind, target symbols.Symbo
 		// Nor does it constrain a usage written with no kind keyword: that is a
 		// ReferenceUsage, whose type may be any definition.
 		if decl.isReferenceUsage() {
-			return ""
-		}
-		// Every SysML definition specializes a KerML type (a part def is a
-		// Structure, an action def a Behavior …), so a KerML type may type a usage
-		// of any kind (KerML 1.0 §8.3.4).
-		if target == symbols.SymbolKerMLType {
 			return ""
 		}
 		// An `individual` or `snapshot` usage is an occurrence usage, and an
