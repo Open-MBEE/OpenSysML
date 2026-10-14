@@ -115,6 +115,18 @@ func (m *orderMarks) of(p lower.Place) []int64 {
 	return out
 }
 
+// at is what the one declaration the place names stands on, the marks a rewrite
+// of the place replaces; a read, which may reach same-named places, uses of.
+func (m *orderMarks) at(p lower.Place) []int64 {
+	var out []int64
+	for _, e := range m.entries {
+		if samePlace(e.place, p) {
+			out = unionSerials(out, e.by)
+		}
+	}
+	return out
+}
+
 // all is every choice point some value stands on, what a dynamic read may reach.
 func (m *orderMarks) all() []int64 {
 	var out []int64
@@ -126,12 +138,13 @@ func (m *orderMarks) all() []int64 {
 
 // rewrite sets what a write of the place leaves it standing on: by, and what a
 // choice drawn at this instant of the clock left on it, which the write is not
-// ordered after.
+// ordered after. Only the place itself is rewritten: a same-named place of
+// another declaration may hold a different value, which the write leaves as it was.
 func (m *orderMarks) rewrite(p lower.Place, by []int64, now float64) {
 	kept := slices.Clone(by)
 	entries := m.entries[:0]
 	for _, e := range m.entries {
-		if !e.place.Conflicts(p) {
+		if !samePlace(e.place, p) {
 			entries = append(entries, e)
 			continue
 		}
@@ -147,12 +160,28 @@ func (m *orderMarks) rewrite(p lower.Place, by []int64, now float64) {
 	}
 }
 
+// samePlace reports whether two places certainly name one value: the same
+// declaration, or the same name where neither is resolved to one. A place that may
+// merely conflict (Place.Conflicts) is read conservatively, never rewritten.
+func samePlace(p, q lower.Place) bool {
+	if p.Node != q.Node {
+		return false
+	}
+	if p.State != nil || q.State != nil {
+		return p.State == q.State
+	}
+	if p.Sym != nil || q.Sym != nil {
+		return p.Sym == q.Sym
+	}
+	return p.Name == q.Name
+}
+
 // standingOn is the choice points a value stands on, among those live: the marks
-// on every place named reports as the value's, a pin or a state's activity aside.
+// on every place named reports as the value's, a state's activity aside.
 func (m *orderMarks) standingOn(live map[int64]bool, named func(lower.Place) bool) int {
 	var found []int64
 	for _, e := range m.entries {
-		if e.place.Local || e.place.State != nil || !named(e.place) {
+		if e.place.State != nil || !named(e.place) {
 			continue
 		}
 		for _, s := range e.by {
@@ -230,10 +259,10 @@ func (ctx *Context) writeMarks(places []lower.Place, by []int64) {
 	}
 }
 
-// acceptMarks records the places an accept bound from the message: they stand on
+// acceptMarks records the places an accept bound from a message: they stand on
 // what the message's payload stood on where it was sent, and on the control here.
-func (ctx *Context) acceptMarks(places []lower.Place, msg *Message) {
-	ctx.writeMarks(places, unionSerials(slices.Clone(ctx.controls), msg.dependence))
+func (ctx *Context) acceptMarks(places []lower.Place, dependence []int64) {
+	ctx.writeMarks(places, unionSerials(slices.Clone(ctx.controls), dependence))
 }
 
 // liveChoices is the serials of the run's unresolved choice points.

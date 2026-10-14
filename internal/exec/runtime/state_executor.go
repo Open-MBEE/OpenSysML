@@ -2287,7 +2287,7 @@ func (e *StateExecutor) bindAcceptPayload(name string, accept *ast.AcceptEvent, 
 	}
 	event.Payload = msg
 	e.bindData(name, value)
-	e.ctx.acceptMarks([]lower.Place{{Name: name}}, &msg)
+	e.ctx.acceptMarks([]lower.Place{{Name: name}}, msg.dependence)
 	return nil
 }
 

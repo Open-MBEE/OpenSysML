@@ -271,7 +271,6 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 		); err != nil {
 			return flowNext, err
 		}
-		e.markPerformance(graph, node, false)
 		if _, declared := graph.Multiplicities[node]; declared && f.perf.repeatedStep() {
 			e.recordRepetition(parent, node, f.perf)
 		}
@@ -304,7 +303,6 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 	if err := e.applyDataFlows(parent, graph, node, f.perf, f.perf.data, f.perf.streamed, nil); err != nil {
 		return flowNext, err
 	}
-	e.markPerformance(graph, node, true)
 	if ended != nil {
 		return flowNext, e.flow.endAlongside(ended)
 	}
@@ -321,7 +319,7 @@ func (e *performances) markPerformance(graph *lower.ActionGraph, node ast.Node, 
 	if ended {
 		for _, w := range fp.Writes {
 			if w.Local {
-				by = unionSerials(by, e.ctx.run.marks.of(w))
+				by = unionSerials(by, e.ctx.run.marks.at(w))
 			}
 		}
 	}

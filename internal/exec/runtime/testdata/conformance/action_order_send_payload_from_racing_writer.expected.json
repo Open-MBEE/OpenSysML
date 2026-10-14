@@ -6,5 +6,5 @@
 		{"outputs": {"x": {"type": "Integer", "value": 2}, "total": {"type": "Integer", "value": 12}, "count": {"type": "Integer", "value": 1}}}
 	],
 	"admissible": "A message's payload carries what it stands on to the accept that binds it",
-	"orderDependent": {"x": 2, "total": 2}
+	"orderDependent": {"x": 2, "total": 2, "receiver.msg": 2}
 }

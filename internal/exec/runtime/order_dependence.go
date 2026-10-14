@@ -142,17 +142,37 @@ func (ctx *Context) placeNamed(p lower.Place, name string, selves []*Instance) b
 	if p.Name != name && lastSegment(p.Name) != leaf {
 		return false
 	}
+	if p.Local && qualifier == "" {
+		return false // a pin or a node's own feature is not the bare name's
+	}
+	if p.Node != nil {
+		if node := ActionNodeName(p.Node); node != "" {
+			return node == lastSegment(qualifier)
+		}
+	}
+	if p.Sym != nil && qualifier != "" && qualifier != "this" {
+		return declaredUnder(p.Sym, lastSegment(qualifier))
+	}
 	holder := ctx.performerOwning(selves, p.Sym)
 	switch {
 	case p.Sym == nil, len(selves) == 0:
 		return true
 	case qualifier == "":
 		return holder == nil
-	case qualifier == "this":
-		return len(selves) == 1 && holder == selves[0]
 	default:
+		return len(selves) == 1 && holder == selves[0]
+	}
+}
+
+// declaredUnder reports whether the symbol may be the member named under owner:
+// not when owner is declared beside it, a sibling whose members it is not among;
+// otherwise the declarations do not say, and it may.
+func declaredUnder(sym *symbols.Symbol, owner string) bool {
+	if sym.OwnerScope == nil {
 		return true
 	}
+	sibling, ok := sym.OwnerScope.LookupLocal(owner)
+	return !ok || sibling == sym
 }
 
 // performerSelves are the distinct objects the run's executors perform or have

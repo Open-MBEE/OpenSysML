@@ -2416,7 +2416,7 @@ Fixture: `action_order_guard_reads_racing_writer` (golden, explored).
 ```
 start → split ⇉ a { x := 1 } ─┐
               ⇉ b { x := 2 } ─┘→ sync → choose ─[x == 1]→ low  { mode := 10 } ─┐
-                                              ─[x == 2]→ high { mode := 20 } ─┴→ rejoin → tail { after := 7 } → done
+                                              ─[x == 2]→ high { mode := 20 } ─┴→ rejoin → tail { later := 7 } → done
 ```
 
 Derived constraints:
@@ -2424,18 +2424,18 @@ Derived constraints:
 - `sync` follows both writes of `x` (JoinAction), so `choose` reads an `x` of `1` or `2`, and
   exactly one guard holds: the decision is not itself a choice point.
 - `low` or `high` follows as the guard decides, so `mode` is `10` where `x` is `1` and `20`
-  where `x` is `2`; `after` is `7` in every linearization.
+  where `x` is `2`; `later` is `7` in every linearization.
 
 Open: the order of the two branches before the join, as in the previous case. Which guard
 holds is a function of the write that stood, so which branch runs — and the `mode` it writes —
 is open exactly where `x` is: control dependence through a guard carries the open order on,
-though the decision drew nothing. `after`, written past the merge where the branches rejoin,
+though the decision drew nothing. `later`, written past the merge where the branches rejoin,
 reads nothing open and is not on either branch, so it is fixed: the convergence itself adds no
 dependence.
 
-Pinned outcome: `{x = 1, mode = 10, after = 7}` or `{x = 2, mode = 20, after = 7}`, stated as
+Pinned outcome: `{x = 1, mode = 10, later = 7}` or `{x = 2, mode = 20, later = 7}`, stated as
 `outcomes` citing this section. The default run marks `x` and `mode` with the two choice points
-of the racing writes and prints `after` bare (`orderDependent` states `x: 2, mode: 2`).
+of the racing writes and prints `later` bare (`orderDependent` states `x: 2, mode: 2`).
 
 ### A performed action's outputs stand on what its inputs were bound from
 
@@ -2510,6 +2510,80 @@ where `last` is; `fixed` reads nothing open.
 Pinned outcome: `{last = 1, computed = 2, fixed = 5}` or `{last = 2, computed = 3, fixed = 5}`,
 stated as `outcomes` citing this section. The default run marks `last` and `computed` with the one
 region-order choice point and prints `fixed` bare (`orderDependent` states `last: 1, derived: 1`).
+
+### A failed guard leaves what the unguarded branch writes order-dependent
+
+Fixture: `action_order_fallback_branch_reads_racing_writer` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → choose ─[x == 1]→ enabled { mode := 10 } ─┐
+                                              ─[else]───→ other   { mode := 20 } ─┴→ rejoin → done
+```
+
+Derived constraints:
+
+- `sync` follows both writes of `x`, so `choose` reads an `x` of `1` or `2`; the one guard
+  holds for `1` and fails for `2`, when the unguarded succession is taken.
+- `mode` is `10` where `x` is `1` and `20` where `x` is `2`.
+
+Open: the order of the two branches before the join. The guard was read to decide the branch
+whether it held or failed, so the unguarded branch stands on what the guard read as the guarded
+one does: `mode` is open exactly where `x` is.
+
+Pinned outcome: `{x = 1, mode = 10}` or `{x = 2, mode = 20}`, stated as `outcomes` citing this
+section. The default run marks `x` and `mode` with the two choice points.
+
+### A fork and join inside a branch carry the decision that took it
+
+Fixture: `action_order_fork_in_dependent_branch` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → choose ─[x == 1]→ spread ⇉ p { y := 10 } ─┐→ gather ─┐
+                                              │                 ⇉ q { z := 5 }  ─┘          │
+                                              └[x == 2]→ high { y := 1; z := 1 } ──────────┴→ rejoin → tail { later := 7 } → done
+```
+
+Derived constraints:
+
+- `choose` reads an `x` of `1` or `2` and exactly one guard holds.
+- Where `x` is `1`, `spread` forks into `p` and `q`, which `gather` joins: `y` is `10` and `z`
+  is `5`. Where `x` is `2`, `high` runs alone and writes `y` as `1` and `z` as `1`.
+- `later` is `7` in every linearization.
+
+Open: the order of the two writers of `x`. The tokens a fork spawns and the token a join
+performs with are the path the decision took, so every write on the branch stands on the
+guard's read however the branch is shaped inside: `y` and `z` are open exactly where `x` is.
+`later`, past the merge the branches rejoin at, is fixed.
+
+Pinned outcome: `{x = 1, y = 10, z = 5, later = 7}` or `{x = 2, y = 1, z = 1, later = 7}`, stated
+as `outcomes` citing this section. The default run marks `x`, `y` and `z` with the two choice
+points.
+
+### A write of a same-named feature elsewhere leaves an order-dependent value standing
+
+Fixture: `action_order_same_name_elsewhere_keeps_mark` (golden, explored).
+
+```
+start → split ⇉ a { level := 1 } ─┐
+              ⇉ b { level := 2 } ─┘→ sync → other { level := 5 } → done
+```
+
+where `other` declares a `level` of its own, which its assignment writes.
+
+Derived constraints:
+
+- `sync` follows both writes of the outer `level`, which `other` neither reads nor writes.
+- The outer `level` is `1` or `2`; `other`'s is `5`.
+
+Open: the order of the two writers of the outer `level`. A write rewrites what the one feature
+it writes stands on, not every value of that name: `other`'s literal write clears nothing of the
+outer `level`, which still stands on its writers' order, and `other.level`, written from a
+literal, stands on nothing.
+
+Pinned outcome: `{level = 1}` or `{level = 2}`, stated as `outcomes` citing this section. The
+default run marks `level` with the two choice points and prints `other.level` bare.
 
 ## What the executor gets wrong
 

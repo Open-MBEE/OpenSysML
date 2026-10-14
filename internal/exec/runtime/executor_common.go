@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"container/heap"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 
@@ -44,6 +45,9 @@ type Token struct {
 	// control is what the token's path stands on: each decision it passed whose
 	// guard read or draw was order-dependent, until the node its branches rejoin at.
 	control []tokenControl
+	// accepted is what the message the token's accept node took stood on, for
+	// the marks of what the node's performance binds from it.
+	accepted []int64
 }
 
 // tokenControl is one decision a token's path stands on: the choice points its
@@ -52,6 +56,20 @@ type Token struct {
 type tokenControl struct {
 	by   []int64
 	ends map[ast.Node]bool
+}
+
+// unionControl is the controls of two paths that meet: a decision both passed,
+// standing on the same choice points until the same ends, counts once.
+func unionControl(a, b []tokenControl) []tokenControl {
+	out := slices.Clone(a)
+	for _, c := range b {
+		if !slices.ContainsFunc(out, func(o tokenControl) bool {
+			return slices.Equal(o.by, c.by) && maps.Equal(o.ends, c.ends)
+		}) {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // controlSerials is every choice point the token's path stands on.

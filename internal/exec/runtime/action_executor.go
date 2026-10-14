@@ -1873,6 +1873,10 @@ func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
 		return tokenIdx, false
 	}
 
+	control := token.control
+	for _, idx := range consumed {
+		control = unionControl(control, e.tokens[idx].control)
+	}
 	sort.Sort(sort.Reverse(sort.IntSlice(consumed)))
 	for _, idx := range consumed {
 		e.removeToken(idx)
@@ -1881,6 +1885,7 @@ func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
 	e.tokens = append(e.tokens, Token{
 		ID: e.nextTokenID, Location: token.Location, repetition: token.repetition,
 		repetitionGroup: token.repetitionGroup, moved: e.sweep, frame: token.frame,
+		control: control,
 	})
 	e.nextTokenID++
 	return len(e.tokens) - 1, true
@@ -2421,6 +2426,7 @@ func (e *ActionExecutor) split(tokenIdx int, successors []lower.ActionEdge) {
 			Via:      edge,
 			moved:    e.sweep,
 			frame:    frame,
+			control:  e.tokens[tokenIdx].control,
 		}
 		e.nextTokenID++
 		newTokens = append(newTokens, newToken)
@@ -2594,7 +2600,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 					ErrNoEnabledSuccession, decisionNode.Name, branchName(successors, holding[pick]))
 			}
 		}
-		by := e.ctx.standingOf(lower.ExpressionFootprint(graph.Scope, successors[holding[pick]].Guard), true)
+		by := e.guardsStanding(graph, successors, holding[len(holding)-1])
 		if choice != nil {
 			e.noteChoice(*choice)
 			if !choice.Independent {
@@ -2606,14 +2612,30 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		return nil
 	}
 
-	// Pass 2: Use unguarded edge as fallback
+	// Pass 2: Use unguarded edge as fallback. Every guard read and failed, so the
+	// fallback stands on what they read as a taken branch would.
 	if unguardedEdge != nil {
+		token.underControl(e.guardsStanding(graph, successors, len(successors)-1), commonReach(graph, successors))
 		e.move(token, *unguardedEdge)
 		return nil
 	}
 
 	return fmt.Errorf("%w: decision node %s has no true guard",
 		ErrNoEnabledSuccession, decisionNode.Name)
+}
+
+// guardsStanding is what the guards of successors up to and including index last
+// read that is order-dependent: each was read to decide the branch, whether it
+// held or failed.
+func (e *ActionExecutor) guardsStanding(graph *lower.ActionGraph, successors []lower.ActionEdge, last int) []int64 {
+	var by []int64
+	for i := 0; i <= last && i < len(successors); i++ {
+		if successors[i].Guard == nil {
+			continue
+		}
+		by = unionSerials(by, e.ctx.standingOf(lower.ExpressionFootprint(graph.Scope, successors[i].Guard), true))
+	}
+	return by
 }
 
 // stepActionExecutionNode evaluates inline expression or invokes nested action.
@@ -2715,6 +2737,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 		if err := e.setFrameFeature(perf, accept.ParamName, *payload); err != nil {
 			return err
 		}
+		e.ctx.acceptMarks(graph.Footprints()[usage].Writes, token.accepted)
 	}
 
 	// A node owning no flow, performing no action, is done in this step: a case
@@ -2792,9 +2815,7 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 	if err != nil {
 		return nil, false, fmt.Errorf("accept %s: %w", accept.ParamName, err)
 	}
-	if usage != nil {
-		e.ctx.acceptMarks(e.graphOf(token.frame).Footprints()[usage].Writes, &msg)
-	}
+	token.accepted = msg.dependence
 	// The payload is a feature of the flow the accept sits in, which the nodes
 	// after it read by its name unless a feature of the flow's own holds the name:
 	// then the payload is the accept node's alone (`receiver.msg`).

@@ -181,11 +181,18 @@ tracker and never by re-reading declarations in the runtime:
   statements, which are recorded one by one).
 - **Clear.** Since the write *replaces* the marks of `w`, a write that reads nothing
   order-dependent, under no control, clears `w` from that point on: the mark describes the value.
+  It replaces the marks of the one declaration it writes (`samePlace`): a same-named feature of
+  another declaration may hold another value, so it keeps its marks, though a read of either
+  stands on both (`Place.Conflicts`) while the declarations leave them apart.
 - **Control.** A guard or condition that reads an order-dependent value makes everything the
   selected continuation writes depend on the order, though the guard drew nothing: a decision
-  puts its token under the marks of the guard it took (`Token.underControl`) until a node every
-  succession out of the decision reaches (`commonReach`), where which branch was taken no longer
-  decides the path; an `if`, `while`, `until` or `for` puts its block or iterations under its
+  puts its token under the marks of every guard it read to decide — those that failed before the
+  one it took, and all of them when it falls back to its unguarded succession
+  (`ActionExecutor.guardsStanding`, `Token.underControl`) — until a node every succession out of
+  the decision reaches (`commonReach`), where which branch was taken no longer decides the path;
+  the tokens a fork spawns inherit the control of the token it split, and a join's token the union
+  of what arrived (`split`, `synchronize`, `unionControl`), so a branch keeps its decision however
+  it is shaped inside; an `if`, `while`, `until` or `for` puts its block or iterations under its
   condition's or collection's marks (`branchFrame.control`, `loopFrame.control`); a transition's
   firing — exit, effect, entry — runs under its guard's marks (`StateExecutor.taking`). A draw
   among exclusive alternatives is control too: a decision's branch, a transition chosen among
@@ -215,9 +222,9 @@ Snapshots, held images and a compound transition's rollback capture the marks be
 (`runStateCapture`, `moveMark`, `imagedRun`), so a replay or an undone move leaves no mark of a
 write it discarded. Reporting never changes the run: marks are read by the surfaces alone.
 
-Approximations, all conservative where they err: a pin's place is its declaration, so two live
-performances of one action share the marks of their parameters; a seed held for the clock's
-instant marks a same-instant rewrite from a literal that another order could not have changed;
+Approximations, all conservative where they err: a pin's place is its node's (`Place.Node`), so
+the performances a repeated or re-entered node makes share the marks of their pins; a seed held
+for the clock's instant marks a same-instant rewrite from a literal that another order could not have changed;
 the guards a route reads on its way through a junction or choice pseudostate are not control for
 what follows them, and a calc or constraint body propagates nothing (the expression reading its
 result stands on what it reads). A feature valued by an expression, evaluated as it is read, is

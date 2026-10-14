@@ -25,6 +25,9 @@ type Place struct {
 	Local  bool
 	State  *ast.StateNode
 	Direct bool
+	// Node is the node whose pin the place is, each performance of a node holding
+	// its own; nil for a feature or a declaration's own value.
+	Node ast.Node
 }
 
 // Conflicts reports whether the two places may name one value: places resolving
@@ -34,6 +37,9 @@ type Place struct {
 func (p Place) Conflicts(q Place) bool {
 	if p.State != nil || q.State != nil {
 		return p.State == q.State
+	}
+	if p.Node != nil && q.Node != nil && p.Node != q.Node {
+		return false
 	}
 	if p.Sym != nil && q.Sym != nil {
 		if p.Sym == q.Sym {
@@ -866,21 +872,73 @@ func viaPortOf(s Send) string {
 // to, the enclosing feature of the pin's name.
 func (b *footprintBuilder) features() {
 	performs := nodePerformsAction(b.node)
+	own := make(map[string]bool)
 	for _, f := range b.graph.Features[b.node] {
+		own[f.Name] = true
 		b.reads(f.Scope, f.Value)
-		b.write(Place{Sym: featureSymbol(b.scope, f), Name: f.Name, Local: true})
-		if !performs {
-			continue
-		}
-		in := f.Direction == ast.DirIn || f.Direction == ast.DirInOut
-		out := f.Direction == ast.DirOut || f.Direction == ast.DirInOut || f.IsResult
-		if in && f.Value == nil && !b.pinConnected(f.Name) {
-			b.place(b.graph.Scope, []string{f.Name}, b.read)
-		}
-		if out {
-			b.place(b.graph.Scope, []string{f.Name}, b.write)
+		b.pin(Place{Sym: featureSymbol(b.scope, f), Name: f.Name, Local: true, Node: b.node}, f, performs)
+	}
+	if !performs {
+		return
+	}
+	// The parameters of the action a node performs are pins of the node as well,
+	// bound by name where the node declares none of its own.
+	target := performedTarget(b.node)
+	if target == nil {
+		return
+	}
+	decl, body, ok := resolve.TypeDeclInScope(b.scope, target)
+	if !ok {
+		return
+	}
+	for _, f := range lowerParameters(ast.DeclMembers(decl), body) {
+		if !own[f.Name] {
+			b.pin(Place{Sym: featureSymbol(body, f), Name: f.Name, Local: true, Node: b.node}, f, true)
 		}
 	}
+}
+
+// pin adds the write of a node's own pin and, where the node performs an action,
+// the enclosing feature its name binds it to: read into an input nothing else
+// supplies, written from an output.
+func (b *footprintBuilder) pin(place Place, f Feature, performs bool) {
+	b.write(place)
+	in := f.Direction == ast.DirIn || f.Direction == ast.DirInOut
+	out := f.Direction == ast.DirOut || f.Direction == ast.DirInOut || f.IsResult
+	if !performs {
+		return
+	}
+	// An input nothing binds or supplies reads the enclosing feature of its name.
+	if in && f.Value == nil && !b.pinConnected(f.Name) {
+		b.place(b.graph.Scope, []string{f.Name}, b.read)
+	}
+	if out {
+		b.place(b.graph.Scope, []string{f.Name}, b.write)
+	}
+}
+
+// performedTarget is the name of the action a node performs by reference, typing
+// or invocation; nil when it performs none a name states.
+func performedTarget(node ast.Node) *ast.QualifiedName {
+	switch n := node.(type) {
+	case *ast.PerformActionNode:
+		if qn, ok := n.ActionRef.(*ast.QualifiedName); ok {
+			return qn
+		}
+	case *ast.Usage:
+		if inv := n.PerformedInvocation(); inv != nil {
+			return inv.Type
+		}
+		for _, rel := range n.Relationships {
+			if rel == nil || rel.Kind != ast.RelReferences && rel.Kind != ast.RelTyping {
+				continue
+			}
+			if qn, ok := rel.Target.(*ast.QualifiedName); ok {
+				return qn
+			}
+		}
+	}
+	return nil
 }
 
 // featureSymbol returns the symbol of a node's own feature, nil when the scope
@@ -935,7 +993,7 @@ func (b *footprintBuilder) bindingEnd(binding PinBinding, node ast.Node, path []
 			b.footprint.Dynamic = true
 			return
 		}
-		place := Place{Name: pin, Local: true}
+		place := Place{Name: pin, Local: true, Node: node}
 		if scope := b.graph.Scopes[node]; scope != nil {
 			if sym, ok := scope.LookupLocal(pin); ok {
 				place.Sym = sym
@@ -984,7 +1042,7 @@ type pinKey struct {
 // flowTarget adds the write to the flow's target pin and, when the flow
 // streams, the writes a value reaching that pin streams on to.
 func (b *footprintBuilder) flowTarget(graph *ActionGraph, flow ObjectFlow, seen map[pinKey]bool) {
-	place := Place{Name: flow.TargetPin, Local: true}
+	place := Place{Name: flow.TargetPin, Local: true, Node: flow.Target}
 	if scope := graph.Scopes[flow.Target]; scope != nil {
 		if sym, ok := scope.LookupLocal(flow.TargetPin); ok {
 			place.Sym = sym
@@ -1073,7 +1131,7 @@ func (b *footprintBuilder) accept() {
 		channel.Signal = accept.SignalType.Text()
 	}
 	if accept.ParamName != "" {
-		b.write(Place{Sym: acceptParamSymbol(b.scope, accept.ParamName), Name: accept.ParamName, Local: true})
+		b.write(Place{Sym: acceptParamSymbol(b.scope, accept.ParamName), Name: accept.ParamName, Local: true, Node: b.node})
 	}
 	switch t := accept.Trigger.(type) {
 	case nil:
