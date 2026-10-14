@@ -906,6 +906,10 @@ impl Runner {
             schedule: optional(request.schedule),
             performer: optional(request.performer_symbol_id),
             trace: false,
+            advance: request.advance,
+            seed: request.seed,
+            draws: optional(request.draws),
+            clock_step: request.clock_step,
         };
         let hash = &request.model_hash;
         let action = &request.action_symbol_id;
@@ -942,6 +946,10 @@ impl Runner {
             schedule: optional(request.schedule),
             performer: optional(request.performer_symbol_id),
             trace: request.trace,
+            advance: request.advance,
+            seed: request.seed,
+            draws: optional(request.draws),
+            clock_step: request.clock_step,
         };
         let hash = &request.model_hash;
         let machine = &request.state_machine_symbol_id;
@@ -1216,6 +1224,7 @@ impl Runner {
                 named_arguments,
                 schedule: optional(request.schedule),
                 engine: optional(request.engine),
+                tool_dry_run: request.tool_dry_run,
             },
             (Err(answer), _) | (_, Err(answer)) => return answer,
         };

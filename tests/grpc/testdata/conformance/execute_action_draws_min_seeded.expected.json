@@ -1,0 +1,14 @@
+{
+  "rpc": "ExecuteAction",
+  "symbol_id": "test::draw",
+  "draws": "min",
+  "seed": 7,
+  "expected_outputs": {
+    "d": {
+      "real": 0.0
+    },
+    "n": {
+      "int": 1
+    }
+  }
+}

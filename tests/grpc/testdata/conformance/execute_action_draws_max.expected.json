@@ -1,0 +1,13 @@
+{
+  "rpc": "ExecuteAction",
+  "symbol_id": "test::draw",
+  "draws": "max",
+  "expected_outputs": {
+    "d": {
+      "real": 1.0
+    },
+    "n": {
+      "int": 6
+    }
+  }
+}
