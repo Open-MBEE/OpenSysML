@@ -105,6 +105,15 @@ func testAPerformerFeatureIsMarkedOnlyByWritesToIt(t *testing.T) {
 	if n := ctx.OrderDependent("this.x"); n != 0 {
 		t.Errorf("order-dependent this.x = %d choice points, want 0: the branches write the machine's x, not the performer's", n)
 	}
+	// An outcome is reported after the executor has left the clock: the
+	// performer is still known.
+	ctx.clock.detach(exec)
+	if n := ctx.OrderDependent("this.x"); n != 0 {
+		t.Errorf("order-dependent this.x = %d choice points after the executor left the clock, want 0", n)
+	}
+	if n := ctx.OrderDependent("x"); n != 1 {
+		t.Errorf("order-dependent x = %d choice points after the executor left the clock, want 1", n)
+	}
 }
 
 // A value reported under a qualified key (`this.x`, a state path) is marked as

@@ -425,17 +425,18 @@ func (e *StateExecutor) probeBranch(ps *ast.PseudostateNode, outgoing []*lower.T
 // branchPoint is the branches out of ps enabled, at their declared positions, as
 // a choice point not yet taken; there is none under two.
 // branchFootprints is what taking each enabled branch does for a transition out
-// of origin: the states it leaves and enters with the branch's own effects; with
-// no origin known, the branch's own effects and the states it enters.
+// of origin: the states it leaves and enters with the branch's own effects, less
+// the exits every branch shares; with no origin known, the branch's own effects
+// and the states it enters.
 func (e *StateExecutor) branchFootprints(outgoing []*lower.Transition, enabled []int, origin *ast.StateNode) []lower.Footprint {
 	if origin == nil {
 		return e.transitionFootprints(outgoing, enabled)
 	}
-	fps := make([]lower.Footprint, len(enabled))
+	segs := make([]*lower.Transition, len(enabled))
 	for i, pos := range enabled {
-		fps[i] = e.graph.BranchFootprintFrom(origin, outgoing[pos])
+		segs[i] = outgoing[pos]
 	}
-	return fps
+	return e.graph.BranchFootprintsFrom(origin, segs)
 }
 
 func (e *StateExecutor) branchPoint(ps *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int, origin *ast.StateNode) (ChoicePoint, bool) {

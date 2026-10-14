@@ -270,6 +270,7 @@ func newStateExecutorForOccurrence(
 		return nil, fmt.Errorf("derive state machine attributes: %w", err)
 	}
 	ctx.clock.attach(exec)
+	ctx.run.notePerformer(exec)
 	ctx.registerStateExecutor(exec)
 
 	return exec, nil

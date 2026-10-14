@@ -263,6 +263,7 @@ func newActionExecutorOn(
 	exec.flow = exec
 	exec.driven.exec = exec
 	ctx.clock.attach(exec)
+	ctx.run.notePerformer(exec)
 	return exec
 }
 

@@ -573,6 +573,7 @@ func (m *materializing) behavior(b imagedBehavior) error {
 		dst.registerStateExecutor(exec)
 		if b.onClock {
 			dst.clock.attach(exec)
+			dst.run.notePerformer(exec)
 		}
 		behavior.State = exec
 	case b.action != nil:
