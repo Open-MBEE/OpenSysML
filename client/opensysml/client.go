@@ -175,9 +175,8 @@ type Client interface {
 	// external analysis engine is sent. Requires the export_graphs capability.
 	ExportGraphs(ctx context.Context, model *Model, subject string) (*Graphs, error)
 
-	// CheckAction searches every schedule of an action for a violated property,
-	// a deadlock, a failure or a divergent final value, and CheckStateMachine
-	// does the same for a state machine. Requires the check capability.
+	// CheckAction and CheckStateMachine search every schedule of a behavior for a
+	// violated property, deadlock, failure or divergent final value (check capability).
 	CheckAction(ctx context.Context, model *Model, actionID string, opts ...CheckOption) (*Check, error)
 	CheckStateMachine(ctx context.Context, model *Model, stateMachineID string, opts ...CheckOption) (*Check, error)
 

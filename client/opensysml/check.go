@@ -79,8 +79,7 @@ type CheckFinal struct {
 }
 
 // CheckWitness replays one schedule: Schedule is the policy to pass as a run's
-// schedule, Draws, Choices and Inputs what it took, and FileName/FileContent
-// the witness file when it was asked for.
+// schedule, Draws/Choices/Inputs what it took, FileName/FileContent its file.
 type CheckWitness struct {
 	Schedule               string
 	Draws, Choices, Inputs []string
