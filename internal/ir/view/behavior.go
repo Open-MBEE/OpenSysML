@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -496,7 +497,38 @@ func joinNonEmpty(keyword, tail string) string {
 // collapseSpace folds the runs of whitespace in a label written across lines
 // into single spaces.
 func collapseSpace(text string) string {
-	return strings.Join(strings.Fields(text), " ")
+	var b strings.Builder
+	var quote rune
+	space := false
+	for i, r := range text {
+		switch {
+		case quote != 0:
+			if r == quote && !escaped(text, i) {
+				quote = 0
+			}
+		case r == '"' || r == '\'':
+			quote = r
+		case unicode.IsSpace(r):
+			space = b.Len() > 0
+			continue
+		}
+		if space {
+			b.WriteByte(' ')
+			space = false
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// escaped reports whether the character at i in text is preceded by an odd run
+// of backslashes, which escapes it.
+func escaped(text string, i int) bool {
+	n := 0
+	for i--; i >= 0 && text[i] == '\\'; i-- {
+		n++
+	}
+	return n%2 == 1
 }
 
 // renderActions renders the nodes and successions of the exposed behaviors, from

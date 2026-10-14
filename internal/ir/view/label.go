@@ -337,7 +337,8 @@ func (l labeller) lines(node *Node) []string {
 		lines = append(lines, keyword)
 	}
 	lines = append(lines, l.headLines(node)...)
-	return append(lines, l.details(node)...)
+	lines = append(lines, l.details(node)...)
+	return append(lines, l.compartmentLines(node)...)
 }
 
 // titleLines joins the keyword to the first head line for a container title.
@@ -348,7 +349,8 @@ func (l labeller) titleLines(node *Node) []string {
 		head[0] = keyword + " " + head[0]
 	}
 	lines = append(lines, head...)
-	return append(lines, l.details(node)...)
+	lines = append(lines, l.details(node)...)
+	return append(lines, l.compartmentLines(node)...)
 }
 
 // cameoStateDetails splits a state's detail into Cameo's compartment lines, one

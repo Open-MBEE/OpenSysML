@@ -807,6 +807,26 @@ func (ctx *Context) rootInstances() []*Instance {
 	return out
 }
 
+// LiveRoots returns every object this runtime holds that stands on its own — not held
+// by another's feature value, not materialized only to read a nested declaration, not
+// destroyed — in identity order: rootInstances without its one-object-per-declaration
+// choice, for a sweep that is about each object rather than about a declaration.
+func (ctx *Context) LiveRoots() []*Instance {
+	held := ctx.heldObjectIDs()
+	var out []*Instance
+	for _, inst := range ctx.instances {
+		if inst == nil || held[inst.ID] || (nestedFeature(inst.Type) && ctx.readThrough(inst)) {
+			continue
+		}
+		if ctx.checkNotDestroyed(inst) != nil {
+			continue
+		}
+		out = append(out, inst)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
 // heldObjectIDs returns the identities a feature value of another object already holds, so
 // an object reached through its holder is no root of its own. Feature values are read as
 // they stand, since materializing one is the search that asked for these.
@@ -837,6 +857,11 @@ func (ctx *Context) heldObjectIDs() map[int64]bool {
 // one object stands for each declaration reached, so objects a multiplicity
 // repeated are one candidate however deep the named declaration sits in them.
 func (ctx *Context) carriersUnder(roots []*Instance, owner *symbols.Symbol) []carrier {
+	return ctx.carriersWhere(roots, func(inst *Instance) bool { return ctx.modelConforms(inst.Type, owner) })
+}
+
+// carriersWhere is carriersUnder with the carrying objects chosen by carries.
+func (ctx *Context) carriersWhere(roots []*Instance, carries func(*Instance) bool) []carrier {
 	var out []carrier
 	seen := make(map[int64]bool, len(roots))
 	declared := make(map[carrierOccurrence]bool)
@@ -849,7 +874,7 @@ func (ctx *Context) carriersUnder(roots []*Instance, owner *symbols.Symbol) []ca
 		}
 		seen[inst.ID] = true
 		occurrence := carrierOccurrence{through: through, decl: inst.Type}
-		if ctx.modelConforms(inst.Type, owner) && !declared[occurrence] {
+		if carries(inst) && !declared[occurrence] {
 			declared[occurrence] = true
 			out = append(out, carrier{instance: inst, root: root, features: features})
 		}

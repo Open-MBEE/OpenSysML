@@ -291,6 +291,14 @@ type Node struct {
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
+	// Value is the value a usage is bound to, as the notation writes it after
+	// the `=`. It is empty for a definition or an unbound usage.
+	Value string
+	// Compartments are the members drawn as rows inside the node's box rather
+	// than as nodes of their own, grouped by kind in the notation's compartment
+	// order: in a positioned tree, the members with no position. Nil when
+	// every member is a node.
+	Compartments []Compartment
 	// Text is what heads a node whose name is not shown, in place of its kind:
 	// the literal a value specification's result is bound to, the event an
 	// accept waits for, the message a send sends. Empty when its kind heads it.

@@ -35,8 +35,9 @@ type RenderDocumentInput struct {
 // RenderViewInput renders a view.
 type RenderViewInput struct {
 	ModelInput
-	View  string `json:"view" jsonschema:"a qualified view name, or a #<kind>:<qualified name> pseudo-view targeting an element (#interconnection:Demo::Vehicle, #tree:Demo, #state:Demo::Lamp, #action:Demo::Descend, #sequence:..., #case:..., #requirement:..., #mixed:...)"`
-	Ports string `json:"ports,omitempty" jsonschema:"minimal (the default) or full: how many of a part's ports are drawn"`
+	View  string   `json:"view" jsonschema:"a qualified view name, or a #<kind>:<qualified name> pseudo-view targeting an element (#interconnection:Demo::Vehicle, #tree:Demo, #state:Demo::Lamp, #action:Demo::Descend, #sequence:..., #case:..., #requirement:..., #mixed:...)"`
+	Ports string   `json:"ports,omitempty" jsonschema:"minimal (the default) or full: how many of a part's ports are drawn"`
+	Show  []string `json:"show,omitempty" jsonschema:"optional notation elements to draw besides those the view's rendering shows, as sysml -render-show takes them: parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, or all"`
 }
 
 // ExportGraphsInput names a behavior to export.
@@ -158,7 +159,7 @@ func (g *group) registerQueries(s *mcp.Server) {
 		if err != nil {
 			return nil, nil, err
 		}
-		resp, err := g.svc.RenderView(ctx, &pb.RenderViewRequest{ModelHash: m.hash, View: in.View, Ports: in.Ports})
+		resp, err := g.svc.RenderView(ctx, &pb.RenderViewRequest{ModelHash: m.hash, View: in.View, Ports: in.Ports, Show: in.Show})
 		if err != nil {
 			return nil, nil, toolError(err)
 		}

@@ -214,3 +214,35 @@ func declaredIn(scope *symbols.Scope, decl ast.Node) *symbols.Symbol {
 	}
 	return nil
 }
+
+// TestVerifyOnlyObjectiveIsSatisfiedAndNoSatisfaction pins two readings of an
+// objective stating only `verify r;`: it is no satisfaction assertion, and as a
+// requirement check over no constraints it is satisfied, so the body's verdict
+// alone decides the case.
+func TestVerifyOnlyObjectiveIsSatisfiedAndNoSatisfaction(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationVerdictModel))
+	if got := ctx.SatisfyAssertionsIn(idx.DocumentRoot("<test>")); len(got) != 0 {
+		t.Errorf("%d satisfaction assertions found, want none: a verify is not one", len(got))
+	}
+	for _, tc := range []struct {
+		fqn  string
+		kind VerdictKind
+	}{
+		{fqn: "test::passing", kind: VerdictPass},
+		{fqn: "test::failing", kind: VerdictFail},
+	} {
+		result, err := ctx.RunVerification(oneSymbol(t, idx, tc.fqn), AnalysisArgs{}, nil, nil)
+		if err != nil {
+			t.Fatalf("RunVerification(%s): %v", tc.fqn, err)
+		}
+		if result.Verdict.Kind != tc.kind {
+			t.Errorf("%s: verdict = %+v, want %s", tc.fqn, result.Verdict, tc.kind)
+		}
+		if len(result.Run.Verdicts) != 1 {
+			t.Fatalf("%s: verdicts = %+v, want the one objective", tc.fqn, result.Run.Verdicts)
+		}
+		if v := result.Run.Verdicts[0]; v.Kind != "objective" || v.Status != VerdictSatisfied || v.Detail != "" {
+			t.Errorf("%s: objective = %+v, want satisfied with no detail", tc.fqn, v)
+		}
+	}
+}

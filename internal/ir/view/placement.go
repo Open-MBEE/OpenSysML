@@ -134,6 +134,112 @@ func (p *placement) omit(r *Rendering) *Rendering {
 	return &out
 }
 
+// foldCompartments is a positioned tree showing compartments with every
+// unplaced member of a placed node folded into a compartment row of it, the
+// edges and notes at those members dropped and noticed: what every form
+// draws of such a tree before it settles the nodes still unplaced. Any other
+// rendering is returned as it is.
+func foldCompartments(r *Rendering) *Rendering {
+	if r.Kind != KindTree || !r.Shown.Has(ElementCompartments) {
+		return r
+	}
+	p := placeRendering(r)
+	if !p.partial() {
+		return r
+	}
+	out := *r
+	out.Roots = cloneNodes(r.Roots)
+	rows := map[string]bool{}
+	drawn, nested := p.foldNodes(out.Roots, rows)
+	if drawn == 0 {
+		return r
+	}
+	notice := fmt.Sprintf("%d node(s) without a position, drawn as compartment rows of the node above them", drawn)
+	if nested > 0 {
+		notice += fmt.Sprintf(", and %d node(s) under them left undrawn", nested)
+	}
+	out.Edges = make([]Edge, 0, len(r.Edges))
+	for _, edge := range r.Edges {
+		if rows[edge.From] || rows[edge.To] {
+			continue
+		}
+		out.Edges = append(out.Edges, edge)
+	}
+	if dropped := len(r.Edges) - len(out.Edges); dropped > 0 {
+		notice += fmt.Sprintf(", and %d edge(s) at them", dropped)
+	}
+	out.Notes = make([]Note, 0, len(r.Notes))
+	for _, note := range r.Notes {
+		if rows[note.Anchor] || rows[note.EdgeFrom] || rows[note.EdgeTo] {
+			continue
+		}
+		out.Notes = append(out.Notes, note)
+	}
+	if dropped := len(r.Notes) - len(out.Notes); dropped > 0 {
+		notice += fmt.Sprintf(", and %d note(s) at them", dropped)
+	}
+	out.Notices = append(append([]string(nil), r.Notices...), notice)
+	return &out
+}
+
+// foldNodes folds the unplaced members of each placed node under nodes into
+// its compartments, in place, recording the IDs of the rows and of every
+// node under them in rows; it counts the rows drawn and the nodes under
+// them, which a row does not show.
+func (p *placement) foldNodes(nodes []*Node, rows map[string]bool) (drawn, nested int) {
+	for _, node := range nodes {
+		if p.placed[node.ID] {
+			var folded []*Node
+			node.Children, folded = p.rowsOf(node)
+			node.Compartments = compartmentsOf(folded)
+			for _, row := range folded {
+				before := len(rows)
+				recordIDs(row, rows)
+				drawn++
+				nested += len(rows) - before - 1
+			}
+		}
+		d, n := p.foldNodes(node.Children, rows)
+		drawn, nested = drawn+d, nested+n
+	}
+	return drawn, nested
+}
+
+// recordIDs records the ID of node and of every node under it in ids.
+func recordIDs(node *Node, ids map[string]bool) {
+	ids[node.ID] = true
+	for _, child := range node.Children {
+		recordIDs(child, ids)
+	}
+}
+
+// rowsOf splits a placed tree node's members into the ones kept as nodes and
+// the ones drawn as compartment rows of it: an unplaced member with no placed
+// node anywhere under it, which a stand-in never is.
+func (p *placement) rowsOf(node *Node) (kept, rows []*Node) {
+	for _, child := range node.Children {
+		if child.StandIn || p.anyPlaced(child) {
+			kept = append(kept, child)
+			continue
+		}
+		rows = append(rows, child)
+	}
+	return kept, rows
+}
+
+// anyPlaced reports whether node or a node under it has a place.
+func (p *placement) anyPlaced(node *Node) bool {
+	if p.placed[node.ID] {
+		return true
+	}
+	for _, child := range node.Children {
+		if p.anyPlaced(child) {
+			return true
+		}
+	}
+	return false
+}
+
 // keptEdges is edges without those at an unplaced node, and how many those were.
 func (p *placement) keptEdges(edges []Edge) (kept []Edge, dropped int) {
 	kept = make([]Edge, 0, len(edges))
@@ -177,7 +283,7 @@ func (p *placement) keep(nodes []*Node, hoisted *[]*Node) []*Node {
 // UnplacedStrip, each noticed. A rendering placing all or none is drawn whole.
 func (r *Rendering) settleUnplaced(unplaced Unplaced, form Form) *Rendering {
 	if unplaced != UnplacedStrip {
-		r = withoutStandIns(r)
+		r = foldCompartments(withoutStandIns(r))
 	}
 	p := placeRendering(r)
 	if !p.partial() {

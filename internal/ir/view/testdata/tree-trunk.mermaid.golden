@@ -22,7 +22,7 @@ config:
     edgeLabelBackground: "#FFFFFF"
 ---
 %% MicroscopeViews::structure — tree rendering
-%% not represented: 6 node(s) without a position, left undrawn
+%% not represented: 6 node(s) without a position, drawn as compartment rows of the node above them
 %% canvas: unit=px w=1100 h=420
 %% layout: n0 x=400 y=20 w=300 h=80
 %% layout: n7 x=20 y=300 w=180 h=70
@@ -38,7 +38,14 @@ config:
 %% route: n0->n11 550,100 550,200 940,200 940,300
 flowchart TD
   n0["`*«part def»*
-**ScanningElectronMicroscope**`"]
+**ScanningElectronMicroscope**
+parts
+imagingParameters
+focusSettings
+backscatteredElectronDetector
+secondaryElectronDetector
+objectiveLens
+stigmator`"]
   n7["`*«part def»*
 **ImagingParameters**`"]
   n8["`*«part def»*

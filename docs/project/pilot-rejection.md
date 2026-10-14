@@ -116,7 +116,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 313
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 315
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -164,7 +164,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-313 case(s): 304 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
+315 case(s): 306 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
   of which 3 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -172,7 +172,7 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 11 | 11 | 0 | 0 | 0 |
 | grammar | 108 | 108 | 0 | 0 | 0 |
-| semantic | 159 | 150 | 0 | 9 | 0 |
+| semantic | 161 | 152 | 0 | 9 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the nine ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -235,7 +235,7 @@ The action-body parameter prefix-order cases `g80`–`g81` then raised the corpu
 (a package-level allocation whose ends name a definition's owned features by qualified name,
 `allocate ToastBread::applyHeat to Toaster::heating`; a connector with no featuring type reaches
 only features that have none, so both validators reject each end under
-`validateConnectorTypeFeaturing`) to 311, and `x10` (KerML's `connector` declared in a `.sysml` file, which the pinned SysML grammar has no production for — `no viable alternative at input 'c'` — and which we warn as `kerml-notation` by default and reject under strict) to 312, and `x11` (an indexed connector end, `connect s.y#(1) to k.u`, which the pinned grammar has no production for — `mismatched input '#' expecting 'to'` — and which we report as `nonstandard-notation` by default and reject under strict) to 313.
+`validateConnectorTypeFeaturing`) to 311, and `x10` (KerML's `connector` declared in a `.sysml` file, which the pinned SysML grammar has no production for — `no viable alternative at input 'c'` — and which we warn as `kerml-notation` by default and reject under strict) to 312, and `x11` (an indexed connector end, `connect s.y#(1) to k.u`, which the pinned grammar has no production for — `mismatched input '#' expecting 'to'` — and which we report as `nonstandard-notation` by default and reject under strict) to 313, and `s102`/`s103` (a part subsetting an attribute definition and a part redefining a part definition: KerML's `Subsetting::subsettedFeature` and `Redefinition::redefinedFeature` are typed Feature, a rule SysML usages inherit, so the pilot fails to link either — `Couldn't resolve reference to Feature` — and we report `subsets`/`redefines target must be a feature` at the same span, in `.sysml` sources as in `.kerml` ones) to 315.
 The KerML constraints in that
 source reopened 14 gaps — all of them semantic rules the pilot enforces and we did not; the
 named-argument validation that landed alongside closed one of them (`k33`), the constructor
@@ -270,8 +270,8 @@ initial state marker), `x04` (`region r { … }`), `x05` (the `defer <event>;` s
 `x07` (`transition <src> to <tgt>`) and `x08` (`require` outside a requirement body) left that
 list when that notation was removed: each is now a parse error in either mode, so both
 implementations reject it by default. Judged in
-the default mode the same corpus gives 300 agreements and 4 gaps, which is what `-conformance
-default` prints. `-conformance strict` gives 304 and 0. Reserved keywords recovered as declared
+the default mode the same corpus gives 302 agreements and 4 gaps, which is what `-conformance
+default` prints. `-conformance strict` gives 306 and 0. Reserved keywords recovered as declared
 names and SysML declaration keywords recovered in KerML are now errors in either mode; the parser
 still preserves their trees for editors and later analysis. Of the 14 gaps this document carried
 when it was first written, six were closed by the validation work itself — `p01`, `p02`, `p03`,
@@ -280,7 +280,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 313 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 315 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 

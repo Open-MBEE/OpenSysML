@@ -441,10 +441,13 @@ $ sysml -analysis Landing::checkSlow model.sysml
   ✓ Verification Landing::checkSlow verdict: pass
 ```
 
-The body verdict is beside the objective's, not instead of it: an objective
-stating no condition to check — `objective { verify touchdown; }` with no
-`require constraint` of its own — stays `undecided`, and the case is reported
-unresolved however its body came out.
+The body verdict is beside the objective's, not instead of it. An objective
+stating no condition of its own — `objective { verify touchdown; }` with no
+`require constraint` — is `satisfied`: `verify` records the requirement the case
+verifies and is no condition of the objective, and a requirement check over no
+constraints is true (`Requirements::RequirementConstraintCheck`), so the body's
+verdict alone decides the case. An objective whose condition cannot be evaluated
+stays `undecided`, and the case unresolved.
 
 The verdict is what running the body answers, not a separate judgement of the
 model: a body whose result is a `VerificationCases::PassIf(...)` call is `pass`

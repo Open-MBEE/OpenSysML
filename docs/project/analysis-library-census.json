@@ -131,8 +131,8 @@
         },
         {
           "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate",
-          "error": "Undetermined",
-          "message": "damper has no value in the model"
+          "error": "ErrNoResultExpression",
+          "message": "calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState: evaluating the returned expression: no result expression: calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate has no return expression: result parameter result binds no value; write the result as the trailing expression of the body, or bind it with `return : StateSpace = \u003cexpr\u003e;`"
         },
         {
           "declaration": "StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference",

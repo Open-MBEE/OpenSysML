@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 313,
-        "digest": "sha256:4063e6eb535e7b65158b64b17e2afff63af3d3b5caa35d851c797744b9d521c4"
+        "files": 315,
+        "digest": "sha256:7e23f292a2e0632aeed98b2dc63e46a2b853c513b60b96697eb07a44dded6487"
       }
     ],
-    "recorded": "2026-10-12"
+    "recorded": "2026-10-14"
   },
   "totals": {
-    "cases": 313,
-    "bothReject": 304,
+    "cases": 315,
+    "bothReject": 306,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 159,
-      "bothReject": 150,
+      "cases": 161,
+      "bothReject": 152,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
@@ -2041,6 +2041,24 @@
       "pilotErrors": 2
     },
     {
+      "path": "semantic/s102-part-subsets-attribute-def.sysml",
+      "source": "semantic",
+      "rule": "a usage subsets a Feature, so a part subsetting an attribute definition names nothing that position admits (KerML 8.3.3.3 Subsetting::subsettedFeature is typed Feature, a rule SysML usages inherit; pilot fails to link the Subsetting — `Couldn't resolve reference to Feature 'Mass'` — exactly as for KerML's `feature f :\u003e D`).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s103-part-redefines-part-def.sysml",
+      "source": "semantic",
+      "rule": "a usage redefines a Feature, so a part redefining a part definition names nothing that position admits (KerML 8.3.3.3 Redefinition::redefinedFeature is typed Feature, a rule SysML usages inherit; pilot fails to link the Redefinition — `Couldn't resolve reference to Feature 'Engine'`).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s11-case-two-objectives.sysml",
       "source": "semantic",
       "rule": "A case usage may have at most one objective (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneObjective).",
@@ -3056,8 +3074,8 @@
       }
     ],
     "totals": {
-      "cases": 313,
-      "bothReject": 304,
+      "cases": 315,
+      "bothReject": 306,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

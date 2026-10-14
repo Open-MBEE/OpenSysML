@@ -455,12 +455,12 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 					Instances: instances,
 				}, nil
 			}
-			verdict, instances, err := v.satisfyVerdict(ctx, a)
+			verdicts, instances, err := v.satisfyVerdicts(ctx, a)
 			if err != nil {
 				return nil, err
 			}
 			return &pb.VerifySatisfactionResponse{
-				Verdicts:             []*pb.Verdict{verdict},
+				Verdicts:             verdicts,
 				Instances:            instances,
 				VerificationVerdicts: v.assertionVerifications(a),
 			}, nil
@@ -483,18 +483,20 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 	verified := map[*symbols.Symbol]bool{}
 	for _, scope := range scopes {
 		for _, a := range v.runtime.SatisfyAssertionsIn(scope) {
-			var verdict *pb.Verdict
+			var verdicts []*pb.Verdict
 			var instances []*pb.Instance
 			var err error
 			if question != questionEvaluate {
+				var verdict *pb.Verdict
 				verdict, instances, err = v.symbolicSatisfy(ctx, question, a)
+				verdicts = []*pb.Verdict{verdict}
 			} else {
-				verdict, instances, err = v.satisfyVerdict(ctx, a)
+				verdicts, instances, err = v.satisfyVerdicts(ctx, a)
 			}
 			if err != nil {
 				return nil, err
 			}
-			resp.Verdicts = append(resp.Verdicts, verdict)
+			resp.Verdicts = append(resp.Verdicts, verdicts...)
 			if question == questionEvaluate {
 				if req := a.AssertedRequirement(); req != nil && !verified[req] {
 					verified[req] = true
@@ -514,12 +516,56 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 	return resp, nil
 }
 
+// satisfyVerdicts evaluates one assertion: against an object of its subject, or,
+// for an assertion a type states with no `by`, against each object of that type
+// the model holds (the population Instantiate built), one verdict per object as
+// ValidateInstance decides it. A definition's assertion with no such object is
+// undecided, saying an object is needed; a usage's names the object it is about.
+func (v *verifyContext) satisfyVerdicts(ctx context.Context, a *runtime.SatisfyAssertion) ([]*pb.Verdict, []*pb.Instance, error) {
+	one := func(verdict *pb.Verdict, instances []*pb.Instance, err error) ([]*pb.Verdict, []*pb.Instance, error) {
+		if err != nil {
+			return nil, nil, err
+		}
+		return []*pb.Verdict{verdict}, instances, nil
+	}
+	if a.StatingType() == nil {
+		return one(v.satisfyVerdict(ctx, a))
+	}
+	held, ok := v.service.heldObjects(v.cached)
+	if !ok {
+		return one(v.satisfyVerdict(ctx, a))
+	}
+	defer held.lock(ctx)()
+	subjects := held.rt.SatisfactionSubjects(a, held.rootObjects())
+	if len(subjects) == 0 {
+		return one(v.satisfyVerdict(ctx, a))
+	}
+	on := v.on(held.rt)
+	var verdicts []*pb.Verdict
+	var instances []*pb.Instance
+	for _, held := range subjects {
+		inst := held.Object
+		result, plan, err := on.check(ctx, a.Text(), func(rt *runtime.Context) (runtime.CheckResult, error) {
+			return rt.CheckSatisfactionOn(a, inst)
+		})
+		if gone := callerGone(ctx, err); gone != nil {
+			return nil, nil, gone
+		}
+		subject := subjectOf(result, inst)
+		verdict := on.verdict(verdictSatisfy, a.Symbol, a.Text(), subject, result.Holds, err, plan)
+		on.associateRequirement(verdict, a)
+		verdicts = append(verdicts, verdict)
+		instances = append(instances, on.instanceGraph(subject)...)
+	}
+	return verdicts, instances, nil
+}
+
 // satisfyVerdict evaluates one assertion against an object of its subject, built
 // for this call so the verdict is about the values that subject holds. The error
 // is the caller's own, having gone away before the check.
 func (v *verifyContext) satisfyVerdict(ctx context.Context, a *runtime.SatisfyAssertion) (*pb.Verdict, []*pb.Instance, error) {
 	var subject *runtime.Instance
-	if a.Subject != nil {
+	if a.Subject != nil || a.StatingType() != nil {
 		// Created here rather than inside the evaluation so that the object the
 		// verdict is about can be reported with it.
 		inst, err := v.runtime.SatisfySubject(a)

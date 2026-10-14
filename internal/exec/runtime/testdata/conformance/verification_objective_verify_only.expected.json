@@ -1,0 +1,9 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::checkSlow",
+  "verdict": "pass",
+  "verdicts": {
+    "gentle": "satisfied"
+  }
+}

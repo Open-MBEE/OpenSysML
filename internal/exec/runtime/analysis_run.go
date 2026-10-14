@@ -677,7 +677,10 @@ func assertionName(cond Condition) (string, *symbols.Symbol) {
 func (ctx *Context) analysisVerdict(kind, name string, check conditionCheck, conds []Condition) AnalysisVerdict {
 	verdict := AnalysisVerdict{Kind: kind, Name: name}
 	if len(conds) == 0 {
-		verdict.Status, verdict.Detail = VerdictUndecided, "states no condition to check"
+		// A requirement check over no constraints is true (Requirements::
+		// RequirementConstraintCheck::result); a `verify r;` records what the
+		// case verifies, it is no condition of the objective.
+		verdict.Status = VerdictSatisfied
 		return verdict
 	}
 	holds, err := ctx.evaluateConditions(check, conds)

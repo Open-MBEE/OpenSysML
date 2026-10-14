@@ -689,6 +689,9 @@ func (w *plantumlWriter) plantumlLabel(node *Node) string {
 	for _, line := range w.labels.details(node) {
 		parts = append(parts, plantumlText(line))
 	}
+	for _, line := range w.labels.compartmentLines(node) {
+		parts = append(parts, plantumlText(line))
+	}
 	return strings.Join(parts, `\n`)
 }
 

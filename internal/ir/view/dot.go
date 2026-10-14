@@ -76,7 +76,7 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		direction = DirectionLeftRight
 	}
 	if options.Unplaced != UnplacedStrip {
-		r = withoutStandIns(r)
+		r = foldCompartments(withoutStandIns(r))
 	}
 	w := newDOTWriter(r, options)
 	edges := w.settleEdges(r, options.Unplaced)
@@ -283,7 +283,35 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 		}
 		w.fills.collect(root)
 	}
+	w.noticeClippedRows(r.Roots)
 	return w
+}
+
+// noticeClippedRows notices the compartment rows the stated boxes under nodes
+// have no room for, which their labels leave unwritten.
+func (w *dotWriter) noticeClippedRows(nodes []*Node) {
+	clipped := 0
+	var walk func(nodes []*Node)
+	walk = func(nodes []*Node) {
+		for _, node := range nodes {
+			walk(node.Children)
+			if _, stated := w.boxes[node.ID]; !stated || node.Geometry == nil || !node.Geometry.HasSize || len(w.labels.compartments(node)) == 0 {
+				continue
+			}
+			width := node.Geometry.Width
+			height, _ := w.headroom(node)
+			if !dotHoldsALine(width, height) {
+				clipped += w.labels.rowCount(node)
+				continue
+			}
+			_, n := w.labels.dotFittedLabel(node, width, height)
+			clipped += n
+		}
+	}
+	walk(nodes)
+	if clipped > 0 {
+		w.notices = append(w.notices, fmt.Sprintf("%d compartment row(s) with no room in the stated size of their node's box, left unwritten", clipped))
+	}
 }
 
 // placeAllPorts finds the box of every port of every boxed node under roots;
@@ -1214,7 +1242,8 @@ func (w *dotWriter) dotStatedLabel(node *Node) []string {
 		}
 		return attrs
 	}
-	attrs := []string{w.labels.dotFittedLabel(node, width, height), dotMarginZero}
+	label, _ := w.labels.dotFittedLabel(node, width, height)
+	attrs := []string{label, dotMarginZero}
 	if header {
 		attrs = append(attrs, dotLabelTop)
 	}
@@ -1434,6 +1463,18 @@ func (l labeller) dotLabelExtent(node *Node) (width, height float64) {
 	for _, detail := range l.details(node) {
 		line(detail, base, dotGlyphEm)
 	}
+	if compartments := l.compartments(node); len(compartments) > 0 {
+		for _, compartment := range compartments {
+			line(compartment.Name, l.keywordSize(), dotGlyphEm)
+			for _, row := range compartment.Rows {
+				for _, text := range strings.Split(l.rowText(row), "\n") {
+					line(text, base, dotGlyphEm)
+				}
+			}
+			height += dotCompartmentChrome
+		}
+		width += dotCompartmentPadding
+	}
 	return width, height
 }
 
@@ -1497,16 +1538,18 @@ const (
 // label with detail lines is set in the compartment table, so it is fitted to
 // the box less the table's chrome; when no detail line fits there, no table is
 // written and the title alone is fitted to the whole box.
-func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
+func (l labeller) dotFittedLabel(node *Node, width, height float64) (label string, clipped int) {
 	if l.compartmented(node) {
 		parts := l.fitParts(node, width-dotCompartmentPadding, height-dotCompartmentChrome)
-		if len(parts.details) == 0 {
+		if len(parts.details) == 0 && len(parts.compartments) == 0 {
 			parts = l.fitParts(node, width, height)
-			parts.details = nil
+			parts.details, parts.compartments = nil, nil
+			parts.clipped = l.rowCount(node)
 		}
-		return dotLabelAttribute(l.assemble(parts))
+		return dotLabelAttribute(l.assemble(parts)), parts.clipped
 	}
-	return dotLabelAttribute(l.assemble(l.fitParts(node, width, height)))
+	parts := l.fitParts(node, width, height)
+	return dotLabelAttribute(l.assemble(parts)), parts.clipped
 }
 
 // fitParts is a node's label fitted to a box, by part.
@@ -1521,6 +1564,7 @@ func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 	if keyword != "" {
 		rest = append([]string{keyword}, rest...)
 	}
+	room := fits
 	for i, line := range rest {
 		lineSize := size
 		if i == 0 && keyword != "" {
@@ -1528,7 +1572,8 @@ func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 		}
 		wrapped := dotWrap(line, width, lineSize, false)
 		used := float64(len(wrapped)) * dotLineHeight(lineSize)
-		if !fits || used > left || dotOverruns(wrapped, width, lineSize, false) {
+		if !room || used > left || dotOverruns(wrapped, width, lineSize, false) {
+			room = false
 			break
 		}
 		left -= used
@@ -1539,20 +1584,52 @@ func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 		}
 		parts.details = append(parts.details, l.sized(base, lineSize, text))
 	}
+	nameSize := math.Round(size * l.keywordSize() / base)
+	for _, compartment := range l.compartments(node) {
+		fitted := labelCompartment{name: l.sized(base, nameSize, dotEscape(compartment.Name))}
+		below := left - dotLineHeight(nameSize)
+		for _, row := range compartment.Rows {
+			wrapped := dotWrap(l.rowText(row), width, size, false)
+			used := float64(len(wrapped)) * dotLineHeight(size)
+			if !room || used > below || dotOverruns(wrapped, width, size, false) {
+				room = false
+				parts.clipped++
+				continue
+			}
+			below -= used
+			fitted.rows = append(fitted.rows, l.sized(base, size, dotEscapeLines(wrapped)))
+		}
+		if len(fitted.rows) == 0 {
+			continue
+		}
+		left = below
+		parts.compartments = append(parts.compartments, fitted)
+	}
 	return parts
 }
 
-// compartmented reports whether a node's label is set in Cameo's compartment
-// table: when it has detail lines under its title.
+// compartmented reports whether a node's label is set in a compartment table:
+// when it has compartments of member rows, or detail lines under its title in
+// Cameo's skin.
 func (l labeller) compartmented(node *Node) bool {
-	return l.skin.cameo && len(l.details(node)) > 0
+	return len(l.compartments(node)) > 0 || l.skin.cameo && len(l.details(node)) > 0
 }
 
 // labelParts is a node's label as HTML-like content, by part: the keyword line
-// when the node has one, the bold head, then its detail lines.
+// when the node has one, the bold head, its detail lines, then its
+// compartments; clipped counts the compartment rows a stated box had no room
+// for.
 type labelParts struct {
 	head, keyword string
 	details       []string
+	compartments  []labelCompartment
+	clipped       int
+}
+
+// labelCompartment is one compartment of a label: its name over its rows.
+type labelCompartment struct {
+	name string
+	rows []string
 }
 
 // keywordText is the keyword line's markup: italic for the Pilot, plain for Cameo.
@@ -1571,14 +1648,31 @@ func (l labeller) assemble(parts labelParts) string {
 	if parts.keyword != "" {
 		title = parts.keyword + "<br/>" + title
 	}
-	if !l.skin.cameo {
-		return "<" + strings.Join(append([]string{title}, parts.details...), "<br/>") + ">"
+	if len(parts.compartments) == 0 {
+		if !l.skin.cameo {
+			return "<" + strings.Join(append([]string{title}, parts.details...), "<br/>") + ">"
+		}
+		if len(parts.details) == 0 {
+			return "<" + title + ">"
+		}
+		return fmt.Sprintf(`<<table border="0" cellborder="0" cellspacing="0" cellpadding="%d"><tr><td>%s</td></tr><hr/><tr><td align="left">%s</td></tr></table>>`,
+			dotCellPadding, title, strings.Join(parts.details, "<br/>"))
 	}
-	if len(parts.details) == 0 {
-		return "<" + title + ">"
+	var b strings.Builder
+	fmt.Fprintf(&b, `<<table border="0" cellborder="0" cellspacing="0" cellpadding="%d">`, dotCellPadding)
+	switch {
+	case len(parts.details) == 0:
+		fmt.Fprintf(&b, "<tr><td>%s</td></tr>", title)
+	case l.skin.cameo:
+		fmt.Fprintf(&b, `<tr><td>%s</td></tr><hr/><tr><td align="left">%s</td></tr>`, title, strings.Join(parts.details, "<br/>"))
+	default:
+		fmt.Fprintf(&b, "<tr><td>%s</td></tr>", strings.Join(append([]string{title}, parts.details...), "<br/>"))
 	}
-	return fmt.Sprintf(`<<table border="0" cellborder="0" cellspacing="0" cellpadding="%d"><tr><td>%s</td></tr><hr/><tr><td align="left">%s</td></tr></table>>`,
-		dotCellPadding, title, strings.Join(parts.details, "<br/>"))
+	for _, compartment := range parts.compartments {
+		fmt.Fprintf(&b, `<hr/><tr><td>%s</td></tr><tr><td align="left">%s</td></tr>`, compartment.name, strings.Join(compartment.rows, "<br/>"))
+	}
+	b.WriteString("</table>>")
+	return b.String()
 }
 
 // dotFitText wraps lines of text into a box at the largest font size, from the
@@ -1761,7 +1855,7 @@ func (w *dotWriter) dotClusterAttributes(node *Node) []string {
 		label = w.labels.dotFramedLabel(node)
 	case g != nil && g.HasSize:
 		height, _ := w.headroom(node)
-		label = w.labels.dotFittedLabel(node, g.Width, math.Max(height, dotLineHeight(dotFitFloor)))
+		label, _ = w.labels.dotFittedLabel(node, g.Width, math.Max(height, dotLineHeight(dotFitFloor)))
 	}
 	attrs := []string{dotStyledLabel(label, node.Style)}
 	attrs = append(attrs, w.clusterStyle(node)...)
@@ -2390,6 +2484,14 @@ func (l labeller) dotLabel(node *Node) string {
 	}
 	for _, line := range l.details(node) {
 		parts.details = append(parts.details, dotEscape(line))
+	}
+	base := l.sizeOf(node)
+	for _, compartment := range l.compartments(node) {
+		fitted := labelCompartment{name: l.sized(base, l.keywordSize(), dotEscape(compartment.Name))}
+		for _, row := range compartment.Rows {
+			fitted.rows = append(fitted.rows, dotEscape(l.rowText(row)))
+		}
+		parts.compartments = append(parts.compartments, fitted)
 	}
 	return dotLabelAttribute(l.assemble(parts))
 }

@@ -465,7 +465,9 @@ digraph "VehicleViews::vehicleView" {
   `subgraph "cluster_<id>" { label=<…>; color=black; penwidth=<w>; … }`, the containment Mermaid writes as `subgraph`;
   in a tree, containment is an `arrowhead=none` edge, as the Mermaid tree draws it, so a tree has
   no clusters. In a positioned tree a child boxed inside its owner's box draws as a compartment
-  row of it and no edge is written for it; a child boxed outside keeps its edge. Since DOT edges join nodes, not subgraphs, every cluster holds an invisible,
+  row of it and no edge is written for it; a child boxed outside keeps its edge; a member child
+  with no position at all lists in a compartment of its owner's box (see *Compartment rows*
+  below). Since DOT edges join nodes, not subgraphs, every cluster holds an invisible,
   sizeless anchor node named by the cluster's own ID; an edge whose end is a cluster names that
   anchor, so the rendering's endpoints survive verbatim, and is clipped at the cluster with
   `lhead`/`ltail` — except at an end that encloses the other, where the edge starts or ends
@@ -879,9 +881,49 @@ digraph "PlantViews::placedView" {
   kind draws takes a route: a connection, binding or flow of an interconnection, a transition
   of a state rendering, a succession or flow of an action rendering — the annotation names the
   member (`metadata DiagramLayout::Route about 'a to b'`), so only a named edge can carry one.
+- **Compartment rows.** A migrated diagram gives a `Layout` only to what its source drew as a
+  symbol of its own; a block's attributes, nested parts, constraints, ports listed in a
+  compartment and enum literals never had one. In a positioned tree, a member child with no
+  position whose subtree holds no positioned node is drawn as a row of a compartment inside its
+  owner's box rather than left undrawn (`foldCompartments` in placement.go, run by every
+  graphical form before it settles the unplaced nodes; `Node.Compartments` carries the rows,
+  `labeller.compartmentLines` writes them). The rows are grouped by the member's keyword under
+  the plural compartment name of the graphical notation (§8.2.3 `compartment`): `attributes`,
+  `enumerations`, `occurrences`, `items`, `parts`, `ports`, `connections`, `interfaces`,
+  `allocations`, `actions`, `states`, `calculations`, `constraints`, `requirements`, `cases`,
+  `analyses`, `verifications`, `use cases`, `views`, `viewpoints`, `renderings`, `metadata`
+  (the order Part 7 of the language spec introduces the kinds), any other keyword after them in
+  first-seen order, and the rows of a compartment keep declaration order. A row is the member's
+  textual notation, as the label shows it: a modifier of its keyword (`ref`), its name, `: Type`
+  when typings are shown, `= value` when the usage is bound (`gain : dB = 15.0`,
+  `constraint1 : 'Signal Output'`; a value the renderer does not spell, such as an invocation,
+  is its source text). No edge is written to a member drawn as a row, and the
+  notice counts them (`4 node(s) without a position, drawn as compartment rows of the node
+  above them`); a row shows the member alone, so the members nested under a row are left undrawn
+  and the notice counts them apart (`, and 1 node(s) under them left undrawn`). A member with a
+  `Layout` of its own stays a node (a compartment row by its box when inside the owner's, an edge
+  when outside), as does an unplaced member with a positioned node under it, so that node keeps
+  its owner. An unpositioned tree is unchanged: every member
+  stays a node of its own. Nothing folds when `compartments` is not shown (`ElementCompartments`
+  off, `showCompartments = false`): the layout-less members are left undrawn as before. DOT keeps
+  the owner's box at its `Layout` size and fits the compartments into its headroom after the
+  title and detail lines (`fitParts`): a compartment's name is set at the keyword size, its rows
+  left-aligned at the title size, each kept only while the strip has room for it and none written
+  over the border; a compartment with no row that fits is dropped with its name, and once a row is
+  clipped every later row is, so the box reads in order. A `// not represented:` notice counts the
+  rows clipped (`2 compartment row(s) with no room in the stated size of their node's box, left
+  unwritten`); a box whose `Layout` has a corner and no size is sized to its rows
+  (`dotLabelExtent`). Mermaid, PlantUML and D2 write every row as a label line, as they write detail
+  lines, and size the box to it. The text form never settled the unplaced nodes and lists the
+  members as before; the data form is unchanged too — a row is a child `Node` with no `Geometry`
+  under a parent with one. The VS Code webview (`editors/vscode/src/webview/layout.ts`) draws
+  no compartment rows: it builds its tree from `Parent` and places such a child as a box of its
+  own in a grid slot (`placeGrid`), so it never dropped the member; drawing it as a row there
+  is the webview's own change to make.
 - **Unplaced nodes.** A node counts as positioned however its box was found — by its
   `Layout`, round its members, or from a route. When some nodes are positioned and others are
-  not, the drawing shows what its source showed: the unpositioned nodes are left undrawn, with
+  not, the drawing shows what its source showed: the unpositioned nodes are left undrawn (a
+  tree's member children of a positioned node list in its compartments instead, above), with
   every edge at one of them and the containment edge a tree would draw to it, and a
   `// not represented:` notice counts them (`2 node(s) without a position, left undrawn, and 1
   edge(s) at them`), so nothing lands on a placed box — a migrated diagram's members the source
