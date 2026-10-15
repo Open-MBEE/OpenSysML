@@ -146,6 +146,16 @@ type Client interface {
 	// schedule capability for a policy and engines for a named engine, checked
 	// before anything is sent.
 	RunAnalysis(ctx context.Context, model *Model, symbolID string, opts ...AnalysisOption) (*Analysis, error)
+	// RunAction and RunMonteCarlo run an action or a Simulation::MonteCarlo case
+	// repeatedly and table what the runs observed (runs capability).
+	RunAction(ctx context.Context, model *Model, actionID string, count int64, opts ...RunsOption) (*Runs, error)
+	RunMonteCarlo(ctx context.Context, model *Model, caseID string, count int64, opts ...RunsOption) (*Runs, error)
+	// SelfCheck applies the reflective SysMLValidation constraints to every
+	// element of the model (self_check capability).
+	SelfCheck(ctx context.Context, model *Model, rulePackages ...string) (*SelfCheck, error)
+	// RecordRun runs an analysis case and records the runs into the model
+	// (record_run capability).
+	RecordRun(ctx context.Context, model *Model, caseID string, opts ...RecordOption) (*Recording, error)
 
 	// Query selects the model's elements the query matches, in declaration
 	// order. Requires the query capability.
@@ -318,6 +328,9 @@ type caller interface {
 	validateInstance(ctx context.Context, req *pb.ValidateInstanceRequest) (*pb.ValidateInstanceResponse, error)
 	evaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest) (*pb.EvaluateCalcResponse, error)
 	runAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (*pb.RunAnalysisResponse, error)
+	runRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunRunsResponse, error)
+	selfCheck(ctx context.Context, req *pb.SelfCheckRequest) (*pb.SelfCheckResponse, error)
+	recordRun(ctx context.Context, req *pb.RecordRunRequest) (*pb.RecordRunResponse, error)
 	query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error)
 	runDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error)
 	renderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error)

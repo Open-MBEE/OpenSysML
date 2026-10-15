@@ -1410,3 +1410,86 @@ func TestAModelThatNoParseAnsweredIsInvalid(t *testing.T) {
 		t.Errorf("err = %v, want CodeInvalidArgument", err)
 	}
 }
+
+const runsSurfaceSource = `package MC {
+	private import ScalarValues::*;
+	private import RandomFunctions::*;
+	action def Settle { out t : Real; first start; then assign t := uniform(1.0, 5.0); then done; }
+	part def Probe { attribute t : Real; action settle { first start; then assign t := uniform(1.0, 5.0); then done; } }
+	individual def probe :> Probe;
+	analysis def Mc :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.settle;
+		attribute :>> observed : Real = analysed.t;
+		return Mean : Real = mean;
+	}
+	part def P { attribute m : Real = 2.0; }
+	part p : P;
+	analysis def Cost { subject s : P; return total : Real = s.m * 3.0; }
+}`
+
+func TestRunActionAgainstService(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, runsSurfaceSource)
+	ctx := context.Background()
+	runs, err := client.RunAction(ctx, model, "MC::Settle", 4, opensysml.RunsSeed(7), opensysml.RunsObserve("t"))
+	if err != nil {
+		t.Fatalf("RunAction: %v", err)
+	}
+	if len(runs.Rows) != 4 || len(runs.Distributions) != 1 || runs.Distributions[0].Count != 4 || !runs.Distributions[0].Numeric || runs.Seed == nil {
+		t.Errorf("runs = %+v, want 4 rows and t's distribution", runs)
+	}
+	sample, err := client.RunMonteCarlo(ctx, model, "MC::Mc", 3, opensysml.RunsSeed(1), opensysml.RunsSubject("MC::probe"))
+	if err != nil || len(sample.Rows) != 3 || sample.Unconcluded != "" || len(sample.Outputs) == 0 {
+		t.Errorf("RunMonteCarlo: %v %+v, want 3 concluded rows", err, sample)
+	}
+	_, err = client.RunAction(ctx, model, "MC::Settle", 1)
+	var status *opensysml.StatusError
+	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
+		t.Errorf("random runs without a seed: %v, want INVALID_ARGUMENT", err)
+	}
+	_, err = client.RunAction(ctx, model, "MC::Nope", 1, opensysml.RunsDraws("min"))
+	var failure *opensysml.VerifyError
+	if !errors.As(err, &failure) || failure.Op != "RunAction" {
+		t.Errorf("unknown action: %v, want an in-band VerifyError", err)
+	}
+}
+
+func TestSelfCheckAgainstService(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, runsSurfaceSource)
+	check, err := client.SelfCheck(context.Background(), model)
+	if err != nil {
+		t.Fatalf("SelfCheck: %v", err)
+	}
+	if check.Elements == 0 || check.Checks == 0 || !strings.HasPrefix(check.Summary, "Self-model check: ") || len(check.Applications) == 0 {
+		t.Errorf("check = %+v, want the counts of a check that ran", check)
+	}
+	_, err = client.SelfCheck(context.Background(), model, "Nope")
+	var failure *opensysml.FailureError
+	if !errors.As(err, &failure) || failure.Op != "SelfCheck" || !strings.Contains(failure.Message, "Nope") {
+		t.Errorf("unknown rule package: %v, want an in-band FailureError", err)
+	}
+}
+
+func TestRecordRunAgainstService(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, runsSurfaceSource)
+	ctx := context.Background()
+	rec, err := client.RecordRun(ctx, model, "MC::Cost", opensysml.RecordSubject("MC::p"))
+	if err != nil {
+		t.Fatalf("RecordRun: %v", err)
+	}
+	if rec.Run == nil || rec.Package != "Records" || len(rec.Records) != 1 || rec.ModelHash == "" || len(rec.Documents) != 1 || !strings.Contains(rec.Source, "Cost_run1") {
+		t.Errorf("recording = %+v, want Cost_run1 in Records", rec)
+	}
+	sample, err := client.RecordRun(ctx, model, "MC::Mc", opensysml.RecordSubject("MC::probe"), opensysml.RecordSample(2, 3))
+	if err != nil || sample.Sample == nil || len(sample.Records) != 3 {
+		t.Errorf("recording a sample: %v %+v, want two runs and the sample", err, sample)
+	}
+	_, err = client.RecordRun(ctx, model, "MC::Nope")
+	var failure *opensysml.VerifyError
+	if !errors.As(err, &failure) || failure.Op != "RecordRun" {
+		t.Errorf("unknown case: %v, want an in-band VerifyError", err)
+	}
+}
