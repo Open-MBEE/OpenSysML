@@ -278,3 +278,11 @@ func recoverToError(err *error) {
 		*err = &StatusError{Code: CodeInternal, Message: fmt.Sprintf("panic: %v", recovered)}
 	}
 }
+
+func (p *inprocess) importData(ctx context.Context, req *pb.ImportDataRequest) (*pb.ImportDataResponse, error) {
+	return answer(ctx, req, p.svc.ImportData)
+}
+
+func (p *inprocess) compareResults(ctx context.Context, req *pb.CompareResultsRequest) (*pb.CompareResultsResponse, error) {
+	return answer(ctx, req, p.svc.CompareResults)
+}

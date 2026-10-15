@@ -291,3 +291,19 @@ func connectToError(err error) error {
 	}
 	return &StatusError{Code: CodeUnavailable, Message: err.Error()}
 }
+
+func (r *remote) importData(ctx context.Context, req *pb.ImportDataRequest) (*pb.ImportDataResponse, error) {
+	resp, err := r.rpc.ImportData(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
+func (r *remote) compareResults(ctx context.Context, req *pb.CompareResultsRequest) (*pb.CompareResultsResponse, error) {
+	resp, err := r.rpc.CompareResults(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
