@@ -234,7 +234,7 @@
       },
       "request": {
         "model_hash": "${model_hash}",
-        "seed": "7",
+        "seed": 7,
         "results": "{\"source\":\"probe.xmi\",\"configurations\":[{\"id\":\"_c1\",\"name\":\"Cfg::'Group 1'\",\"runs\":2,\"target\":\"target\",\"behavior\":\"run\",\"resultLocation\":\"Results\",\"observables\":[\"total\"],\"snapshots\":[{\"id\":\"_r1\",\"values\":{\"total\":4.0}},{\"id\":\"_r2\",\"values\":{\"total\":6.0}}]},{\"id\":\"_cn\",\"name\":\"Cfg::Nothing\",\"observables\":[],\"snapshots\":[],\"notes\":[\"migrated without a behavior\"]}]}"
       },
       "expect": {
@@ -249,7 +249,7 @@
               "stored_runs": 2,
               "runs": 2,
               "completed": 2,
-              "seed": "7",
+              "seed": 7,
               "observables": [
                 {
                   "stored": "total",
@@ -308,8 +308,8 @@
       "request": {
         "model_hash": "${model_hash}",
         "actions": ["Group 1"],
-        "runs": "1",
-        "seed": "3",
+        "runs": 1,
+        "seed": 3,
         "results": "{\"source\":\"probe.xmi\",\"configurations\":[{\"id\":\"_c1\",\"name\":\"Cfg::'Group 1'\",\"runs\":2,\"target\":\"target\",\"behavior\":\"run\",\"observables\":[\"total\"],\"snapshots\":[{\"id\":\"_r1\",\"values\":{\"total\":4.0}}]},{\"id\":\"_cn\",\"name\":\"Cfg::Nothing\",\"observables\":[],\"snapshots\":[]}]}"
       },
       "expect": {
@@ -365,7 +365,7 @@
       },
       "request": {
         "model_hash": "${model_hash}",
-        "runs": "-1",
+        "runs": -1,
         "results": "{\"source\":\"probe.xmi\",\"configurations\":[]}"
       },
       "expect": {

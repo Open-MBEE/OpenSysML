@@ -891,7 +891,17 @@ impl Runner {
             Ok(result) => {
                 Answer::Response(self.wire_json("sysml.ImportDataResponse", result.wire()))
             }
-            Err(error) => classify_error(error),
+            Err(error) => match Failure::of(error) {
+                Ok(failure) => Answer::Response(self.wire_json(
+                    "sysml.ImportDataResponse",
+                    &wire::ImportDataResponse {
+                        error: failure.error,
+                        diagnostics: failure.diagnostics,
+                        ..Default::default()
+                    },
+                )),
+                Err(answer) => answer,
+            },
         }
     }
 
@@ -920,7 +930,18 @@ impl Runner {
             Ok(result) => {
                 Answer::Response(self.wire_json("sysml.CompareResultsResponse", result.wire()))
             }
-            Err(error) => classify_error(error),
+            Err(error) => match Failure::of(error) {
+                Ok(failure) => Answer::Response(self.wire_json(
+                    "sysml.CompareResultsResponse",
+                    &wire::CompareResultsResponse {
+                        failure_reason: failure.reason(),
+                        error: failure.error,
+                        diagnostics: failure.diagnostics,
+                        ..Default::default()
+                    },
+                )),
+                Err(answer) => answer,
+            },
         }
     }
 

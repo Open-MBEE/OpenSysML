@@ -32,6 +32,7 @@ import { Literal, methodOf, type Expect, type Scenario, type ScenarioModel } fro
 /** The RPCs this client covers. Everything else is a stated skip. */
 export const COVERED_RPCS = [
   "ApplyEdits",
+  "CompareResults",
   "Convert",
   "Migrate",
   "Evaluate",
@@ -42,6 +43,7 @@ export const COVERED_RPCS = [
   "GetDiagnostics",
   "GetServerInfo",
   "GetSymbol",
+  "ImportData",
   "Instantiate",
   "ListEngines",
   "ParseFile",
@@ -444,6 +446,21 @@ export class Runner {
         show: Array.isArray(call.request["show"]) ? call.request["show"].map(String) : [],
       }),
     ExportGraphs: (call) => this.model(call).exportGraphs(String(call.request["subject"])),
+    ImportData: (call) =>
+      this.model(call).importData(dataImports(call.request["imports"]), {
+        ...flagOption(call.request, "import_dry_run", "dryRun"),
+        ...flagOption(call.request, "accept_documents", "acceptDocuments"),
+      }),
+    CompareResults: (call) =>
+      this.model(call).compareResults(stringOf(call.request["results"]), {
+        actions: stringList(call.request["actions"]),
+        ...numberOption(call.request, "runs", "runs"),
+        ...numberOption(call.request, "seed", "seed"),
+        ...stringOption(call.request, "draws", "draws"),
+        ...numberOption(call.request, "clock_step", "clockStep"),
+        observe: observablePairs(call.request["observe"]),
+        ...stringOption(call.request, "engine", "engine"),
+      }),
     RunAnalysis: (call) =>
       this.model(call).runAnalysis(String(call.request["symbol_id"]), {
         ...stringOption(call.request, "subject_symbol_id", "subject"),
@@ -646,6 +663,38 @@ function asConnectError(error: unknown): ConnectError | undefined {
     return error.cause;
   }
   return undefined;
+}
+
+/** A request's `imports` list, each entry an ImportData import under its proto JSON names. */
+function dataImports(value: unknown): { name: string; content: string; format?: string; map?: string }[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((entry) => {
+    const item = (entry ?? {}) as Record<string, unknown>;
+    return {
+      name: stringOf(item["name"]),
+      content: stringOf(item["content"]),
+      ...stringOption(item, "import_format", "format"),
+      ...stringOption(item, "import_map", "map"),
+    };
+  });
+}
+
+/** A request's `observe` list of stored-name → feature pairs. */
+function observablePairs(value: unknown): [string, string][] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((entry) => {
+    const pair = (entry ?? {}) as Record<string, unknown>;
+    return [stringOf(pair["stored"]), stringOf(pair["feature"])];
+  });
+}
+
+/** A request field read as a list of strings; anything else reads as an empty list. */
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => stringOf(item)) : [];
 }
 
 /** A request field read as a string; a field of another form reads as none. */
