@@ -776,7 +776,7 @@ end
                 @test !isempty(compared.configurations[2].unresolved)
                 selected = compare_results(probe_model, probe_results; actions=["Group 1"], runs=1, seed=3)
                 @test length(selected.configurations) == 1 && selected.configurations[1].runs == 1
-                @test_throws OpenSysMLError compare_results(probe_model, probe_results; runs=-1)
+                @test_throws ArgumentError compare_results(probe_model, probe_results; runs=-1)
                 @test_throws OpenSysMLError compare_results(probe_model, "not json")
                 for (view, message) in (
                     ("RenderViewDemo::Missing", "no view named RenderViewDemo::Missing"),
