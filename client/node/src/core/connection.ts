@@ -1285,7 +1285,7 @@ export class Connection {
       analysis?: string;
       runs: bigint | number;
       seed?: bigint | number;
-      draws?: "random" | "min" | "max" | "average" | string;
+      draws?: string;
       clockStep?: number;
       observe?: readonly string[];
       inputs?: Readonly<Record<string, ValueInput>>;

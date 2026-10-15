@@ -902,7 +902,7 @@ export function runsResultOf(
 
 /** One thing the reflective self-check reports; `line` is it as the CLI prints it. */
 export interface SelfCheckFinding {
-  readonly status: "fails" | "unevaluated" | "error" | "warning" | string;
+  readonly status: string;
   readonly subject: string;
   readonly location: string;
   readonly constraint: string;
@@ -913,7 +913,7 @@ export interface SelfCheckFinding {
 
 /** What `selfCheck` answers: every finding and the counts over them. */
 export class SelfCheckResult {
-  readonly status: "holds" | "fails" | "unresolved" | string;
+  readonly status: string;
   readonly findings: readonly SelfCheckFinding[];
   readonly elements: bigint;
   readonly checks: bigint;
