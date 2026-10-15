@@ -3,8 +3,12 @@
 
 import type {
   CaseEvaluation as PbCaseEvaluation,
+  RecordRunResponse,
   RunAnalysisResponse,
+  RunDistribution as PbRunDistribution,
+  RunRunsResponse,
   RunSweepResponse,
+  SelfCheckResponse,
   SweepRow as PbSweepRow,
   ValidateInstanceResponse,
   Value,
@@ -745,7 +749,7 @@ export function sweepTableOf(
   });
 }
 
-function sweepRowOf(
+export function sweepRowOf(
   row: PbSweepRow,
   instances: readonly Instance[],
   diagnostics: readonly ModelDiagnostic[],
@@ -769,4 +773,231 @@ function sweepRowOf(
     error: row.error,
     evaluations: evaluationsOf(row.evaluations),
   });
+}
+
+/** The value a percentile of the runs fell at or below. */
+export interface RunPercentile {
+  readonly percentile: number;
+  readonly value: SysMLValue;
+}
+
+/** How many runs observed a value in `[low, high)`. */
+export interface RunHistogramBin {
+  readonly low: SysMLValue;
+  readonly high: SysMLValue;
+  readonly count: bigint;
+}
+
+/** How many runs observed one distinct value. */
+export interface RunCountedValue {
+  readonly value: SysMLValue;
+  readonly count: bigint;
+}
+
+/** One observable over the completed runs: the extremes, mean, deviation,
+ * percentiles and histogram of a numeric one, or each distinct value counted. */
+export interface RunDistribution {
+  readonly name: string;
+  readonly unit: string;
+  readonly count: bigint;
+  readonly numeric: boolean;
+  readonly min: SysMLValue | undefined;
+  readonly max: SysMLValue | undefined;
+  readonly mean: SysMLValue | undefined;
+  readonly deviation: number;
+  readonly percentiles: readonly RunPercentile[];
+  readonly histogram: readonly RunHistogramBin[];
+  readonly values: readonly RunCountedValue[];
+}
+
+/** What `runRuns` answers: one row per run, each observable's distribution
+ * and, for a Monte Carlo case, its conclusion over the sample. */
+export class RunsResult {
+  readonly rows: readonly SweepRow[];
+  readonly observables: readonly string[];
+  readonly distributions: readonly RunDistribution[];
+  readonly lines: readonly string[];
+  readonly outputs: ReadonlyMap<string, ValueOrError>;
+  readonly verdicts: readonly Verdict[];
+  readonly unconcluded: string;
+  readonly instances: readonly Instance[];
+  readonly standing: Standing;
+  readonly seed: bigint | undefined;
+  readonly diagnostics: readonly ModelDiagnostic[];
+
+  constructor(fields: {
+    rows: readonly SweepRow[];
+    observables: readonly string[];
+    distributions: readonly RunDistribution[];
+    lines: readonly string[];
+    outputs: ReadonlyMap<string, ValueOrError>;
+    verdicts: readonly Verdict[];
+    unconcluded: string;
+    instances: readonly Instance[];
+    standing: Standing;
+    seed: bigint | undefined;
+    diagnostics: readonly ModelDiagnostic[];
+  }) {
+    this.rows = fields.rows;
+    this.observables = fields.observables;
+    this.distributions = fields.distributions;
+    this.lines = fields.lines;
+    this.outputs = fields.outputs;
+    this.verdicts = fields.verdicts;
+    this.unconcluded = fields.unconcluded;
+    this.instances = fields.instances;
+    this.standing = fields.standing;
+    this.seed = fields.seed;
+    this.diagnostics = fields.diagnostics;
+  }
+
+  get length(): number {
+    return this.rows.length;
+  }
+
+  toString(): string {
+    return this.lines.join("\n");
+  }
+}
+
+function runDistributionOf(pb: PbRunDistribution): RunDistribution {
+  return {
+    name: pb.name,
+    unit: pb.unit,
+    count: pb.count,
+    numeric: pb.numeric,
+    min: pb.min === undefined ? undefined : decodeValue(pb.min),
+    max: pb.max === undefined ? undefined : decodeValue(pb.max),
+    mean: pb.mean === undefined ? undefined : decodeValue(pb.mean),
+    deviation: pb.deviation,
+    percentiles: pb.percentiles.map((p) => ({ percentile: p.percentile, value: decodeValue(p.value) })),
+    histogram: pb.histogram.map((b) => ({ low: decodeValue(b.low), high: decodeValue(b.high), count: b.count })),
+    values: pb.values.map((v) => ({ value: decodeValue(v.value), count: v.count })),
+  };
+}
+
+export function runsResultOf(
+  response: RunRunsResponse,
+  instances: readonly Instance[],
+  diagnostics: readonly ModelDiagnostic[],
+): RunsResult {
+  const outputs = new Map<string, ValueOrError>();
+  for (const output of response.outputs) {
+    outputs.set(output.name, valueOrError(output.value));
+  }
+  return new RunsResult({
+    rows: response.rows.map((row) => sweepRowOf(row, instances, diagnostics)),
+    observables: [...response.observables],
+    distributions: response.distributions.map(runDistributionOf),
+    lines: [...response.lines],
+    outputs,
+    verdicts: response.verdicts.map((pbVerdict) => verdictOf(pbVerdict, instances, diagnostics, [])),
+    unconcluded: response.unconcluded,
+    instances,
+    standing: standingOf(response),
+    seed: response.seed,
+    diagnostics,
+  });
+}
+
+/** One thing the reflective self-check reports; `line` is it as the CLI prints it. */
+export interface SelfCheckFinding {
+  readonly status: "fails" | "unevaluated" | "error" | "warning" | string;
+  readonly subject: string;
+  readonly location: string;
+  readonly constraint: string;
+  readonly element: string;
+  readonly message: string;
+  readonly line: string;
+}
+
+/** What `selfCheck` answers: every finding and the counts over them. */
+export class SelfCheckResult {
+  readonly status: "holds" | "fails" | "unresolved" | string;
+  readonly findings: readonly SelfCheckFinding[];
+  readonly elements: bigint;
+  readonly checks: bigint;
+  readonly violations: bigint;
+  readonly unevaluated: bigint;
+  readonly evaluationErrors: bigint;
+  readonly applications: ReadonlyMap<string, bigint>;
+  readonly summary: string;
+  readonly diagnostics: readonly ModelDiagnostic[];
+
+  constructor(response: SelfCheckResponse, diagnostics: readonly ModelDiagnostic[]) {
+    this.status = response.status;
+    this.findings = response.findings.map((f) => ({
+      status: f.status,
+      subject: f.subject,
+      location: f.location,
+      constraint: f.constraint,
+      element: f.element,
+      message: f.message,
+      line: f.line,
+    }));
+    this.elements = response.elements;
+    this.checks = response.checks;
+    this.violations = response.violations;
+    this.unevaluated = response.unevaluated;
+    this.evaluationErrors = response.evaluationErrors;
+    this.applications = new Map(response.applications.map((a) => [a.constraint, a.count]));
+    this.summary = response.summary;
+    this.diagnostics = diagnostics;
+  }
+
+  /** Whether the check found no violation and no evaluation error. */
+  get holds(): boolean {
+    return this.status === "holds";
+  }
+
+  toString(): string {
+    return [...this.findings.map((f) => f.line), this.summary].join("\n");
+  }
+}
+
+/** One document the records were written into. */
+export interface RecordedDocument {
+  readonly name: string;
+  readonly content: string;
+}
+
+/** What `recordRun` answers: the runs' own report, what the model gained and
+ * the notation the records were written into. */
+export class Recording {
+  readonly run: AnalysisResult | undefined;
+  readonly sweep: SweepTable | undefined;
+  readonly sample: RunsResult | undefined;
+  readonly package: string;
+  readonly definition: string;
+  readonly records: readonly string[];
+  readonly source: string;
+  readonly content: string;
+  readonly documents: readonly RecordedDocument[];
+  readonly skipped: bigint;
+  readonly reasons: readonly string[];
+  readonly modelHash: string;
+  readonly diagnostics: readonly ModelDiagnostic[];
+
+  constructor(fields: {
+    run: AnalysisResult | undefined;
+    sweep: SweepTable | undefined;
+    sample: RunsResult | undefined;
+    response: RecordRunResponse;
+    diagnostics: readonly ModelDiagnostic[];
+  }) {
+    const { response } = fields;
+    this.run = fields.run;
+    this.sweep = fields.sweep;
+    this.sample = fields.sample;
+    this.package = response.package;
+    this.definition = response.definition;
+    this.records = [...response.records];
+    this.source = response.source;
+    this.content = response.content;
+    this.documents = response.documents.map((d) => ({ name: d.name, content: d.content }));
+    this.skipped = response.skipped;
+    this.reasons = [...response.reasons];
+    this.modelHash = response.modelHash;
+    this.diagnostics = fields.diagnostics;
+  }
 }

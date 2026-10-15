@@ -267,3 +267,12 @@ export function capabilityRefusal(
     return new MissingCapabilityError(capability, info, upgradeRemedy(capability));
   };
 }
+
+/** The `RunRuns` RPC: an action or a Monte Carlo case run repeatedly, the runs tabled. */
+export const CAPABILITY_RUNS = "runs";
+
+/** The `SelfCheck` RPC: the reflective SysMLValidation check of every element. */
+export const CAPABILITY_SELF_CHECK = "self_check";
+
+/** The `RecordRun` RPC: runs of an analysis case recorded into the model. */
+export const CAPABILITY_RECORD_RUN = "record_run";
