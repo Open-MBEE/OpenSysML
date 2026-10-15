@@ -14,7 +14,7 @@ in this directory, so adding a case is a data-only change.
 
 | Field | Applies to | Meaning |
 |---|---|---|
-| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery` or `EvaluateCalc` |
+| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `RunRuns`, `SelfCheck` or `RecordRun` |
 
 `ApplyEdits` sequence operations may carry the recursive action-body fields
 `condition`, `value`, `target`, `via`, `until`, `body`, `else_body`,
@@ -28,6 +28,12 @@ empty else blocks are not authorable.
 | `arguments` | EvaluateCalc | positional arguments bound to the calc's parameters |
 | `tools` | EvaluateCalc | stand-ins under `internal/exec/analysis/testdata` built and registered from a manifest before the service is built |
 | `inputs` | ExecuteAction | parameter name → value, bound before execution |
+| `runs`, `seed`, `draws`, `observe` | RunRuns, RecordRun | the run count, the seed the draws start from (`seed` must be set unless `draws` fixes them; RunRuns refuses an unseeded request with a status error, which `expected_error` matches too), and the action features RunRuns tables; `symbol_id` names the action, `context_symbol_id` the Monte Carlo case run on `subject_symbol_id` |
+| `self_check_package` | SelfCheck | rule packages applied beside `SysMLValidation` |
+| `record_into` | RecordRun | the package the records go to (`Records` when empty); `symbol_id` names the case |
+| `expected_row_count`, `expected_observables` | RunRuns | runs tabled, every one completed, and the observables each distribution counts |
+| `expected_status`, `min_checks` | SelfCheck | the verdict (`holds` or `fails`) and the least number of constraint applications |
+| `expected_package`, `expected_records` | RecordRun | the records generated, each resolvable by `GetSymbol` in the recorded model |
 | `events` | ExecuteState | event names injected, in order |
 | `instantiate` | RunDocumentQuery | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them |
 | `query_id` | RunDocumentQuery | FQN of the document query to run |
