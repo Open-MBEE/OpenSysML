@@ -1750,6 +1750,14 @@ pub struct RunsResult {
     pub seed: Option<u64>,
     /// Notes raised.
     pub diagnostics: Vec<Diagnostic>,
+    wire: wire::RunRunsResponse,
+}
+
+impl RunsResult {
+    /// The response as the service sent it.
+    pub fn wire(&self) -> &wire::RunRunsResponse {
+        &self.wire
+    }
 }
 
 impl RunsResult {
@@ -1775,6 +1783,7 @@ pub(crate) fn runs_of(
     response: wire::RunRunsResponse,
     capabilities: &Capabilities,
 ) -> Result<RunsResult, Error> {
+    let wire = response.clone();
     let diagnostics = diagnostics_of(&response.diagnostics);
     if !response.error.is_empty() {
         return Err(failure_of(
@@ -1848,6 +1857,7 @@ pub(crate) fn runs_of(
         instances,
         seed: response.seed,
         diagnostics,
+        wire,
     })
 }
 
@@ -1893,6 +1903,14 @@ pub struct SelfCheckResult {
     pub summary: String,
     /// Notes raised.
     pub diagnostics: Vec<Diagnostic>,
+    wire: wire::SelfCheckResponse,
+}
+
+impl SelfCheckResult {
+    /// The response as the service sent it.
+    pub fn wire(&self) -> &wire::SelfCheckResponse {
+        &self.wire
+    }
 }
 
 impl SelfCheckResult {
@@ -1903,6 +1921,7 @@ impl SelfCheckResult {
 }
 
 pub(crate) fn self_check_of(response: wire::SelfCheckResponse) -> Result<SelfCheckResult, Error> {
+    let wire = response.clone();
     let diagnostics = diagnostics_of(&response.diagnostics);
     if !response.error.is_empty() {
         return Err(failure_of(&response.error, 0, diagnostics));
@@ -1934,6 +1953,7 @@ pub(crate) fn self_check_of(response: wire::SelfCheckResponse) -> Result<SelfChe
             .collect(),
         summary: response.summary,
         diagnostics,
+        wire,
     })
 }
 
@@ -1976,12 +1996,21 @@ pub struct Recording {
     pub model_hash: String,
     /// Notes raised.
     pub diagnostics: Vec<Diagnostic>,
+    wire: wire::RecordRunResponse,
+}
+
+impl Recording {
+    /// The response as the service sent it.
+    pub fn wire(&self) -> &wire::RecordRunResponse {
+        &self.wire
+    }
 }
 
 pub(crate) fn recording_of(
     response: wire::RecordRunResponse,
     capabilities: &Capabilities,
 ) -> Result<Recording, Error> {
+    let wire = response.clone();
     let diagnostics = diagnostics_of(&response.diagnostics);
     if !response.error.is_empty() {
         return Err(failure_of(
@@ -2020,5 +2049,6 @@ pub(crate) fn recording_of(
         reasons: response.reasons,
         model_hash: response.model_hash,
         diagnostics,
+        wire,
     })
 }
