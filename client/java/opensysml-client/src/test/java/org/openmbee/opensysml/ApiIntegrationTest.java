@@ -15,6 +15,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.OptionalDouble;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -1664,5 +1666,163 @@ class ApiIntegrationTest {
         assertThrows(StaleServiceException.class, () -> Connection.open(options));
     assertTrue(stale.reason().contains("v0.0.1"), stale.reason());
     assertEquals(connection.capabilities().serviceVersion(), stale.serviceVersion());
+  }
+
+  private static final String IMPORT_MODEL =
+      """
+      package V {
+          private import ScalarValues::*;
+          part def Vehicle {
+              attribute count : Integer default 1;
+              attribute label : String default "plain";
+          }
+          part vehicle : Vehicle;
+          part car : Vehicle {
+              attribute :>> count = 2;
+          }
+      }
+      """;
+
+  private static final String PROBE_MODEL =
+      """
+      package Cfg {
+          private import ScalarValues::*;
+          part def Probe {
+              attribute total : Real = 1.0;
+              action steady { first start; then assign total := 4.0; then done; }
+          }
+          action def 'Group 1' { part target : Probe; perform action run ::> target.steady; }
+      }
+      """;
+
+  private static final String PROBE_RESULTS =
+      """
+      {"source":"probe.xmi","configurations":[
+       {"id":"_c1","name":"Cfg::'Group 1'","runs":2,"target":"target","behavior":"run","observables":["total"],
+        "snapshots":[{"id":"_r1","values":{"total":4.0}},{"id":"_r2","values":{"total":6.0}}]},
+       {"id":"_cn","name":"Cfg::Nothing","observables":[],"snapshots":[]}]}
+      """;
+
+  @Test
+  void importDataSetsTheValuesAndAnswersTheEditedModel() {
+    Model model = connection.parse(IMPORT_MODEL);
+    ImportResult result =
+        model.importData(
+            List.of(
+                DataImport.of("fleet.csv", "element,count,label\nV::vehicle,7,fast\nV::car,9,\n"),
+                new DataImport(
+                    "labels.txt",
+                    "[{\"element\":\"V::car\",\"label\":\"slow\"}]",
+                    Optional.of("json"),
+                    Optional.empty())),
+            false,
+            false);
+    assertTrue(result.applied());
+    assertEquals(List.of("fleet.csv", "labels.txt"), result.files().stream().map(ImportedFile::name).toList());
+    assertEquals(3, result.files().get(0).values());
+    assertEquals(2, result.files().get(0).elements());
+    assertEquals(
+        List.of(
+            "V::vehicle::count = 7 (redefines V::Vehicle::count)",
+            "V::vehicle::label = \"fast\" (redefines V::Vehicle::label)",
+            "V::car::count = 9",
+            "V::car::label = \"slow\" (redefines V::Vehicle::label)"),
+        result.files().stream()
+            .flatMap(file -> file.assignments().stream())
+            .map(ImportedValue::description)
+            .toList());
+    ImportedValue first = result.files().get(0).assignments().get(0);
+    assertEquals("V::Vehicle::count", first.redefines());
+    assertFalse(first.where().isEmpty());
+    assertTrue(result.content().contains("attribute :>> count = 7;"));
+    assertEquals(1, result.documents().size());
+    assertNotEquals(Optional.of(model.hash()), result.modelHash());
+    assertEquals("car", connection.model(result.modelHash().orElseThrow()).symbol("V::car").name());
+
+    ImportResult dry =
+        model.importData(
+            List.of(DataImport.of("fleet.tsv", "element\tcount\nV::vehicle\t7\n")), true, false);
+    assertFalse(dry.applied());
+    assertEquals(1, dry.files().get(0).assignments().size());
+    assertTrue(dry.content().isEmpty() && dry.documents().isEmpty());
+
+    ModelException refused =
+        assertThrows(
+            ModelException.class,
+            () ->
+                model.importData(
+                    List.of(DataImport.of("fleet.csv", "element,count\nV::car,9\nV::Nowhere,1\n")),
+                    false,
+                    false));
+    assertTrue(refused.getMessage().contains("V::Nowhere"), refused.getMessage());
+    assertThrows(ServiceException.class, () -> model.importData(List.of(), false, false));
+  }
+
+  @Test
+  void compareResultsTablesTheToolBesideTheRuns() {
+    Model model = connection.parse(PROBE_MODEL);
+    Comparison comparison =
+        model.compareResults(
+            PROBE_RESULTS,
+            new CompareOptions(
+                List.of(),
+                0,
+                OptionalLong.of(7),
+                Optional.empty(),
+                OptionalDouble.empty(),
+                List.of(),
+                Optional.empty()));
+    assertEquals("probe.xmi", comparison.source());
+    assertEquals(2, comparison.configurations().size());
+    ConfigurationComparison group = comparison.configurations().get(0);
+    assertEquals("Cfg::'Group 1'", group.name());
+    assertEquals("holds", group.status());
+    assertEquals(2, group.runs());
+    assertEquals(2, group.completed());
+    assertEquals(2, group.storedRuns());
+    assertEquals(OptionalLong.of(7), group.seed());
+    assertEquals(2, group.rows().size());
+    assertEquals(1, group.observables().size());
+    ObservableComparison total = group.observables().get(0);
+    assertEquals("total", total.stored());
+    assertEquals("target.total", total.feature());
+    assertTrue(total.compared());
+    assertEquals(2, total.tool().orElseThrow().count());
+    assertEquals(5.0, total.tool().orElseThrow().mean());
+    assertEquals(4.0, total.run().orElseThrow().mean());
+    assertEquals("-20.0%", total.difference().orElseThrow().mean());
+    assertFalse(group.lines().isEmpty());
+    assertEquals("unresolved", comparison.configurations().get(1).status());
+    assertFalse(comparison.configurations().get(1).unresolved().isEmpty());
+
+    Comparison selected =
+        model.compareResults(
+            PROBE_RESULTS,
+            new CompareOptions(
+                List.of("Group 1"),
+                1,
+                OptionalLong.of(3),
+                Optional.empty(),
+                OptionalDouble.empty(),
+                List.of(),
+                Optional.empty()));
+    assertEquals(1, selected.configurations().size());
+    assertEquals(1, selected.configurations().get(0).runs());
+
+    assertThrows(
+        ServiceException.class,
+        () ->
+            model.compareResults(
+                PROBE_RESULTS,
+                new CompareOptions(
+                    List.of(),
+                    -1,
+                    OptionalLong.empty(),
+                    Optional.empty(),
+                    OptionalDouble.empty(),
+                    List.of(),
+                    Optional.empty())));
+    assertThrows(
+        ServiceException.class, () -> model.compareResults("not json", CompareOptions.defaults()));
   }
 }

@@ -177,6 +177,58 @@ function test_surface_live()
         allPortNames = [allPortNames, {fullView.nodes(n).ports.name}];
     end
     assert_equal(any(strcmp(allPortNames, 'spare')), true, 'RenderView full ports');
+    importModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'import.sysml')), ...
+        'name', 'import.sysml');
+    imported = opensysml.importData(importModel, { ...
+        struct('name', 'fleet.csv', 'content', sprintf('element,count,label\nV::vehicle,7,fast\nV::car,9,\n')), ...
+        struct('name', 'labels.txt', 'content', '[{"element":"V::car","label":"slow"}]', 'format', 'json')});
+    assert_equal(numel(imported.files), 2, 'ImportData files');
+    assert_equal(imported.files{1}.name, 'fleet.csv', 'ImportData file name');
+    assert_equal(imported.files{1}.values, 3, 'ImportData values');
+    assert_equal(imported.files{1}.elements, 2, 'ImportData elements');
+    assert_equal(imported.files{1}.assignments{1}.description, ...
+        'V::vehicle::count = 7 (redefines V::Vehicle::count)', 'ImportData assignment');
+    assert_equal(imported.files{1}.assignments{1}.redefines, 'V::Vehicle::count', 'ImportData redefines');
+    assert_equal(imported.files{2}.assignments{1}.value, '"slow"', 'ImportData json value');
+    assert_equal(isempty(strfind(imported.content, 'attribute :>> count = 7;')), false, 'ImportData content');
+    assert_equal(numel(imported.documents), 1, 'ImportData documents');
+    assert_equal(isempty(imported.modelHash), false, 'ImportData model hash');
+    dry = importModel.importData({struct('name', 'fleet.tsv', 'content', sprintf('element\tcount\nV::vehicle\t7\n'))}, ...
+        'dryRun', true);
+    assert_equal(numel(dry.files{1}.assignments), 1, 'ImportData dry run assignment');
+    assert_equal(isempty(dry.modelHash) && isempty(dry.content), true, 'ImportData dry run leaves the model');
+    assert_raises(@() opensysml.importData(importModel, ...
+        {struct('name', 'fleet.csv', 'content', sprintf('element,count\nV::car,9\nV::Nowhere,1\n'))}), 'ImportData unknown element');
+    assert_raises(@() opensysml.importData(importModel, {}), 'ImportData nothing');
+
+    probeModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'probe.sysml')), ...
+        'name', 'probe.sysml');
+    probeResults = ['{"source":"probe.xmi","configurations":[' ...
+        '{"id":"_c1","name":"Cfg::''Group 1''","runs":2,"target":"target","behavior":"run","observables":["total"],' ...
+        '"snapshots":[{"id":"_r1","values":{"total":4.0}},{"id":"_r2","values":{"total":6.0}}]},' ...
+        '{"id":"_cn","name":"Cfg::Nothing","observables":[],"snapshots":[]}]}'];
+    compared = opensysml.compareResults(probeModel, probeResults, 'seed', 7);
+    assert_equal(compared.source, 'probe.xmi', 'CompareResults source');
+    assert_equal(numel(compared.configurations), 2, 'CompareResults configurations');
+    group = compared.configurations{1};
+    assert_equal(group.name, 'Cfg::''Group 1''', 'CompareResults name');
+    assert_equal(group.status, 'holds', 'CompareResults status');
+    assert_equal([group.runs, group.completed, group.storedRuns], [2, 2, 2], 'CompareResults runs');
+    assert_equal(group.seed, uint64(7), 'CompareResults seed');
+    assert_equal(numel(group.rows), 2, 'CompareResults rows');
+    total = group.observables{1};
+    assert_equal(total.stored, 'total', 'CompareResults stored');
+    assert_equal(total.feature, 'target.total', 'CompareResults feature');
+    assert_equal(total.compared, true, 'CompareResults compared');
+    assert_equal([total.tool.count, total.tool.mean, total.run.mean], [2, 5, 4], 'CompareResults distributions');
+    assert_equal(total.difference.mean, '-20.0%', 'CompareResults difference');
+    assert_equal(isempty(group.lines), false, 'CompareResults lines');
+    assert_equal(compared.configurations{2}.status, 'unresolved', 'CompareResults unresolved');
+    selected = probeModel.compareResults(probeResults, 'actions', {'Group 1'}, 'runs', 1, 'seed', 3);
+    assert_equal(numel(selected.configurations), 1, 'CompareResults selected');
+    assert_equal(selected.configurations{1}.runs, 1, 'CompareResults selected runs');
+    assert_raises(@() opensysml.compareResults(probeModel, probeResults, 'runs', -1), 'CompareResults negative runs');
+    assert_raises(@() opensysml.compareResults(probeModel, 'not json'), 'CompareResults malformed');
 
     behavior = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'behavior.sysml')), ...
         'name', 'behavior.sysml');

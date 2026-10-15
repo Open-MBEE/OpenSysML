@@ -1728,7 +1728,7 @@ public final class Model {
    * @param dryRun whether to report the assignments without changing the model
    * @param acceptDocuments whether to accept a multi-document model's edited documents
    * @return the values set and the edited model
-   * @throws ServiceException when the model refuses an import; the model is then unchanged
+   * @throws ModelException when the model refuses an import; the model is then unchanged
    */
   public ImportResult importData(
       List<DataImport> imports, boolean dryRun, boolean acceptDocuments) {
@@ -1747,8 +1747,12 @@ public final class Model {
               .setImportFormat(dataImport.format().orElse(""))
               .setImportMap(dataImport.map().orElse("")));
     }
-    return Protos.importResult(
-        connection.call("ImportData", request.build(), ImportDataResponse.getDefaultInstance()));
+    ImportDataResponse response =
+        connection.call("ImportData", request.build(), ImportDataResponse.getDefaultInstance());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(response.getError(), Protos.diagnostics(response.getDiagnosticsList()));
+    }
+    return Protos.importResult(response);
   }
 
   /**
@@ -1777,9 +1781,13 @@ public final class Model {
       request.addObserve(
           ObservablePair.newBuilder().setStored(pair.stored()).setFeature(pair.feature()));
     }
-    return Protos.comparison(
+    CompareResultsResponse response =
         connection.call(
-            "CompareResults", request.build(), CompareResultsResponse.getDefaultInstance()));
+            "CompareResults", request.build(), CompareResultsResponse.getDefaultInstance());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(response.getError(), Protos.diagnostics(response.getDiagnosticsList()));
+    }
+    return Protos.comparison(response);
   }
 
   private String schedule(ExecutionOptions options, boolean explore) {
