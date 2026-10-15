@@ -1,0 +1,7 @@
+{
+  "rpc": "ImportData",
+  "imports": [
+    {"name": "fleet.csv", "content": "element,count\nV::car,9\nV::Nowhere,1\n"}
+  ],
+  "expected_error": "V::Nowhere"
+}
