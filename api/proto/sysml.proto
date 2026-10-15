@@ -85,6 +85,11 @@ service SysMLService {
   // packages, reflectively to every element of the model, as `sysml -self-check`
   // does. Reported as the "self_check" capability.
   rpc SelfCheck(SelfCheckRequest) returns (SelfCheckResponse);
+  // RecordRun runs an analysis case — once, over the rows of a sweep, or as a
+  // Monte Carlo sample — and records the runs into the model as AnalysisRecords
+  // declarations, as `sysml -record-run` does. Reported as the "record_run"
+  // capability.
+  rpc RecordRun(RecordRunRequest) returns (RecordRunResponse);
 
   // List the analysis engines this build registers, as the CLI's -engines and
   // the REPL's %engines do: each with the questions it answers, the strongest
@@ -2261,6 +2266,64 @@ message SelfCheckResponse {
   string summary = 9;           // the one-line total `sysml -self-check` prints last
   string error = 10;            // non-empty if the check could not start: a rule package named is not declared
   repeated Diagnostic diagnostics = 11;
+}
+
+// RecordRunRequest asks for runs of an analysis case to be recorded into the
+// model. With neither `ranges` nor `runs` the case runs once; `ranges` runs it
+// once per row of the ranges as RunSweep does and records each completed row;
+// `runs` runs it that many times as RunRuns does a Simulation::MonteCarlo case
+// and records each completed run and the sample's conclusion.
+message RecordRunRequest {
+  string model_hash = 1;
+  string analysis_symbol_id = 2;  // qualified name of the analysis case definition or usage
+  string subject_symbol_id = 3;   // part/usage to instantiate as the subject, or a path from one
+  repeated Value arguments = 4;
+  map<string, Value> named_arguments = 5;
+  string engine = 6;
+  // Package the records go into (-record-into); empty is a Records package
+  // beside the package enclosing the case's own.
+  string record_into = 7;
+  repeated SweepRange ranges = 8;  // records a sweep's rows (-sweep)
+  int64 runs = 9;                  // records a Monte Carlo sample of this many runs (-runs)
+  optional uint64 seed = 10;       // seed of the sample's draws; required with runs
+  // As in ApplyEditsRequest: a model of several documents is refused unless the
+  // request says it reads the response's `documents`.
+  bool accept_documents = 11;
+}
+
+// RecordRunResponse is the runs' own report, what the model gained, and the
+// notation the records were written into.
+message RecordRunResponse {
+  // The runs' own result, one of these by how the request ran the case.
+  RunAnalysisResponse run = 1;
+  RunSweepResponse sweep = 2;
+  RunRunsResponse sample = 3;
+  string package = 4;              // qualified name of the package the records went into
+  string definition = 5;           // qualified name of the per-case record definition
+  repeated string records = 6;     // qualified names of the records made, in order
+  // The record declarations generated: the target package's full nesting down
+  // to it, holding the record definition when new and every record usage.
+  string source = 7;
+  // The notation of the document the records merged into, byte-identical to
+  // the source outside the package they joined, or the records as a document of
+  // their own when no document holds the package's nesting. As in
+  // ApplyEditsResponse, `content` is set for a single-document model alone and
+  // `documents` always: the document the records went into, named as the parse
+  // request named it, or, when they are a document of their own, named after
+  // their package with the notation's extension (`Records.sysml`).
+  string content = 8;
+  repeated EditedDocument documents = 9;
+  int64 skipped = 10;              // rows or runs that failed and were not recorded
+  repeated string reasons = 11;    // why runs were not recorded, as `sysml -record-run` reports them
+  // Non-empty when nothing was recorded: the case could not run, no run
+  // completed, or the records would not analyze cleanly, which leaves the model unchanged.
+  string error = 12;
+  FailureReason failure_reason = 13;
+  repeated Diagnostic diagnostics = 14;
+  // Hash of the model with the records in it, cached as a parse request's
+  // would be, so the next request can run against the recorded model without
+  // parsing it again. Empty when nothing was recorded.
+  string model_hash = 15;
 }
 
 // RunRunsResponse is the table of the runs, one row per run in run order, each

@@ -87,6 +87,8 @@ const (
 	SysMLServiceRunRunsProcedure = "/sysml.SysMLService/RunRuns"
 	// SysMLServiceSelfCheckProcedure is the fully-qualified name of the SysMLService's SelfCheck RPC.
 	SysMLServiceSelfCheckProcedure = "/sysml.SysMLService/SelfCheck"
+	// SysMLServiceRecordRunProcedure is the fully-qualified name of the SysMLService's RecordRun RPC.
+	SysMLServiceRecordRunProcedure = "/sysml.SysMLService/RecordRun"
 	// SysMLServiceListEnginesProcedure is the fully-qualified name of the SysMLService's ListEngines
 	// RPC.
 	SysMLServiceListEnginesProcedure = "/sysml.SysMLService/ListEngines"
@@ -175,6 +177,11 @@ type SysMLServiceClient interface {
 	// packages, reflectively to every element of the model, as `sysml -self-check`
 	// does. Reported as the "self_check" capability.
 	SelfCheck(context.Context, *connect.Request[proto.SelfCheckRequest]) (*connect.Response[proto.SelfCheckResponse], error)
+	// RecordRun runs an analysis case — once, over the rows of a sweep, or as a
+	// Monte Carlo sample — and records the runs into the model as AnalysisRecords
+	// declarations, as `sysml -record-run` does. Reported as the "record_run"
+	// capability.
+	RecordRun(context.Context, *connect.Request[proto.RecordRunRequest]) (*connect.Response[proto.RecordRunResponse], error)
 	// List the analysis engines this build registers, as the CLI's -engines and
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
@@ -341,6 +348,12 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("SelfCheck")),
 			connect.WithClientOptions(opts...),
 		),
+		recordRun: connect.NewClient[proto.RecordRunRequest, proto.RecordRunResponse](
+			httpClient,
+			baseURL+SysMLServiceRecordRunProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("RecordRun")),
+			connect.WithClientOptions(opts...),
+		),
 		listEngines: connect.NewClient[proto.ListEnginesRequest, proto.ListEnginesResponse](
 			httpClient,
 			baseURL+SysMLServiceListEnginesProcedure,
@@ -403,6 +416,7 @@ type sysMLServiceClient struct {
 	runSweep           *connect.Client[proto.RunSweepRequest, proto.RunSweepResponse]
 	runRuns            *connect.Client[proto.RunRunsRequest, proto.RunRunsResponse]
 	selfCheck          *connect.Client[proto.SelfCheckRequest, proto.SelfCheckResponse]
+	recordRun          *connect.Client[proto.RecordRunRequest, proto.RecordRunResponse]
 	listEngines        *connect.Client[proto.ListEnginesRequest, proto.ListEnginesResponse]
 	query              *connect.Client[proto.QueryRequest, proto.QueryResponse]
 	runDocumentQuery   *connect.Client[proto.RunDocumentQueryRequest, proto.RunDocumentQueryResponse]
@@ -516,6 +530,11 @@ func (c *sysMLServiceClient) SelfCheck(ctx context.Context, req *connect.Request
 	return c.selfCheck.CallUnary(ctx, req)
 }
 
+// RecordRun calls sysml.SysMLService.RecordRun.
+func (c *sysMLServiceClient) RecordRun(ctx context.Context, req *connect.Request[proto.RecordRunRequest]) (*connect.Response[proto.RecordRunResponse], error) {
+	return c.recordRun.CallUnary(ctx, req)
+}
+
 // ListEngines calls sysml.SysMLService.ListEngines.
 func (c *sysMLServiceClient) ListEngines(ctx context.Context, req *connect.Request[proto.ListEnginesRequest]) (*connect.Response[proto.ListEnginesResponse], error) {
 	return c.listEngines.CallUnary(ctx, req)
@@ -616,6 +635,11 @@ type SysMLServiceHandler interface {
 	// packages, reflectively to every element of the model, as `sysml -self-check`
 	// does. Reported as the "self_check" capability.
 	SelfCheck(context.Context, *connect.Request[proto.SelfCheckRequest]) (*connect.Response[proto.SelfCheckResponse], error)
+	// RecordRun runs an analysis case — once, over the rows of a sweep, or as a
+	// Monte Carlo sample — and records the runs into the model as AnalysisRecords
+	// declarations, as `sysml -record-run` does. Reported as the "record_run"
+	// capability.
+	RecordRun(context.Context, *connect.Request[proto.RecordRunRequest]) (*connect.Response[proto.RecordRunResponse], error)
 	// List the analysis engines this build registers, as the CLI's -engines and
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
@@ -778,6 +802,12 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sysMLServiceMethods.ByName("SelfCheck")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sysMLServiceRecordRunHandler := connect.NewUnaryHandler(
+		SysMLServiceRecordRunProcedure,
+		svc.RecordRun,
+		connect.WithSchema(sysMLServiceMethods.ByName("RecordRun")),
+		connect.WithHandlerOptions(opts...),
+	)
 	sysMLServiceListEnginesHandler := connect.NewUnaryHandler(
 		SysMLServiceListEnginesProcedure,
 		svc.ListEngines,
@@ -858,6 +888,8 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceRunRunsHandler.ServeHTTP(w, r)
 		case SysMLServiceSelfCheckProcedure:
 			sysMLServiceSelfCheckHandler.ServeHTTP(w, r)
+		case SysMLServiceRecordRunProcedure:
+			sysMLServiceRecordRunHandler.ServeHTTP(w, r)
 		case SysMLServiceListEnginesProcedure:
 			sysMLServiceListEnginesHandler.ServeHTTP(w, r)
 		case SysMLServiceQueryProcedure:
@@ -961,6 +993,10 @@ func (UnimplementedSysMLServiceHandler) RunRuns(context.Context, *connect.Reques
 
 func (UnimplementedSysMLServiceHandler) SelfCheck(context.Context, *connect.Request[proto.SelfCheckRequest]) (*connect.Response[proto.SelfCheckResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.SelfCheck is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) RecordRun(context.Context, *connect.Request[proto.RecordRunRequest]) (*connect.Response[proto.RecordRunResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RecordRun is not implemented"))
 }
 
 func (UnimplementedSysMLServiceHandler) ListEngines(context.Context, *connect.Request[proto.ListEnginesRequest]) (*connect.Response[proto.ListEnginesResponse], error) {

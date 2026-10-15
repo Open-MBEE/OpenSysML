@@ -2818,6 +2818,100 @@ pub struct SelfCheckResponse {
     #[prost(message, repeated, tag="11")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
 }
+/// RecordRunRequest asks for runs of an analysis case to be recorded into the
+/// model. With neither `ranges` nor `runs` the case runs once; `ranges` runs it
+/// once per row of the ranges as RunSweep does and records each completed row;
+/// `runs` runs it that many times as RunRuns does a Simulation::MonteCarlo case
+/// and records each completed run and the sample's conclusion.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordRunRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// qualified name of the analysis case definition or usage
+    #[prost(string, tag="2")]
+    pub analysis_symbol_id: ::prost::alloc::string::String,
+    /// part/usage to instantiate as the subject, or a path from one
+    #[prost(string, tag="3")]
+    pub subject_symbol_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="4")]
+    pub arguments: ::prost::alloc::vec::Vec<Value>,
+    #[prost(map="string, message", tag="5")]
+    pub named_arguments: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    #[prost(string, tag="6")]
+    pub engine: ::prost::alloc::string::String,
+    /// Package the records go into (-record-into); empty is a Records package
+    /// beside the package enclosing the case's own.
+    #[prost(string, tag="7")]
+    pub record_into: ::prost::alloc::string::String,
+    /// records a sweep's rows (-sweep)
+    #[prost(message, repeated, tag="8")]
+    pub ranges: ::prost::alloc::vec::Vec<SweepRange>,
+    /// records a Monte Carlo sample of this many runs (-runs)
+    #[prost(int64, tag="9")]
+    pub runs: i64,
+    /// seed of the sample's draws; required with runs
+    #[prost(uint64, optional, tag="10")]
+    pub seed: ::core::option::Option<u64>,
+    /// As in ApplyEditsRequest: a model of several documents is refused unless the
+    /// request says it reads the response's `documents`.
+    #[prost(bool, tag="11")]
+    pub accept_documents: bool,
+}
+/// RecordRunResponse is the runs' own report, what the model gained, and the
+/// notation the records were written into.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordRunResponse {
+    /// The runs' own result, one of these by how the request ran the case.
+    #[prost(message, optional, tag="1")]
+    pub run: ::core::option::Option<RunAnalysisResponse>,
+    #[prost(message, optional, tag="2")]
+    pub sweep: ::core::option::Option<RunSweepResponse>,
+    #[prost(message, optional, tag="3")]
+    pub sample: ::core::option::Option<RunRunsResponse>,
+    /// qualified name of the package the records went into
+    #[prost(string, tag="4")]
+    pub package: ::prost::alloc::string::String,
+    /// qualified name of the per-case record definition
+    #[prost(string, tag="5")]
+    pub definition: ::prost::alloc::string::String,
+    /// qualified names of the records made, in order
+    #[prost(string, repeated, tag="6")]
+    pub records: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The record declarations generated: the target package's full nesting down
+    /// to it, holding the record definition when new and every record usage.
+    #[prost(string, tag="7")]
+    pub source: ::prost::alloc::string::String,
+    /// The notation of the document the records merged into, byte-identical to
+    /// the source outside the package they joined, or the records as a document of
+    /// their own when no document holds the package's nesting. As in
+    /// ApplyEditsResponse, `content` is set for a single-document model alone and
+    /// `documents` always: the document the records went into, named as the parse
+    /// request named it, or, when they are a document of their own, named after
+    /// their package with the notation's extension (`Records.sysml`).
+    #[prost(string, tag="8")]
+    pub content: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="9")]
+    pub documents: ::prost::alloc::vec::Vec<EditedDocument>,
+    /// rows or runs that failed and were not recorded
+    #[prost(int64, tag="10")]
+    pub skipped: i64,
+    /// why runs were not recorded, as `sysml -record-run` reports them
+    #[prost(string, repeated, tag="11")]
+    pub reasons: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Non-empty when nothing was recorded: the case could not run, no run
+    /// completed, or the records would not analyze cleanly, which leaves the model unchanged.
+    #[prost(string, tag="12")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(enumeration="FailureReason", tag="13")]
+    pub failure_reason: i32,
+    #[prost(message, repeated, tag="14")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// Hash of the model with the records in it, cached as a parse request's
+    /// would be, so the next request can run against the recorded model without
+    /// parsing it again. Empty when nothing was recorded.
+    #[prost(string, tag="15")]
+    pub model_hash: ::prost::alloc::string::String,
+}
 /// RunRunsResponse is the table of the runs, one row per run in run order, each
 /// observable's distribution, and for a case its conclusion over the sample.
 #[derive(Clone, PartialEq, ::prost::Message)]

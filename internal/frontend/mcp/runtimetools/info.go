@@ -82,6 +82,7 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityVerificationObjectiveAuthoring: "apply_edits",
 	sysmlgrpc.CapabilityRuns:                           "run_runs",
 	sysmlgrpc.CapabilitySelfCheck:                      "self_check",
+	sysmlgrpc.CapabilityRecordRun:                      "record_run",
 	sysmlgrpc.CapabilityMetadataAuthoring:              "apply_edits",
 	sysmlgrpc.CapabilityMetadataPrefixAuthoring:        "apply_edits",
 	sysmlgrpc.CapabilityImplicitParameters:             "apply_edits",

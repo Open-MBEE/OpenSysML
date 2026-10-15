@@ -55,16 +55,22 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone
 	}
+	return v.caseResponse(run, plan, err), nil
+}
+
+// caseResponse reports one run of a case: its outputs, verdicts, evaluations
+// and instances, or the failure that stopped it, with the plan's standing.
+func (v *verifyContext) caseResponse(run caseRun, plan analysis.Plan, err error) *pb.RunAnalysisResponse {
 	result, verdicts := run.result, run.verdicts()
-	st := s.standingOf(plan)
-	resp = analysisResponse(&pb.RunAnalysisResponse{}, st)
+	st := v.service.standingOf(plan)
+	resp := analysisResponse(&pb.RunAnalysisResponse{}, st)
 	if err != nil {
 		resp.Error = err.Error()
 		resp.FailureReason = failureReason(err)
 		// A client predating case_evaluations reads a failed run as its error alone.
 		if !v.service.capabilities.has(CapabilityCaseEvaluations) {
 			resp.Diagnostics = v.service.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached))
-			return resp, nil
+			return resp
 		}
 	}
 	resp.Diagnostics = v.service.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached))
@@ -89,7 +95,7 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		resp.Evaluations = v.caseEvaluations(evaluations)
 	}
 	resp.Instances = v.instanceGraphs(v.runRoots(subject, result.Outputs, evaluations))
-	return resp, nil
+	return resp
 }
 
 // analysisResponse writes on a case's response the standing of the plan that ran it.

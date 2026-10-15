@@ -57,6 +57,10 @@ const CapabilityRuns = "runs"
 // SysMLValidation constraints to every element of a model.
 const CapabilitySelfCheck = "self_check"
 
+// CapabilityRecordRun names the RecordRun RPC, which records runs of an
+// analysis case into the model as AnalysisRecords declarations.
+const CapabilityRecordRun = "record_run"
+
 // CapabilityVerificationQuestions names the `question` field of the
 // verification requests — the solver questions "holds" and "satisfiable" —
 // and the `question`, `status` and `witness` fields of every Verdict.
@@ -328,6 +332,7 @@ var capabilities = []string{
 	CapabilityVerificationObjectiveAuthoring,
 	CapabilityRuns,
 	CapabilitySelfCheck,
+	CapabilityRecordRun,
 	CapabilityMetadataAuthoring,
 	CapabilityMetadataPrefixAuthoring,
 	CapabilitySequenceAuthoring,

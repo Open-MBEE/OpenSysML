@@ -82,6 +82,15 @@ func (s *Service) RunRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunR
 		}
 	}
 
+	plan, seedRow := s.runsPlan(req)
+	if req.ActionSymbolId != "" {
+		return s.runAction(ctx, v, req, plan, seedRow)
+	}
+	return s.runMonteCarloCase(ctx, v, req, plan, seedRow)
+}
+
+// runsPlan is the plan of the request's runs and how each seeds its own context.
+func (s *Service) runsPlan(req *pb.RunRunsRequest) (runtime.SweepPlan, seedRowFunc) {
 	plan := runtime.SeedlessMonteCarloPlan(req.Runs)
 	if req.Seed != nil {
 		plan = runtime.MonteCarloPlan(req.Runs, *req.Seed)
@@ -99,10 +108,7 @@ func (s *Service) RunRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunR
 		return i, nil
 	}
 
-	if req.ActionSymbolId != "" {
-		return s.runAction(ctx, v, req, plan, seedRow)
-	}
-	return s.runMonteCarloCase(ctx, v, req, plan, seedRow)
+	return plan, seedRow
 }
 
 // seedRowFunc seeds a run's own context from the request's seed and names the run.
@@ -172,24 +178,40 @@ func (s *Service) runAction(ctx context.Context, v *verifyContext, req *pb.RunRu
 
 // runMonteCarloCase makes the runs of a Simulation::MonteCarlo case and concludes
 // it over the sample, settling every row's verdicts by the conclusion.
+// monteCarloSample is what a Monte Carlo case's runs made, for recording them.
+type monteCarloSample struct {
+	table       runtime.SweepTable
+	completed   []*runtime.MonteCarloRun
+	concluded   runtime.AnalysisResult
+	answered    analysis.Plan
+	concludeErr error
+}
+
 func (s *Service) runMonteCarloCase(ctx context.Context, v *verifyContext, req *pb.RunRunsRequest, plan runtime.SweepPlan, seedRow seedRowFunc) (*pb.RunRunsResponse, error) {
+	resp, _, err := s.monteCarloRuns(ctx, v, req, plan, seedRow)
+	return resp, err
+}
+
+// monteCarloRuns runs the case and answers the runs' report beside the sample
+// they made, nil when none ran.
+func (s *Service) monteCarloRuns(ctx context.Context, v *verifyContext, req *pb.RunRunsRequest, plan runtime.SweepPlan, seedRow seedRowFunc) (*pb.RunRunsResponse, *monteCarloSample, error) {
 	sym, err := v.lookup(req.AnalysisSymbolId)
 	if err != nil {
-		return &pb.RunRunsResponse{Error: err.Error(), FailureReason: pb.FailureReason_FAILURE_REASON_UNSPECIFIED}, nil
+		return &pb.RunRunsResponse{Error: err.Error(), FailureReason: pb.FailureReason_FAILURE_REASON_UNSPECIFIED}, nil, nil
 	}
 	if err := v.runtime.RequireMonteCarloCase(sym); err != nil {
-		return runsFailure(err, standing{}), nil
+		return runsFailure(err, standing{}), nil, nil
 	}
 	// The case's arguments and subject read as a sweep's, so a case the two RPCs
 	// both run reads them the same way.
 	args := &pb.RunSweepRequest{SubjectSymbolId: req.SubjectSymbolId, Arguments: req.Arguments, NamedArguments: req.NamedArguments}
 	if _, err := v.subject(req.SubjectSymbolId); err != nil {
-		return &pb.RunRunsResponse{Error: err.Error(), FailureReason: failureReason(err)}, nil
+		return &pb.RunRunsResponse{Error: err.Error(), FailureReason: failureReason(err)}, nil, nil
 	}
 	if _, _, resp, err := v.sweepArguments(args); err != nil {
-		return nil, err
+		return nil, nil, err
 	} else if resp != nil {
-		return &pb.RunRunsResponse{Error: resp.Error, FailureReason: resp.FailureReason}, nil
+		return &pb.RunRunsResponse{Error: resp.Error, FailureReason: resp.FailureReason}, nil, nil
 	}
 	scope := v.declaringScope(sym)
 
@@ -229,9 +251,9 @@ func (s *Service) runMonteCarloCase(ctx context.Context, v *verifyContext, req *
 	answered, err := s.sweepRuns(ctx, v, req.AnalysisSymbolId, plan, run)
 	if err != nil {
 		if ctx.Err() != nil {
-			return nil, ctx.Err()
+			return nil, nil, ctx.Err()
 		}
-		return runsFailure(err, s.standingOf(answered)), nil
+		return runsFailure(err, s.standingOf(answered)), nil, nil
 	}
 	table := answered.Result.Table()
 	completed := make([]*runtime.MonteCarloRun, 0, len(made))
@@ -246,7 +268,7 @@ func (s *Service) runMonteCarloCase(ctx context.Context, v *verifyContext, req *
 		resp := v.runsResponse(table, st)
 		resp.Unconcluded = "no run completed, so the case is not concluded"
 		resp.Lines = append(resp.Lines, fmt.Sprintf("? %s: %s", name, resp.Unconcluded))
-		return resp, nil
+		return resp, &monteCarloSample{table: table, answered: answered}, nil
 	}
 	stats, err := runtime.MonteCarloSample(completed)
 	var concluded runtime.AnalysisResult
@@ -284,15 +306,16 @@ func (s *Service) runMonteCarloCase(ctx context.Context, v *verifyContext, req *
 		}
 		resp.Verdicts = append(resp.Verdicts, st.stamp(in.analysisVerdict(&concluded.Verdicts[j], concluded.Subject)))
 	}
+	recorded := &monteCarloSample{table: table, completed: completed, concluded: concluded, answered: answered, concludeErr: err}
 	if err != nil {
 		resp.Unconcluded = err.Error()
 		resp.Lines = append(resp.Lines, fmt.Sprintf("? %s: %s", name, err.Error()))
-		return resp, nil
+		return resp, recorded, nil
 	}
 	resp.Lines = append(resp.Lines, fmt.Sprintf("%s %s over %d run(s)", mark, name, stats.Runs))
 	roots := in.instanceGraphs(in.runRoots(concluded.Subject, concluded.Outputs, nil))
 	resp.Instances = append(resp.Instances, roots...)
-	return resp, nil
+	return resp, recorded, nil
 }
 
 // sweepRuns puts the runs to the engines as a sweep over the Monte Carlo plan,

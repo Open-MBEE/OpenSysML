@@ -147,6 +147,11 @@ func (a *ConnectAdapter) RunSweep(ctx context.Context, req *connect.Request[pb.R
 	return connectCall(ctx, req, a.svc.RunSweep)
 }
 
+// RecordRun runs an analysis case and records the runs into the model.
+func (a *ConnectAdapter) RecordRun(ctx context.Context, req *connect.Request[pb.RecordRunRequest]) (*connect.Response[pb.RecordRunResponse], error) {
+	return connectCall(ctx, req, a.svc.RecordRun)
+}
+
 // SelfCheck applies the reflective SysMLValidation constraints to every element of a model.
 func (a *ConnectAdapter) SelfCheck(ctx context.Context, req *connect.Request[pb.SelfCheckRequest]) (*connect.Response[pb.SelfCheckResponse], error) {
 	return connectCall(ctx, req, a.svc.SelfCheck)
