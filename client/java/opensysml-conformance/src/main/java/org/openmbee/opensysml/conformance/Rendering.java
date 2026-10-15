@@ -9,6 +9,9 @@ import org.openmbee.opensysml.Instance;
 import org.openmbee.opensysml.Outcome;
 import org.openmbee.opensysml.QueryElement;
 import org.openmbee.opensysml.RenderedView;
+import org.openmbee.opensysml.Recording;
+import org.openmbee.opensysml.Runs;
+import org.openmbee.opensysml.SelfCheck;
 import org.openmbee.opensysml.Standing;
 import org.openmbee.opensysml.Symbol;
 import org.openmbee.opensysml.Value;
@@ -578,6 +581,109 @@ final class Rendering {
         .setFailureReason(failureReason(row.failureReason()))
         .addAllEvaluations(evaluations(row.evaluations()))
         .build();
+  }
+
+  static org.openmbee.opensysml.proto.RunRunsResponse runs(Runs runs) {
+    org.openmbee.opensysml.proto.RunRunsResponse.Builder response =
+        org.openmbee.opensysml.proto.RunRunsResponse.newBuilder()
+            .addAllRows(runs.rows().stream().map(Rendering::sweepRow).toList())
+            .addAllObservables(runs.observables())
+            .addAllDistributions(runs.distributions().stream().map(Rendering::distribution).toList())
+            .addAllOutputs(outputs(runs.outputs()))
+            .addAllVerdicts(verdicts(runs.verdicts()))
+            .setUnconcluded(runs.unconcluded())
+            .addAllInstances(instances(runs.instances()))
+            .addAllDiagnostics(diagnostics(runs.diagnostics()))
+            .setEngine(runs.standing().engine())
+            .setStrength(runs.standing().strength())
+            .addAllBounds(bounds(runs.standing()));
+    runs.seed().ifPresent(response::setSeed);
+    return response.build();
+  }
+
+  private static org.openmbee.opensysml.proto.RunDistribution distribution(Runs.Distribution d) {
+    org.openmbee.opensysml.proto.RunDistribution.Builder distribution =
+        org.openmbee.opensysml.proto.RunDistribution.newBuilder()
+            .setName(d.name())
+            .setUnit(d.unit())
+            .setCount(d.count())
+            .setNumeric(d.numeric())
+            .setDeviation(d.deviation());
+    d.min().ifPresent(v -> distribution.setMin(value(v)));
+    d.max().ifPresent(v -> distribution.setMax(value(v)));
+    d.mean().ifPresent(v -> distribution.setMean(value(v)));
+    for (Runs.Percentile p : d.percentiles()) {
+      distribution.addPercentiles(
+          org.openmbee.opensysml.proto.RunPercentile.newBuilder()
+              .setPercentile(p.percentile())
+              .setValue(value(p.value())));
+    }
+    for (Runs.HistogramBin b : d.histogram()) {
+      distribution.addHistogram(
+          org.openmbee.opensysml.proto.RunHistogramBin.newBuilder()
+              .setLow(value(b.low()))
+              .setHigh(value(b.high()))
+              .setCount(b.count()));
+    }
+    for (Runs.CountedValue v : d.values()) {
+      distribution.addValues(
+          org.openmbee.opensysml.proto.RunCountedValue.newBuilder()
+              .setValue(value(v.value()))
+              .setCount(v.count()));
+    }
+    return distribution.build();
+  }
+
+  static org.openmbee.opensysml.proto.SelfCheckResponse selfCheck(SelfCheck check) {
+    org.openmbee.opensysml.proto.SelfCheckResponse.Builder response =
+        org.openmbee.opensysml.proto.SelfCheckResponse.newBuilder()
+            .setStatus(check.status())
+            .setElements(check.elements())
+            .setChecks(check.checks())
+            .setViolations(check.violations())
+            .setUnevaluated(check.unevaluated())
+            .setEvaluationErrors(check.evaluationErrors())
+            .setSummary(check.summary())
+            .addAllDiagnostics(diagnostics(check.diagnostics()));
+    for (SelfCheck.Finding f : check.findings()) {
+      response.addFindings(
+          org.openmbee.opensysml.proto.SelfCheckFinding.newBuilder()
+              .setStatus(f.status())
+              .setSubject(f.subject())
+              .setLocation(f.location())
+              .setConstraint(f.constraint())
+              .setElement(f.element())
+              .setMessage(f.message())
+              .setLine(f.line()));
+    }
+    check
+        .applications()
+        .forEach(
+            (constraint, count) ->
+                response.addApplications(
+                    org.openmbee.opensysml.proto.SelfCheckApplication.newBuilder()
+                        .setConstraint(constraint)
+                        .setCount(count)));
+    return response.build();
+  }
+
+  /** Everything of a recording but its single run, which the caller renders. */
+  static org.openmbee.opensysml.proto.RecordRunResponse.Builder recording(Recording recording) {
+    org.openmbee.opensysml.proto.RecordRunResponse.Builder response =
+        org.openmbee.opensysml.proto.RecordRunResponse.newBuilder()
+            .setPackage(recording.packageName())
+            .setDefinition(recording.definition())
+            .addAllRecords(recording.records())
+            .setSource(recording.source())
+            .setContent(recording.content())
+            .addAllDocuments(editedDocuments(recording.documents()))
+            .setSkipped(recording.skipped())
+            .addAllReasons(recording.reasons())
+            .addAllDiagnostics(diagnostics(recording.diagnostics()))
+            .setModelHash(recording.modelHash());
+    recording.sweep().ifPresent(sweep -> response.setSweep(sweep(sweep)));
+    recording.sample().ifPresent(sample -> response.setSample(runs(sample)));
+    return response;
   }
 
   /**
