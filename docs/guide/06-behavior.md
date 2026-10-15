@@ -1738,7 +1738,11 @@ A case usage owned by a part definition (`part def Holder { analysis inner : Cos
 subject s = h; } part h : Ship; }`) is a feature of every object of that type, as a `calc` usage
 owned by a part is: `holder.inner.total` runs the case on first read and keeps the result until a
 value it depends on changes, and an attribute redefined from an analysis output (`attribute :>>
-fuelEconomy = cityAnalysis.fuelEconomyResult;`) evaluates through the same path.
+fuelEconomy = cityAnalysis.fuelEconomyResult;`) evaluates through the same path. Run by name, such a
+case takes the object named after it as the object it is a feature of (`-analysis "Holder::inner
+holder"`), else the single object of the definition the run holds; `-validate=<object>`,
+`-requirement` and `-satisfy` run a verification case a definition owns once per object of it the
+check is about, naming the object on its verdict.
 
 What stops a case is reported as an error naming it, never as a silent empty result: a
 `subject` nothing binds (`analysis An::CostAnalysis: s subject is unbound: bind it
@@ -1778,8 +1782,8 @@ $ sysml -analysis L::checkSlow landing.sysml
 ```
 
 The two verdicts are independent: an objective stating no condition of its own —
-`objective { verify touchdown; }` alone — stays `undecided` and leaves the case unresolved, while
-the body verdict beside it still reports what the body answered.
+`objective { verify touchdown; }` alone — is `satisfied`, so the case's status is the body verdict
+beside it, which reports what the body answered.
 
 A verification case's objective checks the case's subject, not its verdict: the library binds it
 so (`VerificationCases::VerificationCase::obj` redefines `Cases::Case::obj` with `subject subj =

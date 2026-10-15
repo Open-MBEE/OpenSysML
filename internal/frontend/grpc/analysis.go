@@ -95,7 +95,7 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		evaluations = result.Evaluations
 		resp.Evaluations = v.caseEvaluations(evaluations)
 	}
-	resp.Instances = v.instanceGraphs(v.runRoots(subject, result.Outputs, evaluations))
+	resp.Instances = v.instanceGraphs(v.runRoots(subject, verdicts, result.Outputs, evaluations))
 	return resp, nil
 }
 
@@ -216,10 +216,17 @@ func (s *Service) exploreAnalysis(ctx context.Context, schedule runtime.Schedule
 	return analysisResponse(&pb.RunAnalysisResponse{Outcomes: x.outcomes, Exploration: x.status}, s.standingOf(x.plan)), nil
 }
 
-// runRoots are the objects a case run reports: its subject and every object an
-// output or a reported evaluation names — a trade study's alternatives.
-func (v *verifyContext) runRoots(subject *runtime.Instance, outputs []runtime.CalcOutputValue, evaluations []runtime.AnalysisEvaluation) []*runtime.Instance {
+// runRoots are the objects a case run reports: its subject, the object each
+// verification verdict is about (the one a type-owned case ran as a feature of,
+// which need not be its subject) and every object an output or a reported
+// evaluation names — a trade study's alternatives.
+func (v *verifyContext) runRoots(subject *runtime.Instance, verdicts []runtime.VerificationVerdict, outputs []runtime.CalcOutputValue, evaluations []runtime.AnalysisEvaluation) []*runtime.Instance {
 	roots := []*runtime.Instance{subject}
+	for _, verdict := range verdicts {
+		if verdict.Subject != nil {
+			roots = append(roots, verdict.Subject)
+		}
+	}
 	for _, out := range outputs {
 		roots = append(roots, v.namedInstances(out.Value)...)
 	}
@@ -320,13 +327,18 @@ func (v *verifyContext) verificationVerdicts(verdicts []runtime.VerificationVerd
 	}
 	out := make([]*pb.VerificationVerdict, 0, len(verdicts))
 	for _, verdict := range verdicts {
-		out = append(out, &pb.VerificationVerdict{
+		wire := &pb.VerificationVerdict{
 			CaseId:        verdict.Case,
 			Kind:          string(verdict.Kind),
 			Detail:        verdict.Detail,
 			Subcase:       verdict.Subcase,
 			RequirementId: requirementID,
-		})
+		}
+		if verdict.Subject != nil {
+			wire.InstanceId = verdict.Subject.ID
+			wire.InstanceTypeId = namedFQN(v.cached.Index, verdict.Subject.Type)
+		}
+		out = append(out, wire)
 	}
 	return out
 }

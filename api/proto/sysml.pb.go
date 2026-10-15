@@ -957,8 +957,14 @@ type VerificationVerdict struct {
 	// objective verifies. Empty when the case was run for itself rather than for
 	// a requirement, or when that requirement can be named by no FQN.
 	RequirementId string `protobuf:"bytes,5,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Instance the case ran on as its owner, 0 when it ran on no object. A case a
+	// definition owns runs once per object of that definition, so verdicts of one
+	// case are told apart by this field; its feature values are in `instances`.
+	InstanceId int64 `protobuf:"varint,6,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	// Type of `instance_id`, as an FQN, for naming the object in a report.
+	InstanceTypeId string `protobuf:"bytes,7,opt,name=instance_type_id,json=instanceTypeId,proto3" json:"instance_type_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *VerificationVerdict) Reset() {
@@ -1022,6 +1028,20 @@ func (x *VerificationVerdict) GetSubcase() bool {
 func (x *VerificationVerdict) GetRequirementId() string {
 	if x != nil {
 		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *VerificationVerdict) GetInstanceId() int64 {
+	if x != nil {
+		return x.InstanceId
+	}
+	return 0
+}
+
+func (x *VerificationVerdict) GetInstanceTypeId() string {
+	if x != nil {
+		return x.InstanceTypeId
 	}
 	return ""
 }
@@ -13240,13 +13260,16 @@ const file_sysml_proto_rawDesc = "" +
 	"\x0fnamed_arguments\x18\a \x03(\v23.sysml.VerifyRequirementRequest.NamedArgumentsEntryR\x0enamedArguments\x1aO\n" +
 	"\x13NamedArgumentsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\x9b\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xe6\x01\n" +
 	"\x13VerificationVerdict\x12\x17\n" +
 	"\acase_id\x18\x01 \x01(\tR\x06caseId\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +
 	"\x06detail\x18\x03 \x01(\tR\x06detail\x12\x18\n" +
 	"\asubcase\x18\x04 \x01(\bR\asubcase\x12%\n" +
-	"\x0erequirement_id\x18\x05 \x01(\tR\rrequirementId\"\x90\x02\n" +
+	"\x0erequirement_id\x18\x05 \x01(\tR\rrequirementId\x12\x1f\n" +
+	"\vinstance_id\x18\x06 \x01(\x03R\n" +
+	"instanceId\x12(\n" +
+	"\x10instance_type_id\x18\a \x01(\tR\x0einstanceTypeId\"\x90\x02\n" +
 	"\x19VerifyRequirementResponse\x12(\n" +
 	"\averdict\x18\x01 \x01(\v2\x0e.sysml.VerdictR\averdict\x12-\n" +
 	"\tinstances\x18\x02 \x03(\v2\x0f.sysml.InstanceR\tinstances\x12\x14\n" +

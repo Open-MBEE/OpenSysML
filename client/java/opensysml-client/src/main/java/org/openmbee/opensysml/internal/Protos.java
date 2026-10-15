@@ -1008,7 +1008,9 @@ public final class Protos {
                     verdict.getKind(),
                     present(verdict.getDetail()),
                     verdict.getSubcase(),
-                    present(verdict.getRequirementId())))
+                    present(verdict.getRequirementId()),
+                    verdict.getInstanceId() == 0 ? Optional.empty() : Optional.of(verdict.getInstanceId()),
+                    present(verdict.getInstanceTypeId())))
         .toList();
   }
 

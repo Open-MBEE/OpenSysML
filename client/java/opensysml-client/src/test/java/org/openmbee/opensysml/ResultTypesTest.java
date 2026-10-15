@@ -71,14 +71,22 @@ class ResultTypesTest {
   void aSatisfactionFindsTheVerificationCasesOfARequirement() {
     VerificationVerdict pass =
         new VerificationVerdict(
-            "Demo::checkZero", VerificationVerdict.PASS, Optional.empty(), false, Optional.of("Demo::zeroed"));
+            "Demo::checkZero",
+            VerificationVerdict.PASS,
+            Optional.empty(),
+            false,
+            Optional.of("Demo::zeroed"),
+            Optional.of(1L),
+            Optional.of("Demo::sedan"));
     VerificationVerdict fail =
         new VerificationVerdict(
             "Demo::checkBound",
             VerificationVerdict.FAIL,
             Optional.of("bound exceeded"),
             false,
-            Optional.of("Demo::bounded"));
+            Optional.of("Demo::bounded"),
+            Optional.empty(),
+            Optional.empty());
     Satisfaction satisfaction =
         new Satisfaction(List.of(), List.of(pass, fail), List.of(), List.of());
     assertEquals(List.of(fail), satisfaction.verificationsOf("Demo::bounded"));

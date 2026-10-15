@@ -1469,6 +1469,11 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 			if unresolved := ec.chainMembersDeclared(base, parts); unresolved != nil {
 				return Value{}, unresolved
 			}
+			// A usage no object stands for answers the chain through the
+			// value its member declares, as `usage::member` reads it.
+			if val, ok, err := ec.declaredChainValue(base, parts); ok {
+				return val, err
+			}
 		}
 		return Value{}, err
 	}
@@ -1483,6 +1488,13 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 	if u := operand.Undetermined(); u != nil && u.feature == nil {
 		if sym, ok := ec.chainBaseSymbol(base); ok {
 			operand = undeterminedFeatureValue(u.reason, u.count, sym)
+		}
+	}
+	// At model level a valueless usage reads undetermined, but a member it
+	// binds a value to is determined all the same.
+	if operand.Kind == ValUndetermined {
+		if val, ok, err := ec.declaredChainValue(base, parts); ok {
+			return val, err
 		}
 	}
 

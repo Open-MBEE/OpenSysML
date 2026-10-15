@@ -266,7 +266,7 @@ type AnalysisResult struct {
 func (ctx *Context) RunAnalysis(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (AnalysisResult, error) {
 	defer ctx.beginRun()()
 
-	run, result, err := ctx.runCase(sym, args, scope, self)
+	run, _, result, err := ctx.runCase(sym, args, scope, self)
 	// The run's occurrence lives until its last reader is done, and nothing
 	// downstream of RunAnalysis reads the run, so its end is here.
 	defer run.endOccurrence(ctx)
@@ -275,17 +275,21 @@ func (ctx *Context) RunAnalysis(sym *symbols.Symbol, args AnalysisArgs, scope *s
 
 // runCase runs a case's body once and reports the run beside what it produced,
 // so a caller reading more of the run than its outputs — a verification case's
-// subcase verdicts — reads it from the same run.
-func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (*calcRun, AnalysisResult, error) {
+// subcase verdicts — reads it from the same run. The object the case ran as a
+// feature of is reported beside the run, so a failed run still names it.
+func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (*calcRun, *Instance, AnalysisResult, error) {
 	if err := ctx.RequireAnalysisCase(sym); err != nil {
-		return nil, AnalysisResult{}, err
+		return nil, nil, AnalysisResult{}, err
 	}
 	if err := ctx.checkCalcTyping(sym); err != nil {
-		return nil, AnalysisResult{}, err
+		return nil, nil, AnalysisResult{}, err
 	}
 	shape, err := ctx.calcShapeOf(sym)
 	if err != nil {
-		return nil, AnalysisResult{}, err
+		return nil, nil, AnalysisResult{}, err
+	}
+	if self, args, err = ctx.casePerformer(shape, args, self); err != nil {
+		return nil, nil, AnalysisResult{}, err
 	}
 	// Arguments the case cannot take refuse the request before anything runs:
 	// the case established nothing, so there is no partial run to report.
@@ -293,7 +297,7 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 	var calcArgs calcArgs
 	if !asUsage {
 		if calcArgs, err = shape.analysisArgs(args); err != nil {
-			return nil, AnalysisResult{}, err
+			return nil, self, AnalysisResult{}, err
 		}
 	}
 	reader := NewEvalContextIn(ctx, scope, self)
@@ -310,7 +314,7 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 		err = ctx.monteCarloUnconcluded(sym, err)
 		result := AnalysisResult{Case: shape.Name, Evaluations: log.evaluations(Value{}, false)}
 		result.Verdicts = ctx.undecidedVerdicts(sym, scope, err)
-		return nil, result, err
+		return nil, self, result, err
 	}
 
 	// The outputs computed before one failed stay reported; the verdicts and the
@@ -323,11 +327,45 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 		err = ctx.monteCarloUnconcluded(sym, err)
 		result.Verdicts = ctx.undecidedVerdicts(sym, scope, err)
 		result.Evaluations = log.evaluations(Value{}, false)
-		return nil, result, err
+		return nil, self, result, err
 	}
 	result.Verdicts = ctx.analysisVerdicts(run, sym, scope)
 	result.Evaluations = log.evaluations(run.caseResult(run.bindingsFrame(ctx).vars))
-	return run, result, nil
+	return run, self, result, nil
+}
+
+// casePerformer is the object a type-owned case runs as a feature of. The object supplied binds the
+// subject the case declares and nothing else binds when the case already has an owner (one holding
+// it); otherwise it is the owner (over one found for the type), binding such a subject too. Given
+// none, the single object carrying the case, as a type-owned constraint is checked.
+func (ctx *Context) casePerformer(shape *calcShape, args AnalysisArgs, self *Instance) (*Instance, AnalysisArgs, error) {
+	owner := declaringType(shape.Sym)
+	if owner == nil {
+		return self, args, nil
+	}
+	subject, declared := shape.subjectParameter()
+	unbound := declared && subject.Default == nil
+	if unbound {
+		_, named := args.Named[subject.Name]
+		unbound = !named
+	}
+	given := args.Subject
+	if given != nil && (self == nil || !unbound) {
+		if !ctx.modelConforms(given.Type, owner) && len(ctx.carriersUnder([]*Instance{given}, owner)) == 0 {
+			return nil, args, fmt.Errorf("%w: %s is a feature of %s, which object #%d is not an object of",
+				ErrNotCarried, shape.Label, ctx.qualifiedSymbolName(owner), given.ID)
+		}
+		self, given = given, nil
+	}
+	reached, err := ctx.conditionSubject(shape.Sym, self)
+	if err != nil {
+		return nil, args, fmt.Errorf("%s %s: %w", shape.Kind, shape.Name, err)
+	}
+	args.Subject = given
+	if given == nil && unbound && reached.instance != nil {
+		args.Subject = reached.instance
+	}
+	return reached.instance, args, nil
 }
 
 // undecidedVerdicts leaves every objective and required assertion of a case
@@ -677,7 +715,10 @@ func assertionName(cond Condition) (string, *symbols.Symbol) {
 func (ctx *Context) analysisVerdict(kind, name string, check conditionCheck, conds []Condition) AnalysisVerdict {
 	verdict := AnalysisVerdict{Kind: kind, Name: name}
 	if len(conds) == 0 {
-		verdict.Status, verdict.Detail = VerdictUndecided, "states no condition to check"
+		// A requirement check over no constraints is true (Requirements::
+		// RequirementConstraintCheck::result); a `verify r;` records what the
+		// case verifies, it is no condition of the objective.
+		verdict.Status = VerdictSatisfied
 		return verdict
 	}
 	holds, err := ctx.evaluateConditions(check, conds)

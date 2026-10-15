@@ -1,6 +1,7 @@
 package repl
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"math"
@@ -2458,18 +2459,116 @@ func (s *Session) doValidate(ref string) ([]string, bool, error) {
 	return out, false, nil
 }
 
+// satisfyVerdictsOf renders the verdicts of one satisfaction assertion: one,
+// about an object of its subject, or, for an assertion a type states with no
+// `by`, one per object of that type the session holds — what %validate decides
+// for each of them. A definition's assertion with no such object is about
+// nothing yet, which is said rather than evaluated against no subject.
+func (s *Session) satisfyVerdictsOf(ctx *runtime.Context, a *runtime.SatisfyAssertion) []Verdict {
+	typ := a.StatingType()
+	if typ == nil {
+		return []Verdict{s.satisfyVerdict(ctx, a)}
+	}
+	subjects := ctx.SatisfactionSubjects(a, s.heldRoots())
+	if len(subjects) == 0 {
+		if _, isUsage := typ.Decl.(*ast.Usage); isUsage {
+			// The usage names the object it is about, so one is made as for `by`.
+			return []Verdict{s.satisfyVerdict(ctx, a)}
+		}
+		return []Verdict{s.withVerifications(s.satisfyNeedsObject(a, typ), ctx, a.AssertedRequirement(), nil)}
+	}
+	out := make([]Verdict, 0, len(subjects))
+	for _, subject := range subjects {
+		out = append(out, s.satisfyVerdictOn(ctx, a, subject.Object, s.subjectLabel(subject)))
+	}
+	return out
+}
+
+// subjectLabel names an object a type's assertion is about as the prompt names
+// any object a check resolved to: a nested one by the root it was reached from
+// and the features walked to it, when the root has a name here.
+func (s *Session) subjectLabel(subject runtime.SatisfactionSubject) string {
+	if subject.Root != nil && subject.Root != subject.Object {
+		if root := s.instanceName(subject.Root); root != "" {
+			return root + featurePath(subject.Path)
+		}
+	}
+	return s.objectLabel(subject.Object)
+}
+
+// heldRoots are the objects the session created and still names — by their
+// declaration or, displaced from it, by id — in identity order: what a sweep over
+// "the objects of the session" is about, not the objects runs made along the way.
+func (s *Session) heldRoots() []*runtime.Instance {
+	seen := map[int64]bool{}
+	var out []*runtime.Instance
+	keep := func(inst *runtime.Instance) {
+		if inst != nil && !seen[inst.ID] {
+			seen[inst.ID] = true
+			out = append(out, inst)
+		}
+	}
+	for _, inst := range s.instances {
+		keep(inst)
+	}
+	for _, u := range s.unnamed {
+		keep(u.obj)
+	}
+	slices.SortFunc(out, func(a, b *runtime.Instance) int { return cmp.Compare(a.ID, b.ID) })
+	return out
+}
+
+// satisfyNeedsObject reports an assertion a definition states with no `by` while
+// the session holds no object of that definition: it decided nothing yet.
+func (s *Session) satisfyNeedsObject(a *runtime.SatisfyAssertion, typ *symbols.Symbol) Verdict {
+	name := s.objectLabelOf(typ)
+	return Verdict{Subject: satisfyText(a), Status: VerdictUnresolved, Lines: []string{
+		fmt.Sprintf("? %s needs an object of %s: none is instantiated", satisfyText(a), name),
+	}}
+}
+
+// objectLabel is the label an object is reported under: the name the session
+// holds it by, else the type it was created as, else its id alone.
+func (s *Session) objectLabel(inst *runtime.Instance) string {
+	if name := s.instanceName(inst); name != "" {
+		return name
+	}
+	if inst.Type != nil {
+		if label := s.objectLabelOf(inst.Type); label != "" {
+			return label
+		}
+	}
+	return fmt.Sprintf("#%d", inst.ID)
+}
+
+// objectLabelOf spells a declaration as the prompt names it: by qualified name
+// where it has one, else by its own name.
+func (s *Session) objectLabelOf(sym *symbols.Symbol) string {
+	if idx := s.symbolIndex(); idx != nil {
+		if fqn := idx.GetFQN(sym); fqn != "" {
+			return s.declaredName(fqn)
+		}
+	}
+	return notationName(sym.Name)
+}
+
 // satisfyVerdict renders the verdict of one satisfaction assertion, evaluated
 // against an object of its subject: the one the session already created for that
 // subject, so a `%instantiate` before it is what the verdict is about.
 func (s *Session) satisfyVerdict(ctx *runtime.Context, a *runtime.SatisfyAssertion) Verdict {
 	subject, owner := s.subjectInstance(a)
-	if subject == nil && a.Subject != nil {
+	if subject == nil && (a.Subject != nil || a.StatingType() != nil) {
 		// No object of the subject exists yet, so the verdict is about a fresh
 		// one, created here rather than inside the evaluation so it can be named.
 		if inst, serr := ctx.SatisfySubject(a); serr == nil {
 			subject, owner = inst, s.keepSubject(a, inst)
 		}
 	}
+	return s.satisfyVerdictOn(ctx, a, subject, owner)
+}
+
+// satisfyVerdictOn is satisfyVerdict about a given object, reported under owner.
+func (s *Session) satisfyVerdictOn(ctx *runtime.Context, a *runtime.SatisfyAssertion, subject *runtime.Instance, owner string) Verdict {
 	result, plan, err := s.check(satisfyText(a), ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
 		return ctx.CheckSatisfactionOn(a, subject)
 	})
@@ -2477,7 +2576,7 @@ func (s *Session) satisfyVerdict(ctx *runtime.Context, a *runtime.SatisfyAsserti
 	// A `satisfy requirement r by p` declares its requirement rather than
 	// referencing one, so the assertion names it.
 	req := a.AssertedRequirement()
-	verdict := s.withVerifications(satisfactionVerdict(a, result, err, subject, owner), ctx, req)
+	verdict := s.withVerifications(satisfactionVerdict(a, result, err, subject, owner), ctx, req, subject)
 	return standing(verdict, plan)
 }
 
@@ -2546,8 +2645,17 @@ func (s *Session) keepSubject(a *runtime.SatisfyAssertion, inst *runtime.Instanc
 // subjectName is the name an assertion's subject is known by: its
 // fully-qualified name, or the reference as written when it resolves to nothing.
 // A chained subject is known by the name of the feature the chain starts from
-// and the features walked from it, as objectAt reaches it.
+// and the features walked from it, as objectAt reaches it. An assertion a type
+// states with no `by` is about objects of that type, known by its name.
 func (s *Session) subjectName(a *runtime.SatisfyAssertion) string {
+	if typ := a.StatingType(); typ != nil {
+		if idx := s.symbolIndex(); idx != nil {
+			if fqn := idx.GetFQN(typ); fqn != "" {
+				return fqn
+			}
+		}
+		return typ.Name
+	}
 	if a.SubjectChain != nil {
 		if root := s.rootName(a); root != "" {
 			return strings.Join(append([]string{root}, a.SubjectPath...), "::")

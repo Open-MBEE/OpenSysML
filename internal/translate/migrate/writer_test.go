@@ -19,6 +19,36 @@ func TestWriterBlocks(t *testing.T) {
 	}
 }
 
+func TestWriterFillsLastHolesAfterRegularHoles(t *testing.T) {
+	w := &writer{}
+	var discovered []string
+	w.block("part def A", func() {
+		w.holeLast(func() { w.line("alias for " + strings.Join(discovered, ", ") + ";") })
+		w.hole(func() {
+			discovered = append(discovered, "view target")
+			w.line("view;")
+		})
+	})
+	w.fill()
+	want := "part def A {\n    alias for view target;\n    view;\n}\n"
+	if got := w.String(); got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestWriterEmptyLastHoleLeavesNoBlankLine(t *testing.T) {
+	w := &writer{}
+	w.block("part def A", func() {
+		w.holeLast(func() {})
+		w.hole(func() { w.line("view;") })
+	})
+	w.fill()
+	want := "part def A {\n    view;\n}\n"
+	if got := w.String(); got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
 // A braced clause keeps its braces when its body is empty, so what follows it
 // on the next line still belongs to the same statement.
 func TestWriterBracedKeepsEmptyBody(t *testing.T) {

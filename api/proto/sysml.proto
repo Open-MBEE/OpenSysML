@@ -301,6 +301,12 @@ message VerificationVerdict {
   // objective verifies. Empty when the case was run for itself rather than for
   // a requirement, or when that requirement can be named by no FQN.
   string requirement_id = 5;
+  // Instance the case ran on as its owner, 0 when it ran on no object. A case a
+  // definition owns runs once per object of that definition, so verdicts of one
+  // case are told apart by this field; its feature values are in `instances`.
+  int64 instance_id = 6;
+  // Type of `instance_id`, as an FQN, for naming the object in a report.
+  string instance_type_id = 7;
 }
 
 // VerifyRequirementResponse carries the verdict.

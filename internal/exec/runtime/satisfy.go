@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -75,6 +76,22 @@ func (a *SatisfyAssertion) AssertedRequirement() *symbols.Symbol {
 	return nil
 }
 
+// StatingType is the type whose objects an assertion naming no `by` subject is
+// about: the definition or usage stating it, each object of which satisfies the
+// requirement (SysML v2 §7.20.1, a satisfy with no satisfying feature binds the
+// subject to the owner). It is nil for an assertion naming its subject and for
+// one stated by a package, which is about no object.
+func (a *SatisfyAssertion) StatingType() *symbols.Symbol {
+	if a == nil || a.SubjectRef != "" || a.Owner == nil {
+		return nil
+	}
+	switch a.Owner.Decl.(type) {
+	case *ast.Definition, *ast.Usage:
+		return a.Owner
+	}
+	return nil
+}
+
 // Text renders the assertion as it was written, so an anonymous one can be
 // named in a verdict. A `satisfy requirement r by p` form declares the
 // requirement rather than referencing one, so it is named by the usage itself.
@@ -142,13 +159,15 @@ func (ctx *Context) SatisfyAssertionOf(sym *symbols.Symbol) (*SatisfyAssertion, 
 }
 
 // satisfyAssertionOf resolves the assertion sym declares, or nil when sym is not
-// a satisfy usage.
+// a satisfy usage. An objective's `verify r;` is a requirement verification
+// (SysML v2 RequirementVerificationMembership), not a satisfaction: the
+// verification surfaces report it.
 func (ctx *Context) satisfyAssertionOf(sym *symbols.Symbol) *SatisfyAssertion {
 	if sym == nil {
 		return nil
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || usage.Kind != ast.UsageSatisfy {
+	if !ok || usage.Kind != ast.UsageSatisfy || usage.IsVerifiedRequirement() {
 		return nil
 	}
 	a := &SatisfyAssertion{Symbol: sym, Negated: usage.IsNegated}
@@ -261,7 +280,16 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 		return CheckResult{Subject: subject}, fmt.Errorf("%s: %w", a.Text(), ErrNoRequirement)
 	}
 
-	if subject == nil && a.SubjectRef != "" {
+	if subject == nil && a.StatingType() != nil {
+		// A type's assertion is about the one object of the type this runtime
+		// holds, as any condition the type declares is; several are ambiguous.
+		reached, err := ctx.checkSubject("satisfaction", a.Text(), a.Symbol, nil)
+		if err != nil {
+			return CheckResult{}, err
+		}
+		subject = reached.instance
+	}
+	if subject == nil && (a.SubjectRef != "" || a.StatingType() != nil) {
 		inst, err := ctx.SatisfySubject(a)
 		if err != nil {
 			return CheckResult{}, err
@@ -274,7 +302,7 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 	// An assertion stating its own conditions has no requirement to resolve
 	// against, so it resolves against itself.
 	carrying := a.Requirement
-	if carrying == nil {
+	if carrying == nil || (a.SubjectRef == "" && declaringType(target) != nil) {
 		carrying = target
 	}
 	return ctx.checkOn(sharedElement(a), "satisfaction", a.Text(), carrying, subject, func(reached carrier) (CheckResult, error) {
@@ -357,10 +385,23 @@ func (ctx *Context) satisfactionResult(holds bool, subject *Instance, reached ca
 // with `by`: the object its requirement is evaluated against when the caller
 // supplies none. A plain name is instantiated afresh; a feature chain is read
 // as the expression it is, so `config.child` materializes the occurrence
-// `config` and answers the object its `child` holds.
+// `config` and answers the object its `child` holds. An assertion naming no
+// subject is about the objects of the type stating it: one stated by a usage
+// instantiates that usage, while one stated by a definition is about whichever
+// objects of it exist (SatisfactionSubjects), so none is made up here.
 func (ctx *Context) SatisfySubject(a *SatisfyAssertion) (*Instance, error) {
 	if a == nil || a.Symbol == nil {
 		return nil, ErrNotASatisfaction
+	}
+	if typ := a.StatingType(); typ != nil {
+		if _, isUsage := typ.Decl.(*ast.Usage); !isUsage {
+			return nil, fmt.Errorf("%s: %w: an object of %s is needed", a.Text(), ErrNoSubject, ctx.qualifiedSymbolName(typ))
+		}
+		inst, err := ctx.Instantiate(typ)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w: %w", a.Text(), ErrNoSubject, err)
+		}
+		return inst, nil
 	}
 	if a.Subject == nil {
 		return nil, fmt.Errorf("%s: %w: %s", a.Text(), ErrNoSubject, a.SubjectRef)
@@ -373,6 +414,42 @@ func (ctx *Context) SatisfySubject(a *SatisfyAssertion) (*Instance, error) {
 		return nil, fmt.Errorf("%s: %w: %w", a.Text(), ErrNoSubject, err)
 	}
 	return inst, nil
+}
+
+// SatisfactionSubject is one object a type's assertion is about, and where it was
+// reached from: the root object holding it and the features walked down to it,
+// the root itself with no path for an object standing on its own.
+type SatisfactionSubject struct {
+	Object *Instance
+	Root   *Instance
+	Path   []string
+}
+
+// SatisfactionSubjects returns the objects an assertion naming no `by` subject is
+// about among roots, the objects the caller holds: every one of the type stating
+// it — each object of a declaration instantiated more than once, the ones nested
+// in a root, and ones classified by the type since they were made — as
+// ValidateObject applies a type's `satisfy r;` to every object of the type. It is
+// nil for an assertion naming its subject, or stated by no type.
+func (ctx *Context) SatisfactionSubjects(a *SatisfyAssertion, roots []*Instance) []SatisfactionSubject {
+	if a.StatingType() == nil {
+		return nil
+	}
+	carriers := ctx.carriersWhere(roots, func(inst *Instance) bool { return ctx.statedOf(a, inst) })
+	out := make([]SatisfactionSubject, 0, len(carriers))
+	for _, c := range carriers {
+		out = append(out, SatisfactionSubject{Object: c.instance, Root: c.root, Path: ctx.carrierFeatures(c)})
+	}
+	return out
+}
+
+// statedOf reports whether inst is an object of the type stating a, which names
+// no `by` subject: the type itself, or one conforming to it.
+func (ctx *Context) statedOf(a *SatisfyAssertion, inst *Instance) bool {
+	typ := a.StatingType()
+	return typ != nil && slices.ContainsFunc(inst.types(), func(t *symbols.Symbol) bool {
+		return sameDeclaration(t, typ) || ctx.modelConforms(t, typ)
+	})
 }
 
 // chainSubject evaluates a chained `by` operand in the assertion's scope, as
