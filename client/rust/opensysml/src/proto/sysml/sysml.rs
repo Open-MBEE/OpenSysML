@@ -229,6 +229,14 @@ pub struct VerificationVerdict {
     /// a requirement, or when that requirement can be named by no FQN.
     #[prost(string, tag="5")]
     pub requirement_id: ::prost::alloc::string::String,
+    /// Instance the case ran on as its owner, 0 when it ran on no object. A case a
+    /// definition owns runs once per object of that definition, so verdicts of one
+    /// case are told apart by this field; its feature values are in `instances`.
+    #[prost(int64, tag="6")]
+    pub instance_id: i64,
+    /// Type of `instance_id`, as an FQN, for naming the object in a report.
+    #[prost(string, tag="7")]
+    pub instance_type_id: ::prost::alloc::string::String,
 }
 /// VerifyRequirementResponse carries the verdict.
 #[derive(Clone, PartialEq, ::prost::Message)]

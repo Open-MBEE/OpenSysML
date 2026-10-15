@@ -204,18 +204,22 @@ class VerifyRequirementRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ..., question: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., named_arguments: _Optional[_Mapping[str, Value]] = ...) -> None: ...
 
 class VerificationVerdict(_message.Message):
-    __slots__ = ("case_id", "kind", "detail", "subcase", "requirement_id")
+    __slots__ = ("case_id", "kind", "detail", "subcase", "requirement_id", "instance_id", "instance_type_id")
     CASE_ID_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     DETAIL_FIELD_NUMBER: _ClassVar[int]
     SUBCASE_FIELD_NUMBER: _ClassVar[int]
     REQUIREMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_TYPE_ID_FIELD_NUMBER: _ClassVar[int]
     case_id: str
     kind: str
     detail: str
     subcase: bool
     requirement_id: str
-    def __init__(self, case_id: _Optional[str] = ..., kind: _Optional[str] = ..., detail: _Optional[str] = ..., subcase: _Optional[bool] = ..., requirement_id: _Optional[str] = ...) -> None: ...
+    instance_id: int
+    instance_type_id: str
+    def __init__(self, case_id: _Optional[str] = ..., kind: _Optional[str] = ..., detail: _Optional[str] = ..., subcase: _Optional[bool] = ..., requirement_id: _Optional[str] = ..., instance_id: _Optional[int] = ..., instance_type_id: _Optional[str] = ...) -> None: ...
 
 class VerifyRequirementResponse(_message.Message):
     __slots__ = ("verdict", "instances", "error", "diagnostics", "verification_verdicts")

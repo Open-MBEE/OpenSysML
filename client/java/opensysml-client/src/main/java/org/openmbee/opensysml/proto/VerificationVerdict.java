@@ -38,6 +38,7 @@ private static final long serialVersionUID = 0L;
     kind_ = "";
     detail_ = "";
     requirementId_ = "";
+    instanceTypeId_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -263,6 +264,70 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int INSTANCE_ID_FIELD_NUMBER = 6;
+  private long instanceId_ = 0L;
+  /**
+   * <pre>
+   * Instance the case ran on as its owner, 0 when it ran on no object. A case a
+   * definition owns runs once per object of that definition, so verdicts of one
+   * case are told apart by this field; its feature values are in `instances`.
+   * </pre>
+   *
+   * <code>int64 instance_id = 6 [json_name = "instanceId"];</code>
+   * @return The instanceId.
+   */
+  @java.lang.Override
+  public long getInstanceId() {
+    return instanceId_;
+  }
+
+  public static final int INSTANCE_TYPE_ID_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object instanceTypeId_ = "";
+  /**
+   * <pre>
+   * Type of `instance_id`, as an FQN, for naming the object in a report.
+   * </pre>
+   *
+   * <code>string instance_type_id = 7 [json_name = "instanceTypeId"];</code>
+   * @return The instanceTypeId.
+   */
+  @java.lang.Override
+  public java.lang.String getInstanceTypeId() {
+    java.lang.Object ref = instanceTypeId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      instanceTypeId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Type of `instance_id`, as an FQN, for naming the object in a report.
+   * </pre>
+   *
+   * <code>string instance_type_id = 7 [json_name = "instanceTypeId"];</code>
+   * @return The bytes for instanceTypeId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getInstanceTypeIdBytes() {
+    java.lang.Object ref = instanceTypeId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      instanceTypeId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -292,6 +357,12 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(requirementId_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 5, requirementId_);
     }
+    if (instanceId_ != 0L) {
+      output.writeInt64(6, instanceId_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(instanceTypeId_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 7, instanceTypeId_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -316,6 +387,13 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(requirementId_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(5, requirementId_);
+    }
+    if (instanceId_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt64Size(6, instanceId_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(instanceTypeId_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(7, instanceTypeId_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -342,6 +420,10 @@ private static final long serialVersionUID = 0L;
         != other.getSubcase()) return false;
     if (!getRequirementId()
         .equals(other.getRequirementId())) return false;
+    if (getInstanceId()
+        != other.getInstanceId()) return false;
+    if (!getInstanceTypeId()
+        .equals(other.getInstanceTypeId())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -364,6 +446,11 @@ private static final long serialVersionUID = 0L;
         getSubcase());
     hash = (37 * hash) + REQUIREMENT_ID_FIELD_NUMBER;
     hash = (53 * hash) + getRequirementId().hashCode();
+    hash = (37 * hash) + INSTANCE_ID_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getInstanceId());
+    hash = (37 * hash) + INSTANCE_TYPE_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getInstanceTypeId().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -506,6 +593,8 @@ private static final long serialVersionUID = 0L;
       detail_ = "";
       subcase_ = false;
       requirementId_ = "";
+      instanceId_ = 0L;
+      instanceTypeId_ = "";
       return this;
     }
 
@@ -554,6 +643,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.requirementId_ = requirementId_;
       }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.instanceId_ = instanceId_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.instanceTypeId_ = instanceTypeId_;
+      }
     }
 
     @java.lang.Override
@@ -589,6 +684,14 @@ private static final long serialVersionUID = 0L;
       if (!other.getRequirementId().isEmpty()) {
         requirementId_ = other.requirementId_;
         bitField0_ |= 0x00000010;
+        onChanged();
+      }
+      if (other.getInstanceId() != 0L) {
+        setInstanceId(other.getInstanceId());
+      }
+      if (!other.getInstanceTypeId().isEmpty()) {
+        instanceTypeId_ = other.instanceTypeId_;
+        bitField0_ |= 0x00000040;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -642,6 +745,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 42
+            case 48: {
+              instanceId_ = input.readInt64();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 48
+            case 58: {
+              instanceTypeId_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1085,6 +1198,148 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       requirementId_ = value;
       bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+
+    private long instanceId_ ;
+    /**
+     * <pre>
+     * Instance the case ran on as its owner, 0 when it ran on no object. A case a
+     * definition owns runs once per object of that definition, so verdicts of one
+     * case are told apart by this field; its feature values are in `instances`.
+     * </pre>
+     *
+     * <code>int64 instance_id = 6 [json_name = "instanceId"];</code>
+     * @return The instanceId.
+     */
+    @java.lang.Override
+    public long getInstanceId() {
+      return instanceId_;
+    }
+    /**
+     * <pre>
+     * Instance the case ran on as its owner, 0 when it ran on no object. A case a
+     * definition owns runs once per object of that definition, so verdicts of one
+     * case are told apart by this field; its feature values are in `instances`.
+     * </pre>
+     *
+     * <code>int64 instance_id = 6 [json_name = "instanceId"];</code>
+     * @param value The instanceId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setInstanceId(long value) {
+
+      instanceId_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Instance the case ran on as its owner, 0 when it ran on no object. A case a
+     * definition owns runs once per object of that definition, so verdicts of one
+     * case are told apart by this field; its feature values are in `instances`.
+     * </pre>
+     *
+     * <code>int64 instance_id = 6 [json_name = "instanceId"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearInstanceId() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      instanceId_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object instanceTypeId_ = "";
+    /**
+     * <pre>
+     * Type of `instance_id`, as an FQN, for naming the object in a report.
+     * </pre>
+     *
+     * <code>string instance_type_id = 7 [json_name = "instanceTypeId"];</code>
+     * @return The instanceTypeId.
+     */
+    public java.lang.String getInstanceTypeId() {
+      java.lang.Object ref = instanceTypeId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        instanceTypeId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Type of `instance_id`, as an FQN, for naming the object in a report.
+     * </pre>
+     *
+     * <code>string instance_type_id = 7 [json_name = "instanceTypeId"];</code>
+     * @return The bytes for instanceTypeId.
+     */
+    public com.google.protobuf.ByteString
+        getInstanceTypeIdBytes() {
+      java.lang.Object ref = instanceTypeId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        instanceTypeId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Type of `instance_id`, as an FQN, for naming the object in a report.
+     * </pre>
+     *
+     * <code>string instance_type_id = 7 [json_name = "instanceTypeId"];</code>
+     * @param value The instanceTypeId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setInstanceTypeId(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      instanceTypeId_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Type of `instance_id`, as an FQN, for naming the object in a report.
+     * </pre>
+     *
+     * <code>string instance_type_id = 7 [json_name = "instanceTypeId"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearInstanceTypeId() {
+      instanceTypeId_ = getDefaultInstance().getInstanceTypeId();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Type of `instance_id`, as an FQN, for naming the object in a report.
+     * </pre>
+     *
+     * <code>string instance_type_id = 7 [json_name = "instanceTypeId"];</code>
+     * @param value The bytes for instanceTypeId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setInstanceTypeIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      instanceTypeId_ = value;
+      bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }

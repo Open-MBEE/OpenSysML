@@ -570,6 +570,8 @@ type verificationVerdict struct {
 	Detail string `json:"detail,omitempty"`
 	// Subcase marks a case another case performed as a step of its body.
 	Subcase bool `json:"subcase,omitempty"`
+	// Object names the object the case ran as a feature of; empty for a package-level case.
+	Object string `json:"object,omitempty"`
 }
 
 // checkRow is one run of a sweep in the JSON report.
@@ -800,7 +802,7 @@ func verificationVerdicts(verdicts []repl.VerificationVerdict) []verificationVer
 	}
 	out := make([]verificationVerdict, 0, len(verdicts))
 	for _, v := range verdicts {
-		out = append(out, verificationVerdict{Case: v.Case, Kind: v.Kind, Detail: v.Detail, Subcase: v.Subcase})
+		out = append(out, verificationVerdict{Case: v.Case, Kind: v.Kind, Detail: v.Detail, Subcase: v.Subcase, Object: v.Object})
 	}
 	return out
 }

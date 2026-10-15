@@ -1487,6 +1487,12 @@ what they meant before.
   by it: a `"satisfy"` verdict carries the same `requirementId` for the requirement it asserts
   satisfied, so a client reads a verdict's own cases rather than the whole response's. Empty for a
   case run for itself by `RunAnalysis`, and for a requirement no qualified name reaches.
+- `instanceId` — the ID of the object the case ran on as its owner, resolving to an entry of the
+  response's `instances`. A case a part definition owns runs once per object of that definition,
+  so two verdicts of one `caseId` are told apart by it. `0` (omitted in JSON) when the case ran on
+  no object.
+- `instanceTypeId` — the qualified name of that object's type, as the `instanceTypeId` of a
+  requirement verdict spells it, for naming the object in a report. Empty with `instanceId` `0`.
 
 ```console
 $ … /VerifyRequirement -d '{"modelHash":"96c9…994d","symbolId":"Ver::touchdown"}'
