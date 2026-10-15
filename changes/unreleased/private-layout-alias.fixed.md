@@ -1,0 +1,1 @@
+- Diagram layouts use private aliases in their owners when exposed names hide the private members they position.
