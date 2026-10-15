@@ -1,0 +1,1 @@
+- **The `export` race shard of CI has the same 55-minute package timeout as `migrate`.** `tests/model`, which that shard runs, takes 25-30 minutes under the race detector on the CI executor, so it reached the 30-minute default timeout on roughly one run in four and failed the `develop` build that the nightly snapshot selects from.

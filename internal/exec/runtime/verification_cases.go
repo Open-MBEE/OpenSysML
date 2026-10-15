@@ -119,10 +119,32 @@ func (ctx *Context) verifiedIn(objective *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// VerificationVerdictsIn runs the verification cases of every scope whose
-// objective verifies req, each once, and reports its body verdict and the verdict
-// of every subcase it performs. A nested case answers only as a subcase.
+// VerificationVerdictsIn runs the verification cases of every scope whose objective verifies req
+// and reports each body and subcase verdict; a case a type owns runs once per object of that type.
 func (ctx *Context) VerificationVerdictsIn(scopes []*symbols.Scope, req *symbols.Symbol) []VerificationVerdict {
+	return ctx.VerificationVerdictsOn(scopes, req, nil)
+}
+
+// VerificationVerdictsOn is VerificationVerdictsIn for a verdict about subject: a case a type owns
+// runs once on each object of that type subject is or holds, every held one when subject is nil.
+func (ctx *Context) VerificationVerdictsOn(scopes []*symbols.Scope, req *symbols.Symbol, subject *Instance) []VerificationVerdict {
+	return ctx.VerificationVerdictsOnce(scopes, req, subject, nil)
+}
+
+// VerificationRuns records the runs a report has made, so a case verifying a
+// requirement several checks are about runs once per object it is a feature of.
+type VerificationRuns struct {
+	done map[verificationRunKey]bool
+}
+
+type verificationRunKey struct {
+	requirement, kase *symbols.Symbol
+	self              *Instance
+}
+
+// VerificationVerdictsOnce is VerificationVerdictsOn skipping the runs recorded
+// in runs, and recording the ones it makes; a nil runs records nothing.
+func (ctx *Context) VerificationVerdictsOnce(scopes []*symbols.Scope, req *symbols.Symbol, subject *Instance, runs *VerificationRuns) []VerificationVerdict {
 	var out []VerificationVerdict
 	ran := make(map[*symbols.Symbol]bool)
 	for _, scope := range scopes {
@@ -131,23 +153,72 @@ func (ctx *Context) VerificationVerdictsIn(scopes []*symbols.Scope, req *symbols
 				continue
 			}
 			ran[sym] = true
-			out = append(out, ctx.VerificationVerdicts(sym)...)
+			for _, self := range ctx.caseCarriers(sym, subject) {
+				if runs != nil {
+					key := verificationRunKey{requirement: req, kase: sym, self: self}
+					if runs.done[key] {
+						continue
+					}
+					if runs.done == nil {
+						runs.done = make(map[verificationRunKey]bool)
+					}
+					runs.done[key] = true
+				}
+				out = append(out, ctx.verificationVerdictsOn(sym, self)...)
+			}
 		}
 	}
 	return out
 }
 
-// VerificationVerdicts runs one verification case and reports its body verdict
-// followed by the verdict of each subcase it performs.
+// VerificationVerdicts runs one verification case and reports its body verdict followed by the
+// verdict of each subcase it performs; a case a type owns runs on the single object carrying it.
 func (ctx *Context) VerificationVerdicts(sym *symbols.Symbol) []VerificationVerdict {
+	return ctx.verificationVerdictsOn(sym, nil)
+}
+
+// verificationVerdictsOn runs one verification case as a feature of self (nil for none) and
+// reports its verdicts; a run that could not be made is an error verdict about self.
+func (ctx *Context) verificationVerdictsOn(sym *symbols.Symbol, self *Instance) []VerificationVerdict {
 	scope := sym.OwnerScope
-	result, err := ctx.RunVerification(sym, AnalysisArgs{}, scope, nil)
+	result, err := ctx.RunVerification(sym, AnalysisArgs{}, scope, self)
 	if err != nil {
 		return []VerificationVerdict{{
-			Case: ctx.qualifiedSymbolName(sym), Symbol: sym, Kind: VerdictError, Detail: err.Error(),
+			Case: ctx.qualifiedSymbolName(sym), Symbol: sym, Kind: VerdictError, Detail: err.Error(), Subject: self,
 		}}
 	}
+	if result.Verdict.Subject == nil {
+		result.Verdict.Subject = self
+	}
 	return append([]VerificationVerdict{result.Verdict}, result.Subcases...)
+}
+
+// caseCarriers are the objects a type-owned case runs on for a verdict about subject: subject when
+// of that type, else each object of the type under it (none when it holds none), or under every
+// root when subject is nil, where no carrier leaves the case to run on no object.
+func (ctx *Context) caseCarriers(sym *symbols.Symbol, subject *Instance) []*Instance {
+	owner := declaringType(sym)
+	if owner == nil {
+		return []*Instance{nil}
+	}
+	roots := []*Instance{subject}
+	if subject == nil {
+		roots = ctx.rootInstances()
+	} else if ctx.modelConforms(subject.Type, owner) {
+		return []*Instance{subject}
+	}
+	carriers := ctx.carriersUnder(roots, owner)
+	if len(carriers) == 0 {
+		if subject != nil {
+			return nil
+		}
+		return []*Instance{nil}
+	}
+	out := make([]*Instance, len(carriers))
+	for i, c := range carriers {
+		out[i] = c.instance
+	}
+	return out
 }
 
 // isVerificationUsage reports whether sym declares a verification case usage,

@@ -2475,7 +2475,7 @@ func (s *Session) satisfyVerdictsOf(ctx *runtime.Context, a *runtime.SatisfyAsse
 			// The usage names the object it is about, so one is made as for `by`.
 			return []Verdict{s.satisfyVerdict(ctx, a)}
 		}
-		return []Verdict{s.withVerifications(s.satisfyNeedsObject(a, typ), ctx, a.AssertedRequirement())}
+		return []Verdict{s.withVerifications(s.satisfyNeedsObject(a, typ), ctx, a.AssertedRequirement(), nil)}
 	}
 	out := make([]Verdict, 0, len(subjects))
 	for _, subject := range subjects {
@@ -2576,7 +2576,7 @@ func (s *Session) satisfyVerdictOn(ctx *runtime.Context, a *runtime.SatisfyAsser
 	// A `satisfy requirement r by p` declares its requirement rather than
 	// referencing one, so the assertion names it.
 	req := a.AssertedRequirement()
-	verdict := s.withVerifications(satisfactionVerdict(a, result, err, subject, owner), ctx, req)
+	verdict := s.withVerifications(satisfactionVerdict(a, result, err, subject, owner), ctx, req, subject)
 	return standing(verdict, plan)
 }
 

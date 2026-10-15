@@ -18,6 +18,10 @@ import (
 // element, so which one the verdict would be about is a question, not an answer.
 var ErrAmbiguousSubject = errors.New("ambiguous subject")
 
+// ErrNotCarried is returned when a case a type owns is run on an object that is
+// not of that type and holds none.
+var ErrNotCarried = errors.New("object does not carry the case")
+
 // Condition is one boolean check a constraint or requirement states, with the
 // scope its expression resolves names in. A condition states either an
 // expression or a group, which holds when all of its conditions hold.
@@ -705,8 +709,12 @@ func (ctx *Context) conditionSubject(sym *symbols.Symbol, self *Instance) (carri
 	case 1:
 		return carriers[0], nil
 	}
+	name := sym.Name
+	if name == "" {
+		name = "it"
+	}
 	return carrier{}, fmt.Errorf("%w: %s is carried by %s: check it on one of them",
-		ErrAmbiguousSubject, sym.Name, strings.Join(ctx.carrierLabels(carriers), ", "))
+		ErrAmbiguousSubject, name, strings.Join(ctx.carrierLabels(carriers), ", "))
 }
 
 // checkSubject resolves the object a check is about before its bindings are
