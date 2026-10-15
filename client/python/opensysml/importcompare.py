@@ -88,7 +88,7 @@ class ComparedDistribution:
         count (int), min, mean, p50, p90, max, deviation (float)
     """
 
-    def __init__(self, count, min, mean, p50, p90, max, deviation):  # noqa: A002
+    def __init__(self, count, min, mean, p50, p90, max, deviation):
         self.count = count
         self.min = min
         self.mean = mean
@@ -109,7 +109,7 @@ class StatisticDifference:
         min, mean, p50, p90, max (str)
     """
 
-    def __init__(self, min, mean, p50, p90, max):  # noqa: A002
+    def __init__(self, min, mean, p50, p90, max):
         self.min = min
         self.mean = mean
         self.p50 = p50
@@ -209,7 +209,7 @@ class ConfigurationComparison:
         lines (list[str]): The comparison as ``sysml -compare-results`` prints it
     """
 
-    def __init__(self, id, name, behavior, target, result_location, status, unresolved,  # noqa: A002
+    def __init__(self, id, name, behavior, target, result_location, status, unresolved,
                  stored_runs, stored_snapshots, runs, completed, draws, seed, clock_step,
                  rows, observables, errors, notes, lines):
         self.id = id
