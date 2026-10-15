@@ -138,6 +138,9 @@ What a request asks for is fixed per capability:
 | --- | --- |
 | `convert` | Refuse `Convert`. |
 | `migrate` | Refuse `Migrate`. |
+| `runs` | Refuse `RunRuns`. |
+| `self_check` | Refuse `SelfCheck`. |
+| `record_run` | Refuse `RecordRun`. |
 | `verification` | Refuse `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` and `EvaluateCalc`. |
 | `query` | Refuse `Query`. |
 | `oslc_query` | Refuse `Query` only when `oslc_query` is set; structured queries still use `query`. |
