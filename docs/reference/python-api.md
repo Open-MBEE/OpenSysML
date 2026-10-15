@@ -32,6 +32,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_CHECK
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_STATE_ACTION_AUTHORING
     options:
       heading_level: 3
@@ -590,6 +594,34 @@ Typed outcomes for verification, validation, calculation and analysis.
       heading_level: 3
 
 ::: opensysml.SweepTable
+    options:
+      heading_level: 3
+
+::: opensysml.CheckResult
+    options:
+      heading_level: 3
+
+::: opensysml.CheckSearch
+    options:
+      heading_level: 3
+
+::: opensysml.CheckViolation
+    options:
+      heading_level: 3
+
+::: opensysml.CheckWitness
+    options:
+      heading_level: 3
+
+::: opensysml.CheckDivergence
+    options:
+      heading_level: 3
+
+::: opensysml.CheckDivergentValue
+    options:
+      heading_level: 3
+
+::: opensysml.CheckFinal
     options:
       heading_level: 3
 

@@ -1437,7 +1437,7 @@ func TestCheckActionAgainstService(t *testing.T) {
 	if len(check.Divergences) != 1 || check.Divergences[0].Feature != "this.level" || len(check.Divergences[0].Values) != 2 {
 		t.Errorf("divergences = %+v, want this.level ending as two values", check.Divergences)
 	}
-	if !strings.HasPrefix(check.String(), "✗ Plant::Tank::fill") {
+	if !strings.HasPrefix(check.String(), "✗ Action Plant::Tank::fill") {
 		t.Errorf("report = %q, want the command's", check.String())
 	}
 

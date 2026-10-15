@@ -74,8 +74,8 @@ function out = strings(list)
 end
 
 function out = cells(list)
-    if iscell(list), out = list; elseif isstruct(list), out = num2cell(list); ...
-    elseif isempty(list), out = {}; elseif isstring(list), out = cellstr(list); else, out = {list}; end
+    if iscell(list), out = list(:)'; elseif isstruct(list), out = num2cell(list(:)'); ...
+    elseif isempty(list), out = {}; elseif isstring(list), out = cellstr(list(:)'); else, out = {list}; end
 end
 
 function value = fieldOr(s, name, default)

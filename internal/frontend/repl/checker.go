@@ -559,12 +559,6 @@ func checkedVerdict(subject, label string, result analysis.Result) Verdict {
 	return Verdict{Subject: subject, Status: verdictStatusOf(status), Lines: lines}
 }
 
-// decidedVerdict reports an answer carrying no check report, the symbolic engine's
-// or an external one's, rendered as analysis.CheckLines renders it.
-func decidedVerdict(name string, result analysis.Result) Verdict {
-	return checkedVerdict(name, name, result)
-}
-
 func verdictStatusOf(status analysis.CheckStatus) VerdictStatus {
 	switch status {
 	case analysis.CheckHolds:

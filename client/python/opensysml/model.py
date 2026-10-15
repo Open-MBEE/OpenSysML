@@ -427,8 +427,9 @@ class Model:
             free_inputs (iterable of str): Inputs the symbolic engine ranges over
             assume (iterable of str): Constraints or requirements it assumes
             witness (bool): Carry each witness's file in the answer
-            depth, states, unroll (int): Bounds on moves per schedule, states
-                visited and loop unrollings; 0 is the engine's default
+            depth (int): Bound on moves per schedule; 0 is the engine's default
+            states (int): Bound on states visited; 0 is the engine's default
+            unroll (int): Bound on loop unrollings; 0 is the engine's default
             timeout (float): Seconds the search may take; 0 is none
             engine (str, optional): ``"check"`` (the default), ``"smt"`` or one
                 :meth:`~opensysml.Connection.list_engines` names
