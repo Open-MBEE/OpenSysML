@@ -1660,3 +1660,383 @@ mod tests {
         );
     }
 }
+
+/// One assignment an import made: the feature of the element set to the value,
+/// redefining the inherited feature `redefines` when the element did not declare it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImportedValue {
+    /// Qualified name of the element whose feature is set.
+    pub element: String,
+    /// The feature set.
+    pub feature: String,
+    /// The literal it is set to; "" for a redefinition made only to reach a nested feature.
+    pub value: String,
+    /// Qualified name of the inherited feature redefined, "" when the element declares it.
+    pub redefines: String,
+    /// The row or cell of the data it came from.
+    pub where_: String,
+    /// The line `sysml -import` reports it as.
+    pub description: String,
+}
+
+/// What one data file set.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImportedFile {
+    /// The file's name.
+    pub name: String,
+    /// How many values it set.
+    pub values: i64,
+    /// How many elements they were set on.
+    pub elements: i64,
+    /// Each assignment, in data order.
+    pub assignments: Vec<ImportedValue>,
+}
+
+/// What [`Connection::import_data`](crate::Connection::import_data) answers.
+#[derive(Clone, Debug)]
+pub struct ImportResult {
+    /// One per data file, in order.
+    pub files: Vec<ImportedFile>,
+    /// The edited content of a one-document model; "" on a dry run.
+    pub content: String,
+    /// Every edited document, by name; empty on a dry run.
+    pub documents: Vec<(String, String)>,
+    /// The imported model's hash, cached by the service; "" on a dry run.
+    pub model_hash: String,
+    /// Notes the import raised.
+    pub diagnostics: Vec<Diagnostic>,
+    wire: wire::ImportDataResponse,
+}
+
+impl ImportResult {
+    /// The response as the service answered it.
+    pub fn wire(&self) -> &wire::ImportDataResponse {
+        &self.wire
+    }
+}
+
+/// A distribution by its statistics; a pooled one knows its count and mean alone.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ComparedDistribution {
+    /// How many numbers.
+    pub count: i64,
+    /// The least.
+    pub min: f64,
+    /// The mean.
+    pub mean: f64,
+    /// The median.
+    pub p50: f64,
+    /// The 90th percentile.
+    pub p90: f64,
+    /// The greatest.
+    pub max: f64,
+    /// The sample standard deviation.
+    pub deviation: f64,
+}
+
+/// The relative difference of each statistic as a signed percentage, "" where not compared.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StatisticDifference {
+    /// Of the least.
+    pub min: String,
+    /// Of the mean.
+    pub mean: String,
+    /// Of the median.
+    pub p50: String,
+    /// Of the 90th percentile.
+    pub p90: String,
+    /// Of the greatest.
+    pub max: String,
+}
+
+/// One statistic a Simulation::MonteCarlo case declares, the tool's beside the runs'.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CaseStatistic {
+    /// Which statistic.
+    pub statistic: String,
+    /// Where the case declares it.
+    pub of: String,
+    /// The tool's value.
+    pub tool: String,
+    /// The runs' value.
+    pub run: String,
+    /// Their relative difference.
+    pub difference: String,
+}
+
+/// The statistics a Simulation::MonteCarlo case declares of an observable.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CaseStatistics {
+    /// The case.
+    pub analysis: String,
+    /// One per statistic.
+    pub rows: Vec<CaseStatistic>,
+    /// What was not compared, and why.
+    pub notes: Vec<String>,
+}
+
+/// One observable: the tool's distribution beside the runs', or why they are not compared.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ObservableComparison {
+    /// The observable the tool stored.
+    pub stored: String,
+    /// The feature of the run that answers it.
+    pub feature: String,
+    /// The unit the runs' numbers came in, "" for none.
+    pub unit: String,
+    /// The tool's distribution, `None` when it stored no number.
+    pub tool: Option<ComparedDistribution>,
+    /// Whether the tool's distribution was pooled from summaries.
+    pub pooled: bool,
+    /// Whether the tool stored no result at all.
+    pub unstored: bool,
+    /// The completed runs' distribution, `None` when not compared.
+    pub run: Option<ComparedDistribution>,
+    /// How many runs produced a number for the feature.
+    pub produced: i64,
+    /// Whether the runs were made and are reported.
+    pub compared: bool,
+    /// The relative difference of each statistic.
+    pub difference: Option<StatisticDifference>,
+    /// The case's statistics compared.
+    pub declared: Option<CaseStatistics>,
+    /// Notes on what was pooled or not compared.
+    pub notes: Vec<String>,
+}
+
+/// One configuration's runs beside the tool's results.
+#[derive(Clone, Debug)]
+pub struct ConfigurationComparison {
+    /// The configuration's id in the sidecar.
+    pub id: String,
+    /// Its qualified name.
+    pub name: String,
+    /// The migrated behavior it performs.
+    pub behavior: String,
+    /// The feature the observables are read from.
+    pub target: String,
+    /// Where the tool stored the results.
+    pub result_location: String,
+    /// `holds`, `fails` (a run failed) or `unresolved`.
+    pub status: String,
+    /// Why the configuration could not be run.
+    pub unresolved: String,
+    /// The runs the tool stored.
+    pub stored_runs: i64,
+    /// Over how many snapshots.
+    pub stored_snapshots: i64,
+    /// The runs OpenSysML made.
+    pub runs: i64,
+    /// How many completed.
+    pub completed: i64,
+    /// The draw policy the runs took.
+    pub draws: String,
+    /// The seed the runs derived theirs from.
+    pub seed: Option<u64>,
+    /// The clock step, 0 for a continuous clock.
+    pub clock_step: f64,
+    /// One per run.
+    pub rows: Vec<SweepRow>,
+    /// The observables compared.
+    pub observables: Vec<ObservableComparison>,
+    /// The errors failed runs ended in.
+    pub errors: Vec<String>,
+    /// Notes on the configuration and its runs.
+    pub notes: Vec<String>,
+    /// The comparison as `sysml -compare-results` prints it.
+    pub lines: Vec<String>,
+}
+
+impl ConfigurationComparison {
+    /// Whether every run completed and the observables were compared.
+    pub fn holds(&self) -> bool {
+        self.status == "holds"
+    }
+}
+
+/// What [`Connection::compare_results`](crate::Connection::compare_results) answers.
+#[derive(Clone, Debug)]
+pub struct Comparison {
+    /// The tool the sidecar records as the results' source.
+    pub source: String,
+    /// One per configuration, in the order the sidecar indexes them.
+    pub configurations: Vec<ConfigurationComparison>,
+    /// The engine and strength of the last runs made.
+    pub standing: Standing,
+    /// Notes the comparison raised.
+    pub diagnostics: Vec<Diagnostic>,
+    wire: wire::CompareResultsResponse,
+}
+
+impl Comparison {
+    /// The response as the service answered it.
+    pub fn wire(&self) -> &wire::CompareResultsResponse {
+        &self.wire
+    }
+}
+
+impl Comparison {
+    /// Whether every configuration ran and compared.
+    pub fn holds(&self) -> bool {
+        self.configurations
+            .iter()
+            .all(ConfigurationComparison::holds)
+    }
+}
+
+pub(crate) fn import_result_of(response: wire::ImportDataResponse) -> Result<ImportResult, Error> {
+    let wire = response.clone();
+    let diagnostics = diagnostics_of(&response.diagnostics);
+    if !response.error.is_empty() {
+        return Err(failure_of(&response.error, 0, diagnostics));
+    }
+    Ok(ImportResult {
+        files: response
+            .files
+            .into_iter()
+            .map(|f| ImportedFile {
+                name: f.name,
+                values: f.values,
+                elements: f.elements,
+                assignments: f
+                    .assignments
+                    .into_iter()
+                    .map(|a| ImportedValue {
+                        element: a.element,
+                        feature: a.feature,
+                        value: a.value,
+                        redefines: a.redefines,
+                        where_: a.r#where,
+                        description: a.description,
+                    })
+                    .collect(),
+            })
+            .collect(),
+        content: response.content,
+        documents: response
+            .documents
+            .into_iter()
+            .map(|d| (d.name, d.content))
+            .collect(),
+        model_hash: response.model_hash,
+        diagnostics,
+        wire,
+    })
+}
+
+fn compared_distribution_of(d: Option<wire::ComparedDistribution>) -> Option<ComparedDistribution> {
+    d.map(|d| ComparedDistribution {
+        count: d.count,
+        min: d.min,
+        mean: d.mean,
+        p50: d.p50,
+        p90: d.p90,
+        max: d.max,
+        deviation: d.deviation,
+    })
+}
+
+pub(crate) fn comparison_of(
+    response: wire::CompareResultsResponse,
+    capabilities: &Capabilities,
+) -> Result<Comparison, Error> {
+    let wire = response.clone();
+    let diagnostics = diagnostics_of(&response.diagnostics);
+    if !response.error.is_empty() {
+        return Err(failure_of(
+            &response.error,
+            response.failure_reason,
+            diagnostics,
+        ));
+    }
+    let mut configurations = Vec::with_capacity(response.configurations.len());
+    for c in response.configurations {
+        let instances = instances_of(&c.instances, capabilities)?;
+        let rows = c
+            .rows
+            .into_iter()
+            .map(|row| {
+                Ok(SweepRow {
+                    inputs: named_values(&row.inputs)?,
+                    outputs: named_values(&row.outputs)?,
+                    verdicts: row
+                        .verdicts
+                        .into_iter()
+                        .map(|pb| {
+                            Verdict::from_wire(pb, instances.clone(), &diagnostics, Vec::new())
+                        })
+                        .collect::<Result<_, _>>()?,
+                    elapsed: Duration::from_micros(row.elapsed_micros.max(0).unsigned_abs()),
+                    error: row.error,
+                    reason: reason_of(row.failure_reason),
+                    evaluations: evaluations(&row.evaluations)?,
+                })
+            })
+            .collect::<Result<_, Error>>()?;
+        configurations.push(ConfigurationComparison {
+            id: c.id,
+            name: c.name,
+            behavior: c.behavior,
+            target: c.target,
+            result_location: c.result_location,
+            status: c.status,
+            unresolved: c.unresolved,
+            stored_runs: c.stored_runs,
+            stored_snapshots: c.stored_snapshots,
+            runs: c.runs,
+            completed: c.completed,
+            draws: c.draws,
+            seed: c.seed,
+            clock_step: c.clock_step,
+            rows,
+            observables: c
+                .observables
+                .into_iter()
+                .map(|o| ObservableComparison {
+                    stored: o.stored,
+                    feature: o.feature,
+                    unit: o.unit,
+                    tool: compared_distribution_of(o.tool),
+                    pooled: o.pooled,
+                    unstored: o.unstored,
+                    run: compared_distribution_of(o.run),
+                    produced: o.produced,
+                    compared: o.compared,
+                    difference: o.difference.map(|d| StatisticDifference {
+                        min: d.min,
+                        mean: d.mean,
+                        p50: d.p50,
+                        p90: d.p90,
+                        max: d.max,
+                    }),
+                    declared: o.declared.map(|cs| CaseStatistics {
+                        analysis: cs.analysis,
+                        rows: cs
+                            .rows
+                            .into_iter()
+                            .map(|r| CaseStatistic {
+                                statistic: r.statistic,
+                                of: r.of,
+                                tool: r.tool,
+                                run: r.run,
+                                difference: r.difference,
+                            })
+                            .collect(),
+                        notes: cs.notes,
+                    }),
+                    notes: o.notes,
+                })
+                .collect(),
+            errors: c.errors,
+            notes: c.notes,
+            lines: c.lines,
+        });
+    }
+    Ok(Comparison {
+        source: response.source,
+        configurations,
+        standing: Standing::of(&response.engine, &response.strength, &response.bounds),
+        diagnostics,
+        wire,
+    })
+}
