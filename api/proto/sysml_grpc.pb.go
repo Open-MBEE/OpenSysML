@@ -44,6 +44,8 @@ const (
 	SysMLService_RenderDocument_FullMethodName     = "/sysml.SysMLService/RenderDocument"
 	SysMLService_RenderView_FullMethodName         = "/sysml.SysMLService/RenderView"
 	SysMLService_ExportGraphs_FullMethodName       = "/sysml.SysMLService/ExportGraphs"
+	SysMLService_ImportData_FullMethodName         = "/sysml.SysMLService/ImportData"
+	SysMLService_CompareResults_FullMethodName     = "/sysml.SysMLService/CompareResults"
 )
 
 // SysMLServiceClient is the client API for SysMLService service.
@@ -136,6 +138,16 @@ type SysMLServiceClient interface {
 	// and every behavior it performs — as the canonical `graphs:<version>` JSON
 	// external analysis engines read. Reported as the "export_graphs" capability.
 	ExportGraphs(ctx context.Context, in *ExportGraphsRequest, opts ...grpc.CallOption) (*ExportGraphsResponse, error)
+	// Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row
+	// per element, as `sysml -import` does: a feature the element declares has its
+	// value set, one it inherits is redefined with the value; a dry run reports the
+	// values without changing the model. Reported as the "import_data" capability.
+	ImportData(ctx context.Context, in *ImportDataRequest, opts ...grpc.CallOption) (*ImportDataResponse, error)
+	// Run every configuration a SysML v1 tool's results sidecar indexes, as
+	// `sysml -compare-results` does, and table the tool's and OpenSysML's min,
+	// mean, p50, p90 and max of each observable with their relative difference.
+	// Reported as the "compare_results" capability.
+	CompareResults(ctx context.Context, in *CompareResultsRequest, opts ...grpc.CallOption) (*CompareResultsResponse, error)
 }
 
 type sysMLServiceClient struct {
@@ -371,6 +383,24 @@ func (c *sysMLServiceClient) ExportGraphs(ctx context.Context, in *ExportGraphsR
 	return out, nil
 }
 
+func (c *sysMLServiceClient) ImportData(ctx context.Context, in *ImportDataRequest, opts ...grpc.CallOption) (*ImportDataResponse, error) {
+	out := new(ImportDataResponse)
+	err := c.cc.Invoke(ctx, SysMLService_ImportData_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sysMLServiceClient) CompareResults(ctx context.Context, in *CompareResultsRequest, opts ...grpc.CallOption) (*CompareResultsResponse, error) {
+	out := new(CompareResultsResponse)
+	err := c.cc.Invoke(ctx, SysMLService_CompareResults_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SysMLServiceServer is the server API for SysMLService service.
 // All implementations must embed UnimplementedSysMLServiceServer
 // for forward compatibility
@@ -461,6 +491,16 @@ type SysMLServiceServer interface {
 	// and every behavior it performs — as the canonical `graphs:<version>` JSON
 	// external analysis engines read. Reported as the "export_graphs" capability.
 	ExportGraphs(context.Context, *ExportGraphsRequest) (*ExportGraphsResponse, error)
+	// Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row
+	// per element, as `sysml -import` does: a feature the element declares has its
+	// value set, one it inherits is redefined with the value; a dry run reports the
+	// values without changing the model. Reported as the "import_data" capability.
+	ImportData(context.Context, *ImportDataRequest) (*ImportDataResponse, error)
+	// Run every configuration a SysML v1 tool's results sidecar indexes, as
+	// `sysml -compare-results` does, and table the tool's and OpenSysML's min,
+	// mean, p50, p90 and max of each observable with their relative difference.
+	// Reported as the "compare_results" capability.
+	CompareResults(context.Context, *CompareResultsRequest) (*CompareResultsResponse, error)
 	mustEmbedUnimplementedSysMLServiceServer()
 }
 
@@ -542,6 +582,12 @@ func (UnimplementedSysMLServiceServer) RenderView(context.Context, *RenderViewRe
 }
 func (UnimplementedSysMLServiceServer) ExportGraphs(context.Context, *ExportGraphsRequest) (*ExportGraphsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExportGraphs not implemented")
+}
+func (UnimplementedSysMLServiceServer) ImportData(context.Context, *ImportDataRequest) (*ImportDataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ImportData not implemented")
+}
+func (UnimplementedSysMLServiceServer) CompareResults(context.Context, *CompareResultsRequest) (*CompareResultsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CompareResults not implemented")
 }
 func (UnimplementedSysMLServiceServer) mustEmbedUnimplementedSysMLServiceServer() {}
 
@@ -1006,6 +1052,42 @@ func _SysMLService_ExportGraphs_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SysMLService_ImportData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImportDataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).ImportData(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_ImportData_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).ImportData(ctx, req.(*ImportDataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SysMLService_CompareResults_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompareResultsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).CompareResults(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_CompareResults_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).CompareResults(ctx, req.(*CompareResultsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SysMLService_ServiceDesc is the grpc.ServiceDesc for SysMLService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1112,6 +1194,14 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExportGraphs",
 			Handler:    _SysMLService_ExportGraphs_Handler,
+		},
+		{
+			MethodName: "ImportData",
+			Handler:    _SysMLService_ImportData_Handler,
+		},
+		{
+			MethodName: "CompareResults",
+			Handler:    _SysMLService_CompareResults_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

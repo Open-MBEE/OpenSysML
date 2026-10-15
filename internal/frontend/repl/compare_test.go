@@ -556,7 +556,7 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 	// The tool's deviation pools the runs stored one by one with each summary's
 	// spread about its own mean and its mean's offset from the pooled one.
 	cfg.Snapshots = append(cfg.Snapshots, simresults.Snapshot{ID: "_r1", Values: map[string]float64{"total": 14.0}})
-	if dev, ok := storedDeviation(cfg, "total"); !ok || spell(dev) != "2.581988897471611" {
+	if dev, ok := simresults.StoredDeviation(cfg, "total"); !ok || simresults.Spell(dev) != "2.581988897471611" {
 		t.Errorf("storedDeviation = %v, %v; want sqrt(20/3) over the four pooled runs", dev, ok)
 	}
 
@@ -568,17 +568,17 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 		{ID: "_r1", Values: map[string]float64{"total": -1e200}},
 		{ID: "_r2", Values: map[string]float64{"total": 1e200}},
 	}
-	if dev, ok := storedDeviation(huge, "total"); !ok || math.Abs(dev-math.Sqrt2*1e200) > 1e185 {
+	if dev, ok := simresults.StoredDeviation(huge, "total"); !ok || math.Abs(dev-math.Sqrt2*1e200) > 1e185 {
 		t.Errorf("storedDeviation over ±1e200 = %v, %v; want %v", dev, ok, math.Sqrt2*1e200)
 	}
 	huge.Snapshots = []simresults.Snapshot{
 		{ID: "_s1", Statistics: &simresults.Statistics{Observable: "total", Runs: 2, Mean: -1e200, Deviation: simresults.Real(1e200)}},
 		{ID: "_s2", Statistics: &simresults.Statistics{Observable: "total", Runs: 2, Mean: 1e200, Deviation: simresults.Real(1e200)}},
 	}
-	if d, pooled := storedDistribution(huge, "total"); !pooled || d.Count != 4 || d.Mean != 0 {
+	if d, pooled := simresults.StoredDistribution(huge, "total"); !pooled || d.Count != 4 || d.Mean != 0 {
 		t.Errorf("storedDistribution over summaries at ±1e200 = %+v, %v; want four runs with a mean of 0", d, pooled)
 	}
-	if dev, ok := storedDeviation(huge, "total"); !ok || math.Abs(dev-math.Sqrt2*1e200) > 1e185 {
+	if dev, ok := simresults.StoredDeviation(huge, "total"); !ok || math.Abs(dev-math.Sqrt2*1e200) > 1e185 {
 		t.Errorf("storedDeviation over summaries at ±1e200 = %v, %v; want %v", dev, ok, math.Sqrt2*1e200)
 	}
 	// Nor is a run's or a summary's offset from the pooled mean taken raw: runs at
@@ -588,7 +588,7 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 		{ID: "_r1", Values: map[string]float64{"total": -maxF}},
 		{ID: "_s1", Statistics: &simresults.Statistics{Observable: "total", Runs: 3, Mean: maxF, Deviation: simresults.Real(0)}},
 	}
-	if dev, ok := storedDeviation(huge, "total"); !ok || math.Abs(dev-maxF) > 1e293 {
+	if dev, ok := simresults.StoredDeviation(huge, "total"); !ok || math.Abs(dev-maxF) > 1e293 {
 		t.Errorf("storedDeviation over -max and a summary at max = %v, %v; want %v", dev, ok, maxF)
 	}
 
@@ -640,7 +640,7 @@ func TestComparisonTablePoolsRunCountsExactly(t *testing.T) {
 	if runs == int64(float64(runs)) || want == int64(float64(want)) {
 		t.Fatalf("%d rounds to itself as a Real; the count under test must not", want)
 	}
-	if d, pooled := storedDistribution(cfg, "total"); !pooled || int64(d.Count) != want || d.Mean != 10.0 {
+	if d, pooled := simresults.StoredDistribution(cfg, "total"); !pooled || int64(d.Count) != want || d.Mean != 10.0 {
 		t.Errorf("storedDistribution = %+v, %v; want %d runs with a mean of 10.0", d, pooled, want)
 	}
 	table := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{{

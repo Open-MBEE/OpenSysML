@@ -83,6 +83,15 @@ const CapabilityRenderView = "render_view"
 // exports the lowered graph of an action or state machine as `graphs:1` JSON.
 const CapabilityExportGraphs = "export_graphs"
 
+// CapabilityImportData names the ImportData RPC, which sets the feature values
+// a CSV, TSV, JSON or JSON Lines file assigns, one row per element.
+const CapabilityImportData = "import_data"
+
+// CapabilityCompareResults names the CompareResults RPC, which runs the
+// configurations a tool's results sidecar indexes and tables the tool's
+// distributions of their observables beside the runs'.
+const CapabilityCompareResults = "compare_results"
+
 // CapabilityOSLCQuery names the capability of evaluating OSLC Query text.
 const CapabilityOSLCQuery = "oslc_query"
 
@@ -334,6 +343,8 @@ var capabilities = []string{
 	CapabilityStateTrace,
 	CapabilityRenderView,
 	CapabilityExportGraphs,
+	CapabilityImportData,
+	CapabilityCompareResults,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
 	CapabilityParseSourcesAffected,

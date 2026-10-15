@@ -292,8 +292,8 @@ func TestEveryToolTakingAModelTakesPathsAndSources(t *testing.T) {
 		t.Errorf("%d tools take a model, want the model tools: %v", modelTools, names)
 	}
 	slices.Sort(names)
-	want := []string{"apply_edits", "convert", "diagnostics", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs",
-		"instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis",
+	want := []string{"apply_edits", "compare_results", "convert", "diagnostics", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs",
+		"import_data", "instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis",
 		"run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint",
 		"verify_requirement", "verify_satisfaction"}
 	if !slices.Equal(names, want) {
@@ -781,6 +781,8 @@ func TestAnUnknownModelHashIsNotFound(t *testing.T) {
 		"export_graphs":         {"subject": "Demo::Lamp"},
 		"convert":               {"toFormat": "ttl"},
 		"apply_edits":           {"operations": []any{map[string]any{"setValue": map[string]any{"target": "x", "value": "1"}}}},
+		"import_data":           {"imports": []any{map[string]any{"name": "d.csv", "content": "element,x\n"}}},
+		"compare_results":       {"results": `{"source":"t","configurations":[]}`},
 	} {
 		args["modelHash"] = "0000000000000000000000000000000000000000000000000000000000000000"
 		msg := h.fails(name, args)
