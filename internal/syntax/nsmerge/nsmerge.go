@@ -12,11 +12,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // Describe spells a member for a report, e.g. "part def A".
-type Describe func(libs.TopMember) string
+type Describe func(ast.Node) string
 
 type Decl struct {
 	Name    string
@@ -152,7 +151,7 @@ func declOf(src string, member ast.Node, describe Describe) (Decl, bool) {
 	d.Open = d.Start + open
 	d.Header = strings.Join(strings.Fields(src[d.Start:d.Start+open]), " ")
 	if describe != nil {
-		d.Desc = describe(libs.TopMemberOf(member))
+		d.Desc = describe(member)
 	}
 	return d, true
 }
@@ -231,7 +230,7 @@ func MergeEdits(oldSrc string, oldDecl Decl, newSrc string, newDecl Decl, path s
 		// drop the old text and let the new member be added below.
 		start, end := memberCut(oldSrc, om)
 		edits = append(edits, Edit{Start: start, End: end})
-		replaced = append(replaced, describe(libs.TopMemberOf(om)))
+		replaced = append(replaced, describe(om))
 		gone = append(gone, path+"::"+name)
 	}
 	var added []string

@@ -2,8 +2,8 @@ package repl
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
-	"github.com/Open-MBEE/OpenSysML/internal/check/selfcheck"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/selfcheck"
 )
 
 // ErrSelfCheckPackageNotFound is wrapped by SelfCheckPackages when a

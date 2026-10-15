@@ -1345,7 +1345,7 @@ method as the `runs` capability.
 
 `SelfCheck` applies every constraint of the `SysMLValidation` rule package —
 and of each package `self_check_package` adds — to the model's own elements,
-as `sysml -self-check` does, through `internal/check/selfcheck.Run`. The
+as `sysml -self-check` does, through `internal/workspace/selfcheck.Run`. The
 answer carries the `status` (`holds` or `fails`), each `SelfCheckFinding`
 (status, subject, location, constraint, element, message, line), the counts
 of `elements`, `checks`, `violations`, `unevaluated` and

@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"sort"
 	"strings"
 	"time"
@@ -258,7 +259,10 @@ func (s *Service) recordSample(ctx context.Context, v *verifyContext, sym *symbo
 // or as a document of their own, then analyzes the result and refuses one that
 // errors or drops a declaration, so the model is left unchanged.
 func (s *Service) mergeRecord(cached *CachedModel, src string, resp *pb.RecordRunResponse) error {
-	describe := func(m libs.TopMember) string { return strings.TrimSpace(m.Kind + " " + m.Name) }
+	describe := func(n ast.Node) string {
+		m := libs.TopMemberOf(n)
+		return strings.TrimSpace(m.Kind + " " + m.Name)
+	}
 	root := parser.New(source.New("<record>", []byte(src))).ParseFile()
 	inputs := make([]sourceInput, 0, len(cached.Documents)+1)
 	for _, doc := range cached.Documents {

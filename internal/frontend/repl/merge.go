@@ -21,7 +21,7 @@ import (
 // The last result reports the merge rewrote a snippet where it stands: the
 // submission's text is wholly inside it, so the caller appends nothing.
 func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments string) (string, []source.Span, dropReport, bool, bool) {
-	newDecl, ok := nsmerge.SoleNamespace(src, root, renderMember)
+	newDecl, ok := nsmerge.SoleNamespace(src, root, describeMember)
 	if !ok || len(newDecl.Members) == 0 {
 		return "", nil, dropReport{}, false, false
 	}
@@ -42,7 +42,7 @@ func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments 
 		if sn.gen == s.version || sn.open || (sn.origin != "" && !s.recordMerge) {
 			continue
 		}
-		cand, ok := nsmerge.Named(sn.src, newDecl.Name, sn.kind, renderMember)
+		cand, ok := nsmerge.Named(sn.src, newDecl.Name, sn.kind, describeMember)
 		// A different header is a different declaration, whatever it names: it
 		// replaces the old one rather than adding to a body it did not write.
 		if !ok || cand.Header != newDecl.Header {
@@ -60,7 +60,7 @@ func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments 
 		if i != target {
 			continue
 		}
-		edits, replaced, gone := nsmerge.MergeEdits(sn.src, oldDecl, src, newDecl, newDecl.Name, renderMember)
+		edits, replaced, gone := nsmerge.MergeEdits(sn.src, oldDecl, src, newDecl, newDecl.Name, describeMember)
 		// Comments typed above the addition document the declaration, so they go
 		// above it rather than at the tail of the buffer.
 		if comments != "" {
@@ -127,7 +127,7 @@ func (s *Session) reopenedNamespaces(key string, root *ast.RootNamespace) []drop
 		}
 		snRoot := parser.New(sourceForKind(parseDocName(sn.origin), []byte(sn.src), sn.kind)).ParseFile()
 		for _, name := range shared {
-			if _, ok := nsmerge.NamedIn(sn.src, snRoot, name, renderMember); ok {
+			if _, ok := nsmerge.NamedIn(sn.src, snRoot, name, describeMember); ok {
 				reopened[name] = true
 			}
 		}

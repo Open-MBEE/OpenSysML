@@ -141,6 +141,9 @@ func renderSummary(members []Member) []string {
 
 // renderMember maps a top-level member to a "<kind> <name>" summary, or "" for
 // members that carry no useful summary.
+// describeMember renders a namespace member node the way renderMember does.
+func describeMember(n ast.Node) string { return renderMember(libs.TopMemberOf(n)) }
+
 func renderMember(m libs.TopMember) string {
 	switch m.Kind {
 	case "":
