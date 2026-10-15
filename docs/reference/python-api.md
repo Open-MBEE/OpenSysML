@@ -591,6 +591,10 @@ Typed outcomes for verification, validation, calculation and analysis.
     options:
       heading_level: 3
 
+::: opensysml.ToolDryRun
+    options:
+      heading_level: 3
+
 ::: opensysml.Validation
     options:
       heading_level: 3

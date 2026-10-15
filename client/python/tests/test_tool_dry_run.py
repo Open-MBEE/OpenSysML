@@ -7,8 +7,7 @@ from opensysml.proto import sysml_pb2
 def test_a_dry_run_preview_is_read_field_by_field():
     proto = sysml_pb2.ToolDryRun(
         action="Demo::compute",
-        tool="octave",
-        version="8.4",
+        tool="octave", version="8.4",
         manifest="/tools/octave.json",
         executable="/usr/bin/octave",
         protocol="stdio",
