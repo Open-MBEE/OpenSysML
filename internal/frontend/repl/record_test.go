@@ -1,6 +1,7 @@
 package repl
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis/record"
 	"os"
 	"path/filepath"
 	"strings"
@@ -810,7 +811,7 @@ func TestRecordAttributesFollowsAnInheritedBound(t *testing.T) {
 	resolver := resolve.New(idx)
 	sem := semantics.NewModel(resolver)
 	resolver.SetModel(sem)
-	f, ok := recordAttributes(idx, sem, defs[0])["temps"]
+	f, ok := record.Attributes(idx, sem, defs[0])["temps"]
 	if !ok || !f.Multi {
 		t.Errorf("temps = %+v (present %v), want a multi-valued feature", f, ok)
 	}
