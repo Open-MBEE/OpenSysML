@@ -23,6 +23,9 @@ from opensysml.typefacts import (
     TypeFacts,
 )
 from opensysml.capabilities import (
+    CAPABILITY_RECORD_RUN,
+    CAPABILITY_RUNS,
+    CAPABILITY_SELF_CHECK,
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_BIG_INT_VALUES,
@@ -46,6 +49,17 @@ from opensysml.verdict import (
 from opensysml.exploration import Exploration, Outcome
 from opensysml.action_run import ActionOutputs
 from opensysml.engines import Bound, EngineInfo, Standing
+from opensysml.runs import (
+    RecordedDocument,
+    Recording,
+    RunCountedValue,
+    RunDistribution,
+    RunHistogramBin,
+    RunPercentile,
+    RunsResult,
+    SelfCheckFinding,
+    SelfCheckResult,
+)
 from opensysml.query import QueryElement, QueryError
 from opensysml.sources import SourceDocument
 from opensysml.document import (
@@ -78,6 +92,18 @@ from opensysml.errors import (
 from opensysml.metamodel import read_json
 
 __all__ = [
+    "CAPABILITY_RECORD_RUN",
+    "CAPABILITY_RUNS",
+    "CAPABILITY_SELF_CHECK",
+    "RecordedDocument",
+    "Recording",
+    "RunCountedValue",
+    "RunDistribution",
+    "RunHistogramBin",
+    "RunPercentile",
+    "RunsResult",
+    "SelfCheckFinding",
+    "SelfCheckResult",
     "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance",
     "TypedObject", "TypeFacts", "Multiplicity", "Specialization", "SymbolFacts",
     "AttributeFacts",
