@@ -437,7 +437,7 @@ func (r *Resolver) indexedChildrenNamed(scope *symbols.Scope, target *symbols.Sy
 		default:
 			if declared < 0 {
 				declared = 0
-				if r.shortNameDeclared(name) {
+				if r.shortNameDeclared(target.Scope, name) {
 					declared = 1
 				}
 			}

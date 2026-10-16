@@ -172,3 +172,24 @@ func TestEarlyShortNameQueryLeavesTheRedefinitionToItsGenerals(t *testing.T) {
 		t.Errorf("unexpected errors: %v", errs)
 	}
 }
+
+// A short name declared under an unnamed owner is in no index entry, yet a
+// redefinition nested there still borrows it (KerML 8.3.3.3), so the lookup
+// must not take the index's silence for the absence of the short name.
+func TestDerivedShortNameFromADeclarationUnderAnUnnamedOwner(t *testing.T) {
+	const model = `package P {
+		part def TMS { attribute mass; }
+		part : TMS {
+			part <tms> t : TMS;
+			part g { part :>> t; }
+			attribute a :> g.tms.mass;
+		}
+	}`
+	r, root, scope := resolvedDoc(t, model)
+	if got := bindingOf(t, r, root, scope, "tms"); !strings.HasSuffix(got, "::g::t") {
+		t.Errorf("tms binds %q, want the redefinition in g", got)
+	}
+	if _, errs := diagnosticsOf(r); len(errs) != 0 {
+		t.Errorf("unexpected errors: %v", errs)
+	}
+}

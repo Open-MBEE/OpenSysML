@@ -125,7 +125,7 @@ func (r *Resolver) shortNamedMembers(scope *symbols.Scope, name string, hide *re
 		return nil
 	}
 	members := r.derivedNamedMembers(scope)
-	if len(members) == 0 || !r.shortNameDeclared(name) {
+	if len(members) == 0 || !r.shortNameDeclared(scope, name) {
 		return nil
 	}
 	var out []*symbols.Symbol
@@ -137,11 +137,51 @@ func (r *Resolver) shortNamedMembers(scope *symbols.Scope, name string, hide *re
 	return out
 }
 
-// shortNameDeclared reports whether any declaration the index knows has the
-// short name: a derived short name is one such declaration's, so none can be
-// name otherwise, and the chains need not be resolved to tell.
-func (r *Resolver) shortNameDeclared(name string) bool {
-	return r.idx == nil || r.idx.ShortNamed(name)
+// shortNameDeclared reports whether a declaration the index knows, or one in
+// scope's own document (whose unnamed owners' bodies the index does not walk),
+// has the short name: a derived short name is one such declaration's, so none
+// can be name otherwise, and the chains need not be resolved to tell.
+func (r *Resolver) shortNameDeclared(scope *symbols.Scope, name string) bool {
+	if r.idx == nil || r.idx.ShortNamed(name) {
+		return true
+	}
+	return r.documentShortNames(rootOf(scope))[name]
+}
+
+// documentShortNames is the set of short names declared anywhere in the
+// document rooted at root, body-local scopes and unnamed owners included.
+func (r *Resolver) documentShortNames(root *symbols.Scope) map[string]bool {
+	if root == nil {
+		return nil
+	}
+	if names, done := r.documentShort[root]; done {
+		return names
+	}
+	names := map[string]bool{}
+	seen := map[*symbols.Scope]bool{}
+	var walk func(s *symbols.Scope)
+	walk = func(s *symbols.Scope) {
+		if s == nil || seen[s] {
+			return
+		}
+		seen[s] = true
+		s.ForEachMember(func(sym *symbols.Symbol) bool {
+			if short := sym.ShortName; short != "" {
+				names[short] = true
+			} else if id, ok := symbols.DeclIdent(sym.Decl); ok && id.ShortName != "" {
+				names[id.ShortName] = true
+			}
+			walk(sym.Scope)
+			return true
+		})
+		for _, child := range s.Children() {
+			walk(child)
+		}
+	}
+	walk(root)
+	journalNew(r, r.documentShort, root, root.Node())
+	r.documentShort[root] = names
+	return names
 }
 
 // derivedShortName is the short name sym takes from its naming feature (KerML
