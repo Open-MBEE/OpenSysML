@@ -202,8 +202,6 @@ type Resolver struct {
 	derivedShort map[*symbols.Symbol]string
 	// namingCuts counts the naming chains cut short by one already under way.
 	namingCuts int
-	// documentShort is the set of short names declared in a document, by root scope.
-	documentShort map[*symbols.Scope]map[string]bool
 	// importTargets are the namespaces imports resolved to, one per import.
 	// Only a hit is kept (a miss may only mean sibling imports were suspended),
 	// and never one found while a filter condition resolves (InCondition);
@@ -328,7 +326,6 @@ func New(idx *symbols.Index) *Resolver {
 		implicitParams:        map[*symbols.Scope][]*symbols.Symbol{},
 		derivedNamed:          map[*symbols.Scope][]*symbols.Symbol{},
 		derivedShort:          map[*symbols.Symbol]string{},
-		documentShort:         map[*symbols.Scope]map[string]bool{},
 		importTargets:         map[*ast.Import]resolution{},
 		collisions:            map[*symbols.Scope]*importCollisions{},
 		colliding:             map[*symbols.Scope]bool{},
