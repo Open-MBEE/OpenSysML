@@ -192,6 +192,15 @@ func TestArchivesMatchedByAPatternLoad(t *testing.T) {
 	if !containsSubstring(summary, "SYSMOD4AI") {
 		t.Errorf("LoadFilesSummary of the archive reported %q, want its packages", summary)
 	}
+	// The archive beside one of its own members, and beside itself, is one load.
+	archive := filepath.Join(store, "mbse4u-sysmod_5.1.4"+project.ArchiveExt)
+	overlap, err := repl.NewSession().LoadFilesSummary([]string{archive, project.MemberPath(archive, "SYSMOD.sysml"), archive})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(overlap) != len(summary) {
+		t.Errorf("summary of the archive with its member named too has %d lines, the archive alone %d:\n%s", len(overlap), len(summary), strings.Join(overlap, "\n"))
+	}
 }
 
 func containsSubstring(lines []string, want string) bool {

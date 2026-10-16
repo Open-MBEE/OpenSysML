@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -569,19 +570,34 @@ func (s *Session) runStateMachine(name string, duration *float64, performer []st
 
 // expandArchives replaces each project interchange archive among paths with
 // its model files, as naming it on the command line does; every other path
-// is kept as given, so a file read failure stays the caller's to report.
+// is kept as given, so a file read failure stays the caller's to report. A
+// path reached twice — an archive and one of its members, two archives using
+// the same project — is kept once, in first position.
 func (s *Session) expandArchives(paths []string) ([]string, error) {
 	out := make([]string, 0, len(paths))
+	seen := map[string]bool{}
+	add := func(path string) {
+		key := path
+		if abs, err := filepath.Abs(path); err == nil {
+			key = abs
+		}
+		if !seen[key] {
+			seen[key] = true
+			out = append(out, path)
+		}
+	}
 	for _, path := range paths {
 		if !project.IsArchiveFile(path) {
-			out = append(out, path)
+			add(path)
 			continue
 		}
 		files, err := s.discovery().Expand([]string{path})
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, files...)
+		for _, file := range files {
+			add(file)
+		}
 	}
 	return out, nil
 }
