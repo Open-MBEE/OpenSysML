@@ -291,6 +291,11 @@ func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
 // declareRootFeatures gives root the attributes the graph declares and the
 // features the action holds, aliasing what each redefines.
 func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
+	if root.declared == nil {
+		// Sized for every feature it will hold; grown entry by entry it cost a
+		// dozen allocations per execution.
+		root.declared = make(map[*symbols.Symbol]string, len(e.graph.Attributes)+len(e.ctx.model.semantics.MembersOf(e.action)))
+	}
 	for _, attr := range e.graph.Attributes {
 		root.features[attr.Name] = attr.Direction
 		sym := attr.Symbol

@@ -1008,7 +1008,7 @@ func testAtomicBodyOrderGuardErrorOutcome(t *testing.T) {
 			}
 			continue
 		}
-		if got := outcomeValue(t, outcome.Outcome, "r"); got == "true" {
+		if outcomeValue(t, outcome.Outcome, "r") == "true" {
 			holds = true
 		}
 	}

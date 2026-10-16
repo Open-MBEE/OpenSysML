@@ -1103,32 +1103,23 @@ func sameUnconditionalActionEdge(graph *ActionGraph, existing, edge ActionEdge) 
 
 func sameActionEdgeMultiplicities(graph *ActionGraph, existing, edge ActionEdge) bool {
 	model := semantics.NewModel(graph.resolver)
-	return sameActionEdgeEndMultiplicity(graph, model,
-		existing.SourceMultiplicity, existing.Decl, existing.Target,
-		edge.SourceMultiplicity, edge.Decl, edge.Target) &&
-		sameActionEdgeEndMultiplicity(graph, model,
-			existing.TargetMultiplicity, existing.Decl, existing.Target,
-			edge.TargetMultiplicity, edge.Decl, edge.Target)
+	source := func(e ActionEdge) *ast.Multiplicity { return e.SourceMultiplicity }
+	target := func(e ActionEdge) *ast.Multiplicity { return e.TargetMultiplicity }
+	return sameActionEdgeEndMultiplicity(graph, model, existing, edge, source) &&
+		sameActionEdgeEndMultiplicity(graph, model, existing, edge, target)
 }
 
-func sameActionEdgeEndMultiplicity(
-	graph *ActionGraph,
-	model *semantics.Model,
-	existing *ast.Multiplicity,
-	existingDecl ast.Node,
-	existingStep ast.Node,
-	edge *ast.Multiplicity,
-	edgeDecl ast.Node,
-	edgeStep ast.Node,
-) bool {
-	if existing == nil || edge == nil {
-		return existing == nil && edge == nil
+// sameActionEdgeEndMultiplicity compares the end multiplicity that end selects on both edges.
+func sameActionEdgeEndMultiplicity(graph *ActionGraph, model *semantics.Model, existing, edge ActionEdge, end func(ActionEdge) *ast.Multiplicity) bool {
+	existingMult, edgeMult := end(existing), end(edge)
+	if existingMult == nil || edgeMult == nil {
+		return existingMult == nil && edgeMult == nil
 	}
-	existingBounds, err := graph.crossingRange(existingStep, existing, existingDecl, model)
+	existingBounds, err := graph.crossingRange(existing.Target, existingMult, existing.Decl, model)
 	if err != nil {
 		return false
 	}
-	edgeBounds, err := graph.crossingRange(edgeStep, edge, edgeDecl, model)
+	edgeBounds, err := graph.crossingRange(edge.Target, edgeMult, edge.Decl, model)
 	return err == nil && existingBounds == edgeBounds
 }
 

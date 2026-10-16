@@ -738,17 +738,17 @@ func testNamespaceSuccessionSnapshotAndImage(t *testing.T) {
 	if err := img.Materialize(destination); err != nil {
 		t.Fatalf("materialize held image: %v", err)
 	}
-	copy, ok := destination.Instance(original.ID)
+	clone, ok := destination.Instance(original.ID)
 	if !ok {
 		t.Fatalf("held image omitted root object #%d", original.ID)
 	}
-	if held := behaviorNamed(t, copy, "later"); held.deferred == nil {
+	if held := behaviorNamed(t, clone, "later"); held.deferred == nil {
 		t.Fatal("held image round trip did not preserve the deferred behavior")
 	}
 	if _, err := destination.Advance(1); err != nil {
 		t.Fatalf("advance imaged clock: %v", err)
 	}
-	if held := behaviorNamed(t, copy, "later"); held.deferred != nil {
+	if held := behaviorNamed(t, clone, "later"); held.deferred != nil {
 		t.Error("imaged later behavior remains held after its predecessor ended")
 	}
 }

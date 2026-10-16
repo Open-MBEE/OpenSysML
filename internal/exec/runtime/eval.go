@@ -655,29 +655,34 @@ const thisName = "this"
 // evalName evaluates a name as a reference to what it names, which is what an
 // expression written as a bare name is: `rate`, `A::B::x`.
 func (ec *EvalContext) evalName(qn *ast.QualifiedName) (Value, error) {
+	// unset is the feature the name resolves to when a frame holds it without a
+	// value: no other feature of the name may answer for it.
+	var unset *symbols.Symbol
 	if qn != nil && len(qn.Parts) == 1 {
 		// The feature the name resolves to answers first, from the frame holding it.
-		if val, ok, err := ec.lookupHeld(qn.Parts[0].Text); err != nil {
+		val, ok, held, err := ec.lookupHeld(qn)
+		if err != nil {
 			return Value{}, err
 		} else if ok {
 			return val, nil
 		}
+		unset = held
 	}
 	// Outside an expression body no body-local declaration can shadow a bound
 	// name, so a frame binding is the answer: the common case, kept small.
 	if qn != nil && len(qn.Parts) == 1 && (ec.scope == nil || !ec.scope.BodyLocal()) {
-		if val, ok, err := ec.Lookup(qn.Parts[0].Text); err != nil {
+		if val, ok, err := ec.lookupNamed(qn.Parts[0].Text, unset); err != nil {
 			return Value{}, err
 		} else if ok {
 			return val, nil
 		}
 	}
-	return ec.evalNameGeneral(qn)
+	return ec.evalNameGeneral(qn, unset)
 }
 
 // evalNameGeneral evaluates a name through every source that may answer it, in
-// shadowing order.
-func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
+// shadowing order; no other feature of the name answers for unset, a held feature with no value.
+func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Symbol) (Value, error) {
 	if qn == nil || len(qn.Parts) == 0 {
 		return Value{}, fmt.Errorf("empty feature reference")
 	}
@@ -710,7 +715,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 			}
 		}
 		// Try frame stack first (local bindings from calc/lambda params)
-		if val, ok, err := ec.Lookup(name); err != nil {
+		if val, ok, err := ec.lookupNamed(name, unset); err != nil {
 			return Value{}, err
 		} else if ok {
 			return val, nil

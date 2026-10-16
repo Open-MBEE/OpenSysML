@@ -93,6 +93,10 @@ type Model struct {
 	// members into the prefix naming a machine usage and the state path within it.
 	activitySplits   map[activitySplitKey]activitySplit
 	constraintBodies sync.Map
+	// names memoizes the resolver's unqualified lookups by scope, name and
+	// exclusion: a run reads the same names on every step. A plain map, under
+	// the Model's one-goroutine contract like the other memos.
+	names map[nameKey]nameHit
 
 	// predicateShapes memoizes the invocation interfaces of constraints and
 	// requirements applied as predicates.
@@ -327,4 +331,40 @@ func (m *Model) declaredSymbol(sym *symbols.Symbol) *symbols.Symbol {
 		return local
 	}
 	return sym
+}
+
+// nameKey is a memoized unqualified lookup: the name, the scope it was looked
+// up from, and the declaration hidden from it (nil for none).
+type nameKey struct {
+	scope     *symbols.Scope
+	name      string
+	excluding ast.Node
+}
+
+// nameHit is what a lookup found.
+type nameHit struct {
+	sym *symbols.Symbol
+	ok  bool
+}
+
+// resolvedName is the resolver's LookupName (LookupNameExcluding when excluding
+// is set), memoized: the model does not change under a run, so a name read on
+// every step of a loop is resolved once.
+func (m *Model) resolvedName(scope *symbols.Scope, name string, excluding ast.Node) (*symbols.Symbol, bool) {
+	key := nameKey{scope: scope, name: name, excluding: excluding}
+	if hit, ok := m.names[key]; ok {
+		return hit.sym, hit.ok
+	}
+	var sym *symbols.Symbol
+	var ok bool
+	if excluding == nil {
+		sym, ok = m.resolver.LookupName(scope, name)
+	} else {
+		sym, ok = m.resolver.LookupNameExcluding(scope, name, excluding)
+	}
+	if m.names == nil {
+		m.names = map[nameKey]nameHit{}
+	}
+	m.names[key] = nameHit{sym: sym, ok: ok}
+	return sym, ok
 }

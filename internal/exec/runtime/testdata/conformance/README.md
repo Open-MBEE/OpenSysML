@@ -164,16 +164,17 @@ beside `performers`, on a calc, constraint, requirement or instance case, or
 with an entry that states nothing. The `events` a state case injects are its
 input and stay at the top level: every outcome is a result of the same run.
 
-The schema does not represent runtime-error outcomes in `outcomes`; an
-exploration that reaches one is reported as an unexpected failure. The set is
-exact. Besides checking the default run, `TestExecutionConformance`
-explores every case with `outcomes` under the `explore` policy: the case is
-replayed from the start once per linearization the library admits, each run on a
-fresh context over the same lowering, and the case fails when a listed outcome
-no run reaches (`admissible outcome 2 of 3 is unreachable`), when a run reaches
-an outcome the set does not list or fails with an error — named with the choice
-sequence of a witness run (`step 1: t2 first of t1, t2, t3; step 2: t1 first of
-t1, t3`) — or when the exploration is incomplete. Exploration is bounded by a
+An entry may state `error` in place of a result: text a schedule's run must
+fail with, for an action or state case one order of which reaches a diagnostic
+(an unset output read before the step producing it). The set is exact. Besides
+checking the default run, `TestExecutionConformance` explores every case with
+`outcomes` under the `explore` policy: the case is replayed from the start once
+per linearization the library admits, each run on a fresh context over the same
+lowering, and the case fails when a listed outcome no run reaches (`admissible
+outcome 2 of 3 is unreachable`), when a run reaches an outcome the set does not
+list or fails with an error no entry states — named with the choice sequence of
+a witness run (`step 1: t2 first of t1, t2, t3; step 2: t1 first of t1, t3`) —
+or when the exploration is incomplete. Exploration is bounded by a
 budget of runs and of choice points per run, `runs: 1024, depth: 64` by default;
 a case that hits it fails with a message telling the author to raise it:
 

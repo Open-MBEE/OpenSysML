@@ -1,0 +1,1 @@
+- Migrated document queries now spell names containing quotes, backslashes, or control characters as the document engine resolves them, so tables over elements such as a package named `Frank's Braindump` no longer render as error pages.

@@ -1,6 +1,9 @@
 package runtime
 
-import "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+)
 
 // A frame binds values by simple name, which is the name a body writes and the
 // one a user reads back; name resolution (KerML 8.2.3.5) binds a written name to
@@ -76,31 +79,65 @@ func (ctx *Context) holdResolved(held *map[*symbols.Symbol]string, adopted map[*
 	}
 }
 
-// lookupHeld reads name as the feature it resolves to in the evaluation scope: the
-// innermost frame holding that feature answers, whatever else binds the name. It
-// reports false for a name resolving to nothing a frame holds, or one a nearer
-// frame binds without a feature recorded, which the name walk then answers.
-func (ec *EvalContext) lookupHeld(name string) (Value, bool, error) {
+// lookupHeld reads the name qn spells from the innermost frame holding the feature it
+// resolves to; a frame holding it with no value decides the read too, returning it unset.
+func (ec *EvalContext) lookupHeld(qn *ast.QualifiedName) (val Value, ok bool, unset *symbols.Symbol, err error) {
 	if ec.ctx.model.resolver == nil || ec.scope == nil {
-		return Value{}, false, nil
+		return Value{}, false, nil, nil
 	}
+	name := qn.Parts[0].Text
 	sym, ok := ec.lookupName(name)
 	if !ok || sym == nil {
-		return Value{}, false, nil
+		return Value{}, false, nil, nil
 	}
 	for i := len(ec.frames) - 1; i >= 0; i-- {
 		bound, holds := ec.frames[i].heldName(sym)
 		if !holds {
 			if ec.frames[i].bindsUnheld(name) {
-				return Value{}, false, nil
+				return Value{}, false, nil, nil
 			}
 			continue
 		}
 		if val, ok, err := ec.frames[i].read(ec.ctx, bound); err != nil {
+			return Value{}, false, nil, err
+		} else if ok {
+			return val, true, nil, nil
+		}
+		// A frame masking or hiding its binding leaves the read to the frames outside it.
+		if ec.frames[i].hides(bound) {
+			continue
+		}
+		return Value{}, false, sym, nil
+	}
+	return Value{}, false, nil, nil
+}
+
+// lookupNamed reads name from the frames as Lookup does, passing over a frame that
+// binds the name as a feature other than unset, the one the name resolves to.
+func (ec *EvalContext) lookupNamed(name string, unset *symbols.Symbol) (Value, bool, error) {
+	if unset == nil {
+		return ec.Lookup(name)
+	}
+	for i := len(ec.frames) - 1; i >= 0; i-- {
+		if ec.frames[i].holdsAnother(name, unset) {
+			continue
+		}
+		if val, ok, err := ec.frames[i].read(ec.ctx, name); err != nil {
 			return Value{}, false, err
 		} else if ok {
 			return val, true, nil
 		}
 	}
 	return Value{}, false, nil
+}
+
+// holdsAnother reports whether f binds name as a feature other than sym.
+func (f *frame) holdsAnother(name string, sym *symbols.Symbol) bool {
+	name = canonical(f.aliases, name)
+	for held, bound := range f.held {
+		if bound == name && held != sym {
+			return true
+		}
+	}
+	return false
 }

@@ -38,8 +38,11 @@
     function parent(p) { return normalize(p + "/.."); }
     function stat(n) {
       var size = n.dir || n.chr ? 0 : n.size;
+      var mode = S_IFREG | 420;
+      if (n.dir) mode = S_IFDIR | 493;
+      else if (n.chr) mode = S_IFCHR | 438;
       return {
-        dev: 1, ino: n.ino, mode: (n.dir ? S_IFDIR | 493 : n.chr ? S_IFCHR | 438 : S_IFREG | 420),
+        dev: 1, ino: n.ino, mode: mode,
         nlink: 1, uid: 0, gid: 0, rdev: 0, size: size, blksize: 4096, blocks: Math.ceil(size / 512),
         atimeMs: n.mtime, mtimeMs: n.mtime, ctimeMs: n.mtime,
         isDirectory: function () { return !!n.dir; }
@@ -52,12 +55,13 @@
     }
     // The order Array.prototype.sort gives strings: by code unit, in every locale.
     function byCodeUnit(a, b) {
-      return a < b ? -1 : a > b ? 1 : 0;
+      if (a < b) return -1;
+      return a > b ? 1 : 0;
     }
     function children(p) {
       var pre = p === "/" ? "/" : p + "/";
       return Object.keys(nodes).filter(function (k) {
-        return k !== p && k.indexOf(pre) === 0 && k.slice(pre.length).indexOf("/") < 0;
+        return k !== p && k.startsWith(pre) && !k.slice(pre.length).includes("/");
       }).map(function (k) { return k.slice(pre.length); }).sort(byCodeUnit);
     }
     function grow(n, size) {
@@ -117,7 +121,8 @@
         if (fd === 1 || fd === 2) { output(fd, bytes); cb(null, length); return; }
         var f = fds[fd];
         if (!f || f.node.dir) { cb(fsError("EBADF")); return; }
-        var n = f.node, at = position != null ? position : f.append ? n.size : f.pos;
+        var n = f.node, at = position;
+        if (at == null) at = f.append ? n.size : f.pos;
         grow(n, at + length);
         n.data.set(bytes, at);
         n.size = Math.max(n.size, at + length);
@@ -184,7 +189,7 @@
         if (!nodes[a]) { cb(fsError("ENOENT")); return; }
         if (!nodes[parent(b)]) { cb(fsError("ENOENT")); return; }
         Object.keys(nodes).forEach(function (k) {
-          if (k === a || k.indexOf(a + "/") === 0) {
+          if (k === a || k.startsWith(a + "/")) {
             nodes[b + k.slice(a.length)] = nodes[k];
             delete nodes[k];
           }
@@ -329,7 +334,7 @@
     try {
       var h = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
       return Array.isArray(h) ? h.filter(function (x) { return typeof x === "string"; }) : [];
-    } catch (e) { return []; }
+    } catch (e) { return []; } // an unreadable or malformed history starts afresh
   }
   function saveHistory(h) {
     try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(-HISTORY_MAX))); } catch (e) { /* private mode */ }
@@ -370,7 +375,7 @@
     function scroll() { out.scrollTop = out.scrollHeight; }
     function appendLine(text, cls) {
       out.appendChild(el("span", cls || lineClass(text) || null, text + "\n"));
-      while (out.childNodes.length > OUTPUT_MAX) out.removeChild(out.firstChild);
+      while (out.childNodes.length > OUTPUT_MAX) out.firstChild.remove();
     }
     function write(text) {
       var lines = (partial + text).split("\n");
@@ -553,7 +558,7 @@
       });
       var base = head.slice(0, head.length - prefix.length);
       if (cands.length === 1) {
-        var word = cands[0] + (/[/]$/.test(cands[0]) ? "" : " ");
+        var word = cands[0] + (/\/$/.test(cands[0]) ? "" : " ");
         setInput(base + word + tail);
         input.setSelectionRange((base + word).length, (base + word).length);
         return;
@@ -585,13 +590,13 @@
         if (!session.waiting() || queue.length) return;
         setInput("");
         run(v, false);
-      } else if ((e.key === "ArrowUp" && v.lastIndexOf("\n", input.selectionStart - 1) < 0) || (e.ctrlKey && e.key === "p")) {
+      } else if ((e.key === "ArrowUp" && !v.slice(0, input.selectionStart).includes("\n")) || (e.ctrlKey && e.key === "p")) {
         e.preventDefault();
         if (!hIndex) return;
         if (hIndex === history.length) draft = v;
         setInput(history[--hIndex]);
         input.setSelectionRange(input.value.length, input.value.length);
-      } else if ((e.key === "ArrowDown" && v.indexOf("\n", input.selectionEnd) < 0) || (e.ctrlKey && e.key === "n")) {
+      } else if ((e.key === "ArrowDown" && !v.includes("\n", input.selectionEnd)) || (e.ctrlKey && e.key === "n")) {
         e.preventDefault();
         if (hIndex >= history.length) return;
         setInput(++hIndex === history.length ? draft : history[hIndex]);

@@ -301,12 +301,12 @@ func heldBy(prim semantics.PrimType, el constElement) constElement {
 	if el.scalar.Kind != semantics.ValRational || prim != semantics.PrimReal {
 		return el
 	}
-	real, err := semantics.RealOf(el.scalar)
+	realValue, err := semantics.RealOf(el.scalar)
 	if err != nil {
 		return el
 	}
-	el.scalar = real
-	el.text = semantics.FormatConst(real) + " (" + constKind(real) + ")"
+	el.scalar = realValue
+	el.text = semantics.FormatConst(realValue) + " (" + constKind(realValue) + ")"
 	return el
 }
 

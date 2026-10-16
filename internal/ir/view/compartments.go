@@ -118,6 +118,9 @@ func (l labeller) rowText(node *Node) string {
 	if node.Type != "" {
 		text = strings.TrimSpace(text + " : " + source.ReferenceEndNames(node.Type))
 	}
+	if text == "" {
+		text, prefix = node.Kind, ""
+	}
 	if node.Value != "" {
 		text += " = " + node.Value
 	}

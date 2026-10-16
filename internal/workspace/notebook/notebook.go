@@ -93,22 +93,28 @@ func (e *LanguageError) Error() string {
 // rawNotebook is the nbformat JSON a load reads: the format version, the kernel
 // language and the cells, each with its type, source and tags.
 type rawNotebook struct {
-	NBFormat *int `json:"nbformat"`
+	NBFormat *int        `json:"nbformat"`
+	Metadata rawMetadata `json:"metadata"`
+	Cells    *[]rawCell  `json:"cells"`
+}
+
+// rawMetadata names the notebook's kernel language twice over, as nbformat does.
+type rawMetadata struct {
+	Kernelspec struct {
+		Language string `json:"language"`
+	} `json:"kernelspec"`
+	LanguageInfo struct {
+		Name string `json:"name"`
+	} `json:"language_info"`
+}
+
+// rawCell is one notebook cell: its type, source and tags.
+type rawCell struct {
+	Type     string     `json:"cell_type"`
+	Source   cellSource `json:"source"`
 	Metadata struct {
-		Kernelspec struct {
-			Language string `json:"language"`
-		} `json:"kernelspec"`
-		LanguageInfo struct {
-			Name string `json:"name"`
-		} `json:"language_info"`
+		Tags []string `json:"tags"`
 	} `json:"metadata"`
-	Cells *[]struct {
-		Type     string     `json:"cell_type"`
-		Source   cellSource `json:"source"`
-		Metadata struct {
-			Tags []string `json:"tags"`
-		} `json:"metadata"`
-	} `json:"cells"`
 }
 
 // cellSource is a cell's text, which nbformat writes as one string or as a
@@ -138,7 +144,7 @@ func Parse(name string, data []byte) (*Notebook, error) {
 	if err := dec.Decode(&raw); err != nil {
 		return nil, &FormatError{Name: name, Reason: "not a notebook: " + jsonReason(err)}
 	}
-	if err := dec.Decode(new(json.RawMessage)); err != io.EOF {
+	if dec.Decode(new(json.RawMessage)) != io.EOF {
 		return nil, &FormatError{Name: name, Reason: "not a notebook: text follows the notebook object"}
 	}
 	if raw.NBFormat == nil {

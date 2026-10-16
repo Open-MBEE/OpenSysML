@@ -2984,9 +2984,10 @@ class Connection:
     @staticmethod
     def _argument_capabilities(arguments, named_arguments):
         """The capabilities verification arguments need of the service: none when there are none."""
+        needed = []
         if arguments or named_arguments:
-            return (CAPABILITY_VERIFICATION_ARGUMENTS,)
-        return ()
+            needed.append(CAPABILITY_VERIFICATION_ARGUMENTS)
+        return tuple(needed)
 
     @staticmethod
     def _question_capabilities(question):

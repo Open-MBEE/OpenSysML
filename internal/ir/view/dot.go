@@ -9,6 +9,12 @@ import (
 	"unicode/utf8"
 )
 
+const (
+	arrowTailDiamond = "arrowtail=diamond"
+	shapeBox         = "shape=box"
+	dirNone          = "dir=none"
+)
+
 // DOT is the Graphviz form of a graph-shaped rendering: a `digraph`, written
 // as text like the Mermaid form, with no Graphviz installed. A node with
 // children is a `subgraph "cluster_<id>"` (a tree draws containment as edges,
@@ -551,10 +557,10 @@ func skinOf(style DrawingStyle) dotSkin {
 // what it deviates in. The Cameo skin fills with a block's orange gradient.
 func (s dotSkin) nodeDefaults() []string {
 	if s.cameo {
-		return []string{"shape=box", dotStyleFilled, dotFillAttr(cameoBlockFill), "gradientangle=0", dotColorAttr(cameoBlockLine),
+		return []string{shapeBox, dotStyleFilled, dotFillAttr(cameoBlockFill), "gradientangle=0", dotColorAttr(cameoBlockLine),
 			dotFontAttr(s.font), dotFontSizeAttr(s.fontSize), dotFontColorAttr(s.text), dotPenWidthOne}
 	}
-	return []string{"shape=box", dotStyleFilled, dotFillWhite, dotColorAttr(s.line),
+	return []string{shapeBox, dotStyleFilled, dotFillWhite, dotColorAttr(s.line),
 		dotFontAttr(s.font), dotFontSizeAttr(s.fontSize), "penwidth=0.5"}
 }
 
@@ -1180,7 +1186,7 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 			case "objective":
 				attrs = append(attrs, "shape=note")
 			case "actor", "subject":
-				attrs = append(attrs, "shape=box")
+				attrs = append(attrs, shapeBox)
 			default:
 				if w.skin.rounded(node.Kind) {
 					attrs = append(attrs, `style="rounded,filled"`)
@@ -1993,9 +1999,9 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		attrs = append(attrs, "arrowhead=empty")
 	case EdgeComposition:
 		if caseNotation(w.kind) {
-			attrs = append(attrs, "arrowtail=diamond", dotDirBack)
+			attrs = append(attrs, arrowTailDiamond, dotDirBack)
 		} else {
-			attrs = append(attrs, dotDirBack, "arrowtail=diamond")
+			attrs = append(attrs, dotDirBack, arrowTailDiamond)
 		}
 	case EdgeTyping, EdgeReference:
 		switch {
@@ -2011,11 +2017,11 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
 		attrs = append(attrs, "arrowhead=vee", dotStyleDashed)
 	case EdgeAssociation:
-		attrs = append(attrs, "dir=none")
+		attrs = append(attrs, dirNone)
 	case EdgeInclude:
 		attrs = append(attrs, dotStyleDashed)
 	case EdgeAnchor:
-		attrs = append(attrs, "dir=none", dotStyleDashed)
+		attrs = append(attrs, dirNone, dotStyleDashed)
 	}
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {
@@ -2038,7 +2044,7 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 // dotArrowheaded reports whether an edge with these attributes draws a head at
 // its end: one drawn forward or both ways whose head is not taken off.
 func dotArrowheaded(attrs []string) bool {
-	if slices.Contains(attrs, dotDirBack) || slices.Contains(attrs, "dir=none") {
+	if slices.Contains(attrs, dotDirBack) || slices.Contains(attrs, dirNone) {
 		return false
 	}
 	return !slices.Contains(attrs, "arrowhead=none")
@@ -2221,7 +2227,7 @@ func halfPixel(v float64) float64 { return math.Round(v*2) / 2 }
 // draws it as UML composition, a filled diamond at the owner.
 func (s dotSkin) containmentAttributes() []string {
 	if s.cameo {
-		return []string{dotArrowheadNone, dotDirBack, "arrowtail=diamond"}
+		return []string{dotArrowheadNone, dotDirBack, arrowTailDiamond}
 	}
 	return []string{dotArrowheadNone}
 }

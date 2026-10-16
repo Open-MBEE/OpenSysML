@@ -86,6 +86,11 @@ func (r *Resolver) specializationChain(from *symbols.Symbol) []*symbols.Symbol {
 	if !ok {
 		return nil
 	}
+	// The model memoizes the closure (semantics.Model.AllSupertypes), in the same
+	// breadth-first order; walking it here again would allocate on every lookup.
+	if closure, ok := model.(supertypeClosureProvider); ok {
+		return closure.AllSupertypes(from)
+	}
 	seen := map[*symbols.Symbol]bool{from: true}
 	queue := model.DirectSupertypes(from)
 	var chain []*symbols.Symbol
@@ -144,7 +149,7 @@ func (r *Resolver) eachInheritedImport(scope *symbols.Scope, name string, yield 
 	defer delete(r.inheritedImports, owner)
 
 	for _, sup := range r.specializationChain(owner) {
-		if sup.Scope == nil {
+		if sup == nil || sup.Scope == nil {
 			continue
 		}
 		for _, imp := range sup.Scope.Imports() {

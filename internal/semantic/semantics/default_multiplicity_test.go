@@ -182,7 +182,7 @@ func TestImplicitMultiplicityAppliesByUsageMetaclass(t *testing.T) {
 
 func TestImplicitMultiplicityAppliesRejectsKerMLFeatures(t *testing.T) {
 	m, root := buildModelWithStdlibNamedKind(t, "test.kerml", source.KindKerML, `class P { feature f; }`)
-	if got := m.ImplicitMultiplicityApplies(nestedSym(t, root, "P::f")); got {
+	if m.ImplicitMultiplicityApplies(nestedSym(t, root, "P::f")) {
 		t.Fatal("a KerML feature should not take the SysML default multiplicity")
 	}
 }

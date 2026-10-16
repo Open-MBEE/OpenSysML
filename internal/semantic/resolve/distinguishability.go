@@ -191,7 +191,11 @@ func (r *Resolver) ownedNames(scope *symbols.Scope) []string {
 	var names []string
 	members, aliases := r.DistinguishableMembers(scope)
 	for _, sym := range append(members, aliases...) {
-		names = append(names, r.memberNames(sym)...)
+		for _, name := range r.memberNames(sym) {
+			if name != "" {
+				names = append(names, name)
+			}
+		}
 	}
 	return names
 }
@@ -231,6 +235,9 @@ func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) 
 			}
 			key := symbols.KeyOf(r.aliasTarget(sym))
 			for _, name := range r.memberNames(sym) {
+				if name == "" {
+					continue
+				}
 				bound := boundName{key: key, name: name}
 				owner := ownedName{owner: ownerKeyOf(sym.OwnerScope), name: name}
 				if owned[name] || seen[bound] || owners[owner] {
@@ -263,7 +270,9 @@ func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) 
 		for _, member := range kept {
 			key := symbols.KeyOf(r.aliasTarget(member.sym))
 			for _, bound := range r.memberNames(member.sym) {
-				c.hidden[boundName{key: key, name: bound}] = true
+				if bound != "" {
+					c.hidden[boundName{key: key, name: bound}] = true
+				}
 			}
 		}
 	}
@@ -291,7 +300,7 @@ func (r *Resolver) hiddenImportMember(scope *symbols.Scope, sym *symbols.Symbol)
 	}
 	key := symbols.KeyOf(r.aliasTarget(sym))
 	for _, name := range r.memberNames(sym) {
-		if c.hidden[boundName{key: key, name: name}] {
+		if name != "" && c.hidden[boundName{key: key, name: name}] {
 			return true
 		}
 	}
@@ -406,7 +415,7 @@ func (r *Resolver) hiddenOnRoute(scope *symbols.Scope, sym *symbols.Symbol) bool
 		return false
 	}
 	for _, name := range r.memberNames(sym) {
-		if len(r.withoutHiddenImports(scope, name, []*symbols.Symbol{sym})) == 0 {
+		if name != "" && len(r.withoutHiddenImports(scope, name, []*symbols.Symbol{sym})) == 0 {
 			return true
 		}
 	}
@@ -480,11 +489,12 @@ func (r *Resolver) inheritedAgainstImports(scope *symbols.Scope) map[string][]*s
 }
 
 // memberNames are the names a membership binds: the member's name and its short
-// name, declared or derived (KerML 8.3.2.4.3 compares both).
-func (r *Resolver) memberNames(sym *symbols.Symbol) []string {
-	names := []string{sym.Name}
+// name, declared or derived (KerML 8.3.2.4.3 compares both); the second is ""
+// when the member has none. A fixed pair, so a caller's loop does not allocate.
+func (r *Resolver) memberNames(sym *symbols.Symbol) [2]string {
+	names := [2]string{sym.Name}
 	if short := r.shortNameOf(sym); short != "" && short != sym.Name {
-		names = append(names, short)
+		names[1] = short
 	}
 	return names
 }
@@ -803,7 +813,7 @@ func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool 
 				continue
 			}
 			for _, name := range r.memberNames(sym) {
-				if owned[name] {
+				if name != "" && owned[name] {
 					hidden[sym] = true
 				}
 			}

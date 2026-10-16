@@ -40,8 +40,9 @@ sha256() {
 
 # fake_tool <path> <tool> <version>: a stand-in binary that only knows --version.
 fake_tool() {
-	printf '#!/bin/sh\necho "%s"\n' "$2 $3" >"$1"
-	chmod +x "$1"
+	local path=$1 tool=$2 version=$3
+	printf '#!/bin/sh\necho "%s"\n' "$tool $version" >"$path"
+	chmod +x "$path"
 }
 
 # bundle <release dir> <platform> <version>: the archive, grpc and kernel
@@ -207,7 +208,8 @@ fails() {
 
 # said <text>: the last run's output must mention it.
 said() {
-	[[ "$out" == *"$1"* ]] || { echo "FAIL: expected output to mention '$1'" >&2; printf '%s\n' "$out" >&2; failures=$((failures + 1)); }
+	local text=$1
+	[[ "$out" == *"$text"* ]] || { echo "FAIL: expected output to mention '$text'" >&2; printf '%s\n' "$out" >&2; failures=$((failures + 1)); }
 }
 
 # unsaid <text>: the last run's output must not mention it.
@@ -343,6 +345,7 @@ for how in file stdin; do
 	case $how in
 	file) out=$(sh "$root/install.sh" --help 2>&1) ;;
 	stdin) out=$(cat "$root/install.sh" | sh -s -- --help 2>&1) ;;
+	*) ;;
 	esac
 	status=$?
 	set -e

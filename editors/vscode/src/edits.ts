@@ -220,7 +220,7 @@ export function describeOwner(owner: RenderOwner): string {
 /** localName is the last name of a qualified one, as the notation spells it: `'fuel::out'` of `'x::y'::'fuel::out'`. */
 function localName(fqn: string): string {
   const segments = nameSegments(fqn);
-  return segments[segments.length - 1];
+  return segments.at(-1) as string;
 }
 
 /**
@@ -235,7 +235,13 @@ export function endpointPath(node: RenderNode, owner: RenderOwner): string | und
     return undefined;
   }
   const steps: RenderOwner[] = [{ fqn: node.fqn, feature: false }, ...owners.slice(0, below)].reverse();
-  return steps.map((step, i) => (i === 0 ? "" : steps[i - 1].feature ? "." : "::") + localName(step.fqn)).join("");
+  const separatorBefore = (i: number): string => {
+    if (i === 0) {
+      return "";
+    }
+    return steps[i - 1].feature ? "." : "::";
+  };
+  return steps.map((step, i) => separatorBefore(i) + localName(step.fqn)).join("");
 }
 
 /** What the user is told when an action names a rendering that has been replaced. */
@@ -345,7 +351,7 @@ export function validName(name: string): string | undefined {
   if (text === "") {
     return "A name is required.";
   }
-  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(text)) {
+  if (/^[A-Za-z_]\w*$/.test(text)) {
     return undefined;
   }
   if (!text.startsWith("'")) {
@@ -356,7 +362,7 @@ export function validName(name: string): string | undefined {
     if (c === "\\") {
       i++;
       if (i === text.length || !ESCAPABLE.has(text[i])) {
-        return "A backslash in a quoted name escapes one of b t n f r \" ' \\.";
+        return String.raw`A backslash in a quoted name escapes one of b t n f r " ' \.`;
       }
     } else if (c === "\n" || c === "\r") {
       break;
@@ -366,7 +372,7 @@ export function validName(name: string): string | undefined {
       }
       return i === text.length - 1
         ? undefined
-        : "A quoted name ends at its closing quote; escape a quote inside as \\'.";
+        : String.raw`A quoted name ends at its closing quote; escape a quote inside as \'.`;
     }
   }
   return "A quoted name needs a closing quote on the same line.";

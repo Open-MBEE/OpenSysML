@@ -11,6 +11,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+const (
+	aUsageOfIt = "a usage of it"
+)
+
 // Shapes records the resolved shape of every type a set of objects was
 // materialized against, taken while that resolution is still the current one. It
 // is what a later context compares its own resolution against to decide whether
@@ -1031,7 +1035,7 @@ func (a *adoption) carryDerived(adopted map[int64]bool) {
 			a.ctx.occurrences[found] = ids
 			continue
 		}
-		if found, err := a.rebind(sym, "a usage of it"); err == nil {
+		if found, err := a.rebind(sym, aUsageOfIt); err == nil {
 			a.ctx.occurrences[found] = ids
 		}
 	}
@@ -1087,7 +1091,7 @@ func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, car
 	}
 	carried[sym] = false
 	val := a.prev.namespaceBindings[sym]
-	found, err := a.rebind(sym, "a usage of it")
+	found, err := a.rebind(sym, aUsageOfIt)
 	if err != nil || !a.allAdopted(val, adopted) {
 		return false
 	}
@@ -1329,7 +1333,7 @@ func (a *adoption) carryOccurrenceTail(sym *symbols.Symbol, adopted map[int64]bo
 		slices.ContainsFunc(a.prev.madeRequired(r), func(inst *Instance) bool { return !adopted[inst.ID] }) {
 		return
 	}
-	found, err := a.rebind(sym, "a usage of it")
+	found, err := a.rebind(sym, aUsageOfIt)
 	if err != nil {
 		return
 	}

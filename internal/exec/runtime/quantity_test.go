@@ -89,9 +89,9 @@ func TestQuantityArithmeticReportsOverflow(t *testing.T) {
 		if err != nil || FormatValue(got) != exact {
 			t.Errorf("%s = %s, %v; want %s", src, FormatValue(got), err, exact)
 		}
-		real := "(1.0 ** 0.5) * " + src
-		if got, err := evalIn(t, ctx, scope, real); !errors.Is(err, semantics.ErrArithmeticOverflow) {
-			t.Errorf("%s = %+v, %v; want ErrArithmeticOverflow", real, got, err)
+		realSrc := "(1.0 ** 0.5) * " + src
+		if got, err := evalIn(t, ctx, scope, realSrc); !errors.Is(err, semantics.ErrArithmeticOverflow) {
+			t.Errorf("%s = %+v, %v; want ErrArithmeticOverflow", realSrc, got, err)
 		}
 	}
 }

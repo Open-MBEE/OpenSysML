@@ -15,6 +15,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+const (
+	bareNumberNoUnit = ", and a bare number states no unit"
+)
+
 // ErrNotPinnable is returned for a value that cannot be fixed in a query: one
 // the term language has no literal for, or one whose type or dimension does not
 // match the variable it would fix. A pin is never dropped silently, since a
@@ -495,19 +499,19 @@ func (t *translator) pinConst(p Pin, v *Var, text string) (*Term, error) {
 	case c.Kind == semantics.ValInt && v.Sort.Kind == SortReal:
 		if v.Dimension != "" {
 			return nil, t.pinRefusal(p, v, text,
-				msgValuesMeasuredIn+v.Dimension+", and a bare number states no unit")
+				msgValuesMeasuredIn+v.Dimension+bareNumberNoUnit)
 		}
 		return RealTerm(new(big.Rat).SetInt(c.BigInt())), nil
 	case c.Kind == semantics.ValRational && v.Sort.Kind == SortReal:
 		if v.Dimension != "" {
 			return nil, t.pinRefusal(p, v, text,
-				msgValuesMeasuredIn+v.Dimension+", and a bare number states no unit")
+				msgValuesMeasuredIn+v.Dimension+bareNumberNoUnit)
 		}
 		return RealTerm(c.Rat()), nil
 	case c.Kind == semantics.ValReal && v.Sort.Kind == SortReal:
 		if v.Dimension != "" {
 			return nil, t.pinRefusal(p, v, text,
-				msgValuesMeasuredIn+v.Dimension+", and a bare number states no unit")
+				msgValuesMeasuredIn+v.Dimension+bareNumberNoUnit)
 		}
 		rat, ok := ratOfFloat(c.Real)
 		if !ok {

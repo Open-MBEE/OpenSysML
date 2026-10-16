@@ -8,6 +8,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
+const (
+	simulationToolGeneralization = "generalization of the simulation tool's "
+)
+
 // The library analysis the pattern is written against, and the names its members
 // and the written analysis take.
 const (
@@ -428,11 +432,11 @@ func (m *migration) monteCarloGeneralization(block *sysmlv1.Element) string {
 	cs := m.monteCarloCaseOf(block)
 	switch {
 	case cs == nil && m.strict:
-		return "generalization of the simulation tool's " + monteCarloAnalysisBlock + " is not written: its v2 form is an analysis def :> " + monteCarloLibraryCase + ", an OpenSysML library a strict migration does not name"
+		return simulationToolGeneralization + monteCarloAnalysisBlock + " is not written: its v2 form is an analysis def :> " + monteCarloLibraryCase + ", an OpenSysML library a strict migration does not name"
 	case cs == nil:
-		return "generalization of the simulation tool's " + monteCarloAnalysisBlock + " is not written: the classifier is written as no part def for an analysis to take as its subject"
+		return simulationToolGeneralization + monteCarloAnalysisBlock + " is not written: the classifier is written as no part def for an analysis to take as its subject"
 	}
-	return "generalization of the simulation tool's " + monteCarloAnalysisBlock + " is written as the analysis def " + writeName(cs.name) + " :> " + monteCarloLibraryCase + " beside the part def, which is its subject"
+	return simulationToolGeneralization + monteCarloAnalysisBlock + " is written as the analysis def " + writeName(cs.name) + " :> " + monteCarloLibraryCase + " beside the part def, which is its subject"
 }
 
 // monteCarloAnalysis writes the analysis def of a block beside the block: its subject,

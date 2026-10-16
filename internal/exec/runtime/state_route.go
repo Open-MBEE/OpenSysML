@@ -196,7 +196,9 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) (bool, error) {
 	var routeErr error
 	e.preview(func() {
-		unbind := func() {} // nothing to unbind until a trigger binds arguments
+		unbind := func() {
+			// Nothing to unbind until a trigger binds arguments.
+		}
 		if event != nil {
 			var err error
 			unbind, err = e.bindTriggerArguments(trans, event)

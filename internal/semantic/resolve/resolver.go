@@ -27,6 +27,12 @@ type supertypeProvider interface {
 	DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol
 }
 
+// supertypeClosureProvider is a supertypeProvider that also memoizes the
+// transitive closure of those edges, breadth first; *semantics.Model is one.
+type supertypeClosureProvider interface {
+	AllSupertypes(sym *symbols.Symbol) []*symbols.Symbol
+}
+
 // invocationResultProvider is the part of the semantic model that reports the
 // result parameter of a function or expression, inherited ones included, and
 // whether calling a declaration evaluates one. *semantics.Model implements it.

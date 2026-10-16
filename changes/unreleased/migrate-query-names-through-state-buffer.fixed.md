@@ -1,0 +1,1 @@
+- Migrated document queries now name an action of a deferring state's do or exit behavior through the `buffer` or `flush` action the deferral encoding writes that behavior in, so a table or DocGen document listing such an action no longer renders as an error page.

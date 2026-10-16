@@ -262,7 +262,7 @@ The `array`, `vector` and `vectorQuantity` rows were captured against
 `conformance/fixtures/function.sysml` (`F::pick`), `set` and `tensorQuantity` against
 `conformance/fixtures/set_tensor.sysml` (`T::s.elements`, `T::cube`), `metaobject` against
 `conformance/fixtures/metaobject.sysml` (`(Meta::seatBelt meta KerML::Feature)#(1)`); the rest against the model below, with requests of the form
-`{"modelHash":"59c4…a654","expression":"<expr>","contextSymbolId":"Rover"}` with `rover.count`,
+`{"modelHash":"5a89…277c","expression":"<expr>","contextSymbolId":"Rover"}` with `rover.count`,
 `RealFunctions::sqrt(2.0)`, `1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
 `Mode::idle`, `rover.serial` and `rover.z`, and the model was:
 
@@ -280,7 +280,7 @@ package Rover {
 
 	part def Vehicle {
 		attribute count : Integer = 4;
-		attribute mass : Real = 12.5;
+		attribute mass : Real default = 12.5;
 		attribute armed : Boolean = true;
 		attribute callsign : String = "R-1";
 		attribute speed : ISQ::SpeedValue = 5.4 [SI::km/SI::h];
@@ -357,7 +357,7 @@ range. Parse it to an integer type of at least 64 bits. **Do not** convert it to
 above 2^53 that loses digits silently, and the engine's Integer is exact —
 
 ```console
-$ … /Evaluate -d '{"modelHash":"59c471bcbfb8ea2aec1997d62334d7144bcc165e56eb1c79058dcf5ca378a654","expression":"9007199254740993"}'
+$ … /Evaluate -d '{"modelHash":"5a897a97ae46b32a0ac8c79adaf94d674cdf95d3f751de0eb4748b1d3f31277c","expression":"9007199254740993"}'
 {"result":{"intValue":"9007199254740993"}}
 ```
 
@@ -415,10 +415,10 @@ ever handed one. In practice it is not: the engine refuses to produce a non-fini
 reports it as an in-body error instead —
 
 ```console
-$ … /Evaluate -d '{"modelHash":"59c4…a654","expression":"1.0 / 0.0","contextSymbolId":"Rover"}'
+$ … /Evaluate -d '{"modelHash":"5a89…277c","expression":"1.0 / 0.0","contextSymbolId":"Rover"}'
 {"error":"evaluation failed: division by zero"}
 
-$ … /Evaluate -d '{"modelHash":"59c4…a654","expression":"1.0e308 * 10.0","contextSymbolId":"Rover"}'
+$ … /Evaluate -d '{"modelHash":"5a89…277c","expression":"1.0e308 * 10.0","contextSymbolId":"Rover"}'
 {"error":"evaluation failed: arithmetic overflow: result is not a finite Real"}
 ```
 
@@ -438,7 +438,7 @@ calls, or read them as anything but a key into the sibling `instances` list.
 `elements` key at all (the default-omission rule). Elements may be of different arms:
 
 ```console
-$ … /Evaluate -d '{"modelHash":"59c4…a654","expression":"(1, 2.5, \"a\")","contextSymbolId":"Rover"}'
+$ … /Evaluate -d '{"modelHash":"5a89…277c","expression":"(1, 2.5, \"a\")","contextSymbolId":"Rover"}'
 {"result":{"sequence":{"elements":[{"intValue":"1"},{"realValue":2.5},{"stringValue":"a"}]}}}
 ```
 
@@ -950,7 +950,7 @@ runs, and returns the result plus any `error`/`diagnostics`. The examples use
 ### `Instantiate` and the `Instance` shape
 
 ```console
-$ … /Instantiate -d '{"modelHash":"59c471bcbfb8ea2aec1997d62334d7144bcc165e56eb1c79058dcf5ca378a654","symbolId":"Rover::rover"}'
+$ … /Instantiate -d '{"modelHash":"5a897a97ae46b32a0ac8c79adaf94d674cdf95d3f751de0eb4748b1d3f31277c","symbolId":"Rover::rover"}'
 ```
 
 ```json
@@ -1662,7 +1662,7 @@ Not a behavior in the model, but the general-purpose call that every other examp
 (the expression is evaluated *on* an instance of it):
 
 ```console
-$ … /Evaluate -d '{"modelHash":"59c4…a654","expression":"mass * 2.0","subjectSymbolId":"Rover::rover"}'
+$ … /Evaluate -d '{"modelHash":"5a89…277c","expression":"mass * 2.0","subjectSymbolId":"Rover::rover"}'
 {"result":{"realValue":40}}
 ```
 

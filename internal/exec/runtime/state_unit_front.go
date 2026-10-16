@@ -10,6 +10,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
+const (
+	effectTag = "(effect)"
+)
+
 // A front performs the units of several regions one at a time, drawing which advances while two
 // or more have one; each region is a coroutine yielding before every unit. It lives within one move.
 
@@ -32,14 +36,14 @@ func (e *StateExecutor) entryLabel(state *ast.StateNode) string {
 }
 func (e *StateExecutor) exitLabel(state *ast.StateNode) string { return e.stateName(state) + "(exit)" }
 func (e *StateExecutor) effectLabel(trans *lower.Transition) string {
-	return e.transitionLabel(trans) + "(effect)"
+	return e.transitionLabel(trans) + effectTag
 }
 
 func (e *StateExecutor) entryTransitionEffectHead(owner ast.Node, entry *lower.EntryTransition) unitHead {
-	label := e.describeBody(owner) + "(effect)"
+	label := e.describeBody(owner) + effectTag
 	if transition, ok := entry.Decl.(*ast.TransitionMember); ok {
 		if source := lower.EndpointText(transition.Source); source != "" {
-			label = source + "->" + StateVertexName(entryTarget(entry)) + "(effect)"
+			label = source + "->" + StateVertexName(entryTarget(entry)) + effectTag
 		}
 	}
 	return unitHead{label: label, at: entry.Decl, site: e.bodySite(owner)}

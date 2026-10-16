@@ -250,3 +250,51 @@ func containsError(errs []error, substr string) bool {
 	}
 	return false
 }
+
+// Objects are charged as each is reached, so the ones the budget admits are read and a
+// budget the objects held exhaust exactly still reports the errors of the reads that fit.
+func TestMaterializationErrorsWalksEveryObjectWithinBudget(t *testing.T) {
+	inst, ctx := instantiateHolder(t, `
+		package test {
+			private import ScalarValues::Real;
+			part def Leaf { attribute wrong : Real[3] = 1.0; }
+			part def Holder { part leaves : Leaf[3]; }
+		}
+	`)
+
+	// Holder's one feature value and the three objects it holds: the first object's
+	// feature value fits, the second's is past the budget.
+	errs, bounded := ctx.materializationErrorsWithin(inst, 4)
+	if !bounded {
+		t.Error("bounded = false, want the feature values past the budget reported as unchecked")
+	}
+	if len(errs) != 1 || !errors.Is(errs[0], ErrMultiplicityViolation) || !strings.Contains(errs[0].Error(), "Leaf.wrong") {
+		t.Errorf("MaterializationErrors = %v, want the error of the one object read", errs)
+	}
+	// Every read fits: three objects, one feature value each, after Holder's.
+	errs, bounded = ctx.materializationErrorsWithin(inst, 7)
+	if bounded {
+		t.Error("bounded = true, want a walk the budget covers exactly read in full")
+	}
+	if len(errs) != 3 {
+		t.Errorf("MaterializationErrors = %v, want the error of each of the three objects", errs)
+	}
+}
+
+// Objects the budget admits exactly, with nothing left to read below them, are not a
+// bounded walk; one object more is, and it is the one cut.
+func TestMaterializationErrorsCutsOnlyTheObjectsPastTheBudget(t *testing.T) {
+	inst, ctx := instantiateHolder(t, `
+		package test {
+			part def Leaf;
+			part def Holder { part leaves : Leaf[3]; }
+		}
+	`)
+
+	if errs, bounded := ctx.materializationErrorsWithin(inst, 4); bounded || len(errs) != 0 {
+		t.Errorf("MaterializationErrors = %v, bounded = %t, want the three objects walked within the budget", errs, bounded)
+	}
+	if errs, bounded := ctx.materializationErrorsWithin(inst, 3); !bounded || len(errs) != 0 {
+		t.Errorf("MaterializationErrors = %v, bounded = %t, want the third object reported as cut", errs, bounded)
+	}
+}

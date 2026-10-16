@@ -343,13 +343,14 @@ replacements (`inherited succession reaches more than one redefining step`).
    members is not fixed by the library.
    In `action_invoked_node_body_writes_output`, the usage's own `assign y := y + 1` is an
    unordered subaction beside Scale's inherited `start → scaling → done` flow. The inherited
-   `scaling` step sets `y` to 30; the assignment leaves 31 if it runs after `scaling`, while
-   `scaling` leaves 30 if the assignment runs first. The following `check` reads that final value,
-   so the oracle admits exactly `{30, 31}`.
+   `scaling` step sets `y` to 30; the assignment leaves 31 if it runs after `scaling`, while run
+   first it reads Scale's `y` unset — never Adjust's same-named `y` — and fails with the operator's
+   type error. The following `check` reads 31 when the run completes, so the oracle admits exactly
+   `{error, 31}`.
    A typed node whose own statements read the callee's outputs is order-dependent under this merge
    rule: an order before the producing step reads the unset output and fails. `state_block_flow_typed_node`
    therefore reads `scaled.y` after the node. `action_invoked_node_body_writes_output` and
-   `state_block_flow_typed_node_body_writes_output` carry the `{30, 31}` sets.
+   `state_block_flow_typed_node_body_writes_output` carry the `{error, 31}` sets.
 
 ### Repeated action steps and shared writes
 

@@ -281,6 +281,7 @@ func (m *migration) viewRef(v *view, scope *sysmlv1.Element) string {
 	for i, s := range chain {
 		if s == host {
 			if !m.hidden(v.name) && !m.shadows(chain[:i], v.name) {
+				m.refer(chain[:i], v.name)
 				return name
 			}
 			break
@@ -290,6 +291,7 @@ func (m *migration) viewRef(v *view, scope *sysmlv1.Element) string {
 		if m.hidden(v.name) || m.shadows(chain, v.name) {
 			return "$::" + name
 		}
+		m.refer(chain, v.name)
 		return name
 	}
 	return m.memberRef(host, scope) + "::" + name
@@ -852,7 +854,7 @@ func (m *migration) planPrivateLayoutAlias(target, owner *sysmlv1.Element) *priv
 		if i > 1 {
 			name = fmt.Sprintf("%s %d", base, i)
 		}
-		if m.nameTaken(owner, name) || !m.privateLayoutAliasAvailable(target, owner, name) {
+		if m.nameTaken(owner, name) || m.referredPast(owner, name) || !m.privateLayoutAliasAvailable(target, owner, name) {
 			continue
 		}
 		alias := &privateLayoutAlias{owner: owner, target: target, name: name}
@@ -1018,6 +1020,56 @@ func (m *migration) shownRef(e, scope *sysmlv1.Element, f viewForm) string {
 		return m.exposure(e.Parent, scope)
 	}
 	return m.exposure(e, scope)
+}
+
+// inheritedNodeRef names the library member a graph draws el as — the start an
+// initial node or pseudostate is written as, the done a flow final or final state
+// ends at — qualified through the body it is drawn in, as `about Run::start` names
+// Run's start: a view is a part with a start and done of its own, which the bare
+// name would reach. "" for a node written as a member of its own.
+func (m *migration) inheritedNodeRef(el, scope *sysmlv1.Element) string {
+	var name string
+	switch {
+	case el.Type == "InitialNode", pseudoKind(el) == "initial":
+		name = "start"
+	case el.Type == "FlowFinalNode", el.Type == "FinalState":
+		name = "done"
+	default:
+		return ""
+	}
+	body := el.Parent
+	if pseudoKind(el) == "initial" {
+		body = m.entryRegion(el)
+	}
+	if body == nil {
+		return ""
+	}
+	owner := m.edgePlaceIn(body, nil, name).owner
+	if owner == nil || !m.reaches(owner) {
+		return ""
+	}
+	return m.memberRef(owner, scope) + "::" + name
+}
+
+// entryRegion is the region whose start the initial pseudostate init is written as:
+// its own region when it is that region's entry, or the orthogonal region it is
+// donated to; nil for a duplicate, dangling, coinciding, conflicting or foreign
+// initial, which no start stands for.
+func (m *migration) entryRegion(init *sysmlv1.Element) *sysmlv1.Element {
+	r := init.Parent
+	if r == nil || r.Type != "Region" {
+		return nil
+	}
+	e := m.regionEntry(r)
+	if e.init == init {
+		return r
+	}
+	for _, st := range e.strays {
+		if st.init == init && m.regionEntry(st.into).init == init {
+			return st.into
+		}
+	}
+	return nil
 }
 
 // exposable is the declaration written for e that a view can expose: its own, the
@@ -1250,6 +1302,9 @@ func (p *layoutPlan) placements(rec *mtip.Diagram) []string {
 		if vertexBase(el) == "" || m.vertexWritten(el) {
 			ref = m.shownRef(el, v.host, p.form)
 		}
+		if ref == "" {
+			ref = m.inheritedNodeRef(el, v.host)
+		}
 		if ref == "" || !m.places(p.x, p.form, el, ref) {
 			s.PlacementsUnexposed++
 			p.unexposed++
@@ -1297,6 +1352,10 @@ func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
 	var routes []string
 	p.reasons = map[string]int{}
 	pinned := map[string]bool{}
+	boxes := map[string]mtip.Placement{}
+	for _, pl := range rec.Placements {
+		boxes[pl.ID] = pl
+	}
 	for _, c := range rec.Connectors {
 		s.Routes++
 		el := m.model.Lookup(c.ID)
@@ -1315,7 +1374,7 @@ func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
 				why = routeNotExposed
 			}
 			refs = []string{strings.Join(refs, ", ")}
-			points = [][]float64{m.linePoints(el, c)}
+			points = [][]float64{m.linePoints(el, c, boxes)}
 		}
 		ref := strings.Join(refs, ", ")
 		if why == "" && pinned[ref] {
@@ -1361,8 +1420,9 @@ func (p *layoutPlan) route(ref string, points []float64) string {
 }
 
 // linePoints is the line's points as the Route of el lists them, run from the written
-// element's first end to its second as a rendering reads them.
-func (m *migration) linePoints(el *sysmlv1.Element, c mtip.Connector) []float64 {
+// element's first end to its second as a rendering reads them: the record's ends, or
+// failing those the boxes it places, say which way the tool drew the line.
+func (m *migration) linePoints(el *sysmlv1.Element, c mtip.Connector, boxes map[string]mtip.Placement) []float64 {
 	if el.Type == "Connector" {
 		return m.connectorLinePoints(el, c)
 	}
@@ -1370,15 +1430,43 @@ func (m *migration) linePoints(el *sysmlv1.Element, c mtip.Connector) []float64 
 	if first == nil || second == nil || first == second {
 		return c.Points
 	}
-	if c.Ends[0] == second.ID || c.Ends[1] == first.ID {
+	reversed, known := lineReversed(c, first.ID, second.ID, boxes)
+	if !known {
+		// A flow between pins may be drawn, or its ends placed, at the actions owning them.
+		if a, b := ownerNode(first), ownerNode(second); a != b && (a != first || b != second) {
+			reversed, _ = lineReversed(c, a.ID, b.ID, boxes)
+		}
+	}
+	if reversed {
 		return reversePoints(c.Points)
 	}
 	return c.Points
 }
 
-// lineEnds are the elements at the ends of the line a tree draws for association el, in
-// drawing order: a connection def's end types, or a backed attribute's owner then its type.
+// lineReversed reports whether c's points run from the element at the line's second
+// end to the one at its first, by the ends the record names or, naming none, the
+// boxes it places; known is false when neither end is named or placed.
+func lineReversed(c mtip.Connector, first, second string, boxes map[string]mtip.Placement) (reversed, known bool) {
+	ends := c.Ends
+	if ends == [2]string{} {
+		ends = endsAt(c.Points, [2]string{first, second}, boxes)
+	}
+	switch {
+	case ends[0] == second, ends[1] == first:
+		return true, true
+	case ends[0] == first, ends[1] == second:
+		return false, true
+	}
+	return false, false
+}
+
+// lineEnds are the elements at the ends of the line el is drawn as, in the order its
+// member names them: a flow's or transition's source then target, a connection def's end
+// types, or a backed attribute's owner then its type.
 func (m *migration) lineEnds(el *sysmlv1.Element) (first, second *sysmlv1.Element) {
+	if el.Role == "edge" || el.Type == "Transition" {
+		return m.model.Ref(el, "source"), m.model.Ref(el, "target")
+	}
 	if prop := m.backedProperty(el); prop != nil {
 		return prop.Parent, m.model.Ref(prop, "type")
 	}

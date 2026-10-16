@@ -101,7 +101,7 @@ func TestParseSourcesAffectedIsEveryDocumentWithoutAComparableBase(t *testing.T)
 	srv := mustNewService(t, 32)
 	defer srv.Close()
 	all := []string{"lib.sysml", "top.sysml", "other.sysml"}
-	parse := func(base string, lib string) *pb.ParseSourcesResponse {
+	parse := func(base, lib string) *pb.ParseSourcesResponse {
 		t.Helper()
 		resp, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
 			Documents:     inlineDocuments("lib.sysml", lib, "top.sysml", affectedTop, "other.sysml", affectedOther),

@@ -124,7 +124,11 @@ func (m *migration) tagColumn(c sysmlv1.Column) columnSource {
 	case !m.written(def) || !m.written(tag.Parent) || !m.written(tag):
 		return columnSource{why: theTag + " is not migrated"}
 	}
-	return columnSource{key: m.plainName(def) + "::" + m.nameOf(tag), feature: tag, caption: m.nameOf(tag), label: m.nameOf(tag), cell: true}
+	segments := append(m.segments(def), m.nameOf(tag))
+	for i, segment := range segments {
+		segments[i] = pathSegment(queryName(segment))
+	}
+	return columnSource{key: strings.Join(segments, "::"), feature: tag, caption: m.nameOf(tag), label: m.nameOf(tag), cell: true}
 }
 
 // stereotypeLibraryReason says why a stereotype is library content rather

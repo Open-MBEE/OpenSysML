@@ -1490,7 +1490,7 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	if strings.Contains(minimal, "spare") || strings.Contains(minimal, "Signal") {
 		t.Errorf("the default drew an unconnected port or a type:\n%s", minimal)
 	}
-	if got := render(t, "minimal").Artifact; got != minimal {
+	if render(t, "minimal").Artifact != minimal {
 		t.Errorf("ports=minimal differs from the default")
 	}
 	fullResult := render(t, "full")

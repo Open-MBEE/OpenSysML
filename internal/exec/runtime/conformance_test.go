@@ -846,9 +846,6 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 	}
 	for i, outcome := range expected.Outcomes {
 		if outcome.Error != "" {
-			if expected.Type != "action" {
-				problems = append(problems, fmt.Sprintf("outcome %d states an error; error outcomes apply to action cases", i+1))
-			}
 			if outcome.Outputs != nil || outcome.FinalState != "" || outcome.StateVisits != nil || outcome.Terminated ||
 				outcome.Probability != nil || outcome.ProbabilityRange != nil {
 				problems = append(problems, fmt.Sprintf("outcome %d states an error beside a result", i+1))
@@ -1227,6 +1224,12 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 		exec, err = callingPerformance(t, ctx, stateSym, self, expected.Events)
 	} else {
 		exec, err = ctx.PerformState(stateSym, self, queuedEvents(t, expected.Events))
+	}
+	if err != nil && listsError(expected.Outcomes) {
+		matchOutcome(t, expected.Outcomes, func(r reporter, outcome AdmittedOutcome) {
+			validateOutcomeError(r, outcome.Error, err)
+		})
+		return
 	}
 	if expected.Error != "" {
 		requireError(t, "state machine", err, expected.Error)
