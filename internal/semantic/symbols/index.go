@@ -1861,6 +1861,7 @@ type memberCache struct {
 	children   map[directChildrenKey][]*Symbol
 	byName     map[directChildrenKey]map[string][]*Symbol
 	shortNamed map[string]bool
+	fqn        map[*Symbol]string
 }
 
 func newMemberCache() *memberCache {
@@ -1868,6 +1869,7 @@ func newMemberCache() *memberCache {
 		children:   make(map[directChildrenKey][]*Symbol),
 		byName:     make(map[directChildrenKey]map[string][]*Symbol),
 		shortNamed: make(map[string]bool),
+		fqn:        make(map[*Symbol]string),
 	}
 }
 
@@ -1878,6 +1880,7 @@ func (m *memberCache) resetLocked(generation uint64) {
 		m.children = make(map[directChildrenKey][]*Symbol)
 		m.byName = make(map[directChildrenKey]map[string][]*Symbol)
 		m.shortNamed = make(map[string]bool)
+		m.fqn = make(map[*Symbol]string)
 		m.generation = generation
 	}
 }
@@ -1991,7 +1994,23 @@ func (idx *Index) LookupDirectChildrenFrom(prefix, fromFQN string) []*Symbol {
 // GetFQN returns the fully-qualified name for a symbol by walking its owner scope chain.
 // Returns the local name if the symbol has no owner scope (root-level symbol).
 func (idx *Index) GetFQN(sym *Symbol) string {
-	return FQNOf(sym)
+	if sym == nil {
+		return ""
+	}
+	generation := idx.generation.get()
+	if fqn, ok := cachedAt(idx, generation, func() (string, bool) {
+		fqn, ok := idx.members.fqn[sym]
+		return fqn, ok
+	}); ok {
+		return fqn
+	}
+	fqn := FQNOf(sym)
+	idx.members.mu.Lock()
+	if idx.generation.get() == generation {
+		idx.members.fqn[sym] = fqn
+	}
+	idx.members.mu.Unlock()
+	return fqn
 }
 
 // FQNOf returns a symbol's fully-qualified name from its owner scope chain, so

@@ -191,6 +191,11 @@ type Resolver struct {
 	// naming feature and declare no short name, whose effective short name is
 	// therefore that feature's.
 	derivedNamed map[*symbols.Scope][]*symbols.Symbol
+	// derivedShort is the short name a member takes from its naming feature,
+	// kept once settled so a listing by name need not resolve the chain again.
+	derivedShort map[*symbols.Symbol]string
+	// namingCuts counts the naming chains cut short by one already under way.
+	namingCuts int
 	// importTargets are the namespaces imports resolved to, one per import.
 	// Only a hit is kept (a miss may only mean sibling imports were suspended),
 	// and never one found while a filter condition resolves (InCondition);
@@ -306,6 +311,7 @@ func New(idx *symbols.Index) *Resolver {
 		payloads:              map[*symbols.Scope]map[string]*symbols.Symbol{},
 		implicitParams:        map[*symbols.Scope][]*symbols.Symbol{},
 		derivedNamed:          map[*symbols.Scope][]*symbols.Symbol{},
+		derivedShort:          map[*symbols.Symbol]string{},
 		importTargets:         map[*ast.Import]resolution{},
 		collisions:            map[*symbols.Scope]*importCollisions{},
 		colliding:             map[*symbols.Scope]bool{},

@@ -225,7 +225,7 @@ func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) 
 		if target == nil || r.idx.Library(target) {
 			continue
 		}
-		for _, sym := range r.importedMembersInto(scope, scope, imp, false) {
+		for _, sym := range r.importedMembersInto(scope, scope, imp, memberSelect{}) {
 			if sym.Name == "" || r.idx.Library(sym) || !contributesName(sym) || !r.BindsName(sym) {
 				continue
 			}
@@ -774,7 +774,7 @@ func (r *Resolver) importedMembers(owner, sup *symbols.Symbol) []*symbols.Symbol
 		if imp.Visibility == ast.VisibilityPrivate {
 			continue
 		}
-		for _, sym := range r.importedMembersInto(owner.Scope, sup.Scope, imp, false) {
+		for _, sym := range r.importedMembersInto(owner.Scope, sup.Scope, imp, memberSelect{}) {
 			if sym != nil && sym.Name != "" && !r.idx.Library(sym) && contributesName(sym) && r.BindsName(sym) &&
 				!r.hiddenImportMember(sup.Scope, sym) && !hidden[sym] {
 				out = append(out, sym)
@@ -798,7 +798,7 @@ func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool 
 	}
 	hidden := map[*symbols.Symbol]bool{}
 	for _, imp := range imports {
-		for _, sym := range r.importedMembersInto(scope, scope, imp, false) {
+		for _, sym := range r.importedMembersInto(scope, scope, imp, memberSelect{}) {
 			if sym == nil {
 				continue
 			}

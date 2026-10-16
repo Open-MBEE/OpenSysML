@@ -151,12 +151,32 @@ func symbolShortName(sym *symbols.Symbol) string {
 }
 
 func (r *Resolver) derivedShortName(sym *symbols.Symbol) string {
+	if sym == nil {
+		return ""
+	}
+	if name, done := r.derivedShort[sym]; done {
+		return name
+	}
+	cuts := r.namingCuts
+	r.Enter()
+	name := r.walkDerivedShortName(sym)
+	// A chain cut short by a naming or an import under way is not what sym is
+	// called in general, so it is not kept.
+	if r.Leave() && sym.Decl != nil && cuts == r.namingCuts {
+		journalNew(r, r.derivedShort, sym, sym.Decl)
+		r.derivedShort[sym] = name
+	}
+	return name
+}
+
+func (r *Resolver) walkDerivedShortName(sym *symbols.Symbol) string {
 	seen := map[*symbols.Symbol]bool{}
 	for sym != nil && !seen[sym] {
 		if sym.Naming == symbols.NamedByDeclaration || sym.ShortName != "" {
 			return sym.ShortName
 		}
 		if r.naming[sym] {
+			r.namingCuts++
 			return ""
 		}
 		seen[sym] = true
@@ -748,9 +768,9 @@ func (r *Resolver) importPrefixAvailable(scope *symbols.Scope, imp *ast.Import, 
 // descendants, nested re-exports included, until yield returns false.
 func (r *Resolver) eachSubtreeMatch(scope *symbols.Scope, target *symbols.Symbol, name string, imp *ast.Import, admit func(*symbols.Symbol) bool, yield func(*symbols.Symbol) bool) {
 	out := newElementList()
-	r.appendSubtree(out, scope, target, imp, admit, map[symbols.ElementKey]bool{}, false)
+	r.appendSubtree(out, scope, target, imp, admit, map[symbols.ElementKey]bool{}, memberSelect{named: name})
 	for _, sym := range out.elems {
-		if (localNameOf(sym) == name || r.shortNameOf(sym) == name) && !yield(sym) {
+		if r.boundTo(sym, name) && !yield(sym) {
 			return
 		}
 	}
