@@ -310,9 +310,8 @@ func (r *Resolver) ImportedMembersInto(into, scope *symbols.Scope, imp *ast.Impo
 	return r.importedMembersInto(into, scope, imp, memberSelect{unnamed: true})
 }
 
-// memberSelect narrows what an enumeration lists of a namespace's members: the
-// ones bound to one name, or the ones that may themselves be namespaces (what a
-// recursive import descends into). The zero value lists every named member.
+// memberSelect narrows a listing of a namespace's members to those bound to one name
+// or to those that may be namespaces (a recursive import's descent); zero lists all.
 type memberSelect struct {
 	named      string
 	namespaces bool
@@ -386,9 +385,8 @@ func (r *Resolver) boundTo(sym *symbols.Symbol, name string) bool {
 	return localNameOf(sym) == name || r.shortNameOf(sym) == name
 }
 
-// mayBeNamespace reports whether a recursive import has anything to list below
-// sym: own members, imports, or index entries under its name. A body-local
-// scope (a succession's `first a`) is no namespace to descend into.
+// mayBeNamespace reports whether a recursive import has anything to list below sym
+// (members, imports or index entries); a body-local scope is not descended into.
 func (r *Resolver) mayBeNamespace(scope *symbols.Scope, sym *symbols.Symbol, imp *ast.Import) bool {
 	if sym.Scope != nil {
 		if sym.Scope.BodyLocal() {
@@ -421,9 +419,8 @@ func (r *Resolver) indexedChildren(scope *symbols.Scope, target *symbols.Symbol,
 	return r.idx.LookupDirectChildrenFrom(prefix, r.ReferringNamespaceFQN(scope))
 }
 
-// indexedChildrenNamed is indexedChildren narrowed to the entries bound to
-// name: by declared name or short name, or by a derived short name (KerML
-// 8.2.3.3) for an entry the index alone holds; scope's own members were tried.
+// indexedChildrenNamed is indexedChildren narrowed to the entries bound to name, by a
+// declared name or short name, or by a derived one for an entry the index alone holds.
 func (r *Resolver) indexedChildrenNamed(scope *symbols.Scope, target *symbols.Symbol, imp *ast.Import, name string) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	declared := -1

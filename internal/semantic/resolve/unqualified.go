@@ -137,10 +137,8 @@ func (r *Resolver) shortNamedMembers(scope *symbols.Scope, name string, hide *re
 	return out
 }
 
-// shortNameDeclared reports whether a declaration the index knows, or one in
-// scope's own document (whose unnamed owners' bodies the index does not walk),
-// has the short name: a derived short name is one such declaration's, so none
-// can be name otherwise, and the chains need not be resolved to tell.
+// shortNameDeclared reports whether the index or scope's own document (whose unnamed
+// owners' bodies the index skips) declares the short name a derived one must come from.
 func (r *Resolver) shortNameDeclared(scope *symbols.Scope, name string) bool {
 	if r.idx == nil || r.idx.ShortNamed(name) {
 		return true

@@ -173,9 +173,8 @@ func TestEarlyShortNameQueryLeavesTheRedefinitionToItsGenerals(t *testing.T) {
 	}
 }
 
-// A short name declared under an unnamed owner is in no index entry, yet a
-// redefinition nested there still borrows it (KerML 8.3.3.3), so the lookup
-// must not take the index's silence for the absence of the short name.
+// A short name declared under an unnamed owner is in no index entry, yet a redefinition
+// nested there still borrows it (KerML 8.3.3.3): the index's silence is not its absence.
 func TestDerivedShortNameFromADeclarationUnderAnUnnamedOwner(t *testing.T) {
 	const model = `package P {
 		part def TMS { attribute mass; }
