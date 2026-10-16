@@ -236,6 +236,7 @@ func (r *Resolver) EnterDoc(doc string) {
 	if !r.Tracking() {
 		return
 	}
+	r.captureDep(doc)
 	cur := r.cur
 	if doc == "" && cur != nil {
 		// Unstamped state stays with whoever computed it.
@@ -306,6 +307,7 @@ func (r *Resolver) Depend(doc string) {
 	if r == nil {
 		return
 	}
+	r.captureDep(doc)
 	cur := r.cur
 	if cur == nil || doc == "" || doc == cur.doc || cur.entered(doc) != nil {
 		return
@@ -342,6 +344,16 @@ func (r *Resolver) depend(from *frame, doc string) {
 	back[from.doc] = true
 }
 
+// captureDep notes, for the captures open, that the computation depends on doc.
+func (r *Resolver) captureDep(doc string) {
+	if doc == "" {
+		return
+	}
+	for _, c := range r.captures {
+		c.deps = append(c.deps, doc)
+	}
+}
+
 // ReadName, ReadNamespace, ReadDocument, ReadAllNames and ReadSegment implement
 // symbols.ReadRecorder: what the index answered is what the frame depends on.
 func (r *Resolver) ReadName(fqn string) {
@@ -353,6 +365,9 @@ func (r *Resolver) ReadName(fqn string) {
 			f.names = map[string]bool{}
 		}
 		f.names[fqn] = true
+	}
+	for _, c := range r.captures {
+		c.names = append(c.names, fqn)
 	}
 }
 
@@ -366,6 +381,9 @@ func (r *Resolver) ReadNamespace(fqn string) {
 		}
 		f.namespaces[fqn] = true
 	}
+	for _, c := range r.captures {
+		c.namespaces = append(c.namespaces, fqn)
+	}
 }
 
 func (r *Resolver) ReadDocument(name string) {
@@ -378,6 +396,9 @@ func (r *Resolver) ReadDocument(name string) {
 		}
 		f.docs[name] = true
 	}
+	for _, c := range r.captures {
+		c.docs = append(c.docs, name)
+	}
 }
 
 func (r *Resolver) ReadAllNames() {
@@ -386,6 +407,9 @@ func (r *Resolver) ReadAllNames() {
 	}
 	if f := r.cur; f != nil {
 		f.all = true
+	}
+	for _, c := range r.captures {
+		c.all = true
 	}
 }
 
@@ -398,6 +422,9 @@ func (r *Resolver) ReadSpellings() {
 	}
 	if f := r.cur; f != nil {
 		f.spellings = true
+	}
+	for _, c := range r.captures {
+		c.spellings = true
 	}
 }
 
@@ -412,6 +439,9 @@ func (r *Resolver) ReadSegment(name string) {
 			f.segments = map[string]bool{}
 		}
 		f.segments[name] = true
+	}
+	for _, c := range r.captures {
+		c.segments = append(c.segments, name)
 	}
 }
 

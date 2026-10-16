@@ -214,6 +214,14 @@ type Resolver struct {
 	// colliding marks the namespaces whose collisions are being computed.
 	collisions map[*symbols.Scope]*importCollisions
 	colliding  map[*symbols.Scope]bool
+	// shared is the collisions memo the batch this resolver analyzes for
+	// shares, nil outside one; captures are the read captures open for the
+	// computations it may settle into shared (see SharedCollisions).
+	shared   *SharedCollisions
+	captures []*readCapture
+	// below memoizes hidesBelow: whether a namespace or one its imports
+	// re-export from hides any imported membership.
+	below map[*symbols.Scope]bool
 	// bringing marks the namespaces one importBrings search has asked, so a
 	// cycle of re-exports is asked once per search.
 	bringing map[*symbols.Scope]bool
@@ -321,6 +329,7 @@ func New(idx *symbols.Index) *Resolver {
 		importTargets:         map[*ast.Import]resolution{},
 		collisions:            map[*symbols.Scope]*importCollisions{},
 		colliding:             map[*symbols.Scope]bool{},
+		below:                 map[*symbols.Scope]bool{},
 		bringing:              map[*symbols.Scope]bool{},
 		importVisits:          map[importVisit]bool{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},

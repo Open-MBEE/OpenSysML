@@ -734,6 +734,9 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 func (r *Resolver) importTargetOf(scope *symbols.Scope, imp *ast.Import) (*symbols.Symbol, bool) {
 	remember := r.inCondition == 0
 	if res, done := r.importTargets[imp]; done && remember {
+		if res.sym != nil {
+			r.Depend(res.sym.DocName)
+		}
 		return res.sym, res.ok
 	}
 	var target *symbols.Symbol

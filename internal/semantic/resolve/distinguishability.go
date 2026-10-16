@@ -157,10 +157,20 @@ func (r *Resolver) importedCollisions(scope *symbols.Scope) *importCollisions {
 	if len(imports) == 0 || r.idx.DocumentLibraryTier(symbols.DocNameOf(scope)).Library() {
 		return noImportCollisions
 	}
+	if r.shared != nil {
+		if e, ok := r.shared.get(scope); ok {
+			e.reads.replay(r)
+			journalNew(r, r.collisions, scope, imports[0])
+			r.collisions[scope] = e.c
+			return e.c
+		}
+	}
 	r.colliding[scope] = true
 	cut := r.collisionCut
 	r.collisionCut = false
-	c, complete := r.collectImported(scope, imports)
+	var c *importCollisions
+	var complete bool
+	reads := r.capturing(func() { c, complete = r.collectImported(scope, imports) })
 	delete(r.colliding, scope)
 	// A cut met while this computation was the outermost is a cycle back to
 	// scope, which excluding it settles; a cut within another's is not.
@@ -170,6 +180,9 @@ func (r *Resolver) importedCollisions(scope *symbols.Scope) *importCollisions {
 	case complete:
 		journalNew(r, r.collisions, scope, imports[0])
 		r.collisions[scope] = c
+		if r.shared != nil {
+			r.shared.put(scope, c, reads)
+		}
 	case !r.collisionsSettled():
 		if r.provisional == nil {
 			r.provisional = map[*symbols.Scope]*importCollisions{}
@@ -320,6 +333,9 @@ func (r *Resolver) withoutHiddenImports(scope *symbols.Scope, name string, syms 
 	cut := r.collisionCut
 	r.collisionCut = false
 	defer func() { r.collisionCut = cut || r.collisionCut }()
+	if !r.hidesBelow(scope) {
+		return syms
+	}
 	through := r.collidedThrough(scope, name, map[*symbols.Scope]bool{})
 	if len(through) == 0 && len(r.importedCollisions(scope).hidden) == 0 {
 		return syms
@@ -417,6 +433,72 @@ func (r *Resolver) hiddenOnRoute(scope *symbols.Scope, sym *symbols.Symbol) bool
 	for _, name := range r.memberNames(sym) {
 		if name != "" && len(r.withoutHiddenImports(scope, name, []*symbols.Symbol{sym})) == 0 {
 			return true
+		}
+	}
+	return false
+}
+
+// hidesBelow reports whether scope, or a namespace an import of scope
+// re-exports from, hides any imported membership: when none does, nothing is
+// hidden on any route through scope, and no route need be walked. Memoized
+// per namespace once nothing it read was provisional, and shared across a
+// batch; a walk cut by a computation in progress answers true, undecided.
+func (r *Resolver) hidesBelow(scope *symbols.Scope) bool {
+	if scope == nil || r.idx == nil {
+		return false
+	}
+	if hides, done := r.below[scope]; done {
+		return hides
+	}
+	imports := r.scopeImports(scope)
+	if len(imports) == 0 {
+		return false
+	}
+	if r.shared != nil {
+		if e, ok := r.shared.getBelow(scope); ok {
+			e.reads.replay(r)
+			journalNew(r, r.below, scope, imports[0])
+			r.below[scope] = e.hides
+			return e.hides
+		}
+	}
+	cut := r.collisionCut
+	r.collisionCut = false
+	var hides bool
+	reads := r.capturing(func() { hides = r.hidesBelowSeen(scope, map[*symbols.Scope]bool{}) })
+	if !r.collisionCut && r.inCondition == 0 && len(r.resolvingImports) == 0 {
+		journalNew(r, r.below, scope, imports[0])
+		r.below[scope] = hides
+		if r.shared != nil {
+			r.shared.putBelow(scope, hides, reads)
+		}
+	} else {
+		hides = true
+	}
+	r.collisionCut = cut || r.collisionCut
+	return hides
+}
+
+// hidesBelowSeen is hidesBelow's walk, each namespace asked once.
+func (r *Resolver) hidesBelowSeen(scope *symbols.Scope, seen map[*symbols.Scope]bool) bool {
+	if scope == nil || seen[scope] || r.idx.DocumentLibraryTier(symbols.DocNameOf(scope)).Library() {
+		return false
+	}
+	seen[scope] = true
+	if hides, done := r.below[scope]; done {
+		return hides
+	}
+	if len(r.importedCollisions(scope).hidden) > 0 {
+		return true
+	}
+	for _, imp := range r.scopeImports(scope) {
+		if imp.Kind != ast.ImportNamespace || r.resolvingImports[imp] {
+			continue
+		}
+		if target, ok := r.importTargetOf(scope, imp); ok && target != nil && target.Scope != nil {
+			if r.hidesBelowSeen(target.Scope, seen) {
+				return true
+			}
 		}
 	}
 	return false
