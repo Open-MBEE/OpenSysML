@@ -524,9 +524,11 @@ func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbo
 		return r.withoutHiddenMembers(target.Scope, children.elems, imported)
 	}
 	prefix := r.indexedNameOf(target)
-	indexed := r.indexedChildren(scope, target, imp)
+	var indexed []*symbols.Symbol
 	if sel.named != "" {
 		indexed = r.indexedChildrenNamed(scope, target, imp, sel.named)
+	} else {
+		indexed = r.indexedChildren(scope, target, imp)
 	}
 	for _, sym := range indexed {
 		if sel.namespaces && !r.mayBeNamespace(scope, sym, imp) {
