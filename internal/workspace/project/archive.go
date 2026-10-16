@@ -137,7 +137,7 @@ func parseArchive(archivePath string, data []byte) (*Archive, error) {
 		return nil, fmt.Errorf("not a ZIP archive: %w", err)
 	}
 	a := &Archive{Path: archivePath, members: map[string][]byte{}}
-	var total int64
+	var total uint64
 	for _, f := range zr.File {
 		if strings.HasSuffix(f.Name, "/") {
 			continue
@@ -149,9 +149,10 @@ func parseArchive(archivePath string, data []byte) (*Archive, error) {
 		if _, dup := a.members[name]; dup {
 			return nil, fmt.Errorf("member %q appears twice", name)
 		}
-		if total += int64(f.UncompressedSize64); total > maxArchiveSize {
+		if f.UncompressedSize64 > maxArchiveSize || total+f.UncompressedSize64 > maxArchiveSize {
 			return nil, fmt.Errorf("members unpack to more than %d bytes", maxArchiveSize)
 		}
+		total += f.UncompressedSize64
 		content, err := readMember(f)
 		if err != nil {
 			return nil, fmt.Errorf("member %q: %w", name, err)
@@ -177,7 +178,10 @@ func readMember(f *zip.File) ([]byte, error) {
 		return nil, err
 	}
 	defer rc.Close()
-	content, err := io.ReadAll(io.LimitReader(rc, int64(f.UncompressedSize64)+1))
+	if f.UncompressedSize64 > maxArchiveSize {
+		return nil, fmt.Errorf("declares %d bytes; at most %d are read", f.UncompressedSize64, maxArchiveSize)
+	}
+	content, err := io.ReadAll(io.LimitReader(rc, int64(maxArchiveSize)+1))
 	if err != nil {
 		return nil, err
 	}
