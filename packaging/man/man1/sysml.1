@@ -266,6 +266,15 @@ With \-convert ttl or api\-json, how derived element ids are spelled:
 qualified (default) derives each from its qualified name; uuid mints
 name\-based uuids under each root package, as the library convention does
 .TP
+.BR \-bundle " \fIdir\fP"
+Write this project directory as a project interchange archive (KerML 1.0
+\(sc10.3), to \-o or to <name>\-<version>.kpar; the archive is the same bytes
+on every run
+.TP
+.BR \-unbundle " \fIfile\fP"
+Write this project interchange archive (.kpar) out as a project directory, to
+\-o or to <name>\-<version>, which must be new or empty
+.TP
 .BR \-o ", " \-output " \fIfile\fP"
 Write what \-convert, \-migrate, \-compile, \-render or \-render\-document
 produces to this file instead of stdout; with \-convert ttl or \-migrate ttl,
