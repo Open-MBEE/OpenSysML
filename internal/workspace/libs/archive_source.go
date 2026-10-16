@@ -2,6 +2,7 @@ package libs
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"os"
 	"path/filepath"
 	"sort"
@@ -117,4 +118,45 @@ func (s *unionSource) Read(name string) ([]byte, error) {
 		}
 	}
 	return nil, fmt.Errorf("libs: no library file %q", name)
+}
+
+// specLibraries are the libraries the KerML and SysML specifications define,
+// named as the archives the OMG publishes name them in .project.json; a SysML
+// library the list does not name is a domain library.
+var specLibraries = map[string]symbols.LibraryTier{
+	"Kernel Semantic Library":  symbols.TierKernelSemantic,
+	"Kernel Data Type Library": symbols.TierKernelDataType,
+	"Kernel Function Library":  symbols.TierKernelFunction,
+	"SysML Systems Library":    symbols.TierSystems,
+}
+
+// TierOf is the tier of the archive the file is a member of: the library its
+// project is, else a domain library when the project's metamodel is SysML, else
+// a library of no stated tier.
+func (s *archiveSource) TierOf(name string) symbols.LibraryTier {
+	base, _, _ := strings.Cut(filepath.ToSlash(name), "/")
+	for _, a := range s.archives {
+		if filepath.Base(a.Path) != base {
+			continue
+		}
+		if tier, ok := specLibraries[a.Project.Name]; ok {
+			return tier
+		}
+		if a.Meta.Metamodel == project.MetamodelSysML && strings.HasPrefix(a.Project.Name, "SysML ") {
+			return symbols.TierDomain
+		}
+	}
+	return symbols.TierLibrary
+}
+
+// TierOf is the tier the source holding the file states for it.
+func (s *unionSource) TierOf(name string) symbols.LibraryTier {
+	for _, src := range s.sources {
+		for _, have := range src.List() {
+			if have == name {
+				return tierOf(src, name)
+			}
+		}
+	}
+	return TierOf(name)
 }

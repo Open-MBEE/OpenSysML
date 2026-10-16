@@ -21,10 +21,65 @@ func runBundle(dir string) error {
 	if out == "" {
 		out = archiveFileName(p)
 	}
-	if err := os.WriteFile(out, data, 0o600); err != nil {
+	if inside, err := isWithin(dir, out); err != nil {
+		return err
+	} else if inside {
+		return fmt.Errorf("%s lies inside the project %s it would archive; write the archive elsewhere", out, dir)
+	}
+	if err := writeWhole(out, data); err != nil {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "wrote %s (%s %s, %d files)\n", out, p.Name, p.Version, len(archiveMembers(data, out)))
+	return nil
+}
+
+// isWithin reports whether path is dir or lies under it, both resolved.
+func isWithin(dir, path string) (bool, error) {
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return false, err
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false, err
+	}
+	if resolved, err := filepath.EvalSymlinks(absDir); err == nil {
+		absDir = resolved
+	}
+	if resolved, err := filepath.EvalSymlinks(filepath.Dir(absPath)); err == nil {
+		absPath = filepath.Join(resolved, filepath.Base(absPath))
+	}
+	rel, err := filepath.Rel(absDir, absPath)
+	if err != nil {
+		return false, nil
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))), nil
+}
+
+// writeWhole writes data to path through a temporary file beside it, so a
+// failed write leaves whatever was at path as it was.
+func writeWhole(path string, data []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*")
+	if err != nil {
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmp.Name())
+		return err
+	}
+	if err := os.Chmod(tmp.Name(), 0o600); err != nil {
+		_ = os.Remove(tmp.Name())
+		return err
+	}
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		_ = os.Remove(tmp.Name())
+		return err
+	}
 	return nil
 }
 

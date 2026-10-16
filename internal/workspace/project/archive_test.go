@@ -146,6 +146,9 @@ func TestReadFileReportsAMalformedArchiveOnItsPath(t *testing.T) {
 	if err := os.WriteFile(good, probeArchive(t), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if _, _, err := ReadFile(good); err == nil || !strings.Contains(err.Error(), "not a model file") {
+		t.Errorf("ReadFile of a valid archive = %v, want a refusal naming what it is", err)
+	}
 	_, content, err := ReadFile(MemberPath(good, "Probe.sysml"))
 	if err != nil || string(content) != probeModel {
 		t.Errorf("ReadFile of a member = %q, %v", content, err)

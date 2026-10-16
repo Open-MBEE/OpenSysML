@@ -207,9 +207,43 @@ func Unbundle(a *Archive, dir string) error {
 		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 			return err
 		}
-		if err := os.WriteFile(path, content, 0o600); err != nil {
+		if err := confinedTo(dir, filepath.Dir(path)); err != nil {
+			return err
+		}
+		if err := writeNew(path, content); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// confinedTo fails unless parent, links resolved, still lies under dir, so a
+// link planted among the directories being written cannot lead outside.
+func confinedTo(dir, parent string) error {
+	root, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return err
+	}
+	resolved, err := filepath.EvalSymlinks(parent)
+	if err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(root, resolved)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("%s resolves outside %s", parent, dir)
+	}
+	return nil
+}
+
+// writeNew creates path, refusing one that exists in any form, a link included.
+func writeNew(path string, content []byte) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // #nosec G304 -- a member path validated against the archive's directory.
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(content); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }

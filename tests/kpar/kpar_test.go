@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
@@ -92,8 +93,29 @@ func TestOMGArchivesIndexTheBundledLibrary(t *testing.T) {
 	if diff := setDiff(got, want); diff != "" {
 		t.Errorf("qualified names differ between the OMG archives and the embedded release:\n%s", diff)
 	}
-	if docs := fromArchives.Documents(); len(docs) != 94 {
+	docs := fromArchives.Documents()
+	if len(docs) != 94 {
 		t.Errorf("archive index holds %d documents, want the 94 model files of the release", len(docs))
+	}
+	// Each archived file carries the tier of the library its archive is,
+	// which is the tier the embedded copy of the same file has.
+	tiers := map[string]symbols.LibraryTier{}
+	for _, doc := range fromEmbedded.Documents() {
+		tiers[filepath.Base(doc)] = fromEmbedded.DocumentLibraryTier(doc)
+	}
+	for _, doc := range docs {
+		if got, want := fromArchives.DocumentLibraryTier(doc), tiers[filepath.Base(doc)]; got != want {
+			t.Errorf("%s: tier %v, want %v as the embedded copy has", doc, got, want)
+		}
+	}
+	for doc, want := range map[string]symbols.LibraryTier{
+		"Kernel_Semantic_Library-1.1.0-dev.20260801.kpar/Base.kerml":          symbols.TierKernelSemantic,
+		"SysML_Systems_Library-2.1.0-dev.20260801.kpar/Items.sysml":           symbols.TierSystems,
+		"SysML_Quantities_and_Units_Library-2.1.0-dev.20260801.kpar/SI.sysml": symbols.TierDomain,
+	} {
+		if got := fromArchives.DocumentLibraryTier(filepath.FromSlash(doc)); got != want {
+			t.Errorf("%s: tier %v, want %v", doc, got, want)
+		}
 	}
 }
 
@@ -141,6 +163,27 @@ func TestArchiveNamedAsInputLoadsItsFiles(t *testing.T) {
 	}
 	if containsSubstring(report.Loaded, "README.md") {
 		t.Errorf("loaded %q: the archive's README is not a model file", report.Loaded)
+	}
+}
+
+// A pattern that matches archives loads them as naming them would, and
+// LoadFile, the single-path load, expands an archive too.
+func TestArchivesMatchedByAPatternLoad(t *testing.T) {
+	store := filepath.Join(sysandProject(t), ".sysand", "lib")
+	s := repl.NewSession()
+	report, err := s.LoadPathsReport([]string{filepath.Join(store, "*"+project.ArchiveExt)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Errors || !containsSubstring(report.Loaded, project.ArchiveExt+"/SYSMOD.sysml") {
+		t.Errorf("errors %v, loaded %q", report.Errors, report.Loaded)
+	}
+	lines, err := repl.NewSession().LoadFile(filepath.Join(store, "mbse4u-sysmod_5.1.4"+project.ArchiveExt))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsSubstring(lines, "SYSMOD4AI") {
+		t.Errorf("LoadFile of the archive reported %q, want its packages", lines)
 	}
 }
 
@@ -335,6 +378,15 @@ func TestBundleIsDeterministicAndUnbundleReproducesTheDirectory(t *testing.T) {
 	}
 	if output, err := run(t, bin, "-bundle", work, "-o", third); err == nil || !strings.Contains(output, ".project.json") {
 		t.Errorf("-bundle of a directory with no .project.json: err %v\n%s", err, output)
+	}
+	if output, err := run(t, bin, "-bundle", dir, "-o", filepath.Join(dir, "self"+project.ArchiveExt)); err == nil || !strings.Contains(output, "lies inside") {
+		t.Errorf("-bundle into the project itself: err %v\n%s", err, output)
+	}
+	if output, err := run(t, bin, "-bundle", dir, "-o", filepath.Join(dir, ".project.json")); err == nil || !strings.Contains(output, "lies inside") {
+		t.Errorf("-bundle over the project's manifest: err %v\n%s", err, output)
+	}
+	if manifest, err := os.ReadFile(filepath.Join(dir, ".project.json")); err != nil || !bytes.HasPrefix(manifest, []byte("{")) {
+		t.Errorf("the manifest was overwritten: %q, %v", manifest, err)
 	}
 }
 

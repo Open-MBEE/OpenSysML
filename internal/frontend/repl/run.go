@@ -57,7 +57,11 @@ func errorLines(lines []string, _ []NamedValue, err error) ([]string, bool, erro
 // one named as the transcript is.
 func (s *Session) LoadFile(path string) ([]string, error) {
 	defer s.enter()()
-	read, err := s.readWithDependencies([]string{expandHome(path)}, loadOptions{})
+	files, err := s.expandPaths([]string{path})
+	if err != nil {
+		return nil, err
+	}
+	read, err := s.readWithDependencies(files, loadOptions{})
 	if err != nil {
 		return nil, err
 	}

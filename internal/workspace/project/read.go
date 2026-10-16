@@ -2,6 +2,7 @@ package project
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -30,10 +31,13 @@ func ReadFile(path string) (string, []byte, error) {
 		return path, data, err
 	}
 	if IsArchiveFile(path) {
-		_, err := openCached(path)
+		a, err := openCached(path)
 		var ae *ArchiveError
 		if errors.As(err, &ae) {
 			err = ae.Err
+		}
+		if err == nil {
+			err = fmt.Errorf("a project interchange archive of %s %s, not a model file; name it as an input to load its files", a.Project.Name, a.Project.Version)
 		}
 		return path, nil, err
 	}
