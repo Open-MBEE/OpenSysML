@@ -89,8 +89,9 @@ func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	}
 	files := read.files
 	lines := read.notes
+	archives := warningLines(s.discovery().ArchiveWarnings(paths), s.verbosity)
 	if len(files) == 0 {
-		return lines, nil
+		return append(lines, archives...), nil
 	}
 	res, byFile, whole := s.submitEach(files)
 	for i, f := range files {
@@ -105,7 +106,7 @@ func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 		}
 		lines = append(lines, renderSummary(own.ownMembers())...)
 	}
-	return lines, nil
+	return append(lines, archives...), nil
 }
 
 // DiagnosticLines reports the analysis of everything submitted so far as the

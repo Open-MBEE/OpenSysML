@@ -364,11 +364,11 @@ func TestInstalledProjectsFollowLinksOnceSoACycleTerminates(t *testing.T) {
 	if err := os.Symlink(vendored, filepath.Join(root, "linked")); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
-	got := installedProjects([]string{store, filepath.Join(root, "linked")})
+	got, _ := installedProjects([]string{store, filepath.Join(root, "linked")})
 	if len(got) != 1 || got[0].Dir != vendored {
 		t.Errorf("installedProjects = %v, want the project once, though the store loops and a root links to it", projectDirs(got))
 	}
-	if got := installedProjects([]string{filepath.Join(root, "linked")}); len(got) != 1 || got[0].Dir != filepath.Join(root, "linked") {
+	if got, _ := installedProjects([]string{filepath.Join(root, "linked")}); len(got) != 1 || got[0].Dir != filepath.Join(root, "linked") {
 		t.Errorf("installedProjects of a root that is a project = %v, want the root itself", projectDirs(got))
 	}
 }
