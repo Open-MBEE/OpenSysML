@@ -3,7 +3,6 @@ package repl
 import (
 	"errors"
 	"fmt"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 // errRuntimeInit marks a runtime the session could not create at all, which the
