@@ -3,6 +3,7 @@ package repl
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 	"slices"
 	"strings"
 
@@ -87,7 +88,11 @@ func (s *Session) LoadFileSummary(path string) ([]string, error) {
 // root namespace load too.
 func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	defer s.enter()()
-	read, err := s.readWithDependencies(expandHomes(paths), loadOptions{})
+	paths, err := s.expandArchives(expandHomes(paths))
+	if err != nil {
+		return nil, err
+	}
+	read, err := s.readWithDependencies(paths, loadOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -560,4 +565,23 @@ func (s *Session) runStateMachine(name string, duration *float64, performer []st
 	}
 	values = append(values, namedValues(s.stateExec.contextOf(), exec.StateData())...)
 	return s.withTrace(standing(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values}, plan))
+}
+
+// expandArchives replaces each project interchange archive among paths with
+// its model files, as naming it on the command line does; every other path
+// is kept as given, so a file read failure stays the caller's to report.
+func (s *Session) expandArchives(paths []string) ([]string, error) {
+	out := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if !project.IsArchiveFile(path) {
+			out = append(out, path)
+			continue
+		}
+		files, err := s.discovery().Expand([]string{path})
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, files...)
+	}
+	return out, nil
 }

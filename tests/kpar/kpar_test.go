@@ -185,6 +185,13 @@ func TestArchivesMatchedByAPatternLoad(t *testing.T) {
 	if !containsSubstring(lines, "SYSMOD4AI") {
 		t.Errorf("LoadFile of the archive reported %q, want its packages", lines)
 	}
+	summary, err := repl.NewSession().LoadFilesSummary([]string{filepath.Join(store, "mbse4u-sysmod_5.1.4"+project.ArchiveExt)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsSubstring(summary, "SYSMOD4AI") {
+		t.Errorf("LoadFilesSummary of the archive reported %q, want its packages", summary)
+	}
 }
 
 func containsSubstring(lines []string, want string) bool {
