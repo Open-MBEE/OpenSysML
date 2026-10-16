@@ -141,23 +141,26 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 // nested in it is named as it was declared. view is the view the element is
 // shown in, nil outside any view.
 func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, seen map[*symbols.Symbol]bool, depth int, qualified bool, out *Rendering) *Node {
-	return r.treeNodeWithMembers(view, sym, ids, seen, depth, qualified, out, true)
+	shown := seen[sym]
+	node := r.treeNodeShallow(view, sym, ids, seen, depth, qualified, out)
+	if shown || depth >= r.treeDepth() {
+		return node
+	}
+	for _, member := range r.containedMembers(sym) {
+		node.Children = append(node.Children, r.treeNode(view, member, ids, seen, depth+1, false, out))
+	}
+	return node
 }
 
 // treeNodeShallow draws sym without recursively drawing its members.
 func (r *Renderer) treeNodeShallow(view, sym *symbols.Symbol, ids *nodeIDs, seen map[*symbols.Symbol]bool, depth int, qualified bool, out *Rendering) *Node {
-	return r.treeNodeWithMembers(view, sym, ids, seen, depth, qualified, out, false)
-}
-
-// treeNodeWithMembers builds a node and optionally recurses through its members.
-func (r *Renderer) treeNodeWithMembers(view, sym *symbols.Symbol, ids *nodeIDs, seen map[*symbols.Symbol]bool, depth int, qualified bool, out *Rendering, includeMembers bool) *Node {
 	name := r.notationName(sym)
 	if !qualified {
 		name = localName(sym)
 	}
 	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
 		Type: declType(sym), Typings: r.declTypings(sym), Value: r.declValue(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(view, sym, out),
-		Style: r.styleOf(view, sym, out)}
+		Style: r.styleOf(view, sym, out), Referential: referenceRow(sym)}
 	out.noteTreeSite(node, view, sym)
 	if seen[sym] {
 		node.Detail = detailWith(node.Detail, "already shown")
@@ -171,12 +174,6 @@ func (r *Renderer) treeNodeWithMembers(view, sym *symbols.Symbol, ids *nodeIDs, 
 		return node
 	}
 	seen[sym] = true
-	if !includeMembers {
-		return node
-	}
-	for _, member := range r.containedMembers(sym) {
-		node.Children = append(node.Children, r.treeNode(view, member, ids, seen, depth+1, false, out))
-	}
 	return node
 }
 

@@ -143,10 +143,8 @@ func (s *Session) caseVerdict(inv analysisInvocation, run caseRun, err error) Ve
 	verdict := Verdict{Subject: label, Status: status, Lines: []string{fmt.Sprintf("%s %s%s", mark, label, on)}}
 	s.reportCaseRun(&verdict, result)
 	for _, v := range run.verdicts {
-		verdict.Verifications = append(verdict.Verifications, VerificationVerdict{
-			Case: v.Case, Kind: string(v.Kind), Detail: v.Detail, Subcase: v.Subcase,
-		})
-		verdict.Lines = append(verdict.Lines, "  "+verificationLine(v))
+		verdict.Verifications = append(verdict.Verifications, verificationVerdictOf(s.rtCtx, v))
+		verdict.Lines = append(verdict.Lines, "  "+verificationLine(s.rtCtx, v))
 	}
 	return standing(verdict, run.plan)
 }

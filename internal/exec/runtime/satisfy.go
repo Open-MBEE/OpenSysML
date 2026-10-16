@@ -302,7 +302,7 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 	// An assertion stating its own conditions has no requirement to resolve
 	// against, so it resolves against itself.
 	carrying := a.Requirement
-	if carrying == nil {
+	if carrying == nil || (a.SubjectRef == "" && declaringType(target) != nil) {
 		carrying = target
 	}
 	return ctx.checkOn(sharedElement(a), "satisfaction", a.Text(), carrying, subject, func(reached carrier) (CheckResult, error) {

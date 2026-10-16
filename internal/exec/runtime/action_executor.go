@@ -295,14 +295,62 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 			continue
 		}
 		declared[name] = len(features)
-		value, scope := e.ctx.model.semantics.ParameterDefault(member)
-		features = append(features, lower.Attribute{
-			Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: lower.TypeText(usage),
-			Value: value, Node: usage, Scope: scope, Optional: e.ctx.admitsNoValue(member),
-			Binding: value != nil && !usage.ValueIsInitial && !usage.ValueIsDefault,
-		})
+		features = append(features, e.inheritedAttribute(member, usage, name, false))
 	}
+	// An inherited feature a same-named member hides without redefining it is held
+	// too, under its own key, for the general's expressions that read it.
+	var held map[*symbols.Symbol]bool
+	bound := func(sym *symbols.Symbol) bool {
+		if held == nil {
+			held = make(map[*symbols.Symbol]bool, 2*len(features))
+			for _, attr := range features {
+				e.holdVisible(held, attr)
+			}
+		}
+		return held[sym]
+	}
+	e.ctx.shadowedInherited(e.action,
+		func(name string) bool { _, ok := declared[name]; return ok },
+		bound,
+		func(member *symbols.Symbol, usage *ast.Usage, key string) {
+			if _, ok := declared[key]; ok {
+				return
+			}
+			declared[key] = len(features)
+			features = append(features, e.inheritedAttribute(member, usage, key, true))
+		})
 	return features
+}
+
+// inheritedAttribute is the attribute a performance holds for an inherited member,
+// valued by the default of the member or of what it redefines.
+func (e *ActionExecutor) inheritedAttribute(member *symbols.Symbol, usage *ast.Usage, name string, shadowed bool) lower.Attribute {
+	value, scope := e.ctx.model.semantics.ParameterDefault(member)
+	return lower.Attribute{
+		Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: lower.TypeText(usage),
+		Value: value, Node: usage, Scope: scope, Optional: e.ctx.admitsNoValue(member),
+		Binding: value != nil && !usage.ValueIsInitial && !usage.ValueIsDefault,
+		Symbol:  member, Shadowed: shadowed,
+	}
+}
+
+// holdVisible marks the feature attr declares and every feature it redefines as held.
+func (e *ActionExecutor) holdVisible(held map[*symbols.Symbol]bool, attr lower.Attribute) {
+	sym := attr.Symbol
+	if sym == nil {
+		scope := attr.Scope
+		if scope == nil {
+			scope = e.graph.Scope
+		}
+		sym = memberSymbol(scope, attr.Node)
+	}
+	if sym == nil {
+		return
+	}
+	held[sym] = true
+	for _, redefined := range e.ctx.model.semantics.AllRedefinedFeatures(sym) {
+		held[redefined] = true
+	}
 }
 
 // Step advances execution by one step for all active tokens.
@@ -1306,7 +1354,7 @@ func (e *ActionExecutor) initializeAttributes() error {
 		if _, held := e.root.data[e.root.key(attr.Name)]; held || e.dynamics.ownsFeature(attr.Name) {
 			continue
 		}
-		if e.occurrence != nil {
+		if e.occurrence != nil && !attr.Shadowed {
 			fv, err := e.occurrence.GetFeatureValue(e.ctx, attr.Name)
 			if err != nil {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
@@ -1427,7 +1475,9 @@ func (e *ActionExecutor) streamInitialOutput(name string, value Value) error {
 func (e *ActionExecutor) declaresAttribute(name string) bool {
 	for _, attr := range e.features {
 		if attr.Name == name {
-			return true
+			// A hidden inherited feature is the performance's alone: the
+			// occurrence's slots are keyed by name and hold the visible one.
+			return !attr.Shadowed
 		}
 	}
 	return false
@@ -1454,9 +1504,14 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The run's own object: what it holds is the run's, not the model's alone.
+	inst.explicit = true
 	e.occurrence = inst
 	e.performances.occurrence = inst
 	for _, attr := range e.features {
+		if attr.Shadowed {
+			continue // the performance's alone: the occurrence's slots are keyed by name
+		}
 		if value, held := e.root.data[e.root.key(attr.Name)]; held {
 			if cell := e.root.cells.existingCell(e.root.key(attr.Name)); cell != nil && cell.binding != nil && !cell.fv.Written {
 				if _, err := e.mirrorBindingOccurrence(attr.Name, value, cell); err != nil {
@@ -1535,10 +1590,13 @@ func (e *ActionExecutor) setFeature(name string, value Value) error {
 		if value, err = e.mirrorOccurrence(name, value); err != nil {
 			return err
 		}
-	} else if err := e.ctx.checkNamedWriteAs(e.graph.Scope, func() string { return actionLabelPrefix + symbolText(e.action) }, name, &value); err != nil {
+	} else {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
-		return err
+		scope, declared := heldDeclaration(e.root, e.graph.Scope, name)
+		if err := e.ctx.checkNamedWriteAs(scope, func() string { return actionLabelPrefix + symbolText(e.action) }, declared, &value); err != nil {
+			return err
+		}
 	}
 	e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(name), value)
 	e.moved = true
@@ -2070,7 +2128,7 @@ func (e *ActionExecutor) enabledSuccessions(frame *actionFrame, node ast.Node) (
 
 	enabled := make([]lower.ActionEdge, 0, len(declared))
 	for _, edge := range declared {
-		holds, err := e.guardHolds(ec, node, edge.Guard)
+		holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), node, edge.Guard)
 		if err != nil {
 			return nil, err
 		}
@@ -2134,13 +2192,13 @@ func guardResult(ec *EvalContext, guard ast.Node) (Value, error) {
 // noted and not selected.
 func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, i int) (bool, error) {
 	guard := successors[i].Guard
-	scope := e.graphOf(frame).Scope
+	scope := e.graphOf(frame).DeclScope(successors[i].Decl)
 	var holds bool
 	var err error
 	func() {
 		defer e.ctx.beginProbe()()
 		holds, err = e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, scope, func() (bool, error) {
-			ec := e.evalContextFor(frame, e.graphOf(frame).Scope)
+			ec := e.evalContextFor(frame, scope)
 			defer ec.beginStep()()
 			result, err := guardResult(ec, guard)
 			if err != nil {
@@ -2562,7 +2620,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			}
 		} else {
 			var err error
-			if holds, err = e.guardHolds(ec, decisionNode, edge.Guard); err != nil {
+			if holds, err = e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), decisionNode, edge.Guard); err != nil {
 				return err
 			}
 		}
@@ -2582,7 +2640,8 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		// A branch picked past the first was only probed; its guard's final reading
 		// is the run's own, so the run holds what evaluating it did.
 		if pick > 0 && successors[holding[pick]].Guard != nil {
-			holds, err := e.guardHolds(ec, decisionNode, successors[holding[pick]].Guard)
+			picked := successors[holding[pick]]
+			holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(picked.Decl)), decisionNode, picked.Guard)
 			if err != nil {
 				return err
 			}
@@ -3401,6 +3460,8 @@ func (e *ActionExecutor) collectPartsHeld(into map[string]Value) {
 		if !live || len(objects) != 1 {
 			continue
 		}
+		// The object a performance denotes is the run's: what it holds is read as held.
+		objects[0].explicit = true
 		for name, value := range e.ctx.attributesHeld(objects[0]) {
 			into[sym.Name+"."+name] = value
 		}

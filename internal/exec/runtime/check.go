@@ -202,9 +202,10 @@ type CheckReport struct {
 	Divergent  []Divergence
 	// Finals are the distinct outcomes of the complete schedules, in canonical order.
 	Finals []CheckFinal
-	// Notes are the distinct reasons the searched runs' coverage is narrower than
-	// their schedules, so a clean report observed rather than bounded the result.
-	Notes []string
+	// Unenumerated are the constructs whose unordered alternatives the searched
+	// runs took in one order without a choice point, so a clean report observed
+	// rather than bounded the result.
+	Unenumerated []CoverageGap
 	// Scope is the distinct reasons the finals were observed short of quiescence.
 	Scope []ObservationReason
 	// MassBounded reports the violations' masses are lower bounds: they are when a
@@ -328,8 +329,7 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 	if err := c.search(stop, mass); err != nil {
 		return nil, err
 	}
-	c.foldNotes()
-	slices.Sort(c.notes)
+	c.foldGaps()
 	return more, nil
 }
 
@@ -365,8 +365,8 @@ type checker struct {
 	// nested are the `node.pin` names Diverge selects; untold are those among them only
 	// a performance can tell, each dropped once a state held it.
 	nested, untold map[string]bool
-	// notes are the coverage reasons the searched runs left on their contexts.
-	notes []string
+	// gaps are the coverage gaps the searched runs left on their contexts.
+	gaps []CoverageGap
 	// scope is the reasons the finals so far were observed short of quiescence.
 	scope []ObservationReason
 }
@@ -605,19 +605,15 @@ func (c *checker) search(stop context.Context, mass float64) error {
 			return err
 		}
 		// The next move's restore rewinds the context's notes, so fold them now.
-		c.foldNotes()
+		c.foldGaps()
 	}
 	return nil
 }
 
-// foldNotes merges the coverage reasons the run recorded on its context into
-// the checker's, since restoring the context's snapshot drops them.
-func (c *checker) foldNotes() {
-	for _, note := range c.ctx.coverageReasons() {
-		if !slices.Contains(c.notes, note) {
-			c.notes = append(c.notes, note)
-		}
-	}
+// foldGaps merges the coverage gaps the run recorded on its context into the
+// checker's, since restoring the context's snapshot drops them.
+func (c *checker) foldGaps() {
+	c.gaps = mergeGaps(c.gaps, c.ctx.gaps())
 }
 
 // stopped is the check ended by its caller, with what it had searched so far.
@@ -1428,16 +1424,16 @@ func (c *checker) divergeReached() error {
 // result assembles what the search found.
 func (c *checker) result() *CheckReport {
 	r := &CheckReport{
-		States:     len(c.visited),
-		Moves:      c.moves,
-		MaxDepth:   c.maxDepth,
-		BoundsHit:  c.bounds,
-		Limits:     c.ctx.Budgets(),
-		Horizon:    c.horizon(),
-		Violations: c.violations,
-		Finals:     slices.Clone(c.results),
-		Notes:      c.notes,
-		Scope:      c.scope,
+		States:       len(c.visited),
+		Moves:        c.moves,
+		MaxDepth:     c.maxDepth,
+		BoundsHit:    c.bounds,
+		Limits:       c.ctx.Budgets(),
+		Horizon:      c.horizon(),
+		Violations:   c.violations,
+		Finals:       slices.Clone(c.results),
+		Unenumerated: c.gaps,
+		Scope:        c.scope,
 	}
 	sort.Slice(r.Finals, func(i, j int) bool { return r.Finals[i].identity < r.Finals[j].identity })
 	r.Divergent = divergences(r.Finals)

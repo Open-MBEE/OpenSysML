@@ -26,7 +26,8 @@ const (
 	VerdictPass VerdictKind = "pass"
 	// VerdictFail is a body whose verdict value is VerdictKind::fail.
 	VerdictFail VerdictKind = "fail"
-	// VerdictInconclusive is a body that ran and produced no verdict value.
+	// VerdictInconclusive is a body that ran and produced no verdict value, or
+	// one a definition owns with no object of the definition to run on.
 	VerdictInconclusive VerdictKind = "inconclusive"
 	// VerdictError is a body whose run could not be carried out.
 	VerdictError VerdictKind = "error"
@@ -54,6 +55,10 @@ type VerificationVerdict struct {
 	// Subcase marks the verdict of a case performed by another, which the
 	// library states no roll-up for and which is therefore reported on its own.
 	Subcase bool
+
+	// Subject is the object the case ran as a feature of: an object of the type
+	// owning it; nil for a package-level case or a run on no object.
+	Subject *Instance
 }
 
 // VerificationResult is what one run of a verification case produced: the
@@ -121,17 +126,25 @@ func (ctx *Context) RunVerification(sym *symbols.Symbol, args AnalysisArgs, scop
 	defer ctx.beginRun()()
 
 	name := ctx.qualifiedSymbolName(sym)
-	caseRun, run, err := ctx.runCase(sym, args, scope, self)
+	caseRun, performer, run, err := ctx.runCase(sym, args, scope, self)
 	defer caseRun.endOccurrence(ctx)
 	if err != nil {
 		if badRequest(err) || errors.Is(err, ErrToolDryRun) {
 			return VerificationResult{}, err
 		}
+		if errors.Is(err, ErrNeedsObject) {
+			// Nothing is wrong with the case: it decided nothing for want of an
+			// object of its owner, which is no verdict and no fault of the run.
+			return VerificationResult{
+				Verdict: VerificationVerdict{Case: name, Symbol: sym, Kind: VerdictInconclusive, Detail: err.Error()},
+			}, nil
+		}
 		return VerificationResult{
-			Verdict: VerificationVerdict{Case: name, Symbol: sym, Kind: VerdictError, Detail: err.Error()},
+			Verdict: VerificationVerdict{Case: name, Symbol: sym, Kind: VerdictError, Detail: err.Error(), Subject: performer},
 		}, nil
 	}
 	result := VerificationResult{Verdict: ctx.bodyVerdict(sym, name, caseRun, run), Run: run}
+	result.Verdict.Subject = caseRun.self
 	result.Subcases = ctx.subcaseVerdicts(caseRun)
 	return result, nil
 }
@@ -224,9 +237,10 @@ func (ctx *Context) subcaseVerdicts(run *calcRun) []VerificationVerdict {
 }
 
 // subcaseVerdict reads the verdict of one performed subcase from the outputs its
-// performance holds; performed reports whether the run took the step at all.
+// performance holds; performed reports whether the run took the step at all. A
+// step runs as a feature of the object the run does (case_step.go), so it is about that object.
 func (ctx *Context) subcaseVerdict(run *calcRun, node ast.Node, sym *symbols.Symbol) (VerificationVerdict, bool) {
-	verdict := VerificationVerdict{Case: ctx.qualifiedSymbolName(sym), Symbol: sym, Subcase: true}
+	verdict := VerificationVerdict{Case: ctx.qualifiedSymbolName(sym), Symbol: sym, Subcase: true, Subject: run.self}
 	perf, _, err := run.perf.subaction(ActionNodeName(node), node)
 	if err != nil || perf == nil {
 		return verdict, false

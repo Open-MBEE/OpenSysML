@@ -56,7 +56,7 @@ func TestUndecidedVerdictTakesTheCommandPrefix(t *testing.T) {
 
 func TestSelfCheckJSONReportsUnevaluatedWithoutFailing(t *testing.T) {
 	var out, errs bytes.Buffer
-	r := newReporter(true)
+	r := newReporter(formatJSON, "")
 	r.out, r.err = &out, &errs
 	r.selfCheck([]repl.Verdict{{
 		Subject: "T::inspectTypeSpecializations for T::P",
@@ -146,7 +146,7 @@ func TestSelfCheckEvaluationErrorsUseUnevaluableExit(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var out, errs bytes.Buffer
-			r := newReporter(true)
+			r := newReporter(formatJSON, "")
 			r.out, r.err = &out, &errs
 			r.selfCheck(tc.verdicts)
 			if exit := r.finish(); exit != tc.wantExit {

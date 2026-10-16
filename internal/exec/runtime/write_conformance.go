@@ -268,11 +268,11 @@ func (ctx *Context) holdAsReal(value *Value, declared *symbols.Symbol) error {
 		if value.Const.Kind != semantics.ValRational || ctx.model.semantics.PrimTypeOf(declared) != semantics.PrimReal {
 			return nil
 		}
-		real, err := semantics.RealOf(value.Const)
+		realValue, err := semantics.RealOf(value.Const)
 		if err != nil {
 			return fmt.Errorf("%s as a Real: %w", FormatValue(*value), err)
 		}
-		*value = Value{Kind: ValConst, Const: real}
+		*value = Value{Kind: ValConst, Const: realValue}
 	case ValSequence, ValSet:
 		elements := elementsOf(*value)
 		var held []Value

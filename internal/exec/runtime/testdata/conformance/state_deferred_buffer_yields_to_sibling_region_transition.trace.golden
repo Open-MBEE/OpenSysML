@@ -1,3 +1,4 @@
+choice at t=0.0: next do waiting, dispatch accept Ping (unordered; took do waiting first)
 do: waiting
 stmt action body
 enter action node: state behavior buffer

@@ -301,6 +301,12 @@ message VerificationVerdict {
   // objective verifies. Empty when the case was run for itself rather than for
   // a requirement, or when that requirement can be named by no FQN.
   string requirement_id = 5;
+  // Instance the case ran on as its owner, 0 when it ran on no object. A case a
+  // definition owns runs once per object of that definition, so verdicts of one
+  // case are told apart by this field; its feature values are in `instances`.
+  int64 instance_id = 6;
+  // Type of `instance_id`, as an FQN, for naming the object in a report.
+  string instance_type_id = 7;
 }
 
 // VerifyRequirementResponse carries the verdict.
@@ -559,7 +565,8 @@ message Outcome {
 // ExplorationStatus is how an exploration ended: whether every linearization
 // within the budget was run, and which budget stopped it when not.
 message ExplorationStatus {
-  // True when every linearization was run, so `outcomes` is the whole set.
+  // True when every linearization the library admits was run, so `outcomes`
+  // is the whole set: no budget was hit and nothing was left unenumerated.
   bool complete = 1;
   // How many runs were made.
   int32 runs = 2;
@@ -574,6 +581,10 @@ message ExplorationStatus {
   bool probabilities_lower_bound = 6;
   // How many linearizations ended in runtime-error outcomes.
   int32 failed_linearizations = 7;
+  // The constructs whose unordered alternatives the runs took in one order
+  // without a choice point, by identifier; `complete` is false while any is
+  // listed, since fewer orders were run than the library admits.
+  repeated string unenumerated = 8;
 }
 
 // ListEnginesRequest asks for the analysis engines registered in this build.

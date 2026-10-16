@@ -8,6 +8,7 @@ package doccounts
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/tools/census/manifest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -22,12 +23,21 @@ import (
 // to the repository root.
 const (
 	SpecCompliancePath = "docs/project/spec-compliance.md"
-	ReadmePath         = "README.md"
-	ArchitecturePath   = "docs/internals/architecture.md"
+	// ValidationConstraintsPath is the census page whose table the manifest renders.
+	ValidationConstraintsPath = "docs/project/validation-constraints.md"
+	ReadmePath                = "README.md"
+	ArchitecturePath          = "docs/internals/architecture.md"
 )
 
 // refereedBlockName names the generated block: the prose census the Markdown pages share.
 const refereedBlockName = "refereed-figures"
+
+// The blocks rendered from the constraint manifest: the census table of the
+// validation-constraints page and the census summary the compliance map quotes.
+const (
+	censusTableBlockName   = "validation-census-table"
+	censusSummaryBlockName = "validation-census-summary"
+)
 
 // statusMarkers are the row statuses the compliance map uses. '⚠' is matched
 // without its variation selector, as the map writes both spellings.
@@ -414,11 +424,19 @@ func rowStatus(number int, line string, column int) (string, error) {
 	}
 }
 
-// CountRules counts the rule rows of the compliance map by the marker in their
-// table's Status column. A row stating no status or several, a row with a marker
-// outside a table or in a table without a Status column, is an error.
-func CountRules(content string) (RuleCounts, error) {
-	counts := RuleCounts{}
+// RuleRow is one rule row of the compliance map: its line number, its text and
+// the one marker in its table's Status column.
+type RuleRow struct {
+	Line   int
+	Text   string
+	Marker string
+}
+
+// RuleRows lists the compliance map's rule rows in page order. A row stating no
+// status or several, a row with a marker outside a table or in a table without
+// a Status column, is an error.
+func RuleRows(content string) ([]RuleRow, error) {
+	var rows []RuleRow
 	lines := strings.Split(content, "\n")
 	for start := 0; start < len(lines); {
 		end := start
@@ -432,18 +450,18 @@ func CountRules(content string) (RuleCounts, error) {
 			switch {
 			case !isTable:
 				if strings.HasPrefix(text, "|") && carriesMarker(text) {
-					return RuleCounts{}, fmt.Errorf("%s:%d: a row with a status marker outside a table", SpecCompliancePath, number)
+					return nil, fmt.Errorf("%s:%d: a row with a status marker outside a table", SpecCompliancePath, number)
 				}
 			case column < 0:
 				if offset >= 2 && carriesMarker(text) {
-					return RuleCounts{}, fmt.Errorf("%s:%d: a row with a status marker in a table without a %s column", SpecCompliancePath, number, statusColumnHeading)
+					return nil, fmt.Errorf("%s:%d: a row with a status marker in a table without a %s column", SpecCompliancePath, number, statusColumnHeading)
 				}
 			case offset >= 2:
 				marker, err := rowStatus(number, line, column)
 				if err != nil {
-					return RuleCounts{}, err
+					return nil, err
 				}
-				counts.add(marker)
+				rows = append(rows, RuleRow{Line: number, Text: line, Marker: marker})
 			}
 		}
 		if end > start {
@@ -451,6 +469,20 @@ func CountRules(content string) (RuleCounts, error) {
 		} else {
 			start++
 		}
+	}
+	return rows, nil
+}
+
+// CountRules counts the rule rows of the compliance map by the marker in their
+// table's Status column, refusing the drifts RuleRows refuses.
+func CountRules(content string) (RuleCounts, error) {
+	rows, err := RuleRows(content)
+	if err != nil {
+		return RuleCounts{}, err
+	}
+	counts := RuleCounts{}
+	for _, row := range rows {
+		counts.add(row.Marker)
 	}
 	counts.Total = counts.Faithful + counts.Extension + counts.Approximate + counts.NotImplemented + counts.Deliberate + counts.KnownFailure
 	return counts, nil
@@ -527,6 +559,8 @@ func Blocks() []Block {
 		{Path: ReadmePath, Name: refereedBlockName, LinkPrefix: "docs/project/"},
 		{Path: ArchitecturePath, Name: refereedBlockName, LinkPrefix: "../project/"},
 		{Path: SpecCompliancePath, Name: libraryBlockName, LinkPrefix: ""},
+		{Path: SpecCompliancePath, Name: censusSummaryBlockName, LinkPrefix: ""},
+		{Path: ValidationConstraintsPath, Name: censusTableBlockName, LinkPrefix: ""},
 	}
 	return append(blocks, suiteBlocks()...)
 }
@@ -574,6 +608,7 @@ type Figures struct {
 	Refereed RefereedCounts
 	Library  fixtures.LibraryCensus
 	Suite    SuiteCounts
+	Manifest *manifest.Manifest
 }
 
 // ReadFigures reads the committed measurements and counts the tree under root.
@@ -590,7 +625,14 @@ func ReadFigures(root string) (Figures, error) {
 	if err != nil {
 		return Figures{}, err
 	}
-	return Figures{Refereed: refereed, Library: library, Suite: suite}, nil
+	m, err := manifest.Load(root)
+	if err != nil {
+		return Figures{}, err
+	}
+	if err := m.Validate(); err != nil {
+		return Figures{}, err
+	}
+	return Figures{Refereed: refereed, Library: library, Suite: suite, Manifest: m}, nil
 }
 
 // FindLine returns the index of the first line of content carrying the marker.
@@ -704,6 +746,25 @@ func CheckSiteBlock(content string, spec Block) error {
 
 // RewriteBlock replaces a named generated block and preserves surrounding bytes.
 func RewriteBlock(content string, spec Block, figures Figures) (string, error) {
+	renderedBlock, err := renderBlock(spec, figures)
+	if err != nil {
+		return "", err
+	}
+	return ReplaceBlock(content, spec, renderedBlock)
+}
+
+// BlockBody returns the text between a named block's markers.
+func BlockBody(content string, spec Block) (string, error) {
+	span, err := locateBlock(content, spec)
+	if err != nil {
+		return "", err
+	}
+	return span.body(spec), nil
+}
+
+// ReplaceBlock puts body between a named block's markers and preserves every
+// other byte; a body of several lines cannot sit within one line.
+func ReplaceBlock(content string, spec Block, body string) (string, error) {
 	begin := fmt.Sprintf(blockBeginFormat, spec.Name)
 	end := fmt.Sprintf(blockEndFormat, spec.Name)
 	span, err := locateBlock(content, spec)
@@ -711,20 +772,16 @@ func RewriteBlock(content string, spec Block, figures Figures) (string, error) {
 		return "", err
 	}
 	lines, beginIndex, endIndex, inlineIndex := span.lines, span.beginIndex, span.endIndex, span.inlineIndex
-	renderedBlock, err := renderBlock(spec, figures)
-	if err != nil {
-		return "", err
-	}
 	if inlineIndex >= 0 {
-		if strings.Contains(renderedBlock, "\n") {
+		if strings.Contains(body, "\n") {
 			return "", fmt.Errorf("%s:%d: the block named %q renders several lines and cannot sit within one", spec.Path, inlineIndex+1, spec.Name)
 		}
 		line := lines[inlineIndex]
 		from, to := strings.Index(line, begin), strings.Index(line, end)+len(end)
-		lines[inlineIndex] = line[:from] + begin + renderedBlock + end + line[to:]
+		lines[inlineIndex] = line[:from] + begin + body + end + line[to:]
 		return strings.Join(lines, "\n"), nil
 	}
-	rendered := append([]string{begin}, strings.Split(strings.TrimSuffix(renderedBlock, "\n"), "\n")...)
+	rendered := append([]string{begin}, strings.Split(strings.TrimSuffix(body, "\n"), "\n")...)
 	rendered = append(rendered, end)
 	updated := make([]string, 0, len(lines)-endIndex+beginIndex+len(rendered))
 	updated = append(updated, lines[:beginIndex]...)
@@ -737,11 +794,14 @@ func RewriteBlock(content string, spec Block, figures Figures) (string, error) {
 // consumer's own link prefix.
 type blockTemplateData struct {
 	RefereedCounts
-	Library    fixtures.LibraryCensus
-	Table      string
-	Suite      suiteFigures
-	Name       string
-	LinkPrefix string
+	Library fixtures.LibraryCensus
+	Table   string
+	Suite   suiteFigures
+	// CensusTable and CensusSummary are rendered from the constraint manifest.
+	CensusTable   string
+	CensusSummary string
+	Name          string
+	LinkPrefix    string
 }
 
 // A template renders the text between a block's markers, without them.
@@ -758,9 +818,15 @@ const refereedBlockTemplateText = "**Measured against the pinned reference** (`P
 // blockTemplates is the one template per generated block name. A block naming no
 // template is reported rather than written, so a consumer cannot be added without one.
 var blockTemplates = parseBlockTemplates(map[string]string{
-	refereedBlockName: refereedBlockTemplateText,
-	libraryBlockName:  libraryBlockTemplateText,
+	refereedBlockName:      refereedBlockTemplateText,
+	libraryBlockName:       libraryBlockTemplateText,
+	censusTableBlockName:   "{{.CensusTable}}",
+	censusSummaryBlockName: censusSummaryBlockTemplateText,
 }, suiteBlockTemplateTexts)
+
+// censusSummaryBlockTemplateText restates the pilot-constraint census where the
+// compliance map quotes it; the rows themselves are on the validation page.
+const censusSummaryBlockTemplateText = "{{.CensusSummary}} Each row, its implementation, diagnostic code and probe are recorded in [`constraint-manifest.json`]({{.LinkPrefix}}constraint-manifest.json) and rendered in [validation constraints]({{.LinkPrefix}}validation-constraints.md)."
 
 func parseBlockTemplates(texts ...map[string]string) map[string]*template.Template {
 	parsed := map[string]*template.Template{}
@@ -784,6 +850,10 @@ func renderBlock(spec Block, figures Figures) (string, error) {
 		Suite:          figuresOf(figures.Suite),
 		Name:           spec.Name,
 		LinkPrefix:     spec.LinkPrefix,
+	}
+	if figures.Manifest != nil {
+		data.CensusTable = figures.Manifest.RenderTable()
+		data.CensusSummary = figures.Manifest.Summary()
 	}
 	var rendered strings.Builder
 	if err := blockTemplate.Execute(&rendered, data); err != nil {

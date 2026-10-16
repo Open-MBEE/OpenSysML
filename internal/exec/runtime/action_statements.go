@@ -72,6 +72,7 @@ func (h *actionStmtHost) send(ec *EvalContext, s lower.Send) error {
 // assignOuter writes a name the body's blocks do not declare: to the running performance,
 // else the innermost enclosing one holding it, else the performing object, else the body.
 func (h *actionStmtHost) assignOuter(env *stmtEnv, name string, value Value, s lower.Assign) error {
+	name = h.perf.heldKey(h.exec.ctx, s.Scope, name)
 	if h.perf.declares(name) {
 		return h.exec.setFrameFeature(h.perf, name, value)
 	}
@@ -85,6 +86,7 @@ func (h *actionStmtHost) assignOuter(env *stmtEnv, name string, value Value, s l
 }
 
 func (h *actionStmtHost) assignData(env *stmtEnv, name string, value Value, s lower.Assign) error {
+	name = h.perf.heldKey(h.exec.ctx, s.Scope, name)
 	if h.perf.declares(name) {
 		return h.exec.setFrameFeature(h.perf, name, value)
 	}

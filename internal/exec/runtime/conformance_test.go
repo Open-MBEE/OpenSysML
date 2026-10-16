@@ -190,10 +190,10 @@ type ExpectedOutcome struct {
 	// Trace opts a case into a golden trace it does not carry yet, so
 	// -update-traces writes one. A case already carrying a golden needs no opt-in.
 	Trace bool `json:"trace,omitempty"`
-	// ExploreNotes are the coverage notes exploring the case must record, each
-	// matched exactly and in canonical order; stated, the case is explored even
-	// without an admissible set.
-	ExploreNotes []string `json:"exploreNotes,omitempty"`
+	// ExploreGaps are the coverage gaps exploring the case must record, by
+	// identifier, each matched exactly and in canonical order; stated, the case
+	// is explored even without an admissible set, and is complete short of them.
+	ExploreGaps []string `json:"exploreGaps,omitempty"`
 
 	// Satisfy fields: the verdict expected of each satisfaction assertion the
 	// case states, keyed by the assertion as written ("satisfy r by p"), since
@@ -581,7 +581,7 @@ func casePolicy(t *testing.T, expected ExpectedOutcome, policy SchedulePolicy) S
 // outcomes within budget, naming any unlisted one with a witness.
 func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.Index, path string, expected ExpectedOutcome) {
 	t.Helper()
-	if len(expected.Outcomes) == 0 && len(expected.ExploreNotes) == 0 {
+	if len(expected.Outcomes) == 0 && len(expected.ExploreGaps) == 0 {
 		return
 	}
 	policy, err := ExplorePolicy(expected.ExploreBudget.budget())
@@ -592,15 +592,13 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 	if err != nil {
 		t.Fatalf("explore: %v", err)
 	}
-	if expected.ExploreNotes != nil {
-		notes := slices.Clone(expected.ExploreNotes)
-		slices.Sort(notes)
-		if !slices.Equal(exploration.Notes, notes) {
-			t.Errorf("exploration notes = %v, want %v", exploration.Notes, notes)
-		}
+	gaps := slices.Clone(expected.ExploreGaps)
+	slices.Sort(gaps)
+	if got := GapNames(exploration.Unenumerated); !slices.Equal(got, gaps) {
+		t.Errorf("exploration gaps = %v, want %v", got, gaps)
 	}
 	if len(expected.Outcomes) == 0 {
-		if !exploration.Complete() {
+		if len(exploration.BudgetsHit) > 0 {
 			t.Errorf("exploration %s under %s; raise the budget in %s with \"exploreBudget\": {\"runs\": N, \"depth\": D}",
 				exploration.Status(), policy, filepath.Base(strings.TrimSuffix(path, ".sysml"))+".expected.json")
 		}
@@ -672,7 +670,7 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 			}
 		}
 	}
-	if !exploration.Complete() {
+	if len(exploration.BudgetsHit) > 0 {
 		t.Errorf("exploration %s under %s; raise the budget in %s with \"exploreBudget\": {\"runs\": N, \"depth\": D}",
 			exploration.Status(), policy, filepath.Base(strings.TrimSuffix(path, ".sysml"))+".expected.json")
 	}
@@ -810,7 +808,7 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 			problems = append(problems, "admissible is stated without outcomes to admit")
 		}
 		hasSingleOutcome := expected.Outputs != nil || expected.FinalState != "" || expected.StateVisits != nil || expected.Terminated
-		if expected.ExploreBudget != nil && !hasSingleOutcome && !checked && len(expected.ExploreNotes) == 0 {
+		if expected.ExploreBudget != nil && !hasSingleOutcome && !checked && len(expected.ExploreGaps) == 0 {
 			problems = append(problems, "exploreBudget is stated without outcomes to explore")
 		}
 		if expected.SolverBudget != nil {
@@ -846,9 +844,6 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 	}
 	for i, outcome := range expected.Outcomes {
 		if outcome.Error != "" {
-			if expected.Type != "action" {
-				problems = append(problems, fmt.Sprintf("outcome %d states an error; error outcomes apply to action cases", i+1))
-			}
 			if outcome.Outputs != nil || outcome.FinalState != "" || outcome.StateVisits != nil || outcome.Terminated ||
 				outcome.Probability != nil || outcome.ProbabilityRange != nil {
 				problems = append(problems, fmt.Sprintf("outcome %d states an error beside a result", i+1))
@@ -1227,6 +1222,12 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 		exec, err = callingPerformance(t, ctx, stateSym, self, expected.Events)
 	} else {
 		exec, err = ctx.PerformState(stateSym, self, queuedEvents(t, expected.Events))
+	}
+	if err != nil && listsError(expected.Outcomes) {
+		matchOutcome(t, expected.Outcomes, func(r reporter, outcome AdmittedOutcome) {
+			validateOutcomeError(r, outcome.Error, err)
+		})
+		return
 	}
 	if expected.Error != "" {
 		requireError(t, "state machine", err, expected.Error)
@@ -2396,6 +2397,16 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 		if ctx == nil || !ctx.HoldsNoValue(actual) {
 			t.Errorf("%s: type = %v, want %s", name, actual.Kind, UnsetText)
 		}
+	case "Undetermined":
+		// A value the model leaves open, of the count the case pins as its value.
+		u := actual.Undetermined()
+		if u == nil {
+			t.Errorf("%s: type = %v, want %s", name, actual.Kind, UndeterminedText)
+			return
+		}
+		if count, pinned := expected.Value.(string); pinned && u.Count().Text() != count {
+			t.Errorf("%s: undetermined of %s values, want %s", name, u.Count().Text(), count)
+		}
 	case "Integer":
 		if actual.Kind != ValConst || actual.Const.Kind != semantics.ValInt {
 			t.Errorf("%s: type = %v (Const.Kind=%v), want Integer", name, actual.Kind, actual.Const.Kind)
@@ -2627,7 +2638,7 @@ func TestAdmissibleOutcomesSchema(t *testing.T) {
 		{"empty outcome", ExpectedOutcome{Type: "action", Outcomes: []AdmittedOutcome{outcomes[0], {}}, Admissible: cited}, 1, false},
 		{"calc case", ExpectedOutcome{Type: "calc", Outcomes: outcomes, Admissible: cited}, 1, false},
 		{"explore budget on a checked case", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, ExploreBudget: &ExpectedExploreBudget{Runs: &runs}}, 0, true},
-		{"explore budget on a noted case", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, ExploreNotes: []string{"a note"}, ExploreBudget: &ExpectedExploreBudget{Runs: &runs}}, 0, false},
+		{"explore budget on a case with a gap", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, ExploreGaps: []string{"coverage-gap-1"}, ExploreBudget: &ExpectedExploreBudget{Runs: &runs}}, 0, false},
 		{"single outcome explore budget", ExpectedOutcome{
 			Type: "action", Outputs: outcomes[0].Outputs, ExploreBudget: &ExpectedExploreBudget{Runs: &runs},
 		}, 0, false},

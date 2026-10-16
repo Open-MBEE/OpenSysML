@@ -347,7 +347,8 @@ behavior engine, RDF exporter and document generator. The same runtime sits behi
 
 <span class="osml-prompt">$</span> sysml -quiet -e MassRollup::saturnVWithIU.totalMass mass-rollup.sysml
 <span class="osml-ok">✓ package MassRollup</span>
-<span class="osml-err">sysml: evaluation failed: feature value saturnVWithIU.totalMass: feature value InstrumentUnit.totalMass: no value for feature mass</span>
+<span class="osml-ok">✓ MassRollup::saturnVWithIU.totalMass</span>
+  = &lt;undetermined&gt;
 
 <span class="osml-prompt">$</span> sysml -quiet -calc "DeltaVBudget::InjectionDeltaV(3.986E14 [SI::N], 6563000 [SI::m], 384400000 [SI::m])" delta-v-budget.sysml
 <span class="osml-ok">✓ package DeltaVBudget</span>
@@ -658,7 +659,7 @@ Vehicles::Car::wheels  PartUsage
 
 <h2 id="run-it-in-your-browser">Run it in your browser</h2>
 <p>This is the real <code>sysml</code> REPL, the same <code>cmd/sysml</code> you run in a
-terminal, built for WebAssembly with the production build tags and running entirely in this
+terminal, built for WebAssembly as the RE (Runtime Environment) build and running entirely in this
 page. Nothing is sent to a server. Pick a walkthrough and press <b>Run this step</b> to type
 each command into the prompt, or type your own. Arrow keys bring back earlier lines, including
 those from your last visit, and Tab completes commands and names.</p>
@@ -705,7 +706,7 @@ work on an in-memory filesystem that holds the showcase models under
 <code>examples/runtime-showcase/</code> and is lost when the session ends. A page can't start
 other programs either, so <code>%check</code>, <code>%solve</code>, <code>%configure</code>,
 <code>%optimize</code> and <code>%explain</code>, which run an external SMT solver, report that
-the solver is unavailable. The production build also leaves out code generation, Flexo
+the solver is unavailable. The RE build also leaves out code generation, Flexo
 synchronization, SysML v1 migration, FMI and PDF rendering. Everything else in the
 <a href="../reference/repl-commands/">REPL command reference</a> runs here as it does in a terminal.</p>
 

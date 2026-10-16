@@ -55,6 +55,7 @@ func TestTMTLayout(t *testing.T) {
 	}
 	t.Logf("layout summary: %+v", l)
 	t.Logf("summary: %s", r.Report.Summary())
+	logTMTLayoutAliases(t, "default", r.Notation)
 	assertTMTOwnedDiagnostics(t, "tmt.sysml", r.Notation, diag.ConformanceDefault)
 	strict, err := migrate.MigrateOptions(mdzip, data, migrate.Options{
 		Layout: layout, LayoutSource: mtipPath, Strict: true,
@@ -62,6 +63,9 @@ func TestTMTLayout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("strict MigrateOptions: %v", err)
 	}
+	t.Logf("strict layout summary: %+v", strict.Report.Layout)
+	t.Logf("strict summary: %s", strict.Report.Summary())
+	logTMTLayoutAliases(t, "strict", strict.Notation)
 	assertTMTOwnedDiagnostics(t, "tmt-strict.sysml", strict.Notation, diag.ConformanceStrict)
 
 	const refusedMachine = "Procedure Executive and Analysis Software_Behavior'::"
@@ -76,6 +80,32 @@ func TestTMTLayout(t *testing.T) {
 			}
 		}
 	}
+}
+
+func logTMTLayoutAliases(t *testing.T, mode string, notation []byte) {
+	t.Helper()
+	lines := strings.Split(string(notation), "\n")
+	var aliases []string
+	for _, line := range lines {
+		start := strings.Index(line, "private alias ")
+		if start < 0 {
+			continue
+		}
+		name := strings.TrimSpace(strings.SplitN(line[start+len("private alias "):], " for ", 2)[0])
+		aliases = append(aliases, name)
+		t.Logf("%s private layout alias: %s", mode, strings.TrimSpace(line))
+	}
+	layouts := 0
+	for _, line := range lines {
+		for _, alias := range aliases {
+			if strings.Contains(line, "DiagramLayout::Layout about "+alias) {
+				t.Logf("%s alias layout: %s", mode, strings.TrimSpace(line))
+				layouts++
+				break
+			}
+		}
+	}
+	t.Logf("%s private layout aliases: %d; alias placements: %d", mode, len(aliases), layouts)
 }
 
 func assertTMTOwnedDiagnostics(t *testing.T, name string, notation []byte, mode diag.ConformanceMode) {

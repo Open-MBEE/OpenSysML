@@ -113,6 +113,18 @@ is about it (repeatable)
 .TP
 .B \-json
 Report checks as one JSON document rather than as lines
+.TP
+.BR \-format " \fIformat\fP"
+Report checks as text, json, sarif or junit; json is \-json, and sarif (SARIF
+2.1.0) and junit (JUnit XML) carry \-validate's diagnostics to a CI service
+.TP
+.BR \-baseline " \fIfile\fP"
+A JSON report (as \-validate \-json \-o wrote) whose diagnostics are known: a
+finding with the same code, file and message is suppressed, whatever its line
+.TP
+.B \-warnings\-as\-errors
+Exit nonzero on a warning as on an error; the report keeps the warning's
+severity
 .SS Running behaviors
 .TP
 .BR \-action " \fIname\fP"
@@ -277,8 +289,9 @@ Write this project interchange archive (.kpar) out as a project directory, to
 .TP
 .BR \-o ", " \-output " \fIfile\fP"
 Write what \-convert, \-migrate, \-compile, \-render or \-render\-document
-produces to this file instead of stdout; with \-convert ttl or \-migrate ttl,
-a Flexo branch URL pushes the graph to the branch
+produces, or a \-validate report in a \-format other than text, to this file
+instead of stdout; with \-convert ttl or \-migrate ttl, a Flexo branch URL
+pushes the graph to the branch
 .TP
 .BR \-migration\-report " \fIfile\fP"
 With \-migrate, write the element\-by\-element migration report to this file:

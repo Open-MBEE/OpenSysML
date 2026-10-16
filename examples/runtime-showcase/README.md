@@ -75,7 +75,7 @@ values to its usages — so validation has nothing to say about it:
 ✓ examples/runtime-showcase/mass-rollup.sysml: no errors
 ```
 
-Ask for the total and the rollup cannot be finished:
+Ask for the total and the rollup has no answer:
 
 ```bash
 ./bin/sysml -quiet -e MassRollup::saturnVWithIU.totalMass \
@@ -83,12 +83,14 @@ Ask for the total and the rollup cannot be finished:
 ```
 
 ```
-sysml: evaluation failed: feature value saturnVWithIU.totalMass: feature value InstrumentUnit.totalMass: no value for feature mass
+✓ MassRollup::saturnVWithIU.totalMass
+  = <undetermined>
 ```
 
-The error names the feature (`mass`), the part it belongs to (`InstrumentUnit`)
-and the chain of values that needed it. The model was never wrong; it was
-incomplete in a way only an attempt to use it reveals.
+The model states no value for the instrument unit's `mass`, so nothing it
+rolls up to is determined: the runtime answers `<undetermined>` rather than a
+number it would have to invent. The model was never wrong; it was incomplete
+in a way only an attempt to use it reveals.
 
 ## Whether it reaches orbit
 

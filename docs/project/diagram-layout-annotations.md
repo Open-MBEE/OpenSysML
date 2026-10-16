@@ -58,10 +58,18 @@ library package DiagramLayout {
         attribute width : ScalarValues::Real[0..1];
         attribute height : ScalarValues::Real[0..1];
         attribute collapsed : ScalarValues::Boolean[0..1];
+        attribute showAttributes : ScalarValues::Boolean[0..1];
+        attribute showParts : ScalarValues::Boolean[0..1];
+        attribute showReferences : ScalarValues::Boolean[0..1];
+        attribute showPorts : ScalarValues::Boolean[0..1];
+        attribute showConstraints : ScalarValues::Boolean[0..1];
+        attribute showItems : ScalarValues::Boolean[0..1];
+        attribute showActions : ScalarValues::Boolean[0..1];
     }
 
     metadata def Route {
         attribute points : ScalarValues::Real[0..*] ordered nonunique;
+        ref general : Base::Anything[0..1];
     }
 
     metadata def Canvas {
@@ -191,6 +199,16 @@ Decisions, each with its reason:
   waypoints are one flattened sequence (`x0, y0, x1, y1, …`) because a metadata feature
   holds scalars: a sequence of pairs would need a second attribute definition for the
   pair, which no other tool would read as a point.
+- **A specialization edge is routed from its specific element, naming the general.** A
+  `:>`, `:` or `:>>` clause declares no element of its own that an `about` could name, so
+  the Route of the line a tree draws for it is stated about the specific element and
+  types its `general` with the element the line is drawn to:
+  `metadata Route about Sub { points = (…); ref :>> general : Sup; }`. One Route per
+  general steers each line of a subtype with several, and a Route naming a general
+  never steers an edge the specific element declares itself (a `connection def Sub :>
+  Base` keeps its own Route for its line). A standalone KerML `specialization` member
+  could be named instead, but SysML v2 textual notation does not admit one, and the
+  pilot rejects it in a `.sysml` file.
 - **`Route.points` is `nonunique`.** The specification's default for a feature is
   uniqueness (KerML 7.3.4.4), and OpenSysML's type checker enforces it on a sequence
   written at a unique feature. A vertical segment repeats its x coordinate and a route
@@ -237,7 +255,21 @@ For a (view, element) pair the **effective layout** is, in order:
 3. none: the element is laid out by the consumer.
 
 A `Route` resolves the same way for an edge's declaring element. A `Canvas` belongs to a
-view alone, stated in its body. Where a view's body states two `about` annotations of one
+view alone, stated in its body.
+
+A `Layout`'s `show…` switches are per symbol, as its box is: `showParts = false` hides the
+parts compartment of the annotated element's box in that view (and, inline, in every view
+that states nothing), while the same element drawn in another view, or by another `Layout`,
+keeps its compartments. Unset, a switch leaves the compartment to the rendering, whose
+`showCompartments = false` hides every compartment whatever the switches say. The seven
+switches follow the compartments a modelling tool lets a modeler collapse symbol by symbol:
+`showAttributes` the attributes, `showParts` the composite part rows, `showReferences` the
+`ref` rows of every compartment, `showPorts`, `showConstraints`, `showItems` and `showActions`
+the compartments of those kinds. A hidden compartment's members are neither listed in the
+box nor counted among the rows its stated size clips; the folding notice counts them apart
+(`9 node(s) without a position: 7 drawn as compartment rows of the node above them, 2 in
+compartments its Layout hides left undrawn`). The SysML v1 migrator writes them from a
+Cameo symbol's `SUPPRESS_*` properties (see [migrating from SysML v1](../guide/11-migrating-from-sysml-v1.md#publishing-a-migrated-document-with-cameo-style-diagrams)). Where a view's body states two `about` annotations of one
 kind for one element, the first in declaration order applies and the second is a warning.
 
 With no view — a `#tree`, `#interconnection:X`, `#case` or `#mixed` pseudo-view, and the
@@ -254,7 +286,7 @@ annotation stated anywhere else is element-level.
 ### The rendering tree
 
 `view.Node` carries `Geometry *Geometry` (`X`, `Y`, `Width`, `Height`, `HasSize`,
-`Collapsed`), `view.Edge` carries `Route []Point`, and `view.Rendering` carries
+`Collapsed`, `Hidden`), `view.Edge` carries `Route []Point`, and `view.Rendering` carries
 `Canvas *Canvas` (`Unit`, `Width`, `Height`, `HasSize`). They are values: the tree stays free of AST
 nodes and symbols, and `Rendering.Clone` copies them. Every graph-shaped rendering
 populates them — the containment tree, the interconnection diagram, the state machine

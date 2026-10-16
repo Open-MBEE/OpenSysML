@@ -655,29 +655,34 @@ const thisName = "this"
 // evalName evaluates a name as a reference to what it names, which is what an
 // expression written as a bare name is: `rate`, `A::B::x`.
 func (ec *EvalContext) evalName(qn *ast.QualifiedName) (Value, error) {
+	// unset is the feature the name resolves to when a frame holds it without a
+	// value: no other feature of the name may answer for it.
+	var unset *symbols.Symbol
 	if qn != nil && len(qn.Parts) == 1 {
 		// The feature the name resolves to answers first, from the frame holding it.
-		if val, ok, err := ec.lookupHeld(qn.Parts[0].Text); err != nil {
+		val, ok, held, err := ec.lookupHeld(qn)
+		if err != nil {
 			return Value{}, err
 		} else if ok {
 			return val, nil
 		}
+		unset = held
 	}
 	// Outside an expression body no body-local declaration can shadow a bound
 	// name, so a frame binding is the answer: the common case, kept small.
 	if qn != nil && len(qn.Parts) == 1 && (ec.scope == nil || !ec.scope.BodyLocal()) {
-		if val, ok, err := ec.Lookup(qn.Parts[0].Text); err != nil {
+		if val, ok, err := ec.lookupNamed(qn.Parts[0].Text, unset); err != nil {
 			return Value{}, err
 		} else if ok {
 			return val, nil
 		}
 	}
-	return ec.evalNameGeneral(qn)
+	return ec.evalNameGeneral(qn, unset)
 }
 
 // evalNameGeneral evaluates a name through every source that may answer it, in
-// shadowing order.
-func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
+// shadowing order; no other feature of the name answers for unset, a held feature with no value.
+func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Symbol) (Value, error) {
 	if qn == nil || len(qn.Parts) == 0 {
 		return Value{}, fmt.Errorf("empty feature reference")
 	}
@@ -710,7 +715,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 			}
 		}
 		// Try frame stack first (local bindings from calc/lambda params)
-		if val, ok, err := ec.Lookup(name); err != nil {
+		if val, ok, err := ec.lookupNamed(name, unset); err != nil {
 			return Value{}, err
 		} else if ok {
 			return val, nil
@@ -1101,7 +1106,7 @@ func (ec *EvalContext) undeterminedFeature(sym *symbols.Symbol, spelled string) 
 		}
 		return sequenceOf(nil)
 	}
-	return undeterminedFeatureValue(noValueReason(spelled), count, sym)
+	return unsetFeatureValue(spelled, count, sym)
 }
 
 // declaresType reports a symbol that declares a type: a definition, or a KerML
@@ -1161,6 +1166,11 @@ func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value
 		return val, nil
 	}
 	if !namespaceObjectUsage(sym) {
+		leave, err := ec.ctx.enterBinding(sym)
+		if err != nil {
+			return Value{}, err
+		}
+		defer leave()
 		return ec.evaluateDeclared(sym, value)
 	}
 	// A binding connector joining this usage makes its ends denote the same
@@ -1179,11 +1189,11 @@ func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value
 			}
 		}
 	}
-	if ec.ctx.binding(sym) {
-		return Value{}, &CyclicBindingError{Usage: sym, Stated: ec.ctx.qualifiedSymbolName(sym)}
+	leave, err := ec.ctx.enterBinding(sym)
+	if err != nil {
+		return Value{}, err
 	}
-	ec.ctx.bindingStack = append(ec.ctx.bindingStack, sym)
-	defer func() { ec.ctx.bindingStack = ec.ctx.bindingStack[:len(ec.ctx.bindingStack)-1] }()
+	defer leave()
 	// The binding is made whole or not at all: a value refused after constructing
 	// objects leaves none of them, nor their behaviors, behind.
 	commit, rollback := ec.ctx.beginJournal()
@@ -1201,6 +1211,17 @@ func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value
 // binding reports whether sym's value is being evaluated.
 func (ctx *Context) binding(sym *symbols.Symbol) bool {
 	return slices.Contains(ctx.bindingStack, sym)
+}
+
+// enterBinding keeps sym on the binding stack until leave is called: a value reaching
+// back to a declaration being evaluated, by qualified name (`attribute a = test::self::a`)
+// or through another's, is a cycle, not a recursion.
+func (ctx *Context) enterBinding(sym *symbols.Symbol) (leave func(), err error) {
+	if ctx.binding(sym) {
+		return nil, &CyclicBindingError{Usage: sym, Stated: ctx.qualifiedSymbolName(sym)}
+	}
+	ctx.bindingStack = append(ctx.bindingStack, sym)
+	return func() { ctx.bindingStack = ctx.bindingStack[:len(ctx.bindingStack)-1] }, nil
 }
 
 // bindNamespace records the value a namespace-level usage denotes for the run; a probe
@@ -1386,9 +1407,14 @@ func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
 	if _, ok := ec.self.FeatureValues[name]; !ok {
 		return Value{}, false, nil
 	}
-	fv, err := ec.self.GetFeatureValue(ec.ctx, name)
+	fv, open, err := ec.memberFeatureValue(ec.self, name)
 	if err != nil {
 		return Value{}, true, err
+	}
+	// Read on an object only the model stands behind, a feature whose count the
+	// model leaves open has no fixed sequence of values, as a chain reads it.
+	if value, ok := ec.openFeatureRead(ec.self, fv, open, "", name); ok {
+		return value, true, nil
 	}
 	value, err := ec.ctx.readFeatureValue(fv, name)
 	if err != nil {

@@ -100,8 +100,8 @@ func testInheritedBodyCountExplored(t *testing.T) {
 	if !x.Complete() {
 		t.Fatalf("exploration incomplete: %s", x.Status())
 	}
-	if len(x.Notes) != 0 {
-		t.Errorf("notes = %v, want none", x.Notes)
+	if len(x.Unenumerated) != 0 {
+		t.Errorf("gaps = %v, want none", x.Unenumerated)
 	}
 	if len(x.Outcomes) != 2 {
 		t.Errorf("outcomes = %v, want c = 1 and c = 2", outcomeTexts(x))

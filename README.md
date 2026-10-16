@@ -98,7 +98,7 @@ brew install Open-MBEE/tap/opensysml
 go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest
 go install github.com/Open-MBEE/OpenSysML/cmd/sysml-lsp@latest
 ```
-`sysml -version` then reports the release it was built from (`sysml v0.10.0`), or the commit when
+`sysml -version` then reports the release it was built from (`sysml v0.10.1`), or the commit when
 installed from a checkout.
 
 **Or build from source:**
@@ -578,7 +578,7 @@ how to choose; [guide chapter 9](docs/guide/09-clients.md) works through each on
 | Go, `client/opensysml` | in process, or Connect to a service | with the core (`v*` tags) | [Go packages](docs/reference/api.md) |
 | Python, `opensysml` | gRPC, to a private child service or a named one | PyPI, on the core `v*` tags, at the core's version | [Python API](docs/reference/python-api.md) |
 | Node/TypeScript, `@openmbee/opensysml` | Connect, from Node or a browser page | npm, with per-platform binary packages | [Node API](docs/reference/node-api.md) |
-| Java, `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | not on Maven Central; build from a checkout | [Java API](docs/reference/java-api.md) |
+| Java, `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | Maven Central, at the core's version | [Java API](docs/reference/java-api.md) |
 | Rust, `opensysml` | Connect, blocking, no async runtime | crates.io, on core `v*` tags | [Rust API](docs/reference/rust-api.md) |
 | Julia, `OpenSysML` | Connect-JSON, over `HTTP.jl` | not in General; develop from a checkout | [Julia API](docs/reference/julia-api.md) |
 | MATLAB/Octave, `+opensysml` | Connect-JSON, over `matlab.net.http` or, under GNU Octave, a `curl` subprocess | source files; add to the MATLAB path | [MATLAB API](docs/reference/matlab-api.md) |
@@ -660,7 +660,7 @@ The Go API is documented type by type in [Go packages](docs/reference/api.md) an
 [client/java/README.md](client/java/README.md)); the Rust client is published to crates.io at the core's version
 (`cargo add opensysml`) and is blocking, with no async runtime in its default dependency tree
 ([Rust API](docs/reference/rust-api.md), [client/rust/README.md](client/rust/README.md)). The Java
-artifact is not on Maven Central yet; install it from a checkout.
+artifact is on Maven Central at the core's version (`org.openmbee:opensysml`).
 
 ## Documentation
 

@@ -28,6 +28,11 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
+const (
+	constraintCommand  = "%constraint"
+	requirementCommand = "%requirement"
+)
+
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
 const (
@@ -248,8 +253,8 @@ var metaCommandTable = []metaCommand{
 	{name: cmdRunQuery, group: groupBehavioral, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
 	{name: "%render-run", group: groupBehavioral, args: "<timeline|sequence> [form] [link=<template>]", desc: "render the recorded run as a state timeline or message sequence, optionally linking declarations to their source"},
 	{name: cmdRenderDocument, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml|d2 [pilot|cameo]]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT, PlantUML or D2"},
-	{name: "%constraint", group: groupBehavioral, args: argInvocation, desc: "evaluate a constraint definition, with arguments for its parameters and an object as its subject"},
-	{name: "%requirement", group: groupBehavioral, args: argInvocation, desc: "evaluate a requirement definition, with arguments for its parameters and an object as its subject"},
+	{name: constraintCommand, group: groupBehavioral, args: argInvocation, desc: "evaluate a constraint definition, with arguments for its parameters and an object as its subject"},
+	{name: requirementCommand, group: groupBehavioral, args: argInvocation, desc: "evaluate a requirement definition, with arguments for its parameters and an object as its subject"},
 	{name: "%satisfy", group: groupBehavioral, args: "[name]", desc: "evaluate the satisfaction assertions of the model, or of one element"},
 	{name: "%validate", group: groupBehavioral, args: "<object>", desc: "check every assertion about an object and the objects it holds: the asserted constraints of their types, the requirements they carry and the satisfactions they are subject of; an object is named, #<id>, or a path such as car.engine"},
 	{name: "%check", group: groupBehavioral, args: argName, desc: "ask an SMT solver whether a constraint, requirement or satisfaction can be satisfied (experimental)"},
@@ -708,16 +713,16 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{renderDocumentUsage}, false, nil), true
 		}
 		return metaOut(s.doRenderDocument(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), cmdRenderDocument)))), true
-	case "%constraint":
+	case constraintCommand:
 		if len(fields) < 2 {
 			return metaOut([]string{constraintUsage}, false, nil), true
 		}
-		return metaOut(s.doConstraint(strings.TrimPrefix(strings.TrimSpace(line), "%constraint"))), true
-	case "%requirement":
+		return metaOut(s.doConstraint(strings.TrimPrefix(strings.TrimSpace(line), constraintCommand))), true
+	case requirementCommand:
 		if len(fields) < 2 {
 			return metaOut([]string{requirementUsage}, false, nil), true
 		}
-		return metaOut(s.doRequirement(strings.TrimPrefix(strings.TrimSpace(line), "%requirement"))), true
+		return metaOut(s.doRequirement(strings.TrimPrefix(strings.TrimSpace(line), requirementCommand))), true
 	case "%satisfy":
 		return metaOut(s.doSatisfy(fields[1:])), true
 	case "%validate":
@@ -2475,7 +2480,7 @@ func (s *Session) satisfyVerdictsOf(ctx *runtime.Context, a *runtime.SatisfyAsse
 			// The usage names the object it is about, so one is made as for `by`.
 			return []Verdict{s.satisfyVerdict(ctx, a)}
 		}
-		return []Verdict{s.withVerifications(s.satisfyNeedsObject(a, typ), ctx, a.AssertedRequirement())}
+		return []Verdict{s.withVerifications(s.satisfyNeedsObject(a, typ), ctx, a.AssertedRequirement(), nil)}
 	}
 	out := make([]Verdict, 0, len(subjects))
 	for _, subject := range subjects {
@@ -2576,7 +2581,7 @@ func (s *Session) satisfyVerdictOn(ctx *runtime.Context, a *runtime.SatisfyAsser
 	// A `satisfy requirement r by p` declares its requirement rather than
 	// referencing one, so the assertion names it.
 	req := a.AssertedRequirement()
-	verdict := s.withVerifications(satisfactionVerdict(a, result, err, subject, owner), ctx, req)
+	verdict := s.withVerifications(satisfactionVerdict(a, result, err, subject, owner), ctx, req, subject)
 	return standing(verdict, plan)
 }
 

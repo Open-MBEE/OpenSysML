@@ -363,6 +363,23 @@ objectives with the corresponding edge attributes; PlantUML uses `usecase`, `act
 rectangles and notes. Graph kinds keep Mermaid as their machine form. Markdown, CSV and TSV are
 table-only forms and return `WrongFormError` for both new kinds.
 
+## Sequence renderings
+
+A `SequenceView` draws the occurrences an interaction declares in its body as lifelines and
+each `message` or `flow` whose ends are events on them as a directed message, a message whose
+ends are on one lifeline as a self-message. A message is one row, so its send and receive events
+share the row's time, and the rows are ordered by the successions the model states between the
+events on them (`sequence.go`, `orderMessages`): a member-attached `then` and a
+`succession first a then b` between two events each order the two messages those events are on,
+an order running through an event no message attaches to is carried through it, and
+declaration order decides only between messages nothing orders. A message attached to a
+lifeline itself or to a port of it, rather than to an event on it, has no time of its own at that
+end, so it neither orders nor is ordered there. A relay whose successions on
+one lifeline order message `b`'s send before message `c`'s is drawn `b` above `c` whatever order
+the receiving events are declared in. A succession running against a message's own direction (its receive before its send), or
+successions that order one message both above and below another, cannot be drawn as rows, so the cycle is reported as not represented and the messages
+keep declaration order. The Mermaid, PlantUML and D2 forms write the messages in that order.
+
 ## Mermaid
 
 Mermaid is the default machine-readable form for graph-shaped views. Trees, interconnections and
@@ -897,10 +914,15 @@ digraph "PlantViews::placedView" {
   textual notation, as the label shows it: a modifier of its keyword (`ref`), its name, `: Type`
   when typings are shown, `= value` when the usage is bound (`gain : dB = 15.0`,
   `constraint1 : 'Signal Output'`; a value the renderer does not spell, such as an invocation,
-  is its source text). No edge is written to a member drawn as a row, and the
+  is its source text; a member with no name or type to show reads as its keyword, as a head
+  does, so no row is ever empty). No edge is written to a member drawn as a row, and the
   notice counts them (`4 node(s) without a position, drawn as compartment rows of the node
   above them`); a row shows the member alone, so the members nested under a row are left undrawn
-  and the notice counts them apart (`, and 1 node(s) under them left undrawn`). A member with a
+  and the notice counts them apart (`, and 1 node(s) under them left undrawn`). A member of a
+  compartment the owner's `Layout` hides with a `show…` switch (`showParts = false`; see
+  [DiagramLayout annotations](diagram-layout-annotations.md)) is not drawn as a row and the
+  notice says so (`9 node(s) without a position: 7 drawn as compartment rows of the node above
+  them, 2 in compartments its Layout hides left undrawn`); its edges are dropped as a row's are. A member with a
   `Layout` of its own stays a node (a compartment row by its box when inside the owner's, an edge
   when outside), as does an unplaced member with a positioned node under it, so that node keeps
   its owner. An unpositioned tree is unchanged: every member

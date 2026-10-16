@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+const (
+	useCaseLabel = "use case"
+)
+
 // Palette names the set of fill colours the DOT, Mermaid, PlantUML and D2 forms
 // colour nodes with, one per keyword family (part, item, port, …, see
 // paletteFamilies). Mermaid sequence diagrams report that they cannot fill
@@ -275,7 +279,7 @@ func (p Palette) Color(i, n int) string {
 // paletteFamilies is the order keyword families take a palette's colours in;
 // a kind fitting none comes last.
 var paletteFamilies = []string{"part", "item", "port", "attribute", "action", "state", "requirement", "constraint",
-	"connection", "interface", "use case", "case", "allocation", "analysis", "verification", "enum", "occurrence", "flow"}
+	"connection", "interface", useCaseLabel, "case", "allocation", "analysis", "verification", "enum", "occurrence", "flow"}
 
 // familyOther is the family of every kind no keyword family fits.
 const familyOther = "other"
@@ -289,7 +293,7 @@ var familyWords = map[string]string{
 	"interface": "interface", "case": "case", "allocation": "allocation", "allocate": "allocation",
 	"analysis": "analysis", "verification": "verification", "enum": "enum", "occurrence": "occurrence",
 	"flow": "flow", "message": "flow", "perform": "action",
-	"actor": "use case", "subject": "case", "objective": "requirement",
+	"actor": useCaseLabel, "subject": "case", "objective": "requirement",
 }
 
 // paletteFamily is the keyword family of a node kind: `part def` and `part`
@@ -298,7 +302,7 @@ func paletteFamily(kind string) string {
 	words := strings.Fields(definitionKeyword(kind))
 	for i, word := range words {
 		if word == "use" && i+1 < len(words) && words[i+1] == "case" {
-			return "use case"
+			return useCaseLabel
 		}
 		if family, ok := familyWords[word]; ok {
 			return family

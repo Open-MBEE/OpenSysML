@@ -132,14 +132,12 @@ class RationalProtosTest {
             List.of("", "3"),
             List.of("1", ""));
     for (List<String> terms : malformed) {
+      org.openmbee.opensysml.proto.Value malformedValue =
+          org.openmbee.opensysml.proto.Value.newBuilder()
+              .setRationalValue(wire(terms.get(0), terms.get(1)))
+              .build();
       assertThrows(
-          TransportException.class,
-          () ->
-              Protos.value(
-                  org.openmbee.opensysml.proto.Value.newBuilder()
-                      .setRationalValue(wire(terms.get(0), terms.get(1)))
-                      .build()),
-          terms.toString());
+          TransportException.class, () -> Protos.value(malformedValue), terms.toString());
     }
   }
 

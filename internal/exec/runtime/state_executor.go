@@ -59,6 +59,8 @@ type StateExecutor struct {
 	// two usages of one state definition keep separate values.
 	stateAttrs     map[*ast.StateNode]map[string]Value
 	stateAttrCells map[*ast.StateNode]*bodyCells
+	// shadowed caches holdsShadowed, nil until first asked.
+	shadowed *bool
 	// attrIndex indexes the machine's attributes by feature, stateAttrIndex each state's.
 	attrIndex      map[*symbols.Symbol]string
 	stateAttrIndex map[*ast.StateNode]map[*symbols.Symbol]string
@@ -375,7 +377,7 @@ func (e *StateExecutor) initializeAttributes() error {
 		if _, held := e.stateData[attr.Name]; held {
 			continue
 		}
-		if e.occurrence != nil {
+		if e.occurrence != nil && !attr.Shadowed {
 			fv, err := e.occurrence.GetFeatureValue(e.ctx, attr.Name)
 			if err != nil {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
@@ -452,6 +454,52 @@ func (e *StateExecutor) dataFrame() frame {
 		vars: e.stateData, cells: e.stateCells, held: e.heldAttributes(), performed: e.stateMachine, machine: e,
 		ensureCells: e.ensureStateCells,
 	}
+}
+
+// heldKey is the name the machine or the states enclosing state bind the feature a
+// statement written in scope names: the ShadowedKey of a hidden inherited
+// attribute, else name. Only a machine holding one resolves its targets.
+func (e *StateExecutor) heldKey(state *ast.StateNode, scope *symbols.Scope, name string) string {
+	if !e.holdsShadowed() || scope == nil {
+		return name
+	}
+	sym, ok := e.ctx.lookupName(scope, name)
+	if !ok || sym == nil {
+		return name
+	}
+	for _, ancestor := range e.getParentChain(state) {
+		if key, held := e.stateAttrIndex[ancestor][sym]; held {
+			return key
+		}
+	}
+	if key, held := e.heldAttributes()[sym]; held {
+		return key
+	}
+	return name
+}
+
+// holdsShadowed reports whether the machine or one of its states holds a hidden
+// inherited attribute, decided once from the graph.
+func (e *StateExecutor) holdsShadowed() bool {
+	if e.shadowed == nil {
+		shadowed := slices.ContainsFunc(e.graph.Attributes, func(attr lower.Attribute) bool { return attr.Shadowed })
+		for _, attrs := range e.graph.StateAttributes {
+			shadowed = shadowed || slices.ContainsFunc(attrs, func(attr lower.Attribute) bool { return attr.Shadowed })
+		}
+		e.shadowed = &shadowed
+	}
+	return *e.shadowed
+}
+
+// shadowedAttribute reports whether name keys a hidden inherited attribute, which
+// the machine's data alone holds: the occurrence's slots are keyed by name.
+func (e *StateExecutor) shadowedAttribute(name string) bool {
+	for _, attr := range e.graph.Attributes {
+		if attr.Name == name {
+			return attr.Shadowed
+		}
+	}
+	return false
 }
 
 // heldAttributes indexes the machine's attributes by the features they declare.
@@ -586,6 +634,9 @@ func (e *StateExecutor) stateAttributeValues(state *ast.StateNode, name string) 
 			if scope == nil {
 				scope = e.graph.Scope
 			}
+			if attr.Shadowed && attr.Symbol != nil && attr.Symbol.OwnerScope != nil {
+				scope = attr.Symbol.OwnerScope
+			}
 			return data, scope, e.stateAttrCells[ancestor], true
 		}
 	}
@@ -618,6 +669,9 @@ func (e *StateExecutor) materializeOccurrence() (*Instance, error) {
 	}
 	e.occurrence = inst
 	for _, attr := range e.graph.Attributes {
+		if attr.Shadowed {
+			continue
+		}
 		if value, held := e.stateData[attr.Name]; held {
 			if cell := e.stateCells.existingCell(attr.Name); cell != nil && cell.binding != nil && !cell.fv.Written {
 				if _, err := e.mirrorBindingOccurrence(attr.Name, value, cell); err != nil {
@@ -671,7 +725,7 @@ func (e *StateExecutor) mirrorBindingOccurrence(name string, value Value, cell *
 func (e *StateExecutor) assignAttribute(name string, value Value) error {
 	endWrite := e.ctx.beginFeatureWrite(nil)
 	defer endWrite()
-	if e.occurrence != nil {
+	if e.occurrence != nil && !e.shadowedAttribute(name) {
 		if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
 			return fmt.Errorf("%w: write %s of object #%d: %w",
 				ErrStatePerformanceOccurrence, name, e.occurrence.ID, err)
@@ -686,10 +740,14 @@ func (e *StateExecutor) assignAttribute(name string, value Value) error {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
 		where := func() string { return "state machine " + symbolText(e.stateMachine) }
-		if err := e.ctx.checkMutable(e.graph.Scope, func() string { return where() + ": assignment to " + name }, name); err != nil {
+		scope, declared := e.graph.Scope, name
+		if e.holdsShadowed() {
+			scope, declared = declarationHeldUnder(e.heldAttributes(), scope, name)
+		}
+		if err := e.ctx.checkMutable(scope, func() string { return where() + ": assignment to " + name }, declared); err != nil {
 			return err
 		}
-		if err := e.ctx.checkNamedWriteAs(e.graph.Scope, where, name, &value); err != nil {
+		if err := e.ctx.checkNamedWriteAs(scope, where, declared, &value); err != nil {
 			return err
 		}
 	}
@@ -4113,13 +4171,7 @@ func (e *StateExecutor) changeLabel(trans *lower.Transition) string {
 // chooseStepOrder draws what goes first under ChoiceStepOrder — the move of a due do
 // behavior, or the dispatch — and reports whether the dispatch does.
 func (e *StateExecutor) chooseStepOrder(due []*doAction, dispatch string) (bool, error) {
-	choice := ChoicePoint{
-		Kind:         ChoiceStepOrder,
-		Where:        stepWherePrefix + semantics.FormatReal(e.ctx.clock.now),
-		Alternatives: []string{doStepLabel(e.stateNames(statesOf(due))), dispatch},
-		File:         e.stateMachine.DocName,
-		Span:         e.stateMachine.DeclSpan,
-	}
+	choice := e.stepOrderChoice(due, dispatch)
 	scheduling := e.ctx.scheduling()
 	choice.Taken = scheduling.choose(choice, nil)
 	if err := scheduling.refusal(); err != nil {
@@ -4130,6 +4182,35 @@ func (e *StateExecutor) chooseStepOrder(due []*doAction, dispatch string) (bool,
 	}
 	e.noteChoice(choice)
 	return choice.Taken == 1, nil
+}
+
+// stepOrderChoice is the ChoiceStepOrder between a move of one of the due do
+// behaviors and the dispatch, before it is drawn.
+func (e *StateExecutor) stepOrderChoice(due []*doAction, dispatch string) ChoicePoint {
+	return ChoicePoint{
+		Kind:         ChoiceStepOrder,
+		Where:        stepWherePrefix + semantics.FormatReal(e.ctx.clock.now),
+		Alternatives: []string{doStepLabel(e.stateNames(statesOf(due))), dispatch},
+		File:         e.stateMachine.DocName,
+		Span:         e.stateMachine.DeclSpan,
+	}
+}
+
+// noteRoundStepOrder records the step order a fixed policy's round takes without
+// drawing it: a due do move goes before a dispatch that would act now, as the
+// round runs whole and dispatches after it. The order is the library's open one
+// all the same, so the run reports it as the unit-at-a-time policies do; a
+// preview that fails records nothing, the dispatch surfacing the failure after the round.
+func (e *StateExecutor) noteRoundStepOrder(due []*doAction) {
+	dispatch := e.dueDispatch()
+	if !dispatch.acts || dispatch.fails != nil {
+		return
+	}
+	choice := e.stepOrderChoice(due, dispatch.step)
+	if len(due) == 1 {
+		choice.Span = due[0].state.Span()
+	}
+	e.noteChoice(choice)
 }
 
 // doStepLabel names the move of one of the states' do behaviors as a step order's alternative.
@@ -4312,8 +4393,9 @@ func (e *StateExecutor) endDoRun(run *doRun) {
 // and returns how many ran. One round is how concurrently active states share
 // the machine: each performs one action before any performs its next, in an
 // order the policy draws (entry order by default), reported as a choice where
-// two or more are due. A behavior that waits on the clock or for a message
-// pauses there and is a state's action for the round its wait ends in.
+// two or more are due, and each before the dispatch due beside it, reported as
+// a step order where that dispatch would act. A behavior that waits on the clock
+// or for a message pauses there and is a state's action for the round its wait ends in.
 func (e *StateExecutor) runDoRound() (int, error) {
 	if len(e.doActions) == 0 {
 		return 0, nil
@@ -4331,6 +4413,7 @@ func (e *StateExecutor) runDoRound() (int, error) {
 		if len(due) == 0 {
 			break
 		}
+		e.noteRoundStepOrder(due)
 		next, err := e.chooseDoAction(due)
 		if err != nil {
 			return ran, err

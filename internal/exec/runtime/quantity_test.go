@@ -89,9 +89,9 @@ func TestQuantityArithmeticReportsOverflow(t *testing.T) {
 		if err != nil || FormatValue(got) != exact {
 			t.Errorf("%s = %s, %v; want %s", src, FormatValue(got), err, exact)
 		}
-		real := "(1.0 ** 0.5) * " + src
-		if got, err := evalIn(t, ctx, scope, real); !errors.Is(err, semantics.ErrArithmeticOverflow) {
-			t.Errorf("%s = %+v, %v; want ErrArithmeticOverflow", real, got, err)
+		realSrc := "(1.0 ** 0.5) * " + src
+		if got, err := evalIn(t, ctx, scope, realSrc); !errors.Is(err, semantics.ErrArithmeticOverflow) {
+			t.Errorf("%s = %+v, %v; want ErrArithmeticOverflow", realSrc, got, err)
 		}
 	}
 }
@@ -546,5 +546,30 @@ func TestNotAQuantityHintIsStatic(t *testing.T) {
 	}
 	if len(ctx.InstanceIDs()) == 0 {
 		t.Error("pick() materialized no object: the effect the diagnostic must not have is not observable")
+	}
+}
+
+// An open magnitude is a quantity's only where a number or a vector may be read from
+// it: a feature typed String, Boolean or by a quantity is no magnitude, bound or not.
+func TestOpenMagnitudeMustAdmitANumber(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		private import ISQ::*;
+		private import SI::*;
+		attribute x : Real;
+		attribute n : Integer;
+		attribute label : String;
+		attribute flag : Boolean;
+		attribute m : MassValue;
+	}`))
+	scope := oneSymbol(t, idx, "test").Scope
+	for src, count := range map[string]string{"x [kg]": "[1]", "n [kg]": "[1]"} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	for _, src := range []string{"label [kg]", "flag [kg]", "m [kg]"} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrNotAQuantity) {
+			t.Errorf("%s error = %v, want ErrNotAQuantity", src, err)
+		}
 	}
 }

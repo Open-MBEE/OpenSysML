@@ -1,0 +1,12 @@
+CameraViews::roomy - tree rendering (render asTreeDiagram)
+
+part def Imaging at (10, 10) size 300×420
+  attribute resolution
+  attribute exposure
+  part lens
+  part sensor
+  part mount
+  port data
+  constraint focus
+  action capture
+  item 'frame'

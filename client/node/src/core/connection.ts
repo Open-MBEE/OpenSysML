@@ -948,6 +948,7 @@ export class Connection {
       runsBudget: status?.runsBudget ?? 0,
       depthBudget: status?.depthBudget ?? 0,
       probabilitiesLowerBound: status?.probabilitiesLowerBound ?? false,
+      unenumerated: status?.unenumerated ?? [],
     });
   }
 

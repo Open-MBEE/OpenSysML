@@ -92,12 +92,7 @@ func (c ChoiceTaken) String() string {
 		return fmt.Sprintf("step %d: %s -> %s%s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
 	case ChoiceTransition:
 		return fmt.Sprintf("%s -> %s%s", choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
-	case ChoiceStatementOrder:
-		if c.Step > 0 {
-			return fmt.Sprintf("step %d: %s: %s first of %s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
-		}
-		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
-	case ChoiceGuardOrder:
+	case ChoiceStatementOrder, ChoiceGuardOrder:
 		if c.Step > 0 {
 			return fmt.Sprintf("step %d: %s: %s first of %s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
 		}
@@ -171,21 +166,18 @@ type Exploration struct {
 	// BudgetsHit names the budgets the exploration ran into, `runs` before
 	// `depth`; none when it is complete.
 	BudgetsHit []string
-	// Notes are the distinct reasons the runs' coverage is narrower than their
-	// schedules, so a complete outcome set is observed rather than proved.
-	Notes []string
+	// Unenumerated are the constructs whose unordered alternatives the runs took
+	// in one order without a choice point, so fewer orders were run than the
+	// library admits; none when the exploration is complete.
+	Unenumerated []CoverageGap
 	// Scope is the distinct reasons the runs' outcomes were observed short of quiescence.
 	Scope    []ObservationReason
 	weighted bool
 }
 
-// Complete reports whether every linearization was run.
-func (x *Exploration) Complete() bool { return len(x.BudgetsHit) == 0 }
-
-// Covered reports whether a complete exploration saw every schedule: a note the
-// runs left, like a repeated step's performances run one move apiece, says it
-// did not.
-func (x *Exploration) Covered() bool { return x.Complete() && len(x.Notes) == 0 }
+// Complete reports whether every linearization the library admits was run: no
+// budget stopped the exploration and no construct was left unenumerated.
+func (x *Exploration) Complete() bool { return len(x.BudgetsHit) == 0 && len(x.Unenumerated) == 0 }
 
 // Weighted reports whether a committed run made a weighted choice.
 func (x *Exploration) Weighted() bool { return x.weighted }
@@ -206,22 +198,28 @@ func (x *Exploration) FailedLinearizations() int {
 func (x *Exploration) ProbabilitiesBounded() bool { return !x.Complete() && x.Weighted() }
 
 // Status renders how the exploration ended: `complete (N runs)`, or which budget
-// was hit after how many runs.
+// was hit after how many runs and what was left unenumerated.
 func (x *Exploration) Status() string {
 	if x.Complete() {
 		return fmt.Sprintf("complete (%d runs)", x.Runs)
 	}
-	named := make([]string, len(x.BudgetsHit))
-	for i, budget := range x.BudgetsHit {
-		limit := x.Budget.Runs
-		if budget == "depth" {
-			limit = x.Budget.Depth
-		} else if budget == BoundStatementOrders {
-			limit = maxStatementOrderEvaluations
+	status := fmt.Sprintf("incomplete after %d runs", x.Runs)
+	if len(x.BudgetsHit) > 0 {
+		named := make([]string, len(x.BudgetsHit))
+		for i, budget := range x.BudgetsHit {
+			limit := x.Budget.Runs
+			if budget == "depth" {
+				limit = x.Budget.Depth
+			} else if budget == BoundStatementOrders {
+				limit = maxStatementOrderEvaluations
+			}
+			named[i] = fmt.Sprintf("%s budget %d", budget, limit)
 		}
-		named[i] = fmt.Sprintf("%s budget %d", budget, limit)
+		status = fmt.Sprintf("incomplete: %s hit after %d runs", strings.Join(named, " and "), x.Runs)
 	}
-	status := fmt.Sprintf("incomplete: %s hit after %d runs", strings.Join(named, " and "), x.Runs)
+	if len(x.Unenumerated) > 0 {
+		status += "; not enumerated: " + DescribeGaps(x.Unenumerated)
+	}
 	if x.ProbabilitiesBounded() {
 		status += "; probabilities are lower bounds"
 	}

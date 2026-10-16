@@ -821,7 +821,11 @@ maximum model-draw probability over schedulers; a range that collapses to one va
 incomplete exploration prefixes numeric cells with `≥` and adds `; probabilities are lower bounds`
 only when a weighted choice occurred, since the runs not taken can only add. Six
 linearizations, three outcomes, two each; `complete (6 runs)` says every choice sequence was
-tried. Under `explore` an action step is one token advancing one node — not, as under the fixed
+tried. `complete` is a claim about the model, not the budget: were the runtime to perform a
+construct in one order without offering the alternatives as a choice point (no construct does
+today), the status would read `incomplete after N runs; not enumerated: …` naming the
+construct, the standing *observed* rather than *proved*, and the gRPC and client results list
+it under `unenumerated`. Under `explore` an action step is one token advancing one node — not, as under the fixed
 policies, every steppable token moving once — so the picks fall in consecutive steps and a branch
 of several nodes can run ahead of, or be overtaken by, a concurrent one at each of them. A
 `complete` exploration therefore covers every interleaving of the nodes the library leaves
@@ -1738,7 +1742,11 @@ A case usage owned by a part definition (`part def Holder { analysis inner : Cos
 subject s = h; } part h : Ship; }`) is a feature of every object of that type, as a `calc` usage
 owned by a part is: `holder.inner.total` runs the case on first read and keeps the result until a
 value it depends on changes, and an attribute redefined from an analysis output (`attribute :>>
-fuelEconomy = cityAnalysis.fuelEconomyResult;`) evaluates through the same path.
+fuelEconomy = cityAnalysis.fuelEconomyResult;`) evaluates through the same path. Run by name, such a
+case takes the object named after it as the object it is a feature of (`-analysis "Holder::inner
+holder"`), else the single object of the definition the run holds; `-validate=<object>`,
+`-requirement` and `-satisfy` run a verification case a definition owns once per object of it the
+check is about, naming the object on its verdict.
 
 What stops a case is reported as an error naming it, never as a silent empty result: a
 `subject` nothing binds (`analysis An::CostAnalysis: s subject is unbound: bind it
@@ -1778,8 +1786,8 @@ $ sysml -analysis L::checkSlow landing.sysml
 ```
 
 The two verdicts are independent: an objective stating no condition of its own —
-`objective { verify touchdown; }` alone — stays `undecided` and leaves the case unresolved, while
-the body verdict beside it still reports what the body answered.
+`objective { verify touchdown; }` alone — is `satisfied`, so the case's status is the body verdict
+beside it, which reports what the body answered.
 
 A verification case's objective checks the case's subject, not its verdict: the library binds it
 so (`VerificationCases::VerificationCase::obj` redefines `Cases::Case::obj` with `subject subj =
@@ -1826,7 +1834,10 @@ as for any case.
 A body whose result is a `VerificationCases::PassIf(...)` call is `pass` or `fail` as that library
 calculation computes it; one binding `verdict` to a `VerdictKind` literal reports that literal; one
 producing no verdict value is `inconclusive`; and one whose run could not be carried out is `error`
-carrying the same message the run failed with. Each nested `verification` step is reported on its
+carrying the same message the run failed with. A case a part definition owns, swept with no object
+of the definition instantiated, is `inconclusive` saying it needs an object of the definition — the
+case is a feature of such an object, so there is nothing for it to run on, and nothing wrong with the
+model. Each nested `verification` step is reported on its
 own line, marked `(subcase)`, since the library states no roll-up of a subcase's verdict into its
 parent's.
 

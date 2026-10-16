@@ -395,8 +395,8 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 			if !x.Complete() {
 				t.Fatalf("%s exploration incomplete: %s", name, x.Status())
 			}
-			if len(x.Notes) != 0 {
-				t.Errorf("%s notes = %v, want none", name, x.Notes)
+			if len(x.Unenumerated) != 0 {
+				t.Errorf("%s gaps = %v, want none", name, x.Unenumerated)
 			}
 			values := map[string]bool{}
 			for _, text := range outcomeTexts(x) {
@@ -406,40 +406,41 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 				t.Errorf("%s outcomes = %v, want c = 1 and c = 2", name, outcomeTexts(x))
 			}
 			report := checkStart(t, m, starterOf(m.action(t, name)), unreduced())
-			if len(report.Notes) != 0 {
-				t.Errorf("%s check notes = %v, want none", name, report.Notes)
+			if len(report.Unenumerated) != 0 {
+				t.Errorf("%s check gaps = %v, want none", name, report.Unenumerated)
 			}
 			if report.Verdict != CheckDivergent {
 				t.Errorf("%s check verdict = %q, want divergent over c", name, report.Verdict)
 			}
 		}
 		x := m.exploreAction(t, "explore", "FlatAlone")
-		if len(x.Notes) != 0 {
-			t.Errorf("FlatAlone notes = %v, want none", x.Notes)
+		if len(x.Unenumerated) != 0 {
+			t.Errorf("FlatAlone gaps = %v, want none", x.Unenumerated)
 		}
 	})
 
-	// A snapshot restores the coverage notes it captured: one taken before a
-	// note is recorded clears it, one taken after keeps it.
-	t.Run("coverage-notes-restore", func(t *testing.T) {
+	// A snapshot restores the coverage gaps it captured: one taken before a
+	// gap is recorded clears it, one taken after keeps it.
+	t.Run("coverage-gaps-restore", func(t *testing.T) {
 		_, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test { action def Noted; }`))
 		before, err := ctx.Snapshot()
 		if err != nil {
 			t.Fatalf("Snapshot: %v", err)
 		}
-		const reason = "a schedule the run did not search"
-		ctx.noteCoverage(reason)
+		// No construct records a gap today, so the test names one of its own.
+		const gap CoverageGap = 1
+		ctx.noteGap(gap)
 		after, err := ctx.Snapshot()
 		if err != nil {
-			t.Fatalf("Snapshot after the note: %v", err)
+			t.Fatalf("Snapshot after the gap: %v", err)
 		}
 		after.Restore()
-		if got := ctx.coverageReasons(); !slices.Contains(got, reason) {
-			t.Errorf("notes after restoring the later snapshot = %v, want the reason", got)
+		if got := ctx.gaps(); !slices.Contains(got, gap) {
+			t.Errorf("gaps after restoring the later snapshot = %v, want the gap", got)
 		}
 		before.Restore()
-		if got := ctx.coverageReasons(); len(got) != 0 {
-			t.Errorf("notes after restoring the earlier snapshot = %v, want none", got)
+		if got := ctx.gaps(); len(got) != 0 {
+			t.Errorf("gaps after restoring the earlier snapshot = %v, want none", got)
 		}
 	})
 

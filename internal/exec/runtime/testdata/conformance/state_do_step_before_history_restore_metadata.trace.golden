@@ -10,6 +10,7 @@ stmt action body
       eval literal "r2(entry) " -> "r2(entry) "
     eval operator + -> "r2(entry) "
 transition: r1 -> r2 (event: accept Go)
+choice at t=0.0: next do l2, dispatch accept Pause (unordered; took do l2 first)
 do: l2
 stmt action body
   stmt assign log

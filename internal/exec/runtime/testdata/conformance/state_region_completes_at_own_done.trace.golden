@@ -1,3 +1,4 @@
+choice at t=0.0: next do C, dispatch accept B (unordered; took do C first)
 do: C
 stmt action body
 enter action node: state behavior wait

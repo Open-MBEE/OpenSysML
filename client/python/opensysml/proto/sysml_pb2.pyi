@@ -204,18 +204,22 @@ class VerifyRequirementRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ..., question: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., named_arguments: _Optional[_Mapping[str, Value]] = ...) -> None: ...
 
 class VerificationVerdict(_message.Message):
-    __slots__ = ("case_id", "kind", "detail", "subcase", "requirement_id")
+    __slots__ = ("case_id", "kind", "detail", "subcase", "requirement_id", "instance_id", "instance_type_id")
     CASE_ID_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     DETAIL_FIELD_NUMBER: _ClassVar[int]
     SUBCASE_FIELD_NUMBER: _ClassVar[int]
     REQUIREMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_TYPE_ID_FIELD_NUMBER: _ClassVar[int]
     case_id: str
     kind: str
     detail: str
     subcase: bool
     requirement_id: str
-    def __init__(self, case_id: _Optional[str] = ..., kind: _Optional[str] = ..., detail: _Optional[str] = ..., subcase: _Optional[bool] = ..., requirement_id: _Optional[str] = ...) -> None: ...
+    instance_id: int
+    instance_type_id: str
+    def __init__(self, case_id: _Optional[str] = ..., kind: _Optional[str] = ..., detail: _Optional[str] = ..., subcase: _Optional[bool] = ..., requirement_id: _Optional[str] = ..., instance_id: _Optional[int] = ..., instance_type_id: _Optional[str] = ...) -> None: ...
 
 class VerifyRequirementResponse(_message.Message):
     __slots__ = ("verdict", "instances", "error", "diagnostics", "verification_verdicts")
@@ -438,7 +442,7 @@ class Outcome(_message.Message):
     def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., final_state: _Optional[str] = ..., states_visited: _Optional[_Iterable[str]] = ..., error: _Optional[str] = ..., linearizations: _Optional[int] = ..., witness: _Optional[_Iterable[str]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., probability: _Optional[float] = ..., probability_range: _Optional[_Union[ProbabilityRange, _Mapping]] = ...) -> None: ...
 
 class ExplorationStatus(_message.Message):
-    __slots__ = ("complete", "runs", "budgets_hit", "runs_budget", "depth_budget", "probabilities_lower_bound", "failed_linearizations")
+    __slots__ = ("complete", "runs", "budgets_hit", "runs_budget", "depth_budget", "probabilities_lower_bound", "failed_linearizations", "unenumerated")
     COMPLETE_FIELD_NUMBER: _ClassVar[int]
     RUNS_FIELD_NUMBER: _ClassVar[int]
     BUDGETS_HIT_FIELD_NUMBER: _ClassVar[int]
@@ -446,6 +450,7 @@ class ExplorationStatus(_message.Message):
     DEPTH_BUDGET_FIELD_NUMBER: _ClassVar[int]
     PROBABILITIES_LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
     FAILED_LINEARIZATIONS_FIELD_NUMBER: _ClassVar[int]
+    UNENUMERATED_FIELD_NUMBER: _ClassVar[int]
     complete: bool
     runs: int
     budgets_hit: _containers.RepeatedScalarFieldContainer[str]
@@ -453,7 +458,8 @@ class ExplorationStatus(_message.Message):
     depth_budget: int
     probabilities_lower_bound: bool
     failed_linearizations: int
-    def __init__(self, complete: _Optional[bool] = ..., runs: _Optional[int] = ..., budgets_hit: _Optional[_Iterable[str]] = ..., runs_budget: _Optional[int] = ..., depth_budget: _Optional[int] = ..., probabilities_lower_bound: _Optional[bool] = ..., failed_linearizations: _Optional[int] = ...) -> None: ...
+    unenumerated: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, complete: _Optional[bool] = ..., runs: _Optional[int] = ..., budgets_hit: _Optional[_Iterable[str]] = ..., runs_budget: _Optional[int] = ..., depth_budget: _Optional[int] = ..., probabilities_lower_bound: _Optional[bool] = ..., failed_linearizations: _Optional[int] = ..., unenumerated: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ListEnginesRequest(_message.Message):
     __slots__ = ()

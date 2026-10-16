@@ -233,8 +233,8 @@ the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23
 the 4 of `body_local_conformance.cases` and the 10 of `exact_rationals.cases`:
 
 ```
-agree: 217 · kind-only: 1 · order-only: 0 · disagree: 29 · differs-by-design: 5
-pilot-unevaluated: 124 · pilot-silent: 21 · pilot-error: 5 · ours-error: 10 · ours-undetermined: 28
+agree: 216 · kind-only: 1 · order-only: 0 · disagree: 26 · differs-by-design: 5
+pilot-unevaluated: 124 · pilot-silent: 21 · pilot-error: 5 · ours-error: 10 · ours-undetermined: 32
 both-error: 16 · nondeterministic: 0
 ```
 
@@ -793,16 +793,23 @@ us — the pilot's `re`/`im` have no evaluable body, and the same run answers `f
 zero. Read it as unrefereeable, and see the `ComplexFunctions` row of
 [spec-compliance.md](spec-compliance.md) for the adjudication.
 
-The remaining three are the subsetting-membership cases added with the fix they were meant to
-referee, and they are unrefereeable in the same way. `w6d:subsetting-defaulted-count` asks
-`size(subsystem)` of a `part subsystem : Sub[*] default null;` that `part a : Sub :> subsystem;`
-and `part b : Sub :> subsystem;` subset: we answer `2`, the pilot `0`. Its `0` is the folded
-default, not a count of members — `w6d:subsetting-two-count` drops the default and the pilot
-answers `1` for the same two parts, and `w6d:subsetting-none-count` answers `1` for a collection
-nothing subsets (we answer `2` and `0`). A count that is `1` for two members and for none is the
-static evaluator reading the feature as one value, so it decides nothing about which objects a
-subsetted collection holds; `w6d:subsetting-rollup` agrees only because `Sub::mass` defaults to
-`1.0` and one part subsets. The two empty-aggregate cases of the same round land in
+The subsetting-membership cases added with the fix they were meant to referee are
+unrefereeable in the same way, and now bucket `ours-undetermined`. `w6d:subsetting-defaulted-count`
+asks `size(subsystem)` of a `part subsystem : Sub[*] default null;` that `part a : Sub :> subsystem;`
+and `part b : Sub :> subsystem;` subset: the pilot answers `0`, the folded default, not a count of
+members — `w6d:subsetting-two-count` drops the default and the pilot answers `1` for the same two
+parts, and `w6d:subsetting-none-count` answers `1` for a collection nothing subsets. A count that is
+`1` for two members and for none is the static evaluator reading the feature as one value, so it
+decides nothing about which objects a subsetted collection holds. We answer `<undetermined>` for
+all three, and for `w6d:subsetting-rollup` (`total default sum(subsystem.mass)`): `n` and `total`
+are bound members of the package-level `sysDefaulted`, `sysTwo`, `sysNone` and `sys`, and a
+`[*]` collection the model leaves open holds its subsetters certainly and possibly more, so the
+read through the bound member is the read the direct chain `size(sysTwo.subsystem)` and
+`sum(sys.subsystem.mass)` already made (the open-cardinality row of
+[spec-compliance.md](spec-compliance.md)). The pilot's `1.0` for `subsetting-rollup` is the same
+fold — `Sub::mass` defaults to `1.0` and it reads `subsystem` as the one part — and agreed with the
+materialized lower bound we no longer make up for an object only the model stands behind. The two
+empty-aggregate cases of the same round land in
 `pilot-unevaluated`: `sum(qsNone)` over an empty `MassValue[*]` is `InvocationExpression sum` and
 `3.0 [SI::kg] + sum(qsNone)` is `OperatorExpression +` where we answer `0 [kg]` and `3.0 [SI::kg]`,
 so the kind of an empty quantity sum, like every other unit-carrying value, has no reference

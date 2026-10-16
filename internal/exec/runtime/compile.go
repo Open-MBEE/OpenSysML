@@ -175,7 +175,7 @@ func (c *scalarCheck) held(v scalar, what func() string) (scalar, error) {
 		return v, nil
 	}
 	exact := v.Unpack()
-	real, err := semantics.RealOf(exact)
+	realValue, err := semantics.RealOf(exact)
 	if err != nil {
 		err = fmt.Errorf("%s as a Real: %w", exact.FormatRational(), err)
 		if what != nil {
@@ -183,7 +183,7 @@ func (c *scalarCheck) held(v scalar, what func() string) (scalar, error) {
 		}
 		return scalar{}, err
 	}
-	return realScalar(real.Real), nil
+	return realScalar(realValue.Real), nil
 }
 
 // refuse is the evaluator's verdict on a value accepts declined, so a refusal

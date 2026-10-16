@@ -1069,7 +1069,9 @@ func (e *stmtEngine) declareUsage(stmt lower.DeclareUsage) error {
 // branchFrame is the branch of a conditional a body paused in.
 type branchFrame struct{ elseBranch bool }
 
-func (*branchFrame) abandon(*Context) {}
+func (*branchFrame) abandon(*Context) {
+	// A branch frame holds nothing that abandoning it must release.
+}
 
 func (f *branchFrame) clone() bodyFrame { c := *f; return &c }
 
@@ -1195,7 +1197,9 @@ type flowNodeFrame struct {
 	reps int64
 }
 
-func (*flowNodeFrame) abandon(*Context) {}
+func (*flowNodeFrame) abandon(*Context) {
+	// A flow node frame holds nothing that abandoning it must release.
+}
 
 func (f *flowNodeFrame) clone() bodyFrame { c := *f; return &c }
 

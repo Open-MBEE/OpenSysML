@@ -162,9 +162,9 @@ type Context struct {
 	// behavior starts when an object is materialized (see DeclaredReader).
 	declarative bool
 
-	// coverageNotes holds the distinct reasons this run's coverage is narrower
-	// than its schedules, recorded once each (coverage_note.go).
-	coverageNotes map[string]bool
+	// coverageGaps holds the constructs this run performed in one order without
+	// a choice point, recorded once each (coverage_gap.go).
+	coverageGaps map[CoverageGap]bool
 
 	// heldBehaviors are the behaviors already holding work when the outermost
 	// start under way began: a driver put it in flight, and dispatches it.

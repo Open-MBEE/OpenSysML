@@ -1,6 +1,7 @@
 exit: rstart
 enter: rwork
 transition: rstart -> rwork
+choice at t=0.0: next do rwork, dispatch completion lstart 1->lwork (unordered; took do rwork first)
 do: rwork
 stmt action body
 enter action node: state behavior <anonymous>

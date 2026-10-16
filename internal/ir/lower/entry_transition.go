@@ -180,20 +180,13 @@ func lowerEntryTransition(graph *StateGraph, member *ast.TransitionMember, owner
 		return err
 	}
 	entryScope := symbols.TriggerScope(scope, member)
-	return addEntryTransitionTarget(graph, member, target, entryOwner, member.Guard, nil, scope, entryScope)
+	entry := &EntryTransition{Decl: member, Guard: member.Guard, Scope: entryScope}
+	return addEntryTransitionTarget(graph, entry, target, entryOwner, scope)
 }
 
-func addEntryTransitionTarget(
-	graph *StateGraph,
-	decl ast.Node,
-	target ast.Node,
-	owner ast.Node,
-	guard ast.Node,
-	effect []StateBehavior,
-	targetScope *symbols.Scope,
-	scope *symbols.Scope,
-) error {
-	entry := &EntryTransition{Decl: decl, Guard: guard, Effect: effect, Scope: scope}
+// addEntryTransitionTarget resolves target, a vertex declared in targetScope,
+// as entry's target and records entry on owner.
+func addEntryTransitionTarget(graph *StateGraph, entry *EntryTransition, target, owner ast.Node, targetScope *symbols.Scope) error {
 	switch vertex := target.(type) {
 	case *ast.StateNode:
 		entry.Target = vertex

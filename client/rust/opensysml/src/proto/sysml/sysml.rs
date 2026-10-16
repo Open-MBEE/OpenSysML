@@ -229,6 +229,14 @@ pub struct VerificationVerdict {
     /// a requirement, or when that requirement can be named by no FQN.
     #[prost(string, tag="5")]
     pub requirement_id: ::prost::alloc::string::String,
+    /// Instance the case ran on as its owner, 0 when it ran on no object. A case a
+    /// definition owns runs once per object of that definition, so verdicts of one
+    /// case are told apart by this field; its feature values are in `instances`.
+    #[prost(int64, tag="6")]
+    pub instance_id: i64,
+    /// Type of `instance_id`, as an FQN, for naming the object in a report.
+    #[prost(string, tag="7")]
+    pub instance_type_id: ::prost::alloc::string::String,
 }
 /// VerifyRequirementResponse carries the verdict.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -564,7 +572,8 @@ pub struct Outcome {
 /// within the budget was run, and which budget stopped it when not.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ExplorationStatus {
-    /// True when every linearization was run, so `outcomes` is the whole set.
+    /// True when every linearization the library admits was run, so `outcomes`
+    /// is the whole set: no budget was hit and nothing was left unenumerated.
     #[prost(bool, tag="1")]
     pub complete: bool,
     /// How many runs were made.
@@ -586,6 +595,11 @@ pub struct ExplorationStatus {
     /// How many linearizations ended in runtime-error outcomes.
     #[prost(int32, tag="7")]
     pub failed_linearizations: i32,
+    /// The constructs whose unordered alternatives the runs took in one order
+    /// without a choice point, by identifier; `complete` is false while any is
+    /// listed, since fewer orders were run than the library admits.
+    #[prost(string, repeated, tag="8")]
+    pub unenumerated: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// ListEnginesRequest asks for the analysis engines registered in this build.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]

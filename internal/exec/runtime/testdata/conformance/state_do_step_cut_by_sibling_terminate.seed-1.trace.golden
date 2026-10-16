@@ -19,6 +19,7 @@ stmt action body
       eval literal "l1(entry) " -> "l1(entry) "
     eval operator + -> "work(entry) r1(entry) l1(entry) "
 transition: idle -> work (event: accept Go)
+choice at t=0.0: next do l1, dispatch completion r1 1->stop (unordered; took do l1 first)
 do: l1
 stmt action body
 enter action node: state behavior <anonymous>

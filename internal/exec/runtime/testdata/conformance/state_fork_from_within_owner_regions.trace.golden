@@ -1,3 +1,4 @@
+choice at t=0.0: next do b, dispatch accept Go (unordered; took do b first)
 do: b
 stmt action body
 enter action node: state behavior poll

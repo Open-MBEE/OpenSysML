@@ -125,6 +125,9 @@ type actionFrame struct {
 	aliases map[string]string
 	// declared indexes the features by the declaration each is, and those it redefines.
 	declared map[*symbols.Symbol]string
+	// shadowed marks a performance holding a hidden inherited feature under its
+	// ShadowedKey, whose assignments written elsewhere resolve their target first.
+	shadowed bool
 	// optional holds the held features whose multiplicity admits no value at all.
 	optional map[string]bool
 	// unvalued holds the attributes the performance declares with no value, which
@@ -291,6 +294,11 @@ func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
 // declareRootFeatures gives root the attributes the graph declares and the
 // features the action holds, aliasing what each redefines.
 func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
+	if root.declared == nil {
+		// Sized for every feature it will hold; grown entry by entry it cost a
+		// dozen allocations per execution.
+		root.declared = make(map[*symbols.Symbol]string, len(e.graph.Attributes)+len(e.ctx.model.semantics.MembersOf(e.action)))
+	}
 	for _, attr := range e.graph.Attributes {
 		root.features[attr.Name] = attr.Direction
 		sym := attr.Symbol
@@ -305,6 +313,9 @@ func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
 		e.ctx.holdFeature(&root.declared, sym, attr.Name)
 	}
 	e.addFeatureDirections(root.features, &root.aliases, &root.declared, nil, e.action)
+	for _, attr := range e.features {
+		root.shadowed = root.shadowed || attr.Shadowed
+	}
 }
 
 // declareAcceptPayloads gives root the payloads the graph's accepts name: each is a
@@ -367,6 +378,28 @@ func (e *performances) addFeatureDirections(
 		e.ctx.aliasRedefinitions(aliases, member, name)
 		e.ctx.holdFeature(held, member, name)
 	}
+	e.ctx.shadowedInherited(action,
+		func(name string) bool { _, ok := features[name]; return ok },
+		func(sym *symbols.Symbol) bool { _, ok := (*held)[sym]; return ok },
+		func(member *symbols.Symbol, usage *ast.Usage, key string) {
+			if _, taken := features[key]; taken {
+				return
+			}
+			features[key] = usage.Direction
+			if optional != nil && e.ctx.admitsNoValue(member) {
+				optional[key] = true
+			}
+			e.ctx.holdFeature(held, member, key)
+		})
+}
+
+// heldKey is the name the performance binds the feature a statement written in
+// scope names: its ShadowedKey for a hidden inherited feature, else name.
+func (f *actionFrame) heldKey(ctx *Context, scope *symbols.Scope, name string) string {
+	if !f.shadowed {
+		return name
+	}
+	return heldKey(ctx, f.declared, f.scope, scope, name)
 }
 
 // aliasRedefinitions maps every name sym redefines, by clause, to name: a body
@@ -449,6 +482,7 @@ func (e *performances) beginPerformance(
 	perf.features = pins.directions
 	perf.aliases = pins.aliases
 	perf.declared = pins.declared
+	perf.shadowed = pins.shadowed
 	perf.optional = pins.optional
 	perf.result = pins.result
 	if usage, ok := node.(*ast.Usage); ok {
@@ -576,6 +610,7 @@ func (e *performances) bindArguments(perf *actionFrame, activation int64) error 
 		return err
 	}
 	perf.features, perf.aliases, perf.optional, perf.result = pins.directions, pins.aliases, pins.optional, pins.result
+	perf.shadowed = pins.shadowed
 	for name, value := range arguments {
 		if err := e.setFrameFeature(perf, name, value); err != nil {
 			return err
@@ -676,6 +711,7 @@ type nodePins struct {
 	directions map[string]ast.FeatureDirection
 	aliases    map[string]string
 	declared   map[*symbols.Symbol]string
+	shadowed   bool
 	// optional holds the pins whose multiplicity admits no value at all.
 	optional map[string]bool
 	result   string
@@ -729,6 +765,7 @@ func (e *performances) pinsOf(
 	pins := nodePins{directions: make(map[string]ast.FeatureDirection), optional: make(map[string]bool)}
 	for _, feature := range graph.Features[node] {
 		pins.directions[feature.Name] = feature.Direction
+		pins.shadowed = pins.shadowed || feature.Shadowed
 		sym := memberSymbol(feature.Scope, feature.Node)
 		if sym != nil && e.ctx.admitsNoValue(sym) {
 			pins.optional[feature.Name] = true
@@ -1196,7 +1233,8 @@ func (e *performances) setFrameFeature(f *actionFrame, name string, value Value)
 		e.noteFrameWrite(f, name, value)
 		return nil
 	}
-	if err := e.ctx.checkNamedWriteAs(f.scope, f.describe, name, &value); err != nil {
+	scope, declared := heldDeclaration(f, f.scope, name)
+	if err := e.ctx.checkNamedWriteAs(scope, f.describe, declared, &value); err != nil {
 		return err
 	}
 	e.ctx.writeBodyValue(f.cells, f.data, f.key(name), value)

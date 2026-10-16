@@ -540,6 +540,11 @@ var (
 	// it can be created.
 	ErrNoSubject = errors.New("no subject to satisfy the requirement")
 
+	// ErrNeedsObject is returned when a case a definition owns is run with no
+	// object of the definition to run on: the case is a feature of such an
+	// object, so with none instantiated its body has nothing to read.
+	ErrNeedsObject = errors.New("needs an object")
+
 	// ErrPerformerFeatureNotInScope is returned when a behavior body names a
 	// feature only the object performing it declares: the performing object is
 	// not a namespace the body's names resolve in, so the name has no referent.

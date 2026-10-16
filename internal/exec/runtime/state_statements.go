@@ -373,6 +373,7 @@ func (h *stateStmtHost) send(ec *EvalContext, s lower.Send) error {
 // assignOuter writes a name the machine does not declare to the object
 // exhibiting it, falling back to executor-local data.
 func (h *stateStmtHost) assignOuter(env *stmtEnv, name string, value Value, s lower.Assign) error {
+	name = h.exec.heldKey(h.behavior.Owner, s.Scope, name)
 	if written, err := h.assignStateAttribute(name, value); written || err != nil {
 		return err
 	}
@@ -386,6 +387,7 @@ func (h *stateStmtHost) assignOuter(env *stmtEnv, name string, value Value, s lo
 }
 
 func (h *stateStmtHost) assignData(env *stmtEnv, name string, value Value, s lower.Assign) error {
+	name = h.exec.heldKey(h.behavior.Owner, s.Scope, name)
 	if written, err := h.assignStateAttribute(name, value); written || err != nil {
 		return err
 	}
@@ -415,7 +417,18 @@ func (h *stateStmtHost) assignStateAttribute(name string, value Value) (bool, er
 	if !ok {
 		return false, nil
 	}
-	if err := h.exec.ctx.checkNamedWriteAs(scope, h.describe, name, &value); err != nil {
+	declared := name
+	if h.exec.holdsShadowed() {
+		for _, ancestor := range h.exec.getParentChain(h.behavior.Owner) {
+			if _, held := h.exec.stateAttrs[ancestor]; held {
+				_, declared = declarationHeldUnder(h.exec.stateAttrIndex[ancestor], scope, name)
+				if declared != name {
+					break
+				}
+			}
+		}
+	}
+	if err := h.exec.ctx.checkNamedWriteAs(scope, h.describe, declared, &value); err != nil {
 		return true, err
 	}
 	h.exec.ctx.writeBodyValue(cells, data, name, value)

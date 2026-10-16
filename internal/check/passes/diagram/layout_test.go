@@ -388,6 +388,26 @@ func TestDiagramLayoutViewLocalAnnotationsFollowInheritedBehavior(t *testing.T) 
 	}
 }
 
+func TestDiagramLayoutParallelRegionIsDrawn(t *testing.T) {
+	src := layoutModel(`	state def Machine {
+		entry; then Active;
+		state Active parallel {
+			state r1 {
+				entry; then inside;
+				state inside;
+			}
+		}
+	}
+	view lifecycle : StandardViewDefinitions::StateTransitionView {
+		expose Machine;
+		metadata Layout about Machine::Active::r1 { x = 10; y = 20; width = 300; height = 100; }
+	}
+`)
+	if diags := layoutDiags(t, src); len(diags) != 0 {
+		t.Fatalf("got %d diagnostics, want none: %v", len(diags), diags)
+	}
+}
+
 // Every action body inherits one start from the library; a Layout naming it as
 // one body's positions that body's start alone, so the checker judges it by
 // whether the view draws that body, not by whether it draws any start.
@@ -437,6 +457,40 @@ func TestDiagramLayoutInheritedNodesJudgedPerBody(t *testing.T) {
 	}
 	wantLayoutDiag(t, src, diags[0], diag.SeverityWarning, "diagram-layout-unplaced", 13,
 		"Layout positions", "P::Base::s", "action rendering of view P::flow does not draw as a node")
+}
+
+// A start no succession leaves still exists in the body, so a view's Layout
+// about it places it: the renderer draws it as that body's initial node. One
+// naming the start of a body the view does not draw stays unplaced.
+func TestDiagramLayoutUnconnectedStartIsDrawn(t *testing.T) {
+	src := layoutModel(`	action def A { action a; }
+	action def B { action b; }
+	view flow : StandardViewDefinitions::ActionFlowView {
+		expose A;
+		metadata Layout about A::start { x = 1; y = 1; }
+		metadata Layout about B::start { x = 2; y = 2; }
+	}
+`)
+	diags := layoutDiags(t, src)
+	if len(diags) != 1 {
+		t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
+	}
+	wantLayoutDiag(t, src, diags[0], diag.SeverityWarning, "diagram-layout-unplaced", 9,
+		"Layout positions", "start", "action rendering of view P::flow does not draw as a node")
+}
+
+// A body declaring `action start` of its own draws it, so a view's Layout
+// about it is placed by that node like any declared member's.
+func TestDiagramLayoutDeclaredStartIsDrawn(t *testing.T) {
+	src := layoutModel(`	action def D { action start; action d; first start then d; }
+	view flow : StandardViewDefinitions::ActionFlowView {
+		expose D;
+		metadata Layout about D::start { x = 1; y = 1; }
+	}
+`)
+	if diags := layoutDiags(t, src); len(diags) != 0 {
+		t.Fatalf("got %d diagnostics, want none: %v", len(diags), diags)
+	}
 }
 
 func TestDiagramLayoutDuplicateViewLocalAnnotationWarnsOnTheSecond(t *testing.T) {

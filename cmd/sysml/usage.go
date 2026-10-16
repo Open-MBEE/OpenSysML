@@ -671,6 +671,9 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.queries, "run-query", "Execute this document query and report its rows, as -run-query \"Heavy root=telescope\" (repeatable)")
 	fs.Var(&modelChecks.instantiate, "instantiate", "Create an object of this definition or usage before the checks, so a verdict is about it (repeatable)")
 	fs.BoolVar(&modelChecks.jsonOut, "json", false, "Report checks as one JSON document rather than as lines")
+	fs.StringVar(&modelChecks.format, "format", "", "Report checks as text, json, sarif or junit; json is -json, and sarif (SARIF 2.1.0) and junit (JUnit XML) carry -validate's diagnostics to a CI service")
+	fs.StringVar(&modelChecks.baseline, "baseline", "", "A JSON report (as -validate -json -o wrote) whose diagnostics are known: a finding with the same code, file and message is suppressed, whatever its line")
+	fs.BoolVar(&modelChecks.warningsAsErrors, "warnings-as-errors", false, "Exit nonzero on a warning as on an error; the report keeps the warning's severity")
 
 	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object (repeatable)")
 	fs.Var(&modelChecks.states, "state", "Run this state machine, as -state \"Mission rover1\" to run it on an object (repeatable)")
@@ -785,6 +788,9 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("run-query", "<query>"),
 			usage.Opt("instantiate", nameArg),
 			usage.Opt("json", ""),
+			usage.Opt("format", "<format>"),
+			usage.Opt("baseline", "<file>"),
+			usage.Opt("warnings-as-errors", ""),
 		},
 	}, {
 		Title: "Running behaviors",

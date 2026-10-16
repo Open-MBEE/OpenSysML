@@ -38,10 +38,12 @@ sha256() {
 	if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi
 }
 
-# fake_tool <path> <tool> <version>: a stand-in binary that only knows --version.
+# fake_tool <path> <tool> <version>: a stand-in binary that only knows --version,
+# answering it over the several lines the real ones do.
 fake_tool() {
-	printf '#!/bin/sh\necho "%s"\n' "$2 $3" >"$1"
-	chmod +x "$1"
+	local path=$1 tool=$2 version=$3
+	printf '#!/bin/sh\necho "%s"\necho "  Commit:     0000000"\necho "  Build time: 2000-01-01_00:00:00"\necho "  Go version: go1.0"\n' "$tool $version" >"$path"
+	chmod +x "$path"
 }
 
 # bundle <release dir> <platform> <version>: the archive, grpc and kernel
@@ -207,7 +209,8 @@ fails() {
 
 # said <text>: the last run's output must mention it.
 said() {
-	[[ "$out" == *"$1"* ]] || { echo "FAIL: expected output to mention '$1'" >&2; printf '%s\n' "$out" >&2; failures=$((failures + 1)); }
+	local text=$1
+	[[ "$out" == *"$text"* ]] || { echo "FAIL: expected output to mention '$text'" >&2; printf '%s\n' "$out" >&2; failures=$((failures + 1)); }
 }
 
 # unsaid <text>: the last run's output must not mention it.
@@ -343,6 +346,7 @@ for how in file stdin; do
 	case $how in
 	file) out=$(sh "$root/install.sh" --help 2>&1) ;;
 	stdin) out=$(cat "$root/install.sh" | sh -s -- --help 2>&1) ;;
+	*) ;;
 	esac
 	status=$?
 	set -e

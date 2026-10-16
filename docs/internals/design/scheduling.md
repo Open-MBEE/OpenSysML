@@ -222,9 +222,12 @@ is built to keep. Under `reverse` and `declared` a region-order pick is declarat
 still reported — a fixed policy resolves the choice, it does not remove it — and so are the
 entry-order and exit-order draws, one `choice` line per draw in the trace golden of a fixture
 entering or leaving a state of two or more regions, its event order unchanged
-([region-order scheduling](region-order-scheduling.md)). One order the fixed policies take is
-not yet a recorded choice: a due do step against the dispatch at the head of the pool, drawn
-per token move of the do flow in that note's design.
+([region-order scheduling](region-order-scheduling.md)). So is the step order: the fixed
+policies run a round of the due do behaviors whole and dispatch after it, and
+`StateExecutor.noteRoundStepOrder` records each due do move the round takes ahead of a dispatch
+that would act as the `ChoiceStepOrder` the unit-at-a-time policies draw there, taken as the do
+step, so a fixture with a do behavior beside an acting dispatch carries one `choice` line per such
+move and its event order is unchanged.
 
 `SchedulePolicy.start` begins the resolutions of one run as a `scheduler`. A seeded one carries a
 `math/rand/v2` PCG the run consumes draw by draw, so the same seed replays the same run on every
@@ -284,6 +287,21 @@ fresh `Context`:
    `Exploration.Status` says which; nothing is silently truncated. The default budget is
    `DefaultExploreBudget`, 1024 runs and 64 choice points per run; a witness lists every choice
    point its run met, so its length sizes `depth`.
+5. A construct the executors perform in one order without a choice point is a *coverage gap*
+   (`CoverageGap`, `coverage_gap.go`): the run records it on its context (`Context.noteGap`),
+   the queue folds the gaps of every run into `Exploration.Unenumerated`, and the checker folds
+   them into `CheckReport.Unenumerated`. A gap makes the exploration incomplete as a budget does —
+   `Exploration.Complete` is false while either stands — and `Status` names what was not
+   enumerated (`incomplete after N runs; not enumerated: …`); `analysis` reports the result's
+   standing as *observed*, never *proved*. No construct records a gap today: the one that did —
+   the performances of a repeated step in a loop or `if` body, once run one move apiece — are
+   sibling tokens of the body's flow (`splitRepeatedStep`), so their interleavings are token-order
+   choice points like a top-level step's, and the table below finds every other order the
+   executors take without a choice point fixed by the library or canonical. A construct found to
+   perform an open order as one move is added as a `CoverageGap` and recorded where it runs. The
+   REPL's `ExplorationVerdict.Unenumerated`, the wire `ExplorationStatus.unenumerated` and the
+   Python and Node clients' `unenumerated` carry the gaps by identifier, and a conformance case
+   states the gaps exploring it must record under `exploreGaps`.
 
 A fresh context per run is what makes replay sound: instances, identities, the message bus, the
 clock, object behaviors, calc memoization and the notes of one run cannot leak into the next.
@@ -317,6 +335,27 @@ committed run made a weighted pick, and an incomplete exploration has lower boun
 did. Random-function draws still come from the model seed and are not enumerated, so these
 probabilities are conditional on those draws. Checker `Violation.Mass` is a separate measure,
 the path mass a check reports per violation.
+
+## Orders taken without a choice point
+
+Every order an executor takes is either a recorded choice above or one the library fixes, or one
+with no observable alternative. The sorts, map iterations and sibling loops in the executors and
+the lowering fall into these classes:
+
+| Site | Order | Why it is not a choice |
+|------|-------|------------------------|
+| `clock.go` `Clock.Waits`, `action_executor.go` `visibleArmedWaits`, `tokenWaits` | clock waits by due instant | a later instant cannot occur before an earlier one (`Clocks.kerml`: `Clock::currentTime` is monotonic over `TimeInstant`s, and a wait ends at its instant); waits tied at one instant are drawn as `ChoiceDueOrder` and `ChoiceDispatchOrder` |
+| `executor_common.go` `EventQueue.Events`, `CompletionsOf`, `Tied` | queued events by arrival (`Event.ID`) | the order events were put into the pool is observed, not drawn; events the library leaves unordered at one instant are offered as `ChoiceDispatchOrder`, and an acting dispatch against a due do move as `ChoiceStepOrder` |
+| `action_executor.go` `tokensByID`, `waitingTokens`, `timeWaits`; `action_terminate.go` `dropTokensIn`, `beginPending` | tokens by `Token.ID` | an enumeration order for reporting and for stable alternative labels; which steppable token acts is `ChoiceTokenOrder`, and the tokens a termination drops all end in the same step (`Occurrences.kerml`: the suboccurrences of a terminated performance end with it), leaving no value an order could change |
+| `action_choice.go` `stepWriteLedger.noteChoices`, `noteTokenOrder` | alternatives by token | the canonical labelling of the recorded `ChoiceWriteOrder` and `ChoiceTokenOrder` themselves |
+| `action_executor.go` `setFrameFeatures`; `action_frame.go` `takeDeliveries` (pins), output names | feature or pin names | each name is a distinct feature, so the writes commute and the result is one however they are applied; the names also order error text |
+| `action_executor.go` `synchronize` (indices descending) | slice deletion | mechanical: the consumed tokens are removed together within one step |
+| `succession_order.go` `orderFeaturingInstances`, `orderFeatureValues` | instances by `Instance.ID` | the instances a `BehaviorOrder` relates are matched end to end by identity; the succession itself is the `HappensBefore` the order enforces (`Occurrences.kerml`), and which of several unrelated performances starts first is the executors' `ChoiceDueOrder` and `ChoiceTokenOrder` |
+| `statements.go` `stmtListFrame.candidates` | runnable statements by index | the candidate set handed to the policy; which runs next is `ChoiceStatementOrder`, and `lower/statement_order.go` decides which pairs may reorder at all (a statement that keeps its place — a declaration read by name after it, a `return`, a performed reference — is ordered by the body's `then` successions or by its data dependence, KerML 1.0 §7.4.9 succession) |
+| `lower/behavior_order.go` `BehaviorOrder` | successions outside a body | lowered as `HappensBefore` constraints the runtime enforces, never as an order it draws |
+| `state_run_to_completion.go` `entryStep` | a held entry against a free dispatch | drawn as `ChoiceEntryStep` |
+| `state_executor.go` `runDoRound` | the due do moves of a round against the dispatch after it | recorded as `ChoiceStepOrder` by `noteRoundStepOrder`, taken as the do step (above); the moves among the due do behaviors are `chooseDoAction`'s draw where two or more are due |
+| `action_step_multiplicity.go` `splitRepeatedStep` | the `n` performances of a repeated step in a loop or `if` body, among themselves and against the steps outside the body | drawn as token order: the performances are sibling tokens of the body's flow, one repetition group, and the body yields between its moves (`lower.BodyDivides`), so `explore` reaches every interleaving a top-level `[n]` step admits |
 
 ## The conformance contract
 
