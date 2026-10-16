@@ -12,7 +12,7 @@ import (
 
 // replGzipBudget bounds the gzipped sysml_prod js build the CLI page downloads
 // for its in-browser REPL.
-const replGzipBudget = 15_000_000
+const replGzipBudget = 15000000
 
 // TestBrowserREPLWalkthroughs runs every walkthrough the CLI page offers
 // (docs/assets/repl-walkthroughs.json) through the page's own host,
