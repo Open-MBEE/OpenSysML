@@ -124,13 +124,24 @@ func (r *Resolver) shortNamedMembers(scope *symbols.Scope, name string, hide *re
 	if scope == nil || name == "" {
 		return nil
 	}
+	members := r.derivedNamedMembers(scope)
+	if len(members) == 0 || !r.shortNameDeclared(name) {
+		return nil
+	}
 	var out []*symbols.Symbol
-	for _, sym := range r.derivedNamedMembers(scope) {
+	for _, sym := range members {
 		if !hide.hides(sym) && r.derivedShortName(sym) == name {
 			out = append(out, sym)
 		}
 	}
 	return out
+}
+
+// shortNameDeclared reports whether any declaration the index knows has the
+// short name: a derived short name is one such declaration's, so none can be
+// name otherwise, and the chains need not be resolved to tell.
+func (r *Resolver) shortNameDeclared(name string) bool {
+	return r.idx == nil || r.idx.ShortNamed(name)
 }
 
 // derivedShortName is the short name sym takes from its naming feature (KerML
@@ -154,7 +165,10 @@ func (r *Resolver) derivedShortName(sym *symbols.Symbol) string {
 	if sym == nil {
 		return ""
 	}
-	if name, done := r.derivedShort[sym]; done {
+	// A name found while a filter condition resolves unfiltered or an `import
+	// all` lifts the visibility boundary is that lookup's alone, not the memo's.
+	ordinary := r.inCondition == 0 && r.allVisible == 0
+	if name, done := r.derivedShort[sym]; done && ordinary {
 		return name
 	}
 	cuts := r.namingCuts
@@ -162,7 +176,7 @@ func (r *Resolver) derivedShortName(sym *symbols.Symbol) string {
 	name := r.walkDerivedShortName(sym)
 	// A chain cut short by a naming or an import under way is not what sym is
 	// called in general, so it is not kept.
-	if r.Leave() && sym.Decl != nil && cuts == r.namingCuts {
+	if r.Leave() && ordinary && sym.Decl != nil && cuts == r.namingCuts {
 		journalNew(r, r.derivedShort, sym, sym.Decl)
 		r.derivedShort[sym] = name
 	}

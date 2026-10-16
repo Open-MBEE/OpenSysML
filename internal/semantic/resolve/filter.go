@@ -426,6 +426,7 @@ func (r *Resolver) indexedChildren(scope *symbols.Scope, target *symbols.Symbol,
 // 8.2.3.3) for an entry the index alone holds; scope's own members were tried.
 func (r *Resolver) indexedChildrenNamed(scope *symbols.Scope, target *symbols.Symbol, imp *ast.Import, name string) []*symbols.Symbol {
 	var out []*symbols.Symbol
+	declared := -1
 	for _, sym := range r.indexedChildren(scope, target, imp) {
 		switch {
 		case localNameOf(sym) == name || sym.ShortName == name:
@@ -433,8 +434,16 @@ func (r *Resolver) indexedChildrenNamed(scope *symbols.Scope, target *symbols.Sy
 			continue
 		case target.Scope != nil && target.Scope.MemberDeclaring(sym.Decl) != nil:
 			continue
-		case r.derivedShortName(sym) != name:
-			continue
+		default:
+			if declared < 0 {
+				declared = 0
+				if r.shortNameDeclared(name) {
+					declared = 1
+				}
+			}
+			if declared == 0 || r.derivedShortName(sym) != name {
+				continue
+			}
 		}
 		out = append(out, sym)
 	}
