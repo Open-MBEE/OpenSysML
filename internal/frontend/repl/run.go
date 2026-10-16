@@ -578,8 +578,10 @@ func (s *Session) expandArchives(paths []string) ([]string, error) {
 	seen := map[string]bool{}
 	add := func(path string) {
 		key := path
-		if abs, err := filepath.Abs(path); err == nil {
-			key = abs
+		if !project.IsStdin(path) {
+			if abs, err := filepath.Abs(path); err == nil {
+				key = abs
+			}
 		}
 		if !seen[key] {
 			seen[key] = true
