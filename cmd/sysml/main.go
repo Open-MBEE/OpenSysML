@@ -114,6 +114,8 @@ var (
 	jobsFlag         jobsSetting
 	convertFormat    string
 	migrateFormat    string
+	bundleDir        string
+	unbundleFile     string
 	queryText        string
 	outputPath       string
 	fromFormat       string
@@ -486,6 +488,29 @@ func runCLI() int {
 	if renderDoc == "" && renderDocsDir == "" &&
 		(docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlFlagsGiven()) {
 		fmt.Fprintln(os.Stderr, "sysml: -doc-form, -diagram-form, the document options and the stylesheet options apply to -render-document and -render-documents; name the document to render")
+		return 2
+	}
+
+	if flagGiven("bundle") || flagGiven("unbundle") {
+		switch {
+		case bundleDir != "" && unbundleFile != "":
+			fmt.Fprintln(os.Stderr, "sysml: -bundle writes an archive and -unbundle a directory; ask for one per run")
+		case bundleDir == "" && unbundleFile == "":
+			fmt.Fprintln(os.Stderr, "sysml: -bundle names the project directory to archive and -unbundle the archive to write out; neither may be empty")
+		case len(args) > 0 || modelChecks.requested() || convertFormat != "" || migrateFormat != "" || renderView != "" || renderDoc != "" || len(evalExprs) > 0:
+			fmt.Fprintln(os.Stderr, "sysml: -bundle and -unbundle copy a project and load no model; run them on their own")
+		default:
+			if bundleDir != "" {
+				if err := runBundle(bundleDir); err != nil {
+					fmt.Fprintf(os.Stderr, "sysml: %v\n", err)
+					return exitUnevaluable
+				}
+			} else if err := runUnbundle(unbundleFile); err != nil {
+				fmt.Fprintf(os.Stderr, "sysml: %v\n", err)
+				return exitUnevaluable
+			}
+			return exitHolds
+		}
 		return 2
 	}
 

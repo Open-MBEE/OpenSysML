@@ -201,6 +201,8 @@ var CLIOnly = map[string]string{
 	"library-root":         "a load option; the server reads OPENSYSML_LIBRARY_ROOTS",
 	"json":                 "output formatting; every tool answers protojson",
 	"output":               "writes a file on the host; a tool answers the content",
+	"bundle":               "archives a project directory on the host",
+	"unbundle":             "writes a project directory on the host",
 	"jobs":                 "host concurrency",
 	"compile":              "drives a native toolchain on the host",
 	"target":               "drives a native toolchain on the host",
