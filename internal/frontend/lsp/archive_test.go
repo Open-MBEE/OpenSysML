@@ -3,6 +3,7 @@ package lsp
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
@@ -57,7 +58,7 @@ func TestWorkspaceSkipsAMalformedArchiveUnderALibraryRoot(t *testing.T) {
 		t.Fatalf("%s not indexed with a malformed archive under another root", vendored)
 	}
 	for _, name := range s.ws.DocumentNames() {
-		if filepath.Dir(name) == broken || filepath.HasPrefix(name, broken) {
+		if strings.HasPrefix(name, broken+string(filepath.Separator)) {
 			t.Errorf("%s indexed from the malformed archive", name)
 		}
 	}
