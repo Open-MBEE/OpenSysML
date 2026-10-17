@@ -2,9 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use crate::results::{diagnostics_of, Standing};
+use crate::results::Standing;
 use crate::wire;
-use crate::Diagnostic;
 
 /// One schedule replayed: pass `schedule` as a run's schedule to follow it.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -165,8 +164,6 @@ pub struct CheckResult {
     pub standing: Standing,
     /// Why the verdict is undecided, when it is.
     pub reason: String,
-    /// The diagnostics the search raised.
-    pub diagnostics: Vec<Diagnostic>,
     wire: wire::CheckBehaviorResponse,
 }
 
@@ -232,7 +229,6 @@ impl CheckResult {
             contrast: CheckWitness::from_wire(response.contrast),
             standing: Standing::of(&response.engine, &response.strength, &response.bounds),
             reason: response.reason,
-            diagnostics: diagnostics_of(&response.diagnostics),
             wire,
         }
     }

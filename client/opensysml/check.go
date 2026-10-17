@@ -34,8 +34,7 @@ type Check struct {
 	// Standing is the engine's name, strength and the bounds it ran under.
 	Standing Standing
 	// Reason says why the verdict is undecided, when it is.
-	Reason      string
-	Diagnostics []Diagnostic
+	Reason string
 }
 
 // CheckSearch is the explicit-state search's statistics.
@@ -202,18 +201,17 @@ func (c *client) checkBehavior(ctx context.Context, model *Model, actionID, stat
 	if err != nil {
 		return nil, err
 	}
-	diagnostics := diagnosticsFromProto(resp.Diagnostics)
 	if resp.Error != "" {
 		op := "CheckAction"
 		if actionID == "" {
 			op = "CheckStateMachine"
 		}
-		return nil, &FailureError{Op: op, Message: resp.Error, Diagnostics: diagnostics}
+		return nil, &FailureError{Op: op, Message: resp.Error}
 	}
-	return checkFromProto(resp, diagnostics), nil
+	return checkFromProto(resp), nil
 }
 
-func checkFromProto(resp *pb.CheckBehaviorResponse, diagnostics []Diagnostic) *Check {
+func checkFromProto(resp *pb.CheckBehaviorResponse) *Check {
 	out := &Check{
 		Verdict:     resp.Verdict,
 		Lines:       append([]string(nil), resp.Lines...),
@@ -224,7 +222,6 @@ func checkFromProto(resp *pb.CheckBehaviorResponse, diagnostics []Diagnostic) *C
 		Contrast:    checkWitnessFromProto(resp.Contrast),
 		Standing:    standingFromProto(resp.Engine, resp.Strength, resp.Bounds),
 		Reason:      resp.Reason,
-		Diagnostics: diagnostics,
 	}
 	if s := resp.Search; s != nil {
 		out.Search = &CheckSearch{

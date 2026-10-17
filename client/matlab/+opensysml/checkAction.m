@@ -3,8 +3,8 @@ function result = checkAction(model, actionId, varargin)
 %   RESULT = CHECKACTION(MODEL, ACTIONID, 'properties', {...}, ...) answers a
 %   struct with verdict ('holds', 'fails' or 'undecided'), lines (the report),
 %   search (states, moves, maxDepth, boundsHit, ...), violations, divergences,
-%   finals, claim, freeInputs, assumptions, witness, contrast, standing, reason
-%   and diagnostics. Options: inputs, performer, properties, diverge,
+%   finals, claim, freeInputs, assumptions, witness, contrast, standing and
+%   reason. Options: inputs, performer, properties, diverge,
 %   freeInputs, assume, witness, depth, states, unroll, timeout, engine.
 
     options = opensysml.internal.nameValueOptions(checkDefaults(), varargin, 'checkAction');

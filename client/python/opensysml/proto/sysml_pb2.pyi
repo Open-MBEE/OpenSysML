@@ -594,7 +594,7 @@ class CheckSearch(_message.Message):
     def __init__(self, states: _Optional[int] = ..., moves: _Optional[int] = ..., max_depth: _Optional[int] = ..., bounds_hit: _Optional[_Iterable[str]] = ..., horizon: _Optional[float] = ..., horizon_set: _Optional[bool] = ..., mass_bounded: _Optional[bool] = ..., notes: _Optional[_Iterable[str]] = ..., scope: _Optional[_Iterable[str]] = ..., status: _Optional[str] = ...) -> None: ...
 
 class CheckBehaviorResponse(_message.Message):
-    __slots__ = ("verdict", "lines", "search", "violations", "divergences", "finals", "claim", "free_inputs", "assumptions", "witness", "contrast", "engine", "strength", "bounds", "reason", "diagnostics", "error")
+    __slots__ = ("verdict", "lines", "search", "violations", "divergences", "finals", "claim", "free_inputs", "assumptions", "witness", "contrast", "engine", "strength", "bounds", "reason", "error")
     VERDICT_FIELD_NUMBER: _ClassVar[int]
     LINES_FIELD_NUMBER: _ClassVar[int]
     SEARCH_FIELD_NUMBER: _ClassVar[int]
@@ -610,7 +610,6 @@ class CheckBehaviorResponse(_message.Message):
     STRENGTH_FIELD_NUMBER: _ClassVar[int]
     BOUNDS_FIELD_NUMBER: _ClassVar[int]
     REASON_FIELD_NUMBER: _ClassVar[int]
-    DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     verdict: str
     lines: _containers.RepeatedScalarFieldContainer[str]
@@ -627,9 +626,8 @@ class CheckBehaviorResponse(_message.Message):
     strength: str
     bounds: _containers.RepeatedCompositeFieldContainer[Bound]
     reason: str
-    diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     error: str
-    def __init__(self, verdict: _Optional[str] = ..., lines: _Optional[_Iterable[str]] = ..., search: _Optional[_Union[CheckSearch, _Mapping]] = ..., violations: _Optional[_Iterable[_Union[CheckViolation, _Mapping]]] = ..., divergences: _Optional[_Iterable[_Union[CheckDivergence, _Mapping]]] = ..., finals: _Optional[_Iterable[_Union[CheckFinal, _Mapping]]] = ..., claim: _Optional[str] = ..., free_inputs: _Optional[_Iterable[str]] = ..., assumptions: _Optional[_Iterable[str]] = ..., witness: _Optional[_Union[CheckWitness, _Mapping]] = ..., contrast: _Optional[_Union[CheckWitness, _Mapping]] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ..., reason: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., error: _Optional[str] = ...) -> None: ...
+    def __init__(self, verdict: _Optional[str] = ..., lines: _Optional[_Iterable[str]] = ..., search: _Optional[_Union[CheckSearch, _Mapping]] = ..., violations: _Optional[_Iterable[_Union[CheckViolation, _Mapping]]] = ..., divergences: _Optional[_Iterable[_Union[CheckDivergence, _Mapping]]] = ..., finals: _Optional[_Iterable[_Union[CheckFinal, _Mapping]]] = ..., claim: _Optional[str] = ..., free_inputs: _Optional[_Iterable[str]] = ..., assumptions: _Optional[_Iterable[str]] = ..., witness: _Optional[_Union[CheckWitness, _Mapping]] = ..., contrast: _Optional[_Union[CheckWitness, _Mapping]] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ..., reason: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...
 
 class ListEnginesRequest(_message.Message):
     __slots__ = ()

@@ -6,7 +6,6 @@ import type {
   CheckViolation as PbCheckViolation,
   CheckWitness as PbCheckWitness,
 } from "../generated/sysml_pb.js";
-import type { ModelDiagnostic } from "./errors.js";
 import { type Standing, standingOf } from "./engines.js";
 
 /** One schedule replayed: pass `schedule` as a run's schedule to follow it. */
@@ -75,7 +74,6 @@ export interface CheckResult {
   contrast: CheckWitness | undefined;
   standing: Standing;
   reason: string;
-  diagnostics: readonly ModelDiagnostic[];
 }
 
 /** The options of `Model.checkAction` and `Model.checkStateMachine`. */
@@ -156,10 +154,7 @@ function searchOf(pb: PbCheckSearch | undefined): CheckSearch | undefined {
   };
 }
 
-export function checkResultOf(
-  response: CheckBehaviorResponse,
-  diagnostics: readonly ModelDiagnostic[],
-): CheckResult {
+export function checkResultOf(response: CheckBehaviorResponse): CheckResult {
   return {
     verdict: response.verdict,
     lines: response.lines,
@@ -174,6 +169,5 @@ export function checkResultOf(
     contrast: witnessOf(response.contrast),
     standing: standingOf(response),
     reason: response.reason,
-    diagnostics,
   };
 }

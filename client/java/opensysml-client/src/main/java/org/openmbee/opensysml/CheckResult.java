@@ -23,7 +23,6 @@ import java.util.Optional;
  * @param contrast its counter-witness
  * @param standing the engine, its strength and the bounds it ran under
  * @param reason why the verdict is undecided, when it is
- * @param diagnostics the diagnostics the search raised
  */
 public record CheckResult(
     String verdict,
@@ -38,8 +37,7 @@ public record CheckResult(
     Optional<Witness> witness,
     Optional<Witness> contrast,
     Standing standing,
-    String reason,
-    List<Diagnostic> diagnostics) {
+    String reason) {
 
   /** Creates a check result; every list is copied. */
   public CheckResult {
@@ -56,7 +54,6 @@ public record CheckResult(
     Objects.requireNonNull(contrast, "contrast");
     Objects.requireNonNull(standing, "standing");
     Objects.requireNonNull(reason, "reason");
-    diagnostics = List.copyOf(diagnostics);
   }
 
   /** Whether every schedule kept every property. */

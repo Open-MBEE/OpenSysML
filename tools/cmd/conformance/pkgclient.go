@@ -1869,11 +1869,7 @@ func (c *pkgClient) checkBehavior(ctx context.Context, request protoreflect.Mess
 	}
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
-		return &pb.CheckBehaviorResponse{
-			Verdict:     "undecided",
-			Error:       failure.Message,
-			Diagnostics: diagnosticsToProto(failure.Diagnostics),
-		}, nil
+		return &pb.CheckBehaviorResponse{Verdict: "undecided", Error: failure.Message}, nil
 	}
 	if err != nil {
 		return nil, apiError(err)
@@ -1894,7 +1890,6 @@ func checkToProto(check *opensysml.Check) *pb.CheckBehaviorResponse {
 		Strength:    check.Standing.Strength,
 		Bounds:      boundsToProto(check.Standing.Bounds),
 		Reason:      check.Reason,
-		Diagnostics: diagnosticsToProto(check.Diagnostics),
 	}
 	if s := check.Search; s != nil {
 		out.Search = &pb.CheckSearch{

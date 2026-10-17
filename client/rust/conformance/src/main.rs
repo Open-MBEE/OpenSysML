@@ -900,7 +900,6 @@ impl Runner {
                 Ok(failure) => wire::CheckBehaviorResponse {
                     verdict: "undecided".to_owned(),
                     error: failure.error,
-                    diagnostics: failure.diagnostics,
                     ..Default::default()
                 },
                 Err(answer) => return answer,

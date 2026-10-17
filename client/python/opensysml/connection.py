@@ -1965,7 +1965,7 @@ class Connection:
         with translate_rpc_errors(unimplemented=self._capability_refusal(tuple(capabilities))):
             response = self._stub.CheckBehavior(request)
         if response.error:
-            raise ExecutionError(response.error, diagnostics=[Diagnostic(d) for d in response.diagnostics])
+            raise ExecutionError(response.error)
         return check_result(response)
 
     def export_graphs(self, model_hash, subject):

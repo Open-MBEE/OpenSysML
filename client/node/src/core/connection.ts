@@ -790,11 +790,10 @@ export class Connection {
       "model",
       capabilityRefusal(this.info, capabilities),
     );
-    const diagnostics = response.diagnostics.map(decodeDiagnostic);
     if (response.error !== "") {
-      throw new ExecutionError(response.error, "unspecified", diagnostics);
+      throw new ExecutionError(response.error, "unspecified", []);
     }
-    return checkResultOf(response, diagnostics);
+    return checkResultOf(response);
   }
 
   /**

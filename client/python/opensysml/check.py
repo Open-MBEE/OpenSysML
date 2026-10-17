@@ -7,7 +7,6 @@ every violation, divergence and final outcome witnessed as a replay schedule.
 
 from dataclasses import dataclass, field
 
-from opensysml.diagnostic import Diagnostic
 from opensysml.engines import Standing
 
 #: The verdicts a check answers.
@@ -148,7 +147,6 @@ class CheckResult:
         witness: Its witness; ``contrast`` its counter-witness
         standing: The engine, its strength and the bounds it ran under
         reason: Why the verdict is undecided, when it is
-        diagnostics: Diagnostics the search raised
     """
 
     verdict: str
@@ -164,7 +162,6 @@ class CheckResult:
     contrast: CheckWitness = None
     standing: Standing = field(default_factory=Standing)
     reason: str = ""
-    diagnostics: tuple = field(default_factory=tuple)
 
     @property
     def holds(self):
@@ -191,5 +188,4 @@ def check_result(response):
         contrast=CheckWitness.of(response.contrast) if response.HasField("contrast") else None,
         standing=Standing.of(response),
         reason=response.reason,
-        diagnostics=tuple(Diagnostic(d) for d in response.diagnostics),
     )

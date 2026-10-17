@@ -92,7 +92,6 @@ struct CheckResult
     contrast::Union{CheckWitness,Nothing}
     standing::Standing
     reason::String
-    diagnostics::Vector{Diagnostic}
 end
 CheckResult(raw::AbstractDict) = CheckResult(_render_string(raw, "verdict"),
     String[string(l) for l in get(raw, "lines", Any[])],
@@ -104,8 +103,7 @@ CheckResult(raw::AbstractDict) = CheckResult(_render_string(raw, "verdict"),
     String[string(i) for i in get(raw, "freeInputs", Any[])],
     String[string(a) for a in get(raw, "assumptions", Any[])],
     _witness(raw, "witness"), _witness(raw, "contrast"), Standing(raw),
-    _render_string(raw, "reason"),
-    Diagnostic[Diagnostic(d) for d in get(raw, "diagnostics", Any[])])
+    _render_string(raw, "reason"))
 
 """Whether every schedule kept every property."""
 holds(result::CheckResult) = result.verdict == "holds"

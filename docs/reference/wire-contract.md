@@ -2240,8 +2240,8 @@ as data. `CheckBehaviorRequest` names the behavior by exactly one of `action_sym
 `check_timeout` (double seconds, 0 for none) and `engine`. `CheckBehaviorResponse` carries
 `verdict`, `lines`, `search` (`CheckSearch`), `violations` (`CheckViolation`), `divergences`
 (`CheckDivergence`, each value a `CheckDivergentValue`), `finals` (`CheckFinal`), `claim`,
-`free_inputs`, `assumptions`, `witness`, `contrast`, `engine`, `strength`, `bounds`, `reason`,
-`diagnostics` and `error`; every witness is a `CheckWitness` whose `schedule` any run replays.
+`free_inputs`, `assumptions`, `witness`, `contrast`, `engine`, `strength`, `bounds`, `reason`
+and `error`; every witness is a `CheckWitness` whose `schedule` any run replays.
 Malformed bounds and an ambiguous behavior are `INVALID_ARGUMENT`; a behavior, property or
 performer the model lacks is answered in band through `error`. The service advertises this
 method as the `check` capability, and one without it refuses the call with `UNIMPLEMENTED`.

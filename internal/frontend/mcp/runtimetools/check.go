@@ -64,7 +64,6 @@ func (g *group) registerCheck(s *mcp.Server) {
 				b.WriteString(resp.GetReason())
 				b.WriteByte('\n')
 			}
-			b.WriteString(diagnosticsText(resp.GetDiagnostics()))
 			return b.String()
 		})
 	})

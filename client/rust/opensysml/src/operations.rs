@@ -498,7 +498,7 @@ impl Connection {
             return Err(Error::Execution {
                 message: response.error,
                 reason: FailureReason::Unspecified,
-                diagnostics: diagnostics_of(&response.diagnostics),
+                diagnostics: Vec::new(),
                 trace: Vec::new(),
                 trace_dropped: 0,
             });

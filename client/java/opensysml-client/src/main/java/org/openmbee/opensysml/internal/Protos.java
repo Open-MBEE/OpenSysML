@@ -944,8 +944,7 @@ public final class Protos {
         r.hasWitness() ? Optional.of(checkWitness(r.getWitness())) : Optional.empty(),
         r.hasContrast() ? Optional.of(checkWitness(r.getContrast())) : Optional.empty(),
         standing(r.getEngine(), r.getStrength(), r.getBoundsList()),
-        r.getReason(),
-        diagnostics(r.getDiagnosticsList()));
+        r.getReason());
   }
 
   private static CheckResult.Search checkSearch(org.openmbee.opensysml.proto.CheckSearch s) {

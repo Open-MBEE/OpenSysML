@@ -733,7 +733,6 @@ message CheckBehaviorResponse {
   repeated Bound bounds = 14;
   // Why nothing could be decided, when the verdict is undecided.
   string reason = 15;
-  repeated Diagnostic diagnostics = 16;
   // A request refused before any search: the behavior does not resolve, a
   // property names no constraint or requirement, an option is misused.
   string error = 17;

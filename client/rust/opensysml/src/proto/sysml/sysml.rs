@@ -804,8 +804,6 @@ pub struct CheckBehaviorResponse {
     /// Why nothing could be decided, when the verdict is undecided.
     #[prost(string, tag="15")]
     pub reason: ::prost::alloc::string::String,
-    #[prost(message, repeated, tag="16")]
-    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
     /// A request refused before any search: the behavior does not resolve, a
     /// property names no constraint or requirement, an option is misused.
     #[prost(string, tag="17")]
