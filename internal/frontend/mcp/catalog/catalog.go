@@ -198,6 +198,8 @@ var CLIOnly = map[string]string{
 	"baseline":             "reads a file on the host and shapes the exit status; a tool answers every diagnostic",
 	"warnings-as-errors":   "exit-status policy of the command; a tool answers each diagnostic with its severity",
 	"output":               "writes a file on the host; a tool answers the content",
+	"bundle":               "archives a project directory on the host",
+	"unbundle":             "writes a project directory on the host",
 	"jobs":                 "host concurrency",
 	"compile":              "drives a native toolchain on the host",
 	"target":               "drives a native toolchain on the host",
