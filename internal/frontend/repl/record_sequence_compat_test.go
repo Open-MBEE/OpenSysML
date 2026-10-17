@@ -1,6 +1,7 @@
 package repl
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis/record"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -30,7 +31,7 @@ func TestRecordAttributesReportsSequenceUniqueness(t *testing.T) {
 			resolver := resolve.New(idx)
 			sem := semantics.NewModel(resolver)
 			resolver.SetModel(sem)
-			feature, ok := recordAttributes(idx, sem, defs[0])["temps"]
+			feature, ok := record.Attributes(idx, sem, defs[0])["temps"]
 			if !ok || !feature.Multi {
 				t.Fatalf("temps = %+v (present %v), want a multi-valued feature", feature, ok)
 			}
@@ -61,7 +62,7 @@ func TestRecordAttributesFollowsInheritedNonunique(t *testing.T) {
 	resolver := resolve.New(idx)
 	sem := semantics.NewModel(resolver)
 	resolver.SetModel(sem)
-	feature, ok := recordAttributes(idx, sem, defs[0])["temps"]
+	feature, ok := record.Attributes(idx, sem, defs[0])["temps"]
 	if !ok || !feature.Multi || feature.Unique {
 		t.Errorf("temps = %+v (present %v), want inherited multi nonunique feature", feature, ok)
 	}

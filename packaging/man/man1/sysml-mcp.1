@@ -153,6 +153,11 @@ runtime: Run an OSLC query against a parsed model (rpc Query, sysml \-query).
 runtime: Render a document definition as Markdown or HTML (rpc RenderDocument,
 sysml \-render\-document, sysml \-doc\-form).
 .TP
+.B record_run
+runtime: Run an analysis case and record the runs into the model as
+AnalysisRecords declarations (rpc RecordRun, sysml \-record\-run, sysml
+\-record\-into).
+.TP
 .B render_model_view
 runtime: Render a view as its nodes, edges and compartments (rpc RenderView,
 sysml \-render, sysml \-render\-ports, sysml \-render\-show, sysml
@@ -166,9 +171,17 @@ runtime: Run an analysis case and report its result (rpc RunAnalysis, sysml
 runtime: Run a document query definition and report its rows (rpc
 RunDocumentQuery, sysml \-run\-query).
 .TP
+.B run_runs
+runtime: Run an action or a Monte Carlo case repeatedly and table what the
+runs observed (rpc RunRuns, sysml \-runs, sysml \-observe).
+.TP
 .B run_sweep
 runtime: Run an analysis case over ranges of its parameters (rpc RunSweep,
 sysml \-sweep, sysml \-samples).
+.TP
+.B self_check
+runtime: Apply the reflective SysMLValidation constraints to every element of
+a model (rpc SelfCheck, sysml \-self\-check, sysml \-self\-check\-package).
 .TP
 .B server_info
 runtime: Report the service version and the capabilities it serves (rpc

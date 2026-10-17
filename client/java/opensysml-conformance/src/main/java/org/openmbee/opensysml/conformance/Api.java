@@ -39,6 +39,11 @@ import org.openmbee.opensysml.Satisfaction;
 import org.openmbee.opensysml.ServiceException;
 import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.StateRun;
+import org.openmbee.opensysml.RecordOptions;
+import org.openmbee.opensysml.Recording;
+import org.openmbee.opensysml.Runs;
+import org.openmbee.opensysml.RunsOptions;
+import org.openmbee.opensysml.SelfCheck;
 import org.openmbee.opensysml.SweepOptions;
 import org.openmbee.opensysml.SweepRange;
 import org.openmbee.opensysml.Symbol;
@@ -88,8 +93,14 @@ import org.openmbee.opensysml.proto.RunAnalysisRequest;
 import org.openmbee.opensysml.proto.RunAnalysisResponse;
 import org.openmbee.opensysml.proto.RunDocumentQueryRequest;
 import org.openmbee.opensysml.proto.RunDocumentQueryResponse;
+import org.openmbee.opensysml.proto.RecordRunRequest;
+import org.openmbee.opensysml.proto.RecordRunResponse;
+import org.openmbee.opensysml.proto.RunRunsRequest;
+import org.openmbee.opensysml.proto.RunRunsResponse;
 import org.openmbee.opensysml.proto.RunSweepRequest;
 import org.openmbee.opensysml.proto.RunSweepResponse;
+import org.openmbee.opensysml.proto.SelfCheckRequest;
+import org.openmbee.opensysml.proto.SelfCheckResponse;
 import org.openmbee.opensysml.proto.ServerInfoRequest;
 import org.openmbee.opensysml.proto.ServerInfoResponse;
 import org.openmbee.opensysml.proto.SymbolResponse;
@@ -138,6 +149,9 @@ final class Api {
   private static final String RPC_RUN_DOCUMENT_QUERY = "RunDocumentQuery";
   private static final String RPC_RENDER_DOCUMENT = "RenderDocument";
   private static final String RPC_EXPORT_GRAPHS = "ExportGraphs";
+  private static final String RPC_RUN_RUNS = "RunRuns";
+  private static final String RPC_SELF_CHECK = "SelfCheck";
+  private static final String RPC_RECORD_RUN = "RecordRun";
   private static final String RPC_RENDER_VIEW = "RenderView";
   private static final String RPC_VALIDATE_INSTANCE = "ValidateInstance";
   private static final String RPC_VERIFY_CONSTRAINT = "VerifyConstraint";
@@ -171,7 +185,10 @@ final class Api {
           RPC_RUN_DOCUMENT_QUERY,
           RPC_RENDER_DOCUMENT,
           RPC_RENDER_VIEW,
-          RPC_EXPORT_GRAPHS);
+          RPC_EXPORT_GRAPHS,
+          RPC_RUN_RUNS,
+          RPC_SELF_CHECK,
+          RPC_RECORD_RUN);
 
   private final Connection connection;
 
@@ -220,6 +237,9 @@ final class Api {
       case RPC_MIGRATE -> MigrateRequest.newBuilder();
       case RPC_APPLY_EDITS -> ApplyEditsRequest.newBuilder();
       case RPC_RUN_SWEEP -> RunSweepRequest.newBuilder();
+      case RPC_RUN_RUNS -> RunRunsRequest.newBuilder();
+      case RPC_SELF_CHECK -> SelfCheckRequest.newBuilder();
+      case RPC_RECORD_RUN -> RecordRunRequest.newBuilder();
       case RPC_RUN_DOCUMENT_QUERY -> RunDocumentQueryRequest.newBuilder();
       case RPC_RENDER_DOCUMENT -> RenderDocumentRequest.newBuilder();
       case RPC_RENDER_VIEW -> RenderViewRequest.newBuilder();
@@ -277,6 +297,9 @@ final class Api {
             case RPC_MIGRATE -> migrate((MigrateRequest) request);
             case RPC_APPLY_EDITS -> applyEdits((ApplyEditsRequest) request);
             case RPC_RUN_SWEEP -> runSweep((RunSweepRequest) request);
+            case RPC_RUN_RUNS -> runRuns((RunRunsRequest) request);
+            case RPC_SELF_CHECK -> selfCheck((SelfCheckRequest) request);
+            case RPC_RECORD_RUN -> recordRun((RecordRunRequest) request);
             case RPC_RUN_DOCUMENT_QUERY ->
                 runDocumentQuery((RunDocumentQueryRequest) request);
             case RPC_RENDER_DOCUMENT -> renderDocument((RenderDocumentRequest) request);
@@ -1034,6 +1057,104 @@ final class Api {
       return Rendering.sweep(model.runSweep(request.getSymbolId(), ranges, options));
     } catch (ModelException e) {
       return RunSweepResponse.newBuilder()
+          .setError(e.getMessage())
+          .setFailureReason(Rendering.failureReason(e.failureReason()))
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
+    }
+  }
+
+  private RunRunsResponse runRuns(RunRunsRequest request) {
+    Model model = engine(connection.model(request.getModelHash()), request.getEngine());
+    RunsOptions options =
+        request.getAnalysisSymbolId().isEmpty()
+            ? RunsOptions.action(request.getActionSymbolId(), request.getRuns())
+            : RunsOptions.analysis(request.getAnalysisSymbolId(), request.getRuns());
+    options =
+        options
+            .withClockStep(request.getClockStep())
+            .withObserve(request.getObserveList().toArray(String[]::new))
+            .withInputs(values(request.getInputsMap()))
+            .withArguments(values(request.getArgumentsList()))
+            .withNamedArguments(values(request.getNamedArgumentsMap()));
+    if (request.hasSeed()) {
+      options = options.withSeed(request.getSeed());
+    }
+    if (!request.getDraws().isEmpty()) {
+      options = options.withDraws(request.getDraws());
+    }
+    if (!request.getPerformerSymbolId().isEmpty()) {
+      options = options.withPerformer(request.getPerformerSymbolId());
+    }
+    if (!request.getSubjectSymbolId().isEmpty()) {
+      options = options.withSubject(request.getSubjectSymbolId());
+    }
+    try {
+      return Rendering.runs(model.runRuns(options));
+    } catch (ModelException e) {
+      return RunRunsResponse.newBuilder()
+          .setError(e.getMessage())
+          .setFailureReason(Rendering.failureReason(e.failureReason()))
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
+    }
+  }
+
+  private SelfCheckResponse selfCheck(SelfCheckRequest request) {
+    Model model = connection.model(request.getModelHash());
+    try {
+      return Rendering.selfCheck(model.selfCheck(request.getSelfCheckPackageList()));
+    } catch (ModelException e) {
+      return SelfCheckResponse.newBuilder()
+          .setError(e.getMessage())
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
+    }
+  }
+
+  private RecordRunResponse recordRun(RecordRunRequest request) {
+    Model model = engine(connection.model(request.getModelHash()), request.getEngine());
+    RecordOptions options =
+        RecordOptions.defaults()
+            .withArguments(values(request.getArgumentsList()))
+            .withNamedArguments(values(request.getNamedArgumentsMap()));
+    if (!request.getSubjectSymbolId().isEmpty()) {
+      options = options.withSubject(request.getSubjectSymbolId());
+    }
+    if (!request.getRecordInto().isEmpty()) {
+      options = options.into(request.getRecordInto());
+    }
+    if (request.getRuns() > 0 && request.hasSeed()) {
+      options = options.withRuns(request.getRuns(), request.getSeed());
+    } else if (request.getRuns() > 0) {
+      options =
+          new RecordOptions(
+              options.subject(),
+              options.arguments(),
+              options.namedArguments(),
+              options.into(),
+              options.ranges(),
+              request.getRuns(),
+              Optional.empty());
+    }
+    List<SweepRange> ranges = new ArrayList<>(request.getRangesCount());
+    for (org.openmbee.opensysml.proto.SweepRange range : request.getRangesList()) {
+      SweepRange read =
+          SweepRange.of(
+              range.getParameter(), value(range.getStart()), value(range.getEnd()));
+      if (range.hasStep()) {
+        read = read.withStep(value(range.getStep()));
+      }
+      ranges.add(read);
+    }
+    options = options.withRanges(ranges);
+    try {
+      Recording recording = model.recordRun(request.getAnalysisSymbolId(), options);
+      RecordRunResponse.Builder response = Rendering.recording(recording);
+      recording.run().ifPresent(run -> response.setRun(analysis(run)));
+      return response.build();
+    } catch (ModelException e) {
+      return RecordRunResponse.newBuilder()
           .setError(e.getMessage())
           .setFailureReason(Rendering.failureReason(e.failureReason()))
           .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))

@@ -152,6 +152,12 @@ pub fn upgrade_remedy(capability: &str) -> String {
          and start it yourself"
     )
 }
+/// The `RunRuns` RPC: an action or a Monte Carlo case run repeatedly, the runs tabled.
+pub const CAPABILITY_RUNS: &str = "runs";
+/// The `SelfCheck` RPC: the reflective SysMLValidation check of every element.
+pub const CAPABILITY_SELF_CHECK: &str = "self_check";
+/// The `RecordRun` RPC: runs of an analysis case recorded into the model.
+pub const CAPABILITY_RECORD_RUN: &str = "record_run";
 
 #[cfg(test)]
 mod tests {

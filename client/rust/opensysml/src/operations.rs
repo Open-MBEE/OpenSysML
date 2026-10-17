@@ -9,10 +9,11 @@ use crate::capabilities::{
     CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY,
     CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_RATIONAL_VALUES,
-    CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_SCHEDULE,
-    CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SET_VALUES, CAPABILITY_STATE_TRACE,
-    CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES,
-    CAPABILITY_VERIFICATION, CAPABILITY_VERIFICATION_ARGUMENTS, CAPABILITY_VERIFICATION_QUESTIONS,
+    CAPABILITY_RECORD_RUN, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_RUNS, CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SELF_CHECK,
+    CAPABILITY_SET_VALUES, CAPABILITY_STATE_TRACE, CAPABILITY_STRICT_CONFORMANCE,
+    CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES, CAPABILITY_VERIFICATION,
+    CAPABILITY_VERIFICATION_ARGUMENTS, CAPABILITY_VERIFICATION_QUESTIONS,
 };
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
 use crate::document::{
@@ -30,10 +31,11 @@ use crate::migration::{
 };
 use crate::query::{elements_of, Query, QueryElement};
 use crate::results::{
-    analysis_of, calc_of, diagnostics_of, exploration_of, satisfaction_of, single_verdict,
-    sweep_of, validation_of, value_map, ActionRun, AnalysisResult, CalcResult, EngineInfo,
-    Exploration, ExploredResponse, Satisfaction, StateRun, SweepRange, SweepTable, Validation,
-    Verdict, ENGINE_AUTO, ENGINE_EXPLORE, QUESTION_EVALUATE,
+    analysis_of, calc_of, diagnostics_of, exploration_of, recording_of, runs_of, satisfaction_of,
+    self_check_of, single_verdict, sweep_of, validation_of, value_map, ActionRun, AnalysisResult,
+    CalcResult, EngineInfo, Exploration, ExploredResponse, Recording, RunsResult, Satisfaction,
+    SelfCheckResult, StateRun, SweepRange, SweepTable, Validation, Verdict, ENGINE_AUTO,
+    ENGINE_EXPLORE, QUESTION_EVALUATE,
 };
 use crate::sources::{documents_to_wire, SourceDocument};
 use crate::wire;
@@ -133,6 +135,58 @@ pub struct SweepOptions {
     pub samples: i64,
     /// Seed the draws are taken from.
     pub seed: u64,
+    /// The engine to ask.
+    pub engine: Option<String>,
+}
+
+/// Options of [`Connection::run_runs`]: what to run, how often and what to observe.
+#[derive(Clone, Debug, Default)]
+pub struct RunsOptions {
+    /// Qualified name of the action to run; give this or `analysis`.
+    pub action: Option<String>,
+    /// Qualified name of the Simulation::MonteCarlo analysis case.
+    pub analysis: Option<String>,
+    /// How many runs to make.
+    pub runs: i64,
+    /// Seed the runs draw from; required unless `draws` fixes them.
+    pub seed: Option<u64>,
+    /// Draw policy: "random" (the default), "min", "max" or "average".
+    pub draws: Option<String>,
+    /// Clock step of each run; 0 keeps the default.
+    pub clock_step: f64,
+    /// The action's features each run reports; none reports every feature and the clock.
+    pub observe: Vec<String>,
+    /// The action's input parameters by name.
+    pub inputs: BTreeMap<String, Value>,
+    /// Qualified name of the part whose object performs the action.
+    pub performer: Option<String>,
+    /// Qualified name of a part or usage to instantiate as the case's subject.
+    pub subject: Option<String>,
+    /// Positional arguments of the case.
+    pub arguments: Vec<Value>,
+    /// Arguments of the case by name.
+    pub named_arguments: BTreeMap<String, Value>,
+    /// The engine to ask.
+    pub engine: Option<String>,
+}
+
+/// Options of [`Connection::record_run`]: how the case runs and where its records go.
+#[derive(Clone, Debug, Default)]
+pub struct RecordOptions {
+    /// Qualified name of a part or usage to instantiate as the subject.
+    pub subject: Option<String>,
+    /// Positional arguments.
+    pub arguments: Vec<Value>,
+    /// Arguments by name.
+    pub named_arguments: BTreeMap<String, Value>,
+    /// Package the records go into; none is a Records package beside the case's own.
+    pub into: Option<String>,
+    /// Ranges to run the case over as a sweep, recording each completed row.
+    pub ranges: Vec<SweepRange>,
+    /// Monte Carlo runs to make and record; 0 runs the case once.
+    pub runs: i64,
+    /// Seed of the sample's draws; required with `runs`.
+    pub seed: Option<u64>,
     /// The engine to ask.
     pub engine: Option<String>,
 }
@@ -1001,6 +1055,96 @@ impl Connection {
         };
         let response = self.gated_rpc("RunSweep", request, &with_values(capabilities))?;
         sweep_of(response, self.capabilities())
+    }
+
+    /// Runs an action, or a Simulation::MonteCarlo case, `options.runs` times,
+    /// each in a context of its own, and tables what the runs observed.
+    pub fn run_runs(&self, model_hash: &str, options: &RunsOptions) -> Result<RunsResult, Error> {
+        let mut capabilities = vec![CAPABILITY_RUNS];
+        if options.performer.is_some() {
+            capabilities.push(CAPABILITY_PERFORMER);
+        }
+        capabilities.extend(engine_capabilities(options.engine.as_deref()));
+        self.require_all(&capabilities)?;
+        let request = wire::RunRunsRequest {
+            model_hash: model_hash.to_owned(),
+            action_symbol_id: options.action.clone().unwrap_or_default(),
+            analysis_symbol_id: options.analysis.clone().unwrap_or_default(),
+            inputs: self.named_to_wire(&options.inputs)?,
+            performer_symbol_id: options.performer.clone().unwrap_or_default(),
+            subject_symbol_id: options.subject.clone().unwrap_or_default(),
+            arguments: self.values_to_wire(&options.arguments)?,
+            named_arguments: self.named_to_wire(&options.named_arguments)?,
+            runs: options.runs,
+            seed: options.seed,
+            draws: options.draws.clone().unwrap_or_default(),
+            clock_step: options.clock_step,
+            observe: options.observe.clone(),
+            engine: engine_field(options.engine.as_deref()),
+        };
+        let response = self.gated_rpc("RunRuns", request, &with_values(capabilities))?;
+        runs_of(response, self.capabilities())
+    }
+
+    /// Applies the SysMLValidation constraints, and those of the rule packages
+    /// named, reflectively to every element of the model.
+    pub fn self_check(
+        &self,
+        model_hash: &str,
+        packages: &[String],
+    ) -> Result<SelfCheckResult, Error> {
+        let capabilities = vec![CAPABILITY_SELF_CHECK];
+        self.require_all(&capabilities)?;
+        let request = wire::SelfCheckRequest {
+            model_hash: model_hash.to_owned(),
+            self_check_package: packages.to_vec(),
+        };
+        let response = self.gated_rpc("SelfCheck", request, &capabilities)?;
+        self_check_of(response)
+    }
+
+    /// Runs an analysis case once, over `options.ranges` or as a Monte Carlo
+    /// sample of `options.runs`, and records the runs into the model.
+    pub fn record_run(
+        &self,
+        model_hash: &str,
+        case_id: &str,
+        options: &RecordOptions,
+    ) -> Result<Recording, Error> {
+        let mut capabilities = vec![CAPABILITY_RECORD_RUN];
+        capabilities.extend(engine_capabilities(options.engine.as_deref()));
+        self.require_all(&capabilities)?;
+        let ranges = options
+            .ranges
+            .iter()
+            .map(|range| {
+                Ok(wire::SweepRange {
+                    parameter: range.parameter.clone(),
+                    start: Some(value_to_wire(&range.start, self.capabilities())?),
+                    end: Some(value_to_wire(&range.end, self.capabilities())?),
+                    step: range
+                        .step
+                        .as_ref()
+                        .map(|step| value_to_wire(step, self.capabilities()))
+                        .transpose()?,
+                })
+            })
+            .collect::<Result<_, Error>>()?;
+        let request = wire::RecordRunRequest {
+            model_hash: model_hash.to_owned(),
+            analysis_symbol_id: case_id.to_owned(),
+            subject_symbol_id: options.subject.clone().unwrap_or_default(),
+            arguments: self.values_to_wire(&options.arguments)?,
+            named_arguments: self.named_to_wire(&options.named_arguments)?,
+            engine: engine_field(options.engine.as_deref()),
+            record_into: options.into.clone().unwrap_or_default(),
+            ranges,
+            runs: options.runs,
+            seed: options.seed,
+            accept_documents: true,
+        };
+        let response = self.gated_rpc("RecordRun", request, &with_values(capabilities))?;
+        recording_of(response, self.capabilities())
     }
 }
 

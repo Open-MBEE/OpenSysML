@@ -26,6 +26,9 @@ import type {
   SweepTable,
   Validation,
   Verdict,
+  RunsResult,
+  SelfCheckResult,
+  Recording,
 } from "./verdict.js";
 import type {
   Diagnostic,
@@ -570,6 +573,21 @@ export class Model {
     } = {},
   ): Promise<Exploration> {
     return this.connection.exploreAnalysis(this.hash, symbolId, options);
+  }
+
+  /** Runs an action, or a Monte Carlo case, of this model `runs` times. */
+  runRuns(options: Parameters<Connection["runRuns"]>[1]): Promise<RunsResult> {
+    return this.connection.runRuns(this.hash, options);
+  }
+
+  /** Applies the reflective SysMLValidation constraints to every element of this model. */
+  selfCheck(packages: readonly string[] = []): Promise<SelfCheckResult> {
+    return this.connection.selfCheck(this.hash, packages);
+  }
+
+  /** Runs an analysis case of this model and records the runs into it. */
+  recordRun(symbolId: string, options: Parameters<Connection["recordRun"]>[2] = {}): Promise<Recording> {
+    return this.connection.recordRun(this.hash, symbolId, options);
   }
 
   /** Runs an analysis case or calc of this model once per row of a sweep. */

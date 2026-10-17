@@ -2814,6 +2814,342 @@ pub struct RunSweepResponse {
     #[prost(message, repeated, tag="11")]
     pub bounds: ::prost::alloc::vec::Vec<Bound>,
 }
+/// RunRunsRequest runs one behavior repeatedly: an action, whose features and
+/// clock the runs observe, or a Simulation::MonteCarlo analysis case, whose
+/// declared observable each run reports and which is concluded over the sample.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunRunsRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// FQN of the action to run; exactly one of action_symbol_id and
+    /// analysis_symbol_id is set.
+    #[prost(string, tag="2")]
+    pub action_symbol_id: ::prost::alloc::string::String,
+    /// FQN of the Simulation::MonteCarlo analysis case, definition or usage.
+    #[prost(string, tag="3")]
+    pub analysis_symbol_id: ::prost::alloc::string::String,
+    /// The action's input parameters, by name.
+    #[prost(map="string, message", tag="4")]
+    pub inputs: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// Optional FQN of a part/usage to perform the action on, or a path from one
+    /// to a nested object; see ExecuteActionRequest.performer_symbol_id.
+    #[prost(string, tag="5")]
+    pub performer_symbol_id: ::prost::alloc::string::String,
+    /// Optional FQN of the case's subject; see RunAnalysisRequest.subject_symbol_id.
+    #[prost(string, tag="6")]
+    pub subject_symbol_id: ::prost::alloc::string::String,
+    /// The case's positional and named arguments, as every run binds them.
+    #[prost(message, repeated, tag="7")]
+    pub arguments: ::prost::alloc::vec::Vec<Value>,
+    #[prost(map="string, message", tag="8")]
+    pub named_arguments: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// How many runs to make; must be positive.
+    #[prost(int64, tag="9")]
+    pub runs: i64,
+    /// Seed the runs draw their modeled randomness from, one derived seed per run:
+    /// the same seed makes the same runs on every platform. Required unless the
+    /// draws are fixed by `draws`.
+    #[prost(uint64, optional, tag="10")]
+    pub seed: ::core::option::Option<u64>,
+    /// Draw policy for the model's distributions, as the CLI's -draws: "random"
+    /// (default), "min", "max" or "average".
+    #[prost(string, tag="11")]
+    pub draws: ::prost::alloc::string::String,
+    /// Clock step of each run, as the CLI's -clock-step; 0 keeps the default.
+    #[prost(double, tag="12")]
+    pub clock_step: f64,
+    /// Features of the action each run reports, "clock" for the time it completed
+    /// at; empty reports every feature the action holds and the clock. Refused for
+    /// a case, which observes what it declares.
+    #[prost(string, repeated, tag="13")]
+    pub observe: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The engine the runs are put to; see VerifyConstraintRequest.engine.
+    #[prost(string, tag="14")]
+    pub engine: ::prost::alloc::string::String,
+}
+/// RunDistribution summarises one observable over the completed runs.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunDistribution {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The unit the numbers carry, empty when none or the values are not numbers.
+    #[prost(string, tag="2")]
+    pub unit: ::prost::alloc::string::String,
+    /// Completed runs that produced the observable.
+    #[prost(int64, tag="3")]
+    pub count: i64,
+    /// Whether the values are numbers, so min/max/mean/deviation/percentiles and
+    /// the histogram are set; otherwise `values` counts each distinct value.
+    #[prost(bool, tag="4")]
+    pub numeric: bool,
+    #[prost(message, optional, tag="5")]
+    pub min: ::core::option::Option<Value>,
+    #[prost(message, optional, tag="6")]
+    pub max: ::core::option::Option<Value>,
+    #[prost(message, optional, tag="7")]
+    pub mean: ::core::option::Option<Value>,
+    /// Sample standard deviation of the numbers.
+    #[prost(double, tag="8")]
+    pub deviation: f64,
+    #[prost(message, repeated, tag="9")]
+    pub percentiles: ::prost::alloc::vec::Vec<RunPercentile>,
+    #[prost(message, repeated, tag="10")]
+    pub histogram: ::prost::alloc::vec::Vec<RunHistogramBin>,
+    #[prost(message, repeated, tag="11")]
+    pub values: ::prost::alloc::vec::Vec<RunCountedValue>,
+}
+/// RunPercentile is the value at a percentile of the completed runs.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunPercentile {
+    #[prost(double, tag="1")]
+    pub percentile: f64,
+    #[prost(message, optional, tag="2")]
+    pub value: ::core::option::Option<Value>,
+}
+/// RunHistogramBin counts the runs whose number fell in \[low, high\]; a single
+/// distinct value has low == high.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunHistogramBin {
+    #[prost(message, optional, tag="1")]
+    pub low: ::core::option::Option<Value>,
+    #[prost(message, optional, tag="2")]
+    pub high: ::core::option::Option<Value>,
+    #[prost(int64, tag="3")]
+    pub count: i64,
+}
+/// RunCountedValue counts the runs that produced one distinct value.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunCountedValue {
+    #[prost(message, optional, tag="1")]
+    pub value: ::core::option::Option<Value>,
+    #[prost(int64, tag="2")]
+    pub count: i64,
+}
+/// SelfCheckRequest asks for the reflective check of a parsed model.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SelfCheckRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// Qualified names of packages whose constraint definitions apply after the
+    /// bundled SysMLValidation ones (-self-check-package). Each must resolve to a
+    /// package the model or its libraries declare; its own elements are not checked.
+    #[prost(string, repeated, tag="2")]
+    pub self_check_package: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// SelfCheckFinding is one thing the check reports about a constraint applied
+/// to an element, or a constraint or package it skipped.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SelfCheckFinding {
+    /// fails: the element answered the constraint false; unevaluated: the runtime
+    /// cannot yet apply the constraint reflectively; error: the evaluation failed;
+    /// warning: a rule constraint was skipped, or a rule package yielded none.
+    #[prost(string, tag="1")]
+    pub status: ::prost::alloc::string::String,
+    /// "<constraint> for <element>", or the constraint or package alone
+    #[prost(string, tag="2")]
+    pub subject: ::prost::alloc::string::String,
+    /// document:line:col of the element, empty when it has none
+    #[prost(string, tag="3")]
+    pub location: ::prost::alloc::string::String,
+    /// qualified name of the constraint applied
+    #[prost(string, tag="4")]
+    pub constraint: ::prost::alloc::string::String,
+    /// name of the element it was applied to
+    #[prost(string, tag="5")]
+    pub element: ::prost::alloc::string::String,
+    /// the reason, for a warning or an error
+    #[prost(string, tag="6")]
+    pub message: ::prost::alloc::string::String,
+    /// the finding as `sysml -self-check` prints it
+    #[prost(string, tag="7")]
+    pub line: ::prost::alloc::string::String,
+}
+/// SelfCheckApplication counts the elements one constraint was applied to.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SelfCheckApplication {
+    #[prost(string, tag="1")]
+    pub constraint: ::prost::alloc::string::String,
+    #[prost(int64, tag="2")]
+    pub count: i64,
+}
+/// SelfCheckResponse is what the check found: every finding, the counts, and
+/// the verdict over them.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SelfCheckResponse {
+    /// holds: no violation and no evaluation error; fails: a violation;
+    /// unresolved: no violation, but an evaluation that errored.
+    #[prost(string, tag="1")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="2")]
+    pub findings: ::prost::alloc::vec::Vec<SelfCheckFinding>,
+    /// elements the check visited
+    #[prost(int64, tag="3")]
+    pub elements: i64,
+    /// constraint applications made
+    #[prost(int64, tag="4")]
+    pub checks: i64,
+    /// applications answered false
+    #[prost(int64, tag="5")]
+    pub violations: i64,
+    /// applications the runtime could not make
+    #[prost(int64, tag="6")]
+    pub unevaluated: i64,
+    /// applications and collections that errored
+    #[prost(int64, tag="7")]
+    pub evaluation_errors: i64,
+    /// by constraint, in name order
+    #[prost(message, repeated, tag="8")]
+    pub applications: ::prost::alloc::vec::Vec<SelfCheckApplication>,
+    /// the one-line total `sysml -self-check` prints last
+    #[prost(string, tag="9")]
+    pub summary: ::prost::alloc::string::String,
+    /// non-empty if the check could not start: a rule package named is not declared
+    #[prost(string, tag="10")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="11")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+}
+/// RecordRunRequest asks for runs of an analysis case to be recorded into the
+/// model. With neither `ranges` nor `runs` the case runs once; `ranges` runs it
+/// once per row of the ranges as RunSweep does and records each completed row;
+/// `runs` runs it that many times as RunRuns does a Simulation::MonteCarlo case
+/// and records each completed run and the sample's conclusion.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordRunRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// qualified name of the analysis case definition or usage
+    #[prost(string, tag="2")]
+    pub analysis_symbol_id: ::prost::alloc::string::String,
+    /// part/usage to instantiate as the subject, or a path from one
+    #[prost(string, tag="3")]
+    pub subject_symbol_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="4")]
+    pub arguments: ::prost::alloc::vec::Vec<Value>,
+    #[prost(map="string, message", tag="5")]
+    pub named_arguments: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    #[prost(string, tag="6")]
+    pub engine: ::prost::alloc::string::String,
+    /// Package the records go into (-record-into); empty is a Records package
+    /// beside the package enclosing the case's own.
+    #[prost(string, tag="7")]
+    pub record_into: ::prost::alloc::string::String,
+    /// records a sweep's rows (-sweep)
+    #[prost(message, repeated, tag="8")]
+    pub ranges: ::prost::alloc::vec::Vec<SweepRange>,
+    /// records a Monte Carlo sample of this many runs (-runs)
+    #[prost(int64, tag="9")]
+    pub runs: i64,
+    /// seed of the sample's draws; required with runs
+    #[prost(uint64, optional, tag="10")]
+    pub seed: ::core::option::Option<u64>,
+    /// As in ApplyEditsRequest: a model of several documents is refused unless the
+    /// request says it reads the response's `documents`.
+    #[prost(bool, tag="11")]
+    pub accept_documents: bool,
+}
+/// RecordRunResponse is the runs' own report, what the model gained, and the
+/// notation the records were written into.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordRunResponse {
+    /// The runs' own result, one of these by how the request ran the case.
+    #[prost(message, optional, tag="1")]
+    pub run: ::core::option::Option<RunAnalysisResponse>,
+    #[prost(message, optional, tag="2")]
+    pub sweep: ::core::option::Option<RunSweepResponse>,
+    #[prost(message, optional, tag="3")]
+    pub sample: ::core::option::Option<RunRunsResponse>,
+    /// qualified name of the package the records went into
+    #[prost(string, tag="4")]
+    pub package: ::prost::alloc::string::String,
+    /// qualified name of the per-case record definition
+    #[prost(string, tag="5")]
+    pub definition: ::prost::alloc::string::String,
+    /// qualified names of the records made, in order
+    #[prost(string, repeated, tag="6")]
+    pub records: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The record declarations generated: the target package's full nesting down
+    /// to it, holding the record definition when new and every record usage.
+    #[prost(string, tag="7")]
+    pub source: ::prost::alloc::string::String,
+    /// The notation of the document the records merged into, byte-identical to
+    /// the source outside the package they joined, or the records as a document of
+    /// their own when no document holds the package's nesting. As in
+    /// ApplyEditsResponse, `content` is set for a single-document model alone and
+    /// `documents` always: the document the records went into, named as the parse
+    /// request named it, or, when they are a document of their own, named after
+    /// their package with the notation's extension (`Records.sysml`).
+    #[prost(string, tag="8")]
+    pub content: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="9")]
+    pub documents: ::prost::alloc::vec::Vec<EditedDocument>,
+    /// rows or runs that failed and were not recorded
+    #[prost(int64, tag="10")]
+    pub skipped: i64,
+    /// why runs were not recorded, as `sysml -record-run` reports them
+    #[prost(string, repeated, tag="11")]
+    pub reasons: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Non-empty when nothing was recorded: the case could not run, no run
+    /// completed, or the records would not analyze cleanly, which leaves the model unchanged.
+    #[prost(string, tag="12")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(enumeration="FailureReason", tag="13")]
+    pub failure_reason: i32,
+    #[prost(message, repeated, tag="14")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// Hash of the model with the records in it, cached as a parse request's
+    /// would be, so the next request can run against the recorded model without
+    /// parsing it again. Empty when nothing was recorded.
+    #[prost(string, tag="15")]
+    pub model_hash: ::prost::alloc::string::String,
+}
+/// RunRunsResponse is the table of the runs, one row per run in run order, each
+/// observable's distribution, and for a case its conclusion over the sample.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunRunsResponse {
+    /// One row per run: `inputs` carries the run number as `run`, `outputs` what
+    /// the run observed, `verdicts` the case's in-run verdicts.
+    #[prost(message, repeated, tag="1")]
+    pub rows: ::prost::alloc::vec::Vec<SweepRow>,
+    /// The observables tabled, in column order: those asked for, else every
+    /// feature the action holds and "clock"; "observed" for a case.
+    #[prost(string, repeated, tag="2")]
+    pub observables: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="3")]
+    pub distributions: ::prost::alloc::vec::Vec<RunDistribution>,
+    /// Each distribution and, for a case, its conclusion as the CLI prints them
+    /// under the table; the table itself is `rows`.
+    #[prost(string, repeated, tag="4")]
+    pub lines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// A case's conclusion over the completed runs: its outputs and verdicts,
+    /// which every row's verdicts were settled by. Empty for an action.
+    #[prost(message, repeated, tag="5")]
+    pub outputs: ::prost::alloc::vec::Vec<CalcOutput>,
+    #[prost(message, repeated, tag="6")]
+    pub verdicts: ::prost::alloc::vec::Vec<Verdict>,
+    /// Why the case has no conclusion: no run completed, or the sample was refused.
+    #[prost(string, tag="7")]
+    pub unconcluded: ::prost::alloc::string::String,
+    /// Set when no run was made at all; a failed run is a row carrying its error.
+    #[prost(string, tag="8")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="9")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    #[prost(enumeration="FailureReason", tag="10")]
+    pub failure_reason: i32,
+    /// Every object a row's verdict is about, so each `instance_id` resolves here.
+    #[prost(message, repeated, tag="11")]
+    pub instances: ::prost::alloc::vec::Vec<Instance>,
+    #[prost(string, tag="12")]
+    pub engine: ::prost::alloc::string::String,
+    #[prost(string, tag="13")]
+    pub strength: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="14")]
+    pub bounds: ::prost::alloc::vec::Vec<Bound>,
+    /// The seed the runs drew from, when they drew.
+    #[prost(uint64, optional, tag="15")]
+    pub seed: ::core::option::Option<u64>,
+}
 /// RunDocumentQueryRequest runs a named document query — a calc def
 /// specializing DocumentQueries::Query — against a model the service already
 /// parsed, binding its entry parameters. It answers as %run-query does, but with

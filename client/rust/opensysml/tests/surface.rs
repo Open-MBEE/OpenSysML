@@ -662,3 +662,135 @@ fn an_edit_rewrites_the_source_and_a_refusal_is_typed() {
         other => panic!("expected an edit error, got {other:?}"),
     }
 }
+
+const RUNS_MODEL: &str = r#"package MC {
+    private import ScalarValues::*;
+    private import RandomFunctions::*;
+    action def Settle { out t : Real; first start; then assign t := uniform(1.0, 5.0); then done; }
+    part def Probe { attribute t : Real; action settle { first start; then assign t := uniform(1.0, 5.0); then done; } }
+    individual def probe :> Probe;
+    analysis def Mc :> Simulation::MonteCarlo {
+        subject analysed : Probe;
+        perform action run ::> analysed.settle;
+        attribute :>> observed : Real = analysed.t;
+        return Mean : Real = mean;
+    }
+    part def P { attribute m : Real = 2.0; }
+    part p : P;
+    analysis def Cost { subject s : P; return total : Real = s.m * 3.0; }
+}"#;
+
+#[test]
+fn repeated_runs_table_the_observables_and_conclude_a_sample() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(&connection, RUNS_MODEL);
+    let runs = model
+        .run_runs(&opensysml::RunsOptions {
+            action: Some("MC::Settle".to_owned()),
+            runs: 4,
+            seed: Some(7),
+            observe: vec!["t".to_owned()],
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(runs.len(), 4);
+    assert_eq!(runs.observables, vec!["t".to_owned()]);
+    assert_eq!(runs.distributions.len(), 1);
+    assert!(runs.distributions[0].numeric && runs.distributions[0].count == 4);
+    assert_eq!(runs.seed, Some(7));
+    let sample = model
+        .run_runs(&opensysml::RunsOptions {
+            analysis: Some("MC::Mc".to_owned()),
+            subject: Some("MC::probe".to_owned()),
+            runs: 3,
+            seed: Some(1),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(sample.len(), 3);
+    assert!(sample.unconcluded.is_empty() && sample.output("Mean").is_some());
+    let unseeded = model.run_runs(&opensysml::RunsOptions {
+        action: Some("MC::Settle".to_owned()),
+        runs: 1,
+        ..Default::default()
+    });
+    assert!(
+        matches!(
+            unseeded,
+            Err(opensysml::Error::Service {
+                status: opensysml::Status::InvalidArgument,
+                ..
+            })
+        ),
+        "{unseeded:?}"
+    );
+    let unknown = model.run_runs(&opensysml::RunsOptions {
+        action: Some("MC::Nope".to_owned()),
+        runs: 1,
+        draws: Some("min".to_owned()),
+        ..Default::default()
+    });
+    assert!(
+        matches!(unknown, Err(opensysml::Error::Execution { .. })),
+        "{unknown:?}"
+    );
+}
+
+#[test]
+fn the_self_check_counts_its_checks_and_refuses_an_unknown_rule_package() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(&connection, RUNS_MODEL);
+    let check = model.self_check(&[]).unwrap();
+    assert!(check.elements > 0 && check.checks > 0, "{check:?}");
+    assert!(check.summary.starts_with("Self-model check: "));
+    assert!(!check.applications.is_empty());
+    let unknown = model.self_check(&["Nope".to_owned()]);
+    assert!(
+        matches!(unknown, Err(opensysml::Error::Execution { .. })),
+        "{unknown:?}"
+    );
+}
+
+#[test]
+fn recording_a_run_and_a_sample_grows_the_model() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(&connection, RUNS_MODEL);
+    let recording = model
+        .record_run(
+            "MC::Cost",
+            &opensysml::RecordOptions {
+                subject: Some("MC::p".to_owned()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(recording.run.is_some());
+    assert_eq!(recording.package, "Records");
+    assert_eq!(recording.records, vec!["Records::Cost_run1".to_owned()]);
+    assert_eq!(recording.documents.len(), 1);
+    assert!(!recording.model_hash.is_empty());
+    let sample = model
+        .record_run(
+            "MC::Mc",
+            &opensysml::RecordOptions {
+                subject: Some("MC::probe".to_owned()),
+                runs: 2,
+                seed: Some(3),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(sample.sample.is_some());
+    assert_eq!(sample.records.len(), 3);
+    let unknown = model.record_run("MC::Nope", &Default::default());
+    assert!(
+        matches!(unknown, Err(opensysml::Error::Execution { .. })),
+        "{unknown:?}"
+    );
+}

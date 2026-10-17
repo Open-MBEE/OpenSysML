@@ -62,7 +62,8 @@ pub use migration::{
     VERDICT_MAPPED, VERDICT_SKIPPED, VERDICT_UNMAPPED,
 };
 pub use operations::{
-    AnalysisOptions, RunOptions, SourcesOptions, SweepOptions, VerifyOptions, SCHEDULE_EXPLORE,
+    AnalysisOptions, RecordOptions, RunOptions, RunsOptions, SourcesOptions, SweepOptions,
+    VerifyOptions, SCHEDULE_EXPLORE,
 };
 pub use query::{
     CompositeOperator, Constraint, PrimitiveOperator, Query, QueryElement,

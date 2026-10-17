@@ -60,13 +60,23 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 		return &pb.RunSweepResponse{Error: err.Error()}, nil
 	}
 
-	positional, named, resp, err := v.sweepArguments(req)
+	table, answered, resp, err := s.sweepTable(ctx, v, sym, isCase, req)
 	if resp != nil || err != nil {
 		return resp, err
 	}
+	return v.sweepResponse(table, s.standingOf(answered)), nil
+}
+
+// sweepTable runs the sweep the request asks for and answers its table, or
+// the response or call failure that stopped it before any row ran.
+func (s *Service) sweepTable(ctx context.Context, v *verifyContext, sym *symbols.Symbol, isCase bool, req *pb.RunSweepRequest) (sweep.SweepTable, analysis.Plan, *pb.RunSweepResponse, error) {
+	positional, named, resp, err := v.sweepArguments(req)
+	if resp != nil || err != nil {
+		return sweep.SweepTable{}, analysis.Plan{}, resp, err
+	}
 	plan, resp, err := v.sweepPlan(req)
 	if resp != nil || err != nil {
-		return resp, err
+		return sweep.SweepTable{}, analysis.Plan{}, resp, err
 	}
 	names := make([]string, 0, len(named))
 	for name := range named {
@@ -75,7 +85,7 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 	sort.Strings(names)
 	plan, err = sweep.ResolvePlan(v.runtime, sym, plan, len(positional), names)
 	if err != nil {
-		return sweepFailure(err), nil
+		return sweep.SweepTable{}, analysis.Plan{}, sweepFailure(err), nil
 	}
 
 	scope := v.declaringScope(sym)
@@ -131,14 +141,14 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 	if err != nil {
 		// A caller that went away is the call failing, not a table reporting it.
 		if ctx.Err() != nil {
-			return nil, ctx.Err()
+			return sweep.SweepTable{}, answered, nil, ctx.Err()
 		}
 		failed := sweepFailure(err)
 		st := s.standingOf(answered)
 		failed.Engine, failed.Strength, failed.Bounds = st.engine, st.strength, st.bounds
-		return failed, nil
+		return sweep.SweepTable{}, answered, failed, nil
 	}
-	return v.sweepResponse(answered.Result.Table(), s.standingOf(answered)), nil
+	return answered.Result.Table(), answered, nil, nil
 }
 
 // sweepArguments reads the arguments every row of the sweep binds, the named
@@ -243,6 +253,12 @@ func sweepFailure(err error) *pb.RunSweepResponse {
 // objects alike, so each row's are renumbered after the rows before it: the table
 // then names every object once, and a row's references resolve to that row's objects.
 func (v *verifyContext) sweepResponse(table sweep.SweepTable, st standing) *pb.RunSweepResponse {
+	resp, _ := v.sweepResponseIDs(table, st)
+	return resp
+}
+
+// sweepResponseIDs is sweepResponse with the renumbering its rows ended on.
+func (v *verifyContext) sweepResponseIDs(table sweep.SweepTable, st standing) (*pb.RunSweepResponse, rowIDs) {
 	resp := &pb.RunSweepResponse{
 		Parameters: table.Params,
 		Sampled:    table.Sampled,
@@ -292,18 +308,27 @@ func (v *verifyContext) sweepResponse(table sweep.SweepTable, st standing) *pb.R
 		resp.Instances = append(resp.Instances, graph...)
 		resp.Rows = append(resp.Rows, out)
 	}
-	return resp
+	return resp, ids
 }
 
 // rowIDs numbers a table's objects across its rows: each row's ids, which its own
 // context counted from 1, are shifted past the greatest id a row before it took.
 type rowIDs struct {
 	shift, last int64
+	// rowShift is the shift the latest row was renumbered by, for what shares its objects.
+	rowShift int64
+}
+
+// lastRow renumbers as the latest row was, so a conclusion drawn in that row's
+// context names the row's objects rather than fresh ones.
+func (r rowIDs) lastRow() rowIDs {
+	return rowIDs{shift: r.rowShift, last: r.last}
 }
 
 // row renumbers every object reference a row and its graph make, then moves the
 // shift past them for the row after.
 func (r *rowIDs) row(out *pb.SweepRow, graph []*pb.Instance) {
+	r.rowShift = r.shift
 	for _, in := range out.Inputs {
 		r.value(in.Value)
 	}

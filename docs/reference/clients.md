@@ -70,6 +70,7 @@ The Java client covers the whole service surface, as typed immutable results:
   delete and move);
 - `Query` and OSLC query, and the native document calls (`runDocumentQuery`, `renderDocument`).
 - `ExportGraphs`, the lowered graph of an action or state machine as `graphs:1` JSON (`exportGraphs`).
+- `RunRuns`, an action or Monte Carlo case run repeatedly, every run tabled with its observed features and their distributions (`runRuns`, `RunAction`/`RunMonteCarlo`); `SelfCheck`, every `SysMLValidation` rule constraint applied to the model (`selfCheck`); `RecordRun`, a case's run, sweep or sample recorded into the model as a new model (`recordRun`).
 
 It leaves out only the generated model-ergonomics types; [the Java
 API](java-api.md#what-the-client-does-not-do) says why.

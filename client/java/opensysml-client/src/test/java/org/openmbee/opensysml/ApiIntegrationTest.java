@@ -1657,6 +1657,86 @@ class ApiIntegrationTest {
     assertTrue(stale.reason().contains("v0.0.1"), stale.reason());
     assertEquals(connection.capabilities().serviceVersion(), stale.serviceVersion());
   }
+  private static final String RUNS_MODEL =
+      """
+      package MC {
+          private import ScalarValues::*;
+          private import RandomFunctions::*;
+          action def Settle { out t : Real; first start; then assign t := uniform(1.0, 5.0); then done; }
+          part def Probe { attribute t : Real; action settle { first start; then assign t := uniform(1.0, 5.0); then done; } }
+          individual def probe :> Probe;
+          analysis def Mc :> Simulation::MonteCarlo {
+              subject analysed : Probe;
+              perform action run ::> analysed.settle;
+              attribute :>> observed : Real = analysed.t;
+              return Mean : Real = mean;
+          }
+          part def P { attribute m : Real = 2.0; }
+          part p : P;
+          analysis def Cost { subject s : P; return total : Real = s.m * 3.0; }
+      }
+      """;
+
+  @Test
+  void repeatedRunsTableTheObservablesAndConcludeASample() {
+    Model model = connection.parse(RUNS_MODEL);
+    Runs runs = model.runRuns(RunsOptions.action("MC::Settle", 4).withSeed(7).withObserve("t"));
+    assertEquals(4, runs.size());
+    assertTrue(runs.completed());
+    assertEquals(List.of("t"), runs.observables());
+    Runs.Distribution t = runs.distribution("t").orElseThrow();
+    assertTrue(t.numeric());
+    assertEquals(4, t.count());
+    assertTrue(t.min().isPresent() && t.mean().isPresent());
+    assertEquals(Optional.of(7L), runs.seed());
+
+    Runs sample =
+        model.runRuns(RunsOptions.analysis("MC::Mc", 3).withSubject("MC::probe").withSeed(1));
+    assertEquals(3, sample.size());
+    assertTrue(sample.unconcluded().isEmpty());
+    assertTrue(sample.output("Mean").isPresent());
+
+    ServiceException unseeded =
+        assertThrows(
+            ServiceException.class, () -> model.runRuns(RunsOptions.action("MC::Settle", 1)));
+    assertTrue(unseeded.getMessage().contains("seed"), unseeded.getMessage());
+    ModelException unknown =
+        assertThrows(
+            ModelException.class,
+            () -> model.runRuns(RunsOptions.action("MC::Nope", 1).withDraws("min")));
+    assertTrue(unknown.getMessage().contains("MC::Nope"), unknown.getMessage());
+  }
+
+  @Test
+  void theSelfCheckCountsItsChecksAndRefusesAnUnknownRulePackage() {
+    Model model = connection.parse(RUNS_MODEL);
+    SelfCheck check = model.selfCheck(List.of());
+    assertTrue(check.elements() > 0 && check.checks() > 0, check.toString());
+    assertTrue(check.summary().startsWith("Self-model check: "), check.summary());
+    assertFalse(check.applications().isEmpty());
+    ModelException unknown =
+        assertThrows(ModelException.class, () -> model.selfCheck(List.of("Nope")));
+    assertTrue(unknown.getMessage().contains("Nope"), unknown.getMessage());
+  }
+
+  @Test
+  void recordingARunAndASampleGrowsTheModel() {
+    Model model = connection.parse(RUNS_MODEL);
+    Recording recording =
+        model.recordRun("MC::Cost", RecordOptions.defaults().withSubject("MC::p"));
+    assertTrue(recording.run().isPresent());
+    assertEquals("Records", recording.packageName());
+    assertEquals(List.of("Records::Cost_run1"), recording.records());
+    assertEquals(1, recording.documents().size());
+    assertFalse(recording.modelHash().isEmpty());
+
+    Recording sample =
+        model.recordRun(
+            "MC::Mc", RecordOptions.defaults().withSubject("MC::probe").withRuns(2, 3));
+    assertTrue(sample.sample().isPresent());
+    assertEquals(3, sample.records().size());
+    assertThrows(ModelException.class, () -> model.recordRun("MC::Nope", RecordOptions.defaults()));
+  }
 
   private static final String TIMED =
       """

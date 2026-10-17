@@ -83,6 +83,12 @@ const (
 	SysMLServiceRunAnalysisProcedure = "/sysml.SysMLService/RunAnalysis"
 	// SysMLServiceRunSweepProcedure is the fully-qualified name of the SysMLService's RunSweep RPC.
 	SysMLServiceRunSweepProcedure = "/sysml.SysMLService/RunSweep"
+	// SysMLServiceRunRunsProcedure is the fully-qualified name of the SysMLService's RunRuns RPC.
+	SysMLServiceRunRunsProcedure = "/sysml.SysMLService/RunRuns"
+	// SysMLServiceSelfCheckProcedure is the fully-qualified name of the SysMLService's SelfCheck RPC.
+	SysMLServiceSelfCheckProcedure = "/sysml.SysMLService/SelfCheck"
+	// SysMLServiceRecordRunProcedure is the fully-qualified name of the SysMLService's RecordRun RPC.
+	SysMLServiceRecordRunProcedure = "/sysml.SysMLService/RecordRun"
 	// SysMLServiceListEnginesProcedure is the fully-qualified name of the SysMLService's ListEngines
 	// RPC.
 	SysMLServiceListEnginesProcedure = "/sysml.SysMLService/ListEngines"
@@ -162,6 +168,20 @@ type SysMLServiceClient interface {
 	// swept parameter bound to that row's value. Reported as the "verification"
 	// capability.
 	RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error)
+	// Run an action, or a Simulation::MonteCarlo analysis case, a number of
+	// times, each run seeded from the request's seed, and table what the runs
+	// observed with each observable's distribution, as the CLI's -runs/-observe
+	// do. Reported as the "runs" capability.
+	RunRuns(context.Context, *connect.Request[proto.RunRunsRequest]) (*connect.Response[proto.RunRunsResponse], error)
+	// SelfCheck applies the SysMLValidation constraints, and those of any rule
+	// packages, reflectively to every element of the model, as `sysml -self-check`
+	// does. Reported as the "self_check" capability.
+	SelfCheck(context.Context, *connect.Request[proto.SelfCheckRequest]) (*connect.Response[proto.SelfCheckResponse], error)
+	// RecordRun runs an analysis case — once, over the rows of a sweep, or as a
+	// Monte Carlo sample — and records the runs into the model as AnalysisRecords
+	// declarations, as `sysml -record-run` does. Reported as the "record_run"
+	// capability.
+	RecordRun(context.Context, *connect.Request[proto.RecordRunRequest]) (*connect.Response[proto.RecordRunResponse], error)
 	// List the analysis engines this build registers, as the CLI's -engines and
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
@@ -316,6 +336,24 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("RunSweep")),
 			connect.WithClientOptions(opts...),
 		),
+		runRuns: connect.NewClient[proto.RunRunsRequest, proto.RunRunsResponse](
+			httpClient,
+			baseURL+SysMLServiceRunRunsProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("RunRuns")),
+			connect.WithClientOptions(opts...),
+		),
+		selfCheck: connect.NewClient[proto.SelfCheckRequest, proto.SelfCheckResponse](
+			httpClient,
+			baseURL+SysMLServiceSelfCheckProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("SelfCheck")),
+			connect.WithClientOptions(opts...),
+		),
+		recordRun: connect.NewClient[proto.RecordRunRequest, proto.RecordRunResponse](
+			httpClient,
+			baseURL+SysMLServiceRecordRunProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("RecordRun")),
+			connect.WithClientOptions(opts...),
+		),
 		listEngines: connect.NewClient[proto.ListEnginesRequest, proto.ListEnginesResponse](
 			httpClient,
 			baseURL+SysMLServiceListEnginesProcedure,
@@ -376,6 +414,9 @@ type sysMLServiceClient struct {
 	evaluateCalc       *connect.Client[proto.EvaluateCalcRequest, proto.EvaluateCalcResponse]
 	runAnalysis        *connect.Client[proto.RunAnalysisRequest, proto.RunAnalysisResponse]
 	runSweep           *connect.Client[proto.RunSweepRequest, proto.RunSweepResponse]
+	runRuns            *connect.Client[proto.RunRunsRequest, proto.RunRunsResponse]
+	selfCheck          *connect.Client[proto.SelfCheckRequest, proto.SelfCheckResponse]
+	recordRun          *connect.Client[proto.RecordRunRequest, proto.RecordRunResponse]
 	listEngines        *connect.Client[proto.ListEnginesRequest, proto.ListEnginesResponse]
 	query              *connect.Client[proto.QueryRequest, proto.QueryResponse]
 	runDocumentQuery   *connect.Client[proto.RunDocumentQueryRequest, proto.RunDocumentQueryResponse]
@@ -479,6 +520,21 @@ func (c *sysMLServiceClient) RunSweep(ctx context.Context, req *connect.Request[
 	return c.runSweep.CallUnary(ctx, req)
 }
 
+// RunRuns calls sysml.SysMLService.RunRuns.
+func (c *sysMLServiceClient) RunRuns(ctx context.Context, req *connect.Request[proto.RunRunsRequest]) (*connect.Response[proto.RunRunsResponse], error) {
+	return c.runRuns.CallUnary(ctx, req)
+}
+
+// SelfCheck calls sysml.SysMLService.SelfCheck.
+func (c *sysMLServiceClient) SelfCheck(ctx context.Context, req *connect.Request[proto.SelfCheckRequest]) (*connect.Response[proto.SelfCheckResponse], error) {
+	return c.selfCheck.CallUnary(ctx, req)
+}
+
+// RecordRun calls sysml.SysMLService.RecordRun.
+func (c *sysMLServiceClient) RecordRun(ctx context.Context, req *connect.Request[proto.RecordRunRequest]) (*connect.Response[proto.RecordRunResponse], error) {
+	return c.recordRun.CallUnary(ctx, req)
+}
+
 // ListEngines calls sysml.SysMLService.ListEngines.
 func (c *sysMLServiceClient) ListEngines(ctx context.Context, req *connect.Request[proto.ListEnginesRequest]) (*connect.Response[proto.ListEnginesResponse], error) {
 	return c.listEngines.CallUnary(ctx, req)
@@ -570,6 +626,20 @@ type SysMLServiceHandler interface {
 	// swept parameter bound to that row's value. Reported as the "verification"
 	// capability.
 	RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error)
+	// Run an action, or a Simulation::MonteCarlo analysis case, a number of
+	// times, each run seeded from the request's seed, and table what the runs
+	// observed with each observable's distribution, as the CLI's -runs/-observe
+	// do. Reported as the "runs" capability.
+	RunRuns(context.Context, *connect.Request[proto.RunRunsRequest]) (*connect.Response[proto.RunRunsResponse], error)
+	// SelfCheck applies the SysMLValidation constraints, and those of any rule
+	// packages, reflectively to every element of the model, as `sysml -self-check`
+	// does. Reported as the "self_check" capability.
+	SelfCheck(context.Context, *connect.Request[proto.SelfCheckRequest]) (*connect.Response[proto.SelfCheckResponse], error)
+	// RecordRun runs an analysis case — once, over the rows of a sweep, or as a
+	// Monte Carlo sample — and records the runs into the model as AnalysisRecords
+	// declarations, as `sysml -record-run` does. Reported as the "record_run"
+	// capability.
+	RecordRun(context.Context, *connect.Request[proto.RecordRunRequest]) (*connect.Response[proto.RecordRunResponse], error)
 	// List the analysis engines this build registers, as the CLI's -engines and
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
@@ -720,6 +790,24 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sysMLServiceMethods.ByName("RunSweep")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sysMLServiceRunRunsHandler := connect.NewUnaryHandler(
+		SysMLServiceRunRunsProcedure,
+		svc.RunRuns,
+		connect.WithSchema(sysMLServiceMethods.ByName("RunRuns")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sysMLServiceSelfCheckHandler := connect.NewUnaryHandler(
+		SysMLServiceSelfCheckProcedure,
+		svc.SelfCheck,
+		connect.WithSchema(sysMLServiceMethods.ByName("SelfCheck")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sysMLServiceRecordRunHandler := connect.NewUnaryHandler(
+		SysMLServiceRecordRunProcedure,
+		svc.RecordRun,
+		connect.WithSchema(sysMLServiceMethods.ByName("RecordRun")),
+		connect.WithHandlerOptions(opts...),
+	)
 	sysMLServiceListEnginesHandler := connect.NewUnaryHandler(
 		SysMLServiceListEnginesProcedure,
 		svc.ListEngines,
@@ -796,6 +884,12 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceRunAnalysisHandler.ServeHTTP(w, r)
 		case SysMLServiceRunSweepProcedure:
 			sysMLServiceRunSweepHandler.ServeHTTP(w, r)
+		case SysMLServiceRunRunsProcedure:
+			sysMLServiceRunRunsHandler.ServeHTTP(w, r)
+		case SysMLServiceSelfCheckProcedure:
+			sysMLServiceSelfCheckHandler.ServeHTTP(w, r)
+		case SysMLServiceRecordRunProcedure:
+			sysMLServiceRecordRunHandler.ServeHTTP(w, r)
 		case SysMLServiceListEnginesProcedure:
 			sysMLServiceListEnginesHandler.ServeHTTP(w, r)
 		case SysMLServiceQueryProcedure:
@@ -891,6 +985,18 @@ func (UnimplementedSysMLServiceHandler) RunAnalysis(context.Context, *connect.Re
 
 func (UnimplementedSysMLServiceHandler) RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RunSweep is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) RunRuns(context.Context, *connect.Request[proto.RunRunsRequest]) (*connect.Response[proto.RunRunsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RunRuns is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) SelfCheck(context.Context, *connect.Request[proto.SelfCheckRequest]) (*connect.Response[proto.SelfCheckResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.SelfCheck is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) RecordRun(context.Context, *connect.Request[proto.RecordRunRequest]) (*connect.Response[proto.RecordRunResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RecordRun is not implemented"))
 }
 
 func (UnimplementedSysMLServiceHandler) ListEngines(context.Context, *connect.Request[proto.ListEnginesRequest]) (*connect.Response[proto.ListEnginesResponse], error) {
