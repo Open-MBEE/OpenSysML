@@ -91,9 +91,9 @@ export function instanceRecord(instance: Instance): EngineInstance {
     if (feature.kind !== "single") {
       continue;
     }
-    if (typeof feature.value === "string") {
-      featureValues[name] = { value: { stringValue: feature.value } };
-    } else if (typeof feature.value === "object" && feature.value !== null && "kind" in feature.value && feature.value.kind === "instance") {
+    if (feature.value.kind === "string") {
+      featureValues[name] = { value: { stringValue: feature.value.value } };
+    } else if (feature.value.kind === "instance") {
       featureValues[name] = { value: { instanceId: String(feature.value.id) } };
     }
   }

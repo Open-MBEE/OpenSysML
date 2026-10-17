@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import type { Connection, DocumentEvent, Instance } from "@openmbee/opensysml/browser";
+import type { Connection, DocumentEvent, FeatureValue, Instance, SysMLValue } from "@openmbee/opensysml/browser";
 import { ExecutionError, renderedViewFromJson } from "@openmbee/opensysml/browser";
 import type { RenderResult } from "../protocol";
 import {
@@ -92,11 +92,13 @@ test("landingModel keeps each project's components inside it, with their own att
 
 /** The fixture's instances as the typed client decodes them. */
 function typedInstance(instance: EngineInstance): Instance {
-  const features = new Map();
+  const features = new Map<string, FeatureValue>();
   for (const [name, feature] of Object.entries(instance.featureValues ?? {})) {
-    const value = feature.value?.stringValue ?? (feature.value?.instanceId === undefined
-      ? undefined
-      : { kind: "instance", id: BigInt(feature.value.instanceId) });
+    const value: SysMLValue | undefined = feature.value?.stringValue !== undefined
+      ? { kind: "string", value: feature.value.stringValue }
+      : feature.value?.instanceId === undefined
+        ? undefined
+        : { kind: "instance", id: BigInt(feature.value.instanceId) };
     if (value !== undefined) {
       features.set(name, { kind: "single", value, materialized: true });
     }
