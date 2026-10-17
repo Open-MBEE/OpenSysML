@@ -2,7 +2,11 @@ package export_test
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"errors"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,13 +19,33 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
+// toolkitFixture reads a committed interchange export by the name of its contents; the
+// largest are committed gzip-compressed as name + ".gz" and decompressed here.
 func toolkitFixture(t *testing.T, name string) []byte {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("testdata", "interchange", name))
+	path := filepath.Join("testdata", "interchange", name)
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		data, err = readGzip(path + ".gz")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	return data
+}
+
+func readGzip(path string) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	reader, err := gzip.NewReader(file)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	return io.ReadAll(reader)
 }
 
 func decodeToolkitFixture(t *testing.T, name string, warn func(string)) []byte {
