@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
@@ -180,50 +181,51 @@ func TestFeatureChainingEmission(t *testing.T) {
 	}
 }
 
-// An unresolved link is written as {"@ref": name}, never a bare string — in the
-// chain feature's derived list and in each FeatureChaining alike.
-func TestFeatureChainUnresolvedLinkIsRef(t *testing.T) {
-	elements := apiJSON(t, filepath.Join("testdata", "convert", "feature_chains_unresolved.sysml"))
-	var sawRef bool
-	var check func(v any, where string)
-	check = func(v any, where string) {
-		switch m := v.(type) {
-		case map[string]any:
-			for key, item := range m {
-				if key == "chainingFeature" {
-					switch item := item.(type) {
-					case string:
-						t.Errorf("%s: chainingFeature is the bare string %q", where, item)
-					case map[string]any:
-						if _, isRef := item["@ref"]; isRef {
-							sawRef = true
-						}
-					case []any:
-						for _, entry := range item {
-							if _, ok := entry.(string); ok {
-								t.Errorf("%s: chainingFeature lists the bare string %v", where, entry)
-							}
-							if m, ok := entry.(map[string]any); ok {
-								if _, isRef := m["@ref"]; isRef {
-									sawRef = true
-								}
-							}
-						}
-					}
+// An unresolved link omits the whole chain and reports why.
+func TestFeatureChainUnresolvedLinkIsOmitted(t *testing.T) {
+	path := filepath.Join("testdata", "convert", "feature_chains_unresolved.sysml")
+	src, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	graph, err := convert.SysMLToRDF(path, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var omissions []export.APIJSONOmission
+	document, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{
+		Omitted: func(omission export.APIJSONOmission) { omissions = append(omissions, omission) },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(document), `"@ref"`) {
+		t.Fatalf("unresolved chain wrote @ref:\n%s", document)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(document, &elements); err != nil {
+		t.Fatal(err)
+	}
+	byID := elementsByID(elements)
+	sawLink := false
+	sawOmittedChain := false
+	for _, omission := range omissions {
+		if omission.Reason.Category != metamodel.ReasonUnresolvedReference ||
+			omission.Property != "chainingFeature" {
+			continue
+		}
+		sawLink = true
+		if omission.Metaclass == "Feature" {
+			sawOmittedChain = true
+			if element := byID[omission.Subject]; element != nil {
+				if _, ok := element["chainingFeature"]; ok {
+					t.Errorf("%s keeps a partial chainingFeature chain", omission.Subject)
 				}
-				check(item, where)
-			}
-		case []any:
-			for _, item := range m {
-				check(item, where)
 			}
 		}
 	}
-	for _, el := range elements {
-		check(el, el["@id"].(string))
-	}
-	if !sawRef {
-		t.Error("expected at least one {\"@ref\": name} link through the undeclared type")
+	if !sawLink || !sawOmittedChain {
+		t.Errorf("omissions = %v, want unresolved links and a whole-chain omission", omissions)
 	}
 }
 

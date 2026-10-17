@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
 
 // ReadAPIJSON parses the SysML v2 API's element form — a JSON array of element
@@ -71,6 +73,13 @@ func apiJSONExpressionTerm(term rdf.Term, expressionIDs map[string]bool) rdf.Ter
 		return rdf.IRI(rdf.Expression + id)
 	}
 	return term
+}
+
+func apiJSONReferenceTerm(subject rdf.Term, id string, expressionIDs map[string]bool) rdf.Term {
+	if expressionIDs[id] {
+		return rdf.IRI(rdf.Expression + id)
+	}
+	return rdf.ReferenceIRI(subject, id)
 }
 
 func expandAPIJSONCompact(data []byte) ([]byte, error) {
@@ -255,6 +264,15 @@ func expandAPIJSONCompactValue(value any, bareReference bool, ids []string) (any
 			}
 			return map[string]any{"@id": expandedID}, nil
 		}
+		expanded := make(map[string]any, len(value))
+		for key, member := range value {
+			item, err := expandAPIJSONCompactValue(member, false, ids)
+			if err != nil {
+				return nil, err
+			}
+			expanded[key] = item
+		}
+		return expanded, nil
 	}
 	return value, nil
 }
@@ -296,6 +314,7 @@ type apiJSONElementData struct {
 	indexMember          string
 	indexOwner           string
 	mappingQualifiedName string
+	mappingValues        map[string][]any
 	specQualifiedName    string
 	hasSpecQualifiedName bool
 	toolkitForm          bool
@@ -307,6 +326,7 @@ const apiJSONEstimatedTriplesPerElement = 10
 
 type apiJSONImportPlan struct {
 	graph                *rdf.Graph
+	objects              []apiJSONElementData
 	expressionIDs        map[string]bool
 	qualifiedNames       map[string]string
 	syntheticRootIndexes map[rdf.Triple]struct{}
@@ -380,6 +400,7 @@ func apiJSONExpressionIDs(data []byte) (*apiJSONImportPlan, error) {
 	}
 	return &apiJSONImportPlan{
 		graph:                graph,
+		objects:              objects,
 		expressionIDs:        index.expressionIDs,
 		qualifiedNames:       qualifiedNames,
 		syntheticRootIndexes: syntheticRootIndexes,
@@ -400,18 +421,53 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 		}
 		builder.Add(subject, rdf.IRI(rdf.RDFType), typ)
 		for _, member := range object.members {
-			if member.key == "qualifiedName" || member.key == "sysx:mappingQualifiedName" {
+			if member.key == "qualifiedName" ||
+				member.key == "sysx:mappingQualifiedName" ||
+				member.key == "sysx:mappingValues" {
+				continue
+			}
+			if _, overridden := object.mappingValues[member.key]; overridden {
 				continue
 			}
 			predicate, sysmlKey, err := cache.predicate(member.key)
 			if err != nil {
 				return nil, nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
 			}
-			if err := apiJSONTriples(builder, apiJSONProperty{subject, predicate, sysmlKey}, member.value, nil, cache, &annotations); err != nil {
+			if err := apiJSONTriples(builder, apiJSONProperty{
+				subject:   subject,
+				predicate: predicate,
+				sysmlKey:  sysmlKey,
+				metaclass: strings.TrimPrefix(
+					strings.TrimPrefix(strings.TrimPrefix(object.typ, "sysx:"), "sysml:"),
+					rdf.SysML,
+				),
+			}, member.value, nil, cache, &annotations); err != nil {
 				return nil, nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
 			}
 		}
-		object.members = nil
+		properties := make([]string, 0, len(object.mappingValues))
+		for property := range object.mappingValues {
+			properties = append(properties, property)
+		}
+		sort.Strings(properties)
+		for _, property := range properties {
+			predicate, sysmlKey, err := cache.predicate(property)
+			if err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("element %q mappingValues: %w", object.id, err)
+			}
+			if err := apiJSONTriples(builder, apiJSONProperty{
+				subject:       subject,
+				predicate:     predicate,
+				sysmlKey:      sysmlKey,
+				mappingValues: true,
+				metaclass: strings.TrimPrefix(
+					strings.TrimPrefix(strings.TrimPrefix(object.typ, "sysx:"), "sysml:"),
+					rdf.SysML,
+				),
+			}, object.mappingValues[property], nil, cache, &annotations); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("element %q mappingValues.%s: %w", object.id, property, err)
+			}
+		}
 	}
 	graph := builder.Build()
 	incomingMemberships := mappingIncomingMemberships(graph)
@@ -746,6 +802,12 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 				if name, ok := value.(string); ok && name != "" {
 					object.mappingQualifiedName = name
 				}
+			case "sysx:mappingValues":
+				object.mappingValues, err = apiJSONMappingValuesOf(value)
+				if err != nil {
+					return object, err
+				}
+				continue
 			case "isImpliedIncluded":
 				object.toolkitForm = true
 			}
@@ -764,6 +826,41 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 		return object, err
 	}
 	return object, nil
+}
+
+func apiJSONMappingValuesOf(value any) (map[string][]any, error) {
+	properties, ok := value.(map[string]any)
+	if !ok || len(properties) == 0 {
+		return nil, fmt.Errorf("\"sysx:mappingValues\" must be a non-empty property map")
+	}
+	values := make(map[string][]any, len(properties))
+	for property, value := range properties {
+		if property == "" || strings.Contains(property, ":") {
+			return nil, fmt.Errorf("\"sysx:mappingValues\" has invalid property %q", property)
+		}
+		list, ok := value.([]any)
+		if !ok || len(list) == 0 {
+			return nil, fmt.Errorf("\"sysx:mappingValues\" property %q must be a non-empty array", property)
+		}
+		for _, item := range list {
+			switch item := item.(type) {
+			case string:
+				values[property] = append(values[property], item)
+			case map[string]any:
+				if len(item) != 1 {
+					return nil, fmt.Errorf("\"sysx:mappingValues\" property %q has an invalid object value", property)
+				}
+				id, ok := item["@id"].(string)
+				if !ok || id == "" {
+					return nil, fmt.Errorf("\"sysx:mappingValues\" property %q must use a non-empty @id", property)
+				}
+				values[property] = append(values[property], item)
+			default:
+				return nil, fmt.Errorf("\"sysx:mappingValues\" property %q values must be strings or @id objects", property)
+			}
+		}
+	}
+	return values, nil
 }
 
 // apiJSONValueOf reads one value from the decoder — the same shapes a whole
@@ -942,10 +1039,12 @@ type apiJSONAnnotation struct {
 type apiJSONProperty struct {
 	subject, predicate rdf.Term
 	sysmlKey           string
+	metaclass          string
+	mappingValues      bool
 }
 
 func apiJSONTriples(graph *rdf.GraphBuilder, p apiJSONProperty, value any, expressionIDs map[string]bool, cache *apiJSONTermCache, annotations *[]apiJSONAnnotation) error {
-	subject, predicate, sysmlKey := p.subject, p.predicate, p.sysmlKey
+	subject, predicate := p.subject, p.predicate
 	switch v := value.(type) {
 	case nil:
 		// The API serves absent properties as null; nothing to state.
@@ -960,7 +1059,7 @@ func apiJSONTriples(graph *rdf.GraphBuilder, p apiJSONProperty, value any, expre
 	case []any:
 		return apiJSONCollection(graph, p, v, expressionIDs, cache, annotations)
 	default:
-		object, err := apiJSONScalarOf(subject, predicate, sysmlKey, value, expressionIDs, cache)
+		object, err := apiJSONPropertyScalar(p, value, expressionIDs, cache)
 		if err != nil {
 			return err
 		}
@@ -985,7 +1084,7 @@ func apiJSONCollection(graph *rdf.GraphBuilder, p apiJSONProperty, values []any,
 	}
 	members := make([]rdf.Term, 0, len(values))
 	for _, value := range values {
-		member, err := apiJSONScalarOf(subject, predicate, sysmlKey, value, expressionIDs, cache)
+		member, err := apiJSONPropertyScalar(p, value, expressionIDs, cache)
 		if err != nil {
 			return err
 		}
@@ -1013,6 +1112,30 @@ func apiJSONCollection(graph *rdf.GraphBuilder, p apiJSONProperty, values []any,
 		*annotations = append(*annotations, apiJSONAnnotation{subject: subject, key: sysmlKey, members: members})
 	}
 	return nil
+}
+
+func apiJSONPropertyScalar(
+	p apiJSONProperty,
+	value any,
+	expressionIDs map[string]bool,
+	cache *apiJSONTermCache,
+) (rdf.Term, error) {
+	if p.mappingValues {
+		if text, ok := value.(string); ok {
+			if property, known := ontology.PropertyOf(p.metaclass, p.sysmlKey); known &&
+				property.Kind == ontology.DatatypeProperty {
+				switch property.Range {
+				case rdf.XSD + "boolean", rdf.XSD + "byte", rdf.XSD + "short",
+					rdf.XSD + "int", rdf.XSD + "long", rdf.XSD + "integer":
+					return rdf.TypedLiteral(text, property.Range), nil
+				case rdf.XSD + "decimal", "http://www.w3.org/2002/07/owl#real":
+					return rdf.TypedLiteral(text, rdf.XSD+"decimal"), nil
+				}
+			}
+			return rdf.String(text), nil
+		}
+	}
+	return apiJSONScalarOf(p.subject, p.predicate, p.sysmlKey, value, expressionIDs, cache)
 }
 
 // apiJSONScalarOf turns one JSON value into the term a triple holds: a

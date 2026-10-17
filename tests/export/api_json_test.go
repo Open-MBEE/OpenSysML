@@ -10,9 +10,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
 
 // apiJSONModels lists every notation fixture under testdata, recursively, plus
@@ -61,7 +63,7 @@ func TestAPIJSONInverseOverAllFixtures(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			graph, err := cachedSysMLToRDF(path, src)
+			graph, err := convert.SysMLToRDF(path, src)
 			var unsupported *export.UnsupportedError
 			if errors.As(err, &unsupported) {
 				refused++
@@ -95,6 +97,445 @@ func TestAPIJSONInverseOverAllFixtures(t *testing.T) {
 	if refused == len(apiJSONModels(t)) {
 		t.Fatal("ToRDF refused every fixture; the gate checked nothing")
 	}
+}
+
+func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
+	paths := apiJSONModels(t)
+	if err := filepath.Walk(filepath.Join("..", "..", "examples"), func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		ext := filepath.Ext(path)
+		if !info.IsDir() && (ext == ".sysml" || ext == ".kerml") {
+			paths = append(paths, path)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	filesWithMappingValues := 0
+	convertedFiles := 0
+	fixtureFilesWithMappingValues := 0
+	convertedFixtures := 0
+	exampleFilesWithMappingValues := 0
+	convertedExamples := 0
+	mappingPropertyEntries := make(map[string]int)
+	mappingValueEntries := make(map[string]int)
+	examplesRoot := filepath.Clean(filepath.Join("..", "..", "examples"))
+	for _, path := range paths {
+		t.Run(filepath.Clean(path), func(t *testing.T) {
+			source, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			graph, err := cachedSysMLToRDF(path, source)
+			var unsupported *export.UnsupportedError
+			if errors.As(err, &unsupported) {
+				t.Skipf("SysMLToRDF refuses this model: %v", err)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			format, err := convert.FormatOfPath(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			semantic, err := convert.Convert(path, source, format, convert.FormatAPIJSON)
+			if errors.As(err, &unsupported) {
+				t.Skipf("semantic API JSON refuses this model: %v", err)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if bytes.Contains(semantic, []byte(`"@ref"`)) {
+				t.Error("semantic API JSON output contains @ref")
+			}
+			standard, err := export.WriteAPIJSON(graph)
+			if errors.As(err, &unsupported) {
+				t.Skipf("standard API JSON refuses this graph: %v", err)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			convertedFiles++
+			isExample := strings.HasPrefix(filepath.Clean(path), examplesRoot+string(os.PathSeparator))
+			if isExample {
+				convertedExamples++
+			} else {
+				convertedFixtures++
+			}
+			var standardElements []map[string]json.RawMessage
+			if err := json.Unmarshal(standard, &standardElements); err != nil {
+				t.Fatalf("read standard API JSON for provenance counts: %v", err)
+			}
+			fileHasMappingValues := false
+			for _, element := range standardElements {
+				raw, ok := element["sysx:mappingValues"]
+				if !ok {
+					continue
+				}
+				var properties map[string]json.RawMessage
+				if err := json.Unmarshal(raw, &properties); err != nil {
+					t.Fatalf("read mappingValues: %v", err)
+				}
+				fileHasMappingValues = fileHasMappingValues || len(properties) > 0
+				for property, rawValues := range properties {
+					var values []json.RawMessage
+					if err := json.Unmarshal(rawValues, &values); err != nil {
+						t.Fatalf("read mappingValues.%s: %v", property, err)
+					}
+					mappingPropertyEntries[property]++
+					mappingValueEntries[property] += len(values)
+				}
+			}
+			if fileHasMappingValues {
+				filesWithMappingValues++
+				if isExample {
+					exampleFilesWithMappingValues++
+				} else {
+					fixtureFilesWithMappingValues++
+				}
+			}
+			compact, err := export.WriteAPIJSONCompact(graph, export.CompactAPIJSONOptions{})
+			if errors.As(err, &unsupported) {
+				t.Skipf("compact API JSON refuses this graph: %v", err)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			semanticGraph, err := export.ReadAPIJSON(semantic)
+			if err != nil {
+				t.Fatalf("read semantic API JSON: %v", err)
+			}
+			semanticCompact, err := export.WriteAPIJSONCompact(semanticGraph, export.CompactAPIJSONOptions{})
+			if err != nil {
+				t.Fatalf("compact semantic API JSON: %v", err)
+			}
+			for format, document := range map[string][]byte{
+				"standard":         standard,
+				"compact":          compact,
+				"semantic-compact": semanticCompact,
+			} {
+				if bytes.Contains(document, []byte(`"@ref"`)) {
+					t.Errorf("%s output contains @ref", format)
+				}
+			}
+		})
+	}
+	totalMappingValueEntries := 0
+	for _, count := range mappingValueEntries {
+		totalMappingValueEntries += count
+	}
+	totalMappingPropertyEntries := 0
+	for _, count := range mappingPropertyEntries {
+		totalMappingPropertyEntries += count
+	}
+	t.Logf(
+		"mappingValues: %d/%d fixtures and %d/%d examples (%d/%d total); %d property entries by property: %v; %d values by property: %v",
+		fixtureFilesWithMappingValues, convertedFixtures, exampleFilesWithMappingValues, convertedExamples,
+		filesWithMappingValues, convertedFiles, totalMappingPropertyEntries, mappingPropertyEntries,
+		totalMappingValueEntries, mappingValueEntries,
+	)
+}
+
+func TestAPIJSONUnresolvedSingleObjectPropertyUsesOntologyLowerBound(t *testing.T) {
+	type testCase struct {
+		subject   rdf.Term
+		metaclass string
+		property  string
+		value     string
+	}
+	cases := []testCase{
+		{
+			subject:   rdf.ElementIRIForID("feature-typing"),
+			metaclass: "FeatureTyping",
+			property:  "type",
+			value:     "Ext::LV",
+		},
+		{
+			subject:   rdf.ElementIRIForID("element-owner"),
+			metaclass: "Element",
+			property:  "owner",
+			value:     "Ext::Owner",
+		},
+	}
+	graphTriples := make([]rdf.Triple, 0, len(cases)*2)
+	for _, tc := range cases {
+		property, ok := ontology.PropertyOf(tc.metaclass, tc.property)
+		if !ok || property.Kind != ontology.ObjectProperty || property.Many {
+			t.Fatalf("%s.%s is not a single-valued object property", tc.metaclass, tc.property)
+		}
+		graphTriples = append(graphTriples,
+			rdf.Triple{
+				Subject: tc.subject, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm(tc.metaclass),
+			},
+			rdf.Triple{
+				Subject: tc.subject, Predicate: rdf.SysMLTerm(tc.property), Object: rdf.String(tc.value),
+			},
+		)
+	}
+	if required, _ := ontology.PropertyOf("FeatureTyping", "type"); required.Lower != 1 {
+		t.Fatalf("FeatureTyping.type lower bound = %d, want 1", required.Lower)
+	}
+	if optional, _ := ontology.PropertyOf("Element", "owner"); optional.Lower != 0 {
+		t.Fatalf("Element.owner lower bound = %d, want 0", optional.Lower)
+	}
+	graph := rdf.NewGraphOf(graphTriples, nil)
+	var omissions []export.APIJSONOmission
+	var diagnostics []string
+	document, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{
+		Omitted: func(omission export.APIJSONOmission) {
+			omissions = append(omissions, omission)
+		},
+		Diagnostic: func(message string) {
+			diagnostics = append(diagnostics, message)
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(document, []byte(`"@ref"`)) {
+		t.Fatalf("API JSON contains @ref:\n%s", document)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(document, &elements); err != nil {
+		t.Fatal(err)
+	}
+	byID := make(map[string]map[string]any, len(elements))
+	for _, element := range elements {
+		if id, ok := element["@id"].(string); ok {
+			byID[id] = element
+		}
+	}
+	for _, tc := range cases {
+		property, _ := ontology.PropertyOf(tc.metaclass, tc.property)
+		element := byID[rdf.LocalName(tc.subject.Value)]
+		value, present := element[tc.property]
+		if property.Lower == 0 && (!present || value != nil) {
+			t.Errorf("%s.%s = (%v, %t), want null at lower bound 0", tc.metaclass, tc.property, value, present)
+		}
+		if property.Lower > 0 && present {
+			t.Errorf("%s.%s = %v, want omission at lower bound %d", tc.metaclass, tc.property, value, property.Lower)
+		}
+		mapping, ok := element["sysx:mappingValues"].(map[string]any)
+		if !ok {
+			t.Fatalf("%s has no mappingValues sidecar:\n%s", tc.property, document)
+		}
+		values, ok := mapping[tc.property].([]any)
+		if !ok || len(values) != 1 || values[0] != tc.value {
+			t.Errorf("mappingValues.%s = %v, want [%q]", tc.property, mapping[tc.property], tc.value)
+		}
+	}
+	if len(omissions) != len(cases) {
+		t.Fatalf("unresolved omission diagnostics = %#v, want %d", omissions, len(cases))
+	}
+	if len(diagnostics) != len(cases) {
+		t.Fatalf("diagnostics = %v, want %d unresolved-reference messages", diagnostics, len(cases))
+	}
+	omitted := make(map[string]export.APIJSONOmission, len(omissions))
+	for _, omission := range omissions {
+		omitted[omission.Subject+"."+omission.Property] = omission
+	}
+	for _, tc := range cases {
+		key := rdf.LocalName(tc.subject.Value) + "." + tc.property
+		omission, ok := omitted[key]
+		if !ok || omission.Metaclass != tc.metaclass ||
+			omission.Reason.Category != metamodel.ReasonUnresolvedReference ||
+			omission.Reason.Detail != tc.value {
+			t.Errorf("omission[%s] = %#v, want %s %q", key, omission, tc.metaclass, tc.value)
+		}
+		foundDiagnostic := false
+		for _, diagnostic := range diagnostics {
+			if strings.Contains(diagnostic, tc.metaclass+"."+tc.property+": "+tc.value) {
+				foundDiagnostic = true
+				break
+			}
+		}
+		if !foundDiagnostic {
+			t.Errorf("diagnostics = %v, want unresolved %s.%s message", diagnostics, tc.metaclass, tc.property)
+		}
+	}
+	reread, err := export.ReadAPIJSON(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range cases {
+		if !reread.Has(rdf.Triple{
+			Subject: tc.subject, Predicate: rdf.SysMLTerm(tc.property), Object: rdf.String(tc.value),
+		}) {
+			t.Errorf("mappingValues did not restore %s.%s", tc.metaclass, tc.property)
+		}
+	}
+	plain, err := export.ReadAPIJSON(apiJSONWithoutSysx(t, document))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range cases {
+		if len(plain.Objects(tc.subject, rdf.SysML+tc.property)) != 0 {
+			t.Errorf("reading %s.%s without sysx metadata invented a reference", tc.metaclass, tc.property)
+		}
+	}
+}
+
+func TestAPIJSONMappingValuesRestoreExactObjectsAndStripToIRI(t *testing.T) {
+	subject := rdf.ElementIRIForID("feature-typing")
+	iriSubject := rdf.ElementIRIForID("feature-typing-iri")
+	real := rdf.ElementIRIForID("14c0aa22-5489-59b5-b438-ded26e83ba31")
+	graph := rdf.NewGraphOf([]rdf.Triple{
+		{Subject: subject, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm("FeatureTyping")},
+		{Subject: subject, Predicate: rdf.SysMLTerm("type"), Object: rdf.String("Real")},
+		{Subject: subject, Predicate: rdf.SysMLTerm("general"), Object: rdf.String("~ServiceDiscovery")},
+		{Subject: iriSubject, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm("FeatureTyping")},
+		{Subject: iriSubject, Predicate: rdf.SysMLTerm("type"), Object: real},
+	}, nil)
+	document, err := export.WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var elements []map[string]json.RawMessage
+	if err := json.Unmarshal(document, &elements); err != nil {
+		t.Fatal(err)
+	}
+	var mappingValues map[string][]any
+	foundIRIReference := false
+	for _, element := range elements {
+		var id string
+		if err := json.Unmarshal(element["@id"], &id); err != nil {
+			continue
+		}
+		switch id {
+		case "feature-typing":
+			if err := json.Unmarshal(element["sysx:mappingValues"], &mappingValues); err != nil {
+				t.Fatalf("read mappingValues: %v", err)
+			}
+		case "feature-typing-iri":
+			_, foundIRIReference = element["sysx:mappingValues"]
+		}
+	}
+	if len(mappingValues["type"]) != 1 || mappingValues["type"][0] != "Real" {
+		t.Fatalf("mappingValues[type] = %v, want [Real]", mappingValues["type"])
+	}
+	if len(mappingValues["general"]) != 1 || mappingValues["general"][0] != "~ServiceDiscovery" {
+		t.Fatalf("mappingValues[general] = %v, want [~ServiceDiscovery]", mappingValues["general"])
+	}
+	if foundIRIReference {
+		t.Fatal("an IRI-form graph reference gained stated-name provenance")
+	}
+	restored, err := export.ReadAPIJSON(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !restored.Has(rdf.Triple{
+		Subject: subject, Predicate: rdf.SysMLTerm("type"), Object: rdf.String("Real"),
+	}) {
+		t.Fatal("mappingValues did not restore the source literal")
+	}
+	if !restored.Has(rdf.Triple{
+		Subject: subject, Predicate: rdf.SysMLTerm("general"), Object: rdf.String("~ServiceDiscovery"),
+	}) {
+		t.Fatal("mappingValues did not restore an expression-like source string as a plain literal")
+	}
+	if objects := restored.Objects(subject, rdf.SysML+"type"); len(objects) != 1 || objects[0] != rdf.String("Real") {
+		t.Fatalf("mappingValues did not replace the spec reference: %v", objects)
+	}
+	if !restored.Has(rdf.Triple{
+		Subject: iriSubject, Predicate: rdf.SysMLTerm("type"), Object: real,
+	}) {
+		t.Fatal("an IRI-form graph reference changed on read")
+	}
+	for _, triple := range restored.Triples() {
+		if triple.Predicate.Value == "sysx:mappingValues" {
+			t.Fatal("mappingValues was retained as an RDF triple")
+		}
+	}
+	plain := apiJSONWithoutSysx(t, document)
+	iriForm, err := export.ReadAPIJSON(plain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !iriForm.Has(rdf.Triple{
+		Subject: subject, Predicate: rdf.SysMLTerm("type"),
+		Object: real,
+	}) {
+		t.Fatal("plain API JSON did not retain the reference as an IRI")
+	}
+	compact, err := export.WriteAPIJSONCompact(graph, export.CompactAPIJSONOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compactRestored, err := export.ReadAPIJSON(compact)
+	if err != nil {
+		t.Fatalf("ReadAPIJSON compact form: %v", err)
+	}
+	if !compactRestored.Has(rdf.Triple{
+		Subject: subject, Predicate: rdf.SysMLTerm("type"), Object: rdf.String("Real"),
+	}) {
+		t.Fatal("compact mappingValues did not restore the source literal")
+	}
+	compactPlain, err := export.ReadAPIJSON(apiJSONWithoutSysx(t, compact))
+	if err != nil {
+		t.Fatalf("ReadAPIJSON compact form without sysx keys: %v", err)
+	}
+	if !compactPlain.Has(rdf.Triple{
+		Subject: subject, Predicate: rdf.SysMLTerm("type"), Object: real,
+	}) {
+		t.Fatal("compact API JSON without sysx metadata did not retain the reference as an IRI")
+	}
+}
+
+func TestAPIJSONMappingValuesRestoreNumericRange(t *testing.T) {
+	document := []byte(`[{
+		"@type": "LiteralRational",
+		"@id": "literal-rational",
+		"value": 0.1,
+		"sysx:mappingValues": {"value": ["1/10"]}
+	}]`)
+	graph, err := export.ReadAPIJSON(document)
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v", err)
+	}
+	if !graph.Has(rdf.Triple{
+		Subject:   rdf.IRI(rdf.Expression + "literal-rational"),
+		Predicate: rdf.SysMLTerm("value"),
+		Object:    rdf.TypedLiteral("1/10", rdf.XSD+"decimal"),
+	}) {
+		t.Fatalf("mappingValues did not restore the numeric property's exact datatype and lexical value: %v", graph.Triples())
+	}
+}
+
+func apiJSONWithoutSysx(t *testing.T, document []byte) []byte {
+	t.Helper()
+	var scrub func(any) any
+	scrub = func(value any) any {
+		switch value := value.(type) {
+		case map[string]any:
+			result := make(map[string]any, len(value))
+			for key, member := range value {
+				if strings.HasPrefix(key, "sysx:") {
+					continue
+				}
+				result[key] = scrub(member)
+			}
+			return result
+		case []any:
+			result := make([]any, len(value))
+			for i, member := range value {
+				result[i] = scrub(member)
+			}
+			return result
+		default:
+			return value
+		}
+	}
+	var decoded any
+	if err := json.Unmarshal(document, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	plain, err := json.Marshal(scrub(decoded))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return plain
 }
 
 func sameTriples(a, b map[rdf.Triple]bool) bool {
@@ -553,11 +994,7 @@ func TestAPIJSONRoundTripSingleMemberCollections(t *testing.T) {
 	}
 }
 
-// A json: annotation is the collection's statement of order: the element
-// form emits its members in that order, references by their {"@id"} and an
-// unresolved name on an object property as {"@ref": <name>}, never a bare
-// string. A repeated member is refused with the annotation — a graph holds
-// each triple once — so the array's members always spell the triples.
+// A chain with an unresolved member is omitted and reports typed reasons.
 func TestAPIJSONAnnotationMembers(t *testing.T) {
 	graph, err := convert.SysMLToRDF("p.sysml", []byte("package P { part def V; }"))
 	if err != nil {
@@ -576,7 +1013,10 @@ func TestAPIJSONAnnotationMembers(t *testing.T) {
 	graph.Add(chain, rdf.SysMLTerm("chainingFeature"), rdf.String("a"))
 	graph.Add(chain, rdf.AnnotationJSONTerm("chainingFeature"), rdf.String(`[{"@id":"P__X"},"b","a"]`))
 	graph.Add(link, rdf.IRI(rdf.RDFType), rdf.SysMLTerm("Feature"))
-	document, err := export.WriteAPIJSON(graph)
+	var omissions []export.APIJSONOmission
+	document, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{
+		Omitted: func(omission export.APIJSONOmission) { omissions = append(omissions, omission) },
+	})
 	if err != nil {
 		t.Fatalf("WriteAPIJSON: %v", err)
 	}
@@ -584,34 +1024,39 @@ func TestAPIJSONAnnotationMembers(t *testing.T) {
 	if err := json.Unmarshal(document, &elements); err != nil {
 		t.Fatalf("the document is not a JSON array: %v\n%s", err, document)
 	}
-	usage := apiJSONElement(t, elements, "P__V")
-	var spelled []any
-	if err := json.Unmarshal(usage["chainingFeature"], &spelled); err != nil {
-		t.Fatalf("chainingFeature does not unmarshal: %v\n%s", err, usage["chainingFeature"])
+	for _, id := range []string{"P__V", "P__C"} {
+		element := apiJSONElement(t, elements, id)
+		if _, present := element["chainingFeature"]; present {
+			t.Errorf("%s keeps unresolved chainingFeature: %s", id, element["chainingFeature"])
+		}
+		var mappingValues map[string]json.RawMessage
+		if err := json.Unmarshal(element["sysx:mappingValues"], &mappingValues); err != nil {
+			t.Fatalf("%s mappingValues: %v", id, err)
+		}
+		var links []any
+		if err := json.Unmarshal(mappingValues["chainingFeature"], &links); err != nil {
+			t.Fatalf("%s mappingValues.chainingFeature: %v", id, err)
+		}
+		first, isReference := any(nil), false
+		if len(links) > 0 {
+			first, isReference = links[0].(map[string]any)
+		}
+		if len(links) != 3 || !isReference || first.(map[string]any)["@id"] != "P__X" ||
+			links[1] != "b" || links[2] != "a" {
+			t.Errorf("%s mappingValues.chainingFeature = %v, want [P__X, b, a]", id, links)
+		}
 	}
-	if len(spelled) != 3 {
-		t.Fatalf("chainingFeature = %v, want three members", spelled)
+	if strings.Contains(string(document), `"@ref"`) {
+		t.Errorf("API JSON contains @ref:\n%s", document)
 	}
-	if first, ok := spelled[0].(map[string]any); !ok || first["@id"] != "P__X" {
-		t.Errorf("chainingFeature[0] = %v, want an @id reference to P__X", spelled[0])
+	reasons := map[string]bool{}
+	for _, omission := range omissions {
+		if omission.Reason.Category == metamodel.ReasonUnresolvedReference {
+			reasons[omission.Reason.Detail] = true
+		}
 	}
-	if spelled[1] != "b" || spelled[2] != "a" {
-		t.Errorf("literal members emit as their scalars in order, got %v", spelled[1:])
-	}
-
-	feature := apiJSONElement(t, elements, "P__C")
-	var links []map[string]string
-	if err := json.Unmarshal(feature["chainingFeature"], &links); err != nil {
-		t.Fatalf("the Feature's chainingFeature does not unmarshal: %v\n%s", err, feature["chainingFeature"])
-	}
-	if len(links) != 3 {
-		t.Fatalf("chainingFeature = %v, want three members", links)
-	}
-	if links[0]["@id"] != "P__X" {
-		t.Errorf("chainingFeature[0] = %v, want an @id reference to P__X", links[0])
-	}
-	if links[1]["@ref"] != "b" || links[2]["@ref"] != "a" {
-		t.Errorf("unresolved members should spell {\"@ref\": name} in order, got %v", links[1:])
+	if !reasons["a"] || !reasons["b"] {
+		t.Errorf("omissions = %v, want unresolved reasons for a and b", omissions)
 	}
 
 	other := rdf.ElementIRI("P::W")

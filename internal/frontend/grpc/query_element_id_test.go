@@ -257,8 +257,8 @@ func TestQueryElementIDOfAnAnnotatedLibraryElementIsAbsent(t *testing.T) {
 	}
 	for _, e := range elements {
 		if e["@type"] == "FeatureTyping" {
-			if ref, _ := e["type"].(map[string]any); ref["@ref"] != "ScalarValues::Boolean" {
-				t.Fatalf("the conversion no longer references Boolean by name (%v); revisit this case", e["type"])
+			if ref, _ := e["type"].(map[string]any); ref["@id"] != "d1e9242d-b2e3-5270-bf69-4f4fb0447193" {
+				t.Fatalf("the conversion no longer references the catalogued Boolean element (%v)", e["type"])
 			}
 		}
 	}

@@ -5,12 +5,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
+
+// APIJSONOptions configures diagnostics collected while writing API JSON.
+type APIJSONOptions struct {
+	Omitted    func(APIJSONOmission)
+	Diagnostic func(string)
+}
+
+// APIJSONOmission describes an object-property value omitted because its target
+// could not be resolved.
+type APIJSONOmission struct {
+	Subject   string
+	Metaclass string
+	Property  string
+	Reason    metamodel.Reason
+}
 
 // WriteAPIJSON serializes a graph as the SysML v2 API's element form: a JSON
 // array of objects carrying "@type", "@id" and the metamodel properties as
@@ -22,7 +38,13 @@ import (
 // are owned by the unnamed root Namespace the pilot's documents carry, which
 // the Turtle form leaves out (see docs/reference/rdf-mapping.md).
 func WriteAPIJSON(graph *rdf.Graph) ([]byte, error) {
-	elements, err := apiJSONElements(graph)
+	return WriteAPIJSONWithOptions(graph, APIJSONOptions{})
+}
+
+// WriteAPIJSONWithOptions writes API JSON and reports unresolved object
+// properties through options.
+func WriteAPIJSONWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]byte, error) {
+	elements, err := apiJSONElementsWithOptions(graph, options)
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +75,10 @@ func WriteAPIJSON(graph *rdf.Graph) ([]byte, error) {
 // apiJSONElements builds the element object of every subject of the graph,
 // once its collections are settled and the root Namespace wraps it.
 func apiJSONElements(graph *rdf.Graph) ([]apiJSONObject, error) {
+	return apiJSONElementsWithOptions(graph, APIJSONOptions{})
+}
+
+func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]apiJSONObject, error) {
 	wrapped, err := withRootNamespace(graph)
 	if err != nil {
 		return nil, err
@@ -65,8 +91,11 @@ func apiJSONElements(graph *rdf.Graph) ([]apiJSONObject, error) {
 	elements := make([]apiJSONObject, 0, len(subjects))
 	evaluation := newAPIJSONEvaluation(settled)
 	mappingNames := mappingQualifiedNames(settled)
+	nameIndex := newAPIJSONNameIndex(settled)
 	for _, subject := range subjects {
-		element, err := apiJSONElementWithEvaluation(settled, subject, evaluation, mappingNames)
+		element, err := apiJSONElementWithEvaluationOptions(
+			settled, subject, evaluation, mappingNames, nameIndex, options,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -102,6 +131,9 @@ func (w apiJSONWriter) object(o apiJSONObject) error {
 
 // value encodes v in place, dropping the newline Encode ends each value with.
 func (w apiJSONWriter) value(v any) error {
+	if _, unresolved := v.(apiJSONNameReference); unresolved {
+		return fmt.Errorf("unresolved object-property name reached the JSON encoder")
+	}
 	if err := w.enc.Encode(v); err != nil {
 		return err
 	}
@@ -146,10 +178,9 @@ type apiJSONReference struct {
 	ID string `json:"@id"`
 }
 
-// apiJSONNameReference is the {"@ref": <name>} spelling of a reference the
-// graph could not link: an object property naming an element by its text.
+// apiJSONNameReference marks an object-property literal that names a target.
 type apiJSONNameReference struct {
-	Ref string `json:"@ref"`
+	name string
 }
 
 // apiJSONElement builds the element object for one subject: "@type", "@id",
@@ -165,6 +196,19 @@ func apiJSONElementWithEvaluation(
 	subject rdf.Term,
 	evaluation *apiJSONEvaluation,
 	mappingNames map[string]string,
+) (apiJSONObject, error) {
+	return apiJSONElementWithEvaluationOptions(
+		graph, subject, evaluation, mappingNames, newAPIJSONNameIndex(graph), APIJSONOptions{},
+	)
+}
+
+func apiJSONElementWithEvaluationOptions(
+	graph *rdf.Graph,
+	subject rdf.Term,
+	evaluation *apiJSONEvaluation,
+	mappingNames map[string]string,
+	nameIndex *apiJSONNameIndex,
+	options APIJSONOptions,
 ) (apiJSONObject, error) {
 	types := graph.ObjectsView(subject, rdf.RDFType)
 	if len(types) != 1 {
@@ -196,6 +240,8 @@ func apiJSONElementWithEvaluation(
 	if strings.HasPrefix(types[0].Value, rdf.SysML) {
 		metaclass = strings.TrimPrefix(types[0].Value, rdf.SysML)
 	}
+	mappingValues := make(map[string][]any)
+	deferredProperties := make(map[string]any)
 	for _, predicate := range graph.PredicatesView(subject) {
 		switch {
 		case predicate == rdf.RDFType:
@@ -214,11 +260,39 @@ func apiJSONElementWithEvaluation(
 				property, known := ontology.PropertyOf(metaclass, key)
 				objectProperty = known && property.Kind == ontology.ObjectProperty
 			}
-			value, err := apiJSONSysMLValue(graph, subject, predicate, key, metaclass, objectProperty)
+			value, err := apiJSONSysMLValue(
+				graph, subject, predicate, key, metaclass, objectProperty, nameIndex,
+			)
 			if err != nil {
 				return nil, err
 			}
-			element = append(element, apiJSONMember{key: key, value: value})
+			value, keep := apiJSONResolveUnresolvedProperty(
+				graph, nameIndex, subject, metaclass, key, value, options,
+			)
+			exact, err := apiJSONExactPropertyValues(graph, nameIndex, subject, predicate, key)
+			if err != nil {
+				return nil, err
+			}
+			readback, err := apiJSONSpecPropertyValues(
+				nameIndex, subject, predicate, key, metaclass, value, keep,
+			)
+			if err != nil {
+				return nil, err
+			}
+			if !slices.EqualFunc(exact, readback, func(a, b rdf.Term) bool { return a.Equal(b) }) {
+				mapped, err := apiJSONMappingValuesForTerms(subject, exact)
+				if err != nil {
+					return nil, fmt.Errorf("sysml:%s of <%s>: %w", key, subject.Value, err)
+				}
+				mappingValues[key] = mapped
+				if keep {
+					deferredProperties[key] = value
+				}
+				continue
+			}
+			if keep {
+				element = append(element, apiJSONMember{key: key, value: value})
+			}
 		case strings.HasPrefix(predicate, rdf.OpenSysML):
 			key := "sysx:" + strings.TrimPrefix(predicate, rdf.OpenSysML)
 			objects := graph.ObjectsView(subject, predicate)
@@ -259,8 +333,126 @@ func apiJSONElementWithEvaluation(
 	if hasMappingName {
 		element = append(element, apiJSONMember{key: "sysx:mappingQualifiedName", value: mappingName})
 	}
+	if len(mappingValues) > 0 {
+		keys := make([]string, 0, len(mappingValues))
+		for key := range mappingValues {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			if value, ok := deferredProperties[key]; ok {
+				element = append(element, apiJSONMember{key: key, value: value})
+			}
+		}
+		sidecar := make(map[string]any, len(mappingValues))
+		for key, values := range mappingValues {
+			sidecar[key] = values
+		}
+		element = append(element, apiJSONMember{key: "sysx:mappingValues", value: sidecar})
+	}
 	element = appendAPIJSONOwnedAbsences(graph, subject, element, types[0])
 	return element, nil
+}
+
+func apiJSONExactPropertyValues(
+	graph *rdf.Graph,
+	nameIndex *apiJSONNameIndex,
+	subject rdf.Term,
+	predicate string,
+	key string,
+) ([]rdf.Term, error) {
+	objects := graph.ObjectsView(subject, predicate)
+	annotation, ok := graph.Object(subject, rdf.AnnotationJSON+key)
+	if !ok || !annotation.IsLiteral() {
+		return objects, nil
+	}
+	members, err := rdf.ParseCollectionJSON(annotation.Value)
+	if err != nil {
+		return nil, err
+	}
+	ordered := make([]rdf.Term, 0, len(members))
+	for _, member := range members {
+		if member.ID != "" {
+			target := rdf.ReferenceIRI(subject, member.ID)
+			if candidate, ok := nameIndex.subjectsByID[member.ID]; ok {
+				target = candidate
+			}
+			ordered = append(ordered, target)
+			continue
+		}
+		object, err := collectionObject(subject, objects, member)
+		if err != nil {
+			return nil, err
+		}
+		ordered = append(ordered, object)
+	}
+	return ordered, nil
+}
+
+func apiJSONSpecPropertyValues(
+	nameIndex *apiJSONNameIndex,
+	subject rdf.Term,
+	predicate string,
+	key, metaclass string,
+	value any,
+	keep bool,
+) ([]rdf.Term, error) {
+	if !keep || value == nil {
+		return nil, nil
+	}
+	cache := newAPIJSONTermCache()
+	predicateTerm := rdf.IRI(predicate)
+	var terms []rdf.Term
+	var appendValue func(any) error
+	appendValue = func(value any) error {
+		switch v := value.(type) {
+		case apiJSONReference:
+			terms = append(terms, apiJSONReferenceTerm(subject, v.ID, nameIndex.expressionIDs))
+		case apiJSONNameReference:
+			terms = append(terms, rdf.String(v.name))
+		case []any:
+			for _, member := range v {
+				if err := appendValue(member); err != nil {
+					return err
+				}
+			}
+		case nil:
+			return nil
+		default:
+			term, err := apiJSONScalarOf(
+				subject, predicateTerm, key, value, nameIndex.expressionIDs, cache,
+			)
+			if err != nil {
+				return err
+			}
+			terms = append(terms, term)
+		}
+		return nil
+	}
+	if err := appendValue(value); err != nil {
+		return nil, fmt.Errorf("cannot read back %s.%s: %w", metaclass, key, err)
+	}
+	return terms, nil
+}
+
+func apiJSONMappingValuesForTerms(subject rdf.Term, terms []rdf.Term) ([]any, error) {
+	values := make([]any, 0, len(terms))
+	for _, term := range terms {
+		if term.IsIRI() {
+			id := rdf.ReferenceID(subject, term)
+			if id == "" {
+				return nil, fmt.Errorf("reference %s has no API id", term)
+			}
+			values = append(values, apiJSONReference{ID: id})
+			continue
+		}
+		if term.IsLiteral() {
+			values = append(values, term.Value)
+			continue
+		}
+		return nil, fmt.Errorf("unsupported graph object %s", term)
+	}
+	return values, nil
 }
 
 func apiJSONMappingQualifiedName(
@@ -323,7 +515,13 @@ func apiJSONType(typ rdf.Term) string {
 // apiJSONSysMLValue is the value a sysml: key carries: the collection its
 // json: annotation states, an array when the metamodel declares the property
 // multi-valued, or its single object as a scalar.
-func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metaclass string, objectProperty bool) (any, error) {
+func apiJSONSysMLValue(
+	graph *rdf.Graph,
+	subject rdf.Term,
+	predicate, key, metaclass string,
+	objectProperty bool,
+	nameIndex *apiJSONNameIndex,
+) (any, error) {
 	objects := graph.ObjectsView(subject, predicate)
 	if _, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok && graph.CollectionsSettled() {
 		// The typed triples state the collection in the annotation's order (see
@@ -358,8 +556,7 @@ func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metac
 			}
 		}
 		// The members emit in the annotation's order: a reference its {"@id"},
-		// a literal its triple's scalar — the datatype the reader restores it
-		// to, so an unresolved name on an object property becomes {"@ref": n}.
+		// a literal its triple's scalar, which is resolved or omitted below.
 		values := make([]any, 0, len(members))
 		for _, member := range members {
 			if member.ID != "" {
@@ -407,6 +604,46 @@ func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metac
 	return apiJSONValues(subject, key, objects, objectProperty)
 }
 
+func apiJSONResolveUnresolvedProperty(
+	graph *rdf.Graph,
+	nameIndex *apiJSONNameIndex,
+	subject rdf.Term,
+	metaclass string,
+	key string,
+	value any,
+	options APIJSONOptions,
+) (any, bool) {
+	value, names := apiJSONResolveNameReference(graph, nameIndex, subject, key, value)
+	if len(names) == 0 {
+		return value, true
+	}
+	property, known := ontology.PropertyOf(metaclass, key)
+	subjectID, _ := rdf.SubjectID(subject)
+	if options.Omitted != nil || options.Diagnostic != nil {
+		for _, name := range names {
+			omission := APIJSONOmission{
+				Subject:   subjectID,
+				Metaclass: metaclass,
+				Property:  key,
+				Reason: metamodel.Reason{
+					Category: metamodel.ReasonUnresolvedReference,
+					Detail:   name,
+				},
+			}
+			if options.Omitted != nil {
+				options.Omitted(omission)
+			}
+			if options.Diagnostic != nil {
+				options.Diagnostic(fmt.Sprintf("unresolved API JSON reference %s.%s: %s", metaclass, key, name))
+			}
+		}
+	}
+	if known && property.Kind == ontology.ObjectProperty && !property.Many {
+		return nil, property.Lower == 0
+	}
+	return nil, false
+}
+
 // apiJSONValues spells a property's objects as the key's value: one object a
 // scalar, several an array. The key classifies expression text; sysx: keys
 // pass "".
@@ -426,10 +663,10 @@ func apiJSONValues(subject rdf.Term, key string, objects []rdf.Term, objectPrope
 }
 
 // apiJSONScalar is the JSON spelling of one object: an IRI a {"@id": …}
-// reference, a plain literal on an object property the {"@ref": …} of a name
-// the graph could not link, a boolean or number its JSON primitive, anything
-// else a string. A literal the reader would restore in another datatype is
-// refused: the element form carries no datatype to spell it in.
+// reference, a plain literal on an object property a name to resolve, a boolean
+// or number its JSON primitive, anything else a string. A literal the reader
+// would restore in another datatype is refused: the element form carries no
+// datatype to spell it in.
 func apiJSONScalar(subject rdf.Term, key string, object rdf.Term, objectProperty bool) (any, error) {
 	if object.IsIRI() {
 		return apiJSONReference{ID: rdf.ReferenceID(subject, object)}, nil
@@ -471,7 +708,7 @@ func apiJSONScalar(subject rdf.Term, key string, object rdf.Term, objectProperty
 		return number, nil
 	case "":
 		if objectProperty {
-			return apiJSONNameReference{Ref: object.Value}, nil
+			return apiJSONNameReference{name: object.Value}, nil
 		}
 		return object.Value, nil
 	case rdf.OpenSysML + dtExpression:
