@@ -46,7 +46,7 @@ func (ctx *Context) RequireMonteCarloCase(sym *symbols.Symbol) error {
 	}
 	if !ctx.isMonteCarloCase(sym) {
 		return fmt.Errorf("%w: %s specializes no %s, so its runs have no statistics to bind",
-			errNotMonteCarlo, ctx.qualifiedSymbolName(sym), monteCarloCaseFQN)
+			errNotMonteCarlo, ctx.QualifiedName(sym), monteCarloCaseFQN)
 	}
 	return nil
 }

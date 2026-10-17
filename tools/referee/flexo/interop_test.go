@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	mms "github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
 )
 
 // The live gate. It needs a running Flexo MMS stack, so it is opt-in exactly as
@@ -46,7 +48,7 @@ const expectationHeader = `# What a real Flexo MMS stack does with this project'
 #
 # Regenerate against a running stack (see .agents/skills/flexo-interop):
 #   FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN=<jwt> \
-#     go test -count=1 ./internal/translate/interop/flexo -run TestFlexoInterop -update-flexo
+#     go test -C tools -count=1 ./referee/flexo -run TestFlexoInterop -update-flexo
 #
 # graph-load is the Turtle this project writes, loaded through Layer 1's graph
 # endpoint. json-commit is the same model posted through the SysML v2 service's
@@ -68,7 +70,7 @@ const applyExpectationHeader = `# What a real Flexo MMS stack does when the iden
 #
 # Regenerate against a running stack (see .agents/skills/flexo-interop):
 #   FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN=<jwt> \
-#     go test -count=1 ./internal/translate/interop/flexo -run TestFlexoInterop -update-flexo
+#     go test -C tools -count=1 ./referee/flexo -run TestFlexoInterop -update-flexo
 #
 # initial applies the fixture to an empty branch; revision applies its revised
 # sibling on top, refusing first without confirmed deletes; repository-changed
@@ -77,25 +79,25 @@ const applyExpectationHeader = `# What a real Flexo MMS stack does when the iden
 # commit ids, timestamps and durations are not recorded.
 `
 
-// liveClient is the client of the stack the gate asked for, or the skip.
-func liveClient(t *testing.T) (*Client, context.Context) {
+// liveStack is the stack the gate asked for, or the skip.
+func liveStack(t *testing.T) (*Stack, context.Context) {
 	t.Helper()
 	if os.Getenv(EnvGate) == "" {
 		announceSkip(t, "the live Flexo interop gate is opt-in")
 	}
 
-	cfg, err := ConfigFromEnv()
+	cfg, err := mms.ConfigFromEnv()
 	if err != nil {
 		t.Fatalf("%s=%s but the stack is not configured: %v", EnvGate, os.Getenv(EnvGate), err)
 	}
-	client := New(cfg)
+	stack := Connect(cfg)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	t.Cleanup(cancel)
-	if err := client.Reachable(ctx); err != nil {
+	if err := stack.Reachable(ctx); err != nil {
 		t.Fatalf("%s=%s but the stack does not answer: %v", EnvGate, os.Getenv(EnvGate), err)
 	}
-	return client, ctx
+	return stack, ctx
 }
 
 // checkExpectation compares a measured report with its recorded one, or
@@ -122,7 +124,7 @@ func checkExpectation(t *testing.T, path, got string) {
 }
 
 func TestFlexoInterop(t *testing.T) {
-	client, ctx := liveClient(t)
+	stack, ctx := liveStack(t)
 
 	for _, fixture := range fixtures {
 		t.Run(fixture.name, func(t *testing.T) {
@@ -135,7 +137,7 @@ func TestFlexoInterop(t *testing.T) {
 				t.Fatalf("read %s: %v", fixture.referencePath, err)
 			}
 
-			report, err := Measure(ctx, client, fixture.fixturePath, model, reference)
+			report, err := Measure(ctx, stack, fixture.fixturePath, model, reference)
 			if err != nil {
 				t.Fatalf("measure the round trip: %v", err)
 			}
@@ -150,7 +152,7 @@ func TestFlexoInterop(t *testing.T) {
 // TestFlexoInteropApply measures the sync's apply against the live stack: load,
 // revision with a retained-id rename and gated deletes, then a refused conflict.
 func TestFlexoInteropApply(t *testing.T) {
-	client, ctx := liveClient(t)
+	stack, ctx := liveStack(t)
 
 	model, err := os.ReadFile(applyFixturePath)
 	if err != nil {
@@ -161,7 +163,7 @@ func TestFlexoInteropApply(t *testing.T) {
 		t.Fatalf("read %s: %v", applyRevisionPath, err)
 	}
 
-	report, err := MeasureApply(ctx, client, applyFixturePath, model, revised)
+	report, err := MeasureApply(ctx, stack, applyFixturePath, model, revised)
 	if err != nil {
 		t.Fatalf("measure the apply: %v", err)
 	}
@@ -197,7 +199,7 @@ func announceSkip(t *testing.T, reason string) {
 	fmt.Fprintf(os.Stderr, "\n!!! GATE NOT RUN: %s SKIPPED - %s.\n"+
 		"!!! No claim about loading this project's RDF into Flexo MMS is measured by this run.\n"+
 		"!!! Bring a stack up as .agents/skills/flexo-interop describes and re-run\n"+
-		"!!!   FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN=<jwt> go test -count=1 ./internal/translate/interop/flexo\n"+
+		"!!!   FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN=<jwt> go test -C tools -count=1 ./referee/flexo\n"+
 		"!!! With %s set, an absent stack fails instead of skipping.\n\n",
 		t.Name(), reason, EnvGate)
 	t.Skip("live Flexo stack not requested (set " + EnvGate + "=1)")

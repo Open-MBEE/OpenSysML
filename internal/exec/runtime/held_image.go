@@ -44,7 +44,7 @@ func (e *HeldImageError) Error() string {
 	if e.ID == 0 {
 		return fmt.Sprintf("%s: %v", e.What, e.Err)
 	}
-	return fmt.Sprintf("%s of object #%d (%s): %v", e.What, e.ID, symbolText(e.Type), e.Err)
+	return fmt.Sprintf("%s of object #%d (%s): %v", e.What, e.ID, SymbolText(e.Type), e.Err)
 }
 
 // Unwrap exposes the typed reason.
@@ -627,14 +627,14 @@ func (img *HeldImage) bindingsFree(dst *Context) error {
 		}
 		for _, prior := range priors {
 			if dst.holds(prior) {
-				refuse(ids[0], fmt.Errorf("%w: usage %s denotes #%d", errImageBindingTaken, dst.qualifiedSymbolName(sym), prior))
+				refuse(ids[0], fmt.Errorf("%w: usage %s denotes #%d", errImageBindingTaken, dst.QualifiedName(sym), prior))
 				break
 			}
 		}
 	}
 	for key, id := range img.metadataObjects {
 		if prior, ok := dst.metadataObjects[key]; ok && prior != id && dst.holds(prior) {
-			refuse(id, fmt.Errorf("%w: annotation %d of %s denotes #%d", errImageBindingTaken, key.index, dst.qualifiedSymbolName(key.element), prior))
+			refuse(id, fmt.Errorf("%w: annotation %d of %s denotes #%d", errImageBindingTaken, key.index, dst.QualifiedName(key.element), prior))
 		}
 	}
 	if err == nil {
@@ -789,7 +789,7 @@ func (m *materializing) run() error {
 		}
 		carried, err := dst.carriedRequired(r, r.typ, keep)
 		if err != nil {
-			return &HeldImageError{What: "materialize the members " + symbolText(sym) + " denotes", Err: err}
+			return &HeldImageError{What: "materialize the members " + SymbolText(sym) + " denotes", Err: err}
 		}
 		tails[sym] = carried
 	}

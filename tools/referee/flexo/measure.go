@@ -80,7 +80,7 @@ func sortedIDs(written map[string]*writtenElement) []string {
 // Measure loads model into the stack as Turtle and as JSON changes, reads both
 // back, and reports what each side delivered. The reference argument is the
 // JSON commit request; only its "change" array is posted.
-func Measure(ctx context.Context, c *Client, fixture string, model, reference []byte) (*Report, error) {
+func Measure(ctx context.Context, c *Stack, fixture string, model, reference []byte) (*Report, error) {
 	graph, err := convert.SysMLToRDF(filepath.Base(fixture), model)
 	if err != nil {
 		return nil, fmt.Errorf("convert %s to RDF: %w", fixture, err)
@@ -311,7 +311,7 @@ func jsonProperty(raw json.RawMessage) property {
 
 // measureSide writes one payload into a fresh project and reads it back through
 // the element listing, the direct element read and the roots endpoint.
-func (c *Client) measureSide(ctx context.Context, name, projectID string,
+func (c *Stack) measureSide(ctx context.Context, name, projectID string,
 	written map[string]*writtenElement, write func(project string) error) (SideReport, error) {
 
 	side := SideReport{Name: name, Written: len(written)}
@@ -329,7 +329,7 @@ func (c *Client) measureSide(ctx context.Context, name, projectID string,
 		side.Refusal = refusalReason(err, projectID)
 		side.Elements = append(side.Elements, ElementStat{
 			ID:     "<payload>",
-			Direct: fmt.Sprintf("write-refused(%d)", Status(err)),
+			Direct: fmt.Sprintf("write-refused(%d)", sysmlapi.Status(err)),
 		})
 		return side, nil
 	}
@@ -351,7 +351,7 @@ func (c *Client) measureSide(ctx context.Context, name, projectID string,
 	side.Pages = listing.Responses
 	side.IgnoredPaging = listing.IgnoredPaging
 
-	byID := make(map[string]Element, len(delivered))
+	byID := make(map[string]sysmlapi.Element, len(delivered))
 	for _, element := range delivered {
 		byID[element.ID()] = element
 	}
@@ -385,7 +385,7 @@ func (c *Client) measureSide(ctx context.Context, name, projectID string,
 				read = direct
 			}
 		default:
-			stat.Direct = fmt.Sprintf("refused(%d)", Status(err))
+			stat.Direct = fmt.Sprintf("refused(%d)", sysmlapi.Status(err))
 		}
 
 		measureProperties(&stat, element, read, properties)
@@ -406,7 +406,7 @@ func (c *Client) measureSide(ctx context.Context, name, projectID string,
 
 // measureProperties records, for one element, which written properties came back
 // and which came back in a different shape, accumulating the per-property totals.
-func measureProperties(stat *ElementStat, element *writtenElement, read Element, properties map[string]*PropertyStat) {
+func measureProperties(stat *ElementStat, element *writtenElement, read sysmlapi.Element, properties map[string]*PropertyStat) {
 	for _, name := range slices.Sorted(maps.Keys(element.props)) {
 		written := element.props[name]
 		total := properties[name]
@@ -485,20 +485,20 @@ func refusalReason(err error, projectID string) string {
 // richestCommit picks the commit whose element listing returns the most
 // elements. The write's commit id is server-generated and the list also holds
 // the project's initial commit, so the payload is found rather than assumed.
-func (c *Client) richestCommit(ctx context.Context, project string, commits []Commit) (string, Listing, error) {
+func (c *Stack) richestCommit(ctx context.Context, project string, commits []sysmlapi.Commit) (string, sysmlapi.Listing, error) {
 	best := ""
-	var bestListing Listing
+	var bestListing sysmlapi.Listing
 	for _, commit := range commits {
 		listing, err := c.Elements(ctx, project, commit.ID, PageSize)
 		if err != nil {
-			return "", Listing{}, fmt.Errorf("list elements of %s commit: %w", project, err)
+			return "", sysmlapi.Listing{}, fmt.Errorf("list elements of %s commit: %w", project, err)
 		}
 		if best == "" || len(listing.Elements) > len(bestListing.Elements) {
 			best, bestListing = commit.ID, listing
 		}
 	}
 	if best == "" {
-		return "", Listing{}, fmt.Errorf("project %s has no commit to read", project)
+		return "", sysmlapi.Listing{}, fmt.Errorf("project %s has no commit to read", project)
 	}
 	return best, bestListing, nil
 }

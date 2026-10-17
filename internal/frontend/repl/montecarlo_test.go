@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 )
 
 // monteCarloModel declares Simulation::MonteCarlo cases over a part whose behaviors
@@ -408,7 +408,7 @@ func TestRunsRefusedObservationNamesTheRunByItsRow(t *testing.T) {
 		for _, row := range v.Rows {
 			if row.Error == "" {
 				for _, in := range row.Inputs {
-					if in.Name == runtime.RunParam {
+					if in.Name == sweep.RunParam {
 						first = in.Value
 					}
 				}

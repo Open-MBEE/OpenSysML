@@ -397,7 +397,7 @@ func (ctx *Context) elementRefusal(scope *symbols.Scope, declared *symbols.Symbo
 	}
 	if refusal == "" {
 		refusal = fmt.Sprintf("cannot write %s (%s) to a feature typed by %s",
-			FormatValue(*element), describeValue(*element), symbolText(declared))
+			FormatValue(*element), DescribeValue(*element), SymbolText(declared))
 	}
 	return refusal, true
 }
@@ -419,7 +419,7 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 			return true, "", nil
 		}
 		return false, fmt.Sprintf("cannot write %s to a feature typed by %s",
-			ctx.describeOpenOperand(*value), symbolText(declared)), nil
+			ctx.describeOpenOperand(*value), SymbolText(declared)), nil
 	case ValQuantity:
 		return ctx.quantityConforms(*value, declared)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
@@ -483,7 +483,7 @@ func (ctx *Context) structuredConforms(scope *symbols.Scope, value Value, declar
 		}
 		if scalar := ctx.librarySymbol(scalarValueTypeFQN); scalar != nil && ctx.modelConforms(declared, scalar) {
 			return false, fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it is a %s, which holds one scalar",
-				FormatValue(value), describeValue(value), symbolText(declared), symbolText(scalar)), nil
+				FormatValue(value), DescribeValue(value), SymbolText(declared), SymbolText(scalar)), nil
 		}
 		if refusal := ctx.shapeRefusal(value, declared); refusal != "" {
 			return false, refusal, nil
@@ -518,7 +518,7 @@ func (ctx *Context) shapeRefusal(value Value, declared *symbols.Symbol) string {
 	size, _ := flattenedSize(dims)
 	refuse := func(declares string) string {
 		return fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it declares %s",
-			FormatValue(value), describeValue(value), symbolText(declared), declares)
+			FormatValue(value), DescribeValue(value), SymbolText(declared), declares)
 	}
 	for _, member := range ctx.model.semantics.MembersOfIncludingRedefined(declared) {
 		if !semantics.IsShapeFeature(member) {
@@ -601,10 +601,10 @@ func (ctx *Context) elementsConform(scope *symbols.Scope, value Value, declared 
 	refuse := func(feat EffectiveFeature, mult, got string) string {
 		declares := feat.Name
 		if feat.Type != nil {
-			declares += " : " + symbolText(feat.Type)
+			declares += " : " + SymbolText(feat.Type)
 		}
 		return fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it declares %s%s, got %s",
-			FormatValue(value), describeValue(value), symbolText(declared), declares, mult, got)
+			FormatValue(value), DescribeValue(value), SymbolText(declared), declares, mult, got)
 	}
 	for _, feat := range ctx.FeaturesOf(declared) {
 		if base, ok := ctx.arrayFeatureOf(feat.Symbol); !ok || base != arrayElementsFeature {
@@ -620,7 +620,7 @@ func (ctx *Context) elementsConform(scope *symbols.Scope, value Value, declared 
 			ok, refusal, err := ctx.valueConforms(scope, &elem, feat.Type, how)
 			if err != nil || !ok {
 				if refusal == "" {
-					refusal = refuse(feat, "", fmt.Sprintf("element %s (%s)", FormatValue(elem), describeValue(elem)))
+					refusal = refuse(feat, "", fmt.Sprintf("element %s (%s)", FormatValue(elem), DescribeValue(elem)))
 				}
 				return false, refusal, err
 			}
@@ -689,7 +689,7 @@ func (ctx *Context) quantityConforms(value Value, declared *symbols.Symbol) (boo
 		return true, "", nil
 	}
 	return false, fmt.Sprintf("cannot write %s (%s) to a feature typed by %s (%s)",
-		FormatValue(value), dimensionText(got), symbolText(declared), dimensionText(want)), nil
+		FormatValue(value), dimensionText(got), SymbolText(declared), dimensionText(want)), nil
 }
 
 // dimensionText names a dimension as a message about a mismatch reads it.

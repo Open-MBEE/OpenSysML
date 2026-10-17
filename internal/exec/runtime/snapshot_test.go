@@ -95,7 +95,7 @@ func (r *steppedRun) digest() string {
 		if inst == nil {
 			continue
 		}
-		fmt.Fprintf(&b, "#%d %s life=%+v\n", id, symbolText(inst.Type), ctx.lives[id])
+		fmt.Fprintf(&b, "#%d %s life=%+v\n", id, SymbolText(inst.Type), ctx.lives[id])
 		names := make([]string, 0, len(inst.FeatureValues))
 		for name := range inst.FeatureValues {
 			names = append(names, name)
@@ -115,7 +115,7 @@ func (r *steppedRun) digest() string {
 	}
 	fmt.Fprintf(&b, "activations=%d runs=%d steps=%d\n", ctx.activations, ctx.runs, ctx.run.steps)
 	for _, exec := range r.actions {
-		fmt.Fprintf(&b, "action %s state=%v tokens=%d results=%s\n", symbolText(exec.action), exec.State(), len(exec.tokens), formatValues(exec.Results()))
+		fmt.Fprintf(&b, "action %s state=%v tokens=%d results=%s\n", SymbolText(exec.action), exec.State(), len(exec.tokens), formatValues(exec.Results()))
 		for _, token := range exec.tokens {
 			fmt.Fprintf(&b, "  token %d at %s\n", token.ID, ActionNodeName(token.Location))
 		}
@@ -126,7 +126,7 @@ func (r *steppedRun) digest() string {
 			active = append(active, StateVertexName(state))
 		}
 		fmt.Fprintf(&b, "state %s state=%v active=%v stack=%d queue=%d data=%s\n",
-			symbolText(exec.stateMachine), exec.State(), active, len(exec.stateStack), exec.eventQueue.Len(), formatValues(exec.StateData()))
+			SymbolText(exec.stateMachine), exec.State(), active, len(exec.stateStack), exec.eventQueue.Len(), formatValues(exec.StateData()))
 	}
 	return b.String()
 }

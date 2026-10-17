@@ -443,7 +443,7 @@ func (e *ActionExecutor) branchWeights(ec *EvalContext, node *ast.DecisionNode, 
 		val = soleElement(val)
 		if val.Kind != ValConst || !val.Const.IsNumeric() {
 			return nil, fmt.Errorf("%w: %s: weight of %s is %s, not a number",
-				errBranchWeights, DecisionPlace(node), branchName(successors, pos), describeValue(val))
+				errBranchWeights, DecisionPlace(node), branchName(successors, pos), DescribeValue(val))
 		}
 		weights[pos] = asReal(val.Const)
 	}

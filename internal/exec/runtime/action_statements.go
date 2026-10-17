@@ -118,7 +118,7 @@ func assignQualifiedForeign(ec *EvalContext, s lower.Assign, value Value, descri
 	if target != nil && ec.ctx.isOrSpecializes(target.Type, s.Owner) {
 		if _, ok := target.FeatureValues[s.Target]; !ok {
 			return fmt.Errorf("%s: object #%d (%s) has no feature %s",
-				ErrNoSuchFeature, target.ID, symbolText(target.Type), s.Target)
+				ErrNoSuchFeature, target.ID, SymbolText(target.Type), s.Target)
 		}
 		if err := target.SetFeatureValue(ec.ctx, s.Target, value); err != nil {
 			return err

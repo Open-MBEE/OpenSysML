@@ -383,7 +383,7 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	ctx.beginLife(inst)
 
 	if ctx.trace != nil {
-		ctx.trace.recordObjectMaterialized(symbolText(sym), inst.ID)
+		ctx.trace.recordObjectMaterialized(SymbolText(sym), inst.ID)
 	}
 
 	return inst, nil
@@ -398,14 +398,14 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 	} else if bound && len(objs) == 1 {
 		return objs[0], nil
 	} else if bound {
-		return nil, fmt.Errorf("usage %s: %w: denotes %d occurrences, not one", symbolText(sym), ErrMultiplicityViolation, len(objs))
+		return nil, fmt.Errorf("usage %s: %w: denotes %d occurrences, not one", SymbolText(sym), ErrMultiplicityViolation, len(objs))
 	}
 	if objs, subsetted, err := ctx.namespacedSubsetObjects(sym); err != nil {
 		return nil, err
 	} else if subsetted && len(objs) == 1 {
 		return objs[0], nil
 	} else if subsetted {
-		return nil, fmt.Errorf("usage %s: %w: denotes %d occurrences, not one", symbolText(sym), ErrMultiplicityViolation, len(objs))
+		return nil, fmt.Errorf("usage %s: %w: denotes %d occurrences, not one", SymbolText(sym), ErrMultiplicityViolation, len(objs))
 	}
 	// The occurrence is recorded before its behaviors start, so a behavior that
 	// reaches the usage it belongs to reads this object rather than a second one.
@@ -435,7 +435,7 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	} else if subsetted {
 		return objs, nil
 	}
-	count, err := ctx.lowerBoundCount(ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)), 0, symbolText(sym))
+	count, err := ctx.lowerBoundCount(ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)), 0, SymbolText(sym))
 	if err != nil {
 		return nil, err
 	}
@@ -533,13 +533,13 @@ func (ctx *Context) denotedObjects(sym *symbols.Symbol) ([]*Instance, error) {
 	case ctx.namesOneObject(sym):
 		inst, err := ctx.occurrenceOf(sym)
 		if err != nil {
-			return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+			return nil, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
 		}
 		return []*Instance{inst}, nil
 	case ctx.namesObjects(sym):
 		members, err := ctx.everyOccurrence(sym)
 		if err != nil {
-			return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+			return nil, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
 		}
 		return members, nil
 	case ctx.optionalValueless(sym):
@@ -564,13 +564,13 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 	if !ctx.namesObjects(sym) {
 		inst, err := ctx.occurrenceOf(sym)
 		if err != nil {
-			return Value{}, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+			return Value{}, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
 		}
 		return ctx.objectValue(inst)
 	}
 	members, err := ctx.occurrencesOf(sym)
 	if err != nil {
-		return Value{}, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+		return Value{}, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
 	}
 	tail := ctx.occurrenceTail(sym)
 	held := int64(len(members))
@@ -578,7 +578,7 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 		held += tail.count
 	}
 	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); mult.AdmitsMore(held) && !symbols.IsAbstract(sym) {
-		spelled := ctx.qualifiedSymbolName(sym)
+		spelled := ctx.QualifiedName(sym)
 		return undeterminedFeatureValue(openCountReason(spelled, mult), mult, sym), nil
 	}
 	elements := make([]Value, 0, len(members))
@@ -626,7 +626,7 @@ func (ctx *Context) OccurrenceUsage(inst *Instance) string {
 	if inst == nil || !ctx.denotesOccurrence(inst) {
 		return ""
 	}
-	return ctx.qualifiedSymbolName(inst.Type)
+	return ctx.QualifiedName(inst.Type)
 }
 
 // isOccurrenceUsage reports whether sym declares a usage that is an occurrence:
@@ -841,7 +841,7 @@ func (inst *Instance) SetFeatureValue(ctx *Context, name string, value Value) er
 		return err
 	}
 	if fv.Feature.Symbol != nil {
-		what := func() string { return fmt.Sprintf("write %s of object #%d (%s)", name, inst.ID, symbolText(inst.Type)) }
+		what := func() string { return fmt.Sprintf("write %s of object #%d (%s)", name, inst.ID, SymbolText(inst.Type)) }
 		if err := ctx.readOnlyRefusal(what, name, fv.Feature.Symbol); err != nil {
 			return err
 		}
