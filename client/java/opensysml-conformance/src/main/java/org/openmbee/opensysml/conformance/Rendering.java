@@ -11,6 +11,7 @@ import org.openmbee.opensysml.Outcome;
 import org.openmbee.opensysml.QueryElement;
 import org.openmbee.opensysml.RenderedView;
 import org.openmbee.opensysml.Standing;
+import org.openmbee.opensysml.ToolDryRun;
 import org.openmbee.opensysml.Symbol;
 import org.openmbee.opensysml.Value;
 import org.openmbee.opensysml.Verdict;
@@ -174,6 +175,49 @@ final class Rendering {
     CheckFinal.Builder fin = CheckFinal.newBuilder().setOutcome(f.outcome()).putAllValues(f.values());
     f.witness().ifPresent(w -> fin.setWitness(checkWitness(w)));
     return fin.build();
+  }
+
+  static org.openmbee.opensysml.proto.ToolDryRun toolDryRun(ToolDryRun preview) {
+    org.openmbee.opensysml.proto.ToolDryRun.Builder proto =
+        org.openmbee.opensysml.proto.ToolDryRun.newBuilder()
+            .setAction(preview.action())
+            .setTool(preview.tool())
+            .setVersion(preview.version())
+            .setManifest(preview.manifest())
+            .setExecutable(preview.executable())
+            .setProtocol(preview.protocol())
+            .addAllArgs(preview.args())
+            .addAllEnv(preview.env())
+            .setCwd(preview.cwd())
+            .setStdin(preview.stdin())
+            .setStdinData(preview.stdinData())
+            .setOutputDir(preview.outputDir())
+            .setReplySource(preview.replySource())
+            .addAllLines(preview.lines());
+    preview
+        .inputFile()
+        .ifPresent(
+            file ->
+                proto.setInputFile(
+                    org.openmbee.opensysml.proto.ToolDryRunFile.newBuilder()
+                        .setName(file.name())
+                        .setFormat(file.format())
+                        .setData(file.data())));
+    for (ToolDryRun.Input input : preview.inputs()) {
+      proto.addInputs(
+          org.openmbee.opensysml.proto.ToolDryRunInput.newBuilder()
+              .setVariable(input.variable())
+              .setParameter(input.parameter())
+              .setValue(input.value())
+              .setUnit(input.unit()));
+    }
+    for (ToolDryRun.Output output : preview.outputs()) {
+      proto.addOutputs(
+          org.openmbee.opensysml.proto.ToolDryRunOutput.newBuilder()
+              .setVariable(output.variable())
+              .setParameter(output.parameter()));
+    }
+    return proto.build();
   }
 
   static List<Bound> bounds(Standing standing) {

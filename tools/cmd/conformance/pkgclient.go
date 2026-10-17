@@ -61,7 +61,7 @@ func (c *pkgClient) dispatch(ctx context.Context, method string, request protore
 	case "GetServerInfo":
 		return c.serverInfo(ctx)
 	case "ListEngines":
-		return c.listEngines(ctx)
+		return c.listEngines(ctx, request)
 	case "ParseFile":
 		return c.parseFile(ctx, request)
 	case "ParseSources":
@@ -121,8 +121,16 @@ func (c *pkgClient) serverInfo(ctx context.Context) (proto.Message, error) {
 	return &pb.ServerInfoResponse{Version: info.Version, Capabilities: info.Capabilities}, nil
 }
 
-func (c *pkgClient) listEngines(ctx context.Context) (proto.Message, error) {
-	engines, err := c.api.ListEngines(ctx)
+func (c *pkgClient) listEngines(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.ListEnginesRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	var opts []opensysml.EngineOption
+	if req.Probe {
+		opts = append(opts, opensysml.Probe())
+	}
+	engines, err := c.api.ListEngines(ctx, opts...)
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -242,7 +250,8 @@ func (c *pkgClient) getDiagnostics(ctx context.Context, request protoreflect.Mes
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	diagnostics, err := c.api.Diagnostics(ctx, c.model(req.ModelHash))
+	diagnostics, err := c.api.Diagnostics(ctx, c.model(req.ModelHash),
+		opensysml.DisableLint(req.DisableLint...), opensysml.EnableLint(req.EnableLint...))
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.DiagnosticsResponse{Error: failure.Message}, nil
@@ -312,13 +321,14 @@ func (c *pkgClient) executeAction(ctx context.Context, request protoreflect.Mess
 		}
 		inputs[name] = input
 	}
-	run, err := c.api.ExecuteAction(ctx, c.model(req.ModelHash), req.ActionSymbolId, inputs,
-		opensysml.WithSchedule(req.Schedule))
+	run, err := c.api.ExecuteAction(ctx, c.model(req.ModelHash), req.ActionSymbolId, inputs, runOptions(
+		req.Schedule, req.Advance, req.Seed, req.Draws, req.ClockStep)...)
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.ExecuteActionResponse{
 			Error:       failure.Message,
 			Diagnostics: diagnosticsToProto(failure.Diagnostics),
+			FinalTime:   failure.FinalTime,
 		}, nil
 	}
 	if err != nil {
@@ -327,7 +337,26 @@ func (c *pkgClient) executeAction(ctx context.Context, request protoreflect.Mess
 	return &pb.ExecuteActionResponse{
 		Outputs:     valuesToProto(run.Outputs),
 		Diagnostics: diagnosticsToProto(run.Diagnostics),
+		FinalTime:   run.FinalTime,
 	}, nil
+}
+
+// runOptions turns the run fields of an execute request into the public API's options.
+func runOptions(schedule string, advance *float64, seed *uint64, draws string, clockStep float64) []opensysml.ExecuteOption {
+	options := []opensysml.ExecuteOption{opensysml.WithSchedule(schedule)}
+	if advance != nil {
+		options = append(options, opensysml.WithAdvance(*advance))
+	}
+	if seed != nil {
+		options = append(options, opensysml.WithSeed(*seed))
+	}
+	if draws != "" {
+		options = append(options, opensysml.WithDraws(draws))
+	}
+	if clockStep != 0 {
+		options = append(options, opensysml.WithClockStep(clockStep))
+	}
+	return options
 }
 
 func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
@@ -335,7 +364,7 @@ func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Messa
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	options := []opensysml.ExecuteOption{opensysml.WithSchedule(req.Schedule)}
+	options := runOptions(req.Schedule, req.Advance, req.Seed, req.Draws, req.ClockStep)
 	if req.Trace {
 		options = append(options, opensysml.WithTrace())
 	}
@@ -343,6 +372,7 @@ func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Messa
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		response := &pb.ExecuteStateResponse{
+			FinalTime:    failure.FinalTime,
 			Error:        failure.Message,
 			Diagnostics:  diagnosticsToProto(failure.Diagnostics),
 			TraceDropped: traceDroppedCountToInt32(failure.TraceDropped),
@@ -360,6 +390,7 @@ func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Messa
 		return nil, apiError(err)
 	}
 	response := &pb.ExecuteStateResponse{
+		FinalTime:     run.FinalTime,
 		StatesVisited: run.Visited,
 		FinalContext:  valuesToProto(run.Context),
 		Diagnostics:   diagnosticsToProto(run.Diagnostics),

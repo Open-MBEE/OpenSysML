@@ -1829,7 +1829,17 @@ func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition,
 func (e *StateExecutor) taking(trans *lower.Transition, notes []RunNote) func() {
 	savedTrans, savedNotes := e.firingTrans, e.firingNotes
 	e.firingTrans, e.firingNotes = trans, notes
-	return func() { e.firingTrans, e.firingNotes = savedTrans, savedNotes }
+	by := e.ctx.standingOf(lower.ExpressionFootprint(trans.BodyScope, trans.Guard), true)
+	for _, n := range notes {
+		if c, ok := n.(ChoicePoint); ok && !c.Independent && c.serial != 0 {
+			by = unionSerials(by, []int64{c.serial})
+		}
+	}
+	restore := e.ctx.underControl(by)
+	return func() {
+		restore()
+		e.firingTrans, e.firingNotes = savedTrans, savedNotes
+	}
 }
 
 // resolveAndFire takes a transition outside a dispatch, a timer come due, resolving
@@ -2326,6 +2336,7 @@ func (e *StateExecutor) bindAcceptPayload(name string, accept *ast.AcceptEvent, 
 	}
 	event.Payload = msg
 	e.bindData(name, value)
+	e.ctx.acceptMarks([]lower.Place{{Name: name}}, msg.dependence)
 	return nil
 }
 
@@ -4777,10 +4788,10 @@ func (e *StateExecutor) hasRunningDoAction(state *ast.StateNode) bool {
 	return false
 }
 
-// sendSignal injects a signal event into the state machine.
+// SendSignal injects a signal event into the state machine.
 // This is the primary API for driving state machines with external signals.
 // The signal is enqueued and will be processed on the next ProcessNextEvent call.
-func (e *StateExecutor) sendSignal(signalType string, args map[string]Value) {
+func (e *StateExecutor) SendSignal(signalType string, args map[string]Value) {
 	e.enqueueSignal(Message{SignalType: signalType, Payload: args})
 }
 
@@ -6126,13 +6137,13 @@ func (e *StateExecutor) StateStack() []*ast.StateNode {
 // attributes each state owns under that state's path (`nested.hits`), which two
 // usages of one state definition hold separately.
 func (e *StateExecutor) StateData() map[string]Value {
-	data, _ := e.stateDataWithError()
+	data, _ := e.StateDataWithError()
 	return data
 }
 
-// stateDataWithError returns state data after deriving current tracking cells.
+// StateDataWithError returns state data after deriving current tracking cells.
 // A value whose inactive-state reference cannot be read is omitted and reported.
-func (e *StateExecutor) stateDataWithError() (map[string]Value, error) {
+func (e *StateExecutor) StateDataWithError() (map[string]Value, error) {
 	var deriveErr error
 	if err := e.ctx.deriveBodyCells(e.stateCells); err != nil {
 		deriveErr = err

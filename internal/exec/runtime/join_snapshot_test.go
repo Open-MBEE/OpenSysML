@@ -38,7 +38,7 @@ func TestSnapshotRestoresJoinArrivals(t *testing.T) {
 			state done;
 		}
 	}`)
-	exec.sendSignal("X", nil)
+	exec.SendSignal("X", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to first arrival: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestSnapshotRestoresJoinArrivals(t *testing.T) {
 	}
 	defer snapshot.Release()
 
-	exec.sendSignal("Y", nil)
+	exec.SendSignal("Y", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to join completion: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestSnapshotRestoresJoinArrivals(t *testing.T) {
 	if len(exec.joinArrived) != 1 {
 		t.Fatalf("join arrivals after restore = %v, want the saved arrival", exec.joinArrived)
 	}
-	exec.sendSignal("Y", nil)
+	exec.SendSignal("Y", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run after restore: %v", err)
 	}

@@ -463,6 +463,14 @@ export class Model {
       inputs?: Readonly<Record<string, ValueInput>>;
       schedule?: string;
       performer?: string;
+      /** Simulated seconds to run for (`sysml -advance`); unset runs to completion. */
+      advance?: number;
+      /** The seed the model's own draws are taken from (`sysml -seed`). */
+      seed?: bigint;
+      /** How RandomFunctions draws resolve: `random`, `min`, `max` or `average`. */
+      draws?: string;
+      /** The step the run's clock ticks by, in seconds; 0 is a continuous clock. */
+      clockStep?: number;
     } = {},
   ) {
     return this.connection.executeAction(this.hash, actionSymbolId, options);
@@ -488,6 +496,10 @@ export class Model {
       schedule?: string;
       performer?: string;
       trace?: boolean;
+      advance?: number;
+      seed?: bigint;
+      draws?: string;
+      clockStep?: number;
     } = {},
   ) {
     return this.connection.executeState(this.hash, stateMachineSymbolId, options);
@@ -554,6 +566,8 @@ export class Model {
       namedArguments?: Readonly<Record<string, ValueInput>>;
       schedule?: string;
       engine?: string;
+      /** Preview the external tool call the case would make instead of running it. */
+      toolDryRun?: boolean;
     } = {},
   ): Promise<AnalysisResult> {
     return this.connection.runAnalysis(this.hash, symbolId, options);
@@ -591,11 +605,19 @@ export class Model {
   }
 
   /** The diagnostics the service reports for this model now — for a model of
-   * several documents, or one parsed before later edits changed it. */
-  async refreshDiagnostics(): Promise<ModelDiagnostic[]> {
+   * several documents, or one parsed before later edits changed it. `disableLint`
+   * leaves those lints out and `enableLint` keeps opt-in ones in, as
+   * `sysml -disable-lint`/`-enable-lint` select them. */
+  async refreshDiagnostics(
+    options: { disableLint?: readonly string[]; enableLint?: readonly string[] } = {},
+  ): Promise<ModelDiagnostic[]> {
     const response = await callRpc(
       this.connection.rpc.getDiagnostics(
-        { modelHash: this.hash },
+        {
+          modelHash: this.hash,
+          disableLint: [...(options.disableLint ?? [])],
+          enableLint: [...(options.enableLint ?? [])],
+        },
         this.connection.callOptions(),
       ),
     );

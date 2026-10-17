@@ -35,6 +35,7 @@ import org.openmbee.opensysml.Referrer;
 import org.openmbee.opensysml.Satisfaction;
 import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.Standing;
+import org.openmbee.opensysml.ToolDryRun;
 import org.openmbee.opensysml.StateRun;
 import org.openmbee.opensysml.Sweep;
 import org.openmbee.opensysml.SweepRange;
@@ -1228,7 +1229,50 @@ public final class Protos {
         evaluations,
         instances(response.getInstancesList()),
         diagnostics(response.getDiagnosticsList()),
-        standing(response.getEngine(), response.getStrength(), response.getBoundsList()));
+        standing(response.getEngine(), response.getStrength(), response.getBoundsList()),
+        response.hasToolDryRun()
+            ? Optional.of(toolDryRun(response.getToolDryRun()))
+            : Optional.empty());
+  }
+
+  /**
+   * The tool call a dry run previewed.
+   *
+   * @param preview the generated preview
+   * @return the immutable preview
+   */
+  public static ToolDryRun toolDryRun(org.openmbee.opensysml.proto.ToolDryRun preview) {
+    return new ToolDryRun(
+        preview.getAction(),
+        preview.getTool(),
+        preview.getVersion(),
+        preview.getManifest(),
+        preview.getExecutable(),
+        preview.getProtocol(),
+        preview.getArgsList(),
+        preview.getEnvList(),
+        preview.getCwd(),
+        preview.getStdin(),
+        preview.getStdinData(),
+        preview.hasInputFile()
+            ? Optional.of(
+                new ToolDryRun.InputFile(
+                    preview.getInputFile().getName(),
+                    preview.getInputFile().getFormat(),
+                    preview.getInputFile().getData()))
+            : Optional.empty(),
+        preview.getOutputDir(),
+        preview.getInputsList().stream()
+            .map(
+                input ->
+                    new ToolDryRun.Input(
+                        input.getVariable(), input.getParameter(), input.getValue(), input.getUnit()))
+            .toList(),
+        preview.getOutputsList().stream()
+            .map(output -> new ToolDryRun.Output(output.getVariable(), output.getParameter()))
+            .toList(),
+        preview.getReplySource(),
+        preview.getLinesList());
   }
 
   /**

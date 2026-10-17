@@ -277,10 +277,28 @@ public final class Model {
    * @throws ModelException if the service reported a failure in its answer
    */
   public List<Diagnostic> diagnostics() {
+    return diagnostics(DiagnosticsOptions.defaults());
+  }
+
+  /**
+   * Asks the service for this model's diagnostics under a lint selection.
+   *
+   * @param options the lints left out and the opt-in lints kept, as {@code sysml -disable-lint}
+   *     and {@code -enable-lint} select them
+   * @return the diagnostics, in order
+   * @throws ServiceException if the service does not hold this model, or a code names no lint
+   * @throws ModelException if the service reported a failure in its answer
+   */
+  public List<Diagnostic> diagnostics(DiagnosticsOptions options) {
+    Objects.requireNonNull(options, NAME_OPTIONS);
     DiagnosticsResponse response =
         connection.call(
             "GetDiagnostics",
-            DiagnosticsRequest.newBuilder().setModelHash(hash).build(),
+            DiagnosticsRequest.newBuilder()
+                .setModelHash(hash)
+                .addAllDisableLint(options.disableLint())
+                .addAllEnableLint(options.enableLint())
+                .build(),
             DiagnosticsResponse.getDefaultInstance());
     List<Diagnostic> diagnostics = Protos.diagnostics(response.getDiagnosticsList());
     if (!response.getError().isEmpty()) {
@@ -675,9 +693,21 @@ public final class Model {
             .putAllInputs(Protos.protos(inputs, connection.capabilities()))
             .setSchedule(schedule(options, explore));
     options.performer().ifPresent(request::setPerformerSymbolId);
+    options.advance().ifPresent(request::setAdvance);
+    options.seed().ifPresent(request::setSeed);
+    options.draws().ifPresent(request::setDraws);
+    request.setClockStep(options.clockStep());
     ExecuteActionResponse response =
         connection.call("ExecuteAction", request.build(), ExecuteActionResponse.getDefaultInstance());
-    failed(response.getError(), FailureReason.UNSPECIFIED, response.getDiagnosticsList());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(
+          response.getError(),
+          FailureReason.UNSPECIFIED,
+          Protos.diagnostics(response.getDiagnosticsList()),
+          List.of(),
+          0,
+          response.getFinalTime());
+    }
     return response;
   }
 
@@ -771,6 +801,10 @@ public final class Model {
             .setSchedule(schedule(options, explore));
     options.performer().ifPresent(request::setPerformerSymbolId);
     request.setTrace(options.trace());
+    options.advance().ifPresent(request::setAdvance);
+    options.seed().ifPresent(request::setSeed);
+    options.draws().ifPresent(request::setDraws);
+    request.setClockStep(options.clockStep());
     ExecuteStateResponse response =
         connection.call("ExecuteState", request.build(), ExecuteStateResponse.getDefaultInstance());
     if (!response.getError().isEmpty()) {
@@ -779,7 +813,8 @@ public final class Model {
           FailureReason.UNSPECIFIED,
           Protos.diagnostics(response.getDiagnosticsList()),
           Protos.documentEvents(response.getTraceList()),
-          response.getTraceDropped());
+          response.getTraceDropped(),
+          response.getFinalTime());
     }
     return response;
   }
@@ -1177,7 +1212,8 @@ public final class Model {
             .setSymbolId(symbolId)
             .addAllArguments(Protos.protos(options.arguments(), connection.capabilities()))
             .putAllNamedArguments(Protos.protos(options.namedArguments(), connection.capabilities()))
-            .setSchedule(schedule(options.schedule(), options.explores(), explore));
+            .setSchedule(schedule(options.schedule(), options.explores(), explore))
+            .setToolDryRun(options.toolDryRun());
     options.subject().ifPresent(request::setSubjectSymbolId);
     engine.ifPresent(request::setEngine);
     return connection.call("RunAnalysis", request.build(), RunAnalysisResponse.getDefaultInstance());

@@ -114,8 +114,10 @@ export {
   referrersOf,
 } from "./edit.js";
 export type { EditOperationData, EditTarget } from "./edit.js";
+export type { ToolDryRun } from "./verdict.js";
 export {
   AnalysisResult,
+  toolDryRunOf,
   CalcResult,
   CaseEvaluation,
   KIND_ASSERTION,

@@ -275,7 +275,7 @@ func (inv *Invocation) Outcome() Outcome {
 	default:
 		outcome = ctx.jointOutcome(inv.names(), outcomes)
 	}
-	maps.Copy(outcome.Outputs, inv.performerAttributes())
+	maps.Copy(outcome.Outputs, inv.PerformerAttributes())
 	if inv.leftPending() {
 		outcome.Scope = []ObservationReason{reasonInitialTransitionOnly}
 	}
@@ -304,9 +304,9 @@ func (inv *Invocation) leftPending() bool {
 	return false
 }
 
-// performerAttributes are the attributes the behaviors' performers hold, as an
+// PerformerAttributes are the attributes the behaviors' performers hold, as an
 // outcome reports them: under `this.` for one performer, under its name for several.
-func (inv *Invocation) performerAttributes() map[string]Value {
+func (inv *Invocation) PerformerAttributes() map[string]Value {
 	ctx := inv.Context()
 	held := make(map[string]Value)
 	for _, p := range inv.performerPrefixes() {

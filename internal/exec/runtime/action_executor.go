@@ -28,6 +28,10 @@ type ActionExecutor struct {
 	// its subperformances; self is the object performing the action, whose
 	// connections route what it sends.
 	performances
+	// performedAt is the node of another action's graph whose performance this
+	// executor runs, nil for an action run on its own: the body's own places are
+	// that performance's, as its pins are.
+	performedAt ast.Node
 	// action states the body performed; performed is the action as named, a usage
 	// stating no body of its own or the action itself, whose metadata binds the performance.
 	action, performed *symbols.Symbol
@@ -379,6 +383,7 @@ func (e *ActionExecutor) holdVisible(held map[*symbols.Symbol]bool, attr lower.A
 // made and nothing is waiting for a message).
 func (e *ActionExecutor) Step() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -731,6 +736,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 // runSteps is run, stopping after one step where single is set.
 func (e *ActionExecutor) runSteps(atCurrentTime, single bool) error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -1811,6 +1817,7 @@ func (e *ActionExecutor) checkInputNames() error {
 // initialize spawns initial token at InitialNode.
 func (e *ActionExecutor) initialize() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
 
 	if e.dynamicsKind != lower.NotStateSpace {
 		return e.initializeDynamics()
@@ -1861,6 +1868,7 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	}
 	id := e.tokens[tokenIdx].ID
 	defer e.beginTokenStep(id)()
+	defer e.ctx.underControl(e.tokens[tokenIdx].controlSerials())()
 	if err := e.stepTokenAt(tokenIdx); err != nil {
 		return e.endTerminatedFor(id, err)
 	}
@@ -1930,6 +1938,10 @@ func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
 		return tokenIdx, false
 	}
 
+	control := token.control
+	for _, idx := range consumed {
+		control = unionControl(control, e.tokens[idx].control)
+	}
 	sort.Sort(sort.Reverse(sort.IntSlice(consumed)))
 	for _, idx := range consumed {
 		e.removeToken(idx)
@@ -1938,6 +1950,7 @@ func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
 	e.tokens = append(e.tokens, Token{
 		ID: e.nextTokenID, Location: token.Location, repetition: token.repetition,
 		repetitionGroup: token.repetitionGroup, moved: e.sweep, frame: token.frame,
+		control: control,
 	})
 	e.nextTokenID++
 	return len(e.tokens) - 1, true
@@ -2478,6 +2491,7 @@ func (e *ActionExecutor) split(tokenIdx int, successors []lower.ActionEdge) {
 			Via:      edge,
 			moved:    e.sweep,
 			frame:    frame,
+			control:  e.tokens[tokenIdx].control,
 		}
 		e.nextTokenID++
 		newTokens = append(newTokens, newToken)
@@ -2652,21 +2666,57 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 					errNoEnabledSuccession, decisionNode.Name, branchName(successors, holding[pick]))
 			}
 		}
+		by := e.guardsStanding(graph, successors, holding[len(holding)-1])
 		if choice != nil {
 			e.noteChoice(*choice)
+			if !choice.Independent {
+				by = unionSerials(by, []int64{choice.serial})
+			}
 		}
+		token.underControl(by, commonReach(graph, successors))
 		e.move(token, successors[holding[pick]])
 		return nil
 	}
 
-	// Pass 2: Use unguarded edge as fallback
+	// Pass 2: Use unguarded edge as fallback. Every guard read and failed, so the
+	// fallback stands on what they read as a taken branch would.
 	if unguardedEdge != nil {
+		token.underControl(e.guardsStanding(graph, successors, len(successors)-1), commonReach(graph, successors))
 		e.move(token, *unguardedEdge)
 		return nil
 	}
 
 	return fmt.Errorf("%w: decision node %s has no true guard",
 		errNoEnabledSuccession, decisionNode.Name)
+}
+
+// guardsStanding is what the guards of successors up to and including index last
+// read that is order-dependent: each was read to decide the branch, whether it
+// held or failed.
+func (e *ActionExecutor) guardsStanding(graph *lower.ActionGraph, successors []lower.ActionEdge, last int) []int64 {
+	var by []int64
+	for i := 0; i <= last && i < len(successors); i++ {
+		if successors[i].Guard == nil {
+			continue
+		}
+		by = unionSerials(by, e.ctx.standingOf(lower.ExpressionFootprint(graph.DeclScope(successors[i].Decl), successors[i].Guard), true))
+	}
+	return by
+}
+
+// performedParams is the action's own parameters where another action's node
+// performs it, nil where it runs on its own: the places the node's pins are.
+func (e *ActionExecutor) performedParams() map[*symbols.Symbol]bool {
+	if e.performedAt == nil || e.graph == nil {
+		return nil
+	}
+	params := make(map[*symbols.Symbol]bool, len(e.graph.Parameters))
+	for _, f := range e.graph.Parameters {
+		if sym, ok := e.graph.Scope.LookupLocal(f.Name); ok && sym.Decl == f.Node {
+			params[sym] = true
+		}
+	}
+	return params
 }
 
 // stepActionExecutionNode evaluates inline expression or invokes nested action.
@@ -2768,6 +2818,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 		if err := e.setFrameFeature(perf, accept.ParamName, *payload); err != nil {
 			return err
 		}
+		e.ctx.acceptMarks(graph.Footprints()[usage].Writes, token.accepted)
 	}
 
 	// A node owning no flow, performing no action, is done in this step: a case
@@ -2845,6 +2896,7 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 	if err != nil {
 		return nil, false, fmt.Errorf("accept %s: %w", accept.ParamName, err)
 	}
+	token.accepted = msg.dependence
 	// The payload is a feature of the flow the accept sits in, which the nodes
 	// after it read by its name unless a feature of the flow's own holds the name:
 	// then the payload is the accept node's alone (`receiver.msg`).
@@ -3423,13 +3475,13 @@ func (e *ActionExecutor) State() ExecutionState {
 // each nested non-repeated node's latest performance and under `part.attribute` what the one
 // object each of its own parts denotes holds; a performed usage's mirror its occurrence.
 func (e *ActionExecutor) Results() map[string]Value {
-	results, _ := e.resultsWithError()
+	results, _ := e.ResultsWithError()
 	return results
 }
 
-// resultsWithError returns the values the action's features hold and the first binding
+// ResultsWithError returns the values the action's features hold and the first binding
 // derivation error; a feature whose binding fails to derive is omitted.
-func (e *ActionExecutor) resultsWithError() (map[string]Value, error) {
+func (e *ActionExecutor) ResultsWithError() (map[string]Value, error) {
 	results := make(map[string]Value, len(e.root.data))
 	err := e.root.collect("", results)
 	if e.occurrence != nil {

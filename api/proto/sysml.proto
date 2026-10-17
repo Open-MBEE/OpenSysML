@@ -483,6 +483,75 @@ message RunAnalysisRequest {
   // The engine the case is put to; see VerifyConstraintRequest.engine. "explore"
   // asks what "explore" as the schedule asks, and the response answers alike.
   string engine = 7;
+  // Run the case only to the first call of an external tool its ToolExecution
+  // names and answer what the tool would be given — manifest, executable,
+  // argv, environment, standard input and reply mapping — in `tool_dry_run`,
+  // without starting it (`sysml -tool-dry-run`); nothing the run did is kept.
+  // A run that reaches no tool call reports that in `error`. Refused under an
+  // explore schedule or engine (INVALID_ARGUMENT).
+  bool tool_dry_run = 8;
+}
+
+// ToolDryRun is what one external tool call would be given, composed without
+// starting the process: the preview `sysml -tool-dry-run` prints.
+message ToolDryRun {
+  // The ToolExecution-annotated action the call was made for.
+  string action = 1;
+  // The tool the entry names, the version its manifest declares, the manifest
+  // file, the executable it resolved to and the protocol it is spoken under.
+  string tool = 2;
+  string version = 3;
+  string manifest = 4;
+  string executable = 5;
+  string protocol = 6;
+  // The argv entries after the executable as the invocation block renders
+  // them; empty for an entry without one.
+  repeated string args = 7;
+  // The environment in NAME=value pairs, sorted; a variable taken from the
+  // service's own process is spelled "NAME=<from this process>". Empty when
+  // the entry has no invocation block and inherits the whole environment.
+  repeated string env = 8;
+  // The working directory; empty inherits the service's.
+  string cwd = 9;
+  // What standard input carries: "json" (the protocol's request object),
+  // "none", "csv" or "template", and the bytes it would carry.
+  string stdin = 10;
+  string stdin_data = 11;
+  // The file the block's `inputFile` writes, absent when it has none.
+  ToolDryRunFile input_file = 12;
+  // True when the entry uses {outputDir}.
+  bool output_dir = 13;
+  // The values the call sends the tool and the bindings it expects back.
+  repeated ToolDryRunInput inputs = 14;
+  repeated ToolDryRunOutput outputs = 15;
+  // Where the reply is read: "stdout", or "file:<template>".
+  string reply_source = 16;
+  // The preview as the CLI prints it, one element per line, the reply mapping
+  // included.
+  repeated string lines = 17;
+}
+
+// ToolDryRunFile is the input file a dry run would write.
+message ToolDryRunFile {
+  string name = 1;
+  // "json" or "csv".
+  string format = 2;
+  string data = 3;
+}
+
+// ToolDryRunInput is one value the call sends: the tool variable it is sent
+// under, the parameter it came from, and the value as the protocol spells it.
+message ToolDryRunInput {
+  string variable = 1;
+  string parameter = 2;
+  string value = 3;
+  string unit = 4;
+}
+
+// ToolDryRunOutput is one binding the call expects back.
+message ToolDryRunOutput {
+  string variable = 1;
+  string parameter = 2;
 }
 
 // RunAnalysisResponse carries what the case computed and decided.
@@ -526,6 +595,10 @@ message RunAnalysisResponse {
   string engine = 11;
   string strength = 12;
   repeated Bound bounds = 13;
+  // Set when the request asked for a tool dry run and the case reached a tool
+  // call: what the tool would have been given. The run's outputs, verdicts and
+  // instances are then empty, nothing of it having been kept.
+  ToolDryRun tool_dry_run = 14;
 }
 
 // ProbabilityRange is the model-draw probability of an outcome, bounded by the
@@ -739,7 +812,12 @@ message CheckBehaviorResponse {
 }
 
 // ListEnginesRequest asks for the analysis engines registered in this build.
-message ListEnginesRequest {}
+message ListEnginesRequest {
+  // Start each external engine's process once and check its handshake against
+  // its manifest, reporting the outcome as its status (`sysml -engines -probe`).
+  // Without it no process is started.
+  bool probe = 1;
+}
 
 // EngineInfo is one analysis engine: what it answers, how strongly it can, and
 // whether it can run here.
@@ -879,6 +957,13 @@ message SymbolResponse {
 // DiagnosticsRequest gets all diagnostics for a model
 message DiagnosticsRequest {
   string model_hash = 1;
+  // Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+  // undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+  // rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+  repeated string disable_lint = 2;
+  // Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+  // rounded-real-literal. Off unless named; disable_lint wins.
+  repeated string enable_lint = 3;
 }
 
 // DiagnosticsResponse contains diagnostic list
@@ -966,6 +1051,27 @@ message ExecuteActionRequest {
   // action sends — and under explore each run creates its own. Empty performs
   // the action outside any object.
   string performer_symbol_id = 5;
+  // Simulated time, in seconds, to run the action for (`sysml -advance`): the
+  // action is started and its clock advanced by this much, running everything
+  // due on the way; one that has not completed by then reports that in `error`
+  // with the instant it waits for. Unset runs the action to completion, the
+  // clock advancing through every wait.
+  optional double advance = 6;
+  // The seed the model's own draws — weighted decisions, random functions —
+  // are taken from (`sysml -seed`); the same seed draws the same run. Unset
+  // leaves them to the schedule's own seed, so a run that draws under a
+  // deterministic schedule is refused.
+  optional uint64 seed = 7;
+  // How the run resolves the draws of RandomFunctions (`sysml -draws`):
+  // "random" (the default, from `seed`), "min", "max" or "average", which take
+  // each call's least, greatest or mean value and need no seed. Any other
+  // spelling is INVALID_ARGUMENT.
+  string draws = 8;
+  // The step, in seconds, the run's clock ticks by (`sysml -clock-step`): a
+  // wait comes due at the first multiple of it not before the wait ends. 0, the
+  // default, is a continuous clock; a negative or non-finite step is
+  // INVALID_ARGUMENT.
+  double clock_step = 9;
 }
 
 // ExecuteActionResponse contains action execution results
@@ -1014,6 +1120,14 @@ message ExecuteStateRequest {
   // Ask for the run's trace in ExecuteStateResponse.trace. Advertised as the
   // "state_trace" capability; a service withholding it refuses true with UNIMPLEMENTED.
   bool trace = 6;
+  // Simulated time, in seconds, to run the machine for after the events are
+  // sent (`sysml -advance`); see ExecuteActionRequest.advance. Unset runs the
+  // machine to quiescence and advances the clock no further.
+  optional double advance = 7;
+  // See ExecuteActionRequest.seed, .draws and .clock_step.
+  optional uint64 seed = 8;
+  string draws = 9;
+  double clock_step = 10;
 }
 
 // ExecuteStateResponse contains state machine execution trace

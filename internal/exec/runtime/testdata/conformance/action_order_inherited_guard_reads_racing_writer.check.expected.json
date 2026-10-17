@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"go": ["false", "true"], "mode": ["10", "20"]},
+	"agreed": {"later": "7"}
+}
