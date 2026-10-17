@@ -192,7 +192,7 @@ func testStartInherited(t *testing.T) {
 		t.Fatalf("Starter: %v", err)
 	}
 	if clicker.Type == nil || clicker.Type.Name != "Clicker" {
-		t.Fatalf("made a %s, want a Clicker", symbolText(clicker.Type))
+		t.Fatalf("made a %s, want a Clicker", SymbolText(clicker.Type))
 	}
 	if got := featureInt(t, ctx, clicker, "n"); got != 1 {
 		t.Errorf("n = %d after the inherited start, want 1", got)

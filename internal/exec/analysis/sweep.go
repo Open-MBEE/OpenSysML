@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 )
 
 // SweepEngineName is the name of the engine that runs a domain row by row.
@@ -63,7 +64,7 @@ func (e sweepEngine) Run(ctx context.Context, model *Model, q Question, budget B
 	}
 	fresh := func(job int) (*runtime.Context, error) { return q.fresh(model, job, budget) }
 	started := time.Now()
-	table, err := runtime.RunSweepWith(ctx, runtime.SweepWorkers{First: first, Jobs: budget.Jobs, Fresh: fresh}, q.Subject, q.Sweep.Plan, runs, q.Sweep.Row)
+	table, err := sweep.RunSweepWith(ctx, sweep.SweepWorkers{First: first, Jobs: budget.Jobs, Fresh: fresh}, q.Subject, q.Sweep.Plan, runs, q.Sweep.Row)
 	if err != nil {
 		return Result{}, err
 	}

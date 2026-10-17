@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -237,21 +238,21 @@ func TestSweepDrawsFromTheRequestsModelSeed(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := runtime.NewContext(model, fixtureSteps)
-	plan := runtime.SweepPlan{Ranges: []runtime.SweepRange{{Param: "x", From: intOf(1), To: intOf(2)}}}
-	resolved, err := ctx.ResolveSweepPlan(twice, plan, 0, nil)
+	plan := sweep.SweepPlan{Ranges: []sweep.SweepRange{{Param: "x", From: intOf(1), To: intOf(2)}}}
+	resolved, err := sweep.ResolvePlan(ctx, twice, plan, 0, nil)
 	if err != nil {
 		t.Fatalf("resolve the plan: %v", err)
 	}
-	row := func(ctx *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+	row := func(ctx *runtime.Context, bindings []sweep.SweepBinding) (sweep.SweepRunResult, error) {
 		bound := make(map[string]runtime.Value, len(bindings))
 		for _, b := range bindings {
 			bound[b.Param] = b.Value
 		}
 		value, err := ctx.InvokeCalcWith(twice, nil, bound, d.pkg)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
-		return runtime.SweepRunResult{Outputs: []runtime.CalcOutputValue{{Name: "result", Value: value}}}, nil
+		return sweep.SweepRunResult{Outputs: []runtime.CalcOutputValue{{Name: "result", Value: value}}}, nil
 	}
 	answered, err := Default().Sweep(context.Background(), d.seeded("test::Twice", ctx.Schedule(), 7), resolved, row)
 	if err != nil {

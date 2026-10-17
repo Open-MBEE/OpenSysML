@@ -1,7 +1,8 @@
-package runtime
+package sweep
 
 import (
 	"context"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"testing"
 )
 
@@ -14,21 +15,23 @@ func TestSweepRowReleasesItsContextWhenAsked(t *testing.T) {
 		Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(3))},
 	})
 	for _, release := range []bool{false, true} {
-		var contexts []*Context
-		var traces []*TraceRecorder
-		traced := func(row *Context) *Context {
-			tr := NewTraceRecorder()
+		var contexts []*runtime.Context
+		var traces []*runtime.TraceRecorder
+		traced := func(row *runtime.Context) *runtime.Context {
+			tr := runtime.NewTraceRecorder()
 			row.SetTrace(tr)
 			contexts, traces = append(contexts, row), append(traces, tr)
 			return row
 		}
-		fresh := func(int) (*Context, error) { return traced(NewContext(ctx.model, ctx.maxSteps)), nil }
-		run := func(rowCtx *Context, bindings []SweepBinding) (SweepRunResult, error) {
+		fresh := func(int) (*runtime.Context, error) {
+			return traced(runtime.NewContext(ctx.Model(), ctx.Budgets().MaxSteps)), nil
+		}
+		run := func(rowCtx *runtime.Context, bindings []SweepBinding) (SweepRunResult, error) {
 			result, err := sweepCalcRun(sym, scope)(rowCtx, bindings)
 			result.ReleaseContext = release
 			return result, err
 		}
-		workers := SweepWorkers{First: traced(NewContext(ctx.model, ctx.maxSteps)), Jobs: 1, Fresh: fresh}
+		workers := SweepWorkers{First: traced(runtime.NewContext(ctx.Model(), ctx.Budgets().MaxSteps)), Jobs: 1, Fresh: fresh}
 		table, err := RunSweepWith(context.Background(), workers, "test::Twice", plan, 0, run)
 		if err != nil {
 			t.Fatalf("release=%v: sweep of Twice: %v", release, err)
