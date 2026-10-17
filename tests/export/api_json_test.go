@@ -100,6 +100,139 @@ func TestAPIJSONInverseOverAllFixtures(t *testing.T) {
 	}
 }
 
+// Develop's reader matched the standard route for this set; its compact reader
+// did not accept the compact document envelope.
+var apiJSONDevelopStandardRouteParityFixtures = []string{
+	"../../tools/referee/flexo/testdata/model.sysml",
+	"testdata/convert/accept.sysml",
+	"testdata/convert/action_nodes.sysml",
+	"testdata/convert/anonymous_assertions.sysml",
+	"testdata/convert/anonymous_features.kerml",
+	"testdata/convert/anonymous_portions.sysml",
+	"testdata/convert/body_scopes.sysml",
+	"testdata/convert/bounds.sysml",
+	"testdata/convert/chain_and_bare_comment.sysml",
+	"testdata/convert/chain_scopes.sysml",
+	"testdata/convert/composite_multiplicity.kerml",
+	"testdata/convert/condition_references.sysml",
+	"testdata/convert/conjugation.sysml",
+	"testdata/convert/connector_ends.kerml",
+	"testdata/convert/constraints.sysml",
+	"testdata/convert/decision_branches.sysml",
+	"testdata/convert/deps.sysml",
+	"testdata/convert/docs.sysml",
+	"testdata/convert/docs_before_members.sysml",
+	"testdata/convert/end_binding_bodies.sysml",
+	"testdata/convert/end_prefix_metadata.sysml",
+	"testdata/convert/endpoint_scopes.sysml",
+	"testdata/convert/enums.sysml",
+	"testdata/convert/expression_body_members.sysml",
+	"testdata/convert/expression_body_order.sysml",
+	"testdata/convert/feature_chains.sysml",
+	"testdata/convert/feature_chains_repeated.sysml",
+	"testdata/convert/feature_chains_unresolved.sysml",
+	"testdata/convert/feature_prefixes.kerml",
+	"testdata/convert/imported_references.sysml",
+	"testdata/convert/imports.sysml",
+	"testdata/convert/individual_definitions.sysml",
+	"testdata/convert/invariant_references.kerml",
+	"testdata/convert/irregular_layout.sysml",
+	"testdata/convert/kerml.sysml",
+	"testdata/convert/kind_keyword_synonyms.sysml",
+	"testdata/convert/loop_scopes.sysml",
+	"testdata/convert/loops_conditionals.sysml",
+	"testdata/convert/metadata_bodies.sysml",
+	"testdata/convert/metadata_prefixes.sysml",
+	"testdata/convert/modifiers.sysml",
+	"testdata/convert/names.sysml",
+	"testdata/convert/nested.sysml",
+	"testdata/convert/nested_namespace_import.sysml",
+	"testdata/convert/parts.sysml",
+	"testdata/convert/payload_declaration_bodies.sysml",
+	"testdata/convert/quoted_names.sysml",
+	"testdata/convert/quoted_succession_ends.sysml",
+	"testdata/convert/ref_subsets.sysml",
+	"testdata/convert/relations.sysml",
+	"testdata/convert/relationship_clause_order.sysml",
+	"testdata/convert/requirements.sysml",
+	"testdata/convert/result_expressions.sysml",
+	"testdata/convert/send_new.sysml",
+	"testdata/convert/shadowed_references.sysml",
+	"testdata/convert/shadowing_body.sysml",
+	"testdata/convert/shadowing_parameters.sysml",
+	"testdata/convert/state_machine.sysml",
+	"testdata/convert/then_after_members.sysml",
+	"testdata/convert/values.sysml",
+	"testdata/convert/views_flows_parameters.sysml",
+	"testdata/interchange/flow_ends.sysml",
+	"testdata/interchange/library_identity.sysml",
+	"testdata/interchange/p10_interchange.sysml",
+	"testdata/interchange/state_entry.sysml",
+	"testdata/interchange/states.sysml",
+	"testdata/interchange/successions.sysml",
+	"testdata/interchange/transitions.sysml",
+}
+
+func TestAPIJSONConvertRoutesMatchTurtleOnDevelopPassingFixtures(t *testing.T) {
+	expected := make(map[string]struct{}, len(apiJSONDevelopStandardRouteParityFixtures))
+	for _, path := range apiJSONDevelopStandardRouteParityFixtures {
+		expected[filepath.Clean(path)] = struct{}{}
+	}
+	for _, path := range apiJSONModels(t) {
+		path = filepath.Clean(path)
+		if _, ok := expected[path]; !ok {
+			continue
+		}
+		delete(expected, path)
+		name, _ := fixtureName(path)
+		t.Run(name, func(t *testing.T) {
+			source, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			graph, err := cachedSysMLToRDF(path, source)
+			if err != nil {
+				t.Fatalf("SysMLToRDF: %v", err)
+			}
+			want := rdf.WriteTurtle(graph)
+			document, err := cachedAPIJSON(path, source, "standard", "graph")
+			if err != nil {
+				t.Fatalf("write standard API JSON: %v", err)
+			}
+			got, err := convert.Convert(path+".json", document, convert.FormatAPIJSON, convert.FormatTurtle)
+			if err != nil {
+				t.Fatalf("read standard API JSON as Turtle: %v", err)
+			}
+			if !bytes.Equal(got, want) {
+				offset := firstDifferentByte(got, want)
+				start := max(0, offset-120)
+				gotEnd := min(len(got), offset+220)
+				wantEnd := min(len(want), offset+220)
+				t.Logf("got near mismatch: %q", got[start:gotEnd])
+				t.Logf("want near mismatch: %q", want[start:wantEnd])
+				t.Fatalf("standard API JSON route differs from SysML-to-Turtle at byte %d (got %d bytes, want %d)",
+					offset, len(got), len(want))
+			}
+		})
+	}
+	if len(expected) > 0 {
+		missing := make([]string, 0, len(expected))
+		for path := range expected {
+			missing = append(missing, path)
+		}
+		sort.Strings(missing)
+		t.Fatalf("develop-passing API JSON fixtures are missing: %s", strings.Join(missing, ", "))
+	}
+}
+
+func firstDifferentByte(got, want []byte) int {
+	offset := 0
+	for offset < len(got) && offset < len(want) && got[offset] == want[offset] {
+		offset++
+	}
+	return offset
+}
+
 func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 	paths := apiJSONModels(t)
 	if err := filepath.Walk(filepath.Join("..", "..", "examples"), func(path string, info os.FileInfo, err error) error {

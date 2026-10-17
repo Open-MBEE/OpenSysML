@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
@@ -18,6 +17,8 @@ type APIJSONOptions struct {
 	Omitted    func(APIJSONOmission)
 	Diagnostic func(string)
 }
+
+const apiJSONMappingPropertyOrderKey = "sysx:mappingPropertyOrder"
 
 // APIJSONOmission describes an object-property value omitted because its target
 // could not be resolved.
@@ -243,7 +244,28 @@ func apiJSONElementWithEvaluationOptions(
 		apiJSONMember{key: "@id", value: id},
 	)
 	var mappingValues apiJSONObject
-	var deferredProperties []apiJSONMember
+	mappingValuesPosition := -1
+	var specName any
+	if evaluation != nil && evaluation.evaluator != nil && evaluation.structure != nil {
+		if semanticElement, ok := evaluation.structure.element(subject); ok {
+			value, supported := evaluation.evaluator.PropertyReadOnly(semanticElement, "Element", "qualifiedName")
+			if supported {
+				switch value.Kind {
+				case metamodel.NullValue:
+				case metamodel.StringValue:
+					specName = value.String
+				default:
+					return nil, fmt.Errorf("qualifiedName has unsupported evaluator value kind %d", value.Kind)
+				}
+			}
+		}
+	}
+	mappingName, hasMappingName, err := apiJSONMappingQualifiedName(graph, subject, mappingNames, specName)
+	if err != nil {
+		return nil, err
+	}
+	mappingNameEmitted := false
+	qualifiedNameInGraph := false
 	for _, predicate := range predicates {
 		switch {
 		case predicate == rdf.RDFType:
@@ -255,6 +277,14 @@ func apiJSONElementWithEvaluationOptions(
 		case strings.HasPrefix(predicate, rdf.SysML):
 			key := strings.TrimPrefix(predicate, rdf.SysML)
 			if key == "qualifiedName" {
+				qualifiedNameInGraph = true
+				if specName != nil {
+					element = append(element, apiJSONMember{key: key, value: specName})
+				}
+				if hasMappingName {
+					element = append(element, apiJSONMember{key: "sysx:mappingQualifiedName", value: mappingName})
+					mappingNameEmitted = true
+				}
 				continue
 			}
 			property, propertyKnown := ontology.PropertyOf(metaclass, key)
@@ -284,7 +314,9 @@ func apiJSONElementWithEvaluationOptions(
 				}
 				mappingValues = append(mappingValues, apiJSONMember{key: key, value: mapped})
 				if keep {
-					deferredProperties = append(deferredProperties, apiJSONMember{key: key, value: value})
+					element = append(element, apiJSONMember{key: key, value: value})
+				} else if mappingValuesPosition < 0 {
+					mappingValuesPosition = len(element)
 				}
 				continue
 			}
@@ -306,43 +338,155 @@ func apiJSONElementWithEvaluationOptions(
 			}
 		}
 	}
-	var specName any
-	if evaluation != nil && evaluation.evaluator != nil && evaluation.structure != nil {
-		if semanticElement, ok := evaluation.structure.element(subject); ok {
-			value, supported := evaluation.evaluator.PropertyReadOnly(semanticElement, "Element", "qualifiedName")
-			if supported {
-				switch value.Kind {
-				case metamodel.NullValue:
-				case metamodel.StringValue:
-					specName = value.String
-				default:
-					return nil, fmt.Errorf("qualifiedName has unsupported evaluator value kind %d", value.Kind)
-				}
-			}
-		}
-	}
-	if specName != nil {
+	if specName != nil && !qualifiedNameInGraph {
 		element = append(element, apiJSONMember{key: "qualifiedName", value: specName})
 	}
-	mappingName, hasMappingName, err := apiJSONMappingQualifiedName(graph, subject, mappingNames, specName)
-	if err != nil {
-		return nil, err
-	}
-	if hasMappingName {
+	if hasMappingName && !mappingNameEmitted {
 		element = append(element, apiJSONMember{key: "sysx:mappingQualifiedName", value: mappingName})
 	}
 	if len(mappingValues) > 0 {
-		sort.Slice(mappingValues, func(i, j int) bool {
-			return mappingValues[i].key < mappingValues[j].key
-		})
-		sort.Slice(deferredProperties, func(i, j int) bool {
-			return deferredProperties[i].key < deferredProperties[j].key
-		})
-		element = append(element, deferredProperties...)
-		element = append(element, apiJSONMember{key: "sysx:mappingValues", value: mappingValues})
+		member := apiJSONMember{key: "sysx:mappingValues", value: mappingValues}
+		if mappingValuesPosition < 0 {
+			element = append(element, member)
+		} else {
+			element = append(element, apiJSONMember{})
+			copy(element[mappingValuesPosition+1:], element[mappingValuesPosition:])
+			element[mappingValuesPosition] = member
+		}
 	}
 	element = appendAPIJSONOwnedAbsences(graph, subject, element, types[0])
+	if graphOrder := apiJSONGraphPropertyOrder(graph, subject); len(graphOrder) > 0 {
+		if naturalOrder := apiJSONNaturalPropertyOrder(graph, subject, element); !slices.Equal(graphOrder, naturalOrder) {
+			element = append(element, apiJSONMember{
+				key:   apiJSONMappingPropertyOrderKey,
+				value: graphOrder,
+			})
+		}
+	}
 	return element, nil
+}
+
+func apiJSONGraphPropertyOrder(graph *rdf.Graph, subject rdf.Term) []string {
+	order := make([]string, 0, len(graph.PredicatesView(subject)))
+	for _, predicate := range graph.PredicatesView(subject) {
+		if predicate == rdf.RDFType || rdf.IsAnnotationJSON(predicate) {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(predicate, rdf.SysML):
+			order = append(order, strings.TrimPrefix(predicate, rdf.SysML))
+		case strings.HasPrefix(predicate, rdf.OpenSysML):
+			order = append(order, "sysx:"+strings.TrimPrefix(predicate, rdf.OpenSysML))
+		}
+	}
+	return order
+}
+
+func apiJSONNaturalPropertyOrder(graph *rdf.Graph, subject rdf.Term, element apiJSONObject) []string {
+	memberProperties := make(map[string]bool, len(element))
+	mappingQualifiedNameIndex := -1
+	hasQualifiedName := false
+	for i, member := range element {
+		switch member.key {
+		case "@type", "@id", "sysx:mappingValues", apiJSONMappingPropertyOrderKey:
+		case "sysx:mappingQualifiedName":
+			if mappingQualifiedNameIndex < 0 {
+				mappingQualifiedNameIndex = i
+			}
+		case "qualifiedName":
+			hasQualifiedName = true
+			memberProperties[member.key] = true
+		default:
+			memberProperties[member.key] = true
+		}
+	}
+
+	order := make([]string, 0, len(element))
+	emitted := make(map[string]bool, len(element))
+	for _, member := range element {
+		switch member.key {
+		case "@type", "@id", apiJSONMappingPropertyOrderKey, "sysx:mappingQualifiedName":
+			continue
+		case "sysx:mappingValues":
+			values, ok := member.value.(apiJSONObject)
+			if !ok {
+				continue
+			}
+			for _, value := range values {
+				if memberProperties[value.key] || emitted[value.key] {
+					continue
+				}
+				order = append(order, value.key)
+				emitted[value.key] = true
+			}
+		default:
+			if emitted[member.key] {
+				continue
+			}
+			order = append(order, member.key)
+			emitted[member.key] = true
+		}
+	}
+
+	if !hasQualifiedName && mappingQualifiedNameIndex >= 0 {
+		insertAt := len(order)
+		positioned := false
+		for i := mappingQualifiedNameIndex + 1; i < len(element); i++ {
+			predicate, ok := apiJSONQualifiedNameMemberPredicate(element[i].key)
+			if !ok || !graph.HasProperty(subject, predicate) {
+				continue
+			}
+			insertAt = indexOfAPIJSONProperty(order, element[i].key)
+			if insertAt < 0 {
+				continue
+			}
+			positioned = true
+			break
+		}
+		if !positioned {
+			for i := mappingQualifiedNameIndex - 1; i >= 0; i-- {
+				predicate, ok := apiJSONQualifiedNameMemberPredicate(element[i].key)
+				if !ok || !graph.HasProperty(subject, predicate) {
+					continue
+				}
+				insertAt = indexOfAPIJSONProperty(order, element[i].key) + 1
+				positioned = true
+				break
+			}
+		}
+		if !positioned {
+			insertAt = 0
+		}
+		if insertAt < 0 {
+			insertAt = len(order)
+		}
+		order = append(order, "")
+		copy(order[insertAt+1:], order[insertAt:])
+		order[insertAt] = "qualifiedName"
+	}
+
+	graphProperties := make(map[string]bool)
+	for _, property := range apiJSONGraphPropertyOrder(graph, subject) {
+		graphProperties[property] = true
+	}
+	filtered := make([]string, 0, len(order))
+	seen := make(map[string]bool, len(order))
+	for _, property := range order {
+		if graphProperties[property] && !seen[property] {
+			filtered = append(filtered, property)
+			seen[property] = true
+		}
+	}
+	return filtered
+}
+
+func indexOfAPIJSONProperty(order []string, property string) int {
+	for i, key := range order {
+		if key == property {
+			return i
+		}
+	}
+	return -1
 }
 
 type apiJSONPropertyComparison struct {
@@ -807,7 +951,13 @@ func apiJSONResolveUnresolvedProperty(
 			}
 		}
 	}
-	if known && property.Kind == ontology.ObjectProperty && !property.Many {
+	if known && property.Kind == ontology.ObjectProperty && property.Many {
+		if property.Derived || property.Lower > 0 {
+			return nil, false
+		}
+		return []any{}, true
+	}
+	if known && property.Kind == ontology.ObjectProperty {
 		return nil, property.Lower == 0
 	}
 	return nil, false

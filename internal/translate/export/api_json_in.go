@@ -41,16 +41,7 @@ func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 		triple.Object = apiJSONExpressionTerm(triple.Object, plan.expressionIDs)
 		return true
 	})
-	for id, qualifiedName := range plan.qualifiedNames {
-		if qualifiedName == "" {
-			continue
-		}
-		subject := rdf.ReferenceIRI(rdf.Term{}, id)
-		if plan.expressionIDs[id] {
-			subject = rdf.IRI(rdf.Expression + id)
-		}
-		graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(qualifiedName))
-	}
+	graph = apiJSONGraphWithQualifiedNames(graph, plan.objects, plan.qualifiedNames)
 	for _, annotation := range plan.annotations {
 		annotation.subject = apiJSONExpressionTerm(annotation.subject, plan.expressionIDs)
 		for i := range annotation.members {
@@ -80,6 +71,143 @@ func apiJSONReferenceTerm(subject rdf.Term, id string, expressionIDs map[string]
 		return rdf.IRI(rdf.Expression + id)
 	}
 	return rdf.ReferenceIRI(subject, id)
+}
+
+type apiJSONQualifiedNamePosition struct {
+	subject   rdf.Term
+	predicate string
+}
+
+func apiJSONGraphWithQualifiedNames(
+	graph *rdf.Graph,
+	objects []apiJSONElementData,
+	names map[string]string,
+) *rdf.Graph {
+	if len(names) == 0 {
+		return graph
+	}
+	before := make(map[apiJSONQualifiedNamePosition]string)
+	after := make(map[apiJSONQualifiedNamePosition]string)
+	afterType := make(map[rdf.Term]string)
+	for _, object := range objects {
+		name := names[object.id]
+		if name == "" {
+			continue
+		}
+		subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
+		if graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+			continue
+		}
+		if qualifiedNameIndex := indexOfAPIJSONProperty(object.mappingPropertyOrder, "qualifiedName"); qualifiedNameIndex >= 0 {
+			positioned := false
+			for i := qualifiedNameIndex + 1; i < len(object.mappingPropertyOrder); i++ {
+				predicate, ok := apiJSONQualifiedNameMemberPredicate(object.mappingPropertyOrder[i])
+				if ok && graph.HasProperty(subject, predicate) {
+					before[apiJSONQualifiedNamePosition{subject, predicate}] = name
+					positioned = true
+					break
+				}
+			}
+			if !positioned {
+				for i := qualifiedNameIndex - 1; i >= 0; i-- {
+					predicate, ok := apiJSONQualifiedNameMemberPredicate(object.mappingPropertyOrder[i])
+					if ok && graph.HasProperty(subject, predicate) {
+						after[apiJSONQualifiedNamePosition{subject, predicate}] = name
+						positioned = true
+						break
+					}
+				}
+			}
+			if !positioned {
+				afterType[subject] = name
+			}
+			continue
+		}
+		qualifiedNameIndex := -1
+		for i, member := range object.members {
+			if member.key == "sysx:mappingQualifiedName" {
+				qualifiedNameIndex = i
+				break
+			}
+			if qualifiedNameIndex < 0 && member.key == "qualifiedName" {
+				qualifiedNameIndex = i
+			}
+		}
+		if qualifiedNameIndex < 0 && object.typ == "ReferenceUsage" &&
+			graph.HasProperty(subject, rdf.SysML+"elementId") {
+			for i, member := range object.members {
+				if member.key == "sysx:mappingValues" || member.key == "sysx:mappingQualifiedName" ||
+					strings.HasPrefix(member.key, "@") {
+					continue
+				}
+				if member.key == "elementId" {
+					qualifiedNameIndex = i
+				}
+				break
+			}
+		}
+		if qualifiedNameIndex >= 0 {
+			positioned := false
+			for i := qualifiedNameIndex + 1; i < len(object.members); i++ {
+				predicate, ok := apiJSONQualifiedNameMemberPredicate(object.members[i].key)
+				if ok && graph.HasProperty(subject, predicate) {
+					before[apiJSONQualifiedNamePosition{subject, predicate}] = name
+					positioned = true
+					break
+				}
+			}
+			if !positioned {
+				for i := qualifiedNameIndex - 1; i >= 0; i-- {
+					predicate, ok := apiJSONQualifiedNameMemberPredicate(object.members[i].key)
+					if ok && graph.HasProperty(subject, predicate) {
+						after[apiJSONQualifiedNamePosition{subject, predicate}] = name
+						positioned = true
+						break
+					}
+				}
+			}
+			if positioned {
+				continue
+			}
+		}
+		afterType[subject] = name
+	}
+	builder := rdf.NewGraphBuilder(len(graph.Triples()) + len(names))
+	for prefix, namespace := range graph.Prefixes {
+		builder.SetPrefix(prefix, namespace)
+	}
+	triples := graph.Triples()
+	emitted := make(map[apiJSONQualifiedNamePosition]bool)
+	for i, triple := range triples {
+		position := apiJSONQualifiedNamePosition{triple.Subject, triple.Predicate.Value}
+		if name, ok := before[position]; ok && !emitted[position] {
+			builder.Add(triple.Subject, rdf.SysMLTerm(pQualifiedName), rdf.String(name))
+			emitted[position] = true
+		}
+		builder.AddTriple(triple)
+		if name, ok := afterType[triple.Subject]; ok && triple.Predicate.Value == rdf.RDFType {
+			builder.Add(triple.Subject, rdf.SysMLTerm(pQualifiedName), rdf.String(name))
+			delete(afterType, triple.Subject)
+		}
+		if name, ok := after[position]; ok &&
+			(i+1 == len(triples) || triples[i+1].Subject != triple.Subject || triples[i+1].Predicate.Value != triple.Predicate.Value) {
+			builder.Add(triple.Subject, rdf.SysMLTerm(pQualifiedName), rdf.String(name))
+		}
+	}
+	return builder.Build()
+}
+
+func apiJSONQualifiedNameMemberPredicate(key string) (string, bool) {
+	switch {
+	case strings.HasPrefix(key, "sysx:"):
+		return rdf.OpenSysML + strings.TrimPrefix(key, "sysx:"), true
+	case strings.HasPrefix(key, "sysml:"):
+		return rdf.SysML + strings.TrimPrefix(key, "sysml:"), true
+	case strings.HasPrefix(key, "@"), strings.Contains(key, ":"):
+		return "", false
+	default:
+		return rdf.SysML + key, true
+	}
 }
 
 func expandAPIJSONCompact(data []byte) ([]byte, error) {
@@ -315,6 +443,8 @@ type apiJSONElementData struct {
 	indexOwner           string
 	mappingQualifiedName string
 	mappingValues        map[string][]any
+	mappingValuesOrder   []string
+	mappingPropertyOrder []string
 	specQualifiedName    string
 	hasSpecQualifiedName bool
 	toolkitForm          bool
@@ -424,13 +554,53 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 			return nil, nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
 		}
 		builder.Add(subject, rdf.IRI(rdf.RDFType), typ)
+		emittedMappingValues := make(map[string]bool, len(object.mappingValues))
+		memberProperties := make(map[string]bool, len(object.members))
 		for _, member := range object.members {
-			if member.key == "qualifiedName" ||
-				member.key == "sysx:mappingQualifiedName" ||
-				member.key == "sysx:mappingValues" {
+			if member.key != "sysx:mappingQualifiedName" && member.key != "sysx:mappingValues" {
+				memberProperties[member.key] = true
+			}
+		}
+		emitMappingValues := func(property string) error {
+			predicate, sysmlKey, err := cache.predicate(property)
+			if err != nil {
+				return fmt.Errorf("element %q mappingValues: %w", object.id, err)
+			}
+			if err := apiJSONTriples(builder, apiJSONProperty{
+				subject:       subject,
+				predicate:     predicate,
+				sysmlKey:      sysmlKey,
+				mappingValues: true,
+				metaclass:     metaclass,
+			}, object.mappingValues[property], nil, cache, &annotations); err != nil {
+				return fmt.Errorf("element %q mappingValues.%s: %w", object.id, property, err)
+			}
+			return nil
+		}
+		for _, member := range object.members {
+			if member.key == "sysx:mappingQualifiedName" {
+				continue
+			}
+			if member.key == "sysx:mappingValues" {
+				for _, property := range object.mappingValuesOrder {
+					if memberProperties[property] || emittedMappingValues[property] {
+						continue
+					}
+					if err := emitMappingValues(property); err != nil {
+						return nil, nil, nil, nil, err
+					}
+					emittedMappingValues[property] = true
+				}
 				continue
 			}
 			if _, overridden := object.mappingValues[member.key]; overridden {
+				if err := emitMappingValues(member.key); err != nil {
+					return nil, nil, nil, nil, err
+				}
+				emittedMappingValues[member.key] = true
+				continue
+			}
+			if member.key == "qualifiedName" {
 				continue
 			}
 			predicate, sysmlKey, err := cache.predicate(member.key)
@@ -452,22 +622,16 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 		}
 		sort.Strings(properties)
 		for _, property := range properties {
-			predicate, sysmlKey, err := cache.predicate(property)
-			if err != nil {
-				return nil, nil, nil, nil, fmt.Errorf("element %q mappingValues: %w", object.id, err)
+			if emittedMappingValues[property] {
+				continue
 			}
-			if err := apiJSONTriples(builder, apiJSONProperty{
-				subject:       subject,
-				predicate:     predicate,
-				sysmlKey:      sysmlKey,
-				mappingValues: true,
-				metaclass:     metaclass,
-			}, object.mappingValues[property], nil, cache, &annotations); err != nil {
-				return nil, nil, nil, nil, fmt.Errorf("element %q mappingValues.%s: %w", object.id, property, err)
+			if err := emitMappingValues(property); err != nil {
+				return nil, nil, nil, nil, err
 			}
 		}
 	}
 	graph := builder.Build()
+	graph = apiJSONGraphWithPropertyOrder(graph, objects)
 	incomingMemberships := mappingIncomingMemberships(graph)
 	syntheticRootIndexes := make(map[rdf.Triple]struct{})
 	rootIndex := 0
@@ -501,6 +665,82 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 		rootIndex++
 	}
 	return graph, syntheticRootIndexes, annotations, incomingMemberships, nil
+}
+
+func apiJSONGraphWithPropertyOrder(graph *rdf.Graph, objects []apiJSONElementData) *rdf.Graph {
+	orders := make(map[string]map[string]int)
+	for _, object := range objects {
+		if len(object.mappingPropertyOrder) == 0 {
+			continue
+		}
+		ranks := make(map[string]int, len(object.mappingPropertyOrder))
+		for i, key := range object.mappingPropertyOrder {
+			predicate, _, err := apiJSONPredicate(key)
+			if err != nil {
+				continue
+			}
+			ranks[predicate.Value] = i
+		}
+		orders[object.id] = ranks
+	}
+	if len(orders) == 0 {
+		return graph
+	}
+
+	builder := rdf.NewGraphBuilder(len(graph.Triples()))
+	for prefix, namespace := range graph.Prefixes {
+		builder.SetPrefix(prefix, namespace)
+	}
+	triples := graph.Triples()
+	for i := 0; i < len(triples); {
+		j := i + 1
+		for j < len(triples) && triples[j].Subject == triples[i].Subject {
+			j++
+		}
+		id, _ := rdf.SubjectID(triples[i].Subject)
+		ranks := orders[id]
+		type predicateGroup struct {
+			predicate string
+			triples   []rdf.Triple
+		}
+		groups := make([]predicateGroup, 0, j-i)
+		groupIndexes := make(map[string]int, j-i)
+		for _, triple := range triples[i:j] {
+			predicate := triple.Predicate.Value
+			index, ok := groupIndexes[predicate]
+			if !ok {
+				index = len(groups)
+				groupIndexes[predicate] = index
+				groups = append(groups, predicateGroup{predicate: predicate})
+			}
+			groups[index].triples = append(groups[index].triples, triple)
+		}
+		if ranks != nil {
+			sort.SliceStable(groups, func(left, right int) bool {
+				leftPredicate := groups[left].predicate
+				rightPredicate := groups[right].predicate
+				if leftPredicate == rdf.RDFType {
+					return rightPredicate != rdf.RDFType
+				}
+				if rightPredicate == rdf.RDFType {
+					return false
+				}
+				leftRank, leftListed := ranks[leftPredicate]
+				rightRank, rightListed := ranks[rightPredicate]
+				if leftListed != rightListed {
+					return leftListed
+				}
+				return leftListed && leftRank < rightRank
+			})
+		}
+		for _, group := range groups {
+			for _, triple := range group.triples {
+				builder.AddTriple(triple)
+			}
+		}
+		i = j
+	}
+	return builder.Build()
 }
 
 // apiJSONElementsOf visits each element object in either supported document
@@ -770,9 +1010,24 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 			return object, fmt.Errorf("element object states %q twice", key)
 		}
 		seen[key] = true
+		if key == "sysx:mappingValues" {
+			object.mappingValues, object.mappingValuesOrder, err = apiJSONMappingValuesOf(dec)
+			if err != nil {
+				return object, err
+			}
+			object.members = append(object.members, apiJSONMember{key: key})
+			continue
+		}
 		value, err := apiJSONValueOf(dec)
 		if err != nil {
 			return object, fmt.Errorf("%s: %w", key, err)
+		}
+		if key == apiJSONMappingPropertyOrderKey {
+			object.mappingPropertyOrder, err = apiJSONMappingPropertyOrderOf(value)
+			if err != nil {
+				return object, fmt.Errorf("%s: %w", key, err)
+			}
+			continue
 		}
 		switch {
 		case key == "@type":
@@ -800,12 +1055,6 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 				if name, ok := value.(string); ok && name != "" {
 					object.mappingQualifiedName = name
 				}
-			case "sysx:mappingValues":
-				object.mappingValues, err = apiJSONMappingValuesOf(value)
-				if err != nil {
-					return object, err
-				}
-				continue
 			case "isImpliedIncluded":
 				object.toolkitForm = true
 			}
@@ -826,19 +1075,65 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 	return object, nil
 }
 
-func apiJSONMappingValuesOf(value any) (map[string][]any, error) {
-	properties, ok := value.(map[string]any)
-	if !ok || len(properties) == 0 {
-		return nil, fmt.Errorf("\"sysx:mappingValues\" must be a non-empty property map")
+func apiJSONMappingPropertyOrderOf(value any) ([]string, error) {
+	values, ok := value.([]any)
+	if !ok {
+		return nil, fmt.Errorf("must be an array")
 	}
-	values := make(map[string][]any, len(properties))
-	for property, value := range properties {
+	order := make([]string, 0, len(values))
+	seen := make(map[string]bool, len(values))
+	for i, value := range values {
+		key, ok := value.(string)
+		if !ok {
+			return nil, fmt.Errorf("property %d is not a string", i)
+		}
+		if key == "" || strings.HasPrefix(key, "@") {
+			return nil, fmt.Errorf("property %d has invalid name %q", i, key)
+		}
+		if seen[key] {
+			return nil, fmt.Errorf("property %q occurs more than once", key)
+		}
+		if _, _, err := apiJSONPredicate(key); err != nil {
+			return nil, fmt.Errorf("property %d: %w", i, err)
+		}
+		seen[key] = true
+		order = append(order, key)
+	}
+	return order, nil
+}
+
+func apiJSONMappingValuesOf(dec *json.Decoder) (map[string][]any, []string, error) {
+	token, err := dec.Token()
+	if err != nil {
+		return nil, nil, err
+	}
+	if token != json.Delim('{') {
+		return nil, nil, fmt.Errorf("\"sysx:mappingValues\" must be a non-empty property map")
+	}
+	values := make(map[string][]any)
+	var order []string
+	for dec.More() {
+		propertyToken, err := dec.Token()
+		if err != nil {
+			return nil, nil, err
+		}
+		property, ok := propertyToken.(string)
+		if !ok {
+			return nil, nil, fmt.Errorf("\"sysx:mappingValues\" property key is a string, not %v", propertyToken)
+		}
+		if _, seen := values[property]; seen {
+			return nil, nil, fmt.Errorf("\"sysx:mappingValues\" states property %q twice", property)
+		}
 		if property == "" || strings.Contains(property, ":") {
-			return nil, fmt.Errorf("\"sysx:mappingValues\" has invalid property %q", property)
+			return nil, nil, fmt.Errorf("\"sysx:mappingValues\" has invalid property %q", property)
+		}
+		value, err := apiJSONValueOf(dec)
+		if err != nil {
+			return nil, nil, err
 		}
 		list, ok := value.([]any)
 		if !ok || len(list) == 0 {
-			return nil, fmt.Errorf("\"sysx:mappingValues\" property %q must be a non-empty array", property)
+			return nil, nil, fmt.Errorf("\"sysx:mappingValues\" property %q must be a non-empty array", property)
 		}
 		for _, item := range list {
 			switch item := item.(type) {
@@ -846,19 +1141,26 @@ func apiJSONMappingValuesOf(value any) (map[string][]any, error) {
 				values[property] = append(values[property], item)
 			case map[string]any:
 				if len(item) != 1 {
-					return nil, fmt.Errorf("\"sysx:mappingValues\" property %q has an invalid object value", property)
+					return nil, nil, fmt.Errorf("\"sysx:mappingValues\" property %q has an invalid object value", property)
 				}
 				id, ok := item["@id"].(string)
 				if !ok || id == "" {
-					return nil, fmt.Errorf("\"sysx:mappingValues\" property %q must use a non-empty @id", property)
+					return nil, nil, fmt.Errorf("\"sysx:mappingValues\" property %q must use a non-empty @id", property)
 				}
 				values[property] = append(values[property], item)
 			default:
-				return nil, fmt.Errorf("\"sysx:mappingValues\" property %q values must be strings or @id objects", property)
+				return nil, nil, fmt.Errorf("\"sysx:mappingValues\" property %q values must be strings or @id objects", property)
 			}
 		}
+		order = append(order, property)
 	}
-	return values, nil
+	if _, err := dec.Token(); err != nil {
+		return nil, nil, err
+	}
+	if len(values) == 0 {
+		return nil, nil, fmt.Errorf("\"sysx:mappingValues\" must be a non-empty property map")
+	}
+	return values, order, nil
 }
 
 // apiJSONValueOf reads one value from the decoder — the same shapes a whole
