@@ -163,18 +163,22 @@ func TestLabelsHeadMembersUnderTheirDrawnOwnersType(t *testing.T) {
 		t.Errorf("heads = %q, want %q", got, want)
 	}
 	// From a model: the usage's type is written by its imported bare name and
-	// resolves to the element whose member is exposed beside it.
+	// resolves to the element whose member, exposed beside it, is drawn as the
+	// usage's own, nested in it.
 	rendering := render(t, "typings.sysml", "SpelledViews::siteView")
 	labels = labelsOf(rendering.Roots, false, nil, AllShown())
 	got = got[:0]
 	for _, root := range rendering.Roots {
 		got = append(got, labels.head(root))
+		for _, child := range root.Children {
+			got = append(got, labels.head(child))
+		}
 	}
-	want = []string{"Physical::'APS Physical'::'summit Installation' : 'Summit Installation'", "computer : Control"}
+	want = []string{"'summit Installation' : 'Summit Installation'", "computer : Control"}
 	if strings.Join(got, "\x00") != strings.Join(want, "\x00") {
 		t.Errorf("heads = %q, want %q", got, want)
 	}
-	if text := rendering.textWith(fullNotation); !strings.Contains(text, "part Sites::'Summit Installation'::computer : Control") {
+	if text := rendering.textWith(fullNotation); !strings.Contains(text, "\n  part computer : Control") {
 		t.Errorf("the text form is headed by the diagram label:\n%s", text)
 	}
 }

@@ -20,16 +20,18 @@ func TestDOTStandardDefaults(t *testing.T) {
 	}
 	checkDOTSyntax(t, dot)
 	want := `digraph "PlantViews::loopView" {
-  graph [fontname="Helvetica"];
+  graph [fontname="Helvetica", compound=true];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
 `
 	if !strings.Contains(dot, want) {
 		t.Errorf("DOT lacks the defaults %q:\n%s", want, dot)
 	}
-	// No node or edge restates a default, and nothing is coloured.
+	// No node or edge restates a default, and nothing is coloured; a pin's
+	// square has its own shape and point size.
 	for _, line := range strings.Split(dot, "\n") {
-		if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "  graph [") || strings.HasPrefix(line, "  node [") || strings.HasPrefix(line, "  edge [") {
+		if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "  graph [") || strings.HasPrefix(line, "  node [") || strings.HasPrefix(line, "  edge [") ||
+			strings.Contains(line, "xlabel=") {
 			continue
 		}
 		for _, attr := range []string{"fontname", "fontsize", "fillcolor=white", "shape=box", "color=\"#181818\""} {
