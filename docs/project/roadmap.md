@@ -595,12 +595,12 @@ rather than claimed — see the next section.
 
 ## D3 — make a converted graph readable through Flexo, and prove it
 
-The harness is `internal/translate/interop/flexo`, the `FLEXO_INTEROP` gate `TestFlexoInterop`, documented
+The harness is `tools/referee/flexo`, the `FLEXO_INTEROP` gate `TestFlexoInterop`, documented
 in `.agents/skills/flexo-interop`; it brings up the published `openmbee/*` images, `PUT`s our
 Turtle to a branch graph, reads every element back through `flexo-mms-sysmlv2` and compares with
 what the service's own commit path stores for the same model. It measures the gap instead of
 asserting the fix, so every item below shows up as movement in
-`internal/translate/interop/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`.
+`tools/referee/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`.
 
 What the current recording measures, for the identity-carrying fixture: **59 of 59 elements
 listed and 505 of 582 properties delivered** on the graph-load side, against 33 of 33 and 158 of
