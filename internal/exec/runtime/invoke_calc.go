@@ -53,9 +53,16 @@ func (d calcMemberDecl) redeclaring(redeclared calcMemberDecl) calcMemberDecl {
 	return d
 }
 
+// holdsCollection reports whether the declaration states a multiplicity above one, so
+// holds its values as a collection rather than a scalar.
+func (d *calcMemberDecl) holdsCollection() bool {
+	return d.Target != nil && d.multStated && !d.Target.mult.AtMostOne()
+}
+
 // check reports a value outside the declared multiplicity, type or uniqueness, described by
 // what (asked only on refusal, a binding being the hot path); unknown: not judged.
-// A declaration holding at most one value holds the sole element of a collection.
+// A declaration holding at most one value holds the sole element of a collection; one stating
+// a multiplicity above one holds a collection; one stating none holds the value as computed.
 func (d *calcMemberDecl) check(ctx *Context, value *Value, what func() string) error {
 	if d.Target == nil {
 		return nil
@@ -65,6 +72,8 @@ func (d *calcMemberDecl) check(ctx *Context, value *Value, what func() string) e
 	}
 	if d.Target.mult.AtMostOne() {
 		*value = soleElement(*value)
+	} else if d.holdsCollection() {
+		*value = ctx.heldCollection(d.Target, *value)
 	}
 	if refusal, refused := ctx.writeTypeRefusal(DeclScope(d.Owner), d.Target.typ, value, admitWritten); refused {
 		return fmt.Errorf("%s: %w: %s", what(), ErrTypeMismatch, refusal)
