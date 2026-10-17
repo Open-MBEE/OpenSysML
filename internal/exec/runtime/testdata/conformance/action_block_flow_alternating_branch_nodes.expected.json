@@ -1,7 +1,7 @@
 {
 	"type": "action",
 	"outputs": {
-		"total": {"type": "Integer", "value": 64},
-		"iterate.p.v": {"type": "Integer", "value": 40}
+		"total": {"type": "Sequence", "elements": [{"type": "Integer", "value": 64}]},
+		"iterate.p.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 40}]}
 	}
 }

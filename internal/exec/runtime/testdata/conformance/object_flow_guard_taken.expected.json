@@ -3,6 +3,6 @@
 	"evaluate": "test::pass",
 	"trace": true,
 	"outputs": {
-		"b.v": {"type": "Integer", "value": 1}
+		"b.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
 	}
 }

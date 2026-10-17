@@ -4,7 +4,7 @@ stmt send
 step 2: token 1@receiver
 step 3: token 1@processor
 stmt assign seen
-    eval feature msg -> 4
+    eval feature msg -> (4)
     eval literal 1 -> 1
   eval operator + -> 5
 step 4: token 1@done

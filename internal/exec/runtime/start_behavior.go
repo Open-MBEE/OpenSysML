@@ -28,6 +28,7 @@ func (ctx *Context) startTarget(ec *EvalContext, s lower.Effect, self *Instance)
 		if err != nil {
 			return nil, nil, fmt.Errorf("eval the object of %s: %w", exprText(s.TargetExpr), err)
 		}
+		value = soleElement(value)
 		if value.Kind != ValInstance {
 			return nil, nil, fmt.Errorf("%w: %s is started on %s, which is no one object",
 				errPerformerNotObject, exprText(s.Target), FormatValue(value))
