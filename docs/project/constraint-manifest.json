@@ -3280,7 +3280,7 @@
       "checks": "A redefined feature is not package-level and the redefining and redefined features have different featuring types",
       "implementation": "internal/check/passes/w10b_redefinition.go:checkW10BRedefinition",
       "message": "—",
-      "negativeCase": "`xpect/p28-package-level-feature-redefined.sysml`, `xpect/p32-redefinition-same-featuring-type.sysml`",
+      "negativeCase": "`xpect/p28-package-level-feature-redefined.sysml`, `xpect/p32-redefinition-same-featuring-type.sysml`, `semantic/s104-root-level-feature-redefined.sysml`",
       "codes": [
         "redefinition-package-level"
       ],
@@ -3918,9 +3918,9 @@
         "name": "validateSubsettingFeaturingTypes"
       },
       "checks": "A subsetted feature is accessible from the subsetting feature's featuring types",
-      "implementation": "internal/check/passes/subsetting_featuring.go:checkSubsettingFeaturingTypes",
+      "implementation": "internal/check/passes/subsetting_featuring.go:checkSubsettingFeaturingTypes, internal/check/passes/constraint.go:checkPackageLevelRedefinition",
       "message": "—",
-      "negativeCase": "`semantic/k13-subsets-inaccessible-feature.kerml`",
+      "negativeCase": "`semantic/k13-subsets-inaccessible-feature.kerml`, `semantic/s105-package-level-redefines-type-feature.sysml`, `semantic/k74-package-level-redefines-featured-feature.kerml`",
       "codes": [
         "subsetting-featuring-types"
       ],

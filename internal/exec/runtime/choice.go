@@ -142,6 +142,9 @@ type ChoicePoint struct {
 	Touches []string
 	// touched are the places written behind Touches, with the features they resolve to.
 	touched []lower.Place
+
+	// serial names the choice to the marks of the run's values (order_marks.go).
+	serial int64
 }
 
 // weighted reports whether the model weights the alternatives.
@@ -313,6 +316,13 @@ func (ctx *Context) note(n RunNote) {
 func (ctx *Context) noteFrom(n RunNote, self *Instance, behavior *symbols.Symbol) {
 	if ctx.probes > 0 {
 		return
+	}
+	if c, ok := n.(ChoicePoint); ok {
+		if c.serial == 0 {
+			c.serial = nextChoiceSerial()
+			n = c
+		}
+		ctx.run.marks.seed(c, ctx.clock.now)
 	}
 	ctx.run.notes = append(ctx.run.notes, n)
 	if ctx.forwardNotes != nil {

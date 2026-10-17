@@ -181,6 +181,15 @@ type Context struct {
 	trace *TraceRecorder
 	// stepWrites is the ledger of the action step under way, nil between steps.
 	stepWrites *stepWriteLedger
+	// controls is the choice points the move under way stands on by control: the
+	// guards read and branches drawn around it (order_marks.go).
+	controls []int64
+	// performing is the node whose performance the executor running is, nil for a
+	// run of its own: a body's own place is stamped as that performance's.
+	performing ast.Node
+	// performingParams are the parameters of the action performing runs, which
+	// are that performance's own as its pins are.
+	performingParams map[*symbols.Symbol]bool
 
 	// actionDepth is the number of action invocations currently on the stack,
 	// bounding recursion across nested action executors.
@@ -760,6 +769,8 @@ type runState struct {
 	steps    int64
 	elements int64
 	notes    []RunNote
+	// marks is what the run's values stand on (order_marks.go).
+	marks orderMarks
 	// performers are the objects the run's executors have performed on, kept
 	// after an executor leaves the clock so a value of theirs is still matched.
 	performers []*Instance
@@ -1969,14 +1980,14 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 			}
 		}
 		if conflicts > 0 {
-			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", errPerformedInputs, symbolText(action))
+			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", errPerformedInputs, SymbolText(action))
 		}
 		return performed[0].Action, nil
 	default:
 		if member := sameBehaviorMember(performed); member != nil {
-			return nil, fmt.Errorf("%w: the object performs %s %d times, under %s", errAmbiguousAction, symbolText(action), len(performed), member.Name)
+			return nil, fmt.Errorf("%w: the object performs %s %d times, under %s", errAmbiguousAction, SymbolText(action), len(performed), member.Name)
 		}
-		return nil, fmt.Errorf("%w: the object performs %s as %s", errAmbiguousAction, symbolText(action), strings.Join(behaviorUsages(performed), " and "))
+		return nil, fmt.Errorf("%w: the object performs %s as %s", errAmbiguousAction, SymbolText(action), strings.Join(behaviorUsages(performed), " and "))
 	}
 }
 
@@ -2019,7 +2030,7 @@ func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*ObjectBehavior,
 	case 1:
 		return exhibited[0], nil
 	default:
-		return nil, fmt.Errorf("%w: the object exhibits %s as %s", errAmbiguousMachine, symbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
+		return nil, fmt.Errorf("%w: the object exhibits %s as %s", errAmbiguousMachine, SymbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
 	}
 }
 

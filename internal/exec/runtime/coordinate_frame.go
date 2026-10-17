@@ -110,7 +110,7 @@ func (f *CoordinateFrame) Name() string {
 		return f.Text
 	}
 	if f.Decl != nil {
-		return symbolText(f.Decl)
+		return SymbolText(f.Decl)
 	}
 	return "a coordinate frame"
 }
@@ -226,10 +226,10 @@ func (t *CoordinateTransformation) Name() string {
 		return unknownText
 	}
 	if t.Decl != nil {
-		return symbolText(t.Decl)
+		return SymbolText(t.Decl)
 	}
 	if t.Type != nil {
-		return "a " + symbolText(t.Type)
+		return "a " + SymbolText(t.Type)
 	}
 	return "a coordinate transformation"
 }
@@ -380,7 +380,7 @@ func frameOfReference(what string, val Value) (*CoordinateFrame, error) {
 		return scalarFrame(val.MeasurementRef()), nil
 	}
 	return nil, fmt.Errorf("%w: %s is %s, want a coordinate frame or a measurement reference",
-		ErrTypeMismatch, what, describeValue(val))
+		ErrTypeMismatch, what, DescribeValue(val))
 }
 
 // scaleAnchoredUnit is the unit a quantity `x [S]` on scale S carries: named by

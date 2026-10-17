@@ -740,7 +740,7 @@ func (e *StateExecutor) assignAttribute(name string, value Value) error {
 	} else {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
-		where := func() string { return "state machine " + symbolText(e.stateMachine) }
+		where := func() string { return "state machine " + SymbolText(e.stateMachine) }
 		scope, declared := e.graph.Scope, name
 		if e.holdsShadowed() {
 			scope, declared = declarationHeldUnder(e.heldAttributes(), scope, name)
@@ -1829,7 +1829,17 @@ func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition,
 func (e *StateExecutor) taking(trans *lower.Transition, notes []RunNote) func() {
 	savedTrans, savedNotes := e.firingTrans, e.firingNotes
 	e.firingTrans, e.firingNotes = trans, notes
-	return func() { e.firingTrans, e.firingNotes = savedTrans, savedNotes }
+	by := e.ctx.standingOf(lower.ExpressionFootprint(trans.BodyScope, trans.Guard), true)
+	for _, n := range notes {
+		if c, ok := n.(ChoicePoint); ok && !c.Independent && c.serial != 0 {
+			by = unionSerials(by, []int64{c.serial})
+		}
+	}
+	restore := e.ctx.underControl(by)
+	return func() {
+		restore()
+		e.firingTrans, e.firingNotes = savedTrans, savedNotes
+	}
 }
 
 // resolveAndFire takes a transition outside a dispatch, a timer come due, resolving
@@ -2215,7 +2225,7 @@ func (w *weighing) evalWeight(pos int) (float64, error) {
 	val = soleElement(val)
 	if val.Kind != ValConst || !val.Const.IsNumeric() {
 		return 0, fmt.Errorf("%w: %s: weight of %s is %s, not a number",
-			errBranchWeights, w.where(pos), w.name(pos), describeValue(val))
+			errBranchWeights, w.where(pos), w.name(pos), DescribeValue(val))
 	}
 	return asReal(val.Const), nil
 }
@@ -2326,6 +2336,7 @@ func (e *StateExecutor) bindAcceptPayload(name string, accept *ast.AcceptEvent, 
 	}
 	event.Payload = msg
 	e.bindData(name, value)
+	e.ctx.acceptMarks([]lower.Place{{Name: name}}, msg.dependence)
 	return nil
 }
 
@@ -3870,7 +3881,7 @@ func (e *StateExecutor) runCounting(atCurrentTime, single bool, progress *duePro
 
 // dueLabel names the machine in a due-order choice.
 func (e *StateExecutor) dueLabel() string {
-	return "state machine " + symbolText(e.stateMachine) + performerSuffix(e.self)
+	return "state machine " + SymbolText(e.stateMachine) + performerSuffix(e.self)
 }
 
 // clockWaits lists the timers set for an instant the clock has not reached, and

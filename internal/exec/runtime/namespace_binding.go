@@ -232,7 +232,7 @@ func (ctx *Context) liveInstances(ids []int64) []*Instance {
 func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.Symbol) ([]*Instance, bool, error) {
 	if ctx.resolvingNamespaceClasses[class] {
 		if ctx.namespaceChainReads[class] {
-			return nil, true, &cyclicBindingError{Usage: want, Stated: ctx.qualifiedSymbolName(want)}
+			return nil, true, &cyclicBindingError{Usage: want, Stated: ctx.QualifiedName(want)}
 		}
 		return nil, false, nil
 	}
@@ -256,7 +256,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 				continue
 			}
 			if val, ok := ctx.namespaceBindings[member]; ok {
-				vals = append(vals, held{val, symbolText(member)})
+				vals = append(vals, held{val, SymbolText(member)})
 				seen[member] = true
 				continue
 			}
@@ -273,7 +273,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 				if len(elements) == 1 {
 					val = elements[0]
 				}
-				vals = append(vals, held{val, symbolText(member)})
+				vals = append(vals, held{val, SymbolText(member)})
 				seen[member] = true
 			}
 		}
@@ -336,9 +336,9 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		earliest := class.members[0]
 		var count int64
 		for _, member := range class.members {
-			n, err := ctx.lowerBoundCount(ctx.featureMultiplicity(member, ctx.findOwnerType(member)), 0, symbolText(member))
+			n, err := ctx.lowerBoundCount(ctx.featureMultiplicity(member, ctx.findOwnerType(member)), 0, SymbolText(member))
 			if err != nil {
-				return nil, true, fmt.Errorf("usage %s: %w", symbolText(member), err)
+				return nil, true, fmt.Errorf("usage %s: %w", SymbolText(member), err)
 			}
 			if n > count {
 				count = n
@@ -366,7 +366,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			}
 			r := seq.required
 			val := NewSequenceValue(seq)
-			text := symbolText(earliest)
+			text := SymbolText(earliest)
 			if len(class.bindings) > 0 {
 				text = ctx.bindingText(class.bindings[0])
 			}
@@ -405,7 +405,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		if err != nil {
 			ctx.abandonInstancesSince(mark)
 			release()
-			return nil, true, fmt.Errorf("usage %s: %w", symbolText(earliest), err)
+			return nil, true, fmt.Errorf("usage %s: %w", SymbolText(earliest), err)
 		}
 		elements := make([]Value, 0, len(members))
 		for _, inst := range members {
@@ -421,7 +421,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		if len(elements) == 1 {
 			val = elements[0]
 		}
-		text := symbolText(earliest)
+		text := SymbolText(earliest)
 		if len(class.bindings) > 0 {
 			text = ctx.bindingText(class.bindings[0])
 		}
@@ -466,7 +466,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		release()
 	} else {
 		val := vals[0].val
-		text := symbolText(class.members[0])
+		text := SymbolText(class.members[0])
 		if len(class.bindings) > 0 {
 			text = ctx.bindingText(class.bindings[0])
 		}
@@ -625,7 +625,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 		return live, true, nil
 	}
 	if ctx.namespaceCollecting[sym] {
-		return nil, true, fmt.Errorf("%w: usage %s subsets itself", ErrCyclicFeatureValue, symbolText(sym))
+		return nil, true, fmt.Errorf("%w: usage %s subsets itself", ErrCyclicFeatureValue, SymbolText(sym))
 	}
 	ctx.namespaceCollecting[sym] = true
 	defer delete(ctx.namespaceCollecting, sym)
@@ -651,7 +651,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 		}
 		objs, err := ctx.denotedSubsetObjects(sub)
 		if err != nil {
-			return fail(fmt.Errorf("subsetting usage %s of %s: %w", symbolText(sub), symbolText(sym), err))
+			return fail(fmt.Errorf("subsetting usage %s of %s: %w", SymbolText(sub), SymbolText(sym), err))
 		}
 		for _, inst := range objs {
 			if !containsInstance(contributed, inst.ID) {
@@ -664,7 +664,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
 	abstract := symbols.IsAbstract(sym)
 	if !abstract {
-		count, err := ctx.lowerBoundCount(mult, len(contributed), fmt.Sprintf("usage %s", symbolText(sym)))
+		count, err := ctx.lowerBoundCount(mult, len(contributed), fmt.Sprintf("usage %s", SymbolText(sym)))
 		if err != nil {
 			return fail(err)
 		}
@@ -742,7 +742,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 		tailCount = tail.count
 	}
 	if msg := mult.CountViolation(int64(len(contributed)) + tailCount); msg != "" {
-		return fail(fmt.Errorf("usage %s: %w: %s", symbolText(sym), ErrMultiplicityViolation, msg))
+		return fail(fmt.Errorf("usage %s: %w: %s", SymbolText(sym), ErrMultiplicityViolation, msg))
 	}
 	ctx.occurrences[sym] = ids
 	release()
