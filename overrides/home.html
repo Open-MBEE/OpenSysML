@@ -109,6 +109,7 @@
       font-weight: 700;
       transition: background-color .2s, color .2s, border-color .2s;
     }
+    .osml-btn[hidden] { display: none; }
     .osml-btn--primary {
       background: #fff;
       color: var(--osml-hero-from);
@@ -357,6 +358,41 @@
     .osml-schematic__run button.osml-btn:disabled {
       opacity: .6;
       cursor: progress;
+    }
+    .osml-schematic__tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+      justify-content: center;
+      margin: 0 0 .7rem;
+    }
+    .osml-schematic__tabs [role="tab"] {
+      font: inherit;
+      font-size: .72rem;
+      font-weight: 700;
+      padding: .35rem .9rem;
+      border: 1px solid rgba(255, 255, 255, .55);
+      border-radius: 999px;
+      background: transparent;
+      color: #fff;
+      cursor: pointer;
+      transition: background-color .2s, color .2s, border-color .2s;
+    }
+    .osml-schematic__tabs [role="tab"][aria-selected="true"] {
+      background: #fff;
+      border-color: #fff;
+      color: var(--osml-hero-from);
+    }
+    .osml-schematic__tabs [role="tab"]:hover,
+    .osml-schematic__tabs [role="tab"]:focus-visible {
+      background: var(--md-accent-fg-color);
+      border-color: var(--md-accent-fg-color);
+      color: #fff;
+      outline: none;
+    }
+    .osml-schematic__variants { display: contents; }
+    .osml-schematic__run button.osml-btn[aria-pressed="true"] {
+      background-color: rgba(255, 255, 255, .18);
     }
     .osml-schematic__status {
       flex-basis: 100%;
@@ -854,25 +890,31 @@
     </div>
     <div class="osml-schematic" data-osml-schematic
          data-osml-model="{{ 'assets/opensysml-stack.sysml' | url }}"
-         data-osml-engine="{{ base_url }}/assets/sysml-engine.wasm.gz"
+         data-osml-wasm="{{ base_url }}/assets/sysml-wasm.wasm.gz"
          data-osml-wasm-exec="{{ base_url }}/assets/wasm_exec.js"
          data-osml-libavoid="{{ base_url }}/assets/landing/libavoid.wasm"
          data-osml-script="{{ base_url }}/assets/landing/diagram.js">
-      <div class="osml-schematic__stage" data-osml-stage>
+      <div class="osml-schematic__tabs" role="tablist" aria-label="The model in the diagram" data-osml-tabs>
+        <button type="button" role="tab" id="osml-tab-stack" data-osml-scene="stack" data-osml-model="{{ 'assets/opensysml-stack.sysml' | url }}" aria-selected="false" aria-controls="osml-schematic-stage" tabindex="-1">OpenSysML stack</button>
+        <button type="button" role="tab" id="osml-tab-mass" data-osml-scene="mass" data-osml-model="{{ base_url }}/assets/repl-examples/mass-rollup.sysml" aria-selected="false" aria-controls="osml-schematic-stage" tabindex="-1">Saturn V mass roll-up</button>
+      </div>
+      <div class="osml-schematic__stage" id="osml-schematic-stage" role="tabpanel" data-osml-stage>
         <div class="osml-schematic__zoom" role="group" aria-label="Zoom the diagram" data-osml-zoom hidden>
           <button type="button" data-osml-zoom-in aria-label="Zoom in" title="Zoom in (Ctrl+scroll or pinch)">+</button>
           <button type="button" data-osml-zoom-out aria-label="Zoom out" title="Zoom out">&minus;</button>
           <button type="button" data-osml-zoom-fit aria-label="Fit the whole diagram" title="Fit the whole diagram">Fit</button>
         </div>
-        <noscript><p class="osml-schematic__status">The diagram is drawn in your browser from <a href="{{ 'assets/opensysml-stack.sysml' | url }}">its SysML model</a>; it needs JavaScript.</p></noscript>
+        <noscript><p class="osml-schematic__status">The diagram is drawn in your browser from <a href="{{ 'assets/opensysml-stack.sysml' | url }}">the stack's SysML model</a> or <a href="{{ base_url }}/assets/repl-examples/mass-rollup.sysml">the Saturn V's</a>; it needs JavaScript.</p></noscript>
       </div>
-      <p class="osml-schematic__caption">One open interchange, two implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes. Zoom with the buttons, <kbd>Ctrl</kbd>+scroll or a pinch, and drag the background to pan. Edit the model and the engine redraws the diagram as you type.</p>
+      <p class="osml-schematic__caption" data-osml-for="stack">One open interchange, two implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes. Zoom with the buttons, <kbd>Ctrl</kbd>+scroll or a pinch, and drag the background to pan. Edit the model and the engine redraws the diagram as you type.</p>
+      <p class="osml-schematic__caption" data-osml-for="mass" hidden>A launch vehicle whose total mass is a recursive roll-up over its parts: the engine instantiates the stages and engines and evaluates every <code>totalMass</code> you see. Drag the stages around, right-click a box for its values, and zoom with the buttons, <kbd>Ctrl</kbd>+scroll or a pinch. Edit a mass and the totals follow; add the instrument unit, whose mass the model never gives, and the roll-up comes back undetermined.</p>
       <div class="osml-schematic__run">
         <button type="button" class="osml-btn osml-btn--primary" data-osml-run>&#9654; Run the model</button>
         <button type="button" class="osml-btn" data-osml-source aria-expanded="false" aria-controls="osml-schematic-edit">Edit the model</button>
         <button type="button" class="osml-btn" data-osml-debug aria-expanded="false" aria-controls="osml-schematic-debug">Debug the run</button>
+        <span class="osml-schematic__variants" data-osml-variants></span>
         <button type="button" class="osml-btn" data-osml-download title="Save the diagram as drawn, at twice its size">Download PNG</button>
-        <p class="osml-schematic__status" data-osml-status aria-live="polite">This diagram is a SysML model. Run it or edit it in your browser on the OpenSysML engine (about 7 MB, downloaded once).</p>
+        <p class="osml-schematic__status" data-osml-status aria-live="polite">This diagram is a SysML model. Run it or edit it in your browser on the OpenSysML engine (about 9 MB, downloaded once).</p>
       </div>
       <div class="osml-debug" id="osml-schematic-debug" data-osml-debugger hidden>
         <div class="osml-debug__bar" role="group" aria-label="Send an event to the state machine">
@@ -907,7 +949,7 @@
       </div>
       <div class="osml-schematic__edit" id="osml-schematic-edit" data-osml-editor hidden>
         <textarea class="osml-schematic__src" data-osml-src spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="The diagram's SysML model" aria-describedby="osml-schematic-hint"></textarea>
-        <p class="osml-schematic__hint" id="osml-schematic-hint">The engine re-reads the model as you type. Try changing a <code>label</code> or <code>lang</code>, adding a <code>part</code> of type <code>Project</code>, connecting it with another <code>interface</code>, or deleting a <code>;</code> to see a diagnostic. <button type="button" data-osml-reset>Reset</button></p>
+        <p class="osml-schematic__hint" id="osml-schematic-hint">The engine re-reads the model as you type. <span data-osml-for="stack">Try changing a <code>label</code> or <code>lang</code>, adding a <code>part</code> of type <code>Project</code>, connecting it with another <code>interface</code>, or deleting a <code>;</code> to see a diagnostic.</span><span data-osml-for="mass" hidden>Try changing an engine's <code>mass</code> or a stage's <code>propellantMass</code> and run the model again to see every total follow, giving the <code>InstrumentUnit</code> a <code>mass</code> to settle the undetermined roll-up, or deleting a <code>;</code> to see a diagnostic.</span> <button type="button" data-osml-reset>Reset</button></p>
       </div>
     </div>
 <script>

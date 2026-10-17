@@ -10,7 +10,7 @@ export type {
   VerifyOptions,
 } from "./connection.js";
 export type { WasmHost } from "./wasm.js";
-export { Instance, InstanceTree, Model, ModelSymbol, decodeDiagnostic } from "./model.js";
+export { Instance, InstanceTree, Model, ModelSymbol, decodeDiagnostic, instanceFromJson } from "./model.js";
 export type {
   AttributeFacts,
   EvalOptions,
@@ -72,6 +72,7 @@ export type {
   RenderStyle,
   RenderedView,
 } from "./render-view.js";
+export { renderedViewFromJson } from "./render-view.js";
 export type { Graphs } from "./graphs.js";
 export {
   ENGINE_ALL,

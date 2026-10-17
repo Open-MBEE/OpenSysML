@@ -973,7 +973,14 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: editors/vscode/package-lock.json
+          cache-dependency-path: |
+            editors/vscode/package-lock.json
+            client/node/package-lock.json
+
+      # The landing bundle and its tests import the browser client from client/node's source.
+      - name: Install the browser client's dependencies
+        working-directory: client/node
+        run: npm ci --ignore-scripts
 
       # Type-check, bundle and package. The generated TextMate grammars are
       # gated by go test ./editors/... in the job above.

@@ -29,6 +29,9 @@ try {
     platform: "node",
     target: "node18",
     external: ["node:*", "jsdom"],
+    alias: {
+      "@openmbee/opensysml/browser": fileURLToPath(new URL("../../../client/node/src/browser/index.ts", import.meta.url)),
+    },
     sourcemap: "inline",
     logLevel: "warning",
   });
