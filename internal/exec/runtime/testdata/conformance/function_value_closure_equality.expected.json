@@ -5,7 +5,7 @@
 	"outputs": {
 		"sameRun": {"type": "Boolean", "value": true},
 		"acrossRuns": {"type": "Boolean", "value": true},
-		"before": {"type": "Boolean", "value": true},
-		"after": {"type": "Boolean", "value": true}
+		"before": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+		"after": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]}
 	}
 }

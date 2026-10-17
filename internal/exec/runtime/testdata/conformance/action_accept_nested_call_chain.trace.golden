@@ -16,7 +16,7 @@ stmt send
   eval literal 7 -> 7
 step 3: token 1@keep
 stmt assign got
-  eval chain n -> 7
+  eval chain n -> (7)
 step 4: token 1@done
 step 5: no active tokens
 step 3: token 1@keep

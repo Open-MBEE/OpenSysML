@@ -4,9 +4,9 @@
 	"outputs": {
 		"result": {"type": "Integer", "value": 11},
 		"mirrored": {"type": "Integer", "value": 11},
-		"choose.add.a": {"type": "Integer", "value": 5},
-		"choose.add.b": {"type": "Integer", "value": 6},
-		"choose.add.sum": {"type": "Integer", "value": 11},
-		"choose.mirror.n": {"type": "Integer", "value": 11}
+		"choose.add.a": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
+		"choose.add.b": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]},
+		"choose.add.sum": {"type": "Sequence", "elements": [{"type": "Integer", "value": 11}]},
+		"choose.mirror.n": {"type": "Sequence", "elements": [{"type": "Integer", "value": 11}]}
 	}
 }

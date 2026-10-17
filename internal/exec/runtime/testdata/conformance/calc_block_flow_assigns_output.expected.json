@@ -1,7 +1,7 @@
 {
   "type": "calc",
-  "result": {
+  "result": {"type": "Sequence", "elements": [{
     "type": "Integer",
     "value": 30
-  }
+  }]}
 }

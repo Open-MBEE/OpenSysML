@@ -509,9 +509,10 @@ func toolInput(tool string, param *symbols.Symbol, held Value) (ToolValue, error
 }
 
 // ToolValueOf is a value as the tool protocol carries it; false for one it does not carry.
-// A sequence carries its elements in Items; a unit every element shares is hoisted
-// to the sequence's Unit.
+// A one-element collection is its element; a sequence carries its elements in Items,
+// with a unit every element shares hoisted to the sequence's Unit.
 func ToolValueOf(held Value) (ToolValue, bool) {
+	held = soleElement(held)
 	switch held.Kind {
 	case ValConst:
 		if held.Const.Kind == semantics.ValInvalid || held.Const.Kind == semantics.ValInfinity {

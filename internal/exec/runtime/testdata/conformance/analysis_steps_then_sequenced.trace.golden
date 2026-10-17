@@ -9,16 +9,16 @@ enter action node: analysis test::steps
         eval chain cost -> 5.0
         eval literal 1.0 -> 1.0
       eval operator + -> 6.0
-    eval chain p -> 6.0
+    eval chain p -> (6.0)
     stmt assign w
-        eval feature q -> 6.0
+        eval feature q -> (6.0)
         eval literal 10.0 -> 10.0
       eval operator * -> 60.0
 leave action node: analysis test::steps
   stmt return
-    eval chain w -> 60.0
+    eval chain w -> (60.0)
 exit analysis test::steps -> 60.0
-  eval chain w -> 60.0
-  eval chain p -> 6.0
+  eval chain w -> (60.0)
+  eval chain p -> (6.0)
 eval operator + -> 66.0
 output test::steps.total = 66.0

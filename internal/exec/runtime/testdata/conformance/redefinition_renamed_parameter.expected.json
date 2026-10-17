@@ -2,11 +2,11 @@
 	"type": "action",
 	"evaluate": "test::outer",
 	"outputs": {
-		"shortCalc": {"type": "Integer", "value": 21},
-		"namedCalc": {"type": "Integer", "value": 28},
-		"shortAction": {"type": "Integer", "value": 15},
-		"namedAction": {"type": "Integer", "value": 18},
-		"shortArgument": {"type": "Integer", "value": 40},
-		"namedArgument": {"type": "Integer", "value": 70}
+		"shortCalc": {"type": "Sequence", "elements": [{"type": "Integer", "value": 21}]},
+		"namedCalc": {"type": "Sequence", "elements": [{"type": "Integer", "value": 28}]},
+		"shortAction": {"type": "Sequence", "elements": [{"type": "Integer", "value": 15}]},
+		"namedAction": {"type": "Sequence", "elements": [{"type": "Integer", "value": 18}]},
+		"shortArgument": {"type": "Sequence", "elements": [{"type": "Integer", "value": 40}]},
+		"namedArgument": {"type": "Sequence", "elements": [{"type": "Integer", "value": 70}]}
 	}
 }

@@ -338,7 +338,6 @@ static void sysml_append_SFX(sysml_seq_SFX *r, sysml_int *cap, sysml_seq_SFX s) 
 
 static void sysml_print_seq_SFX(sysml_seq_SFX s) {
 	if (s.shape == SYSML_NULL) { puts("null"); return; }
-	if (s.shape == SYSML_ONE) { PRINT(s.data[0]); fputc('\n', stdout); return; }
 	sysml_seq_open();
 	for (sysml_int i = 0; i < s.len; i++) { sysml_seq_sep(i); PRINT(s.data[i]); }
 	sysml_seq_close();
