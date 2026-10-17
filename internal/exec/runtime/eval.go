@@ -3357,6 +3357,7 @@ func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.Fea
 	if err != nil {
 		return Value{}, err
 	}
+	fn = soleElement(fn)
 	if fn.Kind != ValFunction {
 		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, describeValue(fn))
 	}
@@ -3725,9 +3726,11 @@ func qualifiedNameToString(qn *ast.QualifiedName) string {
 	return strings.Join(parts, "::")
 }
 
-// equalValues is `==` over two operands: a set meeting a sequence flows into the
-// ordered context and is compared as its canonical sequence; otherwise valueEqual.
+// equalValues is `==` over two operands: a one-element collection is its element
+// (KerML 1.0 §7.4.8), a set meeting a sequence flows into the ordered context and
+// is compared as its canonical sequence; otherwise valueEqual.
 func (ctx *Context) equalValues(a, b Value) bool {
+	a, b = soleElement(a), soleElement(b)
 	if a.Kind == ValSet && b.Kind == ValSequence || a.Kind == ValSequence && b.Kind == ValSet {
 		return ctx.sequenceEqual(sequenceOf(elementsOf(a)).Sequence(), sequenceOf(elementsOf(b)).Sequence())
 	}

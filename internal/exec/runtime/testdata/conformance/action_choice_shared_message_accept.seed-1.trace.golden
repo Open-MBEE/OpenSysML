@@ -10,8 +10,8 @@ choice step 4: tokens 2@sendTwo, 4@right (unordered; took 2@sendTwo first; order
 step 4: token 2@sync, token 3@sync, token 4@sync
 step 5: token 5@recorder
 stmt assign a
-  eval feature x -> 1
+  eval feature x -> (1)
 stmt assign b
-  eval feature y -> 2
+  eval feature y -> (2)
 step 6: token 5@done
 step 7: no active tokens
