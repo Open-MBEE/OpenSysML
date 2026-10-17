@@ -42,6 +42,7 @@ var capabilities = []string{
 	"undetermined_value",
 	"performer",
 	"big_int_values",
+	"render_view",
 }
 
 // Server combines the parsing/validation and execution JSON surfaces.

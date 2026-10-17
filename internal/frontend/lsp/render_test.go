@@ -1742,8 +1742,13 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *renderRes
 	for _, node := range lspResult.Nodes {
 		converted := engine.JRenderNode{
 			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
-			Type: node.Type, Detail: node.Detail, Parent: node.Parent, Fill: node.Fill, Border: node.Border,
-			X: node.X, Y: node.Y, Width: node.Width, Height: node.Height, Collapsed: node.Collapsed,
+			Type: node.Type, Detail: node.Detail, Parent: node.Parent,
+		}
+		if node.X != nil && node.Y != nil {
+			converted.Geometry = &engine.JRenderGeometry{X: *node.X, Y: *node.Y, Collapsed: node.Collapsed}
+			if node.Width != nil && node.Height != nil {
+				converted.Geometry.Width, converted.Geometry.Height, converted.Geometry.HasSize = *node.Width, *node.Height, true
+			}
 		}
 		if node.Style != nil {
 			converted.Style = &engine.JRenderStyle{
@@ -1757,6 +1762,9 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *renderRes
 			})
 		}
 		nodes = append(nodes, converted)
+	}
+	for i := range rendered.Nodes {
+		rendered.Nodes[i].Origin, rendered.Nodes[i].Text, rendered.Nodes[i].StandIn = nil, "", false
 	}
 	if !reflect.DeepEqual(rendered.Nodes, nodes) {
 		t.Errorf("engine nodes for ports=%q differ from LSP:\nengine: %+v\nLSP: %+v", ports, rendered.Nodes, nodes)
@@ -1777,6 +1785,9 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *renderRes
 			converted.Route = append(converted.Route, engine.JRenderPoint{X: point.X, Y: point.Y})
 		}
 		edges = append(edges, converted)
+	}
+	for i := range rendered.Edges {
+		rendered.Edges[i].Origin, rendered.Edges[i].Name = nil, ""
 	}
 	if !reflect.DeepEqual(rendered.Edges, edges) {
 		t.Errorf("engine edges for ports=%q differ from LSP:\nengine: %+v\nLSP: %+v", ports, rendered.Edges, edges)

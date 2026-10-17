@@ -341,66 +341,79 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 		}
 		return nil, statusError(codeInvalidArgument, err.Error())
 	}
-	return marshalRenderView(rendering.DataWith(view.Options{Ports: ports, Show: shown}))
+	return marshalRenderView(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown}))
 }
 
-func marshalRenderView(data view.Data) ([]byte, error) {
+// renderOrigins resolves the declaration spans a rendering refers to, in the
+// model's documents and behind them its library, as the service does.
+type renderOrigins struct {
+	model   *cachedModel
+	sources map[string]*source.SourceFile
+}
+
+func (o *renderOrigins) span(origin view.Origin) *JSpan {
+	if !origin.Located() {
+		return nil
+	}
+	sf, seen := o.sources[origin.Doc]
+	if !seen {
+		sf = o.model.document(origin.Doc)
+		if sf == nil && o.model.Library != nil {
+			if content, err := o.model.Library.Read(origin.Doc); err == nil {
+				sf = source.New(origin.Doc, content)
+			}
+		}
+		o.sources[origin.Doc] = sf
+	}
+	if sf == nil {
+		return &JSpan{File: origin.Doc}
+	}
+	return fsyntax.SpanOf(sf, origin.Span)
+}
+
+// marshalRenderView writes a rendering as protojson writes the service's
+// RenderViewResponse for the same view.Data.
+func marshalRenderView(model *cachedModel, data view.Data) ([]byte, error) {
+	origins := &renderOrigins{model: model, sources: make(map[string]*source.SourceFile)}
 	out := &JRenderViewResponse{
 		View:    data.View,
 		Kind:    string(data.Kind),
 		Stated:  data.Stated,
+		Columns: data.Columns,
 		Notices: data.Notices,
 		Shown:   data.Shown,
 		Nodes:   make([]JRenderNode, 0, len(data.Nodes)),
 		Edges:   make([]JRenderEdge, 0, len(data.Edges)),
 	}
-	if out.Notices == nil {
-		out.Notices = []string{}
-	}
-	if len(data.Columns) > 0 {
-		out.Columns = data.Columns
-	}
 	if data.Canvas != nil {
-		out.Canvas = &JRenderCanvas{Unit: data.Canvas.Unit}
-		if data.Canvas.HasSize {
-			width, height := data.Canvas.Width, data.Canvas.Height
-			out.Canvas.Width, out.Canvas.Height = &width, &height
+		out.Canvas = &JRenderCanvas{
+			Unit: data.Canvas.Unit, Width: data.Canvas.Width, Height: data.Canvas.Height, HasSize: data.Canvas.HasSize,
 		}
 	}
 	for _, node := range data.Nodes {
 		item := JRenderNode{
-			ID:              node.ID,
-			Kind:            node.Kind,
-			Name:            node.Name,
-			NameSynthesized: node.NameSynthesized,
-			Type:            node.Type,
-			Detail:          node.Detail,
-			Parent:          node.Parent,
-			Style:           jRenderStyle(node.Style),
-		}
-		if node.Style != nil {
-			item.Fill = node.Style.Fill
-			item.Border = node.Style.Line
-		}
-		if node.Geometry != nil {
-			x, y := node.Geometry.X, node.Geometry.Y
-			item.X, item.Y, item.Collapsed = &x, &y, node.Geometry.Collapsed
-			if node.Geometry.HasSize {
-				width, height := node.Geometry.Width, node.Geometry.Height
-				item.Width, item.Height = &width, &height
-			}
+			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
+			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn,
+			Parent: node.Parent, Origin: origins.span(node.Origin), Style: jRenderStyle(node.Style),
 		}
 		for _, port := range node.Ports {
 			item.Ports = append(item.Ports, JRenderPort{
 				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(),
 			})
 		}
+		if node.Geometry != nil {
+			item.Geometry = &JRenderGeometry{
+				X: node.Geometry.X, Y: node.Geometry.Y, Width: node.Geometry.Width, Height: node.Geometry.Height,
+				HasSize: node.Geometry.HasSize, Collapsed: node.Geometry.Collapsed,
+			}
+		}
 		out.Nodes = append(out.Nodes, item)
 	}
 	for _, edge := range data.Edges {
 		item := JRenderEdge{
 			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Text(), Kind: edge.Kind.String(), Style: jRenderStyle(edge.Style),
+			Label: edge.Text(), Name: edge.Name, Kind: edge.Kind.String(),
+			Origin: origins.span(edge.Origin), Style: jRenderStyle(edge.Style),
 		}
 		for _, point := range edge.Route {
 			item.Route = append(item.Route, JRenderPoint{X: point.X, Y: point.Y})
@@ -408,7 +421,14 @@ func marshalRenderView(data view.Data) ([]byte, error) {
 		out.Edges = append(out.Edges, item)
 	}
 	for _, row := range data.Rows {
-		out.Rows = append(out.Rows, JRenderRow{Cells: row.Cells})
+		out.Rows = append(out.Rows, JRenderRow{Cells: row.Cells, Origin: origins.span(row.Origin)})
+	}
+	for _, note := range data.Notes {
+		out.Notes = append(out.Notes, JRenderNote{
+			Text: note.Text, Anchor: note.Anchor, EdgeFrom: note.EdgeFrom, EdgeTo: note.EdgeTo,
+			X: note.X, Y: note.Y, Width: note.Width, Height: note.Height, HasSize: note.HasSize,
+			Origin: origins.span(note.Origin),
+		})
 	}
 	return marshal(out)
 }
