@@ -1,17 +1,17 @@
-choice on accept Go: next l1(exit), r1(exit) (unordered; took l1(exit) first)
+choice on accept Go: next l1(exit), r1(exit) (unordered; took l1(exit) first; order-dependent: log)
 exit: l1 (exit action)
 stmt action body
   stmt assign log
       eval feature log -> ""
       eval literal "l1(exit) " -> "l1(exit) "
     eval operator + -> "l1(exit) "
-choice on accept Go: next l1->l2(effect), r1(exit) (unordered; took l1->l2(effect) first)
+choice on accept Go: next l1->l2(effect), r1(exit) (unordered; took l1->l2(effect) first; order-dependent: log)
 stmt action body
   stmt assign log
       eval feature log -> "l1(exit) "
       eval literal "T1(effect) " -> "T1(effect) "
     eval operator + -> "l1(exit) T1(effect) "
-choice on accept Go: next l2(entry), r1(exit) (unordered; took l2(entry) first)
+choice on accept Go: next l2(entry), r1(exit) (unordered; took l2(entry) first; order-dependent: log)
 enter: l2
 transition: l1 -> l2 (event: accept Go)
 exit: r1 (exit action)

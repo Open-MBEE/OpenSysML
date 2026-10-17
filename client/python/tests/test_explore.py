@@ -408,3 +408,20 @@ class TestExploreAgainstTheService:
         for spelling in ("explore:", "explore:runs=0", "explore:depth=-1", "explore:runs=x"):
             with pytest.raises(InvalidRequestError):
                 self.model.explore_action("Sched::race", schedule=spelling)
+
+
+def test_exploration_with_a_construct_left_unenumerated_is_incomplete():
+    gap = Exploration(
+        [], complete=False, runs=2, budgets_hit=[], runs_budget=1024,
+        depth_budget=64, unenumerated=["coverage-gap-1"],
+    )
+    assert gap.unenumerated == ["coverage-gap-1"]
+    assert gap.status == "incomplete after 2 runs; not enumerated: coverage-gap-1"
+    assert not bool(gap)
+    with pytest.raises(ExecutionError):
+        gap.raise_for_incomplete()
+    whole = Exploration(
+        [], complete=True, runs=2, budgets_hit=[], runs_budget=1024, depth_budget=64
+    )
+    assert whole.unenumerated == []
+    assert whole.status == "complete (2 runs)"

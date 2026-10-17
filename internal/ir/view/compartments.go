@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -118,6 +119,9 @@ func (l labeller) rowText(node *Node) string {
 	if node.Type != "" {
 		text = strings.TrimSpace(text + " : " + source.ReferenceEndNames(node.Type))
 	}
+	if text == "" {
+		text, prefix = node.Kind, ""
+	}
 	if node.Value != "" {
 		text += " = " + node.Value
 	}
@@ -134,6 +138,31 @@ func (l labeller) compartments(node *Node) []Compartment {
 		return nil
 	}
 	return node.Compartments
+}
+
+// referenceRow reports whether sym lists as a reference row, the `ref part`
+// a tool's references compartment holds: a structural usage that refers to
+// its value rather than owning it. An attribute, referential by definition,
+// is an attribute row.
+func referenceRow(sym *symbols.Symbol) bool {
+	switch sym.Kind {
+	case symbols.SymbolAttributeUsage, symbols.SymbolEnumerationUsage:
+		return false
+	}
+	return structuralUsage(sym) && !compositeUsage(sym)
+}
+
+// hiddenRow reports whether node's Layout hides the compartment row would
+// list in: a hidden "references" hides every referential row, a hidden kind
+// the compartment of that name.
+func hiddenRow(node, row *Node) bool {
+	if node.Geometry == nil || !node.Geometry.Hidden.Any() {
+		return false
+	}
+	if row.Referential && !row.StandIn {
+		return node.Geometry.Hidden.Hides("references")
+	}
+	return node.Geometry.Hidden.Hides(compartmentName(row.Kind))
 }
 
 // rowCount is how many rows a node's compartments hold.

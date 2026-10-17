@@ -97,8 +97,8 @@ func hasNode(nodes []*Node, id string) bool {
 
 // TestTreeCompartmentRows checks the grouping and text of compartment rows:
 // the compartments in the notation's order whatever the declaration order, a
-// modifier kept on the row, the type after the colon and the value after the
-// equals sign.
+// modifier kept on the row, the type after the colon, the value after the
+// equals sign, and a member with nothing else to show read as its kind.
 func TestTreeCompartmentRows(t *testing.T) {
 	rows := []*Node{
 		{ID: "a", Kind: "constraint", Name: "bound", Type: "GainBound"},
@@ -108,6 +108,8 @@ func TestTreeCompartmentRows(t *testing.T) {
 		{ID: "e", Kind: "attribute", Name: "noiseFigure", Type: "ScalarValues::Real"},
 		{ID: "f", Kind: "metadata", Name: "", Type: "Safety"},
 		{ID: "g", Kind: "widget", Name: "w"},
+		{ID: "h", Kind: "attribute", Name: "x", NameSynthesized: true},
+		{ID: "i", Kind: "ref part", Name: "y", NameSynthesized: true, Value: "z"},
 	}
 	compartments := compartmentsOf(rows)
 	labels := labeller{shown: Shown{ElementCompartments: true, ElementTypings: true}}
@@ -120,8 +122,8 @@ func TestTreeCompartmentRows(t *testing.T) {
 		got = append(got, compartment.Name+": "+strings.Join(texts, " | "))
 	}
 	want := []string{
-		"attributes: gain : dB = 15.0 | noiseFigure : Real",
-		"parts: ref heatsink : Heatsink",
+		"attributes: gain : dB = 15.0 | noiseFigure : Real | attribute",
+		"parts: ref heatsink : Heatsink | ref part = z",
 		"calculations: total",
 		"constraints: bound : GainBound",
 		"metadata: : Safety",
@@ -185,7 +187,7 @@ func TestTreeCompartmentsClipped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`upper<br/>lower`, `length = StringFunctions::Length(&#34;a  b&#34;)`} {
+	for _, want := range []string{`<td align="left">attribute<br/>&#39;upper<br/>lower&#39;<br/>length = StringFunctions::Length(&#34;a  b&#34;)</td>`} {
 		if !strings.Contains(wrapped, want) {
 			t.Errorf("want %q in the rows of:\n%s", want, wrapped)
 		}

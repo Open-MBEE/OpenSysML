@@ -12,8 +12,8 @@ stmt assign x
   eval literal 1 -> 1
 stmt assign aRan
   eval literal true -> true
-choice step 3: writes x := 1 by token 2, x := 2 by token 3, x := 3 by token 4 (unordered; x := 1 by token 2 stood)
-choice step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first)
+choice step 3: writes x := 1 by token 2, x := 2 by token 3, x := 3 by token 4 (unordered; x := 1 by token 2 stood; order-dependent: x)
+choice step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first; order-dependent: x)
 step 3: token 2@sync, token 3@sync, token 4@sync
 step 4: token 5@done
 step 5: no active tokens

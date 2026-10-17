@@ -1,0 +1,11 @@
+// view: CameraViews::selective
+// kind: tree
+// stated: render asTreeDiagram
+// not represented: 9 node(s) without a position: 5 drawn as compartment rows of the node above them, 4 in compartments its Layout hides left undrawn
+// layout: neato -n
+digraph "CameraViews::selective" {
+  graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Imaging</b></td></tr><hr/><tr><td><font point-size="10">attributes</font></td></tr><tr><td align="left">resolution = 4096<br/>exposure</td></tr><hr/><tr><td><font point-size="10">parts</font></td></tr><tr><td align="left">mount</td></tr><hr/><tr><td><font point-size="10">ports</font></td></tr><tr><td align="left">data</td></tr><hr/><tr><td><font point-size="10">constraints</font></td></tr><tr><td align="left">focus</td></tr></table>>, margin=0, pos="130,-120!", pin=true, width=3.3333333333333335, height=3.0555555555555554, fixedsize=true];
+}

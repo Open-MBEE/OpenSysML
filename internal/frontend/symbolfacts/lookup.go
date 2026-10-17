@@ -49,8 +49,10 @@ func LookupNamedMember(idx *symbols.Index, model *semantics.Model, id string) []
 // records, whose later segments are members of the type of the segment before
 // them: the longest prefix one declaration answers to is the chain's root, and
 // the rest is walked through model's member lookup, which follows typing and
-// specialization. The second result is the fully-qualified name the member is
-// declared under; nil and "" when no prefix is a declaration the rest walks from.
+// specialization. A prefix the model declares shadows a library declaration of
+// the same name, as the notation resolves the name. The second result is the
+// fully-qualified name the member is declared under; nil and "" when no prefix
+// is a declaration the rest walks from.
 func MemberChain(idx *symbols.Index, model *semantics.Model, name string) (*symbols.Symbol, string) {
 	if idx == nil || model == nil {
 		return nil, ""
@@ -59,11 +61,14 @@ func MemberChain(idx *symbols.Index, model *semantics.Model, name string) (*symb
 	// The longest prefix is tried first, so a nested feature is preferred over
 	// the type it happens to share a name with.
 	for i := len(segments) - 1; i > 0; i-- {
-		matches := idx.LookupQualified(strings.Join(segments[:i], "::"))
-		if len(matches) != 1 {
+		sym, ambiguous := soleDeclaration(idx, strings.Join(segments[:i], "::"))
+		if ambiguous {
+			// A shorter prefix would walk into one of the duplicates at random.
+			return nil, ""
+		}
+		if sym == nil {
 			continue
 		}
-		sym := matches[0]
 		walked := true
 		for _, seg := range segments[i:] {
 			member, ok := model.LookupMember(sym, seg)
@@ -83,6 +88,23 @@ func MemberChain(idx *symbols.Index, model *semantics.Model, name string) (*symb
 		return sym, fqn
 	}
 	return nil, ""
+}
+
+// soleDeclaration is the one declaration a qualified name denotes, the model's
+// shadowing the library's; ambiguous when the model declares the name twice.
+func soleDeclaration(idx *symbols.Index, fqn string) (sym *symbols.Symbol, ambiguous bool) {
+	matches := modelFirst(idx, idx.LookupQualified(fqn))
+	declared := 0
+	for declared < len(matches) && !idx.Library(matches[declared]) {
+		declared++
+	}
+	switch {
+	case declared == 1, declared == 0 && len(matches) == 1:
+		return matches[0], false
+	case declared > 1:
+		return nil, true
+	}
+	return nil, false
 }
 
 // modelFirst reorders matches so the ones the model declares precede the ones

@@ -169,9 +169,7 @@ final class Scenarios {
       return List.of();
     }
     List<String> values = new ArrayList<>();
-    for (JsonElement item : element.getAsJsonArray()) {
-      values.add(item.getAsString());
-    }
+    element.getAsJsonArray().forEach(item -> values.add(item.getAsString()));
     return List.copyOf(values);
   }
 

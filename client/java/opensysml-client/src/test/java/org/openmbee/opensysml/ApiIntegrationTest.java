@@ -672,16 +672,11 @@ class ApiIntegrationTest {
         model.executeAction(
             "Test::race", Map.of(), ExecutionOptions.defaults().withSchedule("declared"));
     assertEquals(new Value.IntegerValue(3), declared.outputs().get("x"));
+    ExecutionOptions traced = ExecutionOptions.defaults().withTrace();
     assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            model.executeAction(
-                "Test::addFive", Map.of(), ExecutionOptions.defaults().withTrace()));
+        IllegalArgumentException.class, () -> model.executeAction("Test::addFive", Map.of(), traced));
     assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            model.exploreAction(
-                "Test::race", Map.of(), ExecutionOptions.defaults().withTrace()));
+        IllegalArgumentException.class, () -> model.exploreAction("Test::race", Map.of(), traced));
   }
 
   @Test
@@ -745,11 +740,10 @@ class ApiIntegrationTest {
     assertEquals(Optional.of("done"), exploration.outcomes().get(0).finalState());
     assertEquals(
         List.of("init", "Running", "done"), exploration.outcomes().get(0).statesVisited());
+    ExecutionOptions tracedState = ExecutionOptions.defaults().withTrace();
     assertThrows(
         IllegalArgumentException.class,
-        () ->
-            model.exploreState(
-                "Test::Machine", List.of(), ExecutionOptions.defaults().withTrace()));
+        () -> model.exploreState("Test::Machine", List.of(), tracedState));
 
     assertThrows(ModelException.class, () -> model.executeState("Test::NoMachine", List.of()));
   }
@@ -798,12 +792,11 @@ class ApiIntegrationTest {
                 .service("127.0.0.1", server.getAddress().getPort())
                 .build())) {
       Model model = new Model(fake, "hash", List.of(), List.of());
+      ExecutionOptions traced = ExecutionOptions.defaults().withTrace();
       ModelException failure =
           assertThrows(
               ModelException.class,
-              () ->
-                  model.executeState(
-                      "Trace::Machine", List.of(), ExecutionOptions.defaults().withTrace()));
+              () -> model.executeState("Trace::Machine", List.of(), traced));
       assertEquals("state machine failed", failure.getMessage());
       assertEquals(1, failure.trace().size());
       assertEquals("entry", failure.trace().get(0).kind());
@@ -916,14 +909,11 @@ class ApiIntegrationTest {
                     Map.of("limit", new Value.IntegerValue(5), "bound", new Value.IntegerValue(1))));
     assertFalse(unknown.holds());
     assertTrue(unknown.verdict().error().orElse("").contains("bound"), unknown.toString());
+    VerifyOptions askingHolds =
+        VerifyOptions.asking(VerifyOptions.QUESTION_HOLDS).withArguments(new Value.IntegerValue(3));
     ServiceException solver =
         assertThrows(
-            ServiceException.class,
-            () ->
-                model.verifyConstraint(
-                    "Bound::Between",
-                    VerifyOptions.asking(VerifyOptions.QUESTION_HOLDS)
-                        .withArguments(new Value.IntegerValue(3))));
+            ServiceException.class, () -> model.verifyConstraint("Bound::Between", askingHolds));
     assertTrue(solver.getMessage().contains("holds"), solver.getMessage());
   }
 

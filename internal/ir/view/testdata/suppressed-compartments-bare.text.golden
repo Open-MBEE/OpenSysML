@@ -1,0 +1,10 @@
+CameraViews::bare - tree rendering (render bareTree)
+
+part def Imaging at (10, 10) size 240×260
+  attribute resolution
+  attribute exposure
+  part mount
+  port data
+  constraint focus
+  action capture
+  item 'frame'

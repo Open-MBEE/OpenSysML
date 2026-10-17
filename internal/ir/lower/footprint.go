@@ -172,6 +172,12 @@ func (rel Relation) placesMeet(as, bs []Place) bool {
 	return false
 }
 
+// PlaceMeets reports whether p, a place of the first move's, may name the value
+// of one of the second's places among qs.
+func (rel Relation) PlaceMeets(p Place, qs []Place) bool {
+	return rel.placesMeet([]Place{p}, qs)
+}
+
 // held reports whether two conflicting places, the first move's and the
 // second's, are nonetheless two values.
 func (rel Relation) held(p, q Place) bool {

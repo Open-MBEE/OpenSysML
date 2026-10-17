@@ -256,8 +256,8 @@ func testF99BodyMemberWithoutValue(t *testing.T) {
 func testF99UnsupportedBodyMember(t *testing.T) {
 	_, err := evalCollectionExprBounded(t,
 		"xs->select { in i; private import ScalarValues::*; i > 0 }", 10000)
-	if !errors.Is(err, ErrUnsupportedBodyDeclaration) {
-		t.Fatalf("error = %v, want ErrUnsupportedBodyDeclaration", err)
+	if !errors.Is(err, errUnsupportedBodyDeclaration) {
+		t.Fatalf("error = %v, want errUnsupportedBodyDeclaration", err)
 	}
 	if !strings.Contains(err.Error(), "Import") {
 		t.Errorf("unsupported-member error = %q, want it to name the form", err)

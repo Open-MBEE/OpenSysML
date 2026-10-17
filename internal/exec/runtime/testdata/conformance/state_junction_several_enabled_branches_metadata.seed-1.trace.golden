@@ -1,4 +1,4 @@
-choice junction split: transitions 1->left, 2->right (unordered; took 2->right)
+choice junction split: transitions 1->left, 2->right (unordered; took 2->right; order-dependent: route)
 exit: idle
 stmt assign route
   eval literal 2 -> 2

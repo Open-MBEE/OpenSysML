@@ -92,7 +92,7 @@ func TestCheckDirectoryExitStatus(t *testing.T) {
 	// the run exits 2 and names the file the error is in.
 	write(t, filepath.Join(dir, "broken.sysml"), "package Broken {\n    part probe : Nope::Missing;\n}\n")
 	wantReport(t, checkPaths(t, binary, "-constraint", "Checks::Held", dir), 2,
-		"broken.sysml:2:18: error: unresolved reference: Nope::Missing", "did not analyse cleanly")
+		"broken.sysml:2:18: error[unresolved]: unresolved reference: Nope::Missing", "did not analyse cleanly")
 	wantReport(t, checkPaths(t, binary, "-validate", dir), 2, "did not analyse cleanly")
 
 	// A glob over the same files answers the same way.

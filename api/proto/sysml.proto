@@ -313,6 +313,12 @@ message VerificationVerdict {
   // objective verifies. Empty when the case was run for itself rather than for
   // a requirement, or when that requirement can be named by no FQN.
   string requirement_id = 5;
+  // Instance the case ran on as its owner, 0 when it ran on no object. A case a
+  // definition owns runs once per object of that definition, so verdicts of one
+  // case are told apart by this field; its feature values are in `instances`.
+  int64 instance_id = 6;
+  // Type of `instance_id`, as an FQN, for naming the object in a report.
+  string instance_type_id = 7;
 }
 
 // VerifyRequirementResponse carries the verdict.
@@ -571,7 +577,8 @@ message Outcome {
 // ExplorationStatus is how an exploration ended: whether every linearization
 // within the budget was run, and which budget stopped it when not.
 message ExplorationStatus {
-  // True when every linearization was run, so `outcomes` is the whole set.
+  // True when every linearization the library admits was run, so `outcomes`
+  // is the whole set: no budget was hit and nothing was left unenumerated.
   bool complete = 1;
   // How many runs were made.
   int32 runs = 2;
@@ -586,6 +593,10 @@ message ExplorationStatus {
   bool probabilities_lower_bound = 6;
   // How many linearizations ended in runtime-error outcomes.
   int32 failed_linearizations = 7;
+  // The constructs whose unordered alternatives the runs took in one order
+  // without a choice point, by identifier; `complete` is false while any is
+  // listed, since fewer orders were run than the library admits.
+  repeated string unenumerated = 8;
 }
 
 // ListEnginesRequest asks for the analysis engines registered in this build.
@@ -771,6 +782,11 @@ message FeatureValue {
   repeated Value values = 3;     // for a multi-valued feature
   bool materialized = 4;
   string error = 5;              // set when evaluation failed; value is unset
+  // How many of the run's unresolved choice points — ones whose alternatives
+  // write what another reads or writes — touch this value: it then stands only
+  // up to the order the run took, and an explore shows the set. 0 for a value
+  // nothing order-dependent wrote. Populated under the "order_dependence" capability.
+  int32 order_dependent = 6;
 }
 
 // InstantiateRequest requests instantiation of a part/usage
@@ -833,6 +849,10 @@ message ExecuteActionResponse {
   // `outputs` stays the output parameters alone. Empty without a performer and
   // under an explore schedule, whose outcomes carry them.
   map<string, Value> performer_attributes = 7;
+  // Output name → how many of the run's unresolved choice points touch it; an
+  // output nothing order-dependent wrote is absent. Populated under the
+  // "order_dependence" capability; empty under an explore schedule.
+  map<string, int32> order_dependent = 8;
 }
 
 // ExecuteStateRequest requests state machine execution
@@ -878,6 +898,10 @@ message ExecuteStateResponse {
   repeated DocumentEvent trace = 8;
   // How many of the oldest records the service's held-events bound discarded.
   int32 trace_dropped = 9;
+  // Final-context key → how many of the run's unresolved choice points touch
+  // it; a value nothing order-dependent wrote is absent. Populated under the
+  // "order_dependence" capability; empty under an explore schedule.
+  map<string, int32> order_dependent = 10;
 }
 
 // ConvertRequest asks for a model in another representation. A model_hash
@@ -1811,6 +1835,13 @@ message Diagnostic {
   // Stable identifier to branch on instead of the message: a pass or rule code,
   // "syntax", "choice-point", "guard-unevaluable"; empty when none was assigned.
   string code = 4;
+  // On a "choice-point": the features the conflicting alternatives wrote, whose
+  // values the run holds only up to the order it took; empty when the
+  // alternatives commute (`independent`) or conflict on nothing a value names.
+  repeated string order_dependent = 5;
+  // On a "choice-point": the alternatives commute by their footprints, so the
+  // run's values stand whichever was taken.
+  bool independent = 6;
 }
 
 // Span represents a source location
@@ -2358,6 +2389,9 @@ message RenderViewRequest {
   // "compartments", "edge-labels", "keywords", "multiplicities", "typings",
   // "qualifiers", or "all".
   repeated string show = 4;
+  // How many levels of nested elements to draw below each exposed element,
+  // overriding the depth the view states; 0 draws every level.
+  int32 depth = 5;
 }
 
 // RenderViewResponse carries all machine-readable fields of the rendering.

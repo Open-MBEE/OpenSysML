@@ -87,8 +87,8 @@ func TestDistributeSummarisesTheRuns(t *testing.T) {
 	if d.P50 != drawnReal(5) || d.P90 != drawnReal(9) {
 		t.Errorf("p50 %v p90 %v, want the 5th and the 9th smallest", d.P50, d.P90)
 	}
-	if len(d.Histogram) != HistogramBins {
-		t.Fatalf("%d bins, want %d", len(d.Histogram), HistogramBins)
+	if len(d.Histogram) != histogramBins {
+		t.Fatalf("%d bins, want %d", len(d.Histogram), histogramBins)
 	}
 	total := 0
 	for i, bin := range d.Histogram {
@@ -97,7 +97,7 @@ func TestDistributeSummarisesTheRuns(t *testing.T) {
 			t.Errorf("bin %d starts at %v, the one before ends at %v", i, bin.Lo, d.Histogram[i-1].Hi)
 		}
 	}
-	if total != 10 || d.Histogram[0].Lo != drawnReal(1) || d.Histogram[HistogramBins-1].Hi != drawnReal(10) {
+	if total != 10 || d.Histogram[0].Lo != drawnReal(1) || d.Histogram[histogramBins-1].Hi != drawnReal(10) {
 		t.Errorf("bins %v cover %d run(s), want all 10 from 1 to 10", d.Histogram, total)
 	}
 	if Distribute(nil) != nil {
@@ -205,11 +205,11 @@ func TestDistributeKeepsLargeIntegersExact(t *testing.T) {
 	if whole.Mean != -1.0/3 || whole.Min != drawnInt(math.MinInt64) || whole.Max != drawnInt(math.MaxInt64) {
 		t.Errorf("over the whole Integer range: min %v mean %v max %v, want a mean of -1/3", whole.Min, whole.Mean, whole.Max)
 	}
-	if n := len(whole.Histogram); n != HistogramBins || whole.Histogram[0].Count != 1 || whole.Histogram[4].Count != 1 || whole.Histogram[n-1].Count != 1 {
+	if n := len(whole.Histogram); n != histogramBins || whole.Histogram[0].Count != 1 || whole.Histogram[4].Count != 1 || whole.Histogram[n-1].Count != 1 {
 		t.Errorf("bins over the whole int64 range: %v", whole.Histogram)
 	}
 	extremes := Distribute(ints(math.MaxInt64, math.MinInt64+1))
-	if n := len(extremes.Histogram); n != HistogramBins || extremes.Histogram[0].Lo != drawnInt(math.MinInt64+1) || extremes.Histogram[n-1].Hi != drawnInt(math.MaxInt64) {
+	if n := len(extremes.Histogram); n != histogramBins || extremes.Histogram[0].Lo != drawnInt(math.MinInt64+1) || extremes.Histogram[n-1].Hi != drawnInt(math.MaxInt64) {
 		t.Errorf("bins over all but one Integer: %v", extremes.Histogram)
 	}
 	if extremes.Mean != 0 {
@@ -280,8 +280,8 @@ func TestMonteCarloSampleTakesQuantitiesInTheFirstRunsUnit(t *testing.T) {
 		{runs(NewStringValue("x")), []string{"run 1 of Mc", `"x"`, "not a number"}},
 	} {
 		_, err := MonteCarloSample(refused.runs)
-		if !errors.Is(err, ErrMonteCarloObserved) {
-			t.Fatalf("MonteCarloSample = %v; want an ErrMonteCarloObserved", err)
+		if !errors.Is(err, errMonteCarloObserved) {
+			t.Fatalf("MonteCarloSample = %v; want an errMonteCarloObserved", err)
 		}
 		for _, name := range refused.names {
 			if !strings.Contains(err.Error(), name) {

@@ -169,6 +169,8 @@ export function decodeVerificationVerdict(pb: PbVerificationVerdict): Verificati
     detail: pb.detail,
     subcase: pb.subcase,
     requirementId: pb.requirementId,
+    instanceId: pb.instanceId,
+    instanceTypeId: pb.instanceTypeId,
   };
 }
 

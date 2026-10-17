@@ -258,7 +258,7 @@ test("a runs budget of one is incomplete", async () => {
   assert.equal(exploration.length, 1);
   assert.equal(
     exploration.status,
-    "incomplete: runs budget 1 hit after 1 runs; probabilities are lower bounds",
+    "incomplete: runs budget 1 hit after 1 runs",
   );
 });
 

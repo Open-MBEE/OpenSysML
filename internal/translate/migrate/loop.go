@@ -395,7 +395,7 @@ func (a *activity) loopNode(n *sysmlv1.Element, name string, s *loopShape) {
 				if i > 0 {
 					then = "then "
 				}
-				a.m.w.line(then + "assign " + writeName(a.m.pins[r].name) + " := " + writeName(a.names[s.loopVars[i]]) + ";")
+				a.m.w.line(then + assignKeyword + writeName(a.m.pins[r].name) + " := " + writeName(a.names[s.loopVars[i]]) + ";")
 			}
 		})
 	})
@@ -426,13 +426,13 @@ func (a *activity) loopCycle(writers [3]*activity, s *loopShape, test, body, nex
 				} else {
 					from = a.partRef(writers[loopBody], body, bo)
 				}
-				a.m.w.line(then + "assign " + writeName(a.names[s.loopVars[i]]) + " := " + from + ";")
+				a.m.w.line(then + assignKeyword + writeName(a.names[s.loopVars[i]]) + " := " + from + ";")
 			}
 		})
 	}
 	decision := func(withElse bool) {
 		a.m.w.line("then if not " + a.partRef(writers[loopTest], test, s.decider) + " {")
-		a.m.w.indented(func() { a.m.w.line("assign " + writeName(ended) + " := true;") })
+		a.m.w.indented(func() { a.m.w.line(assignKeyword + writeName(ended) + " := true;") })
 		if withElse {
 			a.m.w.line("} else {")
 			a.m.w.indented(func() {

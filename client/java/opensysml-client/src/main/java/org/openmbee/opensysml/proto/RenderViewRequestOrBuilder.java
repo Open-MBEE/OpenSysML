@@ -114,4 +114,15 @@ public interface RenderViewRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getShowBytes(int index);
+
+  /**
+   * <pre>
+   * How many levels of nested elements to draw below each exposed element,
+   * overriding the depth the view states; 0 draws every level.
+   * </pre>
+   *
+   * <code>int32 depth = 5 [json_name = "depth"];</code>
+   * @return The depth.
+   */
+  int getDepth();
 }

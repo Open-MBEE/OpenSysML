@@ -697,16 +697,21 @@ export class Connection {
    * Renders a named view or targeted pseudo-view as diagram data. `show` names
    * the optional notation elements to draw besides those the view's rendering
    * shows (`"edge-labels"`, `"all"`, ...); the service refuses a name it does
-   * not know.
+   * not know. `depth`, above 0, bounds how many levels of nested elements are
+   * drawn below each exposed element, overriding the view's own depth.
    */
   async renderView(
     modelHash: string,
     viewName: string,
-    options: { ports?: "minimal" | "full"; show?: readonly string[] } = {},
+    options: { ports?: "minimal" | "full"; show?: readonly string[]; depth?: number } = {},
   ): Promise<RenderedView> {
     const ports: string = options.ports ?? "minimal";
     if (ports !== "minimal" && ports !== "full") {
       throw new RangeError("ports must be 'minimal' or 'full'");
+    }
+    const depth = options.depth ?? 0;
+    if (!Number.isInteger(depth) || depth < 0) {
+      throw new RangeError("depth must be a non-negative integer");
     }
     const show = [...(options.show ?? [])];
     const capabilities = [CAPABILITY_RENDER_VIEW];
@@ -720,6 +725,7 @@ export class Connection {
           view: viewName,
           ports: ports === "minimal" ? "" : ports,
           show,
+          depth,
         }),
         this.callOptions(),
       ),
@@ -763,6 +769,10 @@ export class Connection {
     outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
     performer: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
     finalTime: number;
+    /** Output name → how many of the run's unresolved choice points touch it; the
+     * value then stands only up to the order the run took, and `exploreAction`
+     * shows the set. Absent for an output nothing order-dependent wrote. */
+    orderDependent: ReadonlyMap<string, number>;
   }> {
     refuseExploring(options.schedule, "exploreAction");
     const response = await this.sendExecuteAction(
@@ -781,6 +791,7 @@ export class Connection {
       outputs: valuesMap(Object.entries(response.outputs)),
       performer: valuesMap(Object.entries(response.performerAttributes)),
       finalTime: response.finalTime,
+      orderDependent: new Map(Object.entries(response.orderDependent)),
     };
   }
 
@@ -852,6 +863,8 @@ export class Connection {
     finalTime: number;
     trace: DocumentEvent[];
     traceDropped: number;
+    /** Final-context key → how many of the run's unresolved choice points touch it. */
+    orderDependent: ReadonlyMap<string, number>;
   }> {
     refuseExploring(options.schedule, "exploreState");
     const response = await this.sendExecuteState(
@@ -874,6 +887,7 @@ export class Connection {
       finalTime: response.finalTime,
       trace: response.trace.map(documentEventOf),
       traceDropped: response.traceDropped,
+      orderDependent: new Map(Object.entries(response.orderDependent)),
     };
   }
 
@@ -956,6 +970,7 @@ export class Connection {
       runsBudget: status?.runsBudget ?? 0,
       depthBudget: status?.depthBudget ?? 0,
       probabilitiesLowerBound: status?.probabilitiesLowerBound ?? false,
+      unenumerated: status?.unenumerated ?? [],
     });
   }
 

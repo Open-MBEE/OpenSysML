@@ -35,6 +35,8 @@ private static final long serialVersionUID = 0L;
     severity_ = "";
     message_ = "";
     code_ = "";
+    orderDependent_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -212,6 +214,83 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int ORDER_DEPENDENT_FIELD_NUMBER = 5;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList orderDependent_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * On a "choice-point": the features the conflicting alternatives wrote, whose
+   * values the run holds only up to the order it took; empty when the
+   * alternatives commute (`independent`) or conflict on nothing a value names.
+   * </pre>
+   *
+   * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+   * @return A list containing the orderDependent.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getOrderDependentList() {
+    return orderDependent_;
+  }
+  /**
+   * <pre>
+   * On a "choice-point": the features the conflicting alternatives wrote, whose
+   * values the run holds only up to the order it took; empty when the
+   * alternatives commute (`independent`) or conflict on nothing a value names.
+   * </pre>
+   *
+   * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+   * @return The count of orderDependent.
+   */
+  public int getOrderDependentCount() {
+    return orderDependent_.size();
+  }
+  /**
+   * <pre>
+   * On a "choice-point": the features the conflicting alternatives wrote, whose
+   * values the run holds only up to the order it took; empty when the
+   * alternatives commute (`independent`) or conflict on nothing a value names.
+   * </pre>
+   *
+   * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+   * @param index The index of the element to return.
+   * @return The orderDependent at the given index.
+   */
+  public java.lang.String getOrderDependent(int index) {
+    return orderDependent_.get(index);
+  }
+  /**
+   * <pre>
+   * On a "choice-point": the features the conflicting alternatives wrote, whose
+   * values the run holds only up to the order it took; empty when the
+   * alternatives commute (`independent`) or conflict on nothing a value names.
+   * </pre>
+   *
+   * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the orderDependent at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getOrderDependentBytes(int index) {
+    return orderDependent_.getByteString(index);
+  }
+
+  public static final int INDEPENDENT_FIELD_NUMBER = 6;
+  private boolean independent_ = false;
+  /**
+   * <pre>
+   * On a "choice-point": the alternatives commute by their footprints, so the
+   * run's values stand whichever was taken.
+   * </pre>
+   *
+   * <code>bool independent = 6 [json_name = "independent"];</code>
+   * @return The independent.
+   */
+  @java.lang.Override
+  public boolean getIndependent() {
+    return independent_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -238,6 +317,12 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(code_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 4, code_);
     }
+    for (int i = 0; i < orderDependent_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 5, orderDependent_.getRaw(i));
+    }
+    if (independent_ != false) {
+      output.writeBool(6, independent_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -259,6 +344,18 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(code_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(4, code_);
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < orderDependent_.size(); i++) {
+        dataSize += computeStringSizeNoTag(orderDependent_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getOrderDependentList().size();
+    }
+    if (independent_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(6, independent_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -286,6 +383,10 @@ private static final long serialVersionUID = 0L;
     }
     if (!getCode()
         .equals(other.getCode())) return false;
+    if (!getOrderDependentList()
+        .equals(other.getOrderDependentList())) return false;
+    if (getIndependent()
+        != other.getIndependent()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -307,6 +408,13 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + CODE_FIELD_NUMBER;
     hash = (53 * hash) + getCode().hashCode();
+    if (getOrderDependentCount() > 0) {
+      hash = (37 * hash) + ORDER_DEPENDENT_FIELD_NUMBER;
+      hash = (53 * hash) + getOrderDependentList().hashCode();
+    }
+    hash = (37 * hash) + INDEPENDENT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getIndependent());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -456,6 +564,9 @@ private static final long serialVersionUID = 0L;
         spanBuilder_ = null;
       }
       code_ = "";
+      orderDependent_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
+      independent_ = false;
       return this;
     }
 
@@ -505,6 +616,13 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.code_ = code_;
       }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        orderDependent_.makeImmutable();
+        result.orderDependent_ = orderDependent_;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.independent_ = independent_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -537,6 +655,19 @@ private static final long serialVersionUID = 0L;
         code_ = other.code_;
         bitField0_ |= 0x00000008;
         onChanged();
+      }
+      if (!other.orderDependent_.isEmpty()) {
+        if (orderDependent_.isEmpty()) {
+          orderDependent_ = other.orderDependent_;
+          bitField0_ |= 0x00000010;
+        } else {
+          ensureOrderDependentIsMutable();
+          orderDependent_.addAll(other.orderDependent_);
+        }
+        onChanged();
+      }
+      if (other.getIndependent() != false) {
+        setIndependent(other.getIndependent());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -586,6 +717,17 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 34
+            case 42: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureOrderDependentIsMutable();
+              orderDependent_.add(s);
+              break;
+            } // case 42
+            case 48: {
+              independent_ = input.readBool();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 48
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -981,6 +1123,218 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       code_ = value;
       bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList orderDependent_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureOrderDependentIsMutable() {
+      if (!orderDependent_.isModifiable()) {
+        orderDependent_ = new com.google.protobuf.LazyStringArrayList(orderDependent_);
+      }
+      bitField0_ |= 0x00000010;
+    }
+    /**
+     * <pre>
+     * On a "choice-point": the features the conflicting alternatives wrote, whose
+     * values the run holds only up to the order it took; empty when the
+     * alternatives commute (`independent`) or conflict on nothing a value names.
+     * </pre>
+     *
+     * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+     * @return A list containing the orderDependent.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getOrderDependentList() {
+      orderDependent_.makeImmutable();
+      return orderDependent_;
+    }
+    /**
+     * <pre>
+     * On a "choice-point": the features the conflicting alternatives wrote, whose
+     * values the run holds only up to the order it took; empty when the
+     * alternatives commute (`independent`) or conflict on nothing a value names.
+     * </pre>
+     *
+     * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+     * @return The count of orderDependent.
+     */
+    public int getOrderDependentCount() {
+      return orderDependent_.size();
+    }
+    /**
+     * <pre>
+     * On a "choice-point": the features the conflicting alternatives wrote, whose
+     * values the run holds only up to the order it took; empty when the
+     * alternatives commute (`independent`) or conflict on nothing a value names.
+     * </pre>
+     *
+     * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+     * @param index The index of the element to return.
+     * @return The orderDependent at the given index.
+     */
+    public java.lang.String getOrderDependent(int index) {
+      return orderDependent_.get(index);
+    }
+    /**
+     * <pre>
+     * On a "choice-point": the features the conflicting alternatives wrote, whose
+     * values the run holds only up to the order it took; empty when the
+     * alternatives commute (`independent`) or conflict on nothing a value names.
+     * </pre>
+     *
+     * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the orderDependent at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getOrderDependentBytes(int index) {
+      return orderDependent_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * On a "choice-point": the features the conflicting alternatives wrote, whose
+     * values the run holds only up to the order it took; empty when the
+     * alternatives commute (`independent`) or conflict on nothing a value names.
+     * </pre>
+     *
+     * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+     * @param index The index to set the value at.
+     * @param value The orderDependent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOrderDependent(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureOrderDependentIsMutable();
+      orderDependent_.set(index, value);
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * On a "choice-point": the features the conflicting alternatives wrote, whose
+     * values the run holds only up to the order it took; empty when the
+     * alternatives commute (`independent`) or conflict on nothing a value names.
+     * </pre>
+     *
+     * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+     * @param value The orderDependent to add.
+     * @return This builder for chaining.
+     */
+    public Builder addOrderDependent(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureOrderDependentIsMutable();
+      orderDependent_.add(value);
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * On a "choice-point": the features the conflicting alternatives wrote, whose
+     * values the run holds only up to the order it took; empty when the
+     * alternatives commute (`independent`) or conflict on nothing a value names.
+     * </pre>
+     *
+     * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+     * @param values The orderDependent to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllOrderDependent(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureOrderDependentIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, orderDependent_);
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * On a "choice-point": the features the conflicting alternatives wrote, whose
+     * values the run holds only up to the order it took; empty when the
+     * alternatives commute (`independent`) or conflict on nothing a value names.
+     * </pre>
+     *
+     * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearOrderDependent() {
+      orderDependent_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000010);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * On a "choice-point": the features the conflicting alternatives wrote, whose
+     * values the run holds only up to the order it took; empty when the
+     * alternatives commute (`independent`) or conflict on nothing a value names.
+     * </pre>
+     *
+     * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+     * @param value The bytes of the orderDependent to add.
+     * @return This builder for chaining.
+     */
+    public Builder addOrderDependentBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureOrderDependentIsMutable();
+      orderDependent_.add(value);
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+
+    private boolean independent_ ;
+    /**
+     * <pre>
+     * On a "choice-point": the alternatives commute by their footprints, so the
+     * run's values stand whichever was taken.
+     * </pre>
+     *
+     * <code>bool independent = 6 [json_name = "independent"];</code>
+     * @return The independent.
+     */
+    @java.lang.Override
+    public boolean getIndependent() {
+      return independent_;
+    }
+    /**
+     * <pre>
+     * On a "choice-point": the alternatives commute by their footprints, so the
+     * run's values stand whichever was taken.
+     * </pre>
+     *
+     * <code>bool independent = 6 [json_name = "independent"];</code>
+     * @param value The independent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndependent(boolean value) {
+
+      independent_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * On a "choice-point": the alternatives commute by their footprints, so the
+     * run's values stand whichever was taken.
+     * </pre>
+     *
+     * <code>bool independent = 6 [json_name = "independent"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIndependent() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      independent_ = false;
       onChanged();
       return this;
     }

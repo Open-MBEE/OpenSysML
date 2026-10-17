@@ -34,7 +34,7 @@ func stepSymbol(flow *lower.ActionGraph, node ast.Node) (*symbols.Symbol, *symbo
 func caseStepSymbol(flow *lower.ActionGraph, node ast.Node) (*symbols.Symbol, *symbols.Scope, error) {
 	sym, declaring := stepSymbol(flow, node)
 	if sym == nil || !isCalcUsageSymbol(sym) {
-		return nil, nil, fmt.Errorf("%w: %s is not resolved to a case", ErrNotACalcUsage, nodeDescription(node))
+		return nil, nil, fmt.Errorf("%w: %s is not resolved to a case", errNotACalcUsage, nodeDescription(node))
 	}
 	return sym, declaring, nil
 }

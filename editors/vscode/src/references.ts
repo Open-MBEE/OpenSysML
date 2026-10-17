@@ -17,7 +17,7 @@ export function showReferencesArguments(
   args: unknown[] | undefined,
   convert: ReferenceConverter,
 ): [vscode.Uri, vscode.Position, vscode.Location[]] | undefined {
-  if (!args || args.length !== 3) {
+  if (args?.length !== 3) {
     return undefined;
   }
   const [uri, position, locations] = args;

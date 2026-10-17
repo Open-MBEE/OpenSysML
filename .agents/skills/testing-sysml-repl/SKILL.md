@@ -6297,11 +6297,11 @@ None for these local REPL/gRPC checks.
 - Compare an unwritten inherited result against an unwritten `out` in the same model. A completed
   action's output map leaves both out rather than inventing a zero.
 
-## Prod builds and default-build parity
+## RE builds and DK-build parity
 
 - If other agents own branches or worktrees, create detached testing worktrees at the PR and
   `origin/develop` revisions and record both hashes; do not switch a shared checkout.
-- Build the PR twice, `go build -tags sysml_prod -o <external-dir>/sysml-prod ./cmd/sysml` and
+- Build the PR twice, `go build -tags sysml_re -o <external-dir>/re/sysml ./cmd/sysml` and
   without the tag to a separate binary, and build `origin/develop` untagged to a third. Raw builds
   avoid unrelated version-string differences when comparing behavior.
 - Keep fixtures, output files, transcripts and comparison scripts outside source checkouts.
@@ -6319,7 +6319,7 @@ None for these local REPL/gRPC checks.
   because model loading writes declaration reports to stdout. Require the exact match line and exit
   0; do not assume stdout holds only match lines.
 
-### Comparing the default build against develop
+### Comparing the DK build against develop
 
 - Use the same relative input and output names in separate working directories, with fresh files,
   so `(replaced the existing file)` notes do not differ.

@@ -99,11 +99,24 @@ class VerificationVerdict:
         """FQN of the requirement this verdict was reported for, if any."""
         return getattr(self._pb, "requirement_id", "")
 
+    @property
+    def instance_id(self):
+        """ID of the object the case ran on as its owner; 0 when it ran on none."""
+        return getattr(self._pb, "instance_id", 0)
+
+    @property
+    def instance_type_id(self):
+        """FQN of that object's type, for naming it; empty with instance_id 0."""
+        return getattr(self._pb, "instance_type_id", "")
+
     def explain(self):
         """One line saying what the body answered and why."""
         marks = {VERDICT_PASS: "\u2713", VERDICT_FAIL: "\u2717"}
         mark = marks.get(self.kind, "?")
-        line = f"{mark} verification {self.case_id} verdict: {self.kind}"
+        line = f"{mark} verification {self.case_id}"
+        if self.instance_id:
+            line += f" (on {self.instance_type_id or 'instance'} ID: {self.instance_id})"
+        line += f" verdict: {self.kind}"
         if self.subcase:
             line += " (subcase)"
         if self.detail:
@@ -121,7 +134,8 @@ class VerificationVerdict:
         return (
             f"VerificationVerdict(case_id={self.case_id!r}, kind={self.kind!r}, "
             f"detail={self.detail!r}, subcase={self.subcase!r}, "
-            f"requirement_id={self.requirement_id!r})"
+            f"requirement_id={self.requirement_id!r}, instance_id={self.instance_id!r}, "
+            f"instance_type_id={self.instance_type_id!r})"
         )
 
 

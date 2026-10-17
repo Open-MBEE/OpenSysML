@@ -165,7 +165,12 @@ branch that moves the integration state onto `main`:
    to the SemVer spelling of the same version (`0.9.1`;
    `0.9.0-rc.1` for `0.9.0rc1`), and run `npm install --package-lock-only` in
    `client/node` so the lockfile agrees; the release workflow fails before
-   building anything when package.json disagrees. `client/java/pom.xml` follows
+   building anything when package.json disagrees, and `npm ci` refuses a
+   lockfile that still locks the platform packages at the previous version
+   (`TestNodeLockfileAgreesWithTheClientVersion` in `tests/hygiene` catches
+   that without a Node toolchain). Before the tag the new platform packages
+   are not on npm, so that run drops their entries from the lockfile; that is
+   fine for `npm ci`, and the pin step below locks them once they exist. `client/java/pom.xml` follows
    the same version too: set the parent pom's `<version>`, both modules'
    `<parent><version>`, and the client version in `editors/mdk/pom.xml`
    (`opensysml.client.version`) and `editors/syson/backend/pom.xml` to the same
@@ -201,11 +206,17 @@ branch that moves the integration state onto `main`:
    them before they existed — so run that on the pin branch and commit the
    lockfile first. Then merge
    `main` back into `develop` — a plain merge, no rebase — so the folded
-   changelog, and any hotfix that landed on `main` in the meantime, flow down:
+   changelog, and any hotfix that landed on `main` in the meantime, flow down.
+   When the release was a `hotfix/` branch, `develop`'s lockfile still locks
+   the platform packages of the previous release: run the same
+   `npm install --package-lock-only` on the back-merge branch, or its Node
+   client job fails on `npm ci`:
 
    ```bash
    git checkout develop && git pull
    git merge main
+   (cd client/node && npm install --package-lock-only --ignore-scripts)   # after a hotfix
+   git commit -am "chore(node): lock the platform packages at the release"  # if it changed
    git push origin develop
    ```
 
@@ -257,8 +268,10 @@ so that `dist/` holds:
   `.sha256` sidecar for the same reason: `jupyter-opensysml-kernel`'s sdist downloads
   and verifies it (`client/jupyter-kernel/jupyter_opensysml_kernel/binary.py`) when it
   registers the kernelspec, and its platform wheels bundle it;
-- `wasm/sysml-wasm.wasm` and `wasm/wasm_exec.js`, the combined WebAssembly
-  module and matching Go runtime, each with a `.sha256` sidecar;
+- `wasm/sysml-wasm.wasm`, `wasm/sysml-prod.wasm.gz` and `wasm/wasm_exec.js`, the
+  combined WebAssembly module, the gzip-compressed browser build of the `sysml` REPL
+  (`-tags sysml_prod`, what the site's REPL page runs) and the matching Go runtime,
+  each with a `.sha256` sidecar;
 - the Python client's distribution, `opensysml-<x.y.z>-py3-none-any.whl` and
   `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` from those
   `sysml-grpc` binaries' digests and the same files `publish-pypi` uploads (see
@@ -269,7 +282,7 @@ so that `dist/` holds:
   digests (see
   [Releasing jupyter-opensysml-kernel to PyPI](#releasing-jupyter-opensysml-kernel-to-pypi));
 - `SHA256SUMS.txt` over every archive, every wheel and sdist, every `sysml-grpc` and
-  `sysml-jupyter-kernel` binary and both WebAssembly assets,
+  `sysml-jupyter-kernel` binary and all three WebAssembly assets,
   with its cosign signature `SHA256SUMS.txt.bundle` (see
   [The signed checksum manifest](#the-signed-checksum-manifest));
 - `provenance.intoto.json`, the SLSA provenance statement naming every artifact
@@ -1464,7 +1477,7 @@ The Java client in `client/java/` is published to Maven Central as
 — by the `release` workflow's `publish-maven` job, from the same core
 `v<version>` tag that publishes the binaries, `opensysml` and
 `@openmbee/opensysml`, at that version. The `opensysml-java-v*` path was never
-tagged and is no longer used. **The Java artifacts are not on Maven Central yet.**
+tagged and is no longer used. The Java artifacts are on Maven Central from 0.10.1.
 
 ### What a maintainer must obtain first
 
@@ -1558,6 +1571,11 @@ pom property or the settings), and `central-publishing-maven-plugin` with
 deployment itself and waits until it is published, so a green job means the
 version is on Central. The irreversible step is guarded by running last, on a
 revision proven green, and by the refusal of a version already published.
+The plugin's pin has to track Sonatype's Portal API: `0.7.0` rejected the
+`warnings` field the deployment-status response gained in October 2026 and
+reported the `v0.10.1` publish failed after Central had published it, so a red
+publish job is checked against Central's component listing before any rerun
+(the refusal step fails a rerun of a published version by design).
 
 The same checks run locally before a release, without uploading:
 

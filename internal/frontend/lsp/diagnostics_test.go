@@ -107,6 +107,10 @@ func TestPublishDiagnosticsReportsSyntaxError(t *testing.T) {
 	if got.Diagnostics[0].Code != "syntax" {
 		t.Errorf("code = %v, want %q", got.Diagnostics[0].Code, "syntax")
 	}
+	// The code description opens the catalogue at the code's section.
+	if cd := got.Diagnostics[0].CodeDescription; cd == nil || string(cd.Href) != "https://runtime.opensysml.org/reference/diagnostics/#syntax" {
+		t.Errorf("codeDescription = %v, want the catalogue section of syntax", cd)
+	}
 }
 
 // A bare import reaches the editor as an error on the `import` keyword: the
@@ -131,6 +135,9 @@ func TestPublishDiagnosticsReportsBareImportAsError(t *testing.T) {
 	}
 	if d.Code != "import-visibility" {
 		t.Errorf("code = %v, want %q", d.Code, "import-visibility")
+	}
+	if d.CodeDescription == nil || !strings.HasSuffix(string(d.CodeDescription.Href), "/reference/diagnostics/#import-visibility") {
+		t.Errorf("codeDescription = %v, want the catalogue section of import-visibility", d.CodeDescription)
 	}
 	want := protocol.Range{
 		Start: protocol.Position{Line: 2, Character: 4},

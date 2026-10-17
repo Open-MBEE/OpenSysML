@@ -1,0 +1,1 @@
+- The `internal/exec/runtime` tests build their hand-made action graphs, evaluated attributes, constraint packages and classifier-behavior contexts through shared helpers (`actionSymbol`, `succession`, `evalAttribute`, `constraintPackage`, `behaviorContext`, `mustInstantiate`) instead of repeating the setup in each test; the cases and their assertions are unchanged.

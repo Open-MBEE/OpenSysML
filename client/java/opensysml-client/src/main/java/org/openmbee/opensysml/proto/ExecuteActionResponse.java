@@ -51,6 +51,8 @@ private static final long serialVersionUID = 0L;
         return internalGetOutputs();
       case 7:
         return internalGetPerformerAttributes();
+      case 8:
+        return internalGetOrderDependent();
       default:
         throw new RuntimeException(
             "Invalid map field number: " + number);
@@ -466,6 +468,107 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     return map.get(key);
   }
 
+  public static final int ORDER_DEPENDENT_FIELD_NUMBER = 8;
+  private static final class OrderDependentDefaultEntryHolder {
+    static final com.google.protobuf.MapEntry<
+        java.lang.String, java.lang.Integer> defaultEntry =
+            com.google.protobuf.MapEntry
+            .<java.lang.String, java.lang.Integer>newDefaultInstance(
+                org.openmbee.opensysml.proto.Sysml.internal_static_sysml_ExecuteActionResponse_OrderDependentEntry_descriptor, 
+                com.google.protobuf.WireFormat.FieldType.STRING,
+                "",
+                com.google.protobuf.WireFormat.FieldType.INT32,
+                0);
+  }
+  @SuppressWarnings("serial")
+  private com.google.protobuf.MapField<
+      java.lang.String, java.lang.Integer> orderDependent_;
+  private com.google.protobuf.MapField<java.lang.String, java.lang.Integer>
+  internalGetOrderDependent() {
+    if (orderDependent_ == null) {
+      return com.google.protobuf.MapField.emptyMapField(
+          OrderDependentDefaultEntryHolder.defaultEntry);
+    }
+    return orderDependent_;
+  }
+  public int getOrderDependentCount() {
+    return internalGetOrderDependent().getMap().size();
+  }
+  /**
+   * <pre>
+   * Output name → how many of the run's unresolved choice points touch it; an
+   * output nothing order-dependent wrote is absent. Populated under the
+   * "order_dependence" capability; empty under an explore schedule.
+   * </pre>
+   *
+   * <code>map&lt;string, int32&gt; order_dependent = 8 [json_name = "orderDependent"];</code>
+   */
+  @java.lang.Override
+  public boolean containsOrderDependent(
+      java.lang.String key) {
+    if (key == null) { throw new NullPointerException("map key"); }
+    return internalGetOrderDependent().getMap().containsKey(key);
+  }
+  /**
+   * Use {@link #getOrderDependentMap()} instead.
+   */
+  @java.lang.Override
+  @java.lang.Deprecated
+  public java.util.Map<java.lang.String, java.lang.Integer> getOrderDependent() {
+    return getOrderDependentMap();
+  }
+  /**
+   * <pre>
+   * Output name → how many of the run's unresolved choice points touch it; an
+   * output nothing order-dependent wrote is absent. Populated under the
+   * "order_dependence" capability; empty under an explore schedule.
+   * </pre>
+   *
+   * <code>map&lt;string, int32&gt; order_dependent = 8 [json_name = "orderDependent"];</code>
+   */
+  @java.lang.Override
+  public java.util.Map<java.lang.String, java.lang.Integer> getOrderDependentMap() {
+    return internalGetOrderDependent().getMap();
+  }
+  /**
+   * <pre>
+   * Output name → how many of the run's unresolved choice points touch it; an
+   * output nothing order-dependent wrote is absent. Populated under the
+   * "order_dependence" capability; empty under an explore schedule.
+   * </pre>
+   *
+   * <code>map&lt;string, int32&gt; order_dependent = 8 [json_name = "orderDependent"];</code>
+   */
+  @java.lang.Override
+  public int getOrderDependentOrDefault(
+      java.lang.String key,
+      int defaultValue) {
+    if (key == null) { throw new NullPointerException("map key"); }
+    java.util.Map<java.lang.String, java.lang.Integer> map =
+        internalGetOrderDependent().getMap();
+    return map.containsKey(key) ? map.get(key) : defaultValue;
+  }
+  /**
+   * <pre>
+   * Output name → how many of the run's unresolved choice points touch it; an
+   * output nothing order-dependent wrote is absent. Populated under the
+   * "order_dependence" capability; empty under an explore schedule.
+   * </pre>
+   *
+   * <code>map&lt;string, int32&gt; order_dependent = 8 [json_name = "orderDependent"];</code>
+   */
+  @java.lang.Override
+  public int getOrderDependentOrThrow(
+      java.lang.String key) {
+    if (key == null) { throw new NullPointerException("map key"); }
+    java.util.Map<java.lang.String, java.lang.Integer> map =
+        internalGetOrderDependent().getMap();
+    if (!map.containsKey(key)) {
+      throw new java.lang.IllegalArgumentException();
+    }
+    return map.get(key);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -507,6 +610,12 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         internalGetPerformerAttributes(),
         PerformerAttributesDefaultEntryHolder.defaultEntry,
         7);
+    com.google.protobuf.GeneratedMessage
+      .serializeStringMapTo(
+        output,
+        internalGetOrderDependent(),
+        OrderDependentDefaultEntryHolder.defaultEntry,
+        8);
     getUnknownFields().writeTo(output);
   }
 
@@ -555,6 +664,16 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(7, performerAttributes__);
     }
+    for (java.util.Map.Entry<java.lang.String, java.lang.Integer> entry
+         : internalGetOrderDependent().getMap().entrySet()) {
+      com.google.protobuf.MapEntry<java.lang.String, java.lang.Integer>
+      orderDependent__ = OrderDependentDefaultEntryHolder.defaultEntry.newBuilderForType()
+          .setKey(entry.getKey())
+          .setValue(entry.getValue())
+          .build();
+      size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(8, orderDependent__);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -588,6 +707,8 @@ org.openmbee.opensysml.proto.Value defaultValue) {
             other.getFinalTime())) return false;
     if (!internalGetPerformerAttributes().equals(
         other.internalGetPerformerAttributes())) return false;
+    if (!internalGetOrderDependent().equals(
+        other.internalGetOrderDependent())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -623,6 +744,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     if (!internalGetPerformerAttributes().getMap().isEmpty()) {
       hash = (37 * hash) + PERFORMER_ATTRIBUTES_FIELD_NUMBER;
       hash = (53 * hash) + internalGetPerformerAttributes().hashCode();
+    }
+    if (!internalGetOrderDependent().getMap().isEmpty()) {
+      hash = (37 * hash) + ORDER_DEPENDENT_FIELD_NUMBER;
+      hash = (53 * hash) + internalGetOrderDependent().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -745,6 +870,8 @@ org.openmbee.opensysml.proto.Value defaultValue) {
           return internalGetOutputs();
         case 7:
           return internalGetPerformerAttributes();
+        case 8:
+          return internalGetOrderDependent();
         default:
           throw new RuntimeException(
               "Invalid map field number: " + number);
@@ -758,6 +885,8 @@ org.openmbee.opensysml.proto.Value defaultValue) {
           return internalGetMutableOutputs();
         case 7:
           return internalGetMutablePerformerAttributes();
+        case 8:
+          return internalGetMutableOrderDependent();
         default:
           throw new RuntimeException(
               "Invalid map field number: " + number);
@@ -816,6 +945,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       }
       finalTime_ = 0D;
       internalGetMutablePerformerAttributes().clear();
+      internalGetMutableOrderDependent().clear();
       return this;
     }
 
@@ -889,6 +1019,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       }
       if (((from_bitField0_ & 0x00000040) != 0)) {
         result.performerAttributes_ = internalGetPerformerAttributes().build(PerformerAttributesDefaultEntryHolder.defaultEntry);
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.orderDependent_ = internalGetOrderDependent();
+        result.orderDependent_.makeImmutable();
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -974,6 +1108,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       internalGetMutablePerformerAttributes().mergeFrom(
           other.internalGetPerformerAttributes());
       bitField0_ |= 0x00000040;
+      internalGetMutableOrderDependent().mergeFrom(
+          other.internalGetOrderDependent());
+      bitField0_ |= 0x00000080;
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1061,6 +1198,15 @@ org.openmbee.opensysml.proto.Value defaultValue) {
               bitField0_ |= 0x00000040;
               break;
             } // case 58
+            case 66: {
+              com.google.protobuf.MapEntry<java.lang.String, java.lang.Integer>
+              orderDependent__ = input.readMessage(
+                  OrderDependentDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
+              internalGetMutableOrderDependent().getMutableMap().put(
+                  orderDependent__.getKey(), orderDependent__.getValue());
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2323,6 +2469,173 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         builderMap.put(key, entry);
       }
       return (org.openmbee.opensysml.proto.Value.Builder) entry;
+    }
+
+    private com.google.protobuf.MapField<
+        java.lang.String, java.lang.Integer> orderDependent_;
+    private com.google.protobuf.MapField<java.lang.String, java.lang.Integer>
+        internalGetOrderDependent() {
+      if (orderDependent_ == null) {
+        return com.google.protobuf.MapField.emptyMapField(
+            OrderDependentDefaultEntryHolder.defaultEntry);
+      }
+      return orderDependent_;
+    }
+    private com.google.protobuf.MapField<java.lang.String, java.lang.Integer>
+        internalGetMutableOrderDependent() {
+      if (orderDependent_ == null) {
+        orderDependent_ = com.google.protobuf.MapField.newMapField(
+            OrderDependentDefaultEntryHolder.defaultEntry);
+      }
+      if (!orderDependent_.isMutable()) {
+        orderDependent_ = orderDependent_.copy();
+      }
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return orderDependent_;
+    }
+    public int getOrderDependentCount() {
+      return internalGetOrderDependent().getMap().size();
+    }
+    /**
+     * <pre>
+     * Output name → how many of the run's unresolved choice points touch it; an
+     * output nothing order-dependent wrote is absent. Populated under the
+     * "order_dependence" capability; empty under an explore schedule.
+     * </pre>
+     *
+     * <code>map&lt;string, int32&gt; order_dependent = 8 [json_name = "orderDependent"];</code>
+     */
+    @java.lang.Override
+    public boolean containsOrderDependent(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      return internalGetOrderDependent().getMap().containsKey(key);
+    }
+    /**
+     * Use {@link #getOrderDependentMap()} instead.
+     */
+    @java.lang.Override
+    @java.lang.Deprecated
+    public java.util.Map<java.lang.String, java.lang.Integer> getOrderDependent() {
+      return getOrderDependentMap();
+    }
+    /**
+     * <pre>
+     * Output name → how many of the run's unresolved choice points touch it; an
+     * output nothing order-dependent wrote is absent. Populated under the
+     * "order_dependence" capability; empty under an explore schedule.
+     * </pre>
+     *
+     * <code>map&lt;string, int32&gt; order_dependent = 8 [json_name = "orderDependent"];</code>
+     */
+    @java.lang.Override
+    public java.util.Map<java.lang.String, java.lang.Integer> getOrderDependentMap() {
+      return internalGetOrderDependent().getMap();
+    }
+    /**
+     * <pre>
+     * Output name → how many of the run's unresolved choice points touch it; an
+     * output nothing order-dependent wrote is absent. Populated under the
+     * "order_dependence" capability; empty under an explore schedule.
+     * </pre>
+     *
+     * <code>map&lt;string, int32&gt; order_dependent = 8 [json_name = "orderDependent"];</code>
+     */
+    @java.lang.Override
+    public int getOrderDependentOrDefault(
+        java.lang.String key,
+        int defaultValue) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, java.lang.Integer> map =
+          internalGetOrderDependent().getMap();
+      return map.containsKey(key) ? map.get(key) : defaultValue;
+    }
+    /**
+     * <pre>
+     * Output name → how many of the run's unresolved choice points touch it; an
+     * output nothing order-dependent wrote is absent. Populated under the
+     * "order_dependence" capability; empty under an explore schedule.
+     * </pre>
+     *
+     * <code>map&lt;string, int32&gt; order_dependent = 8 [json_name = "orderDependent"];</code>
+     */
+    @java.lang.Override
+    public int getOrderDependentOrThrow(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, java.lang.Integer> map =
+          internalGetOrderDependent().getMap();
+      if (!map.containsKey(key)) {
+        throw new java.lang.IllegalArgumentException();
+      }
+      return map.get(key);
+    }
+    public Builder clearOrderDependent() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      internalGetMutableOrderDependent().getMutableMap()
+          .clear();
+      return this;
+    }
+    /**
+     * <pre>
+     * Output name → how many of the run's unresolved choice points touch it; an
+     * output nothing order-dependent wrote is absent. Populated under the
+     * "order_dependence" capability; empty under an explore schedule.
+     * </pre>
+     *
+     * <code>map&lt;string, int32&gt; order_dependent = 8 [json_name = "orderDependent"];</code>
+     */
+    public Builder removeOrderDependent(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      internalGetMutableOrderDependent().getMutableMap()
+          .remove(key);
+      return this;
+    }
+    /**
+     * Use alternate mutation accessors instead.
+     */
+    @java.lang.Deprecated
+    public java.util.Map<java.lang.String, java.lang.Integer>
+        getMutableOrderDependent() {
+      bitField0_ |= 0x00000080;
+      return internalGetMutableOrderDependent().getMutableMap();
+    }
+    /**
+     * <pre>
+     * Output name → how many of the run's unresolved choice points touch it; an
+     * output nothing order-dependent wrote is absent. Populated under the
+     * "order_dependence" capability; empty under an explore schedule.
+     * </pre>
+     *
+     * <code>map&lt;string, int32&gt; order_dependent = 8 [json_name = "orderDependent"];</code>
+     */
+    public Builder putOrderDependent(
+        java.lang.String key,
+        int value) {
+      if (key == null) { throw new NullPointerException("map key"); }
+
+      internalGetMutableOrderDependent().getMutableMap()
+          .put(key, value);
+      bitField0_ |= 0x00000080;
+      return this;
+    }
+    /**
+     * <pre>
+     * Output name → how many of the run's unresolved choice points touch it; an
+     * output nothing order-dependent wrote is absent. Populated under the
+     * "order_dependence" capability; empty under an explore schedule.
+     * </pre>
+     *
+     * <code>map&lt;string, int32&gt; order_dependent = 8 [json_name = "orderDependent"];</code>
+     */
+    public Builder putAllOrderDependent(
+        java.util.Map<java.lang.String, java.lang.Integer> values) {
+      internalGetMutableOrderDependent().getMutableMap()
+          .putAll(values);
+      bitField0_ |= 0x00000080;
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.ExecuteActionResponse)

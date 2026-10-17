@@ -479,6 +479,20 @@ impl Connection {
         ports: RenderViewPorts,
         show: &[&str],
     ) -> Result<RenderedView, Error> {
+        self.render_view_bounded(model_hash, view_name, ports, show, 0)
+    }
+
+    /// Render a named view as `render_view_showing` does, drawing `depth` levels
+    /// of nested elements below each exposed element when `depth` is above 0,
+    /// overriding the depth the view states.
+    pub fn render_view_bounded(
+        &self,
+        model_hash: &str,
+        view_name: &str,
+        ports: RenderViewPorts,
+        show: &[&str],
+        depth: u32,
+    ) -> Result<RenderedView, Error> {
         self.require_all(&[crate::capabilities::CAPABILITY_RENDER_VIEW])?;
         let response = self.gated_rpc(
             "RenderView",
@@ -490,6 +504,7 @@ impl Connection {
                     RenderViewPorts::Full => "full".to_owned(),
                 },
                 show: show.iter().map(|s| (*s).to_owned()).collect(),
+                depth: i32::try_from(depth).unwrap_or(i32::MAX),
             },
             &[crate::capabilities::CAPABILITY_RENDER_VIEW],
         )?;

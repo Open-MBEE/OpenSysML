@@ -15,7 +15,7 @@
 #   opensysml-<os>-<arch>.tar.gz                              (.zip on Windows)
 #   grpc/sysml-grpc-<os>-<arch>[.exe] with a .sha256 sidecar
 #   jupyter/sysml-jupyter-kernel-<os>-<arch>[.exe] with a .sha256 sidecar
-#   wasm/sysml-wasm.wasm and wasm/wasm_exec.js with .sha256 sidecars
+#   wasm/sysml-wasm.wasm, wasm/sysml-prod.wasm.gz and wasm/wasm_exec.js with .sha256 sidecars
 #   SHA256SUMS.txt
 #
 # Every binary is then checked for the version it should report: the host
@@ -63,7 +63,7 @@ done
 
 make build-release-wasm \
   VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
-mv bin/wasm/release/sysml-wasm.wasm bin/wasm/release/wasm_exec.js "$DIST/wasm/"
+mv bin/wasm/release/sysml-wasm.wasm bin/wasm/release/sysml-prod.wasm.gz bin/wasm/release/wasm_exec.js "$DIST/wasm/"
 
 cd "$DIST"
 
@@ -103,8 +103,8 @@ sha256sum ./*.tar.gz ./*.zip | sed 's|\./||' > SHA256SUMS.txt
 (cd grpc && for f in sysml-grpc-*; do sha256sum "$f" > "$f.sha256"; done)
 (cd jupyter && sha256sum sysml-jupyter-kernel-* >> ../SHA256SUMS.txt)
 (cd jupyter && for f in sysml-jupyter-kernel-*; do sha256sum "$f" > "$f.sha256"; done)
-(cd wasm && sha256sum sysml-wasm.wasm wasm_exec.js >> ../SHA256SUMS.txt)
-(cd wasm && for f in sysml-wasm.wasm wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
+(cd wasm && sha256sum sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js >> ../SHA256SUMS.txt)
+(cd wasm && for f in sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
 cat SHA256SUMS.txt
 
 host="$(go env GOHOSTOS)-$(go env GOHOSTARCH)"
@@ -114,7 +114,7 @@ fail() {
   echo "The version ldflags (see the Makefile's LDFLAGS) did not reach this build." >&2
   status=1
 }
-for binary in sysml-* grpc/sysml-grpc-* jupyter/sysml-jupyter-kernel-* wasm/sysml-wasm.wasm; do
+for binary in sysml-* grpc/sysml-grpc-* jupyter/sysml-jupyter-kernel-* wasm/sysml-wasm.wasm wasm/sysml-prod.wasm.gz; do
   if [[ "$binary" == *.tar.gz || "$binary" == *.zip || "$binary" == *.sha256 ]]; then
     continue
   fi
@@ -124,7 +124,10 @@ for binary in sysml-* grpc/sysml-grpc-* jupyter/sysml-jupyter-kernel-* wasm/sysm
       *" ${VERSION} "*) echo "ok: $binary reports ${VERSION}" ;;
       *) fail "$binary" "it reports '${reported}'" ;;
     esac
-  elif grep -qa -- "${VERSION}" "$binary"; then
+  # grep -c reads the whole stream: under pipefail, -q would SIGPIPE gzip on an early match.
+  elif [[ "$binary" == *.gz ]] && gzip -dc "$binary" | grep -ac -- "${VERSION}" > /dev/null; then
+    echo "ok: $binary carries ${VERSION}"
+  elif [[ "$binary" != *.gz ]] && grep -qa -- "${VERSION}" "$binary"; then
     echo "ok: $binary carries ${VERSION}"
   else
     fail "$binary" "the version string is absent from the binary"

@@ -1315,6 +1315,29 @@ class _Infinity:
 INFINITY = _Infinity()
 
 
+# The value arms a single conversion settles, keyed by the oneof field set.
+_SIMPLE_VALUE_ARMS = {
+    'int_value': lambda pb, resolve: pb.int_value,
+    'big_int_value': lambda pb, resolve: integer_from_decimal(pb.big_int_value),
+    'real_value': lambda pb, resolve: pb.real_value,
+    'rational_value': lambda pb, resolve: rational_from_pb(pb.rational_value),
+    'complex': lambda pb, resolve: complex(pb.complex.real, pb.complex.imaginary),
+    'bool_value': lambda pb, resolve: pb.bool_value,
+    'string_value': lambda pb, resolve: pb.string_value,
+    'quantity': lambda pb, resolve: Quantity.from_pb(pb.quantity),
+    'measurement_ref': lambda pb, resolve: MeasurementRef.from_pb(pb.measurement_ref),
+    'function': lambda pb, resolve: Function.from_pb(pb.function),
+    'metaobject': lambda pb, resolve: Metaobject.from_pb(pb.metaobject),
+    'sequence': lambda pb, resolve: [value_to_python(v, resolve) for v in pb.sequence.elements],
+    'array': lambda pb, resolve: Array.from_pb(pb.array, resolve),
+    'vector': lambda pb, resolve: Vector.from_pb(pb.vector),
+    'vector_quantity': lambda pb, resolve: VectorQuantity.from_pb(pb.vector_quantity),
+    'set': lambda pb, resolve: SetValue.from_pb(pb.set, resolve),
+    'tensor_quantity': lambda pb, resolve: TensorQuantity.from_pb(pb.tensor_quantity),
+    'unset': lambda pb, resolve: UNSET,
+    'undetermined': lambda pb, resolve: Undetermined.from_pb(pb.undetermined),
+}
+
 def value_to_python(pb_value, resolve_instance=None):
     """Convert a protobuf Value into a plain Python value.
 
@@ -1341,54 +1364,19 @@ def value_to_python(pb_value, resolve_instance=None):
             or sent a value arm this client predates.
     """
     kind = pb_value.WhichOneof('kind')
-    if kind == 'int_value':
-        return pb_value.int_value
-    if kind == 'big_int_value':
-        return integer_from_decimal(pb_value.big_int_value)
-    if kind == 'real_value':
-        return pb_value.real_value
-    if kind == 'rational_value':
-        return rational_from_pb(pb_value.rational_value)
-    if kind == 'complex':
-        return complex(pb_value.complex.real, pb_value.complex.imaginary)
-    if kind == 'bool_value':
-        return pb_value.bool_value
-    if kind == 'string_value':
-        return pb_value.string_value
-    if kind == 'quantity':
-        return Quantity.from_pb(pb_value.quantity)
-    if kind == 'measurement_ref':
-        return MeasurementRef.from_pb(pb_value.measurement_ref)
-    if kind == 'function':
-        return Function.from_pb(pb_value.function)
-    if kind == 'metaobject':
-        return Metaobject.from_pb(pb_value.metaobject)
+    simple = _SIMPLE_VALUE_ARMS.get(kind)
+    if simple is not None:
+        return simple(pb_value, resolve_instance)
     if kind == 'instance_id':
         if resolve_instance is None:
             return InstanceRef(pb_value.instance_id)
         return resolve_instance(pb_value.instance_id)
-    if kind == 'sequence':
-        return [value_to_python(v, resolve_instance) for v in pb_value.sequence.elements]
-    if kind == 'array':
-        return Array.from_pb(pb_value.array, resolve_instance)
-    if kind == 'vector':
-        return Vector.from_pb(pb_value.vector)
-    if kind == 'vector_quantity':
-        return VectorQuantity.from_pb(pb_value.vector_quantity)
-    if kind == 'set':
-        return SetValue.from_pb(pb_value.set, resolve_instance)
-    if kind == 'tensor_quantity':
-        return TensorQuantity.from_pb(pb_value.tensor_quantity)
     if kind == 'enum_literal':
         lit = pb_value.enum_literal
         value = None
         if lit.HasField('value'):
             value = value_to_python(lit.value, resolve_instance)
         return EnumLiteral(lit.literal_id, lit.enumeration_id, lit.name, value)
-    if kind == 'unset':
-        return UNSET
-    if kind == 'undetermined':
-        return Undetermined.from_pb(pb_value.undetermined)
     if kind == 'infinity':
         # Only an asserted arm carries the unbounded value.
         if not pb_value.infinity:

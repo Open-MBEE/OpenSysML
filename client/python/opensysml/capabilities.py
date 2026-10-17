@@ -246,6 +246,12 @@ CAPABILITY_STATE_TRACE = "state_trace"
 #: field is 0 whatever the run waited on.
 CAPABILITY_FINAL_TIME = "final_time"
 
+#: ``order_dependent`` on an action or state run's response and on a feature
+#: value, and ``order_dependent``/``independent`` on a ``choice-point``
+#: diagnostic: what a run's values stand only up to. Without it a value reads
+#: as fixed whatever order the run took.
+CAPABILITY_ORDER_DEPENDENCE = "order_dependence"
+
 #: The analysis engines: ``ListEngines``, the ``engine`` field selecting one
 #: (``auto``, ``all`` or a name) on the verification, calc, analysis and sweep
 #: requests, and ``engine``, ``strength`` and ``bounds`` on their responses,

@@ -24,7 +24,7 @@ func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbol
 
 // renderInterconnectionWithIDs walks structural features with shared node IDs.
 func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering, ids *nodeIDs, mixed bool) map[*symbols.Symbol]*Node {
-	w := &featureWalk{r: r, view: view, ids: ids, nodes: map[*symbols.Symbol]*Node{},
+	w := &featureWalk{r: r, view: view, ids: ids, nodes: map[*symbols.Symbol]*Node{}, pruned: map[*symbols.Symbol]bool{},
 		pins: map[*Node]map[*symbols.Symbol]string{}, parent: map[*Node]*Node{}, out: out, mixed: mixed}
 	var roots []*symbols.Symbol
 	for _, elem := range exposed {
@@ -32,7 +32,7 @@ func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []
 			roots = append(roots, elem)
 		}
 	}
-	descendants := r.exposedDescendants(roots, w.nestedFeatures)
+	descendants := r.exposedDescendants(view, roots, w.nestedFeatures)
 	var ports []*symbols.Symbol
 	for _, elem := range exposed {
 		switch {
@@ -97,6 +97,48 @@ type featureWalk struct {
 	connectors []*symbols.Symbol
 	out        *Rendering
 	mixed      bool
+	// pruned is each member the view's filter conditions kept the walk from drawing.
+	pruned map[*symbols.Symbol]bool
+}
+
+// walkMembers is the renderer's walkMembers for the walk's view, remembering
+// what the filters pruned so a connector ending there is reported, not rerouted.
+func (w *featureWalk) walkMembers(sym *symbols.Symbol) []*symbols.Symbol {
+	all := w.r.containedMembers(sym)
+	kept := w.r.walkMembers(w.view, sym)
+	if len(kept) == len(all) {
+		return kept
+	}
+	drawn := map[*symbols.Symbol]bool{}
+	for _, member := range kept {
+		drawn[member] = true
+	}
+	for _, member := range all {
+		if !drawn[member] {
+			w.pruned[member] = true
+		}
+	}
+	return kept
+}
+
+// excluded reports whether target, or an owner of it below the nearest drawn
+// node, was pruned by the view's filter conditions: nothing stands in for it.
+func (w *featureWalk) excluded(target *symbols.Symbol) bool {
+	for sym := target; sym != nil; sym = sym.Owner() {
+		if w.pruned[sym] {
+			return true
+		}
+		if _, drawn := w.nodes[sym]; drawn {
+			return false
+		}
+	}
+	return false
+}
+
+// pinnedAt reports whether member is drawn on owner's border rather than
+// nested in it: a port, or a pin of a case or constraint.
+func pinnedAt(owner, member *symbols.Symbol) bool {
+	return member.Kind == symbols.SymbolPortUsage || casePin(owner, member) || constraintParameter(owner, member)
 }
 
 // drawsFeature reports whether the interconnection traversal emits sym as a feature node.
@@ -131,11 +173,21 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 	w.pinPorts(node, sym)
 	w.pinParameters(node, sym)
 	r.notesOf(w.view, sym, node.ID, w.out)
-	if seen[sym] || depth >= r.treeDepth() {
+	if seen[sym] {
 		return node
 	}
 	seen[sym] = true
-	for _, member := range r.containedMembers(sym) {
+	// At the depth bound, or collapsed, an element keeps its ports and pins — they
+	// count at their owner's depth — and nothing nested is drawn.
+	bound, cut := r.walkBound(w.view), 0
+	folded := depth >= bound || collapsed(node)
+	for _, member := range w.walkMembers(sym) {
+		if folded && !pinnedAt(sym, member) {
+			if depth >= bound && w.drawsFeature(member) {
+				cut++
+			}
+			continue
+		}
 		switch {
 		case r.drawsConnector(member):
 			w.connectors = append(w.connectors, member)
@@ -151,6 +203,10 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 			node.Children = append(node.Children, child)
 		}
 	}
+	if cut > 0 {
+		node.Detail = detailWith(node.Detail, cutNote(bound))
+		w.out.depthCut += cut
+	}
 	return node
 }
 
@@ -160,14 +216,33 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 // at `heating.durationIn` ends at that pin.
 func (w *featureWalk) pinPorts(node *Node, sym *symbols.Symbol) {
 	for _, port := range w.r.typedPorts(sym) {
+		if !w.admitted(port) {
+			continue
+		}
 		w.pin(node, port, PortUndirected, false, w.r.memberGeometryOf(w.view, sym, localName(port), w.out))
 	}
+}
+
+// admitted reports whether the view's filter conditions admit an inherited port
+// or parameter sym pins; one they reject is pruned like a declared member.
+func (w *featureWalk) admitted(sym *symbols.Symbol) bool {
+	if w.r.admits(w.r.walkFilters(w.view), sym) {
+		return true
+	}
+	if w.pruned == nil {
+		w.pruned = map[*symbols.Symbol]bool{}
+	}
+	w.pruned[sym] = true
+	return false
 }
 
 // pinParameters draws on node's border the parameters sym has from its constraint
 // def without declaring them: `constraint c : Law` shows the `in x` Law declares.
 func (w *featureWalk) pinParameters(node *Node, sym *symbols.Symbol) {
 	for _, parameter := range w.r.typedParameters(sym) {
+		if !w.admitted(parameter) {
+			continue
+		}
 		w.pin(node, parameter, pinDirection(parameter), false, w.r.memberGeometryOf(w.view, sym, localName(parameter), w.out))
 	}
 }
@@ -322,7 +397,7 @@ func (r *Renderer) libraryDeclared(sym *symbols.Symbol) bool {
 // parameters pinned from its def, which a view exposing them beside it does not draw again.
 func (w *featureWalk) nestedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
-	for _, member := range w.r.containedMembers(sym) {
+	for _, member := range w.walkMembers(sym) {
 		if w.drawsFeature(member) && !isReferencedIncludedCase(member) {
 			out = append(out, member)
 		}
@@ -347,8 +422,12 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol) {
 	for _, end := range ends {
 		at := w.endNode(connector, end.attachment)
 		if at.node == nil {
-			out.Notices = append(out.Notices, fmt.Sprintf("%s %s attaches to %s, which the view does not expose; no edge is drawn",
-				declKind(connector), r.notationName(connector), notationName(end.path)))
+			why := "which the view does not expose"
+			if target, ok := r.resolver.ResolveTarget(connector.OwnerScope, end.attachment); ok && w.excluded(target) {
+				why = "which the view's filter conditions exclude"
+			}
+			out.Notices = append(out.Notices, fmt.Sprintf("%s %s attaches to %s, %s; no edge is drawn",
+				declKind(connector), r.notationName(connector), notationName(end.path), why))
 			return
 		}
 		resolved = append(resolved, at)
@@ -499,10 +578,15 @@ func (w *featureWalk) endNode(connector *symbols.Symbol, attachment ast.Node) ed
 			if at := w.memberEnd(base.node, target); at.node != nil {
 				return at
 			}
+			// A member the view's filters exclude ends no edge at its owner; one
+			// below the depth bound or a collapsed body does.
+			if resolved && w.excluded(target) {
+				return edgeEnd{}
+			}
 			return base
 		}
 	}
-	if !resolved {
+	if !resolved || w.excluded(target) {
 		return edgeEnd{}
 	}
 	for owner := connector.Owner(); owner != nil; owner = owner.Owner() {
@@ -525,6 +609,9 @@ func (w *featureWalk) endNode(connector *symbols.Symbol, attachment ast.Node) ed
 // drawing it or the nearest feature owning it, or base's pin for it. The zero
 // edgeEnd when base draws nothing for it.
 func (w *featureWalk) memberEnd(base *Node, target *symbols.Symbol) edgeEnd {
+	if w.excluded(target) {
+		return edgeEnd{}
+	}
 	for sym := target; sym != nil; sym = sym.Owner() {
 		if node, ok := w.nodes[sym]; ok && w.under(node, base) {
 			return edgeEnd{node: node}

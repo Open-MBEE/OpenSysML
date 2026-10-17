@@ -43,8 +43,10 @@ const contexts = await Promise.all(builds.map((options) => context(options)));
 if (watch) {
   await Promise.all(contexts.map((ctx) => ctx.watch()));
 } else {
-  for (const ctx of contexts) {
-    await ctx.rebuild();
-    await ctx.dispose();
-  }
+  await Promise.all(
+    contexts.map(async (ctx) => {
+      await ctx.rebuild();
+      await ctx.dispose();
+    }),
+  );
 }

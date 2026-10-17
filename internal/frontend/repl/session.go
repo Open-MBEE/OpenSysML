@@ -99,7 +99,11 @@ type Session struct {
 	ws              *model.Workspace
 	sourceConverter SourceConverter
 	snippets        []snippet
-	version         int
+	// suppress, when set, names the diagnostics kept out of every report, and
+	// suppressed counts how many the last report left out.
+	suppress   func(file, code, message string) bool
+	suppressed int
+	version    int
 
 	// Runtime execution context
 	rtCtx *runtime.Context
@@ -410,6 +414,18 @@ func (s *Session) endDebugSessions(cause string) {
 func (s *Session) Budgets() runtime.Budgets {
 	defer s.reading()()
 	return s.budgets
+}
+
+// Files returns the path of every file loaded into the session, in load order.
+func (s *Session) Files() []string {
+	defer s.enter()()
+	var out []string
+	for _, sn := range s.snippets {
+		if sn.origin != "" {
+			out = append(out, sn.origin)
+		}
+	}
+	return out
 }
 
 // List returns a one-line summary per surviving snippet.
@@ -812,7 +828,15 @@ func (s *Session) foreignSpans() []source.Span {
 
 // diagnostics reports the analysis of every session document and the syntax errors
 // of the masked submissions, each moved to where its text sits in the session buffer.
-func (s *Session) diagnostics() []diag.Diagnostic {
+func (s *Session) diagnostics() []diag.Diagnostic { return s.gather(true) }
+
+// allDiagnostics reports them all, suppression aside: whether an error stopped
+// analysis is decided over every error it found, known or not.
+func (s *Session) allDiagnostics() []diag.Diagnostic { return s.gather(false) }
+
+// gather collects the diagnostics, leaving out the ones Suppress accepted when
+// suppressing and counting them.
+func (s *Session) gather(suppressing bool) []diag.Diagnostic {
 	names := []string{docName}
 	for _, sn := range s.snippets {
 		if sn.origin != "" && !sn.open {
@@ -821,7 +845,10 @@ func (s *Session) diagnostics() []diag.Diagnostic {
 	}
 	// One batch: the documents not analyzed yet are analyzed at once.
 	analyzed := s.ws.DiagnosticsAll(names)
-	out := append([]diag.Diagnostic{}, analyzed[0]...)
+	if suppressing {
+		s.suppressed = 0
+	}
+	out := s.keep(nil, analyzed[0], "", suppressing)
 	next := 1
 	acc := 0
 	for _, sn := range s.snippets {
@@ -835,11 +862,25 @@ func (s *Session) diagnostics() []diag.Diagnostic {
 		}
 		for _, d := range own {
 			d.Span.Offset += acc
-			out = append(out, d)
+			d.Fixes = rebasedFixes(d.Fixes, acc)
+			out = s.keep(out, []diag.Diagnostic{d}, sn.origin, suppressing)
 		}
 		acc += len(sn.src) + 1 // the newline joined() writes between snippets
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Span.Offset < out[j].Span.Offset })
+	return out
+}
+
+// keep appends to out the diagnostics of file, less the ones the suppression
+// accepts when suppressing, counting those.
+func (s *Session) keep(out, diags []diag.Diagnostic, file string, suppressing bool) []diag.Diagnostic {
+	for _, d := range diags {
+		if suppressing && s.suppress != nil && s.suppress(file, d.Code, d.Message) {
+			s.suppressed++
+			continue
+		}
+		out = append(out, d)
+	}
 	return out
 }
 
@@ -1564,4 +1605,23 @@ func qualifiedOr(fqn, typed string) string {
 		return fqn
 	}
 	return typed
+}
+
+// rebasedFixes copies fixes with every edit moved by delta into the session
+// buffer, leaving the snippet's own diagnostics untouched.
+func rebasedFixes(fixes []diag.Fix, delta int) []diag.Fix {
+	if len(fixes) == 0 || delta == 0 {
+		return fixes
+	}
+	out := make([]diag.Fix, len(fixes))
+	for i, f := range fixes {
+		edits := make([]diag.Edit, len(f.Edits))
+		for j, e := range f.Edits {
+			e.Span.Offset += delta
+			edits[j] = e
+		}
+		f.Edits = edits
+		out[i] = f
+	}
+	return out
 }

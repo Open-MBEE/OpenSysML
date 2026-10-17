@@ -253,6 +253,9 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 		return nil, ss.runFailure(err, "feature %s of object %d could not be read: %v", feature, object)
 	}
 	out := &pb.FeatureValue{FeatureName: feature, Materialized: fv.Materialized}
+	if ss.svc.capabilities.has(CapabilityOrderDependence) {
+		out.OrderDependent = int32(ss.rt.OrderDependent(fv.Feature.Name)) // #nosec G115 -- choice points per run are bounded by the depth budget
+	}
 	if fv.Feature.Scalar() {
 		switch {
 		case !fv.Materialized:
