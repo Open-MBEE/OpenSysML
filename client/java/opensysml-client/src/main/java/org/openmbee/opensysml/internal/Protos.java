@@ -8,6 +8,7 @@ import org.openmbee.opensysml.Capabilities;
 import org.openmbee.opensysml.CaseEvaluation;
 import org.openmbee.opensysml.Condition;
 import org.openmbee.opensysml.Conversion;
+import org.openmbee.opensysml.CheckResult;
 import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.DocumentQueryResult;
 import org.openmbee.opensysml.DocumentRow;
@@ -929,6 +930,82 @@ public final class Protos {
    * @param bounds the bounds
    * @return the immutable standing
    */
+  /** The check result a {@code CheckBehaviorResponse} carries. */
+  public static CheckResult checkResult(org.openmbee.opensysml.proto.CheckBehaviorResponse r) {
+    return new CheckResult(
+        r.getVerdict(),
+        r.getLinesList(),
+        r.hasSearch() ? Optional.of(checkSearch(r.getSearch())) : Optional.empty(),
+        r.getViolationsList().stream().map(Protos::checkViolation).toList(),
+        r.getDivergencesList().stream().map(Protos::checkDivergence).toList(),
+        r.getFinalsList().stream().map(Protos::checkFinal).toList(),
+        r.getClaim(),
+        r.getFreeInputsList(),
+        r.getAssumptionsList(),
+        r.hasWitness() ? Optional.of(checkWitness(r.getWitness())) : Optional.empty(),
+        r.hasContrast() ? Optional.of(checkWitness(r.getContrast())) : Optional.empty(),
+        standing(r.getEngine(), r.getStrength(), r.getBoundsList()),
+        r.getReason());
+  }
+
+  private static CheckResult.Search checkSearch(org.openmbee.opensysml.proto.CheckSearch s) {
+    return new CheckResult.Search(
+        s.getStates(),
+        s.getMoves(),
+        s.getMaxDepth(),
+        s.getBoundsHitList(),
+        s.getHorizon(),
+        s.getHorizonSet(),
+        s.getMassBounded(),
+        s.getNotesList(),
+        s.getScopeList(),
+        s.getStatus());
+  }
+
+  private static CheckResult.Witness checkWitness(org.openmbee.opensysml.proto.CheckWitness w) {
+    return new CheckResult.Witness(
+        w.getSchedule(),
+        w.getDrawsList(),
+        w.getChoicesList(),
+        w.getInputsList(),
+        w.getFileName(),
+        w.getFileContent());
+  }
+
+  private static CheckResult.Violation checkViolation(
+      org.openmbee.opensysml.proto.CheckViolation v) {
+    return new CheckResult.Violation(
+        v.getKind(),
+        v.getProperty(),
+        v.getError(),
+        v.getDepth(),
+        v.getProbability(),
+        v.hasWitness() ? Optional.of(checkWitness(v.getWitness())) : Optional.empty(),
+        v.getText());
+  }
+
+  private static CheckResult.Divergence checkDivergence(
+      org.openmbee.opensysml.proto.CheckDivergence d) {
+    return new CheckResult.Divergence(
+        d.getFeature(),
+        d.getValuesList().stream()
+            .map(
+                v ->
+                    new CheckResult.DivergentValue(
+                        v.getValue(),
+                        v.hasWitness()
+                            ? Optional.of(checkWitness(v.getWitness()))
+                            : Optional.empty()))
+            .toList());
+  }
+
+  private static CheckResult.Final checkFinal(org.openmbee.opensysml.proto.CheckFinal f) {
+    return new CheckResult.Final(
+        f.getOutcome(),
+        f.getValuesMap(),
+        f.hasWitness() ? Optional.of(checkWitness(f.getWitness())) : Optional.empty());
+  }
+
   public static Standing standing(String engine, String strength, List<Bound> bounds) {
     List<Standing.Bound> out = new ArrayList<>(bounds.size());
     for (Bound bound : bounds) {

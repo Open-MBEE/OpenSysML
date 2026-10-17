@@ -1292,7 +1292,7 @@ func (ctx *Context) attachOneClassifierBehavior(inst *Instance, decl classifierB
 			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
 		if len(arguments) > 0 {
-			exec.setInputs(arguments)
+			exec.SetInputs(arguments)
 		}
 		// An action stating no flow performs no step; the object still performs it,
 		// completed at once, rather than failing to be created.

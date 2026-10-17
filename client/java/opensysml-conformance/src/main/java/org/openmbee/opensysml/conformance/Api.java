@@ -33,6 +33,8 @@ import org.openmbee.opensysml.Query;
 import org.openmbee.opensysml.QueryElement;
 import org.openmbee.opensysml.RenderedDocument;
 import org.openmbee.opensysml.RenderedView;
+import org.openmbee.opensysml.CheckOptions;
+import org.openmbee.opensysml.CheckResult;
 import org.openmbee.opensysml.Graphs;
 import org.openmbee.opensysml.RenderViewPorts;
 import org.openmbee.opensysml.Satisfaction;
@@ -80,6 +82,8 @@ import org.openmbee.opensysml.proto.QueryRequest;
 import org.openmbee.opensysml.proto.QueryResponse;
 import org.openmbee.opensysml.proto.RenderDocumentRequest;
 import org.openmbee.opensysml.proto.RenderDocumentResponse;
+import org.openmbee.opensysml.proto.CheckBehaviorRequest;
+import org.openmbee.opensysml.proto.CheckBehaviorResponse;
 import org.openmbee.opensysml.proto.ExportGraphsRequest;
 import org.openmbee.opensysml.proto.ExportGraphsResponse;
 import org.openmbee.opensysml.proto.RenderViewRequest;
@@ -138,6 +142,7 @@ final class Api {
   private static final String RPC_RUN_DOCUMENT_QUERY = "RunDocumentQuery";
   private static final String RPC_RENDER_DOCUMENT = "RenderDocument";
   private static final String RPC_EXPORT_GRAPHS = "ExportGraphs";
+  private static final String RPC_CHECK_BEHAVIOR = "CheckBehavior";
   private static final String RPC_RENDER_VIEW = "RenderView";
   private static final String RPC_VALIDATE_INSTANCE = "ValidateInstance";
   private static final String RPC_VERIFY_CONSTRAINT = "VerifyConstraint";
@@ -171,7 +176,8 @@ final class Api {
           RPC_RUN_DOCUMENT_QUERY,
           RPC_RENDER_DOCUMENT,
           RPC_RENDER_VIEW,
-          RPC_EXPORT_GRAPHS);
+          RPC_EXPORT_GRAPHS,
+          RPC_CHECK_BEHAVIOR);
 
   private final Connection connection;
 
@@ -224,6 +230,7 @@ final class Api {
       case RPC_RENDER_DOCUMENT -> RenderDocumentRequest.newBuilder();
       case RPC_RENDER_VIEW -> RenderViewRequest.newBuilder();
       case RPC_EXPORT_GRAPHS -> ExportGraphsRequest.newBuilder();
+      case RPC_CHECK_BEHAVIOR -> CheckBehaviorRequest.newBuilder();
       default -> throw new IllegalArgumentException("no request type for " + method);
     };
   }
@@ -282,6 +289,7 @@ final class Api {
             case RPC_RENDER_DOCUMENT -> renderDocument((RenderDocumentRequest) request);
             case RPC_RENDER_VIEW -> renderView((RenderViewRequest) request);
             case RPC_EXPORT_GRAPHS -> exportGraphs((ExportGraphsRequest) request);
+            case RPC_CHECK_BEHAVIOR -> checkBehavior((CheckBehaviorRequest) request);
             default -> throw new IllegalStateException(method);
           });
     } catch (Unsupported e) {
@@ -1072,6 +1080,36 @@ final class Api {
         request.getPorts().equals("full") ? RenderViewPorts.FULL : RenderViewPorts.MINIMAL;
     RenderedView rendered = model.renderView(request.getView(), ports, request.getShowList());
     return Rendering.renderedView(rendered);
+  }
+
+  private CheckBehaviorResponse checkBehavior(CheckBehaviorRequest request) {
+    Model model = connection.model(request.getModelHash());
+    CheckOptions options =
+        new CheckOptions(
+            request.getCheckPropertyList(),
+            request.getCheckDivergeList(),
+            request.getCheckInputList(),
+            request.getCheckAssumeList(),
+            request.getCheckWitness(),
+            request.getCheckDepth(),
+            request.getCheckStates(),
+            request.getCheckUnroll(),
+            request.getCheckTimeout(),
+            Optional.of(request.getEngine()).filter(e -> !e.isEmpty()),
+            Optional.of(request.getPerformerSymbolId()).filter(p -> !p.isEmpty()));
+    try {
+      CheckResult result =
+          request.getStateMachineSymbolId().isEmpty()
+              ? model.checkAction(
+                  request.getActionSymbolId(), values(request.getInputsMap()), options)
+              : model.checkStateMachine(request.getStateMachineSymbolId(), options);
+      return Rendering.checkResult(result);
+    } catch (ModelException e) {
+      return CheckBehaviorResponse.newBuilder()
+          .setVerdict("undecided")
+          .setError(e.getMessage())
+          .build();
+    }
   }
 
   private ExportGraphsResponse exportGraphs(ExportGraphsRequest request) {
