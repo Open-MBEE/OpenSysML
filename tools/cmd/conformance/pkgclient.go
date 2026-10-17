@@ -375,6 +375,17 @@ func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Messa
 	return response, nil
 }
 
+// int32Clamp saturates a count at the int32 bounds rather than wrapping.
+func int32Clamp(n int) int32 {
+	if n > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if n < math.MinInt32 {
+		return math.MinInt32
+	}
+	return int32(n)
+}
+
 func traceDroppedCountToInt32(dropped int) int32 {
 	if dropped < 0 {
 		return 0
@@ -1893,14 +1904,14 @@ func checkToProto(check *opensysml.Check) *pb.CheckBehaviorResponse {
 	}
 	if s := check.Search; s != nil {
 		out.Search = &pb.CheckSearch{
-			States: int32(s.States), Moves: int32(s.Moves), MaxDepth: int32(s.MaxDepth), BoundsHit: s.BoundsHit,
+			States: int32Clamp(s.States), Moves: int32Clamp(s.Moves), MaxDepth: int32Clamp(s.MaxDepth), BoundsHit: s.BoundsHit,
 			Horizon: s.Horizon, HorizonSet: s.HorizonSet, MassBounded: s.MassBounded, Notes: s.Notes, Scope: s.Scope,
 			Status: s.Status,
 		}
 	}
 	for _, v := range check.Violations {
 		out.Violations = append(out.Violations, &pb.CheckViolation{
-			Kind: v.Kind, Property: v.Property, Error: v.Error, Depth: int32(v.Depth), Probability: v.Probability,
+			Kind: v.Kind, Property: v.Property, Error: v.Error, Depth: int32Clamp(v.Depth), Probability: v.Probability,
 			Witness: checkWitnessToProto(v.Witness), Text: v.Text,
 		})
 	}
