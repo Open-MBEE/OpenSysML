@@ -51,7 +51,7 @@ func toString(args []runtime.Value) (runtime.Value, error) {
 // value bracketed as an input ("[in=") when input is null or true, an output
 // ("[out=") otherwise, spelled by ToString of its primitive type, "??" for any other.
 func formatParameterValue(args []runtime.Value) (runtime.Value, error) {
-	input, value := args[0], args[1]
+	input, value := soleValue(args[0]), soleValue(args[1])
 	prefix := "[out="
 	switch {
 	case input.Kind == runtime.ValNull:
@@ -63,7 +63,6 @@ func formatParameterValue(args []runtime.Value) (runtime.Value, error) {
 	default:
 		return runtime.Value{}, fmt.Errorf("formatParameterValue input is a %s, not a Boolean", valueKind(input))
 	}
-	value = heldValue(value)
 	text := "??"
 	if value.Kind == runtime.ValString {
 		text = value.Str()
@@ -73,11 +72,12 @@ func formatParameterValue(args []runtime.Value) (runtime.Value, error) {
 	return runtime.NewStringValue(prefix + text + "]"), nil
 }
 
-// heldValue is the one value a parameter holds: a one-element sequence is its element.
-func heldValue(v runtime.Value) runtime.Value {
-	if seq := v.Sequence(); seq != nil && seq.Size() == 1 {
-		if e, err := seq.At(0); err == nil {
-			return e
+// soleValue is the one element of a one-element sequence, else the value itself: a
+// parameter of unstated multiplicity holds its value as a sequence (KerML §7.4.8).
+func soleValue(v runtime.Value) runtime.Value {
+	if v.Kind == runtime.ValSequence {
+		if elements := v.Sequence().Elements(); len(elements) == 1 {
+			return elements[0]
 		}
 	}
 	return v
