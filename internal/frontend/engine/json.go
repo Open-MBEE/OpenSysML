@@ -331,6 +331,7 @@ type JRenderViewRequest struct {
 	View      string   `json:"view,omitempty"`
 	Ports     string   `json:"ports,omitempty"`
 	Show      []string `json:"show,omitempty"`
+	Depth     int      `json:"depth,omitempty"`
 }
 
 type JRenderViewResponse struct {

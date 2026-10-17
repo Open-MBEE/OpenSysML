@@ -550,3 +550,24 @@ func TestDiagramLayoutReportsOnlyTheStatingDocument(t *testing.T) {
 		t.Fatalf("got %d placement diagnostics in document B, want 1: %v", got, diagsB)
 	}
 }
+
+// A view's depth bound to anything but a non-negative integer literal is an
+// error naming the attribute, at the value; a well-formed one is silent.
+func TestViewDepthValueMustBeANonNegativeIntegerLiteral(t *testing.T) {
+	src := layoutModel(`	part def Pump;
+	view bounded { expose Pump; attribute depth = 2; render asTreeDiagram; }
+	view negative { expose Pump; attribute depth = -1; render asTreeDiagram; }
+	view real { expose Pump; attribute depth = 2.5; render asTreeDiagram; }
+`)
+	var got []diag.Diagnostic
+	for _, d := range w8dDiags(t, src) {
+		if d.Code == "view-depth-value" {
+			got = append(got, d)
+		}
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d view-depth-value diagnostics, want one each for negative and real: %v", len(got), got)
+	}
+	wantLayoutDiag(t, src, got[0], diag.SeverityError, "view-depth-value", 6, "view P::negative", "depth")
+	wantLayoutDiag(t, src, got[1], diag.SeverityError, "view-depth-value", 7, "view P::real", "depth")
+}

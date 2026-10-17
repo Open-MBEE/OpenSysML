@@ -1896,16 +1896,19 @@ class Connection:
             response = self._stub.RenderDocument(request)
         return response.html if form == "html" else response.markdown
 
-    def render_view(self, model_hash, view_name, ports="minimal", show=None):
-        """Render a named view with minimal or full ports and the optional notation elements named."""
+    def render_view(self, model_hash, view_name, ports="minimal", show=None, depth=0):
+        """Render a named view with minimal or full ports, the optional notation elements named and, above 0, a depth bound."""
         if ports not in ("minimal", "full"):
             raise ValueError("ports must be 'minimal' or 'full'")
+        if not isinstance(depth, int) or isinstance(depth, bool) or depth < 0:
+            raise ValueError("depth must be a non-negative integer")
         require(self.server_info(), CAPABILITY_RENDER_VIEW, upgrade_remedy(CAPABILITY_RENDER_VIEW))
         request = sysml_pb2.RenderViewRequest(
             model_hash=model_hash,
             view=view_name,
             ports="" if ports == "minimal" else ports,
             show=list(show or ()),
+            depth=depth,
         )
         with translate_rpc_errors(
             not_found=lambda message, code: ViewNotFoundError(

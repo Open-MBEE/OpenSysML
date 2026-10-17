@@ -38,6 +38,7 @@ type RenderViewInput struct {
 	View  string   `json:"view" jsonschema:"a qualified view name, or a #<kind>:<qualified name> pseudo-view targeting an element (#interconnection:Demo::Vehicle, #tree:Demo, #state:Demo::Lamp, #action:Demo::Descend, #sequence:..., #case:..., #requirement:..., #mixed:...)"`
 	Ports string   `json:"ports,omitempty" jsonschema:"minimal (the default) or full: how many of a part's ports are drawn"`
 	Show  []string `json:"show,omitempty" jsonschema:"optional notation elements to draw besides those the view's rendering shows, as sysml -render-show takes them: parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, or all"`
+	Depth int      `json:"depth,omitempty" jsonschema:"how many levels of nested elements to draw below each exposed element, overriding the view's own depth; 0 or absent draws every level"`
 }
 
 // ExportGraphsInput names a behavior to export.

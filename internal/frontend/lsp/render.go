@@ -64,6 +64,10 @@ const RenderLinesCapability = "openSysmlRenderLines"
 // writer defines them, then "all", every one of them.
 const RenderElementsCapability = "openSysmlRenderElements"
 
+// RenderDepthCapability is the experimental capability a server advertises when
+// a render request's depth bounds how many levels are drawn below each exposed element.
+const RenderDepthCapability = "openSysmlRenderDepth"
+
 // renderElementNames lists the optional notation elements, then "all".
 func renderElementNames() []string {
 	names := make([]string, 0, len(view.Elements())+1)
@@ -142,6 +146,7 @@ type renderParams struct {
 	Ports        string                          `json:"ports,omitempty"`
 	Lines        string                          `json:"lines,omitempty"`
 	Show         []string                        `json:"show,omitempty"`
+	Depth        int                             `json:"depth,omitempty"`
 	Overlay      string                          `json:"overlay,omitempty"`
 	LinkTemplate string                          `json:"linkTemplate,omitempty"`
 }
@@ -394,7 +399,7 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			}
 			verdicts = rt.RequirementVerdicts()
 		}
-		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts)
+		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts, params.Depth)
 		if err == nil && params.LinkTemplate != "" {
 			r.LinkSites(rendering, snapshot)
 		}
@@ -427,6 +432,9 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	shown, err := renderShown(params.Show)
 	if err != nil {
 		return nil, err
+	}
+	if params.Depth < 0 {
+		return nil, &view.DepthError{Value: fmt.Sprint(params.Depth)}
 	}
 	artifact, err := rendering.WriteWith(form, view.Options{
 		Palette: colors, Style: style, Ports: ports, Lines: lines, Show: shown,

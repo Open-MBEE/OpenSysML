@@ -1921,16 +1921,18 @@ class RenderDocumentResponse(_message.Message):
     def __init__(self, markdown: _Optional[str] = ..., html: _Optional[str] = ..., file_name: _Optional[str] = ...) -> None: ...
 
 class RenderViewRequest(_message.Message):
-    __slots__ = ("model_hash", "view", "ports", "show")
+    __slots__ = ("model_hash", "view", "ports", "show", "depth")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     VIEW_FIELD_NUMBER: _ClassVar[int]
     PORTS_FIELD_NUMBER: _ClassVar[int]
     SHOW_FIELD_NUMBER: _ClassVar[int]
+    DEPTH_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     view: str
     ports: str
     show: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, model_hash: _Optional[str] = ..., view: _Optional[str] = ..., ports: _Optional[str] = ..., show: _Optional[_Iterable[str]] = ...) -> None: ...
+    depth: int
+    def __init__(self, model_hash: _Optional[str] = ..., view: _Optional[str] = ..., ports: _Optional[str] = ..., show: _Optional[_Iterable[str]] = ..., depth: _Optional[int] = ...) -> None: ...
 
 class RenderViewResponse(_message.Message):
     __slots__ = ("view", "kind", "stated", "nodes", "edges", "columns", "rows", "canvas", "notes", "notices", "shown")

@@ -2124,19 +2124,10 @@ func TestClassifyAppliesNestedRedefinitions(t *testing.T) {
 	}
 }
 
-// A chain a classifier declares counts as written in the classifier's body,
-// so it outranks the redefinition the child's own type declares — as the
-// nested-body form `part :>> wheel { attribute :>> radius = 3.0; }` does —
-// whether the child materialized before the classification or after.
-func TestClassifyChainOutranksTheChildsTypeRedefinition(t *testing.T) {
-	model := `package test {
-		private import ScalarValues::Real;
-		part def BaseWheel { attribute radius : Real default = 1.0; }
-		part def Wheel :> BaseWheel { attribute :>> radius default = 2.0; }
-		part def Car { part wheel : Wheel; }
-		part def Sport :> Car { attribute :>> wheel.radius = 3.0; }
-		part car : Car;
-	}`
+// assertClassifyChainRadius classifies test::car by test::Sport and checks the
+// radius a wheel reads, whether materialized before or after the classification.
+func assertClassifyChainRadius(t *testing.T, model string, want float64, label, wantDesc string) {
+	t.Helper()
 	for _, sub := range []struct {
 		name      string
 		readFirst bool
@@ -2161,11 +2152,26 @@ func TestClassifyChainOutranksTheChildsTypeRedefinition(t *testing.T) {
 			if err != nil {
 				t.Fatalf("GetFeatureValue(radius): %v", err)
 			}
-			if got := realValue(t, fv.HeldValue()); got != 3.0 {
-				t.Fatalf("wheel.radius = %v, want the classifier's 3.0", got)
+			if got := realValue(t, fv.HeldValue()); got != want {
+				t.Fatalf("%s = %v, want %s", label, got, wantDesc)
 			}
 		})
 	}
+}
+
+// A chain a classifier declares counts as written in the classifier's body,
+// so it outranks the redefinition the child's own type declares — as the
+// nested-body form `part :>> wheel { attribute :>> radius = 3.0; }` does —
+// whether the child materialized before the classification or after.
+func TestClassifyChainOutranksTheChildsTypeRedefinition(t *testing.T) {
+	assertClassifyChainRadius(t, `package test {
+		private import ScalarValues::Real;
+		part def BaseWheel { attribute radius : Real default = 1.0; }
+		part def Wheel :> BaseWheel { attribute :>> radius default = 2.0; }
+		part def Car { part wheel : Wheel; }
+		part def Sport :> Car { attribute :>> wheel.radius = 3.0; }
+		part car : Car;
+	}`, 3.0, "wheel.radius", "the classifier's 3.0")
 }
 
 // A nested-body redefinition declared by a type specializing the chain's owner
@@ -2204,42 +2210,13 @@ func TestNestedRedefinitionRanksAsTheNestedBodyForm(t *testing.T) {
 // nested redefining body in the classifier does, for a child read before the
 // classification and one read after.
 func TestClassifyChainOutranksTheBaseTypesChain(t *testing.T) {
-	model := `package test {
+	assertClassifyChainRadius(t, `package test {
 		private import ScalarValues::Real;
 		part def Wheel { attribute radius : Real default = 1.0; }
 		part def Base { part wheel : Wheel; attribute :>> wheel.radius = 1.0; }
 		part def Sport :> Base { attribute :>> wheel.radius = 2.0; }
 		part car : Base;
-	}`
-	for _, sub := range []struct {
-		name      string
-		readFirst bool
-	}{
-		{"materialized_before_classify", true},
-		{"materialized_after_classify", false},
-	} {
-		t.Run(sub.name, func(t *testing.T) {
-			ctx, idx := libraryShapeContext(t, model)
-			car := instantiateQualified(t, ctx, idx, "test::car")
-			var wheel *Instance
-			if sub.readFirst {
-				wheel = readInstance(t, ctx, car, "wheel")
-			}
-			if err := ctx.classify(car, idx.LookupQualified("test::Sport")[0]); err != nil {
-				t.Fatalf("classify(car, Sport): %v", err)
-			}
-			if !sub.readFirst {
-				wheel = readInstance(t, ctx, car, "wheel")
-			}
-			fv, err := wheel.GetFeatureValue(ctx, "radius")
-			if err != nil {
-				t.Fatalf("GetFeatureValue(radius): %v", err)
-			}
-			if got := realValue(t, fv.HeldValue()); got != 2.0 {
-				t.Fatalf("wheel.radius = %v, want the classifier's 2.0", got)
-			}
-		})
-	}
+	}`, 2.0, "wheel.radius", "the classifier's 2.0")
 }
 
 // A chain below a reference feature walks an object the owner does not own:
@@ -2275,7 +2252,7 @@ func TestClassifyNestedChainStaysWithinOwnedObjects(t *testing.T) {
 // refines the feature the same whether the child was read before or after
 // the classification.
 func TestClassifyChainReachesPastAPlainFeatureInItsContext(t *testing.T) {
-	model := `package test {
+	assertClassifyChainRadius(t, `package test {
 		private import ScalarValues::Real;
 		part def Base { part wheel : Sport; }
 		part def Sport :> Base {
@@ -2283,36 +2260,7 @@ func TestClassifyChainReachesPastAPlainFeatureInItsContext(t *testing.T) {
 			attribute :>> wheel.radius = 3.0;
 		}
 		part car : Base;
-	}`
-	for _, sub := range []struct {
-		name      string
-		readFirst bool
-	}{
-		{"materialized_before_classify", true},
-		{"materialized_after_classify", false},
-	} {
-		t.Run(sub.name, func(t *testing.T) {
-			ctx, idx := libraryShapeContext(t, model)
-			car := instantiateQualified(t, ctx, idx, "test::car")
-			var wheel *Instance
-			if sub.readFirst {
-				wheel = readInstance(t, ctx, car, "wheel")
-			}
-			if err := ctx.classify(car, idx.LookupQualified("test::Sport")[0]); err != nil {
-				t.Fatalf("classify(car, Sport): %v", err)
-			}
-			if !sub.readFirst {
-				wheel = readInstance(t, ctx, car, "wheel")
-			}
-			fv, err := wheel.GetFeatureValue(ctx, "radius")
-			if err != nil {
-				t.Fatalf("GetFeatureValue(radius): %v", err)
-			}
-			if got := realValue(t, fv.HeldValue()); got != 3.0 {
-				t.Fatalf("car.wheel.radius = %v, want the chain's 3.0", got)
-			}
-		})
-	}
+	}`, 3.0, "car.wheel.radius", "the chain's 3.0")
 }
 
 // Two chains from unrelated classifiers keep the lazy path's first-wins rule

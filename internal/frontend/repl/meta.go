@@ -36,7 +36,7 @@ const (
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
 const (
-	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [show=<elements>] [link=<template>]"
+	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [show=<elements>] [depth=<levels>] [link=<template>]"
 	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|dot] [link=<template>]"
 )
 
@@ -531,17 +531,17 @@ func (s *Session) doTrace(args []string) []string {
 // metaRender reads the %render name, form and optional rendering settings,
 // including a source-link template, then renders the view they name.
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
-	name, form, opts, overlay, usage := parseRenderArgs(args)
+	name, form, opts, overlay, depth, usage := parseRenderArgs(args)
 	if usage != nil {
 		return usage, false, nil
 	}
-	return s.doRender(name, form, opts, overlay)
+	return s.doRender(name, form, opts, overlay, depth)
 }
 
 // renderOptionWord reports whether word is a rendering option rather than a
 // form, so the text form is understood before it.
 func renderOptionWord(word string) bool {
-	if strings.HasPrefix(word, "show=") || strings.HasPrefix(word, "link=") {
+	if strings.HasPrefix(word, "show=") || strings.HasPrefix(word, "link=") || strings.HasPrefix(word, "depth=") {
 		return true
 	}
 	if o, ok := view.ParseOverlay(word); ok && o != "" {
@@ -558,13 +558,13 @@ func renderOptionWord(word string) bool {
 }
 
 // renderUsageOf is what parseRenderArgs answers when the arguments do not read.
-func renderUsageOf(line string) (string, view.Form, view.Options, view.Overlay, []string) {
-	return "", "", view.Options{}, "", []string{line}
+func renderUsageOf(line string) (string, view.Form, view.Options, view.Overlay, int, []string) {
+	return "", "", view.Options{}, "", 0, []string{line}
 }
 
 // parseRenderArgs reads %render's arguments: the view, the form and the options
 // after it; usage is what to print instead when they do not read.
-func parseRenderArgs(args []string) (name string, form view.Form, opts view.Options, overlay view.Overlay, usage []string) {
+func parseRenderArgs(args []string) (name string, form view.Form, opts view.Options, overlay view.Overlay, depth int, usage []string) {
 	if len(args) < 1 {
 		return renderUsageOf(renderUsage)
 	}
@@ -580,7 +580,7 @@ func parseRenderArgs(args []string) (name string, form view.Form, opts view.Opti
 			return renderUsageOf(fmt.Sprintf("unknown form %q; %s", args[1], renderUsage))
 		}
 	}
-	linkSet := false
+	linkSet, depthSet := false, false
 	for _, word := range args[options:] {
 		if o, ok := view.ParseOverlay(word); ok && o != "" {
 			if overlay != "" {
@@ -598,6 +598,18 @@ func parseRenderArgs(args []string) (name string, form view.Form, opts view.Opti
 				return renderUsageOf(fmt.Sprintf("show= names the optional notation elements to draw, %s; %s", view.ElementNames(), renderUsage))
 			}
 			opts.Show = shown
+			continue
+		}
+		if strings.HasPrefix(word, "depth=") {
+			if depthSet {
+				return renderUsageOf(renderUsage)
+			}
+			depthSet = true
+			levels, err := view.ParseDepth(strings.TrimPrefix(word, "depth="))
+			if err != nil {
+				return renderUsageOf(err.Error() + "; " + renderUsage)
+			}
+			depth = levels
 			continue
 		}
 		if strings.HasPrefix(word, "link=") {
@@ -644,7 +656,7 @@ func parseRenderArgs(args []string) (name string, form view.Form, opts view.Opti
 		}
 		opts.Palette = palette
 	}
-	return args[0], form, opts, overlay, nil
+	return args[0], form, opts, overlay, depth, nil
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line

@@ -83,8 +83,10 @@ package test {
 		}
 	}
 
-	// Two objectives, improved lexicographically in the order declared: the least
-	// cost first, and among the assignments achieving it the greatest margin.
+	// Two objectives improved lexicographically: a case states one objective
+	// (SysML 8.3.22.2), so the second is the objective of a nested analysis, which
+	// refines the optimum the enclosing one settled: the least cost first, and
+	// among the assignments achieving it the greatest margin.
 	analysis def CostThenMargin {
 		attribute cost : Integer;
 		attribute margin : Integer;
@@ -104,9 +106,11 @@ package test {
 			subject :>> selectedAlternative;
 			in calc :>> eval { cost }
 		}
-		objective widestMargin : MaximizeObjective {
-			subject :>> selectedAlternative;
-			in calc :>> eval { margin }
+		analysis thenMargin {
+			objective widestMargin : MaximizeObjective {
+				subject :>> selectedAlternative;
+				in calc :>> eval { margin }
+			}
 		}
 	}
 
@@ -341,6 +345,90 @@ package test {
 				weight == mass + 1
 			}
 			in calc :>> eval { weight }
+		}
+	}
+
+	// A nested analysis's own conditions bound its stage: the margin is held to 2
+	// where the enclosing case alone would allow 6 at the least cost.
+	analysis def CostThenBoundedMargin {
+		attribute cost : Integer;
+		attribute margin : Integer;
+		assert constraint { cost >= 3 and cost <= 9 }
+		assert constraint { margin >= 0 and margin <= cost * 2 }
+		objective cheapest : MinimizeObjective {
+			subject :>> selectedAlternative;
+			in calc :>> eval { cost }
+		}
+		analysis thenMargin {
+			assert constraint { margin <= 2 }
+			objective widestMargin : MaximizeObjective {
+				subject :>> selectedAlternative;
+				in calc :>> eval { margin }
+			}
+		}
+	}
+
+
+	// A nested analysis's members shadow the case's for its own conditions and
+	// objective (`cap` is two values), and what it asserts holds for the whole
+	// case: the cost the case alone would raise to 9 is held to the nested cap.
+	analysis def ShadowedStage {
+		attribute cost : Integer;
+		attribute cap : Integer;
+		assert constraint { cost >= 3 and cost <= 9 and cap == 9 }
+		objective costliest : MaximizeObjective {
+			subject :>> selectedAlternative;
+			in calc :>> eval { cost }
+		}
+		analysis within {
+			attribute cap : Integer;
+			assert constraint { cap == 5 and cost <= cap }
+			objective tightest : MinimizeObjective {
+				subject :>> selectedAlternative;
+				in calc :>> eval { cap }
+			}
+		}
+	}
+
+	// A nested analysis's constraint reads its own parameter ahead of the
+	// analysis's same-named attribute, as a case's constraint does.
+	analysis def StageLocalParameter {
+		attribute cost : Integer;
+		assert constraint { cost >= 3 and cost <= 9 }
+		objective costliest : MaximizeObjective {
+			subject :>> selectedAlternative;
+			in calc :>> eval { cost }
+		}
+		analysis within {
+			attribute cap : Integer;
+			assert constraint { cap == 5 and cost <= cap }
+			assert constraint local {
+				in cap : Integer = 3;
+				cap == 3
+			}
+			objective tightest : MinimizeObjective {
+				subject :>> selectedAlternative;
+				in calc :>> eval { cap }
+			}
+		}
+	}
+
+	// A nested objective's own attribute is one value, read inside the objective
+	// and as `goal.weight` by the nested analysis's condition.
+	analysis def NestedObjectiveAttribute {
+		attribute cost : Integer;
+		assert constraint { cost >= 3 and cost <= 9 }
+		objective costliest : MaximizeObjective {
+			subject :>> selectedAlternative;
+			in calc :>> eval { cost }
+		}
+		analysis within {
+			assert constraint { goal.weight == 5 }
+			objective goal : MaximizeObjective {
+				subject :>> selectedAlternative;
+				attribute weight : Integer;
+				in calc :>> eval { weight }
+			}
 		}
 	}
 }

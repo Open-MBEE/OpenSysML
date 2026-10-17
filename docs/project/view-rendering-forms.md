@@ -1302,6 +1302,66 @@ likewise, hidden labels, typings, multiplicities, keywords, compartments and qua
 unwritten, so DOT, Mermaid, PlantUML, D2, text and `Rendering.Data` agree. A name none of the
 elements has is refused with the names there are.
 
+## Limiting what a view draws
+
+A tree or interconnection rendering draws the contents of every element the view exposes, as the
+Pilot visualizer does; the specification leaves what a rendering draws to the tool (SysML v2
+§10.2). Three mechanisms bound it, all applied by the one containment walk (`Renderer.walkMembers`,
+`Renderer.walkBound`), so the DOT, Mermaid, PlantUML, D2 and text forms and `Rendering.Data` agree:
+
+- **`expose` and `filter`** (SysML v2 §7.24, normative). What a view exposes are its roots; its
+  filter conditions — `filter` members, the `[…]` clauses of its `expose` lines, and those
+  inherited from its view definition and that definition's supertypes — also decide which contained
+  members the walk draws beneath each root: a member a condition rejects is not drawn, nor its
+  subtree. The one admission (`semantics.Model.SatisfiesElementFilter`) decides roots and children
+  alike. So `filter @SysML::PartUsage;` prunes attributes and ports from a part tree, and a
+  standard metadata marker blacklists single elements:
+
+  ```sysml
+  metadata def Hidden;
+  part rover { part chassis; #Hidden part telemetry; }
+  view structure { expose rover; filter not @Hidden; render asTreeDiagram; }
+  ```
+
+  A connector whose end lies in a pruned element is not drawn and is counted in the notices
+  (`… attaches to telemetry.tx, which the view's filter conditions exclude; no edge is drawn`). A
+  view with no filter conditions renders as it always has.
+
+- **`depth`** (a non-normative convention). An attribute usage named `depth` bound to a
+  non-negative integer literal on the view usage, else on the nearest view definition it
+  specializes, bounds how many levels of nested elements are drawn below each exposed root; `0`
+  or none draws every level. Filtering applies first, so the levels are counted over what the
+  filters keep. Ports and action, case and constraint parameters count at their owner's depth, so an
+  element at the bound keeps them pinned on its border; it is drawn with its compartment rows, carries
+  the detail `nested deeper than N levels; not shown`, and the elements directly below the bound are
+  counted once in the notices. The bare form is the one SysIDE reads, so a model renders alike in
+  both tools; a view definition may declare the attribute typed (`attribute depth :
+  ScalarValues::Natural[0..1];`) for its specializations to redefine. The `OpenSysMLRenderings`
+  library is vendored from the OpenSysML Extensions Library, so a shared `DepthLimitedView`
+  declaring it belongs there, not in this tree:
+
+  ```sysml
+  view overview { expose vehicle; attribute depth = 2; render asTreeDiagram; }
+  view def DepthLimited { attribute depth : ScalarValues::Natural[0..1]; }
+  view def TwoLevels :> DepthLimited { :>> depth = 2; }
+  ```
+
+  A `depth` bound to anything but a non-negative integer literal is the `view-depth-value` error,
+  naming the attribute. `-render-depth`, `%render depth=`, the LSP request's `depth`, the gRPC
+  `RenderViewRequest.depth` and the VS Code `opensysml.diagram.depth` setting override the model's
+  depth for one render. Tables draw their rows unbounded: a table has no levels to cut.
+
+- **`DiagramLayout::Layout.collapsed`** (a non-normative convention,
+  [design record](diagram-layout-annotations.md)). A `Layout` with `collapsed = true` about an
+  element draws it with no children in every form, keeping its ports and the `collapsed` tag
+  (`comment="collapsed"` in DOT, ` collapsed` in text, `Geometry.Collapsed` in the data); its
+  `show…` switches hide single compartments, in the text form as in DOT:
+
+  ```sysml
+  view wiring { expose vehicle; render asInterconnectionDiagram;
+      metadata Layout about vehicle::engine { x = 120; y = 40; collapsed = true; } }
+  ```
+
 ## Surfaces
 
 `dot`, `mermaid`, `plantuml` and `d2` are accepted wherever a diagram form is chosen,

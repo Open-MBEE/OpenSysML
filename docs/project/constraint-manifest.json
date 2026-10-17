@@ -574,15 +574,14 @@
       "checks": "A case definition has at most one objective",
       "implementation": "internal/check/passes/at_most_one_member.go:checkAtMostOneRole",
       "message": "—",
-      "negativeCase": "`semantic/s08-case-def-two-objectives.sysml`, `semantic/s89-case-def-inherits-two-objectives.sysml`",
+      "negativeCase": "`semantic/s08-case-def-two-objectives.sysml`, `semantic/s89-case-def-inherits-two-objectives.sysml`, `semantic/s104-analysis-def-two-objectives.sysml`",
       "codes": [
         "only-one-objective"
       ],
       "passes": [
         "constraint"
       ],
-      "status": "approximate",
-      "rationale": "an analysis case definition is exempt (the solver improves several objectives), where the pilot reports `Only one objective is allowed.`"
+      "status": "faithful"
     },
     {
       "name": "validateCaseDefinitionOnlyOneSubject",
@@ -641,15 +640,14 @@
       "checks": "A case usage has at most one objective",
       "implementation": "internal/check/passes/at_most_one_member.go:checkAtMostOneRole",
       "message": "—",
-      "negativeCase": "`semantic/s11-case-two-objectives.sysml`, `semantic/s91-case-references-second-objective.sysml`",
+      "negativeCase": "`semantic/s11-case-two-objectives.sysml`, `semantic/s91-case-references-second-objective.sysml`, `semantic/s105-analysis-usage-two-objectives.sysml`",
       "codes": [
         "only-one-objective"
       ],
       "passes": [
         "constraint"
       ],
-      "status": "approximate",
-      "rationale": "an analysis case usage is exempt (the solver improves several objectives), where the pilot reports `Only one objective is allowed.`"
+      "status": "faithful"
     },
     {
       "name": "validateCaseUsageOnlyOneSubject",
@@ -1358,15 +1356,14 @@
       "checks": "An exhibit state usage references a state",
       "implementation": "internal/check/passes/w11a_usage_typing.go:W11AUsageTypingPass.Run",
       "message": "—",
-      "negativeCase": "`semantic/s17-exhibit-references-non-state.sysml`",
+      "negativeCase": "`semantic/s17-exhibit-references-non-state.sysml`, `semantic/s106-exhibit-state-references-non-state.sysml`",
       "codes": [
         "usage-reference-kind"
       ],
       "passes": [
         "type"
       ],
-      "status": "approximate",
-      "rationale": "reported on the reference form `exhibit p;`; the declared form `exhibit state e references p;` is silent where the pilot reports it"
+      "status": "faithful"
     },
     {
       "name": "validateExposeIsImportAll",
@@ -3110,15 +3107,14 @@
       "checks": "A perform action usage references an action",
       "implementation": "internal/check/passes/w11a_usage_typing.go:W11AUsageTypingPass.Run",
       "message": "—",
-      "negativeCase": "`semantic/s24-perform-references-non-action.sysml`",
+      "negativeCase": "`semantic/s24-perform-references-non-action.sysml`, `semantic/s107-perform-action-references-non-action.sysml`",
       "codes": [
         "usage-reference-kind"
       ],
       "passes": [
         "type"
       ],
-      "status": "approximate",
-      "rationale": "reported on the reference form `perform p;`; the declared form `perform action f references p;` is silent where the pilot reports it"
+      "status": "faithful"
     },
     {
       "name": "validatePortDefinitionConjugatedPortDefinition",

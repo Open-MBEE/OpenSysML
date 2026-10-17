@@ -27,6 +27,7 @@ const (
 	layoutValueCode     = "diagram-layout-value"
 	layoutCanvasCode    = "diagram-layout-canvas"
 	layoutDuplicateCode = "diagram-layout-duplicate"
+	viewDepthCode       = "view-depth-value"
 )
 
 func (LayoutPass) Level() kit.PassLevel { return kit.LevelConstraint }
@@ -52,6 +53,7 @@ func (LayoutPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []
 	kit.WalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		seen[sym] = true
 		c.check(sym)
+		c.checkDepth(sym)
 	})
 	for _, sym := range c.model.AboutAnnotatedSymbols() {
 		if !seen[sym] {
@@ -81,6 +83,15 @@ func (c *layoutChecker) inDoc(scope *symbols.Scope) bool {
 		}
 	}
 	return false
+}
+
+// checkDepth reports a view's depth attribute bound to anything but a
+// non-negative integer literal, the way a Layout binding that reads as no
+// geometry is reported.
+func (c *layoutChecker) checkDepth(sym *symbols.Symbol) {
+	for _, problem := range c.model.ViewDepthProblems(sym) {
+		c.errorf(problem.Node.Span(), viewDepthCode, "%s: %s", c.describe(sym), problem.Message)
+	}
 }
 
 // check validates every DiagramLayout annotation of sym stated in the document.

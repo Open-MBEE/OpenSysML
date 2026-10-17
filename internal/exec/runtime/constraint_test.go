@@ -12,6 +12,18 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+// constraintPackage parses src and returns a Context over it with the scope
+// of the package it declares first.
+func constraintPackage(t *testing.T, src string) (*Context, *symbols.Scope) {
+	t.Helper()
+	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
+	idx := symbols.NewIndex()
+	idx.AddDocument("test.sysml", file)
+	resolver := resolve.New(idx)
+	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
+	return ctx, idx.DocumentRoot("test.sysml").Children()[0]
+}
+
 func TestConstraintEvaluation_Assert(t *testing.T) {
 	src := `
 		package test {
@@ -21,23 +33,7 @@ func TestConstraintEvaluation_Assert(t *testing.T) {
 		}
 	`
 
-	// Parse
-	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
-
-	// Build symbol index
-	idx := symbols.NewIndex()
-	idx.AddDocument("test.sysml", file)
-
-	// Create resolver and semantic model
-	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-
-	// Create runtime context
-	ctx := NewContext(typedModel(model, resolver), 10000)
-
-	// Resolve constraint
-	rootScope := idx.DocumentRoot("test.sysml")
-	testPkg := rootScope.Children()[0]
+	ctx, testPkg := constraintPackage(t, src)
 	constraintSym, ok := testPkg.LookupLocal("PositiveValue")
 	if !ok {
 		t.Fatal("PositiveValue constraint not found")
@@ -68,23 +64,7 @@ func TestConstraintEvaluation_AssertWithLiteral(t *testing.T) {
 		}
 	`
 
-	// Parse
-	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
-
-	// Build symbol index
-	idx := symbols.NewIndex()
-	idx.AddDocument("test.sysml", file)
-
-	// Create resolver and semantic model
-	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-
-	// Create runtime context
-	ctx := NewContext(typedModel(model, resolver), 10000)
-
-	// Resolve constraints
-	rootScope := idx.DocumentRoot("test.sysml")
-	testPkg := rootScope.Children()[0]
+	ctx, testPkg := constraintPackage(t, src)
 
 	// Test AlwaysTrue
 	alwaysTrue, ok := testPkg.LookupLocal("AlwaysTrue")
@@ -126,23 +106,7 @@ func TestConstraintEvaluation_Assume(t *testing.T) {
 		}
 	`
 
-	// Parse
-	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
-
-	// Build symbol index
-	idx := symbols.NewIndex()
-	idx.AddDocument("test.sysml", file)
-
-	// Create resolver and semantic model
-	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-
-	// Create runtime context
-	ctx := NewContext(typedModel(model, resolver), 10000)
-
-	// Resolve constraint
-	rootScope := idx.DocumentRoot("test.sysml")
-	testPkg := rootScope.Children()[0]
+	ctx, testPkg := constraintPackage(t, src)
 	constraintSym, ok := testPkg.LookupLocal("WithAssumption")
 	if !ok {
 		t.Fatal("WithAssumption not found")
@@ -168,23 +132,7 @@ func TestConstraintEvaluation_Negation(t *testing.T) {
 		}
 	`
 
-	// Parse
-	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
-
-	// Build symbol index
-	idx := symbols.NewIndex()
-	idx.AddDocument("test.sysml", file)
-
-	// Create resolver and semantic model
-	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-
-	// Create runtime context
-	ctx := NewContext(typedModel(model, resolver), 10000)
-
-	// Resolve constraint
-	rootScope := idx.DocumentRoot("test.sysml")
-	testPkg := rootScope.Children()[0]
+	ctx, testPkg := constraintPackage(t, src)
 	constraintSym, ok := testPkg.LookupLocal("NotNegative")
 	if !ok {
 		t.Fatal("NotNegative not found")
@@ -212,13 +160,7 @@ func TestConstraintWithoutConditionsIsNotAVerdict(t *testing.T) {
 			}
 		}
 	`
-	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
-	idx := symbols.NewIndex()
-	idx.AddDocument("test.sysml", file)
-	resolver := resolve.New(idx)
-	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
-
-	testPkg := idx.DocumentRoot("test.sysml").Children()[0]
+	ctx, testPkg := constraintPackage(t, src)
 	rig, ok := testPkg.LookupLocal("Rig")
 	if !ok {
 		t.Fatal("Rig not found")
@@ -258,13 +200,7 @@ func TestConstraintBodyStepsRun(t *testing.T) {
 			}
 		}
 	`
-	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
-	idx := symbols.NewIndex()
-	idx.AddDocument("test.sysml", file)
-	resolver := resolve.New(idx)
-	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
-
-	testPkg := idx.DocumentRoot("test.sysml").Children()[0]
+	ctx, testPkg := constraintPackage(t, src)
 	reassigned, ok := testPkg.LookupLocal("Reassigned")
 	if !ok {
 		t.Fatal("Reassigned not found")
@@ -337,13 +273,7 @@ func TestConstraintBodyPerformIsRefused(t *testing.T) {
 			}
 		}
 	`
-	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
-	idx := symbols.NewIndex()
-	idx.AddDocument("test.sysml", file)
-	resolver := resolve.New(idx)
-	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
-
-	testPkg := idx.DocumentRoot("test.sysml").Children()[0]
+	ctx, testPkg := constraintPackage(t, src)
 	performed, ok := testPkg.LookupLocal("Performed")
 	if !ok {
 		t.Fatal("Performed not found")
@@ -408,13 +338,7 @@ func TestConstraintBodyActionFlowIsRefused(t *testing.T) {
 			}
 		}
 	`
-	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
-	idx := symbols.NewIndex()
-	idx.AddDocument("test.sysml", file)
-	resolver := resolve.New(idx)
-	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
-
-	testPkg := idx.DocumentRoot("test.sysml").Children()[0]
+	ctx, testPkg := constraintPackage(t, src)
 	flowed, ok := testPkg.LookupLocal("Flowed")
 	if !ok {
 		t.Fatal("Flowed not found")
@@ -472,13 +396,7 @@ func TestConstraintBodySuccessionIsRefused(t *testing.T) {
 			}
 		}
 	`
-	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
-	idx := symbols.NewIndex()
-	idx.AddDocument("test.sysml", file)
-	resolver := resolve.New(idx)
-	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
-
-	testPkg := idx.DocumentRoot("test.sysml").Children()[0]
+	ctx, testPkg := constraintPackage(t, src)
 	rig, ok := testPkg.LookupLocal("Rig")
 	if !ok {
 		t.Fatal("Rig not found")

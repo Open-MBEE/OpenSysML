@@ -166,6 +166,12 @@
             ]
           },
           "markdownDescription": "Optional notation elements every diagram draws besides the ones its view's rendering shows and the default (port symbols, compartments and keywords), by the names the SysML v2 notation makes optional; `all` draws every one. Applies to the diagram panel and to exports, on a server that lists the elements (`openSysmlRenderElements`)."
+        },
+        "opensysml.diagram.depth": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "markdownDescription": "How many levels of nested elements a tree or interconnection diagram draws below each exposed element, overriding the `depth` the view states; `0` draws every level the view allows. Applies to the diagram panel and to exports, on a server that reads a depth (`openSysmlRenderDepth`)."
         }
       }
     },

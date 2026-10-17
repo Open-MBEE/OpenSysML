@@ -400,6 +400,11 @@ comma\-separated: parameter\-symbols, port\-symbols, compartments,
 edge\-labels, keywords, multiplicities, typings, qualifiers, or all; a view's
 own rendering adds its elements too
 .TP
+.BR \-render\-depth " \fIlevels\fP"
+How many levels of nested elements \-render and \-render\-all draw below each
+exposed element of a tree or interconnection rendering, overriding the depth
+the view states; 0 (default) draws every level the view's own depth allows
+.TP
 .BR \-render\-overlay " \fIoverlay\fP"
 What \-render or \-render\-all draws over a requirement rendering's structure:
 verdicts runs the verification cases verifying each requirement and colours

@@ -371,6 +371,23 @@ name along with the view, not silently substituted, and an element the rendering
 represent is reported rather than left out. The same operation outside the prompt is
 [`sysml -render`](../reference/cli.md#rendering-a-view).
 
+### Limiting what a view draws
+
+A tree or interconnection rendering draws everything the exposed elements contain, which on a
+model with several levels of decomposition is more than one picture wants. Three mechanisms bound
+it ([the details](../project/view-rendering-forms.md#limiting-what-a-view-draws)):
+
+- The view's `filter` conditions prune the walk as well as choosing the roots:
+  `view parts { expose vehicle; filter @SysML::PartUsage; render asTreeDiagram; }` draws the parts
+  and none of their attributes or ports, and `filter not @Hidden;` leaves out every element marked
+  `#Hidden`.
+- An attribute `depth` on the view bounds how many levels are drawn below each exposed element:
+  `view overview { expose vehicle; attribute depth = 2; render asTreeDiagram; }`. An element at the
+  bound keeps its ports and compartment rows and says `nested deeper than 2 levels; not shown`.
+  `%render Fleet::overview depth=1` overrides it for one render.
+- A `DiagramLayout::Layout` with `collapsed = true` about an element folds its children away in
+  every form: `metadata Layout about vehicle::engine { x = 120; y = 40; collapsed = true; }`.
+
 ## Where an expression is evaluated
 
 `%eval <expression>` evaluates in the namespace the session is currently working in, which is the

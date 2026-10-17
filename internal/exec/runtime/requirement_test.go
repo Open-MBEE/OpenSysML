@@ -4,12 +4,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 func TestRequirementEvaluation_RequireWithLiteral(t *testing.T) {
@@ -25,23 +19,7 @@ func TestRequirementEvaluation_RequireWithLiteral(t *testing.T) {
 		}
 	`
 
-	// Parse
-	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
-
-	// Build symbol index
-	idx := symbols.NewIndex()
-	idx.AddDocument("test.sysml", file)
-
-	// Create resolver and semantic model
-	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-
-	// Create runtime context
-	ctx := NewContext(typedModel(model, resolver), 10000)
-
-	// Resolve requirements
-	rootScope := idx.DocumentRoot("test.sysml")
-	testPkg := rootScope.Children()[0]
+	ctx, testPkg := constraintPackage(t, src)
 
 	// Test SafeSpeed
 	safeSpeed, ok := testPkg.LookupLocal("SafeSpeed")
@@ -84,23 +62,7 @@ func TestRequirementEvaluation_Assume(t *testing.T) {
 		}
 	`
 
-	// Parse
-	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
-
-	// Build symbol index
-	idx := symbols.NewIndex()
-	idx.AddDocument("test.sysml", file)
-
-	// Create resolver and semantic model
-	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-
-	// Create runtime context
-	ctx := NewContext(typedModel(model, resolver), 10000)
-
-	// Resolve requirement
-	rootScope := idx.DocumentRoot("test.sysml")
-	testPkg := rootScope.Children()[0]
+	ctx, testPkg := constraintPackage(t, src)
 	reqSym, ok := testPkg.LookupLocal("WithAssumption")
 	if !ok {
 		t.Fatal("WithAssumption not found")
@@ -127,23 +89,7 @@ func TestRequirementEvaluation_SubjectNotFound(t *testing.T) {
 		}
 	`
 
-	// Parse
-	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
-
-	// Build symbol index
-	idx := symbols.NewIndex()
-	idx.AddDocument("test.sysml", file)
-
-	// Create resolver and semantic model
-	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-
-	// Create runtime context
-	ctx := NewContext(typedModel(model, resolver), 10000)
-
-	// Resolve requirement
-	rootScope := idx.DocumentRoot("test.sysml")
-	testPkg := rootScope.Children()[0]
+	ctx, testPkg := constraintPackage(t, src)
 	reqSym, ok := testPkg.LookupLocal("NeedsSubject")
 	if !ok {
 		t.Fatal("NeedsSubject not found")
@@ -178,23 +124,7 @@ func TestRequirementEvaluation_Complete(t *testing.T) {
 		}
 	`
 
-	// Parse
-	file := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
-
-	// Build symbol index
-	idx := symbols.NewIndex()
-	idx.AddDocument("test.sysml", file)
-
-	// Create resolver and semantic model
-	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-
-	// Create runtime context
-	ctx := NewContext(typedModel(model, resolver), 10000)
-
-	// Resolve requirement
-	rootScope := idx.DocumentRoot("test.sysml")
-	testPkg := rootScope.Children()[0]
+	ctx, testPkg := constraintPackage(t, src)
 	reqSym, ok := testPkg.LookupLocal("SafetyReq")
 	if !ok {
 		t.Fatal("SafetyReq not found")

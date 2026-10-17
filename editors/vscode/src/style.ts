@@ -8,6 +8,14 @@ export const STYLE_SETTING = "opensysml.diagram.style";
 /** The setting naming the optional notation elements every diagram draws besides its view's own. */
 export const SHOW_SETTING = "opensysml.diagram.show";
 
+/** The setting bounding how many levels of nested elements a diagram draws below each exposed element. */
+export const DEPTH_SETTING = "opensysml.diagram.depth";
+
+/** depthOf reads the depth setting: a non-negative whole number, anything else 0, every level. */
+export function depthOf(value: unknown): number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
+}
+
 /** shownOf reads the show setting: the element names it lists, each once, in order; anything else names none. */
 export function shownOf(value: unknown): string[] {
   if (!Array.isArray(value)) {

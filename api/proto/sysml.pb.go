@@ -11637,7 +11637,10 @@ type RenderViewRequest struct {
 	// shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
 	// "compartments", "edge-labels", "keywords", "multiplicities", "typings",
 	// "qualifiers", or "all".
-	Show          []string `protobuf:"bytes,4,rep,name=show,proto3" json:"show,omitempty"`
+	Show []string `protobuf:"bytes,4,rep,name=show,proto3" json:"show,omitempty"`
+	// How many levels of nested elements to draw below each exposed element,
+	// overriding the depth the view states; 0 draws every level.
+	Depth         int32 `protobuf:"varint,5,opt,name=depth,proto3" json:"depth,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -11698,6 +11701,13 @@ func (x *RenderViewRequest) GetShow() []string {
 		return x.Show
 	}
 	return nil
+}
+
+func (x *RenderViewRequest) GetDepth() int32 {
+	if x != nil {
+		return x.Depth
+	}
+	return 0
 }
 
 // RenderViewResponse carries all machine-readable fields of the rendering.
@@ -13662,13 +13672,14 @@ const file_sysml_proto_rawDesc = "" +
 	"\x16RenderDocumentResponse\x12\x1a\n" +
 	"\bmarkdown\x18\x01 \x01(\tR\bmarkdown\x12\x12\n" +
 	"\x04html\x18\x02 \x01(\tR\x04html\x12\x1b\n" +
-	"\tfile_name\x18\x03 \x01(\tR\bfileName\"p\n" +
+	"\tfile_name\x18\x03 \x01(\tR\bfileName\"\x86\x01\n" +
 	"\x11RenderViewRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x12\n" +
 	"\x04view\x18\x02 \x01(\tR\x04view\x12\x14\n" +
 	"\x05ports\x18\x03 \x01(\tR\x05ports\x12\x12\n" +
-	"\x04show\x18\x04 \x03(\tR\x04show\"\xec\x02\n" +
+	"\x04show\x18\x04 \x03(\tR\x04show\x12\x14\n" +
+	"\x05depth\x18\x05 \x01(\x05R\x05depth\"\xec\x02\n" +
 	"\x12RenderViewResponse\x12\x12\n" +
 	"\x04view\x18\x01 \x01(\tR\x04view\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +

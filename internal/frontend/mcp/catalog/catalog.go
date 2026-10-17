@@ -97,7 +97,7 @@ var Tools = []Entry{
 		Summary: "Run an OSLC query against a parsed model."},
 	{Name: "render_model_document", Group: GroupRuntime, RPCs: []string{"RenderDocument"}, Flags: []string{"render-document", "doc-form"},
 		Summary: "Render a document definition as Markdown or HTML."},
-	{Name: "render_model_view", Group: GroupRuntime, RPCs: []string{"RenderView"}, Flags: []string{"render", "render-ports", "render-show"},
+	{Name: "render_model_view", Group: GroupRuntime, RPCs: []string{"RenderView"}, Flags: []string{"render", "render-ports", "render-show", "render-depth"},
 		Summary: "Render a view as its nodes, edges and compartments."},
 	{Name: "run_analysis", Group: GroupRuntime, RPCs: []string{"RunAnalysis"}, Flags: []string{"analysis", "engine"},
 		Summary: "Run an analysis case and report its result."},

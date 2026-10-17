@@ -20,6 +20,23 @@ func intArgument(n int64) Value {
 	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: n}}
 }
 
+// behaviorContext parses src into a Context with a 10000-step budget and
+// returns it with the document's root scope.
+func behaviorContext(t *testing.T, src string) (*Context, *symbols.Scope) {
+	t.Helper()
+	model, resolver, root := parseAndBuildModel(t, src)
+	return NewContext(typedModel(model, resolver), 10000), root
+}
+
+func mustInstantiate(t *testing.T, ctx *Context, sym *symbols.Symbol) *Instance {
+	t.Helper()
+	inst, err := ctx.Instantiate(sym)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	return inst
+}
+
 // An object of a type exhibiting a machine runs that machine on materialization.
 func TestInstantiateStartsExhibitedStateMachine(t *testing.T) {
 	src := `
@@ -33,13 +50,9 @@ func TestInstantiateStartsExhibitedStateMachine(t *testing.T) {
 			}
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Controller"))
 
 	behavior, ok := inst.ExhibitedState()
 	if !ok {
@@ -66,8 +79,7 @@ func TestExhibitedMachinesOfTwoObjectsAreIndependent(t *testing.T) {
 		}
 		attribute def Toggle;
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 	sym := resolveSymbol(t, root, "Light")
 
 	first, err := ctx.Instantiate(sym)
@@ -113,13 +125,9 @@ func TestExhibitedMachineWritesItsObjectsFeatureValues(t *testing.T) {
 			}
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Counter"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Counter"))
 	fv, err := inst.GetFeatureValue(ctx, "count")
 	if err != nil {
 		t.Fatalf("GetFeatureValue: %v", err)
@@ -145,13 +153,9 @@ func TestExhibitedMachineWritesItsOwnOccurrence(t *testing.T) {
 			exhibit state modes : Counting;
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Counter"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Counter"))
 	behavior, ok := inst.Behavior("modes")
 	if !ok {
 		t.Fatal("object runs no modes behavior")
@@ -199,13 +203,9 @@ func TestBehaviorNamedFollowsRedefinition(t *testing.T) {
 			action fancyBlink :>> blink;
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "FancyLamp"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "FancyLamp"))
 	for _, names := range [][2]string{{"fancyModes", "modes"}, {"fancyTick", "tick"}} {
 		renamed, ok := inst.Behavior(names[0])
 		if !ok {
@@ -269,10 +269,7 @@ func TestBehaviorNamedFollowsRedefinitionByAClassifier(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, src)
 			ctx := NewContext(typedModel(model, resolver), 10000)
 
-			room, err := ctx.Instantiate(resolveSymbol(t, root, "room"))
-			if err != nil {
-				t.Fatalf("Instantiate: %v", err)
-			}
+			room := mustInstantiate(t, ctx, resolveSymbol(t, root, "room"))
 			lamp := readInstance(t, ctx, room, "lamp")
 			if held := readInstance(t, ctx, room, tc.held); held != lamp {
 				t.Fatalf("%s holds object %d, want lamp (%d)", tc.held, held.ID, lamp.ID)
@@ -327,13 +324,9 @@ func TestPerformedActionWritesItsOwnOccurrence(t *testing.T) {
 			perform action work : Bump;
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Counter"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Counter"))
 	behavior, ok := inst.Behavior("work")
 	if !ok {
 		t.Fatal("object runs no work behavior")
@@ -374,8 +367,7 @@ func TestDirectlyExecutedActionKeepsItsFeaturesLocal(t *testing.T) {
 			first step;
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 
 	exec, err := newActionExecutor(ctx, resolveSymbol(t, root, "Bump"), nil)
 	if err != nil {
@@ -410,13 +402,9 @@ func TestExhibitedMachineNormalizesItsManyValuedAttribute(t *testing.T) {
 			exhibit state modes : Logging;
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Log"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Log"))
 	behavior, ok := inst.Behavior("modes")
 	if !ok {
 		t.Fatal("object runs no modes behavior")
@@ -460,10 +448,7 @@ const invokeFixture = `
 func TestInvokeOperationPerformedByTheObject(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, invokeFixture)
 	ctx := NewContext(typedModel(model, resolver), 10000)
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Tank"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Tank"))
 
 	results, err := ctx.InvokeOperation(inst, "fillBy", map[string]Value{"n": intArgument(3)})
 	if err != nil {
@@ -554,10 +539,7 @@ func TestInvokeOperationWithPositionalArguments(t *testing.T) {
 	if tank == nil {
 		t.Fatal("Tank not found")
 	}
-	inst, err := ctx.Instantiate(tank)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, tank)
 	positional := func(values ...Value) OperationArguments {
 		return OperationArguments{Positional: values}
 	}
@@ -646,10 +628,7 @@ func TestInvokeOperationReturnsRedefinedInout(t *testing.T) {
 	if tank == nil {
 		t.Fatal("Tank not found")
 	}
-	inst, err := ctx.Instantiate(tank)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, tank)
 	results, err := ctx.InvokeOperationWith(inst, "countUp", OperationArguments{Positional: []Value{intArgument(10), intArgument(4)}})
 	if err != nil {
 		t.Fatalf("countUp(10, 4): %v", err)
@@ -683,10 +662,7 @@ func TestInvokeOperationCountsItsOwnCostAgainstBudget(t *testing.T) {
 	newInvocation := func(maxSteps int64) (*Context, *Instance) {
 		model, resolver, root := parseAndBuildModel(t, invokeFixture)
 		ctx := NewContext(typedModel(model, resolver), maxSteps)
-		inst, err := ctx.Instantiate(resolveSymbol(t, root, "Tank"))
-		if err != nil {
-			t.Fatalf("Instantiate: %v", err)
-		}
+		inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Tank"))
 		return ctx, inst
 	}
 
@@ -766,10 +742,7 @@ func TestCalcOperationNestedUsageSeesPerformingObject(t *testing.T) {
 	if tank == nil {
 		t.Fatal("Tank not found")
 	}
-	inst, err := ctx.Instantiate(tank)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, tank)
 	if err := inst.SetFeatureValue(ctx, "level", intArgument(7)); err != nil {
 		t.Fatalf("SetFeatureValue: %v", err)
 	}
@@ -791,10 +764,7 @@ func TestObjectScopedCalcUsageSeesPerformingObject(t *testing.T) {
 	if tank == nil {
 		t.Fatal("Tank not found")
 	}
-	inst, err := ctx.Instantiate(tank)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, tank)
 	if err := inst.SetFeatureValue(ctx, "level", intArgument(7)); err != nil {
 		t.Fatalf("SetFeatureValue: %v", err)
 	}
@@ -838,10 +808,7 @@ func TestCalcInvocationExpressionSeesPerformingObject(t *testing.T) {
 	if robot == nil {
 		t.Fatal("Robot not found")
 	}
-	inst, err := ctx.Instantiate(robot)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, robot)
 	if _, err := ctx.InvokeOperation(inst, "drain", nil); err != nil {
 		t.Fatalf("InvokeOperation(drain): %v", err)
 	}
@@ -879,10 +846,7 @@ func TestCalcInvocationExpressionSeesPerformingObject(t *testing.T) {
 func TestInvokeOperationFailureModes(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, invokeFixture)
 	ctx := NewContext(typedModel(model, resolver), 10000)
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Tank"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Tank"))
 
 	cases := []struct {
 		name      string
@@ -917,13 +881,9 @@ func TestPerformedActionWithoutAFlowStillMaterializes(t *testing.T) {
 			perform action report : Report;
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Camera"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Camera"))
 	behavior, ok := inst.Behavior("report")
 	if !ok {
 		t.Fatalf("object performs no report action, behaviors: %v", inst.Behaviors())
@@ -971,10 +931,7 @@ func TestPerformedActionOutputDefaultKeepsTheReferencedFlow(t *testing.T) {
 		part def Counter { perform action report : Report { out total = 7; } }
 	`)
 	ctx := NewContext(typedModel(model, resolver), 10000)
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Counter"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Counter"))
 	if got := performedFeature(t, ctx, inst, "report", "total"); !valueIdentical(got, constInt(7)) {
 		t.Errorf("report.total = %s; want the binding's default 7", FormatValue(got))
 	}
@@ -1011,13 +968,9 @@ func TestWritingOneValueToAManyValuedFeatureHoldsACollection(t *testing.T) {
 			}
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Log"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Log"))
 	fv, err := inst.GetFeatureValue(ctx, "entries")
 	if err != nil {
 		t.Fatalf("GetFeatureValue: %v", err)
@@ -1045,13 +998,9 @@ func TestExhibitedStateNamingNothingExhibitsItself(t *testing.T) {
 			}
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Controller"))
 	behavior, ok := inst.Behavior("modes")
 	if !ok || behavior.State == nil {
 		t.Fatalf("object exhibits no modes machine, behaviors: %v", inst.Behaviors())
@@ -1104,13 +1053,9 @@ func TestPerformedActionNamingNothingPerformsItself(t *testing.T) {
 			perform action idle;
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Engine"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Engine"))
 	for _, name := range []string{"boost", "idle"} {
 		behavior, ok := inst.Behavior(name)
 		if !ok || behavior.Action == nil {
@@ -1137,8 +1082,7 @@ func TestExhibitsStateResolvesTheBodyABindingRuns(t *testing.T) {
 			perform action watch { first start; then done; }
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 	lamp := resolveSymbol(t, root, "Lamp")
 	member := func(name string) *symbols.Symbol {
 		sym, ok := lamp.Scope.LookupLocal(name)
@@ -1176,10 +1120,7 @@ func TestExhibitsStateResolvesTheBodyABindingRuns(t *testing.T) {
 	}
 
 	// An object of the type addresses its machines the same way.
-	inst, err := ctx.Instantiate(lamp)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, lamp)
 	if got := inst.ExhibitedStatesOf(member("spare")); len(got) != 1 || got[0].Member() != exhibitSpare {
 		t.Errorf("ExhibitedStatesOf(spare) = %v, want the machine `exhibit spare` binds", got)
 	}
@@ -1206,8 +1147,7 @@ func TestExhibitsStateThroughTheTypeOfABodyStatingUsage(t *testing.T) {
 			exhibit state tuned : Blink { state bright; }
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 	lamp := resolveSymbol(t, root, "Lamp")
 	tuned, ok := lamp.Scope.LookupLocal("tuned")
 	if !ok {
@@ -1224,10 +1164,7 @@ func TestExhibitsStateThroughTheTypeOfABodyStatingUsage(t *testing.T) {
 		}
 	}
 
-	inst, err := ctx.Instantiate(lamp)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, lamp)
 	for _, machine := range []string{"Blink", "Base"} {
 		if got := inst.ExhibitedStatesOf(def(machine)); len(got) != 1 || got[0].Member() != tuned {
 			t.Errorf("ExhibitedStatesOf(%s) = %v, want tuned", machine, got)
@@ -1257,12 +1194,8 @@ func TestOperationOutputNamedLikeAFeatureAnswersTheCaller(t *testing.T) {
 			action read { out level[1]; first apply; action apply { assign level := 7; } }
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Gauge"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	ctx, root := behaviorContext(t, src)
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Gauge"))
 
 	results, err := ctx.InvokeOperation(inst, "read", nil)
 	if err != nil {
@@ -1581,8 +1514,7 @@ func TestFailedMaterializationLeavesNoBehaviorBehind(t *testing.T) {
 			exhibit state modes { entry; then idle; state idle; }
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 
 	broken, err := ctx.Instantiate(resolveSymbol(t, root, "Broken"))
 	if err == nil {
@@ -1634,10 +1566,7 @@ func TestObjectExhibitsAMachineTypedByTheLibraryStateAction(t *testing.T) {
 			pkg := resolveSymbol(t, root, "test")
 			ctx := NewContext(typedModel(model, resolver), 10000)
 
-			inst, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "Mission"))
-			if err != nil {
-				t.Fatalf("Instantiate: %v", err)
-			}
+			inst := mustInstantiate(t, ctx, resolveSymbol(t, pkg.Scope, "Mission"))
 			if got := featureInt(t, ctx, inst, "mass"); got != 7 {
 				t.Errorf("mass = %d, want 7", got)
 			}
@@ -1960,8 +1889,7 @@ func TestMessageLeftForACompletedMachineDoesNotBlockANewObject(t *testing.T) {
 		}
 		attribute def Ping;
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 	sym := resolveSymbol(t, root, "Chirp")
 
 	first, err := ctx.Instantiate(sym)
@@ -2024,13 +1952,9 @@ func TestPerformedActionDecidesOnItsOwnWrite(t *testing.T) {
 			}
 		}
 	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	ctx, root := behaviorContext(t, src)
 
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Watchdog"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Watchdog"))
 	if got := featureInt(t, ctx, inst, "level"); got != 5 {
 		t.Fatalf("level = %d, want 5 written by the action", got)
 	}
@@ -2062,10 +1986,7 @@ func TestActionExecutedOnItsPerformerRunsTheExistingPerformance(t *testing.T) {
 		}
 		part def Twin { perform action morning : Fill; perform action evening : Fill; }
 	}`))
-	tank, err := ctx.Instantiate(oneSymbol(t, idx, "P::Tank"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	tank := mustInstantiate(t, ctx, oneSymbol(t, idx, "P::Tank"))
 	fill := oneSymbol(t, idx, "P::Tank::fill")
 	results, err := ctx.ExecuteActionPerformedBy(fill, tank, nil)
 	if err != nil {
@@ -2133,10 +2054,7 @@ func TestUsageDeclaredContextBindingOnAnOccurrence(t *testing.T) {
 	model, resolver, root := parseAndBuildLibraryModel(t, src)
 	ctx := NewContext(typedModel(model, resolver), 10000)
 
-	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Tank"))
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Tank"))
 	behavior, ok := inst.Behavior("life")
 	if !ok {
 		t.Fatal("object runs no life behavior")
@@ -2180,27 +2098,21 @@ func TestPerformedActionJoinReadsOnlyTheImplicitBinding(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedJoinFixture))
 	nudge := oneSymbol(t, idx, "test::Heater::Nudge")
 	heater := findSymbolByName(idx.DocumentRoot("<test>"), "Heater", ast.DefPart)
-	inst, err := ctx.Instantiate(heater)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
-	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+	inst := mustInstantiate(t, ctx, heater)
+	if err := ctx.startClassifierBehaviors(inst, 0); err != nil {
 		t.Fatalf("start behaviors: %v", err)
 	}
 
 	inputs := map[string]Value{"context": {Kind: ValInstance, Instance: inst.ID}}
-	if _, err = ctx.ExecuteActionPerformedBy(nudge, inst, inputs); err != nil {
+	if _, err := ctx.ExecuteActionPerformedBy(nudge, inst, inputs); err != nil {
 		t.Fatalf("join with the implicit binding: %v", err)
 	}
 	if len(inputs) != 1 || inputs["context"].Instance != inst.ID {
 		t.Errorf("inputs = %v, want the one implicit binding unchanged", inputs)
 	}
 
-	other, err := ctx.Instantiate(heater)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
-	_, err = ctx.ExecuteActionPerformedBy(nudge, inst, map[string]Value{
+	other := mustInstantiate(t, ctx, heater)
+	_, err := ctx.ExecuteActionPerformedBy(nudge, inst, map[string]Value{
 		"context": {Kind: ValInstance, Instance: other.ID},
 	})
 	if !errors.Is(err, ErrPerformedInputs) {
@@ -2240,11 +2152,8 @@ func TestPerformedActionJoinReadsTheStoredBinding(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedJoinBoundFixture))
 	nudge := oneSymbol(t, idx, "test::Host::Nudge")
 	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
-	inst, err := ctx.Instantiate(host)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
-	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+	inst := mustInstantiate(t, ctx, host)
+	if err := ctx.startClassifierBehaviors(inst, 0); err != nil {
 		t.Fatalf("start behaviors: %v", err)
 	}
 	fv, err := inst.GetFeatureValue(ctx, "other")
@@ -2382,14 +2291,11 @@ const performerUnseedableFixture = `
 func TestPerformerLeavesAnUnsuppliableRefToTheCaller(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performerUnseedableFixture))
 	rig := findSymbolByName(idx.DocumentRoot("<test>"), "Rig", ast.DefPart)
-	inst, err := ctx.Instantiate(rig)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
-	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+	inst := mustInstantiate(t, ctx, rig)
+	if err := ctx.startClassifierBehaviors(inst, 0); err != nil {
 		t.Fatalf("start behaviors: %v", err)
 	}
-	if err = ctx.drainObjectBehaviors(); err != nil {
+	if err := ctx.drainObjectBehaviors(); err != nil {
 		t.Fatalf("run behaviors: %v", err)
 	}
 	motor, err := inst.GetFeatureValue(ctx, "motor")
@@ -2414,14 +2320,11 @@ func TestPerformerLeavesAnUnsuppliableRefToTheCaller(t *testing.T) {
 func TestPerformerSeedsOnlyTheConformingDefaultlessRef(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performerSeedFixture))
 	rig := findSymbolByName(idx.DocumentRoot("<test>"), "Rig", ast.DefPart)
-	inst, err := ctx.Instantiate(rig)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
-	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+	inst := mustInstantiate(t, ctx, rig)
+	if err := ctx.startClassifierBehaviors(inst, 0); err != nil {
 		t.Fatalf("start behaviors: %v", err)
 	}
-	if err = ctx.drainObjectBehaviors(); err != nil {
+	if err := ctx.drainObjectBehaviors(); err != nil {
 		t.Fatalf("run behaviors: %v", err)
 	}
 	motor, err := inst.GetFeatureValue(ctx, "motor")
@@ -2445,10 +2348,7 @@ func TestPerformerSeedsOnlyTheConformingDefaultlessRef(t *testing.T) {
 func TestInvokeOperationPositionalSeedsOnlyTheConformingDefaultlessRef(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performerSeedFixture))
 	motor := findSymbolByName(idx.DocumentRoot("<test>"), "Motor", ast.DefPart)
-	inst, err := ctx.Instantiate(motor)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, motor)
 	if _, err := ctx.InvokeOperationWith(inst, "spin",
 		OperationArguments{Positional: []Value{intArgument(1)}}); err != nil {
 		t.Fatalf("spin(1): %v", err)
@@ -2495,11 +2395,8 @@ func TestExecuteActionPerformedByDefReadsThis(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defRunThisFixture))
 	warm := oneSymbol(t, idx, "test::Heater::Warm")
 	heater := findSymbolByName(idx.DocumentRoot("<test>"), "Heater", ast.DefPart)
-	inst, err := ctx.Instantiate(heater)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
-	if _, err = ctx.ExecuteActionPerformedBy(warm, inst, nil); err != nil {
+	inst := mustInstantiate(t, ctx, heater)
+	if _, err := ctx.ExecuteActionPerformedBy(warm, inst, nil); err != nil {
 		t.Fatalf("run %s directly: %v", warm.Name, err)
 	}
 	for _, name := range []string{"flag", "same"} {
@@ -2546,10 +2443,7 @@ const qualifiedAssignFixture = `
 func TestQualifiedAssignWritesTheQualifiersObject(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, qualifiedAssignFixture))
 	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
-	inst, err := ctx.Instantiate(host)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, host)
 	probe := oneSymbol(t, idx, "test::Probe")
 	results, err := ctx.ExecuteActionPerformedBy(probe, inst, nil)
 	if err != nil {
@@ -2610,10 +2504,7 @@ const qualifiedStreamFixture = `
 func TestQualifiedWriteStreamsLikeARunWrite(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, qualifiedStreamFixture))
 	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
-	inst, err := ctx.Instantiate(host)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, host)
 	sees := oneSymbol(t, idx, "test::Sees")
 	results, err := ctx.ExecuteActionPerformedBy(sees, inst, nil)
 	if err != nil {
@@ -2653,10 +2544,7 @@ func TestCalcQualifiedWriteRejectsAnotherObject(t *testing.T) {
 		}
 	}`)
 	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
-	inst, err := ctx.Instantiate(host)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, host)
 	bump := lookupOne(t, idx, "test::Bump")
 	if _, err := ctx.invokeCalcWithSelf(bump, calcArgs{}, idx.DocumentRoot("<test>"), inst); !errors.Is(err, ErrCalcExternalAssignment) {
 		t.Fatalf("Bump on Host: err = %v; want ErrCalcExternalAssignment", err)
@@ -2697,12 +2585,9 @@ const qualifiedWriteFixture = `
 func TestQualifiedWriteMirrorsTheLiveOccurrence(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, qualifiedWriteFixture))
 	plant := findSymbolByName(idx.DocumentRoot("<test>"), "Plant", ast.DefPart)
-	inst, err := ctx.Instantiate(plant)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, plant)
 	life := oneSymbol(t, idx, "test::Life")
-	if _, _, err = ctx.ExecuteStatePerformedBy(life, inst, nil); err != nil {
+	if _, _, err := ctx.ExecuteStatePerformedBy(life, inst, nil); err != nil {
 		t.Fatalf("run Life on Plant: %v", err)
 	}
 	if fv, err := inst.GetFeatureValue(ctx, "flag"); err != nil {
@@ -2743,10 +2628,7 @@ const calcContextOrderFixture = `
 func TestCalcCallBindsContextBeforeItsInputs(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, calcContextOrderFixture))
 	plant := findSymbolByName(idx.DocumentRoot("<test>"), "Plant", ast.DefPart)
-	inst, err := ctx.Instantiate(plant)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, plant)
 	run := oneSymbol(t, idx, "test::Plant::Run")
 	results, err := ctx.ExecuteActionPerformedBy(run, inst, nil)
 	if err != nil {
@@ -2781,11 +2663,8 @@ func TestExecuteStateDefReadsThis(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defRunStateFixture))
 	life := oneSymbol(t, idx, "test::Heater::Life")
 	heater := findSymbolByName(idx.DocumentRoot("<test>"), "Heater", ast.DefPart)
-	inst, err := ctx.Instantiate(heater)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
-	if _, _, err = ctx.ExecuteStatePerformedBy(life, inst, nil); err != nil {
+	inst := mustInstantiate(t, ctx, heater)
+	if _, _, err := ctx.ExecuteStatePerformedBy(life, inst, nil); err != nil {
 		t.Fatalf("run %s directly: %v", life.Name, err)
 	}
 	fv, err := inst.GetFeatureValue(ctx, "flag")
@@ -3246,18 +3125,15 @@ func TestPerformedActionJoinRejectsADifferentRefValue(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedJoinRefValueFixture))
 	work := oneSymbol(t, idx, "test::Machine::Work")
 	plant := findSymbolByName(idx.DocumentRoot("<test>"), "Plant", ast.DefPart)
-	inst, err := ctx.Instantiate(plant)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
-	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+	inst := mustInstantiate(t, ctx, plant)
+	if err := ctx.startClassifierBehaviors(inst, 0); err != nil {
 		t.Fatalf("start behaviors: %v", err)
 	}
-	_, err = ctx.ExecuteActionPerformedBy(work, inst, map[string]Value{"threshold": constInt(2)})
+	_, err := ctx.ExecuteActionPerformedBy(work, inst, map[string]Value{"threshold": constInt(2)})
 	if !errors.Is(err, ErrPerformedInputs) {
 		t.Fatalf("join offering threshold 2 where 1 is bound: %v, want ErrPerformedInputs", err)
 	}
-	if _, err = ctx.ExecuteActionPerformedBy(work, inst, map[string]Value{"threshold": constInt(1)}); err != nil {
+	if _, err := ctx.ExecuteActionPerformedBy(work, inst, map[string]Value{"threshold": constInt(1)}); err != nil {
 		t.Fatalf("join with the binding the performance stored: %v", err)
 	}
 }
@@ -3328,10 +3204,7 @@ const stateQualifiedContextFixture = `
 func TestStateTransitionReadsTheMachinesQualifiedContext(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stateQualifiedContextFixture))
 	plant := findSymbolByName(idx.DocumentRoot("<test>"), "Plant", ast.DefPart)
-	inst, err := ctx.Instantiate(plant)
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
+	inst := mustInstantiate(t, ctx, plant)
 	for _, name := range []string{"test::Life", "test::Watch"} {
 		def := oneSymbol(t, idx, name)
 		_, visits, err := ctx.ExecuteStatePerformedBy(def, inst, nil)

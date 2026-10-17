@@ -2963,6 +2963,10 @@ pub struct RenderViewRequest {
     /// "qualifiers", or "all".
     #[prost(string, repeated, tag="4")]
     pub show: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// How many levels of nested elements to draw below each exposed element,
+    /// overriding the depth the view states; 0 draws every level.
+    #[prost(int32, tag="5")]
+    pub depth: i32,
 }
 /// RenderViewResponse carries all machine-readable fields of the rendering.
 #[derive(Clone, PartialEq, ::prost::Message)]
