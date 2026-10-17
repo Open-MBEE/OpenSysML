@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
@@ -134,7 +135,7 @@ func TestRegistryExploreIsTheRuntimesExploration(t *testing.T) {
 	if !x.Complete() || len(x.Outcomes) != 3 {
 		t.Fatalf("exploration %+v, want the 3 outcomes", x)
 	}
-	if _, err = Default().Explore(context.Background(), request(f.building(), "test::race", runtime.DefaultSchedulePolicy), raceRun(t, f)); !errors.Is(err, runtime.ErrNotExploring) {
+	if _, err = Default().Explore(context.Background(), request(f.building(), "test::race", runtime.DefaultSchedulePolicy), raceRun(t, f)); !errors.Is(err, explore.ErrNotExploring) {
 		t.Fatalf("explore under a fixed schedule: %v, want the refusal", err)
 	}
 }
@@ -191,7 +192,7 @@ func TestExploreRefusesWhatItCannotRun(t *testing.T) {
 	if c := e.Covers(nil, Question{Kind: Outcomes, Free: FreeSchedule}); c.Covered || !errors.Is(c.Refusal, ErrMalformedQuestion) {
 		t.Fatalf("no linearize: %+v, want malformed", c)
 	}
-	if c := e.Covers(nil, Question{Kind: Outcomes, Free: FreeSchedule, Linearize: run, Schedule: runtime.DefaultSchedulePolicy}); c.Covered || !errors.Is(c.Refusal, runtime.ErrNotExploring) {
+	if c := e.Covers(nil, Question{Kind: Outcomes, Free: FreeSchedule, Linearize: run, Schedule: runtime.DefaultSchedulePolicy}); c.Covered || !errors.Is(c.Refusal, explore.ErrNotExploring) {
 		t.Fatalf("fixed schedule: %+v, want not exploring", c)
 	}
 	if c := e.Covers(nil, Question{Kind: Outcomes, Free: FreeSchedule, Linearize: run, Schedule: policy(t, "explore")}); !c.Covered {

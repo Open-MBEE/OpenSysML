@@ -741,3 +741,24 @@ func calcFrame(kind, calc string, err error) error {
 func calcDefaultError(kind, calc, param string, err error) error {
 	return calcFrame(kind, calc, fmt.Errorf("default for parameter %q: %w", param, err))
 }
+
+// SetupError is a run's failure to begin: no executor could be made or initialized.
+type SetupError struct{ Err error }
+
+func (e *SetupError) Error() string { return e.Err.Error() }
+func (e *SetupError) Unwrap() error { return e.Err }
+
+// wrapSetupError classifies a root executor failure without reclassifying
+// input-binding or performer-lifecycle errors as setup failures.
+func wrapSetupError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var setup *SetupError
+	var binding inputBindingError
+	if errors.As(err, &setup) || errors.As(err, &binding) ||
+		errors.Is(err, errOccurrenceDestroyed) || errors.Is(err, errOccurrenceLifetime) {
+		return err
+	}
+	return &SetupError{Err: err}
+}

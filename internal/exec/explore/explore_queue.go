@@ -1,9 +1,10 @@
-package runtime
+package explore
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"slices"
 	"sync"
 )
@@ -18,7 +19,7 @@ import (
 // of the choice varied, earliest first. A run is committed once every prefix before it has completed;
 // one started earlier is speculative, and at most jobs of those are discarded in all. The queue
 // never holds more than runs prefixes, so no more than runs jobs are ever put to work.
-func ExploreWith(stop context.Context, policy SchedulePolicy, jobs int, fresh func(job int) (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
+func ExploreWith(stop context.Context, policy runtime.SchedulePolicy, jobs int, fresh func(job int) (*runtime.Context, error), run func(*runtime.Context) (runtime.Outcome, error)) (*Exploration, error) {
 	budget, ok := policy.Exploration()
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrNotExploring, policy)
@@ -28,7 +29,7 @@ func ExploreWith(stop context.Context, policy SchedulePolicy, jobs int, fresh fu
 
 // newExploreQueue is the queue over an exploration's prefixes under budget, the root prefix
 // queued, for min(jobs, runs) jobs.
-func newExploreQueue(policy SchedulePolicy, budget ExploreBudget, jobs int) *exploreQueue {
+func newExploreQueue(policy runtime.SchedulePolicy, budget runtime.ExploreBudget, jobs int) *exploreQueue {
 	q := &exploreQueue{
 		policy:        policy,
 		budget:        budget,
@@ -44,7 +45,7 @@ func newExploreQueue(policy SchedulePolicy, budget ExploreBudget, jobs int) *exp
 
 // explore puts the jobs to work on the queue until it is over or the caller (stop) goes
 // away, and assembles the exploration.
-func (q *exploreQueue) explore(stop context.Context, fresh func(job int) (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
+func (q *exploreQueue) explore(stop context.Context, fresh func(job int) (*runtime.Context, error), run func(*runtime.Context) (runtime.Outcome, error)) (*Exploration, error) {
 	var wg sync.WaitGroup
 	for job := 0; job < q.jobs; job++ {
 		wg.Add(1)
@@ -90,10 +91,10 @@ type explorePrefix struct {
 	index    int
 	state    prefixState
 	replay   *exploreRun // nil when fresh failed
-	outcome  Outcome
+	outcome  runtime.Outcome
 	identity string
-	gaps     []CoverageGap // the coverage gaps the run left on its context
-	err      error         // fresh failed, or the run diverged
+	gaps     []runtime.CoverageGap // the coverage gaps the run left on its context
+	err      error                 // fresh failed, or the run diverged
 }
 
 // exploreQueue coordinates the jobs over the prefixes discovered within the runs cut.
@@ -101,8 +102,8 @@ type exploreQueue struct {
 	mu   sync.Mutex
 	wake *sync.Cond
 
-	policy SchedulePolicy
-	budget ExploreBudget
+	policy runtime.SchedulePolicy
+	budget runtime.ExploreBudget
 	jobs   int
 
 	order     []*explorePrefix // in plan order; never longer than the runs budget
@@ -121,7 +122,7 @@ type exploreQueue struct {
 }
 
 // work is one job: it runs prefixes as the queue hands them out until the queue is over.
-func (q *exploreQueue) work(stop context.Context, job int, fresh func(int) (*Context, error), run func(*Context) (Outcome, error)) {
+func (q *exploreQueue) work(stop context.Context, job int, fresh func(int) (*runtime.Context, error), run func(*runtime.Context) (runtime.Outcome, error)) {
 	for {
 		p := q.next(stop)
 		if p == nil {
@@ -129,21 +130,21 @@ func (q *exploreQueue) work(stop context.Context, job int, fresh func(int) (*Con
 		}
 		ctx, err := fresh(job)
 		if err != nil {
-			q.finish(p, nil, Outcome{}, &SetupError{Err: err})
+			q.finish(p, nil, runtime.Outcome{}, &runtime.SetupError{Err: err})
 			continue
 		}
 		replay := &exploreRun{prefix: p.prefix, depth: q.budget.Depth}
-		ctx.beginExploration(q.policy, replay)
+		ctx.BeginExploration(q.policy, replay)
 		outcome, runErr := run(ctx)
 		if runErr != nil {
-			var setup *SetupError
+			var setup *runtime.SetupError
 			if errors.As(runErr, &setup) {
-				q.finish(p, nil, Outcome{}, runErr)
+				q.finish(p, nil, runtime.Outcome{}, runErr)
 				continue
 			}
-			outcome = Outcome{Err: runErr, ctx: ctx}
+			outcome = ctx.FailedOutcome(runErr)
 		}
-		p.gaps = ctx.gaps()
+		p.gaps = ctx.Gaps()
 		q.finish(p, replay, outcome, nil)
 	}
 }
@@ -226,10 +227,10 @@ func (q *exploreQueue) speculative() int {
 
 // finish records a run's result, queues the prefixes it leaves in plan order and folds
 // what is now committed; a run dropped meanwhile is discarded.
-func (q *exploreQueue) finish(p *explorePrefix, replay *exploreRun, outcome Outcome, err error) {
+func (q *exploreQueue) finish(p *explorePrefix, replay *exploreRun, outcome runtime.Outcome, err error) {
 	if err == nil {
 		if err = replay.followed(); err == nil {
-			p.identity = outcome.identity()
+			p.identity = outcome.Identity()
 		}
 	}
 	q.mu.Lock()
@@ -307,12 +308,12 @@ func (q *exploreQueue) fold() {
 			return
 		}
 		q.depthHit = q.depthHit || p.replay.depthHit
-		q.result.Unenumerated = mergeGaps(q.result.Unenumerated, p.gaps)
-		if errors.Is(p.outcome.Err, errStatementOrderSweepLimit) &&
-			!slices.Contains(q.result.BudgetsHit, boundStatementOrders) {
-			q.result.BudgetsHit = append(q.result.BudgetsHit, boundStatementOrders)
+		q.result.Unenumerated = runtime.MergeGaps(q.result.Unenumerated, p.gaps)
+		if errors.Is(p.outcome.Err, runtime.ErrStatementOrderSweepLimit) &&
+			!slices.Contains(q.result.BudgetsHit, runtime.BoundStatementOrders) {
+			q.result.BudgetsHit = append(q.result.BudgetsHit, runtime.BoundStatementOrders)
 		}
-		q.result.Scope = scopeWith(q.result.Scope, p.outcome.Scope)
+		q.result.Scope = runtime.ScopeWith(q.result.Scope, p.outcome.Scope)
 		if i, seen := q.reached[p.identity]; !seen {
 			q.reached[p.identity] = len(q.result.Outcomes)
 			q.result.Outcomes = append(q.result.Outcomes, ExploredOutcome{
@@ -335,7 +336,7 @@ func (q *exploreQueue) fold() {
 // release lets go of the prefix's run, its replay and the outcome's context, once the result
 // has what it keeps of it.
 func (p *explorePrefix) release() {
-	p.replay, p.outcome, p.err = nil, Outcome{}, nil
+	p.replay, p.outcome, p.err = nil, runtime.Outcome{}, nil
 }
 
 // forget takes a prefix off the pending list.

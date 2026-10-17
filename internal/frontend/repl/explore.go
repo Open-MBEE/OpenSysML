@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -55,7 +56,7 @@ type VerdictOutcome struct {
 	// Error is what stopped the runs reaching this outcome, empty for one they completed.
 	Error          string
 	Linearizations int
-	Probability    *runtime.ProbabilityRange
+	Probability    *explore.ProbabilityRange
 	// Witness is one run's choice sequence, a choice per entry in run order.
 	Witness []string
 }
@@ -163,13 +164,13 @@ func recordedTrace(ctx *runtime.Context) []string {
 }
 
 // witnessTrace is the trace the witness run of an outcome recorded, none when it kept none.
-func witnessTrace(o runtime.ExploredOutcome) []string {
+func witnessTrace(o explore.ExploredOutcome) []string {
 	return recordedTrace(o.Outcome.Context())
 }
 
 // explorationVerdict tables one row per distinct outcome, then how it ended;
 // a failed run fails the exploration, and a budget hit leaves it unresolved.
-func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
+func explorationVerdict(subject string, x *explore.Exploration) Verdict {
 	if x == nil {
 		return unresolvedVerdict(subject, "exploration of "+subject+" reached no outcome")
 	}

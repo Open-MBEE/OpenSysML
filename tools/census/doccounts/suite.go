@@ -21,7 +21,7 @@ const (
 	runtimeDir = "internal/exec/runtime"
 	// orchestrationDirs are the packages layered on the runtime whose tests the
 	// runtime suite figures count with the runtime's own.
-	orchestrationDirs     = "internal/exec/sweep"
+	orchestrationDirs     = "internal/exec/sweep,internal/exec/explore"
 	runtimeConformanceDir = runtimeDir + "/testdata/conformance"
 	parserDir             = "internal/syntax/parser"
 	parserSuiteDir        = "tests/parser"

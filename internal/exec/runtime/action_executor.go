@@ -432,7 +432,7 @@ func (e *ActionExecutor) Step() error {
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 
 	schedule := e.scheduleTokens(&order, eligible)
-	acted, err := e.stepTokens(schedule, paused, &order)
+	acted, err := e.StepTokens(schedule, paused, &order)
 	if refused := e.ctx.scheduling().refusal(); refused != nil {
 		err = refused
 	}
@@ -2236,8 +2236,8 @@ func (e *ActionExecutor) stepCandidates(
 	order *stepOrder,
 	eligible func(Token) bool,
 	scope *actionFrame,
-) stepTokens {
-	tokens := stepTokens{
+) StepTokens {
+	tokens := StepTokens{
 		owner:   e,
 		scope:   scope,
 		step:    e.stepCount + 1,
@@ -2328,10 +2328,10 @@ func (e *ActionExecutor) parked(t Token, order *stepOrder) bool {
 	return waitsForMessage && !order.offered[t.ID]
 }
 
-// stepTokens gives each scheduled token its step, then the tokens whose paused
+// StepTokens gives each scheduled token its step, then the tokens whose paused
 // work a sweep resumes last; a breakpoint on the way ends the sweep. It reports
 // whether any token acted, one whose step failed among them.
-func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, order *stepOrder) (acted bool, err error) {
+func (e *ActionExecutor) StepTokens(schedule *tokenSchedule, paused []int64, order *stepOrder) (acted bool, err error) {
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		if e.state == StateSuspended {
 			break

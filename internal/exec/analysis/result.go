@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
@@ -298,7 +299,7 @@ type Evaluation struct {
 	// Row is one row of a sweep.
 	Row *sweep.SweepRow
 	// Explored is the outcome set an exploration reached.
-	Explored *runtime.Exploration
+	Explored *explore.Exploration
 	// Solved is a solver's answer to one query.
 	Solved *solve.Result
 	// Checked is what a search of an action's schedules found, with its witnesses written.
@@ -420,7 +421,7 @@ func BudgetOf(limits runtime.Budgets, policy runtime.SchedulePolicy, kind Kind, 
 }
 
 // Exploration is the outcome set an Outcomes result reached, nil for any other result.
-func (r Result) Exploration() *runtime.Exploration {
+func (r Result) Exploration() *explore.Exploration {
 	for _, v := range r.Values {
 		if v.Explored != nil {
 			return v.Explored

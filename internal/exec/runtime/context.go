@@ -290,7 +290,7 @@ type Context struct {
 	drawPolicy DrawPolicy
 	// exploring is the exploration run this context's runs take part in, nil
 	// outside Explore (explore.go).
-	exploring *exploreRun
+	exploring Chooser
 	// replaying is the witness this context's runs follow in turn under a
 	// `replay` policy (replay.go), nil under any other.
 	replaying *replayRun
@@ -561,9 +561,9 @@ func (ctx *Context) drivenRunStates() []*runState {
 	return states
 }
 
-// beginExploration makes the context's runs the given run of an exploration; the
+// BeginExploration makes the context's runs the given run of an exploration; the
 // state installed for a run no bracket began starts over, drawing from it.
-func (ctx *Context) beginExploration(policy SchedulePolicy, run *exploreRun) {
+func (ctx *Context) BeginExploration(policy SchedulePolicy, run Chooser) {
 	ctx.schedule = policy
 	ctx.exploring, ctx.replaying = run, nil
 	ctx.run = ctx.newRunState()

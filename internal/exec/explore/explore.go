@@ -1,9 +1,10 @@
-package runtime
+package explore
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -12,130 +13,12 @@ import (
 // `explore` replays a run from a fresh context per linearization: a recorded
 // choice prefix, then the first untried alternative, earliest first, within a budget.
 
-// ExploreBudget bounds an exploration: how many runs it may make and how many
-// choice points one run may resolve before the rest take their first alternative.
-type ExploreBudget struct {
-	Runs  int
-	Depth int
-}
-
-// DefaultExploreBudget is the budget `explore` has when its spelling names none.
-var DefaultExploreBudget = ExploreBudget{Runs: 1024, Depth: 64}
-
 // ErrNotExploring is the typed error Explore returns for a policy that is not `explore`.
 var ErrNotExploring = errors.New("scheduling policy does not explore")
-
-// ErrExploreUndriven is the typed error SetSchedule returns for `explore`, which
-// Explore drives over fresh contexts rather than one.
-var ErrExploreUndriven = errors.New("explore is not a policy one context runs under")
 
 // ErrExplorationDiverged is the typed error for a replay that did not meet the
 // choice points its prefix recorded, so no outcome set can be trusted.
 var ErrExplorationDiverged = errors.New("exploration diverged")
-
-// SetupError is a run's failure to begin: no executor could be made or initialized.
-type SetupError struct{ Err error }
-
-func (e *SetupError) Error() string { return e.Err.Error() }
-func (e *SetupError) Unwrap() error { return e.Err }
-
-// wrapSetupError classifies a root executor failure without reclassifying
-// input-binding or performer-lifecycle errors as setup failures.
-func wrapSetupError(err error) error {
-	if err == nil {
-		return nil
-	}
-	var setup *SetupError
-	var binding inputBindingError
-	if errors.As(err, &setup) || errors.As(err, &binding) ||
-		errors.Is(err, errOccurrenceDestroyed) || errors.Is(err, errOccurrenceLifetime) {
-		return err
-	}
-	return &SetupError{Err: err}
-}
-
-// ChoiceTaken is one choice point of a run and the alternative it took, as the
-// witness of an outcome lists them.
-type ChoiceTaken struct {
-	Kind ChoiceKind
-	// Step is the action step the choice was made in, 0 for a state machine.
-	Step int
-	// Where names the decision node or the state and event; empty for a token order.
-	Where string
-	// Alternatives is how many the point had; Taken indexes the one taken.
-	Alternatives int
-	Taken        int
-	// Among names the alternatives as a trace does; Took is the one taken: the
-	// token tried next, a branch or a transition by declared position and target,
-	// or the state whose transition fired first.
-	Among []string
-	Took  string
-	// Weights are the probabilities the model states for the alternatives, one
-	// per alternative, for a weighted decision; nil for a choice it does not weight.
-	Weights []float64
-	// Drew is the unit draw that selected Taken among the Weights, when Drawn.
-	Drew  float64
-	Drawn bool
-}
-
-// weighted reports whether the model weights the alternatives.
-func (c ChoiceTaken) weighted() bool { return len(c.Weights) == c.Alternatives && c.Alternatives > 0 }
-
-// String renders the choice for a table or a failure message, as ParseChoice
-// reads it back: a name the line's own punctuation occurs in is quoted, and a
-// weighted branch carries the alternatives with their weights and the draw.
-func (c ChoiceTaken) String() string {
-	switch c.Kind {
-	case ChoiceTokenOrder:
-		return fmt.Sprintf("step %d: %s first of %s", c.Step, choiceLabel(c.Took), choiceLabels(c.Among))
-	case ChoiceDecisionBranch:
-		return fmt.Sprintf("step %d: %s -> %s%s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
-	case ChoiceTransition:
-		return fmt.Sprintf("%s -> %s%s", choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
-	case choiceStatementOrder, choiceGuardOrder:
-		if c.Step > 0 {
-			return fmt.Sprintf("step %d: %s: %s first of %s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
-		}
-		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
-	case ChoiceRegionOrder, ChoiceDueOrder, choiceDispatchOrder, choiceEntryOrder, choiceExitOrder, choiceStepOrder, choiceEntryStep:
-		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
-	}
-	return fmt.Sprintf("%s -> %s", c.Kind, choiceLabel(c.Took))
-}
-
-// weightedTail spells what a weighted choice carries past the branch taken —
-// ` among <alt> p=<w>, …` and ` drew <u>` when a draw selected it — "" for an unweighted one.
-func (c ChoiceTaken) weightedTail() string {
-	if !c.weighted() || len(c.Among) != len(c.Weights) {
-		return ""
-	}
-	tail := markAmong + weightedLabels(c.Among, c.Weights)
-	if c.Drawn {
-		tail += markDrew + FormatWeight(c.Drew)
-	}
-	return tail
-}
-
-// weightedLabels spells the alternatives with their weights, `<alt> p=<w>, …`.
-func weightedLabels(among []string, weights []float64) string {
-	parts := make([]string, len(among))
-	for i, alt := range among {
-		parts[i] = choiceLabel(alt) + markWeight + FormatWeight(weights[i])
-	}
-	return strings.Join(parts, markList)
-}
-
-// FormatChoices renders a witness as one line, its choices in run order.
-func FormatChoices(choices []ChoiceTaken) string {
-	if len(choices) == 0 {
-		return "no choice points"
-	}
-	parts := make([]string, len(choices))
-	for i, c := range choices {
-		parts[i] = c.String()
-	}
-	return strings.Join(parts, "; ")
-}
 
 // ProbabilityRange is the probability the model's draws give an outcome,
 // least to greatest over schedulers that resolve its scheduling choices.
@@ -148,11 +31,11 @@ func (r ProbabilityRange) Exact() bool { return r.Max-r.Min <= 1e-12 }
 // linearizations reached it, its model probability range when weighted, and
 // the choices of the first run that did.
 type ExploredOutcome struct {
-	Outcome        Outcome
+	Outcome        runtime.Outcome
 	Linearizations int
 	// Probability is nil unless the exploration made a weighted choice.
 	Probability *ProbabilityRange
-	Witness     []ChoiceTaken
+	Witness     []runtime.ChoiceTaken
 	// WitnessRun is the 1-based number of the run the witness is.
 	WitnessRun int
 }
@@ -160,7 +43,7 @@ type ExploredOutcome struct {
 // Exploration is what exploring a behavior found: its distinct outcomes, in
 // canonical order, and whether every linearization within the budget was run.
 type Exploration struct {
-	Budget   ExploreBudget
+	Budget   runtime.ExploreBudget
 	Runs     int
 	Outcomes []ExploredOutcome
 	// BudgetsHit names the budgets the exploration ran into, `runs` before
@@ -169,9 +52,9 @@ type Exploration struct {
 	// Unenumerated are the constructs whose unordered alternatives the runs took
 	// in one order without a choice point, so fewer orders were run than the
 	// library admits; none when the exploration is complete.
-	Unenumerated []CoverageGap
+	Unenumerated []runtime.CoverageGap
 	// Scope is the distinct reasons the runs' outcomes were observed short of quiescence.
-	Scope    []ObservationReason
+	Scope    []runtime.ObservationReason
 	weighted bool
 }
 
@@ -210,15 +93,15 @@ func (x *Exploration) Status() string {
 			limit := x.Budget.Runs
 			if budget == "depth" {
 				limit = x.Budget.Depth
-			} else if budget == boundStatementOrders {
-				limit = maxStatementOrderEvaluations
+			} else if budget == runtime.BoundStatementOrders {
+				limit = runtime.MaxStatementOrderEvaluations
 			}
 			named[i] = fmt.Sprintf("%s budget %d", budget, limit)
 		}
 		status = fmt.Sprintf("incomplete: %s hit after %d runs", strings.Join(named, " and "), x.Runs)
 	}
 	if len(x.Unenumerated) > 0 {
-		status += "; not enumerated: " + DescribeGaps(x.Unenumerated)
+		status += "; not enumerated: " + runtime.DescribeGaps(x.Unenumerated)
 	}
 	if x.ProbabilitiesBounded() {
 		status += "; probabilities are lower bounds"
@@ -229,8 +112,8 @@ func (x *Exploration) Status() string {
 // Explore runs a behavior once per linearization within the policy's budget, one run
 // at a time in plan order. A run that fails after it begins is an outcome; setup
 // failures and a caller that goes away fail the exploration.
-func Explore(stop context.Context, policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
-	return ExploreWith(stop, policy, 1, func(int) (*Context, error) { return fresh() }, run)
+func Explore(stop context.Context, policy runtime.SchedulePolicy, fresh func() (*runtime.Context, error), run func(*runtime.Context) (runtime.Outcome, error)) (*Exploration, error) {
+	return ExploreWith(stop, policy, 1, func(int) (*runtime.Context, error) { return fresh() }, run)
 }
 
 // sortOutcomes puts an exploration's outcomes in canonical order.
@@ -240,7 +123,7 @@ func sortOutcomes(outcomes []ExploredOutcome) {
 		if as, bs := a.String(), b.String(); as != bs {
 			return as < bs
 		}
-		return a.identity() < b.identity()
+		return a.Identity() < b.Identity()
 	})
 }
 
@@ -263,7 +146,7 @@ type exploreSlot struct {
 	step         int
 	tokens       []int64  // the tokens able to act, sorted by ID
 	labels       []string // those tokens as the trace names them
-	choice       ChoicePoint
+	choice       runtime.ChoicePoint
 	described    bool
 }
 
@@ -281,14 +164,14 @@ type exploreRun struct {
 
 // pick resolves a choice among n alternatives: the planned one within the prefix,
 // the first otherwise.
-func (r *exploreRun) pick(n int) int {
+func (r *exploreRun) Pick(n int) int {
 	slot := exploreSlot{kind: slotPick, alternatives: n}
 	r.resolve(&slot, fmt.Sprintf("%d alternatives to pick from", n))
 	return slot.taken
 }
 
 // describe attaches to the last pick how the run reports it.
-func (r *exploreRun) describe(c ChoicePoint) {
+func (r *exploreRun) Describe(c runtime.ChoicePoint) {
 	for i := len(r.record) - 1; i >= 0; i-- {
 		if slot := &r.record[i]; slot.kind == slotPick {
 			slot.choice, slot.described = c, true
@@ -301,7 +184,7 @@ func (r *exploreRun) describe(c ChoicePoint) {
 // the step, a choice among the tokens able to act at that moment.
 type exploreStep struct {
 	run       *exploreRun
-	tokens    stepTokens
+	tokens    runtime.StepTokens
 	remaining []int64      // sorted by ID, not yet tried
 	held      []int64      // tried last, as they never act on their own
 	slot      int          // index in run.record of the slot open, -1 between picks
@@ -310,11 +193,19 @@ type exploreStep struct {
 	choice    *exploreSlot // the pick the move resolved, nil when one token alone could act
 }
 
-// beginStep opens the step's picks.
-func (r *exploreRun) beginStep(tokens stepTokens) *exploreStep {
+// Choice is the pick the step's move resolved, nil when one token alone could act.
+func (s *exploreStep) Choice() (alternatives []string, taken int, ok bool) {
+	if s.choice == nil {
+		return nil, 0, false
+	}
+	return s.choice.labels, s.choice.taken, true
+}
+
+// BeginStep opens the step's picks.
+func (r *exploreRun) BeginStep(tokens runtime.StepTokens) runtime.StepChooser {
 	s := &exploreStep{run: r, tokens: tokens, slot: -1}
-	for _, id := range tokens.ids {
-		if tokens.held[id] {
+	for _, id := range tokens.IDs() {
+		if tokens.Held(id) {
 			s.held = append(s.held, id)
 		} else {
 			s.remaining = append(s.remaining, id)
@@ -327,7 +218,7 @@ func (r *exploreRun) beginStep(tokens stepTokens) *exploreStep {
 
 // next picks the token to try: the planned or first of those able to act when at
 // least two are, the only one when one is, else the first left, which will not act.
-func (s *exploreStep) next() (int64, bool) {
+func (s *exploreStep) Next() (int64, bool) {
 	if s.moved {
 		return 0, false
 	}
@@ -345,7 +236,7 @@ func (s *exploreStep) next() (int64, bool) {
 	}
 	enabled := make([]int64, 0, len(s.remaining))
 	for _, id := range s.remaining {
-		if s.tokens.enabled(id) {
+		if s.tokens.Enabled(id) {
 			enabled = append(enabled, id)
 		}
 	}
@@ -355,14 +246,14 @@ func (s *exploreStep) next() (int64, bool) {
 	case 1:
 		return enabled[0], true
 	}
-	slot := exploreSlot{kind: slotTokens, alternatives: len(enabled), step: s.tokens.step, tokens: enabled}
+	slot := exploreSlot{kind: slotTokens, alternatives: len(enabled), step: s.tokens.Step(), tokens: enabled}
 	s.dupBefore = s.run.duplicate
-	s.run.resolve(&slot, fmt.Sprintf("step %d: tokens %v able to act", s.tokens.step, enabled))
+	s.run.resolve(&slot, fmt.Sprintf("step %d: tokens %v able to act", s.tokens.Step(), enabled))
 	s.slot = len(s.run.record) - 1
 	slot = s.run.record[s.slot]
 	slot.labels = make([]string, len(slot.tokens))
 	for i, id := range slot.tokens {
-		slot.labels[i] = s.tokens.label(id)
+		slot.labels[i] = s.tokens.Label(id)
 	}
 	s.run.record[s.slot] = slot
 	return slot.tokens[slot.taken], true
@@ -370,7 +261,7 @@ func (s *exploreStep) next() (int64, bool) {
 
 // acted ends the step when the token acted, closing the pick; one that did not
 // was no alternative, so it leaves the slot and the pick is made again.
-func (s *exploreStep) acted(id int64, acted bool) {
+func (s *exploreStep) Acted(id int64, acted bool) {
 	if i := slices.Index(s.remaining, id); i >= 0 {
 		s.remaining = slices.Delete(s.remaining, i, i+1)
 	}
@@ -468,8 +359,8 @@ func (r *exploreRun) followed() error {
 }
 
 // choices lists the choice points the run made, in order, as a witness.
-func (r *exploreRun) choices() []ChoiceTaken {
-	out := make([]ChoiceTaken, len(r.record))
+func (r *exploreRun) choices() []runtime.ChoiceTaken {
+	out := make([]runtime.ChoiceTaken, len(r.record))
 	for i, slot := range r.record {
 		out[i] = slot.asChoice()
 	}
@@ -477,10 +368,10 @@ func (r *exploreRun) choices() []ChoiceTaken {
 }
 
 // asChoice renders the slot as the choice the run took.
-func (s exploreSlot) asChoice() ChoiceTaken {
+func (s exploreSlot) asChoice() runtime.ChoiceTaken {
 	if s.kind == slotTokens {
-		return ChoiceTaken{
-			Kind:         ChoiceTokenOrder,
+		return runtime.ChoiceTaken{
+			Kind:         runtime.ChoiceTokenOrder,
 			Step:         s.step,
 			Alternatives: s.alternatives,
 			Taken:        s.taken,
@@ -488,13 +379,13 @@ func (s exploreSlot) asChoice() ChoiceTaken {
 			Took:         s.labels[s.taken],
 		}
 	}
-	c := ChoiceTaken{Kind: ChoiceDecisionBranch, Alternatives: s.alternatives, Taken: s.taken}
+	c := runtime.ChoiceTaken{Kind: runtime.ChoiceDecisionBranch, Alternatives: s.alternatives, Taken: s.taken}
 	if s.described {
 		c.Kind, c.Step, c.Where, c.Among = s.choice.Kind, s.choice.Step, s.choice.Where, s.choice.Alternatives
 		if s.taken < len(s.choice.Alternatives) {
 			c.Took = s.choice.Alternatives[s.taken]
 		}
-		if s.choice.weighted() {
+		if s.choice.Weighted() {
 			c.Weights, c.Drew, c.Drawn = slices.Clone(s.choice.Weights), s.choice.Drew, s.choice.Drawn
 		}
 	}
@@ -533,7 +424,7 @@ func (r *exploreRun) unexplored() [][]exploreSlot {
 
 // mark returns what a probe restores: the run's position, so previewing does
 // not make choices the run itself goes on to make.
-func (r *exploreRun) mark() func() {
+func (r *exploreRun) Mark() func() {
 	record, explored := len(r.record), r.explored
 	depthHit, diverged := r.depthHit, r.diverged
 	return func() {

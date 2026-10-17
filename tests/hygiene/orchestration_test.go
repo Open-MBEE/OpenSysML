@@ -12,6 +12,7 @@ import (
 // (runtimePkg), each of which imports it and none of which it imports.
 var orchestrationPkgs = []string{
 	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep",
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore",
 }
 
 // orchestrationPrefixes name the features that live outside the runtime: no
@@ -20,24 +21,21 @@ var orchestrationPkgs = []string{
 var orchestrationPrefixes = []string{"check", "sweep", "montecarlo", "replay", "explore", "adopt"}
 
 var orchestrationRemaining = map[string]bool{
-	"adopt.go":               true,
-	"adopt_frame.go":         true,
-	"check.go":               true,
-	"check_args.go":          true,
-	"check_body.go":          true,
-	"check_invocation.go":    true,
-	"check_moves.go":         true,
-	"check_reduce.go":        true,
-	"check_replay.go":        true,
-	"check_run.go":           true,
-	"check_schedule.go":      true,
-	"check_state.go":         true,
-	"explore.go":             true,
-	"explore_probability.go": true,
-	"explore_queue.go":       true,
-	"montecarlo.go":          true,
-	"montecarlo_case.go":     true,
-	"replay.go":              true,
+	"adopt.go":            true,
+	"adopt_frame.go":      true,
+	"check.go":            true,
+	"check_args.go":       true,
+	"check_body.go":       true,
+	"check_invocation.go": true,
+	"check_moves.go":      true,
+	"check_reduce.go":     true,
+	"check_replay.go":     true,
+	"check_run.go":        true,
+	"check_schedule.go":   true,
+	"check_state.go":      true,
+	"montecarlo.go":       true,
+	"montecarlo_case.go":  true,
+	"replay.go":           true,
 }
 
 func TestRuntimeImportsNoOrchestration(t *testing.T) {

@@ -103,7 +103,7 @@ func TestWeightedDecisionDrawsUnderASeed(t *testing.T) {
 		t.Fatal(err)
 	}
 	choices := ctx.Choices()
-	if len(choices) != 1 || !choices[0].weighted() || !choices[0].Drawn {
+	if len(choices) != 1 || !choices[0].Weighted() || !choices[0].Drawn {
 		t.Fatalf("choices %v, want one weighted, drawn decision", choices)
 	}
 	desc := choices[0].Describe()
@@ -111,7 +111,7 @@ func TestWeightedDecisionDrawsUnderASeed(t *testing.T) {
 		t.Errorf("trace line %q, want the weights and the draw", desc)
 	}
 	taken := ctx.choicesTaken()
-	if len(taken) != 1 || !taken[0].weighted() || taken[0].Weights[0] != 0.3 || taken[0].Weights[1] != 0.7 {
+	if len(taken) != 1 || !taken[0].Weighted() || taken[0].Weights[0] != 0.3 || taken[0].Weights[1] != 0.7 {
 		t.Errorf("witness %v, want the weights carried", taken)
 	}
 }
@@ -319,7 +319,7 @@ func TestWeightedCaseStepsKeepTheirWeights(t *testing.T) {
 			t.Fatalf("subcases = %+v, want the one branch performed", result.Subcases)
 		}
 		choices := ctx.Choices()
-		if len(choices) != 1 || !choices[0].weighted() {
+		if len(choices) != 1 || !choices[0].Weighted() {
 			t.Fatalf("choices %v, want one weighted decision", choices)
 		}
 		return result.Subcases[0].Case, choices[0]
@@ -336,7 +336,7 @@ func TestWeightedCaseStepsKeepTheirWeights(t *testing.T) {
 			t.Fatalf("outputs = %+v, want the one Integer result", run.Outputs)
 		}
 		choices := ctx.Choices()
-		if len(choices) != 1 || !choices[0].weighted() {
+		if len(choices) != 1 || !choices[0].Weighted() {
 			t.Fatalf("choices %v, want one weighted decision", choices)
 		}
 		return run.Outputs[0].Value.Const.Int, choices[0]
@@ -370,7 +370,7 @@ func TestExploreEnumeratesWeightedBranches(t *testing.T) {
 		t.Fatalf("explore found %v, want both branches", outcomeTexts(x))
 	}
 	for _, o := range x.Outcomes {
-		if len(o.Witness) != 1 || !o.Witness[0].weighted() {
+		if len(o.Witness) != 1 || !o.Witness[0].Weighted() {
 			t.Errorf("witness %v, want the weighted decision", o.Witness)
 		}
 	}
@@ -1249,7 +1249,7 @@ func TestCheckSearchesWeightedBranchesAsASet(t *testing.T) {
 	}
 	for _, final := range report.Finals {
 		choices := final.Witness.Choices
-		if len(choices) != 1 || !choices[0].weighted() {
+		if len(choices) != 1 || !choices[0].Weighted() {
 			t.Errorf("final %v carries the witness %v, want the weighted decision", final.Outcome, choices)
 		}
 	}

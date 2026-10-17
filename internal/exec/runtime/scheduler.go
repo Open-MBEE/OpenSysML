@@ -259,16 +259,16 @@ type scheduler struct {
 	pcg     *rand.PCG
 	rng     *rand.Rand
 	modeled *modeledSource
-	explore *exploreRun
+	explore Chooser
 	replay  *replayRun
 	check   *checkRun
 	// draws is the policy the run's random draws resolve under, fixed when it starts.
 	draws DrawPolicy
 }
 
-// stepTokens are the tokens one step may try, in spawn order; parked ones cannot
+// StepTokens are the tokens one step may try, in spawn order; parked ones cannot
 // act yet and held ones collapse into another's synchronization.
-type stepTokens struct {
+type StepTokens struct {
 	owner   *ActionExecutor
 	scope   *actionFrame // nil for the full action flow, non-nil for a subflow.
 	step    int
@@ -283,13 +283,13 @@ type stepTokens struct {
 }
 
 // has reports whether the step has a token the label names.
-func (t stepTokens) has(label string) bool {
+func (t StepTokens) has(label string) bool {
 	return slices.ContainsFunc(t.ids, func(id int64) bool { return t.label(id) == label })
 }
 
 // hasAll reports whether the step has every token the labels name: the order
 // of a witness's step is this flow's move only when it does.
-func (t stepTokens) hasAll(labels []string) bool {
+func (t StepTokens) hasAll(labels []string) bool {
 	return len(labels) > 0 && !slices.ContainsFunc(labels, func(l string) bool { return !t.has(l) })
 }
 
@@ -298,7 +298,7 @@ func (t stepTokens) hasAll(labels []string) bool {
 type tokenSchedule struct {
 	order   []int64
 	next    int
-	explore *exploreStep
+	explore StepChooser
 	replay  *replayMove
 	check   *checkMove
 }
@@ -306,7 +306,7 @@ type tokenSchedule struct {
 // Next is the token to try next; false once the step tried them all.
 func (ts *tokenSchedule) Next() (int64, bool) {
 	if ts.explore != nil {
-		return ts.explore.next()
+		return ts.explore.Next()
 	}
 	if ts.replay != nil {
 		return ts.replay.nextToken()
@@ -325,7 +325,7 @@ func (ts *tokenSchedule) Next() (int64, bool) {
 // Acted tells the schedule whether the token last handed out did something.
 func (ts *tokenSchedule) Acted(id int64, acted bool) {
 	if ts.explore != nil {
-		ts.explore.acted(id, acted)
+		ts.explore.Acted(id, acted)
 	}
 	if ts.replay != nil {
 		ts.replay.acted(acted)
@@ -352,10 +352,10 @@ func (ts *tokenSchedule) Choice() (alternatives []string, taken int, ok bool) {
 	if ts.check != nil {
 		return ts.check.reported()
 	}
-	if ts.explore == nil || ts.explore.choice == nil {
+	if ts.explore == nil {
 		return nil, 0, false
 	}
-	return ts.explore.choice.labels, ts.explore.choice.taken, true
+	return ts.explore.Choice()
 }
 
 // oneMove reports whether a step is one token's move — the exploration's pick among
@@ -413,7 +413,7 @@ func (s *scheduler) replaying() bool {
 // seeded shuffle, or one at a time as the exploration or the witness picks them.
 // A replay stays one move a step past its witness, so the run it re-makes goes
 // on as the checker or exploration that wrote the witness stepped it.
-func (s *scheduler) scheduleStep(tokens stepTokens) *tokenSchedule {
+func (s *scheduler) scheduleStep(tokens StepTokens) *tokenSchedule {
 	if s.replay != nil {
 		return &tokenSchedule{replay: s.replay.beginStep(tokens)}
 	}
@@ -421,7 +421,7 @@ func (s *scheduler) scheduleStep(tokens stepTokens) *tokenSchedule {
 		return &tokenSchedule{check: s.check.beginStep(tokens)}
 	}
 	if s.oneMove() {
-		return &tokenSchedule{explore: s.explore.beginStep(tokens)}
+		return &tokenSchedule{explore: s.explore.BeginStep(tokens)}
 	}
 	ids := tokens.ids
 	if len(ids) < 2 {
@@ -468,11 +468,11 @@ func (s *scheduler) choose(c ChoicePoint, whereOf func(i int) string) int {
 		return s.rng.IntN(n)
 	case scheduleExplore:
 		if s.explore != nil {
-			c.Taken = s.explore.pick(n)
+			c.Taken = s.explore.Pick(n)
 			if whereOf != nil {
 				c.Where = whereOf(c.Taken)
 			}
-			s.explore.describe(c)
+			s.explore.Describe(c)
 			return c.Taken
 		}
 		return 0
@@ -578,7 +578,7 @@ func (s *scheduler) mark() func() {
 	}
 	restoreModeled := s.modeled.mark()
 	if s.explore != nil {
-		restore := s.explore.mark()
+		restore := s.explore.Mark()
 		return func() { restore(); restoreModeled() }
 	}
 	if s.replay != nil {
@@ -595,3 +595,17 @@ func (s *scheduler) mark() func() {
 	saved := *s.pcg
 	return func() { *s.pcg = saved; restoreModeled() }
 }
+
+// ExploreBudget bounds an exploration: how many runs it may make and how many
+// choice points one run may resolve before the rest take their first alternative.
+type ExploreBudget struct {
+	Runs  int
+	Depth int
+}
+
+// DefaultExploreBudget is the budget `explore` has when its spelling names none.
+var DefaultExploreBudget = ExploreBudget{Runs: 1024, Depth: 64}
+
+// ErrExploreUndriven is the typed error SetSchedule returns for `explore`, which
+// Explore drives over fresh contexts rather than one.
+var ErrExploreUndriven = errors.New("explore is not a policy one context runs under")

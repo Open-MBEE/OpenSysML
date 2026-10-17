@@ -6,9 +6,9 @@ import (
 	"slices"
 )
 
-const maxStatementOrderEvaluations = 1024
+const MaxStatementOrderEvaluations = 1024
 
-var errStatementOrderSweepLimit = errors.New("statement-order evaluation limit exceeded")
+var ErrStatementOrderSweepLimit = errors.New("statement-order evaluation limit exceeded")
 
 type statementOrderSweep struct {
 	prefix       []int
@@ -50,8 +50,8 @@ func (ctx *Context) sweepStatementOrderVariantsNested(eval func(*statementOrderS
 	seen := map[string]bool{"[]": true}
 	evaluations := 0
 	for len(pending) > 0 {
-		if evaluations == maxStatementOrderEvaluations {
-			return fmt.Errorf("%w: at most %d statement orders", errStatementOrderSweepLimit, maxStatementOrderEvaluations)
+		if evaluations == MaxStatementOrderEvaluations {
+			return fmt.Errorf("%w: at most %d statement orders", ErrStatementOrderSweepLimit, MaxStatementOrderEvaluations)
 		}
 		last := len(pending) - 1
 		prefix := pending[last]

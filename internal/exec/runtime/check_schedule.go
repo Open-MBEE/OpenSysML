@@ -130,7 +130,7 @@ type checkMove struct {
 // A step of a do flow within the machine's move, or of a flow a token's body performs
 // within its move, picks its token as a choice point of the move (ChoiceTokenOrder);
 // any other nested step goes in declared order.
-func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
+func (r *checkRun) beginStep(tokens StepTokens) *checkMove {
 	sameStep := tokens.owner == r.script.owner && tokens.scope == nil
 	m := &checkMove{run: r, step: tokens.step, taken: -1, selected: r.script.token != 0 && sameStep}
 	if outer := r.move; outer != nil && outer.trying() {

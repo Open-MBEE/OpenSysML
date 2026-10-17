@@ -385,7 +385,7 @@ func (c ChoicePoint) Choice() ChoiceTaken {
 	if c.Taken >= 0 && c.Taken < len(c.Alternatives) {
 		taken.Took = c.Alternatives[c.Taken]
 	}
-	if c.weighted() {
+	if c.Weighted() {
 		taken.Weights, taken.Drew, taken.Drawn = slices.Clone(c.Weights), c.Drew, c.Drawn
 	}
 	return taken
@@ -1080,7 +1080,7 @@ type replayMove struct {
 // beginStep resolves the step by the witness's move at it: taken when each token named is able to act, kept for
 // the clock's retry when one at most is and the rest are present but parked or held; a token absent is refused.
 // Past the witness the step is still one token's move, the last able to act, as `reverse` orders them.
-func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
+func (r *replayRun) beginStep(tokens StepTokens) *replayMove {
 	m := &replayMove{run: r, step: tokens.step}
 	var enabled, rest, held []int64
 	for _, id := range tokens.ids {
@@ -1159,7 +1159,7 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 
 // hoistOrder moves the step's token order, which a witness may spell after the
 // choices the token's move made, ahead of them: it is resolved first when replaying.
-func (r *replayRun) hoistOrder(tokens stepTokens) {
+func (r *replayRun) hoistOrder(tokens StepTokens) {
 	for j := r.next; j < len(r.choices); j++ {
 		c := r.choices[j]
 		if c.Step != tokens.step {
@@ -1257,7 +1257,7 @@ func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 		r.refuse(fmt.Sprintf("%s is not enabled (enabled: %s)", w.Took, alts))
 		return 0
 	}
-	if (w.weighted() || c.weighted()) && !r.weighedAlike(w, c, taken) {
+	if (w.Weighted() || c.Weighted()) && !r.weighedAlike(w, c, taken) {
 		return 0
 	}
 	r.next++
@@ -1279,11 +1279,11 @@ func (r *replayRun) chooseWeighted(c *ChoicePoint, whereOf func(i int) string) i
 // faces: the same branches weighed the same, and a recorded draw that selects the branch
 // taken; a move that does not fit is refused.
 func (r *replayRun) weighedAlike(w ChoiceTaken, c ChoicePoint, taken int) bool {
-	if !c.weighted() {
+	if !c.Weighted() {
 		r.refuse("the run's decision weighs no branch")
 		return false
 	}
-	if !w.weighted() || len(w.Among) != len(c.Alternatives) {
+	if !w.Weighted() || len(w.Among) != len(c.Alternatives) {
 		r.refuse("the run's decision weighs every branch: " + weightedLabels(c.Alternatives, c.Weights))
 		return false
 	}

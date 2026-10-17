@@ -53,7 +53,7 @@ func (c *Context) noteGap(gap CoverageGap) {
 }
 
 // gaps lists the distinct gaps recorded, in canonical order.
-func (c *Context) gaps() []CoverageGap {
+func (c *Context) Gaps() []CoverageGap {
 	out := make([]CoverageGap, 0, len(c.coverageGaps))
 	for gap := range c.coverageGaps {
 		out = append(out, gap)
@@ -62,8 +62,8 @@ func (c *Context) gaps() []CoverageGap {
 	return out
 }
 
-// mergeGaps adds the gaps not yet in the list and returns it in canonical order.
-func mergeGaps(into []CoverageGap, gaps []CoverageGap) []CoverageGap {
+// MergeGaps adds the gaps not yet in the list and returns it in canonical order.
+func MergeGaps(into []CoverageGap, gaps []CoverageGap) []CoverageGap {
 	for _, gap := range gaps {
 		if !slices.Contains(into, gap) {
 			into = append(into, gap)

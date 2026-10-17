@@ -504,7 +504,7 @@ func testAtomicBodyOrderCheckerSweepCap(t *testing.T) {
 		},
 	}
 	report := checkStart(t, m, starterOf(m.action(t, "A")), CheckOptions{}, prop)
-	if report.Verdict == CheckExhaustive || !slices.Contains(report.BoundsHit, boundStatementOrders) {
+	if report.Verdict == CheckExhaustive || !slices.Contains(report.BoundsHit, BoundStatementOrders) {
 		t.Fatalf("check %s with violations %v, want a non-exhaustive statement-order bound", report.Status(), report.Violations)
 	}
 }
@@ -528,7 +528,7 @@ func testAtomicBodyOrderExploreSweepCap(t *testing.T) {
 	}`
 	m := parseLibraryModel(t, source)
 	x := m.exploreAction(t, "explore", "A")
-	if x.Complete() || !slices.Contains(x.BudgetsHit, boundStatementOrders) {
+	if x.Complete() || !slices.Contains(x.BudgetsHit, BoundStatementOrders) {
 		t.Fatalf("exploration %s, want an incomplete statement-orders bound", x.Status())
 	}
 	if !strings.Contains(x.Status(), "statement orders budget 1024") {

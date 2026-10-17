@@ -17,6 +17,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -395,7 +396,7 @@ type comparedOutcomes struct {
 // compareOutcomes runs checks 1 and 2: the outcomes the solver enumerates are
 // the completed outcomes the exploration reached, and one witness per outcome
 // replays to it with the witness's own trace.
-func compareOutcomes(t *testing.T, solver *solve.Solver, encoding *Encoding, d *document, action *symbols.Symbol, budget analysis.Budget, exploration *runtime.Exploration) comparedOutcomes {
+func compareOutcomes(t *testing.T, solver *solve.Solver, encoding *Encoding, d *document, action *symbols.Symbol, budget analysis.Budget, exploration *explore.Exploration) comparedOutcomes {
 	t.Helper()
 	fresh := d.fresh(budget)
 	explored := make(map[string]string)
@@ -463,7 +464,7 @@ func compareOutcomes(t *testing.T, solver *solve.Solver, encoding *Encoding, d *
 
 // refereeVerdict runs check 3: the engine's verdict on the action agrees with
 // what the exhaustive exploration reached. The verdict is returned for check 4.
-func refereeVerdict(t *testing.T, solver *solve.Solver, d *document, ask *analysis.HoldsAsk, budget analysis.Budget, exploration *runtime.Exploration) (bool, analysis.Result) {
+func refereeVerdict(t *testing.T, solver *solve.Solver, d *document, ask *analysis.HoldsAsk, budget analysis.Budget, exploration *explore.Exploration) (bool, analysis.Result) {
 	t.Helper()
 	deadlocks, failures := 0, 0
 	for _, o := range exploration.Outcomes {
@@ -513,7 +514,7 @@ func reproduceViolation(t *testing.T, d *document, ask *analysis.HoldsAsk, budge
 	if err != nil {
 		t.Fatalf("explore policy: %v", err)
 	}
-	exploration, err := runtime.Explore(context.Background(), policy, d.fresh(budget), func(ctx *runtime.Context) (runtime.Outcome, error) {
+	exploration, err := explore.Explore(context.Background(), policy, d.fresh(budget), func(ctx *runtime.Context) (runtime.Outcome, error) {
 		pinned, err := pinInputs(ctx, verdict.Witness.Inputs)
 		if err != nil {
 			return runtime.Outcome{}, err
@@ -612,13 +613,13 @@ func (c corpusCase) solverMoves() int {
 }
 
 // explore runs every linearization of the action under the budget.
-func explore(t *testing.T, budget runtime.ExploreBudget, fresh func() (*runtime.Context, error), action *symbols.Symbol) *runtime.Exploration {
+func explore(t *testing.T, budget runtime.ExploreBudget, fresh func() (*runtime.Context, error), action *symbols.Symbol) *explore.Exploration {
 	t.Helper()
 	policy, err := runtime.ExplorePolicy(budget)
 	if err != nil {
 		t.Fatalf("explore policy: %v", err)
 	}
-	exploration, err := runtime.Explore(context.Background(), policy, fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
+	exploration, err := explore.Explore(context.Background(), policy, fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		outputs, err := ctx.ExecuteAction(action)
 		if err != nil {
 			return runtime.Outcome{}, err

@@ -75,6 +75,7 @@ var packageLayer = map[string]string{
 
 	"internal/exec/runtime":             "exec",
 	"internal/exec/sweep":               "exec",
+	"internal/exec/explore":             "exec",
 	"internal/exec/runtrace":            "exec",
 	"internal/exec/solve":               "exec",
 	"internal/exec/smt":                 "exec",

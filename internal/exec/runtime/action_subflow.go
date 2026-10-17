@@ -335,7 +335,7 @@ func (e *ActionExecutor) stepSubflowSweep(perf *actionFrame) (err error) {
 }
 
 // An unordered case body keeps declaration order under the fixed schedules.
-func (e *ActionExecutor) scheduleSubflowStep(perf *actionFrame, candidates stepTokens) *tokenSchedule {
+func (e *ActionExecutor) scheduleSubflowStep(perf *actionFrame, candidates StepTokens) *tokenSchedule {
 	scheduler := e.ctx.scheduling()
 	if perf.graph != nil && perf.graph.UnstatedCaseFlow && scheduler.oneMove() {
 		candidates.stepped = true

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
@@ -84,7 +85,7 @@ func finals(c *Checked) []string {
 }
 
 // explored is the outcome set an exploration reached, sorted.
-func explored(x *runtime.Exploration) []string {
+func explored(x *explore.Exploration) []string {
 	var out []string
 	for _, o := range x.Outcomes {
 		out = append(out, o.Outcome.String())
@@ -597,7 +598,7 @@ func TestExploreRefereesCheck(t *testing.T) {
 		t.Fatalf("plan %+v, want explore's proof standing with no disagreement", plan.Result)
 	}
 	var checked *Checked
-	var exploration *runtime.Exploration
+	var exploration *explore.Exploration
 	for _, step := range plan.Steps {
 		if step.Result == nil {
 			continue

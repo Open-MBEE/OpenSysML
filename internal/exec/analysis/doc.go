@@ -11,5 +11,5 @@
 // records every engine consulted.
 //
 // The engines here — run, explore, sweep and solve — are adapters over the
-// interpreter, runtime.Explore, Context.RunSweep and internal/exec/solve.
+// interpreter, explore.Explore, Context.RunSweep and internal/exec/solve.
 package analysis

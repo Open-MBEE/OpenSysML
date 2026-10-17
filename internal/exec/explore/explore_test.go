@@ -1,4 +1,4 @@
-package runtime
+package explore
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -57,8 +58,8 @@ func parseLibraryModel(t *testing.T, text string) *exploreModel {
 	return &exploreModel{idx: idx, model: semantics.NewModel(resolver), resolver: resolver, path: path}
 }
 
-func (m *exploreModel) fresh() (*Context, error) {
-	return NewContext(parsingModel(m.model, m.resolver), 10000), nil
+func (m *exploreModel) fresh() (*runtime.Context, error) {
+	return runtime.NewContext(parsingModel(m.model, m.resolver), 10000), nil
 }
 
 func (m *exploreModel) action(t *testing.T, name string) *symbols.Symbol {
@@ -74,15 +75,15 @@ func (m *exploreModel) state(t *testing.T, name string) *symbols.Symbol {
 // exploreAction explores the runs of an action performed by no object.
 func (m *exploreModel) exploreAction(t *testing.T, spelling, name string) *Exploration {
 	t.Helper()
-	policy, err := ParseSchedulePolicy(spelling)
+	policy, err := runtime.ParseSchedulePolicy(spelling)
 	if err != nil {
 		t.Fatalf("policy %s: %v", spelling, err)
 	}
 	sym := m.action(t, name)
-	result, err := Explore(context.Background(), policy, m.fresh, func(ctx *Context) (Outcome, error) {
+	result, err := Explore(context.Background(), policy, m.fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		outputs, err := ctx.ExecuteAction(sym)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return ctx.ActionOutcome(outputs), nil
 	})
@@ -142,7 +143,7 @@ func TestExploreThreeWritersReachEveryOutcomeOnce(t *testing.T) {
 			t.Errorf("%s reached by %d linearizations, want 2 (the writer last, the other two either way)", o.Outcome, o.Linearizations)
 		}
 		w := o.Witness
-		if len(w) != 2 || w[0].Kind != ChoiceTokenOrder || w[0].Alternatives != 3 || w[1].Alternatives != 2 {
+		if len(w) != 2 || w[0].Kind != runtime.ChoiceTokenOrder || w[0].Alternatives != 3 || w[1].Alternatives != 2 {
 			t.Errorf("%s witness %v, want a token-order choice among 3 then one among the 2 left", o.Outcome, w)
 		}
 	}
@@ -157,8 +158,7 @@ func TestExploreIsDeterministic(t *testing.T) {
 	}
 	for i := range first.Outcomes {
 		a, b := first.Outcomes[i], second.Outcomes[i]
-		if a.Outcome.String() != b.Outcome.String() || a.Linearizations != b.Linearizations ||
-			FormatChoices(a.Witness) != FormatChoices(b.Witness) || a.WitnessRun != b.WitnessRun {
+		if a.Outcome.String() != b.Outcome.String() || a.Linearizations != b.Linearizations || runtime.FormatChoices(a.Witness) != runtime.FormatChoices(b.Witness) || a.WitnessRun != b.WitnessRun {
 			t.Errorf("outcome %d differs between explorations: %+v then %+v", i, a, b)
 		}
 	}
@@ -184,7 +184,7 @@ func TestExploreNoChoicePointsIsOneRun(t *testing.T) {
 	if got := outcomeTexts(x); len(got) != 1 || got[0] != "x = 10" {
 		t.Fatalf("outcomes %v, want [x = 10]", got)
 	}
-	if w := x.Outcomes[0].Witness; len(w) != 0 || FormatChoices(w) != "no choice points" {
+	if w := x.Outcomes[0].Witness; len(w) != 0 || runtime.FormatChoices(w) != "no choice points" {
 		t.Fatalf("witness %v, want none", w)
 	}
 }
@@ -306,22 +306,22 @@ func TestExploreStateTransitionConflict(t *testing.T) {
 			transition idle_right first idle accept go then right;
 		}
 	}`)
-	policy, err := ParseSchedulePolicy("explore")
+	policy, err := runtime.ParseSchedulePolicy("explore")
 	if err != nil {
 		t.Fatal(err)
 	}
 	sym := m.state(t, "Machine")
-	x, err := Explore(context.Background(), policy, m.fresh, func(ctx *Context) (Outcome, error) {
+	x, err := Explore(context.Background(), policy, m.fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		exec, err := newStateExecutor(ctx, sym, nil)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		if err := exec.initialize(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return exec.Outcome(), nil
 	})
@@ -335,7 +335,7 @@ func TestExploreStateTransitionConflict(t *testing.T) {
 	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("outcomes %v, want %v", got, want)
 	}
-	if w := x.Outcomes[1].Witness; len(w) != 1 || w[0].Kind != ChoiceTransition || !strings.HasSuffix(w[0].Took, "->right") {
+	if w := x.Outcomes[1].Witness; len(w) != 1 || w[0].Kind != runtime.ChoiceTransition || !strings.HasSuffix(w[0].Took, "->right") {
 		t.Fatalf("witness of right %v, want the transition choice into right", w)
 	}
 }
@@ -359,22 +359,22 @@ func TestExploreDynamicChoiceBranches(t *testing.T) {
 			transition first pick if level > 7 then right;
 		}
 	}`)
-	policy, err := ParseSchedulePolicy("explore")
+	policy, err := runtime.ParseSchedulePolicy("explore")
 	if err != nil {
 		t.Fatal(err)
 	}
 	sym := m.state(t, "Machine")
-	run := func(ctx *Context) (Outcome, error) {
+	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
 		exec, err := newStateExecutor(ctx, sym, nil)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		if err := exec.initialize(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return exec.Outcome(), nil
 	}
@@ -390,13 +390,13 @@ func TestExploreDynamicChoiceBranches(t *testing.T) {
 		t.Fatalf("outcomes %v, want %v", got, want)
 	}
 	w := x.Outcomes[1].Witness
-	if len(w) != 1 || w[0].Kind != ChoiceTransition || w[0].Where != "choice pick" || !strings.HasSuffix(w[0].Took, "->right") {
+	if len(w) != 1 || w[0].Kind != runtime.ChoiceTransition || w[0].Where != "choice pick" || !strings.HasSuffix(w[0].Took, "->right") {
 		t.Fatalf("witness of right %v, want the branch of choice pick into right", w)
 	}
 
-	under := func(spelling string) (Outcome, ChoicePoint) {
+	under := func(spelling string) (runtime.Outcome, runtime.ChoicePoint) {
 		t.Helper()
-		fixed, err := ParseSchedulePolicy(spelling)
+		fixed, err := runtime.ParseSchedulePolicy(spelling)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -415,8 +415,8 @@ func TestExploreDynamicChoiceBranches(t *testing.T) {
 		if len(notes) != 1 {
 			t.Fatalf("%s: notes %v, want the one choice at pick", spelling, notes)
 		}
-		choice, ok := notes[0].(ChoicePoint)
-		if !ok || choice.Kind != ChoiceTransition || choice.Where != "choice pick" {
+		choice, ok := notes[0].(runtime.ChoicePoint)
+		if !ok || choice.Kind != runtime.ChoiceTransition || choice.Where != "choice pick" {
 			t.Fatalf("%s: note %v, want the branch choice at pick", spelling, notes[0])
 		}
 		return outcome, choice
@@ -459,22 +459,22 @@ func TestExploreStaticJunctionBranches(t *testing.T) {
 			transition first split if level > 7 do assign route := 3 then late;
 		}
 	}`)
-	policy, err := ParseSchedulePolicy("explore")
+	policy, err := runtime.ParseSchedulePolicy("explore")
 	if err != nil {
 		t.Fatal(err)
 	}
 	sym := m.state(t, "Machine")
-	run := func(ctx *Context) (Outcome, error) {
+	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
 		exec, err := newStateExecutor(ctx, sym, nil)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		if err := exec.initialize(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return exec.Outcome(), nil
 	}
@@ -493,7 +493,7 @@ func TestExploreStaticJunctionBranches(t *testing.T) {
 		t.Fatalf("outcomes %v, want %v", got, want)
 	}
 	w := x.Outcomes[1].Witness
-	if len(w) != 1 || w[0].Kind != ChoiceTransition || w[0].Where != "junction split" || !strings.HasSuffix(w[0].Took, "->right") {
+	if len(w) != 1 || w[0].Kind != runtime.ChoiceTransition || w[0].Where != "junction split" || !strings.HasSuffix(w[0].Took, "->right") {
 		t.Fatalf("witness of right %v, want the branch of junction split into right", w)
 	}
 	if alts := w[0].Alternatives; alts != 2 {
@@ -501,7 +501,7 @@ func TestExploreStaticJunctionBranches(t *testing.T) {
 	}
 
 	for _, spelling := range []string{"seed:1", "seed:2", "seed:3"} {
-		fixed, err := ParseSchedulePolicy(spelling)
+		fixed, err := runtime.ParseSchedulePolicy(spelling)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -520,8 +520,8 @@ func TestExploreStaticJunctionBranches(t *testing.T) {
 		if len(notes) != 1 {
 			t.Fatalf("%s: notes %v, want the one choice at split", spelling, notes)
 		}
-		choice, ok := notes[0].(ChoicePoint)
-		if !ok || choice.Kind != ChoiceTransition || choice.Where != "junction split" {
+		choice, ok := notes[0].(runtime.ChoicePoint)
+		if !ok || choice.Kind != runtime.ChoiceTransition || choice.Where != "junction split" {
 			t.Fatalf("%s: note %v, want the branch choice at split", spelling, notes[0])
 		}
 		if got := outcome.String(); got != want[choice.Taken] {
@@ -550,21 +550,21 @@ func TestExploreJunctionBranchBeyondWhichNoGuardHolds(t *testing.T) {
 		}
 	}`)
 	sym := m.state(t, "Machine")
-	run := func(ctx *Context) (Outcome, error) {
+	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
 		exec, err := newStateExecutor(ctx, sym, nil)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		if err := exec.initialize(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return exec.Outcome(), nil
 	}
-	declared, err := ParseSchedulePolicy("declared")
+	declared, err := runtime.ParseSchedulePolicy("declared")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -583,7 +583,7 @@ func TestExploreJunctionBranchBeyondWhichNoGuardHolds(t *testing.T) {
 		t.Fatalf("declared: outcome %q, want ready reached", got)
 	}
 
-	policy, err := ParseSchedulePolicy("explore")
+	policy, err := runtime.ParseSchedulePolicy("explore")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -624,7 +624,7 @@ func TestJunctionBranchDeadEndKeepsItsNotes(t *testing.T) {
 			transition first stuck then stuck;
 		}
 	}`)
-	declared, err := ParseSchedulePolicy("declared")
+	declared, err := runtime.ParseSchedulePolicy("declared")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -650,9 +650,9 @@ func TestJunctionBranchDeadEndKeepsItsNotes(t *testing.T) {
 	var drew, noted bool
 	for _, n := range ctx.Notes() {
 		switch n := n.(type) {
-		case ChoicePoint:
+		case runtime.ChoicePoint:
 			drew = drew || n.Where == "junction split"
-		case UnevaluableGuard:
+		case runtime.UnevaluableGuard:
 			noted = noted || n.Where == "junction nested" && strings.Contains(n.Reason, "division by zero")
 		}
 	}
@@ -690,22 +690,22 @@ func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
 			}
 		}
 	}`)
-	policy, err := ParseSchedulePolicy("explore")
+	policy, err := runtime.ParseSchedulePolicy("explore")
 	if err != nil {
 		t.Fatal(err)
 	}
 	sym := m.state(t, "Machine")
-	run := func(ctx *Context) (Outcome, error) {
+	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
 		exec, err := newStateExecutor(ctx, sym, nil)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		if err := exec.initialize(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return exec.Outcome(), nil
 	}
@@ -725,9 +725,9 @@ func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
 		"finalState a2+right; visits work, a1, b1, right, a2; armed = false; route = 2": "junction split -> 2->right",
 		"finalState a2+right; visits work, b1, a1, right, a2; armed = false; route = 2": "junction split -> 2->right",
 	}
-	junctionDraw := func(taken []ChoiceTaken) string {
+	junctionDraw := func(taken []runtime.ChoiceTaken) string {
 		for _, c := range taken {
-			if c.Kind == ChoiceTransition {
+			if c.Kind == runtime.ChoiceTransition {
 				return c.String()
 			}
 		}
@@ -739,10 +739,10 @@ func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
 			t.Fatalf("outcome %s, want one of %v", o.Outcome, slices.Sorted(maps.Keys(want)))
 		}
 		if got := junctionDraw(o.Witness); got != draw {
-			t.Errorf("%s: witness %q draws %q at the junction, want %q", o.Outcome, FormatChoices(o.Witness), got, draw)
+			t.Errorf("%s: witness %q draws %q at the junction, want %q", o.Outcome, runtime.FormatChoices(o.Witness), got, draw)
 		}
-		if o.Witness[0].Kind != choiceEntryOrder || o.Witness[1].Kind != ChoiceRegionOrder {
-			t.Errorf("%s: witness %q, want the entry then a firing unit drawn first", o.Outcome, FormatChoices(o.Witness))
+		if o.Witness[0].Kind != choiceEntryOrder || o.Witness[1].Kind != runtime.ChoiceRegionOrder {
+			t.Errorf("%s: witness %q, want the entry then a firing unit drawn first", o.Outcome, runtime.FormatChoices(o.Witness))
 		}
 	}
 	if len(x.Outcomes) != len(want) {
@@ -751,7 +751,7 @@ func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
 	assertWitnessesReplay(t, x, m.fresh, run)
 
 	for _, spelling := range []string{"declared", "reverse", "seed:1", "seed:2", "seed:3", "seed:4"} {
-		fixed, err := ParseSchedulePolicy(spelling)
+		fixed, err := runtime.ParseSchedulePolicy(spelling)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -764,7 +764,7 @@ func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", spelling, err)
 		}
-		var taken []ChoiceTaken
+		var taken []runtime.ChoiceTaken
 		for _, c := range ctx.Choices() {
 			taken = append(taken, c.Choice())
 		}
@@ -773,10 +773,10 @@ func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
 			t.Fatalf("%s: outcome %s, want one explored", spelling, outcome)
 		}
 		if got := junctionDraw(taken); got != draw {
-			t.Errorf("%s: %s made the choices %q drawing %q at the junction, want %q", spelling, outcome, FormatChoices(taken), got, draw)
+			t.Errorf("%s: %s made the choices %q drawing %q at the junction, want %q", spelling, outcome, runtime.FormatChoices(taken), got, draw)
 		}
 		if again, _, err := replayed(t, m.fresh, run, taken); err != nil {
-			t.Errorf("%s: replaying its choices %q: %v", spelling, FormatChoices(taken), err)
+			t.Errorf("%s: replaying its choices %q: %v", spelling, runtime.FormatChoices(taken), err)
 		} else if again.String() != outcome.String() {
 			t.Errorf("%s: replaying its choices reached %s, want %s", spelling, again, outcome)
 		}
@@ -806,22 +806,22 @@ func TestExploreHistoryDefaultThroughJunction(t *testing.T) {
 			transition first idle accept go then resume;
 		}
 	}`)
-	policy, err := ParseSchedulePolicy("explore")
+	policy, err := runtime.ParseSchedulePolicy("explore")
 	if err != nil {
 		t.Fatal(err)
 	}
 	sym := m.state(t, "Machine")
-	run := func(ctx *Context) (Outcome, error) {
+	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
 		exec, err := newStateExecutor(ctx, sym, nil)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		if err := exec.initialize(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return exec.Outcome(), nil
 	}
@@ -840,14 +840,14 @@ func TestExploreHistoryDefaultThroughJunction(t *testing.T) {
 		t.Fatalf("outcomes %v, want %v", got, want)
 	}
 	for i, o := range x.Outcomes {
-		if got, wantW := FormatChoices(o.Witness), fmt.Sprintf("junction split -> %d->w%d", i+1, i+1); got != wantW {
+		if got, wantW := runtime.FormatChoices(o.Witness), fmt.Sprintf("junction split -> %d->w%d", i+1, i+1); got != wantW {
 			t.Errorf("%s: witness %q, want %q", o.Outcome, got, wantW)
 		}
 	}
 	assertWitnessesReplay(t, x, m.fresh, run)
 
 	for _, spelling := range []string{"declared", "seed:1", "seed:2", "seed:3"} {
-		fixed, err := ParseSchedulePolicy(spelling)
+		fixed, err := runtime.ParseSchedulePolicy(spelling)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -864,8 +864,8 @@ func TestExploreHistoryDefaultThroughJunction(t *testing.T) {
 		if len(notes) != 1 {
 			t.Fatalf("%s: notes %v, want the one choice at split", spelling, notes)
 		}
-		choice, ok := notes[0].(ChoicePoint)
-		if !ok || choice.Kind != ChoiceTransition || choice.Where != "junction split" {
+		choice, ok := notes[0].(runtime.ChoicePoint)
+		if !ok || choice.Kind != runtime.ChoiceTransition || choice.Where != "junction split" {
 			t.Fatalf("%s: note %v, want the branch choice at split", spelling, notes[0])
 		}
 		if got := outcome.String(); got != want[choice.Taken] {
@@ -874,7 +874,7 @@ func TestExploreHistoryDefaultThroughJunction(t *testing.T) {
 		if len(ctx.Choices()) != 1 {
 			t.Fatalf("%s: choices %v, want the one at split", spelling, ctx.Choices())
 		}
-		if again, _, err := replayed(t, m.fresh, run, []ChoiceTaken{choice.Choice()}); err != nil {
+		if again, _, err := replayed(t, m.fresh, run, []runtime.ChoiceTaken{choice.Choice()}); err != nil {
 			t.Errorf("%s: replaying its choice: %v", spelling, err)
 		} else if again.String() != outcome.String() {
 			t.Errorf("%s: replaying its choice reached %s, want %s", spelling, again, outcome)
@@ -933,23 +933,23 @@ func TestExploreSiblingRegionOrder(t *testing.T) {
 // (`last` reads 2 where a's effect ran first), fixed policies take declaration order and report it.
 func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string, want []string) {
 	sym := m.state(t, "Machine")
-	run := func(ctx *Context) (Outcome, error) {
+	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
 		exec, err := newStateExecutor(ctx, sym, nil)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		if err := exec.initialize(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		if signal != "" {
 			exec.sendSignal(signal, nil)
 		}
 		if err := exec.RunToCompletion(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return exec.Outcome(), nil
 	}
-	policy, err := ParseSchedulePolicy("explore")
+	policy, err := runtime.ParseSchedulePolicy("explore")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -970,9 +970,9 @@ func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string
 			t.Fatalf("witness of %s draws %q second, want %q", o.Outcome, got, firstUnit)
 		}
 	}
-	under := func(spelling string) (Outcome, []ChoicePoint) {
+	under := func(spelling string) (runtime.Outcome, []runtime.ChoicePoint) {
 		t.Helper()
-		fixed, err := ParseSchedulePolicy(spelling)
+		fixed, err := runtime.ParseSchedulePolicy(spelling)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -994,7 +994,7 @@ func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string
 		if choices[0].Kind != choiceEntryOrder || strings.Join(choices[0].Alternatives, ", ") != "a1(entry), b1(entry)" {
 			t.Fatalf("%s: note %v, want the entry order drawn among a1(entry), b1(entry)", spelling, choices[0])
 		}
-		if choices[1].Kind != ChoiceRegionOrder || choices[1].Where != where || strings.Join(choices[1].Alternatives, ", ") != "a1(exit), b1(exit)" {
+		if choices[1].Kind != runtime.ChoiceRegionOrder || choices[1].Where != where || strings.Join(choices[1].Alternatives, ", ") != "a1(exit), b1(exit)" {
 			t.Fatalf("%s: note %v, want a firing-unit choice among a1(exit), b1(exit) %s", spelling, choices[1], where)
 		}
 		return outcome, choices
@@ -1059,20 +1059,20 @@ func TestExploreDueOrder(t *testing.T) {
 	for i, name := range names {
 		syms[i] = namedOrFoundSymbol(t, idx, "test::"+name, root, ast.DefState, ast.UsageState)
 	}
-	fresh := func() (*Context, error) { return NewContext(typedModel(model, resolver), 10000), nil }
-	run := func(ctx *Context) (Outcome, error) {
-		execs := make([]*StateExecutor, len(syms))
+	fresh := func() (*runtime.Context, error) { return runtime.NewContext(typedModel(model, resolver), 10000), nil }
+	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
+		execs := make([]*runtime.StateExecutor, len(syms))
 		for i, sym := range syms {
 			exec, err := ctx.CreateStateExecutor(sym)
 			if err != nil {
-				return Outcome{}, err
+				return runtime.Outcome{}, err
 			}
 			execs[i] = exec
 		}
 		if _, err := ctx.Advance(5); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
-		outputs := make(map[string]Value, len(execs))
+		outputs := make(map[string]runtime.Value, len(execs))
 		for i, exec := range execs {
 			outputs[names[i]] = exec.StateData()["seen"]
 		}
@@ -1097,12 +1097,12 @@ func TestExploreDueOrder(t *testing.T) {
 			t.Errorf("%s reached by %d linearizations, want 1", o.Outcome, o.Linearizations)
 		}
 		w := o.Witness
-		if len(w) != 2 || w[0].Kind != ChoiceDueOrder || w[0].Alternatives != 3 || w[1].Kind != ChoiceDueOrder || w[1].Alternatives != 2 {
+		if len(w) != 2 || w[0].Kind != runtime.ChoiceDueOrder || w[0].Alternatives != 3 || w[1].Kind != runtime.ChoiceDueOrder || w[1].Alternatives != 2 {
 			t.Errorf("%s witness %v, want a due-order choice among 3 then one among the 2 left", o.Outcome, w)
 		}
 	}
 	const wantWitness = "t=5.0: state machine c first of state machine a, state machine b, state machine c; t=5.0: state machine b first of state machine a, state machine b"
-	if got := FormatChoices(x.Outcomes[5].Witness); got != wantWitness {
+	if got := runtime.FormatChoices(x.Outcomes[5].Witness); got != wantWitness {
 		t.Fatalf("witness of a = 2; b = 1; c = 0:\n%s\nwant\n%s", got, wantWitness)
 	}
 	for _, spelling := range []string{"reverse", "declared", "seed:1"} {
@@ -1132,11 +1132,11 @@ func TestExplorePausedBodyDueIsAMove(t *testing.T) {
 	idx, model, _ := buildRuntimeWithLibraries(t, path, parseAndBuild(t, string(text)))
 	resolver := resolve.New(idx)
 	sym := namedOrFoundSymbol(t, idx, "test::wake", idx.DocumentRoot(path), ast.DefAction, ast.UsageAction)
-	fresh := func() (*Context, error) { return NewContext(typedModel(model, resolver), 10000), nil }
-	run := func(ctx *Context) (Outcome, error) {
+	fresh := func() (*runtime.Context, error) { return runtime.NewContext(typedModel(model, resolver), 10000), nil }
+	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
 		outputs, err := ctx.ExecuteAction(sym)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return ctx.ActionOutcome(outputs), nil
 	}
@@ -1157,7 +1157,7 @@ func TestExplorePausedBodyDueIsAMove(t *testing.T) {
 		}
 	}
 	const wantWitness = "step 3: 2@performed first of 2@performed, 3@direct; step 4: 2@writeOne first of 2@writeOne, 3@direct"
-	if got := FormatChoices(x.Outcomes[1].Witness); got != wantWitness {
+	if got := runtime.FormatChoices(x.Outcomes[1].Witness); got != wantWitness {
 		t.Fatalf("witness of x = 2:\n%s\nwant\n%s", got, wantWitness)
 	}
 	// The fixed sweeps resume the paused body after the sibling has acted; the
@@ -1180,13 +1180,13 @@ func TestExplorePausedBodyDueIsAMove(t *testing.T) {
 
 func TestExploreRejectsOtherPolicies(t *testing.T) {
 	m := parseExploreModel(t, threeWritersModel)
-	_, err := Explore(context.Background(), DefaultSchedulePolicy, m.fresh, func(*Context) (Outcome, error) { return Outcome{}, nil })
+	_, err := Explore(context.Background(), runtime.DefaultSchedulePolicy, m.fresh, func(*runtime.Context) (runtime.Outcome, error) { return runtime.Outcome{}, nil })
 	if !errors.Is(err, ErrNotExploring) {
-		t.Fatalf("Explore under %s: %v, want ErrNotExploring", DefaultSchedulePolicy, err)
+		t.Fatalf("Explore under %s: %v, want ErrNotExploring", runtime.DefaultSchedulePolicy, err)
 	}
 	ctx, _ := m.fresh()
-	policy, _ := ParseSchedulePolicy("explore")
-	if err := ctx.SetSchedule(policy); !errors.Is(err, ErrExploreUndriven) {
+	policy, _ := runtime.ParseSchedulePolicy("explore")
+	if err := ctx.SetSchedule(policy); !errors.Is(err, runtime.ErrExploreUndriven) {
 		t.Fatalf("SetSchedule(explore): %v, want ErrExploreUndriven", err)
 	}
 }
@@ -1199,18 +1199,18 @@ func TestExploreStopsWhenTheCallerGoesAway(t *testing.T) {
 	stop, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	runs, built := 0, 0
-	fresh := func() (*Context, error) {
+	fresh := func() (*runtime.Context, error) {
 		built++
 		return m.fresh()
 	}
-	x, err := Explore(stop, mustPolicy(t, "explore"), fresh, func(ctx *Context) (Outcome, error) {
+	x, err := Explore(stop, mustPolicy(t, "explore"), fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		runs++
 		if runs == 2 {
 			cancel()
 		}
 		outputs, err := ctx.ExecuteAction(sym)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return ctx.ActionOutcome(outputs), nil
 	})
@@ -1224,7 +1224,7 @@ func TestExploreStopsWhenTheCallerGoesAway(t *testing.T) {
 
 func TestParseExplorePolicy(t *testing.T) {
 	for _, spelling := range []string{"explore", "explore:runs=10", "explore:depth=20", "explore:runs=10,depth=20", "explore:depth=20,runs=10"} {
-		policy, err := ParseSchedulePolicy(spelling)
+		policy, err := runtime.ParseSchedulePolicy(spelling)
 		if err != nil {
 			t.Errorf("%s: %v", spelling, err)
 			continue
@@ -1239,14 +1239,14 @@ func TestParseExplorePolicy(t *testing.T) {
 		if strings.Contains(spelling, "depth=20") && budget.Depth != 20 {
 			t.Errorf("%s: depth %d", spelling, budget.Depth)
 		}
-		if !strings.Contains(spelling, "runs=") && budget.Runs != DefaultExploreBudget.Runs {
-			t.Errorf("%s: runs %d, want the default %d", spelling, budget.Runs, DefaultExploreBudget.Runs)
+		if !strings.Contains(spelling, "runs=") && budget.Runs != runtime.DefaultExploreBudget.Runs {
+			t.Errorf("%s: runs %d, want the default %d", spelling, budget.Runs, runtime.DefaultExploreBudget.Runs)
 		}
 	}
 	for _, spelling := range []string{"explore:", "explore:runs", "explore:runs=", "explore:runs=x", "explore:runs=-1", "explore:runs=0x10", "explore:width=3", "explore:runs=1,runs=2", "explore:runs=1,", "explore:1"} {
-		_, err := ParseSchedulePolicy(spelling)
-		var typed *SchedulePolicyError
-		if !errors.Is(err, ErrInvalidSchedulePolicy) || !errors.As(err, &typed) {
+		_, err := runtime.ParseSchedulePolicy(spelling)
+		var typed *runtime.SchedulePolicyError
+		if !errors.Is(err, runtime.ErrInvalidSchedulePolicy) || !errors.As(err, &typed) {
 			t.Errorf("%s: %v, want a SchedulePolicyError", spelling, err)
 		}
 	}
@@ -1275,32 +1275,32 @@ func TestExploreRunsShareNoState(t *testing.T) {
 			}
 		}
 	}`)
-	policy, err := ParseSchedulePolicy("explore")
+	policy, err := runtime.ParseSchedulePolicy("explore")
 	if err != nil {
 		t.Fatal(err)
 	}
 	fleet := oneSymbol(t, m.idx, "test::Fleet")
 	stateSym := oneSymbol(t, m.idx, "test::Fleet::run")
 	var contexts int
-	x, err := Explore(context.Background(), policy, func() (*Context, error) {
+	x, err := Explore(context.Background(), policy, func() (*runtime.Context, error) {
 		contexts++
 		return m.fresh()
-	}, func(ctx *Context) (Outcome, error) {
+	}, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		self, err := ctx.Instantiate(fleet)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		exec, err := newStateExecutor(ctx, stateSym, self)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		if err := exec.initialize(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		exec.sendSignal("go", nil)
 		exec.sendSignal("ping", nil)
 		if err := exec.RunToCompletion(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return fleetOutcome(ctx, self, "lead", "pings")
 	})
@@ -1319,12 +1319,12 @@ func TestExploreRunsShareNoState(t *testing.T) {
 }
 
 // fleetOutcome is the outcome of a run on a Fleet: the values self holds under names.
-func fleetOutcome(ctx *Context, self *Instance, names ...string) (Outcome, error) {
-	outputs := make(map[string]Value, len(names))
+func fleetOutcome(ctx *runtime.Context, self *runtime.Instance, names ...string) (runtime.Outcome, error) {
+	outputs := make(map[string]runtime.Value, len(names))
 	for _, name := range names {
 		fv, err := self.GetFeatureValue(ctx, name)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		outputs[name] = fv.Value
 	}
@@ -1360,28 +1360,28 @@ func fleetModel(t *testing.T, transitions string) *exploreModel {
 // reporting the id lead held in each run.
 func exploreFleet(t *testing.T, m *exploreModel) (*Exploration, []int64) {
 	t.Helper()
-	policy, err := ParseSchedulePolicy("explore")
+	policy, err := runtime.ParseSchedulePolicy("explore")
 	if err != nil {
 		t.Fatal(err)
 	}
 	fleet := oneSymbol(t, m.idx, "test::Fleet")
 	stateSym := oneSymbol(t, m.idx, "test::Fleet::run")
 	var leadIDs []int64
-	x, err := Explore(context.Background(), policy, m.fresh, func(ctx *Context) (Outcome, error) {
+	x, err := Explore(context.Background(), policy, m.fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		self, err := ctx.Instantiate(fleet)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		exec, err := newStateExecutor(ctx, stateSym, self)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		if err := exec.initialize(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		outcome, err := fleetOutcome(ctx, self, "lead", "backup", "picks")
 		if err == nil {
@@ -1444,17 +1444,17 @@ func TestExploreEquatesObjectsByWhatTheyAre(t *testing.T) {
 // A name spelling the rendering's delimiters can make two outcomes render alike;
 // their identities still tell them apart.
 func TestOutcomeIdentityQuotesNames(t *testing.T) {
-	one := Outcome{Outputs: map[string]Value{`a = "1"; b`: NewStringValue("2")}}
-	two := Outcome{Outputs: map[string]Value{"a": NewStringValue("1"), "b": NewStringValue("2")}}
+	one := runtime.Outcome{Outputs: map[string]runtime.Value{`a = "1"; b`: runtime.NewStringValue("2")}}
+	two := runtime.Outcome{Outputs: map[string]runtime.Value{"a": runtime.NewStringValue("1"), "b": runtime.NewStringValue("2")}}
 	if one.String() != two.String() {
 		t.Fatalf("renderings %q and %q, want alike", one, two)
 	}
-	if one.identity() == two.identity() {
-		t.Fatalf("identity %q shared, want two", one.identity())
+	if one.Identity() == two.Identity() {
+		t.Fatalf("identity %q shared, want two", one.Identity())
 	}
-	same := Outcome{Outputs: map[string]Value{"b": NewStringValue("2"), "a": NewStringValue("1")}}
-	if same.identity() != two.identity() {
-		t.Fatalf("identities %q and %q, want one", same.identity(), two.identity())
+	same := runtime.Outcome{Outputs: map[string]runtime.Value{"b": runtime.NewStringValue("2"), "a": runtime.NewStringValue("1")}}
+	if same.Identity() != two.Identity() {
+		t.Fatalf("identities %q and %q, want one", same.Identity(), two.Identity())
 	}
 }
 
@@ -1473,21 +1473,21 @@ func TestExploreSiblingRegionOrderNamesTypedRegions(t *testing.T) {
 		}
 	}`)
 	sym := m.state(t, "Machine")
-	policy, err := ParseSchedulePolicy("explore")
+	policy, err := runtime.ParseSchedulePolicy("explore")
 	if err != nil {
 		t.Fatal(err)
 	}
-	x, err := Explore(context.Background(), policy, m.fresh, func(ctx *Context) (Outcome, error) {
+	x, err := Explore(context.Background(), policy, m.fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		exec, err := newStateExecutor(ctx, sym, nil)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		if err := exec.initialize(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return exec.Outcome(), nil
 	})
@@ -1498,7 +1498,7 @@ func TestExploreSiblingRegionOrderNamesTypedRegions(t *testing.T) {
 		t.Fatalf("status %q with %d outcomes, want complete (4 runs) reaching one outcome", x.Status(), len(x.Outcomes))
 	}
 	want := "entering work: a.r1(entry) first of a.r1(entry), b.r1(entry); on accept go: a.r1(exit) first of a.r1(exit), b.r1(exit)"
-	if got := FormatChoices(x.Outcomes[0].Witness); got != want {
+	if got := runtime.FormatChoices(x.Outcomes[0].Witness); got != want {
 		t.Fatalf("witness %q, want the regions naming the alternatives:\n%s", got, want)
 	}
 }
@@ -1552,30 +1552,30 @@ func TestFinalStateNameOrdersRegionsOfOneNameByDeclaration(t *testing.T) {
 
 // linkedNodes instantiates n nodes of one type chained by `next`, the last
 // pointing back at the first, and returns the head as an outcome.
-func linkedNodes(t *testing.T, m *exploreModel, ids ...int64) Outcome {
+func linkedNodes(t *testing.T, m *exploreModel, ids ...int64) runtime.Outcome {
 	t.Helper()
 	ctx, err := m.fresh()
 	if err != nil {
 		t.Fatal(err)
 	}
 	node := oneSymbol(t, m.idx, "test::Node")
-	nodes := make([]*Instance, len(ids))
+	nodes := make([]*runtime.Instance, len(ids))
 	for i, id := range ids {
 		if nodes[i], err = ctx.Instantiate(node); err != nil {
 			t.Fatal(err)
 		}
-		value := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: id}}
+		value := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: id}}
 		if err := nodes[i].SetFeatureValue(ctx, "id", value); err != nil {
 			t.Fatal(err)
 		}
 	}
 	for i, inst := range nodes {
 		next := nodes[(i+1)%len(nodes)]
-		if err := inst.SetFeatureValue(ctx, "next", Value{Kind: ValInstance, Instance: next.ID}); err != nil {
+		if err := inst.SetFeatureValue(ctx, "next", runtime.Value{Kind: runtime.ValInstance, Instance: next.ID}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	return ctx.ActionOutcome(map[string]Value{"head": {Kind: ValInstance, Instance: nodes[0].ID}})
+	return ctx.ActionOutcome(map[string]runtime.Value{"head": {Kind: runtime.ValInstance, Instance: nodes[0].ID}})
 }
 
 // A cycle of objects is spelled once around, the object closing it named by its
@@ -1590,35 +1590,35 @@ func TestOutcomeIdentityOpensEveryObject(t *testing.T) {
 	if got, want := ring.String(), "head = test::Node#1{id = 1, next = test::Node#2{id = 2, next = #1}}"; got != want {
 		t.Fatalf("ring %q, want %q", got, want)
 	}
-	if got, want := ring.identity(), `finalState ""; "head" = "test::Node"#1{"id" = 1, "next" = "test::Node"#2{"id" = 2, "next" = #1}}`; got != want {
+	if got, want := ring.Identity(), `finalState ""; "head" = "test::Node"#1{"id" = 1, "next" = "test::Node"#2{"id" = 2, "next" = #1}}`; got != want {
 		t.Fatalf("ring identity %q, want %q", got, want)
 	}
-	if again := linkedNodes(t, m, 1, 2); again.identity() != ring.identity() {
-		t.Fatalf("identities %q and %q, want one", again.identity(), ring.identity())
+	if again := linkedNodes(t, m, 1, 2); again.Identity() != ring.Identity() {
+		t.Fatalf("identities %q and %q, want one", again.Identity(), ring.Identity())
 	}
-	if loop := linkedNodes(t, m, 1, 1); loop.identity() == ring.identity() {
-		t.Fatalf("a self-loop and a ring share identity %q", loop.identity())
+	if loop := linkedNodes(t, m, 1, 1); loop.Identity() == ring.Identity() {
+		t.Fatalf("a self-loop and a ring share identity %q", loop.Identity())
 	}
 	long := linkedNodes(t, m, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 	other := linkedNodes(t, m, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11)
 	if !strings.HasSuffix(long.String(), "{…}}}}}}}}}") || long.String() != other.String() {
 		t.Fatalf("renderings %q and %q, want alike and cut at depth", long, other)
 	}
-	if long.identity() == other.identity() {
-		t.Fatalf("identity %q shared by two rings differing past the rendering's depth", long.identity())
+	if long.Identity() == other.Identity() {
+		t.Fatalf("identity %q shared by two rings differing past the rendering's depth", long.Identity())
 	}
 }
 
 // An outcome built without a context spells an object by the id its run gave it.
 func TestOutcomeWithoutContextKeepsObjectIDs(t *testing.T) {
-	o := Outcome{Outputs: map[string]Value{"lead": {Kind: ValInstance, Instance: 7}}}
+	o := runtime.Outcome{Outputs: map[string]runtime.Value{"lead": {Kind: runtime.ValInstance, Instance: 7}}}
 	if got := o.String(); got != "lead = instance(7)" {
 		t.Fatalf("outcome %q, want lead = instance(7)", got)
 	}
 }
 
 // mustSchedule sets a policy a context can run under, failing the test otherwise.
-func mustSchedule(t *testing.T, ctx *Context, policy SchedulePolicy) {
+func mustSchedule(t *testing.T, ctx *runtime.Context, policy runtime.SchedulePolicy) {
 	t.Helper()
 	if err := ctx.SetSchedule(policy); err != nil {
 		t.Fatalf("schedule %s: %v", policy, err)

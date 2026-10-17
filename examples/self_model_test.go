@@ -23,6 +23,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	service "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
@@ -1392,7 +1393,7 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		"OpenSysMLViews::libraryLoadFlow",
 		"[snapshotCurrent]",
 		"OpenSysMLViews::budgetExhaustion",
-		"| explore | outcomes | runs, depth | proved | true | false | runtime.ExploreWith |",
+		"| explore | outcomes | runs, depth | proved | true | false | explore.ExploreWith |",
 		"| solve | satisfiable, holds | runs, solver | proved | true | true | internal/exec/solve |",
 		"OpenSysMLViews::analysisFramework",
 		"OpenSysMLViews::questionFlow",

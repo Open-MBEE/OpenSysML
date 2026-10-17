@@ -72,7 +72,7 @@ func (o Outcome) RenderedOutputs() []OutcomeOutput {
 // identity is the outcome's identity: its rendering with every name quoted, so a
 // name spelling a delimiter cannot make two outcomes one or one outcome two, and
 // every object opened, so two graphs are one identity only when they are alike.
-func (o Outcome) identity() string {
+func (o Outcome) Identity() string {
 	if o.Err != nil {
 		return "error: " + strconv.Quote(o.Err.Error())
 	}
@@ -312,3 +312,6 @@ func (s *objectSpeller) typeName(inst *Instance) string {
 	}
 	return inst.Type.Name
 }
+
+// FailedOutcome is the outcome of a run that ended in err, read through ctx.
+func (ctx *Context) FailedOutcome(err error) Outcome { return Outcome{Err: err, ctx: ctx} }

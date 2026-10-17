@@ -181,7 +181,7 @@ func ClockStepOf(ctx *runtime.Context) float64 {
 type Performance func(*runtime.Context) (Answer, error)
 
 // Linearization runs the behavior once in a fresh context under the context's
-// schedule, in the shape runtime.Explore drives.
+// schedule, in the shape explore.Explore drives.
 type Linearization func(*runtime.Context) (runtime.Outcome, error)
 
 // Answer is what one performance established: the claim it supports, the

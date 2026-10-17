@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -95,7 +96,7 @@ func TestExploreRefereesCheckOverBehaviorsOnOneClock(t *testing.T) {
 		t.Fatalf("plan %+v, want explore's proof standing with no disagreement", plan.Result)
 	}
 	var checked *Checked
-	var exploration *runtime.Exploration
+	var exploration *explore.Exploration
 	for _, step := range plan.Steps {
 		if step.Result == nil {
 			continue

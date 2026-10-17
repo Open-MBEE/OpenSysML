@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -109,7 +110,7 @@ func Execute(stop context.Context, m *Model, expected []string, budget runtime.E
 		}
 		return exec.Outcome(), nil
 	}
-	exploration, err := runtime.ExploreWith(stop, policy, jobs, fresh, run)
+	exploration, err := explore.ExploreWith(stop, policy, jobs, fresh, run)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +177,7 @@ func build(m *Model, budgets runtime.Budgets) (*symbols.Symbol, func(int) (*runt
 
 // compare sorts what exploration reached into the traces the suite admits, the
 // ones it does not, and the runs that ended in an error.
-func compare(x *runtime.Exploration, expected []string) *Execution {
+func compare(x *explore.Exploration, expected []string) *Execution {
 	admitted := make(map[string]bool, len(expected))
 	for _, t := range expected {
 		admitted[t] = true

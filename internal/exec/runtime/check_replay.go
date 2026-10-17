@@ -199,7 +199,7 @@ func (r *Replayed) evaluate(p CheckProperty) (bool, error) {
 	holds, err := r.Ctx.everyStatementOrder(func() (bool, error) {
 		return p.Holds(r.Ctx, r.Inv)
 	})
-	if errors.Is(err, errStatementOrderSweepLimit) && !holds {
+	if errors.Is(err, ErrStatementOrderSweepLimit) && !holds {
 		return false, nil
 	}
 	return holds, err

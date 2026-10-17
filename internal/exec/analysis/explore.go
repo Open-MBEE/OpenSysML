@@ -6,6 +6,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
@@ -46,7 +47,7 @@ func (e exploreEngine) Covers(_ *Model, q Question) Coverage {
 		return refused(&MalformedQuestionError{Kind: q.Kind, Missing: "a Linearize"})
 	}
 	if _, ok := q.Schedule.Exploration(); !ok {
-		return refused(fmt.Errorf("%w: %s", runtime.ErrNotExploring, q.Schedule))
+		return refused(fmt.Errorf("%w: %s", explore.ErrNotExploring, q.Schedule))
 	}
 	return covered
 }
@@ -65,7 +66,7 @@ func (e exploreEngine) Run(ctx context.Context, model *Model, q Question, budget
 	}
 	fresh := func(job int) (*runtime.Context, error) { return q.fresh(model, job, budget) }
 	started := time.Now()
-	x, err := runtime.ExploreWith(ctx, policy, budget.Jobs, fresh, q.Linearize)
+	x, err := explore.ExploreWith(ctx, policy, budget.Jobs, fresh, q.Linearize)
 	if err != nil {
 		return Result{}, err
 	}
@@ -97,7 +98,7 @@ func (e exploreEngine) Run(ctx context.Context, model *Model, q Question, budget
 func explorePolicy(policy runtime.SchedulePolicy, budget Budget) (runtime.SchedulePolicy, error) {
 	limits, ok := policy.Exploration()
 	if !ok {
-		return policy, fmt.Errorf("%w: %s", runtime.ErrNotExploring, policy)
+		return policy, fmt.Errorf("%w: %s", explore.ErrNotExploring, policy)
 	}
 	if budget.Runs > 0 {
 		limits.Runs = budget.Runs

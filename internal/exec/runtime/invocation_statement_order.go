@@ -74,7 +74,7 @@ func (ctx *Context) invokeWithStatementOrderResults(
 		}
 		err := ctx.sweepStatementOrderVariantsNested(func(sweep *statementOrderSweep) error {
 			value, invokeErr := invoke()
-			if errors.Is(invokeErr, errStatementOrderSweepLimit) {
+			if errors.Is(invokeErr, ErrStatementOrderSweepLimit) {
 				return invokeErr
 			}
 			result := invocationOrderResult{

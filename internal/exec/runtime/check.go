@@ -528,7 +528,7 @@ func shareOf(c ChoicePoint, i int) float64 {
 	if n == 0 {
 		return 1
 	}
-	if c.weighted() && i < len(c.Weights) {
+	if c.Weighted() && i < len(c.Weights) {
 		total := 0.0
 		for _, w := range c.Weights {
 			total += w
@@ -613,7 +613,7 @@ func (c *checker) search(stop context.Context, mass float64) error {
 // foldGaps merges the coverage gaps the run recorded on its context into the
 // checker's, since restoring the context's snapshot drops them.
 func (c *checker) foldGaps() {
-	c.gaps = mergeGaps(c.gaps, c.ctx.gaps())
+	c.gaps = MergeGaps(c.gaps, c.ctx.Gaps())
 }
 
 // stopped is the check ended by its caller, with what it had searched so far.
@@ -934,15 +934,15 @@ func (c *checker) evaluate(p CheckProperty) (bool, error) {
 	holds, err := c.ctx.everyStatementOrder(func() (bool, error) {
 		return p.Holds(c.ctx, c.inv)
 	})
-	if errors.Is(err, errStatementOrderSweepLimit) {
-		c.hit(boundStatementOrders)
+	if errors.Is(err, ErrStatementOrderSweepLimit) {
+		c.hit(BoundStatementOrders)
 		return holds, nil
 	}
 	return holds, err
 }
 
-// scopeWith is scope with the reasons of more it lacks, sorted.
-func scopeWith(scope, more []ObservationReason) []ObservationReason {
+// ScopeWith is scope with the reasons of more it lacks, sorted.
+func ScopeWith(scope, more []ObservationReason) []ObservationReason {
 	for _, reason := range more {
 		if !slices.Contains(scope, reason) {
 			scope = append(scope, reason)
@@ -956,11 +956,11 @@ func scopeWith(scope, more []ObservationReason) []ObservationReason {
 // reaching each distinct outcome being its witness.
 func (c *checker) final() {
 	finals, err := c.spellFinalVariants()
-	if errors.Is(err, errStatementOrderSweepLimit) {
-		c.hit(boundStatementOrders)
+	if errors.Is(err, ErrStatementOrderSweepLimit) {
+		c.hit(BoundStatementOrders)
 	}
 	for _, final := range finals {
-		c.scope = scopeWith(c.scope, final.scope)
+		c.scope = ScopeWith(c.scope, final.scope)
 		if _, seen := c.finals[final.identity]; seen {
 			continue
 		}
@@ -1012,7 +1012,7 @@ func (c *checker) spellFinalVariants() ([]spelledCheckFinal, error) {
 func (c *checker) spellFinalOnce() (values map[string]string, spelled, identity string, scope []ObservationReason) {
 	outcome := c.inv.Outcome()
 	values = c.divergenceValues()
-	spelled, identity, scope = outcome.String(), outcome.identity(), outcome.Scope
+	spelled, identity, scope = outcome.String(), outcome.Identity(), outcome.Scope
 	prefixes := c.inv.performerPrefixes()
 	for _, name := range slices.Sorted(maps.Keys(values)) {
 		if _, carried := outcome.Outputs[name]; carried {
@@ -1500,7 +1500,7 @@ const (
 	BoundDoSteps         = "doSteps"
 	BoundElements        = "elements"
 	BoundBehaviors       = "behaviors"
-	boundStatementOrders = "statement orders"
+	BoundStatementOrders = "statement orders"
 )
 
 // ExecutorBounds lists the executor budgets a bound hit may name, in report order.

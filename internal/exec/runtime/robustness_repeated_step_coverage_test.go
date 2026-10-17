@@ -435,11 +435,11 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 			t.Fatalf("Snapshot after the gap: %v", err)
 		}
 		after.Restore()
-		if got := ctx.gaps(); !slices.Contains(got, gap) {
+		if got := ctx.Gaps(); !slices.Contains(got, gap) {
 			t.Errorf("gaps after restoring the later snapshot = %v, want the gap", got)
 		}
 		before.Restore()
-		if got := ctx.gaps(); len(got) != 0 {
+		if got := ctx.Gaps(); len(got) != 0 {
 			t.Errorf("gaps after restoring the earlier snapshot = %v, want none", got)
 		}
 	})

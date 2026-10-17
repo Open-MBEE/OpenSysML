@@ -213,7 +213,7 @@ func TestExploreEnumeratesWeightedTransitions(t *testing.T) {
 	finals := map[string]bool{}
 	for _, o := range x.Outcomes {
 		finals[o.Outcome.FinalState] = true
-		if len(o.Witness) != 1 || o.Witness[0].Kind != ChoiceTransition || !o.Witness[0].weighted() {
+		if len(o.Witness) != 1 || o.Witness[0].Kind != ChoiceTransition || !o.Witness[0].Weighted() {
 			t.Fatalf("witness of %s is %s, want one weighted transition draw", o.Outcome, FormatChoices(o.Witness))
 		}
 	}
@@ -278,7 +278,7 @@ func TestExploreEnumeratesNestedWeightedTransitions(t *testing.T) {
 			t.Fatalf("replaying %s reached %s, want %s", FormatChoices(o.Witness), outcome, o.Outcome)
 		}
 		followed := slices.ContainsFunc(choices, func(c ChoiceTaken) bool {
-			return c.Kind == ChoiceTransition && c.weighted()
+			return c.Kind == ChoiceTransition && c.Weighted()
 		})
 		if !followed {
 			t.Fatalf("replaying %s made no weighted transition pick: %s", FormatChoices(o.Witness), FormatChoices(choices))

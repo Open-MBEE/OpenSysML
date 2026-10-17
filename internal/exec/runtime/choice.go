@@ -145,7 +145,7 @@ type ChoicePoint struct {
 }
 
 // weighted reports whether the model weights the alternatives.
-func (c ChoicePoint) weighted() bool {
+func (c ChoicePoint) Weighted() bool {
 	return len(c.Weights) == len(c.Alternatives) && len(c.Weights) > 0
 }
 
@@ -177,10 +177,10 @@ func (c ChoicePoint) describe() string {
 	if c.Taken >= 0 && c.Taken < len(c.Alternatives) {
 		taken = c.Alternatives[c.Taken]
 	}
-	if c.Kind == ChoiceDecisionBranch && c.weighted() {
+	if c.Kind == ChoiceDecisionBranch && c.Weighted() {
 		return fmt.Sprintf("step %d: %s branches %s hold (weighted; %s)", c.Step, c.Where, c.weightedAlternatives(), c.selection(taken))
 	}
-	if c.Kind == ChoiceTransition && c.weighted() {
+	if c.Kind == ChoiceTransition && c.Weighted() {
 		return fmt.Sprintf("%s: transitions %s (weighted; %s)", c.Where, c.weightedAlternatives(), c.selection(taken))
 	}
 	switch c.Kind {

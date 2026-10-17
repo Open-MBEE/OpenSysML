@@ -1,4 +1,4 @@
-package runtime
+package explore
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -32,7 +33,7 @@ func TestWrapSetupErrorPreservesInputAndPerformerErrors(t *testing.T) {
 		fmt.Errorf("performer failed: %w", errOccurrenceLifetime),
 	} {
 		wrapped := wrapSetupError(err)
-		var setup *SetupError
+		var setup *runtime.SetupError
 		if errors.As(wrapped, &setup) {
 			t.Errorf("wrapSetupError(%v) = %v; want the run error unchanged", err, wrapped)
 		}
@@ -40,7 +41,7 @@ func TestWrapSetupErrorPreservesInputAndPerformerErrors(t *testing.T) {
 
 	cause = errors.New("executor initialization failed")
 	wrapped := wrapSetupError(cause)
-	var setup *SetupError
+	var setup *runtime.SetupError
 	if !errors.As(wrapped, &setup) || !errors.Is(wrapped, cause) || wrapped.Error() != cause.Error() {
 		t.Errorf("wrapSetupError(%v) = %v; want SetupError preserving the message and cause", cause, wrapped)
 	}
@@ -53,13 +54,13 @@ func testExploreFreshContextFailure(t *testing.T) {
 		context.Background(),
 		mustPolicy(t, "explore"),
 		1,
-		func(int) (*Context, error) { return nil, want },
-		func(*Context) (Outcome, error) {
+		func(int) (*runtime.Context, error) { return nil, want },
+		func(*runtime.Context) (runtime.Outcome, error) {
 			called = true
-			return Outcome{}, nil
+			return runtime.Outcome{}, nil
 		},
 	)
-	var setup *SetupError
+	var setup *runtime.SetupError
 	if !errors.As(err, &setup) || !errors.Is(err, want) {
 		t.Fatalf("ExploreWith error = %v, want SetupError wrapping %v", err, want)
 	}
@@ -78,10 +79,10 @@ func testExploreActionInitializationFailureIsSetup(t *testing.T) {
 		}
 	}`)
 	sym := m.action(t, "Broken")
-	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *Context) (Outcome, error) {
+	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		return ctx.ActionOutcomePerformedBy(sym, nil, nil)
 	})
-	var setup *SetupError
+	var setup *runtime.SetupError
 	if !errors.As(err, &setup) || exploration != nil {
 		t.Fatalf("exploration = %v, error = %v; want root setup failure without outcomes", exploration, err)
 	}
@@ -128,10 +129,10 @@ func testExploreStateInitializationFailureIsSetup(t *testing.T) {
 		}
 	}`)
 	sym := m.state(t, "Machine")
-	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *Context) (Outcome, error) {
+	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		return ctx.StateOutcomeWithEvents(sym, nil)
 	})
-	var setup *SetupError
+	var setup *runtime.SetupError
 	if !errors.As(err, &setup) || exploration != nil {
 		t.Fatalf("exploration = %v, error = %v; want root setup failure without outcomes", exploration, err)
 	}
@@ -165,7 +166,7 @@ func testExploreInitialEntryFailureAfterChoiceIsRuntimeOutcome(t *testing.T) {
 		}
 	}`)
 	sym := m.state(t, "Machine")
-	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *Context) (Outcome, error) {
+	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		return ctx.StateOutcomeWithEvents(sym, nil)
 	})
 	if err != nil {
@@ -182,7 +183,7 @@ func testExploreInitialEntryFailureAfterChoiceIsRuntimeOutcome(t *testing.T) {
 			continue
 		}
 		failures += outcome.Linearizations
-		var setup *SetupError
+		var setup *runtime.SetupError
 		if errors.As(outcome.Outcome.Err, &setup) {
 			t.Errorf("entry error outcome = %v; want a runtime error, not SetupError", outcome.Outcome.Err)
 		}
@@ -212,7 +213,7 @@ func testExploreDeterministicEntryFailureIsRuntimeOutcome(t *testing.T) {
 		}
 	}`)
 	sym := m.state(t, "Machine")
-	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *Context) (Outcome, error) {
+	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		return ctx.StateOutcomeWithEvents(sym, nil)
 	})
 	if err != nil {
@@ -223,7 +224,7 @@ func testExploreDeterministicEntryFailureIsRuntimeOutcome(t *testing.T) {
 		t.Fatalf("exploration = %v; want one complete error outcome", exploration)
 	}
 	errOutcome := exploration.Outcomes[0].Outcome.Err
-	var setup *SetupError
+	var setup *runtime.SetupError
 	if errOutcome == nil || errors.As(errOutcome, &setup) || !errors.Is(errOutcome, errNoEnabledSuccession) {
 		t.Fatalf("entry error outcome = %v; want errNoEnabledSuccession, not SetupError", errOutcome)
 	}
@@ -240,13 +241,13 @@ func testExploreToolPerformanceFailureIsRuntimeOutcome(t *testing.T) {
 		}
 	}`)
 	sym := m.action(t, "ToolAction")
-	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *Context) (Outcome, error) {
+	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		exec, err := ctx.CreateActionExecutorFor(sym, nil)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		defer exec.Release()
-		return Outcome{}, errors.New("tool action unexpectedly succeeded")
+		return runtime.Outcome{}, errors.New("tool action unexpectedly succeeded")
 	})
 	if err != nil {
 		t.Fatalf("Explore: %v; want the tool performance failure as an outcome", err)
@@ -256,7 +257,7 @@ func testExploreToolPerformanceFailureIsRuntimeOutcome(t *testing.T) {
 		t.Fatalf("exploration = %v; want one complete error outcome", exploration)
 	}
 	errOutcome := exploration.Outcomes[0].Outcome.Err
-	var setup *SetupError
+	var setup *runtime.SetupError
 	if errOutcome == nil || errors.As(errOutcome, &setup) || !errors.Is(errOutcome, errToolNotRegistered) {
 		t.Fatalf("tool error outcome = %v; want errToolNotRegistered, not SetupError", errOutcome)
 	}
@@ -271,14 +272,14 @@ func testExploreInputBindingFailureIsNotSetup(t *testing.T) {
 		}
 	}`)
 	sym := m.action(t, "NeedsInput")
-	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *Context) (Outcome, error) {
-		return ctx.ActionOutcomePerformedBy(sym, nil, map[string]Value{"unknown": integerValue(1)})
+	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
+		return ctx.ActionOutcomePerformedBy(sym, nil, map[string]runtime.Value{"unknown": integerValue(1)})
 	})
 	if err != nil || exploration == nil || !exploration.Complete() || len(exploration.Outcomes) != 1 {
 		t.Fatalf("exploration = %v, error = %v; want one input-binding error outcome", exploration, err)
 	}
 	runErr := exploration.Outcomes[0].Outcome.Err
-	var setup *SetupError
+	var setup *runtime.SetupError
 	if runErr == nil || errors.As(runErr, &setup) || !errors.Is(runErr, errUnknownActionInput) {
 		t.Fatalf("input-binding error = %v; want an unwrapped errUnknownActionInput runtime outcome", runErr)
 	}
@@ -296,8 +297,8 @@ func testExplorePerformerFailureIsOutcome(t *testing.T) {
 	}`)
 	bump := m.action(t, "Probe::bump")
 	reaper := m.action(t, "reaper")
-	performers := make(map[*Context]*Instance)
-	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), func() (*Context, error) {
+	performers := make(map[*runtime.Context]*runtime.Instance)
+	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), func() (*runtime.Context, error) {
 		ctx, err := m.fresh()
 		if err != nil {
 			return nil, err
@@ -312,7 +313,7 @@ func testExplorePerformerFailureIsOutcome(t *testing.T) {
 		}
 		performers[ctx] = self
 		return ctx, nil
-	}, func(ctx *Context) (Outcome, error) {
+	}, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		return ctx.ActionOutcomePerformedBy(bump, performers[ctx], nil)
 	})
 	if err != nil {
@@ -380,7 +381,7 @@ func testExploreJoinDeadlockIsOutcome(t *testing.T) {
 		}
 	}`)
 	exploration := exploreActionWith(t, m, "mixed", 0)
-	assertPartialFailureExploration(t, exploration, ErrActionDeadlock)
+	assertPartialFailureExploration(t, exploration, runtime.ErrActionDeadlock)
 }
 
 func testExploreStepBudgetFailureIsOutcome(t *testing.T) {
@@ -414,13 +415,13 @@ func testExploreStepBudgetFailureIsOutcome(t *testing.T) {
 		}
 	}`)
 	exploration := exploreActionWith(t, m, "mixed", 24)
-	assertPartialFailureExploration(t, exploration, ErrActionStepLimitExceeded)
+	assertPartialFailureExploration(t, exploration, runtime.ErrActionStepLimitExceeded)
 }
 
 func exploreActionWith(t *testing.T, m *exploreModel, name string, actionSteps int64) *Exploration {
 	t.Helper()
 	sym := m.action(t, name)
-	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), func() (*Context, error) {
+	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), func() (*runtime.Context, error) {
 		ctx, err := m.fresh()
 		if err != nil || actionSteps == 0 {
 			return ctx, err
@@ -431,10 +432,10 @@ func exploreActionWith(t *testing.T, m *exploreModel, name string, actionSteps i
 			return nil, err
 		}
 		return ctx, nil
-	}, func(ctx *Context) (Outcome, error) {
+	}, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		outputs, err := ctx.ExecuteAction(sym)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return ctx.ActionOutcome(outputs), nil
 	})
@@ -476,11 +477,11 @@ func testCheckSetupFailureIsReturned(t *testing.T) {
 	m := parseLibraryModel(t, `package test {
 		action pass { first start; then done; }
 	}`)
-	start := func(*Context) (*Invocation, error) {
-		return nil, &SetupError{Err: cause}
+	start := func(*runtime.Context) (*runtime.Invocation, error) {
+		return nil, &runtime.SetupError{Err: cause}
 	}
-	report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, CheckOptions{}, nil)
-	var setup *SetupError
+	report, err := runtime.Check(context.Background(), m.fresh, start, runtime.CheckBudget{}, runtime.CheckOptions{}, nil)
+	var setup *runtime.SetupError
 	if !errors.As(err, &setup) || !errors.Is(err, cause) {
 		t.Fatalf("Check error = %v, want SetupError wrapping %v", err, cause)
 	}

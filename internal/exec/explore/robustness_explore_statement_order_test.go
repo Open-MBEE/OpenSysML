@@ -1,8 +1,9 @@
-package runtime
+package explore
 
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -84,8 +85,8 @@ func testStatementOrderReplay(t *testing.T) {
 	if i < 0 {
 		t.Fatalf("exploration reached %v, want y = 0, read before the write", outcomeTexts(x))
 	}
-	recorded := FormatChoices(x.Outcomes[i].Witness)
-	parsed, err := ParseChoices(recorded)
+	recorded := runtime.FormatChoices(x.Outcomes[i].Witness)
+	parsed, err := runtime.ParseChoices(recorded)
 	if err != nil {
 		t.Fatalf("parse recorded witness %q: %v", recorded, err)
 	}
@@ -96,7 +97,7 @@ func testStatementOrderReplay(t *testing.T) {
 	if got := outcomeValue(t, outcome, "y"); got != "0" {
 		t.Fatalf("replaying %q gave y = %s, want 0", recorded, got)
 	}
-	if again := FormatChoices(taken); again != recorded {
+	if again := runtime.FormatChoices(taken); again != recorded {
 		t.Errorf("replay took %q, want the witness %q", again, recorded)
 	}
 }

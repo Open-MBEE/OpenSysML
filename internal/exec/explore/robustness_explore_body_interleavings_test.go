@@ -1,9 +1,10 @@
-package runtime
+package explore
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"os"
 	"path/filepath"
 	"slices"
@@ -28,13 +29,13 @@ func TestRuntimeRobustnessExploreBodyInterleavings(t *testing.T) {
 }
 
 // caseRun runs the case's one action under ctx and reports its outcome.
-func caseRun(t *testing.T, m *exploreModel, name string) func(*Context) (Outcome, error) {
+func caseRun(t *testing.T, m *exploreModel, name string) func(*runtime.Context) (runtime.Outcome, error) {
 	t.Helper()
 	sym := m.action(t, name)
-	return func(ctx *Context) (Outcome, error) {
+	return func(ctx *runtime.Context) (runtime.Outcome, error) {
 		outputs, err := ctx.ExecuteAction(sym)
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return ctx.ActionOutcome(outputs), nil
 	}
@@ -50,7 +51,7 @@ func featureValues(t *testing.T, x *Exploration, feature string) []string {
 	return values
 }
 
-func outcomeValue(t *testing.T, o Outcome, feature string) string {
+func outcomeValue(t *testing.T, o runtime.Outcome, feature string) string {
 	t.Helper()
 	if o.Err != nil {
 		t.Fatalf("outcome is an error: %v", o.Err)
@@ -59,7 +60,7 @@ func outcomeValue(t *testing.T, o Outcome, feature string) string {
 	if !ok {
 		t.Fatalf("outcome %s has no %s", o, feature)
 	}
-	return FormatValue(v)
+	return runtime.FormatValue(v)
 }
 
 func testBodyInterleavingsExplored(t *testing.T) {
@@ -116,8 +117,8 @@ func testBodyInterleavingsReplay(t *testing.T) {
 		t.Fatalf("exploration reached %v, want the lost update c = 1", outcomeTexts(x))
 	}
 	witness := x.Outcomes[i].Witness
-	recorded := FormatChoices(witness)
-	parsed, err := ParseChoices(recorded)
+	recorded := runtime.FormatChoices(witness)
+	parsed, err := runtime.ParseChoices(recorded)
 	if err != nil {
 		t.Fatalf("parse recorded witness %q: %v", recorded, err)
 	}
@@ -128,7 +129,7 @@ func testBodyInterleavingsReplay(t *testing.T) {
 	if got := outcomeValue(t, outcome, "c"); got != "1" {
 		t.Fatalf("replaying %q gave c = %s, want 1", recorded, got)
 	}
-	if again := FormatChoices(taken); again != recorded {
+	if again := runtime.FormatChoices(taken); again != recorded {
 		t.Errorf("replay took %q, want the witness %q", again, recorded)
 	}
 }
@@ -185,8 +186,8 @@ func testBodyInterleavingsFixedPolicies(t *testing.T) {
 
 func testBodyInterleavingsChecked(t *testing.T) {
 	m := conformanceModel(t, "action_explore_body_fork_lost_update")
-	for _, opts := range []CheckOptions{reduced(), unreduced()} {
-		report, err := Check(context.Background(), m.fresh, starterOf(m.action(t, "ForkPlain")), CheckBudget{}, opts, nil)
+	for _, opts := range []runtime.CheckOptions{reduced(), unreduced()} {
+		report, err := runtime.Check(context.Background(), m.fresh, starterOf(m.action(t, "ForkPlain")), runtime.CheckBudget{}, opts, nil)
 		if err != nil {
 			t.Fatalf("reduce=%v: %v", opts.Reduce, err)
 		}
@@ -218,7 +219,7 @@ func testBodyInterleavingsCallees(t *testing.T) {
 			if got = slices.Compact(got); !slices.Equal(got, []string{"1", "2"}) {
 				t.Fatalf("seen over every schedule = %v, want [1 2]", got)
 			}
-			report, err := Check(context.Background(), m.fresh, starterOf(m.action(t, c.action)), CheckBudget{}, reduced(), nil)
+			report, err := runtime.Check(context.Background(), m.fresh, starterOf(m.action(t, c.action)), runtime.CheckBudget{}, reduced(), nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -313,11 +314,11 @@ func testBodyInterleavingsSiblingTimer(t *testing.T) {
 	m := parseLibraryModel(t, string(text))
 	sym := m.action(t, "SiblingTimer")
 	clocks := map[float64]bool{}
-	run := func(ctx *Context) (Outcome, error) {
+	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
 		outputs, err := ctx.ExecuteAction(sym)
 		clocks[ctx.Clock().Now()] = true
 		if err != nil {
-			return Outcome{}, err
+			return runtime.Outcome{}, err
 		}
 		return ctx.ActionOutcome(outputs), nil
 	}
@@ -348,7 +349,7 @@ func testBodyInterleavingsSiblingTimer(t *testing.T) {
 	if len(clocks) != 1 || !clocks[10] {
 		t.Errorf("runs ended at clocks %v, want only 10", clocks)
 	}
-	report, err := Check(context.Background(), m.fresh, starterOf(sym), CheckBudget{}, reduced(), nil)
+	report, err := runtime.Check(context.Background(), m.fresh, starterOf(sym), runtime.CheckBudget{}, reduced(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

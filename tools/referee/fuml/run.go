@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -91,7 +92,7 @@ func Execute(stop context.Context, em *Emitted, x *ExpectedActivity, budget runt
 		}
 		return ctx.ActionOutcome(outputs), nil
 	}
-	exploration, err := runtime.ExploreWith(stop, policy, jobs, fresh, run)
+	exploration, err := explore.ExploreWith(stop, policy, jobs, fresh, run)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +265,7 @@ func producingNodes(em *Emitted, outputs map[string]runtime.Value) []string {
 
 // compare holds the exploration's outcomes against the implementation's record;
 // only the outcomes the exploration kept count, never a discarded speculative run.
-func compare(em *Emitted, x *runtime.Exploration, expected *ExpectedActivity) *Execution {
+func compare(em *Emitted, x *explore.Exploration, expected *ExpectedActivity) *Execution {
 	a := em.Activity
 	want := renderExpected(em, expected)
 	reached := map[string]bool{}
