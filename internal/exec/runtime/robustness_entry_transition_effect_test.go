@@ -117,7 +117,7 @@ func TestRuntimeRobustnessEntryTransitionEffect(t *testing.T) {
 				transition first start accept Go then target;
 			}
 		}`)
-		exec.sendSignal("Go", nil)
+		exec.SendSignal("Go", nil)
 		err := exec.ProcessNextEvent()
 		if !errors.Is(err, errChoiceWithoutBranch) || !errors.Is(err, errNoWayThrough) {
 			t.Fatalf("ProcessNextEvent(Go) = %v, want errChoiceWithoutBranch wrapped by errNoWayThrough", err)
@@ -161,7 +161,7 @@ func TestRuntimeRobustnessEntryTransitionEffect(t *testing.T) {
 				transition first idle accept Go then blocked;
 			}
 		}`)
-		exec.sendSignal("Go", nil)
+		exec.SendSignal("Go", nil)
 		err := exec.ProcessNextEvent()
 		if !errors.Is(err, errNoWayThrough) {
 			t.Fatalf("ProcessNextEvent(Go) = %v, want errNoWayThrough", err)

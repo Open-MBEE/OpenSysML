@@ -140,6 +140,7 @@ func (obj imagedObject) keptIDs() []int64 {
 type imagedRun struct {
 	steps, elements int64
 	notes           []RunNote
+	marks           orderMarks
 	scheduled       bool
 	policy          SchedulePolicy
 	generator       *rand.PCG
@@ -455,7 +456,7 @@ func (t *imaging) run(state *runState) (int, error) {
 	if len(state.calcUsageRuns) > 0 {
 		return 0, fmt.Errorf("%w: calc usage evaluations open", ErrSnapshotMidRun)
 	}
-	run := imagedRun{steps: state.steps, elements: state.elements, notes: slices.Clone(state.notes)}
+	run := imagedRun{steps: state.steps, elements: state.elements, notes: slices.Clone(state.notes), marks: state.marks.clone()}
 	if s := state.scheduler; s != nil {
 		if s.explore != nil {
 			return 0, fmt.Errorf("%w: an exploration of the schedule under way", errImageBound)
@@ -944,7 +945,7 @@ func (m *materializing) featureAt(ref imagedFeatureRef) *FeatureValue {
 // where the imaged run drew from a seed its modeled stream's position.
 func (m *materializing) runState(run imagedRun) *runState {
 	state := &runState{
-		steps: run.steps, elements: run.elements, notes: slices.Clone(run.notes),
+		steps: run.steps, elements: run.elements, notes: slices.Clone(run.notes), marks: run.marks.clone(),
 		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 	}
 	if run.scheduled {

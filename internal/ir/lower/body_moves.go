@@ -179,7 +179,7 @@ func bodyMoves(graph *ActionGraph, node ast.Node) []bodyMove {
 		for _, f := range graph.Features[node] {
 			b.reads(f.Scope, f.Value)
 			if f.Direction == ast.DirOut || f.Direction == ast.DirInOut || f.IsResult {
-				b.write(Place{Sym: featureSymbol(b.scope, f), Name: f.Name, Local: true})
+				b.write(Place{Sym: featureSymbol(b.scope, f), Name: f.Name, Local: true, Node: node})
 			}
 		}
 		moves = append(moves, bodyMove{footprint: b.footprint, times: 1})

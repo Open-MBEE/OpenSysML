@@ -1,4 +1,4 @@
-package runtime_test
+package codegen_test
 
 import (
 	"errors"
@@ -8,10 +8,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/codegen"
 )
 
-// TestRuntimeRobustnessCompiledUnset covers the boundary of a compiled
+// TestCompileRefusesUnsetValues covers the boundary of a compiled
 // program at an unset feature value: a scalar one leaves the program, while
 // one held in a collection or read through is refused with a typed error.
-func TestRuntimeRobustnessCompiledUnset(t *testing.T) {
+func TestCompileRefusesUnsetValues(t *testing.T) {
 	compiler, pkg := recordCompiler(t)
 	for _, target := range []codegen.Target{codegen.TargetGo, codegen.TargetC} {
 		t.Run(string(target), func(t *testing.T) {

@@ -306,7 +306,7 @@ small file and are within 1%.
 | `RenameWarm` | 25.9 ms | 25.6 ms | ~ | ~ | ~ |
 | `WorkspaceUpdate` | 324 ms | 402 ms | +24% | 49.7 → 57.0 MiB (+15%) | 607k → 712k (+17%) |
 
-`FormatEdits` formats `internal/frontend/repl/testdata/compile_calcs.sysml`,
+`FormatEdits` formats `tests/codegen/testdata/compile_calcs.sysml`,
 which grew from 597 to 930 lines on 0.10.0 with the new compiled
 fixtures; the bytes move by the ratio of the file sizes (+62% against
 +56% more lines) and the formatter itself has one commit in the interval

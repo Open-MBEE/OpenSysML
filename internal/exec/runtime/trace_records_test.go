@@ -136,7 +136,7 @@ func TestStateTraceRecordsCarryWrittenPathsAndInnermostRegions(t *testing.T) {
 	if err := exec.initialize(); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}
-	exec.sendSignal("Ping", nil)
+	exec.SendSignal("Ping", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
