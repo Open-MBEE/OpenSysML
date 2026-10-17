@@ -29,7 +29,7 @@ func testCallOfUnhandledOperation(t *testing.T) {
 			transition first waiting accept go() then moving;
 		}
 	}`)
-	exec.InvokeOperation("halt", nil)
+	exec.invokeOperation("halt", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to completion: %v", err)
 	}
@@ -52,7 +52,7 @@ func testCallArgumentOfWrongType(t *testing.T) {
 			transition first waiting accept setSpeed(value) if value > 0 then moving;
 		}
 	}`)
-	exec.InvokeOperation("setSpeed", map[string]Value{
+	exec.invokeOperation("setSpeed", map[string]Value{
 		"value": NewStringValue("fast"),
 	})
 	err := exec.RunToCompletion()
@@ -83,17 +83,17 @@ func testOperationInvokedWithUnboundParameters(t *testing.T) {
 		t.Fatalf("instantiate: %v", err)
 	}
 
-	if _, err := ctx.InvokeOperation(inst, "add", nil); !errors.Is(err, ErrUnboundParameter) {
-		t.Errorf("invoke without an argument = %v, want ErrUnboundParameter", err)
+	if _, err := ctx.invokeOperation(inst, "add", nil); !errors.Is(err, errUnboundParameter) {
+		t.Errorf("invoke without an argument = %v, want errUnboundParameter", err)
 	}
 	args := map[string]Value{"addend": integerValue(1), "extra": integerValue(2)}
-	if _, err := ctx.InvokeOperation(inst, "add", args); !errors.Is(err, ErrUnboundParameter) {
-		t.Errorf("invoke with an unknown argument = %v, want ErrUnboundParameter", err)
+	if _, err := ctx.invokeOperation(inst, "add", args); !errors.Is(err, errUnboundParameter) {
+		t.Errorf("invoke with an unknown argument = %v, want errUnboundParameter", err)
 	}
-	if _, err := ctx.InvokeOperation(inst, "missing", nil); !errors.Is(err, ErrNoSuchBehavior) {
-		t.Errorf("invoke of an unknown operation = %v, want ErrNoSuchBehavior", err)
+	if _, err := ctx.invokeOperation(inst, "missing", nil); !errors.Is(err, errNoSuchBehavior) {
+		t.Errorf("invoke of an unknown operation = %v, want errNoSuchBehavior", err)
 	}
-	if _, err := ctx.InvokeOperation(inst, "total", nil); !errors.Is(err, ErrNotABehavior) {
-		t.Errorf("invoke of an attribute = %v, want ErrNotABehavior", err)
+	if _, err := ctx.invokeOperation(inst, "total", nil); !errors.Is(err, errNotABehavior) {
+		t.Errorf("invoke of an attribute = %v, want errNotABehavior", err)
 	}
 }

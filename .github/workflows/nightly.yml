@@ -536,7 +536,8 @@ jobs:
             printf '%s' " and as the moving alias \`$TAG\`, which the next night's snapshot replaces. It is never"
             printf '%s' " the \`latest\` release; Homebrew and the Windows installer follow the stable line only."
             if [[ -f dist/wasm/sysml-wasm.wasm ]]; then
-              printf '%s' " The \`sysml-wasm.wasm\` module and matching \`wasm_exec.js\` are available in its assets."
+              printf '%s' " The \`sysml-wasm.wasm\` module, the browser REPL \`sysml-prod.wasm.gz\` and the"
+              printf '%s' " matching \`wasm_exec.js\` are available in its assets."
             fi
             printf '%s' " The"
             printf '%s' " [snapshot page](https://runtime.opensysml.org/project/nightly/) explains what it is, how"
@@ -627,8 +628,10 @@ jobs:
           if [[ -f dist/wasm/sysml-wasm.wasm ]]; then
             assets+=(
               dist/wasm/sysml-wasm.wasm
+              dist/wasm/sysml-prod.wasm.gz
               dist/wasm/wasm_exec.js
               dist/wasm/sysml-wasm.wasm.sha256
+              dist/wasm/sysml-prod.wasm.gz.sha256
               dist/wasm/wasm_exec.js.sha256
             )
           fi

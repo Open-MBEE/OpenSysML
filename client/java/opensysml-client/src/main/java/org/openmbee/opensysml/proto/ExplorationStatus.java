@@ -35,6 +35,8 @@ private static final long serialVersionUID = 0L;
   private ExplorationStatus() {
     budgetsHit_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+    unenumerated_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -54,7 +56,8 @@ private static final long serialVersionUID = 0L;
   private boolean complete_ = false;
   /**
    * <pre>
-   * True when every linearization was run, so `outcomes` is the whole set.
+   * True when every linearization the library admits was run, so `outcomes`
+   * is the whole set: no budget was hit and nothing was left unenumerated.
    * </pre>
    *
    * <code>bool complete = 1 [json_name = "complete"];</code>
@@ -191,6 +194,67 @@ private static final long serialVersionUID = 0L;
     return failedLinearizations_;
   }
 
+  public static final int UNENUMERATED_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList unenumerated_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * The constructs whose unordered alternatives the runs took in one order
+   * without a choice point, by identifier; `complete` is false while any is
+   * listed, since fewer orders were run than the library admits.
+   * </pre>
+   *
+   * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+   * @return A list containing the unenumerated.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getUnenumeratedList() {
+    return unenumerated_;
+  }
+  /**
+   * <pre>
+   * The constructs whose unordered alternatives the runs took in one order
+   * without a choice point, by identifier; `complete` is false while any is
+   * listed, since fewer orders were run than the library admits.
+   * </pre>
+   *
+   * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+   * @return The count of unenumerated.
+   */
+  public int getUnenumeratedCount() {
+    return unenumerated_.size();
+  }
+  /**
+   * <pre>
+   * The constructs whose unordered alternatives the runs took in one order
+   * without a choice point, by identifier; `complete` is false while any is
+   * listed, since fewer orders were run than the library admits.
+   * </pre>
+   *
+   * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+   * @param index The index of the element to return.
+   * @return The unenumerated at the given index.
+   */
+  public java.lang.String getUnenumerated(int index) {
+    return unenumerated_.get(index);
+  }
+  /**
+   * <pre>
+   * The constructs whose unordered alternatives the runs took in one order
+   * without a choice point, by identifier; `complete` is false while any is
+   * listed, since fewer orders were run than the library admits.
+   * </pre>
+   *
+   * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the unenumerated at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getUnenumeratedBytes(int index) {
+    return unenumerated_.getByteString(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -225,6 +289,9 @@ private static final long serialVersionUID = 0L;
     }
     if (failedLinearizations_ != 0) {
       output.writeInt32(7, failedLinearizations_);
+    }
+    for (int i = 0; i < unenumerated_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 8, unenumerated_.getRaw(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -267,6 +334,14 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(7, failedLinearizations_);
     }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < unenumerated_.size(); i++) {
+        dataSize += computeStringSizeNoTag(unenumerated_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getUnenumeratedList().size();
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -296,6 +371,8 @@ private static final long serialVersionUID = 0L;
         != other.getProbabilitiesLowerBound()) return false;
     if (getFailedLinearizations()
         != other.getFailedLinearizations()) return false;
+    if (!getUnenumeratedList()
+        .equals(other.getUnenumeratedList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -325,6 +402,10 @@ private static final long serialVersionUID = 0L;
         getProbabilitiesLowerBound());
     hash = (37 * hash) + FAILED_LINEARIZATIONS_FIELD_NUMBER;
     hash = (53 * hash) + getFailedLinearizations();
+    if (getUnenumeratedCount() > 0) {
+      hash = (37 * hash) + UNENUMERATED_FIELD_NUMBER;
+      hash = (53 * hash) + getUnenumeratedList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -469,6 +550,8 @@ private static final long serialVersionUID = 0L;
       depthBudget_ = 0;
       probabilitiesLowerBound_ = false;
       failedLinearizations_ = 0;
+      unenumerated_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       return this;
     }
 
@@ -524,6 +607,10 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000040) != 0)) {
         result.failedLinearizations_ = failedLinearizations_;
       }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        unenumerated_.makeImmutable();
+        result.unenumerated_ = unenumerated_;
+      }
     }
 
     @java.lang.Override
@@ -565,6 +652,16 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getFailedLinearizations() != 0) {
         setFailedLinearizations(other.getFailedLinearizations());
+      }
+      if (!other.unenumerated_.isEmpty()) {
+        if (unenumerated_.isEmpty()) {
+          unenumerated_ = other.unenumerated_;
+          bitField0_ |= 0x00000080;
+        } else {
+          ensureUnenumeratedIsMutable();
+          unenumerated_.addAll(other.unenumerated_);
+        }
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -628,6 +725,12 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000040;
               break;
             } // case 56
+            case 66: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureUnenumeratedIsMutable();
+              unenumerated_.add(s);
+              break;
+            } // case 66
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -648,7 +751,8 @@ private static final long serialVersionUID = 0L;
     private boolean complete_ ;
     /**
      * <pre>
-     * True when every linearization was run, so `outcomes` is the whole set.
+     * True when every linearization the library admits was run, so `outcomes`
+     * is the whole set: no budget was hit and nothing was left unenumerated.
      * </pre>
      *
      * <code>bool complete = 1 [json_name = "complete"];</code>
@@ -660,7 +764,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * True when every linearization was run, so `outcomes` is the whole set.
+     * True when every linearization the library admits was run, so `outcomes`
+     * is the whole set: no budget was hit and nothing was left unenumerated.
      * </pre>
      *
      * <code>bool complete = 1 [json_name = "complete"];</code>
@@ -676,7 +781,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * True when every linearization was run, so `outcomes` is the whole set.
+     * True when every linearization the library admits was run, so `outcomes`
+     * is the whole set: no budget was hit and nothing was left unenumerated.
      * </pre>
      *
      * <code>bool complete = 1 [json_name = "complete"];</code>
@@ -1046,6 +1152,171 @@ private static final long serialVersionUID = 0L;
     public Builder clearFailedLinearizations() {
       bitField0_ = (bitField0_ & ~0x00000040);
       failedLinearizations_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList unenumerated_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureUnenumeratedIsMutable() {
+      if (!unenumerated_.isModifiable()) {
+        unenumerated_ = new com.google.protobuf.LazyStringArrayList(unenumerated_);
+      }
+      bitField0_ |= 0x00000080;
+    }
+    /**
+     * <pre>
+     * The constructs whose unordered alternatives the runs took in one order
+     * without a choice point, by identifier; `complete` is false while any is
+     * listed, since fewer orders were run than the library admits.
+     * </pre>
+     *
+     * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+     * @return A list containing the unenumerated.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getUnenumeratedList() {
+      unenumerated_.makeImmutable();
+      return unenumerated_;
+    }
+    /**
+     * <pre>
+     * The constructs whose unordered alternatives the runs took in one order
+     * without a choice point, by identifier; `complete` is false while any is
+     * listed, since fewer orders were run than the library admits.
+     * </pre>
+     *
+     * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+     * @return The count of unenumerated.
+     */
+    public int getUnenumeratedCount() {
+      return unenumerated_.size();
+    }
+    /**
+     * <pre>
+     * The constructs whose unordered alternatives the runs took in one order
+     * without a choice point, by identifier; `complete` is false while any is
+     * listed, since fewer orders were run than the library admits.
+     * </pre>
+     *
+     * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+     * @param index The index of the element to return.
+     * @return The unenumerated at the given index.
+     */
+    public java.lang.String getUnenumerated(int index) {
+      return unenumerated_.get(index);
+    }
+    /**
+     * <pre>
+     * The constructs whose unordered alternatives the runs took in one order
+     * without a choice point, by identifier; `complete` is false while any is
+     * listed, since fewer orders were run than the library admits.
+     * </pre>
+     *
+     * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the unenumerated at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getUnenumeratedBytes(int index) {
+      return unenumerated_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * The constructs whose unordered alternatives the runs took in one order
+     * without a choice point, by identifier; `complete` is false while any is
+     * listed, since fewer orders were run than the library admits.
+     * </pre>
+     *
+     * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+     * @param index The index to set the value at.
+     * @param value The unenumerated to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUnenumerated(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureUnenumeratedIsMutable();
+      unenumerated_.set(index, value);
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The constructs whose unordered alternatives the runs took in one order
+     * without a choice point, by identifier; `complete` is false while any is
+     * listed, since fewer orders were run than the library admits.
+     * </pre>
+     *
+     * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+     * @param value The unenumerated to add.
+     * @return This builder for chaining.
+     */
+    public Builder addUnenumerated(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureUnenumeratedIsMutable();
+      unenumerated_.add(value);
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The constructs whose unordered alternatives the runs took in one order
+     * without a choice point, by identifier; `complete` is false while any is
+     * listed, since fewer orders were run than the library admits.
+     * </pre>
+     *
+     * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+     * @param values The unenumerated to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllUnenumerated(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureUnenumeratedIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, unenumerated_);
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The constructs whose unordered alternatives the runs took in one order
+     * without a choice point, by identifier; `complete` is false while any is
+     * listed, since fewer orders were run than the library admits.
+     * </pre>
+     *
+     * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearUnenumerated() {
+      unenumerated_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000080);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The constructs whose unordered alternatives the runs took in one order
+     * without a choice point, by identifier; `complete` is false while any is
+     * listed, since fewer orders were run than the library admits.
+     * </pre>
+     *
+     * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+     * @param value The bytes of the unenumerated to add.
+     * @return This builder for chaining.
+     */
+    public Builder addUnenumeratedBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureUnenumeratedIsMutable();
+      unenumerated_.add(value);
+      bitField0_ |= 0x00000080;
       onChanged();
       return this;
     }

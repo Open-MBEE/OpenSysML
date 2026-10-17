@@ -32,11 +32,12 @@ type stepWrite struct {
 // destWrites is what one step wrote to one destination: each token's last write,
 // in the order the tokens first wrote, and the write that stands.
 type destWrites struct {
-	label string // the destination as a trace names it: `x`, or `x of object #3`
-	file  string
-	span  source.Span
-	last  []stepWrite
-	stood stepWrite
+	label   string // the destination as a trace names it: `x`, or `x of object #3`
+	feature string // the feature written, as the write spelled it
+	file    string
+	span    source.Span
+	last    []stepWrite
+	stood   stepWrite
 }
 
 // stepWriteLedger is what the action step under way wrote so far, by destination.
@@ -88,7 +89,7 @@ func (e *performances) beginTokenStep(id int64) func() {
 func (e *performances) noteFrameWrite(f *actionFrame, name string, value Value) {
 	file, span := e.ctx.featureLocation(f.scope, name)
 	key := f.key(name)
-	e.ctx.noteWrite(writeDest{holder: f, name: key}, key, value, file, span)
+	e.ctx.noteWrite(writeDest{holder: f, name: key}, key, name, value, file, span)
 }
 
 // noteObjectWrite records a write the running token made to a feature obj holds,
@@ -103,12 +104,13 @@ func (ctx *Context) noteObjectWrite(obj *Instance, name string, value Value) {
 			file, span = fv.Feature.Symbol.DocName, fv.Feature.Symbol.DeclSpan
 		}
 	}
-	ctx.noteWrite(dest, fmt.Sprintf("%s of object #%d", name, obj.ID), value, file, span)
+	ctx.noteWrite(dest, fmt.Sprintf("%s of object #%d", name, obj.ID), name, value, file, span)
 }
 
 // noteWrite records a write the running token made to dest, labelled as a trace
-// names it; destinations several tokens wrote are reported once the step ends.
-func (ctx *Context) noteWrite(dest writeDest, label string, value Value, file string, span source.Span) {
+// names it and under the feature's name; destinations several tokens wrote are
+// reported once the step ends.
+func (ctx *Context) noteWrite(dest writeDest, label, feature string, value Value, file string, span source.Span) {
 	ledger := ctx.stepWrites
 	if ledger == nil || ledger.writer == 0 {
 		return
@@ -116,7 +118,7 @@ func (ctx *Context) noteWrite(dest writeDest, label string, value Value, file st
 	w := stepWrite{token: ledger.writer, value: value}
 	d := ledger.writes[dest]
 	if d == nil {
-		d = &destWrites{label: label, file: file, span: span}
+		d = &destWrites{label: label, feature: feature, file: file, span: span}
 		ledger.writes[dest] = d
 		ledger.order = append(ledger.order, dest)
 	}
@@ -147,12 +149,14 @@ func (l *stepWriteLedger) noteChoices(e *performances) {
 			}
 		}
 		e.noteChoice(ChoicePoint{
-			Kind:         ChoiceWriteOrder,
+			Kind:         choiceWriteOrder,
 			Step:         l.step,
 			Alternatives: alts,
 			Taken:        taken,
 			File:         d.file,
 			Span:         d.span,
+			Touches:      []string{d.feature},
+			touched:      []lower.Place{{Name: d.feature}},
 		})
 	}
 }
@@ -181,6 +185,8 @@ type stepOrder struct {
 	// token of the run takes the message: it stays parked, the other goes on.
 	yielding map[int64]bool
 	acted    []Token
+	// able are the tokens the step handed its policy, as they stood before it.
+	able []Token
 }
 
 // beginStepOrder opens the order of a step about to run.
@@ -330,6 +336,10 @@ func (e *ActionExecutor) tokenActed(before Token, count int) bool {
 // at least two, or the one an exploring step picked among those able to act.
 func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tokenSchedule) {
 	alts, taken, chosen := schedule.Choice()
+	var fps []lower.Footprint
+	if chosen {
+		fps = e.labeledFootprints(alts, order.able)
+	}
 	if !chosen {
 		if len(order.acted) < 2 {
 			return
@@ -339,26 +349,47 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tok
 		copy(tokens, order.acted)
 		sort.Slice(tokens, func(i, j int) bool { return tokens[i].ID < tokens[j].ID })
 		alts = make([]string, len(tokens))
+		fps = make([]lower.Footprint, len(tokens))
 		for i, t := range tokens {
 			alts[i] = TokenLabel(t.ID, t.Location)
+			fps[i] = standing(e, t)
 			if t.ID == first {
 				taken = i
 			}
 		}
 	}
-	e.noteChoice(ChoicePoint{
+	choice := ChoicePoint{
 		Kind:         ChoiceTokenOrder,
 		Step:         step,
 		Alternatives: alts,
 		Taken:        taken,
 		File:         e.action.DocName,
 		Span:         e.action.DeclSpan,
-	})
+	}
+	classifyChoice(&choice, fps, nil)
+	e.noteChoice(choice)
+}
+
+// labeledFootprints is what each token a step picked among, by its label, may
+// touch standing where it stood before the step; a label naming none of the
+// tokens handed to the policy is taken to touch anything.
+func (e *ActionExecutor) labeledFootprints(labels []string, able []Token) []lower.Footprint {
+	fps := make([]lower.Footprint, len(labels))
+	for i, label := range labels {
+		fps[i] = unknownFootprint()
+		for _, t := range able {
+			if TokenLabel(t.ID, t.Location) == label {
+				fps[i] = standing(e, t)
+				break
+			}
+		}
+	}
+	return fps
 }
 
 // chooseBranch resolves which of the holding guarded successions of a decision
 // node, at their declared positions, the token takes: the position in holding, and
-// the choice point to note when there are at least two. Weighted successions are
+// the choice point to note when there are at least two. weighted successions are
 // drawn by their weights, read in ec where their guards are; a sole holding
 // succession is taken without a draw, its weight still read and checked.
 func (e *ActionExecutor) chooseBranch(ec *EvalContext, frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) (*ChoicePoint, int, error) {
@@ -389,6 +420,7 @@ func (e *ActionExecutor) chooseBranch(ec *EvalContext, frame *actionFrame, node 
 		Span:         node.Span(),
 		Weights:      weights,
 	}
+	classifyExclusive(&choice, e.branchFutures(frame, successors, holding))
 	if err := e.ctx.scheduling().chooseWeighted(&choice, nil); err != nil {
 		return nil, 0, err
 	}
@@ -406,12 +438,12 @@ func (e *ActionExecutor) branchWeights(ec *EvalContext, node *ast.DecisionNode, 
 		p := edge.Probability
 		val, err := ec.Eval(p.Expr)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %s: weight of %s: %v", ErrBranchWeights, DecisionPlace(node), branchName(successors, pos), err)
+			return nil, fmt.Errorf("%w: %s: weight of %s: %v", errBranchWeights, DecisionPlace(node), branchName(successors, pos), err)
 		}
 		val = soleElement(val)
 		if val.Kind != ValConst || !val.Const.IsNumeric() {
 			return nil, fmt.Errorf("%w: %s: weight of %s is %s, not a number",
-				ErrBranchWeights, DecisionPlace(node), branchName(successors, pos), describeValue(val))
+				errBranchWeights, DecisionPlace(node), branchName(successors, pos), describeValue(val))
 		}
 		weights[pos] = asReal(val.Const)
 	}
@@ -458,4 +490,28 @@ func (e *ActionExecutor) decisionFile(frame *actionFrame) string {
 		return scope.DocName()
 	}
 	return e.action.DocName
+}
+
+// branchFutures is what each holding succession of a decision may go on to touch
+// at this instant, in holding's order: the reach of its target in the flow the
+// token runs.
+func (e *ActionExecutor) branchFutures(frame *actionFrame, successors []lower.ActionEdge, holding []int) []lower.Footprint {
+	if e.dynamics != nil {
+		fps := make([]lower.Footprint, len(holding))
+		for i := range fps {
+			fps[i] = dynamicsFootprint()
+		}
+		return fps
+	}
+	graph := e.graph
+	if frame != nil && frame.graph != nil {
+		graph = frame.graph
+	}
+	futures := e.ctx.futureFootprints()
+	futures.at()
+	fps := make([]lower.Footprint, len(holding))
+	for i, pos := range holding {
+		fps[i] = futures.reach(graph, successors[pos].Target)
+	}
+	return fps
 }

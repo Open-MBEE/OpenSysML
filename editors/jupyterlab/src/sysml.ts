@@ -48,13 +48,14 @@ function keywordTokens(kind: Kind): Map<string, string> {
 const operators = table.operators.map(escapeRegExp).join('|');
 const operatorPattern = new RegExp(`^(?:${operators}|[${escapeRegExp(table.operatorChars)}])`);
 const metaCommandPattern = /^%[A-Za-z][\w-]*/;
-const identifierPattern = /^[A-Za-z_][A-Za-z0-9_]*/;
-const numberPattern = /^(?:\d+\.\d+(?:[eE][+-]?\d+)?|\d+[eE][+-]?\d+|\d+)/;
+const identifierPattern = /^[A-Za-z_]\w*/;
+const exponentPattern = /[eE][+-]?\d+/.source;
+const numberPattern = new RegExp(String.raw`^(?:\d+\.\d+(?:${exponentPattern})?|\d+${exponentPattern}|\d+)`);
 const qualifierPattern = /^\s*::(?!>)/;
-const punctuationPattern = /^[;,.:{}()\[\]#]/;
+const punctuationPattern = /^[;,.:{}()[\]#]/;
 
 function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\\-]/g, '\\$&');
+  return text.replace(/[.*+?^${}()|[\]\\-]/g, String.raw`\$&`);
 }
 
 function readBlock(stream: StringStream, state: State): string {

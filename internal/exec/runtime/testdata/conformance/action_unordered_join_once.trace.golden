@@ -10,8 +10,8 @@ stmt assign total
   eval operator + -> 11
 stmt assign doneA
   eval literal true -> true
-choice step 1: writes total := 11 by token 1, total := 10 by token 2 (unordered; total := 11 by token 1 stood)
-choice step 1: tokens 1@a, 2@b (unordered; took 2@b first)
+choice step 1: writes total := 11 by token 1, total := 10 by token 2 (unordered; total := 11 by token 1 stood; order-dependent: total)
+choice step 1: tokens 1@a, 2@b (unordered; took 2@b first; order-dependent: total)
 step 1: token 1@c, token 2@c
 stmt assign seen
   eval feature total -> 11

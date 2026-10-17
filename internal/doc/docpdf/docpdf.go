@@ -202,7 +202,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 
 // checkOptions rejects a malformed reader stylesheet for every converter, and
 // the HTML backend's stylesheet choices for a converter reading Markdown,
-// whose HTML carries none of the backend's classes.
+// whose HTML is written by pandoc with table classes from its filter.
 func checkOptions(converter Converter, opts Options) error {
 	if opts.TableColumns < 0 || opts.TableColumns == 1 {
 		return &Error{Kind: ErrorTableColumns, Columns: opts.TableColumns}

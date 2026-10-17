@@ -81,7 +81,6 @@ export function avoidRoutes(
   }
   const api = avoid;
   const router = new api.Router(api.OrthogonalRouting);
-  const frameRefs: ShapeRef[] = [];
   try {
     router.setRoutingParameter(api.idealNudgingDistance, NUDGING);
     router.setRoutingParameter(api.segmentPenalty, 50);
@@ -110,7 +109,7 @@ export function avoidRoutes(
       );
     }
     if (bounds) {
-      frameRefs.push(...addBoundsFrames(api, router, bounds));
+      addBoundsFrames(api, router, bounds);
     }
 
     const connectors: Array<{ index: number; connector: ConnRef; edge: AvoidEdge }> = [];
@@ -209,14 +208,14 @@ export function straightenJogs(
     for (const [index, route] of straightened) {
       for (let jog = 1; jog + 2 < route.length; jog++) {
         const shifts = jogShifts(route, jog);
-        const ordered = shifts.sort(
+        shifts.sort(
           (first, second) =>
             segmentLength(route[first.movedSegment], route[first.movedSegment + 1]) -
             segmentLength(route[second.movedSegment], route[second.movedSegment + 1]),
         );
-        for (const shift of ordered) {
+        for (const shift of shifts) {
           const candidate = shiftedRoute(route, shift);
-          if (!candidate || !legalShift(index, route, candidate, shift, straightened, obstacles, ends, bounds)) {
+          if (!candidate || !legalShift(index, route, candidate, shift, { routes: straightened, obstacles, ends, bounds })) {
             continue;
           }
           straightened.set(index, compactRoute(candidate));
@@ -284,16 +283,22 @@ function shiftedRoute(route: RenderPoint[], shift: JogShift): RenderPoint[] {
   );
 }
 
+/** A RoutingScene is what a jog must respect: the other routes, the obstacles, each route's ends and the bounds. */
+interface RoutingScene {
+  routes: Map<number, RenderPoint[]>;
+  obstacles: Map<string, RoutingObstacle>;
+  ends: Map<number, [string, string]>;
+  bounds?: Box;
+}
+
 function legalShift(
   index: number,
   route: RenderPoint[],
   candidate: RenderPoint[],
   shift: JogShift,
-  routes: Map<number, RenderPoint[]>,
-  obstacles: Map<string, RoutingObstacle>,
-  ends: Map<number, [string, string]>,
-  bounds?: Box,
+  scene: RoutingScene,
 ): boolean {
+  const { bounds } = scene;
   if (bounds && shift.points.some((point) => !inside(candidate[point], bounds))) {
     return false;
   }
@@ -309,10 +314,10 @@ function legalShift(
     ) {
       return false;
     }
-    if (crossesObstacle(index, candidate[segmentIndex], candidate[segmentIndex + 1], obstacles, ends)) {
+    if (crossesObstacle(index, candidate[segmentIndex], candidate[segmentIndex + 1], scene.obstacles, scene.ends)) {
       return false;
     }
-    for (const [otherIndex, other] of routes) {
+    for (const [otherIndex, other] of scene.routes) {
       if (
         otherIndex !== index &&
         other.slice(1).some((point, otherSegment) =>
@@ -339,7 +344,7 @@ function legalShift(
   ) {
     return false;
   }
-  if (crossesObstacle(index, candidate[mergeStart], candidate[mergeEnd], obstacles, ends)) {
+  if (crossesObstacle(index, candidate[mergeStart], candidate[mergeEnd], scene.obstacles, scene.ends)) {
     return false;
   }
   if (
@@ -350,7 +355,7 @@ function legalShift(
   ) {
     return false;
   }
-  for (const [otherIndex, other] of routes) {
+  for (const [otherIndex, other] of scene.routes) {
     if (
       otherIndex !== index &&
       other.slice(1).some((point, otherSegment) =>
@@ -365,7 +370,7 @@ function legalShift(
       return false;
     }
   }
-  return !addsCrossings(index, route, candidate, routes);
+  return !addsCrossings(index, route, candidate, scene.routes);
 }
 
 function crossesObstacle(
@@ -720,7 +725,7 @@ function cleanRoute(points: RenderPoint[], preservePortFaces = false): RenderPoi
   for (const point of points) {
     const next = preservePortFaces ? { x: point.x, y: point.y } : { x: snap(point.x), y: snap(point.y) };
     const last = normalized.at(-1);
-    if (!last || last.x !== next.x || last.y !== next.y) {
+    if (last?.x !== next.x || last?.y !== next.y) {
       normalized.push(next);
     }
   }
@@ -730,7 +735,7 @@ function cleanRoute(points: RenderPoint[], preservePortFaces = false): RenderPoi
       clean.pop();
     }
     const last = clean.at(-1);
-    if (!last || last.x !== point.x || last.y !== point.y) {
+    if (last?.x !== point.x || last?.y !== point.y) {
       clean.push(point);
     }
   }

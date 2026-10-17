@@ -214,7 +214,7 @@ func TestASnapshotRestoresABodyPausedInsideALoop(t *testing.T) {
 		t.Fatalf("paused loop = %+v, want paused in its second iteration", loop)
 	}
 	spelt := (&Invocation{Actions: []*ActionExecutor{exec}}).canonicalState(nil).text
-	snapshot, err := exec.Snapshot()
+	snapshot, err := exec.snapshot()
 	if err != nil {
 		t.Fatalf("Snapshot: %v", err)
 	}

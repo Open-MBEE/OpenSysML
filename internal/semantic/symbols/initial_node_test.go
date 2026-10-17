@@ -121,7 +121,7 @@ func TestFirstNamesASourceOnlyInATwoEndedActionForm(t *testing.T) {
 	}
 }`)
 	pkg, _ := root.LookupLocal("P")
-	labels := func(owner string, name string) int {
+	labels := func(owner, name string) int {
 		def, ok := pkg.Scope.LookupLocal(owner)
 		if !ok {
 			t.Fatalf("%s is not indexed", owner)

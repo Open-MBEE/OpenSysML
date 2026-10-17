@@ -125,7 +125,7 @@ class ResultProtosTest {
 
   @Test
   void aStateRunDecodesItsTypedTraceAndDroppedRecordCount() {
-    var record =
+    var transition =
         org.openmbee.opensysml.proto.DocumentEvent.newBuilder()
             .setKind("transition")
             .setTime(
@@ -138,7 +138,7 @@ class ResultProtosTest {
             .build();
     StateRun run =
         Protos.stateRun(
-            ExecuteStateResponse.newBuilder().addTrace(record).setTraceDropped(4).build(), true);
+            ExecuteStateResponse.newBuilder().addTrace(transition).setTraceDropped(4).build(), true);
 
     assertEquals(1, run.trace().size());
     assertEquals("transition", run.trace().get(0).kind());
@@ -188,7 +188,9 @@ class ResultProtosTest {
                     .setKind("fail")
                     .setDetail("10 < 1200")
                     .setSubcase(true)
-                    .setRequirementId("Demo::massTiny"))
+                    .setRequirementId("Demo::massTiny")
+                    .setInstanceId(1)
+                    .setInstanceTypeId("Demo::sedan"))
             .addInstances(Instance.newBuilder().setId(1).setTypeSymbolId("Demo::sedan"))
             .setBounded(true)
             .build();
@@ -204,7 +206,9 @@ class ResultProtosTest {
             VerificationVerdict.FAIL,
             Optional.of("10 < 1200"),
             true,
-            Optional.of("Demo::massTiny")),
+            Optional.of("Demo::massTiny"),
+            Optional.of(1L),
+            Optional.of("Demo::sedan")),
         body);
     assertFalse(body.passed());
   }

@@ -228,11 +228,11 @@ func (ctx *Context) liveInstances(ids []int64) []*Instance {
 // denotes. A second call for the class under way answers not-bound so a member
 // being evaluated resolves as usual — its declared value cycles through the
 // binding stack — while a chain end reading a member of its own class is the
-// cyclic dependency CyclicBindingError reports.
+// cyclic dependency cyclicBindingError reports.
 func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.Symbol) ([]*Instance, bool, error) {
 	if ctx.resolvingNamespaceClasses[class] {
 		if ctx.namespaceChainReads[class] {
-			return nil, true, &CyclicBindingError{Usage: want, Stated: ctx.qualifiedSymbolName(want)}
+			return nil, true, &cyclicBindingError{Usage: want, Stated: ctx.qualifiedSymbolName(want)}
 		}
 		return nil, false, nil
 	}
@@ -286,7 +286,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			}
 			seen[src.usage] = true
 			decl := src.usage.Decl.(*ast.Usage)
-			val, err := NewEvalContext(ctx, src.usage.OwnerScope).declaredValue(src.usage, decl.Value)
+			val, err := newEvalContext(ctx, src.usage.OwnerScope).declaredValue(src.usage, decl.Value)
 			if err != nil {
 				return nil, true, err
 			}
@@ -294,7 +294,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			continue
 		}
 		ctx.namespaceChainReads[class] = true
-		val, err := NewEvalContext(ctx, src.binding.Scope).Eval(src.binding.Ends[src.end].Expr)
+		val, err := newEvalContext(ctx, src.binding.Scope).Eval(src.binding.Ends[src.end].Expr)
 		delete(ctx.namespaceChainReads, class)
 		if err != nil {
 			return nil, true, err
@@ -306,7 +306,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 	for i := range vals {
 		for j := i + 1; j < len(vals); j++ {
 			if !ctx.equalValues(vals[i].val, vals[j].val) {
-				return nil, true, &BindingConflictError{
+				return nil, true, &bindingConflictError{
 					Left:       vals[i].text,
 					Right:      vals[j].text,
 					LeftValue:  vals[i].val,
@@ -381,7 +381,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			}
 			for _, member := range class.members {
 				if msg := ctx.featureMultiplicity(member, ctx.findOwnerType(member)).CountViolation(int64(seq.Size())); msg != "" {
-					return fail(fmt.Errorf("%w: `%s`: %s", ErrBindingConflict, text, msg))
+					return fail(fmt.Errorf("%w: `%s`: %s", errBindingConflict, text, msg))
 				}
 				ctx.occurrences[member] = []int64{}
 				ctx.bindNamespace(member, val)
@@ -444,7 +444,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		count64 := int64(len(members))
 		for _, member := range class.members {
 			if msg := ctx.featureMultiplicity(member, ctx.findOwnerType(member)).CountViolation(count64); msg != "" {
-				return fail(fmt.Errorf("%w: `%s`: %s", ErrBindingConflict, text, msg))
+				return fail(fmt.Errorf("%w: `%s`: %s", errBindingConflict, text, msg))
 			}
 			// A member typed another way classifies the shared objects first,
 			// so its declared-value check admits them.
@@ -453,9 +453,9 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 					return fail(err)
 				}
 			}
-			v, err := NewEvalContext(ctx, member.OwnerScope).conformDeclared(member, val)
+			v, err := newEvalContext(ctx, member.OwnerScope).conformDeclared(member, val)
 			if err != nil {
-				return fail(fmt.Errorf("%w: `%s`: %v", ErrBindingConflict, text, err))
+				return fail(fmt.Errorf("%w: `%s`: %v", errBindingConflict, text, err))
 			}
 			ctx.occurrences[member] = boundPrefixObjects(v)
 			ctx.bindNamespace(member, v)
@@ -489,10 +489,10 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 				}
 				continue
 			}
-			ec := NewEvalContext(ctx, member.OwnerScope)
+			ec := newEvalContext(ctx, member.OwnerScope)
 			v, err := ec.conformDeclared(member, val)
 			if err != nil {
-				return fail(fmt.Errorf("%w: `%s`: %v", ErrBindingConflict, text, err))
+				return fail(fmt.Errorf("%w: `%s`: %v", errBindingConflict, text, err))
 			}
 			ctx.occurrences[member] = boundPrefixObjects(v)
 			if seq := requiredTail(v); seq != nil {
@@ -583,7 +583,7 @@ func (ctx *Context) namespaceBindingCounts(binding lower.Binding) error {
 	for end := range binding.Ends {
 		if r, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Ends[end].Multiplicity); ok {
 			if n, exact := r.Exactly(); !exact || n != 1 {
-				return &UndeterminedBindingError{
+				return &undeterminedBindingError{
 					Target:   ctx.bindingText(binding),
 					Binding:  ctx.bindingText(binding),
 					Endpoint: ctx.bindingEndpointText(binding, end),
@@ -595,7 +595,7 @@ func (ctx *Context) namespaceBindingCounts(binding lower.Binding) error {
 	if r, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity); ok {
 		if n, exact := r.Exactly(); !exact || n != 1 {
 			return fmt.Errorf("%w: `%s` declares %s link(s) but joins namespace usages, each of which denotes one value",
-				ErrBindingEnd, ctx.bindingText(binding), r.Text())
+				errBindingEnd, ctx.bindingText(binding), r.Text())
 		}
 	}
 	return nil
@@ -753,7 +753,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 // contributes: what it denotes, or what its declared value binds it to.
 func (ctx *Context) denotedSubsetObjects(sym *symbols.Symbol) ([]*Instance, error) {
 	if namespaceObjectUsage(sym) {
-		ec := NewEvalContext(ctx, sym.OwnerScope)
+		ec := newEvalContext(ctx, sym.OwnerScope)
 		val, err := ec.declaredValue(sym, sym.Decl.(*ast.Usage).Value)
 		if err != nil {
 			return nil, err

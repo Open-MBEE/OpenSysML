@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/tools/census/manifest"
 )
 
 // rejectionBaselinePath is the pilot-rejection record whose per-case buckets
@@ -114,15 +116,15 @@ func firstLine(path string) (string, error) {
 	return "", scanner.Err()
 }
 
-// constraintNamed resolves a header token to the baseline constraint it names,
+// constraintNamed resolves a header token to the manifest constraint it names,
 // by normalized or raw compiled name.
-func constraintNamed(base *Baseline, token string) (Constraint, bool) {
-	for _, c := range base.Constraints {
+func constraintNamed(m *manifest.Manifest, token string) (manifest.Constraint, bool) {
+	for _, c := range m.Constraints {
 		if c.Name == token || (c.Raw != "" && c.Raw == token) {
 			return c, true
 		}
 	}
-	return Constraint{}, false
+	return manifest.Constraint{}, false
 }
 
 // attribution is the constraint a case's header attributes it to: the pilot
@@ -136,7 +138,7 @@ func (c corpusCase) attribution() string {
 
 // attributedTo reports whether a case's header attributes it to the named
 // constraint: either the pilot token or the specification citation resolves to it.
-func attributedTo(base *Baseline, c corpusCase, name string) bool {
+func attributedTo(m *manifest.Manifest, c corpusCase, name string) bool {
 	for _, token := range []string{c.Pilot, c.Spec} {
 		if token == "" {
 			continue
@@ -144,7 +146,7 @@ func attributedTo(base *Baseline, c corpusCase, name string) bool {
 		if token == name {
 			return true
 		}
-		if constraint, ok := constraintNamed(base, token); ok && constraint.Name == name {
+		if constraint, ok := constraintNamed(m, token); ok && constraint.Name == name {
 			return true
 		}
 	}
@@ -158,25 +160,26 @@ func attributedTo(base *Baseline, c corpusCase, name string) bool {
 // not-implemented row's case is one only the pilot rejects, an approximate row
 // may list either (a pilot-only case is the gap it records), and an unknown
 // row has no case.
-func checkCaseEvidence(base *Baseline, r row, name, status string, c corpusCase) []string {
+func checkCaseEvidence(m *manifest.Manifest, row manifest.Constraint, c corpusCase) []string {
+	name, status := row.Name, row.Status
 	var problems []string
 	switch attributed := c.attribution(); {
 	case attributed == "":
-		problems = append(problems, fmt.Sprintf("line %d: %s negative case %s names no constraint in its header (`<clause> validate…; pilot …` or `pilot validate…`)", r.Line, name, c.Path))
-	case !attributedTo(base, c, name):
-		problems = append(problems, fmt.Sprintf("line %d: %s negative case %s is attributed to %s, not to this constraint", r.Line, name, c.Path, attributed))
+		problems = append(problems, fmt.Sprintf("%s negative case %s names no constraint in its header (`<clause> validate…; pilot …` or `pilot validate…`)", name, c.Path))
+	case !attributedTo(m, c, name):
+		problems = append(problems, fmt.Sprintf("%s negative case %s is attributed to %s, not to this constraint", name, c.Path, attributed))
 	}
 	switch {
 	case c.Bucket == "":
-		problems = append(problems, fmt.Sprintf("line %d: %s negative case %s is not recorded in %s", r.Line, name, c.Path, rejectionBaselinePath))
+		problems = append(problems, fmt.Sprintf("%s negative case %s is not recorded in %s", name, c.Path, rejectionBaselinePath))
 	case !rejectionBucket(c.Bucket):
-		problems = append(problems, fmt.Sprintf("line %d: %s negative case %s is recorded as %s in %s, which is not a rejection", r.Line, name, c.Path, c.Bucket, rejectionBaselinePath))
-	case status == StatusFaithful && c.Bucket != bucketBothReject && c.Bucket != bucketOursOnly:
-		problems = append(problems, fmt.Sprintf("line %d: %s is recorded %s but %s records its negative case %s as %s", r.Line, name, status, rejectionBaselinePath, c.Path, c.Bucket))
-	case status == StatusNotImplemented && c.Bucket != bucketPilotOnly:
-		problems = append(problems, fmt.Sprintf("line %d: %s is recorded %s but %s records its negative case %s as %s", r.Line, name, status, rejectionBaselinePath, c.Path, c.Bucket))
-	case status == StatusUnknown:
-		problems = append(problems, fmt.Sprintf("line %d: %s is recorded %s but lists negative case %s", r.Line, name, status, c.Path))
+		problems = append(problems, fmt.Sprintf("%s negative case %s is recorded as %s in %s, which is not a rejection", name, c.Path, c.Bucket, rejectionBaselinePath))
+	case status == manifest.StatusFaithful && c.Bucket != bucketBothReject && c.Bucket != bucketOursOnly:
+		problems = append(problems, fmt.Sprintf("%s is recorded %s but %s records its negative case %s as %s", name, status, rejectionBaselinePath, c.Path, c.Bucket))
+	case status == manifest.StatusNotImplemented && c.Bucket != bucketPilotOnly:
+		problems = append(problems, fmt.Sprintf("%s is recorded %s but %s records its negative case %s as %s", name, status, rejectionBaselinePath, c.Path, c.Bucket))
+	case status == manifest.StatusUnknown:
+		problems = append(problems, fmt.Sprintf("%s is recorded %s but lists negative case %s", name, status, c.Path))
 	}
 	return problems
 }
@@ -184,15 +187,15 @@ func checkCaseEvidence(base *Baseline, r row, name, status string, c corpusCase)
 // checkAttributions verifies that every corpus case attributing its rejection
 // to a pilot constraint names one the baseline lists, and that the constraint's
 // row lists the case.
-func checkAttributions(base *Baseline, cases map[string]corpusCase, listed map[string]map[string]bool) []string {
+func checkAttributions(m *manifest.Manifest, cases map[string]corpusCase, listed map[string]map[string]bool) []string {
 	var problems []string
 	for _, c := range cases {
 		if c.Pilot == "" {
 			continue
 		}
-		constraint, ok := constraintNamed(base, c.Pilot)
+		constraint, ok := constraintNamed(m, c.Pilot)
 		if !ok {
-			problems = append(problems, fmt.Sprintf("%s/%s attributes its rejection to %s, which %s does not list", negativeCorpusDir, c.Path, c.Pilot, baselinePath))
+			problems = append(problems, fmt.Sprintf("%s/%s attributes its rejection to %s, which %s does not list", negativeCorpusDir, c.Path, c.Pilot, manifest.Path))
 			continue
 		}
 		if !listed[constraint.Name][c.Path] {
@@ -276,28 +279,29 @@ func receiverType(fn *ast.FuncDecl) string {
 // checkImplementation verifies that an implemented row cites at least one Go
 // location and that every cited location exists and declares the function or
 // method it names.
-func checkImplementation(decls *declarations, r row, name, status string) []string {
+func checkImplementation(decls *declarations, c manifest.Constraint) []string {
 	var problems []string
-	refs := implementationRef.FindAllStringSubmatch(r.Cells[3], -1)
-	if implemented(status) && len(refs) == 0 && r.Cells[3] != "" && r.Cells[3] != "—" {
-		problems = append(problems, fmt.Sprintf("line %d: %s implementation %q cites no internal/<file>.go:<function> location", r.Line, name, r.Cells[3]))
+	name, cell := c.Name, c.Implementation
+	refs := implementationRef.FindAllStringSubmatch(cell, -1)
+	if manifest.Implemented(c.Status) && len(refs) == 0 && cell != "" && cell != "—" {
+		problems = append(problems, fmt.Sprintf("%s implementation %q cites no internal/<file>.go:<function> location", name, cell))
 	}
 	for _, m := range refs {
 		file, symbol := m[1], m[2]
 		if !strings.HasPrefix(file, implementationRoot) {
-			problems = append(problems, fmt.Sprintf("line %d: %s implementation %s:%s is not a repository-relative %s<file>.go location", r.Line, name, file, symbol, implementationRoot))
+			problems = append(problems, fmt.Sprintf("%s implementation %s:%s is not a repository-relative %s<file>.go location", name, file, symbol, implementationRoot))
 			continue
 		}
 		if m[3] != "" {
-			problems = append(problems, fmt.Sprintf("line %d: %s implementation %s:%s%s is not a <function> or <Type>.<method> location", r.Line, name, file, symbol, m[3]))
+			problems = append(problems, fmt.Sprintf("%s implementation %s:%s%s is not a <function> or <Type>.<method> location", name, file, symbol, m[3]))
 			continue
 		}
 		found, err := decls.declared(file, symbol)
 		switch {
 		case err != nil:
-			problems = append(problems, fmt.Sprintf("line %d: %s implementation: %v", r.Line, name, err))
+			problems = append(problems, fmt.Sprintf("%s implementation: %v", name, err))
 		case !found:
-			problems = append(problems, fmt.Sprintf("line %d: %s implementation %s declares no %s", r.Line, name, file, symbol))
+			problems = append(problems, fmt.Sprintf("%s implementation %s declares no %s", name, file, symbol))
 		}
 	}
 	return problems

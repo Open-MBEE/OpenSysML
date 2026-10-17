@@ -37,8 +37,8 @@ func (e *ReplayError) Error() string {
 // Is makes every ReplayError match ErrReplayRefused.
 func (e *ReplayError) Is(target error) bool { return target == ErrReplayRefused }
 
-// ErrInvalidChoice is the typed error every unparseable choice line wraps.
-var ErrInvalidChoice = errors.New("invalid choice")
+// errInvalidChoice is the typed error every unparseable choice line wraps.
+var errInvalidChoice = errors.New("invalid choice")
 
 // ChoiceParseError reports a line of a witness that spells no choice, with why.
 type ChoiceParseError struct {
@@ -50,73 +50,73 @@ type ChoiceParseError struct {
 
 func (e *ChoiceParseError) Error() string {
 	if e.Line > 0 {
-		return fmt.Sprintf("%v: line %d %q: %s", ErrInvalidChoice, e.Line, e.Text, e.Reason)
+		return fmt.Sprintf("%v: line %d %q: %s", errInvalidChoice, e.Line, e.Text, e.Reason)
 	}
-	return fmt.Sprintf("%v: %q: %s", ErrInvalidChoice, e.Text, e.Reason)
+	return fmt.Sprintf("%v: %q: %s", errInvalidChoice, e.Text, e.Reason)
 }
 
-// Is makes every ChoiceParseError match ErrInvalidChoice.
-func (e *ChoiceParseError) Is(target error) bool { return target == ErrInvalidChoice }
+// Is makes every ChoiceParseError match errInvalidChoice.
+func (e *ChoiceParseError) Is(target error) bool { return target == errInvalidChoice }
 
-// ErrInvalidInput is the typed error every unparseable input line wraps.
-var ErrInvalidInput = errors.New("invalid input")
+// errInvalidInput is the typed error every unparseable input line wraps.
+var errInvalidInput = errors.New("invalid input")
 
-// InputParseError reports a line of a witness that spells no input, with why.
-type InputParseError struct {
+// inputParseError reports a line of a witness that spells no input, with why.
+type inputParseError struct {
 	// Line is the 1-based line of the witness, 0 for a line parsed on its own.
 	Line   int
 	Text   string
 	Reason string
 }
 
-func (e *InputParseError) Error() string {
+func (e *inputParseError) Error() string {
 	if e.Line > 0 {
-		return fmt.Sprintf("%v: line %d %q: %s", ErrInvalidInput, e.Line, e.Text, e.Reason)
+		return fmt.Sprintf("%v: line %d %q: %s", errInvalidInput, e.Line, e.Text, e.Reason)
 	}
-	return fmt.Sprintf("%v: %q: %s", ErrInvalidInput, e.Text, e.Reason)
+	return fmt.Sprintf("%v: %q: %s", errInvalidInput, e.Text, e.Reason)
 }
 
-// Is makes every InputParseError match ErrInvalidInput.
-func (e *InputParseError) Is(target error) bool { return target == ErrInvalidInput }
+// Is makes every inputParseError match errInvalidInput.
+func (e *inputParseError) Is(target error) bool { return target == errInvalidInput }
 
-// ErrInvalidObject is the typed error every unparseable object line wraps.
-var ErrInvalidObject = errors.New("invalid object")
+// errInvalidObject is the typed error every unparseable object line wraps.
+var errInvalidObject = errors.New("invalid object")
 
-// ObjectParseError reports a line of a witness that names no object, with why.
-type ObjectParseError struct {
+// objectParseError reports a line of a witness that names no object, with why.
+type objectParseError struct {
 	// Line is the 1-based line of the witness, 0 for a line parsed on its own.
 	Line   int
 	Text   string
 	Reason string
 }
 
-func (e *ObjectParseError) Error() string {
+func (e *objectParseError) Error() string {
 	if e.Line > 0 {
-		return fmt.Sprintf("%v: line %d %q: %s", ErrInvalidObject, e.Line, e.Text, e.Reason)
+		return fmt.Sprintf("%v: line %d %q: %s", errInvalidObject, e.Line, e.Text, e.Reason)
 	}
-	return fmt.Sprintf("%v: %q: %s", ErrInvalidObject, e.Text, e.Reason)
+	return fmt.Sprintf("%v: %q: %s", errInvalidObject, e.Text, e.Reason)
 }
 
-// Is makes every ObjectParseError match ErrInvalidObject.
-func (e *ObjectParseError) Is(target error) bool { return target == ErrInvalidObject }
+// Is makes every objectParseError match errInvalidObject.
+func (e *objectParseError) Is(target error) bool { return target == errInvalidObject }
 
-// ErrWitnessObject is the typed error for an object a witness names that the
+// errWitnessObject is the typed error for an object a witness names that the
 // replaying run has no object at the path of.
-var ErrWitnessObject = errors.New("witness object")
+var errWitnessObject = errors.New("witness object")
 
-// WitnessObjectError reports an object a witness names by path that the run
+// witnessObjectError reports an object a witness names by path that the run
 // replaying it did not make.
-type WitnessObjectError struct {
+type witnessObjectError struct {
 	Object ObjectNamed
 	Reason string
 }
 
-func (e *WitnessObjectError) Error() string {
-	return fmt.Sprintf("%v: %s: %s", ErrWitnessObject, e.Object, e.Reason)
+func (e *witnessObjectError) Error() string {
+	return fmt.Sprintf("%v: %s: %s", errWitnessObject, e.Object, e.Reason)
 }
 
-// Is makes every WitnessObjectError match ErrWitnessObject.
-func (e *WitnessObjectError) Is(target error) bool { return target == ErrWitnessObject }
+// Is makes every witnessObjectError match errWitnessObject.
+func (e *witnessObjectError) Is(target error) bool { return target == errWitnessObject }
 
 // ErrWitnessInput is the typed error every witness input the run cannot fix wraps.
 var ErrWitnessInput = errors.New("witness input refused")
@@ -151,7 +151,7 @@ func InputOf(feature string, value Value) InputTaken {
 	return InputTaken{Feature: feature, Value: value, Written: FormatValue(value)}
 }
 
-// String spells the input as a witness lists it and ParseInput reads it back.
+// String spells the input as a witness lists it and parseInput reads it back.
 func (in InputTaken) String() string {
 	feature := in.Feature
 	if labelNeedsQuoting(feature) || strings.ContainsAny(feature, " \t") {
@@ -163,12 +163,12 @@ func (in InputTaken) String() string {
 // inputPrefix opens an input line of a witness.
 const inputPrefix = "input "
 
-// ParseInput reads one input as InputTaken.String spells it: `input <feature> = <value>`,
+// parseInput reads one input as InputTaken.String spells it: `input <feature> = <value>`,
 // the value any expression the notation reads, evaluated when the run begins.
-func ParseInput(text string) (InputTaken, error) {
+func parseInput(text string) (InputTaken, error) {
 	text = strings.TrimSpace(text)
 	fail := func(reason string) (InputTaken, error) {
-		return InputTaken{}, &InputParseError{Text: text, Reason: reason}
+		return InputTaken{}, &inputParseError{Text: text, Reason: reason}
 	}
 	rest, ok := strings.CutPrefix(text, inputPrefix)
 	if !ok {
@@ -198,7 +198,7 @@ type ObjectNamed struct {
 	Path string
 }
 
-// String spells the binding as a witness lists it and ParseObject reads it back.
+// String spells the binding as a witness lists it and parseObject reads it back.
 func (o ObjectNamed) String() string {
 	return fmt.Sprintf("%s%d = %s", objectPrefix, o.ID, o.Path)
 }
@@ -209,11 +209,11 @@ func (o ObjectNamed) Number() string { return objectPrefix + strconv.FormatInt(o
 // objectPrefix opens an object line of a witness, and names an object in a move.
 const objectPrefix = "object #"
 
-// ParseObject reads one object binding as ObjectNamed.String spells it.
-func ParseObject(text string) (ObjectNamed, error) {
+// parseObject reads one object binding as ObjectNamed.String spells it.
+func parseObject(text string) (ObjectNamed, error) {
 	text = strings.TrimSpace(text)
 	fail := func(reason string) (ObjectNamed, error) {
-		return ObjectNamed{}, &ObjectParseError{Text: text, Reason: reason}
+		return ObjectNamed{}, &objectParseError{Text: text, Reason: reason}
 	}
 	rest, ok := strings.CutPrefix(text, objectPrefix)
 	if !ok {
@@ -306,8 +306,8 @@ func (w Witness) String() string {
 	return b.String()
 }
 
-// Empty reports whether the witness fixes no input, records no draw and takes no choice.
-func (w Witness) Empty() bool { return len(w.Inputs) == 0 && len(w.Draws) == 0 && len(w.Choices) == 0 }
+// empty reports whether the witness fixes no input, records no draw and takes no choice.
+func (w Witness) empty() bool { return len(w.Inputs) == 0 && len(w.Draws) == 0 && len(w.Choices) == 0 }
 
 // objectNumber matches an object a move names by number.
 var objectNumber = regexp.MustCompile(regexp.QuoteMeta(objectPrefix) + `(\d+)`)
@@ -385,7 +385,7 @@ func (c ChoicePoint) Choice() ChoiceTaken {
 	if c.Taken >= 0 && c.Taken < len(c.Alternatives) {
 		taken.Took = c.Alternatives[c.Taken]
 	}
-	if c.Weighted() {
+	if c.weighted() {
 		taken.Weights, taken.Drew, taken.Drawn = slices.Clone(c.Weights), c.Drew, c.Drawn
 	}
 	return taken
@@ -406,13 +406,13 @@ func ParseChoices(text string) ([]ChoiceTaken, error) {
 		return nil, err
 	}
 	if len(w.Objects) > 0 {
-		return nil, &ObjectParseError{Text: w.Objects[0].String(), Reason: "a witness naming objects is read by ParseWitness"}
+		return nil, &objectParseError{Text: w.Objects[0].String(), Reason: "a witness naming objects is read by ParseWitness"}
 	}
 	if len(w.Inputs) > 0 {
-		return nil, &InputParseError{Text: w.Inputs[0].String(), Reason: "a witness with inputs is read by ParseWitness"}
+		return nil, &inputParseError{Text: w.Inputs[0].String(), Reason: "a witness with inputs is read by ParseWitness"}
 	}
 	if len(w.Draws) > 0 {
-		return nil, &DrawParseError{Text: w.Draws[0].String(), Reason: "a witness with draws is read by ParseWitness"}
+		return nil, &drawParseError{Text: w.Draws[0].String(), Reason: "a witness with draws is read by ParseWitness"}
 	}
 	return w.Choices, nil
 }
@@ -485,15 +485,15 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 			continue
 		}
 		if strings.HasPrefix(line, objectPrefix) {
-			o, err := ParseObject(line)
+			o, err := parseObject(line)
 			if err == nil && (len(w.Inputs) > 0 || len(w.Draws) > 0 || len(w.Choices) > 0) {
-				err = &ObjectParseError{Text: line, Reason: "objects come before the inputs and the moves, and before the draws"}
+				err = &objectParseError{Text: line, Reason: "objects come before the inputs and the moves, and before the draws"}
 			}
 			if err == nil && slices.ContainsFunc(w.Objects, func(seen ObjectNamed) bool { return seen.ID == o.ID }) {
-				err = &ObjectParseError{Text: line, Reason: o.Number() + " is bound twice"}
+				err = &objectParseError{Text: line, Reason: o.Number() + " is bound twice"}
 			}
 			if err != nil {
-				var parse *ObjectParseError
+				var parse *objectParseError
 				if errors.As(err, &parse) {
 					parse.Line = i + 1
 				}
@@ -503,12 +503,12 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 			continue
 		}
 		if strings.HasPrefix(line, inputPrefix) {
-			in, err := ParseInput(line)
+			in, err := parseInput(line)
 			if err == nil && (len(w.Draws) > 0 || len(w.Choices) > 0) {
-				err = &InputParseError{Text: line, Reason: "inputs come before the moves, and before the draws"}
+				err = &inputParseError{Text: line, Reason: "inputs come before the moves, and before the draws"}
 			}
 			if err != nil {
-				var parse *InputParseError
+				var parse *inputParseError
 				if errors.As(err, &parse) {
 					parse.Line = i + 1
 				}
@@ -520,15 +520,15 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 		if rest, ok := strings.CutPrefix(line, drawPolicyPrefix); ok {
 			policy, err := ParseDrawPolicy(rest)
 			if err == nil && (len(w.Draws) > 0 || len(w.Choices) > 0) {
-				err = &DrawParseError{Text: line, Reason: "the draw policy comes before the draws and the moves"}
+				err = &drawParseError{Text: line, Reason: "the draw policy comes before the draws and the moves"}
 			}
 			if err == nil && policied {
-				err = &DrawParseError{Text: line, Reason: "the draw policy is named twice, and a witness draws by one"}
+				err = &drawParseError{Text: line, Reason: "the draw policy is named twice, and a witness draws by one"}
 			}
 			if err != nil {
-				var parse *DrawParseError
+				var parse *drawParseError
 				if !errors.As(err, &parse) {
-					parse = &DrawParseError{Text: line, Reason: err.Error()}
+					parse = &drawParseError{Text: line, Reason: err.Error()}
 				}
 				parse.Line = i + 1
 				return Witness{}, true, parse
@@ -539,18 +539,18 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 		if rest, ok := strings.CutPrefix(line, clockStepPrefix); ok {
 			step, err := ParseClockStep(rest)
 			if err == nil && step == 0 {
-				err = &ClockStepParseError{Text: line, Reason: "a continuous clock writes no clock step line"}
+				err = &clockStepParseError{Text: line, Reason: "a continuous clock writes no clock step line"}
 			}
 			if err == nil && (len(w.Draws) > 0 || len(w.Choices) > 0) {
-				err = &ClockStepParseError{Text: line, Reason: "the clock step comes before the draws and the moves"}
+				err = &clockStepParseError{Text: line, Reason: "the clock step comes before the draws and the moves"}
 			}
 			if err == nil && stepped {
-				err = &ClockStepParseError{Text: line, Reason: "the clock step is named twice, and a run's clock steps by one"}
+				err = &clockStepParseError{Text: line, Reason: "the clock step is named twice, and a run's clock steps by one"}
 			}
 			if err != nil {
-				var parse *ClockStepParseError
+				var parse *clockStepParseError
 				if !errors.As(err, &parse) {
-					parse = &ClockStepParseError{Text: line, Reason: err.Error()}
+					parse = &clockStepParseError{Text: line, Reason: err.Error()}
 				}
 				parse.Line = i + 1
 				return Witness{}, true, parse
@@ -561,10 +561,10 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 		if strings.HasPrefix(line, drawPrefix) {
 			d, err := ParseDraw(line)
 			if err == nil && len(w.Choices) > 0 {
-				err = &DrawParseError{Text: line, Reason: "draws come before the moves"}
+				err = &drawParseError{Text: line, Reason: "draws come before the moves"}
 			}
 			if err != nil {
-				var parse *DrawParseError
+				var parse *drawParseError
 				if errors.As(err, &parse) {
 					parse.Line = i + 1
 				}
@@ -632,21 +632,21 @@ func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, m
 		case strings.HasPrefix(first, "t="):
 			c.Kind = ChoiceDueOrder
 		case strings.HasPrefix(first, dispatchWherePrefix):
-			c.Kind = ChoiceDispatchOrder
+			c.Kind = choiceDispatchOrder
 		case strings.HasPrefix(first, enteringWherePrefix), strings.HasPrefix(first, forkWherePrefix):
-			c.Kind = ChoiceEntryOrder
+			c.Kind = choiceEntryOrder
 		case strings.HasPrefix(first, exitingWherePrefix):
-			c.Kind = ChoiceExitOrder
+			c.Kind = choiceExitOrder
 		case strings.HasPrefix(first, entryStepWherePrefix):
-			c.Kind = ChoiceEntryStep
+			c.Kind = choiceEntryStep
 		case strings.HasPrefix(first, statementsWherePrefix):
-			c.Kind = ChoiceStatementOrder
+			c.Kind = choiceStatementOrder
 		case strings.HasPrefix(first, guardOrderWherePrefix):
-			c.Kind = ChoiceGuardOrder
+			c.Kind = choiceGuardOrder
 		case strings.HasPrefix(first, resultOrderWherePrefix):
-			c.Kind = ChoiceStatementOrder
+			c.Kind = choiceStatementOrder
 		case strings.HasPrefix(first, stepWherePrefix):
-			c.Kind = ChoiceStepOrder
+			c.Kind = choiceStepOrder
 		}
 		var ok bool
 		if c.Took, mark, after, ok = readLabel(after, markFirstOf); !ok {
@@ -956,7 +956,7 @@ func (r *replayRun) current() (ChoiceTaken, *ObjectNamed) {
 func (r *replayRun) refuseUnbound(o ObjectNamed) {
 	if r.refused == nil {
 		_, err := r.ctx.objectAt(o.Path)
-		r.refused = &WitnessObjectError{Object: o, Reason: err.Error()}
+		r.refused = &witnessObjectError{Object: o, Reason: err.Error()}
 	}
 }
 
@@ -1004,7 +1004,7 @@ func (r *replayRun) drawsByPolicy() bool {
 // one the call cannot make: under the witness's fixed policy, any but the fixed point.
 func (r *replayRun) takeDraw(what string, dist distribution) (semantics.Value, error) {
 	if r.nextDraw >= len(r.draws) {
-		err := &WitnessDrawError{What: what, Reason: "the witness records no draw left for it"}
+		err := &witnessDrawError{What: what, Reason: "the witness records no draw left for it"}
 		if r.refused == nil {
 			r.refused = err
 		}
@@ -1012,7 +1012,7 @@ func (r *replayRun) takeDraw(what string, dist distribution) (semantics.Value, e
 	}
 	d := r.draws[r.nextDraw]
 	if d.What != what {
-		err := &WitnessDrawError{Draw: r.nextDraw + 1, What: d.What, Reason: "the run drew " + what + " instead"}
+		err := &witnessDrawError{Draw: r.nextDraw + 1, What: d.What, Reason: "the run drew " + what + " instead"}
 		if r.refused == nil {
 			r.refused = err
 		}
@@ -1023,7 +1023,7 @@ func (r *replayRun) takeDraw(what string, dist distribution) (semantics.Value, e
 		if r.policy.Fixed() {
 			reason += " under " + r.policy.String()
 		}
-		err := &WitnessDrawError{Draw: r.nextDraw + 1, What: d.What, Reason: reason}
+		err := &witnessDrawError{Draw: r.nextDraw + 1, What: d.What, Reason: reason}
 		if r.refused == nil {
 			r.refused = err
 		}
@@ -1056,7 +1056,7 @@ func (r *replayRun) unfollowed(how string) error {
 	}
 	if r.refused == nil && r.nextDraw < len(r.draws) {
 		d := r.draws[r.nextDraw]
-		r.refused = &WitnessDrawError{Draw: r.nextDraw + 1, What: d.What, Reason: how + " without drawing it"}
+		r.refused = &witnessDrawError{Draw: r.nextDraw + 1, What: d.What, Reason: how + " without drawing it"}
 	}
 	return r.refused
 }
@@ -1257,7 +1257,7 @@ func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 		r.refuse(fmt.Sprintf("%s is not enabled (enabled: %s)", w.Took, alts))
 		return 0
 	}
-	if (w.Weighted() || c.Weighted()) && !r.weighedAlike(w, c, taken) {
+	if (w.weighted() || c.weighted()) && !r.weighedAlike(w, c, taken) {
 		return 0
 	}
 	r.next++
@@ -1279,11 +1279,11 @@ func (r *replayRun) chooseWeighted(c *ChoicePoint, whereOf func(i int) string) i
 // faces: the same branches weighed the same, and a recorded draw that selects the branch
 // taken; a move that does not fit is refused.
 func (r *replayRun) weighedAlike(w ChoiceTaken, c ChoicePoint, taken int) bool {
-	if !c.Weighted() {
+	if !c.weighted() {
 		r.refuse("the run's decision weighs no branch")
 		return false
 	}
-	if !w.Weighted() || len(w.Among) != len(c.Alternatives) {
+	if !w.weighted() || len(w.Among) != len(c.Alternatives) {
 		r.refuse("the run's decision weighs every branch: " + weightedLabels(c.Alternatives, c.Weights))
 		return false
 	}

@@ -425,7 +425,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	}
 	
 	// Evaluate
-	evalCtx := runtime.NewEvalContext(runtimeCtx, scope)
+	evalCtx := runtime.newEvalContext(runtimeCtx, scope)
 	result, err := evalCtx.Eval(expr)
 	if err != nil {
 		return &pb.EvaluateResponse{Error: err.Error()}, nil

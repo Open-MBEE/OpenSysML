@@ -642,7 +642,7 @@ func (r *Resolver) ImportedBeside(scope *symbols.Scope, name string, sym *symbol
 				}
 				if symbols.SameElement(m, sym) {
 					brought = true
-				} else if slices.Contains(r.memberNames(m), name) {
+				} else if names := r.memberNames(m); names[0] == name || (names[1] != "" && names[1] == name) {
 					others = append(others, m)
 				}
 			}

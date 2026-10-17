@@ -157,10 +157,20 @@ func (r *Resolver) importedCollisions(scope *symbols.Scope) *importCollisions {
 	if len(imports) == 0 || r.idx.DocumentLibraryTier(symbols.DocNameOf(scope)).Library() {
 		return noImportCollisions
 	}
+	if r.shared != nil {
+		if e, ok := r.shared.get(scope); ok {
+			e.reads.replay(r)
+			journalNew(r, r.collisions, scope, imports[0])
+			r.collisions[scope] = e.c
+			return e.c
+		}
+	}
 	r.colliding[scope] = true
 	cut := r.collisionCut
 	r.collisionCut = false
-	c, complete := r.collectImported(scope, imports)
+	var c *importCollisions
+	var complete bool
+	reads := r.capturing(func() { c, complete = r.collectImported(scope, imports) })
 	delete(r.colliding, scope)
 	// A cut met while this computation was the outermost is a cycle back to
 	// scope, which excluding it settles; a cut within another's is not.
@@ -170,6 +180,9 @@ func (r *Resolver) importedCollisions(scope *symbols.Scope) *importCollisions {
 	case complete:
 		journalNew(r, r.collisions, scope, imports[0])
 		r.collisions[scope] = c
+		if r.shared != nil {
+			r.shared.put(scope, c, reads)
+		}
 	case !r.collisionsSettled():
 		if r.provisional == nil {
 			r.provisional = map[*symbols.Scope]*importCollisions{}
@@ -191,7 +204,11 @@ func (r *Resolver) ownedNames(scope *symbols.Scope) []string {
 	var names []string
 	members, aliases := r.DistinguishableMembers(scope)
 	for _, sym := range append(members, aliases...) {
-		names = append(names, r.memberNames(sym)...)
+		for _, name := range r.memberNames(sym) {
+			if name != "" {
+				names = append(names, name)
+			}
+		}
 	}
 	return names
 }
@@ -231,6 +248,9 @@ func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) 
 			}
 			key := symbols.KeyOf(r.aliasTarget(sym))
 			for _, name := range r.memberNames(sym) {
+				if name == "" {
+					continue
+				}
 				bound := boundName{key: key, name: name}
 				owner := ownedName{owner: ownerKeyOf(sym.OwnerScope), name: name}
 				if owned[name] || seen[bound] || owners[owner] {
@@ -263,7 +283,9 @@ func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) 
 		for _, member := range kept {
 			key := symbols.KeyOf(r.aliasTarget(member.sym))
 			for _, bound := range r.memberNames(member.sym) {
-				c.hidden[boundName{key: key, name: bound}] = true
+				if bound != "" {
+					c.hidden[boundName{key: key, name: bound}] = true
+				}
 			}
 		}
 	}
@@ -291,7 +313,7 @@ func (r *Resolver) hiddenImportMember(scope *symbols.Scope, sym *symbols.Symbol)
 	}
 	key := symbols.KeyOf(r.aliasTarget(sym))
 	for _, name := range r.memberNames(sym) {
-		if c.hidden[boundName{key: key, name: name}] {
+		if name != "" && c.hidden[boundName{key: key, name: name}] {
 			return true
 		}
 	}
@@ -311,6 +333,9 @@ func (r *Resolver) withoutHiddenImports(scope *symbols.Scope, name string, syms 
 	cut := r.collisionCut
 	r.collisionCut = false
 	defer func() { r.collisionCut = cut || r.collisionCut }()
+	if !r.hidesBelow(scope) {
+		return syms
+	}
 	through := r.collidedThrough(scope, name, map[*symbols.Scope]bool{})
 	if len(through) == 0 && len(r.importedCollisions(scope).hidden) == 0 {
 		return syms
@@ -406,8 +431,92 @@ func (r *Resolver) hiddenOnRoute(scope *symbols.Scope, sym *symbols.Symbol) bool
 		return false
 	}
 	for _, name := range r.memberNames(sym) {
-		if len(r.withoutHiddenImports(scope, name, []*symbols.Symbol{sym})) == 0 {
+		if name != "" && len(r.withoutHiddenImports(scope, name, []*symbols.Symbol{sym})) == 0 {
 			return true
+		}
+	}
+	return false
+}
+
+// hidesBelow reports whether scope, or a namespace an import of scope
+// re-exports from, hides any imported membership: when none does, nothing is
+// hidden on any route through scope, and no route need be walked. Memoized
+// per namespace once nothing it read was provisional, and shared across a
+// batch; a walk cut by a computation in progress answers true, undecided.
+func (r *Resolver) hidesBelow(scope *symbols.Scope) bool {
+	if scope == nil || r.idx == nil {
+		return false
+	}
+	if hides, done := r.below[scope]; done {
+		return hides
+	}
+	imports := r.scopeImports(scope)
+	if len(imports) == 0 {
+		return false
+	}
+	if r.shared != nil {
+		if e, ok := r.shared.getBelow(scope); ok {
+			e.reads.replay(r)
+			journalNew(r, r.below, scope, imports[0])
+			r.below[scope] = e.hides
+			return e.hides
+		}
+	}
+	// A walk made inside a filter condition or while an import target is
+	// still resolving could not be kept, and is answered true unwalked.
+	if r.inCondition != 0 || len(r.resolvingImports) != 0 {
+		return true
+	}
+	if r.collisionsSettled() {
+		r.belowCut = nil
+	} else if r.belowCut[scope] {
+		r.collisionCut = true
+		return true
+	}
+	cut := r.collisionCut
+	r.collisionCut = false
+	var hides bool
+	reads := r.capturing(func() { hides = r.hidesBelowSeen(scope, map[*symbols.Scope]bool{}) })
+	switch {
+	case !r.collisionCut:
+		journalNew(r, r.below, scope, imports[0])
+		r.below[scope] = hides
+		if r.shared != nil {
+			r.shared.putBelow(scope, hides, reads)
+		}
+	case !r.collisionsSettled():
+		if r.belowCut == nil {
+			r.belowCut = map[*symbols.Scope]bool{}
+		}
+		r.belowCut[scope] = true
+		hides = true
+	default:
+		hides = true
+	}
+	r.collisionCut = cut || r.collisionCut
+	return hides
+}
+
+// hidesBelowSeen is hidesBelow's walk, each namespace asked once.
+func (r *Resolver) hidesBelowSeen(scope *symbols.Scope, seen map[*symbols.Scope]bool) bool {
+	if scope == nil || seen[scope] || r.idx.DocumentLibraryTier(symbols.DocNameOf(scope)).Library() {
+		return false
+	}
+	seen[scope] = true
+	if hides, done := r.below[scope]; done {
+		return hides
+	}
+	if len(r.importedCollisions(scope).hidden) > 0 {
+		return true
+	}
+	for _, imp := range r.scopeImports(scope) {
+		if imp.Kind != ast.ImportNamespace || r.resolvingImports[imp] {
+			continue
+		}
+		if target, ok := r.importTargetOf(scope, imp); ok && target != nil && target.Scope != nil {
+			if r.hidesBelowSeen(target.Scope, seen) {
+				return true
+			}
 		}
 	}
 	return false
@@ -480,11 +589,12 @@ func (r *Resolver) inheritedAgainstImports(scope *symbols.Scope) map[string][]*s
 }
 
 // memberNames are the names a membership binds: the member's name and its short
-// name, declared or derived (KerML 8.3.2.4.3 compares both).
-func (r *Resolver) memberNames(sym *symbols.Symbol) []string {
-	names := []string{sym.Name}
+// name, declared or derived (KerML 8.3.2.4.3 compares both); the second is ""
+// when the member has none. A fixed pair, so a caller's loop does not allocate.
+func (r *Resolver) memberNames(sym *symbols.Symbol) [2]string {
+	names := [2]string{sym.Name}
 	if short := r.shortNameOf(sym); short != "" && short != sym.Name {
-		names = append(names, short)
+		names[1] = short
 	}
 	return names
 }
@@ -803,7 +913,7 @@ func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool 
 				continue
 			}
 			for _, name := range r.memberNames(sym) {
-				if owned[name] {
+				if name != "" && owned[name] {
 					hidden[sym] = true
 				}
 			}

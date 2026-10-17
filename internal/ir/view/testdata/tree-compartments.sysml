@@ -14,8 +14,10 @@ package Amplifier {
 
     enum def Band { low; high; }
 
-    // A name written over two lines and a value with a string argument.
+    // An unnamed member, a name written over two lines and a value with a
+    // string argument.
     part def Label {
+        attribute : Real;
         attribute 'upper\rlower' : Real;
         attribute length : ScalarValues::Natural = StringFunctions::Length("a  b");
     }

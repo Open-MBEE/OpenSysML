@@ -22,7 +22,7 @@ export function presented(model: LandingModel): RenderResult {
         kind: kind || node.kind,
         type: "",
         // A nested part shows its label alone; its role is on its card.
-        detail: part.owner === undefined ? [lang, role].filter((value) => value).join(" · ") : "",
+        detail: part.owner === undefined ? [lang, role].filter(Boolean).join(" · ") : "",
       };
     }),
     edges: model.render.edges.map((edge) => ({ ...edge, label: "" })),

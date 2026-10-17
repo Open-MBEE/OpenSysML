@@ -10,6 +10,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+const (
+	includeStereotype = "«include»"
+)
+
 // renderCase walks exposed elements and writes case nodes, roles and relationships.
 func (r *Renderer) renderCase(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	w := &caseWalk{r: r, view: view, ids: &nodeIDs{}, drawn: map[*symbols.Symbol]*Node{},
@@ -67,7 +71,7 @@ func (w *caseWalk) render(sym *symbols.Symbol, exposed bool, owner *Node) *Node 
 		if owner != nil {
 			kind, label := EdgeComposition, ""
 			if isInlineIncludedCase(sym) {
-				kind, label = EdgeInclude, "«include»"
+				kind, label = EdgeInclude, includeStereotype
 			}
 			w.edge(owner, existing, kind, label, sym)
 		}
@@ -81,7 +85,7 @@ func (w *caseWalk) render(sym *symbols.Symbol, exposed bool, owner *Node) *Node 
 			}
 			node := w.render(target, true, nil)
 			if owner != nil && node != nil {
-				w.edge(owner, node, EdgeInclude, "«include»", sym)
+				w.edge(owner, node, EdgeInclude, includeStereotype, sym)
 			}
 			return node
 		}
@@ -106,7 +110,7 @@ func (w *caseWalk) render(sym *symbols.Symbol, exposed bool, owner *Node) *Node 
 	if owner != nil {
 		kind, label := EdgeComposition, ""
 		if isInlineIncludedCase(sym) {
-			kind, label = EdgeInclude, "«include»"
+			kind, label = EdgeInclude, includeStereotype
 		}
 		w.edge(owner, node, kind, label, sym)
 	}
@@ -187,7 +191,7 @@ func (w *caseWalk) resolveIncludedCases() {
 			target = w.drawn[include.target]
 		}
 		if include.from != nil && target != nil {
-			w.edge(include.from, target, EdgeInclude, "«include»", include.include)
+			w.edge(include.from, target, EdgeInclude, includeStereotype, include.include)
 		}
 	}
 	w.includes = nil

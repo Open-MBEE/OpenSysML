@@ -75,7 +75,7 @@ func TestDoBehaviorIsCancelledWhenItsStateIsExited(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	exec.SendSignal("Stop", nil)
+	exec.sendSignal("Stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}

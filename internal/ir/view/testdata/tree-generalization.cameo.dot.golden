@@ -1,0 +1,32 @@
+// view: MicroscopeViews::positioned
+// kind: tree
+// stated: render asTreeDiagram
+// canvas: unit=px w=620 h=240
+// layout: neato -n2
+digraph "MicroscopeViews::positioned" {
+  graph [fontname="Arial", fontcolor="#424242", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor="#FFCC99:#FFFAD4", gradientangle=0, color="#99795C", fontname="Arial", fontsize=11, fontcolor="#424242", penwidth=1];
+  edge [color="#424242", fontname="Arial", fontsize=9, fontcolor="#424242", penwidth=1, arrowhead=open];
+  "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,240!", pin=true];
+  "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="620,0!", pin=true];
+  subgraph "cluster_frame" {
+    label=<<b>bdd</b> [Block] Detector [ positioned ]>;
+    labeljust=l;
+    labelloc=t;
+    fontsize=11;
+    color="#5B5B59";
+    penwidth=1;
+    margin=8;
+    bb="0,0,620,240";
+    "n0" [label=<<font point-size="9">«part def»</font><br/><b>Detector</b>>, margin=0, pos="315,203.5!", pin=true, width=1.5277777777777777, height=0.4583333333333333, fixedsize=true];
+    "n1" [label=<<font point-size="9">«part def»</font><br/><b>Sensor</b>>, margin=0, pos="535,203.5!", pin=true, width=1.5277777777777777, height=0.4583333333333333, fixedsize=true];
+    "n2" [label=<<font point-size="9">«part def»</font><br/><b>Instrument</b>>, margin=0, pos="75,203.5!", pin=true, width=1.5277777777777777, height=0.4583333333333333, fixedsize=true];
+    "n3" [label=<<font point-size="9">«part def»</font><br/><b>Display System</b>>, margin=0, pos="75,133.5!", pin=true, width=1.5277777777777777, height=0.4583333333333333, fixedsize=true];
+    "n4" [label=<<font point-size="8">«part def»</font><br/><font point-size="9"><b>Scanning Electron<br/>Microscope</b></font>>, margin=0, pos="75,63.5!", pin=true, width=1.5277777777777777, height=0.4583333333333333, fixedsize=true];
+    "n5" [label=<<font point-size="8">«part def»</font><br/><font point-size="9"><b>Secondary Electron Detector</b></font>>, margin=0, pos="240,63.5!", pin=true, width=2.2222222222222223, height=0.4583333333333333, fixedsize=true];
+    "n6" [label=<<font point-size="8">«part def»</font><br/><font point-size="9"><b>Backscattered Electron<br/>Detector</b></font>>, margin=0, pos="480,63.5!", pin=true, width=2.2222222222222223, height=0.4583333333333333, fixedsize=true];
+  }
+  "n5" -> "n0" [arrowhead=empty, pos="e,315,187 240,80 240,80 240,130 240,130 240,130 315,130 315,130 315,130 315,177 315,177"];
+  "n6" -> "n0" [arrowhead=empty, pos="e,315,187 440,80 440,80 440,130 440,130 440,130 315,130 315,130 315,130 315,177 315,177"];
+  "n6" -> "n1" [arrowhead=empty, pos="e,535,187 520,80 520,80 520,120 520,120 520,120 535,120 535,120 535,120 535,177 535,177"];
+}

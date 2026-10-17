@@ -11,12 +11,12 @@ For a task-oriented walkthrough, see the
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.10.0</version>
+  <version>0.10.1</version>
 </dependency>
 ```
 
-The client version follows the core release (`0.10.0`), but the artifact is not on Maven Central.
-Build and install it into the local repository from a checkout:
+The client version follows the core release (`0.10.1`), and the artifact is on Maven Central from
+0.10.1. To run against unreleased changes, build and install it into the local repository from a checkout:
 
 ```bash
 make build                                  # bin/sysml-grpc, which the tests start
@@ -474,10 +474,10 @@ mvn -f client/java/pom.xml test -Dopensysml.requireService=true   # CI: absence 
 
 ## Publishing
 
-The Java artifacts are not on Maven Central yet. The core `v*` tag's `release` workflow signs,
+The Java artifacts are on Maven Central from 0.10.1. The core `v*` tag's `release` workflow signs,
 uploads and publishes `org.openmbee:opensysml` and its `opensysml-parent`
 pom at the core's version — the client is released in lockstep with the core, and `autoPublish`
-releases the validated deployment without a portal step. Until then, build with `mvn install` from
+releases the validated deployment without a portal step. For unreleased changes, build with `mvn install` from
 a checkout. The
 procedure, and the credentials the job needs, are in
 [docs/project/releasing.md](../../docs/project/releasing.md#releasing-the-java-client-to-maven-central).

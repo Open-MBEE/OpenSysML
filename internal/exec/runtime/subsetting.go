@@ -298,7 +298,7 @@ func (ctx *Context) redefinitionAliases(typ *symbols.Symbol, name string) map[st
 // whose feature value the group shares: the first name, in most-specific-first order,
 // whose own declaration values it — by a value, or by a body valuing the features
 // of the value it inherits — and otherwise the most specific name.
-// Two names valued by one declaration are ErrConflictingRedefinition.
+// Two names valued by one declaration are errConflictingRedefinition.
 func (ctx *Context) sharedRedefinitionName(inst *Instance, byName, canonicalByName map[string]*EffectiveFeature, names []string, overridden map[string]bool) (string, error) {
 	valued := ""
 	var valuedBy *symbols.Scope
@@ -317,7 +317,7 @@ func (ctx *Context) sharedRedefinitionName(inst *Instance, byName, canonicalByNa
 			}
 			if cand.Symbol.OwnerScope == valuedBy {
 				return "", fmt.Errorf("%w: %s values %s and %s, which redefinition makes one feature",
-					ErrConflictingRedefinition, inst.Type.Name, valued, name)
+					errConflictingRedefinition, inst.Type.Name, valued, name)
 			}
 		}
 	}

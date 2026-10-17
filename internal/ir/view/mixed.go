@@ -282,6 +282,7 @@ func (w *mixedWalk) renderStructures() {
 	w.out.Edges = append(w.out.Edges, temp.Edges...)
 	w.out.Notes = append(w.out.Notes, temp.Notes...)
 	w.out.Notices = append(w.out.Notices, temp.Notices...)
+	w.out.depthCut += temp.depthCut
 }
 
 // renderDeferredStructureMembers attaches members after their structural owners are indexed.

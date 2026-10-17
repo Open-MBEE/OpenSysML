@@ -652,6 +652,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&evalExprs, "e", "Evaluate this expression, against the model when one is loaded, and exit (repeatable)")
 	fs.StringVar(&queryText, "query", "", "Evaluate this OSLC Query text against the model and exit")
 
+	fs.Var(&explainCodes, "explain", "Explain a diagnostic code: what it means, how to resolve it and the clause or constraint behind it; bare, list every code with a one-line summary; a code may also follow the flag (repeatable)")
 	fs.Var(&modelChecks.validate, "validate", "Report the model's diagnostics and exit, nonzero on an error; -validate=<object> checks instead every assertion about that object (repeatable)")
 	fs.Var(&disabledLints, "disable-lint", "Leave this lint out of the model's diagnostics: undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or rounded-real-literal, comma-separated or repeated")
 	fs.Var(&enabledLints, "enable-lint", "Report this opt-in lint, off by default, in the model's diagnostics: rounded-real-literal, comma-separated or repeated; -disable-lint wins")
@@ -670,6 +671,9 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.queries, "run-query", "Execute this document query and report its rows, as -run-query \"Heavy root=telescope\" (repeatable)")
 	fs.Var(&modelChecks.instantiate, "instantiate", "Create an object of this definition or usage before the checks, so a verdict is about it (repeatable)")
 	fs.BoolVar(&modelChecks.jsonOut, "json", false, "Report checks as one JSON document rather than as lines")
+	fs.StringVar(&modelChecks.format, "format", "", "Report checks as text, json, sarif or junit; json is -json, and sarif (SARIF 2.1.0) and junit (JUnit XML) carry -validate's diagnostics to a CI service")
+	fs.StringVar(&modelChecks.baseline, "baseline", "", "A JSON report (as -validate -json -o wrote) whose diagnostics are known: a finding with the same code, file and message is suppressed, whatever its line")
+	fs.BoolVar(&modelChecks.warningsAsErrors, "warnings-as-errors", false, "Exit nonzero on a warning as on an error; the report keeps the warning's severity")
 
 	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object (repeatable)")
 	fs.Var(&modelChecks.states, "state", "Run this state machine, as -state \"Mission rover1\" to run it on an object (repeatable)")
@@ -721,6 +725,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderLines, "render-lines", "", "How the dot or plantuml form of -render or -render-all routes its edges: splines (default), each engine's curved routing, ortho, axis-parallel segments, or polyline, straight segments; the Pilot visualizer's ORTHOLINE and POLYLINE styles. Mermaid and D2 note the routing as not represented")
 	fs.StringVar(&renderPorts, "render-ports", "", "How much of a part's ports -render or -render-all draws on an interconnection or mixed rendering: minimal (default), the ports its interconnection edges end at, each a small square on the part's border named beside it, or full, every port, labelled name : Type")
 	fs.StringVar(&renderShow, "render-show", "", "Optional notation elements -render, -render-all and document diagrams draw besides the default (port symbols, compartments and keywords), comma-separated: parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, or all; a view's own rendering adds its elements too")
+	fs.IntVar(&renderDepth, "render-depth", 0, "How many levels of nested elements -render and -render-all draw below each exposed element of a tree or interconnection rendering, overriding the depth the view states; 0 (default) draws every level the view's own depth allows")
 	fs.StringVar(&renderOverlay, "render-overlay", "", "What -render or -render-all draws over a requirement rendering's structure: verdicts runs the verification cases verifying each requirement and colours and labels it by their verdicts; default none, a purely structural drawing")
 	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
 
@@ -764,6 +769,7 @@ func optionGroups() []usage.OptionGroup {
 		Title: "Checking a model",
 		Options: []usage.Option{
 			usage.Opt("validate", "[=<object>]"),
+			usage.Opt("explain", "[<code>]"),
 			usage.Opt("strict", ""),
 			usage.Opt("disable-lint", "<code>"),
 			usage.Opt("enable-lint", "<code>"),
@@ -781,6 +787,9 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("run-query", "<query>"),
 			usage.Opt("instantiate", nameArg),
 			usage.Opt("json", ""),
+			usage.Opt("format", "<format>"),
+			usage.Opt("baseline", "<file>"),
+			usage.Opt("warnings-as-errors", ""),
 		},
 	}, {
 		Title: "Running behaviors",
@@ -859,6 +868,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("render-ports", "<display>"),
 			usage.Opt("render-lines", "<routing>"),
 			usage.Opt("render-show", "<elements>"),
+			usage.Opt("render-depth", "<levels>"),
 			usage.Opt("render-overlay", "<overlay>"),
 		},
 	}, {

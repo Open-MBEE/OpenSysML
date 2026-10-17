@@ -112,7 +112,7 @@ const erratumMarker = "candidate erratum:"
 func errataRows(b *Baseline) []Mapping {
 	var rows []Mapping
 	for _, m := range b.Mappings {
-		if i := strings.Index(strings.ToLower(m.Reason), erratumMarker); i >= 0 {
+		if strings.Contains(strings.ToLower(m.Reason), erratumMarker) {
 			rows = append(rows, m)
 		}
 	}

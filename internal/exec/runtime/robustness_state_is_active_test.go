@@ -41,8 +41,8 @@ func testStateIsActiveWriteRefused(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stateIsActiveWriteFixture))
 	m := findSymbolByName(idx.DocumentRoot("<test>"), "M", ast.DefState)
 	_, _, err := ctx.ExecuteStateWithEvents(m, nil)
-	if !errors.Is(err, ErrReadOnlyFeature) || !strings.Contains(err.Error(), "a.isActive is derived") {
-		t.Fatalf("assign a.isActive := true: %v, want ErrReadOnlyFeature naming the derived feature", err)
+	if !errors.Is(err, errReadOnlyFeature) || !strings.Contains(err.Error(), "a.isActive is derived") {
+		t.Fatalf("assign a.isActive := true: %v, want errReadOnlyFeature naming the derived feature", err)
 	}
 }
 
@@ -159,7 +159,7 @@ func testStateIsActiveOutsideTheRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateStateExecutor: %v", err)
 	}
-	if exec.Activity(nil) {
+	if exec.activity(nil) {
 		t.Error("Activity(nil) = true, want false")
 	}
 	read("before start")

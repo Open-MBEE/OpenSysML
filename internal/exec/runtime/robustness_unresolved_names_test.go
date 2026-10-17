@@ -38,8 +38,8 @@ func testActionBodyUnresolvedUnit(t *testing.T) {
 	}
 
 	out, err := ctx.ExecuteAction(sym)
-	if !errors.Is(err, ErrNotAQuantity) {
-		t.Fatalf("outputs = %v, err = %v; want ErrNotAQuantity", out, err)
+	if !errors.Is(err, errNotAQuantity) {
+		t.Fatalf("outputs = %v, err = %v; want errNotAQuantity", out, err)
 	}
 	if !strings.Contains(err.Error(), semantics.ErrNotAUnit.Error()) {
 		t.Errorf("err = %v; want it to report that the index names no measurement unit", err)
@@ -99,7 +99,7 @@ func testStateBodyUnresolvedUnit(t *testing.T) {
 	}
 
 	_, err := ctx.ExecuteState(sym)
-	if !errors.Is(err, ErrNotAQuantity) {
-		t.Fatalf("err = %v; want ErrNotAQuantity", err)
+	if !errors.Is(err, errNotAQuantity) {
+		t.Fatalf("err = %v; want errNotAQuantity", err)
 	}
 }

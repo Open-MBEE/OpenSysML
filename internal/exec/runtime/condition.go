@@ -18,6 +18,10 @@ import (
 // element, so which one the verdict would be about is a question, not an answer.
 var ErrAmbiguousSubject = errors.New("ambiguous subject")
 
+// ErrNotCarried is returned when a case a type owns is run on an object that is
+// not of that type and holds none.
+var ErrNotCarried = errors.New("object does not carry the case")
+
 // Condition is one boolean check a constraint or requirement states, with the
 // scope its expression resolves names in. A condition states either an
 // expression or a group, which holds when all of its conditions hold.
@@ -52,7 +56,7 @@ type Condition struct {
 
 	// Constraints are the named constraint usages stating the condition through
 	// their types, outermost first: each one's parameter values mask the
-	// enclosing ones', which mask the checked element's. Empty reads the latter alone.
+	// enclosing ones', which mask the checked element's. empty reads the latter alone.
 	Constraints []*symbols.Symbol
 }
 
@@ -561,7 +565,7 @@ type conditionCheck struct {
 	kind string // "constraint", "requirement", "satisfaction"
 	what string // "assertion", "require condition"
 
-	// element names the checked element in messages. Empty takes sym's name,
+	// element names the checked element in messages. empty takes sym's name,
 	// which an anonymous declaration such as a satisfaction assertion lacks.
 	element string
 
@@ -573,7 +577,7 @@ type conditionCheck struct {
 	bindings frame
 
 	// frames are the frames a check within a behavior run reads, innermost last:
-	// the performance's own values and those around it. Empty outside a run.
+	// the performance's own values and those around it. empty outside a run.
 	frames []frame
 
 	// negated inverts the verdict: the element asserts that its required
@@ -598,7 +602,7 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 	}
 	if conflict := conflictingResultExpression(conds); conflict != nil {
 		return false, fmt.Errorf("%s %s: %s evaluation failed: %s: %w; a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`",
-			check.kind, check.name(), check.what, conflictText(conflict), ErrConflictingResultExpressions)
+			check.kind, check.name(), check.what, conflictText(conflict), errConflictingResultExpressions)
 	}
 	features := ctx.conditionFeatures(check.sym)
 	self := check.self
@@ -705,8 +709,12 @@ func (ctx *Context) conditionSubject(sym *symbols.Symbol, self *Instance) (carri
 	case 1:
 		return carriers[0], nil
 	}
+	name := sym.Name
+	if name == "" {
+		name = "it"
+	}
 	return carrier{}, fmt.Errorf("%w: %s is carried by %s: check it on one of them",
-		ErrAmbiguousSubject, sym.Name, strings.Join(ctx.carrierLabels(carriers), ", "))
+		ErrAmbiguousSubject, name, strings.Join(ctx.carrierLabels(carriers), ", "))
 }
 
 // checkSubject resolves the object a check is about before its bindings are
@@ -807,6 +815,26 @@ func (ctx *Context) rootInstances() []*Instance {
 	return out
 }
 
+// LiveRoots returns every object this runtime holds that stands on its own — not held
+// by another's feature value, not materialized only to read a nested declaration, not
+// destroyed — in identity order: rootInstances without its one-object-per-declaration
+// choice, for a sweep that is about each object rather than about a declaration.
+func (ctx *Context) LiveRoots() []*Instance {
+	held := ctx.heldObjectIDs()
+	var out []*Instance
+	for _, inst := range ctx.instances {
+		if inst == nil || held[inst.ID] || (nestedFeature(inst.Type) && ctx.readThrough(inst)) {
+			continue
+		}
+		if ctx.checkNotDestroyed(inst) != nil {
+			continue
+		}
+		out = append(out, inst)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
 // heldObjectIDs returns the identities a feature value of another object already holds, so
 // an object reached through its holder is no root of its own. Feature values are read as
 // they stand, since materializing one is the search that asked for these.
@@ -837,6 +865,11 @@ func (ctx *Context) heldObjectIDs() map[int64]bool {
 // one object stands for each declaration reached, so objects a multiplicity
 // repeated are one candidate however deep the named declaration sits in them.
 func (ctx *Context) carriersUnder(roots []*Instance, owner *symbols.Symbol) []carrier {
+	return ctx.carriersWhere(roots, func(inst *Instance) bool { return ctx.modelConforms(inst.Type, owner) })
+}
+
+// carriersWhere is carriersUnder with the carrying objects chosen by carries.
+func (ctx *Context) carriersWhere(roots []*Instance, carries func(*Instance) bool) []carrier {
 	var out []carrier
 	seen := make(map[int64]bool, len(roots))
 	declared := make(map[carrierOccurrence]bool)
@@ -849,7 +882,7 @@ func (ctx *Context) carriersUnder(roots []*Instance, owner *symbols.Symbol) []ca
 		}
 		seen[inst.ID] = true
 		occurrence := carrierOccurrence{through: through, decl: inst.Type}
-		if ctx.modelConforms(inst.Type, owner) && !declared[occurrence] {
+		if carries(inst) && !declared[occurrence] {
 			declared[occurrence] = true
 			out = append(out, carrier{instance: inst, root: root, features: features})
 		}
@@ -1341,5 +1374,5 @@ func conditionText(n ast.Node) string {
 		}
 		return conditionText(e.Operand) + "#(" + conditionText(e.Index) + ")"
 	}
-	return TraceLabel(n)
+	return traceLabel(n)
 }

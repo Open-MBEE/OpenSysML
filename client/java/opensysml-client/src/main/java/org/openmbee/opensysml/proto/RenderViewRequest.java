@@ -250,6 +250,22 @@ private static final long serialVersionUID = 0L;
     return show_.getByteString(index);
   }
 
+  public static final int DEPTH_FIELD_NUMBER = 5;
+  private int depth_ = 0;
+  /**
+   * <pre>
+   * How many levels of nested elements to draw below each exposed element,
+   * overriding the depth the view states; 0 draws every level.
+   * </pre>
+   *
+   * <code>int32 depth = 5 [json_name = "depth"];</code>
+   * @return The depth.
+   */
+  @java.lang.Override
+  public int getDepth() {
+    return depth_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -275,6 +291,9 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < show_.size(); i++) {
       com.google.protobuf.GeneratedMessage.writeString(output, 4, show_.getRaw(i));
+    }
+    if (depth_ != 0) {
+      output.writeInt32(5, depth_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -302,6 +321,10 @@ private static final long serialVersionUID = 0L;
       size += dataSize;
       size += 1 * getShowList().size();
     }
+    if (depth_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(5, depth_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -325,6 +348,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getPorts())) return false;
     if (!getShowList()
         .equals(other.getShowList())) return false;
+    if (getDepth()
+        != other.getDepth()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -346,6 +371,8 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + SHOW_FIELD_NUMBER;
       hash = (53 * hash) + getShowList().hashCode();
     }
+    hash = (37 * hash) + DEPTH_FIELD_NUMBER;
+    hash = (53 * hash) + getDepth();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -486,6 +513,7 @@ private static final long serialVersionUID = 0L;
       ports_ = "";
       show_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
+      depth_ = 0;
       return this;
     }
 
@@ -532,6 +560,9 @@ private static final long serialVersionUID = 0L;
         show_.makeImmutable();
         result.show_ = show_;
       }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.depth_ = depth_;
+      }
     }
 
     @java.lang.Override
@@ -570,6 +601,9 @@ private static final long serialVersionUID = 0L;
           show_.addAll(other.show_);
         }
         onChanged();
+      }
+      if (other.getDepth() != 0) {
+        setDepth(other.getDepth());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -618,6 +652,11 @@ private static final long serialVersionUID = 0L;
               show_.add(s);
               break;
             } // case 34
+            case 40: {
+              depth_ = input.readInt32();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 40
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1061,6 +1100,53 @@ private static final long serialVersionUID = 0L;
       ensureShowIsMutable();
       show_.add(value);
       bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+
+    private int depth_ ;
+    /**
+     * <pre>
+     * How many levels of nested elements to draw below each exposed element,
+     * overriding the depth the view states; 0 draws every level.
+     * </pre>
+     *
+     * <code>int32 depth = 5 [json_name = "depth"];</code>
+     * @return The depth.
+     */
+    @java.lang.Override
+    public int getDepth() {
+      return depth_;
+    }
+    /**
+     * <pre>
+     * How many levels of nested elements to draw below each exposed element,
+     * overriding the depth the view states; 0 draws every level.
+     * </pre>
+     *
+     * <code>int32 depth = 5 [json_name = "depth"];</code>
+     * @param value The depth to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDepth(int value) {
+
+      depth_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * How many levels of nested elements to draw below each exposed element,
+     * overriding the depth the view states; 0 draws every level.
+     * </pre>
+     *
+     * <code>int32 depth = 5 [json_name = "depth"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDepth() {
+      bitField0_ = (bitField0_ & ~0x00000010);
+      depth_ = 0;
       onChanged();
       return this;
     }

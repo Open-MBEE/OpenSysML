@@ -840,7 +840,7 @@ func TestSweepOverANonNumericParameterIsRefused(t *testing.T) {
 func TestSweepOverAnUntypedParameterFollowsTheLiterals(t *testing.T) {
 	ctx, scope := sweepFixture(t)
 	plan := resolvedPlan(t, ctx, scope, "Any", SweepPlan{Ranges: []SweepRange{rangeOf("v", intOf(1), intOf(3))}})
-	if typ := plan.Ranges[0].Type; !typ.Untyped || typ.Numbers != SweepAsWritten || typ.Declared() != nil {
+	if typ := plan.Ranges[0].Type; !typ.Untyped || typ.Numbers != sweepAsWritten || typ.Declared() != nil {
 		t.Errorf("v resolved as %+v; want untyped, as written", typ)
 	}
 	table := runSweepOver(t, ctx, scope, "Any", SweepPlan{Ranges: []SweepRange{rangeOf("v", intOf(1), intOf(3))}})
@@ -869,7 +869,7 @@ func TestSweepOverAnUntypedParameterFollowsTheLiterals(t *testing.T) {
 func TestSweepOverANumberParameterFollowsTheLiterals(t *testing.T) {
 	ctx, scope := sweepFixture(t)
 	plan := resolvedPlan(t, ctx, scope, "Num", SweepPlan{Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(2))}})
-	if typ := plan.Ranges[0].Type; typ.Untyped || typ.Numbers != SweepAsWritten || symbolText(typ.Declared()) != "Number" {
+	if typ := plan.Ranges[0].Type; typ.Untyped || typ.Numbers != sweepAsWritten || symbolText(typ.Declared()) != "Number" {
 		t.Errorf("n resolved as %+v; want as written, typed by Number", typ)
 	}
 	table := runSweepOver(t, ctx, scope, "Num", SweepPlan{Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(2))}})
@@ -1030,8 +1030,8 @@ func TestSamplesBeyondTheBudgetAreRefused(t *testing.T) {
 // The generator is the one documented: one seed selects one PCG state, and the
 // sequence it draws is the same on every platform.
 func TestNewSampleSourceIsSeededFromTheSeedAlone(t *testing.T) {
-	first, again := NewSampleSource(9), NewSampleSource(9)
-	other := NewSampleSource(10)
+	first, again := newSampleSource(9), newSampleSource(9)
+	other := newSampleSource(10)
 	for i := range 4 {
 		a, b, c := first.Uint64(), again.Uint64(), other.Uint64()
 		if a != b {

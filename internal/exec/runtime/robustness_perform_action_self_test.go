@@ -33,8 +33,8 @@ func testPerformReferenceNamesNoAction(t *testing.T) {
 	ctx := NewContext(typedModel(model, resolver), 10000)
 
 	_, err := ctx.Instantiate(resolveSymbol(t, root, "P"))
-	if !errors.Is(err, ErrUnresolvedClassifierBehavior) {
-		t.Fatalf("error = %v, want ErrUnresolvedClassifierBehavior", err)
+	if !errors.Is(err, errUnresolvedClassifierBehavior) {
+		t.Fatalf("error = %v, want errUnresolvedClassifierBehavior", err)
 	}
 	if !strings.Contains(err.Error(), "go") {
 		t.Errorf("error %q does not name the behavior", err)
@@ -55,8 +55,8 @@ func testPerformSubsettingNamesNothing(t *testing.T) {
 	ctx := NewContext(typedModel(model, resolver), 10000)
 
 	_, err := ctx.Instantiate(resolveSymbol(t, root, "P"))
-	if !errors.Is(err, ErrUnresolvedClassifierBehavior) {
-		t.Fatalf("error = %v, want ErrUnresolvedClassifierBehavior", err)
+	if !errors.Is(err, errUnresolvedClassifierBehavior) {
+		t.Fatalf("error = %v, want errUnresolvedClassifierBehavior", err)
 	}
 }
 
@@ -73,7 +73,7 @@ func testPerformTypingNamesNothing(t *testing.T) {
 	ctx := NewContext(typedModel(model, resolver), 10000)
 
 	_, err := ctx.Instantiate(resolveSymbol(t, root, "P"))
-	if !errors.Is(err, ErrUnresolvedClassifierBehavior) {
-		t.Fatalf("error = %v, want ErrUnresolvedClassifierBehavior", err)
+	if !errors.Is(err, errUnresolvedClassifierBehavior) {
+		t.Fatalf("error = %v, want errUnresolvedClassifierBehavior", err)
 	}
 }

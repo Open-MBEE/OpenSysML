@@ -379,6 +379,15 @@ symbol stream and writes it beside the view it produces as
 [DiagramLayout](../project/diagram-layout-annotations.md) metadata — `Layout` boxes, `Route`
 waypoints, a `Canvas` the size of the diagram frame, a `Style` for a symbol drawn in its own
 colours or font, and a `Note` for every comment and text box — so nothing has to be laid out again.
+The compartments a modeler collapsed on a symbol (Cameo's `SUPPRESS_*` symbol properties, stated
+on the symbol or inherited from the diagram's symbol styles) become the `Layout`'s `show…`
+switches, by the kind their members take in v2 — parts `showParts`, references `showReferences`,
+properties, values and class attributes `showAttributes`, constraints `showConstraints`, flow
+properties `showItems`, proxy, full and class ports `showPorts`, operations `showActions` — so a
+box the modeler sized for the compartments left visible is drawn with those alone, with no
+clipped-row notice for the rest; the report counts them (`# compartments suppressed: N on M
+symbols`). A suppressed compartment with no v2 kind (structure, behaviors, signal receptions) is
+listed among the unsupported presentation properties.
 No export from another tool is needed; an [MTIP](https://github.com/Open-MBEE/mtip-cameo) export
 given with `-layout` is still honoured and takes precedence for every element its record places
 or routes, the stream supplying the elements the record leaves out

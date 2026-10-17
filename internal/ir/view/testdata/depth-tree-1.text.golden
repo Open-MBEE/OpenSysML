@@ -1,0 +1,10 @@
+DepthViews::depth1 - tree rendering (render asTreeDiagram)
+
+part vehicle
+  attribute mass
+  part wheel (nested deeper than 1 level; not shown)
+  part engine (nested deeper than 1 level; not shown)
+    port fuelIn
+
+not represented:
+  - 3 elements nested deeper than 1 level not shown
