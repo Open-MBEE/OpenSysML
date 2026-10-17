@@ -42,13 +42,12 @@ func (s *Service) CheckBehavior(ctx context.Context, req *pb.CheckBehaviorReques
 	}
 	// A check is the check engine's unless the request selects otherwise, as the
 	// CLI's -check-* flags are read under -engine check, smt or all.
-	engine := req.GetEngine()
-	if engine == "" {
-		engine = analysis.CheckEngineName
-	}
-	selection, err := s.engineSelection(engine)
-	if err != nil {
-		return nil, err
+	selection := analysis.Only(analysis.CheckEngineName)
+	if req.GetEngine() != "" {
+		var err error
+		if selection, err = s.engineSelection(req.GetEngine()); err != nil {
+			return nil, err
+		}
 	}
 	for _, pv := range req.GetInputs() {
 		if err := s.requireValueCapabilities(pv); err != nil {
@@ -350,10 +349,8 @@ func observationNotes(scope []runtime.ObservationReason) []string {
 	return notes
 }
 
-// checkBudget bounds a check as the REPL does: the check engine alone searches
-// under its own default depth and state count, the smt engine alone unrolls to
-// its own default (a zero depth), and beside other engines the figures are the
-// policy's; a depth or state count the request sets stands under every selection.
+// checkBudget bounds a check as the REPL does: the check or smt engine alone
+// gets its own defaults, other selections the policy's, a set bound always stands.
 func checkBudget(budget analysis.Budget, selection analysis.Selection, depth, states int) analysis.Budget {
 	checkOnly := selection == analysis.Only(analysis.CheckEngineName)
 	symbolic := selection == analysis.Only(analysis.SMTEngineName)

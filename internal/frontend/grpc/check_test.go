@@ -242,3 +242,22 @@ func TestCheckBudgetFollowsTheSelection(t *testing.T) {
 		t.Errorf("bounds set: %+v, want them under every selection", got)
 	}
 }
+
+func TestCheckBehaviorNeedsNoEnginesCapabilityByDefault(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewServiceWithout(t, CapabilityEngines)
+	hash := mustVerifyModel(t, srv, tankModel, "check-tank-no-engines")
+	resp, err := srv.CheckBehavior(ctx, &pb.CheckBehaviorRequest{
+		ModelHash: hash, ActionSymbolId: "Plant::Tank::fill", PerformerSymbolId: "Plant::tank",
+		CheckProperty: []string{"Plant::Tank::capped"}, CheckDiverge: []string{"this.capacity"},
+	})
+	if err != nil || resp.GetError() != "" || resp.Verdict != "holds" || resp.Engine != "check" {
+		t.Fatalf("CheckBehavior without engines: %v %q verdict %q, want the check engine's answer", err, resp.GetError(), resp.GetVerdict())
+	}
+	_, err = srv.CheckBehavior(ctx, &pb.CheckBehaviorRequest{
+		ModelHash: hash, ActionSymbolId: "Plant::Tank::fill", PerformerSymbolId: "Plant::tank", Engine: "smt",
+	})
+	if connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), CapabilityEngines) {
+		t.Errorf("CheckBehavior selecting smt without engines: %v, want UNIMPLEMENTED naming %s", err, CapabilityEngines)
+	}
+}
