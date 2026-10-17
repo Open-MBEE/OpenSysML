@@ -48,8 +48,8 @@ to make a preview work.
 
 ### The in-browser engines
 
-The landing diagram and the CLI page's REPL load generated assets: `docs/assets/sysml-engine.wasm.gz`,
-`sysml-repl.wasm.gz`, `wasm_exec.js` and `repl-examples/`. They are gitignored; if any is missing,
+The landing diagram and the CLI page's REPL load generated assets: `docs/assets/sysml-wasm.wasm.gz`,
+`sysml-repl.wasm.gz`, `wasm_exec.js`, `repl-examples/` and `landing/` (from `make docs-landing-assets`). They are gitignored; if any is missing,
 run `make docs-engine-assets` before building the site.
 
 The REPL walkthroughs' inputs and expected output strings live in `docs/assets/repl-walkthroughs.json`.

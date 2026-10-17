@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/engine"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestRenderViewRendersInterconnectionAndPorts(t *testing.T) {
@@ -287,7 +288,12 @@ func TestRenderViewMatchesEngineJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, _ := parseContent(t, srv, string(content))
+	parsed, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{Documents: []*pb.SourceDocument{{
+		Source: &pb.SourceDocument_Content{Content: string(content)}, Name: "opensysml-stack.sysml",
+	}}})
+	if err != nil {
+		t.Fatalf("gRPC ParseSources: %v", err)
+	}
 
 	eng, err := engine.New()
 	if err != nil {
@@ -318,9 +324,9 @@ func TestRenderViewMatchesEngineJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("engine RenderView: %v", err)
 	}
-	var engineView engine.JRenderViewResponse
-	if err := json.Unmarshal(engineBody, &engineView); err != nil {
-		t.Fatalf("decode engine RenderView: %v", err)
+	var engineView pb.RenderViewResponse
+	if err := protojson.Unmarshal(engineBody, &engineView); err != nil {
+		t.Fatalf("decode engine RenderView as protojson: %v\n%s", err, engineBody)
 	}
 	grpcView, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
 		ModelHash: parsed.ModelHash, View: viewName, Ports: "minimal",
@@ -328,75 +334,10 @@ func TestRenderViewMatchesEngineJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gRPC RenderView: %v", err)
 	}
-	if got := engineProjection(grpcView); !reflect.DeepEqual(got, engineView) {
-		t.Errorf("shared engine/gRPC render fields differ:\nengine JSON: %+v\ngRPC projection: %+v",
-			engineView, got)
+	if !proto.Equal(grpcView, &engineView) {
+		t.Errorf("engine RenderView JSON differs from the gRPC answer:\nengine: %s\ngRPC: %s",
+			engineBody, protojson.Format(grpcView))
 	}
-}
-
-func engineProjection(response *pb.RenderViewResponse) engine.JRenderViewResponse {
-	projected := engine.JRenderViewResponse{
-		View: response.View, Kind: response.Kind, Stated: response.Stated,
-		Notices: response.Notices, Shown: response.Shown, Columns: response.Columns,
-		Nodes: make([]engine.JRenderNode, 0, len(response.Nodes)),
-		Edges: make([]engine.JRenderEdge, 0, len(response.Edges)),
-	}
-	if response.Canvas != nil {
-		projected.Canvas = &engine.JRenderCanvas{Unit: response.Canvas.Unit}
-		if response.Canvas.HasSize {
-			width, height := response.Canvas.Width, response.Canvas.Height
-			projected.Canvas.Width, projected.Canvas.Height = &width, &height
-		}
-	}
-	for _, node := range response.Nodes {
-		item := engine.JRenderNode{
-			ID: node.Id, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
-			Type: node.Type, Detail: node.Detail, Parent: node.Parent,
-		}
-		if node.Style != nil {
-			item.Style = &engine.JRenderStyle{
-				Fill: node.Style.Fill, Line: node.Style.Line, Text: node.Style.Text,
-				Font: node.Style.Font, FontSize: node.Style.FontSize, Bold: node.Style.Bold,
-				Italic: node.Style.Italic,
-			}
-			item.Fill, item.Border = node.Style.Fill, node.Style.Line
-		}
-		if node.Geometry != nil {
-			x, y := node.Geometry.X, node.Geometry.Y
-			item.X, item.Y, item.Collapsed = &x, &y, node.Geometry.Collapsed
-			if node.Geometry.HasSize {
-				width, height := node.Geometry.Width, node.Geometry.Height
-				item.Width, item.Height = &width, &height
-			}
-		}
-		for _, port := range node.Ports {
-			item.Ports = append(item.Ports, engine.JRenderPort{
-				ID: port.Id, Name: port.Name, Type: port.Type, Direction: port.Direction,
-			})
-		}
-		projected.Nodes = append(projected.Nodes, item)
-	}
-	for _, edge := range response.Edges {
-		item := engine.JRenderEdge{
-			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Label, Kind: edge.Kind,
-		}
-		if edge.Style != nil {
-			item.Style = &engine.JRenderStyle{
-				Fill: edge.Style.Fill, Line: edge.Style.Line, Text: edge.Style.Text,
-				Font: edge.Style.Font, FontSize: edge.Style.FontSize, Bold: edge.Style.Bold,
-				Italic: edge.Style.Italic,
-			}
-		}
-		for _, point := range edge.Route {
-			item.Route = append(item.Route, engine.JRenderPoint{X: point.X, Y: point.Y})
-		}
-		projected.Edges = append(projected.Edges, item)
-	}
-	for _, row := range response.Rows {
-		projected.Rows = append(projected.Rows, engine.JRenderRow{Cells: row.Cells})
-	}
-	return projected
 }
 
 func TestRenderViewErrorsMatchEngineSelection(t *testing.T) {

@@ -5,7 +5,12 @@
     "moduleResolution": "Bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
-    "outDir": "../../out/webview"
+    "outDir": "../../out/webview",
+    "paths": {
+      "@openmbee/opensysml/browser": [
+        "../../../../client/node/src/browser/index.ts"
+      ]
+    }
   },
   // The extension project excludes this directory; that exclusion is inherited
   // and would leave this project with nothing of the webview in it.
