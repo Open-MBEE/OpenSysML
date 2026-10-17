@@ -143,3 +143,40 @@ func TestGRPCRobustnessImportData(t *testing.T) {
 		}
 	})
 }
+
+func TestImportDataStagesNothingInTheCache(t *testing.T) {
+	srv := mustNewService(t, 1)
+	hash := mustParse(t, srv, importModelSource)
+	resp := importData(t, srv, &pb.ImportDataRequest{ModelHash: hash, ImportDryRun: true, Imports: []*pb.DataImport{
+		{Name: "first.csv", Content: "element,count\nV::car,9\n"},
+		{Name: "second.csv", Content: "element,count\nV::vehicle,7\n"},
+	}})
+	if resp.Error != "" || len(resp.Files) != 2 || resp.ModelHash != "" {
+		t.Fatalf("dry run = %v; want two files previewed and no hash", resp)
+	}
+	if _, ok := srv.cache.Get(hash); !ok {
+		t.Fatalf("the dry run evicted the model it previewed on from a cache of one")
+	}
+	applied := importData(t, srv, &pb.ImportDataRequest{ModelHash: hash, Imports: []*pb.DataImport{
+		{Name: "first.csv", Content: "element,count\nV::car,9\n"},
+		{Name: "second.csv", Content: "element,count\nV::vehicle,7\n"},
+	}})
+	if applied.Error != "" || applied.ModelHash == "" || applied.ModelHash == hash {
+		t.Fatalf("import = %v; want a new model", applied)
+	}
+	if _, ok := srv.cache.Get(applied.ModelHash); !ok {
+		t.Errorf("the imported model %s is not cached", applied.ModelHash)
+	}
+}
+
+func TestImportDataWithoutValuesKeepsTheModel(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParse(t, srv, importModelSource)
+	resp := importData(t, srv, &pb.ImportDataRequest{ModelHash: hash, Imports: []*pb.DataImport{{Name: "empty.csv", Content: "element,count\n"}}})
+	if resp.Error != "" || len(resp.Files) != 1 || resp.Files[0].Values != 0 {
+		t.Fatalf("import = %v; want one file of no values", resp)
+	}
+	if resp.ModelHash != hash {
+		t.Errorf("model hash %q; want the unchanged model's %q", resp.ModelHash, hash)
+	}
+}

@@ -95,7 +95,7 @@ func (s *Service) ImportData(ctx context.Context, req *pb.ImportDataRequest) (*p
 			break
 		}
 		before := diagnosticErrorCounts(s.modelDiagnostics(current))
-		hash, model := s.parseModel(inputs, current.Mode, true)
+		hash, model := s.parseModelKeeping(inputs, current.Mode, true, false)
 		after := s.modelDiagnostics(model)
 		if problems := addedErrors(before, after); len(problems) > 0 {
 			resp.Diagnostics = after
@@ -107,6 +107,13 @@ func (s *Service) ImportData(ctx context.Context, req *pb.ImportDataRequest) (*p
 	if req.ImportDryRun {
 		resp.ModelHash = ""
 		return resp, nil
+	}
+	// An import that assigned nothing leaves the model as it was, under its hash;
+	// one that changed it keeps the final model alone, none staged on the way.
+	if resp.ModelHash == "" {
+		resp.ModelHash = req.ModelHash
+	} else {
+		current = s.cache.Add(resp.ModelHash, current)
 	}
 	for i, doc := range current.Documents {
 		if i < len(cached.Documents) && string(doc.Source.Bytes()) == string(cached.Documents[i].Source.Bytes()) {

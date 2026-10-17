@@ -230,6 +230,11 @@ func (s *Service) compareConfiguration(ctx context.Context, v *verifyContext, cf
 		c.Lines = append(c.Lines, "note: "+n)
 	}
 	c.Status = "holds"
+	for _, o := range comparison.Observables {
+		if !o.Compared {
+			c.Status = "undecided"
+		}
+	}
 	if len(failures) > 0 {
 		c.Status = "fails"
 	}

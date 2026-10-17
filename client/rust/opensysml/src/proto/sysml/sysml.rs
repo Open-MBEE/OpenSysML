@@ -3353,8 +3353,9 @@ pub struct ConfigurationComparison {
     pub target: ::prost::alloc::string::String,
     #[prost(string, tag="5")]
     pub result_location: ::prost::alloc::string::String,
-    /// holds when every run completed and the observables were compared, fails
-    /// when a run failed, unresolved when the configuration could not be run.
+    /// holds when every run completed and the observables were compared, undecided
+    /// when an observable asked for was not compared, fails when a run failed,
+    /// unresolved when the configuration could not be run.
     #[prost(string, tag="6")]
     pub status: ::prost::alloc::string::String,
     /// Why the configuration could not be run, when status is unresolved.

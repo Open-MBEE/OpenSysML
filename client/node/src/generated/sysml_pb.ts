@@ -7603,8 +7603,9 @@ export type ConfigurationComparison = Message<"sysml.ConfigurationComparison"> &
   resultLocation: string;
 
   /**
-   * holds when every run completed and the observables were compared, fails
-   * when a run failed, unresolved when the configuration could not be run.
+   * holds when every run completed and the observables were compared, undecided
+   * when an observable asked for was not compared, fails when a run failed,
+   * unresolved when the configuration could not be run.
    *
    * @generated from field: string status = 6;
    */

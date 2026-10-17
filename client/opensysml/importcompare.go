@@ -2,6 +2,7 @@ package opensysml
 
 import (
 	"context"
+	"time"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
@@ -157,7 +158,8 @@ type Comparison struct {
 // ConfigurationComparison is one configuration's runs beside the tool's results.
 type ConfigurationComparison struct {
 	ID, Name, Behavior, Target, ResultLocation string
-	// Status is holds, fails (a run failed) or unresolved (the configuration
+	// Status is holds, undecided (an observable asked for was not compared),
+	// fails (a run failed) or unresolved (the configuration
 	// could not be run, for the reason in Unresolved).
 	Status, Unresolved          string
 	StoredRuns, StoredSnapshots int64
@@ -166,15 +168,23 @@ type ConfigurationComparison struct {
 	Seed                        *uint64
 	ClockStep                   float64
 	Rows                        []CompareRow
-	Observables                 []ObservableComparison
-	Errors, Notes, Lines        []string
+	// Instances are the objects the rows' values refer to, by id.
+	Instances            []*Instance
+	Observables          []ObservableComparison
+	Errors, Notes, Lines []string
 }
 
 // CompareRow is one run: the run number it bound, what it produced, and the
 // error that stopped it where it failed.
 type CompareRow struct {
 	Inputs, Outputs map[string]Value
-	Error           string
+	// Verdicts are the row's objective and assertion verdicts, Evaluations each
+	// calc application the row made, as a sweep row reports them.
+	Verdicts    []*Verdict
+	Evaluations []Evaluation
+	Elapsed     time.Duration
+	Error       string
+	Reason      Reason
 }
 
 // ObservableComparison is one observable: the tool's distribution beside the
@@ -263,10 +273,17 @@ func configurationComparisonFromProto(cfg *pb.ConfigurationComparison) Configura
 		ID: cfg.Id, Name: cfg.Name, Behavior: cfg.Behavior, Target: cfg.Target, ResultLocation: cfg.ResultLocation,
 		Status: cfg.Status, Unresolved: cfg.Unresolved, StoredRuns: cfg.StoredRuns, StoredSnapshots: cfg.StoredSnapshots,
 		Runs: cfg.Runs, Completed: cfg.Completed, Draws: cfg.Draws, Seed: cfg.Seed, ClockStep: cfg.ClockStep,
-		Errors: cfg.Errors, Notes: cfg.Notes, Lines: cfg.Lines,
+		Errors: cfg.Errors, Notes: cfg.Notes, Lines: cfg.Lines, Instances: instancesFromProto(cfg.Instances),
 	}
 	for _, row := range cfg.Rows {
-		r := CompareRow{Inputs: make(map[string]Value, len(row.Inputs)), Outputs: make(map[string]Value, len(row.Outputs)), Error: row.Error}
+		r := CompareRow{
+			Inputs: make(map[string]Value, len(row.Inputs)), Outputs: make(map[string]Value, len(row.Outputs)),
+			Evaluations: evaluationsFromProto(row.Evaluations), Elapsed: time.Duration(row.ElapsedMicros) * time.Microsecond,
+			Error: row.Error, Reason: Reason(row.FailureReason),
+		}
+		for _, verdict := range row.Verdicts {
+			r.Verdicts = append(r.Verdicts, verdictFromProto(verdict))
+		}
 		for _, in := range row.Inputs {
 			r.Inputs[in.Name] = valueFromProto(in.Value)
 		}
