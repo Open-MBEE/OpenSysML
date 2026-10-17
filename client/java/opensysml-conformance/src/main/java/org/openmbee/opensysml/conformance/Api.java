@@ -1102,9 +1102,16 @@ final class Api {
               Optional.of(dataImport.getImportFormat()).filter(Predicate.not(String::isEmpty)),
               Optional.of(dataImport.getImportMap()).filter(Predicate.not(String::isEmpty))));
     }
-    return model
-        .importData(imports, request.getImportDryRun(), request.getAcceptDocuments())
-        .wire();
+    try {
+      return model
+          .importData(imports, request.getImportDryRun(), request.getAcceptDocuments())
+          .wire();
+    } catch (ModelException e) {
+      return ImportDataResponse.newBuilder()
+          .setError(e.getMessage())
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
+    }
   }
 
   private CompareResultsResponse compareResults(CompareResultsRequest request) {
