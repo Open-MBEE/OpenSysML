@@ -31,11 +31,11 @@
           "distributions": [
             {
               "name": "t",
-              "count": "4",
+              "count": 4,
               "numeric": true
             }
           ],
-          "seed": "7"
+          "seed": 7
         },
         "counts": {
           "rows": 4
