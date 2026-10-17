@@ -59,6 +59,28 @@ public record Analysis(
   }
 
   /**
+   * Creates an analysis that previewed no tool call.
+   *
+   * @param outputs the outputs by name
+   * @param verdicts the verdicts
+   * @param verifications the body verdicts
+   * @param evaluations the evaluations
+   * @param instances the objects
+   * @param diagnostics the diagnostics
+   * @param standing the standing, never {@code null}
+   */
+  public Analysis(
+      Map<String, Value> outputs,
+      List<Verdict> verdicts,
+      List<VerificationVerdict> verifications,
+      List<CaseEvaluation> evaluations,
+      List<Instance> instances,
+      List<Diagnostic> diagnostics,
+      Standing standing) {
+    this(outputs, verdicts, verifications, evaluations, instances, diagnostics, standing, Optional.empty());
+  }
+
+  /**
    * Whether every objective and assertion was decided and held. A case stating none holds
    * trivially.
    *
