@@ -498,9 +498,10 @@ func (ctx *Context) performanceParameters(performed, callee *symbols.Symbol) ([]
 	return ctx.actionParametersOf(held), nil
 }
 
-// toolInput is one parameter's value as the protocol carries it: a number, truth or string
-// as is, a quantity as the run holds it, its unit spelt by short names (`km/h`).
+// toolInput is one parameter's value as the protocol carries it (a scalar, a quantity with its
+// unit by short names); a one-element collection is sent as its element, several as Items.
 func toolInput(tool string, param *symbols.Symbol, held Value) (ToolValue, error) {
+	held = soleElement(held)
 	if v, ok := ToolValueOf(held); ok {
 		return v, nil
 	}
@@ -509,10 +510,9 @@ func toolInput(tool string, param *symbols.Symbol, held Value) (ToolValue, error
 }
 
 // ToolValueOf is a value as the tool protocol carries it; false for one it does not carry.
-// A one-element collection is its element; a sequence carries its elements in Items,
-// with a unit every element shares hoisted to the sequence's Unit.
+// A sequence carries its elements in Items; a unit every element shares is hoisted
+// to the sequence's Unit.
 func ToolValueOf(held Value) (ToolValue, bool) {
-	held = soleElement(held)
 	switch held.Kind {
 	case ValConst:
 		if held.Const.Kind == semantics.ValInvalid || held.Const.Kind == semantics.ValInfinity {

@@ -158,7 +158,7 @@ func TestComplexCrossesEveryValueSurface(t *testing.T) {
 		t.Fatalf("ExecuteAction: err = %v, error = %q", err, act.GetError())
 	}
 	// The bare `out w` is [0..*], so the one result crosses the wire as a one-element sequence.
-	if w := soleElement(act.Outputs["w"]); w.GetComplex() == nil || protoconv.ProtoToComplex(w.GetComplex()) != complex(2, -5) {
+	if w := soleElement(t, "w", act.Outputs["w"]); w.GetComplex() == nil || protoconv.ProtoToComplex(w.GetComplex()) != complex(2, -5) {
 		t.Errorf("output w = %v, want a one-element sequence of complex 2.0 - 5.0i", act.Outputs["w"])
 	}
 
@@ -248,10 +248,13 @@ func TestComplexInputNeedsComplexValues(t *testing.T) {
 	}
 }
 
-// soleElement is the one element a one-element sequence value carries, else the value itself.
-func soleElement(v *pb.Value) *pb.Value {
-	if els := v.GetSequence().GetElements(); len(els) == 1 {
-		return els[0]
+// soleElement is the one element a one-element sequence value carries; any other shape,
+// a bare scalar included, fails the test, so a multi-valued pin cannot regress to a scalar.
+func soleElement(t *testing.T, name string, v *pb.Value) *pb.Value {
+	t.Helper()
+	els := v.GetSequence().GetElements()
+	if v.GetSequence() == nil || len(els) != 1 {
+		t.Fatalf("%s = %v, want a one-element sequence", name, v)
 	}
-	return v
+	return els[0]
 }

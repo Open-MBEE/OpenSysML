@@ -176,8 +176,16 @@ func (ctx *Context) checkTargetHeld(scope *symbols.Scope, what func() string, ta
 	if msg := ctx.uniquenessRefusal(target.unique, target.holdsSet, value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}
-	if countJudged && shaped {
+	if !countJudged {
+		return nil
+	}
+	if shaped {
 		return ctx.shapeForTarget(target, value)
+	}
+	// A computed host keeps a multi-valued target as computed, but a target of at most
+	// one value still holds the element: a [1] output fed from a bare pin is its value.
+	if target.mult.Upper.Known && !multiValued(target.mult) {
+		*value = soleElement(*value)
 	}
 	return nil
 }
@@ -192,7 +200,7 @@ func (ctx *Context) checkNamedWriteComputed(scope *symbols.Scope, where, name st
 // its values, as an occurrence feature does (admitted): a multi-valued target holds a
 // collection however the value was written, a single-valued one its sole element.
 func (ctx *Context) shapeForTarget(target *writeTarget, value *Value) error {
-	if !target.mult.Upper.Known || value.Kind == ValInvalid {
+	if !target.mult.Upper.Known || value.Kind == ValInvalid || value.Kind == ValUndetermined {
 		return nil
 	}
 	if !multiValued(target.mult) {

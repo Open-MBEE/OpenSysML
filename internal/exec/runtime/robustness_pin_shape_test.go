@@ -4,6 +4,9 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // TestRuntimeRobustnessPinShape exercises the shape a performed action's pin holds its
@@ -15,6 +18,8 @@ func TestRuntimeRobustnessPinShape(t *testing.T) {
 	t.Run("scalar_pin_assigned_from_a_two_element_pin_is_refused", testPinShapeScalarAssignedTwoElements)
 	t.Run("bare_pin_holding_one_object_addresses_a_send", testPinShapeBarePinAddressesSend)
 	t.Run("two_values_in_a_bare_pin_are_no_operand", testPinShapeTwoValuesAreNoOperand)
+	t.Run("undetermined_count_survives_a_multi_valued_target", testPinShapeUndeterminedSurvives)
+	t.Run("one_element_tool_input_is_sent_as_its_element", testPinShapeToolInputSendsElement)
 }
 
 func pinShapeModel(pins, body string) string {
@@ -76,5 +81,40 @@ func testPinShapeBarePinAddressesSend(t *testing.T) {
 	}
 	if got := FormatValue(outputs["sent"]); got != "4" {
 		t.Fatalf("sent = %s, want 4", got)
+	}
+}
+
+func testPinShapeUndeterminedSurvives(t *testing.T) {
+	known := func(n int64) semantics.Bound { return semantics.Bound{Value: n, Known: true} }
+	count := semantics.Range{Lower: known(2), Upper: known(4)}
+	value := NewUndeterminedValue(noValueReason("xs"), count)
+	target := &writeTarget{mult: count, countJudged: true}
+	if err := emptyRuntimeContext().shapeForTarget(target, &value); err != nil {
+		t.Fatalf("shapeForTarget: %v", err)
+	}
+	if value.Kind != ValUndetermined {
+		t.Fatalf("an undetermined value shaped for a [2..4] target is %s, want it kept undetermined", value.Kind)
+	}
+	if got := unknownCountOf(value); got != count {
+		t.Fatalf("count = %v, want %v kept", got, count)
+	}
+}
+
+func testPinShapeToolInputSendsElement(t *testing.T) {
+	one := sequenceOf([]Value{integerValue(7)})
+	sent, err := toolInput("probe", &symbols.Symbol{Name: "xs"}, one)
+	if err != nil {
+		t.Fatalf("one-element input: %v", err)
+	}
+	if sent.Items != nil || sent.Value.Int != 7 {
+		t.Fatalf("a parameter holding [7] sends %+v, want the scalar 7", sent)
+	}
+	two := sequenceOf([]Value{integerValue(7), integerValue(8)})
+	sent, err = toolInput("probe", &symbols.Symbol{Name: "xs"}, two)
+	if err != nil {
+		t.Fatalf("two-element input: %v", err)
+	}
+	if len(sent.Items) != 2 {
+		t.Fatalf("a parameter holding [7, 8] sends %+v, want two Items", sent)
 	}
 }
