@@ -2,6 +2,7 @@ package opensysml
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -402,6 +403,8 @@ type recordOptions struct {
 	ranges    []*pb.SweepRange
 	runs      int64
 	seed      *uint64
+	// err is the first option that could not be encoded, refused before the call.
+	err error
 }
 
 // RecordSubject names the part/usage to instantiate as the case's subject.
@@ -436,9 +439,18 @@ func RecordInto(pkg string) RecordOption {
 func RecordRange(parameter string, start, end, step Value) RecordOption {
 	return func(o *recordOptions) {
 		r := &pb.SweepRange{Parameter: parameter}
-		r.Start, _ = valueToProto(start)
-		r.End, _ = valueToProto(end)
-		r.Step, _ = valueToProto(step)
+		var err error
+		for _, bound := range []struct {
+			into **pb.Value
+			from Value
+		}{{&r.Start, start}, {&r.End, end}, {&r.Step, step}} {
+			if bound.from == nil {
+				continue
+			}
+			if *bound.into, err = valueToProto(bound.from); err != nil && o.err == nil {
+				o.err = fmt.Errorf("RecordRange %s: %w", parameter, err)
+			}
+		}
 		o.ranges = append(o.ranges, r)
 	}
 }
@@ -455,6 +467,9 @@ func (c *client) RecordRun(ctx context.Context, model *Model, caseID string, opt
 	var options recordOptions
 	for _, opt := range opts {
 		opt(&options)
+	}
+	if options.err != nil {
+		return nil, options.err
 	}
 	hash, err := c.call(model)
 	if err != nil {

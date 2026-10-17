@@ -53,6 +53,13 @@ func (s *Service) RunRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunR
 	if req.AnalysisSymbolId != "" && len(req.Observe) > 0 {
 		return nil, statusErrorf(connect.CodeInvalidArgument, "a Monte Carlo case observes what it declares; observe names an action's features")
 	}
+	seen := make(map[string]bool, len(req.Observe))
+	for _, name := range req.Observe {
+		if seen[name] {
+			return nil, statusErrorf(connect.CodeInvalidArgument, "observe names %s twice; each feature is observed once", name)
+		}
+		seen[name] = true
+	}
 	if req.ActionSymbolId != "" && (len(req.Arguments) > 0 || len(req.NamedArguments) > 0 || req.SubjectSymbolId != "") {
 		return nil, statusErrorf(connect.CodeInvalidArgument, "an action takes inputs and a performer; arguments, named_arguments and subject_symbol_id are a case's")
 	}

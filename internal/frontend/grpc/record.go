@@ -304,12 +304,15 @@ func (s *Service) mergeRecord(cached *CachedModel, src string, resp *pb.RecordRu
 		edited = &pb.EditedDocument{Name: name, Content: src}
 	}
 	before := errorCounts(s.modelDiagnostics(cached))
-	hash, model := s.parseModel(inputs, cached.Mode, true)
+	// The edited model is staged, and cached only once it is known to be valid,
+	// so a refused recording evicts nothing.
+	hash, model := s.parseModelKeeping(inputs, cached.Mode, true, false)
 	after := s.modelDiagnostics(model)
 	if problems := newErrors(before, after); len(problems) > 0 {
 		resp.Diagnostics = after
 		return fmt.Errorf("the model was left unchanged: %s", strings.Join(problems, "; "))
 	}
+	s.cache.Add(hash, model)
 	resp.ModelHash = hash
 	resp.Documents = []*pb.EditedDocument{edited}
 	if len(cached.Documents) == 1 && target == 0 {
