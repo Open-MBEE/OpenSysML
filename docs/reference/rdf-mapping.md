@@ -2192,13 +2192,19 @@ any graph this mapping holds:
   full document uses for the same target (`unresolved:`-derived, recoverable
   from the reference's `x-sysmlv2-unresolved-reference` textual annotation)
   reads as the same name.
-- **A succession from a nameless member is written by position.** The
-  toolkit resolves the source end of `entry; then idle;` to the empty
+- **A succession from a nameless or derived member is written by position.**
+  The toolkit resolves the source end of `entry; then idle;` to the empty
   `ActionUsage` the `entry` membership owns, which no `first` clause could
   name; a source that is the member written before the succession — or the
   action a nameless `entry;`/`do;`/`exit;` membership owns — comes back as
   `then idle;` beside it (SysML v2 1.0 § 7.17.4), the way a source the
-  toolkit leaves unresolved already does.
+  toolkit leaves unresolved already does. An end the toolkit reaches only
+  through an implied `ReferenceSubsetting` (`isImplied`) was never written,
+  so `then done;` after a named action stays `then done;` rather than
+  `succession first a then done;`, and a `then` whose target the toolkit
+  likewise derived is attached to the declaration beside it (`then action
+  step2;`), while a written target beside its declaration stays `then idle;
+  state idle;`.
 - **Ends the notation alone cannot place are refused.** Where a member's two
   collapsed ends disagree, or an element names no owner it can sit under,
   `-convert sysml` fails rather than guesses a position.
