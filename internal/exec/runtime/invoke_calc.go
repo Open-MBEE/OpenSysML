@@ -70,10 +70,10 @@ func (d *calcMemberDecl) check(ctx *Context, value *Value, what func() string) e
 	if msg := ctx.writeCountRefusal(d.Target, value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what(), ErrMultiplicityViolation, msg)
 	}
-	if d.Target.mult.AtMostOne() {
-		*value = soleElement(*value)
-	} else if d.holdsCollection() {
-		*value = ctx.heldCollection(d.Target, *value)
+	if d.Target.mult.AtMostOne() || d.holdsCollection() {
+		if err := ctx.shapeForTarget(d.Target, value); err != nil {
+			return fmt.Errorf("%s: %w", what(), err)
+		}
 	}
 	if refusal, refused := ctx.writeTypeRefusal(DeclScope(d.Owner), d.Target.typ, value, admitWritten); refused {
 		return fmt.Errorf("%s: %w: %s", what(), ErrTypeMismatch, refusal)

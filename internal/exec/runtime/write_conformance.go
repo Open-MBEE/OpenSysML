@@ -23,24 +23,6 @@ type writeTarget struct {
 	readOnly    semantics.ReadOnly // why no behavior may write feature, if none may
 }
 
-// heldCollection is value as the collection target, declared to hold more than one value,
-// keeps: one value is a one-element collection, none an empty one, a collection its declared kind.
-func (ctx *Context) heldCollection(target *writeTarget, value Value) Value {
-	kind := &EffectiveFeature{HoldsSet: target.holdsSet}
-	switch value.Kind {
-	case ValSequence, ValSet:
-		if target.holdsSet != (value.Kind == ValSet) {
-			return ctx.collectionOf(kind, elementsOf(value))
-		}
-		return value
-	case ValNull:
-		return ctx.collectionOf(kind, nil)
-	case ValInvalid:
-		return value
-	}
-	return ctx.collectionOf(kind, []Value{value})
-}
-
 // admission is how an object written to a feature answers to the feature's type: a declared value
 // or binding classifies the object it holds (KerML 1.0 §7.3.4.1); a write or message takes it as it is.
 type admission uint8
