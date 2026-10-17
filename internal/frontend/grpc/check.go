@@ -89,9 +89,6 @@ func (s *Service) CheckBehavior(ctx context.Context, req *pb.CheckBehaviorReques
 		witnessDir = dir
 	}
 
-	runtimeCtx, release := s.newRuntime(ctx, cached)
-	defer release()
-
 	starter := func(rt *runtime.Context) (*runtime.Invocation, error) {
 		inputs := make(map[string]runtime.Value, len(req.GetInputs()))
 		for name, pv := range req.GetInputs() {
@@ -178,7 +175,6 @@ func (s *Service) CheckBehavior(ctx context.Context, req *pb.CheckBehaviorReques
 		budget.Deadline = time.Now().Add(d)
 		budget.Solver = d
 	}
-	_ = runtimeCtx
 	plan, err := s.engines.Check(ctx, analysis.Request{
 		Model:     s.model(cached),
 		Subject:   id,
