@@ -1,7 +1,7 @@
 // The landing page's hero diagram: the stack model as the engine renders it, laid out
 // by ELK, its wires rerouted by libavoid around the boxes a visitor moves, drawn by
 // the same canvas code as the VS Code diagram panel.
-import type { LayoutGeometry, RenderPoint, RenderResult } from "../protocol";
+import type { LayoutGeometry, RenderPoint } from "../protocol";
 import { autoLayout, type AutoLayout } from "../webview/autolayout";
 import { CLEARANCE, loadAvoid, portExitReach } from "../webview/avoid";
 import { cssEscape, drawCanvas } from "../webview/canvas";
@@ -17,13 +17,15 @@ import {
   type PlacedNode,
   type PlacedPort,
 } from "../webview/layout";
-import type { Connection } from "@openmbee/opensysml/browser";
+import { renderedViewFromJson, type Connection } from "@openmbee/opensysml/browser";
 import { connectModule } from "./connect";
 import {
+  blocks,
   debugSteps,
   journey,
   landingModel,
   readModel,
+  renderResult,
   runJourney,
   type DebugStep,
   type Diagnostic,
@@ -182,7 +184,7 @@ function mount(root: HTMLElement, scene: Scene): Mounted {
   let model = landingModel(
     scene.rootSymbol,
     stack.hash,
-    stack.render as unknown as RenderResult,
+    renderResult(renderedViewFromJson(stack.render)),
     stack.instances as unknown as EngineInstance[],
   );
   let result = presented(model);
@@ -530,8 +532,8 @@ function mount(root: HTMLElement, scene: Scene): Mounted {
   async function read(source: string, verb: string): Promise<LandingModel | undefined> {
     const started = performance.now();
     const outcome = await readModel(await engine(), scene, source);
-    if (outcome.diagnostics.length > 0 || !outcome.model) {
-      const first = outcome.diagnostics[0];
+    if (!outcome.model) {
+      const first = outcome.diagnostics.find(blocks) ?? outcome.diagnostics[0];
       srcEl.setAttribute("aria-invalid", "true");
       status(`Not ${verb}: ${first ? diagnosticText(first) : "the model has nothing to draw"}. The diagram shows the last model that read cleanly.`, true);
       return undefined;

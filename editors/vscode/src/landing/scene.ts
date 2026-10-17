@@ -16,6 +16,8 @@ export interface Scene {
   rootSymbol: string;
   /** The view RenderView draws: a declared view's qualified name or a targeted pseudo-view. */
   view: string;
+  /** The optional notation the drawing shows, as RenderView's `show` names it. */
+  show: readonly string[];
   journey: SceneJourney;
 }
 
@@ -24,6 +26,7 @@ export const STACK_SCENE: Scene = {
   documentName: "opensysml-stack.sysml",
   rootSymbol: "OpenSysMLStack::stack",
   view: "#interconnection:OpenSysMLStack::stack",
+  show: ["edge-labels", "typings", "keywords"],
   journey: {
     symbol: "OpenSysMLStack::ModelJourney",
     events: ["Commit", "Pull", "Push", "Check"],

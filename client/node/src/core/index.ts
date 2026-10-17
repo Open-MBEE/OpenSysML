@@ -72,6 +72,7 @@ export type {
   RenderStyle,
   RenderedView,
 } from "./render-view.js";
+export { renderedViewFromJson } from "./render-view.js";
 export type { Graphs } from "./graphs.js";
 export {
   ENGINE_ALL,

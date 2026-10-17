@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import type { Connection, DocumentEvent, Instance, RenderedView } from "@openmbee/opensysml/browser";
-import { ExecutionError } from "@openmbee/opensysml/browser";
+import type { Connection, DocumentEvent, Instance } from "@openmbee/opensysml/browser";
+import { ExecutionError, renderedViewFromJson } from "@openmbee/opensysml/browser";
 import type { RenderResult } from "../protocol";
 import {
   EngineInstance,
@@ -11,6 +11,7 @@ import {
   landingModel,
   journey,
   readModel,
+  renderResult,
   runJourney,
   TraceRecord,
 } from "./model";
@@ -18,12 +19,14 @@ import { STACK_SCENE } from "./scene";
 
 interface LandingFixture {
   hash: string;
-  render: Omit<RenderResult, "form" | "artifact" | "version">;
+  /** The protojson RenderViewResponse the module answered. */
+  render: unknown;
   instances: EngineInstance[];
 }
 
 const fixture = JSON.parse(readFileSync("src/landing/stack.json", "utf8")) as LandingFixture;
-const fixtureRender = fixture.render as RenderResult;
+const fixtureView = renderedViewFromJson(fixture.render);
+const fixtureRender: RenderResult = renderResult(fixtureView);
 
 const PROJECTS = ["flexo", "opensysml", "pilot"];
 const COMPONENTS: Record<string, string[]> = {
@@ -87,47 +90,6 @@ test("landingModel keeps each project's components inside it, with their own att
   assert.equal(model.parts.get("flexo.layer1")?.attrs.label, "Layer 1 service");
 });
 
-/** The fixture's rendering as the typed client decodes it: absent fields are empty, not missing. */
-function typedRender(render: RenderResult): RenderedView {
-  return {
-    view: render.view,
-    kind: render.kind,
-    stated: render.stated,
-    shown: render.shown ?? [],
-    columns: render.columns ?? [],
-    rows: (render.rows ?? []).map((row) => ({ cells: row.cells })),
-    notes: [],
-    notices: render.notices,
-    nodes: render.nodes.map((node) => ({
-      id: node.id,
-      kind: node.kind,
-      name: node.name,
-      nameSynthesized: false,
-      type: node.type,
-      detail: node.detail,
-      text: "",
-      standIn: false,
-      parent: node.parent ?? "",
-      ports: (node.ports ?? []).map((port) => ({
-        id: port.id,
-        name: port.name,
-        type: port.type ?? "",
-        direction: port.direction ?? "",
-      })),
-    })),
-    edges: render.edges.map((edge) => ({
-      from: edge.from,
-      to: edge.to,
-      fromPort: edge.fromPort ?? "",
-      toPort: edge.toPort ?? "",
-      label: edge.label,
-      name: "",
-      kind: edge.kind,
-      route: [],
-    })),
-  };
-}
-
 /** The fixture's instances as the typed client decodes them. */
 function typedInstance(instance: EngineInstance): Instance {
   const features = new Map();
@@ -185,7 +147,7 @@ function fakeConnection(answers: FakeAnswers = {}): { connection: Connection; ca
     },
     renderView(...params: unknown[]) {
       calls.push({ method: "RenderView", params });
-      return Promise.resolve(typedRender(fixtureRender));
+      return Promise.resolve(fixtureView);
     },
     executeState(...params: unknown[]) {
       calls.push({ method: "ExecuteState", params });
@@ -222,7 +184,11 @@ test("readModel requests a minimal interconnection render before instantiating t
   assert.ok(read.model);
   assert.deepEqual(calls.map(({ method }) => method), ["ParseSources", "RenderView", "Instantiate"]);
   assert.deepEqual(calls[0].params, [[["opensysml-stack.sysml", "model source"]]]);
-  assert.deepEqual(calls[1].params, [fixture.hash, "#interconnection:OpenSysMLStack::stack", { ports: "minimal" }]);
+  assert.deepEqual(calls[1].params, [
+    fixture.hash,
+    "#interconnection:OpenSysMLStack::stack",
+    { ports: "minimal", show: ["edge-labels", "typings", "keywords"] },
+  ]);
   assert.deepEqual(calls[2].params, [fixture.hash, "OpenSysMLStack::stack"]);
   // The typed rendering and instances read back to the same model the fixture does.
   const expected = landingModel(STACK_SCENE.rootSymbol, fixture.hash, fixtureRender, fixture.instances);

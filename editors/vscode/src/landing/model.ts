@@ -161,6 +161,11 @@ export function renderResult(view: RenderedView): RenderResult {
   return result as RenderResult;
 }
 
+/** An error stops the drawing; a warning or a note comes back beside the model. */
+export function blocks(diagnostic: Diagnostic): boolean {
+  return diagnostic.severity === undefined || diagnostic.severity === "error";
+}
+
 function diagnosticOf(diagnostic: ModelDiagnostic): Diagnostic {
   return {
     message: diagnostic.message,
@@ -270,10 +275,10 @@ export async function readModel(connection: Connection, scene: Scene, source: st
     throw error;
   }
   const diagnostics = parsed.diagnostics.map(diagnosticOf);
-  if (diagnostics.length > 0) {
+  if (diagnostics.some(blocks)) {
     return { diagnostics };
   }
-  const render = renderResult(await connection.renderView(parsed.hash, scene.view, { ports: "minimal" }));
+  const render = renderResult(await connection.renderView(parsed.hash, scene.view, { ports: "minimal", show: scene.show }));
   const tree = await parsed.instantiate(scene.rootSymbol);
   const instances = [tree.root, ...tree.all.filter((instance) => instance.id !== tree.root.id)].map(instanceRecord);
   return { diagnostics, model: landingModel(scene.rootSymbol, parsed.hash, render, instances) };
