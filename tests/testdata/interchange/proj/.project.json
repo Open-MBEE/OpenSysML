@@ -1,0 +1,10 @@
+{
+  "name": "demo",
+  "publisher": "example",
+  "version": "0.1.0",
+  "usage": [
+    { "resource": "https://www.omg.org/spec/KerML/20250201/Data-Type-Library.kpar" },
+    { "resource": "pkg:registry/acme/widgets" },
+    { "resource": "https://example.org/projects/acme/vendored-parts" }
+  ]
+}

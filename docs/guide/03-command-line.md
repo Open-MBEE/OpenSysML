@@ -322,6 +322,67 @@ to a `Real` round: `-enable-lint rounded-real-literal` switches it on (`%lint
 rounded-real-literal on`, `enabledLints`). [The diagnostics reference](../reference/diagnostics.md)
 states exactly what each reports.
 
+## Working inside a package-manager project
+
+A SysML v2 package manager installs the projects a model uses into a directory inside the
+user's project, each in the OMG project interchange layout: a `.project.json` naming the
+project (its `name`, `publisher`, `version` and the `usage` entries whose `resource` IRIs
+name the projects it uses in turn) beside the model files. The user's own project root has a
+`.project.json` of the same shape. A directory holding one is a project, and `sysml` reads
+the file to find what the project uses — never a lock file, and never over the network.
+
+With such a project (here one `sysand` manages, whose installed projects live under
+`.sysand/lib`):
+
+```text
+proj/
+  .project.json                 usage: pkg:example/acme/widgets, …
+  model/main.sysml              private import Widgets::*;
+  .sysand/lib/
+    acme-widgets_1.0.0/
+      .project.json             publisher acme, name Widgets, usage: pkg:example/acme/gears
+      Widgets.sysml
+    acme-gears_2.0.0/
+      .project.json
+      Gears.kerml
+```
+
+the installed projects are found automatically:
+
+```console
+$ sysml -validate proj                 # the project and every project it uses
+$ sysml -validate proj/model/main.sysml  # Widgets, then Gears, found through the usages
+$ sysml -validate proj/.sysand/lib/acme-widgets_1.0.0   # Gears found beside it
+```
+
+Naming the project directory loads its own files and those of the projects its usages
+select, directly or through their own usages, as the package manager's own file listing
+would (`sysml -validate "$(sysand sources)"` still works as before). Naming a file keeps
+the usual search for the root namespaces it imports, which now also looks in the file's
+project and in the projects that uses. An installed project is matched to a usage by its
+own `.project.json`, never by its directory name: the resource IRI's last two path segments
+are its publisher and name (compared as lower-case slugs, so `Requirements Management`
+answers to `…/ode4hera/requirements-management`), and of several installed versions the one
+a `versionConstraint` names exactly is taken, else the latest. The standard library's
+`https://www.omg.org/spec/KerML/…/*.kpar` usages are answered by the bundled library.
+Hidden directories other than the library directories stay out of the search, and the
+diagnostics of the files loaded this way are reported like those of any other file the
+search finds.
+
+Another provider that installs projects elsewhere needs only its directory named. Each of
+the following adds a directory to look for installed projects under, besides the well-known
+ones in the project; the directory may hold the projects at any depth:
+
+```console
+$ sysml -library-root /path/to/store -validate proj     # repeatable, or a PATH-style list
+$ OPENSYSML_LIBRARY_ROOTS=/path/to/store sysml -validate proj
+```
+
+The language server reads the same variable, takes `sysml-lsp -library-root`, and a client
+that sends settings can name the directories with the `libraryRoots` list setting
+([LSP extensions](../reference/lsp.md#library-roots-setting)); see
+[Editors](08-editors.md#working-inside-a-package-manager-project).
+
 ## Running behavior
 
 The debuggers have non-interactive forms that run to completion and report the values they

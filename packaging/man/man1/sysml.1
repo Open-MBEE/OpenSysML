@@ -56,6 +56,11 @@ comma\-separated or repeated
 Report this opt\-in lint, off by default, in the model's diagnostics:
 rounded\-real\-literal, comma\-separated or repeated; \-disable\-lint wins
 .TP
+.BR \-library\-root " \fIdir\fP"
+Look for the installed projects a loaded file's project uses under this
+directory too, besides the well\-known ones in the project (.sysand/lib);
+separated as PATH is or repeated, added to OPENSYSML_LIBRARY_ROOTS
+.TP
 .B \-no\-record\-cache
 Parse every file loaded and hold it loaded, reading no interface record from
 the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0
@@ -1212,6 +1217,11 @@ prefixed "sysml: " unless it locates a finding in the source.
 .B OPENSYSML_LIBRARY_PATH
 Directory to load the SysML/KerML standard library from, instead of the copy
 embedded in the binary.
+.TP
+.B OPENSYSML_LIBRARY_ROOTS
+Directories, separated as PATH is, to look for installed projects under when a
+loaded file belongs to a project (a directory holding .project.json), besides
+the project's own well\-known library directory (.sysand/lib).
 .TP
 .B OPENSYSML_MAX_STEPS
 Expression evaluations one run may spend before it is reported as a runaway.

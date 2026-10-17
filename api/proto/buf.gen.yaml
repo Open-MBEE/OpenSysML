@@ -1,13 +1,13 @@
 version: v2
-# Every generated stub in the repository, Go and Java, with plugin versions pinned inline.
-# Run via `make proto`.
+# The committed Go stubs, with plugin versions pinned inline. Run via `make proto-buf`.
 #
-# The proto declares no java_package, so managed mode supplies one. Those two Java options are
-# part of the descriptor, hence the only Go-side change: two more bytes of file options.
+# The proto declares no java_package, so managed mode supplies one, and the Java client's Maven
+# build appends the same two options to its generation-time copy of the schema, so both
+# descriptors carry the same file options. They are the only Go-side effect: two more bytes.
 managed:
   enabled: true
   # Managed mode rewrites file options in the descriptor every plugin sees, so only the two
-  # the Java client needs are left on; the rest would change api/proto for nothing.
+  # the Java client sets are left on; the rest would change api/proto for nothing.
   disable:
     - file_option: java_outer_classname
     - file_option: objc_class_prefix
@@ -30,7 +30,3 @@ plugins:
   - local: ["go", "run", "connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.20.0"]
     out: api/proto
     opt: paths=source_relative
-  # Java message classes only: the client speaks the Connect protocol over java.net.http, so
-  # grpc-java (and Netty) is not a dependency of it. The remote plugin needs network access.
-  - remote: buf.build/protocolbuffers/java:v33.1
-    out: client/java/opensysml-client/src/main/java

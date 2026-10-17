@@ -193,6 +193,7 @@ var Unserved = map[string]string{
 // its files and its output, not a model.
 var CLIOnly = map[string]string{
 	"no-record-cache":      "a server start option (sysml-mcp -no-record-cache)",
+	"library-root":         "a load option; the server reads OPENSYSML_LIBRARY_ROOTS",
 	"json":                 "output formatting; every tool answers protojson",
 	"format":               "output formatting; every tool answers protojson, and SARIF and JUnit are written for a CI service reading files",
 	"baseline":             "reads a file on the host and shapes the exit status; a tool answers every diagnostic",
