@@ -97,9 +97,9 @@ type checkOptions struct {
 	freeInputs []string
 	assume     []string
 	witness    bool
-	depth      int
-	states     int
-	unroll     int
+	depth      int32
+	states     int32
+	unroll     int32
 	timeout    float64
 	engine     string
 }
@@ -141,7 +141,7 @@ func CheckWitnessFiles() CheckOption {
 
 // CheckBounds limits the search: moves per schedule, states visited, loop
 // unrollings and seconds; zero leaves each at the engine's default.
-func CheckBounds(depth, states, unroll int, timeout float64) CheckOption {
+func CheckBounds(depth, states, unroll int32, timeout float64) CheckOption {
 	return func(o *checkOptions) { o.depth, o.states, o.unroll, o.timeout = depth, states, unroll, timeout }
 }
 
@@ -192,9 +192,9 @@ func (c *client) checkBehavior(ctx context.Context, model *Model, actionID, stat
 		CheckInput:           options.freeInputs,
 		CheckAssume:          options.assume,
 		CheckWitness:         options.witness,
-		CheckDepth:           int32(options.depth),
-		CheckStates:          int32(options.states),
-		CheckUnroll:          int32(options.unroll),
+		CheckDepth:           options.depth,
+		CheckStates:          options.states,
+		CheckUnroll:          options.unroll,
 		CheckTimeout:         options.timeout,
 		Engine:               options.engine,
 	}

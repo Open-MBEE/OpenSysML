@@ -1853,7 +1853,7 @@ func (c *pkgClient) checkBehavior(ctx context.Context, request protoreflect.Mess
 		opensysml.CheckInputs(inputs), opensysml.CheckPerformer(req.PerformerSymbolId),
 		opensysml.CheckProperties(req.CheckProperty...), opensysml.CheckDiverge(req.CheckDiverge...),
 		opensysml.CheckFreeInputs(req.CheckInput...), opensysml.CheckAssume(req.CheckAssume...),
-		opensysml.CheckBounds(int(req.CheckDepth), int(req.CheckStates), int(req.CheckUnroll), req.CheckTimeout),
+		opensysml.CheckBounds(req.CheckDepth, req.CheckStates, req.CheckUnroll, req.CheckTimeout),
 		opensysml.CheckEngine(req.Engine),
 	}
 	if req.CheckWitness {

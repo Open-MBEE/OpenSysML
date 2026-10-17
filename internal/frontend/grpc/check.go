@@ -216,9 +216,9 @@ func (s *Service) checkResponse(label string, plan analysis.Plan, witnessDir str
 	if checked := result.Check(); checked != nil && checked.Report != nil {
 		report := checked.Report
 		search := &pb.CheckSearch{
-			States:      int32(report.States),
-			Moves:       int32(report.Moves),
-			MaxDepth:    int32(report.MaxDepth),
+			States:      int32Clamp(report.States),
+			Moves:       int32Clamp(report.Moves),
+			MaxDepth:    int32Clamp(report.MaxDepth),
 			BoundsHit:   report.BoundsHit,
 			MassBounded: report.MassBounded,
 			Notes:       observationNotes(report.Scope),
@@ -235,7 +235,7 @@ func (s *Service) checkResponse(label string, plan analysis.Plan, witnessDir str
 			violation := &pb.CheckViolation{
 				Kind:        v.Kind.String(),
 				Property:    v.Name,
-				Depth:       int32(v.Depth),
+				Depth:       int32Clamp(v.Depth),
 				Probability: v.Mass,
 				Witness:     checkWitness(v.Witness, witnessPathAt(checked.Violations, i)),
 				Text:        v.String(),
@@ -327,7 +327,7 @@ func attachWitnessFile(witness *pb.CheckWitness, path string) {
 	if path == "" {
 		return
 	}
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(path) // #nosec G304 -- the witness file the checker wrote under the request's own witness directory
 	if err != nil {
 		return
 	}
