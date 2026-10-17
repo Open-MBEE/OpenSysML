@@ -217,6 +217,7 @@ func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
 			}
 		}
 	}
+	element = appendAPIJSONOwnedAbsences(graph, subject, element, types[0])
 	return element, nil
 }
 

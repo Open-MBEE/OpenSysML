@@ -21,6 +21,11 @@ import (
 // same elements back; the unnamed root Namespace a document wraps its
 // top-level elements in is dropped, as the Turtle form does not carry it.
 func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
+	expanded, err := expandAPIJSONCompact(data)
+	if err != nil {
+		return nil, err
+	}
+	data = expanded
 	expressionIDs, elementCount, err := apiJSONExpressionIDs(data)
 	if err != nil {
 		return nil, err
@@ -68,6 +73,200 @@ func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 	}
 	graph := builder.Build()
 	return withoutRootNamespace(graph), nil
+}
+
+func expandAPIJSONCompact(data []byte) ([]byte, error) {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return data, nil
+	}
+	var shape map[string]json.RawMessage
+	if err := json.Unmarshal(data, &shape); err != nil {
+		return data, nil
+	}
+	var format string
+	if err := json.Unmarshal(shape["format"], &format); err != nil || format != CompactAPIJSONFormat {
+		return data, nil
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	token, err := decoder.Token()
+	if err != nil || token != json.Delim('{') {
+		return nil, fmt.Errorf("cannot read the compact API element document")
+	}
+	var ids []string
+	var elementCount int
+	var elementIDsAreIDs bool
+	var referenceKeys []string
+	var elements []apiJSONObject
+	seen := map[string]bool{}
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, fmt.Errorf("cannot read the compact API element document: %w", err)
+		}
+		key, ok := token.(string)
+		if !ok || seen[key] {
+			return nil, fmt.Errorf("compact API element document has an invalid or duplicate key %v", token)
+		}
+		seen[key] = true
+		switch key {
+		case "format":
+			var got string
+			if err := decoder.Decode(&got); err != nil || got != CompactAPIJSONFormat {
+				return nil, fmt.Errorf("compact API element document has an invalid format")
+			}
+		case "ids":
+			if err := decoder.Decode(&ids); err != nil {
+				return nil, fmt.Errorf("cannot read compact API id table: %w", err)
+			}
+		case "elementCount":
+			if err := decoder.Decode(&elementCount); err != nil {
+				return nil, fmt.Errorf("cannot read compact API element count: %w", err)
+			}
+		case "elementIdsAreIds":
+			if err := decoder.Decode(&elementIDsAreIDs); err != nil {
+				return nil, fmt.Errorf("cannot read compact API element id marker: %w", err)
+			}
+		case "referenceKeys":
+			if err := decoder.Decode(&referenceKeys); err != nil {
+				return nil, fmt.Errorf("cannot read compact API reference keys: %w", err)
+			}
+		case "elements":
+			token, err := decoder.Token()
+			if err != nil || token != json.Delim('[') {
+				return nil, fmt.Errorf("compact API elements must be an array")
+			}
+			for decoder.More() {
+				token, err := decoder.Token()
+				if err != nil || token != json.Delim('{') {
+					return nil, fmt.Errorf("compact API elements must be objects")
+				}
+				element, err := apiJSONCompactObjectOf(decoder)
+				if err != nil {
+					return nil, err
+				}
+				elements = append(elements, element)
+			}
+			if _, err := decoder.Token(); err != nil {
+				return nil, fmt.Errorf("cannot read compact API element array: %w", err)
+			}
+		default:
+			return nil, fmt.Errorf("compact API element document has unknown key %q", key)
+		}
+	}
+	if _, err := decoder.Token(); err != nil {
+		return nil, fmt.Errorf("cannot read compact API element document: %w", err)
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		return nil, fmt.Errorf("compact API element document holds trailing JSON values")
+	}
+	if !seen["format"] || !seen["ids"] || !seen["elementCount"] || !seen["referenceKeys"] || !seen["elements"] {
+		return nil, fmt.Errorf("compact API element document is missing a required field")
+	}
+	if elementCount < 0 || elementCount != len(elements) || elementCount > len(ids) {
+		return nil, fmt.Errorf("compact API element document has %d elements, %d element objects, and %d ids",
+			elementCount, len(elements), len(ids))
+	}
+	bareReferences := make(map[string]bool, len(referenceKeys))
+	for _, key := range referenceKeys {
+		bareReferences[key] = true
+	}
+	expandedElements := make([]apiJSONObject, len(elements))
+	for i, compactElement := range elements {
+		for _, member := range compactElement {
+			if member.key == "@id" {
+				return nil, fmt.Errorf("compact element %d carries an @id instead of using the id table", i)
+			}
+			if elementIDsAreIDs && member.key == "elementId" {
+				return nil, fmt.Errorf("compact element %d carries elementId with elementIdsAreIds set", i)
+			}
+		}
+		element := make(apiJSONObject, 0, len(compactElement)+2)
+		for _, member := range compactElement {
+			value, err := expandAPIJSONCompactValue(member.value, bareReferences[member.key], ids)
+			if err != nil {
+				return nil, fmt.Errorf("compact element %d property %q: %w", i, member.key, err)
+			}
+			element = append(element, apiJSONMember{key: member.key, value: value})
+		}
+		element = append(element, apiJSONMember{key: "@id", value: ids[i]})
+		if elementIDsAreIDs {
+			element = append(element, apiJSONMember{key: "elementId", value: ids[i]})
+		}
+		expandedElements[i] = element
+	}
+	expanded, err := json.Marshal(expandedElements)
+	if err != nil {
+		return nil, fmt.Errorf("cannot expand the compact API element document: %w", err)
+	}
+	return expanded, nil
+}
+
+func apiJSONCompactObjectOf(decoder *json.Decoder) (apiJSONObject, error) {
+	var object apiJSONObject
+	seen := map[string]bool{}
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, fmt.Errorf("cannot read compact API element: %w", err)
+		}
+		key, ok := token.(string)
+		if !ok || seen[key] {
+			return nil, fmt.Errorf("compact API element has an invalid or duplicate key %v", token)
+		}
+		seen[key] = true
+		var value any
+		if err := decoder.Decode(&value); err != nil {
+			return nil, fmt.Errorf("cannot read compact API property %q: %w", key, err)
+		}
+		object = append(object, apiJSONMember{key: key, value: value})
+	}
+	if _, err := decoder.Token(); err != nil {
+		return nil, fmt.Errorf("cannot read compact API element object: %w", err)
+	}
+	return object, nil
+}
+
+func expandAPIJSONCompactValue(value any, bareReference bool, ids []string) (any, error) {
+	switch value := value.(type) {
+	case json.Number:
+		if !bareReference {
+			return value, nil
+		}
+		id, err := expandAPIJSONCompactReference(value, ids)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"@id": id}, nil
+	case []any:
+		expanded := make([]any, len(value))
+		for i, member := range value {
+			item, err := expandAPIJSONCompactValue(member, bareReference, ids)
+			if err != nil {
+				return nil, err
+			}
+			expanded[i] = item
+		}
+		return expanded, nil
+	case map[string]any:
+		if id, ok := value["@id"].(json.Number); ok {
+			expandedID, err := expandAPIJSONCompactReference(id, ids)
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{"@id": expandedID}, nil
+		}
+	}
+	return value, nil
+}
+
+func expandAPIJSONCompactReference(handle json.Number, ids []string) (string, error) {
+	index, err := handle.Int64()
+	if err != nil || index < 0 || index >= int64(len(ids)) {
+		return "", fmt.Errorf("reference handle %q is outside the %d-entry id table", handle, len(ids))
+	}
+	return ids[index], nil
 }
 
 // APIJSONReadError reports a failure to parse an API element document.
