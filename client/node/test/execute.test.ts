@@ -216,7 +216,8 @@ test("an analysis performs its actions under the policy", async () => {
   await using connection = await connect();
   const model = await connection.loads(SCHEDULE_MODEL);
   const result = await model.runAnalysis("Sched::raced", { schedule: "declared" });
-  assert.deepEqual(result.outputs.get("winner"), { kind: "int", value: 2n });
+  // The bare `out winner` is [0..*]: its one value is a one-element sequence.
+  assert.deepEqual(result.outputs.get("winner"), { kind: "sequence", elements: [{ kind: "int", value: 2n }] });
 });
 
 test("the same seed answers the same way", async () => {
@@ -273,7 +274,7 @@ test("an analysis explores the actions it performs", async () => {
   const exploration = await model.exploreAnalysis("Sched::raced");
   assert.deepEqual(
     exploration.outcomes
-      .map((o) => (o.outputs.get("winner") as { value: bigint }).value)
+      .map((o) => ((o.outputs.get("winner") as { elements: { value: bigint }[] }).elements[0]).value)
       .sort(),
     [1n, 2n],
   );

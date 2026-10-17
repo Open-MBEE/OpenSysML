@@ -131,7 +131,7 @@ func (h *calcStmtHost) declaredOutput(name string) bool {
 // undeclared name: writing that would be an effect outside the calculation.
 func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s lower.Assign) error {
 	if env.rootDeclares(name) {
-		if err := h.ctx.checkBodyWrite(h, s, &value); err != nil {
+		if err := h.ctx.checkNamedWriteComputed(s.Scope, h.describe(), s.Target, &value); err != nil {
 			return err
 		}
 		env.assignRootLocal(h.ctx, name, value)
