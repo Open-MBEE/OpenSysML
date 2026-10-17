@@ -14,7 +14,7 @@ import (
 )
 
 type apiJSONNameIndex struct {
-	chainTargets  map[string]apiJSONReference
+	chainTargets  map[string]apiJSONChainTarget
 	chainOwners   map[string][]rdf.Term
 	catalogTypeMu sync.Mutex
 	catalogModel  *semantics.Model
@@ -28,6 +28,11 @@ type apiJSONNameIndex struct {
 	ownedNames    map[apiJSONScopeName][]rdf.Term
 	imports       map[string][]rdf.Term
 	importedNames map[apiJSONScopeName][]rdf.Term
+}
+
+type apiJSONChainTarget struct {
+	reference apiJSONReference
+	target    rdf.Term
 }
 
 type apiJSONScopeName struct {
@@ -177,8 +182,8 @@ func apiJSONChainOwnerIndex(graph *rdf.Graph) map[string][]rdf.Term {
 	return owners
 }
 
-func apiJSONFeatureChainTargets(graph *rdf.Graph, index *apiJSONNameIndex) map[string]apiJSONReference {
-	resolved := make(map[string]apiJSONReference)
+func apiJSONFeatureChainTargets(graph *rdf.Graph, index *apiJSONNameIndex) map[string]apiJSONChainTarget {
+	resolved := make(map[string]apiJSONChainTarget)
 	for ownerID, relationships := range index.chainOwners {
 		owner := rdf.IRI(ownerID)
 		ordered := make([]rdf.Term, 0, len(relationships))
@@ -212,13 +217,13 @@ func apiJSONFeatureChainTargets(graph *rdf.Graph, index *apiJSONNameIndex) map[s
 				members[i] = apiJSONNameReference{}
 			}
 		}
-		chain, _ := apiJSONResolveFeatureChain(graph, index, owner, members)
+		chain, targets, _ := apiJSONResolveFeatureChainWithTargets(graph, index, owner, members)
 		for i, member := range chain {
 			reference, ok := member.(apiJSONReference)
-			if !ok {
+			if !ok || i >= len(targets) || targets[i].Value == "" {
 				continue
 			}
-			resolved[ordered[i].Value] = reference
+			resolved[ordered[i].Value] = apiJSONChainTarget{reference: reference, target: targets[i]}
 		}
 	}
 	return resolved
@@ -243,8 +248,8 @@ func apiJSONResolveNameReference(
 		switch key {
 		case pTarget:
 			if name, ok := value.(apiJSONNameReference); ok {
-				if reference, resolved := index.chainTargets[subject.Value]; resolved {
-					return reference, nil
+				if target, resolved := index.chainTargets[subject.Value]; resolved {
+					return target.reference, nil
 				}
 				return name, []string{name.name}
 			}
@@ -253,13 +258,13 @@ func apiJSONResolveNameReference(
 				if !apiJSONValuesHaveNameReferences(members) {
 					return value, nil
 				}
-				reference, resolved := index.chainTargets[subject.Value]
+				target, resolved := index.chainTargets[subject.Value]
 				result := make([]any, len(members))
 				var unresolved []string
 				for i, member := range members {
 					if name, ok := member.(apiJSONNameReference); ok {
 						if resolved {
-							result[i] = reference
+							result[i] = target.reference
 						} else {
 							result[i] = name
 							unresolved = append(unresolved, name.name)
@@ -275,8 +280,8 @@ func apiJSONResolveNameReference(
 	switch value := value.(type) {
 	case apiJSONNameReference:
 		if key == pChainingFeature && rdf.LocalName(graph.Type(subject)) == mFeatureChaining {
-			if reference, resolved := index.chainTargets[subject.Value]; resolved {
-				return reference, nil
+			if target, resolved := index.chainTargets[subject.Value]; resolved {
+				return target.reference, nil
 			}
 			return value, []string{value.name}
 		}
@@ -341,7 +346,18 @@ func apiJSONResolveFeatureChain(
 	subject rdf.Term,
 	members []any,
 ) ([]any, []string) {
+	resolved, _, unresolved := apiJSONResolveFeatureChainWithTargets(graph, index, subject, members)
+	return resolved, unresolved
+}
+
+func apiJSONResolveFeatureChainWithTargets(
+	graph *rdf.Graph,
+	index *apiJSONNameIndex,
+	subject rdf.Term,
+	members []any,
+) ([]any, []rdf.Term, []string) {
 	resolved := make([]any, len(members))
+	targets := make([]rdf.Term, len(members))
 	var previous rdf.Term
 	var unresolved []string
 	for i, member := range members {
@@ -351,7 +367,8 @@ func apiJSONResolveFeatureChain(
 		}
 		if reference, ok := member.(apiJSONReference); ok {
 			resolved[i] = reference
-			previous = rdf.ReferenceIRI(subject, reference.ID)
+			previous = apiJSONFeatureChainReferenceTarget(index, subject, reference.ID)
+			targets[i] = previous
 			continue
 		}
 		name, isName := member.(apiJSONNameReference)
@@ -378,9 +395,24 @@ func apiJSONResolveFeatureChain(
 			continue
 		}
 		resolved[i] = apiJSONReference{ID: id}
+		targets[i] = target
 		previous = target
 	}
-	return resolved, unresolved
+	return resolved, targets, unresolved
+}
+
+func apiJSONFeatureChainReferenceTarget(index *apiJSONNameIndex, subject rdf.Term, id string) rdf.Term {
+	if index != nil {
+		if target, ok := index.subjectsByID[id]; ok {
+			return target
+		}
+		if index.catalog != nil {
+			if element, ok := index.catalog.Element(id); ok && element.ID != "" {
+				return rdf.ElementIRIForID(element.ID)
+			}
+		}
+	}
+	return rdf.ReferenceIRI(subject, id)
 }
 
 func apiJSONFeatureType(graph *rdf.Graph, feature rdf.Term) rdf.Term {

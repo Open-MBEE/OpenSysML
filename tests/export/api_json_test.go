@@ -282,7 +282,7 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = cachedSysMLToRDF(path, source)
+			graph, err := cachedSysMLToRDF(path, source)
 			var unsupported *export.UnsupportedError
 			if errors.As(err, &unsupported) {
 				t.Skipf("SysMLToRDF refuses this model: %v", err)
@@ -345,14 +345,26 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 			if err != nil {
 				t.Fatalf("compact semantic API JSON: %v", err)
 			}
+			var omissions []export.APIJSONOmission
+			recordOmission := func(omission export.APIJSONOmission) {
+				omissions = append(omissions, omission)
+			}
+			if _, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{Omitted: recordOmission}); err != nil {
+				t.Fatalf("write standard API JSON for unresolved-value sweep: %v", err)
+			}
+			if _, err := export.WriteAPIJSONCompact(graph, export.CompactAPIJSONOptions{Omitted: recordOmission}); err != nil {
+				t.Fatalf("write compact API JSON for unresolved-value sweep: %v", err)
+			}
 			for format, document := range map[string][]byte{
 				"standard":         standard,
 				"compact":          compact,
+				"semantic":         semantic,
 				"semantic-compact": semanticCompact,
 			} {
 				if bytes.Contains(document, []byte(`"@ref"`)) {
 					t.Errorf("%s output contains @ref", format)
 				}
+				assertAPIJSONUnresolvedValuesOmitted(t, path, format, document, omissions)
 			}
 			metricsMu.Lock()
 			convertedFiles++
@@ -371,6 +383,89 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 			}
 			metricsMu.Unlock()
 		})
+	}
+}
+
+func assertAPIJSONUnresolvedValuesOmitted(
+	t *testing.T,
+	path string,
+	format string,
+	document []byte,
+	omissions []export.APIJSONOmission,
+) {
+	t.Helper()
+	var elements []map[string]json.RawMessage
+	if format == "compact" || format == "semantic-compact" {
+		var compact struct {
+			IDs          []string                     `json:"ids"`
+			ElementCount int                          `json:"elementCount"`
+			Elements     []map[string]json.RawMessage `json:"elements"`
+		}
+		if err := json.Unmarshal(document, &compact); err != nil {
+			t.Fatalf("%s %s API JSON is invalid: %v", path, format, err)
+		}
+		if len(compact.Elements) != compact.ElementCount || compact.ElementCount > len(compact.IDs) {
+			t.Fatalf("%s %s API JSON element IDs do not match its elements", path, format)
+		}
+		elements = compact.Elements
+		for i := 0; i < compact.ElementCount; i++ {
+			id, err := json.Marshal(compact.IDs[i])
+			if err != nil {
+				t.Fatalf("%s %s API JSON element ID %d: %v", path, format, i, err)
+			}
+			elements[i]["@id"] = id
+		}
+	} else if err := json.Unmarshal(document, &elements); err != nil {
+		t.Fatalf("%s %s API JSON is invalid: %v", path, format, err)
+	}
+
+	unresolved := make(map[string]map[string]bool)
+	for _, omission := range omissions {
+		if omission.Reason.Category != metamodel.ReasonUnresolvedReference {
+			continue
+		}
+		if unresolved[omission.Subject] == nil {
+			unresolved[omission.Subject] = make(map[string]bool)
+		}
+		unresolved[omission.Subject][omission.Property] = true
+	}
+	for _, element := range elements {
+		var subject, metaclass string
+		if err := json.Unmarshal(element["@id"], &subject); err != nil {
+			continue
+		}
+		if err := json.Unmarshal(element["@type"], &metaclass); err != nil {
+			continue
+		}
+		properties := make(map[string]bool)
+		if raw, ok := element["sysx:mappingValues"]; ok {
+			var mappingValues map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &mappingValues); err != nil {
+				t.Errorf("%s %s element %s has invalid mappingValues: %v", path, format, subject, err)
+				continue
+			}
+			for property := range mappingValues {
+				properties[property] = true
+			}
+		}
+		for property := range unresolved[subject] {
+			properties[property] = true
+		}
+		for property := range properties {
+			definition, ok := ontology.PropertyOf(apiJSONTestOntologyMetaclass(metaclass), property)
+			if !ok || (!definition.Many && definition.Lower != 1) {
+				continue
+			}
+			value, present := element[property]
+			if !present {
+				continue
+			}
+			value = bytes.TrimSpace(value)
+			if bytes.Equal(value, []byte("[]")) || bytes.Equal(value, []byte("null")) {
+				t.Errorf("%s %s element %s.%s = %s for collection or [1..1] property",
+					path, format, subject, property, value)
+			}
+		}
 	}
 }
 

@@ -985,10 +985,7 @@ func apiJSONResolveUnresolvedProperty(
 		}
 	}
 	if known && property.Kind == ontology.ObjectProperty && property.Many {
-		if property.Derived || property.Lower > 0 {
-			return nil, false
-		}
-		return []any{}, true
+		return nil, false
 	}
 	if known && property.Kind == ontology.ObjectProperty {
 		return nil, property.Lower == 0

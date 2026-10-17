@@ -40,7 +40,7 @@ func TestAPIJSONFeatureChainResolvesInheritedMember(t *testing.T) {
 	}, nil)
 
 	index := newAPIJSONNameIndex(graph)
-	if got, ok := index.chainTargets[second.Value]; !ok || got.ID != rdf.ReferenceID(chain, member) {
+	if got, ok := index.chainTargets[second.Value]; !ok || got.reference.ID != rdf.ReferenceID(chain, member) {
 		t.Fatalf("inherited chain target = %#v, want reference to %s", got, member.Value)
 	}
 	targetValue, unresolved := apiJSONResolveNameReference(
@@ -63,6 +63,102 @@ func TestAPIJSONFeatureChainResolvesInheritedMember(t *testing.T) {
 	related, ok := relatedValue.([]any)
 	if !ok || len(related) != 2 || related[1] != target {
 		t.Fatalf("FeatureChaining.relatedElement = %#v, want chain and inherited target references", relatedValue)
+	}
+}
+
+func TestAPIJSONFeatureChainPreservesExpressionTargetForLaterLink(t *testing.T) {
+	owner := rdf.ElementIRIForID("P")
+	chain := rdf.ElementIRIForID("chain")
+	firstLink := rdf.ExpressionIRI(chain, "pfc0")
+	secondLink := rdf.ExpressionIRI(chain, "pfc1")
+	expressionFeature := rdf.ExpressionIRI(chain, "pfeature")
+	vehicle := rdf.ElementIRIForID("Vehicle")
+	wheel := rdf.ElementIRIForID("Vehicle__wheel")
+	graph := rdf.NewGraphOf([]rdf.Triple{
+		{Subject: chain, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm(mFeature)},
+		{Subject: chain, Predicate: rdf.SysMLTerm(pOwner), Object: owner},
+		{Subject: chain, Predicate: rdf.SysMLTerm(pOwnedRelationship), Object: firstLink},
+		{Subject: chain, Predicate: rdf.SysMLTerm(pOwnedRelationship), Object: secondLink},
+		{Subject: chain, Predicate: rdf.SysMLTerm(pChainingFeature), Object: expressionFeature},
+		{Subject: chain, Predicate: rdf.SysMLTerm(pChainingFeature), Object: rdf.String("wheel")},
+		{Subject: firstLink, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm(mFeatureChaining)},
+		{Subject: firstLink, Predicate: rdf.SysMLTerm(pOwningRelatedElement), Object: chain},
+		{Subject: firstLink, Predicate: rdf.SysMLTerm(pChainingFeature), Object: expressionFeature},
+		{Subject: firstLink, Predicate: rdf.SysMLTerm(pTarget), Object: expressionFeature},
+		{Subject: secondLink, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm(mFeatureChaining)},
+		{Subject: secondLink, Predicate: rdf.SysMLTerm(pOwningRelatedElement), Object: chain},
+		{Subject: secondLink, Predicate: rdf.SysMLTerm(pChainingFeature), Object: rdf.String("wheel")},
+		{Subject: secondLink, Predicate: rdf.SysMLTerm(pTarget), Object: rdf.String("wheel")},
+		{Subject: expressionFeature, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm(mFeature)},
+		{Subject: expressionFeature, Predicate: rdf.SysMLTerm("type"), Object: vehicle},
+		{Subject: vehicle, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm("PartDefinition")},
+		{Subject: wheel, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm(mFeature)},
+		{Subject: wheel, Predicate: rdf.SysMLTerm(pDeclaredName), Object: rdf.String("wheel")},
+		{Subject: wheel, Predicate: rdf.SysMLTerm(pOwningRelatedElement), Object: vehicle},
+	}, nil)
+	index := newAPIJSONNameIndex(graph)
+
+	resolved, unresolved := apiJSONResolveFeatureChain(graph, index, chain, []any{
+		apiJSONReference{ID: rdf.ReferenceID(chain, expressionFeature)},
+		apiJSONNameReference{name: "wheel"},
+	})
+	if len(unresolved) != 0 {
+		t.Fatalf("expression-target chain unresolved: %v", unresolved)
+	}
+	for i, target := range []rdf.Term{expressionFeature, wheel} {
+		reference, ok := resolved[i].(apiJSONReference)
+		if !ok || reference.ID != rdf.ReferenceID(chain, target) {
+			t.Fatalf("chain link %d = %#v, want @id for %s", i, resolved[i], target.Value)
+		}
+	}
+
+	elements, err := apiJSONElementsWithOptions(graph, APIJSONOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	memberValue := func(element apiJSONObject, key string) (any, bool) {
+		for _, member := range element {
+			if member.key == key {
+				return member.value, true
+			}
+		}
+		return nil, false
+	}
+	findElement := func(subject rdf.Term) apiJSONObject {
+		id, ok := rdf.SubjectID(subject)
+		if !ok {
+			t.Fatalf("subject %s has no API JSON id", subject.Value)
+		}
+		for _, element := range elements {
+			if got, present := memberValue(element, "@id"); present && got == id {
+				return element
+			}
+		}
+		t.Fatalf("subject %s has no API JSON element", subject.Value)
+		return nil
+	}
+	aggregate, present := memberValue(findElement(chain), pChainingFeature)
+	aggregateLinks, ok := aggregate.([]any)
+	if !present || !ok || len(aggregateLinks) != 2 {
+		t.Fatalf("aggregate chainingFeature = %#v, want two references", aggregate)
+	}
+	for i, target := range []rdf.Term{expressionFeature, wheel} {
+		expectedID := rdf.ReferenceID(chain, target)
+		aggregateReference, ok := aggregateLinks[i].(apiJSONReference)
+		if !ok || aggregateReference.ID != expectedID {
+			t.Fatalf("aggregate link %d = %#v, want %s", i, aggregateLinks[i], expectedID)
+		}
+		relationshipTarget, present := memberValue(findElement([]rdf.Term{firstLink, secondLink}[i]), pTarget)
+		relationshipReferences, ok := relationshipTarget.([]any)
+		if !present || !ok || len(relationshipReferences) != 1 {
+			t.Fatalf("relationship target %d = %#v, want aggregate reference %s",
+				i, relationshipTarget, expectedID)
+		}
+		relationshipReference, ok := relationshipReferences[0].(apiJSONReference)
+		if !ok || relationshipReference.ID != expectedID {
+			t.Fatalf("relationship target %d = %#v, want aggregate reference %s",
+				i, relationshipTarget, expectedID)
+		}
 	}
 }
 
@@ -420,7 +516,7 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 		if !ok || len(relatedValues) != 2 || relatedValues[1] != targetReference {
 			t.Fatalf("FeatureChaining %d relatedElement = %#v, want owner and target references", i, related)
 		}
-		if got, ok := index.chainTargets[relationships[i].Value]; !ok || got.ID != reference.ID {
+		if got, ok := index.chainTargets[relationships[i].Value]; !ok || got.reference.ID != reference.ID {
 			t.Fatalf("chain target %d = %#v, want reference %s", i, got, reference.ID)
 		}
 	}
@@ -515,7 +611,7 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 		t.Fatalf("unresolved chain links = %v, want [not-a-member]", unresolved)
 	}
 	if got, ok := index.chainTargets[relationships[0].Value]; !ok ||
-		got.ID != rdf.ReferenceID(chain, start) {
+		got.reference.ID != rdf.ReferenceID(chain, start) {
 		t.Fatalf("resolved prefix target = %#v, want reference to catalog feature %s", got, start.Value)
 	}
 	if _, ok := index.chainTargets[relationships[1].Value]; ok {
@@ -601,9 +697,8 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 	}
 	unresolvedRelationship, _ := findElement(subjectID(relationships[1]))
 	unresolvedTarget, present := memberValue(unresolvedRelationship, pTarget)
-	unresolvedTargets, ok := unresolvedTarget.([]any)
-	if !present || !ok || len(unresolvedTargets) != 0 {
-		t.Fatalf("unresolved FeatureChaining target = %#v, want no resolved target references", unresolvedTarget)
+	if present {
+		t.Fatalf("unresolved FeatureChaining target = %#v, want omission", unresolvedTarget)
 	}
 	mappingValues, present := memberValue(unresolvedRelationship, "sysx:mappingValues")
 	mappingProperties, ok := mappingValues.(apiJSONObject)
