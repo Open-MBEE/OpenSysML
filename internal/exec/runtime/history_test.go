@@ -444,13 +444,13 @@ func TestHistoryOverACompletedConfigurationIsADefaultEntry(t *testing.T) {
 			}
 		}`)
 		for _, signal := range []string{"LeftDone", "RightWork", "RightDeep", "Out"} {
-			exec.sendSignal(signal, nil)
+			exec.SendSignal(signal, nil)
 		}
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("run: %v", err)
 		}
 		mark := len(exec.stateVisits)
-		exec.sendSignal("Back", nil)
+		exec.SendSignal("Back", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("history entry: %v", err)
 		}
@@ -477,12 +477,12 @@ func TestHistoryOverACompletedConfigurationIsADefaultEntry(t *testing.T) {
 				transition first b accept Stop then done;
 			}
 		}`)
-		exec.sendSignal("Finish", nil)
+		exec.SendSignal("Finish", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("run: %v", err)
 		}
 		mark := len(exec.stateVisits)
-		exec.sendSignal("Back", nil)
+		exec.SendSignal("Back", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("history entry: %v", err)
 		}
@@ -510,12 +510,12 @@ func TestHistoryOverACompletedConfigurationIsADefaultEntry(t *testing.T) {
 				transition first b accept Stop then done;
 			}
 		}`)
-		exec.sendSignal("Finish", nil)
+		exec.SendSignal("Finish", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("run: %v", err)
 		}
 		mark := len(exec.stateVisits)
-		exec.sendSignal("Back", nil)
+		exec.SendSignal("Back", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("history entry: %v", err)
 		}

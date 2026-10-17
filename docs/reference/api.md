@@ -47,6 +47,16 @@ exploration (`Status()` renders it as the `sysml` command does). The two familie
 other's policies with `CodeInvalidArgument`, and exploring requires the `schedule_explore`
 capability alongside `schedule`.
 
+`ExecuteAction` and `ExecuteState` also take the run options of the `sysml` command:
+`WithAdvance(seconds)` runs for a simulated duration instead of to completion and reports the clock
+in `FinalTime` — on the `*FailureError` of an action still waiting as on a completed run;
+`WithSeed(n)` seeds the model's own draws; `WithDraws("min"|"max"|"average"|"random")` chooses how
+they resolve; and `WithClockStep(seconds)` ticks the clock in fixed steps. `Diagnostics` takes
+`DisableLint(codes...)` and `EnableLint(codes...)` to select the lints of one answer, `ListEngines`
+takes `Probe()` to start each external engine and check its handshake, and `RunAnalysis` takes
+`WithToolDryRun()` to preview the first external tool call in `Analysis.ToolDryRun` instead of
+making it. A malformed option is a `CodeInvalidArgument` failure.
+
 `WithTrace()` makes `ExecuteState` return typed `DocumentEvent` records and the number of
 discarded older records in `StateRun.Trace` and `StateRun.TraceDropped`. It requires the
 `state_trace` capability and cannot be combined with an explore schedule.
@@ -298,7 +308,8 @@ github.com/Open-MBEE/OpenSysML
 │   ├── ir/                 # lower, queryplan, docplan, view, imagefile
 │   ├── check/              # passes, edit
 │   ├── exec/               # runtime, solve, smt, analysis, engines, objref, fmi, hostcap, ingest, runtrace, simresults
-│   ├── translate/          # rdf, export, xmi, migrate, mtip, convert, codegen, interop, deferred, filename, fmi
+│   ├── translate/          # rdf, export, xmi, migrate, mtip, convert, interop, deferred, filename, fmi;
+│   │                       # codegen (`sysml -compile`) is reached only from cmd/sysml and tests/codegen
 │   ├── doc/                # queryexec, docir, docrender, docpdf
 │   ├── workspace/          # model, libs, project, envvar, modeldoc, modelrt, notebook
 │   └── frontend/           # protoconv, grpc, lsp, repl, stdiorpc, jsonrpc, jupyter, core, combined, engine, syntax, symbolfacts, buildinfo, usage

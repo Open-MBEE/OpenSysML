@@ -3475,13 +3475,13 @@ func (e *ActionExecutor) State() ExecutionState {
 // each nested non-repeated node's latest performance and under `part.attribute` what the one
 // object each of its own parts denotes holds; a performed usage's mirror its occurrence.
 func (e *ActionExecutor) Results() map[string]Value {
-	results, _ := e.resultsWithError()
+	results, _ := e.ResultsWithError()
 	return results
 }
 
-// resultsWithError returns the values the action's features hold and the first binding
+// ResultsWithError returns the values the action's features hold and the first binding
 // derivation error; a feature whose binding fails to derive is omitted.
-func (e *ActionExecutor) resultsWithError() (map[string]Value, error) {
+func (e *ActionExecutor) ResultsWithError() (map[string]Value, error) {
 	results := make(map[string]Value, len(e.root.data))
 	err := e.root.collect("", results)
 	if e.occurrence != nil {

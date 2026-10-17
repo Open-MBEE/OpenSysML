@@ -4788,10 +4788,10 @@ func (e *StateExecutor) hasRunningDoAction(state *ast.StateNode) bool {
 	return false
 }
 
-// sendSignal injects a signal event into the state machine.
+// SendSignal injects a signal event into the state machine.
 // This is the primary API for driving state machines with external signals.
 // The signal is enqueued and will be processed on the next ProcessNextEvent call.
-func (e *StateExecutor) sendSignal(signalType string, args map[string]Value) {
+func (e *StateExecutor) SendSignal(signalType string, args map[string]Value) {
 	e.enqueueSignal(Message{SignalType: signalType, Payload: args})
 }
 
@@ -6137,13 +6137,13 @@ func (e *StateExecutor) StateStack() []*ast.StateNode {
 // attributes each state owns under that state's path (`nested.hits`), which two
 // usages of one state definition hold separately.
 func (e *StateExecutor) StateData() map[string]Value {
-	data, _ := e.stateDataWithError()
+	data, _ := e.StateDataWithError()
 	return data
 }
 
-// stateDataWithError returns state data after deriving current tracking cells.
+// StateDataWithError returns state data after deriving current tracking cells.
 // A value whose inactive-state reference cannot be read is omitted and reported.
-func (e *StateExecutor) stateDataWithError() (map[string]Value, error) {
+func (e *StateExecutor) StateDataWithError() (map[string]Value, error) {
 	var deriveErr error
 	if err := e.ctx.deriveBodyCells(e.stateCells); err != nil {
 		deriveErr = err

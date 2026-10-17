@@ -1703,7 +1703,7 @@ func (ctx *Context) ExecuteActionPerformedBy(action *symbols.Symbol, self *Insta
 		return nil, err
 	}
 	// Return the values the action's features hold once it completed
-	return exec.resultsWithError()
+	return exec.ResultsWithError()
 }
 
 // ActionOutcomePerformedBy runs an action as ExecuteActionPerformedBy does and reports
@@ -1723,11 +1723,11 @@ func (ctx *Context) ExecuteActionReportingPerformer(action *symbols.Symbol, self
 	if err != nil {
 		return nil, nil, err
 	}
-	outputs, err = exec.resultsWithError()
+	outputs, err = exec.ResultsWithError()
 	if err != nil {
 		return nil, nil, err
 	}
-	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).performerAttributes(), nil
+	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
 }
 
 // performAction runs action to completion, performed by self, and returns the
@@ -1908,7 +1908,7 @@ func (ctx *Context) ExecuteStatePerformedBy(stateMachine *symbols.Symbol, self *
 		return nil, nil, err
 	}
 	// Return state machine data and the real ordered visit trace
-	data, err := exec.stateDataWithError()
+	data, err := exec.StateDataWithError()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1928,7 +1928,7 @@ func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *
 	if err != nil {
 		return Outcome{}, err
 	}
-	if _, err := exec.stateDataWithError(); err != nil {
+	if _, err := exec.StateDataWithError(); err != nil {
 		return Outcome{}, err
 	}
 	return (&Invocation{States: []*StateExecutor{exec}}).Outcome(), nil
@@ -2093,7 +2093,7 @@ func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, e
 	// Inject external signal events. Each event name is treated as a signal type
 	// with no arguments; matching accept-triggers consume it in order.
 	for _, event := range events {
-		exec.sendSignal(event, nil)
+		exec.SendSignal(event, nil)
 	}
 
 	if err := exec.RunToCompletion(); err != nil {

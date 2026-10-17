@@ -404,7 +404,7 @@ func testCompositeDoEndingAheadOfItsBodyCompletesNothing(t *testing.T) {
 	if got := exec.finalStateName(); got != "w1" {
 		t.Fatalf("work completed at the end of its do behavior: resting in %q, want w1", got)
 	}
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run after Go: %v", err)
 	}
