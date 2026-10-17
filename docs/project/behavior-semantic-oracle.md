@@ -2438,6 +2438,35 @@ Pinned outcome: `{x = 1, mode = 10, later = 7}` or `{x = 2, mode = 20, later = 7
 `outcomes` citing this section. The default run marks `x` and `mode` with the two choice points
 of the racing writes and prints `later` bare (`orderDependent` states `x: 2, mode: 2`).
 
+### An inherited guard reading an order-dependent value leaves what its branch writes order-dependent
+
+Fixture: `action_order_inherited_guard_reads_racing_writer` (golden, explored).
+
+```
+Derived :> Base;   Base: start → split ⇉ a { go := true  } ─┐
+                                      ⇉ b { go := false } ─┘→ sync → choose ─[go]→   high { mode := 20 } ─┐
+                                                                         ─else→ low  { mode := 10 } ─┴→ rejoin → tail { later := 7 } → done
+```
+
+Derived constraints:
+
+- The run is `Derived`'s, whose body is `Base`'s; `sync` follows both writes of `go`
+  (JoinAction), so `choose` reads a `go` of `true` or `false` and exactly one branch is taken.
+- The guard `go` is `Base`'s succession and is read in `Base`'s scope, where it was declared,
+  as it is evaluated there: `go` is the feature `a` and `b` write.
+- `mode` is `20` where `go` is `true` and `10` where it is `false`; `later` is `7` in every
+  linearization.
+
+Open: the order of the two branches before the join. Which branch runs is a function of the
+write that stood, so `mode` is open exactly where `Base`'s `go` is: the guard's reads are
+resolved where the succession was declared, as its evaluation is, so inheriting the decision
+neither hides the dependence nor adds one. `later` reads nothing open and is fixed.
+
+Pinned outcome: `{go = true, mode = 20, later = 7}` or `{go = false, mode = 10, later = 7}`,
+stated as `outcomes` citing this section. The default run marks `go` and `mode` with the two
+choice points of the racing writes and prints `later` bare (`orderDependent` states
+`go: 2, mode: 2`).
+
 ### A performed action's outputs stand on what its inputs were bound from
 
 Fixture: `action_order_through_performed_action` (golden, explored).

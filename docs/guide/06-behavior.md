@@ -769,7 +769,7 @@ that reads nothing order-dependent clears the mark of what it rewrites: `assign 
 join leaves `x = 10` and, computed from it, `y = 11`, both bare, though the run still reports the
 two choice points it drew. The mark describes the value a feature now holds, not the feature's
 history, and reporting it never changes the run. The conformance fixtures
-`action_order_derived_from_racing_writers`, `action_order_guard_reads_racing_writer`,
+`action_order_derived_from_racing_writers`, `action_order_guard_reads_racing_writer`, `action_order_inherited_guard_reads_racing_writer`,
 `action_order_through_performed_action`, `action_order_send_payload_from_racing_writer`,
 `state_order_effect_reads_racing_attribute` and `action_order_rewrite_clears_mark` show each
 case, and
