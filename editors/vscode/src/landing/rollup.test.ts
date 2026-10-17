@@ -129,8 +129,9 @@ function collectionFixture(): { render: RenderResult; instances: EngineInstance[
     },
     { id: "2", typeSymbolId: "Fleet::Engine", featureValues: { mass: kg("10") } },
     { id: "3", typeSymbolId: "Fleet::Engine", featureValues: { mass: kg("20"), nozzle: { value: { instanceId: "5" } } } },
-    { id: "4", typeSymbolId: "Fleet::Engine", featureValues: { mass: kg("30"), nozzle: { error: "no value for feature throat" } } },
-    { id: "5", typeSymbolId: "Fleet::Nozzle", featureValues: {} },
+    { id: "4", typeSymbolId: "Fleet::Engine", featureValues: { mass: kg("30"), nozzle: { value: { instanceId: "6" } }, throat: { error: "no value for feature throat" } } },
+    { id: "5", typeSymbolId: "Fleet::Nozzle", featureValues: { mass: kg("1") } },
+    { id: "6", typeSymbolId: "Fleet::Nozzle", featureValues: { mass: kg("2") } },
   ];
   return { render, instances };
 }
@@ -138,14 +139,22 @@ function collectionFixture(): { render: RenderResult; instances: EngineInstance[
 test("landingModel draws a listed object once, under the feature that lists it, and nothing for an empty one", () => {
   const { render, instances } = collectionFixture();
   const model = landingModel({ rootSymbol: "Fleet::fleet", view: "" }, "h", render, instances);
-  assert.deepEqual([...model.parts.keys()].sort(), ["engine0", "engines[1]", "engines[1].nozzle", "engines[2]"]);
+  assert.deepEqual(
+    [...model.parts.keys()].sort(),
+    ["engine0", "engines[1]", "engines[1].nozzle", "engines[2]", "engines[2].nozzle"],
+  );
   assert.equal(model.parts.get("engine0")!.quantities.mass.magnitude, "10");
   assert.equal(model.parts.get("engines[1]")!.quantities.mass.magnitude, "20", "the object engine0 holds is not listed again");
   assert.equal(model.parts.get("engines[2]")!.quantities.mass.magnitude, "30");
-  assert.deepEqual(model.parts.get("engines[2]")!.unvalued, { nozzle: "no value for feature throat" });
-  const nozzle = model.parts.get("engines[1].nozzle")!;
-  assert.equal(nozzle.owner, "engines[1]");
-  assert.equal(model.render.nodes.find(({ id }) => id === nozzle.id)?.parent, model.parts.get("engines[1]")!.id);
+  assert.deepEqual(model.parts.get("engines[2]")!.unvalued, { throat: "no value for feature throat" });
+  const nozzles = [model.parts.get("engines[1].nozzle")!, model.parts.get("engines[2].nozzle")!];
+  assert.deepEqual(nozzles.map((nozzle) => nozzle.owner), ["engines[1]", "engines[2]"]);
+  assert.deepEqual(nozzles.map((nozzle) => nozzle.quantities.mass.magnitude), ["1", "2"]);
+  assert.notEqual(nozzles[0].id, nozzles[1].id, "each copy's nozzle is its own box");
+  assert.equal(new Set(model.render.nodes.map(({ id }) => id)).size, model.render.nodes.length, "node ids are unique");
+  for (const [index, nozzle] of nozzles.entries()) {
+    assert.equal(model.render.nodes.find(({ id }) => id === nozzle.id)?.parent, model.parts.get(`engines[${index + 1}]`)!.id);
+  }
   assert.ok(model.render.nodes.every((node) => node.kind === "part"), "attributes are not drawn");
   assert.deepEqual(model.render.edges, [], "a wire to the folded collection goes with it");
 });

@@ -272,6 +272,8 @@ export function traceRecord(event: DocumentEvent): TraceRecord {
  * its parts drawn at the top level, each box standing for one object. A feature holding
  * one object draws it once; a feature listing several draws each the no sibling holds
  * singly, as `engines[1]`; a part feature holding no object draws nothing, as do attributes.
+ * A copy's subtree takes the copy's id suffix, so two listed objects' parts never alias; a wire
+ * declared to a copied feature is left out, as it cannot be attributed to one copy.
  */
 export function landingModel(
   target: SceneTarget,
@@ -327,19 +329,21 @@ export function landingModel(
     };
   };
 
-  // place draws `drawn`, a copy of `source` standing for `instance`, then the boxes below it.
+  // place draws `drawn`, a copy of `source` standing for `instance`, then the boxes below it;
+  // `suffix` is what the copies above it added to their ids, so each copy's subtree has its own.
   const place = (
     source: RenderNode,
     drawn: RenderNode,
     instance: EngineInstance | undefined,
     path: string,
     owner: string | undefined,
+    suffix: string,
   ): void => {
     nodes.push(drawn);
     if (drawn.kind === "part") {
       parts.set(path, partOf(drawn, instance, path, owner));
     }
-    expand(drawn, instance, childrenOf.get(source.id) ?? [], path);
+    expand(drawn, instance, childrenOf.get(source.id) ?? [], path, suffix);
   };
 
   // expand draws the children of `parent`, which stands for `instance`; at the top level
@@ -349,6 +353,7 @@ export function landingModel(
     instance: EngineInstance | undefined,
     children: readonly RenderNode[],
     path: string | undefined,
+    suffix: string,
   ): void => {
     const copy = (child: RenderNode, id: string, name: string): RenderNode => {
       const { parent: _parent, ...lifted } = child;
@@ -363,13 +368,13 @@ export function landingModel(
         continue;
       }
       if (child.kind !== "part") {
-        place(child, copy(child, child.id, child.name), undefined, pathTo(child.name), owner);
+        place(child, copy(child, child.id + suffix, child.name), undefined, pathTo(child.name), owner, suffix);
         continue;
       }
       const id = single(child);
       if (id !== undefined) {
         boxed.add(id);
-        place(child, copy(child, child.id, child.name), instancesById.get(id), pathTo(child.name), owner);
+        place(child, copy(child, child.id + suffix, child.name), instancesById.get(id), pathTo(child.name), owner, suffix);
       }
     }
     for (const child of children) {
@@ -384,16 +389,17 @@ export function landingModel(
         boxed.add(value.instanceId);
         index += 1;
         const name = `${child.name}[${index}]`;
-        place(child, copy(child, `${child.id}[${index}]`, name), instancesById.get(value.instanceId), pathTo(name), owner);
+        const below = `${suffix}[${index}]`;
+        place(child, copy(child, child.id + below, name), instancesById.get(value.instanceId), pathTo(name), owner, below);
       }
     }
   };
 
-  expand(undefined, rootInstance, childrenOf.get(root.id) ?? [], undefined);
+  expand(undefined, rootInstance, childrenOf.get(root.id) ?? [], undefined, "");
   // Anything drawn beside the root stands for no object of its own and is kept as drawn.
   for (const node of render.nodes) {
     if (node.parent === undefined && node.id !== root.id && node.kind !== "attribute") {
-      place(node, { ...node }, undefined, node.name, undefined);
+      place(node, { ...node }, undefined, node.name, undefined, "");
     }
   }
   const retained = new Set(nodes.map((node) => node.id));

@@ -241,6 +241,7 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
   let token: SVGCircleElement | undefined;
   let running = false;
   let editTimer: ReturnType<typeof setTimeout> | undefined;
+  // The revision of what is read: the editor's text and the drawn root; an older read is dropped.
   let editSequence = 0;
   let sourcePromise: Promise<string> | undefined;
 
@@ -250,6 +251,10 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
   const projects = (): LandingPart[] => [...model.parts.values()].filter((part) => part.owner === undefined);
 
   function status(text: string, error = false): void {
+    if (signal.aborted) {
+      // A scene that has left the stage says nothing over the one that replaced it.
+      return;
+    }
     statusEl.textContent = text;
     statusEl.classList.toggle("osml-schematic__status--err", error);
   }
@@ -562,8 +567,8 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
     const started = performance.now();
     const revision = editSequence;
     const outcome = await readModel(await engine(), scene, source, target);
-    if (revision !== editSequence) {
-      // The editor took input while the worker read this text; that edit reads next.
+    if (revision !== editSequence || signal.aborted) {
+      // The editor took input or the root changed while the worker read this; the newer read follows.
       return undefined;
     }
     if (!outcome.model) {
@@ -1582,16 +1587,37 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
     }
     variant = next;
     target = next === undefined ? sceneTarget(scene) : { rootSymbol: next.rootSymbol, view: next.view };
+    // A read of the previous root still in flight is superseded, as an edit supersedes a read.
+    const revision = ++editSequence;
     syncVariantControls();
     status(next === undefined ? `Reading ${rootName} again…` : `Reading ${next.rootSymbol.slice(next.rootSymbol.lastIndexOf("::") + 2)}…`);
     try {
       const current = await runnable();
+      if (revision !== editSequence || signal.aborted) {
+        return;
+      }
       if (current && next !== undefined) {
         status(next.hint);
       }
+      if (!current) {
+        revertVariant();
+      }
     } catch (error) {
-      status(`The engine could not read the model (${message(error)}). The diagram still works.`, true);
+      if (revision === editSequence) {
+        status(`The engine could not read the model (${message(error)}). The diagram still works.`, true);
+        revertVariant();
+      }
     }
+  }
+
+  // revertVariant puts the toggle back on the root the diagram still shows after a read failed.
+  function revertVariant(): void {
+    if (sameTarget(model.target, target)) {
+      return;
+    }
+    variant = scene.variants.find((candidate) => candidate.rootSymbol === model.target.rootSymbol && candidate.view === model.target.view);
+    target = model.target;
+    syncVariantControls();
   }
 
   // ---- editing the model ----
