@@ -200,3 +200,28 @@ func realHalfOpen(lo, hi float64) func(v semantics.Value) bool {
 		return v.Kind == semantics.ValReal && lo <= v.Real && (v.Real < hi || v.Real == lo)
 	}
 }
+
+// unsignedInt and signedInt are the two views of one Integer. A sweep counts and
+// steps unsigned, so a range as wide as Integer arithmetic stays exact.
+func unsignedInt(n int64) uint64 {
+	// #nosec G115 -- the two's-complement image is the value meant, not an overflow.
+	return uint64(n)
+}
+
+func signedInt(n uint64) int64 {
+	// #nosec G115 -- the two's-complement image is the value meant, not an overflow.
+	return int64(n)
+}
+
+// drawOffset is a uniform offset from zero to width inclusive, drawn as an
+// Int64N while the width leaves room for it so a wider range costs nothing.
+func drawOffset(source *rand.Rand, width uint64) uint64 {
+	switch {
+	case width < math.MaxInt64:
+		return unsignedInt(source.Int64N(signedInt(width) + 1))
+	case width == math.MaxUint64:
+		return source.Uint64()
+	default:
+		return source.Uint64N(width + 1)
+	}
+}

@@ -1617,7 +1617,7 @@ func forElements(value Value) ([]Value, error) {
 		return nil, nil
 	default:
 		return nil, fmt.Errorf("%w: 'for' iterates a collection, and %s is not one",
-			ErrTypeMismatch, describeValue(value))
+			ErrTypeMismatch, DescribeValue(value))
 	}
 }
 

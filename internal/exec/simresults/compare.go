@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -118,7 +119,7 @@ func caseOutput(statistic string) string {
 // Compare sets the tool's results of each compared observable of cfg beside the
 // runs of table, in the order ComparedObservables lists them. Numbers are read
 // as they are; nothing is scaled or tuned.
-func Compare(cfg *ConfigurationResults, table runtime.SweepTable, observe []ObservablePair) Comparison {
+func Compare(cfg *ConfigurationResults, table sweep.SweepTable, observe []ObservablePair) Comparison {
 	var c Comparison
 	for _, pair := range ComparedObservables(cfg, table, observe) {
 		c.Observables = append(c.Observables, compareObservable(cfg, table, pair))
@@ -126,7 +127,7 @@ func Compare(cfg *ConfigurationResults, table runtime.SweepTable, observe []Obse
 	return c
 }
 
-func compareObservable(cfg *ConfigurationResults, table runtime.SweepTable, pair ObservablePair) ObservableComparison {
+func compareObservable(cfg *ConfigurationResults, table sweep.SweepTable, pair ObservablePair) ObservableComparison {
 	o := ObservableComparison{Stored: pair.Stored, Feature: pair.Feature}
 	name := pair.Stored
 	if len(cfg.Snapshots) == 0 {
@@ -182,7 +183,7 @@ func pooledNotes(cfg *ConfigurationResults, name string) []string {
 
 // runRows sets the runs' distribution of the feature beside the tool's, or says
 // why the runs are not compared.
-func runRows(o *ObservableComparison, table runtime.SweepTable, tool *comparison) {
+func runRows(o *ObservableComparison, table sweep.SweepTable, tool *comparison) {
 	name, feature := o.Stored, o.Feature
 	ran, units, other, missing := runValues(table, feature)
 	d := runtime.Distribute(ran)
@@ -372,7 +373,7 @@ func StoredDeviation(cfg *ConfigurationResults, observable string) (float64, boo
 // one naming no feature is read from the feature of its own name that the
 // target object holds — `target.Time_Total` — or the bare name when the
 // configuration runs on no target.
-func ComparedObservables(cfg *ConfigurationResults, table runtime.SweepTable, observe []ObservablePair) []ObservablePair {
+func ComparedObservables(cfg *ConfigurationResults, table sweep.SweepTable, observe []ObservablePair) []ObservablePair {
 	pairs := make([]ObservablePair, 0, max(len(observe), len(cfg.Observables)))
 	switch {
 	case len(observe) > 0:
@@ -401,7 +402,7 @@ func ComparedObservables(cfg *ConfigurationResults, table runtime.SweepTable, ob
 }
 
 // numericOutputs names the outputs a completed run produced a number for, sorted.
-func numericOutputs(table runtime.SweepTable) []string {
+func numericOutputs(table sweep.SweepTable) []string {
 	seen := map[string]bool{}
 	var names []string
 	for _, row := range table.Rows {
@@ -422,7 +423,7 @@ func numericOutputs(table runtime.SweepTable) []string {
 // runValues are the numbers the completed runs produced for the feature, the
 // units they came in, how many runs produced something else, and how many
 // produced nothing for it.
-func runValues(table runtime.SweepTable, feature string) (numbers []semantics.Value, units []string, other, missing int) {
+func runValues(table sweep.SweepTable, feature string) (numbers []semantics.Value, units []string, other, missing int) {
 	for _, row := range table.Rows {
 		if row.Err != nil {
 			continue

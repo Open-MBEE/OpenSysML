@@ -152,7 +152,7 @@ func testStateIsActiveOutsideTheRun(t *testing.T) {
 			t.Fatalf("%s: a.isActive: %v", when, err)
 		}
 		if val.Kind != ValConst || val.Const.Kind != semantics.ValBool || val.Const.Bool {
-			t.Errorf("%s: a.isActive = %s, want false", when, describeValue(val))
+			t.Errorf("%s: a.isActive = %s, want false", when, DescribeValue(val))
 		}
 	}
 	exec, err := ctx.CreateStateExecutor(m)
@@ -212,7 +212,7 @@ func testStateIsActiveMachineUsage(t *testing.T) {
 			t.Fatalf("%s: %s: %v", when, text, err)
 		}
 		if val.Kind != ValConst || val.Const.Kind != semantics.ValBool || val.Const.Bool != want {
-			t.Errorf("%s: %s = %s, want %v", when, text, describeValue(val), want)
+			t.Errorf("%s: %s = %s, want %v", when, text, DescribeValue(val), want)
 		}
 	}
 	if got := exec.State(); got != StateSuspended {

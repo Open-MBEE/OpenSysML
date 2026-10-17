@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
@@ -151,18 +152,18 @@ func (s *Service) compareConfiguration(ctx context.Context, v *verifyContext, cf
 		return c, nil, nil
 	}
 	action := syms[0]
-	plan := runtime.SeedlessMonteCarloPlan(count)
+	plan := sweep.SeedlessMonteCarloPlan(count)
 	switch {
 	case opts.seed != nil:
-		plan = runtime.MonteCarloPlan(count, *opts.seed)
+		plan = sweep.MonteCarloPlan(count, *opts.seed)
 	case !policy.Fixed():
 		unresolved("the configuration " + cfg.Name + " could not be run: the runs draw at random; set seed, or fix the draws as min, max or average")
 		return c, nil, nil
 	}
-	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
-		i, ok := runtime.RunNumber(bindings)
+	run := func(rt *runtime.Context, bindings []sweep.SweepBinding) (sweep.SweepRunResult, error) {
+		i, ok := sweep.RunNumber(bindings)
 		if !ok {
-			return runtime.SweepRunResult{}, fmt.Errorf("%w: the row numbers no run", runtime.ErrSweepRuns)
+			return sweep.SweepRunResult{}, fmt.Errorf("%w: the row numbers no run", sweep.ErrSweepRuns)
 		}
 		if opts.seed != nil {
 			rt.SetModelSeed(runtime.RunSeed(*opts.seed, i))
@@ -171,13 +172,13 @@ func (s *Service) compareConfiguration(ctx context.Context, v *verifyContext, cf
 		}
 		rt.SetDrawPolicy(policy)
 		if err := rt.SetClockStep(step); err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		outcome, err := rt.ActionOutcomePerformedBy(action, nil, nil)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
-		return runtime.SweepRunResult{Outputs: observedOutputs(rt, outcome)}, nil
+		return sweep.SweepRunResult{Outputs: observedOutputs(rt, outcome)}, nil
 	}
 	schedule := v.runtime.Schedule()
 	answered, err := s.engines.Sweep(ctx, analysis.Request{

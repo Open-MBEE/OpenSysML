@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
@@ -163,7 +164,7 @@ func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, repeats [
 func storedRuns(cfg *simresults.ConfigurationResults) string { return cfg.StoredRunsText() }
 
 // comparisonTable tables the comparison as simresults renders it.
-func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTable, observe []ObservablePair) []string {
+func comparisonTable(cfg *simresults.ConfigurationResults, table sweep.SweepTable, observe []ObservablePair) []string {
 	return simresults.Compare(cfg, table, observe).Lines()
 }
 

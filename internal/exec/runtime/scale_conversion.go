@@ -101,7 +101,7 @@ func (ctx *Context) placementAnchor(name string, scale *CoordinateFrame) (*scale
 	origin, ok := asQuantity(t.Placement.Origin)
 	if !ok {
 		return nil, fmt.Errorf("%w: %s: the origin of its transformation %s is %s, not a quantity on %s",
-			errUnevaluableLibraryFunction, name, t.Name(), describeValue(t.Placement.Origin), t.Source.Name())
+			errUnevaluableLibraryFunction, name, t.Name(), DescribeValue(t.Placement.Origin), t.Source.Name())
 	}
 	onSource, err := semantics.ConvertQuantity(*origin, t.Source.Axes[0])
 	if err != nil {
@@ -132,7 +132,7 @@ func identityBasis(name string, t *CoordinateTransformation, dir Value) error {
 	}
 	if !ok {
 		return fmt.Errorf("%w: %s: a basisDirection of its transformation %s is %s, not a quantity on %s",
-			errUnevaluableLibraryFunction, name, t.Name(), describeValue(dir), t.Source.Name())
+			errUnevaluableLibraryFunction, name, t.Name(), DescribeValue(dir), t.Source.Name())
 	}
 	onSource, err := semantics.ConvertQuantity(*q, t.Source.Axes[0])
 	if err != nil {
@@ -304,5 +304,5 @@ func (ctx *Context) conversionTarget(name string, val Value) (*CoordinateFrame, 
 			ErrTypeMismatch, name, "targetMRef", frame.Name(), len(frame.Axes))
 	}
 	return nil, fmt.Errorf("%w: function %s parameter %q requires a measurement reference such as SI::m, got %s",
-		ErrTypeMismatch, name, "targetMRef", describeValue(val))
+		ErrTypeMismatch, name, "targetMRef", DescribeValue(val))
 }

@@ -86,12 +86,12 @@ func (inv *Invocation) started(ctx *Context) error {
 	}
 	for _, exec := range inv.Actions {
 		if exec.ctx != ctx {
-			return fmt.Errorf("%w: action %s runs in another context", errNothingStarted, symbolText(exec.action))
+			return fmt.Errorf("%w: action %s runs in another context", errNothingStarted, SymbolText(exec.action))
 		}
 	}
 	for _, exec := range inv.States {
 		if exec.ctx != ctx {
-			return fmt.Errorf("%w: state machine %s runs in another context", errNothingStarted, symbolText(exec.stateMachine))
+			return fmt.Errorf("%w: state machine %s runs in another context", errNothingStarted, SymbolText(exec.stateMachine))
 		}
 	}
 	return nil
@@ -211,10 +211,10 @@ func (inv *Invocation) names() []string {
 	}
 	names := make([]string, 0, n)
 	for _, exec := range inv.Actions {
-		names = append(names, symbolText(exec.action))
+		names = append(names, SymbolText(exec.action))
 	}
 	for _, exec := range inv.States {
-		names = append(names, symbolText(exec.stateMachine))
+		names = append(names, SymbolText(exec.stateMachine))
 	}
 	return names
 }

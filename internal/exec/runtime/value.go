@@ -765,3 +765,17 @@ func (ctx *Context) setOf(elements []Value) Value {
 	}
 	return NewSetValue(set)
 }
+
+// MagnitudeValue is the number a value is as written, Integer or Real, a
+// quantity's magnitude included, and whether it is one.
+func MagnitudeValue(value Value) (semantics.Value, bool) {
+	switch value.Kind {
+	case ValConst:
+		return value.Const, value.Const.IsNumeric()
+	case ValQuantity:
+		if q := value.Quantity(); q != nil && q.Num.IsNumeric() {
+			return q.Num, true
+		}
+	}
+	return semantics.Value{}, false
+}

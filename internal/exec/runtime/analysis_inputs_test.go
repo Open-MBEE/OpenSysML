@@ -62,19 +62,6 @@ func TestAnalysisResultInputsAreTheBoundParameters(t *testing.T) {
 	}
 }
 
-// A sweep row carries the inputs its run bound, the row's own overlay included.
-func TestSweepRowCarriesTheRunsInputs(t *testing.T) {
-	ctx, _ := analysisFixture(t, `package test { calc def Idle { return k : Integer = 0; } }`)
-	bound := []InputBinding{{Name: "n", Value: constValue(drawnReal(7.0))}}
-	row := runSweepRow(ctx, []SweepBinding{{Param: "n", Value: constValue(drawnReal(7.0))}},
-		func(*Context, []SweepBinding) (SweepRunResult, error) {
-			return SweepRunResult{Inputs: bound}, nil
-		})
-	if !reflect.DeepEqual(row.Inputs, bound) {
-		t.Errorf("row inputs %v, want %v", row.Inputs, bound)
-	}
-}
-
 // A Monte Carlo run reports the inputs its iteration bound and every declared
 // output of that iteration, `observed` appended when it declares no output.
 func TestMonteCarloRunInputsAndIterationOutputs(t *testing.T) {
