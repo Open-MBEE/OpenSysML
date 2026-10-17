@@ -33,8 +33,8 @@ func apiJSONOrderedFeatureChain(
 		}
 		target := targets[0]
 		if target.IsLiteral() {
-			if resolved := nameIndex.chainTargets[relationship.Value]; resolved.Value != "" {
-				target = resolved
+			if resolved, ok := nameIndex.chainTargets[relationship.Value]; ok {
+				target = rdf.ReferenceIRI(subject, resolved.ID)
 			}
 		}
 		links = append(links, target)

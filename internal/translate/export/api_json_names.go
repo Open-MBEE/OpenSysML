@@ -14,7 +14,7 @@ import (
 )
 
 type apiJSONNameIndex struct {
-	chainTargets  map[string]rdf.Term
+	chainTargets  map[string]apiJSONReference
 	chainOwners   map[string][]rdf.Term
 	catalogTypeMu sync.Mutex
 	catalogModel  *semantics.Model
@@ -177,8 +177,8 @@ func apiJSONChainOwnerIndex(graph *rdf.Graph) map[string][]rdf.Term {
 	return owners
 }
 
-func apiJSONFeatureChainTargets(graph *rdf.Graph, index *apiJSONNameIndex) map[string]rdf.Term {
-	resolved := make(map[string]rdf.Term)
+func apiJSONFeatureChainTargets(graph *rdf.Graph, index *apiJSONNameIndex) map[string]apiJSONReference {
+	resolved := make(map[string]apiJSONReference)
 	for ownerID, relationships := range index.chainOwners {
 		owner := rdf.IRI(ownerID)
 		ordered := make([]rdf.Term, 0, len(relationships))
@@ -194,35 +194,31 @@ func apiJSONFeatureChainTargets(graph *rdf.Graph, index *apiJSONNameIndex) map[s
 				ordered = append(ordered, relationship)
 			}
 		}
-		var previous rdf.Term
-		for _, relationship := range ordered {
+		members := make([]any, len(ordered))
+		for i, relationship := range ordered {
 			targets := graph.ObjectsView(relationship, rdf.SysML+pChainingFeature)
 			if len(targets) != 1 {
-				previous = rdf.Term{}
+				members[i] = apiJSONNameReference{}
 				continue
 			}
 			target := targets[0]
 			if target.IsIRI() {
-				resolved[relationship.Value] = target
-				previous = target
+				members[i] = apiJSONReference{ID: rdf.ReferenceID(owner, target)}
 				continue
 			}
-			if !target.IsLiteral() {
-				previous = rdf.Term{}
-				continue
-			}
-			if previous.Value == "" {
-				previous = apiJSONGraphResolveName(graph, index, owner, target.Value)
+			if target.IsLiteral() {
+				members[i] = apiJSONNameReference{name: target.Value}
 			} else {
-				feature := previous
-				previous = rdf.Term{}
-				if featureTypes := apiJSONFeatureTypes(graph, index, feature); len(featureTypes) > 0 {
-					previous = apiJSONGraphNamedTargetInTypes(graph, index, featureTypes, target.Value)
-				}
+				members[i] = apiJSONNameReference{}
 			}
-			if previous.Value != "" {
-				resolved[relationship.Value] = previous
+		}
+		chain, _ := apiJSONResolveFeatureChain(graph, index, owner, members)
+		for i, member := range chain {
+			reference, ok := member.(apiJSONReference)
+			if !ok {
+				continue
 			}
+			resolved[ordered[i].Value] = reference
 		}
 	}
 	return resolved
@@ -247,9 +243,8 @@ func apiJSONResolveNameReference(
 		switch key {
 		case pTarget:
 			if name, ok := value.(apiJSONNameReference); ok {
-				target := index.chainTargets[subject.Value]
-				if id, resolved := apiJSONTermReferenceID(subject, target); resolved {
-					return apiJSONReference{ID: id}, nil
+				if reference, resolved := index.chainTargets[subject.Value]; resolved {
+					return reference, nil
 				}
 				return name, []string{name.name}
 			}
@@ -258,14 +253,13 @@ func apiJSONResolveNameReference(
 				if !apiJSONValuesHaveNameReferences(members) {
 					return value, nil
 				}
-				target := index.chainTargets[subject.Value]
-				id, resolved := apiJSONTermReferenceID(subject, target)
+				reference, resolved := index.chainTargets[subject.Value]
 				result := make([]any, len(members))
 				var unresolved []string
 				for i, member := range members {
 					if name, ok := member.(apiJSONNameReference); ok {
 						if resolved {
-							result[i] = apiJSONReference{ID: id}
+							result[i] = reference
 						} else {
 							result[i] = name
 							unresolved = append(unresolved, name.name)
@@ -280,14 +274,15 @@ func apiJSONResolveNameReference(
 	}
 	switch value := value.(type) {
 	case apiJSONNameReference:
-		target := rdf.Term{}
 		if key == pChainingFeature && rdf.LocalName(graph.Type(subject)) == mFeatureChaining {
-			target = index.chainTargets[subject.Value]
-		} else {
-			target = apiJSONGraphResolveName(graph, index, subject, value.name)
+			if reference, resolved := index.chainTargets[subject.Value]; resolved {
+				return reference, nil
+			}
+			return value, []string{value.name}
 		}
-		if target.Value == "" &&
-			!(key == pChainingFeature && rdf.LocalName(graph.Type(subject)) == mFeatureChaining) {
+		target := rdf.Term{}
+		target = apiJSONGraphResolveName(graph, index, subject, value.name)
+		if target.Value == "" {
 			target = apiJSONCatalogResolveName(graph, index, subject, value.name)
 		}
 		id, ok := apiJSONTermReferenceID(subject, target)
