@@ -72,3 +72,6 @@ cmd/*/rsrc_windows_*.syso
 /client/jupyter-kernel/jupyter_opensysml_kernel/bin/
 /client/jupyter-kernel/labextension/
 /tools/conformance
+
+# The whole output a digested golden (*.golden.ttl.sha256) was compared against
+tests/export/testdata/**/*.actual
