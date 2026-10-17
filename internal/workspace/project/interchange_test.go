@@ -354,7 +354,7 @@ func TestExpandOfAProjectIncludesTheNotebooksOfTheProjectsItUses(t *testing.T) {
 	}
 }
 
-func TestInstalledProjectsFollowLinksOnceSoACycleTerminates(t *testing.T) {
+func TestInstalledProjectsFollowLinksWithinTheRootOnceSoACycleTerminates(t *testing.T) {
 	root := t.TempDir()
 	store := filepath.Join(root, "store")
 	vendored := writeProject(t, filepath.Join(store, "nested", "acme-parts"), `{"name": "Parts", "publisher": "acme", "version": "1.0.0"}`)
@@ -364,9 +364,13 @@ func TestInstalledProjectsFollowLinksOnceSoACycleTerminates(t *testing.T) {
 	if err := os.Symlink(vendored, filepath.Join(root, "linked")); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
+	elsewhere := writeProject(t, filepath.Join(t.TempDir(), "acme-external"), `{"name": "External", "publisher": "acme", "version": "1.0.0"}`)
+	if err := os.Symlink(elsewhere, filepath.Join(store, "escape")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
 	got, _ := installedProjects([]string{store, filepath.Join(root, "linked")})
 	if len(got) != 1 || got[0].Dir != vendored {
-		t.Errorf("installedProjects = %v, want the project once, though the store loops and a root links to it", projectDirs(got))
+		t.Errorf("installedProjects = %v, want the project once, though the store loops and a root links to it, and not the project a link leaves the root for", projectDirs(got))
 	}
 	if got, _ := installedProjects([]string{filepath.Join(root, "linked")}); len(got) != 1 || got[0].Dir != filepath.Join(root, "linked") {
 		t.Errorf("installedProjects of a root that is a project = %v, want the root itself", projectDirs(got))
