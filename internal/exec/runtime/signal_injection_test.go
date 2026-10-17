@@ -1356,7 +1356,7 @@ func TestProbeDrainLeavesThePendingStartupRunsOfTheStartUnderWay(t *testing.T) {
 	ctx.behaviorRunDepth++
 	for _, obj := range []*Instance{twin, pump} {
 		if err := ctx.startBehaviorsOf(obj); err != nil {
-			t.Fatalf("startBehaviorsOf(%s): %v", symbolText(obj.Type), err)
+			t.Fatalf("startBehaviorsOf(%s): %v", SymbolText(obj.Type), err)
 		}
 	}
 	ctx.behaviorRunDepth--

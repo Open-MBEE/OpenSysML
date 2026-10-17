@@ -274,7 +274,7 @@ func IsSignalDefinition(sym *symbols.Symbol) bool {
 // errNotASignal.
 func (ctx *Context) SignalMessage(signal *symbols.Symbol, args map[string]Value, to *Instance) (Message, error) {
 	if !IsSignalDefinition(signal) {
-		return Message{}, fmt.Errorf("%w: %s", errNotASignal, symbolText(signal))
+		return Message{}, fmt.Errorf("%w: %s", errNotASignal, SymbolText(signal))
 	}
 	features := ctx.FeaturesOf(signal)
 	payload := make(map[string]Value, len(args))
@@ -282,10 +282,10 @@ func (ctx *Context) SignalMessage(signal *symbols.Symbol, args map[string]Value,
 		feat := carriedFeature(features, name)
 		if feat == nil {
 			return Message{}, fmt.Errorf("%w: %s carries no feature %q%s",
-				errSignalArgument, symbolText(signal), name, carriedFeaturesNote(features))
+				errSignalArgument, SymbolText(signal), name, carriedFeaturesNote(features))
 		}
 		arg := args[name]
-		what := func() string { return symbolText(signal) + "." + name }
+		what := func() string { return SymbolText(signal) + "." + name }
 		if err := ctx.checkAdmits(feat, what, &arg, admitWritten); err != nil {
 			return Message{}, fmt.Errorf("%w: %w", errSignalArgument, err)
 		}

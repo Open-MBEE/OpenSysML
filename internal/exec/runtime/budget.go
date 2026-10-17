@@ -237,3 +237,6 @@ func (ctx *Context) SetBudgets(b Budgets) error {
 	ctx.maxIntegerBits = b.MaxIntegerBits
 	return nil
 }
+
+// SweepRunBudget is the number of runs one sweep may ask for when none is stated.
+func (ctx *Context) SweepRunBudget() int64 { return ctx.maxSweepRuns }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 )
 
 const runsUsage = "usage: %runs <n> [<seed>] <action> [<observable>...] | %runs <n> [<seed>] <analysis>[(<args>)] [<object>]; the seed is left out under %draws min, max or average"
@@ -53,7 +54,7 @@ func splitRunsTail(tail string, fixed bool) (int64, *uint64, string, error) {
 	}
 	count, err := strconv.ParseInt(fields[0], 10, 64)
 	if err != nil || count <= 0 {
-		return 0, nil, "", fmt.Errorf("%w: %q is not a number of runs to make", runtime.ErrSweepRuns, fields[0])
+		return 0, nil, "", fmt.Errorf("%w: %q is not a number of runs to make", sweep.ErrSweepRuns, fields[0])
 	}
 	taken := 2
 	seed, err := strconv.ParseUint(fields[1], 10, 64)
@@ -63,7 +64,7 @@ func splitRunsTail(tail string, fixed bool) (int64, *uint64, string, error) {
 	case fixed:
 		taken, drawn = 1, nil
 	default:
-		return 0, nil, "", fmt.Errorf("%w: %q is not a seed; the seed may be left out only under a fixed %%draws policy", runtime.ErrSweepRuns, fields[1])
+		return 0, nil, "", fmt.Errorf("%w: %q is not a seed; the seed may be left out only under a fixed %%draws policy", sweep.ErrSweepRuns, fields[1])
 	}
 	rest := strings.TrimSpace(tail)
 	for range taken {
@@ -111,27 +112,27 @@ func (s *Session) runsVerdict(action Behavior, count int64, seed *uint64, observ
 // for a refusal made before any engine ran. A seedless Monte Carlo under the random
 // policy is refused: its draws would have no source. A caller reading only the
 // numbers and traces the runs produced sets release, and no row keeps its context.
-func (s *Session) runsTable(inv *freshInvocation, count int64, seed *uint64, observables []string, draws runtime.DrawPolicy, step float64, release bool) (*analysis.Plan, runtime.SweepTable, error) {
+func (s *Session) runsTable(inv *freshInvocation, count int64, seed *uint64, observables []string, draws runtime.DrawPolicy, step float64, release bool) (*analysis.Plan, sweep.SweepTable, error) {
 	if _, replaying := s.drivenSchedule().Replay(); replaying {
-		return nil, runtime.SweepTable{}, ErrRunsReplay
+		return nil, sweep.SweepTable{}, ErrRunsReplay
 	}
 	if dup := duplicateName(observables); dup != "" {
-		return nil, runtime.SweepTable{}, fmt.Errorf("%w: observable %s is named twice", runtime.ErrSweepRuns, dup)
+		return nil, sweep.SweepTable{}, fmt.Errorf("%w: observable %s is named twice", sweep.ErrSweepRuns, dup)
 	}
 	if seed == nil && s.modelSeed.set {
 		session := s.modelSeed.value
 		seed = &session
 	}
-	plan := runtime.SeedlessMonteCarloPlan(count)
+	plan := sweep.SeedlessMonteCarloPlan(count)
 	if seed != nil {
-		plan = runtime.MonteCarloPlan(count, *seed)
+		plan = sweep.MonteCarloPlan(count, *seed)
 	} else if !draws.Fixed() {
-		return nil, runtime.SweepTable{}, fmt.Errorf("%w: the runs draw at random; name the seed they draw from, or fix the draws as %%draws min|max|average", runtime.ErrSweepRuns)
+		return nil, sweep.SweepTable{}, fmt.Errorf("%w: the runs draw at random; name the seed they draw from, or fix the draws as %%draws min|max|average", sweep.ErrSweepRuns)
 	}
-	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
-		i, ok := runtime.RunNumber(bindings)
+	run := func(rt *runtime.Context, bindings []sweep.SweepBinding) (sweep.SweepRunResult, error) {
+		i, ok := sweep.RunNumber(bindings)
 		if !ok {
-			return runtime.SweepRunResult{}, fmt.Errorf("%w: the row numbers no run", runtime.ErrSweepRuns)
+			return sweep.SweepRunResult{}, fmt.Errorf("%w: the row numbers no run", sweep.ErrSweepRuns)
 		}
 		if seed != nil {
 			rt.SetModelSeed(runtime.RunSeed(*seed, i))
@@ -140,16 +141,16 @@ func (s *Session) runsTable(inv *freshInvocation, count int64, seed *uint64, obs
 		}
 		outcome, err := inv.run(rt)
 		if err != nil {
-			return runtime.SweepRunResult{ReleaseContext: release}, err
+			return sweep.SweepRunResult{ReleaseContext: release}, err
 		}
-		return runtime.SweepRunResult{Outputs: analysis.Observe(rt, outcome, observables), ReleaseContext: release}, nil
+		return sweep.SweepRunResult{Outputs: analysis.Observe(rt, outcome, observables), ReleaseContext: release}, nil
 	}
 	model := s.freshModel()
 	s.state.Unlock()
 	answered, err := s.sweep(inv.subject(), model, plan, run, draws, step)
 	s.state.Lock()
 	if err != nil {
-		return &answered, runtime.SweepTable{}, err
+		return &answered, sweep.SweepTable{}, err
 	}
 	table := answered.Result.Table()
 	if err := analysis.Unobserved(table, observables); err != nil {

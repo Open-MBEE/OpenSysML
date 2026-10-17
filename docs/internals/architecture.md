@@ -438,6 +438,22 @@ Parse + model all behavioral bodies with unified fallback grammar:
   `sweep` and `solve` engines as adapters over the runtime and `internal/exec/solve`; the REPL
   session and the gRPC service ask every check, run, exploration, sweep and solver question
   through it with no change to what they print or return
+- Landed: `internal/exec/sweep` — sweep plans, ranges, rows, tables and the row work queue,
+  and the Monte Carlo plan, layered on the runtime through the parameters a calc or case
+  declares (`Context.Parameters`), the classification of a value against a type
+  (`Context.ClassifyValue`) and the scalar-type reads a range is typed by
+  (`Context.PositiveScalar`, `Context.QuantityNumber`); the runtime imports no package
+  layered on it, and no `sweep*`, `montecarlo*`, `explore*`, `replay*`, `adopt*` or `check*`
+  file may appear in it (`tests/hygiene/orchestration_test.go`); the files of those names
+  still in the runtime are listed there until their feature leaves. The `montecarlo*` files
+  are the runtime's own: they execute a `Simulation::MonteCarlo` case, binding the sample's
+  statistics into the case's run, and leaving would export 73 identifiers of the calc run.
+  The `explore*` files are the runtime's own as well: a scheduler choice-point hook
+  (`Chooser`, `StepChooser`, `StepTokens`) would close the boundary at 904 exports, but 18 of
+  the runtime's test files (110 tests of replay, the checker, the conformance corpus and the
+  robustness suites) drive explorations as their harness, and a package's tests cannot import
+  a package that imports it. Replay and the checker sit on that same hook, the held images and
+  adoption copy frames, so each stays with the runtime
 
 ---
 

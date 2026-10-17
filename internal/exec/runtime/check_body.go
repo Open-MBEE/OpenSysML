@@ -53,7 +53,7 @@ func (s *stateSpeller) pause(p bodyPause) string {
 func (s *stateSpeller) nested(e *ActionExecutor) string {
 	defer s.enter(e)()
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s{state %s", symbolText(e.action), e.state)
+	fmt.Fprintf(&b, "%s{state %s", SymbolText(e.action), e.state)
 	if e.pausedAt.name != "" {
 		fmt.Fprintf(&b, " at %s", e.pausedAt.name)
 	}

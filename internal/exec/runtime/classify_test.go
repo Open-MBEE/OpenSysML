@@ -807,7 +807,7 @@ func TestClassificationIsKeptOrUndoneWithTheChange(t *testing.T) {
 	}
 	for _, inst := range ctx.instances {
 		if !isUnclassified(inst) {
-			t.Fatalf("a refused value classified object %d, a %s, by %v", inst.ID, symbolText(inst.Type), inst.classifiers)
+			t.Fatalf("a refused value classified object %d, a %s, by %v", inst.ID, SymbolText(inst.Type), inst.classifiers)
 		}
 	}
 

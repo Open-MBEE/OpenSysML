@@ -356,7 +356,7 @@ func (ctx *Context) structuredMember(val Value, base string, member, owner *symb
 		return Value{}, err
 	}
 	if !ok {
-		return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, describeValue(val), base)
+		return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, DescribeValue(val), base)
 	}
 	return answer, nil
 }
@@ -503,7 +503,7 @@ func (ctx *Context) arrayOfObject(inst *Instance) (Value, bool, error) {
 	if !dimsStated && !elementsStated {
 		return Value{}, false, nil
 	}
-	op := arrayTypeFQN + " " + symbolText(inst.Type)
+	op := arrayTypeFQN + " " + SymbolText(inst.Type)
 	dimensions, err := indexList(op+" dimensions", dims)
 	if err != nil {
 		return Value{}, true, err
@@ -530,7 +530,7 @@ func (ctx *Context) vectorOfObject(inst *Instance, array Value) (Value, bool, er
 		return array, true, nil
 	}
 	a := array.Array()
-	op := numericalVectorTypeFQN + " " + symbolText(inst.Type)
+	op := numericalVectorTypeFQN + " " + SymbolText(inst.Type)
 	if a.Rank() > 1 {
 		return Value{}, true, fmt.Errorf(
 			"%w: %s: %d dimensions, NumericalVectorValue declares dimension[0..1]",
@@ -546,7 +546,7 @@ func (ctx *Context) vectorOfObject(inst *Instance, array Value) (Value, bool, er
 		if elem.Kind != ValConst || !elem.Const.IsNumeric() {
 			return Value{}, true, fmt.Errorf(
 				"%w: %s: element %d is %s, NumericalVectorValue declares elements : NumericalValue",
-				ErrTypeMismatch, op, i+1, describeValue(elem),
+				ErrTypeMismatch, op, i+1, DescribeValue(elem),
 			)
 		}
 		components[i] = elem.Const
@@ -593,7 +593,7 @@ func (ctx *Context) declaredArrayValue(sym *symbols.Symbol) (Value, bool, error)
 	}
 	inst, err := ctx.occurrenceOf(sym)
 	if err != nil {
-		return Value{}, true, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+		return Value{}, true, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
 	}
 	if val, ok, err := ctx.referenceValueOfObject(inst); ok {
 		return val, true, err

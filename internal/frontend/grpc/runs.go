@@ -12,6 +12,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
@@ -97,15 +98,15 @@ func (s *Service) RunRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunR
 }
 
 // runsPlan is the plan of the request's runs and how each seeds its own context.
-func (s *Service) runsPlan(req *pb.RunRunsRequest) (runtime.SweepPlan, seedRowFunc) {
-	plan := runtime.SeedlessMonteCarloPlan(req.Runs)
+func (s *Service) runsPlan(req *pb.RunRunsRequest) (sweep.SweepPlan, seedRowFunc) {
+	plan := sweep.SeedlessMonteCarloPlan(req.Runs)
 	if req.Seed != nil {
-		plan = runtime.MonteCarloPlan(req.Runs, *req.Seed)
+		plan = sweep.MonteCarloPlan(req.Runs, *req.Seed)
 	}
-	seedRow := func(rt *runtime.Context, bindings []runtime.SweepBinding) (int64, error) {
-		i, ok := runtime.RunNumber(bindings)
+	seedRow := func(rt *runtime.Context, bindings []sweep.SweepBinding) (int64, error) {
+		i, ok := sweep.RunNumber(bindings)
 		if !ok {
-			return 0, fmt.Errorf("%w: the row numbers no run", runtime.ErrSweepRuns)
+			return 0, fmt.Errorf("%w: the row numbers no run", sweep.ErrSweepRuns)
 		}
 		if req.Seed != nil {
 			rt.SetModelSeed(runtime.RunSeed(*req.Seed, i))
@@ -119,10 +120,10 @@ func (s *Service) runsPlan(req *pb.RunRunsRequest) (runtime.SweepPlan, seedRowFu
 }
 
 // seedRowFunc seeds a run's own context from the request's seed and names the run.
-type seedRowFunc func(rt *runtime.Context, bindings []runtime.SweepBinding) (int64, error)
+type seedRowFunc func(rt *runtime.Context, bindings []sweep.SweepBinding) (int64, error)
 
 // runAction makes the runs of an action and tables the observables they produced.
-func (s *Service) runAction(ctx context.Context, v *verifyContext, req *pb.RunRunsRequest, plan runtime.SweepPlan, seedRow seedRowFunc) (*pb.RunRunsResponse, error) {
+func (s *Service) runAction(ctx context.Context, v *verifyContext, req *pb.RunRunsRequest, plan sweep.SweepPlan, seedRow seedRowFunc) (*pb.RunRunsResponse, error) {
 	// An inherited action is named by the subtype too (Sub::inherited).
 	syms := v.cached.LookupNamedMember(req.ActionSymbolId)
 	if len(syms) == 0 {
@@ -149,23 +150,23 @@ func (s *Service) runAction(ctx context.Context, v *verifyContext, req *pb.RunRu
 	if _, err := v.performer(req.PerformerSymbolId); err != nil {
 		return &pb.RunRunsResponse{Error: err.Error(), FailureReason: failureReason(err)}, nil
 	}
-	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+	run := func(rt *runtime.Context, bindings []sweep.SweepBinding) (sweep.SweepRunResult, error) {
 		if _, err := seedRow(rt, bindings); err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		inputs, err := readInputs(rt)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		self, err := s.performer(v.cached, rt, req.PerformerSymbolId)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		outcome, err := rt.ActionOutcomePerformedBy(action, self, inputs)
 		if err != nil {
-			return runtime.SweepRunResult{}, fmt.Errorf("action execution failed: %w", err)
+			return sweep.SweepRunResult{}, fmt.Errorf("action execution failed: %w", err)
 		}
-		return runtime.SweepRunResult{Outputs: analysis.Observe(rt, outcome, req.Observe)}, nil
+		return sweep.SweepRunResult{Outputs: analysis.Observe(rt, outcome, req.Observe)}, nil
 	}
 	answered, err := s.sweepRuns(ctx, v, req.ActionSymbolId, plan, run)
 	if err != nil {
@@ -187,21 +188,21 @@ func (s *Service) runAction(ctx context.Context, v *verifyContext, req *pb.RunRu
 // it over the sample, settling every row's verdicts by the conclusion.
 // monteCarloSample is what a Monte Carlo case's runs made, for recording them.
 type monteCarloSample struct {
-	table       runtime.SweepTable
+	table       sweep.SweepTable
 	completed   []*runtime.MonteCarloRun
 	concluded   runtime.AnalysisResult
 	answered    analysis.Plan
 	concludeErr error
 }
 
-func (s *Service) runMonteCarloCase(ctx context.Context, v *verifyContext, req *pb.RunRunsRequest, plan runtime.SweepPlan, seedRow seedRowFunc) (*pb.RunRunsResponse, error) {
+func (s *Service) runMonteCarloCase(ctx context.Context, v *verifyContext, req *pb.RunRunsRequest, plan sweep.SweepPlan, seedRow seedRowFunc) (*pb.RunRunsResponse, error) {
 	resp, _, err := s.monteCarloRuns(ctx, v, req, plan, seedRow)
 	return resp, err
 }
 
 // monteCarloRuns runs the case and answers the runs' report beside the sample
 // they made, nil when none ran.
-func (s *Service) monteCarloRuns(ctx context.Context, v *verifyContext, req *pb.RunRunsRequest, plan runtime.SweepPlan, seedRow seedRowFunc) (*pb.RunRunsResponse, *monteCarloSample, error) {
+func (s *Service) monteCarloRuns(ctx context.Context, v *verifyContext, req *pb.RunRunsRequest, plan sweep.SweepPlan, seedRow seedRowFunc) (*pb.RunRunsResponse, *monteCarloSample, error) {
 	sym, err := v.lookup(req.AnalysisSymbolId)
 	if err != nil {
 		return &pb.RunRunsResponse{Error: err.Error(), FailureReason: pb.FailureReason_FAILURE_REASON_UNSPECIFIED}, nil, nil
@@ -224,32 +225,32 @@ func (s *Service) monteCarloRuns(ctx context.Context, v *verifyContext, req *pb.
 
 	var mu sync.Mutex
 	made := make(map[int64]*runtime.MonteCarloRun)
-	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+	run := func(rt *runtime.Context, bindings []sweep.SweepBinding) (sweep.SweepRunResult, error) {
 		i, err := seedRow(rt, bindings)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		row := v.on(rt)
 		subject, err := row.subject(req.SubjectSymbolId)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		positional, named, resp, err := row.sweepArguments(args)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		if resp != nil {
-			return runtime.SweepRunResult{}, errors.New(resp.Error)
+			return sweep.SweepRunResult{}, errors.New(resp.Error)
 		}
 		observed, err := rt.ObserveMonteCarlo(sym, runtime.AnalysisArgs{Subject: subject, Positional: positional, Named: named}, scope, nil)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		observed.Number = i
 		mu.Lock()
 		made[i] = observed
 		mu.Unlock()
-		return runtime.SweepRunResult{
+		return sweep.SweepRunResult{
 			Outputs:  []runtime.CalcOutputValue{{Name: monteCarloObservable, Value: observed.Observed}},
 			Verdicts: observed.Verdicts,
 			Subject:  observed.Subject,
@@ -265,7 +266,7 @@ func (s *Service) monteCarloRuns(ctx context.Context, v *verifyContext, req *pb.
 	table := answered.Result.Table()
 	completed := make([]*runtime.MonteCarloRun, 0, len(made))
 	for _, row := range table.Rows {
-		if i, ok := runtime.RunNumber(row.Bindings); ok && made[i] != nil {
+		if i, ok := sweep.RunNumber(row.Bindings); ok && made[i] != nil {
 			completed = append(completed, made[i])
 		}
 	}
@@ -292,7 +293,7 @@ func (s *Service) monteCarloRuns(ctx context.Context, v *verifyContext, req *pb.
 		byNumber[run.Number] = run
 	}
 	for k, row := range table.Rows {
-		if i, ok := runtime.RunNumber(row.Bindings); ok && byNumber[i] != nil {
+		if i, ok := sweep.RunNumber(row.Bindings); ok && byNumber[i] != nil {
 			table.Rows[k].Verdicts = byNumber[i].Verdicts
 		}
 	}
@@ -345,7 +346,7 @@ func (s *Service) monteCarloRuns(ctx context.Context, v *verifyContext, req *pb.
 
 // sweepRuns puts the runs to the engines as a sweep over the Monte Carlo plan,
 // the draws and clock step the request set on the runtime going with them.
-func (s *Service) sweepRuns(ctx context.Context, v *verifyContext, target string, plan runtime.SweepPlan, run runtime.SweepRun) (analysis.Plan, error) {
+func (s *Service) sweepRuns(ctx context.Context, v *verifyContext, target string, plan sweep.SweepPlan, run sweep.SweepRun) (analysis.Plan, error) {
 	schedule := v.runtime.Schedule()
 	return s.engines.Sweep(ctx, analysis.Request{
 		Model:     s.model(v.cached),
@@ -367,13 +368,13 @@ func runsFailure(err error, st standing) *pb.RunRunsResponse {
 
 // runsResponse spells the table on the wire as a sweep's rows, each observable's
 // distribution after them, with the distribution lines the CLI prints.
-func (v *verifyContext) runsResponse(table runtime.SweepTable, st standing) *pb.RunRunsResponse {
+func (v *verifyContext) runsResponse(table sweep.SweepTable, st standing) *pb.RunRunsResponse {
 	resp, _ := v.runsResponseIDs(table, st)
 	return resp
 }
 
 // runsResponseIDs is runsResponse with the renumbering its rows ended on.
-func (v *verifyContext) runsResponseIDs(table runtime.SweepTable, st standing) (*pb.RunRunsResponse, rowIDs) {
+func (v *verifyContext) runsResponseIDs(table sweep.SweepTable, st standing) (*pb.RunRunsResponse, rowIDs) {
 	swept, ids := v.sweepResponseIDs(table, st)
 	resp := &pb.RunRunsResponse{
 		Rows:        swept.Rows,

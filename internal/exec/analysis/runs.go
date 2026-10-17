@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
@@ -15,7 +16,7 @@ import (
 const ClockObservable = "clock"
 
 // OutputColumns names a table's outputs in the order its rows first produced them.
-func OutputColumns(table runtime.SweepTable) []string {
+func OutputColumns(table sweep.SweepTable) []string {
 	var outputs []string
 	seen := make(map[string]bool)
 	for _, row := range table.Rows {
@@ -61,7 +62,7 @@ func Observe(ctx *runtime.Context, outcome runtime.Outcome, observables []string
 // Unobserved is the error of an observable no completed run produced: the
 // action holds no such feature, or holds one no run gave a value. Nothing is
 // held against a table whose every run failed.
-func Unobserved(table runtime.SweepTable, observables []string) error {
+func Unobserved(table sweep.SweepTable, observables []string) error {
 	produced := make(map[string]bool)
 	completed := 0
 	for _, row := range table.Rows {
@@ -79,7 +80,7 @@ func Unobserved(table runtime.SweepTable, observables []string) error {
 	for _, name := range observables {
 		if !produced[name] {
 			return fmt.Errorf("%w: no completed run of %s produced a value named %s (the clock is observed as %s)",
-				runtime.ErrSweepRuns, table.Target, name, ClockObservable)
+				sweep.ErrSweepRuns, table.Target, name, ClockObservable)
 		}
 	}
 	return nil
@@ -88,7 +89,7 @@ func Unobserved(table runtime.SweepTable, observables []string) error {
 // DistributionLines summarise each observable over the completed runs: its
 // extremes, mean and percentiles where the runs produced numbers, the count of
 // each distinct value otherwise, and a histogram of the numbers.
-func DistributionLines(table runtime.SweepTable, text func(*runtime.Context, runtime.Value) string) []string {
+func DistributionLines(table sweep.SweepTable, text func(*runtime.Context, runtime.Value) string) []string {
 	var lines []string
 	for _, name := range OutputColumns(table) {
 		lines = append(lines, Summarize(table, name, text).Lines()...)
@@ -118,7 +119,7 @@ type ObservableSummary struct {
 
 // Summarize reads one observable off the completed rows; text spells a value
 // that is not a number through the row's context.
-func Summarize(table runtime.SweepTable, name string, text func(*runtime.Context, runtime.Value) string) ObservableSummary {
+func Summarize(table sweep.SweepTable, name string, text func(*runtime.Context, runtime.Value) string) ObservableSummary {
 	var numbers []semantics.Value
 	var unit string
 	units := make(map[string]bool)

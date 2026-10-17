@@ -137,7 +137,7 @@ func (ctx *Context) computeCalcByTool(shape *calcShape, scope *symbols.Scope, he
 	if answer.Diverged {
 		ctx.note(ToolDivergence{
 			Tool:   tool,
-			Action: ctx.qualifiedSymbolName(shape.Tool.on),
+			Action: ctx.QualifiedName(shape.Tool.on),
 			File:   shape.Tool.on.DocName,
 			Span:   shape.Tool.on.DeclSpan,
 		})

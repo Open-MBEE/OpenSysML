@@ -178,7 +178,7 @@ func (ctx *Context) verificationVerdictsOn(sym *symbols.Symbol, self *Instance) 
 	result, err := ctx.RunVerification(sym, AnalysisArgs{}, scope, self)
 	if err != nil {
 		return []VerificationVerdict{{
-			Case: ctx.qualifiedSymbolName(sym), Symbol: sym, Kind: verdictError, Detail: err.Error(), Subject: self,
+			Case: ctx.QualifiedName(sym), Symbol: sym, Kind: verdictError, Detail: err.Error(), Subject: self,
 		}}
 	}
 	if result.Verdict.Subject == nil {

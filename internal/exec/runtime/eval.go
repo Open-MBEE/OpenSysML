@@ -142,7 +142,7 @@ func (ec *EvalContext) valuedFeatureValue(name string) (val Value, ok bool, err 
 func (ec *EvalContext) conformBodyDeclared(sym *symbols.Symbol, val Value) (Value, error) {
 	if mult, stated := ec.ctx.statedMultiplicity(sym); stated {
 		if msg := mult.HeldViolation(heldCountOf(&val)); msg != "" {
-			return Value{}, fmt.Errorf("feature value %s: %w: %s", ec.ctx.qualifiedSymbolName(sym), ErrMultiplicityViolation, msg)
+			return Value{}, fmt.Errorf("feature value %s: %w: %s", ec.ctx.QualifiedName(sym), ErrMultiplicityViolation, msg)
 		}
 	}
 	return ec.conformHeld(sym, val, false)
@@ -490,7 +490,7 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 			}
 		}
 		// Read as a name of it is read: a feature nothing values is undetermined.
-		return newEvalContext(ctx, sym.OwnerScope).withoutValue(sym, ctx.qualifiedSymbolName(sym), nil)
+		return newEvalContext(ctx, sym.OwnerScope).withoutValue(sym, ctx.QualifiedName(sym), nil)
 	}
 	defer ctx.beginRun()()
 
@@ -1218,7 +1218,7 @@ func (ctx *Context) binding(sym *symbols.Symbol) bool {
 // or through another's, is a cycle, not a recursion.
 func (ctx *Context) enterBinding(sym *symbols.Symbol) (leave func(), err error) {
 	if ctx.binding(sym) {
-		return nil, &cyclicBindingError{Usage: sym, Stated: ctx.qualifiedSymbolName(sym)}
+		return nil, &cyclicBindingError{Usage: sym, Stated: ctx.QualifiedName(sym)}
 	}
 	ctx.bindingStack = append(ctx.bindingStack, sym)
 	return func() { ctx.bindingStack = ctx.bindingStack[:len(ctx.bindingStack)-1] }, nil
@@ -1255,7 +1255,7 @@ func (ec *EvalContext) conformDeclared(sym *symbols.Symbol, val Value) (Value, e
 // conformHeld is conformDeclared, judging an undetermined count against the effective
 // multiplicity only when countJudged.
 func (ec *EvalContext) conformHeld(sym *symbols.Symbol, val Value, countJudged bool) (Value, error) {
-	what := func() string { return fmt.Sprintf("feature value %s", ec.ctx.qualifiedSymbolName(sym)) }
+	what := func() string { return fmt.Sprintf("feature value %s", ec.ctx.QualifiedName(sym)) }
 	if err := ec.ctx.checkWriteType(sym.OwnerScope, what, ec.ctx.extractType(sym), &val, admitDeclared); err != nil {
 		return Value{}, err
 	}
@@ -1344,7 +1344,7 @@ func (ec *EvalContext) thisValue() (Value, error) {
 		}
 		if ec.occurrence == nil {
 			return Value{}, fmt.Errorf("%w: no occurrence of %s materialized here",
-				errThisNotAnObject, symbolText(object))
+				errThisNotAnObject, SymbolText(object))
 		}
 		return Value{Kind: ValInstance, Instance: ec.occurrence.ID}, nil
 	}
@@ -1353,12 +1353,12 @@ func (ec *EvalContext) thisValue() (Value, error) {
 		// there is an exemplar of the type, made for the check.
 		if inst, checking, err := ec.ctx.exemplarOf(object); checking {
 			if err != nil {
-				return Value{}, fmt.Errorf("%w: no exemplar of %s: %v", errThisNotAnObject, symbolText(object), err)
+				return Value{}, fmt.Errorf("%w: no exemplar of %s: %v", errThisNotAnObject, SymbolText(object), err)
 			}
 			return Value{Kind: ValInstance, Instance: inst.ID}, nil
 		}
 		return Value{}, fmt.Errorf("%w: no object of %s performs this body",
-			errThisNotAnObject, symbolText(object))
+			errThisNotAnObject, SymbolText(object))
 	}
 	// A value declared in a nested usage — the redefined feature of an exhibited
 	// or performed occurrence — evaluates `this` against that occurrence's own
@@ -1734,7 +1734,7 @@ func (ec *EvalContext) ownFeature(value Value, name string) (Value, error) {
 		return Value{}, err
 	}
 	if !ok {
-		return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, describeValue(value), name)
+		return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, DescribeValue(value), name)
 	}
 	return member, nil
 }
@@ -2707,8 +2707,8 @@ func constComparison(op ast.OperatorKind, left, right semantics.Value) (bool, er
 	if left.Kind == semantics.ValBool || right.Kind == semantics.ValBool {
 		return false, &OperandTypeError{
 			Op:      op.String(),
-			Left:    describeValue(Value{Kind: ValConst, Const: left}),
-			Right:   describeValue(Value{Kind: ValConst, Const: right}),
+			Left:    DescribeValue(Value{Kind: ValConst, Const: left}),
+			Right:   DescribeValue(Value{Kind: ValConst, Const: right}),
 			Library: booleanOrderingGap(op),
 		}
 	}
@@ -3198,7 +3198,7 @@ func (ctx *Context) boundParameterNames(scope *symbols.Scope, callee *symbols.Sy
 			names[i] = name
 		} else {
 			unbound[i] = fmt.Errorf("%w: %s has no parameter named %q",
-				errUnknownParameter, ctx.qualifiedSymbolName(callee), names[i])
+				errUnknownParameter, ctx.QualifiedName(callee), names[i])
 		}
 	}
 	return names, unbound
@@ -3216,7 +3216,7 @@ func (ctx *Context) implementInvocation(target *invocationTarget, sym *symbols.S
 		sym = perf.lib
 	}
 	if fn, ok := ctx.builtinFor(sym); ok {
-		target.builtin, target.builtinName = fn, ctx.qualifiedSymbolName(sym)
+		target.builtin, target.builtinName = fn, ctx.QualifiedName(sym)
 	} else if fn, ok := ctx.libraryFunctionFor(sym); ok {
 		target.library = fn
 	} else if shape, err := ctx.calcShapeOf(sym); err == nil {
@@ -3358,7 +3358,7 @@ func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.Fea
 		return Value{}, err
 	}
 	if fn.Kind != ValFunction {
-		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, describeValue(fn))
+		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, DescribeValue(fn))
 	}
 	target := &invocationTarget{qualName: callee, calc: fn.Function()}
 	if len(n.NamedArgs) > 0 {

@@ -1553,7 +1553,7 @@ func heldDigest(ctx *Context, held func(id int64) bool) string {
 		if inst.owner != nil {
 			owner = inst.owner.ID
 		}
-		fmt.Fprintf(&b, "#%d %s owner=#%d.%s life=%+v ends=%d\n", id, symbolText(inst.Type), owner, inst.ownerFeature, ctx.lives[id], len(inst.Ends))
+		fmt.Fprintf(&b, "#%d %s owner=#%d.%s life=%+v ends=%d\n", id, SymbolText(inst.Type), owner, inst.ownerFeature, ctx.lives[id], len(inst.Ends))
 		for _, name := range slices.Sorted(maps.Keys(inst.FeatureValues)) {
 			fv := inst.FeatureValues[name]
 			fmt.Fprintf(&b, "  %s = %s written=%t materialized=%t\n", name, FormatValue(fv.HeldValue()), fv.Written, fv.Materialized)

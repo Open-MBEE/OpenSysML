@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
@@ -222,7 +223,7 @@ func storedRuns(cfg *simresults.ConfigurationResults) string {
 // numbers, the runs' values, and the relative difference of each statistic. An
 // observable the tool summarised is compared by count and mean, the statistics
 // it kept; one the tool stored nothing of has the runs' row alone.
-func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTable, observe []ObservablePair) []string {
+func comparisonTable(cfg *simresults.ConfigurationResults, table sweep.SweepTable, observe []ObservablePair) []string {
 	cells := [][]string{{"observable", "source", "runs", "min", "mean", "p50", "p90", "max"}}
 	var notes []string
 	for _, pair := range comparedObservables(cfg, table, observe) {
@@ -242,7 +243,7 @@ func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTa
 }
 
 // comparisonRows writes the table rows and notes one compared observable earns.
-func comparisonRows(cells [][]string, notes []string, cfg *simresults.ConfigurationResults, table runtime.SweepTable, pair ObservablePair) ([][]string, []string) {
+func comparisonRows(cells [][]string, notes []string, cfg *simresults.ConfigurationResults, table sweep.SweepTable, pair ObservablePair) ([][]string, []string) {
 	name, feature := pair.Stored, pair.Feature
 	if len(cfg.Snapshots) == 0 {
 		cells = append(cells, []string{name, "tool (no stored result to compare)", "0", "", "", "", "", ""})
@@ -429,7 +430,7 @@ func storedDeviation(cfg *simresults.ConfigurationResults, observable string) (f
 
 // runRows appends the runs' row of one observable — and the difference from the
 // tool's when there is one — or the note saying why the runs are not compared.
-func runRows(cells [][]string, notes []string, name, feature string, table runtime.SweepTable, tool *comparison) ([][]string, []string) {
+func runRows(cells [][]string, notes []string, name, feature string, table sweep.SweepTable, tool *comparison) ([][]string, []string) {
 	ran, units, other, missing := runValues(table, feature)
 	d := runtime.Distribute(ran)
 	switch {
@@ -553,7 +554,7 @@ func orUnnamed(name string) string {
 // one naming no feature is read from the feature of its own name that the
 // target object holds — `target.Time_Total` — or the bare name when the
 // configuration runs on no target.
-func comparedObservables(cfg *simresults.ConfigurationResults, table runtime.SweepTable, observe []ObservablePair) []ObservablePair {
+func comparedObservables(cfg *simresults.ConfigurationResults, table sweep.SweepTable, observe []ObservablePair) []ObservablePair {
 	pairs := make([]ObservablePair, 0, max(len(observe), len(cfg.Observables)))
 	switch {
 	case len(observe) > 0:
@@ -582,7 +583,7 @@ func comparedObservables(cfg *simresults.ConfigurationResults, table runtime.Swe
 }
 
 // numericOutputs names, sorted, every feature some completed run produced as a number.
-func numericOutputs(table runtime.SweepTable) []string {
+func numericOutputs(table sweep.SweepTable) []string {
 	seen := map[string]bool{}
 	var names []string
 	for _, row := range table.Rows {
@@ -603,7 +604,7 @@ func numericOutputs(table runtime.SweepTable) []string {
 // runValues collects the numbers a feature came to in the completed runs, the
 // distinct units they came in, in order of first appearance ("" for a bare number),
 // how many completed runs produced the feature as no number, and how many did not produce it.
-func runValues(table runtime.SweepTable, feature string) (numbers []semantics.Value, units []string, other, missing int) {
+func runValues(table sweep.SweepTable, feature string) (numbers []semantics.Value, units []string, other, missing int) {
 	for _, row := range table.Rows {
 		if row.Err != nil {
 			continue
