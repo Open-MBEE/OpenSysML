@@ -34,8 +34,10 @@ The generated source is always written beside the executable (`fib.c` / `fib.go`
 compiled is inspectable. `OPENSYSML_CC` names the C compiler (default `cc`) and `OPENSYSML_GO`
 the go command (default `go`).
 
-Programmatically: `Session.CompileCalc(name)` in `internal/frontend/repl` yields a `codegen.Program`, which
-`codegen.Source` renders and `codegen.Build` compiles.
+Programmatically: `repl.CompileCalc(session, name, compile)` resolves the named calc in a REPL session and
+hands it to `compile`, the backend the caller links — `codegen.New(model, resolver).Compile(entry, target)` in
+`cmd/sysml` and `tests/codegen` — yielding a `codegen.Program`, which `codegen.Source` renders and
+`codegen.Build` compiles.
 
 ## The compiled subset
 
@@ -468,7 +470,7 @@ in one process: interpreted (`Session.RunCalc`), and as the C and Go executables
 `--repeat b.N`, so process start-up is amortized and each figure is per invocation.
 
 ```
-go test ./internal/frontend/repl -run '^$' -bench BenchmarkCompiledCalc -benchtime 2s
+go test ./tests/codegen -run '^$' -bench BenchmarkCompiledCalc -benchtime 2s
 ```
 
 The C loop is confirmed to do the work each iteration rather than being hoisted: `SumTo` scales

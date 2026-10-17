@@ -9,11 +9,12 @@ import (
 
 // codegenImporters are the packages that may import internal/translate/codegen,
 // the native compilation backend behind `sysml -compile`: the command that
-// drives it and the black-box suites under tests/. No other package, nor any
-// other package's tests, reaches it, so a build or test run of the runtime
-// never pays for it.
+// drives it and the black-box suite that holds its differential contract. No
+// other package, nor any other package's tests, reaches it, so a build or test
+// run of the runtime never pays for it.
 var codegenImporters = map[string]bool{
-	"cmd/sysml": true,
+	"cmd/sysml":     true,
+	"tests/codegen": true,
 }
 
 // TestCodegenReachedOnlyFromItsCommand checks every package in the module,
@@ -30,7 +31,7 @@ func TestCodegenReachedOnlyFromItsCommand(t *testing.T) {
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		fields := strings.Fields(line)
 		from := strings.TrimPrefix(fields[0], modulePath)
-		if from == codegen || strings.HasPrefix(from, "tests/") {
+		if from == codegen {
 			continue
 		}
 		for _, imp := range fields[1:] {
@@ -38,7 +39,7 @@ func TestCodegenReachedOnlyFromItsCommand(t *testing.T) {
 				continue
 			}
 			if !codegenImporters[from] {
-				t.Errorf("%s imports %s; only cmd/sysml and the suites under tests/ may", from, codegen)
+				t.Errorf("%s imports %s; only cmd/sysml and tests/codegen may", from, codegen)
 			}
 			importers = append(importers, from)
 			break
