@@ -1,14 +1,22 @@
 package export_test
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"path/filepath"
 	"sync"
+	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
+
+type sysMLGraphCacheKey struct {
+	path   string
+	source [sha256.Size]byte
+}
 
 type convertedSysMLGraph struct {
 	once  sync.Once
@@ -17,9 +25,10 @@ type convertedSysMLGraph struct {
 }
 
 type apiJSONCacheKey struct {
-	path  string
-	form  string
-	route string
+	path   string
+	source [sha256.Size]byte
+	form   string
+	route  string
 }
 
 type writtenAPIJSON struct {
@@ -30,13 +39,13 @@ type writtenAPIJSON struct {
 
 var (
 	convertedSysMLGraphsMu sync.Mutex
-	convertedSysMLGraphs   = map[string]*convertedSysMLGraph{}
+	convertedSysMLGraphs   = map[sysMLGraphCacheKey]*convertedSysMLGraph{}
 	writtenAPIJSONMu       sync.Mutex
 	writtenAPIJSONByKey    = map[apiJSONCacheKey]*writtenAPIJSON{}
 )
 
 func cachedSysMLToRDF(path string, source []byte) (*rdf.Graph, error) {
-	key := filepath.Clean(path)
+	key := sysMLGraphCacheKey{path: filepath.Clean(path), source: sha256.Sum256(source)}
 	convertedSysMLGraphsMu.Lock()
 	entry, ok := convertedSysMLGraphs[key]
 	if !ok {
@@ -52,7 +61,9 @@ func cachedSysMLToRDF(path string, source []byte) (*rdf.Graph, error) {
 
 // cachedAPIJSON returns immutable cached output; callers must not modify it.
 func cachedAPIJSON(path string, source []byte, form, route string) ([]byte, error) {
-	key := apiJSONCacheKey{path: filepath.Clean(path), form: form, route: route}
+	key := apiJSONCacheKey{
+		path: filepath.Clean(path), source: sha256.Sum256(source), form: form, route: route,
+	}
 	entry := cachedAPIJSONEntry(key)
 	entry.once.Do(func() {
 		switch route {
@@ -119,5 +130,35 @@ func writeCachedAPIJSON(graph *rdf.Graph, form string) ([]byte, error) {
 		return export.WriteAPIJSONCompact(graph, export.CompactAPIJSONOptions{})
 	default:
 		return nil, fmt.Errorf("unknown API JSON form %q", form)
+	}
+}
+
+func TestCachedAPIJSONSeparatesSourceContentsAtSamePath(t *testing.T) {
+	path := filepath.Join("testdata", "cache-content-key.sysml")
+	firstSource := []byte("package P { part def A; }")
+	secondSource := []byte("package P { part def B; }")
+
+	firstGraph, err := cachedSysMLToRDF(path, firstSource)
+	if err != nil {
+		t.Fatalf("convert first source: %v", err)
+	}
+	secondGraph, err := cachedSysMLToRDF(path, secondSource)
+	if err != nil {
+		t.Fatalf("convert second source: %v", err)
+	}
+	if firstGraph == secondGraph {
+		t.Fatal("same-path source changes reused the cached RDF graph")
+	}
+
+	firstDocument, err := cachedAPIJSON(path, firstSource, "standard", "graph")
+	if err != nil {
+		t.Fatalf("write first source: %v", err)
+	}
+	secondDocument, err := cachedAPIJSON(path, secondSource, "standard", "graph")
+	if err != nil {
+		t.Fatalf("write second source: %v", err)
+	}
+	if bytes.Equal(firstDocument, secondDocument) {
+		t.Fatal("same-path source changes reused the cached API JSON")
 	}
 }

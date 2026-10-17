@@ -66,8 +66,21 @@ func newAPIJSONNameIndex(graph *rdf.Graph) *apiJSONNameIndex {
 		if name, ok := graph.Lexical(subject, rdf.SysML+pDeclaredName); ok {
 			index.addOwnedName(subject, name)
 		}
+		if name, ok := graph.Lexical(subject, rdf.SysML+pDeclaredShortName); ok {
+			index.addOwnedName(subject, name)
+		}
 		if name, ok := graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
 			index.addOwnedName(subject, name)
+		}
+	}
+	for _, membership := range graph.SubjectsView() {
+		name, ok := graph.Lexical(membership, rdf.SysML+pMemberShortName)
+		if !ok {
+			continue
+		}
+		member, ok := graph.Object(membership, rdf.SysML+pMemberElement)
+		if ok && member.IsIRI() {
+			index.addOwnedNameInScope(index.owners[membership.Value], member, name)
 		}
 	}
 	index.chainOwners = apiJSONChainOwnerIndex(graph)
@@ -85,15 +98,16 @@ func (index *apiJSONNameIndex) ownerOf(graph *rdf.Graph, subject rdf.Term) rdf.T
 }
 
 func (index *apiJSONNameIndex) addOwnedName(subject rdf.Term, name string) {
-	if name == "" {
-		return
-	}
 	owner := index.owners[subject.Value]
-	if owner.Value == "" {
+	index.addOwnedNameInScope(owner, subject, name)
+}
+
+func (index *apiJSONNameIndex) addOwnedNameInScope(owner, target rdf.Term, name string) {
+	if name == "" || owner.Value == "" || !target.IsIRI() {
 		return
 	}
 	key := apiJSONScopeName{scope: owner.Value, name: name}
-	index.ownedNames[key] = appendUniqueTerm(index.ownedNames[key], subject)
+	index.ownedNames[key] = appendUniqueTerm(index.ownedNames[key], target)
 }
 
 func apiJSONCatalogNames(catalog *identity.Catalog) *apiJSONCatalogNameIndex {
@@ -344,13 +358,15 @@ func apiJSONResolveFeatureChain(
 			continue
 		}
 		target := rdf.Term{}
-		if previous.Value == "" {
+		if i == 0 {
 			target = apiJSONGraphResolveName(graph, index, subject, name.name)
-		} else if featureType := apiJSONFeatureType(graph, previous); featureType.Value != "" {
-			target = apiJSONGraphNamedTargetInType(graph, index, featureType, name.name)
-		}
-		if target.Value == "" {
-			target = apiJSONCatalogResolveName(graph, index, subject, name.name)
+			if target.Value == "" {
+				target = apiJSONCatalogResolveName(graph, index, subject, name.name)
+			}
+		} else if previous.Value != "" {
+			if featureType := apiJSONFeatureType(graph, previous); featureType.Value != "" {
+				target = apiJSONGraphNamedTargetInType(graph, index, featureType, name.name)
+			}
 		}
 		id, ok := apiJSONTermReferenceID(subject, target)
 		if !ok {
@@ -569,7 +585,15 @@ func apiJSONGraphNamedTargetInType(
 			for _, target := range apiJSONGraphNamedTargets(graph, index, scope, name) {
 				matches = appendUniqueTerm(matches, target)
 			}
+			for _, target := range apiJSONCatalogNamedTargetsInType(index, scope, name) {
+				matches = appendUniqueTerm(matches, target)
+			}
 			for _, parent := range apiJSONGraphSuperTypes(graph, scope) {
+				if !seen[parent.Value] {
+					next = appendUniqueTerm(next, parent)
+				}
+			}
+			for _, parent := range apiJSONCatalogSuperTypes(index, scope) {
 				if !seen[parent.Value] {
 					next = appendUniqueTerm(next, parent)
 				}
@@ -584,6 +608,43 @@ func apiJSONGraphNamedTargetInType(
 		frontier = next
 	}
 	return rdf.Term{}
+}
+
+func apiJSONCatalogNamedTargetsInType(index *apiJSONNameIndex, typ rdf.Term, name string) []rdf.Term {
+	if index.catalog == nil || !typ.IsIRI() || name == "" {
+		return nil
+	}
+	element, ok := index.catalog.Element(rdf.LocalName(typ.Value))
+	if !ok || element.Symbol == nil || element.Symbol.Scope == nil {
+		return nil
+	}
+	var matches []rdf.Term
+	for _, member := range element.Symbol.Scope.Members() {
+		if member.Name != name && member.ShortName != name {
+			continue
+		}
+		if target, ok := index.catalog.ElementForSymbol(member); ok && target.ID != "" {
+			matches = appendUniqueTerm(matches, rdf.ElementIRIForID(target.ID))
+		}
+	}
+	return matches
+}
+
+func apiJSONCatalogSuperTypes(index *apiJSONNameIndex, typ rdf.Term) []rdf.Term {
+	if index.catalog == nil || !typ.IsIRI() {
+		return nil
+	}
+	element, ok := index.catalog.Element(rdf.LocalName(typ.Value))
+	if !ok || element.Symbol == nil || element.Symbol.Facts == nil {
+		return nil
+	}
+	var parents []rdf.Term
+	for _, super := range element.Symbol.Facts.Supers {
+		if parent, ok := index.catalog.ElementNamed(super.FQN); ok && parent.ID != "" {
+			parents = appendUniqueTerm(parents, rdf.ElementIRIForID(parent.ID))
+		}
+	}
+	return parents
 }
 
 func apiJSONGraphNamedTargets(
