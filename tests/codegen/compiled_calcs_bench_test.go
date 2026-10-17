@@ -1,4 +1,4 @@
-package repl
+package codegen_test
 
 import (
 	"os/exec"
@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/codegen"
 )
 
@@ -25,7 +26,7 @@ func BenchmarkCompiledCalc(b *testing.B) {
 			invocation := "Compiled::" + c.calc + "(" + strings.Join(c.args, ", ") + ")"
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				if v := s.RunCalc(invocation); v.Status != VerdictHolds {
+				if v := s.RunCalc(invocation); v.Status != repl.VerdictHolds {
 					b.Fatal(v.Lines)
 				}
 			}
@@ -38,7 +39,7 @@ func BenchmarkCompiledCalc(b *testing.B) {
 					}
 				}
 				s := loadCompileFixture(b)
-				program, err := s.CompileCalc("Compiled::"+c.calc, target)
+				program, err := compileCalc(s, "Compiled::"+c.calc, target)
 				if err != nil {
 					b.Fatal(err)
 				}

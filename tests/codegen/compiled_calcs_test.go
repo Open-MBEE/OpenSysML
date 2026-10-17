@@ -1,4 +1,4 @@
-package repl
+package codegen_test
 
 import (
 	"errors"
@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/codegen"
@@ -454,10 +455,10 @@ func failureClass(calc, msg string) string {
 }
 
 // interpreted answers a case with the interpreter: the value, or the failure.
-func interpreted(t *testing.T, s *Session, c compiledCase) (value, failure string) {
+func interpreted(t *testing.T, s *repl.Session, c compiledCase) (value, failure string) {
 	t.Helper()
 	v := s.RunCalc("Compiled::" + c.calc + "(" + strings.Join(c.args, ", ") + ")")
-	if v.Status == VerdictHolds {
+	if v.Status == repl.VerdictHolds {
 		for _, line := range v.Lines {
 			if rest, ok := strings.CutPrefix(strings.TrimSpace(line), "= "); ok {
 				return rest, ""
@@ -470,17 +471,17 @@ func interpreted(t *testing.T, s *Session, c compiledCase) (value, failure strin
 
 // argumentsSpent reports whether the interpreter's run of c failed while still
 // evaluating its argument expressions.
-func argumentsSpent(t *testing.T, s *Session, c compiledCase) bool {
+func argumentsSpent(t *testing.T, s *repl.Session, c compiledCase) bool {
 	t.Helper()
 	v := s.RunCalc("Compiled::" + c.calc + "(" + strings.Join(c.args, ", ") + ")")
-	return v.Status != VerdictHolds && strings.Contains(strings.Join(v.Lines, "\n"), "evaluation of argument ")
+	return v.Status != repl.VerdictHolds && strings.Contains(strings.Join(v.Lines, "\n"), "evaluation of argument ")
 }
 
 // verdictLines is the verdict without its standing line, which no compiled program prints.
-func verdictLines(v Verdict) []string {
+func verdictLines(v repl.Verdict) []string {
 	var lines []string
 	for _, line := range v.Lines {
-		if !strings.HasPrefix(line, standingPrefix) {
+		if !strings.HasPrefix(line, repl.StandingPrefix) {
 			lines = append(lines, line)
 		}
 	}
@@ -553,9 +554,9 @@ func integerForReal(p *codegen.Program, args []string) bool {
 // buildCalc compiles calc for target into exe, reporting false when the C target
 // refuses it for Integer arithmetic that may leave int64: the Go target, which
 // computes it exactly, must accept every calc. It returns the program built, or nil.
-func buildCalc(t *testing.T, s *Session, calc string, target codegen.Target, exe string) *codegen.Program {
+func buildCalc(t *testing.T, s *repl.Session, calc string, target codegen.Target, exe string) *codegen.Program {
 	t.Helper()
-	program, err := s.CompileCalc("Compiled::"+calc, target)
+	program, err := compileCalc(s, "Compiled::"+calc, target)
 	if target == codegen.TargetC && errors.Is(err, codegen.ErrUnsupported) && strings.Contains(err.Error(), "for the C target") {
 		return nil
 	}
@@ -574,13 +575,13 @@ func buildCalc(t *testing.T, s *Session, calc string, target codegen.Target, exe
 
 // loadCompileFixture loads the fixture into a session with the default budgets,
 // which a compiled program also defaults to.
-func loadCompileFixture(t testing.TB) *Session {
+func loadCompileFixture(t testing.TB) *repl.Session {
 	t.Helper()
 	data, err := os.ReadFile("testdata/compile_calcs.sysml")
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := NewSession()
+	s := repl.NewSession()
 	if errs := errorDiagnostics(s.Submit(string(data)).Diagnostics); len(errs) > 0 {
 		t.Fatalf("fixture has errors: %v", errs)
 	}
@@ -732,7 +733,7 @@ func TestCompiledStringResultHoldsNul(t *testing.T) {
 					t.Skip("no C compiler on PATH")
 				}
 			}
-			s := NewSession()
+			s := repl.NewSession()
 			if errs := errorDiagnostics(s.Submit(model).Diagnostics); len(errs) > 0 {
 				t.Fatalf("model has errors: %v", errs)
 			}
@@ -815,7 +816,7 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 			if out, err := exec.Command(exes["Seq::BigIn"], "--repeat", "3", "(1,2,3,4,5,6,7,8,9,10)").Output(); err != nil || strings.TrimSpace(string(out)) != "10" {
 				t.Errorf("--repeat within budget: got %q, %v", out, err)
 			}
-			program, err := s.CompileCalc("Compiled::Seq::BigW", target)
+			program, err := compileCalc(s, "Compiled::Seq::BigW", target)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -838,7 +839,7 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 
 // stepsTaken is the least step budget under which the interpreter answers c
 // without exceeding it, or false when that is above limit.
-func stepsTaken(t *testing.T, s *Session, c compiledCase, limit int64) (int64, bool) {
+func stepsTaken(t *testing.T, s *repl.Session, c compiledCase, limit int64) (int64, bool) {
 	t.Helper()
 	over := func(n int64) bool {
 		budgets := runtime.DefaultBudgets()
@@ -875,7 +876,7 @@ func TestCompiledStepBudgetAtTheInt64Limit(t *testing.T) {
 	for _, target := range codegen.Targets() {
 		t.Run(string(target), func(t *testing.T) {
 			s := loadCompileFixture(t)
-			program, err := s.CompileCalc("Compiled::Seq::Sequence", target)
+			program, err := compileCalc(s, "Compiled::Seq::Sequence", target)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1003,7 +1004,7 @@ func TestCompiledCLoopMemoryIsBounded(t *testing.T) {
 	s := loadCompileFixture(t)
 	dir := t.TempDir()
 	for calc, arg := range map[string]string{"Churn": "50000.0", "ChurnFor": "50000", "ChurnNest": "10000.0"} {
-		program, err := s.CompileCalc("Compiled::Loop::"+calc, codegen.TargetC)
+		program, err := compileCalc(s, "Compiled::Loop::"+calc, codegen.TargetC)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1031,7 +1032,7 @@ func TestCompiledCRecordsAreReleasedBetweenRuns(t *testing.T) {
 		t.Skipf("no address-space limit here: %v %s", err, out)
 	}
 	s := loadCompileFixture(t)
-	program, err := s.CompileCalc("Compiled::Rec::Read", codegen.TargetC)
+	program, err := compileCalc(s, "Compiled::Rec::Read", codegen.TargetC)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1093,7 +1094,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"TensorBuilt", "type Quantities::TensorQuantityValue is not Integer, Real, Boolean, String or an enumeration"},
 		{"MetaCast", "a `meta` cast, whose metaobject reflects a model element and has no native representation"},
 	} {
-		_, err := s.CompileCalc("Refused::"+tc.calc, codegen.TargetGo)
+		_, err := compileCalc(s, "Refused::"+tc.calc, codegen.TargetGo)
 		if err == nil {
 			t.Errorf("%s: compiled, want a refusal mentioning %q", tc.calc, tc.reason)
 			continue
@@ -1105,7 +1106,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 			t.Errorf("%s: %v does not mention %q", tc.calc, err, tc.reason)
 		}
 	}
-	if _, err := s.CompileCalc("Compiled::Nowhere", codegen.TargetGo); err == nil {
+	if _, err := compileCalc(s, "Compiled::Nowhere", codegen.TargetGo); err == nil {
 		t.Error("an unknown calc compiled")
 	}
 }
@@ -1113,7 +1114,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 // A call several visible declarations fit equally is refused, naming them,
 // as the checker and the interpreter report it.
 func TestCompileRefusesAmbiguousCall(t *testing.T) {
-	s := NewSession()
+	s := repl.NewSession()
 	s.Submit(`package Amb {
 		private import ScalarValues::*;
 		package Overloads {
@@ -1123,7 +1124,7 @@ func TestCompileRefusesAmbiguousCall(t *testing.T) {
 		private import Overloads::*;
 		calc def Pick { in n : Integer; return : Integer = pick(n); }
 	}`)
-	_, err := s.CompileCalc("Amb::Pick", codegen.TargetGo)
+	_, err := compileCalc(s, "Amb::Pick", codegen.TargetGo)
 	if !errors.Is(err, codegen.ErrUnsupported) {
 		t.Fatalf("got %v, want an ErrUnsupported refusal", err)
 	}
@@ -1137,7 +1138,7 @@ func TestCompileRefusesAmbiguousCall(t *testing.T) {
 // A call binding one parameter by name twice is refused by the type checker;
 // the native target declines it rather than binding the later value.
 func TestCompileRefusesAParameterBoundTwice(t *testing.T) {
-	s := NewSession()
+	s := repl.NewSession()
 	res := s.Submit(`package Twice {
 		private import ScalarValues::*;
 		calc def Add { in a : Integer; in b : Integer; return : Integer = a + b; }
@@ -1147,9 +1148,9 @@ func TestCompileRefusesAParameterBoundTwice(t *testing.T) {
 	if len(errs) != 1 || !strings.Contains(errs[0].Message, `Add binds parameter "a" twice`) {
 		t.Fatalf("diagnostics = %v, want Add binds parameter \"a\" twice", errs)
 	}
-	_, err := s.CompileCalc("Twice::Dup", codegen.TargetGo)
+	_, err := compileCalc(s, "Twice::Dup", codegen.TargetGo)
 	if !errors.Is(err, codegen.ErrUnsupported) || !strings.Contains(err.Error(), "binds parameter a twice") {
-		t.Fatalf("CompileCalc(Twice::Dup) = %v, want an ErrUnsupported naming the parameter", err)
+		t.Fatalf("compileCalc(Twice::Dup) = %v, want an ErrUnsupported naming the parameter", err)
 	}
 }
 
@@ -1169,7 +1170,7 @@ func TestCompileCRefusesIntegersBeyondInt64(t *testing.T) {
 		{"Wide::Product", "the Integer product"},
 		{"Wide::Lit", "the Integer literal 123456789012345678901234567890, beyond int64,"},
 	} {
-		program, err := s.CompileCalc("Compiled::"+tc.calc, codegen.TargetC)
+		program, err := compileCalc(s, "Compiled::"+tc.calc, codegen.TargetC)
 		if err != nil {
 			t.Fatalf("compile %s: %v", tc.calc, err)
 		}
@@ -1177,7 +1178,7 @@ func TestCompileCRefusesIntegersBeyondInt64(t *testing.T) {
 		if !errors.Is(err, codegen.ErrUnsupported) || !strings.Contains(err.Error(), tc.construct+" for the C target") {
 			t.Errorf("C source of %s = %v, want an ErrUnsupported naming %s", tc.calc, err, tc.construct)
 		}
-		program, err = s.CompileCalc("Compiled::"+tc.calc, codegen.TargetGo)
+		program, err = compileCalc(s, "Compiled::"+tc.calc, codegen.TargetGo)
 		if err != nil {
 			t.Fatalf("compile %s: %v", tc.calc, err)
 		}
@@ -1186,7 +1187,7 @@ func TestCompileCRefusesIntegersBeyondInt64(t *testing.T) {
 		}
 	}
 	for _, calc := range []string{"Quot", "Compare", "Hypot", "Seq::IxS", "Wide::Idx", "Wide::Gt", "Loop::ChurnFor"} {
-		program, err := s.CompileCalc("Compiled::"+calc, codegen.TargetC)
+		program, err := compileCalc(s, "Compiled::"+calc, codegen.TargetC)
 		if err != nil {
 			t.Fatalf("compile %s: %v", calc, err)
 		}
@@ -1200,7 +1201,7 @@ func TestCompileCRefusesIntegersBeyondInt64(t *testing.T) {
 func TestCompiledSourceNamesTheCalc(t *testing.T) {
 	s := loadCompileFixture(t)
 	for _, target := range codegen.Targets() {
-		program, err := s.CompileCalc("Compiled::Hypot", target)
+		program, err := compileCalc(s, "Compiled::Hypot", target)
 		if err != nil {
 			t.Fatal(err)
 		}
