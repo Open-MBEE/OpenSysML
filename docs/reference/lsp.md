@@ -118,6 +118,26 @@ read the same way and corresponding to the CLI's `-enable-lint`:
 
 A lint named by both settings is off.
 
+## Library roots (setting)
+
+The directories installed projects are looked for under, besides the well-known library
+directories of a workspace folder's project (`.sysand/lib`), are named by a list setting,
+`libraryRoots`, read from the same payloads and in the same three shapes as
+`strictConformance`:
+
+```json
+{ "libraryRoots": ["/path/to/store"] }
+{ "sysml": { "libraryRoots": ["vendor/sysml"] } }
+{ "sysml.libraryRoots": [] }
+```
+
+A relative directory is taken from each workspace folder. The list replaces the previous
+one; changing it walks the folders again, indexing the projects the new roots hold and
+dropping the sources only the old ones contributed, and republishes the diagnostics of every
+open document. A value that is not a list of strings is ignored. It corresponds to the
+server's `-library-root` flag and `OPENSYSML_LIBRARY_ROOTS`, which set the roots the server
+starts with; see [Working inside a package-manager project](../guide/03-command-line.md#working-inside-a-package-manager-project).
+
 ## Interface records
 
 A document the server holds but no editor has open — one it read from the disk
@@ -248,7 +268,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | `ports`, `fromPort`, `toPort` | A node's optional `ports` array contains the port pins drawn on it, each with an `id`, `name`, optional `type` and optional `direction` (`in`, `out`, `inout`; omitted for an undirected port). A request's `ports` display controls which pins appear in interconnection and mixed renderings: `minimal` lists pins reached by an interconnection edge, while `full` lists every pin. An edge's optional `fromPort` and `toPort` are the IDs of its endpoint pins in those arrays. |
 | `rows`, `columns` | A table or matrix rendering's cells, in place of nodes and edges. Matrix rows are relationship sources, columns are targets, and each cell carries its ordered relationship keywords. |
 | `origin` | Where the element was declared, as a document URI, the `range` of the whole declaration and, when the declaration names one, the `selectionRange` of the identifier alone. A client highlights the element whose `range` holds the cursor and navigates to its `selectionRange`, as `textDocument/definition` does. `digest` fingerprints the text the ranges are of, the same for the same text whatever its version: a `setLayout` or `setRoute` of an element another document declares hands it back as its `digest`, with the URI as `declaredIn`, so the target is read in the text it was rendered from or answered `stale`. Every `origin` of one rendering is of the text the rendering was made from, read under one lock, whatever a document holds since. Absent for an element with no locatable declaration: a standard library symbol the index served from its cache, or a step a lowering sequenced without a declaration of its own, carries none rather than a bogus range. |
-| `notices` | What the rendering could not represent, as the text form reports it; includes reasoned notices for refused diagram pictures. |
+| `notices` | What the rendering could not represent, as the text form reports it; includes reasoned notices for refused diagram pictures. A result with no node, no edge and no row always carries at least one notice saying why, the same line the text form ends with: the view exposes nothing; every element it exposes is rejected by its filter, naming the filter as written (`every element the view exposes is rejected by its filter @ActionUsage; the rendering is empty`); what it exposes does not resolve (`the view exposes the members of Nowhere, which does not resolve; …`), or is nothing; nothing it exposes is shown by a rendering of this kind; or the view shows pictures alone. When the document has an error, the first error comes first, in the CLI's words (`<file> did not analyse cleanly; nothing was rendered: <line>:<col>: <message>`), since an element the parser could not read is one no view exposes. A client never shows such a result as an empty drawing. |
 | `fqn` | On a node: the qualified name `opensysml/applyModelEdit` targets the node's declaration by, each name quoted on its own as the notation spells it, so `'x::y'` (one name) and `x::y` (`y` in `x`) are two targets. A node another document of the workspace declares — a part a view of this document exposes, a state a usage inherits from a definition elsewhere — carries it as any node does when the client advertised `openSysmlCrossDocumentLayout`, and `origin.uri` says which document; a layout on it writes there. To a client that did not, such a node carries its `origin` alone. Absent for a node whose declaration is in no document of the workspace — a library element, a step a lowering sequenced — or is reached only through an unnamed one, so a client offers no edit on it. On an edge: the qualified name of the declaring connection, transition, succession, flow, include, or relationship, absent likewise. |
 | `declaredHere` | On a node with an `fqn`: `true` when the requested document declares the node. Only such a node takes `rename`, `delete`, `move`, or a member or connection written into it; a node another workspace document declares carries its `fqn` for `setLayout` and `setRoute` alone, and a client offers it nothing else. A server that does not advertise `openSysmlCrossDocumentLayout` never sends it, and names no other document's nodes either, so a client reads its every `fqn` as the requested document's own. |
 | `notation` | On a node with an `fqn`: the keyword the declaration was written with (`part def`, `port`, `state`), which is the `memberKind` a `move` asks the new owner to admit. |

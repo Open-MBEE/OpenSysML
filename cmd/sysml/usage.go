@@ -656,6 +656,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.validate, "validate", "Report the model's diagnostics and exit, nonzero on an error; -validate=<object> checks instead every assertion about that object (repeatable)")
 	fs.Var(&disabledLints, "disable-lint", "Leave this lint out of the model's diagnostics: undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or rounded-real-literal, comma-separated or repeated")
 	fs.Var(&enabledLints, "enable-lint", "Report this opt-in lint, off by default, in the model's diagnostics: rounded-real-literal, comma-separated or repeated; -disable-lint wins")
+	fs.Var(&libraryRoots, "library-root", "Look for the installed projects a loaded file's project uses under this directory too, besides the well-known ones in the project (.sysand/lib); separated as PATH is or repeated, added to OPENSYSML_LIBRARY_ROOTS")
 	fs.BoolVar(&noRecordCache, "no-record-cache", false, "Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning; a SysML v1 migration writes none of it and refers to no OpenSysML library")
 	fs.Var(&modelChecks.constraints, "constraint", "Evaluate this constraint and exit, with arguments for its in parameters and an object as its subject, as -constraint \"Pkg::Fits(3.0) Pkg::part\" (repeatable)")
@@ -773,6 +774,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("strict", ""),
 			usage.Opt("disable-lint", "<code>"),
 			usage.Opt("enable-lint", "<code>"),
+			usage.Opt("library-root", "<dir>"),
 			usage.Opt("no-record-cache", ""),
 			usage.Opt("constraint", nameArg),
 			usage.Opt("self-check", ""),

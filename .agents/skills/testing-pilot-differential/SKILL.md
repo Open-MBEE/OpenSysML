@@ -24,8 +24,8 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 - Measured at the `2026-08` pin after the view concern framing round retired the six view-body
   `frame` `syntax` rows (bare parameters already at their effective range `[0..*]`, so the
   adjudicated `Behaviors.kerml:14` multiplicity warning is gone while the `[1]` `RocketEquation`
-  inputs keep its warning at `delta-v-budget.sysml:93`): `391 file(s), 353 fully agreeing; 45 agreed,
-  315 only ours, 92 only the pilot's`, JSON totals `openSysMLDiagnostics 361 / pilotDiagnostics 138 /
+  inputs keep its warning at `delta-v-budget.sysml:93`): `397 file(s), 358 fully agreeing; 48 agreed,
+  315 only ours, 93 only the pilot's`, JSON totals `openSysMLDiagnostics 364 / pilotDiagnostics 142 /
   severityMismatch 1`; the two only-ours rows the multiplicity rule added are the expected `action-step-multiplicity-not-fixed`
   warnings on `training/18. Action Performance/Action Performance Example.sysml:10` and
   `pilot-examples/Camera Example/Camera.sysml:4`. ~2 min wall, byte-identical across runs *and* after a from-scratch rebuild of
@@ -148,8 +148,8 @@ warning (the `[1]` `RocketEquation` inputs still produce the warning at
 `delta-v-budget.sysml:93`), is current: the action-step multiplicity rule adds the two expected
 `action-step-multiplicity-not-fixed` warnings on `takePhoto[*]` in the training corpus and
 `takePicture[*]` in `Camera Example/Camera.sysml`, and the view concern framing round retired the
-six view-body `frame` `syntax` rows on `examples`; a live run gives `391 file(s), 353 fully
-agreeing; 45 agreed, 315 only ours, 92 only the pilot's`, byte-identical to the committed baseline, and
+six view-body `frame` `syntax` rows on `examples`; a live run gives `397 file(s), 358 fully
+agreeing; 48 agreed, 315 only ours, 93 only the pilot's`, byte-identical to the committed baseline, and
 `docs/project/pilot-differential.md`'s "Results" table matches. The prior rebaseline, when the
 Legend of the Red Dragon example left for its own repository, gave
 <!-- doc-count:historical -->`380 file(s), 344 fully agreeing; 38 agreed, 42 only ours, 1614 only the pilot's`.
@@ -257,7 +257,7 @@ load-bearing:
 
 - `OPENSYSML_LIBRARY_PATH` pointed at a copy of the stdlib tree inside the repository (under
   `build/`) whose `OpenSysML Libraries` holds one trivial `.sysml`, with `-out` elsewhere → the
-  headline moves on *both* sides: `45 agreed, 44 only ours, 85 only the pilot's` becomes
+  headline moves on *both* sides: `48 agreed, 44 only ours, 85 only the pilot's` becomes
   `728 agreed, 36 only ours, 944 only the pilot's`, the two validators now agreeing on the
   unresolved `DocumentQueries`/`OOSEM`/`MOSA` references (`self-model/document.sysml` alone
   carries ~347 `unresolved-reference`/`kind-mismatch` rows), the report's `libraries` field names

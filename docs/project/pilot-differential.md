@@ -244,7 +244,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 391 files)
+## Results (pilot `2026-08`, 397 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -252,10 +252,10 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 88 | 261 | 0 | 0 | 0 | 261 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 54 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
-| `tests/testdata` | 22 | 11 | 58 | 77 | 45 | 1 | 12 | 31 |
+| `tests/testdata` | 28 | 16 | 61 | 81 | 48 | 1 | 12 | 32 |
 | `examples` | 52 | 45 | 8 | 61 | 0 | 0 | 8 | 61 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **391** | **353** | **361** | **138** | **45** | **1** | **315** | **92** |
+| **Total** | **397** | **358** | **364** | **142** | **48** | **1** | **315** | **93** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -301,7 +301,7 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 `unmapped`, 26 `unresolved-reference`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`,
 3 `unresolved-reference`; `kerml-examples` 13 `unmapped`, 3 `unresolved-reference`; `testdata` 10 `unmapped`,
 1 `unresolved-reference`, 1 `multiplicity`; `examples` 5
-`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`. Only-pilot: `testdata` 12 `kind-mismatch`, 14 `unmapped`,
+`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`. Only-pilot: `testdata` 13 `kind-mismatch`, 14 `unmapped`,
 3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`.
 
 ### View concern framing round
@@ -967,8 +967,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **92** |
-| pilot diagnostics | 123 | **138** |
+| only pilot | 82 | **93** |
+| pilot diagnostics | 123 | **142** |
 | severity-only | 9 | **1** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1192,9 +1192,9 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **353 / 315 / 361** |
-| only pilot | **92** |
-| pilot diagnostics | **138** |
+| overall: fully agreeing / only ours / our diagnostics | **358 / 315 / 364** |
+| only pilot | **93** |
+| pilot diagnostics | **142** |
 | severity-only | **1** |
 | unmapped, our side | **284** |
 | kerml-examples: only ours | **16** |
@@ -1356,6 +1356,21 @@ annotations and specializations of the `AnalysisRecords` library defs, and the r
 usages' quoted `'objective'`/`'subject'` names and `ref part :>>`/`part :>>` redefinitions. The
 file draws no diagnostic from this implementation — it validates clean — so `fully agreeing`,
 `only ours`, `agreed` and `severity-only` all stay where the expressions walkthrough left them.
+
+### Project interchange fixture round
+
+`tests/testdata/interchange/` is a project interchange fixture added to the `tests/testdata`
+root: a project root (`proj/.project.json`, `proj/model/main.sysml`) with three installed
+projects under `proj/.sysand/lib/`, an unrelated hidden directory (`proj/.unrelated/shadow.sysml`)
+and a second provider layout (`store/acme/Vendored Parts/`). Files 22 → **28** on the root,
+391 → **397** overall. The root is validated as one batch of its `.sysml` files, so
+`main.sysml` resolves `Widgets` and `VendoredParts` and five of the six files draw nothing from
+either side (fully agreeing 353 → **358**). `Gears.kerml` is not in that batch, so
+`Widgets.sysml:3,4,5` (`Gears`, `Thing`, `gearMass`) are three agreement rows (agreed 45 →
+**48**), and the pilot additionally reports `Bound features should have conforming types` at
+`Widgets.sysml:5`, a kind rule over the unresolved initializer `gearMass` — one more W13 row
+(only pilot 92 → **93**, pilot diagnostics 138 → **142**). `only ours` and `severity-only` stay
+at 315 and 1.
 
 ## Adjudications
 
@@ -2531,7 +2546,7 @@ which retired those rows rather than reclassifying them. The paragraph under W2 
 | W10 | recovery surplus after a failed parse, including the one semantic row the pilot derives from a recovered succession | 30 | `examples/phase-c-behavioral-bodies.sysml:60` ×4, `:67` ×6, `:75` ×6; `examples/orthogonal-regions-demo.sysml:16` (`Must have at least two related elements`) | **adjudicated divergence** |
 | W11 | the file-level give-up row | 4 | `examples/phase-c-behavioral-bodies.sysml:89`, `examples/repl-behavioral-demo.sysml:35`, `examples/views-demo.sysml:90`, `testdata/passes/import_no_visibility.sysml:13` | **adjudicated divergence** |
 | W12 | `Duplicate of other owned member name` | 15 | `testdata/passes/import_no_visibility.sysml:3,8,12`, `examples/orthogonal-regions-demo.sysml:11,12,16` ×2, `examples/pseudostates-demo.sysml:9,10,16` ×2, `examples/semantic-layer/demo.sysml:35,105` | **measurement artifact** — every row is recovery-only; the rule agrees on clean inputs, and the one real gap the class hid is fixed (F110, done) |
-| W13 | a kind rule over an unresolved or absent type | 19 | `testdata/lex/basic.sysml:4`, `examples/phase-c-behavioral-bodies.sysml:64,65,71,72,73,83,84` | **adjudicated divergence** |
+| W13 | a kind rule over an unresolved or absent type | 20 | `testdata/lex/basic.sysml:4`, `testdata/interchange/proj/.sysand/lib/acme-widgets_1.0.0/Widgets.sysml:5`, `examples/phase-c-behavioral-bodies.sysml:64,65,71,72,73,83,84` | **adjudicated divergence** |
 | W14 | implicit binding connectors and filter rules over unresolved operands | 24 | `testdata/parse/expressions.sysml:3,4,5,6`, `examples/solver-demo.sysml:120,124` | **adjudicated divergence** |
 | W15 | `Must be an accessible feature` downstream of `namespace` | 5 | `examples/semantic-layer/demo.sysml:44,45,46,50,51` | **adjudicated divergence** — F5, F20 |
 | ~~W16~~ | the `Type::ownedDisjoining` EMF pair | ~~6~~ 0 | all six `kerml-examples` rows, retired at `2026-08` | **defect of the pilot** — F80, fixed upstream |
@@ -2714,7 +2729,7 @@ file has clean duplicate state or transition names, all 15 rows above being reco
 reproducer-only movement, pinned by `passes/f110_state_duplicate_names_test.go`. Follow-up **F110**
 is done.
 
-#### W13, W14 — the tier boundary (43, adjudicated divergence)
+#### W13, W14 — the tier boundary (44, adjudicated divergence)
 
 `testdata/lex/basic.sysml:4` is the whole argument in one line. `attribute mass : Real;` in a file
 with no `ScalarValues` import: both implementations report `Real` unresolved — that is an agreement
