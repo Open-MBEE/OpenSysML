@@ -71,15 +71,18 @@ func TestInterconnectionExpandsUsagesThroughTheirTypes(t *testing.T) {
 			t.Errorf("engines : Engine lacks its inherited attributes; children: %v", childNames(engines))
 		}
 	}
-	// Vehicle redefines mass and Stage redefines subcomponents: each is drawn
-	// once, the redefining feature standing in for the inherited one.
-	if n := strings.Count(rendering.Text(), "attribute mass"); n != 1+2+2 {
-		t.Errorf("mass drawn %d times, want once per rocket, stage and engines:\n%s", n, rendering.Text())
-	}
-	if stage2 := nodeAt(rocket.Children, "stage2"); stage2 != nil {
-		if n := len(filterNames(childNames(stage2), "propellantMass")); n != 1 {
-			t.Errorf("stage2 draws propellantMass %d times, want its redefinition once; children: %v", n, childNames(stage2))
+	// Vehicle redefines mass, stage2 redefines propellantMass and Stage
+	// redefines subcomponents: each is drawn once, the redefining feature
+	// standing in for the inherited one.
+	for _, owner := range []*Node{rocket, stage1, nodeAt(rocket.Children, "stage2")} {
+		for _, name := range []string{"mass", "propellantMass", "subcomponents"} {
+			if n := len(filterNames(childNames(owner), name)); n > 1 {
+				t.Errorf("%s draws %s %d times, want at most once; children: %v", owner.Name, name, n, childNames(owner))
+			}
 		}
+	}
+	if strings.Count(rendering.Text(), "already shown") != 0 {
+		t.Errorf("an inherited feature is noted as already shown:\n%s", rendering.Text())
 	}
 	var connects int
 	for _, edge := range rendering.Edges {

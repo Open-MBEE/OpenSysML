@@ -53,10 +53,10 @@ func TestTreeDrawsTheRelationshipsBetweenItsNodes(t *testing.T) {
 		"Fleet::SportsCar composition Fleet::LightChassis: chassis",
 		"Fleet::SportsCar composition Fleet::Wheel: spare",
 		"chassis specialization chassis: redefines",
+		"mass specialization mass: redefines",
 		"spare specialization wheels: subsets",
 		"Fleet::Chassis reference Fleet::Mass: mass",
 		"Fleet::LightChassis specialization Fleet::Chassis",
-		"mass specialization mass: redefines",
 		"Fleet::fleetCar typing Fleet::Vehicle",
 	}
 	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, want) {

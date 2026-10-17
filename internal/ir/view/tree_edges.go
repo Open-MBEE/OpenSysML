@@ -223,8 +223,9 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 }
 
 // edgesOf draws what the element of node states of itself and of the usages
-// drawn beneath it; a member the depth bound hides is not drawn as an edge
-// either. Its typing is drawn from the node itself only when its owner is not
+// it declares that are drawn beneath it; a member the depth bound hides is not
+// drawn as an edge either, and one the element has from its type is the type's
+// to draw. Its typing is drawn from the node itself only when its owner is not
 // drawn: a drawn owner's composition edge, or the nesting, stands for it. A
 // usage's Style dresses the edge standing for it as it does the usage's node;
 // its Notes stay anchored to the node, where the usage is named.
@@ -250,7 +251,7 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 	}
 	for _, child := range node.Children {
 		member := g.out.sites[child].sym
-		if !structuralUsage(member) {
+		if !structuralUsage(member) || member.Owner() != sym {
 			continue
 		}
 		kind := EdgeComposition
