@@ -12,6 +12,7 @@ import type {
 } from "../protocol";
 import type { EngineInstance } from "../landing/model";
 import { landingModel } from "../landing/model";
+import { STACK_SCENE } from "../landing/scene";
 import { carried, obstacles, resettle } from "../landing/carry";
 import { presented } from "../landing/present";
 import { autoLayout, type AutoLayout } from "./autolayout";
@@ -2727,6 +2728,7 @@ test("landing drag keeps right-angled routes at the captured Pilot obstruction",
     readFileSync("src/landing/stack.json", "utf8"),
   ) as LandingFixture;
   const model = landingModel(
+    STACK_SCENE.rootSymbol,
     fixture.hash,
     fixture.render as RenderResult,
     fixture.instances,

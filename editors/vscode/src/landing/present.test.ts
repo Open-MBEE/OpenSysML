@@ -5,6 +5,7 @@ import { test } from "node:test";
 import type { RenderResult } from "../protocol";
 import { landingModel } from "./model";
 import type { EngineInstance, LandingModel } from "./model";
+import { STACK_SCENE } from "./scene";
 import { presented } from "./present";
 
 interface LandingFixture {
@@ -17,7 +18,7 @@ const fixture = JSON.parse(readFileSync("src/landing/stack.json", "utf8")) as La
 const fixtureRender = fixture.render as RenderResult;
 
 function fixtureModel(): LandingModel {
-  return landingModel(fixture.hash, fixtureRender, fixture.instances);
+  return landingModel(STACK_SCENE.rootSymbol, fixture.hash, fixtureRender, fixture.instances);
 }
 
 function withPartAttrs(model: LandingModel, feature: string, attrs: Record<string, string>): LandingModel {
