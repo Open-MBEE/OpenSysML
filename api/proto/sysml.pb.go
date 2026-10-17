@@ -12919,7 +12919,7 @@ func (x *DataImport) GetImportMap() string {
 // ImportDataResponse is what the imports set, and the model they made.
 type ImportDataResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// One per import, in order; an import the model refuses ends the list with
+	// One per import, in order; unset when the model refuses an import, with
 	// error set and nothing changed.
 	Files []*ImportedFile `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
 	// The edited documents, as ApplyEdits answers them; unset on a dry run.

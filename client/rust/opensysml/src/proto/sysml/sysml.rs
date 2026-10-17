@@ -3217,7 +3217,7 @@ pub struct DataImport {
 /// ImportDataResponse is what the imports set, and the model they made.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ImportDataResponse {
-    /// One per import, in order; an import the model refuses ends the list with
+    /// One per import, in order; unset when the model refuses an import, with
     /// error set and nothing changed.
     #[prost(message, repeated, tag="1")]
     pub files: ::prost::alloc::vec::Vec<ImportedFile>,

@@ -180,3 +180,21 @@ func TestImportDataWithoutValuesKeepsTheModel(t *testing.T) {
 		t.Errorf("model hash %q; want the unchanged model's %q", resp.ModelHash, hash)
 	}
 }
+
+func TestImportDataRefusalReportsNoEarlierFiles(t *testing.T) {
+	srv := mustNewService(t, 1)
+	hash := mustParse(t, srv, importModelSource)
+	resp := importData(t, srv, &pb.ImportDataRequest{ModelHash: hash, Imports: []*pb.DataImport{
+		{Name: "first.csv", Content: "element,count\nV::car,9\n"},
+		{Name: "second.csv", Content: "element,count\nV::Nowhere,1\n"},
+	}})
+	if resp.Error == "" || !strings.Contains(resp.Error, "V::Nowhere") {
+		t.Fatalf("error %q; want the second file refused", resp.Error)
+	}
+	if len(resp.Files) != 0 || resp.ModelHash != "" || resp.Content != "" || len(resp.Documents) != 0 {
+		t.Fatalf("refusal = %v; want nothing reported as imported", resp)
+	}
+	if _, ok := srv.cache.Get(hash); !ok {
+		t.Fatalf("the refused import evicted the model from a cache of one")
+	}
+}

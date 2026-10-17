@@ -130,10 +130,11 @@ func (s *Service) ImportData(ctx context.Context, req *pb.ImportDataRequest) (*p
 	return resp, nil
 }
 
-// importRefused answers an import the model refused: nothing was changed.
+// importRefused answers an import the model refused: nothing was changed, so
+// the files imported before the refused one are not reported either.
 func importRefused(resp *pb.ImportDataResponse, err error) *pb.ImportDataResponse {
 	resp.Error = err.Error()
-	resp.Documents, resp.Content, resp.ModelHash = nil, "", ""
+	resp.Files, resp.Documents, resp.Content, resp.ModelHash = nil, nil, "", ""
 	return resp
 }
 

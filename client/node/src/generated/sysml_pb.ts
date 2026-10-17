@@ -7271,7 +7271,7 @@ export const DataImportSchema: GenMessage<DataImport> = /*@__PURE__*/
  */
 export type ImportDataResponse = Message<"sysml.ImportDataResponse"> & {
   /**
-   * One per import, in order; an import the model refuses ends the list with
+   * One per import, in order; unset when the model refuses an import, with
    * error set and nothing changed.
    *
    * @generated from field: repeated sysml.ImportedFile files = 1;
