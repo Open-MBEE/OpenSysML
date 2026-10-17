@@ -922,8 +922,8 @@ func testClockAdvance(t *testing.T) {
 					}
 				}
 			}`, "test::Rig")
-		if !errors.Is(err, errNoInitialState) {
-			t.Fatalf("instantiate = %v; want errNoInitialState from the machine with no initial state", err)
+		if !errors.Is(err, ErrNoInitialState) {
+			t.Fatalf("instantiate = %v; want ErrNoInitialState from the machine with no initial state", err)
 		}
 		if got := len(ctx.clock.waiters); got != 0 {
 			t.Errorf("clock drives %d executors after the failed start; want none", got)

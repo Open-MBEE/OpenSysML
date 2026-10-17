@@ -749,7 +749,7 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 				if level > 10 then low;
 				if level > 20 then high;
 			}
-		}`, ViolationFailure, errNoEnabledSuccession},
+		}`, ViolationFailure, ErrNoEnabledSuccession},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -794,8 +794,8 @@ func TestCheckReturnsInvalidSubflowAsSetupFailure(t *testing.T) {
 	}`)
 	_, err := Check(context.Background(), m.fresh, starterOf(m.action(t, "outer")), CheckBudget{}, reduced(), nil)
 	var setup *SetupError
-	if !errors.As(err, &setup) || !errors.Is(err, errInvalidActionFlow) {
-		t.Fatalf("check error = %v; want SetupError wrapping errInvalidActionFlow", err)
+	if !errors.As(err, &setup) || !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("check error = %v; want SetupError wrapping ErrInvalidActionFlow", err)
 	}
 }
 
@@ -854,7 +854,7 @@ func TestCheckReplaysAFailureLeavingNoTrace(t *testing.T) {
 		t.Fatalf("%s, violations %v; want one failure", report.Status(), report.Violations)
 	}
 	v := report.Violations[0]
-	if v.Kind != ViolationFailure || !errors.Is(v.Err, errInvalidActionFlow) || v.Depth != 2 {
+	if v.Kind != ViolationFailure || !errors.Is(v.Err, ErrInvalidActionFlow) || v.Depth != 2 {
 		t.Fatalf("violation %+v, want the flow without a start after two moves", v)
 	}
 	// The trace is the first move's alone: invoking Bad fails before it leaves any.
@@ -862,8 +862,8 @@ func TestCheckReplaysAFailureLeavingNoTrace(t *testing.T) {
 		t.Fatalf("witness %+v, want the trace before the failing move, no choice and the failure", v.Witness)
 	}
 	start := starterOf(m.action(t, "outer"))
-	if r := replayWitness(t, m, start, v.Witness, "no initial node"); !errors.Is(r.Err, errInvalidActionFlow) {
-		t.Fatalf("the replay ends with %v, want %v", r.Err, errInvalidActionFlow)
+	if r := replayWitness(t, m, start, v.Witness, "no initial node"); !errors.Is(r.Err, ErrInvalidActionFlow) {
+		t.Fatalf("the replay ends with %v, want %v", r.Err, ErrInvalidActionFlow)
 	}
 	other := Witness{Trace: v.Witness.Trace, Fails: "another failure"}
 	var dis *ReplayDisagreement

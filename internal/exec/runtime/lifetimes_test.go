@@ -266,8 +266,8 @@ func TestTerminateEndsPortionsWithTheirWhole(t *testing.T) {
 			t.Errorf("OccurrenceLife(#%d) ended at %d; want %d, with its whole", part.ID, l.Ended, whole.Ended)
 		}
 	}
-	if _, err := ctx.endOccurrence(bench); !errors.Is(err, errOccurrenceLifetime) {
-		t.Errorf("second terminate: %v, want %v", err, errOccurrenceLifetime)
+	if _, err := ctx.endOccurrence(bench); !errors.Is(err, ErrOccurrenceLifetime) {
+		t.Errorf("second terminate: %v, want %v", err, ErrOccurrenceLifetime)
 	}
 }
 
@@ -471,8 +471,8 @@ func TestDestroyEndsAnAliasedPartOnce(t *testing.T) {
 func TestCreateOnlyWhatTheCallReaches(t *testing.T) {
 	instantiate, invoke, ctx := lifetimeFixture(t, lifetimeModel)
 	bench := instantiate("Bench")
-	if _, err := invoke("Create", objectValue(bench)); !errors.Is(err, errOccurrenceLifetime) {
-		t.Errorf("create(bench) = %v; want %v", err, errOccurrenceLifetime)
+	if _, err := invoke("Create", objectValue(bench)); !errors.Is(err, ErrOccurrenceLifetime) {
+		t.Errorf("create(bench) = %v; want %v", err, ErrOccurrenceLifetime)
 	}
 	whole, _ := ctx.OccurrenceLife(bench.ID)
 	got, err := invoke("CreateSpare", objectValue(bench))
@@ -484,8 +484,8 @@ func TestCreateOnlyWhatTheCallReaches(t *testing.T) {
 	if !spare.alive() || spare.Began <= whole.Began {
 		t.Errorf("OccurrenceLife(spare) = %v; want begun after the bench at %d", spare, whole.Began)
 	}
-	if _, err := invoke("CreateSpare", objectValue(bench)); !errors.Is(err, errOccurrenceLifetime) {
-		t.Errorf("second create(bench.spare) = %v; want %v", err, errOccurrenceLifetime)
+	if _, err := invoke("CreateSpare", objectValue(bench)); !errors.Is(err, ErrOccurrenceLifetime) {
+		t.Errorf("second create(bench.spare) = %v; want %v", err, ErrOccurrenceLifetime)
 	}
 
 	widget := instantiate("Widget")

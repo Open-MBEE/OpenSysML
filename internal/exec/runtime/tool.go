@@ -86,8 +86,8 @@ type ToolRunner interface {
 	RunTool(call *ToolCall) (ToolAnswer, error)
 }
 
-// errToolNotRegistered is the typed error for a ToolExecution naming a tool no manifest entry registers.
-var errToolNotRegistered = errors.New("tool is not registered")
+// ErrToolNotRegistered is the typed error for a ToolExecution naming a tool no manifest entry registers.
+var ErrToolNotRegistered = errors.New("tool is not registered")
 
 // ErrToolDryRun is the error a dry run stops the performance with at its first
 // tool call; it passes through unchanged.
@@ -103,8 +103,8 @@ func (e *ToolNotRegisteredError) Error() string {
 	return fmt.Sprintf("tool '%s' is not registered; set OPENSYSML_TOOLS", e.Tool)
 }
 
-// Is matches errToolNotRegistered.
-func (e *ToolNotRegisteredError) Is(target error) bool { return target == errToolNotRegistered }
+// Is matches ErrToolNotRegistered.
+func (e *ToolNotRegisteredError) Is(target error) bool { return target == ErrToolNotRegistered }
 
 // ErrTool is the typed error every failure of a tool invocation unwraps to.
 var ErrTool = errors.New("tool failed")

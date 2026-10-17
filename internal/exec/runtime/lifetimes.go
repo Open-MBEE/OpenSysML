@@ -15,9 +15,9 @@ var (
 	// model is passed where OccurrenceFunctions takes an Occurrence.
 	errNotAnOccurrence = errors.New("value is not an occurrence")
 
-	// errOccurrenceLifetime is returned when an occurrence's lifetime admits no
+	// ErrOccurrenceLifetime is returned when an occurrence's lifetime admits no
 	// such change: `create` of one begun before the call, `destroy` of one ended.
-	errOccurrenceLifetime = errors.New("occurrence lifetime does not admit the change")
+	ErrOccurrenceLifetime = errors.New("occurrence lifetime does not admit the change")
 )
 
 // life is the lifetime of one occurrence in the runtime's execution order, kept
@@ -90,7 +90,7 @@ func (ctx *Context) lifeOf(op string, inst *Instance) (life, error) {
 	l, ok := ctx.lives[inst.ID]
 	if !ok {
 		return life{}, fmt.Errorf("%w: function %s: object #%d (%s) has no lifetime here",
-			errOccurrenceLifetime, writtenName(op), inst.ID, SymbolText(inst.Type))
+			ErrOccurrenceLifetime, writtenName(op), inst.ID, SymbolText(inst.Type))
 	}
 	return l, nil
 }
@@ -169,7 +169,7 @@ func (ctx *Context) createDuring(op string, inst *Instance, mark int64) error {
 			writtenName(op), errOccurrenceDestroyed, inst.ID, SymbolText(inst.Type), prior.ended)
 	case prior.reached <= mark:
 		return fmt.Errorf("%w: function %s: object #%d (%s) began at %d, before the call",
-			errOccurrenceLifetime, writtenName(op), inst.ID, SymbolText(inst.Type), prior.began)
+			ErrOccurrenceLifetime, writtenName(op), inst.ID, SymbolText(inst.Type), prior.began)
 	}
 	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.reached}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
@@ -258,7 +258,7 @@ func (ctx *Context) checkPerformer(self *Instance) error {
 	}
 	if l, ok := ctx.lives[self.ID]; ok && l.ended != 0 {
 		return fmt.Errorf("performer of the behavior: %w: object #%d (%s) ended at %d already",
-			errOccurrenceLifetime, self.ID, SymbolText(self.Type), l.ended)
+			ErrOccurrenceLifetime, self.ID, SymbolText(self.Type), l.ended)
 	}
 	return nil
 }
@@ -279,13 +279,13 @@ func (ctx *Context) checkLiving(inst *Instance) error {
 	switch {
 	case !ok:
 		return fmt.Errorf("%w: object #%d (%s) has no lifetime here",
-			errOccurrenceLifetime, inst.ID, SymbolText(inst.Type))
+			ErrOccurrenceLifetime, inst.ID, SymbolText(inst.Type))
 	case prior.destroyed:
 		return fmt.Errorf("%w: object #%d (%s) was destroyed at %d already",
 			errOccurrenceDestroyed, inst.ID, SymbolText(inst.Type), prior.ended)
 	case prior.ended != 0:
 		return fmt.Errorf("%w: object #%d (%s) ended at %d already",
-			errOccurrenceLifetime, inst.ID, SymbolText(inst.Type), prior.ended)
+			ErrOccurrenceLifetime, inst.ID, SymbolText(inst.Type), prior.ended)
 	}
 	return nil
 }

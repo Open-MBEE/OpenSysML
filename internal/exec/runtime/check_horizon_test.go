@@ -355,8 +355,8 @@ func TestCheckReturnsNoInitialStateAsSetupFailure(t *testing.T) {
 	start := stateStarterOf(m.state(t, "Machine"), Horizon{})
 	report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, reduced(), nil)
 	var setup *SetupError
-	if !errors.As(err, &setup) || !errors.Is(err, errNoInitialState) || report != nil {
-		t.Fatalf("check report = %v, error = %v; want SetupError wrapping errNoInitialState and no report", report, err)
+	if !errors.As(err, &setup) || !errors.Is(err, ErrNoInitialState) || report != nil {
+		t.Fatalf("check report = %v, error = %v; want SetupError wrapping ErrNoInitialState and no report", report, err)
 	}
 }
 

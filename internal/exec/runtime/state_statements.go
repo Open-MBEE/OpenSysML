@@ -516,7 +516,7 @@ func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	}
 	if err := lower.FlowStartError(block.Graph); err != nil {
 		return flowNext, fmt.Errorf("%w: %s: no node starts the flow: %w",
-			errInvalidActionFlow, h.describe(), err)
+			ErrInvalidActionFlow, h.describe(), err)
 	}
 	if err := validateSubflows(block.Graph); err != nil {
 		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)

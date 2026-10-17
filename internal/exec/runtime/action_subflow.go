@@ -37,11 +37,11 @@ func unfoldSubflow(sub *lower.Subflow, node ast.Node) (*lower.ActionGraph, error
 	}
 	graph, err := sub.Unfold()
 	if err != nil {
-		return nil, fmt.Errorf("%w: action node %s: %w", errInvalidActionFlow, ActionNodeName(node), err)
+		return nil, fmt.Errorf("%w: action node %s: %w", ErrInvalidActionFlow, ActionNodeName(node), err)
 	}
 	if err := lower.FlowStartError(graph); err != nil {
 		return nil, fmt.Errorf("%w: no initial node found in action node %s: %w",
-			errInvalidActionFlow, ActionNodeName(node), err)
+			ErrInvalidActionFlow, ActionNodeName(node), err)
 	}
 	if err := validateSubflows(graph); err != nil {
 		return nil, err
@@ -61,15 +61,15 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	node := token.Location
 	if perf.graph != nil && perf.graph.Invalid != nil {
 		return fmt.Errorf("%w: action node %s: %w",
-			errInvalidActionFlow, ActionNodeName(node), perf.graph.Invalid)
+			ErrInvalidActionFlow, ActionNodeName(node), perf.graph.Invalid)
 	}
 	if perf.graph == nil {
 		return fmt.Errorf("%w: action node %s owns a flow that cannot be built",
-			errInvalidActionFlow, ActionNodeName(node))
+			ErrInvalidActionFlow, ActionNodeName(node))
 	}
 	if err := lower.FlowStartError(perf.graph); err != nil {
 		return fmt.Errorf("%w: no initial node found in action node %s: %w",
-			errInvalidActionFlow, ActionNodeName(node), err)
+			ErrInvalidActionFlow, ActionNodeName(node), err)
 	}
 	starts := perf.graph.Starts()
 	token.frame = perf
@@ -165,18 +165,18 @@ func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error)
 	node := perf.node
 	if perf.graph != nil && perf.graph.Invalid != nil {
 		return nil, fmt.Errorf("%w: %s: %w",
-			errInvalidActionFlow, perf.describe(), perf.graph.Invalid)
+			ErrInvalidActionFlow, perf.describe(), perf.graph.Invalid)
 	}
 	if err := checkNodeResultParameters(perf.graph); err != nil {
 		return nil, fmt.Errorf("%s: %w", perf.describe(), err)
 	}
 	if perf.graph == nil {
 		return nil, fmt.Errorf("%w: %s owns a flow that cannot be built",
-			errInvalidActionFlow, perf.describe())
+			ErrInvalidActionFlow, perf.describe())
 	}
 	if err := lower.FlowStartError(perf.graph); err != nil {
 		return nil, fmt.Errorf("%w: no node starts the flow %s owns: %w",
-			errInvalidActionFlow, perf.describe(), err)
+			ErrInvalidActionFlow, perf.describe(), err)
 	}
 	starts := perf.graph.Starts()
 	perf.inBody = true
@@ -618,17 +618,17 @@ func (e *ActionExecutor) leaveSubflow(tokenIdx int) error {
 // not at construction, per the error-timing contract.
 func validateSubflows(graph *lower.ActionGraph) error {
 	if graph.Invalid != nil {
-		return fmt.Errorf("%w: %w", errInvalidActionFlow, graph.Invalid)
+		return fmt.Errorf("%w: %w", ErrInvalidActionFlow, graph.Invalid)
 	}
 	for _, node := range graph.Nodes {
 		if sub, owns := graph.Subflows[node]; owns && sub != nil && sub.Deferred == nil {
 			if sub.Err != nil {
 				return fmt.Errorf("%w: action node %s: %w",
-					errInvalidActionFlow, ActionNodeName(node), sub.Err)
+					ErrInvalidActionFlow, ActionNodeName(node), sub.Err)
 			}
 			if err := lower.FlowStartError(sub.Graph); err != nil {
 				return fmt.Errorf("%w: no initial node found in action node %s: %w",
-					errInvalidActionFlow, ActionNodeName(node), err)
+					ErrInvalidActionFlow, ActionNodeName(node), err)
 			}
 			if err := validateSubflows(sub.Graph); err != nil {
 				return err
@@ -640,7 +640,7 @@ func validateSubflows(graph *lower.ActionGraph) error {
 			}
 			if err := lower.FlowStartError(block); err != nil {
 				return fmt.Errorf("%w: no node starts the flow a body of action node %s states: %w",
-					errInvalidActionFlow, ActionNodeName(node), err)
+					ErrInvalidActionFlow, ActionNodeName(node), err)
 			}
 		}
 	}

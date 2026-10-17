@@ -1032,7 +1032,7 @@ func TestExhibitedStateNamingNothingWithNoInitialStateIsReported(t *testing.T) {
 			ctx := NewContext(typedModel(model, resolver), 10000)
 
 			_, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
-			if !errors.Is(err, errNoInitialState) {
+			if !errors.Is(err, ErrNoInitialState) {
 				t.Fatalf("error = %v, want ErrNoInitialState", err)
 			}
 			if !strings.Contains(err.Error(), tc.want) {

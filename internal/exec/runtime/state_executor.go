@@ -5289,7 +5289,7 @@ func (e *StateExecutor) activeStates() []*ast.StateNode {
 func (e *StateExecutor) checkStart() error {
 	if len(e.graph.TopRegions) == 0 {
 		if len(e.graph.StartOf(nil)) == 0 {
-			return fmt.Errorf("%w in state machine %s", errNoInitialState, e.stateMachine.Name)
+			return fmt.Errorf("%w in state machine %s", ErrNoInitialState, e.stateMachine.Name)
 		}
 		return nil
 	}

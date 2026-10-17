@@ -1,4 +1,4 @@
-package explore
+package explore_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -26,7 +27,7 @@ import (
 const exploreJobs = 8
 
 // exploreWorkers builds a context per run on a resolver, semantic model and runtime Model per
-// job over one index, which is what a plan's worker fleet gives ExploreWith.
+// job over one index, which is what a plan's worker fleet gives explore.ExploreWith.
 type exploreWorkers struct {
 	idx     *symbols.Index
 	mu      sync.Mutex
@@ -50,7 +51,7 @@ func (w *exploreWorkers) fresh(job int) (*runtime.Context, error) {
 }
 
 // renderExploration spells everything an exploration reports, so two are compared whole.
-func renderExploration(x *Exploration) string {
+func renderExploration(x *explore.Exploration) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "runs %d; budget %+v; hit %v; status %s\n", x.Runs, x.Budget, x.BudgetsHit, x.Status())
 	for _, o := range x.Outcomes {
@@ -62,19 +63,19 @@ func renderExploration(x *Exploration) string {
 
 // exploreBoth explores the same runs on one job and on exploreJobs and fails unless the
 // two explorations are the same; it returns the one-job exploration.
-func exploreBoth(t *testing.T, budget runtime.ExploreBudget, fresh func(int) (*runtime.Context, error), run func(*runtime.Context) (runtime.Outcome, error)) *Exploration {
+func exploreBoth(t *testing.T, budget runtime.ExploreBudget, fresh func(int) (*runtime.Context, error), run func(*runtime.Context) (runtime.Outcome, error)) *explore.Exploration {
 	t.Helper()
 	policy, err := runtime.ExplorePolicy(budget)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sequential, err := ExploreWith(context.Background(), policy, 1, fresh, run)
+	sequential, err := explore.ExploreWith(context.Background(), policy, 1, fresh, run)
 	if err != nil {
 		t.Fatalf("explore on one job: %v", err)
 	}
 	want := renderExploration(sequential)
 	for i := 0; i < 8; i++ {
-		parallel, err := ExploreWith(context.Background(), policy, exploreJobs, fresh, run)
+		parallel, err := explore.ExploreWith(context.Background(), policy, exploreJobs, fresh, run)
 		if err != nil {
 			t.Fatalf("explore on %d jobs: %v", exploreJobs, err)
 		}
@@ -117,8 +118,8 @@ func indexAt(t *testing.T, path string, data []byte) (*symbols.Index, string) {
 // first prefix, which the conformance harness cannot hold since it admits no erroring
 // outcome; and a slow first prefix beside wide siblings, which is a conformance case.
 var (
-	laterPrefixViolatesFasterPath = filepath.Join("testdata", "later_prefix_violates_faster.sysml")
-	slowFirstWriterPath           = filepath.Join("testdata", "conformance", "action_explore_slow_first_writer.sysml")
+	laterPrefixViolatesFasterPath = filepath.Join("..", "runtime", "testdata", "later_prefix_violates_faster.sysml")
+	slowFirstWriterPath           = filepath.Join("..", "runtime", "testdata", "conformance", "action_explore_slow_first_writer.sysml")
 )
 
 // actionRun performs the action named in test:: by no object.
@@ -136,7 +137,7 @@ func actionRun(t *testing.T, idx *symbols.Index, path, name string) func(*runtim
 
 // Every conformance case with an admissible set explores the same on eight jobs as on one.
 func TestExploreWithIsExploreOverTheConformanceCorpus(t *testing.T) {
-	conformanceDir := filepath.Join("testdata", "conformance")
+	conformanceDir := filepath.Join("..", "runtime", "testdata", "conformance")
 	knownFailures := loadKnownFailures(t, conformanceDir)
 	entries, err := os.ReadDir(conformanceDir)
 	if err != nil {
@@ -190,9 +191,9 @@ func TestExploreWithIsExploreOverTheConformanceCorpus(t *testing.T) {
 }
 
 // failing is the exploration's failing outcome, which the fixture reaches by division by zero.
-func failing(t *testing.T, x *Exploration) ExploredOutcome {
+func failing(t *testing.T, x *explore.Exploration) explore.ExploredOutcome {
 	t.Helper()
-	var found []ExploredOutcome
+	var found []explore.ExploredOutcome
 	for _, o := range x.Outcomes {
 		if o.Outcome.Err != nil {
 			found = append(found, o)
@@ -257,7 +258,7 @@ func TestExploreWithNeverRunsMoreThanRunsPlusJobs(t *testing.T) {
 					executions.Add(1)
 					return run(ctx)
 				}
-				if _, err := ExploreWith(context.Background(), policy, jobs, fresh, counted); err != nil {
+				if _, err := explore.ExploreWith(context.Background(), policy, jobs, fresh, counted); err != nil {
 					t.Fatal(err)
 				}
 				if got, most := executions.Load(), int64(runs+jobs); got > most {
@@ -281,7 +282,7 @@ func TestExploreWithBuildsEachRunOnItsJob(t *testing.T) {
 		return workers.fresh(job)
 	}
 	policy := mustPolicy(t, "explore")
-	x, err := ExploreWith(context.Background(), policy, 3, fresh, actionRun(t, idx, path, "race"))
+	x, err := explore.ExploreWith(context.Background(), policy, 3, fresh, actionRun(t, idx, path, "race"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +315,7 @@ func TestExploreWithPutsNoMoreJobsToWorkThanRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	x, err := ExploreWith(context.Background(), policy, 1<<30, fresh, actionRun(t, idx, path, "race"))
+	x, err := explore.ExploreWith(context.Background(), policy, 1<<30, fresh, actionRun(t, idx, path, "race"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -335,8 +336,7 @@ func TestExploreWithKeepsNoContextButTheWitnesses(t *testing.T) {
 	fresh := newExploreWorkers(idx).fresh
 	run := actionRun(t, idx, path, "race")
 	for _, jobs := range []int{1, exploreJobs} {
-		q := newExploreQueue(mustPolicy(t, "explore"), runtime.ExploreBudget{Runs: 1024, Depth: 64}, jobs)
-		x, err := q.explore(context.Background(), fresh, run)
+		x, held, err := explore.ExploreQueued(context.Background(), mustPolicy(t, "explore"), runtime.ExploreBudget{Runs: 1024, Depth: 64}, jobs, fresh, run)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -348,8 +348,8 @@ func TestExploreWithKeepsNoContextButTheWitnesses(t *testing.T) {
 				t.Errorf("witness of %s on %d jobs has no context", o.Outcome, jobs)
 			}
 		}
-		for i, p := range q.order {
-			if p.replay != nil || p.outcome.ctx != nil || p.outcome.Outputs != nil {
+		for i, heldRun := range held {
+			if heldRun {
 				t.Errorf("run %d of %d on %d jobs is held by the queue after folding", i+1, x.Runs, jobs)
 			}
 		}
@@ -362,7 +362,7 @@ func TestExploreWithStopsWhenTheCallerGoesAway(t *testing.T) {
 	stop, cancel := context.WithCancel(context.Background())
 	var started atomic.Int64
 	run := actionRun(t, idx, path, "race")
-	x, err := ExploreWith(stop, mustPolicy(t, "explore"), 2, newExploreWorkers(idx).fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
+	x, err := explore.ExploreWith(stop, mustPolicy(t, "explore"), 2, newExploreWorkers(idx).fresh, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		if started.Add(1) == 1 {
 			cancel()
 		}
@@ -385,7 +385,7 @@ func TestExploreWithFailsWhenFreshFails(t *testing.T) {
 		}
 		return workers.fresh(job)
 	}
-	x, err := ExploreWith(context.Background(), mustPolicy(t, "explore"), exploreJobs, fresh, actionRun(t, idx, path, "race"))
+	x, err := explore.ExploreWith(context.Background(), mustPolicy(t, "explore"), exploreJobs, fresh, actionRun(t, idx, path, "race"))
 	if !errors.Is(err, broken) || x != nil {
 		t.Fatalf("exploration %v, %v; want nil and fresh's error", x, err)
 	}
@@ -399,14 +399,14 @@ func TestExploreWithReportsADivergedReplayAtItsRun(t *testing.T) {
 	var runs atomic.Int64
 	diverging := func(ctx *runtime.Context) (runtime.Outcome, error) {
 		if runs.Add(1) > 1 {
-			return runtime.Outcome{ctx: ctx}, nil
+			return ctx.FailedOutcome(nil), nil
 		}
 		return run(ctx)
 	}
 	for _, jobs := range []int{1, exploreJobs} {
 		runs.Store(0)
-		x, err := ExploreWith(context.Background(), mustPolicy(t, "explore"), jobs, newExploreWorkers(idx).fresh, diverging)
-		if !errors.Is(err, ErrExplorationDiverged) || x != nil {
+		x, err := explore.ExploreWith(context.Background(), mustPolicy(t, "explore"), jobs, newExploreWorkers(idx).fresh, diverging)
+		if !errors.Is(err, explore.ErrExplorationDiverged) || x != nil {
 			t.Fatalf("%d jobs: exploration %v, %v; want nil and a divergence", jobs, x, err)
 		}
 		if !strings.Contains(err.Error(), "run 2:") {

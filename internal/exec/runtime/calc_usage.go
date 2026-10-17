@@ -756,7 +756,7 @@ func (ctx *Context) finishCalcUsage(start *calcUsageStart) (*calcRun, error) {
 // read while its own body runs would run itself without end, so that is an error.
 func (ctx *Context) enterCalcUsage(shape *calcShape, key calcUsageKey) (leave func(), err error) {
 	if running := ctx.calcUsageRunning[key]; running != nil && running.reads(shape.Sym) {
-		return nil, fmt.Errorf("%w: %s reads itself while its body runs", errCalcUsageRecursion, shape.Label)
+		return nil, fmt.Errorf("%w: %s reads itself while its body runs", ErrCalcUsageRecursion, shape.Label)
 	}
 	ctx.calcUsageRunning[key] = shape
 	return func() { delete(ctx.calcUsageRunning, key) }, nil

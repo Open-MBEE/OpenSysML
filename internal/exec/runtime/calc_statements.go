@@ -433,7 +433,7 @@ func (h *calcStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 			errStatementNotExecutable, h.describe())
 	}
 	if err := lower.FlowStartError(block.Graph); err != nil {
-		return flowNext, fmt.Errorf("%w: %s: %w", errInvalidActionFlow, h.describe(), err)
+		return flowNext, fmt.Errorf("%w: %s: %w", ErrInvalidActionFlow, h.describe(), err)
 	}
 	root := h.flow.root
 	h.flow.graph = block.Graph

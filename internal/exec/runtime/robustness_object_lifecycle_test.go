@@ -635,7 +635,7 @@ func testObjectLifecycleSharedPortionRehomed(t *testing.T) {
 }
 
 // testObjectLifecycleEndedWholeAdoptsNothing: a composite write giving an ended whole a portion live or
-// ended after it is refused with errOccurrenceLifetime and holds nothing; a reference to the live
+// ended after it is refused with ErrOccurrenceLifetime and holds nothing; a reference to the live
 // object, and a portion ended no later than the whole, are held.
 func testObjectLifecycleEndedWholeAdoptsNothing(t *testing.T) {
 	instantiate, _, ctx := lifetimeFixture(t, `
@@ -656,8 +656,8 @@ func testObjectLifecycleEndedWholeAdoptsNothing(t *testing.T) {
 	if _, err := ctx.endOccurrence(garage); err != nil {
 		t.Fatalf("endOccurrence(garage): %v", err)
 	}
-	if err := garage.SetFeatureValue(ctx, "slot", car); !errors.Is(err, errOccurrenceLifetime) {
-		t.Fatalf("ended garage.slot := live car = %v; want errOccurrenceLifetime", err)
+	if err := garage.SetFeatureValue(ctx, "slot", car); !errors.Is(err, ErrOccurrenceLifetime) {
+		t.Fatalf("ended garage.slot := live car = %v; want ErrOccurrenceLifetime", err)
 	}
 	id, _ := car.Object()
 	if owner := ctx.instances[id].owner; owner != nil {
@@ -678,8 +678,8 @@ func testObjectLifecycleEndedWholeAdoptsNothing(t *testing.T) {
 	if _, err := ctx.endOccurrence(shed); err != nil {
 		t.Fatalf("endOccurrence(shed): %v", err)
 	}
-	if err := garage.SetFeatureValue(ctx, "slot", car); !errors.Is(err, errOccurrenceLifetime) {
-		t.Errorf("ended garage.slot := car ended after it = %v; want errOccurrenceLifetime", err)
+	if err := garage.SetFeatureValue(ctx, "slot", car); !errors.Is(err, ErrOccurrenceLifetime) {
+		t.Errorf("ended garage.slot := car ended after it = %v; want ErrOccurrenceLifetime", err)
 	}
 	if _, err := ctx.endOccurrence(barn); err != nil {
 		t.Fatalf("endOccurrence(barn): %v", err)
@@ -690,7 +690,7 @@ func testObjectLifecycleEndedWholeAdoptsNothing(t *testing.T) {
 }
 
 // testObjectLifecycleCompositeCycle: a composite write that would make the holder a portion of
-// itself — holding itself, or a whole it is a portion of — is refused with errOccurrenceLifetime and
+// itself — holding itself, or a whole it is a portion of — is refused with ErrOccurrenceLifetime and
 // holds nothing, so destroying the would-be portion cannot end its whole.
 func testObjectLifecycleCompositeCycle(t *testing.T) {
 	instantiate, _, ctx := lifetimeFixture(t, `
@@ -713,8 +713,8 @@ func testObjectLifecycleCompositeCycle(t *testing.T) {
 	leafInst := ctx.instances[id]
 	for _, whole := range []*Instance{root, leafInst} {
 		err := leafInst.SetFeatureValue(ctx, "child", objectValue(whole))
-		if !errors.Is(err, errOccurrenceLifetime) {
-			t.Errorf("leaf.child := #%d = %v; want errOccurrenceLifetime, it would make the leaf a portion of itself", whole.ID, err)
+		if !errors.Is(err, ErrOccurrenceLifetime) {
+			t.Errorf("leaf.child := #%d = %v; want ErrOccurrenceLifetime, it would make the leaf a portion of itself", whole.ID, err)
 		}
 	}
 	if fv := leafInst.FeatureValues["child"]; fv != nil && fv.Written {

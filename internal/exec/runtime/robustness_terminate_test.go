@@ -89,8 +89,8 @@ func testTerminateOfAQualifiedOccurrence(t *testing.T) {
 			then done;
 		}
 	}`)
-	if !errors.Is(err, errTerminateOccurrence) || !errors.Is(err, errOccurrenceLifetime) {
-		t.Fatalf("error = %v, want errTerminateOccurrence wrapping errOccurrenceLifetime", err)
+	if !errors.Is(err, errTerminateOccurrence) || !errors.Is(err, ErrOccurrenceLifetime) {
+		t.Fatalf("error = %v, want errTerminateOccurrence wrapping ErrOccurrenceLifetime", err)
 	}
 }
 
@@ -191,8 +191,8 @@ func testTerminateOfAPartReachedAfterItsWholeEnded(t *testing.T) {
 		}
 	}`))
 	_, err := ctx.ExecuteAction(findSymbolByName(idx.DocumentRoot("<test>"), "host", ast.DefAction))
-	if !errors.Is(err, errTerminateOccurrence) || !errors.Is(err, errOccurrenceLifetime) {
-		t.Fatalf("error = %v, want errTerminateOccurrence wrapping errOccurrenceLifetime", err)
+	if !errors.Is(err, errTerminateOccurrence) || !errors.Is(err, ErrOccurrenceLifetime) {
+		t.Fatalf("error = %v, want errTerminateOccurrence wrapping ErrOccurrenceLifetime", err)
 	}
 	whole, ok := ctx.OccurrenceLife(1)
 	if !ok || whole.Ended == 0 {
@@ -236,8 +236,8 @@ func testTerminateOfAnEndedOccurrenceInAStateBody(t *testing.T) {
 			}
 		}
 	}`)
-	if !errors.Is(err, errTerminateOccurrence) || !errors.Is(err, errOccurrenceLifetime) {
-		t.Fatalf("error = %v, want errTerminateOccurrence wrapping errOccurrenceLifetime", err)
+	if !errors.Is(err, errTerminateOccurrence) || !errors.Is(err, ErrOccurrenceLifetime) {
+		t.Fatalf("error = %v, want errTerminateOccurrence wrapping ErrOccurrenceLifetime", err)
 	}
 }
 
@@ -289,7 +289,7 @@ func testBehaviorOfAnEndedPerformer(t *testing.T) {
 		t.Fatalf("test::Probe::bump: %d matching symbols, want 1", len(bump))
 	}
 	_, err = ctx.CreateActionExecutorFor(bump[0], inst)
-	if !errors.Is(err, errOccurrenceLifetime) {
-		t.Fatalf("error = %v, want errOccurrenceLifetime", err)
+	if !errors.Is(err, ErrOccurrenceLifetime) {
+		t.Fatalf("error = %v, want ErrOccurrenceLifetime", err)
 	}
 }

@@ -86,7 +86,7 @@ func TestRuntimeRobustnessSuccessionFanOut(t *testing.T) {
 				succession first m then b;
 				succession first m then c;
 			`,
-			want: errInvalidActionFlow,
+			want: ErrInvalidActionFlow,
 		},
 	}
 	for _, tc := range cases {

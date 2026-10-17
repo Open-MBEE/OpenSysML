@@ -922,7 +922,7 @@ func usagesNamed(nodes []ast.Node, name string) []ast.Node {
 }
 
 // subaction returns the latest performance of f's node named name; declared reports
-// whether f has such a node, one not yet performed is errNodeNotPerformed. Among
+// whether f has such a node, one not yet performed is ErrNodeNotPerformed. Among
 // same-named nodes (one per branch of a conditional), decl names the reader's own,
 // else the one performed latest answers.
 func (f *actionFrame) subaction(name string, decl ast.Node) (perf *actionFrame, declared bool, err error) {
@@ -944,7 +944,7 @@ func (f *actionFrame) subaction(name string, decl ast.Node) (perf *actionFrame, 
 	perf, performed := f.subactions[node]
 	if !performed {
 		return nil, true, fmt.Errorf("%w: action node %s has not been performed yet",
-			errNodeNotPerformed, ActionNodeName(node))
+			ErrNodeNotPerformed, ActionNodeName(node))
 	}
 	return perf, true, nil
 }
@@ -1015,12 +1015,12 @@ func (f *actionFrame) repeatedPin(name string) (Value, error) {
 	siblings := f.repetitionSiblings()
 	if state := f.parent.repeats[f.repetitionGroup]; state != nil && state.node == f.node && state.remaining > 0 {
 		return Value{}, fmt.Errorf("%w: action node %s has not been performed yet",
-			errNodeNotPerformed, ActionNodeName(f.node))
+			ErrNodeNotPerformed, ActionNodeName(f.node))
 	}
 	for _, perf := range siblings {
 		if !perf.ended {
 			return Value{}, fmt.Errorf("%w: action node %s has not been performed yet",
-				errNodeNotPerformed, ActionNodeName(f.node))
+				ErrNodeNotPerformed, ActionNodeName(f.node))
 		}
 	}
 	values := make([]Value, 0, len(siblings))
@@ -1901,7 +1901,7 @@ func (e *performances) bindingOtherValue(perf *actionFrame, end boundEnd, activa
 		other, performed := e.otherPerformance(perf, end)
 		if !performed {
 			return Value{}, fmt.Errorf("%w: %s is bound to %s, which is read before it runs",
-				errNodeNotPerformed, end.pinText(), bindingEndText(end.Other))
+				ErrNodeNotPerformed, end.pinText(), bindingEndText(end.Other))
 		}
 		value, err := other.pin(end.OtherPin)
 		if err != nil {
@@ -1947,7 +1947,7 @@ func (e *performances) otherEndHeld(perf *actionFrame, end boundEnd) (Value, boo
 // holds no value yet: an unperformed node's pin or an unvalued enclosing feature.
 func (e *performances) unheldEnd(end boundEnd, err error) bool {
 	var noValue *NoValueError
-	if errors.Is(err, errNodeNotPerformed) || errors.As(err, &noValue) {
+	if errors.Is(err, ErrNodeNotPerformed) || errors.As(err, &noValue) {
 		return true
 	}
 	name := simpleEndName(end.Other)

@@ -208,7 +208,7 @@ func testStateBlockTypedNodeInputBoundByNothing(t *testing.T) {
 }
 
 // testStateBlockNodePinReadBeforePerformed: a state body's node has a frame of its
-// own, so a sibling reading its pin before it performs is errNodeNotPerformed.
+// own, so a sibling reading its pin before it performs is ErrNodeNotPerformed.
 func testStateBlockNodePinReadBeforePerformed(t *testing.T) {
 	exec := stateExecutorForSource(t, "Machine", `package test {
 		private import ScalarValues::*;
@@ -229,8 +229,8 @@ func testStateBlockNodePinReadBeforePerformed(t *testing.T) {
 		}
 	}`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, errNodeNotPerformed) {
-		t.Fatalf("error = %v, want errNodeNotPerformed", err)
+	if !errors.Is(err, ErrNodeNotPerformed) {
+		t.Fatalf("error = %v, want ErrNodeNotPerformed", err)
 	}
 	if !strings.Contains(err.Error(), "late") {
 		t.Errorf("error %q does not name the node", err)
@@ -354,8 +354,8 @@ func testStateDoBodyFlowWithoutStart(t *testing.T) {
 		succession first b then a;
 	`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, errInvalidActionFlow) {
-		t.Fatalf("expected errInvalidActionFlow, got: %v", err)
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "no node starts the flow") {
 		t.Errorf("error %q does not say what the flow lacks", err)
@@ -395,8 +395,8 @@ func testStateDoBodyNestedNodeDanglingSuccession(t *testing.T) {
 		then done;
 	`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, errInvalidActionFlow) {
-		t.Fatalf("expected errInvalidActionFlow, got: %v", err)
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "action node step") || !strings.Contains(err.Error(), `"missing"`) {
 		t.Errorf("error %q does not name the node and the undefined target", err)

@@ -1,4 +1,4 @@
-package runtime
+package explore_test
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -40,8 +42,8 @@ type checkCase struct {
 	name     string
 	expected ExpectedOutcome
 	model    *exploreModel
-	start    Starter
-	run      func(*Context) (Outcome, error)
+	start    runtime.Starter
+	run      func(*runtime.Context) (runtime.Outcome, error)
 }
 
 // checkCorpus loads every action and state case of the conformance corpus whose
@@ -49,7 +51,7 @@ type checkCase struct {
 // every one with a check expectation beside it.
 func checkCorpus(t *testing.T) []checkCase {
 	t.Helper()
-	dir := filepath.Join("testdata", "conformance")
+	dir := filepath.Join("..", "runtime", "testdata", "conformance")
 	knownFailures := loadKnownFailures(t, dir)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -105,7 +107,7 @@ func checkCorpus(t *testing.T) []checkCase {
 
 // conformanceStarter starts the case's behavior as conformanceRun runs it: the
 // action, or the state machine with the case's events queued.
-func conformanceStarter(t *testing.T, idx *symbols.Index, path string, expected ExpectedOutcome) Starter {
+func conformanceStarter(t *testing.T, idx *symbols.Index, path string, expected ExpectedOutcome) runtime.Starter {
 	t.Helper()
 	rootScope := idx.DocumentRoot(path)
 	if expected.Type == "action" {
@@ -113,7 +115,7 @@ func conformanceStarter(t *testing.T, idx *symbols.Index, path string, expected 
 	}
 	stateSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefState, ast.UsageState)
 	events := queuedEvents(t, expected.Events)
-	return func(ctx *Context) (*Invocation, error) {
+	return func(ctx *runtime.Context) (*runtime.Invocation, error) {
 		exec, err := ctx.CreateStateExecutor(stateSym)
 		if err != nil {
 			return nil, err
@@ -124,12 +126,12 @@ func conformanceStarter(t *testing.T, idx *symbols.Index, path string, expected 
 				return nil, err
 			}
 		}
-		return &Invocation{States: []*StateExecutor{exec}}, nil
+		return &runtime.Invocation{States: []*runtime.StateExecutor{exec}}, nil
 	}
 }
 
 func hasCheckExpected(name string) bool {
-	_, err := os.Stat(filepath.Join("testdata", "conformance", name+".check.expected.json"))
+	_, err := os.Stat(filepath.Join("..", "runtime", "testdata", "conformance", name+".check.expected.json"))
 	return err == nil
 }
 
@@ -137,7 +139,7 @@ func hasCheckExpected(name string) bool {
 // ordering open owes one.
 func loadCheckExpected(t *testing.T, name string) CheckExpected {
 	t.Helper()
-	path := filepath.Join("testdata", "conformance", name+".check.expected.json")
+	path := filepath.Join("..", "runtime", "testdata", "conformance", name+".check.expected.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("a case with an admissible set states what a check finds: %v", err)
@@ -153,13 +155,13 @@ func loadCheckExpected(t *testing.T, name string) CheckExpected {
 }
 
 // check checks the case's action under the default bounds.
-func (c checkCase) check(t *testing.T, opts CheckOptions) (*CheckReport, error) {
+func (c checkCase) check(t *testing.T, opts runtime.CheckOptions) (*runtime.CheckReport, error) {
 	t.Helper()
-	return Check(context.Background(), c.model.fresh, c.start, CheckBudget{}, opts, nil)
+	return runtime.Check(context.Background(), c.model.fresh, c.start, runtime.CheckBudget{}, opts, nil)
 }
 
 // checked is check with the report owed.
-func (c checkCase) checked(t *testing.T, opts CheckOptions) *CheckReport {
+func (c checkCase) checked(t *testing.T, opts runtime.CheckOptions) *runtime.CheckReport {
 	t.Helper()
 	report, err := c.check(t, opts)
 	if err != nil {
@@ -169,13 +171,13 @@ func (c checkCase) checked(t *testing.T, opts CheckOptions) *CheckReport {
 }
 
 // explore explores the case's run to its complete table under the case's budget.
-func (c checkCase) explore(t *testing.T) *Exploration {
+func (c checkCase) explore(t *testing.T) *explore.Exploration {
 	t.Helper()
-	policy, err := ExplorePolicy(c.expected.ExploreBudget.budget())
+	policy, err := runtime.ExplorePolicy(c.expected.ExploreBudget.budget())
 	if err != nil {
 		t.Fatal(err)
 	}
-	x, err := Explore(context.Background(), policy, c.model.fresh, c.run)
+	x, err := explore.Explore(context.Background(), policy, c.model.fresh, c.run)
 	if err != nil {
 		t.Fatalf("explore: %v", err)
 	}
@@ -192,7 +194,7 @@ func TestCheckConformanceOracles(t *testing.T) {
 	for _, c := range checkCorpus(t) {
 		t.Run(c.name, func(t *testing.T) {
 			want := loadCheckExpected(t, c.name)
-			for _, opts := range []CheckOptions{reduced(), unreduced()} {
+			for _, opts := range []runtime.CheckOptions{reduced(), unreduced()} {
 				report := c.checked(t, opts)
 				if report.Verdict.String() != want.Verdict {
 					t.Fatalf("reduce=%v: verdict %s, want %s (violations %v)", opts.Reduce, report.Status(), want.Verdict, report.Violations)
@@ -230,9 +232,9 @@ func TestCheckAgreesWithExploreOverTheConformanceCorpus(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			x := c.explore(t)
 			want, failed := exploredFinals(x), exploredFailures(x)
-			for _, opts := range []CheckOptions{reduced(), unreduced()} {
+			for _, opts := range []runtime.CheckOptions{reduced(), unreduced()} {
 				report := c.checked(t, opts)
-				if len(report.BoundsHit) != 0 || slices.ContainsFunc(report.Violations, func(v Violation) bool { return v.Kind != ViolationFailure }) {
+				if len(report.BoundsHit) != 0 || slices.ContainsFunc(report.Violations, func(v runtime.Violation) bool { return v.Kind != runtime.ViolationFailure }) {
 					t.Fatalf("reduce=%v: %s, violations %v, want a clean complete search", opts.Reduce, report.Status(), report.Violations)
 				}
 				if got := failureTexts(report); !sameFailures(got, failed) {
@@ -248,7 +250,7 @@ func TestCheckAgreesWithExploreOverTheConformanceCorpus(t *testing.T) {
 }
 
 // exploredFinals is the outcome set an exploration reached, its failed runs aside, sorted.
-func exploredFinals(x *Exploration) []string {
+func exploredFinals(x *explore.Exploration) []string {
 	var out []string
 	for _, o := range x.Outcomes {
 		if o.Outcome.Err == nil {
@@ -260,7 +262,7 @@ func exploredFinals(x *Exploration) []string {
 }
 
 // exploredFailures is every distinct error an exploration's runs failed with, sorted.
-func exploredFailures(x *Exploration) []string {
+func exploredFailures(x *explore.Exploration) []string {
 	var out []string
 	for _, o := range x.Outcomes {
 		if o.Outcome.Err != nil {
@@ -272,10 +274,10 @@ func exploredFailures(x *Exploration) []string {
 }
 
 // failureTexts is every distinct typed runtime error a check's schedules fail with, sorted.
-func failureTexts(report *CheckReport) []string {
+func failureTexts(report *runtime.CheckReport) []string {
 	var out []string
 	for _, v := range report.Violations {
-		if v.Kind == ViolationFailure && v.Err != nil {
+		if v.Kind == runtime.ViolationFailure && v.Err != nil {
 			out = append(out, v.Err.Error())
 		}
 	}
@@ -295,7 +297,7 @@ func sameFailures(check, explore []string) bool {
 }
 
 // explored is the outcome set an exploration reached, sorted as the check sorts its finals.
-func explored(t *testing.T, x *Exploration) []string {
+func explored(t *testing.T, x *explore.Exploration) []string {
 	t.Helper()
 	out := make([]string, 0, len(x.Outcomes))
 	for _, o := range x.Outcomes {
@@ -344,7 +346,7 @@ func TestCheckWitnessesReplayOverTheConformanceCorpus(t *testing.T) {
 
 // replayedValue is the value a replayed run left the invocation's feature with;
 // a machine's `finalState` is its final state.
-func replayedValue(r *Replayed, feature string) string {
+func replayedValue(r *runtime.Replayed, feature string) string {
 	outcome := r.Inv.Outcome()
 	if feature == "finalState" {
 		return outcome.FinalState
@@ -354,5 +356,5 @@ func replayedValue(r *Replayed, feature string) string {
 			return out.Text
 		}
 	}
-	return UnsetText
+	return runtime.UnsetText
 }

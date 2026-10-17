@@ -516,7 +516,7 @@ func testNoFlowPerformedActionChecksItsInputs(t *testing.T) {
 		want    error
 	}{
 		"output":  {"in r = 5;", errOutputActionInput},
-		"unknown": {"in bogus = 5;", errUnknownActionInput},
+		"unknown": {"in bogus = 5;", ErrUnknownActionInput},
 	} {
 		src := `
 			package test {

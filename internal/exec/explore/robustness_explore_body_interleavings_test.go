@@ -1,9 +1,10 @@
-package explore
+package explore_test
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"os"
 	"path/filepath"
@@ -42,7 +43,7 @@ func caseRun(t *testing.T, m *exploreModel, name string) func(*runtime.Context) 
 }
 
 // featureValues spells feature in each outcome, in outcome order.
-func featureValues(t *testing.T, x *Exploration, feature string) []string {
+func featureValues(t *testing.T, x *explore.Exploration, feature string) []string {
 	t.Helper()
 	var values []string
 	for _, o := range x.Outcomes {
@@ -112,7 +113,7 @@ func testBodyInterleavingsReplay(t *testing.T) {
 	m := conformanceModel(t, "action_explore_body_lost_update")
 	run := caseRun(t, m, "Race")
 	x := m.exploreAction(t, "explore", "Race")
-	i := slices.IndexFunc(x.Outcomes, func(o ExploredOutcome) bool { return outcomeValue(t, o.Outcome, "c") == "1" })
+	i := slices.IndexFunc(x.Outcomes, func(o explore.ExploredOutcome) bool { return outcomeValue(t, o.Outcome, "c") == "1" })
 	if i < 0 {
 		t.Fatalf("exploration reached %v, want the lost update c = 1", outcomeTexts(x))
 	}
@@ -277,7 +278,7 @@ func testBodyInterleavingsOwnCallees(t *testing.T) {
 }
 
 func testBodyInterleavingsCalleeOutputs(t *testing.T) {
-	text, err := os.ReadFile(filepath.Join("testdata", "robustness", "action_explore_body_callee_outputs.sysml"))
+	text, err := os.ReadFile(filepath.Join("..", "runtime", "testdata", "robustness", "action_explore_body_callee_outputs.sysml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,8 +291,8 @@ func testBodyInterleavingsCalleeOutputs(t *testing.T) {
 	errs := 0
 	for _, o := range x.Outcomes {
 		if o.Outcome.Err != nil {
-			if !errors.Is(o.Outcome.Err, errNodeNotPerformed) {
-				t.Errorf("outcome error %v, want only %v", o.Outcome.Err, errNodeNotPerformed)
+			if !errors.Is(o.Outcome.Err, runtime.ErrNodeNotPerformed) {
+				t.Errorf("outcome error %v, want only %v", o.Outcome.Err, runtime.ErrNodeNotPerformed)
 			}
 			errs++
 			continue
@@ -307,7 +308,7 @@ func testBodyInterleavingsCalleeOutputs(t *testing.T) {
 // A performed chain parking on a timer is a move: the step ends there, and the
 // sibling not yet stepped starts its own timer before the clock moves.
 func testBodyInterleavingsSiblingTimer(t *testing.T) {
-	text, err := os.ReadFile(filepath.Join("testdata", "robustness", "action_explore_body_sibling_timer.sysml"))
+	text, err := os.ReadFile(filepath.Join("..", "runtime", "testdata", "robustness", "action_explore_body_sibling_timer.sysml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +323,7 @@ func testBodyInterleavingsSiblingTimer(t *testing.T) {
 		}
 		return ctx.ActionOutcome(outputs), nil
 	}
-	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+	x, err := explore.Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
 	if err != nil {
 		t.Fatal(err)
 	}

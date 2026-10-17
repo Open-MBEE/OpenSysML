@@ -232,8 +232,8 @@ func testForkWithoutASuccessor(t *testing.T) {
 		t.Fatalf("create action executor: %v", err)
 	}
 	err = exec.RunToCompletion()
-	if !errors.Is(err, errInvalidActionFlow) {
-		t.Fatalf("error = %v, want errInvalidActionFlow", err)
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
 	}
 }
 
@@ -302,8 +302,8 @@ func testMergeWithoutASuccessor(t *testing.T) {
 		t.Fatalf("create action executor: %v", err)
 	}
 	err = exec.RunToCompletion()
-	if !errors.Is(err, errInvalidActionFlow) {
-		t.Fatalf("error = %v, want errInvalidActionFlow", err)
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
 	}
 }
 
@@ -654,8 +654,8 @@ func testDecisionNoSatisfiedGuard(t *testing.T) {
 		t.Fatalf("create action executor: %v", err)
 	}
 	err = exec.RunToCompletion()
-	if !errors.Is(err, errNoEnabledSuccession) {
-		t.Fatalf("error = %v, want errNoEnabledSuccession", err)
+	if !errors.Is(err, ErrNoEnabledSuccession) {
+		t.Fatalf("error = %v, want ErrNoEnabledSuccession", err)
 	}
 }
 
@@ -696,8 +696,8 @@ func testDecisionAllGuardsFalse(t *testing.T) {
 		t.Fatalf("create action executor: %v", err)
 	}
 	err = exec.RunToCompletion()
-	if !errors.Is(err, errNoEnabledSuccession) {
-		t.Fatalf("error = %v, want errNoEnabledSuccession", err)
+	if !errors.Is(err, ErrNoEnabledSuccession) {
+		t.Fatalf("error = %v, want ErrNoEnabledSuccession", err)
 	}
 	if !strings.Contains(err.Error(), "decision node choose has no true guard") {
 		t.Fatalf("error = %v, want the decision named", err)
@@ -839,8 +839,8 @@ func testNestedFlowWithoutAnInitialNode(t *testing.T) {
 		t.Fatalf("newActionExecutor: %v", err)
 	}
 	err = exec.initialize()
-	if !errors.Is(err, errInvalidActionFlow) {
-		t.Fatalf("error = %v, want errInvalidActionFlow", err)
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
 	}
 	if !strings.Contains(err.Error(), "leg") {
 		t.Errorf("error = %v, want it to name the node whose flow cannot be built", err)
@@ -872,8 +872,8 @@ func testNestedFlowWithADanglingSuccession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newActionExecutor: %v", err)
 	}
-	if err := exec.initialize(); !errors.Is(err, errInvalidActionFlow) {
-		t.Fatalf("error = %v, want errInvalidActionFlow", err)
+	if err := exec.initialize(); !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
 	}
 }
 
@@ -975,8 +975,8 @@ func testActionFlowCycleWithoutStart(t *testing.T) {
 			succession first b then a;
 		}
 	}`)
-	if !errors.Is(err, errInvalidActionFlow) {
-		t.Fatalf("expected errInvalidActionFlow, got: %v", err)
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "cycle") {
 		t.Errorf("error %q does not name the cycle", err)

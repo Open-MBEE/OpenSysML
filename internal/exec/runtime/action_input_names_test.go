@@ -27,8 +27,8 @@ func TestUnknownActionInputIsReported(t *testing.T) {
 	bump := resolveSymbol(t, root, "bump")
 
 	outputs, err := ctx.ExecuteActionWithInputs(bump, map[string]Value{"nope": constInt(7)})
-	if !errors.Is(err, errUnknownActionInput) {
-		t.Fatalf("outputs = %v, err = %v; want errUnknownActionInput", outputs, err)
+	if !errors.Is(err, ErrUnknownActionInput) {
+		t.Fatalf("outputs = %v, err = %v; want ErrUnknownActionInput", outputs, err)
 	}
 	if !strings.Contains(err.Error(), "nope") {
 		t.Errorf("error = %v, want it to name the input", err)

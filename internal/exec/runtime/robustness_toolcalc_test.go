@@ -12,15 +12,15 @@ func TestRuntimeRobustnessToolCalc(t *testing.T) {
 	t.Run("no_runner", func(t *testing.T) {
 		ctx, scope := analysisFixture(t, toolCalcModel)
 		_, err := ctx.InvokeCalc(calcNamed(t, scope, "Thermal"), thermalArgs(t, ctx, scope), scope)
-		if !errors.Is(err, errToolNotRegistered) {
-			t.Fatalf("InvokeCalc = %v, want errToolNotRegistered", err)
+		if !errors.Is(err, ErrToolNotRegistered) {
+			t.Fatalf("InvokeCalc = %v, want ErrToolNotRegistered", err)
 		}
 	})
 	t.Run("no_runner_usage", func(t *testing.T) {
 		ctx, scope := analysisFixture(t, toolCalcModel)
 		_, err := ctx.CalcUsageOutputs(calcNamed(t, scope, "t"), scope, nil)
-		if !errors.Is(err, errToolNotRegistered) {
-			t.Fatalf("CalcUsageOutputs = %v, want errToolNotRegistered", err)
+		if !errors.Is(err, ErrToolNotRegistered) {
+			t.Fatalf("CalcUsageOutputs = %v, want ErrToolNotRegistered", err)
 		}
 	})
 	t.Run("runner_fault_usage", func(t *testing.T) {
@@ -105,8 +105,8 @@ func TestRuntimeRobustnessToolCalc(t *testing.T) {
 		ctx, scope := analysisFixture(t, toolCalcModel)
 		ctx.SetCalcCompile(true)
 		_, err := ctx.InvokeCalc(calcNamed(t, scope, "Wrapper"), []Value{realOf(3)}, scope)
-		if !errors.Is(err, errToolNotRegistered) {
-			t.Fatalf("InvokeCalc = %v, want errToolNotRegistered", err)
+		if !errors.Is(err, ErrToolNotRegistered) {
+			t.Fatalf("InvokeCalc = %v, want ErrToolNotRegistered", err)
 		}
 	})
 }

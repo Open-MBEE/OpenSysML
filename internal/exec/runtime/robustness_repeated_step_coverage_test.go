@@ -97,7 +97,7 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 				succession first [*] a then [1] done;
 			}
 		}`)
-		if !errors.Is(err, errNodeNotPerformed) {
+		if !errors.Is(err, ErrNodeNotPerformed) {
 			t.Fatalf("execution error = %v, want ErrNodeNotPerformed", err)
 		}
 	})

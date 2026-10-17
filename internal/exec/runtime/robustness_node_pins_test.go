@@ -64,8 +64,8 @@ func testNodePinOfANodeNotYetPerformed(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, errNodeNotPerformed) {
-		t.Fatalf("error = %v, want errNodeNotPerformed", err)
+	if !errors.Is(err, ErrNodeNotPerformed) {
+		t.Fatalf("error = %v, want ErrNodeNotPerformed", err)
 	}
 	if !strings.Contains(err.Error(), "late") {
 		t.Errorf("error %q does not name the node", err)
@@ -147,8 +147,8 @@ func testBlockNodePinOfANodeNotYetPerformed(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, errNodeNotPerformed) {
-		t.Fatalf("error = %v, want errNodeNotPerformed", err)
+	if !errors.Is(err, ErrNodeNotPerformed) {
+		t.Fatalf("error = %v, want ErrNodeNotPerformed", err)
 	}
 	if !strings.Contains(err.Error(), "late") {
 		t.Errorf("error %q does not name the node", err)
@@ -205,8 +205,8 @@ func testElseBranchNodeReadBeforeItPerforms(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, errNodeNotPerformed) {
-		t.Fatalf("error = %v, want errNodeNotPerformed", err)
+	if !errors.Is(err, ErrNodeNotPerformed) {
+		t.Fatalf("error = %v, want ErrNodeNotPerformed", err)
 	}
 	if !strings.Contains(err.Error(), "p") {
 		t.Errorf("error %q does not name the node", err)
@@ -639,8 +639,8 @@ func testBlockNodeOwnFlowMalformed(t *testing.T) {
 		t.Fatal("action outer not found")
 	}
 	_, err := ctx.CreateActionExecutor(sym)
-	if !errors.Is(err, errInvalidActionFlow) {
-		t.Fatalf("expected errInvalidActionFlow for step's dangling succession, got: %v", err)
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("expected ErrInvalidActionFlow for step's dangling succession, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "action node step") || !strings.Contains(err.Error(), "missing") {
 		t.Errorf("error %q does not name the node and the undefined target", err)

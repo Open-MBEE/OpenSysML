@@ -329,8 +329,8 @@ func testAnalysisCyclicSuccessions(t *testing.T) {
 	if err == nil {
 		t.Fatal("a cyclic body ran to completion")
 	}
-	if !errors.Is(err, errInvalidActionFlow) {
-		t.Fatalf("error = %v, want errInvalidActionFlow", err)
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
 	}
 	for _, want := range []string{"test::Looping", "cycle"} {
 		if !strings.Contains(err.Error(), want) {

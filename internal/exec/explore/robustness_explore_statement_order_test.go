@@ -1,8 +1,9 @@
-package explore
+package explore_test
 
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/explore"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"slices"
 	"strings"
@@ -81,7 +82,7 @@ func testStatementOrderReplay(t *testing.T) {
 	m := conformanceModel(t, "action_explore_statement_order_dependent")
 	run := caseRun(t, m, "Order")
 	x := m.exploreAction(t, "explore", "Order")
-	i := slices.IndexFunc(x.Outcomes, func(o ExploredOutcome) bool { return outcomeValue(t, o.Outcome, "y") == "0" })
+	i := slices.IndexFunc(x.Outcomes, func(o explore.ExploredOutcome) bool { return outcomeValue(t, o.Outcome, "y") == "0" })
 	if i < 0 {
 		t.Fatalf("exploration reached %v, want y = 0, read before the write", outcomeTexts(x))
 	}
@@ -192,8 +193,8 @@ func testStatementOrderCyclicCalcBinding(t *testing.T) {
 				t.Fatalf("exploration %s with %v, want complete", x.Status(), outcomeTexts(x))
 			}
 			for _, o := range x.Outcomes {
-				if !errors.Is(o.Outcome.Err, errCalcUsageRecursion) {
-					t.Errorf("outcome %s, want errCalcUsageRecursion", o.Outcome)
+				if !errors.Is(o.Outcome.Err, runtime.ErrCalcUsageRecursion) {
+					t.Errorf("outcome %s, want runtime.ErrCalcUsageRecursion", o.Outcome)
 				}
 			}
 		})

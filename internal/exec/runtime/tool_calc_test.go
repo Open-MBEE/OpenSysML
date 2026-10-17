@@ -399,7 +399,7 @@ func TestToolCalcRefusesLikeAPerformance(t *testing.T) {
 		ctx, scope := analysisFixture(t, toolCalcModel)
 		_, err := ctx.InvokeCalc(calcNamed(t, scope, "Thermal"), args(t, ctx, scope), scope)
 		var refusal *ToolNotRegisteredError
-		if !errors.As(err, &refusal) || !errors.Is(err, errToolNotRegistered) || refusal.Tool != "Thermo" {
+		if !errors.As(err, &refusal) || !errors.Is(err, ErrToolNotRegistered) || refusal.Tool != "Thermo" {
 			t.Fatalf("InvokeCalc = %v, want ToolNotRegisteredError", err)
 		}
 	})
@@ -498,8 +498,8 @@ func TestToolCalcSpecializingALibraryFunctionComputesByTool(t *testing.T) {
 	t.Run("no runner", func(t *testing.T) {
 		ctx, scope := analysisFixture(t, toolCalcModel)
 		_, err := ctx.InvokeCalc(calcNamed(t, scope, "Custom"), []Value{realOf(-4)}, scope)
-		if !errors.Is(err, errToolNotRegistered) {
-			t.Fatalf("InvokeCalc = %v, want errToolNotRegistered, not abs's answer", err)
+		if !errors.Is(err, ErrToolNotRegistered) {
+			t.Fatalf("InvokeCalc = %v, want ErrToolNotRegistered, not abs's answer", err)
 		}
 	})
 	t.Run("invocation expression", func(t *testing.T) {
@@ -542,8 +542,8 @@ func TestToolCalcCompiledCallerGoesThroughTheTool(t *testing.T) {
 				ctx, scope := analysisFixture(t, toolCalcModel)
 				ctx.SetCalcCompile(compile)
 				_, err := ctx.InvokeCalc(calcNamed(t, scope, "Wrapper"), []Value{realOf(3)}, scope)
-				if !errors.Is(err, errToolNotRegistered) {
-					t.Fatalf("InvokeCalc = %v, want errToolNotRegistered, not the body's 6.0", err)
+				if !errors.Is(err, ErrToolNotRegistered) {
+					t.Fatalf("InvokeCalc = %v, want ErrToolNotRegistered, not the body's 6.0", err)
 				}
 			})
 		})

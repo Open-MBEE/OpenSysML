@@ -151,7 +151,7 @@ func TestToolExecutionWithoutRunnerIsNotRegistered(t *testing.T) {
 	ctx, scope := analysisFixture(t, toolModel)
 	_, err := ctx.ExecuteAction(calcNamed(t, scope, "Drive"))
 	var refusal *ToolNotRegisteredError
-	if !errors.As(err, &refusal) || !errors.Is(err, errToolNotRegistered) {
+	if !errors.As(err, &refusal) || !errors.Is(err, ErrToolNotRegistered) {
 		t.Fatalf("ExecuteAction = %v, want ToolNotRegisteredError", err)
 	}
 	if want := "tool 'ModelCenter' is not registered; set OPENSYSML_TOOLS"; !strings.Contains(err.Error(), want) {
@@ -417,8 +417,8 @@ func TestToolExecutionThroughTheDebuggerExecutor(t *testing.T) {
 
 	bare, _ := analysisFixture(t, scaleModel)
 	_, err = bare.CreateActionExecutor(scale)
-	if !errors.Is(err, errToolNotRegistered) {
-		t.Fatalf("CreateActionExecutor without a runner = %v, want errToolNotRegistered", err)
+	if !errors.Is(err, ErrToolNotRegistered) {
+		t.Fatalf("CreateActionExecutor without a runner = %v, want ErrToolNotRegistered", err)
 	}
 }
 
@@ -509,8 +509,8 @@ func TestToolExecutionOnATypedUsage(t *testing.T) {
 			}
 
 			bare, bareScope := analysisFixture(t, annotatedUsageModel)
-			if _, err := bare.ExecuteAction(calcNamed(t, bareScope, driver)); !errors.Is(err, errToolNotRegistered) {
-				t.Fatalf("ExecuteAction without a runner = %v, want errToolNotRegistered", err)
+			if _, err := bare.ExecuteAction(calcNamed(t, bareScope, driver)); !errors.Is(err, ErrToolNotRegistered) {
+				t.Fatalf("ExecuteAction without a runner = %v, want ErrToolNotRegistered", err)
 			}
 		})
 	}
@@ -885,8 +885,8 @@ func TestToolExecutionOfAPerformedAction(t *testing.T) {
 			}
 
 			bare, bareScope := analysisFixture(t, annotatedUsageModel)
-			if _, err := bare.Instantiate(calcNamed(t, bareScope, rig)); !errors.Is(err, errToolNotRegistered) {
-				t.Fatalf("Instantiate without a runner = %v, want errToolNotRegistered", err)
+			if _, err := bare.Instantiate(calcNamed(t, bareScope, rig)); !errors.Is(err, ErrToolNotRegistered) {
+				t.Fatalf("Instantiate without a runner = %v, want ErrToolNotRegistered", err)
 			}
 		})
 	}

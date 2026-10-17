@@ -40,7 +40,7 @@ func (e *performances) terminateTargetOf(engine *stmtEngine, s lower.Effect, tex
 	inst, found := e.ctx.Instance(id)
 	if !found {
 		return nil, fmt.Errorf("%w: 'terminate %s' names object #%d, which this context does not hold: %w",
-			errTerminateOccurrence, text, id, errOccurrenceLifetime)
+			errTerminateOccurrence, text, id, ErrOccurrenceLifetime)
 	}
 	return inst, nil
 }

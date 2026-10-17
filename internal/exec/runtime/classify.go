@@ -274,11 +274,11 @@ func (ctx *Context) adoptWritten(inst *Instance, fv *FeatureValue, val Value) er
 		}
 		if ctx.isPortionOf(inst, child) {
 			return fmt.Errorf("%w: %s #%d would hold %s #%d, a whole it is a portion of, as a portion of itself",
-				errOccurrenceLifetime, SymbolText(inst.Type), inst.ID, SymbolText(child.Type), child.ID)
+				ErrOccurrenceLifetime, SymbolText(inst.Type), inst.ID, SymbolText(child.Type), child.ID)
 		}
 		if part := ctx.lives[id]; whole.ended != 0 && (part.ended == 0 || part.ended > whole.ended) {
 			return fmt.Errorf("%w: %s #%d ended at %d and cannot hold %s #%d, %s, as a portion of itself",
-				errOccurrenceLifetime, SymbolText(inst.Type), inst.ID, whole.ended, SymbolText(child.Type), child.ID, endedText(part))
+				ErrOccurrenceLifetime, SymbolText(inst.Type), inst.ID, whole.ended, SymbolText(child.Type), child.ID, endedText(part))
 		}
 	}
 	ctx.releaseDropped(inst, fv, val)

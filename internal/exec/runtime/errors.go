@@ -121,9 +121,9 @@ var (
 	// input parameter of the invoked calc.
 	errUnknownParameter = errors.New("unknown parameter")
 
-	// errUnknownActionInput is returned when a supplied input names no parameter
+	// ErrUnknownActionInput is returned when a supplied input names no parameter
 	// or attribute of the action performed.
-	errUnknownActionInput = errors.New("unknown action input")
+	ErrUnknownActionInput = errors.New("unknown action input")
 
 	// errOutputActionInput is returned when a supplied input names a parameter
 	// the action only writes back (`out`), which a caller does not seed.
@@ -179,9 +179,9 @@ var (
 	// lowering marked as not executable in that kind of body (lower.Unsupported).
 	errStatementNotExecutable = errors.New("statement not executable")
 
-	// errCalcUsageRecursion is returned when a calc or analysis usage's body reads
+	// ErrCalcUsageRecursion is returned when a calc or analysis usage's body reads
 	// the usage itself: bound once, it would run itself without end.
-	errCalcUsageRecursion = errors.New("a calc usage runs itself")
+	ErrCalcUsageRecursion = errors.New("a calc usage runs itself")
 
 	// errCaseReadWaits is returned when an analysis or verification case whose
 	// outputs an expression reads waits on the clock or for a message: the read
@@ -217,11 +217,11 @@ var (
 	// ErrExecutorReleased is returned when a released executor is stepped.
 	ErrExecutorReleased = errors.New("executor released")
 
-	// errInvalidActionFlow is returned for a structurally invalid action graph.
-	errInvalidActionFlow = errors.New("invalid action flow")
+	// ErrInvalidActionFlow is returned for a structurally invalid action graph.
+	ErrInvalidActionFlow = errors.New("invalid action flow")
 
-	// errNoEnabledSuccession is returned when a decision can select no branch.
-	errNoEnabledSuccession = errors.New("no enabled succession")
+	// ErrNoEnabledSuccession is returned when a decision can select no branch.
+	ErrNoEnabledSuccession = errors.New("no enabled succession")
 
 	// ErrNegativeDuration is returned when a delay — an `accept after`, a time
 	// transition's or an advance of the clock — is negative, infinite, no number
@@ -254,9 +254,9 @@ var (
 	// event budget.
 	ErrStateEventLimitExceeded = errors.New("state event limit exceeded")
 
-	// errNoInitialState is returned when a state machine initializes with no
+	// ErrNoInitialState is returned when a state machine initializes with no
 	// entry into its states: it states no `entry; then <state>;`.
-	errNoInitialState = errors.New("no initial state found")
+	ErrNoInitialState = errors.New("no initial state found")
 
 	// errNoEntryTransitionHolds is returned when a body's guarded entry transitions
 	// (`entry; if c then s;`) all have false guards, so it has no state to start in.
@@ -306,9 +306,9 @@ var (
 	// named arguments together: an argument list is one form or the other (KerML 8.2.5.8.3).
 	ErrMixedArguments = errors.New("positional and named arguments mixed")
 
-	// errNodeNotPerformed is returned when a pin of an action node is read before
+	// ErrNodeNotPerformed is returned when a pin of an action node is read before
 	// any performance of the node has started.
-	errNodeNotPerformed = errors.New("action node read before it is performed")
+	ErrNodeNotPerformed = errors.New("action node read before it is performed")
 
 	// errNodePin is returned when a pin read, flow, or binding names a feature the
 	// action node does not declare, or the node's result where it has none.
@@ -757,7 +757,7 @@ func wrapSetupError(err error) error {
 	var setup *SetupError
 	var binding inputBindingError
 	if errors.As(err, &setup) || errors.As(err, &binding) ||
-		errors.Is(err, errOccurrenceDestroyed) || errors.Is(err, errOccurrenceLifetime) {
+		errors.Is(err, errOccurrenceDestroyed) || errors.Is(err, ErrOccurrenceLifetime) {
 		return err
 	}
 	return &SetupError{Err: err}
