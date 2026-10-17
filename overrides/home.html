@@ -896,7 +896,7 @@
          data-osml-script="{{ base_url }}/assets/landing/diagram.js">
       <div class="osml-schematic__tabs" role="tablist" aria-label="The model in the diagram" data-osml-tabs>
         <button type="button" role="tab" id="osml-tab-stack" data-osml-scene="stack" data-osml-model="{{ 'assets/opensysml-stack.sysml' | url }}" aria-selected="false" aria-controls="osml-schematic-stage" tabindex="-1">OpenSysML stack</button>
-        <button type="button" role="tab" id="osml-tab-mass" data-osml-scene="mass" data-osml-model="{{ 'assets/repl-examples/mass-rollup.sysml' | url }}" aria-selected="false" aria-controls="osml-schematic-stage" tabindex="-1">Saturn V mass roll-up</button>
+        <button type="button" role="tab" id="osml-tab-mass" data-osml-scene="mass" data-osml-model="{{ base_url }}/assets/repl-examples/mass-rollup.sysml" aria-selected="false" aria-controls="osml-schematic-stage" tabindex="-1">Saturn V mass roll-up</button>
       </div>
       <div class="osml-schematic__stage" id="osml-schematic-stage" role="tabpanel" data-osml-stage>
         <div class="osml-schematic__zoom" role="group" aria-label="Zoom the diagram" data-osml-zoom hidden>
@@ -904,7 +904,7 @@
           <button type="button" data-osml-zoom-out aria-label="Zoom out" title="Zoom out">&minus;</button>
           <button type="button" data-osml-zoom-fit aria-label="Fit the whole diagram" title="Fit the whole diagram">Fit</button>
         </div>
-        <noscript><p class="osml-schematic__status">The diagram is drawn in your browser from <a href="{{ 'assets/opensysml-stack.sysml' | url }}">the stack's SysML model</a> or <a href="{{ 'assets/repl-examples/mass-rollup.sysml' | url }}">the Saturn V's</a>; it needs JavaScript.</p></noscript>
+        <noscript><p class="osml-schematic__status">The diagram is drawn in your browser from <a href="{{ 'assets/opensysml-stack.sysml' | url }}">the stack's SysML model</a> or <a href="{{ base_url }}/assets/repl-examples/mass-rollup.sysml">the Saturn V's</a>; it needs JavaScript.</p></noscript>
       </div>
       <p class="osml-schematic__caption" data-osml-for="stack">One open interchange, two implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes. Zoom with the buttons, <kbd>Ctrl</kbd>+scroll or a pinch, and drag the background to pan. Edit the model and the engine redraws the diagram as you type.</p>
       <p class="osml-schematic__caption" data-osml-for="mass" hidden>A launch vehicle whose total mass is a recursive roll-up over its parts: the engine instantiates the stages and engines and evaluates every <code>totalMass</code> you see. Drag the stages around, right-click a box for its values, and zoom with the buttons, <kbd>Ctrl</kbd>+scroll or a pinch. Edit a mass and the totals follow; add the instrument unit, whose mass the model never gives, and the roll-up comes back undetermined.</p>
