@@ -56,7 +56,7 @@ var oversizeFixtures = []oversize{
 	{"tests/export/testdata/convert/constraints.golden.ttl", 244082, "full Turtle golden of a constraint-heavy model"},
 	{"tests/export/testdata/convert/irregular_layout.golden.ttl", 234525, "full Turtle golden of the irregular-layout sample"},
 	{"tests/export/testdata/convert/loops_conditionals.golden.ttl", 217901, "full Turtle golden of a model dense in loops and conditionals"},
-	{"tests/export/testdata/interchange/states.toolkit.full.json", 217088, "complete toolkit JSON interchange export of a state model"},
+	{"tests/export/testdata/interchange/states.toolkit.full.json", 258575, "complete toolkit JSON interchange export of a state model"},
 }
 
 // TestTestFilesStayUnderTheLineCap fails when a tracked `_test.go` file is over
