@@ -38,6 +38,17 @@ func TestPropertyOf(t *testing.T) {
 	}
 }
 
+func TestNonuniquePropertyMetadata(t *testing.T) {
+	got, ok := ontology.PropertyOf("Feature", "chainingFeature")
+	if !ok {
+		t.Fatal("PropertyOf(Feature, chainingFeature) not found")
+	}
+	if !got.Many || !got.Ordered || !got.Nonunique {
+		t.Errorf("PropertyOf(Feature, chainingFeature) has Many=%t Ordered=%t Nonunique=%t, want all true",
+			got.Many, got.Ordered, got.Nonunique)
+	}
+}
+
 // TestManyAgreed checks the agreement fallback an extension element needs:
 // consensus names report their shared multiplicity, ambiguous or undeclared
 // names report none.
