@@ -49,7 +49,7 @@ func (r *Renderer) statedDepth(view *symbols.Symbol) int {
 // the roots and what is drawn beneath them cannot disagree. A view stating no
 // condition walks every member.
 func (r *Renderer) walkMembers(view, sym *symbols.Symbol) []*symbols.Symbol {
-	members := r.containedMembers(sym)
+	members := r.effectiveMembers(sym)
 	filters := r.walkFilters(view)
 	if len(filters) == 0 {
 		return members
