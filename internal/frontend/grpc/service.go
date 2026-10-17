@@ -83,6 +83,15 @@ const CapabilityRenderView = "render_view"
 // exports the lowered graph of an action or state machine as `graphs:1` JSON.
 const CapabilityExportGraphs = "export_graphs"
 
+// CapabilityImportData names the ImportData RPC, which sets the feature values
+// a CSV, TSV, JSON or JSON Lines file assigns, one row per element.
+const CapabilityImportData = "import_data"
+
+// CapabilityCompareResults names the CompareResults RPC, which runs the
+// configurations a tool's results sidecar indexes and tables the tool's
+// distributions of their observables beside the runs'.
+const CapabilityCompareResults = "compare_results"
+
 // CapabilityOSLCQuery names the capability of evaluating OSLC Query text.
 const CapabilityOSLCQuery = "oslc_query"
 
@@ -341,6 +350,8 @@ var capabilities = []string{
 	CapabilityStateTrace,
 	CapabilityRenderView,
 	CapabilityExportGraphs,
+	CapabilityImportData,
+	CapabilityCompareResults,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
 	CapabilityParseSourcesAffected,
@@ -844,6 +855,18 @@ func fileInput(path string) (sourceInput, error) {
 // (lineage.go): ParseSources, whose model of many documents is reparsed after
 // each edit. ParseFile's one document is cheap to parse whole.
 func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, incremental bool) (string, *CachedModel) {
+	return s.parseModelKeeping(inputs, mode, incremental, true)
+}
+
+// parseModelKeeping is parseModel, caching the model only when keep is set: a
+// model staged on the way to another is not kept, so it evicts nothing.
+func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceMode, incremental, keep bool) (string, *CachedModel) {
+	store := func(hash string, model *CachedModel) *CachedModel {
+		if !keep {
+			return model
+		}
+		return s.cache.Add(hash, model)
+	}
 	// Keyed by what was read, not by the hash a request carried: a hash
 	// disagreeing with its content would serve another model. Each document's
 	// name is part of the key, since its diagnostics name the document they came
@@ -873,7 +896,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, in
 	// changed is parsed and analyzed again (lineage.go).
 	if incremental {
 		if model, ok := s.parseFromLineage(inputs, mode); ok {
-			return modelHash, s.cache.Add(modelHash, model)
+			return modelHash, store(modelHash, model)
 		}
 	}
 
@@ -921,7 +944,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, in
 	// A parse racing another of the same model keeps the entry already cached,
 	// so the objects held on it stay reachable under the hash.
 	model := &CachedModel{Documents: documents, Index: idx, Library: library, Mode: mode}
-	return modelHash, s.cache.Add(modelHash, model)
+	return modelHash, store(modelHash, model)
 }
 
 // GetSymbol retrieves symbol information by FQN

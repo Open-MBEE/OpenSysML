@@ -138,6 +138,16 @@ export {
   verificationPassed,
   verdictEvaluated,
   verdictHolds,
+  ImportResult,
+  ImportedFile,
+  ImportedValue,
+  Comparison,
+  ConfigurationComparison,
+  ObservableComparison,
+  ComparedDistribution,
+  type StatisticDifference,
+  type CaseStatistics,
+  type CaseStatistic,
 } from "./verdict.js";
 export type { Verdict } from "./verdict.js";
 export {
@@ -209,6 +219,8 @@ export {
   mismatchReason,
   requireCapability,
   upgradeRemedy,
+  CAPABILITY_IMPORT_DATA,
+  CAPABILITY_COMPARE_RESULTS,
 } from "./capabilities.js";
 export {
   AnalysisRunError,

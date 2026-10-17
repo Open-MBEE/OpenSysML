@@ -422,6 +422,8 @@ impl Runner {
             "RenderDocument" => self.render_document(request),
             "RenderView" => self.render_view(request),
             "ExportGraphs" => self.export_graphs(request),
+            "ImportData" => self.import_data(request),
+            "CompareResults" => self.compare_results(request),
             "ExecuteAction" => self.execute_action(request),
             "ExecuteState" => self.execute_state(request),
             "ListEngines" => self.list_engines(request),
@@ -867,6 +869,86 @@ impl Runner {
                 Answer::Response(self.wire_json("sysml.RenderViewResponse", rendered.wire()))
             }
             Err(error) => classify_error(error),
+        }
+    }
+
+    fn import_data(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::ImportDataRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        let imports: Vec<opensysml::DataImport> = request
+            .imports
+            .iter()
+            .map(|i| opensysml::DataImport {
+                name: i.name.clone(),
+                content: i.content.clone(),
+                format: Some(i.import_format.clone()).filter(|f| !f.is_empty()),
+                map: Some(i.import_map.clone()).filter(|m| !m.is_empty()),
+            })
+            .collect();
+        let options = opensysml::DataImportOptions {
+            dry_run: request.import_dry_run,
+            accept_documents: request.accept_documents,
+        };
+        match self
+            .connection
+            .import_data(&request.model_hash, &imports, &options)
+        {
+            Ok(result) => {
+                Answer::Response(self.wire_json("sysml.ImportDataResponse", result.wire()))
+            }
+            Err(error) => match Failure::of(error) {
+                Ok(failure) => Answer::Response(self.wire_json(
+                    "sysml.ImportDataResponse",
+                    &wire::ImportDataResponse {
+                        error: failure.error,
+                        diagnostics: failure.diagnostics,
+                        ..Default::default()
+                    },
+                )),
+                Err(answer) => answer,
+            },
+        }
+    }
+
+    fn compare_results(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::CompareResultsRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        let options = opensysml::CompareOptions {
+            actions: request.actions.clone(),
+            runs: request.runs,
+            seed: request.seed,
+            draws: Some(request.draws.clone()).filter(|d| !d.is_empty()),
+            clock_step: request.clock_step,
+            observe: request
+                .observe
+                .iter()
+                .map(|o| (o.stored.clone(), o.feature.clone()))
+                .collect(),
+            engine: Some(request.engine.clone()).filter(|e| !e.is_empty()),
+        };
+        match self
+            .connection
+            .compare_results(&request.model_hash, &request.results, &options)
+        {
+            Ok(result) => {
+                Answer::Response(self.wire_json("sysml.CompareResultsResponse", result.wire()))
+            }
+            Err(error) => match Failure::of(error) {
+                Ok(failure) => Answer::Response(self.wire_json(
+                    "sysml.CompareResultsResponse",
+                    &wire::CompareResultsResponse {
+                        failure_reason: failure.reason(),
+                        error: failure.error,
+                        diagnostics: failure.diagnostics,
+                        ..Default::default()
+                    },
+                )),
+                Err(answer) => answer,
+            },
         }
     }
 

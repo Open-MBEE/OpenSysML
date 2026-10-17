@@ -57,6 +57,10 @@ connecting to models.
       heading_level: 3
 
 ::: opensysml.CAPABILITY_RENDER_DOCUMENT_FILE_NAME
+
+::: opensysml.CAPABILITY_IMPORT_DATA
+
+::: opensysml.CAPABILITY_COMPARE_RESULTS
     options:
       heading_level: 3
 
@@ -720,6 +724,26 @@ Typed query rows, document values, and document and view render results.
       heading_level: 3
 
 ::: opensysml.Graphs
+
+::: opensysml.ImportResult
+
+::: opensysml.ImportedFile
+
+::: opensysml.ImportedValue
+
+::: opensysml.Comparison
+
+::: opensysml.ConfigurationComparison
+
+::: opensysml.ObservableComparison
+
+::: opensysml.ComparedDistribution
+
+::: opensysml.StatisticDifference
+
+::: opensysml.CaseStatistics
+
+::: opensysml.CaseStatistic
     options:
       heading_level: 3
 

@@ -144,6 +144,26 @@ impl Model {
         self.connection.export_graphs(self.hash(), subject)
     }
 
+    /// Sets the feature values data files assign into this model.
+    pub fn import_data(
+        &self,
+        imports: &[crate::DataImport],
+        options: &crate::DataImportOptions,
+    ) -> Result<crate::ImportResult, Error> {
+        self.connection.import_data(self.hash(), imports, options)
+    }
+
+    /// Runs the configurations a results sidecar indexes against this model
+    /// and compares the runs with the tool's.
+    pub fn compare_results(
+        &self,
+        results: &str,
+        options: &crate::CompareOptions,
+    ) -> Result<crate::Comparison, Error> {
+        self.connection
+            .compare_results(self.hash(), results, options)
+    }
+
     /// The symbol a qualified or short name names; `None` when the model declares none.
     ///
     /// A short name finds the shallowest declaration of it.

@@ -22,6 +22,11 @@ import org.openmbee.opensysml.proto.QueryRequest;
 import org.openmbee.opensysml.proto.QueryResponse;
 import org.openmbee.opensysml.proto.RenderDocumentRequest;
 import org.openmbee.opensysml.proto.RenderDocumentResponse;
+import org.openmbee.opensysml.proto.CompareResultsRequest;
+import org.openmbee.opensysml.proto.CompareResultsResponse;
+import org.openmbee.opensysml.proto.ImportDataRequest;
+import org.openmbee.opensysml.proto.ImportDataResponse;
+import org.openmbee.opensysml.proto.ObservablePair;
 import org.openmbee.opensysml.proto.ExportGraphsRequest;
 import org.openmbee.opensysml.proto.ExportGraphsResponse;
 import org.openmbee.opensysml.proto.RenderViewRequest;
@@ -1765,6 +1770,76 @@ public final class Model {
             ExportGraphsRequest.newBuilder().setModelHash(hash).setSubject(subject).build(),
             ExportGraphsResponse.getDefaultInstance());
     return new Graphs(response.getContent(), response.getVersion(), response.getSubject());
+  }
+
+  /**
+   * Sets the feature values tabular or JSON data assigns, one row per element, and parses the
+   * edited model.
+   *
+   * @param imports the data files, imported in order
+   * @param dryRun whether to report the assignments without changing the model
+   * @param acceptDocuments whether to accept a multi-document model's edited documents
+   * @return the values set and the edited model
+   * @throws ModelException when the model refuses an import; the model is then unchanged
+   */
+  public ImportResult importData(
+      List<DataImport> imports, boolean dryRun, boolean acceptDocuments) {
+    Objects.requireNonNull(imports, "imports");
+    connection.capabilities().require(Capabilities.IMPORT_DATA);
+    ImportDataRequest.Builder request =
+        ImportDataRequest.newBuilder()
+            .setModelHash(hash)
+            .setImportDryRun(dryRun)
+            .setAcceptDocuments(acceptDocuments);
+    for (DataImport dataImport : imports) {
+      request.addImports(
+          org.openmbee.opensysml.proto.DataImport.newBuilder()
+              .setName(dataImport.name())
+              .setContent(dataImport.content())
+              .setImportFormat(dataImport.format().orElse(""))
+              .setImportMap(dataImport.map().orElse("")));
+    }
+    ImportDataResponse response =
+        connection.call("ImportData", request.build(), ImportDataResponse.getDefaultInstance());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(response.getError(), Protos.diagnostics(response.getDiagnosticsList()));
+    }
+    return Protos.importResult(response);
+  }
+
+  /**
+   * Runs the configurations a SysML v1 tool's results index names and tables the tool's
+   * distributions beside the runs'.
+   *
+   * @param results the results index, as JSON
+   * @param options how to run the configurations
+   * @return the comparison, configuration by configuration
+   */
+  public Comparison compareResults(String results, CompareOptions options) {
+    Objects.requireNonNull(results, "results");
+    Objects.requireNonNull(options, NAME_OPTIONS);
+    connection.capabilities().require(Capabilities.COMPARE_RESULTS);
+    CompareResultsRequest.Builder request =
+        CompareResultsRequest.newBuilder()
+            .setModelHash(hash)
+            .setResults(results)
+            .addAllActions(options.actions())
+            .setRuns(options.runs())
+            .setDraws(options.draws().orElse(""))
+            .setEngine(options.engine().orElse(""));
+    options.seed().ifPresent(request::setSeed);
+    options.clockStep().ifPresent(request::setClockStep);
+    for (CompareOptions.ObservablePair pair : options.observe()) {
+      request.addObserve(
+          ObservablePair.newBuilder().setStored(pair.stored()).setFeature(pair.feature()));
+    }
+    CompareResultsResponse response =
+        connection.call(
+            "CompareResults", request.build(), CompareResultsResponse.getDefaultInstance());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(response.getError(), Protos.diagnostics(response.getDiagnosticsList()));
+    }
+    return Protos.comparison(response);
   }
 
   private String schedule(ExecutionOptions options, boolean explore) {

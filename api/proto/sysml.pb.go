@@ -13274,6 +13274,1366 @@ func (x *ExportGraphsResponse) GetSubject() string {
 	return ""
 }
 
+// ImportDataRequest is the data `sysml -import` sets the feature values of, one
+// file per -import, applied in order as one edit each.
+type ImportDataRequest struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	ModelHash string                 `protobuf:"bytes,1,opt,name=model_hash,json=modelHash,proto3" json:"model_hash,omitempty"`
+	// The files, in the order they are applied; each is read as its own format
+	// and mapping say.
+	Imports []*DataImport `protobuf:"bytes,2,rep,name=imports,proto3" json:"imports,omitempty"`
+	// What each row is made into, as -import-as: "values", the default, sets the
+	// features of the element the row names; nothing else is supported.
+	ImportAs string `protobuf:"bytes,3,opt,name=import_as,json=importAs,proto3" json:"import_as,omitempty"`
+	// Report the values the imports would set, changing nothing; the documents
+	// and model hash are then unset.
+	ImportDryRun bool `protobuf:"varint,4,opt,name=import_dry_run,json=importDryRun,proto3" json:"import_dry_run,omitempty"`
+	// Accept every edited document in documents when the model has several;
+	// without it, a model of several documents is refused as ApplyEdits refuses it.
+	AcceptDocuments bool `protobuf:"varint,5,opt,name=accept_documents,json=acceptDocuments,proto3" json:"accept_documents,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ImportDataRequest) Reset() {
+	*x = ImportDataRequest{}
+	mi := &file_sysml_proto_msgTypes[141]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImportDataRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImportDataRequest) ProtoMessage() {}
+
+func (x *ImportDataRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[141]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImportDataRequest.ProtoReflect.Descriptor instead.
+func (*ImportDataRequest) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{141}
+}
+
+func (x *ImportDataRequest) GetModelHash() string {
+	if x != nil {
+		return x.ModelHash
+	}
+	return ""
+}
+
+func (x *ImportDataRequest) GetImports() []*DataImport {
+	if x != nil {
+		return x.Imports
+	}
+	return nil
+}
+
+func (x *ImportDataRequest) GetImportAs() string {
+	if x != nil {
+		return x.ImportAs
+	}
+	return ""
+}
+
+func (x *ImportDataRequest) GetImportDryRun() bool {
+	if x != nil {
+		return x.ImportDryRun
+	}
+	return false
+}
+
+func (x *ImportDataRequest) GetAcceptDocuments() bool {
+	if x != nil {
+		return x.AcceptDocuments
+	}
+	return false
+}
+
+// DataImport is one data file: its name, which names the format by extension
+// and the file in what goes wrong, and its content.
+type DataImport struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Name    string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Content string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	// Read the content as csv, tsv, json or jsonl rather than as the name's
+	// extension says, as -import-format.
+	ImportFormat string `protobuf:"bytes,3,opt,name=import_format,json=importFormat,proto3" json:"import_format,omitempty"`
+	// The JSON mapping onto elements and features the content is read by, as the
+	// file -import-map names; empty for the content's own header.
+	ImportMap     string `protobuf:"bytes,4,opt,name=import_map,json=importMap,proto3" json:"import_map,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DataImport) Reset() {
+	*x = DataImport{}
+	mi := &file_sysml_proto_msgTypes[142]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DataImport) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DataImport) ProtoMessage() {}
+
+func (x *DataImport) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[142]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DataImport.ProtoReflect.Descriptor instead.
+func (*DataImport) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{142}
+}
+
+func (x *DataImport) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DataImport) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *DataImport) GetImportFormat() string {
+	if x != nil {
+		return x.ImportFormat
+	}
+	return ""
+}
+
+func (x *DataImport) GetImportMap() string {
+	if x != nil {
+		return x.ImportMap
+	}
+	return ""
+}
+
+// ImportDataResponse is what the imports set, and the model they made.
+type ImportDataResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One per import, in order; unset when the model refuses an import, with
+	// error set and nothing changed.
+	Files []*ImportedFile `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
+	// The edited documents, as ApplyEdits answers them; unset on a dry run.
+	Documents []*EditedDocument `protobuf:"bytes,2,rep,name=documents,proto3" json:"documents,omitempty"`
+	// The edited content of a one-document model; unset on a dry run.
+	Content string `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	// The hash of the imported model, parsed and cached; unset on a dry run.
+	ModelHash string `protobuf:"bytes,4,opt,name=model_hash,json=modelHash,proto3" json:"model_hash,omitempty"`
+	// Why the import was refused, "" when it was made; the model is then unchanged.
+	Error         string        `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	Diagnostics   []*Diagnostic `protobuf:"bytes,6,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImportDataResponse) Reset() {
+	*x = ImportDataResponse{}
+	mi := &file_sysml_proto_msgTypes[143]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImportDataResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImportDataResponse) ProtoMessage() {}
+
+func (x *ImportDataResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[143]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImportDataResponse.ProtoReflect.Descriptor instead.
+func (*ImportDataResponse) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{143}
+}
+
+func (x *ImportDataResponse) GetFiles() []*ImportedFile {
+	if x != nil {
+		return x.Files
+	}
+	return nil
+}
+
+func (x *ImportDataResponse) GetDocuments() []*EditedDocument {
+	if x != nil {
+		return x.Documents
+	}
+	return nil
+}
+
+func (x *ImportDataResponse) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *ImportDataResponse) GetModelHash() string {
+	if x != nil {
+		return x.ModelHash
+	}
+	return ""
+}
+
+func (x *ImportDataResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *ImportDataResponse) GetDiagnostics() []*Diagnostic {
+	if x != nil {
+		return x.Diagnostics
+	}
+	return nil
+}
+
+// ImportedFile is what one data file set: the values, the elements they were
+// set on, and each assignment as `sysml -import` lists it.
+type ImportedFile struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Values        int64                  `protobuf:"varint,2,opt,name=values,proto3" json:"values,omitempty"`
+	Elements      int64                  `protobuf:"varint,3,opt,name=elements,proto3" json:"elements,omitempty"`
+	Assignments   []*ImportedValue       `protobuf:"bytes,4,rep,name=assignments,proto3" json:"assignments,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImportedFile) Reset() {
+	*x = ImportedFile{}
+	mi := &file_sysml_proto_msgTypes[144]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImportedFile) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImportedFile) ProtoMessage() {}
+
+func (x *ImportedFile) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[144]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImportedFile.ProtoReflect.Descriptor instead.
+func (*ImportedFile) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{144}
+}
+
+func (x *ImportedFile) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ImportedFile) GetValues() int64 {
+	if x != nil {
+		return x.Values
+	}
+	return 0
+}
+
+func (x *ImportedFile) GetElements() int64 {
+	if x != nil {
+		return x.Elements
+	}
+	return 0
+}
+
+func (x *ImportedFile) GetAssignments() []*ImportedValue {
+	if x != nil {
+		return x.Assignments
+	}
+	return nil
+}
+
+// ImportedValue is one assignment: the qualified name of the element, the
+// feature set, the literal it is set to, the qualified name of the inherited
+// feature redefined to set it ("" when the element declares the feature), where
+// in the data it came from, and the line `sysml -import` reports it as. A
+// redefinition made only to reach a nested inherited feature sets no value.
+type ImportedValue struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Element       string                 `protobuf:"bytes,1,opt,name=element,proto3" json:"element,omitempty"`
+	Feature       string                 `protobuf:"bytes,2,opt,name=feature,proto3" json:"feature,omitempty"`
+	Value         string                 `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	Redefines     string                 `protobuf:"bytes,4,opt,name=redefines,proto3" json:"redefines,omitempty"`
+	Where         string                 `protobuf:"bytes,5,opt,name=where,proto3" json:"where,omitempty"`
+	Description   string                 `protobuf:"bytes,6,opt,name=description,proto3" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImportedValue) Reset() {
+	*x = ImportedValue{}
+	mi := &file_sysml_proto_msgTypes[145]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImportedValue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImportedValue) ProtoMessage() {}
+
+func (x *ImportedValue) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[145]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImportedValue.ProtoReflect.Descriptor instead.
+func (*ImportedValue) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{145}
+}
+
+func (x *ImportedValue) GetElement() string {
+	if x != nil {
+		return x.Element
+	}
+	return ""
+}
+
+func (x *ImportedValue) GetFeature() string {
+	if x != nil {
+		return x.Feature
+	}
+	return ""
+}
+
+func (x *ImportedValue) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *ImportedValue) GetRedefines() string {
+	if x != nil {
+		return x.Redefines
+	}
+	return ""
+}
+
+func (x *ImportedValue) GetWhere() string {
+	if x != nil {
+		return x.Where
+	}
+	return ""
+}
+
+func (x *ImportedValue) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+// CompareResultsRequest runs the configurations a tool's results sidecar indexes
+// — the JSON `sysml -migration-results` writes — against the migrated model.
+type CompareResultsRequest struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	ModelHash string                 `protobuf:"bytes,1,opt,name=model_hash,json=modelHash,proto3" json:"model_hash,omitempty"`
+	// The results sidecar, as JSON.
+	Results string `protobuf:"bytes,2,opt,name=results,proto3" json:"results,omitempty"`
+	// The configurations compared, by qualified or simple name, as -action names
+	// them; every indexed configuration when empty.
+	Actions []string `protobuf:"bytes,3,rep,name=actions,proto3" json:"actions,omitempty"`
+	// The runs made of every configuration when positive, as -runs; else each
+	// configuration's own numberOfRuns, or one.
+	Runs int64 `protobuf:"varint,4,opt,name=runs,proto3" json:"runs,omitempty"`
+	// The seed the runs derive theirs from, as -seed; without one, runs that draw
+	// at random are refused unless draws fixes them.
+	Seed *uint64 `protobuf:"varint,5,opt,name=seed,proto3,oneof" json:"seed,omitempty"`
+	// The draw policy replacing every configuration's durationSimulationMode when
+	// set, as -draws: random, min, max or average.
+	Draws string `protobuf:"bytes,6,opt,name=draws,proto3" json:"draws,omitempty"`
+	// The clock step replacing every configuration's when set, as -clock-step;
+	// 0 is a continuous clock.
+	ClockStep *float64 `protobuf:"fixed64,7,opt,name=clock_step,json=clockStep,proto3,oneof" json:"clock_step,omitempty"`
+	// The stored observables compared, each with the feature of the run that
+	// answers it, as -observe; without any, every stored observable is read from
+	// the target's feature of its own name.
+	Observe       []*ObservablePair `protobuf:"bytes,8,rep,name=observe,proto3" json:"observe,omitempty"`
+	Engine        string            `protobuf:"bytes,9,opt,name=engine,proto3" json:"engine,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompareResultsRequest) Reset() {
+	*x = CompareResultsRequest{}
+	mi := &file_sysml_proto_msgTypes[146]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompareResultsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompareResultsRequest) ProtoMessage() {}
+
+func (x *CompareResultsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[146]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompareResultsRequest.ProtoReflect.Descriptor instead.
+func (*CompareResultsRequest) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{146}
+}
+
+func (x *CompareResultsRequest) GetModelHash() string {
+	if x != nil {
+		return x.ModelHash
+	}
+	return ""
+}
+
+func (x *CompareResultsRequest) GetResults() string {
+	if x != nil {
+		return x.Results
+	}
+	return ""
+}
+
+func (x *CompareResultsRequest) GetActions() []string {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
+func (x *CompareResultsRequest) GetRuns() int64 {
+	if x != nil {
+		return x.Runs
+	}
+	return 0
+}
+
+func (x *CompareResultsRequest) GetSeed() uint64 {
+	if x != nil && x.Seed != nil {
+		return *x.Seed
+	}
+	return 0
+}
+
+func (x *CompareResultsRequest) GetDraws() string {
+	if x != nil {
+		return x.Draws
+	}
+	return ""
+}
+
+func (x *CompareResultsRequest) GetClockStep() float64 {
+	if x != nil && x.ClockStep != nil {
+		return *x.ClockStep
+	}
+	return 0
+}
+
+func (x *CompareResultsRequest) GetObserve() []*ObservablePair {
+	if x != nil {
+		return x.Observe
+	}
+	return nil
+}
+
+func (x *CompareResultsRequest) GetEngine() string {
+	if x != nil {
+		return x.Engine
+	}
+	return ""
+}
+
+// ObservablePair is a stored observable and the feature of the run that answers
+// it; an empty feature is the target's feature of the observable's own name.
+type ObservablePair struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Stored        string                 `protobuf:"bytes,1,opt,name=stored,proto3" json:"stored,omitempty"`
+	Feature       string                 `protobuf:"bytes,2,opt,name=feature,proto3" json:"feature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ObservablePair) Reset() {
+	*x = ObservablePair{}
+	mi := &file_sysml_proto_msgTypes[147]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ObservablePair) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ObservablePair) ProtoMessage() {}
+
+func (x *ObservablePair) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[147]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ObservablePair.ProtoReflect.Descriptor instead.
+func (*ObservablePair) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{147}
+}
+
+func (x *ObservablePair) GetStored() string {
+	if x != nil {
+		return x.Stored
+	}
+	return ""
+}
+
+func (x *ObservablePair) GetFeature() string {
+	if x != nil {
+		return x.Feature
+	}
+	return ""
+}
+
+// CompareResultsResponse is one comparison per configuration, in the order the
+// sidecar indexes them.
+type CompareResultsResponse struct {
+	state          protoimpl.MessageState     `protogen:"open.v1"`
+	Configurations []*ConfigurationComparison `protobuf:"bytes,1,rep,name=configurations,proto3" json:"configurations,omitempty"`
+	// The tool the sidecar records as the source of the results.
+	Source string `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
+	// Why nothing was compared, "" when the configurations were run.
+	Error         string        `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	Diagnostics   []*Diagnostic `protobuf:"bytes,4,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
+	FailureReason FailureReason `protobuf:"varint,5,opt,name=failure_reason,json=failureReason,proto3,enum=sysml.FailureReason" json:"failure_reason,omitempty"`
+	Engine        string        `protobuf:"bytes,6,opt,name=engine,proto3" json:"engine,omitempty"`
+	Strength      string        `protobuf:"bytes,7,opt,name=strength,proto3" json:"strength,omitempty"`
+	Bounds        []*Bound      `protobuf:"bytes,8,rep,name=bounds,proto3" json:"bounds,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompareResultsResponse) Reset() {
+	*x = CompareResultsResponse{}
+	mi := &file_sysml_proto_msgTypes[148]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompareResultsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompareResultsResponse) ProtoMessage() {}
+
+func (x *CompareResultsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[148]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompareResultsResponse.ProtoReflect.Descriptor instead.
+func (*CompareResultsResponse) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{148}
+}
+
+func (x *CompareResultsResponse) GetConfigurations() []*ConfigurationComparison {
+	if x != nil {
+		return x.Configurations
+	}
+	return nil
+}
+
+func (x *CompareResultsResponse) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *CompareResultsResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *CompareResultsResponse) GetDiagnostics() []*Diagnostic {
+	if x != nil {
+		return x.Diagnostics
+	}
+	return nil
+}
+
+func (x *CompareResultsResponse) GetFailureReason() FailureReason {
+	if x != nil {
+		return x.FailureReason
+	}
+	return FailureReason_FAILURE_REASON_UNSPECIFIED
+}
+
+func (x *CompareResultsResponse) GetEngine() string {
+	if x != nil {
+		return x.Engine
+	}
+	return ""
+}
+
+func (x *CompareResultsResponse) GetStrength() string {
+	if x != nil {
+		return x.Strength
+	}
+	return ""
+}
+
+func (x *CompareResultsResponse) GetBounds() []*Bound {
+	if x != nil {
+		return x.Bounds
+	}
+	return nil
+}
+
+// ConfigurationComparison is one configuration's runs beside the tool's results.
+type ConfigurationComparison struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// The migrated behavior the configuration performs, "" when it performs none.
+	Behavior string `protobuf:"bytes,3,opt,name=behavior,proto3" json:"behavior,omitempty"`
+	// The feature of the configuration the observables are read from.
+	Target         string `protobuf:"bytes,4,opt,name=target,proto3" json:"target,omitempty"`
+	ResultLocation string `protobuf:"bytes,5,opt,name=result_location,json=resultLocation,proto3" json:"result_location,omitempty"`
+	// holds when runs complete and observables compare; undecided when some do not;
+	// fails when a run fails; unresolved when the configuration cannot run.
+	Status string `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
+	// Why the configuration could not be run, when status is unresolved.
+	Unresolved string `protobuf:"bytes,7,opt,name=unresolved,proto3" json:"unresolved,omitempty"`
+	// The runs the tool stored, and over how many snapshots.
+	StoredRuns      int64 `protobuf:"varint,8,opt,name=stored_runs,json=storedRuns,proto3" json:"stored_runs,omitempty"`
+	StoredSnapshots int64 `protobuf:"varint,9,opt,name=stored_snapshots,json=storedSnapshots,proto3" json:"stored_snapshots,omitempty"`
+	// The runs OpenSysML made and how many completed.
+	Runs      int64  `protobuf:"varint,10,opt,name=runs,proto3" json:"runs,omitempty"`
+	Completed int64  `protobuf:"varint,11,opt,name=completed,proto3" json:"completed,omitempty"`
+	Draws     string `protobuf:"bytes,12,opt,name=draws,proto3" json:"draws,omitempty"`
+	// The seed the runs derived theirs from; unset when the runs drew nothing.
+	Seed      *uint64 `protobuf:"varint,13,opt,name=seed,proto3,oneof" json:"seed,omitempty"`
+	ClockStep float64 `protobuf:"fixed64,14,opt,name=clock_step,json=clockStep,proto3" json:"clock_step,omitempty"`
+	// One row per run, as RunSweep tables them.
+	Rows        []*SweepRow             `protobuf:"bytes,15,rep,name=rows,proto3" json:"rows,omitempty"`
+	Instances   []*Instance             `protobuf:"bytes,16,rep,name=instances,proto3" json:"instances,omitempty"`
+	Observables []*ObservableComparison `protobuf:"bytes,17,rep,name=observables,proto3" json:"observables,omitempty"`
+	// The errors failed runs ended in, deduplicated, and the notes on the
+	// configuration and its runs.
+	Errors []string `protobuf:"bytes,18,rep,name=errors,proto3" json:"errors,omitempty"`
+	Notes  []string `protobuf:"bytes,19,rep,name=notes,proto3" json:"notes,omitempty"`
+	// The comparison as `sysml -compare-results` prints it.
+	Lines         []string `protobuf:"bytes,20,rep,name=lines,proto3" json:"lines,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfigurationComparison) Reset() {
+	*x = ConfigurationComparison{}
+	mi := &file_sysml_proto_msgTypes[149]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfigurationComparison) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfigurationComparison) ProtoMessage() {}
+
+func (x *ConfigurationComparison) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[149]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfigurationComparison.ProtoReflect.Descriptor instead.
+func (*ConfigurationComparison) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{149}
+}
+
+func (x *ConfigurationComparison) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ConfigurationComparison) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ConfigurationComparison) GetBehavior() string {
+	if x != nil {
+		return x.Behavior
+	}
+	return ""
+}
+
+func (x *ConfigurationComparison) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+func (x *ConfigurationComparison) GetResultLocation() string {
+	if x != nil {
+		return x.ResultLocation
+	}
+	return ""
+}
+
+func (x *ConfigurationComparison) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ConfigurationComparison) GetUnresolved() string {
+	if x != nil {
+		return x.Unresolved
+	}
+	return ""
+}
+
+func (x *ConfigurationComparison) GetStoredRuns() int64 {
+	if x != nil {
+		return x.StoredRuns
+	}
+	return 0
+}
+
+func (x *ConfigurationComparison) GetStoredSnapshots() int64 {
+	if x != nil {
+		return x.StoredSnapshots
+	}
+	return 0
+}
+
+func (x *ConfigurationComparison) GetRuns() int64 {
+	if x != nil {
+		return x.Runs
+	}
+	return 0
+}
+
+func (x *ConfigurationComparison) GetCompleted() int64 {
+	if x != nil {
+		return x.Completed
+	}
+	return 0
+}
+
+func (x *ConfigurationComparison) GetDraws() string {
+	if x != nil {
+		return x.Draws
+	}
+	return ""
+}
+
+func (x *ConfigurationComparison) GetSeed() uint64 {
+	if x != nil && x.Seed != nil {
+		return *x.Seed
+	}
+	return 0
+}
+
+func (x *ConfigurationComparison) GetClockStep() float64 {
+	if x != nil {
+		return x.ClockStep
+	}
+	return 0
+}
+
+func (x *ConfigurationComparison) GetRows() []*SweepRow {
+	if x != nil {
+		return x.Rows
+	}
+	return nil
+}
+
+func (x *ConfigurationComparison) GetInstances() []*Instance {
+	if x != nil {
+		return x.Instances
+	}
+	return nil
+}
+
+func (x *ConfigurationComparison) GetObservables() []*ObservableComparison {
+	if x != nil {
+		return x.Observables
+	}
+	return nil
+}
+
+func (x *ConfigurationComparison) GetErrors() []string {
+	if x != nil {
+		return x.Errors
+	}
+	return nil
+}
+
+func (x *ConfigurationComparison) GetNotes() []string {
+	if x != nil {
+		return x.Notes
+	}
+	return nil
+}
+
+func (x *ConfigurationComparison) GetLines() []string {
+	if x != nil {
+		return x.Lines
+	}
+	return nil
+}
+
+// ObservableComparison is one observable: the tool's distribution beside the
+// runs' with the relative difference of each statistic, or why they are not
+// compared.
+type ObservableComparison struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Stored  string                 `protobuf:"bytes,1,opt,name=stored,proto3" json:"stored,omitempty"`
+	Feature string                 `protobuf:"bytes,2,opt,name=feature,proto3" json:"feature,omitempty"`
+	// The unit the runs' numbers came in, "" for none.
+	Unit string `protobuf:"bytes,3,opt,name=unit,proto3" json:"unit,omitempty"`
+	// The tool's distribution, unset when it stored no number; pooled when it
+	// was pooled from summaries, so only count and mean are known; unstored
+	// when the tool stored no result at all to compare against.
+	Tool     *ComparedDistribution `protobuf:"bytes,4,opt,name=tool,proto3" json:"tool,omitempty"`
+	Pooled   bool                  `protobuf:"varint,5,opt,name=pooled,proto3" json:"pooled,omitempty"`
+	Unstored bool                  `protobuf:"varint,6,opt,name=unstored,proto3" json:"unstored,omitempty"`
+	// The distribution of the completed runs, unset when they are not compared;
+	// produced is how many runs produced a number for the feature.
+	Run      *ComparedDistribution `protobuf:"bytes,7,opt,name=run,proto3" json:"run,omitempty"`
+	Produced int64                 `protobuf:"varint,8,opt,name=produced,proto3" json:"produced,omitempty"`
+	// Whether the runs were made and are reported, false when the tool stored no
+	// observable of the name or no number for it.
+	Compared bool `protobuf:"varint,9,opt,name=compared,proto3" json:"compared,omitempty"`
+	// The relative difference of each statistic, unset without both
+	// distributions; a pooled tool distribution compares the mean alone.
+	Difference *StatisticDifference `protobuf:"bytes,10,opt,name=difference,proto3" json:"difference,omitempty"`
+	// The per-statistic comparison of the Simulation::MonteCarlo case the
+	// observable is analysed by, unset when none is.
+	Declared      *CaseStatistics `protobuf:"bytes,11,opt,name=declared,proto3" json:"declared,omitempty"`
+	Notes         []string        `protobuf:"bytes,12,rep,name=notes,proto3" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ObservableComparison) Reset() {
+	*x = ObservableComparison{}
+	mi := &file_sysml_proto_msgTypes[150]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ObservableComparison) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ObservableComparison) ProtoMessage() {}
+
+func (x *ObservableComparison) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[150]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ObservableComparison.ProtoReflect.Descriptor instead.
+func (*ObservableComparison) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{150}
+}
+
+func (x *ObservableComparison) GetStored() string {
+	if x != nil {
+		return x.Stored
+	}
+	return ""
+}
+
+func (x *ObservableComparison) GetFeature() string {
+	if x != nil {
+		return x.Feature
+	}
+	return ""
+}
+
+func (x *ObservableComparison) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *ObservableComparison) GetTool() *ComparedDistribution {
+	if x != nil {
+		return x.Tool
+	}
+	return nil
+}
+
+func (x *ObservableComparison) GetPooled() bool {
+	if x != nil {
+		return x.Pooled
+	}
+	return false
+}
+
+func (x *ObservableComparison) GetUnstored() bool {
+	if x != nil {
+		return x.Unstored
+	}
+	return false
+}
+
+func (x *ObservableComparison) GetRun() *ComparedDistribution {
+	if x != nil {
+		return x.Run
+	}
+	return nil
+}
+
+func (x *ObservableComparison) GetProduced() int64 {
+	if x != nil {
+		return x.Produced
+	}
+	return 0
+}
+
+func (x *ObservableComparison) GetCompared() bool {
+	if x != nil {
+		return x.Compared
+	}
+	return false
+}
+
+func (x *ObservableComparison) GetDifference() *StatisticDifference {
+	if x != nil {
+		return x.Difference
+	}
+	return nil
+}
+
+func (x *ObservableComparison) GetDeclared() *CaseStatistics {
+	if x != nil {
+		return x.Declared
+	}
+	return nil
+}
+
+func (x *ObservableComparison) GetNotes() []string {
+	if x != nil {
+		return x.Notes
+	}
+	return nil
+}
+
+// ComparedDistribution is a distribution of numbers by its statistics; a pooled
+// one sets count and mean alone.
+type ComparedDistribution struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Count         int64                  `protobuf:"varint,1,opt,name=count,proto3" json:"count,omitempty"`
+	Min           float64                `protobuf:"fixed64,2,opt,name=min,proto3" json:"min,omitempty"`
+	Mean          float64                `protobuf:"fixed64,3,opt,name=mean,proto3" json:"mean,omitempty"`
+	P50           float64                `protobuf:"fixed64,4,opt,name=p50,proto3" json:"p50,omitempty"`
+	P90           float64                `protobuf:"fixed64,5,opt,name=p90,proto3" json:"p90,omitempty"`
+	Max           float64                `protobuf:"fixed64,6,opt,name=max,proto3" json:"max,omitempty"`
+	Deviation     float64                `protobuf:"fixed64,7,opt,name=deviation,proto3" json:"deviation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ComparedDistribution) Reset() {
+	*x = ComparedDistribution{}
+	mi := &file_sysml_proto_msgTypes[151]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ComparedDistribution) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ComparedDistribution) ProtoMessage() {}
+
+func (x *ComparedDistribution) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[151]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ComparedDistribution.ProtoReflect.Descriptor instead.
+func (*ComparedDistribution) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{151}
+}
+
+func (x *ComparedDistribution) GetCount() int64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+func (x *ComparedDistribution) GetMin() float64 {
+	if x != nil {
+		return x.Min
+	}
+	return 0
+}
+
+func (x *ComparedDistribution) GetMean() float64 {
+	if x != nil {
+		return x.Mean
+	}
+	return 0
+}
+
+func (x *ComparedDistribution) GetP50() float64 {
+	if x != nil {
+		return x.P50
+	}
+	return 0
+}
+
+func (x *ComparedDistribution) GetP90() float64 {
+	if x != nil {
+		return x.P90
+	}
+	return 0
+}
+
+func (x *ComparedDistribution) GetMax() float64 {
+	if x != nil {
+		return x.Max
+	}
+	return 0
+}
+
+func (x *ComparedDistribution) GetDeviation() float64 {
+	if x != nil {
+		return x.Deviation
+	}
+	return 0
+}
+
+// StatisticDifference is the relative difference of each statistic as a signed
+// percentage, "" where it is not compared.
+type StatisticDifference struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Min           string                 `protobuf:"bytes,1,opt,name=min,proto3" json:"min,omitempty"`
+	Mean          string                 `protobuf:"bytes,2,opt,name=mean,proto3" json:"mean,omitempty"`
+	P50           string                 `protobuf:"bytes,3,opt,name=p50,proto3" json:"p50,omitempty"`
+	P90           string                 `protobuf:"bytes,4,opt,name=p90,proto3" json:"p90,omitempty"`
+	Max           string                 `protobuf:"bytes,5,opt,name=max,proto3" json:"max,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StatisticDifference) Reset() {
+	*x = StatisticDifference{}
+	mi := &file_sysml_proto_msgTypes[152]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StatisticDifference) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StatisticDifference) ProtoMessage() {}
+
+func (x *StatisticDifference) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[152]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StatisticDifference.ProtoReflect.Descriptor instead.
+func (*StatisticDifference) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{152}
+}
+
+func (x *StatisticDifference) GetMin() string {
+	if x != nil {
+		return x.Min
+	}
+	return ""
+}
+
+func (x *StatisticDifference) GetMean() string {
+	if x != nil {
+		return x.Mean
+	}
+	return ""
+}
+
+func (x *StatisticDifference) GetP50() string {
+	if x != nil {
+		return x.P50
+	}
+	return ""
+}
+
+func (x *StatisticDifference) GetP90() string {
+	if x != nil {
+		return x.P90
+	}
+	return ""
+}
+
+func (x *StatisticDifference) GetMax() string {
+	if x != nil {
+		return x.Max
+	}
+	return ""
+}
+
+// CaseStatistics compares the statistics a Simulation::MonteCarlo case declares
+// of an observable with the tool's pooled values, one row per statistic.
+type CaseStatistics struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Analysis      string                 `protobuf:"bytes,1,opt,name=analysis,proto3" json:"analysis,omitempty"`
+	Rows          []*CaseStatistic       `protobuf:"bytes,2,rep,name=rows,proto3" json:"rows,omitempty"`
+	Notes         []string               `protobuf:"bytes,3,rep,name=notes,proto3" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CaseStatistics) Reset() {
+	*x = CaseStatistics{}
+	mi := &file_sysml_proto_msgTypes[153]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CaseStatistics) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CaseStatistics) ProtoMessage() {}
+
+func (x *CaseStatistics) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[153]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CaseStatistics.ProtoReflect.Descriptor instead.
+func (*CaseStatistics) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{153}
+}
+
+func (x *CaseStatistics) GetAnalysis() string {
+	if x != nil {
+		return x.Analysis
+	}
+	return ""
+}
+
+func (x *CaseStatistics) GetRows() []*CaseStatistic {
+	if x != nil {
+		return x.Rows
+	}
+	return nil
+}
+
+func (x *CaseStatistics) GetNotes() []string {
+	if x != nil {
+		return x.Notes
+	}
+	return nil
+}
+
+// CaseStatistic is one statistic of the case: which, where the case declares
+// it, the tool's value, the runs' value and their relative difference.
+type CaseStatistic struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Statistic     string                 `protobuf:"bytes,1,opt,name=statistic,proto3" json:"statistic,omitempty"`
+	Of            string                 `protobuf:"bytes,2,opt,name=of,proto3" json:"of,omitempty"`
+	Tool          string                 `protobuf:"bytes,3,opt,name=tool,proto3" json:"tool,omitempty"`
+	Run           string                 `protobuf:"bytes,4,opt,name=run,proto3" json:"run,omitempty"`
+	Difference    string                 `protobuf:"bytes,5,opt,name=difference,proto3" json:"difference,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CaseStatistic) Reset() {
+	*x = CaseStatistic{}
+	mi := &file_sysml_proto_msgTypes[154]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CaseStatistic) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CaseStatistic) ProtoMessage() {}
+
+func (x *CaseStatistic) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[154]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CaseStatistic.ProtoReflect.Descriptor instead.
+func (*CaseStatistic) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{154}
+}
+
+func (x *CaseStatistic) GetStatistic() string {
+	if x != nil {
+		return x.Statistic
+	}
+	return ""
+}
+
+func (x *CaseStatistic) GetOf() string {
+	if x != nil {
+		return x.Of
+	}
+	return ""
+}
+
+func (x *CaseStatistic) GetTool() string {
+	if x != nil {
+		return x.Tool
+	}
+	return ""
+}
+
+func (x *CaseStatistic) GetRun() string {
+	if x != nil {
+		return x.Run
+	}
+	return ""
+}
+
+func (x *CaseStatistic) GetDifference() string {
+	if x != nil {
+		return x.Difference
+	}
+	return ""
+}
+
 var File_sysml_proto protoreflect.FileDescriptor
 
 const file_sysml_proto_rawDesc = "" +
@@ -14354,7 +15714,136 @@ const file_sysml_proto_rawDesc = "" +
 	"\x14ExportGraphsResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\x05R\aversion\x12\x18\n" +
-	"\asubject\x18\x03 \x01(\tR\asubject*\xb1\x01\n" +
+	"\asubject\x18\x03 \x01(\tR\asubject\"\xcd\x01\n" +
+	"\x11ImportDataRequest\x12\x1d\n" +
+	"\n" +
+	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12+\n" +
+	"\aimports\x18\x02 \x03(\v2\x11.sysml.DataImportR\aimports\x12\x1b\n" +
+	"\timport_as\x18\x03 \x01(\tR\bimportAs\x12$\n" +
+	"\x0eimport_dry_run\x18\x04 \x01(\bR\fimportDryRun\x12)\n" +
+	"\x10accept_documents\x18\x05 \x01(\bR\x0facceptDocuments\"~\n" +
+	"\n" +
+	"DataImport\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\x12#\n" +
+	"\rimport_format\x18\x03 \x01(\tR\fimportFormat\x12\x1d\n" +
+	"\n" +
+	"import_map\x18\x04 \x01(\tR\timportMap\"\xf8\x01\n" +
+	"\x12ImportDataResponse\x12)\n" +
+	"\x05files\x18\x01 \x03(\v2\x13.sysml.ImportedFileR\x05files\x123\n" +
+	"\tdocuments\x18\x02 \x03(\v2\x15.sysml.EditedDocumentR\tdocuments\x12\x18\n" +
+	"\acontent\x18\x03 \x01(\tR\acontent\x12\x1d\n" +
+	"\n" +
+	"model_hash\x18\x04 \x01(\tR\tmodelHash\x12\x14\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\x123\n" +
+	"\vdiagnostics\x18\x06 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\"\x8e\x01\n" +
+	"\fImportedFile\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
+	"\x06values\x18\x02 \x01(\x03R\x06values\x12\x1a\n" +
+	"\belements\x18\x03 \x01(\x03R\belements\x126\n" +
+	"\vassignments\x18\x04 \x03(\v2\x14.sysml.ImportedValueR\vassignments\"\xaf\x01\n" +
+	"\rImportedValue\x12\x18\n" +
+	"\aelement\x18\x01 \x01(\tR\aelement\x12\x18\n" +
+	"\afeature\x18\x02 \x01(\tR\afeature\x12\x14\n" +
+	"\x05value\x18\x03 \x01(\tR\x05value\x12\x1c\n" +
+	"\tredefines\x18\x04 \x01(\tR\tredefines\x12\x14\n" +
+	"\x05where\x18\x05 \x01(\tR\x05where\x12 \n" +
+	"\vdescription\x18\x06 \x01(\tR\vdescription\"\xb2\x02\n" +
+	"\x15CompareResultsRequest\x12\x1d\n" +
+	"\n" +
+	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x18\n" +
+	"\aresults\x18\x02 \x01(\tR\aresults\x12\x18\n" +
+	"\aactions\x18\x03 \x03(\tR\aactions\x12\x12\n" +
+	"\x04runs\x18\x04 \x01(\x03R\x04runs\x12\x17\n" +
+	"\x04seed\x18\x05 \x01(\x04H\x00R\x04seed\x88\x01\x01\x12\x14\n" +
+	"\x05draws\x18\x06 \x01(\tR\x05draws\x12\"\n" +
+	"\n" +
+	"clock_step\x18\a \x01(\x01H\x01R\tclockStep\x88\x01\x01\x12/\n" +
+	"\aobserve\x18\b \x03(\v2\x15.sysml.ObservablePairR\aobserve\x12\x16\n" +
+	"\x06engine\x18\t \x01(\tR\x06engineB\a\n" +
+	"\x05_seedB\r\n" +
+	"\v_clock_step\"B\n" +
+	"\x0eObservablePair\x12\x16\n" +
+	"\x06stored\x18\x01 \x01(\tR\x06stored\x12\x18\n" +
+	"\afeature\x18\x02 \x01(\tR\afeature\"\xda\x02\n" +
+	"\x16CompareResultsResponse\x12F\n" +
+	"\x0econfigurations\x18\x01 \x03(\v2\x1e.sysml.ConfigurationComparisonR\x0econfigurations\x12\x16\n" +
+	"\x06source\x18\x02 \x01(\tR\x06source\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\x123\n" +
+	"\vdiagnostics\x18\x04 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12;\n" +
+	"\x0efailure_reason\x18\x05 \x01(\x0e2\x14.sysml.FailureReasonR\rfailureReason\x12\x16\n" +
+	"\x06engine\x18\x06 \x01(\tR\x06engine\x12\x1a\n" +
+	"\bstrength\x18\a \x01(\tR\bstrength\x12$\n" +
+	"\x06bounds\x18\b \x03(\v2\f.sysml.BoundR\x06bounds\"\xfe\x04\n" +
+	"\x17ConfigurationComparison\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\bbehavior\x18\x03 \x01(\tR\bbehavior\x12\x16\n" +
+	"\x06target\x18\x04 \x01(\tR\x06target\x12'\n" +
+	"\x0fresult_location\x18\x05 \x01(\tR\x0eresultLocation\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12\x1e\n" +
+	"\n" +
+	"unresolved\x18\a \x01(\tR\n" +
+	"unresolved\x12\x1f\n" +
+	"\vstored_runs\x18\b \x01(\x03R\n" +
+	"storedRuns\x12)\n" +
+	"\x10stored_snapshots\x18\t \x01(\x03R\x0fstoredSnapshots\x12\x12\n" +
+	"\x04runs\x18\n" +
+	" \x01(\x03R\x04runs\x12\x1c\n" +
+	"\tcompleted\x18\v \x01(\x03R\tcompleted\x12\x14\n" +
+	"\x05draws\x18\f \x01(\tR\x05draws\x12\x17\n" +
+	"\x04seed\x18\r \x01(\x04H\x00R\x04seed\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"clock_step\x18\x0e \x01(\x01R\tclockStep\x12#\n" +
+	"\x04rows\x18\x0f \x03(\v2\x0f.sysml.SweepRowR\x04rows\x12-\n" +
+	"\tinstances\x18\x10 \x03(\v2\x0f.sysml.InstanceR\tinstances\x12=\n" +
+	"\vobservables\x18\x11 \x03(\v2\x1b.sysml.ObservableComparisonR\vobservables\x12\x16\n" +
+	"\x06errors\x18\x12 \x03(\tR\x06errors\x12\x14\n" +
+	"\x05notes\x18\x13 \x03(\tR\x05notes\x12\x14\n" +
+	"\x05lines\x18\x14 \x03(\tR\x05linesB\a\n" +
+	"\x05_seed\"\xad\x03\n" +
+	"\x14ObservableComparison\x12\x16\n" +
+	"\x06stored\x18\x01 \x01(\tR\x06stored\x12\x18\n" +
+	"\afeature\x18\x02 \x01(\tR\afeature\x12\x12\n" +
+	"\x04unit\x18\x03 \x01(\tR\x04unit\x12/\n" +
+	"\x04tool\x18\x04 \x01(\v2\x1b.sysml.ComparedDistributionR\x04tool\x12\x16\n" +
+	"\x06pooled\x18\x05 \x01(\bR\x06pooled\x12\x1a\n" +
+	"\bunstored\x18\x06 \x01(\bR\bunstored\x12-\n" +
+	"\x03run\x18\a \x01(\v2\x1b.sysml.ComparedDistributionR\x03run\x12\x1a\n" +
+	"\bproduced\x18\b \x01(\x03R\bproduced\x12\x1a\n" +
+	"\bcompared\x18\t \x01(\bR\bcompared\x12:\n" +
+	"\n" +
+	"difference\x18\n" +
+	" \x01(\v2\x1a.sysml.StatisticDifferenceR\n" +
+	"difference\x121\n" +
+	"\bdeclared\x18\v \x01(\v2\x15.sysml.CaseStatisticsR\bdeclared\x12\x14\n" +
+	"\x05notes\x18\f \x03(\tR\x05notes\"\xa6\x01\n" +
+	"\x14ComparedDistribution\x12\x14\n" +
+	"\x05count\x18\x01 \x01(\x03R\x05count\x12\x10\n" +
+	"\x03min\x18\x02 \x01(\x01R\x03min\x12\x12\n" +
+	"\x04mean\x18\x03 \x01(\x01R\x04mean\x12\x10\n" +
+	"\x03p50\x18\x04 \x01(\x01R\x03p50\x12\x10\n" +
+	"\x03p90\x18\x05 \x01(\x01R\x03p90\x12\x10\n" +
+	"\x03max\x18\x06 \x01(\x01R\x03max\x12\x1c\n" +
+	"\tdeviation\x18\a \x01(\x01R\tdeviation\"q\n" +
+	"\x13StatisticDifference\x12\x10\n" +
+	"\x03min\x18\x01 \x01(\tR\x03min\x12\x12\n" +
+	"\x04mean\x18\x02 \x01(\tR\x04mean\x12\x10\n" +
+	"\x03p50\x18\x03 \x01(\tR\x03p50\x12\x10\n" +
+	"\x03p90\x18\x04 \x01(\tR\x03p90\x12\x10\n" +
+	"\x03max\x18\x05 \x01(\tR\x03max\"l\n" +
+	"\x0eCaseStatistics\x12\x1a\n" +
+	"\banalysis\x18\x01 \x01(\tR\banalysis\x12(\n" +
+	"\x04rows\x18\x02 \x03(\v2\x14.sysml.CaseStatisticR\x04rows\x12\x14\n" +
+	"\x05notes\x18\x03 \x03(\tR\x05notes\"\x83\x01\n" +
+	"\rCaseStatistic\x12\x1c\n" +
+	"\tstatistic\x18\x01 \x01(\tR\tstatistic\x12\x0e\n" +
+	"\x02of\x18\x02 \x01(\tR\x02of\x12\x12\n" +
+	"\x04tool\x18\x03 \x01(\tR\x04tool\x12\x10\n" +
+	"\x03run\x18\x04 \x01(\tR\x03run\x12\x1e\n" +
+	"\n" +
+	"difference\x18\x05 \x01(\tR\n" +
+	"difference*\xb1\x01\n" +
 	"\rFailureReason\x12\x1e\n" +
 	"\x1aFAILURE_REASON_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19FAILURE_REASON_EVALUATION\x10\x01\x12\x1d\n" +
@@ -14390,7 +15879,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x11CompositeOperator\x12\"\n" +
 	"\x1eCOMPOSITE_OPERATOR_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16COMPOSITE_OPERATOR_AND\x10\x01\x12\x19\n" +
-	"\x15COMPOSITE_OPERATOR_OR\x10\x022\x85\x0e\n" +
+	"\x15COMPOSITE_OPERATOR_OR\x10\x022\x97\x0f\n" +
 	"\fSysMLService\x12D\n" +
 	"\rGetServerInfo\x12\x18.sysml.ServerInfoRequest\x1a\x19.sysml.ServerInfoResponse\x12>\n" +
 	"\tParseFile\x12\x17.sysml.ParseFileRequest\x1a\x18.sysml.ParseFileResponse\x12G\n" +
@@ -14418,7 +15907,10 @@ const file_sysml_proto_rawDesc = "" +
 	"\x0eRenderDocument\x12\x1c.sysml.RenderDocumentRequest\x1a\x1d.sysml.RenderDocumentResponse\x12A\n" +
 	"\n" +
 	"RenderView\x12\x18.sysml.RenderViewRequest\x1a\x19.sysml.RenderViewResponse\x12G\n" +
-	"\fExportGraphs\x12\x1a.sysml.ExportGraphsRequest\x1a\x1b.sysml.ExportGraphsResponseBJ\n" +
+	"\fExportGraphs\x12\x1a.sysml.ExportGraphsRequest\x1a\x1b.sysml.ExportGraphsResponse\x12A\n" +
+	"\n" +
+	"ImportData\x12\x18.sysml.ImportDataRequest\x1a\x19.sysml.ImportDataResponse\x12M\n" +
+	"\x0eCompareResults\x12\x1c.sysml.CompareResultsRequest\x1a\x1d.sysml.CompareResultsResponseBJ\n" +
 	"\x1corg.openmbee.opensysml.protoP\x01Z(github.com/Open-MBEE/OpenSysML/api/protob\x06proto3"
 
 var (
@@ -14434,7 +15926,7 @@ func file_sysml_proto_rawDescGZIP() []byte {
 }
 
 var file_sysml_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_sysml_proto_msgTypes = make([]protoimpl.MessageInfo, 155)
+var file_sysml_proto_msgTypes = make([]protoimpl.MessageInfo, 169)
 var file_sysml_proto_goTypes = []any{
 	(FailureReason)(0),                   // 0: sysml.FailureReason
 	(EditFailure)(0),                     // 1: sysml.EditFailure
@@ -14581,20 +16073,34 @@ var file_sysml_proto_goTypes = []any{
 	(*RenderNote)(nil),                   // 142: sysml.RenderNote
 	(*ExportGraphsRequest)(nil),          // 143: sysml.ExportGraphsRequest
 	(*ExportGraphsResponse)(nil),         // 144: sysml.ExportGraphsResponse
-	nil,                                  // 145: sysml.VerifyConstraintRequest.NamedArgumentsEntry
-	nil,                                  // 146: sysml.VerifyRequirementRequest.NamedArgumentsEntry
-	nil,                                  // 147: sysml.RunAnalysisRequest.NamedArgumentsEntry
-	nil,                                  // 148: sysml.Outcome.OutputsEntry
-	nil,                                  // 149: sysml.Instance.FeatureValuesEntry
-	nil,                                  // 150: sysml.ExecuteActionRequest.InputsEntry
-	nil,                                  // 151: sysml.ExecuteActionResponse.OutputsEntry
-	nil,                                  // 152: sysml.ExecuteActionResponse.PerformerAttributesEntry
-	nil,                                  // 153: sysml.ExecuteActionResponse.OrderDependentEntry
-	nil,                                  // 154: sysml.ExecuteStateResponse.FinalContextEntry
-	nil,                                  // 155: sysml.ExecuteStateResponse.OrderDependentEntry
-	nil,                                  // 156: sysml.SymbolInfo.MetadataEntry
-	nil,                                  // 157: sysml.QueryResultElement.PropertiesEntry
-	nil,                                  // 158: sysml.RunSweepRequest.NamedArgumentsEntry
+	(*ImportDataRequest)(nil),            // 145: sysml.ImportDataRequest
+	(*DataImport)(nil),                   // 146: sysml.DataImport
+	(*ImportDataResponse)(nil),           // 147: sysml.ImportDataResponse
+	(*ImportedFile)(nil),                 // 148: sysml.ImportedFile
+	(*ImportedValue)(nil),                // 149: sysml.ImportedValue
+	(*CompareResultsRequest)(nil),        // 150: sysml.CompareResultsRequest
+	(*ObservablePair)(nil),               // 151: sysml.ObservablePair
+	(*CompareResultsResponse)(nil),       // 152: sysml.CompareResultsResponse
+	(*ConfigurationComparison)(nil),      // 153: sysml.ConfigurationComparison
+	(*ObservableComparison)(nil),         // 154: sysml.ObservableComparison
+	(*ComparedDistribution)(nil),         // 155: sysml.ComparedDistribution
+	(*StatisticDifference)(nil),          // 156: sysml.StatisticDifference
+	(*CaseStatistics)(nil),               // 157: sysml.CaseStatistics
+	(*CaseStatistic)(nil),                // 158: sysml.CaseStatistic
+	nil,                                  // 159: sysml.VerifyConstraintRequest.NamedArgumentsEntry
+	nil,                                  // 160: sysml.VerifyRequirementRequest.NamedArgumentsEntry
+	nil,                                  // 161: sysml.RunAnalysisRequest.NamedArgumentsEntry
+	nil,                                  // 162: sysml.Outcome.OutputsEntry
+	nil,                                  // 163: sysml.Instance.FeatureValuesEntry
+	nil,                                  // 164: sysml.ExecuteActionRequest.InputsEntry
+	nil,                                  // 165: sysml.ExecuteActionResponse.OutputsEntry
+	nil,                                  // 166: sysml.ExecuteActionResponse.PerformerAttributesEntry
+	nil,                                  // 167: sysml.ExecuteActionResponse.OrderDependentEntry
+	nil,                                  // 168: sysml.ExecuteStateResponse.FinalContextEntry
+	nil,                                  // 169: sysml.ExecuteStateResponse.OrderDependentEntry
+	nil,                                  // 170: sysml.SymbolInfo.MetadataEntry
+	nil,                                  // 171: sysml.QueryResultElement.PropertiesEntry
+	nil,                                  // 172: sysml.RunSweepRequest.NamedArgumentsEntry
 }
 var file_sysml_proto_depIdxs = []int32{
 	0,   // 0: sysml.Verdict.failure_reason:type_name -> sysml.FailureReason
@@ -14602,12 +16108,12 @@ var file_sysml_proto_depIdxs = []int32{
 	5,   // 2: sysml.Verdict.witness:type_name -> sysml.WitnessAssignment
 	87,  // 3: sysml.WitnessAssignment.value:type_name -> sysml.Value
 	87,  // 4: sysml.VerifyConstraintRequest.arguments:type_name -> sysml.Value
-	145, // 5: sysml.VerifyConstraintRequest.named_arguments:type_name -> sysml.VerifyConstraintRequest.NamedArgumentsEntry
+	159, // 5: sysml.VerifyConstraintRequest.named_arguments:type_name -> sysml.VerifyConstraintRequest.NamedArgumentsEntry
 	4,   // 6: sysml.VerifyConstraintResponse.verdict:type_name -> sysml.Verdict
 	43,  // 7: sysml.VerifyConstraintResponse.instances:type_name -> sysml.Instance
 	104, // 8: sysml.VerifyConstraintResponse.diagnostics:type_name -> sysml.Diagnostic
 	87,  // 9: sysml.VerifyRequirementRequest.arguments:type_name -> sysml.Value
-	146, // 10: sysml.VerifyRequirementRequest.named_arguments:type_name -> sysml.VerifyRequirementRequest.NamedArgumentsEntry
+	160, // 10: sysml.VerifyRequirementRequest.named_arguments:type_name -> sysml.VerifyRequirementRequest.NamedArgumentsEntry
 	4,   // 11: sysml.VerifyRequirementResponse.verdict:type_name -> sysml.Verdict
 	43,  // 12: sysml.VerifyRequirementResponse.instances:type_name -> sysml.Instance
 	104, // 13: sysml.VerifyRequirementResponse.diagnostics:type_name -> sysml.Diagnostic
@@ -14633,7 +16139,7 @@ var file_sysml_proto_depIdxs = []int32{
 	87,  // 33: sysml.CaseEvaluation.arguments:type_name -> sysml.Value
 	87,  // 34: sysml.CaseEvaluation.result:type_name -> sysml.Value
 	87,  // 35: sysml.RunAnalysisRequest.arguments:type_name -> sysml.Value
-	147, // 36: sysml.RunAnalysisRequest.named_arguments:type_name -> sysml.RunAnalysisRequest.NamedArgumentsEntry
+	161, // 36: sysml.RunAnalysisRequest.named_arguments:type_name -> sysml.RunAnalysisRequest.NamedArgumentsEntry
 	22,  // 37: sysml.ToolDryRun.input_file:type_name -> sysml.ToolDryRunFile
 	23,  // 38: sysml.ToolDryRun.inputs:type_name -> sysml.ToolDryRunInput
 	24,  // 39: sysml.ToolDryRun.outputs:type_name -> sysml.ToolDryRunOutput
@@ -14648,7 +16154,7 @@ var file_sysml_proto_depIdxs = []int32{
 	19,  // 48: sysml.RunAnalysisResponse.evaluations:type_name -> sysml.CaseEvaluation
 	6,   // 49: sysml.RunAnalysisResponse.bounds:type_name -> sysml.Bound
 	21,  // 50: sysml.RunAnalysisResponse.tool_dry_run:type_name -> sysml.ToolDryRun
-	148, // 51: sysml.Outcome.outputs:type_name -> sysml.Outcome.OutputsEntry
+	162, // 51: sysml.Outcome.outputs:type_name -> sysml.Outcome.OutputsEntry
 	104, // 52: sysml.Outcome.diagnostics:type_name -> sysml.Diagnostic
 	26,  // 53: sysml.Outcome.probability_range:type_name -> sysml.ProbabilityRange
 	30,  // 54: sysml.ListEnginesResponse.engines:type_name -> sysml.EngineInfo
@@ -14661,25 +16167,25 @@ var file_sysml_proto_depIdxs = []int32{
 	104, // 61: sysml.DiagnosticsResponse.diagnostics:type_name -> sysml.Diagnostic
 	87,  // 62: sysml.EvaluateResponse.result:type_name -> sysml.Value
 	104, // 63: sysml.EvaluateResponse.diagnostics:type_name -> sysml.Diagnostic
-	149, // 64: sysml.Instance.feature_values:type_name -> sysml.Instance.FeatureValuesEntry
+	163, // 64: sysml.Instance.feature_values:type_name -> sysml.Instance.FeatureValuesEntry
 	87,  // 65: sysml.FeatureValue.value:type_name -> sysml.Value
 	87,  // 66: sysml.FeatureValue.values:type_name -> sysml.Value
 	43,  // 67: sysml.InstantiateResponse.instance:type_name -> sysml.Instance
 	104, // 68: sysml.InstantiateResponse.diagnostics:type_name -> sysml.Diagnostic
 	43,  // 69: sysml.InstantiateResponse.instances:type_name -> sysml.Instance
-	150, // 70: sysml.ExecuteActionRequest.inputs:type_name -> sysml.ExecuteActionRequest.InputsEntry
-	151, // 71: sysml.ExecuteActionResponse.outputs:type_name -> sysml.ExecuteActionResponse.OutputsEntry
+	164, // 70: sysml.ExecuteActionRequest.inputs:type_name -> sysml.ExecuteActionRequest.InputsEntry
+	165, // 71: sysml.ExecuteActionResponse.outputs:type_name -> sysml.ExecuteActionResponse.OutputsEntry
 	104, // 72: sysml.ExecuteActionResponse.diagnostics:type_name -> sysml.Diagnostic
 	27,  // 73: sysml.ExecuteActionResponse.outcomes:type_name -> sysml.Outcome
 	28,  // 74: sysml.ExecuteActionResponse.exploration:type_name -> sysml.ExplorationStatus
-	152, // 75: sysml.ExecuteActionResponse.performer_attributes:type_name -> sysml.ExecuteActionResponse.PerformerAttributesEntry
-	153, // 76: sysml.ExecuteActionResponse.order_dependent:type_name -> sysml.ExecuteActionResponse.OrderDependentEntry
-	154, // 77: sysml.ExecuteStateResponse.final_context:type_name -> sysml.ExecuteStateResponse.FinalContextEntry
+	166, // 75: sysml.ExecuteActionResponse.performer_attributes:type_name -> sysml.ExecuteActionResponse.PerformerAttributesEntry
+	167, // 76: sysml.ExecuteActionResponse.order_dependent:type_name -> sysml.ExecuteActionResponse.OrderDependentEntry
+	168, // 77: sysml.ExecuteStateResponse.final_context:type_name -> sysml.ExecuteStateResponse.FinalContextEntry
 	104, // 78: sysml.ExecuteStateResponse.diagnostics:type_name -> sysml.Diagnostic
 	27,  // 79: sysml.ExecuteStateResponse.outcomes:type_name -> sysml.Outcome
 	28,  // 80: sysml.ExecuteStateResponse.exploration:type_name -> sysml.ExplorationStatus
 	125, // 81: sysml.ExecuteStateResponse.trace:type_name -> sysml.DocumentEvent
-	155, // 82: sysml.ExecuteStateResponse.order_dependent:type_name -> sysml.ExecuteStateResponse.OrderDependentEntry
+	169, // 82: sysml.ExecuteStateResponse.order_dependent:type_name -> sysml.ExecuteStateResponse.OrderDependentEntry
 	104, // 83: sysml.ConvertResponse.diagnostics:type_name -> sysml.Diagnostic
 	55,  // 84: sysml.MigrateResponse.report:type_name -> sysml.MigrationReport
 	57,  // 85: sysml.MigrateResponse.files:type_name -> sysml.MigrationFile
@@ -14710,7 +16216,7 @@ var file_sysml_proto_depIdxs = []int32{
 	104, // 110: sysml.ApplyEditsResponse.diagnostics:type_name -> sysml.Diagnostic
 	79,  // 111: sysml.ApplyEditsResponse.documents:type_name -> sysml.EditedDocument
 	80,  // 112: sysml.ApplyEditsResponse.referrers:type_name -> sysml.Referrer
-	156, // 113: sysml.SymbolInfo.metadata:type_name -> sysml.SymbolInfo.MetadataEntry
+	170, // 113: sysml.SymbolInfo.metadata:type_name -> sysml.SymbolInfo.MetadataEntry
 	86,  // 114: sysml.SymbolInfo.attributes:type_name -> sysml.AttributeInfo
 	84,  // 115: sysml.SymbolInfo.type_info:type_name -> sysml.TypeInfo
 	85,  // 116: sysml.SymbolInfo.multiplicity:type_name -> sysml.MultiplicityInfo
@@ -14751,12 +16257,12 @@ var file_sysml_proto_depIdxs = []int32{
 	2,   // 151: sysml.PrimitiveConstraint.operator:type_name -> sysml.PrimitiveOperator
 	3,   // 152: sysml.CompositeConstraint.operator:type_name -> sysml.CompositeOperator
 	111, // 153: sysml.CompositeConstraint.constraint:type_name -> sysml.Constraint
-	157, // 154: sysml.QueryResultElement.properties:type_name -> sysml.QueryResultElement.PropertiesEntry
+	171, // 154: sysml.QueryResultElement.properties:type_name -> sysml.QueryResultElement.PropertiesEntry
 	87,  // 155: sysml.SweepRange.start:type_name -> sysml.Value
 	87,  // 156: sysml.SweepRange.end:type_name -> sysml.Value
 	87,  // 157: sysml.SweepRange.step:type_name -> sysml.Value
 	87,  // 158: sysml.RunSweepRequest.arguments:type_name -> sysml.Value
-	158, // 159: sysml.RunSweepRequest.named_arguments:type_name -> sysml.RunSweepRequest.NamedArgumentsEntry
+	172, // 159: sysml.RunSweepRequest.named_arguments:type_name -> sysml.RunSweepRequest.NamedArgumentsEntry
 	115, // 160: sysml.RunSweepRequest.ranges:type_name -> sysml.SweepRange
 	18,  // 161: sysml.SweepRow.inputs:type_name -> sysml.CalcOutput
 	18,  // 162: sysml.SweepRow.outputs:type_name -> sysml.CalcOutput
@@ -14802,71 +16308,93 @@ var file_sysml_proto_depIdxs = []int32{
 	139, // 202: sysml.RenderEdge.style:type_name -> sysml.RenderStyle
 	105, // 203: sysml.RenderRow.origin:type_name -> sysml.Span
 	105, // 204: sysml.RenderNote.origin:type_name -> sysml.Span
-	87,  // 205: sysml.VerifyConstraintRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	87,  // 206: sysml.VerifyRequirementRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	87,  // 207: sysml.RunAnalysisRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	87,  // 208: sysml.Outcome.OutputsEntry.value:type_name -> sysml.Value
-	44,  // 209: sysml.Instance.FeatureValuesEntry.value:type_name -> sysml.FeatureValue
-	87,  // 210: sysml.ExecuteActionRequest.InputsEntry.value:type_name -> sysml.Value
-	87,  // 211: sysml.ExecuteActionResponse.OutputsEntry.value:type_name -> sysml.Value
-	87,  // 212: sysml.ExecuteActionResponse.PerformerAttributesEntry.value:type_name -> sysml.Value
-	87,  // 213: sysml.ExecuteStateResponse.FinalContextEntry.value:type_name -> sysml.Value
-	87,  // 214: sysml.RunSweepRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	106, // 215: sysml.SysMLService.GetServerInfo:input_type -> sysml.ServerInfoRequest
-	32,  // 216: sysml.SysMLService.ParseFile:input_type -> sysml.ParseFileRequest
-	34,  // 217: sysml.SysMLService.ParseSources:input_type -> sysml.ParseSourcesRequest
-	37,  // 218: sysml.SysMLService.GetSymbol:input_type -> sysml.GetSymbolRequest
-	39,  // 219: sysml.SysMLService.GetDiagnostics:input_type -> sysml.DiagnosticsRequest
-	41,  // 220: sysml.SysMLService.Evaluate:input_type -> sysml.EvaluateRequest
-	45,  // 221: sysml.SysMLService.Instantiate:input_type -> sysml.InstantiateRequest
-	47,  // 222: sysml.SysMLService.ExecuteAction:input_type -> sysml.ExecuteActionRequest
-	49,  // 223: sysml.SysMLService.ExecuteState:input_type -> sysml.ExecuteStateRequest
-	51,  // 224: sysml.SysMLService.Convert:input_type -> sysml.ConvertRequest
-	53,  // 225: sysml.SysMLService.Migrate:input_type -> sysml.MigrateRequest
-	58,  // 226: sysml.SysMLService.ApplyEdits:input_type -> sysml.ApplyEditsRequest
-	7,   // 227: sysml.SysMLService.VerifyConstraint:input_type -> sysml.VerifyConstraintRequest
-	9,   // 228: sysml.SysMLService.VerifyRequirement:input_type -> sysml.VerifyRequirementRequest
-	12,  // 229: sysml.SysMLService.VerifySatisfaction:input_type -> sysml.VerifySatisfactionRequest
-	14,  // 230: sysml.SysMLService.ValidateInstance:input_type -> sysml.ValidateInstanceRequest
-	16,  // 231: sysml.SysMLService.EvaluateCalc:input_type -> sysml.EvaluateCalcRequest
-	20,  // 232: sysml.SysMLService.RunAnalysis:input_type -> sysml.RunAnalysisRequest
-	116, // 233: sysml.SysMLService.RunSweep:input_type -> sysml.RunSweepRequest
-	29,  // 234: sysml.SysMLService.ListEngines:input_type -> sysml.ListEnginesRequest
-	108, // 235: sysml.SysMLService.Query:input_type -> sysml.QueryRequest
-	119, // 236: sysml.SysMLService.RunDocumentQuery:input_type -> sysml.RunDocumentQueryRequest
-	130, // 237: sysml.SysMLService.RenderDocument:input_type -> sysml.RenderDocumentRequest
-	132, // 238: sysml.SysMLService.RenderView:input_type -> sysml.RenderViewRequest
-	143, // 239: sysml.SysMLService.ExportGraphs:input_type -> sysml.ExportGraphsRequest
-	107, // 240: sysml.SysMLService.GetServerInfo:output_type -> sysml.ServerInfoResponse
-	36,  // 241: sysml.SysMLService.ParseFile:output_type -> sysml.ParseFileResponse
-	35,  // 242: sysml.SysMLService.ParseSources:output_type -> sysml.ParseSourcesResponse
-	38,  // 243: sysml.SysMLService.GetSymbol:output_type -> sysml.SymbolResponse
-	40,  // 244: sysml.SysMLService.GetDiagnostics:output_type -> sysml.DiagnosticsResponse
-	42,  // 245: sysml.SysMLService.Evaluate:output_type -> sysml.EvaluateResponse
-	46,  // 246: sysml.SysMLService.Instantiate:output_type -> sysml.InstantiateResponse
-	48,  // 247: sysml.SysMLService.ExecuteAction:output_type -> sysml.ExecuteActionResponse
-	50,  // 248: sysml.SysMLService.ExecuteState:output_type -> sysml.ExecuteStateResponse
-	52,  // 249: sysml.SysMLService.Convert:output_type -> sysml.ConvertResponse
-	54,  // 250: sysml.SysMLService.Migrate:output_type -> sysml.MigrateResponse
-	78,  // 251: sysml.SysMLService.ApplyEdits:output_type -> sysml.ApplyEditsResponse
-	8,   // 252: sysml.SysMLService.VerifyConstraint:output_type -> sysml.VerifyConstraintResponse
-	11,  // 253: sysml.SysMLService.VerifyRequirement:output_type -> sysml.VerifyRequirementResponse
-	13,  // 254: sysml.SysMLService.VerifySatisfaction:output_type -> sysml.VerifySatisfactionResponse
-	15,  // 255: sysml.SysMLService.ValidateInstance:output_type -> sysml.ValidateInstanceResponse
-	17,  // 256: sysml.SysMLService.EvaluateCalc:output_type -> sysml.EvaluateCalcResponse
-	25,  // 257: sysml.SysMLService.RunAnalysis:output_type -> sysml.RunAnalysisResponse
-	118, // 258: sysml.SysMLService.RunSweep:output_type -> sysml.RunSweepResponse
-	31,  // 259: sysml.SysMLService.ListEngines:output_type -> sysml.ListEnginesResponse
-	109, // 260: sysml.SysMLService.Query:output_type -> sysml.QueryResponse
-	129, // 261: sysml.SysMLService.RunDocumentQuery:output_type -> sysml.RunDocumentQueryResponse
-	131, // 262: sysml.SysMLService.RenderDocument:output_type -> sysml.RenderDocumentResponse
-	133, // 263: sysml.SysMLService.RenderView:output_type -> sysml.RenderViewResponse
-	144, // 264: sysml.SysMLService.ExportGraphs:output_type -> sysml.ExportGraphsResponse
-	240, // [240:265] is the sub-list for method output_type
-	215, // [215:240] is the sub-list for method input_type
-	215, // [215:215] is the sub-list for extension type_name
-	215, // [215:215] is the sub-list for extension extendee
-	0,   // [0:215] is the sub-list for field type_name
+	146, // 205: sysml.ImportDataRequest.imports:type_name -> sysml.DataImport
+	148, // 206: sysml.ImportDataResponse.files:type_name -> sysml.ImportedFile
+	79,  // 207: sysml.ImportDataResponse.documents:type_name -> sysml.EditedDocument
+	104, // 208: sysml.ImportDataResponse.diagnostics:type_name -> sysml.Diagnostic
+	149, // 209: sysml.ImportedFile.assignments:type_name -> sysml.ImportedValue
+	151, // 210: sysml.CompareResultsRequest.observe:type_name -> sysml.ObservablePair
+	153, // 211: sysml.CompareResultsResponse.configurations:type_name -> sysml.ConfigurationComparison
+	104, // 212: sysml.CompareResultsResponse.diagnostics:type_name -> sysml.Diagnostic
+	0,   // 213: sysml.CompareResultsResponse.failure_reason:type_name -> sysml.FailureReason
+	6,   // 214: sysml.CompareResultsResponse.bounds:type_name -> sysml.Bound
+	117, // 215: sysml.ConfigurationComparison.rows:type_name -> sysml.SweepRow
+	43,  // 216: sysml.ConfigurationComparison.instances:type_name -> sysml.Instance
+	154, // 217: sysml.ConfigurationComparison.observables:type_name -> sysml.ObservableComparison
+	155, // 218: sysml.ObservableComparison.tool:type_name -> sysml.ComparedDistribution
+	155, // 219: sysml.ObservableComparison.run:type_name -> sysml.ComparedDistribution
+	156, // 220: sysml.ObservableComparison.difference:type_name -> sysml.StatisticDifference
+	157, // 221: sysml.ObservableComparison.declared:type_name -> sysml.CaseStatistics
+	158, // 222: sysml.CaseStatistics.rows:type_name -> sysml.CaseStatistic
+	87,  // 223: sysml.VerifyConstraintRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	87,  // 224: sysml.VerifyRequirementRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	87,  // 225: sysml.RunAnalysisRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	87,  // 226: sysml.Outcome.OutputsEntry.value:type_name -> sysml.Value
+	44,  // 227: sysml.Instance.FeatureValuesEntry.value:type_name -> sysml.FeatureValue
+	87,  // 228: sysml.ExecuteActionRequest.InputsEntry.value:type_name -> sysml.Value
+	87,  // 229: sysml.ExecuteActionResponse.OutputsEntry.value:type_name -> sysml.Value
+	87,  // 230: sysml.ExecuteActionResponse.PerformerAttributesEntry.value:type_name -> sysml.Value
+	87,  // 231: sysml.ExecuteStateResponse.FinalContextEntry.value:type_name -> sysml.Value
+	87,  // 232: sysml.RunSweepRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	106, // 233: sysml.SysMLService.GetServerInfo:input_type -> sysml.ServerInfoRequest
+	32,  // 234: sysml.SysMLService.ParseFile:input_type -> sysml.ParseFileRequest
+	34,  // 235: sysml.SysMLService.ParseSources:input_type -> sysml.ParseSourcesRequest
+	37,  // 236: sysml.SysMLService.GetSymbol:input_type -> sysml.GetSymbolRequest
+	39,  // 237: sysml.SysMLService.GetDiagnostics:input_type -> sysml.DiagnosticsRequest
+	41,  // 238: sysml.SysMLService.Evaluate:input_type -> sysml.EvaluateRequest
+	45,  // 239: sysml.SysMLService.Instantiate:input_type -> sysml.InstantiateRequest
+	47,  // 240: sysml.SysMLService.ExecuteAction:input_type -> sysml.ExecuteActionRequest
+	49,  // 241: sysml.SysMLService.ExecuteState:input_type -> sysml.ExecuteStateRequest
+	51,  // 242: sysml.SysMLService.Convert:input_type -> sysml.ConvertRequest
+	53,  // 243: sysml.SysMLService.Migrate:input_type -> sysml.MigrateRequest
+	58,  // 244: sysml.SysMLService.ApplyEdits:input_type -> sysml.ApplyEditsRequest
+	7,   // 245: sysml.SysMLService.VerifyConstraint:input_type -> sysml.VerifyConstraintRequest
+	9,   // 246: sysml.SysMLService.VerifyRequirement:input_type -> sysml.VerifyRequirementRequest
+	12,  // 247: sysml.SysMLService.VerifySatisfaction:input_type -> sysml.VerifySatisfactionRequest
+	14,  // 248: sysml.SysMLService.ValidateInstance:input_type -> sysml.ValidateInstanceRequest
+	16,  // 249: sysml.SysMLService.EvaluateCalc:input_type -> sysml.EvaluateCalcRequest
+	20,  // 250: sysml.SysMLService.RunAnalysis:input_type -> sysml.RunAnalysisRequest
+	116, // 251: sysml.SysMLService.RunSweep:input_type -> sysml.RunSweepRequest
+	29,  // 252: sysml.SysMLService.ListEngines:input_type -> sysml.ListEnginesRequest
+	108, // 253: sysml.SysMLService.Query:input_type -> sysml.QueryRequest
+	119, // 254: sysml.SysMLService.RunDocumentQuery:input_type -> sysml.RunDocumentQueryRequest
+	130, // 255: sysml.SysMLService.RenderDocument:input_type -> sysml.RenderDocumentRequest
+	132, // 256: sysml.SysMLService.RenderView:input_type -> sysml.RenderViewRequest
+	143, // 257: sysml.SysMLService.ExportGraphs:input_type -> sysml.ExportGraphsRequest
+	145, // 258: sysml.SysMLService.ImportData:input_type -> sysml.ImportDataRequest
+	150, // 259: sysml.SysMLService.CompareResults:input_type -> sysml.CompareResultsRequest
+	107, // 260: sysml.SysMLService.GetServerInfo:output_type -> sysml.ServerInfoResponse
+	36,  // 261: sysml.SysMLService.ParseFile:output_type -> sysml.ParseFileResponse
+	35,  // 262: sysml.SysMLService.ParseSources:output_type -> sysml.ParseSourcesResponse
+	38,  // 263: sysml.SysMLService.GetSymbol:output_type -> sysml.SymbolResponse
+	40,  // 264: sysml.SysMLService.GetDiagnostics:output_type -> sysml.DiagnosticsResponse
+	42,  // 265: sysml.SysMLService.Evaluate:output_type -> sysml.EvaluateResponse
+	46,  // 266: sysml.SysMLService.Instantiate:output_type -> sysml.InstantiateResponse
+	48,  // 267: sysml.SysMLService.ExecuteAction:output_type -> sysml.ExecuteActionResponse
+	50,  // 268: sysml.SysMLService.ExecuteState:output_type -> sysml.ExecuteStateResponse
+	52,  // 269: sysml.SysMLService.Convert:output_type -> sysml.ConvertResponse
+	54,  // 270: sysml.SysMLService.Migrate:output_type -> sysml.MigrateResponse
+	78,  // 271: sysml.SysMLService.ApplyEdits:output_type -> sysml.ApplyEditsResponse
+	8,   // 272: sysml.SysMLService.VerifyConstraint:output_type -> sysml.VerifyConstraintResponse
+	11,  // 273: sysml.SysMLService.VerifyRequirement:output_type -> sysml.VerifyRequirementResponse
+	13,  // 274: sysml.SysMLService.VerifySatisfaction:output_type -> sysml.VerifySatisfactionResponse
+	15,  // 275: sysml.SysMLService.ValidateInstance:output_type -> sysml.ValidateInstanceResponse
+	17,  // 276: sysml.SysMLService.EvaluateCalc:output_type -> sysml.EvaluateCalcResponse
+	25,  // 277: sysml.SysMLService.RunAnalysis:output_type -> sysml.RunAnalysisResponse
+	118, // 278: sysml.SysMLService.RunSweep:output_type -> sysml.RunSweepResponse
+	31,  // 279: sysml.SysMLService.ListEngines:output_type -> sysml.ListEnginesResponse
+	109, // 280: sysml.SysMLService.Query:output_type -> sysml.QueryResponse
+	129, // 281: sysml.SysMLService.RunDocumentQuery:output_type -> sysml.RunDocumentQueryResponse
+	131, // 282: sysml.SysMLService.RenderDocument:output_type -> sysml.RenderDocumentResponse
+	133, // 283: sysml.SysMLService.RenderView:output_type -> sysml.RenderViewResponse
+	144, // 284: sysml.SysMLService.ExportGraphs:output_type -> sysml.ExportGraphsResponse
+	147, // 285: sysml.SysMLService.ImportData:output_type -> sysml.ImportDataResponse
+	152, // 286: sysml.SysMLService.CompareResults:output_type -> sysml.CompareResultsResponse
+	260, // [260:287] is the sub-list for method output_type
+	233, // [233:260] is the sub-list for method input_type
+	233, // [233:233] is the sub-list for extension type_name
+	233, // [233:233] is the sub-list for extension extendee
+	0,   // [0:233] is the sub-list for field type_name
 }
 
 func init() { file_sysml_proto_init() }
@@ -14964,13 +16492,15 @@ func file_sysml_proto_init() {
 		(*DocumentValue_BigIntValue)(nil),
 		(*DocumentValue_RationalValue)(nil),
 	}
+	file_sysml_proto_msgTypes[146].OneofWrappers = []any{}
+	file_sysml_proto_msgTypes[149].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sysml_proto_rawDesc), len(file_sysml_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   155,
+			NumMessages:   169,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

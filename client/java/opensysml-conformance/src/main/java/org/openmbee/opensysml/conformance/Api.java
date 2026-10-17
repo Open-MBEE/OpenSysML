@@ -80,6 +80,15 @@ import org.openmbee.opensysml.proto.QueryRequest;
 import org.openmbee.opensysml.proto.QueryResponse;
 import org.openmbee.opensysml.proto.RenderDocumentRequest;
 import org.openmbee.opensysml.proto.RenderDocumentResponse;
+import org.openmbee.opensysml.CompareOptions;
+import org.openmbee.opensysml.DataImport;
+import org.openmbee.opensysml.proto.CompareResultsRequest;
+import org.openmbee.opensysml.proto.CompareResultsResponse;
+import org.openmbee.opensysml.proto.ImportDataRequest;
+import org.openmbee.opensysml.proto.ImportDataResponse;
+import org.openmbee.opensysml.proto.ObservablePair;
+import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import org.openmbee.opensysml.proto.ExportGraphsRequest;
 import org.openmbee.opensysml.proto.ExportGraphsResponse;
 import org.openmbee.opensysml.proto.RenderViewRequest;
@@ -108,6 +117,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -138,6 +148,8 @@ final class Api {
   private static final String RPC_RUN_DOCUMENT_QUERY = "RunDocumentQuery";
   private static final String RPC_RENDER_DOCUMENT = "RenderDocument";
   private static final String RPC_EXPORT_GRAPHS = "ExportGraphs";
+  private static final String RPC_IMPORT_DATA = "ImportData";
+  private static final String RPC_COMPARE_RESULTS = "CompareResults";
   private static final String RPC_RENDER_VIEW = "RenderView";
   private static final String RPC_VALIDATE_INSTANCE = "ValidateInstance";
   private static final String RPC_VERIFY_CONSTRAINT = "VerifyConstraint";
@@ -171,7 +183,9 @@ final class Api {
           RPC_RUN_DOCUMENT_QUERY,
           RPC_RENDER_DOCUMENT,
           RPC_RENDER_VIEW,
-          RPC_EXPORT_GRAPHS);
+          RPC_EXPORT_GRAPHS,
+          RPC_IMPORT_DATA,
+          RPC_COMPARE_RESULTS);
 
   private final Connection connection;
 
@@ -224,6 +238,8 @@ final class Api {
       case RPC_RENDER_DOCUMENT -> RenderDocumentRequest.newBuilder();
       case RPC_RENDER_VIEW -> RenderViewRequest.newBuilder();
       case RPC_EXPORT_GRAPHS -> ExportGraphsRequest.newBuilder();
+      case RPC_IMPORT_DATA -> ImportDataRequest.newBuilder();
+      case RPC_COMPARE_RESULTS -> CompareResultsRequest.newBuilder();
       default -> throw new IllegalArgumentException("no request type for " + method);
     };
   }
@@ -282,6 +298,8 @@ final class Api {
             case RPC_RENDER_DOCUMENT -> renderDocument((RenderDocumentRequest) request);
             case RPC_RENDER_VIEW -> renderView((RenderViewRequest) request);
             case RPC_EXPORT_GRAPHS -> exportGraphs((ExportGraphsRequest) request);
+            case RPC_IMPORT_DATA -> importData((ImportDataRequest) request);
+            case RPC_COMPARE_RESULTS -> compareResults((CompareResultsRequest) request);
             default -> throw new IllegalStateException(method);
           });
     } catch (Unsupported e) {
@@ -1082,6 +1100,49 @@ final class Api {
         .setVersion(graphs.version())
         .setSubject(graphs.subject())
         .build();
+  }
+
+  private ImportDataResponse importData(ImportDataRequest request) {
+    Model model = connection.model(request.getModelHash());
+    List<DataImport> imports = new ArrayList<>(request.getImportsCount());
+    for (org.openmbee.opensysml.proto.DataImport dataImport : request.getImportsList()) {
+      imports.add(
+          new DataImport(
+              dataImport.getName(),
+              dataImport.getContent(),
+              Optional.of(dataImport.getImportFormat()).filter(Predicate.not(String::isEmpty)),
+              Optional.of(dataImport.getImportMap()).filter(Predicate.not(String::isEmpty))));
+    }
+    try {
+      return model
+          .importData(imports, request.getImportDryRun(), request.getAcceptDocuments())
+          .wire();
+    } catch (ModelException e) {
+      return ImportDataResponse.newBuilder()
+          .setError(e.getMessage())
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
+    }
+  }
+
+  private CompareResultsResponse compareResults(CompareResultsRequest request) {
+    Model model = connection.model(request.getModelHash());
+    List<CompareOptions.ObservablePair> observe = new ArrayList<>(request.getObserveCount());
+    for (ObservablePair pair : request.getObserveList()) {
+      observe.add(new CompareOptions.ObservablePair(pair.getStored(), pair.getFeature()));
+    }
+    CompareOptions options =
+        new CompareOptions(
+            request.getActionsList(),
+            request.getRuns(),
+            request.hasSeed() ? OptionalLong.of(request.getSeed()) : OptionalLong.empty(),
+            Optional.of(request.getDraws()).filter(Predicate.not(String::isEmpty)),
+            request.hasClockStep()
+                ? OptionalDouble.of(request.getClockStep())
+                : OptionalDouble.empty(),
+            observe,
+            Optional.of(request.getEngine()).filter(Predicate.not(String::isEmpty)));
+    return model.compareResults(request.getResults(), options).wire();
   }
 
   private QueryResponse query(QueryRequest request) {

@@ -3,9 +3,10 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::capabilities::{
-    upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT,
-    CAPABILITY_CONVERT_DOCUMENTS, CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES,
-    CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES,
+    upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_COMPARE_RESULTS,
+    CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT, CAPABILITY_CONVERT_DOCUMENTS,
+    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES,
+    CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES, CAPABILITY_IMPORT_DATA,
     CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY,
     CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_RATIONAL_VALUES,
@@ -30,10 +31,11 @@ use crate::migration::{
 };
 use crate::query::{elements_of, Query, QueryElement};
 use crate::results::{
-    analysis_of, calc_of, diagnostics_of, exploration_of, satisfaction_of, single_verdict,
-    sweep_of, validation_of, value_map, ActionRun, AnalysisResult, CalcResult, EngineInfo,
-    Exploration, ExploredResponse, Satisfaction, StateRun, SweepRange, SweepTable, Validation,
-    Verdict, ENGINE_AUTO, ENGINE_EXPLORE, QUESTION_EVALUATE,
+    analysis_of, calc_of, comparison_of, diagnostics_of, exploration_of, import_result_of,
+    satisfaction_of, single_verdict, sweep_of, validation_of, value_map, ActionRun, AnalysisResult,
+    CalcResult, Comparison, EngineInfo, Exploration, ExploredResponse, ImportResult, Satisfaction,
+    StateRun, SweepRange, SweepTable, Validation, Verdict, ENGINE_AUTO, ENGINE_EXPLORE,
+    QUESTION_EVALUATE,
 };
 use crate::sources::{documents_to_wire, SourceDocument};
 use crate::wire;
@@ -1001,6 +1003,113 @@ impl Connection {
         };
         let response = self.gated_rpc("RunSweep", request, &with_values(capabilities))?;
         sweep_of(response, self.capabilities())
+    }
+}
+
+/// One data file of [`Connection::import_data`].
+#[derive(Clone, Debug, Default)]
+pub struct DataImport {
+    /// The file's name, which names its format by extension.
+    pub name: String,
+    /// The file's text, one row per element.
+    pub content: String,
+    /// Read the content as csv, tsv, json or jsonl rather than as the extension says.
+    pub format: Option<String>,
+    /// The JSON mapping onto elements and features the content is read by.
+    pub map: Option<String>,
+}
+
+/// Options of [`Connection::import_data`].
+#[derive(Clone, Debug, Default)]
+pub struct DataImportOptions {
+    /// Report the values the imports would set, changing nothing.
+    pub dry_run: bool,
+    /// Accept every edited document of a model of several.
+    pub accept_documents: bool,
+}
+
+/// Options of [`Connection::compare_results`]: which configurations, how many
+/// runs, how seeded and what to observe.
+#[derive(Clone, Debug, Default)]
+pub struct CompareOptions {
+    /// The configurations compared, by qualified or simple name; all when empty.
+    pub actions: Vec<String>,
+    /// Runs made of every configuration when positive; else its own numberOfRuns, or one.
+    pub runs: i64,
+    /// The seed the runs derive theirs from.
+    pub seed: Option<u64>,
+    /// The draw policy replacing every configuration's: random, min, max or average.
+    pub draws: Option<String>,
+    /// The clock step replacing every configuration's, in seconds; 0 is continuous.
+    pub clock_step: Option<f64>,
+    /// Stored observables compared, each with the feature of the run that answers it ("" for the default).
+    pub observe: Vec<(String, String)>,
+    /// The engine selection.
+    pub engine: Option<String>,
+}
+
+impl Connection {
+    /// Sets the feature values data files assign, one edit of the model per
+    /// file, as `sysml -import` does.
+    pub fn import_data(
+        &self,
+        model_hash: &str,
+        imports: &[DataImport],
+        options: &DataImportOptions,
+    ) -> Result<ImportResult, Error> {
+        let capabilities = vec![CAPABILITY_IMPORT_DATA];
+        self.require_all(&capabilities)?;
+        let request = wire::ImportDataRequest {
+            model_hash: model_hash.to_owned(),
+            imports: imports
+                .iter()
+                .map(|i| wire::DataImport {
+                    name: i.name.clone(),
+                    content: i.content.clone(),
+                    import_format: i.format.clone().unwrap_or_default(),
+                    import_map: i.map.clone().unwrap_or_default(),
+                })
+                .collect(),
+            import_as: String::new(),
+            import_dry_run: options.dry_run,
+            accept_documents: options.accept_documents,
+        };
+        let response = self.gated_rpc("ImportData", request, &capabilities)?;
+        import_result_of(response)
+    }
+
+    /// Runs the configurations a SysML v1 tool's results sidecar indexes
+    /// against the model and tables the tool's distributions beside the runs',
+    /// as `sysml -compare-results` does.
+    pub fn compare_results(
+        &self,
+        model_hash: &str,
+        results: &str,
+        options: &CompareOptions,
+    ) -> Result<Comparison, Error> {
+        let mut capabilities = vec![CAPABILITY_COMPARE_RESULTS];
+        capabilities.extend(engine_capabilities(options.engine.as_deref()));
+        self.require_all(&capabilities)?;
+        let request = wire::CompareResultsRequest {
+            model_hash: model_hash.to_owned(),
+            results: results.to_owned(),
+            actions: options.actions.clone(),
+            runs: options.runs,
+            seed: options.seed,
+            draws: options.draws.clone().unwrap_or_default(),
+            clock_step: options.clock_step,
+            observe: options
+                .observe
+                .iter()
+                .map(|(stored, feature)| wire::ObservablePair {
+                    stored: stored.clone(),
+                    feature: feature.clone(),
+                })
+                .collect(),
+            engine: engine_field(options.engine.as_deref()),
+        };
+        let response = self.gated_rpc("CompareResults", request, &capabilities)?;
+        comparison_of(response, self.capabilities())
     }
 }
 

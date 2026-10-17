@@ -99,6 +99,11 @@ const (
 	// SysMLServiceExportGraphsProcedure is the fully-qualified name of the SysMLService's ExportGraphs
 	// RPC.
 	SysMLServiceExportGraphsProcedure = "/sysml.SysMLService/ExportGraphs"
+	// SysMLServiceImportDataProcedure is the fully-qualified name of the SysMLService's ImportData RPC.
+	SysMLServiceImportDataProcedure = "/sysml.SysMLService/ImportData"
+	// SysMLServiceCompareResultsProcedure is the fully-qualified name of the SysMLService's
+	// CompareResults RPC.
+	SysMLServiceCompareResultsProcedure = "/sysml.SysMLService/CompareResults"
 )
 
 // SysMLServiceClient is a client for the sysml.SysMLService service.
@@ -189,6 +194,16 @@ type SysMLServiceClient interface {
 	// and every behavior it performs — as the canonical `graphs:<version>` JSON
 	// external analysis engines read. Reported as the "export_graphs" capability.
 	ExportGraphs(context.Context, *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error)
+	// Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row
+	// per element, as `sysml -import` does: a feature the element declares has its
+	// value set, one it inherits is redefined with the value; a dry run reports the
+	// values without changing the model. Reported as the "import_data" capability.
+	ImportData(context.Context, *connect.Request[proto.ImportDataRequest]) (*connect.Response[proto.ImportDataResponse], error)
+	// Run every configuration a SysML v1 tool's results sidecar indexes, as
+	// `sysml -compare-results` does, and table the tool's and OpenSysML's min,
+	// mean, p50, p90 and max of each observable with their relative difference.
+	// Reported as the "compare_results" capability.
+	CompareResults(context.Context, *connect.Request[proto.CompareResultsRequest]) (*connect.Response[proto.CompareResultsResponse], error)
 }
 
 // NewSysMLServiceClient constructs a client for the sysml.SysMLService service. By default, it uses
@@ -352,6 +367,18 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("ExportGraphs")),
 			connect.WithClientOptions(opts...),
 		),
+		importData: connect.NewClient[proto.ImportDataRequest, proto.ImportDataResponse](
+			httpClient,
+			baseURL+SysMLServiceImportDataProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("ImportData")),
+			connect.WithClientOptions(opts...),
+		),
+		compareResults: connect.NewClient[proto.CompareResultsRequest, proto.CompareResultsResponse](
+			httpClient,
+			baseURL+SysMLServiceCompareResultsProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("CompareResults")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -382,6 +409,8 @@ type sysMLServiceClient struct {
 	renderDocument     *connect.Client[proto.RenderDocumentRequest, proto.RenderDocumentResponse]
 	renderView         *connect.Client[proto.RenderViewRequest, proto.RenderViewResponse]
 	exportGraphs       *connect.Client[proto.ExportGraphsRequest, proto.ExportGraphsResponse]
+	importData         *connect.Client[proto.ImportDataRequest, proto.ImportDataResponse]
+	compareResults     *connect.Client[proto.CompareResultsRequest, proto.CompareResultsResponse]
 }
 
 // GetServerInfo calls sysml.SysMLService.GetServerInfo.
@@ -509,6 +538,16 @@ func (c *sysMLServiceClient) ExportGraphs(ctx context.Context, req *connect.Requ
 	return c.exportGraphs.CallUnary(ctx, req)
 }
 
+// ImportData calls sysml.SysMLService.ImportData.
+func (c *sysMLServiceClient) ImportData(ctx context.Context, req *connect.Request[proto.ImportDataRequest]) (*connect.Response[proto.ImportDataResponse], error) {
+	return c.importData.CallUnary(ctx, req)
+}
+
+// CompareResults calls sysml.SysMLService.CompareResults.
+func (c *sysMLServiceClient) CompareResults(ctx context.Context, req *connect.Request[proto.CompareResultsRequest]) (*connect.Response[proto.CompareResultsResponse], error) {
+	return c.compareResults.CallUnary(ctx, req)
+}
+
 // SysMLServiceHandler is an implementation of the sysml.SysMLService service.
 type SysMLServiceHandler interface {
 	// Report what this build of the service can do, so a client can require a
@@ -597,6 +636,16 @@ type SysMLServiceHandler interface {
 	// and every behavior it performs — as the canonical `graphs:<version>` JSON
 	// external analysis engines read. Reported as the "export_graphs" capability.
 	ExportGraphs(context.Context, *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error)
+	// Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row
+	// per element, as `sysml -import` does: a feature the element declares has its
+	// value set, one it inherits is redefined with the value; a dry run reports the
+	// values without changing the model. Reported as the "import_data" capability.
+	ImportData(context.Context, *connect.Request[proto.ImportDataRequest]) (*connect.Response[proto.ImportDataResponse], error)
+	// Run every configuration a SysML v1 tool's results sidecar indexes, as
+	// `sysml -compare-results` does, and table the tool's and OpenSysML's min,
+	// mean, p50, p90 and max of each observable with their relative difference.
+	// Reported as the "compare_results" capability.
+	CompareResults(context.Context, *connect.Request[proto.CompareResultsRequest]) (*connect.Response[proto.CompareResultsResponse], error)
 }
 
 // NewSysMLServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -756,6 +805,18 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sysMLServiceMethods.ByName("ExportGraphs")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sysMLServiceImportDataHandler := connect.NewUnaryHandler(
+		SysMLServiceImportDataProcedure,
+		svc.ImportData,
+		connect.WithSchema(sysMLServiceMethods.ByName("ImportData")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sysMLServiceCompareResultsHandler := connect.NewUnaryHandler(
+		SysMLServiceCompareResultsProcedure,
+		svc.CompareResults,
+		connect.WithSchema(sysMLServiceMethods.ByName("CompareResults")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/sysml.SysMLService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SysMLServiceGetServerInfoProcedure:
@@ -808,6 +869,10 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceRenderViewHandler.ServeHTTP(w, r)
 		case SysMLServiceExportGraphsProcedure:
 			sysMLServiceExportGraphsHandler.ServeHTTP(w, r)
+		case SysMLServiceImportDataProcedure:
+			sysMLServiceImportDataHandler.ServeHTTP(w, r)
+		case SysMLServiceCompareResultsProcedure:
+			sysMLServiceCompareResultsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -915,4 +980,12 @@ func (UnimplementedSysMLServiceHandler) RenderView(context.Context, *connect.Req
 
 func (UnimplementedSysMLServiceHandler) ExportGraphs(context.Context, *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.ExportGraphs is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) ImportData(context.Context, *connect.Request[proto.ImportDataRequest]) (*connect.Response[proto.ImportDataResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.ImportData is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) CompareResults(context.Context, *connect.Request[proto.CompareResultsRequest]) (*connect.Response[proto.CompareResultsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.CompareResults is not implemented"))
 }

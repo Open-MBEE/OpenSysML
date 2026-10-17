@@ -70,6 +70,7 @@ The Java client covers the whole service surface, as typed immutable results:
   delete and move);
 - `Query` and OSLC query, and the native document calls (`runDocumentQuery`, `renderDocument`).
 - `ExportGraphs`, the lowered graph of an action or state machine as `graphs:1` JSON (`exportGraphs`).
+- `ImportData`, the feature values tabular or JSON data assigns, every assignment made and the edited model (`importData`); `CompareResults`, a SysML v1 tool's results index run again with the tool's distributions tabled beside the runs' (`compareResults`).
 
 It leaves out only the generated model-ergonomics types; [the Java
 API](java-api.md#what-the-client-does-not-do) says why.
