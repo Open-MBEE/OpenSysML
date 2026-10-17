@@ -63,6 +63,7 @@ func formatParameterValue(args []runtime.Value) (runtime.Value, error) {
 	default:
 		return runtime.Value{}, fmt.Errorf("formatParameterValue input is a %s, not a Boolean", valueKind(input))
 	}
+	value = heldValue(value)
 	text := "??"
 	if value.Kind == runtime.ValString {
 		text = value.Str()
@@ -70,6 +71,16 @@ func formatParameterValue(args []runtime.Value) (runtime.Value, error) {
 		text = s
 	}
 	return runtime.NewStringValue(prefix + text + "]"), nil
+}
+
+// heldValue is the one value a parameter holds: a one-element sequence is its element.
+func heldValue(v runtime.Value) runtime.Value {
+	if seq := v.Sequence(); seq != nil && seq.Size() == 1 {
+		if e, err := seq.At(0); err == nil {
+			return e
+		}
+	}
+	return v
 }
 
 // primitiveText spells a Boolean, Integer or UnlimitedNatural as fUML ToString does.
