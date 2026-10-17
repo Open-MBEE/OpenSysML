@@ -26,12 +26,15 @@ type cachedValue struct {
 
 // Evaluator derives metamodel properties from a resolved semantic model.
 type Evaluator struct {
-	resolver *resolve.Resolver
-	model    *semantics.Model
-	options  Options
-	mu       sync.Mutex
-	cache    map[propertyKey]cachedValue
-	reasons  map[propertyKey]Reason
+	resolver                     *resolve.Resolver
+	model                        *semantics.Model
+	options                      Options
+	mu                           sync.Mutex
+	cache                        map[propertyKey]cachedValue
+	reasons                      map[propertyKey]Reason
+	structureQualifiedNames      map[ElementKey]structureQualifiedNameCacheEntry
+	structureQualifiedNameBases  map[ElementKey]structureQualifiedNameCacheEntry
+	qualifiedNameNamespaceCaches map[ElementKey]structureQualifiedNameNamespaceCache
 }
 
 // New creates an evaluator over the resolver and semantic model for one model.
@@ -41,11 +44,14 @@ func New(res *resolve.Resolver, model *semantics.Model, options ...Options) *Eva
 		opts = options[0]
 	}
 	return &Evaluator{
-		resolver: res,
-		model:    model,
-		options:  opts,
-		cache:    make(map[propertyKey]cachedValue),
-		reasons:  make(map[propertyKey]Reason),
+		resolver:                     res,
+		model:                        model,
+		options:                      opts,
+		cache:                        make(map[propertyKey]cachedValue),
+		reasons:                      make(map[propertyKey]Reason),
+		structureQualifiedNames:      make(map[ElementKey]structureQualifiedNameCacheEntry),
+		structureQualifiedNameBases:  make(map[ElementKey]structureQualifiedNameCacheEntry),
+		qualifiedNameNamespaceCaches: make(map[ElementKey]structureQualifiedNameNamespaceCache),
 	}
 }
 

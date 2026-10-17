@@ -21,9 +21,8 @@ type apiJSONGraphStructure struct {
 }
 
 type apiJSONEvaluation struct {
-	structure      *apiJSONGraphStructure
-	evaluator      *metamodel.Evaluator
-	qualifiedNames map[string]apiJSONQualifiedNameResult
+	structure *apiJSONGraphStructure
+	evaluator *metamodel.Evaluator
 }
 
 func newAPIJSONEvaluation(graph *rdf.Graph) *apiJSONEvaluation {

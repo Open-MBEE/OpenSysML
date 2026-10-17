@@ -2903,13 +2903,102 @@ func (e *Evaluator) structureAnnotationAnnotatingElement(annotation Element) (Va
 	return e.structureAnnotationOwningAnnotatingElement(annotation)
 }
 
+type structureQualifiedNameCacheEntry struct {
+	value   Value
+	handled bool
+	ok      bool
+}
+
+type structureQualifiedNameSiblingNames struct {
+	computed  bool
+	supported bool
+	first     map[string]ElementKey
+	reason    Reason
+}
+
+type structureQualifiedNameNamespaceCache struct {
+	ownedMembers     structureQualifiedNameSiblingNames
+	ownedMemberships structureQualifiedNameSiblingNames
+	ownerComputed    bool
+	ownerValue       Value
+	ownerHandled     bool
+	ownerOK          bool
+}
+
 func (e *Evaluator) structureQualifiedName(element Element, seen map[ElementKey]bool) (Value, bool, bool) {
-	if structure, ok := e.options.Structure.(QualifiedNameStructure); ok {
-		if qualifiedName, known := structure.QualifiedName(element); known {
-			return stringValue(qualifiedName), true, true
+	key := element.Key()
+	e.mu.Lock()
+	cached, known := e.structureQualifiedNames[key]
+	e.mu.Unlock()
+	if known {
+		return cloneValue(cached.value), cached.handled, cached.ok
+	}
+	value, handled, ok := e.deriveStructureQualifiedName(element, seen)
+	if !handled {
+		return value, false, ok
+	}
+	e.mu.Lock()
+	if e.structureQualifiedNames == nil {
+		e.structureQualifiedNames = make(map[ElementKey]structureQualifiedNameCacheEntry)
+	}
+	if cached, known = e.structureQualifiedNames[key]; known {
+		value, handled, ok = cloneValue(cached.value), cached.handled, cached.ok
+	} else {
+		e.structureQualifiedNames[key] = structureQualifiedNameCacheEntry{
+			value: cloneValue(value), handled: handled, ok: ok,
 		}
 	}
+	e.mu.Unlock()
+	return value, handled, ok
+}
+
+func (e *Evaluator) deriveStructureQualifiedName(element Element, seen map[ElementKey]bool) (Value, bool, bool) {
+	if structure, available := e.options.Structure.(EffectiveNameStructure); available {
+		if effectiveName, known := structure.EffectiveName(element); known && effectiveName != "" {
+			if ownerName, found := e.structureQualifiedNameEffectiveOwner(element, seen); found {
+				return stringValue(ownerName + "::" + identity.EscapeName(effectiveName)), true, true
+			}
+		}
+	}
+	return e.structureQualifiedNameBase(element, seen)
+}
+
+func (e *Evaluator) structureQualifiedNameEffectiveOwner(
+	element Element,
+	seen map[ElementKey]bool,
+) (string, bool) {
+	owner, handled, ok := e.structureOwner(element)
+	if !handled || !ok {
+		return "", false
+	}
+	seenOwners := make(map[ElementKey]bool)
+	for owner.Kind == ElementValue {
+		current := owner.Element
+		key := current.Key()
+		if seenOwners[key] {
+			return "", false
+		}
+		seenOwners[key] = true
+		qualifiedName, handled, ok := e.structureQualifiedNameBase(current, seen)
+		if handled && ok && qualifiedName.Kind == StringValue && qualifiedName.String != "" {
+			return qualifiedName.String, true
+		}
+		owner, handled, ok = e.structureOwner(current)
+		if !handled || !ok {
+			return "", false
+		}
+	}
+	return "", false
+}
+
+func (e *Evaluator) structureQualifiedNameBase(element Element, seen map[ElementKey]bool) (Value, bool, bool) {
 	key := element.Key()
+	e.mu.Lock()
+	cached, known := e.structureQualifiedNameBases[key]
+	e.mu.Unlock()
+	if known {
+		return cloneValue(cached.value), cached.handled, cached.ok
+	}
 	if seen[key] {
 		e.recordUnsupportedReason(element, "Element", "qualifiedName", Reason{
 			Category: ReasonIncompleteStructure,
@@ -2918,7 +3007,32 @@ func (e *Evaluator) structureQualifiedName(element Element, seen map[ElementKey]
 		return Value{}, true, false
 	}
 	seen[key] = true
-	defer delete(seen, key)
+	value, handled, ok := e.deriveStructureQualifiedNameBase(element, seen)
+	delete(seen, key)
+	if !handled {
+		return value, false, ok
+	}
+	e.mu.Lock()
+	if e.structureQualifiedNameBases == nil {
+		e.structureQualifiedNameBases = make(map[ElementKey]structureQualifiedNameCacheEntry)
+	}
+	if cached, known = e.structureQualifiedNameBases[key]; known {
+		value, handled, ok = cloneValue(cached.value), cached.handled, cached.ok
+	} else {
+		e.structureQualifiedNameBases[key] = structureQualifiedNameCacheEntry{
+			value: cloneValue(value), handled: handled, ok: ok,
+		}
+	}
+	e.mu.Unlock()
+	return value, handled, ok
+}
+
+func (e *Evaluator) deriveStructureQualifiedNameBase(element Element, seen map[ElementKey]bool) (Value, bool, bool) {
+	if structure, ok := e.options.Structure.(QualifiedNameStructure); ok {
+		if qualifiedName, known := structure.QualifiedName(element); known {
+			return stringValue(qualifiedName), true, true
+		}
+	}
 	var name Value
 	handled, ok := false, false
 	if structure, available := e.options.Structure.(EffectiveNameStructure); available {
@@ -2992,98 +3106,12 @@ func (e *Evaluator) structureQualifiedName(element Element, seen map[ElementKey]
 	escapedName := nullValue()
 	if name.Kind == StringValue {
 		escapedName = stringValue(identity.EscapeName(name.String))
-		var members []Element
-		membersProperty := "Namespace::ownedMember"
-		if element.IsMembership {
-			ownedMemberships, handled, ok := e.structureOwnedFilter(namespace.Element, "Membership", true)
-			if !handled || !ok || ownedMemberships.Kind != SequenceValue {
-				e.recordUnsupportedReason(element, "Element", "qualifiedName", Reason{
-					Category:   ReasonDependsOnUnsupported,
-					Dependency: "Namespace::ownedMembership",
-				})
-				return Value{}, true, false
-			}
-			membersProperty = "Namespace::ownedMembership"
-			members = make([]Element, 0, len(ownedMemberships.Values))
-			for _, membership := range ownedMemberships.Values {
-				if membership.Kind != MembershipValue {
-					e.recordUnsupportedReason(element, "Element", "qualifiedName", Reason{
-						Category: ReasonUnrepresentedElement,
-						Detail:   "Namespace::ownedMembership contains a non-membership",
-					})
-					return Value{}, true, false
-				}
-				members = append(members, MembershipElement(membership.Membership))
-			}
-		} else {
-			ownedMembers, handled, ok := e.structureOwnedMembers(namespace.Element)
-			if !handled || !ok || ownedMembers.Kind != SequenceValue {
-				e.recordUnsupportedReason(element, "Element", "qualifiedName", Reason{
-					Category:   ReasonDependsOnUnsupported,
-					Dependency: "Namespace::ownedMember",
-				})
-				return Value{}, true, false
-			}
-			members = make([]Element, 0, len(ownedMembers.Values))
-			for _, member := range ownedMembers.Values {
-				if member.Kind != ElementValue {
-					e.recordUnsupportedReason(element, "Element", "qualifiedName", Reason{
-						Category: ReasonUnrepresentedElement,
-						Detail:   "Namespace::ownedMember contains a non-element",
-					})
-					return Value{}, true, false
-				}
-				members = append(members, member.Element)
-			}
+		firstNames, reason, supported := e.structureQualifiedNameFirstNames(namespace.Element, element.IsMembership)
+		if !supported {
+			e.recordUnsupportedReason(element, "Element", "qualifiedName", reason)
+			return Value{}, true, false
 		}
-		position := 0
-		matchingPosition := 0
-		for _, member := range members {
-			memberName, handled, ok := e.structureName(member, "name")
-			if !handled || !ok {
-				label := e.structureIdentityLabel(member)
-				if metaclass, known := e.options.Structure.Metaclass(member); known {
-					label = metaclass + " " + label
-				}
-				if label == "" && member.Symbol != nil {
-					label = member.Symbol.Name
-				}
-				if label == "" {
-					label = member.Aspect
-				}
-				if label == "" {
-					label = "unnamed member"
-				}
-				e.recordUnsupportedReason(
-					element, "Element", "qualifiedName",
-					Reason{
-						Category:   ReasonDependsOnUnsupported,
-						Dependency: "Element::name",
-						Detail:     membersProperty + " for " + label,
-					},
-				)
-				return Value{}, true, false
-			}
-			if memberName.Kind == NullValue {
-				continue
-			}
-			if memberName.Kind != StringValue {
-				e.recordUnsupportedReason(element, "Element", "qualifiedName", Reason{
-					Category: ReasonUnrepresentedElement,
-					Detail:   membersProperty + " Element::name has an unsupported value",
-				})
-				return Value{}, true, false
-			}
-			if memberName.String != name.String {
-				continue
-			}
-			position++
-			if matchingPosition == 0 &&
-				sameStructureElement(member, element, e.options.Structure) {
-				matchingPosition = position
-			}
-		}
-		if matchingPosition != 1 {
+		if firstNames[name.String] != structureElementKey(element, e.options.Structure) {
 			return nullValue(), true, true
 		}
 	}
@@ -3107,7 +3135,7 @@ func (e *Evaluator) structureQualifiedName(element Element, seen map[ElementKey]
 			escapedName = stringValue(identity.EscapeName(shortName.String))
 		}
 	}
-	namespaceOwner, handled, ok := e.structureOwner(namespace.Element)
+	namespaceOwner, handled, ok := e.structureQualifiedNameNamespaceOwner(namespace.Element)
 	if !handled || !ok {
 		e.recordUnsupportedReason(element, "Element", "qualifiedName", Reason{
 			Category:   ReasonDependsOnUnsupported,
@@ -3122,7 +3150,7 @@ func (e *Evaluator) structureQualifiedName(element Element, seen map[ElementKey]
 	if escapedName.Kind == NullValue {
 		return nullValue(), true, true
 	}
-	parent, handled, ok := e.structureQualifiedName(namespace.Element, seen)
+	parent, handled, ok := e.structureQualifiedNameBase(namespace.Element, seen)
 	if !handled || !ok {
 		e.recordUnsupportedReason(element, "Element", "qualifiedName", Reason{
 			Category:   ReasonDependsOnUnsupported,
@@ -3134,6 +3162,164 @@ func (e *Evaluator) structureQualifiedName(element Element, seen map[ElementKey]
 		return nullValue(), true, true
 	}
 	return stringValue(parent.String + "::" + escapedName.String), true, true
+}
+
+func (e *Evaluator) structureQualifiedNameNamespaceOwner(namespace Element) (Value, bool, bool) {
+	key := namespace.Key()
+	e.mu.Lock()
+	cached := e.qualifiedNameNamespaceCaches[key]
+	e.mu.Unlock()
+	if cached.ownerComputed {
+		return cloneValue(cached.ownerValue), cached.ownerHandled, cached.ownerOK
+	}
+	value, handled, ok := e.structureOwner(namespace)
+	e.mu.Lock()
+	if e.qualifiedNameNamespaceCaches == nil {
+		e.qualifiedNameNamespaceCaches = make(map[ElementKey]structureQualifiedNameNamespaceCache)
+	}
+	cached = e.qualifiedNameNamespaceCaches[key]
+	if !cached.ownerComputed {
+		cached.ownerComputed = true
+		cached.ownerValue = cloneValue(value)
+		cached.ownerHandled = handled
+		cached.ownerOK = ok
+		e.qualifiedNameNamespaceCaches[key] = cached
+	} else {
+		value, handled, ok = cloneValue(cached.ownerValue), cached.ownerHandled, cached.ownerOK
+	}
+	e.mu.Unlock()
+	return value, handled, ok
+}
+
+func (e *Evaluator) structureQualifiedNameFirstNames(
+	namespace Element,
+	memberships bool,
+) (map[string]ElementKey, Reason, bool) {
+	key := namespace.Key()
+	e.mu.Lock()
+	namespaceCache := e.qualifiedNameNamespaceCaches[key]
+	cached := namespaceCache.ownedMembers
+	if memberships {
+		cached = namespaceCache.ownedMemberships
+	}
+	e.mu.Unlock()
+	if cached.computed {
+		return cached.first, cached.reason, cached.supported
+	}
+
+	computed := e.deriveStructureQualifiedNameFirstNames(namespace, memberships)
+	e.mu.Lock()
+	if e.qualifiedNameNamespaceCaches == nil {
+		e.qualifiedNameNamespaceCaches = make(map[ElementKey]structureQualifiedNameNamespaceCache)
+	}
+	namespaceCache = e.qualifiedNameNamespaceCaches[key]
+	cached = namespaceCache.ownedMembers
+	if memberships {
+		cached = namespaceCache.ownedMemberships
+	}
+	if !cached.computed {
+		cached = computed
+		if memberships {
+			namespaceCache.ownedMemberships = cached
+		} else {
+			namespaceCache.ownedMembers = cached
+		}
+		e.qualifiedNameNamespaceCaches[key] = namespaceCache
+	}
+	e.mu.Unlock()
+	return cached.first, cached.reason, cached.supported
+}
+
+func (e *Evaluator) deriveStructureQualifiedNameFirstNames(
+	namespace Element,
+	memberships bool,
+) structureQualifiedNameSiblingNames {
+	result := structureQualifiedNameSiblingNames{computed: true}
+	membersProperty := "Namespace::ownedMember"
+	var members []Element
+	if memberships {
+		membersProperty = "Namespace::ownedMembership"
+		ownedMemberships, handled, ok := e.structureOwnedFilter(namespace, "Membership", true)
+		if !handled || !ok || ownedMemberships.Kind != SequenceValue {
+			result.reason = Reason{
+				Category:   ReasonDependsOnUnsupported,
+				Dependency: "Namespace::ownedMembership",
+			}
+			return result
+		}
+		members = make([]Element, 0, len(ownedMemberships.Values))
+		for _, membership := range ownedMemberships.Values {
+			if membership.Kind != MembershipValue {
+				result.reason = Reason{
+					Category: ReasonUnrepresentedElement,
+					Detail:   "Namespace::ownedMembership contains a non-membership",
+				}
+				return result
+			}
+			members = append(members, MembershipElement(membership.Membership))
+		}
+	} else {
+		ownedMembers, handled, ok := e.structureOwnedMembers(namespace)
+		if !handled || !ok || ownedMembers.Kind != SequenceValue {
+			result.reason = Reason{
+				Category:   ReasonDependsOnUnsupported,
+				Dependency: "Namespace::ownedMember",
+			}
+			return result
+		}
+		members = make([]Element, 0, len(ownedMembers.Values))
+		for _, member := range ownedMembers.Values {
+			if member.Kind != ElementValue {
+				result.reason = Reason{
+					Category: ReasonUnrepresentedElement,
+					Detail:   "Namespace::ownedMember contains a non-element",
+				}
+				return result
+			}
+			members = append(members, member.Element)
+		}
+	}
+	result.first = make(map[string]ElementKey)
+	for _, member := range members {
+		memberName, handled, ok := e.structureName(member, "name")
+		if !handled || !ok {
+			label := e.structureIdentityLabel(member)
+			if metaclass, known := e.options.Structure.Metaclass(member); known {
+				label = metaclass + " " + label
+			}
+			if label == "" && member.Symbol != nil {
+				label = member.Symbol.Name
+			}
+			if label == "" {
+				label = member.Aspect
+			}
+			if label == "" {
+				label = "unnamed member"
+			}
+			result.reason = Reason{
+				Category:   ReasonDependsOnUnsupported,
+				Dependency: "Element::name",
+				Detail:     membersProperty + " for " + label,
+			}
+			return result
+		}
+		switch memberName.Kind {
+		case NullValue:
+			continue
+		case StringValue:
+			if _, exists := result.first[memberName.String]; !exists {
+				result.first[memberName.String] = structureElementKey(member, e.options.Structure)
+			}
+		default:
+			result.reason = Reason{
+				Category: ReasonUnrepresentedElement,
+				Detail:   membersProperty + " Element::name has an unsupported value",
+			}
+			return result
+		}
+	}
+	result.supported = true
+	return result
 }
 
 func (e *Evaluator) structureOwnerElement(element Element) (Element, bool, bool) {
