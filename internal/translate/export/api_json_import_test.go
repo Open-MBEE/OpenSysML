@@ -2,8 +2,12 @@ package export
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -18,13 +22,33 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
+// interchangeFixture reads a committed interchange export by the name of its contents; the
+// largest are committed gzip-compressed as name + ".gz" and decompressed here.
 func interchangeFixture(t *testing.T, name string) []byte {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "tests", "export", "testdata", "interchange", name))
+	path := filepath.Join("..", "..", "..", "tests", "export", "testdata", "interchange", name)
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		data, err = readGzip(path + ".gz")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	return data
+}
+
+func readGzip(path string) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	reader, err := gzip.NewReader(file)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	return io.ReadAll(reader)
 }
 
 func decodeAPIJSON(t *testing.T, data []byte) []byte {
