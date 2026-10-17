@@ -12,6 +12,16 @@ export interface ModuleUrls {
   worker: string;
 }
 
+/** Resolves the page's `data-osml-*` asset URLs against `base`; the worker entry sits beside the landing script. */
+export function moduleUrls(dataset: { osmlWasm?: string; osmlWasmExec?: string; osmlScript?: string }, base: string): ModuleUrls {
+  const script = new URL(dataset.osmlScript ?? "", base);
+  return {
+    wasm: new URL(dataset.osmlWasm ?? "", base).href,
+    wasmExec: new URL(dataset.osmlWasmExec ?? "", base).href,
+    worker: new URL("wasm-worker.js", script).href,
+  };
+}
+
 /** A `.wasm.gz` asset is inflated here; a plain `.wasm` (a CDN compresses it in transit) is used as the browser hands it over. */
 export async function fetchModule(url: string): Promise<ArrayBuffer> {
   const gzipped = /\.gz(?:[?#]|$)/.test(url);

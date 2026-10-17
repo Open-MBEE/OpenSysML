@@ -18,7 +18,7 @@ import {
   type PlacedPort,
 } from "../webview/layout";
 import { renderedViewFromJson, type Connection } from "@openmbee/opensysml/browser";
-import { connectModule } from "./connect";
+import { connectModule, moduleUrls } from "./connect";
 import {
   blocks,
   debugSteps,
@@ -471,11 +471,7 @@ function mount(root: HTMLElement, scene: Scene): Mounted {
 
   // engine connects to the sysml-wasm module once; a scene's own calls share the connection.
   function engine(): Promise<Connection> {
-    enginePromise ??= connectModule({
-      wasm: root.dataset.osmlWasm ?? "",
-      wasmExec: root.dataset.osmlWasmExec ?? "",
-      worker: new URL("wasm-worker.js", root.dataset.osmlScript ?? document.baseURI).href,
-    }).catch((error: unknown) => {
+    enginePromise ??= connectModule(moduleUrls(root.dataset, document.baseURI)).catch((error: unknown) => {
       enginePromise = undefined;
       throw error;
     });
