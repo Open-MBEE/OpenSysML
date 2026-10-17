@@ -124,7 +124,7 @@ func testExitParametersNotTakenNeedsOne(t *testing.T) {
 	if exited := exec.stateData["exited"]; exited.Const.Int != 8 {
 		t.Errorf("exited = %v after Halt, want 8 from halt.h", exited)
 	}
-	exec.SendSignal("Pass", nil)
+	exec.sendSignal("Pass", nil)
 	err := exec.RunToCompletion()
 	if !errors.Is(err, ErrMultiplicityViolation) {
 		t.Errorf("exit reading a transition not taken = %v; want ErrMultiplicityViolation", err)
@@ -138,7 +138,7 @@ func testExitParametersNotTakenNeedsOne(t *testing.T) {
 // trigger's payload, so the transition is refused before the exit is performed.
 func testExitParametersPayloadAbsent(t *testing.T) {
 	exec := exitParametersMachine(t, exitParametersModel)
-	exec.SendSignal("Go", nil)
+	exec.sendSignal("Go", nil)
 	err := exec.RunToCompletion()
 	if !errors.Is(err, ErrNoValue) {
 		t.Errorf("Go without a payload = %v; want ErrNoValue", err)
@@ -153,7 +153,7 @@ func testExitParametersPayloadAbsent(t *testing.T) {
 // both fires it and the exit reads `speed`.
 func testExitParametersCallArity(t *testing.T) {
 	exec := exitParametersMachine(t, exitParametersCallModel)
-	exec.InvokeOperation("setSpeed", map[string]Value{"speed": constInt(5)})
+	exec.invokeOperation("setSpeed", map[string]Value{"speed": constInt(5)})
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func testExitParametersCallArity(t *testing.T) {
 	if exited := exec.stateData["exited"]; exited.Const.Int != -1 {
 		t.Errorf("exited = %v after the partial call, want the exit not performed", exited)
 	}
-	exec.InvokeOperation("setSpeed", map[string]Value{"speed": constInt(5), "gear": constInt(2)})
+	exec.invokeOperation("setSpeed", map[string]Value{"speed": constInt(5), "gear": constInt(2)})
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatal(err)
 	}

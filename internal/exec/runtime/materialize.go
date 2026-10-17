@@ -95,7 +95,7 @@ func (w *materializeWalk) walk(inst *Instance, depth int) {
 		if err != nil {
 			// A feature valued by bindings that link one unspecified value of it holds
 			// something the model leaves open, as an unset attribute does: not a finding.
-			var undetermined *UndeterminedBindingError
+			var undetermined *undeterminedBindingError
 			if !errors.As(err, &undetermined) {
 				w.errs = append(w.errs, err)
 			}

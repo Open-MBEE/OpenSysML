@@ -36,7 +36,7 @@ func (ctx *Context) InvokePredicate(sym *symbols.Symbol, args []Value, scope *sy
 		}
 		return false, fmt.Errorf("%s is not a predicate", name)
 	}
-	result, err := NewEvalContext(ctx, scope).invokePredicate(sym, calcArgs{positional: args})
+	result, err := newEvalContext(ctx, scope).invokePredicate(sym, calcArgs{positional: args})
 	if err != nil {
 		return false, err
 	}
@@ -135,11 +135,11 @@ func (ec *EvalContext) invokePredicateDirect(sym *symbols.Symbol, args calcArgs)
 		activation: activation,
 	}
 	if binder.trace != nil {
-		binder.trace.RecordCalculationEnter(shape.Kind, shape.Name)
+		binder.trace.recordCalculationEnter(shape.Kind, shape.Name)
 	}
 	if err := ctx.bindCalcParameters(shape, binder, args, ec.scope, env, nil, nil); err != nil {
 		if binder.trace != nil {
-			binder.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
+			binder.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		}
 		return Value{}, err
 	}
@@ -158,9 +158,9 @@ func (ec *EvalContext) invokePredicateDirect(sym *symbols.Symbol, args calcArgs)
 	}
 	if binder.trace != nil {
 		if err != nil {
-			binder.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
+			binder.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		} else {
-			binder.trace.RecordCalculationExit(shape.Kind, shape.Name, boolValue(holds))
+			binder.trace.recordCalculationExit(shape.Kind, shape.Name, boolValue(holds))
 		}
 	}
 	if err != nil {

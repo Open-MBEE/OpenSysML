@@ -95,10 +95,10 @@ func (e *StateExecutor) validateBehaviorMultiplicity(behavior lower.StateBehavio
 	if graph.HasStepMultiplicity(behavior.Node, e.ctx.Semantics()) {
 		count, err := graph.StepCount(behavior.Node, e.ctx.Semantics())
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+			return fmt.Errorf("%w: %w", errActionStepMultiplicity, err)
 		}
 		if count != 1 {
-			return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(
+			return fmt.Errorf("%w: %w", errActionStepMultiplicity, graph.StepError(
 				behavior.Node, e.ctx.Semantics(), lower.StepMultiplicityUnsupportedCode,
 				"the state entry, do, and exit performances have multiplicity [1]", nil))
 		}
@@ -113,7 +113,7 @@ func (e *StateExecutor) endedBefore(ended []ast.Node, behavior lower.StateBehavi
 		return false
 	}
 	if tr := e.trace(); tr != nil {
-		tr.RecordActionTerminatePending(describeBehavior(behavior), false)
+		tr.recordActionTerminatePending(describeBehavior(behavior), false)
 	}
 	return true
 }
@@ -471,7 +471,7 @@ func (h *stateStmtHost) orderStep() int { return 0 }
 func (h *stateStmtHost) yieldsBetweenStatements() bool { return true }
 
 func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
-	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())
+	return fmt.Errorf("%w: %s", errReturnOutsideCalc, h.describe())
 }
 
 // effect performs the action a `perform` names, or ends the performance a
@@ -516,7 +516,7 @@ func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	}
 	if err := lower.FlowStartError(block.Graph); err != nil {
 		return flowNext, fmt.Errorf("%w: %s: no node starts the flow: %w",
-			ErrInvalidActionFlow, h.describe(), err)
+			errInvalidActionFlow, h.describe(), err)
 	}
 	if err := validateSubflows(block.Graph); err != nil {
 		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
@@ -554,7 +554,7 @@ func (h *stateStmtHost) setFeature(name string, value Value) error {
 	if written, err := h.assignAround(name, value); written || err != nil {
 		return err
 	}
-	return fmt.Errorf("%w: %s holds no %s", ErrBindingEnd, h.describe(), name)
+	return fmt.Errorf("%w: %s holds no %s", errBindingEnd, h.describe(), name)
 }
 
 // assignAround writes what a node's performance returns to the state's attribute,

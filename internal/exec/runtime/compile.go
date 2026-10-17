@@ -16,10 +16,10 @@ import (
 // to 0 (or false/off/no), leaving every calc to the reference evaluator.
 const CalcCompileEnvVar = "OPENSYSML_CALC_COMPILE"
 
-// CalcCompileFromEnv reports whether the environment leaves the compiled calc
+// calcCompileFromEnv reports whether the environment leaves the compiled calc
 // tier on, which it does unless CalcCompileEnvVar (or its legacy SYSML_ name)
 // switches it off.
-func CalcCompileFromEnv() bool {
+func calcCompileFromEnv() bool {
 	return calcCompileFromValue(envvar.Lookup(CalcCompileEnvVar))
 }
 

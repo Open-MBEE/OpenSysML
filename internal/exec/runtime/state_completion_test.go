@@ -27,7 +27,7 @@ func TestTransitionToDoneCompletesTheMachineAndRunsExitActions(t *testing.T) {
 		}
 	}`)
 
-	exec.SendSignal("stop", nil)
+	exec.sendSignal("stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestOrthogonalMachineCompletesOnlyWhenEveryRegionDoes(t *testing.T) {
 	}`
 
 	exec := stateExecutorForSource(t, "sm", src)
-	exec.SendSignal("first", nil)
+	exec.sendSignal("first", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestOrthogonalMachineCompletesOnlyWhenEveryRegionDoes(t *testing.T) {
 		t.Fatalf("the machine completed with one region still running")
 	}
 
-	exec.SendSignal("second", nil)
+	exec.sendSignal("second", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestNestedOrthogonalRegionsCompleteOnlyWhenEveryRegionDoes(t *testing.T) {
 		}
 	}`)
 
-	exec.SendSignal("first", nil)
+	exec.sendSignal("first", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestNestedOrthogonalRegionsCompleteOnlyWhenEveryRegionDoes(t *testing.T) {
 		t.Fatalf("the machine completed with one nested region still running")
 	}
 
-	exec.SendSignal("second", nil)
+	exec.sendSignal("second", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -162,19 +162,19 @@ func TestCompletedCompositeWithoutCompletionTransitionStaysActive(t *testing.T) 
 		}
 	}`)
 
-	exec.SendSignal("first", nil)
-	exec.SendSignal("second", nil)
+	exec.sendSignal("first", nil)
+	exec.sendSignal("second", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	if exec.State() == StateCompleted {
 		t.Fatalf("the machine completed although busy has no completion transition")
 	}
-	if got := exec.FinalStateName(); got != "done+done" {
+	if got := exec.finalStateName(); got != "done+done" {
 		t.Fatalf("active configuration = %q, want busy completed at done+done", got)
 	}
 
-	exec.SendSignal("reset", nil)
+	exec.sendSignal("reset", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -209,14 +209,14 @@ func TestCompositeCompletesOnceItsDoBehaviorAndItsBodyHaveBothEnded(t *testing.T
 
 	t.Run("body_done_before_the_do_behavior_ends", func(t *testing.T) {
 		exec := stateExecutorForSource(t, "sm", src)
-		exec.SendSignal("go", nil)
+		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("run: %v", err)
 		}
-		if got := exec.FinalStateName(); got != "done" {
+		if got := exec.finalStateName(); got != "done" {
 			t.Fatalf("configuration = %q after go, want s1 at done with its do behavior running", got)
 		}
-		exec.SendSignal("Finish", nil)
+		exec.sendSignal("Finish", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("run: %v", err)
 		}
@@ -228,14 +228,14 @@ func TestCompositeCompletesOnceItsDoBehaviorAndItsBodyHaveBothEnded(t *testing.T
 
 	t.Run("do_behavior_ends_before_the_body_is_done", func(t *testing.T) {
 		exec := stateExecutorForSource(t, "sm", src)
-		exec.SendSignal("Finish", nil)
+		exec.sendSignal("Finish", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("run: %v", err)
 		}
-		if got := exec.FinalStateName(); got != "wait" {
+		if got := exec.finalStateName(); got != "wait" {
 			t.Fatalf("configuration = %q after finish, want s1 still at wait", got)
 		}
-		exec.SendSignal("go", nil)
+		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("run: %v", err)
 		}
@@ -341,7 +341,7 @@ func TestCompletionReachedThroughAPseudostate(t *testing.T) {
 		}
 	}`)
 
-	exec.SendSignal("stop", nil)
+	exec.sendSignal("stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -363,7 +363,7 @@ func TestADeclaredDoneStateIsAnOrdinaryState(t *testing.T) {
 		}
 	}`)
 
-	exec.SendSignal("stop", nil)
+	exec.sendSignal("stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}

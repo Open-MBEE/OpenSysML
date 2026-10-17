@@ -160,13 +160,13 @@ func (ctx *Context) Snapshot() (*Snapshot, error) {
 	return ctx.snapshotWith(nil, nil)
 }
 
-// Snapshot captures the executor's state along with its context's (Context.Snapshot).
-func (e *ActionExecutor) Snapshot() (*Snapshot, error) {
+// snapshot captures the executor's state along with its context's (Context.Snapshot).
+func (e *ActionExecutor) snapshot() (*Snapshot, error) {
 	return e.ctx.snapshotWith([]*ActionExecutor{e}, nil)
 }
 
-// Snapshot captures the executor's state along with its context's (Context.Snapshot).
-func (e *StateExecutor) Snapshot() (*Snapshot, error) {
+// snapshot captures the executor's state along with its context's (Context.Snapshot).
+func (e *StateExecutor) snapshot() (*Snapshot, error) {
 	return e.ctx.snapshotWith(nil, []*StateExecutor{e})
 }
 
@@ -805,7 +805,7 @@ func cloneNested(nested map[ast.Node][]nestedDelivery) map[ast.Node][]nestedDeli
 type stateCapture struct {
 	exec               *StateExecutor
 	state              ExecutionState
-	activeConfig       *StateConfiguration
+	activeConfig       *stateConfiguration
 	nextEventID        int64
 	events             eventHeap
 	stateData          mapState[string, Value]
@@ -1003,11 +1003,11 @@ func cloneHeldEntries(entries []heldEntry) []heldEntry {
 	return cloned
 }
 
-func cloneConfiguration(config *StateConfiguration) *StateConfiguration {
+func cloneConfiguration(config *stateConfiguration) *stateConfiguration {
 	if config == nil {
 		return nil
 	}
-	return &StateConfiguration{
+	return &stateConfiguration{
 		simpleState:     config.simpleState,
 		regionStates:    maps.Clone(config.regionStates),
 		defaultComplete: maps.Clone(config.defaultComplete),

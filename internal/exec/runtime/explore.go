@@ -48,7 +48,7 @@ func wrapSetupError(err error) error {
 	var setup *SetupError
 	var binding inputBindingError
 	if errors.As(err, &setup) || errors.As(err, &binding) ||
-		errors.Is(err, ErrOccurrenceDestroyed) || errors.Is(err, ErrOccurrenceLifetime) {
+		errors.Is(err, errOccurrenceDestroyed) || errors.Is(err, errOccurrenceLifetime) {
 		return err
 	}
 	return &SetupError{Err: err}
@@ -78,8 +78,8 @@ type ChoiceTaken struct {
 	Drawn bool
 }
 
-// Weighted reports whether the model weights the alternatives.
-func (c ChoiceTaken) Weighted() bool { return len(c.Weights) == c.Alternatives && c.Alternatives > 0 }
+// weighted reports whether the model weights the alternatives.
+func (c ChoiceTaken) weighted() bool { return len(c.Weights) == c.Alternatives && c.Alternatives > 0 }
 
 // String renders the choice for a table or a failure message, as ParseChoice
 // reads it back: a name the line's own punctuation occurs in is quoted, and a
@@ -92,12 +92,12 @@ func (c ChoiceTaken) String() string {
 		return fmt.Sprintf("step %d: %s -> %s%s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
 	case ChoiceTransition:
 		return fmt.Sprintf("%s -> %s%s", choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
-	case ChoiceStatementOrder, ChoiceGuardOrder:
+	case choiceStatementOrder, choiceGuardOrder:
 		if c.Step > 0 {
 			return fmt.Sprintf("step %d: %s: %s first of %s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
 		}
 		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
-	case ChoiceRegionOrder, ChoiceDueOrder, ChoiceDispatchOrder, ChoiceEntryOrder, ChoiceExitOrder, ChoiceStepOrder, ChoiceEntryStep:
+	case ChoiceRegionOrder, ChoiceDueOrder, choiceDispatchOrder, choiceEntryOrder, choiceExitOrder, choiceStepOrder, choiceEntryStep:
 		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
 	}
 	return fmt.Sprintf("%s -> %s", c.Kind, choiceLabel(c.Took))
@@ -106,7 +106,7 @@ func (c ChoiceTaken) String() string {
 // weightedTail spells what a weighted choice carries past the branch taken —
 // ` among <alt> p=<w>, …` and ` drew <u>` when a draw selected it — "" for an unweighted one.
 func (c ChoiceTaken) weightedTail() string {
-	if !c.Weighted() || len(c.Among) != len(c.Weights) {
+	if !c.weighted() || len(c.Among) != len(c.Weights) {
 		return ""
 	}
 	tail := markAmong + weightedLabels(c.Among, c.Weights)
@@ -210,7 +210,7 @@ func (x *Exploration) Status() string {
 			limit := x.Budget.Runs
 			if budget == "depth" {
 				limit = x.Budget.Depth
-			} else if budget == BoundStatementOrders {
+			} else if budget == boundStatementOrders {
 				limit = maxStatementOrderEvaluations
 			}
 			named[i] = fmt.Sprintf("%s budget %d", budget, limit)
@@ -494,7 +494,7 @@ func (s exploreSlot) asChoice() ChoiceTaken {
 		if s.taken < len(s.choice.Alternatives) {
 			c.Took = s.choice.Alternatives[s.taken]
 		}
-		if s.choice.Weighted() {
+		if s.choice.weighted() {
 			c.Weights, c.Drew, c.Drawn = slices.Clone(s.choice.Weights), s.choice.Drew, s.choice.Drawn
 		}
 	}

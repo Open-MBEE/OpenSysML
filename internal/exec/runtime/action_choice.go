@@ -149,7 +149,7 @@ func (l *stepWriteLedger) noteChoices(e *performances) {
 			}
 		}
 		e.noteChoice(ChoicePoint{
-			Kind:         ChoiceWriteOrder,
+			Kind:         choiceWriteOrder,
 			Step:         l.step,
 			Alternatives: alts,
 			Taken:        taken,
@@ -389,7 +389,7 @@ func (e *ActionExecutor) labeledFootprints(labels []string, able []Token) []lowe
 
 // chooseBranch resolves which of the holding guarded successions of a decision
 // node, at their declared positions, the token takes: the position in holding, and
-// the choice point to note when there are at least two. Weighted successions are
+// the choice point to note when there are at least two. weighted successions are
 // drawn by their weights, read in ec where their guards are; a sole holding
 // succession is taken without a draw, its weight still read and checked.
 func (e *ActionExecutor) chooseBranch(ec *EvalContext, frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) (*ChoicePoint, int, error) {
@@ -438,12 +438,12 @@ func (e *ActionExecutor) branchWeights(ec *EvalContext, node *ast.DecisionNode, 
 		p := edge.Probability
 		val, err := ec.Eval(p.Expr)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %s: weight of %s: %v", ErrBranchWeights, DecisionPlace(node), branchName(successors, pos), err)
+			return nil, fmt.Errorf("%w: %s: weight of %s: %v", errBranchWeights, DecisionPlace(node), branchName(successors, pos), err)
 		}
 		val = soleElement(val)
 		if val.Kind != ValConst || !val.Const.IsNumeric() {
 			return nil, fmt.Errorf("%w: %s: weight of %s is %s, not a number",
-				ErrBranchWeights, DecisionPlace(node), branchName(successors, pos), describeValue(val))
+				errBranchWeights, DecisionPlace(node), branchName(successors, pos), describeValue(val))
 		}
 		weights[pos] = asReal(val.Const)
 	}

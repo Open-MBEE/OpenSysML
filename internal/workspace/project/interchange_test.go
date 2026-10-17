@@ -1,6 +1,7 @@
 package project
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -354,7 +355,24 @@ func TestExpandOfAProjectIncludesTheNotebooksOfTheProjectsItUses(t *testing.T) {
 	}
 }
 
-func TestInstalledProjectsFollowLinksWithinTheRootOnceSoACycleTerminates(t *testing.T) {
+func TestInstalledProjectsFindTheProjectsUnderARootBeforeALinkedTreeSpendsTheBudget(t *testing.T) {
+	store := t.TempDir()
+	archive := t.TempDir()
+	for i := 0; i <= maxLibraryDirs; i++ {
+		if err := os.Mkdir(filepath.Join(archive, fmt.Sprintf("d%04d", i)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(archive, filepath.Join(store, "00-archive")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	parts := writeProject(t, filepath.Join(store, "zz-parts"), `{"name": "Parts", "publisher": "acme", "version": "1.0.0"}`)
+	if got, _ := installedProjects([]string{store}); len(got) != 1 || got[0].Dir != parts {
+		t.Errorf("installedProjects = %v, want the project under the root though an earlier link leads to a tree larger than the budget", projectDirs(got))
+	}
+}
+
+func TestInstalledProjectsFollowLinksOnceSoACycleTerminates(t *testing.T) {
 	root := t.TempDir()
 	store := filepath.Join(root, "store")
 	vendored := writeProject(t, filepath.Join(store, "nested", "acme-parts"), `{"name": "Parts", "publisher": "acme", "version": "1.0.0"}`)
@@ -369,8 +387,9 @@ func TestInstalledProjectsFollowLinksWithinTheRootOnceSoACycleTerminates(t *test
 		t.Skipf("symlinks unavailable: %v", err)
 	}
 	got, _ := installedProjects([]string{store, filepath.Join(root, "linked")})
-	if len(got) != 1 || got[0].Dir != vendored {
-		t.Errorf("installedProjects = %v, want the project once, though the store loops and a root links to it, and not the project a link leaves the root for", projectDirs(got))
+	want := []string{filepath.Join(store, "escape"), vendored}
+	if !reflect.DeepEqual(projectDirs(got), want) {
+		t.Errorf("installedProjects = %v, want %v: each project once though the store loops and a root links to one, and the project a link leaves the root for", projectDirs(got), want)
 	}
 	if got, _ := installedProjects([]string{filepath.Join(root, "linked")}); len(got) != 1 || got[0].Dir != filepath.Join(root, "linked") {
 		t.Errorf("installedProjects of a root that is a project = %v, want the root itself", projectDirs(got))

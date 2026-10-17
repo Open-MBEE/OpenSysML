@@ -43,7 +43,7 @@ func wantQualifiedNameCycle(t *testing.T, src string, err error, stated string) 
 	if !errors.Is(err, ErrCyclicFeatureValue) {
 		t.Fatalf("%s: err = %v; want ErrCyclicFeatureValue", src, err)
 	}
-	var cycle *CyclicBindingError
+	var cycle *cyclicBindingError
 	if !errors.As(err, &cycle) {
 		t.Fatalf("%s: err = %v; want a CyclicBindingError", src, err)
 	}

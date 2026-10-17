@@ -55,9 +55,9 @@ type SweepRange struct {
 type SweepNumbers uint8
 
 const (
-	// SweepAsWritten produces values as the endpoints are written — Integers
+	// sweepAsWritten produces values as the endpoints are written — Integers
 	// between Integers, reals otherwise — for a parameter that takes both or no type.
-	SweepAsWritten SweepNumbers = iota
+	sweepAsWritten SweepNumbers = iota
 	// SweepIntegers produces Integers however the endpoints are written, and
 	// refuses an endpoint or step that is not one.
 	SweepIntegers
@@ -204,10 +204,10 @@ func NewSweepTable(target string, plan SweepPlan) SweepTable {
 // selects one whole PCG state.
 const sampleStream uint64 = 0x9E3779B97F4A7C15
 
-// NewSampleSource is the generator a sampled sweep draws from: math/rand/v2's
+// newSampleSource is the generator a sampled sweep draws from: math/rand/v2's
 // PCG seeded from the given seed alone, so one seed draws one sequence of
 // values on every platform and every build.
-func NewSampleSource(seed uint64) *rand.Rand {
+func newSampleSource(seed uint64) *rand.Rand {
 	// #nosec G404 -- a reproducible table needs a stated generator, not a cryptographic one.
 	return rand.New(rand.NewPCG(seed, seed^sampleStream))
 }
@@ -329,7 +329,7 @@ func (ctx *Context) sampledBindings(plan SweepPlan, limit int64) ([][]SweepBindi
 		}
 		prepared[i] = bounds
 	}
-	source := NewSampleSource(plan.Seed)
+	source := newSampleSource(plan.Seed)
 	rows := make([][]SweepBinding, 0, plan.Samples)
 	for range plan.Samples {
 		row := make([]SweepBinding, len(prepared))
@@ -623,7 +623,7 @@ func realHolds(n int64) bool {
 // any row runs.
 func (t SweepType) admit(ctx *Context, param, what string, value Value) error {
 	if t.Positive {
-		if n, ok := Magnitude(value); ok && n <= 0 {
+		if n, ok := magnitude(value); ok && n <= 0 {
 			return fmt.Errorf("%w: %s is not Positive, which %s : %s takes",
 				ErrSweepRange, what, param, symbolText(t.Declared()))
 		}
@@ -671,8 +671,8 @@ func (ctx *Context) numTypeText(num *symbols.Symbol, prim semantics.PrimType) st
 	return unknownText
 }
 
-// Magnitude is the number a value is, a quantity's magnitude included, and whether it is one.
-func Magnitude(value Value) (float64, bool) {
+// magnitude is the number a value is, a quantity's magnitude included, and whether it is one.
+func magnitude(value Value) (float64, bool) {
 	n, ok := MagnitudeValue(value)
 	return n.AsReal(), ok
 }
@@ -771,8 +771,8 @@ func (r SweepRange) enumerate(ctx *Context, limit int64) ([]Value, error) {
 	}
 	if !bounds.isInt {
 		for i := 1; i < len(values); i++ {
-			at, _ := Magnitude(values[i])
-			if before, _ := Magnitude(values[i-1]); at == before {
+			at, _ := magnitude(values[i])
+			if before, _ := magnitude(values[i-1]); at == before {
 				return nil, fmt.Errorf("%w: %s steps by %s, finer than a Real tells apart near %s, so its rows would repeat",
 					ErrSweepRange, r.Param, FormatValue(bounds.valueReal(bounds.step)), FormatValue(values[i]))
 			}
@@ -932,16 +932,6 @@ func (b sweepBounds) carry(num semantics.Value) Value {
 	return NewQuantityValue(&Quantity{Num: num, Unit: b.unit.Clone()})
 }
 
-// InputParameterNames reports the input parameters a calc or analysis case
-// declares, in the order an invocation's positional arguments bind them.
-func (ctx *Context) InputParameterNames(sym *symbols.Symbol) ([]string, error) {
-	shape, err := ctx.calcShapeOf(sym)
-	if err != nil {
-		return nil, err
-	}
-	return shape.parameterNames(), nil
-}
-
 // ResolveSweepPlan refuses a range over a parameter the target does not declare,
 // its subject or one the invocation binds, and types each range by its parameter.
 func (ctx *Context) ResolveSweepPlan(sym *symbols.Symbol, plan SweepPlan, positional int, named []string) (SweepPlan, error) {
@@ -1014,7 +1004,7 @@ func sweepNumbersOf(prim semantics.PrimType) SweepNumbers {
 	case semantics.PrimRational, semantics.PrimReal:
 		return SweepReals
 	}
-	return SweepAsWritten
+	return sweepAsWritten
 }
 
 // positiveScalar reports a type that is, or specializes, ScalarValues::Positive.

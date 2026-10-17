@@ -586,7 +586,7 @@ is what exposes them:
   took the 1 600-satellite validation from 30 s to 19 s, and it was 25% of
   the samples before.
 - **Every satisfy assertion walked the whole model for verification cases.**
-  `runtime.(*Context).VerificationsOf` collected the verification cases under
+  `runtime.(*Context).verificationsOf` collected the verification cases under
   the model root on every call, so checking `n` assertions walked `n × the
   model`. `runtime.(*Model).verificationCasesIn` now memoizes the walk per
   scope, in declaration order, for the life of the runtime model. This took

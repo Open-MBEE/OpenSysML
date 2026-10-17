@@ -127,7 +127,7 @@ Event {
 
 Two kinds are new against `TraceKind`. `assign` is the write of a feature value, reported with
 the feature (`element`) and the new `value`; today an assignment is a printed `line`, and the
-step write ledger already notes it for `ChoiceWriteOrder`, so the record is a promotion, not a
+step write ledger already notes it for `choiceWriteOrder`, so the record is a promotion, not a
 new hook. `token` is one token's move onto a node, which the action executor reports through
 `%tokens` today and prints under `%trace` as a line; promoting it gives the animation its live
 action nodes. `performance_start`/`performance_end` bracket a `perform`ed action or a `do`

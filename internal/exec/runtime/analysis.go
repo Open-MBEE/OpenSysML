@@ -29,9 +29,9 @@ const (
 type ObjectiveDirection int
 
 const (
-	// NoDirection is an objective specializing neither MinimizeObjective nor
+	// noDirection is an objective specializing neither MinimizeObjective nor
 	// MaximizeObjective, whose direction the model therefore does not state.
-	NoDirection ObjectiveDirection = iota
+	noDirection ObjectiveDirection = iota
 	// Minimize is an objective specializing TradeStudies::MinimizeObjective.
 	Minimize
 	// Maximize is an objective specializing TradeStudies::MaximizeObjective.
@@ -438,7 +438,7 @@ func (ctx *Context) specializesLibraryType(typ *symbols.Symbol, fqn string) bool
 // specializes, matched by identity so a type merely named alike is not one.
 func (ctx *Context) objectiveDirection(typ *symbols.Symbol) ObjectiveDirection {
 	if typ == nil || ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
-		return NoDirection
+		return noDirection
 	}
 	idx := ctx.model.resolver.Index()
 	directions := make(map[*symbols.Symbol]ObjectiveDirection, 2)
@@ -462,7 +462,7 @@ func (ctx *Context) objectiveDirection(typ *symbols.Symbol) ObjectiveDirection {
 			return direction
 		}
 	}
-	return NoDirection
+	return noDirection
 }
 
 // objectiveConditionsOf returns the conditions an objective states or inherits

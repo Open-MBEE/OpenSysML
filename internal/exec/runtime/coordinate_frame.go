@@ -85,13 +85,13 @@ func NewCoordinateTransformationValue(t *CoordinateTransformation) Value {
 	return Value{Kind: ValCoordinateTransformation, ref: t}
 }
 
-// IsScale reports whether the frame is a measurement scale.
-func (f *CoordinateFrame) IsScale() bool { return f != nil && f.Scale != nil }
+// isScale reports whether the frame is a measurement scale.
+func (f *CoordinateFrame) isScale() bool { return f != nil && f.Scale != nil }
 
-// FlattenedSize is the number of axes the dimensions shape: their product, 1 for
+// flattenedSize is the number of axes the dimensions shape: their product, 1 for
 // a scalar reference's empty dimensions; false when it is beyond int64, more
 // axes than anything can hold.
-func (f *CoordinateFrame) FlattenedSize() (int64, bool) {
+func (f *CoordinateFrame) flattenedSize() (int64, bool) {
 	return flattenedSize(f.Dimensions)
 }
 

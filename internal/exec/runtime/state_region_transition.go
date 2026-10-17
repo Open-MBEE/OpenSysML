@@ -486,7 +486,7 @@ func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, effects []route
 		}
 		units = append(units, unit{run: func() error { return e.exitStates(leaving) }, footprint: e.exitFootprint(leaving)})
 	}
-	if err := e.performUnits(ChoiceExitOrder, exitingWherePrefix+e.stateMachine.Name, units, true); err != nil {
+	if err := e.performUnits(choiceExitOrder, exitingWherePrefix+e.stateMachine.Name, units, true); err != nil {
 		return err
 	}
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)

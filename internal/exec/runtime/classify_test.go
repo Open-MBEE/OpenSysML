@@ -164,7 +164,7 @@ func TestComputedHoldingIsClassifiedWhicheverIsReadFirst(t *testing.T) {
 			if got := readInt(t, ctx, lead, "tally"); got != 7 {
 				t.Fatalf("lead.tally = %d, want 7", got)
 			}
-			glow, ok := lead.Behavior("glow")
+			glow, ok := lead.behavior("glow")
 			if !ok || glow.State == nil || glow.State.stateData["cycles"].Const.Int != 1 {
 				t.Fatal("lead, read first, runs no glow state machine")
 			}
@@ -213,7 +213,7 @@ func TestArgumentNotReturnedIsNotHeldByTheCall(t *testing.T) {
 	if !ctx.instanceConforms(lead, tallied) {
 		t.Fatalf("lead, read first, is classified by %v, want Tallied", lead.classifiers)
 	}
-	if glow, ok := lead.Behavior("glow"); !ok || glow.State == nil || glow.State.stateData["cycles"].Const.Int != 1 {
+	if glow, ok := lead.behavior("glow"); !ok || glow.State == nil || glow.State.stateData["cycles"].Const.Int != 1 {
 		t.Fatal("lead, read first, runs no glow state machine")
 	}
 	if _, err := rack.GetFeatureValue(ctx, "failing"); err == nil {
@@ -581,7 +581,7 @@ func TestSelectedVariantObjectIsClassifiedByTheFeatureHoldingIt(t *testing.T) {
 	if label, err := big.GetFeatureValue(ctx, "label"); err != nil || label.Value.Str() != "kept" {
 		t.Fatalf("big.label = %+v, %v; want the holding feature's \"kept\"", label, err)
 	}
-	glow, ok := big.Behavior("glow")
+	glow, ok := big.behavior("glow")
 	if !ok || glow.State == nil || glow.State.stateData["cycles"].Const.Int != 1 {
 		t.Fatal("the big variant's object runs no glow state machine")
 	}
@@ -817,8 +817,8 @@ func TestClassificationIsKeptOrUndoneWithTheChange(t *testing.T) {
 		t.Fatalf("SetFeatureValue(slot, loose) = %v, want ErrTypeMismatch: loose is no Segment", err)
 	}
 	load := idx.LookupQualified("test::Load")[0]
-	if _, err := ctx.SignalMessage(load, map[string]Value{"seg": looseVal}, rack); !errors.Is(err, ErrSignalArgument) {
-		t.Fatalf("SignalMessage(Load, seg = loose) = %v, want ErrSignalArgument", err)
+	if _, err := ctx.SignalMessage(load, map[string]Value{"seg": looseVal}, rack); !errors.Is(err, errSignalArgument) {
+		t.Fatalf("SignalMessage(Load, seg = loose) = %v, want errSignalArgument", err)
 	}
 	if !isUnclassified(loose) {
 		t.Fatal("a refused write or message classified its object")
@@ -1036,9 +1036,9 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 				}
 			}
 			_, err := groups[0].GetFeatureValue(ctx, "shares")
-			var undetermined *UndeterminedBindingError
+			var undetermined *undeterminedBindingError
 			if !errors.As(err, &undetermined) {
-				t.Fatalf("groups.1.shares = %v, want UndeterminedBindingError", err)
+				t.Fatalf("groups.1.shares = %v, want undeterminedBindingError", err)
 			}
 			if want := "binding end cannot be resolved: Group.shares is bound by `bind [0..*] groups.shares = [0..*] allShares` " +
 				"through every object groups holds; the model does not determine which of the bound values Group.shares holds"; err.Error() != want {
@@ -1057,9 +1057,9 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 		ctx, idx := libraryShapeContext(t, instance(bound, ":>> allWeights = (9.0, 9.0, 9.0, 9.0);"))
 		shelf := instantiateQualified(t, ctx, idx, "test::shelf")
 		_, err := shelf.GetFeatureValue(ctx, "allWeights")
-		var conflict *BindingConflictError
+		var conflict *bindingConflictError
 		if !errors.As(err, &conflict) {
-			t.Fatalf("allWeights = %v, want BindingConflictError", err)
+			t.Fatalf("allWeights = %v, want bindingConflictError", err)
 		}
 	})
 
@@ -1112,8 +1112,8 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 			ctx, idx := libraryShapeContext(t, instance(tc.shelf, ":>> allWeights = (1.0, 2.0);"))
 			shelf := instantiateQualified(t, ctx, idx, "test::shelf")
 			_, err := shelf.GetFeatureValue(ctx, "allItems")
-			if !errors.Is(err, ErrBindingEnd) || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("allItems = %v, want ErrBindingEnd containing %q", err, tc.want)
+			if !errors.Is(err, errBindingEnd) || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("allItems = %v, want errBindingEnd containing %q", err, tc.want)
 			}
 		})
 	}
@@ -1330,8 +1330,8 @@ func TestRefusedClassificationLeavesTheObjectAsItWas(t *testing.T) {
 	before := sortedNames(raw.FeatureValues)
 
 	band := idx.LookupQualified("test::Band")[0]
-	if err := ctx.classify(raw, band); !errors.Is(err, ErrConflictingRedefinition) {
-		t.Fatalf("classify(raw, Band) = %v, want ErrConflictingRedefinition", err)
+	if err := ctx.classify(raw, band); !errors.Is(err, errConflictingRedefinition) {
+		t.Fatalf("classify(raw, Band) = %v, want errConflictingRedefinition", err)
 	}
 	if len(raw.classifiers) != 0 {
 		t.Fatalf("a refused classification left raw classified by %v", raw.classifiers)
@@ -1363,7 +1363,7 @@ func TestClassificationStartsTheClassifierBehaviors(t *testing.T) {
 
 	end := ctx.beginProbe()
 	bulb := readInstance(t, ctx, room, "lamp")
-	if _, ok := bulb.Behavior("glow"); !ok {
+	if _, ok := bulb.behavior("glow"); !ok {
 		t.Fatal("bulb, a Lamp while lamp holds it, runs no glow behavior")
 	}
 	end()
@@ -1377,7 +1377,7 @@ func TestClassificationStartsTheClassifierBehaviors(t *testing.T) {
 	if len(bulb.behaviors) != 1 {
 		t.Fatalf("bulb, held by two Lamp features, runs %d behaviors, want 1", len(bulb.behaviors))
 	}
-	behavior, ok := bulb.Behavior("glow")
+	behavior, ok := bulb.behavior("glow")
 	if !ok || behavior.State == nil {
 		t.Fatal("bulb runs no glow state machine")
 	}
@@ -2040,8 +2040,8 @@ func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
 			t.Errorf("%s = %s, want %s", src, got, want)
 		}
 	}
-	if _, err := evalIn(t, ctx, pkg.Scope, "5 as Even"); !errors.Is(err, ErrUndecidedClassification) {
-		t.Errorf("5 as Even: %v, want ErrUndecidedClassification", err)
+	if _, err := evalIn(t, ctx, pkg.Scope, "5 as Even"); !errors.Is(err, errUndecidedClassification) {
+		t.Errorf("5 as Even: %v, want errUndecidedClassification", err)
 	}
 	for _, src := range []string{"isLevel(2)", "asLevel(2)"} {
 		if _, err := evalIn(t, ctx, pkg.Scope, src); !errors.Is(err, ErrTypeMismatch) {

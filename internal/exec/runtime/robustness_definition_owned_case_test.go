@@ -116,15 +116,15 @@ func testDefinitionOwnedCaseBadArgumentsWithNoObject(t *testing.T) {
 	idx, ctx := definitionOwnedRobustness(t)
 	sym := lookupOne(t, idx, "test::Definition::costTest")
 	unknown := AnalysisArgs{Named: map[string]Value{"missing": realArg(1)}}
-	if _, err := ctx.RunVerification(sym, unknown, sym.OwnerScope, nil); !errors.Is(err, ErrUnknownParameter) {
-		t.Errorf("RunVerification(missing = 1) error = %v, want %v", err, ErrUnknownParameter)
+	if _, err := ctx.RunVerification(sym, unknown, sym.OwnerScope, nil); !errors.Is(err, errUnknownParameter) {
+		t.Errorf("RunVerification(missing = 1) error = %v, want %v", err, errUnknownParameter)
 	}
 	extra := AnalysisArgs{Positional: []Value{realArg(1)}}
-	if _, err := ctx.RunVerification(sym, extra, sym.OwnerScope, nil); !errors.Is(err, ErrCalcArity) {
-		t.Errorf("RunVerification(1) error = %v, want %v", err, ErrCalcArity)
+	if _, err := ctx.RunVerification(sym, extra, sym.OwnerScope, nil); !errors.Is(err, errCalcArity) {
+		t.Errorf("RunVerification(1) error = %v, want %v", err, errCalcArity)
 	}
 	sum := lookupOne(t, idx, "test::Definition::costSum")
-	if _, err := ctx.RunAnalysis(sum, unknown, sum.OwnerScope, nil); !errors.Is(err, ErrUnknownParameter) {
-		t.Errorf("RunAnalysis(missing = 1) error = %v, want %v", err, ErrUnknownParameter)
+	if _, err := ctx.RunAnalysis(sum, unknown, sum.OwnerScope, nil); !errors.Is(err, errUnknownParameter) {
+		t.Errorf("RunAnalysis(missing = 1) error = %v, want %v", err, errUnknownParameter)
 	}
 }

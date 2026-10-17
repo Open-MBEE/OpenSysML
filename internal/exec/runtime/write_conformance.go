@@ -94,7 +94,7 @@ func (ctx *Context) readOnlyRefusal(what func() string, name string, feature *sy
 	if ro.Kind == semantics.Writable {
 		return nil
 	}
-	return fmt.Errorf("%s: %w: %s", what(), ErrReadOnlyFeature, semantics.ReadOnlyViolation(name, feature, ro))
+	return fmt.Errorf("%s: %w: %s", what(), errReadOnlyFeature, semantics.ReadOnlyViolation(name, feature, ro))
 }
 
 // checkAssignable refuses an assignment whose target names a constant or derived
@@ -129,7 +129,7 @@ func (ctx *Context) checkMutable(scope *symbols.Scope, what func() string, name 
 	if !ok || target.readOnly.Kind == semantics.Writable {
 		return nil
 	}
-	return fmt.Errorf("%s: %w: %s", what(), ErrReadOnlyFeature,
+	return fmt.Errorf("%s: %w: %s", what(), errReadOnlyFeature,
 		semantics.ReadOnlyViolation(name, target.feature, target.readOnly))
 }
 
@@ -436,7 +436,7 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 		// value of a narrower type, it is classified by that type too (see classify.go).
 		inst, ok := ctx.instances[id]
 		if !ok || inst == nil || inst.Type == nil {
-			return false, "", fmt.Errorf("%w: instance %d", ErrUndeterminedValueType, id)
+			return false, "", fmt.Errorf("%w: instance %d", errUndeterminedValueType, id)
 		}
 		if how == admitDeclared {
 			return ctx.canClassify(inst, declared), "", nil
@@ -495,7 +495,7 @@ func (ctx *Context) structuredConforms(scope *symbols.Scope, value Value, declar
 	switch value.Kind {
 	case ValVectorQuantity:
 		vq := value.VectorQuantity()
-		for i := 0; i < vq.Dimension(); i++ {
+		for i := 0; i < vq.dimension(); i++ {
 			if ok, refusal, err := ctx.quantityConforms(NewQuantityValue(vq.component(i)), declared); !ok || err != nil {
 				return ok, refusal, err
 			}
@@ -637,7 +637,7 @@ func structuredDimensions(value Value) []int64 {
 	case ValVector:
 		return []int64{int64(value.Vector().Dimension())}
 	case ValVectorQuantity:
-		return []int64{int64(value.VectorQuantity().Dimension())}
+		return []int64{int64(value.VectorQuantity().dimension())}
 	case ValTensorQuantity:
 		return value.TensorQuantity().Dimensions
 	}

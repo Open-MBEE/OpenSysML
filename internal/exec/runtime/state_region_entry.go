@@ -71,7 +71,7 @@ func (e *StateExecutor) enterRegions(container *ast.StateNode, entries []*region
 	if container != nil {
 		where = enteringWherePrefix + container.Name
 	}
-	return e.performUnits(ChoiceEntryOrder, where, units, wait)
+	return e.performUnits(choiceEntryOrder, where, units, wait)
 }
 
 // enterForkBranches enters the owner's regions as one queue per region: the branch's effect,
@@ -95,7 +95,7 @@ func (e *StateExecutor) enterForkBranches(fork *ast.PseudostateNode, plan *lower
 		units = append(units, unit{
 			run: func() error {
 				if branch == nil {
-					if err := e.await(ChoiceEntryOrder, func() bool { return above.next >= len(above.chain) }); err != nil {
+					if err := e.await(choiceEntryOrder, func() bool { return above.next >= len(above.chain) }); err != nil {
 						return err
 					}
 				} else if err := e.runBranchEffect(branch); err != nil {
@@ -109,7 +109,7 @@ func (e *StateExecutor) enterForkBranches(fork *ast.PseudostateNode, plan *lower
 			footprint: footprint,
 		})
 	}
-	return e.drawUnits(ChoiceEntryOrder, forkWherePrefix+fork.Name, units)
+	return e.drawUnits(choiceEntryOrder, forkWherePrefix+fork.Name, units)
 }
 
 // enterShared enters the rest of the way down the fork's branches share, each
@@ -122,7 +122,7 @@ func (e *StateExecutor) enterShared(l *lazyEntry) error {
 			head := e.entryHead(state, false)
 			head.shared, head.dropped = state, func() bool { return l.next > i }
 			var err error
-			if perform, err = e.unit(ChoiceEntryOrder, head); err != nil {
+			if perform, err = e.unit(choiceEntryOrder, head); err != nil {
 				return err
 			}
 		}
@@ -140,7 +140,7 @@ func (e *StateExecutor) runBranchEffect(branch *lower.Transition) error {
 	if branch == nil {
 		return nil
 	}
-	if _, err := e.unit(ChoiceEntryOrder, unitHead{label: e.effectLabel(branch), at: branch.Decl, silent: len(branch.Effect) == 0}); err != nil {
+	if _, err := e.unit(choiceEntryOrder, unitHead{label: e.effectLabel(branch), at: branch.Decl, silent: len(branch.Effect) == 0}); err != nil {
 		return err
 	}
 	if err := e.executeBehaviors(branch.Effect); err != nil {
@@ -162,7 +162,7 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 		return nil
 	}
 	if w.target == nil && e.graph.RegionState[w.region] == nil && len(e.graph.StartOf(w.region)) > 0 {
-		if err := e.unitAhead(ChoiceEntryOrder, e.startHead(w.region, w.container)); err != nil {
+		if err := e.unitAhead(choiceEntryOrder, e.startHead(w.region, w.container)); err != nil {
 			return err
 		}
 	}

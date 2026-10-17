@@ -16,33 +16,30 @@ import (
 // value taken this way reads exactly as one derived in place, and is invalidated
 // as one: what the derivation read is listed as read on the taking occurrence.
 
-// SharedDefaultsEnvVar switches the sharing of derived defaults between
+// sharedDefaultsEnvVar switches the sharing of derived defaults between
 // occurrences of one shape off when set to 0 (or false/off/no).
-const SharedDefaultsEnvVar = "OPENSYSML_SHARED_DEFAULTS"
+const sharedDefaultsEnvVar = "OPENSYSML_SHARED_DEFAULTS"
 
-// SharedDefaultsFromEnv reports whether the environment leaves derived-default
-// sharing on, which it does unless SharedDefaultsEnvVar switches it off.
-func SharedDefaultsFromEnv() bool {
-	switch strings.ToLower(strings.TrimSpace(envvar.Lookup(SharedDefaultsEnvVar))) {
+// sharedDefaultsFromEnv reports whether the environment leaves derived-default
+// sharing on, which it does unless sharedDefaultsEnvVar switches it off.
+func sharedDefaultsFromEnv() bool {
+	switch strings.ToLower(strings.TrimSpace(envvar.Lookup(sharedDefaultsEnvVar))) {
 	case "0", "false", "off", "no":
 		return false
 	}
 	return true
 }
 
-// SetSharedDefaults turns derived-default sharing between occurrences on or off.
-func (ctx *Context) SetSharedDefaults(on bool) { ctx.shareDefaults = on }
-
-// SharedDefaults reports whether this context shares derived defaults between occurrences.
-func (ctx *Context) SharedDefaults() bool { return ctx.shareDefaults }
+// setSharedDefaults turns derived-default sharing between occurrences on or off.
+func (ctx *Context) setSharedDefaults(on bool) { ctx.shareDefaults = on }
 
 // sharing reports whether evaluations are shared now: a traced context shares none,
 // since a trace records every evaluation and a value taken from the shape has none.
 func (ctx *Context) sharing() bool { return ctx.shareDefaults && ctx.trace == nil }
 
-// SharedDefaultsTaken counts the derived values occurrences took from the shared
+// sharedDefaultsTaken counts the derived values occurrences took from the shared
 // table rather than deriving; a measure of what the sharing saved.
-func (ctx *Context) SharedDefaultsTaken() int64 { return ctx.sharedTaken }
+func (ctx *Context) sharedDefaultsTaken() int64 { return ctx.sharedTaken }
 
 // shapeNode is one interned occurrence shape: the type of an object and, for one
 // held by another, the declaration of the feature holding it; a classifier the

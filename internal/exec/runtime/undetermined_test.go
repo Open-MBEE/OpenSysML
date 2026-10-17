@@ -198,8 +198,8 @@ func TestSequenceCountsAddUpFixedMultiplicities(t *testing.T) {
 	val, err := evalIn(t, ctx, scope, "(1, u)")
 	wantUndetermined(t, "(1, u)", val, err, "[2]")
 	if u := val.Undetermined(); u != nil {
-		if len(u.Known()) != 1 || FormatValue(u.Known()[0]) != "1" {
-			t.Errorf("(1, u) certainly holds %v, want [1]", u.Known())
+		if len(u.knownValues()) != 1 || FormatValue(u.knownValues()[0]) != "1" {
+			t.Errorf("(1, u) certainly holds %v, want [1]", u.knownValues())
 		}
 	}
 	for src, want := range map[string]string{
@@ -388,8 +388,8 @@ func TestOpenCollectionKnowsItsSubsetters(t *testing.T) {
 	}
 	val, err := evalIn(t, ctx, scope, "rack.gear")
 	wantUndetermined(t, "rack.gear", val, err, "[1..*]")
-	if u := val.Undetermined(); u != nil && (len(u.Known()) != 1 || u.Known()[0].Kind != ValInstance) {
-		t.Errorf("rack.gear certainly holds %v, want the one object of fixed", u.Known())
+	if u := val.Undetermined(); u != nil && (len(u.knownValues()) != 1 || u.knownValues()[0].Kind != ValInstance) {
+		t.Errorf("rack.gear certainly holds %v, want the one object of fixed", u.knownValues())
 	}
 	for src, count := range map[string]string{"size(rack.gear)": "[1]", "includes(rack.gear, rack.lone)": "[1]", "rack.gear#(2)": "[1]"} {
 		val, err := evalIn(t, ctx, scope, src)
@@ -466,7 +466,7 @@ func TestCollectionTransformsKeepKnownElements(t *testing.T) {
 	} {
 		val, _ := evalIn(t, ctx, scope, src)
 		if u := val.Undetermined(); u != nil {
-			if got := FormatValue(sequenceOf(u.Known())); got != known {
+			if got := FormatValue(sequenceOf(u.knownValues())); got != known {
 				t.Errorf("%s certainly holds %s, want %s", src, got, known)
 			}
 		}
@@ -913,7 +913,7 @@ func TestBodyLocalKeepsOpenInitializerCount(t *testing.T) {
 		}
 	}`))
 	open := oneSymbol(t, idx, "test::Open")
-	ec := NewEvalContext(ctx, open.Scope)
+	ec := newEvalContext(ctx, open.Scope)
 	initializer := func() Value {
 		return NewUndeterminedValue(noValueReason("xs"), semantics.Range{
 			Lower: semantics.Bound{Known: true, Value: 2}, Upper: semantics.Bound{Known: true, Infinite: true},
@@ -1033,7 +1033,7 @@ func TestChainThroughOpenCollectionKeepsKnownValues(t *testing.T) {
 	} {
 		val, _ := evalIn(t, ctx, scope, src)
 		if u := val.Undetermined(); u != nil {
-			if got := FormatValue(sequenceOf(u.Known())); got != known {
+			if got := FormatValue(sequenceOf(u.knownValues())); got != known {
 				t.Errorf("%s certainly holds %s, want %s", src, got, known)
 			}
 		}
@@ -1120,8 +1120,8 @@ func TestOpenSubsettersAreNotMaterializedAtModelLevel(t *testing.T) {
 	}
 	for src, known := range map[string]int{"store.base": 0, "store.cap": 0, "store.pool": 2} {
 		val, _ := evalIn(t, ctx, scope, src)
-		if u := val.Undetermined(); u != nil && len(u.Known()) != known {
-			t.Errorf("%s certainly holds %d objects, want %d", src, len(u.Known()), known)
+		if u := val.Undetermined(); u != nil && len(u.knownValues()) != known {
+			t.Errorf("%s certainly holds %d objects, want %d", src, len(u.knownValues()), known)
 		}
 	}
 }
@@ -1147,7 +1147,7 @@ func TestBodyLocalIntersectsRedefinedMultiplicities(t *testing.T) {
 	if want := (semantics.Range{Lower: semantics.Bound{Known: true, Value: 2}, Upper: semantics.Bound{Known: true, Value: 4}}); !stated || mult != want {
 		t.Fatalf("statedMultiplicity(ab) = %v, %v; want [2..4], true", mult, stated)
 	}
-	ec := NewEvalContext(ctx, both.Scope)
+	ec := newEvalContext(ctx, both.Scope)
 	integers := func(n int64) Value {
 		seq := NewSequence()
 		for i := int64(1); i <= n; i++ {

@@ -223,8 +223,8 @@ func TestConstraintBodyStepsRun(t *testing.T) {
 			t.Fatalf("constraint %s not found", name)
 		}
 		satisfied, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), nil)
-		if !errors.Is(err, ErrConstraintExternalAssignment) {
-			t.Errorf("%s: err = %v, want ErrConstraintExternalAssignment", name, err)
+		if !errors.Is(err, errConstraintExternalAssignment) {
+			t.Errorf("%s: err = %v, want errConstraintExternalAssignment", name, err)
 		}
 		if want := "z is not one of its features"; err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: err = %v, want it to say %s", name, err, want)
@@ -279,8 +279,8 @@ func TestConstraintBodyPerformIsRefused(t *testing.T) {
 		t.Fatal("Performed not found")
 	}
 	satisfied, err := ctx.EvaluateConstraint(performed, testPkg)
-	if !errors.Is(err, ErrConstraintEffect) {
-		t.Fatalf("err = %v, want ErrConstraintEffect", err)
+	if !errors.Is(err, errConstraintEffect) {
+		t.Fatalf("err = %v, want errConstraintEffect", err)
 	}
 	if want := "`perform` statement"; err == nil || !strings.Contains(err.Error(), want) {
 		t.Errorf("err = %v, want it to name the %s", err, want)
@@ -303,8 +303,8 @@ func TestConstraintBodyPerformIsRefused(t *testing.T) {
 			evaluate = ctx.EvaluateRequirementOn
 		}
 		satisfied, err := evaluate(feat.Symbol, feat.DeclScope(), nil)
-		if !errors.Is(err, ErrConstraintEffect) {
-			t.Errorf("%s: err = %v, want ErrConstraintEffect", name, err)
+		if !errors.Is(err, errConstraintEffect) {
+			t.Errorf("%s: err = %v, want errConstraintEffect", name, err)
 		}
 		if want := "`perform` statement"; err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: err = %v, want it to name the %s", name, err, want)
@@ -344,8 +344,8 @@ func TestConstraintBodyActionFlowIsRefused(t *testing.T) {
 		t.Fatal("Flowed not found")
 	}
 	satisfied, err := ctx.EvaluateConstraint(flowed, testPkg)
-	if !errors.Is(err, ErrConstraintEffect) {
-		t.Fatalf("err = %v, want ErrConstraintEffect", err)
+	if !errors.Is(err, errConstraintEffect) {
+		t.Fatalf("err = %v, want errConstraintEffect", err)
 	}
 	if want := "`perform` statement"; err == nil || !strings.Contains(err.Error(), want) {
 		t.Errorf("err = %v, want it to name the %s", err, want)
@@ -368,8 +368,8 @@ func TestConstraintBodyActionFlowIsRefused(t *testing.T) {
 			evaluate = ctx.EvaluateRequirementOn
 		}
 		satisfied, err := evaluate(feat.Symbol, feat.DeclScope(), nil)
-		if !errors.Is(err, ErrConstraintEffect) {
-			t.Errorf("%s: err = %v, want ErrConstraintEffect", name, err)
+		if !errors.Is(err, errConstraintEffect) {
+			t.Errorf("%s: err = %v, want errConstraintEffect", name, err)
 		}
 		if want := "`perform` statement"; err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: err = %v, want it to name the %s", name, err, want)
@@ -413,8 +413,8 @@ func TestConstraintBodySuccessionIsRefused(t *testing.T) {
 			t.Fatalf("%s not found", name)
 		}
 		satisfied, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), nil)
-		if !errors.Is(err, ErrStatementNotExecutable) {
-			t.Errorf("%s: err = %v, want ErrStatementNotExecutable", name, err)
+		if !errors.Is(err, errStatementNotExecutable) {
+			t.Errorf("%s: err = %v, want errStatementNotExecutable", name, err)
 		}
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: err = %v, want it to name the %s", name, err, want)

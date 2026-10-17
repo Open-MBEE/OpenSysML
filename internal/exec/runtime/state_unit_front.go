@@ -325,7 +325,7 @@ func (e *StateExecutor) performUnits(kind ChoiceKind, where string, units []unit
 // offers the due steps of the do behaviors the move began before it opened.
 func (e *StateExecutor) drawUnits(kind ChoiceKind, where string, units []unit) error {
 	f := e.openFront(kind, where)
-	if f.accepts(ChoiceEntryOrder) {
+	if f.accepts(choiceEntryOrder) {
 		e.path = pathDraw{}
 		for _, act := range e.dueAmong(e.began) {
 			f.offer(act)
@@ -452,7 +452,7 @@ func (f *unitFront) resume(q *unitQueue, perform bool) {
 func (e *StateExecutor) unit(kind ChoiceKind, head unitHead) (bool, error) {
 	f := e.front
 	if f == nil || !f.accepts(kind) || f.current == nil {
-		if kind == ChoiceEntryOrder {
+		if kind == choiceEntryOrder {
 			return true, e.drawOnPath(head)
 		}
 		return true, nil
@@ -476,7 +476,7 @@ func (e *StateExecutor) unit(kind ChoiceKind, head unitHead) (bool, error) {
 func (e *StateExecutor) unitAhead(kind ChoiceKind, head unitHead) error {
 	f := e.front
 	if f == nil || !f.accepts(kind) || f.current == nil {
-		if kind != ChoiceEntryOrder {
+		if kind != choiceEntryOrder {
 			return nil
 		}
 		if err := e.drawOnPath(head); err != nil {
@@ -521,7 +521,7 @@ func (e *StateExecutor) drawOnPath(head unitHead) error {
 		}
 		alternatives = append(alternatives, head.label)
 		fps = append(fps, e.headFootprint(head))
-		choice := ChoicePoint{Kind: ChoiceEntryOrder, Where: head.site, Alternatives: alternatives, File: e.stateMachine.DocName}
+		choice := ChoicePoint{Kind: choiceEntryOrder, Where: head.site, Alternatives: alternatives, File: e.stateMachine.DocName}
 		classifyChoice(&choice, fps, nil)
 		pick := e.ctx.scheduling().choose(choice, nil)
 		if err := e.ctx.scheduling().refusal(); err != nil {

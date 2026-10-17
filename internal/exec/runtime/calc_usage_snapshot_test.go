@@ -181,7 +181,7 @@ package test {
 `
 
 // TestCyclicCalcUsageOutputStillDiagnosed requires a genuine cycle to fail with
-// ErrCyclicOutput rather than to be answered from a stale evaluation.
+// errCyclicOutput rather than to be answered from a stale evaluation.
 func TestCyclicCalcUsageOutputStillDiagnosed(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, cyclicOutputModel))
 	root := idx.DocumentRoot("<test>")
@@ -191,7 +191,7 @@ func TestCyclicCalcUsageOutputStillDiagnosed(t *testing.T) {
 	if err == nil {
 		t.Fatal("Cycle: want an error, got a value")
 	}
-	if !errors.Is(err, ErrCyclicOutput) {
-		t.Errorf("Cycle: error = %v, want ErrCyclicOutput", err)
+	if !errors.Is(err, errCyclicOutput) {
+		t.Errorf("Cycle: error = %v, want errCyclicOutput", err)
 	}
 }

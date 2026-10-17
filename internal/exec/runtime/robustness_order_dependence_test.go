@@ -129,7 +129,7 @@ func testAJoinIsClassifiedByItsPendingSegmentsAlone(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		exec, err := ctx.PerformState(m.state(t, tc.machine), nil, []QueuedEvent{{Signal: "Go"}})
+		exec, err := ctx.performStateWithEvents(m.state(t, tc.machine), nil, []QueuedEvent{{Signal: "Go"}})
 		if err != nil {
 			t.Fatalf("%s: PerformState: %v", tc.machine, err)
 		}
@@ -193,7 +193,7 @@ func testAPerformerFeatureIsMarkedOnlyByWritesToIt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
-	exec, err := ctx.PerformState(m.state(t, "Holder::machine"), self, []QueuedEvent{{Signal: "Go"}})
+	exec, err := ctx.performStateWithEvents(m.state(t, "Holder::machine"), self, []QueuedEvent{{Signal: "Go"}})
 	if err != nil {
 		t.Fatalf("PerformState: %v", err)
 	}
@@ -339,14 +339,14 @@ func testReplayOfAnInvalidChoiceIsTheTypedError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}
-	taken := ctx.ChoicesTaken()
+	taken := ctx.choicesTaken()
 	if len(taken) == 0 {
 		t.Fatal("the default run recorded no replayable choice")
 	}
 	taken[0].Taken = 99
 	replay := ReplayPolicy(taken)
 	_, _, err = runOrderDependence(t, "Writers", &replay)
-	if !errors.Is(err, ErrInvalidChoice) && !errors.Is(err, ErrReplayRefused) {
+	if !errors.Is(err, errInvalidChoice) && !errors.Is(err, ErrReplayRefused) {
 		t.Fatalf("replay of an out-of-range choice: err = %v, want ErrInvalidChoice or ErrReplayRefused", err)
 	}
 }

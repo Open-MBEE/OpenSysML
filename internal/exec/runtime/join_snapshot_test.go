@@ -38,7 +38,7 @@ func TestSnapshotRestoresJoinArrivals(t *testing.T) {
 			state done;
 		}
 	}`)
-	exec.SendSignal("X", nil)
+	exec.sendSignal("X", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to first arrival: %v", err)
 	}
@@ -49,13 +49,13 @@ func TestSnapshotRestoresJoinArrivals(t *testing.T) {
 	if !strings.Contains(canonical, "arrived{sync: a}") {
 		t.Fatalf("canonical state = %s, want deterministic join arrival spelling", canonical)
 	}
-	snapshot, err := exec.Snapshot()
+	snapshot, err := exec.snapshot()
 	if err != nil {
 		t.Fatalf("Snapshot: %v", err)
 	}
 	defer snapshot.Release()
 
-	exec.SendSignal("Y", nil)
+	exec.sendSignal("Y", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to join completion: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestSnapshotRestoresJoinArrivals(t *testing.T) {
 	if len(exec.joinArrived) != 1 {
 		t.Fatalf("join arrivals after restore = %v, want the saved arrival", exec.joinArrived)
 	}
-	exec.SendSignal("Y", nil)
+	exec.sendSignal("Y", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run after restore: %v", err)
 	}

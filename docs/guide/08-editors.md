@@ -98,7 +98,10 @@ REPL's `%render` command prints, as an SVG canvas of its own, and redraws as you
   [the standard library in the editor](#the-standard-library-in-the-editor)).
 - **Behavior while editing.** A keystroke that leaves the model unparseable dims the last valid
   diagram and reports the error in the status line beneath it; the panel is never blanked.
-  Anything the rendering could not represent is listed below the diagram.
+  Anything the rendering could not represent is listed below the diagram. A rendering with
+  nothing to draw says why (the view exposes nothing, its filter rejects every element it
+  exposes, the document has an error) in the status line and in place of the drawing, and the
+  same summary is written to the SysML v2 Output channel.
 - **Resource use.** The panel requests a diagram only while it is visible, and only after a
   burst of editing has settled. The panel draws its own SVG, so nothing is fetched from the
   network.

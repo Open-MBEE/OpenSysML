@@ -100,7 +100,7 @@ func TestExhibitedMachinesOfTwoObjectsAreIndependent(t *testing.T) {
 		t.Fatal("two objects share one machine execution")
 	}
 
-	firstMachine.State.SendSignal("Toggle", nil)
+	firstMachine.State.sendSignal("Toggle", nil)
 	if err := firstMachine.State.RunToCompletion(); err != nil {
 		t.Fatalf("run first machine: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestExhibitedMachineWritesItsOwnOccurrence(t *testing.T) {
 	ctx, root := behaviorContext(t, src)
 
 	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Counter"))
-	behavior, ok := inst.Behavior("modes")
+	behavior, ok := inst.behavior("modes")
 	if !ok {
 		t.Fatal("object runs no modes behavior")
 	}
@@ -207,11 +207,11 @@ func TestBehaviorNamedFollowsRedefinition(t *testing.T) {
 
 	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "FancyLamp"))
 	for _, names := range [][2]string{{"fancyModes", "modes"}, {"fancyTick", "tick"}} {
-		renamed, ok := inst.Behavior(names[0])
+		renamed, ok := inst.behavior(names[0])
 		if !ok {
 			t.Fatalf("object runs no %s behavior: %v", names[0], inst.Behaviors())
 		}
-		if _, ok := inst.Behavior(names[1]); ok {
+		if _, ok := inst.behavior(names[1]); ok {
 			t.Errorf("Behavior(%q) matched by name alone", names[1])
 		}
 		for _, name := range names {
@@ -327,7 +327,7 @@ func TestPerformedActionWritesItsOwnOccurrence(t *testing.T) {
 	ctx, root := behaviorContext(t, src)
 
 	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Counter"))
-	behavior, ok := inst.Behavior("work")
+	behavior, ok := inst.behavior("work")
 	if !ok {
 		t.Fatal("object runs no work behavior")
 	}
@@ -405,7 +405,7 @@ func TestExhibitedMachineNormalizesItsManyValuedAttribute(t *testing.T) {
 	ctx, root := behaviorContext(t, src)
 
 	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Log"))
-	behavior, ok := inst.Behavior("modes")
+	behavior, ok := inst.behavior("modes")
 	if !ok {
 		t.Fatal("object runs no modes behavior")
 	}
@@ -450,7 +450,7 @@ func TestInvokeOperationPerformedByTheObject(t *testing.T) {
 	ctx := NewContext(typedModel(model, resolver), 10000)
 	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Tank"))
 
-	results, err := ctx.InvokeOperation(inst, "fillBy", map[string]Value{"n": intArgument(3)})
+	results, err := ctx.invokeOperation(inst, "fillBy", map[string]Value{"n": intArgument(3)})
 	if err != nil {
 		t.Fatalf("InvokeOperation: %v", err)
 	}
@@ -465,14 +465,14 @@ func TestInvokeOperationPerformedByTheObject(t *testing.T) {
 		t.Errorf("level = %v, want 5", got.Const)
 	}
 
-	results, err = ctx.InvokeOperation(inst, "capacity", map[string]Value{"bonus": intArgument(3)})
+	results, err = ctx.invokeOperation(inst, "capacity", map[string]Value{"bonus": intArgument(3)})
 	if err != nil {
 		t.Fatalf("InvokeOperation(calc): %v", err)
 	}
 	if got, ok := results["total"]; !ok || got.Const.Int != 8 {
 		t.Errorf("calc result = %v, want total = 8", results)
 	}
-	results, err = ctx.InvokeOperation(inst, "rawCapacity", nil)
+	results, err = ctx.invokeOperation(inst, "rawCapacity", nil)
 	if err != nil {
 		t.Fatalf("InvokeOperation(anonymous calc): %v", err)
 	}
@@ -490,7 +490,7 @@ func TestInvokeOperationPerformedByTheObject(t *testing.T) {
 		{"rejected", nil, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			results, err := ctx.InvokeOperation(inst, tc.name, tc.args)
+			results, err := ctx.invokeOperation(inst, tc.name, tc.args)
 			if err != nil {
 				t.Fatalf("InvokeOperation(constraint): %v", err)
 			}
@@ -605,12 +605,12 @@ func TestInvokeOperationWithPositionalArguments(t *testing.T) {
 		args OperationArguments
 		want error
 	}{
-		{"fewer than required", "fillBy", positional(), ErrUnboundParameter},
-		{"more than declared", "fillBy", positional(intArgument(1), intArgument(2), intArgument(3)), ErrOperationArity},
-		{"out parameter counted", "drainInto", positional(intArgument(1), intArgument(2), intArgument(3)), ErrOperationArity},
+		{"fewer than required", "fillBy", positional(), errUnboundParameter},
+		{"more than declared", "fillBy", positional(intArgument(1), intArgument(2), intArgument(3)), errOperationArity},
+		{"out parameter counted", "drainInto", positional(intArgument(1), intArgument(2), intArgument(3)), errOperationArity},
 		{"positional and named mixed", "fillBy", OperationArguments{Positional: []Value{intArgument(1)}, Named: map[string]Value{"n": intArgument(1)}}, ErrMixedArguments},
-		{"out parameter named", "drainInto", OperationArguments{Named: map[string]Value{"n": intArgument(1), "sink": intArgument(1), "drained": intArgument(1)}}, ErrUnboundParameter},
-		{"no arity fits", "scaled", positional(intArgument(1), intArgument(2), intArgument(3)), ErrOperationArity},
+		{"out parameter named", "drainInto", OperationArguments{Named: map[string]Value{"n": intArgument(1), "sink": intArgument(1), "drained": intArgument(1)}}, errUnboundParameter},
+		{"no arity fits", "scaled", positional(intArgument(1), intArgument(2), intArgument(3)), errOperationArity},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := ctx.InvokeOperationWith(inst, tc.op, tc.args); !errors.Is(err, tc.want) {
@@ -668,7 +668,7 @@ func TestInvokeOperationCountsItsOwnCostAgainstBudget(t *testing.T) {
 
 	t.Run("calc", func(t *testing.T) {
 		ctx, inst := newInvocation(2)
-		results, err := ctx.InvokeOperation(inst, "rawCapacity", nil)
+		results, err := ctx.invokeOperation(inst, "rawCapacity", nil)
 		if !errors.Is(err, ErrStepLimitExceeded) {
 			t.Fatalf("InvokeOperation(rawCapacity) with budget 2: %v, want ErrStepLimitExceeded", err)
 		}
@@ -678,7 +678,7 @@ func TestInvokeOperationCountsItsOwnCostAgainstBudget(t *testing.T) {
 
 		ctx, inst = newInvocation(3)
 		for i := 0; i < 2; i++ {
-			results, err := ctx.InvokeOperation(inst, "rawCapacity", nil)
+			results, err := ctx.invokeOperation(inst, "rawCapacity", nil)
 			if err != nil {
 				t.Fatalf("InvokeOperation(rawCapacity), call %d with budget 3: %v", i, err)
 			}
@@ -690,7 +690,7 @@ func TestInvokeOperationCountsItsOwnCostAgainstBudget(t *testing.T) {
 
 	t.Run("constraint", func(t *testing.T) {
 		ctx, inst := newInvocation(2)
-		results, err := ctx.InvokeOperation(inst, "acceptable", map[string]Value{
+		results, err := ctx.invokeOperation(inst, "acceptable", map[string]Value{
 			"minimum": intArgument(1),
 		})
 		if !errors.Is(err, ErrStepLimitExceeded) {
@@ -702,7 +702,7 @@ func TestInvokeOperationCountsItsOwnCostAgainstBudget(t *testing.T) {
 
 		ctx, inst = newInvocation(3)
 		for i := 0; i < 2; i++ {
-			results, err := ctx.InvokeOperation(inst, "acceptable", map[string]Value{
+			results, err := ctx.invokeOperation(inst, "acceptable", map[string]Value{
 				"minimum": intArgument(1),
 			})
 			if err != nil {
@@ -747,7 +747,7 @@ func TestCalcOperationNestedUsageSeesPerformingObject(t *testing.T) {
 		t.Fatalf("SetFeatureValue: %v", err)
 	}
 
-	results, err := ctx.InvokeOperation(inst, "capacityViaUsage", nil)
+	results, err := ctx.invokeOperation(inst, "capacityViaUsage", nil)
 	if err != nil {
 		t.Fatalf("InvokeOperation: %v", err)
 	}
@@ -809,7 +809,7 @@ func TestCalcInvocationExpressionSeesPerformingObject(t *testing.T) {
 		t.Fatal("Robot not found")
 	}
 	inst := mustInstantiate(t, ctx, robot)
-	if _, err := ctx.InvokeOperation(inst, "drain", nil); err != nil {
+	if _, err := ctx.invokeOperation(inst, "drain", nil); err != nil {
 		t.Fatalf("InvokeOperation(drain): %v", err)
 	}
 	charge, err := inst.GetFeatureValue(ctx, "charge")
@@ -830,7 +830,7 @@ func TestCalcInvocationExpressionSeesPerformingObject(t *testing.T) {
 		{"usesDirect", 1103},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			results, err := ctx.InvokeOperation(inst, tc.name, nil)
+			results, err := ctx.invokeOperation(inst, tc.name, nil)
 			if err != nil {
 				t.Fatalf("InvokeOperation(%s): %v", tc.name, err)
 			}
@@ -855,16 +855,16 @@ func TestInvokeOperationFailureModes(t *testing.T) {
 		args      map[string]Value
 		want      error
 	}{
-		{"no object", nil, "fillBy", nil, ErrNoSuchBehavior},
-		{"unknown operation", inst, "drain", nil, ErrNoSuchBehavior},
-		{"state machine", inst, "modes", nil, ErrUnsupportedClassifierBehavior},
-		{"attribute", inst, "level", nil, ErrNotABehavior},
-		{"unbound parameter", inst, "fillBy", nil, ErrUnboundParameter},
-		{"argument naming no parameter", inst, "fillBy", map[string]Value{"n": intArgument(1), "m": intArgument(2)}, ErrUnboundParameter},
+		{"no object", nil, "fillBy", nil, errNoSuchBehavior},
+		{"unknown operation", inst, "drain", nil, errNoSuchBehavior},
+		{"state machine", inst, "modes", nil, errUnsupportedClassifierBehavior},
+		{"attribute", inst, "level", nil, errNotABehavior},
+		{"unbound parameter", inst, "fillBy", nil, errUnboundParameter},
+		{"argument naming no parameter", inst, "fillBy", map[string]Value{"n": intArgument(1), "m": intArgument(2)}, errUnboundParameter},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := ctx.InvokeOperation(tc.object, tc.operation, tc.args)
+			_, err := ctx.invokeOperation(tc.object, tc.operation, tc.args)
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("error = %v, want %v", err, tc.want)
 			}
@@ -884,7 +884,7 @@ func TestPerformedActionWithoutAFlowStillMaterializes(t *testing.T) {
 	ctx, root := behaviorContext(t, src)
 
 	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Camera"))
-	behavior, ok := inst.Behavior("report")
+	behavior, ok := inst.behavior("report")
 	if !ok {
 		t.Fatalf("object performs no report action, behaviors: %v", inst.Behaviors())
 	}
@@ -943,7 +943,7 @@ func TestPerformedActionOutputDefaultKeepsTheReferencedFlow(t *testing.T) {
 // performedFeature reads a feature of the occurrence of the action an object performs.
 func performedFeature(t *testing.T, ctx *Context, inst *Instance, action, feature string) Value {
 	t.Helper()
-	behavior, ok := inst.Behavior(action)
+	behavior, ok := inst.behavior(action)
 	if !ok || behavior.Action == nil {
 		t.Fatalf("object performs no %s action, behaviors: %v", action, inst.Behaviors())
 	}
@@ -1001,7 +1001,7 @@ func TestExhibitedStateNamingNothingExhibitsItself(t *testing.T) {
 	ctx, root := behaviorContext(t, src)
 
 	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Controller"))
-	behavior, ok := inst.Behavior("modes")
+	behavior, ok := inst.behavior("modes")
 	if !ok || behavior.State == nil {
 		t.Fatalf("object exhibits no modes machine, behaviors: %v", inst.Behaviors())
 	}
@@ -1032,7 +1032,7 @@ func TestExhibitedStateNamingNothingWithNoInitialStateIsReported(t *testing.T) {
 			ctx := NewContext(typedModel(model, resolver), 10000)
 
 			_, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
-			if !errors.Is(err, ErrNoInitialState) {
+			if !errors.Is(err, errNoInitialState) {
 				t.Fatalf("error = %v, want ErrNoInitialState", err)
 			}
 			if !strings.Contains(err.Error(), tc.want) {
@@ -1057,7 +1057,7 @@ func TestPerformedActionNamingNothingPerformsItself(t *testing.T) {
 
 	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Engine"))
 	for _, name := range []string{"boost", "idle"} {
-		behavior, ok := inst.Behavior(name)
+		behavior, ok := inst.behavior(name)
 		if !ok || behavior.Action == nil {
 			t.Fatalf("object performs no %s action, behaviors: %v", name, inst.Behaviors())
 		}
@@ -1197,7 +1197,7 @@ func TestOperationOutputNamedLikeAFeatureAnswersTheCaller(t *testing.T) {
 	ctx, root := behaviorContext(t, src)
 	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Gauge"))
 
-	results, err := ctx.InvokeOperation(inst, "read", nil)
+	results, err := ctx.invokeOperation(inst, "read", nil)
 	if err != nil {
 		t.Fatalf("InvokeOperation: %v", err)
 	}
@@ -1254,7 +1254,7 @@ func TestPerformedActionAwaitingAMessageIsWokenByASibling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate Waiter: %v", err)
 	}
-	behavior, ok := waiter.Behavior("await")
+	behavior, ok := waiter.behavior("await")
 	if !ok || behavior.Action == nil {
 		t.Fatalf("object performs no await action, behaviors: %v", waiter.Behaviors())
 	}
@@ -1322,7 +1322,7 @@ func TestPerformedActionParkedInACallChainIsWokenByASibling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate Waiter: %v", err)
 	}
-	behavior, ok := waiter.Behavior("await")
+	behavior, ok := waiter.behavior("await")
 	if !ok || behavior.Action == nil {
 		t.Fatalf("object performs no await action, behaviors: %v", waiter.Behaviors())
 	}
@@ -1336,7 +1336,7 @@ func TestPerformedActionParkedInACallChainIsWokenByASibling(t *testing.T) {
 		t.Fatalf("Instantiate Pair: %v", err)
 	}
 	nested := instanceAtPath(t, ctx, pair, "w")
-	behavior, ok = nested.Behavior("await")
+	behavior, ok = nested.behavior("await")
 	if !ok || behavior.Action == nil {
 		t.Fatalf("object performs no await action, behaviors: %v", nested.Behaviors())
 	}
@@ -1404,7 +1404,7 @@ func TestStartedActionAwaitingAMessageIsWokenByASibling(t *testing.T) {
 		t.Fatalf("Instantiate Pair: %v", err)
 	}
 	nested := instanceAtPath(t, ctx, pair, "w")
-	behavior, ok := nested.Behavior("await")
+	behavior, ok := nested.behavior("await")
 	if !ok || behavior.Action == nil {
 		t.Fatalf("the started Waiter performs no await action, behaviors: %v", nested.Behaviors())
 	}
@@ -1414,7 +1414,7 @@ func TestStartedActionAwaitingAMessageIsWokenByASibling(t *testing.T) {
 	if got := featureInt(t, ctx, nested, "woken"); got != 1 {
 		t.Errorf("woken = %d, want 1 once the sibling's message arrived", got)
 	}
-	if l, ok := ctx.OccurrenceLife(nested.ID); !ok || !l.Alive() {
+	if l, ok := ctx.OccurrenceLife(nested.ID); !ok || !l.alive() {
 		t.Errorf("OccurrenceLife(w) = %v, %v; want the object alive once its behavior is done", l, ok)
 	}
 }
@@ -1580,7 +1580,7 @@ func TestObjectExhibitsAMachineTypedByTheLibraryStateAction(t *testing.T) {
 			if machine.Name != "phases" {
 				t.Errorf("machine name = %q, want phases", machine.Name)
 			}
-			if got := machine.State.FinalStateName(); got != "launch" {
+			if got := machine.State.finalStateName(); got != "launch" {
 				t.Errorf("final state = %q, want launch", got)
 			}
 		})
@@ -1685,7 +1685,7 @@ func TestMutuallyAddressedObjectsAreMaterializedOnce(t *testing.T) {
 // machineOf is the object's execution of the named state machine.
 func machineOf(t *testing.T, inst *Instance, name string) *ObjectBehavior {
 	t.Helper()
-	behavior, ok := inst.Behavior(name)
+	behavior, ok := inst.behavior(name)
 	if !ok || behavior.State == nil {
 		t.Fatalf("object #%d runs no state machine %q", inst.ID, name)
 	}
@@ -2005,8 +2005,8 @@ func TestActionExecutedOnItsPerformerRunsTheExistingPerformance(t *testing.T) {
 	if level, ok := outcome.Outputs["this.level"]; !ok || level.Const.Int != 1 {
 		t.Errorf("outcome %v, want this.level = 1", outcome.Outputs)
 	}
-	if _, err := ctx.ExecuteActionPerformedBy(fill, tank, map[string]Value{"n": intArgument(2)}); !errors.Is(err, ErrPerformedInputs) {
-		t.Errorf("fill with inputs on the tank: %v, want %v", err, ErrPerformedInputs)
+	if _, err := ctx.ExecuteActionPerformedBy(fill, tank, map[string]Value{"n": intArgument(2)}); !errors.Is(err, errPerformedInputs) {
+		t.Errorf("fill with inputs on the tank: %v, want %v", err, errPerformedInputs)
 	}
 	if _, err := ctx.ExecuteActionPerformedBy(oneSymbol(t, idx, "P::Tank::top"), tank, nil); err != nil {
 		t.Fatalf("execute top on the tank: %v", err)
@@ -2020,8 +2020,8 @@ func TestActionExecutedOnItsPerformerRunsTheExistingPerformance(t *testing.T) {
 		t.Fatalf("Instantiate Twin: %v", err)
 	}
 	_, err = ctx.ExecuteActionPerformedBy(oneSymbol(t, idx, "P::Fill"), twin, nil)
-	if !errors.Is(err, ErrAmbiguousAction) || !strings.Contains(err.Error(), "morning and evening") {
-		t.Errorf("Fill on an object performing it twice: %v, want %v naming morning and evening", err, ErrAmbiguousAction)
+	if !errors.Is(err, errAmbiguousAction) || !strings.Contains(err.Error(), "morning and evening") {
+		t.Errorf("Fill on an object performing it twice: %v, want %v naming morning and evening", err, errAmbiguousAction)
 	}
 }
 
@@ -2055,14 +2055,14 @@ func TestUsageDeclaredContextBindingOnAnOccurrence(t *testing.T) {
 	ctx := NewContext(typedModel(model, resolver), 10000)
 
 	inst := mustInstantiate(t, ctx, resolveSymbol(t, root, "Tank"))
-	behavior, ok := inst.Behavior("life")
+	behavior, ok := inst.behavior("life")
 	if !ok {
 		t.Fatal("object runs no life behavior")
 	}
 	if got := behavior.State.stateData["seen"].Const.Int; got != 2 {
 		t.Errorf("life state data seen = %d, want 2: the declared context binding did not reach the entry action", got)
 	}
-	if _, err := ctx.InvokeOperation(inst, "fill", nil); err != nil {
+	if _, err := ctx.invokeOperation(inst, "fill", nil); err != nil {
 		t.Fatalf("InvokeOperation: %v", err)
 	}
 	if got := featureInt(t, ctx, inst, "level"); got != 5 {
@@ -2115,7 +2115,7 @@ func TestPerformedActionJoinReadsOnlyTheImplicitBinding(t *testing.T) {
 	_, err := ctx.ExecuteActionPerformedBy(nudge, inst, map[string]Value{
 		"context": {Kind: ValInstance, Instance: other.ID},
 	})
-	if !errors.Is(err, ErrPerformedInputs) {
+	if !errors.Is(err, errPerformedInputs) {
 		t.Fatalf("join with a binding to another object: %v, want ErrPerformedInputs", err)
 	}
 }
@@ -2165,7 +2165,7 @@ func TestPerformedActionJoinReadsTheStoredBinding(t *testing.T) {
 	_, err = ctx.ExecuteActionPerformedBy(nudge, inst, map[string]Value{
 		"context": {Kind: ValInstance, Instance: inst.ID},
 	})
-	if !errors.Is(err, ErrPerformedInputs) {
+	if !errors.Is(err, errPerformedInputs) {
 		t.Fatalf("join offering the performer where `other` is bound: %v, want ErrPerformedInputs", err)
 	}
 	if _, err = ctx.ExecuteActionPerformedBy(nudge, inst, map[string]Value{
@@ -2546,7 +2546,7 @@ func TestCalcQualifiedWriteRejectsAnotherObject(t *testing.T) {
 	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
 	inst := mustInstantiate(t, ctx, host)
 	bump := lookupOne(t, idx, "test::Bump")
-	if _, err := ctx.invokeCalcWithSelf(bump, calcArgs{}, idx.DocumentRoot("<test>"), inst); !errors.Is(err, ErrCalcExternalAssignment) {
+	if _, err := ctx.invokeCalcWithSelf(bump, calcArgs{}, idx.DocumentRoot("<test>"), inst); !errors.Is(err, errCalcExternalAssignment) {
 		t.Fatalf("Bump on Host: err = %v; want ErrCalcExternalAssignment", err)
 	}
 	if fv, err := inst.GetFeatureValue(ctx, "count"); err != nil {
@@ -2839,7 +2839,7 @@ func TestInvokeCalcDefReadsThis(t *testing.T) {
 	// early's `this` materializes the occurrence before x binds; x's binding
 	// must still mirror into it, or this.x reads the declared default 4.
 	late, lateScope := calcByName(t, root, "test", "EchoLate")
-	got, err = ctx.InvokeCalcNamed(late, map[string]Value{"x": constInt(9)}, lateScope)
+	got, err = ctx.invokeCalcNamed(late, map[string]Value{"x": constInt(9)}, lateScope)
 	if err != nil {
 		t.Fatalf("EchoLate(9): %v", err)
 	}
@@ -2956,7 +2956,7 @@ package test {
 		lastID = selfID
 		// A case run's occurrence is a performance: once the run's outputs are
 		// all read, its life is ended with the run.
-		if life, ok := ctx.OccurrenceLife(selfID); !ok || life.Alive() {
+		if life, ok := ctx.OccurrenceLife(selfID); !ok || life.alive() {
 			t.Errorf("OccurrenceLife(#%d) = %v, %v; want the run's occurrence ended", selfID, life, ok)
 		}
 	}
@@ -2977,7 +2977,7 @@ package test {
 	if failID == 0 {
 		t.Fatal("Failing(): no `who` output carrying this")
 	}
-	if life, ok := ctx.OccurrenceLife(failID); !ok || life.Alive() {
+	if life, ok := ctx.OccurrenceLife(failID); !ok || life.alive() {
 		t.Errorf("OccurrenceLife(#%d) = %v, %v; want the failed run's occurrence ended", failID, life, ok)
 	}
 
@@ -3130,7 +3130,7 @@ func TestPerformedActionJoinRejectsADifferentRefValue(t *testing.T) {
 		t.Fatalf("start behaviors: %v", err)
 	}
 	_, err := ctx.ExecuteActionPerformedBy(work, inst, map[string]Value{"threshold": constInt(2)})
-	if !errors.Is(err, ErrPerformedInputs) {
+	if !errors.Is(err, errPerformedInputs) {
 		t.Fatalf("join offering threshold 2 where 1 is bound: %v, want ErrPerformedInputs", err)
 	}
 	if _, err := ctx.ExecuteActionPerformedBy(work, inst, map[string]Value{"threshold": constInt(1)}); err != nil {
@@ -3165,7 +3165,7 @@ func TestInvokeCalcDefOutputBindingReadsThis(t *testing.T) {
 	}
 
 	usage, usageScope := calcByName(t, root, "test", "same")
-	got, err = ctx.CalcUsageOutput(usage, "result", usageScope, nil)
+	got, err = ctx.calcUsageOutput(usage, "result", usageScope, nil)
 	if err != nil {
 		t.Fatalf("same.result: %v", err)
 	}
@@ -3309,7 +3309,7 @@ func TestStandaloneActionPerformedOnPartDeclaredInAnotherFileKeepsScope(t *testi
 		t.Fatalf("Instantiate host: %v", err)
 	}
 	_, err = ctx.ActionOutcomePerformedBy(touch, host, nil)
-	if !errors.Is(err, ErrPerformerFeatureNotInScope) {
+	if !errors.Is(err, errPerformerFeatureNotInScope) {
 		t.Fatalf("perform Touch on host: %v, want ErrPerformerFeatureNotInScope", err)
 	}
 }

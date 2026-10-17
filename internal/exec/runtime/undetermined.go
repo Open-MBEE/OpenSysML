@@ -19,7 +19,7 @@ type Undetermined struct {
 	reason    string
 	count     semantics.Range
 	known     []Value
-	positions []Value           // the leading positions the model fixes, see Positions
+	positions []Value           // the leading positions the model fixes, see fixedPositions
 	feature   *symbols.Symbol   // the feature read, whose members a chain resolves against
 	causes    []*symbols.Symbol // the valueless features the result is open for, carried through operations
 }
@@ -80,30 +80,30 @@ func (u *Undetermined) Count() semantics.Range {
 	return u.count
 }
 
-// Known lists the values the result certainly contains.
-func (u *Undetermined) Known() []Value {
+// knownValues lists the values the result certainly contains.
+func (u *Undetermined) knownValues() []Value {
 	if u == nil {
 		return nil
 	}
 	return u.known
 }
 
-// Positions lists the leading positions the model fixes, in order: a determined value
+// fixedPositions lists the leading positions the model fixes, in order: a determined value
 // fills one, an undetermined one holding an exact count fills that many. Nil fixes none.
-func (u *Undetermined) Positions() []Value {
+func (u *Undetermined) fixedPositions() []Value {
 	if u == nil {
 		return nil
 	}
 	return u.positions
 }
 
-// positional reports whether Positions are every value u holds.
+// positional reports whether fixedPositions are every value u holds.
 func (u *Undetermined) positional() bool {
 	n, exact := u.Count().Exactly()
-	return exact && spanOf(u.Positions()...) == n
+	return exact && spanOf(u.fixedPositions()...) == n
 }
 
-// spanOf is how many positions entries of Positions fill.
+// spanOf is how many positions entries of fixedPositions fill.
 func spanOf(entries ...Value) int64 {
 	var n int64
 	for _, entry := range entries {
@@ -117,7 +117,7 @@ func spanOf(entries ...Value) int64 {
 	return n
 }
 
-// positionAt is the value at 1-based index among entries of Positions: the determined
+// positionAt is the value at 1-based index among entries of fixedPositions: the determined
 // value there, or one unknown value of the open entry; false past them.
 func positionAt(entries []Value, index int64) (Value, bool) {
 	for _, entry := range entries {
@@ -133,7 +133,7 @@ func positionAt(entries []Value, index int64) (Value, bool) {
 	return Value{}, false
 }
 
-// positionsBetween is the entries of Positions from position start through end, an
+// positionsBetween is the entries of fixedPositions from position start through end, an
 // open entry cut to the positions of it that lie within.
 func positionsBetween(entries []Value, start, end int64) []Value {
 	var between []Value
@@ -187,7 +187,7 @@ func (ec *EvalContext) chainThroughUndetermined(value Value, parts []ast.NameSeg
 		cur = next
 	}
 	var known []Value
-	for _, elem := range u.Known() {
+	for _, elem := range u.knownValues() {
 		val, err := ec.chainMemberValue(elem, parts, from)
 		if err != nil {
 			return Value{}, err
@@ -204,7 +204,7 @@ func (ec *EvalContext) chainThroughUndetermined(value Value, parts []ast.NameSeg
 
 // unknownCount is the count of the values u holds beyond those it certainly holds.
 func (u *Undetermined) unknownCount() semantics.Range {
-	count, held := u.Count(), int64(len(u.Known()))
+	count, held := u.Count(), int64(len(u.knownValues()))
 	if count.Lower.Known && !count.Lower.Infinite {
 		count.Lower.Value = max(0, count.Lower.Value-held)
 	}
@@ -292,7 +292,7 @@ func undeterminedElements(elements []Value) Value {
 	}}
 }
 
-// fixedPrefixOf lists the leading positions vals fix in sequence, as Positions holds
+// fixedPrefixOf lists the leading positions vals fix in sequence, as fixedPositions holds
 // them: every position of each value up to the first that fixes only some, then those.
 func fixedPrefixOf(vals ...Value) []Value {
 	var positions []Value
@@ -306,7 +306,7 @@ func fixedPrefixOf(vals ...Value) []Value {
 	return positions
 }
 
-// fixedPositionsOf lists the leading positions val fixes, as Positions holds them, and
+// fixedPositionsOf lists the leading positions val fixes, as fixedPositions holds them, and
 // whether they are every value it holds: all of a determined value, an open value of
 // exact count as one entry, else those an open value carries.
 func fixedPositionsOf(val Value) ([]Value, bool) {
@@ -314,15 +314,15 @@ func fixedPositionsOf(val Value) ([]Value, bool) {
 	if u == nil {
 		return elementsOf(val), true
 	}
-	if u.Positions() == nil && len(u.Known()) == 0 {
+	if u.fixedPositions() == nil && len(u.knownValues()) == 0 {
 		if _, exact := u.Count().Exactly(); exact {
 			return []Value{val}, true
 		}
 	}
-	return u.Positions(), u.positional()
+	return u.fixedPositions(), u.positional()
 }
 
-// sequenceOfPositions is the sequence of entries of Positions: determined where every
+// sequenceOfPositions is the sequence of entries of fixedPositions: determined where every
 // one is, else undetermined fixing the leading positions they do.
 func (ec *EvalContext) sequenceOfPositions(entries []Value, sources ...Value) (Value, error) {
 	if _, open := undeterminedIn(entries...); open {
@@ -535,7 +535,7 @@ func (ctx *Context) declaredCountRefusal(sym *symbols.Symbol, value *Value) stri
 // value, those an undetermined one carries.
 func knownElementsOf(val Value) []Value {
 	if u := val.Undetermined(); u != nil {
-		return u.Known()
+		return u.knownValues()
 	}
 	return elementsOf(val)
 }

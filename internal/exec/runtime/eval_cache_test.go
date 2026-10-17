@@ -73,7 +73,7 @@ func TestNestedInvocationArgumentsStayDistinct(t *testing.T) {
 		calc def three { in a : Integer; in b : Integer; in c : Integer; return : Integer = a * 100 + b * 10 + c; }
 	`)
 	ctx := NewContext(typedModel(model, resolver), 100000)
-	ec := NewEvalContext(ctx, root)
+	ec := newEvalContext(ctx, root)
 
 	for _, tc := range []struct {
 		src  string
@@ -118,7 +118,7 @@ func TestRepeatedInvocationEvaluationAnswersAlike(t *testing.T) {
 		calc def fib { in k : Integer; return : Integer = if k <= 1 ? k else fib(k - 1) + fib(k - 2); }
 	`)
 	ctx := NewContext(typedModel(model, resolver), 100000)
-	ec := NewEvalContext(ctx, root)
+	ec := newEvalContext(ctx, root)
 
 	for _, tc := range []struct {
 		src  string

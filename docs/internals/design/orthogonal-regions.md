@@ -24,9 +24,9 @@ StateExecutor:
 ### Target (Active Configuration Set)
 ```
 StateExecutor:
-  activeConfig: *StateConfiguration  // Active state configuration
+  activeConfig: *stateConfiguration  // Active state configuration
   
-StateConfiguration:
+stateConfiguration:
   regionStates: map[*StateRegion]*StateNode  // One active state per region
   hierarchyStack: []*StateNode               // Parent chain (unchanged)
 ```
@@ -39,10 +39,10 @@ StateConfiguration:
 - `currentState *ast.StateNode` (single)
 
 **With:**
-- `activeConfig *StateConfiguration` (multi-region)
+- `activeConfig *stateConfiguration` (multi-region)
 
 ```go
-type StateConfiguration struct {
+type stateConfiguration struct {
     // For states WITH regions: map of region → active state in that region
     regionStates map[*StateRegion]*ast.StateNode
     
@@ -388,7 +388,7 @@ state def Parallel {
 ## Implementation Plan
 
 1. **Phase 1:** Synthesize a region per state substate of a `parallel` body when lowering
-2. **Phase 2:** Add StateConfiguration struct + activeConfig field
+2. **Phase 2:** Add stateConfiguration struct + activeConfig field
 3. **Phase 3:** Refactor enterState/exitState to handle regions
 4. **Phase 4:** Update ProcessNextEvent to broadcast events
 5. **Phase 5:** Implement fork/join transitions
