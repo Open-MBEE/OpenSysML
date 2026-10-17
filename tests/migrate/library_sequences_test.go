@@ -193,7 +193,7 @@ func TestAlfCollectionFunctionsCompute(t *testing.T) {
 		{"removeAll", []seqPin{seq("seq1", aba...), seq("seq2", bc...)}, `["a", "a"]`, migrate.Approximated, ""},
 		{"removeAt", []seqPin{seq("seq", aba...), num("index", "1")}, `["b", "a"]`, migrate.Approximated, ""},
 		{"replaceAt", []seqPin{seq("seq", aba...), num("index", "2"), str("element", "z")}, `["a", "z", "a"]`, migrate.Approximated, ""},
-		{"clear", []seqPin{seq("seq", aba...)}, "null", migrate.Mapped, "the inout parameter hands back the empty sequence"},
+		{"clear", []seqPin{seq("seq", aba...)}, "[]", migrate.Mapped, "the inout parameter hands back the empty sequence"},
 	} {
 		t.Run(c.fragment, func(t *testing.T) {
 			r := migrateDocument(t, libraryCall(alfColl+c.fragment, c.pins, stringType, true, false), recorderBlock)

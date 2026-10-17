@@ -1,7 +1,7 @@
 step 1: token 1@f
 step 2: token 2@a, token 3@b
 stmt assign total
-    eval feature total -> 0
+    eval feature total -> (0)
     eval literal 10 -> 10
   eval operator + -> 10
 stmt assign total

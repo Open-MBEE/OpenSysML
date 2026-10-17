@@ -6,6 +6,6 @@
 		"recorded": {"type": "Boolean", "value": false},
 		"readings": {"type": "Integer", "value": 0},
 		"measure.gain": {"type": "Sequence", "elements": [{"type": "Real", "value": 2.5}]},
-		"record.written": {"type": "Boolean", "value": false}
+		"record.written": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]}
 	}
 }

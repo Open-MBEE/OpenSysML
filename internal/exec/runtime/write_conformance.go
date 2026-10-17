@@ -155,6 +155,13 @@ func (ctx *Context) checkTarget(scope *symbols.Scope, what string, target *write
 // checkTargetAs is checkTarget naming the write only when it is refused, so a
 // conformant write on a hot path does not pay for its description.
 func (ctx *Context) checkTargetAs(scope *symbols.Scope, what func() string, target *writeTarget, value *Value, how admission, countJudged bool) error {
+	return ctx.checkTargetHeld(scope, what, target, value, how, countJudged, true)
+}
+
+// checkTargetHeld is checkTargetAs, holding a conformant value in the target's shape
+// (shapeForTarget) when shaped, and as computed otherwise — a calculation body's features
+// are held as computed until calculation results take the shape rule too.
+func (ctx *Context) checkTargetHeld(scope *symbols.Scope, what func() string, target *writeTarget, value *Value, how admission, countJudged, shaped bool) error {
 	if countJudged {
 		if msg := ctx.writeCountRefusal(target, value); msg != "" {
 			return fmt.Errorf("%s: %w: %s", what(), ErrMultiplicityViolation, msg)
@@ -169,10 +176,16 @@ func (ctx *Context) checkTargetAs(scope *symbols.Scope, what func() string, targ
 	if msg := ctx.uniquenessRefusal(target.unique, target.holdsSet, value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}
-	if countJudged {
+	if countJudged && shaped {
 		return ctx.shapeForTarget(target, value)
 	}
 	return nil
+}
+
+// checkNamedWriteComputed is checkNamedWrite for a calculation body, whose features hold
+// what the body computed rather than the shape their multiplicity gives it.
+func (ctx *Context) checkNamedWriteComputed(scope *symbols.Scope, where, name string, value *Value) error {
+	return ctx.checkNamedWriteHeld(scope, func() string { return where }, name, value, false)
 }
 
 // shapeForTarget holds a conformant value in the shape the target's multiplicity gives
@@ -207,7 +220,8 @@ func (ctx *Context) writeCountRefusal(target *writeTarget, value *Value) string 
 // block-local, a parameter, an output - against the declaration of the name it
 // writes, before that value is stored.
 func (ctx *Context) checkBodyWrite(host stmtHost, s lower.Assign, value *Value) error {
-	return ctx.checkNamedWriteAs(s.Scope, host.describe, s.Target, value)
+	_, calc := host.(*calcStmtHost)
+	return ctx.checkNamedWriteHeld(s.Scope, host.describe, s.Target, value, !calc)
 }
 
 // checkNamedWrite checks a write of a name resolved in scope, for a path that
@@ -219,12 +233,18 @@ func (ctx *Context) checkNamedWrite(scope *symbols.Scope, where, name string, va
 // checkNamedWriteAs is checkNamedWrite naming where the write ran only when it is
 // refused, so a conformant write on a hot path does not pay for the description.
 func (ctx *Context) checkNamedWriteAs(scope *symbols.Scope, where func() string, name string, value *Value) error {
+	return ctx.checkNamedWriteHeld(scope, where, name, value, true)
+}
+
+// checkNamedWriteHeld is checkNamedWriteAs holding the value in the target's shape when
+// shaped, and as computed otherwise (a calculation body's features, checkTargetHeld).
+func (ctx *Context) checkNamedWriteHeld(scope *symbols.Scope, where func() string, name string, value *Value, shaped bool) error {
 	target, ok := ctx.writeTargetIn(scope, name)
 	if !ok {
 		return nil
 	}
 	what := func() string { return fmt.Sprintf("%s: assignment to %s", where(), name) }
-	return ctx.checkTargetAs(scope, what, target, value, admitWritten, true)
+	return ctx.checkTargetHeld(scope, what, target, value, admitWritten, true, shaped)
 }
 
 // checkBodyDeclaration checks the initial value a body-local declaration binds against
@@ -240,6 +260,12 @@ func (ctx *Context) checkBodyDeclaration(scope *symbols.Scope, where, name strin
 // checkBodyDeclarationAs is checkBodyDeclaration naming where the declaration ran
 // only when it is refused, so a conformant binding does not pay for the description.
 func (ctx *Context) checkBodyDeclarationAs(scope *symbols.Scope, where func() string, name string, value *Value) error {
+	return ctx.checkBodyDeclarationHeld(scope, where, name, value, true)
+}
+
+// checkBodyDeclarationHeld is checkBodyDeclarationAs holding the value in the declared
+// shape when shaped, and as computed otherwise (a calculation body's features).
+func (ctx *Context) checkBodyDeclarationHeld(scope *symbols.Scope, where func() string, name string, value *Value, shaped bool) error {
 	target, ok := ctx.writeTargetIn(scope, name)
 	if !ok {
 		return nil
@@ -247,7 +273,7 @@ func (ctx *Context) checkBodyDeclarationAs(scope *symbols.Scope, where func() st
 	declared := *target
 	declared.unique = target.unique && multiValued(target.mult)
 	what := func() string { return fmt.Sprintf("%s: declaration of %s", where(), name) }
-	return ctx.checkTargetAs(scope, what, &declared, value, admitDeclared, target.countJudged)
+	return ctx.checkTargetHeld(scope, what, &declared, value, admitDeclared, target.countJudged, shaped)
 }
 
 // storeBodyValue writes a value into the behavior's own data once it conforms

@@ -1,6 +1,6 @@
 step 1: token 1@if
 stmt if
-    eval feature count -> 0
+    eval feature count -> (0)
     eval literal 0 -> 0
   eval operator == -> true
   stmt assign count
@@ -47,7 +47,7 @@ stmt for i
   eval sequence of 3 -> (1, 2, 3)
   iteration 1
     stmt assign total
-        eval feature total -> 0
+        eval feature total -> (0)
         eval feature i -> 1
       eval operator + -> 1
   iteration 2

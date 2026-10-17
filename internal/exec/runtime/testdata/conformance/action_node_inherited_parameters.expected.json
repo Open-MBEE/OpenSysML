@@ -7,7 +7,7 @@
 		"tripled": {"type": "Sequence", "elements": [{"type": "Integer", "value": 12}]},
 		"viaResult": {"type": "Sequence", "elements": [{"type": "Integer", "value": 13}]},
 		"viaCall": {"type": "Sequence", "elements": [{"type": "Integer", "value": 21}]},
-		"twice.factor": {"type": "Integer", "value": 2},
+		"twice.factor": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
 		"twice.amount": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
 		"twice.tally": {"type": "Sequence", "elements": [{"type": "Integer", "value": 110}]},
 		"twice.scaled": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]},
