@@ -190,13 +190,13 @@ function test_surface_live()
     assert_equal(numel(sampled.rows), 3, 'RunRuns sample rows');
     assert_equal(isempty(sampled.unconcluded), true, 'RunRuns concluded');
     assert_equal(isfield(sampled.outputs, 'Mean'), true, 'RunRuns Mean');
-    assert_raises(@() opensysml.runRuns(runsModel, 'action', 'MC::Settle', 'runs', 1), 'RunRuns unseeded');
-    assert_raises(@() opensysml.runRuns(runsModel, 'action', 'MC::Nope', 'runs', 1, 'draws', 'min'), 'RunRuns unknown');
+    expect_identifier(@() opensysml.runRuns(runsModel, 'action', 'MC::Settle', 'runs', 1), 'opensysml:', 'RunRuns unseeded');
+    expect_identifier(@() opensysml.runRuns(runsModel, 'action', 'MC::Nope', 'runs', 1, 'draws', 'min'), 'opensysml:', 'RunRuns unknown');
     selfChecked = opensysml.selfCheck(runsModel);
     assert_equal(selfChecked.elements > 0 && selfChecked.checks > 0, true, 'SelfCheck counts');
     assert_equal(strncmp(selfChecked.summary, 'Self-model check: ', 18), true, 'SelfCheck summary');
     assert_equal(isempty(selfChecked.applications), false, 'SelfCheck applications');
-    assert_raises(@() runsModel.selfCheck('packages', {'Nope'}), 'SelfCheck unknown package');
+    expect_identifier(@() runsModel.selfCheck('packages', {'Nope'}), 'opensysml:', 'SelfCheck unknown package');
     recorded = opensysml.recordRun(runsModel, 'MC::Cost', 'subject', 'MC::p');
     assert_equal(isa(recorded.run, 'opensysml.AnalysisResult'), true, 'RecordRun run');
     assert_equal(isempty(recorded.run.outputs), false, 'RecordRun run outputs');
@@ -207,7 +207,7 @@ function test_surface_live()
     sampledRecord = runsModel.recordRun('MC::Mc', 'subject', 'MC::probe', 'runs', 2, 'seed', 3);
     assert_equal(isempty(sampledRecord.sample), false, 'RecordRun sample');
     assert_equal(numel(sampledRecord.records), 3, 'RecordRun sample records');
-    assert_raises(@() opensysml.recordRun(runsModel, 'MC::Nope'), 'RecordRun unknown');
+    expect_identifier(@() opensysml.recordRun(runsModel, 'MC::Nope'), 'opensysml:', 'RecordRun unknown');
 
     behavior = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'behavior.sysml')), ...
         'name', 'behavior.sysml');
