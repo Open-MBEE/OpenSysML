@@ -197,9 +197,9 @@ function test_surface_live()
         'dryRun', true);
     assert_equal(numel(dry.files{1}.assignments), 1, 'ImportData dry run assignment');
     assert_equal(isempty(dry.modelHash) && isempty(dry.content), true, 'ImportData dry run leaves the model');
-    assert_raises(@() opensysml.importData(importModel, ...
-        {struct('name', 'fleet.csv', 'content', sprintf('element,count\nV::car,9\nV::Nowhere,1\n'))}), 'ImportData unknown element');
-    assert_raises(@() opensysml.importData(importModel, {}), 'ImportData nothing');
+    expect_identifier(@() opensysml.importData(importModel, ...
+        {struct('name', 'fleet.csv', 'content', sprintf('element,count\nV::car,9\nV::Nowhere,1\n'))}), 'opensysml:', 'ImportData unknown element');
+    expect_identifier(@() opensysml.importData(importModel, {}), 'opensysml:', 'ImportData nothing');
 
     probeModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'probe.sysml')), ...
         'name', 'probe.sysml');
@@ -227,8 +227,8 @@ function test_surface_live()
     selected = probeModel.compareResults(probeResults, 'actions', {'Group 1'}, 'runs', 1, 'seed', 3);
     assert_equal(numel(selected.configurations), 1, 'CompareResults selected');
     assert_equal(selected.configurations{1}.runs, 1, 'CompareResults selected runs');
-    assert_raises(@() opensysml.compareResults(probeModel, probeResults, 'runs', -1), 'CompareResults negative runs');
-    assert_raises(@() opensysml.compareResults(probeModel, 'not json'), 'CompareResults malformed');
+    expect_identifier(@() opensysml.compareResults(probeModel, probeResults, 'runs', -1), 'opensysml:', 'CompareResults negative runs');
+    expect_identifier(@() opensysml.compareResults(probeModel, 'not json'), 'opensysml:', 'CompareResults malformed');
 
     behavior = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'behavior.sysml')), ...
         'name', 'behavior.sysml');
