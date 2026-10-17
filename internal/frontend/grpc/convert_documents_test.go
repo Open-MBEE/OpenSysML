@@ -91,8 +91,6 @@ func sameAPIJSONElementExceptUnavailableQualifiedName(left, right string) bool {
 	if json.Unmarshal([]byte(left), &leftElement) != nil || json.Unmarshal([]byte(right), &rightElement) != nil {
 		return false
 	}
-	delete(leftElement, "sysx:mappingPropertyOrder")
-	delete(rightElement, "sysx:mappingPropertyOrder")
 	leftName, leftHasName := leftElement["qualifiedName"]
 	rightName, rightHasName := rightElement["qualifiedName"]
 	if leftHasName {

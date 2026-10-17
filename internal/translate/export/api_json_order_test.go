@@ -62,3 +62,90 @@ func TestAPIJSONWithoutMappingPropertyOrderUsesNaturalOrder(t *testing.T) {
 		t.Fatalf("property order = %v, want %v", got, want)
 	}
 }
+
+func TestAPIJSONMappingPropertyOrderOnlyRecordsMisplacedSidecarProperties(t *testing.T) {
+	subject := rdf.ElementIRIForID("p")
+	reference := apiJSONReference{ID: "other"}
+	for _, test := range []struct {
+		name       string
+		properties []string
+		element    apiJSONObject
+		want       bool
+	}{
+		{
+			name:       "ordinary property order mismatch",
+			properties: []string{"owner", "target"},
+			element: apiJSONObject{
+				{key: "@type", value: "PartUsage"},
+				{key: "@id", value: "p"},
+				{key: "target", value: reference},
+				{key: "owner", value: reference},
+			},
+			want: false,
+		},
+		{
+			name:       "sidecar-only property is misplaced",
+			properties: []string{"target", "relatedElement", "owner"},
+			element: apiJSONObject{
+				{key: "@type", value: "PartUsage"},
+				{key: "@id", value: "p"},
+				{key: "target", value: reference},
+				{key: "owner", value: reference},
+				{key: "sysx:mappingValues", value: apiJSONObject{
+					{key: "relatedElement", value: []any{reference}},
+				}},
+			},
+			want: true,
+		},
+		{
+			name:       "sidecar-only property is naturally placed",
+			properties: []string{"target", "relatedElement", "owner"},
+			element: apiJSONObject{
+				{key: "@type", value: "PartUsage"},
+				{key: "@id", value: "p"},
+				{key: "target", value: reference},
+				{key: "sysx:mappingValues", value: apiJSONObject{
+					{key: "relatedElement", value: []any{reference}},
+				}},
+				{key: "owner", value: reference},
+			},
+			want: false,
+		},
+		{
+			name:       "ordinary order mismatch does not misplace sidecar property",
+			properties: []string{"owner", "target", "relatedElement"},
+			element: apiJSONObject{
+				{key: "@type", value: "PartUsage"},
+				{key: "@id", value: "p"},
+				{key: "target", value: reference},
+				{key: "owner", value: reference},
+				{key: "sysx:mappingValues", value: apiJSONObject{
+					{key: "relatedElement", value: []any{reference}},
+				}},
+			},
+			want: false,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			graph := rdf.NewGraph()
+			graph.AddTriple(rdf.Triple{
+				Subject:   subject,
+				Predicate: rdf.IRI(rdf.RDFType),
+				Object:    rdf.SysMLTerm("PartUsage"),
+			})
+			for _, property := range test.properties {
+				graph.AddTriple(rdf.Triple{
+					Subject:   subject,
+					Predicate: rdf.SysMLTerm(property),
+					Object:    rdf.String(property),
+				})
+			}
+			graphOrder := apiJSONGraphPropertyOrder(graph, subject)
+			naturalOrder, sidecarOnly := apiJSONNaturalPropertyOrder(graph, subject, test.element)
+			if got := apiJSONHasMisplacedSidecarProperty(graphOrder, naturalOrder, sidecarOnly); got != test.want {
+				t.Fatalf("needs mapping property order = %v, want %v (graph %v, natural %v, sidecar-only %v)",
+					got, test.want, graphOrder, naturalOrder, sidecarOnly)
+			}
+		})
+	}
+}

@@ -356,7 +356,8 @@ func apiJSONElementWithEvaluationOptions(
 	}
 	element = appendAPIJSONOwnedAbsences(graph, subject, element, types[0])
 	if graphOrder := apiJSONGraphPropertyOrder(graph, subject); len(graphOrder) > 0 {
-		if naturalOrder := apiJSONNaturalPropertyOrder(graph, subject, element); !slices.Equal(graphOrder, naturalOrder) {
+		naturalOrder, sidecarOnly := apiJSONNaturalPropertyOrder(graph, subject, element)
+		if apiJSONHasMisplacedSidecarProperty(graphOrder, naturalOrder, sidecarOnly) {
 			element = append(element, apiJSONMember{
 				key:   apiJSONMappingPropertyOrderKey,
 				value: graphOrder,
@@ -382,7 +383,7 @@ func apiJSONGraphPropertyOrder(graph *rdf.Graph, subject rdf.Term) []string {
 	return order
 }
 
-func apiJSONNaturalPropertyOrder(graph *rdf.Graph, subject rdf.Term, element apiJSONObject) []string {
+func apiJSONNaturalPropertyOrder(graph *rdf.Graph, subject rdf.Term, element apiJSONObject) ([]string, []string) {
 	memberProperties := make(map[string]bool, len(element))
 	mappingQualifiedNameIndex := -1
 	hasQualifiedName := false
@@ -402,6 +403,7 @@ func apiJSONNaturalPropertyOrder(graph *rdf.Graph, subject rdf.Term, element api
 	}
 
 	order := make([]string, 0, len(element))
+	sidecarOnly := make([]string, 0)
 	emitted := make(map[string]bool, len(element))
 	for _, member := range element {
 		switch member.key {
@@ -418,6 +420,7 @@ func apiJSONNaturalPropertyOrder(graph *rdf.Graph, subject rdf.Term, element api
 				}
 				order = append(order, value.key)
 				emitted[value.key] = true
+				sidecarOnly = append(sidecarOnly, value.key)
 			}
 		default:
 			if emitted[member.key] {
@@ -477,7 +480,37 @@ func apiJSONNaturalPropertyOrder(graph *rdf.Graph, subject rdf.Term, element api
 			seen[property] = true
 		}
 	}
-	return filtered
+	filteredSidecarOnly := make([]string, 0, len(sidecarOnly))
+	for _, property := range sidecarOnly {
+		if graphProperties[property] {
+			filteredSidecarOnly = append(filteredSidecarOnly, property)
+		}
+	}
+	return filtered, filteredSidecarOnly
+}
+
+func apiJSONHasMisplacedSidecarProperty(graphOrder, naturalOrder, sidecarOnly []string) bool {
+	for _, property := range sidecarOnly {
+		graphPosition := indexOfAPIJSONProperty(graphOrder, property)
+		if graphPosition < 0 {
+			continue
+		}
+		naturalPosition := indexOfAPIJSONProperty(naturalOrder, property)
+		if naturalPosition < 0 {
+			return true
+		}
+		for otherGraphPosition, other := range graphOrder {
+			if other == property {
+				continue
+			}
+			otherNaturalPosition := indexOfAPIJSONProperty(naturalOrder, other)
+			if otherNaturalPosition < 0 ||
+				(graphPosition < otherGraphPosition) != (naturalPosition < otherNaturalPosition) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func indexOfAPIJSONProperty(order []string, property string) int {
