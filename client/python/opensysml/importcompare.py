@@ -85,7 +85,13 @@ class ComparedDistribution:
     ``count`` and ``mean`` alone.
 
     Attributes:
-        count (int), min, mean, p50, p90, max, deviation (float)
+        count (int): How many numbers the distribution pools
+        min (float): The smallest number
+        mean (float): The arithmetic mean
+        p50 (float): The median
+        p90 (float): The 90th percentile
+        max (float): The largest number
+        deviation (float): The standard deviation
     """
 
     def __init__(self, count, min, mean, p50, p90, max, deviation):
@@ -106,7 +112,11 @@ class StatisticDifference:
     where it is not compared.
 
     Attributes:
-        min, mean, p50, p90, max (str)
+        min (str): The difference of the minimum
+        mean (str): The difference of the mean
+        p50 (str): The difference of the median
+        p90 (str): The difference of the 90th percentile
+        max (str): The difference of the maximum
     """
 
     def __init__(self, min, mean, p50, p90, max):
@@ -125,7 +135,11 @@ class CaseStatistic:
     the case declares it, the tool's value, the runs' and their difference.
 
     Attributes:
-        statistic, of, tool, run, difference (str)
+        statistic (str): Which statistic the case declares
+        of (str): The feature the statistic is of
+        tool (str): The tool's value
+        run (str): The runs' value
+        difference (str): The relative difference, ``""`` where not compared
     """
 
     def __init__(self, statistic, of, tool, run, difference):
@@ -168,7 +182,7 @@ class ObservableComparison:
         compared (bool): Whether the runs were made and are reported
         difference (StatisticDifference | None): Per statistic
         declared (CaseStatistics | None): The case's statistics compared
-        notes (list[str])
+        notes (list[str]): What the comparison remarks on
     """
 
     def __init__(self, stored, feature, unit, tool, pooled, unstored, run, produced,
@@ -194,18 +208,24 @@ class ConfigurationComparison:
     """One configuration's runs beside the tool's results.
 
     Attributes:
-        id, name, behavior, target, result_location (str)
+        id (str): The configuration's identifier in the sidecar
+        name (str): The configuration's name
+        behavior (str): The behavior it runs
+        target (str): The usage it runs against
+        result_location (str): Where the sidecar keeps its results
         status (str): ``holds``, ``fails`` (a run failed) or ``unresolved``
         unresolved (str): Why the configuration could not be run
-        stored_runs, stored_snapshots (int): What the tool stored
-        runs, completed (int): The runs OpenSysML made, and how many completed
+        stored_runs (int): How many runs the tool stored
+        stored_snapshots (int): How many snapshots the tool stored
+        runs (int): The runs OpenSysML made
+        completed (int): How many of them completed
         draws (str): The draw policy the runs took
         seed (int | None): The seed the runs derived theirs from
         clock_step (float): The clock step, 0 for a continuous clock
         rows (list[SweepRow]): One per run
-        observables (list[ObservableComparison])
+        observables (list[ObservableComparison]): One per observed feature
         errors (list[str]): The errors failed runs ended in
-        notes (list[str])
+        notes (list[str]): What the comparison remarks on
         lines (list[str]): The comparison as ``sysml -compare-results`` prints it
     """
 
@@ -250,9 +270,9 @@ class Comparison:
 
     Attributes:
         source (str): The tool the sidecar records as the results' source
-        configurations (list[ConfigurationComparison])
+        configurations (list[ConfigurationComparison]): One per configuration
         standing (Standing): The engine and strength of the last runs made
-        diagnostics (list[Diagnostic])
+        diagnostics (list[Diagnostic]): The diagnostics the comparison raised
     """
 
     def __init__(self, source, configurations, standing, diagnostics):
