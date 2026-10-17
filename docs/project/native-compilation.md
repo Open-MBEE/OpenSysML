@@ -488,7 +488,7 @@ Intel Xeon Platinum 8559C, 8 vCPUs, Go 1.25, GCC 11.4 `-O3 -flto`, 2026-09-02. P
 Reading the table:
 
 - **Compilation is worth three orders of magnitude** on compute-bound calcs. That matches the
-  interpreter census in `execution-performance-2026-09.md` (~1.1 µs per calc invocation, ~130 B
+  interpreter census in `archive/execution-performance-2026-09.md` (~1.1 µs per calc invocation, ~130 B
   allocated each): generated C spends about a nanosecond per `Fib` call.
 - **C beats Go by 2–5× on every loop or recursion**, which is the justification asked for. The gap is
   most likely the checked arithmetic: GCC lowers `__builtin_add_overflow` to a flag test after the

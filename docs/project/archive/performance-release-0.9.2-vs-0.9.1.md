@@ -6,7 +6,7 @@ The release-gate measurement of the 0.9.2 candidate — `release/0.9.2` at
 [0.9.1 against 0.9.0](performance-release-0.9.1-vs-0.9.0.md) record: every
 benchmark on both revisions, `benchstat` over six runs, the rows the machine
 left in doubt re-run interleaved, and whole-binary timings on generated and
-real models. See [performance](../internals/performance.md) for what the
+real models. See [performance](../../internals/performance.md) for what the
 figures mean and where the remaining cost is.
 
 0.9.2 is a patch release cut from `main`: the semantic fixes requested for
