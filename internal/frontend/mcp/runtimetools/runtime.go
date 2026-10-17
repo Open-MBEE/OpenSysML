@@ -137,7 +137,7 @@ func (g *group) registerRuntime(s *mcp.Server) {
 		var b strings.Builder
 		b.WriteString(errorText(resp.GetError()))
 		if len(resp.GetOutputs()) > 0 {
-			b.WriteString(namedValuesText(resp.GetOutputs()))
+			b.WriteString(markedValuesText(resp.GetOutputs(), resp.GetOrderDependent()))
 		} else if resp.GetError() == "" && resp.GetExploration() == nil {
 			b.WriteString("completed with no outputs\n")
 		}
@@ -184,7 +184,7 @@ func (g *group) registerRuntime(s *mcp.Server) {
 			fmt.Fprintf(&b, "states: %s\n", strings.Join(resp.GetStatesVisited(), " -> "))
 		}
 		if len(resp.GetFinalContext()) > 0 {
-			b.WriteString("final context:\n" + namedValuesText(resp.GetFinalContext()))
+			b.WriteString("final context:\n" + markedValuesText(resp.GetFinalContext(), resp.GetOrderDependent()))
 		}
 		if resp.GetFinalTime() != 0 {
 			fmt.Fprintf(&b, "final time %g s\n", resp.GetFinalTime())

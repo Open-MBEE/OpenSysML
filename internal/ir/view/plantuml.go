@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+const (
+	lineStyleKey = ";line:"
+	textStyleKey = ";text:"
+)
+
 // PlantUML is the PlantUML form of a rendering: a class diagram of a tree, a
 // nested rectangle diagram of an interconnection, a state diagram of a state
 // or action rendering, and a sequence diagram of a sequence, in the Standard
@@ -548,10 +553,10 @@ func plantumlEdgeText(kind Kind, text string) string {
 func plantumlStyleColor(style *Style) string {
 	color := "#" + strings.TrimPrefix(style.Fill, "#")
 	if style.Line != "" {
-		color += ";line:" + strings.TrimPrefix(style.Line, "#")
+		color += lineStyleKey + strings.TrimPrefix(style.Line, "#")
 	}
 	if style.Text != "" {
-		color += ";text:" + strings.TrimPrefix(style.Text, "#")
+		color += textStyleKey + strings.TrimPrefix(style.Text, "#")
 	}
 	return color
 }
@@ -621,10 +626,10 @@ func (w *plantumlWriter) decoration(node *Node) string {
 	case w.fills.filled(node):
 		out.WriteString(" " + w.fills.fill(node))
 		if w.borders {
-			out.WriteString(";line:" + strings.TrimPrefix(w.fills.color(node), "#"))
+			out.WriteString(lineStyleKey + strings.TrimPrefix(w.fills.color(node), "#"))
 		}
 		if node.Style != nil && node.Style.Text != "" {
-			out.WriteString(";text:" + strings.TrimPrefix(node.Style.Text, "#"))
+			out.WriteString(textStyleKey + strings.TrimPrefix(node.Style.Text, "#"))
 		}
 	case node.Style != nil && (node.Style.Fill != "" || node.Style.Line != "" || node.Style.Text != ""):
 		out.WriteString(" " + plantumlStyleColor(node.Style))
@@ -639,10 +644,10 @@ func (w *plantumlWriter) noteDecoration(node *Node) string {
 	case w.fills.filled(node):
 		out.WriteString(" " + w.fills.fill(node))
 		if w.borders {
-			out.WriteString(";line:" + strings.TrimPrefix(w.fills.color(node), "#"))
+			out.WriteString(lineStyleKey + strings.TrimPrefix(w.fills.color(node), "#"))
 		}
 		if node.Style != nil && node.Style.Text != "" {
-			out.WriteString(";text:" + strings.TrimPrefix(node.Style.Text, "#"))
+			out.WriteString(textStyleKey + strings.TrimPrefix(node.Style.Text, "#"))
 		}
 	case node.Style != nil && (node.Style.Fill != "" || node.Style.Line != "" || node.Style.Text != ""):
 		out.WriteString(" " + plantumlStyleColor(node.Style))

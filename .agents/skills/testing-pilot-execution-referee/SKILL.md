@@ -67,8 +67,8 @@ report. Reports go to
 
 Reference values at the current implementation (456 cases, all twenty-one default
 fixtures):
-`agree 217 · kind-only 1 · order-only 0 · disagree 29 · differs-by-design 5 ·
-pilot-unevaluated 124 · pilot-silent 21 · pilot-error 5 · ours-error 10 · ours-undetermined 28 ·
+`agree 216 · kind-only 1 · order-only 0 · disagree 26 · differs-by-design 5 ·
+pilot-unevaluated 124 · pilot-silent 21 · pilot-error 5 · ours-error 10 · ours-undetermined 32 ·
 both-error 16 · nondeterministic 0`.
 Four of the nine `pilot-error` are the whole of `unknown_bounds.cases`: the pilot rejects a
 model whose multiplicity bound names a valueless feature (`a : Real[n]`, `Must have a Natural

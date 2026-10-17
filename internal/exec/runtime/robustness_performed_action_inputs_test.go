@@ -97,7 +97,7 @@ func testPerformedActionUnboundInput(t *testing.T, mult string, required bool) {
 	if got := fv.HeldValue(); got.Kind != ValQuantity || got.Quantity() == nil || got.Quantity().Num.AsReal() != 200.0 {
 		t.Fatalf("cycleTime = %v, want 200.0 [s]", FormatValue(got))
 	}
-	behavior, ok := inst.Behavior("toastBread")
+	behavior, ok := inst.behavior("toastBread")
 	if !ok {
 		t.Fatal("slow performs no toastBread")
 	}
@@ -107,8 +107,8 @@ func testPerformedActionUnboundInput(t *testing.T, mult string, required bool) {
 		}
 		return
 	}
-	if !errors.Is(behavior.Err, ErrUnboundParameter) {
-		t.Fatalf("behavior.Err = %v, want ErrUnboundParameter", behavior.Err)
+	if !errors.Is(behavior.Err, errUnboundParameter) {
+		t.Fatalf("behavior.Err = %v, want errUnboundParameter", behavior.Err)
 	}
 	if !behavior.completed() || behavior.hasPendingWork() {
 		t.Error("a failed performance must be ended and hold no pending work")
@@ -118,8 +118,8 @@ func testPerformedActionUnboundInput(t *testing.T, mult string, required bool) {
 	}
 	// The same action executed on its own is refused for the same input.
 	idx := ctx.model.resolver.Index()
-	if _, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::ToastBread")); !errors.Is(err, ErrUnboundParameter) {
-		t.Errorf("ExecuteAction(ToastBread) = %v, want ErrUnboundParameter", err)
+	if _, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::ToastBread")); !errors.Is(err, errUnboundParameter) {
+		t.Errorf("ExecuteAction(ToastBread) = %v, want errUnboundParameter", err)
 	}
 }
 
@@ -138,7 +138,7 @@ func testPerformedUsageUnboundInput(t *testing.T, mult string, required bool) {
 	if got := fv.HeldValue(); got.Kind != ValQuantity || got.Quantity() == nil || got.Quantity().Num.AsReal() != 200.0 {
 		t.Fatalf("cycleTime = %v, want 200.0 [s]", FormatValue(got))
 	}
-	behavior, ok := inst.Behavior("applyHeat")
+	behavior, ok := inst.behavior("applyHeat")
 	if !ok {
 		t.Fatal("slow performs no applyHeat")
 	}
@@ -168,8 +168,8 @@ func testDeclaredBehaviorStartFailsUnbound(t *testing.T) {
 }`
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 	waiters := len(ctx.clock.waiters)
-	if _, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::Kick")); !errors.Is(err, ErrUnboundParameter) {
-		t.Fatalf("ExecuteAction(Kick) = %v, want ErrUnboundParameter", err)
+	if _, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::Kick")); !errors.Is(err, errUnboundParameter) {
+		t.Fatalf("ExecuteAction(Kick) = %v, want errUnboundParameter", err)
 	}
 	if got := len(ctx.clock.waiters); got != waiters {
 		t.Errorf("clock waiters = %d after the failed start, want %d: the failed executor leaked", got, waiters)
@@ -184,7 +184,7 @@ func testNestedActionParameterMultiplicity(t *testing.T) {
 	}{
 		{name: "bare parameters admit no input", action: "Outer", checkTargets: true},
 		{name: "required inner rejects no input", innerMult: "[1]", action: "Outer", wantErr: ErrMultiplicityViolation},
-		{name: "required outer remains unbound", outerMult: "[1]", action: "Runner", wantErr: ErrUnboundParameter},
+		{name: "required outer remains unbound", outerMult: "[1]", action: "Runner", wantErr: errUnboundParameter},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := `package test {
@@ -302,7 +302,7 @@ func testSnapshotRestoreUndoesRecordedFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("instantiate slow: %v", err)
 	}
-	behavior, ok := inst.Behavior("toastBread")
+	behavior, ok := inst.behavior("toastBread")
 	if !ok || behavior.Action == nil {
 		t.Fatalf("slow performs no toastBread, behaviors: %v", inst.Behaviors())
 	}
@@ -327,8 +327,8 @@ func testSnapshotRestoreUndoesRecordedFailure(t *testing.T) {
 	}
 
 	post()
-	if !errors.Is(behavior.Err, ErrUnboundParameter) {
-		t.Fatalf("behavior.Err = %v, want ErrUnboundParameter", behavior.Err)
+	if !errors.Is(behavior.Err, errUnboundParameter) {
+		t.Fatalf("behavior.Err = %v, want errUnboundParameter", behavior.Err)
 	}
 	occID := behavior.Action.occurrence.ID
 	if l, _ := ctx.OccurrenceLife(occID); l.Ended == 0 {
@@ -347,8 +347,8 @@ func testSnapshotRestoreUndoesRecordedFailure(t *testing.T) {
 	}
 
 	post()
-	if !errors.Is(behavior.Err, ErrUnboundParameter) {
-		t.Fatalf("re-woken behavior.Err = %v, want ErrUnboundParameter", behavior.Err)
+	if !errors.Is(behavior.Err, errUnboundParameter) {
+		t.Fatalf("re-woken behavior.Err = %v, want errUnboundParameter", behavior.Err)
 	}
 }
 
@@ -360,19 +360,19 @@ func testHeldImageCarriesRecordedFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("instantiate slow: %v", err)
 	}
-	behavior, ok := inst.Behavior("toastBread")
-	if !ok || !errors.Is(behavior.Err, ErrUnboundParameter) {
+	behavior, ok := inst.behavior("toastBread")
+	if !ok || !errors.Is(behavior.Err, errUnboundParameter) {
 		t.Fatalf("slow performs no failed toastBread: %v", inst.Behaviors())
 	}
 
 	dst := imageInto(t, ctx, inst)
 	copied, _ := dst.Instance(inst.ID)
-	replica, ok := copied.Behavior("toastBread")
+	replica, ok := copied.behavior("toastBread")
 	if !ok {
 		t.Fatalf("the copy performs no toastBread, behaviors: %v", copied.Behaviors())
 	}
-	if !errors.Is(replica.Err, ErrUnboundParameter) {
-		t.Errorf("copy.Err = %v, want ErrUnboundParameter", replica.Err)
+	if !errors.Is(replica.Err, errUnboundParameter) {
+		t.Errorf("copy.Err = %v, want errUnboundParameter", replica.Err)
 	}
 	if !replica.typeBound {
 		t.Error("the copy is not marked type-bound, want carried from the image")
@@ -411,7 +411,7 @@ func testAdvanceRecordsClockDrivenFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("instantiate slow: %v", err)
 	}
-	behavior, ok := inst.Behavior("toastBread")
+	behavior, ok := inst.behavior("toastBread")
 	if !ok || behavior.Action == nil {
 		t.Fatalf("slow performs no toastBread, behaviors: %v", inst.Behaviors())
 	}
@@ -424,8 +424,8 @@ func testAdvanceRecordsClockDrivenFailure(t *testing.T) {
 	if _, err := ctx.Advance(6); err != nil {
 		t.Fatalf("Advance(6) = %v, want nil: the failure is the performance's", err)
 	}
-	if !errors.Is(behavior.Err, ErrUnboundParameter) {
-		t.Fatalf("behavior.Err = %v, want ErrUnboundParameter", behavior.Err)
+	if !errors.Is(behavior.Err, errUnboundParameter) {
+		t.Fatalf("behavior.Err = %v, want errUnboundParameter", behavior.Err)
 	}
 	if l, _ := ctx.OccurrenceLife(behavior.Action.occurrence.ID); l.Ended == 0 {
 		t.Error("performance occurrence life un-ended after the clock-driven failure")
@@ -464,15 +464,15 @@ func testSharedClockRecordsClockDrivenFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("instantiate slow: %v", err)
 	}
-	behavior, ok := inst.Behavior("toastBread")
+	behavior, ok := inst.behavior("toastBread")
 	if !ok || behavior.Action == nil {
 		t.Fatalf("slow performs no toastBread, behaviors: %v", inst.Behaviors())
 	}
 	if _, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::Drive")); err != nil {
 		t.Fatalf("ExecuteAction(Drive) = %v, want nil: the failure is the object's performance's", err)
 	}
-	if !errors.Is(behavior.Err, ErrUnboundParameter) {
-		t.Fatalf("behavior.Err = %v, want ErrUnboundParameter", behavior.Err)
+	if !errors.Is(behavior.Err, errUnboundParameter) {
+		t.Fatalf("behavior.Err = %v, want errUnboundParameter", behavior.Err)
 	}
 	if l, _ := ctx.OccurrenceLife(behavior.Action.occurrence.ID); l.Ended == 0 {
 		t.Error("performance occurrence life un-ended after the clock-driven failure")
@@ -515,8 +515,8 @@ func testNoFlowPerformedActionChecksItsInputs(t *testing.T) {
 		binding string
 		want    error
 	}{
-		"output":  {"in r = 5;", ErrOutputActionInput},
-		"unknown": {"in bogus = 5;", ErrUnknownActionInput},
+		"output":  {"in r = 5;", errOutputActionInput},
+		"unknown": {"in bogus = 5;", errUnknownActionInput},
 	} {
 		src := `
 			package test {
@@ -545,8 +545,8 @@ func testNoFlowPerformedActionRefusesReturnParameter(t *testing.T) {
 	`
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 	_, err := ctx.Instantiate(idx.LookupQualified("test::Camera")[0])
-	if !errors.Is(err, ErrActionResultParameter) {
-		t.Fatalf("Instantiate(Camera) = %v; want ErrActionResultParameter", err)
+	if !errors.Is(err, errActionResultParameter) {
+		t.Fatalf("Instantiate(Camera) = %v; want errActionResultParameter", err)
 	}
 	if !strings.Contains(err.Error(), "declares `return r`; write `out r`") {
 		t.Errorf("err = %v; want it to name the parameter and the fix", err)
@@ -581,8 +581,8 @@ func testPerformedActionInputBoundByNothing(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrUnboundParameter) {
-		t.Fatalf("error = %v, want ErrUnboundParameter", err)
+	if !errors.Is(err, errUnboundParameter) {
+		t.Fatalf("error = %v, want errUnboundParameter", err)
 	}
 	if !strings.Contains(err.Error(), "adder") || !strings.Contains(err.Error(), "b") {
 		t.Errorf("error %q does not name the action and its unbound parameter", err)

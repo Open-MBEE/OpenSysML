@@ -446,7 +446,7 @@ func TestMergedDiagnosticKeepsTheSubmittedLine(t *testing.T) {
 	res := s.Submit("package P { part def Bad :> Missing; }")
 
 	out := strings.Join(renderResult(res, VerbosityNormal), "\n")
-	wants(t, out, "1:18: error: unresolved reference: Missing")
+	wants(t, out, "1:18: error[unresolved]: unresolved reference: Missing")
 }
 
 // A loaded file supersedes what was typed about the same names, taking the rest

@@ -310,7 +310,9 @@ func nameAt(code string, at int) string {
 func (e *REPLEngine) Interrupt() { e.session.Interrupt() }
 
 // Shutdown has nothing to release: the session is the process's.
-func (e *REPLEngine) Shutdown(bool) {}
+func (e *REPLEngine) Shutdown(bool) {
+	// The session belongs to the process, which releases it.
+}
 
 // String names the engine.
 func (e *REPLEngine) String() string { return fmt.Sprintf("REPLEngine(%p)", e.session) }

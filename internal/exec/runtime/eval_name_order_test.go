@@ -78,7 +78,7 @@ func TestSimpleNameFallbackOrder(t *testing.T) {
 	run.outputs[name] = constInt(3)
 	feature := scopedExpr{expr: parseExpr(t, "9"), scope: scope}
 
-	ec := NewEvalContext(ctx, scope)
+	ec := newEvalContext(ctx, scope)
 	ec.calcRun = run
 	ec.features = map[string]scopedExpr{name: feature}
 	ec.Push(map[string]Value{name: constInt(7)})

@@ -78,4 +78,64 @@ public interface DiagnosticOrBuilder extends
    */
   com.google.protobuf.ByteString
       getCodeBytes();
+
+  /**
+   * <pre>
+   * On a "choice-point": the features the conflicting alternatives wrote, whose
+   * values the run holds only up to the order it took; empty when the
+   * alternatives commute (`independent`) or conflict on nothing a value names.
+   * </pre>
+   *
+   * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+   * @return A list containing the orderDependent.
+   */
+  java.util.List<java.lang.String>
+      getOrderDependentList();
+  /**
+   * <pre>
+   * On a "choice-point": the features the conflicting alternatives wrote, whose
+   * values the run holds only up to the order it took; empty when the
+   * alternatives commute (`independent`) or conflict on nothing a value names.
+   * </pre>
+   *
+   * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+   * @return The count of orderDependent.
+   */
+  int getOrderDependentCount();
+  /**
+   * <pre>
+   * On a "choice-point": the features the conflicting alternatives wrote, whose
+   * values the run holds only up to the order it took; empty when the
+   * alternatives commute (`independent`) or conflict on nothing a value names.
+   * </pre>
+   *
+   * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+   * @param index The index of the element to return.
+   * @return The orderDependent at the given index.
+   */
+  java.lang.String getOrderDependent(int index);
+  /**
+   * <pre>
+   * On a "choice-point": the features the conflicting alternatives wrote, whose
+   * values the run holds only up to the order it took; empty when the
+   * alternatives commute (`independent`) or conflict on nothing a value names.
+   * </pre>
+   *
+   * <code>repeated string order_dependent = 5 [json_name = "orderDependent"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the orderDependent at the given index.
+   */
+  com.google.protobuf.ByteString
+      getOrderDependentBytes(int index);
+
+  /**
+   * <pre>
+   * On a "choice-point": the alternatives commute by their footprints, so the
+   * run's values stand whichever was taken.
+   * </pre>
+   *
+   * <code>bool independent = 6 [json_name = "independent"];</code>
+   * @return The independent.
+   */
+  boolean getIndependent();
 }

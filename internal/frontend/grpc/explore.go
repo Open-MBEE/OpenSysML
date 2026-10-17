@@ -93,6 +93,7 @@ func (s *Service) exploreWith(ctx context.Context, subject string, policy runtim
 		Complete:                x.Complete(),
 		Runs:                    int32Clamp(x.Runs),
 		BudgetsHit:              x.BudgetsHit,
+		Unenumerated:            runtime.GapNames(x.Unenumerated),
 		RunsBudget:              int32Clamp(x.Budget.Runs),
 		DepthBudget:             int32Clamp(x.Budget.Depth),
 		ProbabilitiesLowerBound: x.ProbabilitiesBounded(),

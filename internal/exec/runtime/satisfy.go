@@ -244,10 +244,10 @@ func targetText(node ast.Node) string {
 // instance of its subject, so that the values the subject declares supply the
 // requirement's own.
 func (ctx *Context) EvaluateSatisfaction(a *SatisfyAssertion) (bool, error) {
-	return ctx.EvaluateSatisfactionOn(a, nil)
+	return ctx.evaluateSatisfactionOn(a, nil)
 }
 
-// EvaluateSatisfactionOn evaluates a satisfaction assertion against a given
+// evaluateSatisfactionOn evaluates a satisfaction assertion against a given
 // object as its subject: the requirement's subject parameter is bound to that
 // object, so a feature the requirement's conditions reach through the subject
 // reads the value that object holds. A nil subject instantiates the feature the
@@ -255,13 +255,13 @@ func (ctx *Context) EvaluateSatisfaction(a *SatisfyAssertion) (bool, error) {
 //
 // A false verdict is returned as a *ViolationError, which unwraps to
 // ErrViolated: it is an answer about the model, not a failure to evaluate.
-func (ctx *Context) EvaluateSatisfactionOn(a *SatisfyAssertion, subject *Instance) (bool, error) {
+func (ctx *Context) evaluateSatisfactionOn(a *SatisfyAssertion, subject *Instance) (bool, error) {
 	result, err := ctx.CheckSatisfactionOn(a, subject)
 	return result.Holds, err
 }
 
 // CheckSatisfactionOn evaluates a satisfaction assertion as
-// EvaluateSatisfactionOn does and also reports the object it turned out to be
+// evaluateSatisfactionOn does and also reports the object it turned out to be
 // about.
 func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) (CheckResult, error) {
 	defer ctx.beginRun()()
@@ -395,23 +395,23 @@ func (ctx *Context) SatisfySubject(a *SatisfyAssertion) (*Instance, error) {
 	}
 	if typ := a.StatingType(); typ != nil {
 		if _, isUsage := typ.Decl.(*ast.Usage); !isUsage {
-			return nil, fmt.Errorf("%s: %w: an object of %s is needed", a.Text(), ErrNoSubject, ctx.qualifiedSymbolName(typ))
+			return nil, fmt.Errorf("%s: %w: an object of %s is needed", a.Text(), errNoSubject, ctx.qualifiedSymbolName(typ))
 		}
 		inst, err := ctx.Instantiate(typ)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w: %w", a.Text(), ErrNoSubject, err)
+			return nil, fmt.Errorf("%s: %w: %w", a.Text(), errNoSubject, err)
 		}
 		return inst, nil
 	}
 	if a.Subject == nil {
-		return nil, fmt.Errorf("%s: %w: %s", a.Text(), ErrNoSubject, a.SubjectRef)
+		return nil, fmt.Errorf("%s: %w: %s", a.Text(), errNoSubject, a.SubjectRef)
 	}
 	if a.SubjectChain != nil {
 		return ctx.chainSubject(a)
 	}
 	inst, err := ctx.Instantiate(a.Subject)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w: %w", a.Text(), ErrNoSubject, err)
+		return nil, fmt.Errorf("%s: %w: %w", a.Text(), errNoSubject, err)
 	}
 	return inst, nil
 }
@@ -457,15 +457,15 @@ func (ctx *Context) statedOf(a *SatisfyAssertion, inst *Instance) bool {
 func (ctx *Context) chainSubject(a *SatisfyAssertion) (*Instance, error) {
 	value, err := ctx.EvalWithScope(a.SubjectChain, a.Symbol.OwnerScope)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w: %w", a.Text(), ErrNoSubject, err)
+		return nil, fmt.Errorf("%s: %w: %w", a.Text(), errNoSubject, err)
 	}
 	id, ok := value.Object()
 	if !ok {
-		return nil, fmt.Errorf("%s: %w: %s does not denote one object", a.Text(), ErrNoSubject, a.SubjectRef)
+		return nil, fmt.Errorf("%s: %w: %s does not denote one object", a.Text(), errNoSubject, a.SubjectRef)
 	}
 	inst, ok := ctx.Instance(id)
 	if !ok {
-		return nil, fmt.Errorf("%s: %w: %s denotes object #%d, which no longer exists", a.Text(), ErrNoSubject, a.SubjectRef, id)
+		return nil, fmt.Errorf("%s: %w: %s denotes object #%d, which no longer exists", a.Text(), errNoSubject, a.SubjectRef, id)
 	}
 	return inst, nil
 }

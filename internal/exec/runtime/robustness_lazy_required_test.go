@@ -164,8 +164,8 @@ func testLazyRequiredInfiniteLowerBound(t *testing.T) {
 	`)
 	before := len(ctx.instances)
 	_, err := inst.GetFeatureValue(ctx, "p")
-	if !errors.Is(err, ErrInfiniteLowerBound) || !errors.Is(err, ErrMultiplicityViolation) {
-		t.Fatalf("p = %v, want %v", err, ErrInfiniteLowerBound)
+	if !errors.Is(err, errInfiniteLowerBound) || !errors.Is(err, ErrMultiplicityViolation) {
+		t.Fatalf("p = %v, want %v", err, errInfiniteLowerBound)
 	}
 	if !strings.Contains(err.Error(), "§7.4.12") {
 		t.Errorf("error %q names no clause", err)

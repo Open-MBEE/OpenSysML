@@ -39,12 +39,15 @@ func TestAnalysisRunsADefinitionOwnedCaseOnTheObjectGivenOverOneHeld(t *testing.
 }
 
 // TestAnalysisOfADefinitionOwnedCaseWithoutAnObject checks that the case runs
-// on the one object of the definition the session holds, and on none when it
-// holds none, where the owner's cost has no value.
+// on the one object of the definition the session holds, and asks for one when
+// it holds none, as a definition's satisfy does, rather than failing on cost.
 func TestAnalysisOfADefinitionOwnedCaseWithoutAnObject(t *testing.T) {
 	s := loadFixture(t, "testdata/verification_definition_owned.sysml")
-	wants(t, run(t, s, "%analysis Cost::Definition::costTest"),
-		"? Verification Cost::Definition::costTest verdict: error", "no value for feature cost")
+	none := run(t, s, "%analysis Cost::Definition::costTest")
+	wants(t, none, "? Verification Cost::Definition::costTest verdict: inconclusive — needs an object of Cost::Definition: none is instantiated")
+	if strings.Contains(none, "error") {
+		t.Errorf("a case with no object to run on is an error:\n%s", none)
+	}
 	run(t, s, "%instantiate Cost::dear")
 	wants(t, run(t, s, "%analysis Cost::Definition::costTest"),
 		"✗ Verification Cost::Definition::costTest on Cost::dear (object #1) verdict: fail")

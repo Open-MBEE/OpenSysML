@@ -44,7 +44,7 @@ func (e *ActionExecutor) stepMultiplicity(graph *lower.ActionGraph, node ast.Nod
 		err = graph.CheckStep(node, e.ctx.Semantics())
 	}
 	if err != nil {
-		err = fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+		err = fmt.Errorf("%w: %w", errActionStepMultiplicity, err)
 	}
 	e.stepCounts[key] = stepMultiplicityResult{count: count, err: err}
 	return count, err

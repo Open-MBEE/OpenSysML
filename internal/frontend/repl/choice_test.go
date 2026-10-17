@@ -37,7 +37,7 @@ func TestStepReportsChoicePoints(t *testing.T) {
 	// split forks: still one token acted.
 	rejects(t, run(t, s, "%step"), "choice point")
 	// left and right both act: the executor ordered them.
-	wants(t, run(t, s, "%step"), "✓ Step complete", "  1 choice point; %trace on to see them")
+	wants(t, run(t, s, "%step"), "✓ Step complete", "  1 choice point (1 independent); %trace on to see them")
 }
 
 // With tracing on the choice is in the trace, so the summary drops the hint.
@@ -48,7 +48,7 @@ func TestStepChoiceSummaryWithTraceOn(t *testing.T) {
 	run(t, s, "%step")
 	run(t, s, "%step")
 	out := run(t, s, "%step")
-	wants(t, out, "choice step 3: tokens 2@left, 3@right (unordered; took 3@right first)", "  1 choice point")
+	wants(t, out, "choice step 3: tokens 2@left, 3@right (unordered; took 3@right first; independent)", "  1 choice point")
 	rejects(t, out, "%trace on to see them")
 }
 
@@ -57,7 +57,7 @@ func TestStepChoiceSummaryWithTraceOn(t *testing.T) {
 func TestContinueReportsChoicePoints(t *testing.T) {
 	s := loadSource(t, choiceForkSource)
 	run(t, s, "%action tally")
-	wants(t, run(t, s, "%continue"), "✓ Action completed", "  1 choice point; %trace on to see them")
+	wants(t, run(t, s, "%continue"), "✓ Action completed", "  1 choice point (1 independent); %trace on to see them")
 
 	s = loadSource(t, `
 package Debug {
@@ -184,7 +184,7 @@ package Debug {
 	run(t, s, "%send Go")
 	out = run(t, s, "%advance 1")
 	wants(t, out,
-		"choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)",
+		"choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first; order-dependent: last)",
 		"  1 choice point")
 	rejects(t, out, "%trace on to see them")
 }

@@ -142,8 +142,8 @@ func TestTraceLabelsExpressionKinds(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if got := TraceLabel(tc.node); got != tc.want {
-			t.Errorf("TraceLabel(%T) = %q, want %q", tc.node, got, tc.want)
+		if got := traceLabel(tc.node); got != tc.want {
+			t.Errorf("traceLabel(%T) = %q, want %q", tc.node, got, tc.want)
 		}
 	}
 }
@@ -213,7 +213,7 @@ func TestReturnedBodyIsTracedAsApplied(t *testing.T) {
 		if err != nil {
 			t.Fatalf("AboveThreshold(%d): %v", threshold, err)
 		}
-		if body.Kind != ValExpr {
+		if body.Kind != valExpr {
 			t.Fatalf("AboveThreshold(%d) = %s, want a body", threshold, FormatTraceValue(body))
 		}
 		return body

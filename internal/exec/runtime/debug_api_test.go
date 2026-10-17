@@ -1545,7 +1545,7 @@ func TestFiredTransitionsLogsDefaultHistoryRoute(t *testing.T) {
 				t.Fatalf("CreateStateExecutor: %v", err)
 			}
 			exec.KeepFired(true)
-			exec.SendSignal("go", nil)
+			exec.sendSignal("go", nil)
 			if err := exec.ProcessNextEvent(); err != nil {
 				t.Fatalf("ProcessNextEvent: %v", err)
 			}
@@ -1618,7 +1618,7 @@ func TestFiredTransitionsOmitsAFailedFiring(t *testing.T) {
 			if got := firedNames(exec); !slices.Equal(got, []string{"->init"}) {
 				t.Fatalf("after start fired = %v, want the entry transition only", got)
 			}
-			exec.SendSignal("go", nil)
+			exec.sendSignal("go", nil)
 			if err := exec.ProcessNextEvent(); !errors.Is(err, ErrUnresolvedReference) {
 				t.Fatalf("ProcessNextEvent: %v, want ErrUnresolvedReference from the effect", err)
 			}
@@ -1665,8 +1665,8 @@ func TestStateBreakpointPausesOnATransientState(t *testing.T) {
 	if got := ctx.Clock().Now(); got != 20 {
 		t.Errorf("clock = %v, want 20: the clock moves on past a paused machine", got)
 	}
-	if !exec.HasDueEvent() {
-		t.Error("HasDueEvent() = false, want the completion event held for the resumed run")
+	if !exec.hasDueEvent() {
+		t.Error("hasDueEvent() = false, want the completion event held for the resumed run")
 	}
 
 	if err := exec.RunToQuiescence(); err != nil {
@@ -1706,7 +1706,7 @@ func TestStateBreakpointStagedByAFailedEntryIsDropped(t *testing.T) {
 		t.Fatalf("CreateStateExecutor: %v", err)
 	}
 	exec.SetBreakpointAt(stateNamed(t, exec, "arming"))
-	exec.SendSignal("go", nil)
+	exec.sendSignal("go", nil)
 	if err := exec.ProcessNextEvent(); !errors.Is(err, ErrUnresolvedReference) {
 		t.Fatalf("ProcessNextEvent: %v, want ErrUnresolvedReference from the entry", err)
 	}
@@ -1715,7 +1715,7 @@ func TestStateBreakpointStagedByAFailedEntryIsDropped(t *testing.T) {
 	}
 
 	exec.ClearBreakpoints()
-	exec.SendSignal("rest", nil)
+	exec.sendSignal("rest", nil)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent: %v", err)
 	}
@@ -1746,7 +1746,7 @@ func TestStateBreakpointOnDonePausesBeforeCompleting(t *testing.T) {
 	done := stateNamed(t, exec, "done")
 	exec.SetBreakpointAt(done)
 
-	exec.SendSignal("Stop", nil)
+	exec.sendSignal("Stop", nil)
 	if err := exec.RunToQuiescence(); err != nil {
 		t.Fatalf("RunToQuiescence: %v", err)
 	}
@@ -1812,7 +1812,7 @@ func TestStateBreakpointOnDoneCompletesOnTheNextStep(t *testing.T) {
 				t.Fatalf("CreateStateExecutor: %v", err)
 			}
 			exec.SetBreakpointAt(stateNamed(t, exec, "done"))
-			exec.SendSignal("Stop", nil)
+			exec.sendSignal("Stop", nil)
 			if err := exec.ProcessNextEvent(); err != nil {
 				t.Fatalf("ProcessNextEvent: %v", err)
 			}
@@ -1881,7 +1881,7 @@ func TestPseudostateBreakpointPausesAfterTheRouteThroughIt(t *testing.T) {
 	}
 	exec.SetBreakpointAt(route)
 
-	exec.SendSignal("go", nil)
+	exec.sendSignal("go", nil)
 	if err := exec.RunToQuiescence(); err != nil {
 		t.Fatalf("RunToQuiescence: %v", err)
 	}
@@ -1896,7 +1896,7 @@ func TestPseudostateBreakpointPausesAfterTheRouteThroughIt(t *testing.T) {
 	}
 
 	exec.Resume()
-	exec.SendSignal("bad", nil)
+	exec.sendSignal("bad", nil)
 	if err := exec.ProcessNextEvent(); !errors.Is(err, ErrUnresolvedReference) {
 		t.Fatalf("ProcessNextEvent: %v, want ErrUnresolvedReference from the effect", err)
 	}

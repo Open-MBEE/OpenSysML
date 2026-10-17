@@ -390,7 +390,7 @@ func TestCheckReplayFollowsAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := replayWitness(t, m, start, Witness{Choices: choices, Trace: trace.String()}, "x = 2")
-	if got := r.Outcome(); got != "x = 2" || r.Err != nil {
+	if got := r.outcome(); got != "x = 2" || r.Err != nil {
 		t.Fatalf("the replay reached %s, %v; want x = 2", got, r.Err)
 	}
 }
@@ -718,7 +718,7 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 				succession first stranded then sync;
 				succession first sync then done;
 			}
-		}`, ViolationDeadlock, ErrActionDeadlock},
+		}`, violationDeadlock, ErrActionDeadlock},
 		{"unbound parameter", "outer", `package test {
 			private import ScalarValues::*;
 			action def Adder { in a : Integer[1]; in b : Integer[1]; out sum : Integer; first step; action step { assign sum := a + b; } }
@@ -733,7 +733,7 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 				}
 				then done;
 			}
-		}`, ViolationFailure, ErrUnboundParameter},
+		}`, ViolationFailure, errUnboundParameter},
 		{"all guards false", "pick", `package test {
 			private import ScalarValues::*;
 			action pick {
@@ -749,7 +749,7 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 				if level > 10 then low;
 				if level > 20 then high;
 			}
-		}`, ViolationFailure, ErrNoEnabledSuccession},
+		}`, ViolationFailure, errNoEnabledSuccession},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -794,8 +794,8 @@ func TestCheckReturnsInvalidSubflowAsSetupFailure(t *testing.T) {
 	}`)
 	_, err := Check(context.Background(), m.fresh, starterOf(m.action(t, "outer")), CheckBudget{}, reduced(), nil)
 	var setup *SetupError
-	if !errors.As(err, &setup) || !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("check error = %v; want SetupError wrapping ErrInvalidActionFlow", err)
+	if !errors.As(err, &setup) || !errors.Is(err, errInvalidActionFlow) {
+		t.Fatalf("check error = %v; want SetupError wrapping errInvalidActionFlow", err)
 	}
 }
 
@@ -854,7 +854,7 @@ func TestCheckReplaysAFailureLeavingNoTrace(t *testing.T) {
 		t.Fatalf("%s, violations %v; want one failure", report.Status(), report.Violations)
 	}
 	v := report.Violations[0]
-	if v.Kind != ViolationFailure || !errors.Is(v.Err, ErrInvalidActionFlow) || v.Depth != 2 {
+	if v.Kind != ViolationFailure || !errors.Is(v.Err, errInvalidActionFlow) || v.Depth != 2 {
 		t.Fatalf("violation %+v, want the flow without a start after two moves", v)
 	}
 	// The trace is the first move's alone: invoking Bad fails before it leaves any.
@@ -862,8 +862,8 @@ func TestCheckReplaysAFailureLeavingNoTrace(t *testing.T) {
 		t.Fatalf("witness %+v, want the trace before the failing move, no choice and the failure", v.Witness)
 	}
 	start := starterOf(m.action(t, "outer"))
-	if r := replayWitness(t, m, start, v.Witness, "no initial node"); !errors.Is(r.Err, ErrInvalidActionFlow) {
-		t.Fatalf("the replay ends with %v, want %v", r.Err, ErrInvalidActionFlow)
+	if r := replayWitness(t, m, start, v.Witness, "no initial node"); !errors.Is(r.Err, errInvalidActionFlow) {
+		t.Fatalf("the replay ends with %v, want %v", r.Err, errInvalidActionFlow)
 	}
 	other := Witness{Trace: v.Witness.Trace, Fails: "another failure"}
 	var dis *ReplayDisagreement
@@ -1044,7 +1044,7 @@ func TestCheckNamesEachExecutorBudget(t *testing.T) {
 		{ErrStepLimitExceeded, BoundSteps, 1},
 		{ErrActionStepLimitExceeded, BoundActionSteps, 2},
 		{ErrStateEventLimitExceeded, BoundEvents, 3},
-		{budgetExceeded(ErrStateEventLimitExceeded, "behaviors", ErrBehaviorBudget), BoundBehaviors, 3},
+		{budgetExceeded(ErrStateEventLimitExceeded, "behaviors", errBehaviorBudget), BoundBehaviors, 3},
 		{ErrDoStepLimitExceeded, BoundDoSteps, 4},
 		{ErrElementLimitExceeded, BoundElements, 5},
 	}
@@ -1317,7 +1317,7 @@ func TestCheckRejectsAnUnknownDivergeName(t *testing.T) {
 	}`)
 	for _, name := range []string{"y", "this.x", "marker.nope", "nobody.tag", "x.y"} {
 		_, err := checkModelErr(t, m, "lone", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"x", name}})
-		var unknown *UnknownCheckFeatureError
+		var unknown *unknownCheckFeatureError
 		if !errors.As(err, &unknown) || !errors.Is(err, ErrUnknownCheckFeature) || unknown.Name != name {
 			t.Errorf("Diverge %s: %v, want ErrUnknownCheckFeature naming it", name, err)
 		}
@@ -1353,13 +1353,13 @@ func TestCheckRejectsAnUnknownDeepDivergePathWhenNoScheduleCompletes(t *testing.
 	}`)
 	for _, name := range []string{"worker.output.typo", "worker.nope.v", "worker.output.v.deeper"} {
 		_, err := checkModelErr(t, m, "stuck", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{name}})
-		var unknown *UnknownCheckFeatureError
+		var unknown *unknownCheckFeatureError
 		if !errors.As(err, &unknown) || unknown.Name != name {
 			t.Errorf("Diverge %s: %v, want ErrUnknownCheckFeature naming it", name, err)
 		}
 	}
 	report := checkModel(t, m, "stuck", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"worker.output.v"}})
-	if report.Verdict != CheckViolation || len(report.Violations) != 1 || report.Violations[0].Kind != ViolationDeadlock {
+	if report.Verdict != CheckViolation || len(report.Violations) != 1 || report.Violations[0].Kind != violationDeadlock {
 		t.Fatalf("%s, want the deadlock alone", report.Status())
 	}
 	if len(report.Finals) != 0 {
@@ -1393,7 +1393,7 @@ func TestCheckKeepsABoundedReportWhenAPathUnderATiedCallIsUnreached(t *testing.T
 		t.Fatalf("%s, finals %+v: want the one final holding byResult.result = 2", report.Status(), report.Finals)
 	}
 	_, err := checkModelErr(t, m, "outer", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"byResult.mark"}})
-	var unknown *UnknownCheckFeatureError
+	var unknown *unknownCheckFeatureError
 	if !errors.As(err, &unknown) || unknown.Name != "byResult.mark" {
 		t.Fatalf("exhaustive: %v, want ErrUnknownCheckFeature naming byResult.mark", err)
 	}
@@ -1569,7 +1569,7 @@ func TestCheckMassIsIndependentOfExploreScheduling(t *testing.T) {
 			t.Errorf("unweighted explored outcome %q has probability range %+v", o.Outcome, o.Probability)
 		}
 	}
-	if x.Weighted() {
+	if x.weighted {
 		t.Error("unweighted exploration reports Weighted() = true")
 	}
 	wantMass := map[string]float64{"div": 0.25, "ref": 0.25, "third": 0.5}

@@ -52,7 +52,7 @@ package ExpressionsDemo {
     }
 
     part def PayloadCasts {
-        attribute wholeOnly : Integer[0..*] = WholeReadings((1.0, 2.5, 3.0, 4.75));
+        attribute wholeOnly : Integer[0..*] = WholeReadings((1, 2.5, 3, 4.75));
         ref part cameras : Camera[0..*] = CamerasOf((navCam, spectrometer, sciCam));
         attribute cameraCount : Natural = size(cameras);
         ref part asInstrument : Instrument[0..1] = navCam as Instrument;
@@ -134,7 +134,7 @@ package ExpressionsDemo {
         attribute field : TensorQuantityValue =
             TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0), stressRef);
         attribute rank = field.order;
-        attribute dims : Positive[*] ordered = field.dimensions;
+        attribute dims : Positive[*] ordered nonunique = field.dimensions;
         attribute corner = field#(1, 1, 1);
         attribute opposite = field#(2, 2, 2);
         attribute doubled = 2 * field;

@@ -1,7 +1,7 @@
 exit: wstart
 enter: done
 transition: wstart -> done (event: accept Go)
-choice exiting busy: next done(exit), idle(exit) (unordered; took done(exit) first)
+choice exiting busy: next done(exit), idle(exit) (unordered; took done(exit) first; independent)
 exit: done
 stmt action body
   stmt assign log

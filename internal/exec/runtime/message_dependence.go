@@ -35,11 +35,12 @@ func (ctx *Context) channelsMeet(a, b *Instance) lower.ChannelsMeet {
 }
 
 // relation is what is known of executors a and b, which two moves belong to:
-// whether they are two, run for two objects, and which message operations meet.
+// whether they are two, run for two objects (two executors run for none hold
+// their own slots as two objects do), and which message operations meet.
 func (ctx *Context) relation(a, b clockWaiter) lower.Relation {
 	sa, sb := executorSelf(a), executorSelf(b)
 	rel := lower.Relation{Channels: ctx.channelsMeet(sa, sb), Apart: a != b}
-	if rel.Apart && objectsApart(sa, sb) {
+	if rel.Apart && (objectsApart(sa, sb) || sa == nil && sb == nil) {
 		rel.Objects = true
 		rel.Held = func(p, q lower.Place) bool {
 			x, y := ctx.slotHolder(a, p.Sym), ctx.slotHolder(b, q.Sym)
@@ -69,7 +70,7 @@ func (ctx *Context) ownsFeature(inst *Instance, sym *symbols.Symbol) bool {
 }
 
 // slotHolder is what holds the value a name resolving to sym names in a move of
-// w's: the machine's own data or performance for its attribute, the object w runs
+// w's: the behavior's own data or performance for its attribute, the object w runs
 // for for that object's feature; nil when neither is known.
 func (ctx *Context) slotHolder(w clockWaiter, sym *symbols.Symbol) any {
 	if sym == nil {
@@ -92,7 +93,14 @@ func (ctx *Context) slotHolder(w clockWaiter, sym *symbols.Symbol) any {
 			}
 		}
 	}
-	if self := executorSelf(w); ctx.ownsFeature(self, sym) {
+	if e, ok := w.(*ActionExecutor); ok {
+		for _, attr := range e.graph.Attributes {
+			if attr.Node == sym.Decl {
+				return e
+			}
+		}
+	}
+	if self := executorSelf(w); self != nil && ctx.ownsFeature(self, sym) {
 		return self.ID
 	}
 	return nil

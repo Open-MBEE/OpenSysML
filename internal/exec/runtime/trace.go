@@ -227,13 +227,8 @@ func NewEventRecorder(limit int) *TraceRecorder {
 	}
 }
 
-// Enable enables trace recording.
-func (tr *TraceRecorder) Enable() {
-	tr.enabled = true
-}
-
-// Disable disables trace recording.
-func (tr *TraceRecorder) Disable() {
+// disable disables trace recording.
+func (tr *TraceRecorder) disable() {
 	tr.enabled = false
 }
 
@@ -268,9 +263,9 @@ func (tr *TraceRecorder) line(text string) {
 	tr.add(TraceRecord{Kind: TraceLine, text: text})
 }
 
-// RecordActionStep records an action executor step with active tokens.
+// recordActionStep records an action executor step with active tokens.
 // Tokens are sorted by ID for deterministic output.
-func (tr *TraceRecorder) RecordActionStep(step int, tokens []Token) {
+func (tr *TraceRecorder) recordActionStep(step int, tokens []Token) {
 	if !tr.enabled {
 		return
 	}
@@ -307,14 +302,14 @@ func (tr *TraceRecorder) RecordNote(origin TraceOrigin, n RunNote) {
 	tr.add(TraceRecord{Kind: kind, Origin: origin, Note: n})
 }
 
-// Mark is the whole-run position the next record takes, for RecordAcceptAt to insert there later.
-func (tr *TraceRecorder) Mark() int {
+// mark is the whole-run position the next record takes, for recordAcceptAt to insert there later.
+func (tr *TraceRecorder) mark() int {
 	return tr.dropped + len(tr.records)
 }
 
-// RecordAcceptAt records an accept as RecordAccept does, placed at mark: before
+// recordAcceptAt records an accept as RecordAccept does, placed at mark: before
 // the records the dispatch of the event made. A mark already printed stays printed.
-func (tr *TraceRecorder) RecordAcceptAt(mark int, origin TraceOrigin, serial uint64, event string, payload map[string]Value) {
+func (tr *TraceRecorder) recordAcceptAt(mark int, origin TraceOrigin, serial uint64, event string, payload map[string]Value) {
 	if !tr.enabled {
 		return
 	}
@@ -350,9 +345,9 @@ func (tr *TraceRecorder) RecordSend(origin TraceOrigin, msg Message, target *Ins
 	tr.add(TraceRecord{Kind: TraceSend, Origin: origin, Event: event, Message: msg.Serial, To: msg.Target, Target: target, Payload: msg.Payload})
 }
 
-// RecordStateTerminate records a state machine's performance ending without exiting its
+// recordStateTerminate records a state machine's performance ending without exiting its
 // states: a terminate action, or the end of the occurrence performing it.
-func (tr *TraceRecorder) RecordStateTerminate(origin TraceOrigin, stop string, abandoned []string) {
+func (tr *TraceRecorder) recordStateTerminate(origin TraceOrigin, stop string, abandoned []string) {
 	text := fmt.Sprintf("terminate: %s", stop)
 	if len(abandoned) == 0 {
 		tr.add(TraceRecord{Kind: TraceTerminate, Origin: origin, text: text})
@@ -362,9 +357,9 @@ func (tr *TraceRecorder) RecordStateTerminate(origin TraceOrigin, stop string, a
 	}
 }
 
-// RecordStateEndedWithOccurrence records the machine's performance ending with the
+// recordStateEndedWithOccurrence records the machine's performance ending with the
 // occurrence a `terminate` named, with the states whose do behaviors it abandoned.
-func (tr *TraceRecorder) RecordStateEndedWithOccurrence(origin TraceOrigin, machine string, abandoned []string) {
+func (tr *TraceRecorder) recordStateEndedWithOccurrence(origin TraceOrigin, machine string, abandoned []string) {
 	text := fmt.Sprintf("terminated with occurrence: %s", machine)
 	if len(abandoned) == 0 {
 		tr.add(TraceRecord{Kind: TraceTerminate, Origin: origin, text: text})
@@ -376,11 +371,11 @@ func (tr *TraceRecorder) RecordStateEndedWithOccurrence(origin TraceOrigin, mach
 
 // RecordStateEntry records entering a state with optional entry action execution.
 func (tr *TraceRecorder) RecordStateEntry(origin TraceOrigin, state, path, region string, hasEntryAction bool) {
-	tr.RecordStateEntryWithSource(origin, state, path, region, hasEntryAction, symbols.Origin{})
+	tr.recordStateEntryWithSource(origin, state, path, region, hasEntryAction, symbols.Origin{})
 }
 
-// RecordStateEntryWithSource records entering a state with its declaration origin.
-func (tr *TraceRecorder) RecordStateEntryWithSource(origin TraceOrigin, state, path, region string, hasEntryAction bool, source symbols.Origin) {
+// recordStateEntryWithSource records entering a state with its declaration origin.
+func (tr *TraceRecorder) recordStateEntryWithSource(origin TraceOrigin, state, path, region string, hasEntryAction bool, source symbols.Origin) {
 	tr.add(TraceRecord{
 		Kind: TraceEntry, Origin: origin, State: state, Path: path, Region: region,
 		Source: source, Action: hasEntryAction,
@@ -389,32 +384,32 @@ func (tr *TraceRecorder) RecordStateEntryWithSource(origin TraceOrigin, state, p
 
 // RecordStateExit records exiting a state with optional exit action execution.
 func (tr *TraceRecorder) RecordStateExit(origin TraceOrigin, state, path, region string, hasExitAction bool) {
-	tr.RecordStateExitWithSource(origin, state, path, region, hasExitAction, symbols.Origin{})
+	tr.recordStateExitWithSource(origin, state, path, region, hasExitAction, symbols.Origin{})
 }
 
-// RecordStateExitWithSource records exiting a state with its declaration origin.
-func (tr *TraceRecorder) RecordStateExitWithSource(origin TraceOrigin, state, path, region string, hasExitAction bool, source symbols.Origin) {
+// recordStateExitWithSource records exiting a state with its declaration origin.
+func (tr *TraceRecorder) recordStateExitWithSource(origin TraceOrigin, state, path, region string, hasExitAction bool, source symbols.Origin) {
 	tr.add(TraceRecord{
 		Kind: TraceExit, Origin: origin, State: state, Path: path, Region: region,
 		Source: source, Action: hasExitAction,
 	})
 }
 
-// RecordActionNodeEnter records a token entering the flow an action node owns,
+// recordActionNodeEnter records a token entering the flow an action node owns,
 // whose steps are that node's subperformances.
-func (tr *TraceRecorder) RecordActionNodeEnter(node string) {
+func (tr *TraceRecorder) recordActionNodeEnter(node string) {
 	tr.line(fmt.Sprintf("enter action node: %s", node))
 }
 
-// RecordActionNodeExit records the flow an action node owns having completed,
+// recordActionNodeExit records the flow an action node owns having completed,
 // which is when the node itself completes.
-func (tr *TraceRecorder) RecordActionNodeExit(node string) {
+func (tr *TraceRecorder) recordActionNodeExit(node string) {
 	tr.line(fmt.Sprintf("leave action node: %s", node))
 }
 
-// RecordActionTerminate records a performance ended by a terminate, with the tokens
+// recordActionTerminate records a performance ended by a terminate, with the tokens
 // dropped from its flow in the order they were, lowest ID first.
-func (tr *TraceRecorder) RecordActionTerminate(perf string, dropped []Token) {
+func (tr *TraceRecorder) recordActionTerminate(perf string, dropped []Token) {
 	if !tr.enabled {
 		return
 	}
@@ -429,9 +424,9 @@ func (tr *TraceRecorder) RecordActionTerminate(perf string, dropped []Token) {
 	tr.line(fmt.Sprintf("terminate %s: dropped %s", perf, strings.Join(parts, ", ")))
 }
 
-// RecordActionTerminatePending records a performance a terminate ended at a parked token:
+// recordActionTerminatePending records a performance a terminate ended at a parked token:
 // one waiting at an accept, or one whose step had yet to begin.
-func (tr *TraceRecorder) RecordActionTerminatePending(perf string, waiting bool) {
+func (tr *TraceRecorder) recordActionTerminatePending(perf string, waiting bool) {
 	how := "ended before it began"
 	if waiting {
 		how = "ended waiting"
@@ -439,76 +434,76 @@ func (tr *TraceRecorder) RecordActionTerminatePending(perf string, waiting bool)
 	tr.line(fmt.Sprintf("terminate %s: %s", perf, how))
 }
 
-// RecordCalcEnter records entering a calc invocation and opens a nesting level.
-func (tr *TraceRecorder) RecordCalcEnter(name string) {
-	tr.RecordCalculationEnter("calc", name)
+// recordCalcEnter records entering a calc invocation and opens a nesting level.
+func (tr *TraceRecorder) recordCalcEnter(name string) {
+	tr.recordCalculationEnter("calc", name)
 }
 
-// RecordCalculationEnter records entering a calculation of the given kind — a
+// recordCalculationEnter records entering a calculation of the given kind — a
 // calc, or an analysis case — and opens a nesting level.
-func (tr *TraceRecorder) RecordCalculationEnter(kind, name string) {
+func (tr *TraceRecorder) recordCalculationEnter(kind, name string) {
 	tr.record(fmt.Sprintf("enter %s %s", kind, name))
 	tr.depth++
 }
 
-// RecordCalcBind records binding one calc input parameter. source names where
+// recordCalcBind records binding one calc input parameter. source names where
 // the value came from ("argument" or "default").
-func (tr *TraceRecorder) RecordCalcBind(param string, value Value, source string) {
+func (tr *TraceRecorder) recordCalcBind(param string, value Value, source string) {
 	tr.record(fmt.Sprintf("bind %s = %s [%s]", param, FormatTraceValue(value), source))
 }
 
-// RecordStatement records one body statement about to run and opens a nesting
+// recordStatement records one body statement about to run and opens a nesting
 // level for the expressions it evaluates and the statements it contains.
-func (tr *TraceRecorder) RecordStatement(label string) {
+func (tr *TraceRecorder) recordStatement(label string) {
 	tr.record("stmt " + label)
 	tr.depth++
 }
 
-// RecordLoopIteration records one iteration of a loop and opens a nesting level
+// recordLoopIteration records one iteration of a loop and opens a nesting level
 // for what that iteration does, which is how a loop's progress is readable off
 // the trace.
-func (tr *TraceRecorder) RecordLoopIteration(iteration int) {
+func (tr *TraceRecorder) recordLoopIteration(iteration int) {
 	tr.record(fmt.Sprintf("iteration %d", iteration))
 	tr.depth++
 }
 
-// EndStatement closes the level RecordStatement or RecordLoopIteration opened.
-func (tr *TraceRecorder) EndStatement() {
+// endStatement closes the level recordStatement or recordLoopIteration opened.
+func (tr *TraceRecorder) endStatement() {
 	tr.closeLevel()
 }
 
-// RecordCalcExit closes a calc invocation's nesting level and records its result.
-func (tr *TraceRecorder) RecordCalcExit(name string, result Value) {
-	tr.RecordCalculationExit("calc", name, result)
+// recordCalcExit closes a calc invocation's nesting level and records its result.
+func (tr *TraceRecorder) recordCalcExit(name string, result Value) {
+	tr.recordCalculationExit("calc", name, result)
 }
 
-// RecordCalculationExit closes a calculation's nesting level and records its result.
-func (tr *TraceRecorder) RecordCalculationExit(kind, name string, result Value) {
+// recordCalculationExit closes a calculation's nesting level and records its result.
+func (tr *TraceRecorder) recordCalculationExit(kind, name string, result Value) {
 	tr.closeLevel()
 	tr.record(fmt.Sprintf("exit %s %s -> %s", kind, name, FormatTraceValue(result)))
 }
 
-// RecordCalcExitError closes a calc invocation that failed, recording why.
+// recordCalcExitError closes a calc invocation that failed, recording why.
 // The failure is part of the ordering contract: it says how far binding and
 // evaluation got before the calc gave up.
-func (tr *TraceRecorder) RecordCalcExitError(name string, err error) {
-	tr.RecordCalculationExitError("calc", name, err)
+func (tr *TraceRecorder) recordCalcExitError(name string, err error) {
+	tr.recordCalculationExitError("calc", name, err)
 }
 
-// RecordCalculationExitError closes a calculation that failed, recording why.
-func (tr *TraceRecorder) RecordCalculationExitError(kind, name string, err error) {
+// recordCalculationExitError closes a calculation that failed, recording why.
+func (tr *TraceRecorder) recordCalculationExitError(kind, name string, err error) {
 	tr.closeLevel()
 	tr.record(fmt.Sprintf("exit %s %s -> error: %v", kind, name, err))
 }
 
-// BeginEval opens a nesting level for one expression's sub-expressions.
-func (tr *TraceRecorder) BeginEval() {
+// beginEval opens a nesting level for one expression's sub-expressions.
+func (tr *TraceRecorder) beginEval() {
 	tr.depth++
 }
 
-// EndEval closes the level BeginEval opened and records the expression's
+// endEval closes the level beginEval opened and records the expression's
 // outcome, so the entry appears after the sub-expressions it consumed.
-func (tr *TraceRecorder) EndEval(label string, value Value, err error) {
+func (tr *TraceRecorder) endEval(label string, value Value, err error) {
 	if tr.depth > 0 {
 		tr.depth--
 	}
@@ -549,20 +544,20 @@ func (tr *TraceRecorder) record(entry string) {
 	tr.add(TraceRecord{Kind: TraceLine, text: entry, depth: tr.depth})
 }
 
-// RecordDoStep records one action of a state's do behavior, which is how the
+// recordDoStep records one action of a state's do behavior, which is how the
 // interleaving of concurrently active states' do behaviors becomes visible.
-func (tr *TraceRecorder) RecordDoStep(origin TraceOrigin, state, path, region string) {
+func (tr *TraceRecorder) recordDoStep(origin TraceOrigin, state, path, region string) {
 	tr.add(TraceRecord{Kind: TraceDo, Origin: origin, State: state, Path: path, Region: region})
 }
 
-// RecordEvent records an event being processed.
-func (tr *TraceRecorder) RecordEvent(event string, time float64) {
+// recordEvent records an event being processed.
+func (tr *TraceRecorder) recordEvent(event string, time float64) {
 	tr.line(fmt.Sprintf("event: %s (t=%.1f)", event, time))
 }
 
-// RecordStateSpaceStep records the state a dynamics holds at an instant, with the
+// recordStateSpaceStep records the state a dynamics holds at an instant, with the
 // output it computes there: one `(t, x)` sample of the run.
-func (tr *TraceRecorder) RecordStateSpaceStep(action string, time float64, state, output Value) {
+func (tr *TraceRecorder) recordStateSpaceStep(action string, time float64, state, output Value) {
 	if !tr.enabled {
 		return
 	}
@@ -570,36 +565,36 @@ func (tr *TraceRecorder) RecordStateSpaceStep(action string, time float64, state
 		action, semantics.FormatReal(time), FormatValue(state), FormatValue(output)))
 }
 
-// RecordObjectMaterialized records an object being materialized, before any
+// recordObjectMaterialized records an object being materialized, before any
 // behavior of it starts.
-func (tr *TraceRecorder) RecordObjectMaterialized(typeName string, id int64) {
+func (tr *TraceRecorder) recordObjectMaterialized(typeName string, id int64) {
 	tr.line(fmt.Sprintf("materialize: %s #%d", typeName, id))
 }
 
-// RecordOccurrenceCreated records `create` starting an object during a call.
-func (tr *TraceRecorder) RecordOccurrenceCreated(typeName string, id int64) {
+// recordOccurrenceCreated records `create` starting an object during a call.
+func (tr *TraceRecorder) recordOccurrenceCreated(typeName string, id int64) {
 	tr.line(fmt.Sprintf("create: %s #%d", typeName, id))
 }
 
-// RecordOccurrenceDestroyed records an object ending by `destroy`.
-func (tr *TraceRecorder) RecordOccurrenceDestroyed(typeName string, id int64) {
+// recordOccurrenceDestroyed records an object ending by `destroy`.
+func (tr *TraceRecorder) recordOccurrenceDestroyed(typeName string, id int64) {
 	tr.line(fmt.Sprintf("destroy: %s #%d", typeName, id))
 }
 
-// RecordOccurrenceTerminated records an occurrence ending by `terminate`.
-func (tr *TraceRecorder) RecordOccurrenceTerminated(typeName string, id int64) {
+// recordOccurrenceTerminated records an occurrence ending by `terminate`.
+func (tr *TraceRecorder) recordOccurrenceTerminated(typeName string, id int64) {
 	tr.line(fmt.Sprintf("terminate: %s #%d", typeName, id))
 }
 
-// RecordBehaviorStart records an object's own execution of a behavior its type
+// recordBehaviorStart records an object's own execution of a behavior its type
 // exhibits or performs starting.
-func (tr *TraceRecorder) RecordBehaviorStart(kind, name string, id int64) {
+func (tr *TraceRecorder) recordBehaviorStart(kind, name string, id int64) {
 	tr.line(fmt.Sprintf("start: %s %s of #%d", kind, name, id))
 }
 
-// RecordBehaviorRun records an object's behavior being advanced, which is how
+// recordBehaviorRun records an object's behavior being advanced, which is how
 // the interleaving of several objects' behaviors becomes visible.
-func (tr *TraceRecorder) RecordBehaviorRun(kind, name string, id int64) {
+func (tr *TraceRecorder) recordBehaviorRun(kind, name string, id int64) {
 	tr.line(fmt.Sprintf("run: %s %s of #%d", kind, name, id))
 }
 
@@ -715,12 +710,12 @@ func FormatTraceValue(v Value) string {
 			return v.Kind.String()
 		}
 		return v.CoordinateTransformation().String()
-	case ValExpr:
-		return fmt.Sprintf("expr(%s)", TraceLabel(v.Expr()))
+	case valExpr:
+		return fmt.Sprintf("expr(%s)", traceLabel(v.expr()))
 	case ValFunction:
 		return fmt.Sprintf("calc(%s)", v.FunctionName())
 	case ValMetaobject:
-		return v.MetaobjectText()
+		return v.metaobjectText()
 	case ValUndetermined:
 		return fmt.Sprintf("undetermined(%s)", v.Undetermined().Reason())
 	default:
@@ -750,9 +745,9 @@ func formatConst(c semantics.Value) string {
 // literalLabel prefixes the trace label of a literal expression.
 const literalLabel = "literal "
 
-// TraceLabel names an expression node for a trace: its kind plus the token that
+// traceLabel names an expression node for a trace: its kind plus the token that
 // identifies it, which is stable across reformatting of the source.
-func TraceLabel(node ast.Node) string {
+func traceLabel(node ast.Node) string {
 	switch n := node.(type) {
 	case nil:
 		return "nil"
@@ -895,24 +890,24 @@ func controlNodeName(name, kind string) string {
 	return kind
 }
 
-// RecordCalcUsageExit closes the nesting level of a calc usage's evaluation,
+// recordCalcUsageExit closes the nesting level of a calc usage's evaluation,
 // which computes the usage's output features rather than one result, so there is
 // no single value to record for it.
-func (tr *TraceRecorder) RecordCalcUsageExit(kind, name string) {
+func (tr *TraceRecorder) recordCalcUsageExit(kind, name string) {
 	tr.closeLevel()
 	tr.record(fmt.Sprintf("exit %s %s", kind, name))
 }
 
-// RecordCalcUsageReuse records a calc usage read again with the inputs it
+// recordCalcUsageReuse records a calc usage read again with the inputs it
 // already ran over, whose values come from that one run. It opens no nesting
 // level of its own, since nothing runs.
-func (tr *TraceRecorder) RecordCalcUsageReuse(kind, name string) {
+func (tr *TraceRecorder) recordCalcUsageReuse(kind, name string) {
 	tr.record(fmt.Sprintf("reuse %s %s", kind, name))
 }
 
-// RecordCalcOutput records the value one output feature of a calc usage took.
+// recordCalcOutput records the value one output feature of a calc usage took.
 // The outputs appear after the one evaluation of the usage's body they are read
 // from, which is how the trace shows that reading several of them ran it once.
-func (tr *TraceRecorder) RecordCalcOutput(calc, output string, value Value) {
+func (tr *TraceRecorder) recordCalcOutput(calc, output string, value Value) {
 	tr.record(fmt.Sprintf("output %s.%s = %s", calc, output, FormatTraceValue(value)))
 }

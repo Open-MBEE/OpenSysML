@@ -1,6 +1,4 @@
 {
 	"type": "action",
-	"outputs": {
-		"result": {"type": "Integer", "value": 12}
-	}
+	"error": "eval assignment RHS: type mismatch: operator '+' is not defined for a sequence and an Integer"
 }

@@ -194,10 +194,10 @@ func TestUserScalarTypeStandsInOnlyWithoutALibrary(t *testing.T) {
 	}
 
 	ctx, shadow = build(t, "package Base { class Anything; }")
-	if _, err := ctx.directValueType(shadow, intArg(2)); !errors.Is(err, ErrUndeterminedValueType) {
-		t.Errorf("with a library lacking ScalarValues, directValueType(2) error = %v, want ErrUndeterminedValueType", err)
+	if _, err := ctx.directValueType(shadow, intArg(2)); !errors.Is(err, errUndeterminedValueType) {
+		t.Errorf("with a library lacking ScalarValues, directValueType(2) error = %v, want errUndeterminedValueType", err)
 	}
-	if _, err := evalIn(t, ctx, shadow, "2 istype Integer"); !errors.Is(err, ErrUndeterminedValueType) {
-		t.Errorf("with a library lacking ScalarValues, 2 istype Integer error = %v, want ErrUndeterminedValueType", err)
+	if _, err := evalIn(t, ctx, shadow, "2 istype Integer"); !errors.Is(err, errUndeterminedValueType) {
+		t.Errorf("with a library lacking ScalarValues, 2 istype Integer error = %v, want errUndeterminedValueType", err)
 	}
 }

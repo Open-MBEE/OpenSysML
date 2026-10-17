@@ -514,7 +514,7 @@ class Outcome(_message.Message):
     def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., final_state: _Optional[str] = ..., states_visited: _Optional[_Iterable[str]] = ..., error: _Optional[str] = ..., linearizations: _Optional[int] = ..., witness: _Optional[_Iterable[str]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., probability: _Optional[float] = ..., probability_range: _Optional[_Union[ProbabilityRange, _Mapping]] = ...) -> None: ...
 
 class ExplorationStatus(_message.Message):
-    __slots__ = ("complete", "runs", "budgets_hit", "runs_budget", "depth_budget", "probabilities_lower_bound", "failed_linearizations")
+    __slots__ = ("complete", "runs", "budgets_hit", "runs_budget", "depth_budget", "probabilities_lower_bound", "failed_linearizations", "unenumerated")
     COMPLETE_FIELD_NUMBER: _ClassVar[int]
     RUNS_FIELD_NUMBER: _ClassVar[int]
     BUDGETS_HIT_FIELD_NUMBER: _ClassVar[int]
@@ -522,6 +522,7 @@ class ExplorationStatus(_message.Message):
     DEPTH_BUDGET_FIELD_NUMBER: _ClassVar[int]
     PROBABILITIES_LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
     FAILED_LINEARIZATIONS_FIELD_NUMBER: _ClassVar[int]
+    UNENUMERATED_FIELD_NUMBER: _ClassVar[int]
     complete: bool
     runs: int
     budgets_hit: _containers.RepeatedScalarFieldContainer[str]
@@ -529,7 +530,8 @@ class ExplorationStatus(_message.Message):
     depth_budget: int
     probabilities_lower_bound: bool
     failed_linearizations: int
-    def __init__(self, complete: _Optional[bool] = ..., runs: _Optional[int] = ..., budgets_hit: _Optional[_Iterable[str]] = ..., runs_budget: _Optional[int] = ..., depth_budget: _Optional[int] = ..., probabilities_lower_bound: _Optional[bool] = ..., failed_linearizations: _Optional[int] = ...) -> None: ...
+    unenumerated: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, complete: _Optional[bool] = ..., runs: _Optional[int] = ..., budgets_hit: _Optional[_Iterable[str]] = ..., runs_budget: _Optional[int] = ..., depth_budget: _Optional[int] = ..., probabilities_lower_bound: _Optional[bool] = ..., failed_linearizations: _Optional[int] = ..., unenumerated: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ListEnginesRequest(_message.Message):
     __slots__ = ("probe",)
@@ -711,18 +713,20 @@ class Instance(_message.Message):
     def __init__(self, id: _Optional[int] = ..., type_symbol_id: _Optional[str] = ..., feature_values: _Optional[_Mapping[str, FeatureValue]] = ...) -> None: ...
 
 class FeatureValue(_message.Message):
-    __slots__ = ("feature_name", "value", "values", "materialized", "error")
+    __slots__ = ("feature_name", "value", "values", "materialized", "error", "order_dependent")
     FEATURE_NAME_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
     VALUES_FIELD_NUMBER: _ClassVar[int]
     MATERIALIZED_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
+    ORDER_DEPENDENT_FIELD_NUMBER: _ClassVar[int]
     feature_name: str
     value: Value
     values: _containers.RepeatedCompositeFieldContainer[Value]
     materialized: bool
     error: str
-    def __init__(self, feature_name: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ..., values: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., materialized: _Optional[bool] = ..., error: _Optional[str] = ...) -> None: ...
+    order_dependent: int
+    def __init__(self, feature_name: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ..., values: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., materialized: _Optional[bool] = ..., error: _Optional[str] = ..., order_dependent: _Optional[int] = ...) -> None: ...
 
 class InstantiateRequest(_message.Message):
     __slots__ = ("model_hash", "symbol_id")
@@ -774,7 +778,7 @@ class ExecuteActionRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ..., schedule: _Optional[str] = ..., performer_symbol_id: _Optional[str] = ..., advance: _Optional[float] = ..., seed: _Optional[int] = ..., draws: _Optional[str] = ..., clock_step: _Optional[float] = ...) -> None: ...
 
 class ExecuteActionResponse(_message.Message):
-    __slots__ = ("outputs", "error", "diagnostics", "outcomes", "exploration", "final_time", "performer_attributes")
+    __slots__ = ("outputs", "error", "diagnostics", "outcomes", "exploration", "final_time", "performer_attributes", "order_dependent")
     class OutputsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -789,6 +793,13 @@ class ExecuteActionResponse(_message.Message):
         key: str
         value: Value
         def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
+    class OrderDependentEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: int
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[int] = ...) -> None: ...
     OUTPUTS_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
@@ -796,6 +807,7 @@ class ExecuteActionResponse(_message.Message):
     EXPLORATION_FIELD_NUMBER: _ClassVar[int]
     FINAL_TIME_FIELD_NUMBER: _ClassVar[int]
     PERFORMER_ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
+    ORDER_DEPENDENT_FIELD_NUMBER: _ClassVar[int]
     outputs: _containers.MessageMap[str, Value]
     error: str
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
@@ -803,7 +815,8 @@ class ExecuteActionResponse(_message.Message):
     exploration: ExplorationStatus
     final_time: float
     performer_attributes: _containers.MessageMap[str, Value]
-    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., performer_attributes: _Optional[_Mapping[str, Value]] = ...) -> None: ...
+    order_dependent: _containers.ScalarMap[str, int]
+    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., performer_attributes: _Optional[_Mapping[str, Value]] = ..., order_dependent: _Optional[_Mapping[str, int]] = ...) -> None: ...
 
 class ExecuteStateRequest(_message.Message):
     __slots__ = ("model_hash", "state_machine_symbol_id", "events", "schedule", "performer_symbol_id", "trace", "advance", "seed", "draws", "clock_step")
@@ -830,7 +843,7 @@ class ExecuteStateRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., state_machine_symbol_id: _Optional[str] = ..., events: _Optional[_Iterable[str]] = ..., schedule: _Optional[str] = ..., performer_symbol_id: _Optional[str] = ..., trace: _Optional[bool] = ..., advance: _Optional[float] = ..., seed: _Optional[int] = ..., draws: _Optional[str] = ..., clock_step: _Optional[float] = ...) -> None: ...
 
 class ExecuteStateResponse(_message.Message):
-    __slots__ = ("states_visited", "final_context", "error", "diagnostics", "outcomes", "exploration", "final_time", "trace", "trace_dropped")
+    __slots__ = ("states_visited", "final_context", "error", "diagnostics", "outcomes", "exploration", "final_time", "trace", "trace_dropped", "order_dependent")
     class FinalContextEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -838,6 +851,13 @@ class ExecuteStateResponse(_message.Message):
         key: str
         value: Value
         def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
+    class OrderDependentEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: int
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[int] = ...) -> None: ...
     STATES_VISITED_FIELD_NUMBER: _ClassVar[int]
     FINAL_CONTEXT_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
@@ -847,6 +867,7 @@ class ExecuteStateResponse(_message.Message):
     FINAL_TIME_FIELD_NUMBER: _ClassVar[int]
     TRACE_FIELD_NUMBER: _ClassVar[int]
     TRACE_DROPPED_FIELD_NUMBER: _ClassVar[int]
+    ORDER_DEPENDENT_FIELD_NUMBER: _ClassVar[int]
     states_visited: _containers.RepeatedScalarFieldContainer[str]
     final_context: _containers.MessageMap[str, Value]
     error: str
@@ -856,7 +877,8 @@ class ExecuteStateResponse(_message.Message):
     final_time: float
     trace: _containers.RepeatedCompositeFieldContainer[DocumentEvent]
     trace_dropped: int
-    def __init__(self, states_visited: _Optional[_Iterable[str]] = ..., final_context: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., trace: _Optional[_Iterable[_Union[DocumentEvent, _Mapping]]] = ..., trace_dropped: _Optional[int] = ...) -> None: ...
+    order_dependent: _containers.ScalarMap[str, int]
+    def __init__(self, states_visited: _Optional[_Iterable[str]] = ..., final_context: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., trace: _Optional[_Iterable[_Union[DocumentEvent, _Mapping]]] = ..., trace_dropped: _Optional[int] = ..., order_dependent: _Optional[_Mapping[str, int]] = ...) -> None: ...
 
 class ConvertRequest(_message.Message):
     __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents", "compact", "omit_derived", "keep_derived")
@@ -1620,16 +1642,20 @@ class UnitFactor(_message.Message):
     def __init__(self, unit_id: _Optional[str] = ..., exponent: _Optional[float] = ...) -> None: ...
 
 class Diagnostic(_message.Message):
-    __slots__ = ("severity", "message", "span", "code")
+    __slots__ = ("severity", "message", "span", "code", "order_dependent", "independent")
     SEVERITY_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     SPAN_FIELD_NUMBER: _ClassVar[int]
     CODE_FIELD_NUMBER: _ClassVar[int]
+    ORDER_DEPENDENT_FIELD_NUMBER: _ClassVar[int]
+    INDEPENDENT_FIELD_NUMBER: _ClassVar[int]
     severity: str
     message: str
     span: Span
     code: str
-    def __init__(self, severity: _Optional[str] = ..., message: _Optional[str] = ..., span: _Optional[_Union[Span, _Mapping]] = ..., code: _Optional[str] = ...) -> None: ...
+    order_dependent: _containers.RepeatedScalarFieldContainer[str]
+    independent: bool
+    def __init__(self, severity: _Optional[str] = ..., message: _Optional[str] = ..., span: _Optional[_Union[Span, _Mapping]] = ..., code: _Optional[str] = ..., order_dependent: _Optional[_Iterable[str]] = ..., independent: _Optional[bool] = ...) -> None: ...
 
 class Span(_message.Message):
     __slots__ = ("file", "start_line", "start_col", "end_line", "end_col")
@@ -1989,16 +2015,18 @@ class RenderDocumentResponse(_message.Message):
     def __init__(self, markdown: _Optional[str] = ..., html: _Optional[str] = ..., file_name: _Optional[str] = ...) -> None: ...
 
 class RenderViewRequest(_message.Message):
-    __slots__ = ("model_hash", "view", "ports", "show")
+    __slots__ = ("model_hash", "view", "ports", "show", "depth")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     VIEW_FIELD_NUMBER: _ClassVar[int]
     PORTS_FIELD_NUMBER: _ClassVar[int]
     SHOW_FIELD_NUMBER: _ClassVar[int]
+    DEPTH_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     view: str
     ports: str
     show: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, model_hash: _Optional[str] = ..., view: _Optional[str] = ..., ports: _Optional[str] = ..., show: _Optional[_Iterable[str]] = ...) -> None: ...
+    depth: int
+    def __init__(self, model_hash: _Optional[str] = ..., view: _Optional[str] = ..., ports: _Optional[str] = ..., show: _Optional[_Iterable[str]] = ..., depth: _Optional[int] = ...) -> None: ...
 
 class RenderViewResponse(_message.Message):
     __slots__ = ("view", "kind", "stated", "nodes", "edges", "columns", "rows", "canvas", "notes", "notices", "shown")

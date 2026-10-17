@@ -20,7 +20,7 @@ enter action node: branch body of state behavior <anonymous>
         eval feature t -> 1
         eval literal 1 -> 1
       eval operator + -> 2
-choice step 2: tokens 3@a, 4@b (unordered; took 4@b first)
+choice step 2: tokens 3@a, 4@b (unordered; took 4@b first; order-dependent: c)
 leave action node: branch body of state behavior <anonymous>
 leave action node: state behavior <anonymous>
 exit: work

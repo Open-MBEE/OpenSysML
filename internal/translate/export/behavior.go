@@ -20,6 +20,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
+const (
+	thenKeyword = " then "
+)
+
 // Metaclass names for the behavioral nodes the SysML metamodel has no
 // counterpart for, typed in the OpenSysML namespace. InitialNode and FinalNode
 // are an older graph's forms of `first`/`done`, read only.
@@ -610,7 +614,7 @@ func (d *decoder) targetTransitionText(el *element, triggerWords []string, guard
 	if guard == "" {
 		return "", "", refuse("it states no guard and is no `else` branch, and `then` alone writes a succession")
 	}
-	return "if " + guard + " then " + target, "", nil
+	return "if " + guard + thenKeyword + target, "", nil
 }
 
 // precedingSource is the member before el that a positional end is read from:
@@ -1460,7 +1464,7 @@ func (d *decoder) successionHead(el *element) (string, error) {
 		if !hasGuard {
 			return "", d.missing(el, "sysx:"+xGuard, "a branch written with `if` states the condition it is taken under")
 		}
-		return "if " + guard + " then " + target, nil
+		return "if " + guard + thenKeyword + target, nil
 	}
 	if form, _ := d.stringOf(el, rdf.OpenSysML+xEndForm); form == formThen || positionalSource {
 		// `then done;` names the library's final node positionally: the
@@ -1521,7 +1525,7 @@ func (d *decoder) positionalSuccessionPrefix(el *element) (string, error) {
 		return "then ", nil
 	}
 	if d.boolOf(el, rdf.OpenSysML+xSourceMultiplicityBeforeThen) {
-		return multiplicity + " then ", nil
+		return multiplicity + thenKeyword, nil
 	}
 	return "then " + multiplicity + " ", nil
 }

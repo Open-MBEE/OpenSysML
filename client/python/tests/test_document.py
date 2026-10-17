@@ -1034,7 +1034,8 @@ class TestDocumentsAgainstRealService:
             rendered = model.render_view("RenderViewDemo::connections")
         assert rendered.kind == "interconnection"
         assert len(rendered.edges) == 1
-        assert rendered.edges[0].from_port and rendered.edges[0].to_port
+        assert rendered.edges[0].from_port
+        assert rendered.edges[0].to_port
         assert all(node.origin is not None for node in rendered.nodes)
 
     @pytest.mark.parametrize(

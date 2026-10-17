@@ -99,7 +99,7 @@ func TestPerformStatementSelectsAmongActions(t *testing.T) {
 		t.Fatalf("expected no diagnostics, got %v", diags)
 	}
 	diags := performStatementDiags(t, calc, performDecl{"action", "String"}, "3")
-	if len(diags) != 1 || diags[0].Code != "type.expr" ||
+	if len(diags) != 1 || diags[0].Code != "invocation-argument" ||
 		!strings.Contains(diags[0].Message, "argument 1 of tag expects String, found Natural") {
 		t.Fatalf("expected the argument mismatch against B::tag, got %v", diags)
 	}

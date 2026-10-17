@@ -1,0 +1,14 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "Go"}
+  ],
+  "finalState": "done",
+  "outputs": {
+    "a": {"type": "Integer", "value": 1},
+    "b": {"type": "Integer", "value": 2},
+    "log": {"type": "Integer", "value": 101}
+  },
+  "orderDependent": {}
+}

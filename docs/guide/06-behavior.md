@@ -692,47 +692,67 @@ $ sysml -action test::race action_explore_three_writers.sysml
     aRan = true
     bRan = true
     cRan = true
-    x = 1
+    x = 1 (order-dependent; 2 choice points — explore shows the set)
   standing: value (observed: 1 run under reverse)
 ```
 
 The same line closes `%step`, `%continue` and `%advance` in the REPL, and reads `2 choice points`
-without the hint once `%trace on` is showing them. Under `-trace` (or `%trace on`) each choice
-is a `choice` line naming what was open, every alternative, and the one taken:
+without the hint once `%trace on` is showing them. The result is stated only up to the partial
+order the library fixes: `x = 1` is what this linearization left, and the marker says that two
+of the run's choice points were between alternatives that write `x` — a value another order
+would hold otherwise — while `aRan`, `bRan` and `cRan`, which no competing alternative touches,
+print as they always have. A choice point marks a value when its alternatives *conflict*: one
+writes what another reads or writes, or they send and accept on one channel, judged from the
+same lowered footprints the checker's partial-order reduction uses (a read through an object
+reference or a chained target the declarations do not decide counts as conflicting). Alternatives
+that commute — two branches writing different features — are one outcome by construction: the
+choice is still recorded and still replayable, it is counted as `1 choice point (1 independent)`,
+and nothing is marked. Under `-trace` (or `%trace on`) each choice is a `choice` line naming
+what was open, every alternative, the one taken, and its standing:
 
 ```console
 $ sysml -trace -action test::race action_explore_three_writers.sysml
 …
 [trace] step 2: token 2@a, token 3@b, token 4@c
 …
-[trace] choice step 3: writes x := 1 by token 2, x := 2 by token 3, x := 3 by token 4 (unordered; x := 1 by token 2 stood)
-[trace] choice step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first)
+[trace] choice step 3: writes x := 1 by token 2, x := 2 by token 3, x := 3 by token 4 (unordered; x := 1 by token 2 stood; order-dependent: x)
+[trace] choice step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first; order-dependent: x)
 [trace] step 3: token 2@sync, token 3@sync, token 4@sync
 [trace] step 4: token 5@done
 [trace] step 5: no active tokens
 ```
 
 `tokens 2@a, 3@b, 4@c` names the tokens by id and node; `took 4@c first` is the reverse-order
-rule. The write line lists each token's last write to `x` and which one stood — `x = 1`, because
-token 2 stepped last. The other kinds read the same way: a decision with two holding guards is
-`choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)`, two
-transitions out of one state enabled by one event are `choice state idle on accept Go: transitions
-1->left, 2->right (unordered; took 1->left)`, and two regions reacting to one event are
-`choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)` — each firing
+rule; `order-dependent: x` is the standing, naming the features the conflicting alternatives
+write (`independent` when they commute, `order-dependent` alone when they meet on a channel or
+on a target the declarations do not decide). The write line lists each token's last write to `x`
+and which one stood — `x = 1`, because token 2 stepped last. The other kinds read the same way: a
+decision with two holding guards is `choice step 2: decision select branches 1->warn, 2->alarm
+hold (unordered; took 1->warn; order-dependent: mode)` — a decision's branches are different
+continuations, never independent — two transitions out of one state enabled by one event are
+`choice state idle on accept Go: transitions 1->left, 2->right (unordered; took 1->left;
+order-dependent)`, and two regions reacting to one event are `choice on accept Go: next a1(exit),
+b1(exit) (unordered; took a1(exit) first; order-dependent: last)` — each firing
 is drawn a unit at a time, its source's exit, its effect, its target's entry, so two firings may
 interleave; `reverse` and `declared` take the regions whole in declaration order and report each
 pick, and `seed:<n>` may take `b1(exit)` first. Entering a state of two regions draws the order
 of their entries the same way, `choice entering work: next left(entry), right(entry)
-(unordered; took left(entry) first)`, a fork's branches under `fork <name>` and the regions a
+(unordered; took left(entry) first; independent)`, a fork's branches under `fork <name>` and the regions a
 state leaves under `exiting <state>`; the fixed policies take declaration order there too, so a
 model that ran before these draws were recorded runs the same and gains only the `choice` lines —
 and two executors due at one instant of the clock are `choice at t=5.0: due action watcher, state
-machine blinking of object #1 (unordered; ran state machine blinking of object #1 first)`. One
+machine blinking of object #1 (unordered; ran state machine blinking of object #1 first; independent)`. One
 executor alone due at an instant is not a choice and is not reported, so a model with a single
 behavior runs and traces exactly as it did before the clock was shared. Over gRPC and
 Connect the same choice is an informational diagnostic with code `choice-point` and the message
-`choice point: step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first)`, placed at the node,
-decision, feature or state that made it — a finding about the run, never an error.
+`choice point: step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first; order-dependent: x)`,
+placed at the node, decision, feature or state that made it — a finding about the run, never an
+error — and its standing travels typed beside the message: `independent`, and `order_dependent`
+listing the features marked. The values themselves carry the count: `order_dependent` on a
+`FeatureValue` and, per output, on `ExecuteActionResponse` and `ExecuteStateResponse`
+(capability `order_dependence`); the Python client reads it as `ActionOutputs.order_dependent`
+and `Diagnostic.order_dependent`/`independent`, the Node client as `orderDependent` and
+`ModelDiagnostic.orderDependent`/`independent`.
 
 Reporting never changes the run. Once a guard or transition holds, the ones after it are read in
 a preview that is undone, and one that cannot be evaluated there — a division by zero, say — is
@@ -821,7 +841,11 @@ maximum model-draw probability over schedulers; a range that collapses to one va
 incomplete exploration prefixes numeric cells with `≥` and adds `; probabilities are lower bounds`
 only when a weighted choice occurred, since the runs not taken can only add. Six
 linearizations, three outcomes, two each; `complete (6 runs)` says every choice sequence was
-tried. Under `explore` an action step is one token advancing one node — not, as under the fixed
+tried. `complete` is a claim about the model, not the budget: were the runtime to perform a
+construct in one order without offering the alternatives as a choice point (no construct does
+today), the status would read `incomplete after N runs; not enumerated: …` naming the
+construct, the standing *observed* rather than *proved*, and the gRPC and client results list
+it under `unenumerated`. Under `explore` an action step is one token advancing one node — not, as under the fixed
 policies, every steppable token moving once — so the picks fall in consecutive steps and a branch
 of several nodes can run ahead of, or be overtaken by, a concurrent one at each of them. A
 `complete` exploration therefore covers every interleaving of the nodes the library leaves
@@ -1830,7 +1854,10 @@ as for any case.
 A body whose result is a `VerificationCases::PassIf(...)` call is `pass` or `fail` as that library
 calculation computes it; one binding `verdict` to a `VerdictKind` literal reports that literal; one
 producing no verdict value is `inconclusive`; and one whose run could not be carried out is `error`
-carrying the same message the run failed with. Each nested `verification` step is reported on its
+carrying the same message the run failed with. A case a part definition owns, swept with no object
+of the definition instantiated, is `inconclusive` saying it needs an object of the definition — the
+case is a feature of such an object, so there is nothing for it to run on, and nothing wrong with the
+model. Each nested `verification` step is reported on its
 own line, marked `(subcase)`, since the library states no roll-up of a subcase's verdict into its
 parent's.
 

@@ -56,7 +56,7 @@ type Condition struct {
 
 	// Constraints are the named constraint usages stating the condition through
 	// their types, outermost first: each one's parameter values mask the
-	// enclosing ones', which mask the checked element's. Empty reads the latter alone.
+	// enclosing ones', which mask the checked element's. empty reads the latter alone.
 	Constraints []*symbols.Symbol
 }
 
@@ -565,7 +565,7 @@ type conditionCheck struct {
 	kind string // "constraint", "requirement", "satisfaction"
 	what string // "assertion", "require condition"
 
-	// element names the checked element in messages. Empty takes sym's name,
+	// element names the checked element in messages. empty takes sym's name,
 	// which an anonymous declaration such as a satisfaction assertion lacks.
 	element string
 
@@ -577,7 +577,7 @@ type conditionCheck struct {
 	bindings frame
 
 	// frames are the frames a check within a behavior run reads, innermost last:
-	// the performance's own values and those around it. Empty outside a run.
+	// the performance's own values and those around it. empty outside a run.
 	frames []frame
 
 	// negated inverts the verdict: the element asserts that its required
@@ -602,7 +602,7 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 	}
 	if conflict := conflictingResultExpression(conds); conflict != nil {
 		return false, fmt.Errorf("%s %s: %s evaluation failed: %s: %w; a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`",
-			check.kind, check.name(), check.what, conflictText(conflict), ErrConflictingResultExpressions)
+			check.kind, check.name(), check.what, conflictText(conflict), errConflictingResultExpressions)
 	}
 	features := ctx.conditionFeatures(check.sym)
 	self := check.self
@@ -1374,5 +1374,5 @@ func conditionText(n ast.Node) string {
 		}
 		return conditionText(e.Operand) + "#(" + conditionText(e.Index) + ")"
 	}
-	return TraceLabel(n)
+	return traceLabel(n)
 }

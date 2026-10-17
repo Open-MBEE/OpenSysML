@@ -1,6 +1,6 @@
 exit: idle
 enter: work
-choice entering work: next l1(entry), r1(entry) (unordered; took l1(entry) first)
+choice entering work: next l1(entry), r1(entry) (unordered; took l1(entry) first; independent)
 enter: l1
 enter: r1
 transition: idle -> work (event: accept Go)

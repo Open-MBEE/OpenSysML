@@ -492,7 +492,7 @@ replaced by the one the row makes for it under the held-object rule below (the s
 the row's subject or `self` when they coincide), a function read again in the row's context
 over that object. A value bound to the run that made it — a deferred expression closed over
 its environment, a function of a calc declared in a behavior body — is refused with the typed
-`NotPortableError`, wrapped in `SweptArgumentError`. A `%sweep` on an object the session holds
+`notPortableError`, wrapped in `SweptArgumentError`. A `%sweep` on an object the session holds
 runs each row on an object of its own, made in the row's context, that is the held object as
 the sweep found it. Where the held closure is **pristine** — reached from a declaration (not
 `#id`), the root not destroyed, no feature of it or of an object it holds written since it was
@@ -519,9 +519,9 @@ alike). Neither `Restore` nor `Adopt` is that copy:
 `Restore` restores its source context alone, over the executors and journal it captured, and
 `Adopt` moves the very same `*Instance` into another context, which a row would then write. An
 object the image cannot carry is refused with the typed `SweptObjectError` naming the reason
-before any row runs — a destroyed object the sweep names (`ErrOccurrenceDestroyed`), a session
+before any row runs — a destroyed object the sweep names (`errOccurrenceDestroyed`), a session
 inside a step (`ErrSnapshotMidRun`), a body paused mid-statement
-(`ErrSnapshotPausedBody`), a value bound to the run that made it (`NotPortableError`), an
+(`ErrSnapshotPausedBody`), a value bound to the run that made it (`notPortableError`), an
 object outside the imaged closure (`HeldImageError`) — and the sweep never falls back to the
 session's context. `#id`-named objects are admitted exactly when the image holds the identity,
 and an object reached by a feature path exactly when the copied graph resolves the path, which
@@ -838,7 +838,7 @@ behavior unchanged until stage 4.
    `instances` table is shared by the rows and keyed by object identity, as before; rows
    materialize the same graph, so their identities agree). `%sweep` on a held object follows the
    rule under *What may be shared*: the declaration materialized afresh per row when the held
-   closure is pristine (`Context.Pristine`, `HeldStateError`), the typed `SweptObjectError`
+   closure is pristine (`Context.Pristine`, `heldStateError`), the typed `SweptObjectError`
    otherwise, and the session's state lock released while the rows run. Cancellation: no row
    starts once the caller's context is done; the rows in flight finish — the runtime has no hook
    to interrupt a body, as under `ExploreWith` — and are discarded; the sweep's result is the
@@ -879,10 +879,10 @@ behavior unchanged until stage 4.
    makes the copy in each row's context under the same identities, with fresh executors on the
    row's clock holding the captured state; `rowObjects` takes an image-backed reference from
    the copy and a pristine one from its declaration, in one sweep (an argument naming a fresh
-   object beside a moved subject). `HeldImageError` (`ErrImageIdentityTaken`,
-   `ErrImageBindingTaken`, `ErrImageClock`, `ErrImageBound`, `ErrImageRoot`),
-   `ErrOccurrenceDestroyed`, `ErrSnapshotMidRun`,
-   `ErrSnapshotPausedBody` and `NotPortableError` are the typed reasons, wrapped in
+   object beside a moved subject). `HeldImageError` (`errImageIdentityTaken`,
+   `errImageBindingTaken`, `errImageClock`, `errImageBound`, `errImageRoot`),
+   `errOccurrenceDestroyed`, `ErrSnapshotMidRun`,
+   `ErrSnapshotPausedBody` and `notPortableError` are the typed reasons, wrapped in
    `SweptObjectError` before any row runs; no shared-context fallback; a materialization that
    fails leaves the row's context as it found it. `Snapshot`'s wire shape is unchanged. Tests: the table the sequential form printed
    for a sweep over an object fresh from `%instantiate` whose type exhibits a state machine and
@@ -943,9 +943,9 @@ behavior unchanged until stage 4.
    data so the enclosing action adopts them as it adopts any `out`. Every start of an action
    goes through this one gate, the debugger's executor (`CreateActionExecutor`, `%action`,
    `-action`) included: created, such an executor is completed with the tool's outputs and has
-   no flow to step. An annotated `in` bound by no argument is `ErrUnboundParameter` unless the
+   no flow to step. An annotated `in` bound by no argument is `errUnboundParameter` unless the
    parameter is optional, in which case it is left out of the request, and two parameters one
-   `ToolVariable` name would put under one key are `ToolAmbiguousVariable` — both before any
+   `ToolVariable` name would put under one key are `toolAmbiguousVariable` — both before any
    process starts. `Registry.AnswerWith`
    installs a plan-scoped runner (`analysis/tool_runner.go`) on every context the plan builds
    (`Model.running`, `NewContext`, the sweep's rows), which puts each invocation to the registry

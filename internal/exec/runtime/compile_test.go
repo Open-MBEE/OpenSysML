@@ -373,8 +373,8 @@ func TestCompiledCalcEligibility(t *testing.T) {
 	for _, name := range ineligible {
 		wantSameOutcome(t, name, intArg(3))
 	}
-	wantErrorIs(t, "UnknownName", wantSameOutcome(t, "UnknownName", intArg(3)), ErrUnknownParameter)
-	wantErrorIs(t, "ReceiverNamed", wantSameOutcome(t, "ReceiverNamed", intArg(3)), ErrReceiverWithNamedArgs)
+	wantErrorIs(t, "UnknownName", wantSameOutcome(t, "UnknownName", intArg(3)), errUnknownParameter)
+	wantErrorIs(t, "ReceiverNamed", wantSameOutcome(t, "ReceiverNamed", intArg(3)), errReceiverWithNamedArgs)
 }
 
 // A traced run takes the evaluator, so the trace records every sub-expression.
@@ -408,7 +408,7 @@ func TestCompiledCalcTraceFallsBack(t *testing.T) {
 func TestCompiledCalcDeclines(t *testing.T) {
 	scope, ctx := compileRuntime(t, true)
 	sym := findSymbolByName(scope, "Add", ast.DefCalc)
-	named, err := ctx.InvokeCalcNamed(sym, map[string]Value{"b": intArg(2), "a": intArg(1)}, scope)
+	named, err := ctx.invokeCalcNamed(sym, map[string]Value{"b": intArg(2), "a": intArg(1)}, scope)
 	if err != nil || named.Const.Int != 3 {
 		t.Fatalf("Add(a = 1, b = 2) = %s, %v", FormatTraceValue(named), err)
 	}
