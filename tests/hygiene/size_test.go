@@ -45,19 +45,7 @@ var oversizeTestFiles = []oversize{
 
 // oversizeFixtures lists every fixture over maxFixtureBytes, in bytes.
 // Shrink the model a golden comes from, or digest it, and remove its entry.
-var oversizeFixtures = []oversize{
-	{"tests/export/testdata/convert/then_after_members.golden.ttl", 665584, "full Turtle golden of a model with many then/after successions"},
-	{"tests/export/testdata/superseded/then_done_membership.ttl", 607315, "superseded-form Turtle input the reader must still accept whole"},
-	{"tests/export/testdata/convert/result_expressions.golden.ttl", 401796, "full Turtle golden of a model dense in result expressions"},
-	{"tests/export/testdata/interchange/state_entry.toolkit.full.json", 336355, "complete toolkit JSON interchange export of a state model"},
-	{"tests/export/testdata/interchange/transitions.toolkit.full.json", 319603, "complete toolkit JSON interchange export of a transition model"},
-	{"tests/export/testdata/interchange/p10.toolkit.full.json", 300281, "complete toolkit JSON interchange export of the P10 sample"},
-	{"tests/export/testdata/convert/end_binding_bodies.golden.ttl", 266780, "full Turtle golden of a model with many end-binding bodies"},
-	{"tests/export/testdata/convert/constraints.golden.ttl", 244082, "full Turtle golden of a constraint-heavy model"},
-	{"tests/export/testdata/convert/irregular_layout.golden.ttl", 234525, "full Turtle golden of the irregular-layout sample"},
-	{"tests/export/testdata/convert/loops_conditionals.golden.ttl", 217901, "full Turtle golden of a model dense in loops and conditionals"},
-	{"tests/export/testdata/interchange/states.toolkit.full.json", 258575, "complete toolkit JSON interchange export of a state model"},
-}
+var oversizeFixtures = []oversize{}
 
 // TestTestFilesStayUnderTheLineCap fails when a tracked `_test.go` file is over
 // maxTestFileLines without an oversizeTestFiles entry, when an allowlisted file
