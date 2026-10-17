@@ -313,7 +313,7 @@ func (s *Service) monteCarloRuns(ctx context.Context, v *verifyContext, req *pb.
 		return resp, recorded, nil
 	}
 	resp.Lines = append(resp.Lines, fmt.Sprintf("%s %s over %d run(s)", mark, name, stats.Runs))
-	roots := in.instanceGraphs(in.runRoots(concluded.Subject, concluded.Outputs, nil))
+	roots := in.instanceGraphs(in.runRoots(concluded.Subject, nil, concluded.Outputs, nil))
 	resp.Instances = append(resp.Instances, roots...)
 	return resp, recorded, nil
 }
