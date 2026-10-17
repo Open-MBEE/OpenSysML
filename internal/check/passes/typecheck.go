@@ -6,6 +6,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -362,8 +363,10 @@ func (d declKind) occurrenceModifier() string {
 }
 
 func (tc *typeChecker) checkRelationships(scope *symbols.Scope, rels []*ast.Relationship, decl declKind) {
-	for _, rel := range rels {
-		if rel == nil || rel.Target == nil {
+	for i, rel := range rels {
+		// The parser echoes `include use case u : T`'s typing as an inclusion;
+		// the echo is no relationship of its own.
+		if rel == nil || rel.Target == nil || semantics.IncludeUseCaseEcho(rels, i) {
 			continue
 		}
 		// Only a conjugated *typing* is a ConjugatedPortTyping (SysML.xtext:974); a
@@ -421,11 +424,11 @@ func (tc *typeChecker) checkTypeTarget(scope *symbols.Scope, target ast.Node, re
 		return // a supertype of the wrong classifier family is the family rules' finding
 	}
 	kind := targetSym.Kind
-	if relKind == ast.RelReferences || relKind == ast.RelSubsets {
+	if relKind.ReferenceSubsets() || relKind == ast.RelSubsets {
 		kind = referentKind(targetSym)
 	}
 	msg := compatMessage(decl, relKind, kind)
-	if (relKind == ast.RelReferences || relKind == ast.RelSubsets) &&
+	if (relKind.ReferenceSubsets() || relKind == ast.RelSubsets) &&
 		kind == symbols.SymbolUnknown && targetSym.IsFeature() {
 		msg = unclassifiedReferenceKindMessage(decl, relKind, targetSym)
 	}
@@ -808,7 +811,7 @@ func compatMessage(decl declKind, rel ast.RelationshipKind, target symbols.Symbo
 		if !isCompatibleTyping(useKind, direction, target, decl.isOccurrenceUsage()) {
 			return fmt.Sprintf("%s cannot be typed by %s (kind mismatch)", useKind, target)
 		}
-	case ast.RelReferences, ast.RelCrosses, ast.RelVia, ast.RelSubject:
+	case ast.RelReferences, ast.RelIncludes, ast.RelCrosses, ast.RelVia, ast.RelSubject:
 		if msg := referenceKindMessage(decl, rel, target); msg != "" {
 			return msg
 		}
