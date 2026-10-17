@@ -471,10 +471,22 @@ function mount(root: HTMLElement, scene: Scene): Mounted {
 
   // engine connects to the sysml-wasm module once; a scene's own calls share the connection.
   function engine(): Promise<Connection> {
-    enginePromise ??= connectModule(moduleUrls(root.dataset, document.baseURI)).catch((error: unknown) => {
-      enginePromise = undefined;
-      throw error;
-    });
+    if (signal.aborted) {
+      return Promise.reject(new Error("the diagram has left the page"));
+    }
+    enginePromise ??= connectModule(moduleUrls(root.dataset, document.baseURI)).then(
+      (connection) => {
+        if (signal.aborted) {
+          void connection.close();
+          throw new Error("the diagram has left the page");
+        }
+        return connection;
+      },
+      (error: unknown) => {
+        enginePromise = undefined;
+        throw error;
+      },
+    );
     return enginePromise;
   }
 
@@ -528,6 +540,10 @@ function mount(root: HTMLElement, scene: Scene): Mounted {
   async function read(source: string, verb: string): Promise<LandingModel | undefined> {
     const started = performance.now();
     const outcome = await readModel(await engine(), scene, source);
+    if (!srcEl.readOnly && srcEl.value !== source) {
+      // The text moved on while the worker read this one; the edit it became reads next.
+      return undefined;
+    }
     if (!outcome.model) {
       const first = outcome.diagnostics.find(blocks) ?? outcome.diagnostics[0];
       srcEl.setAttribute("aria-invalid", "true");
@@ -1541,6 +1557,9 @@ function mount(root: HTMLElement, scene: Scene): Mounted {
     resize.disconnect();
     navigation?.unsubscribe();
     clearTimeout(editTimer);
+    // The worker goes with the diagram; a connection still opening closes itself on arrival.
+    void enginePromise?.then((connection) => connection.close(), () => undefined);
+    enginePromise = undefined;
     svg.remove();
     hero.classList.remove("osml-hero--focus", "osml-hero--dragging");
     stage.classList.remove("osml-schematic__stage--zoomed", "osml-schematic__stage--panning");

@@ -352,3 +352,23 @@ test("debugSteps marks the seed:2 Commit ignored and Pull fired", () => {
   assert.equal(steps[6].accepted, 2);
   assert.deepEqual(steps[10].edge, { from: "flexo", to: "opensysml" });
 });
+
+test("renderResult carries a node's Style colours as the fill and border the canvas paints", () => {
+  const result = renderResult(
+    renderedViewFromJson({
+      view: "#interconnection:Demo::Item",
+      kind: "interconnection",
+      nodes: [
+        { id: "n0", kind: "part", name: "Demo::Item" },
+        { id: "n1", kind: "part", name: "red", parent: "n0", style: { fill: "#ff0000", line: "#800000", bold: true } },
+        { id: "n2", kind: "part", name: "plain", parent: "n0" },
+      ],
+    }),
+  );
+  const [, red, plain] = result.nodes;
+  assert.equal(red.fill, "#ff0000");
+  assert.equal(red.border, "#800000");
+  assert.equal(red.style?.bold, true);
+  assert.equal(plain.fill, undefined);
+  assert.equal(plain.border, undefined);
+});

@@ -128,6 +128,8 @@ export function renderResult(view: RenderedView): RenderResult {
           ...(node.geometry.collapsed ? { collapsed: true } : {}),
         }),
     ...(node.style === undefined ? {} : { style: node.style }),
+    ...(node.style?.fill ? { fill: node.style.fill } : {}),
+    ...(node.style?.line ? { border: node.style.line } : {}),
   }));
   const edges = view.edges.map((edge): RenderEdge => ({
     from: edge.from,

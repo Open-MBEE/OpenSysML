@@ -299,9 +299,10 @@ the tree into `docs/assets/sysml-wasm.wasm.gz` (and the REPL's `sysml-repl.wasm.
 `client/node/src/browser` and its `wasm-worker` entry; the page inflates the module with
 `DecompressionStream` and runs it in a Worker through `connectWasm`. The module's URL is
 the single `data-osml-wasm` attribute of the hero in `overrides/home.html`, so once a
-release carrying `render_view` is published, pointing the site at
+release carrying `render_view` and `state_trace` is published, pointing the site at
 `https://cdn.jsdelivr.net/npm/@openmbee/opensysml-wasm@<version>/sysml-wasm.wasm` is a
-one-line change (the `wasm_exec.js` beside it must come from the same Go toolchain).
+one-line change — with `data-osml-wasm-exec` pointed at the `wasm_exec.js` of the same
+package, since a module runs only under the `wasm_exec.js` of the Go toolchain that built it.
 
 ## What works
 
