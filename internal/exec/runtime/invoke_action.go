@@ -667,7 +667,7 @@ func (ctx *Context) ActionInputs(scope *symbols.Scope, sym *symbols.Symbol, posi
 	names := ctx.actionInputNames(sym)
 	if len(positional) > len(names) {
 		return nil, fmt.Errorf("%w: action %s takes %d input parameter(s), got %d argument(s)",
-			errActionArity, symbolText(sym), len(names), len(positional))
+			errActionArity, SymbolText(sym), len(names), len(positional))
 	}
 	inputs := make(map[string]Value, len(names))
 	bound := make(map[string]bool, len(names))
@@ -686,11 +686,11 @@ func (ctx *Context) ActionInputs(scope *symbols.Scope, sym *symbols.Symbol, posi
 		}
 		if !slices.Contains(names, name) {
 			return nil, fmt.Errorf("%w: action %s has no input parameter %q",
-				errUnknownParameter, symbolText(sym), name)
+				errUnknownParameter, SymbolText(sym), name)
 		}
 		if bound[name] {
 			return nil, fmt.Errorf("%w: input parameter %q of %s is given more than one argument",
-				errDuplicateArgument, name, symbolText(sym))
+				errDuplicateArgument, name, SymbolText(sym))
 		}
 		bound[name] = true
 		inputs[name] = arg.Value

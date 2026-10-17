@@ -596,7 +596,7 @@ func (e *ActionExecutor) waitsForMessage(perf *actionFrame, seen map[waitTarget]
 // waiting in perf's flow (the action's for nil), and any token of it blocked for
 // another reason alongside them.
 func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
-	where := actionLabelPrefix + symbolText(e.action)
+	where := actionLabelPrefix + SymbolText(e.action)
 	if perf != nil {
 		where = perf.describe()
 	}
@@ -1118,7 +1118,7 @@ func (e *ActionExecutor) acceptTaking(m Message) ([]TakingAccept, error) {
 // performanceName names the action the executor performs, which the accepts it
 // holds are placed in.
 func (e *ActionExecutor) performanceName() string {
-	return symbolText(e.action)
+	return SymbolText(e.action)
 }
 
 // parkedAcceptTakes calls takes with each token of perf's flow (of the whole action
@@ -1595,7 +1595,7 @@ func (e *ActionExecutor) setFeature(name string, value Value) error {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
 		scope, declared := heldDeclaration(e.root, e.graph.Scope, name)
-		if err := e.ctx.checkNamedWriteAs(scope, func() string { return actionLabelPrefix + symbolText(e.action) }, declared, &value); err != nil {
+		if err := e.ctx.checkNamedWriteAs(scope, func() string { return actionLabelPrefix + SymbolText(e.action) }, declared, &value); err != nil {
 			return err
 		}
 	}
@@ -1741,10 +1741,10 @@ func (e *ActionExecutor) fixWitnessInputs() error {
 		switch {
 		case dir == ast.DirOut:
 			return &WitnessInputError{Feature: in.Feature,
-				Reason: fmt.Sprintf("action %s writes it back rather than reading it", symbolText(e.action))}
+				Reason: fmt.Sprintf("action %s writes it back rather than reading it", SymbolText(e.action))}
 		case !declared && !e.declaresAttribute(in.Feature):
 			return &WitnessInputError{Feature: in.Feature,
-				Reason: fmt.Sprintf("action %s declares no such feature", symbolText(e.action))}
+				Reason: fmt.Sprintf("action %s declares no such feature", SymbolText(e.action))}
 		}
 		value := in.Value
 		if value.Kind == ValInvalid {
@@ -1798,14 +1798,14 @@ func (e *ActionExecutor) checkInputNames() error {
 	if len(outputs) > 0 {
 		sort.Strings(outputs)
 		return fmt.Errorf("%w: action %s writes %s back rather than reading it",
-			errOutputActionInput, symbolText(e.action), strings.Join(outputs, ", "))
+			errOutputActionInput, SymbolText(e.action), strings.Join(outputs, ", "))
 	}
 	if len(unknown) == 0 {
 		return nil
 	}
 	sort.Strings(unknown)
 	return fmt.Errorf("%w: action %s declares no %s",
-		errUnknownActionInput, symbolText(e.action), strings.Join(unknown, ", "))
+		errUnknownActionInput, SymbolText(e.action), strings.Join(unknown, ", "))
 }
 
 // initialize spawns initial token at InitialNode.
@@ -3067,7 +3067,7 @@ func (e *ActionExecutor) tokensByID() []Token {
 
 // dueLabel names the executor in a due-order choice.
 func (e *ActionExecutor) dueLabel() string {
-	return actionLabelPrefix + symbolText(e.action) + performerSuffix(e.self)
+	return actionLabelPrefix + SymbolText(e.action) + performerSuffix(e.self)
 }
 
 // clockWaits lists the tokens parked on the clock for an instant it has not

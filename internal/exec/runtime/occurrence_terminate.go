@@ -53,7 +53,7 @@ func (ctx *Context) endOccurrence(inst *Instance) (map[int64]bool, error) {
 		return nil, err
 	}
 	if tr := ctx.trace; tr != nil {
-		tr.recordOccurrenceTerminated(symbolText(inst.Type), inst.ID)
+		tr.recordOccurrenceTerminated(SymbolText(inst.Type), inst.ID)
 	}
 	ended := make(map[int64]bool)
 	// One boundary ends the whole and its portions: none outlives its whole.
@@ -178,7 +178,7 @@ func (e *StateExecutor) endTerminated() {
 	}
 	abandoned := e.abandonMachine()
 	if e.trace() != nil {
-		e.trace().recordStateEndedWithOccurrence(e.traceOrigin(), symbolText(e.stateMachine), abandoned)
+		e.trace().recordStateEndedWithOccurrence(e.traceOrigin(), SymbolText(e.stateMachine), abandoned)
 	}
 	e.state = StateTerminated
 	e.ctx.endPerformanceLife(e.occurrence)

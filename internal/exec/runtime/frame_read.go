@@ -205,7 +205,7 @@ func (ctx *Context) readOwnedTransformation(inst *Instance) (*CoordinateTransfor
 // second result undoes it.
 func (ctx *Context) beginReading(inst *Instance, what string, frame *CoordinateFrame) (func(), error) {
 	if _, reading := ctx.framesReading[inst.ID]; reading {
-		return nil, fmt.Errorf("%w: %s %s is defined in terms of itself", ErrCyclicFeatureValue, what, symbolText(inst.Type))
+		return nil, fmt.Errorf("%w: %s %s is defined in terms of itself", ErrCyclicFeatureValue, what, SymbolText(inst.Type))
 	}
 	if ctx.framesReading == nil {
 		ctx.framesReading = make(map[int64]*CoordinateFrame)
@@ -318,7 +318,7 @@ func axisUnitOf(what string, ref Value) (Unit, error) {
 			return frame.Axes[0], nil
 		}
 	}
-	return Unit{}, fmt.Errorf("%w: %s is %s, want a ScalarMeasurementReference", ErrTypeMismatch, what, describeValue(ref))
+	return Unit{}, fmt.Errorf("%w: %s is %s, want a ScalarMeasurementReference", ErrTypeMismatch, what, DescribeValue(ref))
 }
 
 // readScale reads a scale's `unit` and `quantityValueMapping`; its one axis is
@@ -333,7 +333,7 @@ func (ctx *Context) readScale(what string, inst *Instance, frame *CoordinateFram
 			ErrNoValue, what)
 	}
 	if unitVal.Kind != ValMeasurementRef {
-		return fmt.Errorf("%w: %s: unit is %s, want a MeasurementUnit", ErrTypeMismatch, what, describeValue(unitVal))
+		return fmt.Errorf("%w: %s: unit is %s, want a MeasurementUnit", ErrTypeMismatch, what, DescribeValue(unitVal))
 	}
 	anchor := inst.Type
 	frame.Scale = &MeasurementScale{Unit: unitVal.MeasurementRef().Unit}
@@ -399,7 +399,7 @@ func (ctx *Context) unitDeclaring(what string, inst *Instance) (Unit, error) {
 		}
 	}
 	return Unit{}, fmt.Errorf("%w: %s is declared by %s, which is no measurement unit or scale, so the unit of its num is unknown",
-		errUnevaluableLibraryFunction, what, symbolText(owner))
+		errUnevaluableLibraryFunction, what, SymbolText(owner))
 }
 
 // definitionalNum is the one number a role's DefinitionalQuantityValue states.
@@ -421,7 +421,7 @@ func (ctx *Context) definitionalNumOf(what string, inst *Instance) (semantics.Va
 		return semantics.Value{}, fmt.Errorf("%w: %s states no num", ErrNoValue, what)
 	}
 	if num.Kind != ValConst || !num.Const.IsNumeric() {
-		return semantics.Value{}, fmt.Errorf("%w: %s: num is %s, want a number", ErrTypeMismatch, what, describeValue(num))
+		return semantics.Value{}, fmt.Errorf("%w: %s: num is %s, want a number", ErrTypeMismatch, what, DescribeValue(num))
 	}
 	return num.Const, nil
 }
@@ -442,11 +442,11 @@ func (ctx *Context) roleObject(what string, inst *Instance, role, typeFQN string
 func (ctx *Context) objectOfValue(what string, val Value, typeFQN string) (*Instance, error) {
 	id, ok := val.Object()
 	if !ok {
-		return nil, fmt.Errorf("%w: %s is %s, want a %s", ErrTypeMismatch, what, describeValue(val), roleFeatureName(typeFQN))
+		return nil, fmt.Errorf("%w: %s is %s, want a %s", ErrTypeMismatch, what, DescribeValue(val), roleFeatureName(typeFQN))
 	}
 	inst := ctx.instances[id]
 	if inst == nil || inst.Type == nil || !ctx.conformsToLibrary(ctx.objectType(inst), typeFQN) {
-		return nil, fmt.Errorf("%w: %s is %s, want a %s", ErrTypeMismatch, what, describeValue(val), roleFeatureName(typeFQN))
+		return nil, fmt.Errorf("%w: %s is %s, want a %s", ErrTypeMismatch, what, DescribeValue(val), roleFeatureName(typeFQN))
 	}
 	return inst, nil
 }
@@ -475,7 +475,7 @@ func (ctx *Context) frameOfValue(what string, val Value) (*CoordinateFrame, erro
 		inst := ctx.instances[id]
 		if inst == nil || !ctx.isFrameType(ctx.objectType(inst)) {
 			return nil, fmt.Errorf("%w: %s is %s, want a coordinate frame or a measurement reference",
-				ErrTypeMismatch, what, describeValue(val))
+				ErrTypeMismatch, what, DescribeValue(val))
 		}
 		return ctx.readFrame(inst)
 	}
@@ -493,7 +493,7 @@ func (ctx *Context) readTransformation(inst *Instance, owner *CoordinateFrame) (
 	defer done()
 	typ := ctx.objectType(inst)
 	t := &CoordinateTransformation{Decl: ctx.declOf(inst), Type: typ, Object: inst.ID}
-	what := "coordinate transformation " + symbolText(inst.Type)
+	what := "coordinate transformation " + SymbolText(inst.Type)
 	if source, ok, err := ctx.roleValue(what, inst, transformationSourceRole); err != nil {
 		return nil, err
 	} else if ok {
@@ -602,7 +602,7 @@ func (ctx *Context) readStep(what string, element Value) (FrameStep, error) {
 	id, ok := element.Object()
 	inst := ctx.instances[id]
 	if !ok || inst == nil || inst.Type == nil {
-		return FrameStep{}, fmt.Errorf("%w: %s is %s, want a Translation or a Rotation", ErrTypeMismatch, what, describeValue(element))
+		return FrameStep{}, fmt.Errorf("%w: %s is %s, want a Translation or a Rotation", ErrTypeMismatch, what, DescribeValue(element))
 	}
 	typ := ctx.objectType(inst)
 	step := FrameStep{Object: inst.ID}
@@ -633,7 +633,7 @@ func (ctx *Context) readStep(what string, element Value) (FrameStep, error) {
 		}
 		if angle.Kind != ValQuantity {
 			return FrameStep{}, fmt.Errorf("%w: %s: angle is %s, want an angular measure such as 90 ['°']",
-				ErrTypeMismatch, what, describeValue(angle))
+				ErrTypeMismatch, what, DescribeValue(angle))
 		}
 		intrinsic, ok, err := ctx.roleValue(what, inst, rotationIntrinsicRole)
 		if err != nil {
@@ -642,13 +642,13 @@ func (ctx *Context) readStep(what string, element Value) (FrameStep, error) {
 		step.Axis, step.Angle, step.Intrinsic = &axis, angle.Quantity(), true
 		if ok {
 			if intrinsic.Kind != ValConst || intrinsic.Const.Kind != semantics.ValBool {
-				return FrameStep{}, fmt.Errorf("%w: %s: isIntrinsic is %s, want a Boolean", ErrTypeMismatch, what, describeValue(intrinsic))
+				return FrameStep{}, fmt.Errorf("%w: %s: isIntrinsic is %s, want a Boolean", ErrTypeMismatch, what, DescribeValue(intrinsic))
 			}
 			step.Intrinsic = intrinsic.Const.Bool
 		}
 	default:
 		return FrameStep{}, fmt.Errorf("%w: %s is a %s, which is neither a Translation nor a Rotation",
-			errUnevaluableLibraryFunction, what, symbolText(typ))
+			errUnevaluableLibraryFunction, what, SymbolText(typ))
 	}
 	return step, nil
 }
@@ -689,7 +689,7 @@ func (ctx *Context) readReals(what string, inst *Instance, out []float64) error 
 	}
 	for i, element := range elements {
 		if element.Kind != ValConst || !element.Const.IsNumeric() {
-			return fmt.Errorf("%w: %s: element %d is %s, want a Real", ErrTypeMismatch, what, i+1, describeValue(element))
+			return fmt.Errorf("%w: %s: element %d is %s, want a Real", ErrTypeMismatch, what, i+1, DescribeValue(element))
 		}
 		out[i] = element.Const.AsReal()
 	}

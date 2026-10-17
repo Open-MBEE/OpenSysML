@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/sysmlapi"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -55,7 +56,7 @@ func TestRevisedFixtureStagesEveryKindOfChange(t *testing.T) {
 	original := fixtureGraph(t, applyFixturePath)
 	revised := fixtureGraph(t, applyRevisionPath)
 
-	set, err := reposync.Diff(revised, original, reposync.Options{Representation: Representation{}})
+	set, err := reposync.Diff(revised, original, reposync.Options{Representation: sysmlapi.Representation{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +89,7 @@ func TestCollectionAnnotationsAreCarried(t *testing.T) {
 	if !original.HasProperty(rdf.ElementIRIForID("IdentityInterop"), rdf.AnnotationJSON+"ownedMember") {
 		t.Fatal("the fixture's package states no ownedMember annotation")
 	}
-	set, err := reposync.Diff(original, rdf.NewGraph(), reposync.Options{Representation: Representation{}})
+	set, err := reposync.Diff(original, rdf.NewGraph(), reposync.Options{Representation: sysmlapi.Representation{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,15 +108,15 @@ func TestCollectionAnnotationsAreCarried(t *testing.T) {
 }
 
 func TestEmptiedRecognisesADeletedRead(t *testing.T) {
-	deleted := Element{"@id": json.RawMessage(`"X"`), "@type": json.RawMessage(`null`)}
+	deleted := sysmlapi.Element{"@id": json.RawMessage(`"X"`), "@type": json.RawMessage(`null`)}
 	if !emptied(deleted) {
 		t.Error("an id with a null type and nothing else is how a deleted element reads")
 	}
-	typed := Element{"@id": json.RawMessage(`"X"`), "@type": json.RawMessage(`"Package"`)}
+	typed := sysmlapi.Element{"@id": json.RawMessage(`"X"`), "@type": json.RawMessage(`"Package"`)}
 	if emptied(typed) {
 		t.Error("an element with a type is present")
 	}
-	named := Element{"@id": json.RawMessage(`"X"`), "declaredName": json.RawMessage(`"n"`)}
+	named := sysmlapi.Element{"@id": json.RawMessage(`"X"`), "declaredName": json.RawMessage(`"n"`)}
 	if emptied(named) {
 		t.Error("an element with a property is present")
 	}

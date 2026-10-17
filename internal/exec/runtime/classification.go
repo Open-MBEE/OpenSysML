@@ -228,7 +228,7 @@ func (ctx *Context) representationClassifies(value Value, target *symbols.Symbol
 	case got == semantics.PrimUnknown:
 		return semantics.ClassifiesNone, true
 	case got == semantics.PrimInteger && prim == semantics.PrimNatural:
-		if sign := value.Const.IntSign(); sign < 0 || sign == 0 && ctx.positiveScalar(target) {
+		if sign := value.Const.IntSign(); sign < 0 || sign == 0 && ctx.PositiveScalar(target) {
 			return semantics.ClassifiesNone, true
 		}
 		return semantics.ClassifiesSome, true

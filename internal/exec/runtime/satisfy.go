@@ -395,7 +395,7 @@ func (ctx *Context) SatisfySubject(a *SatisfyAssertion) (*Instance, error) {
 	}
 	if typ := a.StatingType(); typ != nil {
 		if _, isUsage := typ.Decl.(*ast.Usage); !isUsage {
-			return nil, fmt.Errorf("%s: %w: an object of %s is needed", a.Text(), errNoSubject, ctx.qualifiedSymbolName(typ))
+			return nil, fmt.Errorf("%s: %w: an object of %s is needed", a.Text(), errNoSubject, ctx.QualifiedName(typ))
 		}
 		inst, err := ctx.Instantiate(typ)
 		if err != nil {

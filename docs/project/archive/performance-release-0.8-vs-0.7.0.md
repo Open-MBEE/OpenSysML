@@ -253,7 +253,7 @@ passes add to a 3 000-element validation is under a millisecond here.
 
 The public [Apollo 11 SysML v2 model](https://github.com/airbus/apollo-11-sysml-v2)
 (commit `6e9c93f`, 28 files, 7 221 lines) is the real model behind the
-README's figures; see [performance](../internals/performance.md#a-real-model-apollo-11)
+README's figures; see [performance](../../internals/performance.md#a-real-model-apollo-11)
 for what its run reports. Medians over eight warm runs:
 
 | what | 0.7.0 | develop | develop+fix |
