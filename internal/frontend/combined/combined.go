@@ -115,7 +115,7 @@ func (s *Server) Call(ctx context.Context, method string, params []byte) ([]byte
 			s.touchRequest(params)
 		}
 		return body, err
-	case "Evaluate", "Instantiate", "ExecuteAction", "ExecuteState":
+	case "Evaluate", "Instantiate", "ExecuteAction", "ExecuteState", "RenderView":
 		body, err := s.engine.Call(ctx, method, params)
 		if err == nil {
 			s.touchRequest(params)

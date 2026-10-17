@@ -60,11 +60,14 @@ type Finding struct {
 	Err        error  // why an evaluation failed or could not be made
 }
 
+// CodeRule is the registered diagnostic code of a failing model rule.
+const CodeRule = "self-check-rule"
+
 // Line spells the finding the way the REPL prints it.
 func (f Finding) Line() string {
 	switch f.Status {
 	case Fails:
-		return fmt.Sprintf("%s: error: %s fails for %s", f.Location, f.Constraint, f.Element)
+		return fmt.Sprintf("%s: error[%s]: %s fails for %s", f.Location, CodeRule, f.Constraint, f.Element)
 	case Unevaluated:
 		return fmt.Sprintf("? %s: %s could not be evaluated", f.Location, f.Subject)
 	case Error:

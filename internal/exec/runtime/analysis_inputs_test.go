@@ -206,7 +206,7 @@ func TestMonteCarloIterationOutputsMemoizeNothing(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		res, err := ConcludeMonteCarlo(runs, stats)
+		res, err := concludeMonteCarlo(runs, stats)
 		var observed []DrawTaken
 		for _, d := range ctx.DrawsTaken() {
 			if strings.HasPrefix(d.What, "uniform(1.0") {

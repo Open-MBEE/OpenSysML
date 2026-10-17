@@ -155,14 +155,11 @@ class BinaryResolverDownloadTest {
   @Test
   void unavailableBuiltAgainstReleaseWithoutPathNamesTheReleaseAndReason() {
     BinaryDownloader downloader = downloader(Map.of());
+    ConnectionOptions options = ConnectionOptions.builder().githubRepo(REPO).build();
     ServiceStartException error =
         assertThrows(
             ServiceStartException.class,
-            () ->
-                BinaryResolver.resolve(
-                    ConnectionOptions.builder().githubRepo(REPO).build(),
-                    downloader,
-                    name -> null));
+            () -> BinaryResolver.resolve(options, downloader, name -> null));
 
     assertTrue(error.getMessage().contains(BinaryDownloader.builtAgainstRelease()));
     assertTrue(error.getMessage().contains("404"), error.getMessage());
@@ -180,11 +177,12 @@ class BinaryResolverDownloadTest {
     onPath.toFile().setExecutable(true, true);
     BinaryDownloader downloader = downloader(Map.of(version, Map.of(ASSET, digest())));
 
+    ConnectionOptions options = ConnectionOptions.builder().githubRepo(REPO).build();
     assertThrows(
         ChecksumMismatchException.class,
         () ->
             BinaryResolver.resolve(
-                ConnectionOptions.builder().githubRepo(REPO).build(),
+                options,
                 downloader,
                 name -> name.equals("PATH") ? onPath.getParent().toString() : null));
   }

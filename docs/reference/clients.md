@@ -11,7 +11,7 @@ and what each intentionally leaves out. Each client has an API reference of its 
 | **Go**, `client/opensysml` | in process; or Connect, to a service someone else runs | with the core (`v*` tags) | [Go packages](api.md) |
 | **Python**, `opensysml` | gRPC, to a private child service or a named service | PyPI, on the core `v*` tags, at the core's version | [Python API](python-api.md) |
 | **Node/TypeScript**, `@openmbee/opensysml` | Connect to a service, or directly to the combined `sysml-wasm` module | npm, on core `v*` tags, with per-platform binary packages | [Node API](node-api.md) |
-| **Java**, `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | not on Maven Central; build from a checkout | [Java API](java-api.md) |
+| **Java**, `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | Maven Central, at the core's version | [Java API](java-api.md) |
 | **Rust**, `opensysml` | Connect, blocking, no async runtime | crates.io, on core `v*` tags, at the core version | [Rust API](rust-api.md) |
 | **Julia**, `OpenSysML` | Connect-JSON, over `HTTP.jl` | not in General; develop from a checkout | [Julia API](julia-api.md) |
 | **MATLAB**, `+opensysml` | Connect-JSON, over `matlab.net.http` or, under GNU Octave, a `curl` subprocess | source files; add to the MATLAB path | [MATLAB API](matlab-api.md) |

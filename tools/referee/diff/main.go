@@ -195,7 +195,7 @@ func librariesHandedOver(repoDir string) (string, error) {
 		root = abs
 	}
 	libraries := filepath.Join(root, openSysMLLibraries)
-	if rel := relativeTo(repoDir, libraries); rel == libraries {
+	if relativeTo(repoDir, libraries) == libraries {
 		return "", fmt.Errorf("libraries at %s lie outside the repository %s (%s must name a library root inside it)", libraries, repoDir, libs.LibraryPathEnvVar)
 	}
 	if info, err := os.Stat(libraries); err != nil || !info.IsDir() {

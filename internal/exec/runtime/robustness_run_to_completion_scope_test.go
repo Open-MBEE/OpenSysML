@@ -52,7 +52,7 @@ func TestRuntimeRobustnessRunToCompletionScope(t *testing.T) {
 				}
 			}
 		`, "Machine")
-		var valueErr *RunToCompletionValueError
+		var valueErr *runToCompletionValueError
 		if !errors.As(err, &valueErr) {
 			t.Fatalf("error = %v, want run-to-completion value error", err)
 		}

@@ -80,7 +80,7 @@ package Test {
 	if d.Severity != "info" {
 		t.Errorf("severity = %q, want info", d.Severity)
 	}
-	want := "choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first)"
+	want := "choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first; independent)"
 	if d.Message != want {
 		t.Errorf("message = %q, want %q", d.Message, want)
 	}
@@ -147,7 +147,7 @@ package Test {
 		t.Fatalf("error = %q, want the failing token's error", resp.Error)
 	}
 	choices := choiceDiagnostics(resp.Diagnostics)
-	want := "choice point: step 3: tokens 2@failing, 3@safe (unordered; took 3@safe first)"
+	want := "choice point: step 3: tokens 2@failing, 3@safe (unordered; took 3@safe first; order-dependent: x)"
 	if len(choices) != 1 || choices[0].Message != want || choices[0].Severity != "info" {
 		t.Fatalf("choice diagnostics = %v, want one info %q", choices, want)
 	}
@@ -191,8 +191,8 @@ package An {
 	}
 	choices := choiceDiagnostics(resp.Diagnostics)
 	want := []string{
-		"choice point: step 3: writes r := 11 by token 2, r := 10 by token 3 (unordered; r := 11 by token 2 stood)",
-		"choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first)",
+		"choice point: step 3: writes r := 11 by token 2, r := 10 by token 3 (unordered; r := 11 by token 2 stood; order-dependent: r)",
+		"choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first; order-dependent: r)",
 	}
 	if len(choices) != len(want) {
 		t.Fatalf("choice diagnostics = %v, want %d", resp.Diagnostics, len(want))
@@ -249,7 +249,7 @@ package Test {
 	if len(choices) != 1 {
 		t.Fatalf("choice diagnostics = %v, want one", resp.Diagnostics)
 	}
-	want := "choice point: state idle on accept Go: transitions 1->low, 2->high (unordered; took 1->low)"
+	want := "choice point: state idle on accept Go: transitions 1->low, 2->high (unordered; took 1->low; order-dependent)"
 	if choices[0].Message != want || choices[0].Severity != "info" {
 		t.Errorf("diagnostic = %s %q, want info %q", choices[0].Severity, choices[0].Message, want)
 	}
@@ -307,11 +307,11 @@ package Test {
 		}
 	}
 	execute("", "work,a1,b1,a2,b2",
-		"choice point: entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first)",
-		"choice point: on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)")
+		"choice point: entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first; independent)",
+		"choice point: on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first; order-dependent: last)")
 	execute("seed:1", "work,b1,a1,a2,b2",
-		"choice point: entering work: next a1(entry), b1(entry) (unordered; took b1(entry) first)",
-		"choice point: on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)")
+		"choice point: entering work: next a1(entry), b1(entry) (unordered; took b1(entry) first; independent)",
+		"choice point: on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first; order-dependent: last)")
 }
 
 // A guard the run read only to report a choice and could not evaluate is an

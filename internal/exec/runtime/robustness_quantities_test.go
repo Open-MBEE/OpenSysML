@@ -105,24 +105,24 @@ func testMeasurementReferenceFailureModes(t *testing.T) {
 		{"conversion to a scale", "ISQ::ThermodynamicTemperatureValue", "QuantityCalculations::ConvertQuantity(300.0 [SI::K], SI::'°C_abs')", nil},
 		{"conversion from a scale", "ISQ::ThermodynamicTemperatureValue", "QuantityCalculations::ConvertQuantity(26.85 [SI::'°C_abs'], SI::K)", nil},
 		{"conversion to a scale placed on another dimension", "ISQ::LengthValue", "QuantityCalculations::ConvertQuantity(3.0 [SI::m], SI::'°C_abs')", ErrIncommensurableUnits},
-		{"conversion to a scale with no mapping", "ISQ::DurationValue", "QuantityCalculations::ConvertQuantity(3.0 [SI::s], Time::UTC)", ErrUnevaluableLibraryFunction},
-		{"conversion from a scale with no mapping", "ISQ::DurationValue", "QuantityCalculations::ConvertQuantity(3.0 [Time::UTC], SI::s)", ErrUnevaluableLibraryFunction},
+		{"conversion to a scale with no mapping", "ISQ::DurationValue", "QuantityCalculations::ConvertQuantity(3.0 [SI::s], Time::UTC)", errUnevaluableLibraryFunction},
+		{"conversion from a scale with no mapping", "ISQ::DurationValue", "QuantityCalculations::ConvertQuantity(3.0 [Time::UTC], SI::s)", errUnevaluableLibraryFunction},
 		{"incommensurable conversion", "ISQ::LengthValue", "QuantityCalculations::ConvertQuantity(3.0 [SI::m], SI::s)", ErrIncommensurableUnits},
 		{"conversion to a number", "ISQ::LengthValue", "QuantityCalculations::ConvertQuantity(3.0 [SI::m], 3)", ErrTypeMismatch},
 		{"reference scaled by a number", "ISQ::LengthUnit", "SI::m * 3", ErrTypeMismatch},
 		{"reference raised to a reference", "ISQ::LengthUnit", "SI::m ** SI::m", ErrTypeMismatch},
 		{"declaration member of a reference", "Quantities::QuantityDimension", "SI::m.quantityDimension", nil},
-		{"quantity dimension of a composed unit", "Quantities::QuantityDimension", "(SI::m / SI::s).quantityDimension", ErrUnevaluableLibraryFunction},
-		{"unit conversion of a composed unit", "MeasurementReferences::UnitConversion", "(SI::m / SI::s).unitConversion", ErrUnevaluableLibraryFunction},
-		{"unit power factors of a composed unit", "MeasurementReferences::UnitPowerFactor", "(SI::m ** 2).unitPowerFactors", ErrUnevaluableLibraryFunction},
-		{"definitional quantity values of a composed unit", "MeasurementReferences::DefinitionalQuantityValue", "(SI::m / SI::s).definitionalQuantityValues", ErrUnevaluableLibraryFunction},
+		{"quantity dimension of a composed unit", "Quantities::QuantityDimension", "(SI::m / SI::s).quantityDimension", errUnevaluableLibraryFunction},
+		{"unit conversion of a composed unit", "MeasurementReferences::UnitConversion", "(SI::m / SI::s).unitConversion", errUnevaluableLibraryFunction},
+		{"unit power factors of a composed unit", "MeasurementReferences::UnitPowerFactor", "(SI::m ** 2).unitPowerFactors", errUnevaluableLibraryFunction},
+		{"definitional quantity values of a composed unit", "MeasurementReferences::DefinitionalQuantityValue", "(SI::m / SI::s).definitionalQuantityValues", errUnevaluableLibraryFunction},
 		{"vector reference over two units", "Quantities::VectorQuantityValue", "VectorCalculations::'['((1.0, 2.0), (SI::m, SI::s))", ErrTypeMismatch},
 		{"vector reference over a unit", "Quantities::VectorQuantityValue", "VectorCalculations::'['((1.0, 2.0), SI::m)", ErrTypeMismatch},
 		{"transformation that is a vector", "Quantities::VectorQuantityValue", "VectorCalculations::transform(VectorFunctions::VectorOf((1.0, 2.0)) [SI::m], VectorFunctions::VectorOf((0.0, 1.0)) [SI::m])", ErrTypeMismatch},
-		{"scale scaled by a unit", "MeasurementReferences::CoordinateFrame", "Time::UTC / SI::s", ErrUnevaluableLibraryFunction},
-		{"outer product", "Quantities::TensorQuantityValue", "VectorCalculations::outer((1.0, 2.0), (3.0, 4.0))", ErrUnevaluableLibraryFunction},
+		{"scale scaled by a unit", "MeasurementReferences::CoordinateFrame", "Time::UTC / SI::s", errUnevaluableLibraryFunction},
+		{"outer product", "Quantities::TensorQuantityValue", "VectorCalculations::outer((1.0, 2.0), (3.0, 4.0))", errUnevaluableLibraryFunction},
 		{"tensor sum of number sequences", "Quantities::TensorQuantityValue", "TensorCalculations::'+'((1.0, 2.0), (3.0, 4.0))", ErrTypeMismatch},
-		{"tensor product", "Quantities::TensorQuantityValue", "TensorCalculations::tensorTensorMult(VectorFunctions::VectorOf((1.0, 2.0)) [SI::m], VectorFunctions::VectorOf((3.0, 4.0)) [SI::m])", ErrUnevaluableLibraryFunction},
+		{"tensor product", "Quantities::TensorQuantityValue", "TensorCalculations::tensorTensorMult(VectorFunctions::VectorOf((1.0, 2.0)) [SI::m], VectorFunctions::VectorOf((3.0, 4.0)) [SI::m])", errUnevaluableLibraryFunction},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := fmt.Sprintf(`
@@ -173,14 +173,14 @@ func testTensorQuantityFailureModes(t *testing.T) {
 		{"shape mismatch", "stress + TensorCalculations::'['((1.0, 2.0, 3.0), rowRef)", ErrMultiplicityViolation, "dimensions [2, 2] and [3] differ"},
 		{"tensor minus scalar", "stress - 2 [Pa]", ErrMultiplicityViolation, "dimensions [2, 2] and [] differ"},
 		{"incommensurable components", "stress + TensorCalculations::'['((1.0, 2.0, 3.0, 4.0), lengthRef)", ErrIncommensurableUnits, ""},
-		{"non-square unit predicate", "TensorCalculations::isUnitTensorQuantity(TensorCalculations::'['((1.0, 2.0, 3.0), rowRef))", ErrUnevaluableLibraryFunction, "only a square tensor of order two has an identity"},
-		{"unset covariance", "stress.contravariantOrder", ErrUnevaluableLibraryFunction, "orderSum"},
-		{"tensor times vector", "TensorCalculations::tensorVectorMult(stress, VectorFunctions::VectorOf((1.0, 2.0)) [Pa])", ErrUnevaluableLibraryFunction, "TensorCalculations::tensorVectorMult"},
-		{"vector times tensor", "TensorCalculations::vectorTensorMult(VectorFunctions::VectorOf((1.0, 2.0)) [Pa], stress)", ErrUnevaluableLibraryFunction, "TensorCalculations::vectorTensorMult"},
-		{"tensor times tensor", "TensorCalculations::tensorTensorMult(stress, stress)", ErrUnevaluableLibraryFunction, "TensorCalculations::tensorTensorMult"},
-		{"tensor times tensor by operator", "stress * stress", ErrUnevaluableLibraryFunction, "TensorCalculations::tensorTensorMult"},
-		{"outer product", "VectorCalculations::outer(VectorFunctions::VectorOf((1.0, 2.0)) [Pa], VectorFunctions::VectorOf((1.0, 2.0)) [Pa])", ErrUnevaluableLibraryFunction, "VectorCalculations::outer"},
-		{"transform", "TensorCalculations::transform(stressRef, stress)", ErrUnevaluableLibraryFunction, "TensorCalculations::transform"},
+		{"non-square unit predicate", "TensorCalculations::isUnitTensorQuantity(TensorCalculations::'['((1.0, 2.0, 3.0), rowRef))", errUnevaluableLibraryFunction, "only a square tensor of order two has an identity"},
+		{"unset covariance", "stress.contravariantOrder", errUnevaluableLibraryFunction, "orderSum"},
+		{"tensor times vector", "TensorCalculations::tensorVectorMult(stress, VectorFunctions::VectorOf((1.0, 2.0)) [Pa])", errUnevaluableLibraryFunction, "TensorCalculations::tensorVectorMult"},
+		{"vector times tensor", "TensorCalculations::vectorTensorMult(VectorFunctions::VectorOf((1.0, 2.0)) [Pa], stress)", errUnevaluableLibraryFunction, "TensorCalculations::vectorTensorMult"},
+		{"tensor times tensor", "TensorCalculations::tensorTensorMult(stress, stress)", errUnevaluableLibraryFunction, "TensorCalculations::tensorTensorMult"},
+		{"tensor times tensor by operator", "stress * stress", errUnevaluableLibraryFunction, "TensorCalculations::tensorTensorMult"},
+		{"outer product", "VectorCalculations::outer(VectorFunctions::VectorOf((1.0, 2.0)) [Pa], VectorFunctions::VectorOf((1.0, 2.0)) [Pa])", errUnevaluableLibraryFunction, "VectorCalculations::outer"},
+		{"transform", "TensorCalculations::transform(stressRef, stress)", errUnevaluableLibraryFunction, "TensorCalculations::transform"},
 		{"rank three, too few indexes", "cube#(1, 2)", ErrMultiplicityViolation, "2 indexes address an array of rank 3"},
 		{"rank three, too many indexes", "cube#(1, 1, 1, 1)", ErrMultiplicityViolation, "4 indexes address an array of rank 3"},
 		{"rank three, first index low", "cube#(0, 1, 1)", ErrIndexOutOfRange, "index 1 is 0, dimension 1 has 1..2"},
@@ -191,7 +191,7 @@ func testTensorQuantityFailureModes(t *testing.T) {
 		{"rank three, too many components", "TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0), cubeRef)", ErrMultiplicityViolation, "9 elements for a reference of dimensions [2, 2, 2]"},
 		{"rank three against rank two", "cube + stress", ErrMultiplicityViolation, "dimensions [2, 2, 2] and [2, 2] differ"},
 		{"rank three shapes differ", "cube - TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0), slabRef)", ErrMultiplicityViolation, "dimensions [2, 2, 2] and [2, 3, 2] differ"},
-		{"rank three unit predicate", "TensorCalculations::isUnitTensorQuantity(cube)", ErrUnevaluableLibraryFunction, "only a square tensor of order two has an identity"},
+		{"rank three unit predicate", "TensorCalculations::isUnitTensorQuantity(cube)", errUnevaluableLibraryFunction, "only a square tensor of order two has an identity"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := fmt.Sprintf(`
@@ -258,7 +258,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 		{"frame whose mRefs are not one per stated dimension", `attribute bad : CoordinateFrame { :>> dimensions = 2; :>> mRefs = (m, m, m); }`,
 			"CoordinateFrame", "bad", ErrMultiplicityViolation, "bad states 3 mRefs for dimensions [2], whose flattenedSize is 2"},
 		{"frame whose dimensions overflow", `attribute bad : CoordinateFrame { :>> dimensions : Positive[2] = (4611686018427387904, 4); :>> mRefs = (m, m, m); }`,
-			"CoordinateFrame", "bad", ErrIntegerUnaddressable, "bad: flattenedSize of dimensions [4611686018427387904, 4] is 18446744073709551616"},
+			"CoordinateFrame", "bad", errIntegerUnaddressable, "bad: flattenedSize of dimensions [4611686018427387904, 4] is 18446744073709551616"},
 		{"frame whose mRef is a number", `attribute bad : CoordinateFrame { :>> mRefs = (m, 2); }`,
 			"CoordinateFrame", "bad", ErrTypeMismatch, "bad.mRefs: type mismatch: cannot write 2 (an Integer) to a feature typed by ScalarMeasurementReference"},
 		{"vector short of an axis", ``,
@@ -266,9 +266,9 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 		{"vector of a number too many", ``,
 			"Position3dVector", "(1.0, 2.0, 3.0, 4.0) [spatialCF]", ErrMultiplicityViolation, "4 elements over the coordinate frame spatialCF, whose flattenedSize is 3"},
 		{"vector of no numbers", ``,
-			"Position3dVector", "(m, m, m) [spatialCF]", ErrNotAQuantity, "want 3 numbers, one per axis"},
+			"Position3dVector", "(m, m, m) [spatialCF]", errNotAQuantity, "want 3 numbers, one per axis"},
 		{"scale composed with a unit", ``,
-			"CoordinateFrame", "Time::UTC * s", ErrUnevaluableLibraryFunction, "UTC is a measurement scale"},
+			"CoordinateFrame", "Time::UTC * s", errUnevaluableLibraryFunction, "UTC is a measurement scale"},
 		{"frame composed with a number", ``,
 			"CoordinateFrame", "spatialCF / 2", ErrTypeMismatch, "operator '/' is not defined for a coordinate frame and an Integer"},
 		{"frame composed with a frame", ``,
@@ -294,7 +294,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 		{"transformation of no recognized shape", `
 			attribute def Bespoke :> CoordinateTransformation;
 			attribute odd : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); :>> transformation : Bespoke { :>> source = datum; } }`,
-			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrUnevaluableLibraryFunction, "transformation is a Bespoke, a CoordinateTransformation of no shape the library gives a meaning"},
+			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", errUnevaluableLibraryFunction, "transformation is a Bespoke, a CoordinateTransformation of no shape the library gives a meaning"},
 		{"placement whose origin is a string", `
 			attribute odd : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); :>> transformation : CoordinateFramePlacement { :>> source = datum; :>> origin = "2024-01-01T00:00:00Z"; } }`,
 			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrTypeMismatch, `transformation.origin: type mismatch: cannot write "2024-01-01T00:00:00Z" (string) to a feature typed by VectorQuantityValue`},
@@ -348,7 +348,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 		{"rotation of a plane frame", `
 			attribute plane : CoordinateFrame { :>> mRefs = (mm, mm); }
 			attribute odd : CoordinateFrame { :>> mRefs = (mm, mm); :>> transformation : TranslationRotationSequence { :>> source = plane; :>> elements = (new Rotation((0.0, 1.0) [plane], 90 ['°'])); } }`,
-			"Quantities::VectorQuantityValue", "transform(odd.transformation, (1.0, 2.0) [plane])", ErrUnevaluableLibraryFunction, "rotates about an axis, which a frame of 2 axes has no meaning for"},
+			"Quantities::VectorQuantityValue", "transform(odd.transformation, (1.0, 2.0) [plane])", errUnevaluableLibraryFunction, "rotates about an axis, which a frame of 2 axes has no meaning for"},
 		{"affine matrix of too few elements", `
 			attribute odd : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); :>> transformation : AffineTransformationMatrix3d { :>> source = datum; :>> rotationMatrix { :>> elements = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0); } :>> translationVector { :>> elements = (0.0, 0.0, 0.0); } } }`,
 			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrMultiplicityViolation, "rotationMatrix.elements: multiplicity violation: 6 value(s) bound to a feature with multiplicity lower bound 9"},
@@ -388,7 +388,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 				:>> transformation : CoordinateFramePlacement { :>> source = K; :>> origin = 300.0 [K]; }
 			}
 			attribute muddled : Muddled;`,
-			"ThermodynamicTemperatureValue", "ConvertQuantity(300.0 [K], muddled)", ErrUnevaluableLibraryFunction, "its transformation places zero at 300.0 [K] but its quantityValueMapping places it at 273.15"},
+			"ThermodynamicTemperatureValue", "ConvertQuantity(300.0 [K], muddled)", errUnevaluableLibraryFunction, "its transformation places zero at 300.0 [K] but its quantityValueMapping places it at 273.15"},
 		{"scale whose mapping maps a quantity, not a definitional value", `
 			attribute def Muddled :> IntervalScale {
 				:>> unit = SI::'°C';
@@ -410,7 +410,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 			"LengthValue", "ConvertQuantity(3.0 [shifted], m)", nil, ""},
 		{"scale whose basis direction scales the axis in another unit", `
 			attribute shifted : IntervalScale { :>> unit = s; :>> transformation : CoordinateFramePlacement { :>> source = s; :>> origin = 10.0 [s]; :>> basisDirections = 1.0 [min]; } }`,
-			"DurationValue", "ConvertQuantity(3.0 [shifted], s)", ErrUnevaluableLibraryFunction, "the basisDirection 1.0 [min] of its transformation transformation is not the identity 1 [s]"},
+			"DurationValue", "ConvertQuantity(3.0 [shifted], s)", errUnevaluableLibraryFunction, "the basisDirection 1.0 [min] of its transformation transformation is not the identity 1 [s]"},
 		{"scale placed on a frame of two axes", `
 			attribute plane : CoordinateFrame { :>> mRefs = (K, K); }
 			attribute shifted : IntervalScale { :>> unit = K; :>> transformation : CoordinateFramePlacement { :>> source = plane; :>> origin = 10.0 [K]; } }`,
@@ -427,7 +427,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 			"ThermodynamicTemperatureValue", "ConvertQuantity(3.0 [shifted], K)", ErrTypeMismatch, "is a vector quantity in line, not a quantity on K, its source"},
 		{"scale whose basis direction scales the axis", `
 			attribute shifted : IntervalScale { :>> unit = K; :>> transformation : CoordinateFramePlacement { :>> source = K; :>> origin = 10.0 [K]; :>> basisDirections = 2.0 [K]; } }`,
-			"ThermodynamicTemperatureValue", "ConvertQuantity(3.0 [shifted], K)", ErrUnevaluableLibraryFunction, "is not the identity 1 [K], and the library gives a scale no other basis"},
+			"ThermodynamicTemperatureValue", "ConvertQuantity(3.0 [shifted], K)", errUnevaluableLibraryFunction, "is not the identity 1 [K], and the library gives a scale no other basis"},
 		{"scale with no unit", `
 			attribute def Unitless :> IntervalScale;
 			attribute unitless : Unitless;`,
@@ -456,39 +456,39 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 		// A point on an interval scale has the affine operations and no other: the
 		// refusal names the operation and the scale.
 		{"point added to a point", ``,
-			"ThermodynamicTemperatureValue", "warm + 10.0 [SI::'°C_abs']", ErrScalePoint, "operator '+' on a point of the interval scale SI::'°C_abs': two points have no sum"},
+			"ThermodynamicTemperatureValue", "warm + 10.0 [SI::'°C_abs']", errScalePoint, "operator '+' on a point of the interval scale SI::'°C_abs': two points have no sum"},
 		{"time instant added to a time instant", ``,
-			"Time::TimeInstantValue", "5.0 [Time::UTC] + 3.0 [Time::UTC]", ErrScalePoint, "operator '+' on a point of the interval scale Time::UTC: two points have no sum; their difference `x - y` is a magnitude in s"},
+			"Time::TimeInstantValue", "5.0 [Time::UTC] + 3.0 [Time::UTC]", errScalePoint, "operator '+' on a point of the interval scale Time::UTC: two points have no sum; their difference `x - y` is a magnitude in s"},
 		{"point taken from a magnitude", ``,
-			"ThermodynamicTemperatureValue", "300.0 [K] - warm", ErrScalePoint, "subtracting a point from a magnitude on a point of the interval scale SI::'°C_abs'"},
+			"ThermodynamicTemperatureValue", "300.0 [K] - warm", errScalePoint, "subtracting a point from a magnitude on a point of the interval scale SI::'°C_abs'"},
 		{"point scaled by a number", ``,
-			"ThermodynamicTemperatureValue", "2 * warm", ErrScalePoint, "operator '*' on a point of the interval scale SI::'°C_abs': a point has no multiple"},
+			"ThermodynamicTemperatureValue", "2 * warm", errScalePoint, "operator '*' on a point of the interval scale SI::'°C_abs': a point has no multiple"},
 		{"number scaled by a point", ``,
-			"ThermodynamicTemperatureValue", "warm * 2.0", ErrScalePoint, "operator '*' on a point of the interval scale SI::'°C_abs'"},
+			"ThermodynamicTemperatureValue", "warm * 2.0", errScalePoint, "operator '*' on a point of the interval scale SI::'°C_abs'"},
 		{"time instant scaled by a number", ``,
-			"Time::TimeInstantValue", "2 * 5.0 [Time::UTC]", ErrScalePoint, "operator '*' on a point of the interval scale Time::UTC"},
+			"Time::TimeInstantValue", "2 * 5.0 [Time::UTC]", errScalePoint, "operator '*' on a point of the interval scale Time::UTC"},
 		{"point multiplied by a quantity", ``,
-			"ScalarQuantityValue", "warm * 2.0 [s]", ErrScalePoint, "operator '*' on a point of the interval scale SI::'°C_abs': a point has no multiple and its scale is no unit to compose"},
+			"ScalarQuantityValue", "warm * 2.0 [s]", errScalePoint, "operator '*' on a point of the interval scale SI::'°C_abs': a point has no multiple and its scale is no unit to compose"},
 		{"quantity multiplied by a point", ``,
-			"ScalarQuantityValue", "2.0 [s] * warm", ErrScalePoint, "operator '*' on a point of the interval scale SI::'°C_abs'"},
+			"ScalarQuantityValue", "2.0 [s] * warm", errScalePoint, "operator '*' on a point of the interval scale SI::'°C_abs'"},
 		{"point divided by a number", ``,
-			"ThermodynamicTemperatureValue", "warm / 2", ErrScalePoint, "operator '/' on a point of the interval scale SI::'°C_abs'"},
+			"ThermodynamicTemperatureValue", "warm / 2", errScalePoint, "operator '/' on a point of the interval scale SI::'°C_abs'"},
 		{"point divided by a quantity", ``,
-			"ScalarQuantityValue", "warm / 2.0 [s]", ErrScalePoint, "operator '/' on a point of the interval scale SI::'°C_abs'"},
+			"ScalarQuantityValue", "warm / 2.0 [s]", errScalePoint, "operator '/' on a point of the interval scale SI::'°C_abs'"},
 		{"quantity divided by a point", ``,
-			"ScalarQuantityValue", "2.0 [s] / warm", ErrScalePoint, "operator '/' on a point of the interval scale SI::'°C_abs'"},
+			"ScalarQuantityValue", "2.0 [s] / warm", errScalePoint, "operator '/' on a point of the interval scale SI::'°C_abs'"},
 		{"point raised to a power", ``,
-			"ScalarQuantityValue", "warm ** 2", ErrScalePoint, "operator '**' on a point of the interval scale SI::'°C_abs'"},
+			"ScalarQuantityValue", "warm ** 2", errScalePoint, "operator '**' on a point of the interval scale SI::'°C_abs'"},
 		{"point raised to a power by exponentiation", ``,
-			"ScalarQuantityValue", "warm ^ 2", ErrScalePoint, "operator '**' on a point of the interval scale SI::'°C_abs'"},
+			"ScalarQuantityValue", "warm ^ 2", errScalePoint, "operator '**' on a point of the interval scale SI::'°C_abs'"},
 		{"square root of a point", ``,
-			"ScalarQuantityValue", "sqrt(warm)", ErrScalePoint, "sqrt on a point of the interval scale SI::'°C_abs'"},
+			"ScalarQuantityValue", "sqrt(warm)", errScalePoint, "sqrt on a point of the interval scale SI::'°C_abs'"},
 		{"negated point", ``,
-			"ThermodynamicTemperatureValue", "-warm", ErrScalePoint, "negation on a point of the interval scale SI::'°C_abs': a point has no negative"},
+			"ThermodynamicTemperatureValue", "-warm", errScalePoint, "negation on a point of the interval scale SI::'°C_abs': a point has no negative"},
 		{"points summed", ``,
-			"ThermodynamicTemperatureValue", "sum((warm, 20.0 [SI::'°C_abs']))", ErrScalePoint, "QuantityCalculations::sum on a point of the interval scale SI::'°C_abs': points have no sum or product to fold"},
+			"ThermodynamicTemperatureValue", "sum((warm, 20.0 [SI::'°C_abs']))", errScalePoint, "QuantityCalculations::sum on a point of the interval scale SI::'°C_abs': points have no sum or product to fold"},
 		{"points multiplied together", ``,
-			"ScalarQuantityValue", "product((warm, 20.0 [SI::'°C_abs']))", ErrScalePoint, "QuantityCalculations::product on a point of the interval scale SI::'°C_abs'"},
+			"ScalarQuantityValue", "product((warm, 20.0 [SI::'°C_abs']))", errScalePoint, "QuantityCalculations::product on a point of the interval scale SI::'°C_abs'"},
 		{"point moved by a magnitude of another dimension", ``,
 			"ThermodynamicTemperatureValue", "warm + 1.0 [m]", ErrIncommensurableUnits, "a point on the interval scale SI::'°C_abs' moves by a magnitude in its unit '°C'"},
 		{"point compared with a magnitude of another dimension", ``,
@@ -496,17 +496,17 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 		{"point equated with a magnitude of another dimension", ``,
 			"Boolean", "warm == 1.0 [m]", ErrIncommensurableUnits, ""},
 		{"point on an unanchored scale compared with a magnitude", ``,
-			"Boolean", "5.0 [Time::UTC] == 5.0 [s]", ErrUnevaluableLibraryFunction, "Time::UTC states neither a transformation placing it on another reference nor a quantityValueMapping"},
+			"Boolean", "5.0 [Time::UTC] == 5.0 [s]", errUnevaluableLibraryFunction, "Time::UTC states neither a transformation placing it on another reference nor a quantityValueMapping"},
 		{"point on an ordinal scale moved by a magnitude", `attribute mohs : OrdinalScale { :>> unit = K; }`,
-			"ScalarQuantityValue", "7 [mohs] + 1 [K]", ErrScalePoint, "operator '+' on a point of the ordinal scale test::Holder::mohs: only an IntervalScale relates its points by differences in its unit"},
+			"ScalarQuantityValue", "7 [mohs] + 1 [K]", errScalePoint, "operator '+' on a point of the ordinal scale test::Holder::mohs: only an IntervalScale relates its points by differences in its unit"},
 		{"points on an ordinal scale subtracted", `attribute mohs : OrdinalScale { :>> unit = K; }`,
-			"ScalarQuantityValue", "9 [mohs] - 7 [mohs]", ErrScalePoint, "operator '-' on a point of the ordinal scale test::Holder::mohs"},
+			"ScalarQuantityValue", "9 [mohs] - 7 [mohs]", errScalePoint, "operator '-' on a point of the ordinal scale test::Holder::mohs"},
 		{"point on an ordinal scale compared with a magnitude", `attribute mohs : OrdinalScale { :>> unit = K; }`,
-			"Boolean", "7 [mohs] < 300.0 [K]", ErrScalePoint, "comparison with another reference on a point of the ordinal scale test::Holder::mohs"},
+			"Boolean", "7 [mohs] < 300.0 [K]", errScalePoint, "comparison with another reference on a point of the ordinal scale test::Holder::mohs"},
 		{"point on a cyclic ratio scale scaled", `attribute compass : CyclicRatioScale { :>> unit = rad; :>> modulus = 6.283185307179586; }`,
-			"ScalarQuantityValue", "2 * 1.0 [compass]", ErrScalePoint, "operator '*' on a point of the cyclic ratio scale test::Holder::compass"},
+			"ScalarQuantityValue", "2 * 1.0 [compass]", errScalePoint, "operator '*' on a point of the cyclic ratio scale test::Holder::compass"},
 		{"point on a logarithmic scale moved by a magnitude", `attribute decibel : LogarithmicScale { :>> unit = W; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 1; }`,
-			"ScalarQuantityValue", "30.0 [decibel] + 1.0 [W]", ErrScalePoint, "operator '+' on a point of the logarithmic scale test::Holder::decibel: only an IntervalScale relates its points by differences in its unit"},
+			"ScalarQuantityValue", "30.0 [decibel] + 1.0 [W]", errScalePoint, "operator '+' on a point of the logarithmic scale test::Holder::decibel: only an IntervalScale relates its points by differences in its unit"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := fmt.Sprintf(`
@@ -582,7 +582,7 @@ func testQuantityIncommensurableComparison(t *testing.T) {
 }
 
 // testQuantityIndexIsNotAUnit: a bracketed expression whose index names
-// something that is not a measurement unit reports ErrNotAQuantity rather than
+// something that is not a measurement unit reports errNotAQuantity rather than
 // evaluating to the bare magnitude.
 func testQuantityIndexIsNotAUnit(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
@@ -601,8 +601,8 @@ func testQuantityIndexIsNotAUnit(t *testing.T) {
 	}
 
 	satisfied, err := ctx.EvaluateConstraint(sym, rootScope)
-	if !errors.Is(err, ErrNotAQuantity) {
-		t.Fatalf("satisfied = %v, err = %v; want ErrNotAQuantity", satisfied, err)
+	if !errors.Is(err, errNotAQuantity) {
+		t.Fatalf("satisfied = %v, err = %v; want errNotAQuantity", satisfied, err)
 	}
 	if !strings.Contains(err.Error(), semantics.ErrNotAUnit.Error()) {
 		t.Errorf("err = %v; want it to report that the index names no measurement unit", err)
@@ -629,8 +629,8 @@ func testQuantityUnitShadowedBySibling(t *testing.T) {
 	}
 
 	satisfied, err := ctx.EvaluateConstraint(sym, sym.OwnerScope)
-	if !errors.Is(err, ErrNotAQuantity) {
-		t.Fatalf("satisfied = %v, err = %v; want ErrNotAQuantity", satisfied, err)
+	if !errors.Is(err, errNotAQuantity) {
+		t.Fatalf("satisfied = %v, err = %v; want errNotAQuantity", satisfied, err)
 	}
 	if !errors.Is(err, semantics.ErrNotAUnit) {
 		t.Errorf("err = %v; want it to report that the name is no measurement unit", err)

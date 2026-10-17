@@ -253,6 +253,10 @@ pub struct VerificationVerdict {
     pub subcase: bool,
     /// FQN of the requirement it verifies.
     pub requirement_id: String,
+    /// ID of the object the case ran on as its owner; 0 when it ran on none.
+    pub instance_id: i64,
+    /// FQN of that object's type, for naming it; empty with `instance_id` 0.
+    pub instance_type_id: String,
 }
 
 impl VerificationVerdict {
@@ -270,6 +274,8 @@ impl From<VerificationVerdict> for wire::VerificationVerdict {
             detail: verdict.detail,
             subcase: verdict.subcase,
             requirement_id: verdict.requirement_id,
+            instance_id: verdict.instance_id,
+            instance_type_id: verdict.instance_type_id,
         }
     }
 }
@@ -282,6 +288,8 @@ impl From<wire::VerificationVerdict> for VerificationVerdict {
             detail: pb.detail,
             subcase: pb.subcase,
             requirement_id: pb.requirement_id,
+            instance_id: pb.instance_id,
+            instance_type_id: pb.instance_type_id,
         }
     }
 }
@@ -293,11 +301,16 @@ impl fmt::Display for VerificationVerdict {
             VERDICT_FAIL => "\u{2717}",
             _ => "?",
         };
-        write!(
-            f,
-            "{mark} verification {} verdict: {}",
-            self.case_id, self.kind
-        )?;
+        write!(f, "{mark} verification {}", self.case_id)?;
+        if self.instance_id != 0 {
+            let ty = if self.instance_type_id.is_empty() {
+                "instance"
+            } else {
+                &self.instance_type_id
+            };
+            write!(f, " (on {ty} ID: {})", self.instance_id)?;
+        }
+        write!(f, " verdict: {}", self.kind)?;
         if self.subcase {
             f.write_str(" (subcase)")?;
         }
@@ -1634,6 +1647,8 @@ mod tests {
         );
         let verification = wire::VerificationVerdict {
             requirement_id: "P::r".to_owned(),
+            instance_id: 7,
+            instance_type_id: "P::part".to_owned(),
             ..Default::default()
         };
         assert_eq!(

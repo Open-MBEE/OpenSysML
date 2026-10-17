@@ -244,7 +244,8 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 			continue
 		}
 		if to := g.node(target); to != nil && to != node && !g.nested(node, to) {
-			g.add(Edge{From: node.ID, To: to.ID, Kind: kind, Label: label, Origin: nodeOrigin(sym.DocName, rel)}, nil)
+			g.add(Edge{From: node.ID, To: to.ID, Kind: kind, Label: label, Origin: nodeOrigin(sym.DocName, rel),
+				Route: g.r.specializationRouteOf(site.view, sym, target, g.out)}, nil)
 		}
 	}
 	for _, child := range node.Children {

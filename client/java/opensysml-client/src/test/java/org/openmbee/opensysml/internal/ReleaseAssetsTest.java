@@ -2,6 +2,7 @@ package org.openmbee.opensysml.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -138,7 +139,7 @@ class ReleaseAssetsTest {
   /** The releases of {@link #SHIPPED_REPO} the resource on the classpath lists, as parsed JSON. */
   private static Map<?, ?> shippedReleases() throws IOException {
     try (InputStream in = ReleaseDigests.class.getResourceAsStream(ReleaseDigests.RESOURCE)) {
-      assertTrue(in != null, ReleaseDigests.RESOURCE + " must be on the classpath");
+      assertNotNull(in, ReleaseDigests.RESOURCE + " must be on the classpath");
       Object table = Json.parse(new String(in.readAllBytes(), StandardCharsets.UTF_8));
       assertTrue(table instanceof Map<?, ?>, "the resource is not a JSON object");
       Object releases = ((Map<?, ?>) table).get(SHIPPED_REPO);

@@ -563,7 +563,7 @@ class D {
 	for _, fixture := range reflectiveFixtures(t, "extended-usage.kerml", source.KindKerML, kermlSrc) {
 		model := fixture.model
 		x := relFixtureSymbol(t, fixture, "x")
-		if meta := model.MetaclassOf(x); meta == nil {
+		if model.MetaclassOf(x) == nil {
 			t.Error("class usage has no metaclass")
 		}
 	}

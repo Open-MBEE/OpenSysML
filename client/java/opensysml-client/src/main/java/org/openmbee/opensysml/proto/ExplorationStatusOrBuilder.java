@@ -12,7 +12,8 @@ public interface ExplorationStatusOrBuilder extends
 
   /**
    * <pre>
-   * True when every linearization was run, so `outcomes` is the whole set.
+   * True when every linearization the library admits was run, so `outcomes`
+   * is the whole set: no budget was hit and nothing was left unenumerated.
    * </pre>
    *
    * <code>bool complete = 1 [json_name = "complete"];</code>
@@ -108,4 +109,53 @@ public interface ExplorationStatusOrBuilder extends
    * @return The failedLinearizations.
    */
   int getFailedLinearizations();
+
+  /**
+   * <pre>
+   * The constructs whose unordered alternatives the runs took in one order
+   * without a choice point, by identifier; `complete` is false while any is
+   * listed, since fewer orders were run than the library admits.
+   * </pre>
+   *
+   * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+   * @return A list containing the unenumerated.
+   */
+  java.util.List<java.lang.String>
+      getUnenumeratedList();
+  /**
+   * <pre>
+   * The constructs whose unordered alternatives the runs took in one order
+   * without a choice point, by identifier; `complete` is false while any is
+   * listed, since fewer orders were run than the library admits.
+   * </pre>
+   *
+   * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+   * @return The count of unenumerated.
+   */
+  int getUnenumeratedCount();
+  /**
+   * <pre>
+   * The constructs whose unordered alternatives the runs took in one order
+   * without a choice point, by identifier; `complete` is false while any is
+   * listed, since fewer orders were run than the library admits.
+   * </pre>
+   *
+   * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+   * @param index The index of the element to return.
+   * @return The unenumerated at the given index.
+   */
+  java.lang.String getUnenumerated(int index);
+  /**
+   * <pre>
+   * The constructs whose unordered alternatives the runs took in one order
+   * without a choice point, by identifier; `complete` is false while any is
+   * listed, since fewer orders were run than the library admits.
+   * </pre>
+   *
+   * <code>repeated string unenumerated = 8 [json_name = "unenumerated"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the unenumerated at the given index.
+   */
+  com.google.protobuf.ByteString
+      getUnenumeratedBytes(int index);
 }

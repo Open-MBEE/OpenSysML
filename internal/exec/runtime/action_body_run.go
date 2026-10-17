@@ -870,7 +870,7 @@ func (ctx *Context) driveClock(waits string) error {
 		return nil
 	}
 	return fmt.Errorf("%w: %s waits for the clock (%s), which only a do behavior may",
-		ErrStateBehaviorWaits, ctx.clockHeldBy, waits)
+		errStateBehaviorWaits, ctx.clockHeldBy, waits)
 }
 
 // pausedOnClock reports a token whose work waits on the clock through a flow it

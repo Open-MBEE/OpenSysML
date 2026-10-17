@@ -150,13 +150,16 @@ func foldCompartments(r *Rendering) *Rendering {
 	out := *r
 	out.Roots = cloneNodes(r.Roots)
 	rows := map[string]bool{}
-	drawn, nested := p.foldNodes(out.Roots, rows)
-	if drawn == 0 {
+	folded := p.foldNodes(out.Roots, rows)
+	if folded.drawn+folded.hidden == 0 {
 		return r
 	}
-	notice := fmt.Sprintf("%d node(s) without a position, drawn as compartment rows of the node above them", drawn)
-	if nested > 0 {
-		notice += fmt.Sprintf(", and %d node(s) under them left undrawn", nested)
+	notice := fmt.Sprintf("%d node(s) without a position, drawn as compartment rows of the node above them", folded.drawn)
+	if folded.hidden > 0 {
+		notice = fmt.Sprintf("%d node(s) without a position: %d drawn as compartment rows of the node above them, %d in compartments its Layout hides left undrawn", folded.drawn+folded.hidden, folded.drawn, folded.hidden)
+	}
+	if folded.nested > 0 {
+		notice += fmt.Sprintf(", and %d node(s) under them left undrawn", folded.nested)
 	}
 	out.Edges = make([]Edge, 0, len(r.Edges))
 	for _, edge := range r.Edges {
@@ -182,27 +185,40 @@ func foldCompartments(r *Rendering) *Rendering {
 	return &out
 }
 
+// folding counts what folding drew as compartment rows, what it left undrawn
+// because the node's Layout hides the row's compartment, and the nodes under
+// the rows, which a row does not show.
+type folding struct {
+	drawn, hidden, nested int
+}
+
 // foldNodes folds the unplaced members of each placed node under nodes into
-// its compartments, in place, recording the IDs of the rows and of every
-// node under them in rows; it counts the rows drawn and the nodes under
-// them, which a row does not show.
-func (p *placement) foldNodes(nodes []*Node, rows map[string]bool) (drawn, nested int) {
+// its compartments, in place, less the rows of the compartments the node's
+// Layout hides, recording the IDs of the folded members and of every node
+// under them in rows.
+func (p *placement) foldNodes(nodes []*Node, rows map[string]bool) folding {
+	var f folding
 	for _, node := range nodes {
 		if p.placed[node.ID] {
-			var folded []*Node
+			var folded, listed []*Node
 			node.Children, folded = p.rowsOf(node)
-			node.Compartments = compartmentsOf(folded)
 			for _, row := range folded {
 				before := len(rows)
 				recordIDs(row, rows)
-				drawn++
-				nested += len(rows) - before - 1
+				f.nested += len(rows) - before - 1
+				if hiddenRow(node, row) {
+					f.hidden++
+					continue
+				}
+				f.drawn++
+				listed = append(listed, row)
 			}
+			node.Compartments = compartmentsOf(listed)
 		}
-		d, n := p.foldNodes(node.Children, rows)
-		drawn, nested = drawn+d, nested+n
+		sub := p.foldNodes(node.Children, rows)
+		f.drawn, f.hidden, f.nested = f.drawn+sub.drawn, f.hidden+sub.hidden, f.nested+sub.nested
 	}
-	return drawn, nested
+	return f
 }
 
 // recordIDs records the ID of node and of every node under it in ids.

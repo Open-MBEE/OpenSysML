@@ -17,12 +17,13 @@ package Model {
                     expose Drive;
                     expose 'set speed.value = target';
                     @DiagramLayout::Canvas { unit = "px"; width = 140; height = 240; }
+                    metadata DiagramLayout::Layout about Drive::start { x = 50; y = 10; width = 20; height = 20; }
                     metadata DiagramLayout::Layout about gain { x = 10; y = 60; width = 100; height = 40; }
                     metadata DiagramLayout::Layout about 'set speed' { x = 10; y = 140; width = 100; height = 40; }
                     metadata DiagramLayout::Layout about final { x = 50; y = 220; width = 20; height = 20; }
-                    metadata DiagramLayout::Route about 'start to gain' { points = (60, 60, 60, 30); }
-                    metadata DiagramLayout::Route about finish { points = (60, 220, 60, 180); }
-                    metadata DiagramLayout::Route about 'gain.result to set speed.value' { points = (110, 160, 140, 160, 140, 80, 110, 80); }
+                    metadata DiagramLayout::Route about 'start to gain' { points = (60, 30, 60, 60); }
+                    metadata DiagramLayout::Route about finish { points = (60, 180, 60, 220); }
+                    metadata DiagramLayout::Route about 'gain.result to set speed.value' { points = (110, 80, 140, 80, 140, 160, 110, 160); }
                     render Views::asInterconnectionDiagram;
                 }
                 view 'Driving Sketch' {
@@ -108,6 +109,7 @@ package Model {
             metadata DiagramLayout::Layout about Vehicle { x = 10; y = 160; width = 100; height = 80; }
             metadata DiagramLayout::Layout about Engine { x = 120; y = 160; width = 100; height = 80; }
             metadata DiagramLayout::Layout about Wheel { x = 230; y = 160; width = 100; height = 80; }
+            metadata DiagramLayout::Route about Engine { points = (170, 160, 170, 80); ref :>> general : Component; }
             metadata DiagramLayout::Route about WheelToVehicle { points = (260, 220, 210, 260, 160, 220); }
             render Views::asTreeDiagram;
         }
@@ -124,9 +126,9 @@ package Model {
                 metadata DiagramLayout::Layout about Behavior::Modes::Idle { x = 10; y = 10; width = 100; height = 40; }
                 metadata DiagramLayout::Layout about Behavior::Modes::Running { x = 200; y = 10; width = 100; height = 40; }
                 metadata DiagramLayout::Layout about Behavior::Modes::Halted { x = 200; y = 100; width = 100; height = 40; }
-                metadata DiagramLayout::Route about 'Idle accept Go then Running' { points = (200, 30, 110, 30); }
-                metadata DiagramLayout::Route about halt { points = (250, 100, 250, 50); }
-                metadata DiagramLayout::Route about 'Halted accept Go then Running', 'Halted accept Resume then Running' { points = (280, 50, 320, 50, 320, 100, 280, 100); }
+                metadata DiagramLayout::Route about 'Idle accept Go then Running' { points = (110, 30, 200, 30); }
+                metadata DiagramLayout::Route about halt { points = (250, 50, 250, 100); }
+                metadata DiagramLayout::Route about 'Halted accept Go then Running', 'Halted accept Resume then Running' { points = (280, 100, 320, 100, 320, 50, 280, 50); }
                 render Views::asInterconnectionDiagram;
             }
             entry; then Idle;

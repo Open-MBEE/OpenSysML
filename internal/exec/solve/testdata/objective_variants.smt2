@@ -7,10 +7,10 @@
 (set-logic ALL)
 ; |test::WheelChoice::wheel::rim| of test::WheelChoice::wheel::rim
 (declare-datatypes ((|test::WheelChoice::wheel::rim| 0)) (((|test::WheelChoice::wheel::rim::steel|) (|test::WheelChoice::wheel::rim::carbon|))))
-; test::WheelChoice::wheel.rim, declared at objectives.sysml:123:4
+; test::WheelChoice::wheel.rim, declared at objectives.sysml:127:4
 (declare-const |test::WheelChoice::wheel.rim| |test::WheelChoice::wheel::rim|)
-; required condition: wheel::rim == wheel::rim::steel or wheel::rim == wheel::rim::carbon — analysis WheelChoice, at objectives.sysml:129:4
+; required condition: wheel::rim == wheel::rim::steel or wheel::rim == wheel::rim::carbon — analysis WheelChoice, at objectives.sysml:133:4
 (assert (or (= |test::WheelChoice::wheel.rim| |test::WheelChoice::wheel::rim::steel|) (= |test::WheelChoice::wheel.rim| |test::WheelChoice::wheel::rim::carbon|)))
-; minimize: lightestRim = operator if, at objectives.sysml:133:23
+; minimize: lightestRim = operator if, at objectives.sysml:137:23
 (minimize (ite (= |test::WheelChoice::wheel.rim| |test::WheelChoice::wheel::rim::carbon|) 4 9))
 (check-sat)

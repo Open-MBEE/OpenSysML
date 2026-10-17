@@ -1,0 +1,6 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::Holder::weigh",
+  "error": "needs an object of test::Holder: none is instantiated"
+}

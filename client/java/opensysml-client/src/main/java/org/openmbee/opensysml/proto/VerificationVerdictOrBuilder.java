@@ -106,4 +106,36 @@ public interface VerificationVerdictOrBuilder extends
    */
   com.google.protobuf.ByteString
       getRequirementIdBytes();
+
+  /**
+   * <pre>
+   * Instance the case ran on as its owner, 0 when it ran on no object. A case a
+   * definition owns runs once per object of that definition, so verdicts of one
+   * case are told apart by this field; its feature values are in `instances`.
+   * </pre>
+   *
+   * <code>int64 instance_id = 6 [json_name = "instanceId"];</code>
+   * @return The instanceId.
+   */
+  long getInstanceId();
+
+  /**
+   * <pre>
+   * Type of `instance_id`, as an FQN, for naming the object in a report.
+   * </pre>
+   *
+   * <code>string instance_type_id = 7 [json_name = "instanceTypeId"];</code>
+   * @return The instanceTypeId.
+   */
+  java.lang.String getInstanceTypeId();
+  /**
+   * <pre>
+   * Type of `instance_id`, as an FQN, for naming the object in a report.
+   * </pre>
+   *
+   * <code>string instance_type_id = 7 [json_name = "instanceTypeId"];</code>
+   * @return The bytes for instanceTypeId.
+   */
+  com.google.protobuf.ByteString
+      getInstanceTypeIdBytes();
 }

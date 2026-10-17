@@ -297,7 +297,7 @@ func (s *Session) checkRequirement(text string) Verdict {
 		return ctx.CheckRequirementWith(target.sym, target.scope, inst, args)
 	})
 	inst, owner = s.reportedSubject(result, inst, owner)
-	verdict := s.withVerifications(requirementVerdict(name, result, err, inst, owner), target.ctx, target.sym)
+	verdict := s.withVerifications(requirementVerdict(name, result, err, inst, owner), target.ctx, target.sym, inst)
 	return standing(verdict, plan)
 }
 

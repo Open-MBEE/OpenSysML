@@ -358,7 +358,7 @@ func TestCheckModelSplitAcrossFiles(t *testing.T) {
 		if err != nil {
 			t.Errorf("-validate %v = %v, want the model to analyse cleanly\n%s", order, err, out)
 		}
-		if strings.Contains(string(out), "error:") {
+		if strings.Contains(string(out), "error[") {
 			t.Errorf("-validate %v reported an error it went on to accept:\n%s", order, out)
 		}
 	}
@@ -373,7 +373,7 @@ func TestCheckModelSplitAcrossFiles(t *testing.T) {
 	if err == nil {
 		t.Errorf("-validate accepted an unresolved reference:\n%s", out)
 	}
-	for _, want := range []string{"broken.sysml:2:18: error: unresolved reference: D::Probe", "did not analyse cleanly"} {
+	for _, want := range []string{"broken.sysml:2:18: error[unresolved]: unresolved reference: D::Probe", "did not analyse cleanly"} {
 		if !strings.Contains(string(out), want) {
 			t.Errorf("report is missing %q:\n%s", want, out)
 		}
@@ -410,7 +410,7 @@ func TestCheckFilesOpeningTheSamePackage(t *testing.T) {
 	if err == nil {
 		t.Errorf("-validate accepted a model whose first file has an error:\n%s", out)
 	}
-	if !strings.Contains(string(out), "first.sysml:2:14: error: unresolved reference: Nope::Missing") {
+	if !strings.Contains(string(out), "first.sysml:2:14: error[unresolved]: unresolved reference: Nope::Missing") {
 		t.Errorf("the first file's error was not reported:\n%s", out)
 	}
 }
@@ -423,15 +423,15 @@ func TestCheckHonoursVerbosity(t *testing.T) {
 	const warns = "package W {\n    attribute flag = 1 == \"one\";\n}\n"
 	quiet := check(t, binary, warns, "-quiet", "-validate")
 	wantReport(t, quiet, 0, "no errors")
-	if strings.Contains(quiet.output(), "warning:") {
+	if strings.Contains(quiet.output(), "warning[") {
 		t.Errorf("-quiet reported a warning it was asked to suppress:\n%s", quiet.output())
 	}
-	wantReport(t, check(t, binary, warns, "-validate"), 0, "warning: comparing Natural with String")
-	wantReport(t, check(t, binary, warns, "-debug", "-validate"), 0, "[type/type.expr]")
+	wantReport(t, check(t, binary, warns, "-validate"), 0, "warning[comparison-constant]: comparing Natural with String")
+	wantReport(t, check(t, binary, warns, "-debug", "-validate"), 0, "[type]")
 
 	// An error is what stops the check, so no verbosity hides it.
 	wantReport(t, check(t, binary, "package E {\n    part x : Nope::Missing;\n}\n", "-quiet", "-validate"),
-		2, "error: unresolved reference: Nope::Missing")
+		2, "error[unresolved]: unresolved reference: Nope::Missing")
 }
 
 // TestConvertAndCheckAreSeparateRuns checks that a check asked for alongside a
@@ -560,7 +560,7 @@ func TestCheckReportsDiagramLayoutFindings(t *testing.T) {
 }
 `
 	wantReport(t, check(t, binary, warns, "-validate"), 0,
-		"model.sysml:4:9: warning: Route steers part def W::Pump, which no rendering draws as an edge",
+		"model.sysml:4:9: warning[diagram-layout-unplaced]: Route steers part def W::Pump, which no rendering draws as an edge",
 		"no errors")
 
 	const errs = `package E {
@@ -578,8 +578,8 @@ func TestCheckReportsDiagramLayoutFindings(t *testing.T) {
 }
 `
 	wantReport(t, check(t, binary, errs, "-validate"), 2,
-		"model.sysml:4:9: error: Canvas annotates part def E::Pump, which is no view; a Canvas belongs in the body of the view it sizes",
-		"model.sysml:10:38: error: connection E::Loop::supply: Route binds 3 values to points; waypoints are x, y pairs, so the count must be even")
+		"model.sysml:4:9: error[diagram-layout-canvas]: Canvas annotates part def E::Pump, which is no view; a Canvas belongs in the body of the view it sizes",
+		"model.sysml:10:38: error[diagram-layout-value]: connection E::Loop::supply: Route binds 3 values to points; waypoints are x, y pairs, so the count must be even")
 }
 
 // checkFiles runs the binary on several files written to one temporary

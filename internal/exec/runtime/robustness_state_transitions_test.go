@@ -249,14 +249,14 @@ func testStateEventAfterCompletion(t *testing.T) {
 			transition first init accept stop then done;
 		}
 	}`)
-	exec.SendSignal("stop", nil)
+	exec.sendSignal("stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	if exec.State() != StateCompleted {
 		t.Fatalf("expected StateCompleted, got %s", exec.State())
 	}
-	exec.SendSignal("stop", nil)
+	exec.sendSignal("stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run after completion: %v", err)
 	}
@@ -277,7 +277,7 @@ func testStateCompletionRestsInDone(t *testing.T) {
 			transition first busy accept stop then done;
 		}
 	}`)
-	exec.SendSignal("stop", nil)
+	exec.sendSignal("stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -309,21 +309,21 @@ func testStateNestedRegionCompletionKeepsSiblingsRunning(t *testing.T) {
 			}
 		}
 	}`)
-	exec.SendSignal("stop", nil)
+	exec.sendSignal("stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	if exec.State() == StateCompleted {
 		t.Fatalf("the machine completed with the sibling region still running")
 	}
-	exec.SendSignal("go", nil)
+	exec.sendSignal("go", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run after the first region completed: %v", err)
 	}
 	if exec.State() == StateCompleted {
 		t.Errorf("the machine completed while the sibling region rests outside `done`")
 	}
-	if got := exec.FinalStateName(); got != "done+rbusy" {
+	if got := exec.finalStateName(); got != "done+rbusy" {
 		t.Errorf("expected the regions in done+rbusy, got %q", got)
 	}
 }
@@ -381,8 +381,8 @@ func testStateChoiceWithoutAnEnabledBranch(t *testing.T) {
 	go func() { done <- exec.RunToCompletion() }()
 	select {
 	case err := <-done:
-		if !errors.Is(err, ErrChoiceWithoutBranch) {
-			t.Fatalf("expected ErrChoiceWithoutBranch: the incoming effect wrote x := 2 and the only branch wants 1; got %v", err)
+		if !errors.Is(err, errChoiceWithoutBranch) {
+			t.Fatalf("expected errChoiceWithoutBranch: the incoming effect wrote x := 2 and the only branch wants 1; got %v", err)
 		}
 		if !strings.Contains(err.Error(), "pick") {
 			t.Errorf("expected the error to name the choice, got %v", err)
@@ -520,7 +520,7 @@ func testSignalNoLevelOfACompositeStateAccepts(t *testing.T) {
 			transition first outer accept shutdown then stopped;
 		}
 	}`)
-	exec.SendSignal("unknown", nil)
+	exec.sendSignal("unknown", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to completion: %v", err)
 	}
@@ -545,7 +545,7 @@ func testCompositeSelfTransitionWithNoSubstateToReEnter(t *testing.T) {
 			transition first Working accept restart then Working;
 		}
 	}`)
-	exec.SendSignal("restart", nil)
+	exec.sendSignal("restart", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to completion: %v", err)
 	}
@@ -586,7 +586,7 @@ func testStaleCompositeTimerInARegion(t *testing.T) {
 			succession first init then working;
 		}
 	}`)
-	exec.SendSignal("skip", nil)
+	exec.sendSignal("skip", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to completion: %v", err)
 	}
@@ -638,7 +638,7 @@ func testExitOfNestedRegionsWithAHistoryPseudostate(t *testing.T) {
 		}
 	}`)
 	for _, signal := range []string{"advance", "leave", "back"} {
-		exec.SendSignal(signal, nil)
+		exec.sendSignal(signal, nil)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("run to completion after %s: %v", signal, err)
 		}
@@ -716,8 +716,8 @@ func testHistoryWithoutRecordDefaultOrEntry(t *testing.T) {
 	fire(t, exec, "init", "away")
 
 	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil, nil)
-	if !errors.Is(err, ErrHistoryWithoutEntry) {
-		t.Fatalf("expected ErrHistoryWithoutEntry: nothing recorded, no default transition and outer has no entry transition; got %v", err)
+	if !errors.Is(err, errHistoryWithoutEntry) {
+		t.Fatalf("expected errHistoryWithoutEntry: nothing recorded, no default transition and outer has no entry transition; got %v", err)
 	}
 	for _, name := range []string{"H", "outer"} {
 		if !strings.Contains(err.Error(), name) {

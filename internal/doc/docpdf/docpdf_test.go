@@ -458,15 +458,14 @@ func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
 // TestPrintStylesheetSetsWideTablesLandscape checks the page handed to the
 // engines sets a table of seven or more columns on a landscape page with the
 // heading and lead-in paragraph ahead of it, at a fixed layout whose first
-// column keeps a readable width, steps the type down once more at eleven, and
-// keeps a heading's and lead-in's keep-with-next apart from any :has() rule.
+// column keeps a readable width, steps down at eleven, and selects by class.
 func TestPrintStylesheetSetsWideTablesLandscape(t *testing.T) {
 	page, err := docrender.HTML(plainDocument(t), pageOptions(t, Options{}, t.TempDir(), nil, formulas{}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	wide := ".sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(7)))"
-	dense := ".sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(11)))"
+	wide := ".sysml-table:is(.sysml-table-wide, .sysml-table-landscape)"
+	dense := ".sysml-table:is(.sysml-table-wide, .sysml-table-dense)"
 	for _, want := range []string{
 		"@page wide {\n    size: var(--sysml-page-size) landscape;",
 		"page: main;",
@@ -495,16 +494,16 @@ func TestPrintStylesheetSetsWideTablesLandscape(t *testing.T) {
 // TestPandocStylesheetSetsWideTablesLandscape checks pandoc's stylesheet holds
 // the same wide-table contract over pandoc's HTML: a landscape page for a
 // seven-column table with the heading, caption and group key ahead of it, and
-// keep-with-next for headings and captions apart from any :has() rule.
+// keep-with-next for headings and captions apart from table-class selection.
 func TestPandocStylesheetSetsWideTablesLandscape(t *testing.T) {
 	css := stripCSSComments(pandocStylesheet)
-	wide := "table:has(thead > tr > th:nth-child(7))"
+	wide := "table.sysml-table-landscape"
 	for _, want := range []string{
 		"@page wide { size: A4 landscape; }",
 		"body {\n  font-family: \"Times New Roman\", Times, \"Liberation Serif\", \"Nimbus Roman\", serif;\n  font-size: 11pt;\n  line-height: 1.45;\n  page: main;\n}",
 		wide + " { page: wide; font-size: 9pt; table-layout: fixed; }",
 		wide + " thead > tr > th:first-child { width: 22%; }",
-		"table:has(thead > tr > th:nth-child(11)) { font-size: 8pt; }",
+		"table.sysml-table-dense { font-size: 8pt; }",
 		"p:has(+ " + wide + "),",
 		"p:has(.caption):has(+ p:has(+ " + wide + ")),",
 		":is(h1, h2, h3, h4, h5, h6):has(+ p:has(.caption):has(+ p:has(+ " + wide + "))) { page: wide; }",
@@ -829,7 +828,10 @@ func TestRenderForPandoc(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(css), "header#title-block-header { page-break-after: always;") || strings.Contains(stripCSSComments(string(css)), ".sysml-") {
+	pandocCSS := stripCSSComments(string(css))
+	pandocCSS = strings.ReplaceAll(pandocCSS, ".sysml-table-landscape", "")
+	pandocCSS = strings.ReplaceAll(pandocCSS, ".sysml-table-dense", "")
+	if !strings.Contains(string(css), "header#title-block-header { page-break-after: always;") || strings.Contains(pandocCSS, ".sysml-") {
 		t.Fatalf("pandoc stylesheet:\n%s", css)
 	}
 }
@@ -888,8 +890,8 @@ func TestRenderForPandocKeepsOtherFormsUnderNotice(t *testing.T) {
 	}
 }
 
-// TestRenderForPandocWithoutArtwork checks a document with nothing to draw or
-// typeset is handed to pandoc without a filter.
+// TestRenderForPandocWithoutArtwork checks table tagging still reaches pandoc
+// when a document has nothing to draw or typeset.
 func TestRenderForPandocWithoutArtwork(t *testing.T) {
 	dir := t.TempDir()
 	capture := filepath.Join(dir, "capture")
@@ -907,8 +909,8 @@ func TestRenderForPandocWithoutArtwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(args), "--lua-filter") || strings.Contains(string(listing), "artwork.lua") {
-		t.Fatalf("filter written for a document without artwork:\n%s\n%s", args, listing)
+	if !strings.Contains(string(args), "--lua-filter artwork.lua") || !strings.Contains(string(listing), "artwork.lua") {
+		t.Fatalf("table filter missing for a document without artwork:\n%s\n%s", args, listing)
 	}
 }
 

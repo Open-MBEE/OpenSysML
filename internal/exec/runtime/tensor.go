@@ -29,13 +29,13 @@ func NewTensorQuantityValue(dimensions []int64, num []semantics.Value, units []U
 	return Value{Kind: ValTensorQuantity, ref: &TensorQuantity{Dimensions: dimensions, Num: num, Units: units}}
 }
 
-// Rank is the number of dimensions, the tensor's `order`.
-func (tq *TensorQuantity) Rank() int {
+// rank is the number of dimensions, the tensor's `order`.
+func (tq *TensorQuantity) rank() int {
 	return len(tq.Dimensions)
 }
 
-// FlattenedSize is the number of components.
-func (tq *TensorQuantity) FlattenedSize() int64 {
+// flattenedSize is the number of components.
+func (tq *TensorQuantity) flattenedSize() int64 {
 	return int64(len(tq.Num))
 }
 
@@ -133,16 +133,16 @@ func (ctx *Context) tensorQuantityFeature(val Value, name string) (Value, bool, 
 	case arrayDimensionsFeature:
 		return ctx.answerSequence(integerValues(tq.Dimensions))
 	case arrayRankFeature:
-		return integerValue(int64(tq.Rank())), true, nil
+		return integerValue(int64(tq.rank())), true, nil
 	case arrayFlattenedSizeFeature:
-		return integerValue(tq.FlattenedSize()), true, nil
+		return integerValue(tq.flattenedSize()), true, nil
 	case arrayElementsFeature:
 		return ctx.answerSequence(constValues(tq.Num))
 	case mRefIsBoundFeature:
 		if !tq.BoundKnown {
 			return Value{}, true, fmt.Errorf(
 				"%w: %s::isBound: the tensor is the result of a TensorCalculations calculation the library gives no body, which states nothing about whether its result is bound",
-				ErrUnevaluableLibraryFunction, tensorQuantityTypeFQN,
+				errUnevaluableLibraryFunction, tensorQuantityTypeFQN,
 			)
 		}
 		return boolValue(tq.IsBound), true, nil
@@ -152,7 +152,7 @@ func (ctx *Context) tensorQuantityFeature(val Value, name string) (Value, bool, 
 	case tensorContravariantOrder, tensorCovariantOrder:
 		return Value{}, true, fmt.Errorf(
 			"%w: %s::%s: the library declares it a Natural with no default, TensorCalculations::'[' sets none, and only their sum is constrained (orderSum: contravariantOrder + covariantOrder == order, here %d)",
-			ErrUnevaluableLibraryFunction, tensorQuantityTypeFQN, name, tq.Rank(),
+			errUnevaluableLibraryFunction, tensorQuantityTypeFQN, name, tq.rank(),
 		)
 	}
 	return Value{}, false, nil

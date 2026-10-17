@@ -8,8 +8,8 @@ stmt assign mark
   eval literal 1 -> 1
 stmt assign mark
   eval literal 1 -> 1
-choice step 3: writes mark of object #1 := 1 by token 2, mark of object #1 := 1 by token 3 (unordered; mark of object #1 := 1 by token 2 stood)
-choice step 3: tokens 2@left, 3@right (unordered; took 3@right first)
+choice step 3: writes mark of object #1 := 1 by token 2, mark of object #1 := 1 by token 3 (unordered; mark of object #1 := 1 by token 2 stood; order-dependent: mark)
+choice step 3: tokens 2@left, 3@right (unordered; took 3@right first; order-dependent: mark)
 step 3: token 2@sync, token 3@sync
 step 4: token 4@done
 step 5: no active tokens

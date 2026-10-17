@@ -204,7 +204,7 @@ func renderDiagnostics(diags []diag.Diagnostic, src string, locate func(offset i
 		if p.Col-1 <= len(srcLine) {
 			col = displayWidth(srcLine[:p.Col-1]) + 1
 		}
-		head := fmt.Sprintf("%s%d:%d: %s: %s", where, p.Line-baseLine+1, col, d.Severity.String(), d.Message)
+		head := fmt.Sprintf("%s%d:%d: %s: %s", where, p.Line-baseLine+1, col, severityWithCode(d), d.Message)
 		if origin {
 			head += fmt.Sprintf(" [%s]", diagOrigin(d))
 		}
@@ -217,18 +217,22 @@ func renderDiagnostics(diags []diag.Diagnostic, src string, locate func(offset i
 	return out
 }
 
-// diagOrigin names the pass and code behind a diagnostic, for debug output.
-func diagOrigin(d diag.Diagnostic) string {
-	parts := make([]string, 0, 2)
-	for _, p := range []string{d.Source, d.Code} {
-		if p != "" {
-			parts = append(parts, p)
-		}
+// severityWithCode spells the severity and code of a diagnostic as the text
+// line carries them, `error[unresolved]`, the brackets left out of one with no code.
+func severityWithCode(d diag.Diagnostic) string {
+	if d.Code == "" {
+		return d.Severity.String()
 	}
-	if len(parts) == 0 {
+	return d.Severity.String() + "[" + d.Code + "]"
+}
+
+// diagOrigin names the pass behind a diagnostic, for debug output; the code is
+// already on the line.
+func diagOrigin(d diag.Diagnostic) string {
+	if d.Source == "" {
 		return "unattributed"
 	}
-	return strings.Join(parts, "/")
+	return d.Source
 }
 
 // exprError reports msg against a one-line expression the way a declaration

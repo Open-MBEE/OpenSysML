@@ -120,9 +120,9 @@ func TestMakeMoveRefusesATokenUnableToAct(t *testing.T) {
 	a.make(t, a.only(t, "1@start:plain")[0])
 	a.make(t, a.only(t, "1@split:plain")[0])
 	_, err := a.run.makeMove(enabledMove{Owner: a.exec, Token: 9, Label: "9@nowhere"})
-	var refused *CheckMoveError
+	var refused *checkMoveError
 	if !errors.As(err, &refused) || !errors.Is(err, ErrCheckRefused) || !strings.Contains(refused.Move, "token 9") {
-		t.Fatalf("moving token 9: %v, want a CheckMoveError for token 9", err)
+		t.Fatalf("moving token 9: %v, want a checkMoveError for token 9", err)
 	}
 	a.only(t, "2@a:plain 3@b:plain 4@c:plain")
 }
@@ -134,7 +134,7 @@ func TestMakeMoveTakesTheSelectedBranch(t *testing.T) {
 	a := startChecked(t, m, "count")
 	a.make(t, a.only(t, "1@start:plain")[0])
 	pick := a.only(t, "1@pick:decision")[0]
-	before, err := a.exec.Snapshot()
+	before, err := a.exec.snapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestAFailingAcceptIsAMoveThatRaisesItsError(t *testing.T) {
 	}
 	four := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 4}}
 	ctx.PostMessage(Message{SignalType: "Integer", Target: "reader", Port: "other", Object: listener.ID, PortID: -1,
-		Delivery: DeliverPort, Value: &four})
+		Delivery: deliverPort, Value: &four})
 	moves := a.only(t, "1@reader:accept")
 	if !errors.Is(moves[0].Fails, ErrDivisionByZero) {
 		t.Fatalf("the move fails with %v, want the port's %v", moves[0].Fails, ErrDivisionByZero)
@@ -328,7 +328,7 @@ func TestMakeMoveDrawsTheDueOrderOnce(t *testing.T) {
 	run := &invocationRun{ctx: ctx, inv: inv}
 	dueOrders := func() []ChoiceTaken {
 		var drawn []ChoiceTaken
-		for _, c := range ctx.ChoicesTaken() {
+		for _, c := range ctx.choicesTaken() {
 			if c.Kind == ChoiceDueOrder {
 				drawn = append(drawn, c)
 			}

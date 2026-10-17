@@ -363,6 +363,23 @@ objectives with the corresponding edge attributes; PlantUML uses `usecase`, `act
 rectangles and notes. Graph kinds keep Mermaid as their machine form. Markdown, CSV and TSV are
 table-only forms and return `WrongFormError` for both new kinds.
 
+## Sequence renderings
+
+A `SequenceView` draws the occurrences an interaction declares in its body as lifelines and
+each `message` or `flow` whose ends are events on them as a directed message, a message whose
+ends are on one lifeline as a self-message. A message is one row, so its send and receive events
+share the row's time, and the rows are ordered by the successions the model states between the
+events on them (`sequence.go`, `orderMessages`): a member-attached `then` and a
+`succession first a then b` between two events each order the two messages those events are on,
+an order running through an event no message attaches to is carried through it, and
+declaration order decides only between messages nothing orders. A message attached to a
+lifeline itself or to a port of it, rather than to an event on it, has no time of its own at that
+end, so it neither orders nor is ordered there. A relay whose successions on
+one lifeline order message `b`'s send before message `c`'s is drawn `b` above `c` whatever order
+the receiving events are declared in. A succession running against a message's own direction (its receive before its send), or
+successions that order one message both above and below another, cannot be drawn as rows, so the cycle is reported as not represented and the messages
+keep declaration order. The Mermaid, PlantUML and D2 forms write the messages in that order.
+
 ## Mermaid
 
 Mermaid is the default machine-readable form for graph-shaped views. Trees, interconnections and
@@ -897,10 +914,15 @@ digraph "PlantViews::placedView" {
   textual notation, as the label shows it: a modifier of its keyword (`ref`), its name, `: Type`
   when typings are shown, `= value` when the usage is bound (`gain : dB = 15.0`,
   `constraint1 : 'Signal Output'`; a value the renderer does not spell, such as an invocation,
-  is its source text). No edge is written to a member drawn as a row, and the
+  is its source text; a member with no name or type to show reads as its keyword, as a head
+  does, so no row is ever empty). No edge is written to a member drawn as a row, and the
   notice counts them (`4 node(s) without a position, drawn as compartment rows of the node
   above them`); a row shows the member alone, so the members nested under a row are left undrawn
-  and the notice counts them apart (`, and 1 node(s) under them left undrawn`). A member with a
+  and the notice counts them apart (`, and 1 node(s) under them left undrawn`). A member of a
+  compartment the owner's `Layout` hides with a `show…` switch (`showParts = false`; see
+  [DiagramLayout annotations](diagram-layout-annotations.md)) is not drawn as a row and the
+  notice says so (`9 node(s) without a position: 7 drawn as compartment rows of the node above
+  them, 2 in compartments its Layout hides left undrawn`); its edges are dropped as a row's are. A member with a
   `Layout` of its own stays a node (a compartment row by its box when inside the owner's, an edge
   when outside), as does an unplaced member with a positioned node under it, so that node keeps
   its owner. An unpositioned tree is unchanged: every member
@@ -1279,6 +1301,66 @@ with their edges' ends moved to the node that declared them and a note anchored 
 likewise, hidden labels, typings, multiplicities, keywords, compartments and qualifiers are left
 unwritten, so DOT, Mermaid, PlantUML, D2, text and `Rendering.Data` agree. A name none of the
 elements has is refused with the names there are.
+
+## Limiting what a view draws
+
+A tree or interconnection rendering draws the contents of every element the view exposes, as the
+Pilot visualizer does; the specification leaves what a rendering draws to the tool (SysML v2
+§10.2). Three mechanisms bound it, all applied by the one containment walk (`Renderer.walkMembers`,
+`Renderer.walkBound`), so the DOT, Mermaid, PlantUML, D2 and text forms and `Rendering.Data` agree:
+
+- **`expose` and `filter`** (SysML v2 §7.24, normative). What a view exposes are its roots; its
+  filter conditions — `filter` members, the `[…]` clauses of its `expose` lines, and those
+  inherited from its view definition and that definition's supertypes — also decide which contained
+  members the walk draws beneath each root: a member a condition rejects is not drawn, nor its
+  subtree. The one admission (`semantics.Model.SatisfiesElementFilter`) decides roots and children
+  alike. So `filter @SysML::PartUsage;` prunes attributes and ports from a part tree, and a
+  standard metadata marker blacklists single elements:
+
+  ```sysml
+  metadata def Hidden;
+  part rover { part chassis; #Hidden part telemetry; }
+  view structure { expose rover; filter not @Hidden; render asTreeDiagram; }
+  ```
+
+  A connector whose end lies in a pruned element is not drawn and is counted in the notices
+  (`… attaches to telemetry.tx, which the view's filter conditions exclude; no edge is drawn`). A
+  view with no filter conditions renders as it always has.
+
+- **`depth`** (a non-normative convention). An attribute usage named `depth` bound to a
+  non-negative integer literal on the view usage, else on the nearest view definition it
+  specializes, bounds how many levels of nested elements are drawn below each exposed root; `0`
+  or none draws every level. Filtering applies first, so the levels are counted over what the
+  filters keep. Ports and action, case and constraint parameters count at their owner's depth, so an
+  element at the bound keeps them pinned on its border; it is drawn with its compartment rows, carries
+  the detail `nested deeper than N levels; not shown`, and the elements directly below the bound are
+  counted once in the notices. The bare form is the one SysIDE reads, so a model renders alike in
+  both tools; a view definition may declare the attribute typed (`attribute depth :
+  ScalarValues::Natural[0..1];`) for its specializations to redefine. The `OpenSysMLRenderings`
+  library is vendored from the OpenSysML Extensions Library, so a shared `DepthLimitedView`
+  declaring it belongs there, not in this tree:
+
+  ```sysml
+  view overview { expose vehicle; attribute depth = 2; render asTreeDiagram; }
+  view def DepthLimited { attribute depth : ScalarValues::Natural[0..1]; }
+  view def TwoLevels :> DepthLimited { :>> depth = 2; }
+  ```
+
+  A `depth` bound to anything but a non-negative integer literal is the `view-depth-value` error,
+  naming the attribute. `-render-depth`, `%render depth=`, the LSP request's `depth`, the gRPC
+  `RenderViewRequest.depth` and the VS Code `opensysml.diagram.depth` setting override the model's
+  depth for one render. Tables draw their rows unbounded: a table has no levels to cut.
+
+- **`DiagramLayout::Layout.collapsed`** (a non-normative convention,
+  [design record](diagram-layout-annotations.md)). A `Layout` with `collapsed = true` about an
+  element draws it with no children in every form, keeping its ports and the `collapsed` tag
+  (`comment="collapsed"` in DOT, ` collapsed` in text, `Geometry.Collapsed` in the data); its
+  `show…` switches hide single compartments, in the text form as in DOT:
+
+  ```sysml
+  view wiring { expose vehicle; render asInterconnectionDiagram;
+      metadata Layout about vehicle::engine { x = 120; y = 40; collapsed = true; } }
+  ```
 
 ## Surfaces
 

@@ -68,6 +68,9 @@ type VerdictExploration struct {
 	FailedLinearizations int
 	// BudgetsHit names the budgets hit, `runs` before `depth`; none when complete.
 	BudgetsHit []string
+	// Unenumerated names the constructs whose unordered alternatives the runs took
+	// in one order without a choice point; none when complete.
+	Unenumerated []string
 	// ProbabilitiesBounded reports the outcomes' probabilities are lower bounds.
 	ProbabilitiesBounded bool
 }
@@ -253,6 +256,7 @@ func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
 			Runs:                 x.Runs,
 			FailedLinearizations: failedLinearizations,
 			BudgetsHit:           x.BudgetsHit,
+			Unenumerated:         runtime.GapNames(x.Unenumerated),
 			ProbabilitiesBounded: x.ProbabilitiesBounded(),
 		},
 	}

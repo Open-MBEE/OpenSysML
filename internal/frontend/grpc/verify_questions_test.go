@@ -977,13 +977,19 @@ func TestVerifyQuestionsGuardNestedReads(t *testing.T) {
 		missing := "reads P::Item::inner.dependent, whose value could not be read: feature value " + object + ".dependent: no value for feature input"
 		someMissing := "reads P::Item::inner.dependent under some assignment of its free features, whose value could not be read: feature value " + object + ".dependent: no value for feature input"
 		someBroken := "reads P::Item::inner.broken under some assignment of its free features, whose value could not be read: feature value " + object + ".broken: division by zero"
+		// Evaluated on no object, the chain reads the declaration, where a value
+		// nothing gives is undetermined; on an object it is a missing value.
+		evaluated := "constraint direct: assertion evaluation failed: feature value " + object + ".dependent: no value for feature input"
+		if object == "inner" {
+			evaluated = "constraint direct: assertion evaluation failed: no value: condition is undetermined: input has no value in the model"
+		}
 		return []struct {
 			symbol, question, status string
 			holds                    bool
 			err                      string
 			witness                  string
 		}{
-			{"P::Item::direct", questionEvaluate, statusUndecided, false, "constraint direct: assertion evaluation failed: feature value " + object + ".dependent: no value for feature input", ""},
+			{"P::Item::direct", questionEvaluate, statusUndecided, false, evaluated, ""},
 			{"P::Item::direct", questionHolds, statusUndecided, false, "constraint direct " + missing, ""},
 			{"P::Item::direct", questionSatisfiable, statusUndecided, false, "constraint direct " + missing, ""},
 

@@ -6,7 +6,7 @@ concise "[[https://example.test/src/run-timeline.sysml#L26 RunTimeline::mission.
 concise "[[https://example.test/src/run-timeline.sysml#L50 RunTimeline::mission.instrument.modes]]" as l1
 @0
 l0 is "waiting | charged"
-note top of l0 : choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first)
+note top of l0 : choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first; independent)
 l1 is "[[https://example.test/src/run-timeline.sysml#L52 waiting]]"
 @1
 l0 is "acknowledged | charged (time, accept Ack)"

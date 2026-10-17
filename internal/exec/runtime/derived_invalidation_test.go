@@ -220,7 +220,7 @@ func TestWriteOfAnEmptyCollectionInAnotherUnitRecomputesDerivedValues(t *testing
 		if err != nil {
 			t.Fatalf("GetFeatureValue(%s): %v", name, err)
 		}
-		if got, ok := fv.HeldValue().Sequence().ElementUnit(); !ok || got.Text != unit {
+		if got, ok := fv.HeldValue().Sequence().emptyElementUnit(); !ok || got.Text != unit {
 			t.Fatalf("%s = %s measured in %q, %t; want an empty sequence in %s", name, FormatValue(fv.HeldValue()), got.Text, ok, unit)
 		}
 		return fv.HeldValue()

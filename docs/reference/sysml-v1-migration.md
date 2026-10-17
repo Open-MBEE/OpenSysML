@@ -176,8 +176,9 @@ ties each of its mapping classes to the code that carries it out (or records why
 | `private`, `package` or `protected` packaged element (a block, value type, enumeration…) | visibility dropped: a v2 private member is out of reach of every other package, which v1 tools do not enforce, so an import brings it in | approximated |
 | Property or port sharing the name of an inherited feature without redefining it | `:>>` the inherited feature when both are the same kind of usage; otherwise the collision is reported and left | approximated |
 | Connector, nested ends | `connect a.b to c.d` | mapped |
+| Connector realizing item flows, carrying nothing of its own (no name, type, comment or stereotype), every item flow writable | its flows alone, `flow f of Item from a.p.x to b.q.x;` per item flow, no `connection`: a flow is itself the connection between the two ports, and a renderer draws one line where the tool drew one connector; the diagram's route and the view's `expose` go on the flows, and the report says the connector was written as its flows | mapped |
 | «BindingConnector» | `bind`, or `binding name bind` when named | mapped |
-| InformationFlow / «ItemFlow» over a connector | `flow of Item from a.x to b.y`, from the end standing for the flow's source to the one standing for its target: the end whose role it is, whose path names it or a part typed by it (a flow a tool draws between parts or blocks), or the connector's own port when it is the connector's owner | mapped |
+| InformationFlow / «ItemFlow» over a connector | `flow f of Item from a.x to b.y`, named after the item flow (a name a sibling member holds is numbered, `'f 2'`; an anonymous item flow stays anonymous unless a diagram shows a connector written as its flows, which names it after the connector's ends and marks it `SynthesizedName`), from the end standing for the flow's source to the one standing for its target: the end whose role it is, whose path names it or a part typed by it (a flow a tool draws between parts or blocks), or the connector's own port when it is the connector's owner | mapped |
 | «Satisfy» | `satisfy requirement … :> <requirement> by …` in the satisfying usage's owner | mapped |
 | «Verify» from a test case | `verify` in the verification def | mapped |
 | «DeriveReqt» | `connection … :> RequirementDerivation::Derivation` | mapped |
@@ -452,7 +453,7 @@ otherwise a name spelled from what it is written between, in the body it is writ
 | ObjectFlow between pins | `succession flow 'a.out to b.in' of T from a.out to b.in;` (or `flow 'a.out to b.in' from a.out to b.in;` as the table above says); several edges carrying one producer–pin pair share the one member, named when any of them is shown |
 | ObjectFlow at a parameter | `binding 'p = a.out' bind p = a.out;` — exposable, but an `ActionFlowView` draws neither the parameter nor the binding, so its route is reported `not drawn` |
 | Transition | `transition 'S accept Sig then T' first S accept Sig then T;` — the trigger, guard and target as written, the payload binding left out of the name; several triggers are several transitions, each named for its own trigger (a v1 name is numbered, `halt`, `halt2`), and the edge's route pins every one of them |
-| Connector | `connection 'a.p to b.q' connect a.p to b.q;` |
+| Connector | `connection 'a.p to b.q' connect a.p to b.q;`; one written as its item flows alone names each flow instead, `flow 'a.p to b.q' of Item from a.p.x to b.q.x;` (`'a.p to b.q 2'` for a second anonymous item flow), and the view exposes and routes every flow of the connector |
 | BindingConnector, delegation connector | `binding 'a.p = b.q' bind a.p = b.q;` |
 | Dependency, Extend, «Refine» | `dependency 'A to B' from A to B;` (`allocation` for an «Allocate»; `connection 'A extends B' connect A to B;` for an Extend, `connection 'A refines B' connect A to B;` for a «Refine» between usages; a relationship its author named keeps that name, and the connection's `doc` is its kind, `doc /* A refines B */`); several clients or suppliers are several dependencies, one per pair, and the view exposes each |
 | «Satisfy» | `satisfy requirement 'satisfy R' :> R;` in the satisfying usage's owner, one per client in its own owner's body, and the view exposes each |
@@ -475,9 +476,12 @@ Edges with no v2 member of their own are not given one: a Generalization or Inte
 is a `:>` clause or a port's conjugation, a Composition or Aggregation between blocks is the
 `part`/`ref` end usage, a constraint or information flow edge nothing realizes is not
 written, and a decision's `else` branch is a clause of the node it leaves, not a member. Their
-placements on a diagram expose the ends as before; their routes are reported (below), not
+placements on a diagram expose the ends as before. A Generalization's route is written about the
+specific definition, naming the general its `:>` is drawn to (`metadata DiagramLayout::Route
+about Sub { points = (…); ref :>> general : Sup; }`), one per general, when a block definition
+diagram shows both ends and the `:>` was written; the others' routes are reported (below), not
 attached to a member that is not an edge. The rendered view still draws them: a tree draws a
-specialization from each exposed element to the general it specializes, and a composition
+specialization from each exposed element to the general it specializes, along its Route, and a composition
 (filled diamond, labelled with the end usage's name and multiplicity) or reference (hollow
 diamond) from each to the definition typing a part or `ref` it owns, wherever both ends are
 drawn, and draws a `connection def` whose two ends are typed by drawn definitions as a line
@@ -579,6 +583,30 @@ the last part or region listed under it. A route the export gives an edge the mi
 as several members — a control flow written as a succession into a join the migrator made up,
 and from that join on — is pinned to the members whose both ends a diagram symbol stands at, so
 the route is drawn where Cameo drew it and not into a node no symbol stands for.
+
+The compartments a modeler collapsed on a symbol are kept with its box. A Cameo symbol's
+`SUPPRESS_*` compartment properties — `BooleanProperty` elements in its `properties`, a `value`
+of `true` meaning suppressed and no `value` the tool's default, shown — are read from the symbol
+itself and then from the chain of symbol styles the stream's `symbolStyles` hold (the property
+manager its `symbolStyleID` names and each `parentPropertyManager` above it), the symbol's own
+setting winning over an inherited one. Each suppressed compartment is written as a `show…`
+switch of the symbol's `Layout`, by the kind its members take in v2: parts (`SUPPRESS_PARTS_COMPARTMENT`,
+`SUPPRESS_IBD_PARTS_COMPARTMENT`) `showParts = false`; references (`…REFERENCES_COMPARTMENT`)
+`showReferences`; properties, values and class attributes (`…PROPERTIES_COMPARTMENT`,
+`…VALUES_COMPARTMENT`, `SUPPRESS_CLASS_ATTRIBUTES`, the IBD values, UML-property and initial-value
+compartments) `showAttributes`; constraints (`…CONSTRAINTS_COMPARTMENT`) `showConstraints`; flow
+properties (`…FLOWPROPERTIES_COMPARTMENT`) `showItems`; proxy, full and class ports
+(`SUPPRESS_PROXYPORTS_COMPARTMENT`, `SUPPRESS_FULLPORTS_COMPARTMENT`, `SUPPRESS_CLASS_PORTS`)
+`showPorts`; operations (`SUPPRESS_CLASS_OPERATIONS`, `SUPPRESS_IBD_OPERATIONS_COMPARTMENT`)
+`showActions`; a v2 compartment lists what several Cameo compartments list between them, so its
+switch is written only when every one of them the symbol states is suppressed (a block's class
+attributes compartment is suppressed by Cameo's own style while its values compartment is shown:
+`showAttributes` stays unset). The report's layout summary counts them (`# compartments suppressed: N on M
+symbols`; `compartmentsSuppressed` and `symbolsSuppressing` in the sidecar). A suppressed
+compartment no v2 compartment answers to (`SUPPRESS_STRUCTURE`, `SUPPRESS_BEHAVIORS`,
+`SUPPRESS_SIGNAL_RECEPTIONS`) is counted among the unsupported presentation properties and
+dropped. The renderer then lists only the compartments left on and counts only their rows against
+the box's stated size (see [DiagramLayout annotations](../project/diagram-layout-annotations.md)).
 
 A note the diagram shows is written as `metadata DiagramLayout::Note about <ref> { text; x; y;
 width; height; }` — a `Note` symbol whatever it names, a comment's symbol, or a free text box

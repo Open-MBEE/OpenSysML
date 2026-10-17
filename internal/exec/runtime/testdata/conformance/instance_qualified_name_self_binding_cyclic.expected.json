@@ -1,0 +1,12 @@
+{
+  "type": "instance",
+  "instantiate": "test::self",
+  "libraries": true,
+  "slots": {
+    "a": {"error": "cyclic feature value dependency: test::self::a"},
+    "plusOne": {"type": "Real", "value": 3.0}
+  },
+  "materialization": {
+    "errors": ["feature value self.a: cyclic feature value dependency: test::self::a"]
+  }
+}

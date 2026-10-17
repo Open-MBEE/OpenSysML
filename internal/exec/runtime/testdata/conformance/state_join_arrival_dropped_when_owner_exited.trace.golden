@@ -10,7 +10,7 @@ stmt assign log
     eval literal "Z " -> "Z "
   eval operator + -> "X Z "
 enter: S1
-choice entering S1: next a(entry), b(entry) (unordered; took a(entry) first)
+choice entering S1: next a(entry), b(entry) (unordered; took a(entry) first; independent)
 enter: a
 enter: b
 transition: S1 -> S1 (event: accept Z)

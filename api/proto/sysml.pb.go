@@ -957,8 +957,14 @@ type VerificationVerdict struct {
 	// objective verifies. Empty when the case was run for itself rather than for
 	// a requirement, or when that requirement can be named by no FQN.
 	RequirementId string `protobuf:"bytes,5,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Instance the case ran on as its owner, 0 when it ran on no object. A case a
+	// definition owns runs once per object of that definition, so verdicts of one
+	// case are told apart by this field; its feature values are in `instances`.
+	InstanceId int64 `protobuf:"varint,6,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	// Type of `instance_id`, as an FQN, for naming the object in a report.
+	InstanceTypeId string `protobuf:"bytes,7,opt,name=instance_type_id,json=instanceTypeId,proto3" json:"instance_type_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *VerificationVerdict) Reset() {
@@ -1022,6 +1028,20 @@ func (x *VerificationVerdict) GetSubcase() bool {
 func (x *VerificationVerdict) GetRequirementId() string {
 	if x != nil {
 		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *VerificationVerdict) GetInstanceId() int64 {
+	if x != nil {
+		return x.InstanceId
+	}
+	return 0
+}
+
+func (x *VerificationVerdict) GetInstanceTypeId() string {
+	if x != nil {
+		return x.InstanceTypeId
 	}
 	return ""
 }
@@ -2251,7 +2271,8 @@ func (x *Outcome) GetProbabilityRange() *ProbabilityRange {
 // within the budget was run, and which budget stopped it when not.
 type ExplorationStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// True when every linearization was run, so `outcomes` is the whole set.
+	// True when every linearization the library admits was run, so `outcomes`
+	// is the whole set: no budget was hit and nothing was left unenumerated.
 	Complete bool `protobuf:"varint,1,opt,name=complete,proto3" json:"complete,omitempty"`
 	// How many runs were made.
 	Runs int32 `protobuf:"varint,2,opt,name=runs,proto3" json:"runs,omitempty"`
@@ -2266,8 +2287,12 @@ type ExplorationStatus struct {
 	ProbabilitiesLowerBound bool `protobuf:"varint,6,opt,name=probabilities_lower_bound,json=probabilitiesLowerBound,proto3" json:"probabilities_lower_bound,omitempty"`
 	// How many linearizations ended in runtime-error outcomes.
 	FailedLinearizations int32 `protobuf:"varint,7,opt,name=failed_linearizations,json=failedLinearizations,proto3" json:"failed_linearizations,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// The constructs whose unordered alternatives the runs took in one order
+	// without a choice point, by identifier; `complete` is false while any is
+	// listed, since fewer orders were run than the library admits.
+	Unenumerated  []string `protobuf:"bytes,8,rep,name=unenumerated,proto3" json:"unenumerated,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ExplorationStatus) Reset() {
@@ -2347,6 +2372,13 @@ func (x *ExplorationStatus) GetFailedLinearizations() int32 {
 		return x.FailedLinearizations
 	}
 	return 0
+}
+
+func (x *ExplorationStatus) GetUnenumerated() []string {
+	if x != nil {
+		return x.Unenumerated
+	}
+	return nil
 }
 
 // ListEnginesRequest asks for the analysis engines registered in this build.
@@ -3451,14 +3483,19 @@ func (x *Instance) GetFeatureValues() map[string]*FeatureValue {
 
 // FeatureValue is what an object holds for one feature of its type.
 type FeatureValue struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	FeatureName   string                 `protobuf:"bytes,1,opt,name=feature_name,json=featureName,proto3" json:"feature_name,omitempty"`
-	Value         *Value                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`   // for a single-valued feature
-	Values        []*Value               `protobuf:"bytes,3,rep,name=values,proto3" json:"values,omitempty"` // for a multi-valued feature
-	Materialized  bool                   `protobuf:"varint,4,opt,name=materialized,proto3" json:"materialized,omitempty"`
-	Error         string                 `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"` // set when evaluation failed; value is unset
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	FeatureName  string                 `protobuf:"bytes,1,opt,name=feature_name,json=featureName,proto3" json:"feature_name,omitempty"`
+	Value        *Value                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`   // for a single-valued feature
+	Values       []*Value               `protobuf:"bytes,3,rep,name=values,proto3" json:"values,omitempty"` // for a multi-valued feature
+	Materialized bool                   `protobuf:"varint,4,opt,name=materialized,proto3" json:"materialized,omitempty"`
+	Error        string                 `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"` // set when evaluation failed; value is unset
+	// How many of the run's unresolved choice points — ones whose alternatives
+	// write what another reads or writes — touch this value: it then stands only
+	// up to the order the run took, and an explore shows the set. 0 for a value
+	// nothing order-dependent wrote. Populated under the "order_dependence" capability.
+	OrderDependent int32 `protobuf:"varint,6,opt,name=order_dependent,json=orderDependent,proto3" json:"order_dependent,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *FeatureValue) Reset() {
@@ -3524,6 +3561,13 @@ func (x *FeatureValue) GetError() string {
 		return x.Error
 	}
 	return ""
+}
+
+func (x *FeatureValue) GetOrderDependent() int32 {
+	if x != nil {
+		return x.OrderDependent
+	}
+	return 0
 }
 
 // InstantiateRequest requests instantiation of a part/usage
@@ -3763,8 +3807,12 @@ type ExecuteActionResponse struct {
 	// `outputs` stays the output parameters alone. Empty without a performer and
 	// under an explore schedule, whose outcomes carry them.
 	PerformerAttributes map[string]*Value `protobuf:"bytes,7,rep,name=performer_attributes,json=performerAttributes,proto3" json:"performer_attributes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Output name → how many of the run's unresolved choice points touch it; an
+	// output nothing order-dependent wrote is absent. Populated under the
+	// "order_dependence" capability; empty under an explore schedule.
+	OrderDependent map[string]int32 `protobuf:"bytes,8,rep,name=order_dependent,json=orderDependent,proto3" json:"order_dependent,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ExecuteActionResponse) Reset() {
@@ -3842,6 +3890,13 @@ func (x *ExecuteActionResponse) GetFinalTime() float64 {
 func (x *ExecuteActionResponse) GetPerformerAttributes() map[string]*Value {
 	if x != nil {
 		return x.PerformerAttributes
+	}
+	return nil
+}
+
+func (x *ExecuteActionResponse) GetOrderDependent() map[string]int32 {
+	if x != nil {
+		return x.OrderDependent
 	}
 	return nil
 }
@@ -3964,9 +4019,13 @@ type ExecuteStateResponse struct {
 	// also on a run that failed, up to the failure. Empty under an explore schedule.
 	Trace []*DocumentEvent `protobuf:"bytes,8,rep,name=trace,proto3" json:"trace,omitempty"`
 	// How many of the oldest records the service's held-events bound discarded.
-	TraceDropped  int32 `protobuf:"varint,9,opt,name=trace_dropped,json=traceDropped,proto3" json:"trace_dropped,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	TraceDropped int32 `protobuf:"varint,9,opt,name=trace_dropped,json=traceDropped,proto3" json:"trace_dropped,omitempty"`
+	// Final-context key → how many of the run's unresolved choice points touch
+	// it; a value nothing order-dependent wrote is absent. Populated under the
+	// "order_dependence" capability; empty under an explore schedule.
+	OrderDependent map[string]int32 `protobuf:"bytes,10,rep,name=order_dependent,json=orderDependent,proto3" json:"order_dependent,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ExecuteStateResponse) Reset() {
@@ -4060,6 +4119,13 @@ func (x *ExecuteStateResponse) GetTraceDropped() int32 {
 		return x.TraceDropped
 	}
 	return 0
+}
+
+func (x *ExecuteStateResponse) GetOrderDependent() map[string]int32 {
+	if x != nil {
+		return x.OrderDependent
+	}
+	return nil
 }
 
 // ConvertRequest asks for a model in another representation. A model_hash
@@ -9094,7 +9160,14 @@ type Diagnostic struct {
 	Span     *Span                  `protobuf:"bytes,3,opt,name=span,proto3" json:"span,omitempty"`
 	// Stable identifier to branch on instead of the message: a pass or rule code,
 	// "syntax", "choice-point", "guard-unevaluable"; empty when none was assigned.
-	Code          string `protobuf:"bytes,4,opt,name=code,proto3" json:"code,omitempty"`
+	Code string `protobuf:"bytes,4,opt,name=code,proto3" json:"code,omitempty"`
+	// On a "choice-point": the features the conflicting alternatives wrote, whose
+	// values the run holds only up to the order it took; empty when the
+	// alternatives commute (`independent`) or conflict on nothing a value names.
+	OrderDependent []string `protobuf:"bytes,5,rep,name=order_dependent,json=orderDependent,proto3" json:"order_dependent,omitempty"`
+	// On a "choice-point": the alternatives commute by their footprints, so the
+	// run's values stand whichever was taken.
+	Independent   bool `protobuf:"varint,6,opt,name=independent,proto3" json:"independent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -9155,6 +9228,20 @@ func (x *Diagnostic) GetCode() string {
 		return x.Code
 	}
 	return ""
+}
+
+func (x *Diagnostic) GetOrderDependent() []string {
+	if x != nil {
+		return x.OrderDependent
+	}
+	return nil
+}
+
+func (x *Diagnostic) GetIndependent() bool {
+	if x != nil {
+		return x.Independent
+	}
+	return false
 }
 
 // Span represents a source location
@@ -12828,7 +12915,10 @@ type RenderViewRequest struct {
 	// shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
 	// "compartments", "edge-labels", "keywords", "multiplicities", "typings",
 	// "qualifiers", or "all".
-	Show          []string `protobuf:"bytes,4,rep,name=show,proto3" json:"show,omitempty"`
+	Show []string `protobuf:"bytes,4,rep,name=show,proto3" json:"show,omitempty"`
+	// How many levels of nested elements to draw below each exposed element,
+	// overriding the depth the view states; 0 draws every level.
+	Depth         int32 `protobuf:"varint,5,opt,name=depth,proto3" json:"depth,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -12889,6 +12979,13 @@ func (x *RenderViewRequest) GetShow() []string {
 		return x.Show
 	}
 	return nil
+}
+
+func (x *RenderViewRequest) GetDepth() int32 {
+	if x != nil {
+		return x.Depth
+	}
+	return 0
 }
 
 // RenderViewResponse carries all machine-readable fields of the rendering.
@@ -14000,13 +14097,16 @@ const file_sysml_proto_rawDesc = "" +
 	"\x0fnamed_arguments\x18\a \x03(\v23.sysml.VerifyRequirementRequest.NamedArgumentsEntryR\x0enamedArguments\x1aO\n" +
 	"\x13NamedArgumentsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\x9b\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xe6\x01\n" +
 	"\x13VerificationVerdict\x12\x17\n" +
 	"\acase_id\x18\x01 \x01(\tR\x06caseId\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +
 	"\x06detail\x18\x03 \x01(\tR\x06detail\x12\x18\n" +
 	"\asubcase\x18\x04 \x01(\bR\asubcase\x12%\n" +
-	"\x0erequirement_id\x18\x05 \x01(\tR\rrequirementId\"\x90\x02\n" +
+	"\x0erequirement_id\x18\x05 \x01(\tR\rrequirementId\x12\x1f\n" +
+	"\vinstance_id\x18\x06 \x01(\x03R\n" +
+	"instanceId\x12(\n" +
+	"\x10instance_type_id\x18\a \x01(\tR\x0einstanceTypeId\"\x90\x02\n" +
 	"\x19VerifyRequirementResponse\x12(\n" +
 	"\averdict\x18\x01 \x01(\v2\x0e.sysml.VerdictR\averdict\x12-\n" +
 	"\tinstances\x18\x02 \x03(\v2\x0f.sysml.InstanceR\tinstances\x12\x14\n" +
@@ -14110,7 +14210,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x11probability_range\x18\t \x01(\v2\x17.sysml.ProbabilityRangeR\x10probabilityRange\x1aH\n" +
 	"\fOutputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\x99\x02\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xbd\x02\n" +
 	"\x11ExplorationStatus\x12\x1a\n" +
 	"\bcomplete\x18\x01 \x01(\bR\bcomplete\x12\x12\n" +
 	"\x04runs\x18\x02 \x01(\x05R\x04runs\x12\x1f\n" +
@@ -14120,7 +14220,8 @@ const file_sysml_proto_rawDesc = "" +
 	"runsBudget\x12!\n" +
 	"\fdepth_budget\x18\x05 \x01(\x05R\vdepthBudget\x12:\n" +
 	"\x19probabilities_lower_bound\x18\x06 \x01(\bR\x17probabilitiesLowerBound\x123\n" +
-	"\x15failed_linearizations\x18\a \x01(\x05R\x14failedLinearizations\"\x14\n" +
+	"\x15failed_linearizations\x18\a \x01(\x05R\x14failedLinearizations\x12\"\n" +
+	"\funenumerated\x18\b \x03(\tR\funenumerated\"\x14\n" +
 	"\x12ListEnginesRequest\"\xfb\x02\n" +
 	"\n" +
 	"EngineInfo\x12\x12\n" +
@@ -14202,13 +14303,14 @@ const file_sysml_proto_rawDesc = "" +
 	"\x0efeature_values\x18\x04 \x03(\v2\".sysml.Instance.FeatureValuesEntryR\rfeatureValues\x1aU\n" +
 	"\x12FeatureValuesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
-	"\x05value\x18\x02 \x01(\v2\x13.sysml.FeatureValueR\x05value:\x028\x01J\x04\b\x03\x10\x04R\x05slots\"\xb5\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\x13.sysml.FeatureValueR\x05value:\x028\x01J\x04\b\x03\x10\x04R\x05slots\"\xde\x01\n" +
 	"\fFeatureValue\x12!\n" +
 	"\ffeature_name\x18\x01 \x01(\tR\vfeatureName\x12\"\n" +
 	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value\x12$\n" +
 	"\x06values\x18\x03 \x03(\v2\f.sysml.ValueR\x06values\x12\"\n" +
 	"\fmaterialized\x18\x04 \x01(\bR\fmaterialized\x12\x14\n" +
-	"\x05error\x18\x05 \x01(\tR\x05error\"P\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\x12'\n" +
+	"\x0forder_dependent\x18\x06 \x01(\x05R\x0eorderDependent\"P\n" +
 	"\x12InstantiateRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x1b\n" +
@@ -14227,7 +14329,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x13performer_symbol_id\x18\x05 \x01(\tR\x11performerSymbolId\x1aG\n" +
 	"\vInputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xb8\x04\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xd6\x05\n" +
 	"\x15ExecuteActionResponse\x12C\n" +
 	"\aoutputs\x18\x01 \x03(\v2).sysml.ExecuteActionResponse.OutputsEntryR\aoutputs\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x123\n" +
@@ -14236,13 +14338,17 @@ const file_sysml_proto_rawDesc = "" +
 	"\vexploration\x18\x05 \x01(\v2\x18.sysml.ExplorationStatusR\vexploration\x12\x1d\n" +
 	"\n" +
 	"final_time\x18\x06 \x01(\x01R\tfinalTime\x12h\n" +
-	"\x14performer_attributes\x18\a \x03(\v25.sysml.ExecuteActionResponse.PerformerAttributesEntryR\x13performerAttributes\x1aH\n" +
+	"\x14performer_attributes\x18\a \x03(\v25.sysml.ExecuteActionResponse.PerformerAttributesEntryR\x13performerAttributes\x12Y\n" +
+	"\x0forder_dependent\x18\b \x03(\v20.sysml.ExecuteActionResponse.OrderDependentEntryR\x0eorderDependent\x1aH\n" +
 	"\fOutputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
 	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\x1aT\n" +
 	"\x18PerformerAttributesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xe5\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\x1aA\n" +
+	"\x13OrderDependentEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xe5\x01\n" +
 	"\x13ExecuteStateRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x125\n" +
@@ -14250,7 +14356,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x06events\x18\x03 \x03(\tR\x06events\x12\x1a\n" +
 	"\bschedule\x18\x04 \x01(\tR\bschedule\x12.\n" +
 	"\x13performer_symbol_id\x18\x05 \x01(\tR\x11performerSymbolId\x12\x14\n" +
-	"\x05trace\x18\x06 \x01(\bR\x05trace\"\x83\x04\n" +
+	"\x05trace\x18\x06 \x01(\bR\x05trace\"\xa0\x05\n" +
 	"\x14ExecuteStateResponse\x12%\n" +
 	"\x0estates_visited\x18\x01 \x03(\tR\rstatesVisited\x12R\n" +
 	"\rfinal_context\x18\x02 \x03(\v2-.sysml.ExecuteStateResponse.FinalContextEntryR\ffinalContext\x12\x14\n" +
@@ -14261,10 +14367,15 @@ const file_sysml_proto_rawDesc = "" +
 	"\n" +
 	"final_time\x18\a \x01(\x01R\tfinalTime\x12*\n" +
 	"\x05trace\x18\b \x03(\v2\x14.sysml.DocumentEventR\x05trace\x12#\n" +
-	"\rtrace_dropped\x18\t \x01(\x05R\ftraceDropped\x1aM\n" +
+	"\rtrace_dropped\x18\t \x01(\x05R\ftraceDropped\x12X\n" +
+	"\x0forder_dependent\x18\n" +
+	" \x03(\v2/.sysml.ExecuteStateResponse.OrderDependentEntryR\x0eorderDependent\x1aM\n" +
 	"\x11FinalContextEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\x81\x03\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\x1aA\n" +
+	"\x13OrderDependentEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\x81\x03\n" +
 	"\x0eConvertRequest\x12\x1d\n" +
 	"\tfile_path\x18\x01 \x01(\tH\x00R\bfilePath\x12\x1a\n" +
 	"\acontent\x18\x02 \x01(\tH\x00R\acontent\x12\x1f\n" +
@@ -14654,13 +14765,15 @@ const file_sysml_proto_rawDesc = "" +
 	"\n" +
 	"UnitFactor\x12\x17\n" +
 	"\aunit_id\x18\x01 \x01(\tR\x06unitId\x12\x1a\n" +
-	"\bexponent\x18\x02 \x01(\x01R\bexponent\"w\n" +
+	"\bexponent\x18\x02 \x01(\x01R\bexponent\"\xc2\x01\n" +
 	"\n" +
 	"Diagnostic\x12\x1a\n" +
 	"\bseverity\x18\x01 \x01(\tR\bseverity\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1f\n" +
 	"\x04span\x18\x03 \x01(\v2\v.sysml.SpanR\x04span\x12\x12\n" +
-	"\x04code\x18\x04 \x01(\tR\x04code\"\x8a\x01\n" +
+	"\x04code\x18\x04 \x01(\tR\x04code\x12'\n" +
+	"\x0forder_dependent\x18\x05 \x03(\tR\x0eorderDependent\x12 \n" +
+	"\vindependent\x18\x06 \x01(\bR\vindependent\"\x8a\x01\n" +
 	"\x04Span\x12\x12\n" +
 	"\x04file\x18\x01 \x01(\tR\x04file\x12\x1d\n" +
 	"\n" +
@@ -14978,13 +15091,14 @@ const file_sysml_proto_rawDesc = "" +
 	"\x16RenderDocumentResponse\x12\x1a\n" +
 	"\bmarkdown\x18\x01 \x01(\tR\bmarkdown\x12\x12\n" +
 	"\x04html\x18\x02 \x01(\tR\x04html\x12\x1b\n" +
-	"\tfile_name\x18\x03 \x01(\tR\bfileName\"p\n" +
+	"\tfile_name\x18\x03 \x01(\tR\bfileName\"\x86\x01\n" +
 	"\x11RenderViewRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x12\n" +
 	"\x04view\x18\x02 \x01(\tR\x04view\x12\x14\n" +
 	"\x05ports\x18\x03 \x01(\tR\x05ports\x12\x12\n" +
-	"\x04show\x18\x04 \x03(\tR\x04show\"\xec\x02\n" +
+	"\x04show\x18\x04 \x03(\tR\x04show\x12\x14\n" +
+	"\x05depth\x18\x05 \x01(\x05R\x05depth\"\xec\x02\n" +
 	"\x12RenderViewResponse\x12\x12\n" +
 	"\x04view\x18\x01 \x01(\tR\x04view\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +
@@ -15162,7 +15276,7 @@ func file_sysml_proto_rawDescGZIP() []byte {
 }
 
 var file_sysml_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_sysml_proto_msgTypes = make([]protoimpl.MessageInfo, 164)
+var file_sysml_proto_msgTypes = make([]protoimpl.MessageInfo, 166)
 var file_sysml_proto_goTypes = []any{
 	(FailureReason)(0),                   // 0: sysml.FailureReason
 	(EditFailure)(0),                     // 1: sysml.EditFailure
@@ -15325,13 +15439,15 @@ var file_sysml_proto_goTypes = []any{
 	nil,                                  // 158: sysml.ExecuteActionRequest.InputsEntry
 	nil,                                  // 159: sysml.ExecuteActionResponse.OutputsEntry
 	nil,                                  // 160: sysml.ExecuteActionResponse.PerformerAttributesEntry
-	nil,                                  // 161: sysml.ExecuteStateResponse.FinalContextEntry
-	nil,                                  // 162: sysml.SymbolInfo.MetadataEntry
-	nil,                                  // 163: sysml.QueryResultElement.PropertiesEntry
-	nil,                                  // 164: sysml.RunSweepRequest.NamedArgumentsEntry
-	nil,                                  // 165: sysml.RunRunsRequest.InputsEntry
-	nil,                                  // 166: sysml.RunRunsRequest.NamedArgumentsEntry
-	nil,                                  // 167: sysml.RecordRunRequest.NamedArgumentsEntry
+	nil,                                  // 161: sysml.ExecuteActionResponse.OrderDependentEntry
+	nil,                                  // 162: sysml.ExecuteStateResponse.FinalContextEntry
+	nil,                                  // 163: sysml.ExecuteStateResponse.OrderDependentEntry
+	nil,                                  // 164: sysml.SymbolInfo.MetadataEntry
+	nil,                                  // 165: sysml.QueryResultElement.PropertiesEntry
+	nil,                                  // 166: sysml.RunSweepRequest.NamedArgumentsEntry
+	nil,                                  // 167: sysml.RunRunsRequest.InputsEntry
+	nil,                                  // 168: sysml.RunRunsRequest.NamedArgumentsEntry
+	nil,                                  // 169: sysml.RecordRunRequest.NamedArgumentsEntry
 }
 var file_sysml_proto_depIdxs = []int32{
 	0,   // 0: sysml.Verdict.failure_reason:type_name -> sysml.FailureReason
@@ -15406,240 +15522,242 @@ var file_sysml_proto_depIdxs = []int32{
 	23,  // 69: sysml.ExecuteActionResponse.outcomes:type_name -> sysml.Outcome
 	24,  // 70: sysml.ExecuteActionResponse.exploration:type_name -> sysml.ExplorationStatus
 	160, // 71: sysml.ExecuteActionResponse.performer_attributes:type_name -> sysml.ExecuteActionResponse.PerformerAttributesEntry
-	161, // 72: sysml.ExecuteStateResponse.final_context:type_name -> sysml.ExecuteStateResponse.FinalContextEntry
-	100, // 73: sysml.ExecuteStateResponse.diagnostics:type_name -> sysml.Diagnostic
-	23,  // 74: sysml.ExecuteStateResponse.outcomes:type_name -> sysml.Outcome
-	24,  // 75: sysml.ExecuteStateResponse.exploration:type_name -> sysml.ExplorationStatus
-	133, // 76: sysml.ExecuteStateResponse.trace:type_name -> sysml.DocumentEvent
-	100, // 77: sysml.ConvertResponse.diagnostics:type_name -> sysml.Diagnostic
-	51,  // 78: sysml.MigrateResponse.report:type_name -> sysml.MigrationReport
-	53,  // 79: sysml.MigrateResponse.files:type_name -> sysml.MigrationFile
-	52,  // 80: sysml.MigrationReport.entries:type_name -> sysml.MigrationEntry
-	55,  // 81: sysml.ApplyEditsRequest.operations:type_name -> sysml.EditOperation
-	72,  // 82: sysml.EditOperation.set_value:type_name -> sysml.SetValueEdit
-	73,  // 83: sysml.EditOperation.rename:type_name -> sysml.RenameEdit
-	56,  // 84: sysml.EditOperation.add_member:type_name -> sysml.AddMemberEdit
-	70,  // 85: sysml.EditOperation.delete:type_name -> sysml.DeleteEdit
-	71,  // 86: sysml.EditOperation.move:type_name -> sysml.MoveEdit
-	69,  // 87: sysml.EditOperation.add_connection:type_name -> sysml.AddConnectionEdit
-	57,  // 88: sysml.EditOperation.add_satisfy:type_name -> sysml.AddSatisfyEdit
-	58,  // 89: sysml.EditOperation.add_requirement_constraint:type_name -> sysml.AddRequirementConstraintEdit
-	59,  // 90: sysml.EditOperation.add_transition:type_name -> sysml.AddTransitionEdit
-	64,  // 91: sysml.EditOperation.add_import:type_name -> sysml.AddImportEdit
-	65,  // 92: sysml.EditOperation.add_documentation:type_name -> sysml.AddDocumentationEdit
-	60,  // 93: sysml.EditOperation.add_verify:type_name -> sysml.AddVerifyEdit
-	62,  // 94: sysml.EditOperation.add_metadata:type_name -> sysml.AddMetadataEdit
-	68,  // 95: sysml.EditOperation.add_sequence:type_name -> sysml.AddSequenceEdit
-	63,  // 96: sysml.EditOperation.add_metadata_prefix:type_name -> sysml.AddMetadataPrefixEdit
-	66,  // 97: sysml.EditOperation.add_comment:type_name -> sysml.AddCommentEdit
-	67,  // 98: sysml.EditOperation.add_note:type_name -> sysml.AddNoteEdit
-	61,  // 99: sysml.AddMetadataEdit.values:type_name -> sysml.MetadataFeatureValue
-	68,  // 100: sysml.AddSequenceEdit.body:type_name -> sysml.AddSequenceEdit
-	68,  // 101: sysml.AddSequenceEdit.else_body:type_name -> sysml.AddSequenceEdit
-	77,  // 102: sysml.ApplyEditsResponse.applied:type_name -> sysml.AppliedEdit
-	1,   // 103: sysml.ApplyEditsResponse.failure:type_name -> sysml.EditFailure
-	100, // 104: sysml.ApplyEditsResponse.diagnostics:type_name -> sysml.Diagnostic
-	75,  // 105: sysml.ApplyEditsResponse.documents:type_name -> sysml.EditedDocument
-	76,  // 106: sysml.ApplyEditsResponse.referrers:type_name -> sysml.Referrer
-	162, // 107: sysml.SymbolInfo.metadata:type_name -> sysml.SymbolInfo.MetadataEntry
-	82,  // 108: sysml.SymbolInfo.attributes:type_name -> sysml.AttributeInfo
-	80,  // 109: sysml.SymbolInfo.type_info:type_name -> sysml.TypeInfo
-	81,  // 110: sysml.SymbolInfo.multiplicity:type_name -> sysml.MultiplicityInfo
-	79,  // 111: sysml.SymbolInfo.specializations:type_name -> sysml.Specialization
-	83,  // 112: sysml.AttributeInfo.value:type_name -> sysml.Value
-	95,  // 113: sysml.Value.sequence:type_name -> sysml.ValueSequence
-	96,  // 114: sysml.Value.quantity:type_name -> sysml.Quantity
-	94,  // 115: sysml.Value.enum_literal:type_name -> sysml.EnumLiteral
-	93,  // 116: sysml.Value.complex:type_name -> sysml.Complex
-	90,  // 117: sysml.Value.array:type_name -> sysml.Array
-	91,  // 118: sysml.Value.vector:type_name -> sysml.Vector
-	92,  // 119: sysml.Value.vector_quantity:type_name -> sysml.VectorQuantity
-	97,  // 120: sysml.Value.measurement_ref:type_name -> sysml.MeasurementRef
-	87,  // 121: sysml.Value.function:type_name -> sysml.Function
-	88,  // 122: sysml.Value.set:type_name -> sysml.ValueSet
-	89,  // 123: sysml.Value.tensor_quantity:type_name -> sysml.TensorQuantity
-	85,  // 124: sysml.Value.metaobject:type_name -> sysml.Metaobject
-	86,  // 125: sysml.Value.undetermined:type_name -> sysml.Undetermined
-	84,  // 126: sysml.Value.rational_value:type_name -> sysml.Rational
-	81,  // 127: sysml.Undetermined.count:type_name -> sysml.MultiplicityInfo
-	83,  // 128: sysml.ValueSet.elements:type_name -> sysml.Value
-	96,  // 129: sysml.TensorQuantity.components:type_name -> sysml.Quantity
-	83,  // 130: sysml.Array.elements:type_name -> sysml.Value
-	83,  // 131: sysml.Vector.components:type_name -> sysml.Value
-	96,  // 132: sysml.VectorQuantity.components:type_name -> sysml.Quantity
-	83,  // 133: sysml.EnumLiteral.value:type_name -> sysml.Value
-	83,  // 134: sysml.ValueSequence.elements:type_name -> sysml.Value
-	84,  // 135: sysml.Quantity.rational_magnitude:type_name -> sysml.Rational
-	98,  // 136: sysml.Quantity.unit_term:type_name -> sysml.UnitTerm
-	98,  // 137: sysml.MeasurementRef.unit_term:type_name -> sysml.UnitTerm
-	99,  // 138: sysml.UnitTerm.factors:type_name -> sysml.UnitFactor
-	101, // 139: sysml.Diagnostic.span:type_name -> sysml.Span
-	106, // 140: sysml.QueryRequest.query:type_name -> sysml.Query
-	110, // 141: sysml.QueryResponse.elements:type_name -> sysml.QueryResultElement
-	107, // 142: sysml.Query.where:type_name -> sysml.Constraint
-	108, // 143: sysml.Constraint.primitive:type_name -> sysml.PrimitiveConstraint
-	109, // 144: sysml.Constraint.composite:type_name -> sysml.CompositeConstraint
-	2,   // 145: sysml.PrimitiveConstraint.operator:type_name -> sysml.PrimitiveOperator
-	3,   // 146: sysml.CompositeConstraint.operator:type_name -> sysml.CompositeOperator
-	107, // 147: sysml.CompositeConstraint.constraint:type_name -> sysml.Constraint
-	163, // 148: sysml.QueryResultElement.properties:type_name -> sysml.QueryResultElement.PropertiesEntry
-	83,  // 149: sysml.SweepRange.start:type_name -> sysml.Value
-	83,  // 150: sysml.SweepRange.end:type_name -> sysml.Value
-	83,  // 151: sysml.SweepRange.step:type_name -> sysml.Value
-	83,  // 152: sysml.RunSweepRequest.arguments:type_name -> sysml.Value
-	164, // 153: sysml.RunSweepRequest.named_arguments:type_name -> sysml.RunSweepRequest.NamedArgumentsEntry
-	111, // 154: sysml.RunSweepRequest.ranges:type_name -> sysml.SweepRange
-	18,  // 155: sysml.SweepRow.inputs:type_name -> sysml.CalcOutput
-	18,  // 156: sysml.SweepRow.outputs:type_name -> sysml.CalcOutput
-	4,   // 157: sysml.SweepRow.verdicts:type_name -> sysml.Verdict
-	0,   // 158: sysml.SweepRow.failure_reason:type_name -> sysml.FailureReason
-	19,  // 159: sysml.SweepRow.evaluations:type_name -> sysml.CaseEvaluation
-	113, // 160: sysml.RunSweepResponse.rows:type_name -> sysml.SweepRow
-	100, // 161: sysml.RunSweepResponse.diagnostics:type_name -> sysml.Diagnostic
-	0,   // 162: sysml.RunSweepResponse.failure_reason:type_name -> sysml.FailureReason
-	39,  // 163: sysml.RunSweepResponse.instances:type_name -> sysml.Instance
-	6,   // 164: sysml.RunSweepResponse.bounds:type_name -> sysml.Bound
-	165, // 165: sysml.RunRunsRequest.inputs:type_name -> sysml.RunRunsRequest.InputsEntry
-	83,  // 166: sysml.RunRunsRequest.arguments:type_name -> sysml.Value
-	166, // 167: sysml.RunRunsRequest.named_arguments:type_name -> sysml.RunRunsRequest.NamedArgumentsEntry
-	83,  // 168: sysml.RunDistribution.min:type_name -> sysml.Value
-	83,  // 169: sysml.RunDistribution.max:type_name -> sysml.Value
-	83,  // 170: sysml.RunDistribution.mean:type_name -> sysml.Value
-	117, // 171: sysml.RunDistribution.percentiles:type_name -> sysml.RunPercentile
-	118, // 172: sysml.RunDistribution.histogram:type_name -> sysml.RunHistogramBin
-	119, // 173: sysml.RunDistribution.values:type_name -> sysml.RunCountedValue
-	83,  // 174: sysml.RunPercentile.value:type_name -> sysml.Value
-	83,  // 175: sysml.RunHistogramBin.low:type_name -> sysml.Value
-	83,  // 176: sysml.RunHistogramBin.high:type_name -> sysml.Value
-	83,  // 177: sysml.RunCountedValue.value:type_name -> sysml.Value
-	121, // 178: sysml.SelfCheckResponse.findings:type_name -> sysml.SelfCheckFinding
-	122, // 179: sysml.SelfCheckResponse.applications:type_name -> sysml.SelfCheckApplication
-	100, // 180: sysml.SelfCheckResponse.diagnostics:type_name -> sysml.Diagnostic
-	83,  // 181: sysml.RecordRunRequest.arguments:type_name -> sysml.Value
-	167, // 182: sysml.RecordRunRequest.named_arguments:type_name -> sysml.RecordRunRequest.NamedArgumentsEntry
-	111, // 183: sysml.RecordRunRequest.ranges:type_name -> sysml.SweepRange
-	21,  // 184: sysml.RecordRunResponse.run:type_name -> sysml.RunAnalysisResponse
-	114, // 185: sysml.RecordRunResponse.sweep:type_name -> sysml.RunSweepResponse
-	126, // 186: sysml.RecordRunResponse.sample:type_name -> sysml.RunRunsResponse
-	75,  // 187: sysml.RecordRunResponse.documents:type_name -> sysml.EditedDocument
-	0,   // 188: sysml.RecordRunResponse.failure_reason:type_name -> sysml.FailureReason
-	100, // 189: sysml.RecordRunResponse.diagnostics:type_name -> sysml.Diagnostic
-	113, // 190: sysml.RunRunsResponse.rows:type_name -> sysml.SweepRow
-	116, // 191: sysml.RunRunsResponse.distributions:type_name -> sysml.RunDistribution
-	18,  // 192: sysml.RunRunsResponse.outputs:type_name -> sysml.CalcOutput
-	4,   // 193: sysml.RunRunsResponse.verdicts:type_name -> sysml.Verdict
-	100, // 194: sysml.RunRunsResponse.diagnostics:type_name -> sysml.Diagnostic
-	0,   // 195: sysml.RunRunsResponse.failure_reason:type_name -> sysml.FailureReason
-	39,  // 196: sysml.RunRunsResponse.instances:type_name -> sysml.Instance
-	6,   // 197: sysml.RunRunsResponse.bounds:type_name -> sysml.Bound
-	128, // 198: sysml.RunDocumentQueryRequest.bindings:type_name -> sysml.DocumentQueryBinding
-	129, // 199: sysml.DocumentQueryBinding.values:type_name -> sysml.DocumentValue
-	96,  // 200: sysml.DocumentValue.quantity:type_name -> sysml.Quantity
-	131, // 201: sysml.DocumentValue.verdict:type_name -> sysml.DocumentVerdict
-	130, // 202: sysml.DocumentValue.object:type_name -> sysml.DocumentObject
-	132, // 203: sysml.DocumentValue.state:type_name -> sysml.DocumentState
-	133, // 204: sysml.DocumentValue.event:type_name -> sysml.DocumentEvent
-	84,  // 205: sysml.DocumentValue.rational_value:type_name -> sysml.Rational
-	129, // 206: sysml.DocumentObject.element:type_name -> sysml.DocumentValue
-	129, // 207: sysml.DocumentVerdict.assertion:type_name -> sysml.DocumentValue
-	130, // 208: sysml.DocumentState.object:type_name -> sysml.DocumentObject
-	129, // 209: sysml.DocumentState.state:type_name -> sysml.DocumentValue
-	129, // 210: sysml.DocumentEvent.time:type_name -> sysml.DocumentValue
-	130, // 211: sysml.DocumentEvent.object:type_name -> sysml.DocumentObject
-	130, // 212: sysml.DocumentEvent.target:type_name -> sysml.DocumentObject
-	129, // 213: sysml.DocumentQueryCell.values:type_name -> sysml.DocumentValue
-	129, // 214: sysml.DocumentQueryRow.element:type_name -> sysml.DocumentValue
-	135, // 215: sysml.DocumentQueryRow.cells:type_name -> sysml.DocumentQueryCell
-	134, // 216: sysml.RunDocumentQueryResponse.columns:type_name -> sysml.DocumentQueryColumn
-	136, // 217: sysml.RunDocumentQueryResponse.rows:type_name -> sysml.DocumentQueryRow
-	142, // 218: sysml.RenderViewResponse.nodes:type_name -> sysml.RenderNode
-	144, // 219: sysml.RenderViewResponse.edges:type_name -> sysml.RenderEdge
-	149, // 220: sysml.RenderViewResponse.rows:type_name -> sysml.RenderRow
-	146, // 221: sysml.RenderViewResponse.canvas:type_name -> sysml.RenderCanvas
-	150, // 222: sysml.RenderViewResponse.notes:type_name -> sysml.RenderNote
-	143, // 223: sysml.RenderNode.ports:type_name -> sysml.RenderPort
-	101, // 224: sysml.RenderNode.origin:type_name -> sysml.Span
-	145, // 225: sysml.RenderNode.geometry:type_name -> sysml.RenderGeometry
-	147, // 226: sysml.RenderNode.style:type_name -> sysml.RenderStyle
-	101, // 227: sysml.RenderEdge.origin:type_name -> sysml.Span
-	148, // 228: sysml.RenderEdge.route:type_name -> sysml.RenderPoint
-	147, // 229: sysml.RenderEdge.style:type_name -> sysml.RenderStyle
-	101, // 230: sysml.RenderRow.origin:type_name -> sysml.Span
-	101, // 231: sysml.RenderNote.origin:type_name -> sysml.Span
-	83,  // 232: sysml.VerifyConstraintRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	83,  // 233: sysml.VerifyRequirementRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	83,  // 234: sysml.RunAnalysisRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	83,  // 235: sysml.Outcome.OutputsEntry.value:type_name -> sysml.Value
-	40,  // 236: sysml.Instance.FeatureValuesEntry.value:type_name -> sysml.FeatureValue
-	83,  // 237: sysml.ExecuteActionRequest.InputsEntry.value:type_name -> sysml.Value
-	83,  // 238: sysml.ExecuteActionResponse.OutputsEntry.value:type_name -> sysml.Value
-	83,  // 239: sysml.ExecuteActionResponse.PerformerAttributesEntry.value:type_name -> sysml.Value
-	83,  // 240: sysml.ExecuteStateResponse.FinalContextEntry.value:type_name -> sysml.Value
-	83,  // 241: sysml.RunSweepRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	83,  // 242: sysml.RunRunsRequest.InputsEntry.value:type_name -> sysml.Value
-	83,  // 243: sysml.RunRunsRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	83,  // 244: sysml.RecordRunRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	102, // 245: sysml.SysMLService.GetServerInfo:input_type -> sysml.ServerInfoRequest
-	28,  // 246: sysml.SysMLService.ParseFile:input_type -> sysml.ParseFileRequest
-	30,  // 247: sysml.SysMLService.ParseSources:input_type -> sysml.ParseSourcesRequest
-	33,  // 248: sysml.SysMLService.GetSymbol:input_type -> sysml.GetSymbolRequest
-	35,  // 249: sysml.SysMLService.GetDiagnostics:input_type -> sysml.DiagnosticsRequest
-	37,  // 250: sysml.SysMLService.Evaluate:input_type -> sysml.EvaluateRequest
-	41,  // 251: sysml.SysMLService.Instantiate:input_type -> sysml.InstantiateRequest
-	43,  // 252: sysml.SysMLService.ExecuteAction:input_type -> sysml.ExecuteActionRequest
-	45,  // 253: sysml.SysMLService.ExecuteState:input_type -> sysml.ExecuteStateRequest
-	47,  // 254: sysml.SysMLService.Convert:input_type -> sysml.ConvertRequest
-	49,  // 255: sysml.SysMLService.Migrate:input_type -> sysml.MigrateRequest
-	54,  // 256: sysml.SysMLService.ApplyEdits:input_type -> sysml.ApplyEditsRequest
-	7,   // 257: sysml.SysMLService.VerifyConstraint:input_type -> sysml.VerifyConstraintRequest
-	9,   // 258: sysml.SysMLService.VerifyRequirement:input_type -> sysml.VerifyRequirementRequest
-	12,  // 259: sysml.SysMLService.VerifySatisfaction:input_type -> sysml.VerifySatisfactionRequest
-	14,  // 260: sysml.SysMLService.ValidateInstance:input_type -> sysml.ValidateInstanceRequest
-	16,  // 261: sysml.SysMLService.EvaluateCalc:input_type -> sysml.EvaluateCalcRequest
-	20,  // 262: sysml.SysMLService.RunAnalysis:input_type -> sysml.RunAnalysisRequest
-	112, // 263: sysml.SysMLService.RunSweep:input_type -> sysml.RunSweepRequest
-	115, // 264: sysml.SysMLService.RunRuns:input_type -> sysml.RunRunsRequest
-	120, // 265: sysml.SysMLService.SelfCheck:input_type -> sysml.SelfCheckRequest
-	124, // 266: sysml.SysMLService.RecordRun:input_type -> sysml.RecordRunRequest
-	25,  // 267: sysml.SysMLService.ListEngines:input_type -> sysml.ListEnginesRequest
-	104, // 268: sysml.SysMLService.Query:input_type -> sysml.QueryRequest
-	127, // 269: sysml.SysMLService.RunDocumentQuery:input_type -> sysml.RunDocumentQueryRequest
-	138, // 270: sysml.SysMLService.RenderDocument:input_type -> sysml.RenderDocumentRequest
-	140, // 271: sysml.SysMLService.RenderView:input_type -> sysml.RenderViewRequest
-	151, // 272: sysml.SysMLService.ExportGraphs:input_type -> sysml.ExportGraphsRequest
-	103, // 273: sysml.SysMLService.GetServerInfo:output_type -> sysml.ServerInfoResponse
-	32,  // 274: sysml.SysMLService.ParseFile:output_type -> sysml.ParseFileResponse
-	31,  // 275: sysml.SysMLService.ParseSources:output_type -> sysml.ParseSourcesResponse
-	34,  // 276: sysml.SysMLService.GetSymbol:output_type -> sysml.SymbolResponse
-	36,  // 277: sysml.SysMLService.GetDiagnostics:output_type -> sysml.DiagnosticsResponse
-	38,  // 278: sysml.SysMLService.Evaluate:output_type -> sysml.EvaluateResponse
-	42,  // 279: sysml.SysMLService.Instantiate:output_type -> sysml.InstantiateResponse
-	44,  // 280: sysml.SysMLService.ExecuteAction:output_type -> sysml.ExecuteActionResponse
-	46,  // 281: sysml.SysMLService.ExecuteState:output_type -> sysml.ExecuteStateResponse
-	48,  // 282: sysml.SysMLService.Convert:output_type -> sysml.ConvertResponse
-	50,  // 283: sysml.SysMLService.Migrate:output_type -> sysml.MigrateResponse
-	74,  // 284: sysml.SysMLService.ApplyEdits:output_type -> sysml.ApplyEditsResponse
-	8,   // 285: sysml.SysMLService.VerifyConstraint:output_type -> sysml.VerifyConstraintResponse
-	11,  // 286: sysml.SysMLService.VerifyRequirement:output_type -> sysml.VerifyRequirementResponse
-	13,  // 287: sysml.SysMLService.VerifySatisfaction:output_type -> sysml.VerifySatisfactionResponse
-	15,  // 288: sysml.SysMLService.ValidateInstance:output_type -> sysml.ValidateInstanceResponse
-	17,  // 289: sysml.SysMLService.EvaluateCalc:output_type -> sysml.EvaluateCalcResponse
-	21,  // 290: sysml.SysMLService.RunAnalysis:output_type -> sysml.RunAnalysisResponse
-	114, // 291: sysml.SysMLService.RunSweep:output_type -> sysml.RunSweepResponse
-	126, // 292: sysml.SysMLService.RunRuns:output_type -> sysml.RunRunsResponse
-	123, // 293: sysml.SysMLService.SelfCheck:output_type -> sysml.SelfCheckResponse
-	125, // 294: sysml.SysMLService.RecordRun:output_type -> sysml.RecordRunResponse
-	27,  // 295: sysml.SysMLService.ListEngines:output_type -> sysml.ListEnginesResponse
-	105, // 296: sysml.SysMLService.Query:output_type -> sysml.QueryResponse
-	137, // 297: sysml.SysMLService.RunDocumentQuery:output_type -> sysml.RunDocumentQueryResponse
-	139, // 298: sysml.SysMLService.RenderDocument:output_type -> sysml.RenderDocumentResponse
-	141, // 299: sysml.SysMLService.RenderView:output_type -> sysml.RenderViewResponse
-	152, // 300: sysml.SysMLService.ExportGraphs:output_type -> sysml.ExportGraphsResponse
-	273, // [273:301] is the sub-list for method output_type
-	245, // [245:273] is the sub-list for method input_type
-	245, // [245:245] is the sub-list for extension type_name
-	245, // [245:245] is the sub-list for extension extendee
-	0,   // [0:245] is the sub-list for field type_name
+	161, // 72: sysml.ExecuteActionResponse.order_dependent:type_name -> sysml.ExecuteActionResponse.OrderDependentEntry
+	162, // 73: sysml.ExecuteStateResponse.final_context:type_name -> sysml.ExecuteStateResponse.FinalContextEntry
+	100, // 74: sysml.ExecuteStateResponse.diagnostics:type_name -> sysml.Diagnostic
+	23,  // 75: sysml.ExecuteStateResponse.outcomes:type_name -> sysml.Outcome
+	24,  // 76: sysml.ExecuteStateResponse.exploration:type_name -> sysml.ExplorationStatus
+	133, // 77: sysml.ExecuteStateResponse.trace:type_name -> sysml.DocumentEvent
+	163, // 78: sysml.ExecuteStateResponse.order_dependent:type_name -> sysml.ExecuteStateResponse.OrderDependentEntry
+	100, // 79: sysml.ConvertResponse.diagnostics:type_name -> sysml.Diagnostic
+	51,  // 80: sysml.MigrateResponse.report:type_name -> sysml.MigrationReport
+	53,  // 81: sysml.MigrateResponse.files:type_name -> sysml.MigrationFile
+	52,  // 82: sysml.MigrationReport.entries:type_name -> sysml.MigrationEntry
+	55,  // 83: sysml.ApplyEditsRequest.operations:type_name -> sysml.EditOperation
+	72,  // 84: sysml.EditOperation.set_value:type_name -> sysml.SetValueEdit
+	73,  // 85: sysml.EditOperation.rename:type_name -> sysml.RenameEdit
+	56,  // 86: sysml.EditOperation.add_member:type_name -> sysml.AddMemberEdit
+	70,  // 87: sysml.EditOperation.delete:type_name -> sysml.DeleteEdit
+	71,  // 88: sysml.EditOperation.move:type_name -> sysml.MoveEdit
+	69,  // 89: sysml.EditOperation.add_connection:type_name -> sysml.AddConnectionEdit
+	57,  // 90: sysml.EditOperation.add_satisfy:type_name -> sysml.AddSatisfyEdit
+	58,  // 91: sysml.EditOperation.add_requirement_constraint:type_name -> sysml.AddRequirementConstraintEdit
+	59,  // 92: sysml.EditOperation.add_transition:type_name -> sysml.AddTransitionEdit
+	64,  // 93: sysml.EditOperation.add_import:type_name -> sysml.AddImportEdit
+	65,  // 94: sysml.EditOperation.add_documentation:type_name -> sysml.AddDocumentationEdit
+	60,  // 95: sysml.EditOperation.add_verify:type_name -> sysml.AddVerifyEdit
+	62,  // 96: sysml.EditOperation.add_metadata:type_name -> sysml.AddMetadataEdit
+	68,  // 97: sysml.EditOperation.add_sequence:type_name -> sysml.AddSequenceEdit
+	63,  // 98: sysml.EditOperation.add_metadata_prefix:type_name -> sysml.AddMetadataPrefixEdit
+	66,  // 99: sysml.EditOperation.add_comment:type_name -> sysml.AddCommentEdit
+	67,  // 100: sysml.EditOperation.add_note:type_name -> sysml.AddNoteEdit
+	61,  // 101: sysml.AddMetadataEdit.values:type_name -> sysml.MetadataFeatureValue
+	68,  // 102: sysml.AddSequenceEdit.body:type_name -> sysml.AddSequenceEdit
+	68,  // 103: sysml.AddSequenceEdit.else_body:type_name -> sysml.AddSequenceEdit
+	77,  // 104: sysml.ApplyEditsResponse.applied:type_name -> sysml.AppliedEdit
+	1,   // 105: sysml.ApplyEditsResponse.failure:type_name -> sysml.EditFailure
+	100, // 106: sysml.ApplyEditsResponse.diagnostics:type_name -> sysml.Diagnostic
+	75,  // 107: sysml.ApplyEditsResponse.documents:type_name -> sysml.EditedDocument
+	76,  // 108: sysml.ApplyEditsResponse.referrers:type_name -> sysml.Referrer
+	164, // 109: sysml.SymbolInfo.metadata:type_name -> sysml.SymbolInfo.MetadataEntry
+	82,  // 110: sysml.SymbolInfo.attributes:type_name -> sysml.AttributeInfo
+	80,  // 111: sysml.SymbolInfo.type_info:type_name -> sysml.TypeInfo
+	81,  // 112: sysml.SymbolInfo.multiplicity:type_name -> sysml.MultiplicityInfo
+	79,  // 113: sysml.SymbolInfo.specializations:type_name -> sysml.Specialization
+	83,  // 114: sysml.AttributeInfo.value:type_name -> sysml.Value
+	95,  // 115: sysml.Value.sequence:type_name -> sysml.ValueSequence
+	96,  // 116: sysml.Value.quantity:type_name -> sysml.Quantity
+	94,  // 117: sysml.Value.enum_literal:type_name -> sysml.EnumLiteral
+	93,  // 118: sysml.Value.complex:type_name -> sysml.Complex
+	90,  // 119: sysml.Value.array:type_name -> sysml.Array
+	91,  // 120: sysml.Value.vector:type_name -> sysml.Vector
+	92,  // 121: sysml.Value.vector_quantity:type_name -> sysml.VectorQuantity
+	97,  // 122: sysml.Value.measurement_ref:type_name -> sysml.MeasurementRef
+	87,  // 123: sysml.Value.function:type_name -> sysml.Function
+	88,  // 124: sysml.Value.set:type_name -> sysml.ValueSet
+	89,  // 125: sysml.Value.tensor_quantity:type_name -> sysml.TensorQuantity
+	85,  // 126: sysml.Value.metaobject:type_name -> sysml.Metaobject
+	86,  // 127: sysml.Value.undetermined:type_name -> sysml.Undetermined
+	84,  // 128: sysml.Value.rational_value:type_name -> sysml.Rational
+	81,  // 129: sysml.Undetermined.count:type_name -> sysml.MultiplicityInfo
+	83,  // 130: sysml.ValueSet.elements:type_name -> sysml.Value
+	96,  // 131: sysml.TensorQuantity.components:type_name -> sysml.Quantity
+	83,  // 132: sysml.Array.elements:type_name -> sysml.Value
+	83,  // 133: sysml.Vector.components:type_name -> sysml.Value
+	96,  // 134: sysml.VectorQuantity.components:type_name -> sysml.Quantity
+	83,  // 135: sysml.EnumLiteral.value:type_name -> sysml.Value
+	83,  // 136: sysml.ValueSequence.elements:type_name -> sysml.Value
+	84,  // 137: sysml.Quantity.rational_magnitude:type_name -> sysml.Rational
+	98,  // 138: sysml.Quantity.unit_term:type_name -> sysml.UnitTerm
+	98,  // 139: sysml.MeasurementRef.unit_term:type_name -> sysml.UnitTerm
+	99,  // 140: sysml.UnitTerm.factors:type_name -> sysml.UnitFactor
+	101, // 141: sysml.Diagnostic.span:type_name -> sysml.Span
+	106, // 142: sysml.QueryRequest.query:type_name -> sysml.Query
+	110, // 143: sysml.QueryResponse.elements:type_name -> sysml.QueryResultElement
+	107, // 144: sysml.Query.where:type_name -> sysml.Constraint
+	108, // 145: sysml.Constraint.primitive:type_name -> sysml.PrimitiveConstraint
+	109, // 146: sysml.Constraint.composite:type_name -> sysml.CompositeConstraint
+	2,   // 147: sysml.PrimitiveConstraint.operator:type_name -> sysml.PrimitiveOperator
+	3,   // 148: sysml.CompositeConstraint.operator:type_name -> sysml.CompositeOperator
+	107, // 149: sysml.CompositeConstraint.constraint:type_name -> sysml.Constraint
+	165, // 150: sysml.QueryResultElement.properties:type_name -> sysml.QueryResultElement.PropertiesEntry
+	83,  // 151: sysml.SweepRange.start:type_name -> sysml.Value
+	83,  // 152: sysml.SweepRange.end:type_name -> sysml.Value
+	83,  // 153: sysml.SweepRange.step:type_name -> sysml.Value
+	83,  // 154: sysml.RunSweepRequest.arguments:type_name -> sysml.Value
+	166, // 155: sysml.RunSweepRequest.named_arguments:type_name -> sysml.RunSweepRequest.NamedArgumentsEntry
+	111, // 156: sysml.RunSweepRequest.ranges:type_name -> sysml.SweepRange
+	18,  // 157: sysml.SweepRow.inputs:type_name -> sysml.CalcOutput
+	18,  // 158: sysml.SweepRow.outputs:type_name -> sysml.CalcOutput
+	4,   // 159: sysml.SweepRow.verdicts:type_name -> sysml.Verdict
+	0,   // 160: sysml.SweepRow.failure_reason:type_name -> sysml.FailureReason
+	19,  // 161: sysml.SweepRow.evaluations:type_name -> sysml.CaseEvaluation
+	113, // 162: sysml.RunSweepResponse.rows:type_name -> sysml.SweepRow
+	100, // 163: sysml.RunSweepResponse.diagnostics:type_name -> sysml.Diagnostic
+	0,   // 164: sysml.RunSweepResponse.failure_reason:type_name -> sysml.FailureReason
+	39,  // 165: sysml.RunSweepResponse.instances:type_name -> sysml.Instance
+	6,   // 166: sysml.RunSweepResponse.bounds:type_name -> sysml.Bound
+	167, // 167: sysml.RunRunsRequest.inputs:type_name -> sysml.RunRunsRequest.InputsEntry
+	83,  // 168: sysml.RunRunsRequest.arguments:type_name -> sysml.Value
+	168, // 169: sysml.RunRunsRequest.named_arguments:type_name -> sysml.RunRunsRequest.NamedArgumentsEntry
+	83,  // 170: sysml.RunDistribution.min:type_name -> sysml.Value
+	83,  // 171: sysml.RunDistribution.max:type_name -> sysml.Value
+	83,  // 172: sysml.RunDistribution.mean:type_name -> sysml.Value
+	117, // 173: sysml.RunDistribution.percentiles:type_name -> sysml.RunPercentile
+	118, // 174: sysml.RunDistribution.histogram:type_name -> sysml.RunHistogramBin
+	119, // 175: sysml.RunDistribution.values:type_name -> sysml.RunCountedValue
+	83,  // 176: sysml.RunPercentile.value:type_name -> sysml.Value
+	83,  // 177: sysml.RunHistogramBin.low:type_name -> sysml.Value
+	83,  // 178: sysml.RunHistogramBin.high:type_name -> sysml.Value
+	83,  // 179: sysml.RunCountedValue.value:type_name -> sysml.Value
+	121, // 180: sysml.SelfCheckResponse.findings:type_name -> sysml.SelfCheckFinding
+	122, // 181: sysml.SelfCheckResponse.applications:type_name -> sysml.SelfCheckApplication
+	100, // 182: sysml.SelfCheckResponse.diagnostics:type_name -> sysml.Diagnostic
+	83,  // 183: sysml.RecordRunRequest.arguments:type_name -> sysml.Value
+	169, // 184: sysml.RecordRunRequest.named_arguments:type_name -> sysml.RecordRunRequest.NamedArgumentsEntry
+	111, // 185: sysml.RecordRunRequest.ranges:type_name -> sysml.SweepRange
+	21,  // 186: sysml.RecordRunResponse.run:type_name -> sysml.RunAnalysisResponse
+	114, // 187: sysml.RecordRunResponse.sweep:type_name -> sysml.RunSweepResponse
+	126, // 188: sysml.RecordRunResponse.sample:type_name -> sysml.RunRunsResponse
+	75,  // 189: sysml.RecordRunResponse.documents:type_name -> sysml.EditedDocument
+	0,   // 190: sysml.RecordRunResponse.failure_reason:type_name -> sysml.FailureReason
+	100, // 191: sysml.RecordRunResponse.diagnostics:type_name -> sysml.Diagnostic
+	113, // 192: sysml.RunRunsResponse.rows:type_name -> sysml.SweepRow
+	116, // 193: sysml.RunRunsResponse.distributions:type_name -> sysml.RunDistribution
+	18,  // 194: sysml.RunRunsResponse.outputs:type_name -> sysml.CalcOutput
+	4,   // 195: sysml.RunRunsResponse.verdicts:type_name -> sysml.Verdict
+	100, // 196: sysml.RunRunsResponse.diagnostics:type_name -> sysml.Diagnostic
+	0,   // 197: sysml.RunRunsResponse.failure_reason:type_name -> sysml.FailureReason
+	39,  // 198: sysml.RunRunsResponse.instances:type_name -> sysml.Instance
+	6,   // 199: sysml.RunRunsResponse.bounds:type_name -> sysml.Bound
+	128, // 200: sysml.RunDocumentQueryRequest.bindings:type_name -> sysml.DocumentQueryBinding
+	129, // 201: sysml.DocumentQueryBinding.values:type_name -> sysml.DocumentValue
+	96,  // 202: sysml.DocumentValue.quantity:type_name -> sysml.Quantity
+	131, // 203: sysml.DocumentValue.verdict:type_name -> sysml.DocumentVerdict
+	130, // 204: sysml.DocumentValue.object:type_name -> sysml.DocumentObject
+	132, // 205: sysml.DocumentValue.state:type_name -> sysml.DocumentState
+	133, // 206: sysml.DocumentValue.event:type_name -> sysml.DocumentEvent
+	84,  // 207: sysml.DocumentValue.rational_value:type_name -> sysml.Rational
+	129, // 208: sysml.DocumentObject.element:type_name -> sysml.DocumentValue
+	129, // 209: sysml.DocumentVerdict.assertion:type_name -> sysml.DocumentValue
+	130, // 210: sysml.DocumentState.object:type_name -> sysml.DocumentObject
+	129, // 211: sysml.DocumentState.state:type_name -> sysml.DocumentValue
+	129, // 212: sysml.DocumentEvent.time:type_name -> sysml.DocumentValue
+	130, // 213: sysml.DocumentEvent.object:type_name -> sysml.DocumentObject
+	130, // 214: sysml.DocumentEvent.target:type_name -> sysml.DocumentObject
+	129, // 215: sysml.DocumentQueryCell.values:type_name -> sysml.DocumentValue
+	129, // 216: sysml.DocumentQueryRow.element:type_name -> sysml.DocumentValue
+	135, // 217: sysml.DocumentQueryRow.cells:type_name -> sysml.DocumentQueryCell
+	134, // 218: sysml.RunDocumentQueryResponse.columns:type_name -> sysml.DocumentQueryColumn
+	136, // 219: sysml.RunDocumentQueryResponse.rows:type_name -> sysml.DocumentQueryRow
+	142, // 220: sysml.RenderViewResponse.nodes:type_name -> sysml.RenderNode
+	144, // 221: sysml.RenderViewResponse.edges:type_name -> sysml.RenderEdge
+	149, // 222: sysml.RenderViewResponse.rows:type_name -> sysml.RenderRow
+	146, // 223: sysml.RenderViewResponse.canvas:type_name -> sysml.RenderCanvas
+	150, // 224: sysml.RenderViewResponse.notes:type_name -> sysml.RenderNote
+	143, // 225: sysml.RenderNode.ports:type_name -> sysml.RenderPort
+	101, // 226: sysml.RenderNode.origin:type_name -> sysml.Span
+	145, // 227: sysml.RenderNode.geometry:type_name -> sysml.RenderGeometry
+	147, // 228: sysml.RenderNode.style:type_name -> sysml.RenderStyle
+	101, // 229: sysml.RenderEdge.origin:type_name -> sysml.Span
+	148, // 230: sysml.RenderEdge.route:type_name -> sysml.RenderPoint
+	147, // 231: sysml.RenderEdge.style:type_name -> sysml.RenderStyle
+	101, // 232: sysml.RenderRow.origin:type_name -> sysml.Span
+	101, // 233: sysml.RenderNote.origin:type_name -> sysml.Span
+	83,  // 234: sysml.VerifyConstraintRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	83,  // 235: sysml.VerifyRequirementRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	83,  // 236: sysml.RunAnalysisRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	83,  // 237: sysml.Outcome.OutputsEntry.value:type_name -> sysml.Value
+	40,  // 238: sysml.Instance.FeatureValuesEntry.value:type_name -> sysml.FeatureValue
+	83,  // 239: sysml.ExecuteActionRequest.InputsEntry.value:type_name -> sysml.Value
+	83,  // 240: sysml.ExecuteActionResponse.OutputsEntry.value:type_name -> sysml.Value
+	83,  // 241: sysml.ExecuteActionResponse.PerformerAttributesEntry.value:type_name -> sysml.Value
+	83,  // 242: sysml.ExecuteStateResponse.FinalContextEntry.value:type_name -> sysml.Value
+	83,  // 243: sysml.RunSweepRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	83,  // 244: sysml.RunRunsRequest.InputsEntry.value:type_name -> sysml.Value
+	83,  // 245: sysml.RunRunsRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	83,  // 246: sysml.RecordRunRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	102, // 247: sysml.SysMLService.GetServerInfo:input_type -> sysml.ServerInfoRequest
+	28,  // 248: sysml.SysMLService.ParseFile:input_type -> sysml.ParseFileRequest
+	30,  // 249: sysml.SysMLService.ParseSources:input_type -> sysml.ParseSourcesRequest
+	33,  // 250: sysml.SysMLService.GetSymbol:input_type -> sysml.GetSymbolRequest
+	35,  // 251: sysml.SysMLService.GetDiagnostics:input_type -> sysml.DiagnosticsRequest
+	37,  // 252: sysml.SysMLService.Evaluate:input_type -> sysml.EvaluateRequest
+	41,  // 253: sysml.SysMLService.Instantiate:input_type -> sysml.InstantiateRequest
+	43,  // 254: sysml.SysMLService.ExecuteAction:input_type -> sysml.ExecuteActionRequest
+	45,  // 255: sysml.SysMLService.ExecuteState:input_type -> sysml.ExecuteStateRequest
+	47,  // 256: sysml.SysMLService.Convert:input_type -> sysml.ConvertRequest
+	49,  // 257: sysml.SysMLService.Migrate:input_type -> sysml.MigrateRequest
+	54,  // 258: sysml.SysMLService.ApplyEdits:input_type -> sysml.ApplyEditsRequest
+	7,   // 259: sysml.SysMLService.VerifyConstraint:input_type -> sysml.VerifyConstraintRequest
+	9,   // 260: sysml.SysMLService.VerifyRequirement:input_type -> sysml.VerifyRequirementRequest
+	12,  // 261: sysml.SysMLService.VerifySatisfaction:input_type -> sysml.VerifySatisfactionRequest
+	14,  // 262: sysml.SysMLService.ValidateInstance:input_type -> sysml.ValidateInstanceRequest
+	16,  // 263: sysml.SysMLService.EvaluateCalc:input_type -> sysml.EvaluateCalcRequest
+	20,  // 264: sysml.SysMLService.RunAnalysis:input_type -> sysml.RunAnalysisRequest
+	112, // 265: sysml.SysMLService.RunSweep:input_type -> sysml.RunSweepRequest
+	115, // 266: sysml.SysMLService.RunRuns:input_type -> sysml.RunRunsRequest
+	120, // 267: sysml.SysMLService.SelfCheck:input_type -> sysml.SelfCheckRequest
+	124, // 268: sysml.SysMLService.RecordRun:input_type -> sysml.RecordRunRequest
+	25,  // 269: sysml.SysMLService.ListEngines:input_type -> sysml.ListEnginesRequest
+	104, // 270: sysml.SysMLService.Query:input_type -> sysml.QueryRequest
+	127, // 271: sysml.SysMLService.RunDocumentQuery:input_type -> sysml.RunDocumentQueryRequest
+	138, // 272: sysml.SysMLService.RenderDocument:input_type -> sysml.RenderDocumentRequest
+	140, // 273: sysml.SysMLService.RenderView:input_type -> sysml.RenderViewRequest
+	151, // 274: sysml.SysMLService.ExportGraphs:input_type -> sysml.ExportGraphsRequest
+	103, // 275: sysml.SysMLService.GetServerInfo:output_type -> sysml.ServerInfoResponse
+	32,  // 276: sysml.SysMLService.ParseFile:output_type -> sysml.ParseFileResponse
+	31,  // 277: sysml.SysMLService.ParseSources:output_type -> sysml.ParseSourcesResponse
+	34,  // 278: sysml.SysMLService.GetSymbol:output_type -> sysml.SymbolResponse
+	36,  // 279: sysml.SysMLService.GetDiagnostics:output_type -> sysml.DiagnosticsResponse
+	38,  // 280: sysml.SysMLService.Evaluate:output_type -> sysml.EvaluateResponse
+	42,  // 281: sysml.SysMLService.Instantiate:output_type -> sysml.InstantiateResponse
+	44,  // 282: sysml.SysMLService.ExecuteAction:output_type -> sysml.ExecuteActionResponse
+	46,  // 283: sysml.SysMLService.ExecuteState:output_type -> sysml.ExecuteStateResponse
+	48,  // 284: sysml.SysMLService.Convert:output_type -> sysml.ConvertResponse
+	50,  // 285: sysml.SysMLService.Migrate:output_type -> sysml.MigrateResponse
+	74,  // 286: sysml.SysMLService.ApplyEdits:output_type -> sysml.ApplyEditsResponse
+	8,   // 287: sysml.SysMLService.VerifyConstraint:output_type -> sysml.VerifyConstraintResponse
+	11,  // 288: sysml.SysMLService.VerifyRequirement:output_type -> sysml.VerifyRequirementResponse
+	13,  // 289: sysml.SysMLService.VerifySatisfaction:output_type -> sysml.VerifySatisfactionResponse
+	15,  // 290: sysml.SysMLService.ValidateInstance:output_type -> sysml.ValidateInstanceResponse
+	17,  // 291: sysml.SysMLService.EvaluateCalc:output_type -> sysml.EvaluateCalcResponse
+	21,  // 292: sysml.SysMLService.RunAnalysis:output_type -> sysml.RunAnalysisResponse
+	114, // 293: sysml.SysMLService.RunSweep:output_type -> sysml.RunSweepResponse
+	126, // 294: sysml.SysMLService.RunRuns:output_type -> sysml.RunRunsResponse
+	123, // 295: sysml.SysMLService.SelfCheck:output_type -> sysml.SelfCheckResponse
+	125, // 296: sysml.SysMLService.RecordRun:output_type -> sysml.RecordRunResponse
+	27,  // 297: sysml.SysMLService.ListEngines:output_type -> sysml.ListEnginesResponse
+	105, // 298: sysml.SysMLService.Query:output_type -> sysml.QueryResponse
+	137, // 299: sysml.SysMLService.RunDocumentQuery:output_type -> sysml.RunDocumentQueryResponse
+	139, // 300: sysml.SysMLService.RenderDocument:output_type -> sysml.RenderDocumentResponse
+	141, // 301: sysml.SysMLService.RenderView:output_type -> sysml.RenderViewResponse
+	152, // 302: sysml.SysMLService.ExportGraphs:output_type -> sysml.ExportGraphsResponse
+	275, // [275:303] is the sub-list for method output_type
+	247, // [247:275] is the sub-list for method input_type
+	247, // [247:247] is the sub-list for extension type_name
+	247, // [247:247] is the sub-list for extension extendee
+	0,   // [0:247] is the sub-list for field type_name
 }
 
 func init() { file_sysml_proto_init() }
@@ -15744,7 +15862,7 @@ func file_sysml_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sysml_proto_rawDesc), len(file_sysml_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   164,
+			NumMessages:   166,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

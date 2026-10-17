@@ -92,8 +92,8 @@ type explorePrefix struct {
 	replay   *exploreRun // nil when fresh failed
 	outcome  Outcome
 	identity string
-	notes    []string // the coverage reasons the run left on its context
-	err      error    // fresh failed, or the run diverged
+	gaps     []CoverageGap // the coverage gaps the run left on its context
+	err      error         // fresh failed, or the run diverged
 }
 
 // exploreQueue coordinates the jobs over the prefixes discovered within the runs cut.
@@ -143,7 +143,7 @@ func (q *exploreQueue) work(stop context.Context, job int, fresh func(int) (*Con
 			}
 			outcome = Outcome{Err: runErr, ctx: ctx}
 		}
-		p.notes = ctx.coverageReasons()
+		p.gaps = ctx.gaps()
 		q.finish(p, replay, outcome, nil)
 	}
 }
@@ -307,15 +307,10 @@ func (q *exploreQueue) fold() {
 			return
 		}
 		q.depthHit = q.depthHit || p.replay.depthHit
-		for _, note := range p.notes {
-			if !slices.Contains(q.result.Notes, note) {
-				q.result.Notes = append(q.result.Notes, note)
-			}
-		}
-		slices.Sort(q.result.Notes)
-		if errors.Is(p.outcome.Err, ErrStatementOrderSweepLimit) &&
-			!slices.Contains(q.result.BudgetsHit, BoundStatementOrders) {
-			q.result.BudgetsHit = append(q.result.BudgetsHit, BoundStatementOrders)
+		q.result.Unenumerated = mergeGaps(q.result.Unenumerated, p.gaps)
+		if errors.Is(p.outcome.Err, errStatementOrderSweepLimit) &&
+			!slices.Contains(q.result.BudgetsHit, boundStatementOrders) {
+			q.result.BudgetsHit = append(q.result.BudgetsHit, boundStatementOrders)
 		}
 		q.result.Scope = scopeWith(q.result.Scope, p.outcome.Scope)
 		if i, seen := q.reached[p.identity]; !seen {

@@ -1,4 +1,4 @@
-choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first)
+choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first; order-dependent: seq)
 do: lwork
 stmt action body
 enter action node: state behavior lpoll
@@ -9,7 +9,7 @@ stmt action body
 enter action node: state behavior rpoll
     eval literal 2 -> 2
   eval index -> 2 [s]
-choice do round at t=2.0: states lwork, rwork react (unordered; took lwork first)
+choice do round at t=2.0: states lwork, rwork react (unordered; took lwork first; independent)
 do: lwork
   stmt assign seq
         eval feature seq -> 0

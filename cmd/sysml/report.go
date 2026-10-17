@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/report/junit"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/report/sarif"
 	"io"
 	"os"
 	"strings"
@@ -38,9 +40,22 @@ func asCommandProblem(lines []string) []string {
 // which is the same in both forms: the worst verdict reached, or the status of a
 // check that could not be made.
 type reporter struct {
-	out  io.Writer
-	err  io.Writer
-	json bool
+	out io.Writer
+	err io.Writer
+	// format is the report's format; machine says it is one document written
+	// at the end rather than lines printed as the run goes.
+	format  string
+	machine bool
+	// output names the file the document is written to, stdout when empty.
+	output string
+	// root is the workspace root the report's paths are relative to, and files
+	// the model files checked, which a JUnit report has a suite for each of.
+	root  string
+	files []string
+	// suppressed is how many findings the -baseline file kept out.
+	suppressed int
+	// warningsAsErrors is the exit policy -warnings-as-errors sets.
+	warningsAsErrors bool
 
 	verdicts       []repl.Verdict
 	statusVerdicts []repl.Verdict
@@ -66,6 +81,8 @@ type checkReport struct {
 	Output []string `json:"output"`
 	// Errors is what stopped a check from being made.
 	Errors []string `json:"errors"`
+	// Suppressed is how many findings the -baseline file kept out of Diagnostics.
+	Suppressed int `json:"suppressed,omitempty"`
 }
 
 // diagnostic is one finding about the model, as the JSON report spells it.
@@ -78,12 +95,38 @@ type diagnostic struct {
 	Column int    `json:"column"`
 	Pass   string `json:"pass"`
 	Code   string `json:"code"`
+	// Fixes are the edits that resolve the finding, when analysis knows them.
+	Fixes []fix `json:"fixes,omitempty"`
+	// utf16Column is Column in UTF-16 code units, which SARIF counts columns in.
+	utf16Column int
+}
+
+// fix is one way to resolve a diagnostic, as the JSON report spells it.
+type fix struct {
+	Title     string `json:"title"`
+	Preferred bool   `json:"preferred,omitempty"`
+	Edits     []edit `json:"edits"`
+}
+
+// edit replaces the text from line:column up to endLine:endColumn (exclusive)
+// of the finding's file with newText.
+type edit struct {
+	Line      int    `json:"line"`
+	Column    int    `json:"column"`
+	EndLine   int    `json:"endLine"`
+	EndColumn int    `json:"endColumn"`
+	NewText   string `json:"newText"`
+	// The columns in UTF-16 code units, for SARIF.
+	utf16Column, utf16EndColumn int
 }
 
 // namedValue is one value a check or run produced, as the JSON report spells it.
 type namedValue struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
+	// OrderDependent counts the run's unresolved choice points touching the
+	// value; absent for a value nothing order-dependent wrote.
+	OrderDependent int `json:"orderDependent,omitempty"`
 }
 
 // namedValues converts what a verdict produced into the reported form.
@@ -93,7 +136,7 @@ func namedValues(values []repl.NamedValue) []namedValue {
 	}
 	out := make([]namedValue, 0, len(values))
 	for _, v := range values {
-		out = append(out, namedValue{Name: v.Name, Value: v.Value})
+		out = append(out, namedValue{Name: v.Name, Value: v.Value, OrderDependent: v.OrderDependent})
 	}
 	return out
 }
@@ -567,6 +610,8 @@ type verificationVerdict struct {
 	Detail string `json:"detail,omitempty"`
 	// Subcase marks a case another case performed as a step of its body.
 	Subcase bool `json:"subcase,omitempty"`
+	// Object names the object the case ran as a feature of; empty for a package-level case.
+	Object string `json:"object,omitempty"`
 }
 
 // checkRow is one run of a sweep in the JSON report.
@@ -602,8 +647,12 @@ func checkRows(rows []repl.VerdictRow) []checkRow {
 	return out
 }
 
-func newReporter(asJSON bool) *reporter {
-	return &reporter{out: os.Stdout, err: os.Stderr, json: asJSON}
+func newReporter(format, output string) *reporter {
+	root, err := os.Getwd()
+	if err != nil {
+		root = "."
+	}
+	return &reporter{out: os.Stdout, err: os.Stderr, format: format, machine: format != formatText, output: output, root: root}
 }
 
 // info reports what the run did, which is not a verdict about the model.
@@ -611,7 +660,7 @@ func (r *reporter) info(lines []string) {
 	if len(lines) == 0 {
 		return
 	}
-	if r.json {
+	if r.machine {
 		r.report.Output = append(r.report.Output, lines...)
 		return
 	}
@@ -624,7 +673,7 @@ func (r *reporter) problem(lines []string) {
 	if len(lines) == 0 {
 		return
 	}
-	if r.json {
+	if r.machine {
 		r.report.Output = append(r.report.Output, lines...)
 		return
 	}
@@ -635,7 +684,9 @@ func (r *reporter) problem(lines []string) {
 // unresolved however the checks themselves came out.
 func (r *reporter) failed(message string) {
 	r.report.Errors = append(r.report.Errors, message)
-	if !r.json {
+	// A SARIF or JUnit document has no place for what stopped the run, so it is
+	// printed as in the line form; the JSON document carries it in errors.
+	if r.format != formatJSON {
 		fmt.Fprintln(r.err, commandPrefix+message)
 	}
 }
@@ -651,7 +702,7 @@ func (r *reporter) finding(message string) {
 		Pass:     "runtime",
 		Code:     "runtime.materialize",
 	})
-	if !r.json {
+	if !r.machine {
 		fmt.Fprintln(r.err, promptPrefix+message)
 	}
 }
@@ -665,7 +716,7 @@ func (r *reporter) warn(message string) {
 		Pass:     "runtime",
 		Code:     "runtime.materialize.bounded",
 	})
-	if !r.json {
+	if !r.machine {
 		fmt.Fprintln(r.err, "warning: "+message)
 	}
 }
@@ -687,7 +738,38 @@ func (r *reporter) diags(diags []repl.Diagnostic) {
 			Column:   d.Column,
 			Pass:     d.Pass,
 			Code:     d.Code,
+			Fixes:    fixesOf(d.Fixes),
+
+			utf16Column: d.UTF16Column,
 		})
+	}
+}
+
+func fixesOf(fixes []repl.Fix) []fix {
+	if len(fixes) == 0 {
+		return nil
+	}
+	out := make([]fix, 0, len(fixes))
+	for _, f := range fixes {
+		converted := fix{Title: f.Title, Preferred: f.Preferred, Edits: []edit{}}
+		for _, e := range f.Edits {
+			converted.Edits = append(converted.Edits, edit{
+				Line: e.Line, Column: e.Column, EndLine: e.EndLine, EndColumn: e.EndColumn, NewText: e.NewText,
+				utf16Column: e.UTF16Column, utf16EndColumn: e.UTF16EndColumn,
+			})
+		}
+		out = append(out, converted)
+	}
+	return out
+}
+
+// suppress records how many findings the baseline kept out of the report, and
+// says so in the printed form.
+func (r *reporter) suppress(count int, path string) {
+	r.suppressed = count
+	r.report.Suppressed = count
+	if count > 0 && !r.machine {
+		fmt.Fprintf(r.out, "%d known finding(s) suppressed by %s\n", count, path)
 	}
 }
 
@@ -723,7 +805,7 @@ func selfCheckEvaluationError(v repl.Verdict) bool {
 }
 
 func (r *reporter) reportVerdict(v repl.Verdict) {
-	if r.json {
+	if r.machine {
 		// The lines are reported with the check itself, not twice.
 		return
 	}
@@ -736,8 +818,13 @@ func (r *reporter) reportVerdict(v repl.Verdict) {
 
 // finish reports the run's outcome and returns its exit status.
 func (r *reporter) finish() int {
+	// A warning the run reported, of the model or of a check, ends it under
+	// -warnings-as-errors as an error would when nothing else has.
+	if r.warningsAsErrors && len(r.report.Errors) == 0 && r.hasWarnings() {
+		r.failed("a warning was reported, which -warnings-as-errors judges an error")
+	}
 	status, exit := r.status()
-	if !r.json {
+	if !r.machine {
 		return exit
 	}
 	r.report.Status = status.String()
@@ -757,18 +844,49 @@ func (r *reporter) finish() int {
 			Results:       checkResultsOf(v.Plan),
 		})
 	}
-	out, err := json.MarshalIndent(r.report, "", "  ")
+	var out []byte
+	var err error
+	switch r.format {
+	case formatSARIF:
+		out, err = sarif.Marshal(r.sarifReport())
+	case formatJUnit:
+		out, err = junit.Marshal(r.junitReport())
+	default:
+		out, err = json.MarshalIndent(r.report, "", "  ")
+		out = append(out, '\n')
+	}
 	if err != nil {
 		// Unreachable: every field of the report marshals.
 		fmt.Fprintln(r.err, commandPrefix+err.Error())
 		return exitUnevaluable
 	}
-	fmt.Fprintln(r.out, string(out))
+	if r.output != "" {
+		// #nosec G306 -- a report is not a secret; the service it is written for reads it.
+		if err := os.WriteFile(r.output, out, 0o644); err != nil {
+			fmt.Fprintln(r.err, commandPrefix+err.Error())
+			return exitUnevaluable
+		}
+		return exit
+	}
+	if _, err := r.out.Write(out); err != nil {
+		fmt.Fprintln(r.err, commandPrefix+err.Error())
+		return exitUnevaluable
+	}
 	return exit
 }
 
 // status is the outcome of the whole run: a check that could not be made leaves
 // it unresolved, and otherwise the worst verdict decided stands.
+// hasWarnings reports whether a finding of severity warning was recorded.
+func (r *reporter) hasWarnings() bool {
+	for _, d := range r.report.Diagnostics {
+		if d.Severity == "warning" {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *reporter) status() (repl.VerdictStatus, int) {
 	worst := repl.WorstStatus(r.statusVerdicts)
 	if !r.clean() {
@@ -797,7 +915,7 @@ func verificationVerdicts(verdicts []repl.VerificationVerdict) []verificationVer
 	}
 	out := make([]verificationVerdict, 0, len(verdicts))
 	for _, v := range verdicts {
-		out = append(out, verificationVerdict{Case: v.Case, Kind: v.Kind, Detail: v.Detail, Subcase: v.Subcase})
+		out = append(out, verificationVerdict{Case: v.Case, Kind: v.Kind, Detail: v.Detail, Subcase: v.Subcase, Object: v.Object})
 	}
 	return out
 }

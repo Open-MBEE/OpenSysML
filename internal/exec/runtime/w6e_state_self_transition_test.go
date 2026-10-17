@@ -22,7 +22,7 @@ func TestSimpleSelfTransitionExitsAndReEntersItsState(t *testing.T) {
 		}
 	}`)
 
-	exec.SendSignal("again", nil)
+	exec.sendSignal("again", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestSimpleSelfTransitionInARegionLeavesSiblingRegionsAlone(t *testing.T) {
 		}
 	}`)
 
-	exec.SendSignal("again", nil)
+	exec.sendSignal("again", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}

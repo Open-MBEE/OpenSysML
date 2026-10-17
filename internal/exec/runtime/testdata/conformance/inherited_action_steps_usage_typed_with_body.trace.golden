@@ -2,7 +2,7 @@ stmt assign c
     eval feature c -> 0
     eval literal 100 -> 100
   eval operator + -> 100
-choice step 1: tokens 1@start, 2@b (unordered; took 2@b first)
+choice step 1: tokens 1@start, 2@b (unordered; took 2@b first; independent)
 step 1: token 1@a
 stmt assign c
     eval feature c -> 100

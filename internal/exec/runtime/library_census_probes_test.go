@@ -385,13 +385,13 @@ func invariantProbe(fn, inv, params, args, marker string, holds bool) libraryPro
 		one, zero, want = marker+"(1.0)", marker+"(0.0)", expectRationalVector(result)
 	}
 	if strings.Contains(fn, "cartesian") {
-		real := expectReal(0.0)
+		realWant := expectReal(0.0)
 		if holds {
-			real = expectReal(1.0)
+			realWant = expectReal(1.0)
 		}
-		want = real
+		want = realWant
 		if marker != "" {
-			want = ExpectedValue{Type: "Vector", Elements: []ExpectedValue{real}}
+			want = ExpectedValue{Type: "Vector", Elements: []ExpectedValue{realWant}}
 		}
 	}
 	return libraryProbe{

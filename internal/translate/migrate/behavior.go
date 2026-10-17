@@ -12,6 +12,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
+const (
+	theParameter = "the parameter "
+)
+
 // stmtNote and durNote open the diagnostics statements and durations repeat.
 const (
 	stmtNote = "the statement "
@@ -311,11 +315,11 @@ func (m *migration) parameterSet(set *sysmlv1.Element) {
 	}
 	for _, p := range m.model.Refs(set, "parameter") {
 		if !m.written(p) {
-			note = joinNotes(note, "the parameter "+describe(p)+" of the set is not written")
+			note = joinNotes(note, theParameter+describe(p)+" of the set is not written")
 			continue
 		}
 		if m.shadowedParams[p] {
-			note = joinNotes(note, "the parameter "+describe(p)+" shares its name with the operation's parameter and is not written separately")
+			note = joinNotes(note, theParameter+describe(p)+" shares its name with the operation's parameter and is not written separately")
 			continue
 		}
 		// The feature the member binds is the operation's parameter a method
@@ -1381,7 +1385,7 @@ func (m *migration) receptionParameters(r, sig *sysmlv1.Element) {
 			m.add(p, Mapped, m.v2Name(a), "stands for the signal's attribute "+m.nameOf(a)+", which the accepted payload carries")
 			continue
 		}
-		m.add(p, Unmapped, "", "the parameter "+m.nameFor(p)+" matches no attribute of the signal, whose payload is all the accept carries")
+		m.add(p, Unmapped, "", theParameter+m.nameFor(p)+" matches no attribute of the signal, whose payload is all the accept carries")
 	}
 }
 

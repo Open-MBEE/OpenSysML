@@ -107,7 +107,7 @@ func (ctx *Context) MeasurementUnitValue(sym *symbols.Symbol) (Value, bool, erro
 	}
 	term, err := ctx.model.semantics.UnitTermOf(sym)
 	if err != nil {
-		return Value{}, true, fmt.Errorf("%w: %s: %w", ErrNotAQuantity, sym.Name, err)
+		return Value{}, true, fmt.Errorf("%w: %s: %w", errNotAQuantity, sym.Name, err)
 	}
 	return DeclaredMeasurementRef(ctx.model.semantics, sym, "", term), true, nil
 }
@@ -205,7 +205,7 @@ func (ctx *Context) refuseScaleFactor(op ast.OperatorKind, units ...Unit) error 
 	for _, unit := range units {
 		if scale, ok := ctx.model.semantics.MeasurementScaleOf(unit.Term); ok {
 			return fmt.Errorf("%w: MeasurementRefCalculations::'%s': %s is a measurement scale, whose points are on the scale and not in a unit to compose",
-				ErrUnevaluableLibraryFunction, op.String(), unitSymbolName(scale))
+				errUnevaluableLibraryFunction, op.String(), unitSymbolName(scale))
 		}
 	}
 	return nil
@@ -249,7 +249,7 @@ func (ctx *Context) measurementRefFeature(val Value, name string) (Value, bool, 
 		}
 		return Value{}, true, fmt.Errorf(
 			"%w: %s::%s: %s is a %s reducing to %s, which names no declaration whose member %s could be read",
-			ErrUnevaluableLibraryFunction, derivedUnitFQN, name, ref, derivedUnitFQN, ref.Unit.Term, name,
+			errUnevaluableLibraryFunction, derivedUnitFQN, name, ref, derivedUnitFQN, ref.Unit.Term, name,
 		)
 	}
 	if member, ok, err := ctx.declarationMember(decl, name); ok || err != nil {
@@ -270,7 +270,7 @@ func (ctx *Context) measurementRefFeature(val Value, name string) (Value, bool, 
 	}
 	return Value{}, true, fmt.Errorf(
 		"%w: %s::%s: a measurement reference value holds the unit %s and its reduction %s, not the declaration's member %s",
-		ErrUnevaluableLibraryFunction, scalarMRefTypeFQN, name, ref, ref.Unit.Term, name,
+		errUnevaluableLibraryFunction, scalarMRefTypeFQN, name, ref, ref.Unit.Term, name,
 	)
 }
 
@@ -366,7 +366,7 @@ func (ctx *Context) quantityFeature(val Value, name string) (Value, bool, error)
 	case mRefIsBoundFeature:
 		return Value{}, true, fmt.Errorf(
 			"%w: %s::isBound: a scalar quantity value holds its num and mRef, not whether the quantity is bound",
-			ErrUnevaluableLibraryFunction, scalarQuantityTypeFQN,
+			errUnevaluableLibraryFunction, scalarQuantityTypeFQN,
 		)
 	}
 	return Value{}, false, nil
@@ -383,7 +383,7 @@ func vectorQuantityMRef(vq *VectorQuantity) (Value, error) {
 	if !ok {
 		return Value{}, fmt.Errorf(
 			"%w: Quantities::VectorQuantityValue::mRef: the axes of %s carry different units, and no one measurement reference names them all",
-			ErrUnevaluableLibraryFunction, vq.format(semantics.FormatConst),
+			errUnevaluableLibraryFunction, vq.format(semantics.FormatConst),
 		)
 	}
 	return measurementRefOf(unit), nil

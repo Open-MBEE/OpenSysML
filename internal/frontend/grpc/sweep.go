@@ -296,7 +296,7 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable, st standing) *pb
 			reported = row.Evaluations
 			out.Evaluations = in.caseEvaluations(reported)
 		}
-		graph := in.instanceGraphs(in.runRoots(row.Subject, row.Outputs, reported))
+		graph := in.instanceGraphs(in.runRoots(row.Subject, nil, row.Outputs, reported))
 		ids.row(out, graph)
 		resp.Instances = append(resp.Instances, graph...)
 		resp.Rows = append(resp.Rows, out)

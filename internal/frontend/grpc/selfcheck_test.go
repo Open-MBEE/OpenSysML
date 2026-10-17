@@ -57,7 +57,7 @@ func TestSelfCheckReportsViolations(t *testing.T) {
 		t.Fatalf("findings %v; want S10::CD failing", resp.Findings)
 	}
 	if violation.Constraint == "" || !strings.HasPrefix(violation.Location, "<content>:") ||
-		violation.Line != violation.Location+": error: "+violation.Constraint+" fails for S10::CD" {
+		violation.Line != violation.Location+": error[self-check-rule]: "+violation.Constraint+" fails for S10::CD" {
 		t.Errorf("violation = %v; want its constraint, location and line", violation)
 	}
 	if !strings.HasPrefix(resp.Summary, "Self-model check: ") || len(resp.Applications) == 0 {

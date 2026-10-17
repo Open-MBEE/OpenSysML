@@ -125,6 +125,9 @@ type actionFrame struct {
 	aliases map[string]string
 	// declared indexes the features by the declaration each is, and those it redefines.
 	declared map[*symbols.Symbol]string
+	// shadowed marks a performance holding a hidden inherited feature under its
+	// ShadowedKey, whose assignments written elsewhere resolve their target first.
+	shadowed bool
 	// optional holds the held features whose multiplicity admits no value at all.
 	optional map[string]bool
 	// unvalued holds the attributes the performance declares with no value, which
@@ -291,6 +294,11 @@ func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
 // declareRootFeatures gives root the attributes the graph declares and the
 // features the action holds, aliasing what each redefines.
 func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
+	if root.declared == nil {
+		// Sized for every feature it will hold; grown entry by entry it cost a
+		// dozen allocations per execution.
+		root.declared = make(map[*symbols.Symbol]string, len(e.graph.Attributes)+len(e.ctx.model.semantics.MembersOf(e.action)))
+	}
 	for _, attr := range e.graph.Attributes {
 		root.features[attr.Name] = attr.Direction
 		sym := attr.Symbol
@@ -305,6 +313,9 @@ func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
 		e.ctx.holdFeature(&root.declared, sym, attr.Name)
 	}
 	e.addFeatureDirections(root.features, &root.aliases, &root.declared, nil, e.action)
+	for _, attr := range e.features {
+		root.shadowed = root.shadowed || attr.Shadowed
+	}
 }
 
 // declareAcceptPayloads gives root the payloads the graph's accepts name: each is a
@@ -367,6 +378,28 @@ func (e *performances) addFeatureDirections(
 		e.ctx.aliasRedefinitions(aliases, member, name)
 		e.ctx.holdFeature(held, member, name)
 	}
+	e.ctx.shadowedInherited(action,
+		func(name string) bool { _, ok := features[name]; return ok },
+		func(sym *symbols.Symbol) bool { _, ok := (*held)[sym]; return ok },
+		func(member *symbols.Symbol, usage *ast.Usage, key string) {
+			if _, taken := features[key]; taken {
+				return
+			}
+			features[key] = usage.Direction
+			if optional != nil && e.ctx.admitsNoValue(member) {
+				optional[key] = true
+			}
+			e.ctx.holdFeature(held, member, key)
+		})
+}
+
+// heldKey is the name the performance binds the feature a statement written in
+// scope names: its ShadowedKey for a hidden inherited feature, else name.
+func (f *actionFrame) heldKey(ctx *Context, scope *symbols.Scope, name string) string {
+	if !f.shadowed {
+		return name
+	}
+	return heldKey(ctx, f.declared, f.scope, scope, name)
 }
 
 // aliasRedefinitions maps every name sym redefines, by clause, to name: a body
@@ -449,6 +482,7 @@ func (e *performances) beginPerformance(
 	perf.features = pins.directions
 	perf.aliases = pins.aliases
 	perf.declared = pins.declared
+	perf.shadowed = pins.shadowed
 	perf.optional = pins.optional
 	perf.result = pins.result
 	if usage, ok := node.(*ast.Usage); ok {
@@ -576,6 +610,7 @@ func (e *performances) bindArguments(perf *actionFrame, activation int64) error 
 		return err
 	}
 	perf.features, perf.aliases, perf.optional, perf.result = pins.directions, pins.aliases, pins.optional, pins.result
+	perf.shadowed = pins.shadowed
 	for name, value := range arguments {
 		if err := e.setFrameFeature(perf, name, value); err != nil {
 			return err
@@ -666,7 +701,7 @@ func checkStreamsReceived(frame *actionFrame) error {
 	}
 	stream := frame.unreceived[nodes[0]][0]
 	return fmt.Errorf("%w: %s: %s completed before %s wrote %s",
-		ErrStreamUnreceived, flowDescription(stream.flow), nodeDescription(nodes[0]),
+		errStreamUnreceived, flowDescription(stream.flow), nodeDescription(nodes[0]),
 		nodeDescription(stream.source), orAnyPin(stream.flow.SourcePin))
 }
 
@@ -676,6 +711,7 @@ type nodePins struct {
 	directions map[string]ast.FeatureDirection
 	aliases    map[string]string
 	declared   map[*symbols.Symbol]string
+	shadowed   bool
 	// optional holds the pins whose multiplicity admits no value at all.
 	optional map[string]bool
 	result   string
@@ -729,6 +765,7 @@ func (e *performances) pinsOf(
 	pins := nodePins{directions: make(map[string]ast.FeatureDirection), optional: make(map[string]bool)}
 	for _, feature := range graph.Features[node] {
 		pins.directions[feature.Name] = feature.Direction
+		pins.shadowed = pins.shadowed || feature.Shadowed
 		sym := memberSymbol(feature.Scope, feature.Node)
 		if sym != nil && e.ctx.admitsNoValue(sym) {
 			pins.optional[feature.Name] = true
@@ -877,7 +914,7 @@ func flowNodesNamed(graph *lower.ActionGraph, name string) []ast.Node {
 func usagesNamed(nodes []ast.Node, name string) []ast.Node {
 	var named []ast.Node
 	for _, node := range nodes {
-		if _, isUsage := node.(*ast.Usage); isUsage && slices.Contains(ActionNodeNames(node), name) {
+		if _, isUsage := node.(*ast.Usage); isUsage && slices.Contains(actionNodeNames(node), name) {
 			named = append(named, node)
 		}
 	}
@@ -885,7 +922,7 @@ func usagesNamed(nodes []ast.Node, name string) []ast.Node {
 }
 
 // subaction returns the latest performance of f's node named name; declared reports
-// whether f has such a node, one not yet performed is ErrNodeNotPerformed. Among
+// whether f has such a node, one not yet performed is errNodeNotPerformed. Among
 // same-named nodes (one per branch of a conditional), decl names the reader's own,
 // else the one performed latest answers.
 func (f *actionFrame) subaction(name string, decl ast.Node) (perf *actionFrame, declared bool, err error) {
@@ -907,7 +944,7 @@ func (f *actionFrame) subaction(name string, decl ast.Node) (perf *actionFrame, 
 	perf, performed := f.subactions[node]
 	if !performed {
 		return nil, true, fmt.Errorf("%w: action node %s has not been performed yet",
-			ErrNodeNotPerformed, ActionNodeName(node))
+			errNodeNotPerformed, ActionNodeName(node))
 	}
 	return perf, true, nil
 }
@@ -966,7 +1003,7 @@ func (f *actionFrame) repeatedBindError(end boundEnd) error {
 	} else {
 		graph = &lower.ActionGraph{}
 	}
-	return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(f.node, model,
+	return fmt.Errorf("%w: %w", errActionStepMultiplicity, graph.StepError(f.node, model,
 		lower.StepMultiplicityUnsupportedCode,
 		"a binding distributes a multi-valued end over the performances in an assignment the model leaves open", end.Decl))
 }
@@ -978,12 +1015,12 @@ func (f *actionFrame) repeatedPin(name string) (Value, error) {
 	siblings := f.repetitionSiblings()
 	if state := f.parent.repeats[f.repetitionGroup]; state != nil && state.node == f.node && state.remaining > 0 {
 		return Value{}, fmt.Errorf("%w: action node %s has not been performed yet",
-			ErrNodeNotPerformed, ActionNodeName(f.node))
+			errNodeNotPerformed, ActionNodeName(f.node))
 	}
 	for _, perf := range siblings {
 		if !perf.ended {
 			return Value{}, fmt.Errorf("%w: action node %s has not been performed yet",
-				ErrNodeNotPerformed, ActionNodeName(f.node))
+				errNodeNotPerformed, ActionNodeName(f.node))
 		}
 	}
 	values := make([]Value, 0, len(siblings))
@@ -1017,7 +1054,7 @@ func (f *actionFrame) pin(name string) (Value, error) {
 		}
 		return Value{}, &NoValueError{Feature: f.path() + "." + name}
 	}
-	return Value{}, fmt.Errorf("%w: %s declares no %s", ErrNodePin, f.describe(), name)
+	return Value{}, fmt.Errorf("%w: %s declares no %s", errNodePin, f.describe(), name)
 }
 
 // resultValue is what the performance stands for when read as a value: the
@@ -1025,7 +1062,7 @@ func (f *actionFrame) pin(name string) (Value, error) {
 func (f *actionFrame) resultValue() (Value, error) {
 	if f.result == "" {
 		return Value{}, fmt.Errorf("%w: %s declares no result to read it as a value by",
-			ErrNodePin, f.describe())
+			errNodePin, f.describe())
 	}
 	return f.pin(f.result)
 }
@@ -1053,7 +1090,7 @@ func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast
 		return err
 	}
 	if !pins.declares(pin) {
-		return fmt.Errorf("%w: %s declares no %s", ErrNodePin, nodeDescription(node), pin)
+		return fmt.Errorf("%w: %s declares no %s", errNodePin, nodeDescription(node), pin)
 	}
 	if err := e.ctx.checkNamedWriteAs(flow.Scopes[node], func() string { return nodeDescription(node) }, pin, &value); err != nil {
 		return err
@@ -1102,7 +1139,7 @@ func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Nod
 	for _, next := range path {
 		flow = lower.NestedFlow(flow, node, next)
 		if flow == nil {
-			return fmt.Errorf("%w: %s holds no nested action %s", ErrNodePin, nodeDescription(node), ActionNodeName(next))
+			return fmt.Errorf("%w: %s holds no nested action %s", errNodePin, nodeDescription(node), ActionNodeName(next))
 		}
 		node = next
 	}
@@ -1111,7 +1148,7 @@ func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Nod
 		return err
 	}
 	if !pins.declares(pin) {
-		return fmt.Errorf("%w: %s declares no %s", ErrNodePin, nodeDescription(node), pin)
+		return fmt.Errorf("%w: %s declares no %s", errNodePin, nodeDescription(node), pin)
 	}
 	return e.ctx.checkNamedWriteAs(flow.Scopes[node], func() string { return nodeDescription(node) }, pin, value)
 }
@@ -1196,7 +1233,8 @@ func (e *performances) setFrameFeature(f *actionFrame, name string, value Value)
 		e.noteFrameWrite(f, name, value)
 		return nil
 	}
-	if err := e.ctx.checkNamedWriteAs(f.scope, f.describe, name, &value); err != nil {
+	scope, declared := heldDeclaration(f, f.scope, name)
+	if err := e.ctx.checkNamedWriteAs(scope, f.describe, declared, &value); err != nil {
 		return err
 	}
 	e.ctx.writeBodyValue(f.cells, f.data, f.key(name), value)
@@ -1260,7 +1298,7 @@ func (e *performances) streamFlow(
 			return fmt.Errorf("%s: %w", flowDescription(flow), err)
 		}
 		if !pins.declares(flow.TargetPin) {
-			return fmt.Errorf("%s: %w: %s declares no %s", flowDescription(flow), ErrNodePin, nodeDescription(flow.Target), flow.TargetPin)
+			return fmt.Errorf("%s: %w: %s declares no %s", flowDescription(flow), errNodePin, nodeDescription(flow.Target), flow.TargetPin)
 		}
 		if err := e.ctx.checkNamedWriteAs(graph.Scopes[flow.Target], func() string { return nodeDescription(flow.Target) }, flow.TargetPin, &value); err != nil {
 			return fmt.Errorf("%s: %w", flowDescription(flow), err)
@@ -1283,7 +1321,7 @@ func (e *performances) streamFlow(
 	}
 	for _, target := range ongoing {
 		if !target.declares(flow.TargetPin) {
-			return fmt.Errorf("%s: %w: %s declares no %s", flowDescription(flow), ErrNodePin, target.describe(), flow.TargetPin)
+			return fmt.Errorf("%s: %w: %s declares no %s", flowDescription(flow), errNodePin, target.describe(), flow.TargetPin)
 		}
 		if err := e.setFrameFeature(target, flow.TargetPin, value); err != nil {
 			return fmt.Errorf("%s: %w", flowDescription(flow), err)
@@ -1596,7 +1634,7 @@ func (e *performances) bindInputPins(perf *actionFrame, activation int64) error 
 		}
 		if alreadyBound {
 			if held := perf.data[perf.key(end.Pin)]; !e.ctx.equalValues(held, value) {
-				return &BindingConflictError{
+				return &bindingConflictError{
 					Target:     end.pinText(),
 					Left:       bindingEndText(earlier.Other),
 					Right:      bindingEndText(end.Other),
@@ -1638,7 +1676,7 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 				if e.ctx.equalValues(other, value) {
 					continue
 				}
-				return &BindingConflictError{
+				return &bindingConflictError{
 					Target:     end.pinText(),
 					Left:       bindingEndText(end.Other),
 					Right:      end.pinText(),
@@ -1673,7 +1711,7 @@ func boundEndError(end boundEnd, err error) error {
 	if err == nil {
 		return nil
 	}
-	return fmt.Errorf("%w: %s is bound to %s: %w", ErrBindingEnd, end.pinText(), bindingEndText(end.Other), err)
+	return fmt.Errorf("%w: %s is bound to %s: %w", errBindingEnd, end.pinText(), bindingEndText(end.Other), err)
 }
 
 // outputPinValue is the value a pin of direction dir carries to the other end of
@@ -1688,7 +1726,7 @@ func (e *performances) outputPinValue(perf *actionFrame, end boundEnd, dir ast.F
 		if !ok {
 			if !perf.admitsNoValueAt(end.Pin) {
 				return Value{}, false, fmt.Errorf("%w: %s produced no value at %s to bind %s to",
-					ErrBindingEnd, perf.describe(), end.Pin, bindingEndText(end.Other))
+					errBindingEnd, perf.describe(), end.Pin, bindingEndText(end.Other))
 			}
 			value = sequenceOf(nil) // the binding holds the other end to the same absence
 		}
@@ -1739,7 +1777,7 @@ func (e *performances) writeNamedEnd(end boundEnd, value Value) error {
 			return nil // a qualified value (`Mode::idle`) initialized the pin, and holds nothing
 		}
 		return fmt.Errorf("%w: %s is bound to %s, which names no feature to hold its value",
-			ErrBindingEnd, end.pinText(), bindingEndText(end.Other))
+			errBindingEnd, end.pinText(), bindingEndText(end.Other))
 	}
 	written, err := e.assignEnclosing(end.at, name, value)
 	if err != nil {
@@ -1753,7 +1791,7 @@ func (e *performances) writeNamedEnd(end boundEnd, value Value) error {
 	}
 	if !written && !end.FromValue {
 		return fmt.Errorf("%w: %s is bound to %s, which no enclosing action holds",
-			ErrBindingEnd, end.pinText(), name)
+			errBindingEnd, end.pinText(), name)
 	}
 	return nil
 }
@@ -1781,7 +1819,7 @@ func (e *performances) boundPin(perf *actionFrame, end boundEnd) (ast.FeatureDir
 	dir, declared := perf.features[perf.key(end.Pin)]
 	if !declared {
 		return ast.DirNone, fmt.Errorf("%w: %s names no parameter or attribute of %s",
-			ErrBindingEnd, end.pinText(), perf.describe())
+			errBindingEnd, end.pinText(), perf.describe())
 	}
 	return dir, nil
 }
@@ -1842,7 +1880,7 @@ func (e *performances) writeOtherEnd(perf *actionFrame, end boundEnd, value Valu
 	holder, node, path := otherEnd(perf, end)
 	if node == nil {
 		if !holder.declares(end.OtherPin) {
-			return fmt.Errorf("%w: %s declares no %s", ErrNodePin, holder.describe(), end.OtherPin)
+			return fmt.Errorf("%w: %s declares no %s", errNodePin, holder.describe(), end.OtherPin)
 		}
 		return e.setFrameFeature(holder, end.OtherPin, value)
 	}
@@ -1850,7 +1888,7 @@ func (e *performances) writeOtherEnd(perf *actionFrame, end boundEnd, value Valu
 	if holder != end.at.parent {
 		flow = lower.NestedFlow(holder.flow, holder.node, node)
 		if flow == nil {
-			return fmt.Errorf("%w: %s holds no nested action %s", ErrNodePin, holder.describe(), ActionNodeName(node))
+			return fmt.Errorf("%w: %s holds no nested action %s", errNodePin, holder.describe(), ActionNodeName(node))
 		}
 	}
 	return e.deliver(holder, flow, node, path, end.OtherPin, value)
@@ -1863,7 +1901,7 @@ func (e *performances) bindingOtherValue(perf *actionFrame, end boundEnd, activa
 		other, performed := e.otherPerformance(perf, end)
 		if !performed {
 			return Value{}, fmt.Errorf("%w: %s is bound to %s, which is read before it runs",
-				ErrNodeNotPerformed, end.pinText(), bindingEndText(end.Other))
+				errNodeNotPerformed, end.pinText(), bindingEndText(end.Other))
 		}
 		value, err := other.pin(end.OtherPin)
 		if err != nil {
@@ -1876,7 +1914,7 @@ func (e *performances) bindingOtherValue(perf *actionFrame, end boundEnd, activa
 	value, err := ec.Eval(end.Other)
 	if err != nil {
 		return Value{}, fmt.Errorf("%w: %s is bound to %s: %w",
-			ErrBindingEnd, end.pinText(), bindingEndText(end.Other), err)
+			errBindingEnd, end.pinText(), bindingEndText(end.Other), err)
 	}
 	return value, nil
 }
@@ -1909,7 +1947,7 @@ func (e *performances) otherEndHeld(perf *actionFrame, end boundEnd) (Value, boo
 // holds no value yet: an unperformed node's pin or an unvalued enclosing feature.
 func (e *performances) unheldEnd(end boundEnd, err error) bool {
 	var noValue *NoValueError
-	if errors.Is(err, ErrNodeNotPerformed) || errors.As(err, &noValue) {
+	if errors.Is(err, errNodeNotPerformed) || errors.As(err, &noValue) {
 		return true
 	}
 	name := simpleEndName(end.Other)
@@ -2124,7 +2162,7 @@ func checkInputsBound(inv actionInvocation, params []actionParameter, inputs map
 			continue
 		}
 		return fmt.Errorf("%w: action %s: input parameter %s is bound by no argument",
-			ErrUnboundParameter, inv.name(), param.Name)
+			errUnboundParameter, inv.name(), param.Name)
 	}
 	return nil
 }
