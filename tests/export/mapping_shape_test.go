@@ -36,7 +36,7 @@ func TestMappingShapeAgreesWithForwardMapping(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		graph, err := convert.SysMLToRDF(path, source)
+		graph, err := cachedSysMLToRDF(path, source)
 		if err != nil {
 			if strings.HasPrefix(path, exampleRoot+string(filepath.Separator)) {
 				skipped++

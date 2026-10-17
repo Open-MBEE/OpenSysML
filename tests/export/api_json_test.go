@@ -61,7 +61,7 @@ func TestAPIJSONInverseOverAllFixtures(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			graph, err := convert.SysMLToRDF(path, src)
+			graph, err := cachedSysMLToRDF(path, src)
 			var unsupported *export.UnsupportedError
 			if errors.As(err, &unsupported) {
 				refused++

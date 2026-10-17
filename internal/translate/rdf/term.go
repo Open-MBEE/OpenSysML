@@ -128,7 +128,7 @@ type GraphBuilder struct {
 // order so serialization stays stable.
 type subjectIndex struct {
 	predicates []string
-	objects    map[string][]int
+	objects    map[string][]Term
 }
 
 // NewGraph returns an empty graph carrying the SysML prefix bindings.
@@ -272,8 +272,8 @@ func (g *Graph) AddTriple(t Triple) {
 		g.seen[t] = true
 	} else if g.index != nil {
 		if si := g.index[t.Subject]; si != nil {
-			for _, index := range si.objects[t.Predicate.Value] {
-				if g.triples[index].Object == t.Object {
+			for _, object := range si.objects[t.Predicate.Value] {
+				if object == t.Object {
 					return
 				}
 			}
@@ -293,20 +293,20 @@ func (g *Graph) AddTriple(t Triple) {
 		}
 	}
 	if g.index != nil {
-		g.index[t.Subject] = indexTriple(g.index[t.Subject], t, len(g.triples)-1)
+		g.index[t.Subject] = indexTriple(g.index[t.Subject], t)
 	}
 }
 
 // indexTriple records t under its subject's index entry, creating the entry
 // when si is nil.
-func indexTriple(si *subjectIndex, t Triple, index int) *subjectIndex {
+func indexTriple(si *subjectIndex, t Triple) *subjectIndex {
 	if si == nil {
-		si = &subjectIndex{objects: make(map[string][]int)}
+		si = &subjectIndex{objects: make(map[string][]Term)}
 	}
 	if len(si.objects[t.Predicate.Value]) == 0 {
 		si.predicates = append(si.predicates, t.Predicate.Value)
 	}
-	si.objects[t.Predicate.Value] = append(si.objects[t.Predicate.Value], index)
+	si.objects[t.Predicate.Value] = append(si.objects[t.Predicate.Value], t.Object)
 	return si
 }
 
@@ -318,8 +318,8 @@ func (g *Graph) subjects() map[Term]*subjectIndex {
 		return g.index
 	}
 	g.index = make(map[Term]*subjectIndex)
-	for i, t := range g.triples {
-		g.index[t.Subject] = indexTriple(g.index[t.Subject], t, i)
+	for _, t := range g.triples {
+		g.index[t.Subject] = indexTriple(g.index[t.Subject], t)
 	}
 	return g.index
 }
@@ -338,8 +338,8 @@ func (g *Graph) Has(t Triple) bool {
 		if si == nil {
 			return false
 		}
-		for _, index := range si.objects[t.Predicate.Value] {
-			if g.triples[index].Object == t.Object {
+		for _, object := range si.objects[t.Predicate.Value] {
+			if object == t.Object {
 				return true
 			}
 		}
@@ -349,8 +349,8 @@ func (g *Graph) Has(t Triple) bool {
 	if si == nil {
 		return false
 	}
-	for _, index := range si.objects[t.Predicate.Value] {
-		if g.triples[index].Object == t.Object {
+	for _, object := range si.objects[t.Predicate.Value] {
+		if object == t.Object {
 			return true
 		}
 	}
@@ -436,8 +436,8 @@ func (g *Graph) RewriteTriples(rewrite func(*Triple) bool) {
 		}
 		index.predicates = index.predicates[:0]
 	}
-	for i, triple := range unique {
-		g.index[triple.Subject] = indexTriple(g.index[triple.Subject], triple, i)
+	for _, triple := range unique {
+		g.index[triple.Subject] = indexTriple(g.index[triple.Subject], triple)
 	}
 	for subject, index := range g.index {
 		for predicate, objects := range index.objects {
@@ -510,11 +510,18 @@ func (g *Graph) Objects(subject Term, predicate string) []Term {
 		return nil
 	}
 	// Copied so a caller appending to the result cannot reach into the index.
-	out := make([]Term, len(found))
-	for i, index := range found {
-		out[i] = g.triples[index].Object
-	}
+	out := append([]Term(nil), found...)
 	return out
+}
+
+// ObjectsView returns the objects of every (subject, predicate) statement.
+// The returned slice is read-only and remains valid until the graph is changed.
+func (g *Graph) ObjectsView(subject Term, predicate string) []Term {
+	si := g.subjects()[subject]
+	if si == nil {
+		return nil
+	}
+	return si.objects[predicate]
 }
 
 // Object returns the first object of (subject, predicate) and whether one
@@ -525,7 +532,7 @@ func (g *Graph) Object(subject Term, predicate string) (Term, bool) {
 		return Term{}, false
 	}
 	if found := si.objects[predicate]; len(found) > 0 {
-		return g.triples[found[0]].Object, true
+		return found[0], true
 	}
 	return Term{}, false
 }

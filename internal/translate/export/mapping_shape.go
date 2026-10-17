@@ -13,7 +13,7 @@ func mappingTypeConforms(graph *rdf.Graph, subject rdf.Term, ancestor string) bo
 	if graph == nil {
 		return false
 	}
-	for _, typ := range graph.Objects(subject, rdf.RDFType) {
+	for _, typ := range graph.ObjectsView(subject, rdf.RDFType) {
 		seen := map[string]bool{}
 		queue := []string{typ.Value}
 		for len(queue) > 0 {
@@ -31,7 +31,7 @@ func mappingTypeConforms(graph *rdf.Graph, subject rdf.Term, ancestor string) bo
 				ontology.IsAncestorOrSelf(resolved, ancestor) {
 				return true
 			}
-			for _, parent := range graph.Objects(rdf.IRI(current), mappingRDFSSubClassOf) {
+			for _, parent := range graph.ObjectsView(rdf.IRI(current), mappingRDFSSubClassOf) {
 				if parent.IsIRI() {
 					queue = append(queue, parent.Value)
 				}
@@ -69,7 +69,7 @@ func mappingFeatureChain(graph *rdf.Graph, subject rdf.Term) bool {
 	if graph.HasProperty(subject, rdf.SysML+"chainingFeature") {
 		return true
 	}
-	for _, relationship := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+	for _, relationship := range graph.ObjectsView(subject, rdf.SysML+pOwnedRelationship) {
 		if mappingTypeConforms(graph, relationship, "FeatureChaining") {
 			return true
 		}
@@ -78,6 +78,60 @@ func mappingFeatureChain(graph *rdf.Graph, subject rdf.Term) bool {
 }
 
 func mappingFilterPackageNode(graph *rdf.Graph, subject rdf.Term) bool {
+	return mappingFilterPackageNodeWithCache(graph, subject, nil)
+}
+
+func mappingFilterPackageNodes(graph *rdf.Graph) map[string]bool {
+	filtered := make(map[string]bool)
+	if graph == nil {
+		return filtered
+	}
+	children := make(map[string][]rdf.Term)
+	var queue []rdf.Term
+	properties := [...]string{
+		pOwner, pOwningRelationship, pOwningMembership, pOwningNamespace,
+		pMembershipOwningNamespace, pImportOwningNamespace, pOwningRelatedElement,
+	}
+	for _, subject := range graph.Subjects() {
+		for _, property := range properties {
+			if owner := firstIRI(graph, subject, property); owner.IsIRI() {
+				children[owner.Value] = append(children[owner.Value], subject)
+			}
+		}
+		if !mappingTypeConforms(graph, subject, "Package") {
+			continue
+		}
+		importer := firstIRI(graph, subject, pOwningRelationship)
+		if mappingTypeConforms(graph, importer, "Import") {
+			if imported, ok := graph.Object(importer, rdf.SysML+pImportedNamespace); ok && imported == subject {
+				filtered[subject.Value] = true
+				queue = append(queue, subject)
+			}
+		}
+	}
+	for head := 0; head < len(queue); head++ {
+		for _, child := range children[queue[head].Value] {
+			if filtered[child.Value] {
+				continue
+			}
+			filtered[child.Value] = true
+			queue = append(queue, child)
+		}
+	}
+	for _, subject := range graph.Subjects() {
+		if _, ok := filtered[subject.Value]; !ok {
+			filtered[subject.Value] = false
+		}
+	}
+	return filtered
+}
+
+func mappingFilterPackageNodeWithCache(graph *rdf.Graph, subject rdf.Term, cache map[string]bool) bool {
+	if cache != nil {
+		if filtered, ok := cache[subject.Value]; ok {
+			return filtered
+		}
+	}
 	queue := []rdf.Term{subject}
 	seen := map[string]bool{}
 	for len(queue) > 0 {
@@ -91,6 +145,9 @@ func mappingFilterPackageNode(graph *rdf.Graph, subject rdf.Term) bool {
 			importer := firstIRI(graph, current, pOwningRelationship)
 			if mappingTypeConforms(graph, importer, "Import") {
 				if imported, ok := graph.Object(importer, rdf.SysML+pImportedNamespace); ok && imported == current {
+					if cache != nil {
+						cache[subject.Value] = true
+					}
 					return true
 				}
 			}
@@ -104,23 +161,30 @@ func mappingFilterPackageNode(graph *rdf.Graph, subject rdf.Term) bool {
 			}
 		}
 	}
+	if cache != nil {
+		cache[subject.Value] = false
+	}
 	return false
 }
 
 // MappingElementSubject reports whether the subject is emitted as an Element
 // rather than a reified membership edge.
 func MappingElementSubject(graph *rdf.Graph, subject rdf.Term) bool {
-	return mappingElementSubject(graph, subject, map[string]bool{})
+	return mappingElementSubjectWithCache(graph, subject, map[string]bool{}, nil)
 }
 
 func mappingElementSubject(graph *rdf.Graph, subject rdf.Term, seen map[string]bool) bool {
+	return mappingElementSubjectWithCache(graph, subject, seen, nil)
+}
+
+func mappingElementSubjectWithCache(graph *rdf.Graph, subject rdf.Term, seen, packageCache map[string]bool) bool {
 	_, ok := rdf.SubjectID(subject)
 	if graph == nil || !ok || seen[subject.Value] ||
 		!mappingTypeConforms(graph, subject, "Element") {
 		return false
 	}
 	seen[subject.Value] = true
-	if mappingFilterPackageNode(graph, subject) {
+	if mappingFilterPackageNodeWithCache(graph, subject, packageCache) {
 		return false
 	}
 	if mappingTypeConforms(graph, subject, "FeatureChaining") || mappingFeatureChain(graph, subject) {
@@ -143,10 +207,10 @@ func mappingElementSubject(graph *rdf.Graph, subject rdf.Term, seen map[string]b
 		firstIRI(graph, subject, pOwningRelationship),
 	} {
 		if mappingTypeConforms(graph, owner, "Membership") {
-			return mappingMembershipMemberIsElement(graph, owner, subject, seen)
+			return mappingMembershipMemberIsElementWithCache(graph, owner, subject, seen, packageCache)
 		}
 	}
-	for _, typ := range graph.Objects(subject, rdf.RDFType) {
+	for _, typ := range graph.ObjectsView(subject, rdf.RDFType) {
 		if (impliedRelationshipMetaclasses[ontology.LocalName(typ.Value)] ||
 			derivedSatelliteMetaclasses[ontology.LocalName(typ.Value)]) &&
 			!mappingHasIdentity(graph, subject) {
@@ -176,7 +240,7 @@ func mappingExpressionBodyMemberSubject(graph *rdf.Graph, subject rdf.Term) bool
 	if !owner.IsIRI() {
 		return false
 	}
-	for _, member := range graph.Objects(owner, rdf.OpenSysML+"bodyMember") {
+	for _, member := range graph.ObjectsView(owner, rdf.OpenSysML+"bodyMember") {
 		if member == subject {
 			return mappingTypeConforms(graph, subject, "Feature") &&
 				!mappingExpressionType(graph, subject) &&
@@ -189,10 +253,14 @@ func mappingExpressionBodyMemberSubject(graph *rdf.Graph, subject rdf.Term) bool
 // MappingMembershipMemberIsElement reports whether the forward mapping emits a
 // membership's member as an Element rather than as an expression part.
 func MappingMembershipMemberIsElement(graph *rdf.Graph, membership, member rdf.Term) bool {
-	return mappingMembershipMemberIsElement(graph, membership, member, map[string]bool{})
+	return mappingMembershipMemberIsElementWithCache(graph, membership, member, map[string]bool{}, nil)
 }
 
 func mappingMembershipMemberIsElement(graph *rdf.Graph, membership, member rdf.Term, seen map[string]bool) bool {
+	return mappingMembershipMemberIsElementWithCache(graph, membership, member, seen, nil)
+}
+
+func mappingMembershipMemberIsElementWithCache(graph *rdf.Graph, membership, member rdf.Term, seen, packageCache map[string]bool) bool {
 	if graph == nil {
 		return false
 	}
@@ -213,7 +281,7 @@ func mappingMembershipMemberIsElement(graph *rdf.Graph, membership, member rdf.T
 		owner = firstIRI(graph, membership, pOwner)
 	}
 	resultExpression := mappingTypeConforms(graph, membership, "ResultExpressionMembership")
-	ownerIsElement := owner.IsIRI() && mappingElementSubject(graph, owner, seen)
+	ownerIsElement := owner.IsIRI() && mappingElementSubjectWithCache(graph, owner, seen, packageCache)
 	if mappingExpressionType(graph, owner) && !ownerIsElement {
 		return false
 	}
@@ -224,7 +292,7 @@ func mappingMembershipMemberIsElement(graph *rdf.Graph, membership, member rdf.T
 		return mappingHasElementName(graph, member) || mappingHasMemberName(graph, membership)
 	}
 	if mappingTypeConforms(graph, membership, "TransitionFeatureMembership") {
-		for _, typ := range graph.Objects(member, rdf.RDFType) {
+		for _, typ := range graph.ObjectsView(member, rdf.RDFType) {
 			if expressionMetaclasses[ontology.LocalName(typ.Value)] {
 				return false
 			}
@@ -243,14 +311,14 @@ func mappingMembershipMemberIsElement(graph *rdf.Graph, membership, member rdf.T
 		if mappingHasElementName(graph, member) || mappingHasMemberName(graph, membership) {
 			return true
 		}
-		for _, typ := range graph.Objects(member, rdf.RDFType) {
+		for _, typ := range graph.ObjectsView(member, rdf.RDFType) {
 			if ontology.IsAncestorOrSelf(ontology.LocalName(typ.Value), "Feature") {
 				return true
 			}
 		}
 		return false
 	}
-	for _, subjectParameter := range graph.Objects(membership, rdf.SysML+pOwnedSubjectParameter) {
+	for _, subjectParameter := range graph.ObjectsView(membership, rdf.SysML+pOwnedSubjectParameter) {
 		if subjectParameter == member {
 			return true
 		}
@@ -270,7 +338,7 @@ func mappingMembershipMemberIsElement(graph *rdf.Graph, membership, member rdf.T
 }
 
 func mappingHasExactType(graph *rdf.Graph, subject rdf.Term, expected string) bool {
-	for _, typ := range graph.Objects(subject, rdf.RDFType) {
+	for _, typ := range graph.ObjectsView(subject, rdf.RDFType) {
 		if ontology.LocalName(typ.Value) == expected {
 			return true
 		}
@@ -282,7 +350,7 @@ func mappingExpressionType(graph *rdf.Graph, subject rdf.Term) bool {
 	if mappingHasExactType(graph, subject, "Expression") {
 		return true
 	}
-	for _, typ := range graph.Objects(subject, rdf.RDFType) {
+	for _, typ := range graph.ObjectsView(subject, rdf.RDFType) {
 		if expressionMetaclasses[ontology.LocalName(typ.Value)] {
 			return true
 		}

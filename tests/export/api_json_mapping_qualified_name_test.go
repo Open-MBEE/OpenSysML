@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
@@ -40,7 +39,7 @@ func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			original, err := convert.SysMLToRDF(path, source)
+			original, err := cachedSysMLToRDF(path, source)
 			if err != nil {
 				if isExample {
 					skippedExamples++

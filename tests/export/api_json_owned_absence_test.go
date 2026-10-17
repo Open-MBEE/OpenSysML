@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
@@ -20,7 +19,7 @@ func TestAPIJSONUnnamedUsageWritesOwnedAbsences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	graph, err := convert.SysMLToRDF(path, source)
+	graph, err := cachedSysMLToRDF(path, source)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +72,7 @@ func TestAPIJSONKeysStayWithinMetaclassPropertySets(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			graph, err := convert.SysMLToRDF(path, source)
+			graph, err := cachedSysMLToRDF(path, source)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -116,7 +115,7 @@ func TestAPIJSONPropertiesWithPositiveLowerBoundsAreNeverNullForConvertFixtures(
 			if err != nil {
 				t.Fatal(err)
 			}
-			graph, err := convert.SysMLToRDF(path, source)
+			graph, err := cachedSysMLToRDF(path, source)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -156,7 +155,7 @@ func TestAPIJSONWriteReadWriteIsByteIdenticalForConvertFixtures(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			graph, err := convert.SysMLToRDF(path, source)
+			graph, err := cachedSysMLToRDF(path, source)
 			if err != nil {
 				t.Fatal(err)
 			}

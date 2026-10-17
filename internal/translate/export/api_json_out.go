@@ -64,7 +64,7 @@ func apiJSONElements(graph *rdf.Graph) ([]apiJSONObject, error) {
 	subjects := settled.Subjects()
 	elements := make([]apiJSONObject, 0, len(subjects))
 	evaluation := newAPIJSONEvaluation(settled)
-	mappingNames := mappingQualifiedNames(graphWithoutQualifiedNames(settled))
+	mappingNames := mappingQualifiedNames(settled)
 	for _, subject := range subjects {
 		element, err := apiJSONElementWithEvaluation(settled, subject, evaluation, mappingNames)
 		if err != nil {
@@ -155,7 +155,7 @@ type apiJSONNameReference struct {
 // apiJSONElement builds the element object for one subject: "@type", "@id",
 // then each property in statement order.
 func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
-	mappingNames := mappingQualifiedNames(graphWithoutQualifiedNames(graph))
+	mappingNames := mappingQualifiedNames(graph)
 	return apiJSONElementWithEvaluation(graph, subject, newAPIJSONEvaluation(graph), mappingNames)
 }
 
