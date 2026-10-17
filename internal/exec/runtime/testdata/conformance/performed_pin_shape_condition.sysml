@@ -18,9 +18,11 @@ package test {
 	}
 
 	action probe {
-		perform action g : Gate {
+		first start;
+		then perform action g : Gate {
 			in flag = true;
 			in limit = 3;
 		}
+		then done;
 	}
 }

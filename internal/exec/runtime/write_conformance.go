@@ -176,8 +176,16 @@ func (ctx *Context) checkTargetHeld(scope *symbols.Scope, what func() string, ta
 	if msg := ctx.uniquenessRefusal(target.unique, target.holdsSet, value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}
-	if countJudged && shaped {
+	if !countJudged {
+		return nil
+	}
+	if shaped {
 		return ctx.shapeForTarget(target, value)
+	}
+	// A computed host keeps a multi-valued target as computed, but a target of at most
+	// one value still holds the element: a [1] output fed from a bare pin is its value.
+	if target.mult.Upper.Known && !multiValued(target.mult) {
+		*value = soleElement(*value)
 	}
 	return nil
 }
