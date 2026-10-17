@@ -64,6 +64,7 @@ never stopped.
 const model = await connection.load("model.sysml");
 model.hash;                                  // what the service holds it under
 model.diagnostics;                           // in the order the service reported them
+await model.refreshDiagnostics({ enableLint: ["rounded-real-literal"] }); // under a lint selection
 model.hasErrors;                             // any error-severity diagnostic
 
 const car = await model.symbol("Demo::Car"); // short name, FQN or id
@@ -254,7 +255,11 @@ Beside the model reads above, the client covers every RPC the service offers:
   schedule — the two families refuse each other's `schedule`, as the wire does.
   `model.executeState(symbolId, { trace: true })` requests typed `DocumentEvent`
   records in `trace` and reports discarded records in `traceDropped`; it requires
-  `state_trace` and cannot be combined with an explore schedule;
+  `state_trace` and cannot be combined with an explore schedule; both calls take
+  the run options of the `sysml` command — `advance` (simulated seconds, reported
+  back in `finalTime`), `seed`, `draws` (`"random"`, `"min"`, `"max"` or
+  `"average"`) and `clockStep` — and `runAnalysis` takes `toolDryRun` to preview
+  the first external tool call instead of making it;
 - **`model.verifyConstraint`/`verifyRequirement`/`verifySatisfaction`/`satisfied`,
   `validateInstance`, `calc`, `runAnalysis`, `runSweep`** (ranges as
   `parameter → [from, to]` or `[from, to, step]`), all taking `engine`,

@@ -195,7 +195,7 @@ def _add_sequence_message(add, operation_data, depth=0):
     return extended
 from opensysml.engines import ENGINE_AUTO, EngineInfo, Standing
 from opensysml.verdict import (
-    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Validation,
+    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, ToolDryRun, Validation,
     Verdict, VerificationVerdict,
     QUESTION_EVALUATE,
 )
@@ -374,6 +374,15 @@ def _question_field(question):
     if not question or question == QUESTION_EVALUATE:
         return ""
     return question
+
+
+def _set_run_options(request, advance, seed):
+    """Set the optional run fields a request carries only when given: proto3 presence tells
+    the service an unset advance from a zero one."""
+    if advance is not None:
+        request.advance = float(advance)
+    if seed is not None:
+        request.seed = int(seed)
 
 
 def _refuse_exploring(schedule, method):
@@ -2043,13 +2052,25 @@ class Connection:
         return Instance(response.instance, graph)
     
     def execute_action(self, action_symbol_id, model_hash, inputs=None,
-                       schedule=None, performer=None):
+                       schedule=None, performer=None, advance=None, seed=None,
+                       draws=None, clock_step=0.0):
         """Execute an action definition.
         
         Args:
             action_symbol_id (str): FQN of action def
             model_hash (str): Hash from ParseFile response
             inputs (dict, optional): Input parameter name → value
+            advance (float, optional): Simulated seconds to run for, as
+                ``sysml -advance`` does; the action is started and its clock
+                moved by this much, and one not completed by then fails with
+                the instant it waits for. ``None`` runs it to completion
+            seed (int, optional): Seed of the model's own draws (``sysml
+                -seed``); the same seed draws the same run
+            draws (str, optional): How RandomFunctions draws resolve (``sysml
+                -draws``): ``"random"`` (the default), ``"min"``, ``"max"`` or
+                ``"average"``
+            clock_step (float): Seconds the run's clock ticks by (``sysml
+                -clock-step``); 0 is a continuous clock
             schedule (str, optional): Scheduling policy the run resolves its
                 choice points under — ``"declared"``, ``"reverse"`` (the
                 default) or ``"seed:<n>"`` — spelled as ``sysml -schedule``
@@ -2093,7 +2114,8 @@ class Connection:
             InvalidRequestError: If the schedule names no policy
         """
         _refuse_exploring(schedule, "explore_action")
-        response = self._execute_action(action_symbol_id, model_hash, inputs, schedule, performer)
+        response = self._execute_action(action_symbol_id, model_hash, inputs, schedule, performer,
+                                        advance=advance, seed=seed, draws=draws, clock_step=clock_step)
         if response.error:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
             raise ExecutionError(response.error, diagnostics=wrapped_diags)
@@ -2143,7 +2165,8 @@ class Connection:
         response = self._execute_action(action_symbol_id, model_hash, inputs, schedule, performer)
         return self._exploration_of(response)
 
-    def _execute_action(self, action_symbol_id, model_hash, inputs, schedule, performer):
+    def _execute_action(self, action_symbol_id, model_hash, inputs, schedule, performer,
+                        advance=None, seed=None, draws=None, clock_step=0.0):
         """Send an ExecuteAction request, the schedule's and performer's capabilities checked first."""
         pb_inputs = {name: self._python_to_value(val) for name, val in (inputs or {}).items()}
         capabilities = self._run_capabilities(schedule, performer)
@@ -2153,12 +2176,16 @@ class Connection:
             inputs=pb_inputs,
             schedule=schedule or "",
             performer_symbol_id=performer or "",
+            draws=draws or "",
+            clock_step=clock_step,
         )
+        _set_run_options(req, advance, seed)
         with translate_rpc_errors(unimplemented=self._capability_refusal(capabilities)):
             return self._stub.ExecuteAction(req)
     
     def execute_state(self, state_machine_symbol_id, model_hash, events=None,
-                      schedule=None, performer=None, trace=False):
+                      schedule=None, performer=None, trace=False, advance=None,
+                      seed=None, draws=None, clock_step=0.0):
         """Execute a state machine.
         
         Args:
@@ -2196,7 +2223,8 @@ class Connection:
             InvalidRequestError: If the schedule names no policy
         """
         _refuse_exploring(schedule, "explore_state")
-        response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule, performer, trace)
+        response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule, performer, trace,
+                                       advance=advance, seed=seed, draws=draws, clock_step=clock_step)
         if response.error:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
             raise ExecutionError(
@@ -2247,7 +2275,8 @@ class Connection:
         response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule, performer)
         return self._exploration_of(response)
 
-    def _execute_state(self, state_machine_symbol_id, model_hash, events, schedule, performer, trace=False):
+    def _execute_state(self, state_machine_symbol_id, model_hash, events, schedule, performer, trace=False,
+                       advance=None, seed=None, draws=None, clock_step=0.0):
         """Send an ExecuteState request, the schedule's and performer's capabilities checked first."""
         capabilities = self._run_capabilities(schedule, performer, trace)
         req = sysml_pb2.ExecuteStateRequest(
@@ -2257,7 +2286,10 @@ class Connection:
             schedule=schedule or "",
             performer_symbol_id=performer or "",
             trace=trace,
+            draws=draws or "",
+            clock_step=clock_step,
         )
+        _set_run_options(req, advance, seed)
         with translate_rpc_errors(unimplemented=self._capability_refusal(capabilities)):
             return self._stub.ExecuteState(req)
 
@@ -2299,8 +2331,13 @@ class Connection:
             diagnostics=[Diagnostic(d) for d in pb.diagnostics],
         )
     
-    def list_engines(self):
+    def list_engines(self, probe=False):
         """List the analysis engines the service answers with, as ``sysml -engines`` does.
+
+        Args:
+            probe (bool): Start each external engine's process once and check
+                its handshake against its manifest, reporting the outcome as
+                its status, as ``sysml -engines -probe`` does
 
         Returns:
             list[EngineInfo]: One per engine, in name order, with the strength
@@ -2314,7 +2351,7 @@ class Connection:
         with translate_rpc_errors(
             unimplemented=self._capability_refusal((CAPABILITY_ENGINES,))
         ):
-            response = self._stub.ListEngines(sysml_pb2.ListEnginesRequest())
+            response = self._stub.ListEngines(sysml_pb2.ListEnginesRequest(probe=probe))
         return [EngineInfo.of(pb) for pb in response.engines]
 
     def verify_constraint(self, symbol_id, model_hash, subject_symbol_id=None, engine=None,
@@ -2661,7 +2698,7 @@ class Connection:
         return CalcResult(value, outputs, diagnostics=diagnostics, standing=Standing.of(response))
 
     def run_analysis(self, symbol_id, model_hash, subject=None, arguments=None,
-                     named_arguments=None, schedule=None, engine=None):
+                     named_arguments=None, schedule=None, engine=None, tool_dry_run=False):
         """Run an analysis case, as the REPL's ``%analysis`` does.
 
         The subject named is instantiated and bound as the case's subject; a
@@ -2721,7 +2758,8 @@ class Connection:
                 "result: use explore_analysis"
             )
         response = self._run_analysis(
-            symbol_id, model_hash, subject, arguments, named_arguments, schedule, engine
+            symbol_id, model_hash, subject, arguments, named_arguments, schedule, engine,
+            tool_dry_run=tool_dry_run,
         )
 
         diagnostics = [Diagnostic(d) for d in response.diagnostics]
@@ -2753,6 +2791,9 @@ class Connection:
             verifications=_verifications_of(response),
             evaluations=_evaluations_of(response, resolve),
             standing=Standing.of(response),
+            tool_dry_run=(
+                ToolDryRun(response.tool_dry_run) if response.HasField("tool_dry_run") else None
+            ),
         )
         if response.error:
             raise AnalysisRunError(response.error, result, diagnostics=diagnostics)
@@ -2801,7 +2842,7 @@ class Connection:
         return self._exploration_of(response, response.failure_reason)
 
     def _run_analysis(self, symbol_id, model_hash, subject, arguments,
-                      named_arguments, schedule, engine):
+                      named_arguments, schedule, engine, tool_dry_run=False):
         """Send a RunAnalysis request, its capabilities checked first."""
         self._require_verification()
         self._require_schedule(schedule)
@@ -2813,6 +2854,7 @@ class Connection:
             arguments=[self._python_to_value(arg) for arg in (arguments or [])],
             schedule=schedule or "",
             engine=_engine_field(engine),
+            tool_dry_run=tool_dry_run,
         )
         for name, arg in (named_arguments or {}).items():
             request.named_arguments[name].CopyFrom(self._python_to_value(arg))

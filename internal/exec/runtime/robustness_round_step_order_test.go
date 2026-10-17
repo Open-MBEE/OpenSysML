@@ -48,7 +48,7 @@ func runRoundStepOrder(t *testing.T, policy *SchedulePolicy, signals ...string) 
 		t.Fatal(err)
 	}
 	for _, signal := range signals {
-		exec.sendSignal(signal, nil)
+		exec.SendSignal(signal, nil)
 	}
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
