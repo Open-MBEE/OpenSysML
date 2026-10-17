@@ -1633,6 +1633,7 @@ func (e *stmtEngine) condition(expr ast.Node, scope *symbols.Scope, what string)
 	if err != nil {
 		return false, fmt.Errorf("eval %s: %w", what, err)
 	}
+	value = soleElement(value)
 	if value.Kind != ValConst || value.Const.Kind != semantics.ValBool {
 		return false, fmt.Errorf("%s: %s must evaluate to a Boolean, got %s",
 			e.host.describe(), what, value.Kind)

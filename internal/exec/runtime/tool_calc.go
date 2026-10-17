@@ -93,7 +93,8 @@ func (ctx *Context) addToolCallParameter(call *ToolCall, shape *calcShape, param
 		// An optional input bound to null is omitted: nothing is sent for it,
 		// as an action's unbound optional sends none.
 		if bound && (value.Kind != ValNull || !optional) {
-			sent, err := toolInput(tool, param.Symbol, value)
+			single := !multiValued(ctx.model.semantics.EffectiveParameterRange(param.Symbol))
+			sent, err := toolInput(tool, param.Symbol, value, single)
 			if err != nil {
 				return err
 			}

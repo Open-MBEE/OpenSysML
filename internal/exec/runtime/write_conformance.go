@@ -192,7 +192,7 @@ func (ctx *Context) checkNamedWriteComputed(scope *symbols.Scope, where, name st
 // its values, as an occurrence feature does (admitted): a multi-valued target holds a
 // collection however the value was written, a single-valued one its sole element.
 func (ctx *Context) shapeForTarget(target *writeTarget, value *Value) error {
-	if !target.mult.Upper.Known || value.Kind == ValInvalid {
+	if !target.mult.Upper.Known || value.Kind == ValInvalid || value.Kind == ValUndetermined {
 		return nil
 	}
 	if !multiValued(target.mult) {

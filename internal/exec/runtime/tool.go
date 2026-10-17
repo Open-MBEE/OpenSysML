@@ -419,7 +419,8 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 					errUnboundParameter, symbolText(e.performed), name)
 			}
 			if bound {
-				sent, err := toolInput(tool, param.Symbol, held)
+				single := !multiValued(e.ctx.model.semantics.EffectiveParameterRange(param.Symbol))
+				sent, err := toolInput(tool, param.Symbol, held, single)
 				if err != nil {
 					return nil, err
 				}
@@ -499,8 +500,13 @@ func (ctx *Context) performanceParameters(performed, callee *symbols.Symbol) ([]
 }
 
 // toolInput is one parameter's value as the protocol carries it: a number, truth or string
-// as is, a quantity as the run holds it, its unit spelt by short names (`km/h`).
-func toolInput(tool string, param *symbols.Symbol, held Value) (ToolValue, error) {
+// as is, a quantity as the run holds it, its unit spelt by short names (`km/h`). A
+// single-valued parameter sends the element of a one-element collection, a multi-valued
+// one its collection, however many it holds.
+func toolInput(tool string, param *symbols.Symbol, held Value, single bool) (ToolValue, error) {
+	if single {
+		held = soleElement(held)
+	}
 	if v, ok := ToolValueOf(held); ok {
 		return v, nil
 	}
@@ -509,10 +515,9 @@ func toolInput(tool string, param *symbols.Symbol, held Value) (ToolValue, error
 }
 
 // ToolValueOf is a value as the tool protocol carries it; false for one it does not carry.
-// A one-element collection is its element; a sequence carries its elements in Items,
-// with a unit every element shares hoisted to the sequence's Unit.
+// A sequence carries its elements in Items; a unit every element shares is hoisted
+// to the sequence's Unit.
 func ToolValueOf(held Value) (ToolValue, bool) {
-	held = soleElement(held)
 	switch held.Kind {
 	case ValConst:
 		if held.Const.Kind == semantics.ValInvalid || held.Const.Kind == semantics.ValInfinity {
