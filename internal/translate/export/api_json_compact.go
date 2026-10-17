@@ -15,6 +15,12 @@ import (
 // CompactAPIJSONFormat names the document WriteAPIJSONCompact writes.
 const CompactAPIJSONFormat = "api-json-compact/1"
 
+var compactOwnershipSurvivors = []string{
+	"owningMembership",
+	"membershipOwningNamespace",
+	"ownedMemberElement",
+}
+
 // CompactAPIJSONOptions chooses what the compact form leaves out.
 type CompactAPIJSONOptions struct {
 	// OmitDerived leaves out every property the metamodel derives, except the
@@ -50,7 +56,16 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
-	keep := make(map[string]bool, len(opts.KeepDerived))
+	keepSize := len(opts.KeepDerived)
+	if opts.OmitDerived {
+		keepSize += len(compactOwnershipSurvivors)
+	}
+	keep := make(map[string]bool, keepSize)
+	if opts.OmitDerived {
+		for _, name := range compactOwnershipSurvivors {
+			keep[name] = true
+		}
+	}
 	for _, name := range opts.KeepDerived {
 		keep[name] = true
 	}
