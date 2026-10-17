@@ -9,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 )
 
 // tankModel performs an action on a part whose constraint one schedule of the
@@ -164,5 +165,80 @@ func TestGRPCRobustnessCheckBehavior(t *testing.T) {
 				t.Fatalf("verdict %q error %q, want undecided with %q", resp.Verdict, resp.Error, tc.want)
 			}
 		})
+	}
+}
+
+func TestCheckBehaviorDefaultsToTheCheckEngine(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, tankModel, "check-tank-default")
+	resp, err := srv.CheckBehavior(ctx, &pb.CheckBehaviorRequest{
+		ModelHash: hash, ActionSymbolId: "Plant::Tank::fill", PerformerSymbolId: "Plant::tank",
+	})
+	if err != nil || resp.GetError() != "" {
+		t.Fatalf("CheckBehavior: %v %q", err, resp.GetError())
+	}
+	if resp.Engine != "check" {
+		t.Errorf("engine %q, want the check engine when the request selects none", resp.Engine)
+	}
+	// With nothing asked, the check engine compares every attribute at the end of
+	// each schedule, as `sysml -engine check -action` does: fill leaves level as 1 or 2.
+	if resp.Verdict != "fails" || resp.Search == nil || resp.Search.States != 11 {
+		t.Errorf("verdict %q search %v, want every schedule of fill searched and its divergence judged; lines %v", resp.Verdict, resp.Search, resp.Lines)
+	}
+	if len(resp.Divergences) != 1 || resp.Divergences[0].Feature != "this.level" {
+		t.Errorf("divergences %v, want this.level ending as two values", resp.Divergences)
+	}
+	if len(resp.Finals) < 2 {
+		t.Errorf("finals %v, want each schedule's outcome; lines %v", resp.Finals, resp.Lines)
+	}
+}
+
+func TestCheckBehaviorBindsTheInputs(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, `package Plant {
+    private import ScalarValues::*;
+    part def Tank {
+        attribute level : Integer = 0;
+        constraint low { level < 2 }
+        action fill { in amount : Integer = 1; assign level := amount; }
+    }
+    part tank : Tank;
+}
+`, "check-tank-inputs")
+	defaulted, err := srv.CheckBehavior(ctx, &pb.CheckBehaviorRequest{
+		ModelHash: hash, ActionSymbolId: "Plant::Tank::fill", PerformerSymbolId: "Plant::tank",
+		CheckProperty: []string{"Plant::Tank::low"},
+	})
+	if err != nil || defaulted.GetError() != "" || defaulted.Verdict != "holds" {
+		t.Fatalf("CheckBehavior with the default amount: %v %q verdict %q; lines %v", err, defaulted.GetError(), defaulted.GetVerdict(), defaulted.GetLines())
+	}
+	bound, err := srv.CheckBehavior(ctx, &pb.CheckBehaviorRequest{
+		ModelHash: hash, ActionSymbolId: "Plant::Tank::fill", PerformerSymbolId: "Plant::tank",
+		CheckProperty: []string{"Plant::Tank::low"},
+		Inputs:        map[string]*pb.Value{"amount": {Kind: &pb.Value_IntValue{IntValue: 5}}},
+	})
+	if err != nil || bound.GetError() != "" {
+		t.Fatalf("CheckBehavior with amount bound: %v %q", err, bound.GetError())
+	}
+	if bound.Verdict != "fails" || len(bound.Violations) != 1 {
+		t.Errorf("verdict %q violations %v, want the bound amount of 5 to break low; lines %v", bound.Verdict, bound.Violations, bound.Lines)
+	}
+}
+
+func TestCheckBudgetFollowsTheSelection(t *testing.T) {
+	base := analysis.Budget{Depth: 7, Runs: 9}
+	if got := checkBudget(base, analysis.Only(analysis.CheckEngineName), 0, 0); got.Depth != analysis.DefaultCheckDepth || got.Runs != analysis.DefaultCheckStates {
+		t.Errorf("check engine alone: %+v, want its defaults", got)
+	}
+	if got := checkBudget(base, analysis.Only(analysis.SMTEngineName), 0, 0); got.Depth != 0 || got.Runs != 9 {
+		t.Errorf("smt engine alone: %+v, want a zero depth for its own unrolling", got)
+	}
+	if got := checkBudget(base, analysis.Auto(), 0, 0); got.Depth != 7 || got.Runs != 9 {
+		t.Errorf("every engine: %+v, want the policy's figures kept", got)
+	}
+	if got := checkBudget(base, analysis.Only(analysis.SMTEngineName), 3, 4); got.Depth != 3 || got.Runs != 4 {
+		t.Errorf("bounds set: %+v, want them under every selection", got)
 	}
 }

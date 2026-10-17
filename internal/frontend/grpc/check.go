@@ -40,7 +40,13 @@ func (s *Service) CheckBehavior(ctx context.Context, req *pb.CheckBehaviorReques
 			return nil, err
 		}
 	}
-	selection, err := s.engineSelection(req.GetEngine())
+	// A check is the check engine's unless the request selects otherwise, as the
+	// CLI's -check-* flags are read under -engine check, smt or all.
+	engine := req.GetEngine()
+	if engine == "" {
+		engine = analysis.CheckEngineName
+	}
+	selection, err := s.engineSelection(engine)
 	if err != nil {
 		return nil, err
 	}
@@ -102,12 +108,9 @@ func (s *Service) CheckBehavior(ctx context.Context, req *pb.CheckBehaviorReques
 		}
 		inv := &runtime.Invocation{}
 		if action {
-			exec, err := rt.CreateActionExecutorFor(sym, self)
+			exec, err := rt.CreateActionExecutorWithInputs(sym, self, inputs)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create executor: %w", err)
-			}
-			if len(inputs) > 0 {
-				exec.SetInputs(inputs)
 			}
 			inv.Actions = append(inv.Actions, exec)
 			return inv, nil
@@ -161,20 +164,15 @@ func (s *Service) CheckBehavior(ctx context.Context, req *pb.CheckBehaviorReques
 	}
 	unroll := int(req.GetCheckUnroll())
 	kind := analysis.CheckKind(check, holds, unroll)
+	if selection == analysis.Only(analysis.SMTEngineName) && kind == analysis.Outcomes {
+		kind = analysis.Holds
+	}
 	free := analysis.FreeNothing
 	if len(req.GetCheckInput()) > 0 || len(req.GetCheckAssume()) > 0 {
 		free = analysis.FreeInputs
 	}
 	policy := runtime.DefaultExploreSchedulePolicy
-	budget := analysis.BudgetOf(s.budgets, policy, kind, s.jobs)
-	budget.Depth = analysis.DefaultCheckDepth
-	budget.Runs = analysis.DefaultCheckStates
-	if depth := int(req.GetCheckDepth()); depth > 0 {
-		budget.Depth = depth
-	}
-	if states := int(req.GetCheckStates()); states > 0 {
-		budget.Runs = states
-	}
+	budget := checkBudget(analysis.BudgetOf(s.budgets, policy, kind, s.jobs), selection, int(req.GetCheckDepth()), int(req.GetCheckStates()))
 	budget.Unroll = unroll
 	if timeout := req.GetCheckTimeout(); timeout > 0 {
 		d := time.Duration(timeout * float64(time.Second))
@@ -350,4 +348,28 @@ func observationNotes(scope []runtime.ObservationReason) []string {
 		notes = append(notes, string(reason))
 	}
 	return notes
+}
+
+// checkBudget bounds a check as the REPL does: the check engine alone searches
+// under its own default depth and state count, the smt engine alone unrolls to
+// its own default (a zero depth), and beside other engines the figures are the
+// policy's; a depth or state count the request sets stands under every selection.
+func checkBudget(budget analysis.Budget, selection analysis.Selection, depth, states int) analysis.Budget {
+	checkOnly := selection == analysis.Only(analysis.CheckEngineName)
+	symbolic := selection == analysis.Only(analysis.SMTEngineName)
+	switch {
+	case depth > 0:
+		budget.Depth = depth
+	case checkOnly:
+		budget.Depth = analysis.DefaultCheckDepth
+	case symbolic:
+		budget.Depth = 0
+	}
+	switch {
+	case states > 0:
+		budget.Runs = states
+	case checkOnly:
+		budget.Runs = analysis.DefaultCheckStates
+	}
+	return budget
 }
