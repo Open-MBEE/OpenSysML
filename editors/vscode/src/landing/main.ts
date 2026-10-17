@@ -539,9 +539,10 @@ function mount(root: HTMLElement, scene: Scene): Mounted {
   // read parses the source on the engine; it reports diagnostics and keeps the last good model.
   async function read(source: string, verb: string): Promise<LandingModel | undefined> {
     const started = performance.now();
+    const revision = editSequence;
     const outcome = await readModel(await engine(), scene, source);
-    if (!srcEl.readOnly && srcEl.value !== "" && srcEl.value !== source) {
-      // The editor's text moved on while the worker read this one; the edit it became reads next.
+    if (revision !== editSequence) {
+      // The editor took input while the worker read this text; that edit reads next.
       return undefined;
     }
     if (!outcome.model) {
