@@ -31,7 +31,8 @@ type Data struct {
 	Notes []Note
 	// Shown names the optional notation elements the rendering draws.
 	Shown []string
-	// Notices are what the rendering could not represent.
+	// Notices are what the rendering could not represent and, when it has no
+	// node, edge, row or lane, why it has none.
 	Notices []string
 }
 
@@ -123,6 +124,10 @@ func (r *Rendering) data(ports *portView) Data {
 	}
 	if refusals := refusedPictureNotices(r.Pictures, r.pictureRefusals()); len(refusals) > 0 {
 		out.Notices = append(append([]string(nil), r.Notices...), refusals...)
+	}
+	// A consumer given no node, edge, row or lane is told why, rather than left to show nothing.
+	if r.blank() {
+		out.Notices = append(append([]string(nil), out.Notices...), r.blankNotice())
 	}
 	for _, root := range r.Roots {
 		out.Nodes = appendNodeData(out.Nodes, root, "", ports)

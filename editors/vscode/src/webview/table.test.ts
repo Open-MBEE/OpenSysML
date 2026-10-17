@@ -58,7 +58,12 @@ test("tableOf shows an empty state rather than a blank panel", () => {
   const empty = tableOf({ ...result, rows: [] });
   assert.equal(empty.tagName, "P");
   assert.equal(empty.className, "empty");
-  assert.equal(empty.textContent, "No elements to list.");
+  assert.equal(empty.textContent, "Nothing to draw: the rendering has no node, edge or row.");
+});
+
+test("tableOf's empty state says why, as the server's notices have it", () => {
+  const empty = tableOf({ ...result, rows: [], notices: ["the view exposes nothing; the rendering is empty"] });
+  assert.equal(empty.textContent, "Nothing to draw:\nthe view exposes nothing; the rendering is empty");
 });
 
 test("tableOf derives an empty header as wide as the widest row when columns are absent", () => {

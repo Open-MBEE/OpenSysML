@@ -645,7 +645,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 
 	// A checked model may be named as a directory or a glob as well as by file, so
 	// the paths are expanded to the files they stand for before loading.
-	paths, err := repl.ExpandPaths(files)
+	paths, err := sess.ExpandPaths(files)
 	if err != nil {
 		rep.failed(err.Error())
 		if len(files) == 1 {

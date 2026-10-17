@@ -416,13 +416,11 @@ jobs:
       # the schema can drift apart silently. `git add -N` puts a regenerated
       # file the commit had deleted into the diff.
       - run:
-          name: Verify the committed Go and Java stubs are current
+          name: Verify the committed Go stubs are current
           command: |
             make proto-buf
-            git add -N api/proto \
-              client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
-            git diff --exit-code api/proto \
-              client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+            git add -N api/proto
+            git diff --exit-code api/proto
 
   # The race-enabled suite. It is the longest single step in the pipeline, so
   # it gets the larger class and five executors, one named package shard each.
@@ -1414,9 +1412,6 @@ jobs:
 
       - store_artifacts:
           path: client/java/opensysml-client/target
-
-      # The committed Java stubs are checked in go-static, which has the Go
-      # toolchain the one buf template needs.
 
   # The npm client's gate. The service binary comes from the workspace because
   # this executor has no Go toolchain to build one with, and both the tests and

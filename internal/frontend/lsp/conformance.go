@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"slices"
 
 	"go.lsp.dev/protocol"
 
@@ -19,6 +20,10 @@ const disabledLintsKey = "disabledLints"
 // enabledLintsKey is the setting naming the opt-in lints an editor keeps in the
 // diagnostics, spelled as the CLI's -enable-lint flag.
 const enabledLintsKey = "enabledLints"
+
+// libraryRootsKey is the setting naming the directories installed projects are
+// looked for under, spelled as the CLI's -library-root flag.
+const libraryRootsKey = "libraryRoots"
 
 // settingsSection is the section an editor nests this server's settings under.
 const settingsSection = "sysml"
@@ -42,19 +47,45 @@ func (s *Server) applyConformanceSettings(ctx context.Context, payload any) bool
 }
 
 // DidChangeConfiguration applies the settings the client pushed. Only the
-// conformance mode and the disabled and enabled lints are read; a payload that
-// mentions none of them changes nothing.
+// conformance mode, the disabled and enabled lints and the library roots are
+// read; a payload that mentions none of them changes nothing.
 func (s *Server) DidChangeConfiguration(ctx context.Context, params *protocol.DidChangeConfigurationParams) error {
 	if params == nil {
 		return nil
 	}
 	modeChanged := s.applyConformanceSettings(ctx, params.Settings)
 	lintsChanged := s.applyLintSettings(ctx, params.Settings)
+	if s.applyLibraryRootsSetting(params.Settings) {
+		// The walk republishes the open documents, whose imports may now resolve.
+		s.reloadDependencies(ctx)
+		return nil
+	}
 	if !modeChanged && !lintsChanged {
 		return nil
 	}
 	s.republishOpenDiagnostics(ctx)
 	return nil
+}
+
+// applyLibraryRootsSetting replaces the library roots with what the list
+// setting names, and reports whether they changed: a payload without the
+// setting, or with a value that is not a list of strings, leaves them alone.
+func (s *Server) applyLibraryRootsSetting(payload any) bool {
+	value, ok := sysmlSetting(payload, libraryRootsKey)
+	if !ok {
+		return false
+	}
+	roots, ok := stringListSetting(value)
+	if !ok {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if slices.Equal(roots, s.libraryRoots) {
+		return false
+	}
+	s.libraryRoots = roots
+	return true
 }
 
 // applyLintSettings replaces the lints the workspace leaves out, and the opt-in
@@ -74,17 +105,9 @@ func (s *Server) applyLintSetting(ctx context.Context, payload any, key string, 
 	if !ok {
 		return false
 	}
-	list, ok := value.([]any)
+	codes, ok := stringListSetting(value)
 	if !ok {
 		return false
-	}
-	codes := make([]string, 0, len(list))
-	for _, item := range list {
-		code, isString := item.(string)
-		if !isString {
-			return false
-		}
-		codes = append(codes, code)
 	}
 	if err := set(codes); err != nil {
 		if s.client != nil {
@@ -126,6 +149,24 @@ func sysmlSetting(payload any, key string) (any, bool) {
 		}
 	}
 	return nil, false
+}
+
+// stringListSetting reads a JSON list of strings, refusing a value of any
+// other shape.
+func stringListSetting(value any) ([]string, bool) {
+	list, ok := value.([]any)
+	if !ok {
+		return nil, false
+	}
+	out := make([]string, 0, len(list))
+	for _, item := range list {
+		text, isString := item.(string)
+		if !isString {
+			return nil, false
+		}
+		out = append(out, text)
+	}
+	return out, true
 }
 
 // boolSetting reads a JSON boolean, ignoring a value of any other type: a

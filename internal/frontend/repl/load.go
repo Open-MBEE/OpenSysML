@@ -51,7 +51,7 @@ func (s *Session) LoadPathsReport(paths []string) (LoadReport, error) {
 }
 
 func (s *Session) loadPathsReport(paths []string, opts loadOptions) (LoadReport, error) {
-	files, err := ExpandPaths(paths)
+	files, err := s.expandPaths(paths)
 	if err != nil {
 		return LoadReport{}, err
 	}
@@ -105,9 +105,16 @@ func conversionWarnings(files []SourceFile, verbosity Verbosity) []string {
 
 // ExpandPaths turns the paths a caller was given — files, directories to walk
 // for .sysml/.kerml files and .ipynb notebooks, or glob patterns — into the
-// sources to load, in a deterministic order and without duplicates.
-func ExpandPaths(paths []string) ([]string, error) {
-	files, err := project.Expand(expandHomes(paths))
+// sources to load, in a deterministic order and without duplicates. A directory
+// holding a project interchange file stands for the project's own files and
+// those of the installed projects it uses, found under the session's library roots.
+func (s *Session) ExpandPaths(paths []string) ([]string, error) {
+	defer s.enter()()
+	return s.expandPaths(paths)
+}
+
+func (s *Session) expandPaths(paths []string) ([]string, error) {
+	files, err := s.discovery().Expand(expandHomes(paths))
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +122,25 @@ func ExpandPaths(paths []string) ([]string, error) {
 		return nil, errors.New("no model files to load")
 	}
 	return files, nil
+}
+
+// SetLibraryRoots replaces the directories installed projects are looked for
+// under, besides the well-known ones beneath a loaded file's project.
+func (s *Session) SetLibraryRoots(roots []string) {
+	defer s.enter()()
+	s.libraryRoots = append([]string(nil), roots...)
+}
+
+// LibraryRoots reports the directories installed projects are looked for under.
+func (s *Session) LibraryRoots() []string {
+	s.state.Lock()
+	defer s.state.Unlock()
+	return append([]string(nil), s.libraryRoots...)
+}
+
+// discovery is the search for installed projects under the session's library roots.
+func (s *Session) discovery() project.Discovery {
+	return project.Discovery{Roots: s.libraryRoots}
 }
 
 // reading is what readSources read: the sources a load submits, and what the
@@ -135,7 +161,7 @@ func (s *Session) readWithDependencies(paths []string, opts loadOptions) (readin
 	if err != nil {
 		return reading{}, err
 	}
-	deps := project.DependenciesOf(read.deps, s.ws.IsLibraryRoot)
+	deps := s.discovery().DependenciesOf(read.deps, s.ws.IsLibraryRoot)
 	if len(deps) == 0 {
 		return read, nil
 	}
