@@ -66,7 +66,7 @@ func completionOrderReplay(t *testing.T, lines string) (string, error, error) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	return FormatValue(exec.StateData()["log"]), err, ctx.Unfollowed()
 }

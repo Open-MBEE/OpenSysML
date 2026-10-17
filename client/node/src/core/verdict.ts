@@ -2,6 +2,7 @@
 // them: validations, calc results, analysis results and sweep tables.
 
 import type {
+  ToolDryRun as PbToolDryRun,
   CaseEvaluation as PbCaseEvaluation,
   RecordRunResponse,
   RunAnalysisResponse,
@@ -369,6 +370,60 @@ export class CaseEvaluation {
   }
 }
 
+/** The external tool call an analysis would make, previewed without running the tool. */
+export interface ToolDryRun {
+  /** The qualified name of the tool-executing action reached. */
+  readonly action: string;
+  readonly tool: string;
+  readonly version: string;
+  readonly manifest: string;
+  readonly executable: string;
+  readonly protocol: string;
+  readonly args: readonly string[];
+  readonly env: readonly string[];
+  readonly cwd: string;
+  readonly stdin: string;
+  readonly stdinData: string;
+  /** The input file written, or undefined when the tool reads none. */
+  readonly inputFile?: { readonly name: string; readonly format: string; readonly data: string } | undefined;
+  readonly outputDir: boolean;
+  readonly inputs: readonly {
+    readonly variable: string;
+    readonly parameter: string;
+    readonly value: string;
+    readonly unit: string;
+  }[];
+  readonly outputs: readonly { readonly variable: string; readonly parameter: string }[];
+  readonly replySource: string;
+  /** The preview as `sysml -tool-dry-run` prints it. */
+  readonly lines: readonly string[];
+}
+
+/** Read a ToolDryRun message into its preview. */
+export function toolDryRunOf(pb: PbToolDryRun): ToolDryRun {
+  return {
+    action: pb.action,
+    tool: pb.tool,
+    version: pb.version,
+    manifest: pb.manifest,
+    executable: pb.executable,
+    protocol: pb.protocol,
+    args: [...pb.args],
+    env: [...pb.env],
+    cwd: pb.cwd,
+    stdin: pb.stdin,
+    stdinData: pb.stdinData,
+    inputFile: pb.inputFile
+      ? { name: pb.inputFile.name, format: pb.inputFile.format, data: pb.inputFile.data }
+      : undefined,
+    outputDir: pb.outputDir,
+    inputs: pb.inputs.map((i) => ({ variable: i.variable, parameter: i.parameter, value: i.value, unit: i.unit })),
+    outputs: pb.outputs.map((o) => ({ variable: o.variable, parameter: o.parameter })),
+    replySource: pb.replySource,
+    lines: [...pb.lines],
+  };
+}
+
 /** What an analysis case computed and decided. */
 export class AnalysisResult {
   /** Output features the case computed, by name. */
@@ -383,6 +438,8 @@ export class AnalysisResult {
   /** Each application the run made of one of the case's calcs as a value. */
   readonly evaluations: readonly CaseEvaluation[];
   readonly standing: Standing;
+  /** Under `toolDryRun`, the tool call the case would make; the outputs are then empty. */
+  readonly toolDryRun?: ToolDryRun | undefined;
 
   constructor(init: {
     outputs: ReadonlyMap<string, ValueOrError>;
@@ -392,6 +449,7 @@ export class AnalysisResult {
     verifications?: readonly VerificationVerdict[];
     evaluations?: readonly CaseEvaluation[];
     standing?: Standing;
+    toolDryRun?: ToolDryRun | undefined;
   }) {
     this.outputs = init.outputs;
     this.verdicts = init.verdicts;
@@ -400,6 +458,7 @@ export class AnalysisResult {
     this.verifications = init.verifications ?? [];
     this.evaluations = init.evaluations ?? [];
     this.standing = init.standing ?? emptyStanding();
+    this.toolDryRun = init.toolDryRun;
   }
 
   get engine(): string {
@@ -726,6 +785,7 @@ export function analysisResultOf(
     verifications,
     evaluations: evaluationsOf(response.evaluations),
     standing: standingOf(response),
+    toolDryRun: response.toolDryRun ? toolDryRunOf(response.toolDryRun) : undefined,
   });
   if (response.error !== "") {
     throw new AnalysisRunError(response.error, result, { diagnostics });

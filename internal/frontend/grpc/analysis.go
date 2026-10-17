@@ -31,6 +31,10 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		return nil, err
 	}
 	defer v.release()
+	policy, explores := analysis.Explores(v.engine, schedule)
+	if req.ToolDryRun && explores {
+		return nil, statusError(connect.CodeInvalidArgument, "a tool dry run previews one run of the case; it is unavailable under an explore schedule or engine")
+	}
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.RunAnalysisResponse{Error: err.Error()}, nil
@@ -43,11 +47,14 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		return resp, err
 	}
 
-	if policy, explores := analysis.Explores(v.engine, schedule); explores {
+	if explores {
 		return s.exploreAnalysis(ctx, policy, v, req, sym)
 	}
 	if err := v.runtime.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
+	}
+	if req.ToolDryRun {
+		return s.toolDryRun(ctx, v, sym, args)
 	}
 
 	// The choices a run made are reported with its outcome, failed or not.

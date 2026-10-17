@@ -766,6 +766,14 @@ export class Connection {
       inputs?: Readonly<Record<string, ValueInput>>;
       schedule?: string;
       performer?: string;
+      /** Simulated seconds to run for (`sysml -advance`); unset runs to completion. */
+      advance?: number;
+      /** Seed of the model's own draws (`sysml -seed`). */
+      seed?: bigint;
+      /** How RandomFunctions draws resolve (`sysml -draws`): random, min, max or average. */
+      draws?: string;
+      /** Seconds the run's clock ticks by (`sysml -clock-step`); 0 is continuous. */
+      clockStep?: number;
     } = {},
   ): Promise<{
     outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
@@ -822,6 +830,10 @@ export class Connection {
       inputs?: Readonly<Record<string, ValueInput>>;
       schedule?: string;
       performer?: string;
+      advance?: number;
+      seed?: bigint;
+      draws?: string;
+      clockStep?: number;
     },
   ): Promise<ExecuteActionResponse> {
     const inputs: Record<string, ReturnType<typeof toValue>> = {};
@@ -840,6 +852,10 @@ export class Connection {
           inputs,
           schedule: options.schedule ?? "",
           performerSymbolId: options.performer ?? "",
+          advance: options.advance,
+          seed: options.seed,
+          draws: options.draws ?? "",
+          clockStep: options.clockStep ?? 0,
         }),
         this.callOptions(),
       ),
@@ -858,6 +874,14 @@ export class Connection {
       schedule?: string;
       performer?: string;
       trace?: boolean;
+      /** Simulated seconds to run for (`sysml -advance`); unset runs to completion. */
+      advance?: number;
+      /** Seed of the model's own draws (`sysml -seed`). */
+      seed?: bigint;
+      /** How RandomFunctions draws resolve (`sysml -draws`): random, min, max or average. */
+      draws?: string;
+      /** Seconds the run's clock ticks by (`sysml -clock-step`); 0 is continuous. */
+      clockStep?: number;
     } = {},
   ): Promise<{
     statesVisited: string[];
@@ -923,6 +947,10 @@ export class Connection {
       schedule?: string;
       performer?: string;
       trace?: boolean;
+      advance?: number;
+      seed?: bigint;
+      draws?: string;
+      clockStep?: number;
     },
   ): Promise<ExecuteStateResponse> {
     const capabilities = this.runCapabilities(
@@ -939,6 +967,10 @@ export class Connection {
           schedule: options.schedule ?? "",
           performerSymbolId: options.performer ?? "",
           trace: options.trace ?? false,
+          advance: options.advance,
+          seed: options.seed,
+          draws: options.draws ?? "",
+          clockStep: options.clockStep ?? 0,
         }),
         this.callOptions(),
       ),
@@ -977,11 +1009,11 @@ export class Connection {
   }
 
   /** Lists the analysis engines the service answers with, as `sysml -engines` does. */
-  async listEngines(): Promise<EngineInfo[]> {
+  async listEngines(options: { probe?: boolean } = {}): Promise<EngineInfo[]> {
     this.requireEngines();
     const response = await callRpc(
       this.rpc.listEngines(
-        create(ListEnginesRequestSchema, {}),
+        create(ListEnginesRequestSchema, { probe: options.probe ?? false }),
         this.callOptions(),
       ),
       "model",
@@ -1201,6 +1233,8 @@ export class Connection {
       namedArguments?: Readonly<Record<string, ValueInput>>;
       schedule?: string;
       engine?: string;
+      /** Preview the first external tool call instead of making it (`sysml -tool-dry-run`). */
+      toolDryRun?: boolean;
     } = {},
   ): Promise<AnalysisResult> {
     refuseExploring(options.schedule, "exploreAnalysis");
@@ -1257,6 +1291,7 @@ export class Connection {
       namedArguments?: Readonly<Record<string, ValueInput>>;
       schedule?: string;
       engine?: string;
+      toolDryRun?: boolean;
     },
   ): Promise<RunAnalysisResponse> {
     this.requireVerification();
@@ -1278,6 +1313,7 @@ export class Connection {
           namedArguments,
           schedule: options.schedule ?? "",
           engine: engineField(options.engine),
+          toolDryRun: options.toolDryRun ?? false,
         }),
         this.callOptions(),
       ),

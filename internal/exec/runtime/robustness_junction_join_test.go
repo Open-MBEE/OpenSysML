@@ -90,7 +90,7 @@ func TestRuntimeRobustnessJunctionJoin(t *testing.T) {
 				state done;
 			}
 		}`)
-		exec.sendSignal("X", nil)
+		exec.SendSignal("X", nil)
 		if err := exec.ProcessNextEvent(); !errors.Is(err, ErrDivisionByZero) {
 			t.Fatalf("ProcessNextEvent(X) = %v, want ErrDivisionByZero", err)
 		}
@@ -125,7 +125,7 @@ func TestRuntimeRobustnessJunctionJoin(t *testing.T) {
 				state done;
 			}
 		}`)
-		exec.sendSignal("Go", nil)
+		exec.SendSignal("Go", nil)
 		if err := exec.ProcessNextEvent(); !errors.Is(err, ErrDivisionByZero) {
 			t.Fatalf("ProcessNextEvent(Go) = %v, want ErrDivisionByZero", err)
 		}
@@ -158,7 +158,7 @@ func TestRuntimeRobustnessJunctionJoin(t *testing.T) {
 				state done;
 			}
 		}`)
-		exec.sendSignal("Go", nil)
+		exec.SendSignal("Go", nil)
 		if err := exec.ProcessNextEvent(); err != nil {
 			t.Fatalf("ProcessNextEvent(Go) = %v, want no error", err)
 		}

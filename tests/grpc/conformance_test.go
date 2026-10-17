@@ -73,14 +73,25 @@ type conformanceCase struct {
 	// ExecuteAction
 	Inputs map[string]expectedValue `json:"inputs,omitempty"`
 
+	// ExecuteAction run options, as `sysml -advance`, `-seed`, `-draws` and
+	// `-clock-step` take them; absent sends none.
+	Advance   *float64 `json:"advance,omitempty"`
+	Seed      *uint64  `json:"seed,omitempty"`
+	Draws     string   `json:"draws,omitempty"`
+	ClockStep float64  `json:"clock_step,omitempty"`
+
+	// GetDiagnostics lint selection and the codes the answer must and must not carry.
+	DisableLint   []string `json:"disable_lint,omitempty"`
+	EnableLint    []string `json:"enable_lint,omitempty"`
+	ExpectedCodes []string `json:"expected_codes,omitempty"`
+	AbsentCodes   []string `json:"absent_codes,omitempty"`
+
 	// ExecuteState
 	Events []string `json:"events,omitempty"`
 
 	// RunRuns, RecordRun
 	Runs             int64    `json:"runs,omitempty"`
-	Seed             *uint64  `json:"seed,omitempty"`
 	Observe          []string `json:"observe,omitempty"`
-	Draws            string   `json:"draws,omitempty"`
 	RecordInto       string   `json:"record_into,omitempty"`
 	SelfCheckPackage []string `json:"self_check_package,omitempty"`
 
@@ -116,6 +127,9 @@ type conformanceCase struct {
 	// ExpectedError, when set, requires the RPC to report an in-band error
 	// containing this substring (a status error, for RunDocumentQuery).
 	ExpectedError string `json:"expected_error,omitempty"`
+
+	// ExecuteAction: the simulation clock the run ended at, checked when set.
+	ExpectedFinalTime *float64 `json:"expected_final_time,omitempty"`
 }
 
 type conformanceEditBody struct {
@@ -275,6 +289,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runInstantiateCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ExecuteAction":
 		runExecuteActionCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "GetDiagnostics":
+		runGetDiagnosticsCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ExecuteState":
 		runExecuteStateCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ApplyEdits":
@@ -697,9 +713,16 @@ func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, 
 		ModelHash:      modelHash,
 		ActionSymbolId: tc.SymbolID,
 		Inputs:         inputs,
+		Advance:        tc.Advance,
+		Seed:           tc.Seed,
+		Draws:          tc.Draws,
+		ClockStep:      tc.ClockStep,
 	})
 	if err != nil {
 		t.Fatalf("ExecuteAction: %v", err)
+	}
+	if tc.ExpectedFinalTime != nil && resp.FinalTime != *tc.ExpectedFinalTime {
+		t.Errorf("final_time = %g, want %g", resp.FinalTime, *tc.ExpectedFinalTime)
 	}
 	if checkExpectedError(t, tc, resp.Error) {
 		return
@@ -711,6 +734,34 @@ func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, 
 			continue
 		}
 		checkValue(t, "output "+name, want, got)
+	}
+}
+
+// runGetDiagnosticsCase asks for the model's diagnostics under the case's lint
+// selection and checks the codes present and absent.
+func runGetDiagnosticsCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	resp, err := srv.GetDiagnostics(ctx, &pb.DiagnosticsRequest{
+		ModelHash:   modelHash,
+		DisableLint: tc.DisableLint,
+		EnableLint:  tc.EnableLint,
+	})
+	if err != nil {
+		t.Fatalf("GetDiagnostics: %v", err)
+	}
+	codes := map[string]bool{}
+	for _, d := range resp.Diagnostics {
+		codes[d.GetCode()] = true
+	}
+	for _, code := range tc.ExpectedCodes {
+		if !codes[code] {
+			t.Errorf("diagnostics lack %s: %v", code, codes)
+		}
+	}
+	for _, code := range tc.AbsentCodes {
+		if codes[code] {
+			t.Errorf("diagnostics carry %s under the selection: %v", code, codes)
+		}
 	}
 }
 

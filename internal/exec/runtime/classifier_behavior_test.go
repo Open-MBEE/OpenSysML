@@ -100,7 +100,7 @@ func TestExhibitedMachinesOfTwoObjectsAreIndependent(t *testing.T) {
 		t.Fatal("two objects share one machine execution")
 	}
 
-	firstMachine.State.sendSignal("Toggle", nil)
+	firstMachine.State.SendSignal("Toggle", nil)
 	if err := firstMachine.State.RunToCompletion(); err != nil {
 		t.Fatalf("run first machine: %v", err)
 	}

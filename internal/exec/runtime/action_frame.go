@@ -510,6 +510,7 @@ func (e *performances) beginPerformance(
 		}
 		return nil, err
 	}
+	e.markPerformance(flow, node, false)
 	return perf, nil
 }
 
@@ -689,7 +690,13 @@ func (e *performances) endPerformance(perf *actionFrame) error {
 			return err
 		}
 	}
-	return e.bindOutputPins(perf)
+	if err := e.bindOutputPins(perf); err != nil {
+		return err
+	}
+	if perf.node != nil {
+		e.markPerformance(perf.flow, perf.node, true)
+	}
+	return nil
 }
 
 // checkStreamsReceived reports a value a streaming flow of frame's nodes carried after
@@ -2076,6 +2083,9 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 		return nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
 	callee.name, callee.out, callee.performer = inv.name(), out, perf
+	if callee.exec.performedAt == nil {
+		callee.exec.performedAt = perf.node
+	}
 	return callee, nil
 }
 

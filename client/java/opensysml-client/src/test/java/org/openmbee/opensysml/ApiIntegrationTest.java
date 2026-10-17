@@ -14,10 +14,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.TestInstance;
 import org.openmbee.opensysml.proto.CaseEvaluation;
 import org.openmbee.opensysml.proto.RunAnalysisRequest;
@@ -1734,5 +1736,87 @@ class ApiIntegrationTest {
     assertTrue(sample.sample().isPresent());
     assertEquals(3, sample.records().size());
     assertThrows(ModelException.class, () -> model.recordRun("MC::Nope", RecordOptions.defaults()));
+  }
+
+  private static final String TIMED =
+      """
+      package Timed {
+        private import ScalarValues::*;
+        action delayed {
+          attribute count : Integer = 0;
+          first start;
+          then action wait accept after 5 [SI::s];
+          then action tick assign count := count + 1;
+          then done;
+        }
+      }
+      """;
+
+  private static final String LINTS =
+      """
+      package Lints {
+        private import ScalarValues::*;
+        attribute x : Real = 0.1;
+        state def M { entry; then a; state a; state b; transition first a when Pnig then b; }
+      }
+      """;
+
+  @Test
+  void advanceRunsForASimulatedDurationAndAFailedRunKeepsItsClock() {
+    Model model = connection.parse(TIMED);
+    ActionRun completed =
+        model.executeAction("Timed::delayed", Map.of(), ExecutionOptions.defaults().withAdvance(10));
+    assertEquals(new Value.IntegerValue(1), completed.outputs().get("count"));
+    assertEquals(OptionalDouble.of(10), completed.finalTime());
+
+    ModelException waiting =
+        assertThrows(
+            ModelException.class,
+            () ->
+                model.executeAction(
+                    "Timed::delayed", Map.of(), ExecutionOptions.defaults().withAdvance(2)));
+    assertTrue(waiting.getMessage().contains("without completing"), waiting.getMessage());
+    assertEquals(2, waiting.finalTime());
+
+    ActionRun stepped =
+        model.executeAction(
+            "Timed::delayed", Map.of(), ExecutionOptions.defaults().withClockStep(3));
+    assertEquals(OptionalDouble.of(6), stepped.finalTime());
+
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class,
+            () ->
+                model.executeAction(
+                    "Timed::delayed", Map.of(), ExecutionOptions.defaults().withDraws("often")));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+  }
+
+  @Test
+  void diagnosticsFollowTheLintSelection() {
+    Model model = connection.parse(LINTS);
+    List<String> defaults = model.diagnostics().stream().map(Diagnostic::code).toList();
+    assertEquals(List.of("undeclared-signal"), defaults);
+    assertTrue(
+        model.diagnostics(DiagnosticsOptions.defaults().enabling("rounded-real-literal")).stream()
+            .map(Diagnostic::code)
+            .toList()
+            .containsAll(List.of("undeclared-signal", "rounded-real-literal")));
+    assertEquals(
+        List.of(), model.diagnostics(DiagnosticsOptions.defaults().disabling("undeclared-signal")));
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class,
+            () -> model.diagnostics(DiagnosticsOptions.defaults().disabling("no-such-lint")));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+  }
+
+  @Test
+  void probingListsTheBuiltInEnginesAsBefore() {
+    Assumptions.assumeTrue(connection.capabilities().has(Capabilities.ENGINES));
+    List<String> probed = connection.listEngines(true).stream().map(EngineInfo::name).toList();
+    List<String> listed = connection.listEngines().stream().map(EngineInfo::name).toList();
+    assertEquals(listed, probed);
+    assertTrue(probed.containsAll(List.of("run", "explore", "solve", "sweep")), probed.toString());
   }
 }

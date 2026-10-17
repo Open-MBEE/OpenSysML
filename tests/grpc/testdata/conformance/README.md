@@ -15,6 +15,7 @@ in this directory, so adding a case is a data-only change.
 | Field | Applies to | Meaning |
 |---|---|---|
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `RunRuns`, `SelfCheck` or `RecordRun` |
+| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `GetDiagnostics`, `ApplyEdits`, `RunDocumentQuery` or `EvaluateCalc` |
 
 `ApplyEdits` sequence operations may carry the recursive action-body fields
 `condition`, `value`, `target`, `via`, `until`, `body`, `else_body`,
@@ -34,6 +35,9 @@ empty else blocks are not authorable.
 | `expected_row_count`, `expected_observables` | RunRuns | runs tabled, every one completed, and the observables each distribution counts |
 | `expected_status`, `min_checks` | SelfCheck | the verdict (`holds` or `fails`) and the least number of constraint applications |
 | `expected_package`, `expected_records` | RecordRun | the records generated, each resolvable by `GetSymbol` in the recorded model |
+| `advance`, `seed`, `draws`, `clock_step` | ExecuteAction | the run options of `sysml -advance`, `-seed`, `-draws` and `-clock-step`; absent sends none |
+| `disable_lint`, `enable_lint` | GetDiagnostics | lint codes left out of, and opt-in lint codes kept in, the diagnostics, as `sysml -disable-lint`/`-enable-lint` select them |
+| `expected_codes`, `absent_codes` | GetDiagnostics | diagnostic codes the answer must carry, and must not |
 | `events` | ExecuteState | event names injected, in order |
 | `instantiate` | RunDocumentQuery | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them |
 | `query_id` | RunDocumentQuery | FQN of the document query to run |
@@ -49,6 +53,7 @@ empty else blocks are not authorable.
 | `expected_states_visited` | ExecuteState | full ordered state-visit trace |
 | `expected_final_context` | ExecuteState | context entry name → expected `Value` |
 | `expected_error` | all | substring the RPC's in-band `error` must contain (for `RunDocumentQuery`, the status error the call fails with) |
+| `expected_final_time` | ExecuteAction | the simulation clock, in seconds, the run ended at |
 
 A case without `expected_error` requires an empty `error` field. A case with `expected_error`
 asserts only the error, and is how failure modes (for example an action whose successions leave no step to start at)

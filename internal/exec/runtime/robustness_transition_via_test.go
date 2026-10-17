@@ -69,7 +69,7 @@ func signalListener(t *testing.T, model string) error {
 	if err := sender.RunToCompletion(); err != nil {
 		t.Fatalf("run sender machine: %v", err)
 	}
-	sender.sendSignal("Go", nil)
+	sender.SendSignal("Go", nil)
 	return sender.RunToCompletion()
 }
 

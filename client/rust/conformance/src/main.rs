@@ -424,7 +424,7 @@ impl Runner {
             "ExportGraphs" => self.export_graphs(request),
             "ExecuteAction" => self.execute_action(request),
             "ExecuteState" => self.execute_state(request),
-            "ListEngines" => self.list_engines(),
+            "ListEngines" => self.list_engines(request),
             "VerifyConstraint" => self.verify_constraint(request),
             "VerifyRequirement" => self.verify_requirement(request),
             "VerifySatisfaction" => self.verify_satisfaction(request),
@@ -480,7 +480,14 @@ impl Runner {
             Ok(hash) => hash,
             Err(error) => return Answer::Other(error),
         };
-        match self.connection.diagnostics(&hash) {
+        let disabled = string_list_field(request, "disable_lint");
+        let enabled = string_list_field(request, "enable_lint");
+        let disabled: Vec<&str> = disabled.iter().map(String::as_str).collect();
+        let enabled: Vec<&str> = enabled.iter().map(String::as_str).collect();
+        match self
+            .connection
+            .diagnostics_with_lints(&hash, &disabled, &enabled)
+        {
             Ok(diagnostics) => {
                 let response = opensysml::wire::DiagnosticsResponse {
                     diagnostics: diagnostics
@@ -909,6 +916,10 @@ impl Runner {
             schedule: optional(request.schedule),
             performer: optional(request.performer_symbol_id),
             trace: false,
+            advance: request.advance,
+            seed: request.seed,
+            draws: optional(request.draws),
+            clock_step: request.clock_step,
         };
         let hash = &request.model_hash;
         let action = &request.action_symbol_id;
@@ -929,6 +940,7 @@ impl Runner {
                 &wire::ExecuteActionResponse {
                     error: failure.error,
                     diagnostics: failure.diagnostics,
+                    final_time: failure.final_time,
                     ..Default::default()
                 },
             ),
@@ -945,6 +957,10 @@ impl Runner {
             schedule: optional(request.schedule),
             performer: optional(request.performer_symbol_id),
             trace: request.trace,
+            advance: request.advance,
+            seed: request.seed,
+            draws: optional(request.draws),
+            clock_step: request.clock_step,
         };
         let hash = &request.model_hash;
         let machine = &request.state_machine_symbol_id;
@@ -967,6 +983,7 @@ impl Runner {
                     diagnostics: failure.diagnostics,
                     trace: failure.trace,
                     trace_dropped: failure.trace_dropped,
+                    final_time: failure.final_time,
                     ..Default::default()
                 },
             ),
@@ -974,8 +991,17 @@ impl Runner {
         })
     }
 
-    fn list_engines(&self) -> Answer {
-        match self.connection.list_engines() {
+    fn list_engines(&self, request: &DynamicMessage) -> Answer {
+        let probe = request
+            .get_field_by_name("probe")
+            .and_then(|value| value.as_ref().as_bool())
+            .unwrap_or(false);
+        let engines = if probe {
+            self.connection.probe_engines()
+        } else {
+            self.connection.list_engines()
+        };
+        match engines {
             Ok(engines) => Answer::Response(self.wire_json(
                 "sysml.ListEnginesResponse",
                 &wire::ListEnginesResponse {
@@ -1031,6 +1057,7 @@ impl Runner {
                     diagnostics: failure.diagnostics,
                     trace: Vec::new(),
                     trace_dropped: 0,
+                    final_time: 0.0,
                 },
             ));
         }
@@ -1219,6 +1246,7 @@ impl Runner {
                 named_arguments,
                 schedule: optional(request.schedule),
                 engine: optional(request.engine),
+                tool_dry_run: request.tool_dry_run,
             },
             (Err(answer), _) | (_, Err(answer)) => return answer,
         };
@@ -1517,6 +1545,7 @@ struct Failure {
     diagnostics: Vec<wire::Diagnostic>,
     trace: Vec<wire::DocumentEvent>,
     trace_dropped: i32,
+    final_time: f64,
 }
 
 impl Failure {
@@ -1528,6 +1557,7 @@ impl Failure {
                 diagnostics,
                 trace,
                 trace_dropped,
+                final_time,
             } => Ok(Self {
                 error: message,
                 reason,
@@ -1538,6 +1568,7 @@ impl Failure {
                     .collect::<Result<_, _>>()
                     .map_err(classify_error)?,
                 trace_dropped,
+                final_time,
             }),
             Error::WrongKind {
                 message,
@@ -1548,6 +1579,7 @@ impl Failure {
                 diagnostics: diagnostics_wire(&diagnostics),
                 trace: Vec::new(),
                 trace_dropped: 0,
+                final_time: 0.0,
             }),
             Error::Conversion {
                 message,
@@ -1562,6 +1594,7 @@ impl Failure {
                 diagnostics: diagnostics_wire(&diagnostics),
                 trace: Vec::new(),
                 trace_dropped: 0,
+                final_time: 0.0,
             }),
             other => Err(classify_error(other)),
         }
@@ -1633,6 +1666,20 @@ fn string_field(request: &DynamicMessage, name: &str) -> Result<String, Error> {
         .get_field_by_name(name)
         .and_then(|value| value.as_ref().as_str().map(ToOwned::to_owned))
         .ok_or_else(|| Error::Decode(format!("request field {name} is not a string")))
+}
+
+fn string_list_field(request: &DynamicMessage, name: &str) -> Vec<String> {
+    request
+        .get_field_by_name(name)
+        .and_then(|value| {
+            value.as_ref().as_list().map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| item.as_str().map(ToOwned::to_owned))
+                    .collect()
+            })
+        })
+        .unwrap_or_default()
 }
 
 fn string_or_none(request: &DynamicMessage, name: &str) -> Option<String> {
