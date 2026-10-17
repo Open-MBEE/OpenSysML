@@ -1,0 +1,8 @@
+choice junction split: transitions 1->left, 2->right (unordered; took 1->left; order-dependent: route)
+exit: idle (exit action)
+stmt assign log
+  eval literal 1 -> 1
+stmt assign route
+  eval literal 1 -> 1
+enter: left
+transition: idle -> left (event: accept Go)

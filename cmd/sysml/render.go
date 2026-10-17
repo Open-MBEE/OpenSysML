@@ -36,7 +36,7 @@ func runRender(files []string) error {
 		return err
 	}
 
-	rendering, err := sess.OverlaidViewRendering(renderView, overlay)
+	rendering, err := sess.OverlaidViewRendering(renderView, overlay, renderDepth)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func runRenderAll(files []string) error {
 		if !kind.SupportsOverlay(overlay) {
 			viewOverlay = ""
 		}
-		rendering, err := sess.OverlaidViewRendering(info.Name, viewOverlay)
+		rendering, err := sess.OverlaidViewRendering(info.Name, viewOverlay, renderDepth)
 		if err != nil {
 			return err
 		}

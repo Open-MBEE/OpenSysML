@@ -1,0 +1,27 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [],
+	"outcomes": [
+		{
+			"outputs": {
+				"log": {
+					"type": "Integer",
+					"value": 20
+				}
+			}
+		},
+		{
+			"outputs": {
+				"log": {
+					"type": "Integer",
+					"value": 10
+				}
+			}
+		}
+	],
+	"admissible": "Two regions reacting to one occurrence: two orders, two values",
+	"orderDependent": {
+		"log": 1
+	}
+}

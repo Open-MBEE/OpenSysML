@@ -109,12 +109,12 @@ func TestParseWitnessReadsObjectsBeforeInputsAndChoices(t *testing.T) {
 		{"object #1 = \n", "bound with"},
 	} {
 		_, err := ParseWitness(c.text)
-		var typed *ObjectParseError
-		if !errors.As(err, &typed) || !errors.Is(err, ErrInvalidObject) || !strings.Contains(err.Error(), c.reason) {
-			t.Errorf("%q: %v, want an ObjectParseError %q", c.text, err, c.reason)
+		var typed *objectParseError
+		if !errors.As(err, &typed) || !errors.Is(err, errInvalidObject) || !strings.Contains(err.Error(), c.reason) {
+			t.Errorf("%q: %v, want an objectParseError %q", c.text, err, c.reason)
 		}
 	}
-	if _, err := ParseChoices("object #1 = Plant::tank#1\nstep 1: 2@b first of 1@a, 2@b\n"); !errors.Is(err, ErrInvalidObject) {
+	if _, err := ParseChoices("object #1 = Plant::tank#1\nstep 1: 2@b first of 1@a, 2@b\n"); !errors.Is(err, errInvalidObject) {
 		t.Errorf("ParseChoices over objects: %v", err)
 	}
 }

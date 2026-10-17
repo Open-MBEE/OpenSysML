@@ -117,7 +117,7 @@ type imagedOuter struct {
 type imagedState struct {
 	graph              *lower.StateGraph
 	state              ExecutionState
-	activeConfig       *StateConfiguration
+	activeConfig       *stateConfiguration
 	nextEventID        int64
 	events             []Event
 	stateData          map[string]Value
@@ -182,7 +182,7 @@ func (t *imaging) behavior(b *ObjectBehavior) error {
 		img.onClock = slices.Contains(t.ctx.clock.waiters, clockWaiter(b.Action))
 		img.action, err = t.actionExecutor(b.Action)
 	default:
-		return fmt.Errorf("%w: a behavior with no execution", ErrImageBound)
+		return fmt.Errorf("%w: a behavior with no execution", errImageBound)
 	}
 	if err != nil {
 		return err
@@ -335,10 +335,10 @@ func (t *imaging) outerFrames(perf *actionFrame, at func(*actionFrame) int) ([]i
 	var outer []imagedOuter
 	for _, o := range perf.outer {
 		if o.slots != nil || o.owner != nil {
-			return nil, fmt.Errorf("%w: a frame of a calc around %s", ErrImageBound, perf.label)
+			return nil, fmt.Errorf("%w: a frame of a calc around %s", errImageBound, perf.label)
 		}
 		if o.perf != nil && at(o.perf) < 0 {
-			return nil, fmt.Errorf("%w: a performance around %s the run no longer reaches", ErrImageBound, perf.label)
+			return nil, fmt.Errorf("%w: a performance around %s the run no longer reaches", errImageBound, perf.label)
 		}
 		if err := t.values(o.vars); err != nil {
 			return nil, err
@@ -529,7 +529,7 @@ func (t *imaging) event(event Event) error {
 		}
 		return nil
 	}
-	return fmt.Errorf("%w: event %d carries a %T", ErrImageBound, event.ID, event.Payload)
+	return fmt.Errorf("%w: event %d carries a %T", errImageBound, event.ID, event.Payload)
 }
 
 // behavior gives the object made for an imaged behavior an execution of its own
@@ -539,7 +539,7 @@ func (m *materializing) behavior(b imagedBehavior) error {
 	inst := m.made[b.object]
 	decl, ok := m.declaration(inst, b.member)
 	if !ok {
-		return fmt.Errorf("%w: the type binds no such behavior", ErrImageBound)
+		return fmt.Errorf("%w: the type binds no such behavior", errImageBound)
 	}
 	if b.deferred != nil {
 		behavior, err := dst.deferredBehaviorFor(inst, decl, b.binding, b.index)
@@ -573,6 +573,7 @@ func (m *materializing) behavior(b imagedBehavior) error {
 		dst.registerStateExecutor(exec)
 		if b.onClock {
 			dst.clock.attach(exec)
+			dst.run.notePerformer(exec)
 		}
 		behavior.State = exec
 	case b.action != nil:

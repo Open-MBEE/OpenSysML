@@ -103,6 +103,10 @@ Convert, sysml \-convert, sysml \-from, sysml \-id).
 runtime: Report every diagnostic of a parsed model, as sysml \-validate does
 (rpc GetDiagnostics, sysml \-validate).
 .TP
+.B explain_diagnostic
+runtime: Explain a diagnostic code, or list every code with its summary (sysml
+\-explain).
+.TP
 .B evaluate
 runtime: Evaluate an expression against a parsed model (rpc Evaluate, sysml
 \-eval).
@@ -149,7 +153,8 @@ sysml \-render\-document, sysml \-doc\-form).
 .TP
 .B render_model_view
 runtime: Render a view as its nodes, edges and compartments (rpc RenderView,
-sysml \-render, sysml \-render\-ports, sysml \-render\-show).
+sysml \-render, sysml \-render\-ports, sysml \-render\-show, sysml
+\-render\-depth).
 .TP
 .B check_behavior
 runtime: Search every schedule of an action or state machine for violated

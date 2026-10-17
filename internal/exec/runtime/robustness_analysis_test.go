@@ -77,8 +77,8 @@ func undecidedObjective(t *testing.T, result AnalysisResult) string {
 // is fabricated.
 func testTradeStudyWithAnAbstractEvaluationFunction(t *testing.T) {
 	result, err := runTradeStudyExpecting(t, "test::abstractEval")
-	if !errors.Is(err, ErrNoResultExpression) || !strings.Contains(err.Error(), "test::abstractEval::evaluationFunction") {
-		t.Fatalf("error = %v, want ErrNoResultExpression naming the evaluation function", err)
+	if !errors.Is(err, errNoResultExpression) || !strings.Contains(err.Error(), "test::abstractEval::evaluationFunction") {
+		t.Fatalf("error = %v, want errNoResultExpression naming the evaluation function", err)
 	}
 	undecidedObjective(t, result)
 	if len(result.Outputs) != 0 {

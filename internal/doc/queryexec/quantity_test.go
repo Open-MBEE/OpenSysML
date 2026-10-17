@@ -84,6 +84,10 @@ func cellTexts(t *testing.T, result *RowSet, column int) []string {
 	var out []string
 	for _, row := range result.Rows() {
 		values := row.Cells()[column].Values()
+		if len(values) == 0 {
+			out = append(out, "")
+			continue
+		}
 		if len(values) != 1 {
 			t.Fatalf("cell %d has %d values, want 1", column, len(values))
 		}

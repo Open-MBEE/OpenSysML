@@ -279,6 +279,13 @@ const CapabilityScheduleExplore = "schedule_explore"
 // when it ended. Without it the field is 0 whatever the run waited on.
 const CapabilityFinalTime = "final_time"
 
+// CapabilityOrderDependence names the capability of reporting what a run's
+// values stand only up to: `order_dependent` on FeatureValue,
+// ExecuteActionResponse and ExecuteStateResponse, and `order_dependent` and
+// `independent` on a choice-point Diagnostic. Without it the fields are empty
+// and a value prints as fixed whatever order the run took.
+const CapabilityOrderDependence = "order_dependence"
+
 // CapabilityPerformer names the `performer_symbol_id` field of ExecuteActionRequest and
 // ExecuteStateRequest; a service without it runs outside any object, so clients must not send it.
 const CapabilityPerformer = "performer"
@@ -343,6 +350,7 @@ var capabilities = []string{
 	CapabilityConvertCompact,
 	CapabilityParseSourcesAffected,
 	CapabilityRenderDocumentFileName,
+	CapabilityOrderDependence,
 }
 
 type capabilityAvailability struct {
@@ -1272,7 +1280,28 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		Diagnostics:         diags,
 		FinalTime:           s.finalTime(runtimeCtx),
 		PerformerAttributes: s.valuesToProto(runtimeCtx, ran.performer, cached.Index),
+		OrderDependent:      s.orderDependent(runtimeCtx, ran.outputs),
 	}, nil
+}
+
+// orderDependent is, for each value an unresolved choice point of the run
+// touches, how many do, under the order_dependence capability.
+func (s *Service) orderDependent(runtimeCtx *runtime.Context, values map[string]runtime.Value) map[string]int32 {
+	if !s.capabilities.has(CapabilityOrderDependence) {
+		return nil
+	}
+	names := make([]string, 0, len(values))
+	for name := range values {
+		names = append(names, name)
+	}
+	var out map[string]int32
+	for name, n := range runtimeCtx.OrderDependentAmong(names) {
+		if out == nil {
+			out = make(map[string]int32)
+		}
+		out[name] = int32(n) // #nosec G115 -- choice points per run are bounded by the depth budget
+	}
+	return out
 }
 
 // finalTime is the run's clock when it ended, under the final_time capability.
@@ -1388,12 +1417,13 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 
 	return &pb.ExecuteStateResponse{
-		StatesVisited: statesVisited,
-		FinalContext:  pbContext,
-		Diagnostics:   diags,
-		FinalTime:     s.finalTime(runtimeCtx),
-		Trace:         trace,
-		TraceDropped:  dropped,
+		StatesVisited:  statesVisited,
+		FinalContext:   pbContext,
+		Diagnostics:    diags,
+		FinalTime:      s.finalTime(runtimeCtx),
+		Trace:          trace,
+		TraceDropped:   dropped,
+		OrderDependent: s.orderDependent(runtimeCtx, finalContext),
 	}, nil
 }
 

@@ -263,7 +263,7 @@ func TestPlantUMLSequenceDiagram(t *testing.T) {
 	}
 	for _, want := range []string{
 		"' not represented: message pending states no source and target; no message is drawn\n",
-		"participant \"<size:10>//«part»//</size>\\n**caller**\" as n0 <<part>> <<usage>>\nparticipant \"<size:10>//«part»//</size>\\n**callee**\" as n1 <<part>> <<usage>>\nn0 -> n0 : echo\nn0 -> n1 : of Ping\n@enduml\n",
+		"participant \"<size:10>//«part»//</size>\\n**caller**\" as n0 <<part>> <<usage>>\nparticipant \"<size:10>//«part»//</size>\\n**callee**\" as n1 <<part>> <<usage>>\nn0 -> n1 : of Ping\nn0 -> n0 : echo\n@enduml\n",
 	} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("sequence PlantUML lacks %q:\n%s", want, puml)

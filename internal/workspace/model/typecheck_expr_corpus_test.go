@@ -12,12 +12,22 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs/errata"
 )
 
+// exprTypeCodes are the codes of the expression type checker's findings, which
+// share the "type" source with the relationship-kind rules left out here.
+var exprTypeCodes = map[string]bool{
+	"binding-connector-type-conformance": true, "feature-value-count": true, "unique-feature-values": true,
+	"sequence-index": true, "operator-operand-type": true, "comparison-constant": true,
+	"invocation-argument": true, "constructor-argument": true,
+	"constructor-expression-no-duplicate-feature-redefinition": true, "connector-end-index": true,
+	"condition-boolean": true, "incommensurable-binding": true, "incommensurable-operands": true,
+}
+
 // exprTypeDiagnostics returns the expression type-checker findings for one
 // document, ignoring the relationship-kind tier that shares the "type" source.
 func exprTypeDiagnostics(ws *Workspace, name string) []string {
 	var out []string
 	for _, d := range ws.Diagnostics(name) {
-		if d.Code == "type.expr" {
+		if exprTypeCodes[d.Code] {
 			out = append(out, name+": "+d.Message)
 		}
 	}
@@ -30,7 +40,7 @@ func exprTypeDiagnosticLines(ws *Workspace, name string, content []byte) []strin
 	lines := source.New(name, content).Lines()
 	var out []string
 	for _, d := range ws.Diagnostics(name) {
-		if d.Code == "type.expr" {
+		if exprTypeCodes[d.Code] {
 			out = append(out, fmt.Sprintf("%s:%d: %s", name, lines.PosAt(d.Span.Offset).Line, d.Message))
 		}
 	}

@@ -1,0 +1,67 @@
+@startuml
+' MicroscopeViews::positioned — tree rendering (render asTreeDiagram)
+' not represented: 7 positioned node(s) and 3 route(s) kept as comments; PlantUML pins no position, the dot form does
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+' canvas: unit=px w=620 h=240
+' layout: n0 x=260 y=20 w=110 h=33
+' layout: n1 x=480 y=20 w=110 h=33
+' layout: n2 x=20 y=20 w=110 h=33
+' layout: n3 x=20 y=90 w=110 h=33
+' layout: n4 x=20 y=160 w=110 h=33
+' layout: n5 x=160 y=160 w=160 h=33
+' layout: n6 x=400 y=160 w=160 h=33
+' route: n5->n0 240,160 240,110 315,110 315,53
+' route: n6->n0 440,160 440,110 315,110 315,53
+' route: n6->n1 520,160 520,120 535,120 535,53
+hide circle
+hide empty members
+class "<size:10>//«part def»//</size>\n**Detector**" as n0 <<part def>>
+class "<size:10>//«part def»//</size>\n**Sensor**" as n1 <<part def>>
+class "<size:10>//«part def»//</size>\n**Instrument**" as n2 <<part def>>
+class "<size:10>//«part def»//</size>\n**'Display System'**" as n3 <<part def>>
+class "<size:10>//«part def»//</size>\n**'Scanning Electron Microscope'**" as n4 <<part def>>
+class "<size:10>//«part def»//</size>\n**'Secondary Electron Detector'**" as n5 <<part def>>
+class "<size:10>//«part def»//</size>\n**'Backscattered Electron Detector'**" as n6 <<part def>>
+n5 --|> n0
+n6 --|> n0
+n6 --|> n1
+@enduml

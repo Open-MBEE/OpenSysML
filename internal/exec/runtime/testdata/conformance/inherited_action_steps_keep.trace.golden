@@ -24,7 +24,7 @@ stmt assign c
     eval feature c -> 32
     eval literal 1 -> 1
   eval operator + -> 33
-choice step 3: writes c := 33 by token 1, c := 22 by token 2, c := 11 by token 3 (unordered; c := 33 by token 1 stood)
-choice step 3: tokens 1@a, 2@a, 3@a (unordered; took 3@a first)
+choice step 3: writes c := 33 by token 1, c := 22 by token 2, c := 11 by token 3 (unordered; c := 33 by token 1 stood; order-dependent: c)
+choice step 3: tokens 1@a, 2@a, 3@a (unordered; took 3@a first; order-dependent: c)
 step 3: token 1@done
 step 4: no active tokens

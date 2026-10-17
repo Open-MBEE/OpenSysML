@@ -7,6 +7,7 @@ package Model {
                 view 'Pump Modes' : StandardViewDefinitions::StateTransitionView {
                     expose Modes;
                     @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+                    metadata DiagramLayout::Layout about Modes::start { x = 60; y = 40; width = 16; height = 16; }
                     metadata DiagramLayout::Layout about Plant::Pump::Modes::Idle { x = 40; y = 100; width = 120; height = 50; }
                     metadata DiagramLayout::Layout about Plant::Pump::Modes::Running { x = 260; y = 100; width = 120; height = 50; }
                     metadata DiagramLayout::Route about 'start then Idle' { points = (68, 56, 68, 100); }

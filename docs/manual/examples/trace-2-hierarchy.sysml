@@ -288,7 +288,7 @@ package LanderHierarchy {
 
 		part verdicts : Section {
 			attribute redefines title = "Verdicts";
-			part all : Table {
+			part verdictTable : Table {
 				attribute redefines caption = "Every check of the lander against its requirements";
 				calc rows : AllVerdicts {
 					in root = lander;

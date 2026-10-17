@@ -69,7 +69,7 @@ func signalListener(t *testing.T, model string) error {
 	if err := sender.RunToCompletion(); err != nil {
 		t.Fatalf("run sender machine: %v", err)
 	}
-	sender.SendSignal("Go", nil)
+	sender.sendSignal("Go", nil)
 	return sender.RunToCompletion()
 }
 
@@ -79,8 +79,8 @@ func testTransitionViaRootHoldsNothing(t *testing.T) {
 	err := signalListener(t, rigListeningVia(
 		"in ref context : Peer[0..1];", "in :>> context = null;", "context.hears",
 	))
-	if !errors.Is(err, ErrSendTargetNotObject) || !strings.Contains(err.Error(), `"context" holds null, which is no object`) {
-		t.Fatalf("error = %v, want ErrSendTargetNotObject over an empty parameter", err)
+	if !errors.Is(err, errSendTargetNotObject) || !strings.Contains(err.Error(), `"context" holds null, which is no object`) {
+		t.Fatalf("error = %v, want errSendTargetNotObject over an empty parameter", err)
 	}
 }
 

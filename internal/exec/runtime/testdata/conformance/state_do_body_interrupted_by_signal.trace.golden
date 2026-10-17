@@ -1,3 +1,4 @@
+choice at t=0.0: next do busy, dispatch accept Stop (unordered; took do busy first; order-dependent: log)
 do: busy
 stmt action body
 enter action node: state behavior work

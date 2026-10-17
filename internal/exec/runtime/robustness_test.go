@@ -311,7 +311,7 @@ func calcUsageOutputInSource(t *testing.T, src, usageName, output string, maxSte
 
 	done := make(chan error, 1)
 	go func() {
-		value, err := ctx.CalcUsageOutput(sym, output, sym.OwnerScope, nil)
+		value, err := ctx.calcUsageOutput(sym, output, sym.OwnerScope, nil)
 		if err == nil {
 			err = fmt.Errorf("output %s of %s answered %s, expected the read to fail",
 				output, usageName, FormatTraceValue(value))

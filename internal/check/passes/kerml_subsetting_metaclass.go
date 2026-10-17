@@ -67,7 +67,7 @@ func (c *kermlSubsettingMetaclassChecker) check(sym *symbols.Symbol) {
 			Severity: diag.SeverityError,
 			Span:     rel.Target.Span(),
 			Message:  fmt.Sprintf("%s target must be a feature, found %s", rel.Kind, target.Kind),
-			Code:     "type",
+			Code:     codeSubsettingFeature,
 			Source:   "type",
 		})
 	}

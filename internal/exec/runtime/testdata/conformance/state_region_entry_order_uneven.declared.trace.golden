@@ -1,6 +1,6 @@
 exit: idle
 enter: work
-choice entering work: next left(entry), right(entry) (unordered; took left(entry) first)
+choice entering work: next left(entry), right(entry) (unordered; took left(entry) first; order-dependent: log)
 stmt action body
   stmt assign log
       eval feature log -> ""

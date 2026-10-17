@@ -4,6 +4,6 @@
   "evaluate": "test::costTest",
   "verdict": "pass",
   "verdicts": {
-    "costObjective": "undecided"
+    "costObjective": "satisfied"
   }
 }

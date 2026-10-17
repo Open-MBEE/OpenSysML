@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Suppressed compartments: the modeler collapsed compartments symbol by
+     symbol. The Camera box states one setting itself and inherits the rest
+     from the diagram's symbol style for blocks; the Lens box keeps the
+     style's settings alone; the Mount box is drawn in no style and states a
+     property with no value, the tool's default; a second Lens symbol, drawn
+     in no style, shows every compartment. -->
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_optics" name="Optics">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_camera" name="Camera">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_resolution" name="resolution">
+          <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_lens" name="lens" type="_blk_lens" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_mount" name="mount" type="_blk_mount"/>
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_port_data" name="data" aggregation="composite"/>
+        <ownedOperation xmi:type="uml:Operation" xmi:id="_op_capture" name="capture"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_lens" name="Lens">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_focal" name="focalLength">
+          <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_mount" name="Mount">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_thread" name="thread">
+          <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.String"/>
+        </ownedAttribute>
+      </packagedElement>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bdd" name="Camera BDD" ownerOfDiagram="_pkg_optics">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_camera</usedElements>
+                  <usedElements>_prop_resolution</usedElements>
+                  <usedElements>_prop_lens</usedElements>
+                  <usedElements>_prop_mount</usedElements>
+                  <usedElements>_port_data</usedElements>
+                  <usedElements>_op_capture</usedElements>
+                  <usedElements>_blk_lens</usedElements>
+                  <usedElements>_prop_focal</usedElements>
+                  <usedElements>_blk_mount</usedElements>
+                  <usedElements>_prop_thread</usedElements>
+                </diagramContents>
+                <binaryObject streamContentID="BINARY-suppressed_compartments"/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+  <sysml:Block xmi:id="_s_camera" base_Class="_blk_camera"/>
+  <sysml:Block xmi:id="_s_lens" base_Class="_blk_lens"/>
+  <sysml:Block xmi:id="_s_mount" base_Class="_blk_mount"/>
+</xmi:XMI>

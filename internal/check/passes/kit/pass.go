@@ -88,6 +88,10 @@ type Batch struct {
 	// Record has each analysis record what it read of the index, for the
 	// interface record written from it; off, nothing of a run is kept.
 	Record bool
+	// Collisions is the import-collision memo the batch's analyses share, so
+	// a chain of imports is settled once for the batch rather than once per
+	// document; nil leaves each analysis to settle its own.
+	Collisions *resolve.SharedCollisions
 }
 
 // Options is the analysis configuration of one run. The zero value is what
@@ -115,6 +119,9 @@ func (c *Context) InBatch(b *Batch) {
 	if b != nil {
 		c.gathers = b.Gathers
 		c.Source = b.Source
+		if b.Collisions != nil {
+			c.Resolver().ShareCollisions(b.Collisions)
+		}
 	}
 }
 

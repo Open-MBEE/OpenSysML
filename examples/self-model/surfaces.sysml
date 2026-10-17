@@ -551,7 +551,7 @@ package OpenSysMLSurfaces {
     #Oracle part def ValidationCensus :> ConformanceOracle {
         attribute :>> goPackage = "tools/census/validation";
         attribute :>> reference = "pilot validator";
-        attribute :>> baseline = "docs/project/validation-constraints-baseline.json";
+        attribute :>> baseline = "docs/project/constraint-manifest.json";
     }
 
     #Oracle part def GrammarCoverage :> ConformanceOracle {

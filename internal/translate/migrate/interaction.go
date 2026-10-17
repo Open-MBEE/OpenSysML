@@ -9,6 +9,12 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
+const (
+	noV2Declaration         = ", which has no v2 declaration"
+	stateInvariantCondition = "the state invariant's condition ["
+	refersToWord            = "refers to "
+)
+
 // scenario is an interaction resolved to the steps its v2 form performs in
 // occurrence order: signal sends, operation calls, replies and combined fragments.
 type scenario struct {
@@ -332,13 +338,13 @@ func (s *scenario) use(f *sysmlv1.Element, body *[]*scenarioStep) (*scenarioStep
 	case ref == nil:
 		return nil, "refers to no interaction" + suffixNote(s.m.dangling(f, "refersTo"))
 	case ref.Type != "Interaction":
-		return nil, "refers to " + describe(ref) + ", a " + ref.Type + " rather than an interaction"
+		return nil, refersToWord + describe(ref) + ", a " + ref.Type + " rather than an interaction"
 	}
 	if note := s.m.interactionNote(ref); note != "" {
-		return nil, "refers to " + describe(ref) + ", which is not migrated: " + note
+		return nil, refersToWord + describe(ref) + ", which is not migrated: " + note
 	}
 	if !s.m.written(ref) {
-		return nil, "refers to " + describe(ref) + ", which has no v2 declaration"
+		return nil, refersToWord + describe(ref) + noV2Declaration
 	}
 	step := &scenarioStep{kind: stepUse, frag: f, use: ref, body: body}
 	if s.m.asUsage[ref] {
@@ -406,7 +412,7 @@ func (s *scenario) performer(f, ref *sysmlv1.Element) (string, string) {
 	}
 	obj, _, why := s.m.objectOf(owner, s.context, "this")
 	if obj == "" {
-		return "", "refers to " + describe(ref) + " of " + qualifiedName(owner) + ", performed on an object of it: no one lifeline it covers stands for one, and " + qualifiedName(s.context) + " " + why
+		return "", refersToWord + describe(ref) + " of " + qualifiedName(owner) + ", performed on an object of it: no one lifeline it covers stands for one, and " + qualifiedName(s.context) + " " + why
 	}
 	return joinDot(self, strings.TrimPrefix(strings.TrimPrefix(obj, "this"), ".")), ""
 }
@@ -485,11 +491,11 @@ func (s *scenario) invariant(f *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 		on, read, lost := s.m.onObject(strings.TrimSpace(text), lines[0].from, lines[0].typ)
 		switch {
 		case lost != "":
-			return nil, "the state invariant's condition [" + describeValue(spec) + "] reads " + lost + " of the lifeline's object " + lines[0].path + ", which has no v2 declaration"
+			return nil, stateInvariantCondition + describeValue(spec) + "] reads " + lost + " of the lifeline's object " + lines[0].path + noV2Declaration
 		case read:
 			cond, ok, note = s.m.behaviorExpr(on, lang, s.e)
 			if !ok {
-				return nil, "the state invariant's condition [" + describeValue(spec) + "] is not written: " + note
+				return nil, stateInvariantCondition + describeValue(spec) + "] is not written: " + note
 			}
 		}
 	}
@@ -497,7 +503,7 @@ func (s *scenario) invariant(f *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 		var refusal string
 		cond, ok, refusal = s.m.behaviorValue(spec, s.e)
 		if !ok {
-			return nil, "the state invariant's condition [" + describeValue(spec) + "] is not written: " + refusal
+			return nil, stateInvariantCondition + describeValue(spec) + "] is not written: " + refusal
 		}
 		note = refusal
 	}
@@ -579,7 +585,7 @@ func (s *scenario) lifeline(line *sysmlv1.Element) (lifelineRef, string) {
 		ref = lifelineRef{line: line, path: name, chain: name, typ: s.m.model.Ref(rep, "type"), from: name}
 	case "Property", "Port":
 		if !s.m.written(rep) {
-			return lifelineRef{}, standsFor + describe(rep) + " of " + qualifiedName(rep.Parent) + ", which has no v2 declaration"
+			return lifelineRef{}, standsFor + describe(rep) + " of " + qualifiedName(rep.Parent) + noV2Declaration
 		}
 		paths := s.m.partPaths(s.context, rep)
 		switch len(paths) {

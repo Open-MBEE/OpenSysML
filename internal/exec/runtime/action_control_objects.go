@@ -111,7 +111,7 @@ func arrivingObject(frame *actionFrame, graph *lower.ActionGraph, node ast.Node,
 	case len(held) == 1:
 		return held[0], first[held[0]], nil
 	case len(held) > 1:
-		return "", -1, fmt.Errorf("%w: %s holds values at %s", ErrAmbiguousMergeInput, nodeDescription(node), strings.Join(held, ", "))
+		return "", -1, fmt.Errorf("%w: %s holds values at %s", errAmbiguousMergeInput, nodeDescription(node), strings.Join(held, ", "))
 	case len(from) > 0 || via.Carries:
 		return "", -1, nil
 	}
@@ -126,7 +126,7 @@ func arrivingObject(frame *actionFrame, graph *lower.ActionGraph, node ast.Node,
 	case 1:
 		return held[0], slices.IndexFunc(frame.held[node][held[0]], func(h nodeObject) bool { return !h.carried }), nil
 	}
-	return "", -1, fmt.Errorf("%w: %s holds values at %s", ErrAmbiguousMergeInput, nodeDescription(node), strings.Join(held, ", "))
+	return "", -1, fmt.Errorf("%w: %s holds values at %s", errAmbiguousMergeInput, nodeDescription(node), strings.Join(held, ", "))
 }
 
 // queueControlObject holds a value an object flow delivers at an input of a fork, join
@@ -141,7 +141,7 @@ func (e *performances) queueControlObject(frame *actionFrame, graph *lower.Actio
 			return nil
 		}
 	}
-	return fmt.Errorf("%s: %w: %s declares no input %s", flowDescription(flow), ErrNodePin, nodeDescription(flow.Target), flow.TargetPin)
+	return fmt.Errorf("%s: %w: %s declares no input %s", flowDescription(flow), errNodePin, nodeDescription(flow.Target), flow.TargetPin)
 }
 
 // hold appends a value to those node holds at pin.

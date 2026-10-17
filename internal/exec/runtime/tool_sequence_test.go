@@ -205,7 +205,7 @@ func TestToolOutputEmptySequenceKeepsItsUnit(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ExecuteAction: %v", err)
 		}
-		unit, ok := out["speeds"].Sequence().ElementUnit()
+		unit, ok := out["speeds"].Sequence().emptyElementUnit()
 		if !ok || unit.String() != "SI::'m/s'" {
 			t.Fatalf("element unit = %v (%v), want SI::'m/s'", unit, ok)
 		}

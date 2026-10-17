@@ -100,11 +100,14 @@ class Exploration:
         probabilities_lower_bound (bool): Whether weighted model probabilities
             are lower bounds — the exploration is incomplete and a budget kept
             some orders unexplored
+        unenumerated (list[str]): The constructs whose unordered alternatives
+            the runs took in one order without a choice point, by identifier —
+            empty when the exploration is complete
     """
 
     def __init__(self, outcomes, complete, runs, budgets_hit, runs_budget,
                  depth_budget, probabilities_lower_bound=False,
-                 failed_linearizations=0):
+                 failed_linearizations=0, unenumerated=None):
         self.outcomes = list(outcomes or [])
         self.complete = complete
         self.runs = runs
@@ -113,6 +116,7 @@ class Exploration:
         self.depth_budget = depth_budget
         self.probabilities_lower_bound = probabilities_lower_bound
         self.failed_linearizations = failed_linearizations
+        self.unenumerated = list(unenumerated or [])
 
     def __iter__(self):
         return iter(self.outcomes)
@@ -129,11 +133,15 @@ class Exploration:
         """How the exploration ended, as ``sysml -schedule explore`` prints it."""
         if self.complete:
             return f"complete ({self.runs} runs)"
-        named = " and ".join(
-            f"{budget} budget {self.depth_budget if budget == 'depth' else self.runs_budget}"
-            for budget in self.budgets_hit
-        )
-        status = f"incomplete: {named} hit after {self.runs} runs"
+        status = f"incomplete after {self.runs} runs"
+        if self.budgets_hit:
+            named = " and ".join(
+                f"{budget} budget {self.depth_budget if budget == 'depth' else self.runs_budget}"
+                for budget in self.budgets_hit
+            )
+            status = f"incomplete: {named} hit after {self.runs} runs"
+        if self.unenumerated:
+            status += "; not enumerated: " + ", ".join(self.unenumerated)
         if self.probabilities_lower_bound:
             status += "; probabilities are lower bounds"
         return status

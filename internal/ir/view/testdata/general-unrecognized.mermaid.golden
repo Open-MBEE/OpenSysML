@@ -25,29 +25,9 @@ config:
 flowchart TD
   n0["`*«part def»*
 **A**`"]
-    n1("`*«part»*
-**b**`")
-  n0 --- n1
-  n2["`*«part def»*
+  n1["`*«part def»*
 **B**`"]
-    n3("`*«part»*
-**a**`")
-  n2 --- n3
-  n4["`*«part def»*
+  n2["`*«part def»*
 **C**`"]
-  n5["`*«connection def»*
+  n3["`*«connection def»*
 **Derivation**`"]
-    n6("`*«requirement»*
-**originalRequirement**`")
-  n5 --- n6
-    n7("`*«requirement»*
-**derivedRequirements**`")
-  n5 --- n7
-    n8("`*«assert constraint»*
-**originalNotDerived**`")
-  n5 --- n8
-    n9("`*«assert constraint»*
-**originalImpliesDerived**`")
-  n5 --- n9
-  n0 ---|"◆ b"| n2
-  n2 ---|"◆ a"| n0

@@ -126,6 +126,18 @@ impl Model {
         self.connection
             .render_view_showing(self.hash(), view_name, ports, show)
     }
+    /// Render a named view as `render_view_showing` does, drawing `depth` levels of
+    /// nested elements below each exposed element when `depth` is above 0.
+    pub fn render_view_bounded(
+        &self,
+        view_name: &str,
+        ports: crate::document::RenderViewPorts,
+        show: &[&str],
+        depth: u32,
+    ) -> Result<crate::document::RenderedView, Error> {
+        self.connection
+            .render_view_bounded(self.hash(), view_name, ports, show, depth)
+    }
 
     /// Search every schedule of an action for a violated property, a deadlock, a
     /// failure or a divergent value, as `sysml -check-property` does.

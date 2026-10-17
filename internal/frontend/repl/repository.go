@@ -12,6 +12,13 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+const (
+	publishCommand = "%publish"
+	nameFlag       = "--name="
+	branchFlag     = "--branch="
+	projectFlag    = "--project="
+)
+
 // The repository commands drive a SysML v2 API server, as the pilot's notebook
 // kernel does: %repo names it, %projects lists it, %load reads a project's
 // branch into the session and %publish writes an element's tree back.
@@ -57,7 +64,7 @@ func (s *Session) metaRepositoryCommand(fields []string, _ string) (metaResult, 
 			return metaResult{}, false
 		}
 		return s.doLoadRepository(fields[1:]), true
-	case "%publish":
+	case publishCommand:
 		return s.doPublish(fields[1:]), true
 	}
 	return metaResult{}, false
@@ -171,9 +178,9 @@ func (s *Session) doLoadRepository(args []string) metaResult {
 			switch {
 			case strings.HasPrefix(arg, "--id="):
 				field = &req.ProjectID
-			case strings.HasPrefix(arg, "--name="):
+			case strings.HasPrefix(arg, nameFlag):
 				field = &req.Name
-			case strings.HasPrefix(arg, "--branch="):
+			case strings.HasPrefix(arg, branchFlag):
 				field = &req.Branch
 			}
 			if err := setRepoFlag(field, arg, usageLoadRepo, "%load"); err != nil {
@@ -236,12 +243,12 @@ func (s *Session) doPublish(args []string) metaResult {
 		case strings.HasPrefix(arg, "-"):
 			var field *string
 			switch {
-			case strings.HasPrefix(arg, "--project="):
+			case strings.HasPrefix(arg, projectFlag):
 				field = &req.Project
-			case strings.HasPrefix(arg, "--branch="):
+			case strings.HasPrefix(arg, branchFlag):
 				field = &req.Branch
 			}
-			if err := setRepoFlag(field, arg, usagePublish, "%publish"); err != nil {
+			if err := setRepoFlag(field, arg, usagePublish, publishCommand); err != nil {
 				return metaOut(nil, false, err)
 			}
 		case req.Root != "":
@@ -293,18 +300,18 @@ func (s *Session) repositoryCompletions(command, word string) ([]string, bool) {
 		return nil, false
 	}
 	flags := map[string][]string{
-		"%load":    {"--id=", "--name=", "--branch=", "--cells="},
-		"%publish": {"-d", "--project=", "--branch="},
+		"%load":        {"--id=", nameFlag, branchFlag, "--cells="},
+		publishCommand: {"-d", projectFlag, branchFlag},
 	}[command]
 	if flags == nil {
 		return nil, false
 	}
 	if strings.HasPrefix(word, "-") {
 		if value, ok := repoFlag(word, "name"); ok {
-			return prefixed("--name=", matchingPrefix(s.projectNames(), value)), true
+			return prefixed(nameFlag, matchingPrefix(s.projectNames(), value)), true
 		}
 		if value, ok := repoFlag(word, "project"); ok {
-			return prefixed("--project=", matchingPrefix(s.projectNames(), value)), true
+			return prefixed(projectFlag, matchingPrefix(s.projectNames(), value)), true
 		}
 		if value, ok := repoFlag(word, "id"); ok {
 			return prefixed("--id=", matchingPrefix(s.projectIDs(), value)), true

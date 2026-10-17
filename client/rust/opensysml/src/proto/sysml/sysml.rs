@@ -229,6 +229,14 @@ pub struct VerificationVerdict {
     /// a requirement, or when that requirement can be named by no FQN.
     #[prost(string, tag="5")]
     pub requirement_id: ::prost::alloc::string::String,
+    /// Instance the case ran on as its owner, 0 when it ran on no object. A case a
+    /// definition owns runs once per object of that definition, so verdicts of one
+    /// case are told apart by this field; its feature values are in `instances`.
+    #[prost(int64, tag="6")]
+    pub instance_id: i64,
+    /// Type of `instance_id`, as an FQN, for naming the object in a report.
+    #[prost(string, tag="7")]
+    pub instance_type_id: ::prost::alloc::string::String,
 }
 /// VerifyRequirementResponse carries the verdict.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -564,7 +572,8 @@ pub struct Outcome {
 /// within the budget was run, and which budget stopped it when not.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ExplorationStatus {
-    /// True when every linearization was run, so `outcomes` is the whole set.
+    /// True when every linearization the library admits was run, so `outcomes`
+    /// is the whole set: no budget was hit and nothing was left unenumerated.
     #[prost(bool, tag="1")]
     pub complete: bool,
     /// How many runs were made.
@@ -586,6 +595,11 @@ pub struct ExplorationStatus {
     /// How many linearizations ended in runtime-error outcomes.
     #[prost(int32, tag="7")]
     pub failed_linearizations: i32,
+    /// The constructs whose unordered alternatives the runs took in one order
+    /// without a choice point, by identifier; `complete` is false while any is
+    /// listed, since fewer orders were run than the library admits.
+    #[prost(string, repeated, tag="8")]
+    pub unenumerated: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// CheckBehaviorRequest searches every schedule of a behavior, as the `sysml`
 /// command's -check-* flags do about `-action`/`-state`.
@@ -1063,6 +1077,12 @@ pub struct FeatureValue {
     /// set when evaluation failed; value is unset
     #[prost(string, tag="5")]
     pub error: ::prost::alloc::string::String,
+    /// How many of the run's unresolved choice points — ones whose alternatives
+    /// write what another reads or writes — touch this value: it then stands only
+    /// up to the order the run took, and an explore shows the set. 0 for a value
+    /// nothing order-dependent wrote. Populated under the "order_dependence" capability.
+    #[prost(int32, tag="6")]
+    pub order_dependent: i32,
 }
 /// InstantiateRequest requests instantiation of a part/usage
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -1147,6 +1167,11 @@ pub struct ExecuteActionResponse {
     /// under an explore schedule, whose outcomes carry them.
     #[prost(map="string, message", tag="7")]
     pub performer_attributes: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// Output name → how many of the run's unresolved choice points touch it; an
+    /// output nothing order-dependent wrote is absent. Populated under the
+    /// "order_dependence" capability; empty under an explore schedule.
+    #[prost(map="string, int32", tag="8")]
+    pub order_dependent: ::std::collections::HashMap<::prost::alloc::string::String, i32>,
 }
 /// ExecuteStateRequest requests state machine execution
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -1209,6 +1234,11 @@ pub struct ExecuteStateResponse {
     /// How many of the oldest records the service's held-events bound discarded.
     #[prost(int32, tag="9")]
     pub trace_dropped: i32,
+    /// Final-context key → how many of the run's unresolved choice points touch
+    /// it; a value nothing order-dependent wrote is absent. Populated under the
+    /// "order_dependence" capability; empty under an explore schedule.
+    #[prost(map="string, int32", tag="10")]
+    pub order_dependent: ::std::collections::HashMap<::prost::alloc::string::String, i32>,
 }
 /// ConvertRequest asks for a model in another representation. A model_hash
 /// converts the source that parse read, so a file edited since then does not
@@ -2456,6 +2486,15 @@ pub struct Diagnostic {
     /// "syntax", "choice-point", "guard-unevaluable"; empty when none was assigned.
     #[prost(string, tag="4")]
     pub code: ::prost::alloc::string::String,
+    /// On a "choice-point": the features the conflicting alternatives wrote, whose
+    /// values the run holds only up to the order it took; empty when the
+    /// alternatives commute (`independent`) or conflict on nothing a value names.
+    #[prost(string, repeated, tag="5")]
+    pub order_dependent: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// On a "choice-point": the alternatives commute by their footprints, so the
+    /// run's values stand whichever was taken.
+    #[prost(bool, tag="6")]
+    pub independent: bool,
 }
 /// Span represents a source location
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -3134,6 +3173,10 @@ pub struct RenderViewRequest {
     /// "qualifiers", or "all".
     #[prost(string, repeated, tag="4")]
     pub show: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// How many levels of nested elements to draw below each exposed element,
+    /// overriding the depth the view states; 0 draws every level.
+    #[prost(int32, tag="5")]
+    pub depth: i32,
 }
 /// RenderViewResponse carries all machine-readable fields of the rendering.
 #[derive(Clone, PartialEq, ::prost::Message)]

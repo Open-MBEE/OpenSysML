@@ -1,4 +1,4 @@
-//go:build !sysml_prod && !sysml_noreplext
+//go:build !sysml_re && !sysml_noreplext
 
 package main
 

@@ -117,10 +117,10 @@ func TestRuntimeRobustnessEntryTransitionEffect(t *testing.T) {
 				transition first start accept Go then target;
 			}
 		}`)
-		exec.SendSignal("Go", nil)
+		exec.sendSignal("Go", nil)
 		err := exec.ProcessNextEvent()
-		if !errors.Is(err, ErrChoiceWithoutBranch) || !errors.Is(err, errNoWayThrough) {
-			t.Fatalf("ProcessNextEvent(Go) = %v, want ErrChoiceWithoutBranch wrapped by errNoWayThrough", err)
+		if !errors.Is(err, errChoiceWithoutBranch) || !errors.Is(err, errNoWayThrough) {
+			t.Fatalf("ProcessNextEvent(Go) = %v, want errChoiceWithoutBranch wrapped by errNoWayThrough", err)
 		}
 		if got := exec.StateData()["attempts"].Const.Int; got != 1 {
 			t.Fatalf("entry effect attempts = %d, want 1 before resolving the choice", got)
@@ -140,7 +140,7 @@ func TestRuntimeRobustnessEntryTransitionEffect(t *testing.T) {
 				state active;
 			}
 		}`, "Machine")
-		if !errors.Is(err, errNoWayThrough) || errors.Is(err, ErrChoiceWithoutBranch) {
+		if !errors.Is(err, errNoWayThrough) || errors.Is(err, errChoiceWithoutBranch) {
 			t.Fatalf("execution error = %v, want errNoWayThrough from junction pick", err)
 		}
 	})
@@ -161,7 +161,7 @@ func TestRuntimeRobustnessEntryTransitionEffect(t *testing.T) {
 				transition first idle accept Go then blocked;
 			}
 		}`)
-		exec.SendSignal("Go", nil)
+		exec.sendSignal("Go", nil)
 		err := exec.ProcessNextEvent()
 		if !errors.Is(err, errNoWayThrough) {
 			t.Fatalf("ProcessNextEvent(Go) = %v, want errNoWayThrough", err)

@@ -318,8 +318,8 @@ func TestMixedActionPinsKeepTheirFormBehavior(t *testing.T) {
 		t.Fatalf("minimal PlantUML has no Check container:\n%s", plantUMLMinimal)
 	}
 	open := strings.Index(plantUMLMinimal[start:], "{")
-	close := strings.Index(plantUMLMinimal[start+open+1:], "}")
-	if open < 0 || close < 0 || !strings.Contains(plantUMLMinimal[start+open+1:start+open+1+close], "port \"request\" as "+request.ID) {
+	closeAt := strings.Index(plantUMLMinimal[start+open+1:], "}")
+	if open < 0 || closeAt < 0 || !strings.Contains(plantUMLMinimal[start+open+1:start+open+1+closeAt], "port \"request\" as "+request.ID) {
 		t.Errorf("minimal PlantUML does not write request inside Check's container:\n%s", plantUMLMinimal)
 	}
 	if !strings.Contains(textMinimal, "in request") {

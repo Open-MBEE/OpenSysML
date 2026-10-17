@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_a_x" name="x" visibility="private" type="_b" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_a_b" name="b" type="_b" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_b_x" name="x"/>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag" name="A BDD" ownerOfDiagram="_a">
+        <xmi:Extension extender="Example UML Tool 1.0">
+          <diagramRepresentation>
+            <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+              <diagramContents>
+                <usedElements>_a_x</usedElements>
+                <usedElements>_b_x</usedElements>
+              </diagramContents>
+            </diagram:DiagramRepresentationObject>
+          </diagramRepresentation>
+        </xmi:Extension>
+      </ownedDiagram>
+    </xmi:Extension>
+  </uml:Model>
+  <sysml:Block xmi:id="_s_a" base_Class="_a"/>
+  <sysml:Block xmi:id="_s_b" base_Class="_b"/>
+</xmi:XMI>

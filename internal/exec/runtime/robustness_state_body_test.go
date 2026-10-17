@@ -164,8 +164,8 @@ func testStateEntryActionInputBoundByNothing(t *testing.T) {
 		}
 	}`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrUnboundParameter) {
-		t.Fatalf("error = %v, want ErrUnboundParameter", err)
+	if !errors.Is(err, errUnboundParameter) {
+		t.Fatalf("error = %v, want errUnboundParameter", err)
 	}
 	if !strings.Contains(err.Error(), "b") {
 		t.Errorf("error %q does not name the unbound parameter", err)
@@ -196,8 +196,8 @@ func testStateBlockTypedNodeInputBoundByNothing(t *testing.T) {
 		}
 	}`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrUnboundParameter) {
-		t.Fatalf("error = %v, want ErrUnboundParameter", err)
+	if !errors.Is(err, errUnboundParameter) {
+		t.Fatalf("error = %v, want errUnboundParameter", err)
 	}
 	if !strings.Contains(err.Error(), "b") {
 		t.Errorf("error %q does not name the unbound parameter", err)
@@ -208,7 +208,7 @@ func testStateBlockTypedNodeInputBoundByNothing(t *testing.T) {
 }
 
 // testStateBlockNodePinReadBeforePerformed: a state body's node has a frame of its
-// own, so a sibling reading its pin before it performs is ErrNodeNotPerformed.
+// own, so a sibling reading its pin before it performs is errNodeNotPerformed.
 func testStateBlockNodePinReadBeforePerformed(t *testing.T) {
 	exec := stateExecutorForSource(t, "Machine", `package test {
 		private import ScalarValues::*;
@@ -229,8 +229,8 @@ func testStateBlockNodePinReadBeforePerformed(t *testing.T) {
 		}
 	}`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrNodeNotPerformed) {
-		t.Fatalf("error = %v, want ErrNodeNotPerformed", err)
+	if !errors.Is(err, errNodeNotPerformed) {
+		t.Fatalf("error = %v, want errNodeNotPerformed", err)
 	}
 	if !strings.Contains(err.Error(), "late") {
 		t.Errorf("error %q does not name the node", err)
@@ -238,7 +238,7 @@ func testStateBlockNodePinReadBeforePerformed(t *testing.T) {
 }
 
 // testStateBlockNodeBoundAtNoPin: a binding in a state body at a pin the node does
-// not declare is ErrBindingEnd, as it is in an action's flow.
+// not declare is errBindingEnd, as it is in an action's flow.
 func testStateBlockNodeBoundAtNoPin(t *testing.T) {
 	exec := stateExecutorForSource(t, "Machine", `package test {`+adderActionDef+`
 		state Machine {
@@ -259,8 +259,8 @@ func testStateBlockNodeBoundAtNoPin(t *testing.T) {
 		}
 	}`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrBindingEnd) {
-		t.Fatalf("error = %v, want ErrBindingEnd", err)
+	if !errors.Is(err, errBindingEnd) {
+		t.Fatalf("error = %v, want errBindingEnd", err)
 	}
 	if !strings.Contains(err.Error(), "c") {
 		t.Errorf("error %q does not name the pin", err)
@@ -314,8 +314,8 @@ func testStateDoBodyDanglingSuccession(t *testing.T) {
 		succession a then missing;
 	`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrStatementNotExecutable) {
-		t.Fatalf("expected ErrStatementNotExecutable, got: %v", err)
+	if !errors.Is(err, errStatementNotExecutable) {
+		t.Fatalf("expected errStatementNotExecutable, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "state behavior ops") || !strings.Contains(err.Error(), `"missing"`) {
 		t.Errorf("error %q does not name the behavior and the undefined target", err)
@@ -333,8 +333,8 @@ func testStateDoBodyFirstThenUndefined(t *testing.T) {
 		first a then b;
 	`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrStatementNotExecutable) {
-		t.Fatalf("expected ErrStatementNotExecutable, got: %v", err)
+	if !errors.Is(err, errStatementNotExecutable) {
+		t.Fatalf("expected errStatementNotExecutable, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), `"b"`) {
 		t.Errorf("error %q does not name the undefined target", err)
@@ -354,8 +354,8 @@ func testStateDoBodyFlowWithoutStart(t *testing.T) {
 		succession first b then a;
 	`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
+	if !errors.Is(err, errInvalidActionFlow) {
+		t.Fatalf("expected errInvalidActionFlow, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "no node starts the flow") {
 		t.Errorf("error %q does not say what the flow lacks", err)
@@ -395,8 +395,8 @@ func testStateDoBodyNestedNodeDanglingSuccession(t *testing.T) {
 		then done;
 	`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
+	if !errors.Is(err, errInvalidActionFlow) {
+		t.Fatalf("expected errInvalidActionFlow, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "action node step") || !strings.Contains(err.Error(), `"missing"`) {
 		t.Errorf("error %q does not name the node and the undefined target", err)
@@ -446,8 +446,8 @@ func testStateEntryBodyDanglingSuccession(t *testing.T) {
 		}
 	}`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrStatementNotExecutable) {
-		t.Fatalf("expected ErrStatementNotExecutable, got: %v", err)
+	if !errors.Is(err, errStatementNotExecutable) {
+		t.Fatalf("expected errStatementNotExecutable, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "state behavior prep") || !strings.Contains(err.Error(), `"missing"`) {
 		t.Errorf("error %q does not name the behavior and the undefined target", err)
@@ -467,8 +467,8 @@ func testStateDoBodyNodeReturnParameter(t *testing.T) {
 		then done;
 	`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrActionResultParameter) {
-		t.Fatalf("expected ErrActionResultParameter, got: %v", err)
+	if !errors.Is(err, errActionResultParameter) {
+		t.Fatalf("expected errActionResultParameter, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "state behavior ops") || !strings.Contains(err.Error(), "action node b") {
 		t.Errorf("error %q does not name the behavior and the node", err)
@@ -488,8 +488,8 @@ func testStateDoBodyReturnParameter(t *testing.T) {
 		then done;
 	`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrActionResultParameter) {
-		t.Fatalf("expected ErrActionResultParameter, got: %v", err)
+	if !errors.Is(err, errActionResultParameter) {
+		t.Fatalf("expected errActionResultParameter, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "action ops declares `return r`") {
 		t.Errorf("error %q does not name the body's parameter", err)
@@ -601,8 +601,8 @@ func testStateDoTypedActionInputUnbound(t *testing.T) {
 		}
 	}`)
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrUnboundParameter) {
-		t.Fatalf("expected ErrUnboundParameter, got: %v", err)
+	if !errors.Is(err, errUnboundParameter) {
+		t.Fatalf("expected errUnboundParameter, got: %v", err)
 	}
 	for _, want := range []string{"do action in state active", "action Poll", "input parameter n"} {
 		if !strings.Contains(err.Error(), want) {
@@ -691,8 +691,8 @@ func testStateEntryBodyWaitsForTheClock(t *testing.T) {
 		}
 	}`)
 	err := exec.initialize()
-	if !errors.Is(err, ErrStateBehaviorWaits) {
-		t.Fatalf("expected ErrStateBehaviorWaits, got: %v", err)
+	if !errors.Is(err, errStateBehaviorWaits) {
+		t.Fatalf("expected errStateBehaviorWaits, got: %v", err)
 	}
 	for _, want := range []string{"enter state active", "entry action", "t=1.0"} {
 		if !strings.Contains(err.Error(), want) {
@@ -729,8 +729,8 @@ func testStateExitBodyWaitsForTheClock(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrStateBehaviorWaits) {
-		t.Fatalf("expected ErrStateBehaviorWaits, got: %v", err)
+	if !errors.Is(err, errStateBehaviorWaits) {
+		t.Fatalf("expected errStateBehaviorWaits, got: %v", err)
 	}
 	for _, want := range []string{"exit state", "exit action", "t=1.0"} {
 		if !strings.Contains(err.Error(), want) {
@@ -765,8 +765,8 @@ func testTransitionEffectBodyWaitsForTheClock(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrStateBehaviorWaits) {
-		t.Fatalf("expected ErrStateBehaviorWaits, got: %v", err)
+	if !errors.Is(err, errStateBehaviorWaits) {
+		t.Fatalf("expected errStateBehaviorWaits, got: %v", err)
 	}
 	for _, want := range []string{"transition effect", "t=1.0"} {
 		if !strings.Contains(err.Error(), want) {

@@ -103,8 +103,8 @@ type HistogramBin struct {
 	Count  int
 }
 
-// HistogramBins is the most bins a histogram has.
-const HistogramBins = 8
+// histogramBins is the most bins a histogram has.
+const histogramBins = 8
 
 // Distribute summarises numbers in any order, nil for none: all Integers make an
 // integral distribution computed exactly, a Real among them one over Reals.
@@ -288,25 +288,25 @@ func nearestRank[T any](sorted []T, p float64) T {
 	return sorted[k-1]
 }
 
-// histogram bins sorted Reals into at most HistogramBins equal-width bins; a span too
+// histogram bins sorted Reals into at most histogramBins equal-width bins; a span too
 // narrow to divide into Real widths bins each distinct value on its own.
 func histogram(sorted []float64) []HistogramBin {
 	lo, hi := sorted[0], sorted[len(sorted)-1]
 	if lo == hi || math.IsInf(hi-lo, 0) {
 		return []HistogramBin{{Lo: drawnReal(lo), Hi: drawnReal(hi), Count: len(sorted)}}
 	}
-	width := (hi - lo) / HistogramBins
+	width := (hi - lo) / histogramBins
 	if width == 0 {
 		return distinctHistogram(sorted)
 	}
-	bins := make([]HistogramBin, HistogramBins)
+	bins := make([]HistogramBin, histogramBins)
 	for i := range bins {
 		bins[i].Lo = drawnReal(lo + float64(i)*width)
 		bins[i].Hi = drawnReal(lo + float64(i+1)*width)
 	}
 	bins[len(bins)-1].Hi = drawnReal(hi)
 	for _, v := range sorted {
-		bins[min(int((v-lo)/width), HistogramBins-1)].Count++
+		bins[min(int((v-lo)/width), histogramBins-1)].Count++
 	}
 	return bins
 }
@@ -329,9 +329,9 @@ func distinctHistogram(sorted []float64) []HistogramBin {
 func integralHistogram(sorted []semantics.Value) []HistogramBin {
 	lo := sorted[0].BigInt()
 	span := new(big.Int).Sub(sorted[len(sorted)-1].BigInt(), lo)
-	// width is ⌈(span+1) / HistogramBins⌉.
-	width := new(big.Int).Add(span, big.NewInt(HistogramBins))
-	width.Quo(width, big.NewInt(HistogramBins))
+	// width is ⌈(span+1) / histogramBins⌉.
+	width := new(big.Int).Add(span, big.NewInt(histogramBins))
+	width.Quo(width, big.NewInt(histogramBins))
 	var bins []HistogramBin
 	for from := new(big.Int); from.Cmp(span) <= 0; from = new(big.Int).Add(from, width) {
 		to := new(big.Int).Add(from, width)
@@ -346,8 +346,8 @@ func integralHistogram(sorted []semantics.Value) []HistogramBin {
 	}
 	for _, v := range sorted {
 		offset := new(big.Int).Sub(v.BigInt(), lo)
-		bin := HistogramBins - 1
-		if q := offset.Quo(offset, width); q.IsInt64() && q.Int64() < HistogramBins-1 {
+		bin := histogramBins - 1
+		if q := offset.Quo(offset, width); q.IsInt64() && q.Int64() < histogramBins-1 {
 			bin = int(q.Int64())
 		}
 		bins[bin].Count++

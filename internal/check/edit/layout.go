@@ -338,10 +338,11 @@ func (m Model) exposes(sem *semantics.Model, viewSym, sym *symbols.Symbol) bool 
 
 // layoutSite is the annotation of type typeFQN the operation rewrites: the one
 // stated in viewSym's body about sym, or, for an inline operation, the one
-// applying in every view; nil when none is stated in m's document.
+// applying in every view; nil when none is stated in m's document. A Route
+// naming a general steers a specialization edge, which no operation edits.
 func (m Model) layoutSite(sem *semantics.Model, sym, viewSym *symbols.Symbol, typeFQN string) *semantics.LayoutSite {
 	for _, site := range sem.LayoutSitesOf(sym) {
-		if site.TypeFQN != typeFQN || symbols.DocNameOf(site.Scope) != m.Source.Name() {
+		if site.TypeFQN != typeFQN || site.General != nil || symbols.DocNameOf(site.Scope) != m.Source.Name() {
 			continue
 		}
 		if viewSym == nil && site.View == nil {

@@ -66,7 +66,7 @@ the profile; the table's own cost is under 1% of samples.
 **The evaluator allocates ~1.7 KiB per calc invocation, and GC eats half the
 CPU.** Profiling 20 × `Fib(20)` (~440 000 calc invocations), 45% of CPU is
 garbage collection, and the allocation profile puts 59% of all bytes in
-`runtime.Context.bindCalcParameters`, with `NewEvalContext` (8%) and
+`runtime.Context.bindCalcParameters`, with `newEvalContext` (8%) and
 `newStmtEngine` (3%) adding a fresh context and statement engine per
 invocation. Reusing evaluation frames across calls — a free-list on the
 `Context`, or binding parameters into a caller-provided frame instead of a

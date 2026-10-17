@@ -60,7 +60,7 @@ func (s *Service) ValidateInstance(ctx context.Context, req *pb.ValidateInstance
 		resp.Verdicts = append(resp.Verdicts, v.objectVerdict(ov, plan))
 		if req := ov.Requirement; req != nil && !verified[req] {
 			verified[req] = true
-			resp.VerificationVerdicts = append(resp.VerificationVerdicts, v.requirementVerifications(req)...)
+			resp.VerificationVerdicts = append(resp.VerificationVerdicts, v.requirementVerifications(req, root, nil)...)
 		}
 	}
 	return resp, nil

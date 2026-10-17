@@ -40,7 +40,7 @@ func (ec *EvalContext) frameIndex(index ast.Node) (*CoordinateFrame, bool, error
 	}
 	if val.Kind != ValCoordinateFrame {
 		return nil, true, fmt.Errorf("%w: %s evaluates to %s, want a coordinate frame or a measurement scale",
-			ErrNotAQuantity, semantics.UnitExprText(index), describeValue(val))
+			errNotAQuantity, semantics.UnitExprText(index), describeValue(val))
 	}
 	return val.CoordinateFrame(), true, nil
 }
@@ -53,17 +53,17 @@ func (ec *EvalContext) framedQuantity(n *ast.IndexExpr, frame *CoordinateFrame) 
 	if err != nil {
 		return Value{}, err
 	}
-	if frame.IsScale() && magnitude.Kind == ValConst && magnitude.Const.IsNumeric() {
+	if frame.isScale() && magnitude.Kind == ValConst && magnitude.Const.IsNumeric() {
 		return NewQuantityValue(&Quantity{Num: magnitude.Const, Unit: frame.Axes[0]}), nil
 	}
 	elements, ok := numericElements(magnitude)
 	if !ok {
-		size, sized := frame.FlattenedSize()
+		size, sized := frame.flattenedSize()
 		if !sized {
 			return Value{}, frame.flattenedSizeError(frame.Name())
 		}
 		return Value{}, fmt.Errorf("%w: magnitude of a quantity over the coordinate frame %s is %s, want %d numbers, one per axis",
-			ErrNotAQuantity, frame.Name(), describeValue(magnitude), size)
+			errNotAQuantity, frame.Name(), describeValue(magnitude), size)
 	}
 	return ec.ctx.framedVectorQuantity(elements, frame)
 }
@@ -94,7 +94,7 @@ func numericElements(val Value) ([]semantics.Value, bool) {
 // framedVectorQuantity builds the vector quantity of num over frame, which
 // VectorCalculations::'[' sizes as `n = mRef.flattenedSize`.
 func (ctx *Context) framedVectorQuantity(num []semantics.Value, frame *CoordinateFrame) (Value, error) {
-	size, ok := frame.FlattenedSize()
+	size, ok := frame.flattenedSize()
 	if !ok {
 		return Value{}, frame.flattenedSizeError("VectorCalculations::'[': " + frame.Name())
 	}
@@ -107,7 +107,7 @@ func (ctx *Context) framedVectorQuantity(num []semantics.Value, frame *Coordinat
 	if err != nil {
 		return Value{}, err
 	}
-	return NewFramedVectorQuantityValue(checked, frame), nil
+	return newFramedVectorQuantityValue(checked, frame), nil
 }
 
 // composeFrame is `frame * unit` or `frame / unit` (MeasurementRefCalculations::
@@ -122,16 +122,16 @@ func (ctx *Context) composeFrame(op ast.OperatorKind, left, right Value) (Value,
 		return Value{}, true, fmt.Errorf("%w: operator '%s' is not defined for a coordinate frame and %s; MeasurementRefCalculations::'CoordinateFrame%s' takes a MeasurementUnit",
 			ErrTypeMismatch, op.String(), describeValue(right), op.String())
 	}
-	if frame.IsScale() {
+	if frame.isScale() {
 		return Value{}, true, fmt.Errorf("%w: MeasurementRefCalculations::'CoordinateFrame%s': %s is a measurement scale, whose points are on the scale and not in a unit to compose",
-			ErrUnevaluableLibraryFunction, op.String(), frame.Name())
+			errUnevaluableLibraryFunction, op.String(), frame.Name())
 	}
 	unit := right.MeasurementRef().Unit
 	axes := make([]Unit, len(frame.Axes))
 	for i, axis := range frame.Axes {
 		if scale, ok := ctx.model.semantics.MeasurementScaleOf(axis.Term); ok {
 			return Value{}, true, fmt.Errorf("%w: MeasurementRefCalculations::'CoordinateFrame%s': axis %d of %s is on the measurement scale %s, whose points are not in a unit to compose",
-				ErrUnevaluableLibraryFunction, op.String(), i+1, frame.Name(), unitSymbolName(scale))
+				errUnevaluableLibraryFunction, op.String(), i+1, frame.Name(), unitSymbolName(scale))
 		}
 		if op == ast.OpMul {
 			axes[i] = Unit{Product: axis.Product.Times(unit.Product), Term: axis.Term.Times(unit.Term)}
@@ -310,13 +310,13 @@ func (ctx *Context) frameFeature(val Value, name string) (Value, bool, error) {
 	case arrayRankFeature:
 		return integerValue(int64(len(frame.Dimensions))), true, nil
 	case arrayFlattenedSizeFeature:
-		size, ok := frame.FlattenedSize()
+		size, ok := frame.flattenedSize()
 		if !ok {
 			return Value{}, true, frame.flattenedSizeError(frame.Name())
 		}
 		return integerValue(size), true, nil
 	case arrayElementsFeature, mRefMRefsFeature:
-		if frame.IsScale() {
+		if frame.isScale() {
 			return ctx.answerSequence([]Value{val})
 		}
 		return ctx.answerSequence(frame.axisRefs())
@@ -326,7 +326,7 @@ func (ctx *Context) frameFeature(val Value, name string) (Value, bool, error) {
 		}
 		return NewCoordinateTransformationValue(frame.Transformation), true, nil
 	case scaleUnitFeature:
-		if frame.IsScale() {
+		if frame.isScale() {
 			return measurementRefOf(frame.Scale.Unit), true, nil
 		}
 	}

@@ -548,7 +548,7 @@ effect and a do step against a sibling's entry unit are not the pool's order.
 
 No count moved since the baseline before (develop `23a50b1d1`, 2026-09-18), and four rows
 did: the runtime draws a due do step against the dispatch the machine would make at the same
-instant, as a choice point under `check`, `replay` and `explore` (`ChoiceStepOrder`;
+instant, as a choice point under `check`, `replay` and `explore` (`choiceStepOrder`;
 [finding 9](#findings-about-our-own-conformance), its fourth and last site). The fixed
 policies keep running the do round to its end before they dispatch, so no trace the default
 reached before is lost; what `explore` now reaches is the runs in which the machine dispatches
@@ -579,7 +579,7 @@ executing, 2026-09-17): the runtime draws the order in which a composite state's
 regions and a fork's branches are entered, the order in which orthogonal regions are exited,
 and the order of the units — source exit, effect, target entry — of the firings one occurrence
 selects across regions, as choice points the schedule policy resolves and `explore` varies
-(`ChoiceEntryOrder`, `ChoiceExitOrder`, the per-unit `ChoiceRegionOrder`;
+(`choiceEntryOrder`, `choiceExitOrder`, the per-unit `ChoiceRegionOrder`;
 [finding 9](#findings-about-our-own-conformance), three of its four sites). The default
 policy takes the order the runtime always took, so no trace it reached before is lost; what
 `explore` now reaches is the other linearizations. Five tests gain every admitted trace they
@@ -961,9 +961,9 @@ the runtime; a `fail` cites a tool choice, a translation limit or the suite's de
   exploration, closed by the scheduling design
   [recording the order of orthogonal regions](../internals/design/region-order-scheduling.md).
   Three sites are implemented: the regions of a composite state, a fork's branches and the
-  regions a history restores are entered under a draw (`ChoiceEntryOrder`, `entering S1`,
+  regions a history restores are entered under a draw (`choiceEntryOrder`, `entering S1`,
   `fork`; `state_region_entry.go`), orthogonal regions are exited under a draw
-  (`ChoiceExitOrder`, `exiting S1`; `state_executor.go:exitState`), and the firings one
+  (`choiceExitOrder`, `exiting S1`; `state_executor.go:exitState`), and the firings one
   occurrence selects across regions run one unit — source exit, effect, target entry — at a
   time under a draw (`ChoiceRegionOrder`; `dispatchInOrder`), a firing not atomic against its
   sibling's (the alignment note's SM21 row records the decision, argued from the KerML
@@ -978,7 +978,7 @@ the runtime; a `fail` cites a tool choice, a translation limit or the suite's de
   *Fork 002*, *Terminate 001* and *Deferred 006 C* to `pass`, and every admitted trace of
   *Transition 019* is reached, leaving SM34 alone (the movements tables above adjudicate each).
   The fourth site — a due do step against the dispatch the machine would make at the same
-  instant — is drawn under `check`, `replay` and `explore` (`ChoiceStepOrder`, `state_executor.go:oneUnit`):
+  instant — is drawn under `check`, `replay` and `explore` (`choiceStepOrder`, `state_executor.go:oneUnit`):
   one move is one token move of a state's do behavior (`stepDoAction`) or the dispatch, "dispatch it
   now" against "keep moving the do flow", drawn again after every move while a do behavior is
   due; the fixed policies finish the whole do round before they

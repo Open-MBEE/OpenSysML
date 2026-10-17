@@ -286,7 +286,7 @@ func (r *steppedRun) stepAction(sym *symbols.Symbol) {
 	}
 	exec.SetTrace(r.trace)
 	r.actions = append(r.actions, exec)
-	r.snapshot = exec.Snapshot
+	r.snapshot = exec.snapshot
 	r.step = func() (bool, error) {
 		err := exec.Step()
 		return err == nil && exec.State() == StateRunning, err
@@ -311,7 +311,7 @@ func (r *steppedRun) stepState(t *testing.T, idx *symbols.Index, sym *symbols.Sy
 	exec.SetTrace(r.trace)
 	injectEvents(t, exec, expected.Events)
 	r.states = append(r.states, exec)
-	r.snapshot = exec.Snapshot
+	r.snapshot = exec.snapshot
 	r.step = func() (bool, error) {
 		err := exec.ProcessNextEvent()
 		return err == nil && exec.State() == StateRunning && exec.eventQueue.Len() > 0, err
@@ -682,16 +682,16 @@ func TestSnapshotRestoreBringsTheTraceBackToTheMark(t *testing.T) {
 	ctx, _ := contextForSource(t, sharedIdentitiesSrc)
 	tr := NewTraceRecorder()
 	ctx.SetTrace(tr)
-	tr.RecordStatement("first")
+	tr.recordStatement("first")
 	snapshot, err := ctx.Snapshot()
 	if err != nil {
 		t.Fatalf("Snapshot: %v", err)
 	}
-	tr.RecordStatement("second")
+	tr.recordStatement("second")
 	tr.Clear()
-	tr.Disable()
+	tr.disable()
 	snapshot.Restore()
-	tr.RecordStatement("third")
+	tr.recordStatement("third")
 	want := "stmt first\n" + traceIndent + "stmt third"
 	if got := tr.String(); got != want {
 		t.Fatalf("trace after restore:\n%s\nwant:\n%s", got, want)

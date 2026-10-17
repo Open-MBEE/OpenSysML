@@ -117,8 +117,12 @@ type StateGraph struct {
 	// behaviorFootprints: entry, do or exit behavior (its Node) → what running it
 	// touches. Both are computed on the first call of their accessors.
 	transitionFootprints map[*Transition]Footprint
+	branchFootprints     map[*Transition]Footprint
 	behaviorFootprints   map[ast.Node]Footprint
 	footprintsOnce       sync.Once
+	effectFootprintsMu   sync.Mutex
+	branchFromMu         sync.Mutex
+	branchFrom           map[branchKey]Footprint
 	// transitionSteps: transition out of a state → its step short of do behaviors.
 	transitionSteps map[*Transition]TransitionStep
 	stepsOnce       sync.Once
@@ -333,7 +337,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	graph.recordRunToCompletion(nil, body, DescribeMember(stateMachineDecl))
 
 	graph.Connections = lowerConnections(members, OwnerBehavior, scope)
-	graph.Attributes = keptAttributes(lowerStateAttributes(graph, inherited), lowerStateAttributes(graph, ownMembers(members, scope)))
+	graph.Attributes = graph.keptAttributes(lowerStateAttributes(graph, inherited), lowerStateAttributes(graph, ownMembers(members, scope)))
 	parallelMachine := stateMachineIsParallel(stateMachineDecl)
 	for _, owner := range owners {
 		parallelMachine = parallelMachine || stateMachineIsParallel(owner)
@@ -611,7 +615,7 @@ func stateNodeFromUsage(graph *StateGraph, usage *ast.Usage, scope *symbols.Scop
 	}
 
 	replaced := redeclare(state, base.node, own.node)
-	if attrs := keptAttributes(base.attrs, own.attrs); len(attrs) > 0 {
+	if attrs := graph.keptAttributes(base.attrs, own.attrs); len(attrs) > 0 {
 		graph.StateAttributes[state] = attrs
 	}
 	graph.bodyOf[state] = body
@@ -693,6 +697,15 @@ func (g *StateGraph) DeclOf(state *ast.StateNode) ast.Node {
 		return decl
 	}
 	return state
+}
+
+// RegionDeclOf is the declaration region was built from: the direct substate of a
+// parallel state or machine that supplies its body, else the region itself.
+func (g *StateGraph) RegionDeclOf(region *ast.StateRegion) ast.Node {
+	if decl := g.regionDecl[region]; decl != nil {
+		return decl
+	}
+	return region
 }
 
 // Completes reports whether entering state completes the region it belongs to:
@@ -1322,7 +1335,7 @@ func (g *StateGraph) regionScope(scope *symbols.Scope, region *ast.StateRegion) 
 	if inherited := g.regionScopeOf[region]; inherited != nil {
 		return inherited
 	}
-	if decl := g.regionDecl[region]; decl != nil {
+	if decl := g.RegionDeclOf(region); decl != region {
 		return childScope(scope, decl)
 	}
 	return childScope(scope, region)
@@ -1700,7 +1713,8 @@ func (g *StateGraph) startsAt(decl, guard ast.Node, body transitionBody, source,
 	if err != nil || vertex == nil {
 		return false, err
 	}
-	if err := addEntryTransitionTarget(g, decl, vertex, body.entryOwner, guard, nil, body.scope, body.scope); err != nil {
+	entryTransition := &EntryTransition{Decl: decl, Guard: guard, Scope: body.scope}
+	if err := addEntryTransitionTarget(g, entryTransition, vertex, body.entryOwner, body.scope); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -1968,7 +1982,7 @@ func collectSuccessionEdge(graph *StateGraph, n *ast.SuccessionEdge, body transi
 	// subaction names the state it starts in (SysML 7.19.3), the same as
 	// a named entry action with a succession out of it does.
 	if sourceVertex == nil && isEntrySubaction(n.SourceMember) && targetVertex != nil {
-		return addEntryTransitionTarget(graph, n, targetVertex, entryOwner, nil, nil, scope, scope)
+		return addEntryTransitionTarget(graph, &EntryTransition{Decl: n, Scope: scope}, targetVertex, entryOwner, scope)
 	}
 
 	if sourceVertex == nil {
@@ -2000,8 +2014,8 @@ func collectTransitionMember(graph *StateGraph, n *ast.TransitionMember, body tr
 			return err
 		}
 		entryScope := symbols.TriggerScope(scope, n)
-		return addEntryTransitionTarget(graph, n, target, entryOwner, n.Guard,
-			transitionEffects(n, entryScope, graph.resolver), scope, entryScope)
+		entry := &EntryTransition{Decl: n, Guard: n.Guard, Effect: transitionEffects(n, entryScope, graph.resolver), Scope: entryScope}
+		return addEntryTransitionTarget(graph, entry, target, entryOwner, scope)
 	}
 	// `transition initial then off;` out of the entry action names the
 	// state the machine starts in, not an edge between two vertices.

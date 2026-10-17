@@ -47,7 +47,7 @@ func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 			if err != nil {
 				return fmt.Errorf("element %q: %w", element.id, err)
 			}
-			if err := apiJSONTriples(builder, subject, predicate, sysmlKey, member.value, expressionIDs, cache, &annotations); err != nil {
+			if err := apiJSONTriples(builder, apiJSONProperty{subject, predicate, sysmlKey}, member.value, expressionIDs, cache, &annotations); err != nil {
 				return fmt.Errorf("element %q: %w", element.id, err)
 			}
 		}
@@ -652,7 +652,15 @@ type apiJSONAnnotation struct {
 }
 
 // apiJSONTriples states one property of an element object as graph triples.
-func apiJSONTriples(graph *rdf.GraphBuilder, subject rdf.Term, predicate rdf.Term, sysmlKey string, value any, expressionIDs map[string]bool, cache *apiJSONTermCache, annotations *[]apiJSONAnnotation) error {
+// apiJSONProperty is one property of an element object: the element, the
+// predicate the property maps to and the sysml: key it was served under.
+type apiJSONProperty struct {
+	subject, predicate rdf.Term
+	sysmlKey           string
+}
+
+func apiJSONTriples(graph *rdf.GraphBuilder, p apiJSONProperty, value any, expressionIDs map[string]bool, cache *apiJSONTermCache, annotations *[]apiJSONAnnotation) error {
+	subject, predicate, sysmlKey := p.subject, p.predicate, p.sysmlKey
 	switch v := value.(type) {
 	case nil:
 		// The API serves absent properties as null; nothing to state.
@@ -665,7 +673,7 @@ func apiJSONTriples(graph *rdf.GraphBuilder, subject rdf.Term, predicate rdf.Ter
 		graph.Add(subject, predicate, target)
 		return nil
 	case []any:
-		return apiJSONCollection(graph, subject, predicate, sysmlKey, v, expressionIDs, cache, annotations)
+		return apiJSONCollection(graph, p, v, expressionIDs, cache, annotations)
 	default:
 		object, err := apiJSONScalarOf(subject, predicate, sysmlKey, value, expressionIDs, cache)
 		if err != nil {
@@ -685,7 +693,8 @@ var nonuniqueCollections = map[string]bool{
 
 // apiJSONCollection states an array member: one triple per value, recording
 // a collection of at least two on a sysml: key for its json: annotation.
-func apiJSONCollection(graph *rdf.GraphBuilder, subject rdf.Term, predicate rdf.Term, sysmlKey string, values []any, expressionIDs map[string]bool, cache *apiJSONTermCache, annotations *[]apiJSONAnnotation) error {
+func apiJSONCollection(graph *rdf.GraphBuilder, p apiJSONProperty, values []any, expressionIDs map[string]bool, cache *apiJSONTermCache, annotations *[]apiJSONAnnotation) error {
+	subject, predicate, sysmlKey := p.subject, p.predicate, p.sysmlKey
 	if len(values) == 0 {
 		return nil
 	}

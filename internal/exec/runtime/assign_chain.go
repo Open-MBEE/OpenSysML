@@ -27,7 +27,7 @@ func writeThroughChain(ec *EvalContext, chain *lower.AssignTarget, feature strin
 		return err
 	}
 	if ec.ctx.isClockTime(target, feature) {
-		return fmt.Errorf("%w: object #%d (%s)", ErrClockNotAssignable, target.ID, symbolText(target.Type))
+		return fmt.Errorf("%w: object #%d (%s)", errClockNotAssignable, target.ID, symbolText(target.Type))
 	}
 	if _, ok := target.FeatureValues[feature]; !ok {
 		return fmt.Errorf("%w: object #%d (%s) has no feature %s",
@@ -100,7 +100,7 @@ func (ec *EvalContext) chainObject(value Value, named string) (*Instance, error)
 	}
 	switch value.Kind {
 	case ValNull, ValInvalid:
-		return nil, fmt.Errorf("%w: %s", ErrUninitializedFeatureValue, named)
+		return nil, fmt.Errorf("%w: %s", errUninitializedFeatureValue, named)
 	case ValSequence, ValSet:
 		var elements []Value
 		if value.Kind == ValSequence {
@@ -110,7 +110,7 @@ func (ec *EvalContext) chainObject(value Value, named string) (*Instance, error)
 		}
 		switch len(elements) {
 		case 0:
-			return nil, fmt.Errorf("%w: %s", ErrUninitializedFeatureValue, named)
+			return nil, fmt.Errorf("%w: %s", errUninitializedFeatureValue, named)
 		case 1:
 			return ec.chainObject(elements[0], named)
 		}

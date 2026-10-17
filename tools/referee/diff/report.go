@@ -6,8 +6,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/report/junit"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/report/sarif"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
-	"github.com/Open-MBEE/OpenSysML/tools/oracle/junit"
 	reports "github.com/Open-MBEE/OpenSysML/tools/oracle/report"
 )
 
@@ -340,7 +341,7 @@ func writeReports(dir string, report *Report, log io.Writer) ([]byte, error) {
 	if err := files.Write("xml", xml); err != nil {
 		return nil, err
 	}
-	sarif, err := marshalSarif(sarifReport(report))
+	sarif, err := sarif.Marshal(sarifReport(report))
 	if err != nil {
 		return nil, err
 	}
