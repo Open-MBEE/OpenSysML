@@ -119,7 +119,7 @@ func rangeBound(op, which string, val Value) (semantics.Value, error) {
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValInt {
 		return semantics.Value{}, fmt.Errorf(
 			"%w: %s requires Integer bounds (IntegerFunctions::'..' declares in %s: Integer[1]), got %s",
-			ErrTypeMismatch, op, which, describeValue(val),
+			ErrTypeMismatch, op, which, DescribeValue(val),
 		)
 	}
 	return val.Const, nil

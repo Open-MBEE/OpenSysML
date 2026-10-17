@@ -535,7 +535,7 @@ func TestNaNIsOfNoScalarType(t *testing.T) {
 			t.Fatalf("directValueType(%s): %v", FormatValue(tc.value), err)
 		}
 		if typ != ctx.librarySymbol(tc.want) {
-			t.Errorf("directValueType(%s) = %s, want %s", FormatValue(tc.value), symbolText(typ), tc.want)
+			t.Errorf("directValueType(%s) = %s, want %s", FormatValue(tc.value), SymbolText(typ), tc.want)
 		}
 	}
 }

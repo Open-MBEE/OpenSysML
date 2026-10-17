@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 )
 
 // wired is the JSON the host writes for q, as an engine reads it.
@@ -29,7 +30,7 @@ func wired(t *testing.T, model *Model, q Question) string {
 func TestWireSweepKeepsAZeroSeed(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
-	sweep := func(plan runtime.SweepPlan) Question {
+	sweepQuestion := func(plan sweep.SweepPlan) Question {
 		return Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: plan, Row: doubleRow(t, f)}}
 	}
 	stepped := doublePlan(t, f, ctx)
@@ -37,18 +38,18 @@ func TestWireSweepKeepsAZeroSeed(t *testing.T) {
 	sampled.Sampled, sampled.Samples, sampled.Seed = true, 4, 0
 	cases := []struct {
 		name string
-		plan runtime.SweepPlan
+		plan sweep.SweepPlan
 		want string
 	}{
 		{"stepped", stepped, `"from":1,"to":3}]}}`},
 		{"sampled seed 0", sampled, `"sampled":true,"samples":4,"seed":0}`},
-		{"runs seed 0", runtime.MonteCarloPlan(3, 0), `"sweep":{"ranges":[],"seed":0,"runs":3}`},
-		{"runs seed 7", runtime.MonteCarloPlan(3, 7), `"sweep":{"ranges":[],"seed":7,"runs":3}`},
-		{"runs without a seed", runtime.SeedlessMonteCarloPlan(3), `"sweep":{"ranges":[],"runs":3}`},
+		{"runs seed 0", sweep.MonteCarloPlan(3, 0), `"sweep":{"ranges":[],"seed":0,"runs":3}`},
+		{"runs seed 7", sweep.MonteCarloPlan(3, 7), `"sweep":{"ranges":[],"seed":7,"runs":3}`},
+		{"runs without a seed", sweep.SeedlessMonteCarloPlan(3), `"sweep":{"ranges":[],"runs":3}`},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			line := wired(t, f.building(), sweep(c.plan))
+			line := wired(t, f.building(), sweepQuestion(c.plan))
 			if !strings.Contains(line, c.want) {
 				t.Fatalf("the host wrote %s, want it to carry %s", line, c.want)
 			}

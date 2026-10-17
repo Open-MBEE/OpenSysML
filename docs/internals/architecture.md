@@ -438,6 +438,13 @@ Parse + model all behavioral bodies with unified fallback grammar:
   `sweep` and `solve` engines as adapters over the runtime and `internal/exec/solve`; the REPL
   session and the gRPC service ask every check, run, exploration, sweep and solver question
   through it with no change to what they print or return
+- Landed: `internal/exec/sweep` — sweep plans, ranges, rows, tables and the row work queue,
+  and the Monte Carlo plan, layered on the runtime through the parameters a calc or case
+  declares (`Context.Parameters`), the classification of a value against a type
+  (`Context.ClassifyValue`) and the scalar-type reads a range is typed by
+  (`Context.PositiveScalar`, `Context.QuantityNumber`); the runtime imports no package
+  layered on it, and no `sweep*`, `montecarlo*`, `explore*`, `replay*`, `adopt*` or `check*`
+  file may appear in it (`tests/hygiene/orchestration_test.go`)
 
 ---
 

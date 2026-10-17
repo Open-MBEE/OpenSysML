@@ -1,7 +1,8 @@
-package runtime
+package sweep
 
 import (
 	"context"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"sync"
 )
 
@@ -9,9 +10,9 @@ import (
 // context of its own — First for the first row, the one the rows are enumerated in, and
 // Fresh building every other for the job making it.
 type SweepWorkers struct {
-	First *Context
+	First *runtime.Context
 	Jobs  int
-	Fresh func(job int) (*Context, error)
+	Fresh func(job int) (*runtime.Context, error)
 }
 
 // RunSweepWith makes one run per row of the plan on the workers and reports the table in
@@ -23,7 +24,7 @@ type SweepWorkers struct {
 // as it is when one job meets it between two rows.
 func RunSweepWith(stop context.Context, workers SweepWorkers, target string, plan SweepPlan, runs int64, run SweepRun) (SweepTable, error) {
 	first := workers.First
-	rows, err := first.sweepBindings(plan, first.sweepRunLimit(runs))
+	rows, err := sweepBindings(first, plan, sweepRunLimit(first, runs))
 	if err != nil {
 		return SweepTable{}, err
 	}
@@ -58,7 +59,7 @@ type sweepQueue struct {
 	mu    sync.Mutex
 	rows  [][]SweepBinding
 	table []SweepRow
-	fresh func(job int) (*Context, error)
+	fresh func(job int) (*runtime.Context, error)
 	run   SweepRun
 	next  int   // rows[:next] are started
 	err   error // the caller went away, or a job's context could not be built
@@ -66,7 +67,7 @@ type sweepQueue struct {
 
 // work is one job: it runs row i if ok, then rows as the queue hands them out until the
 // queue is over, each in a context of its own, ctx being the one already built for the first.
-func (q *sweepQueue) work(stop context.Context, job int, ctx *Context, i int, ok bool) {
+func (q *sweepQueue) work(stop context.Context, job int, ctx *runtime.Context, i int, ok bool) {
 	for ; ok; i, ok = q.take(stop) {
 		if ctx == nil {
 			built, err := q.fresh(job)

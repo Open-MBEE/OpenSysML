@@ -386,7 +386,7 @@ func TestRedefinitionChainReachesPastOwnRestatement(t *testing.T) {
 func symbolNames(ctx *Context, syms []*symbols.Symbol) []string {
 	names := make([]string, 0, len(syms))
 	for _, sym := range syms {
-		names = append(names, ctx.qualifiedSymbolName(sym))
+		names = append(names, ctx.QualifiedName(sym))
 	}
 	return names
 }

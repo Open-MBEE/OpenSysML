@@ -1,8 +1,9 @@
-package runtime
+package sweep
 
 import (
 	"context"
 	"errors"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -10,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -43,14 +45,14 @@ const parallelSweepModel = `
 // sweepJobsFixture indexes the model with the library and returns a builder of run-owned
 // contexts, each over a resolver and semantic model of its own as a worker's is, with the
 // test package.
-func sweepJobsFixture(t *testing.T) (func(job int) (*Context, error), *symbols.Scope) {
+func sweepJobsFixture(t *testing.T) (func(job int) (*runtime.Context, error), *symbols.Scope) {
 	t.Helper()
 	idx := libs.NewModelIndex()
 	idx.AddDocument("<test>", parseAndBuild(t, parallelSweepModel))
 	idx.ExpandWildcardImports()
-	fresh := func(int) (*Context, error) {
+	fresh := func(int) (*runtime.Context, error) {
 		resolver := resolve.New(idx)
-		return NewContext(typedModel(semantics.NewModel(resolver), resolver), 50_000_000), nil
+		return runtime.NewContext(typedModel(semantics.NewModel(resolver), resolver), 50_000_000), nil
 	}
 	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
 	if !ok || pkg.Scope == nil {
@@ -60,7 +62,7 @@ func sweepJobsFixture(t *testing.T) (func(job int) (*Context, error), *symbols.S
 }
 
 // firstOf is the context the first row runs in, built as any other job's is.
-func firstOf(t *testing.T, fresh func(job int) (*Context, error)) *Context {
+func firstOf(t *testing.T, fresh func(job int) (*runtime.Context, error)) *runtime.Context {
 	t.Helper()
 	ctx, err := fresh(0)
 	if err != nil {
@@ -75,7 +77,7 @@ type arrivals struct {
 	mu       sync.Mutex
 	index    map[string]int
 	order    []int
-	contexts []*Context
+	contexts []*runtime.Context
 }
 
 func arrivalsOf(planned SweepTable) *arrivals {
@@ -88,7 +90,7 @@ func arrivalsOf(planned SweepTable) *arrivals {
 
 // recording wraps run to note each row's arrival.
 func (a *arrivals) recording(run SweepRun) SweepRun {
-	return func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error) {
+	return func(ctx *runtime.Context, bindings []SweepBinding) (SweepRunResult, error) {
 		result, err := run(ctx, bindings)
 		a.mu.Lock()
 		defer a.mu.Unlock()
@@ -105,7 +107,7 @@ func TestRunSweepWithTablesRowsInPlanOrderWhateverTheirArrival(t *testing.T) {
 	fresh, scope := sweepJobsFixture(t)
 	first := firstOf(t, fresh)
 	sym := calcNamed(t, scope, "Fib")
-	plan, err := first.ResolveSweepPlan(sym, SweepPlan{Ranges: []SweepRange{steppedRange("n", intOf(22), intOf(12), intOf(-1))}}, 0, nil)
+	plan, err := ResolvePlan(first, sym, SweepPlan{Ranges: []SweepRange{steppedRange("n", intOf(22), intOf(12), intOf(-1))}}, 0, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,16 +161,16 @@ func bumpRun(t *testing.T, scope *symbols.Scope) SweepRun {
 		t.Fatal("Bump not indexed")
 	}
 	ship := calcNamed(t, scope, "ship")
-	return func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error) {
+	return func(ctx *runtime.Context, bindings []SweepBinding) (SweepRunResult, error) {
 		subject, err := ctx.Instantiate(ship)
 		if err != nil {
 			return SweepRunResult{}, err
 		}
-		named := make(map[string]Value, len(bindings))
+		named := make(map[string]runtime.Value, len(bindings))
 		for _, b := range bindings {
 			named[b.Param] = b.Value
 		}
-		result, err := ctx.RunAnalysis(sym, AnalysisArgs{Named: named, Subject: subject}, scope, nil)
+		result, err := ctx.RunAnalysis(sym, runtime.AnalysisArgs{Named: named, Subject: subject}, scope, nil)
 		return SweepRunResult{Outputs: result.Outputs, Subject: result.Subject}, err
 	}
 }
@@ -180,7 +182,7 @@ func TestRunSweepWithKeepsEachRowsWritesToItself(t *testing.T) {
 	fresh, scope := sweepJobsFixture(t)
 	first := firstOf(t, fresh)
 	sym, _ := scope.LookupLocal("Bump")
-	plan, err := first.ResolveSweepPlan(sym, SweepPlan{Ranges: []SweepRange{steppedRange("tax", realOf(1), realOf(4), realOf(1))}}, 0, nil)
+	plan, err := ResolvePlan(first, sym, SweepPlan{Ranges: []SweepRange{steppedRange("tax", realOf(1), realOf(4), realOf(1))}}, 0, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +202,7 @@ func TestRunSweepWithKeepsEachRowsWritesToItself(t *testing.T) {
 		}
 		for i, row := range table.Rows {
 			cost, ok := row.Subject.FeatureValues["cost"]
-			if !ok || !cost.Written || FormatValue(cost.Value) != FormatValue(row.Outputs[0].Value) {
+			if !ok || !cost.Written || runtime.FormatValue(cost.Value) != runtime.FormatValue(row.Outputs[0].Value) {
 				t.Fatalf("row %d's subject in its context: cost %+v, want the row's total written", i, cost)
 			}
 			if err := row.Context.Pristine(row.Subject); err == nil {
@@ -240,7 +242,7 @@ func TestRunSweepWithStopsAtTheDeadline(t *testing.T) {
 	fresh, scope := sweepJobsFixture(t)
 	first := firstOf(t, fresh)
 	sym := calcNamed(t, scope, "Fib")
-	plan, err := first.ResolveSweepPlan(sym, SweepPlan{Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(12))}}, 0, nil)
+	plan, err := ResolvePlan(first, sym, SweepPlan{Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(12))}}, 0, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,7 +250,7 @@ func TestRunSweepWithStopsAtTheDeadline(t *testing.T) {
 	for _, jobs := range []int{1, sweepJobs} {
 		stop := &metDeadline{Context: context.Background(), done: make(chan struct{})}
 		var started, finished, late atomic.Int64
-		waiting := func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error) {
+		waiting := func(ctx *runtime.Context, bindings []SweepBinding) (SweepRunResult, error) {
 			if stop.Err() != nil {
 				late.Add(1)
 			}
@@ -276,7 +278,7 @@ func TestRunSweepWithStopsAtTheDeadline(t *testing.T) {
 	stop, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
 	defer cancel()
 	ran := 0
-	_, err = RunSweepWith(stop, SweepWorkers{First: first, Jobs: sweepJobs, Fresh: fresh}, "test::Fib", plan, 0, func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error) {
+	_, err = RunSweepWith(stop, SweepWorkers{First: first, Jobs: sweepJobs, Fresh: fresh}, "test::Fib", plan, 0, func(ctx *runtime.Context, bindings []SweepBinding) (SweepRunResult, error) {
 		ran++
 		return double(ctx, bindings)
 	})
@@ -291,13 +293,13 @@ func TestRunSweepWithFailsWhenAJobHasNoContext(t *testing.T) {
 	fresh, scope := sweepJobsFixture(t)
 	first := firstOf(t, fresh)
 	sym := calcNamed(t, scope, "Fib")
-	plan, err := first.ResolveSweepPlan(sym, SweepPlan{Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(4))}}, 0, nil)
+	plan, err := ResolvePlan(first, sym, SweepPlan{Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(4))}}, 0, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var firstRow *Context
-	run := func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error) {
-		if FormatValue(bindings[0].Value) == "1" {
+	var firstRow *runtime.Context
+	run := func(ctx *runtime.Context, bindings []SweepBinding) (SweepRunResult, error) {
+		if runtime.FormatValue(bindings[0].Value) == "1" {
 			firstRow = ctx
 		}
 		return sweepCalcRun(sym, scope)(ctx, bindings)
@@ -312,8 +314,21 @@ func TestRunSweepWithFailsWhenAJobHasNoContext(t *testing.T) {
 		}
 	}
 	broken := errors.New("no worker")
-	_, err = RunSweepWith(context.Background(), SweepWorkers{First: first, Jobs: 1, Fresh: func(int) (*Context, error) { return nil, broken }}, "test::Fib", plan, 0, run)
+	_, err = RunSweepWith(context.Background(), SweepWorkers{First: first, Jobs: 1, Fresh: func(int) (*runtime.Context, error) { return nil, broken }}, "test::Fib", plan, 0, run)
 	if !errors.Is(err, broken) {
 		t.Fatalf("with no context to build: %v, want the builder's error", err)
+	}
+}
+
+// A sweep row carries the inputs its run bound, the row's own overlay included.
+func TestSweepRowCarriesTheRunsInputs(t *testing.T) {
+	ctx, _ := analysisFixture(t, `package test { calc def Idle { return k : Integer = 0; } }`)
+	bound := []runtime.InputBinding{{Name: "n", Value: realOf(7.0)}}
+	row := runSweepRow(ctx, []SweepBinding{{Param: "n", Value: realOf(7.0)}},
+		func(*runtime.Context, []SweepBinding) (SweepRunResult, error) {
+			return SweepRunResult{Inputs: bound}, nil
+		})
+	if !reflect.DeepEqual(row.Inputs, bound) {
+		t.Errorf("row inputs %v, want %v", row.Inputs, bound)
 	}
 }
