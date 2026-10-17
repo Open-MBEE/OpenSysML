@@ -496,7 +496,7 @@ func (fc *funcCompiler) declaredResult(sym *symbols.Symbol, body []ast.Node) (bi
 			if err != nil {
 				return binding{}, err
 			}
-			b := binding{m: m}
+			b := binding{m: m, shaped: true}
 			if m != MultOne {
 				if b.unique, err = fc.uniqueOf(sym.Scope, u, name); err != nil {
 					return binding{}, err

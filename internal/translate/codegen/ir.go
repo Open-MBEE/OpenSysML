@@ -438,9 +438,8 @@ type ToOne struct {
 	OtherOne string
 }
 
-// Held is the collection X in the shape its binding's multiplicity gives its values:
-// a multi-valued binding holds a sequence (one value or none as a one-element or the
-// empty sequence), an at-most-one binding its sole element (none as null).
+// Held is X in the shape its binding's multiplicity gives its values: a multi-valued
+// binding holds a sequence (one or none included), an at-most-one its sole element.
 type Held struct {
 	X    Expr
 	Many bool
