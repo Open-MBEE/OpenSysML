@@ -1097,7 +1097,6 @@ final class Api {
       return CheckBehaviorResponse.newBuilder()
           .setVerdict("undecided")
           .setError(e.getMessage())
-          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
           .build();
     }
   }

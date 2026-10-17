@@ -114,8 +114,7 @@ final class Rendering {
             .setEngine(result.standing().engine())
             .setStrength(result.standing().strength())
             .addAllBounds(bounds(result.standing()))
-            .setReason(result.reason())
-            .addAllDiagnostics(diagnostics(result.diagnostics()));
+            .setReason(result.reason());
     result.search().ifPresent(s -> response.setSearch(checkSearch(s)));
     result.witness().ifPresent(w -> response.setWitness(checkWitness(w)));
     result.contrast().ifPresent(w -> response.setContrast(checkWitness(w)));

@@ -1775,7 +1775,7 @@ public final class Model {
     CheckBehaviorResponse response =
         connection.call(
             "CheckBehavior", request.build(), CheckBehaviorResponse.getDefaultInstance());
-    failed(response.getError(), FailureReason.UNSPECIFIED, response.getDiagnosticsList());
+    failed(response.getError(), FailureReason.UNSPECIFIED, List.of());
     return Protos.checkResult(response);
   }
 

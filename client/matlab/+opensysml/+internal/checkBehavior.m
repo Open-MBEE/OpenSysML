@@ -19,18 +19,13 @@ function result = checkBehavior(model, actionId, stateMachineId, encodedInputs, 
         'search', [], 'violations', {{}}, 'divergences', {{}}, 'finals', {{}}, ...
         'claim', fieldOr(raw, 'claim', ''), 'freeInputs', {strings(fieldOr(raw, 'freeInputs', {}))}, ...
         'assumptions', {strings(fieldOr(raw, 'assumptions', {}))}, 'witness', [], 'contrast', [], ...
-        'standing', opensysml.internal.decodeStanding(raw), 'reason', fieldOr(raw, 'reason', ''), ...
-        'diagnostics', {{}});
+        'standing', opensysml.internal.decodeStanding(raw), 'reason', fieldOr(raw, 'reason', ''));
     if isfield(raw, 'search'), result.search = search(raw.search); end
     result.violations = cellfun(@violation, cells(fieldOr(raw, 'violations', {})), 'UniformOutput', false);
     result.divergences = cellfun(@divergence, cells(fieldOr(raw, 'divergences', {})), 'UniformOutput', false);
     result.finals = cellfun(@final, cells(fieldOr(raw, 'finals', {})), 'UniformOutput', false);
     if isfield(raw, 'witness'), result.witness = witness(raw.witness); end
     if isfield(raw, 'contrast'), result.contrast = witness(raw.contrast); end
-    if isfield(raw, 'diagnostics')
-        result.diagnostics = cellfun(@opensysml.internal.decodeDiagnostic, cells(raw.diagnostics), ...
-            'UniformOutput', false);
-    end
 end
 
 function s = search(raw)
