@@ -25,7 +25,7 @@ func TestResultsReportPartsOfEachActivation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create: %v", err)
 		}
-		exec.setInputs(map[string]Value{"amount": realOf(amount)})
+		exec.SetInputs(map[string]Value{"amount": realOf(amount)})
 		if err := exec.initialize(); err != nil {
 			t.Fatalf("initialize: %v", err)
 		}

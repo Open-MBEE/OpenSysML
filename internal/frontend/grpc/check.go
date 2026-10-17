@@ -228,10 +228,10 @@ func (s *Service) checkResponse(label string, plan analysis.Plan, witnessDir str
 			MaxDepth:    int32(report.MaxDepth),
 			BoundsHit:   report.BoundsHit,
 			MassBounded: report.MassBounded,
-			Notes:       report.Notes,
+			Notes:       observationNotes(report.Scope),
 			Status:      report.Status(),
 		}
-		if at, ok := report.Horizon.Bounded(); ok {
+		if at, ok := report.Horizon.Bound(); ok {
 			search.Horizon, search.HorizonSet = at, true
 		}
 		for _, reason := range report.Scope {
@@ -340,4 +340,14 @@ func attachWitnessFile(witness *pb.CheckWitness, path string) {
 	}
 	witness.FileName = filepath.Base(path)
 	witness.FileContent = string(content)
+}
+
+// observationNotes spells the reasons the searched runs' coverage is narrower
+// than the behavior admits, one per line as the CLI prints them.
+func observationNotes(scope []runtime.ObservationReason) []string {
+	notes := make([]string, 0, len(scope))
+	for _, reason := range scope {
+		notes = append(notes, string(reason))
+	}
+	return notes
 }

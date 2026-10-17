@@ -1785,7 +1785,7 @@ func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Inst
 
 	// Bind inputs before initialization so they seed the initial token.
 	if len(inputs) > 0 {
-		exec.setInputs(inputs)
+		exec.SetInputs(inputs)
 	}
 
 	if err := ctx.startAction(exec, start); err != nil {
@@ -2144,7 +2144,7 @@ func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self 
 	}
 	exec.beginsRun = true
 	if len(inputs) > 0 {
-		exec.setInputs(inputs)
+		exec.SetInputs(inputs)
 	}
 
 	if err := ctx.startAction(exec, (*ActionExecutor).initialize); err != nil {
