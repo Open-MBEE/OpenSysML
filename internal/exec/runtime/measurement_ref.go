@@ -148,7 +148,7 @@ func (ctx *Context) qualifiedUnitName(sym *symbols.Symbol) string {
 	if sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
 		return name
 	}
-	return ctx.qualifiedSymbolName(sym.OwnerScope.Owner()) + "::" + name
+	return ctx.QualifiedName(sym.OwnerScope.Owner()) + "::" + name
 }
 
 // unitSymbolName is the symbol a unit is written by (`km`), its name otherwise.
@@ -279,7 +279,7 @@ func (ctx *Context) measurementRefFeature(val Value, name string) (Value, bool, 
 func (ctx *Context) declarationMember(decl *symbols.Symbol, name string) (Value, bool, error) {
 	inst, err := ctx.occurrenceOf(decl)
 	if err != nil {
-		return Value{}, true, fmt.Errorf("usage %s: %w", symbolText(decl), err)
+		return Value{}, true, fmt.Errorf("usage %s: %w", SymbolText(decl), err)
 	}
 	if _, ok := inst.FeatureValues[name]; !ok {
 		return Value{}, false, nil
@@ -332,7 +332,7 @@ func (ctx *Context) declaredMemberValue(member *symbols.Symbol) (Value, error) {
 	if ctx.namesOneObject(member) {
 		inst, err := ctx.occurrenceOf(member)
 		if err != nil {
-			return Value{}, fmt.Errorf("usage %s: %w", symbolText(member), err)
+			return Value{}, fmt.Errorf("usage %s: %w", SymbolText(member), err)
 		}
 		return ctx.objectValue(inst)
 	}
@@ -412,5 +412,5 @@ func (ctx *Context) measurementRefConforms(ref *MeasurementRef, declared *symbol
 		return true, "", nil
 	}
 	return false, fmt.Sprintf("cannot write the measurement reference %s, %s, to a feature typed by %s",
-		ref, c.Found, symbolText(declared)), nil
+		ref, c.Found, SymbolText(declared)), nil
 }

@@ -95,7 +95,7 @@ func (ctx *Context) builtinFor(sym *symbols.Symbol) (builtinFunc, bool) {
 	if sym == nil || !ctx.libraryDeclared(sym) {
 		return nil, false
 	}
-	fn, ok := builtins[ctx.qualifiedSymbolName(sym)]
+	fn, ok := builtins[ctx.QualifiedName(sym)]
 	return fn, ok
 }
 

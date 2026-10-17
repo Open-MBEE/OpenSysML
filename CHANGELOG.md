@@ -1459,7 +1459,7 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 - **Serializing a verified instance graph over gRPC allocates 6% less.** The implicit nested-usage subsetting recomputed each collection's declared subsettings per read and made its deduplication and reachability sets before knowing they were needed; those are now memoized on the runtime model and made on first use.
 - **Analyzing a resolved document is 13% faster.** The undeclared-signal lint walked the document by reflection once to gather the signals it sends and again to check its triggers; the walk is now made once per analysis and read by both.
 
-- **Loop steps, interpreted calcs and model loads no longer pay per read for the 0.9.1 rules.** The effective parameter range, a type's nested-chain and chain-host checks, and a port type's feature list are memoized on the semantic and runtime models, a type with no redefinition group skips the alias map on every write, and a calc's `this` hook is bound once per occurrence instead of per statement. An assignment step in an action loop and `Instantiate` are back to parity with 0.9.0 (from +35% and +14–23%), a derived read-write-read is +28% (from +124%), the interpreted `SumTo` allocates what it did (from 2.2× the bytes), and loading a model costs 4% more per element (from 27%). The record is `docs/project/performance-release-0.9.1-vs-0.9.0.md`.
+- **Loop steps, interpreted calcs and model loads no longer pay per read for the 0.9.1 rules.** The effective parameter range, a type's nested-chain and chain-host checks, and a port type's feature list are memoized on the semantic and runtime models, a type with no redefinition group skips the alias map on every write, and a calc's `this` hook is bound once per occurrence instead of per statement. An assignment step in an action loop and `Instantiate` are back to parity with 0.9.0 (from +35% and +14–23%), a derived read-write-read is +28% (from +124%), the interpreted `SumTo` allocates what it did (from 2.2× the bytes), and loading a model costs 4% more per element (from 27%). The record is `docs/project/archive/performance-release-0.9.1-vs-0.9.0.md`.
 
 ## 0.9.0 — 2026-09-24
 
@@ -5003,7 +5003,7 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ### Performance
 
-- **Loading a model no longer merges the library's visible member set once per declaration.** The inherited-name conflict rule looks each name up in the memoized member maps of a declaration's library bases and passed-through types instead of copying them into a fresh map per part, attribute, action and state; its diagnostics are unchanged. The OOSEM method rule memoizes a type's classification, so an attribute type shared by many features is conformance-checked once. Loading and validating a 4 000-element model is 15% faster and allocates a third fewer bytes than before; `sysml -validate` on 3 000–12 000-element models is now at or ahead of release 0.4.2. `docs/project/performance-release-0.6-vs-0.4.2.md` records the comparison, the remaining costs of the validation rules added since 0.4.2, and how to repeat it. The Apollo 11 load figure on the landing page and in `docs/internals/performance.md` is re-measured at 0.43 s: the earlier 0.37 s was taken while the model's three calculation-arity findings were still errors, before the higher validation tiers ran.
+- **Loading a model no longer merges the library's visible member set once per declaration.** The inherited-name conflict rule looks each name up in the memoized member maps of a declaration's library bases and passed-through types instead of copying them into a fresh map per part, attribute, action and state; its diagnostics are unchanged. The OOSEM method rule memoizes a type's classification, so an attribute type shared by many features is conformance-checked once. Loading and validating a 4 000-element model is 15% faster and allocates a third fewer bytes than before; `sysml -validate` on 3 000–12 000-element models is now at or ahead of release 0.4.2. `docs/project/archive/performance-release-0.6-vs-0.4.2.md` records the comparison, the remaining costs of the validation rules added since 0.4.2, and how to repeat it. The Apollo 11 load figure on the landing page and in `docs/internals/performance.md` is re-measured at 0.43 s: the earlier 0.37 s was taken while the model's three calculation-arity findings were still errors, before the higher validation tiers ran.
 
 - **A long action run no longer grows the memory of a race-instrumented binary step by step.** Each step of a token used to run on a coroutine of its own so that a breakpoint or a wait on the clock inside it could pause the token, and Go's race detector keeps a coroutine's state after it ends, so a run of a million steps under `go test -race` took gigabytes and could be killed for memory. The steps of a run now share one coroutine, which only a paused step keeps for as long as it is paused; breakpoints, clock waits, `Release` and the deadlock reported for an abandoned pause behave as before. The step-budget tests of the runtime package now peak at a few hundred megabytes under the race detector rather than several gigabytes.
 
@@ -5797,7 +5797,7 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   are reported as not compared rather than diffed forever. The opt-in Flexo harness measures
   the apply against the real stack — an initial load, a revision with a retained-id rename and
   gated deletes, a conflict staged behind the sync's back — and records what read back at the
-  recorded commit ([the report](internal/translate/interop/flexo/testdata/identity_apply_expected.txt)).
+  recorded commit ([the report](tools/referee/flexo/testdata/identity_apply_expected.txt)).
 - **Action and state execution has a referee outside the executor.** Six conformance cases —
   a join fed by branches of unequal length, a join fed twice over one succession, a node two
   successions reach, two fork branches writing one feature, the specification's `ChargeBattery`
@@ -7071,7 +7071,7 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   the symbol, alias uses still count for both alias and target, a call tied between overloads
   still names nothing, and rename still edits only the name as written.
 
-- **Release performance comparison against 0.4.3.** `docs/project/performance-release-0.5-vs-0.4.3.md` measures `main` against the `v0.4.3` tag — every Go benchmark under `benchstat`, whole-binary `sysml -validate` scaling, process start and the `examples/` models — and records each regression with its cause, the change responsible, its size and whether it is fixed here or is the quantified price of a rule landed since 0.4.3. After the fixes below, loading is 7–11% slower than 0.4.3 (the validation passes added in the interval, none algorithmic), instantiating one object is +85% (the library features an object now carries), and every other row is on par with or ahead of 0.4.3.
+- **Release performance comparison against 0.4.3.** `docs/project/archive/performance-release-0.5-vs-0.4.3.md` measures `main` against the `v0.4.3` tag — every Go benchmark under `benchstat`, whole-binary `sysml -validate` scaling, process start and the `examples/` models — and records each regression with its cause, the change responsible, its size and whether it is fixed here or is the quantified price of a rule landed since 0.4.3. After the fixes below, loading is 7–11% slower than 0.4.3 (the validation passes added in the interval, none algorithmic), instantiating one object is +85% (the library features an object now carries), and every other row is on par with or ahead of 0.4.3.
 
 - **`send Def(args)` on an item or attribute definition is an error, as the specification and
   the pinned pilot say.** The runtime used to read that invocation as "send an instance of
@@ -7294,8 +7294,8 @@ name table instead of an O(model) scope walk, the parser's token buffer became a
 (a load allocates 30% fewer objects and holds 16% less live heap), and the `about`-metadata index
 is cached when the library index freezes, restoring the empty-session floor the census flagged.
 The census and an execution-performance measurement are recorded as project records
-([performance census](docs/project/performance-census-2026-09.md),
-[execution performance](docs/project/execution-performance-2026-09.md)).
+([performance census](docs/project/archive/performance-census-2026-09.md),
+[execution performance](docs/project/archive/execution-performance-2026-09.md)).
 
 No model that validated under 0.4.2 stops validating and no import path moves.
 
@@ -7443,9 +7443,9 @@ No model that validated under 0.4.2 stops validating and no import path moves.
   `%calc`/`%action`/`%state`/`%instantiate` does not rebuild a source, lexer and parser per call.
   Evaluation still runs on every call against the current session state.
 
-- **Two measurement records.** The [September 2026 performance census](docs/project/performance-census-2026-09.md)
+- **Two measurement records.** The [September 2026 performance census](docs/project/archive/performance-census-2026-09.md)
   measures week-over-week benchmark movement and whole-binary scaling, and flagged the regressions
-  fixed above; the [execution-performance record](docs/project/execution-performance-2026-09.md)
+  fixed above; the [execution-performance record](docs/project/archive/execution-performance-2026-09.md)
   measures evaluation throughput — ~1.5 µs per calc invocation — and names the optimization gaps
   the profiles show.
 
@@ -7475,7 +7475,7 @@ No model that validated under 0.4.2 stops validating and no import path moves.
   `Fib(25)` costs 0.65 µs per calc invocation instead of 1.01 µs and allocates about 160 objects
   per evaluation instead of 971 000. Results, errors, traces and step counts are unchanged; the
   measurements are recorded in the
-  [execution-performance record](docs/project/execution-performance-2026-09.md).
+  [execution-performance record](docs/project/archive/execution-performance-2026-09.md).
 
 - **Pure calc bodies compile to a closure fast path.** A calc whose body is one scalar expression
   — Integer, Real and Boolean literals, its own `in` parameters, the arithmetic, comparison,

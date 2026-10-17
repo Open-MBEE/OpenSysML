@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
@@ -237,7 +238,7 @@ func TestTheSurfacesContextKeepsItsLimits(t *testing.T) {
 	var rows []runtime.Budgets
 	double := doubleRow(t, f)
 	sweep := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx),
-		Row: func(rctx *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+		Row: func(rctx *runtime.Context, bindings []sweep.SweepBinding) (sweep.SweepRunResult, error) {
 			if rctx == ctx {
 				t.Error("a sweep row ran in the surface's context")
 			}

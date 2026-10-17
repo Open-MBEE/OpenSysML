@@ -37,7 +37,7 @@ func checkedOn(t *testing.T, ctx *Context, action *symbols.Symbol) *checkedActio
 	mustSchedule(t, ctx, checkPolicy(&checkScript{due: -1}))
 	exec, err := ctx.CreateActionExecutor(action)
 	if err != nil {
-		t.Fatalf("create %s: %v", symbolText(action), err)
+		t.Fatalf("create %s: %v", SymbolText(action), err)
 	}
 	return checkedActionOf(ctx, exec)
 }
