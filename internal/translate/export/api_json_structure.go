@@ -21,8 +21,9 @@ type apiJSONGraphStructure struct {
 }
 
 type apiJSONEvaluation struct {
-	structure *apiJSONGraphStructure
-	evaluator *metamodel.Evaluator
+	structure      *apiJSONGraphStructure
+	evaluator      *metamodel.Evaluator
+	qualifiedNames map[string]apiJSONQualifiedNameResult
 }
 
 func newAPIJSONEvaluation(graph *rdf.Graph) *apiJSONEvaluation {
@@ -47,7 +48,7 @@ func newAPIJSONGraphStructure(graph *rdf.Graph) *apiJSONGraphStructure {
 	if graph == nil {
 		return s
 	}
-	subjects := graph.Subjects()
+	subjects := graph.SubjectsView()
 	for _, subject := range subjects {
 		class, ok := s.metaclass(subject)
 		if !ok {
@@ -69,26 +70,26 @@ func newAPIJSONGraphStructure(graph *rdf.Graph) *apiJSONGraphStructure {
 		}
 		class, _ := s.metaclass(subject)
 		if ontology.IsAncestorOrSelf(class, "Relationship") {
-			for _, owner := range graph.Objects(subject, rdf.SysML+"owningRelatedElement") {
+			for _, owner := range graph.ObjectsView(subject, rdf.SysML+"owningRelatedElement") {
 				s.ownedRelationshipsByEnd[owner.Value] = append(s.ownedRelationshipsByEnd[owner.Value], subject)
 			}
-			for _, member := range graph.Objects(subject, rdf.SysML+"ownedRelatedElement") {
+			for _, member := range graph.ObjectsView(subject, rdf.SysML+"ownedRelatedElement") {
 				s.owningRelationshipByOwned[member.Value] = append(s.owningRelationshipByOwned[member.Value], subject)
 			}
 		}
 		if ontology.IsAncestorOrSelf(class, "Membership") {
 			property, declared := ontology.PropertyOf(class, "memberElement")
 			if declared && !property.Derived {
-				for _, member := range graph.Objects(subject, rdf.SysML+"memberElement") {
+				for _, member := range graph.ObjectsView(subject, rdf.SysML+"memberElement") {
 					s.owningMembershipByMember[member.Value] = append(s.owningMembershipByMember[member.Value], subject)
 				}
 			}
-			for _, namespace := range graph.Objects(subject, rdf.SysML+"membershipOwningNamespace") {
+			for _, namespace := range graph.ObjectsView(subject, rdf.SysML+"membershipOwningNamespace") {
 				s.ownedRelationshipsByEnd[namespace.Value] = append(s.ownedRelationshipsByEnd[namespace.Value], subject)
 				s.owningRelatedByRelationship[subject.Value] = append(s.owningRelatedByRelationship[subject.Value], namespace)
 			}
 		}
-		for _, relationship := range graph.Objects(subject, rdf.SysML+"ownedRelationship") {
+		for _, relationship := range graph.ObjectsView(subject, rdf.SysML+"ownedRelationship") {
 			s.owningRelatedByRelationship[relationship.Value] = append(
 				s.owningRelatedByRelationship[relationship.Value], subject,
 			)
@@ -141,7 +142,7 @@ func (s *apiJSONGraphStructure) OwnedRelationships(element metamodel.Element) ([
 	if !ok || LibraryReference(s.graph, subject) {
 		return nil, false
 	}
-	terms := append([]rdf.Term(nil), s.graph.Objects(subject, rdf.SysML+"ownedRelationship")...)
+	terms := append([]rdf.Term(nil), s.graph.ObjectsView(subject, rdf.SysML+"ownedRelationship")...)
 	terms = append(terms, s.ownedRelationshipsByEnd[subject.Value]...)
 	if len(terms) == 0 {
 		class, known := s.metaclass(subject)
@@ -290,7 +291,7 @@ func (s *apiJSONGraphStructure) related(subject rdf.Term, property string) ([]me
 		}
 		return values, true
 	}
-	objects := s.graph.Objects(subject, rdf.SysML+property)
+	objects := s.graph.ObjectsView(subject, rdf.SysML+property)
 	values := make([]metamodel.Element, 0, len(objects))
 	for _, object := range objects {
 		element, ok := s.element(object)
@@ -303,7 +304,7 @@ func (s *apiJSONGraphStructure) related(subject rdf.Term, property string) ([]me
 }
 
 func (s *apiJSONGraphStructure) relatedOne(subject rdf.Term, property string) (metamodel.Element, bool, bool) {
-	objects := s.graph.Objects(subject, rdf.SysML+property)
+	objects := s.graph.ObjectsView(subject, rdf.SysML+property)
 	if len(objects) == 0 {
 		return metamodel.Element{}, false, true
 	}
@@ -328,7 +329,7 @@ func (s *apiJSONGraphStructure) Attribute(element metamodel.Element, property st
 	if !ok || definition.Kind != ontology.DatatypeProperty {
 		return metamodel.Value{}, false
 	}
-	objects := s.graph.Objects(subject, rdf.SysML+graphProperty)
+	objects := s.graph.ObjectsView(subject, rdf.SysML+graphProperty)
 	if len(objects) == 0 {
 		if definition.Lower > 0 {
 			return metamodel.Value{}, false
@@ -417,7 +418,7 @@ func (s *apiJSONGraphStructure) HasStatedRelatedElement(element metamodel.Elemen
 	}
 	definition, ok := ontology.PropertyOf(class, property)
 	return ok && definition.Kind == ontology.ObjectProperty &&
-		!definition.Derived && len(s.graph.Objects(subject, rdf.SysML+property)) > 0
+		!definition.Derived && len(s.graph.ObjectsView(subject, rdf.SysML+property)) > 0
 }
 
 func (s *apiJSONGraphStructure) HasUnresolvedRelatedElement(element metamodel.Element, property string) bool {
@@ -425,7 +426,7 @@ func (s *apiJSONGraphStructure) HasUnresolvedRelatedElement(element metamodel.El
 	if !ok {
 		return false
 	}
-	for _, object := range s.graph.Objects(subject, rdf.SysML+property) {
+	for _, object := range s.graph.ObjectsView(subject, rdf.SysML+property) {
 		if object.IsIRI() {
 			if _, ok := s.element(object); !ok {
 				return true

@@ -470,6 +470,15 @@ func (g *Graph) Len() int { return len(g.triples) }
 
 // Subjects returns every distinct subject IRI in insertion order.
 func (g *Graph) Subjects() []Term {
+	subjects := g.SubjectsView()
+	out := make([]Term, len(subjects))
+	copy(out, subjects)
+	return out
+}
+
+// SubjectsView returns every distinct subject IRI in insertion order.
+// The returned slice is read-only and remains valid until the graph is changed.
+func (g *Graph) SubjectsView() []Term {
 	if !g.subjectsReady {
 		g.subjectOrder = make([]Term, 0)
 		g.subjectSet = make(map[string]struct{})
@@ -482,9 +491,7 @@ func (g *Graph) Subjects() []Term {
 		}
 		g.subjectsReady = true
 	}
-	out := make([]Term, len(g.subjectOrder))
-	copy(out, g.subjectOrder)
-	return out
+	return g.subjectOrder
 }
 
 // Predicates returns every predicate subject states, in insertion order.
@@ -496,6 +503,16 @@ func (g *Graph) Predicates(subject Term) []string {
 	out := make([]string, len(si.predicates))
 	copy(out, si.predicates)
 	return out
+}
+
+// PredicatesView returns every predicate subject states, in insertion order.
+// The returned slice is read-only and remains valid until the graph is changed.
+func (g *Graph) PredicatesView(subject Term) []string {
+	si := g.subjects()[subject]
+	if si == nil {
+		return nil
+	}
+	return si.predicates
 }
 
 // Objects returns the objects of every (subject, predicate) statement, in

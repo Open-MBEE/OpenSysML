@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
@@ -61,9 +62,10 @@ func apiJSONElements(graph *rdf.Graph) ([]apiJSONObject, error) {
 	if err != nil {
 		return nil, err
 	}
-	subjects := settled.Subjects()
+	subjects := settled.SubjectsView()
 	elements := make([]apiJSONObject, 0, len(subjects))
 	evaluation := newAPIJSONEvaluation(settled)
+	evaluation.qualifiedNames = apiJSONEvaluatedQualifiedNames(evaluation)
 	mappingNames := mappingQualifiedNames(settled)
 	for _, subject := range subjects {
 		element, err := apiJSONElementWithEvaluation(settled, subject, evaluation, mappingNames)
@@ -156,7 +158,9 @@ type apiJSONNameReference struct {
 // then each property in statement order.
 func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
 	mappingNames := mappingQualifiedNames(graph)
-	return apiJSONElementWithEvaluation(graph, subject, newAPIJSONEvaluation(graph), mappingNames)
+	evaluation := newAPIJSONEvaluation(graph)
+	evaluation.qualifiedNames = apiJSONEvaluatedQualifiedNames(evaluation)
+	return apiJSONElementWithEvaluation(graph, subject, evaluation, mappingNames)
 }
 
 func apiJSONElementWithEvaluation(
@@ -165,7 +169,7 @@ func apiJSONElementWithEvaluation(
 	evaluation *apiJSONEvaluation,
 	mappingNames map[string]string,
 ) (apiJSONObject, error) {
-	types := graph.Objects(subject, rdf.RDFType)
+	types := graph.ObjectsView(subject, rdf.RDFType)
 	if len(types) != 1 {
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the subject <%s>", subject.Value),
@@ -195,7 +199,7 @@ func apiJSONElementWithEvaluation(
 	if strings.HasPrefix(types[0].Value, rdf.SysML) {
 		metaclass = strings.TrimPrefix(types[0].Value, rdf.SysML)
 	}
-	for _, predicate := range graph.Predicates(subject) {
+	for _, predicate := range graph.PredicatesView(subject) {
 		switch {
 		case predicate == rdf.RDFType:
 			continue
@@ -220,7 +224,7 @@ func apiJSONElementWithEvaluation(
 			element = append(element, apiJSONMember{key: key, value: value})
 		case strings.HasPrefix(predicate, rdf.OpenSysML):
 			key := "sysx:" + strings.TrimPrefix(predicate, rdf.OpenSysML)
-			objects := graph.Objects(subject, predicate)
+			objects := graph.ObjectsView(subject, predicate)
 			value, err := apiJSONValues(subject, "", objects, false)
 			if err != nil {
 				return nil, err
@@ -233,7 +237,7 @@ func apiJSONElementWithEvaluation(
 			}
 		}
 	}
-	value, ok, err := apiJSONEvaluatedQualifiedName(subject, types[0], evaluation)
+	value, ok, err := apiJSONEvaluatedQualifiedName(subject, evaluation)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +261,7 @@ func apiJSONMappingQualifiedName(
 	defaults map[string]string,
 	specName any,
 ) (any, bool, error) {
-	objects := graph.Objects(subject, rdf.SysML+"qualifiedName")
+	objects := graph.ObjectsView(subject, rdf.SysML+"qualifiedName")
 	if len(objects) > 1 {
 		return nil, false, fmt.Errorf("subject <%s> has %d sysml:qualifiedName values", subject.Value, len(objects))
 	}
@@ -281,48 +285,345 @@ func apiJSONMappingQualifiedName(
 	return nil, false, nil
 }
 
+type apiJSONQualifiedNameResult struct {
+	value any
+	ok    bool
+	err   error
+}
+
+type apiJSONElementNameResult struct {
+	value metamodel.Value
+	ok    bool
+}
+
+type apiJSONSiblingKey struct {
+	namespace  metamodel.ElementKey
+	membership bool
+}
+
+type apiJSONSiblingNames struct {
+	first     map[string]metamodel.ElementKey
+	supported bool
+}
+
+type apiJSONQualifiedNameFact struct {
+	result    apiJSONQualifiedNameResult
+	parent    string
+	segment   string
+	hasParent bool
+}
+
+func apiJSONEvaluatedQualifiedNames(evaluation *apiJSONEvaluation) map[string]apiJSONQualifiedNameResult {
+	results := make(map[string]apiJSONQualifiedNameResult)
+	if evaluation == nil || evaluation.structure == nil || evaluation.evaluator == nil {
+		return results
+	}
+	nameResults := make(map[metamodel.ElementKey]apiJSONElementNameResult, len(evaluation.structure.bySubject))
+	getName := func(element metamodel.Element) apiJSONElementNameResult {
+		key := element.Key()
+		if result, ok := nameResults[key]; ok {
+			return result
+		}
+		value, ok := evaluation.evaluator.Property(element, "Element", "name")
+		result := apiJSONElementNameResult{value: value, ok: ok}
+		nameResults[key] = result
+		return result
+	}
+	siblingNames := make(map[apiJSONSiblingKey]apiJSONSiblingNames)
+	facts := make(map[string]apiJSONQualifiedNameFact, len(evaluation.structure.bySubject))
+	children := make(map[string][]string)
+	for subject, element := range evaluation.structure.bySubject {
+		class, ok := evaluation.structure.Metaclass(element)
+		if !ok {
+			facts[subject] = apiJSONQualifiedNameFact{}
+			continue
+		}
+		if _, ok := ontology.PropertyOf(class, "qualifiedName"); !ok {
+			facts[subject] = apiJSONQualifiedNameFact{}
+			continue
+		}
+		if name, known := evaluation.structure.QualifiedName(element); known {
+			facts[subject] = apiJSONQualifiedNameFact{
+				result: apiJSONQualifiedNameResult{value: name, ok: true},
+			}
+			continue
+		}
+
+		name := getName(element)
+		if !name.ok {
+			facts[subject] = apiJSONQualifiedNameFact{}
+			continue
+		}
+		if effectiveName, ok := evaluation.structure.EffectiveName(element); ok && effectiveName != "" {
+			name.value = metamodel.Value{Kind: metamodel.StringValue, String: effectiveName}
+		}
+		segment := ""
+		hasSegment := false
+		nameIsString := false
+		switch name.value.Kind {
+		case metamodel.StringValue:
+			segment = identity.EscapeName(name.value.String)
+			hasSegment = true
+			nameIsString = true
+		case metamodel.NullValue:
+			shortName, ok := evaluation.evaluator.Property(element, "Element", "shortName")
+			if !ok {
+				facts[subject] = apiJSONQualifiedNameFact{}
+				continue
+			}
+			switch shortName.Kind {
+			case metamodel.NullValue:
+				facts[subject] = apiJSONQualifiedNameFact{
+					result: apiJSONQualifiedNameResult{ok: true},
+				}
+				continue
+			case metamodel.StringValue:
+				segment = identity.EscapeName(shortName.String)
+				hasSegment = true
+			default:
+				facts[subject] = apiJSONQualifiedNameFact{
+					result: apiJSONQualifiedNameResult{
+						err: fmt.Errorf("qualifiedName has unsupported evaluator value kind %d", shortName.Kind),
+					},
+				}
+				continue
+			}
+		default:
+			facts[subject] = apiJSONQualifiedNameFact{
+				result: apiJSONQualifiedNameResult{
+					err: fmt.Errorf("qualifiedName has unsupported evaluator value kind %d", name.value.Kind),
+				},
+			}
+			continue
+		}
+		if !hasSegment {
+			facts[subject] = apiJSONQualifiedNameFact{
+				result: apiJSONQualifiedNameResult{ok: true},
+			}
+			continue
+		}
+
+		namespace, hasNamespace, known := apiJSONQualifiedNameNamespace(evaluation.structure, element)
+		if !known {
+			facts[subject] = apiJSONQualifiedNameFact{}
+			continue
+		}
+		if !hasNamespace {
+			facts[subject] = apiJSONQualifiedNameFact{
+				result: apiJSONQualifiedNameResult{ok: true},
+			}
+			continue
+		}
+		if nameIsString {
+			siblingKey := apiJSONSiblingKey{namespace: namespace.Key(), membership: element.IsMembership}
+			siblings, ok := siblingNames[siblingKey]
+			if !ok {
+				property := "ownedMember"
+				if element.IsMembership {
+					property = "ownedMembership"
+				}
+				value, supported := evaluation.evaluator.Property(namespace, "Namespace", property)
+				siblings = apiJSONSiblingNames{first: make(map[string]metamodel.ElementKey), supported: supported && value.Kind == metamodel.SequenceValue}
+				if siblings.supported {
+					for _, child := range value.Values {
+						var member metamodel.Element
+						switch child.Kind {
+						case metamodel.ElementValue:
+							member = child.Element
+						case metamodel.MembershipValue:
+							member = metamodel.MembershipElement(child.Membership)
+						default:
+							siblings.supported = false
+						}
+						if !siblings.supported {
+							break
+						}
+						memberName := getName(member)
+						if !memberName.ok {
+							siblings.supported = false
+							break
+						}
+						switch memberName.value.Kind {
+						case metamodel.NullValue:
+							continue
+						case metamodel.StringValue:
+							if _, exists := siblings.first[memberName.value.String]; !exists {
+								siblings.first[memberName.value.String] = member.Key()
+							}
+						default:
+							siblings.supported = false
+						}
+						if !siblings.supported {
+							break
+						}
+					}
+				}
+				siblingNames[siblingKey] = siblings
+			}
+			if !siblings.supported {
+				facts[subject] = apiJSONQualifiedNameFact{}
+				continue
+			}
+			if siblings.first[name.value.String] != element.Key() {
+				facts[subject] = apiJSONQualifiedNameFact{
+					result: apiJSONQualifiedNameResult{ok: true},
+				}
+				continue
+			}
+		}
+
+		hasOwner, known := apiJSONQualifiedNameHasOwner(evaluation.structure, namespace)
+		if !known {
+			facts[subject] = apiJSONQualifiedNameFact{}
+			continue
+		}
+		if !hasOwner {
+			facts[subject] = apiJSONQualifiedNameFact{
+				result: apiJSONQualifiedNameResult{value: segment, ok: true},
+			}
+			continue
+		}
+		parent, ok := evaluation.structure.subject(namespace)
+		if !ok {
+			facts[subject] = apiJSONQualifiedNameFact{}
+			continue
+		}
+		facts[subject] = apiJSONQualifiedNameFact{
+			parent:    parent.Value,
+			segment:   segment,
+			hasParent: true,
+		}
+		children[parent.Value] = append(children[parent.Value], subject)
+	}
+
+	queue := make([]string, 0, len(facts))
+	for subject, fact := range facts {
+		if !fact.hasParent {
+			results[subject] = fact.result
+			queue = append(queue, subject)
+		}
+	}
+	for head := 0; head < len(queue); head++ {
+		parent := results[queue[head]]
+		for _, child := range children[queue[head]] {
+			fact := facts[child]
+			result := apiJSONQualifiedNameResult{}
+			switch {
+			case parent.err != nil:
+				result = parent
+			case !parent.ok:
+			case parent.value == nil:
+				result.ok = true
+			default:
+				parentName, ok := parent.value.(string)
+				if ok {
+					result = apiJSONQualifiedNameResult{
+						value: parentName + "::" + fact.segment,
+						ok:    true,
+					}
+				} else {
+					result.ok = true
+				}
+			}
+			results[child] = result
+			queue = append(queue, child)
+		}
+	}
+
+	implicitOwners := make(map[string]bool)
+	qualifiedNames := make(map[string]apiJSONQualifiedNameResult, len(results))
+	for subject, result := range results {
+		qualifiedNames[subject] = result
+	}
+	for subject := range facts {
+		subjectTerm := rdf.IRI(subject)
+		if !evaluation.structure.graph.BoolValue(subjectTerm, rdf.OpenSysML+"isKindImplicit") {
+			continue
+		}
+		result := qualifiedNames[subject]
+		clear(implicitOwners)
+		owner := firstIRI(evaluation.structure.graph, subjectTerm, pOwner, pOwningNamespace)
+		for owner.IsIRI() && !implicitOwners[owner.Value] {
+			implicitOwners[owner.Value] = true
+			if _, ok := evaluation.structure.element(owner); ok {
+				if value := qualifiedNames[owner.Value]; value.ok {
+					if name, ok := value.value.(string); ok && name != "" {
+						result = apiJSONQualifiedNameResult{value: name + "::kind", ok: true}
+						break
+					}
+				}
+			}
+			owner = firstIRI(evaluation.structure.graph, owner, pOwner, pOwningNamespace)
+		}
+		results[subject] = result
+	}
+	return results
+}
+
+func apiJSONQualifiedNameNamespace(
+	structure *apiJSONGraphStructure,
+	element metamodel.Element,
+) (metamodel.Element, bool, bool) {
+	if element.IsMembership {
+		return metamodel.Element{}, false, true
+	}
+	relationship, present, known := structure.OwningRelationship(element)
+	if !known || !present {
+		return metamodel.Element{}, false, known
+	}
+	class, known := structure.Metaclass(relationship)
+	if !known {
+		return metamodel.Element{}, false, false
+	}
+	if !ontology.IsAncestorOrSelf(class, "OwningMembership") {
+		return metamodel.Element{}, false, true
+	}
+	namespace, present, known := structure.OwningRelatedElement(relationship)
+	if !known || !present {
+		return metamodel.Element{}, false, known
+	}
+	class, known = structure.Metaclass(namespace)
+	if !known {
+		return metamodel.Element{}, false, false
+	}
+	return namespace, ontology.IsAncestorOrSelf(class, "Namespace"), true
+}
+
+func apiJSONQualifiedNameHasOwner(
+	structure *apiJSONGraphStructure,
+	element metamodel.Element,
+) (bool, bool) {
+	relationship, present, known := structure.OwningRelationship(element)
+	if !known {
+		return false, false
+	}
+	if present {
+		_, ownerPresent, ownerKnown := structure.OwningRelatedElement(relationship)
+		return ownerPresent, ownerKnown
+	}
+	class, known := structure.Metaclass(element)
+	if !known {
+		return false, false
+	}
+	if !ontology.IsAncestorOrSelf(class, "Relationship") {
+		return false, true
+	}
+	_, ownerPresent, ownerKnown := structure.OwningRelatedElement(element)
+	return ownerPresent, ownerKnown
+}
+
 func apiJSONEvaluatedQualifiedName(
-	subject, typ rdf.Term,
+	subject rdf.Term,
 	evaluation *apiJSONEvaluation,
 ) (any, bool, error) {
 	if evaluation == nil {
 		return nil, false, nil
 	}
-	if evaluation.structure.graph.BoolValue(subject, rdf.OpenSysML+"isKindImplicit") {
-		seen := map[string]bool{}
-		owner := firstIRI(evaluation.structure.graph, subject, pOwner, pOwningNamespace)
-		for owner.IsIRI() && !seen[owner.Value] {
-			seen[owner.Value] = true
-			if handle, ok := evaluation.structure.element(owner); ok {
-				if value, ok := evaluation.evaluator.Property(handle, "Element", "qualifiedName"); ok &&
-					value.Kind == metamodel.StringValue && value.String != "" {
-					return value.String + "::kind", true, nil
-				}
-			}
-			owner = firstIRI(evaluation.structure.graph, owner, pOwner, pOwningNamespace)
-		}
-	}
-	class := apiJSONOwnedAbsenceMetaclassInGraph(evaluation.structure.graph, typ.Value)
-	definition, ok := ontology.PropertyOf(class, "qualifiedName")
+	result, ok := evaluation.qualifiedNames[subject.Value]
 	if !ok {
 		return nil, false, nil
 	}
-	handle, ok := evaluation.structure.element(subject)
-	if !ok {
-		return nil, false, nil
-	}
-	value, ok := evaluation.evaluator.Property(handle, definition.DefiningClass, "qualifiedName")
-	if !ok {
-		return nil, false, nil
-	}
-	switch value.Kind {
-	case metamodel.NullValue:
-		return nil, true, nil
-	case metamodel.StringValue:
-		return value.String, true, nil
-	default:
-		return nil, false, fmt.Errorf("qualifiedName has unsupported evaluator value kind %d", value.Kind)
-	}
+	return result.value, result.ok, result.err
 }
 
 // collectionObject is the triple a collection member states: the object whose
@@ -356,7 +657,7 @@ func apiJSONType(typ rdf.Term) string {
 // json: annotation states, an array when the metamodel declares the property
 // multi-valued, or its single object as a scalar.
 func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metaclass string, objectProperty bool) (any, error) {
-	objects := graph.Objects(subject, predicate)
+	objects := graph.ObjectsView(subject, predicate)
 	if _, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok && graph.CollectionsSettled() {
 		// The typed triples state the collection in the annotation's order (see
 		// rdf.Graph.MarkCollectionsSettled), so its members are read from them

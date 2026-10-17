@@ -92,7 +92,7 @@ func mappingFilterPackageNodes(graph *rdf.Graph) map[string]bool {
 		pOwner, pOwningRelationship, pOwningMembership, pOwningNamespace,
 		pMembershipOwningNamespace, pImportOwningNamespace, pOwningRelatedElement,
 	}
-	for _, subject := range graph.Subjects() {
+	for _, subject := range graph.SubjectsView() {
 		for _, property := range properties {
 			if owner := firstIRI(graph, subject, property); owner.IsIRI() {
 				children[owner.Value] = append(children[owner.Value], subject)
@@ -118,7 +118,7 @@ func mappingFilterPackageNodes(graph *rdf.Graph) map[string]bool {
 			queue = append(queue, child)
 		}
 	}
-	for _, subject := range graph.Subjects() {
+	for _, subject := range graph.SubjectsView() {
 		if _, ok := filtered[subject.Value]; !ok {
 			filtered[subject.Value] = false
 		}
@@ -178,12 +178,54 @@ func mappingElementSubject(graph *rdf.Graph, subject rdf.Term, seen map[string]b
 }
 
 func mappingElementSubjectWithCache(graph *rdf.Graph, subject rdf.Term, seen, packageCache map[string]bool) bool {
+	return mappingElementSubjectWithMemo(graph, subject, seen, packageCache, nil, nil)
+}
+
+func mappingElementSubjectWithContext(
+	graph *rdf.Graph,
+	subject rdf.Term,
+	seen map[string]bool,
+	context *mappingQualifiedNameContext,
+) bool {
+	if context == nil {
+		return mappingElementSubjectWithCache(graph, subject, seen, nil)
+	}
+	return mappingElementSubjectWithMemo(
+		graph, subject, seen, context.packageCache, context.elementSubjects, context.membershipElements,
+	)
+}
+
+func mappingElementSubjectWithMemo(
+	graph *rdf.Graph,
+	subject rdf.Term,
+	seen, packageCache, elementCache, membershipCache map[string]bool,
+) bool {
+	if seen[subject.Value] {
+		return false
+	}
+	if elementCache != nil {
+		if result, ok := elementCache[subject.Value]; ok {
+			return result
+		}
+	}
 	_, ok := rdf.SubjectID(subject)
-	if graph == nil || !ok || seen[subject.Value] ||
+	if graph == nil || !ok ||
 		!mappingTypeConforms(graph, subject, "Element") {
 		return false
 	}
 	seen[subject.Value] = true
+	result := mappingElementSubjectUncached(graph, subject, seen, packageCache, elementCache, membershipCache)
+	if elementCache != nil {
+		elementCache[subject.Value] = result
+	}
+	return result
+}
+
+func mappingElementSubjectUncached(
+	graph *rdf.Graph,
+	subject rdf.Term,
+	seen, packageCache, elementCache, membershipCache map[string]bool,
+) bool {
 	if mappingFilterPackageNodeWithCache(graph, subject, packageCache) {
 		return false
 	}
@@ -207,7 +249,9 @@ func mappingElementSubjectWithCache(graph *rdf.Graph, subject rdf.Term, seen, pa
 		firstIRI(graph, subject, pOwningRelationship),
 	} {
 		if mappingTypeConforms(graph, owner, "Membership") {
-			return mappingMembershipMemberIsElementWithCache(graph, owner, subject, seen, packageCache)
+			return mappingMembershipMemberIsElementWithMemo(
+				graph, owner, subject, seen, packageCache, elementCache, membershipCache,
+			)
 		}
 	}
 	for _, typ := range graph.ObjectsView(subject, rdf.RDFType) {
@@ -261,6 +305,34 @@ func mappingMembershipMemberIsElement(graph *rdf.Graph, membership, member rdf.T
 }
 
 func mappingMembershipMemberIsElementWithCache(graph *rdf.Graph, membership, member rdf.Term, seen, packageCache map[string]bool) bool {
+	return mappingMembershipMemberIsElementWithMemo(graph, membership, member, seen, packageCache, nil, nil)
+}
+
+func mappingMembershipMemberIsElementWithMemo(
+	graph *rdf.Graph,
+	membership, member rdf.Term,
+	seen, packageCache, elementCache, membershipCache map[string]bool,
+) bool {
+	cacheKey := membership.Value + "\x00" + member.Value
+	if membershipCache != nil {
+		if result, ok := membershipCache[cacheKey]; ok {
+			return result
+		}
+	}
+	result := mappingMembershipMemberIsElementUncached(
+		graph, membership, member, seen, packageCache, elementCache, membershipCache,
+	)
+	if membershipCache != nil {
+		membershipCache[cacheKey] = result
+	}
+	return result
+}
+
+func mappingMembershipMemberIsElementUncached(
+	graph *rdf.Graph,
+	membership, member rdf.Term,
+	seen, packageCache, elementCache, membershipCache map[string]bool,
+) bool {
 	if graph == nil {
 		return false
 	}
@@ -281,7 +353,8 @@ func mappingMembershipMemberIsElementWithCache(graph *rdf.Graph, membership, mem
 		owner = firstIRI(graph, membership, pOwner)
 	}
 	resultExpression := mappingTypeConforms(graph, membership, "ResultExpressionMembership")
-	ownerIsElement := owner.IsIRI() && mappingElementSubjectWithCache(graph, owner, seen, packageCache)
+	ownerIsElement := owner.IsIRI() &&
+		mappingElementSubjectWithMemo(graph, owner, seen, packageCache, elementCache, membershipCache)
 	if mappingExpressionType(graph, owner) && !ownerIsElement {
 		return false
 	}

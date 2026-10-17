@@ -165,6 +165,24 @@ func TestSubjectsCachesInsertionOrderAcrossGraphGrowth(t *testing.T) {
 	}
 }
 
+func TestGraphViewsPreserveQueryOrder(t *testing.T) {
+	a, b := IRI(Element+"A"), IRI(Element+"B")
+	first := Triple{Subject: a, Predicate: SysMLTerm("declaredName"), Object: String("A")}
+	second := Triple{Subject: a, Predicate: SysMLTerm("ownedMember"), Object: b}
+	third := Triple{Subject: b, Predicate: SysMLTerm("declaredName"), Object: String("B")}
+	graph := NewGraphOf([]Triple{first, second, third}, nil)
+
+	if got, want := graph.SubjectsView(), graph.Subjects(); !slices.Equal(got, want) {
+		t.Fatalf("subject view = %v, want %v", got, want)
+	}
+	if got, want := graph.PredicatesView(a), graph.Predicates(a); !slices.Equal(got, want) {
+		t.Fatalf("predicate view = %v, want %v", got, want)
+	}
+	if got, want := graph.ObjectsView(a, second.Predicate.Value), graph.Objects(a, second.Predicate.Value); !slices.Equal(got, want) {
+		t.Fatalf("object view = %v, want %v", got, want)
+	}
+}
+
 func TestSubjectsDeduplicatesBySubjectValue(t *testing.T) {
 	iri := IRI(Element + "same")
 	literal := String(iri.Value)

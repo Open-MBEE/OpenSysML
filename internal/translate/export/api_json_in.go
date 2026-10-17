@@ -289,12 +289,16 @@ func (e *APIJSONReadError) Unwrap() error {
 // apiJSONElementData is one parsed element object: its identity, its class as
 // an expression node, and its properties in written order.
 type apiJSONElementData struct {
-	id          string
-	typ         string
-	expression  bool
-	members     []apiJSONMember
-	indexMember string
-	indexOwner  string
+	id                   string
+	typ                  string
+	expression           bool
+	members              []apiJSONMember
+	indexMember          string
+	indexOwner           string
+	mappingQualifiedName string
+	specQualifiedName    string
+	hasSpecQualifiedName bool
+	toolkitForm          bool
 }
 
 var apiJSONInteger = regexp.MustCompile(`^-?[0-9]+$`)
@@ -319,27 +323,30 @@ func apiJSONExpressionIDs(data []byte) (*apiJSONImportPlan, error) {
 	}); err != nil {
 		return nil, err
 	}
-	mappingNames := apiJSONMappingQualifiedNameKeys(objects)
-	graph, syntheticRootIndexes, annotations, err := apiJSONMappingGraph(objects)
+	mappingNames := make(map[string]string)
+	specNames := make(map[string]string)
+	toolkitForm := false
+	for _, object := range objects {
+		if object.mappingQualifiedName != "" {
+			mappingNames[object.id] = object.mappingQualifiedName
+		}
+		if object.hasSpecQualifiedName {
+			specNames[object.id] = object.specQualifiedName
+		}
+		toolkitForm = toolkitForm || object.toolkitForm
+	}
+	graph, syntheticRootIndexes, annotations, incomingMemberships, err := apiJSONMappingGraph(objects)
 	if err != nil {
 		return nil, err
 	}
-	mappingContext := newMappingQualifiedNameContext(graph)
+	mappingContext := newMappingQualifiedNameContextWithMemberships(graph, incomingMemberships)
 	reconstructedNames := mappingQualifiedNamesWithContext(graph, mappingContext)
 	index, err := newAPIJSONIndex(objects)
 	if err != nil {
 		return nil, err
 	}
-	index.classifyExpressions(objects, graph, reconstructedNames, mappingNames)
+	index.classifyExpressions(objects, graph, mappingContext.elementSubjects, reconstructedNames, mappingNames, specNames)
 	qualifiedNames := make(map[string]string, len(reconstructedNames)+len(mappingNames))
-	toolkitForm := false
-	for _, object := range objects {
-		for _, member := range object.members {
-			if member.key == "isImpliedIncluded" {
-				toolkitForm = true
-			}
-		}
-	}
 	if toolkitForm {
 		qualifiedNames = make(map[string]string)
 		for _, object := range objects {
@@ -347,33 +354,25 @@ func apiJSONExpressionIDs(data []byte) (*apiJSONImportPlan, error) {
 				qualifiedNames[object.id] = name
 				continue
 			}
-			for _, member := range object.members {
-				if member.key == "qualifiedName" {
-					if name, ok := member.value.(string); ok && name != "" {
-						qualifiedNames[object.id] = mappingQualifiedNameFromSpec(name)
-					}
-				}
+			if name := specNames[object.id]; name != "" {
+				qualifiedNames[object.id] = name
 			}
 		}
 	} else {
-		incomingMemberships := mappingContext.incomingMemberships
 		for _, object := range objects {
 			if name := mappingNames[object.id]; name != "" {
 				qualifiedNames[object.id] = name
 				continue
 			}
 			subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
-			_, hasOwner := mappingQualifiedNameOwnerWithCache(
-				graph, subject, incomingMemberships, make(map[string]bool), mappingContext.packageCache,
-			)
-			if hasOwner {
+			if mappingContext.qualifiedNameOwners[subject.Value].hasOwner {
 				if name := reconstructedNames[object.id]; name != "" {
 					qualifiedNames[object.id] = name
 				}
 				continue
 			}
 			if mappingContext.elementSubjects[subject.Value] {
-				if name, ok := apiJSONSpecQualifiedName(&object); ok {
+				if name := specNames[object.id]; name != "" {
 					qualifiedNames[object.id] = name
 				}
 			}
@@ -388,29 +387,16 @@ func apiJSONExpressionIDs(data []byte) (*apiJSONImportPlan, error) {
 	}, nil
 }
 
-func apiJSONMappingQualifiedNameKeys(objects []apiJSONElementData) map[string]string {
-	names := make(map[string]string)
-	for _, object := range objects {
-		for _, member := range object.members {
-			if member.key == "sysx:mappingQualifiedName" {
-				if name, ok := member.value.(string); ok && name != "" {
-					names[object.id] = name
-				}
-			}
-		}
-	}
-	return names
-}
-
-func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Triple]struct{}, []apiJSONAnnotation, error) {
+func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Triple]struct{}, []apiJSONAnnotation, map[string][]rdf.Term, error) {
 	builder := rdf.NewGraphBuilder(len(objects) * apiJSONEstimatedTriplesPerElement)
 	cache := newAPIJSONTermCache()
 	var annotations []apiJSONAnnotation
-	for _, object := range objects {
+	for i := range objects {
+		object := &objects[i]
 		subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
 		typ, err := cache.typeIRI(object.typ)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
+			return nil, nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
 		}
 		builder.Add(subject, rdf.IRI(rdf.RDFType), typ)
 		for _, member := range object.members {
@@ -419,12 +405,13 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 			}
 			predicate, sysmlKey, err := cache.predicate(member.key)
 			if err != nil {
-				return nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
+				return nil, nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
 			}
 			if err := apiJSONTriples(builder, apiJSONProperty{subject, predicate, sysmlKey}, member.value, nil, cache, &annotations); err != nil {
-				return nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
+				return nil, nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
 			}
 		}
+		object.members = nil
 	}
 	graph := builder.Build()
 	incomingMemberships := mappingIncomingMemberships(graph)
@@ -459,7 +446,7 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 		}
 		rootIndex++
 	}
-	return graph, syntheticRootIndexes, annotations, nil
+	return graph, syntheticRootIndexes, annotations, incomingMemberships, nil
 }
 
 // apiJSONElementsOf visits each element object in either supported document
@@ -571,48 +558,67 @@ func apiJSONIdentity(object apiJSONElementData) error {
 	return nil
 }
 
-func apiJSONSpecQualifiedName(object *apiJSONElementData) (string, bool) {
-	for _, member := range object.members {
-		if member.key == "qualifiedName" {
-			name, ok := member.value.(string)
-			return mappingQualifiedNameFromSpec(name), ok && name != ""
+// classifyExpressions propagates expression classification from parent nodes,
+// including when a child appears before its parent in the document.
+func (index *apiJSONIndex) classifyExpressions(
+	objects []apiJSONElementData,
+	graph *rdf.Graph,
+	mappingElements map[string]bool,
+	reconstructedNames, mappingNames map[string]string,
+	specNames map[string]string,
+) {
+	mappingElement := make([]bool, len(objects))
+	dependents := make(map[string][]int, len(objects))
+	for i := range objects {
+		object := &objects[i]
+		subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
+		isMappingElement := mappingElements[subject.Value]
+		hasMappingFacts := mappingHasIdentity(graph, subject) ||
+			mappingHasOwnerFact(graph, subject) ||
+			mappingNames[object.id] != ""
+		isMembership := mappingTypeConforms(graph, subject, "Membership")
+		_, hasSpecName := specNames[object.id]
+		mappingElement[i] = isMappingElement && !isMembership && hasMappingFacts
+		if !isMembership && (mappingNames[object.id] != "" ||
+			(hasSpecName && reconstructedNames[object.id] == "" && !mappingHasOwnerFact(graph, subject))) {
+			mappingElement[i] = true
 		}
-	}
-	return "", false
-}
 
-// classifyExpressions classifies the expression namespace to a fixpoint: a
-// node is an expression when its metaclass is one the encoder mints directly
-// under a declaration, or when its parent is an expr: node or an
-// expression-class element — a child may be listed before its parent.
-func (index *apiJSONIndex) classifyExpressions(objects []apiJSONElementData, graph *rdf.Graph, reconstructedNames, mappingNames map[string]string) {
-	mappingElements := make(map[string]bool, len(objects))
-	for _, object := range objects {
-		if MappingElementSubject(graph, rdf.ReferenceIRI(rdf.Term{}, object.id)) {
-			mappingElements[object.id] = true
+		if base, membership := strings.CutSuffix(object.id, rdf.OwningMembershipSuffix); membership {
+			dependents[base] = append(dependents[base], i)
+		}
+		if owner, ok := rdf.ExpressionNodeOwner(object.id, func(prefix string) bool { return index.ids[prefix] }); ok {
+			dependents[owner] = append(dependents[owner], i)
+		}
+		if owner := index.nodeOwner[object.id]; owner != "" {
+			dependents[owner] = append(dependents[owner], i)
+		}
+		if owner := index.relationshipOwner[object.id]; owner != "" {
+			dependents[owner] = append(dependents[owner], i)
 		}
 	}
-	for changed := true; changed; {
-		changed = false
-		for i := range objects {
-			object := &objects[i]
-			subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
-			hasMappingFacts := mappingHasIdentity(graph, subject) ||
-				mappingHasOwnerFact(graph, subject) ||
-				mappingNames[object.id] != ""
-			isMembership := mappingTypeConforms(graph, subject, "Membership")
-			_, hasSpecName := apiJSONSpecQualifiedName(object)
-			mappingElement := mappingElements[object.id] && !isMembership && hasMappingFacts
-			if !isMembership && (mappingNames[object.id] != "" ||
-				(hasSpecName && reconstructedNames[object.id] == "" && !mappingHasOwnerFact(graph, subject))) {
-				mappingElement = true
-			}
-			if object.expression || mappingElement || !index.expression(object) {
+
+	queue := make([]int, 0, len(objects))
+	queued := make([]bool, len(objects))
+	for i := range objects {
+		if mappingElement[i] || !index.expression(&objects[i]) {
+			continue
+		}
+		objects[i].expression = true
+		index.expressionIDs[objects[i].id] = true
+		queue = append(queue, i)
+		queued[i] = true
+	}
+	for head := 0; head < len(queue); head++ {
+		parent := queue[head]
+		for _, child := range dependents[objects[parent].id] {
+			if queued[child] || mappingElement[child] || !index.expression(&objects[child]) {
 				continue
 			}
-			object.expression = true
-			index.expressionIDs[object.id] = true
-			changed = true
+			objects[child].expression = true
+			index.expressionIDs[objects[child].id] = true
+			queue = append(queue, child)
+			queued[child] = true
 		}
 	}
 }
@@ -730,6 +736,19 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 		case strings.HasPrefix(key, "@"):
 			return object, fmt.Errorf("the key %q is not a keyword this document carries", key)
 		default:
+			switch key {
+			case "qualifiedName":
+				if name, ok := value.(string); ok && name != "" {
+					object.specQualifiedName = mappingQualifiedNameFromSpec(name)
+					object.hasSpecQualifiedName = true
+				}
+			case "sysx:mappingQualifiedName":
+				if name, ok := value.(string); ok && name != "" {
+					object.mappingQualifiedName = name
+				}
+			case "isImpliedIncluded":
+				object.toolkitForm = true
+			}
 			if id, ok := memberReference(value); ok {
 				if membershipMemberProperty(key) {
 					object.indexMember = id
