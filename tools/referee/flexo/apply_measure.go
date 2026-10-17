@@ -11,7 +11,9 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	mms "github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/sysmlapi"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -91,7 +93,7 @@ func (a *ApplyRound) write(b *strings.Builder) {
 
 // MeasureApply applies model to a fresh project, then revised on top of it,
 // then diffs revised against a change made behind the sync's back.
-func MeasureApply(ctx context.Context, c *Client, fixture string, model, revised []byte) (*ApplyReport, error) {
+func MeasureApply(ctx context.Context, c *Stack, fixture string, model, revised []byte) (*ApplyReport, error) {
 	report := &ApplyReport{Fixture: filepath.Base(fixture), Revision: revisionName(fixture)}
 	local, err := convert.SysMLToRDF(report.Fixture, model)
 	if err != nil {
@@ -113,9 +115,9 @@ func MeasureApply(ctx context.Context, c *Client, fixture string, model, revised
 		return nil, fmt.Errorf("create project: %w", err)
 	}
 	run := &applyRun{
-		client: c,
-		repo:   c.Repository(project, BranchID),
-		state:  &reposync.State{ProjectID: project, Branch: BranchID},
+		stack: c,
+		repo:  c.Repository(project, BranchID),
+		state: &reposync.State{ProjectID: project, Branch: BranchID},
 	}
 
 	initial, err := run.round(ctx, "initial", local, false)
@@ -165,15 +167,15 @@ func revisionName(fixture string) string {
 }
 
 type applyRun struct {
-	client *Client
-	repo   *Repository
-	state  *reposync.State
+	stack *Stack
+	repo  *mms.Repository
+	state *reposync.State
 }
 
 // diff reads the branch — and its last-seen commit when the state names one —
 // and computes the change set against local.
 func (run *applyRun) diff(ctx context.Context, local *rdf.Graph, confirm bool) (*reposync.ChangeSet, bool, error) {
-	opts := reposync.Options{Representation: Representation{}, ConfirmDeletes: confirm}
+	opts := reposync.Options{Representation: sysmlapi.Representation{}, ConfirmDeletes: confirm}
 	if run.state.LastSeenCommit != "" {
 		base, err := run.repo.GraphAt(ctx, run.state.LastSeenCommit)
 		if err != nil {
@@ -210,7 +212,7 @@ func (run *applyRun) round(ctx context.Context, name string, local *rdf.Graph, g
 		round.Changes = append(round.Changes, fmt.Sprintf("%s\t%s\t%s", change.Kind, change.ID, orNone(change.Metaclass)))
 	}
 
-	before, err := run.client.Commits(ctx, run.repo.Project())
+	before, err := run.stack.Commits(ctx, run.repo.Project())
 	if err != nil {
 		return nil, fmt.Errorf("list commits: %w", err)
 	}
@@ -265,7 +267,7 @@ func (run *applyRun) round(ctx context.Context, name string, local *rdf.Graph, g
 
 // commitCount lists the project's commits; want >= 0 asserts the count held.
 func (run *applyRun) commitCount(ctx context.Context, want int) (int, error) {
-	commits, err := run.client.Commits(ctx, run.repo.Project())
+	commits, err := run.stack.Commits(ctx, run.repo.Project())
 	if err != nil {
 		return 0, fmt.Errorf("list commits: %w", err)
 	}
@@ -280,9 +282,9 @@ func (run *applyRun) commitCount(ctx context.Context, want int) (int, error) {
 func (run *applyRun) readBack(ctx context.Context, round *ApplyRound, result *reposync.Result) error {
 	commit := run.state.LastSeenCommit
 	for _, change := range result.Applied {
-		element, err := run.client.ElementByID(ctx, run.repo.Project(), commit, change.ID)
+		element, err := run.stack.ElementByID(ctx, run.repo.Project(), commit, change.ID)
 		switch {
-		case change.Kind == reposync.KindDelete && Status(err) == http.StatusNotFound:
+		case change.Kind == reposync.KindDelete && sysmlapi.Status(err) == http.StatusNotFound:
 			round.Absent++
 			continue
 		case change.Kind == reposync.KindDelete && err == nil && emptied(element):
@@ -291,7 +293,7 @@ func (run *applyRun) readBack(ctx context.Context, round *ApplyRound, result *re
 		case change.Kind == reposync.KindDelete && err == nil:
 			round.Present++
 			continue
-		case err != nil && Status(err) != 0:
+		case err != nil && sysmlapi.Status(err) != 0:
 			continue
 		case err != nil:
 			return fmt.Errorf("read %s back: %w", change.ID, err)
@@ -311,7 +313,7 @@ func (run *applyRun) readBack(ctx context.Context, round *ApplyRound, result *re
 
 // emptied reports an element the service answered with its id and a null type
 // and nothing else: how a deleted id reads on the deployed service.
-func emptied(element Element) bool {
+func emptied(element sysmlapi.Element) bool {
 	for name, raw := range element {
 		if name != "@id" && (name != "@type" || string(raw) != "null") {
 			return false

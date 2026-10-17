@@ -41,7 +41,7 @@ report:
   properties, the multi-valued ones included; what it loses is the `sysx:`
   properties, since the reader ignores predicates outside `sysml:` and
   `urn:sysmlv2:annotation:json:`. The measurement lives in
-  `internal/translate/interop/flexo`, an opt-in gate described in
+  `tools/referee/flexo`, an opt-in gate described in
   `.agents/skills/flexo-interop`, and its committed report records what changes
   as the remaining work lands.
 
@@ -959,7 +959,7 @@ stores a posted array both ways: one JSON annotation literal holding the array,
 plus a typed triple per member — an IRI for a `{"@id": …}` member, a typed
 literal for a primitive. The mapping writes what that path writes, so a graph
 OpenSysML produces reads back through that service with its collections intact;
-the live measurement is in `internal/translate/interop/flexo/testdata/interop_expected.txt`.
+the live measurement is in `tools/referee/flexo/testdata/interop_expected.txt`.
 
 The JSON shape is the commit path's:
 
