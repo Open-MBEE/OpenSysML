@@ -415,6 +415,10 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 	for i := range objects {
 		object := &objects[i]
 		subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
+		metaclass := strings.TrimPrefix(
+			strings.TrimPrefix(strings.TrimPrefix(object.typ, "sysx:"), "sysml:"),
+			rdf.SysML,
+		)
 		typ, err := cache.typeIRI(object.typ)
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
@@ -437,10 +441,7 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 				subject:   subject,
 				predicate: predicate,
 				sysmlKey:  sysmlKey,
-				metaclass: strings.TrimPrefix(
-					strings.TrimPrefix(strings.TrimPrefix(object.typ, "sysx:"), "sysml:"),
-					rdf.SysML,
-				),
+				metaclass: metaclass,
 			}, member.value, nil, cache, &annotations); err != nil {
 				return nil, nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
 			}
@@ -460,10 +461,7 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 				predicate:     predicate,
 				sysmlKey:      sysmlKey,
 				mappingValues: true,
-				metaclass: strings.TrimPrefix(
-					strings.TrimPrefix(strings.TrimPrefix(object.typ, "sysx:"), "sysml:"),
-					rdf.SysML,
-				),
+				metaclass:     metaclass,
 			}, object.mappingValues[property], nil, cache, &annotations); err != nil {
 				return nil, nil, nil, nil, fmt.Errorf("element %q mappingValues.%s: %w", object.id, property, err)
 			}

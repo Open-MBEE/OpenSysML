@@ -2,6 +2,7 @@ package export
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -10,24 +11,50 @@ import (
 )
 
 type apiJSONNameIndex struct {
-	declared      map[string][]rdf.Term
-	qualified     map[string][]rdf.Term
 	chainTargets  map[string]rdf.Term
 	chainOwners   map[string][]rdf.Term
 	subjectsByID  map[string]rdf.Term
 	expressionIDs map[string]bool
 	catalog       *identity.Catalog
+	catalogNames  *apiJSONCatalogNameIndex
+	owners        map[string]rdf.Term
+	scopes        map[string][]rdf.Term
+	ownedNames    map[apiJSONScopeName][]rdf.Term
+	imports       map[string][]rdf.Term
+	importedNames map[apiJSONScopeName][]rdf.Term
 }
 
+type apiJSONScopeName struct {
+	scope string
+	name  string
+}
+
+type apiJSONCatalogNameIndex struct {
+	byShortName       map[string][]rdf.Term
+	importedDirect    map[string]map[string][]rdf.Term
+	importedRecursive map[string]map[string][]rdf.Term
+	importedQualified map[string]map[string][]rdf.Term
+}
+
+var apiJSONCatalogNameIndexes sync.Map
+
 func newAPIJSONNameIndex(graph *rdf.Graph) *apiJSONNameIndex {
+	catalog := identity.LibraryCatalogWithOpenSysML(libs.SharedBase())
 	index := &apiJSONNameIndex{
-		declared:      make(map[string][]rdf.Term),
-		qualified:     make(map[string][]rdf.Term),
-		catalog:       identity.LibraryCatalogWithOpenSysML(libs.SharedBase()),
+		catalog:       catalog,
+		catalogNames:  apiJSONCatalogNames(catalog),
 		subjectsByID:  make(map[string]rdf.Term),
 		expressionIDs: make(map[string]bool),
+		owners:        make(map[string]rdf.Term),
+		scopes:        make(map[string][]rdf.Term),
+		ownedNames:    make(map[apiJSONScopeName][]rdf.Term),
+		imports:       make(map[string][]rdf.Term),
+		importedNames: make(map[apiJSONScopeName][]rdf.Term),
 	}
 	for _, subject := range graph.SubjectsView() {
+		index.owners[subject.Value] = apiJSONNameOwner(graph, subject)
+		index.imports[subject.Value] = append(graph.ObjectsView(subject, rdf.SysML+pOwnedRelationship),
+			graph.ObjectsView(subject, rdf.SysML+pOwnedImport)...)
 		id, ok := rdf.SubjectID(subject)
 		if !ok {
 			continue
@@ -37,14 +64,81 @@ func newAPIJSONNameIndex(graph *rdf.Graph) *apiJSONNameIndex {
 			index.expressionIDs[id] = true
 		}
 		if name, ok := graph.Lexical(subject, rdf.SysML+pDeclaredName); ok {
-			index.declared[name] = append(index.declared[name], subject)
+			index.addOwnedName(subject, name)
 		}
 		if name, ok := graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
-			index.qualified[name] = append(index.qualified[name], subject)
+			index.addOwnedName(subject, name)
 		}
 	}
 	index.chainOwners = apiJSONChainOwnerIndex(graph)
 	index.chainTargets = apiJSONFeatureChainTargets(graph, index)
+	return index
+}
+
+func (index *apiJSONNameIndex) ownerOf(graph *rdf.Graph, subject rdf.Term) rdf.Term {
+	if owner, ok := index.owners[subject.Value]; ok {
+		return owner
+	}
+	owner := apiJSONNameOwner(graph, subject)
+	index.owners[subject.Value] = owner
+	return owner
+}
+
+func (index *apiJSONNameIndex) addOwnedName(subject rdf.Term, name string) {
+	if name == "" {
+		return
+	}
+	owner := index.owners[subject.Value]
+	if owner.Value == "" {
+		return
+	}
+	key := apiJSONScopeName{scope: owner.Value, name: name}
+	index.ownedNames[key] = appendUniqueTerm(index.ownedNames[key], subject)
+}
+
+func apiJSONCatalogNames(catalog *identity.Catalog) *apiJSONCatalogNameIndex {
+	if cached, ok := apiJSONCatalogNameIndexes.Load(catalog); ok {
+		return cached.(*apiJSONCatalogNameIndex)
+	}
+	index := &apiJSONCatalogNameIndex{
+		byShortName:       make(map[string][]rdf.Term),
+		importedDirect:    make(map[string]map[string][]rdf.Term),
+		importedRecursive: make(map[string]map[string][]rdf.Term),
+		importedQualified: make(map[string]map[string][]rdf.Term),
+	}
+	for _, element := range catalog.Elements() {
+		if element.Symbol != nil && element.Symbol.Name != "" {
+			index.byShortName[element.Symbol.Name] = appendUniqueTerm(
+				index.byShortName[element.Symbol.Name], rdf.ElementIRIForID(element.ID),
+			)
+		}
+		parts := strings.Split(element.FQN, "::")
+		for i := 1; i < len(parts); i++ {
+			namespace := strings.Join(parts[:i], "::")
+			relative := strings.Join(parts[i:], "::")
+			target := rdf.ElementIRIForID(element.ID)
+			index.importedQualified[namespace] = appendAPIJSONCatalogName(
+				index.importedQualified[namespace], element.FQN, target,
+			)
+			index.importedRecursive[namespace] = appendAPIJSONCatalogName(
+				index.importedRecursive[namespace], relative, target,
+			)
+			if !strings.Contains(relative, "::") {
+				index.importedDirect[namespace] = appendAPIJSONCatalogName(
+					index.importedDirect[namespace], relative, target,
+				)
+			}
+		}
+	}
+	actual, _ := apiJSONCatalogNameIndexes.LoadOrStore(catalog, index)
+	return actual.(*apiJSONCatalogNameIndex)
+}
+
+func appendAPIJSONCatalogName(index map[string][]rdf.Term, name string, target rdf.Term) map[string][]rdf.Term {
+	if index == nil {
+		index = make(map[string][]rdf.Term)
+	}
+	index[name] = appendUniqueTerm(index[name], target)
 	return index
 }
 
@@ -257,11 +351,23 @@ func apiJSONGraphResolveName(
 	subject rdf.Term,
 	name string,
 ) rdf.Term {
-	var scopes []rdf.Term
-	seen := make(map[string]bool)
-	for scope := subject; scope.Value != "" && !seen[scope.Value]; scope = apiJSONNameOwner(graph, scope) {
-		seen[scope.Value] = true
-		scopes = append(scopes, scope)
+	scopes := []rdf.Term{subject}
+	owner := index.ownerOf(graph, subject)
+	if owner.Value != "" {
+		ownerScopes, ok := index.scopes[owner.Value]
+		if !ok {
+			seen := make(map[string]bool)
+			for scope := owner; scope.Value != "" && !seen[scope.Value]; scope = index.ownerOf(graph, scope) {
+				seen[scope.Value] = true
+				ownerScopes = append(ownerScopes, scope)
+			}
+			index.scopes[owner.Value] = ownerScopes
+		}
+		for _, scope := range ownerScopes {
+			if scope.Value != subject.Value {
+				scopes = append(scopes, scope)
+			}
+		}
 	}
 	for _, scope := range scopes {
 		matches := apiJSONGraphOwnedNames(graph, index, scope, name)
@@ -290,6 +396,10 @@ func apiJSONImportedNames(
 	scope rdf.Term,
 	name string,
 ) []rdf.Term {
+	key := apiJSONScopeName{scope: scope.Value, name: name}
+	if matches, ok := index.importedNames[key]; ok {
+		return matches
+	}
 	var matches []rdf.Term
 	add := func(target rdf.Term) {
 		if !target.IsIRI() {
@@ -302,8 +412,12 @@ func apiJSONImportedNames(
 		}
 		matches = append(matches, target)
 	}
-	relations := append(graph.ObjectsView(scope, rdf.SysML+pOwnedRelationship),
-		graph.ObjectsView(scope, rdf.SysML+pOwnedImport)...)
+	addAll := func(targets []rdf.Term) {
+		for _, target := range targets {
+			add(target)
+		}
+	}
+	relations := index.imports[scope.Value]
 	seen := make(map[string]bool, len(relations))
 	for _, relation := range relations {
 		if seen[relation.Value] {
@@ -328,15 +442,11 @@ func apiJSONImportedNames(
 			}
 			recursive := graph.BoolValue(relation, rdf.SysML+pIsRecursive) ||
 				graph.BoolValue(relation, rdf.OpenSysML+pIsRecursive)
-			for _, element := range index.catalog.Elements() {
-				if !strings.HasPrefix(element.FQN, root.FQN+"::") {
-					continue
-				}
-				relative := strings.TrimPrefix(element.FQN, root.FQN+"::")
-				if name == element.FQN ||
-					((recursive || !strings.Contains(relative, "::")) && name == relative) {
-					add(rdf.ElementIRIForID(element.ID))
-				}
+			addAll(index.catalogNames.importedQualified[root.FQN][name])
+			if recursive {
+				addAll(index.catalogNames.importedRecursive[root.FQN][name])
+			} else {
+				addAll(index.catalogNames.importedDirect[root.FQN][name])
 			}
 		case "MembershipImport", "MembershipExpose":
 			membership, ok := graph.Object(relation, rdf.SysML+pImportedMembership)
@@ -367,6 +477,7 @@ func apiJSONImportedNames(
 			}
 		}
 	}
+	index.importedNames[key] = matches
 	return matches
 }
 
@@ -381,29 +492,12 @@ func apiJSONNameMatches(graph *rdf.Graph, subject rdf.Term, name string) bool {
 }
 
 func apiJSONGraphOwnedNames(
-	graph *rdf.Graph,
+	_ *rdf.Graph,
 	index *apiJSONNameIndex,
 	owner rdf.Term,
 	name string,
 ) []rdf.Term {
-	candidates := append(index.declared[name], index.qualified[name]...)
-	var matches []rdf.Term
-	for _, candidate := range candidates {
-		if apiJSONNameOwner(graph, candidate) != owner {
-			continue
-		}
-		found := false
-		for _, prior := range matches {
-			if prior == candidate {
-				found = true
-				break
-			}
-		}
-		if !found {
-			matches = append(matches, candidate)
-		}
-	}
-	return matches
+	return index.ownedNames[apiJSONScopeName{scope: owner.Value, name: name}]
 }
 
 func apiJSONGraphNamedTarget(
@@ -550,9 +644,19 @@ func apiJSONCatalogResolveName(
 		add(element)
 	}
 	if !strings.Contains(name, "::") {
-		for _, element := range index.catalog.Elements() {
-			if element.Symbol != nil && element.Symbol.Name == name {
-				add(element)
+		for _, target := range index.catalogNames.byShortName[name] {
+			if !target.IsIRI() {
+				continue
+			}
+			found := false
+			for _, prior := range matches {
+				if prior == target {
+					found = true
+					break
+				}
+			}
+			if !found {
+				matches = append(matches, target)
 			}
 		}
 	}
