@@ -120,10 +120,8 @@ func lineOf(src string, offset int) int {
 	return 1 + strings.Count(src[:offset], "\n")
 }
 
-// A reference subsetting names a feature: `include UD;` with UD a use case
-// definition draws the kind message and the non-usage target message at the
-// target, as the pilot does; a qualified name or an alias is followed to the
-// definition; the use case usage beside it stays clean.
+// A definition target draws the kind and non-usage errors at the target, as the
+// pilot does; qualified names and aliases behave the same; a usage stays clean.
 func TestIncludedDefinitionIsNotAUseCaseReference(t *testing.T) {
 	src := `package Inc {
     use case def UD;
@@ -166,9 +164,8 @@ func TestIncludedDefinitionIsNotAUseCaseReference(t *testing.T) {
 	}
 }
 
-// Every include shape that names a use case usage is clean: direct, typed,
-// with a body, by qualified name, via alias, through a feature chain, and
-// inside a use case usage.
+// Every include shape naming a use case usage is clean: direct, typed, with a
+// body, by qualified name, via alias, through a chain, inside a use case usage.
 func TestIncludeShapesReferencingUseCaseUsagesAreClean(t *testing.T) {
 	src := `package IncPos {
     use case def UD {
