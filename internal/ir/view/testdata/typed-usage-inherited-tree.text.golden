@@ -34,9 +34,3 @@ part def Vehicle
     part subcomponents
       attribute mass
   connect
-
-relationships:
-  mass --|> mass: redefines
-  subcomponents --|> subcomponents: redefines
-  propellantMass --|> propellantMass: redefines
-  subcomponents --|> subcomponents: redefines

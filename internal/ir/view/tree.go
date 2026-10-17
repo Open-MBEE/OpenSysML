@@ -100,13 +100,10 @@ func (r *Renderer) treeDescendants(view, sym *symbols.Symbol, members func(*symb
 		}
 		visited[sym] = depth
 		recursive, added := r.enter(path, sym)
-		if recursive != nil {
-			return
-		}
 		defer leave(path, added)
 		folded := depth >= bound || r.collapsedIn(view, sym)
 		for _, member := range members(sym) {
-			if folded && !pinnedAt(sym, member) {
+			if recursive != nil && member.Owner() != sym || folded && !pinnedAt(sym, member) {
 				continue
 			}
 			out[symbols.KeyOf(member)] = true
@@ -163,16 +160,18 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, path expans
 		return node
 	}
 	recursive, added := r.enter(path, sym)
+	defer leave(path, added)
 	if recursive != nil {
 		node.Detail = detailWith(node.Detail, recursionNote(recursive))
-		return node
 	}
-	defer leave(path, added)
 	// At the depth bound, or collapsed, an element keeps its ports and pins — they
 	// count at their owner's depth — and nothing else nested is drawn.
 	bound, cut := r.walkBound(view), 0
 	folded := depth >= bound || collapsed(node)
 	for _, member := range r.walkMembers(view, sym) {
+		if recursive != nil && member.Owner() != sym {
+			continue
+		}
 		if folded && !pinnedAt(sym, member) {
 			if depth >= bound {
 				cut++
@@ -209,18 +208,19 @@ func (r *Renderer) treeNodeShallow(view, sym *symbols.Symbol, ids *nodeIDs, path
 
 // expansion is what a walk is drawing above the element at hand: each element
 // on the path down to it and each type those elements are typed by. An element
-// reached again through its own typing is noted rather than unfolded without
-// end; the depth bound stops everything else.
+// reached again through its own typing shows what it declares itself and is
+// noted, rather than unfolded without end; the depth bound stops everything else.
 type expansion map[*symbols.Symbol]bool
 
 // enter marks sym and its declared types as being expanded, returning what
-// leave undoes. A type of sym already being expanded above is returned instead,
-// and nothing is marked: the walk does not go below sym.
+// leave undoes. A type of sym already being expanded above is returned as well,
+// and then sym alone is marked: the walk shows its own members and no inherited one.
 func (r *Renderer) enter(path expansion, sym *symbols.Symbol) (recursive *symbols.Symbol, added []*symbols.Symbol) {
 	types := r.model.DeclaredTypes(sym)
 	for _, typ := range types {
 		if path[typ] {
-			return typ, nil
+			recursive, types = typ, nil
+			break
 		}
 	}
 	for _, elem := range append(slices.Clone(types), sym) {
@@ -229,7 +229,7 @@ func (r *Renderer) enter(path expansion, sym *symbols.Symbol) (recursive *symbol
 			added = append(added, elem)
 		}
 	}
-	return nil, added
+	return recursive, added
 }
 
 func leave(path expansion, added []*symbols.Symbol) {
@@ -239,9 +239,9 @@ func leave(path expansion, added []*symbols.Symbol) {
 }
 
 // recursionNote says why an element typed by what is being expanded above it
-// shows nothing nested.
+// shows only what it declares itself.
 func recursionNote(typ *symbols.Symbol) string {
-	return fmt.Sprintf("recursive through %s; not expanded", localName(typ))
+	return fmt.Sprintf("recursive through %s; inherited members not shown", localName(typ))
 }
 
 // effectiveMembers returns the elements a containment walk shows beneath an

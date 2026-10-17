@@ -127,3 +127,111 @@ func TestTreeExpandsNestedUsageThroughItsType(t *testing.T) {
 		}
 	}
 }
+
+const inheritedEdgeCases = `package Cases {
+	private import Views::*;
+	part def Base {
+		attribute x;
+		port p;
+		connect x to p;
+	}
+	part def Derived :> Base {
+		part inner : Base {
+			attribute :>> x;
+		}
+		attribute :>> x;
+	}
+	part instance : Derived;
+	view instanceLinks {
+		expose instance;
+		render asInterconnectionDiagram;
+	}
+
+	part def Stage {
+		attribute propellantMass;
+	}
+	part def Vehicle {
+		part stage1 : Stage;
+		part stage2 : Stage {
+			attribute :>> propellantMass = 2;
+		}
+	}
+	view vehicleTree {
+		expose Vehicle;
+		render asTreeDiagram;
+	}
+
+	part def Box {
+		part next : Box {
+			attribute serial;
+		}
+	}
+	view boxTree {
+		expose Box;
+		render asTreeDiagram;
+	}
+}
+`
+
+// A connector a definition declares between its own features ends, in a usage
+// of a type redefining one of them, at the redefining feature of that usage —
+// not at a nested part's redefinition of the same feature drawn earlier.
+func TestInheritedConnectorEndsAtTheUsagesOwnRedefinition(t *testing.T) {
+	r := renderSource(t, "Cases::instanceLinks", inheritedEdgeCases)
+	instance := nodeAt(r.Roots, "Cases::instance")
+	if instance == nil {
+		t.Fatalf("instance is not drawn; roots: %v", nodeNames(r.Roots))
+	}
+	x, inner := nodeAt(instance.Children, "x"), nodeAt(instance.Children, "inner")
+	if x == nil || inner == nil || nodeAt(inner.Children, "x") == nil {
+		t.Fatalf("instance lacks x or inner.x; children: %v", childNames(instance))
+	}
+	var toX int
+	for _, edge := range r.Edges {
+		if edge.Kind != EdgeConnection {
+			continue
+		}
+		if edge.From == x.ID || edge.To == x.ID {
+			toX++
+		}
+		if other := nodeAt(inner.Children, "x"); edge.From == other.ID || edge.To == other.ID {
+			if edge.From != inner.ID && edge.To != inner.ID && (edge.FromPort == "" || edge.ToPort == "") {
+				t.Errorf("edge %+v joins inner's x from outside inner", edge)
+			}
+		}
+	}
+	if toX != 1 {
+		t.Errorf("connections at instance's own x = %d, want the one Base declares; edges: %+v", toX, r.Edges)
+	}
+}
+
+// A redefinition arrow joins declarations: stage2's propellantMass redefines
+// Stage's, which is drawn only as inherited into stage1 and stage2, so no arrow
+// is drawn from one stage's copy to the other's.
+func TestTreeArrowsDoNotCrossUsagesOfOneType(t *testing.T) {
+	r := renderSource(t, "Cases::vehicleTree", inheritedEdgeCases)
+	for _, edge := range r.Edges {
+		if edge.Kind == EdgeSpecialization {
+			t.Errorf("edge %+v joins two usages' copies of Stage::propellantMass", edge)
+		}
+	}
+}
+
+// A self-typed part shows what it declares itself under the depth bound; only
+// the members it would inherit from the type being expanded above it are left out.
+func TestRecursiveUsageKeepsItsDeclaredMembers(t *testing.T) {
+	r := renderSource(t, "Cases::boxTree", inheritedEdgeCases)
+	next := nodeAt(r.Roots, "Cases::Box", "next")
+	if next == nil {
+		t.Fatalf("Box::next is not drawn; roots: %v", nodeNames(r.Roots))
+	}
+	if nodeAt(next.Children, "serial") == nil {
+		t.Errorf("next lacks the serial it declares; children: %v, detail %q", childNames(next), next.Detail)
+	}
+	if nodeAt(next.Children, "next") != nil {
+		t.Errorf("next unfolds Box again; children: %v", childNames(next))
+	}
+	if !strings.Contains(next.Detail, "recursive through Box") {
+		t.Errorf("detail = %q, want the recursion noted", next.Detail)
+	}
+}

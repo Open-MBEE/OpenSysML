@@ -114,9 +114,9 @@ n10 --|> n0
 n10 *-- "chassis" n22
 n10 *-- "spare" n24
 n11 --|> n1 : redefines
-n12 --|> n2 : redefines
 n13 --|> n3 : subsets
 n20 o-- "mass" n26
 n22 --|> n20
+n23 --|> n21 : redefines
 n27 ..|> n0
 @enduml

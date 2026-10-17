@@ -123,7 +123,3 @@ flowchart TD
   n0 --- n29
     n33("`**connect**`")
   n0 --- n33
-  n1 -->|"redefines"| n8
-  n11 -->|"redefines"| n9
-  n17 -->|"redefines"| n4
-  n29 -->|"redefines"| n9

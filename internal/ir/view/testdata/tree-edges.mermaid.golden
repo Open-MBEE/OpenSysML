@@ -131,8 +131,8 @@ flowchart TD
   n10 ---|"◆ chassis"| n22
   n10 ---|"◆ spare"| n24
   n11 -->|"redefines"| n1
-  n12 -->|"redefines"| n2
   n13 -->|"subsets"| n3
   n20 ---|"◇ mass"| n26
   n22 -->|"specialization"| n20
+  n23 -->|"redefines"| n21
   n27 -.->|"typing"| n0

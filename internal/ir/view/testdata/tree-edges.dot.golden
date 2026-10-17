@@ -77,9 +77,9 @@ digraph "FleetViews::structure" {
   "n10" -> "n22" [headlabel="chassis", dir=back, arrowtail=diamond];
   "n10" -> "n24" [headlabel="spare", dir=back, arrowtail=diamond];
   "n11" -> "n1" [label="redefines", arrowhead=empty];
-  "n12" -> "n2" [label="redefines", arrowhead=empty];
   "n13" -> "n3" [label="subsets", arrowhead=empty];
   "n20" -> "n26" [headlabel="mass", dir=back, arrowtail=odiamond];
   "n22" -> "n20" [arrowhead=empty];
+  "n23" -> "n21" [label="redefines", arrowhead=empty];
   "n27" -> "n0" [arrowhead=empty, style=dashed];
 }

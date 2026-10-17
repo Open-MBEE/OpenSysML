@@ -80,8 +80,8 @@ n10 -> n0: { class: specialization }
 n10 <- n22: { class: composition; target-arrowhead: { label: "chassis" } }
 n10 <- n24: { class: composition; target-arrowhead: { label: "spare" } }
 n11 -> n1: "redefines" { class: specialization }
-n12 -> n2: "redefines" { class: specialization }
 n13 -> n3: "subsets" { class: specialization }
 n20 <- n26: { class: reference; target-arrowhead: { label: "mass" } }
 n22 -> n20: { class: specialization }
+n23 -> n21: "redefines" { class: specialization }
 n27 -> n0: { class: typing }

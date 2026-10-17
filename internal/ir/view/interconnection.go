@@ -212,17 +212,16 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, path expansion, depth int
 	w.pinParameters(node, sym)
 	r.notesOf(w.view, sym, node.ID, w.out)
 	recursive, added := r.enter(path, sym)
+	defer leave(path, added)
 	if recursive != nil {
 		node.Detail = detailWith(node.Detail, recursionNote(recursive))
-		return node
 	}
-	defer leave(path, added)
 	// At the depth bound, or collapsed, an element keeps its ports and pins — they
 	// count at their owner's depth — and nothing nested is drawn.
 	bound, cut := r.walkBound(w.view), 0
 	folded := depth >= bound || collapsed(node)
 	for _, member := range w.walkMembers(sym) {
-		if _, pinned := w.pins[node][member]; pinned {
+		if _, pinned := w.pins[node][member]; pinned || recursive != nil && member.Owner() != sym {
 			continue
 		}
 		if folded && !pinnedAt(sym, member) {
@@ -704,11 +703,16 @@ func (w *featureWalk) memberEnd(base *Node, target *symbols.Symbol) edgeEnd {
 	return edgeEnd{}
 }
 
-// redefiningEnd is where a feature redefining sym is drawn under base, as a
-// node or a pin: `:>> engines = (e1, e2)` is the engines a binding to engines names.
+// redefiningEnd is where a feature redefining sym is drawn as base's own: a
+// node nested directly in base or a pin of it, not one of a part nested
+// deeper, which redefines the feature for itself. `:>> engines = (e1, e2)` is
+// the engines a binding to engines names.
 func (w *featureWalk) redefiningEnd(base *Node, sym *symbols.Symbol) edgeEnd {
 	for _, drawn := range w.sites {
-		if drawn.at.node == nil || !w.under(drawn.at.node, base) || drawn.sym == sym {
+		if drawn.sym == sym || drawn.at.node == nil {
+			continue
+		}
+		if drawn.at.port == "" && w.parent[drawn.at.node] != base || drawn.at.port != "" && drawn.at.node != base {
 			continue
 		}
 		if slices.Contains(w.r.model.RedefinedFeatures(drawn.sym), sym) {
