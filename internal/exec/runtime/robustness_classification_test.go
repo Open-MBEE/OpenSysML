@@ -83,7 +83,7 @@ func testMetaCastFailureModes(t *testing.T) {
 		{"a datum subject", "42 meta KerML::Feature", "element", semantics.ErrFilterUnevaluable},
 		{"a string subject", `"belt" meta KerML::Feature`, "element", semantics.ErrFilterUnevaluable},
 		{"an unresolved subject", "test::nope meta KerML::Feature", "nope", ErrUnresolvedReference},
-		{"an unresolved type", "test::seatBelt meta KerML::Nonexistent", "KerML::Nonexistent", ErrUnresolvedType},
+		{"an unresolved type", "test::seatBelt meta KerML::Nonexistent", "KerML::Nonexistent", errUnresolvedType},
 		{"a feature the metaclass lacks", "(test::seatBelt meta KerML::Feature).wheels", "wheels", ErrNoSuchFeature},
 		{"a feature the runtime does not derive", "(test::seatBelt meta KerML::Feature).ownedRelationship", "ownedRelationship", ErrReflectiveFeatureUnsupported},
 		{"a documentation body without the notation", "(test::Vehicle meta KerML::Element).documentation.body", "body", ErrReflectiveFeatureUnsupported},
@@ -113,8 +113,8 @@ func testTypeClassificationUnresolvedType(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected unresolved type classification to fail")
 	}
-	if !errors.Is(err, ErrUnresolvedType) {
-		t.Fatalf("expected ErrUnresolvedType, got: %v", err)
+	if !errors.Is(err, errUnresolvedType) {
+		t.Fatalf("expected errUnresolvedType, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "MissingType") {
 		t.Errorf("error = %v, want unresolved type name", err)
@@ -135,8 +135,8 @@ func testTypeClassificationUndeterminedValueType(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected undetermined value type classification to fail")
 	}
-	if !errors.Is(err, ErrUndeterminedValueType) {
-		t.Fatalf("expected ErrUndeterminedValueType, got: %v", err)
+	if !errors.Is(err, errUndeterminedValueType) {
+		t.Fatalf("expected errUndeterminedValueType, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "Rational") {
 		t.Errorf("error = %v, want the type the model has no name for", err)
@@ -162,8 +162,8 @@ func testCastToAnUnresolvedType(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a cast to an unresolved type to fail")
 	}
-	if !errors.Is(err, ErrUnresolvedType) {
-		t.Fatalf("expected ErrUnresolvedType, got: %v", err)
+	if !errors.Is(err, errUnresolvedType) {
+		t.Fatalf("expected errUnresolvedType, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "MissingType") {
 		t.Errorf("error = %v, want unresolved type name", err)
@@ -185,8 +185,8 @@ func testCastUndecidedByTheValue(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an undecidable cast to fail")
 	}
-	if !errors.Is(err, ErrUndecidedClassification) {
-		t.Fatalf("expected ErrUndecidedClassification, got: %v", err)
+	if !errors.Is(err, errUndecidedClassification) {
+		t.Fatalf("expected errUndecidedClassification, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "Even") {
 		t.Errorf("error = %v, want the target type named", err)
@@ -281,8 +281,8 @@ func testCastOfAQuantityToAConstrainedSubtype(t *testing.T) {
 			attribute def RoomLength :> ISQBase::LengthValue;
 			calc narrow { return : RoomLength = 5 [m] as RoomLength; }
 		}`, "narrow", nil, 1000)
-	if !errors.Is(err, ErrUndecidedClassification) {
-		t.Fatalf("expected ErrUndecidedClassification, got: %v", err)
+	if !errors.Is(err, errUndecidedClassification) {
+		t.Fatalf("expected errUndecidedClassification, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "RoomLength") {
 		t.Errorf("error = %v, want the target type named", err)
@@ -299,8 +299,8 @@ func testEnumerationNameThatIsNotALiteral(t *testing.T) {
 		part def Car { attribute c : Color = Color::purple; }
 	}`
 	got, err := variationFeatureValueInSource(t, src, "test::Car", "c")
-	if !errors.Is(err, ErrNotALiteral) {
-		t.Fatalf("c = (%v, %v), want ErrNotALiteral", got, err)
+	if !errors.Is(err, errNotALiteral) {
+		t.Fatalf("c = (%v, %v), want errNotALiteral", got, err)
 	}
 	for _, name := range []string{"purple", "red", "green", "blue"} {
 		if !strings.Contains(err.Error(), name) {

@@ -216,9 +216,8 @@ class PublicTypesTest {
     assertFalse(
         third.sameValue(
             new Value.RationalValue(Rational.of(6004799503160661L, 18014398509481984L))));
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> new Value.SetValue(List.of(third, new Value.RealValue(1.0 / 3.0))));
+    List<Value> mixed = List.of(third, new Value.RealValue(1.0 / 3.0));
+    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(mixed));
   }
 
   @Test

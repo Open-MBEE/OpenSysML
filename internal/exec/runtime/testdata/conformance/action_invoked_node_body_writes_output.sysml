@@ -1,5 +1,6 @@
 // The typed usage's own `assign y := y + 1` is unordered with Scale's inherited
-// `start → scaling → done`: it leaves 31 after scaling, or scaling overwrites it with 30 first.
+// `start → scaling → done`: it leaves 31 after scaling, while before it Scale's `y`
+// is unset and reads so — not as Adjust's same-named `y` — and `y + 1` fails.
 package test {
     private import ScalarValues::*;
 

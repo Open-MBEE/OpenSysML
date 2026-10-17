@@ -19,6 +19,7 @@ import (
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/notation"   // registers the notation REPL commands
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional" // registers the positional REPL commands
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -109,6 +110,7 @@ var (
 	renderRuns       stringSlice
 	schedule         schedulePolicy
 	listEngines      bool
+	explainCodes     codeNames
 	probeEngines     bool
 	engine           engineSelection
 	jobsFlag         jobsSetting
@@ -133,6 +135,7 @@ var (
 	renderPorts      string
 	renderLines      string
 	renderShow       string
+	renderDepth      int
 	renderOverlay    string
 	renderDoc        string
 	listWhat         string
@@ -354,6 +357,13 @@ func runCLI() int {
 		return 0
 	}
 
+	// A diagnostic code is a property of the build too: it is explained without a
+	// model, and the run ends there.
+	if explainCodes.given {
+		// An -explain run reads no model, so every positional word is a code too.
+		return explainDiagnostics(os.Stdout, os.Stderr, append(explainCodes.codes, flag.Args()...))
+	}
+
 	// The engines a build knows are a property of the build, like its version, so
 	// they are listed without a model and the run ends there.
 	if listEngines {
@@ -452,6 +462,14 @@ func runCLI() int {
 	}
 	if renderShow != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -render-show is the optional notation elements a diagram draws; name what to render with -render, -render-all, -render-document or -render-documents")
+		return 2
+	}
+	if renderDepth != 0 && renderView == "" && renderAllDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-depth is how many levels of nested elements a diagram draws below each exposed element; name what to render with -render or -render-all")
+		return 2
+	}
+	if renderDepth < 0 {
+		fmt.Fprintf(os.Stderr, "sysml: -render-depth: %v\n", &view.DepthError{Value: fmt.Sprint(renderDepth)})
 		return 2
 	}
 
@@ -624,7 +642,7 @@ func runCLI() int {
 		case convertFormat != "" || migrateFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || graphsSubject != "" || len(evalExprs) > 0:
 			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query, -graphs or -eval\n", mode)
 			return 2
-		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderShow != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
+		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderShow != "" || renderDepth != 0 || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
 			return 2
 		case modelChecks.requested():
@@ -840,6 +858,7 @@ func runCLI() int {
 
 	// Checking mode: load, check what was named, and exit on the verdict.
 	if modelChecks.requested() {
+		modelChecks.output = outputPath
 		return runChecks(args, evalExprs, modelChecks)
 	}
 

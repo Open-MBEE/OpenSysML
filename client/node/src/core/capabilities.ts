@@ -37,6 +37,9 @@ export const CAPABILITY_TENSOR_VALUES = "tensor_values";
 export const CAPABILITY_METAOBJECT_VALUES = "metaobject_values";
 /** `finalTime` on an execution response: the run's simulation clock when it ended, in seconds. */
 export const CAPABILITY_FINAL_TIME = "final_time";
+/** `orderDependent` on an execution response and a feature value, and `orderDependent`/`independent`
+ * on a choice-point diagnostic: what a run's values stand only up to. */
+export const CAPABILITY_ORDER_DEPENDENCE = "order_dependence";
 /** `ParseFileRequest.language`, which declares the language of inline content. */
 export const CAPABILITY_INLINE_LANGUAGE = "inline_language";
 /** `ParseFileRequest.strict_conformance`. */

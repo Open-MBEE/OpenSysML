@@ -388,7 +388,7 @@ package ProgramReport {
 
 		part verdicts : Section {
 			attribute redefines title = "Verdicts";
-			part all : Table {
+			part verdictTable : Table {
 				attribute redefines caption = "Every check across the three designs";
 				calc rows : TeamVerdicts;
 			}

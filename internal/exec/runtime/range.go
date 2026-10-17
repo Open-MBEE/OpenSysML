@@ -21,7 +21,7 @@ import (
 // evalRange evaluates `lower..upper` (IntegerFunctions::'..').
 func (ec *EvalContext) evalRange(n *ast.OperatorExpr) (Value, error) {
 	if len(n.Operands) != 2 {
-		return Value{}, fmt.Errorf("%w: '..' requires 2 operands, got %d", ErrCalcArity, len(n.Operands))
+		return Value{}, fmt.Errorf("%w: '..' requires 2 operands, got %d", errCalcArity, len(n.Operands))
 	}
 	lower, err := ec.Eval(n.Operands[0])
 	if err != nil {

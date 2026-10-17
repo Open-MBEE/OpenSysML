@@ -3,7 +3,6 @@
   "type": "analysis",
   "evaluate": "test::check",
   "verdicts": {
-    "obj": "satisfied",
-    "renamed": "satisfied"
+    "obj": "satisfied"
   }
 }

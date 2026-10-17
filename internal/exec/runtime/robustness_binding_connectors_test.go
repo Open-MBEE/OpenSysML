@@ -43,8 +43,8 @@ func testBindingConflict(t *testing.T) {
 		t.Fatalf("instantiate: %v", err)
 	}
 	_, err = inst.GetFeatureValue(ctx, "b")
-	if !errors.Is(err, ErrBindingConflict) {
-		t.Fatalf("GetFeatureValue(b) = %v, want ErrBindingConflict", err)
+	if !errors.Is(err, errBindingConflict) {
+		t.Fatalf("GetFeatureValue(b) = %v, want errBindingConflict", err)
 	}
 	if got, want := err.Error(), "binding conflict: b = 2, a = 1"; got != want {
 		t.Errorf("conflict error = %q, want %q", got, want)
@@ -65,8 +65,8 @@ func testBindingCollectionConflictsDoNotUseHashes(t *testing.T) {
 			t.Fatalf("instantiate: %v", err)
 		}
 		_, err = inst.GetFeatureValue(ctx, "b")
-		if !errors.Is(err, ErrBindingConflict) {
-			t.Fatalf("GetFeatureValue(b) = %v, want ErrBindingConflict", err)
+		if !errors.Is(err, errBindingConflict) {
+			t.Fatalf("GetFeatureValue(b) = %v, want errBindingConflict", err)
 		}
 		if got, want := err.Error(),
 			`binding conflict: b = ["b"], a = ["a"]`; got != want {
@@ -87,8 +87,8 @@ func testBindingCollectionConflictsDoNotUseHashes(t *testing.T) {
 			t.Fatalf("instantiate: %v", err)
 		}
 		_, err = inst.GetFeatureValue(ctx, "b")
-		if !errors.Is(err, ErrBindingConflict) {
-			t.Fatalf("GetFeatureValue(b) = %v, want ErrBindingConflict", err)
+		if !errors.Is(err, errBindingConflict) {
+			t.Fatalf("GetFeatureValue(b) = %v, want errBindingConflict", err)
 		}
 		if got, want := err.Error(),
 			"binding conflict: b = [65537], a = [1]"; got != want {
@@ -113,8 +113,8 @@ func testBindingMultipleScalarContributors(t *testing.T) {
 			t.Fatalf("instantiate: %v", err)
 		}
 		_, err = inst.GetFeatureValue(ctx, "a")
-		if !errors.Is(err, ErrBindingConflict) {
-			t.Fatalf("GetFeatureValue(a) = %v, want ErrBindingConflict", err)
+		if !errors.Is(err, errBindingConflict) {
+			t.Fatalf("GetFeatureValue(a) = %v, want errBindingConflict", err)
 		}
 		if got, want := err.Error(), "binding conflict at Sys.a: b = 1, c = 2"; got != want {
 			t.Errorf("conflict error = %q, want %q", got, want)
@@ -161,8 +161,8 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 			t.Fatalf("instantiate: %v", err)
 		}
 		_, err = inst.GetFeatureValue(ctx, "edges")
-		if !errors.Is(err, ErrBindingEnd) {
-			t.Fatalf("GetFeatureValue(edges) = %v, want ErrBindingEnd", err)
+		if !errors.Is(err, errBindingEnd) {
+			t.Fatalf("GetFeatureValue(edges) = %v, want errBindingEnd", err)
 		}
 		if got, want := err.Error(), "binding end cannot be resolved: Sys.edges is bound by `binding [1] bind [0..1] edges = [0..1] leftEdge`, "+
 			"which makes some value of edges a value of leftEdge without saying which value of either; the model does not state what edges holds"; got != want {
@@ -201,8 +201,8 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 		if err != nil {
 			t.Fatalf("instantiate two: %v", err)
 		}
-		if _, err := two.GetFeatureValue(ctx, "pick"); !errors.Is(err, ErrBindingEnd) {
-			t.Fatalf("two.pick = %v, want ErrBindingEnd", err)
+		if _, err := two.GetFeatureValue(ctx, "pick"); !errors.Is(err, errBindingEnd) {
+			t.Fatalf("two.pick = %v, want errBindingEnd", err)
 		}
 		// An end valued on its own — written, as one valued by a default — keeps that value.
 		if err := two.SetFeatureValue(ctx, "pick", integerValue(8)); err != nil {
@@ -429,8 +429,8 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 			t.Fatalf("instantiate: %v", err)
 		}
 		_, err = inst.GetFeatureValue(ctx, "edges")
-		if !errors.Is(err, ErrBindingConflict) {
-			t.Fatalf("GetFeatureValue(edges) = %v, want ErrBindingConflict", err)
+		if !errors.Is(err, errBindingConflict) {
+			t.Fatalf("GetFeatureValue(edges) = %v, want errBindingConflict", err)
 		}
 		if got, want := err.Error(), "binding conflict at Sys.edges: left = [1, 2], right = [2, 1]"; got != want {
 			t.Errorf("conflict error = %q, want %q", got, want)
@@ -502,8 +502,8 @@ func testBindingDistinctMaterializedObjectsConflict(t *testing.T) {
 		t.Fatalf("materialize p2: %v", err)
 	}
 	_, err = inst.GetFeatureValue(ctx, "p1")
-	if !errors.Is(err, ErrBindingConflict) {
-		t.Fatalf("GetFeatureValue(p1) = %v, want ErrBindingConflict", err)
+	if !errors.Is(err, errBindingConflict) {
+		t.Fatalf("GetFeatureValue(p1) = %v, want errBindingConflict", err)
 	}
 }
 
@@ -544,8 +544,8 @@ func testBindingCycle(t *testing.T) {
 		t.Fatalf("instantiate: %v", err)
 	}
 	_, err = inst.GetFeatureValue(ctx, "a")
-	if !errors.Is(err, ErrBindingCycle) {
-		t.Fatalf("GetFeatureValue(a) = %v, want ErrBindingCycle", err)
+	if !errors.Is(err, errBindingCycle) {
+		t.Fatalf("GetFeatureValue(a) = %v, want errBindingCycle", err)
 	}
 	if !strings.Contains(err.Error(), "a") || !strings.Contains(err.Error(), "b") {
 		t.Errorf("cycle error %q does not name both ends", err)
@@ -575,8 +575,8 @@ func testBindingSingleValueless(t *testing.T) {
 	}
 	sym := oneSymbol(t, idx, "P::Sys")
 	expr := parser.New(source.New("<binding-single-valueless-eval>", []byte("b"))).ParseExpression()
-	if _, err := ctx.EvalWithScopeOn(expr, sym.Scope, inst); !errors.Is(err, ErrUninitializedFeatureValue) {
-		t.Fatalf("evaluating b = %v, want ErrUninitializedFeatureValue", err)
+	if _, err := ctx.EvalWithScopeOn(expr, sym.Scope, inst); !errors.Is(err, errUninitializedFeatureValue) {
+		t.Fatalf("evaluating b = %v, want errUninitializedFeatureValue", err)
 	}
 }
 
@@ -596,8 +596,8 @@ func testBindingThreeBindingRing(t *testing.T) {
 		t.Fatalf("instantiate: %v", err)
 	}
 	_, err = inst.GetFeatureValue(ctx, "a")
-	if !errors.Is(err, ErrBindingCycle) {
-		t.Fatalf("GetFeatureValue(a) = %v, want ErrBindingCycle", err)
+	if !errors.Is(err, errBindingCycle) {
+		t.Fatalf("GetFeatureValue(a) = %v, want errBindingCycle", err)
 	}
 	for _, name := range []string{"a", "c"} {
 		if !strings.Contains(err.Error(), name) {
@@ -769,8 +769,8 @@ func testBindingResultTracksLaterMutation(t *testing.T) {
 			t.Fatalf("assign b: %v", err)
 		}
 		_, err = inst.GetFeatureValue(ctx, "b")
-		if !errors.Is(err, ErrBindingConflict) {
-			t.Fatalf("GetFeatureValue(b) = %v, want ErrBindingConflict", err)
+		if !errors.Is(err, errBindingConflict) {
+			t.Fatalf("GetFeatureValue(b) = %v, want errBindingConflict", err)
 		}
 	})
 }
@@ -833,7 +833,7 @@ func testBindingNestedContainerIsNotACycle(t *testing.T) {
 }
 
 // testBindingEndOfADestroyedObject: a binding end naming a destroyed object's
-// feature is ErrOccurrenceDestroyed, never a stale read of it or a write into it.
+// feature is errOccurrenceDestroyed, never a stale read of it or a write into it.
 func testBindingEndOfADestroyedObject(t *testing.T) {
 	instantiate, invoke, ctx := lifetimeFixture(t, `
 		package test {
@@ -862,8 +862,8 @@ func testBindingEndOfADestroyedObject(t *testing.T) {
 	}
 	for _, name := range []string{"shown", "knob"} {
 		_, err := rig.GetFeatureValue(ctx, name)
-		if !errors.Is(err, ErrOccurrenceDestroyed) || !errors.Is(err, ErrBindingEnd) {
-			t.Errorf("%s bound to a destroyed end: %v; want %v naming the binding end", name, err, ErrOccurrenceDestroyed)
+		if !errors.Is(err, errOccurrenceDestroyed) || !errors.Is(err, errBindingEnd) {
+			t.Errorf("%s bound to a destroyed end: %v; want %v naming the binding end", name, err, errOccurrenceDestroyed)
 		}
 	}
 	if m := w.FeatureValues["m"]; m.Materialized {

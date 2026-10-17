@@ -48,8 +48,8 @@ func TestRuntimeRobustnessNestedNodeInBody(t *testing.T) {
 			}
 		}`)
 		err := exec.RunToCompletion()
-		if !errors.Is(err, ErrActionResultParameter) {
-			t.Fatalf("error = %v, want ErrActionResultParameter", err)
+		if !errors.Is(err, errActionResultParameter) {
+			t.Fatalf("error = %v, want errActionResultParameter", err)
 		}
 		if n := exec.stateData["n"]; n.Kind != ValConst || n.Const.Int != 0 {
 			t.Fatalf("n = %v, want no action side effects", n)
@@ -69,8 +69,8 @@ func TestRuntimeRobustnessNestedNodeInBody(t *testing.T) {
 				}
 			}
 		}`)
-		if !errors.Is(err, ErrInvalidActionFlow) {
-			t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
+		if !errors.Is(err, errInvalidActionFlow) {
+			t.Fatalf("error = %v, want errInvalidActionFlow", err)
 		}
 	})
 	t.Run("body_flow_two_starts", func(t *testing.T) {
@@ -87,8 +87,8 @@ func TestRuntimeRobustnessNestedNodeInBody(t *testing.T) {
 				}
 			}
 		}`)
-		if !errors.Is(err, ErrInvalidActionFlow) {
-			t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
+		if !errors.Is(err, errInvalidActionFlow) {
+			t.Fatalf("error = %v, want errInvalidActionFlow", err)
 		}
 	})
 	t.Run("body_flow_pin_read_before_performed", func(t *testing.T) {
@@ -107,8 +107,8 @@ func TestRuntimeRobustnessNestedNodeInBody(t *testing.T) {
 				}
 			}
 		}`)
-		if !errors.Is(err, ErrNodeNotPerformed) {
-			t.Fatalf("error = %v, want ErrNodeNotPerformed", err)
+		if !errors.Is(err, errNodeNotPerformed) {
+			t.Fatalf("error = %v, want errNodeNotPerformed", err)
 		}
 	})
 	t.Run("body_flow_that_never_ends", func(t *testing.T) {
@@ -175,8 +175,8 @@ func TestRuntimeRobustnessNestedNodeInBody(t *testing.T) {
 				return : Integer = n;
 			}
 		}`, "host", 1, 100)
-		if !errors.Is(err, ErrStatementNotExecutable) {
-			t.Fatalf("error = %v, want ErrStatementNotExecutable", err)
+		if !errors.Is(err, errStatementNotExecutable) {
+			t.Fatalf("error = %v, want errStatementNotExecutable", err)
 		}
 	})
 }

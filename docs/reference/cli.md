@@ -260,6 +260,7 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--render-ports <display>` | | How much of a part's ports an interconnection or mixed rendering of `--render` or `--render-all` draws: `minimal` (the default), the ports its interconnection edges or mixed connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
 | `--render-lines <routing>` | | How the `dot` or `plantuml` form of `--render` or `--render-all` routes its edges: `splines` (the default) leaves each engine its curved routing unstated, `ortho` draws axis-parallel segments (`splines=ortho` on the DOT graph, with edge labels as `xlabel` since Graphviz places no `label` on an orthogonal edge, and with Graphviz's orthogonal router ignoring port positions, so an edge to a pin may cross its part; `skinparam linetype ortho` in PlantUML) and `polyline` straight segments (`splines=polyline`, `skinparam linetype polyline`) — the Pilot visualizer's `ORTHOLINE` and `POLYLINE` styles. Mermaid and D2, which route no edge themselves, note the routing as not represented; text and the tables ignore it. An unknown routing is refused with the three there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
 | `--render-show <elements>` | | Optional notation elements `--render`, `--render-all`, `--render-document` and `--render-documents` draw besides the default (port symbols, compartments and keywords), comma-separated: `parameter-symbols`, `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, or `all`; added to what the view's own rendering shows. |
+| `--render-depth <levels>` | | How many levels of nested elements `--render` and `--render-all` draw below each exposed element of a tree or interconnection rendering, overriding the `depth` the view states; `0` (the default) draws every level the view allows. |
 | `--render-overlay <overlay>` | | What `--render` or `--render-all` draws over a requirement rendering: `verdicts` runs the verification cases verifying each requirement and labels and colours it by their verdicts. Refused on another kind, by name when unknown, and without something to render (see [Rendering a view](#rendering-a-view)) |
 | `--render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot`, `plantuml` and `d2` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `--render`, `--render-all` and the diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, in a form chosen per diagram: a view some `DiagramLayout::Layout` or `Route` positions is drawn by Graphviz where it states — inline SVG when `dot` is installed, a fenced ` ```dot ` block otherwise — and every other graph-shaped view is a fenced ` ```mermaid ` block; when Graphviz is absent a positioned view is written as Mermaid under a visible notice saying so (`-diagram-form mermaid|dot|plantuml|d2` writes every graph-shaped block in that one form; a table or matrix view is a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. An `Image` block (`location` a path relative to the document's file or an http(s)/file URL, optional `caption` and `alt`) renders as a CommonMark image under its caption, a relative `location` resolved beside the document's source file and written relative to the `-o` output's directory; `-doc-form pdf` draws the file — a missing local `location` is a `missing-image` error — and an `http(s)` location is fetched by the engine. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
@@ -284,7 +285,7 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--pdf-title-page` | | Former name of `--doc-title-page` |
 | `--pdf-toc` | | Former name of `--doc-toc` |
 | `--pdf-number-sections` | | Former name of `--doc-number-sections` |
-| `--output <file>` | `-o` | Write the conversion, the rendering or the rendered document to a file instead of stdout; with `-convert ttl` a branch URL (the same two forms) replaces the branch's model graph with the converted Turtle — see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
+| `--output <file>` | `-o` | Write the conversion, the rendering, the rendered document or a `-validate` report in a `-format` other than text to a file instead of stdout; with `-convert ttl` a branch URL (the same two forms) replaces the branch's model graph with the converted Turtle — see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
 | `--version` | `-v` | Show version information |
 | `--help` | `-h` | Show usage information |
 | `--man` | | Write this command's manual page, in roff, to stdout (see [Installing](../guide/01-install.md)) |
@@ -304,7 +305,7 @@ written in, so the verdicts are about that object:
 | `-satisfy=<name>` | Only the assertions the named element states (`-satisfy=false` asks for none) |
 | `-instantiate <name>` | Creates an object first, so the verdicts are about it; with `-run-query` or `-render-document`, so the query reads it ([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)). Under `-schedule explore`, `-engine check`, `smt` or `all` each run creates an object of the declaration of its own before its behaviors start, one per `-instantiate` as the session holds one per `-instantiate`, which a `-state` or `-action` named alone attaches to and a path such as `Mission::mission.vehicle` walks into ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-calc "<name>(<args>)"` | Invokes a calculation and reports what it computed |
-| `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case — a [trade study](#trade-studies) included — and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
+| `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case — a [trade study](#trade-studies) included — and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`; for a case a part definition owns it is instead the object the case is a feature of (`-analysis "P::Definition::costTest P::product"`), binding a subject the case declares and leaves unbound as well, and without one the case runs on the single object of the definition the run holds. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
 | `-tool-dry-run "<case|action>[(<args>)] [object]"` | Shows what the external tool the case's or action's `ToolExecution` names would be given — manifest, executable, argv, environment, working directory, standard input, input file and reply mapping — with the model's current values and the invocation's arguments bound, without starting the process, then discards everything the run did — the session is as the preview found it — as `%tool` does. A run reaching no `ToolExecution`-annotated action reports that; a manifest fault, an unregistered tool or an input the call does not send reports the typed error the real run would fail with; refused under an exploring schedule, which runs many linearizations while a preview shows one run's first call. Repeatable. See [External tools](external-engines.md) |
 | `-record-run "<name>[(<args>)] [object]"` | Runs an analysis case as `-analysis` does and records the run into the model as `AnalysisRecords` elements: a record definition named for the case in a `Records` package beside the case's, and one part under it per run carrying the inputs bound and the outputs produced, annotated `@AnalysisRecords::RecordedRun` with when the run was made, the tool and command, and its kind. With `-sweep` the case sweeps as `-sweep` makes it and one record per row is written (`kind = "sweep"`); with `-runs <n>` and `-seed` a `Simulation::MonteCarlo` case is sampled as `-runs` makes it and each run recorded (`kind = "runs"`). Composes with `-convert sysml -o`, which writes the session text the records joined, and with `-render-document`, whose queries then see the records; a run that fails records nothing and leaves the model untouched. Repeatable. See [Recording analysis runs](#recording-analysis-runs) |
 | `-record-into <package>` | Records the `-record-run` runs into the package named instead of a `Records` package beside the case's; refused without `-record-run` |
@@ -340,6 +341,9 @@ written in, so the verdicts are about that object:
 | `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*, reaching an external engine only after every built-in one has; a name (`run`, `explore`, `check`, `smt`, `sweep`, `solve`, or an external engine's) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does; `-engine check` searches every schedule of each `-action` for a violation, a deadlock, a failure or a divergence ([Checking every schedule of an action](#checking-every-schedule-of-an-action-or-a-state-machine)); `-engine smt` decides a `-check-property` over every schedule and every value of the free inputs with an SMT solver ([Deciding a property over the inputs](#deciding-a-property-over-the-inputs)). See [Analysis engines](#analysis-engines) |
 | `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model, and how many files of one load are parsed and validated at once (`-validate`, `-satisfy`, `-check` and every mode that loads files). `n` is a positive integer; the default is `OPENSYSML_JOBS`, else one per CPU, fewer where the memory available leaves less than 512 MiB per worker (Linux: `MemAvailable` and the cgroup's `memory.max`; one at least). The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
 | `-json` | Reports the checks as one JSON document rather than as lines. Each check carries its `plan` and `results[]` beside the fields it always carried ([Analysis engines](#analysis-engines)) |
+| `-format text\|json\|sarif\|junit` | How the checks are reported. `text` is the lines; `json` is `-json`; `sarif` and `junit` carry `-validate`'s diagnostics to a CI service — SARIF 2.1.0 ([Validating in CI](../guide/03-command-line.md#validating-in-ci)) with one run, the tool's name and version, one rule per diagnostic code (`diagnostic` for one that has none), the severity as the level, each finding's file relative to the working directory with its line and column (`columnKind` is `utf16CodeUnits`, as SARIF readers count; the JSON report counts bytes), and the fixes analysis offers; JUnit XML with one testsuite per file, one failing testcase per finding typed by its severity, one passing testcase for a file with none, and an error testcase in the `sysml` suite for whatever stopped the run — a file with no finding in a run stopped by something no finding explains is skipped rather than passed. A document goes to stdout, or to the file `-o` names; what stopped the run is printed as in the line form, since neither document has a place for it |
+| `-baseline <file>` | The findings already known: a JSON report `-validate -json -o <file>` wrote. A finding with the same code, file (relative to the working directory) and message as one in it is suppressed — left out of the report and of the exit status — whatever line it has moved to; the summary says how many were (`N known finding(s) suppressed by <file>`, the `suppressed` field of a JSON or SARIF document). A finding the baseline does not know is reported and judged as without it. A known error that stopped analysis is still one: the tiers after it did not run, so the run is undecided (exit status 2, `did not analyse cleanly: an error the baseline knows stopped analysis`) rather than clean; what a baseline can accept is a finding analysis ran through — a warning, or an error of the last tier |
+| `-warnings-as-errors` | A warning ends the run as an error does (exit status 2). A warning a check reports, as a bounded materialization does, counts as one of the model does. Only the exit status changes: the report keeps each finding's own severity, so a SARIF `level` stays `warning` |
 
 Other modes, each described in full by `sysml -help` and the manual page:
 
@@ -441,17 +445,23 @@ $ sysml -analysis Landing::checkSlow model.sysml
   ✓ Verification Landing::checkSlow verdict: pass
 ```
 
-The body verdict is beside the objective's, not instead of it: an objective
-stating no condition to check — `objective { verify touchdown; }` with no
-`require constraint` of its own — stays `undecided`, and the case is reported
-unresolved however its body came out.
+The body verdict is beside the objective's, not instead of it. An objective
+stating no condition of its own — `objective { verify touchdown; }` with no
+`require constraint` — is `satisfied`: `verify` records the requirement the case
+verifies and is no condition of the objective, and a requirement check over no
+constraints is true (`Requirements::RequirementConstraintCheck`), so the body's
+verdict alone decides the case. An objective whose condition cannot be evaluated
+stays `undecided`, and the case unresolved.
 
 The verdict is what running the body answers, not a separate judgement of the
 model: a body whose result is a `VerificationCases::PassIf(...)` call is `pass`
 or `fail` as that library calculation computes it, a body binding `verdict` to a
 `VerdictKind` literal reports that literal, a body producing no verdict value is
 `inconclusive`, and a body whose run could not be carried out is `error` carrying
-the reason. Each nested `verification` step is reported on its own line, marked
+the reason. A case a part definition owns is a feature of the definition's objects:
+run with none instantiated it is `inconclusive` too, its detail saying it `needs an
+object of <Definition>: none is instantiated` as the definition's `satisfy` line does,
+since nothing is wrong with the model. Each nested `verification` step is reported on its own line, marked
 `(subcase)` and carrying `"subcase": true` in the JSON report: the library
 states no roll-up of a subcase's verdict into its parent's.
 
@@ -999,6 +1009,21 @@ the names there are; `-render-show` without `-render`, `-render-all`, `-render-d
 
 ```bash
 sysml lab.sysml -render 'Lab::useCases' -render-form dot -render-show parameter-symbols,edge-labels -o use-cases.dot
+```
+
+`-render-depth <levels>` bounds how many levels of nested elements a tree or interconnection
+rendering draws below each exposed element, for that render only: `1` draws the exposed elements
+and what they directly nest, `2` one level more, and so on. It overrides the `depth` attribute the
+view states ([limiting what a view draws](../project/view-rendering-forms.md#limiting-what-a-view-draws));
+`0`, the default, leaves the view's own depth in force, every level when it states none. An element
+at the bound is drawn with its compartment rows and its ports, carries the note `nested deeper than
+N levels; not shown`, and the elements directly below the bound are counted once in the notices.
+The option applies to `-render` and `-render-all`; a document's diagram blocks draw the depth their
+views state. A negative value is refused with status 2, as is `-render-depth` without `-render` or
+`-render-all`.
+
+```bash
+sysml vehicle.sysml -render 'Fleet::structure' -render-form text -render-depth 1
 ```
 
 A `GeneralView` whose filters select one of the specializations the OMG library documents —
@@ -1929,6 +1954,26 @@ each file as a document of its own; the diagnostics are those of `-jobs 1`, in c
 whatever `n` is. A model split over several files therefore validates faster on more CPUs where a
 single file does not; `docs/project/satellite-network-stress-test.md` records the measurements.
 
+## Diagnostic codes
+
+Every diagnostic carries the stable, kebab-case code of the rule that reported it, between the
+severity and the message of the text line and as `code` under `-json`:
+
+```text
+model.sysml:4:18: error[unresolved]: unresolved reference: Whel — did you mean Wheel?
+```
+
+`-explain <code>` prints what a code means, how to resolve it and the clause or validation
+constraint behind it, and needs no model; it is repeatable, and an unknown code is a usage
+error (exit 2). Bare `-explain` lists every code with a one-line summary, grouped by the tier
+that reports it. The [diagnostics reference](diagnostics.md#catalogue) is the same catalogue,
+generated from the registry.
+
+```bash
+$ sysml -explain unresolved
+$ sysml -explain
+```
+
 ## Analysis engines
 
 Every check is a question put to an analysis engine, and every verdict line is followed by its
@@ -2469,7 +2514,7 @@ $ sysml -e "1+1" bad.sysml 2>/dev/null
 $ echo $?
 2
 $ sysml -e "1+1" bad.sysml 2>&1 >/dev/null
-bad.sysml:2:39: error: expected an expression
+bad.sysml:2:39: error[syntax]: expected an expression
   part def Vehicle { attribute mass = ; }
                                       ^
 sysml: bad.sysml did not analyse cleanly

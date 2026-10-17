@@ -77,7 +77,7 @@ func TestRuntimeRobustnessRecursiveTypedAction(t *testing.T) {
 				action w : A { in depth = 1; }
 			}
 		}`, "run", 200)
-		if !errors.Is(err, ErrActionResultParameter) {
+		if !errors.Is(err, errActionResultParameter) {
 			t.Fatalf("ExecuteAction error = %v, want ErrActionResultParameter", err)
 		}
 	})
@@ -91,7 +91,7 @@ func TestRuntimeRobustnessRecursiveTypedAction(t *testing.T) {
 				then done;
 			}
 		}`, "A", 200)
-		if !errors.Is(err, ErrActionResultParameter) {
+		if !errors.Is(err, errActionResultParameter) {
 			t.Fatalf("ExecuteAction error = %v, want ErrActionResultParameter", err)
 		}
 	})

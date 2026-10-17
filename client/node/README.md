@@ -257,6 +257,9 @@ https://cdn.jsdelivr.net/npm/@openmbee/opensysml-wasm@<version>/sysml-wasm.wasm
 https://cdn.jsdelivr.net/npm/@openmbee/opensysml-wasm@<version>/wasm_exec.js
 ```
 
+The same package carries `sysml-prod.wasm.gz`, the gzip-compressed browser build of the
+`sysml` REPL for pages that run the REPL itself; `connectWasm()` does not use it.
+
 Browser callers pass those URLs as `wasm` and `wasmExec`; browser package
 resolution is not automatic. The combined module measures about 7.8 MB gzipped
 and 5.5 MB with Brotli.

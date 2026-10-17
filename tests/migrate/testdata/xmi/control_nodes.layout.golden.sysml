@@ -5,12 +5,14 @@ package Model {
                 view Run : StandardViewDefinitions::ActionFlowView {
                     expose Control::Controller::Run;
                     @DiagramLayout::Canvas { unit = "px"; width = 190; height = 280; }
+                    metadata DiagramLayout::Layout about Control::Controller::Run::start { x = 90; y = 10; width = 20; height = 20; }
                     metadata DiagramLayout::Layout about 'fork' { x = 40; y = 60; width = 120; height = 6; }
                     metadata DiagramLayout::Layout about heat { x = 10; y = 100; width = 80; height = 40; }
                     metadata DiagramLayout::Layout about cool { x = 110; y = 100; width = 80; height = 40; }
                     metadata DiagramLayout::Layout about 'join' { x = 40; y = 170; width = 120; height = 6; }
                     metadata DiagramLayout::Layout about check { x = 90; y = 200; width = 20; height = 20; }
                     metadata DiagramLayout::Layout about final { x = 40; y = 260; width = 20; height = 20; }
+                    metadata DiagramLayout::Layout about Control::Controller::Run::done { x = 140; y = 260; width = 20; height = 20; }
                     metadata DiagramLayout::Route about 'start to fork' { points = (100, 30, 100, 60); }
                     metadata DiagramLayout::Route about 'fork to heat' { points = (50, 66, 50, 100); }
                     metadata DiagramLayout::Route about 'fork to cool' { points = (150, 66, 150, 100); }

@@ -142,6 +142,10 @@ type LayoutSummary struct {
 	// StylesWritten those whose element the view lays out, so a Style is written.
 	Styles        int `json:"styles"`
 	StylesWritten int `json:"stylesWritten"`
+	// CompartmentsSuppressed counts the compartment switches written, over
+	// SymbolsSuppressing placed symbols that suppress at least one compartment.
+	CompartmentsSuppressed int `json:"compartmentsSuppressed,omitempty"`
+	SymbolsSuppressing     int `json:"symbolsSuppressing,omitempty"`
 	// Notes counts the comments and text boxes drawn, every one written as a
 	// Note; NotesAnchored those anchored to an element the view lays out,
 	// NotesFreed those whose anchor reaches none, written free on the view.
@@ -320,6 +324,9 @@ func (l *LayoutSummary) writeText(b *strings.Builder) {
 		l.RoutesWritten, l.Routes, l.RoutesUnexposed, l.RoutesDangling, l.Malformed)
 	fmt.Fprintf(b, "# styles: %d of %d written; notes: %d written (%d anchored, %d freed of an anchor the view does not lay out)\n",
 		l.StylesWritten, l.Styles, l.Notes, l.NotesAnchored, l.NotesFreed)
+	if l.CompartmentsSuppressed > 0 {
+		fmt.Fprintf(b, "# compartments suppressed: %d on %d symbols\n", l.CompartmentsSuppressed, l.SymbolsSuppressing)
+	}
 	if l.Pictures > 0 {
 		l.writePicturesText(b)
 	}

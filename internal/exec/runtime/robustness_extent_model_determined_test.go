@@ -32,7 +32,7 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		pkg := lookupOne(t, idx, "test")
 
 		_, err := evalIn(t, ctx, pkg.Scope, "a")
-		if !errors.Is(err, ErrBindingConflict) {
+		if !errors.Is(err, errBindingConflict) {
 			t.Fatalf("a = %v, want binding conflict", err)
 		}
 		for _, name := range []string{"test::a", "test::b"} {
@@ -75,7 +75,7 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		pkg := lookupOne(t, idx, "test")
 
 		_, err := evalIn(t, ctx, pkg.Scope, "c")
-		if !errors.Is(err, ErrBindingConflict) {
+		if !errors.Is(err, errBindingConflict) {
 			t.Fatalf("c = %v, want binding conflict", err)
 		}
 		sym := lookupOne(t, idx, "test::c")
@@ -304,7 +304,7 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		pkg := lookupOne(t, idx, "test")
 
 		_, err := evalIn(t, ctx, pkg.Scope, "a")
-		if !errors.Is(err, ErrBindingConflict) {
+		if !errors.Is(err, errBindingConflict) {
 			t.Fatalf("a = %v, want binding conflict: two occurrences cannot be b's [3]", err)
 		}
 		for _, name := range []string{"test::a", "test::b"} {
@@ -337,7 +337,7 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 			t.Fatalf("materialize a: %v", err)
 		}
 		ctx.occurrences[aSym] = []int64{inst.ID}
-		if _, err := evalIn(t, ctx, pkg.Scope, "a"); !errors.Is(err, ErrBindingConflict) {
+		if _, err := evalIn(t, ctx, pkg.Scope, "a"); !errors.Is(err, errBindingConflict) {
 			t.Fatalf("a = %v, want binding conflict: a's recorded occurrence differs from b's value", err)
 		}
 	})
@@ -354,7 +354,7 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		aSym := lookupOne(t, idx, "test::a")
 		bSym := lookupOne(t, idx, "test::b")
 
-		ec := NewEvalContext(ctx, bSym.OwnerScope)
+		ec := newEvalContext(ctx, bSym.OwnerScope)
 		bVal, err := ec.declaredValue(bSym, bSym.Decl.(*ast.Usage).Value)
 		if err != nil {
 			t.Fatalf("b's declared value: %v", err)
@@ -385,7 +385,7 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		aSym := lookupOne(t, idx, "test::a")
 		bSym := lookupOne(t, idx, "test::b")
 
-		ec := NewEvalContext(ctx, bSym.OwnerScope)
+		ec := newEvalContext(ctx, bSym.OwnerScope)
 		bVal, err := ec.declaredValue(bSym, bSym.Decl.(*ast.Usage).Value)
 		if err != nil {
 			t.Fatalf("b's declared value: %v", err)
@@ -443,7 +443,7 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		pkg := lookupOne(t, idx, "test")
 
 		_, err := evalIn(t, ctx, pkg.Scope, "b")
-		if !errors.Is(err, ErrBindingConflict) {
+		if !errors.Is(err, errBindingConflict) {
 			t.Fatalf("b = %v, want binding conflict: two occurrences cannot be a's [0..1]", err)
 		}
 		for _, name := range []string{"test::a", "test::b"} {

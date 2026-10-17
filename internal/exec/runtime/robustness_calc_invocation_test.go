@@ -67,8 +67,8 @@ func testCalcUnboundParameter(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected an unbound parameter error, calc returned %+v", result)
 	}
-	if !errors.Is(err, ErrUnboundParameter) {
-		t.Errorf("expected ErrUnboundParameter, got: %v", err)
+	if !errors.Is(err, errUnboundParameter) {
+		t.Errorf("expected errUnboundParameter, got: %v", err)
 	}
 }
 
@@ -85,8 +85,8 @@ func testCalcThisDefaultRequiredParameterUnbound(t *testing.T) {
 		}
 	}`
 	err := invokeCalcExpecting(t, src, "test::Pair()")
-	if !errors.Is(err, ErrUnboundParameter) {
-		t.Fatalf("error = %v, want ErrUnboundParameter for the required b", err)
+	if !errors.Is(err, errUnboundParameter) {
+		t.Fatalf("error = %v, want errUnboundParameter for the required b", err)
 	}
 	if !strings.Contains(err.Error(), `"b"`) {
 		t.Errorf("error = %v, want it naming the parameter b", err)
@@ -198,8 +198,8 @@ func testCalcUnboundKeywordNamedParameter(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected an unbound parameter error, calc returned %+v", result)
 	}
-	if !errors.Is(err, ErrUnboundParameter) {
-		t.Errorf("expected ErrUnboundParameter, got: %v", err)
+	if !errors.Is(err, errUnboundParameter) {
+		t.Errorf("expected errUnboundParameter, got: %v", err)
 	}
 }
 
@@ -226,8 +226,8 @@ func testCalcTooManyArguments(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an arity error, the calc accepted a surplus argument")
 	}
-	if !errors.Is(err, ErrCalcArity) {
-		t.Errorf("expected ErrCalcArity, got: %v", err)
+	if !errors.Is(err, errCalcArity) {
+		t.Errorf("expected errCalcArity, got: %v", err)
 	}
 }
 
@@ -250,12 +250,12 @@ func testCalcUnknownNamedArgument(t *testing.T) {
 	}
 
 	arg := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 3}}
-	_, err := ctx.InvokeCalcNamed(sym, map[string]Value{"factor": arg}, rootScope)
+	_, err := ctx.invokeCalcNamed(sym, map[string]Value{"factor": arg}, rootScope)
 	if err == nil {
 		t.Fatal("expected an unknown parameter error, the invocation succeeded")
 	}
-	if !errors.Is(err, ErrUnknownParameter) {
-		t.Errorf("expected ErrUnknownParameter, got: %v", err)
+	if !errors.Is(err, errUnknownParameter) {
+		t.Errorf("expected errUnknownParameter, got: %v", err)
 	}
 }
 
@@ -275,8 +275,8 @@ func testCalcParameterNamedTwice(t *testing.T) {
 		t.Fatal("twice calc not found")
 	}
 	_, err := ctx.InvokeCalc(sym, nil, rootScope)
-	if !errors.Is(err, ErrCalcArity) || !strings.Contains(err.Error(), `binds parameter "x" twice`) {
-		t.Errorf("expected ErrCalcArity naming x, got: %v", err)
+	if !errors.Is(err, errCalcArity) || !strings.Contains(err.Error(), `binds parameter "x" twice`) {
+		t.Errorf("expected errCalcArity naming x, got: %v", err)
 	}
 }
 
@@ -302,8 +302,8 @@ func testCalcWithoutResult(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a missing-result error, the calc returned a value")
 	}
-	if !errors.Is(err, ErrNoResultExpression) {
-		t.Errorf("expected ErrNoResultExpression, got: %v", err)
+	if !errors.Is(err, errNoResultExpression) {
+		t.Errorf("expected errNoResultExpression, got: %v", err)
 	}
 }
 
@@ -330,8 +330,8 @@ func testCalcStatesSecondResult(t *testing.T) {
 
 	arg := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1}}
 	_, err := ctx.InvokeCalc(sym, []Value{arg}, rootScope)
-	if !errors.Is(err, ErrConflictingResultExpressions) {
-		t.Fatalf("expected ErrConflictingResultExpressions, got: %v", err)
+	if !errors.Is(err, errConflictingResultExpressions) {
+		t.Fatalf("expected errConflictingResultExpressions, got: %v", err)
 	}
 	for _, want := range []string{"test::Twice", "test::Plus"} {
 		if !strings.Contains(err.Error(), want) {
@@ -366,8 +366,8 @@ func testCalcBodyStatesTwoResults(t *testing.T) {
 			t.Fatalf("%s calc not found", name)
 		}
 		_, err := ctx.InvokeCalc(sym, []Value{arg}, rootScope)
-		if !errors.Is(err, ErrConflictingResultExpressions) {
-			t.Fatalf("%s: expected ErrConflictingResultExpressions, got: %v", name, err)
+		if !errors.Is(err, errConflictingResultExpressions) {
+			t.Fatalf("%s: expected errConflictingResultExpressions, got: %v", name, err)
 		}
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: error %q does not say %q", name, err, want)
@@ -510,7 +510,7 @@ func testCalcRecursionSpendsStepBudget(t *testing.T) {
 	`
 	assertCalcRecursionBounded(t, src, "grow", ErrStepLimitExceeded, func(ctx *Context) {
 		// Room to recurse far deeper than the evaluations allow.
-		ctx.maxCalcDepth = MaxCalcDepthCeiling
+		ctx.maxCalcDepth = maxCalcDepthCeiling
 		ctx.maxSteps = 500
 	})
 }
@@ -529,7 +529,7 @@ func testCalcRecursionAtDepthCeiling(t *testing.T) {
 		}
 	`
 	assertCalcRecursionBounded(t, src, "deep", ErrCalcRecursionLimit, func(ctx *Context) {
-		ctx.maxCalcDepth = MaxCalcDepthCeiling
+		ctx.maxCalcDepth = maxCalcDepthCeiling
 	})
 }
 
@@ -628,8 +628,8 @@ func testCalcBodyNeverReturns(t *testing.T) {
 		}
 	`
 	err := invokeCalcInSource(t, src, "maybe", 5, 10000)
-	if !errors.Is(err, ErrCalcNoReturn) {
-		t.Errorf("expected ErrCalcNoReturn, got: %v", err)
+	if !errors.Is(err, errCalcNoReturn) {
+		t.Errorf("expected errCalcNoReturn, got: %v", err)
 	}
 }
 
@@ -647,8 +647,8 @@ func testCalcSendIsRejected(t *testing.T) {
 		}
 	`
 	err := invokeCalcInSource(t, src, "noisy", 1, 10000)
-	if !errors.Is(err, ErrCalcSideEffect) {
-		t.Errorf("expected ErrCalcSideEffect, got: %v", err)
+	if !errors.Is(err, errCalcSideEffect) {
+		t.Errorf("expected errCalcSideEffect, got: %v", err)
 	}
 }
 
@@ -665,8 +665,8 @@ func testCalcTerminateIsRejected(t *testing.T) {
 		}
 	`
 	err := invokeCalcInSource(t, src, "halting", 1, 10000)
-	if !errors.Is(err, ErrCalcSideEffect) {
-		t.Errorf("expected ErrCalcSideEffect, got: %v", err)
+	if !errors.Is(err, errCalcSideEffect) {
+		t.Errorf("expected errCalcSideEffect, got: %v", err)
 	}
 }
 
@@ -685,8 +685,8 @@ func testCalcAssignmentOutsideTheCalc(t *testing.T) {
 		}
 	`
 	err := invokeCalcInSource(t, src, "leaky", 3, 10000)
-	if !errors.Is(err, ErrCalcExternalAssignment) {
-		t.Errorf("expected ErrCalcExternalAssignment, got: %v", err)
+	if !errors.Is(err, errCalcExternalAssignment) {
+		t.Errorf("expected errCalcExternalAssignment, got: %v", err)
 	}
 }
 

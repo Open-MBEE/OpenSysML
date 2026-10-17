@@ -1131,7 +1131,7 @@ func TestWarningsPrintBeforeTheLoadTheyQualify(t *testing.T) {
 	}
 	warning, loaded := -1, -1
 	for i, line := range report.Output {
-		if warning < 0 && strings.Contains(line, "warning:") {
+		if warning < 0 && strings.Contains(line, "warning[") {
 			warning = i
 		}
 		if loaded < 0 && strings.Contains(line, "✓ package Rover") {

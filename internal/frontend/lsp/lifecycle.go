@@ -66,6 +66,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 				RenderPortsCapability:     renderPortsNames(),
 				RenderLinesCapability:     renderLinesNames(),
 				RenderElementsCapability:  renderElementNames(),
+				RenderDepthCapability:     true,
 				RenderOverlaysCapability:  renderOverlayNames(),
 			},
 			// Folders added mid-session are only indexed if the client reports them.

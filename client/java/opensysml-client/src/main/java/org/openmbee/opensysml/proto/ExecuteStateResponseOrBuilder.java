@@ -265,4 +265,66 @@ org.openmbee.opensysml.proto.Value defaultValue);
    * @return The traceDropped.
    */
   int getTraceDropped();
+
+  /**
+   * <pre>
+   * Final-context key → how many of the run's unresolved choice points touch
+   * it; a value nothing order-dependent wrote is absent. Populated under the
+   * "order_dependence" capability; empty under an explore schedule.
+   * </pre>
+   *
+   * <code>map&lt;string, int32&gt; order_dependent = 10 [json_name = "orderDependent"];</code>
+   */
+  int getOrderDependentCount();
+  /**
+   * <pre>
+   * Final-context key → how many of the run's unresolved choice points touch
+   * it; a value nothing order-dependent wrote is absent. Populated under the
+   * "order_dependence" capability; empty under an explore schedule.
+   * </pre>
+   *
+   * <code>map&lt;string, int32&gt; order_dependent = 10 [json_name = "orderDependent"];</code>
+   */
+  boolean containsOrderDependent(
+      java.lang.String key);
+  /**
+   * Use {@link #getOrderDependentMap()} instead.
+   */
+  @java.lang.Deprecated
+  java.util.Map<java.lang.String, java.lang.Integer>
+  getOrderDependent();
+  /**
+   * <pre>
+   * Final-context key → how many of the run's unresolved choice points touch
+   * it; a value nothing order-dependent wrote is absent. Populated under the
+   * "order_dependence" capability; empty under an explore schedule.
+   * </pre>
+   *
+   * <code>map&lt;string, int32&gt; order_dependent = 10 [json_name = "orderDependent"];</code>
+   */
+  java.util.Map<java.lang.String, java.lang.Integer>
+  getOrderDependentMap();
+  /**
+   * <pre>
+   * Final-context key → how many of the run's unresolved choice points touch
+   * it; a value nothing order-dependent wrote is absent. Populated under the
+   * "order_dependence" capability; empty under an explore schedule.
+   * </pre>
+   *
+   * <code>map&lt;string, int32&gt; order_dependent = 10 [json_name = "orderDependent"];</code>
+   */
+  int getOrderDependentOrDefault(
+      java.lang.String key,
+      int defaultValue);
+  /**
+   * <pre>
+   * Final-context key → how many of the run's unresolved choice points touch
+   * it; a value nothing order-dependent wrote is absent. Populated under the
+   * "order_dependence" capability; empty under an explore schedule.
+   * </pre>
+   *
+   * <code>map&lt;string, int32&gt; order_dependent = 10 [json_name = "orderDependent"];</code>
+   */
+  int getOrderDependentOrThrow(
+      java.lang.String key);
 }

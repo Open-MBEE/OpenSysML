@@ -289,8 +289,8 @@ func testBodyInterleavingsCalleeOutputs(t *testing.T) {
 	errs := 0
 	for _, o := range x.Outcomes {
 		if o.Outcome.Err != nil {
-			if !errors.Is(o.Outcome.Err, ErrNodeNotPerformed) {
-				t.Errorf("outcome error %v, want only %v", o.Outcome.Err, ErrNodeNotPerformed)
+			if !errors.Is(o.Outcome.Err, errNodeNotPerformed) {
+				t.Errorf("outcome error %v, want only %v", o.Outcome.Err, errNodeNotPerformed)
 			}
 			errs++
 			continue

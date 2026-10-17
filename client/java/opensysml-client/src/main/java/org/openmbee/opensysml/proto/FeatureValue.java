@@ -247,6 +247,24 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int ORDER_DEPENDENT_FIELD_NUMBER = 6;
+  private int orderDependent_ = 0;
+  /**
+   * <pre>
+   * How many of the run's unresolved choice points — ones whose alternatives
+   * write what another reads or writes — touch this value: it then stands only
+   * up to the order the run took, and an explore shows the set. 0 for a value
+   * nothing order-dependent wrote. Populated under the "order_dependence" capability.
+   * </pre>
+   *
+   * <code>int32 order_dependent = 6 [json_name = "orderDependent"];</code>
+   * @return The orderDependent.
+   */
+  @java.lang.Override
+  public int getOrderDependent() {
+    return orderDependent_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -276,6 +294,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(error_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 5, error_);
     }
+    if (orderDependent_ != 0) {
+      output.writeInt32(6, orderDependent_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -302,6 +323,10 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(error_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(5, error_);
+    }
+    if (orderDependent_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(6, orderDependent_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -331,6 +356,8 @@ private static final long serialVersionUID = 0L;
         != other.getMaterialized()) return false;
     if (!getError()
         .equals(other.getError())) return false;
+    if (getOrderDependent()
+        != other.getOrderDependent()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -357,6 +384,8 @@ private static final long serialVersionUID = 0L;
         getMaterialized());
     hash = (37 * hash) + ERROR_FIELD_NUMBER;
     hash = (53 * hash) + getError().hashCode();
+    hash = (37 * hash) + ORDER_DEPENDENT_FIELD_NUMBER;
+    hash = (53 * hash) + getOrderDependent();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -514,6 +543,7 @@ private static final long serialVersionUID = 0L;
       bitField0_ = (bitField0_ & ~0x00000004);
       materialized_ = false;
       error_ = "";
+      orderDependent_ = 0;
       return this;
     }
 
@@ -576,6 +606,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.error_ = error_;
       }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.orderDependent_ = orderDependent_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -632,6 +665,9 @@ private static final long serialVersionUID = 0L;
         error_ = other.error_;
         bitField0_ |= 0x00000010;
         onChanged();
+      }
+      if (other.getOrderDependent() != 0) {
+        setOrderDependent(other.getOrderDependent());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -694,6 +730,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 42
+            case 48: {
+              orderDependent_ = input.readInt32();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 48
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1372,6 +1413,59 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       error_ = value;
       bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+
+    private int orderDependent_ ;
+    /**
+     * <pre>
+     * How many of the run's unresolved choice points — ones whose alternatives
+     * write what another reads or writes — touch this value: it then stands only
+     * up to the order the run took, and an explore shows the set. 0 for a value
+     * nothing order-dependent wrote. Populated under the "order_dependence" capability.
+     * </pre>
+     *
+     * <code>int32 order_dependent = 6 [json_name = "orderDependent"];</code>
+     * @return The orderDependent.
+     */
+    @java.lang.Override
+    public int getOrderDependent() {
+      return orderDependent_;
+    }
+    /**
+     * <pre>
+     * How many of the run's unresolved choice points — ones whose alternatives
+     * write what another reads or writes — touch this value: it then stands only
+     * up to the order the run took, and an explore shows the set. 0 for a value
+     * nothing order-dependent wrote. Populated under the "order_dependence" capability.
+     * </pre>
+     *
+     * <code>int32 order_dependent = 6 [json_name = "orderDependent"];</code>
+     * @param value The orderDependent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOrderDependent(int value) {
+
+      orderDependent_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * How many of the run's unresolved choice points — ones whose alternatives
+     * write what another reads or writes — touch this value: it then stands only
+     * up to the order the run took, and an explore shows the set. 0 for a value
+     * nothing order-dependent wrote. Populated under the "order_dependence" capability.
+     * </pre>
+     *
+     * <code>int32 order_dependent = 6 [json_name = "orderDependent"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearOrderDependent() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      orderDependent_ = 0;
       onChanged();
       return this;
     }

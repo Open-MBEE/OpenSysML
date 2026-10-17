@@ -1,0 +1,5 @@
+{
+  "type": "constraint",
+  "evaluate": "test::withinBudget",
+  "error": "costReq has no value in the model"
+}

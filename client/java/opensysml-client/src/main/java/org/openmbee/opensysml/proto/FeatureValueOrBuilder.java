@@ -118,4 +118,17 @@ public interface FeatureValueOrBuilder extends
    */
   com.google.protobuf.ByteString
       getErrorBytes();
+
+  /**
+   * <pre>
+   * How many of the run's unresolved choice points — ones whose alternatives
+   * write what another reads or writes — touch this value: it then stands only
+   * up to the order the run took, and an explore shows the set. 0 for a value
+   * nothing order-dependent wrote. Populated under the "order_dependence" capability.
+   * </pre>
+   *
+   * <code>int32 order_dependent = 6 [json_name = "orderDependent"];</code>
+   * @return The orderDependent.
+   */
+  int getOrderDependent();
 }

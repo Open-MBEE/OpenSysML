@@ -3,7 +3,7 @@ step 2: token 2@node, token 3@other
 stmt assign outer
   eval literal 2 -> 2
 enter action node: node
-choice step 3: tokens 2@node, 3@other (unordered; took 3@other first)
+choice step 3: tokens 2@node, 3@other (unordered; took 3@other first; independent)
 step 3: token 2@nsplit, token 3@sync
 step 4: token 3@sync, token 4@waiter, token 5@quit
 stmt assign inner

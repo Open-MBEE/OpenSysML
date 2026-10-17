@@ -13,6 +13,16 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+// Codes of the typing rules that classify what a declaration relates to.
+const (
+	codeRelationshipTargetKind   = "relationship-target-kind"
+	codeRelationshipEndKind      = "relationship-end-kind"
+	codeFeatureChainSegment      = "feature-chain-segment"
+	codeUsageReferenceKind       = "usage-reference-kind"
+	codeConjugatedPortDefinition = "conjugated-port-definition"
+	codeSubsettingFeature        = "subsetting-feature"
+)
+
 // TypeCheckPass validates that each def/usage relationship target has a symbol
 // kind compatible with the source node and relationship kind (spec §6.3), and
 // types expressions (operands, bound values, invocation arguments) against the
@@ -425,7 +435,7 @@ func (tc *typeChecker) checkTypeTarget(scope *symbols.Scope, target ast.Node, re
 	if msg == "" {
 		return
 	}
-	span, code := target.Span(), "type"
+	span, code := target.Span(), codeRelationshipTargetKind
 	// A wrong typing is the reference's per-kind message on the declaration.
 	if relKind == ast.RelTyping {
 		if pilot, pilotCode, ok := pilotTypingMessage(decl); ok {
@@ -467,7 +477,7 @@ func (tc *typeChecker) checkChainSegments(scope *symbols.Scope, target ast.Node)
 		Severity: diag.SeverityError,
 		Span:     chain.Operand.Span(),
 		Message:  fmt.Sprintf("feature chain segment must be a feature, found %s", sym.Kind),
-		Code:     "type",
+		Code:     codeFeatureChainSegment,
 		Source:   "type",
 	})
 }
@@ -493,7 +503,7 @@ func (tc *typeChecker) checkChainReferenceKind(scope *symbols.Scope, target ast.
 		Severity: diag.SeverityError,
 		Span:     target.Span(),
 		Message:  msg,
-		Code:     "type",
+		Code:     codeUsageReferenceKind,
 		Source:   "type",
 	})
 }
@@ -687,7 +697,7 @@ func (tc *typeChecker) checkConjugatedTyping(scope *symbols.Scope, rel *ast.Rela
 			Span:     target.Span(),
 			Message: fmt.Sprintf(
 				"'~' names the conjugated port definition of a port definition, found %s", sym.Kind),
-			Code:   "type",
+			Code:   codeConjugatedPortDefinition,
 			Source: "type",
 		})
 		return
@@ -697,7 +707,7 @@ func (tc *typeChecker) checkConjugatedTyping(scope *symbols.Scope, rel *ast.Rela
 			Severity: diag.SeverityError,
 			Span:     target.Span(),
 			Message:  "only a port usage or a connector end may be typed by a conjugated port definition",
-			Code:     "type",
+			Code:     codeConjugatedPortDefinition,
 			Source:   "type",
 		})
 	}

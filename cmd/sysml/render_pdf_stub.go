@@ -1,4 +1,4 @@
-//go:build sysml_prod || sysml_nodocpdf
+//go:build sysml_re || sysml_nodocpdf
 
 package main
 

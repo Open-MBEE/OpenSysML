@@ -176,7 +176,7 @@ func TestWitnessCarriesTheClockStep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := Witness{DrawPolicy: ctx.DrawPolicyTaken(), ClockStep: ctx.ClockStepTaken(), Draws: ctx.DrawsTaken(), Choices: ctx.ChoicesTaken()}
+	w := Witness{DrawPolicy: ctx.drawPolicyTaken(), ClockStep: ctx.clockStepTaken(), Draws: ctx.DrawsTaken(), Choices: ctx.choicesTaken()}
 	text := w.String()
 	if !strings.HasPrefix(text, "clock steps by 1.0\n") {
 		t.Fatalf("the witness does not open with the clock step:\n%s", text)
@@ -190,7 +190,7 @@ func TestWitnessCarriesTheClockStep(t *testing.T) {
 	}
 	replay, _ := m.fresh()
 	mustSchedule(t, replay, ReplayOf(parsed))
-	if got := replay.ClockStepTaken(); got != 1 {
+	if got := replay.clockStepTaken(); got != 1 {
 		t.Fatalf("the replay's clock steps by %v, want the witness's 1", got)
 	}
 	got, err := replay.ExecuteAction(m.action(t, "Stepped"))
@@ -211,11 +211,11 @@ func TestWitnessCarriesTheClockStep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if text := (Witness{ClockStep: continuous.ClockStepTaken(), Choices: continuous.ChoicesTaken()}).String(); strings.Contains(text, clockStepPrefix) {
+	if text := (Witness{ClockStep: continuous.clockStepTaken(), Choices: continuous.choicesTaken()}).String(); strings.Contains(text, clockStepPrefix) {
 		t.Errorf("a continuous run's witness names a clock step:\n%s", text)
 	}
 
-	var parse *ClockStepParseError
+	var parse *clockStepParseError
 	for _, bad := range []struct{ text, reason string }{
 		{"draw uniform(0.0, 1.0) = 1.0\nclock steps by 1.0\nno choice points\n", "before the draws"},
 		{"clock steps by 1.0\nclock steps by 0.5\nno choice points\n", "named twice"},
@@ -225,7 +225,7 @@ func TestWitnessCarriesTheClockStep(t *testing.T) {
 	} {
 		_, err := ParseWitness(bad.text)
 		if !errors.As(err, &parse) || !errors.Is(err, ErrClockStep) || !strings.Contains(err.Error(), bad.reason) || parse.Line == 0 {
-			t.Errorf("%q parsed as %v, want a ClockStepParseError on its line saying %q", bad.text, err, bad.reason)
+			t.Errorf("%q parsed as %v, want a clockStepParseError on its line saying %q", bad.text, err, bad.reason)
 		}
 	}
 }

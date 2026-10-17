@@ -100,13 +100,19 @@ func (c *w11aUsageChecker) check(sym *symbols.Symbol) {
 }
 
 // checkReference checks that the feature a reference member names is of the kind
-// the keyword performs or exhibits.
+// the keyword performs or exhibits, in the reference form `perform p;` and in the
+// declared form `perform action f references p;` alike.
 func (c *w11aUsageChecker) checkReference(sym *symbols.Symbol, u *ast.Usage) {
 	keyword := u.Keyword
 	relKind := ast.RelReferences
-	if u.Kind == ast.UsageUseCase && keyword == "" {
+	switch {
+	case u.Kind == ast.UsageUseCase && keyword == "":
 		keyword = "include"
 		relKind = ast.RelIncludes
+	case u.IsPerformedAction():
+		keyword = "perform"
+	case u.IsExhibitedState():
+		keyword = "exhibit"
 	}
 	want, ok := w11aReferenceKinds[keyword]
 	if !ok {

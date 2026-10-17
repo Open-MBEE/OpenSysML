@@ -497,9 +497,9 @@ func TestWorkspaceCopyOfLibraryFileIsTheLibrary(t *testing.T) {
 		return nil
 	}
 	const norm = "14c0aa22-5489-59b5-b438-ded26e83ba31"
-	real := copyIdentity(src)
-	if !real.Normative() || real.EffectiveID != norm || real.Language != identity.KerML {
-		t.Errorf("Real in a workspace copy = %+v, want the norm's KerML id %s", real, norm)
+	actual := copyIdentity(src)
+	if !actual.Normative() || actual.EffectiveID != norm || actual.Language != identity.KerML {
+		t.Errorf("Real in a workspace copy = %+v, want the norm's KerML id %s", actual, norm)
 	}
 	if got := ws.StandsInFor(name); got != bundled {
 		t.Errorf("the copy stands in for %q, want %q", got, bundled)
@@ -535,7 +535,7 @@ func TestWorkspaceCopyOfLibraryFileIsTheLibrary(t *testing.T) {
 	}
 
 	// Restored to the library's package, the copy is the library again.
-	if real = copyIdentity(src); !real.Normative() || real.EffectiveID != norm {
-		t.Errorf("Real in the restored copy = %+v, want the norm's id %s", real, norm)
+	if actual = copyIdentity(src); !actual.Normative() || actual.EffectiveID != norm {
+		t.Errorf("Real in the restored copy = %+v, want the norm's id %s", actual, norm)
 	}
 }

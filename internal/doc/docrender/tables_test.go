@@ -9,11 +9,27 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
 const sizedReport = "Observatory::SizedReport"
 
 func sizedReportPath() string { return filepath.Join("testdata", "sized_report.sysml") }
+
+func TestTableColumnClasses(t *testing.T) {
+	for _, tc := range []struct {
+		columns int
+		want    string
+	}{
+		{6, ""},
+		{7, " sysml-table-landscape"},
+		{11, " sysml-table-landscape sysml-table-dense"},
+	} {
+		if got := tableColumnClasses(tc.columns); got != tc.want {
+			t.Errorf("tableColumnClasses(%d) = %q, want %q", tc.columns, got, tc.want)
+		}
+	}
+}
 
 // TestHTMLTableColumnWidths locks that a table with stated widths is marked
 // sized and carries one <col> per column: the stated width as data and the
@@ -31,7 +47,7 @@ func TestHTMLTableColumnWidths(t *testing.T) {
 	if strings.Count(got, "<colgroup>") != 1 {
 		t.Fatalf("an unsized table carries a column group:\n%s", got)
 	}
-	if !strings.Contains(got, `<table class="sysml-table" data-content="table" data-name="readings"`) {
+	if !strings.Contains(got, `<table class="sysml-table sysml-table-landscape sysml-table-dense" data-content="table" data-name="readings"`) {
 		t.Fatalf("the unsized table is marked sized:\n%s", got)
 	}
 }
@@ -89,8 +105,8 @@ func TestHTMLTableContinuation(t *testing.T) {
 		t.Fatalf("continuation tables = %d, want 2:\n%s", n, got)
 	}
 	for _, want := range []string{
-		`<table class="sysml-table sysml-table-wide sysml-table-split" data-content="table" data-name="readings"`,
-		`<table class="sysml-table sysml-table-wide sysml-table-split sysml-table-continued" data-content="table" data-name="readings"`,
+		`<table class="sysml-table sysml-table-wide sysml-table-landscape sysml-table-split" data-content="table" data-name="readings"`,
+		`<table class="sysml-table sysml-table-wide sysml-table-landscape sysml-table-split sysml-table-continued" data-content="table" data-name="readings"`,
 		`<caption class="sysml-caption"><span class="sysml-caption-number">Table 2.</span> Readings</caption>`,
 		`<caption class="sysml-caption"><span class="sysml-caption-number">Table 2.</span> Readings (continued)</caption>`,
 		"<thead>\n<tr>\n<th scope=\"col\" data-column=\"name\">name</th>\n<th scope=\"col\" data-column=\"h\">h</th>",
@@ -112,9 +128,37 @@ func TestHTMLTableContinuation(t *testing.T) {
 	if n := strings.Count(got, "sysml-table-split"); n != 3 {
 		t.Fatalf("parts marked split = %d, want the three readings parts:\n%s", n, got)
 	}
+	if n := strings.Count(got, "sysml-table-landscape"); n != 2 {
+		t.Fatalf("parts marked landscape by their own header width = %d, want 2:\n%s", n, got)
+	}
 	whole := renderFixtureHTML(t, sizedReportPath(), sizedReport, HTMLOptions{Fragment: true})
 	if strings.Contains(whole, "continued") || strings.Count(whole, `data-name="readings"`) != 1 || strings.Contains(whole, "sysml-table-split") {
 		t.Fatalf("the default split a table:\n%s", whole)
+	}
+	if !strings.Contains(whole, `class="sysml-table sysml-table-landscape sysml-table-dense`) {
+		t.Fatalf("the unsplit eleven-plus-column table lacks its threshold classes:\n%s", whole)
+	}
+}
+
+func TestHTMLRenderingTableColumnClasses(t *testing.T) {
+	for _, tc := range []struct {
+		columns int
+		classes string
+	}{
+		{6, `class="sysml-table"`},
+		{7, `class="sysml-table sysml-table-landscape"`},
+		{11, `class="sysml-table sysml-table-landscape sysml-table-dense"`},
+	} {
+		columns := make([]string, tc.columns)
+		row := make([]string, tc.columns)
+		for i := range columns {
+			columns[i] = "column"
+			row[i] = "value"
+		}
+		got := renderedFigure(t, "", &view.Rendering{Kind: view.KindTable, Columns: columns, Rows: [][]string{row}}, "")
+		if !strings.Contains(got, "<table "+tc.classes+` data-content="table">`) {
+			t.Errorf("%d-column rendering lacks %s:\n%s", tc.columns, tc.classes, got)
+		}
 	}
 }
 

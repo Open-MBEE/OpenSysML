@@ -15,7 +15,7 @@ Pseudostates are transient vertices in state machines that enable complex contro
 - Used for dynamic branching based on current conditions
 - Several enabled branches are a transition choice point (`ChoiceTaken` at the choice, enumerated
   by `explore`); an unguarded branch is the else branch
-- No enabled branch is the typed `ErrChoiceWithoutBranch`, raised at that instant and naming the
+- No enabled branch is the typed `errChoiceWithoutBranch`, raised at that instant and naming the
   choice (PSSM *Choice 003*: the model is ill formed)
 
 **Junction (Static Merge/Branch):**
@@ -153,7 +153,7 @@ once in innermost-first, region-declaration order — runs the effects of the se
 only then `resolveChoice` reads the choice's guards against the data as it
 now stands: with several enabled the run's policy draws one and records a `ChoiceTaken` at the
 choice, so `explore` enumerates the branches and `replay` re-takes one; an unguarded branch is the
-else branch, taken when no guard holds; none enabled is `ErrChoiceWithoutBranch`. The route then
+else branch, taken when no guard holds; none enabled is `errChoiceWithoutBranch`. The route then
 goes on from the branch taken and `move` finishes it with the effects left.
 
 **Chains.** Each pseudostate on a route is resolved by its own rule at the point the route
@@ -255,7 +255,7 @@ package JunctionTest {
 1. **Choice:**
    - Must have at least one outgoing transition
    - At least one guard must hold on arrival (or else clause), else the run fails with
-     `ErrChoiceWithoutBranch` naming the choice
+     `errChoiceWithoutBranch` naming the choice
    - Guards read after the incoming segment's effect, in definition order; several holding is a
      recorded choice point
 
@@ -409,7 +409,7 @@ state def RegionChoice parallel {
   the transition fires, a choice on arrival, so `choice → junction → state`
   enters that state with the junction read after the effects into the choice. A
   chain that routes back into a pseudostate it already passed, a junction with
-  no satisfied guard, a choice with no enabled branch (`ErrChoiceWithoutBranch`)
+  no satisfied guard, a choice with no enabled branch (`errChoiceWithoutBranch`)
   and a branch into a fork, join or history all return typed errors rather than
   leaving the machine resting on a pseudostate.
 - **`moveBetweenRegions`** handles a branch ending inside the source region or

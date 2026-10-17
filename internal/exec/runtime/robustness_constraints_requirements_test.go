@@ -125,7 +125,7 @@ func testSatisfyBoundedByTheStepBudget(t *testing.T) {
 	// The subject is built inside the same run, so a budget exhausted there is
 	// still reported as such rather than as a missing subject.
 	ctx.maxSteps = 0
-	if _, err := ctx.EvaluateSatisfaction(assertions[0]); !errors.Is(err, ErrStepLimitExceeded) || !errors.Is(err, ErrNoSubject) {
+	if _, err := ctx.EvaluateSatisfaction(assertions[0]); !errors.Is(err, ErrStepLimitExceeded) || !errors.Is(err, errNoSubject) {
 		t.Errorf("expected ErrStepLimitExceeded while building the subject, got: %v", err)
 	}
 }

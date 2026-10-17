@@ -607,7 +607,7 @@ func (e externalEngine) standExecutions(ctx context.Context, model *Model, q Que
 		go func(job int) {
 			defer wg.Done()
 			for i := job; i < len(answer.Executions); i += jobs {
-				witness, fail, err := e.replayExecution(ctx, model, budget, replays[i], job, claim, answer.Executions[i], expected)
+				witness, fail, err := e.replayExecution(ctx, model, budget, replays[i], job, replayAsk{claim: claim, expected: expected}, answer.Executions[i])
 				if witness != nil {
 					witnesses[i] = *witness
 				}
@@ -631,9 +631,17 @@ func (e externalEngine) standExecutions(ctx context.Context, model *Model, q Que
 	}, nil
 }
 
+// replayAsk is what a replay is asked: the claim at every settled state and,
+// for a concrete claim, the final values the engine reported.
+type replayAsk struct {
+	claim    Claim
+	expected []Evaluation
+}
+
 // replayExecution replays one execution to its end, asking the claim at every settled
 // state; a concrete claim is asked of the final values the engine reports.
-func (e externalEngine) replayExecution(ctx context.Context, model *Model, budget Budget, r replay, job int, claim Claim, x enginewire.Witness, expected []Evaluation) (*Witness, error, error) {
+func (e externalEngine) replayExecution(ctx context.Context, model *Model, budget Budget, r replay, job int, ask replayAsk, x enginewire.Witness) (*Witness, error, error) {
+	claim, expected := ask.claim, ask.expected
 	choices, err := runtime.ParseChoices(x.Schedules[0])
 	if err != nil {
 		return nil, fmt.Errorf("does not read as a schedule (%v)", err), nil

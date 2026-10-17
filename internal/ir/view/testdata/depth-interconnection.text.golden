@@ -1,0 +1,15 @@
+DepthLinks::links - interconnection rendering (render asInterconnectionDiagram)
+
+part system
+  part plant (nested deeper than 1 level; not shown)
+    port status
+  part controller
+    port cmd
+    port monitor
+
+connections:
+  cmd -- plant
+  monitor -- status
+
+not represented:
+  - 2 elements nested deeper than 1 level not shown

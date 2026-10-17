@@ -29,9 +29,9 @@ func (f *EffectiveFeature) Scalar() bool {
 	return f.Multiplicity.AtMostOne()
 }
 
-// DefaultIsFallback reports whether DefaultValue was written with `default`: a
+// defaultIsFallback reports whether DefaultValue was written with `default`: a
 // value the feature holds only when nothing else populates it.
-func (f *EffectiveFeature) DefaultIsFallback() bool {
+func (f *EffectiveFeature) defaultIsFallback() bool {
 	if f.DefaultDecl == nil {
 		return false
 	}

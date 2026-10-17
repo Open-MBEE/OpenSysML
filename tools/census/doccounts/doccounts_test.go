@@ -324,6 +324,7 @@ func TestRewriteBaselineLineRestatesOnlyCapturedValues(t *testing.T) {
 
 func writeDoccountsFixture(t *testing.T, root string) {
 	t.Helper()
+	writeAt(t, root, "docs/project/constraint-manifest.json", fixtureManifest)
 	writeAt(t, root, SpecCompliancePath, `# Compliance
 
 **No external referee:** self-assessed.
