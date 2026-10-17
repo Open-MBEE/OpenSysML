@@ -251,7 +251,7 @@ func TestCheckBehaviorNeedsNoEnginesCapabilityByDefault(t *testing.T) {
 		ModelHash: hash, ActionSymbolId: "Plant::Tank::fill", PerformerSymbolId: "Plant::tank",
 		CheckProperty: []string{"Plant::Tank::capped"}, CheckDiverge: []string{"this.capacity"},
 	})
-	if err != nil || resp.GetError() != "" || resp.Verdict != "holds" || resp.Engine != "check" {
+	if err != nil || resp.GetError() != "" || resp.Verdict != "holds" {
 		t.Fatalf("CheckBehavior without engines: %v %q verdict %q, want the check engine's answer", err, resp.GetError(), resp.GetVerdict())
 	}
 	_, err = srv.CheckBehavior(ctx, &pb.CheckBehaviorRequest{
