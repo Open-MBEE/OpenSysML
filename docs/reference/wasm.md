@@ -288,8 +288,18 @@ Passing `-stdio` selects the sequential, `Content-Length`-framed JSON-RPC pipe i
 native and `wasip1` builds always use that pipe. Every other method answers Unimplemented
 with `<Method> is not served by sysml-wasm: it is served by sysml-grpc`.
 
-Measured on a `go1.25.11` `js/wasm` build with `-s -w -trimpath`: 31,526,528 raw bytes,
-7,790,873 bytes gzipped with gzip `-9`, and 5,479,244 bytes with Brotli `-q 11`.
+Measured on a `go1.25.11` `js/wasm` build with `-s -w -trimpath`: 35,311,967 raw bytes,
+8,722,361 bytes gzipped with gzip `-9`, and 6,087,934 bytes with Brotli `-q 11`.
+
+The documentation homepage runs on this module. `make docs-engine-assets` builds it from
+the tree into `docs/assets/sysml-wasm.wasm.gz` (and the REPL's `sysml-repl.wasm.gz`), and
+`make docs-landing-assets` bundles the page's diagram with the browser client from
+`client/node/src/browser` and its `wasm-worker` entry; the page inflates the module with
+`DecompressionStream` and runs it in a Worker through `connectWasm`. The module's URL is
+the single `data-osml-wasm` attribute of the hero in `overrides/home.html`, so once a
+release carrying `render_view` is published, pointing the site at
+`https://cdn.jsdelivr.net/npm/@openmbee/opensysml-wasm@<version>/sysml-wasm.wasm` is a
+one-line change (the `wasm_exec.js` beside it must come from the same Go toolchain).
 
 ## What works
 
