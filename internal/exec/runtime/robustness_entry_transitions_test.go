@@ -47,8 +47,8 @@ func testNoEntryTransitionGuardHolds(t *testing.T) {
 		}
 	`
 	_, _, err := instantiateWithLibraries(t, src, "test::Heater")
-	if !errors.Is(err, ErrNoEntryTransitionHolds) {
-		t.Fatalf("expected ErrNoEntryTransitionHolds, got %v", err)
+	if !errors.Is(err, errNoEntryTransitionHolds) {
+		t.Fatalf("expected errNoEntryTransitionHolds, got %v", err)
 	}
 	want := "no entry transition holds: state machine control declares 2 transitions out of its entry action and the guard of none holds"
 	if !strings.Contains(err.Error(), want) {
@@ -326,7 +326,7 @@ func testNestedRegionsIntoDoneWithoutCompletionTransitionStayActive(t *testing.T
 	if got := exec.StateData()["exits"]; got.Kind != ValConst || got.Const.Int != 0 {
 		t.Errorf("the machine's exit action ran %v times, want never", got)
 	}
-	exec.SendSignal("again", nil)
+	exec.sendSignal("again", nil)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("again: %v", err)
 	}
@@ -363,7 +363,7 @@ func testTransitionIntoNestedRegionsInDoneCompletes(t *testing.T) {
 		}
 	}`)
 	assertCurrentState(t, exec, "idle")
-	exec.SendSignal("go", nil)
+	exec.sendSignal("go", nil)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("go: %v", err)
 	}
@@ -415,7 +415,7 @@ func testRegionStartDescendsThroughEntryTransitions(t *testing.T) {
 	if active := activeNames(); !active["heating"] || !active["watching"] {
 		t.Fatalf("expected heating and watching active after initialize, got %v", active)
 	}
-	exec.SendSignal("warm", nil)
+	exec.sendSignal("warm", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -511,7 +511,7 @@ func testLeavingRegionsDescendsThroughEntryTransitions(t *testing.T) {
 	if err := exec.initialize(); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}
-	exec.SendSignal("leave", nil)
+	exec.sendSignal("leave", nil)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("leave: %v", err)
 	}

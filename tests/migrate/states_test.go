@@ -18,7 +18,7 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 		"state def Line {",
 		"attribute dawn : Time::TimeInstantValue = 21600.0 [SI::s];",
 		"entry; then Idle;",
-		"state Work {",
+		"state Work parallel {",
 		"entry; then Prep;",
 		"#StateMachines::shallowHistory state last;",
 		"#StateMachines::deepHistory state deepest;",
@@ -29,11 +29,12 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 		"join gather;",
 		"state Both {",
 		"state regions parallel {",
-		"transition first Work.Run accept Stop then Idle;",
-		"transition first Idle accept Resume then Work.Run;",
+		"transition first Work.steps.Run accept Stop then Idle;",
+		"transition first Idle accept Resume then Work.steps.Run;",
 		"transition first Pause accept Resume",
-		"do action log { }",
-		"then Work.last;",
+		"do action log {",
+		`rep language "JavaScript" /* println("resuming at " + count);*/`,
+		"then Work.steps.last;",
 		"transition first Idle accept Enter then Cell.warmStart;",
 		"transition first Cell.spent then Idle;",
 		"transition first route if context.count < 2 then Work;",
@@ -44,7 +45,7 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 		"transition first Both.regions.b.B2 then gather;",
 		"transition first gather then Idle;",
 		"transition first Idle accept Ping then Idle;",
-		"transition first Work accept Bump then Work.Prep;",
+		"transition first Work accept Bump then Work.steps.Prep;",
 		"transition first Pause accept at dawn then Idle;",
 		"state def CellMachine {",
 		"state warmStart;",
@@ -57,8 +58,8 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 	if strings.Contains(string(r.Notation), "accept at never") || strings.Contains(string(r.Notation), "accept Unused") {
 		t.Errorf("an unresolvable instant or an unreferenced event was written:\n%s", r.Notation)
 	}
-	wantNote(t, r, "_tStop", migrate.Mapped, "the source 'Run' lies in another region and is named by its path Work.Run")
-	wantNote(t, r, "_tDirect", migrate.Mapped, "the target 'Run' lies in another region and is named by its path Work.Run")
+	wantNote(t, r, "_tStop", migrate.Mapped, "the source 'Run' lies in another region and is named by its path Work.steps.Run")
+	wantNote(t, r, "_tDirect", migrate.Mapped, "the target 'Run' lies in another region and is named by its path Work.steps.Run")
 	wantNote(t, r, "_junc", migrate.Mapped, "written as a #StateMachines::junction state pseudostate")
 	wantNote(t, r, "_gSpent", migrate.Mapped, "an else guard is written as the unguarded transition out of the junction")
 	wantNote(t, r, "_fork", migrate.Mapped, "written as a fork pseudostate")
@@ -185,10 +186,10 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 func TestNestedTransitionRelocatesToCommonAncestor(t *testing.T) {
 	for _, opts := range []migrate.Options{{}, {Strict: true}} {
 		r := migrateFixtureFileOptions(t, "transition_relocation", opts)
-		wantLine(t, r.Notation, "transition first Work.Run accept Stop then Parked.Ready;")
+		wantLine(t, r.Notation, "transition first Work.work.Run accept Stop then Parked.parked.Ready;")
 		wantNote(t, r, "_region4Init", migrate.Approximated, "coincides with region3's own entry into 'wait3'")
 		wantNote(t, r, "_crossRegionInit", migrate.Approximated, "coincides with region3's own entry into 'wait3'")
-		wantLine(t, r.Notation, "no default entry: these regions have no written entry: 'region4'")
+		wantLine(t, r.Notation, "entry; then regions;")
 		wantLine(t, r.Notation, "every initial pseudostate of the region enters another region: nothing enters this one")
 		if strings.Count(string(r.Notation), "then wait3;") != 1 {
 			t.Errorf("region3's entry into wait3 is not written exactly once:\n%s", r.Notation)
@@ -258,13 +259,18 @@ func TestInitialIntoOrthogonalRegionEntersThatRegion(t *testing.T) {
 		}
 
 		// (d) two initials both entering the region: the first is written, the second refused.
-		wantLine(t, r.Notation, "state Duplicate {\n            /* not migrated: Pseudostate (_uaInit2) — a region has one initial pseudostate; (_uaInit1) is written as it */\n            entry; then ua1;")
+		wantLine(t, r.Notation, "state Duplicate parallel {")
+		wantLine(t, r.Notation, "state ua {")
+		wantLine(t, r.Notation, "/* not migrated: Pseudostate (_uaInit2) — a region has one initial pseudostate; (_uaInit1) is written as it */")
+		wantLine(t, r.Notation, "entry; then ua1;")
 		wantNote(t, r, "_uaInit1", migrate.Mapped, "written as the entry of the region")
 
-		// (e) the target lies in a nested composite state's one region, written as that state's body.
-		wantLine(t, r.Notation, "state Inner {\n                        entry; then inner1;")
-		wantNote(t, r, "_naStray", migrate.Approximated, "written as the entry of the body of 'Inner', which owns its target 'inner1', not of na")
-		wantNote(t, r, "_naStrayT", migrate.Approximated, "so it is written as the entry of the body of 'Inner'")
+		// (e) the target lies in a nested composite state's wrapped region.
+		wantLine(t, r.Notation, "state Inner parallel {")
+		wantLine(t, r.Notation, "state ni {")
+		wantLine(t, r.Notation, "entry; then inner1;")
+		wantNote(t, r, "_naStray", migrate.Approximated, "written as the entry of ni, which owns its target 'inner1', not of na")
+		wantNote(t, r, "_naStrayT", migrate.Approximated, "so it is written as the entry of ni")
 
 		// (f) the target region's own initial has no transition, so it is no entry: the stray one is donated.
 		wantLine(t, r.Notation, "state gb {\n                    /* not migrated: Pseudostate (_gbInit) — no transition leaves the initial pseudostate */\n                    entry; then gb1;")
@@ -272,7 +278,9 @@ func TestInitialIntoOrthogonalRegionEntersThatRegion(t *testing.T) {
 		wantNote(t, r, "_gaStray", migrate.Approximated, "written as the entry of gb, which owns its target 'gb1', not of ga")
 
 		// (g) a target in a region of another, non-orthogonal state is refused, not donated.
-		wantLine(t, r.Notation, "state Work {\n            /* not migrated: Pseudostate (_wInit) — the initial transition's target has no v2 form here */")
+		wantLine(t, r.Notation, "state Work parallel {")
+		wantLine(t, r.Notation, "state wr {")
+		wantLine(t, r.Notation, "/* not migrated: Pseudostate (_wInit) — the initial transition's target has no v2 form here */")
 		wantNote(t, r, "_wInitT", migrate.Unmapped, "its target 'idle1' lies in 'ir', a region of 'Idle' and no orthogonal region of the pseudostate's; an initial transition enters its own region")
 		if strings.Count(s, "then idle1;") != 1 {
 			t.Errorf("Idle's own entry into idle1 is not written exactly once:\n%s", s)
@@ -340,7 +348,7 @@ func TestSubmachineStateBlockRedeclaresParametersForEntry(t *testing.T) {
 func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 	r := migrateFixtureFile(t, "station_points")
 	for _, line := range []string{
-		"state Work {",
+		"state Work parallel {",
 		"#StateMachines::junction state Start;",
 		"#StateMachines::junction state Leave;",
 		"#StateMachines::junction state Deep;",
@@ -352,17 +360,17 @@ func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 		"transition first Start",
 		"transition first Run accept Finish",
 		"then Leave;",
-		"transition first Run.Out",
+		"transition first steps.Run.pace.Out",
 		"fork Both;",
 		"join Gather;",
 		"transition first Both then regions.a.A1;",
 		"transition first Both then regions.b.B1;",
 		"then Gather;",
-		"then Work.Start;",
+		"then Work.steps.Start;",
 		"transition first Idle accept Enter then Work;",
-		"then Work.Run.Deep;",
-		"transition first Idle accept Resume then Work.H;",
-		"transition first Work.Leave",
+		"then Work.steps.Run.pace.Deep;",
+		"transition first Idle accept Resume then Work.steps.H;",
+		"transition first Work.steps.Leave",
 		"transition first Idle accept Split then Sync.Both;",
 		"transition first Sync.Gather",
 		"/* not migrated: Pseudostate 'Through' — (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior */",
@@ -380,8 +388,8 @@ func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 	wantNote(t, r, "_tEnter", migrate.Mapped, "written to Work: no transition leaves the entry point 'Plain'")
 	wantNote(t, r, "_both", migrate.Mapped, "written as a fork of its state, whose branches start its regions; a transition entering through it runs the state's entry behavior, then the branches")
 	wantNote(t, r, "_gather", migrate.Mapped, "written as a join of its state, which its regions leave through together; the transitions into the join run, then the state's exit behavior, then the transition leaving it")
-	wantNote(t, r, "_tGo", migrate.Mapped, "named by its path Work.Start")
-	wantNote(t, r, "_tDive", migrate.Mapped, "named by its path Work.Run.Deep")
+	wantNote(t, r, "_tGo", migrate.Mapped, "named by its path Work.steps.Start")
+	wantNote(t, r, "_tDive", migrate.Mapped, "named by its path Work.steps.Run.pace.Deep")
 	wantNote(t, r, "_tBothA", migrate.Mapped, "named by its path Both")
 	wantNote(t, r, "_tAg", migrate.Mapped, "named by its path Gather")
 	wantNote(t, r, "_hist", migrate.Mapped, "written as a `#StateMachines::shallowHistory state` shallow history")
@@ -428,7 +436,7 @@ func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 	// then the transition out of it.
 	one := station()
 	drive("Go", "Idle -> Start")
-	current("Slow")
+	current("Run | Slow")
 	trace(one, "41112314")
 	drive("Finish", "Run -> Leave")
 	current("Idle")
@@ -441,7 +449,7 @@ func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 	// then the transition out of it into Prep, still inside Work.
 	two := station()
 	drive("Dive", "Idle -> Deep")
-	current("Fast")
+	current("Run | Fast")
 	trace(two, "4211142117")
 	drive("Back", "Fast -> Out")
 	current("Prep")
@@ -459,7 +467,7 @@ func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 	drive("Stop", "Work -> Idle")
 	trace(three, "111314151244")
 	drive("Resume", "Idle -> H")
-	current("Slow")
+	current("Run | Slow")
 	trace(three, "1113141512441114")
 	meta(t, s, "%stop")
 
@@ -522,18 +530,18 @@ const gateMachine = `
 const gateApplications = `
   <sysml:Block xmi:id="_g1" base_Class="_gate"/>`
 
-// An empty region is skipped when the machine's vertices are named as when they are
-// written, so the remaining region's states are inline and a transition across nesting
-// levels names its far end by a path that exists.
+// An empty region is skipped while the populated region remains nested under its
+// composite owner; transitions name vertices through the generated region state.
 func TestEmptyRegionLeavesNoPhantomPath(t *testing.T) {
 	r := migrateDocument(t, gateMachine, gateApplications)
 	for _, line := range []string{
 		"state def Latch {",
 		"entry; then Idle;",
-		"state Busy {",
+		"state Busy parallel {",
+		"state region {",
 		"entry; then Inner;",
-		"transition first Idle accept Open then Busy.Inner;",
-		"transition first Busy.Inner accept Shut then Idle;",
+		"transition first Idle accept Open then Busy.region.Inner;",
+		"transition first Busy.region.Inner accept Shut then Idle;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -541,7 +549,7 @@ func TestEmptyRegionLeavesNoPhantomPath(t *testing.T) {
 		t.Errorf("a parallel state was named for a machine with one populated region:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_gUnused", migrate.Skipped, "the region holds no vertex, so nothing enters it and no state is written for it")
-	wantNote(t, r, "_gtIn", migrate.Mapped, "the target 'Inner' lies in another region and is named by its path Busy.Inner")
+	wantNote(t, r, "_gtIn", migrate.Mapped, "the target 'Inner' lies in another region and is named by its path Busy.region.Inner")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Gate")
@@ -1047,7 +1055,7 @@ const guardedEntryApplications = `
 // the owning state's entry behavior falsifying it does not turn the route.
 func TestGuardedEntryPointRouteIsKept(t *testing.T) {
 	r := migrateDocument(t, guardedEntryMachine, guardedEntryApplications)
-	for _, line := range []string{"#StateMachines::junction state arm;", "transition first arm if context.armed then W2;", "transition first Idle accept Go then Work.arm;"} {
+	for _, line := range []string{"#StateMachines::junction state arm;", "transition first arm if context.armed then W2;", "transition first Idle accept Go then Work.r.arm;"} {
 		if !strings.Contains(string(r.Notation), line) {
 			t.Errorf("missing %q in:\n%s", line, r.Notation)
 		}
@@ -1257,24 +1265,25 @@ const pointOnlyRegion = `
 const pointOnlyRegionApplications = `
   <sysml:Block xmi:id="_p1" base_Class="_pclass"/>`
 
-// A region listing only its state's connection points holds nothing to enter: it is skipped, so the
-// state has one region and its points are junctions, not a fork and a join into a parallel state
-// with an empty branch; the transitions the region holds are written in the state's body.
+// A point-only region is skipped, leaving one populated region wrapped under the
+// composite state; its connection points are named through that region.
 func TestPointOnlyRegionIsNotAParallelBranch(t *testing.T) {
 	r := migrateDocument(t, pointOnlyRegion, pointOnlyRegionApplications)
 	for _, line := range []string{
+		"state Sync parallel {",
+		"state a {",
 		"#StateMachines::junction state Both;",
 		"#StateMachines::junction state Gather;",
-		"transition first Idle accept Go then Sync.Both;",
+		"transition first Idle accept Go then Sync.a.Both;",
 		"transition first Both then A2;",
 		"transition first A2 accept Stop then Gather;",
-		"transition first Sync.Gather then Idle;",
+		"transition first Sync.a.Gather then Idle;",
 	} {
 		if !strings.Contains(string(r.Notation), line) {
 			t.Errorf("missing %q in:\n%s", line, r.Notation)
 		}
 	}
-	for _, bad := range []string{"parallel", "regions::", "fork ", "join "} {
+	for _, bad := range []string{"regions::", "fork ", "join "} {
 		if strings.Contains(string(r.Notation), bad) {
 			t.Errorf("the point-only region was written as a parallel branch (%q):\n%s", bad, r.Notation)
 		}
@@ -1330,9 +1339,9 @@ const noDefaultEntryMachine = `
 const noDefaultEntryApplications = `
   <sysml:Block xmi:id="_d1" base_Class="_dclass"/>`
 
-// An entry point no transition leaves enters its state by the state's default entry, which, with no
-// initial pseudostate in the region, enters the state and leaves the region inactive in v1 and in
-// the runtime alike; the transition is written to the state and the report says so.
+// An entry point no transition leaves enters its state by default. With no initial
+// pseudostate in the region, the wrapper stand-in is active but its body has no active
+// substate; the transition is written to the state and the report says so.
 func TestDefaultEntryPointOnOwnerWithoutInitialEntersTheState(t *testing.T) {
 	r := migrateDocument(t, noDefaultEntryMachine, noDefaultEntryApplications)
 	for _, line := range []string{
@@ -1347,15 +1356,15 @@ func TestDefaultEntryPointOnOwnerWithoutInitialEntersTheState(t *testing.T) {
 	if strings.Contains(string(r.Notation), "#StateMachines::junction state via;") {
 		t.Errorf("an entry point no transition leaves was written as a junction:\n%s", r.Notation)
 	}
-	wantNote(t, r, "_dIn", migrate.Mapped, "no initial pseudostate starts the region 'r', which v1 too leaves inactive on entering the state")
+	wantNote(t, r, "_dIn", migrate.Mapped, "no initial pseudostate starts the state stand-in for region 'r', so its body has no active substate, as in v1")
 	wantNote(t, r, "_dT1", migrate.Mapped, "written to Work: no transition leaves the entry point 'via'")
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")
 	meta(t, s, "%state Rig::Main #1")
 	meta(t, s, "%send Go")
 	meta(t, s, "%step")
-	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Work") || strings.Contains(out, "W1") {
-		t.Errorf("entering Work by its default entry did not leave its region inactive:\n%s", out)
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: r") || strings.Contains(out, "W1") {
+		t.Errorf("entering Work by its default entry did not leave the stand-in's body inactive:\n%s", out)
 	}
 	meta(t, s, "%send Stop")
 	meta(t, s, "%step")
@@ -1540,7 +1549,7 @@ func TestExitPointReachedFromOutsideIsRefused(t *testing.T) {
 	if n := strings.Count(string(r.Notation), "#StateMachines::junction state leave;"); n != 1 {
 		t.Errorf("want Self's exit point alone written as a junction, got %d:\n%s", n, r.Notation)
 	}
-	for _, line := range []string{"transition first Self accept Go then Self.leave;", "transition first Self.leave then Idle;"} {
+	for _, line := range []string{"transition first Self accept Go then Self.r.leave;", "transition first Self.r.leave then Idle;"} {
 		if !strings.Contains(string(r.Notation), line) {
 			t.Errorf("missing %q in:\n%s", line, r.Notation)
 		}

@@ -14,6 +14,7 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
@@ -55,7 +56,7 @@ func TestTheBinaryServesTheProtocolOverStdio(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	cmd := exec.Command(serverBinary(t), "-stdio", "-root", root, "-tools", "lsp,session")
+	cmd := exec.Command(serverBinary(t), "-stdio", "-root", root)
 	cmd.Stderr = os.Stderr
 	client := sdk.NewClient(&sdk.Implementation{Name: "test", Version: "0"}, nil)
 	cs, err := client.Connect(ctx, &sdk.CommandTransport{Command: cmd}, nil)
@@ -78,9 +79,43 @@ func TestTheBinaryServesTheProtocolOverStdio(t *testing.T) {
 		names = append(names, tool.Name)
 	}
 	slices.Sort(names)
-	want := []string{"session_close", "session_list", "session_open", "workspace_info"}
+	want := catalog.Names(catalog.Groups()...)
 	if !slices.Equal(names, want) {
-		t.Errorf("tools = %v, want %v", names, want)
+		t.Errorf("tools = %v, want the whole catalog %v", names, want)
+	}
+
+	cat, err := cs.CallTool(ctx, &sdk.CallToolParams{Name: "tool_catalog", Arguments: map[string]any{}})
+	if err != nil {
+		t.Fatalf("tool_catalog: %v", err)
+	}
+	if cat.IsError {
+		t.Fatalf("tool_catalog failed: %+v", cat.Content)
+	}
+	var listed struct {
+		Groups []string `json:"groups"`
+		Tools  []struct {
+			Name      string `json:"name"`
+			Operation string `json:"operation"`
+			Summary   string `json:"summary"`
+		} `json:"tools"`
+	}
+	raw, _ := json.Marshal(cat.StructuredContent)
+	if err := json.Unmarshal(raw, &listed); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(listed.Groups, []string{"lsp", "runtime", "session"}) {
+		t.Errorf("tool_catalog groups = %v", listed.Groups)
+	}
+	var catalogued []string
+	for _, tool := range listed.Tools {
+		catalogued = append(catalogued, tool.Name)
+		if tool.Operation == "" || tool.Summary == "" {
+			t.Errorf("tool_catalog describes %s without an operation or summary: %+v", tool.Name, tool)
+		}
+	}
+	slices.Sort(catalogued)
+	if !slices.Equal(catalogued, names) {
+		t.Errorf("tool_catalog lists %v\ntools/list answers %v", catalogued, names)
 	}
 
 	res, err := cs.CallTool(ctx, &sdk.CallToolParams{Name: "workspace_info", Arguments: map[string]any{}})
@@ -93,7 +128,7 @@ func TestTheBinaryServesTheProtocolOverStdio(t *testing.T) {
 	var info struct {
 		Documents []string `json:"documents"`
 	}
-	raw, _ := json.Marshal(res.StructuredContent)
+	raw, _ = json.Marshal(res.StructuredContent)
 	if err := json.Unmarshal(raw, &info); err != nil {
 		t.Fatal(err)
 	}

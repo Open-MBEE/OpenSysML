@@ -36,7 +36,7 @@ func TestBareFeatureReferenceComparisonIsJudged(t *testing.T) {
 	wantOneWarning(t, `package P {
 		attribute s : ScalarValues::String;
 		attribute b = s == 1;
-	}`, "type.expr", "comparing String with Natural is always false")
+	}`, "comparison-constant", "comparing String with Natural is always false")
 }
 
 // A scalar-typed condition is judged by inference, naming the type found; a

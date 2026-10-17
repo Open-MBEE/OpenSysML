@@ -1,0 +1,8 @@
+{
+  "type": "state",
+  "trace": true,
+  "finalState": "finished",
+  "outputs": {
+    "log": {"type": "String", "value": "do1;do2;S(exit);finished(entry);"}
+  }
+}

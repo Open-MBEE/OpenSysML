@@ -227,7 +227,7 @@ def fetch(url: str, limit: int) -> bytes:
     try:
         with urllib.request.urlopen(url, timeout=NETWORK_TIMEOUT) as response:
             data: bytes = response.read(limit + 1)
-    except (urllib.error.URLError, OSError, ValueError) as e:
+    except (OSError, ValueError) as e:
         raise DownloadError(f"cannot download {url}: {e}") from e
     if len(data) > limit:
         raise DownloadError(f"{url} serves more than the {limit} bytes allowed for it")

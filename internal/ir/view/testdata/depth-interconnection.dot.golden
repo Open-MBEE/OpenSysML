@@ -1,0 +1,33 @@
+// view: DepthLinks::links
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// not represented: 2 elements nested deeper than 1 level not shown
+// layout: dot
+digraph "DepthLinks::links" {
+  graph [fontname="Helvetica", compound=true];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<font point-size="10"><i>«part»</i></font><br/><b>system</b>>;
+    color=black;
+    penwidth=0.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    subgraph "cluster_n1" {
+      label=<<font point-size="10"><i>«part»</i></font><br/><b>plant</b><br/>nested deeper than 1 level; not shown>;
+      color=black;
+      penwidth=0.5;
+      "n1" [shape=point, style=invis, width=0, height=0, label=""];
+      "n2" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>status</b>>];
+    }
+    subgraph "cluster_n3" {
+      label=<<font point-size="10"><i>«part»</i></font><br/><b>controller</b>>;
+      color=black;
+      penwidth=0.5;
+      "n3" [shape=point, style=invis, width=0, height=0, label=""];
+      "n4" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>cmd</b>>];
+      "n5" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>monitor</b>>];
+    }
+  }
+  "n4" -> "n1" [arrowhead=none, penwidth=3, lhead="cluster_n1"];
+  "n5" -> "n2" [arrowhead=none, penwidth=3];
+}

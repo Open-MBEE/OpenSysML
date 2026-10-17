@@ -4,11 +4,14 @@ struct VerificationVerdict
     detail::String
     subcase::Bool
     requirement_id::String
+    instance_id::Int64
+    instance_type_id::String
 end
 VerificationVerdict(raw::AbstractDict) =
     VerificationVerdict(String(get(raw, "caseId", "")), String(get(raw, "kind", "")),
         String(get(raw, "detail", "")), Bool(get(raw, "subcase", false)),
-        String(get(raw, "requirementId", "")))
+        String(get(raw, "requirementId", "")), Int64(get(raw, "instanceId", 0)),
+        String(get(raw, "instanceTypeId", "")))
 Base.Bool(v::VerificationVerdict) = v.kind == "pass"
 Base.show(io::IO, v::VerificationVerdict) = print(io, "$(v.kind) verification $(v.case_id)")
 

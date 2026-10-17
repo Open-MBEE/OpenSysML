@@ -145,7 +145,7 @@ func (f frame) withVars(vars map[string]Value) frame {
 }
 
 // lookup finds name in the frame: a slot binding it, else the map.
-func (f frame) lookup(name string) (Value, bool) {
+func (f *frame) lookup(name string) (Value, bool) {
 	name = canonical(f.aliases, name)
 	if f.visible != nil && !f.visible[name] {
 		return Value{}, false
@@ -197,8 +197,15 @@ func (f frame) read(ctx *Context, name string) (Value, bool, error) {
 	return value, ok, nil
 }
 
+// hides reports whether the frame masks name or keeps it out of sight, so a read
+// of it passes to the frames outside.
+func (f *frame) hides(name string) bool {
+	name = canonical(f.aliases, name)
+	return f.masked[name] || (f.visible != nil && !f.visible[name])
+}
+
 // has reports whether the frame binds name or declares it unvalued.
-func (f frame) has(name string) bool {
+func (f *frame) has(name string) bool {
 	if f.unvalued[name] {
 		return true
 	}

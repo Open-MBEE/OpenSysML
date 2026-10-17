@@ -128,6 +128,7 @@ func (m *migration) planViews() {
 		}
 		m.hosted[v.host] = append(m.hosted[v.host], v)
 	}
+	m.planPrivateLayoutAliasHoles()
 	m.planTables()
 	m.planDocuments()
 }
@@ -255,6 +256,10 @@ func (m *migration) views(host *sysmlv1.Element) {
 	for _, v := range m.hosted[host] {
 		m.w.hole(func() { m.writeView(v) })
 	}
+	if m.privateAliasOwners[host] && !m.privateAliasHoles[host] {
+		m.w.holeLast(func() { m.writePrivateLayoutAliases(host) })
+		m.privateAliasHoles[host] = true
+	}
 }
 
 // diagramViewNote says why an «Expose» of a diagram cannot name its view: no
@@ -276,6 +281,7 @@ func (m *migration) viewRef(v *view, scope *sysmlv1.Element) string {
 	for i, s := range chain {
 		if s == host {
 			if !m.hidden(v.name) && !m.shadows(chain[:i], v.name) {
+				m.refer(chain[:i], v.name)
 				return name
 			}
 			break
@@ -285,6 +291,7 @@ func (m *migration) viewRef(v *view, scope *sysmlv1.Element) string {
 		if m.hidden(v.name) || m.shadows(chain, v.name) {
 			return "$::" + name
 		}
+		m.refer(chain, v.name)
 		return name
 	}
 	return m.memberRef(host, scope) + "::" + name
@@ -385,6 +392,15 @@ func diagramLayoutAttribute(prefix, definition, name, value string, x exposures)
 // diagramLayoutAttributeForHost also qualifies an attribute shadowed by its containing scopes.
 func (m *migration) diagramLayoutAttributeForHost(prefix, definition, name, value string, host *sysmlv1.Element, x exposures) string {
 	return diagramLayoutAttributeText(prefix, definition, name, value, x.shadows(name) || m.shadows(scopeChain(host), name))
+}
+
+// diagramLayoutFeatureForHost names a feature redefined in an annotation body,
+// qualified when the view or its containing scopes shadow its name.
+func (m *migration) diagramLayoutFeatureForHost(prefix, definition, name string, host *sysmlv1.Element, x exposures) string {
+	if x.shadows(name) || m.shadows(scopeChain(host), name) {
+		return prefix + definition + "::" + name
+	}
+	return name
 }
 
 func diagramLayoutAttributeText(prefix, definition, name, value string, shadowed bool) string {
@@ -542,18 +558,22 @@ func freeSymbols(free map[string]int) string {
 // writeView writes a diagram as a view usage exposing each shown element the
 // document writes, rendered by the diagram's kind, and records its report row.
 func (m *migration) writeView(v *view) {
-	d, host := v.d, v.host
-	form := m.formOf(d)
-	x := m.exposures(d, host, form)
+	hidden := m.viewHiddenNames(v)
+	m.inside(hidden, func() { m.writeViewBody(v, m.formOf(v.d)) })
+}
+
+// viewHiddenNames lists the names hidden inside v by its exposes or nested views.
+func (m *migration) viewHiddenNames(v *view) columnNames {
+	x := m.exposures(v.d, v.host, m.formOf(v.d))
 	// The exposes import their names into the view, where every reference in
 	// its body resolves first: the writer avoids those that hide what it means.
 	hidden := x.hides()
-	for _, scope := range scopeChain(host) {
+	for _, scope := range scopeChain(v.host) {
 		for name := range m.viewNames[scope] {
 			hidden[name] = true
 		}
 	}
-	m.inside(hidden, func() { m.writeViewBody(v, form) })
+	return hidden
 }
 
 // writeViewBody writes v's declaration and body, with references resolving
@@ -722,6 +742,205 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 	return x
 }
 
+// privateLayoutAlias records a private member's owner-local alias.
+type privateLayoutAlias struct {
+	owner  *sysmlv1.Element
+	target *sysmlv1.Element
+	name   string
+}
+
+// privateLayoutPlacement identifies a view's layout placement of a private member.
+type privateLayoutPlacement struct {
+	view   *view
+	target *sysmlv1.Element
+}
+
+// privateLayoutMember reports whether the element is written as a private feature.
+func (m *migration) privateLayoutMember(e *sysmlv1.Element) bool {
+	if e == nil || e.Type != "Property" && e.Type != "Port" {
+		return false
+	}
+	prefix, _ := m.featureVisibility(e, false, "")
+	return m.written(e) && prefix == privatePrefix
+}
+
+// planPrivateLayoutAliasHoles marks owners that may need a deferred alias declaration.
+func (m *migration) planPrivateLayoutAliasHoles() {
+	for i := range m.model.Diagrams {
+		v := m.viewOf[&m.model.Diagrams[i]]
+		if v == nil || !v.placed {
+			continue
+		}
+		rec, _ := m.layoutRecord(v)
+		if rec == nil {
+			continue
+		}
+		scopes := scopeChain(v.host)
+		for _, placement := range rec.Placements {
+			if placement.OnPath {
+				continue
+			}
+			target := m.model.Lookup(placement.ID)
+			if !m.privateLayoutMember(target) {
+				continue
+			}
+			if owner := target.Parent; containsElement(scopes, owner) {
+				m.privateAliasOwners[owner] = true
+			}
+		}
+	}
+}
+
+// privateLayoutNameShadowed reports whether a private member's simple name is unusable in a view.
+func (m *migration) privateLayoutNameShadowed(owner, target, scope *sysmlv1.Element, hidden bool) bool {
+	name := m.nameFor(target)
+	chain := scopeChain(scope)
+	for i, enclosing := range chain {
+		if enclosing != owner {
+			continue
+		}
+		if hidden {
+			return true
+		}
+		for _, inner := range chain[:i] {
+			if name != "" && m.nameTaken(inner, name) {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
+// planPrivateLayoutAliases chooses aliases for shadowed private layout placements.
+func (m *migration) planPrivateLayoutAliases() {
+	for i := range m.model.Diagrams {
+		d := &m.model.Diagrams[i]
+		v := m.viewOf[d]
+		if v == nil || !v.placed {
+			continue
+		}
+		rec, _ := m.layoutRecord(v)
+		if rec == nil {
+			continue
+		}
+		hidden := m.viewHiddenNames(v)
+		for _, placement := range rec.Placements {
+			if placement.OnPath {
+				continue
+			}
+			target := m.model.Lookup(placement.ID)
+			if !m.privateLayoutMember(target) {
+				continue
+			}
+			owner := target.Parent
+			if !containsElement(scopeChain(v.host), owner) ||
+				!m.privateLayoutNameShadowed(owner, target, v.host, hidden[m.nameFor(target)]) {
+				continue
+			}
+			alias := m.privateAliases[target]
+			if alias == nil {
+				alias = m.planPrivateLayoutAlias(target, owner)
+			}
+			m.privateAliasPlacements[privateLayoutPlacement{view: v, target: target}] = alias
+		}
+	}
+}
+
+// privateLayoutAlias returns the alias planned for a private layout placement, if any.
+func (m *migration) privateLayoutAlias(v *view, target *sysmlv1.Element) *privateLayoutAlias {
+	return m.privateAliasPlacements[privateLayoutPlacement{view: v, target: target}]
+}
+
+// planPrivateLayoutAlias chooses an owner-local name that resolves in each view of target.
+func (m *migration) planPrivateLayoutAlias(target, owner *sysmlv1.Element) *privateLayoutAlias {
+	if alias := m.privateAliases[target]; alias != nil {
+		return alias
+	}
+	base := m.nameFor(target) + " (" + m.nameFor(owner) + ")"
+	for i := 1; ; i++ {
+		name := base
+		if i > 1 {
+			name = fmt.Sprintf("%s %d", base, i)
+		}
+		if m.nameTaken(owner, name) || m.referredPast(owner, name) || !m.privateLayoutAliasAvailable(target, owner, name) {
+			continue
+		}
+		alias := &privateLayoutAlias{owner: owner, target: target, name: name}
+		m.take(owner, name)
+		m.privateAliases[target] = alias
+		m.privateAliasesByOwner[owner] = append(m.privateAliasesByOwner[owner], alias)
+		return alias
+	}
+}
+
+// privateLayoutAliasAvailable reports whether the alias resolves unambiguously in every view that uses it.
+func (m *migration) privateLayoutAliasAvailable(target, owner *sysmlv1.Element, name string) bool {
+	available := func(v *view) bool {
+		if v == nil {
+			return true
+		}
+		chain := scopeChain(v.host)
+		ownerIndex := -1
+		for i, scope := range chain {
+			if scope == owner {
+				ownerIndex = i
+				break
+			}
+		}
+		if ownerIndex < 0 {
+			return true
+		}
+		x := m.exposures(v.d, v.host, m.formOf(v.d))
+		if x.names[name] || m.viewHiddenNames(v)[name] {
+			return false
+		}
+		for _, table := range v.tables {
+			if table.doc == name && table.written() {
+				return false
+			}
+		}
+		for _, inner := range chain[:ownerIndex] {
+			if m.nameTaken(inner, name) {
+				return false
+			}
+		}
+		return true
+	}
+	for i := range m.model.Diagrams {
+		v := m.viewOf[&m.model.Diagrams[i]]
+		if v == nil {
+			continue
+		}
+		rec, _ := m.layoutRecord(v)
+		if rec == nil {
+			continue
+		}
+		shown := false
+		for _, placement := range rec.Placements {
+			if placement.ID == target.ID {
+				shown = true
+				break
+			}
+		}
+		if shown && !available(v) {
+			return false
+		}
+	}
+	return true
+}
+
+// writePrivateLayoutAliases writes the aliases planned for an owner's body.
+func (m *migration) writePrivateLayoutAliases(owner *sysmlv1.Element) {
+	saved := m.scope
+	m.scope = owner
+	for _, alias := range m.privateAliasesByOwner[owner] {
+		m.w.line("private alias " + writeName(alias.name) + " for " + writeName(m.nameFor(alias.target)) + ";")
+		m.w.line(m.synthesizedNames([]string{writeName(alias.name)}))
+	}
+	m.scope = saved
+}
+
 // exposureName returns the unqualified name at the end of an exposure reference.
 func exposureName(ref string) string {
 	start := 0
@@ -810,6 +1029,56 @@ func (m *migration) shownRef(e, scope *sysmlv1.Element, f viewForm) string {
 		return m.exposure(e.Parent, scope)
 	}
 	return m.exposure(e, scope)
+}
+
+// inheritedNodeRef names the library member a graph draws el as — the start an
+// initial node or pseudostate is written as, the done a flow final or final state
+// ends at — qualified through the body it is drawn in, as `about Run::start` names
+// Run's start: a view is a part with a start and done of its own, which the bare
+// name would reach. "" for a node written as a member of its own.
+func (m *migration) inheritedNodeRef(el, scope *sysmlv1.Element) string {
+	var name string
+	switch {
+	case el.Type == "InitialNode", pseudoKind(el) == "initial":
+		name = "start"
+	case el.Type == "FlowFinalNode", el.Type == "FinalState":
+		name = "done"
+	default:
+		return ""
+	}
+	body := el.Parent
+	if pseudoKind(el) == "initial" {
+		body = m.entryRegion(el)
+	}
+	if body == nil {
+		return ""
+	}
+	owner := m.edgePlaceIn(body, nil, name).owner
+	if owner == nil || !m.reaches(owner) {
+		return ""
+	}
+	return m.memberRef(owner, scope) + "::" + name
+}
+
+// entryRegion is the region whose start the initial pseudostate init is written as:
+// its own region when it is that region's entry, or the orthogonal region it is
+// donated to; nil for a duplicate, dangling, coinciding, conflicting or foreign
+// initial, which no start stands for.
+func (m *migration) entryRegion(init *sysmlv1.Element) *sysmlv1.Element {
+	r := init.Parent
+	if r == nil || r.Type != "Region" {
+		return nil
+	}
+	e := m.regionEntry(r)
+	if e.init == init {
+		return r
+	}
+	for _, st := range e.strays {
+		if st.init == init && m.regionEntry(st.into).init == init {
+			return st.into
+		}
+	}
+	return nil
 }
 
 // exposable is the declaration written for e that a view can expose: its own, the
@@ -970,11 +1239,12 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 	geo.lines = append(geo.lines, placements...)
 	geo.lines = append(geo.lines, routes...)
 	geo.lines = append(geo.lines, dress.lines...)
+	geo.note = joinNotes(geo.note, strings.Join(p.notes, "; "))
 	if len(rec.Placements)+len(rec.Connectors) > 0 {
 		clauses := append([]string{layoutClause(p.written, p.unexposed, p.dangling, p.onEdges, len(rec.Placements)), routeClause(p.reasons, len(rec.Connectors))}, dress.notes...)
-		geo.note = fmt.Sprintf("laid out from %s: %s", source, strings.Join(clauses, ", "))
+		geo.note = joinNotes(geo.note, fmt.Sprintf("laid out from %s: %s", source, strings.Join(clauses, ", ")))
 	} else if len(dress.notes) > 0 {
-		geo.note = fmt.Sprintf("dressed from %s: %s", streamSource, strings.Join(dress.notes, ", "))
+		geo.note = joinNotes(geo.note, fmt.Sprintf("dressed from %s: %s", streamSource, strings.Join(dress.notes, ", ")))
 	}
 	return geo
 }
@@ -995,6 +1265,7 @@ type layoutPlan struct {
 	onEdges    int
 	dangling   int
 	reasons    map[string]int
+	notes      []string
 }
 
 func (p *layoutPlan) grow(w, h float64) {
@@ -1026,14 +1297,30 @@ func (p *layoutPlan) placements(rec *mtip.Diagram) []string {
 			p.onEdges++
 			continue
 		}
+		var privateOwner *sysmlv1.Element
+		if m.privateLayoutMember(el) {
+			privateOwner = el.Parent
+			if !containsElement(scopeChain(v.host), privateOwner) {
+				p.notePrivateUnexposed(el, privateOwner)
+				s.PlacementsUnexposed++
+				p.unexposed++
+				continue
+			}
+		}
 		ref := ""
 		if vertexBase(el) == "" || m.vertexWritten(el) {
 			ref = m.shownRef(el, v.host, p.form)
+		}
+		if ref == "" {
+			ref = m.inheritedNodeRef(el, v.host)
 		}
 		if ref == "" || !m.places(p.x, p.form, el, ref) {
 			s.PlacementsUnexposed++
 			p.unexposed++
 			continue
+		}
+		if alias := m.privateLayoutAlias(v, el); alias != nil {
+			ref = writeName(alias.name)
 		}
 		p.refOf[pl.ID] = ref
 		if seen[ref] {
@@ -1048,11 +1335,33 @@ func (p *layoutPlan) placements(rec *mtip.Diagram) []string {
 			m.diagramLayoutAttributeForHost(p.prefix, "Layout", "width", layoutNumber(pl.Width), v.host, p.x),
 			m.diagramLayoutAttributeForHost(p.prefix, "Layout", "height", layoutNumber(pl.Height), v.host, p.x),
 		}
+		for _, kind := range pl.HiddenCompartments {
+			attrs = append(attrs, m.diagramLayoutAttributeForHost(p.prefix, "Layout", "show"+kind, "false", v.host, p.x))
+		}
+		if len(pl.HiddenCompartments) > 0 {
+			s.CompartmentsSuppressed += len(pl.HiddenCompartments)
+			s.SymbolsSuppressing++
+		}
+		for _, id := range pl.UnsupportedCompartments {
+			s.Unsupported[id]++
+		}
 		placements = append(placements, fmt.Sprintf("metadata %sLayout about %s { %s; }",
 			p.prefix, ref, strings.Join(attrs, "; ")))
 		p.grow(pl.X+pl.Width, pl.Y+pl.Height)
 	}
 	return placements
+}
+
+// notePrivateUnexposed records why a private layout target has no visible name in the view.
+func (p *layoutPlan) notePrivateUnexposed(target, owner *sysmlv1.Element) {
+	note := "the shown element " + writeName(p.m.nameFor(target)) + " is private to " +
+		qualifiedName(owner) + " and no name visible in the view denotes it"
+	for _, existing := range p.notes {
+		if existing == note {
+			return
+		}
+	}
+	p.notes = append(p.notes, note)
 }
 
 // routes writes a Route per connector whose element the view draws, tallying
@@ -1062,6 +1371,10 @@ func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
 	var routes []string
 	p.reasons = map[string]int{}
 	pinned := map[string]bool{}
+	boxes := map[string]mtip.Placement{}
+	for _, pl := range rec.Placements {
+		boxes[pl.ID] = pl
+	}
 	for _, c := range rec.Connectors {
 		s.Routes++
 		el := m.model.Lookup(c.ID)
@@ -1074,16 +1387,15 @@ func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
 		kind := routeKindName(c.Type, el)
 		var refs []string
 		var points [][]float64
-		why := ""
-		if refs, why = m.routeTarget(el, v.host, p.form); why == "" {
-			if !m.draws(p.x, p.form, v.host, el, refs[0]) {
+		general, why := "", ""
+		if refs, general, why = m.routeTarget(el, v.host, p.form); why == "" {
+			if !m.draws(p.x, p.form, v.host, el, refs[0]) || general != "" && !p.x.exposed(general) {
 				why = routeNotExposed
 			}
-			refs = []string{strings.Join(refs, ", ")}
-			points = [][]float64{m.linePoints(el, c)}
+			refs, points = m.routeLines(el, p.form, refs, m.linePoints(el, c, boxes))
 		}
 		ref := strings.Join(refs, ", ")
-		if why == "" && pinned[ref] {
+		if why == "" && pinned[ref+" :> "+general] {
 			p.refOf[c.ID] = ref
 			why = routeDuplicate
 		}
@@ -1093,20 +1405,21 @@ func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
 			m.routeKinds.add(kind, why)
 			continue
 		}
-		pinned[ref] = true
+		pinned[ref+" :> "+general] = true
 		p.refOf[c.ID] = ref
 		s.RoutesWritten++
 		p.reasons[routeWritten]++
 		m.routeKinds.add(kind, routeWritten)
 		for i, r := range refs {
-			routes = append(routes, p.route(r, points[i]))
+			routes = append(routes, p.route(r, general, points[i]))
 		}
 	}
 	return routes
 }
 
-// route writes a Route pinning points, x then y per point, to the member ref names.
-func (p *layoutPlan) route(ref string, points []float64) string {
+// route writes a Route pinning points, x then y per point, to the member ref
+// names; a general names the element a specialization edge is steered to.
+func (p *layoutPlan) route(ref, general string, points []float64) string {
 	var b strings.Builder
 	b.WriteString("metadata " + p.prefix + "Route about " + ref + " { ")
 	b.WriteString(p.m.diagramLayoutAttributeForHost(p.prefix, "Route", "points", "(", p.v.host, p.x))
@@ -1121,13 +1434,18 @@ func (p *layoutPlan) route(ref string, points []float64) string {
 			p.grow(p.maxX, n)
 		}
 	}
-	b.WriteString("); }")
+	b.WriteString(");")
+	if general != "" {
+		b.WriteString(" ref :>> " + p.m.diagramLayoutFeatureForHost(p.prefix, "Route", "general", p.v.host, p.x) + " : " + general + ";")
+	}
+	b.WriteString(" }")
 	return b.String()
 }
 
 // linePoints is the line's points as the Route of el lists them, run from the written
-// element's first end to its second as a rendering reads them.
-func (m *migration) linePoints(el *sysmlv1.Element, c mtip.Connector) []float64 {
+// element's first end to its second as a rendering reads them: the record's ends, or
+// failing those the boxes it places, say which way the tool drew the line.
+func (m *migration) linePoints(el *sysmlv1.Element, c mtip.Connector, boxes map[string]mtip.Placement) []float64 {
 	if el.Type == "Connector" {
 		return m.connectorLinePoints(el, c)
 	}
@@ -1135,17 +1453,48 @@ func (m *migration) linePoints(el *sysmlv1.Element, c mtip.Connector) []float64 
 	if first == nil || second == nil || first == second {
 		return c.Points
 	}
-	if c.Ends[0] == second.ID || c.Ends[1] == first.ID {
+	reversed, known := lineReversed(c, first.ID, second.ID, boxes)
+	if !known {
+		// A flow between pins may be drawn, or its ends placed, at the actions owning them.
+		if a, b := ownerNode(first), ownerNode(second); a != b && (a != first || b != second) {
+			reversed, _ = lineReversed(c, a.ID, b.ID, boxes)
+		}
+	}
+	if reversed {
 		return reversePoints(c.Points)
 	}
 	return c.Points
 }
 
-// lineEnds are the elements at the ends of the line a tree draws for association el, in
-// drawing order: a connection def's end types, or a backed attribute's owner then its type.
+// lineReversed reports whether c's points run from the element at the line's second
+// end to the one at its first, by the ends the record names or, naming none, the
+// boxes it places; known is false when neither end is named or placed.
+func lineReversed(c mtip.Connector, first, second string, boxes map[string]mtip.Placement) (reversed, known bool) {
+	ends := c.Ends
+	if ends == [2]string{} {
+		ends = endsAt(c.Points, [2]string{first, second}, boxes)
+	}
+	switch {
+	case ends[0] == second, ends[1] == first:
+		return true, true
+	case ends[0] == first, ends[1] == second:
+		return false, true
+	}
+	return false, false
+}
+
+// lineEnds are the elements at the ends of the line el is drawn as, in the order its
+// member names them: a flow's or transition's source then target, a connection def's end
+// types, or a backed attribute's owner then its type.
 func (m *migration) lineEnds(el *sysmlv1.Element) (first, second *sysmlv1.Element) {
+	if el.Role == "edge" || el.Type == "Transition" {
+		return m.model.Ref(el, "source"), m.model.Ref(el, "target")
+	}
 	if prop := m.backedProperty(el); prop != nil {
 		return prop.Parent, m.model.Ref(prop, "type")
+	}
+	if el.Type == "Generalization" {
+		return el.Parent, m.model.Ref(el, "general")
 	}
 	if !m.associationDef(el) {
 		return nil, nil
@@ -1199,7 +1548,10 @@ func (m *migration) drawnRef(x exposures, f viewForm, host *sysmlv1.Element, id 
 	if ref := m.shownRef(el, host, f); ref != "" && m.places(x, f, el, ref) {
 		return ref
 	}
-	refs, why := m.routeTarget(el, host, f)
+	if ref := m.inheritedNodeRef(el, host); ref != "" && m.places(x, f, el, ref) {
+		return ref
+	}
+	refs, _, why := m.routeTarget(el, host, f)
 	if why != "" || !m.draws(x, f, host, el, refs[0]) {
 		return ""
 	}

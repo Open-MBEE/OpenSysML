@@ -1490,7 +1490,7 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	if strings.Contains(minimal, "spare") || strings.Contains(minimal, "Signal") {
 		t.Errorf("the default drew an unconnected port or a type:\n%s", minimal)
 	}
-	if got := render(t, "minimal").Artifact; got != minimal {
+	if render(t, "minimal").Artifact != minimal {
 		t.Errorf("ports=minimal differs from the default")
 	}
 	fullResult := render(t, "full")
@@ -1914,5 +1914,42 @@ func TestRenderLines(t *testing.T) {
 	want := `unknown line routing "curved"; the routings are splines, ortho, polyline`
 	if err == nil || !strings.Contains(err.Error(), want) {
 		t.Errorf("err = %v, want it to refuse the routing by name", err)
+	}
+}
+
+// A request's depth bounds how many levels are drawn below each exposed
+// element; a negative one is refused.
+func TestRenderDepthParam(t *testing.T) {
+	s, docURI := renderServer(t, "deep.sysml", `package Deep {
+    private import Views::*;
+    part vehicle {
+        part wheel { part hub { part bearing; } }
+        part engine { part piston; }
+    }
+    view structure { expose vehicle; render asTreeDiagram; }
+}
+`)
+	raw, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "Deep::structure",
+		Form:         string(view.FormText),
+		Depth:        1,
+	})
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	var out renderResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.Artifact, "part wheel (nested deeper than 1 level; not shown)") || strings.Contains(out.Artifact, "hub") {
+		t.Errorf("artifact with depth 1:\n%s", out.Artifact)
+	}
+	if _, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "Deep::structure",
+		Depth:        -1,
+	}); err == nil || !strings.Contains(err.Error(), "no non-negative integer") {
+		t.Errorf("depth -1: err = %v, want it refused", err)
 	}
 }

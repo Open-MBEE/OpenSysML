@@ -31,6 +31,7 @@ package Model {
         action def Drive {
             succession 'start to step' first start then 'step';
             action 'step' {
+                rep language "JavaScript" /* going = true;*/
                 attribute going : ScalarValues::Boolean;
                 assign going := true;
             }

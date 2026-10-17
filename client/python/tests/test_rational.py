@@ -101,8 +101,9 @@ def test_a_rational_beyond_the_double_range_is_not_a_double():
     ],
 )
 def test_a_noncanonical_rational_is_refused(numerator, denominator, reason):
+    rational = sysml_pb2.Rational(numerator=numerator, denominator=denominator)
     with pytest.raises(UnsupportedValueError, match=reason):
-        rational_from_pb(sysml_pb2.Rational(numerator=numerator, denominator=denominator))
+        rational_from_pb(rational)
 
 
 def test_a_rational_quantity_magnitude_round_trips():
@@ -256,10 +257,12 @@ class TestRationalsAgainstTheService:
 
     def test_a_canonical_answer_a_double_holds_is_a_float(self):
         value = self.conn.calc("R::third", self.model.hash, arguments=[Fraction(3, 2)]).value
-        assert value == 0.5 and isinstance(value, float)
+        assert value == 0.5
+        assert isinstance(value, float)
 
     def test_a_float_input_is_a_real(self):
         exact = self.conn.execute_action("R::addThird", self.model.hash, inputs={"x": Fraction(1, 4)})
         real = self.conn.execute_action("R::addThird", self.model.hash, inputs={"x": 0.25})
         assert exact["y"] == Fraction(7, 12)
-        assert real["y"] == 0.25 + 1 / 3 and isinstance(real["y"], float)
+        assert real["y"] == 0.25 + 1 / 3
+        assert isinstance(real["y"], float)

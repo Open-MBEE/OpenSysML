@@ -19,6 +19,18 @@ func writeName(name string) string {
 	return source.UnrestrictedNameText(name)
 }
 
+// queryName is a name as the index reads it from notation, without its quotes.
+func queryName(name string) string {
+	text := source.UnrestrictedNameText(name)
+	return text[1 : len(text)-1]
+}
+
+// pathSegment spells a query name as one segment of a metadata path: quoted
+// unless it is a basic name no keyword reserves, so one holding `::` stays one.
+func pathSegment(name string) string {
+	return source.NameText(name)
+}
+
 // nameOf returns the v2 name of an element: its own, or the one synthesized
 // for an anonymous element that something refers to; "" when it is anonymous
 // and stays so.
@@ -160,6 +172,10 @@ func (m *migration) writtenName(e *sysmlv1.Element) string {
 
 func (m *migration) nameTaken(owner *sysmlv1.Element, name string) bool {
 	return m.nameTakenBut(nil, owner, name)
+}
+
+func (m *migration) nameTakenExcept(owner *sysmlv1.Element, name string, except *sysmlv1.Element) bool {
+	return m.nameTakenBut(except, owner, name)
 }
 
 // nameTakenBut is nameTaken disregarding e, whose own name the declaration
@@ -308,18 +324,33 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 		if op := m.methodOf[cur]; op != nil {
 			cur = op
 		}
+		var wrappedPointRegion *sysmlv1.Element
+		if owner := pointOwner(cur); owner != nil && owner.Type == "State" {
+			if regions := m.populatedRegions(owner); len(regions) == 1 &&
+				m.regionWrittenAsState(regions[0]) && m.regionStates[regions[0]] == "" {
+				wrappedPointRegion = regions[0]
+			}
+		}
 		if cur.Type == "Region" && cur.Role == "region" {
-			if p, ok := m.parallel[cur]; ok {
-				segs = append([]segment{{name: p}, {name: m.nameFor(cur)}}, segs...)
+			if m.regionWrittenAsState(cur) {
+				if p := m.regionStates[cur]; p != "" {
+					segs = append([]segment{{name: p}, {name: m.nameFor(cur)}}, segs...)
+				} else {
+					segs = append([]segment{{name: m.nameFor(cur), feature: true, elem: cur}}, segs...)
+				}
 			}
 			continue
 		}
 		if op := m.methodOf[cur]; op != nil {
 			cur = op
 		}
+		m.planNesting(cur)
 		segs = append([]segment{{name: m.nameFor(cur), feature: m.isUsage(cur), elem: cur}}, segs...)
 		if within, ok := m.nestedIn[cur]; ok {
 			segs = append([]segment{{name: within, feature: true}}, segs...)
+		}
+		if wrappedPointRegion != nil {
+			segs = append([]segment{{name: m.nameFor(wrappedPointRegion), feature: true, elem: wrappedPointRegion}}, segs...)
 		}
 	}
 	return segs
@@ -349,8 +380,8 @@ func (m *migration) acceptSignalRef(sig, scope *sysmlv1.Element, payload string)
 // global namespace.
 func (m *migration) pastPayload(path []segment, scope *sysmlv1.Element, payload string) string {
 	chain := scopeChain(scope)
-	if rel := m.relativeTo(path, chain); rel != nil && writeName(rel[0].name) != payload {
-		return m.qualifiedWhole(rel, nil, false)
+	if rel, inner := m.relativeTo(path, chain); rel != nil && writeName(rel[0].name) != payload {
+		return m.qualifiedWhole(rel, inner, false)
 	}
 	ref := m.qualifiedWhole(path, chain, false)
 	if writeName(path[0].name) == payload && !strings.HasPrefix(ref, "$::") {
@@ -478,7 +509,8 @@ func (m *migration) refMember(owner *sysmlv1.Element, name string, path []segmen
 				break
 			}
 		}
-		if !shadowed {
+		if !shadowed && !(chained && path[len(path)-1].feature && m.isUsage(owner) && m.definitionBetween(chain[:i])) {
+			m.refer(chain[:i], path[len(path)-1].name)
 			return writeName(path[len(path)-1].name)
 		}
 	}
@@ -492,26 +524,56 @@ func (m *migration) refMember(owner *sysmlv1.Element, name string, path []segmen
 				return m.qualifiedFrom(path, chain, chained)
 			}
 		}
+		m.refer(chain, path[len(path)-1].name)
 		return writeName(path[len(path)-1].name)
 	}
 	return m.qualifiedFrom(path, chain, chained)
 }
 
+// A definition nested in a usage is not featured within it (KerML isFeaturedWithin),
+// so the usage's features must be reached by a chain.
+func (m *migration) definitionBetween(scopes []*sysmlv1.Element) bool {
+	for _, scope := range scopes {
+		if !m.isUsage(scope) {
+			return true
+		}
+	}
+	return false
+}
+
 // relativeTo shortens path to its tail below the root Model of chain, whose
 // members every scope in it sees, when no scope inside the Model shadows the
-// tail's first segment; nil when path is to be written whole.
-func (m *migration) relativeTo(path []segment, chain []*sysmlv1.Element) []segment {
+// tail's first segment; nil when path is to be written whole. inner is the
+// scopes of chain inside the Model, which the tail's first segment resolves past.
+func (m *migration) relativeTo(path []segment, chain []*sysmlv1.Element) (rel []segment, inner []*sysmlv1.Element) {
 	for i, s := range chain {
 		if !isRootModel(s) || len(path) < 2 || path[0].name != m.nameOf(s) || path[0].feature {
 			continue
 		}
 		rel := path[1:]
 		if m.hidden(rel[0].name) || m.shadows(chain[:i], rel[0].name) {
-			return nil
+			return nil, nil
 		}
-		return rel
+		return rel, chain[:i]
 	}
-	return nil
+	return nil, nil
+}
+
+// refer records that a reference written inside the scopes of chain resolves
+// name past every one of them, so none may later declare a member named so.
+func (m *migration) refer(chain []*sysmlv1.Element, name string) {
+	for _, scope := range chain {
+		if m.referenced[scope] == nil {
+			m.referenced[scope] = map[string]bool{}
+		}
+		m.referenced[scope][name] = true
+	}
+}
+
+// referredPast reports whether a reference written in owner's body resolves
+// name in an enclosing scope: a member of owner named so would capture it.
+func (m *migration) referredPast(owner *sysmlv1.Element, name string) bool {
+	return m.referenced[owner][name]
 }
 
 // namespaces is the path of a qualified name whose every segment is a namespace.
@@ -531,8 +593,8 @@ func namespaces(segs []string) []segment {
 // chain: `Outer.inner`, since a usage's members are not accessible by qualified
 // name where a feature is referred to; an import names them by qualified name alone.
 func (m *migration) qualifiedFrom(path []segment, chain []*sysmlv1.Element, chained bool) string {
-	if rel := m.relativeTo(path, chain); rel != nil {
-		return m.qualifiedWhole(rel, nil, chained)
+	if rel, inner := m.relativeTo(path, chain); rel != nil {
+		return m.qualifiedWhole(rel, inner, chained)
 	}
 	return m.qualifiedWhole(path, chain, chained)
 }
@@ -542,6 +604,8 @@ func (m *migration) qualifiedWhole(path []segment, chain []*sysmlv1.Element, cha
 	var b strings.Builder
 	if m.hidden(path[0].name) || m.shadows(chain, path[0].name) {
 		b.WriteString("$::")
+	} else {
+		m.refer(chain, path[0].name)
 	}
 	for i, s := range path {
 		switch {

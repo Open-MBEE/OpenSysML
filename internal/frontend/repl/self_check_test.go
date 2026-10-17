@@ -702,7 +702,7 @@ func TestSelfCheckPackageAppliesARuleThatHolds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := stats.applications["Acme::Rules::partDefinitionHasDocumentation"]; got == 0 {
+	if stats.applications["Acme::Rules::partDefinitionHasDocumentation"] == 0 {
 		t.Fatalf("rule was not applied: %+v", stats.applications)
 	}
 	if stats.violations != 0 || stats.evaluationErrors != 0 {
@@ -886,7 +886,7 @@ func TestSelfCheckPackageAppliesNestedPackageConstraints(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := stats.applications["Acme::Rules::Nested::partDefinitionHasDocumentation"]; got == 0 {
+	if stats.applications["Acme::Rules::Nested::partDefinitionHasDocumentation"] == 0 {
 		t.Fatalf("nested constraint was not applied: %+v", stats.applications)
 	}
 }

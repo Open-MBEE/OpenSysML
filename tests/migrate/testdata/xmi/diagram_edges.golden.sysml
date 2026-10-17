@@ -104,9 +104,7 @@ package Model {
             state Idle;
             state Running {
                 do action spin {
-                    /* body not migrated (the statement "keep turning" is not an assignment of a v2 expression (language English)) {English}:
-                     * keep turning
-                     */
+                    rep language "English" /* keep turning*/
                 }
             }
             state Halted;

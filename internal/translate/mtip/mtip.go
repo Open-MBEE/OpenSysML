@@ -40,6 +40,10 @@ type Placement struct {
 	// OnPath reports a shape the tool draws on a path symbol — an association
 	// end or connector end at the line's end — rather than as a node of its own.
 	OnPath bool
+	// HiddenCompartments names the compartment kinds the symbol suppresses
+	// (DiagramLayout's show… switches, sorted); only a symbol stream states them.
+	// UnsupportedCompartments are the suppressed compartments no kind answers to.
+	HiddenCompartments, UnsupportedCompartments []string
 }
 
 // Connector is one drawn edge's route, source to target, flattened as

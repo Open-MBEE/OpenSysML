@@ -45,11 +45,13 @@ package Model {
             }
             first stamp9 then 'start timer';
             action 'start timer' {
+                rep language "JavaScript" /* Time_Acq_Total = simtime;*/
                 assign Time_Acq_Total := localClock.currentTime;
             }
             first 'start timer' then seed;
             action seed {
                 in Retries : ScalarValues::Integer[1] = 2;
+                rep language "JavaScript" /* GS_Found = Retries < 1;*/
                 assign tcs.GS_Found := Retries < 1;
             }
             first seed then stamp;
@@ -61,6 +63,8 @@ package Model {
             }
             first stamp then 'first attempt';
             action 'first attempt' {
+                rep language "JavaScript" /* i = 1;
+                 * GS_Found = false;*/
                 assign tcs.i := 1;
                 assign tcs.GS_Found := false;
             }
@@ -116,6 +120,7 @@ package Model {
             }
             first stamp4 then 'guide star found';
             action 'guide star found' {
+                rep language "JavaScript" /* GS_Found = true;*/
                 assign tcs.GS_Found := true;
             }
             first 'guide star found' then stamp2;
@@ -129,6 +134,7 @@ package Model {
             }
             first stamp2 then merge4;
             action 'next attempt' {
+                rep language "JavaScript" /* i += 1;*/
                 assign tcs.i := tcs.i + 1;
             }
             first 'next attempt' then 'merge';
@@ -137,6 +143,7 @@ package Model {
             }
             first stamp7 then abort;
             action abort {
+                rep language "JavaScript" /* GS_Found = false;*/
                 assign tcs.GS_Found := false;
             }
             first abort then stamp8;
@@ -150,6 +157,7 @@ package Model {
             first fork2 then merge3;
             first fork2 then merge2;
             action 'stop timer' {
+                rep language "JavaScript" /* Time_Acq_Total = simtime - Time_Acq_Total;*/
                 assign Time_Acq_Total := localClock.currentTime - Time_Acq_Total;
             }
             first 'stop timer' then stamp10;

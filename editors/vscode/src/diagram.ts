@@ -23,7 +23,7 @@ import {
   rootOwner,
   validName,
 } from "./edits";
-import { ExportHost, exportRendering, serverElements, serverForms, serverStyles } from "./export";
+import { ExportHost, exportRendering, serverElements, serverForms, serverReadsDepth, serverStyles } from "./export";
 import {
   admits,
   APPLY_MODEL_EDIT_CAPABILITY,
@@ -54,7 +54,8 @@ import {
   WorkspaceEdit,
 } from "./protocol";
 import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, renamedUri, shouldAutoOpen, TabKind } from "./autoopen";
-import { DiagramStyle, drawingStyleOf, paletteOf, SHOW_SETTING, shownOf, STYLE_SETTING, styleOf } from "./style";
+import { logsRender, renderSummary } from "./rendertrace";
+import { DEPTH_SETTING, depthOf, DiagramStyle, drawingStyleOf, paletteOf, SHOW_SETTING, shownOf, STYLE_SETTING, styleOf } from "./style";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
 import {
   chooseView,
@@ -135,7 +136,7 @@ export class DiagramPanels implements vscode.Disposable {
         if (event.affectsConfiguration(AUTO_OPEN_SETTING)) {
           this.autoOpen(vscode.window.activeTextEditor);
         }
-        if (event.affectsConfiguration(STYLE_SETTING) || event.affectsConfiguration(SHOW_SETTING)) {
+        if (event.affectsConfiguration(STYLE_SETTING) || event.affectsConfiguration(SHOW_SETTING) || event.affectsConfiguration(DEPTH_SETTING)) {
           for (const panel of this.panels.values()) {
             panel.restyle();
           }
@@ -423,6 +424,7 @@ export class DiagramPanels implements vscode.Disposable {
     const outcome = await exportRendering(host, {
       uri, documentName, view, forms: serverForms(experimental(client)), style,
       show: supportedShown(client, diagramShown(resolved.uri)),
+      depth: supportedDepth(client, diagramDepth(resolved.uri)),
       linkTemplate: `${vscode.env.uriScheme}://file/{file}:{line}:{col}`,
     });
     switch (outcome.kind) {
@@ -580,6 +582,16 @@ function diagramStyle(scope: vscode.Uri): DiagramStyle {
 /** diagramShown is the optional notation elements the setting asks for, as it applies to a document. */
 function diagramShown(scope: vscode.Uri): string[] {
   return shownOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("show"));
+}
+
+/** diagramDepth is how many levels the setting draws below each exposed element, as it applies to a document; 0 for every level. */
+function diagramDepth(scope: vscode.Uri): number {
+  return depthOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("depth"));
+}
+
+/** supportedDepth is the depth to ask of a server that reads one; undefined when none is set or the server predates it. */
+function supportedDepth(client: LanguageClient, depth: number): number | undefined {
+  return depth > 0 && serverReadsDepth(experimental(client)) ? depth : undefined;
 }
 
 // setDiagramStyle keeps a style chosen in a panel as the setting, at the level that set the one in force.
@@ -779,14 +791,19 @@ class DiagramPanel {
       const drawing = drawingStyleOf(style);
       const styled = drawing !== undefined && supportsStyle(client, drawing);
       const shown = supportedShown(client, diagramShown(this.docURI));
+      const depth = supportedDepth(client, diagramDepth(this.docURI));
       const params: RenderParams = {
         textDocument,
         view: this.selected === "" ? undefined : this.selected,
         palette: colours ? palette : undefined,
         style: styled ? drawing : undefined,
         show: shown.length > 0 ? shown : undefined,
+        depth,
       };
       const result = normalizeRender(await client.sendRequest<RenderResult>(RENDER_METHOD, params));
+      if (logsRender(vscode.workspace.getConfiguration("opensysml", this.docURI).get<string>("trace.server"), result)) {
+        this.output.appendLine(renderSummary(basename(this.docURI), params, result));
+      }
       // A style chosen meanwhile has its own render queued; a drawing in the old one is dropped.
       if (diagramStyle(this.docURI) !== style) {
         return;

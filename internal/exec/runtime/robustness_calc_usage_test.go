@@ -69,8 +69,8 @@ func testCalcUsageUnboundInput(t *testing.T) {
 		}
 	`
 	err := calcUsageOutputInSource(t, src, "c", "a", 10000)
-	if !errors.Is(err, ErrUnboundParameter) {
-		t.Errorf("expected ErrUnboundParameter, got: %v", err)
+	if !errors.Is(err, errUnboundParameter) {
+		t.Errorf("expected errUnboundParameter, got: %v", err)
 	}
 }
 
@@ -88,8 +88,8 @@ func testCalcUsageUnknownOutput(t *testing.T) {
 		}
 	`
 	err := calcUsageOutputInSource(t, src, "c", "nope", 10000)
-	if !errors.Is(err, ErrUnknownOutput) {
-		t.Errorf("expected ErrUnknownOutput, got: %v", err)
+	if !errors.Is(err, errUnknownOutput) {
+		t.Errorf("expected errUnknownOutput, got: %v", err)
 	}
 	if err != nil && !strings.Contains(err.Error(), "a, b") {
 		t.Errorf("error should name the outputs the calc does declare, got: %v", err)
@@ -111,8 +111,8 @@ func testCalcUsageCyclicOutputs(t *testing.T) {
 		}
 	`
 	err := calcUsageOutputInSource(t, src, "c", "a", 10000)
-	if !errors.Is(err, ErrCyclicOutput) {
-		t.Errorf("expected ErrCyclicOutput, got: %v", err)
+	if !errors.Is(err, errCyclicOutput) {
+		t.Errorf("expected errCyclicOutput, got: %v", err)
 	}
 }
 
@@ -192,10 +192,10 @@ func testCalcOutputNeverAssignedByTheBody(t *testing.T) {
 		}
 	`
 	err := calcUsageOutputInSource(t, src, "c", "b", 10000)
-	if !errors.Is(err, ErrOutputNotAssigned) {
-		t.Errorf("expected ErrOutputNotAssigned, got: %v", err)
+	if !errors.Is(err, errOutputNotAssigned) {
+		t.Errorf("expected errOutputNotAssigned, got: %v", err)
 	}
-	if errors.Is(err, ErrNoResultExpression) {
+	if errors.Is(err, errNoResultExpression) {
 		t.Errorf("expected no result-expression blame, got: %v", err)
 	}
 }
@@ -216,8 +216,8 @@ func testCalcOutputAssignedInABranchNotTaken(t *testing.T) {
 		}
 	`
 	err := calcUsageOutputInSource(t, src, "c", "a", 10000)
-	if !errors.Is(err, ErrOutputNotAssigned) {
-		t.Errorf("expected ErrOutputNotAssigned, got: %v", err)
+	if !errors.Is(err, errOutputNotAssigned) {
+		t.Errorf("expected errOutputNotAssigned, got: %v", err)
 	}
 }
 
@@ -235,8 +235,8 @@ func testCalcOutputValuedAndAssigned(t *testing.T) {
 		}
 	`
 	err := calcUsageOutputInSource(t, src, "c", "a", 10000)
-	if !errors.Is(err, ErrConflictingOutput) {
-		t.Errorf("expected ErrConflictingOutput, got: %v", err)
+	if !errors.Is(err, errConflictingOutput) {
+		t.Errorf("expected errConflictingOutput, got: %v", err)
 	}
 }
 
@@ -256,7 +256,7 @@ func testCalcOutputBindingViolatesDeclaredType(t *testing.T) {
 	`
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 	usage := oneSymbol(t, idx, "test::c")
-	_, err := ctx.CalcUsageOutput(usage, "a", idx.DocumentRoot("<test>"), nil)
+	_, err := ctx.calcUsageOutput(usage, "a", idx.DocumentRoot("<test>"), nil)
 	if !errors.Is(err, ErrTypeMismatch) {
 		t.Fatalf("error = %v, want ErrTypeMismatch", err)
 	}
@@ -287,7 +287,7 @@ func testCalcOutputAssignedTwice(t *testing.T) {
 		t.Fatal("calc usage c not found")
 	}
 
-	value, err := ctx.CalcUsageOutput(sym, "a", sym.OwnerScope, nil)
+	value, err := ctx.calcUsageOutput(sym, "a", sym.OwnerScope, nil)
 	if err != nil {
 		t.Fatalf("reading output a of c: %v", err)
 	}
@@ -322,8 +322,8 @@ func testMultipleOutputsInvokedAsAnExpression(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected the invocation to be rejected, it answered %s", FormatTraceValue(result))
 	}
-	if !errors.Is(err, ErrAmbiguousResult) {
-		t.Errorf("expected ErrAmbiguousResult, got: %v", err)
+	if !errors.Is(err, errAmbiguousResult) {
+		t.Errorf("expected errAmbiguousResult, got: %v", err)
 	}
 	// The diagnostic has to teach the spelling that does work.
 	if err != nil && !strings.Contains(err.Error(), "calc c : test::Two { in n = ...; } then read c.a") {
@@ -350,8 +350,8 @@ func testNestedCalcUsageUnboundInput(t *testing.T) {
 		}
 	`
 	err := calcUsageOutputInSource(t, src, "c", "d", 10000)
-	if !errors.Is(err, ErrUnboundParameter) {
-		t.Errorf("expected ErrUnboundParameter, got: %v", err)
+	if !errors.Is(err, errUnboundParameter) {
+		t.Errorf("expected errUnboundParameter, got: %v", err)
 	}
 }
 
@@ -374,8 +374,8 @@ func testNestedCalcUsageUnknownOutput(t *testing.T) {
 		}
 	`
 	err := calcUsageOutputInSource(t, src, "c", "d", 10000)
-	if !errors.Is(err, ErrUnknownOutput) {
-		t.Errorf("expected ErrUnknownOutput, got: %v", err)
+	if !errors.Is(err, errUnknownOutput) {
+		t.Errorf("expected errUnknownOutput, got: %v", err)
 	}
 }
 
@@ -465,7 +465,7 @@ func testOperationConstraintBodyCannotBeEvaluated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("instantiate: %v", err)
 	}
-	_, err = ctx.InvokeOperation(inst, "broken", nil)
+	_, err = ctx.invokeOperation(inst, "broken", nil)
 	if err == nil {
 		t.Fatal("expected an error for an unevaluable constraint body")
 	}

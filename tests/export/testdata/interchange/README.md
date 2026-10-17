@@ -3,3 +3,5 @@ The two library identity JSON fixtures are toolkit v0.10.0 full-JSON exports wit
 The `satisfy_by` fixture is a toolkit v0.10.0 full-JSON export of the adjacent source model.
 
 The `state_entry` fixture is a toolkit v0.10.0 full-JSON export of the adjacent source model; its `entry; then idle;` succession sequences from the nameless entry action.
+
+The `states` fixtures are toolkit v0.10.10 compact-JSON and full-JSON exports of the adjacent source model; `state def T` owns the referencing `do x;` subaction so that `state def S` owns one subaction per kind.

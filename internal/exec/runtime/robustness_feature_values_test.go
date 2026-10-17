@@ -35,7 +35,7 @@ func testSharedDefaultOverACyclicDerivation(t *testing.T) {
 		}
 		part def Fleet { part sats : Sat[3]; }
 	}`))
-	ctx.SetSharedDefaults(true)
+	ctx.setSharedDefaults(true)
 	fleet, err := ctx.Instantiate(oneSymbol(t, idx, "P::Fleet"))
 	if err != nil {
 		t.Fatalf("instantiate: %v", err)
@@ -58,7 +58,7 @@ func testSharedDefaultOverACyclicDerivation(t *testing.T) {
 			t.Errorf("sats#(%d).a fails as %q, the first as %q", i+1, err, first)
 		}
 	}
-	if taken := ctx.SharedDefaultsTaken(); taken != 0 {
+	if taken := ctx.sharedDefaultsTaken(); taken != 0 {
 		t.Errorf("%d shared defaults taken from a derivation that never produced a value", taken)
 	}
 }
@@ -74,7 +74,7 @@ func testSharedDefaultTakenOverAWriteThatThenFails(t *testing.T) {
 		}
 		part def Fleet { part sats : Sat[2]; }
 	}`))
-	ctx.SetSharedDefaults(true)
+	ctx.setSharedDefaults(true)
 	fleet, err := ctx.Instantiate(oneSymbol(t, idx, "P::Fleet"))
 	if err != nil {
 		t.Fatalf("instantiate: %v", err)
@@ -98,7 +98,7 @@ func testSharedDefaultTakenOverAWriteThatThenFails(t *testing.T) {
 			t.Fatalf("sats#(%d).q = %s, want 5.0", i+1, got)
 		}
 	}
-	if taken := ctx.SharedDefaultsTaken(); taken != 1 {
+	if taken := ctx.sharedDefaultsTaken(); taken != 1 {
 		t.Fatalf("shared defaults taken = %d, want 1", taken)
 	}
 	if err := sat(1).SetFeatureValue(ctx, "d", integerValue(0)); err != nil {
@@ -344,8 +344,8 @@ func testOneFeatureValuedUnderTwoNames(t *testing.T) {
 			}
 		}`
 	got, err := variationFeatureValueInSource(t, src, "test::conflicted", "bandCost")
-	if !errors.Is(err, ErrConflictingRedefinition) {
-		t.Fatalf("ringCost = %+v, err = %v, want ErrConflictingRedefinition", got, err)
+	if !errors.Is(err, errConflictingRedefinition) {
+		t.Fatalf("ringCost = %+v, err = %v, want errConflictingRedefinition", got, err)
 	}
 }
 
@@ -362,7 +362,7 @@ func testValuedFeatureRestatedInABody(t *testing.T) {
 			}
 		}`
 	got, err := variationFeatureValueInSource(t, src, "test::conflicted", "ringCost")
-	if !errors.Is(err, ErrValuedFeatureRestated) {
-		t.Fatalf("ringCost = %+v, err = %v, want ErrValuedFeatureRestated", got, err)
+	if !errors.Is(err, errValuedFeatureRestated) {
+		t.Fatalf("ringCost = %+v, err = %v, want errValuedFeatureRestated", got, err)
 	}
 }

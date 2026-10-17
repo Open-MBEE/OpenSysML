@@ -21,6 +21,10 @@ import (
 	"time"
 )
 
+const (
+	projectsPath = "/projects"
+)
+
 // Environment variables a client is configured from. The base URL and the token
 // are the ones `sysml -sync` reads, so a REPL and the command line address one
 // server the same way; the token is optional, as the pilot's server takes none.
@@ -293,7 +297,7 @@ func (c *Client) postJSON(ctx context.Context, target string, request any, into 
 // Reachable reports whether the server answers: the project list is the
 // cheapest read every server has.
 func (c *Client) Reachable(ctx context.Context) error {
-	_, _, err := c.Do(ctx, http.MethodGet, c.cfg.BaseURL+"/projects", nil, "", nil)
+	_, _, err := c.Do(ctx, http.MethodGet, c.cfg.BaseURL+projectsPath, nil, "", nil)
 	return err
 }
 
@@ -468,7 +472,7 @@ func nextLink(header http.Header, requested string) string {
 func (c *Client) Projects(ctx context.Context) ([]Project, error) {
 	var projects []Project
 	seen := make(map[string]bool)
-	err := c.paged(ctx, c.cfg.BaseURL+"/projects", "projects", func(raw json.RawMessage) (string, bool) {
+	err := c.paged(ctx, c.cfg.BaseURL+projectsPath, "projects", func(raw json.RawMessage) (string, bool) {
 		var p Project
 		if json.Unmarshal(raw, &p) != nil || p.ID == "" || seen[p.ID] {
 			return p.ID, false
@@ -499,7 +503,7 @@ func (c *Client) CreateProject(ctx context.Context, id, name, branch string) (Pr
 		request["defaultBranch"] = map[string]any{"@id": branch, "name": branch}
 	}
 	var created Project
-	if err := c.postJSON(ctx, c.cfg.BaseURL+"/projects", request, &created, "created project"); err != nil {
+	if err := c.postJSON(ctx, c.cfg.BaseURL+projectsPath, request, &created, "created project"); err != nil {
 		return Project{}, err
 	}
 	if created.ID == "" {

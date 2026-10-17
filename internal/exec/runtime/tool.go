@@ -86,8 +86,8 @@ type ToolRunner interface {
 	RunTool(call *ToolCall) (ToolAnswer, error)
 }
 
-// ErrToolNotRegistered is the typed error for a ToolExecution naming a tool no manifest entry registers.
-var ErrToolNotRegistered = errors.New("tool is not registered")
+// errToolNotRegistered is the typed error for a ToolExecution naming a tool no manifest entry registers.
+var errToolNotRegistered = errors.New("tool is not registered")
 
 // ErrToolDryRun is the error a dry run stops the performance with at its first
 // tool call; it passes through unchanged.
@@ -103,8 +103,8 @@ func (e *ToolNotRegisteredError) Error() string {
 	return fmt.Sprintf("tool '%s' is not registered; set OPENSYSML_TOOLS", e.Tool)
 }
 
-// Is matches ErrToolNotRegistered.
-func (e *ToolNotRegisteredError) Is(target error) bool { return target == ErrToolNotRegistered }
+// Is matches errToolNotRegistered.
+func (e *ToolNotRegisteredError) Is(target error) bool { return target == errToolNotRegistered }
 
 // ErrTool is the typed error every failure of a tool invocation unwraps to.
 var ErrTool = errors.New("tool failed")
@@ -128,8 +128,8 @@ const (
 	ToolRefused
 	// ToolUnsentInput is an input the protocol carries no value of.
 	ToolUnsentInput
-	// ToolAmbiguousVariable is a ToolVariable name two parameters of the action carry.
-	ToolAmbiguousVariable
+	// toolAmbiguousVariable is a ToolVariable name two parameters of the action carry.
+	toolAmbiguousVariable
 )
 
 // String names the kind as the error spells it.
@@ -149,7 +149,7 @@ func (k ToolErrorKind) String() string {
 		return "tool error"
 	case ToolUnsentInput:
 		return "input not carried"
-	case ToolAmbiguousVariable:
+	case toolAmbiguousVariable:
 		return "ambiguous variable"
 	}
 	return "unknown failure"
@@ -383,7 +383,7 @@ func (e *ActionExecutor) performByTool(execution *toolExecution) error {
 
 // toolCall is the performance as the tool sees it: of the action performed, every `in`/`inout`
 // parameter carrying a ToolVariable is an input, every `out`/`inout` one an output. An unbound
-// input is ErrUnboundParameter unless optional, which the call omits; a ToolVariable name two
+// input is errUnboundParameter unless optional, which the call omits; a ToolVariable name two
 // parameters carry is a ToolError, since the protocol keys by it. The declaration the tool
 // binds (e.action) names and types each parameter, and the performance holds it under that name.
 func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
@@ -402,7 +402,7 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 			continue
 		}
 		if other, taken := namedBy[variable]; taken {
-			return nil, &ToolError{Tool: tool, Kind: ToolAmbiguousVariable,
+			return nil, &ToolError{Tool: tool, Kind: toolAmbiguousVariable,
 				Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, param.Symbol.Name, symbolText(e.performed))}
 		}
 		namedBy[variable] = param.Symbol.Name
@@ -416,7 +416,7 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 			}
 			if !bound && !e.ctx.model.semantics.OptionalParameter(param.Symbol) {
 				return nil, fmt.Errorf("%w: action %s: input parameter %s is bound by no argument",
-					ErrUnboundParameter, symbolText(e.performed), name)
+					errUnboundParameter, symbolText(e.performed), name)
 			}
 			if bound {
 				sent, err := toolInput(tool, param.Symbol, held)
@@ -644,7 +644,7 @@ func (ctx *Context) toolOutput(scope *symbols.Scope, tool string, out ToolOutput
 			if _, err := semantics.ConvertQuantity(Quantity{Num: semantics.Value{Kind: semantics.ValReal}, Unit: from}, to); err != nil {
 				return Value{}, malformed("%s does not measure %s: %v", answered.Unit, out.Parameter, err)
 			}
-			value = NewEmptySequenceOf(to)
+			value = newEmptySequenceOf(to)
 		} else {
 			elements := make([]Value, 0, len(answered.Items))
 			for i, item := range answered.Items {
@@ -724,7 +724,7 @@ func (ctx *Context) toolOutputValue(scope *symbols.Scope, malformed func(string,
 func (ctx *Context) toolMeasuredUnits(scope *symbols.Scope, malformed func(string, ...any) error, out ToolOutput, text string) (from semantics.Unit, to semantics.Unit, err error) {
 	unit, err := ctx.UnitOf(scope, text)
 	switch {
-	case errors.Is(err, ErrNoExpressionParser):
+	case errors.Is(err, errNoExpressionParser):
 		return semantics.Unit{}, semantics.Unit{}, err
 	case err != nil:
 		return semantics.Unit{}, semantics.Unit{}, malformed("%v", err)

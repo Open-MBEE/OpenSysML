@@ -325,7 +325,12 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 		return nil, statusError(codeInvalidArgument, err.Error())
 	}
 
+	if req.Depth < 0 {
+		return nil, statusError(codeInvalidArgument, (&view.DepthError{Value: fmt.Sprint(req.Depth)}).Error())
+	}
+
 	renderer := view.NewRenderer(cached.typedModel(), cached.resolver, cached.sourceText())
+	renderer.SetDepth(req.Depth)
 	rendering, err := view.RenderNamed(renderer, req.View, func(name string) []*symbols.Symbol {
 		return lookupNamed(cached.Index, name)
 	})

@@ -24,6 +24,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
+const (
+	bindingFormat = "binding %s: %v"
+)
+
 // RunDocumentQuery runs a named document query with parameter bindings, the
 // answer %run-query gives, as typed rows rather than formatted lines.
 func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error) {
@@ -250,13 +254,13 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 	case *pb.DocumentValue_BigIntValue:
 		integer, err := protoconv.ProtoToBigInteger(kind.BigIntValue)
 		if err != nil {
-			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, "binding %s: %v", parameter, err)
+			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, bindingFormat, parameter, err)
 		}
 		return queryexec.IntegerOf(integer), nil
 	case *pb.DocumentValue_RationalValue:
 		rational, err := protoconv.ProtoToRational(kind.RationalValue)
 		if err != nil {
-			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, "binding %s: %v", parameter, err)
+			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, bindingFormat, parameter, err)
 		}
 		return queryexec.RationalOf(rational), nil
 	case *pb.DocumentValue_RealValue:
@@ -278,7 +282,7 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 	case *pb.DocumentValue_Quantity:
 		bound, err := protoconv.ProtoToQuantity(kind.Quantity, idx, sem)
 		if err != nil {
-			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, "binding %s: %v", parameter, err)
+			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, bindingFormat, parameter, err)
 		}
 		quantity := bound.Quantity()
 		if quantity == nil {

@@ -1,0 +1,21 @@
+exit: idle
+enter: P
+enter: A1 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "A1(entry);" -> "A1(entry);"
+    eval operator + -> "A1(entry);"
+transition: idle -> P (event: accept Enter)
+exit: A1
+enter: done
+transition: A1 -> done (event: accept Go)
+exit: done
+exit: P
+enter: finished (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A1(entry);"
+      eval literal "finished(entry);" -> "finished(entry);"
+    eval operator + -> "A1(entry);finished(entry);"
+transition: P -> finished

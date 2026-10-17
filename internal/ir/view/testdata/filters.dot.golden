@@ -8,6 +8,4 @@ digraph "FilteredViews::safetyView" {
   "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Radio</b>>];
   "n1" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Airbag</b>>];
   "n2" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Brake</b>>];
-  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>pad</b>>];
-  "n2" -> "n3" [arrowhead=none];
 }

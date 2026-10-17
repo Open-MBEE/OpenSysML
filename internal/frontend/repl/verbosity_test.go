@@ -127,14 +127,14 @@ func TestLocatedDiagnosticsAreRelativeToEachSnippet(t *testing.T) {
 // Quiet drops warnings; normal keeps them. Neither drops an error.
 func TestVerbosityFiltersBySeverity(t *testing.T) {
 	quiet := strings.Join(renderResult(NewSession().Submit(warningSrc), VerbosityQuiet), "\n")
-	rejects(t, quiet, "warning:")
+	rejects(t, quiet, "warning[")
 	wants(t, quiet, "package W")
 
 	normal := strings.Join(renderResult(NewSession().Submit(warningSrc), VerbosityNormal), "\n")
-	wants(t, normal, "warning:", "package W")
+	wants(t, normal, "warning[", "package W")
 
 	errored := strings.Join(renderResult(NewSession().Submit("namespace N { private import Missing::X; }"), VerbosityQuiet), "\n")
-	wants(t, errored, "error:")
+	wants(t, errored, "error[")
 }
 
 // Debug reports the whole buffer, at buffer-absolute positions, naming the pass

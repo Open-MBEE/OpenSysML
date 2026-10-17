@@ -11,9 +11,9 @@ enter action node: loop body of action node reader
         eval literal 2 -> 2
       eval operator < -> true
 enter action node: branch body of loop body of action node reader
-choice step 3: tokens 2@reader, 3@gate1 (unordered; took 3@gate1 first)
+choice step 3: tokens 2@reader, 3@gate1 (unordered; took 3@gate1 first; independent)
 step 3: token 2@reader, token 3@gate2, token 4@if, token 5@usage_action
-choice step 4: tokens 2@reader, 3@gate2 (unordered; took 3@gate2 first)
+choice step 4: tokens 2@reader, 3@gate2 (unordered; took 3@gate2 first; independent)
 step 4: token 2@reader, token 3@sender, token 4@if, token 5@usage_action
 stmt send
   eval literal 4 -> 4
@@ -69,7 +69,7 @@ leave action node: loop body of action node reader
       eval feature i -> 3
       eval literal 3 -> 3
     eval operator < -> false
-choice step 5: tokens 2@reader, 3@sender (unordered; took 3@sender first)
+choice step 5: tokens 2@reader, 3@sender (unordered; took 3@sender first; order-dependent: i, total)
 step 5: token 2@sync, token 3@sync
 step 6: token 9@done
 step 7: no active tokens

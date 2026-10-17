@@ -107,7 +107,8 @@ func Shapes(grammars []*Grammar) []Shape {
 				continue
 			}
 			produced := map[string]bool{}
-			states := interpretShape(info.production.Body, newStates(""), info, info.returns, infos, resolver, creates, nil, produced, map[productionKey]bool{})
+			walk := &shapeWalk{defaultReturns: info.returns, infos: infos, resolver: resolver, creates: creates, produced: produced, activeFragments: map[productionKey]bool{}}
+			states := walk.interpret(info.production.Body, newStates(""), info)
 			next := unionMetaclasses(finalMetaclasses(states), sortedOwnerSet(produced))
 			if !sameStrings(creates[key], next) {
 				creates[key] = next
@@ -135,7 +136,8 @@ func Shapes(grammars []*Grammar) []Shape {
 			if p.Kind == KindFragment {
 				start = newStates(info.returns)
 			}
-			interpretShape(p.Body, start, info, info.returns, infos, resolver, creates, ownerSets, nil, map[productionKey]bool{})
+			walk := &shapeWalk{defaultReturns: info.returns, infos: infos, resolver: resolver, creates: creates, owners: ownerSets, activeFragments: map[productionKey]bool{}}
+			walk.interpret(p.Body, start, info)
 			appendShapeContents(&shape, p.Body, ownerSets, info, infos, resolver)
 			if p.Kind == KindRule && !info.datatype {
 				shape.Creates = append([]string(nil), creates[key]...)
@@ -240,34 +242,43 @@ func sameStates(left, right stateSet) bool {
 	return true
 }
 
-func interpretShape(e expr, states stateSet, owner shapeInfo, defaultReturns string, infos map[productionKey]shapeInfo,
-	resolver *analyzer, creates map[productionKey][]string, owners map[expressionID]map[string]bool,
-	produced map[string]bool, activeFragments map[productionKey]bool,
-) stateSet {
+// shapeWalk carries the tables an interpretation of a production body reads and fills.
+type shapeWalk struct {
+	defaultReturns  string
+	infos           map[productionKey]shapeInfo
+	resolver        *analyzer
+	creates         map[productionKey][]string
+	owners          map[expressionID]map[string]bool
+	produced        map[string]bool
+	activeFragments map[productionKey]bool
+}
+
+// interpret follows e from states, the types the production may be returning so far.
+func (w *shapeWalk) interpret(e expr, states stateSet, owner shapeInfo) stateSet {
 	switch v := e.(type) {
 	case nil, litExpr, crossRefExpr:
 		return states
 	case actionExpr:
-		if produced != nil {
-			produced[v.Type] = true
+		if w.produced != nil {
+			w.produced[v.Type] = true
 		}
-		if v.Feature != "" && owners != nil {
-			owners[expressionID{grammar: v.grammar, id: v.id}] = map[string]bool{v.Type: true}
+		if v.Feature != "" && w.owners != nil {
+			w.owners[expressionID{grammar: v.grammar, id: v.id}] = map[string]bool{v.Type: true}
 		}
 		return newStates(v.Type)
 	case assignExpr:
-		if owners != nil {
+		if w.owners != nil {
 			key := expressionID{grammar: v.grammar, id: v.id}
-			targets := owners[key]
+			targets := w.owners[key]
 			if targets == nil {
 				targets = map[string]bool{}
-				owners[key] = targets
+				w.owners[key] = targets
 			}
 			for state := range states {
 				if state == "" {
-					state = defaultReturns
-					if produced != nil {
-						produced[state] = true
+					state = w.defaultReturns
+					if w.produced != nil {
+						w.produced[state] = true
 					}
 				}
 				targets[state] = true
@@ -276,56 +287,56 @@ func interpretShape(e expr, states stateSet, owner shapeInfo, defaultReturns str
 		out := newStates()
 		for state := range states {
 			if state == "" {
-				state = defaultReturns
-				if produced != nil {
-					produced[state] = true
+				state = w.defaultReturns
+				if w.produced != nil {
+					w.produced[state] = true
 				}
 			}
 			out[state] = true
 		}
 		return out
 	case refExpr:
-		called, ok := resolver.lookup(owner.production.Grammar, v.Name)
+		called, ok := w.resolver.lookup(owner.production.Grammar, v.Name)
 		if !ok {
 			return states
 		}
 		key := productionKey{grammar: called.Grammar, name: called.Name}
-		info := infos[key]
+		info := w.infos[key]
 		if called.Kind == KindFragment {
-			if activeFragments[key] {
+			if w.activeFragments[key] {
 				return states
 			}
-			activeFragments[key] = true
-			out := interpretShape(called.Body, states, info, defaultReturns, infos, resolver, creates, owners, produced, activeFragments)
-			delete(activeFragments, key)
+			w.activeFragments[key] = true
+			out := w.interpret(called.Body, states, info)
+			delete(w.activeFragments, key)
 			return out
 		}
 		if called.Kind == KindRule && !info.datatype {
-			if produced != nil {
-				for _, created := range creates[key] {
-					produced[created] = true
+			if w.produced != nil {
+				for _, created := range w.creates[key] {
+					w.produced[created] = true
 				}
 			}
-			return newStates(creates[key]...)
+			return newStates(w.creates[key]...)
 		}
 		return states
 	case seqExpr:
 		out := states
 		for _, item := range v.Items {
-			out = interpretShape(item, out, owner, defaultReturns, infos, resolver, creates, owners, produced, activeFragments)
+			out = w.interpret(item, out, owner)
 		}
 		return out
 	case altExpr:
 		out := newStates()
 		for _, item := range v.Items {
-			out = unionStates(out, interpretShape(item, newStatesFrom(states), owner, defaultReturns, infos, resolver, creates, owners, produced, activeFragments))
+			out = unionStates(out, w.interpret(item, newStatesFrom(states), owner))
 		}
 		return out
 	case optExpr:
 		before := newStatesFrom(states)
 		current := newStatesFrom(states)
 		for {
-			next := unionStates(before, interpretShape(v.Item, newStatesFrom(current), owner, defaultReturns, infos, resolver, creates, owners, produced, activeFragments))
+			next := unionStates(before, w.interpret(v.Item, newStatesFrom(current), owner))
 			if sameStates(next, current) {
 				return next
 			}

@@ -123,17 +123,14 @@ jobs:
           sudo install -m 0755 /tmp/buf /usr/local/bin/buf
           buf --version
 
-      # One buf template generates both the Go stubs and the Java client's message
-      # classes, so without this check the committed stubs can drift from the schema.
+      # Without this check the committed Go stubs can drift from the schema.
       # `git add -N` puts a regenerated file the commit had deleted into the diff.
-      - name: Verify the committed Go and Java stubs are current
+      - name: Verify the committed Go stubs are current
         if: matrix.shard == 'rest'
         run: |
           make proto-buf BUF=buf
-          git add -N api/proto \
-            client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
-          git diff --exit-code api/proto \
-            client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+          git add -N api/proto
+          git diff --exit-code api/proto
 
       # The solver is an external process, never linked in: the solver-dependent
       # tests need one on PATH to run rather than skip.
@@ -446,10 +443,10 @@ jobs:
           go vet ./...
           go vet -C tools ./...
 
-      - name: Vet and test the production sysml build (-tags sysml_prod)
+      - name: Vet and test the RE sysml build (-tags sysml_re)
         run: |
-          go vet -tags sysml_prod ./cmd/sysml/... ./internal/frontend/repl/...
-          go test -count=1 -tags sysml_prod ./cmd/sysml -run TestProdBuild
+          go vet -tags sysml_re ./cmd/sysml/... ./internal/frontend/repl/...
+          go test -count=1 -tags sysml_re ./cmd/sysml -run TestREBuild
 
       - name: Run static analysis (staticcheck + gosec)
         run: make lint
@@ -1638,30 +1635,6 @@ jobs:
         with:
           name: java-conformance-report
           path: conformance-report-java.json
-
-      # The Java message classes come out of the one buf template that also runs the
-      # Go plugins through `go run`, so the check needs a Go toolchain even here.
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      # Pinned by digest, so a substituted asset is not run.
-      - name: Install buf
-        run: |
-          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/buf \
-            https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
-          echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
-          sudo install -m 0755 /tmp/buf /usr/local/bin/buf
-          buf --version
-
-      # Committed stubs must be what buf generates, or the checked-in client and
-      # the schema can drift apart silently.
-      - name: Verify the committed Java stubs are current
-        run: |
-          make proto-buf BUF=buf
-          git add -N client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
-          git diff --exit-code client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
 
   syson-plugin:
     name: SysON plugin

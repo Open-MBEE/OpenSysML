@@ -165,7 +165,7 @@ func TestSetOnDiskAllRecordsFollowTheLibraryVersion(t *testing.T) {
 	if got := same.StandsInFor("copy.kerml"); got != scalarValues {
 		t.Fatalf("StandsInFor(copy) = %q, want %q", got, scalarValues)
 	}
-	if got := keyOf(same); got != written {
+	if keyOf(same) != written {
 		t.Error("an unchanged version of the library moved the key of user.sysml's record")
 	}
 	if !same.Recorded("user.sysml") {
@@ -181,7 +181,7 @@ func TestSetOnDiskAllRecordsFollowTheLibraryVersion(t *testing.T) {
 	if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
 		t.Fatalf("StandsInFor(edited copy) = %q, want %q", got, scalarValues)
 	}
-	if got := keyOf(ws); got == written {
+	if keyOf(ws) == written {
 		t.Fatal("the edited version left the library identity: the fixture is vacuous")
 	}
 	if ws.Recorded("user.sysml") {

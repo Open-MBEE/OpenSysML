@@ -14,6 +14,11 @@ import (
 	"github.com/Open-MBEE/OpenSysML/tools/census/grammar"
 )
 
+const (
+	kermlPrefix = "KerML::"
+	sysmlPrefix = "SysML::"
+)
+
 const relationshipFQN = "KerML::Root::Relationship"
 
 type reflectiveModel struct {
@@ -122,15 +127,15 @@ func typeChecks(shape grammar.Shape, sem *semantics.Model) []TypeCheck {
 			check.Status, check.FQN = "ecore", name
 		} else {
 			simple := name
-			for _, prefix := range []string{"SysML::", "KerML::"} {
+			for _, prefix := range []string{sysmlPrefix, kermlPrefix} {
 				simple = strings.TrimPrefix(simple, prefix)
 			}
 			if meta := sem.Metaclass(simple); meta != nil {
 				check.FQN = symbols.FQNOf(meta)
 				switch {
-				case strings.HasPrefix(check.FQN, "SysML::"):
+				case strings.HasPrefix(check.FQN, sysmlPrefix):
 					check.Status = "sysml"
-				case strings.HasPrefix(check.FQN, "KerML::"):
+				case strings.HasPrefix(check.FQN, kermlPrefix):
 					check.Status = "kerml"
 				default:
 					check.Status = "missing"
@@ -198,7 +203,7 @@ func lookupMetaclass(sem *semantics.Model, qualified string) *symbols.Symbol {
 	if sem == nil || qualified == "" || strings.HasPrefix(qualified, "Ecore::") {
 		return nil
 	}
-	simple := strings.TrimPrefix(strings.TrimPrefix(qualified, "SysML::"), "KerML::")
+	simple := strings.TrimPrefix(strings.TrimPrefix(qualified, sysmlPrefix), kermlPrefix)
 	return sem.Metaclass(simple)
 }
 
@@ -214,7 +219,7 @@ func featureDeclaredBy(sem *semantics.Model, owner *symbols.Symbol, feature stri
 		if fqn != symbols.FQNOf(candidate) {
 			continue
 		}
-		if strings.HasPrefix(fqn, "SysML::") || strings.HasPrefix(fqn, "KerML::") {
+		if strings.HasPrefix(fqn, sysmlPrefix) || strings.HasPrefix(fqn, kermlPrefix) {
 			return fqn
 		}
 	}

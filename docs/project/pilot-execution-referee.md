@@ -233,8 +233,8 @@ the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23
 the 4 of `body_local_conformance.cases` and the 10 of `exact_rationals.cases`:
 
 ```
-agree: 217 · kind-only: 1 · order-only: 0 · disagree: 29 · differs-by-design: 5
-pilot-unevaluated: 124 · pilot-silent: 21 · pilot-error: 5 · ours-error: 10 · ours-undetermined: 28
+agree: 216 · kind-only: 1 · order-only: 0 · disagree: 26 · differs-by-design: 5
+pilot-unevaluated: 124 · pilot-silent: 21 · pilot-error: 5 · ours-error: 10 · ours-undetermined: 32
 both-error: 16 · nondeterministic: 0
 ```
 
@@ -656,7 +656,7 @@ agree: `n as Real` on `n : Integer = 7` answers `7` on both sides, and `(1, 2.5,
 answers `(1, 3)` on both — the cast selects element-wise and converts nothing. Three are
 `pilot-silent`: `n as Natural`, `2.5 as Integer` and `4.0 as Integer` draw no output at all from
 the pilot, so its reading of a cast is unobservable here; we answer the empty sequence for both
-`2.5 as Integer` and `4.0 as Integer`, and the typed `ErrUndecidedClassification` for `n as
+`2.5 as Integer` and `4.0 as Integer`, and the typed `errUndecidedClassification` for `n as
 Natural`, because a cast keeps exactly the values `istype` affirms and the pilot's `istype`
 verdicts below fix those. The two part cases, `car as Vehicle` and `car as Car`, land in
 `pilot-unevaluated`: the pilot answers with the unevaluated `PartUsage car`, which names the same
@@ -702,7 +702,7 @@ stays undecided. Twelve agree, eight disagree and three are `pilot-silent`, per 
 | `two-istype-level`, `three-hastype-level`, `three-hastype-integer`, `high-istype-integer`, `high-eq-three`, `high-plus-one`, `cast-hastype-level`, `red-istype-color`, `red-hastype-color`, `c-hastype-color`, `three-istype-color`, `red-istype-level` | as ours | `false`, `false`, `true`, `true`, `true`, `4`, `true`, `true`, `true`, `true`, `false`, `false` | **Agree.** A bare `3` is directly an `Integer` and no `Level`; a `Level` literal is an `Integer` by specialization and equals and computes as its value; `(3 as Level) hastype Level` is `true` on both sides; a plain enumeration's literal is of its enumeration alone and a scalar is of no plain enumeration |
 | `three-istype-level`, `three-at-level` | `false` | `true` | **Ours.** The pilot's `IsTypeFunction`/`AtFunction` compare the literal's type (`Integer`) against `Level` by specialization alone and never consult the enumerated values, so they answer `false` for a value §8.3.7 makes an instance of `Level`. The same evaluator answers `two-istype-level` `false` for the right reason and the wrong one at once; the two verdicts cannot both come from the extent |
 | `high-istype-level`, `high-hastype-level`, `high-hastype-integer`, `lvl-hastype-level`, `lvl-hastype-integer`, `held-hastype-level` | `false`, `false`, `true`, `false`, `true`, `false` | `true`, `true`, `false`, `true`, `false`, `true` | **Ours.** The pilot folds a scalar-valued enumeration literal to the `LiteralInteger 3` it is assigned and classifies that — so `Level::high istype Level` is `false` from the pilot, which no reading of §8.3.7 (the enumerated values are the instances) or of `hastype` (KerML 1.0 §7.4.9.2) allows, and contradicts its own `cast-hastype-level` and `red-hastype-color` answers. The runtime keeps the literal's identity on its scalar value (`runtime.Value.EnumerationLiteral`), so a literal is directly of its enumeration and only indirectly an `Integer` |
-| `three-as-level`, `two-as-level`, `five-as-even` | no output | `3`, `()`, `ErrUndecidedClassification` | **Unrefereeable.** As for `cast_expressions.cases`, a cast draws no output from the pilot, so its reading is unobservable; ours follows the `istype` verdicts above, and `5 as Even` keeps the undecided refusal the plain-subtype row pins |
+| `three-as-level`, `two-as-level`, `five-as-even` | no output | `3`, `()`, `errUndecidedClassification` | **Unrefereeable.** As for `cast_expressions.cases`, a cast draws no output from the pilot, so its reading is unobservable; ours follows the `istype` verdicts above, and `5 as Even` keeps the undecided refusal the plain-subtype row pins |
 
 The 24 `literal_types.cases` all agree, and they pin the rule the runtime's two typing paths now
 share: a literal's own type is its `ScalarValues` definition, found in the library and not by its
@@ -793,16 +793,23 @@ us — the pilot's `re`/`im` have no evaluable body, and the same run answers `f
 zero. Read it as unrefereeable, and see the `ComplexFunctions` row of
 [spec-compliance.md](spec-compliance.md) for the adjudication.
 
-The remaining three are the subsetting-membership cases added with the fix they were meant to
-referee, and they are unrefereeable in the same way. `w6d:subsetting-defaulted-count` asks
-`size(subsystem)` of a `part subsystem : Sub[*] default null;` that `part a : Sub :> subsystem;`
-and `part b : Sub :> subsystem;` subset: we answer `2`, the pilot `0`. Its `0` is the folded
-default, not a count of members — `w6d:subsetting-two-count` drops the default and the pilot
-answers `1` for the same two parts, and `w6d:subsetting-none-count` answers `1` for a collection
-nothing subsets (we answer `2` and `0`). A count that is `1` for two members and for none is the
-static evaluator reading the feature as one value, so it decides nothing about which objects a
-subsetted collection holds; `w6d:subsetting-rollup` agrees only because `Sub::mass` defaults to
-`1.0` and one part subsets. The two empty-aggregate cases of the same round land in
+The subsetting-membership cases added with the fix they were meant to referee are
+unrefereeable in the same way, and now bucket `ours-undetermined`. `w6d:subsetting-defaulted-count`
+asks `size(subsystem)` of a `part subsystem : Sub[*] default null;` that `part a : Sub :> subsystem;`
+and `part b : Sub :> subsystem;` subset: the pilot answers `0`, the folded default, not a count of
+members — `w6d:subsetting-two-count` drops the default and the pilot answers `1` for the same two
+parts, and `w6d:subsetting-none-count` answers `1` for a collection nothing subsets. A count that is
+`1` for two members and for none is the static evaluator reading the feature as one value, so it
+decides nothing about which objects a subsetted collection holds. We answer `<undetermined>` for
+all three, and for `w6d:subsetting-rollup` (`total default sum(subsystem.mass)`): `n` and `total`
+are bound members of the package-level `sysDefaulted`, `sysTwo`, `sysNone` and `sys`, and a
+`[*]` collection the model leaves open holds its subsetters certainly and possibly more, so the
+read through the bound member is the read the direct chain `size(sysTwo.subsystem)` and
+`sum(sys.subsystem.mass)` already made (the open-cardinality row of
+[spec-compliance.md](spec-compliance.md)). The pilot's `1.0` for `subsetting-rollup` is the same
+fold — `Sub::mass` defaults to `1.0` and it reads `subsystem` as the one part — and agreed with the
+materialized lower bound we no longer make up for an object only the model stands behind. The two
+empty-aggregate cases of the same round land in
 `pilot-unevaluated`: `sum(qsNone)` over an empty `MassValue[*]` is `InvocationExpression sum` and
 `3.0 [SI::kg] + sum(qsNone)` is `OperatorExpression +` where we answer `0 [kg]` and `3.0 [SI::kg]`,
 so the kind of an empty quantity sum, like every other unit-carrying value, has no reference

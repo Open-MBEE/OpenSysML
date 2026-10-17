@@ -159,6 +159,10 @@ type Renderer struct {
 	text     SourceText
 	// treeDepthBound overrides the containment depth bound when set; tests only.
 	treeDepthBound int
+	// depth, when set, overrides the depth every view states (SetDepth).
+	depth int
+	// filters caches each view's filter conditions for its walks.
+	filters map[*symbols.Symbol][]symbols.ElementFilter
 	// verdicts overlays verification verdicts on a requirement rendering; nil
 	// draws it structurally.
 	verdicts Verdicts
@@ -279,6 +283,9 @@ type Node struct {
 	// NameSynthesized marks a name the model did not give: a migration made it up, or
 	// it is the language's `start`/`done`. A name to key by, not one a picture shows.
 	NameSynthesized bool
+	// Referential marks a structural usage that refers to its value rather
+	// than owning it (`ref part`): a row of a tool's references compartment.
+	Referential bool
 	// StandIn marks a node a migration made up that stands for no element of its
 	// source, so no diagram symbol is at it: a join it wrote several edges through.
 	StandIn bool
@@ -291,6 +298,14 @@ type Node struct {
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
+	// Value is the value a usage is bound to, as the notation writes it after
+	// the `=`. It is empty for a definition or an unbound usage.
+	Value string
+	// Compartments are the members drawn as rows inside the node's box rather
+	// than as nodes of their own, grouped by kind in the notation's compartment
+	// order: in a positioned tree, the members with no position. Nil when
+	// every member is a node.
+	Compartments []Compartment
 	// Text is what heads a node whose name is not shown, in place of its kind:
 	// the literal a value specification's result is bound to, the event an
 	// accept waits for, the message a send sends. Empty when its kind heads it.
@@ -473,6 +488,8 @@ type Rendering struct {
 	// connection to something the view does not expose, a behavior that does not
 	// lower.
 	Notices []string
+	// depthCut counts the elements a depth bound kept the walk from drawing.
+	depthCut int
 
 	emptyReason string
 	// drawn collects the elements drawn while rendering, nil when no one asked.
@@ -581,6 +598,10 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 		// Unreachable: KindOf refuses an unsupported kind.
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
 	}
+	r.noteDepthCuts(view, out)
+	if out.Empty() && out.emptyReason == "" {
+		out.emptyReason = r.exposureReason(view, exposed, out)
+	}
 	switch kind {
 	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
 		// The graph-shaped kinds are drawn on a canvas; a table or sequence is not.
@@ -623,6 +644,10 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 		r.renderGeneral(nil, exposed, out)
 	default:
 		return nil, &UnsupportedKindError{Kind: kind, Stated: stated, Remedy: remedyFor(kind)}
+	}
+	r.noteDepthCuts(nil, out)
+	if out.Empty() && out.emptyReason == "" {
+		out.emptyReason = exposedReason(exposed, out)
 	}
 	return out, nil
 }

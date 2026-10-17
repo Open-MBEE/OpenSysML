@@ -1259,6 +1259,7 @@ func mermaidLabel(node *Node, labels labeller, lines []string, title bool) strin
 		markdown = append(markdown, "**"+line+"**")
 	}
 	markdown = append(markdown, labels.details(node)...)
+	markdown = append(markdown, labels.compartmentLines(node)...)
 	return `"` + "`" + strings.Join(markdown, "\n") + "`" + `"`
 }
 

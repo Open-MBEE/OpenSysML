@@ -363,6 +363,23 @@ objectives with the corresponding edge attributes; PlantUML uses `usecase`, `act
 rectangles and notes. Graph kinds keep Mermaid as their machine form. Markdown, CSV and TSV are
 table-only forms and return `WrongFormError` for both new kinds.
 
+## Sequence renderings
+
+A `SequenceView` draws the occurrences an interaction declares in its body as lifelines and
+each `message` or `flow` whose ends are events on them as a directed message, a message whose
+ends are on one lifeline as a self-message. A message is one row, so its send and receive events
+share the row's time, and the rows are ordered by the successions the model states between the
+events on them (`sequence.go`, `orderMessages`): a member-attached `then` and a
+`succession first a then b` between two events each order the two messages those events are on,
+an order running through an event no message attaches to is carried through it, and
+declaration order decides only between messages nothing orders. A message attached to a
+lifeline itself or to a port of it, rather than to an event on it, has no time of its own at that
+end, so it neither orders nor is ordered there. A relay whose successions on
+one lifeline order message `b`'s send before message `c`'s is drawn `b` above `c` whatever order
+the receiving events are declared in. A succession running against a message's own direction (its receive before its send), or
+successions that order one message both above and below another, cannot be drawn as rows, so the cycle is reported as not represented and the messages
+keep declaration order. The Mermaid, PlantUML and D2 forms write the messages in that order.
+
 ## Mermaid
 
 Mermaid is the default machine-readable form for graph-shaped views. Trees, interconnections and
@@ -465,7 +482,9 @@ digraph "VehicleViews::vehicleView" {
   `subgraph "cluster_<id>" { label=<…>; color=black; penwidth=<w>; … }`, the containment Mermaid writes as `subgraph`;
   in a tree, containment is an `arrowhead=none` edge, as the Mermaid tree draws it, so a tree has
   no clusters. In a positioned tree a child boxed inside its owner's box draws as a compartment
-  row of it and no edge is written for it; a child boxed outside keeps its edge. Since DOT edges join nodes, not subgraphs, every cluster holds an invisible,
+  row of it and no edge is written for it; a child boxed outside keeps its edge; a member child
+  with no position at all lists in a compartment of its owner's box (see *Compartment rows*
+  below). Since DOT edges join nodes, not subgraphs, every cluster holds an invisible,
   sizeless anchor node named by the cluster's own ID; an edge whose end is a cluster names that
   anchor, so the rendering's endpoints survive verbatim, and is clipped at the cluster with
   `lhead`/`ltail` — except at an end that encloses the other, where the edge starts or ends
@@ -879,9 +898,54 @@ digraph "PlantViews::placedView" {
   kind draws takes a route: a connection, binding or flow of an interconnection, a transition
   of a state rendering, a succession or flow of an action rendering — the annotation names the
   member (`metadata DiagramLayout::Route about 'a to b'`), so only a named edge can carry one.
+- **Compartment rows.** A migrated diagram gives a `Layout` only to what its source drew as a
+  symbol of its own; a block's attributes, nested parts, constraints, ports listed in a
+  compartment and enum literals never had one. In a positioned tree, a member child with no
+  position whose subtree holds no positioned node is drawn as a row of a compartment inside its
+  owner's box rather than left undrawn (`foldCompartments` in placement.go, run by every
+  graphical form before it settles the unplaced nodes; `Node.Compartments` carries the rows,
+  `labeller.compartmentLines` writes them). The rows are grouped by the member's keyword under
+  the plural compartment name of the graphical notation (§8.2.3 `compartment`): `attributes`,
+  `enumerations`, `occurrences`, `items`, `parts`, `ports`, `connections`, `interfaces`,
+  `allocations`, `actions`, `states`, `calculations`, `constraints`, `requirements`, `cases`,
+  `analyses`, `verifications`, `use cases`, `views`, `viewpoints`, `renderings`, `metadata`
+  (the order Part 7 of the language spec introduces the kinds), any other keyword after them in
+  first-seen order, and the rows of a compartment keep declaration order. A row is the member's
+  textual notation, as the label shows it: a modifier of its keyword (`ref`), its name, `: Type`
+  when typings are shown, `= value` when the usage is bound (`gain : dB = 15.0`,
+  `constraint1 : 'Signal Output'`; a value the renderer does not spell, such as an invocation,
+  is its source text; a member with no name or type to show reads as its keyword, as a head
+  does, so no row is ever empty). No edge is written to a member drawn as a row, and the
+  notice counts them (`4 node(s) without a position, drawn as compartment rows of the node
+  above them`); a row shows the member alone, so the members nested under a row are left undrawn
+  and the notice counts them apart (`, and 1 node(s) under them left undrawn`). A member of a
+  compartment the owner's `Layout` hides with a `show…` switch (`showParts = false`; see
+  [DiagramLayout annotations](diagram-layout-annotations.md)) is not drawn as a row and the
+  notice says so (`9 node(s) without a position: 7 drawn as compartment rows of the node above
+  them, 2 in compartments its Layout hides left undrawn`); its edges are dropped as a row's are. A member with a
+  `Layout` of its own stays a node (a compartment row by its box when inside the owner's, an edge
+  when outside), as does an unplaced member with a positioned node under it, so that node keeps
+  its owner. An unpositioned tree is unchanged: every member
+  stays a node of its own. Nothing folds when `compartments` is not shown (`ElementCompartments`
+  off, `showCompartments = false`): the layout-less members are left undrawn as before. DOT keeps
+  the owner's box at its `Layout` size and fits the compartments into its headroom after the
+  title and detail lines (`fitParts`): a compartment's name is set at the keyword size, its rows
+  left-aligned at the title size, each kept only while the strip has room for it and none written
+  over the border; a compartment with no row that fits is dropped with its name, and once a row is
+  clipped every later row is, so the box reads in order. A `// not represented:` notice counts the
+  rows clipped (`2 compartment row(s) with no room in the stated size of their node's box, left
+  unwritten`); a box whose `Layout` has a corner and no size is sized to its rows
+  (`dotLabelExtent`). Mermaid, PlantUML and D2 write every row as a label line, as they write detail
+  lines, and size the box to it. The text form never settled the unplaced nodes and lists the
+  members as before; the data form is unchanged too — a row is a child `Node` with no `Geometry`
+  under a parent with one. The VS Code webview (`editors/vscode/src/webview/layout.ts`) draws
+  no compartment rows: it builds its tree from `Parent` and places such a child as a box of its
+  own in a grid slot (`placeGrid`), so it never dropped the member; drawing it as a row there
+  is the webview's own change to make.
 - **Unplaced nodes.** A node counts as positioned however its box was found — by its
   `Layout`, round its members, or from a route. When some nodes are positioned and others are
-  not, the drawing shows what its source showed: the unpositioned nodes are left undrawn, with
+  not, the drawing shows what its source showed: the unpositioned nodes are left undrawn (a
+  tree's member children of a positioned node list in its compartments instead, above), with
   every edge at one of them and the containment edge a tree would draw to it, and a
   `// not represented:` notice counts them (`2 node(s) without a position, left undrawn, and 1
   edge(s) at them`), so nothing lands on a placed box — a migrated diagram's members the source
@@ -1237,6 +1301,66 @@ with their edges' ends moved to the node that declared them and a note anchored 
 likewise, hidden labels, typings, multiplicities, keywords, compartments and qualifiers are left
 unwritten, so DOT, Mermaid, PlantUML, D2, text and `Rendering.Data` agree. A name none of the
 elements has is refused with the names there are.
+
+## Limiting what a view draws
+
+A tree or interconnection rendering draws the contents of every element the view exposes, as the
+Pilot visualizer does; the specification leaves what a rendering draws to the tool (SysML v2
+§10.2). Three mechanisms bound it, all applied by the one containment walk (`Renderer.walkMembers`,
+`Renderer.walkBound`), so the DOT, Mermaid, PlantUML, D2 and text forms and `Rendering.Data` agree:
+
+- **`expose` and `filter`** (SysML v2 §7.24, normative). What a view exposes are its roots; its
+  filter conditions — `filter` members, the `[…]` clauses of its `expose` lines, and those
+  inherited from its view definition and that definition's supertypes — also decide which contained
+  members the walk draws beneath each root: a member a condition rejects is not drawn, nor its
+  subtree. The one admission (`semantics.Model.SatisfiesElementFilter`) decides roots and children
+  alike. So `filter @SysML::PartUsage;` prunes attributes and ports from a part tree, and a
+  standard metadata marker blacklists single elements:
+
+  ```sysml
+  metadata def Hidden;
+  part rover { part chassis; #Hidden part telemetry; }
+  view structure { expose rover; filter not @Hidden; render asTreeDiagram; }
+  ```
+
+  A connector whose end lies in a pruned element is not drawn and is counted in the notices
+  (`… attaches to telemetry.tx, which the view's filter conditions exclude; no edge is drawn`). A
+  view with no filter conditions renders as it always has.
+
+- **`depth`** (a non-normative convention). An attribute usage named `depth` bound to a
+  non-negative integer literal on the view usage, else on the nearest view definition it
+  specializes, bounds how many levels of nested elements are drawn below each exposed root; `0`
+  or none draws every level. Filtering applies first, so the levels are counted over what the
+  filters keep. Ports and action, case and constraint parameters count at their owner's depth, so an
+  element at the bound keeps them pinned on its border; it is drawn with its compartment rows, carries
+  the detail `nested deeper than N levels; not shown`, and the elements directly below the bound are
+  counted once in the notices. The bare form is the one SysIDE reads, so a model renders alike in
+  both tools; a view definition may declare the attribute typed (`attribute depth :
+  ScalarValues::Natural[0..1];`) for its specializations to redefine. The `OpenSysMLRenderings`
+  library is vendored from the OpenSysML Extensions Library, so a shared `DepthLimitedView`
+  declaring it belongs there, not in this tree:
+
+  ```sysml
+  view overview { expose vehicle; attribute depth = 2; render asTreeDiagram; }
+  view def DepthLimited { attribute depth : ScalarValues::Natural[0..1]; }
+  view def TwoLevels :> DepthLimited { :>> depth = 2; }
+  ```
+
+  A `depth` bound to anything but a non-negative integer literal is the `view-depth-value` error,
+  naming the attribute. `-render-depth`, `%render depth=`, the LSP request's `depth`, the gRPC
+  `RenderViewRequest.depth` and the VS Code `opensysml.diagram.depth` setting override the model's
+  depth for one render. Tables draw their rows unbounded: a table has no levels to cut.
+
+- **`DiagramLayout::Layout.collapsed`** (a non-normative convention,
+  [design record](diagram-layout-annotations.md)). A `Layout` with `collapsed = true` about an
+  element draws it with no children in every form, keeping its ports and the `collapsed` tag
+  (`comment="collapsed"` in DOT, ` collapsed` in text, `Geometry.Collapsed` in the data); its
+  `show…` switches hide single compartments, in the text form as in DOT:
+
+  ```sysml
+  view wiring { expose vehicle; render asInterconnectionDiagram;
+      metadata Layout about vehicle::engine { x = 120; y = 40; collapsed = true; } }
+  ```
 
 ## Surfaces
 

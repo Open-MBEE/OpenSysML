@@ -274,6 +274,16 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 		for _, region := range e.orderedActiveRegions() {
 			fmt.Fprintf(&s.out, " active{%s = %s}", regionKey(region), e.statePath(e.activeConfig.regionStates[region]))
 		}
+		complete := make([]*ast.StateRegion, 0, len(e.activeConfig.defaultComplete))
+		for region, isComplete := range e.activeConfig.defaultComplete {
+			if isComplete {
+				complete = append(complete, region)
+			}
+		}
+		sort.Slice(complete, func(i, j int) bool { return regionKey(complete[i]) < regionKey(complete[j]) })
+		for _, region := range complete {
+			fmt.Fprintf(&s.out, " default-complete{%s}", regionKey(region))
+		}
 	}
 	for _, state := range e.stateStack {
 		fmt.Fprintf(&s.out, " stack{%s}", e.statePath(state))

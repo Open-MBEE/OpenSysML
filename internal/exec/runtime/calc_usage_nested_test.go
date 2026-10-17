@@ -322,7 +322,7 @@ func TestCalcOutputChainIsNotNesting(t *testing.T) {
 	if sym == nil {
 		t.Fatal("calc usage ch not found")
 	}
-	value, err := ctx.CalcUsageOutput(sym, last, sym.OwnerScope, nil)
+	value, err := ctx.calcUsageOutput(sym, last, sym.OwnerScope, nil)
 	if err != nil {
 		t.Fatalf("reading %s: %v", last, err)
 	}

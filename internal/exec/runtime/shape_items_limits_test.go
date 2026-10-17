@@ -28,15 +28,15 @@ func TestShapeItemsUnsupportedExpressionsAreTypedErrors(t *testing.T) {
 		{"box.matingOccurrences", ErrNoSuchFeature, "member matingOccurrences not found in instance"},
 		{"rect.vertices#(1).matingOccurrences", ErrNoSuchFeature, "member matingOccurrences not found in instance"},
 		{"box.spaceBoundary", ErrNoSuchFeature, "member spaceBoundary not found in instance"},
-		{"box.tfe", ErrBindingEnd, "which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds"},
-		{"box.tfe.length", ErrBindingEnd, "binding [1] bind [0..1] tf.edges = [0..1] tfe"},
-		{"box.tflv", ErrBindingEnd, "binding [1] bind [0..1] tf.edges = [0..1] tfe"},
-		{"box.vertices", ErrBindingEnd, "subsetting feature tflv of vertices: binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`"},
+		{"box.tfe", errBindingEnd, "which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds"},
+		{"box.tfe.length", errBindingEnd, "binding [1] bind [0..1] tf.edges = [0..1] tfe"},
+		{"box.tflv", errBindingEnd, "binding [1] bind [0..1] tf.edges = [0..1] tfe"},
+		{"box.vertices", errBindingEnd, "subsetting feature tflv of vertices: binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`"},
 		{"cyl.edges", ErrNoSuchFeature, "member edges not found in instance"},
 		{"cyl.faces.edges", ErrNoSuchFeature, "member edges not found in instance"},
 		{"cyl.vertices", ErrNoSuchFeature, "member vertices not found in instance"},
-		{"cyl.be", ErrBindingEnd, `"cf.edges": feature edges not found`},
-		{"cyl.ae", ErrBindingEnd, `"cf.edges": feature edges not found`},
+		{"cyl.be", errBindingEnd, `"cf.edges": feature edges not found`},
+		{"cyl.ae", errBindingEnd, `"cf.edges": feature edges not found`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.expr, func(t *testing.T) {

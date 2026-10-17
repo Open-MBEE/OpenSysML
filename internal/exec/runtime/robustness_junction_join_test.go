@@ -22,9 +22,9 @@ func TestRuntimeRobustnessJunctionJoin(t *testing.T) {
 				transition first dead if false then done;
 			}
 		}`)
-		if err == nil || !errors.Is(err, errNoWayThrough) || errors.Is(err, ErrChoiceWithoutBranch) ||
+		if err == nil || !errors.Is(err, errNoWayThrough) || errors.Is(err, errChoiceWithoutBranch) ||
 			!strings.Contains(err.Error(), "no guard evaluated to true") {
-			t.Fatalf("run error = %v, want the dead junction error, not ErrChoiceWithoutBranch", err)
+			t.Fatalf("run error = %v, want the dead junction error, not errChoiceWithoutBranch", err)
 		}
 	})
 
@@ -90,7 +90,7 @@ func TestRuntimeRobustnessJunctionJoin(t *testing.T) {
 				state done;
 			}
 		}`)
-		exec.SendSignal("X", nil)
+		exec.sendSignal("X", nil)
 		if err := exec.ProcessNextEvent(); !errors.Is(err, ErrDivisionByZero) {
 			t.Fatalf("ProcessNextEvent(X) = %v, want ErrDivisionByZero", err)
 		}
@@ -125,7 +125,7 @@ func TestRuntimeRobustnessJunctionJoin(t *testing.T) {
 				state done;
 			}
 		}`)
-		exec.SendSignal("Go", nil)
+		exec.sendSignal("Go", nil)
 		if err := exec.ProcessNextEvent(); !errors.Is(err, ErrDivisionByZero) {
 			t.Fatalf("ProcessNextEvent(Go) = %v, want ErrDivisionByZero", err)
 		}
@@ -158,7 +158,7 @@ func TestRuntimeRobustnessJunctionJoin(t *testing.T) {
 				state done;
 			}
 		}`)
-		exec.SendSignal("Go", nil)
+		exec.sendSignal("Go", nil)
 		if err := exec.ProcessNextEvent(); err != nil {
 			t.Fatalf("ProcessNextEvent(Go) = %v, want no error", err)
 		}

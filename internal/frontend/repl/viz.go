@@ -259,7 +259,7 @@ func (s *Session) viz(req vizRequest, fallback ...view.Form) ([]Rendered, error)
 	if len(fallback) == 0 {
 		fallback = []view.Form{view.FormText}
 	}
-	rendering, err := s.renderExposed(req.kind, req.names, "")
+	rendering, err := s.renderExposed(req.kind, req.names, "", 0)
 	if err != nil {
 		return nil, err
 	}

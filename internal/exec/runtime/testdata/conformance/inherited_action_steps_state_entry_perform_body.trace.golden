@@ -9,7 +9,7 @@ enter action node: p
       eval feature n -> (0)
       eval literal 10 -> 10
     eval operator + -> 10
-choice step 2: tokens 1@start, 2@b (unordered; took 2@b first)
+choice step 2: tokens 1@start, 2@b (unordered; took 2@b first; independent)
   stmt assign n
       eval feature n -> (10)
       eval literal 1 -> 1

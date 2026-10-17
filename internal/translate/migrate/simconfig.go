@@ -13,6 +13,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
+const (
+	drawPolicyPrefix = "Simulation::DrawPolicy::"
+)
+
 // A simulation tool's run configuration («SimulationConfig» of MagicDraw's
 // SimulationProfile) becomes an action def that holds its execution target as
 // a part and performs the target's classifier behavior on that part, so a run
@@ -127,7 +131,7 @@ func drawPolicySetting(v string) (string, string) {
 	mode := strings.ToLower(strings.TrimSpace(v))
 	switch mode {
 	case "random", "min", "max", "average":
-		return "Simulation::DrawPolicy::" + mode, ""
+		return drawPolicyPrefix + mode, ""
 	}
 	return "", "is not one of the draw policies random, min, max and average"
 }
@@ -154,7 +158,7 @@ func (m *migration) simulationConfig(e *sysmlv1.Element, header, note string) {
 		m.comments(e)
 		if m.strict {
 			m.w.lines(commentLines("simulation run settings, a comment since their v2 form is an OpenSysML library's: " +
-				strings.ReplaceAll(strings.Join(settings.lines, " "), "Simulation::DrawPolicy::", "")))
+				strings.ReplaceAll(strings.Join(settings.lines, " "), drawPolicyPrefix, "")))
 		} else {
 			m.w.block("@Simulation::Configuration", func() { m.w.lines(settings.lines) })
 		}
@@ -320,7 +324,7 @@ func (m *migration) configurationSettings(s *sysmlv1.Stereotype) (settings confi
 		case "numberOfRuns":
 			settings.runs, _ = strconv.ParseInt(lit, 10, 64)
 		case "durationSimulationMode":
-			settings.draws = strings.TrimPrefix(lit, "Simulation::DrawPolicy::")
+			settings.draws = strings.TrimPrefix(lit, drawPolicyPrefix)
 		}
 	}
 	var clockNotes []string

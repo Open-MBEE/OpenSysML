@@ -180,14 +180,17 @@ func TestToolkitTransitionSourceUsesRedefinitionTarget(t *testing.T) {
 	}
 }
 
+// A succession the toolkit resolves through implied ReferenceSubsettings alone
+// — `then timeslice secondEvent;` after `firstEvent` — is written back as the
+// positional `then` it was, not as `succession first firstEvent then secondEvent;`.
 func TestToolkitInferredSuccessionClause(t *testing.T) {
 	out := decodeToolkitFixture(t, "successions.toolkit.full.json", nil)
 	want := toolkitFixture(t, "successions.golden.sysml")
 	if !bytes.Equal(out, want) {
 		t.Fatalf("the decoded succession notation changed:\n--- want ---\n%s\n--- got ---\n%s", want, out)
 	}
-	if !strings.Contains(string(out), "succession first firstEvent then secondEvent;") {
-		t.Fatalf("the inferred succession lacks its required `first` clause:\n%s", out)
+	if !strings.Contains(string(out), "then timeslice occurrence secondEvent;") {
+		t.Fatalf("the succession whose source the toolkit only implied was not written by position:\n%s", out)
 	}
 }
 

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /**
  * Turns a response into a tree with the values that are not the same twice replaced. See
@@ -60,10 +61,9 @@ final class Normalizer {
       if (field.isMapField()) {
         out.put(field.getName(), entries(field, entry.getValue()));
       } else if (field.isRepeated()) {
-        List<Object> items = new ArrayList<>();
-        for (Object item : (List<?>) entry.getValue()) {
-          items.add(value(field, item));
-        }
+        List<Object> items =
+            ((List<?>) entry.getValue())
+                .stream().map(item -> value(field, item)).collect(Collectors.toCollection(ArrayList::new));
         out.put(field.getName(), items);
       } else {
         out.put(field.getName(), value(field, entry.getValue()));

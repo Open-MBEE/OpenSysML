@@ -986,7 +986,7 @@ type sessionPlan struct {
 }
 
 // pool is the plan's pool for an engine, made on first use by make.
-func (sp *sessionPlan) pool(name string, make func() *enginePool) (*enginePool, error) {
+func (sp *sessionPlan) pool(name string, build func() *enginePool) (*enginePool, error) {
 	sp.mu.Lock()
 	defer sp.mu.Unlock()
 	if sp.closed {
@@ -997,7 +997,7 @@ func (sp *sessionPlan) pool(name string, make func() *enginePool) (*enginePool, 
 	}
 	p, ok := sp.pools[name]
 	if !ok {
-		p = make()
+		p = build()
 		sp.pools[name] = p
 	}
 	return p, nil

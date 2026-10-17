@@ -9,6 +9,18 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
+const (
+	sentToSender             = " is sent to the sender"
+	theFeature               = "the feature "
+	assignKeyword            = "assign "
+	excludingCall            = "SequenceFunctions::excluding("
+	writtenFeatureUndeclared = "the feature written has no v2 declaration"
+	pinWord                  = "the pin "
+	takesWord                = " takes "
+	flowsNowhere             = ", which flows nowhere"
+	theReducer               = "the reducer "
+)
+
 // activityBody writes the nodes and edges of act as the body of def, the v2
 // action def being written: act itself, or the operation whose method it is.
 
@@ -2064,7 +2076,7 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 				return
 			}
 		}
-		why := "the pin " + describe(s) + " of " + describe(s.Parent) + " stands for no out parameter of the called " + qualifiedName(callee) + ", so it carries no value"
+		why := pinWord + describe(s) + " of " + describe(s.Parent) + " stands for no out parameter of the called " + qualifiedName(callee) + ", so it carries no value"
 		a.m.w.line(flowNote + describe(s) + " to " + to + notWritten + why + " */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: "+why+", and none reaches "+describe(tgt))
 		a.starve(tgt, to, why)
@@ -2380,7 +2392,7 @@ func (a *activity) callPrimitive(n *sysmlv1.Element, name string, p *primitiveCa
 	}
 	a.m.w.block(actionKw+name, func() { a.pins(n, nil) })
 	for _, pin := range ins[min(len(ins), len(args)):] {
-		a.m.add(pin, Unmapped, "", p.qualified()+" takes "+strconv.Itoa(len(args))+" argument(s); the pin passes nothing")
+		a.m.add(pin, Unmapped, "", p.qualified()+takesWord+strconv.Itoa(len(args))+" argument(s); the pin passes nothing")
 	}
 	for _, pin := range outs[min(len(outs), len(p.outs)):] {
 		a.m.add(pin, Unmapped, "", p.qualified()+" gives "+strconv.Itoa(len(p.outs))+" result(s); the pin takes nothing")
@@ -2514,7 +2526,7 @@ func (a *activity) opaqueOf(n *sysmlv1.Element) *opaqueResult {
 	r.lines, r.ok, r.note = a.m.statements(body, lang, n)
 	for _, p := range outputPins(n) {
 		d, ok := a.m.pins[p]
-		if ok && slices.ContainsFunc(r.lines, func(l string) bool { return strings.HasPrefix(l, "assign "+writeName(d.name)+" :=") }) {
+		if ok && slices.ContainsFunc(r.lines, func(l string) bool { return strings.HasPrefix(l, assignKeyword+writeName(d.name)+" :=") }) {
 			r.assigned[p] = true
 		}
 	}
@@ -2528,17 +2540,25 @@ func (a *activity) unassigned(pin *sysmlv1.Element) bool {
 	return pin.Parent != nil && pin.Parent.Type == "OpaqueAction" && !a.opaqueOf(pin.Parent).assigned[pin]
 }
 
-// opaqueAction writes an opaque action as an action of assignments when its body is
-// a sequence of them, else with the body kept as a comment; its pins stay unwritten.
+// opaqueAction writes translated assignments and keeps every opaque body as text.
 func (a *activity) opaqueAction(n *sysmlv1.Element, name string) {
 	r := a.opaqueOf(n)
 	a.m.w.block(actionKw+name, func() {
 		a.pins(n, nil)
+		a.m.textualReps(n)
 		if !r.ok {
 			a.inert[n] = true
-			body, lang := opaqueBody(n)
-			a.m.opaqueComment(body, lang, r.note)
-			a.m.add(n, Approximated, name, "the body is kept as a comment: "+r.note)
+			if r.note == "the body is empty" && opaqueBodiesEmpty(n) {
+				a.m.add(n, Mapped, name, "its body is empty, so it is written as an action that does nothing")
+				return
+			}
+			a.m.opaqueBodyComments(n, r.note)
+			_, lang := opaqueBody(n)
+			keptAs := "a textual representation, which is not executed"
+			if lang == "" {
+				keptAs = "a comment"
+			}
+			a.m.add(n, Approximated, name, "the body is kept as "+keptAs+": "+r.note)
 			return
 		}
 		a.m.w.lines(r.lines)
@@ -2707,7 +2727,7 @@ func (a *activity) readFeature(n *sysmlv1.Element, name string) {
 			return
 		}
 		if len(results) == 0 {
-			a.m.w.lines(commentLines("reads " + expr + ", which flows nowhere"))
+			a.m.w.lines(commentLines("reads " + expr + flowsNowhere))
 			return
 		}
 		r := results[0]
@@ -2749,19 +2769,19 @@ func (a *activity) writeObjectFeature(n, f *sysmlv1.Element) (feature, result, n
 		return "", "", "the object written, " + target + ", is a " + qualifiedName(typ) + noFeature + a.m.nameOf(f), Unmapped
 	}
 	if f.Type == "Property" && f.Parent != nil && f.Parent.Type == "Association" && f.Role == "ownedEnd" {
-		return "", "", "the feature " + a.m.nameOf(f) + " is an end owned by the association " + a.m.nameOf(f.Parent) +
+		return "", "", theFeature + a.m.nameOf(f) + " is an end owned by the association " + a.m.nameOf(f.Parent) +
 			", which the v2 class does not have; writing it creates or destroys a link", Unmapped
 	}
 	if fromPin {
 		if a.m.model.Ref(f, "type") == nil {
-			return "", "", "the feature " + a.m.nameOf(f) + " is untyped, so it has no v2 member to write through the object pin", Unmapped
+			return "", "", theFeature + a.m.nameOf(f) + " is untyped, so it has no v2 member to write through the object pin", Unmapped
 		}
 		if a.m.writtenHidden(f) {
 			vis := f.Attrs["visibility"]
 			if vis == "package" {
 				vis = "private"
 			}
-			return "", "", "the feature " + a.m.nameOf(f) + " is written " + vis + " in v2, which a reference to the object cannot reach", Unmapped
+			return "", "", theFeature + a.m.nameOf(f) + " is written " + vis + " in v2, which a reference to the object cannot reach", Unmapped
 		}
 	}
 	feature = a.m.respellThis(target+"."+writeName(a.m.nameOf(f)), a.act)
@@ -2793,7 +2813,7 @@ func unlimitedNaturalStar(pin *sysmlv1.Element) bool {
 func (a *activity) writeFeature(n *sysmlv1.Element, name string) {
 	f := a.m.model.Ref(n, "structuralFeature")
 	if f == nil || !a.m.written(f) || a.m.nameOf(f) == "" {
-		a.placeholder(n, name, "the feature written has no v2 declaration", Unmapped)
+		a.placeholder(n, name, writtenFeatureUndeclared, Unmapped)
 		return
 	}
 	val := firstOwned(n, "value")
@@ -2828,7 +2848,7 @@ func (a *activity) writeFeature(n *sysmlv1.Element, name string) {
 			base := feature
 			unique := f.Attrs["isUnique"] != "false"
 			if unique {
-				base = "SequenceFunctions::excluding(" + feature + ", " + value + ")"
+				base = excludingCall + feature + ", " + value + ")"
 			}
 			insertAt := firstOwned(n, "insertAt")
 			if f.Attrs["isOrdered"] == "true" && insertAt != nil && !unlimitedNaturalStar(insertAt) {
@@ -2837,14 +2857,14 @@ func (a *activity) writeFeature(n *sysmlv1.Element, name string) {
 				expr = "SequenceFunctions::including(" + base + ", " + value + ")"
 			}
 		}
-		assign := "assign " + feature + " := " + expr + ";"
+		assign := assignKeyword + feature + " := " + expr + ";"
 		if !a.m.lacksValue(val) {
 			a.m.w.line(assign)
 			written = true
 			return
 		}
 		a.m.w.lines([]string{"if " + writeName(a.names[val]) + "->SequenceFunctions::notEmpty() {", "    " + assign, "}"})
-		note = "the pin " + describe(val) + " admits no value, which the feature cannot hold: it is written only when the pin holds one"
+		note = pinWord + describe(val) + " admits no value, which the feature cannot hold: it is written only when the pin holds one"
 		written = true
 	})
 	if written {
@@ -2856,7 +2876,7 @@ func (a *activity) writeFeature(n *sysmlv1.Element, name string) {
 func (a *activity) removeFeature(n *sysmlv1.Element, name string) {
 	f := a.m.model.Ref(n, "structuralFeature")
 	if f == nil || !a.m.written(f) || a.m.nameOf(f) == "" {
-		a.placeholder(n, name, "the feature written has no v2 declaration", Unmapped)
+		a.placeholder(n, name, writtenFeatureUndeclared, Unmapped)
 		return
 	}
 	value, removeAt := firstOwned(n, "value"), firstOwned(n, "removeAt")
@@ -2888,11 +2908,11 @@ func (a *activity) removeFeature(n *sysmlv1.Element, name string) {
 				"}",
 			})
 		} else {
-			expr := "SequenceFunctions::excluding(" + feature + ", " + writeName(a.names[value]) + ")"
+			expr := excludingCall + feature + ", " + writeName(a.names[value]) + ")"
 			if f.Attrs["isUnique"] == "false" && n.Attrs["isRemoveDuplicates"] != "true" {
 				note = "every occurrence of the value is removed, where v1 removes one"
 			}
-			a.m.w.line("assign " + feature + " := " + expr + ";")
+			a.m.w.line(assignKeyword + feature + " := " + expr + ";")
 		}
 		written = true
 	})
@@ -2905,7 +2925,7 @@ func (a *activity) removeFeature(n *sysmlv1.Element, name string) {
 func (a *activity) clearFeature(n *sysmlv1.Element, name string) {
 	f := a.m.model.Ref(n, "structuralFeature")
 	if f == nil || !a.m.written(f) || a.m.nameOf(f) == "" {
-		a.placeholder(n, name, "the feature written has no v2 declaration", Unmapped)
+		a.placeholder(n, name, writtenFeatureUndeclared, Unmapped)
 		return
 	}
 	lower, _, boundsOK := bounds(f)
@@ -2932,13 +2952,13 @@ func (a *activity) clearFeature(n *sysmlv1.Element, name string) {
 		}
 		if lower >= 1 && !passThrough {
 			a.declarePinsWithValues(n, ins, outs, nil, nil)
-			note := "the feature " + a.m.nameOf(f) + " must hold at least one value, so it cannot be emptied in v2"
+			note := theFeature + a.m.nameOf(f) + " must hold at least one value, so it cannot be emptied in v2"
 			a.placeholderBody(n, name, note, Unmapped)
 			return
 		}
 		a.declarePinsWithValues(n, ins, outs, nil, resultPinValues(n, result))
 		if lower == 0 {
-			a.m.w.line("assign " + feature + " := ();")
+			a.m.w.line(assignKeyword + feature + " := ();")
 		}
 		written = true
 	})
@@ -3174,7 +3194,7 @@ func (a *activity) readVariable(n *sysmlv1.Element, name string) {
 	a.m.w.block(actionKw+name, func() {
 		a.declarePins(n, inputPins(n), nil, nil)
 		if len(results) == 0 {
-			a.m.w.lines(commentLines("reads " + vname + ", which flows nowhere"))
+			a.m.w.lines(commentLines("reads " + vname + flowsNowhere))
 			return
 		}
 		for _, r := range results[1:] {
@@ -3207,7 +3227,7 @@ func (a *activity) clearVariable(n *sysmlv1.Element, name string) {
 	}
 	a.m.w.block(actionKw+name, func() {
 		a.pins(n, nil)
-		a.m.w.line("assign " + vname + " := null;")
+		a.m.w.line(assignKeyword + vname + " := null;")
 	})
 	a.m.add(n, Mapped, name, "")
 }
@@ -3241,7 +3261,7 @@ func (a *activity) addVariable(n *sysmlv1.Element, name string) {
 		if n.Attrs["isReplaceAll"] != "true" && upper != "1" {
 			base = vname
 			if v.Attrs["isUnique"] != "false" {
-				base = "SequenceFunctions::excluding(" + vname + ", " + added + ")"
+				base = excludingCall + vname + ", " + added + ")"
 			}
 			if at := firstOwned(n, "insertAt"); at != nil {
 				base = "SequenceFunctions::includingAt(" + base + ", " + writeName(a.names[val]) + ", " + writeName(a.names[at]) + ")"
@@ -3249,10 +3269,10 @@ func (a *activity) addVariable(n *sysmlv1.Element, name string) {
 				base = "SequenceFunctions::including(" + base + ", " + writeName(a.names[val]) + ")"
 			}
 		}
-		assign := "assign " + vname + " := " + base + ";"
+		assign := assignKeyword + vname + " := " + base + ";"
 		if a.m.lacksValue(val) {
 			a.m.w.lines([]string{"if " + writeName(a.names[val]) + "->SequenceFunctions::notEmpty() {", "    " + assign, "}"})
-			note = "the pin " + describe(val) + " admits no value, which the variable cannot hold: it is written only when the pin holds one"
+			note = pinWord + describe(val) + " admits no value, which the variable cannot hold: it is written only when the pin holds one"
 			return
 		}
 		a.m.w.line(assign)
@@ -3280,10 +3300,10 @@ func (a *activity) removeVariable(n *sysmlv1.Element, name string) {
 	a.m.w.block(actionKw+name, func() {
 		a.pins(n, nil)
 		if at != nil {
-			a.m.w.line("assign " + vname + " := SequenceFunctions::excludingAt(" + vname + ", " + writeName(a.names[at]) + ");")
+			a.m.w.line(assignKeyword + vname + " := SequenceFunctions::excludingAt(" + vname + ", " + writeName(a.names[at]) + ");")
 			return
 		}
-		a.m.w.line("assign " + vname + " := SequenceFunctions::excluding(" + vname + ", " + writeName(a.names[val]) + ");")
+		a.m.w.line(assignKeyword + vname + " := SequenceFunctions::excluding(" + vname + ", " + writeName(a.names[val]) + ");")
 	})
 	if at == nil && v.Attrs["isUnique"] == "false" && n.Attrs["isRemoveDuplicates"] != "true" {
 		note = "every occurrence of the value is removed, not only the first"
@@ -3313,7 +3333,7 @@ func (a *activity) reduceAction(n *sysmlv1.Element, name string) {
 	a.m.w.block(actionKw+name, func() {
 		a.declarePins(n, inputPins(n), nil, nil)
 		if len(results) == 0 {
-			a.m.w.lines(commentLines("reduces " + writeName(a.names[collection]) + ", which flows nowhere"))
+			a.m.w.lines(commentLines("reduces " + writeName(a.names[collection]) + flowsNowhere))
 			return
 		}
 		for _, r := range results[1:] {
@@ -3346,12 +3366,12 @@ func (a *activity) reduceAction(n *sysmlv1.Element, name string) {
 func (a *activity) reducerFunc(n *sysmlv1.Element) (fn, why string) {
 	if p := a.m.primitiveReducer(n); p != nil {
 		if len(p.ins) != 2 || len(p.outs) != 1 {
-			return "", "the reducer " + p.qualified() + " takes " + strconv.Itoa(len(p.ins)) + " argument(s), and a reduction calls a binary function"
+			return "", theReducer + p.qualified() + takesWord + strconv.Itoa(len(p.ins)) + " argument(s), and a reduction calls a binary function"
 		}
 		if f := binaryCallFunc(p.outs[0]); f != "" {
 			return f, ""
 		}
-		return "", "the reducer " + p.qualified() + " has no v2 function"
+		return "", theReducer + p.qualified() + " has no v2 function"
 	}
 	reducer := a.m.model.Ref(n, "reducer")
 	if reducer == nil {
@@ -3362,7 +3382,7 @@ func (a *activity) reducerFunc(n *sysmlv1.Element) (fn, why string) {
 		if form == "" {
 			form = "no v2 form"
 		}
-		return "", "the reducer " + qualifiedName(reducer) + " is written as " + form + ", not a calc or function def, so it has no v2 function"
+		return "", theReducer + qualifiedName(reducer) + " is written as " + form + ", not a calc or function def, so it has no v2 function"
 	}
 	var ins, rets int
 	for _, p := range a.m.actionParameters(reducer) {
@@ -3374,7 +3394,7 @@ func (a *activity) reducerFunc(n *sysmlv1.Element) (fn, why string) {
 		}
 	}
 	if ins != 2 || rets != 1 {
-		return "", "the reducer " + qualifiedName(reducer) + " takes " + strconv.Itoa(ins) + " in parameter(s) and gives " + strconv.Itoa(rets) + " return(s); a reduction calls a function of two in parameters and one return"
+		return "", theReducer + qualifiedName(reducer) + takesWord + strconv.Itoa(ins) + " in parameter(s) and gives " + strconv.Itoa(rets) + " return(s); a reduction calls a function of two in parameters and one return"
 	}
 	return a.m.ref(reducer, a.def), ""
 }
@@ -3456,11 +3476,11 @@ func (a *activity) sendDestination(n *sysmlv1.Element, what string) (string, str
 		path, hasPath := a.portPath(port)
 		switch {
 		case !a.m.written(port):
-			return "", "the port " + qualifiedName(port) + " has no v2 declaration; the " + what + " is sent to the sender"
+			return "", "the port " + qualifiedName(port) + " has no v2 declaration; the " + what + sentToSender
 		case hasPath:
 			return " via " + a.m.respellThis(a.self()+"."+path, a.act), ""
 		default:
-			return "", "the port " + qualifiedName(port) + " is no port of the object the sender acts on; the " + what + " is sent to the sender"
+			return "", "the port " + qualifiedName(port) + " is no port of the object the sender acts on; the " + what + sentToSender
 		}
 	}
 	t := firstOwned(n, "target")
@@ -3478,7 +3498,7 @@ func (a *activity) sendDestination(n *sysmlv1.Element, what string) (string, str
 	case writeName(a.names[t]) != "" && !optionalPin(t):
 		return " to " + writeName(a.names[t]), ""
 	default:
-		return "", "the target pin holds nothing a flow names; the " + what + " is sent to the sender"
+		return "", "the target pin holds nothing a flow names; the " + what + sentToSender
 	}
 }
 

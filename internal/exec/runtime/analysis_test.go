@@ -123,7 +123,7 @@ func TestObjectivesOfWithoutDirection(t *testing.T) {
 		}
 	`)
 	objs := objectivesOfCase(t, ctx, scope, "Trade")
-	if len(objs) != 1 || objs[0].Direction != NoDirection {
+	if len(objs) != 1 || objs[0].Direction != noDirection {
 		t.Fatalf("objectives are [%s], want one without a direction", objectiveLabels(objs))
 	}
 	if objs[0].Direction.String() != "unstated" {

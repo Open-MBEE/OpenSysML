@@ -4,7 +4,7 @@ transition: lstart -> lwork
 exit: rstart
 enter: rwork
 transition: rstart -> rwork
-choice exiting working: next lwork(exit), rwork(exit) (unordered; took lwork(exit) first)
+choice exiting working: next lwork(exit), rwork(exit) (unordered; took lwork(exit) first; order-dependent: exits)
 exit: lwork (exit action)
 stmt action body
   stmt assign exits

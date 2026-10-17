@@ -10,6 +10,7 @@ package Model {
                 in x[1];
                 in ref :>> context = Line::context;
                 entry action tally {
+                    rep language "JavaScript" /* count = count + 1;*/
                     assign context.count := context.count + 1;
                 }
             }

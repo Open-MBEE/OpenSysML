@@ -1590,6 +1590,8 @@ mod tests {
             message: "choice point: 2 steppable tokens".to_owned(),
             code: "choice-point".to_owned(),
             span: None,
+            order_dependent: vec![],
+            independent: false,
         });
         assert_eq!(coded.code, "choice-point");
         assert_eq!(coded.wire().code, "choice-point");

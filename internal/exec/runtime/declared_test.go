@@ -229,7 +229,7 @@ func TestDeclaredReaderAgreesWithTheRun(t *testing.T) {
 
 // A feature valued by a call reads through the model's argument typing: the
 // fixture's typed model evaluates it, and a fresh semantic model with none
-// installed fails with ErrNoArgumentTyper rather than selecting untyped.
+// installed fails with errNoArgumentTyper rather than selecting untyped.
 func TestDeclaredReaderSelectsCallsThroughTheArgumentTyper(t *testing.T) {
 	reader, resolver, scope := declaredReaderFixture(t)
 	invoking := symbolAt(t, resolver, scope, "Invoking")
@@ -246,7 +246,7 @@ func TestDeclaredReaderSelectsCallsThroughTheArgumentTyper(t *testing.T) {
 		t.Fatal("a fresh semantic model must not carry an argument typer")
 	}
 	_, err = NewDeclaredReader(untyped, resolver).Read(invoking, "n")
-	if !errors.Is(err, ErrNoArgumentTyper) {
-		t.Fatalf("Invoking.n over an untyped model: err = %v, want ErrNoArgumentTyper", err)
+	if !errors.Is(err, errNoArgumentTyper) {
+		t.Fatalf("Invoking.n over an untyped model: err = %v, want errNoArgumentTyper", err)
 	}
 }

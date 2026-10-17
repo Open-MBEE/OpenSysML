@@ -4,11 +4,7 @@
 	"libraries": true,
 	"outcomes": [
 		{
-			"outputs": {
-				"y": {"type": "Sequence", "elements": [{"type": "Integer", "value": 30}]},
-				"seen": {"type": "Sequence", "elements": [{"type": "Integer", "value": 30}]},
-				"scaled.y": {"type": "Sequence", "elements": [{"type": "Integer", "value": 30}]}
-			}
+			"error": "eval assignment RHS: type mismatch: operator '+' is not defined for a sequence and an Integer"
 		},
 		{
 			"outputs": {

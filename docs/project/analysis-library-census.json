@@ -91,57 +91,57 @@
       "refused": [
         {
           "declaration": "StateSpaceRepresentation::StateSpaceEventDef",
-          "error": "ErrUnknownOutput",
+          "error": "errUnknownOutput",
           "message": "unknown output: test::run produced no output \"output\""
         },
         {
           "declaration": "StateSpaceRepresentation::ZeroCrossingEventDef",
-          "error": "ErrUnknownOutput",
+          "error": "errUnknownOutput",
           "message": "unknown output: test::run produced no output \"output\""
         },
         {
           "declaration": "StateSpaceRepresentation::StateSpaceDynamics",
-          "error": "ErrUnknownOutput",
+          "error": "errUnknownOutput",
           "message": "unknown output: test::plant produced no output \"output\""
         },
         {
           "declaration": "StateSpaceRepresentation::StateSpaceDynamics::getNextState",
-          "error": "ErrNotAFunction",
+          "error": "errNotAFunction",
           "message": "not a function: plant.getNextState is undetermined, not a function"
         },
         {
           "declaration": "StateSpaceRepresentation::StateSpaceDynamics::getOutput",
-          "error": "ErrNotAFunction",
+          "error": "errNotAFunction",
           "message": "not a function: plant.getOutput is undetermined, not a function"
         },
         {
           "declaration": "StateSpaceRepresentation::Integrate",
-          "error": "ErrNoResultExpression",
+          "error": "errNoResultExpression",
           "message": "calc test::Euler: evaluating the returned expression: no result expression: calc test::Euler::getDerivative has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : StateDerivative = \u003cexpr\u003e;`"
         },
         {
           "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getDerivative",
-          "error": "ErrNotAFunction",
+          "error": "errNotAFunction",
           "message": "not a function: damper.getDerivative is undetermined, not a function"
         },
         {
           "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState",
-          "error": "ErrNotAFunction",
+          "error": "errNotAFunction",
           "message": "not a function: damper.getNextState is undetermined, not a function"
         },
         {
           "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate",
-          "error": "Undetermined",
-          "message": "damper has no value in the model"
+          "error": "errNoResultExpression",
+          "message": "calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState: evaluating the returned expression: no result expression: calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate has no return expression: result parameter result binds no value; write the result as the trailing expression of the body, or bind it with `return : StateSpace = \u003cexpr\u003e;`"
         },
         {
           "declaration": "StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference",
-          "error": "ErrNotAFunction",
+          "error": "errNotAFunction",
           "message": "not a function: spring.getDifference is undetermined, not a function"
         },
         {
           "declaration": "StateSpaceRepresentation::DiscreteStateSpaceDynamics::getNextState",
-          "error": "ErrNotAFunction",
+          "error": "errNotAFunction",
           "message": "not a function: spring.getNextState is undetermined, not a function"
         }
       ],
@@ -296,12 +296,12 @@
       "refused": [
         {
           "declaration": "OccurrenceFunctions::removeOld",
-          "error": "ErrNotABehavior",
+          "error": "errNotABehavior",
           "message": "performed action go of object #1: action node work: not a behavior: removeOld is not an action (kermlType)"
         },
         {
           "declaration": "OccurrenceFunctions::removeOldAt",
-          "error": "ErrNotABehavior",
+          "error": "errNotABehavior",
           "message": "performed action go of object #1: action node work: not a behavior: removeOldAt is not an action (kermlType)"
         }
       ],

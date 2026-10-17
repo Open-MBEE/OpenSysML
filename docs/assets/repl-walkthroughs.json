@@ -127,12 +127,12 @@
     },
     {
      "title": "A gap that only the runtime finds",
-     "text": "<code>saturnVWithIU</code> adds an instrument unit that declares a <code>mass</code> but never gives it a value. That is legal SysML, so validation finds nothing wrong. The rollup is where the missing value shows up.",
+     "text": "<code>saturnVWithIU</code> adds an instrument unit that declares a <code>mass</code> but never gives it a value. That is legal SysML, so validation finds nothing wrong. The rollup is where the missing value shows up: a total nothing determines is <code>&lt;undetermined&gt;</code>, not a number.",
      "input": [
       "%eval MassRollup::saturnVWithIU.totalMass"
      ],
      "expect": [
-      "no value for feature mass"
+      "= <undetermined>"
      ]
     },
     {

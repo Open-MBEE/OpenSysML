@@ -1,6 +1,7 @@
 // The typed action's own `assign y := y + 1` is unordered with Scale's inherited
-// `start → scaling → done`: it leaves `y = 31` if it runs after `scaling`, and
-// `y = 30` if it runs first. The following assignment observes either result.
+// `start → scaling → done`: it leaves `y = 31` if it runs after `scaling`, while
+// before it Scale's `y` is unset and reads so — not as Adjust's same-named `y` —
+// and `y + 1` fails. The following assignment observes 31 when the run completes.
 package test {
     private import ScalarValues::*;
 

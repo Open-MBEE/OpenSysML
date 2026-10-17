@@ -136,7 +136,10 @@ func pendingRewrites(root string) ([]rewrite, error) {
 	if err != nil {
 		return nil, err
 	}
-	counts := CountRules(compliance)
+	counts, err := CountRules(compliance)
+	if err != nil {
+		return nil, err
+	}
 	if counts.Total == 0 {
 		return nil, fmt.Errorf("%s states no rule rows", SpecCompliancePath)
 	}

@@ -71,7 +71,7 @@ func refusedRegionOrderReplay(t *testing.T, lines string, signals int) (*ReplayE
 		t.Fatal(err)
 	}
 	for i := 0; i < signals; i++ {
-		exec.SendSignal("Go", nil)
+		exec.sendSignal("Go", nil)
 	}
 	err = exec.RunToCompletion()
 	var refused *ReplayError

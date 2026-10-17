@@ -78,6 +78,127 @@ sysml\-mcp \-tools lsp,runtime
 An agent host declares the server in its configuration, as {"mcp": {"sysml":
 {"type": "local", "command": ["sysml\-mcp"]}}} in OpenCode's opencode.json,
 and starts it with the project as the working directory.
+.SH TOOLS
+The tools, by the group that serves them (\-tools), each with the sysml\-grpc
+RPC or sysml flag it stands for. The tool_catalog tool answers this list to
+the client, narrowed to the groups served.
+.TP
+.B tool_catalog
+every group: List the tools this server serves, each with the RPC or sysml
+flag it stands for.
+.TP
+.B workspace_info
+lsp: Describe the workspace root and the documents it holds, with their
+diagnostic counts.
+.TP
+.B apply_edits
+runtime: Apply workspace edits to a parsed model and answer the edited
+documents (rpc ApplyEdits).
+.TP
+.B convert
+runtime: Convert a model between the textual notation, JSON, RDF and XMI (rpc
+Convert, sysml \-convert, sysml \-from, sysml \-id).
+.TP
+.B diagnostics
+runtime: Report every diagnostic of a parsed model, as sysml \-validate does
+(rpc GetDiagnostics, sysml \-validate).
+.TP
+.B explain_diagnostic
+runtime: Explain a diagnostic code, or list every code with its summary (sysml
+\-explain).
+.TP
+.B evaluate
+runtime: Evaluate an expression against a parsed model (rpc Evaluate, sysml
+\-eval).
+.TP
+.B evaluate_calc
+runtime: Evaluate a calculation definition or usage (rpc EvaluateCalc, sysml
+\-calc).
+.TP
+.B execute_action
+runtime: Execute an action with bound inputs and report its outputs (rpc
+ExecuteAction, sysml \-action, sysml \-schedule).
+.TP
+.B execute_state
+runtime: Run a state machine over a sequence of events and report the trace
+(rpc ExecuteState, sysml \-state).
+.TP
+.B export_graphs
+runtime: Export the lowered action and state graphs of a model (rpc
+ExportGraphs, sysml \-graphs).
+.TP
+.B instantiate
+runtime: Instantiate a definition or usage and report the object's feature
+values (rpc Instantiate, sysml \-instantiate).
+.TP
+.B list_engines
+runtime: List the analysis engines and whether each is ready (rpc ListEngines,
+sysml \-engines).
+.TP
+.B migrate
+runtime: Migrate a SysML v1 model to SysML v2 and report what moved (rpc
+Migrate, sysml \-migrate, sysml \-migration\-report, sysml
+\-migration\-results, sysml \-layout, sysml \-image\-base\-url).
+.TP
+.B parse
+runtime: Parse files or inline sources and answer the roots, diagnostics and a
+model hash (rpc ParseFile, rpc ParseSources, sysml \-strict).
+.TP
+.B query
+runtime: Run an OSLC query against a parsed model (rpc Query, sysml \-query).
+.TP
+.B render_model_document
+runtime: Render a document definition as Markdown or HTML (rpc RenderDocument,
+sysml \-render\-document, sysml \-doc\-form).
+.TP
+.B render_model_view
+runtime: Render a view as its nodes, edges and compartments (rpc RenderView,
+sysml \-render, sysml \-render\-ports, sysml \-render\-show, sysml
+\-render\-depth).
+.TP
+.B run_analysis
+runtime: Run an analysis case and report its result (rpc RunAnalysis, sysml
+\-analysis, sysml \-engine).
+.TP
+.B run_document_query
+runtime: Run a document query definition and report its rows (rpc
+RunDocumentQuery, sysml \-run\-query).
+.TP
+.B run_sweep
+runtime: Run an analysis case over ranges of its parameters (rpc RunSweep,
+sysml \-sweep).
+.TP
+.B server_info
+runtime: Report the service version and the capabilities it serves (rpc
+GetServerInfo).
+.TP
+.B symbol
+runtime: Describe one element of a parsed model (rpc GetSymbol).
+.TP
+.B validate_instance
+runtime: Validate an instantiated object against its definition, as sysml
+\-validate=<object> does (rpc ValidateInstance).
+.TP
+.B verify_constraint
+runtime: Verify a constraint and answer the verdict (rpc VerifyConstraint,
+sysml \-constraint).
+.TP
+.B verify_requirement
+runtime: Verify a requirement and answer the verdict (rpc VerifyRequirement,
+sysml \-requirement).
+.TP
+.B verify_satisfaction
+runtime: Verify a satisfy relationship and answer the verdict (rpc
+VerifySatisfaction, sysml \-satisfy).
+.TP
+.B session_close
+session: Close an open REPL session.
+.TP
+.B session_list
+session: List the open REPL sessions.
+.TP
+.B session_open
+session: Open a REPL session over a workspace and answer its id.
 .SH EXIT STATUS
 The status reports how the session ended:
 .TP
@@ -95,6 +216,11 @@ The command line could not be acted on.
 .B OPENSYSML_LIBRARY_PATH
 Directory to load the SysML/KerML standard library from, instead of the copy
 embedded in the binary.
+.TP
+.B OPENSYSML_LIBRARY_ROOTS
+Directories, separated as PATH is, to look for installed projects under when a
+loaded file belongs to a project (a directory holding .project.json), besides
+the project's own well\-known library directory (.sysand/lib).
 .TP
 .B OPENSYSML_MAX_STEPS
 Expression evaluations one run may spend before it is reported as a runaway.

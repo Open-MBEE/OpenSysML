@@ -13,8 +13,8 @@ func TestValidateHiddenImportedName(t *testing.T) {
 	binary := buildCLI(t)
 	for _, args := range [][]string{{"-validate"}, {"-strict", "-validate"}} {
 		wantReport(t, check(t, binary, hiddenImportModel, args...), 2,
-			"warning: Duplicate of imported member name 'Engine': Left::Engine (import Left::*), Right::Engine (import Right::*)",
-			"error: unresolved reference: Engine",
+			"warning[name-conflict]: Duplicate of imported member name 'Engine': Left::Engine (import Left::*), Right::Engine (import Right::*)",
+			"error[unresolved]: unresolved reference: Engine",
 			"The name is hidden here: import Left::* and import Right::* bring distinct elements named 'Engine', so none is a member; qualify the one meant: Left::Engine or Right::Engine.")
 	}
 }
@@ -29,6 +29,6 @@ package Use { private import Both::*; part e : Engine; }`
 func TestValidateHiddenImportedNameThroughReexport(t *testing.T) {
 	binary := buildCLI(t)
 	wantReport(t, check(t, binary, hiddenReexportModel, "-validate"), 2,
-		"error: unresolved reference: Engine",
+		"error[unresolved]: unresolved reference: Engine",
 		"The name is hidden here: import Left::* and import Right::* bring distinct elements named 'Engine', so none is a member; qualify the one meant: Left::Engine or Right::Engine.")
 }

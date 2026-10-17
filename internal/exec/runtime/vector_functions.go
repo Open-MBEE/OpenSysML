@@ -138,11 +138,11 @@ func realHeld(v Value) (Value, error) {
 		if !v.Const.IsExact() {
 			return v, nil
 		}
-		real, err := semantics.RealOf(v.Const)
+		realValue, err := semantics.RealOf(v.Const)
 		if err != nil {
 			return Value{}, err
 		}
-		return Value{Kind: ValConst, Const: real}, nil
+		return Value{Kind: ValConst, Const: realValue}, nil
 	case ValSequence:
 		elements := elementsOf(v)
 		held := make([]Value, len(elements))

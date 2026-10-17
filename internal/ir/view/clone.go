@@ -38,6 +38,7 @@ func cloneNodes(nodes []*Node) []*Node {
 	for i, node := range nodes {
 		copied := *node
 		copied.Children = cloneNodes(node.Children)
+		copied.Compartments = cloneCompartments(node.Compartments)
 		copied.Ports = append([]Port(nil), node.Ports...)
 		for j, port := range copied.Ports {
 			if port.Geometry != nil {
@@ -61,4 +62,15 @@ func cloneStyle(s *Style) *Style {
 	}
 	copied := *s
 	return &copied
+}
+
+func cloneCompartments(compartments []Compartment) []Compartment {
+	if compartments == nil {
+		return nil
+	}
+	out := make([]Compartment, len(compartments))
+	for i, compartment := range compartments {
+		out[i] = Compartment{Name: compartment.Name, Rows: cloneNodes(compartment.Rows)}
+	}
+	return out
 }

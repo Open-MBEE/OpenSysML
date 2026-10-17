@@ -1,0 +1,49 @@
+# SysML v1 to v2 migration report: flow_only.xmi
+# exported by Example UML Tool
+# migrated 35 element(s): 34 mapped, 0 approximated, 1 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 1 of 1 diagrams from the diagrams' own symbol streams: 6 elements positioned, 4 connectors routed, 0 styled, 0 notes
+
+## layout
+# source: the diagrams' own symbol streams
+# 1 views laid out from their own symbol stream, 0 without layout
+# placements: 6 of 6 written (0 not exposed, 0 resolving to no element); routes: 4 of 4 written (0 not pinned, 0 resolving to no element); malformed: 0
+# styles: 0 of 0 written; notes: 0 written (0 anchored, 0 freed of an anchor the view does not lay out)
+# routes of Connector: 4 written
+
+## unmapped (1)
+«ItemFlow» InformationFlow	Power::aux	_if_aux	(no flow property typed by Cmd on both ends of the realizing connector; applied stereotypes «ItemFlow»)
+
+## mapped (34)
+Model	Model	_m	-> Model	(written as package Model)
+Package	Power	_pkg	-> Model::Power
+«ItemFlow» InformationFlow	Power::<InformationFlow>	_if_pwr	-> Model::Power::Sys::'supply.pwr out to load.pwr in'
+«Block» Class	Power::Cmd	_blk_cmd	-> Model::Power::Cmd
+«Block» Class	Power::Ctrl	_blk_ctrl	-> Model::Power::Ctrl
+«ProxyPort» Port	Power::Ctrl::bus	_pt_ctrl_bus	-> Model::Power::Ctrl::bus
+«Block» Class	Power::Load	_blk_load	-> Model::Power::Load
+«ProxyPort» Port	Power::Load::pwr in	_pt_load_in	-> Model::Power::Load::'pwr in'
+«Block» Class	Power::Pwr	_blk_pwr	-> Model::Power::Pwr
+«Block» Class	Power::Supply	_blk_supply	-> Model::Power::Supply
+«ProxyPort» Port	Power::Supply::pwr out	_pt_supply_out	-> Model::Power::Supply::'pwr out'
+«Block» Class	Power::Sys	_blk_sys	-> Model::Power::Sys
+Connector	Power::Sys::<Connector>	_c_pwr	-> Model::Power::Sys::'supply.pwr out to load.pwr in'	(the connector carries nothing of its own, so it is written as its flow 'supply.pwr out to load.pwr in' alone)
+Connector	Power::Sys::<Connector>	_c_bus	-> Model::Power::Sys::cmd	(the connector carries nothing of its own, so it is written as its flows cmd, tlm alone)
+Connector	Power::Sys::<Connector>	_c_aux	-> Model::Power::Sys::'supply.pwr out to aux.pwr in'
+Diagram	Power::Sys::Sys Internals	_diag_ibd	-> Model::Power::Sys::'Sys Internals'	(a SysML Internal Block Diagram written as a view rendered asInterconnectionDiagram; laid out from the diagram's own symbol stream: 6 of 6 shown elements positioned, 4 of 4 connectors routed)
+Property	Power::Sys::aux	_p_aux	-> Model::Power::Sys::aux
+Property	Power::Sys::ctrl	_p_ctrl	-> Model::Power::Sys::ctrl
+Property	Power::Sys::load	_p_load	-> Model::Power::Sys::load
+Property	Power::Sys::spare	_p_spare	-> Model::Power::Sys::spare
+Connector	Power::Sys::spare feed	_c_spare	-> Model::Power::Sys::'spare feed'
+Property	Power::Sys::supply	_p_supply	-> Model::Power::Sys::supply
+Property	Power::Sys::unit	_p_unit	-> Model::Power::Sys::unit
+«Block» Class	Power::Tlm	_blk_tlm	-> Model::Power::Tlm
+«Block» Class	Power::Unit	_blk_unit	-> Model::Power::Unit
+«ProxyPort» Port	Power::Unit::bus	_pt_unit_bus	-> Model::Power::Unit::bus
+«ItemFlow» InformationFlow	Power::cmd	_if_cmd	-> Model::Power::Sys::cmd
+«InterfaceBlock» Class	Power::iBus	_ib_bus	-> Model::Power::iBus
+«FlowProperty» Property	Power::iBus::cmd	_fp_cmd	-> Model::Power::iBus::cmd
+«FlowProperty» Property	Power::iBus::tlm	_fp_tlm	-> Model::Power::iBus::tlm
+«InterfaceBlock» Class	Power::iPower	_ib_power	-> Model::Power::iPower
+«FlowProperty» Property	Power::iPower::pwr	_fp_pwr	-> Model::Power::iPower::pwr
+«ItemFlow» InformationFlow	Power::spare pwr	_if_spare	-> Model::Power::Sys::'spare pwr'
+«ItemFlow» InformationFlow	Power::tlm	_if_tlm	-> Model::Power::Sys::tlm

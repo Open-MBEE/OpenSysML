@@ -51,11 +51,13 @@ package Model {
                 transition first regions then done;
                 metadata MigrationMetadata::SynthesizedName about regions;
             }
-            state Duplicate {
-                /* not migrated: Pseudostate (_uaInit2) — a region has one initial pseudostate; (_uaInit1) is written as it */
-                entry; then ua1;
-                state ua1;
-                state ua2;
+            state Duplicate parallel {
+                state ua {
+                    /* not migrated: Pseudostate (_uaInit2) — a region has one initial pseudostate; (_uaInit1) is written as it */
+                    entry; then ua1;
+                    state ua1;
+                    state ua2;
+                }
             }
             state Nested {
                 entry; then regions;
@@ -66,9 +68,11 @@ package Model {
                     }
                     state nb {
                         entry; then Inner;
-                        state Inner {
-                            entry; then inner1;
-                            state inner1;
+                        state Inner parallel {
+                            state ni {
+                                entry; then inner1;
+                                state inner1;
+                            }
                         }
                     }
                 }
@@ -101,15 +105,19 @@ package Model {
     part def Site {
         state def Cross {
             entry; then Idle;
-            state Work {
-                /* not migrated: Pseudostate (_wInit) — the initial transition's target has no v2 form here */
-                /* not migrated: Transition (_wInitT) — its target 'idle1' lies in 'ir', a region of 'Idle' and no orthogonal region of the pseudostate's; an initial transition enters its own region */
-                /* every initial pseudostate of the region enters another region: nothing enters this one */
-                state work1;
+            state Work parallel {
+                state wr {
+                    /* not migrated: Pseudostate (_wInit) — the initial transition's target has no v2 form here */
+                    /* not migrated: Transition (_wInitT) — its target 'idle1' lies in 'ir', a region of 'Idle' and no orthogonal region of the pseudostate's; an initial transition enters its own region */
+                    /* every initial pseudostate of the region enters another region: nothing enters this one */
+                    state work1;
+                }
             }
-            state Idle {
-                entry; then idle1;
-                state idle1;
+            state Idle parallel {
+                state ir {
+                    entry; then idle1;
+                    state idle1;
+                }
             }
         }
     }

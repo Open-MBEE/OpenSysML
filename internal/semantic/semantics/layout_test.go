@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -134,6 +135,42 @@ func TestMemberLayoutOfKeepsInheritedMembersApartByOwner(t *testing.T) {
 	}
 	if sites := m.LayoutSitesOf(start); len(sites) != 3 {
 		t.Fatalf("LayoutSitesOf(start) has %d sites, want 3", len(sites))
+	}
+}
+
+// A Style and the Notes about an inherited member resolve by owner as its
+// Layout does, so one body's start is coloured and annotated alone.
+func TestMemberStyleAndNotesOfKeepInheritedMembersApartByOwner(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		action def A { action a; first start then a; }
+		action def B { action b; first start then b; }
+		view v {
+			expose A; expose B;
+			metadata Style about A::start { fill = "#C00000"; }
+			metadata Note about A::start { text = "first"; x = 1; y = 1; }
+			metadata Note about A::start { text = "second"; x = 2; y = 2; }
+			metadata Note about B::start { text = "other"; x = 3; y = 3; }
+		}
+	`)
+	view := sym(t, p, "v")
+	if site, ok := m.MemberStyleOf(view, sym(t, p, "A"), "start"); !ok || site.Style == nil || site.Style.Fill != "#C00000" {
+		t.Errorf("MemberStyleOf(v, A, start) = %+v, %v", site, ok)
+	}
+	if site, ok := m.MemberStyleOf(view, sym(t, p, "B"), "start"); ok {
+		t.Errorf("MemberStyleOf(v, B, start) = %+v, want none", site)
+	}
+	var texts []string
+	for _, site := range m.MemberNotesOf(view, sym(t, p, "A"), "start") {
+		if site.Note != nil {
+			texts = append(texts, site.Note.Text)
+		}
+	}
+	if want := []string{"first", "second"}; !slices.Equal(texts, want) {
+		t.Errorf("MemberNotesOf(v, A, start) = %q, want %q", texts, want)
+	}
+	if notes := m.MemberNotesOf(view, sym(t, p, "B"), "start"); len(notes) != 1 || notes[0].Note == nil || notes[0].Note.Text != "other" {
+		t.Errorf("MemberNotesOf(v, B, start) = %+v, want the one note", notes)
 	}
 }
 

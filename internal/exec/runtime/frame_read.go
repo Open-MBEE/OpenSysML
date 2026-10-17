@@ -296,7 +296,7 @@ func (ctx *Context) readFrameAxes(what string, inst *Instance, frame *Coordinate
 			frame.Dimensions = []int64{int64(len(refs))}
 		}
 	}
-	size, ok := frame.FlattenedSize()
+	size, ok := frame.flattenedSize()
 	if !ok {
 		return frame.flattenedSizeError(what)
 	}
@@ -314,7 +314,7 @@ func axisUnitOf(what string, ref Value) (Unit, error) {
 	case ValMeasurementRef:
 		return ref.MeasurementRef().Unit, nil
 	case ValCoordinateFrame:
-		if frame := ref.CoordinateFrame(); frame.IsScale() {
+		if frame := ref.CoordinateFrame(); frame.isScale() {
 			return frame.Axes[0], nil
 		}
 	}
@@ -385,7 +385,7 @@ func (ctx *Context) unitDeclaring(what string, inst *Instance) (Unit, error) {
 	decl := ctx.declOf(inst)
 	if decl == nil || decl.OwnerScope == nil || decl.OwnerScope.Owner() == nil {
 		return Unit{}, fmt.Errorf("%w: %s is declared by no measurement reference, so the unit of its num is unknown",
-			ErrUnevaluableLibraryFunction, what)
+			errUnevaluableLibraryFunction, what)
 	}
 	owner := decl.OwnerScope.Owner()
 	if val, ok, err := ctx.MeasurementUnitValue(owner); ok && err == nil {
@@ -393,13 +393,13 @@ func (ctx *Context) unitDeclaring(what string, inst *Instance) (Unit, error) {
 		case ValMeasurementRef:
 			return val.MeasurementRef().Unit, nil
 		case ValCoordinateFrame:
-			if frame := val.CoordinateFrame(); frame.IsScale() {
+			if frame := val.CoordinateFrame(); frame.isScale() {
 				return frame.Axes[0], nil
 			}
 		}
 	}
 	return Unit{}, fmt.Errorf("%w: %s is declared by %s, which is no measurement unit or scale, so the unit of its num is unknown",
-		ErrUnevaluableLibraryFunction, what, symbolText(owner))
+		errUnevaluableLibraryFunction, what, symbolText(owner))
 }
 
 // definitionalNum is the one number a role's DefinitionalQuantityValue states.
@@ -648,7 +648,7 @@ func (ctx *Context) readStep(what string, element Value) (FrameStep, error) {
 		}
 	default:
 		return FrameStep{}, fmt.Errorf("%w: %s is a %s, which is neither a Translation nor a Rotation",
-			ErrUnevaluableLibraryFunction, what, symbolText(typ))
+			errUnevaluableLibraryFunction, what, symbolText(typ))
 	}
 	return step, nil
 }

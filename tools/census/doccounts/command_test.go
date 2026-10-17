@@ -29,6 +29,10 @@ old library table
 <!-- doc-counts:end analysis-libraries -->
 The rows above are the map's own.
 
+<!-- doc-counts:begin validation-census-summary -->
+stale census summary
+<!-- doc-counts:end validation-census-summary -->
+
 - Execution conformance: <!-- doc-counts:begin inventory-conformance -->the conformance cases<!-- doc-counts:end inventory-conformance --> — kept prose
 - Runtime robustness: <!-- doc-counts:begin inventory-robustness -->the runtime robustness cases<!-- doc-counts:end inventory-robustness -->, among them kept prose
 - Runtime tests: <!-- doc-counts:begin inventory-runtime-tests -->the runtime test functions<!-- doc-counts:end inventory-runtime-tests -->
@@ -40,6 +44,28 @@ The rows above are the map's own.
 
 **Measured coverage:** <!-- doc-counts:begin lsp-tests -->the LSP test functions<!-- doc-counts:end lsp-tests -->, plus kept prose.
 `
+	fixtureValidation = `# Validation constraints
+
+**Census:** kept prose.
+
+<!-- doc-counts:begin validation-census-table -->
+| stale | table |
+<!-- doc-counts:end validation-census-table -->
+
+<!-- doc-counts:begin validation-spec-coverage -->
+stale coverage
+<!-- doc-counts:end validation-spec-coverage -->
+
+Out of scope: kept prose.
+`
+	fixtureManifest = `{"schemaVersion":1,"pilotTag":"2026-05","pilotCommit":"abc","pilotArtifact":"0.60.1",` +
+		`"jar":{"name":"k.jar","digest":"sha256:abc"},"extraction":{"classes":["a"],"method":"m"},"recorded":"2026-09-02",` +
+		`"specifications":{"kerml":{"name":"KerML","version":"1.0","document":"formal/26-03-01","url":"https://example.test","sha256":"abc"}},` +
+		`"constraints":[` +
+		`{"name":"validateA","source":"kerml","kind":"validate","metaclass":"Element","spec":{"document":"kerml","clause":"8.3.2.1.2","name":"validateA"},` +
+		`"checks":"rule 1","implementation":"internal/check/passes/a.go:APass.Run","message":"a","negativeCase":"none","codes":["a"],"status":"faithful"},` +
+		`{"name":"validateB","source":"sysml","kind":"validate","metaclass":"Element","checks":"rule 2","implementation":"—","message":"—","negativeCase":"none","codes":[],"status":"unknown","rationale":"no pass yet"}],` +
+		`"extensions":[],"errata":[]}`
 	fixtureReadme = `# README
 
 **Behavioral execution:** the send statement (<!-- doc-counts:begin conformance-passing -->stale<!-- doc-counts:end conformance-passing -->).
@@ -73,11 +99,11 @@ func TestRunRewritesEveryDerivedLineAndIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first run: %v", err)
 	}
-	if rewritten != 3 {
-		t.Fatalf("first run rewrote %d files, want 3", rewritten)
+	if rewritten != 4 {
+		t.Fatalf("first run rewrote %d files, want 4", rewritten)
 	}
 	first := map[string]string{}
-	for _, path := range []string{ReadmePath, ArchitecturePath, SpecCompliancePath} {
+	for _, path := range []string{ReadmePath, ArchitecturePath, SpecCompliancePath, ValidationConstraintsPath} {
 		first[path] = read(t, root, path)
 		if strings.Contains(first[path], "stale") {
 			t.Fatalf("%s keeps a stale block:\n%s", path, first[path])
@@ -108,6 +134,13 @@ func TestRunRewritesEveryDerivedLineAndIsIdempotent(t *testing.T) {
 	}
 	if !strings.Contains(compliance, "| a | ✅ Faithful |\n| b | ⚠️ Approximate |\n") || !strings.Contains(compliance, "The rows above are the map's own.") {
 		t.Fatalf("the compliance map's own rows moved:\n%s", compliance)
+	}
+	if !strings.Contains(compliance, "**Census:** 1 of 2 named constraints are reported by OpenSysML — 1 ✅ faithful and 0 ⚠️ approximate; 0 ❌ not implemented, 0 ⛔ deliberate, 0 🚧 known failure, 1 ❔ unknown.") {
+		t.Fatalf("the census summary is not restated from the manifest:\n%s", compliance)
+	}
+	validation := read(t, root, ValidationConstraintsPath)
+	if !strings.Contains(validation, "| `validateB` | SysML | rule 2 | — | — | none | ❔ unknown — no pass yet |\n<!-- doc-counts:end validation-census-table -->") || !strings.Contains(validation, "**Census:** kept prose.") || !strings.Contains(validation, "Out of scope: kept prose.") {
+		t.Fatalf("the census table is not restated from the manifest:\n%s", validation)
 	}
 
 	rewritten, err = run(root, io.Discard)
@@ -163,11 +196,27 @@ func TestRunReportsAMapWithNoRuleRows(t *testing.T) {
 	}
 }
 
+// withRow appends a row to the fixture compliance map's one table.
+func withRow(compliance, row string) string {
+	return strings.Replace(compliance, "| b | ⚠️ Approximate |\n", "| b | ⚠️ Approximate |\n"+row, 1)
+}
+
 func TestRunReportsAKnownFailureRow(t *testing.T) {
 	root := writeFixture(t)
-	writeAt(t, root, SpecCompliancePath, fixtureCompliance+"| c | 🚧 Known failure |\n")
+	writeAt(t, root, SpecCompliancePath, withRow(fixtureCompliance, "| c | 🚧 Known failure |\n"))
 	if _, err := run(root, io.Discard); err == nil || !strings.Contains(err.Error(), "🚧") {
 		t.Fatalf("want an error naming the 🚧 row, got %v", err)
+	}
+}
+
+// TestRunReportsARowStatingTwoStatuses keeps the census a gate: a row it cannot
+// attribute stops the rewrite instead of being left out of the count.
+func TestRunReportsARowStatingTwoStatuses(t *testing.T) {
+	root := writeFixture(t)
+	writeAt(t, root, SpecCompliancePath, withRow(fixtureCompliance, "| c | ✅ Faithful; compiled ⚠️ Approximate |\n"))
+	_, err := run(root, io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "docs/project/spec-compliance.md:9: 2 status markers in the Status column") {
+		t.Fatalf("want an error naming the ambiguous row, got %v", err)
 	}
 }
 
@@ -179,8 +228,8 @@ func TestCheckReportsStaleFilesWithoutWriting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("check: %v", err)
 	}
-	if stale != 3 {
-		t.Fatalf("check reported %d stale files, want 3", stale)
+	if stale != 4 {
+		t.Fatalf("check reported %d stale files, want 4", stale)
 	}
 	for _, name := range []string{"README.md is stale", "docs/project/spec-compliance.md is stale"} {
 		if !strings.Contains(output.String(), name) {
@@ -457,6 +506,8 @@ func writeFixture(t *testing.T) string {
 	writeAt(t, root, SpecCompliancePath, fixtureCompliance)
 	writeAt(t, root, ReadmePath, fixtureReadme+fixtureBookkeeping)
 	writeAt(t, root, ArchitecturePath, fixtureBookkeeping)
+	writeAt(t, root, ValidationConstraintsPath, fixtureValidation)
+	writeAt(t, root, "docs/project/constraint-manifest.json", fixtureManifest)
 	doccountstest.WriteSuiteFixture(t, root)
 	writeAt(t, root, "docs/project/pilot-differential-baseline.json", fixtureDifferentialBaseline)
 	writeAt(t, root, "docs/project/pilot-xpect-baseline.json", fixtureXpectBaseline)
@@ -472,4 +523,34 @@ func read(t *testing.T, root, path string) string {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	return string(content)
+}
+
+// TestCheckFailsOnAnEditedManifestRow is the drift gate for the manifest: a row
+// edited without regenerating leaves both pages that render it stale.
+func TestCheckFailsOnAnEditedManifestRow(t *testing.T) {
+	root := writeFixture(t)
+	if _, err := run(root, io.Discard); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if stale, err := check(root, io.Discard); err != nil || stale != 0 {
+		t.Fatalf("a regenerated tree must be current: %d stale, %v", stale, err)
+	}
+	edited := strings.Replace(fixtureManifest, `"status":"unknown","rationale":"no pass yet"`, `"status":"approximate","rationale":"a warning"`, 1)
+	if edited == fixtureManifest {
+		t.Fatal("the fixture row was not edited")
+	}
+	writeAt(t, root, "docs/project/constraint-manifest.json", edited)
+	var output strings.Builder
+	stale, err := check(root, &output)
+	if err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	if stale != 2 || !strings.Contains(output.String(), SpecCompliancePath+" is stale") || !strings.Contains(output.String(), ValidationConstraintsPath+" is stale") {
+		t.Fatalf("an edited manifest row was not caught on both pages (%d stale):\n%s", stale, output.String())
+	}
+	invalid := strings.Replace(fixtureManifest, `"rationale":"no pass yet"`, `"rationale":""`, 1)
+	writeAt(t, root, "docs/project/constraint-manifest.json", invalid)
+	if _, err := check(root, io.Discard); err == nil || !strings.Contains(err.Error(), "validateB is unknown but states no rationale") {
+		t.Fatalf("a row without its rationale must be refused, got %v", err)
+	}
 }
