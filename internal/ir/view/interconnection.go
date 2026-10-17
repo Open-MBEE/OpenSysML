@@ -681,7 +681,8 @@ func (w *featureWalk) endNode(connector *symbols.Symbol, within *Node, attachmen
 }
 
 // memberEnd is where a member of what base draws attaches: the node under base
-// drawing it or the nearest feature owning it, or base's pin for it. The zero
+// drawing it — or drawing the feature that redefines it there, which stands in
+// its place — or the nearest feature owning it, or base's pin for it. The zero
 // edgeEnd when base draws nothing for it.
 func (w *featureWalk) memberEnd(base *Node, target *symbols.Symbol) edgeEnd {
 	if w.excluded(target) {
@@ -695,6 +696,23 @@ func (w *featureWalk) memberEnd(base *Node, target *symbols.Symbol) edgeEnd {
 		}
 		if pin, ok := w.pins[base][sym]; ok {
 			return edgeEnd{node: base, port: pin}
+		}
+		if at := w.redefiningEnd(base, sym); at.node != nil {
+			return at
+		}
+	}
+	return edgeEnd{}
+}
+
+// redefiningEnd is where a feature redefining sym is drawn under base, as a
+// node or a pin: `:>> engines = (e1, e2)` is the engines a binding to engines names.
+func (w *featureWalk) redefiningEnd(base *Node, sym *symbols.Symbol) edgeEnd {
+	for _, drawn := range w.sites {
+		if drawn.at.node == nil || !w.under(drawn.at.node, base) || drawn.sym == sym {
+			continue
+		}
+		if slices.Contains(w.r.model.RedefinedFeatures(drawn.sym), sym) {
+			return drawn.at
 		}
 	}
 	return edgeEnd{}
