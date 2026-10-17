@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
@@ -31,10 +32,18 @@ func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 
 	fixtures, fixtureKeys := 0, 0
 	examples, exampleKeys, skippedExamples := 0, 0, 0
+	var countsMu sync.Mutex
+	t.Cleanup(func() {
+		countsMu.Lock()
+		defer countsMu.Unlock()
+		t.Logf("convert fixtures: %d models, %d mapping-name keys; examples: %d converting models, %d mapping-name keys, %d skipped",
+			fixtures, fixtureKeys, examples, exampleKeys, skippedExamples)
+	})
 	for _, path := range paths {
 		path := path
 		isExample := strings.HasPrefix(path, exampleRoot+string(filepath.Separator))
 		t.Run(filepath.ToSlash(path), func(t *testing.T) {
+			t.Parallel()
 			source, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
@@ -42,13 +51,15 @@ func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 			original, err := cachedSysMLToRDF(path, source)
 			if err != nil {
 				if isExample {
+					countsMu.Lock()
 					skippedExamples++
+					countsMu.Unlock()
 					t.Logf("skipping non-converting example: %v", err)
 					return
 				}
 				t.Fatalf("convert fixture: %v", err)
 			}
-			document, err := export.WriteAPIJSON(original)
+			document, err := cachedAPIJSON(path, source, "standard", "graph")
 			if err != nil {
 				t.Fatalf("WriteAPIJSON: %v", err)
 			}
@@ -74,15 +85,18 @@ func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 			assertAPIJSONGraphsEqual(t, original, got)
 
 			if isExample {
+				countsMu.Lock()
 				examples++
 				exampleKeys += keyed
+				countsMu.Unlock()
 			} else {
+				countsMu.Lock()
 				fixtures++
 				fixtureKeys += keyed
+				countsMu.Unlock()
 			}
 		})
 	}
-	t.Logf("convert fixtures: %d models, %d mapping-name keys; examples: %d converting models, %d mapping-name keys, %d skipped", fixtures, fixtureKeys, examples, exampleKeys, skippedExamples)
 }
 
 func assertAPIJSONGraphsEqual(t *testing.T, want, got *rdf.Graph) {

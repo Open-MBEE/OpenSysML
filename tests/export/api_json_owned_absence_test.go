@@ -37,7 +37,7 @@ func TestAPIJSONUnnamedUsageWritesOwnedAbsences(t *testing.T) {
 	if unnamedID == "" {
 		t.Fatal("anonymous_features fixture has no unnamed Feature")
 	}
-	document, err := export.WriteAPIJSON(graph)
+	document, err := cachedAPIJSON(path, source, "standard", "graph")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,11 +72,7 @@ func TestAPIJSONKeysStayWithinMetaclassPropertySets(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			graph, err := cachedSysMLToRDF(path, source)
-			if err != nil {
-				t.Fatal(err)
-			}
-			document, err := export.WriteAPIJSON(graph)
+			document, err := cachedAPIJSON(path, source, "standard", "graph")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -115,11 +111,7 @@ func TestAPIJSONPropertiesWithPositiveLowerBoundsAreNeverNullForConvertFixtures(
 			if err != nil {
 				t.Fatal(err)
 			}
-			graph, err := cachedSysMLToRDF(path, source)
-			if err != nil {
-				t.Fatal(err)
-			}
-			document, err := export.WriteAPIJSON(graph)
+			document, err := cachedAPIJSON(path, source, "standard", "graph")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -163,9 +155,11 @@ func TestAPIJSONWriteReadWriteIsByteIdenticalForConvertFixtures(t *testing.T) {
 				name  string
 				write func(*rdf.Graph) ([]byte, error)
 			}{
-				{name: "standard", write: export.WriteAPIJSON},
-				{name: "compact", write: func(graph *rdf.Graph) ([]byte, error) {
-					return export.WriteAPIJSONCompact(graph, export.CompactAPIJSONOptions{})
+				{name: "standard", write: func(*rdf.Graph) ([]byte, error) {
+					return cachedAPIJSON(path, source, "standard", "graph")
+				}},
+				{name: "compact", write: func(*rdf.Graph) ([]byte, error) {
+					return cachedAPIJSON(path, source, "compact", "graph")
 				}},
 			} {
 				t.Run(form.name, func(t *testing.T) {
@@ -177,7 +171,7 @@ func TestAPIJSONWriteReadWriteIsByteIdenticalForConvertFixtures(t *testing.T) {
 					if err != nil {
 						t.Fatalf("ReadAPIJSON: %v", err)
 					}
-					again, err := form.write(reread)
+					again, err := writeCachedAPIJSON(reread, form.name)
 					if err != nil {
 						t.Fatalf("write after read: %v", err)
 					}

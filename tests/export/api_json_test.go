@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
@@ -122,13 +123,33 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 	mappingPropertyEntries := make(map[string]int)
 	mappingValueEntries := make(map[string]int)
 	examplesRoot := filepath.Clean(filepath.Join("..", "..", "examples"))
+	var metricsMu sync.Mutex
+	t.Cleanup(func() {
+		metricsMu.Lock()
+		defer metricsMu.Unlock()
+		totalMappingValueEntries := 0
+		for _, count := range mappingValueEntries {
+			totalMappingValueEntries += count
+		}
+		totalMappingPropertyEntries := 0
+		for _, count := range mappingPropertyEntries {
+			totalMappingPropertyEntries += count
+		}
+		t.Logf(
+			"mappingValues: %d/%d fixtures and %d/%d examples (%d/%d total); %d property entries by property: %v; %d values by property: %v",
+			fixtureFilesWithMappingValues, convertedFixtures, exampleFilesWithMappingValues, convertedExamples,
+			filesWithMappingValues, convertedFiles, totalMappingPropertyEntries, mappingPropertyEntries,
+			totalMappingValueEntries, mappingValueEntries,
+		)
+	})
 	for _, path := range paths {
 		t.Run(filepath.Clean(path), func(t *testing.T) {
+			t.Parallel()
 			source, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
 			}
-			graph, err := cachedSysMLToRDF(path, source)
+			_, err = cachedSysMLToRDF(path, source)
 			var unsupported *export.UnsupportedError
 			if errors.As(err, &unsupported) {
 				t.Skipf("SysMLToRDF refuses this model: %v", err)
@@ -136,11 +157,7 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			format, err := convert.FormatOfPath(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			semantic, err := convert.Convert(path, source, format, convert.FormatAPIJSON)
+			semantic, err := cachedAPIJSON(path, source, "standard", "semantic")
 			if errors.As(err, &unsupported) {
 				t.Skipf("semantic API JSON refuses this model: %v", err)
 			}
@@ -150,20 +167,14 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 			if bytes.Contains(semantic, []byte(`"@ref"`)) {
 				t.Error("semantic API JSON output contains @ref")
 			}
-			standard, err := export.WriteAPIJSON(graph)
+			standard, err := cachedAPIJSON(path, source, "standard", "graph")
 			if errors.As(err, &unsupported) {
 				t.Skipf("standard API JSON refuses this graph: %v", err)
 			}
 			if err != nil {
 				t.Fatal(err)
 			}
-			convertedFiles++
 			isExample := strings.HasPrefix(filepath.Clean(path), examplesRoot+string(os.PathSeparator))
-			if isExample {
-				convertedExamples++
-			} else {
-				convertedFixtures++
-			}
 			var standardElements []map[string]json.RawMessage
 			if err := json.Unmarshal(standard, &standardElements); err != nil {
 				t.Fatalf("read standard API JSON for provenance counts: %v", err)
@@ -184,30 +195,20 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 					if err := json.Unmarshal(rawValues, &values); err != nil {
 						t.Fatalf("read mappingValues.%s: %v", property, err)
 					}
+					metricsMu.Lock()
 					mappingPropertyEntries[property]++
 					mappingValueEntries[property] += len(values)
+					metricsMu.Unlock()
 				}
 			}
-			if fileHasMappingValues {
-				filesWithMappingValues++
-				if isExample {
-					exampleFilesWithMappingValues++
-				} else {
-					fixtureFilesWithMappingValues++
-				}
-			}
-			compact, err := export.WriteAPIJSONCompact(graph, export.CompactAPIJSONOptions{})
+			compact, err := cachedAPIJSON(path, source, "compact", "graph")
 			if errors.As(err, &unsupported) {
 				t.Skipf("compact API JSON refuses this graph: %v", err)
 			}
 			if err != nil {
 				t.Fatal(err)
 			}
-			semanticGraph, err := export.ReadAPIJSON(semantic)
-			if err != nil {
-				t.Fatalf("read semantic API JSON: %v", err)
-			}
-			semanticCompact, err := export.WriteAPIJSONCompact(semanticGraph, export.CompactAPIJSONOptions{})
+			semanticCompact, err := cachedAPIJSON(path, source, "compact", "semantic")
 			if err != nil {
 				t.Fatalf("compact semantic API JSON: %v", err)
 			}
@@ -220,22 +221,24 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 					t.Errorf("%s output contains @ref", format)
 				}
 			}
+			metricsMu.Lock()
+			convertedFiles++
+			if isExample {
+				convertedExamples++
+			} else {
+				convertedFixtures++
+			}
+			if fileHasMappingValues {
+				filesWithMappingValues++
+				if isExample {
+					exampleFilesWithMappingValues++
+				} else {
+					fixtureFilesWithMappingValues++
+				}
+			}
+			metricsMu.Unlock()
 		})
 	}
-	totalMappingValueEntries := 0
-	for _, count := range mappingValueEntries {
-		totalMappingValueEntries += count
-	}
-	totalMappingPropertyEntries := 0
-	for _, count := range mappingPropertyEntries {
-		totalMappingPropertyEntries += count
-	}
-	t.Logf(
-		"mappingValues: %d/%d fixtures and %d/%d examples (%d/%d total); %d property entries by property: %v; %d values by property: %v",
-		fixtureFilesWithMappingValues, convertedFixtures, exampleFilesWithMappingValues, convertedExamples,
-		filesWithMappingValues, convertedFiles, totalMappingPropertyEntries, mappingPropertyEntries,
-		totalMappingValueEntries, mappingValueEntries,
-	)
 }
 
 func TestAPIJSONUnresolvedSingleObjectPropertyUsesOntologyLowerBound(t *testing.T) {
