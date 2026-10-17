@@ -54,15 +54,15 @@
         "name": "testdata",
         "dir": "tests/testdata",
         "origin": "ours",
-        "files": 22,
-        "digest": "sha256:c20ede482539800e547471a8be7dc3cab5fa315291e9da0ef16030f233f2a46d"
+        "files": 28,
+        "digest": "sha256:95410abeddcb14ad93e31d49082ffb61eb43a14f9042c098868aa97552acc6e7"
       },
       {
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
         "files": 52,
-        "digest": "sha256:8455dacce8e1ac72e3c0c7bc11468a46700525904cb30f37e0f90c4bb29da175"
+        "digest": "sha256:174a2971a072fa268ac7f813690d4c62a55ae2e0e69b816c84d2e202986d35d7"
       },
       {
         "name": "probes",
@@ -82,14 +82,14 @@
     "recorded": "2026-10-16"
   },
   "totals": {
-    "files": 391,
-    "filesFullyAgreeing": 353,
-    "agreement": 45,
+    "files": 397,
+    "filesFullyAgreeing": 358,
+    "agreement": 48,
     "severityMismatch": 1,
     "openSysMLOnly": 315,
-    "pilotOnly": 92,
-    "openSysMLDiagnostics": 361,
-    "pilotDiagnostics": 138
+    "pilotOnly": 93,
+    "openSysMLDiagnostics": 364,
+    "pilotDiagnostics": 142
   },
   "roots": [
     {
@@ -714,16 +714,49 @@
       "name": "testdata",
       "dir": "tests/testdata",
       "totals": {
-        "files": 22,
-        "filesFullyAgreeing": 11,
-        "agreement": 45,
+        "files": 28,
+        "filesFullyAgreeing": 16,
+        "agreement": 48,
         "severityMismatch": 1,
         "openSysMLOnly": 12,
-        "pilotOnly": 31,
-        "openSysMLDiagnostics": 58,
-        "pilotDiagnostics": 77
+        "pilotOnly": 32,
+        "openSysMLDiagnostics": 61,
+        "pilotDiagnostics": 81
       },
       "files": [
+        {
+          "path": "interchange/proj/.sysand/lib/acme-widgets_1.0.0/Widgets.sysml",
+          "agreement": [
+            {
+              "line": 3,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 4,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 5,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            }
+          ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": [
+            {
+              "line": 5,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            }
+          ]
+        },
         {
           "path": "lex/basic.sysml",
           "agreement": [
@@ -2490,14 +2523,14 @@
       }
     ],
     "totals": {
-      "files": 391,
-      "filesFullyAgreeing": 354,
-      "agreement": 45,
+      "files": 397,
+      "filesFullyAgreeing": 359,
+      "agreement": 48,
       "severityMismatch": 1,
       "openSysMLOnly": 314,
-      "pilotOnly": 92,
-      "openSysMLDiagnostics": 360,
-      "pilotDiagnostics": 138
+      "pilotOnly": 93,
+      "openSysMLDiagnostics": 363,
+      "pilotDiagnostics": 142
     },
     "findings": [
       {

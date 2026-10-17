@@ -6,8 +6,7 @@ package Behave {
         attribute halfMass : Real = mass / 2;
         action def Charge {
             action step1;
-            succession first step1 then step2;
-            action step2;
+            then action step2;
         }
         perform action charge : Behave::Rover::Charge;
         state def Mission {

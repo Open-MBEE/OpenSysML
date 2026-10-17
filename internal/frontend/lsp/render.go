@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -387,8 +389,9 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 		return nil, fmt.Errorf("unknown overlay %q; overlay takes %s", params.Overlay, view.OverlayNames())
 	}
 	var (
-		rendering *view.Rendering
-		snapshot  *model.Snapshot
+		rendering  *view.Rendering
+		snapshot   *model.Snapshot
+		firstError *diag.Diagnostic
 	)
 	if err := s.ws.Read(func(r *model.Reading) (err error) {
 		var verdicts view.Verdicts
@@ -402,6 +405,9 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts, params.Depth)
 		if err == nil && params.LinkTemplate != "" {
 			r.LinkSites(rendering, snapshot)
+		}
+		if err == nil {
+			firstError = firstBlocking(r.Diagnostics(name))
 		}
 		return err
 	}); err != nil {
@@ -478,7 +484,30 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	for _, row := range data.Rows {
 		out.Rows = append(out.Rows, renderRow{Cells: row.Cells, Origin: origin(row.Origin)})
 	}
+	if len(out.Nodes) == 0 && len(out.Edges) == 0 && len(out.Rows) == 0 && firstError != nil {
+		out.Notices = append([]string{analysisNotice(name, doc, *firstError)}, out.Notices...)
+	}
 	return out, nil
+}
+
+// firstBlocking is the first error among the diagnostics, nil when none blocks.
+func firstBlocking(diagnostics []diag.Diagnostic) *diag.Diagnostic {
+	for i := range diagnostics {
+		if diagnostics[i].Blocking() {
+			return &diagnostics[i]
+		}
+	}
+	return nil
+}
+
+// analysisNotice is what a rendering with nothing to draw says when the document
+// it was made from has an error: the error itself, in the words the CLI uses,
+// since an element the parser could not read is an element no view exposes.
+// The diagnostic and doc are of one reading, so the position is of the text rendered.
+func analysisNotice(name string, doc *model.Document, d diag.Diagnostic) string {
+	at := spanToRange(doc.Content, d.Span).Start
+	return fmt.Sprintf("%s did not analyse cleanly; nothing was rendered: %d:%d: %s",
+		filepath.Base(name), at.Line+1, at.Character+1, d.Message)
 }
 
 // renderNodes converts the rendering's nodes into out, each coloured as fills

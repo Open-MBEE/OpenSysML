@@ -64,8 +64,8 @@ make build-wasm
 make install
 
 # Protobuf schema (api/proto/sysml.proto), all codegen driven by buf
-make proto           # regenerate the Go, Java and Python stubs
-make proto-buf       # Go and Java stubs only
+make proto           # regenerate the Go, Python, TypeScript and Rust stubs
+make proto-buf       # Go stubs only (the Java client generates its classes at Maven build time)
 make python-proto    # Python stubs only (needs grpcio-tools; PYTHON=... picks the interpreter)
 make proto-lint      # lint the schema, as CI does
 make proto-breaking  # reject wire-breaking changes against develop, as CI does

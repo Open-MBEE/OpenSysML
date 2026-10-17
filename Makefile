@@ -437,12 +437,12 @@ version: ## Show version information
 
 proto: proto-buf python-proto proto-ts proto-rust ## Regenerate all protobuf stubs
 
-# One template, so the Go stubs and the Java client's message classes cannot drift apart.
-# The Java plugin is a remote one, so this needs the Buf Schema Registry.
-proto-buf: ## Regenerate the Go and Java protobuf stubs
-	@echo "Regenerating Go and Java protobuf stubs..."
+# The Java client's message classes are not committed: its Maven build generates them from
+# api/proto/sysml.proto (client/java/opensysml-client/pom.xml).
+proto-buf: ## Regenerate the Go protobuf stubs
+	@echo "Regenerating Go protobuf stubs..."
 	$(BUF) generate api/proto --template api/proto/buf.gen.yaml
-	@echo "✓ Regenerated Go and Java stubs"
+	@echo "✓ Regenerated Go stubs"
 
 python-proto: ## Regenerate Python protobuf stubs
 	@echo "Regenerating Python protobuf stubs..."
