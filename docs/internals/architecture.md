@@ -448,10 +448,12 @@ Parse + model all behavioral bodies with unified fallback grammar:
   still in the runtime are listed there until their feature leaves. The `montecarlo*` files
   are the runtime's own: they execute a `Simulation::MonteCarlo` case, binding the sample's
   statistics into the case's run, and leaving would export 73 identifiers of the calc run.
-  Explore sits on a scheduler choice-point hook (`Chooser`, `StepChooser`, `StepTokens`) and
-  would need 25 exports beyond it, 14 of them sentinels its tests assert; replay and the
-  checker share that hook, the held images and adoption copy frames, so each stays until the
-  hook and the test harnesses they share with the runtime are settled
+  The `explore*` files are the runtime's own as well: a scheduler choice-point hook
+  (`Chooser`, `StepChooser`, `StepTokens`) would close the boundary at 904 exports, but 18 of
+  the runtime's test files (110 tests of replay, the checker, the conformance corpus and the
+  robustness suites) drive explorations as their harness, and a package's tests cannot import
+  a package that imports it. Replay and the checker sit on that same hook, the held images and
+  adoption copy frames, so each stays with the runtime
 
 ---
 
