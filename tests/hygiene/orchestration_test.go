@@ -14,17 +14,8 @@ var orchestrationPkgs = []string{
 	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep",
 }
 
-// orchestrationPrefixes name the features that live outside the runtime: no
-// new file of these names may appear in it. The files still there are listed
-// in orchestrationRemaining until their feature moves out; the list shrinks.
-//
-// The montecarlo* files are the runtime's own: they execute a
-// Simulation::MonteCarlo case, binding the sample's statistics into the case's
-// run, and leaving would export 73 identifiers of the calc run. The explore*,
-// replay*, check* and adopt* files stay until the scheduler's choice-point hook
-// and the test harnesses they share with the runtime are settled: the explore
-// package alone would need 25 exports beyond that hook, 14 of them sentinels
-// its tests assert.
+// orchestrationPrefixes name the features kept out of the runtime; the files still
+// there are listed in orchestrationRemaining, with the reasons in docs/internals/architecture.md.
 var orchestrationPrefixes = []string{"check", "sweep", "montecarlo", "replay", "explore", "adopt"}
 
 var orchestrationRemaining = map[string]bool{
