@@ -2327,15 +2327,7 @@ func reflectiveMessageFlowUsage(sym *symbols.Symbol) bool {
 }
 
 func (m *Model) reflectiveUsageHasFeaturingType(sym *symbols.Symbol) bool {
-	if IsVariant(sym) {
-		owner := m.ownerOf(sym)
-		if owner == nil || !m.reflectiveMetaclassConforms(owner, "Usage") || !IsVariation(owner) {
-			return false
-		}
-		return m.reflectiveUsageHasFeaturingType(owner)
-	}
-	featuringTypes, ok := m.ReflectiveElements(sym, "featuringType")
-	return ok && len(featuringTypes) > 0
+	return m.reflectiveExpectedFeaturingType(sym) != nil
 }
 
 func defaultUsageComposite(kind symbols.SymbolKind) bool {

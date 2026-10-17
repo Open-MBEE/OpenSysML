@@ -838,6 +838,229 @@ func TestStructureOwnedPropertiesAreUnsupportedWithoutStructure(t *testing.T) {
 	}
 }
 
+func TestEvaluatorCoreProperties(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "evaluator.sysml", `package Base {
+		part def Anything;
+		attribute def DataValue;
+		attribute dataValues : DataValue;
+	}
+	package Parts {
+		part def Part;
+		feature parts : Part;
+	}
+	package P {
+		part def Base {
+			attribute inherited;
+			private attribute hidden;
+			protected attribute protectedValue;
+			attribute same;
+		}
+		part def Mid specializes Base {
+			attribute middle;
+			attribute :>> same;
+		}
+		part def Leaf specializes Mid {
+			in attribute input;
+			out attribute output;
+			attribute own[2];
+			attribute typed : Base;
+			part nested;
+			part parent : Leaf {
+				part child;
+			}
+		}
+		part instance : Leaf;
+		alias BaseAlias for Base;
+	}`)
+	pkg := testSymbol(t, root, "P")
+	base := testSymbol(t, pkg.Scope, "Base")
+	mid := testSymbol(t, pkg.Scope, "Mid")
+	leaf := testSymbol(t, pkg.Scope, "Leaf")
+	instance := testSymbol(t, pkg.Scope, "instance")
+	parent := testSymbol(t, leaf.Scope, "parent")
+	nested := testSymbol(t, parent.Scope, "child")
+	input := testSymbol(t, leaf.Scope, "input")
+	output := testSymbol(t, leaf.Scope, "output")
+	typed := testSymbol(t, leaf.Scope, "typed")
+	alias := testSymbol(t, pkg.Scope, "BaseAlias")
+	structure := testDocumentStructure(
+		evaluator, root, pkg, base, mid, leaf, instance, parent,
+	)
+	structure.attributes[testRelatedKey{
+		element: ElementOf(nested).Key(), property: "isComposite",
+	}] = booleanValue(true)
+	evaluator.options.Structure = structure
+
+	name := testProperty(t, evaluator, ElementOf(leaf), "Element", "name")
+	if name.Kind != StringValue || name.String != "Leaf" {
+		t.Fatalf("Element::name = %#v, want Leaf", name)
+	}
+	shortName := testProperty(t, evaluator, ElementOf(leaf), "Element", "shortName")
+	if shortName.Kind != NullValue {
+		t.Fatalf("Element::shortName = %#v, want null", shortName)
+	}
+	owner := testProperty(t, evaluator, ElementOf(leaf), "Element", "owner")
+	if owner.Kind != ElementValue || owner.Element.Symbol != pkg {
+		t.Fatalf("Element::owner = %#v, want package P", owner)
+	}
+	namespace := testProperty(t, evaluator, ElementOf(leaf), "Element", "owningNamespace")
+	if namespace.Kind != ElementValue || namespace.Element.Symbol != pkg {
+		t.Fatalf("Element::owningNamespace = %#v, want package P", namespace)
+	}
+	owningMembership := testProperty(t, evaluator, ElementOf(leaf), "Element", "owningMembership")
+	if owningMembership.Kind != MembershipValue || owningMembership.Membership.Member != leaf {
+		t.Fatalf("Element::owningMembership = %#v, want Leaf's membership", owningMembership)
+	}
+	ownedElements := valueElements(t, testProperty(t, evaluator, ElementOf(leaf), "Element", "ownedElement"))
+	if !containsElementSymbol(ownedElements, parent) || containsElementSymbol(ownedElements, mid) {
+		t.Fatalf("Element::ownedElement = %v, want local parent element only", ownedElements)
+	}
+	qualifiedName := testProperty(t, evaluator, ElementOf(leaf), "Element", "qualifiedName")
+	if qualifiedName.Kind != StringValue || qualifiedName.String != "P::Leaf" {
+		t.Fatalf("Element::qualifiedName = %#v, want P::Leaf", qualifiedName)
+	}
+	library := testProperty(t, evaluator, ElementOf(leaf), "Element", "isLibraryElement")
+	if library.Kind != BooleanValue || library.Boolean {
+		t.Fatalf("Element::isLibraryElement = %#v, want false", library)
+	}
+	for _, property := range []string{"documentation", "ownedAnnotation", "textualRepresentation"} {
+		valueElements(t, testProperty(t, evaluator, ElementOf(leaf), "Element", property))
+	}
+	relationships := valueElements(t, testProperty(t, evaluator, ElementOf(leaf), "Element", "ownedRelationship"))
+	for _, relationship := range relationships {
+		implied := testProperty(t, evaluator, relationship, "Element", "isImpliedIncluded")
+		if implied.Kind != BooleanValue || implied.Boolean {
+			t.Fatalf("Element::ownedRelationship includes implied element: %#v", relationship)
+		}
+	}
+
+	for _, property := range []string{"membership", "ownedMembership", "member", "ownedMember", "importedMembership", "ownedImport"} {
+		value := testProperty(t, evaluator, ElementOf(pkg), "Namespace", property)
+		if property == "membership" || property == "ownedMembership" {
+			valueMemberships(t, value)
+		} else {
+			valueElements(t, value)
+		}
+	}
+
+	for _, property := range []string{
+		"feature", "ownedFeature", "inheritedFeature", "inheritedMembership",
+		"featureMembership", "ownedFeatureMembership", "input", "output", "directedFeature",
+		"endFeature", "ownedEndFeature", "ownedSpecialization", "differencingType", "intersectingType", "unioningType",
+	} {
+		value := testProperty(t, evaluator, ElementOf(leaf), "Type", property)
+		switch property {
+		case "inheritedMembership", "featureMembership", "ownedFeatureMembership":
+			valueMemberships(t, value)
+		default:
+			valueElements(t, value)
+		}
+	}
+	if got := valueElements(t, testProperty(t, evaluator, ElementOf(leaf), "Type", "inheritedFeature")); !containsElementSymbol(got, testSymbol(t, base.Scope, "inherited")) {
+		t.Fatalf("Type::inheritedFeature = %v, want Base::inherited", got)
+	}
+	if got := valueElements(t, testProperty(t, evaluator, ElementOf(leaf), "Type", "input")); !containsElementSymbol(got, input) {
+		t.Fatalf("Type::input = %v, want input", got)
+	}
+	if got := valueElements(t, testProperty(t, evaluator, ElementOf(leaf), "Type", "output")); !containsElementSymbol(got, output) {
+		t.Fatalf("Type::output = %v, want output", got)
+	}
+	conjugated := testProperty(t, evaluator, ElementOf(leaf), "Type", "isConjugated")
+	if conjugated.Kind != BooleanValue || conjugated.Boolean {
+		t.Fatalf("Type::isConjugated = %#v, want false", conjugated)
+	}
+	multiplicity := testProperty(t, evaluator, ElementOf(instance), "Type", "multiplicity")
+	if multiplicity.Kind != NullValue {
+		t.Fatalf("Type::multiplicity = %#v, want null", multiplicity)
+	}
+
+	for _, property := range []string{
+		"type", "featuringType", "owningType", "ownedTyping", "ownedSubsetting",
+		"ownedRedefinition", "ownedReferenceSubsetting", "featureTarget", "chainingFeature",
+	} {
+		testProperty(t, evaluator, ElementOf(typed), "Feature", property)
+	}
+	composite := testProperty(t, evaluator, ElementOf(nested), "Feature", "isComposite")
+	if composite.Kind != BooleanValue || !composite.Boolean {
+		t.Fatalf("Feature::isComposite = %#v, want true", composite)
+	}
+	direction := testProperty(t, evaluator, ElementOf(input), "Feature", "direction")
+	if direction.Kind != EnumValue || direction.Enum == "" {
+		t.Fatalf("Feature::direction = %#v, want a direction", direction)
+	}
+	testProperty(t, evaluator, ElementOf(typed), "Feature", "crossFeature")
+
+	for _, property := range []string{
+		"definition", "usage", "nestedUsage", "directedUsage", "variant",
+		"isReference", "owningUsage", "owningDefinition", "nestedPart", "nestedAttribute",
+	} {
+		testProperty(t, evaluator, ElementOf(parent), "Usage", property)
+	}
+	if _, ok := evaluator.Property(ElementOf(parent), "Usage", "ownedUsage"); ok {
+		t.Fatal("Usage::ownedUsage is not defined for a Usage")
+	}
+	for _, property := range []string{"ownedUsage", "usage", "directedUsage", "variant"} {
+		testProperty(t, evaluator, ElementOf(leaf), "Definition", property)
+	}
+	for _, property := range []string{"ownedPart", "ownedAttribute"} {
+		testProperty(t, evaluator, ElementOf(leaf), "Definition", property)
+	}
+	ownerUsage := testProperty(t, evaluator, ElementOf(nested), "Usage", "owningUsage")
+	if ownerUsage.Kind != ElementValue || ownerUsage.Element.Symbol != parent {
+		t.Fatalf("Usage::owningUsage = %#v, want parent", ownerUsage)
+	}
+	ownerDefinition := testProperty(t, evaluator, ElementOf(nested), "Usage", "owningDefinition")
+	if ownerDefinition.Kind != NullValue {
+		t.Fatalf("nested Usage::owningDefinition = %#v, want null because owningType is a Usage", ownerDefinition)
+	}
+	direct := testSymbol(t, leaf.Scope, "nested")
+	directDefinition := testProperty(t, evaluator, ElementOf(direct), "Usage", "owningDefinition")
+	if directDefinition.Kind != ElementValue || directDefinition.Element.Symbol != leaf {
+		t.Fatalf("directly owned Usage::owningDefinition = %#v, want Leaf", directDefinition)
+	}
+	directUsage := testProperty(t, evaluator, ElementOf(direct), "Usage", "owningUsage")
+	if directUsage.Kind != NullValue {
+		t.Fatalf("directly owned Usage::owningUsage = %#v, want null because owningType is a Definition", directUsage)
+	}
+	packageOwnedDefinition := testProperty(t, evaluator, ElementOf(instance), "Usage", "owningDefinition")
+	if packageOwnedDefinition.Kind != NullValue {
+		t.Fatalf("OwningMembership-owned Usage::owningDefinition = %#v, want null", packageOwnedDefinition)
+	}
+	packageOwnedUsage := testProperty(t, evaluator, ElementOf(instance), "Usage", "owningUsage")
+	if packageOwnedUsage.Kind != NullValue {
+		t.Fatalf("OwningMembership-owned Usage::owningUsage = %#v, want null", packageOwnedUsage)
+	}
+	aliasElement := ElementOf(alias)
+	if !aliasElement.IsMembership {
+		t.Fatal("alias declaration is not represented as its own membership")
+	}
+	for _, property := range []string{"memberElement", "memberName", "memberShortName", "membershipOwningNamespace"} {
+		testProperty(t, evaluator, aliasElement, "Membership", property)
+	}
+	member := testProperty(t, evaluator, aliasElement, "Membership", "memberElement")
+	if member.Kind != ElementValue || member.Element.Symbol != base {
+		t.Fatalf("Membership::memberElement = %#v, want Base", member)
+	}
+	memberName := testProperty(t, evaluator, aliasElement, "Membership", "memberName")
+	if memberName.Kind != StringValue || memberName.String != "BaseAlias" {
+		t.Fatalf("Membership::memberName = %#v, want BaseAlias", memberName)
+	}
+	memberShortName := testProperty(t, evaluator, aliasElement, "Membership", "memberShortName")
+	if memberShortName.Kind != NullValue {
+		t.Fatalf("Membership::memberShortName = %#v, want null", memberShortName)
+	}
+	for _, property := range []string{"name", "shortName"} {
+		value := testProperty(t, evaluator, aliasElement, "Element", property)
+		if value.Kind != NullValue {
+			t.Fatalf("Alias Element::%s = %#v, want null", property, value)
+		}
+	}
+	owningNamespace := testProperty(t, evaluator, aliasElement, "Membership", "membershipOwningNamespace")
+	if owningNamespace.Kind != ElementValue || owningNamespace.Element.Symbol != pkg {
+		t.Fatalf("Membership::membershipOwningNamespace = %#v, want package P", owningNamespace)
+	}
+}
+
 func TestEvaluatorInheritanceVisibilityAndRedefinition(t *testing.T) {
 	evaluator, root := newTestEvaluator(t, "inheritance.sysml", `package Base {
 		part def Anything;
@@ -5049,6 +5272,49 @@ func TestStructureFeaturingTypesIncludesEffectiveVariableUsage(t *testing.T) {
 	}
 }
 
+func TestUsageMayTimeVaryForReferentialActionsAndStates(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "usage-may-time-vary.sysml", `package Occurrences {
+		occurrence def Occurrence;
+	}
+	package Actions {
+		action def Action;
+	}
+	package States {
+		state def State;
+	}
+	package P {
+		part def Vehicle :> Occurrences::Occurrence {
+			perform action performed : Actions::Action;
+			exhibit state exhibited : States::State;
+			composite action compositeAction : Actions::Action;
+		}
+		perform action packageAction : Actions::Action;
+	}`)
+	pkg := testSymbol(t, root, "P")
+	vehicle := testSymbol(t, pkg.Scope, "Vehicle")
+	cases := []struct {
+		symbol          *symbols.Symbol
+		wantComposite   bool
+		wantMayTimeVary bool
+	}{
+		{testSymbol(t, vehicle.Scope, "performed"), false, true},
+		{testSymbol(t, vehicle.Scope, "exhibited"), false, true},
+		{testSymbol(t, vehicle.Scope, "compositeAction"), true, false},
+		{testSymbol(t, pkg.Scope, "packageAction"), false, false},
+	}
+	for _, tc := range cases {
+		if got := evaluator.model.EffectiveIsComposite(tc.symbol); got != tc.wantComposite {
+			t.Errorf("%s.isComposite = %t, want %t",
+				symbols.FQNOf(tc.symbol), got, tc.wantComposite)
+		}
+		got := testProperty(t, evaluator, ElementOf(tc.symbol), "Usage", "mayTimeVary")
+		if got.Kind != BooleanValue || got.Boolean != tc.wantMayTimeVary {
+			t.Errorf("%s.mayTimeVary = %v, want %t",
+				symbols.FQNOf(tc.symbol), got, tc.wantMayTimeVary)
+		}
+	}
+}
+
 func TestStructureIndividualDefinitionSelectsOnlyIndividuals(t *testing.T) {
 	evaluator, _ := newTestEvaluator(t, "individual-definition.sysml", "package P {}")
 	structure := evaluator.options.Structure.(testStructure)
@@ -5290,6 +5556,122 @@ func TestKerMLTypeUsageMetaclassesAreTypes(t *testing.T) {
 	}
 }
 
+func TestUsageReferenceAndCompositeConstraints(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "usage-composition.sysml", `package P {
+		part def Vehicle {
+			port ignitionCmdPort;
+			attribute mass;
+			part child;
+			ref part spare;
+			event occurrence arrived;
+			port outer {
+				port inner;
+			}
+			state machine {
+				state operatingStates {
+					state off;
+				}
+			}
+		}
+		port def PortShape {
+			port nested;
+		}
+		action def Flow {
+			fork f;
+		}
+	}`)
+	vehicle := testSymbol(t, testSymbol(t, root, "P").Scope, "Vehicle")
+	portShape := testSymbol(t, testSymbol(t, root, "P").Scope, "PortShape")
+	flow := testSymbol(t, testSymbol(t, root, "P").Scope, "Flow")
+	machine := testSymbol(t, vehicle.Scope, "machine")
+	states := testSymbol(t, machine.Scope, "operatingStates")
+	cases := []struct {
+		symbol      *symbols.Symbol
+		composite   bool
+		referential bool
+	}{
+		{testSymbol(t, vehicle.Scope, "ignitionCmdPort"), false, true},
+		{testSymbol(t, vehicle.Scope, "mass"), false, true},
+		{testSymbol(t, vehicle.Scope, "child"), true, false},
+		{testSymbol(t, vehicle.Scope, "spare"), false, true},
+		{testSymbol(t, vehicle.Scope, "arrived"), false, true},
+		{testSymbol(t, vehicle.Scope, "outer"), false, true},
+		{testSymbol(t, testSymbol(t, vehicle.Scope, "outer").Scope, "inner"), true, false},
+		{testSymbol(t, portShape.Scope, "nested"), true, false},
+		{testSymbol(t, flow.Scope, "f"), true, false},
+		{testSymbol(t, states.Scope, "off"), true, false},
+	}
+	evaluator.options.Structure = nil
+	for _, tc := range cases {
+		element := ElementOf(tc.symbol)
+		composite := testProperty(t, evaluator, element, "Feature", "isComposite")
+		if composite.Kind != BooleanValue || composite.Boolean != tc.composite {
+			t.Errorf("%s.isComposite = %v, want %t", symbols.FQNOf(tc.symbol), composite, tc.composite)
+		}
+		reference := testProperty(t, evaluator, element, "Usage", "isReference")
+		if reference.Kind != BooleanValue || reference.Boolean != tc.referential {
+			t.Errorf("%s.isReference = %v, want %t", symbols.FQNOf(tc.symbol), reference, tc.referential)
+		}
+	}
+}
+
+func TestStructurePortUsageCompositionUsesOwningType(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "port-usage-composition.sysml", `package P {
+		part def Vehicle { port command; }
+		port def PortShape { port nested; }
+		port external;
+	}`)
+	pkg := testSymbol(t, root, "P")
+	vehicle := ElementOf(testSymbol(t, pkg.Scope, "Vehicle"))
+	command := ElementOf(testSymbol(t, testSymbol(t, pkg.Scope, "Vehicle").Scope, "command"))
+	portShapeSymbol := testSymbol(t, pkg.Scope, "PortShape")
+	portShape := ElementOf(portShapeSymbol)
+	nested := ElementOf(testSymbol(t, portShapeSymbol.Scope, "nested"))
+	external := ElementOf(testSymbol(t, pkg.Scope, "external"))
+	commandMembership := MembershipElement(Membership{Aspect: "command-membership", kind: "FeatureMembership"})
+	nestedMembership := MembershipElement(Membership{Aspect: "nested-membership", kind: "FeatureMembership"})
+	externalMembership := MembershipElement(Membership{Aspect: "external-membership", kind: "OwningMembership"})
+	structure := testStructure{
+		metaclasses: map[ElementKey]string{
+			vehicle.Key():            "PartDefinition",
+			command.Key():            "PortUsage",
+			commandMembership.Key():  "FeatureMembership",
+			portShape.Key():          "PortDefinition",
+			nested.Key():             "PortUsage",
+			nestedMembership.Key():   "FeatureMembership",
+			external.Key():           "PortUsage",
+			externalMembership.Key(): "OwningMembership",
+		},
+		owningRelationships: map[ElementKey]testOptionalElement{
+			command.Key():  {element: commandMembership, present: true},
+			nested.Key():   {element: nestedMembership, present: true},
+			external.Key(): {element: externalMembership, present: true},
+		},
+		owningRelatedElements: map[ElementKey]testOptionalElement{
+			commandMembership.Key():  {element: vehicle, present: true},
+			nestedMembership.Key():   {element: portShape, present: true},
+			externalMembership.Key(): {element: ElementOf(testSymbol(t, pkg.Scope, "external").Owner()), present: true},
+		},
+	}
+	evaluator.options.Structure = structure
+	for _, tc := range []struct {
+		element   Element
+		composite bool
+		reference bool
+	}{
+		{element: command, composite: false, reference: true},
+		{element: nested, composite: true, reference: false},
+		{element: external, composite: false, reference: true},
+	} {
+		if got := testProperty(t, evaluator, tc.element, "Feature", "isComposite"); got.Kind != BooleanValue || got.Boolean != tc.composite {
+			t.Errorf("%v.isComposite = %v, want %t", tc.element.Key(), got, tc.composite)
+		}
+		if got := testProperty(t, evaluator, tc.element, "Usage", "isReference"); got.Kind != BooleanValue || got.Boolean != tc.reference {
+			t.Errorf("%v.isReference = %v, want %t", tc.element.Key(), got, tc.reference)
+		}
+	}
+}
+
 func TestStructureUsageReferenceUsesCompositeWithoutSymbol(t *testing.T) {
 	evaluator, _ := newTestEvaluator(t, "structure-usage-reference.sysml", "package P {}")
 	reference := Element{Aspect: "reference"}
@@ -5366,6 +5748,45 @@ func TestStructureUsageCompositeDoesNotAssumeUnruledMetaclasses(t *testing.T) {
 				t.Fatalf("Usage::isComposite was decidable for unruled %s", metaclass)
 			}
 		})
+	}
+}
+
+func TestStructureUsageCompositeUsesEffectiveFlags(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "structure-usage-effective-composite.sysml", `package P {
+		metadata def M;
+		metadata packageMarker : M;
+		part topLevel;
+		state failureModes[*];
+		metadata m : M about topLevel;
+		part def Vehicle {
+			part nested;
+			ref part spare;
+			metadata marker : M;
+		}
+	}`)
+	pkg := testSymbol(t, root, "P")
+	vehicle := testSymbol(t, pkg.Scope, "Vehicle")
+	cases := []struct {
+		symbol      *symbols.Symbol
+		composite   bool
+		referential bool
+	}{
+		{testSymbol(t, pkg.Scope, "topLevel"), false, true},
+		{testSymbol(t, pkg.Scope, "failureModes"), false, true},
+		{testSymbol(t, pkg.Scope, "packageMarker"), false, true},
+		{testSymbol(t, pkg.Scope, "m"), false, true},
+		{testSymbol(t, vehicle.Scope, "nested"), true, false},
+		{testSymbol(t, vehicle.Scope, "spare"), false, true},
+		{testSymbol(t, vehicle.Scope, "marker"), true, false},
+	}
+	for _, tc := range cases {
+		element := ElementOf(tc.symbol)
+		if got := testProperty(t, evaluator, element, "Feature", "isComposite"); got.Kind != BooleanValue || got.Boolean != tc.composite {
+			t.Errorf("%s.isComposite = %v, want %t", symbols.FQNOf(tc.symbol), got, tc.composite)
+		}
+		if got := testProperty(t, evaluator, element, "Usage", "isReference"); got.Kind != BooleanValue || got.Boolean != tc.referential {
+			t.Errorf("%s.isReference = %v, want %t", symbols.FQNOf(tc.symbol), got, tc.referential)
+		}
 	}
 }
 
