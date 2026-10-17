@@ -1,6 +1,5 @@
-// A bare Boolean pin holds its one value as a one-element sequence, and a one-element
-// sequence is its element (KerML §7.4.8): `if flag` and `while` over the pin read the
-// Boolean, so the body branches on a bare pin as it does on a [1] pin.
+// A bare Boolean pin holds a one-element sequence, which is its element (KerML §7.4.8):
+// `if flag` and `while` over the pin branch as they do over a [1] pin.
 package test {
 	private import ScalarValues::*;
 
