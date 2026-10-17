@@ -1,7 +1,7 @@
 // Analysis cases and parameter sweeps against the real service.
 
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { before, test } from "node:test";
@@ -203,5 +203,6 @@ test("a tool dry run previews the tool call instead of running it", async () => 
   } finally {
     if (previous === undefined) delete process.env["OPENSYSML_TOOLS"];
     else process.env["OPENSYSML_TOOLS"] = previous;
+    rmSync(tools, { recursive: true, force: true });
   }
 });
