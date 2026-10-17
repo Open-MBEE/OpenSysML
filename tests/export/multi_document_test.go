@@ -409,6 +409,8 @@ func sameAPIJSONElementWithUnavailableQualifiedName(whole, document string) bool
 		json.Unmarshal([]byte(document), &documentElement) != nil {
 		return false
 	}
+	delete(wholeElement, "sysx:mappingPropertyOrder")
+	delete(documentElement, "sysx:mappingPropertyOrder")
 	wholeName, wholeHasName := wholeElement["qualifiedName"]
 	documentName, documentHasName := documentElement["qualifiedName"]
 	if wholeHasName {
