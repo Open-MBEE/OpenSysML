@@ -198,7 +198,8 @@ function test_surface_live()
     assert_equal(isempty(selfChecked.applications), false, 'SelfCheck applications');
     assert_raises(@() runsModel.selfCheck('packages', {'Nope'}), 'SelfCheck unknown package');
     recorded = opensysml.recordRun(runsModel, 'MC::Cost', 'subject', 'MC::p');
-    assert_equal(isempty(recorded.run), false, 'RecordRun run');
+    assert_equal(isa(recorded.run, 'opensysml.AnalysisResult'), true, 'RecordRun run');
+    assert_equal(isempty(recorded.run.outputs), false, 'RecordRun run outputs');
     assert_equal(recorded.package, 'Records', 'RecordRun package');
     assert_equal(recorded.records, {'Records::Cost_run1'}, 'RecordRun records');
     assert_equal(numel(recorded.documents), 1, 'RecordRun documents');

@@ -1,8 +1,8 @@
 function result = recordRun(model, analysisId, varargin)
 %RECORDRUN Run an analysis case and record its result into the model, as sysml -record-run does.
 %   RESULT = RECORDRUN(MODEL, ANALYSISID, ...) runs the case once, over sweep
-%   'ranges' or as a Monte Carlo sample of 'runs', and answers a struct with run,
-%   sweep or sample (whichever was made), package, definition, records, source,
+%   'ranges' or as a Monte Carlo sample of 'runs', and answers a struct with run
+%   (an AnalysisResult), sweep (a SweepTable) or sample (the runs; whichever was made), package, definition, records, source,
 %   content, documents, skipped, reasons, diagnostics and modelHash (the recorded
 %   model, which the service holds). Options: subject, arguments, namedArguments,
 %   into (the records' package, Records by default), ranges, runs, seed, engine.
@@ -32,8 +32,8 @@ function result = recordRun(model, analysisId, varargin)
         'documents', {{}}, 'skipped', double(opensysml.parseInt64(fieldOr(raw, 'skipped', '0'))), ...
         'reasons', {cellfun(@char, cells(fieldOr(raw, 'reasons', {})), 'UniformOutput', false)}, ...
         'diagnostics', {diagnostics}, 'modelHash', fieldOr(raw, 'modelHash', ''));
-    if isfield(raw, 'run'), result.run = raw.run; end
-    if isfield(raw, 'sweep'), result.sweep = raw.sweep; end
+    if isfield(raw, 'run'), result.run = opensysml.internal.decodeAnalysisResult(model, raw.run); end
+    if isfield(raw, 'sweep'), result.sweep = opensysml.internal.decodeSweepTable(model, raw.sweep); end
     if isfield(raw, 'sample'), result.sample = opensysml.internal.decodeRuns(model, raw.sample); end
     for d = cells(fieldOr(raw, 'documents', {}))
         result.documents{end + 1} = struct('name', fieldOr(d{1}, 'name', ''), 'content', fieldOr(d{1}, 'content', ''));
