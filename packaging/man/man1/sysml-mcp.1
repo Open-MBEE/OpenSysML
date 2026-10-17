@@ -106,7 +106,8 @@ Convert, sysml \-convert, sysml \-from, sysml \-id).
 .TP
 .B diagnostics
 runtime: Report every diagnostic of a parsed model, as sysml \-validate does
-(rpc GetDiagnostics, sysml \-validate).
+(rpc GetDiagnostics, sysml \-validate, sysml \-disable\-lint, sysml
+\-enable\-lint).
 .TP
 .B explain_diagnostic
 runtime: Explain a diagnostic code, or list every code with its summary (sysml
@@ -122,7 +123,8 @@ runtime: Evaluate a calculation definition or usage (rpc EvaluateCalc, sysml
 .TP
 .B execute_action
 runtime: Execute an action with bound inputs and report its outputs (rpc
-ExecuteAction, sysml \-action, sysml \-schedule).
+ExecuteAction, sysml \-action, sysml \-schedule, sysml \-advance, sysml
+\-seed, sysml \-draws, sysml \-clock\-step).
 .TP
 .B execute_state
 runtime: Run a state machine over a sequence of events and report the trace
@@ -143,7 +145,7 @@ values (rpc Instantiate, sysml \-instantiate).
 .TP
 .B list_engines
 runtime: List the analysis engines and whether each is ready (rpc ListEngines,
-sysml \-engines).
+sysml \-engines, sysml \-probe).
 .TP
 .B migrate
 runtime: Migrate a SysML v1 model to SysML v2 and report what moved (rpc
@@ -168,7 +170,7 @@ sysml \-render, sysml \-render\-ports, sysml \-render\-show, sysml
 .TP
 .B run_analysis
 runtime: Run an analysis case and report its result (rpc RunAnalysis, sysml
-\-analysis, sysml \-engine).
+\-analysis, sysml \-engine, sysml \-tool\-dry\-run).
 .TP
 .B run_document_query
 runtime: Run a document query definition and report its rows (rpc
@@ -176,7 +178,7 @@ RunDocumentQuery, sysml \-run\-query).
 .TP
 .B run_sweep
 runtime: Run an analysis case over ranges of its parameters (rpc RunSweep,
-sysml \-sweep).
+sysml \-sweep, sysml \-samples).
 .TP
 .B server_info
 runtime: Report the service version and the capabilities it serves (rpc

@@ -64,7 +64,7 @@ func TestTerminatedMachineHoldsNoPendingWork(t *testing.T) {
 	if sequenceLen(exec.StateData()["busy.r1.a.deferred"]) != 1 {
 		t.Fatalf("deferred = %s; want the Later event kept by a", FormatValue(exec.StateData()["busy.r1.a.deferred"]))
 	}
-	exec.sendSignal("Abort", nil)
+	exec.SendSignal("Abort", nil)
 	if fired, err := exec.PollChangeEvents(); err != nil || fired {
 		t.Fatalf("poll = %v, %v; want nothing fired with level at 0", fired, err)
 	}
@@ -123,7 +123,7 @@ func TestTerminatedMachineDropsHeldEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exec.sendSignal("Start", nil)
+	exec.SendSignal("Start", nil)
 	if err := exec.RunToQuiescence(); err != nil {
 		t.Fatalf("RunToQuiescence: %v", err)
 	}

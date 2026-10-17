@@ -46,7 +46,7 @@ from opensysml.importcompare import (
     ImportResult, ImportedFile, ImportedValue, ObservableComparison, StatisticDifference,
 )
 from opensysml.verdict import (
-    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Validation,
+    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, ToolDryRun, Validation,
     Verdict, VerificationVerdict,
 )
 from opensysml.exploration import Exploration, Outcome
@@ -97,6 +97,7 @@ __all__ = [
     "Migration", "MigrationEntry", "MigrationReport", "is_v1",
     "Editor", "Body", "EditResult", "AppliedEdit", "EditedDocument", "Referrer",
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
+    "ToolDryRun",
     "Validation", "VerificationVerdict",
     "Exploration", "Outcome", "ActionOutputs",
     "Bound", "EngineInfo", "Standing",

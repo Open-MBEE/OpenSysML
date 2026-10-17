@@ -68,7 +68,7 @@ pub struct SourcesOptions {
 }
 
 /// How to run an action or state machine.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct RunOptions {
     /// The scheduling policy choice points resolve under; `None` is the service's default.
     /// An exploring schedule (`explore`, `explore:runs=<n>,depth=<d>`) belongs to the
@@ -78,6 +78,15 @@ pub struct RunOptions {
     pub performer: Option<String>,
     /// Return a state's documented execution records.
     pub trace: bool,
+    /// Simulated time, in seconds, to run for (`sysml -advance`); `None` runs to completion.
+    pub advance: Option<f64>,
+    /// The seed the model's own draws are taken from (`sysml -seed`); `None` leaves them to
+    /// the schedule.
+    pub seed: Option<u64>,
+    /// How RandomFunctions draws resolve (`sysml -draws`): `random`, `min`, `max` or `average`.
+    pub draws: Option<String>,
+    /// The step, in seconds, the run's clock ticks by (`sysml -clock-step`); 0 is continuous.
+    pub clock_step: f64,
 }
 
 /// What to ask a verification and of whom.
@@ -108,6 +117,9 @@ pub struct AnalysisOptions {
     pub schedule: Option<String>,
     /// The engine to ask.
     pub engine: Option<String>,
+    /// Run the case only to its first external tool call and answer what the tool would be
+    /// given (`sysml -tool-dry-run`), without starting it.
+    pub tool_dry_run: bool,
 }
 
 /// How to sweep an analysis case or calc.
@@ -529,11 +541,11 @@ impl Connection {
         model_hash: &str,
         action_id: &str,
         inputs: &BTreeMap<String, Value>,
+        options: &RunOptions,
         schedule: Option<&str>,
-        performer: Option<&str>,
     ) -> Result<wire::ExecuteActionResponse, Error> {
         let inputs = self.named_to_wire(inputs)?;
-        let capabilities = self.run_capabilities(schedule, performer)?;
+        let capabilities = self.run_capabilities(schedule, options.performer.as_deref())?;
         self.gated_rpc(
             "ExecuteAction",
             wire::ExecuteActionRequest {
@@ -541,7 +553,11 @@ impl Connection {
                 action_symbol_id: action_id.to_owned(),
                 inputs,
                 schedule: schedule.unwrap_or_default().to_owned(),
-                performer_symbol_id: performer.unwrap_or_default().to_owned(),
+                performer_symbol_id: options.performer.clone().unwrap_or_default(),
+                advance: options.advance,
+                seed: options.seed,
+                draws: options.draws.clone().unwrap_or_default(),
+                clock_step: options.clock_step,
             },
             &capabilities,
         )
@@ -552,11 +568,11 @@ impl Connection {
         model_hash: &str,
         machine_id: &str,
         events: &[S],
+        options: &RunOptions,
         schedule: Option<&str>,
-        performer: Option<&str>,
         trace: bool,
     ) -> Result<wire::ExecuteStateResponse, Error> {
-        let mut capabilities = self.run_capabilities(schedule, performer)?;
+        let mut capabilities = self.run_capabilities(schedule, options.performer.as_deref())?;
         if trace {
             capabilities.push(CAPABILITY_STATE_TRACE);
         }
@@ -567,8 +583,12 @@ impl Connection {
                 state_machine_symbol_id: machine_id.to_owned(),
                 events: events.iter().map(|e| e.as_ref().to_owned()).collect(),
                 schedule: schedule.unwrap_or_default().to_owned(),
-                performer_symbol_id: performer.unwrap_or_default().to_owned(),
+                performer_symbol_id: options.performer.clone().unwrap_or_default(),
                 trace,
+                advance: options.advance,
+                seed: options.seed,
+                draws: options.draws.clone().unwrap_or_default(),
+                clock_step: options.clock_step,
             },
             &capabilities,
         )
@@ -588,8 +608,8 @@ impl Connection {
             model_hash,
             action_id,
             inputs,
+            options,
             options.schedule.as_deref(),
-            options.performer.as_deref(),
         )?;
         let wire = response.clone();
         let diagnostics = diagnostics_of(&response.diagnostics);
@@ -600,6 +620,7 @@ impl Connection {
                 diagnostics,
                 trace: Vec::new(),
                 trace_dropped: 0,
+                final_time: response.final_time,
             });
         }
         Ok(ActionRun {
@@ -623,13 +644,7 @@ impl Connection {
         Self::refuse_action_trace(options)?;
         let schedule = options.schedule.as_deref().unwrap_or(SCHEDULE_EXPLORE);
         require_exploring(schedule)?;
-        let response = self.run_action(
-            model_hash,
-            action_id,
-            inputs,
-            Some(schedule),
-            options.performer.as_deref(),
-        )?;
+        let response = self.run_action(model_hash, action_id, inputs, options, Some(schedule))?;
         exploration_of(ExploredResponse::Action(Box::new(response)))
     }
 
@@ -655,8 +670,8 @@ impl Connection {
             model_hash,
             machine_id,
             events,
+            options,
             options.schedule.as_deref(),
-            options.performer.as_deref(),
             options.trace,
         )?;
         let wire = response.clone();
@@ -698,8 +713,8 @@ impl Connection {
             model_hash,
             machine_id,
             events,
+            options,
             Some(schedule),
-            options.performer.as_deref(),
             false,
         )?;
         exploration_of(ExploredResponse::State(Box::new(response)))
@@ -707,10 +722,20 @@ impl Connection {
 
     /// The engines the service registers, served or not.
     pub fn list_engines(&self) -> Result<Vec<EngineInfo>, Error> {
+        self.engines(false)
+    }
+
+    /// The engines, each external one started once and checked against its manifest, as
+    /// `sysml -engines -probe` does.
+    pub fn probe_engines(&self) -> Result<Vec<EngineInfo>, Error> {
+        self.engines(true)
+    }
+
+    fn engines(&self, probe: bool) -> Result<Vec<EngineInfo>, Error> {
         self.require_all(&[CAPABILITY_ENGINES])?;
         let response: wire::ListEnginesResponse = self.gated_rpc(
             "ListEngines",
-            wire::ListEnginesRequest {},
+            wire::ListEnginesRequest { probe },
             &[CAPABILITY_ENGINES],
         )?;
         Ok(response.engines.into_iter().map(EngineInfo::from).collect())
@@ -894,6 +919,7 @@ impl Connection {
             named_arguments: self.named_to_wire(&options.named_arguments)?,
             schedule: schedule.unwrap_or_default().to_owned(),
             engine: engine_field(options.engine.as_deref()),
+            tool_dry_run: options.tool_dry_run,
         };
         self.gated_rpc("RunAnalysis", request, &with_values(capabilities))
     }
@@ -1107,6 +1133,7 @@ fn state_failure(
         diagnostics,
         trace,
         trace_dropped: response.trace_dropped,
+        final_time: response.final_time,
     })
 }
 

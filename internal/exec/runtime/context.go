@@ -181,6 +181,15 @@ type Context struct {
 	trace *TraceRecorder
 	// stepWrites is the ledger of the action step under way, nil between steps.
 	stepWrites *stepWriteLedger
+	// controls is the choice points the move under way stands on by control: the
+	// guards read and branches drawn around it (order_marks.go).
+	controls []int64
+	// performing is the node whose performance the executor running is, nil for a
+	// run of its own: a body's own place is stamped as that performance's.
+	performing ast.Node
+	// performingParams are the parameters of the action performing runs, which
+	// are that performance's own as its pins are.
+	performingParams map[*symbols.Symbol]bool
 
 	// actionDepth is the number of action invocations currently on the stack,
 	// bounding recursion across nested action executors.
@@ -760,6 +769,8 @@ type runState struct {
 	steps    int64
 	elements int64
 	notes    []RunNote
+	// marks is what the run's values stand on (order_marks.go).
+	marks orderMarks
 	// performers are the objects the run's executors have performed on, kept
 	// after an executor leaves the clock so a value of theirs is still matched.
 	performers []*Instance
@@ -1692,7 +1703,7 @@ func (ctx *Context) ExecuteActionPerformedBy(action *symbols.Symbol, self *Insta
 		return nil, err
 	}
 	// Return the values the action's features hold once it completed
-	return exec.resultsWithError()
+	return exec.ResultsWithError()
 }
 
 // ActionOutcomePerformedBy runs an action as ExecuteActionPerformedBy does and reports
@@ -1712,11 +1723,11 @@ func (ctx *Context) ExecuteActionReportingPerformer(action *symbols.Symbol, self
 	if err != nil {
 		return nil, nil, err
 	}
-	outputs, err = exec.resultsWithError()
+	outputs, err = exec.ResultsWithError()
 	if err != nil {
 		return nil, nil, err
 	}
-	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).performerAttributes(), nil
+	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
 }
 
 // performAction runs action to completion, performed by self, and returns the
@@ -1897,7 +1908,7 @@ func (ctx *Context) ExecuteStatePerformedBy(stateMachine *symbols.Symbol, self *
 		return nil, nil, err
 	}
 	// Return state machine data and the real ordered visit trace
-	data, err := exec.stateDataWithError()
+	data, err := exec.StateDataWithError()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1917,7 +1928,7 @@ func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *
 	if err != nil {
 		return Outcome{}, err
 	}
-	if _, err := exec.stateDataWithError(); err != nil {
+	if _, err := exec.StateDataWithError(); err != nil {
 		return Outcome{}, err
 	}
 	return (&Invocation{States: []*StateExecutor{exec}}).Outcome(), nil
@@ -2082,7 +2093,7 @@ func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, e
 	// Inject external signal events. Each event name is treated as a signal type
 	// with no arguments; matching accept-triggers consume it in order.
 	for _, event := range events {
-		exec.sendSignal(event, nil)
+		exec.SendSignal(event, nil)
 	}
 
 	if err := exec.RunToCompletion(); err != nil {

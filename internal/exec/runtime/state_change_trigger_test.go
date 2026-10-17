@@ -362,7 +362,7 @@ func TestChangeTriggerRearmsOnStateExit(t *testing.T) {
 	}
 	assertCurrentState(t, exec, "working")
 
-	exec.sendSignal("Back", nil)
+	exec.SendSignal("Back", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("rerun: %v", err)
 	}
@@ -540,7 +540,7 @@ func TestSuspendReasonMakesNoClaimOnceASignalIsQueued(t *testing.T) {
 		t.Errorf("reason = %q, want the false condition it waits on", reason)
 	}
 
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	if reason := exec.SuspendReason(); reason != "" {
 		t.Errorf("reason = %q, want none while a queued signal can still be dispatched", reason)
 	}

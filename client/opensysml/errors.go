@@ -109,6 +109,9 @@ type FailureError struct {
 	Trace []DocumentEvent
 	// TraceDropped is the number of oldest ExecuteState trace records discarded.
 	TraceDropped int
+	// FinalTime is the simulation clock an ExecuteAction or ExecuteState run
+	// stopped at, in seconds, when it failed under WithAdvance.
+	FinalTime float64
 }
 
 // Error renders the failure the service reported.

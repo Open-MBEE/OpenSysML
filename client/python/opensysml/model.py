@@ -657,7 +657,8 @@ class Model:
         """
         return self._client.instantiate(symbol_id, self._hash)
 
-    def execute_action(self, action_symbol_id, inputs=None, schedule=None, performer=None):
+    def execute_action(self, action_symbol_id, inputs=None, schedule=None, performer=None,
+                       advance=None, seed=None, draws=None, clock_step=0.0):
         """Execute one of this model's actions.
 
         Args:
@@ -667,6 +668,13 @@ class Model:
                 choice points under — ``"declared"``, ``"reverse"`` (the
                 default) or ``"seed:<n>"``; ``"explore"`` belongs to
                 :meth:`explore_action`
+            advance (float, optional): Simulated seconds to run for (``sysml
+                -advance``); ``None`` runs the action to completion
+            seed (int, optional): Seed of the model's own draws (``sysml -seed``)
+            draws (str, optional): How RandomFunctions draws resolve (``sysml
+                -draws``): ``"random"``, ``"min"``, ``"max"`` or ``"average"``
+            clock_step (float): Seconds the run's clock ticks by (``sysml
+                -clock-step``); 0 is a continuous clock
             performer (str, optional): The object the action runs on: a part
                 definition or usage to make an object of, or a path from one
                 into its parts (``"Mission::mission.vehicle"``), made for the
@@ -688,7 +696,8 @@ class Model:
             InvalidRequestError: If the schedule names no policy
         """
         return self._client.execute_action(
-            action_symbol_id, self._hash, inputs=inputs, schedule=schedule, performer=performer
+            action_symbol_id, self._hash, inputs=inputs, schedule=schedule, performer=performer,
+            advance=advance, seed=seed, draws=draws, clock_step=clock_step,
         )
 
     def explore_action(self, action_symbol_id, inputs=None, schedule="explore", performer=None):
@@ -721,7 +730,7 @@ class Model:
         )
 
     def execute_state(self, state_machine_symbol_id, events=None, schedule=None, performer=None,
-                      trace=False):
+                      trace=False, advance=None, seed=None, draws=None, clock_step=0.0):
         """Execute one of this model's state machines.
 
         Args:
@@ -760,7 +769,8 @@ class Model:
         """
         return self._client.execute_state(
             state_machine_symbol_id, self._hash, events=events, schedule=schedule,
-            performer=performer, trace=trace
+            performer=performer, trace=trace, advance=advance, seed=seed, draws=draws,
+            clock_step=clock_step,
         )
 
     def explore_state(self, state_machine_symbol_id, events=None, schedule="explore", performer=None):
@@ -940,7 +950,7 @@ class Model:
         return self._client.calc(symbol_id, self._hash, arguments=arguments, engine=engine)
 
     def run_analysis(self, symbol_id, subject=None, arguments=None,
-                     named_arguments=None, schedule=None, engine=None):
+                     named_arguments=None, schedule=None, engine=None, tool_dry_run=False):
         """Run one of this model's analysis cases.
 
         Args:
@@ -973,6 +983,7 @@ class Model:
         return self._client.run_analysis(
             symbol_id, self._hash, subject=subject, arguments=arguments,
             named_arguments=named_arguments, schedule=schedule, engine=engine,
+            tool_dry_run=tool_dry_run,
         )
 
     def explore_analysis(self, symbol_id, subject=None, arguments=None,

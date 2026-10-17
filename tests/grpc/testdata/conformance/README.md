@@ -19,6 +19,7 @@ in this directory, so adding a case is a data-only change.
 | `expected_assignments` | ImportData | the assignments' descriptions over every import, in order; `expected_content` is the edited model, `expected_error` a refusal that leaves it unchanged |
 | `results`, `actions`, `runs`, `seed`, `observe` | CompareResults | the results index as JSON, the configurations selected, the runs per configuration, the seed and stored-name → feature pairs |
 | `expected_configurations` | CompareResults | per configuration in index order: `name`, `status`, `runs`, `completed`, `stored_runs`, `observables` (stored name → compared), `unresolved` and `lines_contain` |
+| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `GetDiagnostics`, `ApplyEdits`, `RunDocumentQuery` or `EvaluateCalc` |
 
 `ApplyEdits` sequence operations may carry the recursive action-body fields
 `condition`, `value`, `target`, `via`, `until`, `body`, `else_body`,
@@ -32,6 +33,9 @@ empty else blocks are not authorable.
 | `arguments` | EvaluateCalc | positional arguments bound to the calc's parameters |
 | `tools` | EvaluateCalc | stand-ins under `internal/exec/analysis/testdata` built and registered from a manifest before the service is built |
 | `inputs` | ExecuteAction | parameter name → value, bound before execution |
+| `advance`, `seed`, `draws`, `clock_step` | ExecuteAction | the run options of `sysml -advance`, `-seed`, `-draws` and `-clock-step`; absent sends none |
+| `disable_lint`, `enable_lint` | GetDiagnostics | lint codes left out of, and opt-in lint codes kept in, the diagnostics, as `sysml -disable-lint`/`-enable-lint` select them |
+| `expected_codes`, `absent_codes` | GetDiagnostics | diagnostic codes the answer must carry, and must not |
 | `events` | ExecuteState | event names injected, in order |
 | `instantiate` | RunDocumentQuery | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them |
 | `query_id` | RunDocumentQuery | FQN of the document query to run |
@@ -47,6 +51,7 @@ empty else blocks are not authorable.
 | `expected_states_visited` | ExecuteState | full ordered state-visit trace |
 | `expected_final_context` | ExecuteState | context entry name → expected `Value` |
 | `expected_error` | all | substring the RPC's in-band `error` must contain (for `RunDocumentQuery`, the status error the call fails with) |
+| `expected_final_time` | ExecuteAction | the simulation clock, in seconds, the run ended at |
 
 A case without `expected_error` requires an empty `error` field. A case with `expected_error`
 asserts only the error, and is how failure modes (for example an action whose successions leave no step to start at)

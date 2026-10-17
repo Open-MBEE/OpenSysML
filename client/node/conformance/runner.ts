@@ -390,16 +390,22 @@ export class Runner {
       }),
     Instantiate: (call) => this.model(call).instantiate(String(call.request["symbol_id"])),
     ParseSources: ({ request }) => this.parseSources(request),
-    GetDiagnostics: (call) => this.model(call).refreshDiagnostics(),
+    GetDiagnostics: (call) =>
+      this.model(call).refreshDiagnostics({
+        ...stringListOption(call.request, "disable_lint", "disableLint"),
+        ...stringListOption(call.request, "enable_lint", "enableLint"),
+      }),
     ExecuteAction: (call) =>
       this.model(call).executeAction(String(call.request["action_symbol_id"]), {
         inputs: valueMap(call.request["inputs"]),
         ...stringOption(call.request, "schedule", "schedule"),
+        ...runOptions(call.request),
       }),
     ExecuteState: (call) =>
       this.model(call).executeState(String(call.request["state_machine_symbol_id"]), {
         ...stringOption(call.request, "schedule", "schedule"),
         ...flagOption(call.request, "trace", "trace"),
+        ...runOptions(call.request),
       }),
     Convert: ({ request, modelHash }) =>
       this.connection.convert(stringOf(request["to_format"]), convertSource(request, modelHash), {
@@ -466,6 +472,7 @@ export class Runner {
         ...stringOption(call.request, "subject_symbol_id", "subject"),
         arguments: valueList(call.request["arguments"]),
         namedArguments: valueMap(call.request["named_arguments"]),
+        ...boolOption(call.request, "tool_dry_run", "toolDryRun"),
       }),
     RunSweep: (call) =>
       this.model(call).runSweep(String(call.request["symbol_id"]), sweepRanges(call.request["ranges"]), {
@@ -474,7 +481,7 @@ export class Runner {
         ...numberOption(call.request, "samples", "samples"),
         ...numberOption(call.request, "seed", "seed"),
       }),
-    ListEngines: () => this.connection.listEngines(),
+    ListEngines: ({ request }) => this.connection.listEngines(flagOption(request, "probe", "probe")),
   };
 
   private async parseFile(request: Record<string, unknown>): Promise<void> {
@@ -712,6 +719,16 @@ function stringOption<K extends string>(
   return typeof value === "string" ? ({ [name]: value } as { [P in K]?: string }) : {};
 }
 
+/** The option `name` taken from a request's boolean field `key`; nothing when the field is not a boolean. */
+function boolOption<K extends string>(
+  request: Record<string, unknown>,
+  key: string,
+  name: K,
+): { [P in K]?: boolean } {
+  const value = request[key];
+  return typeof value === "boolean" ? ({ [name]: value } as { [P in K]?: boolean }) : {};
+}
+
 /** The option `name` taken from a request's number field `key`; nothing when the field is not a number. */
 function numberOption<K extends string>(
   request: Record<string, unknown>,
@@ -729,6 +746,26 @@ function flagOption<K extends string>(
   name: K,
 ): { [P in K]?: true } {
   return request[key] === true ? ({ [name]: true } as { [P in K]?: true }) : {};
+}
+
+/** The option `name` taken from a request's repeated string field `key`; nothing when absent. */
+function stringListOption<K extends string>(
+  request: Record<string, unknown>,
+  key: string,
+  name: K,
+): { [P in K]?: string[] } {
+  const value = request[key];
+  return Array.isArray(value) ? ({ [name]: value.map(String) } as { [P in K]?: string[] }) : {};
+}
+
+/** The run controls of an action or state request: advance, seed, draws and clock step. */
+function runOptions(request: Record<string, unknown>) {
+  return {
+    ...numberOption(request, "advance", "advance"),
+    ...(typeof request["seed"] === "number" ? { seed: BigInt(request["seed"]) } : {}),
+    ...stringOption(request, "draws", "draws"),
+    ...numberOption(request, "clock_step", "clockStep"),
+  };
 }
 
 /** The subject and question options of a verification request. */

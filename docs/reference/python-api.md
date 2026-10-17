@@ -194,6 +194,15 @@ explore schedule; the same option and result fields are available on
 A failed traced run raises the existing `ExecutionError`, with its partial
 records on `trace` and discarded count on `trace_dropped`.
 
+`execute_action` and `execute_state` take the run options of the `sysml`
+command: `advance` (simulated seconds to run for, reported back in
+`final_time`), `seed` (the model's own draws), `draws` (`"random"`, `"min"`,
+`"max"` or `"average"`) and `clock_step`. `run_analysis(..., tool_dry_run=True)`
+previews the first external tool call instead of making it, as the result's
+`tool_dry_run` (a `ToolDryRun`), and
+`Connection.list_engines(probe=True)` starts each external engine and checks its
+handshake before listing it.
+
 ## opensysml.symbol
 
 Symbols represent declarations and their resolved facts in a model.
@@ -583,6 +592,10 @@ Typed outcomes for verification, validation, calculation and analysis.
       heading_level: 3
 
 ::: opensysml.SweepTable
+    options:
+      heading_level: 3
+
+::: opensysml.ToolDryRun
     options:
       heading_level: 3
 

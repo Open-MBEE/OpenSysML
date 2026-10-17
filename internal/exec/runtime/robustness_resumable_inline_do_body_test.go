@@ -103,7 +103,7 @@ func testDoBodyExitMidLoopDropsThePendingIterations(t *testing.T) {
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(3)) {
 		t.Fatalf("total = %v after two rounds; want 3, one iteration a round", total)
 	}
-	exec.sendSignal("Stop", nil)
+	exec.SendSignal("Stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to completion: %v", err)
 	}
@@ -135,7 +135,7 @@ func testDoBodyExitMidIterationDropsTheRestOfTheIteration(t *testing.T) {
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(10)) {
 		t.Fatalf("total = %v after two rounds; want 10, the first iteration's second statement", total)
 	}
-	exec.sendSignal("Stop", nil)
+	exec.SendSignal("Stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to completion: %v", err)
 	}
@@ -156,7 +156,7 @@ func testDoBodyEmptyBranchIsARoundOfItsOwn(t *testing.T) {
 		if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
 			t.Fatalf("%s: total = %v after one round; want 0, the assignment after it not yet run", compound, total)
 		}
-		exec.sendSignal("Stop", nil)
+		exec.SendSignal("Stop", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("%s: run to completion: %v", compound, err)
 		}
@@ -196,7 +196,7 @@ func testDoBodyStatedFlowNodesYieldAsStatements(t *testing.T) {
 				t.Fatalf("%s: total = %v after %d round(s); want %d", c.body, total, round+1, want)
 			}
 		}
-		exec.sendSignal("Stop", nil)
+		exec.SendSignal("Stop", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("%s: run to completion: %v", c.body, err)
 		}
@@ -231,7 +231,7 @@ func testDoBodyExitOnAClockWaitAfterALoopLeavesNoTimer(t *testing.T) {
 	if exec.HasPendingDoWork() {
 		t.Fatal("the body is due while its wait on the clock goes on")
 	}
-	exec.sendSignal("Stop", nil)
+	exec.SendSignal("Stop", nil)
 	if err := exec.RunToQuiescence(); err != nil {
 		t.Fatalf("run to quiescence: %v", err)
 	}

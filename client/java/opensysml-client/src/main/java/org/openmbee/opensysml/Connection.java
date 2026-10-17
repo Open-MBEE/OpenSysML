@@ -242,12 +242,25 @@ public final class Connection implements AutoCloseable {
    * @throws CapabilityException if the service does not advertise {@code engines}
    */
   public List<EngineInfo> listEngines() {
+    return listEngines(false);
+  }
+
+  /**
+   * The analysis engines the service serves, optionally probed: with {@code probe}, each external
+   * engine is started and its handshake checked before it is listed, as {@code sysml -probe} does.
+   *
+   * @param probe whether to start each external engine and check its handshake
+   * @return the engines, built-in ones first
+   * @throws CapabilityException if the service predates {@code engines}
+   * @throws ServiceException if a probed engine fails its handshake
+   */
+  public List<EngineInfo> listEngines(boolean probe) {
     checkOpen();
     capabilities.require(Capabilities.ENGINES);
     ListEnginesResponse response =
         call(
             "ListEngines",
-            ListEnginesRequest.getDefaultInstance(),
+            ListEnginesRequest.newBuilder().setProbe(probe).build(),
             ListEnginesResponse.getDefaultInstance());
     return Protos.engines(response.getEnginesList());
   }
