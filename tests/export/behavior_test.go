@@ -685,11 +685,14 @@ func TestSupersededThenDoneMembershipReadsBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The fixture is the earlier exporter's graph of the one action def that ends in `then done;`.
+	if !strings.Contains(string(turtle), "sysx:targetMember") {
+		t.Fatal("the fixture no longer exhibits the superseded shape: no sysx:targetMember")
+	}
 	back, err := convert.Convert("old.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("the superseded shape should still convert: %v", err)
 	}
-	// The fixture's bodies carry the earlier exporter's surrounding spaces, which KerML keeps, so its notation differs from the canonical golden only in those bodies.
 	checkGolden(t, filepath.Join("testdata", "superseded", "then_done_membership.golden.sysml"), back)
 }
 
