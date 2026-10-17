@@ -233,7 +233,7 @@ func indexOf(op string, val Value) (int64, error) {
 			return 0, fmt.Errorf("%w: %s: index %s addresses no position", ErrIndexOutOfRange, op, n.FormatInt())
 		}
 	}
-	return 0, fmt.Errorf("%w: %s requires an Integer index, got %s", ErrTypeMismatch, op, describeValue(val))
+	return 0, fmt.Errorf("%w: %s requires an Integer index, got %s", ErrTypeMismatch, op, DescribeValue(val))
 }
 
 // wholeBeyondInt64 is the whole number v is, an Integer or a Real, where it is
@@ -269,9 +269,9 @@ func indexWithin(op, what string, index, first int64, count semantics.Range, sla
 	return nil
 }
 
-// describeValue names a value's kind for a diagnostic, distinguishing the
+// DescribeValue names a value's kind for a diagnostic, distinguishing the
 // numeric constants a single kind covers.
-func describeValue(val Value) string {
+func DescribeValue(val Value) string {
 	if val.Kind == ValComplex {
 		return "a Complex"
 	}
@@ -452,7 +452,7 @@ func (ec *EvalContext) denotedBody(val Value) (Value, error) {
 // checkBody verifies a denoted value is a body declaring arity parameters.
 func checkBody(op string, val Value, arity int) (Value, error) {
 	if val.Kind != valExpr {
-		return Value{}, fmt.Errorf("%w: %s requires a body expression, got %s", ErrTypeMismatch, op, describeValue(val))
+		return Value{}, fmt.Errorf("%w: %s requires a body expression, got %s", ErrTypeMismatch, op, DescribeValue(val))
 	}
 	body, ok := val.expr().(*ast.BodyExpr)
 	if !ok {
@@ -475,7 +475,7 @@ func (ec *EvalContext) evalClosure(val Value) (Value, error) {
 func (ec *EvalContext) applyBody(val Value, args ...Value) (Value, error) {
 	body, ok := val.expr().(*ast.BodyExpr)
 	if !ok {
-		return Value{}, fmt.Errorf("%w: a body expression is required, got %s", ErrTypeMismatch, describeValue(val))
+		return Value{}, fmt.Errorf("%w: a body expression is required, got %s", ErrTypeMismatch, DescribeValue(val))
 	}
 	ec = val.exprEnv(ec)
 	if body.Result == nil {
@@ -543,7 +543,7 @@ func (ec *EvalContext) applyPredicate(op string, body Value, arg Value) (bool, e
 		return false, err
 	}
 	if val.Kind == ValUndetermined {
-		return false, fmt.Errorf("%w: %s: predicate must return boolean, got %s", ErrTypeMismatch, op, describeValue(val))
+		return false, fmt.Errorf("%w: %s: predicate must return boolean, got %s", ErrTypeMismatch, op, DescribeValue(val))
 	}
 	return val.Const.Bool, nil
 }
@@ -559,7 +559,7 @@ func (ec *EvalContext) applyTest(op string, body Value, arg Value) (Value, error
 		return val, nil
 	}
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
-		return Value{}, fmt.Errorf("%w: %s: predicate must return boolean, got %s", ErrTypeMismatch, op, describeValue(val))
+		return Value{}, fmt.Errorf("%w: %s: predicate must return boolean, got %s", ErrTypeMismatch, op, DescribeValue(val))
 	}
 	return val, nil
 }
@@ -614,7 +614,7 @@ func builtinBaseIndex(ec *EvalContext, args []Value) (Value, error) {
 		return ec.ctx.sequenceIndex(op, []Value{args[0], indexes[0]})
 	}
 	return Value{}, fmt.Errorf("%w: %s: %d indexes address an Array, got %s",
-		ErrTypeMismatch, op, len(indexes), describeValue(args[0]))
+		ErrTypeMismatch, op, len(indexes), DescribeValue(args[0]))
 }
 
 // builtinArrayIndex is CollectionFunctions::'array#': the element of an Array
@@ -655,7 +655,7 @@ func arrayIndex(op string, arr Value, indexesVal Value) (Value, error) {
 	case ValTensorQuantity:
 		return arr.TensorQuantity().componentArray().at(op, indexes)
 	}
-	return Value{}, fmt.Errorf("%w: %s requires an Array (arr: Array[1]), got %s", ErrTypeMismatch, op, describeValue(arr))
+	return Value{}, fmt.Errorf("%w: %s requires an Array (arr: Array[1]), got %s", ErrTypeMismatch, op, DescribeValue(arr))
 }
 
 // builtinSequenceSize is SequenceFunctions::size.
@@ -1348,7 +1348,7 @@ func (ec *EvalContext) extremum(op string, args []Value, least bool) (Value, err
 		}
 		if val.Kind != ValConst || !val.Const.IsNumeric() {
 			return Value{}, fmt.Errorf("%w: %s requires numeric values, got %s",
-				ErrTypeMismatch, op, describeValue(val))
+				ErrTypeMismatch, op, DescribeValue(val))
 		}
 		if i == 0 {
 			best = val
@@ -1468,7 +1468,7 @@ func truthOf(op string, args []Value, universal bool) (Value, error) {
 			continue
 		}
 		if elem.Kind != ValConst || elem.Const.Kind != semantics.ValBool {
-			return Value{}, fmt.Errorf("%w: %s requires Boolean elements, got %s", ErrTypeMismatch, op, describeValue(elem))
+			return Value{}, fmt.Errorf("%w: %s requires Boolean elements, got %s", ErrTypeMismatch, op, DescribeValue(elem))
 		}
 		if elem.Const.Bool != universal {
 			return boolValue(!universal), nil
@@ -1592,7 +1592,7 @@ func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind
 	acc := kind.identity(identity)
 	for _, elem := range elements {
 		if elem.Kind != ValConst || !elem.Const.IsNumeric() {
-			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, describeValue(elem))
+			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, DescribeValue(elem))
 		}
 		if a, ok := acc.Int64(); ok && operator == ast.OpAdd {
 			if b, ok := elem.Const.Int64(); ok {
@@ -1626,7 +1626,7 @@ func (ctx *Context) aggregateQuantities(op string, elements []Value, operator as
 	for i, elem := range elements {
 		q, ok := asQuantity(elem)
 		if !ok {
-			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, describeValue(elem))
+			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, DescribeValue(elem))
 		}
 		if num := kind.element(q.Num); num != q.Num {
 			held := *q

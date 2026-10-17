@@ -47,7 +47,7 @@ func escapedRun(t *testing.T, body Value) *calcRun {
 
 	closure, ok := body.ref.(*exprValue)
 	if !ok || body.Kind != valExpr || closure.env == nil {
-		t.Fatalf("got %s, want a body closing over its environment", describeValue(body))
+		t.Fatalf("got %s, want a body closing over its environment", DescribeValue(body))
 	}
 	if closure.env.calcRun == nil {
 		t.Fatal("the escaped body holds no calc evaluation to read outputs from")

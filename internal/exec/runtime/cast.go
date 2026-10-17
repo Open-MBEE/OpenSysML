@@ -214,5 +214,5 @@ func classifyUndetermined(op ast.OperatorKind, value Value, verdict semantics.Ty
 // cast fails rather than dropping a value that may well be one of the target's.
 func (ec *EvalContext) undecidedCast(value Value, target *symbols.Symbol) error {
 	return fmt.Errorf("%w: whether %s (%s) is a value of %s is not stated by the value",
-		errUndecidedClassification, FormatValue(value), describeValue(value), symbolText(target))
+		errUndecidedClassification, FormatValue(value), DescribeValue(value), SymbolText(target))
 }

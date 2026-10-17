@@ -1737,7 +1737,7 @@ func TestAdoptCarriesANamespaceBinding(t *testing.T) {
 	got := carIn(t, ctx)
 	if got == obj || got.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
 		t.Errorf("car in the re-analysis denotes %d of %s, want a Truck read against the declaration as it is now",
-			got.ID, symbolText(got.Type))
+			got.ID, SymbolText(got.Type))
 	}
 }
 
@@ -1892,7 +1892,7 @@ func TestAdoptRebindsWhenABindingsDependencyChanges(t *testing.T) {
 	alias := objectIn(t, ctx, "alias")
 	if alias != spare || alias == obj || alias.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
 		t.Errorf("alias in the re-analysis denotes %d of %s, spare %d; want alias to denote the Truck spare now binds",
-			alias.ID, symbolText(alias.Type), spare.ID)
+			alias.ID, SymbolText(alias.Type), spare.ID)
 	}
 }
 
@@ -2006,7 +2006,7 @@ func TestAdoptRebindsWhenABindingsNameIsShadowed(t *testing.T) {
 	alias := objectIn(t, ctx, "alias")
 	if alias == obj || alias.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
 		t.Errorf("alias in the re-analysis denotes %d of %s; want the Truck the nearer spare binds",
-			alias.ID, symbolText(alias.Type))
+			alias.ID, SymbolText(alias.Type))
 	}
 	if got := objectIn(t, ctx, "kept"); got != kept {
 		t.Errorf("kept in the re-analysis denotes %d, want the carried object %d", got.ID, kept.ID)
@@ -2155,7 +2155,7 @@ func TestAdoptRebindsWhenAWarmedCallGainsACandidate(t *testing.T) {
 	got := objectIn(t, ctx, "car")
 	if got == car || got.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
 		t.Errorf("car in the re-analysis denotes %d of %s; want the Truck the nearer makeCar makes",
-			got.ID, symbolText(got.Type))
+			got.ID, SymbolText(got.Type))
 	}
 	if got := objectIn(t, ctx, "kept"); got != kept {
 		t.Errorf("kept in the re-analysis denotes %d, want the carried object %d", got.ID, kept.ID)

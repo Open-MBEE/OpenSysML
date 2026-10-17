@@ -44,7 +44,7 @@ func (e *HeldImageError) Error() string {
 	if e.ID == 0 {
 		return fmt.Sprintf("%s: %v", e.What, e.Err)
 	}
-	return fmt.Sprintf("%s of object #%d (%s): %v", e.What, e.ID, symbolText(e.Type), e.Err)
+	return fmt.Sprintf("%s of object #%d (%s): %v", e.What, e.ID, SymbolText(e.Type), e.Err)
 }
 
 // Unwrap exposes the typed reason.
@@ -140,6 +140,7 @@ func (obj imagedObject) keptIDs() []int64 {
 type imagedRun struct {
 	steps, elements int64
 	notes           []RunNote
+	marks           orderMarks
 	scheduled       bool
 	policy          SchedulePolicy
 	generator       *rand.PCG
@@ -455,7 +456,7 @@ func (t *imaging) run(state *runState) (int, error) {
 	if len(state.calcUsageRuns) > 0 {
 		return 0, fmt.Errorf("%w: calc usage evaluations open", ErrSnapshotMidRun)
 	}
-	run := imagedRun{steps: state.steps, elements: state.elements, notes: slices.Clone(state.notes)}
+	run := imagedRun{steps: state.steps, elements: state.elements, notes: slices.Clone(state.notes), marks: state.marks.clone()}
 	if s := state.scheduler; s != nil {
 		if s.explore != nil {
 			return 0, fmt.Errorf("%w: an exploration of the schedule under way", errImageBound)
@@ -627,14 +628,14 @@ func (img *HeldImage) bindingsFree(dst *Context) error {
 		}
 		for _, prior := range priors {
 			if dst.holds(prior) {
-				refuse(ids[0], fmt.Errorf("%w: usage %s denotes #%d", errImageBindingTaken, dst.qualifiedSymbolName(sym), prior))
+				refuse(ids[0], fmt.Errorf("%w: usage %s denotes #%d", errImageBindingTaken, dst.QualifiedName(sym), prior))
 				break
 			}
 		}
 	}
 	for key, id := range img.metadataObjects {
 		if prior, ok := dst.metadataObjects[key]; ok && prior != id && dst.holds(prior) {
-			refuse(id, fmt.Errorf("%w: annotation %d of %s denotes #%d", errImageBindingTaken, key.index, dst.qualifiedSymbolName(key.element), prior))
+			refuse(id, fmt.Errorf("%w: annotation %d of %s denotes #%d", errImageBindingTaken, key.index, dst.QualifiedName(key.element), prior))
 		}
 	}
 	if err == nil {
@@ -789,7 +790,7 @@ func (m *materializing) run() error {
 		}
 		carried, err := dst.carriedRequired(r, r.typ, keep)
 		if err != nil {
-			return &HeldImageError{What: "materialize the members " + symbolText(sym) + " denotes", Err: err}
+			return &HeldImageError{What: "materialize the members " + SymbolText(sym) + " denotes", Err: err}
 		}
 		tails[sym] = carried
 	}
@@ -944,7 +945,7 @@ func (m *materializing) featureAt(ref imagedFeatureRef) *FeatureValue {
 // where the imaged run drew from a seed its modeled stream's position.
 func (m *materializing) runState(run imagedRun) *runState {
 	state := &runState{
-		steps: run.steps, elements: run.elements, notes: slices.Clone(run.notes),
+		steps: run.steps, elements: run.elements, notes: slices.Clone(run.notes), marks: run.marks.clone(),
 		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 	}
 	if run.scheduled {

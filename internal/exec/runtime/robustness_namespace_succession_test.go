@@ -265,7 +265,7 @@ func testNamespaceSuccessionExplicitStateStart(t *testing.T) {
 		t.Fatal("rejected explicit starts changed the held exhibit")
 	}
 
-	earlier.State.sendSignal("Wake", nil)
+	earlier.State.SendSignal("Wake", nil)
 	if err := earlier.State.RunToCompletion(); err != nil {
 		t.Fatalf("complete earlier exhibit: %v", err)
 	}

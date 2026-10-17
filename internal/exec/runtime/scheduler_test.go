@@ -415,7 +415,7 @@ func TestDecidePredictsTheDrivenRunsTransition(t *testing.T) {
 		if again, err := exec.Decide(msg); err != nil || again.Fires[0] != first.Fires[0] {
 			t.Errorf("%s: a second Decide(Go) = %+v, %v; want %q again, the preview drawing nothing", policy, again, err, first.Fires[0])
 		}
-		exec.sendSignal("Go", nil)
+		exec.SendSignal("Go", nil)
 		if err := exec.ProcessNextEvent(); err != nil {
 			t.Fatalf("%s: ProcessNextEvent: %v", policy, err)
 		}

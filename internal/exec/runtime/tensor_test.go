@@ -67,8 +67,8 @@ func TestTensorQuantityFormats(t *testing.T) {
 		if got := describeOperand(val); got != "a tensor quantity" {
 			t.Errorf("describeOperand(%s) = %q", src, got)
 		}
-		if got := describeValue(val); got != "tensor quantity" {
-			t.Errorf("describeValue(%s) = %q", src, got)
+		if got := DescribeValue(val); got != "tensor quantity" {
+			t.Errorf("DescribeValue(%s) = %q", src, got)
 		}
 	}
 	if got := FormatTraceValue(Value{Kind: ValTensorQuantity}); got != "tensor quantity" {

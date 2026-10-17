@@ -1,0 +1,12 @@
+{
+  "rpc": "ExecuteAction",
+  "symbol_id": "test::delayed",
+  "advance": 10,
+  "expected_outputs": {
+    "count": {
+      "kind": "int_value",
+      "value": 1
+    }
+  },
+  "expected_final_time": 10
+}

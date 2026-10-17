@@ -55,7 +55,7 @@ func TestRuntimeRobustnessChangeTriggerWrites(t *testing.T) {
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("initial run: %v", err)
 		}
-		exec.sendSignal("Go", nil)
+		exec.SendSignal("Go", nil)
 		if err := exec.ProcessNextEvent(); err != nil {
 			t.Fatalf("ProcessNextEvent(Go): %v", err)
 		}
@@ -123,7 +123,7 @@ func TestRuntimeRobustnessChangeTriggerWrites(t *testing.T) {
 		beforeObserved := maps.Clone(exec.changeObserved)
 		beforeFired := maps.Clone(exec.changeFired)
 
-		exec.sendSignal("Go", nil)
+		exec.SendSignal("Go", nil)
 		if err := exec.ProcessNextEvent(); !errors.Is(err, ErrDivisionByZero) {
 			t.Fatalf("ProcessNextEvent(Go) = %v, want ErrDivisionByZero", err)
 		}

@@ -136,7 +136,7 @@ func TestSimpleSelfTransitionEffectReadingAnUnknownFeatureIsReported(t *testing.
 		}
 	}`)
 
-	exec.sendSignal("again", nil)
+	exec.SendSignal("again", nil)
 	err := exec.RunToCompletion()
 	if !errors.Is(err, ErrUnresolvedReference) {
 		t.Fatalf("err = %v; want ErrUnresolvedReference", err)

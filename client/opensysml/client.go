@@ -25,7 +25,7 @@ type Client interface {
 
 	// ListEngines lists the analysis engines the service answers with, in name
 	// order, as `sysml -engines` does. Requires the engines capability.
-	ListEngines(ctx context.Context) ([]EngineInfo, error)
+	ListEngines(ctx context.Context, opts ...EngineOption) ([]EngineInfo, error)
 
 	// ParseFile parses the model file at path. Diagnostics, including syntax
 	// errors, arrive on the returned Model; only an unreadable path or an
@@ -47,7 +47,7 @@ type Client interface {
 
 	// Diagnostics reports every diagnostic of the parsed model, parser and
 	// semantic passes combined — the same list the Model already carries.
-	Diagnostics(ctx context.Context, model *Model) ([]Diagnostic, error)
+	Diagnostics(ctx context.Context, model *Model, opts ...DiagnosticsOption) ([]Diagnostic, error)
 
 	// LookupSymbol looks a symbol up by fully qualified name. An unknown name
 	// is a FailureError; an unknown model is CodeNotFound.
@@ -470,7 +470,20 @@ func (c *client) parse(ctx context.Context, req *pb.ParseFileRequest) (*Model, e
 	}, nil
 }
 
-func (c *client) Diagnostics(ctx context.Context, model *Model) ([]Diagnostic, error) {
+// DiagnosticsOption selects the lints Diagnostics reports.
+type DiagnosticsOption func(*pb.DiagnosticsRequest)
+
+// DisableLint leaves the named lint codes out, as sysml -disable-lint does.
+func DisableLint(codes ...string) DiagnosticsOption {
+	return func(req *pb.DiagnosticsRequest) { req.DisableLint = append(req.DisableLint, codes...) }
+}
+
+// EnableLint keeps the named opt-in lint codes in, as sysml -enable-lint does.
+func EnableLint(codes ...string) DiagnosticsOption {
+	return func(req *pb.DiagnosticsRequest) { req.EnableLint = append(req.EnableLint, codes...) }
+}
+
+func (c *client) Diagnostics(ctx context.Context, model *Model, opts ...DiagnosticsOption) ([]Diagnostic, error) {
 	if err := c.live(); err != nil {
 		return nil, err
 	}
@@ -478,7 +491,11 @@ func (c *client) Diagnostics(ctx context.Context, model *Model) ([]Diagnostic, e
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.caller.getDiagnostics(ctx, &pb.DiagnosticsRequest{ModelHash: hash})
+	req := &pb.DiagnosticsRequest{ModelHash: hash}
+	for _, opt := range opts {
+		opt(req)
+	}
+	resp, err := c.caller.getDiagnostics(ctx, req)
 	if err != nil {
 		return nil, err
 	}

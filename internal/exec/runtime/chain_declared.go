@@ -19,7 +19,7 @@ func (ec *EvalContext) declaredChainValue(base ast.Node, parts []ast.NameSegment
 	// A member whose value reads this very chain again is a cycle.
 	read := chainRead{usage: owner, path: joinSegments(parts)}
 	if slices.Contains(ec.ctx.chainStack, read) {
-		return Value{}, true, &cyclicBindingError{Usage: owner, Stated: ec.ctx.qualifiedSymbolName(owner) + "." + read.path}
+		return Value{}, true, &cyclicBindingError{Usage: owner, Stated: ec.ctx.QualifiedName(owner) + "." + read.path}
 	}
 	ec.ctx.chainStack = append(ec.ctx.chainStack, read)
 	defer func() { ec.ctx.chainStack = ec.ctx.chainStack[:len(ec.ctx.chainStack)-1] }()

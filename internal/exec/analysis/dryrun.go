@@ -327,6 +327,16 @@ func (d DryRun) processLines(lines []string) []string {
 	return lines
 }
 
+// InputText spells one of the preview's inputs as the protocol sends it, "?"
+// for a value the protocol cannot carry.
+func (d DryRun) InputText(in runtime.ToolInput) string {
+	text, err := valueText(d.Tool, in.Variable, in.Value)
+	if err != nil {
+		return "?"
+	}
+	return text
+}
+
 func (d DryRun) inputLines(lines []string) []string {
 	if len(d.Inputs) == 0 {
 		return append(lines, "inputs: (none)")

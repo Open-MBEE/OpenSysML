@@ -95,7 +95,7 @@ github.com/Open-MBEE/OpenSysML
 │   │   ├── xmi/            # XMI element tree indexed by xmi:id; xmi/sysmlv1 reads SysML v1 exports over it
 │   │   ├── migrate/        # SysML v1 XMI → SysML v2 notation
 │   │   ├── convert/        # Conversion entry point: formats, Convert, Migrate, SyntaxError
-│   │   ├── codegen/        # Code generation from models
+│   │   ├── codegen/        # Native compilation of a calc to Go or C (`sysml -compile`); reached only from cmd/sysml and tests/codegen
 │   │   └── interop/        # Flexo MMS (interop/flexo) and repository sync (interop/reposync)
 │   ├── doc/
 │   │   ├── queryexec/      # Query plan execution → typed, ordered row sets
@@ -138,6 +138,8 @@ The layering test (`tests/hygiene/layering_test.go`) checks the directory order 
 | `frontend` | every layer |
 
 Two edges cross the order by design and stay pinned: `translate/export` imports `syntax/parser`, because the graph → notation decoder parses by nature, and `exec/runtime` receives its expression parser and argument typer from the caller (`SetExpressionParser`, `SetArgumentTyper`) rather than importing `check`. The remaining upward edges the test tolerates are listed in its `tolerated` table with the package that carries each.
+
+`internal/translate/codegen`, the native compilation backend behind `sysml -compile`, is confined the other way round: `tests/hygiene/codegen_boundary_test.go` lists its importers, tests included — `cmd/sysml` and the black-box suite `tests/codegen` — so no core package's build or tests pay for it. Its own tests pin the compiler's typed refusals; the differential contract against the interpreter, which needs a REPL session and a C compiler, is `tests/codegen`.
 
 
 ---
@@ -438,6 +440,22 @@ Parse + model all behavioral bodies with unified fallback grammar:
   `sweep` and `solve` engines as adapters over the runtime and `internal/exec/solve`; the REPL
   session and the gRPC service ask every check, run, exploration, sweep and solver question
   through it with no change to what they print or return
+- Landed: `internal/exec/sweep` — sweep plans, ranges, rows, tables and the row work queue,
+  and the Monte Carlo plan, layered on the runtime through the parameters a calc or case
+  declares (`Context.Parameters`), the classification of a value against a type
+  (`Context.ClassifyValue`) and the scalar-type reads a range is typed by
+  (`Context.PositiveScalar`, `Context.QuantityNumber`); the runtime imports no package
+  layered on it, and no `sweep*`, `montecarlo*`, `explore*`, `replay*`, `adopt*` or `check*`
+  file may appear in it (`tests/hygiene/orchestration_test.go`); the files of those names
+  still in the runtime are listed there until their feature leaves. The `montecarlo*` files
+  are the runtime's own: they execute a `Simulation::MonteCarlo` case, binding the sample's
+  statistics into the case's run, and leaving would export 73 identifiers of the calc run.
+  The `explore*` files are the runtime's own as well: a scheduler choice-point hook
+  (`Chooser`, `StepChooser`, `StepTokens`) would close the boundary at 904 exports, but 18 of
+  the runtime's test files (110 tests of replay, the checker, the conformance corpus and the
+  robustness suites) drive explorations as their harness, and a package's tests cannot import
+  a package that imports it. Replay and the checker sit on that same hook, the held images and
+  adoption copy frames, so each stays with the runtime
 
 ---
 
@@ -844,8 +862,8 @@ Every behavioral feature must have:
 - **Corpus agreement:** 358 of 397 files agree diagnostic-by-diagnostic; 315 diagnostics are ours alone and 93 the reference's alone, and the first number must be read by root: the aggregate includes candidate conformance differences, intentional execution-scope warnings on reference corpora and diagnostics from our own examples ([differential](../project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
 - **Declared-diagnostic silence:** of the 512 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 245 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](../project/pilot-xpect.md), `go run -C tools ./cmd/pilot-xpect`).
 - **Scope agreement:** 230 of 230 declared scope assertions match exactly (same source).
-- **Permissiveness gaps:** of 319 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 306 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
-- **Declared errata:** the registry declares 13 defect(s) in the published reference material — 6 with a specification-derived correction, 7 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 359 of 397 files agreeing, 314 diagnostics ours alone and 93 the reference's alone, 0 declared rows we are silent on, and 0 of 319 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
+- **Permissiveness gaps:** of 322 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 309 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
+- **Declared errata:** the registry declares 13 defect(s) in the published reference material — 6 with a specification-derived correction, 7 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 359 of 397 files agreeing, 314 diagnostics ours alone and 93 the reference's alone, 0 declared rows we are silent on, and 0 of 322 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
 - **Self-assessed surface:** the action, state-machine and classifier-behavior rows have no external referee at all — the four refereed figures above cannot see them, because the pinned artifact evaluates expressions but executes neither actions nor state machines. [Spec compliance](../project/spec-compliance.md) counts them.
 
 What these numbers cannot show: the OMG corpora are demonstrations rather than an official conformance suite; the differential is one-directional, comparing the diagnostics the two implementations report on the same files; the Xpect suites are the pilot authors' test intent rather than a certification oracle; and none of these is a percentage of the specification — no global compliance figure is claimed anywhere.
