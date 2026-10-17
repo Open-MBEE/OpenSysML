@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
@@ -62,8 +63,10 @@ func apiJSONElements(graph *rdf.Graph) ([]apiJSONObject, error) {
 	}
 	subjects := settled.Subjects()
 	elements := make([]apiJSONObject, 0, len(subjects))
+	evaluation := newAPIJSONEvaluation(settled)
+	mappingNames := mappingQualifiedNames(graphWithoutQualifiedNames(settled))
 	for _, subject := range subjects {
-		element, err := apiJSONElement(settled, subject)
+		element, err := apiJSONElementWithEvaluation(settled, subject, evaluation, mappingNames)
 		if err != nil {
 			return nil, err
 		}
@@ -152,6 +155,16 @@ type apiJSONNameReference struct {
 // apiJSONElement builds the element object for one subject: "@type", "@id",
 // then each property in statement order.
 func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
+	mappingNames := mappingQualifiedNames(graphWithoutQualifiedNames(graph))
+	return apiJSONElementWithEvaluation(graph, subject, newAPIJSONEvaluation(graph), mappingNames)
+}
+
+func apiJSONElementWithEvaluation(
+	graph *rdf.Graph,
+	subject rdf.Term,
+	evaluation *apiJSONEvaluation,
+	mappingNames map[string]string,
+) (apiJSONObject, error) {
 	types := graph.Objects(subject, rdf.RDFType)
 	if len(types) != 1 {
 		return nil, &UnsupportedError{
@@ -192,6 +205,9 @@ func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
 			continue
 		case strings.HasPrefix(predicate, rdf.SysML):
 			key := strings.TrimPrefix(predicate, rdf.SysML)
+			if key == "qualifiedName" {
+				continue
+			}
 			objectProperty := false
 			if metaclass != "" {
 				property, known := ontology.PropertyOf(metaclass, key)
@@ -217,8 +233,96 @@ func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
 			}
 		}
 	}
+	value, ok, err := apiJSONEvaluatedQualifiedName(subject, types[0], evaluation)
+	if err != nil {
+		return nil, err
+	}
+	if ok && value != nil {
+		element = append(element, apiJSONMember{key: "qualifiedName", value: value})
+	}
+	mappingName, hasMappingName, err := apiJSONMappingQualifiedName(graph, subject, mappingNames, value)
+	if err != nil {
+		return nil, err
+	}
+	if hasMappingName {
+		element = append(element, apiJSONMember{key: "sysx:mappingQualifiedName", value: mappingName})
+	}
 	element = appendAPIJSONOwnedAbsences(graph, subject, element, types[0])
 	return element, nil
+}
+
+func apiJSONMappingQualifiedName(
+	graph *rdf.Graph,
+	subject rdf.Term,
+	defaults map[string]string,
+	specName any,
+) (any, bool, error) {
+	objects := graph.Objects(subject, rdf.SysML+"qualifiedName")
+	if len(objects) > 1 {
+		return nil, false, fmt.Errorf("subject <%s> has %d sysml:qualifiedName values", subject.Value, len(objects))
+	}
+	if len(objects) == 1 {
+		if !objects[0].IsLiteral() {
+			return nil, false, fmt.Errorf("subject <%s> has a non-literal sysml:qualifiedName", subject.Value)
+		}
+		id, ok := rdf.SubjectID(subject)
+		if !ok {
+			return nil, false, fmt.Errorf("subject <%s> has no API element id", subject.Value)
+		}
+		graphName := objects[0].Value
+		if defaultName, hasDefault := defaults[id]; hasDefault && defaultName == graphName {
+			return nil, false, nil
+		}
+		if graph.BoolValue(subject, rdf.SysML+"isLibraryElement") && specName == graphName {
+			return nil, false, nil
+		}
+		return graphName, true, nil
+	}
+	return nil, false, nil
+}
+
+func apiJSONEvaluatedQualifiedName(
+	subject, typ rdf.Term,
+	evaluation *apiJSONEvaluation,
+) (any, bool, error) {
+	if evaluation == nil {
+		return nil, false, nil
+	}
+	if evaluation.structure.graph.BoolValue(subject, rdf.OpenSysML+"isKindImplicit") {
+		seen := map[string]bool{}
+		owner := firstIRI(evaluation.structure.graph, subject, pOwner, pOwningNamespace)
+		for owner.IsIRI() && !seen[owner.Value] {
+			seen[owner.Value] = true
+			if handle, ok := evaluation.structure.element(owner); ok {
+				if value, ok := evaluation.evaluator.Property(handle, "Element", "qualifiedName"); ok &&
+					value.Kind == metamodel.StringValue && value.String != "" {
+					return value.String + "::kind", true, nil
+				}
+			}
+			owner = firstIRI(evaluation.structure.graph, owner, pOwner, pOwningNamespace)
+		}
+	}
+	class := apiJSONOwnedAbsenceMetaclassInGraph(evaluation.structure.graph, typ.Value)
+	definition, ok := ontology.PropertyOf(class, "qualifiedName")
+	if !ok {
+		return nil, false, nil
+	}
+	handle, ok := evaluation.structure.element(subject)
+	if !ok {
+		return nil, false, nil
+	}
+	value, ok := evaluation.evaluator.Property(handle, definition.DefiningClass, "qualifiedName")
+	if !ok {
+		return nil, false, nil
+	}
+	switch value.Kind {
+	case metamodel.NullValue:
+		return nil, true, nil
+	case metamodel.StringValue:
+		return value.String, true, nil
+	default:
+		return nil, false, fmt.Errorf("qualifiedName has unsupported evaluator value kind %d", value.Kind)
+	}
 }
 
 // collectionObject is the triple a collection member states: the object whose

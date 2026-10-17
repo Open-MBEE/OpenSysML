@@ -26,7 +26,7 @@ func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 		return nil, err
 	}
 	data = expanded
-	expressionIDs, elementCount, err := apiJSONExpressionIDs(data)
+	expressionIDs, qualifiedNames, elementCount, err := apiJSONExpressionIDs(data)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,9 @@ func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 		}
 		builder.Add(subject, rdf.IRI(rdf.RDFType), typ)
 		for _, member := range element.members {
+			if member.key == "qualifiedName" || member.key == "sysx:mappingQualifiedName" {
+				continue
+			}
 			predicate, sysmlKey, err := cache.predicate(member.key)
 			if err != nil {
 				return fmt.Errorf("element %q: %w", element.id, err)
@@ -55,6 +58,9 @@ func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 			if err := apiJSONTriples(builder, apiJSONProperty{subject, predicate, sysmlKey}, member.value, expressionIDs, cache, &annotations); err != nil {
 				return fmt.Errorf("element %q: %w", element.id, err)
 			}
+		}
+		if qualifiedName := qualifiedNames[element.id]; qualifiedName != "" {
+			builder.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(qualifiedName))
 		}
 		return nil
 	})
@@ -291,13 +297,12 @@ func (e *APIJSONReadError) Unwrap() error {
 // apiJSONElementData is one parsed element object: its identity, its class as
 // an expression node, and its properties in written order.
 type apiJSONElementData struct {
-	id            string
-	typ           string
-	expression    bool
-	qualifiedName bool
-	members       []apiJSONMember
-	indexMember   string
-	indexOwner    string
+	id          string
+	typ         string
+	expression  bool
+	members     []apiJSONMember
+	indexMember string
+	indexOwner  string
 }
 
 var apiJSONInteger = regexp.MustCompile(`^-?[0-9]+$`)
@@ -306,20 +311,146 @@ const apiJSONEstimatedTriplesPerElement = 10
 
 // apiJSONExpressionIDs indexes the element identities in a first pass, so the
 // second pass can stream their properties directly into the graph.
-func apiJSONExpressionIDs(data []byte) (map[string]bool, int, error) {
+func apiJSONExpressionIDs(data []byte) (map[string]bool, map[string]string, int, error) {
 	var objects []apiJSONElementData
-	if err := apiJSONElementsOf(data, apiJSONIndexObjectOf, func(object apiJSONElementData) error {
+	if err := apiJSONElementsOf(data, apiJSONObjectOf, func(object apiJSONElementData) error {
 		objects = append(objects, object)
 		return nil
 	}); err != nil {
-		return nil, 0, err
+		return nil, nil, 0, err
 	}
+	mappingNames := apiJSONMappingQualifiedNameKeys(objects)
+	graph, err := apiJSONMappingGraph(objects)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	reconstructedNames := mappingQualifiedNames(graph)
 	index, err := newAPIJSONIndex(objects)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, 0, err
 	}
-	index.classifyExpressions(objects)
-	return index.expressionIDs, len(objects), nil
+	index.classifyExpressions(objects, graph, reconstructedNames, mappingNames)
+	qualifiedNames := make(map[string]string, len(reconstructedNames)+len(mappingNames))
+	toolkitForm := false
+	for _, object := range objects {
+		for _, member := range object.members {
+			if member.key == "isImpliedIncluded" {
+				toolkitForm = true
+			}
+		}
+	}
+	if toolkitForm {
+		qualifiedNames = make(map[string]string)
+		for _, object := range objects {
+			if name := mappingNames[object.id]; name != "" {
+				qualifiedNames[object.id] = name
+				continue
+			}
+			for _, member := range object.members {
+				if member.key == "qualifiedName" {
+					if name, ok := member.value.(string); ok && name != "" {
+						qualifiedNames[object.id] = mappingQualifiedNameFromSpec(name)
+					}
+				}
+			}
+		}
+	} else {
+		incomingMemberships := mappingIncomingMemberships(graph)
+		for _, object := range objects {
+			if name := mappingNames[object.id]; name != "" {
+				qualifiedNames[object.id] = name
+				continue
+			}
+			subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
+			_, hasOwner := mappingQualifiedNameOwner(graph, subject, incomingMemberships, make(map[string]bool))
+			if hasOwner {
+				if name := reconstructedNames[object.id]; name != "" {
+					qualifiedNames[object.id] = name
+				}
+				continue
+			}
+			if MappingElementSubject(graph, subject) {
+				if name, ok := apiJSONSpecQualifiedName(&object); ok {
+					qualifiedNames[object.id] = name
+				}
+			}
+		}
+	}
+	return index.expressionIDs, qualifiedNames, len(objects), nil
+}
+
+func apiJSONMappingQualifiedNameKeys(objects []apiJSONElementData) map[string]string {
+	names := make(map[string]string)
+	for _, object := range objects {
+		for _, member := range object.members {
+			if member.key == "sysx:mappingQualifiedName" {
+				if name, ok := member.value.(string); ok && name != "" {
+					names[object.id] = name
+				}
+			}
+		}
+	}
+	return names
+}
+
+func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, error) {
+	builder := rdf.NewGraphBuilder(len(objects) * apiJSONEstimatedTriplesPerElement)
+	cache := newAPIJSONTermCache()
+	var annotations []apiJSONAnnotation
+	for _, object := range objects {
+		subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
+		typ, err := cache.typeIRI(object.typ)
+		if err != nil {
+			return nil, fmt.Errorf("element %q: %w", object.id, err)
+		}
+		builder.Add(subject, rdf.IRI(rdf.RDFType), typ)
+		for _, member := range object.members {
+			if member.key == "qualifiedName" || member.key == "sysx:mappingQualifiedName" {
+				continue
+			}
+			predicate, sysmlKey, err := cache.predicate(member.key)
+			if err != nil {
+				return nil, fmt.Errorf("element %q: %w", object.id, err)
+			}
+			if err := apiJSONTriples(builder, apiJSONProperty{subject, predicate, sysmlKey}, member.value, nil, cache, &annotations); err != nil {
+				return nil, fmt.Errorf("element %q: %w", object.id, err)
+			}
+		}
+	}
+	for _, annotation := range annotations {
+		text, err := rdf.CollectionJSON(annotation.subject, annotation.members)
+		if err != nil {
+			return nil, err
+		}
+		builder.Add(annotation.subject, rdf.AnnotationJSONTerm(annotation.key), rdf.String(text))
+	}
+	graph := builder.Build()
+	incomingMemberships := mappingIncomingMemberships(graph)
+	rootIndex := 0
+	for _, object := range objects {
+		subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
+		if graph.BoolValue(subject, rdf.SysML+"isLibraryElement") ||
+			mappingHasOwnerFact(graph, subject) {
+			continue
+		}
+		if _, hasOwner := mappingQualifiedNameOwner(graph, subject, incomingMemberships, make(map[string]bool)); hasOwner {
+			continue
+		}
+		if mappingTypeConforms(graph, subject, "Namespace") &&
+			!graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
+			graph.HasProperty(subject, rdf.SysML+pOwnedRelationship) {
+			continue
+		}
+		if mappingExpressionType(graph, subject) {
+			continue
+		}
+		if !graph.HasProperty(subject, rdf.OpenSysML+"memberIndex") &&
+			!mappingTypeConforms(graph, subject, "Relationship") {
+			graph.Add(subject, rdf.OpenSysMLTerm("memberIndex"), rdf.Int(rootIndex))
+		}
+		rootIndex++
+	}
+	return graph, nil
 }
 
 // apiJSONElementsOf visits each element object in either supported document
@@ -431,16 +562,43 @@ func apiJSONIdentity(object apiJSONElementData) error {
 	return nil
 }
 
+func apiJSONSpecQualifiedName(object *apiJSONElementData) (string, bool) {
+	for _, member := range object.members {
+		if member.key == "qualifiedName" {
+			name, ok := member.value.(string)
+			return mappingQualifiedNameFromSpec(name), ok && name != ""
+		}
+	}
+	return "", false
+}
+
 // classifyExpressions classifies the expression namespace to a fixpoint: a
 // node is an expression when its metaclass is one the encoder mints directly
 // under a declaration, or when its parent is an expr: node or an
 // expression-class element — a child may be listed before its parent.
-func (index *apiJSONIndex) classifyExpressions(objects []apiJSONElementData) {
+func (index *apiJSONIndex) classifyExpressions(objects []apiJSONElementData, graph *rdf.Graph, reconstructedNames, mappingNames map[string]string) {
+	mappingElements := make(map[string]bool, len(objects))
+	for _, object := range objects {
+		if MappingElementSubject(graph, rdf.ReferenceIRI(rdf.Term{}, object.id)) {
+			mappingElements[object.id] = true
+		}
+	}
 	for changed := true; changed; {
 		changed = false
 		for i := range objects {
 			object := &objects[i]
-			if object.expression || object.qualifiedName || !index.expression(object) {
+			subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
+			hasMappingFacts := mappingHasIdentity(graph, subject) ||
+				mappingHasOwnerFact(graph, subject) ||
+				mappingNames[object.id] != ""
+			isMembership := mappingTypeConforms(graph, subject, "Membership")
+			_, hasSpecName := apiJSONSpecQualifiedName(object)
+			mappingElement := mappingElements[object.id] && !isMembership && hasMappingFacts
+			if !isMembership && (mappingNames[object.id] != "" ||
+				(hasSpecName && reconstructedNames[object.id] == "" && !mappingHasOwnerFact(graph, subject))) {
+				mappingElement = true
+			}
+			if object.expression || mappingElement || !index.expression(object) {
 				continue
 			}
 			object.expression = true
@@ -527,110 +685,6 @@ func memberReference(value any) (string, bool) {
 
 // apiJSONObjectOf reads one '{...}' from the decoder — its '{' already consumed
 // — returning "@type"/"@id" extracted and the other members in written order.
-func apiJSONIndexObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
-	object := apiJSONElementData{}
-	seen := map[string]bool{}
-	for dec.More() {
-		token, err := dec.Token()
-		if err != nil {
-			return object, err
-		}
-		key, ok := token.(string)
-		if !ok {
-			return object, fmt.Errorf("an element object's member key is a string, not %v", token)
-		}
-		if seen[key] {
-			return object, fmt.Errorf("element object states %q twice", key)
-		}
-		seen[key] = true
-		switch {
-		case key == "@type", key == "@id":
-			value, err := apiJSONValueOf(dec)
-			if err != nil {
-				return object, fmt.Errorf("%s: %w", key, err)
-			}
-			text, ok := value.(string)
-			if !ok {
-				return object, fmt.Errorf("%q is a string, not %v", key, value)
-			}
-			if key == "@type" {
-				object.typ = text
-			} else {
-				object.id = text
-			}
-		case strings.HasPrefix(key, "@"):
-			return object, fmt.Errorf("the key %q is not a keyword this document carries", key)
-		case key == "qualifiedName":
-			value, err := apiJSONValueOf(dec)
-			if err != nil {
-				return object, fmt.Errorf("%s: %w", key, err)
-			}
-			text, ok := value.(string)
-			object.qualifiedName = ok && text != ""
-		case membershipMemberProperty(key), membershipOwnerProperty(key):
-			value, err := apiJSONValueOf(dec)
-			if err != nil {
-				return object, fmt.Errorf("%s: %w", key, err)
-			}
-			if id, ok := memberReference(value); ok {
-				if membershipMemberProperty(key) {
-					object.indexMember = id
-				} else {
-					object.indexOwner = id
-				}
-			}
-		default:
-			if err := skipAPIJSONValue(dec); err != nil {
-				return object, fmt.Errorf("%s: %w", key, err)
-			}
-		}
-	}
-	if _, err := dec.Token(); err != nil {
-		return object, err
-	}
-	return object, nil
-}
-
-func skipAPIJSONValue(dec *json.Decoder) error {
-	token, err := dec.Token()
-	if err != nil {
-		return err
-	}
-	switch token {
-	case json.Delim('{'):
-		seen := map[string]bool{}
-		for dec.More() {
-			keyToken, err := dec.Token()
-			if err != nil {
-				return err
-			}
-			key, ok := keyToken.(string)
-			if !ok {
-				return fmt.Errorf("an object member key is a string, not %v", keyToken)
-			}
-			if seen[key] {
-				return fmt.Errorf("object states %q twice", key)
-			}
-			seen[key] = true
-			if err := skipAPIJSONValue(dec); err != nil {
-				return err
-			}
-		}
-		_, err := dec.Token()
-		return err
-	case json.Delim('['):
-		for dec.More() {
-			if err := skipAPIJSONValue(dec); err != nil {
-				return err
-			}
-		}
-		_, err := dec.Token()
-		return err
-	default:
-		return nil
-	}
-}
-
 func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 	var object apiJSONElementData
 	seen := map[string]bool{}
@@ -667,9 +721,13 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 		case strings.HasPrefix(key, "@"):
 			return object, fmt.Errorf("the key %q is not a keyword this document carries", key)
 		default:
-			if key == "qualifiedName" {
-				text, ok := value.(string)
-				object.qualifiedName = ok && text != ""
+			if id, ok := memberReference(value); ok {
+				if membershipMemberProperty(key) {
+					object.indexMember = id
+				}
+				if membershipOwnerProperty(key) {
+					object.indexOwner = id
+				}
 			}
 			object.members = append(object.members, apiJSONMember{key: key, value: value})
 		}

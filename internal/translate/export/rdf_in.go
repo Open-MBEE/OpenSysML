@@ -951,6 +951,9 @@ func (d *decoder) isNodeMembership(subject rdf.Term) bool {
 	}
 	member, _, _ := d.agreedObject(subject, "the node membership", "member",
 		pMemberElement, pOwnedMemberElement, pOwnedMemberFeature, pOwnedMemberParameter, pOwnedRelatedElement, pOwnedResultExpression)
+	if MappingMembershipMemberIsElement(d.graph, subject, member) {
+		return false
+	}
 	// An expression-metaclass member that carries a qualified name is a member
 	// element of its own — `in expr keep : T` declares one — not a node.
 	if d.isExpressionIRI(member) || expressionMetaclasses[d.metaclass(member)] &&
@@ -1091,6 +1094,9 @@ func (d *decoder) ownerOf(el *element) (*element, error) {
 	}
 	ownerIRI := ""
 	m, owned := d.owningMembership[el.iri]
+	if !owned {
+		m, owned = d.nodeMemberships[el.iri]
+	}
 	switch {
 	case hasRelationship:
 		// The owning relationship is either a membership standing between the
@@ -1102,7 +1108,9 @@ func (d *decoder) ownerOf(el *element) (*element, error) {
 				Note: fmt.Sprintf("it states <%s> as its owning relationship while the membership <%s> owns it, and following one would drop the other", relationship.Value, m.iri),
 			}
 		}
-		if m, known := d.memberships[relationship.Value]; known {
+		if owned {
+			ownerIRI = m.owner
+		} else if m, known := d.memberships[relationship.Value]; known {
 			ownerIRI = m.owner
 		} else {
 			ownerIRI = relationship.Value
@@ -1122,11 +1130,24 @@ func (d *decoder) ownerOf(el *element) (*element, error) {
 			Note: fmt.Sprintf("it states <%s> as its owner while its owning relationship puts it under <%s>, and following one would drop the other", owner.Value, ownerIRI),
 		}
 	}
-	parent, known := d.byIRI[ownerIRI]
+	parentIRI := ownerIRI
+	seenOwners := map[string]bool{}
+	for seenOwners[parentIRI] == false {
+		seenOwners[parentIRI] = true
+		if _, known := d.byIRI[parentIRI]; known {
+			break
+		}
+		nodeOwner, node := d.nodeMemberships[parentIRI]
+		if !node {
+			break
+		}
+		parentIRI = nodeOwner.owner
+	}
+	parent, known := d.byIRI[parentIRI]
 	if !known {
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the element <%s>", el.iri),
-			Note: fmt.Sprintf("its owning namespace <%s> is not in the graph", ownerIRI),
+			Note: fmt.Sprintf("its owning namespace <%s> is not in the graph", parentIRI),
 		}
 	}
 	return parent, nil
@@ -1284,6 +1305,9 @@ func (d *decoder) referencedElement(iri string) (*element, error) {
 		if d.transparentRoot(target) {
 			// The document wrapper names nothing; a reference to it is
 			// resolved without a spelling.
+			return target, nil
+		}
+		if mappingExpressionBodyMemberSubject(d.graph, rdf.IRI(target.iri)) {
 			return target, nil
 		}
 		return nil, &UnsupportedError{
@@ -3570,6 +3594,11 @@ func (d *decoder) writtenQName(el *element) string {
 	if el.owner != nil && el.owner.metaclass == mAcceptAction && d.transitionFeatureKind(el.owner) != "trigger" &&
 		slices.Contains(d.receiverParams(el.owner, d.acceptParam(el.owner)), el) {
 		return d.writtenQName(el.owner)
+	}
+	if el.owner != nil && el.owner.owner != nil && d.isNodeMembership(rdf.IRI(el.owner.iri)) {
+		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
+			return d.writtenQName(el.owner.owner) + "::" + identitySegment(name)
+		}
 	}
 	q := el.qname
 	i := strings.LastIndex(q, "::")

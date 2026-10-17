@@ -105,6 +105,9 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 		members := make(apiJSONObject, 0, len(element))
 		members = append(members, element[0])
 		for _, member := range element[2:] {
+			if member.key == "qualifiedName" && member.value == nil {
+				continue
+			}
 			if elementIDsAreIDs && member.key == "elementId" {
 				continue
 			}

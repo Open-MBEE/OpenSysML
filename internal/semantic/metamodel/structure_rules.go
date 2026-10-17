@@ -2048,6 +2048,13 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 				element.Symbol.Naming == symbols.NamedByRedefinition) {
 			return nullValue(), true, true
 		}
+		if property == "name" {
+			if structure, ok := e.options.Structure.(EffectiveNameStructure); ok {
+				if name, ok := structure.EffectiveName(element); ok && name != "" {
+					return stringValue(name), true, true
+				}
+			}
+		}
 		if property == "name" && element.Symbol != nil && !element.IsMembership &&
 			element.Symbol.Naming == symbols.NamedByDeclaration {
 			if name, shortName, declared := symbolDeclaredNames(element.Symbol); declared &&
@@ -2912,7 +2919,16 @@ func (e *Evaluator) structureQualifiedName(element Element, seen map[ElementKey]
 	}
 	seen[key] = true
 	defer delete(seen, key)
-	name, handled, ok := e.structureName(element, "name")
+	var name Value
+	handled, ok := false, false
+	if structure, available := e.options.Structure.(EffectiveNameStructure); available {
+		if effectiveName, known := structure.EffectiveName(element); known && effectiveName != "" {
+			name, handled, ok = stringValue(effectiveName), true, true
+		}
+	}
+	if !handled {
+		name, handled, ok = e.structureName(element, "name")
+	}
 	if !handled || !ok {
 		reason := Reason{
 			Category:   ReasonDependsOnUnsupported,
@@ -2957,10 +2973,17 @@ func (e *Evaluator) structureQualifiedName(element Element, seen map[ElementKey]
 	}
 	namespace, handled, ok := e.structureOwningNamespace(element)
 	if !handled || !ok {
-		e.recordUnsupportedReason(element, "Element", "qualifiedName", Reason{
+		reason := Reason{
 			Category:   ReasonDependsOnUnsupported,
 			Dependency: "Element::owningNamespace",
-		})
+		}
+		if e.hasUnresolvedRelatedElement(element, "owningRelationship") {
+			reason = Reason{
+				Category: ReasonMissingStructure,
+				Detail:   "qualified name's owning relationship is not represented in the graph",
+			}
+		}
+		e.recordUnsupportedReason(element, "Element", "qualifiedName", reason)
 		return Value{}, true, false
 	}
 	if namespace.Kind != ElementValue {
