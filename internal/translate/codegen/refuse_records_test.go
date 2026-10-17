@@ -1,4 +1,4 @@
-package runtime_test
+package codegen_test
 
 import (
 	"errors"
@@ -14,10 +14,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-// TestRuntimeRobustnessRecords covers the boundary of a compiled program at a
+// TestCompileRefusesRecords covers the boundary of a compiled program at a
 // record: a record result or command-line parameter is refused with a typed
 // error naming it, while a feature read off a record leaves the program.
-func TestRuntimeRobustnessRecords(t *testing.T) {
+func TestCompileRefusesRecords(t *testing.T) {
 	compiler, pkg := recordCompiler(t)
 	for _, target := range []codegen.Target{codegen.TargetGo, codegen.TargetC} {
 		t.Run(string(target), func(t *testing.T) {

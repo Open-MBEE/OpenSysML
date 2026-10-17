@@ -124,8 +124,8 @@ func (e *EnginesArgumentError) Error() string {
 // Is matches ErrEnginesArgument.
 func (e *EnginesArgumentError) Is(target error) bool { return target == ErrEnginesArgument }
 
-// standingPrefix opens the line that follows a verdict with its standing.
-const standingPrefix = "  standing: "
+// StandingPrefix opens the line that follows a verdict with its standing.
+const StandingPrefix = "  standing: "
 
 // standing attaches to a verdict the plan that answered it and the line
 // reporting the standing of the answer; a verdict no engine was asked for keeps its lines.
@@ -134,7 +134,7 @@ func standing(v Verdict, plan *analysis.Plan) Verdict {
 		return v
 	}
 	v.Plan = plan
-	v.Lines = append(v.Lines, standingPrefix+plan.Standing())
+	v.Lines = append(v.Lines, StandingPrefix+plan.Standing())
 	return v
 }
 
@@ -298,6 +298,6 @@ func solveReports(name string, queries []*solve.Query, plan analysis.Plan, err e
 
 func withStanding(r SolveReport, plan *analysis.Plan) SolveReport {
 	r.Plan = plan
-	r.Lines = append(r.Lines, standingPrefix+plan.Standing())
+	r.Lines = append(r.Lines, StandingPrefix+plan.Standing())
 	return r
 }
