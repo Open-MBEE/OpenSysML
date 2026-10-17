@@ -1,1 +1,1 @@
-- API JSON export now writes absent owned properties as `null` or empty arrays, preserving the graph as the source of property values.
+- API JSON export writes `null` only for absent single-valued owned properties with a zero lower bound and writes empty arrays for absent multi-valued owned properties.

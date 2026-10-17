@@ -70,6 +70,9 @@ func appendAPIJSONOwnedAbsences(graph *rdf.Graph, subject rdf.Term, element apiJ
 		if len(planned.group) > 1 && apiJSONOwnedAbsenceRedefinitionGroupHasValue(element, planned.group) {
 			continue
 		}
+		if !property.Many && property.Lower != 0 {
+			continue
+		}
 		var value any
 		if property.Many {
 			value = []any{}

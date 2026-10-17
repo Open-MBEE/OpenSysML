@@ -108,6 +108,46 @@ func TestAPIJSONKeysStayWithinMetaclassPropertySets(t *testing.T) {
 	}
 }
 
+func TestAPIJSONPropertiesWithPositiveLowerBoundsAreNeverNullForConvertFixtures(t *testing.T) {
+	for _, path := range modelFiles(t) {
+		name, _ := fixtureName(path)
+		t.Run(name, func(t *testing.T) {
+			source, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			graph, err := convert.SysMLToRDF(path, source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			document, err := export.WriteAPIJSON(graph)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var elements []map[string]json.RawMessage
+			if err := json.Unmarshal(document, &elements); err != nil {
+				t.Fatal(err)
+			}
+			for _, element := range elements {
+				var metaclass string
+				if err := json.Unmarshal(element["@type"], &metaclass); err != nil {
+					t.Fatal(err)
+				}
+				metaclass = apiJSONTestOntologyMetaclass(metaclass)
+				for key, value := range element {
+					if !bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+						continue
+					}
+					property, ok := ontology.PropertyOf(metaclass, key)
+					if ok && property.Lower >= 1 {
+						t.Errorf("%s.%s has lower bound %d but was written as null", metaclass, key, property.Lower)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestAPIJSONWriteReadWriteIsByteIdenticalForConvertFixtures(t *testing.T) {
 	for _, path := range modelFiles(t) {
 		name, _ := fixtureName(path)
