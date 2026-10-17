@@ -22,7 +22,7 @@ stmt assign hits
   eval operator + -> 1
 step 4: token 4@done
 step 5: no active tokens
-choice step 3: tokens 2@one, 3@two (unordered; took 3@two first; order-dependent)
+choice step 3: tokens 2@one, 3@two (unordered; took 3@two first; order-dependent: hits)
 step 3: token 2@sync, token 3@sync
 step 4: token 4@tally
 stmt assign total

@@ -123,6 +123,7 @@ type runStateCapture struct {
 	state           *runState
 	steps, elements int64
 	notes           []RunNote
+	marks           orderMarks
 	performers      []*Instance
 	scheduler       *scheduler
 	restoreSchedule func()
@@ -484,6 +485,7 @@ func (s *executorCaptures) captureRunState(state *runState) {
 	s.runStates = append(s.runStates, runStateCapture{
 		state: state, steps: state.steps, elements: state.elements,
 		notes:           slices.Clone(state.notes),
+		marks:           state.marks.clone(),
 		performers:      slices.Clone(state.performers),
 		scheduler:       state.scheduler,
 		restoreSchedule: state.scheduler.mark(),
@@ -495,6 +497,7 @@ func (s *executorCaptures) captureRunState(state *runState) {
 func (c runStateCapture) restore() {
 	c.state.steps, c.state.elements = c.steps, c.elements
 	c.state.notes = slices.Clone(c.notes)
+	c.state.marks = c.marks.clone()
 	c.state.performers = slices.Clone(c.performers)
 	c.state.scheduler = c.scheduler
 	c.restoreSchedule()
@@ -1033,6 +1036,7 @@ type moveMark struct {
 	run              *runState
 	steps, elements  int64
 	notes            []RunNote
+	marks            orderMarks
 	performers       []*Instance
 	choices, draws   int
 	trace            traceCapture
@@ -1047,7 +1051,7 @@ func (e *StateExecutor) markMove() *moveMark {
 	ctx := e.ctx
 	m := &moveMark{
 		exec: e, outer: e.moving, run: ctx.run, steps: ctx.run.steps, elements: ctx.run.elements,
-		notes: slices.Clone(ctx.run.notes), performers: slices.Clone(ctx.run.performers),
+		notes: slices.Clone(ctx.run.notes), marks: ctx.run.marks.clone(), performers: slices.Clone(ctx.run.performers),
 		choices: len(ctx.choices), draws: len(ctx.draws),
 		trace: captureTrace(ctx.trace),
 		ids:   ctx.ids, nextID: ctx.ids.next,
@@ -1079,6 +1083,8 @@ func (m *moveMark) undo() {
 	if e.ctx.ids == m.ids {
 		m.ids.release(e.ctx, m.nextID)
 	}
+	m.run.steps, m.run.elements, m.run.notes = m.steps, m.elements, m.notes
+	m.run.marks = m.marks.clone()
 	m.run.steps, m.run.elements, m.run.notes, m.run.performers = m.steps, m.elements, m.notes, m.performers
 	e.ctx.choices, e.ctx.draws = e.ctx.choices[:m.choices], e.ctx.draws[:m.draws]
 	m.trace.restore(e.ctx.trace)

@@ -754,6 +754,28 @@ listing the features marked. The values themselves carry the count: `order_depen
 and `Diagnostic.order_dependent`/`independent`, the Node client as `orderDependent` and
 `ModelDiagnostic.orderDependent`/`independent`.
 
+The marker follows the data, not only the choice. A statement that reads an order-dependent value
+and writes another feature is not a choice point — nothing was drawn — but what it wrote depends
+on the order as much as what it read, so it carries the same marks: after the join above, `assign
+y := x + 1` leaves `y = 2 (order-dependent; 2 choice points — explore shows the set)` beside
+`x = 1 (order-dependent; 2 choice points — explore shows the set)`, while `assign z := 5` in the
+same body leaves `z = 5` bare. The same holds through a guard — a decision, `if`, loop condition
+or transition that reads an order-dependent value makes everything the branch it selects writes
+order-dependent, though the branch past the merge where the alternatives rejoin is not — through a
+performed action's inputs to its outputs, through the payload a `send` carries to the `accept`
+that binds it (the library orders the accept after the send, and after nothing else), and through
+a state machine's effects. A value nothing order-dependent reaches is never marked, and a write
+that reads nothing order-dependent clears the mark of what it rewrites: `assign x := 10` after the
+join leaves `x = 10` and, computed from it, `y = 11`, both bare, though the run still reports the
+two choice points it drew. The mark describes the value a feature now holds, not the feature's
+history, and reporting it never changes the run. The conformance fixtures
+`action_order_derived_from_racing_writers`, `action_order_guard_reads_racing_writer`, `action_order_inherited_guard_reads_racing_writer`,
+`action_order_through_performed_action`, `action_order_send_payload_from_racing_writer`,
+`state_order_effect_reads_racing_attribute` and `action_order_rewrite_clears_mark` show each
+case, and
+[the scheduling design note](../internals/design/scheduling.md#what-a-value-stands-on-ordermarksgo)
+states the rule and its basis in the Kernel Semantic Library.
+
 Reporting never changes the run. Once a guard or transition holds, the ones after it are read in
 a preview that is undone, and one that cannot be evaluated there — a division by zero, say — is
 not an alternative and not an error: a guard with no result is not true, so its branch is not
