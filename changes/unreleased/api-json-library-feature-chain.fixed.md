@@ -1,0 +1,1 @@
+- API JSON feature chains now resolve typed members of library features that the graph represents only by reference.

@@ -214,3 +214,92 @@ func TestAPIJSONFeatureChainResolvesLibraryMemberInType(t *testing.T) {
 		t.Fatalf("library type member = %s, want %s", got.Value, libraryMember.Value)
 	}
 }
+
+func TestAPIJSONFeatureChainSearchesAllEffectiveTypes(t *testing.T) {
+	firstType := rdf.ElementIRIForID("TypeOne")
+	secondType := rdf.ElementIRIForID("TypeTwo")
+	firstMember := rdf.ElementIRIForID("TypeOne::done")
+	secondMember := rdf.ElementIRIForID("TypeTwo::done")
+	triples := []rdf.Triple{
+		{Subject: firstMember, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm(mFeature)},
+		{Subject: firstMember, Predicate: rdf.SysMLTerm(pDeclaredName), Object: rdf.String("done")},
+		{Subject: firstMember, Predicate: rdf.SysMLTerm(pOwner), Object: firstType},
+	}
+	graph := rdf.NewGraphOf(triples, nil)
+	index := newAPIJSONNameIndex(graph)
+	if got := apiJSONGraphNamedTargetInTypes(graph, index, []rdf.Term{firstType, secondType}, "done"); got != firstMember {
+		t.Fatalf("unique member across effective types = %s, want %s", got.Value, firstMember.Value)
+	}
+
+	graph = rdf.NewGraphOf(append(triples,
+		rdf.Triple{Subject: secondMember, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm(mFeature)},
+		rdf.Triple{Subject: secondMember, Predicate: rdf.SysMLTerm(pDeclaredName), Object: rdf.String("done")},
+		rdf.Triple{Subject: secondMember, Predicate: rdf.SysMLTerm(pOwner), Object: secondType},
+	), nil)
+	index = newAPIJSONNameIndex(graph)
+	if got := apiJSONGraphNamedTargetInTypes(graph, index, []rdf.Term{firstType, secondType}, "done"); got.Value != "" {
+		t.Fatalf("ambiguous member across effective types = %s, want unresolved", got.Value)
+	}
+}
+
+func TestAPIJSONFeatureChainUsesCatalogTypeForLibraryStub(t *testing.T) {
+	catalogIndex := newAPIJSONNameIndex(rdf.NewGraph())
+	part, ok := catalogIndex.catalog.ElementNamed("Parts::Part")
+	if !ok || part.ID == "" {
+		t.Fatal("library catalog has no Parts::Part")
+	}
+	partTerm := rdf.ElementIRIForID(part.ID)
+	starts := apiJSONCatalogNamedTargetsInType(catalogIndex, partTerm, "start")
+	dones := apiJSONCatalogNamedTargetsInType(catalogIndex, partTerm, "done")
+	if len(starts) != 1 || len(dones) != 1 {
+		t.Fatalf("Parts::Part start/done = %v/%v, want one catalog member each", starts, dones)
+	}
+	start, done := starts[0], dones[0]
+
+	owner := rdf.ElementIRIForID("P")
+	chain := rdf.ElementIRIForID("chain")
+	p := rdf.ElementIRIForID("p")
+	links := []rdf.Term{
+		rdf.ElementIRIForID("chain-link0"),
+		rdf.ElementIRIForID("chain-link1"),
+		rdf.ElementIRIForID("chain-link2"),
+	}
+	triples := []rdf.Triple{
+		{Subject: chain, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm(mFeature)},
+		{Subject: chain, Predicate: rdf.SysMLTerm(pOwner), Object: owner},
+		{Subject: p, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm(mFeature)},
+		{Subject: p, Predicate: rdf.SysMLTerm(pDeclaredName), Object: rdf.String("p")},
+		{Subject: p, Predicate: rdf.SysMLTerm(pOwner), Object: owner},
+		{Subject: p, Predicate: rdf.SysMLTerm("type"), Object: partTerm},
+	}
+	for i, name := range []string{"p", "start", "done"} {
+		triples = append(triples,
+			rdf.Triple{Subject: chain, Predicate: rdf.SysMLTerm(pOwnedRelationship), Object: links[i]},
+			rdf.Triple{Subject: links[i], Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm(mFeatureChaining)},
+			rdf.Triple{Subject: links[i], Predicate: rdf.SysMLTerm(pOwningRelatedElement), Object: chain},
+			rdf.Triple{Subject: links[i], Predicate: rdf.SysMLTerm(pChainingFeature), Object: rdf.String(name)},
+		)
+	}
+	graph := rdf.NewGraphOf(triples, nil)
+	index := newAPIJSONNameIndex(graph)
+	for _, subject := range graph.SubjectsView() {
+		if subject == start {
+			t.Fatalf("middle library member %s unexpectedly has a graph description", start.Value)
+		}
+	}
+
+	resolved, unresolved := apiJSONResolveFeatureChain(graph, index, chain, []any{
+		apiJSONNameReference{name: "p"},
+		apiJSONNameReference{name: "start"},
+		apiJSONNameReference{name: "done"},
+	})
+	if len(unresolved) != 0 {
+		t.Fatalf("feature chain unresolved links = %v", unresolved)
+	}
+	for i, target := range []rdf.Term{p, start, done} {
+		reference, ok := resolved[i].(apiJSONReference)
+		if !ok || reference.ID != rdf.ReferenceID(chain, target) {
+			t.Fatalf("feature-chain link %d = %#v, want @id reference to %s", i, resolved[i], target.Value)
+		}
+	}
+}

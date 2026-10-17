@@ -5,6 +5,9 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -13,6 +16,9 @@ import (
 type apiJSONNameIndex struct {
 	chainTargets  map[string]rdf.Term
 	chainOwners   map[string][]rdf.Term
+	catalogTypeMu sync.Mutex
+	catalogModel  *semantics.Model
+	catalogTypes  map[string][]rdf.Term
 	subjectsByID  map[string]rdf.Term
 	expressionIDs map[string]bool
 	catalog       *identity.Catalog
@@ -43,6 +49,7 @@ func newAPIJSONNameIndex(graph *rdf.Graph) *apiJSONNameIndex {
 	index := &apiJSONNameIndex{
 		catalog:       catalog,
 		catalogNames:  apiJSONCatalogNames(catalog),
+		catalogTypes:  make(map[string][]rdf.Term),
 		subjectsByID:  make(map[string]rdf.Term),
 		expressionIDs: make(map[string]bool),
 		owners:        make(map[string]rdf.Term),
@@ -209,8 +216,8 @@ func apiJSONFeatureChainTargets(graph *rdf.Graph, index *apiJSONNameIndex) map[s
 			} else {
 				feature := previous
 				previous = rdf.Term{}
-				if featureType := apiJSONFeatureType(graph, feature); featureType.Value != "" {
-					previous = apiJSONGraphNamedTargetInType(graph, index, featureType, target.Value)
+				if featureTypes := apiJSONFeatureTypes(graph, index, feature); len(featureTypes) > 0 {
+					previous = apiJSONGraphNamedTargetInTypes(graph, index, featureTypes, target.Value)
 				}
 			}
 			if previous.Value != "" {
@@ -364,8 +371,8 @@ func apiJSONResolveFeatureChain(
 				target = apiJSONCatalogResolveName(graph, index, subject, name.name)
 			}
 		} else if previous.Value != "" {
-			if featureType := apiJSONFeatureType(graph, previous); featureType.Value != "" {
-				target = apiJSONGraphNamedTargetInType(graph, index, featureType, name.name)
+			if featureTypes := apiJSONFeatureTypes(graph, index, previous); len(featureTypes) > 0 {
+				target = apiJSONGraphNamedTargetInTypes(graph, index, featureTypes, name.name)
 			}
 		}
 		id, ok := apiJSONTermReferenceID(subject, target)
@@ -396,6 +403,49 @@ func apiJSONFeatureType(graph *rdf.Graph, feature rdf.Term) rdf.Term {
 		return target
 	}
 	return rdf.Term{}
+}
+
+func apiJSONFeatureTypes(graph *rdf.Graph, index *apiJSONNameIndex, feature rdf.Term) []rdf.Term {
+	if featureType := apiJSONFeatureType(graph, feature); featureType.Value != "" {
+		return []rdf.Term{featureType}
+	}
+	return apiJSONCatalogFeatureTypes(index, feature)
+}
+
+func apiJSONCatalogFeatureTypes(index *apiJSONNameIndex, feature rdf.Term) []rdf.Term {
+	if index == nil || index.catalog == nil {
+		return nil
+	}
+	id, ok := rdf.SubjectID(feature)
+	if !ok {
+		return nil
+	}
+
+	index.catalogTypeMu.Lock()
+	defer index.catalogTypeMu.Unlock()
+	if types, ok := index.catalogTypes[id]; ok {
+		return append([]rdf.Term(nil), types...)
+	}
+	element, ok := index.catalog.Element(id)
+	if !ok || element.Symbol == nil || !element.Symbol.IsFeature() {
+		index.catalogTypes[id] = nil
+		return nil
+	}
+	if index.catalogModel == nil {
+		index.catalogModel = semantics.NewModel(resolve.New(libs.SharedBase()))
+	}
+	var types []rdf.Term
+	for _, symbol := range index.catalogModel.FeatureTypeSet(element.Symbol) {
+		typeElement, ok := index.catalog.ElementForSymbol(symbol)
+		if !ok {
+			typeElement, ok = index.catalog.ElementNamed(symbols.FQNOf(symbol))
+		}
+		if ok && typeElement.ID != "" {
+			types = appendUniqueTerm(types, rdf.ElementIRIForID(typeElement.ID))
+		}
+	}
+	index.catalogTypes[id] = append([]rdf.Term(nil), types...)
+	return types
 }
 
 func apiJSONGraphResolveName(
@@ -572,7 +622,16 @@ func apiJSONGraphNamedTargetInType(
 	typ rdf.Term,
 	name string,
 ) rdf.Term {
-	frontier := []rdf.Term{typ}
+	return apiJSONGraphNamedTargetInTypes(graph, index, []rdf.Term{typ}, name)
+}
+
+func apiJSONGraphNamedTargetInTypes(
+	graph *rdf.Graph,
+	index *apiJSONNameIndex,
+	types []rdf.Term,
+	name string,
+) rdf.Term {
+	frontier := append([]rdf.Term(nil), types...)
 	seen := make(map[string]bool)
 	for len(frontier) > 0 {
 		var matches []rdf.Term
