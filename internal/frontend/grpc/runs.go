@@ -289,10 +289,13 @@ func (s *Service) monteCarloRuns(ctx context.Context, v *verifyContext, req *pb.
 			table.Rows[k].Verdicts = byNumber[i].Verdicts
 		}
 	}
-	resp := v.runsResponse(table, st)
+	resp, ids := v.runsResponseIDs(table, st)
 	in := v.on(last.Context())
+	// The conclusion is drawn in the last run's context, so its objects are the
+	// last row's: renumber it as that row was, and add only the objects it adds.
+	tail := &pb.SweepRow{}
 	for _, out := range concluded.Outputs {
-		resp.Outputs = append(resp.Outputs, &pb.CalcOutput{Name: out.Name, Value: s.valueToProto(in.runtime, out.Value, v.cached.Index)})
+		tail.Outputs = append(tail.Outputs, &pb.CalcOutput{Name: out.Name, Value: s.valueToProto(in.runtime, out.Value, v.cached.Index)})
 	}
 	mark := "✓"
 	for j := range concluded.Verdicts {
@@ -304,8 +307,12 @@ func (s *Service) monteCarloRuns(ctx context.Context, v *verifyContext, req *pb.
 				mark = "?"
 			}
 		}
-		resp.Verdicts = append(resp.Verdicts, st.stamp(in.analysisVerdict(&concluded.Verdicts[j], concluded.Subject)))
+		tail.Verdicts = append(tail.Verdicts, st.stamp(in.analysisVerdict(&concluded.Verdicts[j], concluded.Subject)))
 	}
+	conclusion := ids.lastRow()
+	conclusion.row(tail, nil)
+	resp.Outputs = append(resp.Outputs, tail.Outputs...)
+	resp.Verdicts = append(resp.Verdicts, tail.Verdicts...)
 	recorded := &monteCarloSample{table: table, completed: completed, concluded: concluded, answered: answered, concludeErr: err}
 	if err != nil {
 		resp.Unconcluded = err.Error()
@@ -314,7 +321,18 @@ func (s *Service) monteCarloRuns(ctx context.Context, v *verifyContext, req *pb.
 	}
 	resp.Lines = append(resp.Lines, fmt.Sprintf("%s %s over %d run(s)", mark, name, stats.Runs))
 	roots := in.instanceGraphs(in.runRoots(concluded.Subject, nil, concluded.Outputs, nil))
-	resp.Instances = append(resp.Instances, roots...)
+	conclusion = ids.lastRow()
+	conclusion.row(&pb.SweepRow{}, roots)
+	known := make(map[int64]bool, len(resp.Instances))
+	for _, inst := range resp.Instances {
+		known[inst.Id] = true
+	}
+	for _, inst := range roots {
+		if !known[inst.Id] {
+			known[inst.Id] = true
+			resp.Instances = append(resp.Instances, inst)
+		}
+	}
 	return resp, recorded, nil
 }
 
@@ -343,7 +361,13 @@ func runsFailure(err error, st standing) *pb.RunRunsResponse {
 // runsResponse spells the table on the wire as a sweep's rows, each observable's
 // distribution after them, with the distribution lines the CLI prints.
 func (v *verifyContext) runsResponse(table runtime.SweepTable, st standing) *pb.RunRunsResponse {
-	swept := v.sweepResponse(table, st)
+	resp, _ := v.runsResponseIDs(table, st)
+	return resp
+}
+
+// runsResponseIDs is runsResponse with the renumbering its rows ended on.
+func (v *verifyContext) runsResponseIDs(table runtime.SweepTable, st standing) (*pb.RunRunsResponse, rowIDs) {
+	swept, ids := v.sweepResponseIDs(table, st)
 	resp := &pb.RunRunsResponse{
 		Rows:        swept.Rows,
 		Instances:   swept.Instances,
@@ -361,7 +385,7 @@ func (v *verifyContext) runsResponse(table runtime.SweepTable, st standing) *pb.
 		resp.Distributions = append(resp.Distributions, v.distribution(summary))
 		resp.Lines = append(resp.Lines, summary.Lines()...)
 	}
-	return resp
+	return resp, ids
 }
 
 // objectText spells a value that is not a number: an object by the usage it

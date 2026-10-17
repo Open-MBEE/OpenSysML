@@ -252,6 +252,12 @@ func sweepFailure(err error) *pb.RunSweepResponse {
 // objects alike, so each row's are renumbered after the rows before it: the table
 // then names every object once, and a row's references resolve to that row's objects.
 func (v *verifyContext) sweepResponse(table runtime.SweepTable, st standing) *pb.RunSweepResponse {
+	resp, _ := v.sweepResponseIDs(table, st)
+	return resp
+}
+
+// sweepResponseIDs is sweepResponse with the renumbering its rows ended on.
+func (v *verifyContext) sweepResponseIDs(table runtime.SweepTable, st standing) (*pb.RunSweepResponse, rowIDs) {
 	resp := &pb.RunSweepResponse{
 		Parameters: table.Params,
 		Sampled:    table.Sampled,
@@ -301,18 +307,27 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable, st standing) *pb
 		resp.Instances = append(resp.Instances, graph...)
 		resp.Rows = append(resp.Rows, out)
 	}
-	return resp
+	return resp, ids
 }
 
 // rowIDs numbers a table's objects across its rows: each row's ids, which its own
 // context counted from 1, are shifted past the greatest id a row before it took.
 type rowIDs struct {
 	shift, last int64
+	// rowShift is the shift the latest row was renumbered by, for what shares its objects.
+	rowShift int64
+}
+
+// lastRow renumbers as the latest row was, so a conclusion drawn in that row's
+// context names the row's objects rather than fresh ones.
+func (r rowIDs) lastRow() rowIDs {
+	return rowIDs{shift: r.rowShift, last: r.last}
 }
 
 // row renumbers every object reference a row and its graph make, then moves the
 // shift past them for the row after.
 func (r *rowIDs) row(out *pb.SweepRow, graph []*pb.Instance) {
+	r.rowShift = r.shift
 	for _, in := range out.Inputs {
 		r.value(in.Value)
 	}

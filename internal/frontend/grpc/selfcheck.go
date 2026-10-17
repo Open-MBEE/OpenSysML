@@ -7,7 +7,9 @@ import (
 	"connectrpc.com/connect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/selfcheck"
 )
@@ -30,10 +32,15 @@ func (s *Service) SelfCheck(ctx context.Context, req *pb.SelfCheckRequest) (*pb.
 	for _, doc := range cached.Documents {
 		sources[doc.Source.Name()] = doc.Source
 	}
+	// The check memoizes into the semantics it reads, so each request types the
+	// model afresh rather than sharing the symbol context's, as Semantics does.
+	resolver := resolve.New(cached.Index)
+	sem := passes.NewTypedModel(resolver)
+	sem.SetSourceText(cachedSourceText(cached))
 	var release func()
 	report := selfcheck.Run(selfcheck.Input{
 		Index:   cached.Index,
-		Model:   cached.SymbolContext().Semantics,
+		Model:   sem,
 		Sources: sources,
 		Runtime: func() (*runtime.Context, error) {
 			rt, rel := s.newRuntime(ctx, cached)

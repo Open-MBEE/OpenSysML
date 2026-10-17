@@ -146,6 +146,31 @@ func TestRunRunsMonteCarloCaseConcludes(t *testing.T) {
 	if len(resp.Lines) == 0 || resp.Lines[len(resp.Lines)-1] != "✓ Mc over 4 run(s)" {
 		t.Errorf("lines = %q; want the conclusion last", resp.Lines)
 	}
+	// The conclusion is drawn in the last run's context: its objects are the last
+	// row's, numbered as that row was, and no object is listed twice.
+	ids := make(map[int64]bool, len(resp.Instances))
+	for _, inst := range resp.Instances {
+		if ids[inst.Id] {
+			t.Errorf("object %d listed twice", inst.Id)
+		}
+		ids[inst.Id] = true
+	}
+	lastRow := resp.Rows[len(resp.Rows)-1]
+	rowObjects := make(map[int64]bool)
+	for _, v := range lastRow.Verdicts {
+		rowObjects[v.InstanceId] = true
+	}
+	for _, v := range resp.Verdicts {
+		if v.InstanceId == 0 {
+			continue
+		}
+		if !ids[v.InstanceId] {
+			t.Errorf("conclusion verdict names object %d, which no instance carries", v.InstanceId)
+		}
+		if len(rowObjects) > 0 && !rowObjects[v.InstanceId] {
+			t.Errorf("conclusion verdict names object %d, not the last row's %v", v.InstanceId, rowObjects)
+		}
+	}
 }
 
 // TestGRPCRobustnessRunRuns verifies the typed refusals of RunRuns: an

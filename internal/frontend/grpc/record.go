@@ -151,6 +151,12 @@ func (s *Service) recordOne(ctx context.Context, v *verifyContext, sym *symbols.
 // recordSweep runs the case once per row of the ranges and makes a record of
 // each completed row, numbered in table order; a failed row is skipped.
 func (s *Service) recordSweep(ctx context.Context, v *verifyContext, sym *symbols.Symbol, req *pb.RecordRunRequest) (*pb.RunSweepResponse, []record.Run, int64, error) {
+	// A sweep row carries no verification verdict, so a verification case is
+	// recorded one run at a time, as RunSweep refuses it too.
+	if runtime.IsVerificationCaseSymbol(sym) {
+		return sweepFailure(fmt.Errorf("%w: %s is a verification case, which a sweep does not run; record it without ranges",
+			runtime.ErrNotAnAnalysis, req.AnalysisSymbolId)), nil, 0, nil
+	}
 	if !runtime.IsRunnableCaseSymbol(sym) {
 		return &pb.RunSweepResponse{
 			Error:         fmt.Sprintf("%s is not an analysis case", req.AnalysisSymbolId),
