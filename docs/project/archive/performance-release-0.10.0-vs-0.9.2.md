@@ -7,7 +7,7 @@ of the [0.9.2 against 0.9.1](performance-release-0.9.2-vs-0.9.1.md)
 record: every benchmark on both revisions, `benchstat` over six runs, the
 rows the machine left in doubt re-run interleaved, and whole-binary
 timings on generated and real models. See
-[performance](../internals/performance.md) for what the figures mean and
+[performance](../../internals/performance.md) for what the figures mean and
 where the remaining cost is.
 
 0.10.0 is a minor release carrying everything on `develop` since 0.9.2:

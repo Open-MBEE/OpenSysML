@@ -653,7 +653,7 @@ func (e *ActionExecutor) checkResultParameters() error {
 	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.action) {
 		if param.IsResult && !semantics.ResultParameterOwnerValid(param.Symbol) {
 			return fmt.Errorf("%w: action %s declares `return %s`; write `out %s`",
-				errActionResultParameter, symbolText(e.action), param.Symbol.Name, param.Symbol.Name)
+				errActionResultParameter, SymbolText(e.action), param.Symbol.Name, param.Symbol.Name)
 		}
 	}
 	return checkNodeResultParameters(e.graph)

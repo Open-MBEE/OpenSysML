@@ -38,7 +38,7 @@ func TestQuantityCalculationsAreAllDispatchable(t *testing.T) {
 					continue
 				}
 				declared++
-				fqn := ctx.qualifiedSymbolName(sym)
+				fqn := ctx.QualifiedName(sym)
 				fn, ok := libraryFunctionByName(fqn)
 				if !ok {
 					if _, isBuiltin := builtins[fqn]; !isBuiltin {
@@ -69,7 +69,7 @@ func effectiveInputs(t *testing.T, ctx *Context, sym *symbols.Symbol) []declared
 		}
 		usage, ok := param.Symbol.Decl.(*ast.Usage)
 		if !ok {
-			t.Fatalf("%s: parameter %s is declared by a %T, not a usage", ctx.qualifiedSymbolName(sym), param.Symbol.Name, param.Symbol.Decl)
+			t.Fatalf("%s: parameter %s is declared by a %T, not a usage", ctx.QualifiedName(sym), param.Symbol.Name, param.Symbol.Decl)
 		}
 		params = append(params, declaredParam{
 			name:     ctx.model.semantics.EffectiveNameOf(param.Symbol),

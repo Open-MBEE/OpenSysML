@@ -740,7 +740,7 @@ func (e *StateExecutor) assignAttribute(name string, value Value) error {
 	} else {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
-		where := func() string { return "state machine " + symbolText(e.stateMachine) }
+		where := func() string { return "state machine " + SymbolText(e.stateMachine) }
 		scope, declared := e.graph.Scope, name
 		if e.holdsShadowed() {
 			scope, declared = declarationHeldUnder(e.heldAttributes(), scope, name)
@@ -2215,7 +2215,7 @@ func (w *weighing) evalWeight(pos int) (float64, error) {
 	val = soleElement(val)
 	if val.Kind != ValConst || !val.Const.IsNumeric() {
 		return 0, fmt.Errorf("%w: %s: weight of %s is %s, not a number",
-			errBranchWeights, w.where(pos), w.name(pos), describeValue(val))
+			errBranchWeights, w.where(pos), w.name(pos), DescribeValue(val))
 	}
 	return asReal(val.Const), nil
 }
@@ -3870,7 +3870,7 @@ func (e *StateExecutor) runCounting(atCurrentTime, single bool, progress *duePro
 
 // dueLabel names the machine in a due-order choice.
 func (e *StateExecutor) dueLabel() string {
-	return "state machine " + symbolText(e.stateMachine) + performerSuffix(e.self)
+	return "state machine " + SymbolText(e.stateMachine) + performerSuffix(e.self)
 }
 
 // clockWaits lists the timers set for an instant the clock has not reached, and

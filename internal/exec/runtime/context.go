@@ -1969,14 +1969,14 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 			}
 		}
 		if conflicts > 0 {
-			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", errPerformedInputs, symbolText(action))
+			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", errPerformedInputs, SymbolText(action))
 		}
 		return performed[0].Action, nil
 	default:
 		if member := sameBehaviorMember(performed); member != nil {
-			return nil, fmt.Errorf("%w: the object performs %s %d times, under %s", errAmbiguousAction, symbolText(action), len(performed), member.Name)
+			return nil, fmt.Errorf("%w: the object performs %s %d times, under %s", errAmbiguousAction, SymbolText(action), len(performed), member.Name)
 		}
-		return nil, fmt.Errorf("%w: the object performs %s as %s", errAmbiguousAction, symbolText(action), strings.Join(behaviorUsages(performed), " and "))
+		return nil, fmt.Errorf("%w: the object performs %s as %s", errAmbiguousAction, SymbolText(action), strings.Join(behaviorUsages(performed), " and "))
 	}
 }
 
@@ -2019,7 +2019,7 @@ func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*ObjectBehavior,
 	case 1:
 		return exhibited[0], nil
 	default:
-		return nil, fmt.Errorf("%w: the object exhibits %s as %s", errAmbiguousMachine, symbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
+		return nil, fmt.Errorf("%w: the object exhibits %s as %s", errAmbiguousMachine, SymbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
 	}
 }
 

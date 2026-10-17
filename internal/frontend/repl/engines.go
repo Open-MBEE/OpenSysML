@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 )
 
 // budgetFor is the session's bounds as a question of kind under policy states them.
@@ -242,7 +243,7 @@ func (s *Session) explore(subject string, policy runtime.SchedulePolicy, selecti
 // target once per row of the plan, each in a context of the plan's own over model
 // drawing under draws on a clock stepping by step; a Monte Carlo's runs are seeded from
 // the plan, not the session.
-func (s *Session) sweep(target string, model *analysis.Model, plan runtime.SweepPlan, row runtime.SweepRun, draws runtime.DrawPolicy, step float64) (analysis.Plan, error) {
+func (s *Session) sweep(target string, model *analysis.Model, plan sweep.SweepPlan, row sweep.SweepRun, draws runtime.DrawPolicy, step float64) (analysis.Plan, error) {
 	schedule := s.drivenSchedule()
 	req := analysis.Request{
 		Model:     model,

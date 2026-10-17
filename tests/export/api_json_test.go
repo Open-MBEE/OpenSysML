@@ -34,7 +34,7 @@ func apiJSONModels(t *testing.T) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out = append(out, filepath.Join("..", "..", "internal", "translate", "interop", "flexo", "testdata", "model.sysml"))
+	out = append(out, filepath.Join("..", "..", "tools", "referee", "flexo", "testdata", "model.sysml"))
 	sort.Strings(out)
 	return out
 }
@@ -115,7 +115,7 @@ func diffTriples(a, b map[rdf.Triple]bool) []rdf.Triple {
 // into objects for shape assertions.
 func apiJSONDocument(t *testing.T) []map[string]json.RawMessage {
 	t.Helper()
-	src, err := os.ReadFile(filepath.Join("..", "..", "internal", "translate", "interop", "flexo", "testdata", "model.sysml"))
+	src, err := os.ReadFile(filepath.Join("..", "..", "tools", "referee", "flexo", "testdata", "model.sysml"))
 	if err != nil {
 		t.Fatal(err)
 	}

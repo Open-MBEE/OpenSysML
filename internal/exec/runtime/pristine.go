@@ -19,7 +19,7 @@ type heldStateError struct {
 }
 
 func (e *heldStateError) Error() string {
-	return fmt.Sprintf("object #%d (%s) %s", e.ID, symbolText(e.Type), e.Reason)
+	return fmt.Sprintf("object #%d (%s) %s", e.ID, SymbolText(e.Type), e.Reason)
 }
 
 // Pristine reports whether inst is as its declaration materializes it in a fresh context:
@@ -40,7 +40,7 @@ func (ctx *Context) pristine(inst *Instance, seen map[int64]bool) error {
 	for _, b := range inst.behaviors {
 		name := b.Name
 		if name == "" {
-			name = symbolText(b.Symbol)
+			name = SymbolText(b.Symbol)
 		}
 		if b.moved() {
 			return &heldStateError{ID: inst.ID, Type: inst.Type, Reason: fmt.Sprintf("runs %s %s, an execution that has moved since its start", b.Kind, name)}
