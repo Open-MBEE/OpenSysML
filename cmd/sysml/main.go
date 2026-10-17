@@ -160,6 +160,7 @@ var (
 	portableMode     bool
 	disabledLints    lintList
 	enabledLints     lintList
+	libraryRoots     pathList
 	noRecordCache    bool
 	modelChecks      checks
 	compileCalc      string
@@ -949,6 +950,7 @@ func newSession() *repl.Session {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}
+	sess.SetLibraryRoots(append(sess.LibraryRoots(), libraryRoots...))
 	cache, err := libs.OpenRecordCache(noRecordCache)
 	if err != nil && !quietMode {
 		fmt.Fprintf(os.Stderr, "%s record cache unavailable, holding every file loaded: %v\n", errPrefix, err)

@@ -968,15 +968,15 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 		return true, nil
 	case el.metaclass == mSuccession && owning == mOwningMembership:
 		ends := successionEndReferents(d.graph, d.metaclass, subject)
-		if len(ends) != 2 || ends[1].Value == "" {
+		if len(ends) != 2 || ends[1].feature.Value == "" {
 			return false, nil
 		}
-		if ends[0].Value != "" {
-			if ok, err := agree(pSource, ends[0], "source"); err != nil || !ok {
+		if ends[0].feature.Value != "" {
+			if ok, err := agree(pSource, ends[0].feature, "source"); err != nil || !ok {
 				return false, err
 			}
 		}
-		return agree(pTarget, ends[1], "target")
+		return agree(pTarget, ends[1].feature, "target")
 	}
 	return false, nil
 }

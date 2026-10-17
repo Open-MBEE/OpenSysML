@@ -60,6 +60,25 @@ extension, start the server in strict mode instead:
 }
 ```
 
+### Working inside a package-manager project
+
+A workspace folder that is a project — a directory holding a `.project.json`, as a SysML v2
+package manager writes it — has the installed projects its usages name indexed along with
+its own files, so an `import` of a package an installed project declares resolves in the
+editor without opening its file ([From the command line](03-command-line.md#working-inside-a-package-manager-project)
+describes what is found). The projects are looked for under the well-known library
+directories of the project (`.sysand/lib` for a `sysand` project) and under any directory
+named by `OPENSYSML_LIBRARY_ROOTS`, by `sysml-lsp -library-root` or by the `libraryRoots`
+list setting ([LSP extensions](../reference/lsp.md#library-roots-setting)); a relative
+directory in the setting is taken from the workspace folder. With this extension, name
+another provider's directory as a server argument:
+
+```json
+{
+  "opensysml.server.args": ["-library-root", "/path/to/store"]
+}
+```
+
 ### The diagram panel
 
 <kbd>Alt</kbd>+<kbd>D</kbd> (<kbd>Option</kbd>+<kbd>D</kbd> on macOS) in a `.sysml` or `.kerml` file —
@@ -79,7 +98,10 @@ REPL's `%render` command prints, as an SVG canvas of its own, and redraws as you
   [the standard library in the editor](#the-standard-library-in-the-editor)).
 - **Behavior while editing.** A keystroke that leaves the model unparseable dims the last valid
   diagram and reports the error in the status line beneath it; the panel is never blanked.
-  Anything the rendering could not represent is listed below the diagram.
+  Anything the rendering could not represent is listed below the diagram. A rendering with
+  nothing to draw says why (the view exposes nothing, its filter rejects every element it
+  exposes, the document has an error) in the status line and in place of the drawing, and the
+  same summary is written to the SysML v2 Output channel.
 - **Resource use.** The panel requests a diagram only while it is visible, and only after a
   burst of editing has settled. The panel draws its own SVG, so nothing is fetched from the
   network.

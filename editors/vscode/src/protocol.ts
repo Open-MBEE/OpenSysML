@@ -246,6 +246,11 @@ export function normalizeRender(result: RenderResult): RenderResult {
   };
 }
 
+/** nothingToDraw reports whether a rendering has no node, edge or row: a panel shows why instead of an empty drawing. */
+export function nothingToDraw(result: RenderResult): boolean {
+  return (result.nodes ?? []).length === 0 && (result.edges ?? []).length === 0 && (result.rows ?? []).length === 0;
+}
+
 /** admits: whether a member may go into node — any node, unless the palette confines the kind to some. */
 export function admits(palette: EditPalette | undefined, memberKind: string, node: RenderNode): boolean {
   const owners = palette?.owners?.[memberKind];
