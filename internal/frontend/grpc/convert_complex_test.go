@@ -157,8 +157,9 @@ func TestComplexCrossesEveryValueSurface(t *testing.T) {
 	if err != nil || act.Error != "" {
 		t.Fatalf("ExecuteAction: err = %v, error = %q", err, act.GetError())
 	}
-	if w := act.Outputs["w"]; w.GetComplex() == nil || protoconv.ProtoToComplex(w.GetComplex()) != complex(2, -5) {
-		t.Errorf("output w = %v, want complex 2.0 - 5.0i", w)
+	// The bare `out w` is [0..*], so the one result crosses the wire as a one-element sequence.
+	if w := soleElement(act.Outputs["w"]); w.GetComplex() == nil || protoconv.ProtoToComplex(w.GetComplex()) != complex(2, -5) {
+		t.Errorf("output w = %v, want a one-element sequence of complex 2.0 - 5.0i", act.Outputs["w"])
 	}
 
 	withheld := mustNewServiceWithout(t, CapabilityComplexValues)
@@ -245,4 +246,12 @@ func TestComplexInputNeedsComplexValues(t *testing.T) {
 	if calc.Result.GetComplex() == nil || protoconv.ProtoToComplex(calc.Result.GetComplex()) != complex(2, 5) {
 		t.Errorf("echo(2 + 5i) = %v, want the complex back", calc.Result)
 	}
+}
+
+// soleElement is the one element a one-element sequence value carries, else the value itself.
+func soleElement(v *pb.Value) *pb.Value {
+	if els := v.GetSequence().GetElements(); len(els) == 1 {
+		return els[0]
+	}
+	return v
 }

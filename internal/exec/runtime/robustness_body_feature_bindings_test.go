@@ -171,7 +171,7 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if !ok {
 			t.Fatal("initialized stop parameter is missing")
 		}
-		if stop.Kind != ValQuantity {
+		if stop = soleElement(stop); stop.Kind != ValQuantity {
 			t.Fatalf("stop = %s, want a quantity", FormatValue(stop))
 		}
 		step, ok := exec.root.data[exec.root.key("timeStep")]

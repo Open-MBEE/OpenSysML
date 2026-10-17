@@ -171,7 +171,7 @@ func (h *calcStmtHost) assignData(env *stmtEnv, name string, value Value, s lowe
 // occurrence when `this` materialized and holds the feature.
 func calcFeatureWriter(ctx *Context, shape *calcShape, occ *calcOccurrence) func(frame, string, Value) error {
 	return func(f frame, name string, value Value) error {
-		if err := ctx.checkNamedWrite(shape.bodyScope(), calcBodyDescription, name, &value); err != nil {
+		if err := ctx.checkNamedWriteComputed(shape.bodyScope(), calcBodyDescription, name, &value); err != nil {
 			return err
 		}
 		f.set(name, value)
@@ -392,7 +392,7 @@ func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 		return true, nil
 	}
 	if h.declaredOutput(name) || h.env.data.has(name) {
-		if err := h.ctx.checkNamedWrite(h.shape.bodyScope(), h.describe(), name, &value); err != nil {
+		if err := h.ctx.checkNamedWriteComputed(h.shape.bodyScope(), h.describe(), name, &value); err != nil {
 			return true, err
 		}
 		h.env.data.setBody(h.ctx, name, value)

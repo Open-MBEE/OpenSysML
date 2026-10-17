@@ -6,7 +6,7 @@ step 2: token 2@l1, token 3@l2
 choice step 3: tokens 2@l1, 3@l2 (unordered; took 3@l2 first; independent)
 step 3: token 2@both, token 3@both
 stmt assign hits
-    eval feature hits -> 0
+    eval feature hits -> (0)
     eval literal 1 -> 1
   eval operator + -> 1
 step 4: token 4@done
@@ -17,7 +17,7 @@ step 2: token 2@l1, token 3@l2
 choice step 3: tokens 2@l1, 3@l2 (unordered; took 3@l2 first; independent)
 step 3: token 2@both, token 3@both
 stmt assign hits
-    eval feature hits -> 0
+    eval feature hits -> (0)
     eval literal 1 -> 1
   eval operator + -> 1
 step 4: token 4@done

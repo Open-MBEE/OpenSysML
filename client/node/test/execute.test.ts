@@ -99,6 +99,35 @@ const PERFORMER_MODEL = `package Wire {
 }
 `;
 
+const PIN_SHAPE_MODEL = `package Pins {
+    private import ScalarValues::*;
+    action def Shape {
+        in value : Integer[1];
+        out one : Integer[1];
+        out bare : Integer;
+        out many : Integer[0..*];
+        first start;
+        then action s { assign one := value; assign bare := value; assign many := (value, value + 1); }
+        then done;
+    }
+}
+`;
+
+test("a pin is held in the shape its multiplicity gives it", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(PIN_SHAPE_MODEL);
+  const run = await model.executeAction("Pins::Shape", { inputs: { value: { kind: "int", value: 5n } } });
+  assert.deepEqual(run.outputs.get("one"), { kind: "int", value: 5n });
+  assert.deepEqual(run.outputs.get("bare"), { kind: "sequence", elements: [{ kind: "int", value: 5n }] });
+  assert.deepEqual(run.outputs.get("many"), {
+    kind: "sequence",
+    elements: [
+      { kind: "int", value: 5n },
+      { kind: "int", value: 6n },
+    ],
+  });
+});
+
 test("the service advertises schedule, explore and performer", async () => {
   await using connection = await connect();
   assert.ok(connection.info.has("schedule"));

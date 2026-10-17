@@ -155,6 +155,13 @@ func (ctx *Context) checkTarget(scope *symbols.Scope, what string, target *write
 // checkTargetAs is checkTarget naming the write only when it is refused, so a
 // conformant write on a hot path does not pay for its description.
 func (ctx *Context) checkTargetAs(scope *symbols.Scope, what func() string, target *writeTarget, value *Value, how admission, countJudged bool) error {
+	return ctx.checkTargetHeld(scope, what, target, value, how, countJudged, true)
+}
+
+// checkTargetHeld is checkTargetAs, holding a conformant value in the target's shape
+// (shapeForTarget) when shaped, and as computed otherwise — a calculation body's features
+// are held as computed until calculation results take the shape rule too.
+func (ctx *Context) checkTargetHeld(scope *symbols.Scope, what func() string, target *writeTarget, value *Value, how admission, countJudged, shaped bool) error {
 	if countJudged {
 		if msg := ctx.writeCountRefusal(target, value); msg != "" {
 			return fmt.Errorf("%s: %w: %s", what(), ErrMultiplicityViolation, msg)
@@ -169,10 +176,21 @@ func (ctx *Context) checkTargetAs(scope *symbols.Scope, what func() string, targ
 	if msg := ctx.uniquenessRefusal(target.unique, target.holdsSet, value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}
-	if countJudged {
+	if countJudged && shaped {
 		return ctx.shapeForTarget(target, value)
 	}
 	return nil
+}
+
+// checkNamedWriteComputed is checkNamedWrite for a calculation body, whose features hold
+// what the body computed rather than the shape their multiplicity gives it.
+func (ctx *Context) checkNamedWriteComputed(scope *symbols.Scope, where, name string, value *Value) error {
+	target, ok := ctx.writeTargetIn(scope, name)
+	if !ok {
+		return nil
+	}
+	what := func() string { return fmt.Sprintf("%s: assignment to %s", where, name) }
+	return ctx.checkTargetHeld(scope, what, target, value, admitWritten, true, false)
 }
 
 // shapeForTarget holds a conformant value in the shape the target's multiplicity gives

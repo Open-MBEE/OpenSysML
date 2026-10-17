@@ -400,13 +400,13 @@ package mine {
 		t.Fatalf("a declaration with a body dispatched to the built-in implementation")
 	}
 	got, err := ctx.InvokeCalc(libSym, []Value{constReal(25)}, nil)
-	if err != nil || heldOne(t, "sqrt", got).Const.AsReal() != 25 {
+	if err != nil || got.Const.AsReal() != 25 {
 		t.Fatalf("InvokeCalc(RealFunctions::sqrt, 25.0) = %+v, %v; want the declared body", got, err)
 	}
 
 	ownSym := lookupOne(t, idx, "mine::sqrt")
 	got, err = ctx.InvokeCalc(ownSym, []Value{constReal(25)}, nil)
-	if err != nil || heldOne(t, "sqrt", got).Const.AsReal() != 42 {
+	if err != nil || got.Const.AsReal() != 42 {
 		t.Fatalf("InvokeCalc(mine::sqrt, 25.0) = %+v, %v; want the declared body", got, err)
 	}
 }
@@ -423,7 +423,7 @@ func TestLibraryFunctionDoesNotHijackAnOutputAssignedInABody(t *testing.T) {
 		t.Fatalf("a declaration assigning its output dispatched to the built-in implementation")
 	}
 	got, err := ctx.InvokeCalc(sym, []Value{constReal(25)}, nil)
-	if err != nil || heldOne(t, "sqrt", got).Const.AsReal() != 42 {
+	if err != nil || heldOne(t, "r", got).Const.AsReal() != 42 {
 		t.Fatalf("InvokeCalc(RealFunctions::sqrt, 25.0) = %+v, %v; want the declared body", got, err)
 	}
 }
