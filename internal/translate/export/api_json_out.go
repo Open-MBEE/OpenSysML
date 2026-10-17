@@ -30,13 +30,7 @@ type APIJSONOmission struct {
 
 // WriteAPIJSON serializes a graph as the SysML v2 API's element form: a JSON
 // array of objects carrying "@type", "@id" and the metamodel properties as
-// keys, the shape GET /projects/{p}/commits/{c}/elements serves. It is the same
-// mapping the Turtle writer spells: the subjects of the graph in order, their
-// sysml: and sysx: properties as values, each collection as the array its
-// json: annotation states, and each multi-valued metamodel property as an
-// array even when no annotation states it. The document's top-level elements
-// are owned by the unnamed root Namespace the pilot's documents carry, which
-// the Turtle form leaves out (see docs/reference/rdf-mapping.md).
+// keys, with collection values in annotation order.
 func WriteAPIJSON(graph *rdf.Graph) ([]byte, error) {
 	return WriteAPIJSONWithOptions(graph, APIJSONOptions{})
 }
@@ -83,7 +77,11 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 	if err != nil {
 		return nil, err
 	}
-	settled, err := rdf.ReconcileCollections(wrapped)
+	settled, err := rdf.ReconcileCollectionsWithPolicy(wrapped, func(subject rdf.Term, key string) bool {
+		metaclass := strings.TrimPrefix(wrapped.Type(subject), rdf.SysML)
+		property, ok := ontology.PropertyOf(metaclass, key)
+		return ok && property.Nonunique
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -522,8 +520,18 @@ func apiJSONSysMLValue(
 	objectProperty bool,
 	nameIndex *apiJSONNameIndex,
 ) (any, error) {
+	if key == "chainingFeature" {
+		ordered := apiJSONOrderedFeatureChain(graph, nameIndex, subject)
+		if len(ordered) > 0 {
+			return apiJSONValues(subject, key, ordered, objectProperty)
+		}
+	}
 	objects := graph.ObjectsView(subject, predicate)
-	if _, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok && graph.CollectionsSettled() {
+	nonunique := false
+	if property, ok := ontology.PropertyOf(metaclass, key); ok {
+		nonunique = property.Nonunique
+	}
+	if _, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok && graph.CollectionsSettled() && !nonunique {
 		// The typed triples state the collection in the annotation's order (see
 		// rdf.Graph.MarkCollectionsSettled), so its members are read from them
 		// rather than from the annotation's JSON, which spells the same members.

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -414,9 +415,8 @@ func TestFeatureChainMissingLinkRefused(t *testing.T) {
 	}
 }
 
-// A repeated link survives: a graph deduplicates the derived chainingFeature
-// triples, so the ordered FeatureChaining elements — three of them — carry
-// the chain, and the derived list states each distinct link once.
+// A graph deduplicates derived triples, so the ordered FeatureChaining
+// relationships are the source of repeated chainingFeature values.
 func TestFeatureChainRepeatedLink(t *testing.T) {
 	path := filepath.Join("testdata", "convert", "feature_chains_repeated.sysml")
 	src, err := os.ReadFile(path)
@@ -440,19 +440,24 @@ func TestFeatureChainRepeatedLink(t *testing.T) {
 			chainLinks[ownerOf(el["owningRelatedElement"])]++
 		}
 	}
-	repeated, two := 0, 0
+	repeated := 0
+	var derived []string
 	for _, el := range elements {
 		list, ok := el["chainingFeature"].([]any)
 		if !ok || el["@type"] == "FeatureChaining" {
 			continue
 		}
-		if len(list) == 2 && refID(list[0]) == "P__n" {
+		if len(list) >= 1 && refID(list[0]) == "P__n" {
 			repeated = chainLinks[el["@id"].(string)]
-			two = len(list)
+			for _, item := range list {
+				derived = append(derived, refID(item))
+			}
+			break
 		}
 	}
-	if two != 2 || repeated != 3 {
-		t.Errorf("the end chain should derive 2 distinct links from 3 FeatureChaining elements, derived %d and owned %d", two, repeated)
+	wantIDs := []string{"P__n", "P__Node__next", "P__Node__next"}
+	if !slices.Equal(derived, wantIDs) || repeated != 3 {
+		t.Errorf("actual chainingFeature = %v, expected %v; owned FeatureChaining count = %d, expected 3", derived, wantIDs, repeated)
 	}
 	document, err := json.Marshal(elements)
 	if err != nil {

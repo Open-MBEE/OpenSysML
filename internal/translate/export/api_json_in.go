@@ -1068,13 +1068,6 @@ func apiJSONTriples(graph *rdf.GraphBuilder, p apiJSONProperty, value any, expre
 	}
 }
 
-// nonuniqueCollections are the derived KerML collections declared {nonunique}:
-// a relationship's related elements may repeat (an association of two ends on one type).
-var nonuniqueCollections = map[string]bool{
-	"relatedElement": true, "relatedType": true, "relatedFeature": true,
-	"chainingFeature": true, "source": true, "target": true,
-}
-
 // apiJSONCollection states an array member: one triple per value, recording
 // a collection of at least two on a sysml: key for its json: annotation.
 func apiJSONCollection(graph *rdf.GraphBuilder, p apiJSONProperty, values []any, expressionIDs map[string]bool, cache *apiJSONTermCache, annotations *[]apiJSONAnnotation) error {
@@ -1099,7 +1092,8 @@ func apiJSONCollection(graph *rdf.GraphBuilder, p apiJSONProperty, values []any,
 			if !member.Equal(earlier) {
 				continue
 			}
-			if nonuniqueCollections[name] {
+			property, known := ontology.PropertyOf(p.metaclass, name)
+			if known && property.Nonunique {
 				// A derived {nonunique} list repeats a member the triples hold once.
 				break
 			}

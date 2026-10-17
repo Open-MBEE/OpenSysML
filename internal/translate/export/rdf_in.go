@@ -130,7 +130,11 @@ func toSysML(graph *rdf.Graph, warn func(string), owned bool) ([]byte, error) {
 		return nil, err
 	}
 	graph.Compact()
-	graph, err = rdf.ReconcileCollections(graph)
+	graph, err = rdf.ReconcileCollectionsWithPolicy(graph, func(subject rdf.Term, key string) bool {
+		metaclass := strings.TrimPrefix(graph.Type(subject), rdf.SysML)
+		property, ok := ontology.PropertyOf(metaclass, key)
+		return ok && property.Nonunique
+	})
 	if err != nil {
 		var malformed *rdf.AnnotationError
 		if errors.As(err, &malformed) {
