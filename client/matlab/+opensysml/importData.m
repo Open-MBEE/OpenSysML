@@ -46,7 +46,9 @@ function result = importData(model, imports, varargin)
 end
 
 function out = cells(list)
+    % A row of cells: jsondecode gives a column (struct array or cell) that a for loop would take whole.
     if iscell(list), out = list; elseif isempty(list), out = {}; else, out = num2cell(list); end
+    out = reshape(out, 1, []);
 end
 
 function value = fieldOr(s, name, default)
