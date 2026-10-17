@@ -158,9 +158,8 @@ type Comparison struct {
 // ConfigurationComparison is one configuration's runs beside the tool's results.
 type ConfigurationComparison struct {
 	ID, Name, Behavior, Target, ResultLocation string
-	// Status is holds, undecided (an observable asked for was not compared),
-	// fails (a run failed) or unresolved (the configuration
-	// could not be run, for the reason in Unresolved).
+	// Status is holds, undecided (an observable was not compared), fails (a run
+	// failed) or unresolved (the configuration could not be run, see Unresolved).
 	Status, Unresolved          string
 	StoredRuns, StoredSnapshots int64
 	Runs, Completed             int64

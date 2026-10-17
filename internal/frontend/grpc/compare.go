@@ -231,7 +231,9 @@ func (s *Service) compareConfiguration(ctx context.Context, v *verifyContext, cf
 	}
 	c.Status = "holds"
 	for _, o := range comparison.Observables {
-		if !o.Compared {
+		// Compared alone: the runs may have produced no number for the observable,
+		// or the tool stored none, and then nothing stood against anything.
+		if !o.Compared || o.Unstored || o.Run == nil || o.Tool == nil {
 			c.Status = "undecided"
 		}
 	}

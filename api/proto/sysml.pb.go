@@ -13458,9 +13458,8 @@ type ConfigurationComparison struct {
 	// The feature of the configuration the observables are read from.
 	Target         string `protobuf:"bytes,4,opt,name=target,proto3" json:"target,omitempty"`
 	ResultLocation string `protobuf:"bytes,5,opt,name=result_location,json=resultLocation,proto3" json:"result_location,omitempty"`
-	// holds when every run completed and the observables were compared, undecided
-	// when an observable asked for was not compared, fails when a run failed,
-	// unresolved when the configuration could not be run.
+	// holds when runs complete and observables compare; undecided when some do not;
+	// fails when a run fails; unresolved when the configuration cannot run.
 	Status string `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
 	// Why the configuration could not be run, when status is unresolved.
 	Unresolved string `protobuf:"bytes,7,opt,name=unresolved,proto3" json:"unresolved,omitempty"`
