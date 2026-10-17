@@ -552,6 +552,8 @@ export class Model {
       namedArguments?: Readonly<Record<string, ValueInput>>;
       schedule?: string;
       engine?: string;
+      /** Preview the external tool call the case would make instead of running it. */
+      toolDryRun?: boolean;
     } = {},
   ): Promise<AnalysisResult> {
     return this.connection.runAnalysis(this.hash, symbolId, options);

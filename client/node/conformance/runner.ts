@@ -455,6 +455,7 @@ export class Runner {
         ...stringOption(call.request, "subject_symbol_id", "subject"),
         arguments: valueList(call.request["arguments"]),
         namedArguments: valueMap(call.request["named_arguments"]),
+        ...boolOption(call.request, "tool_dry_run", "toolDryRun"),
       }),
     RunSweep: (call) =>
       this.model(call).runSweep(String(call.request["symbol_id"]), sweepRanges(call.request["ranges"]), {
@@ -667,6 +668,16 @@ function stringOption<K extends string>(
 ): { [P in K]?: string } {
   const value = request[key];
   return typeof value === "string" ? ({ [name]: value } as { [P in K]?: string }) : {};
+}
+
+/** The option `name` taken from a request's boolean field `key`; nothing when the field is not a boolean. */
+function boolOption<K extends string>(
+  request: Record<string, unknown>,
+  key: string,
+  name: K,
+): { [P in K]?: boolean } {
+  const value = request[key];
+  return typeof value === "boolean" ? ({ [name]: value } as { [P in K]?: boolean }) : {};
 }
 
 /** The option `name` taken from a request's number field `key`; nothing when the field is not a number. */
