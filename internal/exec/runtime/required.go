@@ -190,7 +190,7 @@ func (ctx *Context) makeRequired(seq *Sequence) error {
 // requiredHolder names the feature or usage holding r, for an error.
 func (ctx *Context) requiredHolder(r *requiredMembers) string {
 	if r.owner == 0 {
-		return symbolText(r.typ)
+		return SymbolText(r.typ)
 	}
 	return fmt.Sprintf("feature %q", r.feature)
 }
@@ -283,7 +283,7 @@ func sameRequired(a, b *Sequence) bool {
 // formatRequired spells the required members seq ends in, by the range of their identities.
 func formatRequired(seq *Sequence) string {
 	r := seq.required
-	return fmt.Sprintf("%d of %s #%d..#%d", r.count, symbolText(r.typ), r.first, r.first+r.count-1)
+	return fmt.Sprintf("%d of %s #%d..#%d", r.count, SymbolText(r.typ), r.first, r.first+r.count-1)
 }
 
 // HeldElements is what a collection value holds, in order — a lazily held member named by

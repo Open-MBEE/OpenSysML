@@ -319,7 +319,7 @@ func TestExploreStateTransitionConflict(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.sendSignal("go", nil)
+		exec.SendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -372,7 +372,7 @@ func TestExploreDynamicChoiceBranches(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.sendSignal("go", nil)
+		exec.SendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -472,7 +472,7 @@ func TestExploreStaticJunctionBranches(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.sendSignal("go", nil)
+		exec.SendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -558,7 +558,7 @@ func TestExploreJunctionBranchBeyondWhichNoGuardHolds(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.sendSignal("go", nil)
+		exec.SendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -642,7 +642,7 @@ func TestJunctionBranchDeadEndKeepsItsNotes(t *testing.T) {
 	if err := exec.initialize(); err != nil {
 		t.Fatal(err)
 	}
-	exec.sendSignal("go", nil)
+	exec.SendSignal("go", nil)
 	err = exec.RunToCompletion()
 	if err == nil || !strings.Contains(err.Error(), "outgoing transitions form a cycle between pseudostates") {
 		t.Fatalf("RunToCompletion: %v, want the cycle at stuck", err)
@@ -703,7 +703,7 @@ func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.sendSignal("go", nil)
+		exec.SendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -819,7 +819,7 @@ func TestExploreHistoryDefaultThroughJunction(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.sendSignal("go", nil)
+		exec.SendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -942,7 +942,7 @@ func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string
 			return Outcome{}, err
 		}
 		if signal != "" {
-			exec.sendSignal(signal, nil)
+			exec.SendSignal(signal, nil)
 		}
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
@@ -1297,8 +1297,8 @@ func TestExploreRunsShareNoState(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.sendSignal("go", nil)
-		exec.sendSignal("ping", nil)
+		exec.SendSignal("go", nil)
+		exec.SendSignal("ping", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -1379,7 +1379,7 @@ func exploreFleet(t *testing.T, m *exploreModel) (*Exploration, []int64) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.sendSignal("go", nil)
+		exec.SendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -1485,7 +1485,7 @@ func TestExploreSiblingRegionOrderNamesTypedRegions(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.sendSignal("go", nil)
+		exec.SendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}

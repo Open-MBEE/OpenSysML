@@ -80,7 +80,7 @@ func (v Value) functionRun() int64 {
 func (ec *EvalContext) functionValueOf(sym *symbols.Symbol) (Value, error) {
 	if _, builtin := ec.ctx.builtinFor(sym); builtin {
 		return Value{}, fmt.Errorf("%w: %s binds its arguments unevaluated and cannot be read as a value",
-			errNotAFunction, ec.ctx.qualifiedSymbolName(sym))
+			errNotAFunction, ec.ctx.QualifiedName(sym))
 	}
 	shape, err := ec.ctx.calcInterfaceOf(sym)
 	if err != nil {
@@ -226,7 +226,7 @@ func (param *calcParameter) checkFunction(value *Value, what func() string) erro
 		return nil
 	}
 	return fmt.Errorf("%s: %w: %s is %s, not a function",
-		what(), errNotAFunction, FormatValue(*value), describeValue(*value))
+		what(), errNotAFunction, FormatValue(*value), DescribeValue(*value))
 }
 
 // invokeFunction applies a value called as a function to args through the calc
@@ -234,7 +234,7 @@ func (param *calcParameter) checkFunction(value *Value, what func() string) erro
 func (ec *EvalContext) invokeFunction(callee string, val Value, args calcArgs) (Value, error) {
 	fn := val.function()
 	if fn == nil || fn.shape == nil {
-		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, describeValue(val))
+		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, DescribeValue(val))
 	}
 	var result Value
 	var err error

@@ -606,7 +606,7 @@ type calcUsageStart struct {
 func (ctx *Context) beginCalcUsage(reader *EvalContext, sym *symbols.Symbol) (*calcUsageStart, *calcRun, error) {
 	if !isCalcUsageSymbol(sym) {
 		return nil, nil, fmt.Errorf(
-			"%w: %s does not evaluate output features", errNotACalcUsage, ctx.qualifiedSymbolName(sym),
+			"%w: %s does not evaluate output features", errNotACalcUsage, ctx.QualifiedName(sym),
 		)
 	}
 	if err := ctx.checkCalcTyping(sym); err != nil {
@@ -927,7 +927,7 @@ func (ctx *Context) checkCalcTyping(sym *symbols.Symbol) error {
 		}
 		return fmt.Errorf(
 			"%w: calc usage %s specializes %s, which is not a calc",
-			ErrNotACalc, ctx.qualifiedSymbolName(sym), ctx.qualifiedSymbolName(super),
+			ErrNotACalc, ctx.QualifiedName(sym), ctx.QualifiedName(super),
 		)
 	}
 	return nil

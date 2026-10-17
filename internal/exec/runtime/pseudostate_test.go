@@ -191,7 +191,7 @@ func TestJoinSegmentFiresOnOwnOccurrence(t *testing.T) {
 		t.Fatalf("Decide(Go) with the right branch in b0 = %+v, %v; want the left segment enabled to arrive", d, err)
 	}
 
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Go): %v", err)
 	}
@@ -266,7 +266,7 @@ func TestJoinDisarmedSegmentCanArriveAlone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateStateExecutor: %v", err)
 	}
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Go): %v", err)
 	}
@@ -325,7 +325,7 @@ func TestJoinFromActiveCompositeSourcesFires(t *testing.T) {
 	if d, err := exec.Decide(goMsg); err != nil || !d.Enabled() {
 		t.Errorf("Decide(Go) = %+v, %v; want the join enabled with ia active through a1", d, err)
 	}
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Go): %v", err)
 	}
@@ -377,7 +377,7 @@ func TestJoinCompletionSegmentWaitsForItsSourcesDoBehavior(t *testing.T) {
 	if d, err := exec.Decide(goMsg); err != nil || !d.Enabled() {
 		t.Fatalf("Decide(Go) with b's do behavior running = %+v, %v; want a's segment enabled to arrive", d, err)
 	}
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Go): %v", err)
 	}
@@ -388,7 +388,7 @@ func TestJoinCompletionSegmentWaitsForItsSourcesDoBehavior(t *testing.T) {
 		t.Fatalf("after Go: configuration = %s, arrivals = %v; want b and a's waiting arrival", got, exec.joinArrived)
 	}
 
-	exec.sendSignal("Tick", nil)
+	exec.SendSignal("Tick", nil)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Tick): %v", err)
 	}
@@ -443,7 +443,7 @@ func TestJoinCompletionSegmentWaitsForItsSourcesBody(t *testing.T) {
 	goMsg := Message{SignalType: "Go"}
 	dispatch := func(signal string) {
 		t.Helper()
-		exec.sendSignal(signal, nil)
+		exec.SendSignal(signal, nil)
 		if err := exec.ProcessNextEvent(); err != nil {
 			t.Fatalf("ProcessNextEvent(%s): %v", signal, err)
 		}

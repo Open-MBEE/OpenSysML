@@ -303,9 +303,9 @@ func acceptSuspensionMixedTimerSignalSource() string {
 	}`
 }
 
-func acceptSuspensionMixedTimerSignalScenarioSource(sendSignal bool) string {
+func acceptSuspensionMixedTimerSignalScenarioSource(SendSignal bool) string {
 	source := acceptSuspensionMixedTimerSignalDefinitions()
-	if sendSignal {
+	if SendSignal {
 		source += `action def Scenario {
 			out attribute signalled : Integer = 0;
 			out attribute timed : Integer = 0;

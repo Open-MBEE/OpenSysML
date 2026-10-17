@@ -42,6 +42,7 @@ func classifyBy(c *ChoicePoint, fps []lower.Footprint, dependent func(i, j int) 
 	if len(fps) != len(c.Alternatives) || len(fps) < 2 {
 		return
 	}
+	c.serial = nextChoiceSerial()
 	found := false
 	for i := range fps {
 		for j := i + 1; j < len(fps); j++ {
@@ -91,6 +92,7 @@ func (c *ChoicePoint) touchMeeting(f, g lower.Footprint, rel lower.Relation) {
 // whatever any of them writes.
 func classifyExclusive(c *ChoicePoint, fps []lower.Footprint) {
 	c.Independent = false
+	c.serial = nextChoiceSerial()
 	c.touchWrites(fps...)
 }
 
@@ -103,7 +105,7 @@ func (c *ChoicePoint) touchWrites(fps ...lower.Footprint) {
 }
 
 func (c *ChoicePoint) touch(p lower.Place) {
-	if p.Local || p.State != nil {
+	if p.Local && p.Node != nil || p.State != nil {
 		return
 	}
 	if !slices.ContainsFunc(c.touched, func(q lower.Place) bool { return q.Name == p.Name && q.Sym == p.Sym }) {
@@ -125,39 +127,52 @@ func (ctx *Context) futureFootprints() *futureFootprints {
 	return ctx.futures
 }
 
-// choiceTouches reports whether the choice may have left the named value
-// order-dependent. A bare name is a feature of the behavior's own, so a write to
-// a performing object's feature of that name does not touch it; `this.<name>` is
-// the one performing object's feature, touched only by a write to a feature it
-// owns; any other qualifier (an object's name, a state path) is matched by the
-// written feature's name alone, which over-marks rather than under-marks.
-func (ctx *Context) choiceTouches(c ChoicePoint, name string) bool {
+// placeNamed reports whether a value reported under name is the one a write to
+// the place may have left, among the performing objects selves. A bare name is a
+// feature of the behavior's own, so a write to a performing object's feature of
+// that name does not touch it; `this.<name>` is the one performing object's
+// feature, touched only by a write to a feature it owns; any other qualifier (an
+// object's name, a state path) is matched by the written feature's name alone,
+// which over-marks rather than under-marks.
+func (ctx *Context) placeNamed(p lower.Place, name string, selves []*Instance) bool {
 	qualifier, leaf := "", name
 	if i := strings.LastIndex(name, "."); i >= 0 {
 		qualifier, leaf = name[:i], name[i+1:]
 	}
-	selves := ctx.performerSelves()
-	for _, p := range c.touched {
-		if p.Name != name && lastSegment(p.Name) != leaf {
-			continue
-		}
-		holder := ctx.performerOwning(selves, p.Sym)
-		switch {
-		case p.Sym == nil, len(selves) == 0:
-			return true
-		case qualifier == "":
-			if holder == nil {
-				return true
-			}
-		case qualifier == "this":
-			if len(selves) == 1 && holder == selves[0] {
-				return true
-			}
-		default:
-			return true
+	if p.Name != name && lastSegment(p.Name) != leaf {
+		return false
+	}
+	if p.Local && p.Node != nil && qualifier == "" {
+		return false // a pin or a node's own feature is not the bare name's
+	}
+	if p.Node != nil {
+		if node := ActionNodeName(p.Node); node != "" {
+			return node == lastSegment(qualifier)
 		}
 	}
-	return false
+	if p.Sym != nil && qualifier != "" && qualifier != "this" && ctx.run.marks.performed(lastSegment(qualifier)) {
+		return declaredUnder(p.Sym, lastSegment(qualifier))
+	}
+	holder := ctx.performerOwning(selves, p.Sym)
+	switch {
+	case p.Sym == nil, len(selves) == 0:
+		return true
+	case qualifier == "":
+		return holder == nil
+	default:
+		return len(selves) == 1 && holder == selves[0]
+	}
+}
+
+// declaredUnder reports whether the symbol may be the member named under owner:
+// not when owner is declared beside it, a sibling whose members it is not among;
+// otherwise the declarations do not say, and it may.
+func declaredUnder(sym *symbols.Symbol, owner string) bool {
+	if sym.OwnerScope == nil {
+		return true
+	}
+	sibling, ok := sym.OwnerScope.LookupLocal(owner)
+	return !ok || sibling == sym
 }
 
 // performerSelves are the distinct objects the run's executors perform or have
@@ -199,16 +214,13 @@ func pluralChoicePoints(n int) string {
 	return "choice points"
 }
 
-// OrderDependent reports how many unresolved choice points of the run touch the
-// feature, by its name alone or as the last segment of a written path.
+// OrderDependent reports how many unresolved choice points of the run the
+// feature's value stands on, by its name alone or as the last segment of a
+// written path: those whose alternatives touched it and those what was computed
+// into it stood on (order_marks.go).
 func (ctx *Context) OrderDependent(feature string) int {
-	count := 0
-	for _, n := range ctx.run.notes {
-		if c, ok := n.(ChoicePoint); ok && !c.Independent && ctx.choiceTouches(c, feature) {
-			count++
-		}
-	}
-	return count
+	selves := ctx.performerSelves()
+	return ctx.run.marks.standingOn(ctx.liveChoices(), func(p lower.Place) bool { return ctx.placeNamed(p, feature, selves) })
 }
 
 // OrderDependentAmong is, for each named value an unresolved choice point of the

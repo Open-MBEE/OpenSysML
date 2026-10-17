@@ -194,7 +194,7 @@ func (t *imaging) behavior(b *ObjectBehavior) error {
 // actionExecutor takes an action executor's state, its frames by position.
 func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 	if e.inRun {
-		return nil, fmt.Errorf("%w: action %s is running", ErrSnapshotMidRun, symbolText(e.action))
+		return nil, fmt.Errorf("%w: action %s is running", ErrSnapshotMidRun, SymbolText(e.action))
 	}
 	frames := e.reachableFrames()
 	at := func(perf *actionFrame) int { return slices.Index(frames, perf) }
@@ -228,7 +228,7 @@ func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 	for _, token := range e.tokens {
 		if token.body != nil {
 			return nil, fmt.Errorf("%w: token %d of %s at %s", ErrSnapshotPausedBody,
-				token.ID, symbolText(e.action), ActionNodeName(token.Location))
+				token.ID, SymbolText(e.action), ActionNodeName(token.Location))
 		}
 		copied := token
 		if token.Wait != nil {
@@ -411,7 +411,7 @@ func stagedImaged(staged map[ast.Node]map[string][]stagedStream, at func(*action
 // stateExecutor takes a state executor's state.
 func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	if e.inRun {
-		return nil, fmt.Errorf("%w: state machine %s is running", ErrSnapshotMidRun, symbolText(e.stateMachine))
+		return nil, fmt.Errorf("%w: state machine %s is running", ErrSnapshotMidRun, SymbolText(e.stateMachine))
 	}
 	img := &imagedState{
 		graph: e.graph, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
@@ -493,7 +493,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	for _, act := range e.doActions {
 		if act.run != nil {
 			return nil, fmt.Errorf("%w: do behavior of state %s of %s", ErrSnapshotPausedBody,
-				StateVertexName(act.state), symbolText(e.stateMachine))
+				StateVertexName(act.state), SymbolText(e.stateMachine))
 		}
 		if err := t.firing(act.firing); err != nil {
 			return nil, fmt.Errorf("do behavior of state %s: %w", StateVertexName(act.state), err)
@@ -997,7 +997,7 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	if e.stateCells != nil {
 		e.stateCells.vars = e.stateData
 		restoreStateBodyCells(m.dst, e.stateCells, e.graph.Attributes, img.stateCells,
-			"state machine "+symbolText(e.stateMachine), e.graph.Scope)
+			"state machine "+SymbolText(e.stateMachine), e.graph.Scope)
 	}
 	for node, attrs := range img.stateAttrs {
 		if e.stateAttrs[node], err = m.values(attrs); err != nil {

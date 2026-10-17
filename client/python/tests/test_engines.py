@@ -106,6 +106,20 @@ def test_list_engines_reads_every_engine():
     assert str(engines[1]) == "solve: proved, answers satisfiable; unavailable: z3 not found"
 
 
+def test_list_engines_probe_asks_the_service_to_start_each_engine():
+    stub = Mock()
+    stub.ListEngines.return_value = sysml_pb2.ListEnginesResponse(engines=[
+        sysml_pb2.EngineInfo(name="run", authority="observed", answers=["evaluate"], ready=True),
+    ])
+    conn = make_connection(stub, CURRENT)
+
+    conn.list_engines(probe=True)
+    assert stub.ListEngines.call_args.args[0].probe is True
+
+    conn.list_engines()
+    assert stub.ListEngines.call_args.args[0].probe is False
+
+
 def test_list_engines_round_trips_a_tools_protocol():
     """A manifest tool's protocol spells its invocation and reply composition."""
     stub = Mock()

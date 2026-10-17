@@ -459,8 +459,8 @@ func TestMeasurementRefDescribed(t *testing.T) {
 	if got := describeOperand(ref); got != "a measurement reference" {
 		t.Errorf("describeOperand(km/h) = %q", got)
 	}
-	if got := describeValue(ref); got != "measurement reference" {
-		t.Errorf("describeValue(km/h) = %q", got)
+	if got := DescribeValue(ref); got != "measurement reference" {
+		t.Errorf("DescribeValue(km/h) = %q", got)
 	}
 	if got := FormatValue(ref); got != "km/h" {
 		t.Errorf("FormatValue(km/h) = %q", got)
