@@ -690,6 +690,63 @@ last, giving `x = 1`). Exploration is what makes the set checkable: `explore` re
 along every choice sequence and must reach each of the three outcomes and no other, in six runs.
 The first pick among three tokens and the next among the two left are two choice points in
 consecutive steps, so a linearization is a sequence of two choices, not one choice among six.
+Both choices conflict — each alternative writes `x`, which the others write — so the default run
+reports `x` only up to them, `x = 1 (order-dependent; 2 choice points — explore shows the set)`,
+while the `…Ran` flags, which no other branch reads or writes, print as fixed values
+(`orderDependent` states `x: 2`). Its counterpart `action_order_independent_branches` (golden)
+forks to two branches writing `x` and `y` apiece: the same open order, but the branches commute
+on every value, so the run's one token-order choice is independent and nothing is marked.
+
+### A decision with two guards holding: either branch
+
+Fixture: `action_order_overlapping_guards` (golden, explored).
+
+```
+start → choose ─ if level >= 0 → high { mode := 1 } ─┐→ done
+               └ if level <= 0 → low  { mode := 2 } ─┘
+```
+
+Derived constraints:
+
+- `choose` is a DecisionAction: exactly one outgoing succession is taken (ControlPerformances.kerml,
+  `DecisionPerformance`), so `mode` ends `1` or `2`, never `0`.
+- Both guards hold at `level = 0`; the library ranks neither succession over the other.
+
+Open: which holding succession is taken. The two linearizations reach two outcomes,
+`{mode = 1, mode = 2}`. A decision's alternatives are different continuations, not two moves of one
+run, so a default run holds `mode` only up to the choice whichever branch commutes with what:
+`mode = 1 (order-dependent; 1 choice point — explore shows the set)`.
+
+Pinned outcome: that admissible set as `outcomes` citing this section, `orderDependent` stating
+`mode: 1`. The default policy takes the first holding guard (`high`).
+
+### Two regions reacting to one occurrence: two orders, two values
+
+Fixtures: `state_order_regions_conflict` (golden, explored) and `state_order_regions_independent`
+(golden, one outcome).
+
+```
+work ∥ a: a1 ─ accept Go do last := 1 → a2
+     ∥ b: b1 ─ accept Go do last := 2 → b2
+```
+
+Derived constraints:
+
+- One occurrence of `Go` is dispatched to the whole machine, and a transition out of each region's
+  active state is triggered by it (StatePerformances.kerml, `TransitionPerformance` of each
+  orthogonal `StatePerformance` of the enclosing one), so both effects run and the machine ends in
+  `a2+b2`.
+- The library orders neither region's transition before the other's.
+
+Open: the order of the two effects. Both write `last`, so the last write stands: two
+linearizations, two outcomes, `{last = 1, last = 2}`, and the default run reports
+`last = 1 (order-dependent; 1 choice point — explore shows the set)`. In
+`state_order_regions_independent` the effects write `x` and `y` and neither region reads the
+other's, so the same open order is one outcome, `{x = 1, y = 2}`: the region-order choice is
+independent and the run marks nothing.
+
+Pinned outcome: the admissible set as `outcomes` citing this section with `orderDependent`
+stating `last: 1`; the independent case a single result with `orderDependent` `{}`.
 
 ### Subactions no succession orders: each is performed during the owner, in which order is open
 

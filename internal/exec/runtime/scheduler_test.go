@@ -744,7 +744,7 @@ func TestDueOrderChoice(t *testing.T) {
 		if c.Kind != ChoiceDueOrder || c.Where != "t=5.0" || len(c.Alternatives) != 2 || c.Taken != tc.taken {
 			t.Errorf("%s: choice = %+v, want a due order at t=5.0 over two machines taking %d", tc.policy, c, tc.taken)
 		}
-		want := fmt.Sprintf("at t=5.0: due %s, %s (unordered; ran %s first)",
+		want := fmt.Sprintf("at t=5.0: due %s, %s (unordered; ran %s first; independent)",
 			c.Alternatives[0], c.Alternatives[1], c.Alternatives[tc.taken])
 		if got := c.Describe(); got != want {
 			t.Errorf("%s: Describe() = %q, want %q", tc.policy, got, want)

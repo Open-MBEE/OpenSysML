@@ -37,6 +37,11 @@ Report the model's diagnostics and exit, nonzero on an error;
 \-validate=<object> checks instead every assertion about that object
 (repeatable)
 .TP
+.BR \-explain "[\fIcode\fP]"
+Explain a diagnostic code: what it means, how to resolve it and the clause or
+constraint behind it; bare, list every code with a one\-line summary; a code
+may also follow the flag (repeatable)
+.TP
 .B \-strict
 Judge the model as conforming SysML v2: notation no pinned production admits
 is an error, not a warning; a SysML v1 migration writes none of it and refers

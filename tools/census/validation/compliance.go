@@ -111,7 +111,8 @@ func goValidateFunctions(root string) (map[string]bool, error) {
 // checkCompliance holds the compliance map to the census: every validate… name
 // it cites is a manifest row (by pilot, raw or formal name), a `spec:` name the
 // validation library states, or a Go function of the tree; and a rule row's
-// status is the census status of every row it cites bare, a citation followed
+// status is the census status of every pilot row it cites bare (a spec-sourced
+// row is outside the census and binds nothing), a citation followed
 // by `(census faithful)` deferring to the census row's status instead, which it
 // must state correctly. A code span citing a name is the name alone, qualified
 // by a Go receiver, a package or a path, or followed by a probe file's suffix.
@@ -145,6 +146,8 @@ func checkCompliance(root, content string, m *manifest.Manifest) error {
 			if isSpec {
 				if !library[name] {
 					problem(number, "`spec:%s` is not a constraint of %s", name, filepath.Base(validationLibraryPath))
+				} else if c, ok := index[name]; ok && c.Source != manifest.SourceSpec {
+					problem(number, "`spec:%s` names a pilot constraint; cite it bare so its census status is held", name)
 				}
 				return
 			}
@@ -153,6 +156,10 @@ func checkCompliance(root, content string, m *manifest.Manifest) error {
 				if !goFuncs[name] {
 					problem(number, "`%s` is neither a constraint of %s nor a Go function of the tree", name, manifest.Path)
 				}
+				return
+			}
+			if c.Source == manifest.SourceSpec {
+				// A spec-sourced row is outside the census and states no verdict.
 				return
 			}
 			if reference != "" {

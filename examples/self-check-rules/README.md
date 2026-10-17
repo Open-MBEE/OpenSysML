@@ -37,7 +37,7 @@ make build-sysml
 ```text
 ✓ package Rover
 ✓ package Acme
-examples/self-check-rules/rover.sysml:10:2: error: Acme::ModelingRules::partDefinitionHasDocumentation fails for Rover::SensorBus
+examples/self-check-rules/rover.sysml:10:2: error[self-check-rule]: Acme::ModelingRules::partDefinitionHasDocumentation fails for Rover::SensorBus
 Self-model check: 12 elements, 80 checks, 1 violations, 0 unevaluated
 ```
 

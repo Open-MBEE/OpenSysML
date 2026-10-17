@@ -212,6 +212,15 @@ a case that hits it fails with a message telling the author to raise it:
   exploration short, a case pairs `exploreGaps` with `exploreBudget` for the
   budget only — a budget never changes a result's standing.
 
+- `orderDependent`: optional; per output the default run holds at an
+  order-dependent value, the number of unresolved choice points touching it —
+  choice points whose alternatives write what another reads or writes, or meet
+  on the bus, as the run's result marks them (`x = 1 (order-dependent; 2 choice
+  points — explore shows the set)`). Stated, every other output must be touched
+  by none; `{}` asserts the run marks nothing, as a case whose open orders all
+  commute does. A case admitting several `outcomes` states it separately: the
+  marker is derived from the run's choice points, not from the outcomes admitted.
+
 `TestExecutionConformance` explores cases with `outcomes` or `exploreGaps`; the
 check corpus can also explore a single-result case with a `.check.expected.json`
 entry. The default schedule is deterministic, so a case with an admissible set

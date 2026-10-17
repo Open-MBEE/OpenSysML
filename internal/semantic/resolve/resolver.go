@@ -682,6 +682,7 @@ func (r *Resolver) ResolveName(scope *symbols.Scope, name string, at ast.Node) (
 		r.report(Diagnostic{
 			Span:    spanOf(at),
 			Message: r.unresolvedMessage(scope, name, at),
+			Code:    CodeUnresolved,
 			Fixes:   r.unresolvedFixes(scope, name, at),
 		})
 	}

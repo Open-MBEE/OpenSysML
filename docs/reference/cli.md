@@ -1941,6 +1941,26 @@ each file as a document of its own; the diagnostics are those of `-jobs 1`, in c
 whatever `n` is. A model split over several files therefore validates faster on more CPUs where a
 single file does not; `docs/project/satellite-network-stress-test.md` records the measurements.
 
+## Diagnostic codes
+
+Every diagnostic carries the stable, kebab-case code of the rule that reported it, between the
+severity and the message of the text line and as `code` under `-json`:
+
+```text
+model.sysml:4:18: error[unresolved]: unresolved reference: Whel — did you mean Wheel?
+```
+
+`-explain <code>` prints what a code means, how to resolve it and the clause or validation
+constraint behind it, and needs no model; it is repeatable, and an unknown code is a usage
+error (exit 2). Bare `-explain` lists every code with a one-line summary, grouped by the tier
+that reports it. The [diagnostics reference](diagnostics.md#catalogue) is the same catalogue,
+generated from the registry.
+
+```bash
+$ sysml -explain unresolved
+$ sysml -explain
+```
+
 ## Analysis engines
 
 Every check is a question put to an analysis engine, and every verdict line is followed by its
@@ -2481,7 +2501,7 @@ $ sysml -e "1+1" bad.sysml 2>/dev/null
 $ echo $?
 2
 $ sysml -e "1+1" bad.sysml 2>&1 >/dev/null
-bad.sysml:2:39: error: expected an expression
+bad.sysml:2:39: error[syntax]: expected an expression
   part def Vehicle { attribute mass = ; }
                                       ^
 sysml: bad.sysml did not analyse cleanly

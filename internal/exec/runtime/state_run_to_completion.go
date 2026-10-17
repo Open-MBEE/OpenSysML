@@ -215,11 +215,14 @@ func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 		return true, e.performHeld(item)
 	}
 	alternatives := make([]string, 0, len(e.held)+1)
+	fps := make([]lower.Footprint, 0, len(e.held)+1)
 	if free {
 		alternatives = append(alternatives, dispatch.label)
+		fps = append(fps, dispatchFootprint(e))
 	}
 	for _, item := range e.held {
 		alternatives = append(alternatives, e.entryLabel(item.owner))
+		fps = append(fps, e.heldEntryFootprint(item))
 	}
 	if len(alternatives) == 1 {
 		if free {
@@ -238,6 +241,7 @@ func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 		File:         e.stateMachine.DocName,
 		Span:         e.stateMachine.DeclSpan,
 	}
+	classifyChoice(&choice, fps, nil)
 	choice.Taken = e.ctx.scheduling().choose(choice, nil)
 	if err := e.ctx.scheduling().refusal(); err != nil {
 		return false, err

@@ -760,6 +760,9 @@ type runState struct {
 	steps    int64
 	elements int64
 	notes    []RunNote
+	// performers are the objects the run's executors have performed on, kept
+	// after an executor leaves the clock so a value of theirs is still matched.
+	performers []*Instance
 	// scheduler is the resolutions the run's choices draw from (scheduler.go).
 	scheduler *scheduler
 	// calcUsageRuns holds, per activation under way, the evaluation of each calc
@@ -768,6 +771,13 @@ type runState struct {
 	// extentCandidates holds, per type an extent was taken of, the namespace usages
 	// that may hold one (extent.go).
 	extentCandidates map[*symbols.Symbol]*extentCandidates
+}
+
+// notePerformer records the object an executor joining the clock performs on.
+func (r *runState) notePerformer(w clockWaiter) {
+	if self := executorSelf(w); self != nil && !slices.Contains(r.performers, self) {
+		r.performers = append(r.performers, self)
+	}
 }
 
 // newRunState is the state a run starts with, under the schedule policy set now.

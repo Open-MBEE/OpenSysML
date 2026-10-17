@@ -1,5 +1,5 @@
 step 1: token 1@s
-choice statements in action node s: next 1 assign x, 2 terminate (unordered; took 2 terminate first)
+choice statements in action node s: next 1 assign x, 2 terminate (unordered; took 2 terminate first; order-dependent: x)
 stmt terminate
 terminate action node s: no token dropped
 step 2: token 1@next

@@ -72,6 +72,8 @@ var Tools = []Entry{
 		Summary: "Convert a model between the textual notation, JSON, RDF and XMI."},
 	{Name: "diagnostics", Group: GroupRuntime, RPCs: []string{"GetDiagnostics"}, Flags: []string{"validate"},
 		Summary: "Report every diagnostic of a parsed model, as sysml -validate does."},
+	{Name: "explain_diagnostic", Group: GroupRuntime, Flags: []string{"explain"},
+		Summary: "Explain a diagnostic code, or list every code with its summary."},
 	{Name: "evaluate", Group: GroupRuntime, RPCs: []string{"Evaluate"}, Flags: []string{"eval"},
 		Summary: "Evaluate an expression against a parsed model."},
 	{Name: "evaluate_calc", Group: GroupRuntime, RPCs: []string{"EvaluateCalc"}, Flags: []string{"calc"},

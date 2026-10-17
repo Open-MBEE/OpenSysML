@@ -704,7 +704,7 @@ func (e *stmtEngine) runUnordered(stmts []lower.Statement, f *stmtListFrame, res
 			if err := e.yieldBody(); err != nil {
 				return flowNext, e.ctx.pausing(f, err)
 			}
-			f.i, f.switched = e.pickStatement(stmts, next), -1
+			f.i, f.switched = e.pickStatement(stmts, next, order, f.divided), -1
 			if e.host.yieldsBetweenStatements() {
 				resumed = e.ctx.resumeStrand(f)
 			} else {
@@ -796,7 +796,7 @@ const statementsWherePrefix = "statements in "
 
 // pickStatement picks the statement to run next among next, two or more a
 // choice point of the run's schedule.
-func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int) int {
+func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int, order *lower.StatementOrder, divided bool) int {
 	if len(next) == 1 {
 		return next[0]
 	}
@@ -804,8 +804,10 @@ func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int) int {
 		return next[0]
 	}
 	alts := make([]string, len(next))
+	fps := make([]lower.Footprint, len(next))
 	for k, i := range next {
 		alts[k] = fmt.Sprintf("%d %s", i+1, stmtLabel(stmts[i]))
+		fps[k] = order.Footprint(i)
 	}
 	choice := ChoicePoint{
 		Kind:         ChoiceStatementOrder,
@@ -813,6 +815,8 @@ func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int) int {
 		Where:        statementsWherePrefix + e.host.describe(),
 		Alternatives: alts,
 	}
+	classifyBy(&choice, fps, func(a, b int) bool { return order.Dependent(next[a], next[b], divided) },
+		func(int, int) lower.Relation { return lower.Relation{} })
 	if e.ctx.statementOrderSweep != nil {
 		choice.Taken = e.ctx.statementOrderSweep.choose(&choice)
 		if e.ctx.statementOrderGuardBodies != nil {

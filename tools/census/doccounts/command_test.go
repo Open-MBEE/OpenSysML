@@ -52,6 +52,10 @@ stale census summary
 | stale | table |
 <!-- doc-counts:end validation-census-table -->
 
+<!-- doc-counts:begin validation-spec-coverage -->
+stale coverage
+<!-- doc-counts:end validation-spec-coverage -->
+
 Out of scope: kept prose.
 `
 	fixtureManifest = `{"schemaVersion":1,"pilotTag":"2026-05","pilotCommit":"abc","pilotArtifact":"0.60.1",` +

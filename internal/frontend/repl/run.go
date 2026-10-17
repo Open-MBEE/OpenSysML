@@ -25,6 +25,15 @@ var errRuntimeInit = errors.New("runtime init")
 type NamedValue struct {
 	Name  string
 	Value string
+	// OrderDependent counts the run's unresolved choice points touching the
+	// value, which the prompt prints the marker of after it; 0 for a value
+	// nothing order-dependent wrote.
+	OrderDependent int
+}
+
+// Text is the value as the prompt prints it, marked when order-dependent.
+func (v NamedValue) Text() string {
+	return markOrderDependent(v.Value, v.OrderDependent)
 }
 
 // namedValues lists an executor's results in name order, so two reports of the
@@ -40,9 +49,27 @@ func namedValues(ctx *runtime.Context, results map[string]runtime.Value) []Named
 	slices.Sort(names)
 	values := make([]NamedValue, 0, len(names))
 	for _, name := range names {
-		values = append(values, NamedValue{Name: name, Value: formatValue(ctx, results[name])})
+		values = append(values, namedValue(ctx, name, formatValue(ctx, results[name])))
 	}
 	return values
+}
+
+// namedValue is the value under its name, marked when the run's unresolved
+// choice points touch it.
+func namedValue(ctx *runtime.Context, name, text string) NamedValue {
+	v := NamedValue{Name: name, Value: text}
+	if ctx != nil {
+		v.OrderDependent = ctx.OrderDependent(name)
+	}
+	return v
+}
+
+// markOrderDependent appends the order-dependence marker to a value's text.
+func markOrderDependent(text string, unresolved int) string {
+	if marker := runtime.OrderDependenceText(unresolved); marker != "" {
+		return text + " " + marker
+	}
+	return text
 }
 
 // errorLines adapts a command that reports its failures as errors to the

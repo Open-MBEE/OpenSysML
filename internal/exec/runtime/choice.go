@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"slices"
 	"strings"
 
@@ -132,6 +133,15 @@ type ChoicePoint struct {
 	// when the runtime could not name one.
 	File string
 	Span source.Span
+	// Independent reports that the alternatives commute by their lowered
+	// footprints: whichever is taken, the run's values are the same, so the
+	// choice leaves no value order-dependent.
+	Independent bool
+	// Touches are the features the conflicting alternatives write, sorted; the
+	// run's value of each is order-dependent on this choice.
+	Touches []string
+	// touched are the places written behind Touches, with the features they resolve to.
+	touched []lower.Place
 }
 
 // Weighted reports whether the model weights the alternatives.
@@ -143,6 +153,25 @@ func (c ChoicePoint) Weighted() bool {
 // order and which one the executor took; a weighted decision's alternatives carry
 // their weights and how the branch was selected.
 func (c ChoicePoint) Describe() string {
+	d := c.describe()
+	return strings.TrimSuffix(d, ")") + "; " + c.Standing() + ")"
+}
+
+// Standing is what the choice leaves open: `independent` when its alternatives
+// commute by their footprints, else `order-dependent`, naming the features the
+// conflicting alternatives wrote.
+func (c ChoicePoint) Standing() string {
+	switch {
+	case c.Independent:
+		return "independent"
+	case len(c.Touches) > 0:
+		return "order-dependent: " + strings.Join(c.Touches, ", ")
+	}
+	return "order-dependent"
+}
+
+// describe is the choice less its standing.
+func (c ChoicePoint) describe() string {
 	alts := strings.Join(c.Alternatives, ", ")
 	taken := ""
 	if c.Taken >= 0 && c.Taken < len(c.Alternatives) {

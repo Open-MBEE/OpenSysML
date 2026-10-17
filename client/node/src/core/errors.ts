@@ -137,6 +137,11 @@ export interface ModelDiagnostic {
   /** What was found, stable across message wording (`"syntax"`, a validation code,
    * `"choice-point"`, `"guard-unevaluable"`); `""` when the service assigned none. */
   code: string;
+  /** On a `"choice-point"`: the features the conflicting alternatives wrote, whose values
+   * the run holds only up to the order it took; empty otherwise. */
+  orderDependent: readonly string[];
+  /** On a `"choice-point"`: the alternatives commute, so the run's values stand whichever was taken. */
+  independent: boolean;
   file?: string;
   startLine?: number;
   startColumn?: number;

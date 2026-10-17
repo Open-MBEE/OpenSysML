@@ -2,6 +2,9 @@
 // machine-readable record of every normative validation constraint the pinned
 // pilot names: its spec identity, implementation, diagnostic codes, probe
 // evidence and census status, plus the errata and the passes beyond the spec.
+// Beside the pilot's rows it records every check*, derive* and validate*
+// constraint the pinned formal documents state and the pilot does not name,
+// as spec-sourced rows outside the census counts.
 package manifest
 
 import (
@@ -63,6 +66,14 @@ func Implemented(status string) bool {
 // LanguageBySource names the census table's language column per validator source.
 var LanguageBySource = map[string]string{"kerml": "KerML", "sysml": "SysML", "both": "both"}
 
+// SourceSpec is the source of a row the formal documents state and no pilot
+// validator names; such rows stay outside the pilot census.
+const SourceSpec = "spec"
+
+// Kinds are the constraint families of the formal documents, in the order the
+// coverage figures state them.
+var Kinds = []string{"check", "derive", "validate"}
+
 // Manifest is the committed record. The pilot provenance and the extraction
 // record are what the census tool re-extracts from the pinned jar.
 type Manifest struct {
@@ -74,10 +85,12 @@ type Manifest struct {
 	Extraction     ExtractionRecord         `json:"extraction"`
 	Recorded       string                   `json:"recorded,omitempty"`
 	Specifications map[string]Specification `json:"specifications"`
-	Constraints    []Constraint             `json:"constraints"`
-	Extensions     []Extension              `json:"extensions"`
-	Errata         []Erratum                `json:"errata"`
-	SpecIssues     []SpecIssue              `json:"specIssues"`
+	// FormalExtraction is how the spec-sourced rows were read from the documents.
+	FormalExtraction *FormalExtractionRecord `json:"formalExtraction,omitempty"`
+	Constraints      []Constraint            `json:"constraints"`
+	Extensions       []Extension             `json:"extensions"`
+	Errata           []Erratum               `json:"errata"`
+	SpecIssues       []SpecIssue             `json:"specIssues"`
 }
 
 // JarRecord is the pinned pilot artifact the names were read from.
@@ -92,6 +105,14 @@ type ExtractionRecord struct {
 	Method  string   `json:"method"`
 }
 
+// FormalExtractionRecord is how the spec-sourced rows were read from the pinned
+// documents: the extraction program's method and the number of constraints each
+// document states, pilot-named rows included.
+type FormalExtractionRecord struct {
+	Method      string         `json:"method"`
+	Constraints map[string]int `json:"constraints"`
+}
+
 // Specification is one pinned OMG document the clauses cite.
 type Specification struct {
 	Name     string `json:"name"`
@@ -101,23 +122,27 @@ type Specification struct {
 	SHA256   string `json:"sha256"`
 }
 
-// Constraint is one row: a validation constraint as the pilot names it.
+// Constraint is one row: a validation constraint as the pilot names it, or a
+// constraint of the formal documents the pilot does not name (source "spec").
 type Constraint struct {
 	Name string `json:"name"`
 	// Raw is the pilot's compiled identifier when it differs from Name.
 	Raw string `json:"raw,omitempty"`
-	// Source is the validator declaring it: kerml, sysml or both.
+	// Source is the validator declaring it, kerml, sysml or both, or spec for a
+	// row only the formal documents state.
 	Source string `json:"source"`
 	// Kind is the spec's constraint family: validate, check or derive.
 	Kind      string `json:"kind"`
 	Metaclass string `json:"metaclass"`
-	// Spec cites the pinned document's clause for the metaclass, and the
-	// constraint's name in the formal document when it has one — the pilot's
-	// name, except where the pilot misspells it.
+	// Spec cites the pinned document's clause stating the constraint, and the
+	// document's own name for it when the document states it — the pilot's name,
+	// except where the pilot renames or misspells it.
 	Spec *SpecRef `json:"spec,omitempty"`
 	// Checks, Implementation, Message and NegativeCase are the census table's
-	// cells, in Markdown.
-	Checks         string `json:"checks"`
+	// cells, in Markdown; a spec-sourced row's Checks is the document's prose.
+	Checks string `json:"checks"`
+	// OCL is the formal document's OCL for a spec-sourced row, verbatim.
+	OCL            string `json:"ocl,omitempty"`
 	Implementation string `json:"implementation"`
 	Message        string `json:"message"`
 	NegativeCase   string `json:"negativeCase"`
@@ -198,14 +223,16 @@ func Encode(m *Manifest) []byte {
 }
 
 var (
-	constraintNamePattern = regexp.MustCompile(`^validate[A-Z][A-Za-z0-9]*$`)
+	constraintNamePattern = regexp.MustCompile(`^(validate|check|derive)[A-Z][A-Za-z0-9]*$`)
 	clausePattern         = regexp.MustCompile(`^8\.3(\.\d+)+$`)
 	omgIssuePattern       = regexp.MustCompile(`^[A-Z0-9]+-\d+$`)
 )
 
 // Validate checks the manifest on its own: the schema version, sorted unique
-// names, known sources, kinds and statuses, a rationale wherever the status is
-// not faithful, and a clause in a declared specification wherever one is cited.
+// names with the pilot's rows before the spec-sourced ones, known sources, kinds
+// and statuses, a rationale wherever the status is not faithful, a clause in a
+// declared specification wherever one is cited, and for every spec-sourced row
+// the document's own name, clause and text.
 func (m *Manifest) Validate() error {
 	if m.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("%s: schema version %d, this program reads %d", Path, m.SchemaVersion, SchemaVersion)
@@ -213,6 +240,16 @@ func (m *Manifest) Validate() error {
 	for key, spec := range m.Specifications {
 		if spec.Name == "" || spec.Document == "" || spec.SHA256 == "" {
 			return fmt.Errorf("%s: specification %q names no document", Path, key)
+		}
+	}
+	if m.FormalExtraction != nil {
+		if strings.TrimSpace(m.FormalExtraction.Method) == "" {
+			return fmt.Errorf("%s: the formal extraction record states no method", Path)
+		}
+		for key := range m.FormalExtraction.Constraints {
+			if _, ok := m.Specifications[key]; !ok {
+				return fmt.Errorf("%s: the formal extraction record counts specification %q, which is not declared", Path, key)
+			}
 		}
 	}
 	seen := make(map[string]bool, len(m.Constraints))
@@ -224,16 +261,30 @@ func (m *Manifest) Validate() error {
 			return fmt.Errorf("%s: %s is listed twice", Path, c.Name)
 		}
 		seen[c.Name] = true
-		if i > 0 && m.Constraints[i-1].Name > c.Name {
-			return fmt.Errorf("%s: %s is out of order (the list is sorted by name)", Path, c.Name)
-		}
-		if _, ok := LanguageBySource[c.Source]; !ok {
+		if _, ok := LanguageBySource[c.Source]; !ok && c.Source != SourceSpec {
 			return fmt.Errorf("%s: %s has source %q", Path, c.Name, c.Source)
 		}
-		switch c.Kind {
-		case "validate", "check", "derive":
-		default:
+		if i > 0 {
+			previous := m.Constraints[i-1]
+			switch {
+			case previous.Source == SourceSpec && c.Source != SourceSpec:
+				return fmt.Errorf("%s: %s is out of order (the pilot's rows precede the spec-sourced rows)", Path, c.Name)
+			case (previous.Source == SourceSpec) == (c.Source == SourceSpec) && previous.Name > c.Name:
+				return fmt.Errorf("%s: %s is out of order (each group is sorted by name)", Path, c.Name)
+			}
+		}
+		if !knownKind(c.Kind) {
 			return fmt.Errorf("%s: %s has kind %q", Path, c.Name, c.Kind)
+		}
+		if !strings.HasPrefix(c.Name, c.Kind) {
+			return fmt.Errorf("%s: %s has kind %q, which its name does not state", Path, c.Name, c.Kind)
+		}
+		if c.Source == SourceSpec {
+			if err := validateSpecSourced(c); err != nil {
+				return err
+			}
+		} else if c.OCL != "" {
+			return fmt.Errorf("%s: %s records OCL, which only a spec-sourced row carries", Path, c.Name)
 		}
 		if c.Metaclass == "" {
 			return fmt.Errorf("%s: %s names no metaclass", Path, c.Name)
@@ -310,16 +361,64 @@ func (m *Manifest) Validate() error {
 	return nil
 }
 
+func knownKind(kind string) bool {
+	for _, k := range Kinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
+}
+
+// validateSpecSourced checks what a row only the formal documents state must
+// carry: the document's clause and its own name, its prose, and no pilot
+// identifier.
+func validateSpecSourced(c Constraint) error {
+	if c.Raw != "" {
+		return fmt.Errorf("%s: %s is spec-sourced but records a pilot identifier %q", Path, c.Name, c.Raw)
+	}
+	if c.Spec == nil || c.Spec.Name != c.Name {
+		return fmt.Errorf("%s: %s is spec-sourced but cites no clause under its own name", Path, c.Name)
+	}
+	if strings.TrimSpace(c.Checks) == "" {
+		return fmt.Errorf("%s: %s is spec-sourced but states no text", Path, c.Name)
+	}
+	return nil
+}
+
+// PilotRows are the rows a pilot validator names: the census counts them.
+func (m *Manifest) PilotRows() []Constraint {
+	return m.rows(false)
+}
+
+// SpecRows are the rows only the formal documents state; they stay outside
+// the census counts.
+func (m *Manifest) SpecRows() []Constraint {
+	return m.rows(true)
+}
+
+func (m *Manifest) rows(spec bool) []Constraint {
+	var rows []Constraint
+	for _, c := range m.Constraints {
+		if (c.Source == SourceSpec) == spec {
+			rows = append(rows, c)
+		}
+	}
+	return rows
+}
+
 // Counts tallies the statuses in the order the summary line states them.
 type Counts struct {
 	Total   int
 	ByState map[string]int
 }
 
-// Counts tallies the rows by status.
+// Counts tallies the pilot's rows by status; the spec-sourced rows are
+// counted by Coverage instead.
 func (m *Manifest) Counts() Counts {
-	c := Counts{Total: len(m.Constraints), ByState: make(map[string]int, len(StatusMarkers))}
-	for _, constraint := range m.Constraints {
+	rows := m.PilotRows()
+	c := Counts{Total: len(rows), ByState: make(map[string]int, len(StatusMarkers))}
+	for _, constraint := range rows {
 		c.ByState[constraint.Status]++
 	}
 	return c
@@ -352,11 +451,11 @@ func StatusCell(c Constraint) string {
 	return marker + " — " + c.Rationale
 }
 
-// TableRows orders the rows as the census table lists them: the KerML
+// TableRows orders the pilot's rows as the census table lists them: the KerML
 // validator's constraints first, those both validators declare among them,
 // then the SysML validator's, each run by name.
 func (m *Manifest) TableRows() []Constraint {
-	rows := append([]Constraint(nil), m.Constraints...)
+	rows := m.PilotRows()
 	sort.SliceStable(rows, func(i, j int) bool {
 		return (rows[i].Source == "sysml") != (rows[j].Source == "sysml") && rows[j].Source == "sysml"
 	})

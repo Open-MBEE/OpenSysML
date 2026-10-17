@@ -78,7 +78,7 @@ func TestDispatchOrderChoice(t *testing.T) {
 		if len(c.Alternatives) != 2 || c.Alternatives[0] != "time a1 1->a2" || c.Alternatives[1] != "time b1 1->b2" {
 			t.Errorf("%s: alternatives = %v, want the two timers by state and transition", tc.policy, c.Alternatives)
 		}
-		want := "events at t=2.0: time a1 1->a2, time b1 1->b2 (unordered; dispatched time a1 1->a2 first)"
+		want := "events at t=2.0: time a1 1->a2, time b1 1->b2 (unordered; dispatched time a1 1->a2 first; order-dependent: last)"
 		if got := c.Describe(); got != want {
 			t.Errorf("%s: Describe() = %q, want %q", tc.policy, got, want)
 		}

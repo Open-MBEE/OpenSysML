@@ -755,6 +755,10 @@ export class Connection {
     outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
     performer: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
     finalTime: number;
+    /** Output name → how many of the run's unresolved choice points touch it; the
+     * value then stands only up to the order the run took, and `exploreAction`
+     * shows the set. Absent for an output nothing order-dependent wrote. */
+    orderDependent: ReadonlyMap<string, number>;
   }> {
     refuseExploring(options.schedule, "exploreAction");
     const response = await this.sendExecuteAction(
@@ -773,6 +777,7 @@ export class Connection {
       outputs: valuesMap(Object.entries(response.outputs)),
       performer: valuesMap(Object.entries(response.performerAttributes)),
       finalTime: response.finalTime,
+      orderDependent: new Map(Object.entries(response.orderDependent)),
     };
   }
 
@@ -844,6 +849,8 @@ export class Connection {
     finalTime: number;
     trace: DocumentEvent[];
     traceDropped: number;
+    /** Final-context key → how many of the run's unresolved choice points touch it. */
+    orderDependent: ReadonlyMap<string, number>;
   }> {
     refuseExploring(options.schedule, "exploreState");
     const response = await this.sendExecuteState(
@@ -866,6 +873,7 @@ export class Connection {
       finalTime: response.finalTime,
       trace: response.trace.map(documentEventOf),
       traceDropped: response.traceDropped,
+      orderDependent: new Map(Object.entries(response.orderDependent)),
     };
   }
 

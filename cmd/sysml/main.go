@@ -109,6 +109,7 @@ var (
 	renderRuns       stringSlice
 	schedule         schedulePolicy
 	listEngines      bool
+	explainCodes     codeNames
 	probeEngines     bool
 	engine           engineSelection
 	jobsFlag         jobsSetting
@@ -355,6 +356,13 @@ func runCLI() int {
 	if showVersion {
 		fmt.Print(build().Report("sysml"))
 		return 0
+	}
+
+	// A diagnostic code is a property of the build too: it is explained without a
+	// model, and the run ends there.
+	if explainCodes.given {
+		// An -explain run reads no model, so every positional word is a code too.
+		return explainDiagnostics(os.Stdout, os.Stderr, append(explainCodes.codes, flag.Args()...))
 	}
 
 	// The engines a build knows are a property of the build, like its version, so

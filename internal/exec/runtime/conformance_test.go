@@ -194,6 +194,12 @@ type ExpectedOutcome struct {
 	// identifier, each matched exactly and in canonical order; stated, the case
 	// is explored even without an admissible set, and is complete short of them.
 	ExploreGaps []string `json:"exploreGaps,omitempty"`
+	// OrderDependent is, per output the default run may hold at an order-dependent
+	// value, the number of unresolved choice points touching it; stated, every
+	// other output must be marked by none. Admitting several outcomes does not
+	// state it: a case admits outcomes the library leaves open, and is marked only
+	// where the run's choice points conflict.
+	OrderDependent map[string]int `json:"orderDependent,omitempty"`
 
 	// Satisfy fields: the verdict expected of each satisfaction assertion the
 	// case states, keyed by the assertion as written ("satisfy r by p"), since
@@ -1063,6 +1069,7 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 
 	validateTerminated(t, outcome.Terminated, expected.Terminated)
 	validateOutputs(t, ctx, expected.Outputs, outputs)
+	validateOrderDependence(t, ctx, expected.OrderDependent, outputs)
 	if len(expected.Outcomes) > 0 {
 		matchOutcome(t, expected.Outcomes, func(r reporter, admitted AdmittedOutcome) {
 			if validateOutcomeError(r, admitted.Error, nil) {
@@ -1249,6 +1256,7 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 			validateStateOutcome(r, ctx, exec, outcome)
 		})
 	}
+	validateOrderDependence(t, ctx, expected.OrderDependent, exec.StateData())
 }
 
 // callingPerformance performs a machine as a caller does, one event per step:
@@ -1295,6 +1303,25 @@ func validateStateOutcome(r reporter, ctx *Context, exec *StateExecutor, outcome
 }
 
 // validateOutputs checks each output a case states against the value produced.
+// validateOrderDependence checks the order-dependence the default run reports
+// of each output against want, when the case states it: the unresolved choice
+// points touching each listed output, and none touching any other.
+func validateOrderDependence(r reporter, ctx *Context, want map[string]int, got map[string]Value) {
+	if want == nil {
+		return
+	}
+	for name := range got {
+		if n, w := ctx.OrderDependent(name), want[name]; n != w {
+			r.Errorf("output %q: %d unresolved choice points touch it, want %d", name, n, w)
+		}
+	}
+	for name := range want {
+		if _, ok := got[name]; !ok {
+			r.Errorf("orderDependent names %q, which the run did not output", name)
+		}
+	}
+}
+
 func validateOutputs(r reporter, ctx *Context, want map[string]ExpectedValue, got map[string]Value) {
 	r.Helper()
 	for name, expectedVal := range want {

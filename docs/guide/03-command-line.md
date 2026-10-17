@@ -188,12 +188,18 @@ $ sysml -validate checks.sysml; echo "exit=$?"
 exit=0
 
 $ sysml -validate bad.sysml; echo "exit=$?"   # a file with a syntax error in it
-bad.sysml:2:45: error: expected an expression
+bad.sysml:2:45: error[syntax]: expected an expression
     part def Battery { attribute capacity = ; }
                                             ^
 sysml: bad.sysml did not analyse cleanly; no check was made
 exit=2
 ```
+
+The bracketed word after the severity is the diagnostic's *code*, the stable name of the rule
+that reported it, the same under `-json` and in the editor. `sysml -explain syntax` says what a
+code means and how to resolve it; bare `-explain` lists them all, as does the
+[diagnostics reference](../reference/diagnostics.md#catalogue). At the prompt, `%explain-code syntax`
+answers the same question without leaving the session.
 
 An explicitly named API element-form `.json` file is converted before validation. Diagnostic
 positions refer to the converted SysML notation, not to positions in the JSON document.
@@ -251,7 +257,7 @@ package M {
 
 ```bash
 $ sysml -validate monitor.sysml; echo "exit=$?"
-monitor.sysml:7:9: warning: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
+monitor.sysml:7:9: warning[nonstandard-notation]: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
         choice pick;
         ^~~~~~
 ✓ package M
@@ -259,7 +265,7 @@ monitor.sysml:7:9: warning: `choice pick;` is an OpenSysML extension; write `#ch
 exit=0
 
 $ sysml -strict -validate monitor.sysml; echo "exit=$?"
-monitor.sysml:7:9: error: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
+monitor.sysml:7:9: error[nonstandard-notation]: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
         choice pick;
         ^~~~~~
 sysml: monitor.sysml did not analyse cleanly; no check was made
@@ -281,10 +287,10 @@ analyse cleanly:
 
 ```bash
 $ sysml -strict -validate dup.sysml; echo "exit=$?"
-dup.sysml:2:14: error: Duplicate of other owned member name
+dup.sysml:2:14: error[name-conflict]: Duplicate of other owned member name
     part def A;
              ^
-dup.sysml:3:14: error: Duplicate of other owned member name
+dup.sysml:3:14: error[name-conflict]: Duplicate of other owned member name
     part def A;
              ^
 sysml: dup.sysml did not analyse cleanly; no check was made

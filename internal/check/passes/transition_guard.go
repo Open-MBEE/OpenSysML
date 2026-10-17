@@ -13,6 +13,10 @@ type TransitionGuardPass struct{}
 // transitionGuardContext names the expression a guard's Boolean check reports on.
 const transitionGuardContext = "transition guard"
 
+// codeTransitionGuardExpression is the code of a guard that is not Boolean
+// (SysML v2 validateTransitionFeatureMembershipGuardExpression).
+const codeTransitionGuardExpression = "transition-feature-membership-guard-expression"
+
 func (TransitionGuardPass) Level() PassLevel { return LevelType }
 
 func (TransitionGuardPass) ElementScoped() { /* marker: per-element gating */ }
@@ -70,12 +74,12 @@ func (c *transitionGuardChecker) walkNode(scope *symbols.Scope, node ast.Node) {
 		c.walk(scope, n.Actions)
 	case *ast.InitialNode:
 		if !c.ctx.DownstreamOfFailure(n.Guard) {
-			c.expr.checkBoolean(scope, n.Guard, transitionGuardContext)
+			c.expr.checkCondition(scope, n.Guard, codeTransitionGuardExpression, transitionGuardContext+" must be Boolean, found %s", false)
 		}
 		c.walk(childScopeOr(scope, n), n.Members)
 	case *ast.ControlFlowEdge:
 		if !c.ctx.DownstreamOfFailure(n.Guard) {
-			c.expr.checkBoolean(scope, n.Guard, transitionGuardContext)
+			c.expr.checkCondition(scope, n.Guard, codeTransitionGuardExpression, transitionGuardContext+" must be Boolean, found %s", false)
 		}
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode:
 		c.walk(childScopeOr(scope, n), ast.NodeBodyMembers(n))
@@ -93,7 +97,7 @@ func (c *transitionGuardChecker) walkNode(scope *symbols.Scope, node ast.Node) {
 	case *ast.TransitionMember:
 		body := symbols.TriggerScope(scope, n)
 		if !c.ctx.DownstreamOfFailure(n.Guard) {
-			c.expr.checkBoolean(body, n.Guard, transitionGuardContext)
+			c.expr.checkCondition(body, n.Guard, codeTransitionGuardExpression, transitionGuardContext+" must be Boolean, found %s", false)
 		}
 		c.walk(body, n.Effect)
 		c.walk(body, n.Members)

@@ -652,6 +652,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&evalExprs, "e", "Evaluate this expression, against the model when one is loaded, and exit (repeatable)")
 	fs.StringVar(&queryText, "query", "", "Evaluate this OSLC Query text against the model and exit")
 
+	fs.Var(&explainCodes, "explain", "Explain a diagnostic code: what it means, how to resolve it and the clause or constraint behind it; bare, list every code with a one-line summary; a code may also follow the flag (repeatable)")
 	fs.Var(&modelChecks.validate, "validate", "Report the model's diagnostics and exit, nonzero on an error; -validate=<object> checks instead every assertion about that object (repeatable)")
 	fs.Var(&disabledLints, "disable-lint", "Leave this lint out of the model's diagnostics: undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or rounded-real-literal, comma-separated or repeated")
 	fs.Var(&enabledLints, "enable-lint", "Report this opt-in lint, off by default, in the model's diagnostics: rounded-real-literal, comma-separated or repeated; -disable-lint wins")
@@ -770,6 +771,7 @@ func optionGroups() []usage.OptionGroup {
 		Title: "Checking a model",
 		Options: []usage.Option{
 			usage.Opt("validate", "[=<object>]"),
+			usage.Opt("explain", "[<code>]"),
 			usage.Opt("strict", ""),
 			usage.Opt("disable-lint", "<code>"),
 			usage.Opt("enable-lint", "<code>"),

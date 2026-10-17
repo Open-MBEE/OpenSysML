@@ -57,8 +57,8 @@ func TestExtractionMatchesBaseline(t *testing.T) {
 	if err := matches(base, extracted); err != nil {
 		t.Fatal(err)
 	}
-	if len(extracted) != len(base.Constraints) {
-		t.Fatalf("extracted %d constraints, manifest records %d", len(extracted), len(base.Constraints))
+	if pilot := base.PilotRows(); len(extracted) != len(pilot) {
+		t.Fatalf("extracted %d constraints, manifest records %d", len(extracted), len(pilot))
 	}
 }
 
@@ -152,6 +152,36 @@ func TestUpdateIsIdempotentAcrossDays(t *testing.T) {
 	}
 	if err := compareJar(root, updated, options{jar: renamed}, io.Discard); err != nil {
 		t.Fatalf("a manifest recorded from a renamed copy must compare: %v", err)
+	}
+}
+
+// TestUpdateAdoptsASpecSourcedRow: a spec-sourced row whose name a new jar
+// names becomes the pilot row under that name — once, keeping its clause and
+// evidence, without its OCL — and the other spec-sourced rows stay last.
+func TestUpdateAdoptsASpecSourcedRow(t *testing.T) {
+	adopted := testRow("validateB", "spec", manifest.StatusUnknown)
+	adopted.Spec.Name, adopted.OCL = "validateB", "b = true"
+	kept := testRow("validateC", "spec", manifest.StatusUnknown)
+	kept.Spec.Name = "validateC"
+	previous := testManifest(testRow("validateA", "kerml", manifest.StatusFaithful), adopted, kept)
+	if err := previous.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	next := *previous
+	next.Constraints = recordRows(previous, []Extracted{{Name: "validateA", Source: "kerml"}, {Name: "validateB", Raw: "validateB_", Source: "sysml"}})
+	if err := next.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, c := range next.Constraints {
+		names = append(names, c.Name+"/"+c.Source)
+	}
+	if got, want := strings.Join(names, ","), "validateA/kerml,validateB/sysml,validateC/spec"; got != want {
+		t.Fatalf("rows %s, want %s", got, want)
+	}
+	row, _ := next.Constraint("validateB")
+	if row.OCL != "" || row.Raw != "validateB_" || row.Spec == nil || row.Spec.Name != "validateB" || row.Spec.Clause != "8.3.2.1.2" || row.Status != manifest.StatusUnknown {
+		t.Fatalf("adopted row %+v", row)
 	}
 }
 
@@ -676,6 +706,29 @@ func TestCheckProbesCoverage(t *testing.T) {
 	err = checkProbes(root, base)
 	if err == nil || !strings.Contains(err.Error(), "validateC is recorded not-implemented but records diagnostic codes") {
 		t.Fatalf("an unreported row with a code must fail, got %v", err)
+	}
+	base.Constraints[2].Passes = []string{}
+	derived := testRow("validateD", "spec", manifest.StatusFaithful)
+	derived.Name, derived.Kind, derived.Codes, derived.Passes = "deriveD", "derive", []string{}, []string{}
+	derived.Spec.Name, derived.Implementation = "deriveD", "internal/semantic/d.go:D"
+	checked := testRow("validateE", "spec", manifest.StatusApproximate)
+	checked.Name, checked.Kind, checked.Codes, checked.Passes = "checkE", "check", []string{}, []string{}
+	checked.Spec.Name, checked.Implementation = "checkE", "internal/semantic/e.go:E"
+	base.Constraints = append(base.Constraints, checked, derived)
+	if err := base.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkProbes(root, base); err != nil {
+		t.Fatalf("an implemented check* or derive* row needs no probe or code: %v", err)
+	}
+	write("checkE.sysml", "checkE")
+	if err := checkProbes(root, base); err != nil {
+		t.Fatalf("a probe may back an implemented check* row: %v", err)
+	}
+	base.Constraints[3].Status, base.Constraints[3].Rationale = manifest.StatusUnknown, "not yet assessed"
+	err = checkProbes(root, base)
+	if err == nil || !strings.Contains(err.Error(), "checkE, which the manifest records as unknown") {
+		t.Fatalf("a probe for an unreported check* row must fail, got %v", err)
 	}
 }
 

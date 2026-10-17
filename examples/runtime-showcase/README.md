@@ -175,7 +175,7 @@ OpenSysML knows the call can never produce a value and warns at validation
 time, naming the parameter that positional binding leaves empty:
 
 ```
-examples/runtime-showcase/delta-v-budget.sysml:93:32: warning: RocketEquation leaves parameter mf unbound, so the call cannot be evaluated
+examples/runtime-showcase/delta-v-budget.sysml:93:32: warning[unbound-parameter]: RocketEquation leaves parameter mf unbound, so the call cannot be evaluated
         return :> ISQ::speed = RocketEquation(
                                ^~~~~~~~~~~~~~~
 ```

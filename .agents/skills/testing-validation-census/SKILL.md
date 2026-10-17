@@ -10,7 +10,13 @@ validation constraints does OpenSysML report?". Its denominator is read from the
 two validator classes and committed as `docs/project/constraint-manifest.json` together with
 each name's row (metaclass, spec clause, implementation, diagnostic codes, negative case, status,
 rationale); the page's table is rendered from it by `doc-counts` and by `validation-census`. The
-evidence for every ✅/⚠️ row is a violating model under `tools/census/validation/testdata/probes/`.
+evidence for a ✅/⚠️ `validate*` row is a violating model under `tools/census/validation/testdata/probes/`;
+a ✅/⚠️ `check*` or `derive*` row (an implied specialization or a derived property, which reports no
+diagnostic) is held to the declared function its `implementation` cites, with its unit test beside it.
+The manifest also carries the spec-sourced rows (`"source": "spec"`): the `check*`/`derive*`/`validate*`
+constraints the pinned formal documents state and the pilot does not name, read from the PDFs by
+`tools/census/formal`. They follow the pilot rows, are outside the census table and counts, and are
+tallied by the `validation-spec-coverage` block of the page instead.
 
 ## Prerequisites
 
@@ -59,6 +65,24 @@ afterwards (`git checkout -- <file>` on a clean tree, or keep a copy).
 - Point a row's *Negative case* at a file that is not under `tools/referee/reject/testdata/negative/`.
 - Delete a probe of a ✅/⚠️ row, or add a probe for a ❌/❔ row.
 - Delete the `.sysml` (or `.kerml`) probe of a row whose language is `both`: each notation needs one.
+- Delete a spec-sourced row, or move one above the last pilot row: the manifest is rejected
+  ("out of order") or, for the deletion, `doc-counts -check` reports the coverage block stale while
+  the `**Census:**` line and the census table stay current — the census must not move.
+- Give a pilot row an `ocl`, or a spec-sourced row a `raw` identifier, a blank `checks`, or a
+  `spec.name` other than its `name`: the manifest is rejected before anything is compared.
+
+## The formal-document gate
+
+`go run -C tools ./cmd/formal-constraints -kerml <KerML.pdf> -sysml <SysML.pdf> -check` needs the
+two pinned PDFs (the `url`s and `sha256`s are in the manifest's `specifications`) and poppler's
+`pdftotext`; it refuses a PDF whose digest is not the pinned one before reading it. `-list` printed
+twice must be byte-identical; `-update` on a current tree must leave the manifest byte-identical.
+Mutations it must catch: edit a spec-sourced row's `checks`, `ocl`, `metaclass` or `spec.clause`
+("recorded with another text, clause or metaclass"); delete one ("stated by the documents but not
+recorded"); add one the documents do not state; change a pilot row's `spec.name` to a name the
+documents do not state, or its `spec.clause` to another clause ("cites … the documents state …").
+The package's own tests (`go test -C tools ./census/formal`) drive the same paths over a fake
+`pdftotext`, so they run without the PDFs.
 
 ## Reading a probe
 

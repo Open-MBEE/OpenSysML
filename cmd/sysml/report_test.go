@@ -113,7 +113,7 @@ func TestSelfCheckEvaluationErrorsUseUnevaluableExit(t *testing.T) {
 			{
 				Subject: "T::reject for T::P",
 				Status:  repl.VerdictFails,
-				Lines:   []string{"type_error_self_check.sysml:1:1: error: T::reject fails for T::P"},
+				Lines:   []string{"type_error_self_check.sysml:1:1: error[self-check-rule]: T::reject fails for T::P"},
 			},
 			{
 				Subject: "Self-model check",
@@ -128,7 +128,7 @@ func TestSelfCheckEvaluationErrorsUseUnevaluableExit(t *testing.T) {
 			{
 				Subject: "T::reject for T::P",
 				Status:  repl.VerdictFails,
-				Lines:   []string{"type_error_self_check.sysml:1:1: error: T::reject fails for T::P"},
+				Lines:   []string{"type_error_self_check.sysml:1:1: error[self-check-rule]: T::reject fails for T::P"},
 			},
 			{
 				Subject: "T::invalidBooleanResult for T::P",

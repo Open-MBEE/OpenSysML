@@ -33,10 +33,12 @@ const (
 const refereedBlockName = "refereed-figures"
 
 // The blocks rendered from the constraint manifest: the census table of the
-// validation-constraints page and the census summary the compliance map quotes.
+// validation-constraints page, the census summary the compliance map quotes,
+// and the formal documents' coverage figures on the validation-constraints page.
 const (
 	censusTableBlockName   = "validation-census-table"
 	censusSummaryBlockName = "validation-census-summary"
+	specCoverageBlockName  = "validation-spec-coverage"
 )
 
 // statusMarkers are the row statuses the compliance map uses. '⚠' is matched
@@ -561,6 +563,7 @@ func Blocks() []Block {
 		{Path: SpecCompliancePath, Name: libraryBlockName, LinkPrefix: ""},
 		{Path: SpecCompliancePath, Name: censusSummaryBlockName, LinkPrefix: ""},
 		{Path: ValidationConstraintsPath, Name: censusTableBlockName, LinkPrefix: ""},
+		{Path: ValidationConstraintsPath, Name: specCoverageBlockName, LinkPrefix: ""},
 	}
 	return append(blocks, suiteBlocks()...)
 }
@@ -797,9 +800,11 @@ type blockTemplateData struct {
 	Library fixtures.LibraryCensus
 	Table   string
 	Suite   suiteFigures
-	// CensusTable and CensusSummary are rendered from the constraint manifest.
+	// CensusTable, CensusSummary and SpecCoverage are rendered from the
+	// constraint manifest.
 	CensusTable   string
 	CensusSummary string
+	SpecCoverage  string
 	Name          string
 	LinkPrefix    string
 }
@@ -822,6 +827,7 @@ var blockTemplates = parseBlockTemplates(map[string]string{
 	libraryBlockName:       libraryBlockTemplateText,
 	censusTableBlockName:   "{{.CensusTable}}",
 	censusSummaryBlockName: censusSummaryBlockTemplateText,
+	specCoverageBlockName:  "{{.SpecCoverage}}",
 }, suiteBlockTemplateTexts)
 
 // censusSummaryBlockTemplateText restates the pilot-constraint census where the
@@ -854,6 +860,7 @@ func renderBlock(spec Block, figures Figures) (string, error) {
 	if figures.Manifest != nil {
 		data.CensusTable = figures.Manifest.RenderTable()
 		data.CensusSummary = figures.Manifest.Summary()
+		data.SpecCoverage = figures.Manifest.RenderCoverage()
 	}
 	var rendered strings.Builder
 	if err := blockTemplate.Execute(&rendered, data); err != nil {

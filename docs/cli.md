@@ -408,7 +408,7 @@ wrote rover.html (html, 4983 bytes)   <span class="osml-dim"># or -doc-form pdf<
 
 <div class="osml-pane" id="osml-pane-check" role="tabpanel" aria-labelledby="osml-tab-check" data-title="sysml — checking a model">
 <pre><code><span class="osml-prompt">$</span> sysml -validate vehicles.sysml
-<span class="osml-err">vehicles.sysml:6:16: error: unresolved reference: Whel — did you mean Wheel?</span>
+<span class="osml-err">vehicles.sysml:6:16: error[unresolved]: unresolved reference: Whel — did you mean Wheel?</span>
         part spare : Whel;
                      <span class="osml-err">^~~~</span>
 sysml: vehicles.sysml did not analyse cleanly; no check was made

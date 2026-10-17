@@ -177,7 +177,7 @@ type probe struct {
 }
 
 var (
-	probeConstraintLine = regexp.MustCompile(`^// Census: (validate[A-Za-z]+)$`)
+	probeConstraintLine = regexp.MustCompile(`^// Census: ((?:validate|check|derive)[A-Za-z]+)$`)
 	probeExpectLine     = regexp.MustCompile(`^// Expect: (error|warning): (.+)$`)
 )
 
@@ -228,10 +228,14 @@ func probeLanguages(source string) []string {
 	return []string{""}
 }
 
-// checkProbes verifies that every implemented constraint has a probe (one per
-// notation when both validators declare it) and a recorded diagnostic code, and
-// that no probe claims a diagnostic for a constraint the manifest records as unreported.
-// The codes and passes themselves are held to the probes by the package's tests.
+// checkProbes verifies that every implemented validate* constraint has a probe
+// (one per notation when both validators declare it) and a recorded diagnostic
+// code, and that no probe claims a diagnostic for a constraint the manifest
+// records as unreported. An implemented check* or derive* row establishes an
+// implied relationship or a derived value rather than reporting a diagnostic,
+// so its evidence is the implementation it cites; a probe backs it only when a
+// pass does report. The codes and passes themselves are held to the probes by
+// the package's tests.
 func checkProbes(root string, m *manifest.Manifest) error {
 	probes, err := loadProbes(root)
 	if err != nil {
@@ -260,6 +264,9 @@ func checkProbes(root string, m *manifest.Manifest) error {
 			if len(c.Codes) != 0 || len(c.Passes) != 0 {
 				problems = append(problems, fmt.Sprintf("%s is recorded %s but records diagnostic codes %q from passes %q", c.Name, c.Status, c.Codes, c.Passes))
 			}
+			continue
+		}
+		if c.Kind != "validate" {
 			continue
 		}
 		if len(c.Codes) == 0 || len(c.Passes) == 0 {

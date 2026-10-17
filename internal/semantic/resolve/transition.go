@@ -35,7 +35,7 @@ func (r *Resolver) ResolveEndpoint(scope *symbols.Scope, qn *ast.QualifiedName) 
 		r.report(Diagnostic{
 			Span:    qn.Span(),
 			Message: r.endpointMessage(scope, qn),
-			Code:    "unresolved",
+			Code:    CodeUnresolved,
 			// A suggestion names a vertex, so it replaces the last segment alone,
 			// leaving the qualifiers saying which state or region it lives in.
 			Fixes: endpointFixes(last.Text, last.Span, r.vertexSuggestions(scope, qn)),
@@ -101,7 +101,7 @@ func (r *Resolver) resolveEndpointChain(scope *symbols.Scope, chain *ast.Feature
 		r.report(Diagnostic{
 			Span:    chain.Span(),
 			Message: suggest.With(unresolvedReferencePrefix+name, name, cands),
-			Code:    "unresolved",
+			Code:    CodeUnresolved,
 			Fixes:   endpointFixes(last.Text, last.Span, cands),
 		})
 	case stateMachineEndpoint(scope) && !r.endpointIsVertex(scope, member, sym):

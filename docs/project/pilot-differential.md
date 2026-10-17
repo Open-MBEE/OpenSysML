@@ -1781,7 +1781,7 @@ package KF1 {
 Ours:
 
 ```text
-kf1.kerml:5:2: error: expected a namespace member
+kf1.kerml:5:2: error[syntax]: expected a namespace member
 	a : Integer;
  ^
 kf1.kerml:6:2: error: expected a namespace member

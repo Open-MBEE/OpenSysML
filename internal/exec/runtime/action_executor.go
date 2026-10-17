@@ -263,6 +263,7 @@ func newActionExecutorOn(
 	exec.flow = exec
 	exec.driven.exec = exec
 	ctx.clock.attach(exec)
+	ctx.run.notePerformer(exec)
 	return exec
 }
 
@@ -2250,6 +2251,7 @@ func (e *ActionExecutor) stepCandidates(
 	for i, t := range e.tokens {
 		if !e.moving(t) && eligible(t) && !order.yielding[t.ID] {
 			tokens.ids = append(tokens.ids, t.ID)
+			order.able = append(order.able, t)
 			if e.parked(t, order) {
 				tokens.parked[t.ID] = true
 			}

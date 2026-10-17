@@ -117,8 +117,12 @@ type StateGraph struct {
 	// behaviorFootprints: entry, do or exit behavior (its Node) → what running it
 	// touches. Both are computed on the first call of their accessors.
 	transitionFootprints map[*Transition]Footprint
+	branchFootprints     map[*Transition]Footprint
 	behaviorFootprints   map[ast.Node]Footprint
 	footprintsOnce       sync.Once
+	effectFootprintsMu   sync.Mutex
+	branchFromMu         sync.Mutex
+	branchFrom           map[branchKey]Footprint
 	// transitionSteps: transition out of a state → its step short of do behaviors.
 	transitionSteps map[*Transition]TransitionStep
 	stepsOnce       sync.Once

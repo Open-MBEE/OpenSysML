@@ -108,8 +108,40 @@ func TestValidateAcceptsAFormalNameThePilotMisspells(t *testing.T) {
 	if err := testManifest(row, other).Validate(); err == nil || !strings.Contains(err.Error(), "own name") {
 		t.Fatalf("a spec name that is another row's name must be refused, got %v", err)
 	}
-	row.Spec.Name = "checkViewRendering"
+	row.Spec.Name = "ViewRendering"
 	if err := testManifest(row).Validate(); err == nil || !strings.Contains(err.Error(), "not a constraint name") {
 		t.Fatalf("a spec name that is no constraint name must be refused, got %v", err)
+	}
+}
+
+// TestCheckComplianceLeavesSpecSourcedRowsUnbound: a row citing a spec-sourced
+// constraint resolves the name but is bound to no census status, since such a
+// row is outside the census and states no verdict.
+func TestCheckComplianceLeavesSpecSourcedRowsUnbound(t *testing.T) {
+	specRow := testRow("validateSpecOnly", manifest.SourceSpec, manifest.StatusUnknown)
+	specRow.Spec.Name = "validateSpecOnly"
+	m := complianceManifest()
+	m.Constraints = append(m.Constraints, specRow)
+	if err := m.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	page := compliancePage + "| the documents' `validateSpecOnly`, not yet assessed | g | t | ✅ Faithful |\n"
+	if err := checkCompliance(complianceRoot(t), page, m); err != nil {
+		t.Fatalf("a row citing a spec-sourced constraint must not be held to its ❔: %v", err)
+	}
+}
+
+// TestCheckComplianceRefusesTheSpecPrefixOnAPilotConstraint: `spec:` is for a
+// library constraint outside the census; on a pilot constraint the library also
+// states it would bypass the status gate, so it is refused.
+func TestCheckComplianceRefusesTheSpecPrefixOnAPilotConstraint(t *testing.T) {
+	root := complianceRoot(t)
+	writeTestRepo(t, root, map[string]string{
+		validationLibraryPath: "library package SysMLValidation {\n    constraint def validateLib {\n        in element : KerML::Feature;\n        true\n    }\n    constraint def validateD {\n        in element : KerML::Feature;\n        true\n    }\n}\n",
+	})
+	page := compliancePage + "| the library's `spec:validateD` | h | t | ✅ Faithful |\n"
+	err := checkCompliance(root, page, complianceManifest())
+	if err == nil || !strings.Contains(err.Error(), ":13: `spec:validateD` names a pilot constraint; cite it bare") {
+		t.Fatalf("spec: on a pilot constraint must be refused, got %v", err)
 	}
 }

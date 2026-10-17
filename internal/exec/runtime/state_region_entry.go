@@ -55,20 +55,23 @@ func (e *StateExecutor) enterRegionsInto(container *ast.StateNode, regions []*as
 // enterRegions enters the regions as queues of an entry front (the one under way, waited
 // for when wait says, or a front of their own), one unit drawn at a time.
 func (e *StateExecutor) enterRegions(container *ast.StateNode, entries []*regionEntry, wait bool) error {
-	bodies := make([]func() error, len(entries))
+	units := make([]unit, len(entries))
 	for i, entry := range entries {
-		bodies[i] = func() error {
-			if e.state == StateTerminated {
-				return nil
-			}
-			return e.enterRegion(entry)
+		units[i] = unit{
+			run: func() error {
+				if e.state == StateTerminated {
+					return nil
+				}
+				return e.enterRegion(entry)
+			},
+			footprint: e.regionEntryFootprint(entry),
 		}
 	}
 	where := enteringWherePrefix + e.stateMachine.Name
 	if container != nil {
 		where = enteringWherePrefix + container.Name
 	}
-	return e.performUnits(ChoiceEntryOrder, where, bodies, wait)
+	return e.performUnits(ChoiceEntryOrder, where, units, wait)
 }
 
 // enterForkBranches enters the owner's regions as one queue per region: the branch's effect,
@@ -76,28 +79,37 @@ func (e *StateExecutor) enterRegions(container *ast.StateNode, entries []*region
 func (e *StateExecutor) enterForkBranches(fork *ast.PseudostateNode, plan *lower.ForkPlan, above *lazyEntry) error {
 	targets := plan.Targets()
 	regions := e.graph.CompositeStates[plan.Owner]
-	bodies := make([]func() error, 0, len(regions))
+	units := make([]unit, 0, len(regions))
+	shared := lower.Footprint{}
+	for _, state := range above.chain[above.next:] {
+		shared = unionFootprints(shared, e.enterFootprint(state))
+	}
 	for _, region := range regions {
 		entry := &regionEntry{region: region, container: plan.Owner, branches: targets}
 		branch := plan.Branches[region]
+		footprint := unionFootprints(shared, e.regionEntryFootprint(entry))
 		if branch != nil {
 			entry.target = branch.Target.(*ast.StateNode)
+			footprint = unionFootprints(footprint, e.behaviorsFootprint(branch.Effect))
 		}
-		bodies = append(bodies, func() error {
-			if branch == nil {
-				if err := e.await(ChoiceEntryOrder, func() bool { return above.next >= len(above.chain) }); err != nil {
+		units = append(units, unit{
+			run: func() error {
+				if branch == nil {
+					if err := e.await(ChoiceEntryOrder, func() bool { return above.next >= len(above.chain) }); err != nil {
+						return err
+					}
+				} else if err := e.runBranchEffect(branch); err != nil {
 					return err
 				}
-			} else if err := e.runBranchEffect(branch); err != nil {
-				return err
-			}
-			if err := e.enterShared(above); err != nil {
-				return err
-			}
-			return e.enterRegion(entry)
+				if err := e.enterShared(above); err != nil {
+					return err
+				}
+				return e.enterRegion(entry)
+			},
+			footprint: footprint,
 		})
 	}
-	return e.drawUnits(ChoiceEntryOrder, forkWherePrefix+fork.Name, bodies)
+	return e.drawUnits(ChoiceEntryOrder, forkWherePrefix+fork.Name, units)
 }
 
 // enterShared enters the rest of the way down the fork's branches share, each

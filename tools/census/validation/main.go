@@ -82,6 +82,36 @@ type options struct {
 	requireJar bool
 }
 
+// recordRows lists the rows of a manifest re-recorded from an extraction: one
+// pilot row per extracted name, keeping the row already recorded under it — a
+// spec-sourced row the jar now names becomes that pilot row, keeping its
+// clause, text and evidence — then the spec-sourced rows the jar still does
+// not name.
+func recordRows(previous *manifest.Manifest, extracted []Extracted) []manifest.Constraint {
+	rows := make(map[string]manifest.Constraint, len(previous.Constraints))
+	for _, c := range previous.Constraints {
+		rows[c.Name] = c
+	}
+	named := make(map[string]bool, len(extracted))
+	var out []manifest.Constraint
+	for _, e := range extracted {
+		named[e.Name] = true
+		c, known := rows[e.Name]
+		if !known {
+			c = manifest.Constraint{Name: e.Name, Kind: "validate", Implementation: "—", Message: "—", NegativeCase: "none",
+				Codes: []string{}, Passes: []string{}, Status: manifest.StatusUnknown, Rationale: "new to the pinned jar; not yet assessed"}
+		}
+		c.Raw, c.Source, c.OCL = e.Raw, e.Source, ""
+		out = append(out, c)
+	}
+	for _, c := range previous.SpecRows() {
+		if !named[c.Name] {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 // pinnedJarName is the filename of the artifact the pin designates.
 func pinnedJarName(pin baseline.Pin) string {
 	return fmt.Sprintf("jupyter-sysml-kernel-%s-all.jar", pin.Artifact)
@@ -164,7 +194,7 @@ func runCheck(root string, opts options, out io.Writer) error {
 	if len(failures) > 0 {
 		return errors.New(strings.Join(failures, "\n"))
 	}
-	fmt.Fprintf(out, "validation-census: %d constraints, census document, compliance map and manifest agree\n", len(base.Constraints))
+	fmt.Fprintf(out, "validation-census: %d constraints, census document, compliance map and manifest agree\n", len(base.PilotRows()))
 	return nil
 }
 
@@ -193,29 +223,19 @@ func runUpdate(root string, opts options, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	rows := make(map[string]manifest.Constraint, len(previous.Constraints))
-	for _, c := range previous.Constraints {
-		rows[c.Name] = c
-	}
 	next := *previous
 	next.PilotTag, next.PilotCommit, next.PilotArtifact = pin.Tag, pin.Commit, pin.Artifact
 	next.Jar = manifest.JarRecord{Name: pinnedJarName(pin), Digest: digest}
 	next.Extraction = extractionRecord()
-	next.Constraints = nil
-	for _, e := range extracted {
-		c, known := rows[e.Name]
-		if !known {
-			c = manifest.Constraint{Name: e.Name, Kind: "validate", Implementation: "—", Message: "—", NegativeCase: "none",
-				Codes: []string{}, Passes: []string{}, Status: manifest.StatusUnknown, Rationale: "new to the pinned jar; not yet assessed"}
-		}
-		c.Raw, c.Source = e.Raw, e.Source
-		next.Constraints = append(next.Constraints, c)
-	}
+	next.Constraints = recordRows(previous, extracted)
 	next.Recorded = recordedDate(previous, &next)
+	if err := next.Validate(); err != nil {
+		return err
+	}
 	if err := manifest.Write(root, &next); err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "validation-census: recorded %d constraints from %s\n", len(next.Constraints), filepath.Base(jar))
+	fmt.Fprintf(out, "validation-census: recorded %d constraints from %s\n", len(extracted), filepath.Base(jar))
 	return nil
 }
 

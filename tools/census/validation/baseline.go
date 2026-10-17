@@ -63,11 +63,13 @@ func validateRecord(m *manifest.Manifest) error {
 	return nil
 }
 
-// matches compares the recorded list with a fresh extraction, naming every
-// name only one side has and every source or raw identifier that moved.
+// matches compares the recorded pilot rows with a fresh extraction, naming
+// every name only one side has and every source or raw identifier that moved;
+// the spec-sourced rows are not the jar's to name.
 func matches(m *manifest.Manifest, extracted []Extracted) error {
-	recorded := make(map[string]manifest.Constraint, len(m.Constraints))
-	for _, c := range m.Constraints {
+	pilot := m.PilotRows()
+	recorded := make(map[string]manifest.Constraint, len(pilot))
+	for _, c := range pilot {
 		recorded[c.Name] = c
 	}
 	fresh := make(map[string]Extracted, len(extracted))

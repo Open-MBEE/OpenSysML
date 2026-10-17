@@ -2098,6 +2098,7 @@ class Connection:
         return ActionOutputs(
             self._values_to_python(response.outputs),
             self._values_to_python(response.performer_attributes),
+            dict(response.order_dependent),
         )
 
     def explore_action(self, action_symbol_id, model_hash, inputs=None,
@@ -2208,6 +2209,7 @@ class Connection:
             'final_time': response.final_time,
             'trace': [document_event_of(event) for event in response.trace],
             'trace_dropped': response.trace_dropped,
+            'order_dependent': dict(response.order_dependent),
         }
 
     def explore_state(self, state_machine_symbol_id, model_hash, events=None,

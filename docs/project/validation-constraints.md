@@ -2,8 +2,8 @@
 
 **Pilot:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation) release `2026-08`, commit `692170b71867353b8f90341e61556f49a5beb0e5`, artifact `jupyter-sysml-kernel 0.62.0` — the pin in `scripts/pilot-pin.sh`
 **Jar:** `jupyter-sysml-kernel-0.62.0-all.jar` (`sha256:b1ad9d64b1f0c75730facf25a5e2856bc9df2bb4bd39476df2fdf5ae68cd9350`), provisioned by `./scripts/download-pilot-validator.sh`
-**Run:** `go run -C tools ./cmd/validation-census` (restates the **Pilot**, **Jar** and **Census** lines and the census table from the manifest); `go run -C tools ./cmd/validation-census -check` (the gate); `go run -C tools ./cmd/validation-census -update` (re-extracts the names from the jar, keeping every recorded row)
-**Manifest:** [constraint-manifest.json](constraint-manifest.json) — the single record every row below is rendered from: the constraint names read from the pinned jar, with the pin, the jar digest and the extraction method, and for each name its metaclass, the clause of the pinned specification, the implementing location, the diagnostic code its probes observe, its negative case, its census status and, for every status but ✅, a one-line rationale; alongside them the constraint-tier passes no pilot name covers, the declared errata and the OMG issues the census bears on
+**Run:** `go run -C tools ./cmd/validation-census` (restates the **Pilot**, **Jar** and **Census** lines and the census table from the manifest); `go run -C tools ./cmd/validation-census -check` (the gate); `go run -C tools ./cmd/validation-census -update` (re-extracts the names from the jar, keeping every recorded row); `go run -C tools ./cmd/formal-constraints -kerml <KerML.pdf> -sysml <SysML.pdf> -update` (re-extracts the formal documents' constraints from the pinned PDFs, keeping every recorded row; `-check` verifies, `-list` prints the extraction)
+**Manifest:** [constraint-manifest.json](constraint-manifest.json) — the single record every row below is rendered from: the constraint names read from the pinned jar, with the pin, the jar digest and the extraction method, and for each name its metaclass, the clause of the pinned specification, the implementing location, the diagnostic code its probes observe, its negative case, its census status and, for every status but ✅, a one-line rationale; alongside them the `check*`, `derive*` and `validate*` constraints the pinned formal documents state and no pilot validator names, as spec-sourced rows outside the census (see [Spec-sourced rows](#spec-sourced-rows)), the constraint-tier passes no pilot name covers, the declared errata and the OMG issues the census bears on
 **Evidence:** `tools/census/validation/testdata/probes/` — one minimal violating model per implemented row, run by `go test -C tools ./census/validation`
 
 **Names:** the file and type names quoted in the Implementation column are the code's own
@@ -148,6 +148,30 @@ constraint-tier pass under `internal/check/passes` to be cited by a row or liste
 manifest's `extensions`, and the manifest's `errata` to be the declared registry entry for entry. It runs under `make docs-counts`; the jar comparison runs in the scheduled
 [oracle reproduction](../../.github/workflows/oracle-reproduction.yml).
 
+### Formal-document coverage
+
+The census above counts the constraints the pinned pilot *names*. The pinned formal documents
+state more: every metaclass clause of KerML 1.0 §8.3 and SysML 2.0 §8.3 ends in a *Constraints*
+subsection naming its `check*` (implied specializations), `derive*` (derived properties) and
+`validate*` (well-formedness) constraints. The manifest records each one the pilot does not name
+as a spec-sourced row, and this table is rendered from those rows and the pilot rows' `spec.name`
+citations; it moves only when the manifest does.
+
+<!-- doc-counts:begin validation-spec-coverage -->
+| Document | check* | derive* | validate* | Stated | Pilot-named | Spec-sourced | Implemented | ❔ unknown |
+|---|---|---|---|---|---|---|---|---|
+| KerML 1.0 (`formal/26-03-01`) | 80 | 90 | 88 | 258 | 72 | 186 | 0 | 186 |
+| SysML 2.0 (`formal/26-03-02`) | 128 | 145 | 92 | 365 | 72 | 293 | 0 | 293 |
+
+**Formal coverage:** the pinned documents state 623 constraints in the Constraints subsections of their abstract-syntax clauses — 208 `check*`, 235 `derive*` and 180 `validate*`. 144 of them are named by a pilot validator and counted in the census above; 479 are recorded from the documents alone, outside the census, of which 0 are implemented and 479 remain ❔ unknown.
+<!-- doc-counts:end validation-spec-coverage -->
+
+*Stated* is what the documents' Constraints subsections name; *Pilot-named* the ones a pilot
+validator also names (rows of the census table, matched by the document's name in the row's
+`spec.name`); *Spec-sourced* the rest, with how many of those are implemented (✅ or ⚠️) and how
+many remain ❔. The two totals are kept apart on purpose: the census figures are a comparison with
+the pilot and do not move when a spec-sourced row is promoted.
+
 ### Statuses
 
 Same vocabulary as [spec-compliance.md](spec-compliance.md), plus one value for what has not been adjudicated:
@@ -216,6 +240,38 @@ Edit [constraint-manifest.json](constraint-manifest.json), never the table: give
 census lines, and `go test -C tools ./census/validation` to run the probes. A constraint-tier
 pass that implements no pilot-named constraint is listed under `extensions` with its basis
 (`spec` or `extension`) instead of a row.
+
+### Spec-sourced rows
+
+A row with `"source": "spec"` is a constraint only the formal documents state: no pilot validator
+names it, so it is outside the census table and counts, and it is tallied in
+[formal-document coverage](#formal-document-coverage) instead. Such a row is written by
+`go run -C tools ./cmd/formal-constraints -kerml <KerML.pdf> -sysml <SysML.pdf> -update`, which
+verifies each PDF's SHA-256 against the manifest's `specifications`, reads its text with
+`pdftotext -layout`, and takes from every §8.3 metaclass clause the bare `check*`/`derive*`/`validate*`
+lines of its *Constraints* subsection: the row's `name` and `spec.name` are the document's name,
+`kind` its family, `metaclass` and `spec.clause` the clause stating it (a few constraints are stated
+under another metaclass than their name suggests, and the row says where the document puts them),
+`checks` the normative prose and `ocl` the OCL verbatim (the document's `TBD` where it gives none).
+The `formalExtraction` record states the method and the per-document totals; `-check` fails when
+the recorded rows are not what the documents state, and `-update` keeps a recorded row's
+`implementation`, `message`, `negativeCase`, `codes`, `passes`, `status` and `rationale` while
+refreshing its text. The spec-sourced rows follow the pilot's rows in the manifest, each group
+sorted by name.
+
+A spec-sourced ❔ row means *not yet assessed against the tree*: nothing is claimed either way, not
+even that the constraint can be violated in the textual notation. To promote one, point `implementation`
+at the function that enforces or computes it (`internal/<file>.go:<func>` or `<Type>.<method>`), set
+`status` with a `rationale` for every status but `faithful`, and run `make docs-counts`. The evidence
+the validation-census gate then demands follows the family: a `validate*` row is held to the same
+evidence as a pilot row — a probe under `tools/census/validation/testdata/probes/` (opening with
+`// Census: <name>`) whose diagnostic carries the row's `codes`, which must be what the probes
+observe; a `check*` row (an implied specialization the tool must establish) or a `derive*` row (a
+derived property it must compute) reports no diagnostic, so its evidence is the cited location, which
+must be a declared function, with the unit test that pins the computed relationship or value beside
+it; a probe backs such a row only where a pass does report. A spec-sourced row whose name a later
+pilot release adopts becomes the pilot row under that name on `validation-census -update`, keeping
+its clause, text and evidence (its `ocl` is dropped, as pilot rows carry none).
 
 ## Census
 

@@ -304,6 +304,76 @@ func TestTransitionFootprintsFoldJoinSiblingSegments(t *testing.T) {
 	}
 }
 
+// A segment pending into a join is classified by what it does on its own: its
+// trigger, guard and effect and the exits from its source up to the join's
+// owner, not the other transitions out of its source, nor the owner's exit and
+// the join's way out, which follow whichever segment fires first.
+func TestJoinSegmentFootprintsCoverOnlyTheSegment(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			attribute def Go;
+			attribute def Other;
+			state Machine {
+				attribute a : Integer = 0;
+				attribute b : Integer = 0;
+				attribute log : Integer = 0;
+				attribute armed : Boolean = false;
+				entry; then Owner;
+				state Owner parallel {
+					exit action { assign log := log + 1; }
+					state left {
+						entry; then l1;
+						state l1 { exit action { assign a := a + 1; } }
+						transition first l1 accept Go do assign a := 1 then sync;
+						transition first l1 accept Other do assign log := 10 then l1;
+					}
+					state right {
+						entry; then r1;
+						state r1;
+						transition first r1 accept Go if armed do assign b := 2 then sync;
+						transition first r1 accept Other do assign log := 20 then r1;
+					}
+					join sync;
+					transition first sync do assign log := log + 100 then done;
+				}
+				state done;
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	var join *ast.PseudostateNode
+	for _, ps := range graph.Pseudostates {
+		if ps.Kind == ast.PseudostateJoin {
+			join = ps
+		}
+	}
+	if join == nil {
+		t.Fatal("no join lowered")
+	}
+	segs := []*Transition{transitionOut(t, graph, "l1", 0), transitionOut(t, graph, "r1", 0)}
+	fps := graph.JoinSegmentFootprints(join, segs)
+	left, right := fps[0], fps[1]
+	for _, name := range []string{"a", "l1", "left"} {
+		if !hasPlace(left.Writes, name) {
+			t.Fatalf("the left segment writes %v, want %s: its effect and the states it exits", placeNames(left.Writes), name)
+		}
+	}
+	if hasPlace(left.Writes, "log") || hasPlace(right.Writes, "log") {
+		t.Fatalf("a segment writes log (left %v, right %v): the unrelated transitions, the owner's exit and the way out are not the segment's own", placeNames(left.Writes), placeNames(right.Writes))
+	}
+	if !hasPlace(right.Reads, "armed") || !hasPlace(right.Writes, "b") {
+		t.Fatalf("the right segment reads %v, writes %v, want its guard read and its effect written", placeNames(right.Reads), placeNames(right.Writes))
+	}
+	if left.Dependent(right) {
+		t.Fatalf("the segments conflict:\nleft:\n%s\nright:\n%s", left, right)
+	}
+	if fp := graph.TransitionFootprints()[segs[0]]; !hasPlace(fp.Writes, "log") {
+		t.Fatalf("the whole transition out of l1 writes %v, want log: it follows the join out", placeNames(fp.Writes))
+	}
+}
+
 // A join of the machine's own regions leaves every one of them.
 func TestTransitionFootprintsFoldJoinOfTopRegions(t *testing.T) {
 	graph, err := ToStateGraph(stateUsageIn(t, `

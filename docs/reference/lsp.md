@@ -82,6 +82,15 @@ mode's verdict. A client that cannot send settings can start the server with
 [the guide](../guide/03-command-line.md#strict-conformance) explains what the mode
 changes.
 
+## Diagnostic codes
+
+Every published diagnostic carries `code`, the stable kebab-case code of the rule that
+reported it (`unresolved`, `name-conflict`, `nonstandard-notation`, …), and a
+`codeDescription` whose `href` opens the [diagnostics reference](diagnostics.md#catalogue) at
+that code's section, so an editor that shows a diagnostic's code as a link lands on its
+meaning, remediation and spec clause. The codes are the ones `sysml -explain` explains and
+the `-json` output carries; `source` stays the reporting pass.
+
 ## Disabled lints (setting)
 
 The [lints](diagnostics.md) the server leaves out of what it publishes are named by a

@@ -282,7 +282,7 @@ nav:
       - External engines: reference/external-engines.md
       - Language server: reference/lsp.md
       - Jupyter kernel: reference/jupyter-kernel.md
-      - Diagnostics (lints): reference/diagnostics.md
+      - Diagnostics: reference/diagnostics.md
       - Client libraries: reference/clients.md
       - Go packages: reference/api.md
       - Python API: reference/python-api.md

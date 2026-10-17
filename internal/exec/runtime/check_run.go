@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -103,6 +104,12 @@ func (r *invocationRun) drawOwner(execs []checkedExecutor) (int, error) {
 		Where:        "t=" + semantics.FormatReal(r.ctx.clock.now),
 		Alternatives: executorLabels(execs),
 	}
+	futures := r.ctx.futureFootprints()
+	fps := make([]lower.Footprint, len(execs))
+	for i, exec := range execs {
+		fps[i] = futures.executorFuture(exec)
+	}
+	classifyChoice(&choice, fps, func(i, j int) lower.Relation { return r.ctx.relation(execs[i], execs[j]) })
 	scheduling := r.ctx.scheduling()
 	pick := scheduling.choose(choice, nil)
 	if err := scheduling.refusal(); err != nil {
