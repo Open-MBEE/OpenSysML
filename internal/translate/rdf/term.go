@@ -12,6 +12,8 @@ package rdf
 import (
 	"fmt"
 	"hash/maphash"
+	"maps"
+	"slices"
 	"strings"
 )
 
@@ -105,7 +107,8 @@ type Graph struct {
 
 	// index groups statements by subject. It is built on the first lookup and
 	// kept current as triples are added.
-	index map[Term]*subjectIndex
+	index       map[Term]*subjectIndex
+	sharedIndex map[Term]bool
 	// subjectOrder caches distinct subjects in insertion order once requested.
 	subjectOrder  []Term
 	subjectSet    map[string]struct{}
@@ -246,6 +249,38 @@ func NewGraphOf(triples []Triple, prefixes map[string]string) *Graph {
 	return g
 }
 
+// NewGraphOfWithIndexOverlay returns a graph over triples and prefixes, using
+// base's subject index for unchanged subjects and overlaying additions.
+func NewGraphOfWithIndexOverlay(triples []Triple, prefixes map[string]string, base *Graph, additions []Triple) *Graph {
+	graph := NewGraphOf(triples, prefixes)
+	if base == nil {
+		return graph
+	}
+	baseIndex := base.subjects()
+	graph.index = maps.Clone(baseIndex)
+	graph.sharedIndex = make(map[Term]bool, len(baseIndex))
+	for subject := range baseIndex {
+		graph.sharedIndex[subject] = true
+	}
+	affectedSubjects := make(map[Term]bool, len(additions))
+	for _, triple := range additions {
+		affectedSubjects[triple.Subject] = true
+	}
+	for subject := range affectedSubjects {
+		delete(graph.index, subject)
+		delete(graph.sharedIndex, subject)
+	}
+	for _, triple := range triples {
+		if affectedSubjects[triple.Subject] {
+			graph.index[triple.Subject] = indexTriple(graph.index[triple.Subject], triple)
+		}
+	}
+	if len(graph.sharedIndex) == 0 {
+		graph.sharedIndex = nil
+	}
+	return graph
+}
+
 // set returns the set of the graph's triples, building it on first use.
 func (g *Graph) set() map[Triple]bool {
 	if g.seen == nil {
@@ -293,8 +328,29 @@ func (g *Graph) AddTriple(t Triple) {
 		}
 	}
 	if g.index != nil {
+		if g.sharedIndex[t.Subject] {
+			g.index[t.Subject] = cloneSubjectIndex(g.index[t.Subject])
+			delete(g.sharedIndex, t.Subject)
+			if len(g.sharedIndex) == 0 {
+				g.sharedIndex = nil
+			}
+		}
 		g.index[t.Subject] = indexTriple(g.index[t.Subject], t)
 	}
+}
+
+func cloneSubjectIndex(index *subjectIndex) *subjectIndex {
+	if index == nil {
+		return nil
+	}
+	clone := &subjectIndex{
+		predicates: slices.Clone(index.predicates),
+		objects:    make(map[string][]Term, len(index.objects)),
+	}
+	for predicate, objects := range index.objects {
+		clone.objects[predicate] = slices.Clone(objects)
+	}
+	return clone
 }
 
 // indexTriple records t under its subject's index entry, creating the entry
@@ -371,6 +427,7 @@ func (g *Graph) RewriteTriples(rewrite func(*Triple) bool) {
 	// A rewrite may change or drop a collection's triples, so the graph no
 	// longer vouches for them (see MarkCollectionsSettled).
 	g.settled = false
+	g.detachSharedIndexes()
 	if g.index == nil {
 		g.subjects()
 	}
@@ -463,6 +520,13 @@ func (g *Graph) RewriteTriples(rewrite func(*Triple) bool) {
 		g.subjectOrder = append(g.subjectOrder, triple.Subject)
 	}
 	g.subjectsReady = true
+}
+
+func (g *Graph) detachSharedIndexes() {
+	for subject := range g.sharedIndex {
+		g.index[subject] = cloneSubjectIndex(g.index[subject])
+	}
+	g.sharedIndex = nil
 }
 
 // Len returns the number of triples.

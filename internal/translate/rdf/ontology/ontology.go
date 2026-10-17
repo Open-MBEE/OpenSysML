@@ -161,7 +161,7 @@ func LookupEnumeration(name string) (Enumeration, bool) {
 // reports false when no declaration qualifies.
 func PropertyOf(metaclass, name string) (Property, bool) {
 	// The ontology is fixed once indexed, so an answer is computed once.
-	key := metaclass + "\x00" + name
+	key := propertyOfKey{metaclass: metaclass, name: name}
 	if known, ok := propertyOfCache.Load(key); ok {
 		answer := known.(propertyAnswer)
 		return answer.property, answer.found
@@ -175,6 +175,11 @@ func PropertyOf(metaclass, name string) (Property, bool) {
 type propertyAnswer struct {
 	property Property
 	found    bool
+}
+
+type propertyOfKey struct {
+	metaclass string
+	name      string
 }
 
 // propertyOfCache holds PropertyOf's answers by metaclass and name.

@@ -8,6 +8,26 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
+var (
+	mappingRelationshipPredicates = [...]string{rdf.SysML + pOwningRelationship, rdf.SysML + pOwningMembership}
+	mappingOwnerPredicates        = [...]string{
+		rdf.SysML + pMembershipOwningNamespace, rdf.SysML + pOwningRelatedElement,
+		rdf.SysML + pOwningNamespace, rdf.SysML + pOwner,
+		rdf.SysML + pOwningRelationship, rdf.SysML + pOwningMembership,
+	}
+	mappingOwnedRelationshipPredicates = [...]string{
+		rdf.SysML + pOwnedRelatedElement, rdf.SysML + pMemberElement,
+		rdf.SysML + pOwnedMemberElement, rdf.SysML + pOwnedMemberFeature,
+		rdf.SysML + pOwnedMemberParameter, rdf.SysML + pOwnedResultExpression,
+		rdf.SysML + pOwnedMember,
+	}
+	mappingIncomingMembershipPredicates = [...]string{
+		rdf.SysML + pMemberElement, rdf.SysML + pOwnedMemberElement,
+		rdf.SysML + pOwnedMemberFeature, rdf.SysML + pOwnedMemberParameter,
+		rdf.SysML + pOwnedResultExpression, rdf.SysML + pOwnedRelatedElement,
+	}
+)
+
 func mappingQualifiedNames(graph *rdf.Graph) map[string]string {
 	return mappingQualifiedNamesWithContext(graph, newMappingQualifiedNameContext(graph))
 }
@@ -202,8 +222,8 @@ func mappingQualifiedNameOwnerWithContext(
 		clear(seenElements)
 		return mappingElementSubjectWithContext(graph, subject, seenElements, context)
 	}
-	for _, property := range []string{pOwningRelationship, pOwningMembership} {
-		if relationship, ok := graph.Object(subject, rdf.SysML+property); ok && relationship.IsIRI() {
+	for _, property := range mappingRelationshipPredicates {
+		if relationship, ok := graph.Object(subject, property); ok && relationship.IsIRI() {
 			if isElement(relationship) {
 				return relationship, true
 			}
@@ -245,11 +265,8 @@ func mappingQualifiedNameAncestorWithContext(
 		return rdf.Term{}, false
 	}
 	seen[subject.Value] = true
-	for _, property := range []string{
-		pMembershipOwningNamespace, pOwningRelatedElement, pOwningNamespace, pOwner,
-		pOwningRelationship, pOwningMembership,
-	} {
-		for _, owner := range graph.ObjectsView(subject, rdf.SysML+property) {
+	for _, property := range mappingOwnerPredicates {
+		for _, owner := range graph.ObjectsView(subject, property) {
 			if !owner.IsIRI() {
 				continue
 			}
@@ -272,11 +289,8 @@ func mappingIncomingMemberships(graph *rdf.Graph) map[string][]rdf.Term {
 			continue
 		}
 		clear(seenMembers)
-		for _, property := range []string{
-			pMemberElement, pOwnedMemberElement, pOwnedMemberFeature,
-			pOwnedMemberParameter, pOwnedResultExpression, pOwnedRelatedElement,
-		} {
-			for _, member := range graph.ObjectsView(subject, rdf.SysML+property) {
+		for _, property := range mappingIncomingMembershipPredicates {
+			for _, member := range graph.ObjectsView(subject, property) {
 				if member.IsIRI() && !seenMembers[member.Value] {
 					seenMembers[member.Value] = true
 					incoming[member.Value] = append(incoming[member.Value], subject)
@@ -340,8 +354,8 @@ func mappingQualifiedNameOwnerWithCache(
 	incomingMemberships map[string][]rdf.Term,
 	seen, packageCache map[string]bool,
 ) (rdf.Term, bool) {
-	for _, property := range []string{pOwningRelationship, pOwningMembership} {
-		if relationship, ok := graph.Object(subject, rdf.SysML+property); ok && relationship.IsIRI() {
+	for _, property := range mappingRelationshipPredicates {
+		if relationship, ok := graph.Object(subject, property); ok && relationship.IsIRI() {
 			if mappingElementSubjectWithCache(graph, relationship, make(map[string]bool), packageCache) {
 				return relationship, true
 			}
@@ -376,11 +390,8 @@ func mappingQualifiedNameAncestorWithCache(
 		return rdf.Term{}, false
 	}
 	seen[subject.Value] = true
-	for _, property := range []string{
-		pMembershipOwningNamespace, pOwningRelatedElement, pOwningNamespace, pOwner,
-		pOwningRelationship, pOwningMembership,
-	} {
-		for _, owner := range graph.ObjectsView(subject, rdf.SysML+property) {
+	for _, property := range mappingOwnerPredicates {
+		for _, owner := range graph.ObjectsView(subject, property) {
 			if !owner.IsIRI() {
 				continue
 			}
@@ -396,8 +407,8 @@ func mappingQualifiedNameAncestorWithCache(
 }
 
 func mappingRelationshipMemberName(graph *rdf.Graph, subject rdf.Term) string {
-	for _, property := range []string{pOwningRelationship, pOwningMembership} {
-		if relationship, ok := graph.Object(subject, rdf.SysML+property); ok && relationship.IsIRI() {
+	for _, property := range mappingRelationshipPredicates {
+		if relationship, ok := graph.Object(subject, property); ok && relationship.IsIRI() {
 			if name, ok := graph.Lexical(relationship, rdf.SysML+pMemberName); ok {
 				return name
 			}
@@ -419,11 +430,8 @@ func mappingOwnedRelationshipPosition(graph *rdf.Graph, subject, owner rdf.Term)
 			owningMembership.IsIRI() && relationship.Equal(owningMembership) {
 			return index, true
 		}
-		for _, property := range []string{
-			pOwnedRelatedElement, pMemberElement, pOwnedMemberElement, pOwnedMemberFeature,
-			pOwnedMemberParameter, pOwnedResultExpression, pOwnedMember,
-		} {
-			for _, member := range graph.ObjectsView(relationship, rdf.SysML+property) {
+		for _, property := range mappingOwnedRelationshipPredicates {
+			for _, member := range graph.ObjectsView(relationship, property) {
 				if member.Equal(subject) {
 					return index, true
 				}

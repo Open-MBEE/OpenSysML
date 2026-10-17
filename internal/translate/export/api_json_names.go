@@ -216,6 +216,9 @@ func apiJSONResolveNameReference(
 ) (any, []string) {
 	if key == pChainingFeature {
 		if members, ok := value.([]any); ok {
+			if !apiJSONFeatureChainNeedsResolution(members) {
+				return value, nil
+			}
 			return apiJSONResolveFeatureChain(graph, index, subject, members)
 		}
 	}
@@ -231,6 +234,9 @@ func apiJSONResolveNameReference(
 			}
 		case pRelatedElement:
 			if members, ok := value.([]any); ok {
+				if !apiJSONValuesHaveNameReferences(members) {
+					return value, nil
+				}
 				target := index.chainTargets[subject.Value]
 				id, resolved := apiJSONTermReferenceID(subject, target)
 				result := make([]any, len(members))
@@ -269,6 +275,9 @@ func apiJSONResolveNameReference(
 		}
 		return apiJSONReference{ID: id}, nil
 	case []any:
+		if !apiJSONValuesHaveNameReferences(value) {
+			return value, nil
+		}
 		resolved := make([]any, len(value))
 		var unresolved []string
 		for i, member := range value {
@@ -280,6 +289,34 @@ func apiJSONResolveNameReference(
 	default:
 		return value, nil
 	}
+}
+
+func apiJSONValuesHaveNameReferences(values []any) bool {
+	for _, value := range values {
+		switch member := value.(type) {
+		case apiJSONNameReference:
+			return true
+		case []any:
+			if apiJSONValuesHaveNameReferences(member) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func apiJSONFeatureChainNeedsResolution(members []any) bool {
+	for _, member := range members {
+		switch value := member.(type) {
+		case string, apiJSONNameReference:
+			return true
+		case []any:
+			if apiJSONFeatureChainNeedsResolution(value) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func apiJSONResolveFeatureChain(

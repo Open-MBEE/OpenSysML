@@ -131,14 +131,14 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 				continue
 			}
 			if member.key == "sysx:mappingValues" && opts.OmitDerived && metaclass != "" {
-				if values, ok := member.value.(map[string]any); ok {
-					filtered := make(map[string]any, len(values))
-					for key, value := range values {
-						if property, ok := ontology.PropertyOf(metaclass, key); ok &&
-							property.Derived && !keep[key] {
+				if values, ok := member.value.(apiJSONObject); ok {
+					filtered := make(apiJSONObject, 0, len(values))
+					for _, value := range values {
+						if property, ok := ontology.PropertyOf(metaclass, value.key); ok &&
+							property.Derived && !keep[value.key] {
 							continue
 						}
-						filtered[key] = value
+						filtered = append(filtered, value)
 					}
 					if len(filtered) == 0 {
 						continue
@@ -236,6 +236,10 @@ func walkCompactValue(value any, visit func(any)) {
 		for _, v := range values {
 			walkCompactValue(v, visit)
 		}
+	case apiJSONObject:
+		for _, member := range values {
+			walkCompactValue(member.value, visit)
+		}
 	default:
 		visit(value)
 	}
@@ -280,6 +284,22 @@ func writeCompactValue(w apiJSONWriter, value any, bare bool, handles map[string
 			}
 			w.buf.WriteByte(':')
 			if err := writeCompactValue(w, v[key], false, handles); err != nil {
+				return err
+			}
+		}
+		w.buf.WriteByte('}')
+		return nil
+	case apiJSONObject:
+		w.buf.WriteByte('{')
+		for i, member := range v {
+			if i > 0 {
+				w.buf.WriteByte(',')
+			}
+			if err := w.value(member.key); err != nil {
+				return err
+			}
+			w.buf.WriteByte(':')
+			if err := writeCompactValue(w, member.value, false, handles); err != nil {
 				return err
 			}
 		}

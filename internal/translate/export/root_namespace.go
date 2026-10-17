@@ -43,6 +43,7 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 	// triple is about a namespace, a membership or a root, so only the source
 	// triples about those are remembered.
 	triples := make([]rdf.Triple, 0, graph.Len()+8*len(roots)+8*len(wrappers))
+	var additions []rdf.Triple
 	placed := map[rdf.Triple]bool{}
 	wrapperSubjects := map[rdf.Term]bool{}
 	type rootPlace struct {
@@ -64,6 +65,7 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 		}
 		placed[t] = true
 		triples = append(triples, t)
+		additions = append(additions, t)
 	}
 	sysml := rdf.SysMLTerm
 	for _, w := range wrappers {
@@ -118,7 +120,7 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 			add(w.namespace, rdf.AnnotationJSONTerm(c.key), rdf.String(text))
 		}
 	}
-	out := rdf.NewGraphOf(triples, graph.Prefixes)
+	out := rdf.NewGraphOfWithIndexOverlay(triples, graph.Prefixes, graph, additions)
 	// The wrappers annotate their collections from the members they add, in order.
 	if graph.CollectionsSettled() {
 		out.MarkCollectionsSettled()

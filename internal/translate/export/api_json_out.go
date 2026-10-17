@@ -90,9 +90,10 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 	evaluation := newAPIJSONEvaluation(settled)
 	mappingNames := mappingQualifiedNames(settled)
 	nameIndex := newAPIJSONNameIndex(settled)
+	comparisonCache := &apiJSONTermCache{}
 	for _, subject := range subjects {
 		element, err := apiJSONElementWithEvaluationOptions(
-			settled, subject, evaluation, mappingNames, nameIndex, options,
+			settled, subject, evaluation, mappingNames, nameIndex, comparisonCache, options,
 		)
 		if err != nil {
 			return nil, err
@@ -196,7 +197,7 @@ func apiJSONElementWithEvaluation(
 	mappingNames map[string]string,
 ) (apiJSONObject, error) {
 	return apiJSONElementWithEvaluationOptions(
-		graph, subject, evaluation, mappingNames, newAPIJSONNameIndex(graph), APIJSONOptions{},
+		graph, subject, evaluation, mappingNames, newAPIJSONNameIndex(graph), &apiJSONTermCache{}, APIJSONOptions{},
 	)
 }
 
@@ -206,6 +207,7 @@ func apiJSONElementWithEvaluationOptions(
 	evaluation *apiJSONEvaluation,
 	mappingNames map[string]string,
 	nameIndex *apiJSONNameIndex,
+	comparisonCache *apiJSONTermCache,
 	options APIJSONOptions,
 ) (apiJSONObject, error) {
 	types := graph.ObjectsView(subject, rdf.RDFType)
@@ -222,10 +224,6 @@ func apiJSONElementWithEvaluationOptions(
 			Note: "its IRI is in neither the element nor the expression namespace, so it has no \"@id\"",
 		}
 	}
-	element := apiJSONObject{
-		{key: "@type", value: apiJSONType(types[0])},
-		{key: "@id", value: id},
-	}
 	if !strings.HasPrefix(types[0].Value, rdf.SysML) && !strings.HasPrefix(types[0].Value, rdf.OpenSysML) {
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the rdf:type %s of <%s>", types[0], subject.Value),
@@ -238,9 +236,15 @@ func apiJSONElementWithEvaluationOptions(
 	if strings.HasPrefix(types[0].Value, rdf.SysML) {
 		metaclass = strings.TrimPrefix(types[0].Value, rdf.SysML)
 	}
-	mappingValues := make(map[string][]any)
-	deferredProperties := make(map[string]any)
-	for _, predicate := range graph.PredicatesView(subject) {
+	predicates := graph.PredicatesView(subject)
+	element := make(apiJSONObject, 0, len(predicates)+5)
+	element = append(element,
+		apiJSONMember{key: "@type", value: apiJSONType(types[0])},
+		apiJSONMember{key: "@id", value: id},
+	)
+	var mappingValues apiJSONObject
+	var deferredProperties []apiJSONMember
+	for _, predicate := range predicates {
 		switch {
 		case predicate == rdf.RDFType:
 			continue
@@ -253,13 +257,11 @@ func apiJSONElementWithEvaluationOptions(
 			if key == "qualifiedName" {
 				continue
 			}
-			objectProperty := false
-			if metaclass != "" {
-				property, known := ontology.PropertyOf(metaclass, key)
-				objectProperty = known && property.Kind == ontology.ObjectProperty
-			}
+			property, propertyKnown := ontology.PropertyOf(metaclass, key)
+			objectProperty := propertyKnown && property.Kind == ontology.ObjectProperty
 			value, err := apiJSONSysMLValue(
-				graph, subject, predicate, key, metaclass, objectProperty, nameIndex,
+				graph, subject, predicate, key, metaclass, property, propertyKnown, objectProperty, nameIndex,
+				comparisonCache,
 			)
 			if err != nil {
 				return nil, err
@@ -267,24 +269,22 @@ func apiJSONElementWithEvaluationOptions(
 			value, keep := apiJSONResolveUnresolvedProperty(
 				graph, nameIndex, subject, metaclass, key, value, options,
 			)
-			exact, err := apiJSONExactPropertyValues(graph, nameIndex, subject, predicate, key)
-			if err != nil {
-				return nil, err
-			}
-			readback, err := apiJSONSpecPropertyValues(
-				nameIndex, subject, predicate, key, metaclass, value, keep,
+			comparison, err := apiJSONPropertyValuesEqual(
+				graph, nameIndex, subject, predicate, key, metaclass, value, keep, comparisonCache,
 			)
 			if err != nil {
 				return nil, err
 			}
-			if !slices.EqualFunc(exact, readback, func(a, b rdf.Term) bool { return a.Equal(b) }) {
-				mapped, err := apiJSONMappingValuesForTerms(subject, exact)
+			if !comparison.equal {
+				mapped, err := apiJSONMappingValuesForProperty(
+					graph, nameIndex, subject, predicate, key, comparison.members, comparison.hasAnnotation,
+				)
 				if err != nil {
 					return nil, fmt.Errorf("sysml:%s of <%s>: %w", key, subject.Value, err)
 				}
-				mappingValues[key] = mapped
+				mappingValues = append(mappingValues, apiJSONMember{key: key, value: mapped})
 				if keep {
-					deferredProperties[key] = value
+					deferredProperties = append(deferredProperties, apiJSONMember{key: key, value: value})
 				}
 				continue
 			}
@@ -309,7 +309,7 @@ func apiJSONElementWithEvaluationOptions(
 	var specName any
 	if evaluation != nil && evaluation.evaluator != nil && evaluation.structure != nil {
 		if semanticElement, ok := evaluation.structure.element(subject); ok {
-			value, supported := evaluation.evaluator.Property(semanticElement, "Element", "qualifiedName")
+			value, supported := evaluation.evaluator.PropertyReadOnly(semanticElement, "Element", "qualifiedName")
 			if supported {
 				switch value.Kind {
 				case metamodel.NullValue:
@@ -332,125 +332,287 @@ func apiJSONElementWithEvaluationOptions(
 		element = append(element, apiJSONMember{key: "sysx:mappingQualifiedName", value: mappingName})
 	}
 	if len(mappingValues) > 0 {
-		keys := make([]string, 0, len(mappingValues))
-		for key := range mappingValues {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		for _, key := range keys {
-			if value, ok := deferredProperties[key]; ok {
-				element = append(element, apiJSONMember{key: key, value: value})
-			}
-		}
-		sidecar := make(map[string]any, len(mappingValues))
-		for key, values := range mappingValues {
-			sidecar[key] = values
-		}
-		element = append(element, apiJSONMember{key: "sysx:mappingValues", value: sidecar})
+		sort.Slice(mappingValues, func(i, j int) bool {
+			return mappingValues[i].key < mappingValues[j].key
+		})
+		sort.Slice(deferredProperties, func(i, j int) bool {
+			return deferredProperties[i].key < deferredProperties[j].key
+		})
+		element = append(element, deferredProperties...)
+		element = append(element, apiJSONMember{key: "sysx:mappingValues", value: mappingValues})
 	}
 	element = appendAPIJSONOwnedAbsences(graph, subject, element, types[0])
 	return element, nil
 }
 
-func apiJSONExactPropertyValues(
-	graph *rdf.Graph,
-	nameIndex *apiJSONNameIndex,
-	subject rdf.Term,
-	predicate string,
-	key string,
-) ([]rdf.Term, error) {
-	objects := graph.ObjectsView(subject, predicate)
-	annotation, ok := graph.Object(subject, rdf.AnnotationJSON+key)
-	if !ok || !annotation.IsLiteral() {
-		return objects, nil
-	}
-	members, err := rdf.ParseCollectionJSON(annotation.Value)
-	if err != nil {
-		return nil, err
-	}
-	ordered := make([]rdf.Term, 0, len(members))
-	for _, member := range members {
-		if member.ID != "" {
-			target := rdf.ReferenceIRI(subject, member.ID)
-			if candidate, ok := nameIndex.subjectsByID[member.ID]; ok {
-				target = candidate
-			}
-			ordered = append(ordered, target)
-			continue
-		}
-		object, err := collectionObject(subject, objects, member)
-		if err != nil {
-			return nil, err
-		}
-		ordered = append(ordered, object)
-	}
-	return ordered, nil
+type apiJSONPropertyComparison struct {
+	equal         bool
+	members       []rdf.CollectionMember
+	hasAnnotation bool
 }
 
-func apiJSONSpecPropertyValues(
+type apiJSONPropertyComparisonState struct {
+	subject    rdf.Term
+	predicate  string
+	key        string
+	metaclass  string
+	objects    []rdf.Term
+	members    []rdf.CollectionMember
+	exactCount int
+	position   int
+	equal      bool
+	nameIndex  *apiJSONNameIndex
+	cache      *apiJSONTermCache
+}
+
+func (state *apiJSONPropertyComparisonState) compareTerm(term rdf.Term) error {
+	exact, err := state.exactTermAt(state.position)
+	if err != nil {
+		return err
+	}
+	state.equal = state.equal && exact.Equal(term)
+	state.position++
+	return nil
+}
+
+func (state *apiJSONPropertyComparisonState) compareReference(id string) error {
+	exact, err := state.exactTermAt(state.position)
+	if err != nil {
+		return err
+	}
+	if target, ok := state.nameIndex.subjectsByID[id]; ok {
+		state.equal = state.equal && exact.Equal(target)
+	} else {
+		state.equal = state.equal && exact.IsIRI() && rdf.ReferenceID(state.subject, exact) == id
+	}
+	state.position++
+	return nil
+}
+
+func (state *apiJSONPropertyComparisonState) exactTermAt(position int) (rdf.Term, error) {
+	if position >= state.exactCount {
+		state.equal = false
+		return rdf.Term{}, nil
+	}
+	exact := rdf.Term{}
+	if state.members == nil {
+		exact = state.objects[position]
+	} else if member := state.members[position]; member.ID != "" {
+		exact = rdf.ReferenceIRI(state.subject, member.ID)
+		if candidate, ok := state.nameIndex.subjectsByID[member.ID]; ok {
+			exact = candidate
+		}
+	} else {
+		found := false
+		for _, object := range state.objects {
+			matches, err := apiJSONCollectionMemberMatches(state.subject, object, member)
+			if err != nil {
+				return rdf.Term{}, err
+			}
+			if matches {
+				exact = object
+				found = true
+				break
+			}
+		}
+		if !found {
+			return rdf.Term{}, &UnsupportedError{
+				What: fmt.Sprintf("the annotation json member %s of <%s>", member.Literal, state.subject.Value),
+				Note: "it states no triple of the collection",
+			}
+		}
+	}
+	return exact, nil
+}
+
+func (state *apiJSONPropertyComparisonState) compareValue(value any) error {
+	switch v := value.(type) {
+	case apiJSONReference:
+		return state.compareReference(v.ID)
+	case apiJSONNameReference:
+		return state.compareTerm(rdf.String(v.name))
+	case []any:
+		for _, member := range v {
+			if err := state.compareValue(member); err != nil {
+				return err
+			}
+		}
+	case nil:
+		return nil
+	default:
+		term, err := apiJSONScalarOf(
+			state.subject, rdf.IRI(state.predicate), state.key, value, state.nameIndex.expressionIDs, state.cache,
+		)
+		if err != nil {
+			return err
+		}
+		return state.compareTerm(term)
+	}
+	return nil
+}
+
+func apiJSONPropertyValuesEqual(
+	graph *rdf.Graph,
 	nameIndex *apiJSONNameIndex,
 	subject rdf.Term,
 	predicate string,
 	key, metaclass string,
 	value any,
 	keep bool,
-) ([]rdf.Term, error) {
-	if !keep || value == nil {
-		return nil, nil
-	}
-	cache := newAPIJSONTermCache()
-	predicateTerm := rdf.IRI(predicate)
-	var terms []rdf.Term
-	var appendValue func(any) error
-	appendValue = func(value any) error {
-		switch v := value.(type) {
-		case apiJSONReference:
-			terms = append(terms, apiJSONReferenceTerm(subject, v.ID, nameIndex.expressionIDs))
-		case apiJSONNameReference:
-			terms = append(terms, rdf.String(v.name))
-		case []any:
-			for _, member := range v {
-				if err := appendValue(member); err != nil {
-					return err
-				}
-			}
-		case nil:
-			return nil
-		default:
-			term, err := apiJSONScalarOf(
-				subject, predicateTerm, key, value, nameIndex.expressionIDs, cache,
-			)
-			if err != nil {
-				return err
-			}
-			terms = append(terms, term)
+	cache *apiJSONTermCache,
+) (apiJSONPropertyComparison, error) {
+	objects := graph.ObjectsView(subject, predicate)
+	var members []rdf.CollectionMember
+	hasAnnotation := false
+	if annotation, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok && annotation.IsLiteral() {
+		var err error
+		members, err = cache.collectionMembers(graph, subject, key)
+		if err != nil {
+			return apiJSONPropertyComparison{}, err
 		}
-		return nil
+		hasAnnotation = true
 	}
-	if err := appendValue(value); err != nil {
-		return nil, fmt.Errorf("cannot read back %s.%s: %w", metaclass, key, err)
+	exactCount := len(objects)
+	if hasAnnotation {
+		exactCount = len(members)
 	}
-	return terms, nil
+	state := apiJSONPropertyComparisonState{
+		subject:    subject,
+		predicate:  predicate,
+		key:        key,
+		metaclass:  metaclass,
+		objects:    objects,
+		members:    members,
+		exactCount: exactCount,
+		equal:      true,
+		nameIndex:  nameIndex,
+		cache:      cache,
+	}
+	if keep && value != nil {
+		if err := state.compareValue(value); err != nil {
+			return apiJSONPropertyComparison{}, fmt.Errorf("cannot read back %s.%s: %w", metaclass, key, err)
+		}
+	}
+	return apiJSONPropertyComparison{
+		equal:         state.equal && state.position == exactCount,
+		members:       members,
+		hasAnnotation: hasAnnotation,
+	}, nil
 }
 
-func apiJSONMappingValuesForTerms(subject rdf.Term, terms []rdf.Term) ([]any, error) {
-	values := make([]any, 0, len(terms))
-	for _, term := range terms {
-		if term.IsIRI() {
-			id := rdf.ReferenceID(subject, term)
-			if id == "" {
-				return nil, fmt.Errorf("reference %s has no API id", term)
+func apiJSONCollectionMemberMatches(
+	subject rdf.Term,
+	object rdf.Term,
+	member rdf.CollectionMember,
+) (bool, error) {
+	if member.ID != "" {
+		return object.IsIRI() && rdf.ReferenceID(subject, object) == member.ID, nil
+	}
+	if object.IsIRI() {
+		return false, nil
+	}
+	literal := member.Literal
+	switch object.Datatype {
+	case rdf.XSD + "boolean":
+		if literal.Datatype != rdf.XSD+"boolean" {
+			return false, nil
+		}
+		objectValue := object.Value == "true" || object.Value == "1"
+		if objectValue {
+			return literal.Value == "true" || literal.Value == "1", nil
+		}
+		return literal.Value == "false" || literal.Value == "0", nil
+	case rdf.XSD + "integer", rdf.XSD + "decimal", rdf.XSD + "double", rdf.XSD + "float":
+		if !apiJSONNumericDatatype(literal.Datatype) {
+			return false, nil
+		}
+		return object.Value == literal.Value, nil
+	default:
+		if apiJSONNumericDatatype(literal.Datatype) || literal.Datatype == rdf.XSD+"boolean" {
+			return false, nil
+		}
+		return object.Value == literal.Value, nil
+	}
+}
+
+func apiJSONNumericDatatype(datatype string) bool {
+	switch datatype {
+	case rdf.XSD + "integer", rdf.XSD + "decimal", rdf.XSD + "double", rdf.XSD + "float":
+		return true
+	default:
+		return false
+	}
+}
+
+func apiJSONMappingValuesForProperty(
+	graph *rdf.Graph,
+	nameIndex *apiJSONNameIndex,
+	subject rdf.Term,
+	predicate, key string,
+	members []rdf.CollectionMember,
+	hasAnnotation bool,
+) ([]any, error) {
+	objects := graph.ObjectsView(subject, predicate)
+	if !hasAnnotation {
+		values := make([]any, 0, len(objects))
+		for _, term := range objects {
+			value, err := apiJSONMappingValueForTerm(subject, term)
+			if err != nil {
+				return nil, err
 			}
-			values = append(values, apiJSONReference{ID: id})
-			continue
+			values = append(values, value)
 		}
-		if term.IsLiteral() {
-			values = append(values, term.Value)
-			continue
+		return values, nil
+	}
+	values := make([]any, 0, len(members))
+	for _, member := range members {
+		var term rdf.Term
+		if member.ID != "" {
+			term = rdf.ReferenceIRI(subject, member.ID)
+			if candidate, ok := nameIndex.subjectsByID[member.ID]; ok {
+				term = candidate
+			}
+		} else {
+			found := false
+			for _, object := range objects {
+				matches, err := apiJSONCollectionMemberMatches(subject, object, member)
+				if err != nil {
+					return nil, err
+				}
+				if matches {
+					term = object
+					found = true
+					break
+				}
+			}
+			if !found {
+				return nil, &UnsupportedError{
+					What: fmt.Sprintf("the annotation json member %s of <%s>", member.Literal, subject.Value),
+					Note: "it states no triple of the collection",
+				}
+			}
 		}
-		return nil, fmt.Errorf("unsupported graph object %s", term)
+		value, err := apiJSONMappingValueForTerm(subject, term)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, value)
 	}
 	return values, nil
+}
+
+func apiJSONMappingValueForTerm(subject, term rdf.Term) (any, error) {
+	if term.IsIRI() {
+		id := rdf.ReferenceID(subject, term)
+		if id == "" {
+			return nil, fmt.Errorf("reference %s has no API id", term)
+		}
+		return apiJSONReference{ID: id}, nil
+	}
+	if term.IsLiteral() {
+		return term.Value, nil
+	}
+	return nil, fmt.Errorf("unsupported graph object %s", term)
 }
 
 func apiJSONMappingQualifiedName(
@@ -517,8 +679,11 @@ func apiJSONSysMLValue(
 	graph *rdf.Graph,
 	subject rdf.Term,
 	predicate, key, metaclass string,
+	property ontology.Property,
+	propertyKnown bool,
 	objectProperty bool,
 	nameIndex *apiJSONNameIndex,
+	cache *apiJSONTermCache,
 ) (any, error) {
 	if key == "chainingFeature" {
 		ordered := apiJSONOrderedFeatureChain(graph, nameIndex, subject)
@@ -527,10 +692,7 @@ func apiJSONSysMLValue(
 		}
 	}
 	objects := graph.ObjectsView(subject, predicate)
-	nonunique := false
-	if property, ok := ontology.PropertyOf(metaclass, key); ok {
-		nonunique = property.Nonunique
-	}
+	nonunique := propertyKnown && property.Nonunique
 	if _, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok && graph.CollectionsSettled() && !nonunique {
 		// The typed triples state the collection in the annotation's order (see
 		// rdf.Graph.MarkCollectionsSettled), so its members are read from them
@@ -556,7 +718,7 @@ func apiJSONSysMLValue(
 				Note: fmt.Sprintf("its object %s is not the JSON literal a collection is stated by", annotation),
 			}
 		}
-		members, err := rdf.ParseCollectionJSON(annotation.Value)
+		members, err := cache.collectionMembers(graph, subject, key)
 		if err != nil {
 			return nil, &UnsupportedError{
 				What: fmt.Sprintf("the annotation json:%s of <%s>", key, subject.Value),
@@ -587,8 +749,7 @@ func apiJSONSysMLValue(
 	// element has no metaclass, so the name's declarations must agree.
 	many := false
 	if metaclass != "" {
-		property, ok := ontology.PropertyOf(metaclass, key)
-		many = ok && property.Many
+		many = propertyKnown && property.Many
 	} else {
 		many, _ = ontology.ManyAgreed(key)
 	}

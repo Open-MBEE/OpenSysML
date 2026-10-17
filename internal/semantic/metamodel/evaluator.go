@@ -32,6 +32,7 @@ type Evaluator struct {
 	mu                           sync.Mutex
 	cache                        map[propertyKey]cachedValue
 	reasons                      map[propertyKey]Reason
+	internedStrings              map[string]string
 	structureQualifiedNames      map[ElementKey]structureQualifiedNameCacheEntry
 	structureQualifiedNameBases  map[ElementKey]structureQualifiedNameCacheEntry
 	qualifiedNameNamespaceCaches map[ElementKey]structureQualifiedNameNamespaceCache
@@ -49,6 +50,7 @@ func New(res *resolve.Resolver, model *semantics.Model, options ...Options) *Eva
 		options:                      opts,
 		cache:                        make(map[propertyKey]cachedValue),
 		reasons:                      make(map[propertyKey]Reason),
+		internedStrings:              make(map[string]string),
 		structureQualifiedNames:      make(map[ElementKey]structureQualifiedNameCacheEntry),
 		structureQualifiedNameBases:  make(map[ElementKey]structureQualifiedNameCacheEntry),
 		qualifiedNameNamespaceCaches: make(map[ElementKey]structureQualifiedNameNamespaceCache),
@@ -86,6 +88,16 @@ func (e *Evaluator) Explain(el Element, definingClass, name string) (Reason, boo
 
 // Property returns a faithfully derived property value when the evaluator serves it.
 func (e *Evaluator) Property(el Element, definingClass, name string) (Value, bool) {
+	return e.property(el, definingClass, name, true)
+}
+
+// PropertyReadOnly returns a derived value whose sequence is shared with the
+// evaluator cache; callers must not modify Values or any nested sequence.
+func (e *Evaluator) PropertyReadOnly(el Element, definingClass, name string) (Value, bool) {
+	return e.property(el, definingClass, name, false)
+}
+
+func (e *Evaluator) property(el Element, definingClass, name string, clone bool) (Value, bool) {
 	if e == nil {
 		return Value{}, false
 	}
@@ -93,7 +105,10 @@ func (e *Evaluator) Property(el Element, definingClass, name string) (Value, boo
 	e.mu.Lock()
 	if cached, ok := e.cache[key]; ok {
 		e.mu.Unlock()
-		return cloneValue(cached.value), cached.ok
+		if clone {
+			return cloneValue(cached.value), cached.ok
+		}
+		return cached.value, cached.ok
 	}
 	if _, served := ruleConstraints[keyName(definingClass, name)]; !served {
 		if _, recorded := e.reasons[key]; !recorded {
@@ -120,12 +135,35 @@ func (e *Evaluator) Property(el Element, definingClass, name string) (Value, boo
 	value.Success = ok
 	e.mu.Lock()
 	if cached, found := e.cache[key]; found {
-		value, ok = cloneValue(cached.value), cached.ok
+		value, ok = cached.value, cached.ok
+		if clone {
+			value = cloneValue(value)
+		}
 	} else {
-		e.cache[key] = cachedValue{value: cloneValue(value), ok: ok}
+		interned := e.internValueStrings(cloneValue(value))
+		e.cache[key] = cachedValue{value: interned, ok: ok}
+		if !clone {
+			value = interned
+		}
 	}
 	e.mu.Unlock()
 	return value, ok
+}
+
+func (e *Evaluator) internValueStrings(value Value) Value {
+	switch value.Kind {
+	case StringValue:
+		if stored, ok := e.internedStrings[value.String]; ok {
+			value.String = stored
+		} else {
+			e.internedStrings[value.String] = value.String
+		}
+	case SequenceValue:
+		for i := range value.Values {
+			value.Values[i] = e.internValueStrings(value.Values[i])
+		}
+	}
+	return value
 }
 
 func operatorSpelling(operator ast.OperatorKind) string {

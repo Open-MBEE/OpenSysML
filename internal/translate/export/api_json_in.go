@@ -951,22 +951,56 @@ type apiJSONReferenceKey struct {
 }
 
 type apiJSONTermCache struct {
-	types      map[string]rdf.Term
-	predicates map[string]apiJSONPredicateValue
-	references map[apiJSONReferenceKey]rdf.Term
-	literals   map[string]string
+	types       map[string]rdf.Term
+	predicates  map[string]apiJSONPredicateValue
+	references  map[apiJSONReferenceKey]rdf.Term
+	literals    map[string]string
+	collections map[apiJSONCollectionKey][]rdf.CollectionMember
+}
+
+type apiJSONCollectionKey struct {
+	subject rdf.Term
+	key     string
 }
 
 func newAPIJSONTermCache() *apiJSONTermCache {
 	return &apiJSONTermCache{
-		types:      map[string]rdf.Term{},
-		predicates: map[string]apiJSONPredicateValue{},
-		references: map[apiJSONReferenceKey]rdf.Term{},
-		literals:   map[string]string{},
+		types:       map[string]rdf.Term{},
+		predicates:  map[string]apiJSONPredicateValue{},
+		references:  map[apiJSONReferenceKey]rdf.Term{},
+		literals:    map[string]string{},
+		collections: map[apiJSONCollectionKey][]rdf.CollectionMember{},
 	}
 }
 
+func (cache *apiJSONTermCache) collectionMembers(
+	graph *rdf.Graph,
+	subject rdf.Term,
+	key string,
+) ([]rdf.CollectionMember, error) {
+	if cache.collections == nil {
+		cache.collections = make(map[apiJSONCollectionKey][]rdf.CollectionMember)
+	}
+	cacheKey := apiJSONCollectionKey{subject: subject, key: key}
+	if members, ok := cache.collections[cacheKey]; ok {
+		return members, nil
+	}
+	annotation, ok := graph.Object(subject, rdf.AnnotationJSON+key)
+	if !ok || !annotation.IsLiteral() {
+		return nil, nil
+	}
+	members, err := rdf.ParseCollectionJSON(annotation.Value)
+	if err != nil {
+		return nil, err
+	}
+	cache.collections[cacheKey] = members
+	return members, nil
+}
+
 func (cache *apiJSONTermCache) literal(value string) string {
+	if cache.literals == nil {
+		return value
+	}
 	if stored, ok := cache.literals[value]; ok {
 		return stored
 	}

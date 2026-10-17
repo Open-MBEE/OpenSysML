@@ -53,15 +53,11 @@ func appendAPIJSONOwnedAbsences(graph *rdf.Graph, subject rdf.Term, element apiJ
 	if metaclass == "" {
 		return element
 	}
-	keyed := make(map[string]bool, len(element))
-	for _, member := range element {
-		keyed[member.key] = true
-	}
 	libraryStub := LibraryReference(graph, subject)
 	var absences []apiJSONMember
 	for _, planned := range apiJSONOwnedAbsencePlanFor(metaclass) {
 		property := planned.property
-		if keyed[property.Name] || property.Derived || planned.effective.Derived {
+		if apiJSONHasMember(element, property.Name) || property.Derived || planned.effective.Derived {
 			continue
 		}
 		if libraryStub && apiJSONOwnedAbsenceLibraryStructureProperty(property) {
@@ -92,6 +88,15 @@ func appendAPIJSONOwnedAbsences(graph *rdf.Graph, subject rdf.Term, element apiJ
 		copy(element[insertAt:], absences)
 	}
 	return element
+}
+
+func apiJSONHasMember(element apiJSONObject, key string) bool {
+	for _, member := range element {
+		if member.key == key {
+			return true
+		}
+	}
+	return false
 }
 
 func apiJSONOwnedAbsenceMetaclassInGraph(graph *rdf.Graph, metaclass string) string {
