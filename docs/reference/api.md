@@ -298,7 +298,8 @@ github.com/Open-MBEE/OpenSysML
 │   ├── ir/                 # lower, queryplan, docplan, view, imagefile
 │   ├── check/              # passes, edit
 │   ├── exec/               # runtime, solve, smt, analysis, engines, objref, fmi, hostcap, ingest, runtrace, simresults
-│   ├── translate/          # rdf, export, xmi, migrate, mtip, convert, codegen, interop, deferred, filename, fmi
+│   ├── translate/          # rdf, export, xmi, migrate, mtip, convert, interop, deferred, filename, fmi;
+│   │                       # codegen (`sysml -compile`) is reached only from cmd/sysml and tests/codegen
 │   ├── doc/                # queryexec, docir, docrender, docpdf
 │   ├── workspace/          # model, libs, project, envvar, modeldoc, modelrt, notebook
 │   └── frontend/           # protoconv, grpc, lsp, repl, stdiorpc, jsonrpc, jupyter, core, combined, engine, syntax, symbolfacts, buildinfo, usage

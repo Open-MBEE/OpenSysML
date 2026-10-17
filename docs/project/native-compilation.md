@@ -357,7 +357,7 @@ arithmetic rather than the host language's:
   line a sequence argument is written as the interpreter would read it: `null`, `4`, `(4)`,
   `(1, 2)`, `()`.
 
-`internal/frontend/repl/compile_test.go:TestCompiledCalcsAgreeWithInterpreter` is the differential contract:
+`tests/codegen/compiled_calcs_test.go:TestCompiledCalcsAgreeWithInterpreter` is the differential contract:
 every calc in `testdata/compile_calcs.sysml` is compiled by both backends and run over a matrix of
 values and failure inputs (overflow, zero divisors, non-finite Reals, deep recursion, null and
 many-valued operands, out-of-range indexes, multiplicity, uniqueness and element-budget violations), and each
@@ -463,7 +463,7 @@ functions, Booleans and enumeration literals (`StrClosure`, `SeqClosure`, `FnClo
 
 ## Benchmark methodology
 
-`internal/frontend/repl/compile_bench_test.go:BenchmarkCompiledCalc` times the same invocation three ways
+`tests/codegen/compiled_calcs_bench_test.go:BenchmarkCompiledCalc` times the same invocation three ways
 in one process: interpreted (`Session.RunCalc`), and as the C and Go executables run once with
 `--repeat b.N`, so process start-up is amortized and each figure is per invocation.
 
@@ -558,7 +558,7 @@ enumeration's literals — because objects materialize lazily and no run holds t
 spec's Object semantics describe in the abstract. A compiled program has no run to consult: its
 structs are the values its statements build, so the compiler refuses `all` with a typed
 `UnsupportedError` (`operator 'all'`) rather than answering a smaller extent than the
-interpreter would (`internal/frontend/repl/compile_test.go` `Refused::Extent`).
+interpreter would (`tests/codegen/compiled_calcs_test.go` `Refused::Extent`).
 
 ### Phases
 

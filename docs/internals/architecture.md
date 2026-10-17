@@ -95,7 +95,7 @@ github.com/Open-MBEE/OpenSysML
 │   │   ├── xmi/            # XMI element tree indexed by xmi:id; xmi/sysmlv1 reads SysML v1 exports over it
 │   │   ├── migrate/        # SysML v1 XMI → SysML v2 notation
 │   │   ├── convert/        # Conversion entry point: formats, Convert, Migrate, SyntaxError
-│   │   ├── codegen/        # Code generation from models
+│   │   ├── codegen/        # Native compilation of a calc to Go or C (`sysml -compile`); reached only from cmd/sysml and tests/codegen
 │   │   └── interop/        # Flexo MMS (interop/flexo) and repository sync (interop/reposync)
 │   ├── doc/
 │   │   ├── queryexec/      # Query plan execution → typed, ordered row sets
@@ -138,6 +138,8 @@ The layering test (`tests/hygiene/layering_test.go`) checks the directory order 
 | `frontend` | every layer |
 
 Two edges cross the order by design and stay pinned: `translate/export` imports `syntax/parser`, because the graph → notation decoder parses by nature, and `exec/runtime` receives its expression parser and argument typer from the caller (`SetExpressionParser`, `SetArgumentTyper`) rather than importing `check`. The remaining upward edges the test tolerates are listed in its `tolerated` table with the package that carries each.
+
+`internal/translate/codegen`, the native compilation backend behind `sysml -compile`, is confined the other way round: `tests/hygiene/codegen_boundary_test.go` lists its importers — `cmd/sysml` and the black-box suite `tests/codegen`, tests included — so no core package's build or tests pay for it. Its own tests pin the compiler's typed refusals; the differential contract against the interpreter, which needs a REPL session and a C compiler, is `tests/codegen`.
 
 
 ---
