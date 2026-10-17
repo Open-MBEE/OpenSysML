@@ -540,8 +540,8 @@ function mount(root: HTMLElement, scene: Scene): Mounted {
   async function read(source: string, verb: string): Promise<LandingModel | undefined> {
     const started = performance.now();
     const outcome = await readModel(await engine(), scene, source);
-    if (!srcEl.readOnly && srcEl.value !== source) {
-      // The text moved on while the worker read this one; the edit it became reads next.
+    if (!srcEl.readOnly && srcEl.value !== "" && srcEl.value !== source) {
+      // The editor's text moved on while the worker read this one; the edit it became reads next.
       return undefined;
     }
     if (!outcome.model) {
