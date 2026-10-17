@@ -13,12 +13,12 @@ optimizing them while this profile was taken: calc expression evaluation
 (`runtime.Value`, literal and target caches, evaluation frames) and standard
 library start-up (`internal/workspace/libs`). Where they appear in a profile below
 they are named but not analyzed; their opportunities are recorded in
-`docs/project/execution-performance-2026-09.md`.
+`docs/project/archive/execution-performance-2026-09.md`.
 
 Everything in this record is a **fresh measurement** unless a paragraph says
 "historical", in which case it cites `docs/internals/performance.md`,
-`docs/project/performance-census-2026-09.md` or
-`docs/project/execution-performance-2026-09.md`.
+`docs/project/archive/performance-census-2026-09.md` or
+`docs/project/archive/execution-performance-2026-09.md`.
 
 ## Methodology
 
@@ -293,7 +293,7 @@ machinery: a 90-byte snippet costs 697 ms and 363 MB against a session that
 holds the synthetic model, essentially the full `Analyze` figure. Nothing is
 incremental below the document.
 
-*Historical:* `docs/project/performance-census-2026-09.md` recorded the REPL
+*Historical:* `docs/project/archive/performance-census-2026-09.md` recorded the REPL
 batch-validation path as quadratic in the number of submissions for the same
 reason (each submission reindexes every loaded document), and
 `docs/internals/performance.md` recorded that flattening inherited members
@@ -530,7 +530,7 @@ here always pops the element it just pushed.
 Not worth touching: `ToActionGraph` on small bodies (1.2 µs, 19 allocations);
 guard evaluation as such — it is calc-evaluator territory.
 
-*Historical:* `docs/project/execution-performance-2026-09.md` measured
+*Historical:* `docs/project/archive/execution-performance-2026-09.md` measured
 state-machine start-up and the simple-name target lookup; the 40% growth in
 state-machine start recorded in the census is consistent with the per-event
 recomputation profiled here, but the start path was not re-profiled.

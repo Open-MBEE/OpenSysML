@@ -8,7 +8,7 @@ candidate after the fixes this record made. It follows the method of the
 benchmark on both revisions, `benchstat` over six runs, the rows the machine
 leaves in doubt re-run interleaved, whole-binary timings on generated and
 real models, and each regression either fixed, explained as a rule's price,
-or left named. See [performance](../internals/performance.md) for what the
+or left named. See [performance](../../internals/performance.md) for what the
 figures mean and where the remaining cost is.
 
 Three columns appear throughout: **0.9.0** is the tag, **develop** is the
