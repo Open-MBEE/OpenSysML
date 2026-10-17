@@ -16,7 +16,7 @@ func (m *Model) OperatorFunction(op ast.OperatorKind) *symbols.Symbol {
 	if m == nil || op == ast.OpInvalid {
 		return nil
 	}
-	name := op.String()
+	name := operatorFunctionName(op)
 	for _, pkg := range operatorFunctionPackages {
 		if fn := m.libSymbol(pkg + "::" + name); fn != nil {
 			return fn

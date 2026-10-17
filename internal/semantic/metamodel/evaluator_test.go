@@ -7336,3 +7336,46 @@ func containsElement(value Value, expected Element) bool {
 	}
 	return false
 }
+
+func TestInstantiationExpressionResolvesBracketAndSequenceOperators(t *testing.T) {
+	evaluator, root := newTestEvaluatorWithIndex(t, libs.NewModelIndex(), "sequence-operator-types.sysml", "package P {}")
+	pkg := testSymbol(t, root, "P")
+	bracket := Element{
+		Node:      &ast.IndexExpr{Bracket: true, Operand: &ast.LiteralInteger{}, Index: &ast.LiteralInteger{}},
+		Container: pkg,
+		Aspect:    "bracket-operator",
+	}
+	sequence := Element{
+		Node:      &ast.SequenceExpr{Elements: []ast.Node{&ast.LiteralInteger{}, &ast.LiteralInteger{}}},
+		Container: pkg,
+		Aspect:    "sequence-operator",
+	}
+
+	for _, test := range []struct {
+		name     string
+		element  Element
+		function *symbols.Symbol
+	}{
+		{name: "[", element: bracket, function: evaluator.model.OperatorFunction(ast.OpIndex)},
+		{name: ",", element: sequence, function: evaluator.model.OperatorFunctionNamed(",")},
+	} {
+		if test.function == nil {
+			t.Fatalf("BaseFunctions operator %q was not resolved", test.name)
+		}
+		instantiatedType, ok := evaluator.instantiationExpressionProperty(test.element, "instantiatedType")
+		if !ok || instantiatedType.Kind != ElementValue || instantiatedType.Element.Symbol != test.function {
+			t.Errorf("operator %q instantiatedType = %#v, %t; want %s",
+				test.name, instantiatedType, ok, symbols.FQNOf(test.function))
+		}
+		evaluator.options.Structure = testStructure{
+			metaclasses: map[ElementKey]string{
+				bracket.Key():  "OperatorExpression",
+				sequence.Key(): "SequenceExpression",
+			},
+		}
+		function := testProperty(t, evaluator, test.element, "Expression", "function")
+		if function.Kind != ElementValue || function.Element.Symbol != test.function {
+			t.Errorf("operator %q function = %#v; want %s", test.name, function, symbols.FQNOf(test.function))
+		}
+	}
+}
