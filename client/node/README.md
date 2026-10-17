@@ -188,7 +188,9 @@ The adapter uses JSON encoding; requesting protobuf encoding is refused.
 The module answers `RenderView` as the service's protojson `RenderViewResponse` and
 advertises `render_view`, so `connection.renderView()` returns the same `RenderedView`
 over either; `renderedViewFromJson()` decodes such a response saved as JSON (a snapshot a
-page paints before its module has loaded).
+page paints before its module has loaded). A traced `ExecuteState` answers the service's
+`DocumentEvent` records and the module advertises `state_trace`, so
+`connection.executeState(…, { trace: true })` returns the same typed trace over either.
 
 In Node, install the optional `@openmbee/opensysml-wasm` package at the same
 version as this client. `connectWasm()` resolves its module and matching Go

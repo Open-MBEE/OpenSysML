@@ -233,9 +233,9 @@ func TestLandingStackModel(t *testing.T) {
 	t.Logf("RenderView landing edges: %+v; API port ids: %+v", diagram.Edges, portIDs)
 
 	var journey struct {
-		StatesVisited []string             `json:"statesVisited"`
-		Trace         []engine.JTraceEvent `json:"trace"`
-		Error         string               `json:"error"`
+		StatesVisited []string                `json:"statesVisited"`
+		Trace         []engine.JDocumentEvent `json:"trace"`
+		Error         string                  `json:"error"`
 	}
 	call("ExecuteState", map[string]any{
 		"modelHash":            parsed.ModelHash,
@@ -253,10 +253,10 @@ func TestLandingStackModel(t *testing.T) {
 	}
 
 	var tracedJourney struct {
-		Trace []engine.JTraceEvent `json:"trace"`
-		Error string               `json:"error"`
+		Trace []engine.JDocumentEvent `json:"trace"`
+		Error string                  `json:"error"`
 	}
-	call("ExecuteState", map[string]any{
+	traceBody := call("ExecuteState", map[string]any{
 		"modelHash":            parsed.ModelHash,
 		"stateMachineSymbolId": "OpenSysMLStack::ModelJourney",
 		"events":               []string{"Commit", "Pull", "Push", "Check"},
@@ -265,7 +265,16 @@ func TestLandingStackModel(t *testing.T) {
 	if tracedJourney.Error != "" {
 		t.Fatalf("traced ExecuteState: %s", tracedJourney.Error)
 	}
-	wantTrace := []engine.JTraceEvent{
+	// The page's debugger reads the trace through the typed client, which decodes the
+	// service's ExecuteStateResponse; the module's answer must be that message.
+	var tracedResponse pb.ExecuteStateResponse
+	if err := protojson.Unmarshal(traceBody, &tracedResponse); err != nil {
+		t.Fatalf("traced ExecuteState is not a protojson ExecuteStateResponse: %v", err)
+	}
+	if len(tracedResponse.Trace) == 0 || tracedResponse.Trace[0].Time == nil {
+		t.Fatalf("traced ExecuteState records carry no time: %+v", tracedResponse.Trace)
+	}
+	wantTrace := []engine.JDocumentEvent{
 		{Kind: "entry", State: "begin"},
 		{Kind: "choice", Alternatives: []string{"1->opensysml", "2->flexo"}, Taken: "1->opensysml"},
 		{Kind: "exit", State: "begin"},
@@ -303,9 +312,9 @@ func TestLandingStackModel(t *testing.T) {
 	}
 
 	var seedFifteen struct {
-		StatesVisited []string             `json:"statesVisited"`
-		Trace         []engine.JTraceEvent `json:"trace"`
-		Error         string               `json:"error"`
+		StatesVisited []string                `json:"statesVisited"`
+		Trace         []engine.JDocumentEvent `json:"trace"`
+		Error         string                  `json:"error"`
 	}
 	call("ExecuteState", map[string]any{
 		"modelHash":            parsed.ModelHash,
@@ -331,7 +340,7 @@ func TestLandingStackModel(t *testing.T) {
 		seedFifteen.Trace[commitIndex+1].Kind != "accept" || seedFifteen.Trace[commitIndex+1].Event != "Pull" {
 		t.Errorf("seed:15 expected consecutive Commit and Pull accepts, got %+v", seedFifteen.Trace)
 	}
-	var lastTransition *engine.JTraceEvent
+	var lastTransition *engine.JDocumentEvent
 	for i := range seedFifteen.Trace {
 		if seedFifteen.Trace[i].Kind == "transition" {
 			lastTransition = &seedFifteen.Trace[i]

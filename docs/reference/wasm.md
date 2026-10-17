@@ -270,7 +270,9 @@ evaluation, execution and view rendering route through the engine. `ParseSources
 `ParseFile` check that both frontends produce the same model hash and return the core
 response, including roots and diagnostics. `RenderView` answers with the protojson
 `RenderViewResponse` the service returns, so the module advertises the `render_view`
-capability and a service client's typed `renderView` works over it unchanged.
+capability and a service client's typed `renderView` works over it unchanged. A traced
+`ExecuteState` likewise answers its `trace` as the service's `DocumentEvent` records and
+the module advertises `state_trace`, so a typed `executeState` with `trace` works over it.
 
 A hash from either parse method is shared by every method that takes a `modelHash`, including
 `GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction` and `ExecuteState`.
@@ -280,7 +282,7 @@ The module retains the 16 most recently used models; an evicted hash is evicted 
 `feature_values`, `inline_language`, `strict_conformance`, `parse_sources`, `complex_values`,
 `structured_values`, `measurement_refs`, `function_values`, `set_values`, `tensor_values`,
 `infinity_value`, `diagnostic_codes`, `schedule`, `final_time`, `metaobject_values`,
-`undetermined_value`, `performer`, `big_int_values`, `render_view`.
+`undetermined_value`, `performer`, `big_int_values`, `render_view`, `state_trace`.
 
 The `js` build installs one synchronous host surface, `globalThis.sysmlWasm`, with
 `version` and `call(method, paramsJSON)`. The call returns a JSON-RPC envelope string.

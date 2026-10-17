@@ -20,6 +20,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 	fsyntax "github.com/Open-MBEE/OpenSysML/internal/frontend/syntax"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -945,7 +946,7 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	}
 	self, err := e.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := stateTraceToJSON(runtimeCtx, traceRecorder)
+		trace, dropped := stateTraceToJSON(runtimeCtx, cached.Index, traceRecorder)
 		return marshal(&JExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
 	}
 
@@ -957,7 +958,7 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	}
 	finalContext, statesVisited := outcome.Outputs, outcome.StateVisits
 	diags := runNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
-	trace, dropped := stateTraceToJSON(runtimeCtx, traceRecorder)
+	trace, dropped := stateTraceToJSON(runtimeCtx, cached.Index, traceRecorder)
 	if err != nil {
 		return marshal(&JExecuteStateResponse{
 			Error:        fmt.Sprintf("state machine execution failed: %v", err),
@@ -978,34 +979,106 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	})
 }
 
-func stateTraceToJSON(rt *runtime.Context, recorder *runtime.TraceRecorder) ([]JTraceEvent, int) {
+func stateTraceToJSON(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]JDocumentEvent, int) {
 	if recorder == nil {
 		return nil, 0
 	}
 	events := queryexec.EventsFromTrace(rt, recorder.Records())
-	trace := make([]JTraceEvent, len(events))
+	trace := make([]JDocumentEvent, len(events))
 	for i, event := range events {
-		record := event.Record()
-		_, object := event.Object()
-		_, target := event.Target()
-		trace[i] = JTraceEvent{
-			Kind:         event.Kind(),
-			At:           F64(event.At()),
-			Object:       object,
-			Machine:      event.Machine(),
-			State:        record.State,
-			From:         record.From,
-			To:           record.To,
-			Target:       target,
-			Event:        record.Event,
-			Payload:      event.Payload(),
-			Alternatives: event.Alternatives(),
-			Taken:        event.Taken(),
-			Text:         event.Text(),
-		}
+		trace[i] = documentEventToJSON(idx, event)
 	}
 	dropped, _ := recorder.Dropped()
 	return trace, dropped
+}
+
+// documentEventToJSON writes one trace record as the service's DocumentEvent.
+func documentEventToJSON(idx *symbols.Index, event queryexec.Event) JDocumentEvent {
+	record := event.Record()
+	out := JDocumentEvent{
+		Kind:         event.Kind(),
+		Time:         documentValueToJSON(idx, event.Time()),
+		Machine:      event.Machine(),
+		State:        record.State,
+		From:         record.From,
+		To:           record.To,
+		Event:        record.Event,
+		Payload:      event.Payload(),
+		Alternatives: event.Alternatives(),
+		Taken:        event.Taken(),
+		Text:         event.Text(),
+	}
+	if inst, label := event.Object(); inst != nil {
+		out.Object = documentObjectToJSON(idx, queryexec.ObjectValue(inst, label))
+	}
+	if inst, label := event.Target(); inst != nil {
+		out.Target = documentObjectToJSON(idx, queryexec.ObjectValue(inst, label))
+	}
+	return out
+}
+
+// documentValueToJSON writes a query value as the service's DocumentValue; a
+// row value (verdict, state, event) has no arm here, as a trace carries none.
+func documentValueToJSON(idx *symbols.Index, value queryexec.Value) *JDocumentValue {
+	switch value.Kind() {
+	case queryexec.ValueElement:
+		sym, ok := value.Element()
+		if !ok {
+			return &JDocumentValue{}
+		}
+		return elementValueToJSON(idx, sym)
+	case queryexec.ValueObject:
+		return &JDocumentValue{Object: documentObjectToJSON(idx, value)}
+	case queryexec.ValueString:
+		text, _ := value.String()
+		return &JDocumentValue{StringValue: &text}
+	case queryexec.ValueInteger:
+		integer, _ := value.IntegerConst()
+		if n, fits := integer.Int64(); fits {
+			v := I64(n)
+			return &JDocumentValue{IntValue: &v}
+		}
+		big := integer.FormatInt()
+		return &JDocumentValue{BigIntValue: &big}
+	case queryexec.ValueRational:
+		rational, _ := value.Rational()
+		if f, exact := rational.BinaryExact(); exact {
+			v := F64(f)
+			return &JDocumentValue{RealValue: &v}
+		}
+		return &JDocumentValue{RationalValue: rationalToProto(rational)}
+	case queryexec.ValueReal:
+		realVal, _ := value.Real()
+		v := F64(realVal)
+		return &JDocumentValue{RealValue: &v}
+	case queryexec.ValueBoolean:
+		boolean, _ := value.Boolean()
+		return &JDocumentValue{BoolValue: &boolean}
+	case queryexec.ValueInfinity:
+		yes := true
+		return &JDocumentValue{Infinity: &yes}
+	case queryexec.ValueQuantity:
+		quantity, _ := value.Quantity()
+		return &JDocumentValue{Quantity: quantityToProto(&quantity)}
+	default:
+		return &JDocumentValue{}
+	}
+}
+
+// documentObjectToJSON writes an object by id, label and declaring element.
+func documentObjectToJSON(idx *symbols.Index, value queryexec.Value) *JDocumentObject {
+	inst, label, _ := value.Object()
+	out := &JDocumentObject{InstanceId: I64(inst.ID), Path: label}
+	if decl := value.Declaration(); decl != nil {
+		out.Element = elementValueToJSON(idx, decl)
+	}
+	return out
+}
+
+// elementValueToJSON names an element by qualified name and metamodel type.
+func elementValueToJSON(idx *symbols.Index, sym *symbols.Symbol) *JDocumentValue {
+	fqn := idx.GetFQN(sym)
+	return &JDocumentValue{ElementId: &fqn, ElementType: corequery.MetamodelTypeNameOf(sym)}
 }
 
 // valuesToProto converts each value of a named map.

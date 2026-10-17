@@ -492,23 +492,47 @@ type JExecuteStateResponse struct {
 	Error         string             `json:"error,omitempty"`
 	Diagnostics   []*JDiagnostic     `json:"diagnostics,omitempty"`
 	FinalTime     F64                `json:"finalTime,omitempty"`
-	Trace         []JTraceEvent      `json:"trace,omitempty"`
+	Trace         []JDocumentEvent   `json:"trace,omitempty"`
 	TraceDropped  int                `json:"traceDropped,omitempty"`
 }
 
-// JTraceEvent is one documented state-machine execution record.
-type JTraceEvent struct {
-	Kind         string   `json:"kind"`
-	At           F64      `json:"at"`
-	Object       string   `json:"object,omitempty"`
-	Machine      string   `json:"machine,omitempty"`
-	State        string   `json:"state,omitempty"`
-	From         string   `json:"from,omitempty"`
-	To           string   `json:"to,omitempty"`
-	Target       string   `json:"target,omitempty"`
-	Event        string   `json:"event,omitempty"`
-	Payload      []string `json:"payload,omitempty"`
-	Alternatives []string `json:"alternatives,omitempty"`
-	Taken        string   `json:"taken,omitempty"`
-	Text         string   `json:"text"`
+// JDocumentEvent is the DocumentEvent message: one documented record of a traced
+// state-machine run, as the service's ExecuteState answers it.
+type JDocumentEvent struct {
+	Kind         string           `json:"kind"`
+	Time         *JDocumentValue  `json:"time,omitempty"`
+	Object       *JDocumentObject `json:"object,omitempty"`
+	Machine      string           `json:"machine,omitempty"`
+	State        string           `json:"state,omitempty"`
+	From         string           `json:"from,omitempty"`
+	To           string           `json:"to,omitempty"`
+	Target       *JDocumentObject `json:"target,omitempty"`
+	Event        string           `json:"event,omitempty"`
+	Payload      []string         `json:"payload,omitempty"`
+	Alternatives []string         `json:"alternatives,omitempty"`
+	Taken        string           `json:"taken,omitempty"`
+	Text         string           `json:"text"`
+}
+
+// JDocumentObject is the DocumentObject message: an object Instantiate created,
+// by id, by the label it is reached under, and by the element declaring it.
+type JDocumentObject struct {
+	InstanceId I64             `json:"instanceId,omitempty"`
+	Path       string          `json:"path,omitempty"`
+	Element    *JDocumentValue `json:"element,omitempty"`
+}
+
+// JDocumentValue is the DocumentValue message: a oneof, so at most one arm is set.
+type JDocumentValue struct {
+	ElementId     *string          `json:"elementId,omitempty"`
+	StringValue   *string          `json:"stringValue,omitempty"`
+	IntValue      *I64             `json:"intValue,omitempty"`
+	RealValue     *F64             `json:"realValue,omitempty"`
+	BoolValue     *bool            `json:"boolValue,omitempty"`
+	Infinity      *bool            `json:"infinity,omitempty"`
+	Quantity      *JQuantity       `json:"quantity,omitempty"`
+	Object        *JDocumentObject `json:"object,omitempty"`
+	BigIntValue   *string          `json:"bigIntValue,omitempty"`
+	RationalValue *JRational       `json:"rationalValue,omitempty"`
+	ElementType   string           `json:"elementType,omitempty"`
 }
