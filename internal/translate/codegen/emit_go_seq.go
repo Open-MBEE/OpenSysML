@@ -542,7 +542,7 @@ func sysmlFormatSeq[T sysmlElem](s sysmlSeq[T]) string {
 	case sysmlNull:
 		return "null"
 	case sysmlOne:
-		return sysmlFormat(s.data[0])
+		return "[" + sysmlFormat(s.data[0]) + "]"
 	}
 	parts := make([]string, len(s.data))
 	for i, v := range s.data {

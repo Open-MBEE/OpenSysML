@@ -15,7 +15,7 @@ step 4: token 2@j, token 3@b
 step 5: token 2@j, token 3@b
 step 6: token 2@j, token 3@b2
 stmt assign reached
-    eval feature reached -> 1
+    eval feature reached -> (1)
     eval literal 10 -> 10
   eval operator + -> 11
 step 7: token 2@j, token 3@j
@@ -26,7 +26,7 @@ step 2: token 1@tail
 eval index -> 1 [s]
 step 3: token 1@sum
 stmt assign total
-    eval chain reached -> 11
+    eval chain reached -> (11)
     eval literal 100 -> 100
   eval operator + -> 111
 step 4: token 1@done

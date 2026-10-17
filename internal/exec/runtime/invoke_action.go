@@ -262,6 +262,7 @@ func (ctx *Context) performerOf(ec *EvalContext, inv actionInvocation, self *Ins
 	if err != nil {
 		return nil, fmt.Errorf("eval performer of %s: %w", inv.name(), err)
 	}
+	value = soleElement(value)
 	if value.Kind != ValInstance {
 		return nil, fmt.Errorf("%w: %s is performed by %s, which is no one object",
 			ErrPerformerNotObject, inv.name(), FormatValue(value))

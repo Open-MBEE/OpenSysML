@@ -17,7 +17,7 @@ stmt send
   eval literal 6 -> 6
         stmt assign total
             eval feature total -> 0
-            eval feature a -> 4
+            eval feature a -> (4)
           eval operator + -> 4
 leave action node: step
     stmt assign seen
@@ -31,7 +31,7 @@ leave action node: step
 enter action node: step
         stmt assign total
             eval feature total -> 4
-            eval feature a -> 6
+            eval feature a -> (6)
           eval operator + -> 10
 leave action node: step
     stmt assign seen

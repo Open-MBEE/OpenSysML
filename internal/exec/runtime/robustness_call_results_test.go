@@ -158,14 +158,14 @@ func testCallResultsOverloaded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s, ok := got["s"]; !ok || s.Str() != "one" || len(got) != 1 {
+	if s, ok := got["s"]; !ok || heldOne(t, "s", s).Str() != "one" || len(got) != 1 {
 		t.Errorf("compute(\"text\") returned %v, want s = \"one\" alone", got)
 	}
 	got, err = exec.Call("compute", map[string]Value{"x": constInt(3)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n, ok := got["n"]; !ok || n.Const.Int != 1 || len(got) != 1 {
+	if n, ok := got["n"]; !ok || heldInt(t, "n", n) != 1 || len(got) != 1 {
 		t.Errorf("compute(3) returned %v, want n = 1 alone", got)
 	}
 	got, err = exec.Call("compute", nil)
@@ -219,7 +219,7 @@ func testCallResultsArguments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n, ok := got["n"]; !ok || n.Const.Int != 1 || len(got) != 1 {
+	if n, ok := got["n"]; !ok || heldInt(t, "n", n) != 1 || len(got) != 1 {
 		t.Errorf("compute(3) returned %v, want n = 1 alone", got)
 	}
 }
@@ -274,7 +274,7 @@ func testCallResultsOverloadDispatch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if n, ok := got["n"]; !ok || n.Const.Int != tc.want || len(got) != 1 {
+		if n, ok := got["n"]; !ok || heldInt(t, "n", n) != tc.want || len(got) != 1 {
 			t.Errorf("compute%v returned %v, want n = %d alone", tc.args, got, tc.want)
 		}
 	}
@@ -357,14 +357,14 @@ func testCallResultsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n, ok := got["n"]; !ok || n.Const.Int != 7 || len(got) != 1 {
+	if n, ok := got["n"]; !ok || heldInt(t, "n", n) != 7 || len(got) != 1 {
 		t.Errorf("compute(3) returned %v, want n = 7 from y's default alone", got)
 	}
 	got, err = exec.Call("compute", map[string]Value{"x": constInt(3), "y": constInt(5)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n, ok := got["n"]; !ok || n.Const.Int != 5 || len(got) != 1 {
+	if n, ok := got["n"]; !ok || heldInt(t, "n", n) != 5 || len(got) != 1 {
 		t.Errorf("compute(3, 5) returned %v, want n = 5 alone", got)
 	}
 }
@@ -377,14 +377,14 @@ func testCallResultsCalcConstraint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r, ok := got["result"]; !ok || r.Const.Int != 2 || len(got) != 1 {
+	if r, ok := got["result"]; !ok || heldInt(t, "result", r) != 2 || len(got) != 1 {
 		t.Errorf("half(4) returned %v, want result = 2 alone", got)
 	}
 	got, err = exec.Call("even", map[string]Value{"x": constInt(4)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r, ok := got["result"]; !ok || !r.Const.Bool || len(got) != 1 {
+	if r, ok := got["result"]; !ok || !heldOne(t, "result", r).Const.Bool || len(got) != 1 {
 		t.Errorf("even(4) returned %v, want result = true alone", got)
 	}
 }
@@ -515,7 +515,7 @@ func testCallResultsDoNotCarryOver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, ok := first["result"]; !ok || got.Const.Int != 42 {
+	if got, ok := first["result"]; !ok || heldInt(t, "result", got) != 42 {
 		t.Fatalf("first call returned %v, want result = 42", first)
 	}
 	second, err := exec.Call("ask", nil)
@@ -556,7 +556,7 @@ func testCallResultsReleasedBeforeCompletion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, ok := results["result"]; !ok || got.Const.Int != 42 {
+	if got, ok := results["result"]; !ok || heldInt(t, "result", got) != 42 {
 		t.Fatalf("Call returned %v, want result = 42", results)
 	}
 	if got := exec.Outcome().FinalState; got != "answered" {
@@ -578,7 +578,7 @@ func testCallResultsTimerNotDrained(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Call = %v, want the result ahead of the timer's failure", err)
 	}
-	if got, ok := results["result"]; !ok || got.Const.Int != 42 {
+	if got, ok := results["result"]; !ok || heldInt(t, "result", got) != 42 {
 		t.Fatalf("Call returned %v, want result = 42", results)
 	}
 	err = exec.RunToCompletion()
@@ -598,7 +598,7 @@ func testCallResultsQueuedSignalFirst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, ok := results["result"]; !ok || got.Const.Int != 42 {
+	if got, ok := results["result"]; !ok || heldInt(t, "result", got) != 42 {
 		t.Fatalf("Call returned %v, want result = 42", results)
 	}
 	if len(results) != 1 {
@@ -622,7 +622,7 @@ func testCallResultsDeclaredReturns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, ok := asked["result"]; !ok || got.Const.Int != 42 || len(asked) != 1 {
+	if got, ok := asked["result"]; !ok || heldInt(t, "result", got) != 42 || len(asked) != 1 {
 		t.Fatalf("ask returned %v, want result = 42 alone", asked)
 	}
 	if log, err := owner.GetFeatureValue(ctx, "log"); err != nil || log.Value.Str() != "answered" {
@@ -632,7 +632,7 @@ func testCallResultsDeclaredReturns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, ok := told["log"]; !ok || got.Str() != "answered" || len(told) != 2 {
+	if got, ok := told["log"]; !ok || heldOne(t, "log", got).Str() != "answered" || len(told) != 2 {
 		t.Errorf("tell returned %v, want both outputs of the undeclared operation", told)
 	}
 }
@@ -646,7 +646,7 @@ func testCallResultsInoutArgument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, ok := nudged["x"]; !ok || got.Const.Int != 7 || len(nudged) != 1 {
+	if got, ok := nudged["x"]; !ok || heldInt(t, "x", got) != 7 || len(nudged) != 1 {
 		t.Errorf("nudge in idle returned %v, want x = 7 as passed", nudged)
 	}
 	if _, err := exec.Call("ask", nil); err != nil {
@@ -656,7 +656,7 @@ func testCallResultsInoutArgument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, ok := nudged["x"]; !ok || got.Const.Int != 8 || len(nudged) != 1 {
+	if got, ok := nudged["x"]; !ok || heldInt(t, "x", got) != 8 || len(nudged) != 1 {
 		t.Errorf("nudge in answered returned %v, want x = 8 from the helper", nudged)
 	}
 	if _, err := exec.Call("tell", nil); err != nil {

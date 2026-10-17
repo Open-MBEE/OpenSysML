@@ -169,6 +169,31 @@ func (ctx *Context) checkTargetAs(scope *symbols.Scope, what func() string, targ
 	if msg := ctx.uniquenessRefusal(target.unique, target.holdsSet, value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}
+	if countJudged {
+		return ctx.shapeForTarget(target, value)
+	}
+	return nil
+}
+
+// shapeForTarget holds a conformant value in the shape the target's multiplicity gives
+// its values, as an occurrence feature does (admitted): a multi-valued target holds a
+// collection however the value was written, a single-valued one its sole element.
+func (ctx *Context) shapeForTarget(target *writeTarget, value *Value) error {
+	if !target.mult.Upper.Known || value.Kind == ValInvalid {
+		return nil
+	}
+	if !multiValued(target.mult) {
+		*value = soleElement(*value)
+		return nil
+	}
+	if (value.Kind == ValSequence || value.Kind == ValSet) && target.holdsSet == (value.Kind == ValSet) {
+		return nil
+	}
+	elements := elementsOf(*value)
+	if err := ctx.chargeElements(int64(len(elements))); err != nil {
+		return err
+	}
+	*value = ctx.collectionOf(&EffectiveFeature{HoldsSet: target.holdsSet}, elements)
 	return nil
 }
 
@@ -713,4 +738,14 @@ func (ctx *Context) featuredChainTarget(s lower.Assign) (*symbols.Symbol, bool) 
 		return nil, false
 	}
 	return feature, true
+}
+
+// shapeDeclared holds a value bound to the feature name declares in scope in the shape
+// its multiplicity gives it (shapeForTarget), where that multiplicity judges the count.
+func (ctx *Context) shapeDeclared(scope *symbols.Scope, name string, value *Value) error {
+	target, ok := ctx.writeTargetIn(scope, name)
+	if !ok || !target.countJudged {
+		return nil
+	}
+	return ctx.shapeForTarget(target, value)
 }

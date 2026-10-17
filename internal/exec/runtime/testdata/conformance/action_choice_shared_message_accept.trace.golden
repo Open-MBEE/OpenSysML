@@ -10,8 +10,8 @@ step 4: token 2@sync, token 3@left, token 4@sync
 step 5: token 2@sync, token 3@sync, token 4@sync
 step 6: token 5@recorder
 stmt assign a
-  eval feature x -> 2
+  eval feature x -> (2)
 stmt assign b
-  eval feature y -> 1
+  eval feature y -> (1)
 step 7: token 5@done
 step 8: no active tokens

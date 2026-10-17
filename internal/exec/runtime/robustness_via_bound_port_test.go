@@ -74,8 +74,8 @@ func testViaBoundReferenceHoldsAValue(t *testing.T) {
 		"in tx : Integer;", "in :>> tx = count;",
 	), "test::Host")
 	var typed *SendTargetValueError
-	if !errors.As(err, &typed) || typed.Target != "tx" || typed.Name != "tx" || typed.Value != "3" {
-		t.Fatalf("error = %v, want SendTargetValueError for tx holding 3", err)
+	if !errors.As(err, &typed) || typed.Target != "tx" || typed.Name != "tx" || typed.Value != "[3]" {
+		t.Fatalf("error = %v, want SendTargetValueError for tx holding [3]", err)
 	}
 	if !errors.Is(err, ErrSendTargetNotObject) {
 		t.Fatalf("error = %v, want ErrSendTargetNotObject", err)

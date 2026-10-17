@@ -291,8 +291,8 @@ func testCalcOutputAssignedTwice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading output a of c: %v", err)
 	}
-	if got := FormatTraceValue(value); got != "7" {
-		t.Errorf("output a = %s, want 7", got)
+	if got := FormatTraceValue(value); got != "(7)" {
+		t.Errorf("output a = %s, want (7)", got)
 	}
 }
 
