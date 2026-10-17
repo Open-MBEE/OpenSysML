@@ -513,6 +513,7 @@ impl Connection {
                 diagnostics: Vec::new(),
                 trace: Vec::new(),
                 trace_dropped: 0,
+                final_time: 0.0,
             });
         }
         Ok(CheckResult::from_wire(response))
