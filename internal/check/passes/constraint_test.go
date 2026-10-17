@@ -1005,9 +1005,8 @@ func TestConstraintSatisfyOutsideAViewIsNotChecked(t *testing.T) {
 	}
 }
 
-// A package-level feature has no featuring type, so it cannot reach a feature
-// featured within a type: the pilot reports validateSubsettingFeaturingTypes on
-// the redefinition (`Must be an accessible feature`).
+// A package-level feature has no featuring type, so it cannot reach a type-featured
+// target; the pilot reports `Must be an accessible feature` on the redefinition.
 func TestConstraint_PackageLevelRedefinitionOfTypeFeatureIsInaccessible(t *testing.T) {
 	cases := map[string]struct{ src, target string }{
 		"qualified part": {`

@@ -555,12 +555,8 @@ func (cc *constraintChecker) checkRedefinition(sym *symbols.Symbol) {
 	}
 }
 
-// checkPackageLevelRedefinition checks a redefinition by a feature with no
-// featuring type (owned by a package or the root namespace, no `featured by`):
-// it inherits nothing, so a target featured within some type is not accessible
-// from it (KerML validateSubsettingFeaturingTypes, which a Redefinition is
-// subject to as a Subsetting). A target that is itself package-level is the
-// pair checkW10BRedefinition reports.
+// checkPackageLevelRedefinition reports a redefiner with no featuring type reaching
+// a type-featured target (KerML validateSubsettingFeaturingTypes); package-level pairs are W10B's.
 func (cc *constraintChecker) checkPackageLevelRedefinition(sym *symbols.Symbol, rel *ast.Relationship) {
 	target := cc.resolveRelationshipTarget(sym, rel)
 	if target == nil || target == sym || !isUsageKind(target.Kind) {
@@ -763,9 +759,8 @@ func isPackageLevelFeature(sym *symbols.Symbol) bool {
 	return true
 }
 
-// isPackageLevelScope reports whether the members of scope are owned by a
-// package or namespace rather than a type: a scope a package or namespace
-// declaration owns, or the document root, which no symbol owns.
+// isPackageLevelScope reports whether scope's members are owned by a package or
+// namespace rather than a type, counting the unowned document root as package-level.
 func isPackageLevelScope(scope *symbols.Scope) bool {
 	if scope == nil {
 		return false
