@@ -247,7 +247,8 @@ Beside the model reads above, the client covers every RPC the service offers:
   with a pointer at `convert`;
 - **`model.query`** (OSLC or structured), **`model.runDocumentQuery`** with
   `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or
-  HTML, and **`model.renderView`** for typed view data with minimal or full ports;
+  HTML, and **`model.renderView`** for typed view data with minimal or full ports
+  and the optional notation elements to `show` (its `shown` lists those drawn);
 - **`model.executeAction`/`executeState`** for runs and
   **`exploreAction`/`exploreState`/`exploreAnalysis`** for explorations of every
   schedule — the two families refuse each other's `schedule`, as the wire does.
@@ -279,8 +280,8 @@ Beside the model reads above, the client covers every RPC the service offers:
 
 `npm run conformance -- --allow-skips --report report.json` runs the
 language-neutral suite through the public API, and emits the report shape
-`tools/cmd/conformance` emits. 158 scenarios per protocol over `grpc`, `connect` and
-`connect-json`: 155 pass and 3 are skipped, being the requests the public API
+`tools/cmd/conformance` emits. 166 scenarios per protocol over `grpc`, `connect` and
+`connect-json`: 163 pass and 3 are skipped, being the requests the public API
 refuses eagerly (a `ParseFile` naming no source, a `ParseSources` naming no
 document or two alike); a refusal the client makes in the service's own words and
 status (a v1 model offered to `convert`, a v2 one to `migrate`) runs as that status.

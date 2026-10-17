@@ -502,10 +502,14 @@ One thing is deliberately absent: generated model-ergonomics types (a Go struct
 per SysML definition). Models are read through `Symbol`, `Instance` and
 `Value`, which need no code generation step.
 
-No operation here shells out to an SMT solver: verification evaluates conditions
-with the runtime that `Evaluate` and `Instantiate` use, so an in-process caller
-needs nothing installed. The solver-backed analyses (`%check`, `%solve`,
-`%optimize`, `%explain`) belong to the REPL and are not part of the service API.
+The default verification question, `evaluate`, evaluates conditions with the
+runtime that `Evaluate` and `Instantiate` use, so an in-process caller needs
+nothing installed for it. The `holds` and `satisfiable` questions
+(`QuestionHolds`, `QuestionSatisfiable`) are put to the service's `solve`
+engine, which runs an external SMT solver (`z3` or `cvc5`) found on `PATH`;
+`ListEngines` reports whether one was found, and a question put to an engine
+that is not ready is answered with an undecided verdict naming the reason. The
+REPL's `%check`, `%solve`, `%optimize` and `%explain` have no RPC of their own.
 
 ## Conformance
 

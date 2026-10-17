@@ -72,6 +72,9 @@ public final class Capabilities {
   /** A parse names the documents whose results may differ from those of {@code base_model_hash}. */
   public static final String PARSE_SOURCES_AFFECTED = "parse_sources_affected";
 
+  /** A rendered document names the file a rendered set writes it to. */
+  public static final String RENDER_DOCUMENT_FILE_NAME = "render_document_file_name";
+
   /** A complex number travels as itself rather than as an unsupported null. */
   public static final String COMPLEX_VALUES = "complex_values";
 

@@ -101,13 +101,25 @@ func FlowSharesMoves(graph *ActionGraph) bool {
 			if shared > 1 {
 				return true
 			}
-			if sub := g.Subflows[n]; sub != nil && sub.Graph != nil && walk(sub.Graph) {
-				return true
+			for _, nested := range nestedFlows(g, n) {
+				if walk(nested) {
+					return true
+				}
 			}
 		}
 		return false
 	}
 	return walk(graph)
+}
+
+// nestedFlows lists the flows that run under node: its typed subflow, and the
+// flows of the loop and branch bodies among its statements.
+func nestedFlows(graph *ActionGraph, node ast.Node) []*ActionGraph {
+	var flows []*ActionGraph
+	if sub := graph.Subflows[node]; sub != nil && sub.Graph != nil {
+		flows = append(flows, sub.Graph)
+	}
+	return append(flows, BlockFlows(graph.Bodies[node])...)
 }
 
 // ownFeatures are the symbols of the attributes and in parameters graph's action declares;
@@ -221,8 +233,8 @@ func concurrentFootprints(root, graph *ActionGraph, node ast.Node) []Footprint {
 				footprint = sharedOnly(footprint)
 			}
 			out = append(out, footprint)
-			if sub := g.Subflows[n]; sub != nil && sub.Graph != nil {
-				walk(sub.Graph)
+			for _, nested := range nestedFlows(g, n) {
+				walk(nested)
 			}
 		}
 	}
@@ -291,8 +303,10 @@ func runsConcurrently(root *ActionGraph) bool {
 				return true
 			}
 		}
-		if sub := root.Subflows[n]; sub != nil && sub.Graph != nil && runsConcurrently(sub.Graph) {
-			return true
+		for _, nested := range nestedFlows(root, n) {
+			if runsConcurrently(nested) {
+				return true
+			}
 		}
 	}
 	return false

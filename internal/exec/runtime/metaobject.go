@@ -29,7 +29,7 @@ func (ec *EvalContext) evalMetaCast(n *ast.OperatorExpr) (Value, error) {
 	}
 	target, ok := ec.resolveClassificationType(n.TypeRef)
 	if !ok {
-		return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedType, qualifiedNameToString(n.TypeRef))
+		return Value{}, fmt.Errorf("%w: %s", errUnresolvedType, qualifiedNameToString(n.TypeRef))
 	}
 	sym, err := ec.metaCastSubject(n)
 	if err != nil {

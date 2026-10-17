@@ -204,7 +204,7 @@ func TestEmbeddedTablesRenderHTML(t *testing.T) {
 	wantInOrder(t, "HTML", page,
 		"Inventory",
 		"Pumps on hand.", "Every pump on hand.",
-		`<table class="sysml-table" data-content="table" data-name="table" data-query="Plant::Inventory::Pump Table Rows">`,
+		`<table class="sysml-table" data-content="table" data-name="table" data-query="Model::Plant::Inventory::Pump Table Rows">`,
 		"Table 1.", "Pump Inventory",
 		`<th scope="col" data-column="name">name</th>`, `data-column="mass">mass</th>`, `data-column="flow">flow</th>`,
 		">p1</span>", ">12.5</span>", ">3</span>",
@@ -219,7 +219,7 @@ func TestEmbeddedTablesRenderHTML(t *testing.T) {
 		"Figure 2.", "Pump Structure",
 		"The pump moves fluid.", "It never runs dry.",
 		"Gallery", "Every block of the plant.",
-		`<table class="sysml-table" data-content="table" data-name="table" data-query="Plant Documents::Gallery::Block Table Rows">`,
+		`<table class="sysml-table" data-content="table" data-name="table" data-query="Model::Plant Documents::Gallery::Block Table Rows">`,
 		"Table 3.", "Block Table",
 		`<th scope="col" data-column="name">name</th>`,
 		">Pump</span>", ">Valve</span>")

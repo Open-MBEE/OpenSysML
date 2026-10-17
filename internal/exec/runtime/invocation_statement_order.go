@@ -74,7 +74,7 @@ func (ctx *Context) invokeWithStatementOrderResults(
 		}
 		err := ctx.sweepStatementOrderVariantsNested(func(sweep *statementOrderSweep) error {
 			value, invokeErr := invoke()
-			if errors.Is(invokeErr, ErrStatementOrderSweepLimit) {
+			if errors.Is(invokeErr, errStatementOrderSweepLimit) {
 				return invokeErr
 			}
 			result := invocationOrderResult{
@@ -106,10 +106,10 @@ func (ctx *Context) invokeWithStatementOrderResults(
 		}
 	}
 	if len(results) == 0 {
-		return Value{}, fmt.Errorf("%w: result of %s under its statement orders was not evaluated", ErrOrderDependentPreview, shape.Label)
+		return Value{}, fmt.Errorf("%w: result of %s under its statement orders was not evaluated", errOrderDependentPreview, shape.Label)
 	}
 	if len(results) > 1 && ctx.probes > 0 && ctx.statementOrderSweep == nil {
-		return Value{}, fmt.Errorf("%w: result of %s depends on the statement orders of its body", ErrOrderDependentPreview, shape.Label)
+		return Value{}, fmt.Errorf("%w: result of %s depends on the statement orders of its body", errOrderDependentPreview, shape.Label)
 	}
 	selected := 0
 	if len(results) > 1 {
@@ -118,7 +118,7 @@ func (ctx *Context) invokeWithStatementOrderResults(
 			alternatives[i] = results[i].spelling
 		}
 		choice := ChoicePoint{
-			Kind:         ChoiceStatementOrder,
+			Kind:         choiceStatementOrder,
 			Step:         ctx.enclosingExecutorStep(),
 			Where:        "result of " + shape.Label + " under the statement orders of its body",
 			Alternatives: alternatives,
@@ -152,7 +152,7 @@ func (ctx *Context) invokeWithStatementOrderResults(
 		value, err = invoke()
 	}()
 	if invocationOrderResultKey(value, err) != result.key {
-		return Value{}, fmt.Errorf("%w: result of %s did not follow its statement-order witness", ErrOrderDependentPreview, shape.Label)
+		return Value{}, fmt.Errorf("%w: result of %s did not follow its statement-order witness", errOrderDependentPreview, shape.Label)
 	}
 	return value, err
 }

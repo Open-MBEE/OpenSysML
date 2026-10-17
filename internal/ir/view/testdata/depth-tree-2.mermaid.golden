@@ -1,0 +1,51 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% DepthViews::depth2 — tree rendering (render asTreeDiagram)
+%% not represented: 2 elements nested deeper than 2 levels not shown
+flowchart TD
+  n0("`*«part»*
+**vehicle**`")
+    n1("`*«attribute»*
+**mass**`")
+  n0 --- n1
+    n2("`*«part»*
+**wheel**`")
+      n3("`*«attribute»*
+**pressure**`")
+  n2 --- n3
+      n4("`*«part»*
+**hub**
+nested deeper than 2 levels; not shown`")
+  n2 --- n4
+  n0 --- n2
+    n5("`*«part»*
+**engine**`")
+      n6("`*«part»*
+**piston**
+nested deeper than 2 levels; not shown`")
+  n5 --- n6
+      n7("`*«port»*
+**fuelIn**`")
+  n5 --- n7
+  n0 --- n5

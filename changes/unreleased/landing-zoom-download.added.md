@@ -1,1 +1,0 @@
-- The landing page's stack diagram zooms (the +/− buttons, <kbd>Ctrl</kbd>+scroll, or a pinch) and pans by dragging its background, and a "Download PNG" button saves the diagram as drawn at twice its size.

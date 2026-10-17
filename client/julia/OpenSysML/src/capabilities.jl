@@ -61,6 +61,7 @@ const CAPABILITY_RATIONAL_VALUES = "rational_values"
 const CAPABILITY_CONVERT_DOCUMENTS = "convert_documents"
 const CAPABILITY_CONVERT_COMPACT = "convert_compact"
 const CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected"
+const CAPABILITY_RENDER_DOCUMENT_FILE_NAME = "render_document_file_name"
 
 """The version and advertised capabilities reported by a sysml-grpc service."""
 struct ServerInfo

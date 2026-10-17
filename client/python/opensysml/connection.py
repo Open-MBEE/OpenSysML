@@ -5,6 +5,7 @@ from fractions import Fraction
 import grpc
 import os
 import queue
+import signal
 import subprocess
 import threading
 import warnings
@@ -224,8 +225,15 @@ CHANNEL_OPTIONS = (
 #: Seconds a private child is given to report the address it bound.
 START_TIMEOUT = 2.5
 
-#: Seconds a private child is given to exit on its own before it is killed.
+#: Seconds a private child is given to exit on its own before it is killed,
+#: whether asked to stop or on its way out after closing stdout at startup.
 STOP_TIMEOUT = 5.0
+_WINDOWS = os.name == "nt"
+# What Popen.kill leaves behind: TerminateProcess ends a Windows child with
+# exit code 1; everywhere else the child dies of SIGKILL.
+_KILLED_CODE = 1 if _WINDOWS else -signal.SIGKILL
+# A Windows child exiting with code 1 as the kill is sent cannot be told apart.
+_WINDOWS_KILL_CAVEAT = " (or it exited with code 1 just then, which looks the same)"
 
 #: Lines of a private child's stderr kept, so a failure to start can quote it.
 _STDERR_LINES_KEPT = 20
@@ -569,10 +577,50 @@ class _PrivateService:
             )
         if reported is None:
             raise ConnectionError(
-                f"{self.binary_path} exited with code {self.process.poll()} "
-                f"without serving an address{self._stderr_tail()}"
+                f"{self.binary_path} {self._ending()}{self._stderr_tail()}"
             )
         return reported
+
+    def _ending(self):
+        """How a child that closed stdout without an address ended.
+
+        Its exit is the evidence of why it failed, so it is waited for: end of
+        file arrives before the exit is reapable, and a loaded machine can hold
+        the exit back for a while. One still running after STOP_TIMEOUT is
+        killed, and reported as killed rather than as having exited.
+
+        Returns:
+            str: What became of the child, for the error that quotes it
+        """
+        try:
+            code = self.process.wait(timeout=STOP_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            code = self._kill()
+            if code is None:
+                return (
+                    f"closed stdout without serving an address and was still "
+                    f"running {STOP_TIMEOUT:g}s later, so it was killed"
+                    + (_WINDOWS_KILL_CAVEAT if _WINDOWS else "")
+                )
+        if code < 0:
+            return f"ended with signal {-code} without serving an address"
+        return f"exited with code {code} without serving an address"
+
+    def _kill(self):
+        """Kill the child; None when that ended it, else the exit it chose itself.
+
+        A child that ended between the wait and the kill keeps its own status:
+        the kill reaches a zombie and changes nothing.
+
+        Returns:
+            Optional[int]: The child's own exit code or signal, None for a kill
+        """
+        code = self.process.poll()
+        if code is not None:
+            return code
+        self.process.kill()
+        code = self.process.wait()
+        return None if code == _KILLED_CODE else code
 
     def _read_address(self):
         """Report the address line, then keep stdout drained.
@@ -1848,15 +1896,19 @@ class Connection:
             response = self._stub.RenderDocument(request)
         return response.html if form == "html" else response.markdown
 
-    def render_view(self, model_hash, view_name, ports="minimal"):
-        """Render a named view with minimal or full ports."""
+    def render_view(self, model_hash, view_name, ports="minimal", show=None, depth=0):
+        """Render a named view with minimal or full ports, the optional notation elements named and, above 0, a depth bound."""
         if ports not in ("minimal", "full"):
             raise ValueError("ports must be 'minimal' or 'full'")
+        if not isinstance(depth, int) or isinstance(depth, bool) or depth < 0:
+            raise ValueError("depth must be a non-negative integer")
         require(self.server_info(), CAPABILITY_RENDER_VIEW, upgrade_remedy(CAPABILITY_RENDER_VIEW))
         request = sysml_pb2.RenderViewRequest(
             model_hash=model_hash,
             view=view_name,
             ports="" if ports == "minimal" else ports,
+            show=list(show or ()),
+            depth=depth,
         )
         with translate_rpc_errors(
             not_found=lambda message, code: ViewNotFoundError(
@@ -2049,6 +2101,7 @@ class Connection:
         return ActionOutputs(
             self._values_to_python(response.outputs),
             self._values_to_python(response.performer_attributes),
+            dict(response.order_dependent),
         )
 
     def explore_action(self, action_symbol_id, model_hash, inputs=None,
@@ -2159,6 +2212,7 @@ class Connection:
             'final_time': response.final_time,
             'trace': [document_event_of(event) for event in response.trace],
             'trace_dropped': response.trace_dropped,
+            'order_dependent': dict(response.order_dependent),
         }
 
     def explore_state(self, state_machine_symbol_id, model_hash, events=None,
@@ -2222,6 +2276,7 @@ class Connection:
             depth_budget=status.depth_budget,
             probabilities_lower_bound=status.probabilities_lower_bound,
             failed_linearizations=status.failed_linearizations,
+            unenumerated=list(status.unenumerated),
         )
 
     def _outcome_of(self, pb):
@@ -2935,9 +2990,10 @@ class Connection:
     @staticmethod
     def _argument_capabilities(arguments, named_arguments):
         """The capabilities verification arguments need of the service: none when there are none."""
+        needed = []
         if arguments or named_arguments:
-            return (CAPABILITY_VERIFICATION_ARGUMENTS,)
-        return ()
+            needed.append(CAPABILITY_VERIFICATION_ARGUMENTS)
+        return tuple(needed)
 
     @staticmethod
     def _question_capabilities(question):

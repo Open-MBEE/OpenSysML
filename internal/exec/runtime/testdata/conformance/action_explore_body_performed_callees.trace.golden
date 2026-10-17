@@ -15,7 +15,7 @@ stmt perform
       eval literal 1 -> 1
     eval operator + -> 2
 step 1: no active tokens
-choice step 3: tokens 2@a, 3@b (unordered; took 3@b first)
+choice step 3: tokens 2@a, 3@b (unordered; took 3@b first; order-dependent)
 step 3: token 2@j, token 3@j
 step 4: token 4@look
 stmt assign seen

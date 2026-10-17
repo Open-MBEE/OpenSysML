@@ -1,1 +1,0 @@
-- The SysML v1 migrator writes the `doc` comments a connector owns inside its `connection`, so a document column reading a connection's documentation finds it.

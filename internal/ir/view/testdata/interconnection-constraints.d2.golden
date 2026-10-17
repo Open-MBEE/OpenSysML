@@ -1,0 +1,31 @@
+# ParametricViews::amplifierView — interconnection rendering (render asInterconnectionDiagram)
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  pin: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 10 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«part def»\nAmplifier" {
+  class: definition
+  n1: "«attribute»\nsignal" { class: usage }
+  n2: "«attribute»\ngain" { class: usage }
+  n3: "«attribute»\nnoise" { class: usage }
+  n4: "«attribute»\noutput" { class: usage }
+  n5: "«constraint»\namplify" {
+    class: usage
+    "n5.0": "input" { class: pin }
+    "n5.1": "gain" { class: pin }
+    "n5.2": "output" { class: pin }
+  }
+  n6: "«constraint»\nmix" {
+    class: usage
+    "n6.0": "a" { class: pin }
+    "n6.1": "b" { class: pin }
+    "n6.2": "total" { class: pin }
+  }
+}
+n0.n1 -- n0.n5."n5.0": { class: edge }
+n0.n2 -- n0.n5."n5.1": { class: edge }
+n0.n5."n5.2" -- n0.n6."n6.0": { class: edge }
+n0.n3 -- n0.n6."n6.1": { class: edge }
+n0.n6."n6.2" -- n0.n4: { class: edge }

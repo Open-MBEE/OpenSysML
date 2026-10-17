@@ -50,6 +50,74 @@ func TestParseFileStrictConformanceEscalatesOurNotation(t *testing.T) {
 	}
 }
 
+// grpcIndistinguishable declares one name twice in one namespace: a warning
+// by default, an error when the request asks strictly (KerML 8.3.2.4.5).
+const grpcIndistinguishable = "package P { part def A; part def A; }"
+
+func TestParseFileStrictConformanceEscalatesIndistinguishableMemberships(t *testing.T) {
+	srv := mustNewService(t, 10)
+	for _, tc := range []struct {
+		name   string
+		strict bool
+		want   string
+	}{
+		{"default", false, "warning"},
+		{"strict", true, "error"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+				Source:            &pb.ParseFileRequest_Content{Content: grpcIndistinguishable},
+				StrictConformance: tc.strict,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantDuplicateSeverity(t, resp.Diagnostics, tc.want)
+		})
+	}
+}
+
+func TestParseSourcesStrictConformanceEscalatesIndistinguishableMemberships(t *testing.T) {
+	srv := mustNewService(t, 10)
+	for _, tc := range []struct {
+		name   string
+		strict bool
+		want   string
+	}{
+		{"default", false, "warning"},
+		{"strict", true, "error"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
+				Documents:         inlineDocuments("p.sysml", grpcIndistinguishable),
+				StrictConformance: tc.strict,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantDuplicateSeverity(t, resp.Diagnostics, tc.want)
+		})
+	}
+}
+
+// wantDuplicateSeverity checks that both duplicate-name findings carry severity.
+func wantDuplicateSeverity(t *testing.T, diags []*pb.Diagnostic, severity string) {
+	t.Helper()
+	var found int
+	for _, d := range diags {
+		if d.Message != "Duplicate of other owned member name" {
+			continue
+		}
+		found++
+		if d.Severity != severity {
+			t.Errorf("severity = %q, want %q", d.Severity, severity)
+		}
+	}
+	if found != 2 {
+		t.Fatalf("got %d duplicate-name diagnostic(s) in %+v, want 2", found, diags)
+	}
+}
+
 // The two modes must not share a cache entry, or the second caller is answered
 // with the first one's question.
 func TestParseFileCachesTheModesSeparately(t *testing.T) {

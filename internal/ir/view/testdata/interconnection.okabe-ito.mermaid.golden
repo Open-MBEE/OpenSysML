@@ -25,21 +25,21 @@ config:
 flowchart LR
   subgraph n0 ["`*«part def»* **Loop**`"]
     direction LR
-    subgraph n1 ["`*«part»* **pump : Pump**`"]
+    subgraph n1 ["`*«part»* **pump**`"]
       direction LR
       n1_anchor[" "]
       n1.0["outlet"]
     end
-    subgraph n2 ["`*«part»* **tank : Tank**`"]
+    subgraph n2 ["`*«part»* **tank**`"]
       direction LR
       n2_anchor[" "]
       n2.0["inlet"]
     end
     n3("`*«part»*
-**sensor : Pump**`")
+**sensor**`")
   end
-  n1.0 ===|"supply"| n2.0
-  n1_anchor -.->|"of Water"| n2_anchor
+  n1.0 === n2.0
+  n1_anchor -.-> n2_anchor
   classDef palette0 fill:#F5D999,stroke:#E69F00
   class n1,n2,n3 palette0
   classDef anchor fill:none,stroke:none

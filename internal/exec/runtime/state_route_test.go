@@ -32,7 +32,7 @@ func TestExploreDefaultEntryRouteReachesViableAlternative(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.SendSignal("Go", nil)
+		exec.sendSignal("Go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}

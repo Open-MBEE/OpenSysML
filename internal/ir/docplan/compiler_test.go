@@ -989,6 +989,28 @@ func TestCompileReportsInheritedInvalidContent(t *testing.T) {
 	}
 }
 
+// A document's string attributes are read as the KerML STRING_VALUE terminal
+// spells them: a literal may span lines, and its escapes are KerML's, not Go's.
+func TestCompileDecodesStringAttributesAsKerML(t *testing.T) {
+	fixture := loadPlanningFixture(t, `
+		part def Report :> Document {
+			attribute redefines title = "Mass
+report";
+			part intro : Paragraph {
+				attribute redefines text = "line one
+line two with a \'quote\' and a \"double\"";
+			}
+		}
+	`)
+	plan := fixture.mustCompile(t, "Report")
+	if plan.Title() != "Mass\nreport" {
+		t.Fatalf("title = %q", plan.Title())
+	}
+	if text := plan.Content()[0].Text(); text != "line one\nline two with a 'quote' and a \"double\"" {
+		t.Fatalf("intro text = %q", text)
+	}
+}
+
 func TestCompileReportsNonLiteralTitle(t *testing.T) {
 	fixture := loadPlanningFixture(t, `
 		part def Report :> Document {

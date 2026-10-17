@@ -212,10 +212,29 @@ func TestUnrestrictedNameWithEscape(t *testing.T) {
 	}
 }
 
+// UNRESTRICTED_NAME admits every character but the backslash and the quote
+// (KerMLExpressions.xtext:562), a line break included.
+func TestUnrestrictedNameSpansLines(t *testing.T) {
+	toks := lex(t, "'multi\nline' x")
+	want := []Kind{UnrestrictedName, Whitespace, Identifier, EOF}
+	if !eq(kinds(toks), want) {
+		t.Fatalf("kinds = %v, want %v", kinds(toks), want)
+	}
+	if toks[0].Span.Len != 12 || toks[0].Unterminated {
+		t.Fatalf("token = %+v, want a closed name of 12 bytes", toks[0])
+	}
+}
+
+// A name the file never closes is reported unterminated and ends with its
+// opening line, so the next line's tokens are read.
 func TestUnterminatedUnrestrictedName(t *testing.T) {
-	toks := lex(t, "'open\n")
-	if toks[0].Kind != Error {
-		t.Fatalf("kind = %v, want Error", toks[0].Kind)
+	toks := lex(t, "'open\npart")
+	want := []Kind{UnrestrictedName, Whitespace, Keyword, EOF}
+	if !eq(kinds(toks), want) {
+		t.Fatalf("kinds = %v, want %v", kinds(toks), want)
+	}
+	if !toks[0].Unterminated || toks[0].Span.Len != 5 {
+		t.Fatalf("token = %+v, want Unterminated over 'open", toks[0])
 	}
 }
 
@@ -267,10 +286,56 @@ func TestStringWithEscape(t *testing.T) {
 	}
 }
 
+// STRING_VALUE admits every character but the backslash and the quote
+// (KerMLExpressions.xtext:565), a line break included, so a string runs to
+// its closing quote across lines.
+func TestStringSpansLines(t *testing.T) {
+	for _, in := range []string{"\"line one\n    line two\"", "\"line one\r\n    line two\"", "\"a\n\\\"b\n\"", "\"\n\n\""} {
+		toks := lex(t, in+";")
+		want := []Kind{String, Semicolon, EOF}
+		if !eq(kinds(toks), want) {
+			t.Fatalf("input %q kinds = %v, want %v", in, kinds(toks), want)
+		}
+		if toks[0].Span.Len != len(in) || toks[0].Unterminated || toks[0].BadEscape {
+			t.Fatalf("input %q token = %+v, want a closed string over the whole literal", in, toks[0])
+		}
+	}
+}
+
+// A string with no closing quote anywhere in the file is reported unterminated
+// and cut at the end of its opening line, whatever the line ending, so the
+// lines after it are read; one on the last line runs to the end of the file.
 func TestUnterminatedString(t *testing.T) {
-	toks := lex(t, `"open`)
-	if toks[0].Kind != Error {
-		t.Fatalf("kind = %v, want Error", toks[0].Kind)
+	for _, tt := range []struct {
+		in   string
+		want []Kind
+		len  int
+	}{
+		{`"open`, []Kind{String, EOF}, 5},
+		{"\"open\n    attribute t = 1;", []Kind{String, Whitespace, Keyword, Whitespace, Identifier, Whitespace, Eq, Whitespace, Decimal, Semicolon, EOF}, 5},
+		{"\"open\r\n}", []Kind{String, Whitespace, RBrace, EOF}, 5},
+		{"\"a \\q\n\\z", []Kind{String, Whitespace, Error, Identifier, EOF}, 5},
+		// A backslash before the line break escapes nothing: the cut still falls there.
+		{"\"open\\\n}", []Kind{String, Whitespace, RBrace, EOF}, 6},
+		{"\"open\\\r\n}", []Kind{String, Whitespace, RBrace, EOF}, 6},
+	} {
+		toks := lex(t, tt.in)
+		if !eq(kinds(toks), tt.want) {
+			t.Fatalf("input %q kinds = %v, want %v", tt.in, kinds(toks), tt.want)
+		}
+		if !toks[0].Unterminated || toks[0].Span.Len != tt.len {
+			t.Fatalf("input %q token = %+v, want Unterminated over %d bytes", tt.in, toks[0], tt.len)
+		}
+	}
+	// The escape flag covers the opening line alone once the token is cut there.
+	if toks := lex(t, "\"a \\q\n\\z"); !toks[0].BadEscape {
+		t.Fatalf("token = %+v, want BadEscape for \\q on the opening line", toks[0])
+	}
+	if toks := lex(t, "\"a\n\\z"); toks[0].BadEscape {
+		t.Fatalf("token = %+v, want no BadEscape for an escape after the cut", toks[0])
+	}
+	if toks := lex(t, "\"open\\\n}"); toks[0].BadEscape {
+		t.Fatalf("token = %+v, want no BadEscape for the backslash the cut leaves bare", toks[0])
 	}
 }
 

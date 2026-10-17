@@ -14,10 +14,11 @@ of the following is a deliberate property of the mapping rather than a defect to
 report:
 
 - **What is not mapped is refused, not partly converted**, and the refusal names
-  the construct. Every one of the 346 models under `examples/` (committed, training and
+  the construct. Every one of the 365 models under `examples/` (committed, training and
   pilot corpora) converts to Turtle, and a second
   conversion of the written-back notation reproduces the Turtle byte for byte for
-  every one — the notation is written from the [source text](#source-text) the
+  all but seven, whose two graphs differ only in the whitespace inside their
+  source-text literals — the notation is written from the [source text](#source-text) the
   graph carries. These figures are the
   per-file ratchet in `tests/corpus/roundtrip_test.go`, described
   in [rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md). See
@@ -1349,15 +1350,12 @@ The conditions and expressions these nodes carry are expression trees, like
 every other expression-valued position ([Expressions](#expressions)): they
 convert back exactly *and* SPARQL can see inside them.
 
-What is still refused, naming the node:
-
-- **A succession that does not name both of its ends.** `then fork;` and
-  `then monitorPedal;` written after a preceding member express an order whose
-  source end the notation leaves implicit, and the parser records the node the
-  statement introduces separately from the edge into it. Reconstructing that
-  shape would mean inferring which node an edge belongs to from member position,
-  which could silently reattach edges, so it is reported instead. Nine of the
-  eighteen remaining refusals under `examples/` are this shape.
+A succession that names neither of its ends (`then fork;`, `then monitorPedal;`
+written after a preceding member) is no longer refused: it is carried by the
+members it sequences, as `sysx:sourceMember` and `sysx:targetMember`
+([End-binding heads](#end-binding-heads)). Nothing under `examples/` is refused
+today; the per-file verdicts are in
+[rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md).
 
 ## Limitations
 
@@ -1831,7 +1829,7 @@ including a parallel state's regions, calculation and requirement) reads these
 forms back as the same node, and on the fixtures a second conversion writes the
 same Turtle byte for byte (`export_test.go:TestSuccessionRoundTripsInEveryBody`).
 That is a statement about the fixtures, not the mapping: over the example corpus
-the second hop reproduces the graph for all 303 files that convert, but from
+the second hop reproduces the graph for all 365 files, but from
 the source text they carry, which the corpus gate does not strip
 ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)). An end
 whose name needs quotes (`first a then 'drive vehicle';`) is a reference to the
@@ -2194,13 +2192,19 @@ any graph this mapping holds:
   full document uses for the same target (`unresolved:`-derived, recoverable
   from the reference's `x-sysmlv2-unresolved-reference` textual annotation)
   reads as the same name.
-- **A succession from a nameless member is written by position.** The
-  toolkit resolves the source end of `entry; then idle;` to the empty
+- **A succession from a nameless or derived member is written by position.**
+  The toolkit resolves the source end of `entry; then idle;` to the empty
   `ActionUsage` the `entry` membership owns, which no `first` clause could
   name; a source that is the member written before the succession — or the
   action a nameless `entry;`/`do;`/`exit;` membership owns — comes back as
   `then idle;` beside it (SysML v2 1.0 § 7.17.4), the way a source the
-  toolkit leaves unresolved already does.
+  toolkit leaves unresolved already does. An end the toolkit reaches only
+  through an implied `ReferenceSubsetting` (`isImplied`) was never written,
+  so `then done;` after a named action stays `then done;` rather than
+  `succession first a then done;`, and a `then` whose target the toolkit
+  likewise derived is attached to the declaration beside it (`then action
+  step2;`), while a written target beside its declaration stays `then idle;
+  state idle;`.
 - **Ends the notation alone cannot place are refused.** Where a member's two
   collapsed ends disagree, or an element names no owner it can sit under,
   `-convert sysml` fails rather than guesses a position.

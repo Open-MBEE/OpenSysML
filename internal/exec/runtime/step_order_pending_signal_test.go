@@ -71,7 +71,7 @@ func TestStepOrderDrawsThePendingSignalAsQueued(t *testing.T) {
 					return nil, err
 				}
 				if c.queued != "" {
-					exec.SendSignal(c.queued, nil)
+					exec.sendSignal(c.queued, nil)
 				}
 				ctx.PostMessage(Message{SignalType: "Stop"})
 				return &Invocation{States: []*StateExecutor{exec}, Horizon: HorizonAt(1)}, nil
@@ -88,7 +88,7 @@ func TestStepOrderDrawsThePendingSignalAsQueued(t *testing.T) {
 			}
 			for _, final := range report.Finals {
 				steps := slices.DeleteFunc(slices.Clone(final.Witness.Choices), func(ch ChoiceTaken) bool {
-					return ch.Kind != ChoiceStepOrder
+					return ch.Kind != choiceStepOrder
 				})
 				switch {
 				case c.choices == nil && len(steps) != 0:

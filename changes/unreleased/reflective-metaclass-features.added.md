@@ -1,1 +1,0 @@
-- Derive additional reflective KerML and SysML metaclass features and state their validation constraints in the bundled `SysMLValidation` library.

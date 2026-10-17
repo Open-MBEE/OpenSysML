@@ -12,5 +12,5 @@ stmt assign doubled
   eval operator * -> 42
 stmt assign got
   eval feature v -> 21
-choice step 3: tokens 2@q, 3@r (unordered; took 3@r first)
+choice step 3: tokens 2@q, 3@r (unordered; took 3@r first; independent)
 step 3: no active tokens

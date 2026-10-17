@@ -148,7 +148,9 @@ $ … /ParseSources -d '{"documents":[{"name":"vehicle.sysml","content":"…"}],
 ```
 
 `strictConformance` makes OpenSysML's extension notation a parse error rather than an accepted
-extension; what that covers is under [Strict conformance](../guide/03-command-line.md#strict-conformance)
+extension, and a namespace whose memberships are indistinguishable (`Duplicate of other owned
+member name` and its alias and inherited wordings) an error rather than a warning; what that
+covers is under [Strict conformance](../guide/03-command-line.md#strict-conformance)
 in the guide.
 
 ### How long a hash is valid
@@ -260,7 +262,7 @@ The `array`, `vector` and `vectorQuantity` rows were captured against
 `conformance/fixtures/function.sysml` (`F::pick`), `set` and `tensorQuantity` against
 `conformance/fixtures/set_tensor.sysml` (`T::s.elements`, `T::cube`), `metaobject` against
 `conformance/fixtures/metaobject.sysml` (`(Meta::seatBelt meta KerML::Feature)#(1)`); the rest against the model below, with requests of the form
-`{"modelHash":"59c4…a654","expression":"<expr>","contextSymbolId":"Rover"}` with `rover.count`,
+`{"modelHash":"5a89…277c","expression":"<expr>","contextSymbolId":"Rover"}` with `rover.count`,
 `RealFunctions::sqrt(2.0)`, `1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
 `Mode::idle`, `rover.serial` and `rover.z`, and the model was:
 
@@ -278,7 +280,7 @@ package Rover {
 
 	part def Vehicle {
 		attribute count : Integer = 4;
-		attribute mass : Real = 12.5;
+		attribute mass : Real default = 12.5;
 		attribute armed : Boolean = true;
 		attribute callsign : String = "R-1";
 		attribute speed : ISQ::SpeedValue = 5.4 [SI::km/SI::h];
@@ -355,7 +357,7 @@ range. Parse it to an integer type of at least 64 bits. **Do not** convert it to
 above 2^53 that loses digits silently, and the engine's Integer is exact —
 
 ```console
-$ … /Evaluate -d '{"modelHash":"59c471bcbfb8ea2aec1997d62334d7144bcc165e56eb1c79058dcf5ca378a654","expression":"9007199254740993"}'
+$ … /Evaluate -d '{"modelHash":"5a897a97ae46b32a0ac8c79adaf94d674cdf95d3f751de0eb4748b1d3f31277c","expression":"9007199254740993"}'
 {"result":{"intValue":"9007199254740993"}}
 ```
 
@@ -413,10 +415,10 @@ ever handed one. In practice it is not: the engine refuses to produce a non-fini
 reports it as an in-body error instead —
 
 ```console
-$ … /Evaluate -d '{"modelHash":"59c4…a654","expression":"1.0 / 0.0","contextSymbolId":"Rover"}'
+$ … /Evaluate -d '{"modelHash":"5a89…277c","expression":"1.0 / 0.0","contextSymbolId":"Rover"}'
 {"error":"evaluation failed: division by zero"}
 
-$ … /Evaluate -d '{"modelHash":"59c4…a654","expression":"1.0e308 * 10.0","contextSymbolId":"Rover"}'
+$ … /Evaluate -d '{"modelHash":"5a89…277c","expression":"1.0e308 * 10.0","contextSymbolId":"Rover"}'
 {"error":"evaluation failed: arithmetic overflow: result is not a finite Real"}
 ```
 
@@ -436,7 +438,7 @@ calls, or read them as anything but a key into the sibling `instances` list.
 `elements` key at all (the default-omission rule). Elements may be of different arms:
 
 ```console
-$ … /Evaluate -d '{"modelHash":"59c4…a654","expression":"(1, 2.5, \"a\")","contextSymbolId":"Rover"}'
+$ … /Evaluate -d '{"modelHash":"5a89…277c","expression":"(1, 2.5, \"a\")","contextSymbolId":"Rover"}'
 {"result":{"sequence":{"elements":[{"intValue":"1"},{"realValue":2.5},{"stringValue":"a"}]}}}
 ```
 
@@ -948,7 +950,7 @@ runs, and returns the result plus any `error`/`diagnostics`. The examples use
 ### `Instantiate` and the `Instance` shape
 
 ```console
-$ … /Instantiate -d '{"modelHash":"59c471bcbfb8ea2aec1997d62334d7144bcc165e56eb1c79058dcf5ca378a654","symbolId":"Rover::rover"}'
+$ … /Instantiate -d '{"modelHash":"5a897a97ae46b32a0ac8c79adaf94d674cdf95d3f751de0eb4748b1d3f31277c","symbolId":"Rover::rover"}'
 ```
 
 ```json
@@ -1475,9 +1477,11 @@ what they meant before.
 - `caseId` — the qualified name of the verification case that ran.
 - `kind` — `"pass"` or `"fail"` as the library's own `VerificationCases::PassIf` calculation
   computed it, the `VerdictKind` literal a body bound directly, `"inconclusive"` for a body that
-  produced no verdict value, or `"error"` for a body whose run could not be carried out.
+  produced no verdict value or for a case a definition owns that no object of the definition
+  exists to run on, or `"error"` for a body whose run could not be carried out.
 - `detail` — why an `error` or `inconclusive` verdict decided nothing, carrying the message the
-  run failed with. Omitted for `pass` and `fail`.
+  run failed with (`needs an object of <Definition>: none is instantiated` for a case with no
+  object to run on, which then carries no `instanceId`). Omitted for `pass` and `fail`.
 - `subcase` — true for a verification case the run performed as a step of another. The library
   states no roll-up of a subcase's verdict into its parent's, so each is reported on its own.
 - `requirementId` — the qualified name of the requirement the case was reported for, the one its
@@ -1485,6 +1489,12 @@ what they meant before.
   by it: a `"satisfy"` verdict carries the same `requirementId` for the requirement it asserts
   satisfied, so a client reads a verdict's own cases rather than the whole response's. Empty for a
   case run for itself by `RunAnalysis`, and for a requirement no qualified name reaches.
+- `instanceId` — the ID of the object the case ran on as its owner, resolving to an entry of the
+  response's `instances`. A case a part definition owns runs once per object of that definition,
+  so two verdicts of one `caseId` are told apart by it. `0` (omitted in JSON) when the case ran on
+  no object.
+- `instanceTypeId` — the qualified name of that object's type, as the `instanceTypeId` of a
+  requirement verdict spells it, for naming the object in a report. Empty with `instanceId` `0`.
 
 ```console
 $ … /VerifyRequirement -d '{"modelHash":"96c9…994d","symbolId":"Ver::touchdown"}'
@@ -1654,7 +1664,7 @@ Not a behavior in the model, but the general-purpose call that every other examp
 (the expression is evaluated *on* an instance of it):
 
 ```console
-$ … /Evaluate -d '{"modelHash":"59c4…a654","expression":"mass * 2.0","subjectSymbolId":"Rover::rover"}'
+$ … /Evaluate -d '{"modelHash":"5a89…277c","expression":"mass * 2.0","subjectSymbolId":"Rover::rover"}'
 {"result":{"realValue":40}}
 ```
 
@@ -1998,9 +2008,9 @@ $ … /Migrate -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
   "report": {
     "source": "Vehicle.xmi",
     "exporter": "Example UML Tool",
-    "summary": "migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)",
+    "summary": "migrated 95 element(s): 77 mapped, 15 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)",
     "mapped": 77,
-    "approximated": 13,
+    "approximated": 15,
     "unmapped": 3,
     "skipped": 2
   }
@@ -2225,7 +2235,9 @@ selected, filtered and bound — are on the Go API page and are not repeated her
 [Native document queries and rendering over gRPC](api.md#native-documents-and-views-over-grpc).
 Each is its own capability: `Query` needs `query` (and `oslc_query` when the request uses
 `oslcQuery`); `RunDocumentQuery` needs `document_query`; `RenderDocument` needs
-`render_document`, and `render_document_html` too when its `form` is `html`.
+`render_document`, and `render_document_html` too when its `form` is `html`; its `file_name` (the
+file a rendered set writes the document to, which the other documents' links to it name) is
+populated under `render_document_file_name`.
 
 ### `Query`
 

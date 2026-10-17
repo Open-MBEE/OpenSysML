@@ -292,9 +292,9 @@ fn a_v1_model_is_migrated_and_refused_by_convert() {
             migrated.report.unmapped,
             migrated.report.skipped
         ),
-        (77, 13, 3, 2)
+        (77, 15, 3, 2)
     );
-    assert_eq!(migrated.report.entries.len(), 95);
+    assert_eq!(migrated.report.entries.len(), 97);
     assert_eq!(migrated.report.by_verdict("unmapped").len(), 3);
     assert!(migrated.report.text.contains("unmapped"));
     assert!(migrated

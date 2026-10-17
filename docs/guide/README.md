@@ -10,7 +10,7 @@ Read the chapters in order the first time through; each one builds on the ones b
 6. [Behavior: actions and state machines](06-behavior.md) — running and debugging behavior
 7. [Saving, and converting to RDF](07-saving-and-rdf.md) — `%save`, `-convert`, round trips
 8. [Editors](08-editors.md) — `sysml-lsp` and the VS Code extension
-9. [From your own program](09-clients.md) — the Go, Python, Node, Java and Rust clients
+9. [From your own program](09-clients.md) — the Go, Python, Node, Java, Rust, Julia and MATLAB clients
 10. [Troubleshooting](10-troubleshooting.md) — diagnosing a run that stops early
 11. [Migrating a SysML v1 model](11-migrating-from-sysml-v1.md) — `-migrate`, reading the report, finishing by hand
 12. [Jupyter notebooks](12-jupyter.md) — `pip install jupyter-opensysml-kernel`, SysML cells, rich output, interrupting
@@ -20,8 +20,8 @@ One topic stands on its own once the chapters are read:
 multiplicity, variants with occurrence counts, per-occurrence values, and what a fleet of
 12 800 occurrences costs to validate and to check.
 
-Chapter 9 does one task in all five clients side by side — Go, Python, Node/TypeScript, Java and
-Rust, in tabs — and then has a section per client for what only that one has.
+Chapter 9 does one task in all seven clients side by side — Go, Python, Node/TypeScript, Java,
+Rust, Julia and MATLAB, in tabs — and then has a section per client for what only that one has.
 [Client libraries](../reference/clients.md) explains which to choose and what each covers.
 
 If you want to look up a specific detail rather than read through, the [reference](../reference/)

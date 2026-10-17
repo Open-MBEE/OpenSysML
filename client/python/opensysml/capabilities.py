@@ -244,6 +244,12 @@ CAPABILITY_STATE_TRACE = "state_trace"
 #: field is 0 whatever the run waited on.
 CAPABILITY_FINAL_TIME = "final_time"
 
+#: ``order_dependent`` on an action or state run's response and on a feature
+#: value, and ``order_dependent``/``independent`` on a ``choice-point``
+#: diagnostic: what a run's values stand only up to. Without it a value reads
+#: as fixed whatever order the run took.
+CAPABILITY_ORDER_DEPENDENCE = "order_dependence"
+
 #: The analysis engines: ``ListEngines``, the ``engine`` field selecting one
 #: (``auto``, ``all`` or a name) on the verification, calc, analysis and sweep
 #: requests, and ``engine``, ``strength`` and ``bounds`` on their responses,
@@ -275,6 +281,10 @@ CAPABILITY_CONVERT_COMPACT = "convert_compact"
 #: ``ParseSourcesRequest.base_model_hash`` and ``ParseSourcesResponse.affected``: the documents
 #: whose results may differ from the base model's, so a client re-reads only those after an edit.
 CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected"
+
+#: ``RenderDocumentResponse.file_name``: the file a rendered set writes the document to, which the
+#: other documents' links to it name.
+CAPABILITY_RENDER_DOCUMENT_FILE_NAME = "render_document_file_name"
 
 
 @dataclass(frozen=True)

@@ -402,9 +402,13 @@ func TestVizShowsADiagram(t *testing.T) {
 			t.Errorf("%s: %s present = %t, want %t (Graphviz drawn)", c.code, mimeSVG, ok, dotDrawn())
 		}
 	}
-	out := mustRun(t, e, "%viz --style ortholine P::Car")
-	if mermaid, _ := out.displays[0][mimeMermaid].(string); !strings.Contains(mermaid, "%% not represented: style ORTHOLINE (orthogonal line style) is not drawn") {
+	out := mustRun(t, e, "%viz --style comptree P::Car")
+	if mermaid, _ := out.displays[0][mimeMermaid].(string); !strings.Contains(mermaid, "%% not represented: style COMPTREE (show nested ports in a compartment) is not drawn") {
 		t.Errorf("a pilot style not drawn was not noted in the diagram:\n%s", mermaid)
+	}
+	out = mustRun(t, e, "%viz --style ortholine P::Car")
+	if dot, _ := out.displays[0][mimeDot].(string); !strings.Contains(dot, "splines=ortho") {
+		t.Errorf("the pilot's ORTHOLINE style did not route the DOT edges orthogonally:\n%s", dot)
 	}
 	out = mustRun(t, e, "%viz --view SEQUENCE P::Car")
 	if bundle := out.displays[0]; bundle[mimeMermaid] == nil || bundle[mimeDot] != nil {

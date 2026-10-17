@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="Power">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_pwr" name="Pwr"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_cmd" name="Cmd"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_tlm" name="Tlm"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_ib_power" name="iPower">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_fp_pwr" name="pwr" type="_blk_pwr"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_ib_bus" name="iBus">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_fp_cmd" name="cmd" type="_blk_cmd"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_fp_tlm" name="tlm" type="_blk_tlm"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_supply" name="Supply">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_pt_supply_out" name="pwr out" type="_ib_power" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_load" name="Load">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_pt_load_in" name="pwr in" type="_ib_power" aggregation="composite" isConjugated="true"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_ctrl" name="Ctrl">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_pt_ctrl_bus" name="bus" type="_ib_bus" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_unit" name="Unit">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_pt_unit_bus" name="bus" type="_ib_bus" aggregation="composite" isConjugated="true"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_sys" name="Sys">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_p_supply" name="supply" type="_blk_supply" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_p_load" name="load" type="_blk_load" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_p_spare" name="spare" type="_blk_load" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_p_aux" name="aux" type="_blk_load" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_p_ctrl" name="ctrl" type="_blk_ctrl" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_p_unit" name="unit" type="_blk_unit" aggregation="composite"/>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_c_pwr">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_pwr_1" role="_pt_supply_out" partWithPort="_p_supply"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_pwr_2" role="_pt_load_in" partWithPort="_p_load"/>
+        </ownedConnector>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_c_bus">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_bus_1" role="_pt_ctrl_bus" partWithPort="_p_ctrl"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_bus_2" role="_pt_unit_bus" partWithPort="_p_unit"/>
+        </ownedConnector>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_c_spare" name="spare feed">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_spare_1" role="_pt_supply_out" partWithPort="_p_supply"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_spare_2" role="_pt_load_in" partWithPort="_p_spare"/>
+        </ownedConnector>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_c_aux">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_aux_1" role="_pt_supply_out" partWithPort="_p_supply"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_aux_2" role="_pt_load_in" partWithPort="_p_aux"/>
+        </ownedConnector>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if_pwr" informationSource="_pt_supply_out" informationTarget="_pt_load_in" conveyed="_blk_pwr" realizingConnector="_c_pwr"/>
+      <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if_cmd" name="cmd" informationSource="_pt_ctrl_bus" informationTarget="_pt_unit_bus" conveyed="_blk_cmd" realizingConnector="_c_bus"/>
+      <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if_tlm" name="tlm" informationSource="_pt_unit_bus" informationTarget="_pt_ctrl_bus" conveyed="_blk_tlm" realizingConnector="_c_bus"/>
+      <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if_spare" name="spare pwr" informationSource="_pt_supply_out" informationTarget="_pt_load_in" conveyed="_blk_pwr" realizingConnector="_c_spare"/>
+      <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if_aux" name="aux" informationSource="_pt_supply_out" informationTarget="_pt_load_in" conveyed="_blk_cmd" realizingConnector="_c_aux"/>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_ibd" name="Sys Internals" ownerOfDiagram="_blk_sys">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Internal Block Diagram" umlType="Composite Structure Diagram">
+                <diagramContents>
+                  <usedElements>_p_supply</usedElements>
+                  <usedElements>_p_load</usedElements>
+                  <usedElements>_p_spare</usedElements>
+                  <usedElements>_p_aux</usedElements>
+                  <usedElements>_p_ctrl</usedElements>
+                  <usedElements>_p_unit</usedElements>
+                  <usedElements>_c_pwr</usedElements>
+                  <usedElements>_c_bus</usedElements>
+                  <usedElements>_c_spare</usedElements>
+                  <usedElements>_c_aux</usedElements>
+                  <usedElements>_if_pwr</usedElements>
+                  <usedElements>_if_cmd</usedElements>
+                  <usedElements>_if_tlm</usedElements>
+                  <usedElements>_if_spare</usedElements>
+                  <usedElements>_if_aux</usedElements>
+                </diagramContents>
+                <binaryObject streamContentID="BINARY-flow_only"/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+  <sysml:Block xmi:id="_s_pwr" base_Class="_blk_pwr"/>
+  <sysml:Block xmi:id="_s_cmd" base_Class="_blk_cmd"/>
+  <sysml:Block xmi:id="_s_tlm" base_Class="_blk_tlm"/>
+  <sysml:InterfaceBlock xmi:id="_s_ib_power" base_Class="_ib_power"/>
+  <sysml:InterfaceBlock xmi:id="_s_ib_bus" base_Class="_ib_bus"/>
+  <sysml:FlowProperty xmi:id="_s_fp_pwr" base_Property="_fp_pwr" direction="out"/>
+  <sysml:FlowProperty xmi:id="_s_fp_cmd" base_Property="_fp_cmd" direction="out"/>
+  <sysml:FlowProperty xmi:id="_s_fp_tlm" base_Property="_fp_tlm" direction="in"/>
+  <sysml:Block xmi:id="_s_supply" base_Class="_blk_supply"/>
+  <sysml:Block xmi:id="_s_load" base_Class="_blk_load"/>
+  <sysml:Block xmi:id="_s_ctrl" base_Class="_blk_ctrl"/>
+  <sysml:Block xmi:id="_s_unit" base_Class="_blk_unit"/>
+  <sysml:Block xmi:id="_s_sys" base_Class="_blk_sys"/>
+  <sysml:ProxyPort xmi:id="_s_pp_supply" base_Port="_pt_supply_out"/>
+  <sysml:ProxyPort xmi:id="_s_pp_load" base_Port="_pt_load_in"/>
+  <sysml:ProxyPort xmi:id="_s_pp_ctrl" base_Port="_pt_ctrl_bus"/>
+  <sysml:ProxyPort xmi:id="_s_pp_unit" base_Port="_pt_unit_bus"/>
+  <sysml:ItemFlow xmi:id="_s_if_pwr" base_InformationFlow="_if_pwr"/>
+  <sysml:ItemFlow xmi:id="_s_if_cmd" base_InformationFlow="_if_cmd"/>
+  <sysml:ItemFlow xmi:id="_s_if_tlm" base_InformationFlow="_if_tlm"/>
+  <sysml:ItemFlow xmi:id="_s_if_spare" base_InformationFlow="_if_spare"/>
+  <sysml:ItemFlow xmi:id="_s_if_aux" base_InformationFlow="_if_aux"/>
+</xmi:XMI>

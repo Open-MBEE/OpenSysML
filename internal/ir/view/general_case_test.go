@@ -115,7 +115,7 @@ func TestGeneralViewCaseRouteMatchesCaseView(t *testing.T) {
 				if !strings.Contains(g, general.Stated) {
 					t.Errorf("%s does not state %q:\n%s", form, general.Stated, g)
 				}
-				if got := strings.ReplaceAll(g, general.Stated, caseView.Stated); got != c {
+				if strings.ReplaceAll(g, general.Stated, caseView.Stated) != c {
 					t.Errorf("%s differs beyond the stated provenance\nGeneralView:\n%s\nCaseView:\n%s", form, g, c)
 				}
 			}

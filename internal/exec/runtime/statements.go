@@ -27,9 +27,12 @@ type stmtEnv struct {
 	perf          *actionFrame
 	locals        map[string]Value
 	localCells    *bodyCells
+	localHeld     map[*symbols.Symbol]string
 	unvaluedLocal map[string]bool
 	frames        []map[string]Value
 	cells         []*bodyCells
+	// held indexes, per frame, the features the frame's declarations are.
+	held []map[*symbols.Symbol]string
 	// unvalued names, per frame, the features a frame declares but holds no value
 	// for yet (`out v : Integer;`), which an assignment writes into that frame.
 	unvalued []map[string]bool
@@ -40,8 +43,19 @@ func (env *stmtEnv) enter(e *stmtEngine) map[string]Value {
 	frame := make(map[string]Value)
 	env.frames = append(env.frames, frame)
 	env.cells = append(env.cells, nil)
+	env.held = append(env.held, nil)
 	env.unvalued = append(env.unvalued, nil)
 	return frame
+}
+
+// hold records that the innermost entered block — or the behavior's own locals
+// when none is entered — declares name as the feature sym.
+func (env *stmtEnv) hold(ctx *Context, sym *symbols.Symbol, name string) {
+	if depth := len(env.frames); depth > 0 {
+		ctx.holdFeature(&env.held[depth-1], sym, name)
+		return
+	}
+	ctx.holdFeature(&env.localHeld, sym, name)
 }
 
 // ensureLocalCells lazily creates dependency cells for an entered block.
@@ -63,6 +77,7 @@ func (env *stmtEnv) leave(ctx *Context, forget bool) {
 		}
 		env.cells = env.cells[:len(env.cells)-1]
 		env.frames = env.frames[:len(env.frames)-1]
+		env.held = env.held[:len(env.held)-1]
 		env.unvalued = env.unvalued[:len(env.unvalued)-1]
 	}
 }
@@ -249,19 +264,23 @@ func (env *stmtEnv) constraintResult(ctx *Context) (frame, error) {
 }
 
 // localFrames returns the entered block maps and their dependency-cell stores.
-func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells) {
+func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells, []map[*symbols.Symbol]string) {
 	locals := make([]map[string]Value, 0, len(env.frames)+1)
 	cells := make([]*bodyCells, 0, len(env.frames)+1)
+	held := make([]map[*symbols.Symbol]string, 0, len(env.frames)+1)
 	locals = append(locals, env.locals)
 	cells = append(cells, env.localCells)
+	held = append(held, env.localHeld)
 	locals = append(locals, env.frames...)
 	cells = append(cells, env.cells...)
-	return locals, cells
+	held = append(held, env.held...)
+	return locals, cells, held
 }
 
 // localFrame exposes the behavior's root locals as an evaluation frame.
 func (env *stmtEnv) localFrame() frame {
 	local := env.bodyFrame(env.locals, env.localCells, env.unvaluedLocal)
+	local.held = env.localHeld
 	return local
 }
 
@@ -438,10 +457,12 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
 	root := e.env.bodyFrame(e.env.locals, e.env.localCells, e.env.unvaluedLocal)
+	root.held = e.env.localHeld
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)
 	for i := range e.env.frames {
 		frames = append(frames, e.env.bodyFrame(e.env.frames[i], e.env.cells[i], e.env.unvalued[i]))
+		frames[len(frames)-1].held = e.env.held[i]
 		index := i
 		frames[len(frames)-1].ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
 	}
@@ -472,6 +493,7 @@ func (e *stmtEngine) evalInDepth(scope *symbols.Scope, depth int) *EvalContext {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
 	root := e.env.bodyFrame(e.env.locals, e.env.localCells, e.env.unvaluedLocal)
+	root.held = e.env.localHeld
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)
 	if depth > len(e.env.frames) {
@@ -479,6 +501,7 @@ func (e *stmtEngine) evalInDepth(scope *symbols.Scope, depth int) *EvalContext {
 	}
 	for i, local := range e.env.frames[:depth] {
 		frames = append(frames, e.env.bodyFrame(local, e.env.cells[i], e.env.unvalued[i]))
+		frames[len(frames)-1].held = e.env.held[i]
 		index := i
 		frames[len(frames)-1].ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
 	}
@@ -498,6 +521,7 @@ func (f *engineFrame) abandon(*Context) { f.engine.finish() }
 func (f *engineFrame) clone() bodyFrame {
 	engine, env := *f.engine, *f.engine.env
 	env.frames, env.cells, env.unvalued = slices.Clone(env.frames), slices.Clone(env.cells), slices.Clone(env.unvalued)
+	env.held = slices.Clone(env.held)
 	env.unvaluedLocal = maps.Clone(env.unvaluedLocal)
 	engine.env, engine.scratch, engine.frameBuf = &env, EvalContext{}, nil
 	return &engineFrame{engine: &engine}
@@ -680,7 +704,7 @@ func (e *stmtEngine) runUnordered(stmts []lower.Statement, f *stmtListFrame, res
 			if err := e.yieldBody(); err != nil {
 				return flowNext, e.ctx.pausing(f, err)
 			}
-			f.i, f.switched = e.pickStatement(stmts, next), -1
+			f.i, f.switched = e.pickStatement(stmts, next, order, f.divided), -1
 			if e.host.yieldsBetweenStatements() {
 				resumed = e.ctx.resumeStrand(f)
 			} else {
@@ -772,7 +796,7 @@ const statementsWherePrefix = "statements in "
 
 // pickStatement picks the statement to run next among next, two or more a
 // choice point of the run's schedule.
-func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int) int {
+func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int, order *lower.StatementOrder, divided bool) int {
 	if len(next) == 1 {
 		return next[0]
 	}
@@ -780,15 +804,19 @@ func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int) int {
 		return next[0]
 	}
 	alts := make([]string, len(next))
+	fps := make([]lower.Footprint, len(next))
 	for k, i := range next {
 		alts[k] = fmt.Sprintf("%d %s", i+1, stmtLabel(stmts[i]))
+		fps[k] = order.Footprint(i)
 	}
 	choice := ChoicePoint{
-		Kind:         ChoiceStatementOrder,
+		Kind:         choiceStatementOrder,
 		Step:         e.host.orderStep(),
 		Where:        statementsWherePrefix + e.host.describe(),
 		Alternatives: alts,
 	}
+	classifyBy(&choice, fps, func(a, b int) bool { return order.Dependent(next[a], next[b], divided) },
+		func(int, int) lower.Relation { return lower.Relation{} })
 	if e.ctx.statementOrderSweep != nil {
 		choice.Taken = e.ctx.statementOrderSweep.choose(&choice)
 		if e.ctx.statementOrderGuardBodies != nil {
@@ -807,7 +835,7 @@ func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int) int {
 func (e *stmtEngine) statement(stmt lower.Statement, f *stmtListFrame, resumed bool) (stmtFlow, error) {
 	if !resumed {
 		if tr := e.ctx.trace; tr != nil {
-			tr.RecordStatement(stmtLabel(stmt))
+			tr.recordStatement(stmtLabel(stmt))
 		}
 		// A statement's collections live no longer than the statement, so the one after
 		// it starts from the elements held before it.
@@ -819,7 +847,7 @@ func (e *stmtEngine) statement(stmt lower.Statement, f *stmtListFrame, resumed b
 	}
 	f.run.elements = f.elements
 	if tr := e.ctx.trace; tr != nil {
-		tr.EndStatement()
+		tr.endStatement()
 	}
 	return flow, err
 }
@@ -962,6 +990,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 				return flowNext, err
 			}
 			e.env.declare(e.ctx, s.Name, evaluated)
+			e.env.hold(e.ctx, s.Symbol, s.Name)
 			return flowNext, nil
 		}
 		// A constraint body's performance declares a valueless name as missing
@@ -972,6 +1001,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		} else {
 			e.env.declare(e.ctx, s.Name, Value{Kind: ValNull})
 		}
+		e.env.hold(e.ctx, s.Symbol, s.Name)
 		return flowNext, nil
 	case lower.DeclareUsage:
 		return flowNext, e.declareUsage(s)
@@ -1002,7 +1032,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 	case lower.Assert:
 		return flowNext, e.assert(s)
 	case lower.Unsupported:
-		return flowNext, fmt.Errorf("%w: %s: %s in a body is not executable", ErrStatementNotExecutable, e.host.describe(), s.Description)
+		return flowNext, fmt.Errorf("%w: %s: %s in a body is not executable", errStatementNotExecutable, e.host.describe(), s.Description)
 	default:
 		return flowNext, fmt.Errorf("%s: unsupported statement %T", e.host.describe(), stmt)
 	}
@@ -1031,7 +1061,7 @@ func (e *stmtEngine) assert(s lower.Assert) error {
 // this execution of the body reads starts here, so an evaluation of the same
 // usage from before the declaration was reached is discarded.
 func (e *stmtEngine) declareUsage(stmt lower.DeclareUsage) error {
-	// Known limitation: the `=` pins of a body-local calc usage are evaluated once per declaration and do not track later writes.
+	// knownValues limitation: the `=` pins of a body-local calc usage are evaluated once per declaration and do not track later writes.
 	sym, err := e.ctx.bodyUsageSymbol(stmt)
 	if err != nil {
 		return fmt.Errorf("%s: %w", e.host.describe(), err)
@@ -1043,7 +1073,9 @@ func (e *stmtEngine) declareUsage(stmt lower.DeclareUsage) error {
 // branchFrame is the branch of a conditional a body paused in.
 type branchFrame struct{ elseBranch bool }
 
-func (*branchFrame) abandon(*Context) {}
+func (*branchFrame) abandon(*Context) {
+	// A branch frame holds nothing that abandoning it must release.
+}
 
 func (f *branchFrame) clone() bodyFrame { c := *f; return &c }
 
@@ -1081,6 +1113,7 @@ type blockFrame struct {
 	locals     map[string]Value
 	cells      *bodyCells
 	unvalued   map[string]bool
+	held       map[*symbols.Symbol]string
 	activation int64
 	outer      int64
 }
@@ -1097,6 +1130,7 @@ func (f *blockFrame) clone() bodyFrame {
 		c.locals = maps.Clone(f.locals)
 	}
 	c.unvalued = maps.Clone(f.unvalued)
+	c.held = maps.Clone(f.held)
 	return &c
 }
 
@@ -1111,11 +1145,13 @@ func (e *stmtEngine) enterBlock(f *blockFrame) (leave func(bool)) {
 		e.env.frames = append(e.env.frames, f.locals)
 		e.env.cells = append(e.env.cells, f.cells)
 		e.env.unvalued = append(e.env.unvalued, f.unvalued)
+		e.env.held = append(e.env.held, f.held)
 	}
 	e.activation = f.activation
 	return func(forget bool) {
 		f.unvalued = e.env.unvalued[len(e.env.unvalued)-1]
 		f.cells = e.env.cells[len(e.env.cells)-1]
+		f.held = e.env.held[len(e.env.held)-1]
 		e.env.leave(e.ctx, forget)
 		e.activation = f.outer
 	}
@@ -1165,7 +1201,9 @@ type flowNodeFrame struct {
 	reps int64
 }
 
-func (*flowNodeFrame) abandon(*Context) {}
+func (*flowNodeFrame) abandon(*Context) {
+	// A flow node frame holds nothing that abandoning it must release.
+}
 
 func (f *flowNodeFrame) clone() bodyFrame { c := *f; return &c }
 
@@ -1195,9 +1233,6 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 			count, err := e.blockStepCount(graph, f.node)
 			if err != nil {
 				return flowNext, err
-			}
-			if count > 1 {
-				e.ctx.noteCoverage(ReasonBlockBodyRepetition)
 			}
 			f.reps = count
 		}
@@ -1230,7 +1265,7 @@ func (e *stmtEngine) blockStepCount(graph *lower.ActionGraph, node ast.Node) (in
 		err = graph.CheckStep(node, e.ctx.Semantics())
 	}
 	if err != nil {
-		return 0, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+		return 0, fmt.Errorf("%w: %w", errActionStepMultiplicity, err)
 	}
 	return count, nil
 }
@@ -1259,7 +1294,7 @@ func (e *stmtEngine) blockNode(graph *lower.ActionGraph, node ast.Node, resumed 
 	if tr := e.ctx.trace; tr != nil {
 		if name := ActionNodeName(node); name != "" {
 			if !resumed {
-				tr.RecordStatement("node " + name)
+				tr.recordStatement("node " + name)
 			}
 			traced = true
 		}
@@ -1272,7 +1307,7 @@ func (e *stmtEngine) blockNode(graph *lower.ActionGraph, node ast.Node, resumed 
 		flow, err = e.run(graph.Bodies[node])
 	}
 	if traced && !paused(err) {
-		e.ctx.trace.EndStatement()
+		e.ctx.trace.endStatement()
 	}
 	return flow, err
 }
@@ -1294,6 +1329,7 @@ type loopFrame struct {
 	locals     map[string]Value
 	cells      *bodyCells
 	unvalued   map[string]bool
+	held       map[*symbols.Symbol]string
 	iteration  int
 	activation int64
 	outer      int64
@@ -1313,6 +1349,7 @@ func (f *loopFrame) clone() bodyFrame {
 		c.locals = maps.Clone(f.locals)
 	}
 	c.unvalued = maps.Clone(f.unvalued)
+	c.held = maps.Clone(f.held)
 	return &c
 }
 
@@ -1334,10 +1371,12 @@ func (e *stmtEngine) enterLoop(f *loopFrame) (leave func(bool)) {
 		e.env.frames = append(e.env.frames, f.locals)
 		e.env.cells = append(e.env.cells, f.cells)
 		e.env.unvalued = append(e.env.unvalued, f.unvalued)
+		e.env.held = append(e.env.held, f.held)
 	}
 	return func(forget bool) {
 		f.unvalued = e.env.unvalued[len(e.env.unvalued)-1]
 		f.cells = e.env.cells[len(e.env.cells)-1]
+		f.held = e.env.held[len(e.env.held)-1]
 		e.env.leave(e.ctx, forget)
 		e.activation = f.outer
 	}
@@ -1350,7 +1389,7 @@ func (e *stmtEngine) beginIteration(f *loopFrame, resumed bool) {
 	if !resumed {
 		f.iteration++
 		if tr := e.ctx.trace; tr != nil {
-			tr.RecordLoopIteration(f.iteration)
+			tr.recordLoopIteration(f.iteration)
 		}
 		f.activation = e.ctx.newActivation()
 	}
@@ -1365,7 +1404,7 @@ func (e *stmtEngine) endIteration(f *loopFrame, err error) {
 	e.ctx.endActivation(f.activation)
 	e.activation = f.outer
 	if tr := e.ctx.trace; tr != nil {
-		tr.EndStatement()
+		tr.endStatement()
 	}
 }
 

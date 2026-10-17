@@ -24,63 +24,63 @@ config:
 %% GeneralViews::plainView — tree rendering (view def GeneralView)
 flowchart TD
   n0["`*«part def»*
-**VehicleStructure::Vehicle**`"]
+**Vehicle**`"]
     n1("`*«attribute»*
-**mass : Real**`")
+**mass**`")
   n0 --- n1
     n2("`*«part»*
-**chassis : Chassis**`")
+**chassis**`")
   n0 --- n2
     n3("`*«part»*
-**driver : Driver**`")
+**driver**`")
   n0 --- n3
   n4["`*«part def»*
-**VehicleStructure::Chassis**`"]
+**Chassis**`"]
   n5["`*«part def»*
-**VehicleStructure::LightChassis**`"]
+**LightChassis**`"]
   n6["`*«part def»*
-**VehicleStructure::Driver**`"]
+**Driver**`"]
   n7["`*«action def»*
-**VehicleStructure::Brake**`"]
+**Brake**`"]
   n8("`*«part»*
-**VehicleStructure::vehicle : Vehicle**`")
+**vehicle**`")
     n9("`*«attribute»*
 **mass**`")
   n8 --- n9
   n10("`*«part»*
-**VehicleStructure::heavyVehicle : Vehicle**`")
+**heavyVehicle**`")
     n11("`*«attribute»*
 **mass**`")
   n10 --- n11
   n12("`*«action»*
-**VehicleStructure::brake : Brake**`")
+**brake**`")
   n13["`*«package»*
-**VehicleStructure::Powertrain**`"]
+**Powertrain**`"]
     n14["`*«part def»*
 **Engine**`"]
   n13 --- n14
   n15["`*«datatype»*
-**ScalarValues::Boolean**`"]
+**Boolean**`"]
   n16["`*«datatype»*
-**ScalarValues::Complex**`"]
+**Complex**`"]
   n17["`*«datatype»*
-**ScalarValues::Integer**`"]
+**Integer**`"]
   n18["`*«datatype»*
-**ScalarValues::Natural**`"]
+**Natural**`"]
   n19["`*«datatype»*
-**ScalarValues::Number**`"]
+**Number**`"]
   n20["`*«datatype»*
-**ScalarValues::NumericalValue**`"]
+**NumericalValue**`"]
   n21["`*«datatype»*
-**ScalarValues::Positive**`"]
+**Positive**`"]
   n22["`*«datatype»*
-**ScalarValues::Rational**`"]
+**Rational**`"]
   n23["`*«datatype»*
-**ScalarValues::Real**`"]
+**Real**`"]
   n24["`*«datatype»*
-**ScalarValues::ScalarValue**`"]
+**ScalarValue**`"]
   n25["`*«datatype»*
-**ScalarValues::String**`"]
+**String**`"]
   n0 ---|"◇ mass"| n23
   n0 ---|"◆ chassis"| n4
   n0 ---|"◇ driver"| n6

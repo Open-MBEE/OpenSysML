@@ -81,8 +81,13 @@ type Stereotype struct {
 	Definition *Element
 	// Generals are every stereotype Definition specializes, transitively:
 	// Model.Ancestors of the definition, so proxies stand for those defined
-	// outside the documents read. Empty without a Definition.
+	// outside the documents read. Without a Definition, they are the
+	// stereotypes the archive's module snapshots declare the applied one
+	// specializes, as elements standing for the snapshot's; else empty.
 	Generals []*Element
+	// Module reports that a module snapshot, not a document read, declares the
+	// stereotype: Generals are then the snapshot's, however few.
+	Module bool
 	// Tags holds the tagged values: attributes other than xmi:* and base_*, and
 	// child elements as their text or idref, keyed by tag name. A multi-valued
 	// tag lists each value.
@@ -143,7 +148,10 @@ type Model struct {
 	// moduleStereotypes are the stereotypes the archive's module snapshots
 	// declare, by id, for resolving ids the stereotype table does not name.
 	moduleStereotypes map[string]moduleStereotype
-	clients           map[*Element][]*Element
+	// moduleElements stand for snapshot stereotypes and their profiles that
+	// an application's Generals name, by id; none is in a document read.
+	moduleElements map[string]*Element
+	clients        map[*Element][]*Element
 	// stereotypeHrefs are the definitions a tool's stereotypesHREFS table
 	// names for applied stereotypes, by namespace and name.
 	stereotypeHrefs map[stereotypeKey]string
@@ -294,12 +302,16 @@ func (m *Model) UnresolvedGenerals(e *Element) []string {
 }
 
 // Ancestors returns every classifier e specializes, transitively, nearest
-// first and each once, in-document elements and proxies alike. e itself is
-// among them exactly when its generalizations cycle back to it.
+// first and each once, in-document elements and proxies alike; a proxy into a
+// module snapshot continues through the stereotypes the snapshot declares it
+// specializes. e itself is among them exactly when its generalizations cycle
+// back to it.
 func (m *Model) Ancestors(e *Element) []*Element {
 	if a, ok := m.ancestors[e]; ok {
 		return a
 	}
+	// A snapshot general leading back to e finds the walk in progress and stops.
+	m.ancestors[e] = nil
 	seen := map[*Element]bool{}
 	var out []*Element
 	queue := m.Generals(e)
@@ -312,6 +324,9 @@ func (m *Model) Ancestors(e *Element) []*Element {
 		seen[g] = true
 		out = append(out, g)
 		queue = append(queue, m.Generals(g)...)
+		if decl, ok := m.moduleGeneral(g); ok {
+			queue = append(queue, m.moduleAncestors(decl)...)
+		}
 	}
 	m.ancestors[e] = out
 	return out
@@ -871,6 +886,8 @@ func (m *Model) link() {
 			if s.Definition.Name != "" {
 				s.Name = s.Definition.Name
 			}
+		} else if decl, ok := m.moduleDefinition(s); ok {
+			s.Generals, s.Module = m.moduleAncestors(decl), true
 		}
 	}
 	m.readTables()

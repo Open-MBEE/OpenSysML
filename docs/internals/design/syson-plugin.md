@@ -673,6 +673,22 @@ Where the code departs from §3–§4, and why.
   exercised; the dialog renders outcomes, traces, verdicts, instances and diagnostics, and a
   diagnostic click selects its element. Diagnostics also reach the Validation view through
   `OpenSysMLValidationService`, which serves the last run per editing context.
+- **Documents render through the same export.** `RENDER_DOCUMENT` and `RUN_DOCUMENT_QUERY` reuse
+  the exported project and `Model.renderDocument` / `Model.runDocumentQuery`; the result carries
+  the rendered Markdown or HTML (the two forms the service renders) with the file name a rendered
+  set gives the document (`RenderDocumentResponse.file_name`, planned by the service's
+  `DocumentFiles`, so links between downloaded documents hold), or the query's columns
+  and rows mapped back to project elements. Bindings reuse the
+  dialog's name/expression inputs: a qualified name the export or the service resolves binds the
+  element, anything else is evaluated and bound as a literal. The frontend shows HTML in a
+  sandboxed `iframe` and downloads the content through an object URL; PDF stays CLI-only.
+- **A project's copy of a bundled library is not exported.** SysON resolves `DocumentQueries::*`
+  only when the project holds the library's text, but exporting that copy would shadow the
+  service's own and the document check (`part def :> DocumentQueries::Document`) compares against
+  the service's symbol. `ServiceLibraries` asks a freshly parsed empty model whether it already
+  resolves a `library package`'s name and what it declares at any depth; `ProjectTextExporter`
+  drops a copy declaring nothing beyond that with an informational message, and exports one that
+  adds declarations with a warning that it shadows the service's library.
 - **Diagnostic selection:** diagnostics naming a qualified name select that element; span-only
   diagnostics select the root element of the exported document containing the line. The
   serializer emits no source map.

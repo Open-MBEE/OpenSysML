@@ -49,7 +49,9 @@ and a census JSON mutated by hand (a declaration dropped from `evaluated`) must 
 The compliance map's own row census (`The map below tracks N semantic rules: …`) is **not** committed
 anywhere: `scripts/mkdocs_census.py` counts it from the rows and fills the
 `<!-- doc-counts:begin census -->` block in `docs/project/spec-compliance.md` while the site builds
-(`make docs`). `doc-counts` and the `tools/referee/diff` guard only refuse a `🚧` row. Test the hook with
+(`make docs`). A row's status is the one marker in its table's `Status` column; `doc-counts`, the
+`tools/referee/diff` guard and the hook refuse a `🚧` row, a row whose `Status` cell names no status or
+two, a row a blank line separates from its table, and a marker in a table without a `Status` column. Test the hook with
 `python3 scripts/mkdocs_census-test.py`, and prove it live by grepping the built
 `site/project/spec-compliance/index.html` for `semantic rules:` after adding a row.
 

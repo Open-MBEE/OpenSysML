@@ -68,8 +68,8 @@ function test_surface_live()
     assert_equal(~isempty(strfind(migrated.content, 'part def Vehicle')), true, 'migrate');
     assert_equal(migrated.fromFormat, 'xmi', 'migrate from format');
     assert_equal([migrated.report.mapped, migrated.report.approximated, ...
-        migrated.report.unmapped, migrated.report.skipped], [77 13 3 2], 'migration counts');
-    assert_equal(numel(migrated.report.entries), 95, 'migration entries');
+        migrated.report.unmapped, migrated.report.skipped], [77 15 3 2], 'migration counts');
+    assert_equal(numel(migrated.report.entries), 97, 'migration entries');
     assert_equal(numel(migrated.byVerdict('unmapped')), 3, 'migration unmapped entries');
     assert_equal(migrated.sourcePath, opensysml.internal.absolutePath(vehicle), 'migration source path');
     fid = fopen(vehicle, 'rb'); vehicleBytes = fread(fid, Inf, 'uint8=>uint8')'; fclose(fid);
@@ -155,6 +155,9 @@ function test_surface_live()
     assert_equal(numel(renderedView.edges), 1, 'RenderView edges');
     assert_equal(~isempty(renderedView.edges(1).fromPort), true, 'RenderView from port');
     assert_equal(~isempty(renderedView.edges(1).toPort), true, 'RenderView to port');
+    assert_equal(any(strcmp(renderedView.shown, 'port-symbols')), true, 'RenderView shown');
+    shownView = opensysml.renderView(viewModel, 'RenderViewDemo::connections', 'show', {'edge-labels'});
+    assert_equal(any(strcmp(shownView.shown, 'edge-labels')), true, 'RenderView show');
 
     behaviorModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'behavior.sysml')), ...
         'name', 'behavior.sysml');

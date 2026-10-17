@@ -618,7 +618,8 @@ final class Rendering {
             .setKind(view.kind())
             .setStated(view.stated())
             .addAllColumns(view.columns())
-            .addAllNotices(view.notices());
+            .addAllNotices(view.notices())
+            .addAllShown(view.shown());
     view.canvas()
         .ifPresent(
             canvas ->

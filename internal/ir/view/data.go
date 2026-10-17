@@ -29,7 +29,10 @@ type Data struct {
 	Canvas *Canvas
 	// Notes are the note boxes drawn on the canvas, anchored to a node ID or free.
 	Notes []Note
-	// Notices are what the rendering could not represent.
+	// Shown names the optional notation elements the rendering draws.
+	Shown []string
+	// Notices are what the rendering could not represent and, when it has no
+	// node, edge, row or lane, why it has none.
 	Notices []string
 }
 
@@ -69,7 +72,11 @@ type EdgeData struct {
 	// FromPort and ToPort are the ports the edge ends at, "" for the node itself.
 	FromPort string
 	ToPort   string
-	Label    string
+	// Label is the edge's own text; FromLabel and ToLabel name its ends, drawn
+	// beside them, "" for an unnamed end.
+	Label     string
+	FromLabel string
+	ToLabel   string
 	// Name is the edge's own name, "" for one anonymous or named by a migration.
 	Name   string
 	Kind   EdgeKind
@@ -89,13 +96,15 @@ type RowData struct {
 
 // Data is the rendering in machine-consumable form.
 func (r *Rendering) Data() Data {
-	return r.data(nil)
+	return r.showing(nil).data(nil)
 }
 
-// DataFor is the rendering in machine-consumable form with each node's ports
-// filtered for the requested display.
-func (r *Rendering) DataFor(display Ports) Data {
-	ports := r.portView(display)
+// DataWith is the rendering in machine-consumable form with each node's ports
+// filtered for the display options ask, and the optional notation elements
+// they add shown.
+func (r *Rendering) DataWith(options Options) Data {
+	r = r.showing(options.Show)
+	ports := r.portView(options.Ports)
 	return r.data(&ports)
 }
 
@@ -110,17 +119,23 @@ func (r *Rendering) data(ports *portView) Data {
 		Lanes:    r.Lanes,
 		Canvas:   r.Canvas,
 		Notes:    r.Notes,
+		Shown:    r.Shown.Names(),
 		Notices:  r.Notices,
 	}
 	if refusals := refusedPictureNotices(r.Pictures, r.pictureRefusals()); len(refusals) > 0 {
 		out.Notices = append(append([]string(nil), r.Notices...), refusals...)
+	}
+	// A consumer given no node, edge, row or lane is told why, rather than left to show nothing.
+	if r.blank() {
+		out.Notices = append(append([]string(nil), out.Notices...), r.blankNotice())
 	}
 	for _, root := range r.Roots {
 		out.Nodes = appendNodeData(out.Nodes, root, "", ports)
 	}
 	for _, edge := range r.Edges {
 		out.Edges = append(out.Edges, EdgeData{From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Label, Name: edge.Name, Kind: edge.Kind, Origin: edge.Origin, Route: edge.Route, Style: edge.Style})
+			Label: edge.Label, FromLabel: edge.FromLabel, ToLabel: edge.ToLabel, Name: edge.Name, Kind: edge.Kind, Origin: edge.Origin,
+			Route: edge.Route, Style: edge.Style})
 	}
 	for i, cells := range r.Rows {
 		var origin Origin

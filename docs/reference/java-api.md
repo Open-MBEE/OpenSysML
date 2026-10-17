@@ -11,11 +11,11 @@ dependency footprint, service ownership and release verification are in
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.9.2</version>
+  <version>0.10.1</version>
 </dependency>
 ```
 
-The Java artifact is not on Maven Central yet. Until then, a checkout installs it:
+The Java artifact is on Maven Central from 0.10.1. For unreleased changes, a checkout installs it:
 `make build` for the service binary the tests start, then
 `mvn -f client/java/pom.xml install`. The compiler
 release is **17**, the lowest baseline a realistic host — Eclipse 2023-03,
@@ -362,17 +362,25 @@ RenderedDocument page = model.renderDocument("Observatory::MassReport");
 page.markdown();             // the rendered notation
 RenderedDocument html = model.renderDocument("Observatory::MassReport", DocumentForm.HTML);
 html.html();                 // the same document as HTML
+html.fileName();             // "Observatory-MassReport.html": the file a rendered set writes it
+                             // to, which the other documents' links to it name
 ```
 
 `model.renderView("Demo::Overview")` returns a typed `RenderedView` with
 ordered nodes, edges, ports, source spans, table data and notes. Optional
 geometry, style and canvas remain `Optional` when the view does not state them.
 Use `RenderViewPorts.FULL` to include every declared port; the default is
-`MINIMAL`. This call requires the `render_view` capability.
+`MINIMAL`, and `renderView(name, ports, List.of("edge-labels", "typings"))` to draw
+those [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
+besides the ones the view's rendering shows (`"all"` for every one); the
+`RenderedView`'s `shown()` lists the elements drawn. This call requires the
+`render_view` capability.
 
-`DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an `Instance` plus its
-element ids), `Verdict`, `State`, `Event`, `LiteralValue` (wrapping a `Value`),
-`Quantity`, `Range`, `QuantityRange`, `InstanceRef` and `Unit` — the kinds a
+`DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an object the service
+holds, by id or by path, with the `ElementRef` it is held under), `DocumentVerdict`,
+`DocumentState`, `DocumentEvent`, the literal kinds `StringValue`, `IntegerValue`,
+`BigIntegerValue`, `RealValue`, `RationalValue` and `BooleanValue`, `InfinityValue`
+(an unbounded multiplicity) and `QuantityValue` — the kinds a
 native document's cells and bindings speak. A `DocumentRow` carries its subject
 whichever kind it is — `element()` for an element row, `verdict()`/
 `state()`/`event()`/`object()` as `Optional`s for the typed rows — beside the
@@ -508,7 +516,7 @@ not a compatibility promise.
 
 `opensysml-conformance` runs the language-neutral scenarios **through the public
 API** and writes the report shape `tools/cmd/conformance` writes; `mvn -f
-client/java/pom.xml test` is what CI runs. Of 138 scenarios, 133 run and pass over
+client/java/pom.xml test` is what CI runs. Of 166 scenarios, 161 run and pass over
 both `connect` and `connect-json`, and 5 are skipped — the requests the public API
 cannot express: a
 `ParseFile` naming no source, a `Query` with both a structured and an OSLC query or

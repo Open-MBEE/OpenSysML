@@ -12,6 +12,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
+const (
+	theParameter = "the parameter "
+)
+
 // stmtNote and durNote open the diagnostics statements and durations repeat.
 const (
 	stmtNote = "the statement "
@@ -226,6 +230,24 @@ func (m *migration) operationUsage(op *sysmlv1.Element) string {
 	return name
 }
 
+// operationDirection is the direction prefix of an operation's usage: that of
+// its «DirectedFeature» application, or none.
+func (m *migration) operationDirection(op *sysmlv1.Element) string {
+	directed := stereo(op, "DirectedFeature")
+	if directed == nil {
+		return ""
+	}
+	switch directed.Tag("featureDirection") {
+	case "provided":
+		return "out "
+	case "required":
+		return "in "
+	case "providedRequired":
+		return "inout "
+	}
+	return ""
+}
+
 // operationFeature writes the action usage that makes an operation a feature of
 // its owner, as a v1 operation is; the classifier behavior's own performance is that usage.
 // In a port def, whose usages may not be composite, the action is referential.
@@ -238,18 +260,13 @@ func (m *migration) operationFeature(op *sysmlv1.Element) {
 	if cat, _ := m.classify(op.Parent); cat == catPortDef {
 		kw = "ref " + actionKw
 	}
-	direction := ""
-	if directed := stereo(op, "DirectedFeature"); directed != nil {
-		switch directed.Tag("featureDirection") {
-		case "provided":
-			direction = "out "
-		case "required":
-			direction = "in "
-		case "providedRequired":
-			direction = "inout "
-		}
+	line := m.operationDirection(op) + kw + writeName(usage) + " : " + m.ref(op, op.Parent)
+	if ins, _ := m.contextIns(m.contextOf(op), op.Parent); ins != "" {
+		line += " { " + ins + "; }"
+	} else {
+		line += ";"
 	}
-	m.w.line(direction + kw + writeName(usage) + " : " + m.ref(op, op.Parent) + ";")
+	m.w.line(line)
 	m.add(op, Mapped, "", "its owner's usage "+usage+" performs it, as a call on an object does")
 }
 
@@ -298,11 +315,11 @@ func (m *migration) parameterSet(set *sysmlv1.Element) {
 	}
 	for _, p := range m.model.Refs(set, "parameter") {
 		if !m.written(p) {
-			note = joinNotes(note, "the parameter "+describe(p)+" of the set is not written")
+			note = joinNotes(note, theParameter+describe(p)+" of the set is not written")
 			continue
 		}
 		if m.shadowedParams[p] {
-			note = joinNotes(note, "the parameter "+describe(p)+" shares its name with the operation's parameter and is not written separately")
+			note = joinNotes(note, theParameter+describe(p)+" shares its name with the operation's parameter and is not written separately")
 			continue
 		}
 		// The feature the member binds is the operation's parameter a method
@@ -566,6 +583,9 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.El
 		}
 		starts = append(starts, r.start)
 	}
+	if len(starts) == 0 {
+		return text
+	}
 	// Inside a def a classifier feature spells through the context parameter;
 	// inside a usage it resolves bare, so no prefix is inserted there.
 	prefix := m.self + "."
@@ -587,7 +607,7 @@ func (m *migration) ownedByClassifier(f, scope *sysmlv1.Element) bool {
 		return false
 	}
 	cur := scope
-	for ; cur != nil && !isBehavior(cur) && cur.Type != "Operation"; cur = cur.Parent {
+	for ; cur != nil && !isBehavior(cur) && cur.Type != "Operation" && !ruleDef(cur); cur = cur.Parent {
 		if cur == owner {
 			return false
 		}
@@ -596,7 +616,7 @@ func (m *migration) ownedByClassifier(f, scope *sysmlv1.Element) bool {
 		if cur == owner {
 			return !behaviorScope(cur)
 		}
-		if !behaviorScope(cur) {
+		if !behaviorScope(cur) && !ruleDef(cur) {
 			return m.inherits(cur, owner)
 		}
 	}
@@ -985,24 +1005,32 @@ func (m *migration) calcBody(e *sysmlv1.Element) {
 	m.parameters(e, e)
 	expr, _, _, translated := m.calcExprHow(e)
 	_, lang := opaqueBody(e)
+	m.textualReps(e)
 	m.w.line(expr)
 	if lang != "" && !translated {
 		m.downgrade(e, "the "+lang+" body is written verbatim as the result expression, since it is also v2 expression syntax")
 	}
 }
 
-// opaqueBehaviorBody writes an opaque or function behavior's body that is no single
-// expression: as assignments when every statement is one, else as a comment.
+// opaqueBehaviorBody writes assignments when possible and keeps every body as text.
 func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 	m.unwrittenMembers(e)
+	m.textualReps(e)
 	body, lang := opaqueBody(e)
 	lines, ok, note := m.statements(body, lang, scope)
 	if !ok {
+		if note == "the body is empty" && opaqueBodiesEmpty(e) {
+			return
+		}
 		if r := m.resultRefusal(e); r != "" && r != note {
 			note = "as the result expression, " + r + "; as statements, " + note
 		}
-		m.opaqueComment(body, lang, note)
-		m.downgrade(e, "the body is kept as a comment: "+note)
+		m.opaqueBodyComments(e, note)
+		keptAs := "a textual representation, which is not executed"
+		if lang == "" {
+			keptAs = "a comment"
+		}
+		m.downgrade(e, "the body is kept as "+keptAs+": "+note)
 		return
 	}
 	name := m.freshName(scope, "body")
@@ -1011,6 +1039,22 @@ func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 	m.w.line(firstKw + writeName(name) + " then done;")
 	if note != "" {
 		m.downgrade(e, note)
+	}
+}
+
+func (m *migration) textualReps(e *sysmlv1.Element) {
+	for _, pair := range opaqueBodyPairs(e) {
+		if strings.TrimSpace(pair.body) != "" && pair.language != "" {
+			m.w.lines(prefixFirst("rep language "+stringLiteral(pair.language)+" ", opaqueRepresentationCommentLines(pair.body)))
+		}
+	}
+}
+
+func (m *migration) opaqueBodyComments(e *sysmlv1.Element, note string) {
+	for _, pair := range opaqueBodyPairs(e) {
+		if pair.body != "" && pair.language == "" {
+			m.opaqueComment(pair.body, "", note)
+		}
 	}
 }
 
@@ -1341,7 +1385,7 @@ func (m *migration) receptionParameters(r, sig *sysmlv1.Element) {
 			m.add(p, Mapped, m.v2Name(a), "stands for the signal's attribute "+m.nameOf(a)+", which the accepted payload carries")
 			continue
 		}
-		m.add(p, Unmapped, "", "the parameter "+m.nameFor(p)+" matches no attribute of the signal, whose payload is all the accept carries")
+		m.add(p, Unmapped, "", theParameter+m.nameFor(p)+" matches no attribute of the signal, whose payload is all the accept carries")
 	}
 }
 

@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"level": {"type": "Integer", "value": 0}, "mode": {"type": "Integer", "value": 1}}},
+		{"outputs": {"level": {"type": "Integer", "value": 0}, "mode": {"type": "Integer", "value": 2}}}
+	],
+	"admissible": "A decision with two guards holding: either branch",
+	"orderDependent": {"mode": 1}
+}

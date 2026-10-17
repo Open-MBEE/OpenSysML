@@ -1,0 +1,16 @@
+MicroscopeViews::positioned - tree rendering (render asTreeDiagram)
+
+canvas size 620×240 in px
+
+part def Detector at (260, 20) size 110×33
+part def Sensor at (480, 20) size 110×33
+part def Instrument at (20, 20) size 110×33
+part def 'Display System' at (20, 90) size 110×33
+part def 'Scanning Electron Microscope' at (20, 160) size 110×33
+part def 'Secondary Electron Detector' at (160, 160) size 160×33
+part def 'Backscattered Electron Detector' at (400, 160) size 160×33
+
+relationships:
+  'Secondary Electron Detector' --|> Detector via (240, 160) (240, 110) (315, 110) (315, 53)
+  'Backscattered Electron Detector' --|> Detector via (440, 160) (440, 110) (315, 110) (315, 53)
+  'Backscattered Electron Detector' --|> Sensor via (520, 160) (520, 120) (535, 120) (535, 53)

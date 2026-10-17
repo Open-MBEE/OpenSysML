@@ -56,6 +56,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_RENDER_DOCUMENT_FILE_NAME
+    options:
+      heading_level: 3
+
 ::: opensysml.load
     options:
       heading_level: 3

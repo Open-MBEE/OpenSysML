@@ -620,12 +620,10 @@ func TestMutuallyRecursiveActivitiesSettleTheirOwnerContext(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			r := migrateFixtureFile(t, name)
 			for _, declaration := range []string{
-				"action def A {\n        in ref context : Host[1];",
-				"action def B {\n        in ref context : Host[1];",
+				"action def A {\n    in ref context : Host[1];",
+				"action def B {\n    in ref context : Host[1];",
 			} {
-				if !strings.Contains(string(r.Notation), declaration) {
-					t.Fatalf("notation lacks %q:\n%s", declaration, r.Notation)
-				}
+				wantLine(t, r.Notation, declaration)
 			}
 			wantLine(t, r.Notation, "action b : B { in ref :>> context = A::context; }")
 		})

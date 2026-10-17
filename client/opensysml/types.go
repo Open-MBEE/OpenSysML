@@ -72,6 +72,7 @@ const (
 	CapabilityConvertDocuments               = sysmlgrpc.CapabilityConvertDocuments
 	CapabilityConvertCompact                 = sysmlgrpc.CapabilityConvertCompact
 	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
+	CapabilityRenderDocumentFileName         = sysmlgrpc.CapabilityRenderDocumentFileName
 )
 
 // ServerInfo describes the implementation answering a Client's calls.

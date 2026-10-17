@@ -136,6 +136,9 @@ pub const CAPABILITY_CONVERT_COMPACT: &str = "convert_compact";
 /// `ParseSourcesRequest.base_model_hash` and `ParseSourcesResponse.affected`: the documents whose
 /// results may differ from the base model's, so a client re-reads only those after an edit.
 pub const CAPABILITY_PARSE_SOURCES_AFFECTED: &str = "parse_sources_affected";
+/// `RenderDocumentResponse.file_name`: the file a rendered set writes the document to, which the
+/// other documents' links to it name.
+pub const CAPABILITY_RENDER_DOCUMENT_FILE_NAME: &str = "render_document_file_name";
 
 /// The remedy for a service lacking `capability`, naming both routes to one that has it.
 pub fn upgrade_remedy(capability: &str) -> String {

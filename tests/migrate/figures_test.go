@@ -313,10 +313,10 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 	wantNotes := map[migrate.Verdict][]string{
 		migrate.Mapped: {
 			": no Diagram shows the SysML Block Definition Diagram 'Blank': it draws nothing at all, and its view exposes nothing, so the figure would be empty and is left out; its caption stands alone",
-			"part 'Plant Documents'::'Plant Handbook Document'::Pictures::diagram: ",
-			"part 'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 2': ",
-			"part 'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 3': ",
-			"part 'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 4': ",
+			"part Model::'Plant Documents'::'Plant Handbook Document'::Pictures::diagram: ",
+			"part Model::'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 2': ",
+			"part Model::'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 3': ",
+			"part Model::'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 4': ",
 		},
 		migrate.Approximated: {
 			": no Diagram shows the SysML Block Definition Diagram 'Silent': it shows no model element, and its view exposes nothing, so the figure would be empty and is left out",
@@ -343,10 +343,10 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 		"*Priming*", "```mermaid", "Fill", "Vent", "How the pump is primed",
 		"## Pictures",
 		"Nothing to see",
-		"*Poster*", "```dot", "// view: Plant::Poster", `"picture:0" [shape=none, style="", label="", image="images/Plant_from_the_north.png"`, `tooltip="Plant from the north"`,
+		"*Poster*", "```dot", "// view: Model::Plant::Poster", `"picture:0" [shape=none, style="", label="", image="images/Plant_from_the_north.png"`, `tooltip="Plant from the north"`,
 		"The plant, photographed",
-		"*Unlisted*", "```dot", "// view: Plant::Unlisted", "// layout: neato -n", "«part def»", "<b>Tank</b>", `pos="160,480!"`,
-		"*Stale*", "```dot", "// view: Plant::Stale", "«part def»", "<b>Tank</b>")
+		"*Unlisted*", "```dot", "// view: Model::Plant::Unlisted", "// layout: neato -n", "«part def»", "<b>Tank</b>", `pos="160,480!"`,
+		"*Stale*", "```dot", "// view: Model::Plant::Stale", "«part def»", "<b>Tank</b>")
 	// The stream positions four of the five diagrams, so those are drawn
 	// by Graphviz where they state; the unpositioned activity stays Mermaid.
 	if dot, mermaid := strings.Count(md, "```dot"), strings.Count(md, "```mermaid"); dot != 4 || mermaid != 1 {
@@ -372,7 +372,7 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 	// tool lists for Partial, so the table names both blocks.
 	wantInOrder(t, "Shown Blocks query", notation,
 		"calc def 'Plant Handbook Shown Blocks Rows'",
-		`DocumentQueries::Named(qualifiedName = ("Plant::Tank", "Plant::Pump")),`)
+		`DocumentQueries::Named(qualifiedName = ("Model::Plant::Tank", "Model::Plant::Pump")),`)
 	wantNote(t, r, "_st_shown_table", migrate.Mapped, "")
 }
 

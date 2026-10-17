@@ -72,6 +72,7 @@ func (h *actionStmtHost) send(ec *EvalContext, s lower.Send) error {
 // assignOuter writes a name the body's blocks do not declare: to the running performance,
 // else the innermost enclosing one holding it, else the performing object, else the body.
 func (h *actionStmtHost) assignOuter(env *stmtEnv, name string, value Value, s lower.Assign) error {
+	name = h.perf.heldKey(h.exec.ctx, s.Scope, name)
 	if h.perf.declares(name) {
 		return h.exec.setFrameFeature(h.perf, name, value)
 	}
@@ -85,6 +86,7 @@ func (h *actionStmtHost) assignOuter(env *stmtEnv, name string, value Value, s l
 }
 
 func (h *actionStmtHost) assignData(env *stmtEnv, name string, value Value, s lower.Assign) error {
+	name = h.perf.heldKey(h.exec.ctx, s.Scope, name)
 	if h.perf.declares(name) {
 		return h.exec.setFrameFeature(h.perf, name, value)
 	}
@@ -172,7 +174,7 @@ func (h *actionStmtHost) orderStep() int {
 func (h *actionStmtHost) yieldsBetweenStatements() bool { return true }
 
 func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
-	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())
+	return fmt.Errorf("%w: %s", errReturnOutsideCalc, h.describe())
 }
 
 // effect performs the action a `perform` in statement form names, where it
@@ -236,7 +238,7 @@ func (h *actionStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGrap
 // executor's, and a block of its body sequences its nodes.
 func (h *actionStmtHost) runFlow(lower.Block) (stmtFlow, error) {
 	return flowNext, fmt.Errorf("%w: %s: a flow of steps in a block is not executable",
-		ErrStatementNotExecutable, h.describe())
+		errStatementNotExecutable, h.describe())
 }
 
 func (h *actionStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
@@ -261,9 +263,9 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 		}
 	}
 	if f.perf == nil {
-		locals, localCells := engine.env.localFrames()
+		locals, localCells, localHeld := engine.env.localFrames()
 		if f.perf, err = e.beginPerformance(
-			parent, graph, node, locals, localCells,
+			parent, graph, node, locals, localCells, localHeld,
 		); err != nil {
 			return flowNext, err
 		}
@@ -361,7 +363,7 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 		if scope == nil {
 			scope = parent.scope
 		}
-		locals, localCells := engine.env.localFrames()
+		locals, localCells, localHeld := engine.env.localFrames()
 		f.perf = &actionFrame{
 			node:        block.Node,
 			graph:       block.Graph,
@@ -370,6 +372,7 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 			parent:      parent,
 			locals:      locals,
 			localCells:  localCells,
+			localHeld:   localHeld,
 			connections: joinConnections(parent.connections, block.Graph.Connections),
 			data:        make(map[string]Value),
 			features:    make(map[string]ast.FeatureDirection),

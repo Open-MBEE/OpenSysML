@@ -150,7 +150,10 @@ func (f *formatter) emit(tok lexer.Token) {
 	if f.atLineStart {
 		f.writeIndent(f.continues(tok))
 	}
-	text := normalizeNewlines(f.text(tok), f.nl)
+	text := f.text(tok)
+	if !keepsLineEndings(tok.Kind) {
+		text = normalizeNewlines(text, f.nl)
+	}
 	f.buf.WriteString(text)
 
 	if tok.Kind == lexer.LBrace {
@@ -164,8 +167,8 @@ func (f *formatter) emit(tok lexer.Token) {
 		f.lastCode = tok.Kind
 	}
 	if i := strings.LastIndexByte(text, '\n'); i >= 0 {
-		// A multi-line note or block comment is emitted verbatim; the tokens
-		// after it start from wherever it ended.
+		// A multi-line note, block comment or string literal is emitted
+		// verbatim; the tokens after it start from wherever it ended.
 		f.atLineStart = strings.TrimSpace(text[i+1:]) == ""
 	}
 }
@@ -182,8 +185,14 @@ func (f *formatter) trailingNewlines() int {
 	return n
 }
 
+// keepsLineEndings reports whether a token's line endings are part of its value:
+// a string or unrestricted name means exactly the characters between its quotes.
+func keepsLineEndings(kind lexer.Kind) bool {
+	return kind == lexer.String || kind == lexer.UnrestrictedName
+}
+
 // normalizeNewlines rewrites the line endings inside a token's own text — a
-// multi-line note, or a line comment carrying its terminator — to nl.
+// multi-line note or block comment, or a line comment carrying its terminator — to nl.
 func normalizeNewlines(text, nl string) string {
 	if !strings.Contains(text, "\n") {
 		return text
@@ -300,8 +309,12 @@ func significant(name string, src []byte) []string {
 			continue
 		}
 		// Compared with line endings normalized, since emitting the document's
-		// dominant ending is an intended rewrite.
-		text := normalizeNewlines(string(src[tok.Span.Offset:tok.Span.End()]), "\n")
+		// dominant ending is an intended rewrite — except inside a literal,
+		// whose line endings are its value.
+		text := string(src[tok.Span.Offset:tok.Span.End()])
+		if !keepsLineEndings(tok.Kind) {
+			text = normalizeNewlines(text, "\n")
+		}
 		if tok.Kind == lexer.SLNote {
 			// A line comment's text includes its terminating newline, which
 			// the formatter supplies when the file did not end with one.

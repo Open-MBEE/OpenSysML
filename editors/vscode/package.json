@@ -2,7 +2,7 @@
   "name": "opensysml-sysml",
   "displayName": "SysML v2 (OpenSysML)",
   "description": "SysML v2 and KerML syntax highlighting and language support backed by the OpenSysML language server.",
-  "version": "0.9.2",
+  "version": "0.10.1",
   "publisher": "open-mbee",
   "license": "Apache-2.0",
   "repository": {
@@ -135,6 +135,43 @@
             "The pilot look, filled by keyword family from the cividis colour map."
           ],
           "markdownDescription": "The look every diagram is drawn in, also chosen from the **Style** list in the diagram panel. A palette colours definitions with their keyword family's colour and usages with a lighter tint of it, the same colours the DOT and PlantUML exports take; text stays black. `cameo` draws Cameo Systems Modeler's look and asks the server for its cameo drawing style when the diagram is exported as DOT."
+        },
+        "opensysml.diagram.show": {
+          "type": "array",
+          "default": [],
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "parameter-symbols",
+              "port-symbols",
+              "compartments",
+              "edge-labels",
+              "keywords",
+              "multiplicities",
+              "typings",
+              "qualifiers",
+              "all"
+            ],
+            "enumDescriptions": [
+              "A case's actor, subject and stakeholder parameters and an action's parameter pins as symbols on the node's boundary; without them a connection ends at the node itself.",
+              "A part's ports as symbols on its boundary; without them a connection ends at the part.",
+              "The compartments listing a node's nested features.",
+              "The names of connections, flows and bindings along their lines.",
+              "The «keyword» over each name.",
+              "Multiplicities after names.",
+              "The `: Type` after a name.",
+              "The qualified-name prefix of each name.",
+              "Every optional notation element."
+            ]
+          },
+          "markdownDescription": "Optional notation elements every diagram draws besides the ones its view's rendering shows and the default (port symbols, compartments and keywords), by the names the SysML v2 notation makes optional; `all` draws every one. Applies to the diagram panel and to exports, on a server that lists the elements (`openSysmlRenderElements`)."
+        },
+        "opensysml.diagram.depth": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "markdownDescription": "How many levels of nested elements a tree or interconnection diagram draws below each exposed element, overriding the `depth` the view states; `0` draws every level the view allows. Applies to the diagram panel and to exports, on a server that reads a depth (`openSysmlRenderDepth`)."
         }
       }
     },

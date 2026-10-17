@@ -7,18 +7,36 @@ library package DiagramLayout {
 
     metadata def Layout {
         doc /* Where the annotated element is drawn: the top-left corner of its
-             * box, an optional fixed size, and whether its body is folded. */
+             * box, an optional fixed size, whether its body is folded, and
+             * which of its compartments are drawn. Each show… switch names
+             * one compartment kind of the box: attributes, parts (part
+             * usages), references (ref usages), ports, constraints, items
+             * (item and flow features) and actions. Unset means drawn;
+             * false means the modeler suppressed that compartment on this
+             * symbol, so a renderer omits it rather than clipping it. */
         attribute x : ScalarValues::Real;
         attribute y : ScalarValues::Real;
         attribute width : ScalarValues::Real[0..1];
         attribute height : ScalarValues::Real[0..1];
         attribute collapsed : ScalarValues::Boolean[0..1];
+        attribute showAttributes : ScalarValues::Boolean[0..1];
+        attribute showParts : ScalarValues::Boolean[0..1];
+        attribute showReferences : ScalarValues::Boolean[0..1];
+        attribute showPorts : ScalarValues::Boolean[0..1];
+        attribute showConstraints : ScalarValues::Boolean[0..1];
+        attribute showItems : ScalarValues::Boolean[0..1];
+        attribute showActions : ScalarValues::Boolean[0..1];
     }
 
     metadata def Route {
         doc /* The waypoints a connection, transition, succession or flow is
-             * drawn through, in order, flattened as x0, y0, x1, y1, ... */
+             * drawn through, in order, flattened as x0, y0, x1, y1, ...
+             * A specialization has no element of its own to annotate: its
+             * Route is stated about the specific element and names the
+             * general it is drawn to, `ref :>> general : Sup;`, one Route
+             * per general. */
         attribute points : ScalarValues::Real[0..*] ordered nonunique;
+        ref general : Base::Anything[0..1];
     }
 
     metadata def Canvas {

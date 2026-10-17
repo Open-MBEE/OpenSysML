@@ -8,7 +8,6 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis/modelform"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -27,7 +26,7 @@ func (s *Service) ExportGraphs(ctx context.Context, req *pb.ExportGraphsRequest)
 	if req.Subject == "" {
 		return nil, statusError(connect.CodeInvalidArgument, "subject is required")
 	}
-	subject, err := graphsSubject(cached.Index, req.Subject)
+	subject, err := graphsSubject(cached, req.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -52,17 +51,18 @@ func (s *Service) ExportGraphs(ctx context.Context, req *pb.ExportGraphsRequest)
 	}, nil
 }
 
-// graphsSubject is the one declaration a qualified name denotes. A declaration
-// of the model's shadows the library's of the same name, as every RPC reads a
-// name; a name the model declares more than once denotes none of them.
-func graphsSubject(idx *symbols.Index, name string) (*symbols.Symbol, error) {
-	found := symbolfacts.LookupNamed(idx, name)
+// graphsSubject is the one declaration a qualified name denotes, a member a
+// subtype inherits included. A declaration of the model's shadows the library's
+// of the same name, as every RPC reads a name; a name the model declares more
+// than once denotes none of them.
+func graphsSubject(cached *CachedModel, name string) (*symbols.Symbol, error) {
+	found := cached.LookupNamedMember(name)
 	if len(found) == 0 {
 		return nil, statusErrorf(connect.CodeNotFound, "symbol not found: %s", name)
 	}
 	// LookupNamed puts the model's declarations before the library's.
 	declared := 0
-	for declared < len(found) && !idx.Library(found[declared]) {
+	for declared < len(found) && !cached.Index.Library(found[declared]) {
 		declared++
 	}
 	switch {

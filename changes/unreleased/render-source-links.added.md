@@ -1,1 +1,0 @@
-- **Link rendered diagram elements to their source.** PlantUML and DOT link nodes and edges, Mermaid links supported nodes and participants, and CLI, REPL, LSP and document renderings accept source-link templates.

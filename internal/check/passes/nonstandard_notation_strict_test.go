@@ -99,11 +99,11 @@ func TestStandardNotationIsSilentUnderStrictMode(t *testing.T) {
 
 // The strict severity is chosen by the mode alone, so an unnamed mode is the
 // default one.
-func TestNotationSeverity(t *testing.T) {
-	if got := notationSeverity(diag.ConformanceStrict); got != diag.SeverityError {
+func TestStrictSeverity(t *testing.T) {
+	if got := strictSeverity(diag.ConformanceStrict); got != diag.SeverityError {
 		t.Errorf("strict severity = %v, want error", got)
 	}
-	if got := notationSeverity(diag.ConformanceDefault); got != diag.SeverityWarning {
+	if got := strictSeverity(diag.ConformanceDefault); got != diag.SeverityWarning {
 		t.Errorf("default severity = %v, want warning", got)
 	}
 }

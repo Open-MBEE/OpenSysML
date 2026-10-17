@@ -924,6 +924,18 @@ def test_a_dropped_connection_keeps_a_working_cache(cache):
 
 # The pins the table actually ships, kept before the fixture above replaces it.
 SHIPPED_PINS = copy.deepcopy(PINNED_SHA256)
+# The platforms every binary family is released for.
+PUBLISHED_PLATFORMS = ('darwin-amd64', 'darwin-arm64', 'linux-amd64', 'linux-arm64', 'windows-amd64.exe')
+# The service this client starts, pinned by every release, and the Jupyter kernel,
+# pinned from the release that introduced it; each is pinned whole or not at all.
+SERVICE_PREFIX = 'sysml-grpc-'
+KERNEL_PREFIX = 'sysml-jupyter-kernel-'
+ASSET_FAMILIES = (SERVICE_PREFIX, KERNEL_PREFIX)
+
+
+def pinned_family(assets, prefix):
+    """The assets of one binary family a release pins."""
+    return {asset for asset in assets if asset.startswith(prefix)}
 
 
 class TestPinnedDigests:
@@ -937,7 +949,9 @@ class TestPinnedDigests:
             for version, assets in releases.items():
                 assert version.startswith('v')
                 for asset, digest in assets.items():
-                    assert asset.startswith('sysml-grpc-')
+                    family = [prefix for prefix in ASSET_FAMILIES if asset.startswith(prefix)]
+                    assert family, (repo, version, asset)
+                    assert asset[len(family[0]):] in PUBLISHED_PLATFORMS, (repo, version, asset)
                     assert re.fullmatch(r'[0-9a-f]{64}', digest), (repo, version, asset)
 
     def test_each_pinned_release_covers_every_platform_published(self):
@@ -950,7 +964,17 @@ class TestPinnedDigests:
         }
         for repo, releases in SHIPPED_PINS.items():
             for version, assets in releases.items():
-                assert set(assets) == published, f'{repo} {version}'
+                assert pinned_family(assets, SERVICE_PREFIX) == published, f'{repo} {version}'
+
+    def test_each_pinned_release_pins_a_binary_family_whole_or_not_at_all(self):
+        """A kernel pinned for some platforms would install on those and refuse the rest."""
+        for repo, releases in SHIPPED_PINS.items():
+            for version, assets in releases.items():
+                for prefix in ASSET_FAMILIES:
+                    complete = {prefix + platform for platform in PUBLISHED_PLATFORMS}
+                    pinned = pinned_family(assets, prefix)
+                    assert pinned in (set(), complete), f'{repo} {version} {prefix}'
+                assert pinned_family(assets, SERVICE_PREFIX), f'{repo} {version}'
 
     def test_a_release_with_no_pin_is_refused(self):
         """Same-origin trust is not the silent fallback for an unpinned release."""

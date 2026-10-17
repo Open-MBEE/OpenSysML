@@ -22,7 +22,7 @@ changed=$(git diff --name-only "$(git merge-base "$base" "$head")" "$head")
 # The editors' grammar generator and its committed outputs (the VS Code
 # grammars and the JupyterLab syntax table) are here too: the test that holds
 # them together is a Go test, run by the Go suite.
-service_pattern='^(api/proto/|cmd/|internal/|tools/|client/opensysml/|client/release-digests\.json$|conformance/|tests/|scripts/|examples/|editors/vscode/tools/|editors/vscode/syntaxes/|editors/jupyterlab/src/syntax\.json$|Makefile$|go\.mod$|go\.sum$|install\.sh$|install\.ps1$|\.github/workflows/|\.circleci/)'
+service_pattern='^(api/proto/|cmd/|internal/|tools/|client/opensysml/|client/release-digests\.json$|conformance/|tests/|scripts/|examples/|editors/vscode/tools/|editors/vscode/syntaxes/|editors/jupyterlab/src/syntax\.json$|Makefile$|go\.mod$|go\.sum$|install\.sh$|install\.ps1$|action\.yml$|\.github/workflows/|\.circleci/)'
 docs_pattern='^(docs/|overrides/|packaging/man/|mkdocs\.yml$|README\.md$|CHANGELOG\.md$|CONTRIBUTING\.md$|AGENTS\.md$|.*\.md$)'
 node_pattern='^client/node/'
 python_pattern='^client/python/'
@@ -34,6 +34,9 @@ vscode_pattern='^editors/vscode/'
 jupyterlab_pattern='^editors/jupyterlab/'
 mdk_pattern='^editors/mdk/'
 syson_pattern='^editors/syson/'
+# The Go hygiene suite ratchets every tracked test file and fixture, wherever it
+# lives, so one of those changing anywhere runs the Go area.
+hygiene_pattern='(^|/)testdata/|\.golden\.|_test\.go$'
 
 known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
 
@@ -58,7 +61,7 @@ emit() {
 fanout=$service
 [[ "${CI_TIER:-full}" = quick ]] && fanout=false
 
-emit go "$service"
+emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern"; } && echo true || echo false)"
 emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
 emit node "$( { [[ "$fanout" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
 # The client-manifest/Python version lockstep tests live in the Python suite,

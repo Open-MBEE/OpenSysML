@@ -244,6 +244,17 @@ func (a *activity) hasParameter(n, pin *sysmlv1.Element) bool {
 	return slices.Index(pins, pin) < ins
 }
 
+// hasResult reports whether a call's output pin is written: an untyped call
+// declares every pin, a typed one only those its callee has an out parameter for.
+func (a *activity) hasResult(n, pin *sysmlv1.Element) bool {
+	callee := a.typedCallee(n)
+	if callee == nil {
+		return true
+	}
+	_, outs := a.m.directedParameters(callee)
+	return slices.Index(outputPins(n), pin) < len(outs)
+}
+
 // typedCallee returns the definition a call is written typed by, as callBehavior
 // and callOperation write it; nil when its pins are declared untyped.
 func (a *activity) typedCallee(n *sysmlv1.Element) *sysmlv1.Element {

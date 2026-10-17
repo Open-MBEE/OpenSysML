@@ -50,13 +50,13 @@ func (ec *exprChecker) lintRoundedReal(value ast.Node) {
 		return
 	}
 	// A literal beyond the Real range is the run time's to refuse.
-	real, err := semantics.RealOf(exact)
-	if err != nil || new(big.Rat).SetFloat64(real.Real).Cmp(exact.Rat()) == 0 {
+	realValue, err := semantics.RealOf(exact)
+	if err != nil || new(big.Rat).SetFloat64(realValue.Real).Cmp(exact.Rat()) == 0 {
 		return
 	}
 	ec.lint(CodeRoundedRealLiteral, value.Span(),
 		"%s%s is rounded to the nearest Real, %s%s, since a feature typed by Real holds a binary64 value; type the feature by Rational to keep the literal exact",
-		sign, lit.Value, sign, distinctDigits(real.Real, exact))
+		sign, lit.Value, sign, distinctDigits(realValue.Real, exact))
 }
 
 // distinctDigits writes x with the fewest significant digits, 17 at least, that

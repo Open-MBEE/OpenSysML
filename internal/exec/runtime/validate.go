@@ -528,9 +528,7 @@ func (ctx *Context) satisfactionVerdicts(obj *validatedObject, assertions []*Sat
 // feature, or one a chain reaches from its root — or, with no `by`, an object of the type stating it.
 func (ctx *Context) subjectOf(a *SatisfyAssertion, obj *validatedObject) bool {
 	if a.SubjectRef == "" {
-		return a.Owner != nil && slices.ContainsFunc(obj.inst.types(), func(typ *symbols.Symbol) bool {
-			return sameDeclaration(typ, a.Owner) || ctx.modelConforms(typ, a.Owner)
-		})
+		return ctx.statedOf(a, obj.inst)
 	}
 	if a.Subject == nil {
 		return false

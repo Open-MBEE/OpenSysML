@@ -111,12 +111,15 @@ type LayoutSummary struct {
 	GeometryOmitted int `json:"geometryOmitted,omitempty"`
 	// Placements counts the shown elements the export positions;
 	// PlacementsWritten those positioned into a view, PlacementsUnexposed
-	// those the view neither exposes nor draws, PlacementsDangling those
-	// resolving to no element. Routes likewise per connector, RoutesUnexposed
-	// counting every route pinned to no member, for the reasons RoutesByKind itemizes.
+	// those the view neither exposes nor draws, PlacementsOnEdges those whose
+	// symbol lies on a connection's route — an association or connector end,
+	// which the route carries — PlacementsDangling those resolving to no
+	// element. Routes likewise per connector, RoutesUnexposed counting every
+	// route pinned to no member, for the reasons RoutesByKind itemizes.
 	Placements          int `json:"placements"`
 	PlacementsWritten   int `json:"placementsWritten"`
 	PlacementsUnexposed int `json:"placementsUnexposed"`
+	PlacementsOnEdges   int `json:"placementsOnEdges,omitempty"`
 	PlacementsDangling  int `json:"placementsDangling"`
 	Routes              int `json:"routes"`
 	RoutesWritten       int `json:"routesWritten"`
@@ -139,6 +142,10 @@ type LayoutSummary struct {
 	// StylesWritten those whose element the view lays out, so a Style is written.
 	Styles        int `json:"styles"`
 	StylesWritten int `json:"stylesWritten"`
+	// CompartmentsSuppressed counts the compartment switches written, over
+	// SymbolsSuppressing placed symbols that suppress at least one compartment.
+	CompartmentsSuppressed int `json:"compartmentsSuppressed,omitempty"`
+	SymbolsSuppressing     int `json:"symbolsSuppressing,omitempty"`
 	// Notes counts the comments and text boxes drawn, every one written as a
 	// Note; NotesAnchored those anchored to an element the view lays out,
 	// NotesFreed those whose anchor reaches none, written free on the view.
@@ -308,11 +315,18 @@ func (l *LayoutSummary) writeText(b *strings.Builder) {
 	if l.GeometryOmitted > 0 {
 		fmt.Fprintf(b, "# %d views' geometry omitted by the strict migration\n", l.GeometryOmitted)
 	}
-	fmt.Fprintf(b, "# placements: %d of %d written (%d not exposed, %d resolving to no element); routes: %d of %d written (%d not pinned, %d resolving to no element); malformed: %d\n",
-		l.PlacementsWritten, l.Placements, l.PlacementsUnexposed, l.PlacementsDangling,
+	onEdges := ""
+	if l.PlacementsOnEdges > 0 {
+		onEdges = fmt.Sprintf("%d lying on connections, ", l.PlacementsOnEdges)
+	}
+	fmt.Fprintf(b, "# placements: %d of %d written (%d not exposed, %s%d resolving to no element); routes: %d of %d written (%d not pinned, %d resolving to no element); malformed: %d\n",
+		l.PlacementsWritten, l.Placements, l.PlacementsUnexposed, onEdges, l.PlacementsDangling,
 		l.RoutesWritten, l.Routes, l.RoutesUnexposed, l.RoutesDangling, l.Malformed)
 	fmt.Fprintf(b, "# styles: %d of %d written; notes: %d written (%d anchored, %d freed of an anchor the view does not lay out)\n",
 		l.StylesWritten, l.Styles, l.Notes, l.NotesAnchored, l.NotesFreed)
+	if l.CompartmentsSuppressed > 0 {
+		fmt.Fprintf(b, "# compartments suppressed: %d on %d symbols\n", l.CompartmentsSuppressed, l.SymbolsSuppressing)
+	}
 	if l.Pictures > 0 {
 		l.writePicturesText(b)
 	}

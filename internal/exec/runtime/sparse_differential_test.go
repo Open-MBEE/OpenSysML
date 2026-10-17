@@ -85,9 +85,9 @@ func sparseDifferentialSource(t *testing.T, path string, src []byte, roots func(
 	root := idx.DocumentRoot(path)
 	for _, sym := range roots(root) {
 		sharing := NewContext(NewModel(model, resolver), sparseDifferentialMaxSteps)
-		sharing.SetSharedDefaults(true)
+		sharing.setSharedDefaults(true)
 		materializing := NewContext(NewModel(model, resolver), sparseDifferentialMaxSteps)
-		materializing.SetSharedDefaults(false)
+		materializing.setSharedDefaults(false)
 		name := path + ": " + sym.Name
 		got, taken := sparseReading(sharing, sym, root)
 		want, _ := sparseReading(materializing, sym, root)
@@ -125,7 +125,7 @@ func sparseReading(ctx *Context, sym *symbols.Symbol, root *symbols.Scope) (stri
 		b.WriteString("\n")
 	}
 	fmt.Fprintf(&b, "valid %v bounded %v unread %d\n", report.Valid(), report.Bounded, len(report.Unread))
-	return b.String(), int(ctx.SharedDefaultsTaken()) + ctx.SharedVerdictsTaken()
+	return b.String(), int(ctx.sharedDefaultsTaken()) + ctx.sharedVerdictsTaken()
 }
 
 // readableWalk reads every value an object graph shows, down to the depth a

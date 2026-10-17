@@ -24,24 +24,24 @@ config:
 %% VehicleViews::vehicleView — tree rendering
 flowchart TD
   n0["`*«part def»*
-**Vehicles::Vehicle**`"]
+**Vehicle**`"]
     n1("`*«part»*
-**engine : Engine**`")
+**engine**`")
   n0 --- n1
     n2("`*«part»*
-**wheels : Wheel**`")
+**wheels**`")
   n0 --- n2
     n3("`**connect**`")
   n0 --- n3
   n4("`*«view»*
-**VehicleViews::vehicleView::engineSubview**`")
+**engineSubview**`")
     n5["`*«part def»*
-**Vehicles::Engine**`"]
+**Engine**`"]
       n6("`*«attribute»*
 **power**`")
   n5 --- n6
       n7("`*«part»*
-**cylinder : Cylinder**`")
+**cylinder**`")
   n5 --- n7
   n4 --- n5
   n0 ---|"◆ engine"| n5

@@ -26,41 +26,41 @@ flowchart TD
   n0["`*«part def»*
 **Vehicle**`"]
     n1("`*«part»*
-**chassis : Chassis**`")
+**chassis**`")
   n0 --- n1
     n2("`*«part»*
-**wheels : Wheel**`")
+**wheels**`")
   n0 --- n2
     n3("`*«part»*
-**driver : Driver**`")
+**driver**`")
   n0 --- n3
     n4("`*«attribute»*
-**total : Mass**`")
+**total**`")
   n0 --- n4
     n5["`*«part def»*
 **Cabin**`"]
   n0 --- n5
     n6("`*«part»*
-**cabin : Cabin**`")
+**cabin**`")
   n0 --- n6
     n7("`*«part»*
-**radio : Radio**`")
+**radio**`")
   n0 --- n7
     n8("`*«part»*
-**trailer : Trailer**`")
+**trailer**`")
   n0 --- n8
   n9["`*«part def»*
 **SportsCar**`"]
     n10("`*«part»*
-**chassis : LightChassis**`")
+**chassis**`")
   n9 --- n10
     n11("`*«part»*
-**spare : Wheel**`")
+**spare**`")
   n9 --- n11
   n12["`*«part def»*
 **Chassis**`"]
     n13("`*«attribute»*
-**mass : Mass**`")
+**mass**`")
   n12 --- n13
   n14["`*«part def»*
 **LightChassis**`"]
@@ -74,10 +74,10 @@ flowchart TD
   n18["`*«attribute def»*
 **Mass**`"]
   n19("`*«part»*
-**fleetCar : Vehicle**`")
+**fleetCar**`")
   n0 ---|"◆ chassis"| n12
-  n0 ---|"◆ wheels[4]"| n16
-  n0 ---|"◇ driver[0..1]"| n17
+  n0 ---|"◆ wheels"| n16
+  n0 ---|"◇ driver"| n17
   n0 ---|"◇ total"| n18
   n9 -->|"specialization"| n0
   n9 ---|"◆ chassis"| n14

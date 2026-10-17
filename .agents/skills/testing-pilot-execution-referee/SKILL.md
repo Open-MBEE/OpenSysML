@@ -67,8 +67,8 @@ report. Reports go to
 
 Reference values at the current implementation (456 cases, all twenty-one default
 fixtures):
-`agree 217 · kind-only 1 · order-only 0 · disagree 29 · differs-by-design 5 ·
-pilot-unevaluated 124 · pilot-silent 21 · pilot-error 5 · ours-error 10 · ours-undetermined 28 ·
+`agree 216 · kind-only 1 · order-only 0 · disagree 26 · differs-by-design 5 ·
+pilot-unevaluated 124 · pilot-silent 21 · pilot-error 5 · ours-error 10 · ours-undetermined 32 ·
 both-error 16 · nondeterministic 0`.
 Four of the nine `pilot-error` are the whole of `unknown_bounds.cases`: the pilot rejects a
 model whose multiplicity bound names a valueless feature (`a : Real[n]`, `Must have a Natural
@@ -150,8 +150,8 @@ pilot answers the representation's own. See
   `pilot-exec-diff: <file>:<line>: model no/such/model.sysml: stat <abs>: no
   such file or directory`.
 - **Additivity.** `go run -C tools ./cmd/pilot-diff` must still print the headline the
-  committed baseline holds (`391 file(s), 353 fully agreeing; 45 agreed
-  diagnostic(s), 282 only ours, 92 only the pilot's` at the `2026-08` pin — read it from the baseline JSON, not from this line, since each
+  committed baseline holds (`397 file(s), 358 fully agreeing; 48 agreed
+  diagnostic(s), 315 only ours, 93 only the pilot's` at the `2026-08` pin — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.

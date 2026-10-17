@@ -103,7 +103,7 @@ func TestDOTPseudostateRules(t *testing.T) {
 	}
 	for _, tc := range cases {
 		for _, palette := range []Palette{"", PaletteOkabeIto} {
-			dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{tc.node}}).DOTWith(Options{Palette: palette})
+			dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{tc.node}}).DOTWith(Options{Show: AllShown(), Palette: palette})
 			if err != nil {
 				t.Fatalf("%s: DOT: %v", tc.name, err)
 			}
@@ -134,7 +134,7 @@ func TestDOTClusterBorders(t *testing.T) {
 	}}
 	// body is placed, so the rest is drawn only when asked for, in the strip.
 	for _, palette := range []Palette{"", PaletteTolBright} {
-		dot, err := rendering.DOTWith(Options{Palette: palette, Unplaced: UnplacedStrip})
+		dot, err := rendering.DOTWith(Options{Show: AllShown(), Palette: palette, Unplaced: UnplacedStrip})
 		if err != nil {
 			t.Fatalf("DOT: %v", err)
 		}
@@ -174,7 +174,7 @@ func TestDOTConnectionPenwidth(t *testing.T) {
 			{From: "a", To: "b", Kind: EdgeSuccession},
 			{From: "a", To: "b", Kind: EdgeTransition},
 		}}
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -209,11 +209,11 @@ func TestDOTPaletteFills(t *testing.T) {
 		}},
 	}, Edges: []Edge{{From: "n1", To: "n2", Kind: EdgeConnection}}}
 	// p is placed, so the rest is drawn only when asked for, in the strip.
-	plain, err := rendering.DOTWith(Options{Unplaced: UnplacedStrip})
+	plain, err := rendering.DOTWith(Options{Show: AllShown(), Unplaced: UnplacedStrip})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	dot, err := rendering.DOTWith(Options{Palette: PaletteOkabeIto, Unplaced: UnplacedStrip})
+	dot, err := rendering.DOTWith(Options{Show: AllShown(), Palette: PaletteOkabeIto, Unplaced: UnplacedStrip})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -246,7 +246,7 @@ func TestDOTPaletteFills(t *testing.T) {
 		t.Errorf("palette changes more than fills:\n%s\nblack and white:\n%s", dot, plain)
 	}
 	// A tree fills the nodes that an interconnection draws as clusters.
-	tree, err := (&Rendering{View: "V", Kind: KindTree, Roots: rendering.Roots}).DOTWith(Options{Palette: PaletteOkabeIto, Unplaced: UnplacedStrip})
+	tree, err := (&Rendering{View: "V", Kind: KindTree, Roots: rendering.Roots}).DOTWith(Options{Show: AllShown(), Palette: PaletteOkabeIto, Unplaced: UnplacedStrip})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -361,7 +361,7 @@ func TestPaletteOnOtherForms(t *testing.T) {
 // italic keyword line, each character an entity and each newline a break.
 func TestDOTEscapesNamesInStyledLabels(t *testing.T) {
 	node := &Node{ID: "n", Kind: "part", Name: "a & b <c> \"d\" 'e'\nf", Type: "T<'x'>", Detail: "g > h\n'i'"}
-	dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{node}}).DOTWith(Options{Palette: PaletteOkabeIto})
+	dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{node}}).DOTWith(Options{Show: AllShown(), Palette: PaletteOkabeIto})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}

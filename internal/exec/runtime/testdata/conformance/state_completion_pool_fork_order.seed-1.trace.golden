@@ -1,5 +1,5 @@
 exit: idle
-choice fork split: next split->a(effect), split->b(effect) (unordered; took split->b(effect) first)
+choice fork split: next split->a(effect), split->b(effect) (unordered; took split->b(effect) first; independent)
 enter: work
 enter: b
 enter: a

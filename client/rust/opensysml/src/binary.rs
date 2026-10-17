@@ -1688,6 +1688,13 @@ mod tests {
         .map(|(os, arch)| release_asset_name(os, arch).expect("a published platform"))
         .collect();
 
+        // The Jupyter kernel is published beside the service for the same platforms
+        // from the release that introduced it, and pinned whole or not at all.
+        let kernel: Vec<String> = published
+            .iter()
+            .map(|asset| asset.replacen("sysml-grpc-", "sysml-jupyter-kernel-", 1))
+            .collect();
+
         let pins = shipped_pins();
         assert!(
             !pins.is_empty(),
@@ -1697,16 +1704,11 @@ mod tests {
             assert!(repo.contains('/'), "{repo}");
             for (version, assets) in releases {
                 assert!(version.starts_with('v'), "{repo} {version}");
-                let names: Vec<&String> = assets.keys().collect();
-                assert_eq!(
-                    names.len(),
-                    published.len(),
-                    "{repo} {version} does not pin every published platform"
-                );
-                for asset in &published {
-                    let digest = assets
-                        .get(asset)
-                        .unwrap_or_else(|| panic!("{repo} {version} pins no {asset}"));
+                for (asset, digest) in assets {
+                    assert!(
+                        published.contains(asset) || kernel.contains(asset),
+                        "{repo} {version} pins {asset}, which no release publishes"
+                    );
                     assert!(
                         digest.len() == 64
                             && digest
@@ -1715,6 +1717,20 @@ mod tests {
                         "{repo} {version} {asset}: {digest}"
                     );
                 }
+                for asset in &published {
+                    assert!(
+                        assets.contains_key(asset),
+                        "{repo} {version} pins no {asset}"
+                    );
+                }
+                let kernels_pinned = kernel
+                    .iter()
+                    .filter(|asset| assets.contains_key(*asset))
+                    .count();
+                assert!(
+                    kernels_pinned == 0 || kernels_pinned == kernel.len(),
+                    "{repo} {version} pins the kernel for some platforms only"
+                );
             }
         }
     }

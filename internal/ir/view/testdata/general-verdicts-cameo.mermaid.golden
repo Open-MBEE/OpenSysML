@@ -28,40 +28,40 @@ config:
 %% not represented: Mermaid has no diagram frame with header tab
 flowchart TD
   n0["`*«requirement def»*
-**VehicleRequirements::MassRequirement**
+**MassRequirement**
 id R1, “The total mass of the vehicle shall not exceed the stated...”`"]
   n1["`*«requirement def»*
-**VehicleRequirements::StoppingRequirement**
+**StoppingRequirement**
 id R2, “The vehicle shall stop within the stated distance.”`"]
   n2["`*«requirement def»*
-**VehicleRequirements::EmergencyStopRequirement**
+**EmergencyStopRequirement**
 id R3`"]
   n3["`*«requirement»*
-**VehicleRequirements::vehicleMass : MassRequirement**
+**vehicleMass**
 id R1.1, verdict pass by Cases::light, fail by Cases::heavy`"]
   n4["`*«requirement»*
-**VehicleRequirements::chassisMass : MassRequirement**
+**chassisMass**
 id R1.2, verdict pass by Cases::chassis`"]
   n5["`*«requirement»*
-**VehicleRequirements::emergencyStop : EmergencyStopRequirement**
+**emergencyStop**
 id R3.1, verdict inconclusive by Cases::stop (no verdict bound), error by Cases::brake (division by zero)`"]
   n6["`*«part def»*
-**VehicleStructure::LightChassis**`"]
+**LightChassis**`"]
   n7["`*«part»*
-**VehicleStructure::vehicle : Vehicle**`"]
+**vehicle**`"]
   n8["`*«part»*
-**VehicleStructure::heavyVehicle : Vehicle**`"]
-  n9("`**VehicleStructure::brake : Brake**`")
+**heavyVehicle**`"]
+  n9("`**brake**`")
   n10["`*«verification def»*
-**VehicleVerification::MassTest**`"]
+**MassTest**`"]
   n11["`*«verification»*
-**VehicleVerification::lightMassTest : MassTest**`"]
+**lightMassTest**`"]
   n12["`*«verification»*
-**VehicleVerification::heavyMassTest : MassTest**`"]
+**heavyMassTest**`"]
   n13["`*«verification def»*
-**VehicleVerification::StopTest**`"]
+**StopTest**`"]
   n14["`*«verification»*
-**VehicleVerification::stopTest : StopTest**`"]
+**stopTest**`"]
   n2 -->|"specialization"| n1
   n3 -.->|"typing"| n0
   n4 -.->|"typing"| n0
@@ -71,7 +71,7 @@ id R3.1, verdict inconclusive by Cases::stop (no verdict bound), error by Cases:
   n7 -.->|"satisfy"| n3
   n8 -.->|"satisfy"| n3
   n7 -.->|"satisfy"| n5
-  n5 -.->|"allocate"| n9
+  n5 -.-> n9
   n10 -.->|"verify"| n3
   n11 -.->|"verify"| n3
   n12 -.->|"verify"| n3

@@ -5,6 +5,7 @@ package semtok
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -153,5 +154,50 @@ func TestLexicalKerMLNames(t *testing.T) {
 	}
 	if sysmlWhiles != 2 {
 		t.Errorf("SysML classified %d 'while' spans as keywords, want 2", sysmlWhiles)
+	}
+}
+
+// A word only the other language reserves is a keyword where it heads a
+// declaration of that notation and a name everywhere else, as the parser reads
+// it: `step <= 3` in a `.sysml` file highlights no keyword, `step s;` does.
+func TestLexicalOtherLanguageKeywordByPosition(t *testing.T) {
+	keywordsOf := func(content string, kind source.Kind) string {
+		var keywords []string
+		for _, tok := range Lexical([]byte(content), kind) {
+			if tok.Class == ClassKeyword {
+				keywords = append(keywords, content[tok.Span.Offset:tok.Span.End()])
+			}
+		}
+		return fmt.Sprint(keywords)
+	}
+	sysml := "attribute step : Real;\nassert constraint { step <= 3 }\nstep s;\n"
+	if got, want := keywordsOf(sysml, source.KindSysML), "[attribute assert constraint step]"; got != want {
+		t.Errorf("SysML keywords = %s, want %s", got, want)
+	}
+	kerml := "feature action : Real;\ninv { action <= 3 }\naction a;\n"
+	if got, want := keywordsOf(kerml, source.KindKerML), "[feature inv action]"; got != want {
+		t.Errorf("KerML keywords = %s, want %s", got, want)
+	}
+}
+
+// A string literal spanning lines is classified as one token and encoded one
+// part per line, since the encoding has no way to express a token that spans
+// lines; the line breaks themselves are not highlighted.
+func TestStringSpanningLinesIsEncodedPerLine(t *testing.T) {
+	content := []byte("attribute s = \"line one\r\n  line two\";")
+	toks := Lexical(content, source.KindSysML)
+	if len(toks) != 2 || toks[1].Class != ClassString {
+		t.Fatalf("Lexical = %+v, want the keyword and one string token", toks)
+	}
+	if got, want := string(content[toks[1].Span.Offset:toks[1].Span.End()]), "\"line one\r\n  line two\""; got != want {
+		t.Fatalf("string token text = %q, want %q", got, want)
+	}
+	data := Encode(content, toks[1:])
+	want := []uint32{
+		0, 14, 9, uint32(ClassString), 0, // "line one
+		1, 0, 11, uint32(ClassString), 0, //   line two"
+	}
+	if !slices.Equal(data, want) {
+		t.Fatalf("Encode = %v, want %v", data, want)
 	}
 }

@@ -107,8 +107,11 @@ Central token probes, the GPG key import and test-sign, the npm packs,
 are skipped: cosign keyless signing and attestation (which write to the public
 Rekor log), `ghr` (the GitHub release), `twine upload`, `npm publish`,
 `mvn deploy` and `cargo publish`. A rehearsal exports a stand-in `CIRCLE_TAG`
-from `_version.py` before any step reads it, so the version bumps must already
-be on the branch.
+from `_version.py` (`scripts/rehearsal-version.sh`) before any step reads it,
+so the version bumps must already be on the branch, and the Go suite's jobs tag
+their checkout locally as that release first: a tag build reports the tag as
+the module version in every binary the toolchain builds, a branch build reports
+`(devel)`, and the suite must pass under the former.
 
 Trigger it from the CircleCI UI with *Trigger pipeline*: choose the release
 branch for both the config and the checkout source, then add the boolean
@@ -162,7 +165,12 @@ branch that moves the integration state onto `main`:
    to the SemVer spelling of the same version (`0.9.1`;
    `0.9.0-rc.1` for `0.9.0rc1`), and run `npm install --package-lock-only` in
    `client/node` so the lockfile agrees; the release workflow fails before
-   building anything when package.json disagrees. `client/java/pom.xml` follows
+   building anything when package.json disagrees, and `npm ci` refuses a
+   lockfile that still locks the platform packages at the previous version
+   (`TestNodeLockfileAgreesWithTheClientVersion` in `tests/hygiene` catches
+   that without a Node toolchain). Before the tag the new platform packages
+   are not on npm, so that run drops their entries from the lockfile; that is
+   fine for `npm ci`, and the pin step below locks them once they exist. `client/java/pom.xml` follows
    the same version too: set the parent pom's `<version>`, both modules'
    `<parent><version>`, and the client version in `editors/mdk/pom.xml`
    (`opensysml.client.version`) and `editors/syson/backend/pom.xml` to the same
@@ -170,7 +178,7 @@ branch that moves the integration state onto `main`:
    set `[package] version` to the same spelling and run
    `cargo update -p opensysml` in `client/rust` so the lockfile
    agrees. The editors carry the same spelling too, though nothing publishes them:
-   `"version"` in `editors/vscode/package.json` and
+   `"version"` in `editors/vscode/package.json`, `editors/jupyterlab/package.json` and
    `editors/syson/frontend/package.json`, each lock regenerated with
    `npm install --package-lock-only` in that directory; `<version>` in
    `editors/mdk/pom.xml` and `editors/syson/pom.xml`; and `<parent><version>`
@@ -192,13 +200,23 @@ branch that moves the integration state onto `main`:
 4. Tag `main` as [Tagging](#tagging) describes.
 
 5. Merge the `chore/pin-vx.y.z` pull request the tag's pipeline opens against
-   `develop` (see [Pinned release digests](#pinned-release-digests)), then merge
+   `develop` (see [Pinned release digests](#pinned-release-digests)). Its Node
+   client job fails until the lockfile names the platform packages the tag just
+   published — `npm install --package-lock-only` in `client/node` could not lock
+   them before they existed — so run that on the pin branch and commit the
+   lockfile first. Then merge
    `main` back into `develop` — a plain merge, no rebase — so the folded
-   changelog, and any hotfix that landed on `main` in the meantime, flow down:
+   changelog, and any hotfix that landed on `main` in the meantime, flow down.
+   When the release was a `hotfix/` branch, `develop`'s lockfile still locks
+   the platform packages of the previous release: run the same
+   `npm install --package-lock-only` on the back-merge branch, or its Node
+   client job fails on `npm ci`:
 
    ```bash
    git checkout develop && git pull
    git merge main
+   (cd client/node && npm install --package-lock-only --ignore-scripts)   # after a hotfix
+   git commit -am "chore(node): lock the platform packages at the release"  # if it changed
    git push origin develop
    ```
 
@@ -250,8 +268,10 @@ so that `dist/` holds:
   `.sha256` sidecar for the same reason: `jupyter-opensysml-kernel`'s sdist downloads
   and verifies it (`client/jupyter-kernel/jupyter_opensysml_kernel/binary.py`) when it
   registers the kernelspec, and its platform wheels bundle it;
-- `wasm/sysml-wasm.wasm` and `wasm/wasm_exec.js`, the combined WebAssembly
-  module and matching Go runtime, each with a `.sha256` sidecar;
+- `wasm/sysml-wasm.wasm`, `wasm/sysml-prod.wasm.gz` and `wasm/wasm_exec.js`, the
+  combined WebAssembly module, the gzip-compressed browser build of the `sysml` REPL
+  (`-tags sysml_prod`, what the site's REPL page runs) and the matching Go runtime,
+  each with a `.sha256` sidecar;
 - the Python client's distribution, `opensysml-<x.y.z>-py3-none-any.whl` and
   `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` from those
   `sysml-grpc` binaries' digests and the same files `publish-pypi` uploads (see
@@ -262,7 +282,7 @@ so that `dist/` holds:
   digests (see
   [Releasing jupyter-opensysml-kernel to PyPI](#releasing-jupyter-opensysml-kernel-to-pypi));
 - `SHA256SUMS.txt` over every archive, every wheel and sdist, every `sysml-grpc` and
-  `sysml-jupyter-kernel` binary and both WebAssembly assets,
+  `sysml-jupyter-kernel` binary and all three WebAssembly assets,
   with its cosign signature `SHA256SUMS.txt.bundle` (see
   [The signed checksum manifest](#the-signed-checksum-manifest));
 - `provenance.intoto.json`, the SLSA provenance statement naming every artifact
@@ -1383,9 +1403,12 @@ Everything below is already in place; it is recorded so it can be re-created.
 3. Requires `NPM_TOKEN` from the `npm` context.
 4. Refuses to run if any of the seven packages is already on the registry at this
    version (a publish cannot be repeated).
-5. Builds and tests the client against the release's linux binary (`npm ci`,
-   build, typecheck, lint, tests), with `$OPENSYSML_EXPECT_PINNED_RELEASE` set
-   to the tag so the suite asserts the stamped table pins it.
+5. Installs Z3, then builds and tests the client against the release's linux
+   binary (`npm ci`, build, typecheck, lint, tests), with
+   `$OPENSYSML_EXPECT_PINNED_RELEASE` set to the tag so the suite asserts the
+   stamped table pins it. The suite's verification tests ask the service
+   solver-backed questions, and the service finds the solver on PATH; without
+   one those questions are undecided and the tests fail.
 6. Builds the five platform packages from `dist/grpc` and the WASM package
    from `dist/wasm`, checking every asset against its `.sha256` sidecar.
 7. Packs the client into `dist/npm/` with `npm pack` and opens the tarball:
@@ -1454,7 +1477,7 @@ The Java client in `client/java/` is published to Maven Central as
 — by the `release` workflow's `publish-maven` job, from the same core
 `v<version>` tag that publishes the binaries, `opensysml` and
 `@openmbee/opensysml`, at that version. The `opensysml-java-v*` path was never
-tagged and is no longer used. **The Java artifacts are not on Maven Central yet.**
+tagged and is no longer used. The Java artifacts are on Maven Central from 0.10.1.
 
 ### What a maintainer must obtain first
 
@@ -1548,6 +1571,11 @@ pom property or the settings), and `central-publishing-maven-plugin` with
 deployment itself and waits until it is published, so a green job means the
 version is on Central. The irreversible step is guarded by running last, on a
 revision proven green, and by the refusal of a version already published.
+The plugin's pin has to track Sonatype's Portal API: `0.7.0` rejected the
+`warnings` field the deployment-status response gained in October 2026 and
+reported the `v0.10.1` publish failed after Central had published it, so a red
+publish job is checked against Central's component listing before any rerun
+(the refusal step fails a rerun of a published version by design).
 
 The same checks run locally before a release, without uploading:
 

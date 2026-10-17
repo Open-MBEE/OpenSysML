@@ -110,23 +110,29 @@ func TestAssociationEndWithSubsets(t *testing.T) {
 }
 
 func TestSuccessionAndConnectorLeadingMultiplicity(t *testing.T) {
+	// `succession` is SysML notation and `connector` KerML notation, so each
+	// case is parsed as the file kind whose grammar spells its keyword.
 	tests := []struct {
 		name      string
+		file      string
 		input     string
 		wantClean bool
 	}{
 		{
 			name:      "succession_mult_name_first",
+			file:      "test.sysml",
 			input:     `package Test { succession [1] mySuccession first [1] a then [1] b; }`,
 			wantClean: true,
 		},
 		{
 			name:      "succession_mult_first_anonymous",
+			file:      "test.sysml",
 			input:     `package Test { succession [1] first [1] a then [1] b; }`,
 			wantClean: true,
 		},
 		{
 			name:      "connector_mult_name",
+			file:      "test.kerml",
 			input:     `package Test { connector [1] myConn from [1] a to [1] b; }`,
 			wantClean: true,
 		},
@@ -134,7 +140,7 @@ func TestSuccessionAndConnectorLeadingMultiplicity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := parser.New(source.New("test.sysml", []byte(tt.input)))
+			p := parser.New(source.New(tt.file, []byte(tt.input)))
 			_ = p.ParseFile()
 
 			clean := len(p.Diagnostics) == 0

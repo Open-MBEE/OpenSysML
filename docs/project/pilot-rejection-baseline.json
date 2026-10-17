@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 313,
-        "digest": "sha256:4063e6eb535e7b65158b64b17e2afff63af3d3b5caa35d851c797744b9d521c4"
+        "files": 319,
+        "digest": "sha256:e55c280b1c0346eb33c090c2704ece422db3d9106d7474c2f8f58cf1240cff86"
       }
     ],
-    "recorded": "2026-10-09"
+    "recorded": "2026-10-16"
   },
   "totals": {
-    "cases": 313,
-    "bothReject": 304,
+    "cases": 319,
+    "bothReject": 310,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 159,
-      "bothReject": 150,
+      "cases": 165,
+      "bothReject": 156,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
@@ -663,7 +663,7 @@
       "rule": "A string literal must be closed (KerMLExpressions.xtext:514 LiteralString).",
       "mode": "default",
       "bucket": "both-reject",
-      "oursErrors": 2,
+      "oursErrors": 1,
       "pilotErrors": 1
     },
     {
@@ -708,7 +708,7 @@
       "rule": "An unrestricted name must be closed (KerMLExpressions.xtext:536 Name, UNRESTRICTED_NAME).",
       "mode": "default",
       "bucket": "both-reject",
-      "oursErrors": 2,
+      "oursErrors": 1,
       "pilotErrors": 1
     },
     {
@@ -2041,6 +2041,60 @@
       "pilotErrors": 2
     },
     {
+      "path": "semantic/s102-part-subsets-attribute-def.sysml",
+      "source": "semantic",
+      "rule": "a usage subsets a Feature, so a part subsetting an attribute definition names nothing that position admits (KerML 8.3.3.3 Subsetting::subsettedFeature is typed Feature, a rule SysML usages inherit; pilot fails to link the Subsetting — `Couldn't resolve reference to Feature 'Mass'` — exactly as for KerML's `feature f :\u003e D`).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s103-part-redefines-part-def.sysml",
+      "source": "semantic",
+      "rule": "a usage redefines a Feature, so a part redefining a part definition names nothing that position admits (KerML 8.3.3.3 Redefinition::redefinedFeature is typed Feature, a rule SysML usages inherit; pilot fails to link the Redefinition — `Couldn't resolve reference to Feature 'Engine'`).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s104-analysis-def-two-objectives.sysml",
+      "source": "semantic",
+      "rule": "An analysis case definition may have at most one objective (SysML 7.21 Cases; pilot validateCaseDefinitionOnlyOneObjective).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s105-analysis-usage-two-objectives.sysml",
+      "source": "semantic",
+      "rule": "An analysis case usage may have at most one objective (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneObjective).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s106-exhibit-state-references-non-state.sysml",
+      "source": "semantic",
+      "rule": "A declared exhibit state usage must reference a state usage (SysML 7.17 States; pilot validateExhibitStateUsageReference).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
+      "path": "semantic/s107-perform-action-references-non-action.sysml",
+      "source": "semantic",
+      "rule": "A declared perform action usage must reference an action usage (SysML 7.16 Actions; pilot validatePerformActionUsageReference).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
       "path": "semantic/s11-case-two-objectives.sysml",
       "source": "semantic",
       "rule": "A case usage may have at most one objective (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneObjective).",
@@ -3056,8 +3110,8 @@
       }
     ],
     "totals": {
-      "cases": 313,
-      "bothReject": 304,
+      "cases": 319,
+      "bothReject": 310,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

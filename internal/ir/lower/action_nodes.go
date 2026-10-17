@@ -54,7 +54,7 @@ func ToActionInterface(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph,
 		return nil, err
 	}
 	graph := newActionGraph(scope)
-	graph.Attributes = lowerAttributes(members)
+	graph.Attributes = lowerAttributes(members, scope)
 	graph.Parameters = lowerParameters(members, scope)
 	return graph, nil
 }
@@ -142,13 +142,13 @@ func collectActionNodesWithAncestors(
 			// it, ordered by the successions that bind it and started with the
 			// owner where none does (StartFlow).
 			graph.Nodes = append(graph.Nodes, n)
-			graph.Bodies[n] = []Statement{lowerStatement(n, scope, graph.resolver)}
+			graph.Bodies[n] = []Statement{lowerStatement(n, scope, graph.resolver, graph.lowering)}
 		}
 	}
 
 	collectInheritedActionNodes(graph, members)
 	graph.Connections = lowerConnections(members, OwnerBehavior, scope)
-	graph.Attributes = lowerAttributes(members)
+	graph.Attributes = lowerAttributes(members, scope)
 	graph.Parameters = lowerParameters(members, scope)
 	// `first a;` names the node the flow starts at rather than declaring one.
 	if err := resolveFirstNode(graph); err != nil {
@@ -251,7 +251,7 @@ func ensureDeclaredActionNode(graph *ActionGraph, decl ast.Node, declaringScope 
 		graph.Bodies[n] = []Statement{performEffect(n, declaringScope)}
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
-		graph.Bodies[n] = []Statement{lowerStatement(n, declaringScope, graph.resolver)}
+		graph.Bodies[n] = []Statement{lowerStatement(n, declaringScope, graph.resolver, graph.lowering)}
 	}
 	return decl
 }

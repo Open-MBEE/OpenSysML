@@ -249,7 +249,7 @@ succession into it has delivered, so `both` is performed once by the one token t
 arrivals collapse into (golden: both arrivals held at `both` after step 3, its one
 performance in step 4). A join differs only in what it awaits: every incoming
 succession (source multiplicity 1..1), so a join one of whose sources no token can reach
-deadlocks (`robustness_test.go:deadlock_join_starvation`, `:deadlock_join_same_succession_twice`);
+deadlocks (`robustness_action_flow_test.go:deadlock_join_starvation`, `:deadlock_join_same_succession_twice`);
 a plain node awaits a succession only once it has delivered or while some token of the
 activation, other than one held at the node, can still reach its source without passing through
 the node — the branch a decision did not take, or a loop back over the node itself, imposes no
@@ -343,13 +343,14 @@ replacements (`inherited succession reaches more than one redefining step`).
    members is not fixed by the library.
    In `action_invoked_node_body_writes_output`, the usage's own `assign y := y + 1` is an
    unordered subaction beside Scale's inherited `start → scaling → done` flow. The inherited
-   `scaling` step sets `y` to 30; the assignment leaves 31 if it runs after `scaling`, while
-   `scaling` leaves 30 if the assignment runs first. The following `check` reads that final value,
-   so the oracle admits exactly `{30, 31}`.
+   `scaling` step sets `y` to 30; the assignment leaves 31 if it runs after `scaling`, while run
+   first it reads Scale's `y` unset — never Adjust's same-named `y` — and fails with the operator's
+   type error. The following `check` reads 31 when the run completes, so the oracle admits exactly
+   `{error, 31}`.
    A typed node whose own statements read the callee's outputs is order-dependent under this merge
    rule: an order before the producing step reads the unset output and fails. `state_block_flow_typed_node`
    therefore reads `scaled.y` after the node. `action_invoked_node_body_writes_output` and
-   `state_block_flow_typed_node_body_writes_output` carry the `{30, 31}` sets.
+   `state_block_flow_typed_node_body_writes_output` carry the `{error, 31}` sets.
 
 ### Repeated action steps and shared writes
 
@@ -360,7 +361,7 @@ Fixtures: `action_step_multiplicity_exact`, `_reverse`, `_explore`, `_range`, `_
 `_unordered_nested`, `_unordered_unbounded`, `_unordered_unaddressable`, `_unordered_outgoing`,
 `_unordered_loop_body` and `state_step_multiplicity_unordered_do_body`;
 `action_step_multiplicity_shared_writers` states the open outcome set. Beyond plain successions:
-`_while_body` (trace golden), `_for_body`, `_if_body`, `_part_perform`, `_external_read`,
+`_while_body` (trace golden), `_for_body`, `_if_body`, `_inherited_loop_body`, `_part_perform`, `_external_read`,
 `_pin_value`, `_bind_input`, `_bind_output`, `_fork_barrier`, `_decision_barrier`,
 `_merge_fanout`, `_join_per_performance`, `_merge_per_performance`, `_loop_body_race`,
 `_fork_into_repeated` (trace goldens where carried), `_guard_true`, `_guard_false` and
@@ -471,7 +472,7 @@ refused. UML, fUML and PSSM were not used to settle any of these.
   the step, so each performance binds its own `x` (`_pin_value`). A `bind a.x = e` owned by the
   enclosing action equates the values of `a.x` over all `n` performances with those of `e`: a
   single-valued `e` into an in-pin gives every performance that value (`_bind_input`); an out-pin
-  into a single-valued `e` requires all `n` outputs to coincide, else `ErrBindingConflict`
+  into a single-valued `e` requires all `n` outputs to coincide, else `errBindingConflict`
   (`_bind_output`). A multi-valued `e` into in-pins leaves the assignment of its values to the
   performances open: refused.
 - **Flows** (KerML §9.2.7, `Transfers.kerml`). A flow end has no multiplicity in the grammar, a
@@ -481,16 +482,15 @@ refused. UML, fUML and PSSM were not used to settle any of these.
 - **External reads** (`ControlFunctions.kerml` `'.'`, source and result `[0..*]` nonunique;
   KerML §7.3.4.6 chains). `a.x` read outside `a` is the values of every performance's `x`,
   duplicates kept, listed in repetition-index order (a tool-chosen stable order where `a` is not
-  ordered); before all `n` performances end it is not yet performed (`ErrNodeNotPerformed`), as for
+  ordered); before all `n` performances end it is not yet performed (`errNodeNotPerformed`), as for
   one node (`_external_read`). Inside a performance, `x` is that performance's own (`_pin_value`).
 - **Block flows** (`LoopPerformance`, `IfThenPerformance`; each body pass is a performance of its
   own). `a[n]` in a `while`/`for`/`if` body performs `n` times per pass and `[0]` none
-  (`_while_body`, `_for_body`, `_if_body`, `_unordered_loop_body`). The runtime performs each
-  repetition as one move, so the orders between the repetitions are the ones exploration never
-  varies: explore and check report the result as observed rather than proved or bounded, with the
-  note "the performances of a repeated step in a loop or if body are each run as one move, so
-  their interleavings were not explored" (`_loop_body_race`, whose admitted set is
-  `{c = 1, c = 2}` of which only `c = 2` is observed).
+  (`_while_body`, `_for_body`, `_if_body`, `_unordered_loop_body`, `_inherited_loop_body` for a
+  count inherited by the body's redefining owner). The `n` performances of one
+  pass are sibling tokens of the body's flow, so they interleave as `n` top-level performances do:
+  two performances each reading `c` then writing it back admit `{c = 1, c = 2}`, and explore and
+  check enumerate both (`_loop_body_race`).
 - **Part-level performs** (SysML §8.4.13.11, `Parts::performedActions`,
   `Occurrences::enactedPerformances`). `perform action run[2]` on a part is two distinct
   performances enacted within the part's lifetime, unordered with respect to each other: `run`
@@ -600,7 +600,7 @@ Two control nodes keep a bound on their outgoing side that the static rules stat
 `validateJoinNodeOutgoingSuccessions` and `validateMergeNodeOutgoingSuccessions` each allow at
 most one outgoing succession, so a join or a merge with two is an ill-formed model, reported by
 `join-outgoing-successions` and `merge-outgoing-successions` and refused by the executor
-(`ErrInvalidActionFlow`). `Actions::MergeAction` on its own constrains only the incoming side;
+(`errInvalidActionFlow`). `Actions::MergeAction` on its own constrains only the incoming side;
 the outgoing bound is the validation constraint's, not the library's.
 
 Open: the order of `left` against `right`, and so which write of `x` stands — the same openness
@@ -658,7 +658,7 @@ zero (not selected)`) so the tool's reading is visible without changing the run
 (`TestLaterGuardErrorIsNotAChoiceNorAFailure`; fixture `action_choice_unevaluable_guard`, golden).
 The first guard read is the run's own, not a preview, and its failure fails the run as it always
 has. A decision whose guards are all false remains an execution error
-(`TestRuntimeRobustness/decision_all_guards_false`), as the library then admits no outgoing link.
+(`TestRuntimeRobustnessActionFlow/decision_all_guards_false`), as the library then admits no outgoing link.
 
 ### Three concurrent writers of one feature: six orders, three values
 
@@ -690,6 +690,63 @@ last, giving `x = 1`). Exploration is what makes the set checkable: `explore` re
 along every choice sequence and must reach each of the three outcomes and no other, in six runs.
 The first pick among three tokens and the next among the two left are two choice points in
 consecutive steps, so a linearization is a sequence of two choices, not one choice among six.
+Both choices conflict — each alternative writes `x`, which the others write — so the default run
+reports `x` only up to them, `x = 1 (order-dependent; 2 choice points — explore shows the set)`,
+while the `…Ran` flags, which no other branch reads or writes, print as fixed values
+(`orderDependent` states `x: 2`). Its counterpart `action_order_independent_branches` (golden)
+forks to two branches writing `x` and `y` apiece: the same open order, but the branches commute
+on every value, so the run's one token-order choice is independent and nothing is marked.
+
+### A decision with two guards holding: either branch
+
+Fixture: `action_order_overlapping_guards` (golden, explored).
+
+```
+start → choose ─ if level >= 0 → high { mode := 1 } ─┐→ done
+               └ if level <= 0 → low  { mode := 2 } ─┘
+```
+
+Derived constraints:
+
+- `choose` is a DecisionAction: exactly one outgoing succession is taken (ControlPerformances.kerml,
+  `DecisionPerformance`), so `mode` ends `1` or `2`, never `0`.
+- Both guards hold at `level = 0`; the library ranks neither succession over the other.
+
+Open: which holding succession is taken. The two linearizations reach two outcomes,
+`{mode = 1, mode = 2}`. A decision's alternatives are different continuations, not two moves of one
+run, so a default run holds `mode` only up to the choice whichever branch commutes with what:
+`mode = 1 (order-dependent; 1 choice point — explore shows the set)`.
+
+Pinned outcome: that admissible set as `outcomes` citing this section, `orderDependent` stating
+`mode: 1`. The default policy takes the first holding guard (`high`).
+
+### Two regions reacting to one occurrence: two orders, two values
+
+Fixtures: `state_order_regions_conflict` (golden, explored) and `state_order_regions_independent`
+(golden, one outcome).
+
+```
+work ∥ a: a1 ─ accept Go do last := 1 → a2
+     ∥ b: b1 ─ accept Go do last := 2 → b2
+```
+
+Derived constraints:
+
+- One occurrence of `Go` is dispatched to the whole machine, and a transition out of each region's
+  active state is triggered by it (StatePerformances.kerml, `TransitionPerformance` of each
+  orthogonal `StatePerformance` of the enclosing one), so both effects run and the machine ends in
+  `a2+b2`.
+- The library orders neither region's transition before the other's.
+
+Open: the order of the two effects. Both write `last`, so the last write stands: two
+linearizations, two outcomes, `{last = 1, last = 2}`, and the default run reports
+`last = 1 (order-dependent; 1 choice point — explore shows the set)`. In
+`state_order_regions_independent` the effects write `x` and `y` and neither region reads the
+other's, so the same open order is one outcome, `{x = 1, y = 2}`: the region-order choice is
+independent and the run marks nothing.
+
+Pinned outcome: the admissible set as `outcomes` citing this section with `orderDependent`
+stating `last: 1`; the independent case a single result with `orderDependent` `{}`.
 
 ### Subactions no succession orders: each is performed during the owner, in which order is open
 
@@ -1252,7 +1309,7 @@ enabled one and records the choice at the choice vertex (`choice choice pick: tr
 2->high (unordered; took 1->low)`); the golden pins that linearization, `seed:1` the other one. As
 for a transition conflict, branches after the first enabled one are read in a preview that is
 undone. A choice with no enabled branch and no unguarded one fails the run at that instant with a
-typed error naming the choice (`TestRuntimeRobustness/state_choice_without_an_enabled_branch`).
+typed error naming the choice (`TestRuntimeRobustnessStateTransitions/state_choice_without_an_enabled_branch`).
 
 ### Two branches of a junction enabled when the transition is selected: exactly one is taken, which one is open
 
@@ -1313,7 +1370,7 @@ Derived constraints:
 - A branch that reaches a later junction with no way through is removed from the current
   junction's drawable branches; if one branch remains, it is followed without a draw. Cycles,
   unevaluable guards and binding failures remain run errors. A route stays open at the first
-  choice: choices resolve dynamically on arrival and retain `ErrChoiceWithoutBranch`; a dead
+  choice: choices resolve dynamically on arrival and retain `errChoiceWithoutBranch`; a dead
   junction reached beyond a choice remains a run error.
 - A history default with no recorded history is statically checked only when the source is
   outside the history owner. A transition from the owner or one of its descendants can exit the
@@ -1783,7 +1840,7 @@ and `-> 100`, the third `decide` evaluating `level >= 100 -> true`, then `endCha
 previous two cases): `ActionExecutor.synchronizes` exempts `MergeNode`, since
 `MergePerformance` follows *one* source performance while a plain node or join follows one per
 succession. Loop termination is the guard's and the step budget's job, not the merge's:
-`robustness_test.go:unguarded_loop_through_a_merge` runs `start → m(merge) → a → m` with no
+`robustness_action_flow_test.go:unguarded_loop_through_a_merge` runs `start → m(merge) → a → m` with no
 exit to `ErrActionStepLimitExceeded`, both under `RunToCompletion` and after stepping it.
 
 ### A merge counts one performance per pass of a loop

@@ -3975,14 +3975,27 @@ func TestKerMLBinaryConnectorEndsCarryTheRoundTripWithoutSourceText(t *testing.T
 
 // A comment in a head spelling a verb (`connect /* from */ a to b`) is not the
 // verb: the head's form is read from its tokens, so the graph still states it.
+// `connector` is KerML notation and `connect`/`binding` SysML notation, so each
+// set of heads is converted from the file kind whose grammar spells it.
 func TestEndVerbsInCommentsAreNotVerbs(t *testing.T) {
-	src := `package Comments {
+	for _, tc := range []struct {
+		name, src string
+		wants     []string
+	}{
+		{"comments.kerml", `package Comments {
 	class T { feature eng; feature t; feature u; }
 	class V :> T {
 		connector /* from */ eng to t;
 		connector /* ( */ [1] eng to /* allocate */ [0..1] u;
 		connector link /* to */ from eng to u;
 	}
+}
+`, []string{
+			"connector eng to t;",
+			"connector [1] eng to [0..1] u;",
+			"connector link from eng to u;",
+		}},
+		{"comments.sysml", `package Comments {
 	part def P { part a; part b; part c; }
 	part p : P {
 		connect /* from */ a to b;
@@ -3990,25 +4003,24 @@ func TestEndVerbsInCommentsAreNotVerbs(t *testing.T) {
 		binding /* of */ bind a = b;
 	}
 }
-`
-	turtle, err := convert.Convert("comments.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
-	if err != nil {
-		t.Fatalf("to turtle: %v", err)
-	}
-	if n := strings.Count(string(turtle), "sysx:endForm "); n != 6 {
-		t.Errorf("the graph should state all 6 heads' forms, got %d\n%s", n, turtle)
-	}
-	back := backFromTheGraphAlone(t, string(turtle))
-	for _, want := range []string{
-		"connector eng to t;",
-		"connector [1] eng to [0..1] u;",
-		"connector link from eng to u;",
-		"connect a to b;",
-		"connect (a, b, c);",
-		"binding bind a = b;",
+`, []string{
+			"connect a to b;",
+			"connect (a, b, c);",
+			"binding bind a = b;",
+		}},
 	} {
-		if !strings.Contains(back, want) {
-			t.Errorf("the notation should read %q\n%s", want, back)
+		turtle, err := convert.Convert(tc.name, []byte(tc.src), convert.FormatSysML, convert.FormatTurtle)
+		if err != nil {
+			t.Fatalf("%s to turtle: %v", tc.name, err)
+		}
+		if n := strings.Count(string(turtle), "sysx:endForm "); n != 3 {
+			t.Errorf("%s: the graph should state all 3 heads' forms, got %d\n%s", tc.name, n, turtle)
+		}
+		back := backFromTheGraphAloneAs(t, tc.name, string(turtle))
+		for _, want := range tc.wants {
+			if !strings.Contains(back, want) {
+				t.Errorf("%s: the notation should read %q\n%s", tc.name, want, back)
+			}
 		}
 	}
 }
@@ -4044,12 +4056,19 @@ func TestNaryConnectorEndsDoNotStateBinaryEndpoints(t *testing.T) {
 // is canonical spelling, so the graphs are compared as sets of triples.
 func backFromTheGraphAlone(t *testing.T, turtle string) string {
 	t.Helper()
+	return backFromTheGraphAloneAs(t, "m.sysml", turtle)
+}
+
+// backFromTheGraphAloneAs is backFromTheGraphAlone with the notation re-read
+// as the file kind name carries, for a graph of KerML notation.
+func backFromTheGraphAloneAs(t *testing.T, name, turtle string) string {
+	t.Helper()
 	stripped := withoutTriples(t, withoutTriples(t, []byte(turtle), "sysx:sourceText"), "sysx:sourceTail")
 	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the mapping alone: %v", err)
 	}
-	again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+	again, err := convert.Convert(name, back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}

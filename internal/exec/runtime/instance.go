@@ -124,7 +124,7 @@ func (s *FeatureValue) ReadValue(name string) (Value, error) {
 	if lower := s.Feature.Multiplicity.Lower; lower.Known && !lower.Infinite && lower.Value == 0 {
 		return (*Context)(nil).collectionOf(s.Feature, nil), nil
 	}
-	return Value{}, fmt.Errorf("%w: %s", ErrUninitializedFeatureValue, name)
+	return Value{}, fmt.Errorf("%w: %s", errUninitializedFeatureValue, name)
 }
 
 // UnsetText is how every surface spells a feature value that holds no value: a valueless
@@ -282,7 +282,7 @@ func (ctx *Context) initFeatureValue(inst *Instance, fv *FeatureValue, feat *Eff
 // defaultYieldsToSubsetters reports whether feat's `default` may be superseded by a
 // feature of one of inst's types subsetting it, so it must wait to be read rather than be folded.
 func (ctx *Context) defaultYieldsToSubsetters(inst *Instance, feat *EffectiveFeature) bool {
-	if !feat.DefaultIsFallback() {
+	if !feat.defaultIsFallback() {
 		return false
 	}
 	for _, typ := range inst.types() {
@@ -302,7 +302,7 @@ func (ctx *Context) unfoldSubsettedDefaults(inst *Instance, typ *symbols.Symbol,
 		}
 		for _, name := range ctx.declaredSubsettedNames(features[i].Symbol, typ) {
 			fv, ok := inst.FeatureValues[name]
-			if !ok || !fv.Materialized || fv.Written || !ctx.valueBinds(fv.Feature) || !fv.Feature.DefaultIsFallback() {
+			if !ok || !fv.Materialized || fv.Written || !ctx.valueBinds(fv.Feature) || !fv.Feature.defaultIsFallback() {
 				continue
 			}
 			ctx.noteProbeWrite(fv)
@@ -383,7 +383,7 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	ctx.beginLife(inst)
 
 	if ctx.trace != nil {
-		ctx.trace.RecordObjectMaterialized(symbolText(sym), inst.ID)
+		ctx.trace.recordObjectMaterialized(symbolText(sym), inst.ID)
 	}
 
 	return inst, nil
@@ -558,6 +558,9 @@ func (ctx *Context) denotedObjects(sym *symbols.Symbol) ([]*Instance, error) {
 // denotedValue is what a usage carrying no value reads as: its object, the collection of its
 // objects, or undetermined of its count where that admits more than the lower bound it holds.
 func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
+	// A reader of another document's scope tree holds its own symbol for the
+	// usage; its occurrences are recorded under the declaring tree's.
+	sym = ctx.declaredSymbol(sym)
 	if !ctx.namesObjects(sym) {
 		inst, err := ctx.occurrenceOf(sym)
 		if err != nil {
@@ -759,6 +762,10 @@ func (feat *EffectiveFeature) heldBy() *symbols.Symbol {
 // admitted is the value an admitted val is stored as: a collection for a multi-valued
 // feature, its elements charged, the objects a declared value holds classified by the feature.
 func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (Value, error) {
+	if val.Kind == ValUndetermined {
+		// A value the model leaves open is held as it is: it is of no fixed count to collect.
+		return val, nil
+	}
 	if !feat.Scalar() && (val.Kind != ValSequence && val.Kind != ValSet || feat.HoldsSet != (val.Kind == ValSet)) {
 		// A multi-valued feature holds a collection however it was written, so a
 		// single value written to one is that collection's one element.
@@ -824,7 +831,7 @@ func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopul
 // conform to the multiplicity governing the feature; a feature the object does
 // not have is reported rather than added. A feature declared `constant` or
 // `derived`, or redefining or subsetting one that is, is refused as
-// ErrReadOnlyFeature and keeps what it held: a constant feature does not change
+// errReadOnlyFeature and keeps what it held: a constant feature does not change
 // over the lifetime of its featuring occurrence, and a derived one has the
 // values the model determines (KerML 1.0 §8.3.3.3.4, Feature::isConstant and
 // Feature::isDerived).
@@ -976,15 +983,15 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// A bound value supplies the feature's own features, so a body restating one
 	// of them states two values for it.
 	if restated := ctx.restatedInValuedBody(fv.Feature); restated != "" {
-		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, ErrValuedFeatureRestated, restated)
+		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, errValuedFeatureRestated, restated)
 	}
 	if restated := ctx.restatedByNestedChain(inst, name, fv.Feature); restated != "" {
-		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, ErrValuedFeatureRestated, restated)
+		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, errValuedFeatureRestated, restated)
 	}
 
 	// A `default` applies only where nothing else populates the feature: the
 	// members subsetting it do (KerML 1.0 §7.3.4.5).
-	if ctx.valueBinds(fv.Feature) && fv.Feature.DefaultIsFallback() {
+	if ctx.valueBinds(fv.Feature) && fv.Feature.defaultIsFallback() {
 		contributed, err := ctx.subsettingContributions(inst, name)
 		if err != nil {
 			return nil, err
@@ -1213,7 +1220,7 @@ func (ctx *Context) lowerBoundCount(mult semantics.Range, held int, what string)
 		return 0, fmt.Errorf("cannot materialize %s with unknown multiplicity", what)
 	}
 	if mult.Lower.Infinite {
-		return 0, fmt.Errorf("%w for %s: a lower bound of * requires no finite number of values (KerML 1.0 §7.4.12 Multiplicities)", ErrInfiniteLowerBound, what)
+		return 0, fmt.Errorf("%w for %s: a lower bound of * requires no finite number of values (KerML 1.0 §7.4.12 Multiplicities)", errInfiniteLowerBound, what)
 	}
 	return max(mult.Lower.Value-int64(held), 0), nil
 }

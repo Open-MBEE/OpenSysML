@@ -1,0 +1,19 @@
+# SysML v1 to v2 migration report: private_layout_alias.xmi
+# migrated 7 element(s): 6 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 1 of 1 diagrams from private_layout_alias.layout.xml: 2 elements positioned, 0 connectors routed, 0 styled, 0 notes
+
+## layout
+# source: private_layout_alias.layout.xml (2022x v1.0.0, cameo 2022x Refresh2)
+# 1 diagram records: 1 joined, 0 matching no diagram; 0 views laid out from their own symbol stream, 0 without layout
+# placements: 2 of 2 written (0 not exposed, 0 resolving to no element); routes: 0 of 0 written (0 not pinned, 0 resolving to no element); malformed: 0
+# styles: 0 of 0 written; notes: 0 written (0 anchored, 0 freed of an anchor the view does not lay out)
+
+## approximated (1)
+Property	B::x	_b_x	-> Model::B::x	(the untyped property is written as an attribute)
+
+## mapped (6)
+«Block» Class	A	_a	-> Model::A
+Diagram	A::A BDD	_diag	-> Model::A::'A BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; laid out from private_layout_alias.layout.xml: 2 of 2 shown elements positioned, 0 of 0 connectors routed)
+Property	A::b	_a_b	-> Model::A::b
+Property	A::x	_a_x	-> Model::A::x
+«Block» Class	B	_b	-> Model::B
+Model	Model	_m	-> Model	(written as package Model)

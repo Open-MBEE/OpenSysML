@@ -8,17 +8,17 @@ classes: {
 }
 n0: "«part def»\nLoop" {
   class: definition
-  n1: "«part»\npump : Pump" {
+  n1: "«part»\npump" {
     class: usage
     style: { fill: "#F5D999"; stroke: "#E69F00" }
     "n1.0": "outlet" { class: pin }
   }
-  n2: "«part»\ntank : Tank" {
+  n2: "«part»\ntank" {
     class: usage
     style: { fill: "#F5D999"; stroke: "#E69F00" }
     "n2.0": "inlet" { class: pin }
   }
-  n3: "«part»\nsensor : Pump" { class: usage; style: { fill: "#F5D999"; stroke: "#E69F00" } }
+  n3: "«part»\nsensor" { class: usage; style: { fill: "#F5D999"; stroke: "#E69F00" } }
 }
-n0.n1."n1.0" -- n0.n2."n2.0": "supply" { class: connection }
-n0.n1 -> n0.n2: "of Water" { class: flow }
+n0.n1."n1.0" -- n0.n2."n2.0": { class: connection }
+n0.n1 -> n0.n2: { class: flow }

@@ -1649,7 +1649,9 @@ public final class Model {
                 .build(),
             RenderDocumentResponse.getDefaultInstance());
     return new RenderedDocument(
-        form, form == DocumentForm.HTML ? response.getHtml() : response.getMarkdown());
+        form,
+        form == DocumentForm.HTML ? response.getHtml() : response.getMarkdown(),
+        response.getFileName());
   }
 
   /**
@@ -1666,8 +1668,34 @@ public final class Model {
 
   /** Renders a view with an explicit port selection. */
   public RenderedView renderView(String viewName, RenderViewPorts ports) {
+    return renderView(viewName, ports, List.of());
+  }
+
+  /**
+   * Renders a view with an explicit port selection, showing the named optional notation elements
+   * ({@code "edge-labels"}, {@code "all"}, ...) besides those the view's rendering shows.
+   *
+   * @throws ServiceException if a name is none the service knows
+   */
+  public RenderedView renderView(String viewName, RenderViewPorts ports, List<String> show) {
+    return renderView(viewName, ports, show, 0);
+  }
+
+  /**
+   * Renders a view as {@link #renderView(String, RenderViewPorts, List)} does, drawing {@code
+   * depth} levels of nested elements below each exposed element when {@code depth} is above 0,
+   * overriding the depth the view states.
+   *
+   * @throws IllegalArgumentException if {@code depth} is negative
+   */
+  public RenderedView renderView(
+      String viewName, RenderViewPorts ports, List<String> show, int depth) {
     Objects.requireNonNull(viewName, "viewName");
     Objects.requireNonNull(ports, "ports");
+    Objects.requireNonNull(show, "show");
+    if (depth < 0) {
+      throw new IllegalArgumentException("depth must be a non-negative integer");
+    }
     connection.capabilities().require(Capabilities.RENDER_VIEW);
     RenderViewResponse response =
         connection.call(
@@ -1676,6 +1704,8 @@ public final class Model {
                 .setModelHash(hash)
                 .setView(viewName)
                 .setPorts(ports.wireName())
+                .addAllShow(show)
+                .setDepth(depth)
                 .build(),
             RenderViewResponse.getDefaultInstance());
     return RenderedView.from(response);

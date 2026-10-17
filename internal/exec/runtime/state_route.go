@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -34,6 +35,8 @@ type route struct {
 	arrival  *ast.PseudostateNode
 	// crossed are the pseudostates passed, so a path back into one is a cycle.
 	crossed []*ast.PseudostateNode
+	// origin is the state the transition routed left, nil when none (an entry).
+	origin *ast.StateNode
 	// notes is what settling the route noted — a branch guard it could not read,
 	// a junction drawn among several enabled — recorded once the transition is taken.
 	notes []RunNote
@@ -51,6 +54,7 @@ type junctionDraw struct {
 	at       *ast.PseudostateNode
 	outgoing []*lower.Transition
 	enabled  []int
+	origin   *ast.StateNode
 	// beyond is the route on from each enabled branch, in enabled's order.
 	beyond []branchBeyond
 }
@@ -109,6 +113,7 @@ func (r route) effects(g *lower.StateGraph) []routeEffect {
 func (e *StateExecutor) resolveRoute(trans *lower.Transition, event *Event) (route, error) {
 	defer e.taking(trans, e.firingNotes)()
 	r := route{segments: []*lower.Transition{trans}}
+	r.origin, _ = trans.Source.(*ast.StateNode)
 	switch target := trans.Target.(type) {
 	case *ast.StateNode:
 		r.target = target
@@ -169,9 +174,9 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 		return r, fmt.Errorf("%w: %s %s: no guard evaluated to true", errNoWayThrough, ps.Kind, ps.Name)
 	}
 	if len(enabled) > 1 {
-		draw := &junctionDraw{at: ps, outgoing: outgoing}
+		draw := &junctionDraw{at: ps, outgoing: outgoing, origin: r.origin}
 		for _, pos := range enabled {
-			beyond, err := e.follow(ps, outgoing[pos], route{crossed: slices.Clone(r.crossed)})
+			beyond, err := e.follow(ps, outgoing[pos], route{crossed: slices.Clone(r.crossed), origin: r.origin})
 			if errors.Is(err, errNoWayThrough) {
 				continue
 			}
@@ -195,7 +200,9 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) (bool, error) {
 	var routeErr error
 	e.preview(func() {
-		unbind := func() {} // nothing to unbind until a trigger binds arguments
+		unbind := func() {
+			// Nothing to unbind until a trigger binds arguments.
+		}
 		if event != nil {
 			var err error
 			unbind, err = e.bindTriggerArguments(trans, event)
@@ -225,7 +232,7 @@ func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) (b
 		_, routeErr = e.followOut(hist, route{})
 	})
 	if routeErr != nil && e.ctx.scheduling().ordersStatements() {
-		if errors.Is(routeErr, ErrOrderDependentPreview) || errors.Is(routeErr, ErrOrderDependentGuardEffect) {
+		if errors.Is(routeErr, errOrderDependentPreview) || errors.Is(routeErr, errOrderDependentGuardEffect) {
 			return false, routeErr
 		}
 	}
@@ -243,7 +250,7 @@ func (e *StateExecutor) settleDraws(r route) (route, error) {
 	for r.draw != nil {
 		draw := r.draw
 		r.draw = nil
-		pick, err := e.pickBranch(draw.at, draw.outgoing, draw.enabled, func(n RunNote) { r.notes = append(r.notes, n) })
+		pick, err := e.pickBranch(draw.at, draw.outgoing, draw.enabled, draw.origin, func(n RunNote) { r.notes = append(r.notes, n) })
 		if err != nil {
 			return route{}, err
 		}
@@ -300,9 +307,9 @@ func (e *StateExecutor) resolveChoice(r route) (route, error) {
 	}
 	e.noteAll(notes)
 	if len(enabled) == 0 {
-		return route{}, fmt.Errorf("%w: choice %s: no guard evaluated to true", ErrChoiceWithoutBranch, choice.Name)
+		return route{}, fmt.Errorf("%w: choice %s: no guard evaluated to true", errChoiceWithoutBranch, choice.Name)
 	}
-	pick, err := e.pickBranch(choice, outgoing, enabled, e.ctx.note)
+	pick, err := e.pickBranch(choice, outgoing, enabled, r.origin, e.ctx.note)
 	if err != nil {
 		return route{}, err
 	}
@@ -314,7 +321,7 @@ func (e *StateExecutor) resolveChoice(r route) (route, error) {
 	}
 	// The route past a choice is followed while firing, its draws made at once, so
 	// what it notes is noted now.
-	r, err = e.follow(choice, outgoing[enabled[pick]], route{crossed: r.crossed})
+	r, err = e.follow(choice, outgoing[enabled[pick]], route{crossed: r.crossed, origin: r.origin})
 	if err == nil {
 		r, err = e.settleDraws(r)
 	}
@@ -365,14 +372,14 @@ func (e *StateExecutor) enabledBranches(ps *ast.PseudostateNode, outgoing []*low
 // one, or the one the policy draws among several, handed to note as the choice
 // point taken; a draw the witness refuses is the refusal. The guards are not
 // read again: a junction's were read once, when its transition was selected.
-func (e *StateExecutor) pickBranch(ps *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int, note func(RunNote)) (int, error) {
+func (e *StateExecutor) pickBranch(ps *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int, origin *ast.StateNode, note func(RunNote)) (int, error) {
 	// Weights are validated for a lone enabled branch too, even though it
 	// records no choice point and is taken with probability 1.
 	weights, err := e.transitionWeights(ps, outgoing, enabled, nil)
 	if err != nil {
 		return 0, err
 	}
-	point, ok := e.branchPoint(ps, outgoing, enabled)
+	point, ok := e.branchPoint(ps, outgoing, enabled, origin)
 	if !ok {
 		return 0, nil
 	}
@@ -403,7 +410,7 @@ func (e *StateExecutor) probeBranch(ps *ast.PseudostateNode, outgoing []*lower.T
 	var err error
 	e.preview(func() { pass, err = e.passesGuard(outgoing[i]) })
 	if err != nil {
-		if errors.Is(err, ErrOrderDependentPreview) || errors.Is(err, ErrOrderDependentGuardEffect) {
+		if errors.Is(err, errOrderDependentPreview) || errors.Is(err, errOrderDependentGuardEffect) {
 			return false, nil, err
 		}
 		file, _ := e.transitionLocation(ps, outgoing[i])
@@ -420,7 +427,22 @@ func (e *StateExecutor) probeBranch(ps *ast.PseudostateNode, outgoing []*lower.T
 
 // branchPoint is the branches out of ps enabled, at their declared positions, as
 // a choice point not yet taken; there is none under two.
-func (e *StateExecutor) branchPoint(ps *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int) (ChoicePoint, bool) {
+// branchFootprints is what taking each enabled branch does for a transition out
+// of origin: the states it leaves and enters with the branch's own effects, less
+// the exits every branch shares; with no origin known, the branch's own effects
+// and the states it enters.
+func (e *StateExecutor) branchFootprints(outgoing []*lower.Transition, enabled []int, origin *ast.StateNode) []lower.Footprint {
+	if origin == nil {
+		return e.transitionFootprints(outgoing, enabled)
+	}
+	segs := make([]*lower.Transition, len(enabled))
+	for i, pos := range enabled {
+		segs[i] = outgoing[pos]
+	}
+	return e.graph.BranchFootprintsFrom(origin, segs)
+}
+
+func (e *StateExecutor) branchPoint(ps *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int, origin *ast.StateNode) (ChoicePoint, bool) {
 	if len(enabled) < 2 {
 		return ChoicePoint{}, false
 	}
@@ -428,11 +450,13 @@ func (e *StateExecutor) branchPoint(ps *ast.PseudostateNode, outgoing []*lower.T
 	for i, pos := range enabled {
 		alts[i] = transitionName(outgoing, pos)
 	}
-	return ChoicePoint{
+	choice := ChoicePoint{
 		Kind:         ChoiceTransition,
 		Where:        pseudostateWhere(ps),
 		Alternatives: alts,
-	}, true
+	}
+	classifyExclusive(&choice, e.branchFootprints(outgoing, enabled, origin))
+	return choice, true
 }
 
 // pseudostateWhere names a pseudostate for a note, `choice pick` or `junction split`.
@@ -679,7 +703,7 @@ func (e *StateExecutor) enterAhead(chain []*ast.StateNode) error {
 			continue
 		}
 		if e.entryIsUnit(state) {
-			if _, err := e.unit(ChoiceEntryOrder, e.entryHead(state, false)); err != nil {
+			if _, err := e.unit(choiceEntryOrder, e.entryHead(state, false)); err != nil {
 				return err
 			}
 		}
@@ -740,8 +764,9 @@ func (e *StateExecutor) exitAhead(states []*ast.StateNode) error {
 	if len(states) == 0 {
 		return nil
 	}
-	simple, regions := e.activeConfig.simpleState, e.activeConfig.regionStates
+	simple, regions, complete := e.activeConfig.simpleState, e.activeConfig.regionStates, e.activeConfig.defaultComplete
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode, len(regions))
+	e.activeConfig.defaultComplete = maps.Clone(complete)
 	for region, active := range regions {
 		e.activeConfig.regionStates[region] = active
 	}
@@ -751,7 +776,7 @@ func (e *StateExecutor) exitAhead(states []*ast.StateNode) error {
 	e.exitingAhead = true
 	err := e.exitStates(states)
 	e.exitingAhead = false
-	e.activeConfig.simpleState, e.activeConfig.regionStates = simple, regions
+	e.activeConfig.simpleState, e.activeConfig.regionStates, e.activeConfig.defaultComplete = simple, regions, complete
 	return err
 }
 

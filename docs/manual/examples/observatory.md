@@ -84,16 +84,16 @@ config:
 flowchart LR
   subgraph n0 ["`*«part»* **imagingChain**`"]
     direction LR
-    subgraph n1 ["`*«part»* **camera : Camera**`"]
+    subgraph n1 ["`*«part»* **camera**`"]
       direction LR
       n1.0["output"]
     end
-    subgraph n2 ["`*«part»* **recorder : Recorder**`"]
+    subgraph n2 ["`*«part»* **recorder**`"]
       direction LR
       n2.0["input"]
     end
   end
-  n1.0 ===|"link"| n2.0
+  n1.0 === n2.0
   linkStyle 0 stroke-width:3px
 ```
 
@@ -128,7 +128,7 @@ flowchart LR
   n0("`*«part»*
 **telescope**`")
     n1("`*«part»*
-**optics : Subsystem**`")
+**optics**`")
       n2("`*«attribute»*
 **mass**`")
   n1 --- n2
@@ -137,7 +137,7 @@ flowchart LR
   n1 --- n3
   n0 --- n1
     n4("`*«part»*
-**segmentControl : Subsystem**`")
+**segmentControl**`")
       n5("`*«attribute»*
 **mass**`")
   n4 --- n5
@@ -146,7 +146,7 @@ flowchart LR
   n4 --- n6
   n0 --- n4
     n7("`*«part»*
-**mount : Subsystem**`")
+**mount**`")
       n8("`*«attribute»*
 **mass**`")
   n7 --- n8

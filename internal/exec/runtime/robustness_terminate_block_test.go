@@ -99,7 +99,7 @@ func testTerminateOfAStateNameInABlock(t *testing.T) {
 			}
 		}
 	}`)
-	if !errors.Is(err, ErrTerminateTarget) {
-		t.Fatalf("error = %v, want ErrTerminateTarget", err)
+	if !errors.Is(err, errTerminateTarget) {
+		t.Fatalf("error = %v, want errTerminateTarget", err)
 	}
 }

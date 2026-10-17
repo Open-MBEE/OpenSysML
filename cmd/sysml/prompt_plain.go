@@ -4,10 +4,7 @@ package main
 
 import (
 	"bufio"
-	"errors"
-	"io"
 	"os"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 )
@@ -20,36 +17,6 @@ import (
 func newLineInput(sess *repl.Session) (repl.LineReader, func() error, error) {
 	exposeCompletion(sess)
 	return &plainReader{in: bufio.NewReader(os.Stdin), out: os.Stdout, interrupt: hostInterruptLine}, func() error { return nil }, nil
-}
-
-// plainReader yields the lines it is read from, writing each prompt before it waits.
-type plainReader struct {
-	in        *bufio.Reader
-	out       io.Writer
-	interrupt string // a line that reads as repl.ErrInterrupt, when nonempty
-}
-
-// ReadLine writes the prompt and reads the next line, without its line ending, and
-// reports io.EOF once input ends: a last line the host sent without a newline is
-// still a line, and the read after it is the end.
-func (r *plainReader) ReadLine(prompt string) (string, error) {
-	if _, err := io.WriteString(r.out, prompt); err != nil {
-		return "", err
-	}
-	line, err := r.in.ReadString('\n')
-	if err != nil {
-		if !errors.Is(err, io.EOF) {
-			return "", err
-		}
-		if line == "" {
-			return "", io.EOF
-		}
-	}
-	line = strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r")
-	if r.interrupt != "" && line == r.interrupt {
-		return "", repl.ErrInterrupt
-	}
-	return line, nil
 }
 
 // isTerminal reports whether the file descriptor is a terminal: no WebAssembly host

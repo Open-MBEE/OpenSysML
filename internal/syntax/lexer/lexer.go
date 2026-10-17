@@ -244,10 +244,16 @@ func (lx *Lexer) scanBlockComment(start int) Token {
 }
 
 // scanQuoted scans a quoted literal delimited by quote (' or "), flagging escapes
-// outside the terminal's set; unterminated (newline/EOF) emits Error over what was read.
+// outside the terminal's set. STRING_VALUE and UNRESTRICTED_NAME admit every
+// character but the backslash and their quote (KerMLExpressions.xtext:562-566),
+// a line break included, so the literal runs to its closing quote across lines.
+// A literal the file never closes is returned Unterminated, cut at the end of its
+// opening line, so the text after that line is still read as the declarations
+// it holds.
 func (lx *Lexer) scanQuoted(start int, quote byte, kind Kind) Token {
 	lx.pos++ // opening quote
 	badEscape := false
+	lineEnd, badEscapeOnLine := -1, false
 	for lx.pos < len(lx.src) {
 		c := lx.src[lx.pos]
 		switch {
@@ -255,7 +261,11 @@ func (lx *Lexer) scanQuoted(start int, quote byte, kind Kind) Token {
 			// escape: consume backslash + next char if present
 			lx.pos++
 			if lx.pos < len(lx.src) {
-				if !source.IsEscapeChar(lx.src[lx.pos]) {
+				next := lx.src[lx.pos]
+				if lineEnd < 0 && (next == '\n' || next == '\r') {
+					lineEnd, badEscapeOnLine = lx.pos, badEscape
+				}
+				if !source.IsEscapeChar(next) {
 					badEscape = true
 				}
 				lx.pos++
@@ -263,15 +273,18 @@ func (lx *Lexer) scanQuoted(start int, quote byte, kind Kind) Token {
 		case c == quote:
 			lx.pos++ // closing quote
 			return Token{Kind: kind, Span: lx.span(start), BadEscape: badEscape}
-		case c == '\n' || c == '\r':
-			// unterminated on this line
-			return Token{Kind: Error, Span: lx.span(start)}
 		default:
+			if lineEnd < 0 && (c == '\n' || c == '\r') {
+				lineEnd, badEscapeOnLine = lx.pos, badEscape
+			}
 			lx.pos++
 		}
 	}
 	// reached EOF without closing quote
-	return Token{Kind: Error, Span: lx.span(start)}
+	if lineEnd >= 0 {
+		lx.pos, badEscape = lineEnd, badEscapeOnLine
+	}
+	return Token{Kind: kind, Span: lx.span(start), Unterminated: true, BadEscape: badEscape}
 }
 
 // consumeUntilStarSlash advances until it consumes a closing "*/", reporting

@@ -456,7 +456,7 @@ Allocation:
 
 ```
  2069.59MB 22.62%  runtime.(*StateExecutor).pollChangeEvents
- 1627.65MB 17.79%  runtime.NewEvalContext
+ 1627.65MB 17.79%  runtime.newEvalContext
   872.60MB  9.54%  runtime.newStmtEngine
   600.53MB  6.56%  runtime.(*EventQueue).Push
   545.51MB  5.96%  runtime.(*StateExecutor).activeLeaves
@@ -469,7 +469,7 @@ Allocation:
   45210981 19.13%  runtime.(*StateExecutor).pollChangeEvents
   35586589 15.06%  runtime.(*StateExecutor).activeLeaves
   27263183 11.54%  runtime.(*StateExecutor).activeStates
-  17778262  7.52%  runtime.NewEvalContext
+  17778262  7.52%  runtime.newEvalContext
   17170561  7.27%  runtime.(*EvalContext).Push
   13118722  5.55%  runtime.(*EventQueue).Push
    9437326  3.99%  runtime.(*Context).checkNamedWrite
@@ -511,7 +511,7 @@ formatting on the hot path.
 **The state executor recomputes its active configuration per event.** Every
 `ProcessNextEvent` calls `pollChangeEvents` (23% of bytes, 45 M objects),
 `activeLeaves` and `activeStates` (27% of objects between them), each of which
-rebuilds a slice from the state tree. `NewEvalContext` (18% of bytes) is created
+rebuilds a slice from the state tree. `newEvalContext` (18% of bytes) is created
 per guard evaluation and per entry action. The 26 allocations per event are
 these: none is inherent to firing a transition. `EventQueue.Push`/`eventHeap.Pop`
 are a further 10%: a heap is right for timed events, but the `after 1` pattern
@@ -581,7 +581,7 @@ Allocation:
 
 ```
     4.98GB 63.05%  symbols.(*Scope).MemberNames
-    0.49GB  6.24%  runtime.NewEvalContext
+    0.49GB  6.24%  runtime.newEvalContext
     0.31GB  3.96%  runtime.(*Context).appendConditions
     0.29GB  3.61%  fmt.Sprintf
     0.28GB  3.54%  semantics.(*Model).membersOf.func1
@@ -593,7 +593,7 @@ Allocation:
 
    9959576 20.03%  fmt.Sprintf
    5832836 11.73%  runtime.(*Context).chainMembers
-   5516451 11.09%  runtime.NewEvalContext
+   5516451 11.09%  runtime.newEvalContext
    5308658 10.67%  runtime.(*Context).beginRun
    5251392 10.56%  runtime.(*Context).appendConditions
    4325441  8.70%  runtime.(*ViolationError).Error

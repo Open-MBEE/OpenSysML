@@ -464,6 +464,33 @@ impl Connection {
         view_name: &str,
         ports: RenderViewPorts,
     ) -> Result<RenderedView, Error> {
+        self.render_view_showing(model_hash, view_name, ports, &[])
+    }
+
+    /// Render a named view with the requested port selection, showing the named
+    /// optional notation elements (`"edge-labels"`, `"all"`, ...) besides those the
+    /// view's rendering shows; the service refuses a name it does not know.
+    pub fn render_view_showing(
+        &self,
+        model_hash: &str,
+        view_name: &str,
+        ports: RenderViewPorts,
+        show: &[&str],
+    ) -> Result<RenderedView, Error> {
+        self.render_view_bounded(model_hash, view_name, ports, show, 0)
+    }
+
+    /// Render a named view as `render_view_showing` does, drawing `depth` levels
+    /// of nested elements below each exposed element when `depth` is above 0,
+    /// overriding the depth the view states.
+    pub fn render_view_bounded(
+        &self,
+        model_hash: &str,
+        view_name: &str,
+        ports: RenderViewPorts,
+        show: &[&str],
+        depth: u32,
+    ) -> Result<RenderedView, Error> {
         self.require_all(&[crate::capabilities::CAPABILITY_RENDER_VIEW])?;
         let response = self.gated_rpc(
             "RenderView",
@@ -474,6 +501,8 @@ impl Connection {
                     RenderViewPorts::Minimal => String::new(),
                     RenderViewPorts::Full => "full".to_owned(),
                 },
+                show: show.iter().map(|s| (*s).to_owned()).collect(),
+                depth: i32::try_from(depth).unwrap_or(i32::MAX),
             },
             &[crate::capabilities::CAPABILITY_RENDER_VIEW],
         )?;

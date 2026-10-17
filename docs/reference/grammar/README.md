@@ -132,10 +132,10 @@ Grammar conformance is validated by parsing **OMG's own files**:
 2. **Training examples** - 100 OMG training files (the current result is on the page below)
    - See: `docs/project/training-examples.md`
 
-3. **Golden AST tests** - 33 fixtures with expected AST output
+3. **Golden AST tests** - 259 fixtures (`.sysml` and `.kerml`) with expected AST output
    - See: `tests/parser/testdata/parse/`
 
-4. **Negative tests** - 36 test cases for error recovery
+4. **Negative tests** - 364 malformed inputs (`TestNegative` and `TestNegativeKerML`) for error recovery
    - See: `tests/parser/negative_test.go`
 
 ## Hand-Written Parser

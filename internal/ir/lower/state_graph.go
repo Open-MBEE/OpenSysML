@@ -117,8 +117,12 @@ type StateGraph struct {
 	// behaviorFootprints: entry, do or exit behavior (its Node) → what running it
 	// touches. Both are computed on the first call of their accessors.
 	transitionFootprints map[*Transition]Footprint
+	branchFootprints     map[*Transition]Footprint
 	behaviorFootprints   map[ast.Node]Footprint
 	footprintsOnce       sync.Once
+	effectFootprintsMu   sync.Mutex
+	branchFromMu         sync.Mutex
+	branchFrom           map[branchKey]Footprint
 	// transitionSteps: transition out of a state → its step short of do behaviors.
 	transitionSteps map[*Transition]TransitionStep
 	stepsOnce       sync.Once
@@ -130,7 +134,7 @@ type StateGraph struct {
 	// selection of an active composite owner.
 	CompositeStateOrder []*ast.StateNode
 
-	// RegionInitials: region → initial state
+	// RegionInitials: region → initial state, nil when default entry leaves it inactive.
 	RegionInitials map[*ast.StateRegion]*ast.StateNode
 
 	// ParentState: child → parent
@@ -163,8 +167,7 @@ type StateGraph struct {
 	// ForkPlans: fork → where its branches lead, checked when the graph is built.
 	ForkPlans map[*ast.PseudostateNode]*ForkPlan
 
-	// ForkEntered: region → the forks whose branches enter it, in declaration
-	// order. A region only forks enter needs no entry transition of its own.
+	// ForkEntered: region → the forks whose branches enter it, in declaration order.
 	ForkEntered map[*ast.StateRegion][]*ast.PseudostateNode
 
 	// JoinPlans: join → where its segments come from, checked when the graph is built.
@@ -334,7 +337,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	graph.recordRunToCompletion(nil, body, DescribeMember(stateMachineDecl))
 
 	graph.Connections = lowerConnections(members, OwnerBehavior, scope)
-	graph.Attributes = keptAttributes(lowerStateAttributes(graph, inherited), lowerStateAttributes(graph, ownMembers(members, scope)))
+	graph.Attributes = graph.keptAttributes(lowerStateAttributes(graph, inherited), lowerStateAttributes(graph, ownMembers(members, scope)))
 	parallelMachine := stateMachineIsParallel(stateMachineDecl)
 	for _, owner := range owners {
 		parallelMachine = parallelMachine || stateMachineIsParallel(owner)
@@ -410,9 +413,8 @@ func (g *StateGraph) collectRegions(body []inheritedMember) {
 	}
 }
 
-// recordRegionInitials records where every region starts and refuses one that
-// nothing starts: a top-level region needs an entry transition, a composite
-// state's region an entry transition or a fork branch into it.
+// recordRegionInitials records where every region starts, refusing only a
+// top-level region without an entry transition.
 func (g *StateGraph) recordRegionInitials() error {
 	for _, region := range g.TopRegions {
 		g.RegionInitials[region] = g.UnconditionalStart(region)
@@ -423,14 +425,10 @@ func (g *StateGraph) recordRegionInitials() error {
 	for _, state := range g.CompositeStateOrder {
 		for _, region := range g.CompositeStates[state] {
 			g.RegionInitials[region] = g.UnconditionalStart(region)
-			if len(g.EntryTransitions[region]) > 0 || g.stateless(region) {
-				continue
-			}
-			if !g.ForkStarted(region) {
-				return g.noInitialState(region, fmt.Sprintf("region %s in state %s", region.Name, state.Name))
-			}
-			if err := g.checkForkOnlyRegion(state, region); err != nil {
-				return err
+			if len(g.EntryTransitions[region]) == 0 && !g.stateless(region) {
+				if wrapper := g.RegionState[region]; wrapper != nil && g.parallelState[wrapper] {
+					return g.noInitialState(region, "")
+				}
 			}
 		}
 	}
@@ -491,7 +489,7 @@ func lowerStateAttributes(graph *StateGraph, members []inheritedMember) []Attrib
 			continue
 		}
 		graph.attributeScope[usage] = member.scope
-		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Binding: valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault), Node: usage, Scope: member.scope})
+		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Binding: valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault), Node: usage, Scope: member.scope, Symbol: member.scope.MemberDeclaring(usage)})
 	}
 	return attrs
 }
@@ -617,7 +615,7 @@ func stateNodeFromUsage(graph *StateGraph, usage *ast.Usage, scope *symbols.Scop
 	}
 
 	replaced := redeclare(state, base.node, own.node)
-	if attrs := keptAttributes(base.attrs, own.attrs); len(attrs) > 0 {
+	if attrs := graph.keptAttributes(base.attrs, own.attrs); len(attrs) > 0 {
 		graph.StateAttributes[state] = attrs
 	}
 	graph.bodyOf[state] = body
@@ -699,6 +697,15 @@ func (g *StateGraph) DeclOf(state *ast.StateNode) ast.Node {
 		return decl
 	}
 	return state
+}
+
+// RegionDeclOf is the declaration region was built from: the direct substate of a
+// parallel state or machine that supplies its body, else the region itself.
+func (g *StateGraph) RegionDeclOf(region *ast.StateRegion) ast.Node {
+	if decl := g.regionDecl[region]; decl != nil {
+		return decl
+	}
+	return region
 }
 
 // Completes reports whether entering state completes the region it belongs to:
@@ -1003,6 +1010,18 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 	return nil
 }
 
+// recordCompositeState registers a state's regions while retaining their
+// declaration order for deterministic consumers.
+func (g *StateGraph) recordCompositeState(state *ast.StateNode) {
+	if _, exists := g.CompositeStates[state]; !exists {
+		g.CompositeStateOrder = append(g.CompositeStateOrder, state)
+	}
+	g.CompositeStates[state] = state.Regions
+	for _, region := range state.Regions {
+		g.RegionOwner[region] = state
+	}
+}
+
 // stateless reports whether region is stood for by a state declaring no substates
 // (behaviors and transitions are not states): such a region
 // starts in, and stays in, that state, so it needs no initial.
@@ -1025,18 +1044,6 @@ func (g *StateGraph) stateless(region *ast.StateRegion) bool {
 		}
 	}
 	return true
-}
-
-// recordCompositeState registers a state's regions while retaining their
-// declaration order for deterministic consumers.
-func (g *StateGraph) recordCompositeState(state *ast.StateNode) {
-	if _, exists := g.CompositeStates[state]; !exists {
-		g.CompositeStateOrder = append(g.CompositeStateOrder, state)
-	}
-	g.CompositeStates[state] = state.Regions
-	for _, region := range state.Regions {
-		g.RegionOwner[region] = state
-	}
 }
 
 // stateScope returns the scope state's body was declared in, given the scope of
@@ -1142,15 +1149,16 @@ func isParallelRegionMember(member ast.Node) bool {
 // parallelOwnedMember reports whether a parallel state may own a member itself
 // rather than contribute it to a region: its behaviors, the
 // pseudostates its regions branch through, the edges between them, a metadata
-// usage annotating it, and a definition written in its body, which declares a
-// type rather than a region.
+// usage or prefix annotation annotating it, and a definition written in its
+// body, which declares a type rather than a region.
 func parallelOwnedMember(member ast.Node) bool {
 	switch n := member.(type) {
 	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation,
+		*ast.PrefixMetadata,
 		*ast.EntryMember, *ast.DoMember, *ast.ExitMember,
 		*ast.PseudostateNode,
 		*ast.SuccessionEdge, *ast.TransitionEdge, *ast.TransitionMember,
-		*ast.PrefixMetadata, *ast.Definition, *ast.Package, *ast.ErrorNode:
+		*ast.Definition, *ast.Package, *ast.ErrorNode:
 		return true
 	case *ast.Usage:
 		switch n.Kind {
@@ -1327,7 +1335,7 @@ func (g *StateGraph) regionScope(scope *symbols.Scope, region *ast.StateRegion) 
 	if inherited := g.regionScopeOf[region]; inherited != nil {
 		return inherited
 	}
-	if decl := g.regionDecl[region]; decl != nil {
+	if decl := g.RegionDeclOf(region); decl != region {
 		return childScope(scope, decl)
 	}
 	return childScope(scope, region)
@@ -1705,7 +1713,8 @@ func (g *StateGraph) startsAt(decl, guard ast.Node, body transitionBody, source,
 	if err != nil || vertex == nil {
 		return false, err
 	}
-	if err := addEntryTransitionTarget(g, decl, vertex, body.entryOwner, guard, nil, body.scope, body.scope); err != nil {
+	entryTransition := &EntryTransition{Decl: decl, Guard: guard, Scope: body.scope}
+	if err := addEntryTransitionTarget(g, entryTransition, vertex, body.entryOwner, body.scope); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -1973,7 +1982,7 @@ func collectSuccessionEdge(graph *StateGraph, n *ast.SuccessionEdge, body transi
 	// subaction names the state it starts in (SysML 7.19.3), the same as
 	// a named entry action with a succession out of it does.
 	if sourceVertex == nil && isEntrySubaction(n.SourceMember) && targetVertex != nil {
-		return addEntryTransitionTarget(graph, n, targetVertex, entryOwner, nil, nil, scope, scope)
+		return addEntryTransitionTarget(graph, &EntryTransition{Decl: n, Scope: scope}, targetVertex, entryOwner, scope)
 	}
 
 	if sourceVertex == nil {
@@ -2005,8 +2014,8 @@ func collectTransitionMember(graph *StateGraph, n *ast.TransitionMember, body tr
 			return err
 		}
 		entryScope := symbols.TriggerScope(scope, n)
-		return addEntryTransitionTarget(graph, n, target, entryOwner, n.Guard,
-			transitionEffects(n, entryScope, graph.resolver), scope, entryScope)
+		entry := &EntryTransition{Decl: n, Guard: n.Guard, Effect: transitionEffects(n, entryScope, graph.resolver), Scope: entryScope}
+		return addEntryTransitionTarget(graph, entry, target, entryOwner, scope)
 	}
 	// `transition initial then off;` out of the entry action names the
 	// state the machine starts in, not an edge between two vertices.

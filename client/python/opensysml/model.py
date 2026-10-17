@@ -382,12 +382,21 @@ class Model:
         """
         return self.connection.render_document(self._hash, document_id, form=form)
 
-    def render_view(self, view_name, ports="minimal") -> RenderedView:
+    def render_view(self, view_name, ports="minimal", show=None, depth=0) -> RenderedView:
         """Render one named view as typed diagram data.
 
         Args:
             view_name (str): Qualified view name or targeted pseudo-view
             ports (str): ``"minimal"`` (the default) or ``"full"``
+            show (Iterable[str] | None): Optional notation elements to draw
+                besides those the view's rendering shows — ``"parameter-symbols"``,
+                ``"port-symbols"``, ``"compartments"``, ``"edge-labels"``,
+                ``"keywords"``, ``"multiplicities"``, ``"typings"``,
+                ``"qualifiers"`` or ``"all"``; the result's ``shown`` lists the
+                ones drawn
+            depth (int): How many levels of nested elements to draw below each
+                exposed element, overriding the view's own ``depth``; ``0`` (the
+                default) draws every level the view allows
 
         Returns:
             RenderedView: Ordered nodes, edges, table data and optional layout
@@ -400,7 +409,7 @@ class Model:
                 also a SymbolNotFoundError and KeyError
             ModelNotFoundError: If the service no longer holds this model
         """
-        return self.connection.render_view(self._hash, view_name, ports=ports)
+        return self.connection.render_view(self._hash, view_name, ports=ports, show=show, depth=depth)
 
 
     def export_graphs(self, subject) -> Graphs:

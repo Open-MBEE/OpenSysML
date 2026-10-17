@@ -82,6 +82,7 @@ func runRendering(kind view.Kind, options Options) *view.Rendering {
 	return &view.Rendering{
 		Kind:     kind,
 		Run:      true,
+		Shown:    view.AllShown(),
 		RunUntil: options.Until,
 		Stated:   fmt.Sprintf("the trace of a run to t = %s", runInstant(options.Until)),
 	}

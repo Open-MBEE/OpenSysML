@@ -1,6 +1,10 @@
 package runtime
 
-import "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+import (
+	"errors"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+)
 
 const (
 	// maxMaterializeDepth bounds how deep a materialization walk descends into the
@@ -24,12 +28,17 @@ func (ctx *Context) MaterializationErrors(inst *Instance) (errs []error, bounded
 	if inst == nil {
 		return nil, false
 	}
+	return ctx.materializationErrorsWithin(inst, maxMaterializeBudget)
+}
+
+// materializationErrorsWithin is MaterializationErrors under a budget of its own.
+func (ctx *Context) materializationErrorsWithin(inst *Instance, budget int) (errs []error, bounded bool) {
 	w := &materializeWalk{
 		ctx:     ctx,
 		onPath:  map[*symbols.Symbol]bool{inst.Type: true},
 		visited: map[int64]bool{inst.ID: true},
 		read:    map[*FeatureValue]bool{},
-		budget:  maxMaterializeBudget,
+		budget:  budget,
 	}
 	w.walk(inst, 0)
 	return w.errs, w.bounded
@@ -84,7 +93,12 @@ func (w *materializeWalk) walk(inst *Instance, depth int) {
 		w.budget--
 		fv, err := inst.GetFeatureValue(w.ctx, of.Name)
 		if err != nil {
-			w.errs = append(w.errs, err)
+			// A feature valued by bindings that link one unspecified value of it holds
+			// something the model leaves open, as an unset attribute does: not a finding.
+			var undetermined *undeterminedBindingError
+			if !errors.As(err, &undetermined) {
+				w.errs = append(w.errs, err)
+			}
 			continue
 		}
 		values, cut, err := w.ctx.heldUpTo(fv.HeldValue(), w.budget+1)
@@ -92,13 +106,14 @@ func (w *materializeWalk) walk(inst *Instance, depth int) {
 			w.errs = append(w.errs, err)
 		}
 		w.bounded = w.bounded || cut
-		nested := instancesOf(w.ctx, values)
-		w.budget -= len(nested)
-		for _, held := range nested {
+		// Each object held is charged as it is reached, so every one the budget admits
+		// is walked and only those past it are cut.
+		for _, held := range instancesOf(w.ctx, values) {
 			if w.budget <= 0 {
 				w.bounded = true
 				return
 			}
+			w.budget--
 			if w.visited[held.ID] {
 				continue
 			}

@@ -7,9 +7,9 @@
   <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
 
     <!-- Run: every kind of activity node an activity diagram shows, so that the
-         export's placement of each is written or accounted for: an initial node
-         and a flow final node become start and done, which no Layout names; the
-         fork, join, decision and activity final node are declared members. -->
+         export's placement of each is written: an initial node and a flow final
+         node become start and done, placed as the activity's; the fork, join,
+         decision and activity final node are declared members. -->
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_control" name="Control">
       <packagedElement xmi:type="uml:Class" xmi:id="_blk_controller" name="Controller">
         <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_run" name="Run">

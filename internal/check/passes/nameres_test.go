@@ -97,34 +97,110 @@ func nameresDiags(t *testing.T, src string) []diag.Diagnostic {
 	return NameResolutionPass{}.Run(ctx, "a.sysml", root)
 }
 
-// Two owned members of one name are each a name-conflict warning — in the
-// default mode and under strict conformance alike: strict judges the notation
-// the model is written in, and this model's notation is standard (KerML
-// 7.2.2, SysML 7.6.1).
-func TestDuplicateOwnedMemberNamesWarnInEveryConformanceMode(t *testing.T) {
+// Two owned members of one name are a name-conflict warning by default and, as
+// a violation of validateNamespaceDistinguishibility (KerML 8.3.2.4.5), an
+// error under strict conformance; the finding itself is the same in both modes.
+func TestDuplicateOwnedMemberNamesEscalateUnderStrictConformance(t *testing.T) {
 	const src = `package P {
 		private import ScalarValues::*;
 		part def A { attribute x : Real; }
 		part def A { attribute y : Real; }
 	}`
+	for name, mode := range map[string]diag.ConformanceMode{"default": diag.ConformanceDefault, "strict": diag.ConformanceStrict} {
+		got := nameresDiagsIn(t, src, mode)
+		if len(got) != 2 {
+			t.Fatalf("%s mode: got %+v, want two diagnostics", name, got)
+		}
+		for _, d := range got {
+			if d.Code != "name-conflict" || d.Severity != strictSeverity(mode) || d.Message != "Duplicate of other owned member name" {
+				t.Fatalf("%s mode: got %+v, want name-conflict findings of severity %v only", name, got, strictSeverity(mode))
+			}
+		}
+	}
+}
+
+// nameresDiagsIn runs the name-resolution pass over src under mode, with the
+// standard library indexed so metaclasses are known.
+func nameresDiagsIn(t *testing.T, src string, mode diag.ConformanceMode) []diag.Diagnostic {
+	t.Helper()
 	sf := source.New("a.sysml", []byte(src))
 	p := parser.New(sf)
 	root := p.ParseFile()
 	if len(p.Diagnostics) != 0 {
 		t.Fatalf("unexpected parse diagnostics: %+v", p.Diagnostics)
 	}
-	for name, mode := range map[string]diag.ConformanceMode{"default": diag.ConformanceDefault, "strict": diag.ConformanceStrict} {
-		idx := newTestIndexFromDoc("a.sysml", root)
-		ctx := NewContextWithOptions("a.sysml", source.KindSysML, idx, nil, Options{Conformance: mode})
-		got := NameResolutionPass{}.Run(ctx, "a.sysml", root)
-		if len(got) != 2 {
-			t.Fatalf("%s mode: got %+v, want two diagnostics", name, got)
-		}
-		for _, d := range got {
-			if d.Code != "name-conflict" || d.Severity != diag.SeverityWarning || d.Message != "Duplicate of other owned member name" {
-				t.Fatalf("%s mode: got %+v, want name-conflict warnings only", name, got)
+	idx := newTestIndexFromDoc("a.sysml", root)
+	idx.ExpandWildcardImports()
+	ctx := NewContextWithOptions("a.sysml", source.KindSysML, idx, nil, Options{Conformance: mode})
+	return NameResolutionPass{}.Run(ctx, "a.sysml", root)
+}
+
+// Every membership a namespace keeps that is indistinguishable from another —
+// owned, alias and inherited (Type::inheritedMembership subsets membership) —
+// violates validateNamespaceDistinguishibility, so strict conformance reports
+// each of the resolver's wordings for them as an error.
+func TestIndistinguishableMembershipsAreErrorsUnderStrictConformance(t *testing.T) {
+	cases := []struct {
+		name, src string
+		want      []string
+	}{
+		{"owned repeats owned", `package P { part def A; part def A; }`,
+			[]string{"Duplicate of other owned member name", "Duplicate of other owned member name"}},
+		{"alias repeats owned", `package P { part def A; part def B; alias A for B; }`,
+			[]string{"Duplicate of owned member name"}},
+		{"alias repeats alias", `package P { part def B; part def C; alias A for B; alias A for C; }`,
+			[]string{"Duplicate of other alias name", "Duplicate of other alias name"}},
+		{"owned repeats inherited", `package P { part def Base { part x; } part def Sub :> Base { part x; } }`,
+			[]string{"Duplicate of inherited member name 'x' from Base"}},
+		{"inherited twice", `package P { part def L { part x; } part def R { part x; } part def Sub :> L, R; }`,
+			[]string{"Duplicate of inherited member name 'x' from L, R"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, mode := range []diag.ConformanceMode{diag.ConformanceDefault, diag.ConformanceStrict} {
+				var got []string
+				for _, d := range only(nameresDiagsIn(t, tc.src, mode), "name-conflict") {
+					if d.Severity != strictSeverity(mode) {
+						t.Errorf("%v: %q has severity %v, want %v", mode, d.Message, d.Severity, strictSeverity(mode))
+					}
+					got = append(got, d.Message)
+				}
+				if strings.Join(got, "\n") != strings.Join(tc.want, "\n") {
+					t.Errorf("%v: got %q, want %q", mode, got, tc.want)
+				}
 			}
+		})
+	}
+}
+
+// An imported collision is a name KerML 7.2.5.4 hides, not a membership the
+// namespace keeps, so the warning marking it stays a warning under strict.
+func TestImportedNameCollisionStaysAWarningUnderStrictConformance(t *testing.T) {
+	const src = `package A { part def Engine; }
+	package B { part def Engine; }
+	package C { private import A::*; private import B::*; part e : Engine; }`
+	got := only(nameresDiagsIn(t, src, diag.ConformanceStrict), "name-conflict")
+	if len(got) != 1 || got[0].Severity != diag.SeverityWarning || !strings.HasPrefix(got[0].Message, "Duplicate of imported member name 'Engine'") {
+		t.Fatalf("got %+v, want one imported-name warning", got)
+	}
+}
+
+// Two memberships whose member elements' metaclasses conform in neither
+// direction are distinguishable whatever their names (KerML 8.3.2.4.3), so
+// strict conformance has nothing to report on them.
+func TestDistinguishableMetaclassesStayCleanUnderStrictConformance(t *testing.T) {
+	for _, src := range []string{
+		`package P { part def A; attribute def A; }`,
+		`package P { part def Base { part x; } part def Sub :> Base { attribute x; } }`,
+	} {
+		if got := only(nameresDiagsIn(t, src, diag.ConformanceStrict), "name-conflict"); len(got) != 0 {
+			t.Errorf("%s: got %+v, want none", src, got)
 		}
+	}
+	// A specializing metaclass is not distinguishable: item def is a part def's general.
+	got := only(nameresDiagsIn(t, `package P { part def A; item def A; }`, diag.ConformanceStrict), "name-conflict")
+	if len(got) != 2 || got[0].Severity != diag.SeverityError {
+		t.Fatalf("part def beside item def: got %+v, want two errors", got)
 	}
 }
 

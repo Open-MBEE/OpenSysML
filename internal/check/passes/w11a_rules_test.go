@@ -1,6 +1,7 @@
 package passes
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"testing"
@@ -167,6 +168,46 @@ func TestW11AReferenceKinds(t *testing.T) {
 	}
 	if strings.Join(got, "\n") != msgReferenceAction {
 		t.Errorf("got %v, want [%q]", got, msgReferenceAction)
+	}
+}
+
+// The declared forms `perform action f references p;` and `exhibit state e
+// references p;` are judged like `perform p;` and `exhibit p;`: a part is
+// neither, an action is no state, while a state is an action
+// (validatePerformActionUsageReference, validateExhibitStateUsageReference).
+func TestW11AReferenceKindsDeclaredForm(t *testing.T) {
+	src := `package Test {
+	part def B;
+	state def SD;
+	action def AD;
+	part def C {
+		part b : B;
+		state s : SD;
+		action a : AD;
+		perform action f1 references b;
+		exhibit state e1 references b;
+		exhibit state e2 references a;
+		perform action f2 references s;
+		perform action f3 references a;
+		exhibit state e3 references s;
+	}
+}`
+	var got []string
+	for _, d := range w9cLibraryDiags(t, src, false) {
+		if d.Code != "usage-reference-kind" {
+			continue
+		}
+		line, col := lineCol(src, d.Span.Offset)
+		got = append(got, fmt.Sprintf("%d:%d %s", line, col, d.Message))
+	}
+	sort.Strings(got)
+	want := []string{
+		"10:31 " + msgReferenceState,
+		"11:31 " + msgReferenceState,
+		"9:32 " + msgReferenceAction,
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }
 

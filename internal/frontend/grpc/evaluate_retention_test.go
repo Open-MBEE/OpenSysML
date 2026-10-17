@@ -138,6 +138,11 @@ package Demo {
 	if msg := evaluate("Twice(mass) + engine.power + Demo::sedan::mass + 1.0"); msg != "" {
 		t.Fatalf("Evaluate: %s", msg)
 	}
+	// An unresolved name fills the resolver's collision table of each namespace
+	// it is looked up in, once; the retention is measured after that.
+	if evaluate("nosuch(1.0) + masss") == "" {
+		t.Fatal("unresolved names evaluated")
+	}
 	before, beforeSel, beforeDiags := memoSize()
 	for i := 0; i < 50; i++ {
 		if msg := evaluate(fmt.Sprintf("Twice(mass) + engine.power + Demo::sedan::mass + %d.0", i)); msg != "" {

@@ -30,6 +30,7 @@ from opensysml.capabilities import (
     CAPABILITY_CONVERT_DOCUMENTS,
     CAPABILITY_CONVERT_COMPACT,
     CAPABILITY_PARSE_SOURCES_AFFECTED,
+    CAPABILITY_RENDER_DOCUMENT_FILE_NAME,
     MissingCapabilityError,
     ServerInfo,
 )
@@ -112,6 +113,7 @@ __all__ = [
     "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
     "CAPABILITY_BIG_INT_VALUES", "CAPABILITY_RATIONAL_VALUES", "CAPABILITY_CONVERT_DOCUMENTS",
     "CAPABILITY_CONVERT_COMPACT", "CAPABILITY_PARSE_SOURCES_AFFECTED",
+    "CAPABILITY_RENDER_DOCUMENT_FILE_NAME",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
@@ -377,7 +379,7 @@ def migrate(to_format, file_path=None, content=None, from_format='', report=Fals
         >>> import opensysml
         >>> migrated = opensysml.migrate("sysml", file_path="Vehicle.mdzip", report=True)
         >>> migrated.report.summary
-        'migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (...)'
+        'migrated 95 element(s): 77 mapped, 15 approximated, 3 unmapped (...)'
         >>> migrated.write("Vehicle.sysml")
         'Vehicle.sysml'
     """

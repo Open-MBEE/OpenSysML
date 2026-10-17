@@ -210,6 +210,15 @@ func (m *CachedModel) SymbolContext() *symbolfacts.Context {
 	return m.symCtx
 }
 
+// LookupNamedMember resolves a symbol id, a member a subtype inherits included
+// (Sub::inherited), under the symbol context's lock: the member walk memoizes
+// into the shared semantic model.
+func (m *CachedModel) LookupNamedMember(id string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return symbolfacts.LookupNamedMember(sc.Index, sc.Semantics, id)
+}
+
 // Cache is an LRU cache for parsed models keyed by content hash
 type Cache struct {
 	mu      sync.RWMutex

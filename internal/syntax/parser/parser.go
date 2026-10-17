@@ -16,7 +16,7 @@ import (
 // diagnostics; it always produces a tree (ErrorNodes for bad input).
 type Parser struct {
 	src *source.SourceFile
-	lx  *lexer.Lexer
+	lx  *Scanner
 	// buf is a window of the non-trivia token stream: buf[i] is stream token
 	// base+i, and pos is the cursor's stream index.
 	buf  []lexer.Token
@@ -176,7 +176,7 @@ const tokenWindow = 64
 // New creates a Parser for the given source file.
 func New(sf *source.SourceFile) *Parser {
 	// Models measure ~5 source bytes per non-trivia token; the window caps it.
-	return &Parser{src: sf, lx: lexer.New(sf), buf: make([]lexer.Token, 0, min(sf.Len()/5+1, 2*tokenWindow))}
+	return &Parser{src: sf, lx: NewScanner(sf), buf: make([]lexer.Token, 0, min(sf.Len()/5+1, 2*tokenWindow))}
 }
 
 // fill ensures buf holds the token n positions ahead of the cursor (pulling
@@ -209,7 +209,7 @@ func (p *Parser) fill(n int) {
 			}
 			tok = p.lx.Next()
 		}
-		p.buf = append(p.buf, p.unreserved(tok))
+		p.buf = append(p.buf, tok)
 		for _, sp := range comments {
 			p.comments = append(p.comments, pendingComment{
 				span: sp, next: p.buf[len(p.buf)-1],
@@ -220,6 +220,17 @@ func (p *Parser) fill(n int) {
 			return
 		}
 	}
+}
+
+// reportUnterminated reports a string or unrestricted name the file never
+// closes, once, at the quote that opens it; the token is cut at the end of its
+// opening line, so the declarations after that line are still read.
+func (p *Parser) reportUnterminated(tok lexer.Token) {
+	if tok.Kind == lexer.UnrestrictedName {
+		p.error(tok.Span, "unterminated name: missing closing '")
+		return
+	}
+	p.error(tok.Span, `unterminated string literal: missing closing "`)
 }
 
 // reportBadEscapes reports each escape a quoted token's terminal does not admit
@@ -293,6 +304,9 @@ func (p *Parser) advance() lexer.Token {
 	tok := p.buf[p.pos-p.base]
 	if tok.Kind != lexer.EOF {
 		p.pos++
+		if tok.Unterminated {
+			p.reportUnterminated(tok)
+		}
 		if tok.BadEscape {
 			p.reportBadEscapes(tok)
 		}
@@ -439,6 +453,11 @@ func (p *Parser) missingTerminator(unexpected, missing string, fixes ...diag.Fix
 	last, ok := p.lastToken()
 	if !ok {
 		p.errorWithFixes(next.Span, unexpected, fixes...)
+		return
+	}
+	if last.Unterminated {
+		// A literal the file never closes was reported where it opens, and the
+		// construct's end is wherever the author meant it to close: nothing to add.
 		return
 	}
 	lines := p.src.Lines()

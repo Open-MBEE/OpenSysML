@@ -25,7 +25,7 @@ const ASSETS = [
   "sysml-grpc-darwin-arm64",
   "sysml-grpc-windows-amd64.exe",
 ];
-const WASM_ASSETS = ["sysml-wasm.wasm", "wasm_exec.js"];
+const WASM_ASSETS = ["sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js"];
 
 test("every platform package is built, described and digest-checked", () => {
   const binaries = fakeRelease();
@@ -118,6 +118,7 @@ test("the optional WASM package carries the exact release assets and exports", (
   assert.deepEqual(packageJson.files, [...WASM_ASSETS, "README.md"]);
   assert.deepEqual(packageJson.exports, {
     "./sysml-wasm.wasm": "./sysml-wasm.wasm",
+    "./sysml-prod.wasm.gz": "./sysml-prod.wasm.gz",
     "./wasm_exec.js": "./wasm_exec.js",
     "./package.json": "./package.json",
   });

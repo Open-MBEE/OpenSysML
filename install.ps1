@@ -31,8 +31,10 @@ Needs: PowerShell 5.1+ (Windows) or PowerShell 7 (elsewhere, with tar).
 Release tag (v0.9.1), `latest` (default) or `nightly`. [OPENSYSML_VERSION]
 
 .PARAMETER Tools
-Subset of sysml, sysml-lsp, sysml-grpc, or `all`; default sysml and sysml-lsp.
-[OPENSYSML_TOOLS, comma-separated]
+Subset of sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel (an array, or
+comma-separated), or `all` for every tool the chosen release published (read
+from its SHA256SUMS.txt); default sysml and sysml-lsp. [OPENSYSML_TOOLS,
+comma-separated]
 
 .PARAMETER InstallDir
 Where the binaries go; default $env:LOCALAPPDATA\Programs\OpenSysML on Windows,
@@ -101,15 +103,20 @@ switch -Regex ($Version) {
     default { Fail "-Version must be a release tag like v0.9.1, 'latest' or 'nightly', not '$Version'" }
 }
 
-$Tools = @($Tools | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-if ($Tools -contains 'all') { $Tools = @('sysml', 'sysml-lsp', 'sysml-grpc') }
+# `all` is resolved against the release's manifest once that is downloaded: a
+# release predating a tool does not have it, and `all` means what it published.
+$Tools = @($Tools | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+$KnownTools = @('sysml', 'sysml-lsp', 'sysml-grpc', 'sysml-jupyter-kernel')
 if ($Tools.Count -eq 0) { Fail '-Tools names nothing to install' }
-foreach ($tool in $Tools) {
-    if ($tool -notin @('sysml', 'sysml-lsp', 'sysml-grpc')) {
-        Fail "unknown tool '$tool'; the released tools are sysml, sysml-lsp and sysml-grpc"
+$InstallAll = ($Tools.Count -eq 1) -and ($Tools[0] -eq 'all')
+if (-not $InstallAll) {
+    foreach ($tool in $Tools) {
+        if ($tool -eq 'all') { Fail "'all' names every tool the release published and stands alone in -Tools" }
+        if ($tool -notin $KnownTools) {
+            Fail "unknown tool '$tool'; the released tools are sysml, sysml-lsp, sysml-grpc and sysml-jupyter-kernel"
+        }
     }
 }
-$WantGrpc = $Tools -contains 'sysml-grpc'
 
 $BaseUrl = $BaseUrl.TrimEnd('/')
 
@@ -216,13 +223,18 @@ function Get-Asset([string]$Asset, [switch]$Optional) {
     }
 }
 
-function Test-Checksum([string]$Asset, [string]$Manifest) {
-    $expected = $null
+function Get-ManifestDigest([string]$Asset, [string]$Manifest) {
+    # The asset's digest in the manifest, $null when it is not listed.
     foreach ($line in Get-Content -LiteralPath (Join-Path $Work $Manifest)) {
         $fields = $line.Trim() -split '\s+', 2
-        if ($fields.Count -eq 2 -and $fields[1].TrimStart('*') -eq $Asset) { $expected = $fields[0].ToLowerInvariant(); break }
+        if ($fields.Count -eq 2 -and $fields[1].TrimStart('*') -eq $Asset) { return $fields[0].ToLowerInvariant() }
     }
-    if (-not $expected) { Fail "$Manifest of $ReleaseName does not list $Asset; releases before v0.0.4 have no bundle, and sysml-grpc is published from v0.9.0" }
+    return $null
+}
+
+function Test-Checksum([string]$Asset, [string]$Manifest) {
+    $expected = Get-ManifestDigest $Asset $Manifest
+    if (-not $expected) { Fail "$Manifest of $ReleaseName does not list $Asset; releases before v0.0.4 have no bundle, sysml-grpc is published from v0.9.0 and sysml-jupyter-kernel from v0.10.0" }
     $actual = (Get-FileHash -LiteralPath (Join-Path $Work $Asset) -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actual -ne $expected) { Fail "$Asset does not match $Manifest (expected $expected, got $actual); the download is corrupt or tampered with" }
     Write-Host "  $Asset verified"
@@ -256,9 +268,17 @@ function Test-Authenticode([string]$Path, [string]$Name) {
 # installation needs anyway), so a dry run previews the same choice.
 New-Item -ItemType Directory -Path $Work -Force | Out-Null
 try {
-    $Manifest = 'SHA256SUMS.txt'
-    $Bundle = if ($Os -eq 'windows') { "opensysml-$Platform.zip" } else { "opensysml-$Platform.tar.gz" }
-    $GrpcAsset = "sysml-grpc-$Platform$Exe"
+    # The release's own manifest lists everything it published; the signed
+    # Windows build's manifest covers only the signed subset.
+    $ReleaseManifest = 'SHA256SUMS.txt'
+    $ReleaseBundle = if ($Os -eq 'windows') { "opensysml-$Platform.zip" } else { "opensysml-$Platform.tar.gz" }
+    $ReleaseGrpcAsset = "sysml-grpc-$Platform$Exe"
+    $Manifest = $ReleaseManifest
+    $Bundle = $ReleaseBundle
+    $GrpcAsset = $ReleaseGrpcAsset
+    # The signed Windows build has no kernel; it is always the release's own
+    # asset, listed in SHA256SUMS.txt.
+    $KernelAsset = "sysml-jupyter-kernel-$Platform$Exe"
     $CanVerifyAuthenticode = $HostIsWindows -and [bool](Get-Command Get-AuthenticodeSignature -ErrorAction SilentlyContinue)
     $SignedBuild = $false
     $SignedBuildNote = ''
@@ -276,11 +296,31 @@ try {
     }
 
     Write-Host "Installing OpenSysML ($ReleaseName) for $Platform"
+    if ($InstallAll) {
+        # The summary depends on what the manifest lists, so it is fetched first.
+        if (-not (Test-Path -LiteralPath (Join-Path $Work $ReleaseManifest))) { Get-Asset $ReleaseManifest | Out-Null }
+        $Tools = @()
+        $missing = @()
+        foreach ($tool in $KnownTools) {
+            $asset = switch ($tool) {
+                'sysml-grpc' { $ReleaseGrpcAsset }
+                'sysml-jupyter-kernel' { $KernelAsset }
+                default { $ReleaseBundle }
+            }
+            if (Get-ManifestDigest $asset $ReleaseManifest) { $Tools += $tool } else { $missing += $tool }
+        }
+        if ($Tools.Count -eq 0) { Fail "$ReleaseManifest of $ReleaseName lists no $Platform build; releases before v0.0.4 have no bundle" }
+        if ($missing.Count -gt 0) { Write-Host "  -Tools all: $ReleaseName publishes no $($missing -join ' or ') for $Platform" }
+    }
+    $WantGrpc = $Tools -contains 'sysml-grpc'
+    $WantKernel = $Tools -contains 'sysml-jupyter-kernel'
     Write-Host "  tools:    $($Tools -join ' ')"
     Write-Host "  binaries: $InstallDir"
     Write-Host "  from:     $(Get-AssetUrl $Bundle)"
     if ($WantGrpc) { Write-Host "            $(Get-AssetUrl $GrpcAsset)" }
+    if ($WantKernel) { Write-Host "            $(Get-AssetUrl $KernelAsset)" }
     if ($SignedBuild) { Write-Host "  the release carries the signed Windows build (its $Manifest was fetched to tell); installing $Bundle" }
+    if ($SignedBuild -and $WantKernel) { Write-Host "  sysml-jupyter-kernel is not among the signed assets; $KernelAsset is checked against $ReleaseManifest" }
     if ($SignedBuildNote) { Write-Host $SignedBuildNote }
     if ($DryRun) {
         Write-Host 'Dry run: nothing installed.'
@@ -294,6 +334,11 @@ try {
     if ($WantGrpc) {
         Get-Asset $GrpcAsset | Out-Null
         Test-Checksum $GrpcAsset $Manifest
+    }
+    if ($WantKernel) {
+        if (-not (Test-Path -LiteralPath (Join-Path $Work $ReleaseManifest))) { Get-Asset $ReleaseManifest | Out-Null }
+        Get-Asset $KernelAsset | Out-Null
+        Test-Checksum $KernelAsset $ReleaseManifest
     }
 
     # --- install ------------------------------------------------------------
@@ -318,9 +363,13 @@ try {
     # never leaves a mix of old and new tools behind.
     $Sources = @{}
     foreach ($tool in $Tools) {
-        $source = if ($tool -eq 'sysml-grpc') { Join-Path $Work $GrpcAsset } else { Join-Path $Extracted "$tool$Exe" }
+        $source = switch ($tool) {
+            'sysml-grpc' { Join-Path $Work $GrpcAsset }
+            'sysml-jupyter-kernel' { Join-Path $Work $KernelAsset }
+            default { Join-Path $Extracted "$tool$Exe" }
+        }
         if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { Fail "$Bundle has no $tool$Exe" }
-        if ($SignedBuild) { Test-Authenticode $source "$tool$Exe" }
+        if ($SignedBuild -and $tool -ne 'sysml-jupyter-kernel') { Test-Authenticode $source "$tool$Exe" }
         $Sources[$tool] = $source
     }
 
@@ -353,8 +402,11 @@ if ($IsHostPlatform) {
         $previous = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
         try {
-            $reported = (& $binary --version 2>&1 | ForEach-Object { "$_" } | Select-Object -First 1) -join ''
+            # Every line is read before the first is kept: a pipeline Select-Object
+            # stops early kills the binary before its exit status is recorded.
+            $lines = @(& $binary --version 2>&1 | ForEach-Object { "$_" })
             $exit = $LASTEXITCODE
+            $reported = ($lines | Select-Object -First 1) -join ''
         } finally {
             $ErrorActionPreference = $previous
         }

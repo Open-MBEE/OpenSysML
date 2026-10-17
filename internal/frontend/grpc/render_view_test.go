@@ -142,7 +142,14 @@ func TestRenderViewRendersCaseAndMixed(t *testing.T) {
 		port telemetry : Signal;
 		perform action descend : Descend;
 	}
+	part def Rover {
+		part wheels[4] : Vehicle;
+	}
 
+	view structure {
+		expose Rover;
+		expose Vehicle;
+	}
 	view useCases {
 		expose CrewOperation;
 		render asCaseDiagram;
@@ -214,6 +221,23 @@ func TestRenderViewRendersCaseAndMixed(t *testing.T) {
 	}
 	if !perform {
 		t.Errorf("mixed view has no perform reference edge: %+v", mixedView.Edges)
+	}
+
+	// An association end's name, drawn at the type's end, reaches the wire as
+	// the edge's label, the response placing no label; multiplicities are an
+	// optional element, off by default.
+	structure, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
+		ModelHash: parsed.ModelHash, View: "RenderViewKinds::structure",
+	})
+	if err != nil {
+		t.Fatalf("RenderView structure: %v", err)
+	}
+	var wheels bool
+	for _, edge := range structure.Edges {
+		wheels = wheels || edge.Kind == "composition" && edge.Label == "wheels"
+	}
+	if !wheels {
+		t.Errorf("structure view has no composition labelled wheels: %+v", structure.Edges)
 	}
 
 	casePseudo, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
@@ -313,7 +337,7 @@ func TestRenderViewMatchesEngineJSON(t *testing.T) {
 func engineProjection(response *pb.RenderViewResponse) engine.JRenderViewResponse {
 	projected := engine.JRenderViewResponse{
 		View: response.View, Kind: response.Kind, Stated: response.Stated,
-		Notices: response.Notices, Columns: response.Columns,
+		Notices: response.Notices, Shown: response.Shown, Columns: response.Columns,
 		Nodes: make([]engine.JRenderNode, 0, len(response.Nodes)),
 		Edges: make([]engine.JRenderEdge, 0, len(response.Edges)),
 	}
@@ -413,5 +437,39 @@ func TestRenderViewRequiresCapability(t *testing.T) {
 	_, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: "unknown", View: "x"})
 	if connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), CapabilityRenderView) {
 		t.Fatalf("RenderView error = %v, want UNIMPLEMENTED naming %s", err, CapabilityRenderView)
+	}
+}
+
+// A request's depth bounds how many levels are drawn below each exposed
+// element; a negative one is refused as an invalid argument.
+func TestRenderViewDepth(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	parsed, _ := parseContent(t, srv, `package Deep {
+    private import Views::*;
+    part vehicle {
+        part wheel { part hub { part bearing; } }
+        part engine { part piston; }
+    }
+    view structure { expose vehicle; render asTreeDiagram; }
+}
+`)
+	whole, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: parsed.ModelHash, View: "Deep::structure"})
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	bounded, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: parsed.ModelHash, View: "Deep::structure", Depth: 1})
+	if err != nil {
+		t.Fatalf("RenderView depth 1: %v", err)
+	}
+	if len(whole.Nodes) != 6 || len(bounded.Nodes) != 3 {
+		t.Errorf("nodes = %d whole, %d at depth 1; want 6 and 3", len(whole.Nodes), len(bounded.Nodes))
+	}
+	if !strings.Contains(strings.Join(bounded.Notices, "\n"), "2 elements nested deeper than 1 level not shown") {
+		t.Errorf("notices = %v, want the depth noticed", bounded.Notices)
+	}
+	_, err = srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: parsed.ModelHash, View: "Deep::structure", Depth: -1})
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("depth -1: err = %v, want InvalidArgument", err)
 	}
 }

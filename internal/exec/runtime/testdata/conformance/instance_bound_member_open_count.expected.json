@@ -1,0 +1,13 @@
+{
+  "libraries": true,
+  "type": "instance",
+  "instantiate": "test::h",
+  "slots": {
+    "boundLimit": {"type": "Undetermined", "value": "[1..*]"},
+    "viaOwn": {"type": "Undetermined", "value": "[1..*]"},
+    "fromBinding": {"type": "Sequence", "elements": [{"type": "Real", "value": 5.0}, {"type": "Real", "value": 5.0}]},
+    "fromRedefinition": {"type": "Sequence", "elements": [{"type": "Real", "value": 5.0}, {"type": "Real", "value": 5.0}]},
+    "fromFixed": {"type": "Sequence", "elements": [{"type": "Real", "value": 5.0}, {"type": "Real", "value": 5.0}]},
+    "fromOne": {"type": "Real", "value": 5.0}
+  }
+}

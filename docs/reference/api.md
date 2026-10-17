@@ -293,15 +293,15 @@ OpenSysML is organized into layer directories under `internal/`, with frontends 
 ```
 github.com/Open-MBEE/OpenSysML
 ├── internal/               # One directory per layer; a package imports only the layers below it
-│   ├── syntax/             # source, diag, lexer, parser, ast, pack, format
+│   ├── syntax/             # source, diag, lexer, parser, ast, pack, format, semtok
 │   ├── semantic/           # symbols, resolve, suggest, semantics, identity, highlight, query
-│   ├── ir/                 # lower, queryplan, docplan, view
+│   ├── ir/                 # lower, queryplan, docplan, view, imagefile
 │   ├── check/              # passes, edit
-│   ├── exec/               # runtime, solve, smt, analysis, engines, objref
-│   ├── translate/          # rdf, export, xmi, migrate, convert, codegen, interop
+│   ├── exec/               # runtime, solve, smt, analysis, engines, objref, fmi, hostcap, ingest, runtrace, simresults
+│   ├── translate/          # rdf, export, xmi, migrate, mtip, convert, codegen, interop, deferred, filename, fmi
 │   ├── doc/                # queryexec, docir, docrender, docpdf
-│   ├── workspace/          # model, libs, project, envvar
-│   └── frontend/           # protoconv, grpc, lsp, repl, stdiorpc, usage
+│   ├── workspace/          # model, libs, project, envvar, modeldoc, modelrt, notebook
+│   └── frontend/           # protoconv, grpc, lsp, repl, stdiorpc, jsonrpc, jupyter, core, combined, engine, syntax, symbolfacts, buildinfo, usage
 ```
 
 ---
@@ -1220,10 +1220,17 @@ it needs the CLI's converter toolchain.
 edges, table and matrix rows, notes, source spans and optional canvas/geometry/style data,
 using the engine renderer's `view.Data` rather than diagram pictures. Its
 `ports` field is empty or `minimal` by default; `full` includes all declared
-ports. It is advertised by `render_view`, and a service without that capability
-refuses the request with `UNIMPLEMENTED`.
-Python exposes this as `model.render_view(view_name, ports="minimal")`, returning
-a typed `RenderedView`.
+ports. Its `show` field names the
+[optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
+to draw besides those the view's rendering shows — `parameter-symbols`,
+`port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`,
+`typings`, `qualifiers`, or `all` — and the response's `shown` lists the ones
+drawn; a name none of them has is refused with `INVALID_ARGUMENT` naming the
+elements there are. It is advertised by `render_view`, and a service without
+that capability refuses the request with `UNIMPLEMENTED`.
+Python exposes this as `model.render_view(view_name, ports="minimal", show=None)`,
+returning a typed `RenderedView` whose `shown` lists the elements drawn; Rust as
+`Model::render_view_showing(name, ports, &["edge-labels"])`.
 
 `ExportGraphs` answers the lowered graph of an action or state machine — the
 subject's `ActionGraph`/`StateGraph` IR and that of every behavior it performs —
@@ -1304,8 +1311,9 @@ it.
 
 Known limitations: the response carries no provenance for *successful* rows
 (only failures name their source), and the document IR is not exposed in a
-structured form — Markdown is the only document form served, as it is the only
-form the build writes.
+structured form — Markdown, and HTML under the `render_document_html`
+capability, are the document forms served; the PDF form `sysml -render-document
+-doc-form pdf` writes is not.
 
 ---
 

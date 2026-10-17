@@ -1,2 +1,0 @@
-- **Refresh the documentation downloads and package links.** Link release assets directly and identify the clients currently published on PyPI, npm and crates.io.
-- **Remove the standalone Ecosystem page.** Its stack and ecosystem information is now on the landing page, and the former page URL redirects there.
