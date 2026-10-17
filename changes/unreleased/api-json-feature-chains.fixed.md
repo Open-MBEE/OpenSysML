@@ -1,0 +1,1 @@
+- API JSON preserves ordered, repeated `Feature::chainingFeature` links and omits a chain as a whole when any link is unresolved.

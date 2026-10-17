@@ -64,7 +64,19 @@ func TestConvertDuplicateMemberNames(t *testing.T) {
 	if defs[0]["@id"] == defs[1]["@id"] {
 		t.Errorf("the two `part def A` share an @id %v", defs[0]["@id"])
 	}
-	if defs[0]["qualifiedName"] != "P::A" || !strings.HasPrefix(defs[1]["qualifiedName"].(string), "P::@") {
-		t.Errorf("qualified names are %v and %v, want P::A and the positional name", defs[0]["qualifiedName"], defs[1]["qualifiedName"])
+	if defs[0]["qualifiedName"] != "P::A" {
+		t.Errorf("first qualifiedName is %v, want P::A", defs[0]["qualifiedName"])
+	}
+	if strings.Contains(defs[0]["qualifiedName"].(string), "::@") {
+		t.Errorf("first qualifiedName contains a positional segment: %v", defs[0]["qualifiedName"])
+	}
+	if _, hasQualifiedName := defs[1]["qualifiedName"]; hasQualifiedName {
+		t.Errorf("second duplicate carries qualifiedName: %v", defs[1]["qualifiedName"])
+	}
+	if _, hasMappingName := defs[0]["sysx:mappingQualifiedName"]; hasMappingName {
+		t.Errorf("first duplicate carries redundant mappingQualifiedName: %v", defs[0]["sysx:mappingQualifiedName"])
+	}
+	if _, hasMappingName := defs[1]["sysx:mappingQualifiedName"]; hasMappingName {
+		t.Errorf("second duplicate carries a mapping name recoverable from owned facts: %v", defs[1]["sysx:mappingQualifiedName"])
 	}
 }

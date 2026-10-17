@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -76,13 +77,35 @@ func TestConvertDocumentsWritesTheNamedOnes(t *testing.T) {
 		t.Errorf("the documents written one at a time write %d elements, the whole model %d", len(parts), len(whole))
 	}
 	for id, element := range whole {
-		if parts[id] != element {
+		if !sameAPIJSONElementExceptUnavailableQualifiedName(element, parts[id]) {
 			t.Errorf("%s: the whole model writes\n%s\nits document alone writes\n%s", id, element, parts[id])
 		}
 	}
 	if both := convertElements(t, srv, hash, "lib.sysml", "app.sysml", "fleet.sysml"); len(both) != len(whole) {
 		t.Errorf("naming every document writes %d elements, the whole model %d", len(both), len(whole))
 	}
+}
+
+func sameAPIJSONElementExceptUnavailableQualifiedName(left, right string) bool {
+	var leftElement, rightElement map[string]any
+	if json.Unmarshal([]byte(left), &leftElement) != nil || json.Unmarshal([]byte(right), &rightElement) != nil {
+		return false
+	}
+	leftName, leftHasName := leftElement["qualifiedName"]
+	rightName, rightHasName := rightElement["qualifiedName"]
+	if leftHasName {
+		if rightHasName {
+			if !reflect.DeepEqual(leftName, rightName) {
+				return false
+			}
+		} else {
+			// A per-document graph may omit a qualifiedName it cannot compute.
+			delete(leftElement, "qualifiedName")
+		}
+	} else if rightHasName {
+		return false
+	}
+	return reflect.DeepEqual(leftElement, rightElement)
 }
 
 // The capability is advertised.

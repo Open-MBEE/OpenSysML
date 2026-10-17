@@ -10,6 +10,8 @@ import (
 	"connectrpc.com/connect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 // A query's elementId is the elementId Convert writes for the same element, so a
@@ -59,12 +61,40 @@ func TestQueryElementIDIsTheIDConvertWrites(t *testing.T) {
 			if err := json.Unmarshal([]byte(converted.Content), &elements); err != nil {
 				t.Fatal(err)
 			}
-			written, atIDs := map[string]string{}, map[string]string{}
+			mappingGraph, err := export.ReadAPIJSON([]byte(converted.Content))
+			if err != nil {
+				t.Fatalf("ReadAPIJSON(Convert): %v", err)
+			}
+			jsonByID := make(map[string]map[string]any, len(elements))
+			jsonByElementID := map[string]string{}
 			for _, e := range elements {
-				if name, ok := e["qualifiedName"].(string); ok {
-					written[name], _ = e["elementId"].(string)
-					atIDs[name], _ = e["@id"].(string)
+				id, _ := e["@id"].(string)
+				jsonByID[id] = e
+				elementID, _ := e["elementId"].(string)
+				if elementID != "" {
+					encoded, err := json.Marshal(e)
+					if err != nil {
+						t.Fatal(err)
+					}
+					jsonByElementID[elementID] = string(encoded)
 				}
+			}
+			written, atIDs := map[string]string{}, map[string]string{}
+			for _, subject := range mappingGraph.Subjects() {
+				name, ok := mappingGraph.Lexical(subject, rdf.SysML+"qualifiedName")
+				if !ok {
+					continue
+				}
+				id, ok := rdf.SubjectID(subject)
+				if !ok {
+					continue
+				}
+				element, ok := jsonByID[id]
+				if !ok {
+					continue
+				}
+				written[name], _ = element["elementId"].(string)
+				atIDs[name], _ = element["@id"].(string)
 			}
 			queried, err := srv.Query(context.Background(), &pb.QueryRequest{
 				ModelHash: parsed.ModelHash,
@@ -79,7 +109,9 @@ func TestQueryElementIDIsTheIDConvertWrites(t *testing.T) {
 			for _, e := range queried.Elements {
 				want, ok := written[e.Id]
 				if !ok {
-					t.Errorf("%s: Convert writes no element of that name", e.Id)
+					elementID := e.Properties["elementId"]
+					t.Errorf("%s: Convert writes no element with mapping name %q; elementId %q has JSON %s",
+						e.Id, e.Id, elementID, jsonByElementID[elementID])
 					continue
 				}
 				got := e.Properties["elementId"]
@@ -225,8 +257,8 @@ func TestQueryElementIDOfAnAnnotatedLibraryElementIsAbsent(t *testing.T) {
 	}
 	for _, e := range elements {
 		if e["@type"] == "FeatureTyping" {
-			if ref, _ := e["type"].(map[string]any); ref["@ref"] != "ScalarValues::Boolean" {
-				t.Fatalf("the conversion no longer references Boolean by name (%v); revisit this case", e["type"])
+			if ref, _ := e["type"].(map[string]any); ref["@id"] != "d1e9242d-b2e3-5270-bf69-4f4fb0447193" {
+				t.Fatalf("the conversion no longer references the catalogued Boolean element (%v)", e["type"])
 			}
 		}
 	}

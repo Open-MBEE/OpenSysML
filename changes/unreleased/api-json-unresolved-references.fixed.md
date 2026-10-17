@@ -1,0 +1,1 @@
+- Omit unresolved API-JSON object references instead of writing `@ref` values, and preserve source graph values through a consumed `sysx:mappingValues` sidecar.

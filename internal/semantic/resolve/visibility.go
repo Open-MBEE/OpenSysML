@@ -56,6 +56,11 @@ func visibleAsInheritedMember(owner, found *symbols.Symbol) bool {
 	return symbols.VisibleAs(found.Visibility, false, true)
 }
 
+// InheritedMemberVisible reports whether member is visible to owner as inherited.
+func (r *Resolver) InheritedMemberVisible(owner, member *symbols.Symbol) bool {
+	return visibleAsInheritedMember(owner, member)
+}
+
 // inheritedThroughSpecialization reports whether imp reaches the bodies that
 // specialize the definition or usage declaring it: a protected or public one
 // does (SysML v2 7.5.3), a private membership does not (KerML 8.2.3.3).

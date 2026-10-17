@@ -93,6 +93,8 @@ const (
 	SourceNormative
 	// SourceDeclared is the id an ElementId annotation declares.
 	SourceDeclared
+	// SourceOpenSysML is the id assigned by the OpenSysML extension catalog.
+	SourceOpenSysML
 )
 
 func (s Source) String() string {
@@ -101,6 +103,8 @@ func (s Source) String() string {
 		return "normative"
 	case SourceDeclared:
 		return "declared"
+	case SourceOpenSysML:
+		return "OpenSysML library"
 	}
 	return "derived"
 }

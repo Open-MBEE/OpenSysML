@@ -101,8 +101,14 @@ func TestDuplicateMemberNamesExportAPI(t *testing.T) {
 	if first["@id"] == second["@id"] {
 		t.Fatalf("the two `part def A` share an @id %v", first["@id"])
 	}
-	if first["qualifiedName"] != "P::A" || second["qualifiedName"] != "P::@2" {
-		t.Fatalf("qualified names are %v and %v, want P::A and P::@2", first["qualifiedName"], second["qualifiedName"])
+	if first["qualifiedName"] != "P::A" {
+		t.Fatalf("first qualified name is %v, want P::A", first["qualifiedName"])
+	}
+	if _, ok := second["qualifiedName"]; ok {
+		t.Fatalf("later duplicate has a default-form qualifiedName: %#v", second)
+	}
+	if _, ok := second["sysx:mappingQualifiedName"]; ok {
+		t.Fatalf("later duplicate has a redundant mapping name: %#v", second)
 	}
 	for _, def := range defs {
 		if apiID(def["owningNamespace"]) != "P" {
@@ -845,11 +851,22 @@ func TestAPIJSONRoundTripPartialRootIndexes(t *testing.T) {
 	}
 	assertRootOrder("round trip", decode(roundTrip))
 
+	namesByID := make(map[string]string)
+	for _, subject := range roundTrip.Subjects() {
+		id, ok := rdf.SubjectID(subject)
+		if !ok {
+			continue
+		}
+		if name, ok := roundTrip.Lexical(subject, rdf.SysML+pQualifiedName); ok {
+			namesByID[id] = name
+		}
+	}
 	toolkitElements := apiElements(t, written)
 	idsByName := make(map[string]string)
 	for _, element := range toolkitElements {
-		if name, ok := element["qualifiedName"].(string); ok {
-			idsByName[name], _ = element["@id"].(string)
+		id, _ := element["@id"].(string)
+		if name := namesByID[id]; name != "" {
+			idsByName[name] = id
 		}
 		delete(element, "qualifiedName")
 		element["isImpliedIncluded"] = false
@@ -1136,8 +1153,15 @@ func TestDuplicateMemberNamesPositionalCollision(t *testing.T) {
 			t.Fatalf("WriteAPIJSON: %v", err)
 		}
 		apiIDs := make(map[string]bool)
+		imported, err := ReadAPIJSON(document)
+		if err != nil {
+			t.Fatalf("ReadAPIJSON: %v", err)
+		}
 		for _, element := range apiElements(t, document) {
-			qname, _ := element["qualifiedName"].(string)
+			id, _ := element["@id"].(string)
+			qname, _ := imported.Lexical(
+				rdf.ReferenceIRI(rdf.Term{}, id), rdf.SysML+pQualifiedName,
+			)
 			switch qname {
 			case "Demo::Dup", "Demo::'@2'", "Demo::@2":
 				id, _ := element["@id"].(string)
