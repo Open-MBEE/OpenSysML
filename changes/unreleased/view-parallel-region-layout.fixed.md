@@ -1,0 +1,1 @@
+- State renderings position, style, and annotate parallel-state regions with the Layout, Style, and notes stated about the substates that declare them, so a Layout about a region is no longer reported as unplaced.

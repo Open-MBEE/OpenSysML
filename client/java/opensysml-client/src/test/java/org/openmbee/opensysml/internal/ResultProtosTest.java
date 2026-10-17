@@ -125,7 +125,7 @@ class ResultProtosTest {
 
   @Test
   void aStateRunDecodesItsTypedTraceAndDroppedRecordCount() {
-    var record =
+    var transition =
         org.openmbee.opensysml.proto.DocumentEvent.newBuilder()
             .setKind("transition")
             .setTime(
@@ -138,7 +138,7 @@ class ResultProtosTest {
             .build();
     StateRun run =
         Protos.stateRun(
-            ExecuteStateResponse.newBuilder().addTrace(record).setTraceDropped(4).build(), true);
+            ExecuteStateResponse.newBuilder().addTrace(transition).setTraceDropped(4).build(), true);
 
     assertEquals(1, run.trace().size());
     assertEquals("transition", run.trace().get(0).kind());

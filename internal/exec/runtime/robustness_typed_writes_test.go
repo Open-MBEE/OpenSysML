@@ -313,8 +313,8 @@ func testStandaloneActionWritingAPerformerFeature(t *testing.T) {
 		}
 	}`
 	_, _, err := instantiateWithLibraries(t, src, "test::Host")
-	if !errors.Is(err, ErrPerformerFeatureNotInScope) {
-		t.Fatalf("error = %v, want ErrPerformerFeatureNotInScope", err)
+	if !errors.Is(err, errPerformerFeatureNotInScope) {
+		t.Fatalf("error = %v, want errPerformerFeatureNotInScope", err)
 	}
 	if !strings.Contains(err.Error(), "touched") {
 		t.Errorf("error = %v, want it to name the refused feature", err)

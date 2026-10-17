@@ -46,18 +46,18 @@ type CheckOptions struct {
 // ErrUnknownCheckFeature is the typed error a check whose Diverge names no feature wraps.
 var ErrUnknownCheckFeature = errors.New("no such feature to check divergence of")
 
-// UnknownCheckFeatureError names a feature Diverge selects that nothing answers to.
-type UnknownCheckFeatureError struct {
+// unknownCheckFeatureError names a feature Diverge selects that nothing answers to.
+type unknownCheckFeatureError struct {
 	Name   string
 	Reason string
 }
 
-func (e *UnknownCheckFeatureError) Error() string {
+func (e *unknownCheckFeatureError) Error() string {
 	return fmt.Sprintf("%v: %s: %s", ErrUnknownCheckFeature, e.Name, e.Reason)
 }
 
-// Is makes every UnknownCheckFeatureError match ErrUnknownCheckFeature.
-func (e *UnknownCheckFeatureError) Is(target error) bool { return target == ErrUnknownCheckFeature }
+// Is makes every unknownCheckFeatureError match ErrUnknownCheckFeature.
+func (e *unknownCheckFeatureError) Is(target error) bool { return target == ErrUnknownCheckFeature }
 
 // CheckProperty is a property evaluated at every stable state of a check: a
 // requirement or constraint, false at a state being a violation. Holds is asked
@@ -74,8 +74,8 @@ type ViolationKind int
 const (
 	// ViolationProperty is a property evaluating false at a reached state.
 	ViolationProperty ViolationKind = iota
-	// ViolationDeadlock is a state with no move where an action is not complete.
-	ViolationDeadlock
+	// violationDeadlock is a state with no move where an action is not complete.
+	violationDeadlock
 	// ViolationFailure is a typed runtime error a move raised.
 	ViolationFailure
 )
@@ -84,7 +84,7 @@ func (k ViolationKind) String() string {
 	switch k {
 	case ViolationProperty:
 		return "property"
-	case ViolationDeadlock:
+	case violationDeadlock:
 		return "deadlock"
 	case ViolationFailure:
 		return "failure"
@@ -114,7 +114,7 @@ func (v Violation) String() string {
 	switch v.Kind {
 	case ViolationProperty:
 		return fmt.Sprintf("%s is false after %d moves", v.Name, v.Depth)
-	case ViolationDeadlock:
+	case violationDeadlock:
 		return fmt.Sprintf("deadlock after %d moves: %v", v.Depth, v.Err)
 	}
 	return fmt.Sprintf("failure after %d moves: %v", v.Depth, v.Err)
@@ -217,7 +217,7 @@ type CheckReport struct {
 // Status renders how the check ended for a report.
 func (r *CheckReport) Status() string {
 	s := r.Verdict.String()
-	if at, bounded := r.Horizon.Bounded(); bounded {
+	if at, bounded := r.Horizon.bound(); bounded {
 		s += " up to t=" + semantics.FormatReal(at)
 	}
 	s += fmt.Sprintf(" (%d states, %d moves, depth %d", r.States, r.Moves, r.MaxDepth)
@@ -528,7 +528,7 @@ func shareOf(c ChoicePoint, i int) float64 {
 	if n == 0 {
 		return 1
 	}
-	if c.Weighted() && i < len(c.Weights) {
+	if c.weighted() && i < len(c.Weights) {
 		total := 0.0
 		for _, w := range c.Weights {
 			total += w
@@ -542,7 +542,7 @@ func shareOf(c ChoicePoint, i int) float64 {
 
 // witness is the schedule so far: the choices the run noted and its trace.
 func (c *checker) witness() Witness {
-	w := Witness{DrawPolicy: c.ctx.DrawPolicyTaken(), ClockStep: c.ctx.ClockStepTaken(), Draws: c.ctx.DrawsTaken(), Choices: c.ctx.ChoicesTaken()}
+	w := Witness{DrawPolicy: c.ctx.drawPolicyTaken(), ClockStep: c.ctx.clockStepTaken(), Draws: c.ctx.DrawsTaken(), Choices: c.ctx.choicesTaken()}
 	w.Objects = c.ctx.objectsNamed(w.Choices)
 	if tr := c.ctx.Trace(); tr != nil {
 		w.Trace = tr.String()
@@ -704,7 +704,7 @@ func (c *checker) failed(err error, depth int, mass float64) error {
 	}
 	kind := ViolationFailure
 	if errors.Is(err, ErrActionDeadlock) || errors.Is(err, ErrAcceptDeadlock) {
-		kind = ViolationDeadlock
+		kind = violationDeadlock
 	}
 	c.violate(Violation{Kind: kind, Err: err, Depth: depth, Witness: c.failing(err), Mass: mass})
 	return nil
@@ -790,7 +790,7 @@ func (c *checker) enter(depth int, sleep []searchMove, mass float64, violated []
 	if visited && !seen.wanted(f) {
 		return nil, key, nil
 	}
-	snap, err := c.inv.Snapshot()
+	snap, err := c.inv.snapshot()
 	if err != nil {
 		return nil, key, err
 	}
@@ -934,8 +934,8 @@ func (c *checker) evaluate(p CheckProperty) (bool, error) {
 	holds, err := c.ctx.everyStatementOrder(func() (bool, error) {
 		return p.Holds(c.ctx, c.inv)
 	})
-	if errors.Is(err, ErrStatementOrderSweepLimit) {
-		c.hit(BoundStatementOrders)
+	if errors.Is(err, errStatementOrderSweepLimit) {
+		c.hit(boundStatementOrders)
 		return holds, nil
 	}
 	return holds, err
@@ -956,8 +956,8 @@ func scopeWith(scope, more []ObservationReason) []ObservationReason {
 // reaching each distinct outcome being its witness.
 func (c *checker) final() {
 	finals, err := c.spellFinalVariants()
-	if errors.Is(err, ErrStatementOrderSweepLimit) {
-		c.hit(BoundStatementOrders)
+	if errors.Is(err, errStatementOrderSweepLimit) {
+		c.hit(boundStatementOrders)
 	}
 	for _, final := range finals {
 		c.scope = scopeWith(c.scope, final.scope)
@@ -1088,7 +1088,7 @@ func (c *checker) actionDivergence(exec *ActionExecutor, prefix string, values m
 func (c *checker) machineDivergence(exec *StateExecutor, prefix string, values map[string]string) {
 	final := finalStateKey(prefix)
 	if len(c.opts.Diverge) == 0 || slices.Contains(c.opts.Diverge, final) {
-		values[final] = exec.FinalStateName()
+		values[final] = exec.finalStateName()
 	}
 	data := make(map[string]Value)
 	for name, value := range exec.StateData() {
@@ -1183,8 +1183,8 @@ func (c *checker) tellHeld() {
 type FeatureOwner int
 
 const (
-	// OwnedByAction: a feature the action holds itself.
-	OwnedByAction FeatureOwner = iota
+	// ownedByAction: a feature the action holds itself.
+	ownedByAction FeatureOwner = iota
 	// OwnedByPerformer: `this.<name>`, a feature of the object performing the action.
 	OwnedByPerformer
 	// OwnedByNode: `node.path`, a feature a performance of one of the action's nodes holds.
@@ -1193,7 +1193,7 @@ const (
 
 // ResolveCheckFeatures resolves the names a check compares as Check does over an
 // invocation of the started action exec alone, telling whose feature each is; a
-// name nothing answers to is an UnknownCheckFeatureError.
+// name nothing answers to is an unknownCheckFeatureError.
 func ResolveCheckFeatures(exec *ActionExecutor, names []string) (map[string]FeatureOwner, error) {
 	inv := &Invocation{Actions: []*ActionExecutor{exec}}
 	c := &checker{ctx: exec.ctx, inv: inv, opts: CheckOptions{Diverge: names}}
@@ -1208,7 +1208,7 @@ func ResolveCheckFeatures(exec *ActionExecutor, names []string) (map[string]Feat
 		case c.nested[name]:
 			owners[name] = OwnedByNode
 		default:
-			owners[name] = OwnedByAction
+			owners[name] = ownedByAction
 		}
 	}
 	return owners, nil
@@ -1250,13 +1250,13 @@ func (c *checker) resolveDiverge() error {
 		i, rest := c.inv.behaviorOf(prefixes, name)
 		switch {
 		case i < 0:
-			return &UnknownCheckFeatureError{Name: name, Reason: "no started behavior is named so"}
+			return &unknownCheckFeatureError{Name: name, Reason: "no started behavior is named so"}
 		case i >= len(c.inv.Actions):
 			exec := c.inv.States[i-len(c.inv.Actions)]
 			if _, held := exec.StateData()[rest]; held || name == finalStateKey(prefixes[i]) {
 				continue
 			}
-			return &UnknownCheckFeatureError{Name: name, Reason: "the state machine holds no such feature"}
+			return &unknownCheckFeatureError{Name: name, Reason: "the state machine holds no such feature"}
 		}
 		if err := c.resolveActionDiverge(c.inv.Actions[i], name, rest); err != nil {
 			return err
@@ -1273,7 +1273,7 @@ func (c *checker) resolvePerformerDiverge(name string) (ofObject bool, err error
 	if feature, ofThis := strings.CutPrefix(name, "this."); ofThis {
 		switch len(performers) {
 		case 0:
-			return true, &UnknownCheckFeatureError{Name: name, Reason: "no object performs the behaviors"}
+			return true, &unknownCheckFeatureError{Name: name, Reason: "no object performs the behaviors"}
 		case 1:
 			return true, c.performerHolds(performers[0], name, feature)
 		}
@@ -1281,7 +1281,7 @@ func (c *checker) resolvePerformerDiverge(name string) (ofObject bool, err error
 		for i, p := range performers {
 			names[i] = p.name
 		}
-		return true, &UnknownCheckFeatureError{Name: name, Reason: fmt.Sprintf(
+		return true, &unknownCheckFeatureError{Name: name, Reason: fmt.Sprintf(
 			"the behaviors perform on different objects, %s; name the object's feature, as %s.%s",
 			strings.Join(names, " and "), performers[0].name, feature)}
 	}
@@ -1305,7 +1305,7 @@ func (c *checker) performerHolds(p performer, name, feature string) error {
 	if !strings.HasPrefix(name, "this.") {
 		object = p.name
 	}
-	return &UnknownCheckFeatureError{Name: name, Reason: object + " has no feature " + feature}
+	return &unknownCheckFeatureError{Name: name, Reason: object + " has no feature " + feature}
 }
 
 // resolveActionDiverge checks the action holds the feature rest names, own or
@@ -1318,11 +1318,11 @@ func (c *checker) resolveActionDiverge(exec *ActionExecutor, name, rest string) 
 	node, path, nested := strings.Cut(rest, ".")
 	named := root.nodesNamed(node)
 	if !nested || len(named) == 0 {
-		return &UnknownCheckFeatureError{Name: name, Reason: "the action holds no such feature and performs no such node"}
+		return &unknownCheckFeatureError{Name: name, Reason: "the action holds no such feature and performs no such node"}
 	}
 	held, told := c.pathUnder(exec, exec.graph, named, path)
 	if !held {
-		return &UnknownCheckFeatureError{Name: name, Reason: "action node " + node + " holds no feature " + path}
+		return &unknownCheckFeatureError{Name: name, Reason: "action node " + node + " holds no feature " + path}
 	}
 	c.nested[name] = true
 	if !told {
@@ -1415,7 +1415,7 @@ func (c *checker) divergeReached() error {
 	}
 	for _, name := range c.opts.Diverge {
 		if c.untold[name] {
-			return &UnknownCheckFeatureError{Name: name, Reason: "no performance under the action held such a feature"}
+			return &unknownCheckFeatureError{Name: name, Reason: "no performance under the action held such a feature"}
 		}
 	}
 	return nil
@@ -1500,7 +1500,7 @@ const (
 	BoundDoSteps         = "doSteps"
 	BoundElements        = "elements"
 	BoundBehaviors       = "behaviors"
-	BoundStatementOrders = "statement orders"
+	boundStatementOrders = "statement orders"
 )
 
 // ExecutorBounds lists the executor budgets a bound hit may name, in report order.
@@ -1530,7 +1530,7 @@ func ExecutorBound(name string, b Budgets) (int64, bool) {
 // is told apart first.
 func boundOf(err error) (string, bool) {
 	switch {
-	case errors.Is(err, ErrBehaviorBudget):
+	case errors.Is(err, errBehaviorBudget):
 		return BoundBehaviors, true
 	case errors.Is(err, ErrStepLimitExceeded):
 		return BoundSteps, true

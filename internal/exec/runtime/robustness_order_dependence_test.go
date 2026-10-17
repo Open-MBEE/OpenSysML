@@ -55,6 +55,107 @@ func TestRuntimeRobustnessOrderDependence(t *testing.T) {
 	t.Run("replay_of_an_invalid_choice_is_the_typed_error", testReplayOfAnInvalidChoiceIsTheTypedError)
 	t.Run("qualified_names_are_matched_by_their_last_segment", testQualifiedNamesAreMatchedByTheirLastSegment)
 	t.Run("a_performer_feature_is_marked_only_by_writes_to_it", testAPerformerFeatureIsMarkedOnlyByWritesToIt)
+	t.Run("a_join_is_classified_by_its_pending_segments_alone", testAJoinIsClassifiedByItsPendingSegmentsAlone)
+}
+
+// joinSegmentsModel: two segments into a join write apart features; each
+// source has an unrelated transition writing log, as the owner's exit and the
+// join's way out do. Conflicting has both segments write x.
+const joinSegmentsModel = `package test {
+	private import ScalarValues::*;
+	attribute def Go;
+	attribute def Other;
+	state Apart {
+		attribute a : Integer = 0;
+		attribute b : Integer = 0;
+		attribute log : Integer = 0;
+		entry; then Owner;
+		state Owner parallel {
+			exit assign log := log + 1;
+			state left {
+				entry; then l1;
+				state l1;
+				transition first l1 accept Go do assign a := 1 then sync;
+				transition first l1 accept Other do assign log := 10 then l1;
+			}
+			state right {
+				entry; then r1;
+				state r1;
+				transition first r1 accept Go do assign b := 2 then sync;
+				transition first r1 accept Other do assign log := 20 then r1;
+			}
+			join sync;
+			transition first sync do assign log := log + 100 then done;
+		}
+		state done;
+	}
+	state Conflicting {
+		attribute x : Integer = 0;
+		entry; then Owner;
+		state Owner parallel {
+			state left {
+				entry; then l1;
+				state l1;
+				transition first l1 accept Go do assign x := 1 then sync;
+			}
+			state right {
+				entry; then r1;
+				state r1;
+				transition first r1 accept Go do assign x := 2 then sync;
+			}
+			join sync;
+			transition first sync then done;
+		}
+		state done;
+	}
+}
+`
+
+// The order the segments into a join fire in is classified by what each
+// segment does on its own — its effect and the exits up to the owner — not by
+// the other transitions out of its source nor by the owner's exit and the way
+// out, which every order shares: segments writing apart features commute.
+func testAJoinIsClassifiedByItsPendingSegmentsAlone(t *testing.T) {
+	m := parseExploreModel(t, joinSegmentsModel)
+	for _, tc := range []struct {
+		machine string
+		marked  string
+		want    int
+	}{
+		{"Apart", "log", 0},
+		{"Conflicting", "x", 1},
+	} {
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		exec, err := ctx.performStateWithEvents(m.state(t, tc.machine), nil, []QueuedEvent{{Signal: "Go"}})
+		if err != nil {
+			t.Fatalf("%s: PerformState: %v", tc.machine, err)
+		}
+		if got := exec.getCurrentState(); got == nil || got.Name != "done" {
+			t.Fatalf("%s: ended in %v, want done", tc.machine, got)
+		}
+		joins := 0
+		for _, c := range ctx.Choices() {
+			if c.Kind != ChoiceRegionOrder || !strings.HasPrefix(c.Where, "join ") {
+				continue
+			}
+			joins++
+			if independent := tc.want == 0; c.Independent != independent {
+				t.Errorf("%s: %s: independent=%v touches=%v, want independent=%v", tc.machine, c, c.Independent, c.Touches, independent)
+			}
+		}
+		if joins != 1 {
+			t.Errorf("%s: %d join choice points, want 1", tc.machine, joins)
+		}
+		if n := ctx.OrderDependent(tc.marked); n != tc.want {
+			t.Errorf("%s: order-dependent %s = %d choice points, want %d", tc.machine, tc.marked, n, tc.want)
+		}
+		if n := ctx.UnresolvedChoices(); n != tc.want {
+			t.Errorf("%s: unresolved choice points = %d, want %d", tc.machine, n, tc.want)
+		}
+	}
 }
 
 // performerShadowModel is a machine with an attribute x of its own, performed by
@@ -92,7 +193,7 @@ func testAPerformerFeatureIsMarkedOnlyByWritesToIt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
-	exec, err := ctx.PerformState(m.state(t, "Holder::machine"), self, []QueuedEvent{{Signal: "Go"}})
+	exec, err := ctx.performStateWithEvents(m.state(t, "Holder::machine"), self, []QueuedEvent{{Signal: "Go"}})
 	if err != nil {
 		t.Fatalf("PerformState: %v", err)
 	}
@@ -238,14 +339,14 @@ func testReplayOfAnInvalidChoiceIsTheTypedError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}
-	taken := ctx.ChoicesTaken()
+	taken := ctx.choicesTaken()
 	if len(taken) == 0 {
 		t.Fatal("the default run recorded no replayable choice")
 	}
 	taken[0].Taken = 99
 	replay := ReplayPolicy(taken)
 	_, _, err = runOrderDependence(t, "Writers", &replay)
-	if !errors.Is(err, ErrInvalidChoice) && !errors.Is(err, ErrReplayRefused) {
+	if !errors.Is(err, errInvalidChoice) && !errors.Is(err, ErrReplayRefused) {
 		t.Fatalf("replay of an out-of-range choice: err = %v, want ErrInvalidChoice or ErrReplayRefused", err)
 	}
 }

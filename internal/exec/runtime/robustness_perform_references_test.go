@@ -67,8 +67,8 @@ func testStateSubactionReferenceFeatureChain(t *testing.T) {
 	}`, "Machine")
 
 	_, _, err := ctx.ExecuteStateWithEvents(machine, nil)
-	if !errors.Is(err, ErrPerformerNotObject) {
-		t.Fatalf("expected ErrPerformerNotObject over an empty controller, got: %v", err)
+	if !errors.Is(err, errPerformerNotObject) {
+		t.Fatalf("expected errPerformerNotObject over an empty controller, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "controller.coolDown") {
 		t.Errorf("error should name the chained action, got: %v", err)

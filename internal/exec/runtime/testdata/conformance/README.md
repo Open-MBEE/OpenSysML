@@ -164,16 +164,17 @@ beside `performers`, on a calc, constraint, requirement or instance case, or
 with an entry that states nothing. The `events` a state case injects are its
 input and stay at the top level: every outcome is a result of the same run.
 
-The schema does not represent runtime-error outcomes in `outcomes`; an
-exploration that reaches one is reported as an unexpected failure. The set is
-exact. Besides checking the default run, `TestExecutionConformance`
-explores every case with `outcomes` under the `explore` policy: the case is
-replayed from the start once per linearization the library admits, each run on a
-fresh context over the same lowering, and the case fails when a listed outcome
-no run reaches (`admissible outcome 2 of 3 is unreachable`), when a run reaches
-an outcome the set does not list or fails with an error — named with the choice
-sequence of a witness run (`step 1: t2 first of t1, t2, t3; step 2: t1 first of
-t1, t3`) — or when the exploration is incomplete. Exploration is bounded by a
+An entry may state `error` in place of a result: text a schedule's run must
+fail with, for an action or state case one order of which reaches a diagnostic
+(an unset output read before the step producing it). The set is exact. Besides
+checking the default run, `TestExecutionConformance` explores every case with
+`outcomes` under the `explore` policy: the case is replayed from the start once
+per linearization the library admits, each run on a fresh context over the same
+lowering, and the case fails when a listed outcome no run reaches (`admissible
+outcome 2 of 3 is unreachable`), when a run reaches an outcome the set does not
+list or fails with an error no entry states — named with the choice sequence of
+a witness run (`step 1: t2 first of t1, t2, t3; step 2: t1 first of t1, t3`) —
+or when the exploration is incomplete. Exploration is bounded by a
 budget of runs and of choice points per run, `runs: 1024, depth: 64` by default;
 a case that hits it fails with a message telling the author to raise it:
 
@@ -436,8 +437,8 @@ JSON number past 2^53 is read through a float64 that may round its digits.
 
 - `verdict`: the `VerdictKind` the run of the case's body produced — `pass` or
   `fail` as the library's `PassIf` calculation computed it, `inconclusive` for a
-  body that bound no verdict value, `error` for a body whose run could not be
-  carried out.
+  body that bound no verdict value or a case a definition owns with no object of
+  the definition to run on, `error` for a body whose run could not be carried out.
 - `verdictDetail`: text the verdict carries, matched as a substring — the
   message of an `error` verdict, or why an `inconclusive` one decided nothing.
 - `subcases`: the verdict of each verification case the body performs, by
@@ -581,6 +582,8 @@ Supported types:
   or any other feature the library declares unique and unordered
 - `Instance`: an object, whose identity a case does not pin (no `value`)
 - `Unset`: a valueless feature of a value type, holding no value (no `value`)
+- `Undetermined`: a value the model leaves open, optionally pinned to the count
+  it is undetermined of, as a JSON string (`{"type": "Undetermined", "value": "[1..*]"}`)
 - `Variant`: the name of the variant a variation feature is bound to, as a JSON
   string (`{"type": "Variant", "value": "cutIdeal"}`)
 - `EnumLiteral`: the enumeration literal a value is, written as the enumeration

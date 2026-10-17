@@ -126,7 +126,7 @@ function main() {
   }
 
   if (args.wasm !== undefined) {
-    const assets = ["sysml-wasm.wasm", "wasm_exec.js"];
+    const assets = ["sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js"];
     const digests = Object.fromEntries(
       assets.map((asset) => {
         const source = join(args.wasm, asset);
@@ -148,16 +148,17 @@ function main() {
         {
           name,
           version: args.version,
-          description: "Combined sysml-wasm WebAssembly module and matching Go runtime",
+          description: "Combined sysml-wasm WebAssembly module, the browser build of the sysml REPL and matching Go runtime",
           license: "Apache-2.0",
           repository: {
             type: "git",
             url: "git+https://github.com/Open-MBEE/OpenSysML.git",
             directory: "client/node",
           },
-          files: ["sysml-wasm.wasm", "wasm_exec.js", "README.md"],
+          files: ["sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js", "README.md"],
           exports: {
             "./sysml-wasm.wasm": "./sysml-wasm.wasm",
+            "./sysml-prod.wasm.gz": "./sysml-prod.wasm.gz",
             "./wasm_exec.js": "./wasm_exec.js",
             "./package.json": "./package.json",
           },
@@ -172,7 +173,11 @@ function main() {
         "The combined `sysml-wasm` WebAssembly module and its matching Go runtime. " +
         `Install this package alongside [\`${args.pkg.name}\`](https://www.npmjs.com/package/${args.pkg.name}); ` +
         "Node's `connectWasm()` discovers it automatically when no module is supplied.\n\n" +
+        "`sysml-prod.wasm.gz` is the browser build of the `sysml` REPL (`-tags sysml_prod`), " +
+        "gzip-compressed; a page inflates it with `DecompressionStream` and runs it under `wasm_exec.js` " +
+        "with an emulated file system and stdin, the way the OpenSysML site's REPL page does.\n\n" +
         `SHA-256 of \`sysml-wasm.wasm\`: \`${digests["sysml-wasm.wasm"]}\`\n\n` +
+        `SHA-256 of \`sysml-prod.wasm.gz\`: \`${digests["sysml-prod.wasm.gz"]}\`\n\n` +
         `SHA-256 of \`wasm_exec.js\`: \`${digests["wasm_exec.js"]}\`\n`,
     );
     built.push({

@@ -319,7 +319,7 @@ func TestExploreStateTransitionConflict(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.SendSignal("go", nil)
+		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -372,7 +372,7 @@ func TestExploreDynamicChoiceBranches(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.SendSignal("go", nil)
+		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -472,7 +472,7 @@ func TestExploreStaticJunctionBranches(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.SendSignal("go", nil)
+		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -558,7 +558,7 @@ func TestExploreJunctionBranchBeyondWhichNoGuardHolds(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.SendSignal("go", nil)
+		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -642,7 +642,7 @@ func TestJunctionBranchDeadEndKeepsItsNotes(t *testing.T) {
 	if err := exec.initialize(); err != nil {
 		t.Fatal(err)
 	}
-	exec.SendSignal("go", nil)
+	exec.sendSignal("go", nil)
 	err = exec.RunToCompletion()
 	if err == nil || !strings.Contains(err.Error(), "outgoing transitions form a cycle between pseudostates") {
 		t.Fatalf("RunToCompletion: %v, want the cycle at stuck", err)
@@ -703,7 +703,7 @@ func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.SendSignal("go", nil)
+		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -741,7 +741,7 @@ func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
 		if got := junctionDraw(o.Witness); got != draw {
 			t.Errorf("%s: witness %q draws %q at the junction, want %q", o.Outcome, FormatChoices(o.Witness), got, draw)
 		}
-		if o.Witness[0].Kind != ChoiceEntryOrder || o.Witness[1].Kind != ChoiceRegionOrder {
+		if o.Witness[0].Kind != choiceEntryOrder || o.Witness[1].Kind != ChoiceRegionOrder {
 			t.Errorf("%s: witness %q, want the entry then a firing unit drawn first", o.Outcome, FormatChoices(o.Witness))
 		}
 	}
@@ -819,7 +819,7 @@ func TestExploreHistoryDefaultThroughJunction(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.SendSignal("go", nil)
+		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -942,7 +942,7 @@ func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string
 			return Outcome{}, err
 		}
 		if signal != "" {
-			exec.SendSignal(signal, nil)
+			exec.sendSignal(signal, nil)
 		}
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
@@ -991,7 +991,7 @@ func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string
 		if len(ctx.Notes()) != len(choices) || len(choices) != 2 {
 			t.Fatalf("%s: notes %v, want the entry and firing-unit choices alone", spelling, ctx.Notes())
 		}
-		if choices[0].Kind != ChoiceEntryOrder || strings.Join(choices[0].Alternatives, ", ") != "a1(entry), b1(entry)" {
+		if choices[0].Kind != choiceEntryOrder || strings.Join(choices[0].Alternatives, ", ") != "a1(entry), b1(entry)" {
 			t.Fatalf("%s: note %v, want the entry order drawn among a1(entry), b1(entry)", spelling, choices[0])
 		}
 		if choices[1].Kind != ChoiceRegionOrder || choices[1].Where != where || strings.Join(choices[1].Alternatives, ", ") != "a1(exit), b1(exit)" {
@@ -1297,8 +1297,8 @@ func TestExploreRunsShareNoState(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.SendSignal("go", nil)
-		exec.SendSignal("ping", nil)
+		exec.sendSignal("go", nil)
+		exec.sendSignal("ping", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -1379,7 +1379,7 @@ func exploreFleet(t *testing.T, m *exploreModel) (*Exploration, []int64) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.SendSignal("go", nil)
+		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -1485,7 +1485,7 @@ func TestExploreSiblingRegionOrderNamesTypedRegions(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.SendSignal("go", nil)
+		exec.sendSignal("go", nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -1544,7 +1544,7 @@ func TestFinalStateNameOrdersRegionsOfOneNameByDeclaration(t *testing.T) {
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatal(err)
 		}
-		if got := exec.FinalStateName(); got != "inner+l1+r1+inner+l2+r2" {
+		if got := exec.finalStateName(); got != "inner+l1+r1+inner+l2+r2" {
 			t.Fatalf("run %d: final state %q, want inner+l1+r1+inner+l2+r2", run, got)
 		}
 	}

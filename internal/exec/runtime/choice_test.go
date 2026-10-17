@@ -22,7 +22,7 @@ func TestChoicePointRendering(t *testing.T) {
 			"choice step 2: tokens 2@left, 3@right (unordered; took 3@right first; order-dependent)"},
 		{ChoicePoint{Kind: ChoiceDecisionBranch, Step: 3, Where: "decision pick", Alternatives: []string{"1->a", "2->b"}, Taken: 0},
 			"choice step 3: decision pick branches 1->a, 2->b hold (unordered; took 1->a; order-dependent)"},
-		{ChoicePoint{Kind: ChoiceWriteOrder, Step: 4, Alternatives: []string{"x := 1 by token 2", "x := 2 by token 3"}, Taken: 0},
+		{ChoicePoint{Kind: choiceWriteOrder, Step: 4, Alternatives: []string{"x := 1 by token 2", "x := 2 by token 3"}, Taken: 0},
 			"choice step 4: writes x := 1 by token 2, x := 2 by token 3 (unordered; x := 1 by token 2 stood; order-dependent)"},
 		{ChoicePoint{Kind: ChoiceTransition, Where: "state idle on accept Go", Alternatives: []string{"1->low", "2->high"}, Taken: 0},
 			"choice state idle on accept Go: transitions 1->low, 2->high (unordered; took 1->low; order-dependent)"},
@@ -30,11 +30,11 @@ func TestChoicePointRendering(t *testing.T) {
 			"choice on accept Go: next a1(exit), b1(exit) (unordered; took b1(exit) first; order-dependent)"},
 		{ChoicePoint{Kind: ChoiceRegionOrder, Where: "do round at t=0.0", Alternatives: []string{"a1", "b1"}, Taken: 1},
 			"choice do round at t=0.0: states a1, b1 react (unordered; took b1 first; order-dependent)"},
-		{ChoicePoint{Kind: ChoiceEntryOrder, Where: "entering work", Alternatives: []string{"a1(entry)", "b1(entry)"}, Taken: 0},
+		{ChoicePoint{Kind: choiceEntryOrder, Where: "entering work", Alternatives: []string{"a1(entry)", "b1(entry)"}, Taken: 0},
 			"choice entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first; order-dependent)"},
-		{ChoicePoint{Kind: ChoiceExitOrder, Where: "exiting work", Alternatives: []string{"a1(exit)", "b1(exit)"}, Taken: 1},
+		{ChoicePoint{Kind: choiceExitOrder, Where: "exiting work", Alternatives: []string{"a1(exit)", "b1(exit)"}, Taken: 1},
 			"choice exiting work: next a1(exit), b1(exit) (unordered; took b1(exit) first; order-dependent)"},
-		{ChoicePoint{Kind: ChoiceStepOrder, Where: "at t=0.0", Alternatives: []string{"do top", "dispatch accept Stop"}, Taken: 1},
+		{ChoicePoint{Kind: choiceStepOrder, Where: "at t=0.0", Alternatives: []string{"do top", "dispatch accept Stop"}, Taken: 1},
 			"choice at t=0.0: next do top, dispatch accept Stop (unordered; took dispatch accept Stop first; order-dependent)"},
 	}
 	for _, c := range cases {
@@ -199,24 +199,24 @@ func TestLaterGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
 		t.Fatalf("an unevaluable guard was reported as a choice: %v", got)
 	}
 	want := "unevaluable guard step 2: decision select branch 2->alarm: division by zero (not selected)"
-	if got := ctx.UnevaluableGuards(); len(got) != 1 || got[0].String() != want {
+	if got := ctx.unevaluableGuards(); len(got) != 1 || got[0].String() != want {
 		t.Fatalf("unevaluable guards = %v, want [%s]", got, want)
 	}
-	d := ctx.UnevaluableGuards()[0].Diagnostic()
+	d := ctx.unevaluableGuards()[0].Diagnostic()
 	if d.Severity != diag.SeverityInfo || d.Code != UnevaluableGuardCode || d.Source != "runtime" {
 		t.Errorf("diagnostic = %+v, want an informational %s from the runtime", d, UnevaluableGuardCode)
 	}
 	if !strings.HasPrefix(d.Message, "guard not evaluable: ") {
 		t.Errorf("message = %q, want it to say the guard is not evaluable", d.Message)
 	}
-	if file, span := ctx.UnevaluableGuards()[0].Location(); file != "<test>" || span.Len == 0 {
+	if file, span := ctx.unevaluableGuards()[0].Location(); file != "<test>" || span.Len == 0 {
 		t.Errorf("location = %q %v, want the guard's span in the test file", file, span)
 	}
 
 	if _, err := ctx.ExecuteAction(broken); err == nil || !strings.Contains(err.Error(), "division by zero") {
 		t.Fatalf("broken: err = %v, want the first guard's evaluation error", err)
 	}
-	if got := ctx.UnevaluableGuards(); len(got) != 0 {
+	if got := ctx.unevaluableGuards(); len(got) != 0 {
 		t.Fatalf("the first guard's failure was noted rather than raised: %v", got)
 	}
 
@@ -230,7 +230,7 @@ func TestLaterGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
 	if got := ctx.Choices(); len(got) != 0 {
 		t.Fatalf("an unevaluable transition guard was reported as a choice: %v", got)
 	}
-	got := ctx.UnevaluableGuards()
+	got := ctx.unevaluableGuards()
 	if len(got) != 1 || got[0].Where != "state idle on accept Go" || got[0].Alternative != "2->high" ||
 		!strings.Contains(got[0].Reason, "division by zero") || got[0].Step != 0 {
 		t.Fatalf("unevaluable guards = %+v, want the second transition out of idle on Go", got)
@@ -287,7 +287,7 @@ func TestLaterChoiceGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
 	if got := ctx.Choices(); len(got) != 0 {
 		t.Fatalf("an unevaluable choice guard was reported as a choice: %v", got)
 	}
-	got := ctx.UnevaluableGuards()
+	got := ctx.unevaluableGuards()
 	if len(got) != 1 || got[0].Where != "choice pick" || got[0].Alternative != "2->high" ||
 		!strings.Contains(got[0].Reason, "division by zero") || got[0].Step != 0 {
 		t.Fatalf("unevaluable guards = %+v, want the second branch out of pick", got)
@@ -299,7 +299,7 @@ func TestLaterChoiceGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
 	if _, _, err := ctx.ExecuteStateWithEvents(broken, []string{"Go"}); err == nil || !strings.Contains(err.Error(), "division by zero") {
 		t.Fatalf("broken: err = %v, want the first guard's evaluation error", err)
 	}
-	if got := ctx.UnevaluableGuards(); len(got) != 0 {
+	if got := ctx.unevaluableGuards(); len(got) != 0 {
 		t.Fatalf("the first guard's failure was noted rather than raised: %v", got)
 	}
 }
@@ -338,7 +338,7 @@ func TestLaterGuardIsProbedWithoutCost(t *testing.T) {
 		if got := FormatTraceValue(values["handler"]); got != "1" {
 			t.Fatalf("handler = %s with guard %s, want the first holding guard's branch", got, second)
 		}
-		if len(ctx.Choices()) != 1 || len(ctx.UnevaluableGuards()) != 0 {
+		if len(ctx.Choices()) != 1 || len(ctx.unevaluableGuards()) != 0 {
 			t.Fatalf("notes with guard %s = %v, want the one branch choice", second, ctx.Notes())
 		}
 		return ctx.run.steps
@@ -374,7 +374,7 @@ func TestFirstTransitionFailureStillFailsTheRun(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "division by zero") {
 		t.Fatalf("err = %v, want the first transition's evaluation error", err)
 	}
-	if got := ctx.UnevaluableGuards(); len(got) != 0 {
+	if got := ctx.unevaluableGuards(); len(got) != 0 {
 		t.Fatalf("the first transition's failure was noted rather than raised: %v", got)
 	}
 }
@@ -413,7 +413,7 @@ func TestWriteConflictOnOneObjectThroughTwoChains(t *testing.T) {
 	}
 	var writes []string
 	for _, c := range ctx.Choices() {
-		if c.Kind == ChoiceWriteOrder {
+		if c.Kind == choiceWriteOrder {
 			writes = append(writes, c.String())
 		}
 	}
@@ -496,7 +496,7 @@ func TestSharedAncestorChoiceIsReportedOnce(t *testing.T) {
 	if got := choiceStrings(ctx.Choices()); !slices.Equal(got, want) {
 		t.Fatalf("choices = %v, want exactly %v", got, want)
 	}
-	if got := ctx.UnevaluableGuards(); len(got) != 1 || got[0].Alternative != "3->high" {
+	if got := ctx.unevaluableGuards(); len(got) != 1 || got[0].Alternative != "3->high" {
 		t.Fatalf("unevaluable guards = %v, want the third transition out of work, once", got)
 	}
 }
@@ -727,7 +727,7 @@ func TestWriteConflictChoice(t *testing.T) {
 		}
 		var writes []ChoicePoint
 		for _, c := range ctx.Choices() {
-			if c.Kind == ChoiceWriteOrder {
+			if c.Kind == choiceWriteOrder {
 				writes = append(writes, c)
 			}
 		}
@@ -896,7 +896,7 @@ func TestAliasWritesAreOneDestination(t *testing.T) {
 func writeChoices(ctx *Context) []ChoicePoint {
 	var writes []ChoicePoint
 	for _, c := range ctx.Choices() {
-		if c.Kind == ChoiceWriteOrder {
+		if c.Kind == choiceWriteOrder {
 			writes = append(writes, c)
 		}
 	}
@@ -937,7 +937,7 @@ func TestProbedGuardLeavesObjectIdentitiesUntouched(t *testing.T) {
 		if got := FormatTraceValue(values["made"]); got != "2" {
 			t.Fatalf("made = %s with guard %s, want the first holding guard's branch", got, second)
 		}
-		if len(ctx.Choices()) != 1 || len(ctx.UnevaluableGuards()) != 0 {
+		if len(ctx.Choices()) != 1 || len(ctx.unevaluableGuards()) != 0 {
 			t.Fatalf("notes with guard %s = %v, want the one branch choice", second, ctx.Notes())
 		}
 		return fmt.Sprint(ctx.InstanceIDs())
@@ -1069,7 +1069,7 @@ func firstRegionOrderChoice(t *testing.T, label string, notes []RunNote, alterna
 	for _, note := range notes {
 		choice, ok := note.(ChoicePoint)
 		switch {
-		case ok && choice.Kind == ChoiceEntryOrder:
+		case ok && choice.Kind == choiceEntryOrder:
 		case ok && choice.Kind == ChoiceRegionOrder:
 			firings = append(firings, choice)
 		default:
@@ -1231,7 +1231,7 @@ func TestLaterChangeGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
 		t.Fatalf("an unevaluable guard was reported as a choice: %v", got)
 	}
 	want := "unevaluable guard state watching on change: transition 2->hot: eval change guard: eval guard of transition watching -> hot: division by zero (not selected)"
-	if got := ctx.UnevaluableGuards(); len(got) != 1 || got[0].String() != want {
+	if got := ctx.unevaluableGuards(); len(got) != 1 || got[0].String() != want {
 		t.Fatalf("unevaluable guards = %v, want [%s]", got, want)
 	}
 
@@ -1571,7 +1571,7 @@ func TestLaterCompletionGuardErrorIsNotedNotRaised(t *testing.T) {
 	if got, want := choiceStrings(ctx.Choices()), []string{"choice entering work: next a1(entry), ready(entry) (unordered; took a1(entry) first; independent)"}; !slices.Equal(got, want) {
 		t.Fatalf("choices = %v, want the entry order alone: an unevaluable completion guard is no alternative", got)
 	}
-	got := ctx.UnevaluableGuards()
+	got := ctx.unevaluableGuards()
 	if len(got) != 1 || got[0].Where != "state ready" || got[0].Alternative != "2->right" ||
 		!strings.Contains(got[0].Reason, "division by zero") {
 		t.Fatalf("unevaluable guards = %+v, want the second completion transition out of ready", got)
@@ -1608,7 +1608,7 @@ func TestBrokenLaterCompletionGuardDoesNotAbortEntry(t *testing.T) {
 	if choices := ctx.Choices(); len(choices) != 0 {
 		t.Fatalf("choices = %v, want none: an unevaluable completion guard is no alternative", choices)
 	}
-	got := ctx.UnevaluableGuards()
+	got := ctx.unevaluableGuards()
 	if len(got) != 1 || got[0].Where != "state ready" || got[0].Alternative != "2->right" ||
 		!strings.Contains(got[0].Reason, "division by zero") {
 		t.Fatalf("unevaluable guards = %+v, want the second completion transition out of ready", got)

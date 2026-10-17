@@ -1,0 +1,52 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
+%% DepthLinks::links — interconnection rendering (render asInterconnectionDiagram)
+%% not represented: 2 elements nested deeper than 1 level not shown
+flowchart LR
+  subgraph n0 ["`*«part»* **system**`"]
+    direction LR
+    subgraph n1 ["`*«part»* **plant**
+nested deeper than 1 level; not shown`"]
+      direction LR
+      n1_anchor[" "]
+      n2("`*«port»*
+**status**`")
+    end
+    subgraph n3 ["`*«part»* **controller**`"]
+      direction LR
+      n4("`*«port»*
+**cmd**`")
+      n5("`*«port»*
+**monitor**`")
+    end
+  end
+  n4 === n1_anchor
+  n5 === n2
+  classDef anchor fill:none,stroke:none
+  class n1_anchor anchor
+  linkStyle 0 stroke-width:3px
+  linkStyle 1 stroke-width:3px

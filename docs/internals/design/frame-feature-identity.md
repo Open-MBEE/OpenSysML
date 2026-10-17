@@ -76,6 +76,38 @@ connector probing its other end treats that error as the end holding nothing yet
 Simple names are therefore a lookup and display index scoped to the frame declaring
 them; identity is the resolved feature.
 
+## A duplicated inherited name
+
+A feature a specialization declares with the simple name of an inherited feature,
+without redefining it (`action def Derived :> Base { attribute go : Boolean = false; }`
+over `Base`'s `attribute go : Boolean = true;`), hides the inherited one for
+resolution in `Derived`'s namespace only (KerML 1.0 §8.2.3.5.3); a guard or
+assignment written in `Base` still resolves `go` to `Base::go`. A performance of
+`Derived` therefore holds both features. The visible one keeps the simple name;
+the hidden one is keyed by its owner-qualified name, `Base::go`
+(`lower.ShadowedKey`), which no simple name spells, so the two never share a cell:
+
+- `lower.Attribute.Shadowed` marks it; a state machine keeps it in
+  `StateGraph.keptAttributes` and a merged typed node body in `lowerFeatures`,
+  dropping it only where a `:>>` clause of the nearer feature redefines it;
+- an action performance appends the hidden features of its non-library generals
+  (`Context.shadowedInherited`, over `AllSupertypes` and `MembersOf`) to
+  `performanceFeatures` and holds them in `addFeatureDirections`, so `lookupHeld`
+  finds the cell of whichever feature a name resolved to;
+- a succession's guard is evaluated in the scope the succession was declared in
+  (`ActionGraph.DeclScope`, from `declaredIn`), in `enabledSuccessions`, the
+  decision pass and `probeGuard`, and the SMT encoding translates it there too;
+- an assignment written in another scope than the performance's resolves its target
+  first (`heldKey`), so an inherited `assign go := false` writes `Base::go`.
+
+The hidden feature is the performance's alone: a performance occurrence's slots
+are keyed by name and hold the visible one, so `declaresAttribute` and the
+occurrence seeding pass over it. A write to it is checked against its own
+declaration (`declarationHeldUnder`: the feature whose key it is, not one it
+redefines), and one declaration reached along two generalization paths is held
+once. Results, traces and the gRPC feature values list it under its key beside
+the visible feature.
+
 ## What stays the same
 
 - The maps the REPL, `%trace`, the gRPC feature-value serialization and the trace
@@ -99,7 +131,8 @@ name walk's nearest-frame rule is the contract for it.
 
 ## Tests
 
-`conformance/frame_scoping_*` (eight cases, with trace goldens for the accept
+`conformance/frame_scoping_*` (fifteen cases, with trace goldens for the accept
 payload and the transition), `robustness_frame_scoping_test.go`
-`TestRuntimeRobustnessFrameScoping`, and the reduction ratchet
+`TestRuntimeRobustnessFrameScoping`, `robustness_shadowed_inherited_feature_test.go`
+`TestRuntimeRobustnessShadowedInheritedFeature`, and the reduction ratchet
 `testdata/check/reduction_expected.txt`.

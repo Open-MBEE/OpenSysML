@@ -91,8 +91,8 @@ func TestNightlyBuildsOnlyCommitsThatCarryItsScripts(t *testing.T) {
 			t.Errorf("%s names %s, which the tree does not have: %v", key, script, err)
 		}
 	}
-	select_ := nightlyJob(t, workflow, "select")
-	if stepIndex(select_.runSteps(), `"$BUILD_SCRIPT" "$KERNEL_DIST_SCRIPT" "$SNAPSHOT_SCRIPT"`, "git cat-file -e") < 0 {
+	selectJob := nightlyJob(t, workflow, "select")
+	if stepIndex(selectJob.runSteps(), `"$BUILD_SCRIPT" "$KERNEL_DIST_SCRIPT" "$SNAPSHOT_SCRIPT"`, "git cat-file -e") < 0 {
 		t.Error("the select job does not skip a green commit that lacks the build, kernel-distribution or snapshot-version script, which it could not build")
 	}
 }

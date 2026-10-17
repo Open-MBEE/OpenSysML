@@ -132,9 +132,10 @@ func noteText(note Note, labels map[string]string) string {
 	return line
 }
 
-// EmptyReason says why a rendering shows nothing: a view exposing nothing, or a
-// view whose exposed elements this kind of rendering cannot show, which the
-// notices then account for one by one.
+// EmptyReason says why a rendering shows nothing: a view exposing nothing, one
+// whose filter rejects or whose expose does not reach any element, or one whose
+// exposed elements this kind of rendering cannot show, which the notices then
+// account for one by one.
 func (r *Rendering) EmptyReason() string {
 	if r.Run {
 		switch r.Kind {
@@ -217,6 +218,9 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		}
 	}
 	for _, child := range node.Children {
+		if hiddenRow(node, child) {
+			continue
+		}
 		writeNodeText(b, child, depth+1, labels, names, ports, shown)
 		if child.Kind == startKind {
 			labels[child.ID] = "start of " + labels[node.ID]

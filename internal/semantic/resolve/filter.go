@@ -317,6 +317,26 @@ type enumEdge struct {
 }
 
 func (r *Resolver) importedMembersInto(into, scope *symbols.Scope, imp *ast.Import, includeUnnamed bool) []*symbols.Symbol {
+	if into == nil {
+		into = scope
+	}
+	return r.importedMembersAdmitting(scope, imp, includeUnnamed, func() func(*symbols.Symbol) bool {
+		return r.importAdmitsInto(into, scope, imp)
+	})
+}
+
+// ImportedMembersUnfiltered enumerates the members imp reaches before any
+// element filter is applied — what a filter had to choose from — the unnamed
+// ones too when asked, as ImportedMembersInto lists them.
+func (r *Resolver) ImportedMembersUnfiltered(scope *symbols.Scope, imp *ast.Import, includeUnnamed bool) []*symbols.Symbol {
+	return r.importedMembersAdmitting(scope, imp, includeUnnamed, func() func(*symbols.Symbol) bool {
+		return func(*symbols.Symbol) bool { return true }
+	})
+}
+
+// importedMembersAdmitting enumerates what imp surfaces, admitting members as
+// the predicate admission builds once the target is known.
+func (r *Resolver) importedMembersAdmitting(scope *symbols.Scope, imp *ast.Import, includeUnnamed bool, admission func() func(*symbols.Symbol) bool) []*symbols.Symbol {
 	if scope == nil || imp == nil || imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return nil
 	}
@@ -327,14 +347,11 @@ func (r *Resolver) importedMembersInto(into, scope *symbols.Scope, imp *ast.Impo
 			clear(r.enumMembers)
 		}
 	}()
-	if into == nil {
-		into = scope
-	}
 	target, ok := r.resolveImportTarget(scope, imp)
 	if !ok || target == nil {
 		return nil
 	}
-	admit := r.importAdmitsInto(into, scope, imp)
+	admit := admission()
 	out := newElementList()
 	if imp.Kind == ast.ImportMembership {
 		// `import P::x` surfaces x itself; the recursive form adds its subtree.
@@ -642,7 +659,7 @@ func (r *Resolver) ImportedBeside(scope *symbols.Scope, name string, sym *symbol
 				}
 				if symbols.SameElement(m, sym) {
 					brought = true
-				} else if slices.Contains(r.memberNames(m), name) {
+				} else if names := r.memberNames(m); names[0] == name || (names[1] != "" && names[1] == name) {
 					others = append(others, m)
 				}
 			}

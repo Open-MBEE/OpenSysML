@@ -32,10 +32,10 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 				succession first [*] b then [1] done;
 			}
 		}`)
-		if !errors.Is(err, ErrBindingConflict) {
+		if !errors.Is(err, errBindingConflict) {
 			t.Fatalf("execution error = %v, want ErrBindingConflict", err)
 		}
-		var conflict *BindingConflictError
+		var conflict *bindingConflictError
 		if !errors.As(err, &conflict) {
 			t.Fatalf("execution error = %v, want *BindingConflictError", err)
 		}
@@ -66,7 +66,7 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 				succession first [*] a then [1] done;
 			}
 		}`)
-		if !errors.Is(err, ErrActionStepMultiplicity) {
+		if !errors.Is(err, errActionStepMultiplicity) {
 			t.Fatalf("execution error = %v, want ErrActionStepMultiplicity", err)
 		}
 		var stepErr *lower.StepMultiplicityError
@@ -97,7 +97,7 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 				succession first [*] a then [1] done;
 			}
 		}`)
-		if !errors.Is(err, ErrNodeNotPerformed) {
+		if !errors.Is(err, errNodeNotPerformed) {
 			t.Fatalf("execution error = %v, want ErrNodeNotPerformed", err)
 		}
 	})
@@ -115,7 +115,7 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 				then done;
 			}
 		}`)
-		if !errors.Is(err, ErrActionStepMultiplicity) {
+		if !errors.Is(err, errActionStepMultiplicity) {
 			t.Fatalf("execution error = %v, want ErrActionStepMultiplicity", err)
 		}
 		var stepErr *lower.StepMultiplicityError
@@ -186,7 +186,7 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 		if len(performed) != 2 {
 			t.Fatalf("PerformedActionsOf(run) = %d behaviors, want 2", len(performed))
 		}
-		if _, err := ctx.performanceOf(run, inst, nil); !errors.Is(err, ErrAmbiguousAction) ||
+		if _, err := ctx.performanceOf(run, inst, nil); !errors.Is(err, errAmbiguousAction) ||
 			!strings.Contains(err.Error(), "2 times, under run") {
 			t.Errorf("performanceOf(run) = %v, want ErrAmbiguousAction wording the shared usage", err)
 		}
@@ -239,7 +239,7 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 				then done;
 			}
 		}`)
-		if !errors.Is(err, ErrActionStepMultiplicity) {
+		if !errors.Is(err, errActionStepMultiplicity) {
 			t.Fatalf("execution error = %v, want ErrActionStepMultiplicity", err)
 		}
 		var stepErr *lower.StepMultiplicityError
@@ -266,7 +266,7 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 				then done;
 			}
 		}`)
-		if !errors.Is(err, ErrActionStepMultiplicity) {
+		if !errors.Is(err, errActionStepMultiplicity) {
 			t.Fatalf("execution error = %v, want ErrActionStepMultiplicity", err)
 		}
 		var stepErr *lower.StepMultiplicityError
@@ -500,7 +500,7 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 				then done;
 			}
 		}`)
-		if !errors.Is(err, ErrActionStepMultiplicity) {
+		if !errors.Is(err, errActionStepMultiplicity) {
 			t.Fatalf("execution error = %v, want ErrActionStepMultiplicity", err)
 		}
 	})
@@ -627,7 +627,7 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 			t.Errorf("check warning = %q, want the repeated-pin flow refusal", checked.Message)
 		}
 		_, err := executeActionSource(t, "A", src)
-		if !errors.Is(err, ErrActionStepMultiplicity) {
+		if !errors.Is(err, errActionStepMultiplicity) {
 			t.Fatalf("execution error = %v, want ErrActionStepMultiplicity", err)
 		}
 		var stepErr *lower.StepMultiplicityError
@@ -678,7 +678,7 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 		}
 		var findings int
 		for _, note := range notes {
-			if finding, ok := note.(SuccessionOrdersNothing); ok &&
+			if finding, ok := note.(successionOrdersNothing); ok &&
 				strings.Contains(finding.Reason, "2 later-end performances") {
 				findings++
 			}
@@ -728,7 +728,7 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 		}
 		var findings int
 		for _, note := range notes {
-			if finding, ok := note.(SuccessionOrdersNothing); ok &&
+			if finding, ok := note.(successionOrdersNothing); ok &&
 				strings.Contains(finding.Reason, "2 earlier-end performances") {
 				findings++
 			}

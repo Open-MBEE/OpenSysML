@@ -417,7 +417,7 @@ func (ctx *Context) runWaiter(w clockWaiter, progress *dueProgress) (bool, error
 	behavior := ctx.behaviorOf(w)
 	if ctx.trace != nil {
 		if behavior != nil {
-			ctx.trace.RecordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
+			ctx.trace.recordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
 		}
 	}
 	moved, err := ctx.runTurn(w, progress)

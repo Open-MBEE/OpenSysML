@@ -70,8 +70,8 @@ func (m orderMarks) clone() orderMarks {
 // what they touched stands until the clock advances, whatever else writes it there.
 func clockedChoice(kind ChoiceKind) bool {
 	switch kind {
-	case ChoiceTransition, ChoiceRegionOrder, ChoiceDueOrder, ChoiceDispatchOrder,
-		ChoiceEntryOrder, ChoiceExitOrder, ChoiceStepOrder, ChoiceEntryStep:
+	case ChoiceTransition, ChoiceRegionOrder, ChoiceDueOrder, choiceDispatchOrder,
+		choiceEntryOrder, choiceExitOrder, choiceStepOrder, choiceEntryStep:
 		return true
 	}
 	return false

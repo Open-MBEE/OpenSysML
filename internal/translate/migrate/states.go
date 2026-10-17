@@ -9,6 +9,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
+const (
+	writtenAsA = "written as a "
+)
+
 // stateKw opens a state usage; isA, outsideRegion and outsideMachine are the
 // note fragments the unmappable-vertex diagnostics share.
 const (
@@ -394,7 +398,7 @@ func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
 	}
 	regions := m.regionsCrossed(out, owner, "target")
 	if len(out) < 2 || len(regions) < 2 {
-		return pointForm{kw: "junction", note: "written as a " + m.junctionSpelling() + " of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction"}
+		return pointForm{kw: "junction", note: writtenAsA + m.junctionSpelling() + " of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction"}
 	}
 	if len(regions) < len(out) {
 		return pointForm{why: "the entry point starts several regions of " + describe(owner) + ", as a fork does, but two of its outgoing transitions enter the same region"}
@@ -457,7 +461,7 @@ func (m *migration) exitPointForm(v, owner *sysmlv1.Element) pointForm {
 	}
 	regions := m.regionsCrossed(in, owner, "source")
 	if len(in) < 2 || len(regions) < 2 {
-		return pointForm{kw: "junction", note: "written as a " + m.junctionSpelling() + " of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it"}
+		return pointForm{kw: "junction", note: writtenAsA + m.junctionSpelling() + " of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it"}
 	}
 	joinBut := "several regions of " + describe(owner) + " leave through the exit point, as through a join, but "
 	if len(regions) < len(in) {
@@ -1191,7 +1195,7 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 			name := writeName(s.name(v))
 			s.m.w.line(pseudoKind(v) + " " + name + ";")
 			s.m.madeUp(v, name)
-			s.m.add(v, Mapped, name, "written as a "+pseudoKind(v)+" pseudostate, whose segments the runtime fires together")
+			s.m.add(v, Mapped, name, writtenAsA+pseudoKind(v)+" pseudostate, whose segments the runtime fires together")
 		case "shallowHistory", "deepHistory":
 			kind := pseudoKind(v)
 			if s.m.strict {
@@ -1279,7 +1283,8 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 	name := writeName(s.name(v))
 	s.m.madeUp(v, name)
 	entry, do, exit := s.m.behaviorIn(v, "entry"), s.m.behaviorIn(v, "doActivity"), s.m.behaviorIn(v, "exit")
-	defers := s.deferrals(v, do, exit)
+	defers := s.m.deferralsOf(v)
+	defers.report(s.m)
 	head := s.stateHead(v, name)
 	regions := s.m.populatedRegions(v)
 	wrapped := s.m.wrappedRegion(v, regions)
@@ -1462,6 +1467,51 @@ type deferrals struct {
 	// split forks the accept loops beside the state's own do behavior, run;
 	// exitRun is the state's own exit behavior inside flush.
 	buffer, split, run, flush, exitRun string
+	// verdicts are the report entries of the deferrals, made when the state is written.
+	verdicts []deferralVerdict
+}
+
+// deferralVerdict is one report entry a state's deferrals make.
+type deferralVerdict struct {
+	e            *sysmlv1.Element
+	v            Verdict
+	target, note string
+}
+
+// add keeps a report entry for when the state is written.
+func (d *deferrals) add(e *sysmlv1.Element, v Verdict, target, note string) {
+	d.verdicts = append(d.verdicts, deferralVerdict{e, v, target, note})
+}
+
+// report makes the report entries the deferrals keep, once.
+func (d *deferrals) report(m *migration) {
+	for _, r := range d.verdicts {
+		m.add(r.e, r.v, r.target, r.note)
+	}
+	d.verdicts = nil
+}
+
+// planNesting plans the deferrals of the state whose do or exit behavior b is,
+// so the action their encoding writes b within is named before b's path is asked.
+func (m *migration) planNesting(b *sysmlv1.Element) {
+	if v := b.Parent; (b.Role == "doActivity" || b.Role == "exit") && v != nil && v.Type == "State" && m.vertexWritten(v) {
+		m.deferralsOf(v)
+	}
+}
+
+// deferralsOf returns how state v's deferrals are written, planned on first
+// use once v's machine is named, so a qualified name asked for before the state
+// is written already passes through the action the encoding nests a behavior in.
+func (m *migration) deferralsOf(v *sysmlv1.Element) *deferrals {
+	if d, ok := m.deferralPlans[v]; ok {
+		return d
+	}
+	// A name asked for while v is being planned, as of a signal its do behavior declares, finds it unplanned.
+	m.deferralPlans[v] = nil
+	m.nameMachine(machineOf(v))
+	d := m.region(v.Parent).deferrals(v, m.behaviorIn(v, "doActivity"), m.behaviorIn(v, "exit"))
+	m.deferralPlans[v] = d
+	return d
 }
 
 // encoded reports whether the state's body carries the encoding: it keeps a signal.
@@ -1493,8 +1543,8 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 	}
 	s.nameDeferrals(v, do, exit, out)
 	for _, k := range out.kept {
-		s.m.add(k.trigger, Approximated, "", s.deferralNote(v, k, out))
-		s.m.add(k.event, Approximated, "", deferredBy(v)+" through the standard SysML v2 encoding, an accept loop keeping the signal while the state is active and an exit action sending it to self")
+		out.add(k.trigger, Approximated, "", s.deferralNote(v, k, out))
+		out.add(k.event, Approximated, "", deferredBy(v)+" through the standard SysML v2 encoding, an accept loop keeping the signal while the state is active and an exit action sending it to self")
 	}
 	return out
 }
@@ -1504,17 +1554,17 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 func (s *stateRegion) readDeferral(v, d *sysmlv1.Element, out *deferrals) {
 	ev := s.m.model.Ref(d, "event")
 	if ev == nil {
-		s.m.add(d, Unmapped, "", joinNotes(s.m.dangling(d, "event"), "the deferred trigger names no event"))
+		out.add(d, Unmapped, "", joinNotes(s.m.dangling(d, "event"), "the deferred trigger names no event"))
 		return
 	}
 	if ev.Type != "SignalEvent" {
-		s.m.add(d, Unmapped, "", "only a signal event can be deferred, not a "+ev.Type)
+		out.add(d, Unmapped, "", "only a signal event can be deferred, not a "+ev.Type)
 		return
 	}
 	sig := s.m.model.Ref(ev, "signal")
 	if note, ok := s.m.signalOf(ev); !ok {
-		s.m.add(d, Unmapped, "", note)
-		s.m.add(ev, Unmapped, "", note)
+		out.add(d, Unmapped, "", note)
+		out.add(ev, Unmapped, "", note)
 		return
 	}
 	k := &deferral{trigger: d, event: ev, sig: sig}
@@ -1523,8 +1573,8 @@ func (s *stateRegion) readDeferral(v, d *sysmlv1.Element, out *deferrals) {
 	always, contested := s.acceptsOutOf(v, sig)
 	if t, taken := s.takeRoutes(k, always); len(k.loops) == 0 {
 		note := theTransition(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @" + deferredEventFQN + " annotation records the deferral"
-		s.m.add(d, Approximated, "", note)
-		s.m.add(ev, Approximated, "", deferredBy(v)+", which the state's @"+deferredEventFQN+" annotation records; the state does not keep the signal, the transition "+describe(t)+" accepting it")
+		out.add(d, Approximated, "", note)
+		out.add(ev, Approximated, "", deferredBy(v)+", which the state's @"+deferredEventFQN+" annotation records; the state does not keep the signal, the transition "+describe(t)+" accepting it")
 		return
 	} else if taken != "" {
 		k.info = joinNotes(k.info, taken)
@@ -1534,8 +1584,8 @@ func (s *stateRegion) readDeferral(v, d *sysmlv1.Element, out *deferrals) {
 	if alwaysDone != nil {
 		note := "the completion transition " + describe(alwaysDone) + " leaves the state once its do action ends, which the accept loop that would keep " + qualifiedName(sig) + " never lets it, so the deferral is dropped"
 		out.lines = append(out.lines, commentLines("not migrated: deferrableTrigger "+describe(d)+" on "+qualifiedName(sig)+" — "+note)...)
-		s.m.add(d, Unmapped, "", note)
-		s.m.add(ev, Unmapped, "", note)
+		out.add(d, Unmapped, "", note)
+		out.add(ev, Unmapped, "", note)
 		return
 	}
 	k.completion = guardedDone
@@ -1619,8 +1669,8 @@ func (s *stateRegion) foldDeferrals(v *sysmlv1.Element, d *deferrals) {
 			g = by[g]
 		}
 		note := "kept by the accept loop of the deferral of " + qualifiedName(g.sig) + " in the same state, which accepts every occurrence of the signal too; a loop of its own would keep each occurrence twice"
-		s.m.add(k.trigger, Approximated, "", note)
-		s.m.add(k.event, Approximated, "", deferredBy(v)+" through the deferral of "+qualifiedName(g.sig)+", whose accept loop keeps every occurrence of the signal")
+		d.add(k.trigger, Approximated, "", note)
+		d.add(k.event, Approximated, "", deferredBy(v)+" through the deferral of "+qualifiedName(g.sig)+", whose accept loop keeps every occurrence of the signal")
 	}
 	d.kept = kept
 }

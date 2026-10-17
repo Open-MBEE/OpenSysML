@@ -156,10 +156,10 @@ func differentialFile(t *testing.T, path string, reasons map[string]int) (eligib
 				named[shape.ParamNames[i]] = arg
 			}
 			got = calcOutcome{steps: -1}
-			got.value, got.err = compiled.InvokeCalcNamed(sym, named, root)
+			got.value, got.err = compiled.invokeCalcNamed(sym, named, root)
 			got.steps = compiled.run.steps
 			want = calcOutcome{}
-			want.value, want.err = reference.InvokeCalcNamed(sym, named, root)
+			want.value, want.err = reference.invokeCalcNamed(sym, named, root)
 			want.steps = reference.run.steps
 			wantOutcomesEqual(t, name+describeNamedArgs(named), got, want)
 			invocations++

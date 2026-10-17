@@ -56,7 +56,7 @@ func readTensor(name, label string, val Value) (tensorOperand, error) {
 		return tensorOperand{dims: tq.Dimensions, num: tq.Num, units: tq.Units, mRef: tq.MRef}, nil
 	case ValVectorQuantity:
 		vq := val.VectorQuantity()
-		return tensorOperand{dims: []int64{int64(vq.Dimension())}, num: vq.Num, units: vq.Units}, nil
+		return tensorOperand{dims: []int64{int64(vq.dimension())}, num: vq.Num, units: vq.Units}, nil
 	case ValQuantity:
 		q := val.Quantity()
 		return tensorOperand{dims: []int64{}, num: []semantics.Value{q.Num}, units: []Unit{q.Unit}}, nil
@@ -117,11 +117,11 @@ func tensorOf(name string, ctx *Context, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	if int64(len(elements)) != ref.FlattenedSize() {
+	if int64(len(elements)) != ref.flattenedSize() {
 		return Value{}, fmt.Errorf(
 			"%w: function %s: %d elements for a reference of dimensions %s: the declaration `in elements: Number[1..n]` "+
 				"has `n = mRef.flattenedSize` = %d, and Array binds mRefs to one reference per component",
-			ErrMultiplicityViolation, name, len(elements), FormatValue(intSequence(ref.Dimensions)), ref.FlattenedSize(),
+			ErrMultiplicityViolation, name, len(elements), FormatValue(intSequence(ref.Dimensions)), ref.flattenedSize(),
 		)
 	}
 	if len(elements) == 0 {
@@ -212,12 +212,12 @@ func (ctx *Context) tensorMRefIsBound(name string, object int64) (bool, error) {
 		}
 		if value == nil {
 			return false, fmt.Errorf("%w: function %s: %s states no isBound and its type declares no default",
-				ErrUnevaluableLibraryFunction, name, symbolText(inst.Type))
+				errUnevaluableLibraryFunction, name, symbolText(inst.Type))
 		}
 		c, ok := ctx.model.semantics.EvalWithin(value, ctx.maxIntegerBits)
 		if !ok {
 			return false, fmt.Errorf("%w: function %s: the default of %s::isBound is not a constant",
-				ErrUnevaluableLibraryFunction, name, symbolText(inst.Type))
+				errUnevaluableLibraryFunction, name, symbolText(inst.Type))
 		}
 		elements = []Value{{Kind: ValConst, Const: c}}
 	}
@@ -253,7 +253,7 @@ func tensorIsUnit(name string, _ *Context, args []Value) (Value, error) {
 		return Value{}, fmt.Errorf(
 			"%w: %s: `calc def isUnitTensorQuantity { in x : TensorQuantityValue[1]; return : Boolean[1]; }` has no body, "+
 				"and only a square tensor of order two has an identity; x has dimensions %s",
-			ErrUnevaluableLibraryFunction, name, FormatValue(intSequence(x.dims)),
+			errUnevaluableLibraryFunction, name, FormatValue(intSequence(x.dims)),
 		)
 	}
 	n := x.dims[0]
@@ -388,13 +388,13 @@ func (ctx *Context) tensorArithmetic(op ast.OperatorKind, left, right Value) (Va
 			val, err := scalarTensorMult(0, 1)("TensorCalculations::scalarTensorMult", ctx, args)
 			return val, true, err
 		case lt && rt:
-			return Value{}, true, fmt.Errorf("%w: TensorCalculations::tensorTensorMult: %s", ErrUnevaluableLibraryFunction, noContractionConvention(tensorTensorMultDecl))
+			return Value{}, true, fmt.Errorf("%w: TensorCalculations::tensorTensorMult: %s", errUnevaluableLibraryFunction, noContractionConvention(tensorTensorMultDecl))
 		case lt && isVectorKind(right):
-			return Value{}, true, fmt.Errorf("%w: TensorCalculations::tensorVectorMult: %s", ErrUnevaluableLibraryFunction, noContractionConvention(tensorVectorMultDecl))
+			return Value{}, true, fmt.Errorf("%w: TensorCalculations::tensorVectorMult: %s", errUnevaluableLibraryFunction, noContractionConvention(tensorVectorMultDecl))
 		case rt && isVectorKind(left):
-			return Value{}, true, fmt.Errorf("%w: TensorCalculations::vectorTensorMult: %s", ErrUnevaluableLibraryFunction, noContractionConvention(vectorTensorMultDecl))
+			return Value{}, true, fmt.Errorf("%w: TensorCalculations::vectorTensorMult: %s", errUnevaluableLibraryFunction, noContractionConvention(vectorTensorMultDecl))
 		}
 	}
 	return Value{}, true, fmt.Errorf("%w: TensorCalculations declares no '%s' over %s and %s",
-		ErrUnevaluableLibraryFunction, op.String(), describeOperand(left), describeOperand(right))
+		errUnevaluableLibraryFunction, op.String(), describeOperand(left), describeOperand(right))
 }

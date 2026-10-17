@@ -257,5 +257,5 @@ func TestRunVerificationOnADefinitionOwnedCase(t *testing.T) {
 		"✓ Requirement Cost::costReq satisfied (on Cost::cheap ID: 1)",
 		"✓ Verification Cost::Definition::costTest on Cost::cheap (object #1) verdict: pass")
 	wantReport(t, check(t, binary, definitionOwnedModel, "-analysis", "Cost::Definition::costTest"), 2,
-		"? Verification Cost::Definition::costTest verdict: error", "no value for feature cost")
+		"? Verification Cost::Definition::costTest verdict: inconclusive — needs an object of Cost::Definition: none is instantiated")
 }

@@ -173,21 +173,21 @@ func (s ExecutionState) String() string {
 type EventType int
 
 const (
-	EventTime   EventType = iota // TimeEvent - fires after duration
-	EventChange                  // ChangeEvent - fires when condition true
-	EventAccept                  // AcceptEvent - fires when signal received
-	EventCall                    // CallEvent - fires when operation invoked
+	eventTime   EventType = iota // TimeEvent - fires after duration
+	eventChange                  // ChangeEvent - fires when condition true
+	eventAccept                  // AcceptEvent - fires when signal received
+	eventCall                    // CallEvent - fires when operation invoked
 )
 
 func (t EventType) String() string {
 	switch t {
-	case EventTime:
+	case eventTime:
 		return "TimeEvent"
-	case EventChange:
+	case eventChange:
 		return "ChangeEvent"
-	case EventAccept:
+	case eventAccept:
 		return "AcceptEvent"
-	case EventCall:
+	case eventCall:
 		return "CallEvent"
 	default:
 		return "Unknown"
@@ -211,8 +211,8 @@ type EventQueue struct {
 	events eventHeap
 }
 
-// NewEventQueue creates an empty event queue.
-func NewEventQueue() *EventQueue {
+// newEventQueue creates an empty event queue.
+func newEventQueue() *EventQueue {
 	q := &EventQueue{events: make(eventHeap, 0)}
 	heap.Init(&q.events)
 	return q
@@ -238,11 +238,11 @@ func (q *EventQueue) Pop() Event {
 	return heap.Pop(&q.events).(Event)
 }
 
-// Tied lists the events the queue leaves unordered at its head, in arrival
+// tied lists the events the queue leaves unordered at its head, in arrival
 // order: none when the head is a completion event or every event at its instant
 // came from the pool, whose arrival order is fixed; else the time triggers due at
 // that instant and the earliest pool event, when there are two or more of them.
-func (q *EventQueue) Tied() []Event {
+func (q *EventQueue) tied() []Event {
 	if len(q.events) == 0 || isCompletionEvent(q.events[0]) {
 		return nil
 	}
@@ -254,7 +254,7 @@ func (q *EventQueue) Tied() []Event {
 		if event.Timestamp != at {
 			continue
 		}
-		if event.Type == EventTime {
+		if event.Type == eventTime {
 			tied = append(tied, *event)
 		} else if pool == nil || event.ID < pool.ID {
 			pool = event
@@ -273,9 +273,9 @@ func (q *EventQueue) Tied() []Event {
 	return tied
 }
 
-// CompletionsOf lists the queued completion events carrying a transition out of
+// completionsOf lists the queued completion events carrying a transition out of
 // source, in arrival order.
-func (q *EventQueue) CompletionsOf(source ast.Node) []Event {
+func (q *EventQueue) completionsOf(source ast.Node) []Event {
 	var events []Event
 	for _, event := range q.events {
 		if trans, ok := event.Payload.(*lower.Transition); ok && isCompletionEvent(event) && trans.Source == source {
@@ -286,23 +286,8 @@ func (q *EventQueue) CompletionsOf(source ast.Node) []Event {
 	return events
 }
 
-// TimerOf returns the queued time event carrying trans, false when its timer is
-// not running.
-func (q *EventQueue) TimerOf(trans *lower.Transition) (Event, bool) {
-	for _, event := range q.events {
-		if event.Type != EventTime {
-			continue
-		}
-		payload, ok := event.Payload.(*lower.Transition)
-		if ok && (payload == trans || sameTimerGroup(payload, trans)) {
-			return event, true
-		}
-	}
-	return Event{}, false
-}
-
-// Take removes and returns the event with the given ID, false when none has it.
-func (q *EventQueue) Take(id int64) (Event, bool) {
+// take removes and returns the event with the given ID, false when none has it.
+func (q *EventQueue) take(id int64) (Event, bool) {
 	for i, event := range q.events {
 		if event.ID == id {
 			heap.Remove(&q.events, i)
@@ -332,9 +317,9 @@ func (q *EventQueue) Events() []Event {
 	return events
 }
 
-// Withdraw drops every pending event the predicate accepts, which cancels an
+// withdraw drops every pending event the predicate accepts, which cancels an
 // occurrence a state no longer waits for.
-func (q *EventQueue) Withdraw(drop func(Event) bool) {
+func (q *EventQueue) withdraw(drop func(Event) bool) {
 	kept := q.events[:0]
 	for _, event := range q.events {
 		if !drop(event) {
@@ -368,7 +353,7 @@ func (h eventHeap) Less(i, j int) bool {
 // isCompletionEvent reports whether an event carries a completion transition,
 // the transition a state takes once it is done rather than on a trigger.
 func isCompletionEvent(event Event) bool {
-	if event.Type != EventTime {
+	if event.Type != eventTime {
 		return false
 	}
 	switch payload := event.Payload.(type) {

@@ -64,8 +64,8 @@ func testNodePinOfANodeNotYetPerformed(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrNodeNotPerformed) {
-		t.Fatalf("error = %v, want ErrNodeNotPerformed", err)
+	if !errors.Is(err, errNodeNotPerformed) {
+		t.Fatalf("error = %v, want errNodeNotPerformed", err)
 	}
 	if !strings.Contains(err.Error(), "late") {
 		t.Errorf("error %q does not name the node", err)
@@ -96,8 +96,8 @@ func testNodeOutputBoundToANestedNodeThatNeverRuns(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrBindingEnd) {
-		t.Fatalf("error = %v, want ErrBindingEnd", err)
+	if !errors.Is(err, errBindingEnd) {
+		t.Fatalf("error = %v, want errBindingEnd", err)
 	}
 	if !strings.Contains(err.Error(), "leg.inner.v") {
 		t.Errorf("error %q does not name the other end", err)
@@ -119,8 +119,8 @@ func testNodePinTheNodeDoesNotDeclare(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrNodePin) {
-		t.Fatalf("error = %v, want ErrNodePin", err)
+	if !errors.Is(err, errNodePin) {
+		t.Fatalf("error = %v, want errNodePin", err)
 	}
 	if !strings.Contains(err.Error(), "p") || !strings.Contains(err.Error(), "w") {
 		t.Errorf("error %q does not name the node and the pin", err)
@@ -147,8 +147,8 @@ func testBlockNodePinOfANodeNotYetPerformed(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrNodeNotPerformed) {
-		t.Fatalf("error = %v, want ErrNodeNotPerformed", err)
+	if !errors.Is(err, errNodeNotPerformed) {
+		t.Fatalf("error = %v, want errNodeNotPerformed", err)
 	}
 	if !strings.Contains(err.Error(), "late") {
 		t.Errorf("error %q does not name the node", err)
@@ -174,8 +174,8 @@ func testBlockNodePinTheNodeDoesNotDeclare(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrNodePin) {
-		t.Fatalf("error = %v, want ErrNodePin", err)
+	if !errors.Is(err, errNodePin) {
+		t.Fatalf("error = %v, want errNodePin", err)
 	}
 	if !strings.Contains(err.Error(), "p") || !strings.Contains(err.Error(), "w") {
 		t.Errorf("error %q does not name the node and the pin", err)
@@ -205,8 +205,8 @@ func testElseBranchNodeReadBeforeItPerforms(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrNodeNotPerformed) {
-		t.Fatalf("error = %v, want ErrNodeNotPerformed", err)
+	if !errors.Is(err, errNodeNotPerformed) {
+		t.Fatalf("error = %v, want errNodeNotPerformed", err)
 	}
 	if !strings.Contains(err.Error(), "p") {
 		t.Errorf("error %q does not name the node", err)
@@ -235,8 +235,8 @@ func testTypedNodePinOfANodeTheCalleeDoesNotDeclare(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrNodePin) {
-		t.Fatalf("error = %v, want ErrNodePin", err)
+	if !errors.Is(err, errNodePin) {
+		t.Fatalf("error = %v, want errNodePin", err)
 	}
 	if !strings.Contains(err.Error(), "call") || !strings.Contains(err.Error(), "other") {
 		t.Errorf("error %q does not name the node and the missing one", err)
@@ -258,8 +258,8 @@ func testNodeReadAsAValueWithoutAResult(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrNodePin) {
-		t.Fatalf("error = %v, want ErrNodePin", err)
+	if !errors.Is(err, errNodePin) {
+		t.Fatalf("error = %v, want errNodePin", err)
 	}
 	if !strings.Contains(err.Error(), "result") {
 		t.Errorf("error %q does not name the missing result", err)
@@ -295,8 +295,8 @@ func testSettledNodeReadAsAValueByAnotherCandidatesResult(t *testing.T) {
 		t.Fatal("action outer not found")
 	}
 	_, err := ctx.ExecuteAction(outer)
-	if !errors.Is(err, ErrNodePin) {
-		t.Fatalf("error = %v, want ErrNodePin", err)
+	if !errors.Is(err, errNodePin) {
+		t.Fatalf("error = %v, want errNodePin", err)
 	}
 	if !strings.Contains(err.Error(), "call") || !strings.Contains(err.Error(), "result") {
 		t.Errorf("error %q does not name the node and the missing result", err)
@@ -371,8 +371,8 @@ func testNodeInvocationTooManyArguments(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrActionArity) {
-		t.Fatalf("error = %v, want ErrActionArity", err)
+	if !errors.Is(err, errActionArity) {
+		t.Fatalf("error = %v, want errActionArity", err)
 	}
 }
 
@@ -390,8 +390,8 @@ func testNodeInvocationTooFewArguments(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrUnboundParameter) {
-		t.Fatalf("error = %v, want ErrUnboundParameter", err)
+	if !errors.Is(err, errUnboundParameter) {
+		t.Fatalf("error = %v, want errUnboundParameter", err)
 	}
 	if !strings.Contains(err.Error(), "b") {
 		t.Errorf("error %q does not name the unbound parameter", err)
@@ -437,8 +437,8 @@ func testNodeInvocationUnknownNamedArgument(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrUnknownParameter) {
-		t.Fatalf("error = %v, want ErrUnknownParameter", err)
+	if !errors.Is(err, errUnknownParameter) {
+		t.Fatalf("error = %v, want errUnknownParameter", err)
 	}
 }
 
@@ -455,8 +455,8 @@ func testNodeInvocationRepeatedNamedArgument(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrDuplicateArgument) {
-		t.Fatalf("error = %v, want ErrDuplicateArgument", err)
+	if !errors.Is(err, errDuplicateArgument) {
+		t.Fatalf("error = %v, want errDuplicateArgument", err)
 	}
 	if !strings.Contains(err.Error(), `"a"`) {
 		t.Errorf("error %q does not name the parameter bound twice", err)
@@ -503,8 +503,8 @@ func testNodeBindingToANonParameter(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrBindingEnd) {
-		t.Fatalf("error = %v, want ErrBindingEnd", err)
+	if !errors.Is(err, errBindingEnd) {
+		t.Fatalf("error = %v, want errBindingEnd", err)
 	}
 	if !strings.Contains(err.Error(), "nope") {
 		t.Errorf("error %q does not name the pin", err)
@@ -526,8 +526,8 @@ func testNodeUndirectedBindingCarriedToANonParameter(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrNodePin) {
-		t.Fatalf("error = %v, want ErrNodePin", err)
+	if !errors.Is(err, errNodePin) {
+		t.Fatalf("error = %v, want errNodePin", err)
 	}
 	if !strings.Contains(err.Error(), "nope") {
 		t.Errorf("error %q does not name the pin", err)
@@ -553,8 +553,8 @@ func testBlockNodeBindingToANonParameter(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrBindingEnd) {
-		t.Fatalf("error = %v, want ErrBindingEnd", err)
+	if !errors.Is(err, errBindingEnd) {
+		t.Fatalf("error = %v, want errBindingEnd", err)
 	}
 	if !strings.Contains(err.Error(), "nope") {
 		t.Errorf("error %q does not name the pin", err)
@@ -639,8 +639,8 @@ func testBlockNodeOwnFlowMalformed(t *testing.T) {
 		t.Fatal("action outer not found")
 	}
 	_, err := ctx.CreateActionExecutor(sym)
-	if !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("expected ErrInvalidActionFlow for step's dangling succession, got: %v", err)
+	if !errors.Is(err, errInvalidActionFlow) {
+		t.Fatalf("expected errInvalidActionFlow for step's dangling succession, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "action node step") || !strings.Contains(err.Error(), "missing") {
 		t.Errorf("error %q does not name the node and the undefined target", err)
@@ -755,8 +755,8 @@ func testInheritedBindingDoesNotReachThroughAReplacedOtherEnd(t *testing.T) {
 	if err == nil {
 		t.Fatal("the inherited node's pin took the replacement node's value")
 	}
-	if !errors.Is(err, ErrUnboundParameter) || !strings.Contains(err.Error(), "parameter a") {
-		t.Errorf("error %v, want ErrUnboundParameter for a", err)
+	if !errors.Is(err, errUnboundParameter) || !strings.Contains(err.Error(), "parameter a") {
+		t.Errorf("error %v, want errUnboundParameter for a", err)
 	}
 	if v, ok := exec.Results()["add.sum"]; ok {
 		t.Errorf("add.sum = %v, want no value", v)
@@ -848,8 +848,8 @@ func testNodePinBoundToUnequalValues(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrBindingConflict) {
-		t.Fatalf("error = %v, want ErrBindingConflict", err)
+	if !errors.Is(err, errBindingConflict) {
+		t.Fatalf("error = %v, want errBindingConflict", err)
 	}
 	if got, want := err.Error(), "binding conflict at add.a: x = 1, y = 2"; got != want {
 		t.Errorf("conflict error = %q, want %q", got, want)
@@ -908,8 +908,8 @@ func testNestedPinBindingAtAnUndeclaredPin(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrBindingEnd) {
-		t.Fatalf("error = %v, want ErrBindingEnd", err)
+	if !errors.Is(err, errBindingEnd) {
+		t.Fatalf("error = %v, want errBindingEnd", err)
 	}
 	if !strings.Contains(err.Error(), "leg.inner.nope names no parameter or attribute of") {
 		t.Errorf("error %q does not name the nested pin path", err)
@@ -960,8 +960,8 @@ func testNodeBindingOutputToAnUnknownFeature(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrBindingEnd) {
-		t.Fatalf("error = %v, want ErrBindingEnd", err)
+	if !errors.Is(err, errBindingEnd) {
+		t.Fatalf("error = %v, want errBindingEnd", err)
 	}
 }
 
@@ -980,8 +980,8 @@ func testNodeBindingOutputThroughAScalarChain(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrBindingEnd) || !errors.Is(err, ErrTypeMismatch) {
-		t.Fatalf("error = %v, want ErrBindingEnd wrapping ErrTypeMismatch", err)
+	if !errors.Is(err, errBindingEnd) || !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("error = %v, want errBindingEnd wrapping ErrTypeMismatch", err)
 	}
 	if !strings.Contains(err.Error(), "x.value") {
 		t.Errorf("error %q does not name the chained end x.value", err)
@@ -1014,8 +1014,8 @@ func testNodeBindingOutputThroughAChainViolatesTargetType(t *testing.T) {
 		t.Fatalf("create action executor: %v", err)
 	}
 	err = exec.RunToCompletion()
-	if !errors.Is(err, ErrBindingEnd) || !errors.Is(err, ErrTypeMismatch) {
-		t.Fatalf("error = %v, want ErrBindingEnd wrapping ErrTypeMismatch", err)
+	if !errors.Is(err, errBindingEnd) || !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("error = %v, want errBindingEnd wrapping ErrTypeMismatch", err)
 	}
 }
 
@@ -1034,7 +1034,7 @@ func testNodeFlowIntoAPinTheTargetDoesNotDeclare(t *testing.T) {
 		}
 	`
 	err := runOuterAction(t, src)
-	if !errors.Is(err, ErrNodePin) {
-		t.Fatalf("error = %v, want ErrNodePin", err)
+	if !errors.Is(err, errNodePin) {
+		t.Fatalf("error = %v, want errNodePin", err)
 	}
 }

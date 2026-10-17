@@ -343,13 +343,14 @@ replacements (`inherited succession reaches more than one redefining step`).
    members is not fixed by the library.
    In `action_invoked_node_body_writes_output`, the usage's own `assign y := y + 1` is an
    unordered subaction beside Scale's inherited `start → scaling → done` flow. The inherited
-   `scaling` step sets `y` to 30; the assignment leaves 31 if it runs after `scaling`, while
-   `scaling` leaves 30 if the assignment runs first. The following `check` reads that final value,
-   so the oracle admits exactly `{30, 31}`.
+   `scaling` step sets `y` to 30; the assignment leaves 31 if it runs after `scaling`, while run
+   first it reads Scale's `y` unset — never Adjust's same-named `y` — and fails with the operator's
+   type error. The following `check` reads 31 when the run completes, so the oracle admits exactly
+   `{error, 31}`.
    A typed node whose own statements read the callee's outputs is order-dependent under this merge
    rule: an order before the producing step reads the unset output and fails. `state_block_flow_typed_node`
    therefore reads `scaled.y` after the node. `action_invoked_node_body_writes_output` and
-   `state_block_flow_typed_node_body_writes_output` carry the `{30, 31}` sets.
+   `state_block_flow_typed_node_body_writes_output` carry the `{error, 31}` sets.
 
 ### Repeated action steps and shared writes
 
@@ -471,7 +472,7 @@ refused. UML, fUML and PSSM were not used to settle any of these.
   the step, so each performance binds its own `x` (`_pin_value`). A `bind a.x = e` owned by the
   enclosing action equates the values of `a.x` over all `n` performances with those of `e`: a
   single-valued `e` into an in-pin gives every performance that value (`_bind_input`); an out-pin
-  into a single-valued `e` requires all `n` outputs to coincide, else `ErrBindingConflict`
+  into a single-valued `e` requires all `n` outputs to coincide, else `errBindingConflict`
   (`_bind_output`). A multi-valued `e` into in-pins leaves the assignment of its values to the
   performances open: refused.
 - **Flows** (KerML §9.2.7, `Transfers.kerml`). A flow end has no multiplicity in the grammar, a
@@ -481,7 +482,7 @@ refused. UML, fUML and PSSM were not used to settle any of these.
 - **External reads** (`ControlFunctions.kerml` `'.'`, source and result `[0..*]` nonunique;
   KerML §7.3.4.6 chains). `a.x` read outside `a` is the values of every performance's `x`,
   duplicates kept, listed in repetition-index order (a tool-chosen stable order where `a` is not
-  ordered); before all `n` performances end it is not yet performed (`ErrNodeNotPerformed`), as for
+  ordered); before all `n` performances end it is not yet performed (`errNodeNotPerformed`), as for
   one node (`_external_read`). Inside a performance, `x` is that performance's own (`_pin_value`).
 - **Block flows** (`LoopPerformance`, `IfThenPerformance`; each body pass is a performance of its
   own). `a[n]` in a `while`/`for`/`if` body performs `n` times per pass and `[0]` none
@@ -599,7 +600,7 @@ Two control nodes keep a bound on their outgoing side that the static rules stat
 `validateJoinNodeOutgoingSuccessions` and `validateMergeNodeOutgoingSuccessions` each allow at
 most one outgoing succession, so a join or a merge with two is an ill-formed model, reported by
 `join-outgoing-successions` and `merge-outgoing-successions` and refused by the executor
-(`ErrInvalidActionFlow`). `Actions::MergeAction` on its own constrains only the incoming side;
+(`errInvalidActionFlow`). `Actions::MergeAction` on its own constrains only the incoming side;
 the outgoing bound is the validation constraint's, not the library's.
 
 Open: the order of `left` against `right`, and so which write of `x` stands — the same openness
@@ -1369,7 +1370,7 @@ Derived constraints:
 - A branch that reaches a later junction with no way through is removed from the current
   junction's drawable branches; if one branch remains, it is followed without a draw. Cycles,
   unevaluable guards and binding failures remain run errors. A route stays open at the first
-  choice: choices resolve dynamically on arrival and retain `ErrChoiceWithoutBranch`; a dead
+  choice: choices resolve dynamically on arrival and retain `errChoiceWithoutBranch`; a dead
   junction reached beyond a choice remains a run error.
 - A history default with no recorded history is statically checked only when the source is
   outside the history owner. A transition from the owner or one of its descendants can exit the

@@ -267,7 +267,7 @@ func TestSatisfactionStatedByADefinitionIsAboutItsObjects(t *testing.T) {
 		t.Fatalf("subjects before any object = %d, want none", len(got))
 	}
 	_, err := ctx.EvaluateSatisfaction(byDef)
-	if !errors.Is(err, ErrNoSubject) || !strings.Contains(err.Error(), "an object of test::SafeLander is needed") {
+	if !errors.Is(err, errNoSubject) || !strings.Contains(err.Error(), "an object of test::SafeLander is needed") {
 		t.Fatalf("evaluated with no object: %v, want ErrNoSubject naming the definition", err)
 	}
 
@@ -289,10 +289,10 @@ func TestSatisfactionStatedByADefinitionIsAboutItsObjects(t *testing.T) {
 	if subjects[0].Root != slow || len(subjects[0].Path) != 0 {
 		t.Errorf("slow reached from %v via %v, want itself", subjects[0].Root, subjects[0].Path)
 	}
-	if holds, err := ctx.EvaluateSatisfactionOn(byDef, slow); err != nil || !holds {
+	if holds, err := ctx.evaluateSatisfactionOn(byDef, slow); err != nil || !holds {
 		t.Errorf("slow: holds = %v, err = %v; want true", holds, err)
 	}
-	if holds, err := ctx.EvaluateSatisfactionOn(byDef, fast); holds || !errors.Is(err, ErrViolated) {
+	if holds, err := ctx.evaluateSatisfactionOn(byDef, fast); holds || !errors.Is(err, ErrViolated) {
 		t.Errorf("fast: holds = %v, err = %v; want a violation", holds, err)
 	}
 }
@@ -367,7 +367,7 @@ package classified {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if holds, err := ctx.EvaluateSatisfactionOn(byPlain[0], plain); err != nil || !holds {
+	if holds, err := ctx.evaluateSatisfactionOn(byPlain[0], plain); err != nil || !holds {
 		t.Fatalf("safe by plain: holds = %v, err = %v", holds, err)
 	}
 	subjects = ctx.SatisfactionSubjects(byDef, ctx.LiveRoots())

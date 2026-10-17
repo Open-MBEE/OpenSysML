@@ -113,6 +113,65 @@ func TestValidateInstanceRunsADefinitionOwnedCaseOnTheObject(t *testing.T) {
 		"Cost::cheap", "Cost::dear")
 }
 
+// TestDefinitionOwnedCaseWithNoObjectNeedsOne verifies that, with no object of
+// the definition held, every surface sweeping the case reports it inconclusive
+// and asking for an object, as the definition's satisfy does, not an error.
+func TestDefinitionOwnedCaseWithNoObjectNeedsOne(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, statedSatisfyModel+`
+package CasePkg {
+	private import DefinitionPkg::*;
+	private import RequirementPkg::*;
+	part def Priced :> Definition {
+		verification costTest {
+			objective costObjective { verify costReq; }
+			return verdict = VerificationCases::PassIf(cost <= 100.0);
+		}
+	}
+}`, "definition-owned-no-object")
+	ctx := context.Background()
+	const needs = "needs an object of CasePkg::Priced: none is instantiated"
+
+	resp := runAnalysis(t, srv, &pb.RunAnalysisRequest{ModelHash: hash, SymbolId: "CasePkg::Priced::costTest"})
+	if resp.Error != "" {
+		t.Fatalf("RunAnalysis with no object reported %q, want an inconclusive verdict", resp.Error)
+	}
+	wantVerdicts(t, "RunAnalysis with no object", resp.VerificationVerdicts, "CasePkg::Priced::costTest=inconclusive")
+	wantVerdictDetail(t, "RunAnalysis with no object", resp.VerificationVerdicts, "CasePkg::Priced::costTest", needs)
+
+	required, err := srv.VerifyRequirement(ctx, &pb.VerifyRequirementRequest{ModelHash: hash, SymbolId: "RequirementPkg::costReq"})
+	if err != nil {
+		t.Fatalf("VerifyRequirement: %v", err)
+	}
+	wantVerdicts(t, "VerifyRequirement with no object", required.VerificationVerdicts,
+		"ProductPkg::costTest=pass", "CasePkg::Priced::costTest=inconclusive")
+	wantVerdictDetail(t, "VerifyRequirement with no object", required.VerificationVerdicts, "CasePkg::Priced::costTest", needs)
+
+	satisfied, err := srv.VerifySatisfaction(ctx, &pb.VerifySatisfactionRequest{ModelHash: hash})
+	if err != nil {
+		t.Fatalf("VerifySatisfaction: %v", err)
+	}
+	wantVerdicts(t, "VerifySatisfaction with no object", satisfied.VerificationVerdicts,
+		"ProductPkg::costTest=pass", "CasePkg::Priced::costTest=inconclusive")
+	wantVerdictDetail(t, "VerifySatisfaction with no object", satisfied.VerificationVerdicts, "CasePkg::Priced::costTest", needs)
+}
+
+// wantVerdictDetail verifies the verdict of caseID carries detail and names no
+// object, the case having run on none.
+func wantVerdictDetail(t *testing.T, surface string, got []*pb.VerificationVerdict, caseID, detail string) {
+	t.Helper()
+	for _, v := range got {
+		if v.CaseId != caseID {
+			continue
+		}
+		if v.Detail != detail || v.InstanceId != 0 {
+			t.Errorf("%s verdict of %s = %q on object %d, want %q on none", surface, caseID, v.Detail, v.InstanceId, detail)
+		}
+		return
+	}
+	t.Errorf("%s reported no verdict of %s", surface, caseID)
+}
+
 // wantVerdictObjects verifies each verdict names the object its case ran on, by
 // id and type, and that the id resolves to an instance of the response.
 func wantVerdictObjects(t *testing.T, surface string, got []*pb.VerificationVerdict, instances []*pb.Instance, want ...string) {

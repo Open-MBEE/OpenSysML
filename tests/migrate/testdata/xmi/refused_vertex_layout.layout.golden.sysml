@@ -11,7 +11,9 @@ package Model {
                 metadata DiagramLayout::Route about 'junction then choice' { points = (220, 70, 240, 120); }
                 metadata DiagramLayout::Route about 'choice then Idle' { points = (340, 120, 100, 20); }
                 metadata DiagramLayout::Style about Controller::Modes::junction { fill = "#E1E1C3"; }
+                metadata DiagramLayout::Style about Controller::Modes::start { fill = "#000000"; }
                 metadata DiagramLayout::Note about Controller::Modes::junction { text = "Junction note"; x = 350; y = 40; width = 120; height = 30; }
+                metadata DiagramLayout::Note about Controller::Modes::start { text = "Entry note"; x = -150; y = 40; width = 120; height = 30; }
                 render Views::asInterconnectionDiagram;
             }
             entry; then Idle;

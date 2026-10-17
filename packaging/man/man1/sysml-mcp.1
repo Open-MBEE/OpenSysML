@@ -103,6 +103,10 @@ Convert, sysml \-convert, sysml \-from, sysml \-id).
 runtime: Report every diagnostic of a parsed model, as sysml \-validate does
 (rpc GetDiagnostics, sysml \-validate).
 .TP
+.B explain_diagnostic
+runtime: Explain a diagnostic code, or list every code with its summary (sysml
+\-explain).
+.TP
 .B evaluate
 runtime: Evaluate an expression against a parsed model (rpc Evaluate, sysml
 \-eval).
@@ -149,7 +153,8 @@ sysml \-render\-document, sysml \-doc\-form).
 .TP
 .B render_model_view
 runtime: Render a view as its nodes, edges and compartments (rpc RenderView,
-sysml \-render, sysml \-render\-ports, sysml \-render\-show).
+sysml \-render, sysml \-render\-ports, sysml \-render\-show, sysml
+\-render\-depth).
 .TP
 .B run_analysis
 runtime: Run an analysis case and report its result (rpc RunAnalysis, sysml
@@ -211,6 +216,11 @@ The command line could not be acted on.
 .B OPENSYSML_LIBRARY_PATH
 Directory to load the SysML/KerML standard library from, instead of the copy
 embedded in the binary.
+.TP
+.B OPENSYSML_LIBRARY_ROOTS
+Directories, separated as PATH is, to look for installed projects under when a
+loaded file belongs to a project (a directory holding .project.json), besides
+the project's own well\-known library directory (.sysand/lib).
 .TP
 .B OPENSYSML_MAX_STEPS
 Expression evaluations one run may spend before it is reported as a runaway.

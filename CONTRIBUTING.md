@@ -64,8 +64,8 @@ make build-wasm
 make install
 
 # Protobuf schema (api/proto/sysml.proto), all codegen driven by buf
-make proto           # regenerate the Go, Java and Python stubs
-make proto-buf       # Go and Java stubs only
+make proto           # regenerate the Go, Python, TypeScript and Rust stubs
+make proto-buf       # Go stubs only (the Java client generates its classes at Maven build time)
 make python-proto    # Python stubs only (needs grpcio-tools; PYTHON=... picks the interpreter)
 make proto-lint      # lint the schema, as CI does
 make proto-breaking  # reject wire-breaking changes against develop, as CI does
@@ -113,6 +113,14 @@ make wasm-check
 4. **Update goldens** (after intentional changes): `go test -run TestGolden -update ./tests/parser`
 
 See [docs/internals/architecture.md](docs/internals/architecture.md#parser-test-contract) for full details on the parser testing contract.
+
+**Size caps on tests and fixtures:** `go test ./tests/hygiene` fails when a `_test.go` file is over
+2,000 lines or a fixture (a file under a `testdata/` directory or named `*.golden.*`) is over
+200 KiB. Split a test file along its feature seams (see AGENTS.md §5.2) and shrink the model a
+fixture is generated from, or digest its output, rather than growing either further. The files
+that predate the caps are allowlisted in `tests/hygiene/size_test.go` at their current size with a
+one-line reason (lines for a test file, bytes for a fixture); an allowlisted file may not grow, and its entry is removed once it is back under
+the cap. A new entry needs a reason a reviewer accepts.
 
 ### Static Analysis
 

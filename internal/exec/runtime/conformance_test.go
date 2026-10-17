@@ -133,7 +133,7 @@ type ExpectedOutcome struct {
 	// deriving that every listed outcome is valid. Required beside Outcomes.
 	Admissible string `json:"admissible,omitempty"`
 	// Schedule pins the scheduling policy the case was recorded under, spelled as
-	// ParseSchedulePolicy reads it. Empty is the default policy.
+	// ParseSchedulePolicy reads it. empty is the default policy.
 	Schedule string `json:"schedule,omitempty"`
 	// ModelSeed fixes the modeled draws — weighted branches, RandomFunctions — of
 	// a case under every policy of the sweep, as Context.SetModelSeed does.
@@ -156,7 +156,7 @@ type ExpectedOutcome struct {
 	TokenCount *int                     `json:"tokenCount,omitempty"`
 	// Error is the text the execution is expected to fail with, for a case whose
 	// contract is a diagnostic rather than a result (a loop that never
-	// terminates). Empty means the execution must succeed.
+	// terminates). empty means the execution must succeed.
 	Error string `json:"error,omitempty"`
 	// Diagnostics are the parse diagnostics the case's model is expected to
 	// report, one text per diagnostic, matched as a substring. Any diagnostic the
@@ -185,7 +185,7 @@ type ExpectedOutcome struct {
 	Bindings  map[string]ExpectedValue `json:"bindings,omitempty"`
 	Satisfied *bool                    `json:"satisfied,omitempty"`
 	// Evaluate names the element to execute or evaluate: a qualified path
-	// ("test::p::a") also reaches one nested in a part. Empty searches the model.
+	// ("test::p::a") also reaches one nested in a part. empty searches the model.
 	Evaluate string `json:"evaluate,omitempty"`
 	// Trace opts a case into a golden trace it does not carry yet, so
 	// -update-traces writes one. A case already carrying a golden needs no opt-in.
@@ -293,7 +293,7 @@ type ObjectRun struct {
 	// names; empty is the materialized object itself.
 	Path string `json:"path,omitempty"`
 	// Behavior names the behavior run, for an object running more than one.
-	// Empty is the machine the object exhibits.
+	// empty is the machine the object exhibits.
 	Behavior    string                   `json:"behavior,omitempty"`
 	Events      []ExpectedEvent          `json:"events,omitempty"`
 	FinalState  string                   `json:"finalState,omitempty"`
@@ -701,7 +701,7 @@ func conformanceRun(t *testing.T, idx *symbols.Index, path string, expected Expe
 		stateSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefState, ast.UsageState)
 		events := queuedEvents(t, expected.Events)
 		return func(ctx *Context) (Outcome, error) {
-			exec, err := ctx.PerformState(stateSym, nil, events)
+			exec, err := ctx.performStateWithEvents(stateSym, nil, events)
 			if err != nil {
 				return Outcome{}, err
 			}
@@ -850,9 +850,6 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 	}
 	for i, outcome := range expected.Outcomes {
 		if outcome.Error != "" {
-			if expected.Type != "action" {
-				problems = append(problems, fmt.Sprintf("outcome %d states an error; error outcomes apply to action cases", i+1))
-			}
 			if outcome.Outputs != nil || outcome.FinalState != "" || outcome.StateVisits != nil || outcome.Terminated ||
 				outcome.Probability != nil || outcome.ProbabilityRange != nil {
 				problems = append(problems, fmt.Sprintf("outcome %d states an error beside a result", i+1))
@@ -1231,7 +1228,13 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 	if returnsResults(expected.Events) {
 		exec, err = callingPerformance(t, ctx, stateSym, self, expected.Events)
 	} else {
-		exec, err = ctx.PerformState(stateSym, self, queuedEvents(t, expected.Events))
+		exec, err = ctx.performStateWithEvents(stateSym, self, queuedEvents(t, expected.Events))
+	}
+	if err != nil && listsError(expected.Outcomes) {
+		matchOutcome(t, expected.Outcomes, func(r reporter, outcome AdmittedOutcome) {
+			validateOutcomeError(r, outcome.Error, err)
+		})
+		return
 	}
 	if expected.Error != "" {
 		requireError(t, "state machine", err, expected.Error)
@@ -1676,7 +1679,7 @@ func runVerificationConformance(t *testing.T, ctx *Context, idx *symbols.Index, 
 		t.Errorf("verdict detail = %q, want it to contain %q", result.Verdict.Detail, expected.VerdictDetail)
 	}
 	checkSubcaseVerdicts(t, result.Subcases, expected.Subcases)
-	if result.Verdict.Kind == VerdictError {
+	if result.Verdict.Kind == verdictError {
 		return
 	}
 	checkCaseRun(t, ctx, idx, result.Run, expected)
@@ -2009,9 +2012,9 @@ func validateObjectRuns(t *testing.T, ctx *Context, typeSym *symbols.Symbol, fir
 			if err := exec.RunToCompletion(); err != nil {
 				t.Fatalf("run machine of object #%d: %v", obj.ID, err)
 			}
-			validateFinalState(t, exec.FinalStateName(), run.FinalState)
+			validateFinalState(t, exec.finalStateName(), run.FinalState)
 			validateTerminated(t, exec.Outcome().Terminated, run.Terminated)
-			validateStateVisits(t, exec.GetStateVisits(), run.StateVisits)
+			validateStateVisits(t, exec.getStateVisits(), run.StateVisits)
 			for name, want := range run.Values {
 				fv, err := featureValueAtPath(t, ctx, obj, name)
 				if err != nil {
@@ -2071,7 +2074,7 @@ func objectMachine(t *testing.T, obj *Instance, name string) *StateExecutor {
 	t.Helper()
 	behavior, ok := obj.ExhibitedState()
 	if name != "" {
-		behavior, ok = obj.Behavior(name)
+		behavior, ok = obj.behavior(name)
 	}
 	if !ok {
 		t.Fatalf("object #%d runs no behavior %q", obj.ID, name)
@@ -2379,7 +2382,7 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 			return
 		}
 		vq := actual.VectorQuantity()
-		axes := make([]Value, vq.Dimension())
+		axes := make([]Value, vq.dimension())
 		for i := range axes {
 			axes[i] = NewQuantityValue(vq.component(i))
 		}
@@ -2420,6 +2423,16 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 		// A valueless feature of a value type: materialized, holding no value.
 		if ctx == nil || !ctx.HoldsNoValue(actual) {
 			t.Errorf("%s: type = %v, want %s", name, actual.Kind, UnsetText)
+		}
+	case "Undetermined":
+		// A value the model leaves open, of the count the case pins as its value.
+		u := actual.Undetermined()
+		if u == nil {
+			t.Errorf("%s: type = %v, want %s", name, actual.Kind, UndeterminedText)
+			return
+		}
+		if count, pinned := expected.Value.(string); pinned && u.Count().Text() != count {
+			t.Errorf("%s: undetermined of %s values, want %s", name, u.Count().Text(), count)
 		}
 	case "Integer":
 		if actual.Kind != ValConst || actual.Const.Kind != semantics.ValInt {
@@ -2561,8 +2574,8 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 			t.Errorf("%s: type = %v, want Metaobject", name, actual.Kind)
 			return
 		}
-		if want, pinned := expected.Value.(string); pinned && actual.MetaobjectText() != want {
-			t.Errorf("%s: metaobject = %q, want %q", name, actual.MetaobjectText(), want)
+		if want, pinned := expected.Value.(string); pinned && actual.metaobjectText() != want {
+			t.Errorf("%s: metaobject = %q, want %q", name, actual.metaobjectText(), want)
 		}
 	case "CoordinateFrame":
 		actual = denotedObjectValue(t, ctx, name, actual)

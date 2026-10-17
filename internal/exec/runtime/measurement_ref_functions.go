@@ -22,7 +22,7 @@ func scalarReferenceArg(name, param string, val Value) (*MeasurementRef, error) 
 	val = soleElement(val)
 	if val.Kind == ValCoordinateFrame {
 		frame := val.CoordinateFrame()
-		if frame.IsScale() {
+		if frame.isScale() {
 			return &MeasurementRef{Unit: frame.Axes[0]}, nil
 		}
 		return nil, fmt.Errorf("%w: function %s parameter %q requires a ScalarMeasurementReference, got the coordinate frame %s of %d axes",

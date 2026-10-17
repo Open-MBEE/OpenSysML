@@ -689,16 +689,21 @@ export class Connection {
    * Renders a named view or targeted pseudo-view as diagram data. `show` names
    * the optional notation elements to draw besides those the view's rendering
    * shows (`"edge-labels"`, `"all"`, ...); the service refuses a name it does
-   * not know.
+   * not know. `depth`, above 0, bounds how many levels of nested elements are
+   * drawn below each exposed element, overriding the view's own depth.
    */
   async renderView(
     modelHash: string,
     viewName: string,
-    options: { ports?: "minimal" | "full"; show?: readonly string[] } = {},
+    options: { ports?: "minimal" | "full"; show?: readonly string[]; depth?: number } = {},
   ): Promise<RenderedView> {
     const ports: string = options.ports ?? "minimal";
     if (ports !== "minimal" && ports !== "full") {
       throw new RangeError("ports must be 'minimal' or 'full'");
+    }
+    const depth = options.depth ?? 0;
+    if (!Number.isInteger(depth) || depth < 0) {
+      throw new RangeError("depth must be a non-negative integer");
     }
     const show = [...(options.show ?? [])];
     const capabilities = [CAPABILITY_RENDER_VIEW];
@@ -712,6 +717,7 @@ export class Connection {
           view: viewName,
           ports: ports === "minimal" ? "" : ports,
           show,
+          depth,
         }),
         this.callOptions(),
       ),

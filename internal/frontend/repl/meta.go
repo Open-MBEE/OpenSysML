@@ -28,10 +28,15 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
+const (
+	constraintCommand  = "%constraint"
+	requirementCommand = "%requirement"
+)
+
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
 const (
-	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [show=<elements>] [link=<template>]"
+	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [show=<elements>] [depth=<levels>] [link=<template>]"
 	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|dot] [link=<template>]"
 )
 
@@ -204,6 +209,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%verbosity", group: groupSettings, args: "[level]", desc: "show or set output level: quiet, normal or debug"},
 	{name: "%trace", group: groupSettings, args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
 	{name: "%strict", group: groupSettings, args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
+	{name: "%explain-code", group: groupSettings, args: "[<code>...]", desc: "explain a diagnostic code — what it means, how to resolve it and the clause or constraint behind it — or, bare, list every code with a one-line summary"},
 	{name: "%lint", group: groupSettings, args: "[<code> on|off]", desc: "list the lints — warnings about models the specification accepts — each on or off, or switch one by its code: undeclared-signal, port-type-mismatch, deferred-keeper-unmarked, rounded-real-literal (opt-in, off by default)"},
 	{name: "%schedule", group: groupSettings, args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%seed", group: groupSettings, args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
@@ -248,8 +254,8 @@ var metaCommandTable = []metaCommand{
 	{name: cmdRunQuery, group: groupBehavioral, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
 	{name: "%render-run", group: groupBehavioral, args: "<timeline|sequence> [form] [link=<template>]", desc: "render the recorded run as a state timeline or message sequence, optionally linking declarations to their source"},
 	{name: cmdRenderDocument, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml|d2 [pilot|cameo]]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT, PlantUML or D2"},
-	{name: "%constraint", group: groupBehavioral, args: argInvocation, desc: "evaluate a constraint definition, with arguments for its parameters and an object as its subject"},
-	{name: "%requirement", group: groupBehavioral, args: argInvocation, desc: "evaluate a requirement definition, with arguments for its parameters and an object as its subject"},
+	{name: constraintCommand, group: groupBehavioral, args: argInvocation, desc: "evaluate a constraint definition, with arguments for its parameters and an object as its subject"},
+	{name: requirementCommand, group: groupBehavioral, args: argInvocation, desc: "evaluate a requirement definition, with arguments for its parameters and an object as its subject"},
 	{name: "%satisfy", group: groupBehavioral, args: "[name]", desc: "evaluate the satisfaction assertions of the model, or of one element"},
 	{name: "%validate", group: groupBehavioral, args: "<object>", desc: "check every assertion about an object and the objects it holds: the asserted constraints of their types, the requirements they carry and the satisfactions they are subject of; an object is named, #<id>, or a path such as car.engine"},
 	{name: "%check", group: groupBehavioral, args: argName, desc: "ask an SMT solver whether a constraint, requirement or satisfaction can be satisfied (experimental)"},
@@ -430,6 +436,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doTrace(fields[1:]), false, nil), true
 	case "%strict":
 		return metaOut(s.doStrict(fields[1:]), false, nil), true
+	case "%explain-code":
+		return metaOut(s.doExplainCode(fields[1:]), false, nil), true
 	case "%lint":
 		return metaOut(s.doLint(fields[1:]), false, nil), true
 	case "%schedule":
@@ -523,17 +531,17 @@ func (s *Session) doTrace(args []string) []string {
 // metaRender reads the %render name, form and optional rendering settings,
 // including a source-link template, then renders the view they name.
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
-	name, form, opts, overlay, usage := parseRenderArgs(args)
+	name, form, opts, overlay, depth, usage := parseRenderArgs(args)
 	if usage != nil {
 		return usage, false, nil
 	}
-	return s.doRender(name, form, opts, overlay)
+	return s.doRender(name, form, opts, overlay, depth)
 }
 
 // renderOptionWord reports whether word is a rendering option rather than a
 // form, so the text form is understood before it.
 func renderOptionWord(word string) bool {
-	if strings.HasPrefix(word, "show=") || strings.HasPrefix(word, "link=") {
+	if strings.HasPrefix(word, "show=") || strings.HasPrefix(word, "link=") || strings.HasPrefix(word, "depth=") {
 		return true
 	}
 	if o, ok := view.ParseOverlay(word); ok && o != "" {
@@ -550,13 +558,13 @@ func renderOptionWord(word string) bool {
 }
 
 // renderUsageOf is what parseRenderArgs answers when the arguments do not read.
-func renderUsageOf(line string) (string, view.Form, view.Options, view.Overlay, []string) {
-	return "", "", view.Options{}, "", []string{line}
+func renderUsageOf(line string) (string, view.Form, view.Options, view.Overlay, int, []string) {
+	return "", "", view.Options{}, "", 0, []string{line}
 }
 
 // parseRenderArgs reads %render's arguments: the view, the form and the options
 // after it; usage is what to print instead when they do not read.
-func parseRenderArgs(args []string) (name string, form view.Form, opts view.Options, overlay view.Overlay, usage []string) {
+func parseRenderArgs(args []string) (name string, form view.Form, opts view.Options, overlay view.Overlay, depth int, usage []string) {
 	if len(args) < 1 {
 		return renderUsageOf(renderUsage)
 	}
@@ -572,7 +580,7 @@ func parseRenderArgs(args []string) (name string, form view.Form, opts view.Opti
 			return renderUsageOf(fmt.Sprintf("unknown form %q; %s", args[1], renderUsage))
 		}
 	}
-	linkSet := false
+	linkSet, depthSet := false, false
 	for _, word := range args[options:] {
 		if o, ok := view.ParseOverlay(word); ok && o != "" {
 			if overlay != "" {
@@ -590,6 +598,18 @@ func parseRenderArgs(args []string) (name string, form view.Form, opts view.Opti
 				return renderUsageOf(fmt.Sprintf("show= names the optional notation elements to draw, %s; %s", view.ElementNames(), renderUsage))
 			}
 			opts.Show = shown
+			continue
+		}
+		if strings.HasPrefix(word, "depth=") {
+			if depthSet {
+				return renderUsageOf(renderUsage)
+			}
+			depthSet = true
+			levels, err := view.ParseDepth(strings.TrimPrefix(word, "depth="))
+			if err != nil {
+				return renderUsageOf(err.Error() + "; " + renderUsage)
+			}
+			depth = levels
 			continue
 		}
 		if strings.HasPrefix(word, "link=") {
@@ -636,7 +656,7 @@ func parseRenderArgs(args []string) (name string, form view.Form, opts view.Opti
 		}
 		opts.Palette = palette
 	}
-	return args[0], form, opts, overlay, nil
+	return args[0], form, opts, overlay, depth, nil
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line
@@ -708,16 +728,16 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{renderDocumentUsage}, false, nil), true
 		}
 		return metaOut(s.doRenderDocument(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), cmdRenderDocument)))), true
-	case "%constraint":
+	case constraintCommand:
 		if len(fields) < 2 {
 			return metaOut([]string{constraintUsage}, false, nil), true
 		}
-		return metaOut(s.doConstraint(strings.TrimPrefix(strings.TrimSpace(line), "%constraint"))), true
-	case "%requirement":
+		return metaOut(s.doConstraint(strings.TrimPrefix(strings.TrimSpace(line), constraintCommand))), true
+	case requirementCommand:
 		if len(fields) < 2 {
 			return metaOut([]string{requirementUsage}, false, nil), true
 		}
-		return metaOut(s.doRequirement(strings.TrimPrefix(strings.TrimSpace(line), "%requirement"))), true
+		return metaOut(s.doRequirement(strings.TrimPrefix(strings.TrimSpace(line), requirementCommand))), true
 	case "%satisfy":
 		return metaOut(s.doSatisfy(fields[1:])), true
 	case "%validate":

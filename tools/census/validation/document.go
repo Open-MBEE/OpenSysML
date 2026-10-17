@@ -6,51 +6,48 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/tools/census/doccounts"
+	"github.com/Open-MBEE/OpenSysML/tools/census/manifest"
 )
 
 // The provenance and summary lines of the census document are derived from the
-// baseline: this program writes them and -check refuses a hand-edited value.
+// manifest: this program writes them and -check refuses a hand-edited value.
 const summaryMarker = "**Census:**"
 
-// derivedLine is one document line whose capture groups the baseline dictates.
+// derivedLine is one document line whose capture groups the manifest dictates.
 type derivedLine struct {
 	marker  string
 	pattern *regexp.Regexp
-	values  func(*Baseline) []string
+	values  func(*manifest.Manifest) []string
 }
 
 var derivedLines = []derivedLine{
 	{
 		marker:  "**Pilot:**",
 		pattern: regexp.MustCompile("^\\*\\*Pilot:\\*\\* .* release `([^`]*)`, commit `([^`]*)`, artifact `jupyter-sysml-kernel ([^`]*)` — .*$"),
-		values:  func(b *Baseline) []string { return []string{b.PilotTag, b.PilotCommit, b.PilotArtifact} },
+		values:  func(m *manifest.Manifest) []string { return []string{m.PilotTag, m.PilotCommit, m.PilotArtifact} },
 	},
 	{
 		marker:  "**Jar:**",
 		pattern: regexp.MustCompile("^\\*\\*Jar:\\*\\* `([^`]*)` \\(`([^`]*)`\\), .*$"),
-		values:  func(b *Baseline) []string { return []string{b.Jar.Name, b.Jar.Digest} },
+		values:  func(m *manifest.Manifest) []string { return []string{m.Jar.Name, m.Jar.Digest} },
 	},
 	{
 		marker:  summaryMarker,
-		pattern: regexp.MustCompile(`^\*\*Census:\*\* (\d+) of (\d+) named constraints are reported by OpenSysML — (\d+) ✅ faithful and (\d+) ⚠️ approximate; (\d+) ❌ not implemented, (\d+) ⛔ deliberate, (\d+) 🚧 known failure, (\d+) ❔ unknown\.$`),
-		values:  func(b *Baseline) []string { return summaryValues(b.counts()) },
+		pattern: regexp.MustCompile(`^\*\*Census:\*\* .*$`),
+		values:  func(m *manifest.Manifest) []string { return []string{m.Summary()} },
 	},
 }
 
-func summaryValues(c counts) []string {
-	return []string{
-		strconv.Itoa(c.Implemented()), strconv.Itoa(c.Total),
-		strconv.Itoa(c.ByState[StatusFaithful]), strconv.Itoa(c.ByState[StatusApproximate]),
-		strconv.Itoa(c.ByState[StatusNotImplemented]), strconv.Itoa(c.ByState[StatusDeliberate]),
-		strconv.Itoa(c.ByState[StatusKnownFailure]), strconv.Itoa(c.ByState[StatusUnknown]),
-	}
-}
+// tableBlock is the generated block the census table is rendered into; doc-counts
+// renders it from the manifest and this program verifies and rewrites it too.
+var tableBlock = doccounts.Block{Path: censusDocPath, Name: "validation-census-table"}
 
-// rewriteDerivedLines restates the provenance and summary lines from the
-// baseline and leaves every other byte of the document alone.
-func rewriteDerivedLines(content string, base *Baseline) (string, error) {
+// rewriteDerivedLines restates the provenance and summary lines and the census
+// table from the manifest and leaves every other byte of the document alone.
+func rewriteDerivedLines(content string, m *manifest.Manifest) (string, error) {
 	lines := strings.Split(content, "\n")
 	for _, d := range derivedLines {
 		index := -1
@@ -69,169 +66,61 @@ func rewriteDerivedLines(content string, base *Baseline) (string, error) {
 		if match == nil {
 			return "", fmt.Errorf("%s:%d: the %s line does not match the derived-line pattern", censusDocPath, index+1, d.marker)
 		}
-		values := d.values(base)
+		values := d.values(m)
 		rewritten := lines[index]
-		for i := len(values) - 1; i >= 0; i-- {
+		if len(match) == 2 {
+			rewritten = values[0]
+		}
+		for i := len(values) - 1; i >= 0 && len(match) > 2; i-- {
 			rewritten = rewritten[:match[2+i*2]] + values[i] + rewritten[match[3+i*2]:]
 		}
 		lines[index] = rewritten
 	}
-	return strings.Join(lines, "\n"), nil
+	return doccounts.ReplaceBlock(strings.Join(lines, "\n"), tableBlock, m.RenderTable())
 }
-
-// tableColumns is the census table's header, which fixes the cell order the
-// checks below read.
-var tableColumns = []string{"Constraint", "Language", "Checks", "Implementation", "Our message", "Negative case", "Status"}
-
-var separatorPattern = regexp.MustCompile(`^\|(?: *:?-+:? *\|)+$`)
-
-// row is one parsed table row.
-type row struct {
-	Line  int
-	Cells []string
-}
-
-// parseTable returns the rows of the census table, located by its header.
-func parseTable(content string) ([]row, error) {
-	lines := strings.Split(content, "\n")
-	header := "| " + strings.Join(tableColumns, " | ") + " |"
-	start := -1
-	for i, line := range lines {
-		if strings.TrimSpace(line) == header {
-			if start >= 0 {
-				return nil, fmt.Errorf("%s: two census tables", censusDocPath)
-			}
-			start = i
-		}
-	}
-	if start < 0 {
-		return nil, fmt.Errorf("%s: no table headed %q", censusDocPath, header)
-	}
-	if start+1 >= len(lines) || !separatorPattern.MatchString(strings.TrimSpace(lines[start+1])) {
-		return nil, fmt.Errorf("%s:%d: the census table header has no separator row", censusDocPath, start+2)
-	}
-	var rows []row
-	for i := start + 2; i < len(lines); i++ {
-		line := strings.TrimSpace(lines[i])
-		if !strings.HasPrefix(line, "|") {
-			break
-		}
-		cells := splitCells(line)
-		if len(cells) != len(tableColumns) {
-			return nil, fmt.Errorf("%s:%d: row has %d cells, the table %d columns", censusDocPath, i+1, len(cells), len(tableColumns))
-		}
-		rows = append(rows, row{Line: i + 1, Cells: cells})
-	}
-	return rows, nil
-}
-
-// splitCells splits a table row on its unescaped pipes.
-func splitCells(line string) []string {
-	line = strings.TrimSuffix(strings.TrimPrefix(line, "|"), "|")
-	var cells []string
-	var cell strings.Builder
-	escaped := false
-	for _, r := range line {
-		switch {
-		case escaped:
-			cell.WriteRune('\\')
-			cell.WriteRune(r)
-			escaped = false
-		case r == '\\':
-			escaped = true
-		case r == '|':
-			cells = append(cells, strings.TrimSpace(cell.String()))
-			cell.Reset()
-		default:
-			cell.WriteRune(r)
-		}
-	}
-	cells = append(cells, strings.TrimSpace(cell.String()))
-	return cells
-}
-
-var languageBySource = map[string]string{"kerml": "KerML", "sysml": "SysML", "both": "both"}
 
 // negativeCorpusDir holds the rejection corpus a row's negative case must be in.
 const negativeCorpusDir = "tools/referee/reject/testdata/negative"
 
-// checkDocument verifies the census document against the baseline and the
-// rejection corpus: current summary figures, one row per baseline constraint
-// and no other, each row's language and status as recorded, a location on
-// every implemented row that resolves to a declared function, and negative
-// cases that exist, name the row's constraint, and whose recorded bucket agrees
-// with the row's status — with every case the corpus attributes to a pilot
-// constraint listed on that constraint's row.
-func checkDocument(root, content string, base *Baseline) error {
-	rewritten, err := rewriteDerivedLines(content, base)
+// checkDocument verifies the census document against the manifest, and the
+// manifest's rows against the tree: the derived lines and the table are
+// current, every implemented row cites a declared implementation, every listed
+// negative case exists and is attributed to its row, and every corpus case
+// attributed to a constraint is listed on its row.
+func checkDocument(root, content string, m *manifest.Manifest) error {
+	rewritten, err := rewriteDerivedLines(content, m)
 	if err != nil {
 		return err
 	}
 	if rewritten != content {
-		return fmt.Errorf("%s: a derived line is stale; run `go run -C tools ./cmd/validation-census`", censusDocPath)
-	}
-	rows, err := parseTable(content)
-	if err != nil {
-		return err
+		return fmt.Errorf("%s: a derived line or the census table is stale; run `go run -C tools ./cmd/validation-census`", censusDocPath)
 	}
 	cases, err := loadCorpus(root)
 	if err != nil {
 		return err
 	}
 	decls := newDeclarations(root)
-	recorded := make(map[string]Constraint, len(base.Constraints))
-	for _, c := range base.Constraints {
-		recorded[c.Name] = c
-	}
-	seen := make(map[string]int, len(rows))
-	listed := make(map[string]map[string]bool, len(rows))
+	listed := make(map[string]map[string]bool, len(m.Constraints))
 	var problems []string
-	for _, r := range rows {
-		name, ok := backticked(r.Cells[0])
-		if !ok {
-			problems = append(problems, fmt.Sprintf("line %d: the constraint cell %q is not a backticked name", r.Line, r.Cells[0]))
-			continue
+	for _, c := range m.Constraints {
+		if manifest.Implemented(c.Status) && (c.Implementation == "" || c.Implementation == "—") {
+			problems = append(problems, fmt.Sprintf("%s is recorded %s but names no implementation", c.Name, c.Status))
 		}
-		if line, dup := seen[name]; dup {
-			problems = append(problems, fmt.Sprintf("line %d: %s already has a row at line %d", r.Line, name, line))
-			continue
-		}
-		seen[name] = r.Line
-		c, ok := recorded[name]
-		if !ok {
-			problems = append(problems, fmt.Sprintf("line %d: %s is in the table but not in %s", r.Line, name, baselinePath))
-			continue
-		}
-		if want := languageBySource[c.Source]; r.Cells[1] != want {
-			problems = append(problems, fmt.Sprintf("line %d: %s has language %q, the baseline source %s says %q", r.Line, name, r.Cells[1], c.Source, want))
-		}
-		marker, _ := markerFor(c.Status)
-		if r.Cells[6] != marker {
-			problems = append(problems, fmt.Sprintf("line %d: %s has status %q, the baseline records %s (%q)", r.Line, name, r.Cells[6], c.Status, marker))
-		}
-		if implemented(c.Status) && (r.Cells[3] == "" || r.Cells[3] == "—") {
-			problems = append(problems, fmt.Sprintf("line %d: %s is recorded %s but names no implementation", r.Line, name, c.Status))
-		}
-		problems = append(problems, checkImplementation(decls, r, name, c.Status)...)
-		problems = append(problems, checkNegativeCase(root, r, name)...)
-		listed[name] = make(map[string]bool)
-		for _, path := range negativeCases(r.Cells[5]) {
-			listed[name][path] = true
+		problems = append(problems, checkImplementation(decls, c)...)
+		problems = append(problems, checkNegativeCase(root, c)...)
+		listed[c.Name] = make(map[string]bool)
+		for _, path := range negativeCases(c.NegativeCase) {
+			listed[c.Name][path] = true
 			if cc, ok := cases[path]; ok {
-				problems = append(problems, checkCaseEvidence(base, r, name, c.Status, cc)...)
+				problems = append(problems, checkCaseEvidence(m, c, cc)...)
 			}
 		}
 	}
-	for _, c := range base.Constraints {
-		if _, ok := seen[c.Name]; !ok {
-			problems = append(problems, fmt.Sprintf("%s is in %s but has no row", c.Name, baselinePath))
-		}
-	}
-	problems = append(problems, checkAttributions(base, cases, listed)...)
+	problems = append(problems, checkAttributions(m, cases, listed)...)
 	if len(problems) == 0 {
 		return nil
 	}
-	return fmt.Errorf("%s does not match %s:\n  %s", censusDocPath, baselinePath, strings.Join(problems, "\n  "))
+	return fmt.Errorf("%s does not match the tree:\n  %s", manifest.Path, strings.Join(problems, "\n  "))
 }
 
 // backticked returns the text of a cell that is exactly one backticked code span.
@@ -245,8 +134,8 @@ func backticked(cell string) (string, bool) {
 
 // checkNegativeCase verifies that a row's negative-case cell is `none` or names
 // model files of the rejection corpus that exist.
-func checkNegativeCase(root string, r row, name string) []string {
-	cell := r.Cells[5]
+func checkNegativeCase(root string, c manifest.Constraint) []string {
+	cell := c.NegativeCase
 	if cell == "none" {
 		return nil
 	}
@@ -255,19 +144,19 @@ func checkNegativeCase(root string, r row, name string) []string {
 		ref = strings.TrimSpace(ref)
 		path, ok := backticked(ref)
 		if !ok {
-			problems = append(problems, fmt.Sprintf("line %d: %s negative case %q is neither `none` nor a backticked corpus path", r.Line, name, ref))
+			problems = append(problems, fmt.Sprintf("%s negative case %q is neither `none` nor a backticked corpus path", c.Name, ref))
 			continue
 		}
 		if ext := filepath.Ext(path); ext != ".sysml" && ext != ".kerml" {
-			problems = append(problems, fmt.Sprintf("line %d: %s negative case %s is not a .sysml or .kerml file", r.Line, name, path))
+			problems = append(problems, fmt.Sprintf("%s negative case %s is not a .sysml or .kerml file", c.Name, path))
 			continue
 		}
 		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(negativeCorpusDir), filepath.FromSlash(path)))
 		switch {
 		case err != nil:
-			problems = append(problems, fmt.Sprintf("line %d: %s negative case %s/%s does not exist", r.Line, name, negativeCorpusDir, path))
+			problems = append(problems, fmt.Sprintf("%s negative case %s/%s does not exist", c.Name, negativeCorpusDir, path))
 		case !info.Mode().IsRegular():
-			problems = append(problems, fmt.Sprintf("line %d: %s negative case %s/%s is not a file", r.Line, name, negativeCorpusDir, path))
+			problems = append(problems, fmt.Sprintf("%s negative case %s/%s is not a file", c.Name, negativeCorpusDir, path))
 		}
 	}
 	return problems
@@ -288,7 +177,7 @@ type probe struct {
 }
 
 var (
-	probeConstraintLine = regexp.MustCompile(`^// Census: (validate[A-Za-z]+)$`)
+	probeConstraintLine = regexp.MustCompile(`^// Census: ((?:validate|check|derive)[A-Za-z]+)$`)
 	probeExpectLine     = regexp.MustCompile(`^// Expect: (error|warning): (.+)$`)
 )
 
@@ -339,28 +228,29 @@ func probeLanguages(source string) []string {
 	return []string{""}
 }
 
-// checkProbes verifies that every implemented constraint has a probe (one per
-// notation when both validators declare it) and that no probe claims a
-// diagnostic for a constraint the baseline records as unreported.
-func checkProbes(root string, base *Baseline) error {
+// checkProbes verifies that every implemented validate* constraint has a probe
+// (one per notation when both validators declare it) and a recorded diagnostic
+// code, and that no probe claims a diagnostic for a constraint the manifest
+// records as unreported. An implemented check* or derive* row establishes an
+// implied relationship or a derived value rather than reporting a diagnostic,
+// so its evidence is the implementation it cites; a probe backs it only when a
+// pass does report. The codes and passes themselves are held to the probes by
+// the package's tests.
+func checkProbes(root string, m *manifest.Manifest) error {
 	probes, err := loadProbes(root)
 	if err != nil {
 		return err
 	}
-	recorded := make(map[string]Constraint, len(base.Constraints))
-	for _, c := range base.Constraints {
-		recorded[c.Name] = c
-	}
 	backed := make(map[string]map[string]bool)
 	var problems []string
 	for _, p := range probes {
-		c, ok := recorded[p.Constraint]
+		c, ok := m.Constraint(p.Constraint)
 		if !ok {
-			problems = append(problems, fmt.Sprintf("%s names %s, which %s does not list", p.Path, p.Constraint, baselinePath))
+			problems = append(problems, fmt.Sprintf("%s names %s, which %s does not list", p.Path, p.Constraint, manifest.Path))
 			continue
 		}
-		if !implemented(c.Status) {
-			problems = append(problems, fmt.Sprintf("%s expects a %s for %s, which the baseline records as %s", p.Path, p.Severity, p.Constraint, c.Status))
+		if !manifest.Implemented(c.Status) {
+			problems = append(problems, fmt.Sprintf("%s expects a %s for %s, which the manifest records as %s", p.Path, p.Severity, p.Constraint, c.Status))
 			continue
 		}
 		if backed[p.Constraint] == nil {
@@ -369,9 +259,18 @@ func checkProbes(root string, base *Baseline) error {
 		backed[p.Constraint][p.Language] = true
 		backed[p.Constraint][""] = true
 	}
-	for _, c := range base.Constraints {
-		if !implemented(c.Status) {
+	for _, c := range m.Constraints {
+		if !manifest.Implemented(c.Status) {
+			if len(c.Codes) != 0 || len(c.Passes) != 0 {
+				problems = append(problems, fmt.Sprintf("%s is recorded %s but records diagnostic codes %q from passes %q", c.Name, c.Status, c.Codes, c.Passes))
+			}
 			continue
+		}
+		if c.Kind != "validate" {
+			continue
+		}
+		if len(c.Codes) == 0 || len(c.Passes) == 0 {
+			problems = append(problems, fmt.Sprintf("%s is recorded %s but records no diagnostic code or pass", c.Name, c.Status))
 		}
 		for _, lang := range probeLanguages(c.Source) {
 			if backed[c.Name][lang] {

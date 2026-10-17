@@ -66,8 +66,8 @@ func testSteppedStateBehaviorClockWait(t *testing.T, behavior string) {
 
 func assertStateBehaviorWaitError(t *testing.T, err error) {
 	t.Helper()
-	if !errors.Is(err, ErrStateBehaviorWaits) {
-		t.Fatalf("state behavior wait error = %v, want ErrStateBehaviorWaits", err)
+	if !errors.Is(err, errStateBehaviorWaits) {
+		t.Fatalf("state behavior wait error = %v, want errStateBehaviorWaits", err)
 	}
 	if errors.Is(err, errPaused) || strings.Contains(err.Error(), errPaused.Error()) {
 		t.Fatalf("state behavior wait leaked %q: %v", errPaused, err)

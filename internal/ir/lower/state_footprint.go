@@ -201,6 +201,39 @@ func (g *StateGraph) branchFootprintFrom(source *ast.StateNode, seg *Transition,
 	return b.footprint
 }
 
+// JoinSegmentFootprints is what firing each of segs, transitions pending into
+// one join, does on its own once the join fires: its source's activity, trigger
+// and guard read, its effects run, and the states from its source up to the
+// join's owner exited. The owner's exit and the join's way out follow whichever
+// segment fires first, so they are left out of every segment's footprint, as the
+// exits a junction's branches share are; a join without a plan leaves each
+// footprint dynamic.
+func (g *StateGraph) JoinSegmentFootprints(join *ast.PseudostateNode, segs []*Transition) []Footprint {
+	g.lowerFootprints()
+	plan := g.JoinPlans[join]
+	fps := make([]Footprint, len(segs))
+	for i, seg := range segs {
+		b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: g.resolver}, graph: g, crossed: make(map[*ast.PseudostateNode]bool)}
+		source, fromState := seg.Source.(*ast.StateNode)
+		if plan == nil || !fromState {
+			b.footprint.Dynamic = true
+			fps[i] = b.footprint
+			continue
+		}
+		b.read(g.activity(source))
+		b.trigger(seg)
+		b.reads(seg.BodyScope, seg.Guard)
+		for _, effect := range seg.Effect {
+			b.statements(effect.Body)
+		}
+		for state := source; state != nil && state != plan.Owner; state = g.ParentState[state] {
+			b.exits(state)
+		}
+		fps[i] = b.footprint
+	}
+	return fps
+}
+
 // transitionBuilder projects a transition out of a state, without the do
 // behaviors of the states it enters when withoutDo is set.
 func transitionBuilder(graph *StateGraph, trans *Transition, withoutDo bool) *stateFootprintBuilder {

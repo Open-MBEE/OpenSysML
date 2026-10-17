@@ -26,10 +26,11 @@ const (
 	VerdictPass VerdictKind = "pass"
 	// VerdictFail is a body whose verdict value is VerdictKind::fail.
 	VerdictFail VerdictKind = "fail"
-	// VerdictInconclusive is a body that ran and produced no verdict value.
+	// VerdictInconclusive is a body that ran and produced no verdict value, or
+	// one a definition owns with no object of the definition to run on.
 	VerdictInconclusive VerdictKind = "inconclusive"
-	// VerdictError is a body whose run could not be carried out.
-	VerdictError VerdictKind = "error"
+	// verdictError is a body whose run could not be carried out.
+	verdictError VerdictKind = "error"
 )
 
 // VerificationVerdict is the verdict one run of a verification case's body
@@ -96,15 +97,15 @@ func IsVerificationCaseSymbol(sym *symbols.Symbol) bool {
 	return sym.Kind == symbols.SymbolVerificationCaseDef || sym.Kind == symbols.SymbolVerificationCaseUsage
 }
 
-// RequireVerificationCase reports ErrNotAVerification for a symbol that is not a
+// requireVerificationCase reports errNotAVerification for a symbol that is not a
 // verification case definition or usage, describing what it is instead.
-func (ctx *Context) RequireVerificationCase(sym *symbols.Symbol) error {
+func (ctx *Context) requireVerificationCase(sym *symbols.Symbol) error {
 	if sym == nil {
-		return fmt.Errorf("%w: invalid symbol", ErrNotAVerification)
+		return fmt.Errorf("%w: invalid symbol", errNotAVerification)
 	}
 	if !IsVerificationCaseSymbol(sym) {
 		return fmt.Errorf("%w: %s is %s, not a verification case definition or usage",
-			ErrNotAVerification, ctx.qualifiedSymbolName(sym), describeDecl(sym.Decl))
+			errNotAVerification, ctx.qualifiedSymbolName(sym), describeDecl(sym.Decl))
 	}
 	return nil
 }
@@ -119,7 +120,7 @@ func (ctx *Context) RequireVerificationCase(sym *symbols.Symbol) error {
 // is returned only for a request that cannot be made at all — a symbol that is
 // not a verification case, or arguments the case does not take.
 func (ctx *Context) RunVerification(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (VerificationResult, error) {
-	if err := ctx.RequireVerificationCase(sym); err != nil {
+	if err := ctx.requireVerificationCase(sym); err != nil {
 		return VerificationResult{}, err
 	}
 	defer ctx.beginRun()()
@@ -131,8 +132,15 @@ func (ctx *Context) RunVerification(sym *symbols.Symbol, args AnalysisArgs, scop
 		if badRequest(err) || errors.Is(err, ErrToolDryRun) {
 			return VerificationResult{}, err
 		}
+		if errors.Is(err, ErrNeedsObject) {
+			// Nothing is wrong with the case: it decided nothing for want of an
+			// object of its owner, which is no verdict and no fault of the run.
+			return VerificationResult{
+				Verdict: VerificationVerdict{Case: name, Symbol: sym, Kind: VerdictInconclusive, Detail: err.Error()},
+			}, nil
+		}
 		return VerificationResult{
-			Verdict: VerificationVerdict{Case: name, Symbol: sym, Kind: VerdictError, Detail: err.Error(), Subject: performer},
+			Verdict: VerificationVerdict{Case: name, Symbol: sym, Kind: verdictError, Detail: err.Error(), Subject: performer},
 		}, nil
 	}
 	result := VerificationResult{Verdict: ctx.bodyVerdict(sym, name, caseRun, run), Run: run}
@@ -146,9 +154,9 @@ func (ctx *Context) RunVerification(sym *symbols.Symbol, args AnalysisArgs, scop
 // Every other failure is a run that could not be carried out.
 func badRequest(err error) bool {
 	return errors.Is(err, ErrNotAnAnalysis) ||
-		errors.Is(err, ErrNotAVerification) ||
-		errors.Is(err, ErrCalcArity) ||
-		errors.Is(err, ErrUnknownParameter)
+		errors.Is(err, errNotAVerification) ||
+		errors.Is(err, errCalcArity) ||
+		errors.Is(err, errUnknownParameter)
 }
 
 // bodyVerdict reads the verdict the case returned: the VerdictKind literal its
@@ -186,7 +194,7 @@ func (ctx *Context) verdictOf(value Value) (VerdictKind, bool) {
 		return "", false
 	}
 	switch kind := VerdictKind(lit.Name); kind {
-	case VerdictPass, VerdictFail, VerdictInconclusive, VerdictError:
+	case VerdictPass, VerdictFail, VerdictInconclusive, verdictError:
 		return kind, true
 	}
 	return "", false

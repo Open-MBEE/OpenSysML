@@ -17,6 +17,11 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+const (
+	viewFlag  = "--view="
+	styleFlag = "--style="
+)
+
 // completionLimit bounds a completion answer: the library registers tens of
 // thousands of names, and a terminal cannot usefully offer all of them.
 const completionLimit = 200
@@ -735,12 +740,12 @@ func (s *Session) completeViz(head string) Completion {
 		previous = args[argumentIndex(head)-1]
 	}
 	switch {
-	case strings.HasPrefix(word, "--view="):
-		return completion(word, prefixed("--view=", matchingPrefixFold(vizViews(), strings.TrimPrefix(word, "--view="))))
-	case strings.HasPrefix(word, "--style="):
-		return completion(word, prefixed("--style=", matchingPrefixFold(vizStyles(), strings.TrimPrefix(word, "--style="))))
+	case strings.HasPrefix(word, viewFlag):
+		return completion(word, prefixed(viewFlag, matchingPrefixFold(vizViews(), strings.TrimPrefix(word, viewFlag))))
+	case strings.HasPrefix(word, styleFlag):
+		return completion(word, prefixed(styleFlag, matchingPrefixFold(vizStyles(), strings.TrimPrefix(word, styleFlag))))
 	case strings.HasPrefix(word, "-"):
-		return completion(word, matchingPrefix([]string{"--view=", "--style="}, word))
+		return completion(word, matchingPrefix([]string{viewFlag, styleFlag}, word))
 	case previous == "--view":
 		return completion(word, matchingPrefixFold(vizViews(), word))
 	case previous == "--style":
@@ -753,7 +758,7 @@ func (s *Session) completeViz(head string) Completion {
 	// At an empty word the grammar is offered: the forms and the options; a
 	// name is offered once its first character narrows the thousands there are.
 	if name == "" {
-		return completion(name, append(renderForms(), "--view=", "--style="))
+		return completion(name, append(renderForms(), viewFlag, styleFlag))
 	}
 	return completion(name, append(s.nameCompletions(name), matchingPrefix(renderForms(), name)...))
 }

@@ -48,7 +48,7 @@ func runRoundStepOrder(t *testing.T, policy *SchedulePolicy, signals ...string) 
 		t.Fatal(err)
 	}
 	for _, signal := range signals {
-		exec.SendSignal(signal, nil)
+		exec.sendSignal(signal, nil)
 	}
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
@@ -59,7 +59,7 @@ func runRoundStepOrder(t *testing.T, policy *SchedulePolicy, signals ...string) 
 func stepOrderChoices(ctx *Context) []ChoicePoint {
 	var out []ChoicePoint
 	for _, choice := range ctx.Choices() {
-		if choice.Kind == ChoiceStepOrder {
+		if choice.Kind == choiceStepOrder {
 			out = append(out, choice)
 		}
 	}
@@ -103,7 +103,7 @@ func testDroppedDispatchAtTheHeadRecordsNoStepOrder(t *testing.T) {
 // witness `replay` follows to the same log, so the recorded order is the run's.
 func testRecordedChoicesReplayTheDefaultRun(t *testing.T) {
 	ctx, log := runRoundStepOrder(t, nil, "Stop")
-	taken := ctx.ChoicesTaken()
+	taken := ctx.choicesTaken()
 	if len(taken) == 0 {
 		t.Fatalf("the default run recorded no replayable choice")
 	}

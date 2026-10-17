@@ -1,0 +1,10 @@
+{
+	"type": "state",
+	"evaluate": "test::Derived",
+	"finalState": "taken",
+	"outputs": {
+		"c": {"type": "Integer", "value": 1},
+		"go": {"type": "Boolean", "value": false},
+		"Base::go": {"type": "Boolean", "value": true}
+	}
+}

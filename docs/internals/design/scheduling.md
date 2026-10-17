@@ -29,16 +29,16 @@ unordered and took one by its scheduling rule. `ChoiceKind` names the twelve:
 |------|-------------------|---------------------------|
 | `ChoiceTokenOrder` | `ActionExecutor.noteTokenOrder` | the tokens that could act in the step, by ID; the one stepped first is taken |
 | `ChoiceDecisionBranch` | `ActionExecutor.noteDecisionBranches` | the successions whose guards hold, by declaration position |
-| `ChoiceWriteOrder` | `stepWriteLedger.noteChoices` | the tokens that wrote one feature in one step; the write that stood is taken |
+| `choiceWriteOrder` | `stepWriteLedger.noteChoices` | the tokens that wrote one feature in one step; the write that stood is taken |
 | `ChoiceTransition` | `StateExecutor.chooseTransition`; `pickBranch` (`state_route.go`) | the transitions one event enables out of one state, by declaration position; or the branches of a `choice` or `junction` pseudostate enabled when its guards are read, labelled `choice <name>` or `junction <name>` |
 | `ChoiceRegionOrder` | `dispatchInOrder`, drawn on the front of `state_unit_front.go` (`on <event>`); `chooseDoAction` (`do round at t=…`); `fireJoinIncoming` (`join <name>`) | the next unit — a source's exit, a segment's effect, a target's entry — of each firing one occurrence selected across regions, by source in declaration order; the one performed first is taken, and the entries and exits a firing nests are drawn on its front — likewise the states whose do behaviors are due in one round, and the sources of the transitions into a join that fires |
-| `ChoiceEntryOrder` | `enterRegionsInto` (`entering <state>`), `enterForkBranches` (`fork <name>`), a history's restore | the next entry unit of each region, branch or restored region of a composite state, in declaration order; the one performed first is taken. A unit performing no behavior rides with the performing unit beside it |
-| `ChoiceEntryStep` | `StateExecutor.entryStep` (`entry at t=…`) | a free dispatch due at the instant, followed by the held entry cascades that can resume; the free dispatch is listed first and the selected alternative is taken |
-| `ChoiceExitOrder` | `exitState` (`exiting <state>`) | the next exit unit of each region a state leaves, innermost first within a region, in declaration order; the one performed first is taken |
-| `ChoiceStepOrder` | `StateExecutor.chooseStepOrder` | the move of a due do behavior and a dispatch due beside it; the one that goes first is taken |
-| `ChoiceStatementOrder` | `stmtEngine.pickStatement` (`statements in <body>`) | the statements of one body that no succession or control structure orders and that may run next (`lower.StatementOrder`), by declaration position; the one run first is taken |
+| `choiceEntryOrder` | `enterRegionsInto` (`entering <state>`), `enterForkBranches` (`fork <name>`), a history's restore | the next entry unit of each region, branch or restored region of a composite state, in declaration order; the one performed first is taken. A unit performing no behavior rides with the performing unit beside it |
+| `choiceEntryStep` | `StateExecutor.entryStep` (`entry at t=…`) | a free dispatch due at the instant, followed by the held entry cascades that can resume; the free dispatch is listed first and the selected alternative is taken |
+| `choiceExitOrder` | `exitState` (`exiting <state>`) | the next exit unit of each region a state leaves, innermost first within a region, in declaration order; the one performed first is taken |
+| `choiceStepOrder` | `StateExecutor.chooseStepOrder` | the move of a due do behavior and a dispatch due beside it; the one that goes first is taken |
+| `choiceStatementOrder` | `stmtEngine.pickStatement` (`statements in <body>`) | the statements of one body that no succession or control structure orders and that may run next (`lower.StatementOrder`), by declaration position; the one run first is taken |
 | `ChoiceDueOrder` | `Context.runDue` (`advance.go`); the checker's run, one executor holding the turn until it has no move at the instant | the executors due at one instant, in creation order; the one run first is taken |
-| `ChoiceDispatchOrder` | `StateExecutor.nextEvent`, when the queue leaves several events unordered at its head | the events due at one instant the library does not order — time triggers with each other, a time trigger with a pool event of the same timestamp — labelled as the queue labels them; the one dispatched first is taken. A completion event goes before any of them and pool events keep their arrival order (`earlierFirstIncomingTransferSort`), so neither is a choice |
+| `choiceDispatchOrder` | `StateExecutor.nextEvent`, when the queue leaves several events unordered at its head | the events due at one instant the library does not order — time triggers with each other, a time trigger with a pool event of the same timestamp — labelled as the queue labels them; the one dispatched first is taken. A completion event goes before any of them and pool events keep their arrival order (`earlierFirstIncomingTransferSort`), so neither is a choice |
 
 Two rules hold at every site:
 
@@ -55,7 +55,7 @@ Two rules hold at every site:
 `Context.note` appends a note to the run's `runState.notes` and, when tracing, writes its
 `String()` to the trace at the point it was made (`choice …`, `unevaluable guard …`). A probe —
 a preview of what a run would do, bracketed by `beginProbe` — notes nothing, since it is not a
-run. `Context.Notes`, `Choices` and `UnevaluableGuards` read them back; the executors' `Notes` and
+run. `Context.Notes`, `Choices` and `unevaluableGuards` read them back; the executors' `Notes` and
 `NoteCount` let a caller driving a run call by call see what one call noted, which is how the REPL
 ends `%step`, `%continue` and `%advance` with a count; `NotesSince` reads the notes past such a
 mark without copying the ones before it.
@@ -125,17 +125,21 @@ already uses — `check_reduce.go`, `future_footprint.go`; there is no second co
 
 Per site, the footprint of an alternative is: a token, `standing` where it stands before the step
 (`ChoiceTokenOrder`, replayed and explored steps included via `stepOrder.able`); a write, the
-feature written (`ChoiceWriteOrder`); an executor due at the instant, its `executorFuture`
+feature written (`choiceWriteOrder`); an executor due at the instant, its `executorFuture`
 (`ChoiceDueOrder`, in `advance.go` and the checker's `drawOwner`); a pool occurrence, the
 transitions out of the active states its trigger reacts to (`eventFootprint`,
-`ChoiceDispatchOrder`); a due do move against a dispatch, `doStepFootprint` against
-`dispatchFootprint` (`ChoiceStepOrder`, `ChoiceEntryStep`); a region's queue on a unit front, what
+`choiceDispatchOrder`); a due do move against a dispatch, `doStepFootprint` against
+`dispatchFootprint` (`choiceStepOrder`, `choiceEntryStep`); the states whose do behaviors are due in one round,
+`doStepFootprint` each; the sources of the segments pending into a join, each segment's own
+footprint (`lower.JoinSegmentFootprints`: its trigger, guard and effects with the exits from its
+source up to the join's owner — the owner's exit and the join's way out follow whichever fires
+first, so they are left out); a region's queue on a unit front, what
 its units may touch — the firing's transition, the region's entry (`regionEntryFootprint`: entering
 and starting any state under it, its entry transitions' effects, the pseudostates it crosses) or the
 exits of the states it leaves (`exitFootprint`) — carried on the `unitQueue` and drawn against on
-`drain` (`ChoiceRegionOrder`, `ChoiceEntryOrder`, `ChoiceExitOrder`). A unit the graph does not name
+`drain` (`ChoiceRegionOrder`, `choiceEntryOrder`, `choiceExitOrder`). A unit the graph does not name
 is `unknownFootprint`, which conflicts with everything. A guard verdict or an invocation result
-that depends on a body's statement orders (`ChoiceGuardOrder`, the `result of …` statement order)
+that depends on a body's statement orders (`choiceGuardOrder`, the `result of …` statement order)
 is a choice among exclusive outcomes and stays unresolved.
 
 What the classification feeds: `Context.OrderDependent(feature)` counts the unresolved choice
@@ -315,7 +319,7 @@ per statement, an `assign` writing when it ends. Another performance may run bet
   `lower.StatementOrder` lists, before each statement runs, those that may run next: a statement
   `then` links waits for the one before it, a local declaration, `return` or `perform` keeps its
   place, and two orders that only swap adjacent independent statements (by the reduction's
-  footprints) are one. Two or more candidates are a `ChoiceStatementOrder`
+  footprints) are one. Two or more candidates are a `choiceStatementOrder`
   (`stmtEngine.pickStatement`); a compound statement already started yields at its inner
   boundaries so a dependent sibling may run between them. `declared` and `reverse` run
   a nested body's statements first to last as before, and an action definition's own statements
@@ -357,7 +361,7 @@ entering or leaving a state of two or more regions, its event order unchanged
 ([region-order scheduling](region-order-scheduling.md)). So is the step order: the fixed
 policies run a round of the due do behaviors whole and dispatch after it, and
 `StateExecutor.noteRoundStepOrder` records each due do move the round takes ahead of a dispatch
-that would act as the `ChoiceStepOrder` the unit-at-a-time policies draw there, taken as the do
+that would act as the `choiceStepOrder` the unit-at-a-time policies draw there, taken as the do
 step, so a fixture with a do behavior beside an acting dispatch carries one `choice` line per such
 move and its event order is unchanged.
 
@@ -476,17 +480,17 @@ the lowering fall into these classes:
 
 | Site | Order | Why it is not a choice |
 |------|-------|------------------------|
-| `clock.go` `Clock.Waits`, `action_executor.go` `visibleArmedWaits`, `tokenWaits` | clock waits by due instant | a later instant cannot occur before an earlier one (`Clocks.kerml`: `Clock::currentTime` is monotonic over `TimeInstant`s, and a wait ends at its instant); waits tied at one instant are drawn as `ChoiceDueOrder` and `ChoiceDispatchOrder` |
-| `executor_common.go` `EventQueue.Events`, `CompletionsOf`, `Tied` | queued events by arrival (`Event.ID`) | the order events were put into the pool is observed, not drawn; events the library leaves unordered at one instant are offered as `ChoiceDispatchOrder`, and an acting dispatch against a due do move as `ChoiceStepOrder` |
+| `clock.go` `Clock.Waits`, `action_executor.go` `visibleArmedWaits`, `tokenWaits` | clock waits by due instant | a later instant cannot occur before an earlier one (`Clocks.kerml`: `Clock::currentTime` is monotonic over `TimeInstant`s, and a wait ends at its instant); waits tied at one instant are drawn as `ChoiceDueOrder` and `choiceDispatchOrder` |
+| `executor_common.go` `EventQueue.Events`, `completionsOf`, `Tied` | queued events by arrival (`Event.ID`) | the order events were put into the pool is observed, not drawn; events the library leaves unordered at one instant are offered as `choiceDispatchOrder`, and an acting dispatch against a due do move as `choiceStepOrder` |
 | `action_executor.go` `tokensByID`, `waitingTokens`, `timeWaits`; `action_terminate.go` `dropTokensIn`, `beginPending` | tokens by `Token.ID` | an enumeration order for reporting and for stable alternative labels; which steppable token acts is `ChoiceTokenOrder`, and the tokens a termination drops all end in the same step (`Occurrences.kerml`: the suboccurrences of a terminated performance end with it), leaving no value an order could change |
-| `action_choice.go` `stepWriteLedger.noteChoices`, `noteTokenOrder` | alternatives by token | the canonical labelling of the recorded `ChoiceWriteOrder` and `ChoiceTokenOrder` themselves |
+| `action_choice.go` `stepWriteLedger.noteChoices`, `noteTokenOrder` | alternatives by token | the canonical labelling of the recorded `choiceWriteOrder` and `ChoiceTokenOrder` themselves |
 | `action_executor.go` `setFrameFeatures`; `action_frame.go` `takeDeliveries` (pins), output names | feature or pin names | each name is a distinct feature, so the writes commute and the result is one however they are applied; the names also order error text |
 | `action_executor.go` `synchronize` (indices descending) | slice deletion | mechanical: the consumed tokens are removed together within one step |
 | `succession_order.go` `orderFeaturingInstances`, `orderFeatureValues` | instances by `Instance.ID` | the instances a `BehaviorOrder` relates are matched end to end by identity; the succession itself is the `HappensBefore` the order enforces (`Occurrences.kerml`), and which of several unrelated performances starts first is the executors' `ChoiceDueOrder` and `ChoiceTokenOrder` |
-| `statements.go` `stmtListFrame.candidates` | runnable statements by index | the candidate set handed to the policy; which runs next is `ChoiceStatementOrder`, and `lower/statement_order.go` decides which pairs may reorder at all (a statement that keeps its place — a declaration read by name after it, a `return`, a performed reference — is ordered by the body's `then` successions or by its data dependence, KerML 1.0 §7.4.9 succession) |
+| `statements.go` `stmtListFrame.candidates` | runnable statements by index | the candidate set handed to the policy; which runs next is `choiceStatementOrder`, and `lower/statement_order.go` decides which pairs may reorder at all (a statement that keeps its place — a declaration read by name after it, a `return`, a performed reference — is ordered by the body's `then` successions or by its data dependence, KerML 1.0 §7.4.9 succession) |
 | `lower/behavior_order.go` `BehaviorOrder` | successions outside a body | lowered as `HappensBefore` constraints the runtime enforces, never as an order it draws |
-| `state_run_to_completion.go` `entryStep` | a held entry against a free dispatch | drawn as `ChoiceEntryStep` |
-| `state_executor.go` `runDoRound` | the due do moves of a round against the dispatch after it | recorded as `ChoiceStepOrder` by `noteRoundStepOrder`, taken as the do step (above); the moves among the due do behaviors are `chooseDoAction`'s draw where two or more are due |
+| `state_run_to_completion.go` `entryStep` | a held entry against a free dispatch | drawn as `choiceEntryStep` |
+| `state_executor.go` `runDoRound` | the due do moves of a round against the dispatch after it | recorded as `choiceStepOrder` by `noteRoundStepOrder`, taken as the do step (above); the moves among the due do behaviors are `chooseDoAction`'s draw where two or more are due |
 | `action_step_multiplicity.go` `splitRepeatedStep` | the `n` performances of a repeated step in a loop or `if` body, among themselves and against the steps outside the body | drawn as token order: the performances are sibling tokens of the body's flow, one repetition group, and the body yields between its moves (`lower.BodyDivides`), so `explore` reaches every interleaving a top-level `[n]` step admits |
 
 ## The conformance contract

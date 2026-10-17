@@ -16,6 +16,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/tools/census/grammar"
 )
 
+const (
+	ownerMissingKind = "owner-missing"
+)
+
 // Report holds every production's grammar shape, reflective checks, and
 // grammar-to-input differential.
 type Report struct {
@@ -203,7 +207,7 @@ func (t *Totals) add(p Production) {
 			t.AssignmentsFound++
 		} else if check.Status == "missing" {
 			t.AssignmentsMissing++
-		} else if check.Status == "owner-missing" {
+		} else if check.Status == ownerMissingKind {
 			t.OwnerMissing++
 		}
 	}
@@ -247,7 +251,7 @@ func (r *Report) Summary() *Summary {
 				}
 			}
 			for _, check := range p.Assignments {
-				if check.Status == "owner-missing" {
+				if check.Status == ownerMissingKind {
 					out.OwnerMissingAssignments = append(out.OwnerMissingAssignments, FeatureFinding{
 						Grammar: p.Shape.Grammar, Production: p.Shape.Name, Line: p.Shape.Line,
 						Feature: check.Feature, Owner: check.Owner,
@@ -404,7 +408,7 @@ func formatAssignments(p Production) string {
 		switch check.Status {
 		case "found":
 			mark = "✓"
-		case "owner-missing":
+		case ownerMissingKind:
 			mark = "owner missing"
 		}
 		out = append(out, fmt.Sprintf("%s %s %s → %s::%s %s", check.Feature, check.Op, check.Value,

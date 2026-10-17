@@ -31,7 +31,7 @@ func (r *Renderer) treeDepth() int {
 func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	out.sites = map[*Node]treeSite{}
-	descendants := r.exposedDescendants(exposed, r.containedMembers)
+	descendants := r.exposedDescendants(view, exposed, func(sym *symbols.Symbol) []*symbols.Symbol { return r.walkMembers(view, sym) })
 	for _, elem := range exposed {
 		if descendants[symbols.KeyOf(elem)] {
 			continue
@@ -45,10 +45,10 @@ func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, o
 // exposedDescendants is the key of each exposed element a surviving root's
 // walk by members already draws — a fixpoint, since an element whose
 // containers are all suppressed must stand as a root itself.
-func (r *Renderer) exposedDescendants(exposed []*symbols.Symbol, members func(*symbols.Symbol) []*symbols.Symbol) map[symbols.ElementKey]bool {
+func (r *Renderer) exposedDescendants(view *symbols.Symbol, exposed []*symbols.Symbol, members func(*symbols.Symbol) []*symbols.Symbol) map[symbols.ElementKey]bool {
 	by := make([]map[symbols.ElementKey]bool, len(exposed))
 	for i, elem := range exposed {
-		by[i] = r.treeDescendants(elem, members)
+		by[i] = r.treeDescendants(view, elem, members)
 	}
 	suppressed := map[symbols.ElementKey]bool{}
 	for range exposed {
@@ -83,15 +83,20 @@ func (r *Renderer) exposedDescendants(exposed []*symbols.Symbol, members func(*s
 // treeDescendants is the set of element keys the walk given by members draws
 // below sym, dry-run by the same walk: a member is drawn even when the guard
 // stubs its node.
-func (r *Renderer) treeDescendants(sym *symbols.Symbol, members func(*symbols.Symbol) []*symbols.Symbol) map[symbols.ElementKey]bool {
+func (r *Renderer) treeDescendants(view, sym *symbols.Symbol, members func(*symbols.Symbol) []*symbols.Symbol) map[symbols.ElementKey]bool {
 	out := map[symbols.ElementKey]bool{}
+	bound := r.walkBound(view)
 	var walk func(sym *symbols.Symbol, seen map[*symbols.Symbol]bool, depth int)
 	walk = func(sym *symbols.Symbol, seen map[*symbols.Symbol]bool, depth int) {
-		if seen[sym] || depth >= r.treeDepth() {
+		if seen[sym] {
 			return
 		}
 		seen[sym] = true
+		folded := depth >= bound || r.collapsedIn(view, sym)
 		for _, member := range members(sym) {
+			if folded && !pinnedAt(sym, member) {
+				continue
+			}
 			out[symbols.KeyOf(member)] = true
 			walk(member, seen, depth+1)
 		}
@@ -119,7 +124,7 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 		r.dress(view, sub, node, out)
 		exposed, err := r.model.ExposedElements(sub)
 		if err == nil {
-			descendants := r.exposedDescendants(exposed, r.containedMembers)
+			descendants := r.exposedDescendants(sub, exposed, func(sym *symbols.Symbol) []*symbols.Symbol { return r.walkMembers(sub, sym) })
 			for _, elem := range exposed {
 				if descendants[symbols.KeyOf(elem)] {
 					continue
@@ -141,42 +146,50 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 // nested in it is named as it was declared. view is the view the element is
 // shown in, nil outside any view.
 func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, seen map[*symbols.Symbol]bool, depth int, qualified bool, out *Rendering) *Node {
-	return r.treeNodeWithMembers(view, sym, ids, seen, depth, qualified, out, true)
+	shown := seen[sym]
+	node := r.treeNodeShallow(view, sym, ids, seen, depth, qualified, out)
+	if shown {
+		return node
+	}
+	// At the depth bound, or collapsed, an element keeps its ports and pins — they
+	// count at their owner's depth — and nothing else nested is drawn.
+	bound, cut := r.walkBound(view), 0
+	folded := depth >= bound || collapsed(node)
+	for _, member := range r.walkMembers(view, sym) {
+		if folded && !pinnedAt(sym, member) {
+			if depth >= bound {
+				cut++
+			}
+			continue
+		}
+		node.Children = append(node.Children, r.treeNode(view, member, ids, seen, depth+1, false, out))
+	}
+	if cut > 0 {
+		node.Detail = detailWith(node.Detail, cutNote(bound))
+		out.depthCut += cut
+	}
+	return node
 }
 
 // treeNodeShallow draws sym without recursively drawing its members.
 func (r *Renderer) treeNodeShallow(view, sym *symbols.Symbol, ids *nodeIDs, seen map[*symbols.Symbol]bool, depth int, qualified bool, out *Rendering) *Node {
-	return r.treeNodeWithMembers(view, sym, ids, seen, depth, qualified, out, false)
-}
-
-// treeNodeWithMembers builds a node and optionally recurses through its members.
-func (r *Renderer) treeNodeWithMembers(view, sym *symbols.Symbol, ids *nodeIDs, seen map[*symbols.Symbol]bool, depth int, qualified bool, out *Rendering, includeMembers bool) *Node {
 	name := r.notationName(sym)
 	if !qualified {
 		name = localName(sym)
 	}
 	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
 		Type: declType(sym), Typings: r.declTypings(sym), Value: r.declValue(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(view, sym, out),
-		Style: r.styleOf(view, sym, out)}
+		Style: r.styleOf(view, sym, out), Referential: referenceRow(sym)}
 	out.noteTreeSite(node, view, sym)
 	if seen[sym] {
 		node.Detail = detailWith(node.Detail, "already shown")
 		return node
 	}
 	r.notesOf(view, sym, node.ID, out)
-	if depth >= r.treeDepth() {
-		if len(r.containedMembers(sym)) > 0 {
-			node.Detail = detailWith(node.Detail, fmt.Sprintf("nested deeper than %d levels; not shown", r.treeDepth()))
-		}
+	if depth >= r.walkBound(view) {
 		return node
 	}
 	seen[sym] = true
-	if !includeMembers {
-		return node
-	}
-	for _, member := range r.containedMembers(sym) {
-		node.Children = append(node.Children, r.treeNode(view, member, ids, seen, depth+1, false, out))
-	}
 	return node
 }
 

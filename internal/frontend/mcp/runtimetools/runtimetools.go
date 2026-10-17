@@ -42,6 +42,7 @@ type group struct {
 func Register(s *mcp.Server, svc *sysmlgrpc.Service, root string) {
 	g := &group{svc: svc, root: root}
 	g.registerInfo(s)
+	g.registerExplain(s)
 	g.registerParse(s)
 	g.registerDiagnostics(s)
 	g.registerRuntime(s)
