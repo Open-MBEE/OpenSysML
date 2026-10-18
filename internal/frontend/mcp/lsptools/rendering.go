@@ -14,21 +14,25 @@ import (
 
 // RenderViewInput asks for one rendering of a document's view.
 type RenderViewInput struct {
-	Path         string `json:"path" jsonschema:"the document, absolute or relative to the workspace root"`
-	View         string `json:"view,omitempty" jsonschema:"the qualified name of a view the document declares, a pseudo-view such as #tree, #interconnection, #state, #action, #sequence or #tree:Pkg::Part (see the views tool), or omitted for the one view the document declares (a document declaring none needs a pseudo-view)"`
-	Form         string `json:"form,omitempty" jsonschema:"the artifact's notation: mermaid, dot (Graphviz), plantuml, d2, text, markdown, csv or tsv; omitted, markdown for a table or matrix and mermaid otherwise"`
-	Palette      string `json:"palette,omitempty" jsonschema:"fill colors by keyword family for dot/mermaid/plantuml/d2: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; omitted draws black and white"`
-	Style        string `json:"style,omitempty" jsonschema:"the drawing style of dot/mermaid: pilot (the default, the Pilot visualizer's look) or cameo (Cameo Systems Modeler's)"`
-	Ports        string `json:"ports,omitempty" jsonschema:"ports drawn on an interconnection or mixed rendering: minimal (the default, only connected ports) or full (every port, labelled name : Type)"`
-	Overlay      string `json:"overlay,omitempty" jsonschema:"verdicts, on a requirement rendering: runs the verification cases and colors each requirement by its verdict; omitted runs nothing"`
-	LinkTemplate string `json:"linkTemplate,omitempty" jsonschema:"a template for source links on elements, with {file}, {line}, {col}, {qname} and {id} placeholders"`
+	Path         string   `json:"path" jsonschema:"the document, absolute or relative to the workspace root"`
+	View         string   `json:"view,omitempty" jsonschema:"the qualified name of a view the document declares, a pseudo-view such as #tree, #interconnection, #state, #action, #sequence or #tree:Pkg::Part (see the views tool), or omitted for the one view the document declares (a document declaring none needs a pseudo-view)"`
+	Form         string   `json:"form,omitempty" jsonschema:"the artifact's notation: mermaid, dot (Graphviz), plantuml, d2, text, markdown, csv or tsv; omitted, markdown for a table or matrix and mermaid otherwise"`
+	Palette      string   `json:"palette,omitempty" jsonschema:"fill colors by keyword family for dot/mermaid/plantuml/d2: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; omitted draws black and white"`
+	Style        string   `json:"style,omitempty" jsonschema:"the drawing style of dot/mermaid: pilot (the default, the Pilot visualizer's look) or cameo (Cameo Systems Modeler's)"`
+	Ports        string   `json:"ports,omitempty" jsonschema:"ports drawn on an interconnection or mixed rendering: minimal (the default, only connected ports) or full (every port, labelled name : Type)"`
+	Lines        string   `json:"lines,omitempty" jsonschema:"how dot and plantuml route edges: splines (the default), ortho or polyline"`
+	Show         []string `json:"show,omitempty" jsonschema:"optional notation elements drawn besides the ones the view's rendering shows: parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, or all; port symbols, compartments and keywords are drawn by default"`
+	Depth        int      `json:"depth,omitempty" jsonschema:"how many levels of nested elements a tree or interconnection rendering draws below each exposed element, overriding the view's depth attribute; omitted or 0 keeps the view's own depth"`
+	Overlay      string   `json:"overlay,omitempty" jsonschema:"verdicts, on a requirement rendering: runs the verification cases and colors each requirement by its verdict; omitted runs nothing"`
+	LinkTemplate string   `json:"linkTemplate,omitempty" jsonschema:"a template for source links on elements, with {file}, {line}, {col}, {qname} and {id} placeholders"`
 }
 
 // RenderDocumentInput names a document definition to render.
 type RenderDocumentInput struct {
-	Name         string `json:"name" jsonschema:"the qualified name of a document definition (doc def), as documents lists"`
-	DiagramForm  string `json:"diagramForm,omitempty" jsonschema:"the notation of every graph-shaped diagram block: mermaid, dot, plantuml or d2; omitted, chosen per diagram as the CLI chooses it"`
-	LinkTemplate string `json:"linkTemplate,omitempty" jsonschema:"a template for source links on elements, with {file}, {line}, {col}, {qname} and {id} placeholders"`
+	Name         string   `json:"name" jsonschema:"the qualified name of a document definition (doc def), as documents lists"`
+	DiagramForm  string   `json:"diagramForm,omitempty" jsonschema:"the notation of every graph-shaped diagram block: mermaid, dot, plantuml or d2; omitted, chosen per diagram as the CLI chooses it"`
+	Show         []string `json:"show,omitempty" jsonschema:"optional notation elements every diagram draws besides those its view and diagram block show: parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, or all"`
+	LinkTemplate string   `json:"linkTemplate,omitempty" jsonschema:"a template for source links on elements, with {file}, {line}, {col}, {qname} and {id} placeholders"`
 }
 
 // NoInput takes no arguments.
@@ -50,7 +54,7 @@ func registerRendering(s *mcp.Server, h *Host) {
 		}
 		res, err := h.Server.Render(&lsp.RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: ref.uri()},
-			View:         in.View, Form: in.Form, Palette: in.Palette, Style: in.Style, Ports: in.Ports, Overlay: in.Overlay, LinkTemplate: in.LinkTemplate,
+			View:         in.View, Form: in.Form, Palette: in.Palette, Style: in.Style, Ports: in.Ports, Lines: in.Lines, Show: in.Show, Depth: in.Depth, Overlay: in.Overlay, LinkTemplate: in.LinkTemplate,
 		})
 		if err != nil {
 			return nil, nil, err
@@ -105,7 +109,7 @@ func registerRendering(s *mcp.Server, h *Host) {
 			return nil, nil, fmt.Errorf("name is required")
 		}
 		h.Refresh(ctx)
-		res, err := h.Server.RenderDocument(&lsp.RenderDocumentParams{Name: in.Name, DiagramForm: in.DiagramForm, LinkTemplate: in.LinkTemplate})
+		res, err := h.Server.RenderDocument(&lsp.RenderDocumentParams{Name: in.Name, DiagramForm: in.DiagramForm, Show: in.Show, LinkTemplate: in.LinkTemplate})
 		if err != nil {
 			return nil, nil, err
 		}
