@@ -2701,14 +2701,18 @@ func (s *Session) performingObject(args []string) (*runtime.Instance, string, er
 
 // attachPerformedAction binds the debugging session to the performance an object
 // already runs of the action, so %step, %continue and %advance drive that
-// performance and %features shows what it wrote.
+// performance and %features shows what it wrote; one a succession order still
+// holds back is refused with the order's violation.
 func (s *Session) attachPerformedAction(
 	ctx *runtime.Context,
 	name, fqn, selfFQN string,
 	inst *runtime.Instance,
 	behavior *runtime.ObjectBehavior,
-) []string {
-	exec := behavior.Action
+) ([]string, error) {
+	exec, err := ctx.PerformedExecutor(behavior)
+	if err != nil {
+		return nil, err
+	}
 	exec.SetTrace(s.trace)
 
 	s.actionExec.release()
@@ -2733,7 +2737,7 @@ func (s *Session) attachPerformedAction(
 			objectMention(inst, selfFQN), name, name),
 		fmt.Sprintf("  State: %s", exec.State()),
 		fmt.Sprintf("  Tokens: %d", len(exec.Tokens())),
-	}
+	}, nil
 }
 
 // AmbiguousActionError reports a definition an object performs as the body of
@@ -2819,7 +2823,7 @@ func (s *Session) startAction(name string, performer []string) ([]string, error)
 		switch performed := self.PerformedActionsOf(sym); len(performed) {
 		case 0:
 		case 1:
-			return s.attachPerformedAction(ctx, name, qualifiedOr(fqn, name), selfFQN, self, performed[0]), nil
+			return s.attachPerformedAction(ctx, name, qualifiedOr(fqn, name), selfFQN, self, performed[0])
 		default:
 			return nil, ambiguousAction(name, self, selfFQN, performed)
 		}

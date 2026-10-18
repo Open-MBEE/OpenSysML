@@ -1960,6 +1960,10 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 	case 0:
 		return nil, nil
 	case 1:
+		exec, err := ctx.PerformedExecutor(performed[0])
+		if err != nil {
+			return nil, err
+		}
 		conflicts := 0
 		for name, value := range inputs {
 			implicit := false
@@ -1967,7 +1971,7 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 				if param.Name != name || !param.IsReference {
 					continue
 				}
-				root := performed[0].Action.root
+				root := exec.root
 				if bound, held := root.data[root.key(name)]; held {
 					implicit = ctx.valueEqual(bound, value)
 				} else {
@@ -1982,13 +1986,35 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 		if conflicts > 0 {
 			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", errPerformedInputs, SymbolText(action))
 		}
-		return performed[0].Action, nil
+		return exec, nil
 	default:
 		if member := sameBehaviorMember(performed); member != nil {
 			return nil, fmt.Errorf("%w: the object performs %s %d times, under %s", errAmbiguousAction, SymbolText(action), len(performed), member.Name)
 		}
 		return nil, fmt.Errorf("%w: the object performs %s as %s", errAmbiguousAction, SymbolText(action), strings.Join(behaviorUsages(performed), " and "))
 	}
+}
+
+// PerformedExecutor is the executor of an action the object performs. One a
+// succession order holds back has none yet: it is started here once the order
+// admits it, as an exhibited machine held back is (stateRunFor), and refused
+// with the order's violation while its predecessor runs.
+func (ctx *Context) PerformedExecutor(behavior *ObjectBehavior) (*ActionExecutor, error) {
+	if behavior.deferred != nil {
+		if err := ctx.checkSuccessionOrderViolation(behavior.Object, behavior.member); err != nil {
+			return nil, err
+		}
+		if err := ctx.releaseDeferredBehavior(behavior); err != nil {
+			return nil, err
+		}
+	}
+	if behavior.Action == nil {
+		if behavior.Err != nil {
+			return nil, behavior.Err
+		}
+		return nil, fmt.Errorf("%s runs no action", behavior.Describe())
+	}
+	return behavior.Action, nil
 }
 
 // sameBehaviorMember is the usage every behavior is bound under when they

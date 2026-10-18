@@ -89,3 +89,30 @@ func TestRunForOnAPerformerDrivesItsOwnPerformance(t *testing.T) {
 	wants(t, strings.Join(long[0].Lines, "\n"), "attaches to that running performance", "✓ Action completed", "run.n = 1")
 	wants(t, run(t, s, "%features P::robot"), "steps = 1")
 }
+
+const heldActionDebugModel = `
+package H {
+	private import ScalarValues::*;
+	part def Pair {
+		attribute marks : Integer = 0;
+		perform action earlier { first start; then action w accept after 5 [SI::s]; then done; }
+		perform action later { first start; then action mark assign marks := marks + 1; then done; }
+		first earlier then later;
+	}
+	part pair : Pair;
+}
+`
+
+// A performed action a succession order holds back has no performance to attach
+// to yet: %action refuses it with the order's violation while the predecessor
+// runs, and attaches to the object's own performance once the clock released it.
+func TestActionHeldBySuccessionIsRefusedUntilReleased(t *testing.T) {
+	s := loadSource(t, heldActionDebugModel)
+	run(t, s, "%instantiate H::pair")
+	wants(t, run(t, s, "%action H::Pair::later H::pair"),
+		"error: succession-order-violated: succession first-then succession orders earlier of object #1 before later of object #1, but earlier of object #1 has already begun")
+	wants(t, run(t, s, "%action H::Pair::earlier H::pair"), `✓ Debugging action "earlier" performed by object #1 of "H::pair"`, "State: Waiting")
+	wants(t, run(t, s, "%advance 10"), "Action state: Completed")
+	wants(t, run(t, s, "%action H::Pair::later H::pair"), `✓ Debugging action "later" performed by object #1 of "H::pair"`, "State: Completed")
+	wants(t, run(t, s, "%features H::pair"), "marks = 1", "later: performed action, completed")
+}

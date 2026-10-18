@@ -150,3 +150,36 @@ func TestExecuteStateAdvanceRunsTheExhibitedMachine(t *testing.T) {
 		}
 	}
 }
+
+const heldActionModel = `
+package H {
+  private import ScalarValues::*;
+  part def Pair {
+    attribute marks : Integer = 0;
+    perform action earlier { first start; then action w accept after 5 [SI::s]; then done; }
+    perform action later { first start; then action mark assign marks := marks + 1; then done; }
+    first earlier then later;
+  }
+  part pair : Pair;
+}
+`
+
+// A performed action a succession order still holds back is refused with the
+// order's violation in both modes, rather than performed anew beside the held one.
+func TestExecuteActionOnAPerformerHoldingItBySuccessionIsRefusedAlike(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParse(t, srv, heldActionModel)
+	for label, advance := range map[string]*float64{"to completion": nil, "advance 2": f64(2), "advance 10": f64(10)} {
+		resp := executeActionOn(t, srv, hash, "H::Pair::later", "H::pair", advance, nil)
+		if want := "succession-order-violated: succession first-then succession orders earlier of object #1 before later of object #1, but earlier of object #1 has already begun"; !strings.Contains(resp.Error, want) {
+			t.Errorf("%s: error = %q, want %q", label, resp.Error, want)
+		}
+	}
+	resp := executeActionOn(t, srv, hash, "H::Pair::earlier", "H::pair", f64(10), nil)
+	if resp.Error != "" {
+		t.Fatalf("earlier under advance 10: %s", resp.Error)
+	}
+	if got := resp.PerformerAttributes["this.marks"].GetIntValue(); got != 1 {
+		t.Errorf("this.marks = %d after earlier ran its course, want 1: the clock released later once", got)
+	}
+}
