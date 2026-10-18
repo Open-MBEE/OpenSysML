@@ -1,6 +1,8 @@
 package semantics
 
 import (
+	"strings"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -324,6 +326,21 @@ func (m *Model) FrameFeature(sym *symbols.Symbol) bool {
 	default:
 		return m.restatesRoot(sym, frameRoots) || m.NamesFeaturingReference(sym)
 	}
+}
+
+// FrameRoot reports a Kernel member of typ the runtime answers itself rather than from the shape:
+// a restatement of a frame root, a frame featuring, or what a frame root restates (`portions`).
+func (m *Model) FrameRoot(typ, sym *symbols.Symbol) bool {
+	if m.restatesRoot(sym, frameRoots) || m.NamesFeaturingReference(sym) {
+		return true
+	}
+	for fqn := range frameRoots {
+		root, found := m.LookupMember(typ, fqn[strings.LastIndex(fqn, "::")+2:])
+		if found && root != nil && m.restatesAny(root, func(s *symbols.Symbol) bool { return s == sym }) {
+			return true
+		}
+	}
+	return false
 }
 
 // NamesFeaturingReference reports a member restating one of referenceSelfRoots:

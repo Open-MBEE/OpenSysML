@@ -14,6 +14,11 @@ in this directory, so adding a case is a data-only change.
 
 | Field | Applies to | Meaning |
 |---|---|---|
+| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `ImportData` or `CompareResults` |
+| `imports`, `import_dry_run` | ImportData | the imports (`name`, `content`, optional `import_format` and `import_map`), in order, and whether to report without changing the model |
+| `expected_assignments` | ImportData | the assignments' descriptions over every import, in order; `expected_content` is the edited model, `expected_error` a refusal that leaves it unchanged |
+| `results`, `actions`, `runs`, `seed`, `observe` | CompareResults | the results index as JSON, the configurations selected, the runs per configuration, the seed and stored-name → feature pairs |
+| `expected_configurations` | CompareResults | per configuration in index order: `name`, `status`, `runs`, `completed`, `stored_runs`, `observables` (stored name → compared), `unresolved` and `lines_contain` |
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc` or `CheckBehavior` |
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `GetDiagnostics`, `ApplyEdits`, `RunDocumentQuery` or `EvaluateCalc` |
 

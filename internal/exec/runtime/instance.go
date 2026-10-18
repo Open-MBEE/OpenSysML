@@ -824,6 +824,9 @@ func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopul
 		return nil, err
 	}
 	if _, ok := inst.FeatureValues[name]; !ok {
+		if fv, derived, err := ctx.kernelCollectionRead(inst, name, open); derived {
+			return fv, err
+		}
 		// Naming no feature value of the object is no materialization of one.
 		return nil, fmt.Errorf("%w: feature %q not found in instance %d (type %s)", ErrNoSuchFeature, name, inst.ID, inst.Type.Name)
 	}
