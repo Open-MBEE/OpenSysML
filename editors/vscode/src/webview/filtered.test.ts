@@ -42,6 +42,7 @@ test("a filtered interconnection view with parts but no edge is drawn, its notic
   assert.equal(laidOut(layout.roots), 4);
   assert.equal(
     renderSummary("interconnection.sysml", { textDocument: { uri: "file:///interconnection.sysml" }, view: "Model::fails" }, filtered),
-    "Rendered Model::fails of interconnection.sysml: interconnection (mermaid), 4 node(s), 0 edge(s), 1 notice(s)",
+    "Rendered Model::fails of interconnection.sysml: interconnection (mermaid), 4 node(s), 0 edge(s), 1 notice(s):\n" +
+      "  interface Model::abcd::i attaches to 'a.a', which the view's filter conditions exclude; no edge is drawn",
   );
 });
