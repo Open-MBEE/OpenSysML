@@ -612,7 +612,7 @@ func (m *Model) evalPredicate(p *symbols.FilterPredicate, cand *symbols.Symbol) 
 		return boolValue(m.annotatedBy(cand, p.TypeFQN)), nil
 
 	case symbols.FilterMetaClassify:
-		return boolValue(m.metaclassConforms(cand, p.TypeFQN)), nil
+		return boolValue(m.annotatedBy(cand, p.TypeFQN)), nil
 
 	case symbols.FilterFeature:
 		return m.featureValue(cand, p)
@@ -909,7 +909,8 @@ func (m *Model) annotationFeatureValue(cand *symbols.Symbol, p *symbols.FilterPr
 // to the named type: `@Safety` holds for an element annotated with a metadata
 // type specializing Safety as well as with Safety itself. The candidate's own
 // metaclass counts as such an annotation, which is what makes `@SysML::PartUsage`
-// select the part usages among the candidates.
+// select the part usages among the candidates. `@@T` tests the same metadata
+// (KerML 1.0 §7.4.9.2: its operand is `x.metadata`, annotations then metaobject).
 func (m *Model) annotatedBy(cand *symbols.Symbol, typeFQN string) bool {
 	typ := m.symbolByFQN(typeFQN)
 	for _, a := range m.annotationsOf(cand) {
@@ -922,7 +923,7 @@ func (m *Model) annotatedBy(cand *symbols.Symbol, typeFQN string) bool {
 
 // metaclassConforms reports whether the candidate's own metaclass — the KerML
 // metaclass of the declaration, `SysML::PartUsage` for a part usage — conforms to
-// the named type. It is what `@@T` tests.
+// the named type: the reflective metaobject among the element's metadata.
 func (m *Model) metaclassConforms(cand *symbols.Symbol, typeFQN string) bool {
 	meta := m.metaclassOf(cand)
 	if meta == nil {
