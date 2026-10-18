@@ -60,7 +60,7 @@ type RunsInput struct {
 type RenderRunInput struct {
 	SessionName
 	Kind string `json:"kind" jsonschema:"timeline (state occupancy per object machine over clock time) or sequence (the messages sent)"`
-	Form string `json:"form,omitempty" jsonschema:"text (default), mermaid, markdown, dot, plantuml, d2, csv or tsv"`
+	Form string `json:"form,omitempty" jsonschema:"text (default), mermaid, plantuml, svg (a self-contained SVG drawing) or svg-animated (the SVG replaying the run with SMIL)"`
 }
 
 // RenderedRun is a run's trace drawn.
@@ -187,7 +187,7 @@ func registerRuns(s *mcp.Server, m *Manager) {
 	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "render_run",
-		Description: "Render the run a session recorded as a state timeline or a message sequence (%render-run), in a text or diagram form. Recording must be on before the run: repl_command `%trace on`.",
+		Description: "Render the run a session recorded as a state timeline or a message sequence (%render-run), in a text, diagram or SVG form. Recording must be on before the run: repl_command `%trace on`.",
 		Annotations: toolkit.ReadOnly("Render run"),
 	}, handler(m, func(_ context.Context, sess *repl.Session, in RenderRunInput) (RenderedRun, error) {
 		kind, ok := runtrace.ParseKind(strings.TrimSpace(in.Kind))

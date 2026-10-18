@@ -455,3 +455,68 @@ func TestRenderViewExpandsUsagesThroughTheirTypes(t *testing.T) {
 		}
 	}
 }
+
+// A Layout binding only collapsed reaches gRPC and engine clients as geometry
+// that is collapsed and unplaced, so they can fold the node without a place.
+func TestRenderViewCarriesFoldOnlyLayoutUnplaced(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	content, err := os.ReadFile(filepath.Join("..", "..", "..", "internal", "ir", "view", "testdata", "layout-collapsed.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, _ := parseContent(t, srv, string(content))
+	const viewName = "FoldedViews::foldOnly"
+	rendered, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: parsed.ModelHash, View: viewName})
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	checkFoldOnly := func(label string, nodes []*pb.RenderNode) {
+		t.Helper()
+		var engineGeometry *pb.RenderGeometry
+		for _, node := range nodes {
+			switch node.Name {
+			case "engine":
+				engineGeometry = node.Geometry
+			case "piston":
+				t.Errorf("%s: piston is drawn under the collapsed engine", label)
+			}
+		}
+		if engineGeometry == nil || !engineGeometry.Collapsed || !engineGeometry.Unplaced || engineGeometry.X != 0 || engineGeometry.Y != 0 {
+			t.Errorf("%s: engine geometry = %+v, want collapsed and unplaced at no position", label, engineGeometry)
+		}
+	}
+	checkFoldOnly("gRPC", rendered.Nodes)
+
+	eng, err := engine.New()
+	if err != nil {
+		t.Fatalf("engine.New: %v", err)
+	}
+	params, err := json.Marshal(map[string]any{
+		"documents": []map[string]string{{"name": "layout-collapsed.sysml", "content": string(content)}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := eng.Call(context.Background(), "ParseSources", params)
+	if err != nil {
+		t.Fatalf("engine ParseSources: %v", err)
+	}
+	var engineParsed engine.JParseSourcesResponse
+	if err := json.Unmarshal(body, &engineParsed); err != nil {
+		t.Fatalf("decode engine ParseSources: %v", err)
+	}
+	engineRequest, err := json.Marshal(map[string]string{"modelHash": engineParsed.ModelHash, "view": viewName})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engineBody, err := eng.Call(context.Background(), "RenderView", engineRequest)
+	if err != nil {
+		t.Fatalf("engine RenderView: %v", err)
+	}
+	var engineView pb.RenderViewResponse
+	if err := protojson.Unmarshal(engineBody, &engineView); err != nil {
+		t.Fatalf("decode engine RenderView as protojson: %v\n%s", err, engineBody)
+	}
+	checkFoldOnly("engine", engineView.Nodes)
+}

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="76" viewBox="0 0 375 76" font-family="Helvetica, Arial, sans-serif" font-size="12">
+<title>timeline of a run (animated)</title>
+<desc>the trace of a run to t = 0</desc>
+<rect width="375" height="76" fill="#ffffff"/>
+<text x="16" y="28" font-weight="bold">timeline of a run (animated)</text>
+<text x="16" y="44" fill="#666666">the run recorded no state; the rendering is empty</text>
+</svg>

@@ -48,6 +48,7 @@ func TestDiagramLayoutWellFormedAnnotationsPass(t *testing.T) {
 	part def Loop {
 		part pump : Pump { @Layout { x = 10; y = 20; } }
 		part tank : Tank;
+		part valve : Pump { @Layout { collapsed = true; } }
 		connection supply connect pump to tank { @Route { points = (100, 20, 150, 60); } }
 	}
 	state def Machine {

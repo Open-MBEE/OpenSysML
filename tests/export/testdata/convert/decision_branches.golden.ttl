@@ -95,6 +95,7 @@ elmt:Branches__Charge__level
     sysml:owner elmt:Branches__Charge ;
     sysml:owningRelationship elmt:Branches__Charge__level_om ;
     sysml:owningMembership elmt:Branches__Charge__level_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "level" ;
     sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -128,6 +129,7 @@ elmt:Branches__Charge__check
     sysml:owner elmt:Branches__Charge ;
     sysml:owningRelationship elmt:Branches__Charge__check_om ;
     sysml:owningMembership elmt:Branches__Charge__check_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "check" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action check;\n" .
@@ -146,6 +148,7 @@ elmt:Branches__Charge__check_om
 
 elmt:Branches__Charge___402
     a sysml:DecisionNode ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Branches::Charge::@2" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "14"^^xsd:integer ;
@@ -173,6 +176,7 @@ elmt:Branches__Charge___402_om
 
 elmt:Branches__Charge___403
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Branches::Charge::@3" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -217,6 +221,7 @@ elmt:Branches__Charge___403_om
 
 expr:Branches__Charge___403_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___403_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Branches__Charge___403 ;
@@ -235,6 +240,7 @@ expr:Branches__Charge___403_pend0_om
 
 expr:Branches__Charge___403_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___403_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Branches__Charge___403 ;
@@ -275,6 +281,7 @@ expr:Branches__Charge___403_pend1_prs
 
 elmt:Branches__Charge___404
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Branches::Charge::@4" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
@@ -316,6 +323,7 @@ expr:Branches__Charge___404_pguard
     a sysml:OperatorExpression ;
     sysx:sourceText "level < 100" ;
     sysml:elementId "Branches__Charge___404_pguard" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:operator "<" ;
     sysml:argument expr:Branches__Charge___404_pguard_pa0, expr:Branches__Charge___404_pguard_pa1 ;
     sysml:ownedRelationship expr:Branches__Charge___404_pguard_pin0_om, expr:Branches__Charge___404_pguard_pin1_om, expr:Branches__Charge___404_pguard_pout_om ;
@@ -340,6 +348,7 @@ expr:Branches__Charge___404_pguard_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "level" ;
     sysml:elementId "Branches__Charge___404_pguard_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Branches__Charge__level ;
     sysml:ownedRelationship expr:Branches__Charge___404_pguard_pa0_pout_om, expr:Branches__Charge___404_pguard_pa0_preferent ;
     sysml:ownedMembership expr:Branches__Charge___404_pguard_pa0_pout_om ;
@@ -354,6 +363,7 @@ expr:Branches__Charge___404_pguard_pa0
 
 expr:Branches__Charge___404_pguard_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___404_pguard_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Branches__Charge___404_pguard_pa0 ;
@@ -374,6 +384,7 @@ expr:Branches__Charge___404_pguard_pa0_pout_om
 
 expr:Branches__Charge___404_pguard_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___404_pguard_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Branches__Charge___404_pguard ;
@@ -410,6 +421,7 @@ expr:Branches__Charge___404_pguard_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "100" ;
     sysml:elementId "Branches__Charge___404_pguard_pa1" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "100"^^xsd:integer ;
     sysml:owner expr:Branches__Charge___404_pguard_pin1 ;
     sysml:owningRelationship expr:Branches__Charge___404_pguard_pa1_om ;
@@ -417,6 +429,7 @@ expr:Branches__Charge___404_pguard_pa1
 
 expr:Branches__Charge___404_pguard_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___404_pguard_pin1" ;
     sysml:direction "in" ;
     sysml:owner expr:Branches__Charge___404_pguard ;
@@ -451,6 +464,7 @@ expr:Branches__Charge___404_pguard_pa1_om
 
 expr:Branches__Charge___404_pguard_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___404_pguard_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Branches__Charge___404_pguard ;
@@ -485,6 +499,7 @@ expr:Branches__Charge___404_pguard_om
 
 elmt:Branches__Charge___404_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___404_succession" ;
     sysml:connectorEnd expr:Branches__Charge___404_succession_pend0, expr:Branches__Charge___404_succession_pend1 ;
     sysml:ownedRelationship expr:Branches__Charge___404_succession_pend0_om, expr:Branches__Charge___404_succession_pend1_om ;
@@ -506,6 +521,7 @@ elmt:Branches__Charge___404_succession
 
 expr:Branches__Charge___404_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___404_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Branches__Charge___404_succession ;
@@ -524,6 +540,7 @@ expr:Branches__Charge___404_succession_pend0_om
 
 expr:Branches__Charge___404_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___404_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Branches__Charge___404_succession ;
@@ -574,6 +591,7 @@ elmt:Branches__Charge___404_succession_om
 
 elmt:Branches__Charge___405
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Branches::Charge::@5" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
@@ -615,6 +633,7 @@ expr:Branches__Charge___405_pguard
     a sysml:OperatorExpression ;
     sysx:sourceText "level >= 100" ;
     sysml:elementId "Branches__Charge___405_pguard" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:operator ">=" ;
     sysml:argument expr:Branches__Charge___405_pguard_pa0, expr:Branches__Charge___405_pguard_pa1 ;
     sysml:ownedRelationship expr:Branches__Charge___405_pguard_pin0_om, expr:Branches__Charge___405_pguard_pin1_om, expr:Branches__Charge___405_pguard_pout_om ;
@@ -639,6 +658,7 @@ expr:Branches__Charge___405_pguard_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "level" ;
     sysml:elementId "Branches__Charge___405_pguard_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Branches__Charge__level ;
     sysml:ownedRelationship expr:Branches__Charge___405_pguard_pa0_pout_om, expr:Branches__Charge___405_pguard_pa0_preferent ;
     sysml:ownedMembership expr:Branches__Charge___405_pguard_pa0_pout_om ;
@@ -653,6 +673,7 @@ expr:Branches__Charge___405_pguard_pa0
 
 expr:Branches__Charge___405_pguard_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___405_pguard_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Branches__Charge___405_pguard_pa0 ;
@@ -673,6 +694,7 @@ expr:Branches__Charge___405_pguard_pa0_pout_om
 
 expr:Branches__Charge___405_pguard_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___405_pguard_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Branches__Charge___405_pguard ;
@@ -709,6 +731,7 @@ expr:Branches__Charge___405_pguard_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "100" ;
     sysml:elementId "Branches__Charge___405_pguard_pa1" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "100"^^xsd:integer ;
     sysml:owner expr:Branches__Charge___405_pguard_pin1 ;
     sysml:owningRelationship expr:Branches__Charge___405_pguard_pa1_om ;
@@ -716,6 +739,7 @@ expr:Branches__Charge___405_pguard_pa1
 
 expr:Branches__Charge___405_pguard_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___405_pguard_pin1" ;
     sysml:direction "in" ;
     sysml:owner expr:Branches__Charge___405_pguard ;
@@ -750,6 +774,7 @@ expr:Branches__Charge___405_pguard_pa1_om
 
 expr:Branches__Charge___405_pguard_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___405_pguard_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Branches__Charge___405_pguard ;
@@ -784,6 +809,7 @@ expr:Branches__Charge___405_pguard_om
 
 elmt:Branches__Charge___405_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___405_succession" ;
     sysml:connectorEnd expr:Branches__Charge___405_succession_pend0, expr:Branches__Charge___405_succession_pend1 ;
     sysml:ownedRelationship expr:Branches__Charge___405_succession_pend0_om, expr:Branches__Charge___405_succession_pend1_om ;
@@ -805,6 +831,7 @@ elmt:Branches__Charge___405_succession
 
 expr:Branches__Charge___405_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___405_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Branches__Charge___405_succession ;
@@ -823,6 +850,7 @@ expr:Branches__Charge___405_succession_pend0_om
 
 expr:Branches__Charge___405_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___405_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Branches__Charge___405_succession ;
@@ -884,6 +912,7 @@ elmt:Branches__Charge__addCharge
     sysml:owner elmt:Branches__Charge ;
     sysml:owningRelationship elmt:Branches__Charge__addCharge_om ;
     sysml:owningMembership elmt:Branches__Charge__addCharge_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "addCharge" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action addCharge;\n" .
@@ -913,6 +942,7 @@ elmt:Branches__Charge__stop
     sysml:owner elmt:Branches__Charge ;
     sysml:owningRelationship elmt:Branches__Charge__stop_om ;
     sysml:owningMembership elmt:Branches__Charge__stop_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "stop" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action stop;\n" .
@@ -931,6 +961,7 @@ elmt:Branches__Charge__stop_om
 
 elmt:Branches__Charge__pick
     a sysml:DecisionNode ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Branches::Charge::pick" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -959,6 +990,7 @@ elmt:Branches__Charge__pick_om
 
 elmt:Branches__Charge___409
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Branches::Charge::@9" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
@@ -1000,6 +1032,7 @@ expr:Branches__Charge___409_pguard
     a sysml:OperatorExpression ;
     sysx:sourceText "level > 1" ;
     sysml:elementId "Branches__Charge___409_pguard" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:operator ">" ;
     sysml:argument expr:Branches__Charge___409_pguard_pa0, expr:Branches__Charge___409_pguard_pa1 ;
     sysml:ownedRelationship expr:Branches__Charge___409_pguard_pin0_om, expr:Branches__Charge___409_pguard_pin1_om, expr:Branches__Charge___409_pguard_pout_om ;
@@ -1024,6 +1057,7 @@ expr:Branches__Charge___409_pguard_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "level" ;
     sysml:elementId "Branches__Charge___409_pguard_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Branches__Charge__level ;
     sysml:ownedRelationship expr:Branches__Charge___409_pguard_pa0_pout_om, expr:Branches__Charge___409_pguard_pa0_preferent ;
     sysml:ownedMembership expr:Branches__Charge___409_pguard_pa0_pout_om ;
@@ -1038,6 +1072,7 @@ expr:Branches__Charge___409_pguard_pa0
 
 expr:Branches__Charge___409_pguard_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___409_pguard_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Branches__Charge___409_pguard_pa0 ;
@@ -1058,6 +1093,7 @@ expr:Branches__Charge___409_pguard_pa0_pout_om
 
 expr:Branches__Charge___409_pguard_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___409_pguard_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Branches__Charge___409_pguard ;
@@ -1094,6 +1130,7 @@ expr:Branches__Charge___409_pguard_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Branches__Charge___409_pguard_pa1" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner expr:Branches__Charge___409_pguard_pin1 ;
     sysml:owningRelationship expr:Branches__Charge___409_pguard_pa1_om ;
@@ -1101,6 +1138,7 @@ expr:Branches__Charge___409_pguard_pa1
 
 expr:Branches__Charge___409_pguard_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___409_pguard_pin1" ;
     sysml:direction "in" ;
     sysml:owner expr:Branches__Charge___409_pguard ;
@@ -1135,6 +1173,7 @@ expr:Branches__Charge___409_pguard_pa1_om
 
 expr:Branches__Charge___409_pguard_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___409_pguard_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Branches__Charge___409_pguard ;
@@ -1169,6 +1208,7 @@ expr:Branches__Charge___409_pguard_om
 
 elmt:Branches__Charge___409_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___409_succession" ;
     sysml:connectorEnd expr:Branches__Charge___409_succession_pend0, expr:Branches__Charge___409_succession_pend1 ;
     sysml:ownedRelationship expr:Branches__Charge___409_succession_pend0_om, expr:Branches__Charge___409_succession_pend1_om ;
@@ -1190,6 +1230,7 @@ elmt:Branches__Charge___409_succession
 
 expr:Branches__Charge___409_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___409_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Branches__Charge___409_succession ;
@@ -1208,6 +1249,7 @@ expr:Branches__Charge___409_succession_pend0_om
 
 expr:Branches__Charge___409_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___409_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Branches__Charge___409_succession ;
@@ -1258,6 +1300,7 @@ elmt:Branches__Charge___409_succession_om
 
 elmt:Branches__Charge___4010
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Branches::Charge::@10" ;
     sysx:sourceLine "13"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
@@ -1292,6 +1335,7 @@ elmt:Branches__Charge___4010_om
 
 elmt:Branches__Charge___4010_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___4010_succession" ;
     sysml:connectorEnd expr:Branches__Charge___4010_succession_pend0, expr:Branches__Charge___4010_succession_pend1 ;
     sysml:ownedRelationship expr:Branches__Charge___4010_succession_pend0_om, expr:Branches__Charge___4010_succession_pend1_om ;
@@ -1313,6 +1357,7 @@ elmt:Branches__Charge___4010_succession
 
 expr:Branches__Charge___4010_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___4010_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Branches__Charge___4010_succession ;
@@ -1331,6 +1376,7 @@ expr:Branches__Charge___4010_succession_pend0_om
 
 expr:Branches__Charge___4010_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Branches__Charge___4010_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Branches__Charge___4010_succession ;

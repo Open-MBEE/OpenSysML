@@ -148,7 +148,7 @@ var typeCodes = []Entry{
 		Summary: "a value bound to a feature whose type does not admit it",
 		Meaning: "A feature value (`x : Integer = \"a\"`), a default and an initial value alike, binds the value to the feature, and a feature's values are instances of its types: here the value's type does not conform to the feature's. " +
 			"Write a value of the feature's type, convert it with a library function, or type the feature by what the value is.",
-		Spec: "KerML 1.0 validateBindingConnectorTypeConformance and §8.3.3.3.4 (a feature's values are instances of its types)",
+		Spec: "KerML 1.0 validateBindingConnectorTypeConformance and §8.3.3.3.4 (a feature's values are instances of its types); a `*` value is a Positive (checkLiteralInfinitySpecialization)",
 	},
 	{
 		Code: "feature-value-count", Tier: TierType, Severity: "error",

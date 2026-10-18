@@ -76,3 +76,7 @@ func TestPassesGoldenUniqueValues(t *testing.T) { runPassesGolden(t, "unique_val
 // warned about, the marked one and an accept under a state deferring nothing
 // are not.
 func TestPassesGoldenDeferredKeeper(t *testing.T) { runPassesGolden(t, "deferred_keeper") }
+
+// `*` is a Positive: the numeric targets hold it, Boolean, String, an enumeration
+// and a non-scalar type refuse it, as the pinned validator judges the same fixture.
+func TestPassesGoldenLiteralInfinity(t *testing.T) { runPassesGolden(t, "literal_infinity") }

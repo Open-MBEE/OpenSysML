@@ -366,6 +366,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     node.geometry.height = 50
     node.geometry.has_size = True
     node.geometry.collapsed = True
+    node.geometry.unplaced = True
     node.style.fill = "#fff"
     node.style.line = "#000"
     node.style.text = "#111"
@@ -396,6 +397,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     assert rendered.nodes[0].ports[0].direction == "inout"
     assert rendered.nodes[0].origin.start_line == 4
     assert rendered.nodes[0].geometry.collapsed
+    assert rendered.nodes[0].geometry.unplaced
     assert rendered.nodes[0].style.font_size == 12
     assert (rendered.edges[0].from_id, rendered.edges[0].to_id) == ("n1", "n0")
     assert rendered.edges[0].route[0].x == 1

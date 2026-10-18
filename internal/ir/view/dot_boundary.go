@@ -173,7 +173,7 @@ func (w *dotWriter) spreadBoundaries(node *Node, ends map[string][]routeEnd) {
 // reaches or stops short of, placed meeting the owner's border rather than inside it.
 func (w *dotWriter) boundarySymbol(node *Node, owner nodeBox, ends map[string][]routeEnd) (boundarySymbol, bool) {
 	box, ok := w.boxes[node.ID]
-	if !ok || !isPortKind(node.Kind) || node.Geometry != nil || len(node.Children) > 0 || w.placement.derived[node.ID] || owner.enclosesClear(box) {
+	if !ok || !isPortKind(node.Kind) || node.Geometry.placed() || len(node.Children) > 0 || w.placement.derived[node.ID] || owner.enclosesClear(box) {
 		return boundarySymbol{}, false
 	}
 	reaching := reachingEnds(ends[node.ID])
