@@ -6,7 +6,7 @@
 #
 # The build stage runs the Go toolchain go.mod pins (`toolchain go1.25.11`),
 # so the image's binaries are built by the same compiler as the release
-# archives; tests/hygiene/dockerfile_test.go holds the two in lockstep. The
+# archives; tests/hygiene/container_image_test.go holds the two in lockstep. The
 # stage always runs on the build host's own platform and cross-compiles for
 # the target, which Go does without an emulator.
 FROM --platform=$BUILDPLATFORM golang:1.25.11-alpine AS build
