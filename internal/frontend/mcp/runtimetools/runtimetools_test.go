@@ -710,11 +710,14 @@ func TestPathsStayUnderTheRoot(t *testing.T) {
 	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "input.data")); err != nil {
 		t.Fatal(err)
 	}
-	if res := h.call("convert", map[string]any{"filePath": "input.data", "fromFormat": "sysml", "toFormat": "ttl"}); res.IsError {
-		t.Errorf("with an explicit fromFormat a link's extension need not name the format: %s", text(res))
+	if res := h.call("convert", map[string]any{"filePath": "input.data", "fromFormat": "sysml", "toFormat": "ttl"}); !strings.Contains(text(res), "another format") {
+		t.Errorf("the parser reads a name with neither model extension as its own kind, so the link is refused even with fromFormat: %s", text(res))
 	}
-	if res := h.call("convert", map[string]any{"filePath": "input.data", "toFormat": "ttl"}); !strings.Contains(text(res), "another format") {
-		t.Errorf("without fromFormat the link's extension is the format: %s", text(res))
+	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "copy.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	if res := h.call("convert", map[string]any{"filePath": "copy.sysml", "fromFormat": "sysml", "toFormat": "ttl"}); res.IsError {
+		t.Errorf("a link of the target's kind converts: %s", text(res))
 	}
 	if msg := h.fails("parse", map[string]any{"paths": []string{"missing/dir/new.sysml"}}); strings.Contains(msg, "outside") {
 		t.Errorf("a path under the root that does not exist yet is not outside it: %s", msg)

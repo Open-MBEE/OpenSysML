@@ -203,13 +203,14 @@ const (
 )
 
 // sameFormat reports whether two names mean the same thing for the role: the
-// notation language source reads from each and, for nameFormat, the format
-// convert infers from each (or the same extension when it infers nothing).
+// source kind the parser reads from each (a name with neither model extension
+// is its own kind) and, for nameFormat, the format convert infers from each
+// (or the same extension when it infers nothing).
 func sameFormat(a, b string, role nameRole) bool {
 	if role == nameIgnored {
 		return true
 	}
-	if language(a) != language(b) {
+	if source.KindOf(a) != source.KindOf(b) {
 		return false
 	}
 	if role == nameLanguage {
@@ -221,15 +222,6 @@ func sameFormat(a, b string, role nameRole) bool {
 		return strings.EqualFold(filepath.Ext(a), filepath.Ext(b))
 	}
 	return fa == fb
-}
-
-// language is the notation language a name is parsed as: KerML by its
-// extension, otherwise SysML, as source.New decides.
-func language(name string) source.Kind {
-	if source.KindOf(name) == source.KindKerML {
-		return source.KindKerML
-	}
-	return source.KindSysML
 }
 
 // under reports whether path lies under root, both clean and absolute.
