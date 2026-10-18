@@ -14,6 +14,8 @@ import {
   renderResult,
   runJourney,
   TraceRecord,
+  journeyOf,
+  sceneTarget,
 } from "./model";
 import { STACK_SCENE } from "./scene";
 
@@ -42,7 +44,7 @@ const COMPONENT_PATHS = Object.entries(COMPONENTS).flatMap(([project, features])
 );
 
 test("landingModel keeps the three ported project parts and their interface edges", () => {
-  const model = landingModel(STACK_SCENE.rootSymbol, fixture.hash, fixtureRender, fixture.instances);
+  const model = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
   assert.deepEqual([...model.parts.keys()].sort(), [...COMPONENT_PATHS, ...PROJECTS].sort());
   assert.ok(model.render.nodes.every((node) => node.kind !== "attribute"));
   const nodeOf = (feature: string) => model.render.nodes.find(({ id }) => id === model.parts.get(feature)?.id)!;
@@ -68,7 +70,7 @@ test("landingModel keeps the three ported project parts and their interface edge
 });
 
 test("landingModel keeps each project's components inside it, with their own attributes", () => {
-  const model = landingModel(STACK_SCENE.rootSymbol, fixture.hash, fixtureRender, fixture.instances);
+  const model = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
   for (const [project, features] of Object.entries(COMPONENTS)) {
     const owner = model.parts.get(project)!;
     for (const feature of features) {
@@ -193,14 +195,14 @@ test("readModel requests a minimal interconnection render before instantiating t
   ]);
   assert.deepEqual(calls[2].params, [fixture.hash, "OpenSysMLStack::stack"]);
   // The typed rendering and instances read back to the same model the fixture does.
-  const expected = landingModel(STACK_SCENE.rootSymbol, fixture.hash, fixtureRender, fixture.instances);
+  const expected = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
   assert.deepEqual([...read.model.parts.keys()], [...expected.parts.keys()]);
   assert.deepEqual(read.model.parts.get("opensysml.engine"), expected.parts.get("opensysml.engine"));
   assert.deepEqual(read.model.render.edges, expected.render.edges);
 });
 
 test("journey maps visited feature names to node ids and drops unknown states", async () => {
-  const model = landingModel(STACK_SCENE.rootSymbol, fixture.hash, fixtureRender, fixture.instances);
+  const model = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
   const { connection, calls } = fakeConnection({
     statesVisited: ["start", "opensysml", "unknown", "flexo", "pilot", "flexo", "pilot"],
   });
@@ -210,25 +212,25 @@ test("journey maps visited feature names to node ids and drops unknown states", 
   );
   assert.deepEqual(calls, [{
     method: "ExecuteState",
-    params: [fixture.hash, STACK_SCENE.journey.symbol, { events: STACK_SCENE.journey.events }],
+    params: [fixture.hash, journeyOf(STACK_SCENE).symbol, { events: journeyOf(STACK_SCENE).events }],
   }]);
 });
 
 test("journey adds a seed only when defined", async () => {
-  const model = landingModel(STACK_SCENE.rootSymbol, fixture.hash, fixtureRender, fixture.instances);
+  const model = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
   const { connection, calls } = fakeConnection();
 
   await journey(connection, STACK_SCENE, model, 42);
   await journey(connection, STACK_SCENE, model);
 
   assert.deepEqual(calls.map(({ params }) => params[2]), [
-    { events: STACK_SCENE.journey.events, schedule: "seed:42" },
-    { events: STACK_SCENE.journey.events },
+    { events: journeyOf(STACK_SCENE).events, schedule: "seed:42" },
+    { events: journeyOf(STACK_SCENE).events },
   ]);
 });
 
 test("runJourney requests a trace and adds a seed only when defined", async () => {
-  const model = landingModel(STACK_SCENE.rootSymbol, fixture.hash, fixtureRender, fixture.instances);
+  const model = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
   const { connection, calls } = fakeConnection({
     statesVisited: ["start", "flexo"],
     trace: [
@@ -240,7 +242,7 @@ test("runJourney requests a trace and adds a seed only when defined", async () =
   const unseeded = await runJourney(connection, STACK_SCENE, model, unseededEvents);
   assert.deepEqual(calls[0], {
     method: "ExecuteState",
-    params: [fixture.hash, STACK_SCENE.journey.symbol, { events: unseededEvents, trace: true }],
+    params: [fixture.hash, journeyOf(STACK_SCENE).symbol, { events: unseededEvents, trace: true }],
   });
   assert.deepEqual(unseeded, {
     visited: ["start", "flexo"],
@@ -255,13 +257,13 @@ test("runJourney requests a trace and adds a seed only when defined", async () =
   await runJourney(connection, STACK_SCENE, model, seededEvents, 2);
   assert.deepEqual(calls[1].params, [
     fixture.hash,
-    STACK_SCENE.journey.symbol,
+    journeyOf(STACK_SCENE).symbol,
     { events: seededEvents, trace: true, schedule: "seed:2" },
   ]);
 });
 
 test("runJourney returns the partial trace of a failed run and rethrows other errors", async () => {
-  const model = landingModel(STACK_SCENE.rootSymbol, fixture.hash, fixtureRender, fixture.instances);
+  const model = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
   const trace: TraceRecord[] = [
     { kind: "entry", state: "start", text: "entry start" },
     { kind: "accept", event: "Commit", text: "accept Commit" },

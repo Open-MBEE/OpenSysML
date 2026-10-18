@@ -1372,8 +1372,8 @@ refuse D2:
 | --- | --- | --- |
 | CLI | `-render <view> -render-form mermaid\|dot\|plantuml\|d2`; `-render-all <dir>` writes `.mmd`, `.dot`, `.puml` or `.d2`; `-render-palette <name>` fills nodes in each form where applicable | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
 | REPL | `%render <view> mermaid\|dot\|plantuml\|d2 [palette] [pilot\|cameo]`; `%help` names the options; form, palette and style complete where accepted | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
-| CLI run output | `-render-run timeline=<path>` or `sequence=<path>` writes text, Mermaid or PlantUML; `-render-link` links PlantUML timeline lanes and single-state spans and sequence participants; DOT is refused | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-run) |
-| REPL run output | `%render-run timeline\|sequence [text\|mermaid\|plantuml\|dot] [link=<template>]` renders the recorded run without changing the session; links follow the CLI run-rendering rules | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-run) |
+| CLI run output | `-render-run timeline=<path>` or `sequence=<path>` writes text, Mermaid, PlantUML or SVG (`.svg`; `-render-form svg-animated` for the SMIL replay); `-render-link` links PlantUML and SVG timeline lanes and single-state spans and sequence participants; DOT is refused | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-run) |
+| REPL run output | `%render-run timeline\|sequence [text\|mermaid\|plantuml\|svg\|svg-animated\|dot] [link=<template>]` renders the recorded run without changing the session; links follow the CLI run-rendering rules | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-run) |
 | LSP | `"form": "mermaid"`, `"dot"`, `"plantuml"` or `"d2"` and `"palette": "<name>"` on `opensysml/render`; `Rendering.Fills` carries each node's fill and border for clients drawing their own SVG | [`docs/reference/lsp.md`](../reference/lsp.md) |
 | VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented six for a server without it, which predates `csv` and `tsv`), sends the pick as `form`, and saves `.dot`, `.puml` or `.d2` (`.mmd`, `.md`, `.csv`, `.tsv`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`; `%render <view> mermaid [palette] [pilot\|cameo]`; `"style": "cameo"` on `opensysml/render` and the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. Unsupported style details receive a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
@@ -1398,7 +1398,7 @@ Run renderings describe a recorded execution, not a model view. A timeline is a 
 declared states rather than the states an object held during one run. A run sequence reuses
 `KindSequence` and its existing writers because both are lifelines with ordered messages.
 
-The timeline forms are text, Mermaid and PlantUML. Mermaid uses a compact Gantt chart with a
+The timeline forms are text, Mermaid, PlantUML and the two SVG forms below. Mermaid uses a compact Gantt chart with a
 shared time axis; Mermaid's `timeline` grammar groups categorical periods and has neither
 durations nor a shared time axis. PlantUML uses `concise` lifelines because parallel state
 configurations are free text rather than a fixed ordered state axis that `robust` requires. DOT
@@ -1407,6 +1407,50 @@ DOT. With source links enabled, PlantUML timeline lanes link to machine declarat
 link only when exactly one state is active; Mermaid gantt remains byte-identical because its
 `click` directives do not create anchors in Mermaid CLI SVGs. Run sequence links belong to object
 participants' type declarations, not messages or the environment participant.
+
+### SVG and animation
+
+`svg` and `svg-animated` are the only forms drawn by this implementation itself rather than
+handed to a diagram engine; they exist for run renderings only (`view.FormSVG`,
+`view.FormSVGAnimated`, written by `Rendering.SVGWith` in `internal/ir/view/run_svg.go`), and a
+model view asked for either gets the wrong-form error naming its forms. `view.ViewForms()` is the
+list without them, the forms a model view is written in: the LSP's `openSysmlRenderForms`, the
+REPL's `%render` completion and `-render-form`'s help and unknown-form error name those. Both kinds already carry
+geometry-free data — a timeline is lanes × clock time, a sequence is lifelines × message order —
+so the writer needs no layout engine, and the two kinds share one document frame (header, title,
+notices, escaping, links, animation timing) and differ only in the shapes.
+
+What is drawn. A timeline has the title and the notices the Mermaid form prints, one row per lane
+labelled `<object>.<machine>`, each state a rounded bar from its start to its end over a shared
+time axis ticked at the instants where some lane changes (tick labels thin out when they would
+overlap), a state held for no time a red tick, the transient states a span was entered through a
+red tick with a tooltip, and a lane's marks (choice, guard, terminate) yellow diamonds with their
+text as a tooltip; a bar's label is shortened with an ellipsis when it does not fit, its full text
+and `t = from to to` staying in a `<title>`. A sequence has one head box and dashed lifeline per
+participant and one labelled arrow per message in run order, a message to the sender itself as a
+loop. The run data carries no activation intervals, so none are drawn. `-render-link` wraps lane
+labels, single-state spans and object participants' heads in `<a href>` where the PlantUML form
+links them; messages and the environment participant are unlinked.
+
+Animation. `svg-animated` writes the same shapes with the same base attributes — the complete,
+final picture of the run — and adds SMIL `<animate>` elements, no script, so a viewer without
+SMIL shows the whole run and never a blank frame. Every animation shares one `dur` and
+`repeatCount="indefinite"`, so the loop stays in step without sync-base timing. In a timeline a
+cursor sweeps the axis at constant clock speed while each bar's `fill-opacity` steps to 1 for the
+clock span it was held and dims to 0.25 outside it (a state open at the end stays bright), and
+ticks and diamonds appear at their instants. In a sequence each message's group steps from
+hidden to shown at its turn while a marker travels along its arrow during that step. The pacing
+is `view.DefaultAnimationStep` (one second) per step — an instant at which some lane changes
+state, or a message — plus one step holding the final state before the replay loops;
+`view.Options.AnimationStep` overrides it.
+
+Hygiene. The output is deterministic: ids follow drawing order (`l0`, `l0s2`, `n1`, `m3`), there
+is no timestamp or random value, every text node and attribute value is XML-escaped, there is no
+`<script>`, `<style>`, `<foreignObject>`, `<image>` or `<use>`, the only `url(#…)` is the
+arrowhead marker, the `viewBox` matches the content and the only namespace is SVG's. Unlinked
+output passes `imagefile.CheckStaticSVG`, the check the document backends apply to inline
+pictures; a linked rendering carries external `href`s and so is refused by that check, as any
+linked picture would be.
 
 Each rendering is capped at 200 spans or messages for readability and to keep renderer input
 within practical text-size limits. Timelines select spans in stable time order, with lane order
@@ -1435,6 +1479,12 @@ no live run and therefore does not offer run rendering.
   truncated, guard, unmatched and broadcast-message cases; choice marks, self-transitions and
   DOT refusal. `internal/ir/view/run_timeline_test.go` checks that timeline form support does not
   make it a model view kind or a pseudo-view.
+- `internal/exec/runtrace/render_svg_test.go`: every SVG golden parses with `encoding/xml` as
+  one `svg` document with a `viewBox`, has no script, style, foreign object, image, use, event
+  handler or (unlinked) `href`, and passes `imagefile.CheckStaticSVG`, a linked golden carrying
+  its `<a href>` and being refused for it; two renderings are byte-identical; the animated form
+  stripped of its `<animate>` elements and markers equals the static form, and its animations
+  all loop over one duration; an empty run draws its reason.
 - `cmd/sysml/render_run_test.go` and `internal/frontend/repl/run_render_test.go`: CLI artifact
   output and incompatible modes, source links and invalid templates, and REPL output,
   missing-trace handling, form refusal, link parsing and completion.

@@ -69,7 +69,7 @@ func TestRenderRunReportsMissingTraceAndRefusesDot(t *testing.T) {
 	wants(t, run(t, fresh, "%render-run timeline"), "error: the session records no trace; %trace on before the run")
 	wants(t, run(t, fresh, "%render-run"), renderRunUsage)
 	wants(t, run(t, fresh, "%render-run neither"), `unknown run rendering "neither"`, "timeline or sequence")
-	wants(t, run(t, fresh, "%render-run timeline svg"), `unknown form "svg"`)
+	wants(t, run(t, fresh, "%render-run timeline png"), `unknown form "png"`)
 
 	s := loadFixture(t, "testdata/lamp_signals.sysml")
 	run(t, s, "%trace on")

@@ -33,12 +33,14 @@ import type {
   ImportResult,
   Comparison,
 } from "./verdict.js";
-import type {
-  Diagnostic,
-  FeatureValue as PbFeatureValue,
-  Instance as PbInstance,
-  ParseFileRequest,
-  SymbolInfo,
+import { fromJson, type JsonValue } from "@bufbuild/protobuf";
+import {
+  InstanceSchema,
+  type Diagnostic,
+  type FeatureValue as PbFeatureValue,
+  type Instance as PbInstance,
+  type ParseFileRequest,
+  type SymbolInfo,
 } from "../generated/sysml_pb.js";
 import { callRpc } from "./status.js";
 import { decodeValue, type SysMLValue, type ValueInput } from "./values.js";
@@ -897,6 +899,14 @@ export class Instance {
   get(name: string): FeatureValue | undefined {
     return this.features.get(name);
   }
+}
+
+/**
+ * instanceFromJson decodes one instance from the protojson form of an `Instance`
+ * message, as a snapshot of an Instantiate answer stores it, into the typed object.
+ */
+export function instanceFromJson(json: unknown): Instance {
+  return new Instance(fromJson(InstanceSchema, json as JsonValue));
 }
 
 /** What one instantiation produced: the root object and every object it owns. */
