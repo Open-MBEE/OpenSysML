@@ -51,7 +51,8 @@ class RenderedViewTest {
                             .setWidth(3)
                             .setHeight(4)
                             .setHasSize(true)
-                            .setCollapsed(true))
+                            .setCollapsed(true)
+                            .setUnplaced(true))
                     .setStyle(
                         RenderStyle.newBuilder()
                             .setFill("#fff")
@@ -97,6 +98,7 @@ class RenderedViewTest {
     assertEquals("inout", rendered.nodes().get(0).ports().get(0).direction());
     assertEquals(4, rendered.nodes().get(0).origin().orElseThrow().startLine());
     assertTrue(rendered.nodes().get(0).geometry().orElseThrow().collapsed());
+    assertTrue(rendered.nodes().get(0).geometry().orElseThrow().unplaced());
     assertEquals(12, rendered.nodes().get(0).style().orElseThrow().fontSize());
     assertEquals("n0.0", rendered.edges().get(0).fromPort());
     assertEquals(2, rendered.edges().get(0).route().get(0).x());

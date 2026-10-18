@@ -257,7 +257,7 @@ func (m *Model) valuesHeldBy(scope *symbols.Scope, node ast.Node) (Range, bool) 
 		return m.valuesKeptFrom(scope, n.Operand, Bound{Infinite: true, Known: true})
 	case *ast.InvocationExpr:
 		return m.valuesHeldByCall(scope, n)
-	case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool:
+	case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool, *ast.LiteralInfinity:
 		return CountRange(1), true
 	case *ast.SequenceExpr:
 		sum := CountRange(0)

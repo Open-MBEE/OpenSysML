@@ -46,7 +46,7 @@ func positionedRendering(r *Rendering) bool {
 	var positioned func(nodes []*Node) bool
 	positioned = func(nodes []*Node) bool {
 		for _, node := range nodes {
-			if node.Geometry != nil || positioned(node.Children) {
+			if node.Geometry.placed() || positioned(node.Children) {
 				return true
 			}
 		}
@@ -60,7 +60,7 @@ func positionedRendering(r *Rendering) bool {
 // a source's own unnamed fork is named the same way yet has a symbol.
 func findStandIn(nodes []*Node) *Node {
 	for _, node := range nodes {
-		if standInKind(node.Kind) && node.StandIn && node.Geometry == nil && len(node.Children) == 0 {
+		if standInKind(node.Kind) && node.StandIn && !node.Geometry.placed() && len(node.Children) == 0 {
 			return node
 		}
 		if found := findStandIn(node.Children); found != nil {
