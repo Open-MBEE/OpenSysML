@@ -875,3 +875,17 @@ func TestSetLayoutRefusals(t *testing.T) {
 		})
 	}
 }
+
+func TestSetLayoutFoldOnlyWritesCollapsedAlone(t *testing.T) {
+	got := applyLayout(t, plantModel, SetLayout("Plant::Loop::pump", "PlantViews::loopView", &semantics.Layout{Unplaced: true, Collapsed: true}))
+	requireReplaced(t, plantModel,
+		"        render asInterconnectionDiagram;\n    }\n",
+		"        render asInterconnectionDiagram;\n        metadata DiagramLayout::Layout about Plant::Loop::pump { collapsed = true; }\n    }\n",
+		got)
+
+	m := loadContent(t, "plant.sysml", plantModel)
+	_, err := Apply(m, []Operation{SetLayout("Plant::Loop::pump", "PlantViews::loopView", &semantics.Layout{Unplaced: true})})
+	if e := editError(t, err); e.Failure != FailureInvalidValue || !strings.Contains(e.Message, "places nothing and folds nothing") {
+		t.Fatalf("unplaced layout folding nothing: %+v", e)
+	}
+}

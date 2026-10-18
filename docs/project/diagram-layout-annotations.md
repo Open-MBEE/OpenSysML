@@ -378,7 +378,7 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
   is `opensysml/applyModelEdit` with `setLayout`, `setRoute`, `setCanvas` and `setStyle`
   ([the LSP reference](../reference/lsp.md)): `metadata Layout about … { x = …; y = …;
   }` into the view body when the operation names a view, inline into the element's own
-  body when it does not, updated in place when one is already stated and removed with
+  body when it does not (`{ collapsed = true; }` alone for a layout given no `x` and `y`), updated in place when one is already stated and removed with
   its line when cleared. Each annotation goes into the workspace document that declares
   what holds it, whichever document the request came from: a view-local `Layout` or
   `Route` and a `Canvas` into the view's document, an inline `Layout` or `Route` into

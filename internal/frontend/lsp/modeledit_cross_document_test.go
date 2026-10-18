@@ -179,7 +179,7 @@ func TestApplyModelEditSetLayoutInViewOfAnotherDocumentsElement(t *testing.T) {
 	s, viewsURI, partsURI := engineWorkspace(t)
 	drawn := render(t, s, viewsURI, "EngineViews::engineView")
 	rotor := nodeNamed(t, drawn, "rotor")
-	drag := ModelEditOperation{Kind: EditSetLayout, Target: rotor.FQN, View: drawn.View, Layout: &ModelEditLayout{X: 120, Y: 40}}
+	drag := ModelEditOperation{Kind: EditSetLayout, Target: rotor.FQN, View: drawn.View, Layout: &ModelEditLayout{X: float(120), Y: float(40)}}
 	out := applyModelEdit(t, s, viewsURI, drawn.Version, drag)
 	applied, redrawn := redraw(t, s, viewsURI, engineViews, out, 2, drawn.View)
 	if want := golden(t, s, viewsURI.Filename(), drag); applied != want {
@@ -209,7 +209,7 @@ func TestApplyModelEditLayoutReachesSeveralDocumentsInOneRequest(t *testing.T) {
 	edge := drawn.Edges[0]
 
 	out := applyModelEdit(t, s, viewsURI, drawn.Version,
-		ModelEditOperation{Kind: EditSetLayout, Target: rotor.FQN, View: drawn.View, Layout: &ModelEditLayout{X: 5, Y: 6}},
+		ModelEditOperation{Kind: EditSetLayout, Target: rotor.FQN, View: drawn.View, Layout: &ModelEditLayout{X: float(5), Y: float(6)}},
 		ModelEditOperation{Kind: EditSetRoute, Declaration: edge.Declaration, DeclaredIn: protocol.DocumentURI(edge.Origin.URI), Digest: edge.Origin.Digest,
 			Route: []RenderPoint{{X: 30, Y: 90}, {X: 30, Y: 10}}},
 	)
@@ -254,7 +254,7 @@ func TestApplyModelEditLayoutReachesSeveralDocumentsInOneRequest(t *testing.T) {
 
 	// Dragging again updates the annotations in place, and clearing removes them with their lines.
 	out = applyModelEdit(t, s, viewsURI, 2,
-		ModelEditOperation{Kind: EditSetLayout, Target: rotor.FQN, View: drawn.View, Layout: &ModelEditLayout{X: 7, Y: 8}},
+		ModelEditOperation{Kind: EditSetLayout, Target: rotor.FQN, View: drawn.View, Layout: &ModelEditLayout{X: float(7), Y: float(8)}},
 		ModelEditOperation{Kind: EditSetRoute, Declaration: redrawn.Edges[0].Declaration, DeclaredIn: protocol.DocumentURI(partsURI), Digest: redrawn.Edges[0].Origin.Digest,
 			Route: []RenderPoint{{X: 1, Y: 2}}},
 	)
@@ -314,7 +314,7 @@ func TestApplyModelEditPlacesInlineIntoTheDeclaringDocument(t *testing.T) {
 	edge := drawn.Edges[0]
 
 	out := applyModelEdit(t, s, fleetURI, drawn.Version,
-		ModelEditOperation{Kind: EditSetLayout, Target: off.FQN, Layout: &ModelEditLayout{X: 10, Y: 20}},
+		ModelEditOperation{Kind: EditSetLayout, Target: off.FQN, Layout: &ModelEditLayout{X: float(10), Y: float(20)}},
 		ModelEditOperation{Kind: EditSetRoute, Declaration: edge.Declaration, DeclaredIn: protocol.DocumentURI(motorURI), Digest: edge.Origin.Digest, Route: []RenderPoint{{X: 3, Y: 4}}},
 	)
 	if out.Edit == nil || out.Refused != nil || out.Stale {
@@ -381,7 +381,7 @@ func TestApplyModelEditLayoutIntoDiskAndLibraryDocuments(t *testing.T) {
 	s.ws.SetOnDisk(depotName, []byte(depot))
 
 	out := applyModelEdit(t, s, viewsURI, 1,
-		ModelEditOperation{Kind: EditSetLayout, Target: "Depot::spare", Layout: &ModelEditLayout{X: 1, Y: 2}})
+		ModelEditOperation{Kind: EditSetLayout, Target: "Depot::spare", Layout: &ModelEditLayout{X: float(1), Y: float(2)}})
 	if out.Edit == nil || out.Refused != nil {
 		t.Fatalf("result = %+v, want an edit", out)
 	}
@@ -398,7 +398,7 @@ func TestApplyModelEditLayoutIntoDiskAndLibraryDocuments(t *testing.T) {
 	}
 
 	out = applyModelEdit(t, s, viewsURI, 1,
-		ModelEditOperation{Kind: EditSetLayout, Target: "Parts::Part", Layout: &ModelEditLayout{X: 1, Y: 2}})
+		ModelEditOperation{Kind: EditSetLayout, Target: "Parts::Part", Layout: &ModelEditLayout{X: float(1), Y: float(2)}})
 	if out.Edit != nil || len(out.Refused) != 1 {
 		t.Fatalf("layout of a library declaration: %+v, want one refusal", out)
 	}
@@ -417,8 +417,8 @@ func TestApplyModelEditLayoutRefusesWhenAnotherDocumentBecomesInvalid(t *testing
 	openDoc(t, s, viewsURI, shadowed)
 
 	out := applyModelEdit(t, s, partsURI, 1,
-		ModelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::stator", Layout: &ModelEditLayout{X: 1, Y: 2}},
-		ModelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::rotor", View: "EngineViews::engineView", Layout: &ModelEditLayout{X: 5, Y: 6}},
+		ModelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::stator", Layout: &ModelEditLayout{X: float(1), Y: float(2)}},
+		ModelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::rotor", View: "EngineViews::engineView", Layout: &ModelEditLayout{X: float(5), Y: float(6)}},
 	)
 	if out.Edit != nil || len(out.Refused) != 1 {
 		t.Fatalf("result = %+v, want one refusal and no edit", out)
@@ -449,11 +449,11 @@ func TestApplyModelEditRejectsMisplacedDeclaredIn(t *testing.T) {
 		want string
 	}{
 		{ModelEditOperation{Kind: EditSetRoute, Declaration: decl, DeclaredIn: protocol.DocumentURI(uri.File("elsewhere.sysml")), Digest: digest, Route: []RenderPoint{{X: 1, Y: 2}}}, "no document the server holds"},
-		{ModelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::rotor", DeclaredIn: protocol.DocumentURI(uri.File("elsewhere.sysml")), Digest: digest, Layout: &ModelEditLayout{X: 1, Y: 2}}, "no document the server holds"},
+		{ModelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::rotor", DeclaredIn: protocol.DocumentURI(uri.File("elsewhere.sysml")), Digest: digest, Layout: &ModelEditLayout{X: float(1), Y: float(2)}}, "no document the server holds"},
 		{ModelEditOperation{Kind: EditRename, Target: "Machinery::Engine", DeclaredIn: protocol.DocumentURI(partsURI), Digest: digest, NewName: "Motor"}, "setLayout, setRoute or setStyle alone"},
 		{ModelEditOperation{Kind: EditSetCanvas, Target: "EngineViews::engineView", DeclaredIn: protocol.DocumentURI(viewsURI), Canvas: &RenderCanvas{Unit: "px"}}, "setLayout, setRoute or setStyle alone"},
 		{ModelEditOperation{Kind: EditSetRoute, Declaration: decl, DeclaredIn: protocol.DocumentURI(partsURI), Route: []RenderPoint{{X: 1, Y: 2}}}, "needs the digest"},
-		{ModelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::rotor", DeclaredIn: protocol.DocumentURI(partsURI), Layout: &ModelEditLayout{X: 1, Y: 2}}, "needs the digest"},
+		{ModelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::rotor", DeclaredIn: protocol.DocumentURI(partsURI), Layout: &ModelEditLayout{X: float(1), Y: float(2)}}, "needs the digest"},
 	} {
 		_, err := call(t, s, MethodApplyModelEdit, &ApplyModelEditParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: viewsURI},
@@ -536,7 +536,7 @@ func TestApplyModelEditIsStaleWhenAnotherDocumentsNamedDeclarationWasReplaced(t 
 		t.Fatalf("rotor = %+v, want its qualified name and its origin in parts.sysml with a digest", rotor)
 	}
 	place := ModelEditOperation{Kind: EditSetLayout, Target: rotor.FQN, DeclaredIn: protocol.DocumentURI(partsURI),
-		Digest: rotor.Origin.Digest, View: drawn.View, Layout: &ModelEditLayout{X: 7, Y: 8}}
+		Digest: rotor.Origin.Digest, View: drawn.View, Layout: &ModelEditLayout{X: float(7), Y: float(8)}}
 
 	replaced := strings.Replace(engineParts, "\t\tpart rotor;\n", "\t\t// A rotor of another making.\n\t\tpart rotor;\n", 1)
 	tellChanged(t, s, partsURI, replaced, 2)
