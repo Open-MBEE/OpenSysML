@@ -1,0 +1,9 @@
+{
+  "rpc": "RecordRun",
+  "symbol_id": "MC::Cost",
+  "subject_symbol_id": "MC::p",
+  "expected_package": "Records",
+  "expected_records": [
+    "Records::Cost_run1"
+  ]
+}

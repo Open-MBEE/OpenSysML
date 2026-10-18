@@ -1,0 +1,151 @@
+{
+  "scenarios": [
+    {
+      "id": "run_runs/a_seeded_action_is_run_repeatedly_and_its_observable_distributed",
+      "description": "`Settle` draws `t` uniformly; four seeded runs each complete and the one observable's distribution counts all four.",
+      "rpc": "RunRuns",
+      "requires_capabilities": [
+        "runs"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "runs"
+      },
+      "model": {
+        "fixture": "monte_carlo.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "MC::Settle",
+        "runs": "4",
+        "seed": "7",
+        "observe": [
+          "t"
+        ]
+      },
+      "expect": {
+        "response": {
+          "observables": [
+            "t"
+          ],
+          "distributions": [
+            {
+              "name": "t",
+              "count": 4,
+              "numeric": true
+            }
+          ],
+          "seed": 7
+        },
+        "counts": {
+          "rows": 4
+        }
+      }
+    },
+    {
+      "id": "run_runs/an_unseeded_random_run_is_refused",
+      "description": "Random draws need a seed or a fixed draw policy; without either the request is invalid.",
+      "rpc": "RunRuns",
+      "requires_capabilities": [
+        "runs"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "runs"
+      },
+      "model": {
+        "fixture": "monte_carlo.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "MC::Settle",
+        "runs": "2"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "seed"
+      }
+    },
+    {
+      "id": "self_check/a_well_formed_model_holds",
+      "description": "The `SysMLValidation` constraints all hold over the fixture; the answer counts the applications made.",
+      "rpc": "SelfCheck",
+      "requires_capabilities": [
+        "self_check"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "self_check"
+      },
+      "model": {
+        "fixture": "monte_carlo.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}"
+      },
+      "expect": {
+        "response": {
+          "status": "holds"
+        }
+      }
+    },
+    {
+      "id": "self_check/an_unknown_rule_package_is_answered_in_band",
+      "description": "A rule package the model lacks is reported through `error`, not a status.",
+      "rpc": "SelfCheck",
+      "requires_capabilities": [
+        "self_check"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "self_check"
+      },
+      "model": {
+        "fixture": "monte_carlo.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "self_check_package": [
+          "Nope"
+        ]
+      },
+      "expect": {
+        "contains": {
+          "error": "Nope"
+        }
+      }
+    },
+    {
+      "id": "record_run/a_run_is_recorded_into_the_default_package",
+      "description": "Running `Cost` on `p` records one `Records::Cost_run1`; the answer carries the run and the recorded model's hash.",
+      "rpc": "RecordRun",
+      "requires_capabilities": [
+        "record_run"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "record_run"
+      },
+      "model": {
+        "fixture": "monte_carlo.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "analysis_symbol_id": "MC::Cost",
+        "subject_symbol_id": "MC::p",
+        "accept_documents": true
+      },
+      "expect": {
+        "response": {
+          "package": "Records",
+          "records": [
+            "Records::Cost_run1"
+          ]
+        },
+        "counts": {
+          "documents": 1
+        }
+      }
+    }
+  ]
+}
