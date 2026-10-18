@@ -16,6 +16,7 @@
     "test::r9New": {"type": "Boolean", "value": true},
     "test::r10New": {"type": "Boolean", "value": true},
     "test::r11New": {"type": "Boolean", "value": false},
+    "test::r12New": {"error": "a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`"},
     "test::v4New": {"type": "Sequence", "elements": [{"type": "EnumLiteral", "value": "VerdictKind::error"}]},
     "test::r1Bound": {"type": "Boolean", "value": true},
     "test::r1Unbound": {"type": "Undetermined", "value": "[1]"},

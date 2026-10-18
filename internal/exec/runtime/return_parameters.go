@@ -107,15 +107,20 @@ func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sy
 	if err != nil {
 		return ctx.conditionResultOf(err, sym, feat)
 	}
+	conds := ctx.conditionsOf(typ, members)
+	check := conditionCheck{sym: typ, kind: "requirement", what: "require condition", self: inst, bindings: mapFrame(bindings)}
+	if conflictingResultExpression(conds) != nil {
+		_, err := ctx.evaluateConditions(check, conds)
+		return Value{}, err
+	}
 	var assumed, required []Condition
-	for _, cond := range ctx.conditionsOf(typ, members) {
+	for _, cond := range conds {
 		if cond.Required {
 			required = append(required, cond)
 		} else {
 			assumed = append(assumed, requiredCondition(cond))
 		}
 	}
-	check := conditionCheck{sym: typ, kind: "requirement", what: "require condition", self: inst, bindings: mapFrame(bindings)}
 	assumptions, err := ctx.conditionsHold(check, assumed, sym, feat)
 	if err != nil {
 		return Value{}, err

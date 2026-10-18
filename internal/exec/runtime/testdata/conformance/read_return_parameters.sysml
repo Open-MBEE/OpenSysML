@@ -22,6 +22,8 @@ package test {
 	requirement def R9 { subject s : P2; assume constraint { false } require constraint { 1 / 0 > 0 } }
 	requirement def R10 { subject s : P2; assume constraint { s.m > 0.0 } assume constraint { false } require constraint { false } }
 	requirement def R11 { subject s : P2; require constraint { s.m > 0.0 } require constraint { false } }
+	constraint def C1 { true }
+	requirement def R12 { subject s : P2; assume constraint { false } require constraint : C1 { false } }
 	case def Ca1 { subject s : P2; return r : Integer = 1 + 1; }
 	case def Ca2 { subject s : P2; objective obj { require constraint { true } } }
 	verification def V1 { subject s : P2; objective { verify r1; } requirement r1 : R1; return verdict : VerdictKind = PassIf(true); }
@@ -55,6 +57,7 @@ package test {
 	attribute r9New : Boolean = new R9().result;
 	attribute r10New : Boolean = new R10().result;
 	attribute r11New : Boolean = new R11().result;
+	attribute r12New : Boolean = new R12().result;
 	attribute v4New = new V4().verdict;
 	attribute r1Bound : Boolean = r1.result;
 	attribute r1Unbound : Boolean = r1u.result;
