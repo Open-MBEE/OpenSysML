@@ -12,11 +12,13 @@ use crate::document::{DocumentForm, DocumentQueryResult, DocumentValue};
 use crate::domain::{Model, Symbol, Value};
 use crate::edit::Editor;
 use crate::error::Error;
-use crate::operations::{AnalysisOptions, RunOptions, SweepOptions, VerifyOptions};
+use crate::operations::{
+    AnalysisOptions, RecordOptions, RunOptions, RunsOptions, SweepOptions, VerifyOptions,
+};
 use crate::query::{Constraint, Query, QueryElement};
 use crate::results::{
-    ActionRun, AnalysisResult, CalcResult, Exploration, Satisfaction, StateRun, SweepRange,
-    SweepTable, Validation, Verdict,
+    ActionRun, AnalysisResult, CalcResult, Exploration, Recording, RunsResult, Satisfaction,
+    SelfCheckResult, StateRun, SweepRange, SweepTable, Validation, Verdict,
 };
 
 const PROPERTY_ID: &str = "@id";
@@ -486,6 +488,21 @@ impl Model {
     ) -> Result<SweepTable, Error> {
         self.connection
             .run_sweep(self.hash(), target_id, ranges, options)
+    }
+
+    /// Runs an action, or a Monte Carlo case, of this model `options.runs` times.
+    pub fn run_runs(&self, options: &RunsOptions) -> Result<RunsResult, Error> {
+        self.connection.run_runs(self.hash(), options)
+    }
+
+    /// Applies the reflective SysMLValidation constraints to every element of this model.
+    pub fn self_check(&self, packages: &[String]) -> Result<SelfCheckResult, Error> {
+        self.connection.self_check(self.hash(), packages)
+    }
+
+    /// Runs an analysis case of this model and records the runs into it.
+    pub fn record_run(&self, case_id: &str, options: &RecordOptions) -> Result<Recording, Error> {
+        self.connection.record_run(self.hash(), case_id, options)
     }
 }
 

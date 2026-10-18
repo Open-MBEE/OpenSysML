@@ -246,6 +246,37 @@ function test_surface_live()
     expect_identifier(@() opensysml.compareResults(probeModel, probeResults, 'runs', -1), 'opensysml:', 'CompareResults negative runs');
     expect_identifier(@() opensysml.compareResults(probeModel, 'not json'), 'opensysml:', 'CompareResults malformed');
 
+    runsModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'monte_carlo.sysml')), ...
+        'name', 'monte_carlo.sysml');
+    settled = opensysml.runRuns(runsModel, 'action', 'MC::Settle', 'runs', 4, 'seed', 7, 'observe', {'t'});
+    assert_equal(numel(settled.rows), 4, 'RunRuns rows');
+    assert_equal(settled.observables, {'t'}, 'RunRuns observables');
+    assert_equal(settled.distributions{1}.count, 4, 'RunRuns distribution count');
+    assert_equal(settled.distributions{1}.numeric, true, 'RunRuns distribution numeric');
+    assert_equal(settled.seed, uint64(7), 'RunRuns seed');
+    sampled = runsModel.runRuns('analysis', 'MC::Mc', 'subject', 'MC::probe', 'runs', 3, 'seed', 1);
+    assert_equal(numel(sampled.rows), 3, 'RunRuns sample rows');
+    assert_equal(isempty(sampled.unconcluded), true, 'RunRuns concluded');
+    assert_equal(isfield(sampled.outputs, 'Mean'), true, 'RunRuns Mean');
+    expect_identifier(@() opensysml.runRuns(runsModel, 'action', 'MC::Settle', 'runs', 1), 'opensysml:', 'RunRuns unseeded');
+    expect_identifier(@() opensysml.runRuns(runsModel, 'action', 'MC::Nope', 'runs', 1, 'draws', 'min'), 'opensysml:', 'RunRuns unknown');
+    selfChecked = opensysml.selfCheck(runsModel);
+    assert_equal(selfChecked.elements > 0 && selfChecked.checks > 0, true, 'SelfCheck counts');
+    assert_equal(strncmp(selfChecked.summary, 'Self-model check: ', 18), true, 'SelfCheck summary');
+    assert_equal(isempty(selfChecked.applications), false, 'SelfCheck applications');
+    expect_identifier(@() runsModel.selfCheck('packages', {'Nope'}), 'opensysml:', 'SelfCheck unknown package');
+    recorded = opensysml.recordRun(runsModel, 'MC::Cost', 'subject', 'MC::p');
+    assert_equal(isa(recorded.run, 'opensysml.AnalysisResult'), true, 'RecordRun run');
+    assert_equal(isempty(recorded.run.outputs), false, 'RecordRun run outputs');
+    assert_equal(recorded.package, 'Records', 'RecordRun package');
+    assert_equal(recorded.records, {'Records::Cost_run1'}, 'RecordRun records');
+    assert_equal(numel(recorded.documents), 1, 'RecordRun documents');
+    assert_equal(isempty(recorded.modelHash), false, 'RecordRun model hash');
+    sampledRecord = runsModel.recordRun('MC::Mc', 'subject', 'MC::probe', 'runs', 2, 'seed', 3);
+    assert_equal(isempty(sampledRecord.sample), false, 'RecordRun sample');
+    assert_equal(numel(sampledRecord.records), 3, 'RecordRun sample records');
+    expect_identifier(@() opensysml.recordRun(runsModel, 'MC::Nope'), 'opensysml:', 'RecordRun unknown');
+
     behavior = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'behavior.sysml')), ...
         'name', 'behavior.sysml');
     action = opensysml.executeAction(behavior, 'Test::addFive', ...
