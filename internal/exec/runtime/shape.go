@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -155,10 +157,21 @@ func isInputParameter(sym *symbols.Symbol) bool {
 	return ok && !usage.IsResult && (usage.Direction == ast.DirIn || usage.Direction == ast.DirInOut)
 }
 
-// extractType resolves the type of a feature: the one it declares, or the one
-// it inherits from what it redefines or subsets when it restates none
-// (KerML 1.0 §7.4.7).
+// extractType resolves the type of a feature: the one it states, or the single
+// more specific type that stands for the conjunction of it with the types of the
+// features it subsets, redefines or references (KerML 1.0 §7.3.4.3–§7.3.4.4) —
+// a `Surface` subsetting a `StructuredSurface` feature holds StructuredSurfaces.
 func (ctx *Context) extractType(featureSym *symbols.Symbol) *symbols.Symbol {
+	stated := ctx.statedType(featureSym)
+	if types := ctx.effectiveTypes(featureSym); len(types) == 1 && types[0] != stated && ctx.model.semantics.Conforms(types[0], stated) {
+		return types[0]
+	}
+	return stated
+}
+
+// statedType is the type a feature declares, or the first one a feature it
+// specializes declares when it declares none itself (KerML 1.0 §7.4.7).
+func (ctx *Context) statedType(featureSym *symbols.Symbol) *symbols.Symbol {
 	if typ := ctx.declaredType(featureSym); typ != nil {
 		return typ
 	}
@@ -168,6 +181,82 @@ func (ctx *Context) extractType(featureSym *symbols.Symbol) *symbols.Symbol {
 		}
 	}
 	return nil
+}
+
+// effectiveTypes returns the types every value of a feature has: the type it
+// states conjoined with the types of each feature it subsets, redefines or
+// references, keeping only the most specific. A parameter's positional
+// redefinition of a general parameter contributes a type only when the
+// parameter states none itself, as the semantic layer resolves it.
+func (ctx *Context) effectiveTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
+	sem := ctx.model.semantics
+	stated := ctx.statedType(featureSym)
+	if stated == nil {
+		return nil
+	}
+	types := []*symbols.Symbol{stated}
+	add := func(candidates []*symbols.Symbol) {
+		for _, typ := range candidates {
+			if typ != nil && !slices.Contains(types, typ) {
+				types = append(types, typ)
+			}
+		}
+	}
+	implicit := sem.ImplicitParameterRedefinitions(featureSym)
+	for _, sup := range sem.DirectSupertypes(featureSym) {
+		if sup.IsFeature() && !slices.Contains(implicit, sup) {
+			add(sem.FeatureTypeSet(sup))
+		}
+	}
+	if ref := sem.ReferencedFeature(featureSym); ref != nil && ref != featureSym {
+		add(sem.FeatureTypeSet(ref))
+	}
+	return slices.DeleteFunc(types, func(typ *symbols.Symbol) bool {
+		return slices.ContainsFunc(types, func(other *symbols.Symbol) bool {
+			return other != typ && sem.Conforms(other, typ)
+		})
+	})
+}
+
+// conjoinedTypes returns the types of a feature's values that typ, the type its
+// objects are made as, does not stand for: a feature typed `Panel` subsetting
+// one typed `Framed` holds objects that are both (KerML 1.0 §7.3.4.3).
+func (ctx *Context) conjoinedTypes(featureSym, typ *symbols.Symbol) []*symbols.Symbol {
+	return slices.DeleteFunc(ctx.effectiveTypes(featureSym), func(other *symbols.Symbol) bool {
+		return other == typ || ctx.model.semantics.Conforms(typ, other)
+	})
+}
+
+// withConjoinedTypes makes an object held by feature of owner a value of every
+// type its feature conjoins: each one classifies the object, and its members
+// the object's type lacks join the shape; a member both declare is one feature.
+func (ctx *Context) withConjoinedTypes(inst, owner *Instance, feature string, features []EffectiveFeature) []EffectiveFeature {
+	if owner == nil || feature == "" {
+		return features
+	}
+	fv := owner.FeatureValues[feature]
+	if fv == nil || fv.Feature == nil || fv.Feature.Symbol == nil {
+		return features
+	}
+	extra := ctx.conjoinedTypes(fv.Feature.Symbol, inst.Type)
+	if len(extra) == 0 {
+		return features
+	}
+	held := make(map[string]bool, len(features))
+	for i := range features {
+		held[features[i].Name] = true
+	}
+	features = slices.Clone(features)
+	for _, typ := range extra {
+		inst.classifiers = append(inst.classifiers, typ)
+		for _, member := range ctx.FeaturesOf(typ) {
+			if !held[member.Name] {
+				held[member.Name] = true
+				features = append(features, member)
+			}
+		}
+	}
+	return features
 }
 
 // declaredType resolves the type a feature states itself, ignoring inheritance.

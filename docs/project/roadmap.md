@@ -450,9 +450,9 @@ it declares, so that binding is partial — it relates the disc's edge to some v
 `runtime/binding.go` `partialBinding` now decides so from the declared bounds (`lower/binding.go`
 `Binding.Multiplicity`). What stays a typed error is what the library leaves open, not a runtime
 gap: the `[0..1]`-bound edge and vertex groups (`tfe`, `tflv`, and so `Box::vertices`), which no
-binding pins to a member, are `errBindingEnd` naming the binding; `be`/`ae` and `Cylinder::edges`/
-`vertices` reach `cf : Surface`, whose `edges`/`vertices` are the Kernel frame's, not the object's;
-and `matingOccurrences`/`spaceBoundary` are frame features of `Occurrences.kerml`. See the
+binding pins to a member, are `errBindingEnd` naming the binding; `be`/`ae` and `Cylinder::edges`
+reach `cf.edges` through `binding [1] bind [0..*] cf.edges = [0..*] be`, one link that pins no
+member, and are `errBindingEnd` naming it; and `matingOccurrences`/`spaceBoundary` are frame features of `Occurrences.kerml`. See the
 `ShapeItems` rows and Known Limitations in `spec-compliance.md` and the record in `omg-issues.md`.
 
 ---

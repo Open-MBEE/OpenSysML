@@ -368,18 +368,38 @@ func TestClassifierSubsetterSupersedesAFoldedDefault(t *testing.T) {
 }
 
 // TestSubsetterContributionIsTypedByTheSubsettedFeature: what a subsetter
-// contributes is judged by the subsetted feature's own type, an object or a
-// scalar alike, and a refused contribution leaves the feature unmaterialized.
+// contributes is judged by the subsetted feature's own type, and a refused
+// contribution leaves the feature unmaterialized.
 func TestSubsetterContributionIsTypedByTheSubsettedFeature(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defaultNullCollectionModel))
-	for usage, feature := range map[string]string{"mistyped": "engines", "sized": "size"} {
-		inst := instantiateNamed(t, ctx, idx, "test::"+usage)
-		if _, err := inst.GetFeatureValue(ctx, feature); !errors.Is(err, ErrTypeMismatch) {
-			t.Errorf("%s.GetFeatureValue(%s) error = %v, want ErrTypeMismatch", usage, feature, err)
-		}
-		if fv := inst.FeatureValues[feature]; fv.Materialized || fv.Value.Kind != ValInvalid || fv.Values.Kind != ValInvalid {
-			t.Errorf("%s.%s = %+v after the refusal, want it left unmaterialized", usage, feature, fv)
-		}
+	inst := instantiateNamed(t, ctx, idx, "test::sized")
+	if _, err := inst.GetFeatureValue(ctx, "size"); !errors.Is(err, ErrTypeMismatch) {
+		t.Errorf("sized.GetFeatureValue(size) error = %v, want ErrTypeMismatch", err)
+	}
+	if fv := inst.FeatureValues["size"]; fv.Materialized || fv.Value.Kind != ValInvalid || fv.Values.Kind != ValInvalid {
+		t.Errorf("sized.size = %+v after the refusal, want it left unmaterialized", fv)
+	}
+}
+
+// TestSubsetterObjectHasTheSubsettedType: a subsetter typed by one definition
+// that subsets a feature typed by another holds objects of both types (KerML 1.0
+// §7.3.4.4), so the subsetted feature admits what it contributes.
+func TestSubsetterObjectHasTheSubsettedType(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defaultNullCollectionModel))
+	inst := instantiateNamed(t, ctx, idx, "test::mistyped")
+	fv, err := inst.GetFeatureValue(ctx, "engines")
+	if err != nil {
+		t.Fatalf("mistyped.GetFeatureValue(engines): %v", err)
+	}
+	if got := len(elementsOf(fv.HeldValue())); got != 1 {
+		t.Fatalf("mistyped.engines = %s, want the one wheel", FormatValue(fv.HeldValue()))
+	}
+	wheel, err := inst.GetFeatureValue(ctx, "wheel")
+	if err != nil {
+		t.Fatalf("mistyped.GetFeatureValue(wheel): %v", err)
+	}
+	if elementsOf(fv.HeldValue())[0] != wheel.HeldValue() {
+		t.Errorf("mistyped.engines = %s, want the wheel %s", FormatValue(fv.HeldValue()), FormatValue(wheel.HeldValue()))
 	}
 }
 

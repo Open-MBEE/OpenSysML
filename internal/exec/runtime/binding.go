@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -759,6 +760,50 @@ func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Bindin
 	return bindingEndpoint{
 		locations: locations, index: binding.Ends[end].Index, selection: binding.Ends[end].Expr, scope: binding.Scope,
 	}, nil
+}
+
+// withBoundMembers adds to an object's features the members of sym that the
+// bindings of the objects holding it reach through feature, where the shape
+// leaves them out: a Kernel member the model binds describes the object rather
+// than framing it (KerML 1.0 §7.3.4.4), so it holds a value like any other.
+func (ctx *Context) withBoundMembers(owner *Instance, feature string, sym *symbols.Symbol, features []EffectiveFeature) []EffectiveFeature {
+	if owner == nil || feature == "" {
+		return features
+	}
+	held := make(map[string]bool, len(features))
+	for i := range features {
+		held[features[i].Name] = true
+	}
+	added := false
+	path := feature
+	for current := owner; current != nil; {
+		for _, typ := range current.types() {
+			for _, binding := range ctx.objectBindings(typ) {
+				for _, end := range binding.Ends {
+					name, ok := strings.CutPrefix(end.Path, path+".")
+					if !ok || strings.Contains(name, ".") || held[name] {
+						continue
+					}
+					member, found := ctx.model.semantics.LookupMember(sym, name)
+					if !found || !member.IsFeature() || !ctx.model.semantics.FrameFeature(member) || ctx.model.semantics.FrameRoot(sym, member) {
+						continue
+					}
+					if !added {
+						features, added = slices.Clone(features), true
+					}
+					held[name] = true
+					features = append(features, ctx.effectiveFeature(name, member, sym))
+				}
+			}
+		}
+		next, nextFeature := current.Owner()
+		if next == nil || nextFeature == "" {
+			break
+		}
+		path = nextFeature + "." + path
+		current = next
+	}
+	return features
 }
 
 // resolveBindingLocations follows an end's path from owner to the named feature on every

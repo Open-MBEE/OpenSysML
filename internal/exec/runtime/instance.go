@@ -391,6 +391,8 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	if len(pending) > 0 {
 		features, inst.nested = ctx.applyNestedRedefinitions(sym, features, pending)
 	}
+	features = ctx.withConjoinedTypes(inst, owner, feature, features)
+	features = ctx.withBoundMembers(owner, feature, sym, features)
 
 	// Create feature value for each feature, allocated as one block.
 	values := make([]FeatureValue, len(features))

@@ -1,0 +1,14 @@
+{
+  "type": "instance",
+  "instantiate": "test::p",
+  "libraries": true,
+  "slots": {
+    "shape.height": {"type": "Quantity", "value": 20, "unit": "SI::cm"},
+    "shape.base.shape.radius": {"type": "Quantity", "value": 60, "unit": "SI::cm"},
+    "shape.faces": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "shape.vertices": {"type": "Sequence", "elements": []}
+  },
+  "materialization": {}
+}
