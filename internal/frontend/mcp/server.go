@@ -136,7 +136,12 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 				s.Close(ctx)
 				return nil, fmt.Errorf("the session group needs a session factory")
 			}
-			s.sessions = sessiontools.NewManager(cfg.Root, cfg.NewSession)
+			sessions, err := sessiontools.NewManager(cfg.Root, cfg.NewSession)
+			if err != nil {
+				s.Close(ctx)
+				return nil, err
+			}
+			s.sessions = sessions
 			sessiontools.Register(s.sdk, s.sessions)
 		default:
 			s.Close(ctx)

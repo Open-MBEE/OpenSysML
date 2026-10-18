@@ -195,7 +195,7 @@ type Session struct {
 	verbosity Verbosity
 	// fileGuard, when set, is asked before the session reads or writes a file
 	// a command named, so a host can confine the session to a workspace.
-	fileGuard func(path string) error
+	fileGuard func(path string, exempt []string) error
 
 	// renderWidth is the width a text rendering's table is written to fit, 0 for
 	// as wide as its widest cell.
@@ -1636,15 +1636,16 @@ func rebasedFixes(fixes []diag.Fix, delta int) []diag.Fix {
 
 // SetFileGuard installs a check every file the session is asked to read or
 // write must pass: the files %load and %save name, those a directory or glob
-// expands to, and the dependencies found beside them. Files under the library
-// roots are exempt, since installed projects live outside a workspace. A nil
-// guard lifts the check.
-func (s *Session) SetFileGuard(guard func(path string) error) {
+// expands to, and the dependencies found beside them. For a file a load may
+// take from an installed project, the guard is handed the library roots as
+// exempt directories, since those live outside a workspace. A nil guard lifts
+// the check.
+func (s *Session) SetFileGuard(guard func(path string, exempt []string) error) {
 	s.fileGuard = guard
 }
 
-// guardFiles asks the file guard about each file; with libraries true, files
-// under a library root pass without asking.
+// guardFiles asks the file guard about each file; with libraries true, the
+// library roots are passed as exempt.
 func (s *Session) guardFiles(files []string, libraries bool) error {
 	for _, f := range files {
 		if err := s.guardFile(f, libraries); err != nil {
@@ -1655,28 +1656,12 @@ func (s *Session) guardFiles(files []string, libraries bool) error {
 }
 
 func (s *Session) guardFile(file string, libraries bool) error {
-	if s.fileGuard == nil || (libraries && s.underLibraryRoot(file)) {
+	if s.fileGuard == nil {
 		return nil
 	}
-	return s.fileGuard(file)
-}
-
-// underLibraryRoot reports whether the file lies under a library root where it
-// really is, the symlinks on the way followed, so a link planted under a root
-// cannot stand for a file elsewhere.
-func (s *Session) underLibraryRoot(file string) bool {
-	real, err := filepath.EvalSymlinks(file)
-	if err != nil {
-		return false
+	var exempt []string
+	if libraries {
+		exempt = s.libraryRoots
 	}
-	for _, root := range s.libraryRoots {
-		realRoot, err := filepath.EvalSymlinks(root)
-		if err != nil {
-			continue
-		}
-		if rel, err := filepath.Rel(realRoot, real); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return true
-		}
-	}
-	return false
+	return s.fileGuard(file, exempt)
 }

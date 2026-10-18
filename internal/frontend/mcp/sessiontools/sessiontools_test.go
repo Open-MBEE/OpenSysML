@@ -26,7 +26,7 @@ func connect(t *testing.T, root string) *sdk.ClientSession {
 	t.Helper()
 	ctx := context.Background()
 	srv := sdk.NewServer(&sdk.Implementation{Name: "test", Version: "0"}, nil)
-	m := NewManager(root, func() (*repl.Session, error) {
+	m := mustManager(t, root, func() (*repl.Session, error) {
 		s := repl.NewSession()
 		return s, s.SetEngines(engineset.Default())
 	})
@@ -516,7 +516,7 @@ func TestConcurrentCallsOnOneSessionAreSerialized(t *testing.T) {
 
 func TestACloseRacingAQueuedCallRunsItFirstOrFailsIt(t *testing.T) {
 	for range 25 {
-		m := NewManager(t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
+		m := mustManager(t, t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
 		if _, err := m.Open("raced"); err != nil {
 			t.Fatal(err)
 		}
@@ -566,7 +566,7 @@ func TestACloseRacingAQueuedCallRunsItFirstOrFailsIt(t *testing.T) {
 }
 
 func TestGetAnswersFromInsideACallOnTheSameSession(t *testing.T) {
-	m := NewManager(t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
+	m := mustManager(t, t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
 	done := make(chan error, 1)
 	go func() {
 		done <- m.Use(context.Background(), "", func(sess *repl.Session) error {
@@ -604,9 +604,19 @@ func TestASubmissionIsAcceptedDespiteAnOlderErrorAtDebugVerbosity(t *testing.T) 
 	}
 }
 
+// mustManager is a manager over root, which must exist.
+func mustManager(t *testing.T, root string, factory Factory) *Manager {
+	t.Helper()
+	m, err := NewManager(root, factory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
 func TestResolveConfinesPathsToTheWorkspaceRoot(t *testing.T) {
 	root := t.TempDir()
-	m := NewManager(root, func() (*repl.Session, error) { return repl.NewSession(), nil })
+	m := mustManager(t, root, func() (*repl.Session, error) { return repl.NewSession(), nil })
 	for in, want := range map[string]string{
 		".":                            root,
 		"sub/../model.ttl":             filepath.Join(root, "model.ttl"),
@@ -637,7 +647,7 @@ func TestResolveAcceptsAbsolutePathsUnderARelativeRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Chdir(parent)
-	m := NewManager("models", func() (*repl.Session, error) { return repl.NewSession(), nil })
+	m := mustManager(t, "models", func() (*repl.Session, error) { return repl.NewSession(), nil })
 	want := filepath.Join(parent, "models", "a.sysml")
 	if got, err := m.Resolve(want); err != nil || got != want {
 		t.Errorf("Resolve(%q) = %q, %v; want it accepted", want, got, err)
@@ -661,7 +671,7 @@ func TestResolveFollowsSymlinksBeforeJudgingTheRoot(t *testing.T) {
 	if err := os.Symlink(filepath.Join(root, "models"), filepath.Join(root, "alias")); err != nil {
 		t.Fatal(err)
 	}
-	m := NewManager(root, func() (*repl.Session, error) { return repl.NewSession(), nil })
+	m := mustManager(t, root, func() (*repl.Session, error) { return repl.NewSession(), nil })
 	for _, in := range []string{"escape", "escape/model.sysml", "escape/deeper/model.sysml"} {
 		if got, err := m.Resolve(in); err == nil || !strings.Contains(err.Error(), "through a symlink") {
 			t.Errorf("Resolve(%q) = %q, %v; want a refusal naming the symlink", in, got, err)
@@ -701,14 +711,14 @@ func TestResolveExpandsHomeWhenItLiesUnderTheRoot(t *testing.T) {
 	if err != nil {
 		t.Skip(err)
 	}
-	m := NewManager(filepath.Dir(home), func() (*repl.Session, error) { return repl.NewSession(), nil })
+	m := mustManager(t, filepath.Dir(home), func() (*repl.Session, error) { return repl.NewSession(), nil })
 	if got, err := m.Resolve("~/model.sysml"); err != nil || got != filepath.Join(home, "model.sysml") {
 		t.Errorf("Resolve(~/model.sysml) = %q, %v", got, err)
 	}
 }
 
 func TestACancellationBeforeTheCommandBeginsStillStopsIt(t *testing.T) {
-	m := NewManager(t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
+	m := mustManager(t, t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
 	sess, err := m.Get("")
 	if err != nil {
 		t.Fatal(err)
