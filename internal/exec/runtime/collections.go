@@ -130,6 +130,19 @@ func (ctx *Context) collectionObjectElements(val Value) (Value, bool, error) {
 	return elements, true, err
 }
 
+// orderedCollectionObjectElements is collectionObjectElements for an object of an
+// OrderedCollection, whose positions are its elements'; false for every other value.
+func (ctx *Context) orderedCollectionObjectElements(val Value) (Value, bool, error) {
+	if val.Kind != ValInstance {
+		return Value{}, false, nil
+	}
+	inst, ok := ctx.Instance(val.Instance)
+	if !ok || !ctx.specializes(inst.Type, ctx.librarySymbol(orderedCollectionTypeFQN)) {
+		return Value{}, false, nil
+	}
+	return ctx.collectionObjectElements(val)
+}
+
 // elementCount is len(elementsOf(val)) without materializing a scalar's
 // one-element sequence.
 func elementCount(val *Value) int64 {
@@ -334,6 +347,14 @@ func (ec *EvalContext) evalSequenceIndex(n *ast.IndexExpr) (Value, error) {
 	indexVal, err := ec.Eval(n.Index)
 	if err != nil {
 		return Value{}, err
+	}
+	// `col#(i)` over an OrderedCollection is CollectionFunctions::'#': the element
+	// at i of `col.elements`, not the one-element sequence the object itself is.
+	if elements, ok, err := ec.ctx.orderedCollectionObjectElements(operand); ok || err != nil {
+		if err != nil {
+			return Value{}, err
+		}
+		operand = elements
 	}
 	if indexes := elementsOf(indexVal); len(indexes) != 1 || isStructuredValue(&operand) {
 		return builtinBaseIndex(ec, []Value{operand, indexVal})
