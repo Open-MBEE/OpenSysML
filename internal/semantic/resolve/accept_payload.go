@@ -34,7 +34,7 @@ func acceptPayloadsIn(scope *symbols.Scope) map[string]*symbols.Symbol {
 	var payloads map[string]*symbols.Symbol
 	for _, node := range scope.Children() {
 		usage, ok := node.Node().(*ast.Usage)
-		if !ok || usage.Kind != ast.UsageAction {
+		if !ok || !usage.Kind.IsAction() {
 			continue
 		}
 		for _, member := range usage.Members {
@@ -65,9 +65,9 @@ func acceptPayloadsIn(scope *symbols.Scope) map[string]*symbols.Symbol {
 func sharesBodyFeatureSpace(node ast.Node) bool {
 	switch n := node.(type) {
 	case *ast.Usage:
-		return n.Kind == ast.UsageAction
+		return n.Kind.IsAction()
 	case *ast.Definition:
-		return n.Kind == ast.DefAction
+		return n.Kind.IsAction()
 	case *ast.IfBranchNode, *ast.WhileLoopActionNode:
 		return true
 	}

@@ -133,11 +133,12 @@ embed in a page. A model parsed through it hashes to the same `modelHash` the se
 returns, and a request a service client encodes decodes identically here.
 
 It also serves `RenderView`, returning drawing data for a declared view or a targeted
-pseudo-view. [`sysml-grpc` serves `RenderView` as an RPC](wire-contract.md#renderview),
-but the engine reply uses the drawing shape described here (flattened `fill`/`border`
-and optional `x`/`y`/`width`/`height`), not the protojson `RenderViewResponse`. A
-request names the cached model and a declared view's qualified name or the target of a
-pseudo-view:
+pseudo-view, as the protojson of the `RenderViewResponse`
+[`sysml-grpc` answers the RPC with](wire-contract.md#renderview): the same `nodes`, `edges`,
+`rows`, `notes`, `canvas`, `notices` and `shown`, each node's placement under `geometry` and
+its colours under `style`, and each node, edge and row's declaration under `origin`. A typed
+client decodes either transport's answer alike. A request names the cached model and a
+declared view's qualified name or the target of a pseudo-view:
 
 ```json
 {
@@ -152,9 +153,8 @@ an interconnection or mixed view, and `full` includes every port. Each node's op
 array has `id`, `name`, optional `type` and optional `direction`; undirected ports omit the
 direction. An edge's optional
 `fromPort` and `toPort` identify the endpoint ports by those IDs. The response also carries
-the view kind, stated rendering, notices, canvas, nodes, edges, and, for tabular renderings
-(tables and matrices), columns and rows; its node and edge fields use the same JSON names as
-`opensysml/render`.
+the view kind, stated rendering, notices, canvas, nodes, edges, notes and, for tabular renderings
+(tables and matrices), columns and rows. Empty fields are omitted, as protojson omits them.
 
 `show` is optional: an array naming the [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
 to draw besides those the view's rendering shows (`parameter-symbols`, `port-symbols`,
@@ -268,9 +268,11 @@ system and stdin, as the site's REPL page does.
 `RenderView` and `GetServerInfo`. Parsing and symbol facts route through the core;
 evaluation, execution and view rendering route through the engine. `ParseSources` and
 `ParseFile` check that both frontends produce the same model hash and return the core
-response, including roots and diagnostics. `RenderView` answers with [the engine's drawing
-shape](#the-execution-engine), not the protojson `RenderViewResponse` the service returns, so the
-module does not advertise the `render_view` capability a service client would key on.
+response, including roots and diagnostics. `RenderView` answers with the protojson
+`RenderViewResponse` the service returns, so the module advertises the `render_view`
+capability and a service client's typed `renderView` works over it unchanged. A traced
+`ExecuteState` likewise answers its `trace` as the service's `DocumentEvent` records and
+the module advertises `state_trace`, so a typed `executeState` with `trace` works over it.
 
 A hash from either parse method is shared by every method that takes a `modelHash`, including
 `GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction` and `ExecuteState`.
@@ -280,7 +282,7 @@ The module retains the 16 most recently used models; an evicted hash is evicted 
 `feature_values`, `inline_language`, `strict_conformance`, `parse_sources`, `complex_values`,
 `structured_values`, `measurement_refs`, `function_values`, `set_values`, `tensor_values`,
 `infinity_value`, `diagnostic_codes`, `schedule`, `final_time`, `metaobject_values`,
-`undetermined_value`, `performer`, `big_int_values`.
+`undetermined_value`, `performer`, `big_int_values`, `render_view`, `state_trace`.
 
 The `js` build installs one synchronous host surface, `globalThis.sysmlWasm`, with
 `version` and `call(method, paramsJSON)`. The call returns a JSON-RPC envelope string.
@@ -288,8 +290,19 @@ Passing `-stdio` selects the sequential, `Content-Length`-framed JSON-RPC pipe i
 native and `wasip1` builds always use that pipe. Every other method answers Unimplemented
 with `<Method> is not served by sysml-wasm: it is served by sysml-grpc`.
 
-Measured on a `go1.25.11` `js/wasm` build with `-s -w -trimpath`: 31,526,528 raw bytes,
-7,790,873 bytes gzipped with gzip `-9`, and 5,479,244 bytes with Brotli `-q 11`.
+Measured on a `go1.25.11` `js/wasm` build with `-s -w -trimpath`: 35,311,967 raw bytes,
+8,722,361 bytes gzipped with gzip `-9`, and 6,087,934 bytes with Brotli `-q 11`.
+
+The documentation homepage runs on this module. `make docs-engine-assets` builds it from
+the tree into `docs/assets/sysml-wasm.wasm.gz` (and the REPL's `sysml-repl.wasm.gz`), and
+`make docs-landing-assets` bundles the page's diagram with the browser client from
+`client/node/src/browser` and its `wasm-worker` entry; the page inflates the module with
+`DecompressionStream` and runs it in a Worker through `connectWasm`. The module's URL is
+the single `data-osml-wasm` attribute of the hero in `overrides/home.html`, so once a
+release carrying `render_view` and `state_trace` is published, pointing the site at
+`https://cdn.jsdelivr.net/npm/@openmbee/opensysml-wasm@<version>/sysml-wasm.wasm` is a
+one-line change — with `data-osml-wasm-exec` pointed at the `wasm_exec.js` of the same
+package, since a module runs only under the `wasm_exec.js` of the Go toolchain that built it.
 
 ## What works
 

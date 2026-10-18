@@ -20,6 +20,21 @@ type functionValue struct {
 	enclosing []frame
 }
 
+// arity is the fewest and the most positional arguments the function binds: the
+// fewest reach its last parameter without a default or an optional multiplicity,
+// since positional arguments bind from the first parameter on.
+func (fn *functionValue) arity() (low, high int) {
+	if fn.library != nil {
+		return fn.library.leastPositional(), len(fn.library.params)
+	}
+	for i := len(fn.shape.Params) - 1; i >= 0; i-- {
+		if fn.shape.Params[i].Default == nil {
+			return i + 1, len(fn.shape.Params)
+		}
+	}
+	return 0, len(fn.shape.Params)
+}
+
 // function is the payload of a ValFunction; nil for every other kind.
 func (v Value) function() *functionValue {
 	if v.Kind != ValFunction {

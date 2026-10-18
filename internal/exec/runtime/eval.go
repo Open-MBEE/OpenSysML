@@ -266,7 +266,7 @@ func (ec *EvalContext) lookupSubaction(name string) (perf *actionFrame, declared
 	var decl ast.Node
 	if ec.ctx.model.resolver != nil {
 		if sym, ok := ec.lookupName(name); ok && sym != nil {
-			if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind != ast.UsageAction && !lower.IsCaseNode(usage) {
+			if usage, ok := sym.Decl.(*ast.Usage); ok && !usage.Kind.IsAction() && !lower.IsCaseNode(usage) {
 				return nil, false, nil
 			}
 			decl = sym.Decl

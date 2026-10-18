@@ -39,12 +39,11 @@ func (d Discovery) Dependencies(files []string, known func(name string) bool) []
 		if IsStdin(file) {
 			continue
 		}
-		// #nosec G304 -- the file is one the user named, or one found under its directory.
-		content, err := os.ReadFile(file)
+		path, content, err := ReadFile(file)
 		if err != nil {
 			continue
 		}
-		sources = append(sources, Source{Path: file, Content: content})
+		sources = append(sources, Source{Path: path, Content: content})
 	}
 	return d.DependenciesOf(sources, known)
 }
@@ -63,7 +62,11 @@ func (d Discovery) DependenciesOf(sources []Source, known func(name string) bool
 			continue
 		}
 		loaded[absKey(src.Path)] = true
+		// An archive member's siblings are the archive's other members.
 		dir := filepath.Dir(src.Path)
+		if archive, _, ok := SplitMemberPath(src.Path); ok {
+			dir = archive
+		}
 		if key := absKey(dir); !seenDir[key] {
 			seenDir[key] = true
 			dirs = append(dirs, dir)

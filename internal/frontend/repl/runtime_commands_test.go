@@ -396,6 +396,30 @@ func TestActionDebuggerRunsToResult(t *testing.T) {
 	wants(t, run(t, s, "%stop"), `✓ Stopped debugging session for "tally"`)
 }
 
+// A use case is an action (SysML v2 §7.19): the debugger steps its body as it
+// does an action's, a use case def and an included use case run the same way,
+// and the analysis runner still refuses it, since it is no analysis case.
+func TestActionDebuggerRunsAUseCase(t *testing.T) {
+	s := loadFixture(t, "testdata/use_case_debug.sysml")
+
+	wants(t, run(t, s, "%action Drones::chargeDrone"), `✓ Started action executor for "Drones::chargeDrone"`, "Tokens: 1")
+	wants(t, run(t, s, "%tokens"), "Active tokens (1):", "Token 1 @ start")
+	wants(t, run(t, s, "%step"), "✓ Step complete")
+	wants(t, run(t, s, "%tokens"), "Token 1 @ plugDrone")
+	wants(t, run(t, s, "%continue"), "✓ Action completed", "charge = 11")
+	wants(t, run(t, s, "%stop"), `✓ Stopped debugging session for "Drones::chargeDrone"`)
+
+	wants(t, run(t, s, "%action Drones::Weigh"), `✓ Started action executor for "Drones::Weigh"`)
+	wants(t, run(t, s, "%continue"), "✓ Action completed", "m = 3.5")
+	run(t, s, "%stop")
+
+	wants(t, run(t, s, "%action Drones::mission"), `✓ Started action executor for "Drones::mission"`)
+	wants(t, run(t, s, "%continue"), "✓ Action completed", "charge.charge = 1", "weigh.m = 3.5", "total = 4.5")
+	run(t, s, "%stop")
+
+	wants(t, run(t, s, "%analysis Drones::chargeDrone"), "error: not an analysis case: Drones::chargeDrone is an use case usage")
+}
+
 // A perform usage states no flow of its own: the debugger runs the flow of the
 // action definition typing it, rather than reporting the usage as flowless.
 func TestActionDebuggerRunsAPerformUsage(t *testing.T) {
