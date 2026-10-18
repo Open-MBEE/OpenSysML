@@ -61,6 +61,13 @@ executors:
       - image: cimg/base:current
     resource_class: medium
 
+  # The Docker CLI with buildx, for the image publisher; the daemon is the
+  # remote one setup_remote_docker attaches.
+  docker-executor:
+    docker:
+      - image: cimg/base:current
+    resource_class: medium
+
 commands:
   # In a rehearsal (the release_rehearsal pipeline parameter) CIRCLE_TAG is
   # unset; this stands in for the tag the release steps read, before any of
@@ -3312,6 +3319,165 @@ jobs:
       - rehearsal-skip:
           what: "cargo publish"
 
+  # Publishes the openmbee/opensysml container image to Docker Hub from the
+  # core `v<version>` tag: sysml-grpc as the entrypoint, with sysml and
+  # sysml-lsp beside it, for linux/amd64 and linux/arm64 through one manifest
+  # list. The credentials come from the 'DockerHub' context. Everything that
+  # can fail runs before the push: the tag check, the credential, the Docker
+  # Hub availability check, and a built linux/amd64 image that is run and
+  # asked for its version and its health before the multi-arch build is pushed.
+  publish-docker:
+    executor: docker-executor
+    steps:
+      - checkout
+      - rehearsal-tag
+
+      # The image is built on a remote Docker host; buildx cross-compiles the
+      # arm64 binaries there, so no emulator is installed.
+      - setup_remote_docker
+
+      - run:
+          name: Resolve the version from the tag
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a core v* tag."
+              exit 1
+            fi
+            # The image tag spells the version as the clients' registries do,
+            # without the v. A pre-release (-rc.1, -alpha.1…) gets its own tag
+            # and `latest` is untouched, as publish-npm leaves `latest` alone.
+            version=${CIRCLE_TAG#v}
+            tags="openmbee/opensysml:${version}"
+            case "$version" in
+              *-*) ;;
+              *) tags="${tags} openmbee/opensysml:latest" ;;
+            esac
+            echo "export IMAGE_VERSION=${version}" >> "$BASH_ENV"
+            echo "export IMAGE_TAGS='${tags}'" >> "$BASH_ENV"
+            echo "Publishing ${tags}"
+
+      - run:
+          name: Require the publishing credentials
+          command: |
+            # Names only, never the values; the 'DockerHub' context supplies them.
+            missing=""
+            [ -n "${DOCKER_USERNAME:-}" ] || missing="${missing} DOCKER_USERNAME"
+            [ -n "${DOCKER_PASSWORD:-}" ] || missing="${missing} DOCKER_PASSWORD"
+            if [ -n "$missing" ]; then
+              echo "Error:${missing} not set; add them to the 'DockerHub' context (Organization Settings → Contexts)."
+              exit 1
+            fi
+
+      - run:
+          name: Authenticate to Docker Hub
+          command: |
+            # A bad or expired access token fails here, before anything is built.
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
+      # A published tag is not replaced: the clients pin a release by digest,
+      # and a tag that named two different images would break that promise.
+      # An absent repository fails the same way as an absent tag, and the
+      # first push creates it.
+      - run:
+          name: Refuse a version already on Docker Hub
+          command: |
+            if docker manifest inspect "openmbee/opensysml:${IMAGE_VERSION}" >/dev/null 2>&1; then
+              echo "Error: openmbee/opensysml:${IMAGE_VERSION} is already on Docker Hub;"
+              echo "a published image tag is not replaced. Cut the next core release."
+              exit 1
+            fi
+            echo "ok: openmbee/opensysml:${IMAGE_VERSION} is not on Docker Hub yet"
+
+      # The same metadata build-release-binaries stamps into the archives'
+      # binaries; the Dockerfile passes it to the Makefile's -ldflags.
+      - run:
+          name: Create the multi-platform builder
+          command: |
+            echo "export BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> "$BASH_ENV"
+            docker buildx create --name opensysml --driver docker-container --use
+            docker buildx inspect --bootstrap
+
+      # The native platform's image is run before anything is pushed: the
+      # binaries report the tag, and the service answers /health and a Connect
+      # call from a second container on the service container's network, as a
+      # sidecar consumer will.
+      - run:
+          name: Build the linux/amd64 image and run it
+          command: |
+            docker buildx build --platform linux/amd64 --load \
+              --build-arg VERSION="${CIRCLE_TAG}" \
+              --build-arg COMMIT="${CIRCLE_SHA1}" \
+              --build-arg BUILD_TIME="${BUILD_TIME}" \
+              -t openmbee/opensysml:check .
+            for binary in sysml-grpc sysml sysml-lsp; do
+              reported=$(docker run --rm --entrypoint "$binary" openmbee/opensysml:check -version | head -n 1)
+              echo "$reported"
+              case "$reported" in
+                *"${CIRCLE_TAG}"*) ;;
+                *)
+                  echo "Error: ${binary} reports '${reported}', not the release tag ${CIRCLE_TAG}."
+                  exit 1 ;;
+              esac
+            done
+            docker run -d --name opensysml-check openmbee/opensysml:check
+            curl() {
+              docker run --rm --network container:opensysml-check curlimages/curl:8.11.1 \
+                -fsS --retry 10 --retry-connrefused --retry-delay 1 "$@"
+            }
+            health=$(curl http://localhost:8081/health)
+            echo "$health"
+            case "$health" in
+              *'"status":"ok"'*) ;;
+              *) echo "Error: /health did not answer ok."; exit 1 ;;
+            esac
+            info=$(curl -X POST -H 'Content-Type: application/json' -d '{}' \
+              http://localhost:50051/sysml.SysMLService/GetServerInfo)
+            case "$info" in
+              *"\"version\":\"${CIRCLE_TAG}\""*) echo "ok: GetServerInfo reports ${CIRCLE_TAG}" ;;
+              *) echo "Error: GetServerInfo answered '${info}', not version ${CIRCLE_TAG}."; exit 1 ;;
+            esac
+            docker rm -f opensysml-check >/dev/null
+
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # One build publishes both platforms under one manifest list per
+            # tag, with buildx's SLSA provenance and SBOM attestations attached
+            # to it; the registry has the image's provenance as the GitHub
+            # release has its signed manifest. The digest the push reports is
+            # what a deployer pins.
+            - run:
+                name: Build and push the multi-platform image
+                command: |
+                  tag_flags=""
+                  for tag in ${IMAGE_TAGS}; do tag_flags="${tag_flags} -t ${tag}"; done
+                  # shellcheck disable=SC2086
+                  docker buildx build --platform linux/amd64,linux/arm64 --push \
+                    --provenance=mode=max --sbom=true \
+                    --build-arg VERSION="${CIRCLE_TAG}" \
+                    --build-arg COMMIT="${CIRCLE_SHA1}" \
+                    --build-arg BUILD_TIME="${BUILD_TIME}" \
+                    ${tag_flags} .
+                  for tag in ${IMAGE_TAGS}; do
+                    docker buildx imagetools inspect "$tag"
+                  done
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # The login above already proved the credentials; this proves both
+            # platforms build from this tree, and leaves the result unpushed.
+            - run:
+                name: "REHEARSAL: build both platforms without pushing"
+                command: |
+                  docker buildx build --platform linux/amd64,linux/arm64 \
+                    --output type=image,push=false \
+                    --build-arg VERSION="${CIRCLE_TAG}" \
+                    --build-arg COMMIT="${CIRCLE_SHA1}" \
+                    --build-arg BUILD_TIME="${BUILD_TIME}" \
+                    -t openmbee/opensysml:rehearsal .
+      - rehearsal-skip:
+          what: "docker buildx build --push (the multi-platform image to Docker Hub)"
+
   publish-github-release:
     docker:
       - image: cibuilds/github:0.13
@@ -3790,6 +3956,20 @@ workflows:
           requires:
             - Publish GitHub release
             - Rust client tests
+          filters: *release-tags
+
+      - publish-docker:
+          name: Publish openmbee/opensysml to Docker Hub
+          # Last of all, with the registry publishers: a tag of the image names
+          # a release, so it waits for the GitHub release to exist. It is
+          # independent of them so neither registry refusing a re-run blocks
+          # the other. The organization context is named 'DockerHub' (the one
+          # flexo-mms-sysmlv2 publishes with); a context reference is matched
+          # exactly, so the case here has to match it.
+          context:
+            - DockerHub
+          requires:
+            - Publish GitHub release
           filters: *release-tags
 
       - pin-release-digests:
