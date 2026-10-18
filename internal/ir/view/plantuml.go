@@ -137,7 +137,7 @@ type plantumlWriter struct {
 func (r *Rendering) countGeometry() (placed, routed int) {
 	var walk func(node *Node)
 	walk = func(node *Node) {
-		if node.Geometry != nil {
+		if node.Geometry.placed() {
 			placed++
 		}
 		for _, child := range node.Children {

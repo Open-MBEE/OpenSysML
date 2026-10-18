@@ -91,7 +91,7 @@ func (p *placement) place(node *Node, tree bool, routed map[string]bool) {
 	}
 	cluster := len(node.Children) > 0 && !tree
 	switch {
-	case node.Geometry != nil:
+	case node.Geometry.placed():
 		p.extent[node.ID] = !cluster || node.Geometry.HasSize || members
 	case cluster && members, routed[node.ID]:
 		p.extent[node.ID] = true

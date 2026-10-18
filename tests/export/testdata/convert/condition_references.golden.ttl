@@ -97,6 +97,7 @@ elmt:ConditionReferences__Resistance__structuralIntegrityMaintained
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "structuralIntegrityMaintained" ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -130,6 +131,7 @@ elmt:ConditionReferences__Resistance__a
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance__a_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__a_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "a" ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -163,6 +165,7 @@ elmt:ConditionReferences__Resistance__b
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance__b_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__b_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "b" ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -196,6 +199,7 @@ elmt:ConditionReferences__Resistance__x
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance__x_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__x_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -218,6 +222,7 @@ elmt:ConditionReferences__Resistance__x_om
 
 elmt:ConditionReferences__Resistance___404
     a sysml:ConstraintUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::@4" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -254,6 +259,7 @@ elmt:ConditionReferences__Resistance___404_om
 
 elmt:ConditionReferences__Resistance___404___400
     a sysml:FeatureReferenceExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::@4::@0" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "30"^^xsd:integer ;
@@ -289,6 +295,7 @@ elmt:ConditionReferences__Resistance___404___400_om
 
 expr:ConditionReferences__Resistance___404___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___404___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Resistance___404___400 ;
@@ -309,6 +316,7 @@ expr:ConditionReferences__Resistance___404___400_pout_om
 
 elmt:ConditionReferences__Resistance___405
     a sysml:ConstraintUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::@5" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -345,6 +353,7 @@ elmt:ConditionReferences__Resistance___405_om
 
 elmt:ConditionReferences__Resistance___405___400
     a sysml:OperatorExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::@5::@0" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "30"^^xsd:integer ;
@@ -388,6 +397,7 @@ expr:ConditionReferences__Resistance___405___400_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "x" ;
     sysml:elementId "ConditionReferences__Resistance___405___400_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ConditionReferences__Resistance__x ;
     sysml:ownedRelationship expr:ConditionReferences__Resistance___405___400_pa0_pout_om, expr:ConditionReferences__Resistance___405___400_pa0_preferent ;
     sysml:ownedMembership expr:ConditionReferences__Resistance___405___400_pa0_pout_om ;
@@ -402,6 +412,7 @@ expr:ConditionReferences__Resistance___405___400_pa0
 
 expr:ConditionReferences__Resistance___405___400_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___405___400_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ConditionReferences__Resistance___405___400_pa0 ;
@@ -422,6 +433,7 @@ expr:ConditionReferences__Resistance___405___400_pa0_pout_om
 
 expr:ConditionReferences__Resistance___405___400_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___405___400_pin0" ;
     sysml:direction "in" ;
     sysml:owner elmt:ConditionReferences__Resistance___405___400 ;
@@ -456,6 +468,7 @@ expr:ConditionReferences__Resistance___405___400_pa0_om
 
 expr:ConditionReferences__Resistance___405___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___405___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Resistance___405___400 ;
@@ -476,6 +489,7 @@ expr:ConditionReferences__Resistance___405___400_pout_om
 
 elmt:ConditionReferences__Resistance___406
     a sysml:ConstraintUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::@6" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -512,6 +526,7 @@ elmt:ConditionReferences__Resistance___406_om
 
 elmt:ConditionReferences__Resistance___406___400
     a sysml:FeatureReferenceExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::@6::@0" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "29"^^xsd:integer ;
@@ -547,6 +562,7 @@ elmt:ConditionReferences__Resistance___406___400_om
 
 expr:ConditionReferences__Resistance___406___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___406___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Resistance___406___400 ;
@@ -567,6 +583,7 @@ expr:ConditionReferences__Resistance___406___400_pout_om
 
 elmt:ConditionReferences__Resistance___407
     a sysml:ConstraintUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::@7" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -604,6 +621,7 @@ elmt:ConditionReferences__Resistance___407_om
 
 elmt:ConditionReferences__Resistance___407___400
     a sysml:FeatureReferenceExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::@7::@0" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "43"^^xsd:integer ;
@@ -639,6 +657,7 @@ elmt:ConditionReferences__Resistance___407___400_om
 
 expr:ConditionReferences__Resistance___407___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___407___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Resistance___407___400 ;
@@ -659,6 +678,7 @@ expr:ConditionReferences__Resistance___407___400_pout_om
 
 elmt:ConditionReferences__Resistance__named
     a sysml:ConstraintUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::named" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -697,6 +717,7 @@ elmt:ConditionReferences__Resistance__named_om
 
 elmt:ConditionReferences__Resistance__named___400
     a sysml:OperatorExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::named::@0" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "49"^^xsd:integer ;
@@ -742,6 +763,7 @@ expr:ConditionReferences__Resistance__named___400_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "a" ;
     sysml:elementId "ConditionReferences__Resistance__named___400_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ConditionReferences__Resistance__a ;
     sysml:ownedRelationship expr:ConditionReferences__Resistance__named___400_pa0_pout_om, expr:ConditionReferences__Resistance__named___400_pa0_preferent ;
     sysml:ownedMembership expr:ConditionReferences__Resistance__named___400_pa0_pout_om ;
@@ -756,6 +778,7 @@ expr:ConditionReferences__Resistance__named___400_pa0
 
 expr:ConditionReferences__Resistance__named___400_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance__named___400_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ConditionReferences__Resistance__named___400_pa0 ;
@@ -776,6 +799,7 @@ expr:ConditionReferences__Resistance__named___400_pa0_pout_om
 
 expr:ConditionReferences__Resistance__named___400_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance__named___400_pin0" ;
     sysml:direction "in" ;
     sysml:owner elmt:ConditionReferences__Resistance__named___400 ;
@@ -812,6 +836,7 @@ expr:ConditionReferences__Resistance__named___400_pa1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "b" ;
     sysml:elementId "ConditionReferences__Resistance__named___400_pa1" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ConditionReferences__Resistance__b ;
     sysml:ownedRelationship expr:ConditionReferences__Resistance__named___400_pa1_pout_om, expr:ConditionReferences__Resistance__named___400_pa1_preferent ;
     sysml:ownedMembership expr:ConditionReferences__Resistance__named___400_pa1_pout_om ;
@@ -826,6 +851,7 @@ expr:ConditionReferences__Resistance__named___400_pa1
 
 expr:ConditionReferences__Resistance__named___400_pa1_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance__named___400_pa1_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ConditionReferences__Resistance__named___400_pa1 ;
@@ -846,6 +872,7 @@ expr:ConditionReferences__Resistance__named___400_pa1_pout_om
 
 expr:ConditionReferences__Resistance__named___400_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance__named___400_pin1" ;
     sysml:direction "in" ;
     sysml:owner elmt:ConditionReferences__Resistance__named___400 ;
@@ -880,6 +907,7 @@ expr:ConditionReferences__Resistance__named___400_pa1_om
 
 expr:ConditionReferences__Resistance__named___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance__named___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Resistance__named___400 ;
@@ -911,6 +939,7 @@ elmt:ConditionReferences__Resistance___409
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance___409_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___409_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance___409___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Resistance___409___400_om ;
@@ -933,6 +962,7 @@ elmt:ConditionReferences__Resistance___409_om
 
 elmt:ConditionReferences__Resistance___409___400
     a sysml:OperatorExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::@9::@0" ;
     sysx:sourceLine "13"^^xsd:integer ;
     sysx:sourceColumn "22"^^xsd:integer ;
@@ -978,6 +1008,7 @@ expr:ConditionReferences__Resistance___409___400_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "a" ;
     sysml:elementId "ConditionReferences__Resistance___409___400_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ConditionReferences__Resistance__a ;
     sysml:ownedRelationship expr:ConditionReferences__Resistance___409___400_pa0_pout_om, expr:ConditionReferences__Resistance___409___400_pa0_preferent ;
     sysml:ownedMembership expr:ConditionReferences__Resistance___409___400_pa0_pout_om ;
@@ -992,6 +1023,7 @@ expr:ConditionReferences__Resistance___409___400_pa0
 
 expr:ConditionReferences__Resistance___409___400_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___409___400_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ConditionReferences__Resistance___409___400_pa0 ;
@@ -1012,6 +1044,7 @@ expr:ConditionReferences__Resistance___409___400_pa0_pout_om
 
 expr:ConditionReferences__Resistance___409___400_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___409___400_pin0" ;
     sysml:direction "in" ;
     sysml:owner elmt:ConditionReferences__Resistance___409___400 ;
@@ -1048,6 +1081,7 @@ expr:ConditionReferences__Resistance___409___400_pa1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "b" ;
     sysml:elementId "ConditionReferences__Resistance___409___400_pa1" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ConditionReferences__Resistance__b ;
     sysml:ownedRelationship expr:ConditionReferences__Resistance___409___400_pa1_pout_om, expr:ConditionReferences__Resistance___409___400_pa1_preferent ;
     sysml:ownedMembership expr:ConditionReferences__Resistance___409___400_pa1_pout_om ;
@@ -1062,6 +1096,7 @@ expr:ConditionReferences__Resistance___409___400_pa1
 
 expr:ConditionReferences__Resistance___409___400_pa1_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___409___400_pa1_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ConditionReferences__Resistance___409___400_pa1 ;
@@ -1082,6 +1117,7 @@ expr:ConditionReferences__Resistance___409___400_pa1_pout_om
 
 expr:ConditionReferences__Resistance___409___400_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___409___400_pin1" ;
     sysml:direction "in" ;
     sysml:owner elmt:ConditionReferences__Resistance___409___400 ;
@@ -1116,6 +1152,7 @@ expr:ConditionReferences__Resistance___409___400_pa1_om
 
 expr:ConditionReferences__Resistance___409___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___409___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Resistance___409___400 ;
@@ -1147,6 +1184,7 @@ elmt:ConditionReferences__Resistance__c1
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance__c1_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__c1_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "c1" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance__c1___400 ;
@@ -1170,6 +1208,7 @@ elmt:ConditionReferences__Resistance__c1_om
 
 elmt:ConditionReferences__Resistance__c1___400
     a sysml:FeatureReferenceExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::c1::@0" ;
     sysx:sourceLine "14"^^xsd:integer ;
     sysx:sourceColumn "25"^^xsd:integer ;
@@ -1205,6 +1244,7 @@ elmt:ConditionReferences__Resistance__c1___400_om
 
 expr:ConditionReferences__Resistance__c1___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance__c1___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Resistance__c1___400 ;
@@ -1236,6 +1276,7 @@ elmt:ConditionReferences__Resistance___4011
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance___4011_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___4011_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance___4011___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Resistance___4011___400_om ;
@@ -1258,6 +1299,7 @@ elmt:ConditionReferences__Resistance___4011_om
 
 elmt:ConditionReferences__Resistance___4011___400
     a sysml:FeatureReferenceExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::@11::@0" ;
     sysx:sourceLine "15"^^xsd:integer ;
     sysx:sourceColumn "29"^^xsd:integer ;
@@ -1293,6 +1335,7 @@ elmt:ConditionReferences__Resistance___4011___400_om
 
 expr:ConditionReferences__Resistance___4011___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___4011___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Resistance___4011___400 ;
@@ -1324,6 +1367,7 @@ elmt:ConditionReferences__Resistance___4012
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance___4012_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___4012_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance___4012___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Resistance___4012___400_om ;
@@ -1346,6 +1390,7 @@ elmt:ConditionReferences__Resistance___4012_om
 
 elmt:ConditionReferences__Resistance___4012___400
     a sysml:OperatorExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::@12::@0" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "29"^^xsd:integer ;
@@ -1389,6 +1434,7 @@ expr:ConditionReferences__Resistance___4012___400_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "x" ;
     sysml:elementId "ConditionReferences__Resistance___4012___400_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ConditionReferences__Resistance__x ;
     sysml:ownedRelationship expr:ConditionReferences__Resistance___4012___400_pa0_pout_om, expr:ConditionReferences__Resistance___4012___400_pa0_preferent ;
     sysml:ownedMembership expr:ConditionReferences__Resistance___4012___400_pa0_pout_om ;
@@ -1403,6 +1449,7 @@ expr:ConditionReferences__Resistance___4012___400_pa0
 
 expr:ConditionReferences__Resistance___4012___400_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___4012___400_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ConditionReferences__Resistance___4012___400_pa0 ;
@@ -1423,6 +1470,7 @@ expr:ConditionReferences__Resistance___4012___400_pa0_pout_om
 
 expr:ConditionReferences__Resistance___4012___400_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___4012___400_pin0" ;
     sysml:direction "in" ;
     sysml:owner elmt:ConditionReferences__Resistance___4012___400 ;
@@ -1457,6 +1505,7 @@ expr:ConditionReferences__Resistance___4012___400_pa0_om
 
 expr:ConditionReferences__Resistance___4012___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___4012___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Resistance___4012___400 ;
@@ -1488,6 +1537,7 @@ elmt:ConditionReferences__Resistance___4013
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance___4013_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___4013_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:isNegated "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance___4013___400 ;
@@ -1511,6 +1561,7 @@ elmt:ConditionReferences__Resistance___4013_om
 
 elmt:ConditionReferences__Resistance___4013___400
     a sysml:FeatureReferenceExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Resistance::@13::@0" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "33"^^xsd:integer ;
@@ -1546,6 +1597,7 @@ elmt:ConditionReferences__Resistance___4013___400_om
 
 expr:ConditionReferences__Resistance___4013___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Resistance___4013___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Resistance___4013___400 ;
@@ -1615,6 +1667,7 @@ elmt:ConditionReferences__Rover__ok
     sysml:owner elmt:ConditionReferences__Rover ;
     sysml:owningRelationship elmt:ConditionReferences__Rover__ok_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover__ok_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "ok" ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1648,6 +1701,7 @@ elmt:ConditionReferences__Rover__n
     sysml:owner elmt:ConditionReferences__Rover ;
     sysml:owningRelationship elmt:ConditionReferences__Rover__n_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover__n_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "n" ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1681,6 +1735,7 @@ elmt:ConditionReferences__Rover___402
     sysml:owner elmt:ConditionReferences__Rover ;
     sysml:owningRelationship elmt:ConditionReferences__Rover___402_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover___402_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Rover___402___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Rover___402___400_om ;
@@ -1703,6 +1758,7 @@ elmt:ConditionReferences__Rover___402_om
 
 elmt:ConditionReferences__Rover___402___400
     a sysml:FeatureReferenceExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Rover::@2::@0" ;
     sysx:sourceLine "22"^^xsd:integer ;
     sysx:sourceColumn "29"^^xsd:integer ;
@@ -1738,6 +1794,7 @@ elmt:ConditionReferences__Rover___402___400_om
 
 expr:ConditionReferences__Rover___402___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Rover___402___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Rover___402___400 ;
@@ -1769,6 +1826,7 @@ elmt:ConditionReferences__Rover___403
     sysml:owner elmt:ConditionReferences__Rover ;
     sysml:owningRelationship elmt:ConditionReferences__Rover___403_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover___403_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Rover___403___400, elmt:ConditionReferences__Rover___403___401 ;
     sysml:ownedMembership elmt:ConditionReferences__Rover___403___400_om, elmt:ConditionReferences__Rover___403___401_om ;
@@ -1797,6 +1855,7 @@ elmt:ConditionReferences__Rover___403_om
 
 elmt:ConditionReferences__Rover___403___400
     a sysml:OperatorExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Rover::@3::@0" ;
     sysx:sourceLine "24"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
@@ -1842,6 +1901,7 @@ expr:ConditionReferences__Rover___403___400_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "n" ;
     sysml:elementId "ConditionReferences__Rover___403___400_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ConditionReferences__Rover__n ;
     sysml:ownedRelationship expr:ConditionReferences__Rover___403___400_pa0_pout_om, expr:ConditionReferences__Rover___403___400_pa0_preferent ;
     sysml:ownedMembership expr:ConditionReferences__Rover___403___400_pa0_pout_om ;
@@ -1856,6 +1916,7 @@ expr:ConditionReferences__Rover___403___400_pa0
 
 expr:ConditionReferences__Rover___403___400_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Rover___403___400_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ConditionReferences__Rover___403___400_pa0 ;
@@ -1876,6 +1937,7 @@ expr:ConditionReferences__Rover___403___400_pa0_pout_om
 
 expr:ConditionReferences__Rover___403___400_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Rover___403___400_pin0" ;
     sysml:direction "in" ;
     sysml:owner elmt:ConditionReferences__Rover___403___400 ;
@@ -1912,6 +1974,7 @@ expr:ConditionReferences__Rover___403___400_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "ConditionReferences__Rover___403___400_pa1" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "0"^^xsd:integer ;
     sysml:owner expr:ConditionReferences__Rover___403___400_pin1 ;
     sysml:owningRelationship expr:ConditionReferences__Rover___403___400_pa1_om ;
@@ -1919,6 +1982,7 @@ expr:ConditionReferences__Rover___403___400_pa1
 
 expr:ConditionReferences__Rover___403___400_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Rover___403___400_pin1" ;
     sysml:direction "in" ;
     sysml:owner elmt:ConditionReferences__Rover___403___400 ;
@@ -1953,6 +2017,7 @@ expr:ConditionReferences__Rover___403___400_pa1_om
 
 expr:ConditionReferences__Rover___403___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Rover___403___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Rover___403___400 ;
@@ -1973,6 +2038,7 @@ expr:ConditionReferences__Rover___403___400_pout_om
 
 elmt:ConditionReferences__Rover___403___401
     a sysml:FeatureReferenceExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Rover::@3::@1" ;
     sysx:sourceLine "25"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
@@ -2009,6 +2075,7 @@ elmt:ConditionReferences__Rover___403___401_om
 
 expr:ConditionReferences__Rover___403___401_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Rover___403___401_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Rover___403___401 ;
@@ -2040,6 +2107,7 @@ elmt:ConditionReferences__Rover___404
     sysml:owner elmt:ConditionReferences__Rover ;
     sysml:owningRelationship elmt:ConditionReferences__Rover___404_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover___404_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Rover___404___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Rover___404___400_om ;
@@ -2062,6 +2130,7 @@ elmt:ConditionReferences__Rover___404_om
 
 elmt:ConditionReferences__Rover___404___400
     a sysml:FeatureReferenceExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Rover::@4::@0" ;
     sysx:sourceLine "27"^^xsd:integer ;
     sysx:sourceColumn "22"^^xsd:integer ;
@@ -2097,6 +2166,7 @@ elmt:ConditionReferences__Rover___404___400_om
 
 expr:ConditionReferences__Rover___404___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Rover___404___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Rover___404___400 ;
@@ -2128,6 +2198,7 @@ elmt:ConditionReferences__Rover__inv1
     sysml:owner elmt:ConditionReferences__Rover ;
     sysml:owningRelationship elmt:ConditionReferences__Rover__inv1_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover__inv1_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "inv1" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Rover__inv1___400 ;
@@ -2151,6 +2222,7 @@ elmt:ConditionReferences__Rover__inv1_om
 
 elmt:ConditionReferences__Rover__inv1___400
     a sysml:OperatorExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "ConditionReferences::Rover::inv1::@0" ;
     sysx:sourceLine "28"^^xsd:integer ;
     sysx:sourceColumn "27"^^xsd:integer ;
@@ -2194,6 +2266,7 @@ expr:ConditionReferences__Rover__inv1___400_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "ok" ;
     sysml:elementId "ConditionReferences__Rover__inv1___400_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ConditionReferences__Rover__ok ;
     sysml:ownedRelationship expr:ConditionReferences__Rover__inv1___400_pa0_pout_om, expr:ConditionReferences__Rover__inv1___400_pa0_preferent ;
     sysml:ownedMembership expr:ConditionReferences__Rover__inv1___400_pa0_pout_om ;
@@ -2208,6 +2281,7 @@ expr:ConditionReferences__Rover__inv1___400_pa0
 
 expr:ConditionReferences__Rover__inv1___400_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Rover__inv1___400_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ConditionReferences__Rover__inv1___400_pa0 ;
@@ -2228,6 +2302,7 @@ expr:ConditionReferences__Rover__inv1___400_pa0_pout_om
 
 expr:ConditionReferences__Rover__inv1___400_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Rover__inv1___400_pin0" ;
     sysml:direction "in" ;
     sysml:owner elmt:ConditionReferences__Rover__inv1___400 ;
@@ -2262,6 +2337,7 @@ expr:ConditionReferences__Rover__inv1___400_pa0_om
 
 expr:ConditionReferences__Rover__inv1___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConditionReferences__Rover__inv1___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:ConditionReferences__Rover__inv1___400 ;

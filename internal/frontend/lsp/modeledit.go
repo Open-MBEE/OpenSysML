@@ -104,8 +104,9 @@ type ModelEditOperation struct {
 // opensysml/render reports: pixels, y down. Width and Height are written both
 // or neither; Collapsed is written only when set.
 type ModelEditLayout struct {
-	X         float64  `json:"x"`
-	Y         float64  `json:"y"`
+	// X and Y go together; both absent, the Layout only folds and places nothing.
+	X         *float64 `json:"x,omitempty"`
+	Y         *float64 `json:"y,omitempty"`
 	Width     *float64 `json:"width,omitempty"`
 	Height    *float64 `json:"height,omitempty"`
 	Collapsed bool     `json:"collapsed,omitempty"`
@@ -444,10 +445,18 @@ func (l *ModelEditLayout) layout() (*semantics.Layout, error) {
 	if l == nil {
 		return nil, nil
 	}
+	if (l.X == nil) != (l.Y == nil) {
+		return nil, errors.New("a layout places its node with both x and y or with neither")
+	}
 	if (l.Width == nil) != (l.Height == nil) {
 		return nil, errors.New("a layout sizes its node with both width and height or with neither")
 	}
-	out := &semantics.Layout{X: l.X, Y: l.Y, Collapsed: l.Collapsed}
+	out := &semantics.Layout{Collapsed: l.Collapsed}
+	if l.X != nil {
+		out.X, out.Y = *l.X, *l.Y
+	} else {
+		out.Unplaced = true
+	}
 	if l.Width != nil {
 		out.Width, out.Height, out.HasSize = *l.Width, *l.Height, true
 	}

@@ -2936,7 +2936,7 @@ message RenderNode {
   string parent = 9;
   repeated RenderPort ports = 10;
   Span origin = 11;
-  // Unset when no layout positions the node.
+  // Unset when no layout annotates the node; unplaced when the layout only folds or hides it.
   RenderGeometry geometry = 12;
   RenderStyle style = 13;
 }
@@ -2971,6 +2971,8 @@ message RenderGeometry {
   double height = 4;
   bool has_size = 5;
   bool collapsed = 6;
+  // The layout places nothing (it only folds or hides): x and y carry no position.
+  bool unplaced = 7;
 }
 
 // RenderCanvas is the rendering's drawing surface.

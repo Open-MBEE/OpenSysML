@@ -2549,20 +2549,22 @@ class RenderEdge(_message.Message):
     def __init__(self, to: _Optional[str] = ..., from_port: _Optional[str] = ..., to_port: _Optional[str] = ..., label: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., origin: _Optional[_Union[Span, _Mapping]] = ..., route: _Optional[_Iterable[_Union[RenderPoint, _Mapping]]] = ..., style: _Optional[_Union[RenderStyle, _Mapping]] = ..., **kwargs) -> None: ...
 
 class RenderGeometry(_message.Message):
-    __slots__ = ("x", "y", "width", "height", "has_size", "collapsed")
+    __slots__ = ("x", "y", "width", "height", "has_size", "collapsed", "unplaced")
     X_FIELD_NUMBER: _ClassVar[int]
     Y_FIELD_NUMBER: _ClassVar[int]
     WIDTH_FIELD_NUMBER: _ClassVar[int]
     HEIGHT_FIELD_NUMBER: _ClassVar[int]
     HAS_SIZE_FIELD_NUMBER: _ClassVar[int]
     COLLAPSED_FIELD_NUMBER: _ClassVar[int]
+    UNPLACED_FIELD_NUMBER: _ClassVar[int]
     x: float
     y: float
     width: float
     height: float
     has_size: bool
     collapsed: bool
-    def __init__(self, x: _Optional[float] = ..., y: _Optional[float] = ..., width: _Optional[float] = ..., height: _Optional[float] = ..., has_size: _Optional[bool] = ..., collapsed: _Optional[bool] = ...) -> None: ...
+    unplaced: bool
+    def __init__(self, x: _Optional[float] = ..., y: _Optional[float] = ..., width: _Optional[float] = ..., height: _Optional[float] = ..., has_size: _Optional[bool] = ..., collapsed: _Optional[bool] = ..., unplaced: _Optional[bool] = ...) -> None: ...
 
 class RenderCanvas(_message.Message):
     __slots__ = ("unit", "width", "height", "has_size")

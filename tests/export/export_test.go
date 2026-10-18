@@ -2543,7 +2543,7 @@ func TestBindingEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 	graph := string(turtle)
 	for _, triple := range []string{
 		"sysml:connectorEnd expr:P__Car___402_pend0, expr:P__Car___402_pend1 ;",
-		"expr:P__Car___402_pend0\n    a sysml:ReferenceUsage ;\n    sysml:elementId \"P__Car___402_pend0\" ;\n    sysml:isEnd \"true\"^^xsd:boolean ;",
+		"expr:P__Car___402_pend0\n    a sysml:ReferenceUsage ;\n    sysml:isComposite \"false\"^^xsd:boolean ;\n    sysml:elementId \"P__Car___402_pend0\" ;\n    sysml:isEnd \"true\"^^xsd:boolean ;",
 		"sysml:referencedFeature elmt:P__Car__a ;\n    sysml:subsettedFeature elmt:P__Car__a ;\n    sysml:general elmt:P__Car__a ;\n    sysml:target elmt:P__Car__a ;",
 		"sysml:referencedFeature elmt:P__Car__b ;\n    sysml:subsettedFeature elmt:P__Car__b ;\n    sysml:general elmt:P__Car__b ;\n    sysml:target elmt:P__Car__b ;",
 		"expr:P__Car___402_pend0_plowerBound\n    a sysml:LiteralInteger ;\n    sysx:sourceText \"0\" ;",

@@ -388,6 +388,8 @@ type JRenderGeometry struct {
 	Height    float64 `json:"height,omitempty"`
 	HasSize   bool    `json:"hasSize,omitempty"`
 	Collapsed bool    `json:"collapsed,omitempty"`
+	// Unplaced marks a layout that only folds or hides: x and y carry no position.
+	Unplaced bool `json:"unplaced,omitempty"`
 }
 
 type JRenderStyle struct {

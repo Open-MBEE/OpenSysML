@@ -14506,7 +14506,7 @@ type RenderNode struct {
 	Parent          string                 `protobuf:"bytes,9,opt,name=parent,proto3" json:"parent,omitempty"`
 	Ports           []*RenderPort          `protobuf:"bytes,10,rep,name=ports,proto3" json:"ports,omitempty"`
 	Origin          *Span                  `protobuf:"bytes,11,opt,name=origin,proto3" json:"origin,omitempty"`
-	// Unset when no layout positions the node.
+	// Unset when no layout annotates the node; unplaced when the layout only folds or hides it.
 	Geometry      *RenderGeometry `protobuf:"bytes,12,opt,name=geometry,proto3" json:"geometry,omitempty"`
 	Style         *RenderStyle    `protobuf:"bytes,13,opt,name=style,proto3" json:"style,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -14822,13 +14822,15 @@ func (x *RenderEdge) GetStyle() *RenderStyle {
 
 // RenderGeometry locates a node on the rendering's canvas.
 type RenderGeometry struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	X             float64                `protobuf:"fixed64,1,opt,name=x,proto3" json:"x,omitempty"`
-	Y             float64                `protobuf:"fixed64,2,opt,name=y,proto3" json:"y,omitempty"`
-	Width         float64                `protobuf:"fixed64,3,opt,name=width,proto3" json:"width,omitempty"`
-	Height        float64                `protobuf:"fixed64,4,opt,name=height,proto3" json:"height,omitempty"`
-	HasSize       bool                   `protobuf:"varint,5,opt,name=has_size,json=hasSize,proto3" json:"has_size,omitempty"`
-	Collapsed     bool                   `protobuf:"varint,6,opt,name=collapsed,proto3" json:"collapsed,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	X         float64                `protobuf:"fixed64,1,opt,name=x,proto3" json:"x,omitempty"`
+	Y         float64                `protobuf:"fixed64,2,opt,name=y,proto3" json:"y,omitempty"`
+	Width     float64                `protobuf:"fixed64,3,opt,name=width,proto3" json:"width,omitempty"`
+	Height    float64                `protobuf:"fixed64,4,opt,name=height,proto3" json:"height,omitempty"`
+	HasSize   bool                   `protobuf:"varint,5,opt,name=has_size,json=hasSize,proto3" json:"has_size,omitempty"`
+	Collapsed bool                   `protobuf:"varint,6,opt,name=collapsed,proto3" json:"collapsed,omitempty"`
+	// The layout places nothing (it only folds or hides): x and y carry no position.
+	Unplaced      bool `protobuf:"varint,7,opt,name=unplaced,proto3" json:"unplaced,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -14901,6 +14903,13 @@ func (x *RenderGeometry) GetHasSize() bool {
 func (x *RenderGeometry) GetCollapsed() bool {
 	if x != nil {
 		return x.Collapsed
+	}
+	return false
+}
+
+func (x *RenderGeometry) GetUnplaced() bool {
+	if x != nil {
+		return x.Unplaced
 	}
 	return false
 }
@@ -18032,14 +18041,15 @@ const file_sysml_proto_rawDesc = "" +
 	"\x06origin\x18\b \x01(\v2\v.sysml.SpanR\x06origin\x12(\n" +
 	"\x05route\x18\t \x03(\v2\x12.sysml.RenderPointR\x05route\x12(\n" +
 	"\x05style\x18\n" +
-	" \x01(\v2\x12.sysml.RenderStyleR\x05style\"\x93\x01\n" +
+	" \x01(\v2\x12.sysml.RenderStyleR\x05style\"\xaf\x01\n" +
 	"\x0eRenderGeometry\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
 	"\x01y\x18\x02 \x01(\x01R\x01y\x12\x14\n" +
 	"\x05width\x18\x03 \x01(\x01R\x05width\x12\x16\n" +
 	"\x06height\x18\x04 \x01(\x01R\x06height\x12\x19\n" +
 	"\bhas_size\x18\x05 \x01(\bR\ahasSize\x12\x1c\n" +
-	"\tcollapsed\x18\x06 \x01(\bR\tcollapsed\"k\n" +
+	"\tcollapsed\x18\x06 \x01(\bR\tcollapsed\x12\x1a\n" +
+	"\bunplaced\x18\a \x01(\bR\bunplaced\"k\n" +
 	"\fRenderCanvas\x12\x12\n" +
 	"\x04unit\x18\x01 \x01(\tR\x04unit\x12\x14\n" +
 	"\x05width\x18\x02 \x01(\x01R\x05width\x12\x16\n" +
