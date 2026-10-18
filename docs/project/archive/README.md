@@ -16,3 +16,12 @@ comparison and the method behind these records are in the [project index](../REA
 | [performance-release-0.9.1-vs-0.9.0.md](performance-release-0.9.1-vs-0.9.0.md) | The 0.9.1 candidate against `v0.9.0`, with the regressions it attributed and fixed | 0.9.1, 2026-09-30 |
 | [performance-release-0.9.2-vs-0.9.1.md](performance-release-0.9.2-vs-0.9.1.md) | `release/0.9.2` against `v0.9.1` | 0.9.2, 2026-10-05 |
 | [performance-release-0.10.0-vs-0.9.2.md](performance-release-0.10.0-vs-0.9.2.md) | `v0.10.0` against `v0.9.2`, the rows in doubt re-run interleaved | 0.10.0, 2026-10-09 |
+
+## Changelog
+
+The release sections of [CHANGELOG.md](../../../CHANGELOG.md) older than 0.9.0, moved here verbatim
+so the live changelog stays short. The live file ends with a link to this archive.
+
+| Record | What it records | Releases |
+| --- | --- | --- |
+| [CHANGELOG-0.0-0.8.md](CHANGELOG-0.0-0.8.md) | Every release section from the first published release to the last of the 0.8 line | 0.0.4 – 0.8.1, 2026-08-10 to 2026-09-16 |
