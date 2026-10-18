@@ -348,6 +348,10 @@ func (ec *exprChecker) infer(scope *symbols.Scope, n ast.Node) semantics.PrimTyp
 		// A decimal literal denotes an exact ratio, so it conforms to Rational
 		// as well as Real.
 		return semantics.PrimRational
+	case *ast.LiteralInfinity:
+		// `*` is a Positive (KerML checkLiteralInfinitySpecialization), which the
+		// lattice folds into Natural: it conforms to every numeric type and no other.
+		return semantics.PrimNatural
 	case *ast.FeatureReference:
 		return ec.inferQualified(scope, e.Name)
 	case *ast.QualifiedName:
@@ -461,7 +465,7 @@ func writtenLength(operand ast.Node) (int64, bool) {
 // isLiteral reports whether an expression is a scalar literal, whose exact type is written out.
 func isLiteral(n ast.Node) bool {
 	switch n.(type) {
-	case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool:
+	case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool, *ast.LiteralInfinity:
 		return true
 	default:
 		return false

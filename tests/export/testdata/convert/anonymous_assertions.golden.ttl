@@ -105,6 +105,7 @@ elmt:AnonymousAssertions__MassConstraint__total
     sysml:owner elmt:AnonymousAssertions__MassConstraint ;
     sysml:owningRelationship elmt:AnonymousAssertions__MassConstraint__total_om ;
     sysml:owningMembership elmt:AnonymousAssertions__MassConstraint__total_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "total" ;
     sysml:direction "in" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
@@ -139,6 +140,7 @@ elmt:AnonymousAssertions__MassConstraint__limit
     sysml:owner elmt:AnonymousAssertions__MassConstraint ;
     sysml:owningRelationship elmt:AnonymousAssertions__MassConstraint__limit_om ;
     sysml:owningMembership elmt:AnonymousAssertions__MassConstraint__limit_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "limit" ;
     sysml:direction "in" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
@@ -162,6 +164,7 @@ elmt:AnonymousAssertions__MassConstraint__limit_om
 
 elmt:AnonymousAssertions__MassConstraint___402
     a sysml:OperatorExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "AnonymousAssertions::MassConstraint::@2" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "3"^^xsd:integer ;
@@ -208,6 +211,7 @@ expr:AnonymousAssertions__MassConstraint___402_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "total" ;
     sysml:elementId "AnonymousAssertions__MassConstraint___402_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:AnonymousAssertions__MassConstraint__total ;
     sysml:ownedRelationship expr:AnonymousAssertions__MassConstraint___402_pa0_pout_om, expr:AnonymousAssertions__MassConstraint___402_pa0_preferent ;
     sysml:ownedMembership expr:AnonymousAssertions__MassConstraint___402_pa0_pout_om ;
@@ -222,6 +226,7 @@ expr:AnonymousAssertions__MassConstraint___402_pa0
 
 expr:AnonymousAssertions__MassConstraint___402_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__MassConstraint___402_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:AnonymousAssertions__MassConstraint___402_pa0 ;
@@ -242,6 +247,7 @@ expr:AnonymousAssertions__MassConstraint___402_pa0_pout_om
 
 expr:AnonymousAssertions__MassConstraint___402_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__MassConstraint___402_pin0" ;
     sysml:direction "in" ;
     sysml:owner elmt:AnonymousAssertions__MassConstraint___402 ;
@@ -278,6 +284,7 @@ expr:AnonymousAssertions__MassConstraint___402_pa1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "limit" ;
     sysml:elementId "AnonymousAssertions__MassConstraint___402_pa1" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:AnonymousAssertions__MassConstraint__limit ;
     sysml:ownedRelationship expr:AnonymousAssertions__MassConstraint___402_pa1_pout_om, expr:AnonymousAssertions__MassConstraint___402_pa1_preferent ;
     sysml:ownedMembership expr:AnonymousAssertions__MassConstraint___402_pa1_pout_om ;
@@ -292,6 +299,7 @@ expr:AnonymousAssertions__MassConstraint___402_pa1
 
 expr:AnonymousAssertions__MassConstraint___402_pa1_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__MassConstraint___402_pa1_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:AnonymousAssertions__MassConstraint___402_pa1 ;
@@ -312,6 +320,7 @@ expr:AnonymousAssertions__MassConstraint___402_pa1_pout_om
 
 expr:AnonymousAssertions__MassConstraint___402_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__MassConstraint___402_pin1" ;
     sysml:direction "in" ;
     sysml:owner elmt:AnonymousAssertions__MassConstraint___402 ;
@@ -346,6 +355,7 @@ expr:AnonymousAssertions__MassConstraint___402_pa1_om
 
 expr:AnonymousAssertions__MassConstraint___402_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__MassConstraint___402_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:AnonymousAssertions__MassConstraint___402 ;
@@ -377,6 +387,7 @@ elmt:AnonymousAssertions__massConstraint
     sysml:owner elmt:AnonymousAssertions ;
     sysml:owningRelationship elmt:AnonymousAssertions__massConstraint_om ;
     sysml:owningMembership elmt:AnonymousAssertions__massConstraint_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "massConstraint" ;
     sysml:type elmt:AnonymousAssertions__MassConstraint ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -418,6 +429,7 @@ elmt:AnonymousAssertions__massConstraint__total
     sysml:owner elmt:AnonymousAssertions__massConstraint ;
     sysml:owningRelationship elmt:AnonymousAssertions__massConstraint__total_om ;
     sysml:owningMembership elmt:AnonymousAssertions__massConstraint__total_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "total" ;
     sysml:direction "in" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
@@ -452,6 +464,7 @@ elmt:AnonymousAssertions__massConstraint__limit
     sysml:owner elmt:AnonymousAssertions__massConstraint ;
     sysml:owningRelationship elmt:AnonymousAssertions__massConstraint__limit_om ;
     sysml:owningMembership elmt:AnonymousAssertions__massConstraint__limit_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "limit" ;
     sysml:direction "in" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
@@ -475,6 +488,7 @@ elmt:AnonymousAssertions__massConstraint__limit_om
 
 elmt:AnonymousAssertions__massConstraint___402
     a sysml:OperatorExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "AnonymousAssertions::massConstraint::@2" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "3"^^xsd:integer ;
@@ -521,6 +535,7 @@ expr:AnonymousAssertions__massConstraint___402_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "total" ;
     sysml:elementId "AnonymousAssertions__massConstraint___402_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:AnonymousAssertions__massConstraint__total ;
     sysml:ownedRelationship expr:AnonymousAssertions__massConstraint___402_pa0_pout_om, expr:AnonymousAssertions__massConstraint___402_pa0_preferent ;
     sysml:ownedMembership expr:AnonymousAssertions__massConstraint___402_pa0_pout_om ;
@@ -535,6 +550,7 @@ expr:AnonymousAssertions__massConstraint___402_pa0
 
 expr:AnonymousAssertions__massConstraint___402_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__massConstraint___402_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:AnonymousAssertions__massConstraint___402_pa0 ;
@@ -555,6 +571,7 @@ expr:AnonymousAssertions__massConstraint___402_pa0_pout_om
 
 expr:AnonymousAssertions__massConstraint___402_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__massConstraint___402_pin0" ;
     sysml:direction "in" ;
     sysml:owner elmt:AnonymousAssertions__massConstraint___402 ;
@@ -591,6 +608,7 @@ expr:AnonymousAssertions__massConstraint___402_pa1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "limit" ;
     sysml:elementId "AnonymousAssertions__massConstraint___402_pa1" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:AnonymousAssertions__massConstraint__limit ;
     sysml:ownedRelationship expr:AnonymousAssertions__massConstraint___402_pa1_pout_om, expr:AnonymousAssertions__massConstraint___402_pa1_preferent ;
     sysml:ownedMembership expr:AnonymousAssertions__massConstraint___402_pa1_pout_om ;
@@ -605,6 +623,7 @@ expr:AnonymousAssertions__massConstraint___402_pa1
 
 expr:AnonymousAssertions__massConstraint___402_pa1_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__massConstraint___402_pa1_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:AnonymousAssertions__massConstraint___402_pa1 ;
@@ -625,6 +644,7 @@ expr:AnonymousAssertions__massConstraint___402_pa1_pout_om
 
 expr:AnonymousAssertions__massConstraint___402_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__massConstraint___402_pin1" ;
     sysml:direction "in" ;
     sysml:owner elmt:AnonymousAssertions__massConstraint___402 ;
@@ -659,6 +679,7 @@ expr:AnonymousAssertions__massConstraint___402_pa1_om
 
 expr:AnonymousAssertions__massConstraint___402_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__massConstraint___402_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:AnonymousAssertions__massConstraint___402 ;
@@ -728,6 +749,7 @@ elmt:AnonymousAssertions__Vehicle__mass
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle__mass_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle__mass_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "mass" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -761,6 +783,7 @@ elmt:AnonymousAssertions__Vehicle__maxMass
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle__maxMass_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle__maxMass_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "maxMass" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -794,6 +817,7 @@ elmt:AnonymousAssertions__Vehicle___402
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle___402_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle___402_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:declaredKeyword "assert" ;
     sysml:references elmt:AnonymousAssertions__massConstraint ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -838,6 +862,7 @@ elmt:AnonymousAssertions__Vehicle___402__total
     sysml:owner elmt:AnonymousAssertions__Vehicle___402 ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle___402__total_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle___402__total_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "total" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -863,6 +888,7 @@ expr:AnonymousAssertions__Vehicle___402__total_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "mass" ;
     sysml:elementId "AnonymousAssertions__Vehicle___402__total_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:AnonymousAssertions__Vehicle__mass ;
     sysml:ownedRelationship expr:AnonymousAssertions__Vehicle___402__total_pvalue_pout_om, expr:AnonymousAssertions__Vehicle___402__total_pvalue_preferent ;
     sysml:ownedMembership expr:AnonymousAssertions__Vehicle___402__total_pvalue_pout_om ;
@@ -877,6 +903,7 @@ expr:AnonymousAssertions__Vehicle___402__total_pvalue
 
 expr:AnonymousAssertions__Vehicle___402__total_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__Vehicle___402__total_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:AnonymousAssertions__Vehicle___402__total_pvalue ;
@@ -920,6 +947,7 @@ elmt:AnonymousAssertions__Vehicle___402__limit
     sysml:owner elmt:AnonymousAssertions__Vehicle___402 ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle___402__limit_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle___402__limit_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "limit" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -945,6 +973,7 @@ expr:AnonymousAssertions__Vehicle___402__limit_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "maxMass" ;
     sysml:elementId "AnonymousAssertions__Vehicle___402__limit_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:AnonymousAssertions__Vehicle__maxMass ;
     sysml:ownedRelationship expr:AnonymousAssertions__Vehicle___402__limit_pvalue_pout_om, expr:AnonymousAssertions__Vehicle___402__limit_pvalue_preferent ;
     sysml:ownedMembership expr:AnonymousAssertions__Vehicle___402__limit_pvalue_pout_om ;
@@ -959,6 +988,7 @@ expr:AnonymousAssertions__Vehicle___402__limit_pvalue
 
 expr:AnonymousAssertions__Vehicle___402__limit_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__Vehicle___402__limit_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:AnonymousAssertions__Vehicle___402__limit_pvalue ;
@@ -1002,6 +1032,7 @@ elmt:AnonymousAssertions__Vehicle___403
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle___403_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle___403_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousAssertions__Vehicle___403___400 ;
     sysml:ownedMembership elmt:AnonymousAssertions__Vehicle___403___400_om ;
@@ -1025,6 +1056,7 @@ elmt:AnonymousAssertions__Vehicle___403_om
 
 elmt:AnonymousAssertions__Vehicle___403___400
     a sysml:OperatorExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::@3::@0" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "4"^^xsd:integer ;
@@ -1071,6 +1103,7 @@ expr:AnonymousAssertions__Vehicle___403___400_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "mass" ;
     sysml:elementId "AnonymousAssertions__Vehicle___403___400_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:AnonymousAssertions__Vehicle__mass ;
     sysml:ownedRelationship expr:AnonymousAssertions__Vehicle___403___400_pa0_pout_om, expr:AnonymousAssertions__Vehicle___403___400_pa0_preferent ;
     sysml:ownedMembership expr:AnonymousAssertions__Vehicle___403___400_pa0_pout_om ;
@@ -1085,6 +1118,7 @@ expr:AnonymousAssertions__Vehicle___403___400_pa0
 
 expr:AnonymousAssertions__Vehicle___403___400_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__Vehicle___403___400_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:AnonymousAssertions__Vehicle___403___400_pa0 ;
@@ -1105,6 +1139,7 @@ expr:AnonymousAssertions__Vehicle___403___400_pa0_pout_om
 
 expr:AnonymousAssertions__Vehicle___403___400_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__Vehicle___403___400_pin0" ;
     sysml:direction "in" ;
     sysml:owner elmt:AnonymousAssertions__Vehicle___403___400 ;
@@ -1141,6 +1176,7 @@ expr:AnonymousAssertions__Vehicle___403___400_pa1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "maxMass" ;
     sysml:elementId "AnonymousAssertions__Vehicle___403___400_pa1" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:AnonymousAssertions__Vehicle__maxMass ;
     sysml:ownedRelationship expr:AnonymousAssertions__Vehicle___403___400_pa1_pout_om, expr:AnonymousAssertions__Vehicle___403___400_pa1_preferent ;
     sysml:ownedMembership expr:AnonymousAssertions__Vehicle___403___400_pa1_pout_om ;
@@ -1155,6 +1191,7 @@ expr:AnonymousAssertions__Vehicle___403___400_pa1
 
 expr:AnonymousAssertions__Vehicle___403___400_pa1_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__Vehicle___403___400_pa1_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:AnonymousAssertions__Vehicle___403___400_pa1 ;
@@ -1175,6 +1212,7 @@ expr:AnonymousAssertions__Vehicle___403___400_pa1_pout_om
 
 expr:AnonymousAssertions__Vehicle___403___400_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__Vehicle___403___400_pin1" ;
     sysml:direction "in" ;
     sysml:owner elmt:AnonymousAssertions__Vehicle___403___400 ;
@@ -1209,6 +1247,7 @@ expr:AnonymousAssertions__Vehicle___403___400_pa1_om
 
 expr:AnonymousAssertions__Vehicle___403___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__Vehicle___403___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:AnonymousAssertions__Vehicle___403___400 ;
@@ -1240,6 +1279,7 @@ elmt:AnonymousAssertions__Vehicle__tooHeavy
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle__tooHeavy_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle__tooHeavy_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "tooHeavy" ;
     sysml:isNegated "true"^^xsd:boolean ;
     sysml:type elmt:AnonymousAssertions__MassConstraint ;
@@ -1284,6 +1324,7 @@ elmt:AnonymousAssertions__Vehicle__tooHeavy__total
     sysml:owner elmt:AnonymousAssertions__Vehicle__tooHeavy ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle__tooHeavy__total_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle__tooHeavy__total_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "total" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -1309,6 +1350,7 @@ expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "mass" ;
     sysml:elementId "AnonymousAssertions__Vehicle__tooHeavy__total_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:AnonymousAssertions__Vehicle__mass ;
     sysml:ownedRelationship expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue_pout_om, expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue_preferent ;
     sysml:ownedMembership expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue_pout_om ;
@@ -1323,6 +1365,7 @@ expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue
 
 expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__Vehicle__tooHeavy__total_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue ;
@@ -1366,6 +1409,7 @@ elmt:AnonymousAssertions__Vehicle__tooHeavy__limit
     sysml:owner elmt:AnonymousAssertions__Vehicle__tooHeavy ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle__tooHeavy__limit_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle__tooHeavy__limit_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "limit" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -1391,6 +1435,7 @@ expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "maxMass" ;
     sysml:elementId "AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:AnonymousAssertions__Vehicle__maxMass ;
     sysml:ownedRelationship expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue_pout_om, expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue_preferent ;
     sysml:ownedMembership expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue_pout_om ;
@@ -1405,6 +1450,7 @@ expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue
 
 expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue ;
@@ -1448,6 +1494,7 @@ elmt:AnonymousAssertions__Vehicle___405
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle___405_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle___405_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:declaredKeyword "assert" ;
     sysml:isNegated "true"^^xsd:boolean ;
     sysml:references elmt:AnonymousAssertions__massConstraint ;
@@ -1483,6 +1530,7 @@ elmt:AnonymousAssertions__Vehicle___406
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle___406_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle___406_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:declaredKeyword "assert" ;
     sysml:references elmt:AnonymousAssertions__massConstraint ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1517,6 +1565,7 @@ elmt:AnonymousAssertions__Vehicle__c
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle__c_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle__c_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "c" ;
     sysml:type elmt:AnonymousAssertions__MassConstraint ;
     sysx:hasBody "false"^^xsd:boolean ;

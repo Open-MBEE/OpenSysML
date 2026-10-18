@@ -174,8 +174,9 @@ func (m *Model) effectiveEnds(sym *symbols.Symbol) []connectorEnd {
 	return out
 }
 
-// unmaskedEnds drops ends already listed and ends another listed end redefines,
-// so a feature inherited through several generals counts once.
+// unmaskedEnds drops ends already listed, ends another listed end redefines, and
+// ends redefining an end one listed before them redefines: two generals that
+// each redefine an ancestor's end by position hand down one end, not two.
 func (m *Model) unmaskedEnds(ends []connectorEnd) []connectorEnd {
 	masked := make(map[*symbols.Symbol]bool)
 	for _, end := range ends {
@@ -184,13 +185,18 @@ func (m *Model) unmaskedEnds(ends []connectorEnd) []connectorEnd {
 		}
 	}
 	seen := make(map[connectorEnd]bool)
+	covered := make(map[*symbols.Symbol]bool)
 	out := make([]connectorEnd, 0, len(ends))
 	for _, end := range ends {
 		id := end.identity()
-		if masked[end.feature] || seen[id] {
+		redefined := m.AllRedefinedFeatures(end.feature)
+		if masked[end.feature] || seen[id] || slices.ContainsFunc(redefined, func(s *symbols.Symbol) bool { return covered[s] }) {
 			continue
 		}
 		seen[id] = true
+		for _, s := range redefined {
+			covered[s] = true
+		}
 		out = append(out, end)
 	}
 	return out

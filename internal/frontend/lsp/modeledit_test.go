@@ -1016,7 +1016,7 @@ func TestApplyModelEditSetLayoutRoundTripsThroughRender(t *testing.T) {
 		t.Fatalf("rendering names view %q", drawn.View)
 	}
 
-	drag := ModelEditOperation{Kind: EditSetLayout, Target: pump.FQN, View: drawn.View, Layout: &ModelEditLayout{X: 120, Y: 40.5}}
+	drag := ModelEditOperation{Kind: EditSetLayout, Target: pump.FQN, View: drawn.View, Layout: &ModelEditLayout{X: float(120), Y: float(40.5)}}
 	out := applyModelEdit(t, s, docURI, drawn.Version, drag)
 	applied, redrawn := redraw(t, s, docURI, plantModel, out, 2, drawn.View)
 	if want := golden(t, s, docURI.Filename(), drag); applied != want {
@@ -1039,7 +1039,7 @@ func TestApplyModelEditSetLayoutRoundTripsThroughRender(t *testing.T) {
 	}
 
 	again := ModelEditOperation{Kind: EditSetLayout, Target: pump.FQN, View: drawn.View,
-		Layout: &ModelEditLayout{X: 10, Y: 20, Width: float(200), Height: float(80), Collapsed: true}}
+		Layout: &ModelEditLayout{X: float(10), Y: float(20), Width: float(200), Height: float(80), Collapsed: true}}
 	out = applyModelEdit(t, s, docURI, redrawn.Version, again)
 	applied, redrawn = redraw(t, s, docURI, applied, out, 3, drawn.View)
 	if strings.Count(applied, "DiagramLayout::Layout") != 1 {
@@ -1218,9 +1218,9 @@ func TestApplyModelEditSetLayoutRefusals(t *testing.T) {
 		op      ModelEditOperation
 		failure string
 	}{
-		{ModelEditOperation{Kind: EditSetLayout, Target: "Plant::Pump", View: "PlantViews::loopView", Layout: &ModelEditLayout{X: 1, Y: 2}}, "not-exposed"},
-		{ModelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::supply", View: "PlantViews::loopView", Layout: &ModelEditLayout{X: 1, Y: 2}}, "not-drawn"},
-		{ModelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::pump", View: "Plant::Loop", Layout: &ModelEditLayout{X: 1, Y: 2}}, "not-a-view"},
+		{ModelEditOperation{Kind: EditSetLayout, Target: "Plant::Pump", View: "PlantViews::loopView", Layout: &ModelEditLayout{X: float(1), Y: float(2)}}, "not-exposed"},
+		{ModelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::supply", View: "PlantViews::loopView", Layout: &ModelEditLayout{X: float(1), Y: float(2)}}, "not-drawn"},
+		{ModelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::pump", View: "Plant::Loop", Layout: &ModelEditLayout{X: float(1), Y: float(2)}}, "not-a-view"},
 		{ModelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::pump", View: "PlantViews::loopView"}, "not-annotated"},
 		{ModelEditOperation{Kind: EditSetRoute, Target: "Plant::Loop::supply", Route: []RenderPoint{}}, "not-annotated"},
 		{ModelEditOperation{Kind: EditSetCanvas, Target: "Plant::Loop", Canvas: &RenderCanvas{Unit: "px"}}, "not-a-view"},
@@ -1239,9 +1239,42 @@ func TestApplyModelEditSetLayoutRefusals(t *testing.T) {
 	_, err := call(t, s, MethodApplyModelEdit, &ApplyModelEditParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		Version:      1,
-		Operations:   []ModelEditOperation{{Kind: EditSetLayout, Target: "Plant::Loop::pump", Layout: &ModelEditLayout{X: 1, Y: 2, Width: float(10)}}},
+		Operations:   []ModelEditOperation{{Kind: EditSetLayout, Target: "Plant::Loop::pump", Layout: &ModelEditLayout{X: float(1), Y: float(2), Width: float(10)}}},
 	})
 	if err == nil || !strings.Contains(err.Error(), "width and height") {
 		t.Errorf("err = %v, want an invalid-params error about the size", err)
+	}
+}
+
+// A setLayout given collapsed and no x, y writes a Layout that only folds, and
+// the redraw reports the node collapsed with no place.
+func TestApplyModelEditSetLayoutFoldOnlyWritesNoPlace(t *testing.T) {
+	s, docURI := renderServer(t, "plant.sysml", plantModel)
+	drawn := render(t, s, docURI, "PlantViews::loopView")
+	fold := ModelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::pump", View: drawn.View, Layout: &ModelEditLayout{Collapsed: true}}
+	out := applyModelEdit(t, s, docURI, drawn.Version, fold)
+	applied, redrawn := redraw(t, s, docURI, plantModel, out, 2, drawn.View)
+	if !strings.Contains(applied, "metadata DiagramLayout::Layout about Plant::Loop::pump { collapsed = true; }\n") {
+		t.Errorf("fold-only Layout not stated:\n%s", applied)
+	}
+	for _, n := range redrawn.Nodes {
+		if n.Name == "pump" && (!n.Collapsed || n.X != nil || n.Y != nil) {
+			t.Errorf("pump after the fold = %+v, want collapsed with no x, y", n)
+		}
+	}
+
+	for _, layout := range []*ModelEditLayout{{}, {Collapsed: true, Width: float(200), Height: float(80)}} {
+		refused := applyModelEdit(t, s, docURI, 2, ModelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::pump", View: drawn.View, Layout: layout})
+		if len(refused.Refused) != 1 || refused.Refused[0].Failure != "invalid-value" {
+			t.Errorf("layout %+v without a place = %+v, want one invalid-value refusal", *layout, refused)
+		}
+	}
+	_, err := call(t, s, MethodApplyModelEdit, &ApplyModelEditParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		Version:      2,
+		Operations:   []ModelEditOperation{{Kind: EditSetLayout, Target: "Plant::Loop::pump", Layout: &ModelEditLayout{X: float(1)}}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "x and y") {
+		t.Errorf("err = %v, want an invalid-params error about the place", err)
 	}
 }

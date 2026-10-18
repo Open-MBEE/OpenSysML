@@ -353,11 +353,12 @@ it performs, as the canonical graphs:1 JSON an external analysis engine is
 sent, to stdout or \-output
 .TP
 .BR \-render\-form " \fIform\fP"
-Form \-render or \-render\-all writes: text, mermaid, markdown, dot, plantuml,
-d2, csv or tsv (csv and tsv for a table or matrix); D2 writes tree,
-interconnection, state, action, sequence, requirement, definition and package
-renderings, not case or mixed; default from the destination for \-render, each
-kind's machine form for \-render\-all
+Form \-render, \-render\-all or \-render\-run writes: text, mermaid, markdown,
+dot, plantuml, d2, csv or tsv (csv and tsv for a table or matrix; svg and
+svg\-animated for \-render\-run); D2 writes tree, interconnection, state,
+action, sequence, requirement, definition and package renderings, not case or
+mixed; default from the destination for \-render, each kind's machine form for
+\-render\-all
 .TP
 .BR \-render\-palette " \fIpalette\fP"
 Palette the dot, mermaid, plantuml or d2 form fills nodes from, by keyword

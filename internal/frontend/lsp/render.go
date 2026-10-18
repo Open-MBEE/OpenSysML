@@ -119,10 +119,10 @@ func renderStyleNames() []string {
 	return names
 }
 
-// renderFormNames lists the forms in the order the writer defines them.
+// renderFormNames lists the forms a view is written in, in the order the writer defines them.
 func renderFormNames() []string {
-	names := make([]string, 0, len(view.Forms()))
-	for _, form := range view.Forms() {
+	names := make([]string, 0, len(view.ViewForms()))
+	for _, form := range view.ViewForms() {
 		names = append(names, string(form))
 	}
 	return names
@@ -561,8 +561,11 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			}
 		}
 		if g := node.Geometry; g != nil {
+			n.Collapsed = g.Collapsed
+		}
+		if g := node.Geometry; g != nil && !g.Unplaced {
 			x, y := g.X, g.Y
-			n.X, n.Y, n.Collapsed = &x, &y, g.Collapsed
+			n.X, n.Y = &x, &y
 			if g.HasSize {
 				w, h := g.Width, g.Height
 				n.Width, n.Height = &w, &h
@@ -608,11 +611,11 @@ func renderForm(rendering *view.Rendering, asked string) (view.Form, error) {
 		return rendering.Kind.MachineForm(), nil
 	}
 	form := view.Form(asked)
-	if slices.Contains(view.Forms(), form) {
+	if slices.Contains(view.ViewForms(), form) {
 		return form, nil
 	}
-	names := make([]string, 0, len(view.Forms()))
-	for _, form := range view.Forms() {
+	names := make([]string, 0, len(view.ViewForms()))
+	for _, form := range view.ViewForms() {
 		names = append(names, strconv.Quote(string(form)))
 	}
 	return "", fmt.Errorf("%q is no rendering form: write %s or %s", asked, strings.Join(names[:len(names)-1], ", "), names[len(names)-1])

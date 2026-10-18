@@ -38,7 +38,7 @@
         <Control Id="Title" Type="Text" X="20" Y="20" Width="330" Height="60" Transparent="yes" NoPrefix="yes"
                  Text="{\WizardFontTitle}Welcome to the [ProductName] [OPENSYSML_TAG] Setup Wizard" />
         <Control Id="Description" Type="Text" X="20" Y="90" Width="330" Height="70" Transparent="yes" NoPrefix="yes"
-                 Text="The Setup Wizard will install [ProductName] on your computer: the sysml REPL and command line, the sysml-lsp language server, and optionally the sysml-grpc service and the Z3 SMT solver.&#13;&#10;&#13;&#10;Click Next to continue or Cancel to exit the Setup Wizard." />
+                 Text="The Setup Wizard will install [ProductName] on your computer: the sysml REPL and command line, the sysml-lsp language server, and optionally the sysml-grpc service, the sysml-mcp server for coding agents and the Z3 SMT solver.&#13;&#10;&#13;&#10;Click Next to continue or Cancel to exit the Setup Wizard." />
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
         <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back" Disabled="yes" />
         <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">

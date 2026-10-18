@@ -24,6 +24,7 @@ const (
 	performancesFQN = "Performances::performances"
 	evaluationsFQN  = "Performances::evaluations"
 	performanceFQN  = "Performances::Performance"
+	flowsFQN        = "Flows::flows"
 	assocStructKw   = "assoc struct"
 )
 
@@ -58,6 +59,7 @@ var implicitUsageBases = map[ast.UsageKind]string{
 	ast.UsageConstraint:       "Constraints::constraintChecks",
 	ast.UsageRequirement:      "Requirements::requirementChecks",
 	ast.UsageCase:             "Cases::cases",
+	ast.UsageFlow:             flowsFQN,
 	ast.UsageAnalysisCase:     "AnalysisCases::analysisCases",
 	ast.UsageVerificationCase: "VerificationCases::verificationCases",
 	ast.UsageUseCase:          "UseCases::useCases",
@@ -370,6 +372,16 @@ func (m *Model) usageBaseFeatureFQN(sym *symbols.Symbol) (string, bool) {
 				return "Connections::binaryConnections", true
 			case ast.UsageInterface:
 				return "Interfaces::binaryInterfaces", true
+			}
+		}
+		// A message and a succession flow subset bases of their own (SysML v2
+		// §8.3.15.4 checkFlowUsageSpecialization, §8.3.15.6, §8.3.15.7).
+		if d.Kind == ast.UsageFlow {
+			switch {
+			case d.Keyword == "message":
+				return "Flows::messages", true
+			case d.IsSuccessionFlow():
+				return "Flows::successionFlows", true
 			}
 		}
 		fqn, ok := implicitUsageBases[d.Kind]

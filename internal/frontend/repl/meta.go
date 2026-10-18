@@ -37,7 +37,7 @@ const (
 // when none is named, then a palette, style and port display the form draws.
 const (
 	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [show=<elements>] [depth=<levels>] [link=<template>]"
-	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|dot] [link=<template>]"
+	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|svg|svg-animated|dot] [link=<template>]"
 )
 
 // isMeta reports whether a trimmed input line is a meta command.

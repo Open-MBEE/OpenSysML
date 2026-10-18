@@ -75,6 +75,7 @@ elmt:Colors__Color__red
     sysml:owner elmt:Colors__Color ;
     sysml:owningRelationship elmt:Colors__Color__red_om ;
     sysml:owningMembership elmt:Colors__Color__red_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "red" ;
     sysml:isVariant "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -104,6 +105,7 @@ elmt:Colors__Color__green
     sysml:owner elmt:Colors__Color ;
     sysml:owningRelationship elmt:Colors__Color__green_om ;
     sysml:owningMembership elmt:Colors__Color__green_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "green" ;
     sysml:isVariant "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -133,6 +135,7 @@ elmt:Colors__Color__blue
     sysml:owner elmt:Colors__Color ;
     sysml:owningRelationship elmt:Colors__Color__blue_om ;
     sysml:owningMembership elmt:Colors__Color__blue_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "blue" ;
     sysml:isVariant "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
