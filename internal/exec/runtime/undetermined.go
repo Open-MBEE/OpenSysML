@@ -629,8 +629,12 @@ func openCollectionValue(spelled string, feature *EffectiveFeature, open *openPo
 	if fewest := max(int64(len(open.Contributed)), open.AtLeast); fewest > fewestOf(count) {
 		count.Lower = semantics.Bound{Value: fewest, Known: true}
 	}
+	var positions []Value
+	if open.Fixed > 0 {
+		positions = open.Contributed[:open.Fixed]
+	}
 	return Value{Kind: ValUndetermined, ref: &Undetermined{
-		reason: openCountReason(spelled, mult), count: count, known: open.Contributed, feature: feature.Symbol,
+		reason: openCountReason(spelled, mult), count: count, known: open.Contributed, feature: feature.Symbol, positions: positions,
 	}}
 }
 
