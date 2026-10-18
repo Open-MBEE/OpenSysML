@@ -9,6 +9,11 @@ class Diagnostic:
         message (str): Diagnostic message
         code (str): Stable identifier of what was found (a validation code,
             "syntax", "choice-point", "guard-unevaluable"); "" when none
+        order_dependent (list[str]): On a "choice-point", the features the
+            conflicting alternatives wrote, whose values the run holds only up
+            to the order it took; empty otherwise
+        independent (bool): On a "choice-point", whether the alternatives
+            commute, so the run's values stand whichever was taken
         file (str): Source file name
         start_line (int): Starting line number (1-based)
         start_column (int): Starting column number (1-based)
@@ -40,6 +45,16 @@ class Diagnostic:
         """Get the diagnostic code, independent of the message wording."""
         return self._pb.code
     
+    @property
+    def order_dependent(self):
+        """The features a choice point left order-dependent; empty otherwise."""
+        return list(self._pb.order_dependent)
+
+    @property
+    def independent(self):
+        """Whether a choice point's alternatives commute."""
+        return self._pb.independent
+
     @property
     def span(self):
         """Get protobuf Span object."""

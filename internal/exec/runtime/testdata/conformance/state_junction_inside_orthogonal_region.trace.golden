@@ -13,13 +13,13 @@ stmt action body
       eval feature log -> "go(effect);"
       eval literal "both(entry);" -> "both(entry);"
     eval operator + -> "go(effect);both(entry);"
-choice entering both: next split->l1(effect), r0(entry) (unordered; took split->l1(effect) first)
+choice entering both: next split->l1(effect), r0(entry) (unordered; took split->l1(effect) first; independent)
 stmt action body
   stmt assign log
       eval feature log -> "go(effect);both(entry);"
       eval literal "split(effect);" -> "split(effect);"
     eval operator + -> "go(effect);both(entry);split(effect);"
-choice entering both: next l1(entry), r0(entry) (unordered; took l1(entry) first)
+choice entering both: next l1(entry), r0(entry) (unordered; took l1(entry) first; independent)
 enter: l1 (entry action)
 stmt action body
   stmt assign log
@@ -33,7 +33,7 @@ stmt action body
       eval literal "r0(entry);" -> "r0(entry);"
     eval operator + -> "go(effect);both(entry);split(effect);l1(entry);r0(entry);"
 transition: idle -> l1 (event: accept Go)
-choice exiting both: next l1(exit), r0(exit) (unordered; took l1(exit) first)
+choice exiting both: next l1(exit), r0(exit) (unordered; took l1(exit) first; independent)
 exit: l1
 exit: r0
 exit: both (exit action)

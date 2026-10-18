@@ -24,7 +24,11 @@ export type GQLRunOperation =
   | 'VERIFY_SATISFACTION'
   | 'EVALUATE_CALC'
   | 'RUN_ANALYSIS'
-  | 'VALIDATE_INSTANCE';
+  | 'VALIDATE_INSTANCE'
+  | 'RENDER_DOCUMENT'
+  | 'RUN_DOCUMENT_QUERY';
+
+export type GQLRunDocumentForm = 'MARKDOWN' | 'HTML';
 
 export interface GQLRunInputValue {
   name: string;
@@ -41,6 +45,7 @@ export interface GQLRunWithOpenSysMLInput {
   arguments: string[];
   schedule: string | null;
   subject: string | null;
+  form: GQLRunDocumentForm | null;
 }
 
 export interface GQLOpenSysMLNamedValue {
@@ -84,6 +89,23 @@ export interface GQLOpenSysMLRunOutcome {
   witness: string[];
 }
 
+export interface GQLOpenSysMLDocument {
+  form: GQLRunDocumentForm;
+  content: string;
+  fileName: string;
+}
+
+export interface GQLOpenSysMLTableRow {
+  element: string;
+  siriusId: string | null;
+  cells: string[];
+}
+
+export interface GQLOpenSysMLTable {
+  columns: string[];
+  rows: GQLOpenSysMLTableRow[];
+}
+
 export interface GQLOpenSysMLRunResult {
   modelHash: string;
   operation: GQLRunOperation;
@@ -99,6 +121,8 @@ export interface GQLOpenSysMLRunResult {
   diagnostics: GQLOpenSysMLDiagnostic[];
   verdicts: GQLOpenSysMLVerdict[];
   instances: GQLOpenSysMLInstance[];
+  document: GQLOpenSysMLDocument | null;
+  table: GQLOpenSysMLTable | null;
 }
 
 export interface GQLRunWithOpenSysMLSuccessPayload {
@@ -180,6 +204,19 @@ export const runWithOpenSysMLMutation = gql`
             featureValues {
               name
               value
+            }
+          }
+          document {
+            form
+            content
+            fileName
+          }
+          table {
+            columns
+            rows {
+              element
+              siriusId
+              cells
             }
           }
         }

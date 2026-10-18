@@ -3,6 +3,7 @@ package view
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -24,8 +25,8 @@ func treeEdgeLines(rendering *Rendering) []string {
 	var lines []string
 	for _, edge := range rendering.Edges {
 		line := fmt.Sprintf("%s %s %s", names[edge.From], edge.Kind, names[edge.To])
-		if edge.Label != "" {
-			line += ": " + edge.Label
+		if text := edge.text(); text != "" {
+			line += ": " + text
 		}
 		lines = append(lines, line)
 	}
@@ -97,9 +98,9 @@ func TestTreeCompositionEdgeIsRoutedByTheUsagesRoute(t *testing.T) {
 	var routed []string
 	for _, edge := range rendering.Edges {
 		if len(edge.Route) > 0 {
-			routed = append(routed, edge.Label)
+			routed = append(routed, edge.ToLabel)
 			if want := []Point{{100, 200}, {300, 200}}; !reflect.DeepEqual(edge.Route, want) {
-				t.Errorf("route of %s = %v, want %v", edge.Label, edge.Route, want)
+				t.Errorf("route of %s = %v, want %v", edge.ToLabel, edge.Route, want)
 			}
 		}
 	}
@@ -163,7 +164,7 @@ func TestTreeEdgesReachNestedViews(t *testing.T) {
 // The text form lists a tree's edges as the relationships they are, in the
 // class-diagram arrows the general graphs use.
 func TestTreeTextListsRelationships(t *testing.T) {
-	text := render(t, "tree-edges.sysml", "FleetViews::structure").Text()
+	text := render(t, "tree-edges.sysml", "FleetViews::structure").textWith(fullNotation)
 	for _, want := range []string{
 		"\nrelationships:\n",
 		"  Fleet::Vehicle *-- Fleet::Wheel: wheels[4]\n",
@@ -229,7 +230,7 @@ package Views {
 	}
 	var labels []string
 	for _, edge := range rendering.Edges {
-		labels = append(labels, edge.Label)
+		labels = append(labels, edge.ToLabel)
 	}
 	if want := []string{"wheels[axles]", "seats[0..rows]"}; !reflect.DeepEqual(labels, want) {
 		t.Errorf("labels = %q, want %q", labels, want)
@@ -307,5 +308,227 @@ func TestMultiplicityExpressionBoundsAreSpelledFromTheTree(t *testing.T) {
 		if got := r.multiplicityText("", c.m); got != c.want {
 			t.Errorf("multiplicityText = %q, want %q", got, c.want)
 		}
+	}
+}
+
+// A connection def whose two ends are typed by drawn definitions is the
+// association a block definition diagram draws as a line between their
+// boxes, labelled with its ends and its own name, not a box of its own. One
+// that carries a member of its own, as an association block does, or whose
+// end type is not drawn stays a box.
+func TestTreeDrawsAConnectionDefAsALineBetweenItsEndTypes(t *testing.T) {
+	rendering := render(t, "tree-associations.sysml", "FleetViews::structure")
+	assertRenderingEdgeEndpoints(t, rendering)
+	var names []string
+	var visit func(nodes []*Node)
+	visit = func(nodes []*Node) {
+		for _, node := range nodes {
+			names = append(names, node.Name)
+			visit(node.Children)
+		}
+	}
+	visit(rendering.Roots)
+	for _, boxed := range []string{"Fleet::WheelToCar", "Fleet::Tows"} {
+		if slices.Contains(names, boxed) {
+			t.Errorf("%s is drawn as a box; nodes = %q", boxed, names)
+		}
+	}
+	for _, boxed := range []string{"Fleet::Pairing", "Fleet::Ferries", "Fleet::Keyed", "Fleet::Towing"} {
+		if !slices.Contains(names, boxed) {
+			t.Errorf("%s is not drawn as a box; nodes = %q", boxed, names)
+		}
+	}
+	want := []string{
+		"Fleet::Wheel association Fleet::Car: wheels[4] WheelToCar car",
+		"Fleet::Truck composition Fleet::Hitch: truck HitchToTruck hitch",
+		"Fleet::Car association Fleet::Trailer: tower Tows trailer[0..1]",
+		"Fleet::Pairing reference Fleet::Car: a",
+		"Fleet::Pairing reference Fleet::Trailer: b",
+		"Fleet::Ferries reference Fleet::Car: car",
+		"Fleet::Keyed reference Fleet::Car: a",
+		"Fleet::Keyed reference Fleet::Trailer: b",
+	}
+	got := treeEdgeLines(rendering)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("edges = %q, want %q", got, want)
+	}
+}
+
+// The line a connection def is drawn as wears the def's Style and Route and
+// carries its Notes, anchored to the line instead of to the box it no longer is.
+func TestTreeAssociationLineKeepsTheDefsPresentation(t *testing.T) {
+	rendering := renderSource(t, "Views::styled", `package Model {
+	part def Wheel;
+	part def Car;
+	connection def WheelToCar { end wheel : Wheel; end car : Car; }
+}
+package Views {
+	private import DiagramLayout::*;
+	view styled {
+		expose Model::Car;
+		expose Model::Wheel;
+		expose Model::WheelToCar;
+		metadata Style about Model::WheelToCar { line = "#00FF00"; }
+		metadata Route about Model::WheelToCar { points = (10, 20, 30, 40); }
+		metadata Note about Model::WheelToCar { text = "four of them"; x = 10; y = 20; }
+	}
+}`)
+	if len(rendering.Roots) != 2 {
+		t.Fatalf("roots = %+v, want Wheel and Car alone", rendering.Roots)
+	}
+	if len(rendering.Edges) != 1 || rendering.Edges[0].Kind != EdgeAssociation {
+		t.Fatalf("edges = %+v, want the one connection line", rendering.Edges)
+	}
+	edge := rendering.Edges[0]
+	if edge.Style == nil || edge.Style.Line != "#00FF00" {
+		t.Errorf("edge style = %+v, want the def's line", edge.Style)
+	}
+	if len(edge.Route) != 2 {
+		t.Errorf("edge route = %+v, want the def's two points", edge.Route)
+	}
+	if len(rendering.Notes) != 1 || rendering.Notes[0].Anchor != "" || rendering.Notes[0].EdgeFrom != edge.From || rendering.Notes[0].EdgeTo != edge.To {
+		t.Errorf("notes = %+v, want the one note anchored to the line", rendering.Notes)
+	}
+}
+
+// An end crossing a composite part the tree already draws as a composition
+// from its owner takes that edge over: the association is one line, keeping
+// the composition's diamond and the part's name, wearing the def's Style and
+// following its Route, with the def's Notes anchored to it.
+func TestTreeAssociationCrossingACompositePartIsItsCompositionEdge(t *testing.T) {
+	rendering := renderSource(t, "Diagrams::bdd", `package Model {
+	part def Wheel;
+	part def Car {
+		part wheels : Wheel[4];
+	}
+	connection def WheelToCar {
+		end wheels : Wheel crosses car.wheels;
+		end car : Car;
+	}
+}
+package Diagrams {
+	private import DiagramLayout::*;
+	view bdd {
+		expose Model::Car;
+		expose Model::Wheel;
+		expose Model::WheelToCar;
+		metadata Style about Model::WheelToCar { line = "#00FF00"; }
+		metadata Route about Model::WheelToCar { points = (10, 20, 30, 40); }
+		metadata Note about Model::WheelToCar { text = "four of them"; x = 10; y = 20; }
+		render Views::asTreeDiagram;
+	}
+}`)
+	if got, want := treeEdgeLines(rendering), []string{"Model::Car composition Model::Wheel: car WheelToCar wheels[4]"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("edges = %q, want %q", got, want)
+	}
+	edge := rendering.Edges[0]
+	if edge.Style == nil || edge.Style.Line != "#00FF00" {
+		t.Errorf("edge style = %+v, want the def's line", edge.Style)
+	}
+	// The def's route runs from Wheel to Car; the composition runs from Car.
+	if want := []Point{{30, 40}, {10, 20}}; !reflect.DeepEqual(edge.Route, want) {
+		t.Errorf("edge route = %v, want the def's reversed %v", edge.Route, want)
+	}
+	if len(rendering.Notes) != 1 || rendering.Notes[0].Anchor != "" || rendering.Notes[0].EdgeFrom != edge.From || rendering.Notes[0].EdgeTo != edge.To {
+		t.Errorf("notes = %+v, want the one note anchored to the edge", rendering.Notes)
+	}
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	var lines []string
+	for _, line := range strings.Split(dot, "\n") {
+		if strings.Contains(line, `label="WheelToCar`) {
+			lines = append(lines, line)
+		}
+	}
+	if len(lines) != 1 || !strings.Contains(lines[0], "dir=back, arrowtail=diamond") || strings.Contains(lines[0], "penwidth=3") {
+		t.Errorf("DOT draws the association as other than one composition edge:\n%s", dot)
+	}
+}
+
+// An association line is a plain line, as a block definition diagram draws
+// one, not the heavy connector of an interconnection diagram.
+func TestTreeAssociationLineIsPlain(t *testing.T) {
+	rendering := render(t, "tree-associations.sysml", "FleetViews::structure")
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if strings.Contains(dot, "penwidth=3") {
+		t.Errorf("DOT draws an association as a heavy connector:\n%s", dot)
+	}
+	if want := `[label="Tows", taillabel="tower", headlabel="trailer", dir=none];`; !strings.Contains(dot, want) {
+		t.Errorf("DOT lacks the plain line, its ends named without the multiplicity left out by default %s:\n%s", want, dot)
+	}
+	full, err := rendering.DOTWith(fullNotation)
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if want := `[label="Tows", taillabel="tower", headlabel="trailer[0..1]", dir=none];`; !strings.Contains(full, want) {
+		t.Errorf("DOT with every element lacks the plain line, the def's name along it %s:\n%s", want, full)
+	}
+}
+
+// A def whose second end crosses the composite part keeps the direction of
+// its route, which already runs from the part's owner.
+func TestTreeAssociationCrossingACompositePartFromItsSecondEndKeepsItsRoute(t *testing.T) {
+	rendering := renderSource(t, "Diagrams::bdd", `package Model {
+	part def Wheel;
+	part def Car {
+		part wheels : Wheel[4];
+	}
+	connection def CarToWheel {
+		end car : Car;
+		end wheels : Wheel crosses car.wheels;
+	}
+}
+package Diagrams {
+	private import DiagramLayout::*;
+	view bdd {
+		expose Model::Car;
+		expose Model::Wheel;
+		expose Model::CarToWheel;
+		metadata Route about Model::CarToWheel { points = (10, 20, 30, 40); }
+		render Views::asTreeDiagram;
+	}
+}`)
+	if got, want := treeEdgeLines(rendering), []string{"Model::Car composition Model::Wheel: car CarToWheel wheels[4]"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("edges = %q, want %q", got, want)
+	}
+	if want := []Point{{10, 20}, {30, 40}}; !reflect.DeepEqual(rendering.Edges[0].Route, want) {
+		t.Errorf("edge route = %v, want the def's %v", rendering.Edges[0].Route, want)
+	}
+}
+
+// An association line stands only for the edge from the crossed part to the
+// end's type; a part typed by more definitions keeps its edges to the others.
+func TestTreeAssociationCrossingAMultiplyTypedPartKeepsItsOtherEdges(t *testing.T) {
+	rendering := renderSource(t, "Diagrams::bdd", `package Model {
+	part def Wheel;
+	part def Electric;
+	part def Car {
+		part hybrid : Wheel, Electric;
+	}
+	connection def WheelToCar {
+		end wheels : Wheel crosses car.hybrid;
+		end car : Car;
+	}
+}
+package Diagrams {
+	view bdd {
+		expose Model::Car;
+		expose Model::Wheel;
+		expose Model::Electric;
+		expose Model::WheelToCar;
+		render Views::asTreeDiagram;
+	}
+}`)
+	want := []string{
+		"Model::Car composition Model::Wheel: car WheelToCar hybrid",
+		"Model::Car composition Model::Electric: hybrid",
+	}
+	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, want) {
+		t.Errorf("edges =\n  %s\nwant\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
 }

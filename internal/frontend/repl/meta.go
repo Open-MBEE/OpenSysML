@@ -1,6 +1,7 @@
 package repl
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"math"
@@ -27,10 +28,15 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
+const (
+	constraintCommand  = "%constraint"
+	requirementCommand = "%requirement"
+)
+
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
 const (
-	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts] [link=<template>]]"
+	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [show=<elements>] [depth=<levels>] [link=<template>]"
 	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|dot] [link=<template>]"
 )
 
@@ -203,6 +209,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%verbosity", group: groupSettings, args: "[level]", desc: "show or set output level: quiet, normal or debug"},
 	{name: "%trace", group: groupSettings, args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
 	{name: "%strict", group: groupSettings, args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
+	{name: "%explain-code", group: groupSettings, args: "[<code>...]", desc: "explain a diagnostic code — what it means, how to resolve it and the clause or constraint behind it — or, bare, list every code with a one-line summary"},
 	{name: "%lint", group: groupSettings, args: "[<code> on|off]", desc: "list the lints — warnings about models the specification accepts — each on or off, or switch one by its code: undeclared-signal, port-type-mismatch, deferred-keeper-unmarked, rounded-real-literal (opt-in, off by default)"},
 	{name: "%schedule", group: groupSettings, args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%seed", group: groupSettings, args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
@@ -247,8 +254,8 @@ var metaCommandTable = []metaCommand{
 	{name: cmdRunQuery, group: groupBehavioral, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
 	{name: "%render-run", group: groupBehavioral, args: "<timeline|sequence> [form] [link=<template>]", desc: "render the recorded run as a state timeline or message sequence, optionally linking declarations to their source"},
 	{name: cmdRenderDocument, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml|d2 [pilot|cameo]]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT, PlantUML or D2"},
-	{name: "%constraint", group: groupBehavioral, args: argInvocation, desc: "evaluate a constraint definition, with arguments for its parameters and an object as its subject"},
-	{name: "%requirement", group: groupBehavioral, args: argInvocation, desc: "evaluate a requirement definition, with arguments for its parameters and an object as its subject"},
+	{name: constraintCommand, group: groupBehavioral, args: argInvocation, desc: "evaluate a constraint definition, with arguments for its parameters and an object as its subject"},
+	{name: requirementCommand, group: groupBehavioral, args: argInvocation, desc: "evaluate a requirement definition, with arguments for its parameters and an object as its subject"},
 	{name: "%satisfy", group: groupBehavioral, args: "[name]", desc: "evaluate the satisfaction assertions of the model, or of one element"},
 	{name: "%validate", group: groupBehavioral, args: "<object>", desc: "check every assertion about an object and the objects it holds: the asserted constraints of their types, the requirements they carry and the satisfactions they are subject of; an object is named, #<id>, or a path such as car.engine"},
 	{name: "%check", group: groupBehavioral, args: argName, desc: "ask an SMT solver whether a constraint, requirement or satisfaction can be satisfied (experimental)"},
@@ -429,6 +436,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doTrace(fields[1:]), false, nil), true
 	case "%strict":
 		return metaOut(s.doStrict(fields[1:]), false, nil), true
+	case "%explain-code":
+		return metaOut(s.doExplainCode(fields[1:]), false, nil), true
 	case "%lint":
 		return metaOut(s.doLint(fields[1:]), false, nil), true
 	case "%schedule":
@@ -522,38 +531,85 @@ func (s *Session) doTrace(args []string) []string {
 // metaRender reads the %render name, form and optional rendering settings,
 // including a source-link template, then renders the view they name.
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
-	name, form, opts, overlay, usage := parseRenderArgs(args)
+	name, form, opts, overlay, depth, usage := parseRenderArgs(args)
 	if usage != nil {
 		return usage, false, nil
 	}
-	return s.doRender(name, form, opts, overlay)
+	return s.doRender(name, form, opts, overlay, depth)
+}
+
+// renderOptionWord reports whether word is a rendering option rather than a
+// form, so the text form is understood before it.
+func renderOptionWord(word string) bool {
+	if strings.HasPrefix(word, "show=") || strings.HasPrefix(word, "link=") || strings.HasPrefix(word, "depth=") {
+		return true
+	}
+	if o, ok := view.ParseOverlay(word); ok && o != "" {
+		return true
+	}
+	if _, ok := view.ParseDrawingStyle(word); ok {
+		return true
+	}
+	if _, ok := view.ParsePorts(word); ok {
+		return true
+	}
+	_, ok := view.ParseLines(word)
+	return ok
 }
 
 // renderUsageOf is what parseRenderArgs answers when the arguments do not read.
-func renderUsageOf(line string) (string, view.Form, view.Options, view.Overlay, []string) {
-	return "", "", view.Options{}, "", []string{line}
+func renderUsageOf(line string) (string, view.Form, view.Options, view.Overlay, int, []string) {
+	return "", "", view.Options{}, "", 0, []string{line}
 }
 
 // parseRenderArgs reads %render's arguments: the view, the form and the options
 // after it; usage is what to print instead when they do not read.
-func parseRenderArgs(args []string) (name string, form view.Form, opts view.Options, overlay view.Overlay, usage []string) {
-	if len(args) < 1 || len(args) > 6 {
+func parseRenderArgs(args []string) (name string, form view.Form, opts view.Options, overlay view.Overlay, depth int, usage []string) {
+	if len(args) < 1 {
 		return renderUsageOf(renderUsage)
 	}
 	form = view.FormText
+	options := min(2, len(args))
 	if len(args) >= 2 {
-		form = view.Form(args[1])
-		if !slices.Contains(view.Forms(), form) {
+		switch {
+		case slices.Contains(view.Forms(), view.Form(args[1])):
+			form = view.Form(args[1])
+		case renderOptionWord(args[1]):
+			options = 1
+		default:
 			return renderUsageOf(fmt.Sprintf("unknown form %q; %s", args[1], renderUsage))
 		}
 	}
-	linkSet := false
-	for _, word := range args[min(2, len(args)):] {
+	linkSet, depthSet := false, false
+	for _, word := range args[options:] {
 		if o, ok := view.ParseOverlay(word); ok && o != "" {
 			if overlay != "" {
 				return renderUsageOf(renderUsage)
 			}
 			overlay = o
+			continue
+		}
+		if strings.HasPrefix(word, "show=") {
+			if opts.Show != nil {
+				return renderUsageOf(renderUsage)
+			}
+			shown, err := view.ParseShown(strings.TrimPrefix(word, "show="))
+			if err != nil || shown == nil {
+				return renderUsageOf(fmt.Sprintf("show= names the optional notation elements to draw, %s; %s", view.ElementNames(), renderUsage))
+			}
+			opts.Show = shown
+			continue
+		}
+		if strings.HasPrefix(word, "depth=") {
+			if depthSet {
+				return renderUsageOf(renderUsage)
+			}
+			depthSet = true
+			levels, err := view.ParseDepth(strings.TrimPrefix(word, "depth="))
+			if err != nil {
+				return renderUsageOf(err.Error() + "; " + renderUsage)
+			}
+			depth = levels
 			continue
 		}
 		if strings.HasPrefix(word, "link=") {
@@ -581,6 +637,13 @@ func parseRenderArgs(args []string) (name string, form view.Form, opts view.Opti
 			opts.Ports = ports
 			continue
 		}
+		if lines, ok := view.ParseLines(word); ok {
+			if opts.Lines != "" {
+				return renderUsageOf(renderUsage)
+			}
+			opts.Lines = lines
+			continue
+		}
 		if !form.TakesPalette() {
 			return renderUsageOf(fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", form, renderUsage))
 		}
@@ -593,7 +656,7 @@ func parseRenderArgs(args []string) (name string, form view.Form, opts view.Opti
 		}
 		opts.Palette = palette
 	}
-	return args[0], form, opts, overlay, nil
+	return args[0], form, opts, overlay, depth, nil
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line
@@ -665,16 +728,16 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{renderDocumentUsage}, false, nil), true
 		}
 		return metaOut(s.doRenderDocument(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), cmdRenderDocument)))), true
-	case "%constraint":
+	case constraintCommand:
 		if len(fields) < 2 {
 			return metaOut([]string{constraintUsage}, false, nil), true
 		}
-		return metaOut(s.doConstraint(strings.TrimPrefix(strings.TrimSpace(line), "%constraint"))), true
-	case "%requirement":
+		return metaOut(s.doConstraint(strings.TrimPrefix(strings.TrimSpace(line), constraintCommand))), true
+	case requirementCommand:
 		if len(fields) < 2 {
 			return metaOut([]string{requirementUsage}, false, nil), true
 		}
-		return metaOut(s.doRequirement(strings.TrimPrefix(strings.TrimSpace(line), "%requirement"))), true
+		return metaOut(s.doRequirement(strings.TrimPrefix(strings.TrimSpace(line), requirementCommand))), true
 	case "%satisfy":
 		return metaOut(s.doSatisfy(fields[1:])), true
 	case "%validate":
@@ -1017,7 +1080,7 @@ func (s *Session) evalValue(expr string) (evaluated, error) {
 				}
 				val, readErr := fv.ReadValue(fv.Feature.Name)
 				ev := answered(expr+onInstance(inst, owner), ctx, val, formatFeatureValue(ctx, fv))
-				ev.unset = errors.Is(readErr, runtime.ErrUninitializedFeatureValue)
+				ev.unset = runtime.IsUninitializedFeatureValue(readErr)
 				return ev, nil
 			}
 		}
@@ -1895,7 +1958,7 @@ func formatFeatureValue(ctx *runtime.Context, fv *runtime.FeatureValue) string {
 	if err != nil {
 		return runtime.UnsetText
 	}
-	return formatValue(ctx, val)
+	return markOrderDependent(formatValue(ctx, val), ctx.OrderDependent(fv.Feature.Name))
 }
 
 // formatValue renders a value as every surface spells it. ctx may be nil, which
@@ -2402,18 +2465,116 @@ func (s *Session) doValidate(ref string) ([]string, bool, error) {
 	return out, false, nil
 }
 
+// satisfyVerdictsOf renders the verdicts of one satisfaction assertion: one,
+// about an object of its subject, or, for an assertion a type states with no
+// `by`, one per object of that type the session holds — what %validate decides
+// for each of them. A definition's assertion with no such object is about
+// nothing yet, which is said rather than evaluated against no subject.
+func (s *Session) satisfyVerdictsOf(ctx *runtime.Context, a *runtime.SatisfyAssertion) []Verdict {
+	typ := a.StatingType()
+	if typ == nil {
+		return []Verdict{s.satisfyVerdict(ctx, a)}
+	}
+	subjects := ctx.SatisfactionSubjects(a, s.heldRoots())
+	if len(subjects) == 0 {
+		if _, isUsage := typ.Decl.(*ast.Usage); isUsage {
+			// The usage names the object it is about, so one is made as for `by`.
+			return []Verdict{s.satisfyVerdict(ctx, a)}
+		}
+		return []Verdict{s.withVerifications(s.satisfyNeedsObject(a, typ), ctx, a.AssertedRequirement(), nil)}
+	}
+	out := make([]Verdict, 0, len(subjects))
+	for _, subject := range subjects {
+		out = append(out, s.satisfyVerdictOn(ctx, a, subject.Object, s.subjectLabel(subject)))
+	}
+	return out
+}
+
+// subjectLabel names an object a type's assertion is about as the prompt names
+// any object a check resolved to: a nested one by the root it was reached from
+// and the features walked to it, when the root has a name here.
+func (s *Session) subjectLabel(subject runtime.SatisfactionSubject) string {
+	if subject.Root != nil && subject.Root != subject.Object {
+		if root := s.instanceName(subject.Root); root != "" {
+			return root + featurePath(subject.Path)
+		}
+	}
+	return s.objectLabel(subject.Object)
+}
+
+// heldRoots are the objects the session created and still names — by their
+// declaration or, displaced from it, by id — in identity order: what a sweep over
+// "the objects of the session" is about, not the objects runs made along the way.
+func (s *Session) heldRoots() []*runtime.Instance {
+	seen := map[int64]bool{}
+	var out []*runtime.Instance
+	keep := func(inst *runtime.Instance) {
+		if inst != nil && !seen[inst.ID] {
+			seen[inst.ID] = true
+			out = append(out, inst)
+		}
+	}
+	for _, inst := range s.instances {
+		keep(inst)
+	}
+	for _, u := range s.unnamed {
+		keep(u.obj)
+	}
+	slices.SortFunc(out, func(a, b *runtime.Instance) int { return cmp.Compare(a.ID, b.ID) })
+	return out
+}
+
+// satisfyNeedsObject reports an assertion a definition states with no `by` while
+// the session holds no object of that definition: it decided nothing yet.
+func (s *Session) satisfyNeedsObject(a *runtime.SatisfyAssertion, typ *symbols.Symbol) Verdict {
+	name := s.objectLabelOf(typ)
+	return Verdict{Subject: satisfyText(a), Status: VerdictUnresolved, Lines: []string{
+		fmt.Sprintf("? %s needs an object of %s: none is instantiated", satisfyText(a), name),
+	}}
+}
+
+// objectLabel is the label an object is reported under: the name the session
+// holds it by, else the type it was created as, else its id alone.
+func (s *Session) objectLabel(inst *runtime.Instance) string {
+	if name := s.instanceName(inst); name != "" {
+		return name
+	}
+	if inst.Type != nil {
+		if label := s.objectLabelOf(inst.Type); label != "" {
+			return label
+		}
+	}
+	return fmt.Sprintf("#%d", inst.ID)
+}
+
+// objectLabelOf spells a declaration as the prompt names it: by qualified name
+// where it has one, else by its own name.
+func (s *Session) objectLabelOf(sym *symbols.Symbol) string {
+	if idx := s.symbolIndex(); idx != nil {
+		if fqn := idx.GetFQN(sym); fqn != "" {
+			return s.declaredName(fqn)
+		}
+	}
+	return notationName(sym.Name)
+}
+
 // satisfyVerdict renders the verdict of one satisfaction assertion, evaluated
 // against an object of its subject: the one the session already created for that
 // subject, so a `%instantiate` before it is what the verdict is about.
 func (s *Session) satisfyVerdict(ctx *runtime.Context, a *runtime.SatisfyAssertion) Verdict {
 	subject, owner := s.subjectInstance(a)
-	if subject == nil && a.Subject != nil {
+	if subject == nil && (a.Subject != nil || a.StatingType() != nil) {
 		// No object of the subject exists yet, so the verdict is about a fresh
 		// one, created here rather than inside the evaluation so it can be named.
 		if inst, serr := ctx.SatisfySubject(a); serr == nil {
 			subject, owner = inst, s.keepSubject(a, inst)
 		}
 	}
+	return s.satisfyVerdictOn(ctx, a, subject, owner)
+}
+
+// satisfyVerdictOn is satisfyVerdict about a given object, reported under owner.
+func (s *Session) satisfyVerdictOn(ctx *runtime.Context, a *runtime.SatisfyAssertion, subject *runtime.Instance, owner string) Verdict {
 	result, plan, err := s.check(satisfyText(a), ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
 		return ctx.CheckSatisfactionOn(a, subject)
 	})
@@ -2421,7 +2582,7 @@ func (s *Session) satisfyVerdict(ctx *runtime.Context, a *runtime.SatisfyAsserti
 	// A `satisfy requirement r by p` declares its requirement rather than
 	// referencing one, so the assertion names it.
 	req := a.AssertedRequirement()
-	verdict := s.withVerifications(satisfactionVerdict(a, result, err, subject, owner), ctx, req)
+	verdict := s.withVerifications(satisfactionVerdict(a, result, err, subject, owner), ctx, req, subject)
 	return standing(verdict, plan)
 }
 
@@ -2490,8 +2651,17 @@ func (s *Session) keepSubject(a *runtime.SatisfyAssertion, inst *runtime.Instanc
 // subjectName is the name an assertion's subject is known by: its
 // fully-qualified name, or the reference as written when it resolves to nothing.
 // A chained subject is known by the name of the feature the chain starts from
-// and the features walked from it, as objectAt reaches it.
+// and the features walked from it, as objectAt reaches it. An assertion a type
+// states with no `by` is about objects of that type, known by its name.
 func (s *Session) subjectName(a *runtime.SatisfyAssertion) string {
+	if typ := a.StatingType(); typ != nil {
+		if idx := s.symbolIndex(); idx != nil {
+			if fqn := idx.GetFQN(typ); fqn != "" {
+				return fqn
+			}
+		}
+		return typ.Name
+	}
 	if a.SubjectChain != nil {
 		if root := s.rootName(a); root != "" {
 			return strings.Join(append([]string{root}, a.SubjectPath...), "::")
@@ -2714,7 +2884,7 @@ func renderResults(ctx *runtime.Context, results map[string]runtime.Value) []str
 	out := make([]string, 0, len(values)+1)
 	out = append(out, "  Results:")
 	for _, v := range values {
-		out = append(out, fmt.Sprintf("    %s = %s", v.Name, v.Value))
+		out = append(out, fmt.Sprintf("    %s = %s", v.Name, v.Text()))
 	}
 	return out
 }
@@ -2746,7 +2916,7 @@ func (s *Session) doTokens() ([]string, bool, error) {
 	if values := namedValues(s.actionExec.contextOf(), exec.Results()); len(values) > 0 {
 		out = append(out, "  Values:")
 		for _, v := range values {
-			out = append(out, fmt.Sprintf("    %s = %s", v.Name, v.Value))
+			out = append(out, fmt.Sprintf("    %s = %s", v.Name, v.Text()))
 		}
 	}
 
@@ -3317,7 +3487,7 @@ func (s *Session) invokeOperation(name, operation, args string) ([]string, error
 	if values := namedValues(ctx, results); len(values) > 0 {
 		out = append(out, "", "Results:")
 		for _, v := range values {
-			out = append(out, fmt.Sprintf("  %s = %s", v.Name, v.Value))
+			out = append(out, fmt.Sprintf("  %s = %s", v.Name, v.Text()))
 		}
 	}
 	return out, nil
@@ -3512,7 +3682,7 @@ func (s *Session) doCurrent() ([]string, bool, error) {
 	if values := namedValues(s.stateExec.contextOf(), stateData); len(values) > 0 {
 		out = append(out, "", "State data:")
 		for _, v := range values {
-			out = append(out, fmt.Sprintf("  %s = %s", v.Name, v.Value))
+			out = append(out, fmt.Sprintf("  %s = %s", v.Name, v.Text()))
 		}
 	}
 

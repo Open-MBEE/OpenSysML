@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::run",
+	"outputs": {
+		"total": {"type": "Integer", "value": 4}
+	}
+}

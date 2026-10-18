@@ -43,7 +43,7 @@ hide stereotype
 hide empty description
 state "<size:10>//«state def»//</size>\n**Boiler**" as n0 <<state def>> {
   state "<size:10>//«state»//</size>\n**idle**\ninitial" as n1 <<state>> <<usage>>
-  state "<size:10>//«state»//</size>\n**heating : Heating**" as n2 <<state>> <<usage>>
+  state "<size:10>//«state»//</size>\n**heating**" as n2 <<state>> <<usage>>
   [*] --> n1
 }
 n1 --> n2

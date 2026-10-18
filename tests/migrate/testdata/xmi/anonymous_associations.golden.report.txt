@@ -1,0 +1,41 @@
+# SysML v1 to v2 migration report: anonymous_associations.xmi
+# migrated 35 element(s): 25 mapped, 10 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (10)
+Association	Fleet::<Association>	_carWheel	-> Model::Fleet::WheelToCar	(the anonymous Association is written as connection def WheelToCar; its one usage is the connection wheel to car joining wheel and car)
+Association	Fleet::<Association>	_garageCarAssoc	-> Model::Fleet::CarToGarage	(the anonymous Association is written as connection def CarToGarage; its one usage is the connection car to garage joining car and garage)
+Association	Fleet::<Association>	_carDriverAssoc	-> Model::Fleet::DriverToCar	(the anonymous Association is written as connection def DriverToCar; its one usage is the connection driver to car joining driver and car)
+Association	Fleet::<Association>	_sensorReadingAssoc	-> Model::Fleet::ReadingToSource	(the anonymous Association is written as connection def ReadingToSource; no connection usage joins usages of its end types: end source is untyped; end reading crosses no property: the opposite end is untyped, so the property cannot be reached through it)
+Association	Fleet::<Association>	_loggerSinkAssoc	-> Model::Fleet::SinkToLogger	(the anonymous Association is written as connection def SinkToLogger; no connection usage joins usages of its end types: no usage can be written of External.xmi#_sink; end sink crosses no property: the end's type is not written)
+Association	Fleet::<Association>	_tankPumpAssoc	-> Model::Fleet::PumpToTank	(the anonymous Association is written as connection def PumpToTank; its one usage is the connection pump to tank joining pump and tank)
+Property	Fleet::Garage::cars	_garageCars	-> Model::Fleet::Garage::cars	(private visibility is not written: the connection def of the association (_garageCarAssoc) in Fleet crosses it)
+Property	Fleet::Logger::sink	_loggerSink	-> Model::Fleet::Logger::sink	(typed by library element  with no known v2 counterpart; type External.xmi#_sink lives outside the document and is not written)
+Association	Fleet::Operates	_operates	-> Model::Fleet::Operates	(its one usage is the connection operates joining Operator and console; end operator crosses no property: its type Fleet::Operator is written as a usage, not a definition, so the property's type and the end's cannot be the same)
+Actor	Fleet::Operator	_operator	-> Model::Fleet::Operator	(a UML actor is written as a part usage)
+
+## mapped (25)
+Package	Fleet	_fleet	-> Model::Fleet
+Property	Fleet::<Association>::<Property>	_driverCars	-> Model::Fleet::DriverToCar::car
+Property	Fleet::<Association>::<Property>	_sinkLogger	-> Model::Fleet::SinkToLogger::logger
+Property	Fleet::<Association>::<Property>	_pumpTank	-> Model::Fleet::PumpToTank::tank
+Property	Fleet::<Association>::source	_readingSource	-> Model::Fleet::ReadingToSource::source
+«Block» Class	Fleet::Car	_car	-> Model::Fleet::Car
+Property	Fleet::Car::driver	_carDriver	-> Model::Fleet::Car::driver
+Property	Fleet::Car::garage	_carGarage	-> Model::Fleet::Car::garage
+Property	Fleet::Car::wheels	_carWheels	-> Model::Fleet::Car::wheels
+«Block» Class	Fleet::Console	_console	-> Model::Fleet::Console
+Property	Fleet::Console::operator	_consoleOperator	-> Model::Fleet::Console::operator
+«Block» Class	Fleet::Driver	_driver	-> Model::Fleet::Driver
+Class	Fleet::Garage	_garage	-> Model::Fleet::Garage
+«Block» Class	Fleet::Logger	_logger	-> Model::Fleet::Logger
+Property	Fleet::Operates::<Property>	_operatorConsole	-> Model::Fleet::Operates::console
+«Block» Class	Fleet::Pump	_pump	-> Model::Fleet::Pump
+«Block» Class	Fleet::Reading	_reading	-> Model::Fleet::Reading
+«Block» Class	Fleet::Sensor	_sensor	-> Model::Fleet::Sensor
+Property	Fleet::Sensor::reading	_sensorReading	-> Model::Fleet::Sensor::reading
+«Block» Class	Fleet::Tank	_tank	-> Model::Fleet::Tank
+Property	Fleet::Tank::Pump	_tankPump	-> Model::Fleet::Tank::Pump
+«Block» Class	Fleet::Wheel	_wheel	-> Model::Fleet::Wheel
+Property	Fleet::Wheel::car	_wheelCar	-> Model::Fleet::Wheel::car
+Diagram	Fleet::Wheels	_bdd	-> Model::Fleet::Wheels	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
+Model	Model	_model	-> Model	(written as package Model)

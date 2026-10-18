@@ -139,6 +139,7 @@ func documentOptions(outputDir string) docrender.HTMLOptions {
 		DiagramForm:         view.Form(diagramForm),
 		Unplaced:            view.Unplaced(renderUnplaced),
 		Style:               view.DrawingStyle(renderStyle),
+		Show:                shownOrNone(),
 		LinkTemplate:        renderLink,
 		Drawer:              replext.Drawer(),
 		WithoutGraphviz:     replext.Drawer() == nil,
@@ -150,7 +151,7 @@ func documentOptions(outputDir string) docrender.HTMLOptions {
 // outputDir, "" for standard output.
 func markdownOptions(outputDir string) docrender.MarkdownOptions {
 	return docrender.MarkdownOptions{
-		DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Style: view.DrawingStyle(renderStyle), LinkTemplate: renderLink,
+		DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Style: view.DrawingStyle(renderStyle), Show: shownOrNone(), LinkTemplate: renderLink,
 		Drawer: replext.Drawer(), WithoutGraphviz: replext.Drawer() == nil,
 		OutputDir: outputDir, NumberFigures: docNumberFigures,
 	}
@@ -165,9 +166,16 @@ func artifactDir() string {
 	return filepath.Dir(outputPath)
 }
 
+// shownOrNone is the notation elements -render-show names, nil when it names
+// none or one there is not, which checkDiagramForm refused beforehand.
+func shownOrNone() view.Shown {
+	shown, _ := showOption()
+	return shown
+}
+
 // checkDiagramForm rejects a -diagram-form value naming no diagram form, a
-// -render-unplaced value naming no placement and a -render-style value naming
-// no drawing style.
+// -render-unplaced value naming no placement, a -render-style value naming
+// no drawing style and a -render-show value naming no notation element.
 func checkDiagramForm() error {
 	if renderLink != "" {
 		if err := view.ParseLinkTemplate(renderLink); err != nil {
@@ -178,6 +186,9 @@ func checkDiagramForm() error {
 		return err
 	}
 	if _, err := styleOption(); err != nil {
+		return err
+	}
+	if _, err := showOption(); err != nil {
 		return err
 	}
 	if diagramForm == "" || slices.Contains(view.DiagramForms(), view.Form(diagramForm)) {

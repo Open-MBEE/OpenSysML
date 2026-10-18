@@ -40,9 +40,9 @@ func wildcardViewSession(t *testing.T) *Session {
 func TestWildcardExposeNamesEachElementOnce(t *testing.T) {
 	for _, tc := range []struct{ cmd, elem string }{
 		{"%view Fleet::everything", "Fleet::Radio"},
-		{"%render Fleet::everything", "part def Fleet::Radio"},
+		{"%render Fleet::everything show=qualifiers", "part def Fleet::Radio"},
 		{"%view Fleet::safety", "Fleet::Airbag"},
-		{"%render Fleet::safety", "part def Fleet::Airbag"},
+		{"%render Fleet::safety show=qualifiers", "part def Fleet::Airbag"},
 	} {
 		out, _, err := wildcardViewSession(t).RunMeta(tc.cmd)
 		if err != nil {

@@ -15,7 +15,7 @@ import (
 func sharedFixture(t *testing.T, src, part string) (*Context, *Instance, *symbols.Index) {
 	t.Helper()
 	ctx, idx := contextForSource(t, src)
-	ctx.SetSharedDefaults(true)
+	ctx.setSharedDefaults(true)
 	inst, err := ctx.Instantiate(lookupOne(t, idx, part))
 	if err != nil {
 		t.Fatalf("instantiate %s: %v", part, err)
@@ -91,7 +91,7 @@ func expect(t *testing.T, ctx *Context, inst *Instance, path, name, want string)
 // expectTaken fails unless the context took the given number of shared defaults so far.
 func expectTaken(t *testing.T, ctx *Context, want int64) {
 	t.Helper()
-	if got := ctx.SharedDefaultsTaken(); got != want {
+	if got := ctx.sharedDefaultsTaken(); got != want {
 		t.Errorf("shared defaults taken = %d, want %d", got, want)
 	}
 }
@@ -138,7 +138,7 @@ func TestSharedDefaultKinds(t *testing.T) {
 	part def Fleet { part sats : Sat[3]; }
 	part fleet : Fleet;
 }`))
-	ctx.SetSharedDefaults(true)
+	ctx.setSharedDefaults(true)
 	fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
 	if err != nil {
 		t.Fatalf("instantiate: %v", err)
@@ -233,7 +233,7 @@ func TestSharedDefaultOverSubtreeInvalidatedByLaterWrite(t *testing.T) {
 // Turning sharing off leaves every occurrence deriving for itself.
 func TestSharedDefaultsOffDerivesEverywhere(t *testing.T) {
 	ctx, idx := contextForSource(t, fleetSrc)
-	ctx.SetSharedDefaults(false)
+	ctx.setSharedDefaults(false)
 	fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
 	if err != nil {
 		t.Fatal(err)
@@ -440,7 +440,7 @@ const extentFleetSrc = `package test {
 // occurrence of the shape sees the objects made since, not what the first one counted.
 func TestExtentIsNotSharedBetweenOccurrences(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, extentFleetSrc)
-	ctx.SetSharedDefaults(true)
+	ctx.setSharedDefaults(true)
 	defer ctx.ShareVerdicts()()
 	root := idx.DocumentRoot("<test>")
 	instantiate := func(name string) *Instance {
@@ -473,7 +473,7 @@ func TestExtentIsNotSharedBetweenOccurrences(t *testing.T) {
 		t.Errorf("enough on the second sat = %s, want holds", got)
 	}
 	expectTaken(t, ctx, 0)
-	if taken := ctx.SharedVerdictsTaken(); taken != 0 {
+	if taken := ctx.sharedVerdictsTaken(); taken != 0 {
 		t.Errorf("shared verdicts taken = %d, want none over the extent", taken)
 	}
 }
@@ -495,9 +495,9 @@ func TestSharedDefaultRecordsUndoneWithFailedImage(t *testing.T) {
 	}}
 	img.messages = append(slices.Clone(sound), Message{Object: fleet.ID, SignalType: "go", Payload: map[string]Value{"k": inBody}})
 	dst := NewContext(ctx.Model(), 10000)
-	var notPortable *NotPortableError
+	var notPortable *notPortableError
 	if err := img.Materialize(dst); !errors.As(err, &notPortable) {
-		t.Fatalf("Materialize with a message it cannot carry = %v, want a NotPortableError", err)
+		t.Fatalf("Materialize with a message it cannot carry = %v, want a notPortableError", err)
 	}
 	if n := len(dst.sharedDefaults); n != 0 {
 		t.Errorf("the failed materialization left %d shared records on the destination", n)
@@ -598,7 +598,7 @@ func TestAssumedPopulationSurvivesHeldImage(t *testing.T) {
 // before it is read, the occurrence derives it on the destination as declared.
 func TestAdoptedOccurrenceOwesNothingForAValueDerivedAgain(t *testing.T) {
 	prev := contextOver(t, imagedFleetSrc)
-	prev.SetSharedDefaults(true)
+	prev.setSharedDefaults(true)
 	fleet, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "test::fleet"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
@@ -610,7 +610,7 @@ func TestAdoptedOccurrenceOwesNothingForAValueDerivedAgain(t *testing.T) {
 	}
 	shapes := prev.ShapesOf(fleet)
 	ctx := contextOver(t, imagedFleetSrc)
-	ctx.SetSharedDefaults(true)
+	ctx.setSharedDefaults(true)
 	if _, err := ctx.Adopt(prev, shapes, fleet); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
@@ -676,7 +676,7 @@ const lifetimeFleetSrc = `package test {
 // occurrence's own, and an occurrence whose part has ended derives its own.
 func TestLifetimeReadsAreNotShared(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, lifetimeFleetSrc))
-	ctx.SetSharedDefaults(true)
+	ctx.setSharedDefaults(true)
 	fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
 	if err != nil {
 		t.Fatalf("instantiate: %v", err)
@@ -710,7 +710,7 @@ const drawingFleetSrc = `package test {
 // evaluated on every occurrence, so the stream is drawn from once per occurrence.
 func TestRandomDrawsAreNotShared(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, drawingFleetSrc))
-	ctx.SetSharedDefaults(true)
+	ctx.setSharedDefaults(true)
 	ctx.SetModelSeed(7)
 	fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
 	if err != nil {
@@ -735,7 +735,7 @@ func TestRandomDrawsAreNotShared(t *testing.T) {
 	if draws := ctx.DrawsTaken(); len(draws) != 6 {
 		t.Errorf("draws taken = %d after checking three occurrences, want 6", len(draws))
 	}
-	if taken := ctx.SharedVerdictsTaken(); taken != 0 {
+	if taken := ctx.sharedVerdictsTaken(); taken != 0 {
 		t.Errorf("shared verdicts taken = %d over a check that draws, want 0", taken)
 	}
 }
@@ -760,7 +760,7 @@ const clockFleetSrc = `package test {
 // currentTime is evaluated on every occurrence, at the instant it is read.
 func TestClockReadsAreNotShared(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, clockFleetSrc))
-	ctx.SetSharedDefaults(true)
+	ctx.setSharedDefaults(true)
 	fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
 	if err != nil {
 		t.Fatalf("instantiate: %v", err)
@@ -786,7 +786,7 @@ func TestClockReadsAreNotShared(t *testing.T) {
 	if report.Valid() {
 		t.Errorf("report valid at t=10, want every check failed: %+v", report.Verdicts)
 	}
-	if taken := ctx.SharedVerdictsTaken(); taken != 0 {
+	if taken := ctx.sharedVerdictsTaken(); taken != 0 {
 		t.Errorf("shared verdicts taken = %d over a check that reads the clock, want 0", taken)
 	}
 }
@@ -796,7 +796,7 @@ func TestClockReadsAreNotShared(t *testing.T) {
 func TestDestroyedPartIsNotReadThroughSharedDefault(t *testing.T) {
 	for _, on := range []bool{true, false} {
 		ctx, idx := contextForSource(t, subtreeSrc)
-		ctx.SetSharedDefaults(on)
+		ctx.setSharedDefaults(on)
 		fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
 		if err != nil {
 			t.Fatalf("instantiate: %v", err)
@@ -806,15 +806,15 @@ func TestDestroyedPartIsNotReadThroughSharedDefault(t *testing.T) {
 			t.Fatalf("destroy sats[2].c1: %v", err)
 		}
 		_, err = at(t, ctx, fleet, "sats[2]").GetFeatureValue(ctx, "total")
-		if !errors.Is(err, ErrOccurrenceDestroyed) {
-			t.Errorf("sharing=%v: sats[2].total over a destroyed c1: %v, want ErrOccurrenceDestroyed", on, err)
+		if !errors.Is(err, errOccurrenceDestroyed) {
+			t.Errorf("sharing=%v: sats[2].total over a destroyed c1: %v, want errOccurrenceDestroyed", on, err)
 		}
 		expect(t, ctx, fleet, "sats[3]", "total", "7")
 		if err := ctx.destroy(at(t, ctx, fleet, "sats[3]")); err != nil {
 			t.Fatalf("destroy sats[3]: %v", err)
 		}
-		if _, err := at(t, ctx, fleet, "sats[3]").GetFeatureValue(ctx, "total"); !errors.Is(err, ErrOccurrenceDestroyed) {
-			t.Errorf("sharing=%v: destroyed sats[3].total: %v, want ErrOccurrenceDestroyed", on, err)
+		if _, err := at(t, ctx, fleet, "sats[3]").GetFeatureValue(ctx, "total"); !errors.Is(err, errOccurrenceDestroyed) {
+			t.Errorf("sharing=%v: destroyed sats[3].total: %v, want errOccurrenceDestroyed", on, err)
 		}
 	}
 }

@@ -297,7 +297,7 @@ func (s *Session) checkRequirement(text string) Verdict {
 		return ctx.CheckRequirementWith(target.sym, target.scope, inst, args)
 	})
 	inst, owner = s.reportedSubject(result, inst, owner)
-	verdict := s.withVerifications(requirementVerdict(name, result, err, inst, owner), target.ctx, target.sym)
+	verdict := s.withVerifications(requirementVerdict(name, result, err, inst, owner), target.ctx, target.sym, inst)
 	return standing(verdict, plan)
 }
 
@@ -356,7 +356,7 @@ func (s *Session) checkSatisfy(name string) []Verdict {
 			return []Verdict{unresolvedVerdict(name, lerr.Error())}
 		}
 		if a, aerr := ctx.SatisfyAssertionOf(sym); aerr == nil {
-			return []Verdict{s.satisfyVerdict(ctx, a)}
+			return s.satisfyVerdictsOf(ctx, a)
 		}
 		if sym.Scope == nil {
 			return []Verdict{unresolvedVerdict(name, fmt.Sprintf("%s states no satisfaction assertion", name))}
@@ -377,7 +377,7 @@ func (s *Session) checkSatisfy(name string) []Verdict {
 	defer ctx.ShareVerdicts()()
 	verdicts := make([]Verdict, 0, len(assertions))
 	for _, a := range assertions {
-		verdicts = append(verdicts, s.satisfyVerdict(ctx, a))
+		verdicts = append(verdicts, s.satisfyVerdictsOf(ctx, a)...)
 	}
 	return verdicts
 }

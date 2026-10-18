@@ -90,8 +90,8 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 				succession first p then a;
 			}
 		}`, "Derived")
-		if !errors.Is(err, ErrActionStepMultiplicity) {
-			t.Fatalf("ExecuteAction(Derived) error = %v, want ErrActionStepMultiplicity", err)
+		if !errors.Is(err, errActionStepMultiplicity) {
+			t.Fatalf("ExecuteAction(Derived) error = %v, want errActionStepMultiplicity", err)
 		}
 		var stepErr *lower.StepMultiplicityError
 		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderUnsatisfiableCode {
@@ -467,8 +467,8 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
-	t.Run("recursive_typed_action_body", func(t *testing.T) {
-		_, err := executeInheritedAction(t, `package test {
+	t.Run("unbounded_recursive_typed_action_body", func(t *testing.T) {
+		_, err := executeRecursiveTypedAction(t, `package test {
 			private import ScalarValues::*;
 			action def A {
 				attribute c : Integer = 0;
@@ -478,9 +478,9 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 				}
 				then done;
 			}
-		}`, "A")
-		if !errors.Is(err, lower.ErrRecursiveActionTyping) {
-			t.Fatalf("ExecuteAction error = %v, want ErrRecursiveActionTyping", err)
+		}`, "A", 200)
+		if !errors.Is(err, ErrActionStepLimitExceeded) {
+			t.Fatalf("ExecuteAction error = %v, want ErrActionStepLimitExceeded", err)
 		}
 	})
 

@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"maps"
 	"math"
 	"slices"
 	"strconv"
@@ -1637,14 +1638,60 @@ func (p *opaqueParser) primaryIdent(tok token) (translated, *refusal) {
 		return translated{}, err
 	}
 	if p.peek(false).isPunct("(") {
-		if p.d == dialectEnglish {
+		if p.d == dialectEnglish && !englishCall(path) {
 			return translated{}, &refusal{kind: refusedConstruct, token: strings.Join(path, ".") + "(",
-				why: "a call is not English; the subset reads names, literals, comparisons and not/and/or"}
+				why: "a call is not English; the subset reads names, literals, comparisons, not/and/or and the functions " + englishCallNames()}
 		}
 		p.next(false)
 		return p.call(path)
 	}
 	return p.name(path)
+}
+
+// englishCalls are the mathematical functions an English body calls by bare name, in any
+// case, each mapped to the script table's function or else the library function's qualified name.
+var englishCalls = map[string]string{
+	"abs": mathAbsFn, "sqrt": mathSqrtFn, "pow": mathPowFn, "min": "Math.min", "max": "Math.max",
+	"floor": "Math.floor", "ceil": mathCeilFn, "ceiling": mathCeilFn, "round": "RealFunctions::round",
+	"sin": "TrigFunctions::sin", "cos": "TrigFunctions::cos", "tan": "TrigFunctions::tan", "cot": "TrigFunctions::cot",
+	"asin": "TrigFunctions::arcsin", "acos": "TrigFunctions::arccos", "atan": "TrigFunctions::arctan",
+	"arcsin": "TrigFunctions::arcsin", "arccos": "TrigFunctions::arccos", "arctan": "TrigFunctions::arctan",
+	"atan2": "OpenSysMLMathFunctions::atan2", "exp": "OpenSysMLMathFunctions::exp",
+	"ln": "OpenSysMLMathFunctions::ln", "log": "OpenSysMLMathFunctions::log",
+}
+
+// libraryCalls are the library functions written as they stand: the arguments each takes,
+// the scalar it yields, and whether it is the extension library's, which a strict migration does not write.
+var libraryCalls = map[string]struct {
+	arity     int
+	scalar    string
+	extension bool
+}{
+	"RealFunctions::round":          {1, "Integer", false},
+	"TrigFunctions::sin":            {1, "Real", false},
+	"TrigFunctions::cos":            {1, "Real", false},
+	"TrigFunctions::tan":            {1, "Real", false},
+	"TrigFunctions::cot":            {1, "Real", false},
+	"TrigFunctions::arcsin":         {1, "Real", false},
+	"TrigFunctions::arccos":         {1, "Real", false},
+	"TrigFunctions::arctan":         {1, "Real", false},
+	"OpenSysMLMathFunctions::atan2": {2, "Real", true},
+	"OpenSysMLMathFunctions::exp":   {1, "Real", true},
+	"OpenSysMLMathFunctions::ln":    {1, "Real", true},
+	"OpenSysMLMathFunctions::log":   {2, "Real", true},
+}
+
+// englishCall reports whether the callee path is one bare word of englishCalls;
+// a dotted path or a name of several words is not.
+func englishCall(path []string) bool {
+	_, ok := englishCalls[strings.ToLower(path[0])]
+	return len(path) == 1 && ok
+}
+
+// englishCallNames lists the words of englishCalls, for a refusal.
+func englishCallNames() string {
+	names := slices.Sorted(maps.Keys(englishCalls))
+	return strings.Join(names, ", ")
 }
 
 // primaryPunct reads a parenthesized expression; every other punctuation where
@@ -1711,16 +1758,22 @@ func (p *opaqueParser) readAbsent(name string, optional bool) {
 	}
 }
 
-// call reads the arguments of a call and writes the library function the table maps it to.
+// call reads the arguments of a call and writes the library function the table
+// maps it to. written is the callee as the body spells it, which the refusals
+// name; fn is the table's function, the same but for an English word.
 func (p *opaqueParser) call(path []string) (translated, *refusal) {
-	fn := strings.Join(path, ".")
-	args, err := p.arguments(fn)
+	written := strings.Join(path, ".")
+	fn := written
+	if p.d == dialectEnglish {
+		fn = englishCalls[strings.ToLower(written)]
+	}
+	args, err := p.arguments(written)
 	if err != nil {
 		return translated{}, err
 	}
 	arity := func(n int) *refusal {
 		if len(args) != n {
-			return &refusal{kind: refusedCall, token: fn, why: fn + " takes " + strconv.Itoa(n) + " argument(s), not " + strconv.Itoa(len(args))}
+			return &refusal{kind: refusedCall, token: written, why: written + " takes " + strconv.Itoa(n) + " argument(s), not " + strconv.Itoa(len(args))}
 		}
 		return nil
 	}
@@ -1729,23 +1782,47 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 	}
 	switch fn {
 	case "Math.max", "Math.min":
-		return p.mathExtremum(fn, args, arity)
+		return p.mathExtremum(fn, written, args, arity)
 	case mathAbsFn, mathSqrtFn, mathPowFn:
-		return mathScalarCall(fn, args, arity)
+		return mathScalarCall(fn, written, args, arity)
 	case "Math.floor", mathRound, mathCeilFn:
-		return p.mathRoundish(fn, args, arity)
+		return p.mathRoundish(fn, written, args, arity)
 	case "java.util.Collections.max", "java.util.Collections.min", "Collections.max", "Collections.min":
 		if err := arity(1); err != nil {
 			return translated{}, err
 		}
 		return collectionExtremum(fn, args[0])
 	}
-	return translated{}, &refusal{kind: refusedCall, token: fn}
+	if _, ok := libraryCalls[fn]; ok {
+		return p.libraryCall(fn, written, args, arity)
+	}
+	return translated{}, &refusal{kind: refusedCall, token: written}
+}
+
+// libraryCall writes a call of a library function as it stands, its arguments numbers;
+// a strict migration refuses the extension library's, the standard library having no form for them.
+func (p *opaqueParser) libraryCall(fn, written string, args []translated, arity func(int) *refusal) (translated, *refusal) {
+	lib := libraryCalls[fn]
+	if lib.extension && p.strict {
+		return translated{}, &refusal{kind: refusedCall, token: written,
+			why: written + " has no form in the standard library, which a strict migration writes alone"}
+	}
+	if err := arity(lib.arity); err != nil {
+		return translated{}, err
+	}
+	if err := realsAt(written, args...); err != nil {
+		return translated{}, err
+	}
+	exprs := make([]string, len(args))
+	for i, arg := range args {
+		exprs[i] = arg.expr
+	}
+	return translated{expr: fn + "(" + strings.Join(exprs, ", ") + ")", scalar: lib.scalar, atomic: true}, nil
 }
 
 // mathScalarCall writes the one- or two-argument Math functions whose v2 form
 // is a library call: abs, sqrt and the ** of pow.
-func mathScalarCall(fn string, args []translated, arity func(int) *refusal) (translated, *refusal) {
+func mathScalarCall(fn, written string, args []translated, arity func(int) *refusal) (translated, *refusal) {
 	n := 1
 	if fn == mathPowFn {
 		n = 2
@@ -1753,8 +1830,13 @@ func mathScalarCall(fn string, args []translated, arity func(int) *refusal) (tra
 	if err := arity(n); err != nil {
 		return translated{}, err
 	}
-	if err := numbersAt(fn, args[0], args[n-1]); err != nil {
+	if err := numbersAt(written, args[0], args[n-1]); err != nil {
 		return translated{}, err
+	}
+	if fn == mathSqrtFn {
+		if err := realsAt(written, args[0]); err != nil {
+			return translated{}, err
+		}
 	}
 	switch fn {
 	case mathAbsFn:
@@ -1766,14 +1848,17 @@ func mathScalarCall(fn string, args []translated, arity func(int) *refusal) (tra
 	}
 }
 
-// mathAbs writes Math.abs through the library its argument's scalar picks.
+// mathAbs writes Math.abs through the library its argument's scalar picks; a Complex
+// has the Real modulus ComplexFunctions::abs answers.
 func mathAbs(arg translated) translated {
 	lib := "NumericalFunctions"
 	switch {
 	case wholeScalar(arg.scalar):
 		lib = "IntegerFunctions"
-	case arg.scalar != "":
+	case realConformant(arg.scalar):
 		lib = "RealFunctions"
+	case arg.scalar == "Complex":
+		return translated{expr: "ComplexFunctions::abs(" + arg.expr + ")", scalar: "Real", atomic: true}
 	}
 	return translated{expr: lib + "::abs(" + arg.expr + ")", scalar: arg.scalar, atomic: true}
 }
@@ -1790,26 +1875,26 @@ func (p *opaqueParser) javaEquals(path []string, fn string, args []translated, a
 	return stringEquals(recv, fn, args[0])
 }
 
-// mathExtremum writes Math.max/min. Java's take two arguments; JavaScript's take
-// any number, folded pairwise, one argument being itself and none an infinity
-// the subset has no form for.
-func (p *opaqueParser) mathExtremum(fn string, args []translated, arity func(int) *refusal) (translated, *refusal) {
-	if p.d == dialectJava {
+// mathExtremum writes Math.max/min. Java's take two arguments, as the library's
+// English names do; JavaScript's take any number, folded pairwise, one argument
+// being itself and none an infinity the subset has no form for.
+func (p *opaqueParser) mathExtremum(fn, written string, args []translated, arity func(int) *refusal) (translated, *refusal) {
+	if p.d != dialectScript {
 		if err := arity(2); err != nil {
 			return translated{}, err
 		}
 	} else if len(args) == 0 {
-		return translated{}, &refusal{kind: refusedCall, token: fn, why: fn + " with no arguments yields an infinity, which has no v2 form in the subset"}
+		return translated{}, &refusal{kind: refusedCall, token: written, why: written + " with no arguments yields an infinity, which has no v2 form in the subset"}
 	}
 	acc := args[0]
-	if err := numbersAt(fn, acc); err != nil {
+	if err := orderedAt(written, acc); err != nil {
 		return translated{}, err
 	}
 	for _, arg := range args[1:] {
-		if err := numbersAt(fn, acc, arg); err != nil {
+		if err := orderedAt(written, acc, arg); err != nil {
 			return translated{}, err
 		}
-		scalar := arithmeticScalar("+", acc.scalar, arg.scalar)
+		scalar := extremumScalar(acc.scalar, arg.scalar)
 		acc = translated{expr: extremum(fn[5:], scalar) + "(" + acc.expr + ", " + arg.expr + ")", scalar: scalar, atomic: true}
 	}
 	return acc, nil
@@ -1817,11 +1902,11 @@ func (p *opaqueParser) mathExtremum(fn string, args []translated, arity func(int
 
 // mathRoundish writes Math.floor, ceil and the script round. Java's floor and
 // ceil answer a double, so a `/` after them is real division; its round answers a long.
-func (p *opaqueParser) mathRoundish(fn string, args []translated, arity func(int) *refusal) (translated, *refusal) {
+func (p *opaqueParser) mathRoundish(fn, written string, args []translated, arity func(int) *refusal) (translated, *refusal) {
 	if err := arity(1); err != nil {
 		return translated{}, err
 	}
-	if err := numbersAt(fn, args[0], args[0]); err != nil {
+	if err := realsAt(written, args[0]); err != nil {
 		return translated{}, err
 	}
 	yields := "Integer"
@@ -1922,12 +2007,26 @@ func stringEquals(recv translated, fn string, arg translated) (translated, *refu
 	return binary(recv, "==", arg, looseEquality, "Boolean"), nil
 }
 
+// extremumScalar is the scalar a max or min of ordered numbers of the two scalars
+// yields: the Number the NumericalFunctions return unless both are Integers or both Reals.
+func extremumScalar(a, b string) string {
+	switch {
+	case a == "" || b == "":
+		return ""
+	case wholeScalar(a) && wholeScalar(b):
+		return "Integer"
+	case realConformant(a) && realConformant(b):
+		return "Real"
+	}
+	return "Number"
+}
+
 // extremum names the library max or min function for numbers of the given scalar.
 func extremum(which, scalar string) string {
 	switch {
 	case wholeScalar(scalar):
 		return "IntegerFunctions::" + which
-	case scalar != "":
+	case realConformant(scalar):
 		return "RealFunctions::" + which
 	}
 	return "NumericalFunctions::" + which
@@ -1984,6 +2083,39 @@ func numbersAt(op string, sides ...translated) *refusal {
 
 // isNumeric reports whether the scalar is a kind of number.
 func isNumeric(s string) bool { return numericScalar[s] }
+
+// realsAt refuses operands of op that are known not to be Reals, which the
+// function's Real parameter cannot hold; a Number may be one, so it passes.
+func realsAt(op string, sides ...translated) *refusal {
+	if err := numbersAt(op, sides...); err != nil {
+		return err
+	}
+	for _, s := range sides {
+		if s.scalar == "Complex" {
+			return &refusal{kind: refusedType, token: op, why: "an operand is a Complex, not a Real"}
+		}
+	}
+	return nil
+}
+
+// orderedAt refuses operands of op that are known not to be ordered numbers:
+// a Complex has no order for a max or min to pick by.
+func orderedAt(op string, sides ...translated) *refusal {
+	if err := numbersAt(op, sides...); err != nil {
+		return err
+	}
+	for _, s := range sides {
+		if s.scalar == "Complex" {
+			return &refusal{kind: refusedType, token: op, why: "an operand is a Complex, which has no order"}
+		}
+	}
+	return nil
+}
+
+// realConformant reports whether the scalar's values are Reals.
+func realConformant(s string) bool {
+	return wholeScalar(s) || s == "Real" || s == "Rational"
+}
 
 // wholeScalar reports whether the scalar holds integers.
 func wholeScalar(s string) bool {

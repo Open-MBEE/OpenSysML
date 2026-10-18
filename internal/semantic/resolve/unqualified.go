@@ -90,11 +90,13 @@ func (r *Resolver) enclosingLocal(scope *symbols.Scope, name string, hide *refFi
 
 // localBinding is lookupLocal less the members that bind no name of their own.
 func (r *Resolver) localBinding(scope *symbols.Scope, name string, hide *refFilter) (*symbols.Symbol, bool) {
-	sym, ok := hide.lookupLocal(scope, name)
-	if !ok || !r.BindsName(sym) {
-		return nil, false
+	if sym, ok := hide.lookupLocal(scope, name); ok && r.BindsName(sym) {
+		return sym, true
 	}
-	return sym, true
+	if short := r.shortNamedMembers(scope, name, hide); len(short) > 0 {
+		return short[0], true
+	}
+	return nil, false
 }
 
 // LocalBindings returns the members scope declares under name that bind it,
@@ -110,7 +112,113 @@ func (r *Resolver) LocalBindings(scope *symbols.Scope, name string) []*symbols.S
 			out = append(out, sym)
 		}
 	}
+	if len(out) == 0 {
+		out = append(out, r.shortNamedMembers(scope, name, nil)...)
+	}
 	return out
+}
+
+// shortNamedMembers returns the members of scope that answer to name as the short
+// name they take from their naming feature, which the scope does not register.
+func (r *Resolver) shortNamedMembers(scope *symbols.Scope, name string, hide *refFilter) []*symbols.Symbol {
+	if scope == nil || name == "" {
+		return nil
+	}
+	var out []*symbols.Symbol
+	for _, sym := range r.derivedNamedMembers(scope) {
+		if !hide.hides(sym) && r.derivedShortName(sym) == name {
+			out = append(out, sym)
+		}
+	}
+	return out
+}
+
+// derivedShortName is the short name sym takes from its naming feature (KerML
+// 8.3.3.3 effectiveShortName): none past a declared name or a naming under way.
+// shortNameOf is the short name sym is referable by: declared, or derived.
+func (r *Resolver) shortNameOf(sym *symbols.Symbol) string {
+	if sym == nil || sym.ShortName != "" {
+		return symbolShortName(sym)
+	}
+	return r.derivedShortName(sym)
+}
+
+func symbolShortName(sym *symbols.Symbol) string {
+	if sym == nil {
+		return ""
+	}
+	return sym.ShortName
+}
+
+func (r *Resolver) derivedShortName(sym *symbols.Symbol) string {
+	seen := map[*symbols.Symbol]bool{}
+	for sym != nil && !seen[sym] {
+		if sym.Naming == symbols.NamedByDeclaration || sym.ShortName != "" {
+			return sym.ShortName
+		}
+		if r.naming[sym] {
+			return ""
+		}
+		seen[sym] = true
+		r.naming[sym] = true
+		next := r.namingFeatureOf(sym)
+		delete(r.naming, sym)
+		sym = next
+	}
+	return ""
+}
+
+// namingFeatureOf resolves the feature sym takes its name from as BindsName
+// does: the one referenced or first redefined, through aliases; a chain names none.
+func (r *Resolver) namingFeatureOf(sym *symbols.Symbol) *symbols.Symbol {
+	if sym.Recorded() {
+		model, ok := r.model.(shortNamer)
+		if !ok {
+			return nil
+		}
+		return model.NamingFeatureOf(sym)
+	}
+	target := sym.NamingTarget
+	if target == nil || ast.IsFeatureChain(target) {
+		return nil
+	}
+	r.EnterDoc(sym.DocName)
+	defer r.LeaveDoc()
+	var found *symbols.Symbol
+	r.aside(func() {
+		if sym.Naming == symbols.NamedByReference {
+			found, _ = r.resolveTarget(sym.OwnerScope, target, referenceFilter(sym.Decl, target))
+		} else {
+			found, _ = r.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, target)
+		}
+	})
+	if alias, isAlias := r.ResolveAliasTarget(found); isAlias {
+		found = alias
+	}
+	if found == nil || found == sym || !found.IsFeature() {
+		return nil
+	}
+	return found
+}
+
+// derivedNamedMembers returns the members of scope named after a naming feature
+// that declare no short name, collected once per scope like implicitParameters.
+func (r *Resolver) derivedNamedMembers(scope *symbols.Scope) []*symbols.Symbol {
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
+	members, done := r.derivedNamed[scope]
+	if done {
+		return members
+	}
+	scope.ForEachMember(func(sym *symbols.Symbol) bool {
+		if sym.Naming != symbols.NamedByDeclaration && sym.ShortName == "" {
+			members = append(members, sym)
+		}
+		return true
+	})
+	journalNew(r, r.derivedNamed, scope, scope.Node())
+	r.derivedNamed[scope] = members
+	return members
 }
 
 // LocalBinding returns the first of LocalBindings.
@@ -517,7 +625,7 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 		if idx := strings.LastIndex(targetName, "::"); idx >= 0 {
 			targetName = targetName[idx+2:]
 		}
-		if (targetName == name || (target.ShortName != "" && target.ShortName == name)) && admit(target) {
+		if (targetName == name || r.shortNameOf(target) == name) && admit(target) {
 			if !yield(target) {
 				return
 			}
@@ -531,6 +639,11 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	// Check scope first if available
 	if target.Scope != nil {
 		for _, sym := range symbols.PreferDeclared(target.Scope.LookupLocalAll(name)) {
+			if visibleThroughImport(imp, sym) && admit(sym) && !yield(sym) {
+				return
+			}
+		}
+		for _, sym := range r.shortNamedMembers(target.Scope, name, nil) {
 			if visibleThroughImport(imp, sym) && admit(sym) && !yield(sym) {
 				return
 			}
@@ -587,6 +700,9 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 func (r *Resolver) importTargetOf(scope *symbols.Scope, imp *ast.Import) (*symbols.Symbol, bool) {
 	remember := r.inCondition == 0
 	if res, done := r.importTargets[imp]; done && remember {
+		if res.sym != nil {
+			r.Depend(res.sym.DocName)
+		}
 		return res.sym, res.ok
 	}
 	var target *symbols.Symbol
@@ -637,7 +753,7 @@ func (r *Resolver) eachSubtreeMatch(scope *symbols.Scope, target *symbols.Symbol
 	out := newElementList()
 	r.appendSubtree(out, scope, target, imp, admit, map[symbols.ElementKey]bool{}, false)
 	for _, sym := range out.elems {
-		if (localNameOf(sym) == name || sym.ShortName == name) && !yield(sym) {
+		if (localNameOf(sym) == name || r.shortNameOf(sym) == name) && !yield(sym) {
 			return
 		}
 	}

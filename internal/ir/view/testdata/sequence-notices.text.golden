@@ -4,8 +4,8 @@ part caller
 part callee
 
 messages:
-  caller => caller: echo
   caller => callee: of Ping
+  caller => caller: echo
 
 not represented:
   - attribute def Kit::Level has no place in a sequence rendering; it is not shown

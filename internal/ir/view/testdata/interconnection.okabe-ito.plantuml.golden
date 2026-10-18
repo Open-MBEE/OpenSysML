@@ -41,14 +41,18 @@ note {
 skinparam wrapWidth 300
 hide stereotype
 rectangle "<size:10>//«part def»//</size>\n**Loop**" as n0 <<part def>> {
-  rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n1 <<part>> <<usage>> #F5D999;line:E69F00 {
+  rectangle "<size:10>//«part»//</size>\n**pump**" as n1 <<part>> <<usage>> {
     port "outlet" as n1.0
+    rectangle "<size:10>//«item»//</size>\n**waterOut**" as n2 <<item>> <<usage>> #BBE1F6;line:56B4E9
   }
-  rectangle "<size:10>//«part»//</size>\n**tank : Tank**" as n2 <<part>> <<usage>> #F5D999;line:E69F00 {
-    port "inlet" as n2.0
+  rectangle "<size:10>//«part»//</size>\n**tank**" as n3 <<part>> <<usage>> {
+    port "inlet" as n3.0
+    rectangle "<size:10>//«item»//</size>\n**waterIn**" as n4 <<item>> <<usage>> #BBE1F6;line:56B4E9
   }
-  rectangle "<size:10>//«part»//</size>\n**sensor : Pump**" as n3 <<part>> <<usage>> #F5D999;line:E69F00
+  rectangle "<size:10>//«part»//</size>\n**sensor**" as n5 <<part>> <<usage>> {
+    rectangle "<size:10>//«item»//</size>\n**waterOut**" as n6 <<item>> <<usage>> #BBE1F6;line:56B4E9
+  }
 }
-n1.0 -[thickness=3]- n2.0 : supply
-n1 -[dashed]-> n2 : of Water
+n1.0 -[thickness=3]- n3.0
+n2 -[dashed]-> n4
 @enduml

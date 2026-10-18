@@ -248,6 +248,10 @@ export interface VerificationVerdict {
   subcase: boolean;
   /** FQN of the requirement this verdict was reported for; empty for a case run for itself. */
   requirementId: string;
+  /** ID of the object the case ran on as its owner; 0n when it ran on none. */
+  instanceId: bigint;
+  /** FQN of that object's type, for naming it; empty with `instanceId` 0n. */
+  instanceTypeId: string;
 }
 
 /** One limit an engine ran under, and whether the run stopped at it. */
@@ -867,8 +871,6 @@ export function rationalsAsReals(value: Value): void {
       value.kind.value.components.forEach(rationalsAsReals);
       return;
     case "vectorQuantity":
-      value.kind.value.components.forEach(quantityRationalAsReal);
-      return;
     case "tensorQuantity":
       value.kind.value.components.forEach(quantityRationalAsReal);
       return;
@@ -938,7 +940,11 @@ function gcd(a: bigint, b: bigint): bigint {
 }
 
 function bitLength(n: bigint): number {
-  return n === 0n ? 0 : (n < 0n ? -n : n).toString(2).length;
+  if (n === 0n) {
+    return 0;
+  }
+  const magnitude = n < 0n ? -n : n;
+  return magnitude.toString(2).length;
 }
 
 /** The exact Rational a finite double holds. */

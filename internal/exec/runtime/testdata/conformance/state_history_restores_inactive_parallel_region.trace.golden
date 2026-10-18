@@ -1,0 +1,36 @@
+exit: active (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A(entry) "
+      eval literal "A(exit) " -> "A(exit) "
+    eval operator + -> "A(entry) A(exit) "
+exit: working
+enter: outside
+transition: active -> outside (event: accept Leave)
+exit: outside
+enter: working
+enter: active (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A(entry) A(exit) "
+      eval literal "A(entry) " -> "A(entry) "
+    eval operator + -> "A(entry) A(exit) A(entry) "
+transition: outside -> working (event: accept ReturnShallow)
+exit: active (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A(entry) A(exit) A(entry) "
+      eval literal "A(exit) " -> "A(exit) "
+    eval operator + -> "A(entry) A(exit) A(entry) A(exit) "
+exit: working
+enter: outside
+transition: active -> outside (event: accept Leave)
+exit: outside
+enter: working
+enter: active (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A(entry) A(exit) A(entry) A(exit) "
+      eval literal "A(entry) " -> "A(entry) "
+    eval operator + -> "A(entry) A(exit) A(entry) A(exit) A(entry) "
+transition: outside -> working (event: accept ReturnDeep)

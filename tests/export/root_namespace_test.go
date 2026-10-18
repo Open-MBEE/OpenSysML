@@ -219,9 +219,10 @@ const rootNamespaceAnonymous = `namespace {
 
 // An authored `namespace { … }` is an element the notation prints, not the
 // wrapper: it survives both round trips, wrapped once in the element form.
+// `namespace` is KerML notation, so the source is a `.kerml` file.
 func TestAPIJSONRootNamespaceKeepsAuthoredAnonymousNamespace(t *testing.T) {
 	for _, id := range []export.IDForm{export.IDQualifiedName, export.IDUUID} {
-		document, err := convert.ConvertWith("m.sysml", []byte(rootNamespaceAnonymous), convert.FormatSysML, convert.FormatAPIJSON, convert.Options{ID: id})
+		document, err := convert.ConvertWith("m.kerml", []byte(rootNamespaceAnonymous), convert.FormatSysML, convert.FormatAPIJSON, convert.Options{ID: id})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -241,7 +242,7 @@ func TestAPIJSONRootNamespaceKeepsAuthoredAnonymousNamespace(t *testing.T) {
 		if string(back) != rootNamespaceAnonymous {
 			t.Errorf("id form %v: notation moved through the element form:\n%s", id, back)
 		}
-		turtle, err := convert.ConvertWith("m.sysml", []byte(rootNamespaceAnonymous), convert.FormatSysML, convert.FormatTurtle, convert.Options{ID: id})
+		turtle, err := convert.ConvertWith("m.kerml", []byte(rootNamespaceAnonymous), convert.FormatSysML, convert.FormatTurtle, convert.Options{ID: id})
 		if err != nil {
 			t.Fatal(err)
 		}

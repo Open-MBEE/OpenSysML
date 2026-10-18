@@ -339,6 +339,7 @@ class RenderedView:
     canvas: Optional[RenderCanvas]
     notes: tuple
     notices: tuple
+    shown: tuple
 
 
 def _render_span(span):
@@ -398,7 +399,7 @@ def render_view_result(response):
     )
     return RenderedView(
         response.view, response.kind, response.stated, nodes, edges, tuple(response.columns),
-        rows, canvas, notes, tuple(response.notices),
+        rows, canvas, notes, tuple(response.notices), tuple(response.shown),
     )
 #: What a binding value or an answered cell value may be.
 DocumentValue = Union[

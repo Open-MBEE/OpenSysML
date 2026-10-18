@@ -32,7 +32,7 @@ config:
 stateDiagram-v2
   state "«state def» Boiler" as n0 {
     state "«state»<br>idle<br>initial" as n1
-    state "«state»<br>heating : Heating" as n2
+    state "«state»<br>heating" as n2
     [*] --> n1
   }
   n1 --> n2

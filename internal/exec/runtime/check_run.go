@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -103,6 +104,12 @@ func (r *invocationRun) drawOwner(execs []checkedExecutor) (int, error) {
 		Where:        "t=" + semantics.FormatReal(r.ctx.clock.now),
 		Alternatives: executorLabels(execs),
 	}
+	futures := r.ctx.futureFootprints()
+	fps := make([]lower.Footprint, len(execs))
+	for i, exec := range execs {
+		fps[i] = futures.executorFuture(exec)
+	}
+	classifyChoice(&choice, fps, func(i, j int) lower.Relation { return r.ctx.relation(execs[i], execs[j]) })
 	scheduling := r.ctx.scheduling()
 	pick := scheduling.choose(choice, nil)
 	if err := scheduling.refusal(); err != nil {
@@ -160,8 +167,8 @@ func (r *invocationRun) park() error {
 // else to the horizon itself as an Advance ends there; false once at neither.
 func (r *invocationRun) advanceClock() bool {
 	next, ok := r.ctx.clock.NextDue()
-	if !ok || !r.inv.Horizon.Reaches(next) {
-		next, ok = r.inv.Horizon.Bounded()
+	if !ok || !r.inv.Horizon.reaches(next) {
+		next, ok = r.inv.Horizon.Bound()
 	}
 	if !ok || next <= r.ctx.clock.now {
 		return false
@@ -197,7 +204,7 @@ func (r *invocationRun) deadlock() error {
 // horizon keeps the run from reaching.
 func (r *invocationRun) waitsPastHorizon(exec checkedExecutor) bool {
 	for _, w := range exec.clockWaits() {
-		if !r.inv.Horizon.Reaches(w.Due) {
+		if !r.inv.Horizon.reaches(w.Due) {
 			return true
 		}
 	}
@@ -211,12 +218,12 @@ func (r *invocationRun) makeMove(m enabledMove) ([]ChoicePoint, error) {
 	defer r.enter()()
 	check := r.ctx.scheduling().check
 	if check == nil {
-		return nil, &CheckMoveError{Move: m.String(), Faced: "the run is not under the check policy"}
+		return nil, &checkMoveError{Move: m.String(), Faced: "the run is not under the check policy"}
 	}
 	execs := owners(r.enabledMoves())
 	due := slices.Index(execs, m.Owner)
 	if due < 0 {
-		return nil, &CheckMoveError{Move: m.String(), Faced: "the executor has no move"}
+		return nil, &checkMoveError{Move: m.String(), Faced: "the executor has no move"}
 	}
 	check.script.set(m.Owner, m.Token, due, m.Picks)
 	check.begin()

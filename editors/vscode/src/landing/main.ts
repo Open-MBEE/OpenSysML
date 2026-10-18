@@ -92,7 +92,10 @@ interface Gesture {
 
 // The order Array.prototype.sort gives strings: by code unit, in every locale.
 function byCodeUnit(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
+  if (a < b) {
+    return -1;
+  }
+  return a > b ? 1 : 0;
 }
 
 function message(error: unknown): string {
@@ -501,7 +504,7 @@ function mount(root: HTMLElement): Mounted {
     model = next;
     goodSource = source;
     live = true;
-    for (const feature of [...placed.keys()]) {
+    for (const feature of placed.keys()) {
       if (!model.parts.has(feature)) {
         placed.delete(feature);
       }
@@ -847,7 +850,7 @@ function mount(root: HTMLElement): Mounted {
   });
   on(window, "pointermove", (event) => {
     const active = gesture;
-    if (!active || event.pointerId !== active.pointer) {
+    if (event.pointerId !== active?.pointer) {
       return;
     }
     const p = point(event);
@@ -862,22 +865,20 @@ function mount(root: HTMLElement): Mounted {
       hero.classList.add("osml-hero--dragging");
     }
     active.at = { x: active.from.x + dx, y: active.from.y + dy };
-    if (active.frame === undefined) {
-      active.frame = requestAnimationFrame(() => {
-        active.frame = undefined;
-        if (!signal.aborted && gesture === active) {
-          moveTo(active.id, active.at);
-        }
-      });
-    }
+    active.frame ??= requestAnimationFrame(() => {
+      active.frame = undefined;
+      if (!signal.aborted && gesture === active) {
+        moveTo(active.id, active.at);
+      }
+    });
   });
   on(window, "pointerup", (event) => {
-    if (gesture && event.pointerId === gesture.pointer) {
+    if (event.pointerId === gesture?.pointer) {
       endGesture(false);
     }
   });
   on(window, "pointercancel", (event) => {
-    if (gesture && event.pointerId === gesture.pointer) {
+    if (event.pointerId === gesture?.pointer) {
       endGesture(true);
     }
   });

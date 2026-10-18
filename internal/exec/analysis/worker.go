@@ -50,11 +50,11 @@ func (m *Model) plan() *Model {
 
 // engineSessions is the plan's pool of an external engine's processes, made by make on the
 // plan's first request to it; refused on a surface's model, which holds no plan.
-func (m *Model) engineSessions(name string, make func() *enginePool) (*enginePool, error) {
+func (m *Model) engineSessions(name string, build func() *enginePool) (*enginePool, error) {
 	if m == nil || m.sessions == nil {
 		return nil, &SessionEndedError{Engine: name, Err: errNoPlan}
 	}
-	return m.sessions.pool(name, make)
+	return m.sessions.pool(name, build)
 }
 
 // errNoPlan is the refusal of a request to an engine outside a plan.

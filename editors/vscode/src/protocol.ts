@@ -33,6 +33,12 @@ export const RENDER_PALETTE_CAPABILITY = "openSysmlRenderPalette";
 /** The capability whose value lists the drawing styles a render request's `style` draws the DOT form in, the first the default. */
 export const RENDER_STYLES_CAPABILITY = "openSysmlRenderStyles";
 
+/** The capability whose value lists the optional notation elements a render request's `show` draws, then `all`. */
+export const RENDER_ELEMENTS_CAPABILITY = "openSysmlRenderElements";
+
+/** The capability the server advertises when a render request's `depth` bounds how many levels are drawn below each exposed element. */
+export const RENDER_DEPTH_CAPABILITY = "openSysmlRenderDepth";
+
 /** The URI scheme the server locates standard-library declarations in. */
 export const STDLIB_SCHEME = "sysml-stdlib";
 
@@ -177,6 +183,10 @@ export interface RenderParams {
   palette?: string;
   /** The drawing style the DOT form is drawn in, one the server lists under `openSysmlRenderStyles`; absent is its default, `pilot`. */
   style?: string;
+  /** The optional notation elements drawn besides the ones the view's rendering shows, each one the server lists under `openSysmlRenderElements`, or `all`. */
+  show?: string[];
+  /** How many levels of nested elements are drawn below each exposed element, overriding the view's own depth, on a server advertising `openSysmlRenderDepth`; absent or 0 draws every level. */
+  depth?: number;
   /** The link template each diagram element is written with. */
   linkTemplate?: string;
 }
@@ -187,6 +197,8 @@ export interface RenderResult {
   /** The drawing style the artifact was drawn in; absent from a server predating drawing styles. */
   style?: string;
   stated: string;
+  /** The optional notation elements the artifact draws; absent from a server predating them. */
+  shown?: string[];
   form: string;
   artifact: string;
   nodes: RenderNode[];
@@ -232,6 +244,11 @@ export function normalizeRender(result: RenderResult): RenderResult {
     edges: (result.edges ?? []).map((edge) => ({ ...edge, label: edge.label ?? "" })),
     notices: result.notices ?? [],
   };
+}
+
+/** nothingToDraw reports whether a rendering has no node, edge or row: a panel shows why instead of an empty drawing. */
+export function nothingToDraw(result: RenderResult): boolean {
+  return (result.nodes ?? []).length === 0 && (result.edges ?? []).length === 0 && (result.rows ?? []).length === 0;
 }
 
 /** admits: whether a member may go into node — any node, unless the palette confines the kind to some. */

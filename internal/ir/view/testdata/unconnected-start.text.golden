@@ -1,0 +1,4 @@
+Flows::plain - action rendering (view def ActionFlowView)
+
+action def A
+  action a

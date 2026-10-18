@@ -23,6 +23,9 @@ const (
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
 	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
 	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs
+	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
+	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
+	CapabilityCheck                          = sysmlgrpc.CapabilityCheck
 	CapabilityEnumValues                     = sysmlgrpc.CapabilityEnumValues
 	CapabilityEvaluateSubject                = sysmlgrpc.CapabilityEvaluateSubject
 	CapabilitySymbolAttributes               = sysmlgrpc.CapabilitySymbolAttributes
@@ -72,6 +75,7 @@ const (
 	CapabilityConvertDocuments               = sysmlgrpc.CapabilityConvertDocuments
 	CapabilityConvertCompact                 = sysmlgrpc.CapabilityConvertCompact
 	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
+	CapabilityRenderDocumentFileName         = sysmlgrpc.CapabilityRenderDocumentFileName
 )
 
 // ServerInfo describes the implementation answering a Client's calls.

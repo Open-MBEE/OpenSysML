@@ -1,0 +1,28 @@
+# SysML v1 to v2 migration report: block_specialization_profile.xmi
+# exported by Example UML Tool
+# migrated 21 element(s): 20 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (1)
+Diagram	Bench::Segments	_diag_segments	-> Model::Bench::Segments	(a Generic Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+
+## mapped (20)
+Package	Bench	_pkg_bench	-> Model::Bench
+Association	Bench::Carries	_assoc_carries	-> Model::Bench::Carries	(its one usage is the connection carries joining tripod and telescope)
+Property	Bench::Carries::carried	_carries_telescope	-> Model::Bench::Carries::carried
+Property	Bench::Carries::carrier	_carries_tripod	-> Model::Bench::Carries::carrier
+«Rule» Class	Bench::Focus Rule	_rule_focus	-> Model::Bench::'Focus Rule'
+«Segment» Class	Bench::Lens	_seg_lens	-> Model::Bench::Lens
+«DiagramTable» Diagram	Bench::Segments	_tbl_segments	-> part def Model::Bench::'Segments Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Segments Rows')
+«Need» Class	Bench::Sharp Image	_need_sharp	-> Model::Bench::'Sharp Image'
+«Segment» Class	Bench::Telescope	_seg_telescope	-> Model::Bench::Telescope
+Port	Bench::Telescope::light in	_telescope_light	-> Model::Bench::Telescope::'light in'
+Property	Bench::Telescope::objective	_telescope_lens	-> Model::Bench::Telescope::'objective'
+«Mount» Class	Bench::Tripod	_mount_tripod	-> Model::Bench::Tripod
+«Coupling» Class	Bench::iLight	_ib_light	-> Model::Bench::iLight
+Model	Model	_m	-> Model	(written as package Model)
+Profile	Optics	_optics	-> Model::Optics
+Stereotype	Optics::Coupling	_st_coupling	-> Model::Optics::Coupling
+Stereotype	Optics::Mount	_st_mount	-> Model::Optics::Mount
+Stereotype	Optics::Need	_st_need	-> Model::Optics::Need
+Stereotype	Optics::Rule	_st_rule	-> Model::Optics::Rule
+Stereotype	Optics::Segment	_st_segment	-> Model::Optics::Segment

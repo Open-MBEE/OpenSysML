@@ -34,23 +34,23 @@ flowchart TD
   n4["`*«action def»*
 **Brake**`"]
   n5("`*«part»*
-**vehicle : Vehicle**`")
+**vehicle**`")
   n6("`*«part»*
-**heavyVehicle : Vehicle**`")
+**heavyVehicle**`")
   n7("`*«action»*
-**brake : Brake**`")
+**brake**`")
   n8("`*«attribute»*
-**mass : Real**`")
+**Vehicle::mass**`")
   n9("`*«part»*
-**chassis : Chassis**`")
+**chassis**`")
   n10("`*«part»*
-**driver : Driver**`")
+**driver**`")
   n11("`*«attribute»*
-**mass**`")
+**vehicle::mass**`")
   n12("`*«attribute»*
-**mass**`")
+**heavyVehicle::mass**`")
   n13["`*«part def»*
-**Powertrain::Engine**`"]
+**Engine**`"]
   n2 -->|"specialization"| n1
   n5 -.->|"typing"| n0
   n6 -.->|"typing"| n0

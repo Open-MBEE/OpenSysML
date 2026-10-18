@@ -179,7 +179,7 @@ func TestCompartmentRowDrawsNoContainmentEdge(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("compartment rows = %d, want a and b", len(rows))
 	}
-	for _, options := range []Options{{}, {Style: StyleCameo}} {
+	for _, options := range []Options{fullNotation, {Show: AllShown(), Style: StyleCameo}} {
 		dot, err := rendering.DOTWith(options)
 		if err != nil {
 			t.Fatalf("DOT(%+v): %v", options, err)
@@ -200,7 +200,7 @@ func TestCompartmentRowDrawsNoContainmentEdge(t *testing.T) {
 
 	rendering = render(t, "positioned-views.sysml", "PositionedViews::unplacedCompartmentView")
 	owner = findNode(t, rendering.Roots, "Compartment::Owner")
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("unpositioned DOT: %v", err)
 	}
@@ -210,10 +210,10 @@ func TestCompartmentRowDrawsNoContainmentEdge(t *testing.T) {
 			t.Errorf("unpositioned DOT lacks %s:\n%s", edge, dot)
 		}
 	}
-	if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, owner.ID+" --- "+owner.Children[0].ID) {
+	if mermaid := rendering.MermaidWith(fullNotation); !strings.Contains(mermaid, owner.ID+" --- "+owner.Children[0].ID) {
 		t.Errorf("Mermaid lacks a containment edge; it draws no compartments:\n%s", mermaid)
 	}
-	plantuml, err := rendering.PlantUML()
+	plantuml, err := rendering.PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}

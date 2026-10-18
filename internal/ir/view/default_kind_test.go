@@ -123,9 +123,9 @@ func TestDefaultKindsAreRenderable(t *testing.T) {
 }
 
 func TestPilotStylesParseInAnyCaseAndNoteWhatTheyDo(t *testing.T) {
-	for _, name := range []string{"ortholine", "ORTHOLINE", "OrthoLine"} {
+	for _, name := range []string{"comptree", "COMPTREE", "CompTree"} {
 		style, ok := ParsePilotStyle(name)
-		if !ok || style != "ORTHOLINE" {
+		if !ok || style != "COMPTREE" {
 			t.Errorf("ParsePilotStyle(%q) = %q, %t", name, style, ok)
 		}
 	}
@@ -142,7 +142,7 @@ func TestPilotStylesParseInAnyCaseAndNoteWhatTheyDo(t *testing.T) {
 			t.Errorf("%s.Notice() = %q", style, notice)
 		}
 	}
-	if got := PilotStyle("ORTHOLINE").Notice(); got != "style ORTHOLINE (orthogonal line style) is not drawn" {
+	if got := PilotStyle("COMPTREE").Notice(); got != "style COMPTREE (show nested ports in a compartment) is not drawn" {
 		t.Errorf("Notice = %q", got)
 	}
 }

@@ -42,7 +42,7 @@ func (p framePose) reorients() bool {
 func transformVector(name string, ctx *Context, args []Value) (Value, error) {
 	if args[0].Kind != ValCoordinateTransformation {
 		return Value{}, fmt.Errorf("%w: function %s parameter %q requires a coordinate transformation, got %s",
-			ErrTypeMismatch, name, "transformation", describeValue(args[0]))
+			ErrTypeMismatch, name, "transformation", DescribeValue(args[0]))
 	}
 	t := args[0].CoordinateTransformation()
 	if t.Source == nil || t.Target == nil {
@@ -51,7 +51,7 @@ func transformVector(name string, ctx *Context, args []Value) (Value, error) {
 	vq := args[1].VectorQuantity()
 	if vq == nil {
 		return Value{}, fmt.Errorf("%w: function %s parameter %q requires a vector quantity over %s, got %s",
-			ErrTypeMismatch, name, "sourceVector", t.Source.Name(), describeValue(args[1]))
+			ErrTypeMismatch, name, "sourceVector", t.Source.Name(), DescribeValue(args[1]))
 	}
 	if vq.Frame == nil {
 		return Value{}, fmt.Errorf("%w: function %s: sourceVector.mRef must be %s, the source of %s, but %s is written over the unit %s and no coordinate frame",
@@ -72,7 +72,7 @@ func transformVector(name string, ctx *Context, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return NewFramedVectorQuantityValue(target, t.Target), nil
+	return newFramedVectorQuantityValue(target, t.Target), nil
 }
 
 // sharedUnitText names the one unit a frameless vector quantity carries, if one.
@@ -96,7 +96,7 @@ func (ctx *Context) poseOf(name string, t *CoordinateTransformation) (framePose,
 		return affinePose(name, t, n)
 	}
 	return framePose{}, fmt.Errorf("%w: function %s: %s is a %s, a CoordinateTransformation of no shape the library gives a meaning: not a CoordinateFramePlacement, TranslationRotationSequence or AffineTransformationMatrix3d",
-		ErrUnevaluableLibraryFunction, name, t.Name(), symbolText(t.Type))
+		errUnevaluableLibraryFunction, name, t.Name(), SymbolText(t.Type))
 }
 
 // placementPose reads origin and basisDirections: the origin as the target's
@@ -150,7 +150,7 @@ func (ctx *Context) sequencePose(name string, t *CoordinateTransformation, n int
 		}
 		if n != 3 {
 			return framePose{}, fmt.Errorf("%w: function %s: %s: %s rotates about an axis, which a frame of %d axes has no meaning for",
-				ErrUnevaluableLibraryFunction, name, t.Name(), what, n)
+				errUnevaluableLibraryFunction, name, t.Name(), what, n)
 		}
 		axis, err := ctx.sourceComponents(name, t, what+".axisDirection", *step.Axis)
 		if err != nil {
@@ -198,16 +198,16 @@ func (ctx *Context) sourceComponents(name string, t *CoordinateTransformation, w
 	vq := val.VectorQuantity()
 	if vq == nil {
 		return nil, fmt.Errorf("%w: function %s: %s: %s is %s, not a vector quantity over %s",
-			ErrTypeMismatch, name, t.Name(), what, describeValue(val), t.Source.Name())
+			ErrTypeMismatch, name, t.Name(), what, DescribeValue(val), t.Source.Name())
 	}
 	if vq.Frame != nil && !vq.Frame.equal(t.Source) {
 		return nil, fmt.Errorf("%w: function %s: %s: %s is a vector quantity in %s, not a vector quantity over %s, its source",
 			ErrTypeMismatch, name, t.Name(), what, vq.Frame.Name(), t.Source.Name())
 	}
 	axes := t.Source.Axes
-	if vq.Dimension() != len(axes) {
+	if vq.dimension() != len(axes) {
 		return nil, fmt.Errorf("%w: function %s: %s: %s has %d components over %s of %d axes",
-			ErrMultiplicityViolation, name, t.Name(), what, vq.Dimension(), t.Source.Name(), len(axes))
+			ErrMultiplicityViolation, name, t.Name(), what, vq.dimension(), t.Source.Name(), len(axes))
 	}
 	out := make([]float64, len(axes))
 	for i := range axes {
@@ -223,7 +223,7 @@ func (ctx *Context) sourceComponents(name string, t *CoordinateTransformation, w
 // applyPose is the target coordinates of a source vector: `basis⁻¹ (v − origin)`,
 // computed in the source axis units and answered in the target's.
 func (ctx *Context) applyPose(name string, t *CoordinateTransformation, pose framePose, vq *VectorQuantity) ([]semantics.Value, error) {
-	n := vq.Dimension()
+	n := vq.dimension()
 	v := make([]float64, n)
 	for i := range v {
 		v[i] = vq.Num[i].AsReal() - pose.origin[i]

@@ -10,10 +10,21 @@ import {
   paletteOf,
   PALETTES,
   pilotLook,
+  SHOW_SETTING,
+  shownOf,
   STYLE_LABELS,
   STYLES,
   styleOf,
 } from "./style";
+
+test("the show setting lists the optional notation elements to draw, each once; anything else names none", () => {
+  assert.equal(SHOW_SETTING, "opensysml.diagram.show");
+  assert.deepEqual(shownOf(["edge-labels", "parameter-symbols", "edge-labels"]), ["edge-labels", "parameter-symbols"]);
+  assert.deepEqual(shownOf(["all"]), ["all"]);
+  assert.deepEqual(shownOf(["", 3, "typings"]), ["typings"]);
+  assert.deepEqual(shownOf("edge-labels"), []);
+  assert.deepEqual(shownOf(undefined), []);
+});
 
 test("the styles are the theme, the pilot's black and white, Cameo's look, and one per server palette, each labelled", () => {
   assert.deepEqual(STYLES.slice(0, 3), ["theme", "pilot", "cameo"]);

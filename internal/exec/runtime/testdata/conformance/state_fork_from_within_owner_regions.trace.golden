@@ -1,7 +1,8 @@
+choice at t=0.0: next do b, dispatch accept Go (unordered; took do b first; order-dependent: log)
 do: b
 stmt action body
 enter action node: state behavior poll
-choice exiting work: next a(exit), b(exit) (unordered; took a(exit) first)
+choice exiting work: next a(exit), b(exit) (unordered; took a(exit) first; order-dependent: log)
 exit: a (exit action)
 stmt action body
   stmt assign log
@@ -19,13 +20,13 @@ stmt action body
       eval feature log -> "work(entry) a(entry) b(entry) a(exit) b(exit) "
       eval literal "T1(effect) " -> "T1(effect) "
     eval operator + -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) "
-choice fork split: next split->c(effect), split->d(effect) (unordered; took split->c(effect) first)
+choice fork split: next split->c(effect), split->d(effect) (unordered; took split->c(effect) first; order-dependent: log)
 stmt action body
   stmt assign log
       eval feature log -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) "
       eval literal "T1.1(effect) " -> "T1.1(effect) "
     eval operator + -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) T1.1(effect) "
-choice fork split: next c(entry), split->d(effect) (unordered; took c(entry) first)
+choice fork split: next c(entry), split->d(effect) (unordered; took c(entry) first; order-dependent: log)
 enter: c (entry action)
 stmt action body
   stmt assign log
@@ -50,7 +51,7 @@ transition: c -> done
 exit: d
 enter: done
 transition: d -> done
-choice exiting work: next left.done(exit), right.done(exit) (unordered; took left.done(exit) first)
+choice exiting work: next left.done(exit), right.done(exit) (unordered; took left.done(exit) first; independent)
 exit: done
 exit: done
 exit: work (exit action)

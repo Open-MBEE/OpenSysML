@@ -67,8 +67,9 @@ The assets are the ones a stable release ships, laid out the same way (see
   darwin/arm64 and windows/amd64;
 - `sysml-<os>-<arch>.tar.gz` and `sysml-lsp-<os>-<arch>.tar.gz` — each binary on its own;
 - `sysml-grpc-<os>-<arch>` with a `.sha256` sidecar — the gRPC service, raw;
-- `wasm/sysml-wasm.wasm` and `wasm/wasm_exec.js` with `.sha256` sidecars — the
-  combined WebAssembly module and matching Go runtime;
+- `wasm/sysml-wasm.wasm`, `wasm/sysml-prod.wasm.gz` and `wasm/wasm_exec.js` with
+  `.sha256` sidecars — the combined WebAssembly module, the gzip-compressed browser
+  build of the `sysml` REPL and the matching Go runtime;
 - `opensysml-<version>-py3-none-any.whl` and `opensysml-<version>.tar.gz` — the Python
   client, the same files published to PyPI, with that night's `sysml-grpc` digests pinned
   inside;

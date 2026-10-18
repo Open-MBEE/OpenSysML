@@ -3,5 +3,5 @@ stmt assign y
   eval literal 1 -> 1
 stmt assign x
   eval literal 1 -> 1
-choice step 2: tokens 2@a, 3@b (unordered; took 3@b first)
+choice step 2: tokens 2@a, 3@b (unordered; took 3@b first; independent)
 step 2: no active tokens

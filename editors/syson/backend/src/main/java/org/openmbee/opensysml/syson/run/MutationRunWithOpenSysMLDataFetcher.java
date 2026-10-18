@@ -43,7 +43,7 @@ public class MutationRunWithOpenSysMLDataFetcher implements IDataFetcherWithFiel
         RunWithOpenSysMLInput converted = objectMapper.convertValue(convertedArgument, RunWithOpenSysMLInput.class);
         RunWithOpenSysMLInput input = new RunWithOpenSysMLInput(converted.id(), converted.editingContextId(),
                 converted.objectId(), converted.operation(), values, converted.events(), converted.arguments(),
-                converted.schedule(), converted.subject());
+                converted.schedule(), converted.subject(), converted.form());
         if (inputError != null) {
             String message = inputError;
             return exceptionWrapper.wrapMono(() -> Mono.just(new ErrorPayload(input.id(), message)),

@@ -43,6 +43,7 @@ const (
 	ErrorUnsupportedPalette      ErrorKind = "unsupported-palette"
 	ErrorInvalidPorts            ErrorKind = "invalid-ports"
 	ErrorUnsupportedPorts        ErrorKind = "unsupported-ports"
+	ErrorInvalidShow             ErrorKind = "invalid-show"
 	ErrorInvalidOverlay          ErrorKind = "invalid-overlay"
 	ErrorUnsupportedOverlay      ErrorKind = "unsupported-overlay"
 	ErrorConflictingRuns         ErrorKind = "conflicting-runs"
@@ -178,6 +179,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("document %s diagram %s ports must be one of %s, got %q", e.Document, e.Content, view.PortsNames(), e.Actual)
 	case ErrorUnsupportedPorts:
 		return fmt.Sprintf("document %s diagram %s states ports %q, but a %s rendering draws no part's ports", e.Document, e.Content, e.Actual, e.Expected)
+	case ErrorInvalidShow:
+		return fmt.Sprintf("document %s diagram %s show must name the notation elements to draw, %s or all, got %q", e.Document, e.Content, view.ElementNames(), e.Actual)
 	case ErrorInvalidOverlay:
 		return fmt.Sprintf("document %s diagram %s overlay must be one of %s, got %q", e.Document, e.Content, view.OverlayNames(), e.Actual)
 	case ErrorUnsupportedOverlay:
@@ -241,3 +244,65 @@ func (e *Error) Error() string {
 
 // Unwrap returns the underlying query-planning failure, if any.
 func (e *Error) Unwrap() error { return e.Err }
+
+// ErrorKinds lists every error kind, in declaration order.
+func ErrorKinds() []ErrorKind {
+	return []ErrorKind{
+		ErrorInvalidContext,
+		ErrorLibraryUnavailable,
+		ErrorNotDocumentDefinition,
+		ErrorMissingTitle,
+		ErrorInvalidAttribute,
+		ErrorInvalidContent,
+		ErrorNestedDocument,
+		ErrorMissingText,
+		ErrorConflictingText,
+		ErrorMissingQuery,
+		ErrorConflictingQuery,
+		ErrorUnknownQuery,
+		ErrorQueryPlanning,
+		ErrorInvalidStyle,
+		ErrorUnknownParameter,
+		ErrorDuplicateBinding,
+		ErrorMissingBinding,
+		ErrorUnsupportedBinding,
+		ErrorBindingType,
+		ErrorBindingMultiplicity,
+		ErrorMissingViewSource,
+		ErrorInvalidViewSource,
+		ErrorUnknownViewSource,
+		ErrorMissingDiagramKind,
+		ErrorConflictingKind,
+		ErrorUnsupportedKind,
+		ErrorInvalidDirection,
+		ErrorUnsupportedDirection,
+		ErrorInvalidPalette,
+		ErrorUnsupportedPalette,
+		ErrorInvalidPorts,
+		ErrorUnsupportedPorts,
+		ErrorInvalidShow,
+		ErrorInvalidOverlay,
+		ErrorUnsupportedOverlay,
+		ErrorConflictingRuns,
+		ErrorAmbiguousRun,
+		ErrorMissingRunText,
+		ErrorInvalidRunStyle,
+		ErrorMissingLinkTarget,
+		ErrorMissingRefTarget,
+		ErrorUnknownRefTarget,
+		ErrorInvalidRefTarget,
+		ErrorAmbiguousRefTarget,
+		ErrorUnknownGroupColumn,
+		ErrorInvalidColumnWidths,
+		ErrorInvalidColumnLabels,
+		ErrorColumnRunWithoutQuery,
+		ErrorConflictingColumnRuns,
+		ErrorMissingRunColumn,
+		ErrorConflictingRunStyle,
+		ErrorUnknownRunColumn,
+		ErrorMissingDefinitionColumn,
+		ErrorUnknownDefinitionColumn,
+		ErrorMissingFormulaSource,
+		ErrorMissingImageLocation,
+	}
+}

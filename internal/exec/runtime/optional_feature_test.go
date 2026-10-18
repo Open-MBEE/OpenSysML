@@ -386,7 +386,7 @@ func TestRedefinitionChainReachesPastOwnRestatement(t *testing.T) {
 func symbolNames(ctx *Context, syms []*symbols.Symbol) []string {
 	names := make([]string, 0, len(syms))
 	for _, sym := range syms {
-		names = append(names, ctx.qualifiedSymbolName(sym))
+		names = append(names, ctx.QualifiedName(sym))
 	}
 	return names
 }
@@ -424,8 +424,8 @@ func TestInfiniteLowerBoundDoesNotReadAsEmpty(t *testing.T) {
 		Lower: semantics.Bound{Known: true, Infinite: true},
 		Upper: semantics.Bound{Known: true, Infinite: true},
 	}}}
-	if read, err := fv.ReadValue("p"); !errors.Is(err, ErrUninitializedFeatureValue) {
-		t.Errorf("reading unset [*..*] p: %s, %v; want %v", FormatValue(read), err, ErrUninitializedFeatureValue)
+	if read, err := fv.ReadValue("p"); !errors.Is(err, errUninitializedFeatureValue) {
+		t.Errorf("reading unset [*..*] p: %s, %v; want %v", FormatValue(read), err, errUninitializedFeatureValue)
 	}
 }
 
@@ -443,8 +443,8 @@ func TestRequiredUnsetFeatureReadsAsUninitialized(t *testing.T) {
 	if err != nil {
 		t.Fatalf("p.mass: %v", err)
 	}
-	if _, err := mass.ReadValue("mass"); !errors.Is(err, ErrUninitializedFeatureValue) {
-		t.Errorf("reading unset mass: err = %v, want %v", err, ErrUninitializedFeatureValue)
+	if _, err := mass.ReadValue("mass"); !errors.Is(err, errUninitializedFeatureValue) {
+		t.Errorf("reading unset mass: err = %v, want %v", err, errUninitializedFeatureValue)
 	}
 	tags, err := p.GetFeatureValue(ctx, "tags")
 	if err != nil {

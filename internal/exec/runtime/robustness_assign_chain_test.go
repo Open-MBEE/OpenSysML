@@ -13,6 +13,13 @@ func TestRuntimeRobustnessAssignChain(t *testing.T) {
 	t.Run("chain_step_holding_one_object_writes_it", testAssignChainStepHoldingOneObject)
 	t.Run("chain_step_holding_several_objects_is_refused", testAssignChainStepHoldingSeveralObjects)
 	t.Run("chain_step_holding_nothing_is_uninitialized", testAssignChainStepHoldingNothing)
+	t.Run("assign_chain_unknown_final_feature", testAssignChainUnknownFinalFeature)
+	t.Run("assign_chain_step_is_not_an_object", testAssignChainStepIsNotAnObject)
+	t.Run("assign_chain_step_holds_many_objects", testAssignChainStepHoldsManyObjects)
+	t.Run("assign_chain_multiplicity_violation", testAssignChainMultiplicityViolation)
+	t.Run("assign_chain_unset_step", testAssignChainUnsetStep)
+	t.Run("assign_chain_unreachable_base", testAssignChainUnreachableBase)
+	t.Run("assign_chain_rejected_in_calc_body", testAssignChainRejectedInCalcBody)
 }
 
 // chainMarkFixture is a car with a two-place mate and an empty missing part,
@@ -78,7 +85,7 @@ func testAssignChainStepHoldingNothing(t *testing.T) {
 		t.Fatalf("Instantiate car: %v", err)
 	}
 	_, err = ctx.ExecuteActionPerformedBy(oneSymbol(t, idx, "test::Car::markNone"), self, nil)
-	if !errors.Is(err, ErrUninitializedFeatureValue) {
-		t.Fatalf("markNone on car: err = %v, want %v", err, ErrUninitializedFeatureValue)
+	if !errors.Is(err, errUninitializedFeatureValue) {
+		t.Fatalf("markNone on car: err = %v, want %v", err, errUninitializedFeatureValue)
 	}
 }

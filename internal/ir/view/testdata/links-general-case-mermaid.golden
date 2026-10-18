@@ -24,22 +24,22 @@ config:
 %% UseCaseViews::useCaseView — case rendering (view def GeneralView, filter @UseCaseUsage)
 flowchart LR
   n0(["`*«use case»*
-**VehicleUseCases::'Provide Transportation'**`"])
+**'Provide Transportation'**`"])
   n1["`*«subject»*
-**vehicle : Vehicle**`"]
+**vehicle**`"]
   n2["`*«actor»*
-**driver : Person**`"]
+**driver**`"]
   n3["`*«actor»*
-**passengers : Person**`"]
+**passengers**`"]
   n4@{ shape: notch-rect, label: "objective<br>Deliver the driver and passengers to their destination." }
   n5(["`*«include use case»*
-**addFuel : 'Add Fuel'**`"])
+**addFuel**`"])
   n6["`*«subject»*
 **vehicle**`"]
   n7["`*«actor»*
 **fueler**`"]
   n8(["`*«include use case»*
-**'enter vehicle' : 'Enter Vehicle'**`"])
+**'enter vehicle'**`"])
   n9["`*«subject»*
 **vehicle**`"]
   n10["`*«actor»*

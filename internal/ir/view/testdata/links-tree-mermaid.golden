@@ -24,32 +24,40 @@ config:
 %% VehicleViews::vehicleView — tree rendering
 flowchart TD
   n0["`*«part def»*
-**Vehicles::Vehicle**`"]
+**Vehicle**`"]
     n1("`*«part»*
-**engine : Engine**`")
-  n0 --- n1
-    n2("`*«part»*
-**wheels : Wheel**`")
-  n0 --- n2
-    n3("`**connect**`")
-  n0 --- n3
-  n4("`*«view»*
-**VehicleViews::vehicleView::engineSubview**`")
-    n5["`*«part def»*
-**Vehicles::Engine**`"]
-      n6("`*«attribute»*
+**engine**`")
+      n2("`*«attribute»*
 **power**`")
-  n5 --- n6
-      n7("`*«part»*
-**cylinder : Cylinder**`")
-  n5 --- n7
-  n4 --- n5
-  n0 ---|"◆ engine"| n5
+  n1 --- n2
+      n3("`*«part»*
+**cylinder**`")
+  n1 --- n3
+  n0 --- n1
+    n4("`*«part»*
+**wheels**`")
+  n0 --- n4
+    n5("`**connect**`")
+  n0 --- n5
+  n6("`*«view»*
+**engineSubview**`")
+    n7["`*«part def»*
+**Engine**`"]
+      n8("`*«attribute»*
+**power**`")
+  n7 --- n8
+      n9("`*«part»*
+**cylinder**`")
+  n7 --- n9
+  n6 --- n7
+  n0 ---|"◆ engine"| n7
   click n0 href "https://example.test/src/tree.sysml#L11"
   click n1 href "https://example.test/src/tree.sysml#L12"
-  click n2 href "https://example.test/src/tree.sysml#L13"
-  click n3 href "https://example.test/src/tree.sysml#L14"
-  click n4 href "https://example.test/src/tree.sysml#L29"
-  click n5 href "https://example.test/src/tree.sysml#L4"
-  click n6 href "https://example.test/src/tree.sysml#L5"
-  click n7 href "https://example.test/src/tree.sysml#L6"
+  click n2 href "https://example.test/src/tree.sysml#L5"
+  click n3 href "https://example.test/src/tree.sysml#L6"
+  click n4 href "https://example.test/src/tree.sysml#L13"
+  click n5 href "https://example.test/src/tree.sysml#L14"
+  click n6 href "https://example.test/src/tree.sysml#L29"
+  click n7 href "https://example.test/src/tree.sysml#L4"
+  click n8 href "https://example.test/src/tree.sysml#L5"
+  click n9 href "https://example.test/src/tree.sysml#L6"

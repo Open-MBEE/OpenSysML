@@ -68,8 +68,8 @@ function test_surface_live()
     assert_equal(~isempty(strfind(migrated.content, 'part def Vehicle')), true, 'migrate');
     assert_equal(migrated.fromFormat, 'xmi', 'migrate from format');
     assert_equal([migrated.report.mapped, migrated.report.approximated, ...
-        migrated.report.unmapped, migrated.report.skipped], [77 13 3 2], 'migration counts');
-    assert_equal(numel(migrated.report.entries), 95, 'migration entries');
+        migrated.report.unmapped, migrated.report.skipped], [77 15 3 2], 'migration counts');
+    assert_equal(numel(migrated.report.entries), 97, 'migration entries');
     assert_equal(numel(migrated.byVerdict('unmapped')), 3, 'migration unmapped entries');
     assert_equal(migrated.sourcePath, opensysml.internal.absolutePath(vehicle), 'migration source path');
     fid = fopen(vehicle, 'rb'); vehicleBytes = fread(fid, Inf, 'uint8=>uint8')'; fclose(fid);
@@ -155,6 +155,9 @@ function test_surface_live()
     assert_equal(numel(renderedView.edges), 1, 'RenderView edges');
     assert_equal(~isempty(renderedView.edges(1).fromPort), true, 'RenderView from port');
     assert_equal(~isempty(renderedView.edges(1).toPort), true, 'RenderView to port');
+    assert_equal(any(strcmp(renderedView.shown, 'port-symbols')), true, 'RenderView shown');
+    shownView = opensysml.renderView(viewModel, 'RenderViewDemo::connections', 'show', {'edge-labels'});
+    assert_equal(any(strcmp(shownView.shown, 'edge-labels')), true, 'RenderView show');
 
     behaviorModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'behavior.sysml')), ...
         'name', 'behavior.sysml');
@@ -164,6 +167,22 @@ function test_surface_live()
     assert_equal(graphs.subject, 'Test::race', 'ExportGraphs subject');
     assert_equal(strncmp(graphs.content, '{"version":1,"subject":"Test::race"', 35), true, 'ExportGraphs content');
     assert_equal(strcmp(graphs.content, graphsMethod.content), true, 'ExportGraphs method');
+
+    tankModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'tank.sysml')), ...
+        'name', 'tank.sysml');
+    checked = opensysml.checkAction(tankModel, 'Plant::Tank::fill', 'performer', 'Plant::tank', ...
+        'properties', {'Plant::Tank::low'}, 'diverge', {'this.level'}, 'witness', true);
+    assert_equal(checked.verdict, 'fails', 'CheckBehavior verdict');
+    assert_equal(checked.search.states, 11, 'CheckBehavior states');
+    assert_equal(numel(checked.violations), 1, 'CheckBehavior violations');
+    assert_equal(checked.violations{1}.property, 'Plant::Tank::low', 'CheckBehavior property');
+    assert_equal(checked.violations{1}.depth, 3, 'CheckBehavior depth');
+    assert_equal(isempty(checked.violations{1}.witness.fileName), false, 'CheckBehavior witness file');
+    assert_equal(numel(checked.divergences), 1, 'CheckBehavior divergences');
+    assert_equal(checked.divergences{1}.values{2}.value, '2', 'CheckBehavior divergent value');
+    held = tankModel.checkAction('Plant::Tank::fill', 'performer', 'Plant::tank', ...
+        'properties', {'Plant::Tank::capped'}, 'diverge', {'this.capacity'});
+    assert_equal(held.verdict, 'holds', 'CheckBehavior holds');
     assert_equal(all(arrayfun(@(node) ~isempty(node.origin), renderedView.nodes)), ...
         true, 'RenderView origins');
     assert_equal(numel(renderedViewMethod.edges), numel(renderedView.edges), ...
@@ -174,6 +193,58 @@ function test_surface_live()
         allPortNames = [allPortNames, {fullView.nodes(n).ports.name}];
     end
     assert_equal(any(strcmp(allPortNames, 'spare')), true, 'RenderView full ports');
+    importModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'import.sysml')), ...
+        'name', 'import.sysml');
+    imported = opensysml.importData(importModel, { ...
+        struct('name', 'fleet.csv', 'content', sprintf('element,count,label\nV::vehicle,7,fast\nV::car,9,\n')), ...
+        struct('name', 'labels.txt', 'content', '[{"element":"V::car","label":"slow"}]', 'format', 'json')});
+    assert_equal(numel(imported.files), 2, 'ImportData files');
+    assert_equal(imported.files{1}.name, 'fleet.csv', 'ImportData file name');
+    assert_equal(imported.files{1}.values, 3, 'ImportData values');
+    assert_equal(imported.files{1}.elements, 2, 'ImportData elements');
+    assert_equal(imported.files{1}.assignments{1}.description, ...
+        'V::vehicle::count = 7 (redefines V::Vehicle::count)', 'ImportData assignment');
+    assert_equal(imported.files{1}.assignments{1}.redefines, 'V::Vehicle::count', 'ImportData redefines');
+    assert_equal(imported.files{2}.assignments{1}.value, '"slow"', 'ImportData json value');
+    assert_equal(isempty(strfind(imported.content, 'attribute :>> count = 7;')), false, 'ImportData content');
+    assert_equal(numel(imported.documents), 1, 'ImportData documents');
+    assert_equal(isempty(imported.modelHash), false, 'ImportData model hash');
+    dry = importModel.importData({struct('name', 'fleet.tsv', 'content', sprintf('element\tcount\nV::vehicle\t7\n'))}, ...
+        'dryRun', true);
+    assert_equal(numel(dry.files{1}.assignments), 1, 'ImportData dry run assignment');
+    assert_equal(isempty(dry.modelHash) && isempty(dry.content), true, 'ImportData dry run leaves the model');
+    expect_identifier(@() opensysml.importData(importModel, ...
+        {struct('name', 'fleet.csv', 'content', sprintf('element,count\nV::car,9\nV::Nowhere,1\n'))}), 'opensysml:', 'ImportData unknown element');
+    expect_identifier(@() opensysml.importData(importModel, {}), 'opensysml:', 'ImportData nothing');
+
+    probeModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'probe.sysml')), ...
+        'name', 'probe.sysml');
+    probeResults = ['{"source":"probe.xmi","configurations":[' ...
+        '{"id":"_c1","name":"Cfg::''Group 1''","runs":2,"target":"target","behavior":"run","observables":["total"],' ...
+        '"snapshots":[{"id":"_r1","values":{"total":4.0}},{"id":"_r2","values":{"total":6.0}}]},' ...
+        '{"id":"_cn","name":"Cfg::Nothing","observables":[],"snapshots":[]}]}'];
+    compared = opensysml.compareResults(probeModel, probeResults, 'seed', 7);
+    assert_equal(compared.source, 'probe.xmi', 'CompareResults source');
+    assert_equal(numel(compared.configurations), 2, 'CompareResults configurations');
+    group = compared.configurations{1};
+    assert_equal(group.name, 'Cfg::''Group 1''', 'CompareResults name');
+    assert_equal(group.status, 'holds', 'CompareResults status');
+    assert_equal([group.runs, group.completed, group.storedRuns], [2, 2, 2], 'CompareResults runs');
+    assert_equal(group.seed, uint64(7), 'CompareResults seed');
+    assert_equal(numel(group.rows), 2, 'CompareResults rows');
+    total = group.observables{1};
+    assert_equal(total.stored, 'total', 'CompareResults stored');
+    assert_equal(total.feature, 'target.total', 'CompareResults feature');
+    assert_equal(total.compared, true, 'CompareResults compared');
+    assert_equal([total.tool.count, total.tool.mean, total.run.mean], [2, 5, 4], 'CompareResults distributions');
+    assert_equal(total.difference.mean, '-20.0%', 'CompareResults difference');
+    assert_equal(isempty(group.lines), false, 'CompareResults lines');
+    assert_equal(compared.configurations{2}.status, 'unresolved', 'CompareResults unresolved');
+    selected = probeModel.compareResults(probeResults, 'actions', {'Group 1'}, 'runs', 1, 'seed', 3);
+    assert_equal(numel(selected.configurations), 1, 'CompareResults selected');
+    assert_equal(selected.configurations{1}.runs, 1, 'CompareResults selected runs');
+    expect_identifier(@() opensysml.compareResults(probeModel, probeResults, 'runs', -1), 'opensysml:', 'CompareResults negative runs');
+    expect_identifier(@() opensysml.compareResults(probeModel, 'not json'), 'opensysml:', 'CompareResults malformed');
 
     behavior = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'behavior.sysml')), ...
         'name', 'behavior.sysml');

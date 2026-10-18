@@ -85,7 +85,7 @@ func TestVerificationBodyVerdicts(t *testing.T) {
 		{fqn: "test::silent", kind: VerdictInconclusive, detail: "no VerdictKind"},
 		{fqn: "test::stated", kind: VerdictPass},
 		{fqn: "test::aux", kind: VerdictPass},
-		{fqn: "test::Case", kind: VerdictError, detail: "subject is unbound"},
+		{fqn: "test::Case", kind: verdictError, detail: "subject is unbound"},
 	} {
 		result, err := ctx.RunVerification(oneSymbol(t, idx, tc.fqn), AnalysisArgs{}, nil, nil)
 		if err != nil {
@@ -161,11 +161,11 @@ func TestVerificationsOfRequirement(t *testing.T) {
 		{requirement: "test::q", want: []string{"test::retargeted"}},
 	} {
 		var got []string
-		for _, sym := range ctx.VerificationsOf(root, oneSymbol(t, idx, tc.requirement)) {
-			got = append(got, ctx.qualifiedSymbolName(sym))
+		for _, sym := range ctx.verificationsOf(root, oneSymbol(t, idx, tc.requirement)) {
+			got = append(got, ctx.QualifiedName(sym))
 		}
 		if strings.Join(got, ",") != strings.Join(tc.want, ",") {
-			t.Errorf("VerificationsOf(%s) = %v, want %v", tc.requirement, got, tc.want)
+			t.Errorf("verificationsOf(%s) = %v, want %v", tc.requirement, got, tc.want)
 		}
 	}
 }
@@ -191,11 +191,11 @@ func TestVerificationsOfRequirementAcrossScopeTrees(t *testing.T) {
 			t.Fatalf("no distinct symbol for %s in the second tree", tc.requirement)
 		}
 		var got []string
-		for _, sym := range ctx.VerificationsOf(root, req) {
-			got = append(got, ctx.qualifiedSymbolName(sym))
+		for _, sym := range ctx.verificationsOf(root, req) {
+			got = append(got, ctx.QualifiedName(sym))
 		}
 		if strings.Join(got, ",") != strings.Join(tc.want, ",") {
-			t.Errorf("VerificationsOf(%s from another tree) = %v, want %v", tc.requirement, got, tc.want)
+			t.Errorf("verificationsOf(%s from another tree) = %v, want %v", tc.requirement, got, tc.want)
 		}
 	}
 }
@@ -213,4 +213,36 @@ func declaredIn(scope *symbols.Scope, decl ast.Node) *symbols.Symbol {
 		}
 	}
 	return nil
+}
+
+// TestVerifyOnlyObjectiveIsSatisfiedAndNoSatisfaction pins two readings of an
+// objective stating only `verify r;`: it is no satisfaction assertion, and as a
+// requirement check over no constraints it is satisfied, so the body's verdict
+// alone decides the case.
+func TestVerifyOnlyObjectiveIsSatisfiedAndNoSatisfaction(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationVerdictModel))
+	if got := ctx.SatisfyAssertionsIn(idx.DocumentRoot("<test>")); len(got) != 0 {
+		t.Errorf("%d satisfaction assertions found, want none: a verify is not one", len(got))
+	}
+	for _, tc := range []struct {
+		fqn  string
+		kind VerdictKind
+	}{
+		{fqn: "test::passing", kind: VerdictPass},
+		{fqn: "test::failing", kind: VerdictFail},
+	} {
+		result, err := ctx.RunVerification(oneSymbol(t, idx, tc.fqn), AnalysisArgs{}, nil, nil)
+		if err != nil {
+			t.Fatalf("RunVerification(%s): %v", tc.fqn, err)
+		}
+		if result.Verdict.Kind != tc.kind {
+			t.Errorf("%s: verdict = %+v, want %s", tc.fqn, result.Verdict, tc.kind)
+		}
+		if len(result.Run.Verdicts) != 1 {
+			t.Fatalf("%s: verdicts = %+v, want the one objective", tc.fqn, result.Run.Verdicts)
+		}
+		if v := result.Run.Verdicts[0]; v.Kind != "objective" || v.Status != VerdictSatisfied || v.Detail != "" {
+			t.Errorf("%s: objective = %+v, want satisfied with no detail", tc.fqn, v)
+		}
+	}
 }

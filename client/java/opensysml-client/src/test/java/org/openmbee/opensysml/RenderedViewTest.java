@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.openmbee.opensysml.proto.RenderCanvas;
 import org.openmbee.opensysml.proto.RenderEdge;
@@ -86,6 +87,8 @@ class RenderedViewTest {
                     .setHeight(4)
                     .setHasSize(true))
             .addNotices("notice")
+            .addShown("port-symbols")
+            .addShown("typings")
             .build();
 
     RenderedView rendered = RenderedView.from(response);
@@ -101,6 +104,7 @@ class RenderedViewTest {
     assertTrue(rendered.canvas().orElseThrow().hasSize());
     assertEquals("n1", rendered.notes().get(0).edgeTo());
     assertEquals("notice", rendered.notices().get(0));
+    assertEquals(List.of("port-symbols", "typings"), rendered.shown());
 
     RenderedView empty = RenderedView.from(RenderViewResponse.getDefaultInstance());
     assertFalse(empty.canvas().isPresent());

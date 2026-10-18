@@ -18,7 +18,10 @@ import (
 
 // The directories the suite figures are counted from, relative to the root.
 const (
-	runtimeDir            = "internal/exec/runtime"
+	runtimeDir = "internal/exec/runtime"
+	// orchestrationDirs are the packages layered on the runtime whose tests the
+	// runtime suite figures count with the runtime's own.
+	orchestrationDirs     = "internal/exec/sweep"
 	runtimeConformanceDir = runtimeDir + "/testdata/conformance"
 	parserDir             = "internal/syntax/parser"
 	parserSuiteDir        = "tests/parser"
@@ -107,7 +110,7 @@ func ReadSuiteCounts(root string) (SuiteCounts, error) {
 	if counts.Negatives, err = readNegativeCounts(parserTests); err != nil {
 		return counts, err
 	}
-	runtimeTests, err := parseTestFiles(filepath.Join(root, filepath.FromSlash(runtimeDir)))
+	runtimeTests, err := parseRuntimeSuiteFiles(root)
 	if err != nil {
 		return counts, err
 	}
@@ -255,6 +258,27 @@ func readNegativeCounts(files []*ast.File) (NegativeCounts, error) {
 		}
 	}
 	return counts, nil
+}
+
+// parseRuntimeSuiteFiles parses the runtime's `_test.go` files and those of the
+// orchestration packages layered on it that exist under root.
+func parseRuntimeSuiteFiles(root string) ([]*ast.File, error) {
+	files, err := parseTestFiles(filepath.Join(root, filepath.FromSlash(runtimeDir)))
+	if err != nil {
+		return nil, err
+	}
+	for _, dir := range strings.Split(orchestrationDirs, ",") {
+		path := filepath.Join(root, filepath.FromSlash(dir))
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			continue
+		}
+		more, err := parseTestFiles(path)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, more...)
+	}
+	return files, nil
 }
 
 // parseTestFiles parses the `_test.go` files of one directory.

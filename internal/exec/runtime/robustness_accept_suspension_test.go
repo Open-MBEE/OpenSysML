@@ -303,9 +303,9 @@ func acceptSuspensionMixedTimerSignalSource() string {
 	}`
 }
 
-func acceptSuspensionMixedTimerSignalScenarioSource(sendSignal bool) string {
+func acceptSuspensionMixedTimerSignalScenarioSource(SendSignal bool) string {
 	source := acceptSuspensionMixedTimerSignalDefinitions()
-	if sendSignal {
+	if SendSignal {
 		source += `action def Scenario {
 			out attribute signalled : Integer = 0;
 			out attribute timed : Integer = 0;
@@ -357,7 +357,7 @@ func acceptSuspensionCheckAndExplorePerformed(t *testing.T, source, partName, be
 		if err != nil {
 			return nil, err
 		}
-		behavior, ok := performer.Behavior(behaviorName)
+		behavior, ok := performer.behavior(behaviorName)
 		if !ok || behavior.Action == nil {
 			return nil, fmt.Errorf("part %s has no %s behavior", partName, behaviorName)
 		}
@@ -368,7 +368,7 @@ func acceptSuspensionCheckAndExplorePerformed(t *testing.T, source, partName, be
 		if err != nil {
 			return Outcome{}, err
 		}
-		behavior, ok := performer.Behavior(behaviorName)
+		behavior, ok := performer.behavior(behaviorName)
 		if !ok || behavior.Action == nil {
 			return Outcome{}, fmt.Errorf("part %s has no %s behavior", partName, behaviorName)
 		}
@@ -580,14 +580,14 @@ func TestRuntimeRobustnessAcceptSuspension(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Instantiate Waiter: %v", err)
 		}
-		behavior, ok := waiter.Behavior("await")
+		behavior, ok := waiter.behavior("await")
 		if !ok || behavior.Action == nil {
 			t.Fatalf("waiter has no await action: %v", waiter.Behaviors())
 		}
 		if behavior.Action.State() != StateWaiting {
 			t.Fatalf("waiter state before the write = %v, want StateWaiting", behavior.Action.State())
 		}
-		setter, ok := waiter.Behavior("update")
+		setter, ok := waiter.behavior("update")
 		if !ok || setter.Action == nil {
 			t.Fatalf("waiter has no update action: %v", waiter.Behaviors())
 		}
@@ -651,7 +651,7 @@ func TestRuntimeRobustnessAcceptSuspension(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Instantiate Waiter: %v", err)
 			}
-			behavior, ok := waiter.Behavior("main")
+			behavior, ok := waiter.behavior("main")
 			if !ok || behavior.Action == nil {
 				t.Fatalf("waiter has no main action: %v", waiter.Behaviors())
 			}
@@ -664,7 +664,7 @@ func TestRuntimeRobustnessAcceptSuspension(t *testing.T) {
 		}
 		inv := &Invocation{Actions: []*ActionExecutor{action}}
 		canonical := inv.canonicalState(nil).text
-		snapshot, err := action.Snapshot()
+		snapshot, err := action.snapshot()
 		if err != nil {
 			t.Fatalf("Snapshot: %v", err)
 		}
@@ -753,7 +753,7 @@ func TestRuntimeRobustnessAcceptSuspension(t *testing.T) {
 		}
 		inv := &Invocation{Actions: []*ActionExecutor{exec}}
 		canonical := inv.canonicalState(nil).text
-		snapshot, err := exec.Snapshot()
+		snapshot, err := exec.snapshot()
 		if err != nil {
 			t.Fatalf("Snapshot: %v", err)
 		}

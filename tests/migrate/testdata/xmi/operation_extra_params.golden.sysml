@@ -1,26 +1,25 @@
-occurrence def Boiler {
-    attribute level : ScalarValues::Real default = 0.0;
-    action def Adjust {
-        in ref context : Boiler[1];
-        in x : ScalarValues::Real[0..1];
-        in y : ScalarValues::Real[0..1];
-        first start then 'set level';
-        action 'set level' {
-            in value[0..1];
-            if value->SequenceFunctions::notEmpty() {
-                assign context.level := value;
+package Model {
+    occurrence def Boiler {
+        attribute level : ScalarValues::Real default = 0.0;
+        action adjust {
+            in x : ScalarValues::Real[0..1];
+            in y : ScalarValues::Real[0..1];
+            first start then 'set level';
+            action 'set level' {
+                in value[0..1];
+                if value->SequenceFunctions::notEmpty() {
+                    assign level := value;
+                }
             }
+            bind 'set level'.value = x;
         }
-        bind 'set level'.value = x;
+        action drive {
+            /* not migrated: ControlFlow (_drE) — the edge leads to 'adjust', which never fires: no value reaches its input pin 'target' */
+            ref action adjust;
+        }
     }
-    action adjust : Adjust;
-    action def Drive {
-        in ref context : Boiler[1];
-        /* not migrated: ControlFlow (_drE) — the edge leads to 'adjust', which never fires: no value reaches its input pin 'target' */
-        ref action adjust : Adjust { in ref :>> context = Drive::context; in x[0..1]; in y[0..1]; }
+    action def Reach {
+        first start then adjust;
+        action adjust;
     }
-}
-action def Reach {
-    first start then adjust;
-    action adjust : Boiler::Adjust;
 }

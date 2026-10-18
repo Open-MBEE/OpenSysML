@@ -527,3 +527,26 @@ func TestCompletionIgnoresUnrelatedRecursiveImportRoute(t *testing.T) {
 		t.Errorf("completion under Other:: missing 'Wheel'; got %v", labelsOf(other))
 	}
 }
+
+// A redefining feature that declares no name of its own is offered under the
+// short name it takes from the redefined feature (KerML
+// Feature::effectiveShortName), not only under the name, and the redefined
+// feature itself is not offered beside it.
+func TestCompletionOnDotOffersTheDerivedShortName(t *testing.T) {
+	const src = `package P {
+	part def TMS { attribute mass; }
+	part def ADS { part <tms> t : TMS; }
+	part gear : ADS { part :>> t { } }
+	part ctx {
+		ref part sua :> gear;
+		sua.
+	}
+}
+`
+	items := completionAt(t, src, "\t\tsua.")
+	for _, label := range []string{"tms", "t"} {
+		if _, ok := items[label]; !ok {
+			t.Errorf("completion after 'sua.' missing %q; got %v", label, labelsOf(items))
+		}
+	}
+}

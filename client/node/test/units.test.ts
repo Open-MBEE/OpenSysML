@@ -717,3 +717,27 @@ test("an array input refuses a shape its dimensions cannot fill before the call"
   assert.equal(calls, 0);
   await connection.close();
 });
+
+test("an exploration with a construct left unenumerated is incomplete and says which", () => {
+  const gap = new Exploration({
+    outcomes: [],
+    complete: false,
+    runs: 2,
+    budgetsHit: [],
+    runsBudget: 1024,
+    depthBudget: 64,
+    unenumerated: ["coverage-gap-1"],
+  });
+  assert.deepEqual(gap.unenumerated, ["coverage-gap-1"]);
+  assert.equal(gap.status, "incomplete after 2 runs; not enumerated: coverage-gap-1");
+  assert.throws(() => gap.raiseForIncomplete(), ExecutionError);
+  const whole = new Exploration({
+    outcomes: [],
+    complete: true,
+    runs: 2,
+    budgetsHit: [],
+    runsBudget: 1024,
+    depthBudget: 64,
+  });
+  assert.deepEqual(whole.unenumerated, []);
+});

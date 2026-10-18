@@ -59,7 +59,7 @@ func writeRunTimelineText(b *strings.Builder, r *Rendering) {
 
 func (r *Rendering) runTimelineMermaid(options Options) string {
 	var b strings.Builder
-	r.writeMermaidFrontmatter(&b, labelsOf(nil, false, nil), options, portView{})
+	r.writeMermaidFrontmatter(&b, labelsOf(nil, false, nil, r.Shown), options, portView{})
 	fmt.Fprintf(&b, "%%%% run — %s rendering", r.Kind)
 	if r.Stated != "" {
 		fmt.Fprintf(&b, " (%s)", r.Stated)

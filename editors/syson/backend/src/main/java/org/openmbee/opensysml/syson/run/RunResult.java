@@ -21,6 +21,8 @@ public final class RunResult {
     private final String resultText;
     private final List<RunVerdict> verdicts;
     private final List<RunInstance> instances;
+    private final RunDocument document;
+    private final RunTable table;
     private final List<MappedDiagnostic> mappedDiagnostics;
 
     private RunResult(Builder builder) {
@@ -37,6 +39,8 @@ public final class RunResult {
         this.resultText = builder.resultText;
         this.verdicts = List.copyOf(builder.verdicts);
         this.instances = List.copyOf(builder.instances);
+        this.document = builder.document;
+        this.table = builder.table;
         this.mappedDiagnostics = List.copyOf(builder.mappedDiagnostics);
     }
 
@@ -58,6 +62,8 @@ public final class RunResult {
         private String resultText;
         private List<RunVerdict> verdicts = List.of();
         private List<RunInstance> instances = List.of();
+        private RunDocument document;
+        private RunTable table;
         private List<MappedDiagnostic> mappedDiagnostics = List.of();
 
         public Builder modelHash(String modelHash) { this.modelHash = modelHash; return this; }
@@ -73,6 +79,8 @@ public final class RunResult {
         public Builder resultText(String resultText) { this.resultText = resultText; return this; }
         public Builder verdicts(List<RunVerdict> verdicts) { this.verdicts = verdicts; return this; }
         public Builder instances(List<RunInstance> instances) { this.instances = instances; return this; }
+        public Builder document(RunDocument document) { this.document = document; return this; }
+        public Builder table(RunTable table) { this.table = table; return this; }
         public Builder mappedDiagnostics(List<MappedDiagnostic> mappedDiagnostics) {
             this.mappedDiagnostics = mappedDiagnostics;
             return this;
@@ -96,6 +104,8 @@ public final class RunResult {
     }
     public List<RunVerdict> verdicts() { return verdicts; }
     public List<RunInstance> instances() { return instances; }
+    public RunDocument document() { return document; }
+    public RunTable table() { return table; }
     public List<MappedDiagnostic> mappedDiagnostics() { return mappedDiagnostics; }
 
     public static RunResult failure(String hash, RunOperation operation, String target, String message) {

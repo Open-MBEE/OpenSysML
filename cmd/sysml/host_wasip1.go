@@ -8,4 +8,6 @@ import "github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 const hostInterruptLine = ""
 
 // exposeCompletion has no host to expose completion to under WASI.
-func exposeCompletion(*repl.Session) {}
+func exposeCompletion(*repl.Session) {
+	// WASI has no host process to hand the completer to.
+}

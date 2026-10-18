@@ -207,10 +207,17 @@ func render(t *testing.T, s *Server, docURI uri.URI, viewName string) *renderRes
 
 func renderWithLinkTemplate(t *testing.T, s *Server, docURI uri.URI, viewName, template string) *renderResult {
 	t.Helper()
+	return renderShowing(t, s, docURI, viewName, template, nil)
+}
+
+// renderShowing renders with the optional notation elements show names drawn too.
+func renderShowing(t *testing.T, s *Server, docURI uri.URI, viewName, template string, show []string) *renderResult {
+	t.Helper()
 	raw, err := call(t, s, MethodRender, &renderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         viewName,
 		LinkTemplate: template,
+		Show:         show,
 	})
 	if err != nil {
 		t.Fatalf("render %q: %v", viewName, err)
@@ -386,7 +393,7 @@ func TestRenderOriginsLocateTheDeclaration(t *testing.T) {
 func TestRenderTreeCarriesRelationshipEdges(t *testing.T) {
 	src := "package Kit {\n\tpart def Widget {\n\t\tpart cogs[2] : Cog;\n\t}\n\tpart def Cog;\n\tpart def Gear :> Cog;\n}\n"
 	s, docURI := renderServer(t, "kit.sysml", src)
-	out := render(t, s, docURI, "#tree")
+	out := renderShowing(t, s, docURI, "#tree", "", []string{"typings", "multiplicities"})
 	ids := map[string]string{}
 	for _, node := range out.Nodes {
 		ids[node.ID] = node.Name
@@ -425,7 +432,7 @@ func TestRenderTreeCarriesRelationshipEdges(t *testing.T) {
 func TestRenderNodesCarryTheTypeApartFromTheDetail(t *testing.T) {
 	src := "package Kit {\n\tpart def Widget {\n\t\tpart cog : Cog;\n\t\tpart gear;\n\t}\n\tpart def Cog;\n}\n"
 	s, docURI := renderServer(t, "kit.sysml", src)
-	out := render(t, s, docURI, "#tree")
+	out := renderShowing(t, s, docURI, "#tree", "", []string{"typings", "multiplicities"})
 	want := map[string]renderNode{
 		"Kit::Widget": {Kind: "part def"},
 		"cog":         {Kind: "part", Type: "Cog"},
@@ -474,7 +481,7 @@ func TestRenderBehaviorNodesCarryTheTypeApartFromTheDetail(t *testing.T) {
 		"idle":    {Kind: "state", Detail: "initial"},
 	}
 	for view, field := range map[string]string{"#action:Ops::run": `"type":"Warm"`, "#state:Ops::Boiler": `"type":"Heating"`} {
-		out := render(t, s, docURI, view)
+		out := renderShowing(t, s, docURI, view, "", []string{"typings", "multiplicities"})
 		for _, node := range out.Nodes {
 			expected, ok := want[node.Name]
 			if !ok {
@@ -1347,6 +1354,72 @@ package StyledViews {
 	}
 }
 
+// A request's `show` names the optional notation elements the rendering draws
+// besides its own; the capability lists the names, the result the elements
+// drawn, and a name none has is refused with the names there are.
+func TestRenderShowsOptionalNotationElements(t *testing.T) {
+	const ported = `package Demo {
+    port def Signal;
+    part def Sender { port out1 : Signal; }
+    part def Receiver { port in1 : ~Signal; }
+    part def Link {
+        part sender : Sender;
+        part receiver : Receiver;
+        interface wire connect sender.out1 to receiver.in1;
+    }
+    view link { expose Demo::Link::*; render Views::asInterconnectionDiagram; }
+}
+`
+	s, docURI := renderServer(t, "ported.sysml", ported)
+	res, err := s.Initialize(context.Background(), &protocol.InitializeParams{})
+	if err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+	experimental := res.Capabilities.Experimental.(map[string]any)
+	wantNames := []string{"parameter-symbols", "port-symbols", "compartments", "edge-labels", "keywords", "multiplicities", "typings", "qualifiers", "all"}
+	if advertised, _ := experimental[RenderElementsCapability].([]string); !slices.Equal(advertised, wantNames) {
+		t.Fatalf("%s = %#v, want %v", RenderElementsCapability, experimental[RenderElementsCapability], wantNames)
+	}
+	render := func(t *testing.T, show []string) (*renderResult, error) {
+		t.Helper()
+		raw, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         "Demo::link", Form: string(view.FormDot), Show: show,
+		})
+		if err != nil {
+			return nil, err
+		}
+		var out renderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode render result: %v", err)
+		}
+		return &out, nil
+	}
+	plain, err := render(t, nil)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if !slices.Equal(plain.Shown, []string{"port-symbols", "compartments", "keywords"}) {
+		t.Errorf("shown = %v, want the default, port-symbols, compartments then keywords", plain.Shown)
+	}
+	if strings.Contains(plain.Artifact, `label="wire"`) {
+		t.Errorf("the default drew an edge label:\n%s", plain.Artifact)
+	}
+	shown, err := render(t, []string{"edge-labels"})
+	if err != nil {
+		t.Fatalf("render show=edge-labels: %v", err)
+	}
+	if !slices.Equal(shown.Shown, []string{"port-symbols", "compartments", "edge-labels", "keywords"}) {
+		t.Errorf("shown = %v, want the default and edge-labels", shown.Shown)
+	}
+	if !strings.Contains(shown.Artifact, `label="wire"`) {
+		t.Errorf("show=edge-labels drew no edge label:\n%s", shown.Artifact)
+	}
+	if _, err := render(t, []string{"edge-labels", "boxes"}); err == nil || !strings.Contains(err.Error(), `unknown notation element "boxes"; the elements are parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, all`) {
+		t.Errorf("an unknown element err = %v", err)
+	}
+}
+
 // A request's `ports` chooses how much of a part's ports an interconnection or
 // mixed view draws — minimal, the default, the ports a connector ends at, named
 // alone, or full, every port typed — the displays listed under the capability;
@@ -1373,6 +1446,9 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	if advertised, _ := experimental[RenderPortsCapability].([]string); !slices.Equal(advertised, []string{"minimal", "full"}) {
 		t.Fatalf("%s = %#v, want minimal then full", RenderPortsCapability, experimental[RenderPortsCapability])
 	}
+	if advertised, _ := experimental[RenderLinesCapability].([]string); !slices.Equal(advertised, []string{"splines", "ortho", "polyline"}) {
+		t.Fatalf("%s = %#v, want splines, ortho then polyline", RenderLinesCapability, experimental[RenderLinesCapability])
+	}
 	if advertised, _ := experimental[RenderOverlaysCapability].([]string); !slices.Equal(advertised, []string{"verdicts"}) {
 		t.Fatalf("%s = %#v, want verdicts", RenderOverlaysCapability, experimental[RenderOverlaysCapability])
 	}
@@ -1380,7 +1456,7 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 		t.Helper()
 		raw, err := call(t, s, MethodRender, &renderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-			View:         "Demo::link", Form: string(view.FormPlantUML), Ports: ports,
+			View:         "Demo::link", Form: string(view.FormPlantUML), Ports: ports, Show: []string{"typings"},
 		})
 		if err != nil {
 			t.Fatalf("render ports=%q: %v", ports, err)
@@ -1414,7 +1490,7 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	if strings.Contains(minimal, "spare") || strings.Contains(minimal, "Signal") {
 		t.Errorf("the default drew an unconnected port or a type:\n%s", minimal)
 	}
-	if got := render(t, "minimal").Artifact; got != minimal {
+	if render(t, "minimal").Artifact != minimal {
 		t.Errorf("ports=minimal differs from the default")
 	}
 	fullResult := render(t, "full")
@@ -1438,8 +1514,8 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 		fullResult.Edges[0].ToPort != fullPorts["in1"].ID {
 		t.Errorf("full edges = %+v, want endpoints at out1 and in1", fullResult.Edges)
 	}
-	assertEngineRenderMatchesLSP(t, ported, minimalResult, "")
-	assertEngineRenderMatchesLSP(t, ported, fullResult, "full")
+	assertEngineRenderMatchesLSP(t, ported, minimalResult, "", []string{"typings"})
+	assertEngineRenderMatchesLSP(t, ported, fullResult, "full", []string{"typings"})
 	_, err = call(t, s, MethodRender, &renderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "Demo::link", Form: string(view.FormDot), Ports: "all",
@@ -1611,7 +1687,7 @@ func TestRenderMixedCarriesConnectorPortData(t *testing.T) {
 			if !strings.Contains(out.Artifact, edge.FromPort) || !strings.Contains(out.Artifact, edge.ToPort) {
 				t.Errorf("mixed artifact does not draw connector pins %s and %s:\n%s", edge.FromPort, edge.ToPort, out.Artifact)
 			}
-			assertEngineRenderMatchesLSP(t, mixed, out, display.name)
+			assertEngineRenderMatchesLSP(t, mixed, out, display.name, nil)
 		})
 	}
 
@@ -1628,7 +1704,7 @@ func TestRenderMixedCarriesConnectorPortData(t *testing.T) {
 	}
 }
 
-func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *renderResult, ports string) {
+func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *renderResult, ports string, show []string) {
 	t.Helper()
 	eng, err := engine.New()
 	if err != nil {
@@ -1648,8 +1724,8 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *renderRes
 	if err := json.Unmarshal(parsedBody, &parsed); err != nil {
 		t.Fatalf("decode ParseSources: %v", err)
 	}
-	renderBody, err := json.Marshal(map[string]string{
-		"modelHash": parsed.ModelHash, "view": "Demo::link", "ports": ports,
+	renderBody, err := json.Marshal(map[string]any{
+		"modelHash": parsed.ModelHash, "view": "Demo::link", "ports": ports, "show": show,
 	})
 	if err != nil {
 		t.Fatalf("marshal RenderView request: %v", err)
@@ -1732,6 +1808,7 @@ func TestRenderKeepsActionPinsForEveryPortDisplay(t *testing.T) {
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         "#action:Pins::ToastBread",
 			Ports:        ports,
+			Show:         []string{"parameter-symbols"},
 		})
 		if err != nil {
 			t.Fatalf("render action ports=%q: %v", ports, err)
@@ -1776,5 +1853,103 @@ func TestRenderKeepsActionPinsForEveryPortDisplay(t *testing.T) {
 	if countPorts(minimal.Nodes) != countPorts(full.Nodes) {
 		t.Errorf("action ports count differs by display: default=%d full=%d",
 			countPorts(minimal.Nodes), countPorts(full.Nodes))
+	}
+}
+
+// A render request's `lines` routes the DOT or PlantUML form's edges — ortho
+// or polyline, splines or nothing for the engine's default — and a routing
+// there is none of is refused by name with the three there are.
+func TestRenderLines(t *testing.T) {
+	const ported = `package Demo {
+    port def Signal;
+    part def Sender { port out1 : Signal; }
+    part def Receiver { port in1 : ~Signal; }
+    package Link {
+        part sender : Sender;
+        part receiver : Receiver;
+        interface wire connect sender.out1 to receiver.in1;
+    }
+    view link { expose Demo::Link::*; render Views::asInterconnectionDiagram; }
+}
+`
+	s, docURI := renderServer(t, "ported.sysml", ported)
+	render := func(t *testing.T, form view.Form, lines string) string {
+		t.Helper()
+		raw, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         "Demo::link", Form: string(form), Lines: lines,
+		})
+		if err != nil {
+			t.Fatalf("render lines=%q: %v", lines, err)
+		}
+		var out renderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode render result: %v", err)
+		}
+		return out.Artifact
+	}
+	if got := render(t, view.FormDot, ""); strings.Contains(got, "splines=") {
+		t.Errorf("the default states a routing:\n%s", got)
+	}
+	if got := render(t, view.FormDot, "splines"); strings.Contains(got, "splines=") {
+		t.Errorf("splines states a routing:\n%s", got)
+	}
+	for _, c := range []struct {
+		form        view.Form
+		lines, want string
+	}{
+		{view.FormDot, "ortho", "splines=ortho"},
+		{view.FormDot, "polyline", "splines=polyline"},
+		{view.FormPlantUML, "ortho", "skinparam linetype ortho\n"},
+		{view.FormPlantUML, "polyline", "skinparam linetype polyline\n"},
+	} {
+		if got := render(t, c.form, c.lines); !strings.Contains(got, c.want) {
+			t.Errorf("%s with lines %s is missing %q:\n%s", c.form, c.lines, c.want, got)
+		}
+	}
+	_, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "Demo::link", Form: string(view.FormDot), Lines: "curved",
+	})
+	want := `unknown line routing "curved"; the routings are splines, ortho, polyline`
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Errorf("err = %v, want it to refuse the routing by name", err)
+	}
+}
+
+// A request's depth bounds how many levels are drawn below each exposed
+// element; a negative one is refused.
+func TestRenderDepthParam(t *testing.T) {
+	s, docURI := renderServer(t, "deep.sysml", `package Deep {
+    private import Views::*;
+    part vehicle {
+        part wheel { part hub { part bearing; } }
+        part engine { part piston; }
+    }
+    view structure { expose vehicle; render asTreeDiagram; }
+}
+`)
+	raw, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "Deep::structure",
+		Form:         string(view.FormText),
+		Depth:        1,
+	})
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	var out renderResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.Artifact, "part wheel (nested deeper than 1 level; not shown)") || strings.Contains(out.Artifact, "hub") {
+		t.Errorf("artifact with depth 1:\n%s", out.Artifact)
+	}
+	if _, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "Deep::structure",
+		Depth:        -1,
+	}); err == nil || !strings.Contains(err.Error(), "no non-negative integer") {
+		t.Errorf("depth -1: err = %v, want it refused", err)
 	}
 }

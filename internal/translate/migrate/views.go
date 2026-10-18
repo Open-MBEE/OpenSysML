@@ -19,7 +19,7 @@ func (m *migration) viewBody(e *sysmlv1.Element) {
 	m.taggedViewpoints(e)
 	m.members(e)
 	m.classifierBehavior(e)
-	m.stereotypeComments(e)
+	m.stereotypeMarkers(e)
 	m.scope = saved
 }
 
@@ -103,9 +103,6 @@ func (m *migration) featuredNote(u, scope *sysmlv1.Element) string {
 // usages between them; nil when u is featured by packages alone.
 func (m *migration) featuringDef(u *sysmlv1.Element) *sysmlv1.Element {
 	for cur := u.Parent; cur != nil; cur = cur.Parent {
-		if cur.Parent == nil && cur.Type == "Model" {
-			return nil
-		}
 		if m.isUsage(cur) {
 			continue
 		}
@@ -470,7 +467,7 @@ func (m *migration) viewpointBody(e *sysmlv1.Element) {
 	m.rendering(e)
 	m.members(e)
 	m.classifierBehavior(e)
-	m.stereotypeComments(e)
+	m.stereotypeMarkers(e)
 	m.scope = saved
 }
 
@@ -643,9 +640,7 @@ func (m *migration) prepareConcerns() {
 		info := m.concerns[c]
 		owner := c.Parent
 		if owner != nil {
-			if m.flattened(owner) {
-				info.homed = true
-			} else if owner.Type == "Package" {
+			if owner.Type == "Package" || owner.Type == "Model" {
 				info.homed = !m.isLibrary(owner) && m.written(owner)
 			} else {
 				cat, _ := m.classify(owner)

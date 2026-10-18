@@ -154,7 +154,10 @@ stable parameter order.
 `build_document_bindings`, `run_document_query(model, query; bindings,
 options)`, `render_document(model, query; bindings, format)`, and
 `render_view(model, name; ports="minimal")`, returning typed query and view
-data. `ports="full"` includes all declared ports.
+data. `ports="full"` includes all declared ports; `show=["edge-labels"]` draws
+those [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
+besides the ones the view's rendering shows (`"all"` for every one), and the
+`RenderedView`'s `shown` lists the elements drawn.
 
 Conversion is available through `convert_file(conn, path, to_format; ...)`,
 `convert_source(conn, content, to_format; from_format, ...)`,

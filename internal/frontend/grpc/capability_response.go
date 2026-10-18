@@ -82,6 +82,11 @@ func (s *Service) filterDiagnosticCapabilities(diags []*pb.Diagnostic) []*pb.Dia
 			diag.Code = ""
 		}
 	}
+	if !s.capabilities.has(CapabilityOrderDependence) {
+		for _, diag := range diags {
+			diag.OrderDependent, diag.Independent = nil, false
+		}
+	}
 	return diags
 }
 

@@ -193,6 +193,24 @@ func TestSetRouteOnTransitionAndConnection(t *testing.T) {
 	requireReplaced(t, routed, "points = (1, 2, 3, 4);", "points = (9, 8);", got)
 }
 
+// TestSetRouteLeavesASpecializationRoute checks that a Route naming a general,
+// which steers the usage's edge to that general, is not the one setRoute
+// rewrites: the usage's own edge gets a Route of its own.
+func TestSetRouteLeavesASpecializationRoute(t *testing.T) {
+	specialized := strings.Replace(plantModel,
+		"        part pump : Pump;\n",
+		"        part pump : Pump { @DiagramLayout::Route { points = (1, 2, 3, 4); ref :>> general : Pump; } }\n", 1)
+	route := &semantics.Route{Points: []semantics.Waypoint{{X: 100, Y: 50}, {X: 150, Y: 75.5}}}
+	got := applyLayout(t, specialized, SetRoute("Plant::Loop::pump", "", route))
+	if !strings.Contains(got, "points = (1, 2, 3, 4); ref :>> general : Pump;") {
+		t.Fatalf("the Route naming the general was rewritten:\n%s", got)
+	}
+	if strings.Count(got, "DiagramLayout::Route") != strings.Count(specialized, "DiagramLayout::Route")+1 ||
+		!strings.Contains(got, "points = (100, 50, 150, 75.5);") {
+		t.Fatalf("no Route of its own was added for pump's edge:\n%s", got)
+	}
+}
+
 // unnamedModel is plantModel with a transition and a connection no qualified
 // name reaches: the transition is unnamed, the part declaring the connection is.
 var unnamedModel = strings.Replace(strings.Replace(plantModel,

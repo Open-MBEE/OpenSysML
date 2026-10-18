@@ -30,6 +30,7 @@ config:
 ---
 %% NotationViews::alignmentView — state rendering (view def StateTransitionView)
 %% not represented: 2 fork/join name(s) (spread, collect); Mermaid's fork bar draws no label
+%% not represented: 1 note(s) not drawn: Mermaid state notes need an anchor to a declared state; free, edge-anchored and pseudostate notes have none
 %% canvas: w=1000 h=400
 %% layout: n0 x=0 y=0 w=1000 h=400
 %% layout: n18 x=40 y=30 w=15 h=15
@@ -40,7 +41,9 @@ config:
 %% layout: n4 x=540 y=120 w=120 h=60
 %% layout: n5 x=700 y=200 w=120 h=60
 %% layout: n6 x=790 y=270 w=120 h=100
+%% layout: n7 x=790 y=290 w=120 h=40
 %% layout: n9 x=810 y=295 w=80 h=30
+%% layout: n8 x=790 y=330 w=120 h=40
 %% layout: n10 x=810 y=335 w=80 h=30
 %% layout: n12 x=590 y=220 w=20 h=20
 %% layout: n13 x=592 y=290 w=16 h=16

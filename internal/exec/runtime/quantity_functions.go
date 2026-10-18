@@ -127,7 +127,7 @@ func angleScalars(params []string, apply func([]semantics.Value) (semantics.Valu
 			if !ok {
 				return Value{}, fmt.Errorf(
 					"%w: function %s parameter %s requires a number of radians or an angle quantity, got %s",
-					ErrTypeMismatch, name, parameterLabel(params, i), describeValue(arg),
+					ErrTypeMismatch, name, parameterLabel(params, i), DescribeValue(arg),
 				)
 			}
 			values[i] = num
@@ -175,7 +175,7 @@ func quantityArg(name, param string, val Value) (*Quantity, error) {
 	q, ok := asQuantity(soleElement(val))
 	if !ok {
 		return nil, fmt.Errorf("%w: function %s parameter %q requires a quantity, got %s",
-			ErrTypeMismatch, name, param, describeValue(val))
+			ErrTypeMismatch, name, param, DescribeValue(val))
 	}
 	return q, nil
 }
