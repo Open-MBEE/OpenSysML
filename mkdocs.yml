@@ -63,9 +63,6 @@ extra:
       link: https://lord.opensysml.org/
       name: Legend of the Red Dragon
 
-extra_javascript:
-  - assets/sysml-engine-loader.js
-
 plugins:
   - search
   # A page published under another name keeps answering there: the site redirects the old
