@@ -99,8 +99,19 @@ func (g *group) registerConversion(s *mcp.Server) {
 		if err := unmarshal(in, "", req); err != nil {
 			return nil, nil, err
 		}
-		if err := g.resolveMigratePaths(req); err != nil {
-			return nil, nil, err
+		if path, ok := req.GetSource().(*pb.MigrateRequest_FilePath); ok {
+			resolved, err := g.path(path.FilePath, sourceNameRole(req.FromFormat))
+			if err != nil {
+				return nil, nil, err
+			}
+			path.FilePath = resolved
+		}
+		if layout, ok := req.GetLayout().(*pb.MigrateRequest_LayoutPath); ok {
+			resolved, err := g.path(layout.LayoutPath, nameIgnored)
+			if err != nil {
+				return nil, nil, err
+			}
+			layout.LayoutPath = resolved
 		}
 		resp, err := g.svc.Migrate(ctx, req)
 		if err != nil {
@@ -152,26 +163,6 @@ func (g *group) convertSource(ctx context.Context, in ConvertInput) (model, erro
 		return model{}, nil
 	}
 	return g.resolve(ctx, in.ModelInput)
-}
-
-// resolveMigratePaths resolves the source and layout paths of a migrate request
-// against the workspace, in place.
-func (g *group) resolveMigratePaths(req *pb.MigrateRequest) error {
-	if path, ok := req.GetSource().(*pb.MigrateRequest_FilePath); ok {
-		resolved, err := g.path(path.FilePath, sourceNameRole(req.FromFormat))
-		if err != nil {
-			return err
-		}
-		path.FilePath = resolved
-	}
-	if layout, ok := req.GetLayout().(*pb.MigrateRequest_LayoutPath); ok {
-		resolved, err := g.path(layout.LayoutPath, nameIgnored)
-		if err != nil {
-			return err
-		}
-		layout.LayoutPath = resolved
-	}
-	return nil
 }
 
 // convertText reports a conversion: its error or notice, diagnostics and content.
