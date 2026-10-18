@@ -72,9 +72,8 @@ func TestDirectedCaseUsagesAreNotSteps(t *testing.T) {
 	}
 }
 
-// A use case usage is an action, so one nested in a body is a step of it; a
-// directed one is a parameter of the action alone, like a directed analysis or
-// verification usage.
+// A use case usage nested in a body is a step of it; a directed one is a
+// parameter of the action alone, like a directed analysis or verification usage.
 func TestDirectedUseCaseUsageIsNotAStep(t *testing.T) {
 	graph := actionGraphFor(t, `
 		action a {

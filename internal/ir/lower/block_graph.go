@@ -87,10 +87,8 @@ func IsCaseNode(u *ast.Usage) bool {
 		!u.IsBodyParameter && u.Direction == ast.DirNone
 }
 
-// isActionUsageNode reports whether a usage nested in a body is an action step of
-// it: an action usage, or a use case usage written without a direction. A directed
-// use case usage is a parameter of the owning action, referential and so no
-// subperformance, as a directed analysis or verification usage is.
+// isActionUsageNode reports whether a usage is an action step of the body it is in: an
+// action usage, or an undirected use case usage; a directed one is a parameter, as a case's.
 func isActionUsageNode(u *ast.Usage) bool {
 	return u.Kind.IsAction() && (u.Kind != ast.UsageUseCase || u.Direction == ast.DirNone)
 }
