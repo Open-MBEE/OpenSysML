@@ -95,38 +95,85 @@ func (ctx *Context) ownResultParameter(typ, sym *symbols.Symbol) string {
 	return ""
 }
 
-// conditionResultValue evaluates the conditions typ states against inst's own
-// features, as a satisfaction assertion evaluates them against its subject: true
-// when every required condition holds, false when one is violated, true when none
-// is stated (`allTrue` of no constraints), undetermined when one reads an unbound input.
+// conditionResultValue evaluates the result the library declares for a requirement
+// check, `allTrue(assumptions()) implies allTrue(constraints())`, against inst's
+// own features, each side as a satisfaction assertion evaluates its conditions:
+// `true` when no condition is stated, undetermined when a side that decides the
+// result reads an unbound input, negated for an element asserting the contrary.
 func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
 	defer ctx.beginRun()()
 	members := ctx.chainMembers(typ, typ.OwnerScope)
 	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, inst, nil, frame{})
-	if err == nil {
-		var holds bool
-		holds, err = ctx.evaluateConditions(conditionCheck{
-			sym:      typ,
-			kind:     "requirement",
-			what:     "require condition",
-			self:     inst,
-			bindings: mapFrame(bindings),
-			negated:  NegatedDecl(typ),
-		}, ctx.conditionsOf(typ, members))
-		if err == nil {
-			return boolValue(holds), nil
+	if err != nil {
+		return ctx.conditionResultOf(err, sym, feat)
+	}
+	var assumed, required []Condition
+	for _, cond := range ctx.conditionsOf(typ, members) {
+		if cond.Required {
+			required = append(required, cond)
+		} else {
+			cond.Required = true
+			assumed = append(assumed, cond)
 		}
 	}
+	check := conditionCheck{sym: typ, kind: "requirement", what: "require condition", self: inst, bindings: mapFrame(bindings)}
+	assumptions, err := ctx.conditionsHold(check, assumed, sym, feat)
+	if err != nil {
+		return Value{}, err
+	}
+	constraints, err := ctx.conditionsHold(check, required, sym, feat)
+	if err != nil {
+		return Value{}, err
+	}
+	result := impliesValue(assumptions, constraints)
+	if NegatedDecl(typ) && result.Kind == ValConst {
+		result = boolValue(!result.Const.Bool)
+	}
+	return result, nil
+}
+
+// conditionsHold evaluates one side of the implication: `true` for no condition,
+// `true`/`false` as the conditions decide, undetermined where they read an unbound input.
+func (ctx *Context) conditionsHold(check conditionCheck, conds []Condition, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
+	if len(conds) == 0 {
+		return boolValue(true), nil
+	}
+	holds, err := ctx.evaluateConditions(check, conds)
+	if err != nil {
+		return ctx.conditionResultOf(err, sym, feat)
+	}
+	return boolValue(holds), nil
+}
+
+// conditionResultOf maps a condition evaluation's failure: a violation is `false`,
+// an unbound input is undetermined with the reason, anything else is the error.
+func (ctx *Context) conditionResultOf(err error, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
 	var violation *ViolationError
 	switch {
 	case errors.As(err, &violation):
 		return boolValue(false), nil
-	case errors.Is(err, ErrNoConditions):
-		return boolValue(true), nil
 	case unboundInput(err):
 		return undeterminedFeatureValue(err.Error(), feat.Multiplicity, sym), nil
 	}
 	return Value{}, err
+}
+
+// impliesValue is `assumptions implies constraints` over values either side may
+// leave undetermined: a false assumption or a true constraint fixes it.
+func impliesValue(assumptions, constraints Value) Value {
+	if assumptions.Kind == ValConst && !assumptions.Const.Bool {
+		return boolValue(true)
+	}
+	if constraints.Kind == ValConst && constraints.Const.Bool {
+		return boolValue(true)
+	}
+	if assumptions.Kind == ValConst && constraints.Kind == ValConst {
+		return boolValue(false)
+	}
+	if assumptions.Kind != ValConst {
+		return assumptions
+	}
+	return constraints
 }
 
 // unboundInput reports an evaluation that read an input nothing binds: an unbound
@@ -137,8 +184,8 @@ func unboundInput(err error) bool {
 }
 
 // verificationVerdictValue runs the verification case typ on inst and answers the
-// VerdictKind literal its body produced; a run that decided nothing — an unbound
-// subject, a body binding no verdict — leaves the verdict undetermined with its reason.
+// VerdictKind literal its body produced, `VerdictKind::error` included; a run that
+// decided nothing — an unbound subject, a body binding no verdict — is undetermined with its reason.
 func (ctx *Context) verificationVerdictValue(typ *symbols.Symbol, inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
 	result, err := ctx.RunVerification(typ, AnalysisArgs{}, typ.OwnerScope, inst)
 	if err != nil {
@@ -148,7 +195,7 @@ func (ctx *Context) verificationVerdictValue(typ *symbols.Symbol, inst *Instance
 		return Value{}, err
 	}
 	verdict := result.Verdict
-	if verdict.Kind == verdictError || verdict.Detail != "" {
+	if verdict.Detail != "" {
 		return undeterminedFeatureValue(verdict.Detail, feat.Multiplicity, sym), nil
 	}
 	for _, lit := range ctx.model.resolver.Index().LookupQualified(verdictLiteralName + string(verdict.Kind)) {

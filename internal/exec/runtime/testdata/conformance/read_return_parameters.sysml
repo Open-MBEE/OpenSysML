@@ -15,11 +15,15 @@ package test {
 	requirement def R1 { subject s : P2; attribute lim : Real = 5.0; require constraint { s.m < lim } assume constraint { lim > 0.0 } }
 	requirement def R2 { subject s : P2; }
 	requirement def R3 { subject s : P2; require constraint { false } }
+	requirement def R5 { subject s : P2; assume constraint { false } require constraint { false } }
+	requirement def R6 { subject s : P2; assume constraint { true } require constraint { false } }
+	requirement def R7 { subject s : P2; assume constraint { s.m > 0.0 } require constraint { true } }
 	case def Ca1 { subject s : P2; return r : Integer = 1 + 1; }
 	case def Ca2 { subject s : P2; objective obj { require constraint { true } } }
 	verification def V1 { subject s : P2; objective { verify r1; } requirement r1 : R1; return verdict : VerdictKind = PassIf(true); }
 	verification def V2 { subject s : P2; objective { verify r3; } requirement r3 : R3; }
 	verification def V3 { subject s : P2; return verdict : VerdictKind = PassIf(false); }
+	verification def V4 { subject s : P2; return verdict : VerdictKind = VerdictKind::error; }
 	viewpoint def Vp1 { frame concern con1 : Con1; require constraint { true } }
 	concern def Con1 { stakeholder sh : P2; }
 
@@ -40,6 +44,10 @@ package test {
 	attribute r1New : Boolean = new R1().result;
 	attribute r2New : Boolean = new R2().result;
 	attribute r3New : Boolean = new R3().result;
+	attribute r5New : Boolean = new R5().result;
+	attribute r6New : Boolean = new R6().result;
+	attribute r7New : Boolean = new R7().result;
+	attribute v4New = new V4().verdict;
 	attribute r1Bound : Boolean = r1.result;
 	attribute r1Unbound : Boolean = r1u.result;
 	attribute r3Bound : Boolean = r3.result;
