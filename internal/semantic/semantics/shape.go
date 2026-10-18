@@ -322,10 +322,8 @@ func (m *Model) FrameFeature(sym *symbols.Symbol) bool {
 	}
 }
 
-// FrameRoot reports a Kernel member of typ the runtime answers itself rather than
-// from the shape: a restatement of one of frameRoots, the frame featuring a
-// transformation, or a feature a frame root of typ restates (`portions`, which
-// `timeSlices` subsets), whose values the shape cannot supply either.
+// FrameRoot reports a Kernel member of typ the runtime answers itself rather than from the shape:
+// a restatement of a frame root, a frame featuring, or what a frame root restates (`portions`).
 func (m *Model) FrameRoot(typ, sym *symbols.Symbol) bool {
 	if m.restatesRoot(sym, frameRoots) || m.NamesFeaturingReference(sym) {
 		return true

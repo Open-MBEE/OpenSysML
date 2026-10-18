@@ -19,9 +19,8 @@ const kernelCollectionWalkModel = `
 	}
 `
 
-// TestSubsetsTransitivelyWalksDeclaredImplicitAndRedefined pins the walk a derived
-// Kernel collection read follows: a declared `:>`, the implicit subsetting a nested
-// usage states, and a redefinition, chained through library features out of the shape.
+// TestSubsetsTransitivelyWalksDeclaredImplicitAndRedefined pins the walk a derived read follows:
+// a declared `:>`, an implicit nesting subsetting and a redefinition, through out-of-shape features.
 func TestSubsetsTransitivelyWalksDeclaredImplicitAndRedefined(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, kernelCollectionWalkModel))
 	symbol := func(qualified string) *symbols.Symbol {
@@ -111,9 +110,8 @@ const kernelCollectionOpenModel = `
 	}
 `
 
-// TestKernelCollectionOpenReadStaysOpen pins that a model-level read of a derived
-// Kernel collection stops where a subsetter's count is open, with the subsetter's
-// fewest as its own, while a read of the object as held fills the subsetter first.
+// TestKernelCollectionOpenReadStaysOpen pins that a model-level read stops where a subsetter's
+// count is open, at the subsetter's fewest, while a read of the object as held fills the subsetter.
 func TestKernelCollectionOpenReadStaysOpen(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, kernelCollectionOpenModel))
 	matches := idx.LookupQualified("test::q")

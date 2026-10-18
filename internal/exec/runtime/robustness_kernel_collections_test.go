@@ -15,9 +15,8 @@ const kernelCollectionRobustnessModel = `
 	}
 `
 
-// TestRuntimeRobustnessKernelCollections pins what a derived Kernel collection read
-// leaves alone: a Kernel member that is no collection and a frame root the runtime
-// tracks itself both stay typed ErrNoSuchFeature, and nothing panics.
+// TestRuntimeRobustnessKernelCollections pins what a derived Kernel collection read leaves
+// alone: non-collections and frame roots stay typed ErrNoSuchFeature, and nothing panics.
 func TestRuntimeRobustnessKernelCollections(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, kernelCollectionRobustnessModel))
 	matches := idx.LookupQualified("test::p1")

@@ -6,13 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// kernelCollectionRead answers a read of a Kernel Semantic Library collection the
-// object's shape leaves out (`suboccurrences`, `subobjects`, `subperformances`, …):
-// the values of a subsetting feature are values of the feature it subsets (KerML 1.0
-// §7.3.4.4), so the collection holds the values of the shape features that subset it,
-// directly or through what they redefine, in shape order. The second result reports
-// whether name is such a collection; a name the runtime tracks itself or that is no
-// collection is left to the caller.
+// kernelCollectionRead answers a read of a Kernel collection the shape leaves out from the
+// shape features that subset it (KerML 1.0 §7.3.4.4); the second result is whether name is one.
 func (ctx *Context) kernelCollectionRead(inst *Instance, name string, open *openPopulation) (*FeatureValue, bool, error) {
 	sym, ok := ctx.kernelCollection(inst.Type, name)
 	if !ok {
@@ -22,13 +17,8 @@ func (ctx *Context) kernelCollectionRead(inst *Instance, name string, open *open
 	return fv, true, err
 }
 
-// kernelCollection is the Kernel-tier collection feature of typ that name reads: a
-// frame-tier usage of multiplicity `[0..*]` whose values the library states by nothing
-// but subsetting. One that is `inverse of` or `unions` another, intersects one it does
-// not subset, holds a
-// value of its own or has a lower bound (`timeEnclosedOccurrences [1..*]`, which holds the
-// occurrence itself) has values the shape cannot supply, as has a frame root the runtime
-// tracks itself; those are left to the caller.
+// kernelCollection is the Kernel-tier `[0..*]` collection of typ that name reads, if the library
+// defines it by subsetting alone (no `inverse of`, `unions`, own value, lower bound or frame root).
 func (ctx *Context) kernelCollection(typ *symbols.Symbol, name string) (*symbols.Symbol, bool) {
 	if ctx == nil || typ == nil {
 		return nil, false
@@ -69,12 +59,8 @@ func (ctx *Context) derivesKernelCollection(inst *Instance, name string) bool {
 	return ok
 }
 
-// kernelCollectionValue is the collection sym holds on inst: the elements of every
-// shape feature subsetting it, each object once unless sym is nonunique. It is
-// derived on each read and stored nowhere, so the shape stays as declared. A
-// model-level read (open non-nil) that stops short of making up a subsetter's
-// count leaves the collection open too, certainly holding what every subsetter
-// certainly holds and no fewer than the most any one of them holds.
+// kernelCollectionValue unions, in shape order, what the shape features subsetting sym hold on
+// inst (each object once unless nonunique); an open subsetter on a model-level read leaves it open.
 func (ctx *Context) kernelCollectionValue(inst *Instance, sym *symbols.Symbol, open *openPopulation) (*FeatureValue, error) {
 	feat := ctx.effectiveFeature(sym.Name, sym, inst.Type)
 	var values []Value
@@ -122,9 +108,8 @@ func (ctx *Context) kernelCollectionValue(inst *Instance, sym *symbols.Symbol, o
 	return &FeatureValue{Feature: &feat, Values: ctx.collectionOf(&feat, values), Materialized: !stopped}, nil
 }
 
-// subsetsTransitively reports whether feature, a member of owner, subsets target
-// through any number of declared `:>` edges, implicit nesting subsettings and
-// redefinitions, in whatever order they alternate.
+// subsetsTransitively reports whether feature, a member of owner, subsets target through
+// any chain of declared `:>` edges, implicit nesting subsettings and redefinitions.
 func (ctx *Context) subsetsTransitively(feature, owner, target *symbols.Symbol) bool {
 	seen := map[*symbols.Symbol]bool{feature: true}
 	for queue := []*symbols.Symbol{feature}; len(queue) > 0; {
@@ -148,9 +133,8 @@ func (ctx *Context) subsetsTransitively(feature, owner, target *symbols.Symbol) 
 	return false
 }
 
-// intersectsOnlySubsetted reports whether every feature sym intersects is one it also
-// subsets — an intersection its subsetting alone implies (`subobjects subsets objects,
-// suboccurrences intersects objects, suboccurrences`), stating no further value.
+// intersectsOnlySubsetted reports whether every feature sym intersects is one it also subsets,
+// an intersection its subsetting alone implies (`subobjects`), so it states no further value.
 func (ctx *Context) intersectsOnlySubsetted(sym *symbols.Symbol) bool {
 	subsetted := map[*symbols.Symbol]bool{}
 	for _, rel := range relationshipsOfKind(sym, ast.RelSubsets) {
