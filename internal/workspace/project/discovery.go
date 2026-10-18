@@ -111,7 +111,7 @@ func (d Discovery) Around(paths []string) Projects {
 	}
 	var out Projects
 	for _, dir := range nearest {
-		if IsArchive(dir) {
+		if IsArchiveFile(dir) {
 			if a, err := openCached(dir); err == nil {
 				out.Enclosing = append(out.Enclosing, a.Project)
 			}

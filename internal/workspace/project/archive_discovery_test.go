@@ -67,3 +67,13 @@ func TestDependenciesOfAnArchiveMemberIncludeTheProjectsTheArchiveUses(t *testin
 		t.Errorf("Dependencies of an archive member inside another project = %v, want the file of the project the archive uses %v", got, []string{gearsModel})
 	}
 }
+
+func TestAProjectDirectoryNamedLikeAnArchiveIsReadAsADirectory(t *testing.T) {
+	proj := writeProject(t, filepath.Join(t.TempDir(), "probe.kpar"), probeProject)
+	main := writeModel(t, filepath.Join(proj, "Probe.sysml"), probeModel)
+
+	got := Discovery{}.Around([]string{main})
+	if len(got.Enclosing) != 1 || got.Enclosing[0].Dir != proj || got.Enclosing[0].Name != "Probe" {
+		t.Errorf("Around in a project directory named like an archive: enclosing = %v, want the directory's project", projectDirs(got.Enclosing))
+	}
+}
