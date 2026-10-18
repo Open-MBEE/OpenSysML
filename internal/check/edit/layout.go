@@ -122,6 +122,10 @@ func (m Model) layoutValues(i int, op Operation) ([]MetadataValue, error) {
 		return nil, nil
 	}
 	if l.Unplaced {
+		if l.HasSize {
+			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+				Message: fmt.Sprintf("a Layout of %s cannot size its node without placing it", m.label(op))}
+		}
 		if !l.Collapsed {
 			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
 				Message: fmt.Sprintf("a Layout of %s places nothing and folds nothing; clear the Layout to drop it", m.label(op))}

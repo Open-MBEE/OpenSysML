@@ -888,4 +888,8 @@ func TestSetLayoutFoldOnlyWritesCollapsedAlone(t *testing.T) {
 	if e := editError(t, err); e.Failure != FailureInvalidValue || !strings.Contains(e.Message, "places nothing and folds nothing") {
 		t.Fatalf("unplaced layout folding nothing: %+v", e)
 	}
+	_, err = Apply(m, []Operation{SetLayout("Plant::Loop::pump", "PlantViews::loopView", &semantics.Layout{Unplaced: true, Collapsed: true, Width: 200, Height: 80, HasSize: true})})
+	if e := editError(t, err); e.Failure != FailureInvalidValue || !strings.Contains(e.Message, "cannot size its node without placing it") {
+		t.Fatalf("unplaced layout with a size: %+v", e)
+	}
 }

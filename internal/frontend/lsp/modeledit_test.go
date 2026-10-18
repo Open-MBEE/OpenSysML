@@ -1263,9 +1263,11 @@ func TestApplyModelEditSetLayoutFoldOnlyWritesNoPlace(t *testing.T) {
 		}
 	}
 
-	refused := applyModelEdit(t, s, docURI, 2, ModelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::pump", View: drawn.View, Layout: &ModelEditLayout{}})
-	if len(refused.Refused) != 1 || refused.Refused[0].Failure != "invalid-value" {
-		t.Errorf("layout placing and folding nothing = %+v, want one invalid-value refusal", refused)
+	for _, layout := range []*ModelEditLayout{{}, {Collapsed: true, Width: float(200), Height: float(80)}} {
+		refused := applyModelEdit(t, s, docURI, 2, ModelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::pump", View: drawn.View, Layout: layout})
+		if len(refused.Refused) != 1 || refused.Refused[0].Failure != "invalid-value" {
+			t.Errorf("layout %+v without a place = %+v, want one invalid-value refusal", *layout, refused)
+		}
 	}
 	_, err := call(t, s, MethodApplyModelEdit, &ApplyModelEditParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
