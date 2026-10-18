@@ -2209,9 +2209,8 @@ func namedSymbol(idx *symbols.Index, fqn string, defKind ast.DefinitionKind, usa
 	return matches[0]
 }
 
-// behavioralKind reports whether a symbol declares the definition or usage kind
-// an entry point asks for; the action entry point takes every action kind, a use
-// case being one (SysML v2 §7.19).
+// behavioralKind reports whether a symbol declares the definition or usage kind an
+// entry point asks for; the action entry point takes every action kind, use cases included.
 func behavioralKind(sym *symbols.Symbol, defKind ast.DefinitionKind, usageKind ast.UsageKind) bool {
 	switch decl := sym.Decl.(type) {
 	case *ast.Definition:
