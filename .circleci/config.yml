@@ -3346,11 +3346,24 @@ jobs:
             # The image tag spells the version as the clients' registries do,
             # without the v. A pre-release (-rc.1, -alpha.1…) gets its own tag
             # and `latest` is untouched, as publish-npm leaves `latest` alone.
+            # `latest` moves only to the newest release: a tag published late,
+            # after a newer release, must not roll `latest` back to it. Every
+            # release is a git tag, so the newest stable `v*` tag decides.
             version=${CIRCLE_TAG#v}
             tags="openmbee/opensysml:${version}"
             case "$version" in
-              *-*) ;;
-              *) tags="${tags} openmbee/opensysml:latest" ;;
+              *-*) echo "pre-release: latest is not moved" ;;
+              *)
+                # CircleCI fetches the ref being built, not the tag namespace;
+                # --force lets a re-run on a kept checkout take the moved nightly tag.
+                git fetch --tags --force --quiet origin
+                newest=$( { git tag -l 'v[0-9]*' | grep -v -- -; echo "v${version}"; } | sort -V | tail -n 1)
+                if [ "$newest" = "v${version}" ]; then
+                  tags="${tags} openmbee/opensysml:latest"
+                else
+                  echo "${newest} is a newer release: latest is not moved to ${version}"
+                fi
+                ;;
             esac
             echo "export IMAGE_VERSION=${version}" >> "$BASH_ENV"
             echo "export IMAGE_TAGS='${tags}'" >> "$BASH_ENV"
@@ -3376,17 +3389,49 @@ jobs:
 
       # A published tag is not replaced: the clients pin a release by digest,
       # and a tag that named two different images would break that promise.
-      # An absent repository fails the same way as an absent tag, and the
-      # first push creates it.
+      # The registry is asked directly so that only a definite "manifest
+      # unknown" (404) lets the push proceed: a `docker manifest inspect` that
+      # failed on a network error or a rate limit would read as an absent tag
+      # and a later push would replace the published image. Anything but 200
+      # or 404 fails closed; a 401 also means the repository does not exist
+      # yet, so it is created on Docker Hub before the first release.
       - run:
           name: Refuse a version already on Docker Hub
           command: |
-            if docker manifest inspect "openmbee/opensysml:${IMAGE_VERSION}" >/dev/null 2>&1; then
-              echo "Error: openmbee/opensysml:${IMAGE_VERSION} is already on Docker Hub;"
-              echo "a published image tag is not replaced. Cut the next core release."
+            image=openmbee/opensysml
+            # The token request carries the credentials through a curl config
+            # file, so they are on no command line.
+            token=$(curl -fsS --retry 3 --retry-all-errors \
+              -K <(printf 'user = "%s:%s"\n' "$DOCKER_USERNAME" "$DOCKER_PASSWORD") \
+              "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${image}:pull" \
+              | jq -r '.token // empty')
+            if [ -z "$token" ]; then
+              echo "Error: Docker Hub issued no registry token for ${image}; nothing was published."
               exit 1
             fi
-            echo "ok: openmbee/opensysml:${IMAGE_VERSION} is not on Docker Hub yet"
+            accept='application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json'
+            rm -f /tmp/manifest-check.json
+            status=$(curl -sS --retry 3 --retry-all-errors -o /tmp/manifest-check.json -w '%{http_code}' \
+              -H "Authorization: Bearer ${token}" -H "Accept: ${accept}" \
+              "https://registry-1.docker.io/v2/${image}/manifests/${IMAGE_VERSION}") || status=000
+            case "$status" in
+              404)
+                echo "ok: ${image}:${IMAGE_VERSION} is not on Docker Hub yet"
+                ;;
+              200)
+                echo "Error: ${image}:${IMAGE_VERSION} is already on Docker Hub;"
+                echo "a published image tag is not replaced. Cut the next core release."
+                exit 1
+                ;;
+              *)
+                echo "Error: Docker Hub answered ${status} for ${image}:${IMAGE_VERSION}, so whether the tag"
+                echo "exists is unknown and nothing is pushed. 401: the credentials cannot read the"
+                echo "repository, or it does not exist yet (create openmbee/opensysml on Docker Hub);"
+                echo "000 or 5xx: the registry was unreachable. Fix the cause and rerun from failed."
+                cat /tmp/manifest-check.json 2>/dev/null || true
+                exit 1
+                ;;
+            esac
 
       # The same metadata build-release-binaries stamps into the archives'
       # binaries; the Dockerfile passes it to the Makefile's -ldflags.

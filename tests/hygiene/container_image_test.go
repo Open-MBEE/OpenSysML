@@ -63,7 +63,7 @@ func TestContainerImageIsVerifiedBeforeItIsPushed(t *testing.T) {
 	}
 	runs := runSteps(t, job.Steps)
 	login := stepIndex(runs, "docker login", "--password-stdin")
-	refuse := stepIndex(runs, "docker manifest inspect", "openmbee/opensysml:${IMAGE_VERSION}")
+	refuse := stepIndex(runs, "/v2/${image}/manifests/${IMAGE_VERSION}", "404)", "200)", "*)")
 	check := stepIndex(runs, "--platform linux/amd64 --load", "-version", "/health", "GetServerInfo")
 	push := stepIndex(runs, "--platform linux/amd64,linux/arm64 --push")
 	rehearse := stepIndex(runs, "--platform linux/amd64,linux/arm64", "push=false")
@@ -71,7 +71,7 @@ func TestContainerImageIsVerifiedBeforeItIsPushed(t *testing.T) {
 		t.Fatal("publish-docker does not log in to Docker Hub with --password-stdin")
 	}
 	if refuse < 0 {
-		t.Fatal("publish-docker does not refuse a version tag already on Docker Hub")
+		t.Fatal("publish-docker does not ask the registry for the version tag and fail closed on anything but a definite 404")
 	}
 	if check < 0 {
 		t.Fatal("publish-docker does not run the linux/amd64 image and check its version, /health and a Connect call")
@@ -93,7 +93,7 @@ func TestContainerImageIsVerifiedBeforeItIsPushed(t *testing.T) {
 	if !containsAll(runs[push].Command, "${tag_flags}") {
 		t.Error("the push does not tag the image with every resolved tag")
 	}
-	for _, fragment := range []string{"openmbee/opensysml:${version}", "openmbee/opensysml:latest", "*-*)"} {
+	for _, fragment := range []string{"openmbee/opensysml:${version}", "openmbee/opensysml:latest", "*-*)", "git fetch --tags", "sort -V"} {
 		if stepIndex(runs, fragment) < 0 {
 			t.Errorf("publish-docker does not resolve %q from the tag", fragment)
 		}

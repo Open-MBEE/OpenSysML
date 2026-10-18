@@ -376,7 +376,7 @@ error: no SMT solver found: install z3 (`apt install z3`, `brew install z3`) or 
 
 Every release publishes `openmbee/opensysml` to Docker Hub for `linux/amd64`
 and `linux/arm64`, tagged with the release version (`openmbee/opensysml:0.10.1`)
-and, for a release that is not a pre-release, `latest`. The image runs
+and, for the newest release that is not a pre-release, `latest`. The image runs
 `sysml-grpc` as its entrypoint, and carries `sysml` and `sysml-lsp` beside it in
 `/usr/local/bin`, so a service that talks to `sysml-grpc` as a sidecar and then
 calls `sysml -convert` needs one image. It is built on

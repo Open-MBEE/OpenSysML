@@ -1773,8 +1773,11 @@ personal access token of *Read & Write* scope, stored in the organization
 CircleCI context named `DockerHub` as `DOCKER_USERNAME` and `DOCKER_PASSWORD`
 (the token). The context name is matched exactly, as the workflow spells it; it
 is the context `flexo-mms-sysmlv2` publishes its images with, so an existing one
-serves both. The repository `openmbee/opensysml` need not exist beforehand: the
-first push creates it under the account's organization.
+serves both. The repository `openmbee/opensysml` is created on Docker Hub
+beforehand, under the `openmbee` organization: the job asks the registry
+whether the version tag exists before it pushes, and a repository that does not
+exist answers that question with a 401, which the job refuses to read as
+"absent".
 
 ### The version and the tags
 
@@ -1782,21 +1785,31 @@ The image tag is the release version without the `v`, as the clients'
 registries spell it: tag `v0.10.1` pushes `openmbee/opensysml:0.10.1` and
 `openmbee/opensysml:latest`. A pre-release (`v0.11.0-rc.1`) pushes
 `openmbee/opensysml:0.11.0-rc.1` alone and leaves `latest` on the last release,
-as `publish-npm` leaves npm's `latest` dist-tag. Nothing in the tree declares
+as `publish-npm` leaves npm's `latest` dist-tag. `latest` moves only to the
+newest release: the job fetches the repository's tags, and if a stable `v*` tag
+newer than the one being released exists — a patch tag published late, or a
+release workflow re-run after the next release went out — it pushes the version
+tag alone and says so. Nothing in the tree declares
 the image's version; the tag is the version, and the image's `-version` output
 is checked against it before anything is pushed.
 
 ### What the job does, in order
 
 1. Resolves the version from the tag: fails if `CIRCLE_TAG` is empty, and
-   decides whether `latest` moves.
+   decides whether `latest` moves (a stable release, and no newer stable tag).
 2. Requires `DOCKER_USERNAME` and `DOCKER_PASSWORD`, naming only the missing
    ones.
 3. Logs in with `docker login --password-stdin`, so a revoked token fails before
    anything is built.
 4. Refuses to run if `openmbee/opensysml:<version>` is already on Docker Hub.
    Docker Hub tags are mutable, so this is the job's own promise: a version tag
-   names one image, and a deployer who pinned it keeps what they pinned.
+   names one image, and a deployer who pinned it keeps what they pinned. The
+   question goes to the registry API with the job's own credentials, and only
+   a definite 404 (`MANIFEST_UNKNOWN`) lets the job continue: 200 is the
+   refusal, and any other answer — 401 for credentials that cannot read the
+   repository or a repository not yet created, 5xx or no answer for a registry
+   outage — fails the job rather than being taken for an absent tag, which a
+   later push would then have replaced.
 5. Creates a `docker-container` buildx builder on the remote Docker host.
 6. Builds the `linux/amd64` image with `VERSION=$CIRCLE_TAG`,
    `COMMIT=$CIRCLE_SHA1` and the build time, loads it, and runs it: each of
@@ -1825,6 +1838,7 @@ version, a service not answering — nothing is on Docker Hub: fix the cause and
 *Rerun workflow from failed*.
 
 Once pushed, the refusal in step 4 makes a re-run fail by design. A published
-mistake needs the next core patch release; `latest` then moves to it. Deleting a
+mistake needs the next core patch release; `latest` then moves to it if no
+newer release exists. Deleting a
 tag in the Docker Hub UI is possible and is not done: a deployment that pulled
 `<version>` by tag would stop resolving it.
