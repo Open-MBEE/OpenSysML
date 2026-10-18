@@ -26,6 +26,7 @@ import {
   CAPABILITY_RENDER_DOCUMENT,
   CAPABILITY_RENDER_DOCUMENT_HTML,
   CAPABILITY_RENDER_VIEW,
+  CAPABILITY_CHECK,
   CAPABILITY_EXPORT_GRAPHS,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
@@ -60,6 +61,7 @@ import {
   QueryRequestSchema,
   RenderDocumentRequestSchema,
   RenderViewRequestSchema,
+  CheckBehaviorRequestSchema,
   ExportGraphsRequestSchema,
   RunAnalysisRequestSchema,
   RunDocumentQueryRequestSchema,
@@ -81,6 +83,7 @@ import {
   type Query,
   type RunAnalysisResponse,
   type RenderViewResponse,
+  type CheckBehaviorResponse,
   type ExportGraphsResponse,
   type Verdict as PbVerdict,
   type VerificationVerdict as PbVerificationVerdict,
@@ -122,6 +125,7 @@ import {
   type DocumentQueryResult,
 } from "./document.js";
 import { renderedViewOf, type RenderedView } from "./render-view.js";
+import { type CheckOptions, type CheckResult, checkResultOf } from "./check.js";
 import { type Graphs, graphsOf } from "./graphs.js";
 import {
   engineInfoOf,
@@ -725,6 +729,71 @@ export class Connection {
       capabilityRefusal(this.info, capabilities),
     );
     return renderedViewOf(response);
+  }
+
+  /** Searches every schedule of an action for a violated property, a deadlock, a failure or a divergent value. */
+  async checkAction(
+    modelHash: string,
+    actionSymbolId: string,
+    options: CheckOptions & { inputs?: Readonly<Record<string, ValueInput>> } = {},
+  ): Promise<CheckResult> {
+    return this.checkBehavior(modelHash, actionSymbolId, "", options);
+  }
+
+  /** Searches every schedule of a state machine; see {@link checkAction}. */
+  async checkStateMachine(
+    modelHash: string,
+    stateMachineSymbolId: string,
+    options: CheckOptions = {},
+  ): Promise<CheckResult> {
+    return this.checkBehavior(modelHash, "", stateMachineSymbolId, options);
+  }
+
+  private async checkBehavior(
+    modelHash: string,
+    actionSymbolId: string,
+    stateMachineSymbolId: string,
+    options: CheckOptions & { inputs?: Readonly<Record<string, ValueInput>> },
+  ): Promise<CheckResult> {
+    const capabilities = [CAPABILITY_CHECK];
+    if (options.performer !== undefined && options.performer !== "") {
+      capabilities.push(CAPABILITY_PERFORMER);
+    }
+    for (const capability of capabilities) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+    const inputs: Record<string, ReturnType<typeof toValue>> = {};
+    for (const [name, value] of Object.entries(options.inputs ?? {})) {
+      inputs[name] = toValue(value, this.info);
+    }
+    const response: CheckBehaviorResponse = await callRpc(
+      this.rpc.checkBehavior(
+        create(CheckBehaviorRequestSchema, {
+          modelHash,
+          actionSymbolId,
+          stateMachineSymbolId,
+          inputs,
+          performerSymbolId: options.performer ?? "",
+          checkProperty: [...(options.properties ?? [])],
+          checkDiverge: [...(options.diverge ?? [])],
+          checkInput: [...(options.freeInputs ?? [])],
+          checkAssume: [...(options.assume ?? [])],
+          checkWitness: options.witness ?? false,
+          checkDepth: options.depth ?? 0,
+          checkStates: options.states ?? 0,
+          checkUnroll: options.unroll ?? 0,
+          checkTimeout: options.timeout ?? 0,
+          engine: options.engine ?? "",
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, capabilities),
+    );
+    if (response.error !== "") {
+      throw new ExecutionError(response.error, "unspecified", []);
+    }
+    return checkResultOf(response);
   }
 
   /**

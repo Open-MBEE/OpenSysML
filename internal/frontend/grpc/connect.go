@@ -91,6 +91,10 @@ func (a *ConnectAdapter) ExecuteAction(ctx context.Context, req *connect.Request
 	return connectCall(ctx, req, a.svc.ExecuteAction)
 }
 
+func (a *ConnectAdapter) CheckBehavior(ctx context.Context, req *connect.Request[pb.CheckBehaviorRequest]) (*connect.Response[pb.CheckBehaviorResponse], error) {
+	return connectCall(ctx, req, a.svc.CheckBehavior)
+}
+
 // ExecuteState runs a state machine over the events given.
 func (a *ConnectAdapter) ExecuteState(ctx context.Context, req *connect.Request[pb.ExecuteStateRequest]) (*connect.Response[pb.ExecuteStateResponse], error) {
 	return connectCall(ctx, req, a.svc.ExecuteState)

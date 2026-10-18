@@ -14,6 +14,7 @@ in this directory, so adding a case is a data-only change.
 
 | Field | Applies to | Meaning |
 |---|---|---|
+| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc` or `CheckBehavior` |
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `GetDiagnostics`, `ApplyEdits`, `RunDocumentQuery` or `EvaluateCalc` |
 
 `ApplyEdits` sequence operations may carry the recursive action-body fields
@@ -24,7 +25,7 @@ empty else blocks are not authorable.
 | `expression` | Evaluate | expression source to evaluate |
 | `context_symbol_id` | Evaluate | optional FQN whose scope the expression is evaluated in |
 | `subject_symbol_id` | Evaluate | optional FQN of a part/usage instantiated and evaluated against, so features read its feature values |
-| `symbol_id` | GetSymbol, Instantiate, ExecuteAction, ExecuteState, EvaluateCalc | FQN of the subject |
+| `symbol_id` | GetSymbol, Instantiate, ExecuteAction, ExecuteState, EvaluateCalc, CheckBehavior | FQN of the subject |
 | `arguments` | EvaluateCalc | positional arguments bound to the calc's parameters |
 | `tools` | EvaluateCalc | stand-ins under `internal/exec/analysis/testdata` built and registered from a manifest before the service is built |
 | `inputs` | ExecuteAction | parameter name → value, bound before execution |
@@ -32,6 +33,12 @@ empty else blocks are not authorable.
 | `disable_lint`, `enable_lint` | GetDiagnostics | lint codes left out of, and opt-in lint codes kept in, the diagnostics, as `sysml -disable-lint`/`-enable-lint` select them |
 | `expected_codes`, `absent_codes` | GetDiagnostics | diagnostic codes the answer must carry, and must not |
 | `events` | ExecuteState | event names injected, in order |
+| `performer_symbol_id` | CheckBehavior | FQN of the part/usage whose object performs the action |
+| `check_property` | CheckBehavior | constraints or requirements evaluated at every stable state |
+| `check_diverge` | CheckBehavior | features whose final value the schedule may decide |
+| `expected_verdict` | CheckBehavior | `holds`, `fails` or `undecided` |
+| `expected_violations` | CheckBehavior | the violations witnessed, in order: `kind`, `property`, `depth` |
+| `expected_divergences` | CheckBehavior | feature → the final values it ends as, in order |
 | `instantiate` | RunDocumentQuery | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them |
 | `query_id` | RunDocumentQuery | FQN of the document query to run |
 | `bindings` | RunDocumentQuery | list of `{parameter, values}`, each value a document value bound to the parameter |
