@@ -767,3 +767,58 @@ func (ctx *Context) fillOptionalSubsetters(inst *Instance, name string, n int) (
 	}
 	return made, undo, nil
 }
+
+// referencedFeatureName is the feature of inst that sym reference-subsets (`ref part y ::> x`),
+// or "" when it names no feature this object holds.
+func (ctx *Context) referencedFeatureName(inst *Instance, sym *symbols.Symbol) string {
+	target := ctx.model.semantics.ReferencedFeature(sym)
+	if target == nil || target == sym {
+		return ""
+	}
+	if _, held := inst.FeatureValues[target.Name]; !held {
+		return ""
+	}
+	for _, typ := range inst.types() {
+		if ctx.isFeatureOf(typ, target, sym) {
+			return target.Name
+		}
+	}
+	return ""
+}
+
+// materializeReferenced holds in fv the values of the feature of the same object it
+// reference-subsets: a reference subsetting is a subsetting (KerML 1.0 §8.3.3.3.9), so the
+// values of `ref part y ::> x` are values of x (§7.3.4.4). Reports whether it held any.
+func (inst *Instance) materializeReferenced(ctx *Context, fv *FeatureValue, name string) (bool, error) {
+	source := ctx.referencedFeatureName(inst, fv.Feature.Symbol)
+	if source == "" || source == name {
+		return false, nil
+	}
+	key := featureValueRef{instance: inst.ID, feature: name}
+	if ctx.readingSubsetted[key] || ctx.readingSubsetted[featureValueRef{instance: inst.ID, feature: source}] {
+		return false, nil
+	}
+	ctx.readingSubsetted[key] = true
+	defer delete(ctx.readingSubsetted, key)
+	sfv, err := inst.GetFeatureValue(ctx, source)
+	if err != nil {
+		return false, fmt.Errorf("referenced feature %s of %s: %w", source, name, err)
+	}
+	val := sfv.HeldValue()
+	if val.Kind == ValInvalid {
+		return false, nil
+	}
+	if err := ctx.checkDefault(inst, fv, name, &val, admitDeclared); err != nil {
+		return false, err
+	}
+	if val, err = ctx.holdDeclared(inst, fv, val); err != nil {
+		return false, err
+	}
+	if fv.Feature.Scalar() {
+		fv.Value = val
+	} else {
+		fv.Values = val
+	}
+	fv.Materialized = true
+	return true, nil
+}

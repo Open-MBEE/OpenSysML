@@ -1017,6 +1017,11 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 		return fv, nil
 	}
 
+	// A feature reference-subsetting another of this object holds that one's values.
+	if held, err := inst.materializeReferenced(ctx, fv, name); err != nil || held {
+		return fv, err
+	}
+
 	// An abstract feature has no values of its own (KerML 1.0 §7.3.3.1) and an
 	// optional one demands none: each, a connector included, holds only contributions —
 	// unless the declaration's body binds a feature of the one object it then holds.
