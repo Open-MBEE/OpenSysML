@@ -16,19 +16,20 @@ import (
 // under the archive's file name, so two archives' members never collide.
 type archiveSource struct {
 	archives []*project.Archive
+	failed   string // the archive that did not open, listed so a read reports err
 	err      error
 }
 
 // NewArchiveSource returns a Source over the archives named, read into memory
 // and validated when the source is made. An archive that is not a project
-// interchange file makes every read fail with its reason rather than serve a
-// library with a piece missing.
+// interchange file is listed alone and every read fails with its reason, so a
+// load reports the archive rather than serve an empty library.
 func NewArchiveSource(paths ...string) Source {
 	s := &archiveSource{}
 	for _, path := range paths {
 		a, err := project.OpenArchive(path)
 		if err != nil {
-			s.err = err
+			s.failed, s.err = filepath.Base(path), err
 			return s
 		}
 		s.archives = append(s.archives, a)
@@ -61,6 +62,9 @@ func libraryPathSource(path string) Source {
 }
 
 func (s *archiveSource) List() []string {
+	if s.err != nil {
+		return []string{s.failed}
+	}
 	var out []string
 	for _, a := range s.archives {
 		base := filepath.Base(a.Path)

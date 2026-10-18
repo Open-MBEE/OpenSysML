@@ -39,7 +39,7 @@ func TestAnalysisResultInputsAreTheBoundParameters(t *testing.T) {
 
 	result, err := ctx.RunAnalysis(sym, AnalysisArgs{
 		Subject:    probe,
-		Positional: []Value{constValue(drawnReal(3.0))},
+		Positional: []Value{ConstValue(drawnReal(3.0))},
 	}, scope, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +51,7 @@ func TestAnalysisResultInputsAreTheBoundParameters(t *testing.T) {
 
 	result, err = ctx.RunAnalysis(sym, AnalysisArgs{
 		Subject: probe,
-		Named:   map[string]Value{"margin": constValue(drawnReal(0.25)), "burnTime": constValue(drawnReal(4.0))},
+		Named:   map[string]Value{"margin": ConstValue(drawnReal(0.25)), "burnTime": ConstValue(drawnReal(4.0))},
 	}, scope, nil)
 	if err != nil {
 		t.Fatal(err)

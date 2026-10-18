@@ -201,19 +201,19 @@ func call(t *testing.T, s *Server, method string, params any) (json.RawMessage, 
 }
 
 // render is one opensysml/render request, decoded.
-func render(t *testing.T, s *Server, docURI uri.URI, viewName string) *renderResult {
+func render(t *testing.T, s *Server, docURI uri.URI, viewName string) *RenderResult {
 	return renderWithLinkTemplate(t, s, docURI, viewName, "")
 }
 
-func renderWithLinkTemplate(t *testing.T, s *Server, docURI uri.URI, viewName, template string) *renderResult {
+func renderWithLinkTemplate(t *testing.T, s *Server, docURI uri.URI, viewName, template string) *RenderResult {
 	t.Helper()
 	return renderShowing(t, s, docURI, viewName, template, nil)
 }
 
 // renderShowing renders with the optional notation elements show names drawn too.
-func renderShowing(t *testing.T, s *Server, docURI uri.URI, viewName, template string, show []string) *renderResult {
+func renderShowing(t *testing.T, s *Server, docURI uri.URI, viewName, template string, show []string) *RenderResult {
 	t.Helper()
-	raw, err := call(t, s, MethodRender, &renderParams{
+	raw, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         viewName,
 		LinkTemplate: template,
@@ -222,7 +222,7 @@ func renderShowing(t *testing.T, s *Server, docURI uri.URI, viewName, template s
 	if err != nil {
 		t.Fatalf("render %q: %v", viewName, err)
 	}
-	var out renderResult
+	var out RenderResult
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("decode render result: %v", err)
 	}
@@ -232,7 +232,7 @@ func renderShowing(t *testing.T, s *Server, docURI uri.URI, viewName, template s
 func TestRenderWritesSourceLinks(t *testing.T) {
 	s, docURI := renderServer(t, "kit.sysml", renderModel)
 	template := "https://example.test/src/{file}#L{line}:{col}"
-	params, err := json.Marshal(renderParams{
+	params, err := json.Marshal(RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		LinkTemplate: template,
@@ -336,14 +336,14 @@ func TestRenderServesEverySupportedKind(t *testing.T) {
 
 func TestRenderMatrixPseudoView(t *testing.T) {
 	s, docURI := renderServer(t, "kit.sysml", renderModel)
-	raw, err := call(t, s, MethodRender, &renderParams{
+	raw, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "#matrix:Kit::Widget",
 	})
 	if err != nil {
 		t.Fatalf("render matrix pseudo-view: %v", err)
 	}
-	var out renderResult
+	var out RenderResult
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("decode render result: %v", err)
 	}
@@ -433,7 +433,7 @@ func TestRenderNodesCarryTheTypeApartFromTheDetail(t *testing.T) {
 	src := "package Kit {\n\tpart def Widget {\n\t\tpart cog : Cog;\n\t\tpart gear;\n\t}\n\tpart def Cog;\n}\n"
 	s, docURI := renderServer(t, "kit.sysml", src)
 	out := renderShowing(t, s, docURI, "#tree", "", []string{"typings", "multiplicities"})
-	want := map[string]renderNode{
+	want := map[string]RenderNode{
 		"Kit::Widget": {Kind: "part def"},
 		"cog":         {Kind: "part", Type: "Cog"},
 		"gear":        {Kind: "part"},
@@ -474,7 +474,7 @@ func TestRenderBehaviorNodesCarryTheTypeApartFromTheDetail(t *testing.T) {
 		"\t\ttransition first idle then heating;\n\t}\n" +
 		"}\n"
 	s, docURI := renderServer(t, "ops.sysml", src)
-	want := map[string]renderNode{
+	want := map[string]RenderNode{
 		"warm":    {Kind: "action", Type: "Warm"},
 		"start":   {Kind: "initial"},
 		"heating": {Kind: "state", Type: "Heating"},
@@ -521,7 +521,7 @@ func TestRenderPseudoViewOfADocumentWithNoViews(t *testing.T) {
 	}
 
 	// The same document without a view named is refused, pointing at pseudo-views.
-	if _, err := call(t, s, MethodRender, &renderParams{
+	if _, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 	}); err == nil || !strings.Contains(err.Error(), "#tree") {
 		t.Errorf("err = %v, want it to point at a pseudo-view", err)
@@ -532,13 +532,13 @@ func TestRenderPseudoViewOfADocumentWithNoViews(t *testing.T) {
 // which is what a panel holding a stale pick receives.
 func TestRenderRefusesAStaleViewName(t *testing.T) {
 	s, docURI := renderServer(t, "kit.sysml", renderModel)
-	if _, err := call(t, s, MethodRender, &renderParams{
+	if _, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::goneView",
 	}); err == nil || !strings.Contains(err.Error(), "no view named KitViews::goneView") {
 		t.Errorf("err = %v, want it to say there is no such view", err)
 	}
-	if _, err := call(t, s, MethodRender, &renderParams{
+	if _, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File("gone.sysml")},
 	}); err == nil || !strings.Contains(err.Error(), "no such document") {
 		t.Errorf("err = %v, want it to say there is no such document", err)
@@ -549,7 +549,7 @@ func TestRenderRefusesAStaleViewName(t *testing.T) {
 // in the listing so a panel can say why it cannot be drawn.
 func TestRenderAndViewsReportAnUnsupportedKind(t *testing.T) {
 	s, docURI := renderServer(t, "kit.sysml", renderModel)
-	_, err := call(t, s, MethodRender, &renderParams{
+	_, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetGeometry",
 	})
@@ -557,13 +557,13 @@ func TestRenderAndViewsReportAnUnsupportedKind(t *testing.T) {
 		t.Fatalf("err = %v, want it to say a geometry rendering is not supported", err)
 	}
 
-	raw, err := call(t, s, MethodViews, &viewsParams{
+	raw, err := call(t, s, MethodViews, &ViewsParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 	})
 	if err != nil {
 		t.Fatalf("views: %v", err)
 	}
-	var listing viewsResult
+	var listing ViewsResult
 	if err := json.Unmarshal(raw, &listing); err != nil {
 		t.Fatalf("decode views result: %v", err)
 	}
@@ -579,7 +579,7 @@ func TestRenderAndViewsReportAnUnsupportedKind(t *testing.T) {
 	if len(listing.Views) != 11 {
 		t.Fatalf("listed %d views, want 11: %+v", len(listing.Views), listing.Views)
 	}
-	kinds := map[string]viewInfo{}
+	kinds := map[string]ViewInfo{}
 	for _, info := range listing.Views {
 		kinds[info.Name] = info
 	}
@@ -614,13 +614,13 @@ func TestRenderAndViewsReportAnUnsupportedKind(t *testing.T) {
 // document, in LSP positions, so a client can tell which view the cursor is in.
 func TestViewsLocateEachDeclaration(t *testing.T) {
 	s, docURI := renderServer(t, "kit.sysml", renderModel)
-	raw, err := call(t, s, MethodViews, &viewsParams{
+	raw, err := call(t, s, MethodViews, &ViewsParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 	})
 	if err != nil {
 		t.Fatalf("views: %v", err)
 	}
-	var listing viewsResult
+	var listing ViewsResult
 	if err := json.Unmarshal(raw, &listing); err != nil {
 		t.Fatalf("decode views result: %v", err)
 	}
@@ -662,7 +662,7 @@ func TestViewsLocateEachDeclaration(t *testing.T) {
 // a known one is honored.
 func TestRenderHonorsTheFormAsked(t *testing.T) {
 	s, docURI := renderServer(t, "kit.sysml", renderModel)
-	raw, err := call(t, s, MethodRender, &renderParams{
+	raw, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		Form:         string(view.FormText),
@@ -670,21 +670,21 @@ func TestRenderHonorsTheFormAsked(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render as text: %v", err)
 	}
-	var out renderResult
+	var out RenderResult
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("decode render result: %v", err)
 	}
 	if out.Form != string(view.FormText) {
 		t.Errorf("form = %q, want %q", out.Form, view.FormText)
 	}
-	if _, err := call(t, s, MethodRender, &renderParams{
+	if _, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		Form:         "png",
 	}); err == nil || !strings.Contains(err.Error(), "no rendering form") || !strings.Contains(err.Error(), `"dot"`) || !strings.Contains(err.Error(), `"plantuml"`) || !strings.Contains(err.Error(), `"d2"`) {
 		t.Errorf("err = %v, want it to refuse the form and offer dot, plantuml and d2", err)
 	}
-	if _, err := call(t, s, MethodRender, &renderParams{
+	if _, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetMatrix",
 		Form:         string(view.FormD2),
@@ -719,7 +719,7 @@ func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
 		if name == "" {
 			name = "KitViews::widgetTree"
 		}
-		raw, err := call(t, s, MethodRender, &renderParams{
+		raw, err := call(t, s, MethodRender, &RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         name,
 			Form:         form,
@@ -728,7 +728,7 @@ func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
 			t.Errorf("render %s as %s: %v", name, form, err)
 			continue
 		}
-		var out renderResult
+		var out RenderResult
 		if err := json.Unmarshal(raw, &out); err != nil {
 			t.Fatalf("decode %s render result: %v", form, err)
 		}
@@ -749,7 +749,7 @@ func TestRenderRefusesD2ForCaseAndMixed(t *testing.T) {
 		{"KitViews::widgetCases", "case"},
 		{"KitViews::widgetMixed", "mixed"},
 	} {
-		_, err := call(t, s, MethodRender, &renderParams{
+		_, err := call(t, s, MethodRender, &RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         tc.name,
 			Form:         string(view.FormD2),
@@ -765,7 +765,7 @@ func TestRenderRefusesD2ForCaseAndMixed(t *testing.T) {
 func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 	s, docURI := renderServer(t, "kit.sysml", renderModel)
 	for _, name := range []string{"KitViews::widgetTree", "KitViews::widgetParts", "KitViews::widgetStates", "KitViews::widgetActions"} {
-		raw, err := call(t, s, MethodRender, &renderParams{
+		raw, err := call(t, s, MethodRender, &RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         name,
 			Form:         string(view.FormDot),
@@ -773,7 +773,7 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s as dot: %v", name, err)
 		}
-		var out renderResult
+		var out RenderResult
 		if err := json.Unmarshal(raw, &out); err != nil {
 			t.Fatalf("decode render result: %v", err)
 		}
@@ -790,7 +790,7 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 		}
 	}
 	for _, name := range []string{"KitViews::widgetTable", "KitViews::widgetMatrix", "KitViews::widgetSequence"} {
-		_, err := call(t, s, MethodRender, &renderParams{
+		_, err := call(t, s, MethodRender, &RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         name,
 			Form:         string(view.FormDot),
@@ -806,7 +806,7 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
 	s, docURI := renderServer(t, "kit.sysml", renderModel)
 	for _, name := range []string{"KitViews::widgetTree", "KitViews::widgetParts", "KitViews::widgetStates", "KitViews::widgetActions", "KitViews::widgetSequence"} {
-		raw, err := call(t, s, MethodRender, &renderParams{
+		raw, err := call(t, s, MethodRender, &RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         name,
 			Form:         string(view.FormPlantUML),
@@ -814,7 +814,7 @@ func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s as plantuml: %v", name, err)
 		}
-		var out renderResult
+		var out RenderResult
 		if err := json.Unmarshal(raw, &out); err != nil {
 			t.Fatalf("decode render result: %v", err)
 		}
@@ -830,7 +830,7 @@ func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
 			t.Errorf("%s: the PlantUML result carries no nodes", name)
 		}
 	}
-	_, err := call(t, s, MethodRender, &renderParams{
+	_, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTable",
 		Form:         string(view.FormPlantUML),
@@ -838,7 +838,7 @@ func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "not written as plantuml") {
 		t.Errorf("table as plantuml: err = %v, want the form refused", err)
 	}
-	raw, err := call(t, s, MethodRender, &renderParams{
+	raw, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		Form:         string(view.FormPlantUML),
@@ -847,14 +847,14 @@ func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render plantuml with a palette: %v", err)
 	}
-	var out renderResult
+	var out RenderResult
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("decode render result: %v", err)
 	}
 	if !strings.Contains(out.Artifact, ">> #") {
 		t.Errorf("the PlantUML artifact is not filled from the palette:\n%s", out.Artifact)
 	}
-	if _, err := call(t, s, MethodRender, &renderParams{
+	if _, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		Form:         string(view.FormPlantUML),
@@ -869,7 +869,7 @@ func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
 // with the palettes there are.
 func TestRenderFillsFromThePaletteAsked(t *testing.T) {
 	s, docURI := renderServer(t, "kit.sysml", renderModel)
-	raw, err := call(t, s, MethodRender, &renderParams{
+	raw, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		Form:         string(view.FormDot),
@@ -878,14 +878,14 @@ func TestRenderFillsFromThePaletteAsked(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render with a palette: %v", err)
 	}
-	var out renderResult
+	var out RenderResult
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("decode render result: %v", err)
 	}
 	if !strings.Contains(out.Artifact, `fillcolor="#`) || !strings.Contains(out.Artifact, "penwidth=1, label=<") {
 		t.Errorf("the DOT artifact is not filled from the palette:\n%s", out.Artifact)
 	}
-	raw, err = call(t, s, MethodRender, &renderParams{
+	raw, err = call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		Form:         string(view.FormMermaid),
@@ -900,7 +900,7 @@ func TestRenderFillsFromThePaletteAsked(t *testing.T) {
 	if !strings.Contains(out.Artifact, "classDef palette0 fill:#") || strings.Contains(out.Artifact, "not represented: palette") {
 		t.Errorf("Mermaid does not draw the palette:\n%s", out.Artifact)
 	}
-	_, err = call(t, s, MethodRender, &renderParams{
+	_, err = call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		Form:         string(view.FormDot),
@@ -919,7 +919,7 @@ func TestRenderNodesCarryThePaletteFills(t *testing.T) {
 	s, docURI := renderServer(t, "kit.sysml", renderModel)
 	fillLine := regexp.MustCompile(`^\s*"([^"]+)" \[.*fillcolor="(#[0-9A-F]{6})", color="(#[0-9A-F]{6})"`)
 	for _, form := range []view.Form{view.FormDot, view.FormMermaid} {
-		raw, err := call(t, s, MethodRender, &renderParams{
+		raw, err := call(t, s, MethodRender, &RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         "KitViews::widgetStates",
 			Form:         string(form),
@@ -928,7 +928,7 @@ func TestRenderNodesCarryThePaletteFills(t *testing.T) {
 		if err != nil {
 			t.Fatalf("render %s with a palette: %v", form, err)
 		}
-		var out renderResult
+		var out RenderResult
 		if err := json.Unmarshal(raw, &out); err != nil {
 			t.Fatalf("decode render result: %v", err)
 		}
@@ -956,7 +956,7 @@ func TestRenderNodesCarryThePaletteFills(t *testing.T) {
 			}
 		}
 	}
-	raw, err := call(t, s, MethodRender, &renderParams{
+	raw, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetStates",
 	})
@@ -972,7 +972,7 @@ func TestRenderNodesCarryThePaletteFills(t *testing.T) {
 // participant border; the border key is absent from the wire, not empty.
 func TestRenderSequenceParticipantsFillWithoutBorder(t *testing.T) {
 	s, docURI := renderServer(t, "kit.sysml", renderModel)
-	raw, err := call(t, s, MethodRender, &renderParams{
+	raw, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetSequence",
 		Form:         string(view.FormPlantUML),
@@ -981,7 +981,7 @@ func TestRenderSequenceParticipantsFillWithoutBorder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render the sequence with a palette: %v", err)
 	}
-	var out renderResult
+	var out RenderResult
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("decode render result: %v", err)
 	}
@@ -1007,7 +1007,7 @@ func TestRenderSequenceParticipantsFillWithoutBorder(t *testing.T) {
 
 func TestRenderMermaidSequenceReturnsParticipantFills(t *testing.T) {
 	s, docURI := renderServer(t, "kit.sysml", renderModel)
-	raw, err := call(t, s, MethodRender, &renderParams{
+	raw, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetSequence",
 		Form:         string(view.FormMermaid),
@@ -1016,7 +1016,7 @@ func TestRenderMermaidSequenceReturnsParticipantFills(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render the Mermaid sequence with a palette: %v", err)
 	}
-	var out renderResult
+	var out RenderResult
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("decode render result: %v", err)
 	}
@@ -1068,7 +1068,7 @@ package KitViews {
 }
 `
 	s, docURI := renderServer(t, "kit.sysml", src)
-	raw, err := call(t, s, MethodRender, &renderParams{
+	raw, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::placed",
 	})
@@ -1253,7 +1253,7 @@ func TestRenderSnapshotsOneDocumentRevision(t *testing.T) {
 	}()
 	defer func() { close(stop); <-done }()
 
-	params := &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "#tree"}
+	params := &RenderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "#tree"}
 	for i := 0; i < 300; i++ {
 		out, err := s.Render(params)
 		if err != nil {
@@ -1299,16 +1299,16 @@ package StyledViews {
 	if advertised, _ := experimental[RenderStylesCapability].([]string); !slices.Equal(advertised, []string{"pilot", "cameo"}) {
 		t.Fatalf("%s = %#v, want pilot then cameo", RenderStylesCapability, experimental[RenderStylesCapability])
 	}
-	render := func(t *testing.T, view, form, style, palette string) renderResult {
+	render := func(t *testing.T, view, form, style, palette string) RenderResult {
 		t.Helper()
-		raw, err := call(t, s, MethodRender, &renderParams{
+		raw, err := call(t, s, MethodRender, &RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         view, Form: form, Style: style, Palette: palette,
 		})
 		if err != nil {
 			t.Fatalf("render %s in %q: %v", form, style, err)
 		}
-		var out renderResult
+		var out RenderResult
 		if err := json.Unmarshal(raw, &out); err != nil {
 			t.Fatalf("decode render result: %v", err)
 		}
@@ -1328,7 +1328,7 @@ package StyledViews {
 		strings.Contains(mermaid.Artifact, "not represented: style cameo") {
 		t.Errorf("Mermaid does not draw the style:\n%s", mermaid.Artifact)
 	}
-	_, err = call(t, s, MethodRender, &renderParams{
+	_, err = call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree", Form: "dot", Style: "magicdraw",
 	})
@@ -1337,7 +1337,7 @@ package StyledViews {
 	}
 
 	out := render(t, "StyledViews::styledTree", "dot", "", string(view.PaletteOkabeIto))
-	var cog *renderNode
+	var cog *RenderNode
 	for i := range out.Nodes {
 		if out.Nodes[i].Name == "cog" {
 			cog = &out.Nodes[i]
@@ -1380,16 +1380,16 @@ func TestRenderShowsOptionalNotationElements(t *testing.T) {
 	if advertised, _ := experimental[RenderElementsCapability].([]string); !slices.Equal(advertised, wantNames) {
 		t.Fatalf("%s = %#v, want %v", RenderElementsCapability, experimental[RenderElementsCapability], wantNames)
 	}
-	render := func(t *testing.T, show []string) (*renderResult, error) {
+	render := func(t *testing.T, show []string) (*RenderResult, error) {
 		t.Helper()
-		raw, err := call(t, s, MethodRender, &renderParams{
+		raw, err := call(t, s, MethodRender, &RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         "Demo::link", Form: string(view.FormDot), Show: show,
 		})
 		if err != nil {
 			return nil, err
 		}
-		var out renderResult
+		var out RenderResult
 		if err := json.Unmarshal(raw, &out); err != nil {
 			t.Fatalf("decode render result: %v", err)
 		}
@@ -1452,16 +1452,16 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	if advertised, _ := experimental[RenderOverlaysCapability].([]string); !slices.Equal(advertised, []string{"verdicts"}) {
 		t.Fatalf("%s = %#v, want verdicts", RenderOverlaysCapability, experimental[RenderOverlaysCapability])
 	}
-	render := func(t *testing.T, ports string) *renderResult {
+	render := func(t *testing.T, ports string) *RenderResult {
 		t.Helper()
-		raw, err := call(t, s, MethodRender, &renderParams{
+		raw, err := call(t, s, MethodRender, &RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         "Demo::link", Form: string(view.FormPlantUML), Ports: ports, Show: []string{"typings"},
 		})
 		if err != nil {
 			t.Fatalf("render ports=%q: %v", ports, err)
 		}
-		var out renderResult
+		var out RenderResult
 		if err := json.Unmarshal(raw, &out); err != nil {
 			t.Fatalf("decode render result: %v", err)
 		}
@@ -1474,7 +1474,7 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 			t.Errorf("the default lacks %q:\n%s", want, minimal)
 		}
 	}
-	minimalPorts := map[string]renderPort{}
+	minimalPorts := map[string]RenderPort{}
 	for _, node := range minimalResult.Nodes {
 		for _, port := range node.Ports {
 			minimalPorts[port.Name] = port
@@ -1500,7 +1500,7 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 			t.Errorf("ports=full lacks %q:\n%s", want, full)
 		}
 	}
-	fullPorts := map[string]renderPort{}
+	fullPorts := map[string]RenderPort{}
 	for _, node := range fullResult.Nodes {
 		for _, port := range node.Ports {
 			fullPorts[port.Name] = port
@@ -1516,7 +1516,7 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	}
 	assertEngineRenderMatchesLSP(t, ported, minimalResult, "", []string{"typings"})
 	assertEngineRenderMatchesLSP(t, ported, fullResult, "full", []string{"typings"})
-	_, err = call(t, s, MethodRender, &renderParams{
+	_, err = call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "Demo::link", Form: string(view.FormDot), Ports: "all",
 	})
@@ -1546,7 +1546,7 @@ func TestRenderGeneralViewCaseRoute(t *testing.T) {
 			t.Errorf("no node %q among %v", want, got.Nodes)
 		}
 	}
-	if _, err := call(t, s, MethodRender, &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "UseCaseViews::useCaseView", Overlay: "verdicts"}); err == nil || !strings.Contains(err.Error(), "a case rendering draws no verdicts overlay") {
+	if _, err := call(t, s, MethodRender, &RenderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "UseCaseViews::useCaseView", Overlay: "verdicts"}); err == nil || !strings.Contains(err.Error(), "a case rendering draws no verdicts overlay") {
 		t.Errorf("verdicts over a case rendering: err = %v", err)
 	}
 }
@@ -1568,11 +1568,11 @@ func TestRenderDrawsVerdictsWhenAsked(t *testing.T) {
 			}
 		}
 	}
-	raw, err := call(t, s, MethodRender, &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "GeneralViews::requirementView", Overlay: "verdicts"})
+	raw, err := call(t, s, MethodRender, &RenderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "GeneralViews::requirementView", Overlay: "verdicts"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var out renderResult
+	var out RenderResult
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatal(err)
 	}
@@ -1586,7 +1586,7 @@ func TestRenderDrawsVerdictsWhenAsked(t *testing.T) {
 	if !reflect.DeepEqual(verdicts, want) {
 		t.Errorf("verdicts = %v, want %v", verdicts, want)
 	}
-	raw, err = call(t, s, MethodRender, &renderParams{
+	raw, err = call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "GeneralViews::requirementView",
 		Overlay:      "verdicts",
@@ -1595,17 +1595,17 @@ func TestRenderDrawsVerdictsWhenAsked(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var linked renderResult
+	var linked RenderResult
 	if err := json.Unmarshal(raw, &linked); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(linked.Artifact, "https://example.test/src/") || !strings.Contains(linked.Artifact, "fail") {
 		t.Errorf("a linked verdict rendering has no source link or verdict:\n%s", linked.Artifact)
 	}
-	if _, err := call(t, s, MethodRender, &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "GeneralViews::definitionView", Overlay: "verdicts"}); err == nil || !strings.Contains(err.Error(), "draws no verdicts overlay") {
+	if _, err := call(t, s, MethodRender, &RenderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "GeneralViews::definitionView", Overlay: "verdicts"}); err == nil || !strings.Contains(err.Error(), "draws no verdicts overlay") {
 		t.Errorf("verdicts over a definition rendering = %v", err)
 	}
-	if _, err := call(t, s, MethodRender, &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "GeneralViews::requirementView", Overlay: "colours"}); err == nil || !strings.Contains(err.Error(), `unknown overlay "colours"`) {
+	if _, err := call(t, s, MethodRender, &RenderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "GeneralViews::requirementView", Overlay: "colours"}); err == nil || !strings.Contains(err.Error(), `unknown overlay "colours"`) {
 		t.Errorf("an unknown overlay = %v", err)
 	}
 }
@@ -1635,16 +1635,16 @@ func TestRenderMixedCarriesConnectorPortData(t *testing.T) {
 }
 `
 	s, docURI := renderServer(t, "mixed-ports.sysml", mixed)
-	renderWithPorts := func(t *testing.T, ports string) *renderResult {
+	renderWithPorts := func(t *testing.T, ports string) *RenderResult {
 		t.Helper()
-		raw, err := call(t, s, MethodRender, &renderParams{
+		raw, err := call(t, s, MethodRender, &RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         "Demo::link", Ports: ports,
 		})
 		if err != nil {
 			t.Fatalf("render mixed view with ports=%q: %v", ports, err)
 		}
-		var out renderResult
+		var out RenderResult
 		if err := json.Unmarshal(raw, &out); err != nil {
 			t.Fatalf("decode mixed render result: %v", err)
 		}
@@ -1704,7 +1704,7 @@ func TestRenderMixedCarriesConnectorPortData(t *testing.T) {
 	}
 }
 
-func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *renderResult, ports string, show []string) {
+func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *RenderResult, ports string, show []string) {
 	t.Helper()
 	eng, err := engine.New()
 	if err != nil {
@@ -1813,9 +1813,9 @@ func TestRenderKeepsActionPinsForEveryPortDisplay(t *testing.T) {
 }
 `
 	s, docURI := renderServer(t, "action-pins.sysml", src)
-	renderWithPorts := func(ports string) *renderResult {
+	renderWithPorts := func(ports string) *RenderResult {
 		t.Helper()
-		raw, err := call(t, s, MethodRender, &renderParams{
+		raw, err := call(t, s, MethodRender, &RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         "#action:Pins::ToastBread",
 			Ports:        ports,
@@ -1824,14 +1824,14 @@ func TestRenderKeepsActionPinsForEveryPortDisplay(t *testing.T) {
 		if err != nil {
 			t.Fatalf("render action ports=%q: %v", ports, err)
 		}
-		var out renderResult
+		var out RenderResult
 		if err := json.Unmarshal(raw, &out); err != nil {
 			t.Fatalf("decode action rendering: %v", err)
 		}
 		return &out
 	}
 	minimal, full := renderWithPorts(""), renderWithPorts("full")
-	var minimalRoot, fullRoot *renderNode
+	var minimalRoot, fullRoot *RenderNode
 	for i := range minimal.Nodes {
 		if minimal.Nodes[i].Name == "Pins::ToastBread" {
 			minimalRoot = &minimal.Nodes[i]
@@ -1855,7 +1855,7 @@ func TestRenderKeepsActionPinsForEveryPortDisplay(t *testing.T) {
 	if !reflect.DeepEqual(directions, map[string]string{"bread": "in", "toast": "out"}) {
 		t.Errorf("action frame ports = %+v, want input and output pins", minimalRoot.Ports)
 	}
-	countPorts := func(nodes []renderNode) (count int) {
+	countPorts := func(nodes []RenderNode) (count int) {
 		for _, node := range nodes {
 			count += len(node.Ports)
 		}
@@ -1886,14 +1886,14 @@ func TestRenderLines(t *testing.T) {
 	s, docURI := renderServer(t, "ported.sysml", ported)
 	render := func(t *testing.T, form view.Form, lines string) string {
 		t.Helper()
-		raw, err := call(t, s, MethodRender, &renderParams{
+		raw, err := call(t, s, MethodRender, &RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         "Demo::link", Form: string(form), Lines: lines,
 		})
 		if err != nil {
 			t.Fatalf("render lines=%q: %v", lines, err)
 		}
-		var out renderResult
+		var out RenderResult
 		if err := json.Unmarshal(raw, &out); err != nil {
 			t.Fatalf("decode render result: %v", err)
 		}
@@ -1918,7 +1918,7 @@ func TestRenderLines(t *testing.T) {
 			t.Errorf("%s with lines %s is missing %q:\n%s", c.form, c.lines, c.want, got)
 		}
 	}
-	_, err := call(t, s, MethodRender, &renderParams{
+	_, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "Demo::link", Form: string(view.FormDot), Lines: "curved",
 	})
@@ -1940,7 +1940,7 @@ func TestRenderDepthParam(t *testing.T) {
     view structure { expose vehicle; render asTreeDiagram; }
 }
 `)
-	raw, err := call(t, s, MethodRender, &renderParams{
+	raw, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "Deep::structure",
 		Form:         string(view.FormText),
@@ -1949,14 +1949,14 @@ func TestRenderDepthParam(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
-	var out renderResult
+	var out RenderResult
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.Artifact, "part wheel (nested deeper than 1 level; not shown)") || strings.Contains(out.Artifact, "hub") {
 		t.Errorf("artifact with depth 1:\n%s", out.Artifact)
 	}
-	if _, err := call(t, s, MethodRender, &renderParams{
+	if _, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "Deep::structure",
 		Depth:        -1,

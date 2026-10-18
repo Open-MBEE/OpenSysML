@@ -266,7 +266,7 @@ func (ec *EvalContext) lookupSubaction(name string) (perf *actionFrame, declared
 	var decl ast.Node
 	if ec.ctx.model.resolver != nil {
 		if sym, ok := ec.lookupName(name); ok && sym != nil {
-			if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind != ast.UsageAction && !lower.IsCaseNode(usage) {
+			if usage, ok := sym.Decl.(*ast.Usage); ok && !usage.Kind.IsAction() && !lower.IsCaseNode(usage) {
 				return nil, false, nil
 			}
 			decl = sym.Decl
@@ -764,6 +764,13 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		// object owning the performance, which is the bound instance.
 		if name == thisName && ec.namesOccurrenceThis(name) {
 			return ec.thisValue()
+		}
+		// Then a Kernel Semantic Library member of the bound instance, which the
+		// shape leaves out: read bare in the body as `self.<name>` reads it.
+		if ec.self != nil && ec.selfFeatureInScope(name) {
+			if fv, answered, err := ec.ctx.kernelMemberRead(ec.self, name); answered && err == nil {
+				return fv.HeldValue(), nil
+			}
 		}
 		// Then the scope the expression was written in: a sibling attribute, a
 		// member of an enclosing namespace, or a name an import brought in, found
@@ -1404,7 +1411,7 @@ func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
 	if now, isClock, err := ec.ctx.clockMember(ec.self, name); isClock {
 		return now, true, err
 	}
-	if _, ok := ec.self.FeatureValues[name]; !ok {
+	if _, ok := ec.self.FeatureValues[name]; !ok && !ec.ctx.derivesKernelCollection(ec.self, name) {
 		return Value{}, false, nil
 	}
 	fv, open, err := ec.memberFeatureValue(ec.self, name)
@@ -1679,6 +1686,15 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
 			return ec.calcUsageMemberValue(sym, inst, rest)
 		}
+		if ec.ctx.derivesKernelCollection(inst, name) {
+			return ec.chainFeatureValue(inst, name, rest, from)
+		}
+		if fv, answered, err := ec.ctx.kernelMemberRead(inst, name); answered {
+			if err != nil {
+				return Value{}, err
+			}
+			return ec.chainMemberValue(fv.HeldValue(), rest, name)
+		}
 		return Value{}, fmt.Errorf("%w: member %s not found in instance", ErrNoSuchFeature, name)
 	}
 	// A variant named through the variation feature it belongs to is the choice
@@ -1694,6 +1710,11 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 		return ec.chainMemberValue(val, rest, variant.Name)
 	}
+	return ec.chainFeatureValue(inst, name, rest, from)
+}
+
+// chainFeatureValue continues a chain through the named feature value of inst.
+func (ec *EvalContext) chainFeatureValue(inst *Instance, name string, rest []ast.NameSegment, from string) (Value, error) {
 	// Read through the feature value so a derived or composite member is materialized
 	// on demand rather than read as an empty feature value.
 	fv, open, err := ec.memberFeatureValue(inst, name)
@@ -2090,8 +2111,8 @@ func (ctx *Context) scalarValueType(scope *symbols.Scope, value Value) (*symbols
 	return nil, fmt.Errorf("%w: direct type %q", errUndeterminedValueType, fqn)
 }
 
-// evalClassification evaluates `@T` (metadata T annotates the subject) and `@@T`
-// (the subject's own metaclass conforms to T) through the semantic model, so the
+// evalClassification evaluates `@T` and `@@T` (metadata of the subject — an
+// annotation or its own metaclass — conforms to T) through the semantic model, so the
 // verdict is the one an element filter writing the same test reaches.
 func (ec *EvalContext) evalClassification(n *ast.OperatorExpr) (Value, error) {
 	elem, err := ec.classifiedElement(n)
@@ -3845,7 +3866,7 @@ func (ctx *Context) vectorEqual(a, b *Vector) bool {
 		return false
 	}
 	for i := range a.Elements {
-		if !ctx.valueEqual(constValue(a.Elements[i]), constValue(b.Elements[i])) {
+		if !ctx.valueEqual(ConstValue(a.Elements[i]), ConstValue(b.Elements[i])) {
 			return false
 		}
 	}

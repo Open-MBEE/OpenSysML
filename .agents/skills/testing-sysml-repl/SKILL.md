@@ -27,6 +27,40 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
   `-record-run ... -convert sysml -o ...`; a static rejection alone does not
   exercise failed analysis execution.
 
+## Session tools over the `sysml-mcp` stdio binary
+
+The MCP server's session group (`-tools session`) drives the same `repl.Session` as the
+prompt, so a REPL test has an MCP twin.
+
+- Build from the repository root: `go build -o bin/sysml-mcp ./cmd/sysml-mcp`, and
+  `go build -o bin/sysml ./cmd/sysml` for prompt comparisons.
+- Launch `bin/sysml-mcp -stdio -root <small workspace> -tools session`. Keep the
+  workspace under the home directory, not `/tmp` (the LSP wire tests index `/tmp`), and
+  leave the `lsp` group off when the root is large.
+- Drive it with the module's MCP Go SDK over `mcp.CommandTransport` (see
+  `cmd/sysml-mcp/lifecycle_test.go`), or newline-delimited JSON-RPC: `initialize`, then
+  `notifications/initialized`. Capture stdout and stderr apart; every stdout line must be
+  protocol JSON.
+- Read `tools/list` for the schemas, validate each successful result against its
+  `outputSchema`, and decode the text content before comparing it with
+  `structuredContent`. Then compare the `text` fields with what `bin/sysml` prints for
+  the same `%` command.
+- `runs` needs a seed unless `%draws` fixes the policy. A cancellation probe needs a
+  seeded run long enough to still be going; raise the process-local budget
+  (`OPENSYSML_MAX_SWEEP_RUNS=100000`) rather than asking for more than it admits. The
+  SDK's context cancellation can return before the server's reply; to see the reply,
+  send `notifications/cancelled` with the request id and read what comes back. A
+  literal `session_eval` afterwards proves the session still answers.
+- Instantiate the part before debugging its exhibited machine (`%instantiate`, then
+  `debug_start` with `kind: state` on the object). Run a completed action and then a
+  live machine in one session: `debug_current` must describe the machine in both text
+  and data.
+- A state run's `time` is the shared clock, so compare it with the clock before the run,
+  not with zero. Compare sampled sweep rows without their `millis`.
+- `session_save` without `apply` must leave the disk untouched and return the bytes the
+  file would hold, trailing newline included; an absolute path outside the root is
+  written as given.
+
 ### Devin Secrets Needed
 
 None for local recording and document-query testing.
@@ -4317,7 +4351,7 @@ Read-only printer of the session buffer or one element:
 `satisfy structure (from Demo::StructureView): violated` and one line per concern
 (`conforms` / `violated` naming the exposed element and condition / `unevaluable` + reason); the
 view frames nothing itself — every concern the viewpoint frames is evaluated against what it exposes,
-and a `frame` written in a view body draws a `nonstandard-notation` warning.
+and a `frame` written in a view body is a parser error.
 A satisfy target that is a `requirementUsage` is diagnosed at load *and* reported as
 `unevaluable (satisfy target spec is a requirementUsage, not a viewpoint)` — never a silent pass.
 `%view` registers no object: `%instances` afterwards says none created, a repeat is identical, and a

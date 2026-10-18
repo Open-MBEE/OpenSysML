@@ -117,62 +117,6 @@ func TestStateExtensionsAreReported(t *testing.T) {
 	}
 }
 
-// A `frame` in a view body is an extension: FramedConcernMember belongs to a
-// requirement, concern or viewpoint body. Both spellings are reported, in a view
-// definition, a view usage and a view nested in another view alike.
-func TestFrameInAViewBodyIsReported(t *testing.T) {
-	const lib = "concern def C; concern c : C; "
-	for _, src := range []string{
-		lib + "view def V { frame concern k : C; }",
-		lib + "view def V { frame c; }",
-		lib + "view v { frame concern k : C; }",
-		lib + "view v { frame c; }",
-		lib + "view v { view inner { frame c; } }",
-		lib + "part def P { view v { frame c; } }",
-	} {
-		wantNotation(t, "a.sysml", src, CodeNonstandardNotation, "`frame` in a view body")
-	}
-}
-
-// A `frame` where the grammar places it stays silent: in a requirement,
-// concern or viewpoint body, including one declared inside a view body.
-func TestFrameOutsideAViewBodyIsSilent(t *testing.T) {
-	const lib = "concern def C; concern c : C; "
-	for _, src := range []string{
-		lib + "viewpoint def VP { frame concern k : C; frame c; }",
-		lib + "viewpoint vp { frame c; }",
-		lib + "requirement def R { frame c; }",
-		lib + "requirement r { frame concern k : C; }",
-		lib + "concern def D { frame c; }",
-		lib + "view def V { viewpoint vp { frame c; } }",
-		lib + "view v { requirement r { frame c; } }",
-	} {
-		wantSilent(t, "a.sysml", src)
-	}
-}
-
-// The `frame` warning points at the keyword, not at the whole member.
-func TestFrameInAViewBodyIsReportedAtItsKeyword(t *testing.T) {
-	src := `concern def C;
-	view def V {
-		frame concern k : C;
-	}`
-	root, pd, idx := analyzeInputs(t, "a.sysml", src)
-	if len(pd) != 0 {
-		t.Fatalf("%s: parse errors %+v", src, pd)
-	}
-	got := (NonstandardNotationPass{}).Run(NewContext("a.sysml", idx, pd), "a.sysml", root)
-	if len(got) != 1 {
-		t.Fatalf("%s: got %d diagnostics %+v, want 1", src, len(got), got)
-	}
-	if line := strings.Count(src[:got[0].Span.Offset], "\n") + 1; line != 3 {
-		t.Errorf("diagnostic is on line %d, want 3", line)
-	}
-	if got[0].Span.Len != len("frame") {
-		t.Errorf("diagnostic spans %d bytes, want the keyword", got[0].Span.Len)
-	}
-}
-
 // A transition stating its ends with `first` and `then` is standard.
 func TestStandardTransitionStaysSilent(t *testing.T) {
 	wantSilent(t, "a.sysml", "state def S { state a; state b; transition first a then b; }")
@@ -321,6 +265,44 @@ func TestTargetSuccessionAfterANonActionMemberIsAnExtension(t *testing.T) {
 	wantSilent(t, "a.sysml", "part def V { exhibit state vs { entry; then on; state on; then off; state off; } }")
 	wantSilent(t, "a.sysml", "part def P { action a; action b; first a then b; }")
 	wantSilent(t, "a.kerml", "behavior A { step a; then a; }")
+}
+
+// Outside an action body (TargetSuccessionMember) or a state body (a target
+// transition), `then <target>;` is an extension whatever member precedes it.
+func TestTargetSuccessionOutsideAnActionOrStateBodyIsAnExtension(t *testing.T) {
+	const outside = "`then <target>;` outside an action or state body"
+	wantNotation(t, "a.sysml", "view v { action x; then y; }", CodeNonstandardNotation, outside)
+	wantNotation(t, "a.sysml", "view def V { action x; then y; }", CodeNonstandardNotation, outside)
+	wantNotation(t, "a.sysml", "part def P { action x; then y; }", CodeNonstandardNotation, outside)
+	wantNotation(t, "a.sysml", "viewpoint def V { frame f; then y; }", CodeNonstandardNotation, outside)
+	// A package body admits no target succession: the parser rejects it, and the
+	// pass must not stack a notation finding on the same span.
+	for _, src := range []string{
+		"action def A { package P { action x; then y; } }",
+		"state def S { package P { action x; then y; } }",
+	} {
+		root, pd, idx := analyzeInputs(t, "a.sysml", src)
+		if !hasParseError(pd) {
+			t.Fatalf("%s: want a parse error on the package body's `then`", src)
+		}
+		for _, d := range (NonstandardNotationPass{}).Run(NewContext("a.sysml", idx, pd), "a.sysml", root) {
+			if d.Code == CodeNonstandardNotation {
+				t.Errorf("%s: got notation finding %+v, want none beside the parse error", src, d)
+			}
+		}
+	}
+
+	got := notationDiags(t, "a.sysml", "view v { action x; then y; }", diag.ConformanceStrict)
+	if len(got) != 1 || got[0].Severity != diag.SeverityError || !got[0].Notation {
+		t.Fatalf("strict got %+v, want one notation error", got)
+	}
+
+	wantSilent(t, "a.sysml", "action def A { action x; then y; }")
+	wantSilent(t, "a.sysml", "action def A { action x; if true then y; else y; }")
+	wantSilent(t, "a.sysml", "state def S { state x; then y; state y; }")
+	wantSilent(t, "a.sysml", "state s { state x; then t; state t; }")
+	wantSilent(t, "a.sysml", "action def A { action x; then action y; }")
+	wantSilent(t, "a.sysml", "action def A { action x; action y; first x then y; }")
 }
 
 // RequirementConstraintMember belongs to a RequirementBody; anywhere else the

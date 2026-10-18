@@ -152,7 +152,7 @@ func StateSpaceKindOf(action *symbols.Symbol, model StateSpaceModel) StateSpaceK
 	if action == nil || model == nil {
 		return NotStateSpace
 	}
-	if action.Kind != symbols.SymbolActionUsage && action.Kind != symbols.SymbolActionDef {
+	if !action.Kind.IsAction() {
 		return NotStateSpace
 	}
 	if general := model.LibrarySymbol(ContinuousDynamicsFQN); general != nil && model.Specializes(action, general) {

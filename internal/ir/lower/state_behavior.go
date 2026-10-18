@@ -184,11 +184,11 @@ func performsAction(usage *ast.Usage) bool {
 	for _, rel := range usage.Relationships {
 		switch rel.Target.(type) {
 		case *ast.QualifiedName:
-			if rel.Kind == ast.RelTyping || rel.Kind == ast.RelReferences {
+			if rel.Kind == ast.RelTyping || rel.Kind.ReferenceSubsets() {
 				return true
 			}
 		case *ast.FeatureChainExpr:
-			if rel.Kind == ast.RelReferences {
+			if rel.Kind.ReferenceSubsets() {
 				return true
 			}
 		}

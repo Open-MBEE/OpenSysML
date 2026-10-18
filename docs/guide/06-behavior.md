@@ -2,7 +2,8 @@
 
 Actions and state machines are executed, not just parsed. A debugger steps through
 them, and the non-interactive `-action` and `-state` flags run them to completion and report the
-values they produce. A behavior can be performed by an object, in which case the messages it sends
+values they produce. A use case is an action, so `%action` and `-action` run a use case definition
+or usage the same way, its `include use case` members performing as nested actions. A behavior can be performed by an object, in which case the messages it sends
 are routed over that object's connections. What a run reports is one linearization of the partial
 order the model states — the default `reverse` policy picks it, deterministically — so when more
 than one order is valid, the values are *a* result, not *the* result; `explore` and `check` are

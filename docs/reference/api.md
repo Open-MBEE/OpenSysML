@@ -1198,6 +1198,9 @@ rpc RunDocumentQuery(RunDocumentQueryRequest) returns (RunDocumentQueryResponse)
 rpc RenderDocument(RenderDocumentRequest) returns (RenderDocumentResponse);
 rpc RenderView(RenderViewRequest) returns (RenderViewResponse);
 rpc ExportGraphs(ExportGraphsRequest) returns (ExportGraphsResponse);
+rpc RunRuns(RunRunsRequest) returns (RunRunsResponse);
+rpc SelfCheck(SelfCheckRequest) returns (SelfCheckResponse);
+rpc RecordRun(RecordRunRequest) returns (RecordRunResponse);
 rpc ImportData(ImportDataRequest) returns (ImportDataResponse);
 rpc CompareResults(CompareResultsRequest) returns (CompareResultsResponse);
 rpc CheckBehavior(CheckBehaviorRequest) returns (CheckBehaviorResponse);
@@ -1357,6 +1360,57 @@ capability, are the document forms served; the PDF form `sysml -render-document
 
 ---
 
+**Implementation:** `internal/frontend/grpc/runs.go` (`Service.RunRuns`),
+`internal/frontend/grpc/selfcheck.go` (`Service.SelfCheck`),
+`internal/frontend/grpc/record.go` (`Service.RecordRun`).
+
+`RunRuns` runs an action or a Monte Carlo case repeatedly, as `sysml -runs N`
+does, through the same runtime sweep the CLI and REPL call. Exactly one of
+`action_symbol_id` and `analysis_symbol_id` names what runs; `runs` is the
+count; `inputs`, `performer_symbol_id`, `subject_symbol_id`, `arguments` and
+`named_arguments` bind it as `ExecuteAction` and `RunAnalysis` do. The CLI's
+flags are the request's fields under the same names: `seed` starts the
+random draws (required unless `draws` fixes them as `min`, `max` or
+`average`), `clock_step` paces a timed action and `observe` names the
+action's features to table (a Monte Carlo case tables its `observed`
+attribute). The answer is one `SweepRow` per run, the `observables` with a
+`RunDistribution` each (count, min, max, mean, deviation, percentiles,
+histogram and, for a non-numeric feature, the counted values), the CLI's
+`lines`, and for a Monte Carlo case its `outputs`, `verdicts` and
+`unconcluded` reason, the `seed` used, the `instances`, `diagnostics` and the
+engine's standing. An unseeded random run, a count below one or a request
+naming both an action and a case is `INVALID_ARGUMENT`; an action or case the
+model lacks is answered in band through `error`. The service advertises this
+method as the `runs` capability.
+
+`SelfCheck` applies every constraint of the `SysMLValidation` rule package —
+and of each package `self_check_package` adds — to the model's own elements,
+as `sysml -self-check` does, through `internal/workspace/selfcheck.Run`. The
+answer carries the `status` (`holds` or `fails`), each `SelfCheckFinding`
+(status, subject, location, constraint, element, message, line), the counts
+of `elements`, `checks`, `violations`, `unevaluated` and
+`evaluation_errors`, the `applications` made per constraint, the CLI's
+`summary` line and the model's `diagnostics`. A rule package the model lacks
+is answered in band through `error`. The service advertises this method as
+the `self_check` capability.
+
+`RecordRun` runs a case and records the result into the model, as
+`sysml -record-run` does, through `internal/exec/analysis/record`:
+`analysis_symbol_id` names the case, `subject_symbol_id`, `arguments` and
+`named_arguments` bind it, `ranges` make it a sweep (one record per row),
+`runs` and `seed` a Monte Carlo sample (one record per run and the sample's
+conclusion), and `record_into` names the package the records go to
+(`Records` when empty, created when absent). The answer carries the `run`,
+`sweep` or `sample` result as the matching RPC would answer it, the `package`,
+the record `definition` and `records` generated, their `source`, the edited
+or new document (`content`, `documents`), the rows or runs `skipped` with
+their `reasons`, `diagnostics`, and the `model_hash` of the recorded model
+the service now holds. Because recording rewrites the model's documents, the
+request must set `accept_documents`; a case or subject the model lacks, or a
+record that would leave the model with new errors (the model is then left
+unchanged), is answered in band through `error`. The service advertises this
+method as the `record_run` capability.
+
 **Implementation:** `internal/frontend/grpc/importdata.go` (`Service.ImportData`),
 `internal/frontend/grpc/compare.go` (`Service.CompareResults`).
 
@@ -1378,7 +1432,8 @@ now holds (unset on a dry run) and `diagnostics`. A request naming no file
 is `INVALID_ARGUMENT`; a row naming an element or feature the model lacks, a
 value the feature cannot take, a library element, or an edit that would leave
 the model with new errors is answered in band through `error` with nothing
-changed. The service advertises this method as the `import_data` capability.
+changed — on a dry run too, which validates each file's edited model as an
+import does. The service advertises this method as the `import_data` capability.
 
 `CompareResults` runs the configurations a SysML v1 tool's results index
 names and tables the tool's distributions beside the runs', as
@@ -1390,8 +1445,9 @@ flags under their names (`runs` of 0 runs as many as the tool stored; an
 unseeded random configuration is reported unresolved, as `RunRuns` refuses
 it); `observe` maps a stored observable onto the feature that produces it;
 `engine` picks the engine. The answer carries one `ConfigurationComparison`
-per configuration — its `status` (`holds`, `fails`, `unresolved`), what left
-it `unresolved`, the `stored_runs` and `stored_snapshots`, the `runs` made
+per configuration — its `status` (`holds`; `fails` when a run failed;
+`undecided` when an observable could not be compared or none stood against
+anything, which a note says; `unresolved`), what left it `unresolved`, the `stored_runs` and `stored_snapshots`, the `runs` made
 and `completed`, the `draws`, `seed` and `clock_step` used, one `SweepRow`
 per run with the `instances`, and per observable the tool's and the runs'
 `ComparedDistribution` (count, min, mean, p50, p90, max, deviation), the

@@ -84,6 +84,13 @@ var definitionKindNames = [...]string{
 	DefBool:             "bool",
 }
 
+// IsAction reports whether a definition of the kind defines an action: an action
+// definition, or a use case definition, which is a case, a calculation and so an
+// action definition (SysML v2 §7.17, §7.19) whose body is an action body.
+func (k DefinitionKind) IsAction() bool {
+	return k == DefAction || k == DefUseCase
+}
+
 func (k DefinitionKind) String() string {
 	if int(k) < 0 || int(k) >= len(definitionKindNames) {
 		return "unknown"
@@ -237,6 +244,14 @@ func (k UsageKind) String() string {
 		return "unknown"
 	}
 	return usageKindNames[k]
+}
+
+// IsAction reports whether a usage of the kind is an action usage: an action, or a
+// use case, which is a case, a calculation and so an action usage (SysML v2 §7.17,
+// §7.19) whose body is an action body. An analysis or verification case is run as
+// the calculation it is, not as an action.
+func (k UsageKind) IsAction() bool {
+	return k == UsageAction || k == UsageUseCase
 }
 
 // IsEdge reports whether a usage of the kind is a connector or transition relating
@@ -659,7 +674,7 @@ func (u *Usage) ConjugatedTyping() (*Relationship, bool) {
 // PerformedInvocation is the call an action usage performs as its value
 // (`action a = tag(x);`); nil for any other usage or value.
 func (u *Usage) PerformedInvocation() *InvocationExpr {
-	if u.Kind != UsageAction {
+	if !u.Kind.IsAction() {
 		return nil
 	}
 	if inv, ok := u.Value.(*InvocationExpr); ok && inv.Type != nil {

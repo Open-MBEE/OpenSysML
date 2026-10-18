@@ -76,8 +76,8 @@ package OpenSysMLSurfaces {
         attribute :>> goPackage = "api/proto";
         attribute schemaFile : String = "api/proto/sysml.proto";
         attribute service : String = "SysMLService";
-        attribute rpcCount : Integer = 28;
-        attribute rpcs : String = "GetServerInfo, ParseFile, ParseSources, GetSymbol, GetDiagnostics, Evaluate, Instantiate, ExecuteAction, ExecuteState, Convert, Migrate, ApplyEdits, VerifyConstraint, VerifyRequirement, VerifySatisfaction, ValidateInstance, EvaluateCalc, RunAnalysis, CheckBehavior, RunSweep, ListEngines, Query, RunDocumentQuery, RenderDocument, RenderView, ExportGraphs, ImportData, CompareResults";
+        attribute rpcCount : Integer = 31;
+        attribute rpcs : String = "GetServerInfo, ParseFile, ParseSources, GetSymbol, GetDiagnostics, Evaluate, Instantiate, ExecuteAction, ExecuteState, Convert, Migrate, ApplyEdits, VerifyConstraint, VerifyRequirement, VerifySatisfaction, ValidateInstance, EvaluateCalc, RunAnalysis, CheckBehavior, RunSweep, RunRuns, SelfCheck, RecordRun, ListEngines, Query, RunDocumentQuery, RenderDocument, RenderView, ExportGraphs, ImportData, CompareResults";
         attribute generatedGo : String = "api/proto/sysml.pb.go, api/proto/sysml_grpc.pb.go, api/proto/protoconnect/sysml.connect.go";
         attribute generator : String = "buf";
     }

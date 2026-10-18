@@ -152,7 +152,7 @@ func TestSignatureHelpOutsideAnArgumentListIsEmpty(t *testing.T) {
 func TestInlayHintsInferTypesAndModelLevelValues(t *testing.T) {
 	s, u := openEditorFactsModel(t)
 	lines := strings.Count(editorFactsModel, "\n")
-	hints, err := s.InlayHint(&inlayHintParams{
+	hints, err := s.InlayHint(&InlayHintParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: u},
 		Range:        protocol.Range{End: protocol.Position{Line: uint32(lines)}},
 	})
@@ -207,7 +207,7 @@ func TestInlayHintsInferTypesAndModelLevelValues(t *testing.T) {
 func TestInlayHintsAreLimitedToTheRange(t *testing.T) {
 	s, u := openEditorFactsModel(t)
 	at := positionAfter(t, editorFactsModel, "attribute count")
-	hints, err := s.InlayHint(&inlayHintParams{
+	hints, err := s.InlayHint(&InlayHintParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: u},
 		Range:        protocol.Range{Start: protocol.Position{Line: at.Line}, End: protocol.Position{Line: at.Line + 1}},
 	})
@@ -430,7 +430,7 @@ func TestInlayHintsOutsideTheRangeAreDropped(t *testing.T) {
 	openDoc(t, s, u, multilineModel)
 	first := positionAfter(t, multilineModel, "attribute total")
 	hintsOn := func(line uint32) []string {
-		hints, err := s.InlayHint(&inlayHintParams{
+		hints, err := s.InlayHint(&InlayHintParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: u},
 			Range:        protocol.Range{Start: protocol.Position{Line: line}, End: protocol.Position{Line: line + 1}},
 		})
@@ -460,7 +460,7 @@ func TestInlayHintAtTheRangeEndBelongsToTheNextRange(t *testing.T) {
 	openDoc(t, s, u, multilineModel)
 	at := positionAfter(t, multilineModel, "attribute total")
 	hintsIn := func(r protocol.Range) int {
-		hints, err := s.InlayHint(&inlayHintParams{TextDocument: protocol.TextDocumentIdentifier{URI: u}, Range: r})
+		hints, err := s.InlayHint(&InlayHintParams{TextDocument: protocol.TextDocumentIdentifier{URI: u}, Range: r})
 		if err != nil {
 			t.Fatalf("InlayHint: %v", err)
 		}
