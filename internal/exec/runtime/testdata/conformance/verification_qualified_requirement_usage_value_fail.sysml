@@ -1,7 +1,5 @@
-// A verification body reads a criterion bound on a requirement usage of another
-// package through a qualified name and a feature chain on it
-// (`RequirementPkg::costReq.maximumCost`): the qualified name reaches the usage,
-// the chain reads the value its member binds. The subject's cost is over it: fail.
+// A verification body reads a requirement usage's bound criterion in another package
+// by qualified name and feature chain (`RequirementPkg::costReq.maximumCost`): fail.
 package RequirementPkg {
 	private import ScalarValues::Real;
 	private import DefinitionPkg::Definition;

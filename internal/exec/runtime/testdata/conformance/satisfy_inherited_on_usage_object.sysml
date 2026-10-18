@@ -1,8 +1,5 @@
-// A `satisfy r;` a part definition states is inherited by every usage of it:
-// validating the object of such a usage checks the requirement about that
-// object, reading the usage's redefined value, so a cost under the limit holds.
-// The requirement, the definition and the usage live in three packages, as a
-// model split over three files would place them.
+// A `satisfy r;` a part definition states is checked on each usage's object with
+// the usage's redefined value; three packages as three files would place them: holds.
 package RequirementPkg {
 	private import ScalarValues::Real;
 	private import DefinitionPkg::Definition;

@@ -2,11 +2,8 @@ package passes
 
 import "testing"
 
-// Inside a case usage a part definition owns, `self` is the case's own
-// `Performance::self` — the case, not the part — so binding the subject to it
-// is a non-conforming binding, while `this` is the owning object
-// (`Parts::Part::ownedActions::this`) and conforms. The pinned pilot agrees
-// line for line.
+// In a case usage a part def owns, `self` is the case's own `Performance::self`
+// (not the part) and does not conform; `this` is the owning object and does.
 func TestW9CDefinitionOwnedCaseSubjectSelfAndThis(t *testing.T) {
 	src := `package Test {
 	private import ScalarValues::Real;

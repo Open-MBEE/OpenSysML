@@ -1,6 +1,10 @@
 {
   "libraries": true,
   "type": "verification",
+  "documents": [
+    "verification_definition_owned_this_subject_fail.requirement.sysml",
+    "verification_definition_owned_this_subject_fail.definition.sysml"
+  ],
   "evaluate": "DefinitionPkg::Definition::costTest",
   "subject": "ProductPkg::bad",
   "verdict": "fail",
