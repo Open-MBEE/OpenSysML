@@ -76,8 +76,10 @@ public record RunDocument(RunDocumentForm form, String content, String fileName)
 
     private static boolean isDeviceStem(String stem) {
         int dot = stem.indexOf('.');
-        String name = (dot < 0 ? stem : stem.substring(0, dot)).replaceAll(" ++$", "").toUpperCase();
-        return DEVICE_NAMES.contains(name);
+        String head = dot < 0 ? stem : stem.substring(0, dot);
+        int end = head.length();
+        while (end > 0 && head.charAt(end - 1) == ' ') end--;
+        return DEVICE_NAMES.contains(head.substring(0, end).toUpperCase());
     }
 
     // Cuts an ASCII stem to n bytes, keeping a `.XX` escape whole.
