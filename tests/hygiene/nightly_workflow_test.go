@@ -82,7 +82,7 @@ func nightlyJob(t *testing.T, workflow actionsWorkflow, name string) actionsJob 
 
 func TestNightlyBuildsOnlyCommitsThatCarryItsScripts(t *testing.T) {
 	workflow, _ := loadNightlyWorkflow(t)
-	for _, key := range []string{"BUILD_SCRIPT", "KERNEL_DIST_SCRIPT", "SNAPSHOT_SCRIPT"} {
+	for _, key := range []string{"BUILD_SCRIPT", "KERNEL_DIST_SCRIPT", "SNAPSHOT_SCRIPT", "MCP_RUNNER_TEST"} {
 		script, ok := workflow.Env[key]
 		if !ok {
 			t.Fatalf("nightly.yml declares no %s", key)
@@ -92,8 +92,8 @@ func TestNightlyBuildsOnlyCommitsThatCarryItsScripts(t *testing.T) {
 		}
 	}
 	selectJob := nightlyJob(t, workflow, "select")
-	if stepIndex(selectJob.runSteps(), `"$BUILD_SCRIPT" "$KERNEL_DIST_SCRIPT" "$SNAPSHOT_SCRIPT"`, "git cat-file -e") < 0 {
-		t.Error("the select job does not skip a green commit that lacks the build, kernel-distribution or snapshot-version script, which it could not build")
+	if stepIndex(selectJob.runSteps(), `"$BUILD_SCRIPT" "$KERNEL_DIST_SCRIPT" "$SNAPSHOT_SCRIPT" "$MCP_RUNNER_TEST"`, "git cat-file -e") < 0 {
+		t.Error("the select job does not skip a green commit that lacks the build, kernel-distribution, snapshot-version or npm-runner script, which it could not build")
 	}
 }
 

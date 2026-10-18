@@ -2966,10 +2966,12 @@ jobs:
               exit 1
             fi
             echo "export NPM_MCP_TARBALL=$(pwd)/${tarball}" >> "$BASH_ENV"
-            tar -xOf "$tarball" package/package.json | node - "$NPM_VERSION" \<<'JS'
+            # The manifest goes through a file: the heredoc below is node's stdin.
+            tar -xOf "$tarball" package/package.json > dist/npm/mcp-package.json
+            node - "$NPM_VERSION" dist/npm/mcp-package.json \<<'JS'
             const fs = require("node:fs");
-            const [version] = process.argv.slice(2);
-            const pkg = JSON.parse(fs.readFileSync(0, "utf8"));
+            const [version, manifest] = process.argv.slice(2);
+            const pkg = JSON.parse(fs.readFileSync(manifest, "utf8"));
             const pins = Object.entries(pkg.optionalDependencies || {});
             const wrong = pins.filter(([, pinned]) => pinned !== version).map(([name, pinned]) => `${name}@${pinned}`);
             if (pkg.version !== version || pins.length !== 5 || wrong.length > 0 || pkg.dependencies !== undefined) {
@@ -2978,6 +2980,7 @@ jobs:
             }
             console.log(`${pkg.name}@${pkg.version} pins its five platform packages at ${version}`);
             JS
+            rm dist/npm/mcp-package.json
             SYSML_MCP_PACKAGES="$(pwd)/client/node/packages" scripts/npm-mcp-test.sh
 
       - run:

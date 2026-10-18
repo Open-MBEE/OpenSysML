@@ -31,6 +31,8 @@ env:
   BUILD_SCRIPT: scripts/build-release-artifacts.sh
   KERNEL_DIST_SCRIPT: scripts/build-jupyter-kernel-dist.sh
   SNAPSHOT_SCRIPT: client/python/scripts/snapshot_version.py
+  # Present only in trees whose generator builds the @openmbee/sysml-mcp packages.
+  MCP_RUNNER_TEST: scripts/npm-mcp-test.sh
   PYPI_PROJECT: opensysml
   KERNEL_PYPI_PROJECT: jupyter-opensysml-kernel
   NPM_DIST_TAG: nightly
@@ -75,7 +77,7 @@ jobs:
           while read -r candidate; do
             state=$(gh api "repos/$GH_REPO/commits/$candidate/status" --jq .state)
             if [ "$state" = success ]; then
-              for script in "$BUILD_SCRIPT" "$KERNEL_DIST_SCRIPT" "$SNAPSHOT_SCRIPT"; do
+              for script in "$BUILD_SCRIPT" "$KERNEL_DIST_SCRIPT" "$SNAPSHOT_SCRIPT" "$MCP_RUNNER_TEST"; do
                 if ! git cat-file -e "$candidate:$script" 2>/dev/null; then
                   state="success, but has no $script"
                   break
