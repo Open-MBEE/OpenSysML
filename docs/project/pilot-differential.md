@@ -314,8 +314,8 @@ admits `frame` (FramedConcernMember, §8.3.20/§8.3.26) only in a requirement, c
 body, and the reference failed to parse each of those lines (`mismatched input 'frame' expecting
 '}'`, then `extraneous input '}' expecting EOF`): two `syntax` rows per demo. The evaluator now
 checks every concern a viewpoint frames directly against what the view exposes, the three demos drop
-the view-body framings with their `%view` output unchanged, and a `frame` left in a view body draws
-the `nonstandard-notation` warning that `-strict` escalates to an error, as the reference rejects it.
+the view-body framings with their `%view` output unchanged, and a `frame` left in a view body is a
+parser error, as the reference rejects it.
 The six `syntax` rows go, the three demos become fully agreeing, and `examples` keeps only the 37
 `DocumentQueries` binding warnings and the 17 duplicate-inherited-name warnings on the pilot side.
 
