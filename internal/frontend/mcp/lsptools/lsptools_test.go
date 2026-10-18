@@ -600,6 +600,18 @@ func TestRendering(t *testing.T) {
 		}
 	}
 	f.fails("render_view", map[string]any{"path": "a.sysml", "form": "jpeg"})
+	// The rendering controls reach the server: a routing, the optional
+	// notation elements and a depth bound; a routing it lacks is refused.
+	f.ok("render_view", map[string]any{"path": "a.sysml", "form": "dot", "view": "#interconnection", "lines": "ortho", "show": []string{"all"}, "depth": 1}, &render)
+	if !strings.Contains(render.Artifact, "splines=ortho") {
+		t.Errorf("dot with lines=ortho lacks splines=ortho:\n%s", render.Artifact)
+	}
+	if msg := f.fails("render_view", map[string]any{"path": "a.sysml", "view": "#tree", "lines": "curvy"}); !strings.Contains(msg, "curvy") {
+		t.Errorf("error = %q", msg)
+	}
+	if msg := f.fails("render_view", map[string]any{"path": "a.sysml", "view": "#tree", "show": []string{"halos"}}); !strings.Contains(msg, "halos") {
+		t.Errorf("error = %q", msg)
+	}
 	f.unchanged(before)
 }
 
@@ -882,6 +894,17 @@ func TestAnOpenBufferIsNotWrittenOverAnEditMadeMeanwhile(t *testing.T) {
 	msg := f.fails("format", map[string]any{"path": "b.sysml", "apply": true})
 	if !strings.Contains(msg, "changed on disk while it was held open") {
 		t.Errorf("error = %q", msg)
+	}
+	// Opening the document again does not take the external edit as the new
+	// baseline: it is refused too, the buffer and its snapshot are kept.
+	if msg := f.fails("open_document", map[string]any{"path": "b.sysml", "text": fleet}); !strings.Contains(msg, "changed on disk while it was held open") {
+		t.Errorf("reopen error = %q", msg)
+	}
+	if msg := f.fails("format", map[string]any{"path": "b.sysml", "apply": true}); !strings.Contains(msg, "changed on disk while it was held open") {
+		t.Errorf("error after reopen = %q", msg)
+	}
+	if got, _ := os.ReadFile(filepath.Join(f.root, "b.sysml")); string(got) != external {
+		t.Errorf("b.sysml = %q, want the external edit kept", got)
 	}
 	var rename WorkspaceEditResult
 	if res := f.call("rename", map[string]any{"path": "a.sysml", "position": pos(2, 14), "newName": "Tyre", "apply": true}, &rename); !res.IsError || !strings.Contains(textOf(res), "b.sysml") {

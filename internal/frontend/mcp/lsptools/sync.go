@@ -53,6 +53,14 @@ func registerSync(s *mcp.Server, h *Host) {
 		if err != nil {
 			return nil, DocumentState{}, err
 		}
+		// Reopening keeps the snapshot taken when the buffer began, so an edit
+		// made on disk meanwhile is not silently accepted as the baseline.
+		if seen, open := h.opened[ref.name]; open {
+			if !disk.same(seen) {
+				return nil, DocumentState{}, fmt.Errorf("%s changed on disk while it was held open; close_document and open it again with the text to keep", h.display(ref.uri()))
+			}
+			disk = seen
+		}
 		err = h.Server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{TextDocument: protocol.TextDocumentItem{
 			URI: ref.uri(), LanguageID: "sysml", Version: 1, Text: in.Text,
 		}})
