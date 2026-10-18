@@ -105,7 +105,7 @@ func (ctx *Context) requireVerificationCase(sym *symbols.Symbol) error {
 	}
 	if !IsVerificationCaseSymbol(sym) {
 		return fmt.Errorf("%w: %s is %s, not a verification case definition or usage",
-			errNotAVerification, ctx.qualifiedSymbolName(sym), describeDecl(sym.Decl))
+			errNotAVerification, ctx.QualifiedName(sym), describeDecl(sym.Decl))
 	}
 	return nil
 }
@@ -125,7 +125,7 @@ func (ctx *Context) RunVerification(sym *symbols.Symbol, args AnalysisArgs, scop
 	}
 	defer ctx.beginRun()()
 
-	name := ctx.qualifiedSymbolName(sym)
+	name := ctx.QualifiedName(sym)
 	caseRun, performer, run, err := ctx.runCase(sym, args, scope, self)
 	defer caseRun.endOccurrence(ctx)
 	if err != nil {
@@ -207,11 +207,11 @@ func (ctx *Context) isVerdictKind(enum *symbols.Symbol) bool {
 	if enum == nil {
 		return false
 	}
-	if ctx.qualifiedSymbolName(enum) == verdictKindName {
+	if ctx.QualifiedName(enum) == verdictKindName {
 		return true
 	}
 	for _, super := range ctx.model.semantics.MemberSources(enum) {
-		if super != nil && ctx.qualifiedSymbolName(super) == verdictKindName {
+		if super != nil && ctx.QualifiedName(super) == verdictKindName {
 			return true
 		}
 	}
@@ -241,7 +241,7 @@ func (ctx *Context) subcaseVerdicts(run *calcRun) []VerificationVerdict {
 // performance holds; performed reports whether the run took the step at all. A
 // step runs as a feature of the object the run does (case_step.go), so it is about that object.
 func (ctx *Context) subcaseVerdict(run *calcRun, node ast.Node, sym *symbols.Symbol) (VerificationVerdict, bool) {
-	verdict := VerificationVerdict{Case: ctx.qualifiedSymbolName(sym), Symbol: sym, Subcase: true, Subject: run.self}
+	verdict := VerificationVerdict{Case: ctx.QualifiedName(sym), Symbol: sym, Subcase: true, Subject: run.self}
 	perf, _, err := run.perf.subaction(ActionNodeName(node), node)
 	if err != nil || perf == nil {
 		return verdict, false

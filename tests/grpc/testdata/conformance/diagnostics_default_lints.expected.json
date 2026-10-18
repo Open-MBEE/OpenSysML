@@ -1,0 +1,9 @@
+{
+  "rpc": "GetDiagnostics",
+  "expected_codes": [
+    "undeclared-signal"
+  ],
+  "absent_codes": [
+    "rounded-real-literal"
+  ]
+}

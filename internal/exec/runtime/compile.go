@@ -448,7 +448,7 @@ func (c *calcCompiler) scalarCheckFor(decl *calcMemberDecl) (scalarCheck, bool) 
 	check.rationalOK = holds(semantics.PrimRational)
 	check.realOK = holds(semantics.PrimReal)
 	check.holdsReal = prim == semantics.PrimReal
-	if c.ctx.positiveScalar(decl.Target.typ) {
+	if c.ctx.PositiveScalar(decl.Target.typ) {
 		check.least = 1
 	}
 	check.settle()

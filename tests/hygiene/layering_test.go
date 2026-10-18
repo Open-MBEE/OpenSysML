@@ -47,10 +47,11 @@ var packageLayer = map[string]string{
 	"internal/syntax/ast/astcodec": "syntax",
 	"internal/syntax/pack":         "syntax",
 
-	"internal/syntax/lexer":  "syntax",
-	"internal/syntax/parser": "syntax",
-	"internal/syntax/semtok": "syntax",
-	"internal/syntax/format": "syntax",
+	"internal/syntax/lexer":   "syntax",
+	"internal/syntax/parser":  "syntax",
+	"internal/syntax/semtok":  "syntax",
+	"internal/syntax/format":  "syntax",
+	"internal/syntax/nsmerge": "syntax",
 
 	"internal/semantic/symbols":   "semantic",
 	"internal/semantic/suggest":   "semantic",
@@ -74,6 +75,7 @@ var packageLayer = map[string]string{
 	"internal/check/edit":            "check",
 
 	"internal/exec/runtime":             "exec",
+	"internal/exec/sweep":               "exec",
 	"internal/exec/runtrace":            "exec",
 	"internal/exec/solve":               "exec",
 	"internal/exec/smt":                 "exec",
@@ -112,6 +114,8 @@ var packageLayer = map[string]string{
 	"internal/doc/docpdf":     "doc",
 
 	"internal/workspace/model":       "workspace",
+	"internal/workspace/selfcheck":   "workspace",
+	"internal/workspace/dataimport":  "workspace",
 	"internal/workspace/modelrt":     "workspace",
 	"internal/workspace/modeldoc":    "workspace",
 	"internal/semantic/highlight":    "semantic",

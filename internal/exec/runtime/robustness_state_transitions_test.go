@@ -249,14 +249,14 @@ func testStateEventAfterCompletion(t *testing.T) {
 			transition first init accept stop then done;
 		}
 	}`)
-	exec.sendSignal("stop", nil)
+	exec.SendSignal("stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	if exec.State() != StateCompleted {
 		t.Fatalf("expected StateCompleted, got %s", exec.State())
 	}
-	exec.sendSignal("stop", nil)
+	exec.SendSignal("stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run after completion: %v", err)
 	}
@@ -277,7 +277,7 @@ func testStateCompletionRestsInDone(t *testing.T) {
 			transition first busy accept stop then done;
 		}
 	}`)
-	exec.sendSignal("stop", nil)
+	exec.SendSignal("stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -309,14 +309,14 @@ func testStateNestedRegionCompletionKeepsSiblingsRunning(t *testing.T) {
 			}
 		}
 	}`)
-	exec.sendSignal("stop", nil)
+	exec.SendSignal("stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	if exec.State() == StateCompleted {
 		t.Fatalf("the machine completed with the sibling region still running")
 	}
-	exec.sendSignal("go", nil)
+	exec.SendSignal("go", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run after the first region completed: %v", err)
 	}
@@ -520,7 +520,7 @@ func testSignalNoLevelOfACompositeStateAccepts(t *testing.T) {
 			transition first outer accept shutdown then stopped;
 		}
 	}`)
-	exec.sendSignal("unknown", nil)
+	exec.SendSignal("unknown", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to completion: %v", err)
 	}
@@ -545,7 +545,7 @@ func testCompositeSelfTransitionWithNoSubstateToReEnter(t *testing.T) {
 			transition first Working accept restart then Working;
 		}
 	}`)
-	exec.sendSignal("restart", nil)
+	exec.SendSignal("restart", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to completion: %v", err)
 	}
@@ -586,7 +586,7 @@ func testStaleCompositeTimerInARegion(t *testing.T) {
 			succession first init then working;
 		}
 	}`)
-	exec.sendSignal("skip", nil)
+	exec.SendSignal("skip", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to completion: %v", err)
 	}
@@ -638,7 +638,7 @@ func testExitOfNestedRegionsWithAHistoryPseudostate(t *testing.T) {
 		}
 	}`)
 	for _, signal := range []string{"advance", "leave", "back"} {
-		exec.sendSignal(signal, nil)
+		exec.SendSignal(signal, nil)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("run to completion after %s: %v", signal, err)
 		}

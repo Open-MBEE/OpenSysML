@@ -454,7 +454,7 @@ func TestHeldImageCarriesTheModeledStream(t *testing.T) {
 			if got := rollerDraw(t, copied, "second"); got != second {
 				t.Errorf("the copy drew %v for its second, want the source's %v (its first was %v)", got, second, first)
 			}
-			if draws := dst.DrawsTaken(); len(draws) != 1 || constValue(draws[0].Value) != second {
+			if draws := dst.DrawsTaken(); len(draws) != 1 || ConstValue(draws[0].Value) != second {
 				t.Errorf("the destination recorded %v, want the one draw the copy made", draws)
 			}
 		})
@@ -1553,7 +1553,7 @@ func heldDigest(ctx *Context, held func(id int64) bool) string {
 		if inst.owner != nil {
 			owner = inst.owner.ID
 		}
-		fmt.Fprintf(&b, "#%d %s owner=#%d.%s life=%+v ends=%d\n", id, symbolText(inst.Type), owner, inst.ownerFeature, ctx.lives[id], len(inst.Ends))
+		fmt.Fprintf(&b, "#%d %s owner=#%d.%s life=%+v ends=%d\n", id, SymbolText(inst.Type), owner, inst.ownerFeature, ctx.lives[id], len(inst.Ends))
 		for _, name := range slices.Sorted(maps.Keys(inst.FeatureValues)) {
 			fv := inst.FeatureValues[name]
 			fmt.Fprintf(&b, "  %s = %s written=%t materialized=%t\n", name, FormatValue(fv.HeldValue()), fv.Written, fv.Materialized)

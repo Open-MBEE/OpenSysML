@@ -141,6 +141,9 @@ func renderSummary(members []Member) []string {
 
 // renderMember maps a top-level member to a "<kind> <name>" summary, or "" for
 // members that carry no useful summary.
+// describeMember renders a namespace member node the way renderMember does.
+func describeMember(n ast.Node) string { return renderMember(libs.TopMemberOf(n)) }
+
 func renderMember(m libs.TopMember) string {
 	switch m.Kind {
 	case "":
@@ -353,6 +356,12 @@ func renderSyntax(r Result, v Verbosity) []string {
 		return nil
 	}
 	return renderDiagnostics(diags, r.Source, r.diagLocation, false)
+}
+
+// OwnDiagnostics are the diagnostics of the submission r reports, scoped as
+// the verbosity scopes the prompt's report of it: errors alone when quiet.
+func (r Result) OwnDiagnostics(v Verbosity) []diag.Diagnostic {
+	return scopedDiagnostics(r, v)
 }
 
 // scopedDiagnostics keeps the diagnostics of this submission that the verbosity

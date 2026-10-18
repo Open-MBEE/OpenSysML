@@ -103,7 +103,7 @@ func (d calcMemberDecl) admits(ctx *Context, scope *symbols.Scope, what string, 
 				return fmt.Errorf("%s: %w", what, err)
 			}
 			if !conforms {
-				return fmt.Errorf("%s: %w: %s is not a %s", what, ErrTypeMismatch, ctx.elementText(element), symbolText(typ))
+				return fmt.Errorf("%s: %w: %s is not a %s", what, ErrTypeMismatch, ctx.elementText(element), SymbolText(typ))
 			}
 		}
 	}
@@ -120,7 +120,7 @@ func (ctx *Context) elementText(element Value) string {
 			return ctx.carrierLabels([]carrier{{instance: inst}})[0]
 		}
 	}
-	return fmt.Sprintf("%s (%s)", FormatValue(element), describeValue(element))
+	return fmt.Sprintf("%s (%s)", FormatValue(element), DescribeValue(element))
 }
 
 // boundMemberDecl is what a member of owner declares for a value bound to it, folded along the
@@ -228,7 +228,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 		return cached, nil
 	}
 
-	name := ctx.qualifiedSymbolName(sym)
+	name := ctx.QualifiedName(sym)
 	if !isCalcDecl(sym.Decl) && !ctx.calcTypedFeature(sym) {
 		return nil, fmt.Errorf("%w: %s is %s, not a calc definition or usage", ErrNotACalc, name, describeDecl(sym.Decl))
 	}
@@ -244,7 +244,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 		}
 		names := make([]string, len(conflict.Owners))
 		for i, owner := range conflict.Owners {
-			names[i] = ctx.qualifiedSymbolName(owner)
+			names[i] = ctx.QualifiedName(owner)
 		}
 		return nil, fmt.Errorf("%w: %s states or inherits a result expression from each of %s",
 			errConflictingResultExpressions, label, strings.Join(names, ", "))
@@ -572,7 +572,7 @@ func (ctx *Context) requireCalcNotCase(sym *symbols.Symbol) error {
 		runAs = "a verification case"
 	}
 	return fmt.Errorf("%w: %s is %s, not a calc definition or usage; run it as %s",
-		ErrNotACalc, ctx.qualifiedSymbolName(sym), describeDecl(sym.Decl), runAs)
+		ErrNotACalc, ctx.QualifiedName(sym), describeDecl(sym.Decl), runAs)
 }
 
 // InvokeCalcWith invokes a calculation with positional arguments and arguments
@@ -634,7 +634,7 @@ func (ctx *Context) invokeCalcWithSelf(sym *symbols.Symbol, args calcArgs, scope
 // invokeBuiltinValues applies a built-in to arguments a direct invocation has
 // already evaluated, bound to its declared parameters as a call would bind them.
 func (ctx *Context) invokeBuiltinValues(sym *symbols.Symbol, fn builtinFunc, args calcArgs, callerScope *symbols.Scope, self *Instance) (Value, error) {
-	name := ctx.qualifiedSymbolName(sym)
+	name := ctx.QualifiedName(sym)
 	entered := ctx.activations
 	return tracedBuiltin(ctx.trace, name,
 		func() ([]Value, error) { return bindBuiltinValues(name, args) },
@@ -1256,7 +1256,7 @@ func (ctx *Context) resolveLibraryPerformance(sym *symbols.Symbol) *libraryPerfo
 	if !ctx.redeclaresInputs(chain) {
 		return perf
 	}
-	perf.signature = &calcShape{Sym: sym, Name: ctx.qualifiedSymbolName(sym)}
+	perf.signature = &calcShape{Sym: sym, Name: ctx.QualifiedName(sym)}
 	perf.signature.Kind, perf.signature.Label = calcKindLabel(sym, perf.signature.Name)
 	for _, p := range ctx.model.semantics.BehaviorParametersOf(sym) {
 		if p.IsResult || (p.Direction != ast.DirIn && p.Direction != ast.DirInOut) {
@@ -1403,7 +1403,7 @@ func (ctx *Context) applyLibraryPerformance(perf *libraryPerformance, args calcA
 	for i, position := range perf.positions {
 		if position < 0 {
 			return Value{}, fmt.Errorf("%w: function %s has no input parameter for %q of calc %s",
-				errUnknownParameter, ctx.qualifiedSymbolName(perf.lib), sig.ParamNames[i], sig.Name)
+				errUnknownParameter, ctx.QualifiedName(perf.lib), sig.ParamNames[i], sig.Name)
 		}
 		values[position] = frame.slots.values[i]
 	}
@@ -1480,14 +1480,14 @@ func isActionSymbol(sym *symbols.Symbol) bool {
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.Definition:
-		return d.Kind == ast.DefAction
+		return d.Kind.IsAction()
 	case *ast.Usage:
-		return d.Kind == ast.UsageAction
+		return d.Kind.IsAction()
 	}
 	if sym.Decl != nil {
 		return false
 	}
-	return sym.Kind == symbols.SymbolActionDef || sym.Kind == symbols.SymbolActionUsage
+	return sym.Kind.IsAction()
 }
 
 // isStateSymbol reports whether sym declares a state, reading its declaration when
@@ -1537,9 +1537,9 @@ func unwrappedDeclMembers(decl ast.Node) []ast.Node {
 	return out
 }
 
-// qualifiedSymbolName renders a symbol's qualified name, falling back to its
+// QualifiedName renders a symbol's qualified name, falling back to its
 // local name when no index is reachable.
-func (ctx *Context) qualifiedSymbolName(sym *symbols.Symbol) string {
+func (ctx *Context) QualifiedName(sym *symbols.Symbol) string {
 	if sym == nil {
 		return ""
 	}

@@ -532,7 +532,7 @@ func stateRun(sym *symbols.Symbol, signal string) func(*Context) (Outcome, error
 		if err != nil {
 			return Outcome{}, err
 		}
-		exec.sendSignal(signal, nil)
+		exec.SendSignal(signal, nil)
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -991,7 +991,7 @@ func TestReplayProbeLeavesTheWitnessInPlace(t *testing.T) {
 			t.Fatalf("Decide %d: %+v, %v; want the witness's transition into high", i, decision, err)
 		}
 	}
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatal(err)
 	}
@@ -1155,7 +1155,7 @@ func TestReplayRefusesATransitionMoveBeforeDoBehaviorsTakeTheMessage(t *testing.
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to the accept: %v", err)
 	}
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
 	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 3 || !strings.Contains(err.Error(), "3->nowhere") {
@@ -1220,7 +1220,7 @@ func TestReplayRefusedChoiceMoveChangesNothing(t *testing.T) {
 		t.Fatalf("do actions %v, want idle's do behavior paused at its accept", exec.doActions)
 	}
 	paused := exec.doActions[0].run
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
 	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 1 || !strings.Contains(err.Error(), "3->three is not enabled (enabled: 1->one, 2->two)") {
@@ -1293,7 +1293,7 @@ func TestReplayRefusedChoiceUndoesTheHistoryDefaultsJunctionDraw(t *testing.T) {
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatal(err)
 	}
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
 	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 2 || !strings.Contains(err.Error(), "3->w3 is not enabled (enabled: 1->w1, 2->w2)") {
@@ -1398,7 +1398,7 @@ func TestReplayRefusedChoiceUndoesTheJunctionDrawBeforeIt(t *testing.T) {
 			if err := exec.RunToCompletion(); err != nil {
 				t.Fatal(err)
 			}
-			exec.sendSignal("Go", nil)
+			exec.SendSignal("Go", nil)
 			err = exec.RunToCompletion()
 			var refused *ReplayError
 			if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != move || !strings.Contains(err.Error(), "3->three is not enabled (enabled: 1->one, 2->two)") {
@@ -1470,7 +1470,7 @@ func TestReplayRefusedChoiceUndoesTheOwnerEnteredAhead(t *testing.T) {
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatal(err)
 	}
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
 	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || !strings.Contains(err.Error(), "3->three is not enabled (enabled: 1->one, 2->two)") {
@@ -1552,7 +1552,7 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	trace := NewTraceRecorder()
 	exec.SetTrace(trace)
 	// Go completes the join with all three segments firing on one occurrence.
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
 	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 6 ||
@@ -1638,7 +1638,7 @@ func TestReplayRefusedJoinDrawUndoesTheSegmentsChoice(t *testing.T) {
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run to the accept: %v", err)
 	}
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
 	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 5 {
@@ -1701,7 +1701,7 @@ func TestReplayRefusesAChoiceBranchNotEnabled(t *testing.T) {
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("run to idle: %v", err)
 		}
-		exec.sendSignal("Go", nil)
+		exec.SendSignal("Go", nil)
 		err = exec.RunToCompletion()
 		var refused *ReplayError
 		if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 1 || !strings.Contains(err.Error(), tc.refused) {
@@ -1850,7 +1850,7 @@ func TestReplayRefusesMovesLeftOverByADrivenExecutor(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		exec.sendSignal("Go", nil)
+		exec.SendSignal("Go", nil)
 		assertRefusedLeftOver(t, exec.RunToCompletion(), 2, witness[1])
 		if exec.State() != StateCompleted {
 			t.Errorf("state %v, want completed", exec.State())
@@ -1868,7 +1868,7 @@ func TestReplayRefusesMovesLeftOverByADrivenExecutor(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		exec.sendSignal("Go", nil)
+		exec.SendSignal("Go", nil)
 		assertRefusedLeftOver(t, exec.ProcessNextEvent(), 2, witness[1])
 		if exec.State() != StateCompleted {
 			t.Errorf("state %v, want completed", exec.State())
@@ -1915,7 +1915,7 @@ func TestReplayRefusesMovesLeftOverByADrivenExecutor(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		exec.sendSignal("Go", nil)
+		exec.SendSignal("Go", nil)
 		if err := exec.ProcessNextEvent(); err != nil {
 			t.Fatalf("a move left for a machine still running is not left over: %v", err)
 		}

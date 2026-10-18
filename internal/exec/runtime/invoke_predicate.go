@@ -32,7 +32,7 @@ func (ctx *Context) InvokePredicate(sym *symbols.Symbol, args []Value, scope *sy
 	if sym == nil || !isPredicateDecl(sym.Decl) {
 		name := "<nil>"
 		if sym != nil {
-			name = ctx.qualifiedSymbolName(sym)
+			name = ctx.QualifiedName(sym)
 		}
 		return false, fmt.Errorf("%s is not a predicate", name)
 	}
@@ -42,7 +42,7 @@ func (ctx *Context) InvokePredicate(sym *symbols.Symbol, args []Value, scope *sy
 	}
 	if !result.isBool() {
 		return false, fmt.Errorf("%w: predicate %s returned %s, want Boolean",
-			ErrTypeMismatch, ctx.qualifiedSymbolName(sym), describeValue(result))
+			ErrTypeMismatch, ctx.QualifiedName(sym), DescribeValue(result))
 	}
 	return result.Const.Bool, nil
 }
@@ -79,7 +79,7 @@ func (ctx *Context) predicateShapeOf(sym *symbols.Symbol) *calcShape {
 		}
 	}
 	chain = append(chain, sym)
-	name := ctx.qualifiedSymbolName(sym)
+	name := ctx.QualifiedName(sym)
 	if sym.Name == "" {
 		// An anonymous usage answers to the name it redefines (`objective : MinimizeObjective;`).
 		name += ctx.model.semantics.EffectiveNameOf(sym)

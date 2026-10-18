@@ -42,7 +42,7 @@ func (p framePose) reorients() bool {
 func transformVector(name string, ctx *Context, args []Value) (Value, error) {
 	if args[0].Kind != ValCoordinateTransformation {
 		return Value{}, fmt.Errorf("%w: function %s parameter %q requires a coordinate transformation, got %s",
-			ErrTypeMismatch, name, "transformation", describeValue(args[0]))
+			ErrTypeMismatch, name, "transformation", DescribeValue(args[0]))
 	}
 	t := args[0].CoordinateTransformation()
 	if t.Source == nil || t.Target == nil {
@@ -51,7 +51,7 @@ func transformVector(name string, ctx *Context, args []Value) (Value, error) {
 	vq := args[1].VectorQuantity()
 	if vq == nil {
 		return Value{}, fmt.Errorf("%w: function %s parameter %q requires a vector quantity over %s, got %s",
-			ErrTypeMismatch, name, "sourceVector", t.Source.Name(), describeValue(args[1]))
+			ErrTypeMismatch, name, "sourceVector", t.Source.Name(), DescribeValue(args[1]))
 	}
 	if vq.Frame == nil {
 		return Value{}, fmt.Errorf("%w: function %s: sourceVector.mRef must be %s, the source of %s, but %s is written over the unit %s and no coordinate frame",
@@ -96,7 +96,7 @@ func (ctx *Context) poseOf(name string, t *CoordinateTransformation) (framePose,
 		return affinePose(name, t, n)
 	}
 	return framePose{}, fmt.Errorf("%w: function %s: %s is a %s, a CoordinateTransformation of no shape the library gives a meaning: not a CoordinateFramePlacement, TranslationRotationSequence or AffineTransformationMatrix3d",
-		errUnevaluableLibraryFunction, name, t.Name(), symbolText(t.Type))
+		errUnevaluableLibraryFunction, name, t.Name(), SymbolText(t.Type))
 }
 
 // placementPose reads origin and basisDirections: the origin as the target's
@@ -198,7 +198,7 @@ func (ctx *Context) sourceComponents(name string, t *CoordinateTransformation, w
 	vq := val.VectorQuantity()
 	if vq == nil {
 		return nil, fmt.Errorf("%w: function %s: %s: %s is %s, not a vector quantity over %s",
-			ErrTypeMismatch, name, t.Name(), what, describeValue(val), t.Source.Name())
+			ErrTypeMismatch, name, t.Name(), what, DescribeValue(val), t.Source.Name())
 	}
 	if vq.Frame != nil && !vq.Frame.equal(t.Source) {
 		return nil, fmt.Errorf("%w: function %s: %s: %s is a vector quantity in %s, not a vector quantity over %s, its source",

@@ -14,10 +14,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.OptionalDouble;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.TestInstance;
 import org.openmbee.opensysml.proto.CaseEvaluation;
 import org.openmbee.opensysml.proto.RunAnalysisRequest;
@@ -1447,6 +1451,67 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void checkActionWitnessesAViolationAndADivergence() {
+    Model model = connection.load(fixture("tank.sysml"));
+    CheckOptions options =
+        CheckOptions.defaults()
+            .withProperties("Plant::Tank::low")
+            .withDiverge("this.level")
+            .withWitness()
+            .withPerformer("Plant::tank");
+    CheckResult result = model.checkAction("Plant::Tank::fill", Map.of(), options);
+    assertEquals("fails", result.verdict());
+    assertFalse(result.holds());
+    assertFalse(result.lines().isEmpty());
+    CheckResult.Search search = result.search().orElseThrow();
+    assertEquals(11, search.states());
+    assertEquals(10, search.moves());
+    assertEquals(6, search.maxDepth());
+    assertEquals(1, result.violations().size(), result.violations().toString());
+    CheckResult.Violation violation = result.violations().get(0);
+    assertEquals("property", violation.kind());
+    assertEquals("Plant::Tank::low", violation.property());
+    assertEquals(3, violation.depth());
+    CheckResult.Witness witness = violation.witness().orElseThrow();
+    assertTrue(witness.schedule().startsWith("replay"), witness.schedule());
+    assertFalse(witness.fileName().isEmpty());
+    assertTrue(witness.fileContent().contains("\n"));
+    assertEquals(1, result.divergences().size());
+    assertEquals("this.level", result.divergences().get(0).feature());
+    assertEquals(
+        List.of("1", "2"),
+        result.divergences().get(0).values().stream().map(CheckResult.DivergentValue::value).toList());
+    assertEquals("check", result.standing().engine());
+
+    CheckResult held =
+        model.checkAction(
+            "Plant::Tank::fill",
+            Map.of(),
+            CheckOptions.defaults()
+                .withProperties("Plant::Tank::capped")
+                .withDiverge("this.capacity")
+                .withPerformer("Plant::tank"));
+    assertTrue(held.holds(), held.toString());
+    assertTrue(held.violations().isEmpty());
+    assertTrue(held.divergences().isEmpty());
+
+    ModelException missing =
+        assertThrows(
+            ModelException.class,
+            () -> model.checkAction("Plant::Tank::drain", Map.of(), CheckOptions.defaults()));
+    assertTrue(missing.getMessage().contains("Plant::Tank::drain"), missing.getMessage());
+    ServiceException negative =
+        assertThrows(
+            ServiceException.class,
+            () ->
+                model.checkAction(
+                    "Plant::Tank::fill",
+                    Map.of(),
+                    CheckOptions.defaults().withBounds(-1, 0, 0, 0)));
+    assertTrue(negative.getMessage().contains("check_depth"), negative.getMessage());
+  }
+
+  @Test
   void exportGraphsAnswersTheCanonicalFormOfABehavior() {
     Model model = connection.load(fixture("behavior.sysml"));
     Graphs graphs = model.exportGraphs("Test::race");
@@ -1654,5 +1719,325 @@ class ApiIntegrationTest {
         assertThrows(StaleServiceException.class, () -> Connection.open(options));
     assertTrue(stale.reason().contains("v0.0.1"), stale.reason());
     assertEquals(connection.capabilities().serviceVersion(), stale.serviceVersion());
+  }
+  private static final String RUNS_MODEL =
+      """
+      package MC {
+          private import ScalarValues::*;
+          private import RandomFunctions::*;
+          action def Settle { out t : Real; first start; then assign t := uniform(1.0, 5.0); then done; }
+          part def Probe { attribute t : Real; action settle { first start; then assign t := uniform(1.0, 5.0); then done; } }
+          individual def probe :> Probe;
+          analysis def Mc :> Simulation::MonteCarlo {
+              subject analysed : Probe;
+              perform action run ::> analysed.settle;
+              attribute :>> observed : Real = analysed.t;
+              return Mean : Real = mean;
+          }
+          part def P { attribute m : Real = 2.0; }
+          part p : P;
+          analysis def Cost { subject s : P; return total : Real = s.m * 3.0; }
+      }
+      """;
+
+  @Test
+  void repeatedRunsTableTheObservablesAndConcludeASample() {
+    Model model = connection.parse(RUNS_MODEL);
+    Runs runs = model.runRuns(RunsOptions.action("MC::Settle", 4).withSeed(7).withObserve("t"));
+    assertEquals(4, runs.size());
+    assertTrue(runs.completed());
+    assertEquals(List.of("t"), runs.observables());
+    Runs.Distribution t = runs.distribution("t").orElseThrow();
+    assertTrue(t.numeric());
+    assertEquals(4, t.count());
+    assertTrue(t.min().isPresent() && t.mean().isPresent());
+    assertEquals(Optional.of(7L), runs.seed());
+
+    Runs sample =
+        model.runRuns(RunsOptions.analysis("MC::Mc", 3).withSubject("MC::probe").withSeed(1));
+    assertEquals(3, sample.size());
+    assertTrue(sample.unconcluded().isEmpty());
+    assertTrue(sample.output("Mean").isPresent());
+
+    ServiceException unseeded =
+        assertThrows(
+            ServiceException.class, () -> model.runRuns(RunsOptions.action("MC::Settle", 1)));
+    assertTrue(unseeded.getMessage().contains("seed"), unseeded.getMessage());
+    ModelException unknown =
+        assertThrows(
+            ModelException.class,
+            () -> model.runRuns(RunsOptions.action("MC::Nope", 1).withDraws("min")));
+    assertTrue(unknown.getMessage().contains("MC::Nope"), unknown.getMessage());
+  }
+
+  @Test
+  void theSelfCheckCountsItsChecksAndRefusesAnUnknownRulePackage() {
+    Model model = connection.parse(RUNS_MODEL);
+    SelfCheck check = model.selfCheck(List.of());
+    assertTrue(check.elements() > 0 && check.checks() > 0, check.toString());
+    assertTrue(check.summary().startsWith("Self-model check: "), check.summary());
+    assertFalse(check.applications().isEmpty());
+    ModelException unknown =
+        assertThrows(ModelException.class, () -> model.selfCheck(List.of("Nope")));
+    assertTrue(unknown.getMessage().contains("Nope"), unknown.getMessage());
+  }
+
+  @Test
+  void recordingARunAndASampleGrowsTheModel() {
+    Model model = connection.parse(RUNS_MODEL);
+    Recording recording =
+        model.recordRun("MC::Cost", RecordOptions.defaults().withSubject("MC::p"));
+    assertTrue(recording.run().isPresent());
+    assertEquals("Records", recording.packageName());
+    assertEquals(List.of("Records::Cost_run1"), recording.records());
+    assertEquals(1, recording.documents().size());
+    assertFalse(recording.modelHash().isEmpty());
+
+    Recording sample =
+        model.recordRun(
+            "MC::Mc", RecordOptions.defaults().withSubject("MC::probe").withRuns(2, 3));
+    assertTrue(sample.sample().isPresent());
+    assertEquals(3, sample.records().size());
+    assertThrows(ModelException.class, () -> model.recordRun("MC::Nope", RecordOptions.defaults()));
+  }
+
+  private static final String IMPORT_MODEL =
+      """
+      package V {
+          private import ScalarValues::*;
+          part def Vehicle {
+              attribute count : Integer default 1;
+              attribute label : String default "plain";
+          }
+          part vehicle : Vehicle;
+          part car : Vehicle {
+              attribute :>> count = 2;
+          }
+      }
+      """;
+
+  private static final String PROBE_MODEL =
+      """
+      package Cfg {
+          private import ScalarValues::*;
+          part def Probe {
+              attribute total : Real = 1.0;
+              action steady { first start; then assign total := 4.0; then done; }
+          }
+          action def 'Group 1' { part target : Probe; perform action run ::> target.steady; }
+      }
+      """;
+
+  private static final String PROBE_RESULTS =
+      """
+      {"source":"probe.xmi","configurations":[
+       {"id":"_c1","name":"Cfg::'Group 1'","runs":2,"target":"target","behavior":"run","observables":["total"],
+        "snapshots":[{"id":"_r1","values":{"total":4.0}},{"id":"_r2","values":{"total":6.0}}]},
+       {"id":"_cn","name":"Cfg::Nothing","observables":[],"snapshots":[]}]}
+      """;
+
+  @Test
+  void importDataSetsTheValuesAndAnswersTheEditedModel() {
+    Model model = connection.parse(IMPORT_MODEL);
+    ImportResult result =
+        model.importData(
+            List.of(
+                DataImport.of("fleet.csv", "element,count,label\nV::vehicle,7,fast\nV::car,9,\n"),
+                new DataImport(
+                    "labels.txt",
+                    "[{\"element\":\"V::car\",\"label\":\"slow\"}]",
+                    Optional.of("json"),
+                    Optional.empty())),
+            false,
+            false);
+    assertTrue(result.applied());
+    assertEquals(List.of("fleet.csv", "labels.txt"), result.files().stream().map(ImportedFile::name).toList());
+    assertEquals(3, result.files().get(0).values());
+    assertEquals(2, result.files().get(0).elements());
+    assertEquals(
+        List.of(
+            "V::vehicle::count = 7 (redefines V::Vehicle::count)",
+            "V::vehicle::label = \"fast\" (redefines V::Vehicle::label)",
+            "V::car::count = 9",
+            "V::car::label = \"slow\" (redefines V::Vehicle::label)"),
+        result.files().stream()
+            .flatMap(file -> file.assignments().stream())
+            .map(ImportedValue::description)
+            .toList());
+    ImportedValue first = result.files().get(0).assignments().get(0);
+    assertEquals("V::Vehicle::count", first.redefines());
+    assertFalse(first.where().isEmpty());
+    assertTrue(result.content().contains("attribute :>> count = 7;"));
+    assertEquals(1, result.documents().size());
+    assertNotEquals(Optional.of(model.hash()), result.modelHash());
+    assertEquals("car", connection.model(result.modelHash().orElseThrow()).symbol("V::car").name());
+
+    ImportResult dry =
+        model.importData(
+            List.of(DataImport.of("fleet.tsv", "element\tcount\nV::vehicle\t7\n")), true, false);
+    assertFalse(dry.applied());
+    assertEquals(1, dry.files().get(0).assignments().size());
+    assertTrue(dry.content().isEmpty() && dry.documents().isEmpty());
+
+    ModelException refused =
+        assertThrows(
+            ModelException.class,
+            () ->
+                model.importData(
+                    List.of(DataImport.of("fleet.csv", "element,count\nV::car,9\nV::Nowhere,1\n")),
+                    false,
+                    false));
+    assertTrue(refused.getMessage().contains("V::Nowhere"), refused.getMessage());
+    assertThrows(ServiceException.class, () -> model.importData(List.of(), false, false));
+  }
+
+  @Test
+  void compareResultsTablesTheToolBesideTheRuns() {
+    Model model = connection.parse(PROBE_MODEL);
+    Comparison comparison =
+        model.compareResults(
+            PROBE_RESULTS,
+            new CompareOptions(
+                List.of(),
+                0,
+                OptionalLong.of(7),
+                Optional.empty(),
+                OptionalDouble.empty(),
+                List.of(),
+                Optional.empty()));
+    assertEquals("probe.xmi", comparison.source());
+    assertEquals(2, comparison.configurations().size());
+    ConfigurationComparison group = comparison.configurations().get(0);
+    assertEquals("Cfg::'Group 1'", group.name());
+    assertEquals("holds", group.status());
+    assertEquals(2, group.runs());
+    assertEquals(2, group.completed());
+    assertEquals(2, group.storedRuns());
+    assertEquals(OptionalLong.of(7), group.seed());
+    assertEquals(2, group.rows().size());
+    assertEquals(1, group.observables().size());
+    ObservableComparison total = group.observables().get(0);
+    assertEquals("total", total.stored());
+    assertEquals("target.total", total.feature());
+    assertTrue(total.compared());
+    assertEquals(2, total.tool().orElseThrow().count());
+    assertEquals(5.0, total.tool().orElseThrow().mean());
+    assertEquals(4.0, total.run().orElseThrow().mean());
+    assertEquals("-20.0%", total.difference().orElseThrow().mean());
+    assertFalse(group.lines().isEmpty());
+    assertEquals("unresolved", comparison.configurations().get(1).status());
+    assertFalse(comparison.configurations().get(1).unresolved().isEmpty());
+
+    Comparison selected =
+        model.compareResults(
+            PROBE_RESULTS,
+            new CompareOptions(
+                List.of("Group 1"),
+                1,
+                OptionalLong.of(3),
+                Optional.empty(),
+                OptionalDouble.empty(),
+                List.of(),
+                Optional.empty()));
+    assertEquals(1, selected.configurations().size());
+    assertEquals(1, selected.configurations().get(0).runs());
+
+    assertThrows(
+        ServiceException.class,
+        () ->
+            model.compareResults(
+                PROBE_RESULTS,
+                new CompareOptions(
+                    List.of(),
+                    -1,
+                    OptionalLong.empty(),
+                    Optional.empty(),
+                    OptionalDouble.empty(),
+                    List.of(),
+                    Optional.empty())));
+    assertThrows(
+        ServiceException.class, () -> model.compareResults("not json", CompareOptions.defaults()));
+  }
+
+  private static final String TIMED =
+      """
+      package Timed {
+        private import ScalarValues::*;
+        action delayed {
+          attribute count : Integer = 0;
+          first start;
+          then action wait accept after 5 [SI::s];
+          then action tick assign count := count + 1;
+          then done;
+        }
+      }
+      """;
+
+  private static final String LINTS =
+      """
+      package Lints {
+        private import ScalarValues::*;
+        attribute x : Real = 0.1;
+        state def M { entry; then a; state a; state b; transition first a when Pnig then b; }
+      }
+      """;
+
+  @Test
+  void advanceRunsForASimulatedDurationAndAFailedRunKeepsItsClock() {
+    Model model = connection.parse(TIMED);
+    ActionRun completed =
+        model.executeAction("Timed::delayed", Map.of(), ExecutionOptions.defaults().withAdvance(10));
+    assertEquals(new Value.IntegerValue(1), completed.outputs().get("count"));
+    assertEquals(OptionalDouble.of(10), completed.finalTime());
+
+    ModelException waiting =
+        assertThrows(
+            ModelException.class,
+            () ->
+                model.executeAction(
+                    "Timed::delayed", Map.of(), ExecutionOptions.defaults().withAdvance(2)));
+    assertTrue(waiting.getMessage().contains("without completing"), waiting.getMessage());
+    assertEquals(2, waiting.finalTime());
+
+    ActionRun stepped =
+        model.executeAction(
+            "Timed::delayed", Map.of(), ExecutionOptions.defaults().withClockStep(3));
+    assertEquals(OptionalDouble.of(6), stepped.finalTime());
+
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class,
+            () ->
+                model.executeAction(
+                    "Timed::delayed", Map.of(), ExecutionOptions.defaults().withDraws("often")));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+  }
+
+  @Test
+  void diagnosticsFollowTheLintSelection() {
+    Model model = connection.parse(LINTS);
+    List<String> defaults = model.diagnostics().stream().map(Diagnostic::code).toList();
+    assertEquals(List.of("undeclared-signal"), defaults);
+    assertTrue(
+        model.diagnostics(DiagnosticsOptions.defaults().enabling("rounded-real-literal")).stream()
+            .map(Diagnostic::code)
+            .toList()
+            .containsAll(List.of("undeclared-signal", "rounded-real-literal")));
+    assertEquals(
+        List.of(), model.diagnostics(DiagnosticsOptions.defaults().disabling("undeclared-signal")));
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class,
+            () -> model.diagnostics(DiagnosticsOptions.defaults().disabling("no-such-lint")));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+  }
+
+  @Test
+  void probingListsTheBuiltInEnginesAsBefore() {
+    Assumptions.assumeTrue(connection.capabilities().has(Capabilities.ENGINES));
+    List<String> probed = connection.listEngines(true).stream().map(EngineInfo::name).toList();
+    List<String> listed = connection.listEngines().stream().map(EngineInfo::name).toList();
+    assertEquals(listed, probed);
+    assertTrue(probed.containsAll(List.of("run", "explore", "solve", "sweep")), probed.toString());
   }
 }

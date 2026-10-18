@@ -1,12 +1,12 @@
 package project
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -14,12 +14,9 @@ import (
 // its model files (KerML 1.0 §10.3): a directory holding one is a project.
 const ProjectFile = ".project.json"
 
-// archiveExt is the extension of a project interchange archive, which a
-// resource IRI may end in; it is no part of the project's name.
-const archiveExt = ".kpar"
-
 // Interchange is the InterchangeProject information a project's .project.json
-// carries (KerML 1.0 Table 12), with the directory it was read from.
+// carries (KerML 1.0 Table 12), with the directory it was read from — or, for
+// an archived project, the archive's path.
 type Interchange struct {
 	Dir         string
 	Name        string
@@ -53,6 +50,13 @@ func ReadInterchange(dir string) (*Interchange, error) {
 	if err != nil {
 		return nil, err
 	}
+	return parseInterchange(dir, file, content)
+}
+
+// parseInterchange reads the InterchangeProject object of Table 12 from the
+// bytes of a .project.json, reported as file; the project's Dir is dir. The
+// name and version are mandatory, as is the resource of every usage.
+func parseInterchange(dir, file string, content []byte) (*Interchange, error) {
 	var raw struct {
 		Name        string  `json:"name"`
 		Publisher   string  `json:"publisher"`
@@ -61,11 +65,19 @@ func ReadInterchange(dir string) (*Interchange, error) {
 		License     string  `json:"license"`
 		Usage       []Usage `json:"usage"`
 	}
-	if err := json.Unmarshal(content, &raw); err != nil {
+	if err := decodeObject(content, &raw); err != nil {
 		return nil, fmt.Errorf("%s: %w", file, err)
 	}
 	if raw.Name == "" {
 		return nil, fmt.Errorf("%s: the project has no name", file)
+	}
+	if raw.Version == "" {
+		return nil, fmt.Errorf("%s: the project has no version", file)
+	}
+	for i, u := range raw.Usage {
+		if u.Resource == "" {
+			return nil, fmt.Errorf("%s: usage %d names no resource", file, i+1)
+		}
 	}
 	return &Interchange{
 		Dir:         dir,
@@ -78,6 +90,28 @@ func ReadInterchange(dir string) (*Interchange, error) {
 	}, nil
 }
 
+// IsArchived reports whether the project was read from an archive rather
+// than a directory.
+func (p *Interchange) IsArchived() bool { return IsArchive(p.Dir) }
+
+// Files lists the model files the project contributes, sorted: the model
+// members of an archive, or the loadable files under a directory, at most
+// maxDependencyDirs directories deep.
+func (p *Interchange) Files() []string {
+	if p.IsArchived() {
+		a, err := openCached(p.Dir)
+		if err != nil {
+			return nil
+		}
+		return a.Files()
+	}
+	var files []string
+	budget := maxDependencyDirs
+	walkTolerant(p.Dir, map[string]bool{}, &budget, IsLoadable, &files)
+	sort.Strings(files)
+	return files
+}
+
 // EnclosingProjects lists the directories at or above path that are projects,
 // the nearest first; path names a file or a directory, and need not exist.
 func EnclosingProjects(path string) []string {
@@ -86,10 +120,16 @@ func EnclosingProjects(path string) []string {
 		return nil
 	}
 	dir := abs
-	if info, err := os.Stat(abs); err != nil || !info.IsDir() {
-		dir = filepath.Dir(abs)
-	}
 	var out []string
+	// An archive, or a member of one, belongs to the archive's project first.
+	if archive, _, ok := SplitMemberPath(abs); ok {
+		out, dir = append(out, archive), archive
+	} else if IsArchiveFile(abs) {
+		out = append(out, abs)
+	}
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		dir = filepath.Dir(dir)
+	}
 	for {
 		if IsProjectDir(dir) {
 			out = append(out, dir)
@@ -154,8 +194,8 @@ func resourceSegments(resource string) []string {
 		if i := strings.IndexByte(last, '@'); i > 0 {
 			last = last[:i]
 		}
-		if strings.EqualFold(path.Ext(last), archiveExt) {
-			last = last[:len(last)-len(archiveExt)]
+		if strings.EqualFold(path.Ext(last), ArchiveExt) {
+			last = last[:len(last)-len(ArchiveExt)]
 		}
 		out[n-1] = last
 	}

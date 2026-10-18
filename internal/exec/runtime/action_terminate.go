@@ -25,7 +25,7 @@ type terminated struct {
 
 func (t *terminated) Error() string {
 	if t.perf == nil {
-		return fmt.Sprintf("terminate object #%d (%s)", t.object.ID, symbolText(t.object.Type))
+		return fmt.Sprintf("terminate object #%d (%s)", t.object.ID, SymbolText(t.object.Type))
 	}
 	return "terminate " + t.perf.describe()
 }

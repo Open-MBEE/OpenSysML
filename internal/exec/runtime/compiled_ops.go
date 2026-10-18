@@ -143,7 +143,7 @@ func scalarResult(op ast.OperatorKind, res semantics.Value) (scalar, error) {
 	out, ok := scalarOfConst(res)
 	if !ok {
 		return scalar{}, fmt.Errorf("compiled '%s' produced a non-scalar %s", op,
-			describeValue(Value{Kind: ValConst, Const: res}))
+			DescribeValue(Value{Kind: ValConst, Const: res}))
 	}
 	return out, nil
 }
@@ -670,7 +670,7 @@ func (ctx *Context) libraryArgs(n int) []Value {
 func scalarOfResult(name string, res Value) (scalar, error) {
 	out, ok := scalarOf(res)
 	if !ok {
-		return scalar{}, fmt.Errorf("compiled call of %s produced a non-scalar %s", name, describeValue(res))
+		return scalar{}, fmt.Errorf("compiled call of %s produced a non-scalar %s", name, DescribeValue(res))
 	}
 	return out, nil
 }

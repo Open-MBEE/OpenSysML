@@ -142,7 +142,7 @@ func TestScalarDirectTypeIsTheLibraryDefinition(t *testing.T) {
 				t.Fatalf("directValueType(%s): %v", FormatValue(tc.value), err)
 			}
 			if typ != want {
-				t.Errorf("directValueType(%s) = %s, want %s", FormatValue(tc.value), symbolText(typ), tc.want)
+				t.Errorf("directValueType(%s) = %s, want %s", FormatValue(tc.value), SymbolText(typ), tc.want)
 			}
 		}
 		name := tc.want[len("ScalarValues::"):]
@@ -151,7 +151,7 @@ func TestScalarDirectTypeIsTheLibraryDefinition(t *testing.T) {
 		}
 		user := ctx.resolveType(shadow, name)
 		if user == nil || user == want {
-			t.Errorf("resolveType(Shadow, %s) = %s, want the type Shadow declares", name, symbolText(user))
+			t.Errorf("resolveType(Shadow, %s) = %s, want the type Shadow declares", name, SymbolText(user))
 		}
 	}
 }
@@ -190,7 +190,7 @@ func TestUserScalarTypeStandsInOnlyWithoutALibrary(t *testing.T) {
 	}
 	typ, err := ctx.directValueType(shadow, intArg(2))
 	if err != nil || typ != ctx.resolveType(shadow, "Integer") {
-		t.Errorf("without a library, directValueType(2) = %s, %v, want Shadow::Integer", symbolText(typ), err)
+		t.Errorf("without a library, directValueType(2) = %s, %v, want Shadow::Integer", SymbolText(typ), err)
 	}
 
 	ctx, shadow = build(t, "package Base { class Anything; }")

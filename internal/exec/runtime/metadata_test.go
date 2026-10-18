@@ -70,7 +70,7 @@ func metadataTypeNames(t *testing.T, ctx *Context, value Value) []string {
 		if !ok {
 			t.Fatalf("element %v is no object", elem.Kind)
 		}
-		names = append(names, ctx.qualifiedSymbolName(inst.Type))
+		names = append(names, ctx.QualifiedName(inst.Type))
 	}
 	return names
 }

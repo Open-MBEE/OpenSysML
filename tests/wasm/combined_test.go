@@ -271,6 +271,18 @@ func TestCombinedWireParity(t *testing.T) {
 			},
 		},
 		{
+			method: "RenderView",
+			params: fmt.Sprintf(`{"modelHash":%q,"view":"#tree:enginedemo::Switch","ports":"minimal"}`, hash),
+			call: func() ([]byte, error) {
+				request := fmt.Sprintf(`{"modelHash":%q,"view":"#tree:enginedemo::Switch","ports":"minimal"}`, hash)
+				response, err := svc.RenderView(ctx, mustUnmarshal[pb.RenderViewRequest](t, request))
+				if err != nil {
+					return nil, err
+				}
+				return mustMarshal(t, response), nil
+			},
+		},
+		{
 			method: "ExecuteState",
 			params: fmt.Sprintf(`{"modelHash":%q,"stateMachineSymbolId":"enginedemo::Switch"}`, hash),
 			call: func() ([]byte, error) {
@@ -348,7 +360,7 @@ func TestCombinedWireParity(t *testing.T) {
 		"parse_sources", "complex_values", "structured_values", "measurement_refs",
 		"function_values", "set_values", "tensor_values", "infinity_value",
 		"diagnostic_codes", "schedule", "final_time", "metaobject_values",
-		"undetermined_value", "performer", "big_int_values",
+		"undetermined_value", "performer", "big_int_values", "render_view", "state_trace",
 	}
 	if info.Version != "combined-wire-test" {
 		t.Errorf("GetServerInfo version = %q", info.Version)

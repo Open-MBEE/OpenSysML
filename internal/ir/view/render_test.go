@@ -129,6 +129,8 @@ func TestGoldenRenderings(t *testing.T) {
 		{"depth-tree-1", "depth-tree.sysml", "DepthViews::depth1", KindTree},
 		{"depth-tree-2", "depth-tree.sysml", "DepthViews::depth2", KindTree},
 		{"depth-interconnection", "depth-interconnection.sysml", "DepthLinks::links", KindInterconnection},
+		{"typed-usage-inherited-interconnection", "typed-usage-inherited.sysml", "TypedUsageViews::rocketLinks", KindInterconnection},
+		{"typed-usage-inherited-tree", "typed-usage-inherited.sysml", "TypedUsageViews::vehicleTree", KindTree},
 		{"layout-collapsed-tree", "layout-collapsed.sysml", "FoldedViews::folded", KindTree},
 		{"layout-collapsed-interconnection", "layout-collapsed.sysml", "FoldedViews::links", KindInterconnection},
 		{"layout-no-parts", "layout-collapsed.sysml", "FoldedViews::noParts", KindTree},

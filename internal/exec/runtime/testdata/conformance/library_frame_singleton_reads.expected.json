@@ -1,0 +1,26 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Rig",
+  "slots": {
+    "frame": {"type": "CoordinateFrame", "text": "universalCartesianSpatial3dCoordinateFrame [m, m, m]"},
+    "axes": {"type": "Sequence", "elements": [
+      {"type": "MeasurementRef", "unit": "m"},
+      {"type": "MeasurementRef", "unit": "m"},
+      {"type": "MeasurementRef", "unit": "m"}
+    ]},
+    "position": {"type": "VectorQuantity", "elements": [
+      {"type": "Quantity", "value": 1.0, "unit": "m"},
+      {"type": "Quantity", "value": 2.0, "unit": "m"},
+      {"type": "Quantity", "value": 3.0, "unit": "m"}
+    ]},
+    "body.coordinateFrame": {"type": "CoordinateFrame", "text": "universalCartesianSpatial3dCoordinateFrame [m, m, m]"},
+    "local": {"type": "CoordinateFrame", "text": "local [m, m, m]"},
+    "local.mRefs": {"type": "Sequence", "elements": [
+      {"type": "MeasurementRef", "unit": "m"},
+      {"type": "MeasurementRef", "unit": "m"},
+      {"type": "MeasurementRef", "unit": "m"}
+    ]},
+    "alias.id": {"type": "Integer", "value": 4}
+  }
+}

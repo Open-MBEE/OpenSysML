@@ -131,7 +131,10 @@ directories of a workspace folder's project (`.sysand/lib`), are named by a list
 { "sysml.libraryRoots": [] }
 ```
 
-A relative directory is taken from each workspace folder. The list replaces the previous
+A relative directory is taken from each workspace folder. An installed project under a root
+may be a directory or a project interchange archive (`.kpar`); an archive's model files are
+indexed from the archive, named `<archive>.kpar/<member>`, and a malformed archive is passed
+over. The list replaces the previous
 one; changing it walks the folders again, indexing the projects the new roots hold and
 dropping the sources only the old ones contributed, and republishes the diagnostics of every
 open document. A value that is not a list of strings is ignored. It corresponds to the

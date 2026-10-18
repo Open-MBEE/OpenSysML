@@ -10,7 +10,7 @@
     "constraints": {"type": "Sequence", "elements": []},
     "subj": {"error": "uninitialized feature value: subj"},
     "result": {"error": "feature \"result\" not found"},
-    "requirement": {"error": "feature \"requirement\" not found"},
-    "self": {"error": "feature \"self\" not found"}
+    "requirement": {"error": "MassLimit has no member requirement"},
+    "self": {"type": "Instance"}
   }
 }

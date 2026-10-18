@@ -40,6 +40,10 @@ within these records and means nothing outside this repository.
   exercise, judged by whether an input for each exists, advisory
 - **[Grammar-to-metaclass map](grammar-metaclass-map.md)** — how OMG grammar productions relate to
   the metaclasses and features OpenSysML recognizes, with a location-based differential, advisory
+- **[Library and prefix sweep](library-and-prefix-sweep.md)** — every Systems and Domain library
+  feature read on an object, every Kernel Function Library function called, and every grammar prefix
+  crossed with every usage kind, each probe bucketed by what the runtime answered and the gap classes
+  the sweep found.
 - **[Validation-constraint census](validation-constraints.md)** — which of the pilot's named
   validation constraints OpenSysML reports, each mapped to the pass and message that reports it,
   with a violating model as evidence; the figures and the name list are gated in CI
@@ -90,14 +94,11 @@ within these records and means nothing outside this repository.
 - **[StateMachines library](statemachines-library.md)** — pseudostates as bundled
   `SemanticMetadata`, so a state machine's `choice`, `junction` and history pseudostates
   spell standard, conforming SysML v2
-- **[Performance: 0.10.0 against 0.9.2](performance-release-0.10.0-vs-0.9.2.md)** — the release-gate
-  measurement of 0.10.0 against 0.9.2: every benchmark on both revisions, the rows in doubt re-run
-  interleaved, whole-binary scaling, and each confirmed regression with the change responsible; the
-  [0.9.2 against 0.9.1](performance-release-0.9.2-vs-0.9.1.md),
-  [0.9.1 against 0.9.0](performance-release-0.9.1-vs-0.9.0.md),
-  [0.8.0 against 0.7.0](performance-release-0.8-vs-0.7.0.md),
-  [0.6 against 0.4.2](performance-release-0.6-vs-0.4.2.md) and
-  [0.5 against 0.4.3](performance-release-0.5-vs-0.4.3.md) records precede it
+- **[Performance: 0.10.1 against 0.10.0](performance-release-0.10.1-vs-0.10.0.md)** — the release-gate
+  measurement of the current release against the one before it: every benchmark on both revisions,
+  the rows in doubt re-run interleaved, whole-binary scaling, and each confirmed regression with the
+  change responsible; the records of the earlier releases and the September 2026 census, execution
+  study and profile are in the [archive](archive/README.md)
 - **[Roadmap](roadmap.md)** — the known gaps, in the order they should be picked up
 - **[Nightly snapshots](nightly.md)** — the prerelease built from `develop` every night: where it
   is, what it contains, and how to verify one

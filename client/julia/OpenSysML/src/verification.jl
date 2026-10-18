@@ -310,6 +310,20 @@ function _ordered_sweep_ranges(ranges)
     throw(ArgumentError("ranges must be a Pair, a vector of pairs, or a dictionary with at most one entry"))
 end
 
+function _sweep_rows(answer, graph, instances, diags)
+    rows = SweepRow[]
+    for row in get(answer, "rows", Any[])
+        row_inputs = _output_map(get(row, "inputs", Any[]), graph)
+        row_outputs = _output_map(get(row, "outputs", Any[]), graph)
+        verdicts = Verdict[_verdict(v, instances, diags) for v in get(row, "verdicts", Any[])]
+        push!(rows, SweepRow(row_inputs, row_outputs, verdicts,
+            parse(Float64, string(get(row, "elapsedMicros", 0))) / 1e6,
+            String(get(row, "error", "")),
+            _case_evaluations(get(row, "evaluations", Any[]), graph)))
+    end
+    return rows
+end
+
 function run_sweep(model::Model, symbol_id::AbstractString, ranges;
                    subject=nothing, arguments=Any[], named_arguments=Dict(),
                    samples::Integer=0, seed::Integer=0, engine=nothing)
@@ -342,20 +356,15 @@ function run_sweep(model::Model, symbol_id::AbstractString, ranges;
     answer = _translate(; capabilities=Tuple(needed), connection=conn) do
         call(conn, "RunSweep", request)
     end
+    return _sweep_table(conn, answer)
+end
+
+function _sweep_table(conn::Connection, answer)
     diags = _diagnostics(answer)
     _raise_answer_error(answer; diagnostics=diags)
     instances = _reported_instances(conn, answer)
     graph = Dict{Int64,Instance}(inst.id => inst for inst in instances)
-    rows = SweepRow[]
-    for row in get(answer, "rows", Any[])
-        row_inputs = _output_map(get(row, "inputs", Any[]), graph)
-        row_outputs = _output_map(get(row, "outputs", Any[]), graph)
-        verdicts = Verdict[_verdict(v, instances, diags) for v in get(row, "verdicts", Any[])]
-        push!(rows, SweepRow(row_inputs, row_outputs, verdicts,
-            parse(Float64, string(get(row, "elapsedMicros", 0))) / 1e6,
-            String(get(row, "error", "")),
-            _case_evaluations(get(row, "evaluations", Any[]), graph)))
-    end
+    rows = _sweep_rows(answer, graph, instances, diags)
     SweepTable(rows, String[String(v) for v in get(answer, "parameters", Any[])],
         Bool(get(answer, "sampled", false)), parse(UInt64, string(get(answer, "seed", 0))),
         instances, diags, Standing(answer))

@@ -455,6 +455,14 @@ func (h *stateStmtHost) materializeOccurrence() (*Instance, error) {
 // acceptReturn rejects a `return`: a state behavior computes no result.
 // statementOrder is how stmts may be ordered where the schedule picks it: an inline
 // body's statements are subactions of the behavior's performance no succession orders.
+func (h *stateStmtHost) statementFootprint(stmts []lower.Statement, i int) lower.Footprint {
+	graph := h.flow.graph
+	if graph == nil {
+		graph = &lower.ActionGraph{Scope: h.behavior.Scope}
+	}
+	return h.perfs.statementOrder(graph, h.behavior.Node, stmts).Footprint(i)
+}
+
 func (h *stateStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
 	if len(stmts) < 2 || !h.exec.ctx.scheduling().ordersStatements() {
 		return nil

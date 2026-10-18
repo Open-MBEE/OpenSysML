@@ -46,7 +46,7 @@ func testBusyDoFlowAgainstADueDispatch(t *testing.T) {
 		if err != nil {
 			return Outcome{}, err
 		}
-		exec.sendSignal("Stop", nil)
+		exec.SendSignal("Stop", nil)
 		err = exec.RunToCompletion()
 		return exec.Outcome(), err
 	}
@@ -88,7 +88,7 @@ func testCheckOfABusyDoFlowNamesItsBound(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		exec.sendSignal("Stop", nil)
+		exec.SendSignal("Stop", nil)
 		return &Invocation{States: []*StateExecutor{exec}}, nil
 	}
 	report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, unreduced(), nil)
@@ -135,7 +135,7 @@ func testStepOrderNamingADoBodyParkedAtAnAccept(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exec.sendSignal("Stop", nil)
+	exec.SendSignal("Stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}

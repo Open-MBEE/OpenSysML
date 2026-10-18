@@ -124,7 +124,7 @@ func testExitParametersNotTakenNeedsOne(t *testing.T) {
 	if exited := exec.stateData["exited"]; exited.Const.Int != 8 {
 		t.Errorf("exited = %v after Halt, want 8 from halt.h", exited)
 	}
-	exec.sendSignal("Pass", nil)
+	exec.SendSignal("Pass", nil)
 	err := exec.RunToCompletion()
 	if !errors.Is(err, ErrMultiplicityViolation) {
 		t.Errorf("exit reading a transition not taken = %v; want ErrMultiplicityViolation", err)
@@ -138,7 +138,7 @@ func testExitParametersNotTakenNeedsOne(t *testing.T) {
 // trigger's payload, so the transition is refused before the exit is performed.
 func testExitParametersPayloadAbsent(t *testing.T) {
 	exec := exitParametersMachine(t, exitParametersModel)
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	err := exec.RunToCompletion()
 	if !errors.Is(err, ErrNoValue) {
 		t.Errorf("Go without a payload = %v; want ErrNoValue", err)

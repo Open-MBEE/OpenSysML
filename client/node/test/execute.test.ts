@@ -128,6 +128,42 @@ test("a pin is held in the shape its multiplicity gives it", async () => {
   });
 });
 
+const DERIVED_MODEL = `package Sched {
+    private import ScalarValues::*;
+
+    action derived {
+        attribute x : Integer = 0;
+        attribute y : Integer = 0;
+        attribute z : Integer = 0;
+        first start;
+        fork split;
+        action a { assign x := 1; }
+        action b { assign x := 2; }
+        join sync;
+        action derive { assign y := x + 1; assign z := 5; }
+        done;
+        succession first start then split;
+        succession first split then a;
+        succession first split then b;
+        succession first a then sync;
+        succession first b then sync;
+        succession first sync then derive;
+        succession first derive then done;
+    }
+}
+`;
+
+test("a value computed from an order-dependent one is marked, one computed from a literal is not", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(DERIVED_MODEL);
+  const run = await model.executeAction("Sched::derived");
+  const x = run.outputs.get("x");
+  assert.ok(x !== undefined && "kind" in x && x.kind === "int");
+  assert.deepEqual(run.outputs.get("y"), { kind: "int", value: x.value + 1n });
+  assert.deepEqual(run.outputs.get("z"), { kind: "int", value: 5n });
+  assert.deepEqual(run.orderDependent, new Map([["x", 2], ["y", 2]]));
+});
+
 test("the service advertises schedule, explore and performer", async () => {
   await using connection = await connect();
   assert.ok(connection.info.has("schedule"));

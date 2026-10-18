@@ -49,6 +49,9 @@ environment variable for unattended installs:
 | Show the choice, install nothing | `--dry-run` | `-DryRun` | |
 | Also verify the manifest's cosign signature | `--verify-signature` | | |
 
+Only the assets the named tools come from are downloaded and verified: `sysml` and `sysml-lsp` from the
+`opensysml-<platform>` bundle, `sysml-grpc` and `sysml-jupyter-kernel` from their own per-platform binaries.
+
 ```bash
 # the language server alone, into a directory of your own, from the nightly snapshot
 curl -fsSL https://opensysml.org/install.sh | sh -s -- --tools sysml-lsp --bin-dir ~/bin --version nightly

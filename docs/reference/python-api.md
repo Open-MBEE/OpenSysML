@@ -32,6 +32,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_CHECK
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_STATE_ACTION_AUTHORING
     options:
       heading_level: 3
@@ -57,6 +61,22 @@ connecting to models.
       heading_level: 3
 
 ::: opensysml.CAPABILITY_RENDER_DOCUMENT_FILE_NAME
+
+::: opensysml.CAPABILITY_IMPORT_DATA
+
+::: opensysml.CAPABILITY_COMPARE_RESULTS
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_RUNS
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_SELF_CHECK
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_RECORD_RUN
     options:
       heading_level: 3
 
@@ -178,6 +198,17 @@ pass `ports="full"` to include every declared port.
 JSON of an action or state machine's lowered graph, its version and the subject
 as resolved.
 
+`Model.check_action(action, inputs=None, performer=None, properties=(), diverge=(),
+free_inputs=(), assume=(), witness=False, depth=0, states=0, unroll=0, timeout=0.0,
+engine=None)` and `Model.check_state_machine(...)` search every schedule of a
+behavior as `sysml -check-property` does and return a typed `CheckResult`:
+`verdict`, `lines`, `search` (a `CheckSearch`), `violations`, `divergences`,
+`finals`, each witnessed by a `CheckWitness` whose `schedule` any run replays,
+the symbolic engine's `claim`/`free_inputs`/`assumptions`, and `standing`. A
+behavior or property the model lacks raises `ExecutionError`; a negative bound
+`InvalidRequestError`; a service without the `check` capability
+`MissingCapabilityError` before anything is sent.
+
 ::: opensysml.Model
     options:
       heading_level: 3
@@ -189,6 +220,15 @@ explore schedule; the same option and result fields are available on
 `Connection.execute_state`.
 A failed traced run raises the existing `ExecutionError`, with its partial
 records on `trace` and discarded count on `trace_dropped`.
+
+`execute_action` and `execute_state` take the run options of the `sysml`
+command: `advance` (simulated seconds to run for, reported back in
+`final_time`), `seed` (the model's own draws), `draws` (`"random"`, `"min"`,
+`"max"` or `"average"`) and `clock_step`. `run_analysis(..., tool_dry_run=True)`
+previews the first external tool call instead of making it, as the result's
+`tool_dry_run` (a `ToolDryRun`), and
+`Connection.list_engines(probe=True)` starts each external engine and checks its
+handshake before listing it.
 
 ## opensysml.symbol
 
@@ -582,6 +622,74 @@ Typed outcomes for verification, validation, calculation and analysis.
     options:
       heading_level: 3
 
+::: opensysml.RunsResult
+    options:
+      heading_level: 3
+
+::: opensysml.RunDistribution
+    options:
+      heading_level: 3
+
+::: opensysml.RunPercentile
+    options:
+      heading_level: 3
+
+::: opensysml.RunHistogramBin
+    options:
+      heading_level: 3
+
+::: opensysml.RunCountedValue
+    options:
+      heading_level: 3
+
+::: opensysml.SelfCheckResult
+    options:
+      heading_level: 3
+
+::: opensysml.SelfCheckFinding
+    options:
+      heading_level: 3
+
+::: opensysml.Recording
+    options:
+      heading_level: 3
+
+::: opensysml.RecordedDocument
+    options:
+      heading_level: 3
+
+::: opensysml.CheckResult
+    options:
+      heading_level: 3
+
+::: opensysml.CheckSearch
+    options:
+      heading_level: 3
+
+::: opensysml.CheckViolation
+    options:
+      heading_level: 3
+
+::: opensysml.CheckWitness
+    options:
+      heading_level: 3
+
+::: opensysml.CheckDivergence
+    options:
+      heading_level: 3
+
+::: opensysml.CheckDivergentValue
+    options:
+      heading_level: 3
+
+::: opensysml.CheckFinal
+    options:
+      heading_level: 3
+
+::: opensysml.ToolDryRun
+    options:
+      heading_level: 3
+
 ::: opensysml.Validation
     options:
       heading_level: 3
@@ -707,6 +815,26 @@ Typed query rows, document values, and document and view render results.
       heading_level: 3
 
 ::: opensysml.Graphs
+
+::: opensysml.ImportResult
+
+::: opensysml.ImportedFile
+
+::: opensysml.ImportedValue
+
+::: opensysml.Comparison
+
+::: opensysml.ConfigurationComparison
+
+::: opensysml.ObservableComparison
+
+::: opensysml.ComparedDistribution
+
+::: opensysml.StatisticDifference
+
+::: opensysml.CaseStatistics
+
+::: opensysml.CaseStatistic
     options:
       heading_level: 3
 
