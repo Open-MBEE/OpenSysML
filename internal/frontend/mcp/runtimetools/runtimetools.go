@@ -118,7 +118,7 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 		if strings.TrimSpace(path) == "" {
 			return nil, argumentError("paths must not hold an empty path")
 		}
-		resolved, err := g.path(path, true)
+		resolved, err := g.path(path, nameFormat)
 		if err != nil {
 			return nil, err
 		}
@@ -148,11 +148,11 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 // that leaves it, by its lexical form or through a symlink, so a tool reads
 // only under -root. The path handed on has its symlinks resolved, so the
 // service opens the file the check saw, not what a link is later pointed at;
-// when the service reads the format or language from the name (inferred:
-// every model source, not a layout), a link whose name means another format
-// or language than its target's is refused rather than read as the wrong one. A path that does not exist yet is resolved through its
-// nearest existing ancestor.
-func (g *group) path(p string, inferred bool) (string, error) {
+// where the service reads something from the name (role), a link whose name
+// means another format or language than its target's is refused rather than
+// read as the wrong one. A path that does not exist yet is resolved through
+// its nearest existing ancestor.
+func (g *group) path(p string, role nameRole) (string, error) {
 	p = strings.TrimSpace(p)
 	if p == "" {
 		return "", argumentError("a path is required")
@@ -174,7 +174,7 @@ func (g *group) path(p string, inferred bool) (string, error) {
 			if !under(g.realRoot, real) {
 				return "", argumentError("%s resolves to %s, outside the workspace root %s", p, real, g.root)
 			}
-			if inferred && !sameFormat(p, real) {
+			if !sameFormat(p, real, role) {
 				return "", argumentError("%s is a link to %s, whose extension names another format; name the file itself or a link with its extension", p, real)
 			}
 			return real, nil
@@ -190,16 +190,46 @@ func (g *group) path(p string, inferred bool) (string, error) {
 	}
 }
 
-// sameFormat reports whether two names mean the same model format and, for
-// notation, the same language: what convert and source infer from each, or the
-// same extension when convert infers nothing.
-func sameFormat(a, b string) bool {
+// nameRole is what the service reads from a path's name: the model format and
+// notation language (a source with no fromFormat), the language only (a source
+// with an explicit fromFormat, which still parses notation by its name), or
+// nothing (a layout).
+type nameRole int
+
+const (
+	nameIgnored nameRole = iota
+	nameLanguage
+	nameFormat
+)
+
+// sameFormat reports whether two names mean the same thing for the role: the
+// notation language source reads from each and, for nameFormat, the format
+// convert infers from each (or the same extension when it infers nothing).
+func sameFormat(a, b string, role nameRole) bool {
+	if role == nameIgnored {
+		return true
+	}
+	if language(a) != language(b) {
+		return false
+	}
+	if role == nameLanguage {
+		return true
+	}
 	fa, errA := convert.FormatOfPath(a)
 	fb, errB := convert.FormatOfPath(b)
 	if errA != nil || errB != nil {
 		return strings.EqualFold(filepath.Ext(a), filepath.Ext(b))
 	}
-	return fa == fb && source.KindOf(a) == source.KindOf(b)
+	return fa == fb
+}
+
+// language is the notation language a name is parsed as: KerML by its
+// extension, otherwise SysML, as source.New decides.
+func language(name string) source.Kind {
+	if source.KindOf(name) == source.KindKerML {
+		return source.KindKerML
+	}
+	return source.KindSysML
 }
 
 // under reports whether path lies under root, both clean and absolute.

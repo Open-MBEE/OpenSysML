@@ -704,6 +704,18 @@ func TestPathsStayUnderTheRoot(t *testing.T) {
 	if res := h.call("parse", map[string]any{"paths": []string{"alias.kerml"}}); !strings.Contains(text(res), "another format") {
 		t.Errorf("a link refused for its format must say so: %s", text(res))
 	}
+	if res := h.call("convert", map[string]any{"filePath": "alias.kerml", "fromFormat": "sysml", "toFormat": "ttl"}); !strings.Contains(text(res), "another format") {
+		t.Errorf("an explicit fromFormat does not choose the language, so the .kerml link is still refused: %s", text(res))
+	}
+	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "input.data")); err != nil {
+		t.Fatal(err)
+	}
+	if res := h.call("convert", map[string]any{"filePath": "input.data", "fromFormat": "sysml", "toFormat": "ttl"}); res.IsError {
+		t.Errorf("with an explicit fromFormat a link's extension need not name the format: %s", text(res))
+	}
+	if res := h.call("convert", map[string]any{"filePath": "input.data", "toFormat": "ttl"}); !strings.Contains(text(res), "another format") {
+		t.Errorf("without fromFormat the link's extension is the format: %s", text(res))
+	}
 	if msg := h.fails("parse", map[string]any{"paths": []string{"missing/dir/new.sysml"}}); strings.Contains(msg, "outside") {
 		t.Errorf("a path under the root that does not exist yet is not outside it: %s", msg)
 	}

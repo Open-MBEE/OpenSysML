@@ -80,7 +80,7 @@ func (g *group) registerConversion(s *mcp.Server) {
 			return nil, nil, err
 		}
 		if path, ok := req.GetSource().(*pb.ConvertRequest_FilePath); ok {
-			resolved, err := g.path(path.FilePath, true)
+			resolved, err := g.path(path.FilePath, sourceNameRole(req.FromFormat))
 			if err != nil {
 				return nil, nil, err
 			}
@@ -122,14 +122,14 @@ func (g *group) registerConversion(s *mcp.Server) {
 			return nil, nil, err
 		}
 		if path, ok := req.GetSource().(*pb.MigrateRequest_FilePath); ok {
-			resolved, err := g.path(path.FilePath, true)
+			resolved, err := g.path(path.FilePath, sourceNameRole(req.FromFormat))
 			if err != nil {
 				return nil, nil, err
 			}
 			path.FilePath = resolved
 		}
 		if layout, ok := req.GetLayout().(*pb.MigrateRequest_LayoutPath); ok {
-			resolved, err := g.path(layout.LayoutPath, false)
+			resolved, err := g.path(layout.LayoutPath, nameIgnored)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -217,4 +217,13 @@ func (g *group) registerConversion(s *mcp.Server) {
 		}
 		return answer(resp, m, b.String())
 	})
+}
+
+// sourceNameRole is what the service reads from a convert or migrate source's
+// name: its format and language, or only its language once fromFormat is given.
+func sourceNameRole(fromFormat string) nameRole {
+	if fromFormat != "" {
+		return nameLanguage
+	}
+	return nameFormat
 }
