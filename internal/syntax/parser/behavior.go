@@ -695,10 +695,8 @@ func (p *Parser) parseInitialNode(tok lexer.Token) ast.Node {
 		p.error(p.peek().Span, "expected 'then' after guard condition")
 	}
 
-	// The succession a `first … then …` states ends in a body of its own
-	// (SysML.xtext ActionTargetSuccession, whose UsageBody holds the action
-	// members of the body the edge is written in); a one-ended `first a { … }`
-	// ends in a RelationshipBody, no ActionBody.
+	// A `first … then …` succession's body is the ActionTargetSuccession's
+	// UsageBody (SysML.xtext); a one-ended `first a { … }` ends in a RelationshipBody.
 	ctx := bodyOther
 	if successor != nil && p.bodyContext().admitsAcceptNode() {
 		ctx = bodySuccession
@@ -1072,10 +1070,8 @@ func (p *Parser) parseSuccessionEdgeWithMultiplicity(tok lexer.Token, allowBody 
 		return node
 	}
 
-	// An action target succession ends in a UsageBody (SysML.xtext:1698),
-	// which holds the action members of the body the edge is written in: a
-	// `then { accept … }` in an action body holds accept nodes like the
-	// statements around it.
+	// An action target succession ends in a UsageBody (SysML.xtext:1698):
+	// a `then { accept … }` holds accept nodes like the statements around it.
 	var members []ast.Node
 	hasBody := false
 	if allowBody && p.accept2(lexer.LBrace) {

@@ -276,6 +276,23 @@ func TestTargetSuccessionOutsideAnActionOrStateBodyIsAnExtension(t *testing.T) {
 	wantNotation(t, "a.sysml", "view def V { action x; then y; }", CodeNonstandardNotation, outside)
 	wantNotation(t, "a.sysml", "part def P { action x; then y; }", CodeNonstandardNotation, outside)
 	wantNotation(t, "a.sysml", "viewpoint def V { frame f; then y; }", CodeNonstandardNotation, outside)
+	// A package body admits no target succession either, so the flags must not
+	// leak into one; the parser rejects the member first, which keeps the pass
+	// from stacking a notation finding on the same span.
+	for _, src := range []string{
+		"action def A { package P { action x; then y; } }",
+		"state def S { package P { action x; then y; } }",
+	} {
+		root, pd, idx := analyzeInputs(t, "a.sysml", src)
+		if !hasParseError(pd) {
+			t.Fatalf("%s: want a parse error on the package body's `then`", src)
+		}
+		for _, d := range (NonstandardNotationPass{}).Run(NewContext("a.sysml", idx, pd), "a.sysml", root) {
+			if d.Code == CodeNonstandardNotation {
+				t.Errorf("%s: got notation finding %+v, want none beside the parse error", src, d)
+			}
+		}
+	}
 
 	got := notationDiags(t, "a.sysml", "view v { action x; then y; }", diag.ConformanceStrict)
 	if len(got) != 1 || got[0].Severity != diag.SeverityError || !got[0].Notation {
