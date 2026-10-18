@@ -47,56 +47,68 @@ flowchart TD
     n9("`*«attribute»*
 **mass**`")
   n8 --- n9
-  n10("`*«part»*
+    n10("`*«part»*
+**chassis**`")
+  n8 --- n10
+    n11("`*«part»*
+**driver**`")
+  n8 --- n11
+  n12("`*«part»*
 **heavyVehicle**`")
-    n11("`*«attribute»*
+    n13("`*«attribute»*
 **mass**`")
-  n10 --- n11
-  n12("`*«action»*
+  n12 --- n13
+    n14("`*«part»*
+**chassis**`")
+  n12 --- n14
+    n15("`*«part»*
+**driver**`")
+  n12 --- n15
+  n16("`*«action»*
 **brake**`")
-  n13["`*«package»*
+  n17["`*«package»*
 **Powertrain**`"]
-    n14["`*«part def»*
+    n18["`*«part def»*
 **Engine**`"]
-  n13 --- n14
-  n15["`*«datatype»*
-**Boolean**`"]
-  n16["`*«datatype»*
-**Complex**`"]
-  n17["`*«datatype»*
-**Integer**`"]
-  n18["`*«datatype»*
-**Natural**`"]
+  n17 --- n18
   n19["`*«datatype»*
-**Number**`"]
+**Boolean**`"]
   n20["`*«datatype»*
-**NumericalValue**`"]
+**Complex**`"]
   n21["`*«datatype»*
-**Positive**`"]
+**Integer**`"]
   n22["`*«datatype»*
-**Rational**`"]
+**Natural**`"]
   n23["`*«datatype»*
-**Real**`"]
+**Number**`"]
   n24["`*«datatype»*
-**ScalarValue**`"]
+**NumericalValue**`"]
   n25["`*«datatype»*
+**Positive**`"]
+  n26["`*«datatype»*
+**Rational**`"]
+  n27["`*«datatype»*
+**Real**`"]
+  n28["`*«datatype»*
+**ScalarValue**`"]
+  n29["`*«datatype»*
 **String**`"]
-  n0 ---|"◇ mass"| n23
+  n0 ---|"◇ mass"| n27
   n0 ---|"◆ chassis"| n4
   n0 ---|"◇ driver"| n6
   n5 -->|"specialization"| n4
   n8 -.->|"typing"| n0
   n9 -->|"redefines"| n1
-  n10 -.->|"typing"| n0
-  n11 -->|"redefines"| n1
-  n12 -.->|"typing"| n7
-  n15 -->|"specialization"| n24
-  n16 -->|"specialization"| n19
-  n17 -->|"specialization"| n22
-  n18 -->|"specialization"| n17
-  n19 -->|"specialization"| n20
-  n20 -->|"specialization"| n24
-  n21 -->|"specialization"| n18
-  n22 -->|"specialization"| n23
-  n23 -->|"specialization"| n16
-  n25 -->|"specialization"| n24
+  n12 -.->|"typing"| n0
+  n13 -->|"redefines"| n1
+  n16 -.->|"typing"| n7
+  n19 -->|"specialization"| n28
+  n20 -->|"specialization"| n23
+  n21 -->|"specialization"| n26
+  n22 -->|"specialization"| n21
+  n23 -->|"specialization"| n24
+  n24 -->|"specialization"| n28
+  n25 -->|"specialization"| n22
+  n26 -->|"specialization"| n27
+  n27 -->|"specialization"| n20
+  n29 -->|"specialization"| n28
