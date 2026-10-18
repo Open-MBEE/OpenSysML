@@ -313,7 +313,7 @@ read	Probe::spat.boundingShapes	systems	Items::Item::boundingShapes	undetermined
 read	Probe::spat.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::spat.componentItems	domain	SpatialItems::SpatialItem::componentItems	undetermined <undetermined>
 read	Probe::spat.componentParts	domain	SpatialItems::SpatialItem::componentParts	undetermined <undetermined>
-read	Probe::spat.coordinateFrame	domain	SpatialItems::SpatialItem::coordinateFrame	error feature value spat.coordinateFrame: no value for feature universalCartesianSpatial3dCoordinateFrame
+read	Probe::spat.coordinateFrame	domain	SpatialItems::SpatialItem::coordinateFrame	coordinate frame universalCartesianSpatial3dCoordinateFrame [m, m, m]
 read	Probe::spat.done	systemsFRAME	Items::Item::done	undetermined <undetermined>
 read	Probe::spat.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
 read	Probe::spat.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
