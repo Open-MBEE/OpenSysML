@@ -1091,3 +1091,103 @@ fn a_checked_behavior_witnesses_its_violation_and_divergence() {
         "{negative:?}"
     );
 }
+
+/// Start a service of this checkout with the external-tool demo's manifests registered, so a
+/// dry run has a tool to preview; the registry refuses a manifest directory others may write.
+#[cfg(unix)]
+fn service_with_demo_tools() -> Option<(std::process::Child, Connection, std::path::PathBuf)> {
+    use std::io::{BufRead, BufReader};
+    use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+    use std::path::{Path, PathBuf};
+    use std::process::{Command, Stdio};
+
+    let checkout = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let binary = env::var("OPENSYSML_GRPC_BINARY")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| checkout.join("bin/sysml-grpc"));
+    if !binary.is_file() {
+        eprintln!("skipping: no sysml-grpc at {}", binary.display());
+        return None;
+    }
+    let tools = env::temp_dir().join(format!("opensysml-rust-tools-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&tools);
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&tools)
+        .unwrap();
+    let demo = checkout.join("examples/external-tool-demo");
+    for name in ["thermal.json", "thermal.py"] {
+        let copied = tools.join(name);
+        std::fs::copy(demo.join("tools").join(name), &copied).unwrap();
+        std::fs::set_permissions(&copied, std::fs::Permissions::from_mode(0o644)).unwrap();
+    }
+    let mut child = Command::new(binary)
+        .args(["-port", "0", "-health-port", "0", "-report-address"])
+        .env("OPENSYSML_TOOLS", &tools)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut address = String::new();
+    BufReader::new(child.stdout.take().unwrap())
+        .read_line(&mut address)
+        .unwrap();
+    let (host, port) = address.trim().rsplit_once(':').unwrap();
+    let connection = Connection::external(
+        host.trim_start_matches('[').trim_end_matches(']'),
+        port.parse().unwrap(),
+    )
+    .unwrap();
+    Some((child, connection, tools))
+}
+
+#[cfg(unix)]
+#[test]
+fn a_tool_dry_run_previews_the_tool_call_instead_of_running_it() {
+    if service_or_skip().is_none() {
+        return;
+    }
+    let Some((mut child, connection, tools)) = service_with_demo_tools() else {
+        return;
+    };
+    let source = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../examples/external-tool-demo/thermal.sysml"),
+    )
+    .unwrap();
+    let outcome = std::panic::catch_unwind(|| {
+        let model = parsed(&connection, &source);
+        let result = model
+            .run_analysis(
+                "ThermalDemo::heating",
+                &AnalysisOptions {
+                    tool_dry_run: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert!(result.outputs.is_empty());
+        let preview = result
+            .tool_dry_run
+            .expect("the result carries the tool preview");
+        assert_eq!(preview.tool, "ThermalSolver");
+        assert_eq!(preview.version, "1.0");
+        assert!(preview.action.contains("Solve"), "{}", preview.action);
+        assert!(
+            preview.args.join(" ").contains("--mass 12.5"),
+            "{:?}",
+            preview.args
+        );
+        assert!(!preview.lines.is_empty());
+        let real = model
+            .run_analysis("ThermalDemo::heating", &AnalysisOptions::default())
+            .map(|result| result.tool_dry_run.is_none());
+        assert!(matches!(real, Ok(true) | Err(_)), "{real:?}");
+    });
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&tools);
+    if let Err(panic) = outcome {
+        std::panic::resume_unwind(panic);
+    }
+}

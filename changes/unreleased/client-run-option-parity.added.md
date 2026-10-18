@@ -1,1 +1,2 @@
 - The Go client's `RenderView` takes `WithShow(elements...)` and `WithDepth(n)` beside `WithFullPorts()`, and its `RenderedView.Shown` lists the optional notation elements drawn, as the other clients already read them.
+- The Rust client's `AnalysisResult.tool_dry_run` is the typed `ToolDryRun` preview a run under `AnalysisOptions.tool_dry_run` answers with, instead of leaving it on the wire message.
