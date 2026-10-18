@@ -14,8 +14,8 @@ materialize: Reading #1
 step 5: token 4@receiver
 step 6: token 4@keep
 stmt assign total
-      eval feature msg -> instance#1
-    eval chain level -> 1
+      eval feature msg -> (instance#1)
+    eval chain level -> (1)
     eval literal 10 -> 10
   eval operator + -> 11
 stmt assign count

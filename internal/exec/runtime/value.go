@@ -769,6 +769,7 @@ func (ctx *Context) setOf(elements []Value) Value {
 // MagnitudeValue is the number a value is as written, Integer or Real, a
 // quantity's magnitude included, and whether it is one.
 func MagnitudeValue(value Value) (semantics.Value, bool) {
+	value = soleElement(value)
 	switch value.Kind {
 	case ValConst:
 		return value.Const, value.Const.IsNumeric()
