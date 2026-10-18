@@ -1010,11 +1010,7 @@ func objectFeature(sym *symbols.Symbol) bool {
 	if !ok {
 		return false
 	}
-	switch usage.Kind {
-	case ast.UsagePart, ast.UsageItem, ast.UsageOccurrence, ast.UsageIndividual, ast.UsagePort:
-		return true
-	}
-	return false
+	return objectUsageKind(usage.Kind) || usage.Kind == ast.UsagePort
 }
 
 // heldObjects returns the identities a feature value denotes, a collection's
