@@ -170,8 +170,8 @@ func TestD2InterconnectionNestsPorts(t *testing.T) {
 		t.Fatalf("D2: %v", err)
 	}
 	for _, want := range []string{
-		"\nn0: \"«part def»\\nLoop\" {\n  class: definition\n  n1: \"«part»\\npump : Pump\" {\n    class: usage\n    \"n1.0\": \"outlet\" { class: pin }\n  }\n",
-		"\nn0.n1.\"n1.0\" -- n0.n2.\"n2.0\": \"supply\" { class: connection }\n",
+		"\nn0: \"«part def»\\nLoop\" {\n  class: definition\n  n1: \"«part»\\npump : Pump\" {\n    class: usage\n    \"n1.0\": \"outlet\" { class: pin }\n    n2: \"«item»\\nwaterOut : Water\" { class: usage }\n  }\n",
+		"\nn0.n1.\"n1.0\" -- n0.n3.\"n3.0\": \"supply\" { class: connection }\n",
 		"\n  connection: { style: { stroke: \"#181818\"; font-size: 13; font-color: black; stroke-width: 3 } }\n",
 		"\n  pin: { style: { fill: white; stroke: \"#181818\"; stroke-width: 1; font-color: black; font-size: 10 } }\n",
 	} {
