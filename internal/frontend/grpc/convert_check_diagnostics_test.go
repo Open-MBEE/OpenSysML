@@ -2,6 +2,8 @@ package grpc
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -127,6 +129,58 @@ func TestConvertCheckDiagnosticsRefusesGraphSource(t *testing.T) {
 	})
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("api-json source with include_check_diagnostics: %v, %v; want INVALID_ARGUMENT", ttl, err)
+	}
+}
+
+// A file is analyzed from the bytes the conversion read, by the format the
+// request names: notation in a file with no notation extension still converts,
+// and its check report comes with it.
+func TestConvertCheckDiagnosticsFilePathByFromFormat(t *testing.T) {
+	srv := mustNewService(t, 10)
+	path := filepath.Join(t.TempDir(), "model.json")
+	if err := os.WriteFile(path, []byte(nameConflictModel), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, check := range []bool{false, true} {
+		resp, err := srv.Convert(context.Background(), &pb.ConvertRequest{
+			Source: &pb.ConvertRequest_FilePath{FilePath: path}, FromFormat: "sysml", ToFormat: "sysml",
+			IncludeCheckDiagnostics: check,
+		})
+		if err != nil || resp.Error != "" || resp.Content == "" {
+			t.Fatalf("check %v: Convert of notation named .json: %v, error %q", check, err, resp.GetError())
+		}
+		warned := severitiesByCode(resp.Diagnostics)["name-conflict"] == "warning"
+		if warned != check {
+			t.Fatalf("check %v: diagnostics %v", check, resp.Diagnostics)
+		}
+		if check && resp.Diagnostics[0].Span.File != path {
+			t.Fatalf("diagnostic located in %q, want %q", resp.Diagnostics[0].Span.File, path)
+		}
+	}
+}
+
+// A conversion the writer refuses still reports what the check found, since the
+// model parsed: two documents declaring one package are refused as a graph,
+// and the duplicate-name warning of one of them is reported with the refusal.
+func TestConvertCheckDiagnosticsWithRefusedConversion(t *testing.T) {
+	srv := mustNewService(t, 10)
+	sources, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
+		Documents: inlineDocuments("warn.sysml", nameConflictModel, "again.sysml", "package P { part def B; }"),
+	})
+	if err != nil {
+		t.Fatalf("ParseSources: %v", err)
+	}
+	for _, check := range []bool{false, true} {
+		resp, err := srv.Convert(context.Background(), &pb.ConvertRequest{
+			Source: &pb.ConvertRequest_ModelHash{ModelHash: sources.ModelHash}, ToFormat: "api-json",
+			IncludeCheckDiagnostics: check,
+		})
+		if err != nil || resp.Error == "" || resp.Content != "" {
+			t.Fatalf("check %v: two declarations of P converted: %v, error %q", check, err, resp.GetError())
+		}
+		if warned := severitiesByCode(resp.Diagnostics)["name-conflict"] == "warning"; warned != check {
+			t.Fatalf("check %v: diagnostics %v", check, resp.Diagnostics)
+		}
 	}
 }
 
