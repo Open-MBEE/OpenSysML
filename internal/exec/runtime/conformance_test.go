@@ -1954,7 +1954,7 @@ func featureValueAtPath(t *testing.T, ctx *Context, inst *Instance, path string)
 	current := inst
 	parts := strings.Split(path, ".")
 	for i, name := range parts {
-		fv, err := current.GetFeatureValue(ctx, name)
+		fv, err := current.MemberValue(ctx, name)
 		if err != nil || i == len(parts)-1 {
 			return fv, err
 		}

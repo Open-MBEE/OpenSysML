@@ -587,6 +587,13 @@ func budgetExceeded(sentinel error, message string, causes ...error) error {
 	return &budgetExceededError{message: message, errs: errs}
 }
 
+// IsUninitializedFeatureValue reports whether err is a read of a required
+// feature that holds no value and has no default, which a caller shows as
+// unset rather than as a failure.
+func IsUninitializedFeatureValue(err error) bool {
+	return errors.Is(err, errUninitializedFeatureValue)
+}
+
 // NoValueError reports a feature a condition names that carries no value,
 // naming the feature so a caller can tell which one is uninitialized.
 type NoValueError struct {
