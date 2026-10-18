@@ -1646,23 +1646,35 @@ func (s *Session) SetFileGuard(guard func(path string) error) {
 // guardFiles asks the file guard about each file; with libraries true, files
 // under a library root pass without asking.
 func (s *Session) guardFiles(files []string, libraries bool) error {
-	if s.fileGuard == nil {
-		return nil
-	}
 	for _, f := range files {
-		if libraries && s.underLibraryRoot(f) {
-			continue
-		}
-		if err := s.fileGuard(f); err != nil {
+		if err := s.guardFile(f, libraries); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+func (s *Session) guardFile(file string, libraries bool) error {
+	if s.fileGuard == nil || (libraries && s.underLibraryRoot(file)) {
+		return nil
+	}
+	return s.fileGuard(file)
+}
+
+// underLibraryRoot reports whether the file lies under a library root where it
+// really is, the symlinks on the way followed, so a link planted under a root
+// cannot stand for a file elsewhere.
 func (s *Session) underLibraryRoot(file string) bool {
+	real, err := filepath.EvalSymlinks(file)
+	if err != nil {
+		return false
+	}
 	for _, root := range s.libraryRoots {
-		if rel, err := filepath.Rel(root, file); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		realRoot, err := filepath.EvalSymlinks(root)
+		if err != nil {
+			continue
+		}
+		if rel, err := filepath.Rel(realRoot, real); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 			return true
 		}
 	}
