@@ -92,6 +92,20 @@ rolls up to is determined: the runtime answers `<undetermined>` rather than a
 number it would have to invent. The model was never wrong; it was incomplete
 in a way only an attempt to use it reveals.
 
+The fix is where SysML puts it, in the usage: `saturnVComplete` is the same
+vehicle with `:>> mass = 2000 [kg]` on its `instrumentUnit`, and the rollup
+completes:
+
+```bash
+./bin/sysml -quiet -e MassRollup::saturnVComplete.totalMass \
+  examples/runtime-showcase/mass-rollup.sysml
+```
+
+```
+✓ MassRollup::saturnVComplete.totalMass
+  = 2943728 [kg]
+```
+
 ## Whether it reaches orbit
 
 `RocketEquation` is Tsiolkovsky's equation with typed inputs: specific impulse

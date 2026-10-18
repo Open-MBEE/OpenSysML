@@ -39,6 +39,8 @@ export interface SceneVariant {
   view: string;
   /** What the status line says when the variant is switched on. */
   hint: string;
+  /** The variant this one builds on: its toggle is offered while that one is on, and switching it off returns there. */
+  requires?: string;
 }
 
 /** What the Go landing test pins for a scene: the first paint before the module loads. */
@@ -121,12 +123,35 @@ export const MASS_ROLLUP_SCENE: Scene = {
       activeLabel: "Remove the instrument unit",
       rootSymbol: "MassRollup::saturnVWithIU",
       view: "#interconnection:MassRollup::saturnVWithIU",
-      hint: "The instrument unit declares a height and no mass, so the roll-up it joins is undetermined: the engine says so rather than guessing.",
+      hint: "On purpose, the model gives the instrument unit a height but no mass: valid SysML, since a definition may leave a value to its usages. So the roll-up it joins is undetermined, and the engine says which value is missing rather than guessing one. Give it its mass to see the fix.",
+    },
+    {
+      id: "iu-mass",
+      label: "Give it its mass",
+      activeLabel: "Take its mass away",
+      rootSymbol: "MassRollup::saturnVComplete",
+      view: "#interconnection:MassRollup::saturnVComplete",
+      hint: "The fix is in the model, not the engine: the usage supplies the mass the definition left open (:>> mass = 2000 [kg] on instrumentUnit), and the same roll-up completes.",
+      requires: "iu",
     },
   ],
 };
 
 export const SCENES: readonly Scene[] = [STACK_SCENE, MASS_ROLLUP_SCENE];
+
+/** requiredVariant is the variant `variant` builds on; undefined when it stands alone. */
+export function requiredVariant(scene: Scene, variant: SceneVariant): SceneVariant | undefined {
+  return variant.requires === undefined ? undefined : scene.variants.find((candidate) => candidate.id === variant.requires);
+}
+
+/** variantChain is the variant switched on and the ones it builds on, that variant first; empty while none is on. */
+export function variantChain(scene: Scene, variant: SceneVariant | undefined): SceneVariant[] {
+  const chain: SceneVariant[] = [];
+  for (let current = variant; current !== undefined && !chain.includes(current); current = requiredVariant(scene, current)) {
+    chain.push(current);
+  }
+  return chain;
+}
 
 /** forcedSceneId is the scene a URL names, by `?scene=<id>` or `#scene=<id>`; absent when it names none. */
 export function forcedSceneId(url: URL): string | undefined {
