@@ -124,6 +124,7 @@ elmt:ShadowBody__Sensor__value
     sysml:owner elmt:ShadowBody__Sensor ;
     sysml:owningRelationship elmt:ShadowBody__Sensor__value_om ;
     sysml:owningMembership elmt:ShadowBody__Sensor__value_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "value" ;
     sysml:type elmt:ShadowBody__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -157,6 +158,7 @@ elmt:ShadowBody__Sensor__readings
     sysml:owner elmt:ShadowBody__Sensor ;
     sysml:owningRelationship elmt:ShadowBody__Sensor__readings_om ;
     sysml:owningMembership elmt:ShadowBody__Sensor__readings_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "readings" ;
     sysml:type elmt:ShadowBody__Speed ;
     sysml:multiplicity expr:ShadowBody__Sensor__readings_pmultiplicity ;
@@ -232,6 +234,7 @@ elmt:ShadowBody__Sensor__highs
     sysml:owner elmt:ShadowBody__Sensor ;
     sysml:owningRelationship elmt:ShadowBody__Sensor__highs_om ;
     sysml:owningMembership elmt:ShadowBody__Sensor__highs_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "highs" ;
     sysml:value expr:ShadowBody__Sensor__highs_pvalue ;
     sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_om ;

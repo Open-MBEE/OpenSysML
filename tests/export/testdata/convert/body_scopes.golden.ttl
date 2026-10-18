@@ -67,6 +67,7 @@ elmt:Lib__limit
     sysml:owner elmt:Lib ;
     sysml:owningRelationship elmt:Lib__limit_om ;
     sysml:owningMembership elmt:Lib__limit_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "limit" ;
     sysml:type elmt:Lib__Gauge ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -174,6 +175,7 @@ elmt:Scopes__D__xs
     sysml:owner elmt:Scopes__D ;
     sysml:owningRelationship elmt:Scopes__D__xs_om ;
     sysml:owningMembership elmt:Scopes__D__xs_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "xs" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute xs;\n" .
@@ -203,6 +205,7 @@ elmt:Scopes__D__one
     sysml:owner elmt:Scopes__D ;
     sysml:owningRelationship elmt:Scopes__D__one_om ;
     sysml:owningMembership elmt:Scopes__D__one_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "one" ;
     sysml:value expr:Scopes__D__one_pvalue ;
     sysml:ownedRelationship expr:Scopes__D__one_pvalue_om ;
@@ -537,6 +540,7 @@ elmt:Scopes__D__two
     sysml:owner elmt:Scopes__D ;
     sysml:owningRelationship elmt:Scopes__D__two_om ;
     sysml:owningMembership elmt:Scopes__D__two_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "two" ;
     sysml:value expr:Scopes__D__two_pvalue ;
     sysml:ownedRelationship expr:Scopes__D__two_pvalue_om ;
@@ -871,6 +875,7 @@ elmt:Scopes__D__outside
     sysml:owner elmt:Scopes__D ;
     sysml:owningRelationship elmt:Scopes__D__outside_om ;
     sysml:owningMembership elmt:Scopes__D__outside_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "outside" ;
     sysml:value expr:Scopes__D__outside_pvalue ;
     sysml:ownedRelationship expr:Scopes__D__outside_pvalue_om ;
@@ -951,6 +956,7 @@ elmt:Scopes__D__g
     sysml:owner elmt:Scopes__D ;
     sysml:owningRelationship elmt:Scopes__D__g_om ;
     sysml:owningMembership elmt:Scopes__D__g_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "g" ;
     sysml:type elmt:Lib__Gauge ;
     sysx:hasBody "false"^^xsd:boolean ;

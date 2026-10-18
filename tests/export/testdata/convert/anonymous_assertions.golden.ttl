@@ -105,6 +105,7 @@ elmt:AnonymousAssertions__MassConstraint__total
     sysml:owner elmt:AnonymousAssertions__MassConstraint ;
     sysml:owningRelationship elmt:AnonymousAssertions__MassConstraint__total_om ;
     sysml:owningMembership elmt:AnonymousAssertions__MassConstraint__total_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "total" ;
     sysml:direction "in" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
@@ -139,6 +140,7 @@ elmt:AnonymousAssertions__MassConstraint__limit
     sysml:owner elmt:AnonymousAssertions__MassConstraint ;
     sysml:owningRelationship elmt:AnonymousAssertions__MassConstraint__limit_om ;
     sysml:owningMembership elmt:AnonymousAssertions__MassConstraint__limit_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "limit" ;
     sysml:direction "in" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
@@ -377,6 +379,7 @@ elmt:AnonymousAssertions__massConstraint
     sysml:owner elmt:AnonymousAssertions ;
     sysml:owningRelationship elmt:AnonymousAssertions__massConstraint_om ;
     sysml:owningMembership elmt:AnonymousAssertions__massConstraint_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "massConstraint" ;
     sysml:type elmt:AnonymousAssertions__MassConstraint ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -418,6 +421,7 @@ elmt:AnonymousAssertions__massConstraint__total
     sysml:owner elmt:AnonymousAssertions__massConstraint ;
     sysml:owningRelationship elmt:AnonymousAssertions__massConstraint__total_om ;
     sysml:owningMembership elmt:AnonymousAssertions__massConstraint__total_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "total" ;
     sysml:direction "in" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
@@ -452,6 +456,7 @@ elmt:AnonymousAssertions__massConstraint__limit
     sysml:owner elmt:AnonymousAssertions__massConstraint ;
     sysml:owningRelationship elmt:AnonymousAssertions__massConstraint__limit_om ;
     sysml:owningMembership elmt:AnonymousAssertions__massConstraint__limit_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "limit" ;
     sysml:direction "in" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
@@ -728,6 +733,7 @@ elmt:AnonymousAssertions__Vehicle__mass
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle__mass_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle__mass_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "mass" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -761,6 +767,7 @@ elmt:AnonymousAssertions__Vehicle__maxMass
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle__maxMass_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle__maxMass_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "maxMass" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -794,6 +801,7 @@ elmt:AnonymousAssertions__Vehicle___402
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle___402_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle___402_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:declaredKeyword "assert" ;
     sysml:references elmt:AnonymousAssertions__massConstraint ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -838,6 +846,7 @@ elmt:AnonymousAssertions__Vehicle___402__total
     sysml:owner elmt:AnonymousAssertions__Vehicle___402 ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle___402__total_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle___402__total_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "total" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -920,6 +929,7 @@ elmt:AnonymousAssertions__Vehicle___402__limit
     sysml:owner elmt:AnonymousAssertions__Vehicle___402 ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle___402__limit_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle___402__limit_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "limit" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -1002,6 +1012,7 @@ elmt:AnonymousAssertions__Vehicle___403
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle___403_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle___403_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousAssertions__Vehicle___403___400 ;
     sysml:ownedMembership elmt:AnonymousAssertions__Vehicle___403___400_om ;
@@ -1240,6 +1251,7 @@ elmt:AnonymousAssertions__Vehicle__tooHeavy
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle__tooHeavy_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle__tooHeavy_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "tooHeavy" ;
     sysml:isNegated "true"^^xsd:boolean ;
     sysml:type elmt:AnonymousAssertions__MassConstraint ;
@@ -1284,6 +1296,7 @@ elmt:AnonymousAssertions__Vehicle__tooHeavy__total
     sysml:owner elmt:AnonymousAssertions__Vehicle__tooHeavy ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle__tooHeavy__total_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle__tooHeavy__total_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "total" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -1366,6 +1379,7 @@ elmt:AnonymousAssertions__Vehicle__tooHeavy__limit
     sysml:owner elmt:AnonymousAssertions__Vehicle__tooHeavy ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle__tooHeavy__limit_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle__tooHeavy__limit_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "limit" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -1448,6 +1462,7 @@ elmt:AnonymousAssertions__Vehicle___405
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle___405_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle___405_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:declaredKeyword "assert" ;
     sysml:isNegated "true"^^xsd:boolean ;
     sysml:references elmt:AnonymousAssertions__massConstraint ;
@@ -1483,6 +1498,7 @@ elmt:AnonymousAssertions__Vehicle___406
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle___406_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle___406_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:declaredKeyword "assert" ;
     sysml:references elmt:AnonymousAssertions__massConstraint ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1517,6 +1533,7 @@ elmt:AnonymousAssertions__Vehicle__c
     sysml:owner elmt:AnonymousAssertions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle__c_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle__c_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "c" ;
     sysml:type elmt:AnonymousAssertions__MassConstraint ;
     sysx:hasBody "false"^^xsd:boolean ;

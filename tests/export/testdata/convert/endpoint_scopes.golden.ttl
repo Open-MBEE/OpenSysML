@@ -146,6 +146,7 @@ elmt:Machines__Lamp__on
     sysml:owner elmt:Machines__Lamp ;
     sysml:owningRelationship elmt:Machines__Lamp__on_om ;
     sysml:owningMembership elmt:Machines__Lamp__on_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "on" ;
     sysml:isParallel "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -185,6 +186,7 @@ elmt:Machines__Lamp__on__heat
     sysml:owner elmt:Machines__Lamp__on ;
     sysml:owningRelationship elmt:Machines__Lamp__on__heat_om ;
     sysml:owningMembership elmt:Machines__Lamp__on__heat_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "heat" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:Machines__Lamp__on__heat___400, elmt:Machines__Lamp__on__heat___401_om, elmt:Machines__Lamp__on__heat__warm_om, elmt:Machines__Lamp__on__heat__hot_om, elmt:Machines__Lamp__on__heat___404_om ;
@@ -477,6 +479,7 @@ elmt:Machines__Lamp__on__light
     sysml:owner elmt:Machines__Lamp__on ;
     sysml:owningRelationship elmt:Machines__Lamp__on__light_om ;
     sysml:owningMembership elmt:Machines__Lamp__on__light_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "light" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:Machines__Lamp__on__light___400, elmt:Machines__Lamp__on__light___401_om, elmt:Machines__Lamp__on__light__dim_om, elmt:Machines__Lamp__on__light__bright_om, elmt:Machines__Lamp__on__light___404_om, elmt:Machines__Lamp__on__light___405_om ;

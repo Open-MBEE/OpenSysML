@@ -138,6 +138,7 @@ elmt:Chains__IU__pip
     sysml:owner elmt:Chains__IU ;
     sysml:owningRelationship elmt:Chains__IU__pip_om ;
     sysml:owningMembership elmt:Chains__IU__pip_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "pip" ;
     sysml:type elmt:Chains__IP ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -204,6 +205,7 @@ elmt:Chains__LV__instrumentUnit
     sysml:owner elmt:Chains__LV ;
     sysml:owningRelationship elmt:Chains__LV__instrumentUnit_om ;
     sysml:owningMembership elmt:Chains__LV__instrumentUnit_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "instrumentUnit" ;
     sysml:type elmt:Chains__IU ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -275,6 +277,7 @@ elmt:Chains__II__a
     sysml:owner elmt:Chains__II ;
     sysml:owningRelationship elmt:Chains__II__a_om ;
     sysml:owningMembership elmt:Chains__II__a_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "a" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:type elmt:Chains__IP ;
@@ -309,6 +312,7 @@ elmt:Chains__II__b
     sysml:owner elmt:Chains__II ;
     sysml:owningRelationship elmt:Chains__II__b_om ;
     sysml:owningMembership elmt:Chains__II__b_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "b" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:type elmt:Chains__IP ;
@@ -343,6 +347,7 @@ elmt:Chains__ctx
     sysml:owner elmt:Chains ;
     sysml:owningRelationship elmt:Chains__ctx_om ;
     sysml:owningMembership elmt:Chains__ctx_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "ctx" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Chains__ctx__launchVehicle, elmt:Chains__ctx__supplier, elmt:Chains__ctx___402, elmt:Chains__ctx__ic, elmt:Chains__ctx__x, elmt:Chains__ctx__r ;
@@ -381,6 +386,7 @@ elmt:Chains__ctx__launchVehicle
     sysml:owner elmt:Chains__ctx ;
     sysml:owningRelationship elmt:Chains__ctx__launchVehicle_om ;
     sysml:owningMembership elmt:Chains__ctx__launchVehicle_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "launchVehicle" ;
     sysml:type elmt:Chains__LV ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -414,6 +420,7 @@ elmt:Chains__ctx__supplier
     sysml:owner elmt:Chains__ctx ;
     sysml:owningRelationship elmt:Chains__ctx__supplier_om ;
     sysml:owningMembership elmt:Chains__ctx__supplier_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "supplier" ;
     sysml:type elmt:Chains__IU ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -447,6 +454,7 @@ elmt:Chains__ctx___402
     sysml:owner elmt:Chains__ctx ;
     sysml:owningRelationship elmt:Chains__ctx___402_om ;
     sysml:owningMembership elmt:Chains__ctx___402_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:connectorEnd expr:Chains__ctx___402_pend0, expr:Chains__ctx___402_pend1 ;
     sysml:ownedRelationship expr:Chains__ctx___402_pend0_om, expr:Chains__ctx___402_pend1_om ;
     sysml:ownedMembership expr:Chains__ctx___402_pend0_om, expr:Chains__ctx___402_pend1_om ;
@@ -659,6 +667,7 @@ elmt:Chains__ctx__ic
     sysml:owner elmt:Chains__ctx ;
     sysml:owningRelationship elmt:Chains__ctx__ic_om ;
     sysml:owningMembership elmt:Chains__ctx__ic_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "ic" ;
     sysml:type elmt:Chains__II ;
     sysml:connectorEnd expr:Chains__ctx__ic_pend0, expr:Chains__ctx__ic_pend1 ;
@@ -875,6 +884,7 @@ elmt:Chains__ctx__x
     sysml:owner elmt:Chains__ctx ;
     sysml:owningRelationship elmt:Chains__ctx__x_om ;
     sysml:owningMembership elmt:Chains__ctx__x_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
     sysml:value expr:Chains__ctx__x_pvalue ;
     sysml:ownedRelationship expr:Chains__ctx__x_pvalue_om ;
@@ -1107,6 +1117,7 @@ elmt:Chains__ctx__r
     sysml:owner elmt:Chains__ctx ;
     sysml:owningRelationship elmt:Chains__ctx__r_om ;
     sysml:owningMembership elmt:Chains__ctx__r_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "r" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;

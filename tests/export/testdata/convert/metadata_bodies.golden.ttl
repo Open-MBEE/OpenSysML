@@ -78,6 +78,7 @@ elmt:Annotated__Safety__level
     sysml:owner elmt:Annotated__Safety ;
     sysml:owningRelationship elmt:Annotated__Safety__level_om ;
     sysml:owningMembership elmt:Annotated__Safety__level_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "level" ;
     sysml:type "Integer" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -111,6 +112,7 @@ elmt:Annotated__Safety__reviewer
     sysml:owner elmt:Annotated__Safety ;
     sysml:owningRelationship elmt:Annotated__Safety__reviewer_om ;
     sysml:owningMembership elmt:Annotated__Safety__reviewer_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "reviewer" ;
     sysml:type "String" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -144,6 +146,7 @@ elmt:Annotated__Safety__isSet
     sysml:owner elmt:Annotated__Safety ;
     sysml:owningRelationship elmt:Annotated__Safety__isSet_om ;
     sysml:owningMembership elmt:Annotated__Safety__isSet_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "isSet" ;
     sysml:type "Boolean" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -177,6 +180,7 @@ elmt:Annotated__Safety__audit
     sysml:owner elmt:Annotated__Safety ;
     sysml:owningRelationship elmt:Annotated__Safety__audit_om ;
     sysml:owningMembership elmt:Annotated__Safety__audit_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "audit" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Annotated__Safety__audit__year ;
@@ -212,6 +216,7 @@ elmt:Annotated__Safety__audit__year
     sysml:owner elmt:Annotated__Safety__audit ;
     sysml:owningRelationship elmt:Annotated__Safety__audit__year_om ;
     sysml:owningMembership elmt:Annotated__Safety__audit__year_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "year" ;
     sysml:type "Integer" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -278,6 +283,7 @@ elmt:Annotated__Car__mass
     sysml:owner elmt:Annotated__Car ;
     sysml:owningRelationship elmt:Annotated__Car__mass_om ;
     sysml:owningMembership elmt:Annotated__Car__mass_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "mass" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -311,6 +317,7 @@ elmt:Annotated__car
     sysml:owner elmt:Annotated ;
     sysml:owningRelationship elmt:Annotated__car_om ;
     sysml:owningMembership elmt:Annotated__car_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "car" ;
     sysml:type elmt:Annotated__Car ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -350,6 +357,7 @@ elmt:Annotated__car__range
     sysml:owner elmt:Annotated__car ;
     sysml:owningRelationship elmt:Annotated__car__range_om ;
     sysml:owningMembership elmt:Annotated__car__range_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "range" ;
     sysml:type "Real" ;
     sysml:value expr:Annotated__car__range_pvalue ;
@@ -443,6 +451,7 @@ elmt:Annotated__car___401__level
     sysml:owner elmt:Annotated__car___401 ;
     sysml:owningRelationship elmt:Annotated__car___401__level_om ;
     sysml:owningMembership elmt:Annotated__car___401__level_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__level ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -542,6 +551,7 @@ elmt:Annotated__car___402___400
     sysml:owner elmt:Annotated__car___402 ;
     sysml:owningRelationship elmt:Annotated__car___402___400_om ;
     sysml:owningMembership elmt:Annotated__car___402___400_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__level ;
     sysml:value expr:Annotated__car___402___400_pvalue ;
@@ -600,6 +610,7 @@ elmt:Annotated__car___402__reviewer
     sysml:owner elmt:Annotated__car___402 ;
     sysml:owningRelationship elmt:Annotated__car___402__reviewer_om ;
     sysml:owningMembership elmt:Annotated__car___402__reviewer_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__reviewer ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -659,6 +670,7 @@ elmt:Annotated__car___402__isSet
     sysml:owner elmt:Annotated__car___402 ;
     sysml:owningRelationship elmt:Annotated__car___402__isSet_om ;
     sysml:owningMembership elmt:Annotated__car___402__isSet_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__isSet ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -718,6 +730,7 @@ elmt:Annotated__car___402__audit
     sysml:owner elmt:Annotated__car___402 ;
     sysml:owningRelationship elmt:Annotated__car___402__audit_om ;
     sysml:owningMembership elmt:Annotated__car___402__audit_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__audit ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -758,6 +771,7 @@ elmt:Annotated__car___402__audit__year
     sysml:owner elmt:Annotated__car___402__audit ;
     sysml:owningRelationship elmt:Annotated__car___402__audit__year_om ;
     sysml:owningMembership elmt:Annotated__car___402__audit__year_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__audit__year ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -922,6 +936,7 @@ elmt:Annotated___403__level
     sysml:owner elmt:Annotated___403 ;
     sysml:owningRelationship elmt:Annotated___403__level_om ;
     sysml:owningMembership elmt:Annotated___403__level_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__level ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -1084,6 +1099,7 @@ elmt:Annotated___403__reviewer
     sysml:owner elmt:Annotated___403 ;
     sysml:owningRelationship elmt:Annotated___403__reviewer_om ;
     sysml:owningMembership elmt:Annotated___403__reviewer_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__reviewer ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -1170,6 +1186,7 @@ elmt:Annotated__tagged
     sysml:owner elmt:Annotated ;
     sysml:owningRelationship elmt:Annotated__tagged_om ;
     sysml:owningMembership elmt:Annotated__tagged_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "tagged" ;
     sysml:type elmt:Annotated__Safety ;
     sysml:annotatedElement elmt:Annotated__Car ;
@@ -1202,6 +1219,7 @@ elmt:Annotated___405
     sysml:owner elmt:Annotated ;
     sysml:owningRelationship elmt:Annotated___405_om ;
     sysml:owningMembership elmt:Annotated___405_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:type elmt:Annotated__Safety ;
     sysml:annotatedElement elmt:Annotated__car ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1233,6 +1251,7 @@ elmt:Annotated___406
     sysml:owner elmt:Annotated ;
     sysml:owningRelationship elmt:Annotated___406_om ;
     sysml:owningMembership elmt:Annotated___406_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:type elmt:Annotated__Safety ;
     sysml:annotatedElement elmt:Annotated__Car ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -1270,6 +1289,7 @@ elmt:Annotated___406__level
     sysml:owner elmt:Annotated___406 ;
     sysml:owningRelationship elmt:Annotated___406__level_om ;
     sysml:owningMembership elmt:Annotated___406__level_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__level ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;

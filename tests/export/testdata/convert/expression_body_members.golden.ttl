@@ -105,6 +105,7 @@ elmt:Bodies__Scaled__x
     sysml:owner elmt:Bodies__Scaled ;
     sysml:owningRelationship elmt:Bodies__Scaled__x_om ;
     sysml:owningMembership elmt:Bodies__Scaled__x_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -226,6 +227,7 @@ expr:Bodies__Scaled___401_pm1
     sysml:elementId "Bodies__Scaled___401_pm1" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:visibility "private" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "k" ;
     sysml:type elmt:Bodies__Real ;
     sysml:value expr:Bodies__Scaled___401_pm1_pvalue ;

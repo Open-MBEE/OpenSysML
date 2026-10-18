@@ -104,6 +104,7 @@ elmt:ConnectorEnds__Tank__main
     sysml:owner elmt:ConnectorEnds__Tank ;
     sysml:owningRelationship elmt:ConnectorEnds__Tank__main_om ;
     sysml:owningMembership elmt:ConnectorEnds__Tank__main_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "main" ;
     sysx:declaredKeyword "feature" ;
     sysml:type elmt:ConnectorEnds__Engine ;
@@ -137,6 +138,7 @@ elmt:ConnectorEnds__Tank__x
     sysml:owner elmt:ConnectorEnds__Tank ;
     sysml:owningRelationship elmt:ConnectorEnds__Tank__x_om ;
     sysml:owningMembership elmt:ConnectorEnds__Tank__x_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
     sysx:declaredKeyword "feature" ;
     sysx:hasBody "false"^^xsd:boolean .
@@ -231,6 +233,7 @@ elmt:ConnectorEnds__Vehicle__eng
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle__eng_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle__eng_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "eng" ;
     sysx:declaredKeyword "feature" ;
     sysml:type elmt:ConnectorEnds__Engine ;
@@ -265,6 +268,7 @@ elmt:ConnectorEnds__Vehicle__tanks
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle__tanks_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle__tanks_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "tanks" ;
     sysx:declaredKeyword "feature" ;
     sysml:type elmt:ConnectorEnds__Tank ;
@@ -299,6 +303,7 @@ elmt:ConnectorEnds__Vehicle__a
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle__a_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle__a_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "a" ;
     sysx:declaredKeyword "feature" ;
     sysml:type elmt:ConnectorEnds__Tank ;
@@ -333,6 +338,7 @@ elmt:ConnectorEnds__Vehicle__b
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle__b_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle__b_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "b" ;
     sysx:declaredKeyword "feature" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -363,6 +369,7 @@ elmt:ConnectorEnds__Vehicle__trigger
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle__trigger_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle__trigger_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "trigger" ;
     sysx:declaredKeyword "feature" ;
     sysml:type elmt:ConnectorEnds__Trigger ;
@@ -397,6 +404,7 @@ elmt:ConnectorEnds__Vehicle__transitionLink
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle__transitionLink_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle__transitionLink_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "transitionLink" ;
     sysx:declaredKeyword "feature" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -427,6 +435,7 @@ elmt:ConnectorEnds__Vehicle___406
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle___406_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle___406_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___406_pend0, expr:ConnectorEnds__Vehicle___406_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___406_pend0_om, expr:ConnectorEnds__Vehicle___406_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___406_pend0_om, expr:ConnectorEnds__Vehicle___406_pend1_om ;
@@ -591,6 +600,7 @@ elmt:ConnectorEnds__Vehicle___407
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle___407_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle___407_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___407_pend0, expr:ConnectorEnds__Vehicle___407_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___407_pend0_om, expr:ConnectorEnds__Vehicle___407_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___407_pend0_om, expr:ConnectorEnds__Vehicle___407_pend1_om ;
@@ -757,6 +767,7 @@ elmt:ConnectorEnds__Vehicle___408
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle___408_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle___408_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___408_pend0, expr:ConnectorEnds__Vehicle___408_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___408_pend0_om, expr:ConnectorEnds__Vehicle___408_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___408_pend0_om, expr:ConnectorEnds__Vehicle___408_pend1_om ;
@@ -1032,6 +1043,7 @@ elmt:ConnectorEnds__Vehicle___409
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle___409_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle___409_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___409_pend0, expr:ConnectorEnds__Vehicle___409_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___409_pend0_om, expr:ConnectorEnds__Vehicle___409_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___409_pend0_om, expr:ConnectorEnds__Vehicle___409_pend1_om ;
@@ -1199,6 +1211,7 @@ elmt:ConnectorEnds__Vehicle___4010
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle___4010_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle___4010_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___4010_pend0, expr:ConnectorEnds__Vehicle___4010_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4010_pend0_om, expr:ConnectorEnds__Vehicle___4010_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___4010_pend0_om, expr:ConnectorEnds__Vehicle___4010_pend1_om ;
@@ -1460,6 +1473,7 @@ elmt:ConnectorEnds__Vehicle__link
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle__link_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle__link_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "link" ;
     sysml:connectorEnd expr:ConnectorEnds__Vehicle__link_pend0, expr:ConnectorEnds__Vehicle__link_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle__link_pend0_om, expr:ConnectorEnds__Vehicle__link_pend1_om ;
@@ -1626,6 +1640,7 @@ elmt:ConnectorEnds__Vehicle___4012
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle___4012_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle___4012_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:isAll "true"^^xsd:boolean ;
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___4012_pend0, expr:ConnectorEnds__Vehicle___4012_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4012_pend0_om, expr:ConnectorEnds__Vehicle___4012_pend1_om ;
@@ -1792,6 +1807,7 @@ elmt:ConnectorEnds__Vehicle___4013
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle___4013_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle___4013_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:isAll "true"^^xsd:boolean ;
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___4013_pend0, expr:ConnectorEnds__Vehicle___4013_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4013_pend0_om, expr:ConnectorEnds__Vehicle___4013_pend1_om ;
@@ -1957,6 +1973,7 @@ elmt:ConnectorEnds__Vehicle___4014
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle___4014_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle___4014_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___4014_pend0, expr:ConnectorEnds__Vehicle___4014_pend1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4014_pend0_om, expr:ConnectorEnds__Vehicle___4014_pend1_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___4014_pend0_om, expr:ConnectorEnds__Vehicle___4014_pend1_om ;
@@ -2122,6 +2139,7 @@ elmt:ConnectorEnds__Vehicle___4015
     sysml:owner elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelationship elmt:ConnectorEnds__Vehicle___4015_om ;
     sysml:owningMembership elmt:ConnectorEnds__Vehicle___4015_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:connectorEnd expr:ConnectorEnds__Vehicle___4015_pend0, expr:ConnectorEnds__Vehicle___4015_pend1, expr:ConnectorEnds__Vehicle___4015_pend2 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4015_pend0_om, expr:ConnectorEnds__Vehicle___4015_pend1_om, expr:ConnectorEnds__Vehicle___4015_pend2_om ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___4015_pend0_om, expr:ConnectorEnds__Vehicle___4015_pend1_om, expr:ConnectorEnds__Vehicle___4015_pend2_om ;

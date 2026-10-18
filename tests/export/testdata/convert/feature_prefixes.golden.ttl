@@ -105,6 +105,7 @@ elmt:FeaturePrefixes__B__k
     sysml:owner elmt:FeaturePrefixes__B ;
     sysml:owningRelationship elmt:FeaturePrefixes__B__k_om ;
     sysml:owningMembership elmt:FeaturePrefixes__B__k_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "k" ;
     sysx:declaredKeyword "feature" ;
     sysml:isConstant "true"^^xsd:boolean ;
@@ -140,6 +141,7 @@ elmt:FeaturePrefixes__B__vk
     sysml:owner elmt:FeaturePrefixes__B ;
     sysml:owningRelationship elmt:FeaturePrefixes__B__vk_om ;
     sysml:owningMembership elmt:FeaturePrefixes__B__vk_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "vk" ;
     sysx:declaredKeyword "feature" ;
     sysx:declaredPrefix "var" ;
@@ -176,9 +178,9 @@ elmt:FeaturePrefixes__B__p
     sysml:owner elmt:FeaturePrefixes__B ;
     sysml:owningRelationship elmt:FeaturePrefixes__B__p_om ;
     sysml:owningMembership elmt:FeaturePrefixes__B__p_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "p" ;
     sysx:declaredKeyword "feature" ;
-    sysml:isComposite "true"^^xsd:boolean ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:type elmt:FeaturePrefixes__A ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -212,10 +214,10 @@ elmt:FeaturePrefixes__B__pv
     sysml:owner elmt:FeaturePrefixes__B ;
     sysml:owningRelationship elmt:FeaturePrefixes__B__pv_om ;
     sysml:owningMembership elmt:FeaturePrefixes__B__pv_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "pv" ;
     sysx:declaredKeyword "feature" ;
     sysx:declaredPrefix "var" ;
-    sysml:isComposite "true"^^xsd:boolean ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:type elmt:FeaturePrefixes__A ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -249,10 +251,10 @@ elmt:FeaturePrefixes__B__slices
     sysml:owner elmt:FeaturePrefixes__B ;
     sysml:owningRelationship elmt:FeaturePrefixes__B__slices_om ;
     sysml:owningMembership elmt:FeaturePrefixes__B__slices_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "slices" ;
     sysx:declaredKeyword "feature" ;
     sysml:isAll "true"^^xsd:boolean ;
-    sysml:isComposite "true"^^xsd:boolean ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:type elmt:FeaturePrefixes__A ;
     sysml:subsets elmt:FeaturePrefixes__B__p ;
@@ -394,8 +396,8 @@ elmt:FeaturePrefixes__C___400
     sysml:owner elmt:FeaturePrefixes__C ;
     sysml:owningRelationship elmt:FeaturePrefixes__C___400_om ;
     sysml:owningMembership elmt:FeaturePrefixes__C___400_om ;
-    sysx:declaredKeyword "feature" ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysx:declaredKeyword "feature" ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:redefines elmt:FeaturePrefixes__B__p ;
     sysml:multiplicity expr:FeaturePrefixes__C___400_pmultiplicity ;
@@ -473,8 +475,8 @@ elmt:FeaturePrefixes__C___401
     sysml:owner elmt:FeaturePrefixes__C ;
     sysml:owningRelationship elmt:FeaturePrefixes__C___401_om ;
     sysml:owningMembership elmt:FeaturePrefixes__C___401_om ;
-    sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:redefines elmt:FeaturePrefixes__B__pv ;
     sysml:value expr:FeaturePrefixes__C___401_pvalue ;
@@ -560,6 +562,7 @@ elmt:FeaturePrefixes__C__dk
     sysml:owner elmt:FeaturePrefixes__C ;
     sysml:owningRelationship elmt:FeaturePrefixes__C__dk_om ;
     sysml:owningMembership elmt:FeaturePrefixes__C__dk_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "dk" ;
     sysx:declaredKeyword "feature" ;
     sysml:isConstant "true"^^xsd:boolean ;

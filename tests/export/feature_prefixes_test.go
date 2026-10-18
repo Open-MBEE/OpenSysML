@@ -172,9 +172,10 @@ func TestPortionFlagIsCarriedOrRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	portion := "    sysml:isComposite \"true\"^^xsd:boolean ;\n    sysml:isPortion \"true\"^^xsd:boolean ;"
+	composite := "    sysml:isComposite \"true\"^^xsd:boolean ;\n"
+	portion := "    sysml:isPortion \"true\"^^xsd:boolean ;"
 	constant := "    sysml:isConstant \"true\"^^xsd:boolean ;"
-	if !strings.Contains(string(kermlGraph), portion) {
+	if !strings.Contains(string(kermlGraph), composite) || !strings.Contains(string(kermlGraph), portion) {
 		t.Fatalf("a KerML portion should state isComposite and isPortion:\n%s", kermlGraph)
 	}
 	cases := []struct {
@@ -188,11 +189,11 @@ func TestPortionFlagIsCarriedOrRefused(t *testing.T) {
 		want: []string{"the portion <urn:sysmlv2:element:Prefixes__B__k>", "no sysml:portionKind", "only as `snapshot` or `timeslice`"},
 	}, {
 		name: "sysml_root_composite_portion", graph: sysmlGraph,
-		old: constant, new: constant + "\n    sysml:isComposite \"true\"^^xsd:boolean ;\n    sysml:isPortion \"true\"^^xsd:boolean ;",
+		old: "    sysml:isComposite \"false\"^^xsd:boolean ;\n", new: composite + "    sysml:isPortion \"true\"^^xsd:boolean ;\n",
 		want: []string{"the portion <urn:sysmlv2:element:Prefixes__B__k>", "no sysml:portionKind"},
 	}, {
 		name: "kerml_portion_not_composite", graph: kermlGraph,
-		old: portion, new: "    sysml:isPortion \"true\"^^xsd:boolean ;",
+		old: composite, new: "",
 		want: []string{"the portion <urn:sysmlv2:element:FeatureMods__B__p>", "without sysml:isComposite", "a portion is composite"},
 	}}
 	for _, tc := range cases {

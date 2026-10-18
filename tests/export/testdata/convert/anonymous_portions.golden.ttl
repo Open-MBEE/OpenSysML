@@ -100,6 +100,7 @@ elmt:AnonymousPortions__Vehicle__fuel
     sysml:owner elmt:AnonymousPortions__Vehicle ;
     sysml:owningRelationship elmt:AnonymousPortions__Vehicle__fuel_om ;
     sysml:owningMembership elmt:AnonymousPortions__Vehicle__fuel_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "fuel" ;
     sysml:type elmt:AnonymousPortions__Fuel ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -202,6 +203,7 @@ elmt:AnonymousPortions__car___400
     sysml:owner elmt:AnonymousPortions__car ;
     sysml:owningRelationship elmt:AnonymousPortions__car___400_om ;
     sysml:owningMembership elmt:AnonymousPortions__car___400_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "snapshot" ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:portionKind "snapshot" ;
@@ -242,6 +244,7 @@ elmt:AnonymousPortions__car___400___400
     sysml:owner elmt:AnonymousPortions__car___400 ;
     sysml:owningRelationship elmt:AnonymousPortions__car___400___400_om ;
     sysml:owningMembership elmt:AnonymousPortions__car___400___400_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car___400___400_pvalue ;
     sysml:ownedRelationship expr:AnonymousPortions__car___400___400_pvalue_om, elmt:AnonymousPortions__car___400___400_rd0 ;
@@ -299,6 +302,7 @@ elmt:AnonymousPortions__car___401
     sysml:owner elmt:AnonymousPortions__car ;
     sysml:owningRelationship elmt:AnonymousPortions__car___401_om ;
     sysml:owningMembership elmt:AnonymousPortions__car___401_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "timeslice" ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:portionKind "timeslice" ;
@@ -339,6 +343,7 @@ elmt:AnonymousPortions__car___401___400
     sysml:owner elmt:AnonymousPortions__car___401 ;
     sysml:owningRelationship elmt:AnonymousPortions__car___401___400_om ;
     sysml:owningMembership elmt:AnonymousPortions__car___401___400_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car___401___400_pvalue ;
     sysml:ownedRelationship expr:AnonymousPortions__car___401___400_pvalue_om, elmt:AnonymousPortions__car___401___400_rd0 ;
@@ -396,6 +401,7 @@ elmt:AnonymousPortions__car___402
     sysml:owner elmt:AnonymousPortions__car ;
     sysml:owningRelationship elmt:AnonymousPortions__car___402_om ;
     sysml:owningMembership elmt:AnonymousPortions__car___402_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "snapshot" ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:portionKind "snapshot" ;
@@ -439,6 +445,7 @@ elmt:AnonymousPortions__car___402___400
     sysml:owner elmt:AnonymousPortions__car___402 ;
     sysml:owningRelationship elmt:AnonymousPortions__car___402___400_om ;
     sysml:owningMembership elmt:AnonymousPortions__car___402___400_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car___402___400_pvalue ;
     sysml:ownedRelationship expr:AnonymousPortions__car___402___400_pvalue_om, elmt:AnonymousPortions__car___402___400_rd0 ;
@@ -496,6 +503,7 @@ elmt:AnonymousPortions__car___403
     sysml:owner elmt:AnonymousPortions__car ;
     sysml:owningRelationship elmt:AnonymousPortions__car___403_om ;
     sysml:owningMembership elmt:AnonymousPortions__car___403_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "snapshot" ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:portionKind "snapshot" ;
@@ -525,6 +533,7 @@ elmt:AnonymousPortions__car___404
     sysml:owner elmt:AnonymousPortions__car ;
     sysml:owningRelationship elmt:AnonymousPortions__car___404_om ;
     sysml:owningMembership elmt:AnonymousPortions__car___404_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "timeslice" ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:portionKind "timeslice" ;

@@ -126,6 +126,7 @@ elmt:Payloads__A__i
     sysml:owner elmt:Payloads__A ;
     sysml:owningRelationship elmt:Payloads__A__i_om ;
     sysml:owningMembership elmt:Payloads__A__i_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "i" ;
     sysml:direction "out" ;
     sysml:type elmt:Payloads__Fuel ;
@@ -191,6 +192,7 @@ elmt:Payloads__B__j
     sysml:owner elmt:Payloads__B ;
     sysml:owningRelationship elmt:Payloads__B__j_om ;
     sysml:owningMembership elmt:Payloads__B__j_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "j" ;
     sysml:direction "in" ;
     sysml:type elmt:Payloads__Fuel ;
@@ -261,6 +263,7 @@ elmt:Payloads__Ctx__x
     sysml:owner elmt:Payloads__Ctx ;
     sysml:owningRelationship elmt:Payloads__Ctx__x_om ;
     sysml:owningMembership elmt:Payloads__Ctx__x_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "x" ;
     sysml:type elmt:Payloads__A ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -293,6 +296,7 @@ elmt:Payloads__Ctx__y
     sysml:owner elmt:Payloads__Ctx ;
     sysml:owningRelationship elmt:Payloads__Ctx__y_om ;
     sysml:owningMembership elmt:Payloads__Ctx__y_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "y" ;
     sysml:type elmt:Payloads__B ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -325,6 +329,7 @@ elmt:Payloads__Ctx___402
     sysml:owner elmt:Payloads__Ctx ;
     sysml:owningRelationship elmt:Payloads__Ctx___402_om ;
     sysml:owningMembership elmt:Payloads__Ctx___402_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:connectorEnd expr:Payloads__Ctx___402_pend0, expr:Payloads__Ctx___402_pend1 ;
     sysml:ownedRelationship expr:Payloads__Ctx___402_pend0_om, expr:Payloads__Ctx___402_pend1_om, elmt:Payloads__Ctx___402__fuel_om, elmt:Payloads__Ctx___402__w_om ;
     sysml:ownedMembership expr:Payloads__Ctx___402_pend0_om, expr:Payloads__Ctx___402_pend1_om, elmt:Payloads__Ctx___402__fuel_om, elmt:Payloads__Ctx___402__w_om ;
@@ -500,6 +505,7 @@ elmt:Payloads__Ctx___402__fuel
     sysml:owner elmt:Payloads__Ctx___402 ;
     sysml:owningRelationship elmt:Payloads__Ctx___402__fuel_om ;
     sysml:owningMembership elmt:Payloads__Ctx___402__fuel_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "fuel" ;
     sysml:type elmt:Payloads__Fuel ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -532,6 +538,7 @@ elmt:Payloads__Ctx___402__w
     sysml:owner elmt:Payloads__Ctx___402 ;
     sysml:owningRelationship elmt:Payloads__Ctx___402__w_om ;
     sysml:owningMembership elmt:Payloads__Ctx___402__w_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "w" ;
     sysml:type elmt:Payloads__Prio ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -564,6 +571,7 @@ elmt:Payloads__Ctx__m
     sysml:owner elmt:Payloads__Ctx ;
     sysml:owningRelationship elmt:Payloads__Ctx__m_om ;
     sysml:owningMembership elmt:Payloads__Ctx__m_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "m" ;
     sysml:ownedRelationship expr:Payloads__Ctx__m_pend0_om, expr:Payloads__Ctx__m_pend1_om, elmt:Payloads__Ctx__m__cmd_om ;
     sysml:ownedMembership expr:Payloads__Ctx__m_pend0_om, expr:Payloads__Ctx__m_pend1_om, elmt:Payloads__Ctx__m__cmd_om ;
@@ -761,6 +769,7 @@ elmt:Payloads__Ctx__m__cmd
     sysml:owner elmt:Payloads__Ctx__m ;
     sysml:owningRelationship elmt:Payloads__Ctx__m__cmd_om ;
     sysml:owningMembership elmt:Payloads__Ctx__m__cmd_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "cmd" ;
     sysml:type elmt:Payloads__Prio ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -793,6 +802,7 @@ elmt:Payloads__Ctx___404
     sysml:owner elmt:Payloads__Ctx ;
     sysml:owningRelationship elmt:Payloads__Ctx___404_om ;
     sysml:owningMembership elmt:Payloads__Ctx___404_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:ownedRelationship expr:Payloads__Ctx___404_pend0_om, expr:Payloads__Ctx___404_pend1_om, elmt:Payloads__Ctx___404__cmd_om, elmt:Payloads__Ctx___404__w_om ;
     sysml:ownedMembership expr:Payloads__Ctx___404_pend0_om, expr:Payloads__Ctx___404_pend1_om, elmt:Payloads__Ctx___404__cmd_om, elmt:Payloads__Ctx___404__w_om ;
     sysml:ownedFeatureMembership expr:Payloads__Ctx___404_pend0_om, expr:Payloads__Ctx___404_pend1_om, elmt:Payloads__Ctx___404__cmd_om, elmt:Payloads__Ctx___404__w_om ;
@@ -990,6 +1000,7 @@ elmt:Payloads__Ctx___404__cmd
     sysml:owner elmt:Payloads__Ctx___404 ;
     sysml:owningRelationship elmt:Payloads__Ctx___404__cmd_om ;
     sysml:owningMembership elmt:Payloads__Ctx___404__cmd_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "cmd" ;
     sysml:type elmt:Payloads__Prio ;
     sysml:value expr:Payloads__Ctx___404__cmd_pvalue ;
@@ -1149,6 +1160,7 @@ elmt:Payloads__Ctx___404__w
     sysml:owner elmt:Payloads__Ctx___404 ;
     sysml:owningRelationship elmt:Payloads__Ctx___404__w_om ;
     sysml:owningMembership elmt:Payloads__Ctx___404__w_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "w" ;
     sysml:type elmt:Payloads__Prio ;
     sysx:hasBody "false"^^xsd:boolean ;

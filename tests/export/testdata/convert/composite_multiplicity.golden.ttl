@@ -127,9 +127,9 @@ elmt:CompositeMultiplicity__Vehicle__w
     sysml:owner elmt:CompositeMultiplicity__Vehicle ;
     sysml:owningRelationship elmt:CompositeMultiplicity__Vehicle__w_om ;
     sysml:owningMembership elmt:CompositeMultiplicity__Vehicle__w_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "w" ;
     sysx:declaredKeyword "feature" ;
-    sysml:isComposite "true"^^xsd:boolean ;
     sysml:type elmt:CompositeMultiplicity__Wheel ;
     sysml:multiplicity expr:CompositeMultiplicity__Vehicle__w_pmultiplicity ;
     sysml:ownedRelationship expr:CompositeMultiplicity__Vehicle__w_pmultiplicity_om, elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om, elmt:CompositeMultiplicity__Vehicle__w_ft0 ;
@@ -210,9 +210,9 @@ elmt:CompositeMultiplicity__Vehicle__w__lugbolt
     sysml:owner elmt:CompositeMultiplicity__Vehicle__w ;
     sysml:owningRelationship elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om ;
     sysml:owningMembership elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "lugbolt" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
-    sysml:isComposite "true"^^xsd:boolean ;
     sysml:type elmt:CompositeMultiplicity__Lugbolt ;
     sysml:multiplicity expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity ;
     sysml:ownedRelationship expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity_om, elmt:CompositeMultiplicity__Vehicle__w__lugbolt_ft0 ;
@@ -351,9 +351,9 @@ elmt:CompositeMultiplicity__Car__frontWheel
     sysml:owner elmt:CompositeMultiplicity__Car ;
     sysml:owningRelationship elmt:CompositeMultiplicity__Car__frontWheel_om ;
     sysml:owningMembership elmt:CompositeMultiplicity__Car__frontWheel_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "frontWheel" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
-    sysml:isComposite "true"^^xsd:boolean ;
     sysml:redefines elmt:CompositeMultiplicity__Vehicle__w ;
     sysml:multiplicity expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity ;
     sysml:ownedRelationship expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity_om, elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_om, elmt:CompositeMultiplicity__Car__frontWheel_rd0 ;
@@ -435,9 +435,9 @@ elmt:CompositeMultiplicity__Car__frontWheel__lugbolt
     sysml:owner elmt:CompositeMultiplicity__Car__frontWheel ;
     sysml:owningRelationship elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_om ;
     sysml:owningMembership elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "lugbolt" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
-    sysml:isComposite "true"^^xsd:boolean ;
     sysml:redefines elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
     sysml:multiplicity expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity ;
     sysml:ownedRelationship expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity_om, elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_rd0 ;
@@ -514,9 +514,9 @@ elmt:CompositeMultiplicity__Car__rearWheel
     sysml:owner elmt:CompositeMultiplicity__Car ;
     sysml:owningRelationship elmt:CompositeMultiplicity__Car__rearWheel_om ;
     sysml:owningMembership elmt:CompositeMultiplicity__Car__rearWheel_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "rearWheel" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
-    sysml:isComposite "true"^^xsd:boolean ;
     sysml:isOrdered "true"^^xsd:boolean ;
     sysml:redefines elmt:CompositeMultiplicity__Vehicle__w ;
     sysml:multiplicity expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity ;

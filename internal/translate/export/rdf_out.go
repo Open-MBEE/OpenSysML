@@ -1514,6 +1514,15 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			metaclass = mReferenceUsage
 		}
 		head(rdf.SysMLTerm(metaclass))
+		_, trigger := e.triggerParams[n]
+		directed := trigger || directionKeyword(n.Direction) != "" || parameterClass != ""
+		if ontology.IsAncestorOrSelf(metaclass, mFeature) {
+			// Feature::isComposite is authored, not derived, so it is stated true or
+			// false alike (the OMG API JSON shape); a SysML usage takes its kind's value unless `ref`.
+			composite := n.IsComposite || e.file.Kind() != source.KindKerML && !n.IsReference &&
+				usageCompositeByDefault(e.graph, e.metaclassOf, graphOwnership(e.graph), subject, directed, n.IsEnd)
+			e.graph.Add(subject, e.sysml("isComposite"), rdf.Bool(composite))
+		}
 		if !shorthandRelationship(n) {
 			if implicitTarget.Value != "" || variantReference {
 				// A metadata body's `name = …` redefines the metadata
@@ -1562,7 +1571,6 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isConstant", n.IsConstant},
 			{"isEvent", n.IsEvent && metaclass != mEventOccurrenceUsage},
 			{"isIndividual", n.IsIndividual},
-			{"isComposite", n.IsComposite},
 			// A snapshot or timeslice is a portion by its kind (OccurrenceUsage::portionKind).
 			{"isPortion", n.IsPortion || n.Portion != ast.PortionNone},
 			{"isDerived", n.IsDerived},
@@ -1580,7 +1588,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if err := e.prefixes(subject, fqn, n.Prefixes, bodyMembers(n)); err != nil {
 			return err
 		}
-		if _, trigger := e.triggerParams[n]; trigger {
+		if trigger {
 			// A trigger action's parameters are its inputs (SysML.xtext PayloadParameterMember, NodeParameterMember).
 			e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
 		} else if keyword := directionKeyword(n.Direction); keyword != "" {
@@ -2805,11 +2813,12 @@ func (e *encoder) crossFeature(subject rdf.Term, fqn string, n *ast.Usage) error
 		{"isVariation", cross.IsVariation},
 		{"isReference", cross.IsReference},
 		{"isConstant", cross.IsConstant},
-		{"isComposite", cross.IsComposite},
 		{"isPortion", cross.IsPortion},
 		{"isDerived", cross.IsDerived},
 		{"isOrdered", cross.IsOrdered},
 	})
+	// An authored flag, stated whether true or false (the OMG API JSON shape).
+	e.graph.Add(crossSubject, e.sysml("isComposite"), rdf.Bool(cross.IsComposite))
 	e.nonunique(crossSubject, cross.IsNonunique)
 	if keyword := directionKeyword(cross.Direction); keyword != "" {
 		e.graph.Add(crossSubject, e.sysml(pDirection), rdf.String(keyword))

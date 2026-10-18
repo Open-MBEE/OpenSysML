@@ -249,6 +249,7 @@ elmt:Prefixed__car
     sysml:owner elmt:Prefixed ;
     sysml:owningRelationship elmt:Prefixed__car_om ;
     sysml:owningMembership elmt:Prefixed__car_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "car" ;
     sysml:ownedMember elmt:Prefixed__car___400 ;
     sysml:ownedMembership elmt:Prefixed__car___400_om ;
@@ -313,6 +314,7 @@ elmt:Prefixed__spare
     sysml:owner elmt:Prefixed ;
     sysml:owningRelationship elmt:Prefixed__spare_om ;
     sysml:owningMembership elmt:Prefixed__spare_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "spare" ;
     sysml:isReference "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__spare___400 ;
@@ -379,6 +381,7 @@ elmt:Prefixed__option
     sysml:owner elmt:Prefixed ;
     sysml:owningRelationship elmt:Prefixed__option_om ;
     sysml:owningMembership elmt:Prefixed__option_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "option" ;
     sysml:isVariant "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__option___400 ;
@@ -445,6 +448,7 @@ elmt:Prefixed__wheel
     sysml:owner elmt:Prefixed ;
     sysml:owningRelationship elmt:Prefixed__wheel_om ;
     sysml:owningMembership elmt:Prefixed__wheel_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "wheel" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__wheel___400 ;
@@ -681,6 +685,7 @@ elmt:Prefixed__context
     sysml:owner elmt:Prefixed ;
     sysml:owningRelationship elmt:Prefixed__context_om ;
     sysml:owningMembership elmt:Prefixed__context_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "context" ;
     sysml:type elmt:Prefixed__Car ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -722,6 +727,7 @@ elmt:Prefixed__context__stopped
     sysml:owner elmt:Prefixed__context ;
     sysml:owningRelationship elmt:Prefixed__context__stopped_om ;
     sysml:owningMembership elmt:Prefixed__context__stopped_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "stopped" ;
     sysml:ownedMember elmt:Prefixed__context__stopped___400 ;
     sysml:ownedMembership elmt:Prefixed__context__stopped___400_om ;
@@ -788,6 +794,7 @@ elmt:Prefixed__context__moving
     sysml:owner elmt:Prefixed__context ;
     sysml:owningRelationship elmt:Prefixed__context__moving_om ;
     sysml:owningMembership elmt:Prefixed__context__moving_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "moving" ;
     sysml:isNegated "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__context__moving___400 ;
@@ -855,6 +862,7 @@ elmt:Prefixed__context__go
     sysml:owner elmt:Prefixed__context ;
     sysml:owningRelationship elmt:Prefixed__context__go_om ;
     sysml:owningMembership elmt:Prefixed__context__go_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "go" ;
     sysx:declaredPrefix "perform" ;
     sysml:ownedMember elmt:Prefixed__context__go___400 ;

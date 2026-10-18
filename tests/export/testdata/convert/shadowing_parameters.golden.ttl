@@ -105,6 +105,7 @@ elmt:Shadows__Sweep__items
     sysml:owner elmt:Shadows__Sweep ;
     sysml:owningRelationship elmt:Shadows__Sweep__items_om ;
     sysml:owningMembership elmt:Shadows__Sweep__items_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "items" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -182,6 +183,7 @@ elmt:Shadows__Sweep__value
     sysml:owner elmt:Shadows__Sweep ;
     sysml:owningRelationship elmt:Shadows__Sweep__value_om ;
     sysml:owningMembership elmt:Shadows__Sweep__value_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "value" ;
     sysml:type elmt:Shadows__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -299,6 +301,7 @@ elmt:Shadows__Sweep___402__cur
     sysml:owner elmt:Shadows__Sweep___402 ;
     sysml:owningRelationship elmt:Shadows__Sweep___402__cur_om ;
     sysml:owningMembership elmt:Shadows__Sweep___402__cur_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "cur" ;
     sysml:value expr:Shadows__Sweep___402__cur_pvalue ;
     sysml:ownedRelationship expr:Shadows__Sweep___402__cur_pvalue_om ;
@@ -417,6 +420,7 @@ elmt:Shadows__Governor__value
     sysml:owner elmt:Shadows__Governor ;
     sysml:owningRelationship elmt:Shadows__Governor__value_om ;
     sysml:owningMembership elmt:Shadows__Governor__value_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "value" ;
     sysml:type elmt:Shadows__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -450,6 +454,7 @@ elmt:Shadows__Governor__w
     sysml:owner elmt:Shadows__Governor ;
     sysml:owningRelationship elmt:Shadows__Governor__w_om ;
     sysml:owningMembership elmt:Shadows__Governor__w_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "w" ;
     sysml:type elmt:Shadows__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1077,6 +1082,7 @@ elmt:Shadows__Governor___405___40trigger__w
     sysml:owner elmt:Shadows__Governor___405___40trigger ;
     sysml:owningRelationship elmt:Shadows__Governor___405___40trigger__w_om ;
     sysml:owningMembership elmt:Shadows__Governor___405___40trigger__w_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "w" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;

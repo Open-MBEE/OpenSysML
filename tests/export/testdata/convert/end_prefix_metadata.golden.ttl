@@ -216,6 +216,7 @@ elmt:EndPrefixMetadata__Derivation__r1
     sysml:owner elmt:EndPrefixMetadata__Derivation ;
     sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__r1_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__Derivation__r1_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "r1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
@@ -284,6 +285,7 @@ elmt:EndPrefixMetadata__Derivation__r1_5f1
     sysml:owner elmt:EndPrefixMetadata__Derivation ;
     sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__r1_5f1_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__Derivation__r1_5f1_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "r1_1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
@@ -352,6 +354,7 @@ elmt:EndPrefixMetadata__Derivation__r1_5f2
     sysml:owner elmt:EndPrefixMetadata__Derivation ;
     sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__r1_5f2_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__Derivation__r1_5f2_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "r1_2" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
@@ -420,6 +423,7 @@ elmt:EndPrefixMetadata__Derivation__cause
     sysml:owner elmt:EndPrefixMetadata__Derivation ;
     sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__cause_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__Derivation__cause_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "cause" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
@@ -459,6 +463,7 @@ elmt:EndPrefixMetadata__Derivation__cause___400
     sysml:owner elmt:EndPrefixMetadata__Derivation__cause ;
     sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__cause___400_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__Derivation__cause___400_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:multiplicity expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
     sysml:ownedRelationship expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity_om ;
     sysml:ownedMembership expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity_om ;
@@ -525,6 +530,7 @@ elmt:EndPrefixMetadata__Derivation__effect
     sysml:owner elmt:EndPrefixMetadata__Derivation ;
     sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__effect_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__Derivation__effect_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "effect" ;
     sysml:isReference "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
@@ -602,6 +608,7 @@ elmt:EndPrefixMetadata__context
     sysml:owner elmt:EndPrefixMetadata ;
     sysml:owningRelationship elmt:EndPrefixMetadata__context_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__context_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "context" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:EndPrefixMetadata__context__req1, elmt:EndPrefixMetadata__context__req1_5f1, elmt:EndPrefixMetadata__context___402 ;
@@ -640,6 +647,7 @@ elmt:EndPrefixMetadata__context__req1
     sysml:owner elmt:EndPrefixMetadata__context ;
     sysml:owningRelationship elmt:EndPrefixMetadata__context__req1_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__context__req1_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "req1" ;
     sysml:type elmt:EndPrefixMetadata__Req1 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -673,6 +681,7 @@ elmt:EndPrefixMetadata__context__req1_5f1
     sysml:owner elmt:EndPrefixMetadata__context ;
     sysml:owningRelationship elmt:EndPrefixMetadata__context__req1_5f1_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__context__req1_5f1_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "req1_1" ;
     sysml:type elmt:EndPrefixMetadata__Req1_5f1 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -706,6 +715,7 @@ elmt:EndPrefixMetadata__context___402
     sysml:owner elmt:EndPrefixMetadata__context ;
     sysml:owningRelationship elmt:EndPrefixMetadata__context___402_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__context___402_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:ownedMember elmt:EndPrefixMetadata__context___402___402, elmt:EndPrefixMetadata__context___402__r1, elmt:EndPrefixMetadata__context___402__r1_5f1 ;
     sysml:ownedMembership elmt:EndPrefixMetadata__context___402___402_om, elmt:EndPrefixMetadata__context___402__r1_om, elmt:EndPrefixMetadata__context___402__r1_5f1_om ;
     sysml:ownedRelationship elmt:EndPrefixMetadata__context___402___402_om, elmt:EndPrefixMetadata__context___402__r1_om, elmt:EndPrefixMetadata__context___402__r1_5f1_om, elmt:EndPrefixMetadata__context___402_ft0 ;
@@ -778,6 +788,7 @@ elmt:EndPrefixMetadata__context___402__r1
     sysml:owner elmt:EndPrefixMetadata__context___402 ;
     sysml:owningRelationship elmt:EndPrefixMetadata__context___402__r1_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__context___402__r1_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "r1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
@@ -831,6 +842,7 @@ elmt:EndPrefixMetadata__context___402__r1_5f1
     sysml:owner elmt:EndPrefixMetadata__context___402 ;
     sysml:owningRelationship elmt:EndPrefixMetadata__context___402__r1_5f1_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__context___402__r1_5f1_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "r1_1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;

@@ -111,6 +111,7 @@ elmt:FlowsAndViews__FuelPort__fuelSupply
     sysml:owner elmt:FlowsAndViews__FuelPort ;
     sysml:owningRelationship elmt:FlowsAndViews__FuelPort__fuelSupply_om ;
     sysml:owningMembership elmt:FlowsAndViews__FuelPort__fuelSupply_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "fuelSupply" ;
     sysml:direction "out" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -233,6 +234,7 @@ elmt:FlowsAndViews__FuelInterface__supplierPort
     sysml:owner elmt:FlowsAndViews__FuelInterface ;
     sysml:owningRelationship elmt:FlowsAndViews__FuelInterface__supplierPort_om ;
     sysml:owningMembership elmt:FlowsAndViews__FuelInterface__supplierPort_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "supplierPort" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__FuelPort ;
@@ -267,6 +269,7 @@ elmt:FlowsAndViews__FuelInterface__consumerPort
     sysml:owner elmt:FlowsAndViews__FuelInterface ;
     sysml:owningRelationship elmt:FlowsAndViews__FuelInterface__consumerPort_om ;
     sysml:owningMembership elmt:FlowsAndViews__FuelInterface__consumerPort_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "consumerPort" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__FuelPort ;
@@ -301,6 +304,7 @@ elmt:FlowsAndViews__FuelInterface___402
     sysml:owner elmt:FlowsAndViews__FuelInterface ;
     sysml:owningRelationship elmt:FlowsAndViews__FuelInterface___402_om ;
     sysml:owningMembership elmt:FlowsAndViews__FuelInterface___402_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:connectorEnd expr:FlowsAndViews__FuelInterface___402_pend0, expr:FlowsAndViews__FuelInterface___402_pend1 ;
     sysml:ownedRelationship expr:FlowsAndViews__FuelInterface___402_pend0_om, expr:FlowsAndViews__FuelInterface___402_pend1_om ;
     sysml:ownedMembership expr:FlowsAndViews__FuelInterface___402_pend0_om, expr:FlowsAndViews__FuelInterface___402_pend1_om ;
@@ -478,6 +482,7 @@ elmt:FlowsAndViews__tanks
     sysml:owner elmt:FlowsAndViews ;
     sysml:owningRelationship elmt:FlowsAndViews__tanks_om ;
     sysml:owningMembership elmt:FlowsAndViews__tanks_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "tanks" ;
     sysml:isUnique "false"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Tank ;
@@ -552,6 +557,7 @@ elmt:FlowsAndViews__vehicle
     sysml:owner elmt:FlowsAndViews ;
     sysml:owningRelationship elmt:FlowsAndViews__vehicle_om ;
     sysml:owningMembership elmt:FlowsAndViews__vehicle_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "vehicle" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:FlowsAndViews__vehicle__tank, elmt:FlowsAndViews__vehicle__spares, elmt:FlowsAndViews__vehicle__firstSpare, elmt:FlowsAndViews__vehicle__engine, elmt:FlowsAndViews__vehicle___404 ;
@@ -590,6 +596,7 @@ elmt:FlowsAndViews__vehicle__tank
     sysml:owner elmt:FlowsAndViews__vehicle ;
     sysml:owningRelationship elmt:FlowsAndViews__vehicle__tank_om ;
     sysml:owningMembership elmt:FlowsAndViews__vehicle__tank_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "tank" ;
     sysml:type elmt:FlowsAndViews__Tank ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -623,6 +630,7 @@ elmt:FlowsAndViews__vehicle__spares
     sysml:owner elmt:FlowsAndViews__vehicle ;
     sysml:owningRelationship elmt:FlowsAndViews__vehicle__spares_om ;
     sysml:owningMembership elmt:FlowsAndViews__vehicle__spares_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "spares" ;
     sysml:isUnique "false"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Tank ;
@@ -726,6 +734,7 @@ elmt:FlowsAndViews__vehicle__firstSpare
     sysml:owner elmt:FlowsAndViews__vehicle ;
     sysml:owningRelationship elmt:FlowsAndViews__vehicle__firstSpare_om ;
     sysml:owningMembership elmt:FlowsAndViews__vehicle__firstSpare_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "firstSpare" ;
     sysml:type "spares.self"^^sysx:Expression ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -759,6 +768,7 @@ elmt:FlowsAndViews__vehicle__engine
     sysml:owner elmt:FlowsAndViews__vehicle ;
     sysml:owningRelationship elmt:FlowsAndViews__vehicle__engine_om ;
     sysml:owningMembership elmt:FlowsAndViews__vehicle__engine_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "engine" ;
     sysml:type elmt:FlowsAndViews__Engine ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -792,6 +802,7 @@ elmt:FlowsAndViews__vehicle___404
     sysml:owner elmt:FlowsAndViews__vehicle ;
     sysml:owningRelationship elmt:FlowsAndViews__vehicle___404_om ;
     sysml:owningMembership elmt:FlowsAndViews__vehicle___404_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:connectorEnd expr:FlowsAndViews__vehicle___404_pend0, expr:FlowsAndViews__vehicle___404_pend1 ;
     sysml:ownedRelationship expr:FlowsAndViews__vehicle___404_pend0_om, expr:FlowsAndViews__vehicle___404_pend1_om ;
     sysml:ownedMembership expr:FlowsAndViews__vehicle___404_pend0_om, expr:FlowsAndViews__vehicle___404_pend1_om ;
@@ -960,6 +971,7 @@ elmt:FlowsAndViews__Measure__measured
     sysml:owner elmt:FlowsAndViews__Measure ;
     sysml:owningRelationship elmt:FlowsAndViews__Measure__measured_om ;
     sysml:owningMembership elmt:FlowsAndViews__Measure__measured_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "measured" ;
     sysml:direction "in" ;
     sysml:subsets elmt:FlowsAndViews__Tank ;
@@ -994,6 +1006,7 @@ elmt:FlowsAndViews__Measure__mass
     sysml:owner elmt:FlowsAndViews__Measure ;
     sysml:owningRelationship elmt:FlowsAndViews__Measure__mass_om ;
     sysml:owningMembership elmt:FlowsAndViews__Measure__mass_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "mass" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "out" ;
@@ -1158,6 +1171,7 @@ elmt:FlowsAndViews__vehicleView
     sysml:owner elmt:FlowsAndViews ;
     sysml:owningRelationship elmt:FlowsAndViews__vehicleView_om ;
     sysml:owningMembership elmt:FlowsAndViews__vehicleView_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "vehicleView" ;
     sysml:type elmt:FlowsAndViews__StructureView ;
     sysx:hasBody "true"^^xsd:boolean ;

@@ -78,6 +78,7 @@ elmt:Vehicles__Vehicle__mass
     sysml:owner elmt:Vehicles__Vehicle ;
     sysml:owningRelationship elmt:Vehicles__Vehicle__mass_om ;
     sysml:owningMembership elmt:Vehicles__Vehicle__mass_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "mass" ;
     sysml:type <urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c> ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -111,6 +112,7 @@ elmt:Vehicles__Vehicle__engine
     sysml:owner elmt:Vehicles__Vehicle ;
     sysml:owningRelationship elmt:Vehicles__Vehicle__engine_om ;
     sysml:owningMembership elmt:Vehicles__Vehicle__engine_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "engine" ;
     sysml:type elmt:Vehicles__Engine ;
     sysml:multiplicity expr:Vehicles__Vehicle__engine_pmultiplicity ;

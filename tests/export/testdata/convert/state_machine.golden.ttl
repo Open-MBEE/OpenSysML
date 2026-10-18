@@ -214,6 +214,7 @@ elmt:StateMachine__VehicleStates__off
     sysml:owner elmt:StateMachine__VehicleStates ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__off_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__off_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "off" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:StateMachine__VehicleStates__off___400 ;
@@ -266,6 +267,7 @@ elmt:StateMachine__VehicleStates__off___400___400
     sysml:owner elmt:StateMachine__VehicleStates__off___400 ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__off___400 ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__off___400 ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -287,6 +289,7 @@ elmt:StateMachine__VehicleStates__starting
     sysml:owner elmt:StateMachine__VehicleStates ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__starting_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__starting_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "starting" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:StateMachine__VehicleStates__starting___400, elmt:StateMachine__VehicleStates__starting___401, elmt:StateMachine__VehicleStates__starting___402 ;
@@ -341,6 +344,7 @@ elmt:StateMachine__VehicleStates__starting___400__ready
     sysml:owner elmt:StateMachine__VehicleStates__starting___400 ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__starting___400 ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__starting___400 ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "ready" ;
     sysml:type elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -381,6 +385,7 @@ elmt:StateMachine__VehicleStates__starting___401__running
     sysml:owner elmt:StateMachine__VehicleStates__starting___401 ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__starting___401 ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__starting___401 ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "running" ;
     sysml:type elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -421,6 +426,7 @@ elmt:StateMachine__VehicleStates__starting___402___400
     sysml:owner elmt:StateMachine__VehicleStates__starting___402 ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__starting___402 ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__starting___402 ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -442,6 +448,7 @@ elmt:StateMachine__VehicleStates__active
     sysml:owner elmt:StateMachine__VehicleStates ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "active" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:StateMachine__VehicleStates__active___400, elmt:StateMachine__VehicleStates__active___401_om ;
@@ -499,6 +506,7 @@ elmt:StateMachine__VehicleStates__active___400__monitor
     sysml:owner elmt:StateMachine__VehicleStates__active___400 ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active___400 ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active___400 ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "monitor" ;
     sysml:type elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -713,6 +721,7 @@ elmt:StateMachine__VehicleStates__active___401___40trigger__sig
     sysml:owner elmt:StateMachine__VehicleStates__active___401___40trigger ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active___401___40trigger__sig_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active___401___40trigger__sig_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "sig" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
@@ -964,6 +973,7 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig
     sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "sig" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
@@ -1437,6 +1447,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig
     sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "sig" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
@@ -1474,6 +1485,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401
     sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -1606,6 +1618,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff__stop
     sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "stop" ;
     sysml:type elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1650,6 +1663,7 @@ elmt:StateMachine__VehicleStates__lane
     sysml:owner elmt:StateMachine__VehicleStates ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__lane_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__lane_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "lane" ;
     sysml:type elmt:StateMachine__Bus ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1716,6 +1730,7 @@ elmt:StateMachine__Nested__idle
     sysml:owner elmt:StateMachine__Nested ;
     sysml:owningRelationship elmt:StateMachine__Nested__idle_om ;
     sysml:owningMembership elmt:StateMachine__Nested__idle_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "idle" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:StateMachine__Nested__idle__substate ;
@@ -1751,6 +1766,7 @@ elmt:StateMachine__Nested__idle__substate
     sysml:owner elmt:StateMachine__Nested__idle ;
     sysml:owningRelationship elmt:StateMachine__Nested__idle__substate_om ;
     sysml:owningMembership elmt:StateMachine__Nested__idle__substate_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "substate" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:StateMachine__Nested__idle__substate___400 ;
@@ -1803,6 +1819,7 @@ elmt:StateMachine__Nested__idle__substate___400___400
     sysml:owner elmt:StateMachine__Nested__idle__substate___400 ;
     sysml:owningRelationship elmt:StateMachine__Nested__idle__substate___400 ;
     sysml:owningMembership elmt:StateMachine__Nested__idle__substate___400 ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1986,6 +2003,7 @@ elmt:StateMachine__Composite___404___400
     sysml:owner elmt:StateMachine__Composite___404 ;
     sysml:owningRelationship elmt:StateMachine__Composite___404 ;
     sysml:owningMembership elmt:StateMachine__Composite___404 ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:StateMachine__Composite___404___400___400 ;
     sysml:ownedMembership elmt:StateMachine__Composite___404___400___400_om ;
@@ -2006,6 +2024,7 @@ elmt:StateMachine__Composite___404___400___400
     sysml:owner elmt:StateMachine__Composite___404___400 ;
     sysml:owningRelationship elmt:StateMachine__Composite___404___400___400_om ;
     sysml:owningMembership elmt:StateMachine__Composite___404___400___400_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -2208,6 +2227,7 @@ elmt:StateMachine__Composite__primary
     sysml:owner elmt:StateMachine__Composite ;
     sysml:owningRelationship elmt:StateMachine__Composite__primary_om ;
     sysml:owningMembership elmt:StateMachine__Composite__primary_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "primary" ;
     sysml:isParallel "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;

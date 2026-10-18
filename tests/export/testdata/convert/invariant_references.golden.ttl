@@ -95,6 +95,7 @@ elmt:InvariantReferences__Tank__ready
     sysml:owner elmt:InvariantReferences__Tank ;
     sysml:owningRelationship elmt:InvariantReferences__Tank__ready_om ;
     sysml:owningMembership elmt:InvariantReferences__Tank__ready_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "ready" ;
     sysx:declaredKeyword "feature" ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
@@ -129,6 +130,7 @@ elmt:InvariantReferences__Tank__sealed
     sysml:owner elmt:InvariantReferences__Tank ;
     sysml:owningRelationship elmt:InvariantReferences__Tank__sealed_om ;
     sysml:owningMembership elmt:InvariantReferences__Tank__sealed_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "sealed" ;
     sysx:declaredKeyword "feature" ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
@@ -163,6 +165,7 @@ elmt:InvariantReferences__Tank__level
     sysml:owner elmt:InvariantReferences__Tank ;
     sysml:owningRelationship elmt:InvariantReferences__Tank__level_om ;
     sysml:owningMembership elmt:InvariantReferences__Tank__level_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "level" ;
     sysx:declaredKeyword "feature" ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
@@ -197,6 +200,7 @@ elmt:InvariantReferences__Tank___403
     sysml:owner elmt:InvariantReferences__Tank ;
     sysml:owningRelationship elmt:InvariantReferences__Tank___403_om ;
     sysml:owningMembership elmt:InvariantReferences__Tank___403_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "inv" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:InvariantReferences__Tank___403___400 ;
@@ -286,6 +290,7 @@ elmt:InvariantReferences__Tank__holds
     sysml:owner elmt:InvariantReferences__Tank ;
     sysml:owningRelationship elmt:InvariantReferences__Tank__holds_om ;
     sysml:owningMembership elmt:InvariantReferences__Tank__holds_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "holds" ;
     sysx:declaredKeyword "inv" ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -452,6 +457,7 @@ elmt:InvariantReferences__Tank___405
     sysml:owner elmt:InvariantReferences__Tank ;
     sysml:owningRelationship elmt:InvariantReferences__Tank___405_om ;
     sysml:owningMembership elmt:InvariantReferences__Tank___405_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "inv" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:InvariantReferences__Tank___405___400 ;
@@ -689,6 +695,7 @@ elmt:InvariantReferences__Tank__bounded
     sysml:owner elmt:InvariantReferences__Tank ;
     sysml:owningRelationship elmt:InvariantReferences__Tank__bounded_om ;
     sysml:owningMembership elmt:InvariantReferences__Tank__bounded_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "bounded" ;
     sysx:declaredKeyword "inv" ;
     sysx:hasBody "true"^^xsd:boolean ;

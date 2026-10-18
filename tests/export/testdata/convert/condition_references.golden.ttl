@@ -97,6 +97,7 @@ elmt:ConditionReferences__Resistance__structuralIntegrityMaintained
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "structuralIntegrityMaintained" ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -130,6 +131,7 @@ elmt:ConditionReferences__Resistance__a
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance__a_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__a_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "a" ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -163,6 +165,7 @@ elmt:ConditionReferences__Resistance__b
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance__b_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__b_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "b" ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -196,6 +199,7 @@ elmt:ConditionReferences__Resistance__x
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance__x_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__x_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -911,6 +915,7 @@ elmt:ConditionReferences__Resistance___409
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance___409_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___409_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance___409___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Resistance___409___400_om ;
@@ -1147,6 +1152,7 @@ elmt:ConditionReferences__Resistance__c1
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance__c1_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__c1_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "c1" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance__c1___400 ;
@@ -1236,6 +1242,7 @@ elmt:ConditionReferences__Resistance___4011
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance___4011_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___4011_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance___4011___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Resistance___4011___400_om ;
@@ -1324,6 +1331,7 @@ elmt:ConditionReferences__Resistance___4012
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance___4012_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___4012_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance___4012___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Resistance___4012___400_om ;
@@ -1488,6 +1496,7 @@ elmt:ConditionReferences__Resistance___4013
     sysml:owner elmt:ConditionReferences__Resistance ;
     sysml:owningRelationship elmt:ConditionReferences__Resistance___4013_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___4013_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:isNegated "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance___4013___400 ;
@@ -1615,6 +1624,7 @@ elmt:ConditionReferences__Rover__ok
     sysml:owner elmt:ConditionReferences__Rover ;
     sysml:owningRelationship elmt:ConditionReferences__Rover__ok_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover__ok_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "ok" ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1648,6 +1658,7 @@ elmt:ConditionReferences__Rover__n
     sysml:owner elmt:ConditionReferences__Rover ;
     sysml:owningRelationship elmt:ConditionReferences__Rover__n_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover__n_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "n" ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1681,6 +1692,7 @@ elmt:ConditionReferences__Rover___402
     sysml:owner elmt:ConditionReferences__Rover ;
     sysml:owningRelationship elmt:ConditionReferences__Rover___402_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover___402_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Rover___402___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Rover___402___400_om ;
@@ -1769,6 +1781,7 @@ elmt:ConditionReferences__Rover___403
     sysml:owner elmt:ConditionReferences__Rover ;
     sysml:owningRelationship elmt:ConditionReferences__Rover___403_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover___403_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Rover___403___400, elmt:ConditionReferences__Rover___403___401 ;
     sysml:ownedMembership elmt:ConditionReferences__Rover___403___400_om, elmt:ConditionReferences__Rover___403___401_om ;
@@ -2040,6 +2053,7 @@ elmt:ConditionReferences__Rover___404
     sysml:owner elmt:ConditionReferences__Rover ;
     sysml:owningRelationship elmt:ConditionReferences__Rover___404_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover___404_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Rover___404___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Rover___404___400_om ;
@@ -2128,6 +2142,7 @@ elmt:ConditionReferences__Rover__inv1
     sysml:owner elmt:ConditionReferences__Rover ;
     sysml:owningRelationship elmt:ConditionReferences__Rover__inv1_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover__inv1_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "inv1" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Rover__inv1___400 ;

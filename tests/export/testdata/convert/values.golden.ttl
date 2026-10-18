@@ -78,6 +78,7 @@ elmt:Values__Total__x
     sysml:owner elmt:Values__Total ;
     sysml:owningRelationship elmt:Values__Total__x_om ;
     sysml:owningMembership elmt:Values__Total__x_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -113,6 +114,7 @@ elmt:Values__Total__y
     sysml:owner elmt:Values__Total ;
     sysml:owningRelationship elmt:Values__Total__y_om ;
     sysml:owningMembership elmt:Values__Total__y_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "y" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -148,6 +150,7 @@ elmt:Values__Total__result
     sysml:owner elmt:Values__Total ;
     sysml:owningRelationship elmt:Values__Total__result_om ;
     sysml:owningMembership elmt:Values__Total__result_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "result" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isResult "true"^^xsd:boolean ;
@@ -223,6 +226,7 @@ elmt:Values__Sized__size
     sysml:owner elmt:Values__Sized ;
     sysml:owningRelationship elmt:Values__Sized__size_om ;
     sysml:owningMembership elmt:Values__Sized__size_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "size" ;
     sysml:type "Real" ;
     sysml:value expr:Values__Sized__size_pvalue ;
@@ -280,6 +284,7 @@ elmt:Values__Sized__label
     sysml:owner elmt:Values__Sized ;
     sysml:owningRelationship elmt:Values__Sized__label_om ;
     sysml:owningMembership elmt:Values__Sized__label_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "label" ;
     sysml:type "String" ;
     sysml:value expr:Values__Sized__label_pvalue ;
@@ -337,6 +342,7 @@ elmt:Values__Sized__total
     sysml:owner elmt:Values__Sized ;
     sysml:owningRelationship elmt:Values__Sized__total_om ;
     sysml:owningMembership elmt:Values__Sized__total_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "total" ;
     sysml:type "Real" ;
     sysml:value expr:Values__Sized__total_pvalue ;

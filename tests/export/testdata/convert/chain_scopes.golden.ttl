@@ -78,6 +78,7 @@ elmt:Gen__G1__x
     sysml:owner elmt:Gen__G1 ;
     sysml:owningRelationship elmt:Gen__G1__x_om ;
     sysml:owningMembership elmt:Gen__G1__x_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute x;\n" .
@@ -107,6 +108,7 @@ elmt:Gen__G1__y
     sysml:owner elmt:Gen__G1 ;
     sysml:owningRelationship elmt:Gen__G1__y_om ;
     sysml:owningMembership elmt:Gen__G1__y_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "y" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute y;\n" .
@@ -169,6 +171,7 @@ elmt:Gen__G2__x
     sysml:owner elmt:Gen__G2 ;
     sysml:owningRelationship elmt:Gen__G2__x_om ;
     sysml:owningMembership elmt:Gen__G2__x_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute x;\n" .
@@ -287,6 +290,7 @@ elmt:Chains__Axle__hub
     sysml:owner elmt:Chains__Axle ;
     sysml:owningRelationship elmt:Chains__Axle__hub_om ;
     sysml:owningMembership elmt:Chains__Axle__hub_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "hub" ;
     sysml:type elmt:Chains__Wheel ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -358,6 +362,7 @@ elmt:Chains__Car__w
     sysml:owner elmt:Chains__Car ;
     sysml:owningRelationship elmt:Chains__Car__w_om ;
     sysml:owningMembership elmt:Chains__Car__w_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "w" ;
     sysml:type elmt:Chains__Wheel ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -391,6 +396,7 @@ elmt:Chains__Car__axle
     sysml:owner elmt:Chains__Car ;
     sysml:owningRelationship elmt:Chains__Car__axle_om ;
     sysml:owningMembership elmt:Chains__Car__axle_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "axle" ;
     sysml:type elmt:Chains__Axle ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -424,6 +430,7 @@ elmt:Chains__Car__a
     sysml:owner elmt:Chains__Car ;
     sysml:owningRelationship elmt:Chains__Car__a_om ;
     sysml:owningMembership elmt:Chains__Car__a_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "a" ;
     sysml:value expr:Chains__Car__a_pvalue ;
     sysml:ownedRelationship expr:Chains__Car__a_pvalue_om ;
@@ -580,6 +587,7 @@ elmt:Chains__Car__b
     sysml:owner elmt:Chains__Car ;
     sysml:owningRelationship elmt:Chains__Car__b_om ;
     sysml:owningMembership elmt:Chains__Car__b_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "b" ;
     sysml:value expr:Chains__Car__b_pvalue ;
     sysml:ownedRelationship expr:Chains__Car__b_pvalue_om ;
@@ -736,6 +744,7 @@ elmt:Chains__Car__c
     sysml:owner elmt:Chains__Car ;
     sysml:owningRelationship elmt:Chains__Car__c_om ;
     sysml:owningMembership elmt:Chains__Car__c_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "c" ;
     sysml:value expr:Chains__Car__c_pvalue ;
     sysml:ownedRelationship expr:Chains__Car__c_pvalue_om ;
@@ -892,6 +901,7 @@ elmt:Chains__Car__d
     sysml:owner elmt:Chains__Car ;
     sysml:owningRelationship elmt:Chains__Car__d_om ;
     sysml:owningMembership elmt:Chains__Car__d_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "d" ;
     sysml:value expr:Chains__Car__d_pvalue ;
     sysml:ownedRelationship expr:Chains__Car__d_pvalue_om ;
@@ -1124,6 +1134,7 @@ elmt:Chains__Car__e
     sysml:owner elmt:Chains__Car ;
     sysml:owningRelationship elmt:Chains__Car__e_om ;
     sysml:owningMembership elmt:Chains__Car__e_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "e" ;
     sysml:value expr:Chains__Car__e_pvalue ;
     sysml:ownedRelationship expr:Chains__Car__e_pvalue_om ;
@@ -1356,6 +1367,7 @@ elmt:Chains__Car__spare
     sysml:owner elmt:Chains__Car ;
     sysml:owningRelationship elmt:Chains__Car__spare_om ;
     sysml:owningMembership elmt:Chains__Car__spare_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "spare" ;
     sysml:subsets elmt:Chains__Car__w ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1389,6 +1401,7 @@ elmt:Chains__Car__f
     sysml:owner elmt:Chains__Car ;
     sysml:owningRelationship elmt:Chains__Car__f_om ;
     sysml:owningMembership elmt:Chains__Car__f_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "f" ;
     sysml:value expr:Chains__Car__f_pvalue ;
     sysml:ownedRelationship expr:Chains__Car__f_pvalue_om ;

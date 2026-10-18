@@ -95,6 +95,7 @@ elmt:Branches__Charge__level
     sysml:owner elmt:Branches__Charge ;
     sysml:owningRelationship elmt:Branches__Charge__level_om ;
     sysml:owningMembership elmt:Branches__Charge__level_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "level" ;
     sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -128,6 +129,7 @@ elmt:Branches__Charge__check
     sysml:owner elmt:Branches__Charge ;
     sysml:owningRelationship elmt:Branches__Charge__check_om ;
     sysml:owningMembership elmt:Branches__Charge__check_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "check" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action check;\n" .
@@ -884,6 +886,7 @@ elmt:Branches__Charge__addCharge
     sysml:owner elmt:Branches__Charge ;
     sysml:owningRelationship elmt:Branches__Charge__addCharge_om ;
     sysml:owningMembership elmt:Branches__Charge__addCharge_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "addCharge" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action addCharge;\n" .
@@ -913,6 +916,7 @@ elmt:Branches__Charge__stop
     sysml:owner elmt:Branches__Charge ;
     sysml:owningRelationship elmt:Branches__Charge__stop_om ;
     sysml:owningMembership elmt:Branches__Charge__stop_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "stop" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action stop;\n" .

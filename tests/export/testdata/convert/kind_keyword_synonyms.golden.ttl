@@ -68,6 +68,7 @@ elmt:Synonyms__reading
     sysml:owner elmt:Synonyms ;
     sysml:owningRelationship elmt:Synonyms__reading_om ;
     sysml:owningMembership elmt:Synonyms__reading_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "reading" ;
     sysx:declaredKeyword "feature" ;
     sysml:type elmt:Synonyms__Temperature ;
@@ -128,6 +129,7 @@ elmt:Synonyms__base
     sysml:owner elmt:Synonyms ;
     sysml:owningRelationship elmt:Synonyms__base_om ;
     sysml:owningMembership elmt:Synonyms__base_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "base" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    occurrence base;\n" .
@@ -155,6 +157,7 @@ elmt:Synonyms__atStart
     sysml:owner elmt:Synonyms ;
     sysml:owningRelationship elmt:Synonyms__atStart_om ;
     sysml:owningMembership elmt:Synonyms__atStart_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "atStart" ;
     sysx:declaredKeyword "snapshot" ;
     sysml:isPortion "true"^^xsd:boolean ;
@@ -185,6 +188,7 @@ elmt:Synonyms__during
     sysml:owner elmt:Synonyms ;
     sysml:owningRelationship elmt:Synonyms__during_om ;
     sysml:owningMembership elmt:Synonyms__during_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "during" ;
     sysx:declaredKeyword "timeslice" ;
     sysml:isPortion "true"^^xsd:boolean ;
@@ -215,6 +219,7 @@ elmt:Synonyms__note
     sysml:owner elmt:Synonyms ;
     sysml:owningRelationship elmt:Synonyms__note_om ;
     sysml:owningMembership elmt:Synonyms__note_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "note" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    message note;\n" .
@@ -242,6 +247,7 @@ elmt:Synonyms___407
     sysml:owner elmt:Synonyms ;
     sysml:owningRelationship elmt:Synonyms___407_om ;
     sysml:owningMembership elmt:Synonyms___407_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:connectorEnd expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
     sysml:ownedRelationship expr:Synonyms___407_pend0_om, expr:Synonyms___407_pend1_om ;
     sysml:ownedMembership expr:Synonyms___407_pend0_om, expr:Synonyms___407_pend1_om ;
@@ -489,6 +495,7 @@ elmt:Synonyms__Vehicle___400
     sysml:owner elmt:Synonyms__Vehicle ;
     sysml:owningRelationship elmt:Synonyms__Vehicle___400_om ;
     sysml:owningMembership elmt:Synonyms__Vehicle___400_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "exhibit" ;
     sysml:type elmt:Synonyms__Idle ;
     sysml:references "idling" ;
@@ -527,6 +534,7 @@ elmt:Synonyms__Vehicle__safe
     sysml:owner elmt:Synonyms__Vehicle ;
     sysml:owningRelationship elmt:Synonyms__Vehicle__safe_om ;
     sysml:owningMembership elmt:Synonyms__Vehicle__safe_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "safe" ;
     sysx:declaredKeyword "assert" ;
     sysml:type elmt:Synonyms__Safe ;
@@ -561,6 +569,7 @@ elmt:Synonyms__Vehicle__alsoSafe
     sysml:owner elmt:Synonyms__Vehicle ;
     sysml:owningRelationship elmt:Synonyms__Vehicle__alsoSafe_om ;
     sysml:owningMembership elmt:Synonyms__Vehicle__alsoSafe_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "alsoSafe" ;
     sysx:declaredKeyword "inv" ;
     sysml:type elmt:Synonyms__Safe ;
@@ -660,6 +669,7 @@ elmt:Synonyms__Dashboard___400
     sysml:owner elmt:Synonyms__Dashboard ;
     sysml:owningRelationship elmt:Synonyms__Dashboard___400_om ;
     sysml:owningMembership elmt:Synonyms__Dashboard___400_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:references "display" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:Synonyms__Dashboard___400_rs ;
@@ -694,6 +704,7 @@ elmt:Synonyms__Dashboard___401
     sysml:owner elmt:Synonyms__Dashboard ;
     sysml:owningRelationship elmt:Synonyms__Dashboard___401_om ;
     sysml:owningMembership elmt:Synonyms__Dashboard___401_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:type elmt:Synonyms__AsTree ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Synonyms__Dashboard___401_ft0 ;

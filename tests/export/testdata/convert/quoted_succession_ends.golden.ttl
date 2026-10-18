@@ -78,6 +78,7 @@ elmt:QuotedSuccessionEnds__provide_20power__engineStarted
     sysml:owner elmt:QuotedSuccessionEnds__provide_20power ;
     sysml:owningRelationship elmt:QuotedSuccessionEnds__provide_20power__engineStarted_om ;
     sysml:owningMembership elmt:QuotedSuccessionEnds__provide_20power__engineStarted_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "engineStarted" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action engineStarted;\n" .
@@ -107,6 +108,7 @@ elmt:QuotedSuccessionEnds__provide_20power__generate_20torque
     sysml:owner elmt:QuotedSuccessionEnds__provide_20power ;
     sysml:owningRelationship elmt:QuotedSuccessionEnds__provide_20power__generate_20torque_om ;
     sysml:owningMembership elmt:QuotedSuccessionEnds__provide_20power__generate_20torque_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "generate torque" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action 'generate torque';\n" .
@@ -136,6 +138,7 @@ elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque
     sysml:owner elmt:QuotedSuccessionEnds__provide_20power ;
     sysml:owningRelationship elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque_om ;
     sysml:owningMembership elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "amplify torque" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action 'amplify torque';\n" .
@@ -540,6 +543,7 @@ elmt:QuotedSuccessionEnds__provide_20power__s
     sysml:owner elmt:QuotedSuccessionEnds__provide_20power ;
     sysml:owningRelationship elmt:QuotedSuccessionEnds__provide_20power__s_om ;
     sysml:owningMembership elmt:QuotedSuccessionEnds__provide_20power__s_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "s" ;
     sysml:connectorEnd expr:QuotedSuccessionEnds__provide_20power__s_pend0, expr:QuotedSuccessionEnds__provide_20power__s_pend1 ;
     sysml:ownedRelationship expr:QuotedSuccessionEnds__provide_20power__s_pend0_om, expr:QuotedSuccessionEnds__provide_20power__s_pend1_om ;
@@ -709,6 +713,7 @@ elmt:QuotedSuccessionEnds__drive__enter_20vehicle
     sysml:owner elmt:QuotedSuccessionEnds__drive ;
     sysml:owningRelationship elmt:QuotedSuccessionEnds__drive__enter_20vehicle_om ;
     sysml:owningMembership elmt:QuotedSuccessionEnds__drive__enter_20vehicle_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "enter vehicle" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action 'enter vehicle';\n" .
@@ -841,6 +846,7 @@ elmt:QuotedSuccessionEnds__drive__start_20engine
     sysml:owner elmt:QuotedSuccessionEnds__drive ;
     sysml:owningRelationship elmt:QuotedSuccessionEnds__drive__start_20engine_om ;
     sysml:owningMembership elmt:QuotedSuccessionEnds__drive__start_20engine_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "start engine" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action 'start engine';\n" .
@@ -870,6 +876,7 @@ elmt:QuotedSuccessionEnds__drive___403
     sysml:owner elmt:QuotedSuccessionEnds__drive ;
     sysml:owningRelationship elmt:QuotedSuccessionEnds__drive___403_om ;
     sysml:owningMembership elmt:QuotedSuccessionEnds__drive___403_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:connectorEnd expr:QuotedSuccessionEnds__drive___403_pend0, expr:QuotedSuccessionEnds__drive___403_pend1 ;
     sysml:ownedRelationship expr:QuotedSuccessionEnds__drive___403_pend0_om, expr:QuotedSuccessionEnds__drive___403_pend1_om ;
     sysml:ownedMembership expr:QuotedSuccessionEnds__drive___403_pend0_om, expr:QuotedSuccessionEnds__drive___403_pend1_om ;
@@ -1000,6 +1007,7 @@ elmt:QuotedSuccessionEnds__drive__drive_20vehicle
     sysml:owner elmt:QuotedSuccessionEnds__drive ;
     sysml:owningRelationship elmt:QuotedSuccessionEnds__drive__drive_20vehicle_om ;
     sysml:owningMembership elmt:QuotedSuccessionEnds__drive__drive_20vehicle_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "drive vehicle" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action 'drive vehicle';\n" .

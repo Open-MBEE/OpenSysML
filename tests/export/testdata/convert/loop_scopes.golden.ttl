@@ -75,6 +75,7 @@ elmt:Loops__Charge__prep
     sysml:owner elmt:Loops__Charge ;
     sysml:owningRelationship elmt:Loops__Charge__prep_om ;
     sysml:owningMembership elmt:Loops__Charge__prep_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "prep" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action prep;\n" .
@@ -263,6 +264,7 @@ elmt:Loops__Charge___401__charging
     sysml:owner elmt:Loops__Charge___401 ;
     sysml:owningRelationship elmt:Loops__Charge___401__charging_om ;
     sysml:owningMembership elmt:Loops__Charge___401__charging_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "charging" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "            action charging;\n" .
@@ -574,6 +576,7 @@ elmt:Loops__Charge___402__pace
     sysml:owner elmt:Loops__Charge___402 ;
     sysml:owningRelationship elmt:Loops__Charge___402__pace_om ;
     sysml:owningMembership elmt:Loops__Charge___402__pace_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "pace" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "            action pace;\n" .

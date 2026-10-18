@@ -73,6 +73,7 @@ elmt:SendNew__Telemetry__frames
     sysml:owner elmt:SendNew__Telemetry ;
     sysml:owningRelationship elmt:SendNew__Telemetry__frames_om ;
     sysml:owningMembership elmt:SendNew__Telemetry__frames_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "frames" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute frames;\n" .
@@ -259,6 +260,7 @@ elmt:SendNew__Downlink__antenna
     sysml:owner elmt:SendNew__Downlink ;
     sysml:owningRelationship elmt:SendNew__Downlink__antenna_om ;
     sysml:owningMembership elmt:SendNew__Downlink__antenna_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "antenna" ;
     sysml:type elmt:SendNew__Radio ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -292,6 +294,7 @@ elmt:SendNew__Downlink__ground
     sysml:owner elmt:SendNew__Downlink ;
     sysml:owningRelationship elmt:SendNew__Downlink__ground_om ;
     sysml:owningMembership elmt:SendNew__Downlink__ground_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "ground" ;
     sysml:type elmt:SendNew__Station ;
     sysx:hasBody "false"^^xsd:boolean ;
