@@ -120,10 +120,16 @@ func EnclosingProjects(path string) []string {
 		return nil
 	}
 	dir := abs
-	if info, err := os.Stat(abs); err != nil || !info.IsDir() {
-		dir = filepath.Dir(abs)
-	}
 	var out []string
+	// An archive, or a member of one, belongs to the archive's project first.
+	if archive, _, ok := SplitMemberPath(abs); ok {
+		out, dir = append(out, archive), archive
+	} else if IsArchiveFile(abs) {
+		out = append(out, abs)
+	}
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		dir = filepath.Dir(dir)
+	}
 	for {
 		if IsProjectDir(dir) {
 			out = append(out, dir)

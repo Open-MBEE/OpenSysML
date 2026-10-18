@@ -51,3 +51,19 @@ func TestDependenciesOfAnArchiveMemberAreItsSiblings(t *testing.T) {
 		t.Errorf("Dependencies of a nested member = %v, want its sibling %v", got, []string{main})
 	}
 }
+
+func TestDependenciesOfAnArchiveMemberIncludeTheProjectsTheArchiveUses(t *testing.T) {
+	dir := t.TempDir()
+	gears := writeProject(t, filepath.Join(dir, "store", "acme-gears"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	gearsModel := writeModel(t, filepath.Join(gears, "Gears.sysml"), "package Gears {\n    part def Gear;\n}\n")
+	outer := writeProject(t, filepath.Join(dir, "outer"), `{"name": "Outer", "version": "1.0.0"}`)
+	archive := writeArchive(t, filepath.Join(outer, "vendor", "probe.kpar"),
+		[2]string{"Probe.sysml", "package Probe {\n    private import Gears::*;\n    part g : Gear;\n}\n"},
+		[2]string{".project.json", probeProject},
+		[2]string{".meta.json", `{"index": {"Probe": "Probe.sysml"}, "created": "2026-01-01T00:00:00Z"}`})
+
+	got := Discovery{Roots: []string{filepath.Join(dir, "store")}}.Dependencies([]string{MemberPath(archive, "Probe.sysml")}, nil)
+	if !reflect.DeepEqual(got, []string{gearsModel}) {
+		t.Errorf("Dependencies of an archive member inside another project = %v, want the file of the project the archive uses %v", got, []string{gearsModel})
+	}
+}
