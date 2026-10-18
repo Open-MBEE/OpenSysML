@@ -131,9 +131,8 @@ func lowerImport(model *CachedModel, own map[string]bool, in *pb.DataImport) ([]
 	return ops, file, nil
 }
 
-// importAssignments applies one file's assignments to the model and re-parses
-// it, answering the edited model under its hash; values that make the model
-// invalid are refused, with the diagnostics they raised set on the response.
+// importAssignments applies one file's assignments and re-parses the model under its
+// hash; values that make the model invalid are refused with the diagnostics they raised.
 func (s *Service) importAssignments(current *CachedModel, ops []dataimport.Assignment, resp *pb.ImportDataResponse) (*CachedModel, string, error) {
 	inputs, err := s.importEdits(current, ops)
 	if err != nil {

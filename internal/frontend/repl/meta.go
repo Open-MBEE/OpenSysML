@@ -1176,9 +1176,8 @@ func declaredAnswer(ctx *runtime.Context, expr string, val runtime.Value, err er
 	return answered(expr, ctx, val, formatValue(ctx, val)), nil
 }
 
-// evalCompound evaluates a compound expression in the session's namespace, as
-// the value of an attribute appended to the transcript; lookupErr, the failure
-// to read expr as a name, is reported instead when the expression fails too.
+// evalCompound evaluates expr as an attribute value appended to the transcript;
+// lookupErr, the failure to read expr as a name, is reported when that fails too.
 func (s *Session) evalCompound(ctx *runtime.Context, expr string, lookupErr error) (evaluated, error) {
 	// Complex expression with feature refs - parsed after the transcript, the
 	// loaded files masked out of it as they are out of the transcript document
