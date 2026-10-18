@@ -1,0 +1,16 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "DefinitionPkg::Definition::costTest",
+  "subject": "ProductPkg::good",
+  "verdict": "pass",
+  "outputs": {
+    "verdict": {
+      "type": "EnumLiteral",
+      "value": "VerdictKind::pass"
+    }
+  },
+  "verdicts": {
+    "costObjective": "satisfied"
+  }
+}
