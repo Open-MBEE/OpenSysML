@@ -92,6 +92,10 @@ const CapabilityImportData = "import_data"
 // distributions of their observables beside the runs'.
 const CapabilityCompareResults = "compare_results"
 
+// CapabilityCheck names the CheckBehavior RPC, which searches every schedule of
+// a behavior for violated properties, deadlocks, failures and divergent values.
+const CapabilityCheck = "check"
+
 // CapabilityOSLCQuery names the capability of evaluating OSLC Query text.
 const CapabilityOSLCQuery = "oslc_query"
 
@@ -352,6 +356,7 @@ var capabilities = []string{
 	CapabilityExportGraphs,
 	CapabilityImportData,
 	CapabilityCompareResults,
+	CapabilityCheck,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
 	CapabilityParseSourcesAffected,

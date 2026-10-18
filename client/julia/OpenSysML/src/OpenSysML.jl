@@ -50,7 +50,9 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        render_view, Graphs, export_graphs, DataImport, ImportedValue, ImportedFile,
        ImportResult, import_data, ComparedDistribution, StatisticDifference, CaseStatistic,
        CaseStatistics, ObservableComparison, ConfigurationComparison, Comparison,
-       compare_results, Editor, Body, operations, applied, AppliedEdit,
+       compare_results, CheckResult, CheckSearch, CheckViolation,
+       CheckDivergence, CheckDivergentValue, CheckFinal, CheckWitness, check_action,
+       check_state_machine, holds, Editor, Body, operations, applied, AppliedEdit,
        EditedDocument, EditResult, edit, apply, apply_edits,
        ActionOutputs, StateRun,
        decode_value, encode_value, resolve_binary, ensure_binary, download_binary,
@@ -74,6 +76,7 @@ include("engines.jl")
 include("verdict.jl")
 include("verification.jl")
 include("document.jl")
+include("check.jl")
 include("conversion.jl")
 include("migration.jl")
 include("authoring.jl")
@@ -105,7 +108,8 @@ for capability in (
     :CAPABILITY_VERIFICATION_QUESTIONS, :CAPABILITY_VERIFICATION_ARGUMENTS, :CAPABILITY_QUERY, :CAPABILITY_OSLC_QUERY,
     :CAPABILITY_DOCUMENT_QUERY,
     :CAPABILITY_RENDER_DOCUMENT, :CAPABILITY_RENDER_DOCUMENT_HTML, :CAPABILITY_RENDER_VIEW,
-    :CAPABILITY_EXPORT_GRAPHS, :CAPABILITY_IMPORT_DATA, :CAPABILITY_COMPARE_RESULTS, :CAPABILITY_ENUM_VALUES,
+    :CAPABILITY_EXPORT_GRAPHS, :CAPABILITY_IMPORT_DATA, :CAPABILITY_COMPARE_RESULTS,
+    :CAPABILITY_CHECK, :CAPABILITY_ENUM_VALUES,
     :CAPABILITY_EVALUATE_SUBJECT, :CAPABILITY_SYMBOL_ATTRIBUTES, :CAPABILITY_UNSET_VALUE,
     :CAPABILITY_FEATURE_VALUES, :CAPABILITY_APPLY_EDITS, :CAPABILITY_AUTHORING,
     :CAPABILITY_CONNECTION_AUTHORING, :CAPABILITY_SATISFY_AUTHORING,

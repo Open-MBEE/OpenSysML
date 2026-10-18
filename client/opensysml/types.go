@@ -25,6 +25,7 @@ const (
 	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs
 	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
 	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
+	CapabilityCheck                          = sysmlgrpc.CapabilityCheck
 	CapabilityEnumValues                     = sysmlgrpc.CapabilityEnumValues
 	CapabilityEvaluateSubject                = sysmlgrpc.CapabilityEvaluateSubject
 	CapabilitySymbolAttributes               = sysmlgrpc.CapabilitySymbolAttributes

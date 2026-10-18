@@ -33,6 +33,8 @@ pub const CAPABILITY_EXPORT_GRAPHS: &str = "export_graphs";
 pub const CAPABILITY_IMPORT_DATA: &str = "import_data";
 /// The CompareResults RPC, which compares a tool's stored results with the runs.
 pub const CAPABILITY_COMPARE_RESULTS: &str = "compare_results";
+/// The `CheckBehavior` RPC, searching every schedule of a behavior for violations and divergent values.
+pub const CAPABILITY_CHECK: &str = "check";
 /// An enumeration literal as `Value.enum_literal`.
 pub const CAPABILITY_ENUM_VALUES: &str = "enum_values";
 /// Evaluating an expression against an instantiated subject.

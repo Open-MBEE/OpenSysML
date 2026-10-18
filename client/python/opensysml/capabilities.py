@@ -68,6 +68,10 @@ CAPABILITY_EXPORT_GRAPHS = "export_graphs"
 CAPABILITY_IMPORT_DATA = "import_data"
 CAPABILITY_COMPARE_RESULTS = "compare_results"
 
+#: The ``CheckBehavior`` RPC, which searches every schedule of a behavior for
+#: violated properties, deadlocks, failures and divergent values.
+CAPABILITY_CHECK = "check"
+
 #: ``form`` on ``RenderDocumentRequest``, which asks ``RenderDocument`` for the
 #: HTML page instead of Markdown. Without it the service would render Markdown
 #: whatever form was asked, so the client refuses to ask for HTML.

@@ -27,6 +27,8 @@ import org.openmbee.opensysml.proto.CompareResultsResponse;
 import org.openmbee.opensysml.proto.ImportDataRequest;
 import org.openmbee.opensysml.proto.ImportDataResponse;
 import org.openmbee.opensysml.proto.ObservablePair;
+import org.openmbee.opensysml.proto.CheckBehaviorRequest;
+import org.openmbee.opensysml.proto.CheckBehaviorResponse;
 import org.openmbee.opensysml.proto.ExportGraphsRequest;
 import org.openmbee.opensysml.proto.ExportGraphsResponse;
 import org.openmbee.opensysml.proto.RenderViewRequest;
@@ -1750,6 +1752,72 @@ public final class Model {
                 .build(),
             RenderViewResponse.getDefaultInstance());
     return RenderedView.from(response);
+  }
+
+  /**
+   * Searches every schedule of an action for a violated property, a deadlock, a failure or a
+   * divergent value, as {@code sysml -check-property} does.
+   *
+   * @param actionSymbolId qualified name of the action definition or usage
+   * @param inputs input parameter name to value, bound first
+   * @param options what to check, the bounds and the engine
+   * @return the verdict with every violation, divergence and final outcome witnessed
+   * @throws ModelException if the behavior, a property or the performer is not found, or the
+   *     search failed before deciding
+   * @throws ServiceException if a bound is negative, the engine is unknown or the service does not
+   *     hold this model
+   * @throws CapabilityException if the service does not advertise {@code check}, or a performer is
+   *     named and it does not advertise {@code performer}
+   */
+  public CheckResult checkAction(
+      String actionSymbolId, Map<String, Value> inputs, CheckOptions options) {
+    Objects.requireNonNull(actionSymbolId, "actionSymbolId");
+    Objects.requireNonNull(inputs, "inputs");
+    return checkBehavior(actionSymbolId, "", inputs, options);
+  }
+
+  /**
+   * Searches every schedule of a state machine; see {@link #checkAction}.
+   *
+   * @param stateMachineSymbolId qualified name of the state definition or usage
+   * @param options what to check, the bounds and the engine
+   * @return the verdict with every violation, divergence and final outcome witnessed
+   */
+  public CheckResult checkStateMachine(String stateMachineSymbolId, CheckOptions options) {
+    Objects.requireNonNull(stateMachineSymbolId, "stateMachineSymbolId");
+    return checkBehavior("", stateMachineSymbolId, Map.of(), options);
+  }
+
+  private CheckResult checkBehavior(
+      String actionSymbolId,
+      String stateMachineSymbolId,
+      Map<String, Value> inputs,
+      CheckOptions options) {
+    Objects.requireNonNull(options, NAME_OPTIONS);
+    connection.capabilities().require(Capabilities.CHECK);
+    options.performer().ifPresent(p -> connection.capabilities().require(Capabilities.PERFORMER));
+    CheckBehaviorRequest.Builder request =
+        CheckBehaviorRequest.newBuilder()
+            .setModelHash(hash)
+            .setActionSymbolId(actionSymbolId)
+            .setStateMachineSymbolId(stateMachineSymbolId)
+            .putAllInputs(Protos.protos(inputs, connection.capabilities()))
+            .addAllCheckProperty(options.properties())
+            .addAllCheckDiverge(options.diverge())
+            .addAllCheckInput(options.freeInputs())
+            .addAllCheckAssume(options.assume())
+            .setCheckWitness(options.witness())
+            .setCheckDepth(options.depth())
+            .setCheckStates(options.states())
+            .setCheckUnroll(options.unroll())
+            .setCheckTimeout(options.timeout());
+    options.engine().ifPresent(request::setEngine);
+    options.performer().ifPresent(request::setPerformerSymbolId);
+    CheckBehaviorResponse response =
+        connection.call(
+            "CheckBehavior", request.build(), CheckBehaviorResponse.getDefaultInstance());
+    failed(response.getError(), FailureReason.UNSPECIFIED, List.of());
+    return Protos.checkResult(response);
   }
 
   /**

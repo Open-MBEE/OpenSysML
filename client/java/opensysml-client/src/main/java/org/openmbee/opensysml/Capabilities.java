@@ -190,6 +190,9 @@ public final class Capabilities {
   /** The {@code CompareResults} RPC runs a SysML v1 tool's results index and compares. */
   public static final String COMPARE_RESULTS = "compare_results";
 
+  /** The {@code CheckBehavior} RPC searches every schedule of a behavior for violations. */
+  public static final String CHECK = "check";
+
   /** A parse can judge the source as conforming SysML v2. */
   public static final String STRICT_CONFORMANCE = "strict_conformance";
 

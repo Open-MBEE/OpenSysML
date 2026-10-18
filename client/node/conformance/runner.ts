@@ -33,6 +33,7 @@ import { Literal, methodOf, type Expect, type Scenario, type ScenarioModel } fro
 export const COVERED_RPCS = [
   "ApplyEdits",
   "CompareResults",
+  "CheckBehavior",
   "Convert",
   "Migrate",
   "Evaluate",
@@ -467,6 +468,31 @@ export class Runner {
         observe: observablePairs(call.request["observe"]),
         ...stringOption(call.request, "engine", "engine"),
       }),
+    CheckBehavior: (call) => {
+      const strings = (name: string): string[] =>
+        Array.isArray(call.request[name]) ? (call.request[name] as unknown[]).map(String) : [];
+      const number = (name: string): number =>
+        typeof call.request[name] === "number" ? call.request[name] : 0;
+      const options = {
+        inputs: valueMap(call.request["inputs"]),
+        properties: strings("check_property"),
+        diverge: strings("check_diverge"),
+        freeInputs: strings("check_input"),
+        assume: strings("check_assume"),
+        witness: call.request["check_witness"] === true,
+        depth: number("check_depth"),
+        states: number("check_states"),
+        unroll: number("check_unroll"),
+        timeout: number("check_timeout"),
+        ...stringOption(call.request, "engine", "engine"),
+        ...stringOption(call.request, "performer_symbol_id", "performer"),
+      };
+      const stateMachine = call.request["state_machine_symbol_id"];
+      if (typeof stateMachine === "string" && stateMachine !== "") {
+        return this.model(call).checkStateMachine(stateMachine, options);
+      }
+      return this.model(call).checkAction(String(call.request["action_symbol_id"]), options);
+    },
     RunAnalysis: (call) =>
       this.model(call).runAnalysis(String(call.request["symbol_id"]), {
         ...stringOption(call.request, "subject_symbol_id", "subject"),

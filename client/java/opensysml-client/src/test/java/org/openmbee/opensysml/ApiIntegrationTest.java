@@ -1451,6 +1451,67 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void checkActionWitnessesAViolationAndADivergence() {
+    Model model = connection.load(fixture("tank.sysml"));
+    CheckOptions options =
+        CheckOptions.defaults()
+            .withProperties("Plant::Tank::low")
+            .withDiverge("this.level")
+            .withWitness()
+            .withPerformer("Plant::tank");
+    CheckResult result = model.checkAction("Plant::Tank::fill", Map.of(), options);
+    assertEquals("fails", result.verdict());
+    assertFalse(result.holds());
+    assertFalse(result.lines().isEmpty());
+    CheckResult.Search search = result.search().orElseThrow();
+    assertEquals(11, search.states());
+    assertEquals(10, search.moves());
+    assertEquals(6, search.maxDepth());
+    assertEquals(1, result.violations().size(), result.violations().toString());
+    CheckResult.Violation violation = result.violations().get(0);
+    assertEquals("property", violation.kind());
+    assertEquals("Plant::Tank::low", violation.property());
+    assertEquals(3, violation.depth());
+    CheckResult.Witness witness = violation.witness().orElseThrow();
+    assertTrue(witness.schedule().startsWith("replay"), witness.schedule());
+    assertFalse(witness.fileName().isEmpty());
+    assertTrue(witness.fileContent().contains("\n"));
+    assertEquals(1, result.divergences().size());
+    assertEquals("this.level", result.divergences().get(0).feature());
+    assertEquals(
+        List.of("1", "2"),
+        result.divergences().get(0).values().stream().map(CheckResult.DivergentValue::value).toList());
+    assertEquals("check", result.standing().engine());
+
+    CheckResult held =
+        model.checkAction(
+            "Plant::Tank::fill",
+            Map.of(),
+            CheckOptions.defaults()
+                .withProperties("Plant::Tank::capped")
+                .withDiverge("this.capacity")
+                .withPerformer("Plant::tank"));
+    assertTrue(held.holds(), held.toString());
+    assertTrue(held.violations().isEmpty());
+    assertTrue(held.divergences().isEmpty());
+
+    ModelException missing =
+        assertThrows(
+            ModelException.class,
+            () -> model.checkAction("Plant::Tank::drain", Map.of(), CheckOptions.defaults()));
+    assertTrue(missing.getMessage().contains("Plant::Tank::drain"), missing.getMessage());
+    ServiceException negative =
+        assertThrows(
+            ServiceException.class,
+            () ->
+                model.checkAction(
+                    "Plant::Tank::fill",
+                    Map.of(),
+                    CheckOptions.defaults().withBounds(-1, 0, 0, 0)));
+    assertTrue(negative.getMessage().contains("check_depth"), negative.getMessage());
+  }
+
+  @Test
   void exportGraphsAnswersTheCanonicalFormOfABehavior() {
     Model model = connection.load(fixture("behavior.sysml"));
     Graphs graphs = model.exportGraphs("Test::race");

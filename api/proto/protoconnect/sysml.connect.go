@@ -81,6 +81,9 @@ const (
 	// SysMLServiceRunAnalysisProcedure is the fully-qualified name of the SysMLService's RunAnalysis
 	// RPC.
 	SysMLServiceRunAnalysisProcedure = "/sysml.SysMLService/RunAnalysis"
+	// SysMLServiceCheckBehaviorProcedure is the fully-qualified name of the SysMLService's
+	// CheckBehavior RPC.
+	SysMLServiceCheckBehaviorProcedure = "/sysml.SysMLService/CheckBehavior"
 	// SysMLServiceRunSweepProcedure is the fully-qualified name of the SysMLService's RunSweep RPC.
 	SysMLServiceRunSweepProcedure = "/sysml.SysMLService/RunSweep"
 	// SysMLServiceListEnginesProcedure is the fully-qualified name of the SysMLService's ListEngines
@@ -162,6 +165,10 @@ type SysMLServiceClient interface {
 	ValidateInstance(context.Context, *connect.Request[proto.ValidateInstanceRequest]) (*connect.Response[proto.ValidateInstanceResponse], error)
 	EvaluateCalc(context.Context, *connect.Request[proto.EvaluateCalcRequest]) (*connect.Response[proto.EvaluateCalcResponse], error)
 	RunAnalysis(context.Context, *connect.Request[proto.RunAnalysisRequest]) (*connect.Response[proto.RunAnalysisResponse], error)
+	// CheckBehavior searches every schedule of an action or state machine, as
+	// `sysml -check-property`/`-check-diverge` do: a violated property, a
+	// deadlock, a failure or a divergent feature is witnessed and replayed.
+	CheckBehavior(context.Context, *connect.Request[proto.CheckBehaviorRequest]) (*connect.Response[proto.CheckBehaviorResponse], error)
 	// Run one analysis case or calc once per row of a parameter sweep, as the
 	// CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
 	// swept parameter bound to that row's value. Reported as the "verification"
@@ -325,6 +332,12 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("RunAnalysis")),
 			connect.WithClientOptions(opts...),
 		),
+		checkBehavior: connect.NewClient[proto.CheckBehaviorRequest, proto.CheckBehaviorResponse](
+			httpClient,
+			baseURL+SysMLServiceCheckBehaviorProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("CheckBehavior")),
+			connect.WithClientOptions(opts...),
+		),
 		runSweep: connect.NewClient[proto.RunSweepRequest, proto.RunSweepResponse](
 			httpClient,
 			baseURL+SysMLServiceRunSweepProcedure,
@@ -402,6 +415,7 @@ type sysMLServiceClient struct {
 	validateInstance   *connect.Client[proto.ValidateInstanceRequest, proto.ValidateInstanceResponse]
 	evaluateCalc       *connect.Client[proto.EvaluateCalcRequest, proto.EvaluateCalcResponse]
 	runAnalysis        *connect.Client[proto.RunAnalysisRequest, proto.RunAnalysisResponse]
+	checkBehavior      *connect.Client[proto.CheckBehaviorRequest, proto.CheckBehaviorResponse]
 	runSweep           *connect.Client[proto.RunSweepRequest, proto.RunSweepResponse]
 	listEngines        *connect.Client[proto.ListEnginesRequest, proto.ListEnginesResponse]
 	query              *connect.Client[proto.QueryRequest, proto.QueryResponse]
@@ -501,6 +515,11 @@ func (c *sysMLServiceClient) EvaluateCalc(ctx context.Context, req *connect.Requ
 // RunAnalysis calls sysml.SysMLService.RunAnalysis.
 func (c *sysMLServiceClient) RunAnalysis(ctx context.Context, req *connect.Request[proto.RunAnalysisRequest]) (*connect.Response[proto.RunAnalysisResponse], error) {
 	return c.runAnalysis.CallUnary(ctx, req)
+}
+
+// CheckBehavior calls sysml.SysMLService.CheckBehavior.
+func (c *sysMLServiceClient) CheckBehavior(ctx context.Context, req *connect.Request[proto.CheckBehaviorRequest]) (*connect.Response[proto.CheckBehaviorResponse], error) {
+	return c.checkBehavior.CallUnary(ctx, req)
 }
 
 // RunSweep calls sysml.SysMLService.RunSweep.
@@ -604,6 +623,10 @@ type SysMLServiceHandler interface {
 	ValidateInstance(context.Context, *connect.Request[proto.ValidateInstanceRequest]) (*connect.Response[proto.ValidateInstanceResponse], error)
 	EvaluateCalc(context.Context, *connect.Request[proto.EvaluateCalcRequest]) (*connect.Response[proto.EvaluateCalcResponse], error)
 	RunAnalysis(context.Context, *connect.Request[proto.RunAnalysisRequest]) (*connect.Response[proto.RunAnalysisResponse], error)
+	// CheckBehavior searches every schedule of an action or state machine, as
+	// `sysml -check-property`/`-check-diverge` do: a violated property, a
+	// deadlock, a failure or a divergent feature is witnessed and replayed.
+	CheckBehavior(context.Context, *connect.Request[proto.CheckBehaviorRequest]) (*connect.Response[proto.CheckBehaviorResponse], error)
 	// Run one analysis case or calc once per row of a parameter sweep, as the
 	// CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
 	// swept parameter bound to that row's value. Reported as the "verification"
@@ -763,6 +786,12 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sysMLServiceMethods.ByName("RunAnalysis")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sysMLServiceCheckBehaviorHandler := connect.NewUnaryHandler(
+		SysMLServiceCheckBehaviorProcedure,
+		svc.CheckBehavior,
+		connect.WithSchema(sysMLServiceMethods.ByName("CheckBehavior")),
+		connect.WithHandlerOptions(opts...),
+	)
 	sysMLServiceRunSweepHandler := connect.NewUnaryHandler(
 		SysMLServiceRunSweepProcedure,
 		svc.RunSweep,
@@ -855,6 +884,8 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceEvaluateCalcHandler.ServeHTTP(w, r)
 		case SysMLServiceRunAnalysisProcedure:
 			sysMLServiceRunAnalysisHandler.ServeHTTP(w, r)
+		case SysMLServiceCheckBehaviorProcedure:
+			sysMLServiceCheckBehaviorHandler.ServeHTTP(w, r)
 		case SysMLServiceRunSweepProcedure:
 			sysMLServiceRunSweepHandler.ServeHTTP(w, r)
 		case SysMLServiceListEnginesProcedure:
@@ -952,6 +983,10 @@ func (UnimplementedSysMLServiceHandler) EvaluateCalc(context.Context, *connect.R
 
 func (UnimplementedSysMLServiceHandler) RunAnalysis(context.Context, *connect.Request[proto.RunAnalysisRequest]) (*connect.Response[proto.RunAnalysisResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RunAnalysis is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) CheckBehavior(context.Context, *connect.Request[proto.CheckBehaviorRequest]) (*connect.Response[proto.CheckBehaviorResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.CheckBehavior is not implemented"))
 }
 
 func (UnimplementedSysMLServiceHandler) RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error) {

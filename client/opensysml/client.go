@@ -181,6 +181,11 @@ type Client interface {
 	// and tables the tool's distributions beside the runs' (compare_results capability).
 	CompareResults(ctx context.Context, model *Model, results string, opts ...CompareOption) (*Comparison, error)
 
+	// CheckAction and CheckStateMachine search every schedule of a behavior for a
+	// violated property, deadlock, failure or divergent final value (check capability).
+	CheckAction(ctx context.Context, model *Model, actionID string, opts ...CheckOption) (*Check, error)
+	CheckStateMachine(ctx context.Context, model *Model, stateMachineID string, opts ...CheckOption) (*Check, error)
+
 	// Convert writes the model in another representation, from the source the
 	// parse read, so WithFromFormat does not apply and is refused. Requires the
 	// convert capability, and a model of one document. ConvertFile converts a
@@ -331,6 +336,7 @@ type caller interface {
 	exportGraphs(ctx context.Context, req *pb.ExportGraphsRequest) (*pb.ExportGraphsResponse, error)
 	importData(ctx context.Context, req *pb.ImportDataRequest) (*pb.ImportDataResponse, error)
 	compareResults(ctx context.Context, req *pb.CompareResultsRequest) (*pb.CompareResultsResponse, error)
+	checkBehavior(ctx context.Context, req *pb.CheckBehaviorRequest) (*pb.CheckBehaviorResponse, error)
 	convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error)
 	migrate(ctx context.Context, req *pb.MigrateRequest) (*pb.MigrateResponse, error)
 	applyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*pb.ApplyEditsResponse, error)

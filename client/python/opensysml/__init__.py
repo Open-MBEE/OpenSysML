@@ -11,6 +11,15 @@ from opensysml.connection import (
 )
 from opensysml.model import Model
 from opensysml.symbol import Symbol
+from opensysml.check import (
+    CheckDivergence,
+    CheckDivergentValue,
+    CheckFinal,
+    CheckResult,
+    CheckSearch,
+    CheckViolation,
+    CheckWitness,
+)
 from opensysml.diagnostic import Diagnostic
 from opensysml.enumeration import EnumLiteral
 from opensysml.instance import Instance
@@ -25,6 +34,7 @@ from opensysml.typefacts import (
 from opensysml.capabilities import (
     CAPABILITY_IMPORT_DATA,
     CAPABILITY_COMPARE_RESULTS,
+    CAPABILITY_CHECK,
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_BIG_INT_VALUES,
@@ -84,6 +94,14 @@ from opensysml.errors import (
 from opensysml.metamodel import read_json
 
 __all__ = [
+    "CAPABILITY_CHECK",
+    "CheckDivergence",
+    "CheckDivergentValue",
+    "CheckFinal",
+    "CheckResult",
+    "CheckSearch",
+    "CheckViolation",
+    "CheckWitness",
     "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance",
     "TypedObject", "TypeFacts", "Multiplicity", "Specialization", "SymbolFacts",
     "AttributeFacts",

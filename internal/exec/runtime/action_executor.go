@@ -173,10 +173,10 @@ func (e *ActionExecutor) stopAt(within []ast.Node, node ast.Node) (breakpointSto
 	return breakpointStop{at: NodeBreakpoint{Within: within, Node: node}, name: name}, true
 }
 
-// setInputs binds input parameter values into the action's feature space.
+// SetInputs binds input parameter values into the action's feature space.
 // Inputs are applied after attribute defaults, so they override defaults with
 // the same name. Must be called before initialize().
-func (e *ActionExecutor) setInputs(inputs map[string]Value) {
+func (e *ActionExecutor) SetInputs(inputs map[string]Value) {
 	e.inputs = inputs
 }
 

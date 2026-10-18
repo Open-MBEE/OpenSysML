@@ -167,6 +167,22 @@ function test_surface_live()
     assert_equal(graphs.subject, 'Test::race', 'ExportGraphs subject');
     assert_equal(strncmp(graphs.content, '{"version":1,"subject":"Test::race"', 35), true, 'ExportGraphs content');
     assert_equal(strcmp(graphs.content, graphsMethod.content), true, 'ExportGraphs method');
+
+    tankModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'tank.sysml')), ...
+        'name', 'tank.sysml');
+    checked = opensysml.checkAction(tankModel, 'Plant::Tank::fill', 'performer', 'Plant::tank', ...
+        'properties', {'Plant::Tank::low'}, 'diverge', {'this.level'}, 'witness', true);
+    assert_equal(checked.verdict, 'fails', 'CheckBehavior verdict');
+    assert_equal(checked.search.states, 11, 'CheckBehavior states');
+    assert_equal(numel(checked.violations), 1, 'CheckBehavior violations');
+    assert_equal(checked.violations{1}.property, 'Plant::Tank::low', 'CheckBehavior property');
+    assert_equal(checked.violations{1}.depth, 3, 'CheckBehavior depth');
+    assert_equal(isempty(checked.violations{1}.witness.fileName), false, 'CheckBehavior witness file');
+    assert_equal(numel(checked.divergences), 1, 'CheckBehavior divergences');
+    assert_equal(checked.divergences{1}.values{2}.value, '2', 'CheckBehavior divergent value');
+    held = tankModel.checkAction('Plant::Tank::fill', 'performer', 'Plant::tank', ...
+        'properties', {'Plant::Tank::capped'}, 'diverge', {'this.capacity'});
+    assert_equal(held.verdict, 'holds', 'CheckBehavior holds');
     assert_equal(all(arrayfun(@(node) ~isempty(node.origin), renderedView.nodes)), ...
         true, 'RenderView origins');
     assert_equal(numel(renderedViewMethod.edges), numel(renderedView.edges), ...

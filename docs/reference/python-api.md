@@ -32,6 +32,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_CHECK
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_STATE_ACTION_AUTHORING
     options:
       heading_level: 3
@@ -181,6 +185,17 @@ pass `ports="full"` to include every declared port.
 `Model.export_graphs(subject)` returns a typed `Graphs`: the canonical `graphs:1`
 JSON of an action or state machine's lowered graph, its version and the subject
 as resolved.
+
+`Model.check_action(action, inputs=None, performer=None, properties=(), diverge=(),
+free_inputs=(), assume=(), witness=False, depth=0, states=0, unroll=0, timeout=0.0,
+engine=None)` and `Model.check_state_machine(...)` search every schedule of a
+behavior as `sysml -check-property` does and return a typed `CheckResult`:
+`verdict`, `lines`, `search` (a `CheckSearch`), `violations`, `divergences`,
+`finals`, each witnessed by a `CheckWitness` whose `schedule` any run replays,
+the symbolic engine's `claim`/`free_inputs`/`assumptions`, and `standing`. A
+behavior or property the model lacks raises `ExecutionError`; a negative bound
+`InvalidRequestError`; a service without the `check` capability
+`MissingCapabilityError` before anything is sent.
 
 ::: opensysml.Model
     options:
@@ -592,6 +607,34 @@ Typed outcomes for verification, validation, calculation and analysis.
       heading_level: 3
 
 ::: opensysml.SweepTable
+    options:
+      heading_level: 3
+
+::: opensysml.CheckResult
+    options:
+      heading_level: 3
+
+::: opensysml.CheckSearch
+    options:
+      heading_level: 3
+
+::: opensysml.CheckViolation
+    options:
+      heading_level: 3
+
+::: opensysml.CheckWitness
+    options:
+      heading_level: 3
+
+::: opensysml.CheckDivergence
+    options:
+      heading_level: 3
+
+::: opensysml.CheckDivergentValue
+    options:
+      heading_level: 3
+
+::: opensysml.CheckFinal
     options:
       heading_level: 3
 

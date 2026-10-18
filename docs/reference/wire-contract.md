@@ -2298,6 +2298,25 @@ and `notes`. A malformed index, a negative `runs` and an unknown `draws` are `IN
 a configuration that cannot run is answered as `unresolved` within the list. The service
 advertises this method as the `compare_results` capability.
 
+
+## `CheckBehavior`
+
+`CheckBehavior` searches every schedule of an action or state machine for a violated
+property, a deadlock, a failure or a divergent value: what `sysml -check-property` prints,
+as data. `CheckBehaviorRequest` names the behavior by exactly one of `action_symbol_id` and
+`state_machine_symbol_id`, binds it through `inputs` and `performer_symbol_id` as
+`ExecuteActionRequest` does, and carries the CLI's flags under their names: `check_property`,
+`check_diverge`, `check_input`, `check_assume` (repeated strings), `check_witness` (bool),
+`check_depth`, `check_states`, `check_unroll` (int32 counts, 0 for the engine's default),
+`check_timeout` (double seconds, 0 for none) and `engine`. `CheckBehaviorResponse` carries
+`verdict`, `lines`, `search` (`CheckSearch`), `violations` (`CheckViolation`), `divergences`
+(`CheckDivergence`, each value a `CheckDivergentValue`), `finals` (`CheckFinal`), `claim`,
+`free_inputs`, `assumptions`, `witness`, `contrast`, `engine`, `strength`, `bounds`, `reason`
+and `error`; every witness is a `CheckWitness` whose `schedule` any run replays.
+Malformed bounds and an ambiguous behavior are `INVALID_ARGUMENT`; a behavior, property or
+performer the model lacks is answered in band through `error`. The service advertises this
+method as the `check` capability, and one without it refuses the call with `UNIMPLEMENTED`.
+
 ## Queries
 
 Two query surfaces exist and answer differently shaped tables. Their semantics — what may be

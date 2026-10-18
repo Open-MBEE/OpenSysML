@@ -3,18 +3,19 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::capabilities::{
-    upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_COMPARE_RESULTS,
+    upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_CHECK, CAPABILITY_COMPARE_RESULTS,
     CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT, CAPABILITY_CONVERT_DOCUMENTS,
-    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES,
-    CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES, CAPABILITY_IMPORT_DATA,
-    CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS,
-    CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY,
-    CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_RATIONAL_VALUES,
-    CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_SCHEDULE,
-    CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SET_VALUES, CAPABILITY_STATE_TRACE,
-    CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES,
-    CAPABILITY_VERIFICATION, CAPABILITY_VERIFICATION_ARGUMENTS, CAPABILITY_VERIFICATION_QUESTIONS,
+    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS,
+    CAPABILITY_FUNCTION_VALUES, CAPABILITY_IMPORT_DATA, CAPABILITY_INFINITY_VALUE,
+    CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES,
+    CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER,
+    CAPABILITY_QUERY, CAPABILITY_RATIONAL_VALUES, CAPABILITY_RENDER_DOCUMENT,
+    CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE,
+    CAPABILITY_SET_VALUES, CAPABILITY_STATE_TRACE, CAPABILITY_STRICT_CONFORMANCE,
+    CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES, CAPABILITY_VERIFICATION,
+    CAPABILITY_VERIFICATION_ARGUMENTS, CAPABILITY_VERIFICATION_QUESTIONS,
 };
+use crate::check::{CheckOptions, CheckResult};
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
 use crate::document::{
     binding_holds_big_int, binding_holds_rational, binding_rationals_as_reals, bindings_to_wire,
@@ -447,6 +448,76 @@ impl Connection {
             DocumentForm::Markdown => response.markdown,
             DocumentForm::Html => response.html,
         })
+    }
+
+    /// Search every schedule of an action for a violated property, a deadlock, a
+    /// failure or a divergent value, as `sysml -check-property` does.
+    pub fn check_action(
+        &self,
+        model_hash: &str,
+        action_id: &str,
+        inputs: &BTreeMap<String, Value>,
+        options: &CheckOptions,
+    ) -> Result<CheckResult, Error> {
+        self.check_behavior(model_hash, action_id, "", inputs, options)
+    }
+
+    /// Search every schedule of a state machine; see [`Connection::check_action`].
+    pub fn check_state_machine(
+        &self,
+        model_hash: &str,
+        state_machine_id: &str,
+        options: &CheckOptions,
+    ) -> Result<CheckResult, Error> {
+        self.check_behavior(model_hash, "", state_machine_id, &BTreeMap::new(), options)
+    }
+
+    fn check_behavior(
+        &self,
+        model_hash: &str,
+        action_id: &str,
+        state_machine_id: &str,
+        inputs: &BTreeMap<String, Value>,
+        options: &CheckOptions,
+    ) -> Result<CheckResult, Error> {
+        let inputs = self.named_to_wire(inputs)?;
+        let mut capabilities = vec![CAPABILITY_CHECK];
+        if options.performer.as_deref().is_some_and(|p| !p.is_empty()) {
+            capabilities.push(CAPABILITY_PERFORMER);
+        }
+        self.require_all(&capabilities)?;
+        let response: wire::CheckBehaviorResponse = self.gated_rpc(
+            "CheckBehavior",
+            wire::CheckBehaviorRequest {
+                model_hash: model_hash.to_owned(),
+                action_symbol_id: action_id.to_owned(),
+                state_machine_symbol_id: state_machine_id.to_owned(),
+                inputs,
+                performer_symbol_id: options.performer.clone().unwrap_or_default(),
+                check_property: options.properties.clone(),
+                check_diverge: options.diverge.clone(),
+                check_input: options.free_inputs.clone(),
+                check_assume: options.assume.clone(),
+                check_witness: options.witness,
+                check_depth: options.depth,
+                check_states: options.states,
+                check_unroll: options.unroll,
+                check_timeout: options.timeout,
+                engine: options.engine.clone().unwrap_or_default(),
+            },
+            &capabilities,
+        )?;
+        if !response.error.is_empty() {
+            return Err(Error::Execution {
+                message: response.error,
+                reason: FailureReason::Unspecified,
+                diagnostics: Vec::new(),
+                trace: Vec::new(),
+                trace_dropped: 0,
+                final_time: 0.0,
+            });
+        }
+        Ok(CheckResult::from_wire(response))
     }
 
     /// Export the lowered graph of an action or state machine, and of every
