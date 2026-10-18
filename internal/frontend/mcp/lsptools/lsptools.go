@@ -94,8 +94,8 @@ func NewHost(ctx context.Context, root string, ws *model.Workspace, version stri
 		return nil, fmt.Errorf("indexing %s: %w", root, err)
 	}
 	h := &Host{Root: root, Server: srv, Workspace: ws, realRoot: root, opened: map[string]diskState{}}
-	if real, err := filepath.EvalSymlinks(root); err == nil {
-		h.realRoot = real
+	if resolved, err := filepath.EvalSymlinks(root); err == nil {
+		h.realRoot = resolved
 	}
 	return h, nil
 }
@@ -366,20 +366,20 @@ func (h *Host) target(name string) (string, error) {
 	if !under(h.Root, name) {
 		return "", fmt.Errorf("%s is outside the workspace root %s", name, h.Root)
 	}
-	real, err := filepath.EvalSymlinks(name)
+	resolved, err := filepath.EvalSymlinks(name)
 	if errors.Is(err, fs.ErrNotExist) {
 		var dir string
 		if dir, err = filepath.EvalSymlinks(filepath.Dir(name)); err == nil {
-			real = filepath.Join(dir, filepath.Base(name))
+			resolved = filepath.Join(dir, filepath.Base(name))
 		}
 	}
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", h.display(uri.File(name)), err)
 	}
-	if !under(h.realRoot, real) {
-		return "", fmt.Errorf("%s resolves to %s, outside the workspace root %s", h.display(uri.File(name)), real, h.Root)
+	if !under(h.realRoot, resolved) {
+		return "", fmt.Errorf("%s resolves to %s, outside the workspace root %s", h.display(uri.File(name)), resolved, h.Root)
 	}
-	return filepath.Rel(h.realRoot, real)
+	return filepath.Rel(h.realRoot, resolved)
 }
 
 // writeFile replaces name, relative to root, with content in one step: the

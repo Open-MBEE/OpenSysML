@@ -31,6 +31,7 @@ import (
 const (
 	constraintCommand  = "%constraint"
 	requirementCommand = "%requirement"
+	depthOption        = "depth="
 )
 
 // renderUsage is how %render is written: a view, the form to write it in, text
@@ -541,7 +542,7 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 // renderOptionWord reports whether word is a rendering option rather than a
 // form, so the text form is understood before it.
 func renderOptionWord(word string) bool {
-	if strings.HasPrefix(word, "show=") || strings.HasPrefix(word, "link=") || strings.HasPrefix(word, "depth=") {
+	if strings.HasPrefix(word, "show=") || strings.HasPrefix(word, "link=") || strings.HasPrefix(word, depthOption) {
 		return true
 	}
 	if o, ok := view.ParseOverlay(word); ok && o != "" {
@@ -600,12 +601,12 @@ func parseRenderArgs(args []string) (name string, form view.Form, opts view.Opti
 			opts.Show = shown
 			continue
 		}
-		if strings.HasPrefix(word, "depth=") {
+		if strings.HasPrefix(word, depthOption) {
 			if depthSet {
 				return renderUsageOf(renderUsage)
 			}
 			depthSet = true
-			levels, err := view.ParseDepth(strings.TrimPrefix(word, "depth="))
+			levels, err := view.ParseDepth(strings.TrimPrefix(word, depthOption))
 			if err != nil {
 				return renderUsageOf(err.Error() + "; " + renderUsage)
 			}
