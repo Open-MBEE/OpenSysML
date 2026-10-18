@@ -11,11 +11,11 @@ import type {
   RenderResult,
 } from "../protocol";
 import type { EngineInstance } from "../landing/model";
-import { landingModel, renderResult } from "../landing/model";
+import { landingModel, renderResult, sceneTarget } from "../landing/model";
 import { renderedViewFromJson } from "@openmbee/opensysml/browser";
 import { STACK_SCENE } from "../landing/scene";
 import { carried, obstacles, resettle } from "../landing/carry";
-import { presented } from "../landing/present";
+import { presentedStack } from "../landing/present";
 import { autoLayout, type AutoLayout } from "./autolayout";
 import {
   alignedPlacement,
@@ -2730,12 +2730,12 @@ test("landing drag keeps right-angled routes at the captured Pilot obstruction",
     readFileSync("src/landing/stack.json", "utf8"),
   ) as LandingFixture;
   const model = landingModel(
-    STACK_SCENE.rootSymbol,
+    sceneTarget(STACK_SCENE),
     fixture.hash,
     renderResult(renderedViewFromJson(fixture.render)),
     fixture.instances,
   );
-  const result = presented(model);
+  const result = presentedStack(model);
   const auto = await autoLayout(result);
   assert.ok(auto, "ELK should lay out the saved landing render");
 

@@ -128,3 +128,7 @@ func FormatLibraryCensus(census LibraryCensus) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
+
+// LibraryPrefixSweepPath is the committed per-probe outcome of the library and prefix sweep,
+// written by the runtime test TestLibraryAndPrefixSweep.
+const LibraryPrefixSweepPath = "docs/project/library-and-prefix-sweep-outcomes.txt"

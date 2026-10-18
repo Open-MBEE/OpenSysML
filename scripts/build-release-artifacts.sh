@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Cross-compile sysml, sysml-lsp, sysml-grpc and sysml-jupyter-kernel for every
+# Cross-compile sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel and sysml-mcp for every
 # released platform, and sysml-wasm for JavaScript,
 # lay them out as release assets, the way the CircleCI `build-release` job does.
 #
@@ -12,6 +12,7 @@
 # directory (default `dist`) is emptied first and ends up holding:
 #
 #   sysml-<os>-<arch>.tar.gz, sysml-lsp-<os>-<arch>.tar.gz   (.zip on Windows)
+#   sysml-mcp-<os>-<arch>.tar.gz  (.zip on Windows; with its man page and LICENSE)
 #   opensysml-<os>-<arch>.tar.gz                              (.zip on Windows)
 #   grpc/sysml-grpc-<os>-<arch>[.exe] with a .sha256 sidecar
 #   jupyter/sysml-jupyter-kernel-<os>-<arch>[.exe] with a .sha256 sidecar
@@ -31,6 +32,7 @@ BUILD_TIME="${BUILD_TIME:-$(date -u '+%Y-%m-%d_%H:%M:%S')}"
 GO_VERSION="${GO_VERSION:-$(go version | awk '{print $3}')}"
 PLATFORMS=(linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 windows-amd64)
 MAN="$(pwd)/packaging/man/man1"
+LICENSE_FILE="$(pwd)/LICENSE"
 CHECK_STATIC="$(pwd)/scripts/check-static-binaries.sh"
 
 build() { # <make target> <binary name> <platform> <destination>
@@ -49,6 +51,7 @@ build() { # <make target> <binary name> <platform> <destination>
 rm -rf "$DIST"
 mkdir -p "$DIST/grpc"
 mkdir -p "$DIST/jupyter"
+mkdir -p "$DIST/mcp"
 mkdir -p "$DIST/wasm"
 
 for platform in "${PLATFORMS[@]}"; do
@@ -59,6 +62,9 @@ for platform in "${PLATFORMS[@]}"; do
   build build-grpc sysml-grpc "$platform" "$DIST/grpc/sysml-grpc-${platform}"
   # jupyter-opensysml-kernel downloads one raw kernel per platform the same way.
   build build-jupyter-kernel sysml-jupyter-kernel "$platform" "$DIST/jupyter/sysml-jupyter-kernel-${platform}"
+  # sysml-mcp is kept apart so the per-binary loop below does not pack it bare;
+  # it ships in its own archive with its manual page and the LICENSE.
+  build build-mcp sysml-mcp "$platform" "$DIST/mcp/sysml-mcp-${platform}"
 done
 
 make build-release-wasm \
@@ -67,7 +73,7 @@ mv bin/wasm/release/sysml-wasm.wasm bin/wasm/release/sysml-prod.wasm.gz bin/wasm
 
 cd "$DIST"
 
-"$CHECK_STATIC" sysml-linux-* sysml-lsp-linux-* grpc/sysml-grpc-linux-* jupyter/sysml-jupyter-kernel-linux-*
+"$CHECK_STATIC" sysml-linux-* sysml-lsp-linux-* grpc/sysml-grpc-linux-* jupyter/sysml-jupyter-kernel-linux-* mcp/sysml-mcp-linux-*
 
 for binary in sysml-*; do
   if [[ "$binary" == *.exe ]]; then
@@ -96,6 +102,25 @@ for platform in "${PLATFORMS[@]}"; do
 done
 rm -rf stage
 
+# sysml-mcp's own archives: the binary under its plain name, the LICENSE and its
+# manual page; not in the bundle, not a raw asset.
+for platform in "${PLATFORMS[@]}"; do
+  stage="stage/mcp-${platform}"
+  if [[ "$platform" == windows-* ]]; then
+    mkdir -p "$stage"
+    cp "mcp/sysml-mcp-${platform}.exe" "${stage}/sysml-mcp.exe"
+    cp "$LICENSE_FILE" "${stage}/LICENSE"
+    (cd "$stage" && zip -q "../../sysml-mcp-${platform}.zip" sysml-mcp.exe LICENSE)
+  else
+    mkdir -p "$stage/share/man/man1"
+    cp "mcp/sysml-mcp-${platform}" "${stage}/sysml-mcp"
+    cp "$LICENSE_FILE" "${stage}/LICENSE"
+    cp "$MAN/sysml-mcp.1" "${stage}/share/man/man1/"
+    tar czf "sysml-mcp-${platform}.tar.gz" -C "$stage" sysml-mcp LICENSE share
+  fi
+done
+rm -rf stage
+
 # Checksums over every published archive and every raw gRPC and kernel binary;
 # the per-file sidecar is the only checksum opensysml reads.
 sha256sum ./*.tar.gz ./*.zip | sed 's|\./||' > SHA256SUMS.txt
@@ -114,7 +139,7 @@ fail() {
   echo "The version ldflags (see the Makefile's LDFLAGS) did not reach this build." >&2
   status=1
 }
-for binary in sysml-* grpc/sysml-grpc-* jupyter/sysml-jupyter-kernel-* wasm/sysml-wasm.wasm wasm/sysml-prod.wasm.gz; do
+for binary in sysml-* grpc/sysml-grpc-* jupyter/sysml-jupyter-kernel-* mcp/sysml-mcp-* wasm/sysml-wasm.wasm wasm/sysml-prod.wasm.gz; do
   if [[ "$binary" == *.tar.gz || "$binary" == *.zip || "$binary" == *.sha256 ]]; then
     continue
   fi

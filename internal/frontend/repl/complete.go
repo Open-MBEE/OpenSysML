@@ -85,12 +85,12 @@ func (s *Session) Complete(line string, pos int) Completion {
 			}
 			return completion(word, matchingPrefix(kinds, word))
 		case 2:
-			return completion(word, matchingPrefix([]string{"text", "mermaid", "plantuml", "dot", "link="}, word))
+			return completion(word, matchingPrefix([]string{"text", "mermaid", "plantuml", "svg", "svg-animated", "dot", "link="}, word))
 		case 3:
 			args := typedArgs(head)
 			options := []string{"link="}
 			if len(args) > 2 && strings.HasPrefix(args[2], "link=") {
-				options = []string{"text", "mermaid", "plantuml", "dot"}
+				options = []string{"text", "mermaid", "plantuml", "svg", "svg-animated", "dot"}
 			}
 			return completion(word, matchingPrefix(options, word))
 		default:

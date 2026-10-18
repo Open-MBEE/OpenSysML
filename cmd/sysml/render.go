@@ -386,7 +386,7 @@ func terminalWidth() int {
 func atStdoutTerminal() bool { return isTerminal(int(os.Stdout.Fd())) }
 
 // formList names the forms -render-form takes, as its help and errors spell them.
-func formList() string { return view.FormNames(view.Forms()) }
+func formList() string { return view.FormNames(view.ViewForms()) }
 
 // reportRenderNotices reports on stderr what the rendering says about itself: an
 // empty artifact, and every element it could not represent.
