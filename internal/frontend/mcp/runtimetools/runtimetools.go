@@ -29,6 +29,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
@@ -189,15 +190,16 @@ func (g *group) path(p string, inferred bool) (string, error) {
 	}
 }
 
-// sameFormat reports whether two names mean the same model format: the one
-// convert infers from each, or the same extension when it infers none.
+// sameFormat reports whether two names mean the same model format and, for
+// notation, the same language: what convert and source infer from each, or the
+// same extension when convert infers nothing.
 func sameFormat(a, b string) bool {
 	fa, errA := convert.FormatOfPath(a)
 	fb, errB := convert.FormatOfPath(b)
-	if errA == nil && errB == nil {
-		return fa == fb
+	if errA != nil || errB != nil {
+		return strings.EqualFold(filepath.Ext(a), filepath.Ext(b))
 	}
-	return strings.EqualFold(filepath.Ext(a), filepath.Ext(b))
+	return fa == fb && source.KindOf(a) == source.KindOf(b)
 }
 
 // under reports whether path lies under root, both clean and absolute.
