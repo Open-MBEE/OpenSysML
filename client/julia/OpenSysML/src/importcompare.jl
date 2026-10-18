@@ -26,10 +26,15 @@ struct ImportResult
     content::String
     model_hash::String
     diagnostics::Vector{Diagnostic}
+    changed::Bool
 end
 
-"""Whether the import changed the model (false on a dry run)."""
-applied(result::ImportResult) = !isempty(result.model_hash)
+"""
+Whether the import changed the model: the model the service answers is not the one imported
+into. False on a dry run, and for an import that set nothing or only values the model already
+had, which the service answers under the original hash.
+"""
+applied(result::ImportResult) = result.changed
 
 """
 One tabular or JSON data file to import: its `name` (whose extension selects the format
@@ -81,8 +86,9 @@ function import_data(model::Model, imports; dry_run::Bool=false, accept_document
     end
     documents = EditedDocument[EditedDocument(_render_string(d, "name"), _render_string(d, "content"))
                                for d in get(answer, "documents", Any[])]
-    ImportResult(files, documents, _render_string(answer, "content"),
-        _render_string(answer, "modelHash"), diags)
+    model_hash = _render_string(answer, "modelHash")
+    ImportResult(files, documents, _render_string(answer, "content"), model_hash, diags,
+        !isempty(model_hash) && model_hash != model.hash)
 end
 
 """The statistics of one observable's values, from a tool's results or from runs."""

@@ -56,7 +56,7 @@ func (s *Service) ImportData(ctx context.Context, req *pb.ImportDataRequest) (*p
 	}
 	resp := &pb.ImportDataResponse{}
 	current := cached
-	for i, in := range req.Imports {
+	for _, in := range req.Imports {
 		if err := ctx.Err(); err != nil {
 			return nil, statusError(connect.CodeCanceled, err.Error())
 		}
@@ -91,9 +91,6 @@ func (s *Service) ImportData(ctx context.Context, req *pb.ImportDataRequest) (*p
 			return importRefused(resp, err), nil
 		}
 		resp.Files = append(resp.Files, file)
-		if req.ImportDryRun && i == len(req.Imports)-1 {
-			break
-		}
 		before := diagnosticErrorCounts(s.modelDiagnostics(current))
 		hash, model := s.parseModelKeeping(inputs, current.Mode, true, false)
 		after := s.modelDiagnostics(model)
