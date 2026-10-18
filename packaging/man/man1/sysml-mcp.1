@@ -24,9 +24,10 @@ in this binary unless OPENSYSML_LIBRARY_PATH names another.
 .SH OPTIONS
 .TP
 .BI \-allow\-origin " string"
-Origins, comma\-separated as scheme://host[:port], whose browser requests the
-HTTP transport answers besides loopback origins and requests with no Origin
-header; any other origin is refused
+Origins, comma\-separated as scheme://host[:port], granted cross\-origin
+access to the HTTP transport (the CORS headers and preflight answer a browser
+needs); loopback origins and requests with no Origin header are admitted
+without a grant, any other origin is refused
 .TP
 .BI \-cache\-size " int"
 Maximum number of parsed models the runtime tools hold; at least 1. The
@@ -72,7 +73,7 @@ the current directory, which an agent host sets to the project. The default is
 .TP
 .B \-stdio
 Serve over stdin/stdout (the default transport; accepted for hosts that name
-it)
+it; not with \-http)
 .TP
 .B \-strict
 Serve strict conformance from the start: notation no pinned SysML v2

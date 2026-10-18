@@ -111,6 +111,65 @@ func TestOriginPolicyHandler(t *testing.T) {
 	}
 }
 
+// TestOriginPolicyHandlerGrantsCORSByName checks the browser side of the
+// policy: a named origin gets the CORS headers on its responses and a 204 to
+// its preflight, a loopback origin is served without any grant and its
+// preflight is refused, and a request with no origin is passed through as is.
+func TestOriginPolicyHandlerGrantsCORSByName(t *testing.T) {
+	p, _ := ParseOrigins("https://agents.example.org")
+	h := p.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	do := func(method, origin string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, HTTPPath, nil)
+		if origin != "" {
+			req.Header.Set("Origin", origin)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+
+	rec := do(http.MethodOptions, "https://agents.example.org")
+	if rec.Code != http.StatusNoContent {
+		t.Errorf("named preflight: status %d, want 204", rec.Code)
+	}
+	for header, want := range map[string]string{
+		"Access-Control-Allow-Origin":  "https://agents.example.org",
+		"Access-Control-Allow-Methods": corsAllowMethods,
+		"Access-Control-Allow-Headers": corsAllowHeaders,
+		"Vary":                         "Origin",
+	} {
+		if got := rec.Header().Get(header); got != want {
+			t.Errorf("named preflight: %s = %q, want %q", header, got, want)
+		}
+	}
+	for _, header := range []string{"Mcp-Session-Id", "MCP-Protocol-Version"} {
+		if !strings.Contains(corsAllowHeaders, header) || !strings.Contains(corsExposeHeaders, header) {
+			t.Errorf("%s is not both allowed and exposed", header)
+		}
+	}
+
+	rec = do(http.MethodPost, "https://AGENTS.example.org")
+	if rec.Code != http.StatusAccepted || rec.Header().Get("Access-Control-Allow-Origin") != "https://AGENTS.example.org" || rec.Header().Get("Access-Control-Expose-Headers") != corsExposeHeaders {
+		t.Errorf("named request: status %d, headers %v", rec.Code, rec.Header())
+	}
+
+	rec = do(http.MethodPost, "http://localhost:3000")
+	if rec.Code != http.StatusAccepted || rec.Header().Get("Access-Control-Allow-Origin") != "" {
+		t.Errorf("loopback request: status %d, headers %v; want served without a grant", rec.Code, rec.Header())
+	}
+	rec = do(http.MethodOptions, "http://localhost:3000")
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "-allow-origin") {
+		t.Errorf("loopback preflight: status %d, body %q; want 403 naming -allow-origin", rec.Code, rec.Body)
+	}
+
+	rec = do(http.MethodOptions, "")
+	if rec.Code != http.StatusAccepted || rec.Header().Get("Access-Control-Allow-Origin") != "" {
+		t.Errorf("no origin: status %d, headers %v; want passed through", rec.Code, rec.Header())
+	}
+}
+
 // serveHTTP serves a new server over a loopback listener until the returned
 // stop function is called, which also waits for ServeStreamableHTTP to return.
 func serveHTTP(t *testing.T, cfg Config, logs *bytes.Buffer, addr string) (url string, stop func() error) {

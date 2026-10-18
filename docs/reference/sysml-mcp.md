@@ -360,8 +360,13 @@ The stance is the one [`sysml-grpc`](service-transports.md) takes, and the two a
   non-browser client), names a **loopback origin** (`localhost`, `127.0.0.0/8` or `::1`, over any
   scheme and port) or names an origin **listed in `-allow-origin`** exactly
   (`scheme://host[:port]`, comma-separated, compared case-insensitively on scheme and host); any
-  other origin is refused with 403. The wildcard origin is not accepted: name each one. This is
-  not authentication — it keeps browsers from being used as the way in.
+  other origin is refused with 403. The wildcard origin is not accepted: name each one. Only a
+  listed origin is granted cross-origin access — the `Access-Control-Allow-Origin` header on its
+  responses and an answer to its browser's preflight — so a page served from another port of this
+  machine passes the check yet is still refused by its browser unless it is listed: a loopback
+  origin is admitted so that it is not mistaken for rebinding, not so that every local page may
+  edit the workspace. This is not authentication — it keeps browsers from being used as the way
+  in.
 - **Protocol version.** A request whose `MCP-Protocol-Version` header names a version the server
   does not speak is refused with 400, as the protocol requires; a request with no header is read
   as the version negotiated at `initialize`. The SDK's check that a loopback server is addressed
@@ -380,9 +385,9 @@ server already running rather than starting one ([Configuring a host](#configuri
 | `-no-record-cache` | off | Parse every document and hold it loaded, reading and writing no interface record (also `OPENSYSML_RECORD_CACHE=0`) |
 | `-cache-size N` | `100` | Parsed models the runtime tools hold, at least 1 |
 | `-log-level LEVEL` | `warn` | Lowest level logged to stderr: `debug`, `info`, `warn` or `error` |
-| `-stdio` | — | Serve over stdin/stdout; the default transport, accepted for hosts that name it |
+| `-stdio` | — | Serve over stdin/stdout; the default transport, accepted for hosts that name it; not with `-http` |
 | `-http ADDR` | — | Serve over Streamable HTTP at `/mcp` of `host:port`, or of loopback for a port alone; every client shares the workspace, runtime cache and REPL sessions |
-| `-allow-origin ORIGINS` | — | Origins (`scheme://host[:port]`, comma-separated) answered besides loopback origins and requests with no `Origin`; others are refused |
+| `-allow-origin ORIGINS` | — | Origins (`scheme://host[:port]`, comma-separated) granted cross-origin access; loopback origins and requests with no `Origin` are admitted without a grant, others are refused |
 | `-tls-cert FILE`, `-tls-key FILE` | — | Serve `https`; both or neither |
 | `-print-config [HOST]` | — | Write a host's configuration block to stdout and exit; alone, list the hosts |
 | `-print-config-command CMD` | the binary's path | The command the block names; with `-http ADDR` (and `-tls-cert` for `https`) the block names the server's URL instead |

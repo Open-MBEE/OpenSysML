@@ -74,17 +74,17 @@ func printConfig(opts *options, fs *flag.FlagSet, stdout, stderr io.Writer) int 
 		return exitServed
 	}
 	ep := endpoint{command: opts.configCommand}
-	if opts.http != "" {
+	over, err := readHTTPOptions(opts)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+		return exitUnservable
+	}
+	if over != nil {
 		if opts.configCommand != "" {
 			fmt.Fprintf(stderr, "%s-print-config: -print-config-command and -http name different ways to reach the server; give one\n", commandPrefix)
 			return exitUnservable
 		}
-		addr, err := httpAddress(opts.http)
-		if err != nil {
-			fmt.Fprintf(stderr, "%s-http: %v\n", commandPrefix, err)
-			return exitUnservable
-		}
-		ep.url = serverURL(addr, opts.tlsCert != "" || opts.tlsKey != "")
+		ep.url = over.url()
 	}
 	if err := printHostConfig(stdout, name, ep); err != nil {
 		fmt.Fprintf(stderr, "%s-print-config: %v\n", commandPrefix, err)
@@ -163,6 +163,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitUnservable
 	}
 	httpOpts, err := readHTTPOptions(opts)
+	if err == nil {
+		err = httpOpts.loadTLS()
+	}
 	if err != nil {
 		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
 		printUsage(stderr, fs)

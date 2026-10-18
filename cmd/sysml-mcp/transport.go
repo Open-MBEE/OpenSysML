@@ -20,8 +20,9 @@ type httpOptions struct {
 }
 
 // readHTTPOptions reads the transport flags as a whole: the ones that qualify
-// -http are a usage error without it, as is a TLS pair with one half missing,
-// a certificate and key that do not load, or an origin that is not one.
+// -http are a usage error without it, as are -stdio beside it, a TLS pair with
+// one half missing, or an origin that is not one. Whether the pair loads is
+// loadTLS's question, asked only when the server is about to serve it.
 func readHTTPOptions(o *options) (*httpOptions, error) {
 	if o.http == "" {
 		for _, f := range []struct{ name, value string }{{"-allow-origin", o.allowOrigin}, {"-tls-cert", o.tlsCert}, {"-tls-key", o.tlsKey}} {
@@ -30,6 +31,9 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 			}
 		}
 		return nil, nil
+	}
+	if o.stdio {
+		return nil, errors.New("-stdio and -http name different transports; give one")
 	}
 	addr, err := httpAddress(o.http)
 	if err != nil {
@@ -42,12 +46,25 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 	if (o.tlsCert == "") != (o.tlsKey == "") {
 		return nil, errors.New("-tls-cert and -tls-key must be supplied together")
 	}
-	if o.tlsCert != "" {
-		if _, err := tls.LoadX509KeyPair(o.tlsCert, o.tlsKey); err != nil {
-			return nil, fmt.Errorf("-tls-cert %q with -tls-key %q: %w", o.tlsCert, o.tlsKey, err)
-		}
-	}
 	return &httpOptions{addr: addr, origins: origins, certFile: o.tlsCert, keyFile: o.tlsKey}, nil
+}
+
+// loadTLS proves the TLS pair loads before anything is served; nothing to
+// prove without -http or without a pair.
+func (h *httpOptions) loadTLS() error {
+	if h == nil || h.certFile == "" {
+		return nil
+	}
+	if _, err := tls.LoadX509KeyPair(h.certFile, h.keyFile); err != nil {
+		return fmt.Errorf("-tls-cert %q with -tls-key %q: %w", h.certFile, h.keyFile, err)
+	}
+	return nil
+}
+
+// url is where a client reaches the server: https with a TLS pair, and
+// localhost where the address binds every interface or loopback alone.
+func (h *httpOptions) url() string {
+	return serverURL(h.addr, h.certFile != "")
 }
 
 // httpAddress reads the -http flag into the address to bind: host:port as

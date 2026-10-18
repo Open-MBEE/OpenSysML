@@ -21,6 +21,7 @@ type options struct {
 	logLevel      string
 	http          string
 	allowOrigin   string
+	stdio         bool
 	tlsCert       string
 	tlsKey        string
 	showVersion   bool
@@ -47,12 +48,13 @@ func registerFlags(fs *flag.FlagSet) *options {
 		"Parse every document and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.IntVar(&o.cacheSize, "cache-size", 100, "Maximum number of parsed models the runtime tools hold; at least 1")
 	fs.StringVar(&o.logLevel, "log-level", "warn", "Lowest level logged to stderr: debug, info, warn or error")
-	fs.Bool("stdio", false, "Serve over stdin/stdout (the default transport; accepted for hosts that name it)")
+	fs.BoolVar(&o.stdio, "stdio", false, "Serve over stdin/stdout (the default transport; accepted for hosts that name it; not with -http)")
 	fs.StringVar(&o.http, "http", "",
 		"Serve over Streamable HTTP at the path /mcp of this address instead of stdin/stdout, as host:port or a port alone, which binds loopback; "+
 			"every client shares the one workspace, runtime cache and set of REPL sessions. The server authenticates no one, so bind loopback or front it with an authenticating proxy")
 	fs.StringVar(&o.allowOrigin, "allow-origin", "",
-		"Origins, comma-separated as scheme://host[:port], whose browser requests the HTTP transport answers besides loopback origins and requests with no Origin header; any other origin is refused")
+		"Origins, comma-separated as scheme://host[:port], granted cross-origin access to the HTTP transport (the CORS headers and preflight answer a browser needs); "+
+			"loopback origins and requests with no Origin header are admitted without a grant, any other origin is refused")
 	fs.StringVar(&o.tlsCert, "tls-cert", "", "TLS certificate file for the HTTP transport; with -tls-key, the transport serves https")
 	fs.StringVar(&o.tlsKey, "tls-key", "", "TLS private key file for the HTTP transport")
 	fs.Var(&o.printConfig, "print-config",

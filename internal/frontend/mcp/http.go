@@ -92,12 +92,52 @@ func (p OriginPolicy) Allows(origin string) bool {
 	return isLoopbackHost(u.Hostname())
 }
 
+// Named reports whether origin is one the policy admits by name, as opposed
+// to admitting it for being loopback.
+func (p OriginPolicy) Named(origin string) bool {
+	normalized, ok := normalizeOrigin(origin)
+	if !ok {
+		return false
+	}
+	_, named := p.allowed[normalized]
+	return named
+}
+
+// The CORS grant a named origin's browser is given: the methods and request
+// headers the Streamable HTTP transport uses, and the response headers it
+// reads.
+const (
+	corsAllowMethods  = "GET, POST, DELETE, OPTIONS"
+	corsAllowHeaders  = "Content-Type, Accept, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID, Authorization"
+	corsExposeHeaders = "Mcp-Session-Id, MCP-Protocol-Version"
+)
+
 // Handler refuses requests whose origin the policy does not admit, with 403,
-// and passes the rest to next.
+// and passes the rest to next. An origin admitted by name is also granted
+// cross-origin access: the CORS response headers its browser needs, and an
+// answer to its preflight. A loopback origin is admitted without a grant, so
+// a page served from another port of this machine is not let in by default;
+// its preflight is refused, with the flag that would admit it named.
 func (p OriginPolicy) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if origin := r.Header.Get("Origin"); !p.Allows(origin) {
+		origin := r.Header.Get("Origin")
+		if !p.Allows(origin) {
 			http.Error(w, fmt.Sprintf("Forbidden: origin %q is not allowed; this server answers loopback origins and those named by -allow-origin", origin), http.StatusForbidden)
+			return
+		}
+		w.Header().Add("Vary", "Origin")
+		switch {
+		case p.Named(origin):
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Expose-Headers", corsExposeHeaders)
+			if r.Method == http.MethodOptions {
+				w.Header().Set("Access-Control-Allow-Methods", corsAllowMethods)
+				w.Header().Set("Access-Control-Allow-Headers", corsAllowHeaders)
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+		case origin != "" && r.Method == http.MethodOptions:
+			http.Error(w, fmt.Sprintf("Forbidden: origin %q is admitted but not granted cross-origin access; name it with -allow-origin", origin), http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)

@@ -277,6 +277,9 @@ func TestPrintConfigCommandLine(t *testing.T) {
 		{[]string{"-print-config", "cursor", "-nosuchflag"}, "flag provided but not defined: -nosuchflag"},
 		{[]string{"-print-config", "cursor", "-http", "nope"}, `-http: "nope" is not a port or a host:port address`},
 		{[]string{"-print-config", "cursor", "-http", "8765", "-print-config-command", "sysml-mcp"}, "-print-config-command and -http name different ways to reach the server"},
+		{[]string{"-print-config", "cursor", "-http", "8765", "-tls-cert", "server.crt"}, "-tls-cert and -tls-key must be supplied together"},
+		{[]string{"-print-config", "cursor", "-http", "8765", "-stdio"}, "-stdio and -http name different transports"},
+		{[]string{"-print-config", "cursor", "-tls-cert", "server.crt", "-tls-key", "server.key"}, "-tls-cert applies to the HTTP transport"},
 	} {
 		var stdout, stderr bytes.Buffer
 		if status := run(tc.args, &stdout, &stderr); status != exitUnservable {

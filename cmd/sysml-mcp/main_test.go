@@ -97,6 +97,11 @@ func TestCommandLine(t *testing.T) {
 		status: exitUnservable,
 		stderr: []string{`sysml-mcp: -http: "http-alt" is not a port`, "Usage: sysml-mcp [options]"},
 	}, {
+		name:   "-stdio beside -http is reported with the usage",
+		args:   []string{"-stdio", "-http", "8765"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -stdio and -http name different transports; give one", "Usage: sysml-mcp [options]"},
+	}, {
 		name:   "a TLS certificate without its key is reported with the usage",
 		args:   []string{"-http", "8765", "-tls-cert", "server.crt"},
 		status: exitUnservable,
