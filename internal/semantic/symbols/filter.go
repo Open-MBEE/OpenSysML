@@ -55,8 +55,8 @@ const (
 	// FilterClassify is `@T`: the candidate is annotated by metadata
 	// conforming to TypeFQN.
 	FilterClassify
-	// FilterMetaClassify is `@@T`: the candidate's own metaclass conforms to
-	// TypeFQN.
+	// FilterMetaClassify is `@@T`: metadata of the candidate — an annotation or
+	// its own metaclass — conforms to TypeFQN.
 	FilterMetaClassify
 	FilterEq
 	FilterNeq

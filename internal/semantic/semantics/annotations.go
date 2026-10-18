@@ -975,7 +975,7 @@ func (m *Model) readsValueOf(sym *symbols.Symbol) bool {
 	return EnumerationOwning(sym) == nil && !m.IsMeasurementUnit(sym)
 }
 
-// metaclassOf is the candidate's own metaclass — what `@@T` tests: a KerML
+// metaclassOf is the candidate's own metaclass — its reflective metadata: a KerML
 // declaration by its keyword (its kind cannot tell `struct` from `datatype`),
 // anything else by its symbol kind, so a cached element classifies alike.
 func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
