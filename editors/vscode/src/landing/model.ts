@@ -421,16 +421,20 @@ export function sceneTarget(scene: Scene): SceneTarget {
  */
 async function explained(parsed: Model, model: LandingModel): Promise<LandingModel> {
   const parts = new Map(model.parts);
-  for (const [path, part] of model.parts) {
-    const unvalued = { ...part.unvalued };
-    for (const feature of Object.keys(unvalued)) {
-      const value = await parsed.eval(`${model.target.rootSymbol}.${path}.${feature}`).catch(() => undefined);
-      if (value?.kind === "undetermined" && value.reason !== "") {
-        unvalued[feature] = value.reason;
-      }
-    }
-    parts.set(path, { ...part, unvalued });
-  }
+  await Promise.all(
+    [...model.parts].map(async ([path, part]) => {
+      const unvalued = { ...part.unvalued };
+      await Promise.all(
+        Object.keys(unvalued).map(async (feature) => {
+          const value = await parsed.eval(`${model.target.rootSymbol}.${path}.${feature}`).catch(() => undefined);
+          if (value?.kind === "undetermined" && value.reason !== "") {
+            unvalued[feature] = value.reason;
+          }
+        }),
+      );
+      parts.set(path, { ...part, unvalued });
+    }),
+  );
   return { ...model, parts };
 }
 
