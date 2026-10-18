@@ -65,6 +65,8 @@ CAPABILITY_RENDER_VIEW = "render_view"
 #: The ``ExportGraphs`` RPC, which exports the lowered graph of an action or
 #: state machine as the canonical ``graphs:1`` JSON an external engine is sent.
 CAPABILITY_EXPORT_GRAPHS = "export_graphs"
+CAPABILITY_IMPORT_DATA = "import_data"
+CAPABILITY_COMPARE_RESULTS = "compare_results"
 
 #: The ``CheckBehavior`` RPC, which searches every schedule of a behavior for
 #: violated properties, deadlocks, failures and divergent values.
@@ -402,3 +404,14 @@ def require(info: ServerInfo, capability: str, remedy: str) -> None:
     """Raise :class:`MissingCapabilityError` unless ``info`` reports ``capability``."""
     if not info.has(capability):
         raise MissingCapabilityError(capability, info, remedy)
+
+#: The ``RunRuns`` RPC, which runs an action or a Monte Carlo case repeatedly
+#: and tables what the runs observed.
+CAPABILITY_RUNS = "runs"
+
+#: The ``SelfCheck`` RPC, which applies the reflective SysMLValidation
+#: constraints to every element of a model.
+CAPABILITY_SELF_CHECK = "self_check"
+
+#: The ``RecordRun`` RPC, which records runs of an analysis case into the model.
+CAPABILITY_RECORD_RUN = "record_run"

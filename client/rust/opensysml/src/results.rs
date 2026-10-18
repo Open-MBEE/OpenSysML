@@ -1329,25 +1329,7 @@ pub(crate) fn sweep_of(
         ));
     }
     let instances = instances_of(&response.instances, capabilities)?;
-    let rows = response
-        .rows
-        .into_iter()
-        .map(|row| {
-            Ok(SweepRow {
-                inputs: named_values(&row.inputs)?,
-                outputs: named_values(&row.outputs)?,
-                verdicts: row
-                    .verdicts
-                    .into_iter()
-                    .map(|pb| Verdict::from_wire(pb, instances.clone(), &diagnostics, Vec::new()))
-                    .collect::<Result<_, _>>()?,
-                elapsed: Duration::from_micros(row.elapsed_micros.max(0).unsigned_abs()),
-                error: row.error,
-                reason: reason_of(row.failure_reason),
-                evaluations: evaluations(&row.evaluations)?,
-            })
-        })
-        .collect::<Result<_, Error>>()?;
+    let rows = sweep_rows_of(response.rows, &instances, &diagnostics)?;
     Ok(SweepTable {
         rows,
         parameters: response.parameters,
@@ -1679,4 +1661,794 @@ mod tests {
             verification
         );
     }
+}
+
+fn sweep_rows_of(
+    rows: Vec<wire::SweepRow>,
+    instances: &Arc<[Instance]>,
+    diagnostics: &[Diagnostic],
+) -> Result<Vec<SweepRow>, Error> {
+    rows.into_iter()
+        .map(|row| {
+            Ok(SweepRow {
+                inputs: named_values(&row.inputs)?,
+                outputs: named_values(&row.outputs)?,
+                verdicts: row
+                    .verdicts
+                    .into_iter()
+                    .map(|pb| Verdict::from_wire(pb, instances.clone(), diagnostics, Vec::new()))
+                    .collect::<Result<_, _>>()?,
+                elapsed: Duration::from_micros(row.elapsed_micros.max(0).unsigned_abs()),
+                error: row.error,
+                reason: reason_of(row.failure_reason),
+                evaluations: evaluations(&row.evaluations)?,
+            })
+        })
+        .collect()
+}
+
+/// The value a percentile of the runs fell at or below.
+#[derive(Clone, Debug)]
+pub struct RunPercentile {
+    /// The percentile, e.g. 50.0.
+    pub percentile: f64,
+    /// The value.
+    pub value: Value,
+}
+
+/// How many runs observed a value in `[low, high)`.
+#[derive(Clone, Debug)]
+pub struct RunHistogramBin {
+    /// Lower bound, inclusive.
+    pub low: Value,
+    /// Upper bound, exclusive.
+    pub high: Value,
+    /// How many runs.
+    pub count: i64,
+}
+
+/// How many runs observed one distinct value.
+#[derive(Clone, Debug)]
+pub struct RunCountedValue {
+    /// The value.
+    pub value: Value,
+    /// How many runs.
+    pub count: i64,
+}
+
+/// One observable over the completed runs: the extremes, mean, deviation,
+/// percentiles and histogram of a numeric one, or each distinct value counted.
+#[derive(Clone, Debug)]
+pub struct RunDistribution {
+    /// The observable.
+    pub name: String,
+    /// The unit every value carried; empty for none.
+    pub unit: String,
+    /// How many runs.
+    pub count: i64,
+    /// Whether the values are numbers, summarised below.
+    pub numeric: bool,
+    /// The least value of a numeric observable.
+    pub min: Option<Value>,
+    /// The greatest value of a numeric observable.
+    pub max: Option<Value>,
+    /// The mean of a numeric observable.
+    pub mean: Option<Value>,
+    /// The standard deviation of a numeric observable.
+    pub deviation: f64,
+    /// The percentiles of a numeric observable.
+    pub percentiles: Vec<RunPercentile>,
+    /// The histogram of a numeric observable.
+    pub histogram: Vec<RunHistogramBin>,
+    /// Each distinct value of a non-numeric observable, counted.
+    pub values: Vec<RunCountedValue>,
+}
+
+/// What `run_runs` answers: one row per run, each observable's distribution
+/// and, for a Monte Carlo case, its conclusion over the sample.
+#[derive(Clone, Debug)]
+pub struct RunsResult {
+    /// One row per run, in run order.
+    pub rows: Vec<SweepRow>,
+    /// What every row reports, in column order.
+    pub observables: Vec<String>,
+    /// Each observable over the completed runs.
+    pub distributions: Vec<RunDistribution>,
+    /// The report as `sysml -runs` prints it.
+    pub lines: Vec<String>,
+    /// A Monte Carlo case's conclusion over the sample.
+    pub outputs: Vec<NamedValue>,
+    /// The conclusion's checks.
+    pub verdicts: Vec<Verdict>,
+    /// Why a Monte Carlo case has no conclusion; empty when it has one.
+    pub unconcluded: String,
+    /// The objects the conclusion names.
+    pub instances: Arc<[Instance]>,
+    /// The engine's name, strength and bounds.
+    pub standing: Standing,
+    /// The seed the runs drew from; `None` when the draws were fixed.
+    pub seed: Option<u64>,
+    /// Notes raised.
+    pub diagnostics: Vec<Diagnostic>,
+    wire: wire::RunRunsResponse,
+}
+
+impl RunsResult {
+    /// The response as the service sent it.
+    pub fn wire(&self) -> &wire::RunRunsResponse {
+        &self.wire
+    }
+}
+
+impl RunsResult {
+    /// How many runs were made.
+    pub fn len(&self) -> usize {
+        self.rows.len()
+    }
+    /// Whether no run was made.
+    pub fn is_empty(&self) -> bool {
+        self.rows.is_empty()
+    }
+    /// One output of the conclusion by name.
+    pub fn output(&self, name: &str) -> Option<&Value> {
+        find_named(&self.outputs, name)
+    }
+}
+
+fn optional_value(value: Option<wire::Value>) -> Result<Option<Value>, Error> {
+    value.map(value_from_wire).transpose()
+}
+
+pub(crate) fn runs_of(
+    response: wire::RunRunsResponse,
+    capabilities: &Capabilities,
+) -> Result<RunsResult, Error> {
+    let wire = response.clone();
+    let diagnostics = diagnostics_of(&response.diagnostics);
+    if !response.error.is_empty() {
+        return Err(failure_of(
+            &response.error,
+            response.failure_reason,
+            diagnostics,
+        ));
+    }
+    let instances = instances_of(&response.instances, capabilities)?;
+    let rows = sweep_rows_of(response.rows, &instances, &diagnostics)?;
+    let distributions = response
+        .distributions
+        .into_iter()
+        .map(|d| {
+            Ok(RunDistribution {
+                name: d.name,
+                unit: d.unit,
+                count: d.count,
+                numeric: d.numeric,
+                min: optional_value(d.min)?,
+                max: optional_value(d.max)?,
+                mean: optional_value(d.mean)?,
+                deviation: d.deviation,
+                percentiles: d
+                    .percentiles
+                    .into_iter()
+                    .map(|p| {
+                        Ok(RunPercentile {
+                            percentile: p.percentile,
+                            value: value_from_wire(p.value.unwrap_or_default())?,
+                        })
+                    })
+                    .collect::<Result<_, Error>>()?,
+                histogram: d
+                    .histogram
+                    .into_iter()
+                    .map(|b| {
+                        Ok(RunHistogramBin {
+                            low: value_from_wire(b.low.unwrap_or_default())?,
+                            high: value_from_wire(b.high.unwrap_or_default())?,
+                            count: b.count,
+                        })
+                    })
+                    .collect::<Result<_, Error>>()?,
+                values: d
+                    .values
+                    .into_iter()
+                    .map(|v| {
+                        Ok(RunCountedValue {
+                            value: value_from_wire(v.value.unwrap_or_default())?,
+                            count: v.count,
+                        })
+                    })
+                    .collect::<Result<_, Error>>()?,
+            })
+        })
+        .collect::<Result<_, Error>>()?;
+    Ok(RunsResult {
+        rows,
+        observables: response.observables,
+        distributions,
+        lines: response.lines,
+        outputs: named_values(&response.outputs)?,
+        verdicts: response
+            .verdicts
+            .into_iter()
+            .map(|pb| Verdict::from_wire(pb, instances.clone(), &diagnostics, Vec::new()))
+            .collect::<Result<_, _>>()?,
+        unconcluded: response.unconcluded,
+        standing: Standing::of(&response.engine, &response.strength, &response.bounds),
+        instances,
+        seed: response.seed,
+        diagnostics,
+        wire,
+    })
+}
+
+/// One thing the reflective self-check reports; `line` is it as the CLI prints it.
+#[derive(Clone, Debug)]
+pub struct SelfCheckFinding {
+    /// `fails`, `unevaluated`, `error` or `warning`.
+    pub status: String,
+    /// `<constraint> for <element>`, or the constraint or package alone.
+    pub subject: String,
+    /// `document:line:col` of the element; empty for none.
+    pub location: String,
+    /// The constraint applied.
+    pub constraint: String,
+    /// The element it was applied to.
+    pub element: String,
+    /// The reason, for a warning or an error.
+    pub message: String,
+    /// The finding as `sysml -self-check` prints it.
+    pub line: String,
+}
+
+/// What `self_check` answers: every finding and the counts over them.
+#[derive(Clone, Debug)]
+pub struct SelfCheckResult {
+    /// `holds`, `fails` or `unresolved`.
+    pub status: String,
+    /// Each violation, unevaluated check, error and skipped rule constraint.
+    pub findings: Vec<SelfCheckFinding>,
+    /// Elements checked.
+    pub elements: i64,
+    /// Checks made.
+    pub checks: i64,
+    /// Violations found.
+    pub violations: i64,
+    /// Checks the runtime could not evaluate.
+    pub unevaluated: i64,
+    /// Checks that errored.
+    pub evaluation_errors: i64,
+    /// How many elements each constraint was applied to, by name.
+    pub applications: BTreeMap<String, i64>,
+    /// The one-line total `sysml -self-check` prints last.
+    pub summary: String,
+    /// Notes raised.
+    pub diagnostics: Vec<Diagnostic>,
+    wire: wire::SelfCheckResponse,
+}
+
+impl SelfCheckResult {
+    /// The response as the service sent it.
+    pub fn wire(&self) -> &wire::SelfCheckResponse {
+        &self.wire
+    }
+}
+
+impl SelfCheckResult {
+    /// Whether the check found no violation and no evaluation error.
+    pub fn holds(&self) -> bool {
+        self.status == "holds"
+    }
+}
+
+pub(crate) fn self_check_of(response: wire::SelfCheckResponse) -> Result<SelfCheckResult, Error> {
+    let wire = response.clone();
+    let diagnostics = diagnostics_of(&response.diagnostics);
+    if !response.error.is_empty() {
+        return Err(failure_of(&response.error, 0, diagnostics));
+    }
+    Ok(SelfCheckResult {
+        status: response.status,
+        findings: response
+            .findings
+            .into_iter()
+            .map(|f| SelfCheckFinding {
+                status: f.status,
+                subject: f.subject,
+                location: f.location,
+                constraint: f.constraint,
+                element: f.element,
+                message: f.message,
+                line: f.line,
+            })
+            .collect(),
+        elements: response.elements,
+        checks: response.checks,
+        violations: response.violations,
+        unevaluated: response.unevaluated,
+        evaluation_errors: response.evaluation_errors,
+        applications: response
+            .applications
+            .into_iter()
+            .map(|a| (a.constraint, a.count))
+            .collect(),
+        summary: response.summary,
+        diagnostics,
+        wire,
+    })
+}
+
+/// One document the records were written into.
+#[derive(Clone, Debug)]
+pub struct RecordedDocument {
+    /// The observable.
+    pub name: String,
+    /// The notation.
+    pub content: String,
+}
+
+/// What `record_run` answers: the runs' own report, what the model gained and
+/// the notation the records were written into.
+#[derive(Clone, Debug)]
+pub struct Recording {
+    /// The run's result, for a case run once.
+    pub run: Option<AnalysisResult>,
+    /// The rows, for a case run over ranges.
+    pub sweep: Option<SweepTable>,
+    /// The runs, for a Monte Carlo sample.
+    pub sample: Option<RunsResult>,
+    /// The package the records went into.
+    pub package: String,
+    /// The per-case record definition.
+    pub definition: String,
+    /// The records made, in order.
+    pub records: Vec<String>,
+    /// The declarations generated.
+    pub source: String,
+    /// The recorded notation of a single-document model the records merged into.
+    pub content: String,
+    /// The document the records went into, or the records as a document of their own.
+    pub documents: Vec<RecordedDocument>,
+    /// Rows or runs that failed and were not recorded.
+    pub skipped: i64,
+    /// Why runs were not recorded.
+    pub reasons: Vec<String>,
+    /// The recorded model, cached for the next request.
+    pub model_hash: String,
+    /// Notes raised.
+    pub diagnostics: Vec<Diagnostic>,
+    wire: wire::RecordRunResponse,
+}
+
+impl Recording {
+    /// The response as the service sent it.
+    pub fn wire(&self) -> &wire::RecordRunResponse {
+        &self.wire
+    }
+}
+
+pub(crate) fn recording_of(
+    response: wire::RecordRunResponse,
+    capabilities: &Capabilities,
+) -> Result<Recording, Error> {
+    let wire = response.clone();
+    let diagnostics = diagnostics_of(&response.diagnostics);
+    if !response.error.is_empty() {
+        return Err(failure_of(
+            &response.error,
+            response.failure_reason,
+            diagnostics,
+        ));
+    }
+    Ok(Recording {
+        run: response
+            .run
+            .map(|r| analysis_of(r, capabilities))
+            .transpose()?,
+        sweep: response
+            .sweep
+            .map(|r| sweep_of(r, capabilities))
+            .transpose()?,
+        sample: response
+            .sample
+            .map(|r| runs_of(r, capabilities))
+            .transpose()?,
+        package: response.package,
+        definition: response.definition,
+        records: response.records,
+        source: response.source,
+        content: response.content,
+        documents: response
+            .documents
+            .into_iter()
+            .map(|d| RecordedDocument {
+                name: d.name,
+                content: d.content,
+            })
+            .collect(),
+        skipped: response.skipped,
+        reasons: response.reasons,
+        model_hash: response.model_hash,
+        diagnostics,
+        wire,
+    })
+}
+
+/// One assignment an import made: the feature of the element set to the value,
+/// redefining the inherited feature `redefines` when the element did not declare it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImportedValue {
+    /// Qualified name of the element whose feature is set.
+    pub element: String,
+    /// The feature set.
+    pub feature: String,
+    /// The literal it is set to; "" for a redefinition made only to reach a nested feature.
+    pub value: String,
+    /// Qualified name of the inherited feature redefined, "" when the element declares it.
+    pub redefines: String,
+    /// The row or cell of the data it came from.
+    pub where_: String,
+    /// The line `sysml -import` reports it as.
+    pub description: String,
+}
+
+/// What one data file set.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImportedFile {
+    /// The file's name.
+    pub name: String,
+    /// How many values it set.
+    pub values: i64,
+    /// How many elements they were set on.
+    pub elements: i64,
+    /// Each assignment, in data order.
+    pub assignments: Vec<ImportedValue>,
+}
+
+/// What [`Connection::import_data`](crate::Connection::import_data) answers.
+#[derive(Clone, Debug)]
+pub struct ImportResult {
+    /// One per data file, in order.
+    pub files: Vec<ImportedFile>,
+    /// The edited content of a one-document model; "" on a dry run.
+    pub content: String,
+    /// Every edited document, by name; empty on a dry run.
+    pub documents: Vec<(String, String)>,
+    /// The imported model's hash, cached by the service; "" on a dry run.
+    pub model_hash: String,
+    /// Notes the import raised.
+    pub diagnostics: Vec<Diagnostic>,
+    wire: wire::ImportDataResponse,
+}
+
+impl ImportResult {
+    /// The response as the service answered it.
+    pub fn wire(&self) -> &wire::ImportDataResponse {
+        &self.wire
+    }
+}
+
+/// A distribution by its statistics; a pooled one knows its count and mean alone.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ComparedDistribution {
+    /// How many numbers.
+    pub count: i64,
+    /// The least.
+    pub min: f64,
+    /// The mean.
+    pub mean: f64,
+    /// The median.
+    pub p50: f64,
+    /// The 90th percentile.
+    pub p90: f64,
+    /// The greatest.
+    pub max: f64,
+    /// The sample standard deviation.
+    pub deviation: f64,
+}
+
+/// The relative difference of each statistic as a signed percentage, "" where not compared.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StatisticDifference {
+    /// Of the least.
+    pub min: String,
+    /// Of the mean.
+    pub mean: String,
+    /// Of the median.
+    pub p50: String,
+    /// Of the 90th percentile.
+    pub p90: String,
+    /// Of the greatest.
+    pub max: String,
+}
+
+/// One statistic a Simulation::MonteCarlo case declares, the tool's beside the runs'.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CaseStatistic {
+    /// Which statistic.
+    pub statistic: String,
+    /// Where the case declares it.
+    pub of: String,
+    /// The tool's value.
+    pub tool: String,
+    /// The runs' value.
+    pub run: String,
+    /// Their relative difference.
+    pub difference: String,
+}
+
+/// The statistics a Simulation::MonteCarlo case declares of an observable.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CaseStatistics {
+    /// The case.
+    pub analysis: String,
+    /// One per statistic.
+    pub rows: Vec<CaseStatistic>,
+    /// What was not compared, and why.
+    pub notes: Vec<String>,
+}
+
+/// One observable: the tool's distribution beside the runs', or why they are not compared.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ObservableComparison {
+    /// The observable the tool stored.
+    pub stored: String,
+    /// The feature of the run that answers it.
+    pub feature: String,
+    /// The unit the runs' numbers came in, "" for none.
+    pub unit: String,
+    /// The tool's distribution, `None` when it stored no number.
+    pub tool: Option<ComparedDistribution>,
+    /// Whether the tool's distribution was pooled from summaries.
+    pub pooled: bool,
+    /// Whether the tool stored no result at all.
+    pub unstored: bool,
+    /// The completed runs' distribution, `None` when not compared.
+    pub run: Option<ComparedDistribution>,
+    /// How many runs produced a number for the feature.
+    pub produced: i64,
+    /// Whether the runs were made and are reported.
+    pub compared: bool,
+    /// The relative difference of each statistic.
+    pub difference: Option<StatisticDifference>,
+    /// The case's statistics compared.
+    pub declared: Option<CaseStatistics>,
+    /// Notes on what was pooled or not compared.
+    pub notes: Vec<String>,
+}
+
+/// One configuration's runs beside the tool's results.
+#[derive(Clone, Debug)]
+pub struct ConfigurationComparison {
+    /// The configuration's id in the sidecar.
+    pub id: String,
+    /// Its qualified name.
+    pub name: String,
+    /// The migrated behavior it performs.
+    pub behavior: String,
+    /// The feature the observables are read from.
+    pub target: String,
+    /// Where the tool stored the results.
+    pub result_location: String,
+    /// `holds`, `fails` (a run failed) or `unresolved`.
+    pub status: String,
+    /// Why the configuration could not be run.
+    pub unresolved: String,
+    /// The runs the tool stored.
+    pub stored_runs: i64,
+    /// Over how many snapshots.
+    pub stored_snapshots: i64,
+    /// The runs OpenSysML made.
+    pub runs: i64,
+    /// How many completed.
+    pub completed: i64,
+    /// The draw policy the runs took.
+    pub draws: String,
+    /// The seed the runs derived theirs from.
+    pub seed: Option<u64>,
+    /// The clock step, 0 for a continuous clock.
+    pub clock_step: f64,
+    /// One per run.
+    pub rows: Vec<SweepRow>,
+    /// The observables compared.
+    pub observables: Vec<ObservableComparison>,
+    /// The errors failed runs ended in.
+    pub errors: Vec<String>,
+    /// Notes on the configuration and its runs.
+    pub notes: Vec<String>,
+    /// The comparison as `sysml -compare-results` prints it.
+    pub lines: Vec<String>,
+}
+
+impl ConfigurationComparison {
+    /// Whether every run completed and the observables were compared.
+    pub fn holds(&self) -> bool {
+        self.status == "holds"
+    }
+}
+
+/// What [`Connection::compare_results`](crate::Connection::compare_results) answers.
+#[derive(Clone, Debug)]
+pub struct Comparison {
+    /// The tool the sidecar records as the results' source.
+    pub source: String,
+    /// One per configuration, in the order the sidecar indexes them.
+    pub configurations: Vec<ConfigurationComparison>,
+    /// The engine and strength of the last runs made.
+    pub standing: Standing,
+    /// Notes the comparison raised.
+    pub diagnostics: Vec<Diagnostic>,
+    wire: wire::CompareResultsResponse,
+}
+
+impl Comparison {
+    /// The response as the service answered it.
+    pub fn wire(&self) -> &wire::CompareResultsResponse {
+        &self.wire
+    }
+}
+
+impl Comparison {
+    /// Whether every configuration ran and compared.
+    pub fn holds(&self) -> bool {
+        self.configurations
+            .iter()
+            .all(ConfigurationComparison::holds)
+    }
+}
+
+pub(crate) fn import_result_of(response: wire::ImportDataResponse) -> Result<ImportResult, Error> {
+    let wire = response.clone();
+    let diagnostics = diagnostics_of(&response.diagnostics);
+    if !response.error.is_empty() {
+        return Err(failure_of(&response.error, 0, diagnostics));
+    }
+    Ok(ImportResult {
+        files: response
+            .files
+            .into_iter()
+            .map(|f| ImportedFile {
+                name: f.name,
+                values: f.values,
+                elements: f.elements,
+                assignments: f
+                    .assignments
+                    .into_iter()
+                    .map(|a| ImportedValue {
+                        element: a.element,
+                        feature: a.feature,
+                        value: a.value,
+                        redefines: a.redefines,
+                        where_: a.r#where,
+                        description: a.description,
+                    })
+                    .collect(),
+            })
+            .collect(),
+        content: response.content,
+        documents: response
+            .documents
+            .into_iter()
+            .map(|d| (d.name, d.content))
+            .collect(),
+        model_hash: response.model_hash,
+        diagnostics,
+        wire,
+    })
+}
+
+fn compared_distribution_of(d: Option<wire::ComparedDistribution>) -> Option<ComparedDistribution> {
+    d.map(|d| ComparedDistribution {
+        count: d.count,
+        min: d.min,
+        mean: d.mean,
+        p50: d.p50,
+        p90: d.p90,
+        max: d.max,
+        deviation: d.deviation,
+    })
+}
+
+pub(crate) fn comparison_of(
+    response: wire::CompareResultsResponse,
+    capabilities: &Capabilities,
+) -> Result<Comparison, Error> {
+    let wire = response.clone();
+    let diagnostics = diagnostics_of(&response.diagnostics);
+    if !response.error.is_empty() {
+        return Err(failure_of(
+            &response.error,
+            response.failure_reason,
+            diagnostics,
+        ));
+    }
+    let mut configurations = Vec::with_capacity(response.configurations.len());
+    for c in response.configurations {
+        let instances = instances_of(&c.instances, capabilities)?;
+        let rows = c
+            .rows
+            .into_iter()
+            .map(|row| {
+                Ok(SweepRow {
+                    inputs: named_values(&row.inputs)?,
+                    outputs: named_values(&row.outputs)?,
+                    verdicts: row
+                        .verdicts
+                        .into_iter()
+                        .map(|pb| {
+                            Verdict::from_wire(pb, instances.clone(), &diagnostics, Vec::new())
+                        })
+                        .collect::<Result<_, _>>()?,
+                    elapsed: Duration::from_micros(row.elapsed_micros.max(0).unsigned_abs()),
+                    error: row.error,
+                    reason: reason_of(row.failure_reason),
+                    evaluations: evaluations(&row.evaluations)?,
+                })
+            })
+            .collect::<Result<_, Error>>()?;
+        configurations.push(ConfigurationComparison {
+            id: c.id,
+            name: c.name,
+            behavior: c.behavior,
+            target: c.target,
+            result_location: c.result_location,
+            status: c.status,
+            unresolved: c.unresolved,
+            stored_runs: c.stored_runs,
+            stored_snapshots: c.stored_snapshots,
+            runs: c.runs,
+            completed: c.completed,
+            draws: c.draws,
+            seed: c.seed,
+            clock_step: c.clock_step,
+            rows,
+            observables: c
+                .observables
+                .into_iter()
+                .map(|o| ObservableComparison {
+                    stored: o.stored,
+                    feature: o.feature,
+                    unit: o.unit,
+                    tool: compared_distribution_of(o.tool),
+                    pooled: o.pooled,
+                    unstored: o.unstored,
+                    run: compared_distribution_of(o.run),
+                    produced: o.produced,
+                    compared: o.compared,
+                    difference: o.difference.map(|d| StatisticDifference {
+                        min: d.min,
+                        mean: d.mean,
+                        p50: d.p50,
+                        p90: d.p90,
+                        max: d.max,
+                    }),
+                    declared: o.declared.map(|cs| CaseStatistics {
+                        analysis: cs.analysis,
+                        rows: cs
+                            .rows
+                            .into_iter()
+                            .map(|r| CaseStatistic {
+                                statistic: r.statistic,
+                                of: r.of,
+                                tool: r.tool,
+                                run: r.run,
+                                difference: r.difference,
+                            })
+                            .collect(),
+                        notes: cs.notes,
+                    }),
+                    notes: o.notes,
+                })
+                .collect(),
+            errors: c.errors,
+            notes: c.notes,
+            lines: c.lines,
+        });
+    }
+    Ok(Comparison {
+        source: response.source,
+        configurations,
+        standing: Standing::of(&response.engine, &response.strength, &response.bounds),
+        diagnostics,
+        wire,
+    })
 }

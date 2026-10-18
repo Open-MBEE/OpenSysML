@@ -1,0 +1,14 @@
+{
+  "rpc": "RecordRun",
+  "symbol_id": "MC::Mc",
+  "subject_symbol_id": "MC::probe",
+  "runs": 2,
+  "seed": 3,
+  "record_into": "Trials",
+  "expected_package": "Trials",
+  "expected_records": [
+    "Trials::Mc_run1",
+    "Trials::Mc_run2",
+    "Trials::Mc_run3"
+  ]
+}

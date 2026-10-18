@@ -23,6 +23,8 @@ const (
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
 	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
 	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs
+	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
+	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
 	CapabilityCheck                          = sysmlgrpc.CapabilityCheck
 	CapabilityEnumValues                     = sysmlgrpc.CapabilityEnumValues
 	CapabilityEvaluateSubject                = sysmlgrpc.CapabilityEvaluateSubject
@@ -65,6 +67,9 @@ const (
 	CapabilityCaseEvaluations                = sysmlgrpc.CapabilityCaseEvaluations
 	CapabilityFinalTime                      = sysmlgrpc.CapabilityFinalTime
 	CapabilityPerformer                      = sysmlgrpc.CapabilityPerformer
+	CapabilityRuns                           = sysmlgrpc.CapabilityRuns
+	CapabilitySelfCheck                      = sysmlgrpc.CapabilitySelfCheck
+	CapabilityRecordRun                      = sysmlgrpc.CapabilityRecordRun
 	CapabilityStateTrace                     = sysmlgrpc.CapabilityStateTrace
 	CapabilityEngines                        = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue

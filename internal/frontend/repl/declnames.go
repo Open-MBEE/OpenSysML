@@ -1,6 +1,9 @@
 package repl
 
-import "github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+import (
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/nsmerge"
+)
 
 // declaredNames returns the replaceable top-level names introduced by a parsed
 // submission, in source order. A named declaration is replaceable: re-typing it
@@ -40,30 +43,5 @@ func topLevelMembers(root *ast.RootNamespace) map[string]ast.Node {
 	return out
 }
 
-// memberName returns the replaceable name a namespace member declares, or "" for
-// a member that declares none (an import, a comment, an error node).
-func memberName(m ast.Node) string {
-	node := m
-	if mem, ok := m.(*ast.Membership); ok {
-		node = mem.Member
-	}
-	switch d := node.(type) {
-	case *ast.Package:
-		return d.Ident.Name
-	case *ast.Namespace:
-		return d.Ident.Name
-	case *ast.Alias:
-		return d.Ident.Name
-	case *ast.RelationshipMember:
-		return d.Ident.Name
-	case *ast.Definition:
-		return d.Ident.Name
-	case *ast.Usage:
-		// A usage that declares no name of its own answers to its reference's or
-		// redefinition's, which is the name re-typing it supersedes
-		// (ast.EffectiveName).
-		name, _ := ast.EffectiveName(d)
-		return name
-	}
-	return ""
-}
+// memberName is the declared name of a member, "" for one without.
+func memberName(m ast.Node) string { return nsmerge.MemberName(m) }

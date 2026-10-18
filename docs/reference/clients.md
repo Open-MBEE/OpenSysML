@@ -70,6 +70,8 @@ The Java client covers the whole service surface, as typed immutable results:
   delete and move);
 - `Query` and OSLC query, and the native document calls (`runDocumentQuery`, `renderDocument`).
 - `ExportGraphs`, the lowered graph of an action or state machine as `graphs:1` JSON (`exportGraphs`).
+- `RunRuns`, an action or Monte Carlo case run repeatedly, every run tabled with its observed features and their distributions (`runRuns`, `RunAction`/`RunMonteCarlo`); `SelfCheck`, every `SysMLValidation` rule constraint applied to the model (`selfCheck`); `RecordRun`, a case's run, sweep or sample recorded into the model as a new model (`recordRun`).
+- `ImportData`, the feature values tabular or JSON data assigns, every assignment made and the edited model (`importData`); `CompareResults`, a SysML v1 tool's results index run again with the tool's distributions tabled beside the runs' (`compareResults`).
 - `CheckBehavior`, every schedule of an action or state machine searched for violated properties, deadlocks, failures and divergent values, each witnessed by a replay schedule (`checkAction`, `checkStateMachine`).
 
 It leaves out only the generated model-ergonomics types; [the Java
