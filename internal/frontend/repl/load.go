@@ -130,6 +130,9 @@ func (s *Session) expandPaths(paths []string) ([]string, error) {
 	if len(files) == 0 {
 		return nil, errors.New("no model files to load")
 	}
+	if err := s.guardFiles(files, false); err != nil {
+		return nil, err
+	}
 	return files, nil
 }
 
@@ -173,6 +176,9 @@ func (s *Session) readWithDependencies(paths []string, opts loadOptions) (readin
 	deps := s.discovery().DependenciesOf(read.deps, s.ws.IsLibraryRoot)
 	if len(deps) == 0 {
 		return read, nil
+	}
+	if err := s.guardFiles(deps, true); err != nil {
+		return reading{}, err
 	}
 	more, err := s.readSources(deps, loadOptions{})
 	if err != nil {

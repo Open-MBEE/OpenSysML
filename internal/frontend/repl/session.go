@@ -193,6 +193,9 @@ type Session struct {
 	progress *progressPrinter
 
 	verbosity Verbosity
+	// fileGuard, when set, is asked before the session reads or writes a file
+	// a command named, so a host can confine the session to a workspace.
+	fileGuard func(path string) error
 
 	// renderWidth is the width a text rendering's table is written to fit, 0 for
 	// as wide as its widest cell.
@@ -1629,4 +1632,39 @@ func rebasedFixes(fixes []diag.Fix, delta int) []diag.Fix {
 		out[i] = f
 	}
 	return out
+}
+
+// SetFileGuard installs a check every file the session is asked to read or
+// write must pass: the files %load and %save name, those a directory or glob
+// expands to, and the dependencies found beside them. Files under the library
+// roots are exempt, since installed projects live outside a workspace. A nil
+// guard lifts the check.
+func (s *Session) SetFileGuard(guard func(path string) error) {
+	s.fileGuard = guard
+}
+
+// guardFiles asks the file guard about each file; with libraries true, files
+// under a library root pass without asking.
+func (s *Session) guardFiles(files []string, libraries bool) error {
+	if s.fileGuard == nil {
+		return nil
+	}
+	for _, f := range files {
+		if libraries && s.underLibraryRoot(f) {
+			continue
+		}
+		if err := s.fileGuard(f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Session) underLibraryRoot(file string) bool {
+	for _, root := range s.libraryRoots {
+		if rel, err := filepath.Rel(root, file); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
