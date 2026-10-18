@@ -1796,17 +1796,19 @@ registries spell it: tag `v0.10.1` pushes `openmbee/opensysml:0.10.1` and
 `openmbee/opensysml:latest`. A pre-release (`v0.11.0-rc.1`) pushes
 `openmbee/opensysml:0.11.0-rc.1` alone and leaves `latest` on the last release,
 as `publish-npm` leaves npm's `latest` dist-tag. `latest` moves only to the
-newest release: the job fetches the repository's tags, and if a stable `v*` tag
-newer than the one being released exists — a patch tag published late, or a
-release workflow re-run after the next release went out — it pushes the version
-tag alone and says so. Nothing in the tree declares
+newest release: immediately before the push the job fetches the repository's
+tags, and if a stable `v*` tag newer than the one being released exists — a
+patch tag published late, a release workflow re-run after the next release went
+out, or a newer tag cut while this job was building — it pushes the version tag
+alone and says so. Two stable releases pushing within the same minute could
+still race for `latest`; their version tags are unaffected, and the release
+procedure cuts one release at a time. Nothing in the tree declares
 the image's version; the tag is the version, and the image's `-version` output
 is checked against it before anything is pushed.
 
 ### What the job does, in order
 
-1. Resolves the version from the tag: fails if `CIRCLE_TAG` is empty, and
-   decides whether `latest` moves (a stable release, and no newer stable tag).
+1. Resolves the version from the tag, failing if `CIRCLE_TAG` is empty.
 2. Requires `DOCKER_USERNAME` and `DOCKER_PASSWORD`, naming only the missing
    ones.
 3. Logs in with `docker login --password-stdin`, so a revoked token fails before
@@ -1828,7 +1830,9 @@ is checked against it before anything is pushed.
    `"status":"ok"` from `GET /health` on 8081 and the tag's version from a
    Connect `GetServerInfo` call on 50051 — the call a sidecar consumer makes
    first.
-7. Builds `linux/amd64,linux/arm64` once more, with the same arguments, and
+7. Decides whether `latest` moves (a stable release, and no newer stable tag
+   in the just-fetched tag namespace), then builds `linux/amd64,linux/arm64`
+   once more, with the same arguments, and
    pushes the result under every resolved tag as one manifest list, with
    buildx's SLSA provenance (`mode=max`) and SBOM attestations attached. Then
    prints `docker buildx imagetools inspect` for each tag — the manifest list's

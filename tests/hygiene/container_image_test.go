@@ -93,9 +93,12 @@ func TestContainerImageIsVerifiedBeforeItIsPushed(t *testing.T) {
 	if !containsAll(runs[push].Command, "${tag_flags}") {
 		t.Error("the push does not tag the image with every resolved tag")
 	}
-	for _, fragment := range []string{"openmbee/opensysml:${version}", "openmbee/opensysml:latest", "*-*)", "git fetch --tags", "sort -V"} {
-		if stepIndex(runs, fragment) < 0 {
-			t.Errorf("publish-docker does not resolve %q from the tag", fragment)
+	if stepIndex(runs, "export IMAGE_VERSION=${version}") < 0 {
+		t.Error("publish-docker does not resolve the image version from the tag")
+	}
+	for _, fragment := range []string{"openmbee/opensysml:${IMAGE_VERSION}", "openmbee/opensysml:latest", "*-*)", "git fetch --tags", "sort -V"} {
+		if !strings.Contains(runs[push].Command, fragment) {
+			t.Errorf("the push step does not decide the tags itself with %q; a decision taken earlier could roll latest back", fragment)
 		}
 	}
 

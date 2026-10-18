@@ -3357,13 +3357,8 @@ jobs:
       - rehearsal-skip:
           what: "cargo publish"
 
-  # Publishes the openmbee/opensysml container image to Docker Hub from the
-  # core `v<version>` tag: sysml-grpc as the entrypoint, with sysml and
-  # sysml-lsp beside it, for linux/amd64 and linux/arm64 through one manifest
-  # list. The credentials come from the 'DockerHub' context. Everything that
-  # can fail runs before the push: the tag check, the credential, the Docker
-  # Hub availability check, and a built linux/amd64 image that is run and
-  # asked for its version and its health before the multi-arch build is pushed.
+  # Publishes openmbee/opensysml (linux/amd64,linux/arm64) to Docker Hub from the
+  # core v* tag with the 'DockerHub' context; everything that can fail runs first.
   publish-docker:
     executor: docker-executor
     steps:
@@ -3381,31 +3376,11 @@ jobs:
               echo "Error: CIRCLE_TAG is empty; this job only runs on a core v* tag."
               exit 1
             fi
-            # The image tag spells the version as the clients' registries do,
-            # without the v. A pre-release (-rc.1, -alpha.1…) gets its own tag
-            # and `latest` is untouched, as publish-npm leaves `latest` alone.
-            # `latest` moves only to the newest release: a tag published late,
-            # after a newer release, must not roll `latest` back to it. Every
-            # release is a git tag, so the newest stable `v*` tag decides.
+            # The image tag is the version without the v, as the clients' registries
+            # spell it; whether `latest` moves too is decided at the push.
             version=${CIRCLE_TAG#v}
-            tags="openmbee/opensysml:${version}"
-            case "$version" in
-              *-*) echo "pre-release: latest is not moved" ;;
-              *)
-                # CircleCI fetches the ref being built, not the tag namespace;
-                # --force lets a re-run on a kept checkout take the moved nightly tag.
-                git fetch --tags --force --quiet origin
-                newest=$( { git tag -l 'v[0-9]*' | grep -v -- -; echo "v${version}"; } | sort -V | tail -n 1)
-                if [ "$newest" = "v${version}" ]; then
-                  tags="${tags} openmbee/opensysml:latest"
-                else
-                  echo "${newest} is a newer release: latest is not moved to ${version}"
-                fi
-                ;;
-            esac
             echo "export IMAGE_VERSION=${version}" >> "$BASH_ENV"
-            echo "export IMAGE_TAGS='${tags}'" >> "$BASH_ENV"
-            echo "Publishing ${tags}"
+            echo "Publishing openmbee/opensysml:${version}"
 
       - run:
           name: Require the publishing credentials
@@ -3425,20 +3400,13 @@ jobs:
             # A bad or expired access token fails here, before anything is built.
             echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 
-      # A published tag is not replaced: the clients pin a release by digest,
-      # and a tag that named two different images would break that promise.
-      # The registry is asked directly so that only a definite "manifest
-      # unknown" (404) lets the push proceed: a `docker manifest inspect` that
-      # failed on a network error or a rate limit would read as an absent tag
-      # and a later push would replace the published image. Anything but 200
-      # or 404 fails closed; a 401 also means the repository does not exist
-      # yet, so it is created on Docker Hub before the first release.
+      # A published version tag is never replaced, so only the registry's definite
+      # 404 lets the push proceed; any other answer fails closed (releasing.md).
       - run:
           name: Refuse a version already on Docker Hub
           command: |
             image=openmbee/opensysml
-            # The token request carries the credentials through a curl config
-            # file, so they are on no command line.
+            # Credentials and token travel in curl config files, never on a command line.
             token=$(curl -fsS --retry 3 --retry-all-errors \
               -K <(printf 'user = "%s:%s"\n' "$DOCKER_USERNAME" "$DOCKER_PASSWORD") \
               "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${image}:pull" \
@@ -3450,7 +3418,7 @@ jobs:
             accept='application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json'
             rm -f /tmp/manifest-check.json
             status=$(curl -sS --retry 3 --retry-all-errors -o /tmp/manifest-check.json -w '%{http_code}' \
-              -H "Authorization: Bearer ${token}" -H "Accept: ${accept}" \
+              -K <(printf 'header = "Authorization: Bearer %s"\n' "$token") -H "Accept: ${accept}" \
               "https://registry-1.docker.io/v2/${image}/manifests/${IMAGE_VERSION}") || status=000
             case "$status" in
               404)
@@ -3524,16 +3492,30 @@ jobs:
       - unless:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:
-            # One build publishes both platforms under one manifest list per
-            # tag, with buildx's SLSA provenance and SBOM attestations attached
-            # to it; the registry has the image's provenance as the GitHub
-            # release has its signed manifest. The digest the push reports is
-            # what a deployer pins.
+            # One build publishes both platforms under one manifest list per tag, with
+            # buildx's SLSA provenance and SBOM attached; the digest it reports is what a deployer pins.
             - run:
                 name: Build and push the multi-platform image
                 command: |
+                  tags="openmbee/opensysml:${IMAGE_VERSION}"
+                  # `latest` moves only to the newest stable release, decided against the tag
+                  # namespace as fetched now, so a late or re-run publish cannot roll it back.
+                  case "$IMAGE_VERSION" in
+                    *-*) echo "pre-release: latest is not moved" ;;
+                    *)
+                      git fetch --tags --force --quiet origin
+                      newest=$( { git tag -l 'v[0-9]*' | grep -v -- -; echo "v${IMAGE_VERSION}"; } | sort -V | tail -n 1)
+                      if [ "$newest" = "v${IMAGE_VERSION}" ]; then
+                        tags="${tags} openmbee/opensysml:latest"
+                      else
+                        echo "${newest} is a newer release: latest is not moved to ${IMAGE_VERSION}"
+                      fi
+                      ;;
+                  esac
+                  echo "export IMAGE_TAGS='${tags}'" >> "$BASH_ENV"
+                  echo "Pushing ${tags}"
                   tag_flags=""
-                  for tag in ${IMAGE_TAGS}; do tag_flags="${tag_flags} -t ${tag}"; done
+                  for tag in ${tags}; do tag_flags="${tag_flags} -t ${tag}"; done
                   # shellcheck disable=SC2086
                   docker buildx build --platform linux/amd64,linux/arm64 --push \
                     --provenance=mode=max --sbom=true \
@@ -3541,7 +3523,7 @@ jobs:
                     --build-arg COMMIT="${CIRCLE_SHA1}" \
                     --build-arg BUILD_TIME="${BUILD_TIME}" \
                     ${tag_flags} .
-                  for tag in ${IMAGE_TAGS}; do
+                  for tag in ${tags}; do
                     docker buildx imagetools inspect "$tag"
                   done
       - when:
