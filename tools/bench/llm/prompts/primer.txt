@@ -1,0 +1,10 @@
+Write one SysML v2 textual-notation document that models the task below.
+
+Rules:
+- Use standard SysML v2 only; the OMG standard library (ScalarValues, ISQ, SI, StandardViewDefinitions, VerificationCases, ...) is available but must be imported explicitly, e.g. `private import ScalarValues::*;`.
+- Use exactly the package, definition and usage names the task gives; add nothing the task does not ask for.
+- Every referenced name must be declared in the document or imported from the standard library.
+- Output only the document text: no commentary, no Markdown fences.
+
+Task:
+{{.Task}}

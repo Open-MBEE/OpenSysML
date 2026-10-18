@@ -1635,25 +1635,8 @@ func (d *defaultDropper) dropsLiteral(subject rdf.Term, local string, object rdf
 	case local == pVisibility && object.Value == "public":
 		// Public is the visibility a member writes nothing for.
 		return true
-	case local == "isComposite" && object.Value == "true":
-		return d.compositeByDefault(subject)
 	}
 	return false
-}
-
-// compositeByDefault reports a usage that is composite without a keyword.
-func (d *defaultDropper) compositeByDefault(subject rdf.Term) bool {
-	graph, meta := d.graph, d.meta
-	switch meta(subject) {
-	case "PartUsage", mPortUsage, "ItemUsage", "ConstraintUsage":
-		// Compositional usages are composite without a keyword.
-		return true
-	}
-	// A usage nested in a type is composite unless `ref` (SysML
-	// Usage::isComposite); only one elsewhere writes `composite`.
-	owner := firstIRI(graph, firstIRI(graph, subject, pOwningRelationship), pOwningRelatedElement, pOwner)
-	return (meta(subject) == "FlowUsage" || ontology.IsAncestorOrSelf(meta(subject), "Usage")) && owner.IsIRI() &&
-		ontology.IsAncestorOrSelf(meta(owner), "Type")
 }
 
 // membershipOwnedIn is every element owned by a membership — an annotation of

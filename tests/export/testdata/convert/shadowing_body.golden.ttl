@@ -124,6 +124,7 @@ elmt:ShadowBody__Sensor__value
     sysml:owner elmt:ShadowBody__Sensor ;
     sysml:owningRelationship elmt:ShadowBody__Sensor__value_om ;
     sysml:owningMembership elmt:ShadowBody__Sensor__value_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "value" ;
     sysml:type elmt:ShadowBody__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -157,6 +158,7 @@ elmt:ShadowBody__Sensor__readings
     sysml:owner elmt:ShadowBody__Sensor ;
     sysml:owningRelationship elmt:ShadowBody__Sensor__readings_om ;
     sysml:owningMembership elmt:ShadowBody__Sensor__readings_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "readings" ;
     sysml:type elmt:ShadowBody__Speed ;
     sysml:multiplicity expr:ShadowBody__Sensor__readings_pmultiplicity ;
@@ -183,6 +185,7 @@ elmt:ShadowBody__Sensor__readings_om
 
 expr:ShadowBody__Sensor__readings_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ShadowBody__Sensor__readings_pmultiplicity" ;
     sysml:owner elmt:ShadowBody__Sensor__readings ;
     sysml:owningRelationship expr:ShadowBody__Sensor__readings_pmultiplicity_om ;
@@ -205,6 +208,7 @@ expr:ShadowBody__Sensor__readings_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "ShadowBody__Sensor__readings_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:owner expr:ShadowBody__Sensor__readings_pmultiplicity ;
     sysml:owningRelationship expr:ShadowBody__Sensor__readings_pupperBound_om ;
     sysml:owningMembership expr:ShadowBody__Sensor__readings_pupperBound_om .
@@ -232,6 +236,7 @@ elmt:ShadowBody__Sensor__highs
     sysml:owner elmt:ShadowBody__Sensor ;
     sysml:owningRelationship elmt:ShadowBody__Sensor__highs_om ;
     sysml:owningMembership elmt:ShadowBody__Sensor__highs_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "highs" ;
     sysml:value expr:ShadowBody__Sensor__highs_pvalue ;
     sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_om ;
@@ -255,6 +260,7 @@ expr:ShadowBody__Sensor__highs_pvalue
     a sysml:InvocationExpression ;
     sysx:sourceText "readings->select { in value; value > 5 }" ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:function elmt:d2b84130-4d51-5e96-9ce6-150b5bd9ff56 ;
     sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pfunction, expr:ShadowBody__Sensor__highs_pvalue_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pin1_om, expr:ShadowBody__Sensor__highs_pvalue_pout_om ;
     sysml:operand expr:ShadowBody__Sensor__highs_pvalue_poperand ;
@@ -287,6 +293,7 @@ expr:ShadowBody__Sensor__highs_pvalue_poperand
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "readings" ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_poperand" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ShadowBody__Sensor__readings ;
     sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_poperand_pout_om, expr:ShadowBody__Sensor__highs_pvalue_poperand_preferent ;
     sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_poperand_pout_om ;
@@ -301,6 +308,7 @@ expr:ShadowBody__Sensor__highs_pvalue_poperand
 
 expr:ShadowBody__Sensor__highs_pvalue_poperand_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_poperand_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_poperand ;
@@ -321,6 +329,7 @@ expr:ShadowBody__Sensor__highs_pvalue_poperand_pout_om
 
 expr:ShadowBody__Sensor__highs_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue ;
@@ -357,6 +366,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "{ in value; value > 5 }" ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
     sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_pout_om ;
     sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_pout_om ;
@@ -374,6 +384,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody
     a sysml:Expression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_pbody" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
     sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om ;
@@ -401,6 +412,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_pin0" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
@@ -424,6 +436,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult
     a sysml:OperatorExpression ;
     sysx:sourceText "value > 5" ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:operator ">" ;
     sysml:argument expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1 ;
     sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout_om ;
@@ -448,6 +461,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "value" ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent "value" ;
     sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_preferent ;
     sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout_om ;
@@ -462,6 +476,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 ;
@@ -482,6 +497,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout_om
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
@@ -518,6 +534,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "5" ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "5"^^xsd:integer ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
     sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1_om ;
@@ -525,6 +542,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1" ;
     sysml:direction "in" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
@@ -559,6 +577,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1_om
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
@@ -590,6 +609,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_om
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
@@ -610,6 +630,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_pout_om
 
 expr:ShadowBody__Sensor__highs_pvalue_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pin1" ;
     sysml:direction "in" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue ;
@@ -644,6 +665,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_om
 
 expr:ShadowBody__Sensor__highs_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue ;

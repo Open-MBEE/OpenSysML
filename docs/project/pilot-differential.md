@@ -244,7 +244,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 397 files)
+## Results (pilot `2026-08`, 398 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -252,10 +252,10 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 88 | 261 | 0 | 0 | 0 | 261 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 54 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
-| `tests/testdata` | 28 | 16 | 61 | 81 | 48 | 1 | 12 | 32 |
+| `tests/testdata` | 29 | 16 | 66 | 85 | 48 | 5 | 13 | 32 |
 | `examples` | 52 | 45 | 8 | 61 | 0 | 0 | 8 | 61 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **397** | **358** | **364** | **142** | **48** | **1** | **315** | **93** |
+| **Total** | **398** | **358** | **369** | **146** | **48** | **5** | **316** | **93** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -293,14 +293,16 @@ distinguishability warnings (223 on `sysml-examples`, 8 on `sysml-validation`, 4
 and the 32 `unresolved-reference` errors on names those warnings hide (26 on `sysml-examples`, 3 on
 `sysml-validation`, 3 on `kerml-examples`) are set aside as the known pilot omission they are (see the
 imported-membership and hidden-imported-memberships rounds below) — of which six, the
-`Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (1) holds pairs of the same shape:
-where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
-changing what it detects.
+`Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (5) holds pairs of the same shape:
+where the pilot errors on a line we warn on, or warns where we error — the four `*` values
+`passes/literal_infinity.sysml` binds to a Boolean, a String, a part and an enumeration, which
+the pilot flags as non-conforming bound features and we as `binding-connector-type-conformance`
+errors — the pair sits in severity-only rather than either side changing what it detects.
 
 Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 227
 `unmapped`, 26 `unresolved-reference`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`,
 3 `unresolved-reference`; `kerml-examples` 13 `unmapped`, 3 `unresolved-reference`; `testdata` 10 `unmapped`,
-1 `unresolved-reference`, 1 `multiplicity`; `examples` 5
+1 `unresolved-reference`, 2 `multiplicity`; `examples` 5
 `unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`. Only-pilot: `testdata` 13 `kind-mismatch`, 14 `unmapped`,
 3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`.
 
@@ -968,8 +970,8 @@ cascades through the rest of the file. The movement is entirely one file,
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
 | only pilot | 82 | **93** |
-| pilot diagnostics | 123 | **142** |
-| severity-only | 9 | **1** |
+| pilot diagnostics | 123 | **146** |
+| severity-only | 9 | **5** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -1192,10 +1194,10 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **358 / 315 / 364** |
+| overall: fully agreeing / only ours / our diagnostics | **358 / 316 / 369** |
 | only pilot | **93** |
-| pilot diagnostics | **142** |
-| severity-only | **1** |
+| pilot diagnostics | **146** |
+| severity-only | **5** |
 | unmapped, our side | **284** |
 | kerml-examples: only ours | **16** |
 | pilot-examples: only ours | **261** |

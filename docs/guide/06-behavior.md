@@ -1791,6 +1791,33 @@ holder"`), else the single object of the definition the run holds; `-validate=<o
 `-requirement` and `-satisfy` run a verification case a definition owns once per object of it the
 check is about, naming the object on its verdict.
 
+So a requirement a part definition `satisfy`s is checked on every usage of it, and a verification
+the definition owns runs on each usage's object; the usage's subject is the owning object, which
+an owned performance names `this` — `self` there is the case itself, and binding the subject to
+it draws `warning[bound-feature-types]`, as the reference implementation reports it:
+
+```sysml
+// in DefinitionPkg; RequirementPkg::costReq : CostRequirement { :>> maximumCost = 100.0; }
+part def Definition {
+    attribute cost : Real;
+    satisfy costReq;
+    verification def CostTest {
+        subject product : Definition;
+        objective { verify costReq; }
+        return verdict = VerificationCases::PassIf(product.cost <= RequirementPkg::costReq.maximumCost);
+    }
+    verification costTest : CostTest { subject product = this; }
+}
+// in ProductPkg
+part good : Definition { attribute :>> cost = 80.0; }
+```
+
+`sysml -instantiate ProductPkg::good -validate=ProductPkg::good model.sysml` reports `satisfy costReq
+holds (on ProductPkg::good ID: 1)` and `Verification DefinitionPkg::Definition::costTest on
+ProductPkg::good (object #1) verdict: pass`; a usage with `cost = 120.0` fails both.
+`-analysis DefinitionPkg::Definition::costTest` without an object has nothing to run on and says so:
+`verdict: inconclusive — needs an object of DefinitionPkg::Definition: none is instantiated`.
+
 What stops a case is reported as an error naming it, never as a silent empty result: a
 `subject` nothing binds (`analysis An::CostAnalysis: s subject is unbound: bind it
 (`subject s = <element>`) or run it on an object`), an `in` parameter with neither argument nor
