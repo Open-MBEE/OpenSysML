@@ -287,16 +287,6 @@ func Names(groups ...Group) []string {
 	return names
 }
 
-// Lookup finds the entry of a tool.
-func Lookup(name string) (Entry, bool) {
-	for _, e := range Tools {
-		if e.Name == name {
-			return e, true
-		}
-	}
-	return Entry{}, false
-}
-
 // ToolFor answers the tool that serves an RPC of the service.
 func ToolFor(rpc string) (Entry, bool) {
 	for _, e := range Tools {
