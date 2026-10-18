@@ -298,7 +298,7 @@ func (ctx *Context) redefinitionAliases(typ *symbols.Symbol, name string) map[st
 // whose feature value the group shares: the first name, in most-specific-first order,
 // whose own declaration values it — by a value, or by a body valuing the features
 // of the value it inherits — and otherwise the most specific name.
-// Two names valued by one declaration are ErrConflictingRedefinition.
+// Two names valued by one declaration are errConflictingRedefinition.
 func (ctx *Context) sharedRedefinitionName(inst *Instance, byName, canonicalByName map[string]*EffectiveFeature, names []string, overridden map[string]bool) (string, error) {
 	valued := ""
 	var valuedBy *symbols.Scope
@@ -317,7 +317,7 @@ func (ctx *Context) sharedRedefinitionName(inst *Instance, byName, canonicalByNa
 			}
 			if cand.Symbol.OwnerScope == valuedBy {
 				return "", fmt.Errorf("%w: %s values %s and %s, which redefinition makes one feature",
-					ErrConflictingRedefinition, inst.Type.Name, valued, name)
+					errConflictingRedefinition, inst.Type.Name, valued, name)
 			}
 		}
 	}
@@ -766,4 +766,68 @@ func (ctx *Context) fillOptionalSubsetters(inst *Instance, name string, n int) (
 		ctx.invalidateDependents(fill.fv)
 	}
 	return made, undo, nil
+}
+
+// referencedFeatureName is the feature of inst that sym reference-subsets (`ref part y ::> x`),
+// or "" when it names no feature this object holds.
+func (ctx *Context) referencedFeatureName(inst *Instance, sym *symbols.Symbol) string {
+	target := ctx.model.semantics.ReferencedFeature(sym)
+	if target == nil || target == sym {
+		return ""
+	}
+	fv, held := inst.FeatureValues[target.Name]
+	if !held {
+		return ""
+	}
+	// A redefinition under another name (`part renamed :>> own`) keeps the name it
+	// redefines as an alias of its own slot, which the types no longer look up.
+	if fv.Feature.Symbol == target || ctx.redefinesTransitively(fv.Feature.Symbol, target) {
+		return target.Name
+	}
+	for _, typ := range inst.types() {
+		if ctx.isFeatureOf(typ, target, sym) {
+			return target.Name
+		}
+	}
+	return ""
+}
+
+// materializeReferenced holds in fv the values of the feature of the same object it
+// reference-subsets: a reference subsetting is a subsetting (KerML 1.0 §8.3.3.3.9), so the
+// values of `ref part y ::> x` are values of x (§7.3.4.4). Reports whether it held any.
+func (inst *Instance) materializeReferenced(ctx *Context, fv *FeatureValue, name string) (bool, error) {
+	source := ctx.referencedFeatureName(inst, fv.Feature.Symbol)
+	if source == "" || source == name {
+		return false, nil
+	}
+	key := featureValueRef{instance: inst.ID, feature: name}
+	if ctx.readingSubsetted[key] || ctx.readingSubsetted[featureValueRef{instance: inst.ID, feature: source}] {
+		return false, nil
+	}
+	ctx.readingSubsetted[key] = true
+	defer delete(ctx.readingSubsetted, key)
+	sfv, err := inst.GetFeatureValue(ctx, source)
+	if err != nil {
+		return false, fmt.Errorf("referenced feature %s of %s: %w", source, name, err)
+	}
+	// The reference reads the source for as long as it holds it: a write to the
+	// source unmaterializes it, and the next read follows the source again.
+	ctx.listRead(sfv, fv)
+	val := sfv.HeldValue()
+	if val.Kind == ValInvalid {
+		return false, nil
+	}
+	if err := ctx.checkDefault(inst, fv, name, &val, admitDeclared); err != nil {
+		return false, err
+	}
+	if val, err = ctx.holdDeclared(inst, fv, val); err != nil {
+		return false, err
+	}
+	if fv.Feature.Scalar() {
+		fv.Value = val
+	} else {
+		fv.Values = val
+	}
+	fv.Materialized = true
+	return true, nil
 }

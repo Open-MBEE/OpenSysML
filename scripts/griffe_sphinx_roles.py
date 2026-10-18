@@ -10,6 +10,8 @@ from typing import Any
 from griffe import Alias, Class, Extension, Module
 
 
+PACKAGE_PREFIX = "opensysml."
+
 _ROLE = re.compile(r":(?:py:)?(?P<role>class|meth|func|attr|exc|mod|data|obj):`(?P<short>~?)(?P<name>[^`]+)`")
 _LABEL_TARGET = re.compile(r"^(?P<label>|.*\S)\s*<(?P<target>[^<>]+)>$")
 _FENCE_START = re.compile(r"^[ \t]*(`{3,})([^`]*)$")
@@ -63,7 +65,7 @@ def rewrite_roles(text: str, resolve: Callable[[str, str], str | None]) -> str:
 
 def _resolved_target(obj: Any) -> Any | None:
     while isinstance(obj, Alias):
-        if not obj.resolved and not obj.target_path.startswith("opensysml."):
+        if not obj.resolved and not obj.target_path.startswith(PACKAGE_PREFIX):
             return None
         try:
             obj = obj.target
@@ -116,7 +118,7 @@ def _exported_paths(package: Module, export_names: list[str]) -> dict[str, str]:
         visited.add(visit_key)
 
         canonical_path = getattr(target, "path", None)
-        if isinstance(canonical_path, str) and canonical_path.startswith("opensysml."):
+        if isinstance(canonical_path, str) and canonical_path.startswith(PACKAGE_PREFIX):
             paths.setdefault(canonical_path, path)
 
         if identity in active:
@@ -149,7 +151,7 @@ def _resolve_reference(
     owner_candidate = (
         f"{owning_class}.{name}" if "." not in name and owning_class is not None else None
     )
-    if name.startswith("opensysml."):
+    if name.startswith(PACKAGE_PREFIX):
         candidates.append(name)
     if owner_candidate is not None and role in {"meth", "attr"}:
         candidates.append(owner_candidate)

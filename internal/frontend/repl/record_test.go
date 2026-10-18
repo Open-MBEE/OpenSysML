@@ -1,6 +1,7 @@
 package repl
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis/record"
 	"os"
 	"path/filepath"
 	"strings"
@@ -169,7 +170,7 @@ func TestRecordRunQueryableByFeature(t *testing.T) {
 
 // The records land beside the package enclosing the case's: a case in a
 // nested package's Records is made under its parent, and one nested in a
-// part lands under a top-level Records.
+// part definition, run on an object of it, lands under a top-level Records.
 func TestRecordPackageFollowsTheCasesPackage(t *testing.T) {
 	s := recordSession(t)
 	if errs := errorDiagnostics(s.Submit(`package A {
@@ -187,6 +188,7 @@ package P {
 		t.Fatalf("model has errors: %v", errs)
 	}
 	wants(t, run(t, s, "%record A::Descent::c"), "recorded A::Records::c_run1")
+	run(t, s, "%instantiate P::H")
 	wants(t, run(t, s, "%record P::H::inner"), "recorded Records::inner_run1")
 }
 
@@ -810,7 +812,7 @@ func TestRecordAttributesFollowsAnInheritedBound(t *testing.T) {
 	resolver := resolve.New(idx)
 	sem := semantics.NewModel(resolver)
 	resolver.SetModel(sem)
-	f, ok := recordAttributes(idx, sem, defs[0])["temps"]
+	f, ok := record.Attributes(idx, sem, defs[0])["temps"]
 	if !ok || !f.Multi {
 		t.Errorf("temps = %+v (present %v), want a multi-valued feature", f, ok)
 	}

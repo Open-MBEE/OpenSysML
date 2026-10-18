@@ -194,7 +194,7 @@ func TestRenderRunRefusesJSONStdoutAndCompareResults(t *testing.T) {
 				"-render-run", "timeline=" + filepath.Join(dir, "timeline.txt"),
 				"-render-run", "sequence=-",
 			},
-			want: "-render-run cannot write to stdout with -json; name a file for the rendering",
+			want: "-render-run cannot write to stdout with -json or a -format document; name a file for the rendering",
 			path: filepath.Join(dir, "timeline.txt"),
 		},
 		{

@@ -11,6 +11,11 @@ import (
 	"strings"
 )
 
+const (
+	umlPackage = "uml:Package"
+	umlClass   = "uml:Class"
+)
+
 // node is one XML element of the transformation model, decoded generically:
 // the mapping extraction needs only names, ids, types and parentage.
 type node struct {
@@ -114,7 +119,7 @@ func extract(path string) (*extracted, error) {
 	var mappings *node
 	for _, c := range root.children {
 		for _, e := range c.children {
-			if e.xmiID() == mappingsPackageID && e.is("uml:Package") {
+			if e.xmiID() == mappingsPackageID && e.is(umlPackage) {
 				mappings = e
 			}
 		}
@@ -128,10 +133,10 @@ func extract(path string) (*extracted, error) {
 		if id := e.xmiID(); id != "" {
 			byID[id] = e
 		}
-		if e.is("uml:Class") && (e.local == "packagedElement" || e.local == "nestedClassifier") {
+		if e.is(umlClass) && (e.local == "packagedElement" || e.local == "nestedClassifier") {
 			out.Classes++
 		}
-		if e.local == "packagedElement" && e.is("uml:Package") {
+		if e.local == "packagedElement" && e.is(umlPackage) {
 			out.Packages++
 		}
 	})
@@ -152,7 +157,7 @@ func extract(path string) (*extracted, error) {
 	var list []Mapping
 	seen := map[string]bool{}
 	mappings.walk(func(e *node) {
-		if !e.is("uml:Class") || (e.local != "packagedElement" && e.local != "nestedClassifier") {
+		if !e.is(umlClass) || (e.local != "packagedElement" && e.local != "nestedClassifier") {
 			return
 		}
 		name := e.name()
@@ -190,7 +195,7 @@ type model struct {
 func (m *model) packagePath(e *node) string {
 	var parts []string
 	for p := e.parent; p != nil && p.xmiID() != mappingsPackageID; p = p.parent {
-		if p.is("uml:Package") && p.local == "packagedElement" {
+		if p.is(umlPackage) && p.local == "packagedElement" {
 			parts = append([]string{p.name()}, parts...)
 		}
 	}
@@ -200,10 +205,10 @@ func (m *model) packagePath(e *node) string {
 // ownerClass is the class a nestedClassifier is nested in, if any.
 func (m *model) ownerClass(e *node) *node {
 	for p := e.parent; p != nil; p = p.parent {
-		if p.is("uml:Class") {
+		if p.is(umlClass) {
 			return p
 		}
-		if p.local == "packagedElement" && p.is("uml:Package") {
+		if p.local == "packagedElement" && p.is(umlPackage) {
 			return nil
 		}
 	}

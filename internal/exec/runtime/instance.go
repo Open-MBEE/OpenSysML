@@ -124,7 +124,7 @@ func (s *FeatureValue) ReadValue(name string) (Value, error) {
 	if lower := s.Feature.Multiplicity.Lower; lower.Known && !lower.Infinite && lower.Value == 0 {
 		return (*Context)(nil).collectionOf(s.Feature, nil), nil
 	}
-	return Value{}, fmt.Errorf("%w: %s", ErrUninitializedFeatureValue, name)
+	return Value{}, fmt.Errorf("%w: %s", errUninitializedFeatureValue, name)
 }
 
 // UnsetText is how every surface spells a feature value that holds no value: a valueless
@@ -153,12 +153,40 @@ func (ctx *Context) shapeHoldsValue(typ *symbols.Symbol) bool {
 	if !ctx.model.semantics.ValueHeld(typ) {
 		return true
 	}
+	usages := ctx.usageAndSpecializedUsages(typ)
 	for _, feat := range features {
-		if !ctx.libraryDeclared(feat.Symbol) && holdsRecordField(feat.Symbol) {
+		if !holdsRecordField(feat.Symbol) {
+			continue
+		}
+		// A library usage's own body (`:>> mRefs default (m, m, m)`) describes the particular
+		// frame it names, for the usage and for a usage specializing it (`attribute local :> …`).
+		if !ctx.libraryDeclared(feat.Symbol) || usages[feat.OwnerType] {
 			return true
 		}
 	}
 	return false
+}
+
+// usageAndSpecializedUsages is typ, when it is a usage, with every usage it
+// directly specializes (`attribute local :> ...Frame;`); a definition contributes nothing.
+func (ctx *Context) usageAndSpecializedUsages(typ *symbols.Symbol) map[*symbols.Symbol]bool {
+	usages := map[*symbols.Symbol]bool{}
+	if usageSymbol(typ) {
+		usages[typ] = true
+	}
+	for _, sup := range ctx.model.semantics.DirectSupertypes(typ) {
+		if usageSymbol(sup) {
+			usages[sup] = true
+		}
+	}
+	return usages
+}
+
+// usageSymbol reports whether sym declares a usage — a feature — rather than a
+// definition; a KerML classifier is parsed as a usage node but classifies.
+func usageSymbol(sym *symbols.Symbol) bool {
+	_, ok := sym.Decl.(*ast.Usage)
+	return ok && !sym.Kind.IsDefinition()
 }
 
 // noValueError reports the read of node, which found the unset value val, naming
@@ -282,7 +310,7 @@ func (ctx *Context) initFeatureValue(inst *Instance, fv *FeatureValue, feat *Eff
 // defaultYieldsToSubsetters reports whether feat's `default` may be superseded by a
 // feature of one of inst's types subsetting it, so it must wait to be read rather than be folded.
 func (ctx *Context) defaultYieldsToSubsetters(inst *Instance, feat *EffectiveFeature) bool {
-	if !feat.DefaultIsFallback() {
+	if !feat.defaultIsFallback() {
 		return false
 	}
 	for _, typ := range inst.types() {
@@ -302,7 +330,7 @@ func (ctx *Context) unfoldSubsettedDefaults(inst *Instance, typ *symbols.Symbol,
 		}
 		for _, name := range ctx.declaredSubsettedNames(features[i].Symbol, typ) {
 			fv, ok := inst.FeatureValues[name]
-			if !ok || !fv.Materialized || fv.Written || !ctx.valueBinds(fv.Feature) || !fv.Feature.DefaultIsFallback() {
+			if !ok || !fv.Materialized || fv.Written || !ctx.valueBinds(fv.Feature) || !fv.Feature.defaultIsFallback() {
 				continue
 			}
 			ctx.noteProbeWrite(fv)
@@ -383,7 +411,7 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	ctx.beginLife(inst)
 
 	if ctx.trace != nil {
-		ctx.trace.RecordObjectMaterialized(symbolText(sym), inst.ID)
+		ctx.trace.recordObjectMaterialized(SymbolText(sym), inst.ID)
 	}
 
 	return inst, nil
@@ -398,14 +426,14 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 	} else if bound && len(objs) == 1 {
 		return objs[0], nil
 	} else if bound {
-		return nil, fmt.Errorf("usage %s: %w: denotes %d occurrences, not one", symbolText(sym), ErrMultiplicityViolation, len(objs))
+		return nil, fmt.Errorf("usage %s: %w: denotes %d occurrences, not one", SymbolText(sym), ErrMultiplicityViolation, len(objs))
 	}
 	if objs, subsetted, err := ctx.namespacedSubsetObjects(sym); err != nil {
 		return nil, err
 	} else if subsetted && len(objs) == 1 {
 		return objs[0], nil
 	} else if subsetted {
-		return nil, fmt.Errorf("usage %s: %w: denotes %d occurrences, not one", symbolText(sym), ErrMultiplicityViolation, len(objs))
+		return nil, fmt.Errorf("usage %s: %w: denotes %d occurrences, not one", SymbolText(sym), ErrMultiplicityViolation, len(objs))
 	}
 	// The occurrence is recorded before its behaviors start, so a behavior that
 	// reaches the usage it belongs to reads this object rather than a second one.
@@ -435,7 +463,7 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	} else if subsetted {
 		return objs, nil
 	}
-	count, err := ctx.lowerBoundCount(ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)), 0, symbolText(sym))
+	count, err := ctx.lowerBoundCount(ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)), 0, SymbolText(sym))
 	if err != nil {
 		return nil, err
 	}
@@ -533,13 +561,13 @@ func (ctx *Context) denotedObjects(sym *symbols.Symbol) ([]*Instance, error) {
 	case ctx.namesOneObject(sym):
 		inst, err := ctx.occurrenceOf(sym)
 		if err != nil {
-			return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+			return nil, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
 		}
 		return []*Instance{inst}, nil
 	case ctx.namesObjects(sym):
 		members, err := ctx.everyOccurrence(sym)
 		if err != nil {
-			return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+			return nil, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
 		}
 		return members, nil
 	case ctx.optionalValueless(sym):
@@ -564,13 +592,13 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 	if !ctx.namesObjects(sym) {
 		inst, err := ctx.occurrenceOf(sym)
 		if err != nil {
-			return Value{}, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+			return Value{}, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
 		}
 		return ctx.objectValue(inst)
 	}
 	members, err := ctx.occurrencesOf(sym)
 	if err != nil {
-		return Value{}, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+		return Value{}, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
 	}
 	tail := ctx.occurrenceTail(sym)
 	held := int64(len(members))
@@ -578,7 +606,7 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 		held += tail.count
 	}
 	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); mult.AdmitsMore(held) && !symbols.IsAbstract(sym) {
-		spelled := ctx.qualifiedSymbolName(sym)
+		spelled := ctx.QualifiedName(sym)
 		return undeterminedFeatureValue(openCountReason(spelled, mult), mult, sym), nil
 	}
 	elements := make([]Value, 0, len(members))
@@ -626,7 +654,7 @@ func (ctx *Context) OccurrenceUsage(inst *Instance) string {
 	if inst == nil || !ctx.denotesOccurrence(inst) {
 		return ""
 	}
-	return ctx.qualifiedSymbolName(inst.Type)
+	return ctx.QualifiedName(inst.Type)
 }
 
 // isOccurrenceUsage reports whether sym declares a usage that is an occurrence:
@@ -640,12 +668,20 @@ func isOccurrenceUsage(sym *symbols.Symbol) bool {
 	if !ok || usage.Value != nil {
 		return false
 	}
-	switch usage.Kind {
-	case ast.UsagePart, ast.UsageItem, ast.UsageOccurrence, ast.UsageIndividual:
+	return objectUsageKind(usage.Kind)
+}
+
+// objectUsageKind reports a usage kind whose values are objects: the occurrence usages
+// (SysML v2 §7.9), cases, views, viewpoints, concerns and renderings among them (§7.21–7.26).
+func objectUsageKind(kind ast.UsageKind) bool {
+	switch kind {
+	case ast.UsagePart, ast.UsageItem, ast.UsageOccurrence, ast.UsageIndividual,
+		ast.UsageCase, ast.UsageUseCase, ast.UsageSatisfy,
+		ast.UsageView, ast.UsageViewpoint, ast.UsageConcern, ast.UsageFramedConcern,
+		ast.UsageRendering, ast.UsageViewRendering:
 		return true
-	default:
-		return false
 	}
+	return false
 }
 
 // namesOneObject reports whether a usage denotes one object of its own — which
@@ -762,6 +798,10 @@ func (feat *EffectiveFeature) heldBy() *symbols.Symbol {
 // admitted is the value an admitted val is stored as: a collection for a multi-valued
 // feature, its elements charged, the objects a declared value holds classified by the feature.
 func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (Value, error) {
+	if val.Kind == ValUndetermined {
+		// A value the model leaves open is held as it is: it is of no fixed count to collect.
+		return val, nil
+	}
 	if !feat.Scalar() && (val.Kind != ValSequence && val.Kind != ValSet || feat.HoldsSet != (val.Kind == ValSet)) {
 		// A multi-valued feature holds a collection however it was written, so a
 		// single value written to one is that collection's one element.
@@ -812,6 +852,9 @@ func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopul
 		return nil, err
 	}
 	if _, ok := inst.FeatureValues[name]; !ok {
+		if fv, derived, err := ctx.kernelCollectionRead(inst, name, open); derived {
+			return fv, err
+		}
 		// Naming no feature value of the object is no materialization of one.
 		return nil, fmt.Errorf("%w: feature %q not found in instance %d (type %s)", ErrNoSuchFeature, name, inst.ID, inst.Type.Name)
 	}
@@ -827,7 +870,7 @@ func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopul
 // conform to the multiplicity governing the feature; a feature the object does
 // not have is reported rather than added. A feature declared `constant` or
 // `derived`, or redefining or subsetting one that is, is refused as
-// ErrReadOnlyFeature and keeps what it held: a constant feature does not change
+// errReadOnlyFeature and keeps what it held: a constant feature does not change
 // over the lifetime of its featuring occurrence, and a derived one has the
 // values the model determines (KerML 1.0 §8.3.3.3.4, Feature::isConstant and
 // Feature::isDerived).
@@ -837,7 +880,7 @@ func (inst *Instance) SetFeatureValue(ctx *Context, name string, value Value) er
 		return err
 	}
 	if fv.Feature.Symbol != nil {
-		what := func() string { return fmt.Sprintf("write %s of object #%d (%s)", name, inst.ID, symbolText(inst.Type)) }
+		what := func() string { return fmt.Sprintf("write %s of object #%d (%s)", name, inst.ID, SymbolText(inst.Type)) }
 		if err := ctx.readOnlyRefusal(what, name, fv.Feature.Symbol); err != nil {
 			return err
 		}
@@ -979,15 +1022,15 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// A bound value supplies the feature's own features, so a body restating one
 	// of them states two values for it.
 	if restated := ctx.restatedInValuedBody(fv.Feature); restated != "" {
-		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, ErrValuedFeatureRestated, restated)
+		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, errValuedFeatureRestated, restated)
 	}
 	if restated := ctx.restatedByNestedChain(inst, name, fv.Feature); restated != "" {
-		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, ErrValuedFeatureRestated, restated)
+		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, errValuedFeatureRestated, restated)
 	}
 
 	// A `default` applies only where nothing else populates the feature: the
 	// members subsetting it do (KerML 1.0 §7.3.4.5).
-	if ctx.valueBinds(fv.Feature) && fv.Feature.DefaultIsFallback() {
+	if ctx.valueBinds(fv.Feature) && fv.Feature.defaultIsFallback() {
 		contributed, err := ctx.subsettingContributions(inst, name)
 		if err != nil {
 			return nil, err
@@ -1011,6 +1054,11 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	}
 	if fv.Materialized {
 		return fv, nil
+	}
+
+	// A feature reference-subsetting another of this object holds that one's values.
+	if held, err := inst.materializeReferenced(ctx, fv, name); err != nil || held {
+		return fv, err
 	}
 
 	// An abstract feature has no values of its own (KerML 1.0 §7.3.3.1) and an
@@ -1216,7 +1264,7 @@ func (ctx *Context) lowerBoundCount(mult semantics.Range, held int, what string)
 		return 0, fmt.Errorf("cannot materialize %s with unknown multiplicity", what)
 	}
 	if mult.Lower.Infinite {
-		return 0, fmt.Errorf("%w for %s: a lower bound of * requires no finite number of values (KerML 1.0 §7.4.12 Multiplicities)", ErrInfiniteLowerBound, what)
+		return 0, fmt.Errorf("%w for %s: a lower bound of * requires no finite number of values (KerML 1.0 §7.4.12 Multiplicities)", errInfiniteLowerBound, what)
 	}
 	return max(mult.Lower.Value-int64(held), 0), nil
 }
@@ -1310,14 +1358,19 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 	return feat.Type
 }
 
-// declaresFeatures reports whether a usage's body, or that of a feature it redefines, declares
-// features: a redefining feature inherits the redefined one's (KerML 1.0 §7.3.4.5).
+// declaresFeatures reports whether a usage's body, or that of a feature it redefines or
+// directly subsets, declares features: a specializing feature inherits them (KerML 1.0 §7.3.4.5).
 func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 	if declaresFeatures(feat.Symbol) {
 		return true
 	}
 	for _, redefined := range ctx.redefinedFeatures(feat.Symbol, feat.OwnerType) {
 		if declaresFeatures(redefined) {
+			return true
+		}
+	}
+	for _, sup := range ctx.model.semantics.DirectSupertypes(feat.Symbol) {
+		if usageSymbol(sup) && declaresFeatures(sup) {
 			return true
 		}
 	}

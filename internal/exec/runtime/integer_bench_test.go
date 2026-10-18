@@ -7,7 +7,8 @@ import (
 )
 
 // integerBenchModel holds Integer-heavy calcs: a tight arithmetic loop, the
-// same loop over operands beyond int64, and a sum over a range.
+// same loop over operands beyond int64, a loop reading its attributes from
+// nested blocks, and a sum over a range.
 const integerBenchModel = `
 package bench {
 	private import ScalarValues::*;
@@ -19,6 +20,20 @@ package bench {
 		attribute i : Integer = 0;
 		while i < n {
 			assign acc := acc + i * 3 - 1;
+			assign i := i + 1;
+		}
+		acc
+	}
+	calc def NestedLoop {
+		in n : Integer;
+		attribute acc : Integer = 0;
+		attribute i : Integer = 0;
+		while i < n {
+			if i >= 0 {
+				if acc >= 0 {
+					assign acc := acc + i;
+				}
+			}
 			assign i := i + 1;
 		}
 		acc
@@ -61,6 +76,13 @@ func BenchmarkIntegerArithmeticLoopBeyondInt64(b *testing.B) {
 		b.Fatal("2^70 does not parse as an Integer")
 	}
 	benchIntegerCalc(b, "Loop", constInt(1000), Value{Kind: ValConst, Const: start})
+}
+
+// BenchmarkIntegerArithmeticNestedLoop reads the loop's attributes from inside
+// nested blocks, so each read probes the frames those blocks push before the
+// one holding the attribute answers.
+func BenchmarkIntegerArithmeticNestedLoop(b *testing.B) {
+	benchIntegerCalc(b, "NestedLoop", constInt(1000))
 }
 
 // BenchmarkIntegerCollectionSum sums a materialized Integer range.

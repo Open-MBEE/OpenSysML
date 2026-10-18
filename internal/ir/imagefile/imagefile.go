@@ -15,6 +15,10 @@ import (
 	"strings"
 )
 
+const (
+	svgMIME = "image/svg+xml"
+)
+
 // svgNamespace is the XML namespace an SVG document's root element is in.
 const svgNamespace = "http://www.w3.org/2000/svg"
 
@@ -26,7 +30,7 @@ func ContentType(data []byte) string {
 		return ct
 	}
 	if t := bytes.TrimSpace(data); bytes.HasPrefix(t, []byte("<")) && CheckSVG(t) == nil {
-		return "image/svg+xml"
+		return svgMIME
 	}
 	return ""
 }
@@ -187,7 +191,7 @@ func svgAttributeConstruct(element xml.StartElement, dataSVGDepth int) error {
 			lowerValue := strings.ToLower(value)
 			if strings.HasPrefix(lowerValue, "data:image/") {
 				mediaType, data, err := DecodeDataURL(value)
-				if mediaType == "image/svg+xml" {
+				if mediaType == svgMIME {
 					if dataSVGDepth >= 4 {
 						return &ActiveContentError{Construct: "data: SVG hrefs nested too deeply"}
 					}
@@ -268,12 +272,12 @@ func cssReference(text string) string {
 // extensions are the file suffixes each image content type is written
 // under, the first being the canonical one.
 var extensions = map[string][]string{
-	"image/png":     {".png"},
-	"image/jpeg":    {".jpg", ".jpeg"},
-	"image/gif":     {".gif"},
-	"image/webp":    {".webp"},
-	"image/bmp":     {".bmp"},
-	"image/svg+xml": {".svg"},
+	"image/png":  {".png"},
+	"image/jpeg": {".jpg", ".jpeg"},
+	"image/gif":  {".gif"},
+	"image/webp": {".webp"},
+	"image/bmp":  {".bmp"},
+	svgMIME:      {".svg"},
 }
 
 // plain reports base names a file can be written under.

@@ -216,7 +216,7 @@ func TestRuntimeRobustnessChangeTriggerWrites(t *testing.T) {
 		if err := holder.SetFeatureValue(ctx, "ready", boolValue(false)); err != nil {
 			t.Fatalf("lower ready: %v", err)
 		}
-		snapshot, err := exec.Snapshot()
+		snapshot, err := exec.snapshot()
 		if err != nil {
 			t.Fatalf("Snapshot: %v", err)
 		}

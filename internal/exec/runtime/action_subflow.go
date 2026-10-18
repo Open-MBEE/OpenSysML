@@ -37,11 +37,11 @@ func unfoldSubflow(sub *lower.Subflow, node ast.Node) (*lower.ActionGraph, error
 	}
 	graph, err := sub.Unfold()
 	if err != nil {
-		return nil, fmt.Errorf("%w: action node %s: %w", ErrInvalidActionFlow, ActionNodeName(node), err)
+		return nil, fmt.Errorf("%w: action node %s: %w", errInvalidActionFlow, ActionNodeName(node), err)
 	}
 	if err := lower.FlowStartError(graph); err != nil {
 		return nil, fmt.Errorf("%w: no initial node found in action node %s: %w",
-			ErrInvalidActionFlow, ActionNodeName(node), err)
+			errInvalidActionFlow, ActionNodeName(node), err)
 	}
 	if err := validateSubflows(graph); err != nil {
 		return nil, err
@@ -61,15 +61,15 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	node := token.Location
 	if perf.graph != nil && perf.graph.Invalid != nil {
 		return fmt.Errorf("%w: action node %s: %w",
-			ErrInvalidActionFlow, ActionNodeName(node), perf.graph.Invalid)
+			errInvalidActionFlow, ActionNodeName(node), perf.graph.Invalid)
 	}
 	if perf.graph == nil {
 		return fmt.Errorf("%w: action node %s owns a flow that cannot be built",
-			ErrInvalidActionFlow, ActionNodeName(node))
+			errInvalidActionFlow, ActionNodeName(node))
 	}
 	if err := lower.FlowStartError(perf.graph); err != nil {
 		return fmt.Errorf("%w: no initial node found in action node %s: %w",
-			ErrInvalidActionFlow, ActionNodeName(node), err)
+			errInvalidActionFlow, ActionNodeName(node), err)
 	}
 	starts := perf.graph.Starts()
 	token.frame = perf
@@ -80,7 +80,7 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	token.repetition = 0
 	token.repetitionGroup = 0
 	if tr := e.trace(); tr != nil {
-		tr.RecordActionNodeEnter(ActionNodeName(node))
+		tr.recordActionNodeEnter(ActionNodeName(node))
 	}
 	perf.live = len(starts)
 	if len(starts) == 0 {
@@ -154,7 +154,7 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 		perf.live = 0
 	}
 	if tr := e.trace(); tr != nil {
-		tr.RecordActionNodeExit(f.name)
+		tr.recordActionNodeExit(f.name)
 	}
 	return err
 }
@@ -165,18 +165,18 @@ func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error)
 	node := perf.node
 	if perf.graph != nil && perf.graph.Invalid != nil {
 		return nil, fmt.Errorf("%w: %s: %w",
-			ErrInvalidActionFlow, perf.describe(), perf.graph.Invalid)
+			errInvalidActionFlow, perf.describe(), perf.graph.Invalid)
 	}
 	if err := checkNodeResultParameters(perf.graph); err != nil {
 		return nil, fmt.Errorf("%s: %w", perf.describe(), err)
 	}
 	if perf.graph == nil {
 		return nil, fmt.Errorf("%w: %s owns a flow that cannot be built",
-			ErrInvalidActionFlow, perf.describe())
+			errInvalidActionFlow, perf.describe())
 	}
 	if err := lower.FlowStartError(perf.graph); err != nil {
 		return nil, fmt.Errorf("%w: no node starts the flow %s owns: %w",
-			ErrInvalidActionFlow, perf.describe(), err)
+			errInvalidActionFlow, perf.describe(), err)
 	}
 	starts := perf.graph.Starts()
 	perf.inBody = true
@@ -188,7 +188,7 @@ func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error)
 		name = perf.describe()
 	}
 	if tr := e.trace(); tr != nil {
-		tr.RecordActionNodeEnter(name)
+		tr.recordActionNodeEnter(name)
 	}
 	return &subflowFrame{exec: e, perf: perf, name: name}, nil
 }
@@ -605,7 +605,7 @@ func (e *ActionExecutor) leaveSubflow(tokenIdx int) error {
 	token.repetition = frame.repetition
 	token.repetitionGroup = frame.repetitionGroup
 	if tr := e.trace(); tr != nil {
-		tr.RecordActionNodeExit(ActionNodeName(frame.node))
+		tr.recordActionNodeExit(ActionNodeName(frame.node))
 	}
 	if err := e.endPerformance(frame); err != nil {
 		return err
@@ -618,17 +618,17 @@ func (e *ActionExecutor) leaveSubflow(tokenIdx int) error {
 // not at construction, per the error-timing contract.
 func validateSubflows(graph *lower.ActionGraph) error {
 	if graph.Invalid != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidActionFlow, graph.Invalid)
+		return fmt.Errorf("%w: %w", errInvalidActionFlow, graph.Invalid)
 	}
 	for _, node := range graph.Nodes {
 		if sub, owns := graph.Subflows[node]; owns && sub != nil && sub.Deferred == nil {
 			if sub.Err != nil {
 				return fmt.Errorf("%w: action node %s: %w",
-					ErrInvalidActionFlow, ActionNodeName(node), sub.Err)
+					errInvalidActionFlow, ActionNodeName(node), sub.Err)
 			}
 			if err := lower.FlowStartError(sub.Graph); err != nil {
 				return fmt.Errorf("%w: no initial node found in action node %s: %w",
-					ErrInvalidActionFlow, ActionNodeName(node), err)
+					errInvalidActionFlow, ActionNodeName(node), err)
 			}
 			if err := validateSubflows(sub.Graph); err != nil {
 				return err
@@ -640,7 +640,7 @@ func validateSubflows(graph *lower.ActionGraph) error {
 			}
 			if err := lower.FlowStartError(block); err != nil {
 				return fmt.Errorf("%w: no node starts the flow a body of action node %s states: %w",
-					ErrInvalidActionFlow, ActionNodeName(node), err)
+					errInvalidActionFlow, ActionNodeName(node), err)
 			}
 		}
 	}
@@ -653,7 +653,7 @@ func (e *ActionExecutor) checkResultParameters() error {
 	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.action) {
 		if param.IsResult && !semantics.ResultParameterOwnerValid(param.Symbol) {
 			return fmt.Errorf("%w: action %s declares `return %s`; write `out %s`",
-				ErrActionResultParameter, symbolText(e.action), param.Symbol.Name, param.Symbol.Name)
+				errActionResultParameter, SymbolText(e.action), param.Symbol.Name, param.Symbol.Name)
 		}
 	}
 	return checkNodeResultParameters(e.graph)
@@ -667,7 +667,7 @@ func checkNodeResultParameters(graph *lower.ActionGraph) error {
 		for _, f := range graph.Features[node] {
 			if f.IsResult && !semantics.DeclaresFunction(node) {
 				return fmt.Errorf("%w: action node %s declares `return %s`; write `out %s`",
-					ErrActionResultParameter, ActionNodeName(node), f.Name, f.Name)
+					errActionResultParameter, ActionNodeName(node), f.Name, f.Name)
 			}
 		}
 		if sub, owns := graph.Subflows[node]; owns && sub != nil && sub.Graph != nil {
@@ -708,7 +708,7 @@ func (e *ActionExecutor) flowNodeNames(graph *lower.ActionGraph) []string {
 		if graph.StatementRuns[node] {
 			continue
 		}
-		names = append(names, ActionNodeNames(node)...)
+		names = append(names, actionNodeNames(node)...)
 	}
 	return append(names, e.subflowNodeNames(graph)...)
 }

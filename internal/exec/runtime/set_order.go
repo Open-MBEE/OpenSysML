@@ -143,11 +143,11 @@ func (ctx *Context) compareContents(a, b Value) int {
 		return strings.Compare(a.CoordinateFrame().key(), b.CoordinateFrame().key())
 	case ValCoordinateTransformation:
 		return strings.Compare(a.CoordinateTransformation().key(), b.CoordinateTransformation().key())
-	case ValExpr:
-		if a.Expr() == nil || b.Expr() == nil {
-			return compareBool(a.Expr() != nil, b.Expr() != nil)
+	case valExpr:
+		if a.expr() == nil || b.expr() == nil {
+			return compareBool(a.expr() != nil, b.expr() != nil)
 		}
-		x, y := a.Expr().Span(), b.Expr().Span()
+		x, y := a.expr().Span(), b.expr().Span()
 		return cmp.Or(
 			cmp.Compare(x.Offset, y.Offset),
 			cmp.Compare(x.Len, y.Len),

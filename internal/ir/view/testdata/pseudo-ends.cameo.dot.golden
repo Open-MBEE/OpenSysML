@@ -1,0 +1,75 @@
+// view: ImagingViews::acquireFlow
+// kind: action
+// stated: view def ActionFlowView
+// canvas: w=500 h=320
+// layout: neato -n2
+digraph "ImagingViews::acquireFlow" {
+  graph [fontname="Arial", fontcolor="#424242", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor="#FFCC99:#FFFAD4", gradientangle=0, color="#99795C", fontname="Arial", fontsize=11, fontcolor="#424242", penwidth=1];
+  edge [color="#424242", fontname="Arial", fontsize=9, fontcolor="#424242", penwidth=1, arrowhead=open];
+  "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,320!", pin=true];
+  "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="500,0!", pin=true];
+  subgraph "cluster_frame" {
+    label=<<b>act</b> [Activity] Acquire [ acquireFlow ]>;
+    labeljust=l;
+    labelloc=t;
+    fontsize=11;
+    color="#5B5B59";
+    penwidth=1;
+    margin=8;
+    bb="0,-3.3999999999999773,500,320";
+    subgraph "cluster_n0" {
+      label="";
+      style="rounded,filled";
+      fillcolor="#E1E1C3:#F7F7EF";
+      gradientangle=0;
+      color="#424242";
+      penwidth=1;
+      bb="13,-3.3999999999999773,478,277.4";
+      "n0" [shape=point, style=invis, width=0, height=0, label="", pos="245.5,137!", pin=true];
+      "n1" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>position</b>>, margin=0, pos="92,226.5!", pin=true, width=1.9722222222222223, height=0.4583333333333333, fixedsize=true];
+      "n2" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>initiate</b>>, margin=0, pos="92,83.5!", pin=true, width=1.9722222222222223, height=0.4583333333333333, fixedsize=true];
+      "n3" [shape=diamond, fillcolor="#E1E1C3:#F7F7EF", color="#424242", label="", xlabel="placed", pos="92,140!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+      "n4" [shape=doublecircle, fillcolor=black, label="", xlabel="final", pos="92,20!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+      subgraph "cluster_n5" {
+        label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>Position Not Correct</b></td></tr><hr/><tr><td align="left">own flow</td></tr></table>>;
+        style="rounded,filled";
+        fillcolor="#E1E1C3:#F7F7EF";
+        gradientangle=0;
+        color="#424242";
+        penwidth=1;
+        bb="312,112,470,240.4";
+        "n5" [shape=point, style=invis, width=0, height=0, label="", pos="391,176.2!", pin=true];
+        "n6" [shape=doublecircle, fillcolor=black, label="", xlabel="final", pos="391,130!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+        "n7" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>adjust</b>>, margin=0, pos="391,185.5!", pin=true, width=1.9722222222222223, height=0.4583333333333333, fixedsize=true];
+        "n8" [shape=circle, fillcolor=black, label="", pos="386,225.2!", pin=true, width=0.2, height=0.2, fixedsize=true];
+      }
+      subgraph "cluster_n9" {
+        label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>Vacuum Fault</b></td></tr><hr/><tr><td align="left">own flow</td></tr></table>>;
+        style="rounded,filled";
+        fillcolor="#E1E1C3:#F7F7EF";
+        gradientangle=0;
+        color="#424242";
+        penwidth=1;
+        bb="312,4.600000000000023,470,122.4";
+        "n9" [shape=point, style=invis, width=0, height=0, label="", pos="391,63.5!", pin=true];
+        "n10" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>troubleshoot</b>>, margin=0, pos="391,63.5!", pin=true, width=1.9722222222222223, height=0.4583333333333333, fixedsize=true];
+        "n11" [shape=circle, label="", fillcolor="#C00000", pos="391,107.19999999999999!", pin=true, width=0.2, height=0.2, fixedsize=true];
+        "n12" [shape=doublecircle, fillcolor=black, label="", pos="391,19.80000000000001!", pin=true, width=0.2, height=0.2, fixedsize=true];
+      }
+      "n13" [shape=circle, fillcolor=black, label="", pos="92,262.2!", pin=true, width=0.2, height=0.2, fixedsize=true];
+    }
+    "note:0" [shape=note, fillcolor="#FFFFFF", color="#5B5B59", margin=0, label=<<font point-size="9">«comment»</font><br/><font point-size="8">resumes after the fault</font>>, pos="250,105!", pin=true, width=1.3888888888888888, height=0.4166666666666667, fixedsize=true];
+    "note:1" [shape=note, fillcolor="#FFFFFF", color="#5B5B59", margin=0, label=<<font point-size="9">«comment»</font><br/>back to the flow>, pos="250,15!", pin=true, width=1.3888888888888888, height=0.4166666666666667, fixedsize=true];
+  }
+  "n7" -> "n6" [label="adjust to final", pos="e,391,140 391,169 391,169 391,150 391,150", lp="435.5,154.5"];
+  "n8" -> "n7" [label="start to adjust", pos="e,386,202 386,218 386,218 386,210 386,210", lp="430.5,210"];
+  "n10" -> "n12" [label="troubleshoot to done"];
+  "n11" -> "n10" [label="start to troubleshoot"];
+  "n1" -> "n3" [label="position to placed", pos="e,92,150 92,210 92,210 92,160 92,160", lp="144.5,180"];
+  "n2" -> "n4" [label="initiate to final", pos="e,92,30 92,67 92,67 92,40 92,40", lp="142,48.5"];
+  "n3" -> "n2" [label="placed to initiate", pos="e,92,100 92,130 92,130 92,110 92,110", lp="144.5,115"];
+  "n13" -> "n1" [label="start to position", pos="e,92,243 92,255 92,255 92,249 92,249", lp="142,249"];
+  "note:0" -> "n11" [style=dashed, arrowhead=none];
+  "note:1" -> "n12" [style=dashed, arrowhead=none];
+}

@@ -138,7 +138,7 @@ func enclosingBehavior(sym *symbols.Symbol) *symbols.Symbol {
 
 // unboundSubject reports a case run with no object as its subject.
 func (shape *calcShape) unboundSubject(param *calcParameter) error {
-	return &UnboundSubjectError{Kind: shape.Kind, Element: shape.Name, Subject: param.Name}
+	return &subjectUnboundError{Kind: shape.Kind, Element: shape.Name, Subject: param.Name}
 }
 
 // AnalysisArgs are the values a run of an analysis case supplies: an object as
@@ -337,7 +337,8 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 // casePerformer is the object a type-owned case runs as a feature of. The object supplied binds the
 // subject the case declares and nothing else binds when the case already has an owner (one holding
 // it); otherwise it is the owner (over one found for the type), binding such a subject too. Given
-// none, the single object carrying the case, as a type-owned constraint is checked.
+// none, the single object carrying the case, as a type-owned constraint is checked; a definition
+// with no object at all cannot run its case (ErrNeedsObject), the case being a feature of one.
 func (ctx *Context) casePerformer(shape *calcShape, args AnalysisArgs, self *Instance) (*Instance, AnalysisArgs, error) {
 	owner := declaringType(shape.Sym)
 	if owner == nil {
@@ -353,13 +354,20 @@ func (ctx *Context) casePerformer(shape *calcShape, args AnalysisArgs, self *Ins
 	if given != nil && (self == nil || !unbound) {
 		if !ctx.modelConforms(given.Type, owner) && len(ctx.carriersUnder([]*Instance{given}, owner)) == 0 {
 			return nil, args, fmt.Errorf("%w: %s is a feature of %s, which object #%d is not an object of",
-				ErrNotCarried, shape.Label, ctx.qualifiedSymbolName(owner), given.ID)
+				ErrNotCarried, shape.Label, ctx.QualifiedName(owner), given.ID)
 		}
 		self, given = given, nil
 	}
 	reached, err := ctx.conditionSubject(shape.Sym, self)
 	if err != nil {
 		return nil, args, fmt.Errorf("%s %s: %w", shape.Kind, shape.Name, err)
+	}
+	if _, isDef := owner.Decl.(*ast.Definition); isDef && reached.instance == nil {
+		// Arguments the case cannot take are refused first, as they are with an object.
+		if _, err := shape.analysisArgs(args); err != nil {
+			return nil, args, err
+		}
+		return nil, args, fmt.Errorf("%w of %s: none is instantiated", ErrNeedsObject, ctx.QualifiedName(owner))
 	}
 	args.Subject = given
 	if given == nil && unbound && reached.instance != nil {
@@ -421,7 +429,7 @@ func (shape *calcShape) analysisArgs(args AnalysisArgs) (calcArgs, error) {
 	named := make(map[string]Value, len(args.Named)+len(args.Positional)+1)
 	for name, value := range args.Named {
 		if !shape.hasParameter(name) {
-			return calcArgs{}, fmt.Errorf("%w: %s has no input parameter %q", ErrUnknownParameter, shape.Label, name)
+			return calcArgs{}, fmt.Errorf("%w: %s has no input parameter %q", errUnknownParameter, shape.Label, name)
 		}
 		named[name] = value
 	}
@@ -429,7 +437,7 @@ func (shape *calcShape) analysisArgs(args AnalysisArgs) (calcArgs, error) {
 		subject, ok := shape.subjectParameter()
 		if !ok {
 			return calcArgs{}, fmt.Errorf("%w: %s declares no subject to bind an object to",
-				ErrUnknownParameter, shape.Label)
+				errUnknownParameter, shape.Label)
 		}
 		named[subject.Name] = Value{Kind: ValInstance, Instance: args.Subject.ID}
 	}
@@ -443,7 +451,7 @@ func (shape *calcShape) analysisArgs(args AnalysisArgs) (calcArgs, error) {
 	}
 	if len(args.Positional) > len(open) {
 		return calcArgs{}, fmt.Errorf("%w: %s takes %d argument(s), got %d",
-			ErrCalcArity, shape.Label, len(open), len(args.Positional))
+			errCalcArity, shape.Label, len(open), len(args.Positional))
 	}
 	for i, value := range args.Positional {
 		named[open[i].Name] = value
@@ -609,13 +617,13 @@ func (ctx *Context) unboundObjectiveSubject(obj *symbols.Symbol, members []scope
 func (ctx *Context) statedSubjectValue(run *calcRun, name string, subject *symbols.Symbol, stated scopedExpr, bindings map[string]Value) (Value, string, error) {
 	member, value, ok := ctx.statedCaseMember(run, stated, bindings)
 	if !ok {
-		return Value{}, "", &UnboundSubjectError{Kind: "objective", Element: name, Subject: subject.Name}
+		return Value{}, "", &subjectUnboundError{Kind: "objective", Element: name, Subject: subject.Name}
 	}
 	verb := "is bound to"
 	if statedAsDefault(stated.decl) {
 		verb = "defaults to"
 	}
-	what := fmt.Sprintf("objective %s: subject %s %s the case's %s (%s)", name, subject.Name, verb, run.shape.memberRole(member), ctx.qualifiedSymbolName(stated.decl.OwnerScope.Owner()))
+	what := fmt.Sprintf("objective %s: subject %s %s the case's %s (%s)", name, subject.Name, verb, run.shape.memberRole(member), ctx.QualifiedName(stated.decl.OwnerScope.Owner()))
 	return value, what, nil
 }
 
@@ -808,7 +816,7 @@ func (ctx *Context) RequireAnalysisCase(sym *symbols.Symbol) error {
 	}
 	if !IsRunnableCaseSymbol(sym) {
 		return fmt.Errorf("%w: %s is %s, not an analysis or verification case definition or usage",
-			ErrNotAnAnalysis, ctx.qualifiedSymbolName(sym), describeDecl(sym.Decl))
+			ErrNotAnAnalysis, ctx.QualifiedName(sym), describeDecl(sym.Decl))
 	}
 	return nil
 }

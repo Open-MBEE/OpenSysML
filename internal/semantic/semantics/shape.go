@@ -1,6 +1,8 @@
 package semantics
 
 import (
+	"strings"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -217,7 +219,13 @@ func IsShapeFeature(sym *symbols.Symbol) bool {
 		symbols.SymbolInterfaceUsage, symbols.SymbolFlowUsage, symbols.SymbolBindingUsage,
 		// An allocation usage is a connection usage of the allocation library
 		// (SysML v2 §8.3.19), so an object carries it as a feature.
-		symbols.SymbolAllocationUsage:
+		symbols.SymbolAllocationUsage,
+		// Cases, views and their concerns are occurrence usages of their owner
+		// (SysML v2 §7.21–7.26), an enumeration usage an attribute; an analysis or
+		// verification usage stays a calc the chain runs.
+		symbols.SymbolCaseUsage, symbols.SymbolUseCaseUsage, symbols.SymbolSatisfyRequirementUsage,
+		symbols.SymbolViewUsage, symbols.SymbolViewpointUsage, symbols.SymbolConcernUsage,
+		symbols.SymbolRenderingUsage, symbols.SymbolEnumerationUsage:
 		return true
 	default:
 		return false
@@ -318,6 +326,21 @@ func (m *Model) FrameFeature(sym *symbols.Symbol) bool {
 	default:
 		return m.restatesRoot(sym, frameRoots) || m.NamesFeaturingReference(sym)
 	}
+}
+
+// FrameRoot reports a Kernel member of typ the runtime answers itself rather than from the shape:
+// a restatement of a frame root, a frame featuring, or what a frame root restates (`portions`).
+func (m *Model) FrameRoot(typ, sym *symbols.Symbol) bool {
+	if m.restatesRoot(sym, frameRoots) || m.NamesFeaturingReference(sym) {
+		return true
+	}
+	for fqn := range frameRoots {
+		root, found := m.LookupMember(typ, fqn[strings.LastIndex(fqn, "::")+2:])
+		if found && root != nil && m.restatesAny(root, func(s *symbols.Symbol) bool { return s == sym }) {
+			return true
+		}
+	}
+	return false
 }
 
 // NamesFeaturingReference reports a member restating one of referenceSelfRoots:

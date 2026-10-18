@@ -114,7 +114,7 @@ func (h *calcStmtHost) describe() string {
 }
 
 func (h *calcStmtHost) send(*EvalContext, lower.Send) error {
-	return fmt.Errorf("%w: a calculation cannot send a message", ErrCalcSideEffect)
+	return fmt.Errorf("%w: a calculation cannot send a message", errCalcSideEffect)
 }
 
 // declaredOutput reports whether name is an output the body binds by assigning
@@ -138,13 +138,13 @@ func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s low
 		return h.mirrorOccurrence(name, value)
 	}
 	if !h.declaredOutput(name) {
-		return fmt.Errorf("%w: %s is not declared by the calculation", ErrCalcExternalAssignment, name)
+		return fmt.Errorf("%w: %s is not declared by the calculation", errCalcExternalAssignment, name)
 	}
 	out, _ := h.shape.output(name)
 	if out.Value != nil && !out.IsInitial {
 		return fmt.Errorf(
 			"%w: output %s of %s is both given a value by its declaration and assigned in its body",
-			ErrConflictingOutput, name, h.shape.Label,
+			errConflictingOutput, name, h.shape.Label,
 		)
 	}
 	// Written to the body's own data, so later statements read the output bound —
@@ -215,18 +215,24 @@ func (h *calcStmtHost) mirrorBodyBinding(name string, cell *bodyCell, value *Val
 // assignChain rejects a chained target: writing a feature of another object is
 // an effect outside the calculation, as writing an undeclared name is.
 func (h *calcStmtHost) assignChain(_ *EvalContext, s lower.Assign, _ Value) error {
-	return fmt.Errorf("%w: %s writes a feature of another object", ErrCalcExternalAssignment, s.Chain.Text)
+	return fmt.Errorf("%w: %s writes a feature of another object", errCalcExternalAssignment, s.Chain.Text)
 }
 
 // assignForeign rejects a qualified write naming an object outside the calc's
 // own run for the same reason a chained target is rejected.
 func (h *calcStmtHost) assignForeign(_ *EvalContext, s lower.Assign, _ Value) error {
 	return fmt.Errorf("%w: %s::%s writes a feature of another object",
-		ErrCalcExternalAssignment, s.Owner.Name, s.Target)
+		errCalcExternalAssignment, s.Owner.Name, s.Target)
 }
 
 // acceptReturn takes the value a `return` yields, which the result parameter
 // then holds, so it answers to that parameter's declaration.
+// statementFootprint keeps no footprint: a calc's body writes its own parameters,
+// which the expression reading its result stands on where it is read.
+func (h *calcStmtHost) statementFootprint([]lower.Statement, int) lower.Footprint {
+	return lower.Footprint{}
+}
+
 func (h *calcStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
 	if h.shape.performs() || len(stmts) < 2 {
 		return nil
@@ -290,7 +296,7 @@ func (h *calcStmtHost) materializeOccurrence() (*Instance, error) {
 // returning to the body's values; a calculation states no effect at all.
 func (h *calcStmtHost) effect(_ *stmtEngine, s lower.Effect) error {
 	if h.perfs == nil || s.Kind != lower.EffectPerform {
-		return fmt.Errorf("%w: a calculation cannot state '%s'", ErrCalcSideEffect, s.Kind)
+		return fmt.Errorf("%w: a calculation cannot state '%s'", errCalcSideEffect, s.Kind)
 	}
 	inv, ok := performedInvocation(s)
 	if !ok {
@@ -326,7 +332,7 @@ func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph,
 		return h.perfs.performNode(h.perfs.root, engine, graph, node)
 	}
 	if _, performs := nestedInvocationInGraph(graph, node); performs {
-		return flowNext, fmt.Errorf("%w: a calculation cannot perform action %s", ErrCalcSideEffect, ActionNodeName(node))
+		return flowNext, fmt.Errorf("%w: a calculation cannot perform action %s", errCalcSideEffect, ActionNodeName(node))
 	}
 	if connectsPins(graph, node) {
 		return flowNext, fmt.Errorf("%s: a binding or flow at a pin of %s in a body is not executable",
@@ -373,7 +379,7 @@ func (h *calcStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmt
 		}
 	}
 	return flowNext, fmt.Errorf("%w: %s: the flow a body states in a calculation is not executable",
-		ErrStatementNotExecutable, h.describe())
+		errStatementNotExecutable, h.describe())
 }
 
 // setFeature writes a feature the case's performance holds; it holds none of its
@@ -382,7 +388,7 @@ func (h *calcStmtHost) setFeature(name string, value Value) error {
 	if written, err := h.assignAround(name, value); written || err != nil {
 		return err
 	}
-	return fmt.Errorf("%w: %s holds no %s", ErrBindingEnd, h.describe(), name)
+	return fmt.Errorf("%w: %s holds no %s", errBindingEnd, h.describe(), name)
 }
 
 // assignAround writes what a step's performance returns to the same-named value
@@ -430,10 +436,10 @@ func (h *calcStmtHost) endsOwn() bool { return false }
 func (h *calcStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	if h.flow == nil {
 		return flowNext, fmt.Errorf("%w: %s: a flow of steps in a body is not executable",
-			ErrStatementNotExecutable, h.describe())
+			errStatementNotExecutable, h.describe())
 	}
 	if err := lower.FlowStartError(block.Graph); err != nil {
-		return flowNext, fmt.Errorf("%w: %s: %w", ErrInvalidActionFlow, h.describe(), err)
+		return flowNext, fmt.Errorf("%w: %s: %w", errInvalidActionFlow, h.describe(), err)
 	}
 	root := h.flow.root
 	h.flow.graph = block.Graph

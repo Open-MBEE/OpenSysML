@@ -71,7 +71,9 @@ package Trade {
 		assert constraint { cost >= 3 and cost <= 9 }
 		assert constraint { margin >= 0 and margin <= cost }
 		objective cheapest : MinimizeObjective { subject :>> selectedAlternative; in calc :>> eval { cost } }
-		objective widest : MaximizeObjective { subject :>> selectedAlternative; in calc :>> eval { margin } }
+		analysis thenWidest {
+			objective widest : MaximizeObjective { subject :>> selectedAlternative; in calc :>> eval { margin } }
+		}
 	}
 
 	analysis def OpenBound {
@@ -202,8 +204,9 @@ func TestOptimizeReportsAnInfeasibleAnalysis(t *testing.T) {
 	}
 }
 
-// Objectives are improved lexicographically in declaration order: the least cost
-// first, then the greatest margin among the assignments achieving it.
+// Objectives are improved lexicographically in declaration order, the nested
+// analysis's after the case's own: the least cost first, then the greatest
+// margin among the assignments achieving it.
 func TestOptimizeReportsObjectivesInDeclarationOrder(t *testing.T) {
 	requireOptimizingSolver(t)
 	s := checkSession(t, optimizeModel)

@@ -11,6 +11,15 @@ from opensysml.connection import (
 )
 from opensysml.model import Model
 from opensysml.symbol import Symbol
+from opensysml.check import (
+    CheckDivergence,
+    CheckDivergentValue,
+    CheckFinal,
+    CheckResult,
+    CheckSearch,
+    CheckViolation,
+    CheckWitness,
+)
 from opensysml.diagnostic import Diagnostic
 from opensysml.enumeration import EnumLiteral
 from opensysml.instance import Instance
@@ -23,6 +32,12 @@ from opensysml.typefacts import (
     TypeFacts,
 )
 from opensysml.capabilities import (
+    CAPABILITY_RECORD_RUN,
+    CAPABILITY_RUNS,
+    CAPABILITY_SELF_CHECK,
+    CAPABILITY_IMPORT_DATA,
+    CAPABILITY_COMPARE_RESULTS,
+    CAPABILITY_CHECK,
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_BIG_INT_VALUES,
@@ -39,13 +54,28 @@ from opensysml.values import (
     Undetermined, UnsetType,
     Vector, VectorQuantity,
 )
+from opensysml.importcompare import (
+    CaseStatistic, CaseStatistics, ComparedDistribution, Comparison, ConfigurationComparison,
+    ImportResult, ImportedFile, ImportedValue, ObservableComparison, StatisticDifference,
+)
 from opensysml.verdict import (
-    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Validation,
+    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, ToolDryRun, Validation,
     Verdict, VerificationVerdict,
 )
 from opensysml.exploration import Exploration, Outcome
 from opensysml.action_run import ActionOutputs
 from opensysml.engines import Bound, EngineInfo, Standing
+from opensysml.runs import (
+    RecordedDocument,
+    Recording,
+    RunCountedValue,
+    RunDistribution,
+    RunHistogramBin,
+    RunPercentile,
+    RunsResult,
+    SelfCheckFinding,
+    SelfCheckResult,
+)
 from opensysml.query import QueryElement, QueryError
 from opensysml.sources import SourceDocument
 from opensysml.document import (
@@ -78,6 +108,26 @@ from opensysml.errors import (
 from opensysml.metamodel import read_json
 
 __all__ = [
+    "CAPABILITY_RECORD_RUN",
+    "CAPABILITY_RUNS",
+    "CAPABILITY_SELF_CHECK",
+    "RecordedDocument",
+    "Recording",
+    "RunCountedValue",
+    "RunDistribution",
+    "RunHistogramBin",
+    "RunPercentile",
+    "RunsResult",
+    "SelfCheckFinding",
+    "SelfCheckResult",
+    "CAPABILITY_CHECK",
+    "CheckDivergence",
+    "CheckDivergentValue",
+    "CheckFinal",
+    "CheckResult",
+    "CheckSearch",
+    "CheckViolation",
+    "CheckWitness",
     "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance",
     "TypedObject", "TypeFacts", "Multiplicity", "Specialization", "SymbolFacts",
     "AttributeFacts",
@@ -91,6 +141,7 @@ __all__ = [
     "Migration", "MigrationEntry", "MigrationReport", "is_v1",
     "Editor", "Body", "EditResult", "AppliedEdit", "EditedDocument", "Referrer",
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
+    "ToolDryRun",
     "Validation", "VerificationVerdict",
     "Exploration", "Outcome", "ActionOutputs",
     "Bound", "EngineInfo", "Standing",
@@ -101,6 +152,9 @@ __all__ = [
     "RenderCanvas", "RenderEdge", "RenderGeometry", "RenderNode", "RenderNote",
     "RenderPoint", "RenderPort", "RenderRow", "RenderSpan", "RenderStyle", "RenderedView",
     "Graphs",
+    "CaseStatistic", "CaseStatistics", "ComparedDistribution", "Comparison", "ConfigurationComparison",
+    "ImportResult", "ImportedFile", "ImportedValue", "ObservableComparison", "StatisticDifference",
+    "CAPABILITY_IMPORT_DATA", "CAPABILITY_COMPARE_RESULTS",
     "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
     "ConversionError", "ExecutionError", "FeatureValueError", "MigrationError",
     "EditError", "NoEditsError", "EditTargetError", "InvalidEditError",

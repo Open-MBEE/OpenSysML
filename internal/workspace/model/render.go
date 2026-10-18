@@ -182,7 +182,7 @@ func (s *Snapshot) Sites() view.Sites {
 func (w *Workspace) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.renderViewLocked(doc, fqn, "", nil)
+	return w.renderViewLocked(doc, fqn, "", nil, 0)
 }
 
 // RenderViewLinked renders a view and resolves its source sites under the
@@ -190,7 +190,7 @@ func (w *Workspace) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, err
 func (w *Workspace) RenderViewLinked(doc, fqn string) (*view.Rendering, *Snapshot, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	rendering, snapshot, err := w.renderViewLocked(doc, fqn, "", nil)
+	rendering, snapshot, err := w.renderViewLocked(doc, fqn, "", nil, 0)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -233,7 +233,7 @@ func (w *Workspace) linkSitesLocked(rendering *view.Rendering, snapshot *Snapsho
 }
 
 // renderViewLocked is Reading.RenderOverlaidView under the lock.
-func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verdicts view.Verdicts) (*view.Rendering, *Snapshot, error) {
+func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verdicts view.Verdicts, depth int) (*view.Rendering, *Snapshot, error) {
 	d := w.docs[doc]
 	if d == nil {
 		return nil, nil, fmt.Errorf("%s: no such document", doc)
@@ -241,7 +241,7 @@ func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verd
 	var rendering *view.Rendering
 	var err error
 	w.queryLocked(doc, func(*resolve.Resolver, *semantics.Model) {
-		rendering, err = w.renderDocumentViewLocked(d, fqn, overlay, verdicts)
+		rendering, err = w.renderDocumentViewLocked(d, fqn, overlay, verdicts, depth)
 	})
 	if err != nil {
 		return nil, nil, err
@@ -252,10 +252,12 @@ func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verd
 	return rendering, &Snapshot{Rendered: d, docs: maps.Clone(w.docs)}, nil
 }
 
-// renderDocumentViewLocked renders fqn of the held document d, as a query owned by d.
-func (w *Workspace) renderDocumentViewLocked(d *Document, fqn string, overlay view.Overlay, verdicts view.Verdicts) (*view.Rendering, error) {
+// renderDocumentViewLocked renders fqn of the held document d, as a query owned
+// by d; a depth above 0 overrides the depth the view states.
+func (w *Workspace) renderDocumentViewLocked(d *Document, fqn string, overlay view.Overlay, verdicts view.Verdicts, depth int) (*view.Rendering, error) {
 	doc := d.Name
 	renderer := w.rendererLocked(doc)
+	renderer.SetDepth(depth)
 	if overlay == view.OverlayVerdicts {
 		renderer.SetVerdicts(verdicts)
 	}

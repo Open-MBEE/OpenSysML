@@ -74,10 +74,18 @@ func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments [
 	var chain []*symbols.Symbol
 	// A member the objective being translated owns or inherits shadows the case's
 	// and is read through it, so two objectives' `best` are two values.
-	sym, ok := t.objectiveLocal(scope, segments[0])
+	sym, ok := t.localTo(t.within, scope, segments[0])
 	if !ok {
 		if sym, ok = t.model.LookupMember(t.within, segments[0]); ok {
+			// A nested objective's member is read through its stage too, as the
+			// stage's own conditions read it (`goal.weight`), so it is one value.
+			if t.stage != nil {
+				chain = append(chain, t.stage)
+			}
 			chain = append(chain, t.within)
+		} else if sym, ok = t.localTo(t.stage, scope, segments[0]); ok {
+		} else if sym, ok = t.model.LookupMember(t.stage, segments[0]); ok {
+			chain = append(chain, t.stage)
 		} else if sym, ok = t.features[segments[0]]; !ok {
 			sym, ok = resolver.LookupName(scope, segments[0])
 		}
@@ -105,23 +113,22 @@ func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments [
 	return chain, nil
 }
 
-// objectiveLocal resolves name to a declaration nested inside the objective being
-// translated, or one of its types, that is not a member of the objective itself:
-// a condition's own parameter or attribute, which the objective's members do not shadow.
-func (t *translator) objectiveLocal(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
-	if t.within == nil {
+// localTo resolves name to a declaration nested inside owner (an objective or a
+// nested analysis) or its types, other than owner's own members: a condition's parameter.
+func (t *translator) localTo(owner *symbols.Symbol, scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
+	if owner == nil {
 		return nil, false
 	}
 	sym, ok := t.ctx.Resolver().LookupName(scope, name)
 	if !ok {
 		return nil, false
 	}
-	if member, own := t.model.LookupMember(t.within, name); own && member == sym {
+	if member, own := t.model.LookupMember(owner, name); own && member == sym {
 		return nil, false
 	}
 	for s := sym.OwnerScope; s != nil; s = s.Parent() {
-		owner := s.Owner()
-		if owner == t.within || (owner != nil && t.model.Conforms(t.within, owner)) {
+		o := s.Owner()
+		if o == owner || (o != nil && t.model.Conforms(owner, o)) {
 			return sym, true
 		}
 	}

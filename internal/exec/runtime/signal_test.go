@@ -409,8 +409,8 @@ func TestSendNewLeavesNothingBehindWhenDeliveryFails(t *testing.T) {
 			} else {
 				_, err = ctx.ExecuteActionPerformedBy(sym, alpha, nil)
 			}
-			if !errors.Is(err, ErrUnroutableSend) {
-				t.Fatalf("%s: %v, want %v", tc.behavior, err, ErrUnroutableSend)
+			if !errors.Is(err, errUnroutableSend) {
+				t.Fatalf("%s: %v, want %v", tc.behavior, err, errUnroutableSend)
 			}
 			for _, inst := range ctx.instances {
 				if inst.Type != nil && (inst.Type.Name == "Ping" || inst.Type.Name == "Tagged" || inst.Type.Name == "station" || inst.Type.Name == "Beacon") {
@@ -984,8 +984,8 @@ func TestSendViaPortToUnknownReceiverWithLibraries(t *testing.T) {
 		t.Fatal("action pipeline not found")
 	}
 	_, err := ctx.ExecuteAction(sym)
-	if !errors.Is(err, ErrUnreachableSendReceiver) {
-		t.Fatalf("expected ErrUnreachableSendReceiver, got: %v", err)
+	if !errors.Is(err, errUnreachableSendReceiver) {
+		t.Fatalf("expected errUnreachableSendReceiver, got: %v", err)
 	}
 }
 
@@ -1197,7 +1197,7 @@ func TestAcceptRoutingAgreesBetweenDispatchAndAcceptance(t *testing.T) {
 	for _, tc := range tests {
 		var fired []string
 		for _, trans := range exec.graph.Transitions[waiting] {
-			matches, err := exec.matchesEvent(trans, &Event{Type: EventAccept, Payload: tc.msg})
+			matches, err := exec.matchesEvent(trans, &Event{Type: eventAccept, Payload: tc.msg})
 			if err != nil {
 				t.Fatalf("%s: matchesEvent %s: %v", tc.name, trans.Name, err)
 			}
@@ -1237,7 +1237,7 @@ func TestCallEventMatchesOperationName(t *testing.T) {
 		for _, arg := range args {
 			call.Args[arg] = Value{}
 		}
-		return &Event{Type: EventCall, Payload: call}
+		return &Event{Type: eventCall, Payload: call}
 	}
 
 	exec := &StateExecutor{}
@@ -1280,7 +1280,7 @@ func TestRejectedCallLeavesNoArgumentsBehind(t *testing.T) {
 			transition first waiting accept setSpeed(value) if value > 0 then moving;
 		}
 	}`)
-	exec.InvokeOperation("setSpeed", map[string]Value{
+	exec.invokeOperation("setSpeed", map[string]Value{
 		"value": {Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 0}},
 	})
 	if err := exec.RunToCompletion(); err != nil {
@@ -1612,8 +1612,8 @@ func TestAddressedSendToUnreachablePortIsTyped(t *testing.T) {
 	}`))
 	send := lower.Send{Target: "alpha.count", TargetPath: true, Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
 	err := ctx.post(nil, nil, Message{SignalType: "Ping"}, send, nil, instanceOfUsage(t, ctx, idx, "test::alpha"), nil)
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Fatalf("post to alpha.count: %v, want ErrUnroutableSend", err)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Fatalf("post to alpha.count: %v, want errUnroutableSend", err)
 	}
 	if len(ctx.PendingMessages()) != 0 {
 		t.Errorf("an unroutable send posted %+v", ctx.PendingMessages())
@@ -1670,8 +1670,8 @@ func TestAddressedSendToQualifiedNameSkipsSameNamedFeature(t *testing.T) {
 	alpha := instanceOfUsage(t, ctx, idx, "test::alpha")
 	send := lower.Send{Target: "Other::reader", Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
 	err := ctx.post(nil, nil, Message{SignalType: "Integer"}, send, nil, alpha, nil)
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Errorf("`send to Other::reader` from an object: %v, want %v", err, ErrUnroutableSend)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Errorf("`send to Other::reader` from an object: %v, want %v", err, errUnroutableSend)
 	}
 	for _, msg := range ctx.PendingMessages() {
 		if msg.reaches("reader", "", alpha.ID) {
@@ -1730,9 +1730,9 @@ func TestAddressedSendToAnObjectNeedsThatObject(t *testing.T) {
 func TestAddressedSendToReceiverOfAnotherObjectCarriesItsIdentity(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
 		private import ScalarValues::*;
-		part def Node { action reader accept n : Integer; }
+		part def Node { action reader { accept n : Integer; } }
 		part def Talker {
-			action reader accept n : Integer;
+			action reader { accept n : Integer; }
 			action talk { first start; done; succession first start then done; }
 		}
 		part alpha : Node;
@@ -1796,8 +1796,8 @@ func TestAddressedSendToQualifiedPortOfAnotherTypeIsTyped(t *testing.T) {
 	}`))
 	send := lower.Send{Target: "Other::inPort", Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
 	err := ctx.post(nil, nil, Message{SignalType: "Ping"}, send, nil, instanceOfUsage(t, ctx, idx, "test::alpha"), nil)
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Fatalf("post to Other::inPort: %v, want ErrUnroutableSend", err)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Fatalf("post to Other::inPort: %v, want errUnroutableSend", err)
 	}
 	if len(ctx.PendingMessages()) != 0 {
 		t.Errorf("an unroutable send posted %+v", ctx.PendingMessages())
@@ -1854,7 +1854,7 @@ func TestAddressedSendReportsWhyTheObjectCouldNotBeBuilt(t *testing.T) {
 	if !errors.Is(err, ErrStepLimitExceeded) {
 		t.Fatalf("post to alpha.inPort: %v, want ErrStepLimitExceeded", err)
 	}
-	if errors.Is(err, ErrUnroutableSend) {
+	if errors.Is(err, errUnroutableSend) {
 		t.Errorf("an exhausted budget was reported as a bad address: %v", err)
 	}
 }
@@ -1878,8 +1878,8 @@ func TestAddressedSendThroughMultiplePartIsTyped(t *testing.T) {
 		Scope:      DeclScope(oneSymbol(t, idx, "test::Node::listen")),
 	}
 	err := ctx.post(nil, nil, Message{SignalType: "Ping"}, send, nil, nil, nil)
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Fatalf("post to nodes.inPort: %v, want ErrUnroutableSend", err)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Fatalf("post to nodes.inPort: %v, want errUnroutableSend", err)
 	}
 	if len(ctx.PendingMessages()) != 0 {
 		t.Errorf("an unroutable send posted %+v", ctx.PendingMessages())
@@ -2032,7 +2032,7 @@ func TestAddressedSendToQualifiedElementOfATwinObject(t *testing.T) {
 		port def PingPort { in item ping : Integer; }
 		part def Node {
 			port inPort : PingPort;
-			action reader accept n : Integer;
+			action reader { accept n : Integer; }
 			action listen { first start; done; succession first start then done; }
 		}
 		part alpha : Node;
@@ -2066,16 +2066,16 @@ func TestInjectedMessageIsHeldToTheDestinationItNames(t *testing.T) {
 	ctx.PostMessage(Message{SignalType: "Integer", Port: "inPort", Object: 1})
 	ctx.PostMessage(Message{SignalType: "Integer"})
 	pending := ctx.PendingMessages()
-	if got := pending[0]; got.Delivery != DeliverReceiver || got.reaches("other", "", 0) {
+	if got := pending[0]; got.Delivery != deliverReceiver || got.reaches("other", "", 0) {
 		t.Errorf("injected for reader: %+v, taken by an unrelated consumer", got)
 	}
 	if !pending[0].reaches("reader", "", 0) {
 		t.Errorf("injected for reader: %+v, not taken by reader", pending[0])
 	}
-	if got := pending[1]; got.Delivery != DeliverPort || got.reaches("", "inPort", 2) {
+	if got := pending[1]; got.Delivery != deliverPort || got.reaches("", "inPort", 2) {
 		t.Errorf("injected for a port of object 1: %+v, taken elsewhere", got)
 	}
-	if got := pending[2]; got.Delivery != DeliverAnyone || !got.reaches("other", "", 3) {
+	if got := pending[2]; got.Delivery != deliverAnyone || !got.reaches("other", "", 3) {
 		t.Errorf("injected for no one: %+v, want any consumer to take it", got)
 	}
 }
@@ -2093,20 +2093,20 @@ func TestDeliveryHoldsAConsumerToTheWholeDestination(t *testing.T) {
 	}{
 		{"unaddressed", Message{}, "reader", "", 2, true},
 		{"unaddressed on a port", Message{}, "reader", "inPort", 2, false},
-		{"receiver of the same object", Message{Target: "reader", Object: 1, Delivery: DeliverReceiver}, "reader", "", 1, true},
-		{"receiver of another object", Message{Target: "reader", Object: 1, Delivery: DeliverReceiver}, "reader", "", 2, false},
-		{"another receiver", Message{Target: "reader", Object: 1, Delivery: DeliverReceiver}, "other", "", 1, false},
-		{"receiver of no object performer", Message{Target: "reader", Object: 1, Delivery: DeliverReceiver}, "reader", "", 0, true},
-		{"receiver addressed by no object", Message{Target: "reader", Delivery: DeliverReceiver}, "reader", "", 1, true},
-		{"port of the same object", Message{Port: "inPort", Object: 1, Delivery: DeliverPort}, "", "inPort", 1, true},
-		{"port of another object", Message{Port: "inPort", Object: 1, Delivery: DeliverPort}, "", "inPort", 2, false},
-		{"another port", Message{Port: "inPort", Object: 1, Delivery: DeliverPort}, "", "outPort", 1, false},
-		{"routed receiver of same port and object", Message{Target: "reader", Port: "inPort", Object: 1, Delivery: DeliverPortReceiver}, "reader", "inPort", 1, true},
-		{"routed sibling receiver", Message{Target: "reader", Port: "inPort", Object: 1, Delivery: DeliverPortReceiver}, "sibling", "inPort", 1, false},
-		{"routed receiver on another port", Message{Target: "reader", Port: "inPort", Object: 1, Delivery: DeliverPortReceiver}, "reader", "outPort", 1, false},
-		{"routed receiver of another object", Message{Target: "reader", Port: "inPort", Object: 1, Delivery: DeliverPortReceiver}, "reader", "inPort", 2, false},
-		{"object itself", Message{Object: 1, Delivery: DeliverObject}, "reader", "", 1, true},
-		{"object and no object performer", Message{Object: 1, Delivery: DeliverObject}, "reader", "", 0, false},
+		{"receiver of the same object", Message{Target: "reader", Object: 1, Delivery: deliverReceiver}, "reader", "", 1, true},
+		{"receiver of another object", Message{Target: "reader", Object: 1, Delivery: deliverReceiver}, "reader", "", 2, false},
+		{"another receiver", Message{Target: "reader", Object: 1, Delivery: deliverReceiver}, "other", "", 1, false},
+		{"receiver of no object performer", Message{Target: "reader", Object: 1, Delivery: deliverReceiver}, "reader", "", 0, true},
+		{"receiver addressed by no object", Message{Target: "reader", Delivery: deliverReceiver}, "reader", "", 1, true},
+		{"port of the same object", Message{Port: "inPort", Object: 1, Delivery: deliverPort}, "", "inPort", 1, true},
+		{"port of another object", Message{Port: "inPort", Object: 1, Delivery: deliverPort}, "", "inPort", 2, false},
+		{"another port", Message{Port: "inPort", Object: 1, Delivery: deliverPort}, "", "outPort", 1, false},
+		{"routed receiver of same port and object", Message{Target: "reader", Port: "inPort", Object: 1, Delivery: deliverPortReceiver}, "reader", "inPort", 1, true},
+		{"routed sibling receiver", Message{Target: "reader", Port: "inPort", Object: 1, Delivery: deliverPortReceiver}, "sibling", "inPort", 1, false},
+		{"routed receiver on another port", Message{Target: "reader", Port: "inPort", Object: 1, Delivery: deliverPortReceiver}, "reader", "outPort", 1, false},
+		{"routed receiver of another object", Message{Target: "reader", Port: "inPort", Object: 1, Delivery: deliverPortReceiver}, "reader", "inPort", 2, false},
+		{"object itself", Message{Object: 1, Delivery: deliverObject}, "reader", "", 1, true},
+		{"object and no object performer", Message{Object: 1, Delivery: deliverObject}, "reader", "", 0, false},
 	}
 	for _, tc := range tests {
 		if got := tc.msg.reaches(tc.who, tc.port, tc.object); got != tc.reached {
@@ -2225,7 +2225,7 @@ func TestSendInvocationIsACallOnlyWhereItResolvesToACalc(t *testing.T) {
 		attribute bare = size((1, 2));
 	}
 }`)
-	ec := NewEvalContext(ctx, nil)
+	ec := newEvalContext(ctx, nil)
 	cases := map[string]bool{
 		"test::qualified":      true,
 		"test::bare":           false,
@@ -2466,12 +2466,12 @@ func TestSendToConstructedObjectReachesIt(t *testing.T) {
 		if inst.Type == nil || inst.Type.Name != "Car" {
 			continue
 		}
-		b, ok := inst.Behavior("listening")
+		b, ok := inst.behavior("listening")
 		if !ok || b.State == nil {
 			t.Fatalf("Car #%d runs no machine listening", inst.ID)
 		}
 		if inst.ID == declared.ID {
-			if got := b.State.FinalStateName(); got != "waiting" {
+			if got := b.State.finalStateName(); got != "waiting" {
 				t.Errorf("declared car's machine = %s, want waiting", got)
 			}
 			continue
@@ -2484,8 +2484,8 @@ func TestSendToConstructedObjectReachesIt(t *testing.T) {
 	if constructed == nil {
 		t.Fatal("no Car constructed by the send's target")
 	}
-	b, _ := constructed.Behavior("listening")
-	if got := b.State.FinalStateName(); got != "heard" {
+	b, _ := constructed.behavior("listening")
+	if got := b.State.finalStateName(); got != "heard" {
 		t.Errorf("constructed car's machine = %s, want heard", got)
 	}
 }

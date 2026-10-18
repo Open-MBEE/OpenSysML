@@ -83,7 +83,7 @@ func labelledVectorElements(name, label string, val Value) ([]semantics.Value, e
 	case ValVectorQuantity:
 		return nil, fmt.Errorf(
 			"%w: function %s parameter %s requires a vector of numbers, got %s",
-			ErrTypeMismatch, name, label, describeValue(val),
+			ErrTypeMismatch, name, label, DescribeValue(val),
 		)
 	}
 	elements := elementsOf(val)
@@ -92,7 +92,7 @@ func labelledVectorElements(name, label string, val Value) ([]semantics.Value, e
 		if elem.Kind != ValConst || !elem.Const.IsNumeric() {
 			return nil, fmt.Errorf(
 				"%w: function %s parameter %s requires a vector of numeric values, element %d is %s",
-				ErrTypeMismatch, name, label, i+1, describeValue(elem),
+				ErrTypeMismatch, name, label, i+1, DescribeValue(elem),
 			)
 		}
 		out[i] = elem.Const
@@ -137,11 +137,11 @@ func realHeld(v Value) (Value, error) {
 		if !v.Const.IsExact() {
 			return v, nil
 		}
-		real, err := semantics.RealOf(v.Const)
+		realValue, err := semantics.RealOf(v.Const)
 		if err != nil {
 			return Value{}, err
 		}
-		return Value{Kind: ValConst, Const: real}, nil
+		return Value{Kind: ValConst, Const: realValue}, nil
 	case ValSequence:
 		elements := elementsOf(v)
 		held := make([]Value, len(elements))
@@ -236,7 +236,7 @@ func (ctx *Context) framedResult(name string, frame *CoordinateFrame, axes []Val
 		q, ok := asQuantity(axis)
 		if !ok {
 			return Value{}, fmt.Errorf("%w: function %s computed %s for a component",
-				ErrTypeMismatch, name, describeValue(axis))
+				ErrTypeMismatch, name, DescribeValue(axis))
 		}
 		converted, err := semantics.ConvertQuantity(*q, frame.Axes[i])
 		if err != nil {
@@ -291,7 +291,7 @@ func (ctx *Context) vectorResult(name string, axes []Value) (Value, error) {
 		q, ok := asQuantity(axis)
 		if !ok {
 			return Value{}, fmt.Errorf("%w: function %s computed %s for a component",
-				ErrTypeMismatch, name, describeValue(axis))
+				ErrTypeMismatch, name, DescribeValue(axis))
 		}
 		num[i], units[i] = q.Num, q.Unit
 		withUnit = withUnit || axis.Kind == ValQuantity
@@ -966,7 +966,7 @@ func vectorCollection(name, param string, val Value) ([]vectorOperand, error) {
 		if elem.Kind != ValVector && elem.Kind != ValVectorQuantity {
 			return nil, fmt.Errorf(
 				"%w: function %s requires a collection of vectors (%s: VectorValue[*]), element %d is %s; build each with VectorOf",
-				ErrTypeMismatch, name, param, i+1, describeValue(elem),
+				ErrTypeMismatch, name, param, i+1, DescribeValue(elem),
 			)
 		}
 		v, err := readVector(name, fmt.Sprintf("%q element %d", param, i+1), elem)

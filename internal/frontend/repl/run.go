@@ -3,14 +3,17 @@ package repl
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 // errRuntimeInit marks a runtime the session could not create at all, which the
@@ -22,6 +25,15 @@ var errRuntimeInit = errors.New("runtime init")
 type NamedValue struct {
 	Name  string
 	Value string
+	// OrderDependent counts the run's unresolved choice points touching the
+	// value, which the prompt prints the marker of after it; 0 for a value
+	// nothing order-dependent wrote.
+	OrderDependent int
+}
+
+// Text is the value as the prompt prints it, marked when order-dependent.
+func (v NamedValue) Text() string {
+	return markOrderDependent(v.Value, v.OrderDependent)
 }
 
 // namedValues lists an executor's results in name order, so two reports of the
@@ -37,9 +49,27 @@ func namedValues(ctx *runtime.Context, results map[string]runtime.Value) []Named
 	slices.Sort(names)
 	values := make([]NamedValue, 0, len(names))
 	for _, name := range names {
-		values = append(values, NamedValue{Name: name, Value: formatValue(ctx, results[name])})
+		values = append(values, namedValue(ctx, name, formatValue(ctx, results[name])))
 	}
 	return values
+}
+
+// namedValue is the value under its name, marked when the run's unresolved
+// choice points touch it.
+func namedValue(ctx *runtime.Context, name, text string) NamedValue {
+	v := NamedValue{Name: name, Value: text}
+	if ctx != nil {
+		v.OrderDependent = ctx.OrderDependent(name)
+	}
+	return v
+}
+
+// markOrderDependent appends the order-dependence marker to a value's text.
+func markOrderDependent(text string, unresolved int) string {
+	if marker := runtime.OrderDependenceText(unresolved); marker != "" {
+		return text + " " + marker
+	}
+	return text
 }
 
 // errorLines adapts a command that reports its failures as errors to the
@@ -57,7 +87,11 @@ func errorLines(lines []string, _ []NamedValue, err error) ([]string, bool, erro
 // one named as the transcript is.
 func (s *Session) LoadFile(path string) ([]string, error) {
 	defer s.enter()()
-	read, err := s.readWithDependencies([]string{expandHome(path)}, loadOptions{})
+	files, err := s.expandPaths([]string{path})
+	if err != nil {
+		return nil, err
+	}
+	read, err := s.readWithDependencies(files, loadOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -83,14 +117,19 @@ func (s *Session) LoadFileSummary(path string) ([]string, error) {
 // root namespace load too.
 func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	defer s.enter()()
-	read, err := s.readWithDependencies(expandHomes(paths), loadOptions{})
+	paths, err := s.expandArchives(expandHomes(paths))
+	if err != nil {
+		return nil, err
+	}
+	read, err := s.readWithDependencies(paths, loadOptions{})
 	if err != nil {
 		return nil, err
 	}
 	files := read.files
 	lines := read.notes
+	archives := warningLines(s.discovery().ArchiveWarnings(paths), s.verbosity)
 	if len(files) == 0 {
-		return lines, nil
+		return append(lines, archives...), nil
 	}
 	res, byFile, whole := s.submitEach(files)
 	for i, f := range files {
@@ -105,7 +144,7 @@ func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 		}
 		lines = append(lines, renderSummary(own.ownMembers())...)
 	}
-	return lines, nil
+	return append(lines, archives...), nil
 }
 
 // DiagnosticLines reports the analysis of everything submitted so far as the
@@ -163,7 +202,7 @@ func (s *Session) HasErrors() bool {
 // running. Notation stops it only when asked strictly, which rejects the file outright.
 func (s *Session) hasAnalysisErrors() bool {
 	strict := s.ws.ConformanceMode().IsStrict()
-	for _, d := range s.diagnostics() {
+	for _, d := range s.allDiagnostics() {
 		if d.Blocking() || (strict && d.Severity == diag.SeverityError) {
 			return true
 		}
@@ -210,9 +249,30 @@ type Diagnostic struct {
 	File   string
 	Line   int
 	Column int
+	// UTF16Column is Column counted in UTF-16 code units, as SARIF counts.
+	UTF16Column int
 	// Pass names what produced the finding, and Code what it found.
 	Pass string
 	Code string
+	// Fixes are the edits that resolve the finding, when analysis knows them.
+	Fixes []Fix
+}
+
+// Fix is one way to resolve a diagnostic: a set of edits to the file it is in.
+type Fix struct {
+	Title     string
+	Preferred bool
+	Edits     []Edit
+}
+
+// Edit replaces the text from Line:Column up to EndLine:EndColumn (exclusive,
+// 1-based, within the diagnostic's file) with NewText; an insertion has an empty span.
+type Edit struct {
+	Line, Column       int
+	EndLine, EndColumn int
+	// UTF16Column and UTF16EndColumn are the columns in UTF-16 code units.
+	UTF16Column, UTF16EndColumn int
+	NewText                     string
 }
 
 // LocatedDiagnostics reports the analysis of everything submitted so far, each
@@ -220,7 +280,17 @@ type Diagnostic struct {
 // the line and column that file has it on.
 func (s *Session) LocatedDiagnostics() []Diagnostic {
 	defer s.enter()()
-	diags := s.diagnostics()
+	return s.locate(s.diagnostics())
+}
+
+// Locate places diagnostics reported over the session's buffer — a Result's —
+// in the submissions they are about, as LocatedDiagnostics does.
+func (s *Session) Locate(diags []diag.Diagnostic) []Diagnostic {
+	defer s.enter()()
+	return s.locate(diags)
+}
+
+func (s *Session) locate(diags []diag.Diagnostic) []Diagnostic {
 	if len(diags) == 0 {
 		return nil
 	}
@@ -235,16 +305,68 @@ func (s *Session) LocatedDiagnostics() []Diagnostic {
 		}
 		p := lines.PosAt(d.Span.Offset - start)
 		out = append(out, Diagnostic{
-			Severity: d.Severity.String(),
-			Message:  d.Message,
-			File:     sn.origin,
-			Line:     p.Line,
-			Column:   p.Col,
-			Pass:     d.Source,
-			Code:     d.Code,
+			Severity:    d.Severity.String(),
+			Message:     d.Message,
+			File:        sn.origin,
+			Line:        p.Line,
+			Column:      p.Col,
+			UTF16Column: utf16Column([]byte(sn.src), d.Span.Offset-start, p.Col),
+			Pass:        d.Source,
+			Code:        d.Code,
+			Fixes:       locatedFixes(d.Fixes, []byte(sn.src), lines, start),
 		})
 	}
 	return out
+}
+
+// locatedFixes places a diagnostic's fixes in its file by line and column, the
+// edits rendered against the file so an own-line insertion carries its indent.
+func locatedFixes(fixes []diag.Fix, content []byte, lines *source.LineIndex, start int) []Fix {
+	if len(fixes) == 0 {
+		return nil
+	}
+	out := make([]Fix, 0, len(fixes))
+	for _, f := range fixes {
+		fix := Fix{Title: f.Title, Preferred: f.Preferred}
+		for _, e := range f.Edits {
+			e.Span.Offset -= start
+			span, text := e.Render(content)
+			from, to := lines.PosAt(span.Offset), lines.PosAt(span.End())
+			fix.Edits = append(fix.Edits, Edit{
+				Line: from.Line, Column: from.Col, EndLine: to.Line, EndColumn: to.Col, NewText: text,
+				UTF16Column:    utf16Column(content, span.Offset, from.Col),
+				UTF16EndColumn: utf16Column(content, span.End(), to.Col),
+			})
+		}
+		out = append(out, fix)
+	}
+	return out
+}
+
+// utf16Column is the column of offset, whose byte column is col, counted in
+// UTF-16 code units as SARIF and the editors count; 0 stays the whole line.
+func utf16Column(content []byte, offset, col int) int {
+	lineStart := offset - (col - 1)
+	if col < 1 || lineStart < 0 || offset > len(content) {
+		return col
+	}
+	return len(utf16.Encode([]rune(string(content[lineStart:offset])))) + 1
+}
+
+// Suppress keeps the diagnostics the predicate accepts out of everything the
+// session reports about its model: the lines, the located findings and whether
+// it has errors. Suppressed counts how many the last report left out.
+func (s *Session) Suppress(accept func(file, code, message string) bool) {
+	defer s.enter()()
+	s.suppress = accept
+}
+
+// Suppressed is how many diagnostics the predicate given to Suppress kept out
+// of the session's last report.
+func (s *Session) Suppressed() int {
+	defer s.enter()()
+	s.diagnostics()
+	return s.suppressed
 }
 
 // snippetAt returns the submission a session-buffer offset falls in and the
@@ -555,4 +677,40 @@ func (s *Session) runStateMachine(name string, duration *float64, performer []st
 	}
 	values = append(values, namedValues(s.stateExec.contextOf(), exec.StateData())...)
 	return s.withTrace(standing(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values}, plan))
+}
+
+// expandArchives replaces each project interchange archive among paths with
+// its model files, as naming it on the command line does; every other path
+// is kept as given, so a file read failure stays the caller's to report. A
+// path reached twice — an archive and one of its members, two archives using
+// the same project — is kept once, in first position.
+func (s *Session) expandArchives(paths []string) ([]string, error) {
+	out := make([]string, 0, len(paths))
+	seen := map[string]bool{}
+	add := func(path string) {
+		key := path
+		if !project.IsStdin(path) {
+			if abs, err := filepath.Abs(path); err == nil {
+				key = abs
+			}
+		}
+		if !seen[key] {
+			seen[key] = true
+			out = append(out, path)
+		}
+	}
+	for _, path := range paths {
+		if !project.IsArchiveFile(path) {
+			add(path)
+			continue
+		}
+		files, err := s.discovery().Expand([]string{path})
+		if err != nil {
+			return nil, err
+		}
+		for _, file := range files {
+			add(file)
+		}
+	}
+	return out, nil
 }

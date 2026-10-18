@@ -6,7 +6,10 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "outDir": "../../out/landing"
+    "outDir": "../../out/landing",
+    "paths": {
+      "@openmbee/opensysml/browser": ["../../../../client/node/src/browser/index.ts"]
+    }
   },
   "exclude": [],
   "include": ["../protocol.ts", "../style.ts", "../webview", "."]

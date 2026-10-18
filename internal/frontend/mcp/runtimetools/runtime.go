@@ -32,6 +32,10 @@ type ExecuteActionInput struct {
 	Inputs            map[string]map[string]any `json:"inputs,omitempty" jsonschema:"input parameter name to value; each value is a protojson Value. Example arms: {\"intValue\":\"7\"}, {\"realValue\":1.5}, {\"boolValue\":true}, {\"stringValue\":\"x\"}, {\"quantity\":{\"realMagnitude\":5.0,\"unit\":\"m\"}}, {\"enumLiteral\":{\"literalId\":\"Colors::red\"}}"`
 	Schedule          string                    `json:"schedule,omitempty" jsonschema:"scheduling policy for choice points: declared, reverse (the default), seed:<n>, or explore[:runs=<n>,depth=<d>] which runs every linearization and answers with outcomes"`
 	PerformerSymbolID string                    `json:"performerSymbolId,omitempty" jsonschema:"qualified name of a part/usage, or a path from one as Mission::mission.vehicle, whose object the action is performed on; empty performs it outside any object"`
+	Advance           *float64                  `json:"advance,omitempty" jsonschema:"simulated time in seconds to run for (sysml -advance): the behavior is started and its clock moved by this much; an action not completed by then reports that in error. Unset runs to completion"`
+	Seed              *uint64                   `json:"seed,omitempty" jsonschema:"seed the model's own draws (weighted decisions, random functions) are taken from (sysml -seed); the same seed draws the same run"`
+	Draws             string                    `json:"draws,omitempty" jsonschema:"how the run resolves RandomFunctions draws (sysml -draws): random (default, from seed), min, max or average"`
+	ClockStep         float64                   `json:"clockStep,omitempty" jsonschema:"the step in seconds the run's clock ticks by (sysml -clock-step); 0 is a continuous clock"`
 }
 
 // ExecuteStateInput runs a state machine.
@@ -42,6 +46,10 @@ type ExecuteStateInput struct {
 	Schedule             string   `json:"schedule,omitempty" jsonschema:"scheduling policy for choice points: declared, reverse (the default), seed:<n>, or explore[:runs=<n>,depth=<d>]"`
 	PerformerSymbolID    string   `json:"performerSymbolId,omitempty" jsonschema:"qualified name of a part/usage, or a path from one, whose object exhibits the machine; empty runs it outside any object"`
 	Trace                bool     `json:"trace,omitempty" jsonschema:"also answer the run's typed trace (entries, exits, transitions, accepts), up to a failure; unavailable under explore"`
+	Advance              *float64 `json:"advance,omitempty" jsonschema:"simulated time in seconds to run for (sysml -advance): the behavior is started and its clock moved by this much; an action not completed by then reports that in error. Unset runs to completion"`
+	Seed                 *uint64  `json:"seed,omitempty" jsonschema:"seed the model's own draws (weighted decisions, random functions) are taken from (sysml -seed); the same seed draws the same run"`
+	Draws                string   `json:"draws,omitempty" jsonschema:"how the run resolves RandomFunctions draws (sysml -draws): random (default, from seed), min, max or average"`
+	ClockStep            float64  `json:"clockStep,omitempty" jsonschema:"the step in seconds the run's clock ticks by (sysml -clock-step); 0 is a continuous clock"`
 }
 
 func (g *group) registerRuntime(s *mcp.Server) {
@@ -105,7 +113,8 @@ func (g *group) registerRuntime(s *mcp.Server) {
 		Description: "Run an action definition or usage to completion and report its output parameters (the ExecuteAction RPC, the " +
 			"REPL's %run). Inputs are bound by parameter name. Under an explore schedule every linearization the model admits is run " +
 			"and the answer is the set of distinct `outcomes` with how the exploration ended, instead of one run's outputs. The run is " +
-			"bounded by the service's OPENSYSML_MAX_* budgets; a budget hit is reported in `error`. The result is the " +
+			"bounded by the service's OPENSYSML_MAX_* budgets; a budget hit is reported in `error`. `advance`, `seed`, `draws` and " +
+			"`clockStep` are the run options of `sysml -advance`, `-seed`, `-draws` and `-clock-step`. The result is the " +
 			"ExecuteActionResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Execute action"),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in ExecuteActionInput) (*mcp.CallToolResult, Result, error) {
@@ -128,7 +137,7 @@ func (g *group) registerRuntime(s *mcp.Server) {
 		var b strings.Builder
 		b.WriteString(errorText(resp.GetError()))
 		if len(resp.GetOutputs()) > 0 {
-			b.WriteString(namedValuesText(resp.GetOutputs()))
+			b.WriteString(markedValuesText(resp.GetOutputs(), resp.GetOrderDependent()))
 		} else if resp.GetError() == "" && resp.GetExploration() == nil {
 			b.WriteString("completed with no outputs\n")
 		}
@@ -148,8 +157,9 @@ func (g *group) registerRuntime(s *mcp.Server) {
 		Description: "Run a state machine over a sequence of events and report the states visited, the final context and the " +
 			"simulation clock (the ExecuteState RPC, the REPL's %run on a state). With trace the answer also carries every record the " +
 			"run made (entry, exit, transition, accept, send, choice), up to a failure. Under an explore schedule every linearization " +
-			"is run and the answer is the set of distinct `outcomes`. The run is bounded by the service's OPENSYSML_MAX_* budgets. The " +
-			"result is the ExecuteStateResponse as protojson writes it.",
+			"is run and the answer is the set of distinct `outcomes`. With `advance` the events are sent and the clock then moved by that " +
+			"much, as `sysml -state X -advance T` does; without it the machine runs to quiescence. The run is bounded by the service's " +
+			"OPENSYSML_MAX_* budgets. The result is the ExecuteStateResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Execute state machine"),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in ExecuteStateInput) (*mcp.CallToolResult, Result, error) {
 		m, err := g.resolve(ctx, in.ModelInput)
@@ -174,7 +184,7 @@ func (g *group) registerRuntime(s *mcp.Server) {
 			fmt.Fprintf(&b, "states: %s\n", strings.Join(resp.GetStatesVisited(), " -> "))
 		}
 		if len(resp.GetFinalContext()) > 0 {
-			b.WriteString("final context:\n" + namedValuesText(resp.GetFinalContext()))
+			b.WriteString("final context:\n" + markedValuesText(resp.GetFinalContext(), resp.GetOrderDependent()))
 		}
 		if resp.GetFinalTime() != 0 {
 			fmt.Fprintf(&b, "final time %g s\n", resp.GetFinalTime())

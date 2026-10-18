@@ -217,6 +217,10 @@ type translator struct {
 	// of its own it names (its `best`) is that objective's, not another's.
 	within *symbols.Symbol
 
+	// stage is the nested analysis whose conditions or objectives are being
+	// translated, nil for the case itself: its members shadow the case's.
+	stage *symbols.Symbol
+
 	nonlinear bool
 	intDiv    bool
 

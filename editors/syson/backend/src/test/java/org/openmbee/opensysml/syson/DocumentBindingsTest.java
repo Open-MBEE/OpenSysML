@@ -2,14 +2,18 @@ package org.openmbee.opensysml.syson;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import org.eclipse.syson.sysml.Element;
 import org.junit.jupiter.api.Test;
@@ -54,6 +58,99 @@ class DocumentBindingsTest {
 
         assertThat(bindings.get("type")).containsExactly(new DocumentValue.ElementRef("ScalarValues::Real", ""));
         verify(model, never()).eval("ScalarValues::Real");
+    }
+
+    @Test
+    void bindsAQualifiedNameWithTwentyThousandBasicSegments() {
+        Model model = mock(Model.class);
+        String qualifiedName = String.join("::", Collections.nCopies(20_000, "a"));
+        Symbol symbol = mock(Symbol.class);
+        when(symbol.id()).thenReturn(qualifiedName);
+        when(model.find(qualifiedName)).thenReturn(Optional.of(symbol));
+
+        assertThat(DocumentBindings.bind(model, project(), Map.of("item", qualifiedName)).get("item"))
+                .containsExactly(new DocumentValue.ElementRef(qualifiedName, ""));
+        verify(model, never()).eval(anyString());
+    }
+
+    @Test
+    void bindsAQualifiedNameWithAlternatingQuotedSegments() {
+        Model model = mock(Model.class);
+        String qualifiedName = String.join("::", IntStream.range(0, 20_000)
+                .mapToObj(index -> index % 2 == 0 ? "'x y'" : "a")
+                .toList());
+        Symbol symbol = mock(Symbol.class);
+        when(symbol.id()).thenReturn(qualifiedName);
+        when(model.find(qualifiedName)).thenReturn(Optional.of(symbol));
+
+        assertThat(DocumentBindings.bind(model, project(), Map.of("item", qualifiedName)).get("item"))
+                .containsExactly(new DocumentValue.ElementRef(qualifiedName, ""));
+        verify(model, never()).eval(anyString());
+    }
+
+    @Test
+    void bindsQuotedNamesWithEscapes() {
+        Model model = mock(Model.class);
+        Symbol symbol = mock(Symbol.class);
+        when(symbol.id()).thenReturn("resolved");
+        String apostropheName = "'Frank\\'s Braindump'::x";
+        String backslashName = "'a\\\\b'";
+        String backspaceName = "'a\\bc'";
+        String tabName = "'tab\\tx'";
+        when(model.find(apostropheName)).thenReturn(Optional.of(symbol));
+        when(model.find(backslashName)).thenReturn(Optional.of(symbol));
+        when(model.find(backspaceName)).thenReturn(Optional.of(symbol));
+        when(model.find(tabName)).thenReturn(Optional.of(symbol));
+
+        Map<String, List<DocumentValue>> bindings = DocumentBindings.bind(model, project(),
+                Map.of("apostrophe", apostropheName, "backslash", backslashName, "backspace", backspaceName,
+                        "tab", tabName));
+
+        assertThat(bindings.get("apostrophe")).containsExactly(new DocumentValue.ElementRef("resolved", ""));
+        assertThat(bindings.get("backslash")).containsExactly(new DocumentValue.ElementRef("resolved", ""));
+        assertThat(bindings.get("backspace")).containsExactly(new DocumentValue.ElementRef("resolved", ""));
+        assertThat(bindings.get("tab")).containsExactly(new DocumentValue.ElementRef("resolved", ""));
+        verify(model).find(apostropheName);
+        verify(model).find(backslashName);
+        verify(model).find(backspaceName);
+        verify(model).find(tabName);
+        verify(model, never()).eval(anyString());
+    }
+
+    @Test
+    void evaluatesExpressionsThatAreNotQualifiedNames() {
+        Model model = mock(Model.class);
+        Map<String, String> expressions = Map.of(
+                "addition", "1 + 2",
+                "trailingSeparator", "a::",
+                "leadingSeparator", "::a",
+                "tripleSeparator", "a:::b",
+                "invalidEscape", "'bad\\q'",
+                "trailingEscape", "'trailing\\",
+                "unterminated", "'unterminated",
+                "unicode", "Größe::x",
+                "empty", " \t ");
+        when(model.eval(anyString())).thenReturn(new Value.IntegerValue(1));
+
+        Map<String, List<DocumentValue>> bindings = DocumentBindings.bind(model, project(), expressions);
+
+        expressions.forEach((name, expression) ->
+                assertThat(bindings.get(name)).containsExactly(new DocumentValue.IntegerValue(1)));
+        verify(model, never()).find(anyString());
+        verify(model, times(expressions.size())).eval(anyString());
+    }
+
+    @Test
+    void consultsTheServiceForAnEmptyQuotedNameBeforeEvaluatingIt() {
+        Model model = mock(Model.class);
+        when(model.find("''")).thenReturn(Optional.empty());
+        when(model.eval("''")).thenReturn(new Value.StringValue("fallback"));
+
+        assertThat(DocumentBindings.bind(model, project(), Map.of("name", "''")).get("name"))
+                .containsExactly(new DocumentValue.StringValue("fallback"));
+
+        verify(model).find("''");
+        verify(model).eval("''");
     }
 
     @Test

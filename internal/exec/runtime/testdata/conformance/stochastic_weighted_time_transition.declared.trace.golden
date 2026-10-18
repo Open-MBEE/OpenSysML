@@ -1,6 +1,6 @@
 eval literal 0.9 -> 0.9
 eval literal 0.1 -> 0.1
-choice state idle on time: transitions 1->slow p=0.9, 2->fast p=0.1 (weighted; drew 0.774817894359002, took 1->slow)
+choice state idle on time: transitions 1->slow p=0.9, 2->fast p=0.1 (weighted; drew 0.774817894359002, took 1->slow; order-dependent: log)
 exit: idle
 enter: slow (entry action)
 stmt action body

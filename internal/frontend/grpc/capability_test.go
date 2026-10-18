@@ -299,6 +299,10 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			_, err := s.ExportGraphs(ctx, &pb.ExportGraphsRequest{ModelHash: "any", Subject: "Any"})
 			return err
 		}},
+		{"check behavior", CapabilityCheck, func(s *Service) error {
+			_, err := s.CheckBehavior(ctx, &pb.CheckBehaviorRequest{ModelHash: "any", ActionSymbolId: "Any"})
+			return err
+		}},
 		{"render document html", CapabilityRenderDocumentHTML, func(s *Service) error {
 			_, err := s.RenderDocument(ctx, &pb.RenderDocumentRequest{
 				ModelHash: "any", DocumentId: "Any", Form: "html",
@@ -421,8 +425,8 @@ func TestRenderDocumentFileNameIsWithheldWithoutItsCapability(t *testing.T) {
 
 // The capability is the newest, appended after every one before it.
 func TestRenderDocumentFileNameCapabilityIsTheNewest(t *testing.T) {
-	if all := Capabilities(); all[len(all)-1] != CapabilityRenderDocumentFileName {
-		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityRenderDocumentFileName)
+	if all := Capabilities(); all[len(all)-1] != CapabilityOrderDependence {
+		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityOrderDependence)
 	}
 }
 

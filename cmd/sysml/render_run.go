@@ -22,8 +22,8 @@ func runRenderModeMisuse() string {
 	switch {
 	case len(renderRuns) == 0:
 		return "-render-run needs a value of the form <timeline|sequence>=<path>"
-	case modelChecks.jsonOut && renderRunWritesStdout():
-		return "-render-run cannot write to stdout with -json; name a file for the rendering"
+	case modelChecks.machine() && renderRunWritesStdout():
+		return "-render-run cannot write to stdout with -json or a -format document; name a file for the rendering"
 	case flagGiven("compare-results"):
 		return "-render-run cannot be combined with -compare-results"
 	case len(modelChecks.actions) == 0 && len(modelChecks.states) == 0 && !modelChecks.advance.given:

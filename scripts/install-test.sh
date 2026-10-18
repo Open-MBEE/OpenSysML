@@ -38,10 +38,12 @@ sha256() {
 	if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi
 }
 
-# fake_tool <path> <tool> <version>: a stand-in binary that only knows --version.
+# fake_tool <path> <tool> <version>: a stand-in binary that only knows --version,
+# answering it over the several lines the real ones do.
 fake_tool() {
-	printf '#!/bin/sh\necho "%s"\n' "$2 $3" >"$1"
-	chmod +x "$1"
+	local path=$1 tool=$2 version=$3
+	printf '#!/bin/sh\necho "%s"\necho "  Commit:     0000000"\necho "  Build time: 2000-01-01_00:00:00"\necho "  Go version: go1.0"\n' "$tool $version" >"$path"
+	chmod +x "$path"
 }
 
 # bundle <release dir> <platform> <version>: the archive, grpc and kernel
@@ -207,7 +209,8 @@ fails() {
 
 # said <text>: the last run's output must mention it.
 said() {
-	[[ "$out" == *"$1"* ]] || { echo "FAIL: expected output to mention '$1'" >&2; printf '%s\n' "$out" >&2; failures=$((failures + 1)); }
+	local text=$1
+	[[ "$out" == *"$text"* ]] || { echo "FAIL: expected output to mention '$text'" >&2; printf '%s\n' "$out" >&2; failures=$((failures + 1)); }
 }
 
 # unsaid <text>: the last run's output must not mention it.
@@ -297,6 +300,18 @@ fi
 if ok "the kernel alone" --version "$good" --tools sysml-jupyter-kernel --bin-dir @P@/k; then
 	[[ -x "$prefix/k/sysml-jupyter-kernel" ]] || { echo "FAIL: $prefix/k/sysml-jupyter-kernel missing" >&2; failures=$((failures + 1)); }
 	absent k/sysml k/sysml-lsp k/sysml-grpc
+	unsaid "opensysml-$host.tar.gz"
+	said "download/$good/sysml-jupyter-kernel-$host"
+fi
+
+# A tool published on its own does not pull the bundle in.
+if ok "sysml-grpc alone" --version "$good" --tools sysml-grpc --bin-dir @P@/g; then
+	[[ -x "$prefix/g/sysml-grpc" ]] || { echo "FAIL: $prefix/g/sysml-grpc missing" >&2; failures=$((failures + 1)); }
+	absent g/sysml g/sysml-lsp g/sysml-jupyter-kernel
+	unsaid "opensysml-$host.tar.gz"
+	said "  from:     $base/download/$good/sysml-grpc-$host"
+	said "sysml-grpc-$host verified"
+	said "Installed: $prefix/g/sysml-grpc"
 fi
 
 if ok "one tool into a bin dir" --version "$good" --tools sysml --bin-dir @P@/b; then
@@ -343,6 +358,7 @@ for how in file stdin; do
 	case $how in
 	file) out=$(sh "$root/install.sh" --help 2>&1) ;;
 	stdin) out=$(cat "$root/install.sh" | sh -s -- --help 2>&1) ;;
+	*) ;;
 	esac
 	status=$?
 	set -e
@@ -446,6 +462,36 @@ if shim_path=$(shim "${essentials[@]}" curl sha256sum); then
 	fi
 else
 	echo "skip signature verification without cosign: curl or sha256sum not on PATH"
+fi
+
+# Only the bundle needs tar; a tool published on its own installs without it.
+no_tar=()
+for tool in "${essentials[@]}"; do
+	[[ "$tool" == tar || "$tool" == gzip ]] || no_tar+=("$tool")
+done
+if shim_path=$(shim "${no_tar[@]}" curl sha256sum); then
+	n=$((n + 1)) && prefix="$work/install-$n"
+	set +e
+	out=$(PATH="$shim_path" sh "$root/install.sh" --base-url "$base" --tools sysml-grpc --prefix "$prefix" 2>&1)
+	status=$?
+	set -e
+	if [[ "$status" -eq 0 ]] && [[ -x "$prefix/bin/sysml-grpc" ]] && [[ "$out" != *"opensysml-$host.tar.gz"* ]]; then
+		echo "ok   sysml-grpc alone without tar"
+	else
+		echo "FAIL sysml-grpc alone without tar: exit $status" >&2 && printf '%s\n' "$out" >&2 && failures=$((failures + 1))
+	fi
+	n=$((n + 1)) && prefix="$work/install-$n"
+	set +e
+	out=$(PATH="$shim_path" sh "$root/install.sh" --base-url "$base" --prefix "$prefix" 2>&1)
+	status=$?
+	set -e
+	if [[ "$status" -ne 0 ]] && [[ "$out" == *"tar is needed to extract opensysml-$host.tar.gz"* ]]; then
+		echo "ok   the bundle without tar"
+	else
+		echo "FAIL the bundle without tar: exit $status" >&2 && printf '%s\n' "$out" >&2 && failures=$((failures + 1))
+	fi
+else
+	echo "skip without tar: curl or sha256sum not on PATH"
 fi
 
 if command -v pwsh >/dev/null 2>&1; then

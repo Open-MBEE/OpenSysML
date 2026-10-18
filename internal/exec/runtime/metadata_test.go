@@ -70,7 +70,7 @@ func metadataTypeNames(t *testing.T, ctx *Context, value Value) []string {
 		if !ok {
 			t.Fatalf("element %v is no object", elem.Kind)
 		}
-		names = append(names, ctx.qualifiedSymbolName(inst.Type))
+		names = append(names, ctx.QualifiedName(inst.Type))
 	}
 	return names
 }
@@ -478,12 +478,12 @@ package test {
 }
 `
 	ctx, scope, decl := declaredExpr(t, src, "test::seatBelt.metadata")
-	first, err := NewEvalContext(ctx, scope).Eval(decl)
+	first, err := newEvalContext(ctx, scope).Eval(decl)
 	if err != nil {
 		t.Fatalf("seatBelt.metadata failed: %v", err)
 	}
 	made := len(ctx.instances)
-	second, err := NewEvalContext(ctx, scope).Eval(decl)
+	second, err := newEvalContext(ctx, scope).Eval(decl)
 	if err != nil {
 		t.Fatalf("the second seatBelt.metadata failed: %v", err)
 	}

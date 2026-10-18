@@ -6,7 +6,7 @@ package runtime
 // derivable reports whether fv's value is derived from what it reads: bound by `=`,
 // neither a fallback default nor assigned by a run nor propagated by a binding.
 func (ctx *Context) derivable(fv *FeatureValue) bool {
-	return !fv.Written && !fv.BindingDerived && (fv.Feature == nil || !fv.Feature.DefaultIsFallback())
+	return !fv.Written && !fv.BindingDerived && (fv.Feature == nil || !fv.Feature.defaultIsFallback())
 }
 
 // derivation is a `=` value being derived; stale once a value it read was written
@@ -262,8 +262,8 @@ func heldSame(prior, now Value) bool {
 // emptyUnitSame reports whether two empty values type the zero a sum of them
 // yields alike: both in one unit, or neither in any.
 func emptyUnitSame(prior, now Value) bool {
-	pu, pok := prior.Sequence().ElementUnit()
-	nu, nok := now.Sequence().ElementUnit()
+	pu, pok := prior.Sequence().emptyElementUnit()
+	nu, nok := now.Sequence().emptyElementUnit()
 	if pok != nok {
 		return false
 	}
@@ -271,7 +271,7 @@ func emptyUnitSame(prior, now Value) bool {
 }
 
 func vectorQuantityHeldSame(prior, now *VectorQuantity) bool {
-	if prior == nil || now == nil || prior.Dimension() != now.Dimension() {
+	if prior == nil || now == nil || prior.dimension() != now.dimension() {
 		return prior == now
 	}
 	if !sameVectorFrame(prior, now) {

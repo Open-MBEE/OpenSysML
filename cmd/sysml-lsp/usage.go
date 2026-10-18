@@ -2,8 +2,11 @@ package main
 
 import (
 	"flag"
+	"path/filepath"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 const lspCommand = "sysml-lsp"
@@ -12,6 +15,7 @@ const lspCommand = "sysml-lsp"
 type options struct {
 	strict        bool
 	noRecordCache bool
+	libraryRoots  pathList
 	showVersion   bool
 	showHelp      bool
 	showMan       bool
@@ -28,6 +32,8 @@ func registerFlags(fs *flag.FlagSet) *options {
 		"Serve strict conformance from the start: notation no pinned SysML v2 production admits is an error (a client may also set the strictConformance setting)")
 	fs.BoolVar(&o.noRecordCache, "no-record-cache", false,
 		"Parse every document and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
+	fs.Var(&o.libraryRoots, "library-root",
+		"Look for the installed projects a workspace's project uses under this directory too, besides the well-known ones in the project (.sysand/lib); separated as PATH is or repeated, added to OPENSYSML_LIBRARY_ROOTS (a client may also set the libraryRoots setting)")
 	fs.Bool("stdio", false, "Serve over stdin/stdout (the only transport; accepted for clients that name it)")
 	fs.BoolVar(&o.showVersion, "version", false, "Show version information")
 	fs.BoolVar(&o.showVersion, "v", false, "Show version (shorthand)")
@@ -96,4 +102,15 @@ func doc() usage.Doc {
 		}},
 		SeeAlso: []string{"sysml(1)", "sysml-grpc(1)", "https://github.com/Open-MBEE/OpenSysML"},
 	}
+}
+
+// pathList is -library-root as written: the directories installed projects are
+// looked for under, separated as PATH is or repeated.
+type pathList []string
+
+func (l *pathList) String() string { return strings.Join(*l, string(filepath.ListSeparator)) }
+
+func (l *pathList) Set(value string) error {
+	*l = append(*l, project.SplitLibraryRoots(value)...)
+	return nil
 }

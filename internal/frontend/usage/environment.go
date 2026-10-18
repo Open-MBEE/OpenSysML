@@ -5,6 +5,7 @@ package usage
 func BudgetEnvironment() []Item {
 	return []Item{
 		{"OPENSYSML_LIBRARY_PATH", "Directory to load the SysML/KerML standard library from, instead of the copy embedded in the binary."},
+		{"OPENSYSML_LIBRARY_ROOTS", "Directories, separated as PATH is, to look for installed projects under when a loaded file belongs to a project (a directory holding .project.json), besides the project's own well-known library directory (.sysand/lib)."},
 		{"OPENSYSML_MAX_STEPS", "Expression evaluations one run may spend before it is reported as a runaway. Default 10000000."},
 		{"OPENSYSML_MAX_ACTION_STEPS", "Token-flow steps one action run may perform. Default 1000000."},
 		{"OPENSYSML_MAX_EVENTS", "Events one state machine run may dispatch. Default 1000000."},

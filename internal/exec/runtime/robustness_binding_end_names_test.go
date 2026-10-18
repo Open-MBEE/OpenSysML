@@ -91,11 +91,11 @@ func testBindingEndPinReadsWhatItMasks(t *testing.T) {
 	}
 }
 
-// testBindingEndUnresolvedName: a binding end naming nothing is ErrBindingEnd.
+// testBindingEndUnresolvedName: a binding end naming nothing is errBindingEnd.
 func testBindingEndUnresolvedName(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, bindingEndHost("in n : Integer[0..1];", "bind noting.n = nowhere;"), "test::Host")
-	if !errors.Is(err, ErrBindingEnd) || !strings.Contains(err.Error(), "nowhere") {
-		t.Fatalf("error = %v, want ErrBindingEnd naming nowhere", err)
+	if !errors.Is(err, errBindingEnd) || !strings.Contains(err.Error(), "nowhere") {
+		t.Fatalf("error = %v, want errBindingEnd naming nowhere", err)
 	}
 }
 
@@ -106,7 +106,7 @@ func testBindingEndRequiredPinGivenNone(t *testing.T) {
 	if err == nil {
 		t.Fatal("a required pin bound to an empty parameter was accepted")
 	}
-	if !errors.Is(err, ErrUnboundParameter) && !errors.Is(err, ErrMultiplicityViolation) {
+	if !errors.Is(err, errUnboundParameter) && !errors.Is(err, ErrMultiplicityViolation) {
 		t.Fatalf("error = %v, want a typed refusal of the empty required pin", err)
 	}
 }

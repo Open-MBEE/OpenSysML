@@ -14,7 +14,7 @@ import (
 func evalDeclaredExpr(t *testing.T, src, expr string) (*Context, Value, error) {
 	t.Helper()
 	ctx, scope, decl := declaredExpr(t, src, expr)
-	got, err := NewEvalContext(ctx, scope).Eval(decl)
+	got, err := newEvalContext(ctx, scope).Eval(decl)
 	return ctx, got, err
 }
 
@@ -194,8 +194,8 @@ func TestUnboundedAgainstDeclaredSubtype(t *testing.T) {
 		}
 	}
 	for _, expr := range []string{"* as test::Boundless", "* as test::Cost", "(1, *) as test::Boundless"} {
-		if _, _, err := evalDeclaredExpr(t, src, expr); !errors.Is(err, ErrUndecidedClassification) {
-			t.Errorf("%s error = %v, want ErrUndecidedClassification", expr, err)
+		if _, _, err := evalDeclaredExpr(t, src, expr); !errors.Is(err, errUndecidedClassification) {
+			t.Errorf("%s error = %v, want errUndecidedClassification", expr, err)
 		}
 	}
 }

@@ -871,8 +871,6 @@ export function rationalsAsReals(value: Value): void {
       value.kind.value.components.forEach(rationalsAsReals);
       return;
     case "vectorQuantity":
-      value.kind.value.components.forEach(quantityRationalAsReal);
-      return;
     case "tensorQuantity":
       value.kind.value.components.forEach(quantityRationalAsReal);
       return;
@@ -942,7 +940,11 @@ function gcd(a: bigint, b: bigint): bigint {
 }
 
 function bitLength(n: bigint): number {
-  return n === 0n ? 0 : (n < 0n ? -n : n).toString(2).length;
+  if (n === 0n) {
+    return 0;
+  }
+  const magnitude = n < 0n ? -n : n;
+  return magnitude.toString(2).length;
 }
 
 /** The exact Rational a finite double holds. */

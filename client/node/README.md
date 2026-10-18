@@ -181,10 +181,16 @@ while another origin is not.
 `connectWasm()` uses the same `Connection`, `Model`, values and errors over the
 combined `sysml-wasm` module. It serves `ParseFile`, `ParseSources`,
 `GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`,
-`ExecuteState` and `GetServerInfo`. Those are the module's complete RPC surface;
+`ExecuteState`, `RenderView` and `GetServerInfo`. Those are the module's complete RPC surface;
 other capability-gated operations fail with `MissingCapabilityError`, and a
 direct unsupported RPC fails with `UNIMPLEMENTED`.
 The adapter uses JSON encoding; requesting protobuf encoding is refused.
+The module answers `RenderView` as the service's protojson `RenderViewResponse` and
+advertises `render_view`, so `connection.renderView()` returns the same `RenderedView`
+over either; `renderedViewFromJson()` decodes such a response saved as JSON (a snapshot a
+page paints before its module has loaded). A traced `ExecuteState` answers the service's
+`DocumentEvent` records and the module advertises `state_trace`, so
+`connection.executeState(…, { trace: true })` returns the same typed trace over either.
 
 In Node, install the optional `@openmbee/opensysml-wasm` package at the same
 version as this client. `connectWasm()` resolves its module and matching Go
@@ -257,9 +263,12 @@ https://cdn.jsdelivr.net/npm/@openmbee/opensysml-wasm@<version>/sysml-wasm.wasm
 https://cdn.jsdelivr.net/npm/@openmbee/opensysml-wasm@<version>/wasm_exec.js
 ```
 
+The same package carries `sysml-prod.wasm.gz`, the gzip-compressed browser build of the
+`sysml` REPL for pages that run the REPL itself; `connectWasm()` does not use it.
+
 Browser callers pass those URLs as `wasm` and `wasmExec`; browser package
-resolution is not automatic. The combined module measures about 7.8 MB gzipped
-and 5.5 MB with Brotli.
+resolution is not automatic. The combined module measures about 8.7 MB gzipped
+and 6.1 MB with Brotli.
 
 ## Protobuf, not JSON
 

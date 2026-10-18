@@ -1,6 +1,7 @@
 package objref
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -49,9 +50,9 @@ type Walker struct {
 func (w Walker) Walk(inst *runtime.Instance, label string, segments []Segment) (*runtime.Instance, string, error) {
 	ctx := w.Runtime
 	for _, seg := range segments {
-		fv, err := inst.GetFeatureValue(ctx, seg.Name)
+		fv, err := inst.MemberValue(ctx, seg.Name)
 		if err != nil {
-			if _, has := inst.FeatureValues[seg.Name]; !has {
+			if _, has := inst.FeatureValues[seg.Name]; !has && errors.Is(err, runtime.ErrNoSuchFeature) {
 				return nil, "", pathError(label, seg, "%s has no feature %q%s", label, seg.Name, w.featureListHint(inst))
 			}
 			perr := pathError(label, seg, "%s of %s could not be materialized: %v", source.NameText(seg.Name), label, err)

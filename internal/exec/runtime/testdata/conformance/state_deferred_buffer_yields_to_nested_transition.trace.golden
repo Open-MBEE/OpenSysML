@@ -1,3 +1,4 @@
+choice at t=0.0: next do outer, dispatch accept Continue (unordered; took do outer first; order-dependent: deferred, kept)
 do: outer
 stmt action body
 enter action node: state behavior buffer

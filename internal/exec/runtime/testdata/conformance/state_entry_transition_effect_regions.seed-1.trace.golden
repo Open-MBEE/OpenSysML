@@ -1,16 +1,16 @@
 exit: idle
 enter: working
-choice entering working: next left(entry), right(entry) (unordered; took right(entry) first)
+choice entering working: next left(entry), right(entry) (unordered; took right(entry) first; order-dependent: log)
 stmt action body
-choice entering working: next left(entry), boot->active(effect) (unordered; took left(entry) first)
+choice entering working: next left(entry), boot->active(effect) (unordered; took left(entry) first; order-dependent: log)
 stmt action body
-choice entering working: next boot->active(effect), boot->active(effect) (unordered; took boot->active(effect) first)
+choice entering working: next boot->active(effect), boot->active(effect) (unordered; took boot->active(effect) first; order-dependent: log)
 stmt action body
   stmt assign log
       eval feature log -> ""
       eval literal "a-effect " -> "a-effect "
     eval operator + -> "a-effect "
-choice entering working: next left.active(entry), boot->active(effect) (unordered; took left.active(entry) first)
+choice entering working: next left.active(entry), boot->active(effect) (unordered; took left.active(entry) first; order-dependent: log)
 enter: active (entry action)
 stmt action body
   stmt assign log

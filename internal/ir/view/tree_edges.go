@@ -54,23 +54,28 @@ type treeEdgeKey struct {
 // its edges from the first node, the one that shows its members.
 func (r *Renderer) treeEdges(out *Rendering) {
 	g := &treeGraph{r: r, out: out, nodes: map[symbols.ElementKey]*Node{}, parent: map[string]string{}, edges: map[treeEdgeKey]bool{}, lined: map[linedEdge]bool{}}
-	var index func(node *Node, parent string)
-	index = func(node *Node, parent string) {
-		if parent != "" {
-			g.parent[node.ID] = parent
+	// An element is indexed where it is declared — as a root, exposed by a
+	// nested view, or nested in the node of its owner — not where a usage of
+	// its owner draws it as inherited: a relationship arrow joins declarations,
+	// not one usage's copy to another's.
+	var index func(node, parent *Node)
+	index = func(node, parent *Node) {
+		if parent != nil {
+			g.parent[node.ID] = parent.ID
 		}
-		if site, ok := out.sites[node]; ok {
+		parentSite, inElement := out.sites[parent]
+		if site, ok := out.sites[node]; ok && (!inElement || declaredUnder(parentSite.sym, site.sym)) {
 			key := symbols.KeyOf(site.sym)
 			if _, drawn := g.nodes[key]; !drawn {
 				g.nodes[key] = node
 			}
 		}
 		for _, child := range node.Children {
-			index(child, node.ID)
+			index(child, node)
 		}
 	}
 	for _, root := range out.Roots {
-		index(root, "")
+		index(root, nil)
 	}
 	g.associationLines()
 	var walk func(node *Node)
@@ -86,6 +91,15 @@ func (r *Renderer) treeEdges(out *Rendering) {
 		walk(root)
 	}
 	out.sites = nil
+}
+
+// declaredUnder reports whether a node drawn in the node of parent draws sym
+// as a declaration: parent is sym's owner, or a view exposing it.
+func declaredUnder(parent, sym *symbols.Symbol) bool {
+	if parent == nil || sym == nil {
+		return false
+	}
+	return parent == sym.Owner() || parent.Kind == symbols.SymbolViewUsage || parent.Kind == symbols.SymbolViewDef
 }
 
 // associationLines redraws each connection def the tree would show as a box
@@ -223,8 +237,9 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 }
 
 // edgesOf draws what the element of node states of itself and of the usages
-// drawn beneath it; a member the depth bound hides is not drawn as an edge
-// either. Its typing is drawn from the node itself only when its owner is not
+// it declares that are drawn beneath it; a member the depth bound hides is not
+// drawn as an edge either, and one the element has from its type is the type's
+// to draw. Its typing is drawn from the node itself only when its owner is not
 // drawn: a drawn owner's composition edge, or the nesting, stands for it. A
 // usage's Style dresses the edge standing for it as it does the usage's node;
 // its Notes stay anchored to the node, where the usage is named.
@@ -244,12 +259,13 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 			continue
 		}
 		if to := g.node(target); to != nil && to != node && !g.nested(node, to) {
-			g.add(Edge{From: node.ID, To: to.ID, Kind: kind, Label: label, Origin: nodeOrigin(sym.DocName, rel)}, nil)
+			g.add(Edge{From: node.ID, To: to.ID, Kind: kind, Label: label, Origin: nodeOrigin(sym.DocName, rel),
+				Route: g.r.specializationRouteOf(site.view, sym, target, g.out)}, nil)
 		}
 	}
 	for _, child := range node.Children {
 		member := g.out.sites[child].sym
-		if !structuralUsage(member) {
+		if !structuralUsage(member) || member.Owner() != sym {
 			continue
 		}
 		kind := EdgeComposition

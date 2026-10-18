@@ -39,6 +39,16 @@ const behaviorModel = `package Mission {
         succession first accumulate then done;
     }
 
+    part def Drone;
+    use case chargeDrone {
+        subject drone : Drone;
+        attribute charge = 0;
+        first start;
+        then action plugDrone { assign charge := charge + 1; }
+        then action chargeDroneBatteries { assign charge := charge + 10; }
+        then done;
+    }
+
     state Cycle {
         entry; then init;
         state init;
@@ -313,6 +323,10 @@ func TestRunAction(t *testing.T) {
 	if strings.Contains(got.output(), "%step") {
 		t.Errorf("a non-interactive run advertised prompt commands:\n%s", got.output())
 	}
+
+	// A use case is an action (SysML v2 §7.19): -action runs its body; -analysis still refuses it.
+	wantReport(t, check(t, binary, behaviorModel, "-action", "Mission::chargeDrone"), 0, "✓ Action completed", "charge = 11")
+	wantReport(t, check(t, binary, behaviorModel, "-analysis", "Mission::chargeDrone"), 2, "not an analysis case")
 
 	wantReport(t, check(t, binary, behaviorModel, "-action", "Mission::Cycle"), 2, "is not an action")
 	wantReport(t, check(t, binary, behaviorModel, "-action", "Mission::nosuch"), 2, "unresolved reference: Mission::nosuch")
@@ -1131,7 +1145,7 @@ func TestWarningsPrintBeforeTheLoadTheyQualify(t *testing.T) {
 	}
 	warning, loaded := -1, -1
 	for i, line := range report.Output {
-		if warning < 0 && strings.Contains(line, "warning:") {
+		if warning < 0 && strings.Contains(line, "warning[") {
 			warning = i
 		}
 		if loaded < 0 && strings.Contains(line, "✓ package Rover") {

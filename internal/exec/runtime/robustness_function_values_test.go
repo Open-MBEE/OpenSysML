@@ -94,8 +94,8 @@ func testFunctionValueClosureCaptureFails(t *testing.T) {
 // is declared is refused when it is bound, before the body calls it.
 func testFunctionValueCallOfANonFunction(t *testing.T) {
 	err := invokeCalcExpecting(t, `package test {`+functionValueFixture+`}`, "test::Fn(3.0, 3.0)")
-	if !errors.Is(err, ErrNotAFunction) || !strings.Contains(err.Error(), `parameter "f"`) {
-		t.Fatalf("error = %v, want ErrNotAFunction naming f", err)
+	if !errors.Is(err, errNotAFunction) || !strings.Contains(err.Error(), `parameter "f"`) {
+		t.Fatalf("error = %v, want errNotAFunction naming f", err)
 	}
 }
 
@@ -107,8 +107,8 @@ func testFunctionValueBoundToANonFunction(t *testing.T) {
 		part box : Box;
 	}`
 	err := invokeCalcExpecting(t, src, "test::Fn(a = 3.0, f = test::box)")
-	if !errors.Is(err, ErrNotAFunction) {
-		t.Fatalf("error = %v, want ErrNotAFunction", err)
+	if !errors.Is(err, errNotAFunction) {
+		t.Fatalf("error = %v, want errNotAFunction", err)
 	}
 }
 
@@ -119,8 +119,8 @@ func testFunctionValueArityMismatch(t *testing.T) {
 		calc def Two { in calc f { in v : Real; return : Real; } return : Real = f(1.0, 2.0); }
 	}`
 	err := invokeCalcExpecting(t, src, "test::Two(test::Sq)")
-	if !errors.Is(err, ErrCalcArity) || !strings.Contains(err.Error(), "test::Sq") {
-		t.Fatalf("error = %v, want ErrCalcArity for test::Sq", err)
+	if !errors.Is(err, errCalcArity) || !strings.Contains(err.Error(), "test::Sq") {
+		t.Fatalf("error = %v, want errCalcArity for test::Sq", err)
 	}
 }
 
@@ -131,8 +131,8 @@ func testFunctionValueUnknownNamedArgument(t *testing.T) {
 		calc def Named { in calc f { in v : Real; return : Real; } return : Real = f(w = 1.0); }
 	}`
 	err := invokeCalcExpecting(t, src, "test::Named(test::Sq)")
-	if !errors.Is(err, ErrUnknownParameter) || !strings.Contains(err.Error(), "test::Sq") {
-		t.Fatalf("error = %v, want ErrUnknownParameter for test::Sq", err)
+	if !errors.Is(err, errUnknownParameter) || !strings.Contains(err.Error(), "test::Sq") {
+		t.Fatalf("error = %v, want errUnknownParameter for test::Sq", err)
 	}
 }
 
@@ -144,12 +144,12 @@ func testFunctionValueUnboundCalcParameter(t *testing.T) {
 		calc def Partial { in calc f { in x : Real; in y : Real[1]; return : Real; } return : Real = f(1.0); }
 	}`
 	err := invokeCalcExpecting(t, src, "test::Fn(a = 3.0)")
-	if !errors.Is(err, ErrUnboundParameter) || !strings.Contains(err.Error(), `parameter "f"`) {
-		t.Fatalf("error = %v, want ErrUnboundParameter naming f", err)
+	if !errors.Is(err, errUnboundParameter) || !strings.Contains(err.Error(), `parameter "f"`) {
+		t.Fatalf("error = %v, want errUnboundParameter naming f", err)
 	}
 	err = invokeCalcExpecting(t, src, "test::Partial(test::Add)")
-	if !errors.Is(err, ErrUnboundParameter) || !strings.Contains(err.Error(), `parameter "y"`) {
-		t.Fatalf("error = %v, want ErrUnboundParameter naming y", err)
+	if !errors.Is(err, errUnboundParameter) || !strings.Contains(err.Error(), `parameter "y"`) {
+		t.Fatalf("error = %v, want errUnboundParameter naming y", err)
 	}
 }
 
@@ -173,8 +173,8 @@ func testFunctionValueOfABuiltIn(t *testing.T) {
 		calc def PassIf { return : Real = Fn(ControlFunctions::'if', 3.0); }
 	}`
 	err := invokeCalcExpecting(t, src, "test::PassIf()")
-	if !errors.Is(err, ErrNotAFunction) {
-		t.Fatalf("error = %v, want ErrNotAFunction", err)
+	if !errors.Is(err, errNotAFunction) {
+		t.Fatalf("error = %v, want errNotAFunction", err)
 	}
 }
 

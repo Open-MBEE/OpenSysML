@@ -3,4 +3,3 @@ FilteredViews::safetyView - tree rendering (the view states no rendering; a tree
 part def Radio
 part def Airbag
 part def Brake
-  part pad

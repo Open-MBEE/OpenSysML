@@ -11,8 +11,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 /**
  * Compares a normalized response against an expectation, by the rules in conformance/README.md:
@@ -111,26 +113,21 @@ final class Checks {
       Map<String, Object> actual, String path, List<String> wants) {
     Optional<Object> at = lookup(actual, path);
     if (at.isPresent() && at.get() instanceof String text) {
-      List<String> failures = new ArrayList<>();
-      for (String want : wants) {
-        if (!text.contains(want)) {
-          failures.add(path + ": does not contain \"" + want + "\"");
-        }
-      }
-      return failures;
+      return wants.stream()
+          .filter(want -> !text.contains(want))
+          .map(want -> path + ": does not contain \"" + want + "\"")
+          .collect(Collectors.toCollection(ArrayList::new));
     }
     Optional<List<Object>> found = values(actual, path);
     if (found.isEmpty()) {
       return List.of(
           path + ": neither text nor a list, want it to contain " + render(List.copyOf(wants)));
     }
-    List<String> failures = new ArrayList<>();
-    for (String want : wants) {
-      if (!found.get().contains(want)) {
-        failures.add(path + ": " + render(found.get()) + " does not contain \"" + want + "\"");
-      }
-    }
-    return failures;
+    List<Object> values = found.get();
+    return wants.stream()
+        .filter(want -> !values.contains(want))
+        .map(want -> path + ": " + render(values) + " does not contain \"" + want + "\"")
+        .collect(Collectors.toCollection(ArrayList::new));
   }
 
   /** The values at a path, expanding a {@code *} segment and a list at the end of the path. */
@@ -428,10 +425,10 @@ final class Checks {
       return "nothing";
     }
     if (value instanceof JsonObject object) {
-      List<String> parts = new ArrayList<>();
-      for (String key : new TreeSet<>(object.keySet())) {
-        parts.add(key + ": " + render(object.get(key)));
-      }
+      List<String> parts =
+          new TreeSet<>(object.keySet()).stream()
+              .map(key -> key + ": " + render(object.get(key)))
+              .toList();
       return "{" + String.join(", ", parts) + "}";
     }
     if (value instanceof JsonArray array) {
@@ -440,10 +437,10 @@ final class Checks {
       return "[" + String.join(", ", parts) + "]";
     }
     if (value instanceof Map<?, ?> map) {
-      List<String> parts = new ArrayList<>();
-      for (Map.Entry<String, Object> entry : new TreeMap<>(asStringKeyed(map)).entrySet()) {
-        parts.add(entry.getKey() + ": " + render(entry.getValue()));
-      }
+      List<String> parts =
+          new TreeMap<>(asStringKeyed(map)).entrySet().stream()
+              .map(entry -> entry.getKey() + ": " + render(entry.getValue()))
+              .toList();
       return "{" + String.join(", ", parts) + "}";
     }
     if (value instanceof List<?> list) {

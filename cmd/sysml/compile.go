@@ -1,4 +1,4 @@
-//go:build !sysml_prod && !sysml_nocodegen
+//go:build !sysml_re && !sysml_nocodegen
 
 package main
 

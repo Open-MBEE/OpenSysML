@@ -39,7 +39,7 @@ func TestAnalysisResultInputsAreTheBoundParameters(t *testing.T) {
 
 	result, err := ctx.RunAnalysis(sym, AnalysisArgs{
 		Subject:    probe,
-		Positional: []Value{constValue(drawnReal(3.0))},
+		Positional: []Value{ConstValue(drawnReal(3.0))},
 	}, scope, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +51,7 @@ func TestAnalysisResultInputsAreTheBoundParameters(t *testing.T) {
 
 	result, err = ctx.RunAnalysis(sym, AnalysisArgs{
 		Subject: probe,
-		Named:   map[string]Value{"margin": constValue(drawnReal(0.25)), "burnTime": constValue(drawnReal(4.0))},
+		Named:   map[string]Value{"margin": ConstValue(drawnReal(0.25)), "burnTime": ConstValue(drawnReal(4.0))},
 	}, scope, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -59,19 +59,6 @@ func TestAnalysisResultInputsAreTheBoundParameters(t *testing.T) {
 	want = []string{"burnTime=4.0", "margin=0.25", "flag=true"}
 	if got := textOf(result.Inputs); !reflect.DeepEqual(got, want) {
 		t.Errorf("inputs %v, want %v", got, want)
-	}
-}
-
-// A sweep row carries the inputs its run bound, the row's own overlay included.
-func TestSweepRowCarriesTheRunsInputs(t *testing.T) {
-	ctx, _ := analysisFixture(t, `package test { calc def Idle { return k : Integer = 0; } }`)
-	bound := []InputBinding{{Name: "n", Value: constValue(drawnReal(7.0))}}
-	row := runSweepRow(ctx, []SweepBinding{{Param: "n", Value: constValue(drawnReal(7.0))}},
-		func(*Context, []SweepBinding) (SweepRunResult, error) {
-			return SweepRunResult{Inputs: bound}, nil
-		})
-	if !reflect.DeepEqual(row.Inputs, bound) {
-		t.Errorf("row inputs %v, want %v", row.Inputs, bound)
 	}
 }
 
@@ -206,7 +193,7 @@ func TestMonteCarloIterationOutputsMemoizeNothing(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		res, err := ConcludeMonteCarlo(runs, stats)
+		res, err := concludeMonteCarlo(runs, stats)
 		var observed []DrawTaken
 		for _, d := range ctx.DrawsTaken() {
 			if strings.HasPrefix(d.What, "uniform(1.0") {

@@ -260,8 +260,8 @@ func TestStateExecutor_TimeEvent(t *testing.T) {
 	}
 
 	nextEvent := exec.eventQueue.Peek()
-	if nextEvent.Type != EventTime {
-		t.Errorf("expected EventTime, got %v", nextEvent.Type)
+	if nextEvent.Type != eventTime {
+		t.Errorf("expected eventTime, got %v", nextEvent.Type)
 	}
 
 	if nextEvent.Timestamp != 10.0 {
@@ -472,7 +472,7 @@ func TestStateExecutor_GuardCondition(t *testing.T) {
 	exec.stateData["x"] = Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 10}}
 	exec.eventQueue.Push(Event{
 		ID:        2,
-		Type:      EventTime,
+		Type:      eventTime,
 		Timestamp: exec.CurrentTime() + 1.0,
 		Payload:   transition,
 	})

@@ -95,7 +95,7 @@ func (r *steppedRun) digest() string {
 		if inst == nil {
 			continue
 		}
-		fmt.Fprintf(&b, "#%d %s life=%+v\n", id, symbolText(inst.Type), ctx.lives[id])
+		fmt.Fprintf(&b, "#%d %s life=%+v\n", id, SymbolText(inst.Type), ctx.lives[id])
 		names := make([]string, 0, len(inst.FeatureValues))
 		for name := range inst.FeatureValues {
 			names = append(names, name)
@@ -115,7 +115,7 @@ func (r *steppedRun) digest() string {
 	}
 	fmt.Fprintf(&b, "activations=%d runs=%d steps=%d\n", ctx.activations, ctx.runs, ctx.run.steps)
 	for _, exec := range r.actions {
-		fmt.Fprintf(&b, "action %s state=%v tokens=%d results=%s\n", symbolText(exec.action), exec.State(), len(exec.tokens), formatValues(exec.Results()))
+		fmt.Fprintf(&b, "action %s state=%v tokens=%d results=%s\n", SymbolText(exec.action), exec.State(), len(exec.tokens), formatValues(exec.Results()))
 		for _, token := range exec.tokens {
 			fmt.Fprintf(&b, "  token %d at %s\n", token.ID, ActionNodeName(token.Location))
 		}
@@ -126,7 +126,7 @@ func (r *steppedRun) digest() string {
 			active = append(active, StateVertexName(state))
 		}
 		fmt.Fprintf(&b, "state %s state=%v active=%v stack=%d queue=%d data=%s\n",
-			symbolText(exec.stateMachine), exec.State(), active, len(exec.stateStack), exec.eventQueue.Len(), formatValues(exec.StateData()))
+			SymbolText(exec.stateMachine), exec.State(), active, len(exec.stateStack), exec.eventQueue.Len(), formatValues(exec.StateData()))
 	}
 	return b.String()
 }
@@ -286,7 +286,7 @@ func (r *steppedRun) stepAction(sym *symbols.Symbol) {
 	}
 	exec.SetTrace(r.trace)
 	r.actions = append(r.actions, exec)
-	r.snapshot = exec.Snapshot
+	r.snapshot = exec.snapshot
 	r.step = func() (bool, error) {
 		err := exec.Step()
 		return err == nil && exec.State() == StateRunning, err
@@ -311,7 +311,7 @@ func (r *steppedRun) stepState(t *testing.T, idx *symbols.Index, sym *symbols.Sy
 	exec.SetTrace(r.trace)
 	injectEvents(t, exec, expected.Events)
 	r.states = append(r.states, exec)
-	r.snapshot = exec.Snapshot
+	r.snapshot = exec.snapshot
 	r.step = func() (bool, error) {
 		err := exec.ProcessNextEvent()
 		return err == nil && exec.State() == StateRunning && exec.eventQueue.Len() > 0, err
@@ -682,16 +682,16 @@ func TestSnapshotRestoreBringsTheTraceBackToTheMark(t *testing.T) {
 	ctx, _ := contextForSource(t, sharedIdentitiesSrc)
 	tr := NewTraceRecorder()
 	ctx.SetTrace(tr)
-	tr.RecordStatement("first")
+	tr.recordStatement("first")
 	snapshot, err := ctx.Snapshot()
 	if err != nil {
 		t.Fatalf("Snapshot: %v", err)
 	}
-	tr.RecordStatement("second")
+	tr.recordStatement("second")
 	tr.Clear()
-	tr.Disable()
+	tr.disable()
 	snapshot.Restore()
-	tr.RecordStatement("third")
+	tr.recordStatement("third")
 	want := "stmt first\n" + traceIndent + "stmt third"
 	if got := tr.String(); got != want {
 		t.Fatalf("trace after restore:\n%s\nwant:\n%s", got, want)

@@ -263,7 +263,7 @@ func testStateDefSpecializingALibraryStateKeepsItsContent(t *testing.T) {
 	if err := exec.RunToQuiescence(); err != nil {
 		t.Fatalf("RunToQuiescence: %v", err)
 	}
-	if got := exec.FinalStateName(); got != "hot" {
+	if got := exec.finalStateName(); got != "hot" {
 		t.Fatalf("final state = %q, want hot", got)
 	}
 	seen, ok := exec.StateData()["burn.seen"]
@@ -298,8 +298,8 @@ func testExhibitedStateTypedByTheLibraryStateAction(t *testing.T) {
 			if errors.Is(err, lower.ErrRecursiveStateTyping) {
 				t.Fatalf("error = %v, want StateAction's content withheld rather than recursed into", err)
 			}
-			if !errors.Is(err, ErrNoInitialState) {
-				t.Fatalf("error = %v, want ErrNoInitialState", err)
+			if !errors.Is(err, errNoInitialState) {
+				t.Fatalf("error = %v, want errNoInitialState", err)
 			}
 			for _, want := range []string{"phases", "Mission", "StateAction"} {
 				if !strings.Contains(err.Error(), want) {
@@ -374,8 +374,8 @@ func testExhibitedStateTypedByAStateActionSpecialization(t *testing.T) {
 			}
 		}`
 		_, _, err := instantiateWithLibraries(t, src, "test::Mission")
-		if !errors.Is(err, ErrNoInitialState) {
-			t.Fatalf("error = %v, want ErrNoInitialState", err)
+		if !errors.Is(err, errNoInitialState) {
+			t.Fatalf("error = %v, want errNoInitialState", err)
 		}
 		if !strings.Contains(err.Error(), "phases") || !strings.Contains(err.Error(), "Phase") {
 			t.Errorf("error = %v, want it to name the machine and its definition", err)
@@ -398,7 +398,7 @@ func assertExhibitedMachineIn(t *testing.T, ctx *Context, inst *Instance, attr s
 	if !ok || machine.State == nil {
 		t.Fatal("the object exhibits no machine")
 	}
-	if got := machine.State.FinalStateName(); got != state {
+	if got := machine.State.finalStateName(); got != state {
 		t.Errorf("final state = %q, want %q", got, state)
 	}
 }

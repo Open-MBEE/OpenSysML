@@ -139,7 +139,7 @@ func TestHeldCaseBindsTheObjectGivenToItsSubject(t *testing.T) {
 func TestDefinitionOwnedCaseErrorVerdictNamesTheObject(t *testing.T) {
 	idx, ctx, objects := definitionOwnedCase(t, "test::Definition")
 	got := runOn(t, idx, ctx, "test::Definition::costTest", objects[0])
-	if got.Kind != VerdictError || !strings.Contains(got.Detail, "no value for feature cost") || got.Subject != objects[0] {
+	if got.Kind != verdictError || !strings.Contains(got.Detail, "no value for feature cost") || got.Subject != objects[0] {
 		t.Errorf("costTest on an object with no cost = %s (%s) about %v, want error about #%d", got.Kind, got.Detail, got.Subject, objects[0].ID)
 	}
 }
@@ -214,13 +214,13 @@ func TestVerificationRunsRecordTheRunsMade(t *testing.T) {
 }
 
 // TestDefinitionOwnedCaseWithoutAnObject pins the run made when no object is
-// given: on no object when the run holds none, so the owner's feature has no
-// value; on the single object of the definition; a refusal naming several.
+// given: inconclusive, asking for an object, when the run holds none; on the
+// single object of the definition; a refusal naming several.
 func TestDefinitionOwnedCaseWithoutAnObject(t *testing.T) {
 	idx, ctx, _ := definitionOwnedCase(t)
 	got := runOn(t, idx, ctx, "test::Definition::costTest", nil)
-	if got.Kind != VerdictError || !strings.Contains(got.Detail, "no value for feature cost") || got.Subject != nil {
-		t.Errorf("costTest with no object = %s (%s) about %v, want an error verdict about no object", got.Kind, got.Detail, got.Subject)
+	if got.Kind != VerdictInconclusive || got.Detail != "needs an object of test::Definition: none is instantiated" || got.Subject != nil {
+		t.Errorf("costTest with no object = %s (%s) about %v, want inconclusive, needing an object of the definition", got.Kind, got.Detail, got.Subject)
 	}
 
 	idx, ctx, objects := definitionOwnedCase(t, "test::dear")
@@ -234,7 +234,7 @@ func TestDefinitionOwnedCaseWithoutAnObject(t *testing.T) {
 
 	idx, ctx, _ = definitionOwnedCase(t, "test::cheap", "test::dear")
 	got = runOn(t, idx, ctx, "test::Definition::costTest", nil)
-	if got.Kind != VerdictError || !strings.Contains(got.Detail, "ambiguous subject") || !strings.Contains(got.Detail, "dear") {
+	if got.Kind != verdictError || !strings.Contains(got.Detail, "ambiguous subject") || !strings.Contains(got.Detail, "dear") {
 		t.Errorf("costTest with two objects = %s (%s), want a refusal naming both", got.Kind, got.Detail)
 	}
 }

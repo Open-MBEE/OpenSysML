@@ -72,7 +72,17 @@ export type {
   RenderStyle,
   RenderedView,
 } from "./render-view.js";
+export { renderedViewFromJson } from "./render-view.js";
 export type { Graphs } from "./graphs.js";
+export type {
+  CheckDivergence,
+  CheckFinal,
+  CheckOptions,
+  CheckResult,
+  CheckSearch,
+  CheckViolation,
+  CheckWitness,
+} from "./check.js";
 export {
   ENGINE_ALL,
   ENGINE_AUTO,
@@ -105,8 +115,10 @@ export {
   referrersOf,
 } from "./edit.js";
 export type { EditOperationData, EditTarget } from "./edit.js";
+export type { ToolDryRun } from "./verdict.js";
 export {
   AnalysisResult,
+  toolDryRunOf,
   CalcResult,
   CaseEvaluation,
   KIND_ASSERTION,
@@ -125,6 +137,15 @@ export {
   STATUS_VIOLATED,
   SweepRow,
   SweepTable,
+  RunsResult,
+  SelfCheckResult,
+  Recording,
+  type RunDistribution,
+  type RunPercentile,
+  type RunHistogramBin,
+  type RunCountedValue,
+  type SelfCheckFinding,
+  type RecordedDocument,
   Validation,
   VERDICT_ERROR,
   VERDICT_FAIL,
@@ -136,6 +157,16 @@ export {
   verificationPassed,
   verdictEvaluated,
   verdictHolds,
+  ImportResult,
+  ImportedFile,
+  ImportedValue,
+  Comparison,
+  ConfigurationComparison,
+  ObservableComparison,
+  ComparedDistribution,
+  type StatisticDifference,
+  type CaseStatistics,
+  type CaseStatistic,
 } from "./verdict.js";
 export type { Verdict } from "./verdict.js";
 export {
@@ -159,11 +190,15 @@ export {
   CAPABILITY_FEATURE_VALUES,
   CAPABILITY_FINAL_TIME,
   CAPABILITY_FUNCTION_VALUES,
+  CAPABILITY_ORDER_DEPENDENCE,
   CAPABILITY_INFINITY_VALUE,
   CAPABILITY_INLINE_LANGUAGE,
   CAPABILITY_MEASUREMENT_REFS,
   CAPABILITY_METAOBJECT_VALUES,
   CAPABILITY_PERFORMER,
+  CAPABILITY_RUNS,
+  CAPABILITY_SELF_CHECK,
+  CAPABILITY_RECORD_RUN,
   CAPABILITY_STATE_TRACE,
   CAPABILITY_QUERY,
   CAPABILITY_SCHEDULE,
@@ -206,6 +241,8 @@ export {
   mismatchReason,
   requireCapability,
   upgradeRemedy,
+  CAPABILITY_IMPORT_DATA,
+  CAPABILITY_COMPARE_RESULTS,
 } from "./capabilities.js";
 export {
   AnalysisRunError,

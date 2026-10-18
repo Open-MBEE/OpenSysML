@@ -13,8 +13,8 @@ import (
 // A Simulation::MonteCarlo case is an analysis of repeated runs, each on a fresh subject
 // reading `observed`; runs, mean, deviation and outOfSpec are bound over the sample.
 
-// MonteCarloCaseFQN names the library analysis of repeated runs.
-const MonteCarloCaseFQN = "Simulation::MonteCarlo"
+// monteCarloCaseFQN names the library analysis of repeated runs.
+const monteCarloCaseFQN = "Simulation::MonteCarlo"
 
 // The features Simulation::MonteCarlo declares, by the name each is declared under;
 // the outputs are exported for the comparison of a case's statistics with a tool's.
@@ -26,40 +26,40 @@ const (
 	MonteCarloOutOfSpecOutput = "outOfSpec"
 )
 
-// ErrNotMonteCarlo reports repeating a case that is no Simulation::MonteCarlo analysis.
-var ErrNotMonteCarlo = errors.New("not a Simulation::MonteCarlo analysis")
+// errNotMonteCarlo reports repeating a case that is no Simulation::MonteCarlo analysis.
+var errNotMonteCarlo = errors.New("not a Simulation::MonteCarlo analysis")
 
-// ErrMonteCarloObserved reports a run whose `observed` the statistics cannot be taken of.
-var ErrMonteCarloObserved = errors.New("invalid observation")
+// errMonteCarloObserved reports a run whose `observed` the statistics cannot be taken of.
+var errMonteCarloObserved = errors.New("invalid observation")
 
-// IsMonteCarloCase reports whether sym declares an analysis case specializing
+// isMonteCarloCase reports whether sym declares an analysis case specializing
 // Simulation::MonteCarlo, matched by identity so a case merely named alike is none.
-func (ctx *Context) IsMonteCarloCase(sym *symbols.Symbol) bool {
-	return sym != nil && RequireAnalysis(sym) == nil && ctx.specializesLibraryType(sym, MonteCarloCaseFQN)
+func (ctx *Context) isMonteCarloCase(sym *symbols.Symbol) bool {
+	return sym != nil && RequireAnalysis(sym) == nil && ctx.specializesLibraryType(sym, monteCarloCaseFQN)
 }
 
-// RequireMonteCarloCase reports ErrNotMonteCarlo for a symbol that is not an
+// RequireMonteCarloCase reports errNotMonteCarlo for a symbol that is not an
 // analysis case specializing Simulation::MonteCarlo, describing what it is instead.
 func (ctx *Context) RequireMonteCarloCase(sym *symbols.Symbol) error {
 	if err := ctx.RequireAnalysisCase(sym); err != nil {
 		return err
 	}
-	if !ctx.IsMonteCarloCase(sym) {
+	if !ctx.isMonteCarloCase(sym) {
 		return fmt.Errorf("%w: %s specializes no %s, so its runs have no statistics to bind",
-			ErrNotMonteCarlo, ctx.qualifiedSymbolName(sym), MonteCarloCaseFQN)
+			errNotMonteCarlo, ctx.QualifiedName(sym), monteCarloCaseFQN)
 	}
 	return nil
 }
 
 // MonteCarloRun is one run of a Simulation::MonteCarlo case: its steps performed
-// and `observed` read, its statistics unbound until ConcludeMonteCarlo binds the sample's.
+// and `observed` read, its statistics unbound until concludeMonteCarlo binds the sample's.
 type MonteCarloRun struct {
 	ctx   *Context
 	sym   *symbols.Symbol
 	scope *symbols.Scope
 	run   *calcRun
 	log   *evaluationLog
-	// results are the returns ending the case's steps, evaluated by ConcludeMonteCarlo.
+	// results are the returns ending the case's steps, evaluated by concludeMonteCarlo.
 	results []lower.Statement
 	// left marks the checks this run alone left undecided, for the sample to decide.
 	left []bool
@@ -84,7 +84,7 @@ type MonteCarloRun struct {
 	Outputs []CalcOutputValue
 	Unread  map[string]error
 
-	// Verdicts are the case's checks over this run: on its own until ConcludeMonteCarlo
+	// Verdicts are the case's checks over this run: on its own until concludeMonteCarlo
 	// settles them over the sample, which keeps the checks that are the sample's alone.
 	Verdicts []AnalysisVerdict
 }
@@ -93,7 +93,7 @@ type MonteCarloRun struct {
 func (r *MonteCarloRun) Context() *Context { return r.ctx }
 
 // ObserveMonteCarlo makes one run of a Simulation::MonteCarlo case as RunAnalysis would,
-// reading `observed` and the checks in place of the outputs, which ConcludeMonteCarlo evaluates.
+// reading `observed` and the checks in place of the outputs, which concludeMonteCarlo evaluates.
 func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (*MonteCarloRun, error) {
 	defer ctx.beginRun()()
 
@@ -183,7 +183,7 @@ func (r *MonteCarloRun) iterationOutputs() ([]CalcOutputValue, map[string]error)
 		}
 		value, err := r.run.output(ctx, out.Name)
 		if err != nil {
-			var u *UnassignedOutputError
+			var u *unassignedOutputError
 			// Reading an unbound statistic through the binding leaves the
 			// output to the conclusion as much as the statistic itself.
 			if !(errors.As(err, &u) && stats[u.Output]) {
@@ -233,7 +233,7 @@ func (ctx *Context) monteCarloObserved(run *calcRun) (Value, error) {
 	name, ok := ctx.monteCarloMember(run.shape, monteCarloObserved)
 	if !ok {
 		return Value{}, fmt.Errorf("%w: %s declares no %s::%s to observe",
-			ErrMonteCarloObserved, run.shape.Label, MonteCarloCaseFQN, monteCarloObserved)
+			errMonteCarloObserved, run.shape.Label, monteCarloCaseFQN, monteCarloObserved)
 	}
 	if value, ok := run.lookup(name); ok {
 		return value, nil
@@ -246,7 +246,7 @@ func (ctx *Context) monteCarloMember(shape *calcShape, feature string) (string, 
 	if ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
 		return "", false
 	}
-	for _, sym := range ctx.model.resolver.Index().LookupQualified(MonteCarloCaseFQN + "::" + feature) {
+	for _, sym := range ctx.model.resolver.Index().LookupQualified(monteCarloCaseFQN + "::" + feature) {
 		if name, ok := shape.memberName(ctx, sym); ok {
 			return name, true
 		}
@@ -264,7 +264,7 @@ type MonteCarloStatistics struct {
 	// Deviation is their sample standard deviation, which under two runs there is none of.
 	Deviation float64
 	// OutOfSpec is the number of runs a check of the runs did not hold in, counted by
-	// ConcludeMonteCarlo once the runs' checks are settled; MonteCarloSample leaves it 0.
+	// concludeMonteCarlo once the runs' checks are settled; MonteCarloSample leaves it 0.
 	OutOfSpec int64
 	// Unit is the unit quantity observations were taken in, which Mean and Deviation
 	// are expressed in; nil when the observations were bare numbers.
@@ -274,7 +274,7 @@ type MonteCarloStatistics struct {
 // statistic is Mean or Deviation as a value: a Real, or a quantity in the sample's unit.
 func (s MonteCarloStatistics) statistic(x float64) Value {
 	if s.Unit == nil {
-		return constValue(drawnReal(x))
+		return ConstValue(drawnReal(x))
 	}
 	return NewQuantityValue(&Quantity{Num: drawnReal(x), Unit: s.Unit.Clone()})
 }
@@ -284,7 +284,7 @@ func (s MonteCarloStatistics) statistic(x float64) Value {
 // no number, or a quantity of another dimension refuses the sample, named by its Number.
 func MonteCarloSample(runs []*MonteCarloRun) (MonteCarloStatistics, error) {
 	if len(runs) == 0 {
-		return MonteCarloStatistics{}, fmt.Errorf("%w: no run observed anything", ErrMonteCarloObserved)
+		return MonteCarloStatistics{}, fmt.Errorf("%w: no run observed anything", errMonteCarloObserved)
 	}
 	numbers := make([]semantics.Value, 0, len(runs))
 	var unit *Unit
@@ -294,7 +294,7 @@ func MonteCarloSample(runs []*MonteCarloRun) (MonteCarloStatistics, error) {
 		number, ok := MagnitudeValue(observed)
 		if !ok {
 			return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s observed %s, not a number",
-				ErrMonteCarloObserved, run.Number, run.Case, describeObserved(observed))
+				errMonteCarloObserved, run.Number, run.Case, describeObserved(observed))
 		}
 		q := observed.Quantity()
 		switch {
@@ -303,11 +303,11 @@ func MonteCarloSample(runs []*MonteCarloRun) (MonteCarloStatistics, error) {
 			unit = &u
 		case (q == nil) != (unit == nil):
 			return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s observed %s where run %d observed %s; a sample is of numbers or of quantities, not both",
-				ErrMonteCarloObserved, run.Number, run.Case, describeObserved(observed), first.Number, describeObserved(soleElement(first.Observed)))
+				errMonteCarloObserved, run.Number, run.Case, describeObserved(observed), first.Number, describeObserved(soleElement(first.Observed)))
 		case q != nil:
 			magnitude, err := q.ConvertTo(*unit)
 			if err != nil {
-				return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s: %w", ErrMonteCarloObserved, run.Number, run.Case, err)
+				return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s: %w", errMonteCarloObserved, run.Number, run.Case, err)
 			}
 			number = drawnReal(magnitude)
 		}
@@ -325,9 +325,9 @@ func describeObserved(value Value) string {
 	return FormatValue(value)
 }
 
-// ConcludeMonteCarlo settles every run's checks over the sample's runs, mean and deviation,
+// concludeMonteCarlo settles every run's checks over the sample's runs, mean and deviation,
 // counts outOfSpec over them, and concludes the case in the last run with the sample's checks.
-func ConcludeMonteCarlo(runs []*MonteCarloRun, stats MonteCarloStatistics) (AnalysisResult, error) {
+func concludeMonteCarlo(runs []*MonteCarloRun, stats MonteCarloStatistics) (AnalysisResult, error) {
 	sample, err := SettleMonteCarloRuns(runs, &stats)
 	if err != nil {
 		return AnalysisResult{}, err
@@ -341,7 +341,7 @@ func ConcludeMonteCarlo(runs []*MonteCarloRun, stats MonteCarloStatistics) (Anal
 // conclusion is taken.
 func SettleMonteCarloRuns(runs []*MonteCarloRun, stats *MonteCarloStatistics) ([]bool, error) {
 	if len(runs) == 0 {
-		return nil, fmt.Errorf("%w: no run to conclude", ErrMonteCarloObserved)
+		return nil, fmt.Errorf("%w: no run to conclude", errMonteCarloObserved)
 	}
 	for _, r := range runs {
 		r.settle(*stats)
@@ -391,7 +391,7 @@ func (r *MonteCarloRun) bindObservationStatistics(stats MonteCarloStatistics) er
 		feature string
 		value   Value
 	}{
-		{MonteCarloRunsOutput, constValue(drawnInt(stats.Runs))},
+		{MonteCarloRunsOutput, ConstValue(drawnInt(stats.Runs))},
 		{MonteCarloMeanOutput, stats.statistic(stats.Mean)},
 		{MonteCarloDeviationOutput, deviation},
 	}
@@ -469,7 +469,7 @@ func (r *MonteCarloRun) Conclude(stats MonteCarloStatistics, sample []bool) (Ana
 	if err := r.bindObservationStatistics(stats); err != nil {
 		return result, err
 	}
-	if err := r.bindStatistic(MonteCarloOutOfSpecOutput, constValue(drawnInt(stats.OutOfSpec))); err != nil {
+	if err := r.bindStatistic(MonteCarloOutOfSpecOutput, ConstValue(drawnInt(stats.OutOfSpec))); err != nil {
 		return result, err
 	}
 	if err := r.returnResults(); err != nil {
@@ -496,11 +496,11 @@ func (r *MonteCarloRun) bindStatistic(feature string, value Value) error {
 	name, ok := r.ctx.monteCarloMember(r.run.shape, feature)
 	if !ok {
 		return fmt.Errorf("%w: %s declares no %s::%s to bind",
-			ErrMonteCarloObserved, r.run.shape.Label, MonteCarloCaseFQN, feature)
+			errMonteCarloObserved, r.run.shape.Label, monteCarloCaseFQN, feature)
 	}
 	out, ok := r.run.shape.output(name)
 	if !ok {
-		return fmt.Errorf("%w: %s of %s is no output", ErrMonteCarloObserved, name, r.run.shape.Label)
+		return fmt.Errorf("%w: %s of %s is no output", errMonteCarloObserved, name, r.run.shape.Label)
 	}
 	if err := out.Decl.check(r.ctx, &value, func() string {
 		return fmt.Sprintf("%s: output %s", r.run.shape.Label, name)
@@ -558,8 +558,8 @@ func (r *MonteCarloRun) returnResults() error {
 // monteCarloUnconcluded says why one run of a Monte Carlo case reads a value that
 // is unbound: its statistics are of repeated runs, which a single run has none of.
 func (ctx *Context) monteCarloUnconcluded(sym *symbols.Symbol, err error) error {
-	if !errors.Is(err, ErrMultiplicityViolation) || !ctx.IsMonteCarloCase(sym) {
+	if !errors.Is(err, ErrMultiplicityViolation) || !ctx.isMonteCarloCase(sym) {
 		return err
 	}
-	return fmt.Errorf("%w; the statistics of a %s case are of repeated runs, which one run leaves unbound: ask for them as -runs <n>", err, MonteCarloCaseFQN)
+	return fmt.Errorf("%w; the statistics of a %s case are of repeated runs, which one run leaves unbound: ask for them as -runs <n>", err, monteCarloCaseFQN)
 }

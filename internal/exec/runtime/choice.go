@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"slices"
 	"strings"
 
@@ -19,9 +20,9 @@ const (
 	ChoiceTokenOrder ChoiceKind = iota
 	// ChoiceDecisionBranch: several guards of one decision node held.
 	ChoiceDecisionBranch
-	// ChoiceWriteOrder: two tokens wrote one feature within one step, so which
+	// choiceWriteOrder: two tokens wrote one feature within one step, so which
 	// value the feature holds afterwards is the order the writes were applied in.
-	ChoiceWriteOrder
+	choiceWriteOrder
 	// ChoiceTransition: several transitions out of one state were enabled for
 	// one event.
 	ChoiceTransition
@@ -31,27 +32,27 @@ const (
 	// ChoiceDueOrder: several executors had work due at one instant of the
 	// shared clock, and one of them ran first.
 	ChoiceDueOrder
-	// ChoiceDispatchOrder: several events the library leaves unordered — time
+	// choiceDispatchOrder: several events the library leaves unordered — time
 	// triggers, or a time trigger and a pool event — were due at one instant, and
 	// one of them was dispatched first.
-	ChoiceDispatchOrder
-	// ChoiceEntryOrder: several orthogonal regions, or a fork's branches, each had
+	choiceDispatchOrder
+	// choiceEntryOrder: several orthogonal regions, or a fork's branches, each had
 	// a unit of their entry left, and one of them advanced first.
-	ChoiceEntryOrder
-	// ChoiceExitOrder: several orthogonal regions each had a state left to exit,
+	choiceEntryOrder
+	// choiceExitOrder: several orthogonal regions each had a state left to exit,
 	// and one of them exited first.
-	ChoiceExitOrder
-	// ChoiceStepOrder: a do behavior had a step due while an event was due for
+	choiceExitOrder
+	// choiceStepOrder: a do behavior had a step due while an event was due for
 	// dispatch, and one of them went first.
-	ChoiceStepOrder
-	// ChoiceEntryStep: an event due for dispatch and a held entry could proceed,
+	choiceStepOrder
+	// choiceEntryStep: an event due for dispatch and a held entry could proceed,
 	// and one of them went first.
-	ChoiceEntryStep
-	// ChoiceStatementOrder: two or more statements of one body that no succession
+	choiceEntryStep
+	// choiceStatementOrder: two or more statements of one body that no succession
 	// orders could run next, and one of them ran first.
-	ChoiceStatementOrder
-	// ChoiceGuardOrder: a guard's result differed among statement orders of a body.
-	ChoiceGuardOrder
+	choiceStatementOrder
+	// choiceGuardOrder: a guard's result differed among statement orders of a body.
+	choiceGuardOrder
 )
 
 // String is the kind as a trace or diagnostic names it.
@@ -61,7 +62,7 @@ func (k ChoiceKind) String() string {
 		return "token order"
 	case ChoiceDecisionBranch:
 		return "decision branch"
-	case ChoiceWriteOrder:
+	case choiceWriteOrder:
 		return "write order"
 	case ChoiceTransition:
 		return "transition"
@@ -69,19 +70,19 @@ func (k ChoiceKind) String() string {
 		return "region order"
 	case ChoiceDueOrder:
 		return "due order"
-	case ChoiceDispatchOrder:
+	case choiceDispatchOrder:
 		return "dispatch order"
-	case ChoiceEntryOrder:
+	case choiceEntryOrder:
 		return "entry order"
-	case ChoiceExitOrder:
+	case choiceExitOrder:
 		return "exit order"
-	case ChoiceStepOrder:
+	case choiceStepOrder:
 		return "step order"
-	case ChoiceEntryStep:
+	case choiceEntryStep:
 		return "entry step"
-	case ChoiceStatementOrder:
+	case choiceStatementOrder:
 		return "statement order"
-	case ChoiceGuardOrder:
+	case choiceGuardOrder:
 		return "guard result"
 	}
 	return fmt.Sprintf("ChoiceKind(%d)", int(k))
@@ -132,10 +133,22 @@ type ChoicePoint struct {
 	// when the runtime could not name one.
 	File string
 	Span source.Span
+	// Independent reports that the alternatives commute by their lowered
+	// footprints: whichever is taken, the run's values are the same, so the
+	// choice leaves no value order-dependent.
+	Independent bool
+	// Touches are the features the conflicting alternatives write, sorted; the
+	// run's value of each is order-dependent on this choice.
+	Touches []string
+	// touched are the places written behind Touches, with the features they resolve to.
+	touched []lower.Place
+
+	// serial names the choice to the marks of the run's values (order_marks.go).
+	serial int64
 }
 
-// Weighted reports whether the model weights the alternatives.
-func (c ChoicePoint) Weighted() bool {
+// weighted reports whether the model weights the alternatives.
+func (c ChoicePoint) weighted() bool {
 	return len(c.Weights) == len(c.Alternatives) && len(c.Weights) > 0
 }
 
@@ -143,15 +156,34 @@ func (c ChoicePoint) Weighted() bool {
 // order and which one the executor took; a weighted decision's alternatives carry
 // their weights and how the branch was selected.
 func (c ChoicePoint) Describe() string {
+	d := c.describe()
+	return strings.TrimSuffix(d, ")") + "; " + c.Standing() + ")"
+}
+
+// Standing is what the choice leaves open: `independent` when its alternatives
+// commute by their footprints, else `order-dependent`, naming the features the
+// conflicting alternatives wrote.
+func (c ChoicePoint) Standing() string {
+	switch {
+	case c.Independent:
+		return "independent"
+	case len(c.Touches) > 0:
+		return "order-dependent: " + strings.Join(c.Touches, ", ")
+	}
+	return "order-dependent"
+}
+
+// describe is the choice less its standing.
+func (c ChoicePoint) describe() string {
 	alts := strings.Join(c.Alternatives, ", ")
 	taken := ""
 	if c.Taken >= 0 && c.Taken < len(c.Alternatives) {
 		taken = c.Alternatives[c.Taken]
 	}
-	if c.Kind == ChoiceDecisionBranch && c.Weighted() {
+	if c.Kind == ChoiceDecisionBranch && c.weighted() {
 		return fmt.Sprintf("step %d: %s branches %s hold (weighted; %s)", c.Step, c.Where, c.weightedAlternatives(), c.selection(taken))
 	}
-	if c.Kind == ChoiceTransition && c.Weighted() {
+	if c.Kind == ChoiceTransition && c.weighted() {
 		return fmt.Sprintf("%s: transitions %s (weighted; %s)", c.Where, c.weightedAlternatives(), c.selection(taken))
 	}
 	switch c.Kind {
@@ -159,7 +191,7 @@ func (c ChoicePoint) Describe() string {
 		return fmt.Sprintf("step %d: tokens %s (unordered; took %s first)", c.Step, alts, taken)
 	case ChoiceDecisionBranch:
 		return fmt.Sprintf("step %d: %s branches %s hold (unordered; took %s)", c.Step, c.Where, alts, taken)
-	case ChoiceWriteOrder:
+	case choiceWriteOrder:
 		return fmt.Sprintf("step %d: writes %s (unordered; %s stood)", c.Step, alts, taken)
 	case ChoiceTransition:
 		return fmt.Sprintf("%s: transitions %s (unordered; took %s)", c.Where, alts, taken)
@@ -170,11 +202,11 @@ func (c ChoicePoint) Describe() string {
 		return fmt.Sprintf("%s: states %s react (unordered; took %s first)", c.Where, alts, taken)
 	case ChoiceDueOrder:
 		return fmt.Sprintf("at %s: due %s (unordered; ran %s first)", c.Where, alts, taken)
-	case ChoiceDispatchOrder:
+	case choiceDispatchOrder:
 		return fmt.Sprintf("%s: %s (unordered; dispatched %s first)", c.Where, alts, taken)
-	case ChoiceEntryOrder, ChoiceExitOrder, ChoiceStepOrder, ChoiceEntryStep, ChoiceStatementOrder:
+	case choiceEntryOrder, choiceExitOrder, choiceStepOrder, choiceEntryStep, choiceStatementOrder:
 		return fmt.Sprintf("%s: next %s (unordered; took %s first)", c.Where, alts, taken)
-	case ChoiceGuardOrder:
+	case choiceGuardOrder:
 		return fmt.Sprintf("%s: verdicts %s (unordered; took %s)", c.Where, alts, taken)
 	}
 	return fmt.Sprintf("%s: %s (unordered; took %s)", c.Kind, alts, taken)
@@ -285,6 +317,13 @@ func (ctx *Context) noteFrom(n RunNote, self *Instance, behavior *symbols.Symbol
 	if ctx.probes > 0 {
 		return
 	}
+	if c, ok := n.(ChoicePoint); ok {
+		if c.serial == 0 {
+			c.serial = nextChoiceSerial()
+			n = c
+		}
+		ctx.run.marks.seed(c, ctx.clock.now)
+	}
 	ctx.run.notes = append(ctx.run.notes, n)
 	if ctx.forwardNotes != nil {
 		ctx.forwardNotes(n)
@@ -297,9 +336,9 @@ func (ctx *Context) noteFrom(n RunNote, self *Instance, behavior *symbols.Symbol
 	}
 }
 
-// ChoicesTaken returns the choices every run of the context took, in order, as
+// choicesTaken returns the choices every run of the context took, in order, as
 // a witness lists them: what a `replay` policy over them follows run by run.
-func (ctx *Context) ChoicesTaken() []ChoiceTaken {
+func (ctx *Context) choicesTaken() []ChoiceTaken {
 	return slices.Clone(ctx.choices)
 }
 
@@ -307,11 +346,6 @@ func (ctx *Context) ChoicesTaken() []ChoiceTaken {
 // points and the guards it could not evaluate.
 func (ctx *Context) Notes() []RunNote {
 	return ctx.run.Notes()
-}
-
-// NoteCount is how many notes the latest run has made so far.
-func (ctx *Context) NoteCount() int {
-	return ctx.run.NoteCount()
 }
 
 // Notes returns what the run noted so far, in order; nil for a run not begun.
@@ -372,8 +406,8 @@ func (ctx *Context) Choices() []ChoicePoint {
 	return out
 }
 
-// UnevaluableGuards returns the guards the latest run could not evaluate, in order.
-func (ctx *Context) UnevaluableGuards() []UnevaluableGuard {
+// unevaluableGuards returns the guards the latest run could not evaluate, in order.
+func (ctx *Context) unevaluableGuards() []UnevaluableGuard {
 	var out []UnevaluableGuard
 	for _, n := range ctx.run.notes {
 		if g, ok := n.(UnevaluableGuard); ok {

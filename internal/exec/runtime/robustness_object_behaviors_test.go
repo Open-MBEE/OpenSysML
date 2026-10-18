@@ -109,8 +109,8 @@ func testObjectExhibitedMachineAttributeWriteViolatesMultiplicity(t *testing.T) 
 		}
 	}`
 	_, _, err := instantiateInSource(t, src, "test::Controller")
-	if !errors.Is(err, ErrStatePerformanceOccurrence) {
-		t.Fatalf("error = %v, want ErrStatePerformanceOccurrence", err)
+	if !errors.Is(err, errStatePerformanceOccurrence) {
+		t.Fatalf("error = %v, want errStatePerformanceOccurrence", err)
 	}
 	if !errors.Is(err, ErrMultiplicityViolation) {
 		t.Fatalf("error = %v, want ErrMultiplicityViolation", err)
@@ -134,8 +134,8 @@ func testObjectPerformedActionAttributeWriteViolatesMultiplicity(t *testing.T) {
 		}
 	}`
 	_, _, err := instantiateInSource(t, src, "test::Logger")
-	if !errors.Is(err, ErrActionPerformanceOccurrence) {
-		t.Fatalf("error = %v, want ErrActionPerformanceOccurrence", err)
+	if !errors.Is(err, errActionPerformanceOccurrence) {
+		t.Fatalf("error = %v, want errActionPerformanceOccurrence", err)
 	}
 	if !errors.Is(err, ErrMultiplicityViolation) {
 		t.Fatalf("error = %v, want ErrMultiplicityViolation", err)
@@ -171,8 +171,8 @@ func testObjectPerformedActionOccurrenceHoldsANonObject(t *testing.T) {
 	fv.Materialized = true
 
 	err = ctx.startClassifierBehaviors(inst, 0)
-	if !errors.Is(err, ErrActionPerformanceOccurrence) {
-		t.Fatalf("error = %v, want ErrActionPerformanceOccurrence", err)
+	if !errors.Is(err, errActionPerformanceOccurrence) {
+		t.Fatalf("error = %v, want errActionPerformanceOccurrence", err)
 	}
 	if !strings.Contains(err.Error(), "not an occurrence") {
 		t.Errorf("error = %v, want one naming the value the feature holds", err)

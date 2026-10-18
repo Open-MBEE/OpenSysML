@@ -5,7 +5,7 @@ stmt assign log
     eval feature log -> ""
     eval literal "b" -> "b"
   eval operator + -> "b"
-choice step 3: tokens 2@a, 3@b (unordered; took 2@a first)
+choice step 3: tokens 2@a, 3@b (unordered; took 2@a first; independent)
 step 3: token 2@start, token 3@j
 step 4: token 2@a1, token 3@j
 stmt assign log

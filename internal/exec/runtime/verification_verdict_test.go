@@ -85,7 +85,7 @@ func TestVerificationBodyVerdicts(t *testing.T) {
 		{fqn: "test::silent", kind: VerdictInconclusive, detail: "no VerdictKind"},
 		{fqn: "test::stated", kind: VerdictPass},
 		{fqn: "test::aux", kind: VerdictPass},
-		{fqn: "test::Case", kind: VerdictError, detail: "subject is unbound"},
+		{fqn: "test::Case", kind: verdictError, detail: "subject is unbound"},
 	} {
 		result, err := ctx.RunVerification(oneSymbol(t, idx, tc.fqn), AnalysisArgs{}, nil, nil)
 		if err != nil {
@@ -161,11 +161,11 @@ func TestVerificationsOfRequirement(t *testing.T) {
 		{requirement: "test::q", want: []string{"test::retargeted"}},
 	} {
 		var got []string
-		for _, sym := range ctx.VerificationsOf(root, oneSymbol(t, idx, tc.requirement)) {
-			got = append(got, ctx.qualifiedSymbolName(sym))
+		for _, sym := range ctx.verificationsOf(root, oneSymbol(t, idx, tc.requirement)) {
+			got = append(got, ctx.QualifiedName(sym))
 		}
 		if strings.Join(got, ",") != strings.Join(tc.want, ",") {
-			t.Errorf("VerificationsOf(%s) = %v, want %v", tc.requirement, got, tc.want)
+			t.Errorf("verificationsOf(%s) = %v, want %v", tc.requirement, got, tc.want)
 		}
 	}
 }
@@ -191,11 +191,11 @@ func TestVerificationsOfRequirementAcrossScopeTrees(t *testing.T) {
 			t.Fatalf("no distinct symbol for %s in the second tree", tc.requirement)
 		}
 		var got []string
-		for _, sym := range ctx.VerificationsOf(root, req) {
-			got = append(got, ctx.qualifiedSymbolName(sym))
+		for _, sym := range ctx.verificationsOf(root, req) {
+			got = append(got, ctx.QualifiedName(sym))
 		}
 		if strings.Join(got, ",") != strings.Join(tc.want, ",") {
-			t.Errorf("VerificationsOf(%s from another tree) = %v, want %v", tc.requirement, got, tc.want)
+			t.Errorf("verificationsOf(%s from another tree) = %v, want %v", tc.requirement, got, tc.want)
 		}
 	}
 }

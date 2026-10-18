@@ -25,6 +25,9 @@ type Place struct {
 	Local  bool
 	State  *ast.StateNode
 	Direct bool
+	// Node is the node whose pin the place is, each performance of a node holding
+	// its own; nil for a feature or a declaration's own value.
+	Node ast.Node
 }
 
 // Conflicts reports whether the two places may name one value: places resolving
@@ -35,11 +38,14 @@ func (p Place) Conflicts(q Place) bool {
 	if p.State != nil || q.State != nil {
 		return p.State == q.State
 	}
+	if p.Node != nil && q.Node != nil && p.Node != q.Node {
+		return false
+	}
 	if p.Sym != nil && q.Sym != nil {
 		if p.Sym == q.Sym {
 			return true
 		}
-		if p.Local && q.Local {
+		if p.Local || q.Local {
 			return false
 		}
 	}
@@ -170,6 +176,12 @@ func (rel Relation) placesMeet(as, bs []Place) bool {
 		}
 	}
 	return false
+}
+
+// PlaceMeets reports whether p, a place of the first move's, may name the value
+// of one of the second's places among qs.
+func (rel Relation) PlaceMeets(p Place, qs []Place) bool {
+	return rel.placesMeet([]Place{p}, qs)
 }
 
 // held reports whether two conflicting places, the first move's and the
@@ -318,12 +330,13 @@ func (g *ActionGraph) Footprints() map[ast.Node]Footprint {
 	return g.footprints
 }
 
-// declaredFeatures is the set of declarations the graph's nodes hold as their own features.
-func declaredFeatures(graph *ActionGraph) map[ast.Node]bool {
-	declared := make(map[ast.Node]bool)
-	for _, features := range graph.Features {
+// declaredFeatures is the declarations the graph's nodes hold as their own
+// features, each to the node holding it.
+func declaredFeatures(graph *ActionGraph) map[ast.Node]ast.Node {
+	declared := make(map[ast.Node]ast.Node)
+	for node, features := range graph.Features {
 		for _, f := range features {
-			declared[f.Node] = true
+			declared[f.Node] = node
 		}
 	}
 	return declared
@@ -331,7 +344,7 @@ func declaredFeatures(graph *ActionGraph) map[ast.Node]bool {
 
 // footprintOf projects the footprint of one node from the graph's side tables;
 // declared is declaredFeatures(graph).
-func footprintOf(graph *ActionGraph, node ast.Node, declared map[ast.Node]bool) Footprint {
+func footprintOf(graph *ActionGraph, node ast.Node, declared map[ast.Node]ast.Node) Footprint {
 	b := &footprintBuilder{resolver: graph.resolver, graph: graph, node: node, scope: nodeScopeOf(graph, node), declared: declared}
 	if nodePerformsAction(node) {
 		// The performed action runs in an executor of its own; what it touches is its.
@@ -346,6 +359,27 @@ func footprintOf(graph *ActionGraph, node ast.Node, declared map[ast.Node]bool) 
 	b.successions()
 	b.control()
 	return b.footprint
+}
+
+// BindingFootprints is node → what binding the node's own features, pins and
+// accepted payload touches, apart from the statements its body runs: what a
+// performance's inputs are bound from and where its outputs go. Computed on
+// first use, as Footprints is.
+func (g *ActionGraph) BindingFootprints() map[ast.Node]Footprint {
+	g.bindingFootprintsOnce.Do(func() {
+		g.bindingFootprints = make(map[ast.Node]Footprint, len(g.Nodes))
+		declared := declaredFeatures(g)
+		for _, node := range g.Nodes {
+			b := &footprintBuilder{resolver: g.resolver, graph: g, node: node, scope: nodeScopeOf(g, node), declared: declared}
+			b.features()
+			b.bindings()
+			b.flows()
+			b.streams()
+			b.accept()
+			g.bindingFootprints[node] = b.footprint
+		}
+	})
+	return g.bindingFootprints
 }
 
 // nodePerformsAction reports whether a node performs an action declared elsewhere,
@@ -371,11 +405,13 @@ func nodeScopeOf(graph *ActionGraph, node ast.Node) *symbols.Scope {
 
 type footprintBuilder struct {
 	// resolver reads a name the scope tree alone does not reach, nil for none.
-	resolver          *resolve.Resolver
-	graph             *ActionGraph
-	node              ast.Node
-	scope             *symbols.Scope
-	declared          map[ast.Node]bool
+	resolver *resolve.Resolver
+	graph    *ActionGraph
+	node     ast.Node
+	scope    *symbols.Scope
+	// declared is each node-held feature declaration to its node, and a body's
+	// own declaration to nil: the places the footprint marks local.
+	declared          map[ast.Node]ast.Node
 	localDeclarations bool
 	footprint         Footprint
 	// expanding holds the calc usages whose bindings are being read, so a cyclic binding stops.
@@ -385,7 +421,7 @@ type footprintBuilder struct {
 // ConstraintBodyFootprint projects the reads and writes of one constraint
 // performance, marking declarations in its body-local scopes as local.
 func ConstraintBodyFootprint(scope *symbols.Scope, stmts []Statement) Footprint {
-	declared := make(map[ast.Node]bool)
+	declared := make(map[ast.Node]ast.Node)
 	var collect func(*symbols.Scope)
 	collect = func(current *symbols.Scope) {
 		if current == nil || !current.BodyLocal() {
@@ -393,7 +429,7 @@ func ConstraintBodyFootprint(scope *symbols.Scope, stmts []Statement) Footprint 
 		}
 		for _, member := range current.AllMembers() {
 			if member != nil && member.Decl != nil {
-				declared[member.Decl] = true
+				declared[member.Decl] = nil
 			}
 		}
 		for _, child := range current.Children() {
@@ -439,6 +475,12 @@ func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each f
 	each(Place{Sym: sym, Name: name, Local: local, Direct: direct})
 	if sym == nil {
 		return
+	}
+	if b.graph != nil && sym.Decl != nil && slices.Contains(b.graph.Nodes, sym.Decl) {
+		// A node named as a value is read by its outputs (`assign total := diff`).
+		for _, p := range b.outputs(sym.Decl) {
+			each(p)
+		}
 	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok {
 		for _, redefined := range redefinedNames(usage) {
@@ -502,7 +544,8 @@ func (b *footprintBuilder) address(scope *symbols.Scope, target string, chained 
 
 // declaredByNode reports whether sym is a feature some node of the graph declares.
 func (b *footprintBuilder) declaredByNode(sym *symbols.Symbol) bool {
-	return b.declared[sym.Decl]
+	_, declared := b.declared[sym.Decl]
+	return declared
 }
 
 // reads adds every feature an expression reads. A chain from a computed base, an
@@ -587,8 +630,11 @@ func (b *footprintBuilder) readName(scope *symbols.Scope, qn *ast.QualifiedName)
 		return
 	}
 	if len(qn.Parts) == 1 {
-		if _, found := resolve.FeatureSymbolInScope(scope, []string{qn.Parts[0].Text}); found || b.resolver == nil {
+		if sym, found := resolve.FeatureSymbolInScope(scope, []string{qn.Parts[0].Text}); found || b.resolver == nil {
 			b.place(scope, []string{qn.Parts[0].Text}, b.read)
+			if found && b.fallsThrough(sym) {
+				b.place(b.graph.Scope, []string{qn.Parts[0].Text}, b.read)
+			}
 			return
 		}
 	}
@@ -611,9 +657,9 @@ func (b *footprintBuilder) invokesDeclaredBehavior(scope *symbols.Scope, qn *ast
 	}
 	switch d := decl.(type) {
 	case *ast.Definition:
-		return d.Kind == ast.DefCalc || d.Kind == ast.DefAction
+		return d.Kind == ast.DefCalc || d.Kind.IsAction()
 	case *ast.Usage:
-		return d.Kind == ast.UsageCalc || d.Kind == ast.UsageAction
+		return d.Kind == ast.UsageCalc || d.Kind.IsAction()
 	}
 	return false
 }
@@ -663,7 +709,7 @@ func (b *footprintBuilder) statement(stmt Statement) {
 		b.reads(s.Scope, s.Value)
 		if b.localDeclarations {
 			if sym, _ := resolve.FeatureSymbolInScope(s.Scope, []string{s.Name}); sym != nil && sym.Decl != nil {
-				b.declared[sym.Decl] = true
+				b.declared[sym.Decl] = nil
 			}
 			b.place(s.Scope, []string{s.Name}, b.write)
 			return
@@ -693,7 +739,7 @@ func (b *footprintBuilder) statement(stmt Statement) {
 		if b.graph != nil {
 			for _, f := range b.graph.Features[b.node] {
 				if f.IsResult || f.Direction == ast.DirOut {
-					b.write(Place{Sym: featureSymbol(b.scope, f), Name: f.Name, Local: true})
+					b.write(Place{Sym: featureSymbol(b.scope, f), Name: f.Name, Local: true, Node: b.node})
 					wrote = true
 				}
 			}
@@ -839,21 +885,154 @@ func viaPortOf(s Send) string {
 // to, the enclosing feature of the pin's name.
 func (b *footprintBuilder) features() {
 	performs := nodePerformsAction(b.node)
+	params, body := b.performedParameters(b.node)
+	arguments := b.arguments(params)
+	own := make(map[string]bool)
 	for _, f := range b.graph.Features[b.node] {
+		own[f.Name] = true
 		b.reads(f.Scope, f.Value)
-		b.write(Place{Sym: featureSymbol(b.scope, f), Name: f.Name, Local: true})
-		if !performs {
-			continue
-		}
-		in := f.Direction == ast.DirIn || f.Direction == ast.DirInOut
-		out := f.Direction == ast.DirOut || f.Direction == ast.DirInOut || f.IsResult
-		if in && f.Value == nil && !b.pinConnected(f.Name) {
-			b.place(b.graph.Scope, []string{f.Name}, b.read)
-		}
-		if out {
-			b.place(b.graph.Scope, []string{f.Name}, b.write)
+		b.pin(Place{Sym: featureSymbol(b.scope, f), Name: f.Name, Local: true, Node: b.node}, f, performs, arguments[f.Name])
+	}
+	// The parameters of the action a node performs are pins of the node as well,
+	// bound from the arguments the node writes, else by name where the node
+	// declares none of its own.
+	for _, f := range params {
+		if !own[f.Name] {
+			b.reads(f.Scope, f.Value)
+			b.pin(Place{Sym: featureSymbol(body, f), Name: f.Name, Local: true, Node: b.node}, f, true, arguments[f.Name])
 		}
 	}
+}
+
+// performedParameters is the parameters of the action a node performs by
+// reference, typing or invocation, with the scope declaring them; none for a
+// node performing no action a name states.
+func (b *footprintBuilder) performedParameters(node ast.Node) ([]Feature, *symbols.Scope) {
+	if !nodePerformsAction(node) {
+		return nil, nil
+	}
+	target := performedTarget(node)
+	if target == nil {
+		return nil, nil
+	}
+	decl, body, ok := resolve.TypeDeclInScope(nodeScopeOf(b.graph, node), target)
+	if !ok {
+		return nil, nil
+	}
+	return lowerParameters(ast.DeclMembers(decl), body), body
+}
+
+// outputs is the pins a node's value is read from: its own outputs and those of
+// the action it performs, each the node's own place.
+func (b *footprintBuilder) outputs(node ast.Node) []Place {
+	var out []Place
+	each := func(f Feature, scope *symbols.Scope) {
+		if f.Direction == ast.DirOut || f.Direction == ast.DirInOut || f.IsResult {
+			out = append(out, Place{Sym: featureSymbol(scope, f), Name: f.Name, Local: true, Node: node})
+		}
+	}
+	for _, f := range b.graph.Features[node] {
+		each(f, nodeScopeOf(b.graph, node))
+	}
+	params, body := b.performedParameters(node)
+	for _, f := range params {
+		each(f, body)
+	}
+	return out
+}
+
+// arguments is the expression an invocation the node writes (`Add(x = 5)`,
+// `Add(5)`) supplies each input parameter with: named by name, positional in
+// the order the inputs are declared.
+func (b *footprintBuilder) arguments(params []Feature) map[string]ast.Node {
+	usage, ok := b.node.(*ast.Usage)
+	if !ok || usage.PerformedInvocation() == nil {
+		return nil
+	}
+	inv := usage.PerformedInvocation()
+	supplied := make(map[string]ast.Node, len(inv.Args)+len(inv.NamedArgs))
+	for _, arg := range inv.NamedArgs {
+		if arg.Name != nil && len(arg.Name.Parts) > 0 {
+			supplied[arg.Name.Parts[len(arg.Name.Parts)-1].Text] = arg.Value
+		}
+	}
+	i := 0
+	for _, f := range params {
+		if i >= len(inv.Args) {
+			break
+		}
+		if f.Direction == ast.DirIn || f.Direction == ast.DirInOut {
+			supplied[f.Name] = inv.Args[i]
+			i++
+		}
+	}
+	return supplied
+}
+
+// pin adds the write of a node's own pin and, where the node performs an action,
+// what binds it: the argument supplying an input, else the enclosing feature of
+// its name where nothing else supplies it, and the enclosing feature an output
+// is written to.
+func (b *footprintBuilder) pin(place Place, f Feature, performs bool, argument ast.Node) {
+	b.write(place)
+	in := f.Direction == ast.DirIn || f.Direction == ast.DirInOut
+	out := f.Direction == ast.DirOut || f.Direction == ast.DirInOut || f.IsResult
+	switch {
+	case !in:
+	case argument != nil:
+		b.reads(b.scope, argument)
+	case f.Value == nil && !b.pinConnected(f.Name) && b.enclosingDeclares(f.Name):
+		b.place(b.graph.Scope, []string{f.Name}, b.read)
+	}
+	if out && performs {
+		b.place(b.graph.Scope, []string{f.Name}, b.write)
+	}
+}
+
+// fallsThrough reports whether a read of the symbol reads the enclosing feature
+// of its name: an input pin of a node of the flow that nothing values, binds or
+// supplies is read from the flow's own feature of that name.
+func (b *footprintBuilder) fallsThrough(sym *symbols.Symbol) bool {
+	if sym == nil || b.graph == nil {
+		return false
+	}
+	node, declared := b.declared[sym.Decl]
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !declared || node == nil || !ok || usage.Direction != ast.DirIn || usage.Value != nil {
+		return false
+	}
+	return !(&footprintBuilder{graph: b.graph, node: node}).pinConnected(sym.Name) && b.enclosingDeclares(sym.Name)
+}
+
+// enclosingDeclares reports whether the flow the node is in declares a feature of
+// the name, which an input nothing else supplies is read from.
+func (b *footprintBuilder) enclosingDeclares(name string) bool {
+	_, ok := resolve.FeatureSymbolInScope(b.graph.Scope, []string{name})
+	return ok
+}
+
+// performedTarget is the name of the action a node performs by reference, typing
+// or invocation; nil when it performs none a name states.
+func performedTarget(node ast.Node) *ast.QualifiedName {
+	switch n := node.(type) {
+	case *ast.PerformActionNode:
+		if qn, ok := n.ActionRef.(*ast.QualifiedName); ok {
+			return qn
+		}
+	case *ast.Usage:
+		if inv := n.PerformedInvocation(); inv != nil {
+			return inv.Type
+		}
+		for _, rel := range n.Relationships {
+			if rel == nil || rel.Kind != ast.RelReferences && rel.Kind != ast.RelTyping {
+				continue
+			}
+			if qn, ok := rel.Target.(*ast.QualifiedName); ok {
+				return qn
+			}
+		}
+	}
+	return nil
 }
 
 // featureSymbol returns the symbol of a node's own feature, nil when the scope
@@ -908,7 +1087,7 @@ func (b *footprintBuilder) bindingEnd(binding PinBinding, node ast.Node, path []
 			b.footprint.Dynamic = true
 			return
 		}
-		place := Place{Name: pin, Local: true}
+		place := Place{Name: pin, Local: true, Node: node}
 		if scope := b.graph.Scopes[node]; scope != nil {
 			if sym, ok := scope.LookupLocal(pin); ok {
 				place.Sym = sym
@@ -957,7 +1136,7 @@ type pinKey struct {
 // flowTarget adds the write to the flow's target pin and, when the flow
 // streams, the writes a value reaching that pin streams on to.
 func (b *footprintBuilder) flowTarget(graph *ActionGraph, flow ObjectFlow, seen map[pinKey]bool) {
-	place := Place{Name: flow.TargetPin, Local: true}
+	place := Place{Name: flow.TargetPin, Local: true, Node: flow.Target}
 	if scope := graph.Scopes[flow.Target]; scope != nil {
 		if sym, ok := scope.LookupLocal(flow.TargetPin); ok {
 			place.Sym = sym
@@ -1046,7 +1225,7 @@ func (b *footprintBuilder) accept() {
 		channel.Signal = accept.SignalType.Text()
 	}
 	if accept.ParamName != "" {
-		b.write(Place{Sym: acceptParamSymbol(b.scope, accept.ParamName), Name: accept.ParamName, Local: true})
+		b.write(Place{Sym: acceptParamSymbol(b.scope, accept.ParamName), Name: accept.ParamName, Local: true, Node: b.node})
 	}
 	switch t := accept.Trigger.(type) {
 	case nil:
@@ -1098,4 +1277,12 @@ func isConvergence(node ast.Node) bool {
 		return true
 	}
 	return false
+}
+
+// ExpressionFootprint is what evaluating expr in scope reads: the places a guard
+// or condition depends on, dynamic where the declarations do not decide them.
+func ExpressionFootprint(scope *symbols.Scope, expr ast.Node) Footprint {
+	b := &footprintBuilder{scope: scope}
+	b.reads(scope, expr)
+	return b.footprint
 }

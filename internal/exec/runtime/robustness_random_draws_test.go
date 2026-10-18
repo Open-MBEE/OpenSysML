@@ -84,8 +84,8 @@ func testWeightedDecisionWhoseReadWeightIsNoProbability(t *testing.T) {
 				first select `+tc.slowGuard+` then slow { @Probability { p = w; } }
 				action fast { assign taken := 1; } then done;
 				action slow { assign taken := 2; } then done;`, 3)
-			if !errors.Is(err, ErrBranchWeights) {
-				t.Fatalf("error = %v, want ErrBranchWeights", err)
+			if !errors.Is(err, errBranchWeights) {
+				t.Fatalf("error = %v, want errBranchWeights", err)
 			}
 			if !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("error = %q, want it to say %q", err, tc.want)
@@ -100,7 +100,7 @@ func testRandomDrawWithoutASeed(t *testing.T) {
 	err := weightedActionError(t, `
 		attribute d : Real = uniform(0.0, 1.0);
 		first start; then done;`)
-	var unseeded *UnseededDrawError
+	var unseeded *unseededDrawError
 	if !errors.Is(err, ErrUnseededDraw) || !errors.As(err, &unseeded) {
 		t.Fatalf("error = %v, want ErrUnseededDraw", err)
 	}
@@ -114,8 +114,8 @@ func testRandomDrawWithoutASeed(t *testing.T) {
 func testRandomBoundsReversed(t *testing.T) {
 	for _, call := range []string{"uniform(1.0, 0.0)", "uniformInteger(6, 1)", "triangular(1.0, 0.5, 0.0)", "normal(0.0, -1.0)"} {
 		err := weightedActionError(t, "attribute d = "+call+";\n first start; then done;", 3)
-		if !errors.Is(err, ErrRandomDomain) {
-			t.Errorf("%s: error = %v, want ErrRandomDomain", call, err)
+		if !errors.Is(err, errRandomDomain) {
+			t.Errorf("%s: error = %v, want errRandomDomain", call, err)
 		}
 	}
 }

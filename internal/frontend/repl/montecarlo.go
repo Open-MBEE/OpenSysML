@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -66,7 +67,7 @@ func (s *Session) monteCarloReport(inv analysisInvocation, sample *monteCarloRun
 		status = VerdictHolds
 	}
 	lines := append(sweepTraces(sample.table), sweepTableLines(sample.table)...)
-	lines = append(lines, distributionLines(sample.table)...)
+	lines = append(lines, analysis.DistributionLines(sample.table, objectText)...)
 	verdict := Verdict{Subject: label, Status: status, Values: sweepValues(sample.table, rows), Rows: rows}
 	if sample.unconcluded != nil {
 		if len(sample.completed) > 0 {
@@ -115,7 +116,7 @@ func statusMark(status VerdictStatus) string {
 }
 
 // failedRun reports whether any run of the table failed.
-func failedRun(table runtime.SweepTable) bool {
+func failedRun(table sweep.SweepTable) bool {
 	for _, row := range table.Rows {
 		if row.Err != nil {
 			return true
@@ -127,7 +128,7 @@ func failedRun(table runtime.SweepTable) bool {
 // monteCarloRuns are the runs of a Monte Carlo case: the table of them, the
 // completed ones with the statistics of their sample, and the case's conclusion.
 type monteCarloRuns struct {
-	table runtime.SweepTable
+	table sweep.SweepTable
 	stats runtime.MonteCarloStatistics
 	// completed are the runs of the table's rows that completed, in row order; the
 	// case is concluded in the last of them.
@@ -174,7 +175,7 @@ func (m *monteCarloRuns) conclude() (runtime.AnalysisResult, error) {
 		byNumber[run.Number] = run
 	}
 	for k, row := range m.table.Rows {
-		if i, ok := runtime.RunNumber(row.Bindings); ok && byNumber[i] != nil {
+		if i, ok := sweep.RunNumber(row.Bindings); ok && byNumber[i] != nil {
 			m.table.Rows[k].Verdicts = byNumber[i].Verdicts
 		}
 	}
@@ -246,21 +247,21 @@ func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *ui
 		session := s.modelSeed.value
 		seed = &session
 	}
-	plan := runtime.SeedlessMonteCarloPlan(count)
+	plan := sweep.SeedlessMonteCarloPlan(count)
 	if seed != nil {
-		plan = runtime.MonteCarloPlan(count, *seed)
+		plan = sweep.MonteCarloPlan(count, *seed)
 	} else if !s.draws.Fixed() {
-		return nil, nil, fmt.Errorf("%w: the runs draw at random; name the seed they draw from, or fix the draws as %%draws min|max|average", runtime.ErrSweepRuns)
+		return nil, nil, fmt.Errorf("%w: the runs draw at random; name the seed they draw from, or fix the draws as %%draws min|max|average", sweep.ErrSweepRuns)
 	}
 
 	// The rows run concurrently; each keeps its run by number for the conclusion. The
 	// sweep validates the plan before the first row, so nothing is sized by count here.
 	var mu sync.Mutex
 	made := make(map[int64]*runtime.MonteCarloRun)
-	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
-		i, ok := runtime.RunNumber(bindings)
+	run := func(rt *runtime.Context, bindings []sweep.SweepBinding) (sweep.SweepRunResult, error) {
+		i, ok := sweep.RunNumber(bindings)
 		if !ok {
-			return runtime.SweepRunResult{}, fmt.Errorf("%w: the row numbers no run", runtime.ErrSweepRuns)
+			return sweep.SweepRunResult{}, fmt.Errorf("%w: the row numbers no run", sweep.ErrSweepRuns)
 		}
 		if seed != nil {
 			rt.SetModelSeed(runtime.RunSeed(*seed, i))
@@ -269,29 +270,29 @@ func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *ui
 		}
 		row, err := s.rowObjects(rt, args.objects, nil)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		positional, named, err := args.in(row)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		caseArgs := runtime.AnalysisArgs{Positional: positional, Named: named}
 		if caseArgs.Subject, err = row.object(subject); err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		self, err := row.object(owner)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		observed, err := rt.ObserveMonteCarlo(sym, caseArgs, runScope, self)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		observed.Number = i
 		mu.Lock()
 		made[i] = observed
 		mu.Unlock()
-		return runtime.SweepRunResult{
+		return sweep.SweepRunResult{
 			Outputs:  []runtime.CalcOutputValue{{Name: monteCarloObservable, Value: observed.Observed}},
 			Verdicts: decidedVerdicts(observed.Verdicts),
 			Subject:  observed.Subject,
@@ -308,7 +309,7 @@ func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *ui
 	table := answered.Result.Table()
 	completed := make([]*runtime.MonteCarloRun, 0, len(made))
 	for _, row := range table.Rows {
-		if i, ok := runtime.RunNumber(row.Bindings); ok && made[i] != nil {
+		if i, ok := sweep.RunNumber(row.Bindings); ok && made[i] != nil {
 			completed = append(completed, made[i])
 		}
 	}
@@ -329,7 +330,7 @@ func declaredFresh(ref freshRef) (freshRef, error) {
 		return ref, nil
 	}
 	if ref.sym == nil {
-		return freshRef{}, fmt.Errorf("%w: %s is no declaration's object; each run of a Monte Carlo makes its objects from their declarations, so name the object by the declaration it is reached from", runtime.ErrSweepRuns, ref.name)
+		return freshRef{}, fmt.Errorf("%w: %s is no declaration's object; each run of a Monte Carlo makes its objects from their declarations, so name the object by the declaration it is reached from", sweep.ErrSweepRuns, ref.name)
 	}
 	ref.imaged = false
 	return ref, nil

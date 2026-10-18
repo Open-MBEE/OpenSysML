@@ -56,7 +56,7 @@ func TestConstraintAboutNoObjectReadsThisAsExemplar(t *testing.T) {
 
 	open := requirementNamed(t, pkg, "Open")
 	_, err = ctx.EvaluateConstraint(requirementNamed(t, open.Scope, "bounded"), open.Scope)
-	if errors.Is(err, ErrThisNotAnObject) || err == nil {
+	if errors.Is(err, errThisNotAnObject) || err == nil {
 		t.Errorf("bounded: err = %v; want the open feature reported, not this", err)
 	}
 }

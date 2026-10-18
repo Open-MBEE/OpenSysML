@@ -292,10 +292,7 @@ func TestEveryToolTakingAModelTakesPathsAndSources(t *testing.T) {
 		t.Errorf("%d tools take a model, want the model tools: %v", modelTools, names)
 	}
 	slices.Sort(names)
-	want := []string{"apply_edits", "convert", "diagnostics", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs",
-		"instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis",
-		"run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint",
-		"verify_requirement", "verify_satisfaction"}
+	want := []string{"apply_edits", "check_behavior", "compare_results", "convert", "diagnostics", "evaluate", "evaluate_calc", "execute_action", "execute_state", "explain_diagnostic", "export_graphs", "import_data", "instantiate", "list_engines", "migrate", "parse", "query", "record_run", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_runs", "run_sweep", "self_check", "server_info", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}
 	if !slices.Equal(names, want) {
 		t.Errorf("tools = %v, want %v", names, want)
 	}
@@ -774,6 +771,9 @@ func TestAnUnknownModelHashIsNotFound(t *testing.T) {
 		"evaluate_calc":         {"symbolId": "Demo::add"},
 		"run_analysis":          {"symbolId": "Demo::sedanCost"},
 		"run_sweep":             {"symbolId": "Demo::Twice", "ranges": []any{}},
+		"run_runs":              {"actionSymbolId": "Demo::Spin", "runs": 1, "draws": "min"},
+		"self_check":            {},
+		"record_run":            {"analysisSymbolId": "Demo::sedanCost"},
 		"query":                 {},
 		"run_document_query":    {"queryId": "Q"},
 		"render_model_document": {"documentId": "D"},
@@ -781,6 +781,8 @@ func TestAnUnknownModelHashIsNotFound(t *testing.T) {
 		"export_graphs":         {"subject": "Demo::Lamp"},
 		"convert":               {"toFormat": "ttl"},
 		"apply_edits":           {"operations": []any{map[string]any{"setValue": map[string]any{"target": "x", "value": "1"}}}},
+		"import_data":           {"imports": []any{map[string]any{"name": "d.csv", "content": "element,x\n"}}},
+		"compare_results":       {"results": `{"source":"t","configurations":[]}`},
 	} {
 		args["modelHash"] = "0000000000000000000000000000000000000000000000000000000000000000"
 		msg := h.fails(name, args)

@@ -311,7 +311,7 @@ func calcUsageOutputInSource(t *testing.T, src, usageName, output string, maxSte
 
 	done := make(chan error, 1)
 	go func() {
-		value, err := ctx.CalcUsageOutput(sym, output, sym.OwnerScope, nil)
+		value, err := ctx.calcUsageOutput(sym, output, sym.OwnerScope, nil)
 		if err == nil {
 			err = fmt.Errorf("output %s of %s answered %s, expected the read to fail",
 				output, usageName, FormatTraceValue(value))
@@ -627,17 +627,6 @@ const tradeStudyRobustnessModel = `
 	}
 `
 
-// sweepRobustnessModel declares parameters no numeric range can bind, an
-// Integer one a fractional step cannot step, and a Real one.
-const sweepRobustnessModel = `package test {
-	private import ScalarValues::*;
-	part def Ship;
-	calc def Flag { in b : Boolean; return : Boolean = b; }
-	calc def Hull { in s : Ship; return : Ship = s; }
-	calc def Sq { in x : Integer; return : Integer = x * x; }
-	calc def Half { in x : Real; return : Real = x / 2.0; }
-}`
-
 // stateMachineWithLibraries builds Machine from src over the standard library,
 // for state bodies that name units, and returns it before initialization.
 func stateMachineWithLibraries(t *testing.T, src string) *StateExecutor {
@@ -669,4 +658,23 @@ func weightedActionError(t *testing.T, body string, seed ...uint64) error {
 	}
 	_, err := ctx.ExecuteAction(sym)
 	return err
+}
+
+// calcNamed is the calc definition of that name in the scope.
+func calcNamed(t *testing.T, scope *symbols.Scope, name string) *symbols.Symbol {
+	t.Helper()
+	sym, ok := scope.LookupLocal(name)
+	if !ok {
+		t.Fatalf("calc %s not indexed", name)
+	}
+	return sym
+}
+
+// intOf and realOf are numbers as an argument carries them.
+func intOf(n int64) Value {
+	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: n}}
+}
+
+func realOf(f float64) Value {
+	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: f}}
 }

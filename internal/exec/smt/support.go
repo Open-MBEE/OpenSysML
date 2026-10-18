@@ -11,6 +11,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
+const (
+	actionStepMultiplicity = "action step multiplicity "
+)
+
 // DefaultUnroll is how many iterations of a body loop the encoding unrolls when
 // the engine is given no other bound.
 const DefaultUnroll = analysis.DefaultUnroll
@@ -162,7 +166,7 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 				}
 				unsupported := &UnsupportedError{
 					Node:      nodeLabel(node),
-					Construct: "action step multiplicity " + multiplicity,
+					Construct: actionStepMultiplicity + multiplicity,
 					Reason:    "the SMT engine requires a fixed single-performance step",
 				}
 				if errors.Is(err, semantics.ErrIntegerUnaddressable) {
@@ -175,12 +179,12 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 			if stepErr := frame.Graph.CheckStep(node, model); stepErr != nil {
 				unsupported := &UnsupportedError{
 					Node:      nodeLabel(node),
-					Construct: "action step multiplicity " + frame.Graph.MultiplicityText(node, model),
+					Construct: actionStepMultiplicity + frame.Graph.MultiplicityText(node, model),
 					Reason:    stepErr.Error(),
 				}
 				var multErr *lower.StepMultiplicityError
 				if errors.As(stepErr, &multErr) {
-					unsupported.Construct = "action step multiplicity " + multErr.Multiplicity
+					unsupported.Construct = actionStepMultiplicity + multErr.Multiplicity
 					unsupported.Reason = multErr.Reason
 				}
 				return nil, fmt.Errorf("%w: %w", unsupported, stepErr)
@@ -524,7 +528,7 @@ func (f *Flow) sizeSlots(fr *Frame, k int) error {
 		}
 		if count := f.Repeats[node]; count > 1 {
 			if f.reaches(node, node) || arrivals[node] > 1 {
-				return &UnsupportedError{Node: f.label(node), Construct: "action step multiplicity " + f.RepeatText[node],
+				return &UnsupportedError{Node: f.label(node), Construct: actionStepMultiplicity + f.RepeatText[node],
 					Reason: "a repeated step a token may reach again while its performances are live is not encoded"}
 			}
 			widest = max(widest, int(count-1))

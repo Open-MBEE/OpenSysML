@@ -5,7 +5,8 @@ run that would never finish into a reported error instead of a hang.
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `OPENSYSML_LIBRARY_PATH` | unset (use the bundled standard library) | Directory to load the SysML/KerML standard library from instead of the embedded copy |
+| `OPENSYSML_LIBRARY_PATH` | unset (use the bundled standard library) | Directory to load the SysML/KerML standard library from instead of the embedded copy; a project interchange archive (`.kpar`), or a directory of them as the OMG publishes the library, serves as well |
+| `OPENSYSML_LIBRARY_ROOTS` | unset (the project's own well-known library directories) | Directories, separated as `PATH` is, to look for installed projects under when a loaded file belongs to a project (a directory holding `.project.json`), besides the project's own `.sysand/lib`; what `-library-root` adds for one run of `sysml` or `sysml-lsp`. An installed project may be a directory or a `.kpar` archive. See the [guide](../guide/03-command-line.md#working-inside-a-package-manager-project) |
 | `OPENSYSML_MAX_STEPS` | `10000000` | Evaluation step budget: the number of expression evaluations one run may spend before it is reported as a runaway |
 | `OPENSYSML_MAX_ACTION_STEPS` | `1000000` | Token-flow steps one action run may perform |
 | `OPENSYSML_MAX_EVENTS` | `1000000` | Events one state machine run may dispatch, and the events one `%advance` drains |

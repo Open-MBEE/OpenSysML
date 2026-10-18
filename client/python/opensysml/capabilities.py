@@ -65,6 +65,12 @@ CAPABILITY_RENDER_VIEW = "render_view"
 #: The ``ExportGraphs`` RPC, which exports the lowered graph of an action or
 #: state machine as the canonical ``graphs:1`` JSON an external engine is sent.
 CAPABILITY_EXPORT_GRAPHS = "export_graphs"
+CAPABILITY_IMPORT_DATA = "import_data"
+CAPABILITY_COMPARE_RESULTS = "compare_results"
+
+#: The ``CheckBehavior`` RPC, which searches every schedule of a behavior for
+#: violated properties, deadlocks, failures and divergent values.
+CAPABILITY_CHECK = "check"
 
 #: ``form`` on ``RenderDocumentRequest``, which asks ``RenderDocument`` for the
 #: HTML page instead of Markdown. Without it the service would render Markdown
@@ -244,6 +250,12 @@ CAPABILITY_STATE_TRACE = "state_trace"
 #: field is 0 whatever the run waited on.
 CAPABILITY_FINAL_TIME = "final_time"
 
+#: ``order_dependent`` on an action or state run's response and on a feature
+#: value, and ``order_dependent``/``independent`` on a ``choice-point``
+#: diagnostic: what a run's values stand only up to. Without it a value reads
+#: as fixed whatever order the run took.
+CAPABILITY_ORDER_DEPENDENCE = "order_dependence"
+
 #: The analysis engines: ``ListEngines``, the ``engine`` field selecting one
 #: (``auto``, ``all`` or a name) on the verification, calc, analysis and sweep
 #: requests, and ``engine``, ``strength`` and ``bounds`` on their responses,
@@ -392,3 +404,14 @@ def require(info: ServerInfo, capability: str, remedy: str) -> None:
     """Raise :class:`MissingCapabilityError` unless ``info`` reports ``capability``."""
     if not info.has(capability):
         raise MissingCapabilityError(capability, info, remedy)
+
+#: The ``RunRuns`` RPC, which runs an action or a Monte Carlo case repeatedly
+#: and tables what the runs observed.
+CAPABILITY_RUNS = "runs"
+
+#: The ``SelfCheck`` RPC, which applies the reflective SysMLValidation
+#: constraints to every element of a model.
+CAPABILITY_SELF_CHECK = "self_check"
+
+#: The ``RecordRun`` RPC, which records runs of an analysis case into the model.
+CAPABILITY_RECORD_RUN = "record_run"

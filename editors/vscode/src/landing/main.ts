@@ -1,7 +1,7 @@
 // The landing page's hero diagram: the stack model as the engine renders it, laid out
 // by ELK, its wires rerouted by libavoid around the boxes a visitor moves, drawn by
 // the same canvas code as the VS Code diagram panel.
-import type { LayoutGeometry, RenderPoint, RenderResult } from "../protocol";
+import type { LayoutGeometry, RenderPoint } from "../protocol";
 import { autoLayout, type AutoLayout } from "../webview/autolayout";
 import { CLEARANCE, loadAvoid, portExitReach } from "../webview/avoid";
 import { cssEscape, drawCanvas } from "../webview/canvas";
@@ -17,16 +17,18 @@ import {
   type PlacedNode,
   type PlacedPort,
 } from "../webview/layout";
+import { renderedViewFromJson, type Connection } from "@openmbee/opensysml/browser";
+import { connectModule, moduleUrls } from "./connect";
 import {
-  JOURNEY_EVENTS,
+  blocks,
   debugSteps,
   journey,
   landingModel,
   readModel,
+  renderResult,
   runJourney,
   type DebugStep,
   type Diagnostic,
-  type EngineClient,
   type EngineInstance,
   type JourneyRun,
   type LandingModel,
@@ -35,6 +37,7 @@ import {
 import { carried, obstacles, resettle } from "./carry";
 import { download, exportFrame, exportSvg, rasterSize, rasterize } from "./export";
 import { presented } from "./present";
+import { STACK_SCENE, type Scene } from "./scene";
 import stack from "./stack.json";
 import { ZOOM_STEP, pannedView, pinchedView, refittedView, zoomOf, zoomedView, type View } from "./zoom";
 
@@ -62,15 +65,9 @@ interface Mounted {
   dispose(): void;
 }
 
-interface EngineUrls {
-  wasmExec: string;
-  engine: string;
-}
-
 declare global {
   interface Window {
-    osmlLoadEngine?(urls: EngineUrls): Promise<EngineClient>;
-    osmlMountDiagram?(root: HTMLElement): void;
+    osmlMountDiagram?(root: HTMLElement, scene?: Scene): void;
     __osmlDiagram?: Mounted;
     document$?: { subscribe(next: () => void): { unsubscribe(): void } };
   }
@@ -92,7 +89,10 @@ interface Gesture {
 
 // The order Array.prototype.sort gives strings: by code unit, in every locale.
 function byCodeUnit(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
+  if (a < b) {
+    return -1;
+  }
+  return a > b ? 1 : 0;
 }
 
 function message(error: unknown): string {
@@ -126,7 +126,7 @@ function overlap(a: DOMRect | Box, b: DOMRect | Box): number {
   return w > 0 && h > 0 ? w * h : 0;
 }
 
-function mount(root: HTMLElement): Mounted {
+function mount(root: HTMLElement, scene: Scene): Mounted {
   window.__osmlDiagram?.dispose();
   const hero = root.closest<HTMLElement>(".osml-hero") ?? root;
   const stage = root.querySelector<HTMLElement>("[data-osml-stage]")!;
@@ -181,7 +181,12 @@ function mount(root: HTMLElement): Mounted {
   svg.append(defs, viewport);
   hero.append(svg);
 
-  let model = landingModel(stack.hash, stack.render as unknown as RenderResult, stack.instances as unknown as EngineInstance[]);
+  let model = landingModel(
+    scene.rootSymbol,
+    stack.hash,
+    renderResult(renderedViewFromJson(stack.render)),
+    stack.instances as unknown as EngineInstance[],
+  );
   let result = presented(model);
   let live = false;
   let goodSource: string | undefined;
@@ -204,7 +209,7 @@ function mount(root: HTMLElement): Mounted {
   let running = false;
   let editTimer: ReturnType<typeof setTimeout> | undefined;
   let editSequence = 0;
-  let enginePromise: Promise<EngineClient> | undefined;
+  let enginePromise: Promise<Connection> | undefined;
   let sourcePromise: Promise<string> | undefined;
 
   const partOf = (id: string): LandingPart | undefined => [...model.parts.values()].find((part) => part.id === id);
@@ -464,17 +469,24 @@ function mount(root: HTMLElement): Mounted {
 
   // ---- the engine and the model text ----
 
-  function engine(): Promise<EngineClient> {
-    if (!window.osmlLoadEngine) {
-      return Promise.reject(new Error("the engine loader is missing"));
+  // engine connects to the sysml-wasm module once; a scene's own calls share the connection.
+  function engine(): Promise<Connection> {
+    if (signal.aborted) {
+      return Promise.reject(new Error("the diagram has left the page"));
     }
-    enginePromise ??= window.osmlLoadEngine({
-      wasmExec: root.dataset.osmlWasmExec ?? "",
-      engine: root.dataset.osmlEngine ?? "",
-    }).catch((error: unknown) => {
-      enginePromise = undefined;
-      throw error;
-    });
+    enginePromise ??= connectModule(moduleUrls(root.dataset, document.baseURI)).then(
+      (connection) => {
+        if (signal.aborted) {
+          void connection.close();
+          throw new Error("the diagram has left the page");
+        }
+        return connection;
+      },
+      (error: unknown) => {
+        enginePromise = undefined;
+        throw error;
+      },
+    );
     return enginePromise;
   }
 
@@ -501,7 +513,7 @@ function mount(root: HTMLElement): Mounted {
     model = next;
     goodSource = source;
     live = true;
-    for (const feature of [...placed.keys()]) {
+    for (const feature of placed.keys()) {
       if (!model.parts.has(feature)) {
         placed.delete(feature);
       }
@@ -527,9 +539,14 @@ function mount(root: HTMLElement): Mounted {
   // read parses the source on the engine; it reports diagnostics and keeps the last good model.
   async function read(source: string, verb: string): Promise<LandingModel | undefined> {
     const started = performance.now();
-    const outcome = readModel(await engine(), source);
-    if (outcome.diagnostics.length > 0 || !outcome.model) {
-      const first = outcome.diagnostics[0];
+    const revision = editSequence;
+    const outcome = await readModel(await engine(), scene, source);
+    if (revision !== editSequence) {
+      // The editor took input while the worker read this text; that edit reads next.
+      return undefined;
+    }
+    if (!outcome.model) {
+      const first = outcome.diagnostics.find(blocks) ?? outcome.diagnostics[0];
       srcEl.setAttribute("aria-invalid", "true");
       status(`Not ${verb}: ${first ? diagnosticText(first) : "the model has nothing to draw"}. The diagram shows the last model that read cleanly.`, true);
       return undefined;
@@ -847,7 +864,7 @@ function mount(root: HTMLElement): Mounted {
   });
   on(window, "pointermove", (event) => {
     const active = gesture;
-    if (!active || event.pointerId !== active.pointer) {
+    if (event.pointerId !== active?.pointer) {
       return;
     }
     const p = point(event);
@@ -862,22 +879,20 @@ function mount(root: HTMLElement): Mounted {
       hero.classList.add("osml-hero--dragging");
     }
     active.at = { x: active.from.x + dx, y: active.from.y + dy };
-    if (active.frame === undefined) {
-      active.frame = requestAnimationFrame(() => {
-        active.frame = undefined;
-        if (!signal.aborted && gesture === active) {
-          moveTo(active.id, active.at);
-        }
-      });
-    }
+    active.frame ??= requestAnimationFrame(() => {
+      active.frame = undefined;
+      if (!signal.aborted && gesture === active) {
+        moveTo(active.id, active.at);
+      }
+    });
   });
   on(window, "pointerup", (event) => {
-    if (gesture && event.pointerId === gesture.pointer) {
+    if (event.pointerId === gesture?.pointer) {
       endGesture(false);
     }
   });
   on(window, "pointercancel", (event) => {
-    if (gesture && event.pointerId === gesture.pointer) {
+    if (event.pointerId === gesture?.pointer) {
       endGesture(true);
     }
   });
@@ -1167,7 +1182,7 @@ function mount(root: HTMLElement): Mounted {
         }
         const used = seed;
         const started = performance.now();
-        const visited = journey(await engine(), current, used);
+        const visited = await journey(await engine(), scene, current, used);
         ran = true;
         const ms = Math.max(1, Math.round(performance.now() - started));
         if (visited.length === 0) {
@@ -1175,7 +1190,7 @@ function mount(root: HTMLElement): Mounted {
         }
         const names = visited.map((id) => partOf(id)?.attrs.label ?? id);
         status(
-          `ExecuteState ran ModelJourney on ${JOURNEY_EVENTS.join(", ")} under ${picked ? "random seed" : "seed"} ${used} in ${ms} ms: ${names.join(" → ")}`,
+          `ExecuteState ran ModelJourney on ${scene.journey.events.join(", ")} under ${picked ? "random seed" : "seed"} ${used} in ${ms} ms: ${names.join(" → ")}`,
         );
         runBtn.textContent = "▶ Run it again";
         await animate(visited);
@@ -1185,10 +1200,10 @@ function mount(root: HTMLElement): Mounted {
         running = false;
         runBtn.disabled = false;
         syncDebugControls();
-        const eventsStale = ran && !sameEvents(sent, JOURNEY_EVENTS);
+        const eventsStale = ran && !sameEvents(sent, scene.journey.events);
         if (run !== undefined && (runSeed !== seed || eventsStale)) {
           if (eventsStale) {
-            sent = [...JOURNEY_EVENTS];
+            sent = [...scene.journey.events];
           }
           if (debugPanel.hidden) {
             run = undefined;
@@ -1206,7 +1221,7 @@ function mount(root: HTMLElement): Mounted {
   // Every change re-runs ModelJourney from the start on the engine with all the events
   // sent so far; the panel then steps through that run's trace record by record.
 
-  let sent: string[] = [...JOURNEY_EVENTS];
+  let sent: string[] = [...scene.journey.events];
   let run: JourneyRun | undefined;
   let steps: DebugStep[] = [];
   // The last trace record shown; -1 is before the first.
@@ -1321,7 +1336,7 @@ function mount(root: HTMLElement): Mounted {
       // This run uses the latest model, including one its own read adopted.
       rerunStale = false;
       const started = performance.now();
-      run = runJourney(client, current, sent, seed);
+      run = await runJourney(client, scene, current, sent, seed);
       runSeed = seed;
       steps = debugSteps(run.trace);
       const ms = Math.max(1, Math.round(performance.now() - started));
@@ -1543,6 +1558,9 @@ function mount(root: HTMLElement): Mounted {
     resize.disconnect();
     navigation?.unsubscribe();
     clearTimeout(editTimer);
+    // The worker goes with the diagram; a connection still opening closes itself on arrival.
+    void enginePromise?.then((connection) => connection.close(), () => undefined);
+    enginePromise = undefined;
     svg.remove();
     hero.classList.remove("osml-hero--focus", "osml-hero--dragging");
     stage.classList.remove("osml-schematic__stage--zoomed", "osml-schematic__stage--panning");
@@ -1557,6 +1575,6 @@ function mount(root: HTMLElement): Mounted {
   return mounted;
 }
 
-window.osmlMountDiagram = (root: HTMLElement): void => {
-  window.__osmlDiagram = mount(root);
+window.osmlMountDiagram = (root: HTMLElement, scene: Scene = STACK_SCENE): void => {
+  window.__osmlDiagram = mount(root, scene);
 };

@@ -94,7 +94,7 @@ func testParkedBranchWithNoSenderDeadlocks(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error: nothing sends to the accept two blocks deep")
 	}
-	if !errors.Is(err, ErrAcceptDeadlock) && !errors.Is(err, ErrSendTargetNotObject) && !strings.Contains(err.Error(), "nobody") {
+	if !errors.Is(err, ErrAcceptDeadlock) && !errors.Is(err, errSendTargetNotObject) && !strings.Contains(err.Error(), "nobody") {
 		t.Fatalf("error = %v, want a typed deadlock or unroutable-send error", err)
 	}
 }

@@ -1,0 +1,9 @@
+{
+  "libraries": true,
+  "type": "action",
+  "evaluate": "test::fly",
+  "outputs": {
+    "m": {"type": "Real", "value": 3.5},
+    "greeting": {"type": "String", "value": "Ann"}
+  }
+}

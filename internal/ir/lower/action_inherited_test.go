@@ -867,7 +867,7 @@ func TestToActionGraphCompositeRedefinitionMergesInheritedContent(t *testing.T) 
 			if subflow == nil || subflow.Graph == nil {
 				t.Fatal("redefined action a has no composite subflow")
 			}
-			if b := namedNode(subflow.Graph, "b"); b == nil {
+			if namedNode(subflow.Graph, "b") == nil {
 				t.Fatal("redefined action a has no inherited or owned subaction b")
 			}
 

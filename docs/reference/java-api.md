@@ -11,11 +11,11 @@ dependency footprint, service ownership and release verification are in
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.10.0</version>
+  <version>0.10.1</version>
 </dependency>
 ```
 
-The Java artifact is not on Maven Central yet. Until then, a checkout installs it:
+The Java artifact is on Maven Central from 0.10.1. For unreleased changes, a checkout installs it:
 `make build` for the service binary the tests start, then
 `mvn -f client/java/pom.xml install`. The compiler
 release is **17**, the lowest baseline a realistic host — Eclipse 2023-03,
@@ -131,6 +131,16 @@ capabilities (`schedule`, `performer`, `state_trace`) before the call; an unknow
 schedule or trace with exploration is refused as `INVALID_ARGUMENT`. A requested
 trace is returned as typed `DocumentEvent` values in `StateRun.trace()` with
 `traceDropped()` reporting records discarded by the service's bound.
+`ExecutionOptions` also carries the run options of the `sysml` command: `withAdvance(seconds)`
+runs for a simulated duration and reports the clock in `finalTime`, `withSeed(n)` seeds the
+model's own draws, `withDraws("min")` (or `"max"`, `"average"`, `"random"`) chooses how they
+resolve and `withClockStep(seconds)` ticks the clock in fixed steps; `AnalysisOptions` carries
+`withToolDryRun()`, whose answer carries the previewed tool call in `Analysis.toolDryRun()` (a
+`ToolDryRun`), and `Connection.listEngines(true)` probes each external engine before listing it.
+`Model.diagnostics(DiagnosticsOptions)` selects the lints of one answer
+(`DiagnosticsOptions.defaults().disabling("undeclared-signal")`, `.enabling("rounded-real-literal")`).
+A run that `withAdvance` stops before completion is a `ModelException` whose `finalTime()` is the
+clock it stopped at.
 A failed traced run remains a `ModelException`; its `trace()` and
 `traceDropped()` carry the records made before failure and the discarded count.
 `exploreAction`/`exploreState` take an exploration schedule (`explore`,

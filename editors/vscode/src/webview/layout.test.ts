@@ -11,7 +11,9 @@ import type {
   RenderResult,
 } from "../protocol";
 import type { EngineInstance } from "../landing/model";
-import { landingModel } from "../landing/model";
+import { landingModel, renderResult } from "../landing/model";
+import { renderedViewFromJson } from "@openmbee/opensysml/browser";
+import { STACK_SCENE } from "../landing/scene";
 import { carried, obstacles, resettle } from "../landing/carry";
 import { presented } from "../landing/present";
 import { autoLayout, type AutoLayout } from "./autolayout";
@@ -56,7 +58,8 @@ const WASM = path.resolve("node_modules/libavoid-js/dist/libavoid.wasm");
 
 interface LandingFixture {
   hash: string;
-  render: Omit<RenderResult, "form" | "artifact" | "version">;
+  /** The protojson RenderViewResponse the module answered. */
+  render: unknown;
   instances: EngineInstance[];
 }
 
@@ -2727,8 +2730,9 @@ test("landing drag keeps right-angled routes at the captured Pilot obstruction",
     readFileSync("src/landing/stack.json", "utf8"),
   ) as LandingFixture;
   const model = landingModel(
+    STACK_SCENE.rootSymbol,
     fixture.hash,
-    fixture.render as RenderResult,
+    renderResult(renderedViewFromJson(fixture.render)),
     fixture.instances,
   );
   const result = presented(model);
