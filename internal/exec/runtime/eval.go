@@ -2090,8 +2090,8 @@ func (ctx *Context) scalarValueType(scope *symbols.Scope, value Value) (*symbols
 	return nil, fmt.Errorf("%w: direct type %q", errUndeterminedValueType, fqn)
 }
 
-// evalClassification evaluates `@T` (metadata T annotates the subject) and `@@T`
-// (the subject's own metaclass conforms to T) through the semantic model, so the
+// evalClassification evaluates `@T` and `@@T` (metadata of the subject — an
+// annotation or its own metaclass — conforms to T) through the semantic model, so the
 // verdict is the one an element filter writing the same test reaches.
 func (ec *EvalContext) evalClassification(n *ast.OperatorExpr) (Value, error) {
 	elem, err := ec.classifiedElement(n)
