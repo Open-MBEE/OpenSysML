@@ -130,7 +130,7 @@ func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 		for _, cp := range sm.Owned("connectionPoint") {
 			m.connectionPoint(cp)
 		}
-		m.regions(sm, m.populatedRegions(sm), false, func() {}, nil)
+		m.regions(sm, m.populatedRegions(sm), false, func() { /* a machine has no actions between its entry and its regions */ }, nil)
 		m.writeRelocatedTransitions(sm)
 	})
 }
@@ -2713,7 +2713,7 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 			s.m.unbound(eff, "the transition accepts no signal")
 		}
 	} else if written > 1 {
-		notes = append(notes, "written as "+strconv.Itoa(written)+" transitions, one per trigger")
+		notes = append(notes, writtenAs+strconv.Itoa(written)+" transitions, one per trigger")
 	}
 	tname := s.m.nameOf(t)
 	if tname == "" {

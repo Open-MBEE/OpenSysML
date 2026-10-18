@@ -904,7 +904,7 @@ func (p *projection) build(source qx) (project qx, notes []string) {
 		}
 		name := names.claim(e.name)
 		if name != e.name {
-			notes = append(notes, columnSubject+e.name+" is written as "+name+", headed "+e.name+": column names are unique")
+			notes = append(notes, columnSubject+e.name+isWrittenAs+name+", headed "+e.name+": column names are unique")
 		}
 		cols = append(cols, qcall("Column", qarg1("name", qstr(name)), qarg1(e.argument, e.expression)))
 		widths = append(widths, e.width)
@@ -1068,7 +1068,7 @@ func (m *migration) lowerMatrix(t *sysmlv1.Table, host *sysmlv1.Element, l *lowe
 				name += " (" + dir + ")"
 			}
 			if unique := names.claim(name); unique != name {
-				l.note(columnSubject + name + " is written as " + unique + ": column names are unique")
+				l.note(columnSubject + name + isWrittenAs + unique + ": column names are unique")
 				name = unique
 			}
 			related = append(related, qcall("RelatedColumn", qarg1("name", qstr(name)),

@@ -3088,7 +3088,7 @@ func (a *activity) declareVariables() {
 			form = "no v2 form"
 		}
 		for _, v := range variables {
-			a.m.add(v, Unmapped, "", "a variable of "+describe(a.act)+" is not written: the "+a.act.Type+" is written as "+form+", whose body declares no local features")
+			a.m.add(v, Unmapped, "", "a variable of "+describe(a.act)+" is not written: the "+a.act.Type+isWrittenAs+form+", whose body declares no local features")
 		}
 		return
 	}
@@ -3382,7 +3382,7 @@ func (a *activity) reducerFunc(n *sysmlv1.Element) (fn, why string) {
 		if form == "" {
 			form = "no v2 form"
 		}
-		return "", theReducer + qualifiedName(reducer) + " is written as " + form + ", not a calc or function def, so it has no v2 function"
+		return "", theReducer + qualifiedName(reducer) + isWrittenAs + form + ", not a calc or function def, so it has no v2 function"
 	}
 	var ins, rets int
 	for _, p := range a.m.actionParameters(reducer) {
