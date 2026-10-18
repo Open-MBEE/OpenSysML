@@ -157,9 +157,17 @@ func sweepOutcome(ctx *Context, val Value, err error) string {
 		if len(elements) == 0 {
 			return "empty"
 		}
+		// Objects are numbered by first appearance in the row: identity is kept, allocation order is not.
 		members := make([]string, len(elements))
+		ordinal := map[int64]int{}
 		for i, element := range elements {
 			members[i] = sweepOutcome(ctx, element, nil)
+			if element.Kind == ValInstance {
+				if _, seen := ordinal[element.Instance]; !seen {
+					ordinal[element.Instance] = len(ordinal) + 1
+				}
+				members[i] = fmt.Sprintf("%s#%d", members[i], ordinal[element.Instance])
+			}
 		}
 		return fmt.Sprintf("collection(%d) [%s]", len(elements), strings.Join(members, ", "))
 	case ValNull:

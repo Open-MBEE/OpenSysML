@@ -10,7 +10,7 @@ read	Probe::p1.atq	model	Probe::P1::atq	object:Probe::At1
 read	Probe::p1.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
 read	Probe::p1.caq	model	Probe::P1::caq	ERR_NOSUCHFEATURE object has no such feature: member caq not found in instance
 read	Probe::p1.cargo	model	Probe::P1::cargo	object:Probe::I1
-read	Probe::p1.checkedConstraints	systems	Items::Item::checkedConstraints	collection(3) [object:Probe::R1, object:Probe::P1::cq, object:Probe::P1::ac]
+read	Probe::p1.checkedConstraints	systems	Items::Item::checkedConstraints	collection(3) [object:Probe::R1#1, object:Probe::P1::cq#2, object:Probe::P1::ac#3]
 read	Probe::p1.cnq	model	Probe::P1::cnq	object:Probe::Cn1
 read	Probe::p1.conq	model	Probe::P1::conq	ERR_NOSUCHFEATURE object has no such feature: member conq not found in instance
 read	Probe::p1.cq	model	Probe::P1::cq	object:Probe::P1::cq
@@ -33,9 +33,9 @@ read	Probe::p1.oq	model	Probe::P1::oq	object:Probe::O1
 read	Probe::p1.other	model	Probe::P1::other	error uninitialized feature value: other
 read	Probe::p1.otherItem	model	Probe::P1::otherItem	error uninitialized feature value: otherItem
 read	Probe::p1.others	model	Probe::P1::others	undetermined <undetermined>
-read	Probe::p1.ownedActions	systems	Parts::Part::ownedActions	collection(3) [object:Probe::A1, object:Probe::Fl1, object:Probe::S1]
-read	Probe::p1.ownedPorts	systems	Parts::Part::ownedPorts	collection(1) [object:Probe::Pt]
-read	Probe::p1.ownedStates	systems	Parts::Part::ownedStates	collection(1) [object:Probe::S1]
+read	Probe::p1.ownedActions	systems	Parts::Part::ownedActions	collection(3) [object:Probe::A1#1, object:Probe::Fl1#2, object:Probe::S1#3]
+read	Probe::p1.ownedPorts	systems	Parts::Part::ownedPorts	collection(1) [object:Probe::Pt#1]
+read	Probe::p1.ownedStates	systems	Parts::Part::ownedStates	collection(1) [object:Probe::S1#1]
 read	Probe::p1.pa	model	Probe::P1::pa	object:Probe::A2
 read	Probe::p1.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
 read	Probe::p1.pt	model	Probe::P1::pt	object:Probe::Pt
@@ -48,9 +48,9 @@ read	Probe::p1.snap	model	Probe::P1::snap	object:Probe::P1::snap
 read	Probe::p1.sr	model	Probe::P1::sr	ERR_NOSUCHFEATURE object has no such feature: member sr not found in instance
 read	Probe::p1.st	model	Probe::P1::st	object:Probe::S1
 read	Probe::p1.start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
-read	Probe::p1.sub	model	Probe::P1::sub	collection(2) [object:Probe::P2, object:Probe::P2]
-read	Probe::p1.subitems	systems	Items::Item::subitems	collection(6) [object:Probe::I1, object:Probe::P2, object:Probe::P2, object:Probe::Cn1, object:Probe::If1, object:Probe::Al1]
-read	Probe::p1.subparts	systems	Items::Item::subparts	collection(5) [object:Probe::P2, object:Probe::P2, object:Probe::Cn1, object:Probe::If1, object:Probe::Al1]
+read	Probe::p1.sub	model	Probe::P1::sub	collection(2) [object:Probe::P2#1, object:Probe::P2#2]
+read	Probe::p1.subitems	systems	Items::Item::subitems	collection(6) [object:Probe::I1#1, object:Probe::P2#2, object:Probe::P2#3, object:Probe::Cn1#4, object:Probe::If1#5, object:Probe::Al1#6]
+read	Probe::p1.subparts	systems	Items::Item::subparts	collection(5) [object:Probe::P2#1, object:Probe::P2#2, object:Probe::Cn1#3, object:Probe::If1#4, object:Probe::Al1#5]
 read	Probe::p1.uq	model	Probe::P1::uq	ERR_NOSUCHFEATURE object has no such feature: member uq not found in instance
 read	Probe::p1.voids	systems	Items::Item::voids	undetermined <undetermined>
 read	Probe::p1.vpq	model	Probe::P1::vpq	ERR_NOSUCHFEATURE object has no such feature: member vpq not found in instance
@@ -125,9 +125,9 @@ read	Probe::box.bsle	domain	ShapeItems::CuboidOrTriangularPrism::bsle	error bind
 read	Probe::box.bsre	domain	ShapeItems::CuboidOrTriangularPrism::bsre	error binding end cannot be resolved: box.bsre is bound by `binding [1] bind [0..1] bf.edges = [0..1] bsre`, which makes some value of bsre a value of bf.edges without saying which value of either; the model does not state what bsre holds
 read	Probe::box.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::box.done	systemsFRAME	Items::Item::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
-read	Probe::box.edges	domain	ShapeItems::Cuboid::edges	collection(24) [object:ShapeItems::Rectangle::e1, object:ShapeItems::Rectangle::e2, object:ShapeItems::Rectangle::e3, object:ShapeItems::Rectangle::e4, object:ShapeItems::Rectangle::e1, object:ShapeItems::Rectangle::e2, object:ShapeItems::Rectangle::e3, object:ShapeItems::Rectangle::e4, object:ShapeItems::Rectangle::e1, object:ShapeItems::Rectangle::e2, object:ShapeItems::Rectangle::e3, object:ShapeItems::Rectangle::e4, object:ShapeItems::Rectangle::e1, object:ShapeItems::Rectangle::e2, object:ShapeItems::Rectangle::e3, object:ShapeItems::Rectangle::e4, object:ShapeItems::Rectangle::e1, object:ShapeItems::Rectangle::e2, object:ShapeItems::Rectangle::e3, object:ShapeItems::Rectangle::e4, object:ShapeItems::Rectangle::e1, object:ShapeItems::Rectangle::e2, object:ShapeItems::Rectangle::e3, object:ShapeItems::Rectangle::e4]
+read	Probe::box.edges	domain	ShapeItems::Cuboid::edges	collection(24) [object:ShapeItems::Rectangle::e1#1, object:ShapeItems::Rectangle::e2#2, object:ShapeItems::Rectangle::e3#3, object:ShapeItems::Rectangle::e4#4, object:ShapeItems::Rectangle::e1#5, object:ShapeItems::Rectangle::e2#6, object:ShapeItems::Rectangle::e3#7, object:ShapeItems::Rectangle::e4#8, object:ShapeItems::Rectangle::e1#9, object:ShapeItems::Rectangle::e2#10, object:ShapeItems::Rectangle::e3#11, object:ShapeItems::Rectangle::e4#12, object:ShapeItems::Rectangle::e1#13, object:ShapeItems::Rectangle::e2#14, object:ShapeItems::Rectangle::e3#15, object:ShapeItems::Rectangle::e4#16, object:ShapeItems::Rectangle::e1#17, object:ShapeItems::Rectangle::e2#18, object:ShapeItems::Rectangle::e3#19, object:ShapeItems::Rectangle::e4#20, object:ShapeItems::Rectangle::e1#21, object:ShapeItems::Rectangle::e2#22, object:ShapeItems::Rectangle::e3#23, object:ShapeItems::Rectangle::e4#24]
 read	Probe::box.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::box.faces	domain	ShapeItems::Cuboid::faces	collection(6) [object:ShapeItems::RectangularCuboid::tf, object:ShapeItems::RectangularCuboid::bf, object:ShapeItems::RectangularCuboid::ff, object:ShapeItems::RectangularCuboid::rf, object:ShapeItems::RectangularCuboid::slf, object:ShapeItems::RectangularCuboid::srf]
+read	Probe::box.faces	domain	ShapeItems::Cuboid::faces	collection(6) [object:ShapeItems::RectangularCuboid::tf#1, object:ShapeItems::RectangularCuboid::bf#2, object:ShapeItems::RectangularCuboid::ff#3, object:ShapeItems::RectangularCuboid::rf#4, object:ShapeItems::RectangularCuboid::slf#5, object:ShapeItems::RectangularCuboid::srf#6]
 read	Probe::box.ff	domain	ShapeItems::RectangularCuboid::ff	object:ShapeItems::RectangularCuboid::ff
 read	Probe::box.genus	domain	ShapeItems::Polyhedron::genus	constant 0
 read	Probe::box.height	model	Probe::box::height	quantity 3.0 [m]
@@ -214,8 +214,8 @@ read	Probe::spat.shape	systems	Items::Item::shape	undetermined <undetermined>
 read	Probe::spat.start	systemsFRAME	Items::Item::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
 read	Probe::spat.subSpatialItems	domain	SpatialItems::SpatialItem::subSpatialItems	undetermined <undetermined>
 read	Probe::spat.subSpatialParts	domain	SpatialItems::SpatialItem::subSpatialParts	undetermined <undetermined>
-read	Probe::spat.subitems	systems	Items::Item::subitems	collection(1) [object:SpatialItems::SpatialItem::componentParts]
-read	Probe::spat.subparts	systems	Items::Item::subparts	collection(1) [object:SpatialItems::SpatialItem::componentParts]
+read	Probe::spat.subitems	systems	Items::Item::subitems	collection(1) [object:SpatialItems::SpatialItem::componentParts#1]
+read	Probe::spat.subparts	systems	Items::Item::subparts	collection(1) [object:SpatialItems::SpatialItem::componentParts#1]
 read	Probe::spat.voids	systems	Items::Item::voids	undetermined <undetermined>
 object	Probe::sys	object:Probe::sys
 read	Probe::sys.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
@@ -272,7 +272,7 @@ read	Probe::psi.start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object h
 read	Probe::psi.subitems	systems	Items::Item::subitems	empty
 read	Probe::psi.subparts	systems	Items::Item::subparts	empty
 read	Probe::psi.voids	systems	Items::Item::voids	undetermined <undetermined>
-object	Probe::p1.sub	collection(2) [object:Probe::P2, object:Probe::P2]
+object	Probe::p1.sub	collection(2) [object:Probe::P2#1, object:Probe::P2#2]
 object	Probe::p1.opt	undetermined <undetermined>
 object	Probe::p1.cargo	object:Probe::I1
 read	Probe::p1.cargo.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
@@ -542,7 +542,7 @@ read	new Probe::P1().atq	model	Probe::P1::atq	object:Probe::At1
 read	new Probe::P1().boundingShapes	systems	Items::Item::boundingShapes	empty
 read	new Probe::P1().caq	model	Probe::P1::caq	ERR_NOSUCHFEATURE object has no such feature: member caq not found in instance
 read	new Probe::P1().cargo	model	Probe::P1::cargo	object:Probe::I1
-read	new Probe::P1().checkedConstraints	systems	Items::Item::checkedConstraints	collection(3) [object:Probe::R1, object:Probe::P1::cq, object:Probe::P1::ac]
+read	new Probe::P1().checkedConstraints	systems	Items::Item::checkedConstraints	collection(3) [object:Probe::R1#1, object:Probe::P1::cq#2, object:Probe::P1::ac#3]
 read	new Probe::P1().cnq	model	Probe::P1::cnq	object:Probe::Cn1
 read	new Probe::P1().conq	model	Probe::P1::conq	ERR_NOSUCHFEATURE object has no such feature: member conq not found in instance
 read	new Probe::P1().cq	model	Probe::P1::cq	object:Probe::P1::cq
@@ -565,9 +565,9 @@ read	new Probe::P1().oq	model	Probe::P1::oq	object:Probe::O1
 read	new Probe::P1().other	model	Probe::P1::other	error uninitialized feature value: other
 read	new Probe::P1().otherItem	model	Probe::P1::otherItem	error uninitialized feature value: otherItem
 read	new Probe::P1().others	model	Probe::P1::others	empty
-read	new Probe::P1().ownedActions	systems	Parts::Part::ownedActions	collection(3) [object:Probe::A1, object:Probe::Fl1, object:Probe::S1]
-read	new Probe::P1().ownedPorts	systems	Parts::Part::ownedPorts	collection(1) [object:Probe::Pt]
-read	new Probe::P1().ownedStates	systems	Parts::Part::ownedStates	collection(1) [object:Probe::S1]
+read	new Probe::P1().ownedActions	systems	Parts::Part::ownedActions	collection(3) [object:Probe::A1#1, object:Probe::Fl1#2, object:Probe::S1#3]
+read	new Probe::P1().ownedPorts	systems	Parts::Part::ownedPorts	collection(1) [object:Probe::Pt#1]
+read	new Probe::P1().ownedStates	systems	Parts::Part::ownedStates	collection(1) [object:Probe::S1#1]
 read	new Probe::P1().pa	model	Probe::P1::pa	object:Probe::A2
 read	new Probe::P1().performedActions	systems	Parts::Part::performedActions	empty
 read	new Probe::P1().pt	model	Probe::P1::pt	object:Probe::Pt
@@ -580,9 +580,9 @@ read	new Probe::P1().snap	model	Probe::P1::snap	object:Probe::P1::snap
 read	new Probe::P1().sr	model	Probe::P1::sr	ERR_NOSUCHFEATURE object has no such feature: member sr not found in instance
 read	new Probe::P1().st	model	Probe::P1::st	object:Probe::S1
 read	new Probe::P1().start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
-read	new Probe::P1().sub	model	Probe::P1::sub	collection(2) [object:Probe::P2, object:Probe::P2]
-read	new Probe::P1().subitems	systems	Items::Item::subitems	collection(6) [object:Probe::I1, object:Probe::P2, object:Probe::P2, object:Probe::Cn1, object:Probe::If1, object:Probe::Al1]
-read	new Probe::P1().subparts	systems	Items::Item::subparts	collection(5) [object:Probe::P2, object:Probe::P2, object:Probe::Cn1, object:Probe::If1, object:Probe::Al1]
+read	new Probe::P1().sub	model	Probe::P1::sub	collection(2) [object:Probe::P2#1, object:Probe::P2#2]
+read	new Probe::P1().subitems	systems	Items::Item::subitems	collection(6) [object:Probe::I1#1, object:Probe::P2#2, object:Probe::P2#3, object:Probe::Cn1#4, object:Probe::If1#5, object:Probe::Al1#6]
+read	new Probe::P1().subparts	systems	Items::Item::subparts	collection(5) [object:Probe::P2#1, object:Probe::P2#2, object:Probe::Cn1#3, object:Probe::If1#4, object:Probe::Al1#5]
 read	new Probe::P1().uq	model	Probe::P1::uq	ERR_NOSUCHFEATURE object has no such feature: member uq not found in instance
 read	new Probe::P1().voids	systems	Items::Item::voids	empty
 read	new Probe::P1().vpq	model	Probe::P1::vpq	ERR_NOSUCHFEATURE object has no such feature: member vpq not found in instance
@@ -647,7 +647,7 @@ read	new Probe::A1().o	model	Probe::A1::o	empty
 read	new Probe::A1().self	systemsFRAME	Actions::Action::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
 read	new Probe::A1().sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	new Probe::A1().start	systemsFRAME	Actions::Action::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
-read	new Probe::A1().subactions	systems	Actions::Action::subactions	collection(1) [object:Probe::A2]
+read	new Probe::A1().subactions	systems	Actions::Action::subactions	collection(1) [object:Probe::A2#1]
 read	new Probe::A1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	new Probe::A1().transitions	systems	Actions::Action::transitions	empty
 read	new Probe::A1().whileLoops	systems	Actions::Action::whileLoops	empty
@@ -1080,8 +1080,8 @@ call	ComplexFunctions::ToString	ComplexFunctions::ToString(ComplexFunctions::rec
 call	ComplexFunctions::ToComplex	ComplexFunctions::ToComplex("1.0 + 2.0i")	error library function is not evaluable: ComplexFunctions::ToComplex: no string notation for a Complex value is defined	UNEVALUATED want 1.0 + 2.0i
 call	ComplexFunctions::sum	ComplexFunctions::sum((ComplexFunctions::rect(1.0, 0.0), ComplexFunctions::rect(0.0, 1.0)))	complex number 1.0 + 1.0i	ok
 call	ComplexFunctions::product	ComplexFunctions::product((ComplexFunctions::rect(2.0, 0.0), ComplexFunctions::rect(0.0, 1.0)))	complex number 0.0 + 2.0i	ok
-call	ControlFunctions::'.'	Probe::p1.sub	collection(2) [object:Probe::P2, object:Probe::P2]	ok
-call	ControlFunctions::'.'	(Probe::p1, Probe::p1).sub	collection(4) [object:Probe::P2, object:Probe::P2, object:Probe::P2, object:Probe::P2]	ok
+call	ControlFunctions::'.'	Probe::p1.sub	collection(2) [object:Probe::P2#1, object:Probe::P2#2]	ok
+call	ControlFunctions::'.'	(Probe::p1, Probe::p1).sub	collection(4) [object:Probe::P2#1, object:Probe::P2#2, object:Probe::P2#1, object:Probe::P2#2]	ok
 call	ControlFunctions::'if'	if true ? 1 else 2	constant 1	ok
 call	ControlFunctions::'if'	if false ? 1 else 2	constant 2	ok
 call	ControlFunctions::'if'	ControlFunctions::'if'(true, 1, 2)	constant 1	ok
@@ -1425,14 +1425,14 @@ prefix	abstract [0..*] + subsetter	attribute Integer	abstract attribute x : Inte
 prefix	abstract [0..*] + subsetter	attribute At1	abstract attribute x : At1[0..*]; attribute y : At1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
 prefix	abstract [0..*] + subsetter	enum E1	abstract enum x : E1[0..*]; enum y : E1 :> x;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance ;; Probe::d.y => ERR_NOSUCHFEATURE object has no such feature: member y not found in instance
 prefix	abstract [0..*] + subsetter	calc K1	abstract calc x : K1[0..*]; calc y : K1 :> x;	Probe::d.x => constant 4 ;; Probe::d.y => constant 4
-prefix	abstract [0..*] + subsetter	part P2	abstract part x : P2[0..*]; part y : P2 :> x;	Probe::d.x => collection(1) [object:Probe::P2] ;; Probe::d.y => object:Probe::P2
-prefix	abstract [0..*] + subsetter	item I1	abstract item x : I1[0..*]; item y : I1 :> x;	Probe::d.x => collection(1) [object:Probe::I1] ;; Probe::d.y => object:Probe::I1
-prefix	abstract [0..*] + subsetter	port Pt	abstract port x : Pt[0..*]; port y : Pt :> x;	Probe::d.x => collection(1) [object:Probe::Pt] ;; Probe::d.y => object:Probe::Pt
-prefix	abstract [0..*] + subsetter	action A1	abstract action x : A1[0..*]; action y : A1 :> x;	Probe::d.x => collection(1) [object:Probe::A1] ;; Probe::d.y => object:Probe::A1
-prefix	abstract [0..*] + subsetter	state S1	abstract state x : S1[0..*]; state y : S1 :> x;	Probe::d.x => collection(1) [object:Probe::S1] ;; Probe::d.y => object:Probe::S1
-prefix	abstract [0..*] + subsetter	requirement R1	abstract requirement x : R1[0..*]; requirement y : R1 :> x;	Probe::d.x => collection(1) [object:Probe::R1] ;; Probe::d.y => object:Probe::R1
-prefix	abstract [0..*] + subsetter	constraint C1	abstract constraint x : C1[0..*]; constraint y : C1 :> x;	Probe::d.x => collection(1) [object:Probe::C1] ;; Probe::d.y => object:Probe::C1
-prefix	abstract [0..*] + subsetter	occurrence O1	abstract occurrence x : O1[0..*]; occurrence y : O1 :> x;	Probe::d.x => collection(1) [object:Probe::O1] ;; Probe::d.y => object:Probe::O1
+prefix	abstract [0..*] + subsetter	part P2	abstract part x : P2[0..*]; part y : P2 :> x;	Probe::d.x => collection(1) [object:Probe::P2#1] ;; Probe::d.y => object:Probe::P2
+prefix	abstract [0..*] + subsetter	item I1	abstract item x : I1[0..*]; item y : I1 :> x;	Probe::d.x => collection(1) [object:Probe::I1#1] ;; Probe::d.y => object:Probe::I1
+prefix	abstract [0..*] + subsetter	port Pt	abstract port x : Pt[0..*]; port y : Pt :> x;	Probe::d.x => collection(1) [object:Probe::Pt#1] ;; Probe::d.y => object:Probe::Pt
+prefix	abstract [0..*] + subsetter	action A1	abstract action x : A1[0..*]; action y : A1 :> x;	Probe::d.x => collection(1) [object:Probe::A1#1] ;; Probe::d.y => object:Probe::A1
+prefix	abstract [0..*] + subsetter	state S1	abstract state x : S1[0..*]; state y : S1 :> x;	Probe::d.x => collection(1) [object:Probe::S1#1] ;; Probe::d.y => object:Probe::S1
+prefix	abstract [0..*] + subsetter	requirement R1	abstract requirement x : R1[0..*]; requirement y : R1 :> x;	Probe::d.x => collection(1) [object:Probe::R1#1] ;; Probe::d.y => object:Probe::R1
+prefix	abstract [0..*] + subsetter	constraint C1	abstract constraint x : C1[0..*]; constraint y : C1 :> x;	Probe::d.x => collection(1) [object:Probe::C1#1] ;; Probe::d.y => object:Probe::C1
+prefix	abstract [0..*] + subsetter	occurrence O1	abstract occurrence x : O1[0..*]; occurrence y : O1 :> x;	Probe::d.x => collection(1) [object:Probe::O1#1] ;; Probe::d.y => object:Probe::O1
 prefix	abstract [0..*] + subsetter	connection Cn1	abstract connection x : Cn1[0..*] connect sub1 to sub2; connection y : Cn1 connect sub1 to sub2 :> x;	Probe::d.x => empty ;; Probe::d.y => object:Probe::Cn1
 prefix	variation	attribute Integer	variation attribute x : Integer { variant attribute va : Integer; variant attribute vb : Integer; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	attribute At1	variation attribute x : At1 { variant attribute va : At1; variant attribute vb : At1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
