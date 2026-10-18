@@ -14,19 +14,23 @@ digraph "VehicleViews::vehicleView" {
     penwidth=1;
     margin=8;
     "n0" [label=<<font point-size="9">«part def»</font><br/><b>Vehicle</b>>];
-    "n1" [label=<<font point-size="9">«part»</font><br/><b>engine : Engine</b>>];
+    "n1" [label=<<font point-size="9">«part»</font><br/><b>engine</b>>];
+    "n2" [label=<<font point-size="9">«attribute»</font><br/><b>power</b>>];
+  "n1" -> "n2" [arrowhead=none, dir=back, arrowtail=diamond];
+    "n3" [label=<<font point-size="9">«part»</font><br/><b>cylinder</b>>];
+  "n1" -> "n3" [arrowhead=none, dir=back, arrowtail=diamond];
   "n0" -> "n1" [arrowhead=none, dir=back, arrowtail=diamond];
-    "n2" [label=<<font point-size="9">«part»</font><br/><b>wheels : Wheel</b>>];
-  "n0" -> "n2" [arrowhead=none, dir=back, arrowtail=diamond];
-    "n3" [label=<<b>connect</b>>];
-  "n0" -> "n3" [arrowhead=none, dir=back, arrowtail=diamond];
-    "n4" [label=<<font point-size="9">«view»</font><br/><b>engineSubview</b>>];
-    "n5" [label=<<font point-size="9">«part def»</font><br/><b>Engine</b>>];
-    "n6" [label=<<font point-size="9">«attribute»</font><br/><b>power</b>>];
-  "n5" -> "n6" [arrowhead=none, dir=back, arrowtail=diamond];
-    "n7" [label=<<font point-size="9">«part»</font><br/><b>cylinder : Cylinder</b>>];
-  "n5" -> "n7" [arrowhead=none, dir=back, arrowtail=diamond];
-  "n4" -> "n5" [arrowhead=none, dir=back, arrowtail=diamond];
+    "n4" [label=<<font point-size="9">«part»</font><br/><b>wheels</b>>];
+  "n0" -> "n4" [arrowhead=none, dir=back, arrowtail=diamond];
+    "n5" [label=<<b>connect</b>>];
+  "n0" -> "n5" [arrowhead=none, dir=back, arrowtail=diamond];
+    "n6" [label=<<font point-size="9">«view»</font><br/><b>engineSubview</b>>];
+    "n7" [label=<<font point-size="9">«part def»</font><br/><b>Engine</b>>];
+    "n8" [label=<<font point-size="9">«attribute»</font><br/><b>power</b>>];
+  "n7" -> "n8" [arrowhead=none, dir=back, arrowtail=diamond];
+    "n9" [label=<<font point-size="9">«part»</font><br/><b>cylinder</b>>];
+  "n7" -> "n9" [arrowhead=none, dir=back, arrowtail=diamond];
+  "n6" -> "n7" [arrowhead=none, dir=back, arrowtail=diamond];
   }
-  "n0" -> "n5" [label="engine", dir=back, arrowtail=diamond];
+  "n0" -> "n7" [headlabel="engine", dir=back, arrowtail=diamond];
 }

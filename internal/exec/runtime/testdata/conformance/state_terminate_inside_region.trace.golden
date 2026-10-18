@@ -1,3 +1,4 @@
+choice at t=0.0: next do r1, dispatch accept Abort (unordered; took do r1 first; order-dependent: log)
 do: r1
 stmt action body
 enter action node: state behavior hold

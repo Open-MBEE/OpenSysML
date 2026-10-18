@@ -12,15 +12,15 @@ n1: "«part def»\nChassis" { class: definition; link: "https://example.test/src
 n2: "«part def»\nLightChassis" { class: definition; link: "https://example.test/src/general.sysml#L10" }
 n3: "«part def»\nDriver" { class: definition; link: "https://example.test/src/general.sysml#L11" }
 n4: "«action def»\nBrake" { class: definition; link: "https://example.test/src/general.sysml#L12" }
-n5: "«part»\nvehicle : Vehicle" { class: usage; link: "https://example.test/src/general.sysml#L14" }
-n6: "«part»\nheavyVehicle : Vehicle" { class: usage; link: "https://example.test/src/general.sysml#L17" }
-n7: "«action»\nbrake : Brake" { class: usage; link: "https://example.test/src/general.sysml#L20" }
-n8: "«attribute»\nmass : Real" { class: usage; link: "https://example.test/src/general.sysml#L5" }
-n9: "«part»\nchassis : Chassis" { class: usage; link: "https://example.test/src/general.sysml#L6" }
-n10: "«part»\ndriver : Driver" { class: usage; link: "https://example.test/src/general.sysml#L7" }
-n11: "«attribute»\nmass" { class: usage; link: "https://example.test/src/general.sysml#L15" }
-n12: "«attribute»\nmass" { class: usage; link: "https://example.test/src/general.sysml#L18" }
-n13: "«part def»\nPowertrain::Engine" { class: definition; link: "https://example.test/src/general.sysml#L23" }
+n5: "«part»\nvehicle" { class: usage; link: "https://example.test/src/general.sysml#L14" }
+n6: "«part»\nheavyVehicle" { class: usage; link: "https://example.test/src/general.sysml#L17" }
+n7: "«action»\nbrake" { class: usage; link: "https://example.test/src/general.sysml#L20" }
+n8: "«attribute»\nVehicle::mass" { class: usage; link: "https://example.test/src/general.sysml#L5" }
+n9: "«part»\nchassis" { class: usage; link: "https://example.test/src/general.sysml#L6" }
+n10: "«part»\ndriver" { class: usage; link: "https://example.test/src/general.sysml#L7" }
+n11: "«attribute»\nvehicle::mass" { class: usage; link: "https://example.test/src/general.sysml#L15" }
+n12: "«attribute»\nheavyVehicle::mass" { class: usage; link: "https://example.test/src/general.sysml#L18" }
+n13: "«part def»\nEngine" { class: definition; link: "https://example.test/src/general.sysml#L23" }
 n2 -> n1: { class: specialization; link: "https://example.test/src/general.sysml#L10" }
 n5 -> n0: { class: typing; link: "https://example.test/src/general.sysml#L14" }
 n6 -> n0: { class: typing; link: "https://example.test/src/general.sysml#L17" }

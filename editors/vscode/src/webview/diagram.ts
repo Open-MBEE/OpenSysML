@@ -2,6 +2,7 @@
 // clicks, menu choices and drags back, and highlights the cursor's node.
 import {
   normalizeRender,
+  nothingToDraw,
   type EditPalette,
   type FromWebview,
   type PickerEntry,
@@ -16,6 +17,7 @@ import { autoLayout, type AutoLayout } from "./autolayout";
 import { loadAvoid, reportAvoidFailure } from "./avoid";
 import { cssEscape, drawCanvas, liftNode } from "./canvas";
 import { dragHint, Drop, dropOn } from "./drop";
+import { emptyElement, emptyMessage, nothingLaidOut } from "./empty";
 import { tableOf } from "./table";
 import {
   CanvasLayout,
@@ -173,7 +175,12 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
       if (draw(message.result)) {
         drawn = message.drawn;
         if (message.hint !== undefined) {
-          showHint(message.hint);
+          // A rendering with nothing to draw keeps its reason; the hint follows it.
+          if (emptyReason !== undefined) {
+            showStatus(`${emptyReason}\n${message.hint}`);
+          } else {
+            showHint(message.hint);
+          }
         }
       }
       return;
@@ -258,25 +265,37 @@ function showUndrawable(views: PickerEntry[]): void {
 // draw replaces the diagram with the rendering and reports whether it did. A failure
 // to draw leaves the last diagram up, dimmed, so a mid-keystroke parse error does not
 // blank the panel.
+/** The status line of a rendering with nothing to draw, while it is the one on screen. */
+let emptyReason: string | undefined;
+
 function draw(result: RenderResult): boolean {
   unrouted = false;
   cancelGesture();
   try {
+    // A rendering with nothing to draw says why, where the drawing would be and
+    // in the status line, rather than drawing an empty canvas.
+    const empty = nothingToDraw(result);
     if (result.form === "mermaid") {
       // Mermaid is the machine form a diagram is exported in; the panel draws
       // the same nodes and edges itself, so their geometry is its own to edit.
       auto = undefined;
       layout = layoutCanvas(result);
-      show(layout);
+      if (empty || nothingLaidOut(layout)) {
+        layout = undefined;
+        diagram.replaceChildren(emptyElement(result));
+      } else {
+        show(layout);
+      }
     } else {
       // A table is not drawn as geometry: it is drawn as a table from its rows.
       layout = undefined;
       diagram.replaceChildren(tableOf(result));
     }
     diagram.classList.remove("stale");
-    showStatus("");
+    emptyReason = empty || (result.form === "mermaid" && layout === undefined) ? emptyMessage(result) : undefined;
+    showStatus(emptyReason ?? "");
     last = result;
-    if (result.form === "mermaid") {
+    if (layout !== undefined) {
       // The grid answers at once; ELK's layered layout replaces it when it resolves.
       showStatus("Laying out…");
       void autoLayout(result).then((laid) => {

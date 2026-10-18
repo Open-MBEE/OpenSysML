@@ -1,0 +1,10 @@
+{
+  "name": "sysand-proj",
+  "publisher": "probe",
+  "version": "0.0.1",
+  "usage": [
+    {
+      "resource": "pkg:sysand/ode4hera/requirements-management"
+    }
+  ]
+}

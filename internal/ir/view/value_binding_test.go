@@ -118,10 +118,10 @@ func TestFeatureValuesAreBindingEdges(t *testing.T) {
 	if len(e.Route) != 2 || e.Route[0].X != 105 || e.Route[1].Y != 98 {
 		t.Errorf("observed binding route = %v, want the Route stated", e.Route)
 	}
-	if text := r.Text(); strings.Count(text, "==") != 1 {
+	if text := r.textWith(fullNotation); strings.Count(text, "==") != 1 {
 		t.Errorf("text draws %d bindings, want one:\n%s", strings.Count(text, "=="), text)
 	}
-	dot, err := r.DOT()
+	dot, err := r.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,21 +147,26 @@ func TestFeatureValueToTheNodesOwnPinDrawsNoEdge(t *testing.T) {
 	}
 }
 
-// A value that is a chain binds the member of what its operand names: with
-// other, second and their type's y all drawn, `reading = second.y` is an edge to
-// second's node — not to the y drawn for Device, nor to other.
+// A value that is a chain binds the member of what its operand names: other
+// and second each draw the y they have from Device, and `reading = second.y`
+// is an edge to the y under second's node — not to other's. Device's y,
+// exposed beside them, is drawn as theirs and not again by itself.
 func TestFeatureChainValueBindsTheOperandDrawn(t *testing.T) {
 	r := renderSource(t, "Model::rig", valueBindingModel)
-	reading, second, y := nodeByName(r, "Model::Rig::reading"), nodeByName(r, "Model::Rig::second"), nodeByName(r, "Model::Device::y")
-	if reading == nil || second == nil || y == nil {
-		t.Fatalf("nodes = %v, want reading, second and Device::y", nodeNames(r.Roots))
+	reading, second := nodeByName(r, "Model::Rig::reading"), nodeByName(r, "Model::Rig::second")
+	if reading == nil || second == nil {
+		t.Fatalf("nodes = %v, want reading and second", nodeNames(r.Roots))
+	}
+	y := nodeAt(second.Children, "y")
+	if y == nil || nodeAt(nodeByName(r, "Model::Rig::other").Children, "y") == nil || nodeByName(r, "Model::Device::y") != nil {
+		t.Fatalf("nodes = %v, want y under second and other alone", nodeNames(r.Roots))
 	}
 	edges := bindingEdges(r)
 	if len(edges) != 1 {
 		t.Fatalf("binding edges = %+v, want reading = second.y alone", edges)
 	}
-	if e := edges[0]; e.From != reading.ID || e.To != second.ID {
-		t.Errorf("edge = %+v, want a binding from %s to %s, not to Device::y %s", e, reading.ID, second.ID, y.ID)
+	if e := edges[0]; e.From != reading.ID || e.To != y.ID {
+		t.Errorf("edge = %+v, want a binding from %s to second's y %s", e, reading.ID, y.ID)
 	}
 }
 

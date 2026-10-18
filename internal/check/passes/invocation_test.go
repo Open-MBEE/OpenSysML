@@ -100,7 +100,7 @@ func TestInvocationOverloadOnlyImportedPackagesContribute(t *testing.T) {
 		private import IntegerFunctions::*;
 		private import RealFunctions::*;
 		attribute s = ToString("x");
-	}`, "type.expr", "argument 1 of ToString expects Integer, found String (candidates: IntegerFunctions::ToString, RealFunctions::ToString)")
+	}`, "invocation-argument", "argument 1 of ToString expects Integer, found String (candidates: IntegerFunctions::ToString, RealFunctions::ToString)")
 }
 
 // Among the applicable candidates, the most specific parameter types win: the
@@ -112,7 +112,7 @@ func TestInvocationOverloadResultTypeFollowsSelection(t *testing.T) {
 	}`)
 	wantLibraryDiag(t, `package P {`+numericImports+`
 		attribute s : String = abs(-2);
-	}`, "type.expr", "cannot bind Natural value to a feature typed by String")
+	}`, "binding-connector-type-conformance", "cannot bind Natural value to a feature typed by String")
 }
 
 // Strings and booleans take part: ToString has a String overload beside the
@@ -159,7 +159,7 @@ func TestInvocationOverloadQuantities(t *testing.T) {
 	wantLibraryClean(t, fmt.Sprintf(model, `w : Boolean = weigh(mass);`))
 	wantLibraryClean(t, fmt.Sprintf(model, `w : String = weigh(l);`))
 	wantLibraryDiag(t, fmt.Sprintf(model, `w : String = weigh(mass);`),
-		"type.expr", "cannot bind Boolean value to a feature typed by String")
+		"binding-connector-type-conformance", "cannot bind Boolean value to a feature typed by String")
 }
 
 // Declared types neither of which conforms to the other never bind (a mass fits no volume
@@ -178,11 +178,11 @@ func TestInvocationOverloadDisjointDeclaredTypes(t *testing.T) {
 			attribute %s
 		}
 	}`
-	wantLibraryDiag(t, fmt.Sprintf(model, `w = weigh(mass);`), "type.expr",
+	wantLibraryDiag(t, fmt.Sprintf(model, `w = weigh(mass);`), "invocation-argument",
 		"argument 1 of weigh expects VolumeValue, found MassValue (candidates: P::A::weigh, P::B::weigh)")
-	wantLibraryDiag(t, fmt.Sprintf(model, `w = weigh(x = mass);`), "type.expr",
+	wantLibraryDiag(t, fmt.Sprintf(model, `w = weigh(x = mass);`), "invocation-argument",
 		"argument x of weigh expects VolumeValue, found MassValue (candidates: P::A::weigh, P::B::weigh)")
-	wantLibraryDiag(t, fmt.Sprintf(model, `w = single(mass);`), "type.expr",
+	wantLibraryDiag(t, fmt.Sprintf(model, `w = single(mass);`), "invocation-argument",
 		"argument 1 of single expects VolumeValue, found MassValue")
 	wantLibraryClean(t, fmt.Sprintf(model, `w = weigh(q);`))
 	wantLibraryClean(t, fmt.Sprintf(model, `w = single(q);`))
@@ -220,7 +220,7 @@ func TestInvocationOverloadElementParameter(t *testing.T) {
 	wantLibraryClean(t, fmt.Sprintf(model, `v : Integer = single(e = station);`))
 	wantLibraryClean(t, fmt.Sprintf(model, `v : String = pick(station);`))
 	wantLibraryClean(t, fmt.Sprintf(model, `v : Integer = pick(antenna);`))
-	wantLibraryDiag(t, fmt.Sprintf(model, `v : Boolean = pick(antenna);`), "type.expr",
+	wantLibraryDiag(t, fmt.Sprintf(model, `v : Boolean = pick(antenna);`), "binding-connector-type-conformance",
 		"Boolean")
 }
 
@@ -267,7 +267,7 @@ func TestInvocationOverloadNoneApplicable(t *testing.T) {
 		part def C :> A, B {
 			attribute none = pick("a", 2);
 		}
-	}`, "type.expr", `argument 1 of pick expects Integer, found String (candidates: P::A::pick, P::B::pick)`)
+	}`, "invocation-argument", `argument 1 of pick expects Integer, found String (candidates: P::A::pick, P::B::pick)`)
 }
 
 // A non-callable declaration found before the callable one does not take the
@@ -282,7 +282,7 @@ func TestInvocationOverloadNoneApplicableReportsAgainstTheCallable(t *testing.T)
 			private import B::*;
 			attribute none = pick("a");
 		}
-	}`, "type.expr", `argument 1 of pick expects Integer, found String (candidates: P::A::pick, P::B::pick)`)
+	}`, "invocation-argument", `argument 1 of pick expects Integer, found String (candidates: P::A::pick, P::B::pick)`)
 }
 
 // A candidate the arguments fit but leave a default-less parameter of is applicable:
@@ -347,7 +347,7 @@ func TestInvocationOverloadFeatureTypedByABehavior(t *testing.T) {
 	}`
 	wantLibraryClean(t, fmt.Sprintf(src, ""))
 	wantLibraryDiag(t, fmt.Sprintf(src, `attribute b : Integer = pick(true);`),
-		"type.expr", "argument 1 of pick expects String, found Boolean (candidates: P::A::pick, P::B::pick)")
+		"invocation-argument", "argument 1 of pick expects String, found Boolean (candidates: P::A::pick, P::B::pick)")
 }
 
 // A bodiless calc def specializing a library function is called through its own
@@ -382,7 +382,7 @@ func TestInvocationOverloadRedeclaredLibraryInputs(t *testing.T) {
 	}`
 	wantLibraryClean(t, fmt.Sprintf(src, ""))
 	wantLibraryDiag(t, fmt.Sprintf(src, `attribute z : Real = Renamed(x = 16.0);`),
-		"type.expr", `Renamed has no parameter named "x"`)
+		"invocation-argument", `Renamed has no parameter named "x"`)
 	wantLibraryWarning(t, fmt.Sprintf(src, `attribute z : Real = Renamed();`),
 		CodeUnboundParameter, "Renamed leaves parameter y unbound")
 	wantLibraryWarning(t, fmt.Sprintf(src, `attribute z : Real = Floor(2.0);`),
@@ -466,7 +466,7 @@ func TestInvocationOverloadUntypedParameterIsLeastSpecific(t *testing.T) {
 	}`
 	wantLibraryClean(t, fmt.Sprintf(model, ``, `typed : Integer = pick(1, 2);`))
 	wantLibraryDiag(t, fmt.Sprintf(model, ``, `wrong : String = pick(1, 2);`),
-		"type.expr", "cannot bind Integer value to a feature typed by String")
+		"binding-connector-type-conformance", "cannot bind Integer value to a feature typed by String")
 	wantLibraryClean(t, fmt.Sprintf(model, ``, `loose : String = pick(1, "b");`))
 	diags := libraryDiags(t, fmt.Sprintf(model, ` : Missing`, `first : String = pick(1, 2);`))
 	if len(diags) != 1 || diags[0].Code != "unresolved" || !strings.Contains(diags[0].Message, "Missing") {
@@ -494,7 +494,7 @@ func TestInvocationOverloadExplicitAnythingEqualsUntyped(t *testing.T) {
 		"invocation-ambiguous", "call of pick is ambiguous between P::A::pick, P::B::pick")
 	wantLibraryClean(t, fmt.Sprintf(model, ` : Integer`, `r : Integer = pick(w, v);`))
 	wantLibraryDiag(t, fmt.Sprintf(model, ` : Integer`, `r : String = pick(w, v);`),
-		"type.expr", "cannot bind Integer value to a feature typed by String")
+		"binding-connector-type-conformance", "cannot bind Integer value to a feature typed by String")
 }
 
 // Candidates each narrower on a different parameter are incomparable, so the call is
@@ -518,7 +518,7 @@ func TestInvocationOverloadCrossedSpecificityIsAmbiguous(t *testing.T) {
 	}
 	wantLibraryClean(t, fmt.Sprintf(model, ` : Foo`, ` : Anything`, ` : String`))
 	wantLibraryDiag(t, fmt.Sprintf(model, ` : Foo`, ` : Anything`, ` : Integer`),
-		"type.expr", "cannot bind String value to a feature typed by Integer")
+		"binding-connector-type-conformance", "cannot bind String value to a feature typed by Integer")
 }
 
 // A called name resolves as any name does (KerML 1.1 §8.2.3.5.4, §7.2.5.4): an owned calc
@@ -527,7 +527,7 @@ func TestInvocationOverloadModelShadowsLibrary(t *testing.T) {
 	wantLibraryDiag(t, `package P {`+numericImports+`
 		calc def abs { in x : String; return : String = x; }
 		attribute a = abs(-2.5);
-	}`, "type.expr", "argument 1 of abs expects String, found Rational")
+	}`, "invocation-argument", "argument 1 of abs expects String, found Rational")
 	wantLibraryClean(t, `package P {
 		private import ScalarValues::*;
 		calc def sqrt { in x : String; return : String = x; }
@@ -548,7 +548,7 @@ func TestInvocationOverloadModelShadowsLibrary(t *testing.T) {
 			private import RealFunctions::*;
 			attribute a : Real = abs("x");
 		}
-	}`, "type.expr", "argument 1 of abs expects Real, found String")
+	}`, "invocation-argument", "argument 1 of abs expects Real, found String")
 }
 
 // An action performed as a usage's value selects among actions only: a same-named
@@ -576,7 +576,7 @@ func TestInvocationPerformedActionSelectsAmongActions(t *testing.T) {
 		}
 	`
 	wantLibraryClean(t, fmt.Sprintf(actions, "Real"))
-	wantLibraryDiag(t, fmt.Sprintf(actions, "String"), "type.expr", "argument 1 of tag expects String, found Natural")
+	wantLibraryDiag(t, fmt.Sprintf(actions, "String"), "invocation-argument", "argument 1 of tag expects String, found Natural")
 }
 
 // An evaluated call prefers a calc it fits over a same-named action whose input fits
@@ -602,9 +602,9 @@ func TestInvocationEvaluatedCallPrefersACalc(t *testing.T) {
 	`
 	for _, generals := range []string{"A, B", "B, A"} {
 		wantLibraryClean(t, fmt.Sprintf(src, "Real", generals, `s : String = pick(v);`))
-		wantLibraryDiag(t, fmt.Sprintf(src, "Real", generals, `i : Integer = pick(v);`), "type.expr", "String")
+		wantLibraryDiag(t, fmt.Sprintf(src, "Real", generals, `i : Integer = pick(v);`), "binding-connector-type-conformance", "String")
 		wantLibraryDiag(t, fmt.Sprintf(src, "Boolean", generals, `i : Integer = pick(v);`),
-			"type.expr", "argument 1 of pick expects Boolean, found Integer (candidates: ")
+			"invocation-argument", "argument 1 of pick expects Boolean, found Integer (candidates: ")
 	}
 }
 
@@ -669,7 +669,7 @@ func TestInvocationQualifiedLibraryFunctionArgumentsChecked(t *testing.T) {
 	wantLibraryDiag(t, `package P {
 		private import ScalarValues::*;
 		attribute r = RealFunctions::sqrt("four");
-	}`, "type.expr", "argument 1 of sqrt expects Real, found String")
+	}`, "invocation-argument", "argument 1 of sqrt expects Real, found String")
 }
 
 // A named argument binds by the parameter's effective name, which is what
@@ -686,7 +686,7 @@ func TestInvocationOverloadNamedArguments(t *testing.T) {
 	wantLibraryClean(t, fmt.Sprintf(model, `w : Integer = pick(width = 2);`))
 	wantLibraryClean(t, fmt.Sprintf(model, `h : String = pick(height = 2);`))
 	wantLibraryDiag(t, fmt.Sprintf(model, `d = pick(depth = 2);`),
-		"type.expr", "candidates: P::A::pick, P::B::pick")
+		"invocation-argument", "candidates: P::A::pick, P::B::pick")
 }
 
 // A named argument written twice is refused, for one candidate and for several, as
@@ -704,9 +704,9 @@ func TestInvocationOverloadRepeatedNamedArgumentIsRefused(t *testing.T) {
 	}`
 	wantLibraryClean(t, fmt.Sprintf(model, `s : String = pick(x = "s");`, `o : Integer = one(x = 1);`))
 	wantLibraryDiag(t, fmt.Sprintf(model, `s : String = pick(x = 1, x = "s");`, `o : Integer = one(x = 1);`),
-		"type.expr", `pick binds parameter "x" twice (candidates: P::A::pick, P::B::pick)`)
+		"invocation-argument", `pick binds parameter "x" twice (candidates: P::A::pick, P::B::pick)`)
 	wantLibraryDiag(t, fmt.Sprintf(model, `s : String = pick(x = "s");`, `o : Integer = one(x = 1, x = 1);`),
-		"type.expr", `one binds parameter "x" twice`)
+		"invocation-argument", `one binds parameter "x" twice`)
 }
 
 // Two same-named calcs one wildcard import surfaces are both candidates.
@@ -749,7 +749,7 @@ func TestInvocationOverloadSiblingScalarTypes(t *testing.T) {
 	wantLibraryClean(t, fmt.Sprintf(model, `v : Integer = label(litre);`))
 	wantLibraryClean(t, fmt.Sprintf(model, `first : String = label(r);`))
 	wantLibraryDiag(t, fmt.Sprintf(model, `wrong : Integer = label(kg);`),
-		"type.expr", "cannot bind String value to a feature typed by Integer")
+		"binding-connector-type-conformance", "cannot bind String value to a feature typed by Integer")
 }
 
 // A named argument is checked against the parameter it names as a positional
@@ -767,9 +767,9 @@ func TestInvocationNamedArgumentsAreTypeChecked(t *testing.T) {
 	wantLibraryClean(t, fmt.Sprintf(model, `ok : Real = density(m = kg, v = litre);`))
 	wantLibraryClean(t, fmt.Sprintf(model, `scaled : Real = density(v = litre, m = kg, scale = 2);`))
 	wantLibraryDiag(t, fmt.Sprintf(model, `s : Real = density(m = "3", v = litre);`),
-		"type.expr", `argument m of density expects Real, found String`)
+		"invocation-argument", `argument m of density expects Real, found String`)
 	wantLibraryDiag(t, fmt.Sprintf(model, `b : Real = density(m = kg, v = litre, scale = true);`),
-		"type.expr", `argument scale of density expects Real, found Boolean`)
+		"invocation-argument", `argument scale of density expects Real, found Boolean`)
 	wantLibraryWarning(t, fmt.Sprintf(model, `partial : Real = density(m = kg);`),
 		CodeUnboundParameter, `density leaves parameter v unbound`)
 }
@@ -805,7 +805,7 @@ func TestInvocationOverloadReexportedAndInheritedCandidates(t *testing.T) {
 	}`
 	wantLibraryClean(t, fmt.Sprintf(inherited, `i : Integer = pick(2);`))
 	wantLibraryDiag(t, fmt.Sprintf(inherited, `s = pick("s");`),
-		"type.expr", "argument 1 of pick expects Integer, found String")
+		"invocation-argument", "argument 1 of pick expects Integer, found String")
 }
 
 // A qualified call reaches every overload its qualifier inherits from its generals,
@@ -850,7 +850,7 @@ func TestInvocationOverloadQualifiedReexportedAndInheritedCandidates(t *testing.
 			calc def pick { in x : String; return : String = x; }
 		}
 		attribute i : String = Both::pick(2);
-	}`, "type.expr", "argument 1 of pick expects String, found Natural")
+	}`, "invocation-argument", "argument 1 of pick expects String, found Natural")
 }
 
 // A member the qualifier inherits hides the same name its own public import surfaces,
@@ -865,7 +865,7 @@ func TestInvocationOverloadQualifiedInheritedHidesImported(t *testing.T) {
 	}`
 	wantLibraryClean(t, fmt.Sprintf(src, `s : Integer = T::pick("s");`))
 	wantLibraryDiag(t, fmt.Sprintf(src, `i : Integer = T::pick(3);`),
-		"type.expr", "argument 1 of pick expects String, found Natural")
+		"invocation-argument", "argument 1 of pick expects String, found Natural")
 }
 
 // Two calcs of one name a general type's protected or public imports bring as
@@ -941,7 +941,7 @@ func TestInvocationOverloadSelectsByCollectionLiteralElementType(t *testing.T) {
 	wantLibraryClean(t, fmt.Sprintf(src, `()`))
 	wantLibraryClean(t, fmt.Sprintf(src, `null`))
 	wantLibraryDiag(t, fmt.Sprintf(src, `(true, false)`),
-		"type.expr", "argument 1 of count expects String, found Boolean (candidates: P::A::count, P::B::count)")
+		"invocation-argument", "argument 1 of count expects String, found Boolean (candidates: P::A::count, P::B::count)")
 
 	// Features typed by sibling types select by the declared type their elements share.
 	wantLibraryClean(t, `package P {
@@ -1064,7 +1064,7 @@ func TestInvocationOverloadSetWithinOneNamespaceSelects(t *testing.T) {
 		t.Fatalf("expected the owned, imported, inherited and qualified sets to select, got %v", diags)
 	}
 	wantLibraryDiag(t, fmt.Sprintf(src, `wrong : Integer = pick(true);`),
-		"type.expr", "argument 1 of pick expects Integer, found Boolean (candidates: P::Lib::pick, P::Lib::pick)")
+		"invocation-argument", "argument 1 of pick expects Integer, found Boolean (candidates: P::Lib::pick, P::Lib::pick)")
 }
 
 // A performed action's input is omitted when it may hold no value or a default reaches

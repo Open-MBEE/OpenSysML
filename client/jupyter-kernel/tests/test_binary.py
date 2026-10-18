@@ -112,8 +112,9 @@ def test_a_malformed_sidecar_is_a_download_error(release, tmp_path):
 
 
 def test_an_unreachable_release_is_a_download_error(release, tmp_path):
+    url = binary.release_download_url(RELEASE, "missing.sha256", REPO)
     with pytest.raises(binary.DownloadError, match="404"):
-        binary.sidecar_digest(binary.release_download_url(RELEASE, "missing.sha256", REPO))
+        binary.sidecar_digest(url)
 
 
 def test_the_repository_can_be_pointed_at_a_fork(monkeypatch):

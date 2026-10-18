@@ -29,16 +29,16 @@ unordered and took one by its scheduling rule. `ChoiceKind` names the twelve:
 |------|-------------------|---------------------------|
 | `ChoiceTokenOrder` | `ActionExecutor.noteTokenOrder` | the tokens that could act in the step, by ID; the one stepped first is taken |
 | `ChoiceDecisionBranch` | `ActionExecutor.noteDecisionBranches` | the successions whose guards hold, by declaration position |
-| `ChoiceWriteOrder` | `stepWriteLedger.noteChoices` | the tokens that wrote one feature in one step; the write that stood is taken |
+| `choiceWriteOrder` | `stepWriteLedger.noteChoices` | the tokens that wrote one feature in one step; the write that stood is taken |
 | `ChoiceTransition` | `StateExecutor.chooseTransition`; `pickBranch` (`state_route.go`) | the transitions one event enables out of one state, by declaration position; or the branches of a `choice` or `junction` pseudostate enabled when its guards are read, labelled `choice <name>` or `junction <name>` |
 | `ChoiceRegionOrder` | `dispatchInOrder`, drawn on the front of `state_unit_front.go` (`on <event>`); `chooseDoAction` (`do round at t=…`); `fireJoinIncoming` (`join <name>`) | the next unit — a source's exit, a segment's effect, a target's entry — of each firing one occurrence selected across regions, by source in declaration order; the one performed first is taken, and the entries and exits a firing nests are drawn on its front — likewise the states whose do behaviors are due in one round, and the sources of the transitions into a join that fires |
-| `ChoiceEntryOrder` | `enterRegionsInto` (`entering <state>`), `enterForkBranches` (`fork <name>`), a history's restore | the next entry unit of each region, branch or restored region of a composite state, in declaration order; the one performed first is taken. A unit performing no behavior rides with the performing unit beside it |
-| `ChoiceEntryStep` | `StateExecutor.entryStep` (`entry at t=…`) | a free dispatch due at the instant, followed by the held entry cascades that can resume; the free dispatch is listed first and the selected alternative is taken |
-| `ChoiceExitOrder` | `exitState` (`exiting <state>`) | the next exit unit of each region a state leaves, innermost first within a region, in declaration order; the one performed first is taken |
-| `ChoiceStepOrder` | `StateExecutor.chooseStepOrder` | the move of a due do behavior and a dispatch due beside it; the one that goes first is taken |
-| `ChoiceStatementOrder` | `stmtEngine.pickStatement` (`statements in <body>`) | the statements of one body that no succession or control structure orders and that may run next (`lower.StatementOrder`), by declaration position; the one run first is taken |
+| `choiceEntryOrder` | `enterRegionsInto` (`entering <state>`), `enterForkBranches` (`fork <name>`), a history's restore | the next entry unit of each region, branch or restored region of a composite state, in declaration order; the one performed first is taken. A unit performing no behavior rides with the performing unit beside it |
+| `choiceEntryStep` | `StateExecutor.entryStep` (`entry at t=…`) | a free dispatch due at the instant, followed by the held entry cascades that can resume; the free dispatch is listed first and the selected alternative is taken |
+| `choiceExitOrder` | `exitState` (`exiting <state>`) | the next exit unit of each region a state leaves, innermost first within a region, in declaration order; the one performed first is taken |
+| `choiceStepOrder` | `StateExecutor.chooseStepOrder` | the move of a due do behavior and a dispatch due beside it; the one that goes first is taken |
+| `choiceStatementOrder` | `stmtEngine.pickStatement` (`statements in <body>`) | the statements of one body that no succession or control structure orders and that may run next (`lower.StatementOrder`), by declaration position; the one run first is taken |
 | `ChoiceDueOrder` | `Context.runDue` (`advance.go`); the checker's run, one executor holding the turn until it has no move at the instant | the executors due at one instant, in creation order; the one run first is taken |
-| `ChoiceDispatchOrder` | `StateExecutor.nextEvent`, when the queue leaves several events unordered at its head | the events due at one instant the library does not order — time triggers with each other, a time trigger with a pool event of the same timestamp — labelled as the queue labels them; the one dispatched first is taken. A completion event goes before any of them and pool events keep their arrival order (`earlierFirstIncomingTransferSort`), so neither is a choice |
+| `choiceDispatchOrder` | `StateExecutor.nextEvent`, when the queue leaves several events unordered at its head | the events due at one instant the library does not order — time triggers with each other, a time trigger with a pool event of the same timestamp — labelled as the queue labels them; the one dispatched first is taken. A completion event goes before any of them and pool events keep their arrival order (`earlierFirstIncomingTransferSort`), so neither is a choice |
 
 Two rules hold at every site:
 
@@ -55,7 +55,7 @@ Two rules hold at every site:
 `Context.note` appends a note to the run's `runState.notes` and, when tracing, writes its
 `String()` to the trace at the point it was made (`choice …`, `unevaluable guard …`). A probe —
 a preview of what a run would do, bracketed by `beginProbe` — notes nothing, since it is not a
-run. `Context.Notes`, `Choices` and `UnevaluableGuards` read them back; the executors' `Notes` and
+run. `Context.Notes`, `Choices` and `unevaluableGuards` read them back; the executors' `Notes` and
 `NoteCount` let a caller driving a run call by call see what one call noted, which is how the REPL
 ends `%step`, `%continue` and `%advance` with a count; `NotesSince` reads the notes past such a
 mark without copying the ones before it.
@@ -99,6 +99,142 @@ ended, its nil-trigger transitions are queued as completion events at the curren
 as a leaf's are, and the machine ends only when its own top-level regions are all at `done`
 (`completeIfDone` → `scheduleCompletedComposites`).
 
+## The standing of a choice point (`order_dependence.go`)
+
+A default run (`reverse`, `declared`, `seed:<n>`) takes one linearization and reports its values,
+and a value is a fact of the run only up to the partial order the library fixes (KerML 1.0 §7.4.9:
+`HappensBefore` holds between the occurrences a succession joins, send before accept, and nothing
+else). So every choice point is *classified* as it is recorded, from the lowered footprints
+(`lower.Footprint`, the read/write/send/accept projection the checker's persistent-set reduction
+already uses — `check_reduce.go`, `future_footprint.go`; there is no second conflict relation):
+
+- `classifyChoice` takes one footprint per alternative and the relation the checker would use
+  between them (`Context.relation` for executors of different objects), and asks
+  `Footprint.DependentBy` pairwise over the footprints less control convergence (meeting at a join
+  or both completing a performance changes no value). No dependent pair: the alternatives commute,
+  the choice is `Independent`, and the run's values do not depend on it. A dependent pair: the
+  choice is unresolved, and `Touches` names the features a write of either meets in the other
+  (`Relation.PlaceMeets`); a pair that meets only on a channel or through a dynamic target
+  (`Footprint.Dynamic`: a property read or a chained target the declarations do not decide) touches
+  every write of both, conservatively.
+- `classifyExclusive` is for alternatives of which one runs and the others do not — a decision's
+  holding branches, the transitions one event enables, a pseudostate's branches: never independent,
+  touching every write along any of them (`branchFutures`, `TransitionFootprints`).
+- `classifyBy` classifies a statement order by `lower.StatementOrder.Dependent`, which also keeps
+  the `then` successions written among the statements.
+
+Per site, the footprint of an alternative is: a token, `standing` where it stands before the step
+(`ChoiceTokenOrder`, replayed and explored steps included via `stepOrder.able`); a write, the
+feature written (`choiceWriteOrder`); an executor due at the instant, its `executorFuture`
+(`ChoiceDueOrder`, in `advance.go` and the checker's `drawOwner`); a pool occurrence, the
+transitions out of the active states its trigger reacts to (`eventFootprint`,
+`choiceDispatchOrder`); a due do move against a dispatch, `doStepFootprint` against
+`dispatchFootprint` (`choiceStepOrder`, `choiceEntryStep`); the states whose do behaviors are due in one round,
+`doStepFootprint` each; the sources of the segments pending into a join, each segment's own
+footprint (`lower.JoinSegmentFootprints`: its trigger, guard and effects with the exits from its
+source up to the join's owner — the owner's exit and the join's way out follow whichever fires
+first, so they are left out); a region's queue on a unit front, what
+its units may touch — the firing's transition, the region's entry (`regionEntryFootprint`: entering
+and starting any state under it, its entry transitions' effects, the pseudostates it crosses) or the
+exits of the states it leaves (`exitFootprint`) — carried on the `unitQueue` and drawn against on
+`drain` (`ChoiceRegionOrder`, `choiceEntryOrder`, `choiceExitOrder`). A unit the graph does not name
+is `unknownFootprint`, which conflicts with everything. A guard verdict or an invocation result
+that depends on a body's statement orders (`choiceGuardOrder`, the `result of …` statement order)
+is a choice among exclusive outcomes and stays unresolved.
+
+What the classification feeds: `Context.OrderDependent(feature)` counts the unresolved choice
+points touching a feature, `Context.UnresolvedChoices()` all of them, and
+`OrderDependenceText(n)` is the marker every surface prints a touched value with —
+`x = 1 (order-dependent; 2 choice points — explore shows the set)` — in the REPL
+(`namedValue`, `formatFeatureValue`), the CLI (which reports through the REPL session), the trace
+(`ChoicePoint.Standing`: `independent`, `order-dependent: x, y`, or `order-dependent`), the gRPC
+surfaces (`order_dependent` on `FeatureValue`, `ExecuteActionResponse` and
+`ExecuteStateResponse`; `independent` and `order_dependent` on a `choice-point` diagnostic; the
+`order_dependence` capability) and the Python and Node clients. A value no unresolved choice touches
+prints exactly as before. The classification is per choice point; what a value computed from a
+touched one stands on is the next section's.
+
+## What a value stands on (`order_marks.go`)
+
+A statement that reads an order-dependent value and writes a third feature is not itself a
+choice point, yet the third feature's value depends on the order as much as the first's. So the
+run keeps, beside its notes, *marks*: per place written (`lower.Place`), the unresolved choice
+points its current value stands on. `Context.OrderDependent(feature)` reads them — the choice
+points marked on the name, alone or as the last segment of a written path, among those the run
+still holds as unresolved — so the marker on every surface is the same typed count, and the
+`choice-point` diagnostic's own `order_dependent` list stays what that choice touched. The marks
+describe the value, not the feature's history, and follow one rule, derived from the lowered
+footprints already carried (`lower.Footprint`, `lower.StatementOrder`,
+`ActionGraph.BindingFootprints`, `lower.ExpressionFootprint`), never from a second dependence
+tracker and never by re-reading declarations in the runtime:
+
+- **Seed.** A choice point noted unresolved marks every place it touched (`ChoicePoint.touched`,
+  the places behind `Touches`) with itself (`orderMarks.seed`, from `Context.noteFrom`): another
+  order may have written them otherwise. A value reported under a name reads the marks of the
+  places that name denotes as `choiceTouches` resolves them (`placeNamed`: a bare name is the
+  behavior's own feature, `this.<name>` the performing object's).
+- **Propagate.** A move with footprint `fp` that writes `w` leaves `w` standing on what `fp` read
+  — the union of the marks of every place in `fp.Reads` — together with the *control* the move
+  runs under; a footprint the declarations do not decide (`fp.Dynamic`: a property read, a chained
+  target, an invocation of a declared behavior) reads the order-dependent set entire,
+  conservatively (`Context.propagateMarks`, `Context.standingOf`). An assignment propagates by its
+  statement's footprint as it completes (`stmtEngine.statement`, `stmtHost.statementFootprint`); a
+  performance's inputs stand on what they are bound from as it begins and its outputs, as it ends,
+  on those and on what its body left on its own pins (`performances.markPerformance` over
+  `BindingFootprints`: features, pin bindings, flows and the accepted payload, less the body's
+  statements, which are recorded one by one).
+- **Clear.** Since the write *replaces* the marks of `w`, a write that reads nothing
+  order-dependent, under no control, clears `w` from that point on: the mark describes the value.
+  It replaces the marks of the one declaration it writes (`samePlace`): a same-named feature of
+  another declaration may hold another value, so it keeps its marks, though a read of either
+  stands on both (`Place.Conflicts`) while the declarations leave them apart.
+- **Control.** A guard or condition that reads an order-dependent value makes everything the
+  selected continuation writes depend on the order, though the guard drew nothing: a decision
+  puts its token under the marks of every guard it read to decide — those that failed before the
+  one it took, and all of them when it falls back to its unguarded succession
+  (`ActionExecutor.guardsStanding`, `Token.underControl`) — until a node every succession out of
+  the decision reaches (`commonReach`), where which branch was taken no longer decides the path;
+  the tokens a fork spawns inherit the control of the token it split, and a join's token the union
+  of what arrived (`split`, `synchronize`, `unionControl`), so a branch keeps its decision however
+  it is shaped inside; an `if`, `while`, `until` or `for` puts its block or iterations under its
+  condition's or collection's marks (`branchFrame.control`, `loopFrame.control`); a transition's
+  firing — exit, effect, entry — runs under its guard's marks (`StateExecutor.taking`). A draw
+  among exclusive alternatives is control too: a decision's branch, a transition chosen among
+  several enabled, a statement an order picked (`stmtEngine.statementUnder`) run under the choice
+  that drew them, so their writes stand on it rather than clearing its seed. Mere convergence adds
+  nothing: a merge or join is where control from the decision ends, never a dependence of its own.
+- **Transfer.** A `send` stamps its message with what its payload expression stood on where it
+  was built (`Message.dependence`, in `Context.send`), and the `accept` that takes it writes its
+  parameter standing on that and on the control at the accept (`Context.acceptMarks`, from
+  `awaitSignal` and `bindAcceptPayload`): the transfer carries the dependence from the sender's
+  side to the receiver's.
+- **The clock.** A choice among the moves of one instant of the shared clock (a transition
+  drawn among several, region, due, dispatch, entry, exit and step order) orders none of that
+  instant's other writes after its alternatives, so a seed it left stands on the places it touched
+  until the clock advances, whatever writes them meanwhile (`markSeed.clocked`); a write at a later
+  instant clears as any other. Action-flow choices need no such hold: token and write order are
+  noted after the step's writes, and a decision or statement order holds through control.
+
+The Kernel Semantic Library is the basis: `Occurrences.kerml` defines `HappensBefore` and
+`Performances.kerml` derives it from successions, so a statement after a join reads the value its
+predecessors left and its result is a function of theirs — open exactly where theirs is;
+`Transfers.kerml` orders a transfer's send before its accept, so what the accept binds is what the
+sender computed. Nothing else orders two moves, which is why a seed stands until something ordered
+after every alternative rewrites the place.
+
+Snapshots, held images and a compound transition's rollback capture the marks beside the notes
+(`runStateCapture`, `moveMark`, `imagedRun`), so a replay or an undone move leaves no mark of a
+write it discarded. Reporting never changes the run: marks are read by the surfaces alone.
+
+Approximations, all conservative where they err: a pin's place is its node's (`Place.Node`), so
+the performances a repeated or re-entered node makes share the marks of their pins, and a body
+reading a name its declarations do not resolve reads every value of that name; a seed held
+for the clock's instant marks a same-instant rewrite from a literal that another order could not have changed;
+the guards a route reads on its way through a junction or choice pseudostate are not control for
+what follows them, and a calc or constraint body propagates nothing (the expression reading its
+result stands on what it reads). A feature valued by an expression, evaluated as it is read, is
+not written and so carries no mark.
+
 ## Repeated action-step performances
 
 When a node declares an exact count greater than one, the arriving action token is split into
@@ -134,8 +270,10 @@ per statement, an `assign` writing when it ends. Another performance may run bet
 
 - **Atomic units.** One initialization (every initial value of the body, read at its start
   shot) and one statement are each one move: an assignment reads its value and writes it with
-  no boundary between, since the library places nothing between them. A loop iteration and a
-  step of a flow the body drives are one move each, as they already were.
+  no boundary between, since the library places nothing between them. A loop iteration is one
+  move; a step of a flow the body drives is one move unless its own body divides, as a token of
+  the outer flow's does, so the repeated performances of a counted step in a loop or branch body
+  and the branches of a fork there interleave as they do at the top level.
 - **Scheduler boundaries.** Where a body divides, the run yields after its start shot and after
   each statement (`Context.bodyPerformed`, `Context.yieldBody`, `bodyPause.yielded`): the token
   goes back to the step's steppable tokens with its body frame held, and the next pick among
@@ -181,7 +319,7 @@ per statement, an `assign` writing when it ends. Another performance may run bet
   `lower.StatementOrder` lists, before each statement runs, those that may run next: a statement
   `then` links waits for the one before it, a local declaration, `return` or `perform` keeps its
   place, and two orders that only swap adjacent independent statements (by the reduction's
-  footprints) are one. Two or more candidates are a `ChoiceStatementOrder`
+  footprints) are one. Two or more candidates are a `choiceStatementOrder`
   (`stmtEngine.pickStatement`); a compound statement already started yields at its inner
   boundaries so a dependent sibling may run between them. `declared` and `reverse` run
   a nested body's statements first to last as before, and an action definition's own statements
@@ -220,9 +358,12 @@ is built to keep. Under `reverse` and `declared` a region-order pick is declarat
 still reported — a fixed policy resolves the choice, it does not remove it — and so are the
 entry-order and exit-order draws, one `choice` line per draw in the trace golden of a fixture
 entering or leaving a state of two or more regions, its event order unchanged
-([region-order scheduling](region-order-scheduling.md)). One order the fixed policies take is
-not yet a recorded choice: a due do step against the dispatch at the head of the pool, drawn
-per token move of the do flow in that note's design.
+([region-order scheduling](region-order-scheduling.md)). So is the step order: the fixed
+policies run a round of the due do behaviors whole and dispatch after it, and
+`StateExecutor.noteRoundStepOrder` records each due do move the round takes ahead of a dispatch
+that would act as the `choiceStepOrder` the unit-at-a-time policies draw there, taken as the do
+step, so a fixture with a do behavior beside an acting dispatch carries one `choice` line per such
+move and its event order is unchanged.
 
 `SchedulePolicy.start` begins the resolutions of one run as a `scheduler`. A seeded one carries a
 `math/rand/v2` PCG the run consumes draw by draw, so the same seed replays the same run on every
@@ -282,6 +423,21 @@ fresh `Context`:
    `Exploration.Status` says which; nothing is silently truncated. The default budget is
    `DefaultExploreBudget`, 1024 runs and 64 choice points per run; a witness lists every choice
    point its run met, so its length sizes `depth`.
+5. A construct the executors perform in one order without a choice point is a *coverage gap*
+   (`CoverageGap`, `coverage_gap.go`): the run records it on its context (`Context.noteGap`),
+   the queue folds the gaps of every run into `Exploration.Unenumerated`, and the checker folds
+   them into `CheckReport.Unenumerated`. A gap makes the exploration incomplete as a budget does —
+   `Exploration.Complete` is false while either stands — and `Status` names what was not
+   enumerated (`incomplete after N runs; not enumerated: …`); `analysis` reports the result's
+   standing as *observed*, never *proved*. No construct records a gap today: the one that did —
+   the performances of a repeated step in a loop or `if` body, once run one move apiece — are
+   sibling tokens of the body's flow (`splitRepeatedStep`), so their interleavings are token-order
+   choice points like a top-level step's, and the table below finds every other order the
+   executors take without a choice point fixed by the library or canonical. A construct found to
+   perform an open order as one move is added as a `CoverageGap` and recorded where it runs. The
+   REPL's `ExplorationVerdict.Unenumerated`, the wire `ExplorationStatus.unenumerated` and the
+   Python and Node clients' `unenumerated` carry the gaps by identifier, and a conformance case
+   states the gaps exploring it must record under `exploreGaps`.
 
 A fresh context per run is what makes replay sound: instances, identities, the message bus, the
 clock, object behaviors, calc memoization and the notes of one run cannot leak into the next.
@@ -315,6 +471,27 @@ committed run made a weighted pick, and an incomplete exploration has lower boun
 did. Random-function draws still come from the model seed and are not enumerated, so these
 probabilities are conditional on those draws. Checker `Violation.Mass` is a separate measure,
 the path mass a check reports per violation.
+
+## Orders taken without a choice point
+
+Every order an executor takes is either a recorded choice above or one the library fixes, or one
+with no observable alternative. The sorts, map iterations and sibling loops in the executors and
+the lowering fall into these classes:
+
+| Site | Order | Why it is not a choice |
+|------|-------|------------------------|
+| `clock.go` `Clock.Waits`, `action_executor.go` `visibleArmedWaits`, `tokenWaits` | clock waits by due instant | a later instant cannot occur before an earlier one (`Clocks.kerml`: `Clock::currentTime` is monotonic over `TimeInstant`s, and a wait ends at its instant); waits tied at one instant are drawn as `ChoiceDueOrder` and `choiceDispatchOrder` |
+| `executor_common.go` `EventQueue.Events`, `completionsOf`, `Tied` | queued events by arrival (`Event.ID`) | the order events were put into the pool is observed, not drawn; events the library leaves unordered at one instant are offered as `choiceDispatchOrder`, and an acting dispatch against a due do move as `choiceStepOrder` |
+| `action_executor.go` `tokensByID`, `waitingTokens`, `timeWaits`; `action_terminate.go` `dropTokensIn`, `beginPending` | tokens by `Token.ID` | an enumeration order for reporting and for stable alternative labels; which steppable token acts is `ChoiceTokenOrder`, and the tokens a termination drops all end in the same step (`Occurrences.kerml`: the suboccurrences of a terminated performance end with it), leaving no value an order could change |
+| `action_choice.go` `stepWriteLedger.noteChoices`, `noteTokenOrder` | alternatives by token | the canonical labelling of the recorded `choiceWriteOrder` and `ChoiceTokenOrder` themselves |
+| `action_executor.go` `setFrameFeatures`; `action_frame.go` `takeDeliveries` (pins), output names | feature or pin names | each name is a distinct feature, so the writes commute and the result is one however they are applied; the names also order error text |
+| `action_executor.go` `synchronize` (indices descending) | slice deletion | mechanical: the consumed tokens are removed together within one step |
+| `succession_order.go` `orderFeaturingInstances`, `orderFeatureValues` | instances by `Instance.ID` | the instances a `BehaviorOrder` relates are matched end to end by identity; the succession itself is the `HappensBefore` the order enforces (`Occurrences.kerml`), and which of several unrelated performances starts first is the executors' `ChoiceDueOrder` and `ChoiceTokenOrder` |
+| `statements.go` `stmtListFrame.candidates` | runnable statements by index | the candidate set handed to the policy; which runs next is `choiceStatementOrder`, and `lower/statement_order.go` decides which pairs may reorder at all (a statement that keeps its place — a declaration read by name after it, a `return`, a performed reference — is ordered by the body's `then` successions or by its data dependence, KerML 1.0 §7.4.9 succession) |
+| `lower/behavior_order.go` `BehaviorOrder` | successions outside a body | lowered as `HappensBefore` constraints the runtime enforces, never as an order it draws |
+| `state_run_to_completion.go` `entryStep` | a held entry against a free dispatch | drawn as `choiceEntryStep` |
+| `state_executor.go` `runDoRound` | the due do moves of a round against the dispatch after it | recorded as `choiceStepOrder` by `noteRoundStepOrder`, taken as the do step (above); the moves among the due do behaviors are `chooseDoAction`'s draw where two or more are due |
+| `action_step_multiplicity.go` `splitRepeatedStep` | the `n` performances of a repeated step in a loop or `if` body, among themselves and against the steps outside the body | drawn as token order: the performances are sibling tokens of the body's flow, one repetition group, and the body yields between its moves (`lower.BodyDivides`), so `explore` reaches every interleaving a top-level `[n]` step admits |
 
 ## The conformance contract
 

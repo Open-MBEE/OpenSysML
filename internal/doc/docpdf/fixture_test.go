@@ -465,3 +465,82 @@ func wideResultsDocument(t *testing.T, rows int) *docir.Document {
 `)
 	return sourceDocument(t, "results.sysml", b.String(), "Results::Report")
 }
+
+var longWideColumns = []string{"a", "b", "c", "d", "e", "f", "g"}
+
+func longWideTableDocument(t *testing.T, rows int) *docir.Document {
+	t.Helper()
+	var b strings.Builder
+	b.WriteString(`package LongWide {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+
+	part def Result {
+`)
+	for _, column := range longWideColumns {
+		fmt.Fprintf(&b, "\t\tattribute %s : Integer;\n", column)
+	}
+	b.WriteString(`	}
+
+	part def Summary {
+		attribute label : String;
+		attribute status : String;
+	}
+
+	part wideResults {
+`)
+	for i := 0; i < rows; i++ {
+		fmt.Fprintf(&b, "\t\tpart 'Wide Scenario %04d' : Result {\n", i+1)
+		for j, column := range longWideColumns {
+			fmt.Fprintf(&b, "\t\t\tattribute redefines %s = %d;\n", column, 1000*(j+1)+i)
+		}
+		b.WriteString("\t\t}\n")
+	}
+	b.WriteString(`	}
+
+	part narrowResults {
+		part summary : Summary {
+			attribute redefines label = "Narrow table sentinel";
+			attribute redefines status = "complete";
+		}
+	}
+
+	calc def WideRows :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+			properties = ("name", "` + strings.Join(longWideColumns, `", "`) + `")
+		)
+	}
+
+	calc def NarrowRows :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+			properties = ("name", "label", "status")
+		)
+	}
+
+	part def Report :> Document {
+		attribute redefines title = "Selector Performance";
+		part wideSection : Section {
+			attribute redefines title = "Wide table heading";
+			part lead : Paragraph {
+				part text : Span { attribute redefines text = "Wide table lead-in."; }
+			}
+			part table : Table {
+				calc rows : WideRows { in root = wideResults; }
+			}
+		}
+		part narrowSection : Section {
+			attribute redefines title = "Narrow table heading";
+			part table : Table {
+				calc rows : NarrowRows { in root = narrowResults; }
+			}
+		}
+	}
+}
+`)
+	return sourceDocument(t, "longwide.sysml", b.String(), "LongWide::Report")
+}

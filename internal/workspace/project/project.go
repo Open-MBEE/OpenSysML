@@ -53,6 +53,13 @@ func IsLoadable(path string) bool {
 // each directory walk and each pattern match sorted by path — and duplicates
 // are dropped, so naming a file twice loads it once.
 func Expand(inputs []string) ([]string, error) {
+	return Discovery{}.Expand(inputs)
+}
+
+// Expand is the package's Expand with the discovery's library roots: a named
+// directory holding a project interchange file contributes, after its own
+// files, those of the installed projects the project uses.
+func (d Discovery) Expand(inputs []string) ([]string, error) {
 	var out []string
 	seen := map[string]bool{}
 	add := func(paths ...string) {
@@ -66,7 +73,7 @@ func Expand(inputs []string) ([]string, error) {
 		}
 	}
 	for _, in := range inputs {
-		files, err := expandOne(in)
+		files, err := d.expandOne(in)
 		if err != nil {
 			return nil, err
 		}
@@ -76,7 +83,7 @@ func Expand(inputs []string) ([]string, error) {
 }
 
 // expandOne expands a single input path.
-func expandOne(input string) ([]string, error) {
+func (d Discovery) expandOne(input string) ([]string, error) {
 	// Standard input is neither statted nor globbed: "-" names the stream
 	// wherever it is written, even where a file of that name exists.
 	if IsStdin(input) {
@@ -84,12 +91,16 @@ func expandOne(input string) ([]string, error) {
 	}
 	info, err := os.Stat(input)
 	switch {
+	case err == nil && info.IsDir() && IsProjectDir(input):
+		return d.projectFiles(input)
 	case err == nil && info.IsDir():
 		return ModelFiles(input)
+	case err == nil && info.Mode().IsRegular() && IsArchive(input):
+		return d.archiveFiles(input)
 	case err == nil:
 		return []string{input}, nil
 	case hasMeta(input):
-		return expandPattern(input)
+		return d.expandPattern(input)
 	case errors.Is(err, fs.ErrNotExist):
 		// Reported by the loader, which names the file it could not read.
 		return []string{input}, nil
@@ -98,8 +109,9 @@ func expandOne(input string) ([]string, error) {
 	}
 }
 
-// expandPattern expands a glob pattern, walking any directory it matches.
-func expandPattern(pattern string) ([]string, error) {
+// expandPattern expands a glob pattern: a project directory or archive it
+// matches contributes what naming it would, any other directory its files.
+func (d Discovery) expandPattern(pattern string) ([]string, error) {
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return nil, fmt.Errorf("bad pattern %q: %w", pattern, err)
@@ -113,21 +125,64 @@ func expandPattern(pattern string) ([]string, error) {
 		}
 		// A pattern names its matches only collectively, so one that catches a
 		// doc directory or a README contributes nothing rather than failing.
-		if info.IsDir() {
+		switch {
+		case info.IsDir() && IsProjectDir(m):
+			files, err := d.projectFiles(m)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, files...)
+		case info.IsDir():
 			var files []string
 			if err := walk(m, map[string]bool{}, &files); err != nil {
 				return nil, err
 			}
 			sort.Strings(files)
 			out = append(out, files...)
-			continue
-		}
-		if IsLoadable(m) {
+		case info.Mode().IsRegular() && IsArchive(m):
+			files, err := d.archiveFiles(m)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, files...)
+		case IsLoadable(m):
 			out = append(out, m)
 		}
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no model files match %q", pattern)
+	}
+	return out, nil
+}
+
+// projectFiles is ModelFiles over a project directory, followed by the model
+// files of the installed projects the project uses: the project as its package
+// manager sees it. A project with no files of its own is loaded as what it uses.
+func (d Discovery) projectFiles(dir string) ([]string, error) {
+	var own []string
+	if err := walk(dir, map[string]bool{}, &own); err != nil {
+		return nil, err
+	}
+	sort.Strings(own)
+	out := append(own, projectFiles(d.Around([]string{dir}).Used)...)
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no .sysml or .kerml files or .ipynb notebooks in %s or the projects it uses", dir)
+	}
+	return out, nil
+}
+
+// archiveFiles lists the model members of a project archive, then the files of
+// the installed projects it uses. An archive that is not a project interchange
+// file is left to the loader, which reports it under the archive's path.
+func (d Discovery) archiveFiles(archive string) ([]string, error) {
+	a, err := openCached(archive)
+	if err != nil {
+		return []string{archive}, nil
+	}
+	installed, _ := installedProjects(d.libraryRoots(EnclosingProjects(archive)))
+	out := append(a.Files(), projectFiles(used([]*Interchange{a.Project}, installed))...)
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no .sysml or .kerml files in %s or the projects it uses", archive)
 	}
 	return out, nil
 }

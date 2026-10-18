@@ -1,4 +1,4 @@
-choice join XP: states A1, B1 react (unordered; took A1 first)
+choice join XP: states A1, B1 react (unordered; took A1 first; order-dependent: log)
 exit: A1 (exit action)
 stmt action body
   stmt assign log

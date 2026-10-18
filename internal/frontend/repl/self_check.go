@@ -46,6 +46,9 @@ type selfCheckCounts struct {
 var ErrSelfCheckPackageNotFound = errors.New("self-check package not found")
 
 // SelfCheck applies the SysMLValidation constraints to the workspace model.
+// codeSelfCheckRule is the registered diagnostic code of a failing model rule.
+const codeSelfCheckRule = "self-check-rule"
+
 func (s *Session) SelfCheck() []Verdict {
 	defer s.enter()()
 	verdicts, _ := s.selfCheckWithCounts("SysMLValidation", false)
@@ -188,7 +191,7 @@ func (s *Session) selfCheckRun(pkg string, includeWorkspacePackages bool, rulePa
 				verdicts = append(verdicts, Verdict{
 					Subject: subject,
 					Status:  VerdictFails,
-					Lines:   []string{fmt.Sprintf("%s: error: %s fails for %s", location, constraintName, elementName)},
+					Lines:   []string{fmt.Sprintf("%s: error[%s]: %s fails for %s", location, codeSelfCheckRule, constraintName, elementName)},
 				})
 			case selfCheckUnevaluable(invokeErr):
 				counts.unevaluated++

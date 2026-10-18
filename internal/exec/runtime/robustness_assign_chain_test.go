@@ -85,7 +85,7 @@ func testAssignChainStepHoldingNothing(t *testing.T) {
 		t.Fatalf("Instantiate car: %v", err)
 	}
 	_, err = ctx.ExecuteActionPerformedBy(oneSymbol(t, idx, "test::Car::markNone"), self, nil)
-	if !errors.Is(err, ErrUninitializedFeatureValue) {
-		t.Fatalf("markNone on car: err = %v, want %v", err, ErrUninitializedFeatureValue)
+	if !errors.Is(err, errUninitializedFeatureValue) {
+		t.Fatalf("markNone on car: err = %v, want %v", err, errUninitializedFeatureValue)
 	}
 }

@@ -12,7 +12,10 @@ import (
 func (m *migration) planUsages(behaviors []*sysmlv1.Element) {
 	var candidates []*sysmlv1.Element
 	for _, b := range behaviors {
-		if m.usageCandidate(b) {
+		switch {
+		case m.operationUsageOwner(b):
+			m.asUsage[b] = true
+		case m.usageCandidate(b):
 			candidates = append(candidates, b)
 		}
 	}
@@ -66,6 +69,36 @@ func (m *migration) usageName(b *sysmlv1.Element) string {
 	return name
 }
 
+// operationUsageOwner reports whether b is an operation written as its block's composite
+// action usage, which calls chain to; one a state runs or whose method acts through ports keeps a def.
+func (m *migration) operationUsageOwner(b *sysmlv1.Element) bool {
+	if b.Type != "Operation" || !m.blockOwner(b.Parent) || !m.written(b) {
+		return false
+	}
+	if c, _ := m.classify(b); c != catActionDef {
+		return false
+	}
+	method := m.bodyMethod(b)
+	if method != nil && contextThroughPorts(m.contextOf(method)) {
+		return false
+	}
+	for _, e := range m.behaviorInvokers(b, method) {
+		if e.Type != "CallBehaviorAction" && e.Type != "CallOperationAction" && behaviorScope(e) {
+			return false
+		}
+	}
+	return true
+}
+
+// behaviorInvokers lists what invokes b or its method without owning it.
+func (m *migration) behaviorInvokers(b, method *sysmlv1.Element) []*sysmlv1.Element {
+	invokers := m.invokers[b]
+	if method != nil {
+		invokers = append(append([]*sysmlv1.Element{}, invokers...), m.invokers[method]...)
+	}
+	return invokers
+}
+
 // usageCandidate reports whether b is a behavior a block owns, written as the
 // block's action usage: an activity or operation whose body an object of the
 // block runs, rather than one acting on another classifier's object.
@@ -90,11 +123,7 @@ func (m *migration) usageCandidate(b *sysmlv1.Element) bool {
 	default:
 		return false
 	}
-	invokers := m.invokers[b]
-	if method := m.bodyMethod(b); method != nil {
-		invokers = append(append([]*sysmlv1.Element{}, invokers...), m.invokers[method]...)
-	}
-	for _, e := range invokers {
+	for _, e := range m.behaviorInvokers(b, m.bodyMethod(b)) {
 		if !m.reachesUsage(e, b.Parent) {
 			return false
 		}
@@ -213,7 +242,8 @@ func (m *migration) readsOwner(b *sysmlv1.Element) bool {
 				}
 			}
 		case "CallOperationAction":
-			if op := m.model.Ref(e, "operation"); op != nil && m.asUsage[op] && m.hasFeature(owner, op) {
+			if op := m.model.Ref(e, "operation"); op != nil && m.asUsage[op] && m.hasFeature(owner, op) &&
+				m.targetIsStatic(body, firstOwned(e, "target")) {
 				reads = true
 			}
 		case "CallBehaviorAction":
@@ -301,13 +331,13 @@ func (m *migration) lifelinesOn(b, c *sysmlv1.Element) bool {
 }
 
 // blockOwner reports whether c is a block, whose objects have features a
-// behavior's body may read: a part, occurrence, or individual definition.
+// behavior's body may read: a part or occurrence definition, or an instance.
 func (m *migration) blockOwner(c *sysmlv1.Element) bool {
 	if c == nil {
 		return false
 	}
 	switch cat, _ := m.classify(c); cat {
-	case catPartDef, catOccurrenceDef, catIndividualDef:
+	case catPartDef, catOccurrenceDef, catInstance:
 		return true
 	}
 	return false
@@ -330,6 +360,7 @@ func (m *migration) performed(b *sysmlv1.Element) bool {
 // composite action, which a call on the object runs.
 func (m *migration) usageHeader(e *sysmlv1.Element, cat category, name string) (string, string) {
 	var b strings.Builder
+	b.WriteString(m.operationDirection(e))
 	if e.Attrs["isAbstract"] == "true" || m.abstractOperation(e) {
 		b.WriteString("abstract ")
 	}
@@ -415,7 +446,7 @@ func (m *migration) placeAllocation(d *sysmlv1.Element) {
 				alloc = "allocation " + writeName(name) + " " + alloc
 				m.madeUp(d, writeName(name))
 			}
-			m.w.block(alloc, func() { m.metadataUsages(d) })
+			m.w.block(alloc, func() { m.stereotypeAnnotations(d) })
 		})
 		pl.write(target)
 	}

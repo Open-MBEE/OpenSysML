@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<packet>
+   <metadata>
+      <mtipVersion>2022x v1.0.0</mtipVersion>
+      <cameoVersion>2022x Refresh2</cameoVersion>
+   </metadata>
+   <data>
+      <id _dtype="dict">
+         <cameo _dtype="str">_diag</cameo>
+      </id>
+      <relationships _dtype="dict">
+         <element _dtype="list">
+            <element _dtype="dict" key="0">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">20</top>
+                  <bottom _dtype="int">60</bottom>
+                  <left _dtype="int">10</left>
+                  <right _dtype="int">90</right>
+               </relationship_metadata>
+               <id _dtype="str">_a_x</id>
+               <type _dtype="str">sysml.Property</type>
+            </element>
+            <element _dtype="dict" key="1">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">20</top>
+                  <bottom _dtype="int">60</bottom>
+                  <left _dtype="int">110</left>
+                  <right _dtype="int">190</right>
+               </relationship_metadata>
+               <id _dtype="str">_b_x</id>
+               <type _dtype="str">sysml.Property</type>
+            </element>
+         </element>
+      </relationships>
+      <type _dtype="str">sysml.BlockDefinitionDiagram</type>
+   </data>
+</packet>

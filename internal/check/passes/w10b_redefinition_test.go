@@ -132,3 +132,42 @@ func TestW10BRedefinitionMalformedInput(t *testing.T) {
 		}
 	}
 }
+
+// A feature declared at the document root is package-level too: the root
+// namespace is no type, so two root features cannot redefine one another.
+func TestW10BRootLevelRedefinitionIsReported(t *testing.T) {
+	for name, src := range map[string]string{
+		"sysml": `part def Engine;
+part eng : Engine;
+part eng2 : Engine :>> eng;`,
+		"kerml": `class Engine;
+feature eng : Engine;
+feature eng2 : Engine :>> eng;`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			diags := only(constraintDiags(t, src), "redefinition-package-level")
+			if len(diags) != 1 {
+				t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
+			}
+			if diags[0].Message != msgRedefinePackageLevel {
+				t.Errorf("message = %q, want %q", diags[0].Message, msgRedefinePackageLevel)
+			}
+			if got := spanText(src, diags[0]); got != "eng" {
+				t.Errorf("span text = %q, want %q", got, "eng")
+			}
+		})
+	}
+}
+
+// A root-level feature redefined from inside a type has a featuring type on
+// one side only, so the pair is well-formed.
+func TestW10BRootLevelRedefinitionFromTypeIsClean(t *testing.T) {
+	const src = `part def Engine;
+part eng : Engine;
+part def Car {
+	part :>> eng;
+}`
+	if diags := constraintDiags(t, src); len(diags) != 0 {
+		t.Fatalf("redefining a root feature from inside a type is legal, got %v", diags)
+	}
+}

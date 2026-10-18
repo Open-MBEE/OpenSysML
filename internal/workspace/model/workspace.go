@@ -636,6 +636,18 @@ func (w *Workspace) Diagnostics(name string) []diag.Diagnostic {
 	return passes.WithoutLints(w.diagnosticsLocked(name, doc), w.disabledLints, w.enabledLints)
 }
 
+// UnfilteredDiagnostics is Diagnostics with every lint finding kept, for a
+// reader applying a lint selection of its own (passes.WithoutLints).
+func (w *Workspace) UnfilteredDiagnostics(name string) []diag.Diagnostic {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	doc := w.docs[name]
+	if doc == nil {
+		return nil
+	}
+	return w.diagnosticsLocked(name, doc)
+}
+
 // AnalyzedContent returns a document's diagnostics together with the content
 // they were computed against, so an edit cannot split the two. Reports whether
 // the document exists.
@@ -773,6 +785,28 @@ func (w *Workspace) MembersOnPath(scope *symbols.Scope, path []string) []*symbol
 		out = w.memberSymbolsLocked(resolver, sem, scope, sym)
 	})
 	return out
+}
+
+// ShortNameOf is the short name sym is referable by: the declared one, or the
+// one a feature declaring no name takes from its naming feature.
+func (w *Workspace) ShortNameOf(sym *symbols.Symbol) string {
+	if sym == nil || sym.ShortName != "" {
+		return symbolShortName(sym)
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var short string
+	w.queryLocked(sym.DocName, func(_ *resolve.Resolver, sem *semantics.Model) {
+		short = sem.EffectiveShortNameOf(sym)
+	})
+	return short
+}
+
+func symbolShortName(sym *symbols.Symbol) string {
+	if sym == nil {
+		return ""
+	}
+	return sym.ShortName
 }
 
 // memberSymbolsLocked returns the members visible on sym as seen from scope.

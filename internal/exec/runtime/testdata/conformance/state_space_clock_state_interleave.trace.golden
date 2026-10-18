@@ -109,7 +109,7 @@ enter calc test::Tank::cool::getOutput
 exit calc test::Tank::cool::getOutput -> ⟨0.25⟩
 state: cool t=0.5 x=⟨0.25⟩ y=⟨0.25⟩
 step 3: token 1@cool
-choice at t=0.75: due action cool of object #1, state machine monitor of object #1 (unordered; ran state machine monitor of object #1 first)
+choice at t=0.75: due action cool of object #1, state machine monitor of object #1 (unordered; ran state machine monitor of object #1 first; order-dependent: late)
 run: exhibited state machine monitor of #1
 exit: sampledEarly
 enter: sampledLate (entry action)

@@ -53,8 +53,8 @@ func testSendViaUnconnectedPort(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error: nothing connects outPort to inPort")
 	}
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Errorf("expected ErrUnroutableSend, got: %v", err)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Errorf("expected errUnroutableSend, got: %v", err)
 	}
 }
 
@@ -85,8 +85,8 @@ func testSendViaConnectorIntoAnEmptyPart(t *testing.T) {
 		t.Fatalf("instantiate bay: %v", err)
 	}
 	_, err = ctx.ExecuteActionPerformedBy(oneSymbol(t, idx, "P::bay::ship"), bay, nil)
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Fatalf("execute action: err = %v, want %v", err, ErrUnroutableSend)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Fatalf("execute action: err = %v, want %v", err, errUnroutableSend)
 	}
 	if pending := ctx.PendingMessages(); len(pending) != 0 {
 		t.Errorf("pending messages = %+v, want none", pending)
@@ -120,8 +120,8 @@ func testSendViaBoundBoundaryPortJoinedToNothing(t *testing.T) {
 		}
 	}`))
 	_, err := ctx.Instantiate(oneSymbol(t, idx, "P::ctx"))
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Fatalf("instantiate ctx: err = %v, want %v", err, ErrUnroutableSend)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Fatalf("instantiate ctx: err = %v, want %v", err, errUnroutableSend)
 	}
 	if pending := ctx.PendingMessages(); len(pending) != 0 {
 		t.Errorf("pending messages = %+v, want none", pending)
@@ -200,7 +200,7 @@ func testAcceptViaAPortThatFailsToMaterialize(t *testing.T) {
 	// use, so only materializing `in` can tell whether it is the same port.
 	viaPort := func(signal string, value Value) Message {
 		return Message{SignalType: signal, Port: "other", Object: listener.ID, PortID: -1,
-			Delivery: DeliverPort, Value: &value}
+			Delivery: deliverPort, Value: &value}
 	}
 	ctx.PostMessage(viaPort("String", NewStringValue("not for you")))
 	if exec.HasPendingSignal() {
@@ -220,7 +220,7 @@ func testAcceptViaAPortThatFailsToMaterialize(t *testing.T) {
 	if !errors.Is(err, ErrDivisionByZero) {
 		t.Fatalf("run with an Integer in flight: err = %v, want the port's %v", err, ErrDivisionByZero)
 	}
-	if visits := exec.GetStateVisits(); len(visits) != 1 || visits[0] != "Idle" {
+	if visits := exec.getStateVisits(); len(visits) != 1 || visits[0] != "Idle" {
 		t.Errorf("state visits = %v, want [Idle]", visits)
 	}
 	if pending := ctx.PendingMessages(); len(pending) != 2 || pending[0].SignalType != "String" || pending[1].SignalType != "Integer" {
@@ -265,7 +265,7 @@ func testActionAcceptViaAPortThatFailsToMaterialize(t *testing.T) {
 	}
 	viaPort := func(signal string, value Value) Message {
 		return Message{SignalType: signal, Target: "reader", Port: "other", Object: listener.ID, PortID: -1,
-			Delivery: DeliverPort, Value: &value}
+			Delivery: deliverPort, Value: &value}
 	}
 	ctx.PostMessage(viaPort("String", NewStringValue("not for you")))
 	if exec.HasPendingSignal() {
@@ -301,15 +301,15 @@ func testRoutedSendViaUnknownPort(t *testing.T) {
 			succession first sender then done;
 		}
 	}`)
-	var typed *UnknownSendPortError
+	var typed *unknownSendPortError
 	if !errors.As(err, &typed) {
-		t.Fatalf("expected UnknownSendPortError, got: %v", err)
+		t.Fatalf("expected unknownSendPortError, got: %v", err)
 	}
-	if !errors.Is(err, ErrSendViaUnknownPort) {
-		t.Errorf("expected ErrSendViaUnknownPort, got: %v", err)
+	if !errors.Is(err, errSendViaUnknownPort) {
+		t.Errorf("expected errSendViaUnknownPort, got: %v", err)
 	}
-	if errors.Is(err, ErrUnroutableSend) {
-		t.Errorf("unknown routed port must not be ErrUnroutableSend: %v", err)
+	if errors.Is(err, errUnroutableSend) {
+		t.Errorf("unknown routed port must not be errUnroutableSend: %v", err)
 	}
 	if !strings.Contains(err.Error(), `"missing"`) || !strings.Contains(err.Error(), `"reader"`) {
 		t.Errorf("error = %v, want port and receiver names", err)
@@ -334,12 +334,12 @@ func testRoutedSendPortTypeMismatch(t *testing.T) {
 			succession first reader then done;
 		}
 	}`)
-	var typed *SendPortTypeMismatchError
+	var typed *sendPortTypeMismatchError
 	if !errors.As(err, &typed) {
-		t.Fatalf("expected SendPortTypeMismatchError, got: %v", err)
+		t.Fatalf("expected sendPortTypeMismatchError, got: %v", err)
 	}
-	if !errors.Is(err, ErrSendPortTypeMismatch) {
-		t.Errorf("expected ErrSendPortTypeMismatch, got: %v", err)
+	if !errors.Is(err, errSendPortTypeMismatch) {
+		t.Errorf("expected errSendPortTypeMismatch, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), `"outPort"`) ||
 		!strings.Contains(err.Error(), `"reader"`) {
@@ -387,12 +387,12 @@ func testRoutedSendScalarTypedFlowMismatch(t *testing.T) {
 			succession first reader then done;
 		}
 	}`)
-	var typed *SendPortTypeMismatchError
+	var typed *sendPortTypeMismatchError
 	if !errors.As(err, &typed) {
-		t.Fatalf("expected scalar SendPortTypeMismatchError, got: %v", err)
+		t.Fatalf("expected scalar sendPortTypeMismatchError, got: %v", err)
 	}
-	if !errors.Is(err, ErrSendPortTypeMismatch) {
-		t.Errorf("expected ErrSendPortTypeMismatch for scalar message, got: %v", err)
+	if !errors.Is(err, errSendPortTypeMismatch) {
+		t.Errorf("expected errSendPortTypeMismatch for scalar message, got: %v", err)
 	}
 }
 
@@ -409,12 +409,12 @@ func testRoutedSendUnreachableReceiver(t *testing.T) {
 			succession first sender then done;
 		}
 	}`)
-	var typed *UnreachableSendReceiverError
+	var typed *unreachableSendReceiverError
 	if !errors.As(err, &typed) {
-		t.Fatalf("expected UnreachableSendReceiverError, got: %v", err)
+		t.Fatalf("expected unreachableSendReceiverError, got: %v", err)
 	}
-	if !errors.Is(err, ErrUnreachableSendReceiver) {
-		t.Errorf("expected ErrUnreachableSendReceiver, got: %v", err)
+	if !errors.Is(err, errUnreachableSendReceiver) {
+		t.Errorf("expected errUnreachableSendReceiver, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), `"outPort"`) ||
 		!strings.Contains(err.Error(), `"missing"`) {
@@ -469,8 +469,8 @@ func testSendAddressedToAnUnreachableTarget(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error: alpha.leaf.count is no port of any object")
 	}
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Errorf("expected ErrUnroutableSend, got: %v", err)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Errorf("expected errUnroutableSend, got: %v", err)
 	}
 }
 
@@ -493,8 +493,8 @@ func testSendAddressedThroughSeveralOccurrences(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error: nodes names three occurrences, not one addressee")
 	}
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Errorf("expected ErrUnroutableSend, got: %v", err)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Errorf("expected errUnroutableSend, got: %v", err)
 	}
 }
 
@@ -577,7 +577,7 @@ func testSendAddressedToAnObjectThatCannotBeBuilt(t *testing.T) {
 	if !errors.Is(err, ErrStepLimitExceeded) {
 		t.Errorf("budget exhausted while building alpha: %v, want ErrStepLimitExceeded", err)
 	}
-	if errors.Is(err, ErrUnroutableSend) {
+	if errors.Is(err, errUnroutableSend) {
 		t.Errorf("an exhausted budget was reported as a bad address: %v", err)
 	}
 
@@ -588,7 +588,7 @@ func testSendAddressedToAnObjectThatCannotBeBuilt(t *testing.T) {
 	if !errors.Is(err, ErrCyclicFeatureValue) {
 		t.Errorf("walking through a cyclic derived feature value: %v, want ErrCyclicFeatureValue", err)
 	}
-	if errors.Is(err, ErrUnroutableSend) {
+	if errors.Is(err, errUnroutableSend) {
 		t.Errorf("an unreadable feature value was reported as a bad address: %v", err)
 	}
 	if len(ctx.PendingMessages()) != 0 {

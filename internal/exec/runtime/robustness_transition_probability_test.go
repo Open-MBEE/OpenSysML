@@ -141,16 +141,16 @@ func testTransitionMixedWeightedAndUnweighted(t *testing.T) {
 
 // testTransitionWeightsNotSummingAtDispatch: weights computed from features are
 // read where the guard is, and the group's sum is checked when the dispatch
-// draws: pA + pB = 0.5 is a typed ErrBranchWeights, not a renormalization.
+// draws: pA + pB = 0.5 is a typed errBranchWeights, not a renormalization.
 func testTransitionWeightsNotSummingAtDispatch(t *testing.T) {
 	err := weightedStateRun(t, `
 		attribute pA : Real = 0.3;
 		attribute pB : Real = 0.2;
 		transition first a accept go then b { @Probability { p = pA; } }
 		transition first a accept go then c { @Probability { p = pB; } }`, "go")
-	if !errors.Is(err, ErrBranchWeights) ||
+	if !errors.Is(err, errBranchWeights) ||
 		!strings.Contains(err.Error(), "state a on accept go: the weights of its transitions sum to 0.5, not 1.0") {
-		t.Fatalf("error = %v, want ErrBranchWeights naming the sum 0.5", err)
+		t.Fatalf("error = %v, want errBranchWeights naming the sum 0.5", err)
 	}
 }
 
@@ -192,9 +192,9 @@ func testTransitionHoldingTotalZero(t *testing.T) {
 		transition first a accept go then b { @Probability { p = 0.0; } }
 		transition first a accept go then c { @Probability { p = 0.0; } }
 		transition first a accept go if ready then b { @Probability { p = 1.0; } }`, "go")
-	if !errors.Is(err, ErrBranchWeights) ||
+	if !errors.Is(err, errBranchWeights) ||
 		!strings.Contains(err.Error(), "no holding branch has a positive weight") {
-		t.Fatalf("error = %v, want ErrBranchWeights for the zero total", err)
+		t.Fatalf("error = %v, want errBranchWeights for the zero total", err)
 	}
 }
 
@@ -213,7 +213,7 @@ func TestExploreEnumeratesWeightedTransitions(t *testing.T) {
 	finals := map[string]bool{}
 	for _, o := range x.Outcomes {
 		finals[o.Outcome.FinalState] = true
-		if len(o.Witness) != 1 || o.Witness[0].Kind != ChoiceTransition || !o.Witness[0].Weighted() {
+		if len(o.Witness) != 1 || o.Witness[0].Kind != ChoiceTransition || !o.Witness[0].weighted() {
 			t.Fatalf("witness of %s is %s, want one weighted transition draw", o.Outcome, FormatChoices(o.Witness))
 		}
 	}
@@ -278,7 +278,7 @@ func TestExploreEnumeratesNestedWeightedTransitions(t *testing.T) {
 			t.Fatalf("replaying %s reached %s, want %s", FormatChoices(o.Witness), outcome, o.Outcome)
 		}
 		followed := slices.ContainsFunc(choices, func(c ChoiceTaken) bool {
-			return c.Kind == ChoiceTransition && c.Weighted()
+			return c.Kind == ChoiceTransition && c.weighted()
 		})
 		if !followed {
 			t.Fatalf("replaying %s made no weighted transition pick: %s", FormatChoices(o.Witness), FormatChoices(choices))
@@ -332,7 +332,7 @@ func TestCheckWeightsViolationMass(t *testing.T) {
 	}`)
 	inv := invocationOf(nil, []*symbols.Symbol{m.state(t, "Machine")})
 	prop := CheckProperty{Name: "notBad", Holds: func(_ *Context, inv *Invocation) (bool, error) {
-		return inv.States[0].FinalStateName() != "bad", nil
+		return inv.States[0].finalStateName() != "bad", nil
 	}}
 
 	report, err := Check(context.Background(), m.fresh, inv, CheckBudget{}, CheckOptions{}, []CheckProperty{prop})
@@ -364,9 +364,9 @@ func testLoneEnabledZeroWeight(t *testing.T) {
 		attribute w : Real = 1.0;
 		transition first a accept go if w < 0.5 then b { @Probability { p = w; } }
 		transition first a accept go then c { @Probability { p = 1.0 - w; } }`, "go")
-	if !errors.Is(err, ErrBranchWeights) ||
+	if !errors.Is(err, errBranchWeights) ||
 		!strings.Contains(err.Error(), "no holding branch has a positive weight") {
-		t.Fatalf("error = %v, want ErrBranchWeights for the lone enabled zero weight", err)
+		t.Fatalf("error = %v, want errBranchWeights for the lone enabled zero weight", err)
 	}
 }
 
@@ -378,9 +378,9 @@ func testLoneEnabledWeightAboveOne(t *testing.T) {
 		attribute w : Real = 1.5;
 		transition first a accept go if w < 1.0 then b { @Probability { p = 2.0 - w; } }
 		transition first a accept go then c { @Probability { p = w; } }`, "go")
-	if !errors.Is(err, ErrBranchWeights) ||
+	if !errors.Is(err, errBranchWeights) ||
 		!strings.Contains(err.Error(), "not a probability in [0, 1]") {
-		t.Fatalf("error = %v, want ErrBranchWeights for the lone enabled weight 1.5", err)
+		t.Fatalf("error = %v, want errBranchWeights for the lone enabled weight 1.5", err)
 	}
 }
 
@@ -399,11 +399,11 @@ func testTriggerArgumentWeightOutOfRange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exec.InvokeOperation("route", map[string]Value{"priority": constReal(1.5)})
+	exec.invokeOperation("route", map[string]Value{"priority": constReal(1.5)})
 	err = exec.RunToCompletion()
-	if !errors.Is(err, ErrBranchWeights) ||
+	if !errors.Is(err, errBranchWeights) ||
 		!strings.Contains(err.Error(), "not a probability in [0, 1]") {
-		t.Fatalf("error = %v, want ErrBranchWeights for the bound weight 1.5", err)
+		t.Fatalf("error = %v, want errBranchWeights for the bound weight 1.5", err)
 	}
 }
 
@@ -420,7 +420,7 @@ func TestExploreWeighsTransitionsByTriggerArguments(t *testing.T) {
 		if err != nil {
 			return Outcome{}, err
 		}
-		exec.InvokeOperation("route", map[string]Value{"priority": constReal(0.25)})
+		exec.invokeOperation("route", map[string]Value{"priority": constReal(0.25)})
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -508,7 +508,7 @@ func TestCheckWeighsTimedTransitionsAsOneOccurrence(t *testing.T) {
 	}`)
 	inv := invocationOf(nil, []*symbols.Symbol{m.state(t, "Machine")})
 	prop := CheckProperty{Name: "notBad", Holds: func(_ *Context, inv *Invocation) (bool, error) {
-		return inv.States[0].FinalStateName() != "bad", nil
+		return inv.States[0].finalStateName() != "bad", nil
 	}}
 	report, err := Check(context.Background(), m.fresh, inv, CheckBudget{}, CheckOptions{}, []CheckProperty{prop})
 	if err != nil || report.Verdict != CheckViolation || len(report.Violations) != 1 {
@@ -551,7 +551,7 @@ func TestDistinctInvocationTimersArmSeparately(t *testing.T) {
 	}
 	var timers []Event
 	for _, event := range exec.eventQueue.events {
-		if event.Type == EventTime {
+		if event.Type == eventTime {
 			timers = append(timers, event)
 		}
 	}
@@ -570,9 +570,9 @@ func testLoneCompletionWeightOutOfRange(t *testing.T) {
 	err := weightedStateRun(t, `
 		attribute w : Real = 1.5;
 		transition first a then b { @Probability { p = w; } }`, "")
-	if !errors.Is(err, ErrBranchWeights) ||
+	if !errors.Is(err, errBranchWeights) ||
 		!strings.Contains(err.Error(), "not a probability in [0, 1]") {
-		t.Fatalf("error = %v, want ErrBranchWeights for the lone completion's 1.5", err)
+		t.Fatalf("error = %v, want errBranchWeights for the lone completion's 1.5", err)
 	}
 }
 
@@ -582,9 +582,9 @@ func testLoneCompletionZeroWeight(t *testing.T) {
 	err := weightedStateRun(t, `
 		attribute w : Real = 0.0;
 		transition first a then b { @Probability { p = w; } }`, "")
-	if !errors.Is(err, ErrBranchWeights) ||
+	if !errors.Is(err, errBranchWeights) ||
 		!strings.Contains(err.Error(), "sum to 0") {
-		t.Fatalf("error = %v, want ErrBranchWeights for the lone zero-weighted completion", err)
+		t.Fatalf("error = %v, want errBranchWeights for the lone zero-weighted completion", err)
 	}
 }
 

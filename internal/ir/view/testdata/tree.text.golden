@@ -1,13 +1,15 @@
 VehicleViews::vehicleView - tree rendering (the view states no rendering; a tree is the default)
 
-part def Vehicles::Vehicle
-  part engine : Engine
-  part wheels : Wheel
-  connect
-view VehicleViews::vehicleView::engineSubview
-  part def Vehicles::Engine
+part def Vehicle
+  part engine
     attribute power
-    part cylinder : Cylinder
+    part cylinder
+  part wheels
+  connect
+view engineSubview
+  part def Engine
+    attribute power
+    part cylinder
 
 relationships:
-  Vehicles::Vehicle *-- Vehicles::Engine: engine
+  Vehicle *-- Engine: engine

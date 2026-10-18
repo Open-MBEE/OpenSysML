@@ -5,18 +5,22 @@ classes: {
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
-n0: "«part def»\nVehicles::Vehicle" { class: definition }
-n1: "«part»\nengine : Engine" { class: usage }
-n2: "«part»\nwheels : Wheel" { class: usage }
-n3: "connect" { class: usage }
-n4: "«view»\nVehicleViews::vehicleView::engineSubview" { class: usage }
-n5: "«part def»\nVehicles::Engine" { class: definition }
-n6: "«attribute»\npower" { class: usage }
-n7: "«part»\ncylinder : Cylinder" { class: usage }
+n0: "«part def»\nVehicle" { class: definition }
+n1: "«part»\nengine" { class: usage }
+n2: "«attribute»\npower" { class: usage }
+n3: "«part»\ncylinder" { class: usage }
+n4: "«part»\nwheels" { class: usage }
+n5: "connect" { class: usage }
+n6: "«view»\nengineSubview" { class: usage }
+n7: "«part def»\nEngine" { class: definition }
+n8: "«attribute»\npower" { class: usage }
+n9: "«part»\ncylinder" { class: usage }
 n0 -- n1: { class: edge }
-n0 -- n2: { class: edge }
-n0 -- n3: { class: edge }
-n4 -- n5: { class: edge }
-n5 -- n6: { class: edge }
-n5 -- n7: { class: edge }
-n0 <- n5: "engine" { class: composition }
+n1 -- n2: { class: edge }
+n1 -- n3: { class: edge }
+n0 -- n4: { class: edge }
+n0 -- n5: { class: edge }
+n6 -- n7: { class: edge }
+n7 -- n8: { class: edge }
+n7 -- n9: { class: edge }
+n0 <- n7: { class: composition; target-arrowhead: { label: "engine" } }

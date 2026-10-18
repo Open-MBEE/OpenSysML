@@ -90,13 +90,11 @@ within these records and means nothing outside this repository.
 - **[StateMachines library](statemachines-library.md)** — pseudostates as bundled
   `SemanticMetadata`, so a state machine's `choice`, `junction` and history pseudostates
   spell standard, conforming SysML v2
-- **[Performance: 0.9.2 against 0.9.1](performance-release-0.9.2-vs-0.9.1.md)** — the release-gate
-  measurement of the 0.9.2 patch line against 0.9.1: every benchmark on both revisions, the rows in
-  doubt re-run interleaved, and whole-binary scaling; the
-  [0.9.1 against 0.9.0](performance-release-0.9.1-vs-0.9.0.md),
-  [0.8.0 against 0.7.0](performance-release-0.8-vs-0.7.0.md),
-  [0.6 against 0.4.2](performance-release-0.6-vs-0.4.2.md) and
-  [0.5 against 0.4.3](performance-release-0.5-vs-0.4.3.md) records precede it
+- **[Performance: 0.10.1 against 0.10.0](performance-release-0.10.1-vs-0.10.0.md)** — the release-gate
+  measurement of the current release against the one before it: every benchmark on both revisions,
+  the rows in doubt re-run interleaved, whole-binary scaling, and each confirmed regression with the
+  change responsible; the records of the earlier releases and the September 2026 census, execution
+  study and profile are in the [archive](archive/README.md)
 - **[Roadmap](roadmap.md)** — the known gaps, in the order they should be picked up
 - **[Nightly snapshots](nightly.md)** — the prerelease built from `develop` every night: where it
   is, what it contains, and how to verify one

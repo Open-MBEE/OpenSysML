@@ -286,8 +286,8 @@ func TestOperatorFunctionErrors(t *testing.T) {
 		{"DataFunctions::not", []Value{NewStringValue("true")}, ErrTypeMismatch},
 		{"DataFunctions::max", []Value{constBool(true), constBool(false)}, ErrTypeMismatch},
 		{"DataFunctions::max", []Value{constInt(1), NewStringValue("1")}, ErrTypeMismatch},
-		{"IntegerFunctions::+", []Value{constInt(1), constInt(2), constInt(3)}, ErrCalcArity},
-		{"IntegerFunctions::*", []Value{constInt(1)}, ErrCalcArity},
+		{"IntegerFunctions::+", []Value{constInt(1), constInt(2), constInt(3)}, errCalcArity},
+		{"IntegerFunctions::*", []Value{constInt(1)}, errCalcArity},
 	}
 	for _, tc := range cases {
 		t.Run(tc.fn+"/"+FormatValue(tc.args[0]), func(t *testing.T) {

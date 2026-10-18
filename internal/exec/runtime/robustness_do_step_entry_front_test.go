@@ -401,7 +401,7 @@ func testCompositeDoEndingAheadOfItsBodyCompletesNothing(t *testing.T) {
 	if err := ctx.Unfollowed(); err != nil {
 		t.Errorf("%v, want the do step drawn ahead of the body's entry", err)
 	}
-	if got := exec.FinalStateName(); got != "w1" {
+	if got := exec.finalStateName(); got != "w1" {
 		t.Fatalf("work completed at the end of its do behavior: resting in %q, want w1", got)
 	}
 	exec.SendSignal("Go", nil)

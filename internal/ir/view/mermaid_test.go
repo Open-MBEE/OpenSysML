@@ -39,7 +39,7 @@ func TestMermaidStateAndSequencePictureNotices(t *testing.T) {
 }
 
 func TestMermaidFlowchartShapes(t *testing.T) {
-	labels := labeller{}
+	labels := labeller{shown: AllShown()}
 	cases := []struct {
 		name  string
 		kind  string
@@ -75,14 +75,14 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 			if caseNodeKind(tc.kind) || tc.kind == "actor" || tc.kind == "subject" || tc.kind == "objective" {
 				kind = KindCase
 			}
-			got := mermaidNodeShape(kind, node, labels, Options{Style: tc.style})
+			got := mermaidNodeShape(kind, node, labels, Options{Show: AllShown(), Style: tc.style})
 			if !strings.HasPrefix(got, tc.want) {
 				t.Errorf("shape = %q, want prefix %q", got, tc.want)
 			}
 		})
 	}
 	for _, kind := range []string{"decision", "merge", "choice"} {
-		if got := mermaidNodeShape(KindAction, &Node{ID: "n", Kind: kind}, labels, Options{}); got != `{" "}` {
+		if got := mermaidNodeShape(KindAction, &Node{ID: "n", Kind: kind}, labels, Options{Show: AllShown()}); got != `{" "}` {
 			t.Errorf("empty %s shape = %q, want blank diamond", kind, got)
 		}
 	}
@@ -91,7 +91,7 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 		{ID: "start", Kind: startKind, NameSynthesized: true},
 		{ID: "initial", Kind: "initial", NameSynthesized: true},
 		{ID: "fork", Kind: "fork", Name: "split"},
-	}}).Mermaid()
+	}}).MermaidWith(fullNotation)
 	if !strings.Contains(mermaid, "classDef control fill:#181818,stroke:#181818\n") ||
 		!strings.Contains(mermaid, "class fork control\n") ||
 		strings.Contains(mermaid, "class start,") ||
@@ -118,7 +118,7 @@ func TestMermaidQuotedLabelsUseMermaidEscaping(t *testing.T) {
 }
 
 func TestMermaidMarkdownLabelsFallBackWhenUnsafe(t *testing.T) {
-	labels := labeller{}
+	labels := labeller{shown: AllShown()}
 	for _, name := range []string{"wheels : Wheel [0..*]", "my_snake"} {
 		node := &Node{ID: "n", Kind: "part", Name: name}
 		if got := mermaidNodeLabel(node, labels, Options{}); !strings.Contains(got, "**") {
@@ -316,7 +316,7 @@ func TestMermaidEdgeSyntaxAndLinkStyleIndices(t *testing.T) {
 		From: "root", To: "child", Kind: EdgeConnection, Label: "x",
 		Style: &Style{Line: "#123456", Text: "#654321", Font: "Times New Roman", FontSize: 22, Bold: true, Italic: true},
 	}}, Notes: []Note{{Anchor: "root", Text: "note"}}}
-	source := rendering.Mermaid()
+	source := rendering.MermaidWith(fullNotation)
 	if !strings.Contains(source, `root ===|"x"| child`) ||
 		!strings.Contains(source, "linkStyle 1 stroke:#123456,color:#654321,font-family:Times New Roman,font-size:22px,font-weight:bold,font-style:italic,stroke-width:3px") ||
 		!strings.Contains(source, "note0 -.- root") ||

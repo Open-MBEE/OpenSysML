@@ -20,10 +20,10 @@ use crate::error::{Error, Status};
 use crate::wire;
 
 const START_TIMEOUT: Duration = Duration::from_millis(2500);
-const STOP_TIMEOUT: Duration = Duration::from_secs(5);
 // A service that closes its stdout without serving an address is on its way
-// out; its exit status is the evidence of why, so it gets this long to arrive.
-const EXIT_STATUS_GRACE: Duration = Duration::from_millis(500);
+// out; its exit status is the evidence of why, so it gets this long to arrive
+// before it is killed instead.
+const STOP_TIMEOUT: Duration = Duration::from_secs(5);
 // A child killed under a connection closes its sockets a moment before its exit
 // is reportable; a joined child that refuses the handshake gets this long to die.
 const EXIT_REPORT_GRACE: Duration = Duration::from_millis(500);
@@ -197,10 +197,23 @@ impl Connection {
 
     /// Retrieve diagnostics for a model cached by the service.
     pub fn diagnostics(&self, model_hash: &str) -> Result<Vec<crate::Diagnostic>, Error> {
+        self.diagnostics_with_lints(model_hash, &[], &[])
+    }
+
+    /// Retrieve diagnostics under a lint selection: the lints `disabled` left out and the
+    /// opt-in lints `enabled` kept, as `sysml -disable-lint`/`-enable-lint` select them.
+    pub fn diagnostics_with_lints(
+        &self,
+        model_hash: &str,
+        disabled: &[&str],
+        enabled: &[&str],
+    ) -> Result<Vec<crate::Diagnostic>, Error> {
         let response: wire::DiagnosticsResponse = self.rpc(
             "GetDiagnostics",
             wire::DiagnosticsRequest {
                 model_hash: model_hash.to_owned(),
+                disable_lint: disabled.iter().map(|c| (*c).to_owned()).collect(),
+                enable_lint: enabled.iter().map(|c| (*c).to_owned()).collect(),
             },
         )?;
         if !response.error.is_empty() {
@@ -567,9 +580,15 @@ impl PrivateService {
             Ok(Some(address)) if !address.is_empty() => address,
             Ok(_) => {
                 drop(stdin);
-                let code = terminate_process(&mut process, EXIT_STATUS_GRACE)
-                    .and_then(|status| status.code());
-                let message = format!("exited with code {code:?} without serving an address");
+                let message = match terminate_process(&mut process, STOP_TIMEOUT) {
+                    Ending::Own(status) => {
+                        format!("{} without serving an address", describe_exit(status))
+                    }
+                    Ending::Killed => format!(
+                        "closed stdout without serving an address and was still running {}s later, so it was killed",
+                        STOP_TIMEOUT.as_secs()
+                    ),
+                };
                 return Err(Error::ServiceStart(format!(
                     "{message}; {}",
                     stderr_tail(&tail)
@@ -577,9 +596,18 @@ impl PrivateService {
             }
             Err(_) => {
                 drop(stdin);
-                terminate_process(&mut process, Duration::ZERO);
+                let message = match terminate_process(&mut process, Duration::ZERO) {
+                    Ending::Own(status) => format!(
+                        "did not report a listening address within 2.5s and had {}",
+                        describe_exit(status)
+                    ),
+                    Ending::Killed => {
+                        "did not report a listening address within 2.5s, so it was killed"
+                            .to_owned()
+                    }
+                };
                 return Err(Error::ServiceStart(format!(
-                    "did not report a listening address within 2.5s; {}",
+                    "{message}; {}",
                     stderr_tail(&tail)
                 )));
             }
@@ -646,25 +674,58 @@ fn stderr_tail(tail: &Arc<Mutex<VecDeque<String>>>) -> String {
     }
 }
 
+/// How a child the connection gave up on ended.
+enum Ending {
+    /// It ended on its own, with this status.
+    Own(ExitStatus),
+    /// It was still running when its grace ran out, so it was killed.
+    Killed,
+}
+
 /// Waits up to `grace` for the process to exit on its own, then kills it,
-/// and reports how it ended.
-fn terminate_process(process: &mut Child, grace: Duration) -> Option<ExitStatus> {
-    if let Ok(Some(status)) = process.try_wait() {
-        return Some(status);
-    }
-    let deadline = Instant::now() + STOP_TIMEOUT;
-    let grace_deadline = std::cmp::min(Instant::now() + grace, deadline);
-    while Instant::now() < deadline {
+/// and reports which of the two happened.
+fn terminate_process(process: &mut Child, grace: Duration) -> Ending {
+    let deadline = Instant::now() + grace;
+    loop {
         if let Ok(Some(status)) = process.try_wait() {
-            return Some(status);
+            return Ending::Own(status);
         }
-        if Instant::now() >= grace_deadline {
+        let now = Instant::now();
+        if now >= deadline {
             break;
         }
-        thread::sleep(Duration::from_millis(10));
+        thread::sleep((deadline - now).min(Duration::from_millis(10)));
     }
     let _ = process.kill();
-    process.wait().ok()
+    // A child that ended between the last poll and the kill keeps its own
+    // status: the kill signal reaches a zombie and changes nothing.
+    match process.wait() {
+        Ok(status) if !ended_by_kill(status) => Ending::Own(status),
+        _ => Ending::Killed,
+    }
+}
+
+/// Whether `status` is the one `Child::kill` leaves behind.
+#[cfg(unix)]
+fn ended_by_kill(status: ExitStatus) -> bool {
+    use std::os::unix::process::ExitStatusExt;
+    const SIGKILL: i32 = 9;
+    status.signal() == Some(SIGKILL)
+}
+
+/// Whether `status` is the one `Child::kill` leaves behind: TerminateProcess
+/// ends the child with exit code 1.
+#[cfg(not(unix))]
+fn ended_by_kill(status: ExitStatus) -> bool {
+    status.code() == Some(1)
+}
+
+/// The exit a child chose for itself, or the signal that ended it.
+fn describe_exit(status: ExitStatus) -> String {
+    match status.code() {
+        Some(code) => format!("exited with code {code}"),
+        None => format!("ended with {status}"),
+    }
 }
 
 /// Resolve the service binary: explicit path, matching cache, download, then `$PATH`.
@@ -1013,5 +1074,15 @@ mod tests {
             matches!(&error, Error::Transport(message) if message.contains("path")),
             "{error}"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn only_the_kill_signal_counts_as_a_kill() {
+        use std::os::unix::process::ExitStatusExt;
+        assert!(ended_by_kill(ExitStatus::from_raw(9)));
+        assert!(!ended_by_kill(ExitStatus::from_raw(15)));
+        assert!(!ended_by_kill(ExitStatus::from_raw(3 << 8)));
+        assert!(!ended_by_kill(ExitStatus::from_raw(0)));
     }
 }

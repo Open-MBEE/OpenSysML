@@ -29,7 +29,7 @@ func (ec *EvalContext) evalMetaCast(n *ast.OperatorExpr) (Value, error) {
 	}
 	target, ok := ec.resolveClassificationType(n.TypeRef)
 	if !ok {
-		return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedType, qualifiedNameToString(n.TypeRef))
+		return Value{}, fmt.Errorf("%w: %s", errUnresolvedType, qualifiedNameToString(n.TypeRef))
 	}
 	sym, err := ec.metaCastSubject(n)
 	if err != nil {
@@ -38,7 +38,7 @@ func (ec *EvalContext) evalMetaCast(n *ast.OperatorExpr) (Value, error) {
 	sem := ec.ctx.model.semantics
 	if sem == nil {
 		return Value{}, fmt.Errorf("%w: no model holds the metadata of %s",
-			ErrTypeMismatch, ec.ctx.qualifiedSymbolName(sym))
+			ErrTypeMismatch, ec.ctx.QualifiedName(sym))
 	}
 	commit, rollback := ec.ctx.beginJournal()
 	var values []Value
@@ -53,7 +53,7 @@ func (ec *EvalContext) evalMetaCast(n *ast.OperatorExpr) (Value, error) {
 		}
 		values = append(values, val)
 	}
-	if sem.MetaclassConforms(sym, ec.ctx.qualifiedSymbolName(target)) {
+	if sem.MetaclassConforms(sym, ec.ctx.QualifiedName(target)) {
 		meta, err := ec.reflectiveMetaobject(sym)
 		if err != nil {
 			rollback()
@@ -82,7 +82,7 @@ func (ec *EvalContext) metaCastSubject(n *ast.OperatorExpr) (*symbols.Symbol, er
 	}
 	if sym.Decl == nil && sym.Implicit == nil && sym.Chain == nil {
 		return nil, fmt.Errorf("%w: '%s' requires an element, but %s declares none",
-			ErrTypeMismatch, n.Operator, ec.ctx.qualifiedSymbolName(sym))
+			ErrTypeMismatch, n.Operator, ec.ctx.QualifiedName(sym))
 	}
 	return sym, nil
 }
@@ -92,7 +92,7 @@ func (ec *EvalContext) metaCastSubject(n *ast.OperatorExpr) (*symbols.Symbol, er
 func (ec *EvalContext) reflectiveMetaobject(sym *symbols.Symbol) (Value, error) {
 	metaclass := ec.ctx.model.semantics.MetaclassOf(sym)
 	if metaclass == nil {
-		return Value{}, fmt.Errorf("%w: %s", ErrNoMetaclass, ec.ctx.qualifiedSymbolName(sym))
+		return Value{}, fmt.Errorf("%w: %s", ErrNoMetaclass, ec.ctx.QualifiedName(sym))
 	}
 	return NewMetaobject(sym, metaclass), nil
 }
@@ -103,12 +103,12 @@ func (ec *EvalContext) metaobjectFeature(meta Value, name string) (Value, error)
 	element, metaclass := meta.MetaobjectElement(), meta.MetaobjectClass()
 	sem := ec.ctx.model.semantics
 	if element == nil || metaclass == nil || sem == nil {
-		return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, describeValue(meta), name)
+		return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, DescribeValue(meta), name)
 	}
 	feature, ok := ec.metaclassFeature(metaclass, name)
 	if !ok {
 		return Value{}, fmt.Errorf("%w: %s declares no feature %s", ErrNoSuchFeature,
-			ec.ctx.qualifiedSymbolName(metaclass), name)
+			ec.ctx.QualifiedName(metaclass), name)
 	}
 	for _, property := range ec.reflectivePropertyNames(metaclass, feature) {
 		if property == "direction" {
@@ -138,7 +138,7 @@ func (ec *EvalContext) metaobjectFeature(meta Value, name string) (Value, error)
 		}
 	}
 	return Value{}, fmt.Errorf("%w: %s::%s for %s", ErrReflectiveFeatureUnsupported,
-		ec.ctx.qualifiedSymbolName(metaclass), name, ec.ctx.qualifiedSymbolName(element))
+		ec.ctx.QualifiedName(metaclass), name, ec.ctx.QualifiedName(element))
 }
 
 // reflectiveResult shapes the values derived for feature as a read of any
@@ -154,7 +154,7 @@ func (ec *EvalContext) reflectiveResult(element, feature *symbols.Symbol, values
 		return values[0], nil
 	}
 	return Value{}, fmt.Errorf("%w: %s derives %d values for %s, which admits at most one",
-		ErrTypeMismatch, ec.ctx.qualifiedSymbolName(element), len(values), ec.ctx.qualifiedSymbolName(feature))
+		ErrTypeMismatch, ec.ctx.QualifiedName(element), len(values), ec.ctx.QualifiedName(feature))
 }
 
 // metaclassFeature is the feature named name that metaclass has: declared or
@@ -197,7 +197,7 @@ func (ec *EvalContext) reflectiveDirection(element, feature *symbols.Symbol) (Va
 	direction, ok := semantics.ReflectiveDirection(element)
 	if !ok {
 		return Value{}, fmt.Errorf("%w: %s declares no feature to have a direction",
-			ErrTypeMismatch, ec.ctx.qualifiedSymbolName(element))
+			ErrTypeMismatch, ec.ctx.QualifiedName(element))
 	}
 	if direction == ast.DirNone {
 		return ec.newSequence(nil)

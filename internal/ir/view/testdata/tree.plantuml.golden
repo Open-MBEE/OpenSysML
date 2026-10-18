@@ -42,19 +42,23 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "<size:10>//«part def»//</size>\n**Vehicles::Vehicle**" as n0 <<part def>>
-class "<size:10>//«part»//</size>\n**engine : Engine**" as n1 <<part>> <<usage>>
+class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>
+class "<size:10>//«part»//</size>\n**engine**" as n1 <<part>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**power**" as n2 <<attribute>> <<usage>>
+n1 -- n2
+class "<size:10>//«part»//</size>\n**cylinder**" as n3 <<part>> <<usage>>
+n1 -- n3
 n0 -- n1
-class "<size:10>//«part»//</size>\n**wheels : Wheel**" as n2 <<part>> <<usage>>
-n0 -- n2
-class "**connect**" as n3 <<connect>> <<usage>>
-n0 -- n3
-class "<size:10>//«view»//</size>\n**VehicleViews::vehicleView::engineSubview**" as n4 <<view>> <<usage>>
-class "<size:10>//«part def»//</size>\n**Vehicles::Engine**" as n5 <<part def>>
-class "<size:10>//«attribute»//</size>\n**power**" as n6 <<attribute>> <<usage>>
-n5 -- n6
-class "<size:10>//«part»//</size>\n**cylinder : Cylinder**" as n7 <<part>> <<usage>>
-n5 -- n7
-n4 -- n5
-n0 *-- n5 : engine
+class "<size:10>//«part»//</size>\n**wheels**" as n4 <<part>> <<usage>>
+n0 -- n4
+class "**connect**" as n5 <<connect>> <<usage>>
+n0 -- n5
+class "<size:10>//«view»//</size>\n**engineSubview**" as n6 <<view>> <<usage>>
+class "<size:10>//«part def»//</size>\n**Engine**" as n7 <<part def>>
+class "<size:10>//«attribute»//</size>\n**power**" as n8 <<attribute>> <<usage>>
+n7 -- n8
+class "<size:10>//«part»//</size>\n**cylinder**" as n9 <<part>> <<usage>>
+n7 -- n9
+n6 -- n7
+n0 *-- "engine" n7
 @enduml

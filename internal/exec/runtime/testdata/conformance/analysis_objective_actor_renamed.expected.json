@@ -1,0 +1,8 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::check",
+  "verdicts": {
+    "renamed": "satisfied"
+  }
+}

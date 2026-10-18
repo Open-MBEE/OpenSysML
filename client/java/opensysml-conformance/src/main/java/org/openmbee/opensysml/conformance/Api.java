@@ -5,6 +5,7 @@ import org.openmbee.opensysml.ActionRun;
 import org.openmbee.opensysml.Analysis;
 import org.openmbee.opensysml.AnalysisException;
 import org.openmbee.opensysml.AnalysisOptions;
+import org.openmbee.opensysml.DiagnosticsOptions;
 import org.openmbee.opensysml.Calculation;
 import org.openmbee.opensysml.Capabilities;
 import org.openmbee.opensysml.CapabilityException;
@@ -32,6 +33,8 @@ import org.openmbee.opensysml.Query;
 import org.openmbee.opensysml.QueryElement;
 import org.openmbee.opensysml.RenderedDocument;
 import org.openmbee.opensysml.RenderedView;
+import org.openmbee.opensysml.CheckOptions;
+import org.openmbee.opensysml.CheckResult;
 import org.openmbee.opensysml.Graphs;
 import org.openmbee.opensysml.RenderViewPorts;
 import org.openmbee.opensysml.Satisfaction;
@@ -79,6 +82,17 @@ import org.openmbee.opensysml.proto.QueryRequest;
 import org.openmbee.opensysml.proto.QueryResponse;
 import org.openmbee.opensysml.proto.RenderDocumentRequest;
 import org.openmbee.opensysml.proto.RenderDocumentResponse;
+import org.openmbee.opensysml.CompareOptions;
+import org.openmbee.opensysml.DataImport;
+import org.openmbee.opensysml.proto.CompareResultsRequest;
+import org.openmbee.opensysml.proto.CompareResultsResponse;
+import org.openmbee.opensysml.proto.ImportDataRequest;
+import org.openmbee.opensysml.proto.ImportDataResponse;
+import org.openmbee.opensysml.proto.ObservablePair;
+import java.util.OptionalDouble;
+import java.util.OptionalLong;
+import org.openmbee.opensysml.proto.CheckBehaviorRequest;
+import org.openmbee.opensysml.proto.CheckBehaviorResponse;
 import org.openmbee.opensysml.proto.ExportGraphsRequest;
 import org.openmbee.opensysml.proto.ExportGraphsResponse;
 import org.openmbee.opensysml.proto.RenderViewRequest;
@@ -107,6 +121,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -137,6 +152,9 @@ final class Api {
   private static final String RPC_RUN_DOCUMENT_QUERY = "RunDocumentQuery";
   private static final String RPC_RENDER_DOCUMENT = "RenderDocument";
   private static final String RPC_EXPORT_GRAPHS = "ExportGraphs";
+  private static final String RPC_IMPORT_DATA = "ImportData";
+  private static final String RPC_COMPARE_RESULTS = "CompareResults";
+  private static final String RPC_CHECK_BEHAVIOR = "CheckBehavior";
   private static final String RPC_RENDER_VIEW = "RenderView";
   private static final String RPC_VALIDATE_INSTANCE = "ValidateInstance";
   private static final String RPC_VERIFY_CONSTRAINT = "VerifyConstraint";
@@ -170,7 +188,10 @@ final class Api {
           RPC_RUN_DOCUMENT_QUERY,
           RPC_RENDER_DOCUMENT,
           RPC_RENDER_VIEW,
-          RPC_EXPORT_GRAPHS);
+          RPC_EXPORT_GRAPHS,
+          RPC_IMPORT_DATA,
+          RPC_COMPARE_RESULTS,
+          RPC_CHECK_BEHAVIOR);
 
   private final Connection connection;
 
@@ -223,6 +244,9 @@ final class Api {
       case RPC_RENDER_DOCUMENT -> RenderDocumentRequest.newBuilder();
       case RPC_RENDER_VIEW -> RenderViewRequest.newBuilder();
       case RPC_EXPORT_GRAPHS -> ExportGraphsRequest.newBuilder();
+      case RPC_IMPORT_DATA -> ImportDataRequest.newBuilder();
+      case RPC_COMPARE_RESULTS -> CompareResultsRequest.newBuilder();
+      case RPC_CHECK_BEHAVIOR -> CheckBehaviorRequest.newBuilder();
       default -> throw new IllegalArgumentException("no request type for " + method);
     };
   }
@@ -255,7 +279,7 @@ final class Api {
       return new Answer.Answered(
           switch (method) {
             case RPC_GET_SERVER_INFO -> serverInfo();
-            case RPC_LIST_ENGINES -> listEngines();
+            case RPC_LIST_ENGINES -> listEngines((ListEnginesRequest) request);
             case RPC_PARSE_FILE -> parse((ParseFileRequest) request);
             case RPC_GET_SYMBOL -> symbol((GetSymbolRequest) request);
             case RPC_GET_DIAGNOSTICS -> diagnostics((DiagnosticsRequest) request);
@@ -281,6 +305,9 @@ final class Api {
             case RPC_RENDER_DOCUMENT -> renderDocument((RenderDocumentRequest) request);
             case RPC_RENDER_VIEW -> renderView((RenderViewRequest) request);
             case RPC_EXPORT_GRAPHS -> exportGraphs((ExportGraphsRequest) request);
+            case RPC_IMPORT_DATA -> importData((ImportDataRequest) request);
+            case RPC_COMPARE_RESULTS -> compareResults((CompareResultsRequest) request);
+            case RPC_CHECK_BEHAVIOR -> checkBehavior((CheckBehaviorRequest) request);
             default -> throw new IllegalStateException(method);
           });
     } catch (Unsupported e) {
@@ -311,9 +338,9 @@ final class Api {
         .build();
   }
 
-  private ListEnginesResponse listEngines() {
+  private ListEnginesResponse listEngines(ListEnginesRequest request) {
     return ListEnginesResponse.newBuilder()
-        .addAllEngines(Rendering.engines(connection.listEngines()))
+        .addAllEngines(Rendering.engines(connection.listEngines(request.getProbe())))
         .build();
   }
 
@@ -348,9 +375,11 @@ final class Api {
 
   private DiagnosticsResponse diagnostics(DiagnosticsRequest request) {
     Model model = connection.model(request.getModelHash());
+    DiagnosticsOptions options =
+        new DiagnosticsOptions(request.getDisableLintList(), request.getEnableLintList());
     try {
       return DiagnosticsResponse.newBuilder()
-          .addAllDiagnostics(Rendering.diagnostics(model.diagnostics()))
+          .addAllDiagnostics(Rendering.diagnostics(model.diagnostics(options)))
           .build();
     } catch (ModelException e) {
       return DiagnosticsResponse.newBuilder()
@@ -406,7 +435,7 @@ final class Api {
 
   private ExecuteActionResponse executeAction(ExecuteActionRequest request) {
     Model model = connection.model(request.getModelHash());
-    ExecutionOptions options = execution(request.getSchedule(), request.getPerformerSymbolId());
+    ExecutionOptions options = execution(request);
     Map<String, Value> inputs = values(request.getInputsMap());
     try {
       if (options.explores()) {
@@ -428,13 +457,14 @@ final class Api {
       return ExecuteActionResponse.newBuilder()
           .setError(e.getMessage())
           .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .setFinalTime(e.finalTime())
           .build();
     }
   }
 
   private ExecuteStateResponse executeState(ExecuteStateRequest request) {
     Model model = connection.model(request.getModelHash());
-    ExecutionOptions options = execution(request.getSchedule(), request.getPerformerSymbolId());
+    ExecutionOptions options = execution(request);
     if (request.getTrace()) {
       options = options.withTrace();
     }
@@ -467,6 +497,7 @@ final class Api {
           .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
           .addAllTrace(e.trace().stream().map(event -> Protos.proto(event).getEvent()).toList())
           .setTraceDropped(e.traceDropped())
+          .setFinalTime(e.finalTime())
           .build();
     }
   }
@@ -601,6 +632,9 @@ final class Api {
     if (!request.getSchedule().isEmpty()) {
       options = options.withSchedule(request.getSchedule());
     }
+    if (request.getToolDryRun()) {
+      options = options.withToolDryRun();
+    }
     try {
       if (options.explores()) {
         Exploration exploration = model.exploreAnalysis(request.getSymbolId(), options);
@@ -630,16 +664,19 @@ final class Api {
   }
 
   private static RunAnalysisResponse.Builder analysis(Analysis analysis) {
-    return RunAnalysisResponse.newBuilder()
-        .addAllOutputs(Rendering.outputs(analysis.outputs()))
-        .addAllVerdicts(Rendering.verdicts(analysis.verdicts()))
-        .addAllInstances(Rendering.instances(analysis.instances()))
-        .addAllDiagnostics(Rendering.diagnostics(analysis.diagnostics()))
-        .addAllVerificationVerdicts(Rendering.verificationVerdicts(analysis.verifications()))
-        .addAllEvaluations(Rendering.evaluations(analysis.evaluations()))
-        .setEngine(analysis.standing().engine())
-        .setStrength(analysis.standing().strength())
-        .addAllBounds(Rendering.bounds(analysis.standing()));
+    RunAnalysisResponse.Builder response =
+        RunAnalysisResponse.newBuilder()
+            .addAllOutputs(Rendering.outputs(analysis.outputs()))
+            .addAllVerdicts(Rendering.verdicts(analysis.verdicts()))
+            .addAllInstances(Rendering.instances(analysis.instances()))
+            .addAllDiagnostics(Rendering.diagnostics(analysis.diagnostics()))
+            .addAllVerificationVerdicts(Rendering.verificationVerdicts(analysis.verifications()))
+            .addAllEvaluations(Rendering.evaluations(analysis.evaluations()))
+            .setEngine(analysis.standing().engine())
+            .setStrength(analysis.standing().strength())
+            .addAllBounds(Rendering.bounds(analysis.standing()));
+    analysis.toolDryRun().map(Rendering::toolDryRun).ifPresent(response::setToolDryRun);
+    return response;
   }
 
   private ParseSourcesResponse parseSources(ParseSourcesRequest request) {
@@ -1059,8 +1096,38 @@ final class Api {
     Model model = connection.model(request.getModelHash());
     RenderViewPorts ports =
         request.getPorts().equals("full") ? RenderViewPorts.FULL : RenderViewPorts.MINIMAL;
-    RenderedView rendered = model.renderView(request.getView(), ports);
+    RenderedView rendered = model.renderView(request.getView(), ports, request.getShowList());
     return Rendering.renderedView(rendered);
+  }
+
+  private CheckBehaviorResponse checkBehavior(CheckBehaviorRequest request) {
+    Model model = connection.model(request.getModelHash());
+    CheckOptions options =
+        new CheckOptions(
+            request.getCheckPropertyList(),
+            request.getCheckDivergeList(),
+            request.getCheckInputList(),
+            request.getCheckAssumeList(),
+            request.getCheckWitness(),
+            request.getCheckDepth(),
+            request.getCheckStates(),
+            request.getCheckUnroll(),
+            request.getCheckTimeout(),
+            Optional.of(request.getEngine()).filter(e -> !e.isEmpty()),
+            Optional.of(request.getPerformerSymbolId()).filter(p -> !p.isEmpty()));
+    try {
+      CheckResult result =
+          request.getStateMachineSymbolId().isEmpty()
+              ? model.checkAction(
+                  request.getActionSymbolId(), values(request.getInputsMap()), options)
+              : model.checkStateMachine(request.getStateMachineSymbolId(), options);
+      return Rendering.checkResult(result);
+    } catch (ModelException e) {
+      return CheckBehaviorResponse.newBuilder()
+          .setVerdict("undecided")
+          .setError(e.getMessage())
+          .build();
+    }
   }
 
   private ExportGraphsResponse exportGraphs(ExportGraphsRequest request) {
@@ -1071,6 +1138,49 @@ final class Api {
         .setVersion(graphs.version())
         .setSubject(graphs.subject())
         .build();
+  }
+
+  private ImportDataResponse importData(ImportDataRequest request) {
+    Model model = connection.model(request.getModelHash());
+    List<DataImport> imports = new ArrayList<>(request.getImportsCount());
+    for (org.openmbee.opensysml.proto.DataImport dataImport : request.getImportsList()) {
+      imports.add(
+          new DataImport(
+              dataImport.getName(),
+              dataImport.getContent(),
+              Optional.of(dataImport.getImportFormat()).filter(Predicate.not(String::isEmpty)),
+              Optional.of(dataImport.getImportMap()).filter(Predicate.not(String::isEmpty))));
+    }
+    try {
+      return model
+          .importData(imports, request.getImportDryRun(), request.getAcceptDocuments())
+          .wire();
+    } catch (ModelException e) {
+      return ImportDataResponse.newBuilder()
+          .setError(e.getMessage())
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
+    }
+  }
+
+  private CompareResultsResponse compareResults(CompareResultsRequest request) {
+    Model model = connection.model(request.getModelHash());
+    List<CompareOptions.ObservablePair> observe = new ArrayList<>(request.getObserveCount());
+    for (ObservablePair pair : request.getObserveList()) {
+      observe.add(new CompareOptions.ObservablePair(pair.getStored(), pair.getFeature()));
+    }
+    CompareOptions options =
+        new CompareOptions(
+            request.getActionsList(),
+            request.getRuns(),
+            request.hasSeed() ? OptionalLong.of(request.getSeed()) : OptionalLong.empty(),
+            Optional.of(request.getDraws()).filter(Predicate.not(String::isEmpty)),
+            request.hasClockStep()
+                ? OptionalDouble.of(request.getClockStep())
+                : OptionalDouble.empty(),
+            observe,
+            Optional.of(request.getEngine()).filter(Predicate.not(String::isEmpty)));
+    return model.compareResults(request.getResults(), options).wire();
   }
 
   private QueryResponse query(QueryRequest request) {
@@ -1128,6 +1238,39 @@ final class Api {
       throw new Unsupported("the public API compares an ordering against one value");
     }
     return primitive.getValue(0);
+  }
+
+  private static ExecutionOptions execution(ExecuteActionRequest request) {
+    ExecutionOptions options = execution(request.getSchedule(), request.getPerformerSymbolId());
+    if (request.hasAdvance()) {
+      options = options.withAdvance(request.getAdvance());
+    }
+    if (request.hasSeed()) {
+      options = options.withSeed(request.getSeed());
+    }
+    return runControls(options, request.getDraws(), request.getClockStep());
+  }
+
+  private static ExecutionOptions execution(ExecuteStateRequest request) {
+    ExecutionOptions options = execution(request.getSchedule(), request.getPerformerSymbolId());
+    if (request.hasAdvance()) {
+      options = options.withAdvance(request.getAdvance());
+    }
+    if (request.hasSeed()) {
+      options = options.withSeed(request.getSeed());
+    }
+    return runControls(options, request.getDraws(), request.getClockStep());
+  }
+
+  private static ExecutionOptions runControls(
+      ExecutionOptions options, String draws, double clockStep) {
+    if (!draws.isEmpty()) {
+      options = options.withDraws(draws);
+    }
+    if (clockStep != 0) {
+      options = options.withClockStep(clockStep);
+    }
+    return options;
   }
 
   private static ExecutionOptions execution(String schedule, String performer) {

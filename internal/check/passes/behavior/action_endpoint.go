@@ -9,6 +9,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
+const (
+	successionEndpoint = "succession endpoint "
+)
+
 // CodeEndpointNotANode marks an action endpoint naming something other than an
 // action node accepted by the action lowerer.
 const CodeEndpointNotANode = "endpoint-not-a-node"
@@ -189,15 +193,15 @@ func (c *actionEndpointChecker) check(
 		c.ctx.DownstreamOfFailure(subject) {
 		return
 	}
-	message := "succession endpoint " + actionEndpointText(ref) + " is not an action node"
+	message := successionEndpoint + actionEndpointText(ref) + " is not an action node"
 	if flow, isFlow := sym.Decl.(*ast.Usage); isFlow && flow.Kind == ast.UsageFlow && from != nil {
 		switch {
 		case lower.GatedFlowAccepted(nodes, from, flow):
 			return
 		case !flow.IsSuccessionFlow():
-			message = "succession endpoint " + actionEndpointText(ref) + " is a flow, not a succession flow"
+			message = successionEndpoint + actionEndpointText(ref) + " is a flow, not a succession flow"
 		default:
-			message = "succession endpoint " + actionEndpointText(ref) + " is a succession flow that does not leave " +
+			message = successionEndpoint + actionEndpointText(ref) + " is a succession flow that does not leave " +
 				actionEndpointText(from)
 		}
 	}

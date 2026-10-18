@@ -1,0 +1,26 @@
+// view: ParametricViews::amplifierView
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// layout: dot
+digraph "ParametricViews::amplifierView" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<font point-size="10"><i>«part def»</i></font><br/><b>Amplifier</b>>;
+    color=black;
+    penwidth=0.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>signal</b>>];
+    "n2" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>gain</b>>];
+    "n3" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>noise</b>>];
+    "n4" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>output</b>>];
+    "n5" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n5.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">input</font></td><td></td><td port="n5.1" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">gain</font></td><td></td></tr><tr><td colspan="7"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«constraint»</i></font><br/><b>amplify</b></td></tr></table></td></tr><tr><td></td><td port="n5.2" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">output</font></td><td></td><td></td><td></td><td></td></tr></table>>];
+    "n6" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n6.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">a</font></td><td></td><td port="n6.1" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">b</font></td><td></td></tr><tr><td colspan="7"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«constraint»</i></font><br/><b>mix</b></td></tr></table></td></tr><tr><td></td><td port="n6.2" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">total</font></td><td></td><td></td><td></td><td></td></tr></table>>];
+  }
+  "n1" -> "n5":"n5.0" [arrowhead=none];
+  "n2" -> "n5":"n5.1" [arrowhead=none];
+  "n5":"n5.2" -> "n6":"n6.0" [arrowhead=none];
+  "n3" -> "n6":"n6.1" [arrowhead=none];
+  "n6":"n6.2" -> "n4" [arrowhead=none];
+}

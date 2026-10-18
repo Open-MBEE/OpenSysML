@@ -83,6 +83,19 @@ const CapabilityRenderView = "render_view"
 // exports the lowered graph of an action or state machine as `graphs:1` JSON.
 const CapabilityExportGraphs = "export_graphs"
 
+// CapabilityImportData names the ImportData RPC, which sets the feature values
+// a CSV, TSV, JSON or JSON Lines file assigns, one row per element.
+const CapabilityImportData = "import_data"
+
+// CapabilityCompareResults names the CompareResults RPC, which runs the
+// configurations a tool's results sidecar indexes and tables the tool's
+// distributions of their observables beside the runs'.
+const CapabilityCompareResults = "compare_results"
+
+// CapabilityCheck names the CheckBehavior RPC, which searches every schedule of
+// a behavior for violated properties, deadlocks, failures and divergent values.
+const CapabilityCheck = "check"
+
 // CapabilityOSLCQuery names the capability of evaluating OSLC Query text.
 const CapabilityOSLCQuery = "oslc_query"
 
@@ -197,6 +210,11 @@ const CapabilityConvertCompact = "convert_compact"
 // the base model's, so a client re-reads only those after an edit.
 const CapabilityParseSourcesAffected = "parse_sources_affected"
 
+// CapabilityRenderDocumentFileName names RenderDocumentResponse.file_name:
+// the file a rendered set writes the document to, which the other
+// documents' links to it name. Without it the field is empty.
+const CapabilityRenderDocumentFileName = "render_document_file_name"
+
 // CapabilityComplexValues names the capability of carrying a complex number as
 // Value.complex, rather than reporting it as an unsupported null.
 const CapabilityComplexValues = "complex_values"
@@ -270,6 +288,13 @@ const CapabilityScheduleExplore = "schedule_explore"
 // when it ended. Without it the field is 0 whatever the run waited on.
 const CapabilityFinalTime = "final_time"
 
+// CapabilityOrderDependence names the capability of reporting what a run's
+// values stand only up to: `order_dependent` on FeatureValue,
+// ExecuteActionResponse and ExecuteStateResponse, and `order_dependent` and
+// `independent` on a choice-point Diagnostic. Without it the fields are empty
+// and a value prints as fixed whatever order the run took.
+const CapabilityOrderDependence = "order_dependence"
+
 // CapabilityPerformer names the `performer_symbol_id` field of ExecuteActionRequest and
 // ExecuteStateRequest; a service without it runs outside any object, so clients must not send it.
 const CapabilityPerformer = "performer"
@@ -329,9 +354,14 @@ var capabilities = []string{
 	CapabilityStateTrace,
 	CapabilityRenderView,
 	CapabilityExportGraphs,
+	CapabilityImportData,
+	CapabilityCompareResults,
+	CapabilityCheck,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
 	CapabilityParseSourcesAffected,
+	CapabilityRenderDocumentFileName,
+	CapabilityOrderDependence,
 }
 
 type capabilityAvailability struct {
@@ -830,6 +860,18 @@ func fileInput(path string) (sourceInput, error) {
 // (lineage.go): ParseSources, whose model of many documents is reparsed after
 // each edit. ParseFile's one document is cheap to parse whole.
 func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, incremental bool) (string, *CachedModel) {
+	return s.parseModelKeeping(inputs, mode, incremental, true)
+}
+
+// parseModelKeeping is parseModel, caching the model only when keep is set: a
+// model staged on the way to another is not kept, so it evicts nothing.
+func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceMode, incremental, keep bool) (string, *CachedModel) {
+	store := func(hash string, model *CachedModel) *CachedModel {
+		if !keep {
+			return model
+		}
+		return s.cache.Add(hash, model)
+	}
 	// Keyed by what was read, not by the hash a request carried: a hash
 	// disagreeing with its content would serve another model. Each document's
 	// name is part of the key, since its diagnostics name the document they came
@@ -859,7 +901,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, in
 	// changed is parsed and analyzed again (lineage.go).
 	if incremental {
 		if model, ok := s.parseFromLineage(inputs, mode); ok {
-			return modelHash, s.cache.Add(modelHash, model)
+			return modelHash, store(modelHash, model)
 		}
 	}
 
@@ -898,16 +940,16 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, in
 		batch := &passes.Batch{Documents: names, Gathers: passes.NewGathers()}
 		passes.PrepareBatch(idx, batch)
 		for i, doc := range documents {
-			doc.Diagnostics, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
+			doc.Unfiltered, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
 				doc.Diagnostics, idx, passes.Options{Conformance: mode}, batch)
-			doc.Diagnostics = passes.WithoutLints(doc.Diagnostics, nil, nil)
+			doc.Diagnostics = passes.WithoutLints(doc.Unfiltered, nil, nil)
 		}
 	}
 
 	// A parse racing another of the same model keeps the entry already cached,
 	// so the objects held on it stay reachable under the hash.
 	model := &CachedModel{Documents: documents, Index: idx, Library: library, Mode: mode}
-	return modelHash, s.cache.Add(modelHash, model)
+	return modelHash, store(modelHash, model)
 }
 
 // GetSymbol retrieves symbol information by FQN
@@ -935,14 +977,45 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 // GetDiagnostics retrieves all diagnostics for a parsed model (parser + semantic passes)
 func (s *Service) GetDiagnostics(ctx context.Context, req *pb.DiagnosticsRequest) (*pb.DiagnosticsResponse, error) {
 	// Lookup cached model
+	disabled, err := lintSelection(req.DisableLint)
+	if err != nil {
+		return nil, err
+	}
+	enabled, err := lintSelection(req.EnableLint)
+	if err != nil {
+		return nil, err
+	}
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
+	if len(disabled)+len(enabled) == 0 {
+		return &pb.DiagnosticsResponse{Diagnostics: s.modelDiagnostics(cached)}, nil
+	}
 
-	return &pb.DiagnosticsResponse{
-		Diagnostics: s.modelDiagnostics(cached),
-	}, nil
+	// A selection of its own is converted for this response alone: the cached
+	// conversion is the default selection's.
+	var pbDiags []*pb.Diagnostic
+	for _, doc := range cached.Documents {
+		pbDiags = append(pbDiags, s.diagnosticsToProto(doc, doc.lintSelected(disabled, enabled))...)
+	}
+	return &pb.DiagnosticsResponse{Diagnostics: pbDiags}, nil
+}
+
+// lintSelection reads the lint codes a request names into the set
+// passes.WithoutLints takes; a code naming no lint is INVALID_ARGUMENT.
+func lintSelection(codes []string) (map[string]bool, error) {
+	if len(codes) == 0 {
+		return nil, nil
+	}
+	if err := passes.CheckLintCodes(codes); err != nil {
+		return nil, statusError(connect.CodeInvalidArgument, err.Error())
+	}
+	set := make(map[string]bool, len(codes))
+	for _, code := range codes {
+		set[code] = true
+	}
+	return set, nil
 }
 
 // modelDiagnostics are every document's diagnostics in document order, each in its own
@@ -958,11 +1031,17 @@ func (s *Service) modelDiagnostics(model *CachedModel) []*pb.Diagnostic {
 // documentDiagnostics converts one document's diagnostics, then its warnings, to
 // protobuf, filtered by the service's capabilities, which are fixed when it is built.
 func (s *Service) documentDiagnostics(doc *CachedDocument) []*pb.Diagnostic {
-	if len(doc.Diagnostics)+len(doc.Warnings) == 0 {
+	return s.diagnosticsToProto(doc, doc.Diagnostics)
+}
+
+// diagnosticsToProto converts diagnostics, a selection of doc's, then doc's
+// warnings, to protobuf, filtered by the service's capabilities.
+func (s *Service) diagnosticsToProto(doc *CachedDocument, diagnostics []diag.Diagnostic) []*pb.Diagnostic {
+	if len(diagnostics)+len(doc.Warnings) == 0 {
 		return nil
 	}
-	pbDiags := make([]*pb.Diagnostic, 0, len(doc.Diagnostics)+len(doc.Warnings))
-	for _, diag := range doc.Diagnostics {
+	pbDiags := make([]*pb.Diagnostic, 0, len(diagnostics)+len(doc.Warnings))
+	for _, diag := range diagnostics {
 		pbDiags = append(pbDiags, DiagnosticToProto(diag, doc.Source))
 	}
 	for _, warning := range doc.Warnings {
@@ -1155,6 +1234,10 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			return nil, err
 		}
 	}
+	opts, err := readRunOptions(req.Advance, req.Seed, req.Draws, req.ClockStep)
+	if err != nil {
+		return nil, err
+	}
 
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
@@ -1173,6 +1256,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 
 	runtimeCtx, release := s.newRuntime(ctx, cached)
 	defer release()
+	opts.apply(runtimeCtx)
 
 	// Converted against the model's index, so a quantity input keeps the base
 	// units it is commensurable with instead of binding an unusable value.
@@ -1203,7 +1287,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	if _, explores := schedule.Exploration(); explores {
 		// Inputs are read and the performer made again on each run's own context,
 		// so an object among them belongs to the run that binds it.
-		x, err := s.explore(ctx, req.ActionSymbolId, schedule, analysis.Auto(), cached, func(rt *runtime.Context) (runtime.Outcome, error) {
+		x, err := s.exploreWith(ctx, req.ActionSymbolId, schedule, analysis.Auto(), cached, opts, func(rt *runtime.Context) (runtime.Outcome, error) {
 			inputs, resp, err := readInputs(rt)
 			if err != nil {
 				return runtime.Outcome{}, err
@@ -1215,7 +1299,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err != nil {
 				return runtime.Outcome{}, err
 			}
-			outcome, err := rt.ActionOutcomePerformedBy(action, self, inputs)
+			outcome, err := opts.actionOutcome(rt, req.ActionSymbolId, action, self, inputs)
 			if err != nil {
 				return runtime.Outcome{}, fmt.Errorf("action execution failed: %w", err)
 			}
@@ -1239,8 +1323,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 
 	// Execute action with the supplied inputs
 	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.ActionSymbolId, func(rt *runtime.Context) (actionRun, error) {
-		outputs, performer, err := rt.ExecuteActionReportingPerformer(action, self, inputs)
-		return actionRun{outputs: outputs, performer: performer}, err
+		return opts.runAction(rt, req.ActionSymbolId, action, self, inputs)
 	}, func(ran actionRun, err error) analysis.Answer { return heldAnswer(ran.outputs, err) })
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone
@@ -1261,7 +1344,28 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		Diagnostics:         diags,
 		FinalTime:           s.finalTime(runtimeCtx),
 		PerformerAttributes: s.valuesToProto(runtimeCtx, ran.performer, cached.Index),
+		OrderDependent:      s.orderDependent(runtimeCtx, ran.outputs),
 	}, nil
+}
+
+// orderDependent is, for each value an unresolved choice point of the run
+// touches, how many do, under the order_dependence capability.
+func (s *Service) orderDependent(runtimeCtx *runtime.Context, values map[string]runtime.Value) map[string]int32 {
+	if !s.capabilities.has(CapabilityOrderDependence) {
+		return nil
+	}
+	names := make([]string, 0, len(values))
+	for name := range values {
+		names = append(names, name)
+	}
+	var out map[string]int32
+	for name, n := range runtimeCtx.OrderDependentAmong(names) {
+		if out == nil {
+			out = make(map[string]int32)
+		}
+		out[name] = int32(n) // #nosec G115 -- choice points per run are bounded by the depth budget
+	}
+	return out
 }
 
 // finalTime is the run's clock when it ended, under the final_time capability.
@@ -1299,6 +1403,10 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 			return nil, err
 		}
 	}
+	opts, err := readRunOptions(req.Advance, req.Seed, req.Draws, req.ClockStep)
+	if err != nil {
+		return nil, err
+	}
 
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
@@ -1316,12 +1424,12 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	stateMachine := syms[0]
 
 	if explores {
-		x, err := s.explore(ctx, req.StateMachineSymbolId, schedule, analysis.Auto(), cached, func(rt *runtime.Context) (runtime.Outcome, error) {
+		x, err := s.exploreWith(ctx, req.StateMachineSymbolId, schedule, analysis.Auto(), cached, opts, func(rt *runtime.Context) (runtime.Outcome, error) {
 			self, err := s.performer(cached, rt, req.PerformerSymbolId)
 			if err != nil {
 				return runtime.Outcome{}, err
 			}
-			return rt.StateOutcomePerformedBy(stateMachine, self, req.Events)
+			return opts.stateOutcome(rt, stateMachine, self, req.Events)
 		})
 		if err != nil {
 			return nil, err
@@ -1334,6 +1442,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 
 	runtimeCtx, release := s.newRuntime(ctx, cached)
 	defer release()
+	opts.apply(runtimeCtx)
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
@@ -1351,7 +1460,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	// The final context is the outcome an exploration compares: the machine's own
 	// data and, under `this.`, the performer's attributes.
 	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.StateMachineSymbolId, func(rt *runtime.Context) (stateRun, error) {
-		outcome, err := rt.StateOutcomePerformedBy(stateMachine, self, req.Events)
+		outcome, err := opts.stateOutcome(rt, stateMachine, self, req.Events)
 		return stateRun{final: outcome.Outputs, visited: outcome.StateVisits}, err
 	}, func(ran stateRun, err error) analysis.Answer { return heldAnswer(ran.final, err) })
 	if gone := callerGone(ctx, err); gone != nil {
@@ -1377,12 +1486,13 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 
 	return &pb.ExecuteStateResponse{
-		StatesVisited: statesVisited,
-		FinalContext:  pbContext,
-		Diagnostics:   diags,
-		FinalTime:     s.finalTime(runtimeCtx),
-		Trace:         trace,
-		TraceDropped:  dropped,
+		StatesVisited:  statesVisited,
+		FinalContext:   pbContext,
+		Diagnostics:    diags,
+		FinalTime:      s.finalTime(runtimeCtx),
+		Trace:          trace,
+		TraceDropped:   dropped,
+		OrderDependent: s.orderDependent(runtimeCtx, finalContext),
 	}, nil
 }
 

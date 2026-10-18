@@ -292,10 +292,7 @@ func TestEveryToolTakingAModelTakesPathsAndSources(t *testing.T) {
 		t.Errorf("%d tools take a model, want the model tools: %v", modelTools, names)
 	}
 	slices.Sort(names)
-	want := []string{"apply_edits", "convert", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs",
-		"instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis",
-		"run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint",
-		"verify_requirement", "verify_satisfaction"}
+	want := []string{"apply_edits", "check_behavior", "compare_results", "convert", "diagnostics", "evaluate", "evaluate_calc", "execute_action", "execute_state", "explain_diagnostic", "export_graphs", "import_data", "instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}
 	if !slices.Equal(names, want) {
 		t.Errorf("tools = %v, want %v", names, want)
 	}
@@ -613,6 +610,10 @@ func TestQueriesAndRenderings(t *testing.T) {
 	if view.GetKind() != "tree" {
 		t.Errorf("pseudo-view kind = %q", view.GetKind())
 	}
+	h.ok("render_model_view", map[string]any{"modelHash": hash, "view": "Demo::overview", "show": []string{"edge-labels"}}, &view)
+	if !slices.Contains(view.GetShown(), "edge-labels") {
+		t.Errorf("show edge-labels: shown = %v", view.GetShown())
+	}
 
 	var graphs pb.ExportGraphsResponse
 	_, out = h.ok("export_graphs", map[string]any{"modelHash": hash, "subject": "Demo::Lamp"}, &graphs)
@@ -777,6 +778,8 @@ func TestAnUnknownModelHashIsNotFound(t *testing.T) {
 		"export_graphs":         {"subject": "Demo::Lamp"},
 		"convert":               {"toFormat": "ttl"},
 		"apply_edits":           {"operations": []any{map[string]any{"setValue": map[string]any{"target": "x", "value": "1"}}}},
+		"import_data":           {"imports": []any{map[string]any{"name": "d.csv", "content": "element,x\n"}}},
+		"compare_results":       {"results": `{"source":"t","configurations":[]}`},
 	} {
 		args["modelHash"] = "0000000000000000000000000000000000000000000000000000000000000000"
 		msg := h.fails(name, args)
@@ -910,5 +913,34 @@ func TestEveryCapabilityIsServedByATool(t *testing.T) {
 		if !registered[CapabilityTools[capability]] {
 			t.Errorf("server_info advertises %q without a tool behind it", capability)
 		}
+	}
+}
+
+func TestDiagnosticsReportsEveryDiagnostic(t *testing.T) {
+	h := attach(t, newService(t))
+	var resp pb.DiagnosticsResponse
+	res, out := h.ok("diagnostics", map[string]any{"paths": []string{"demo.sysml"}}, &resp)
+	if len(resp.GetDiagnostics()) != 0 || !strings.HasSuffix(out, "no diagnostics") {
+		t.Errorf("a clean model: %v\n%s", resp.GetDiagnostics(), out)
+	}
+	if structured(t, res)["modelHash"] == "" {
+		t.Error("an implicit parse did not answer the model hash")
+	}
+	bad := "package Broken { part def A { attribute m : Real = nowhere; } }"
+	res, out = h.ok("diagnostics", map[string]any{"sources": []map[string]any{{"path": "broken.sysml", "text": bad}}}, &resp)
+	if len(resp.GetDiagnostics()) == 0 {
+		t.Fatalf("a model naming an unknown symbol reports no diagnostic\n%s", out)
+	}
+	if d := resp.GetDiagnostics()[0]; strings.Count(out, d.GetMessage()) != 1 || !strings.Contains(out, "broken.sysml") {
+		t.Errorf("the text does not spell the diagnostic %v exactly once:\n%s", d, out)
+	}
+	if n := len(resp.GetDiagnostics()); strings.Count(out, "\n") != n {
+		t.Errorf("the text has %d lines after the model hash for %d diagnostics:\n%s", strings.Count(out, "\n"), n, out)
+	}
+	if _, has := structured(t, res)["diagnostics"]; !has {
+		t.Error("the structured result is not the DiagnosticsResponse")
+	}
+	if msg := h.fails("diagnostics", map[string]any{"modelHash": "nope"}); !strings.Contains(msg, "NOT_FOUND") {
+		t.Errorf("an unknown hash: %s", msg)
 	}
 }

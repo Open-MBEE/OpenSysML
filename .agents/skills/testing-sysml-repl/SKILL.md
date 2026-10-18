@@ -6297,11 +6297,11 @@ None for these local REPL/gRPC checks.
 - Compare an unwritten inherited result against an unwritten `out` in the same model. A completed
   action's output map leaves both out rather than inventing a zero.
 
-## Prod builds and default-build parity
+## RE builds and DK-build parity
 
 - If other agents own branches or worktrees, create detached testing worktrees at the PR and
   `origin/develop` revisions and record both hashes; do not switch a shared checkout.
-- Build the PR twice, `go build -tags sysml_prod -o <external-dir>/sysml-prod ./cmd/sysml` and
+- Build the PR twice, `go build -tags sysml_re -o <external-dir>/re/sysml ./cmd/sysml` and
   without the tag to a separate binary, and build `origin/develop` untagged to a third. Raw builds
   avoid unrelated version-string differences when comparing behavior.
 - Keep fixtures, output files, transcripts and comparison scripts outside source checkouts.
@@ -6319,7 +6319,7 @@ None for these local REPL/gRPC checks.
   because model loading writes declaration reports to stdout. Require the exact match line and exit
   0; do not assume stdout holds only match lines.
 
-### Comparing the default build against develop
+### Comparing the DK build against develop
 
 - Use the same relative input and output names in separate working directories, with fresh files,
   so `(replaced the existing file)` notes do not differ.
@@ -6393,3 +6393,60 @@ None for native local CLI/REPL tests.
 - Read-only edits: compare the fixture's bytes before and after `apply_edits`, and evaluate the original model
   hash afterwards; the edited `content` in the answer is not evidence that nothing was written.
 - The server has no GUI: the request/response log is the evidence. Do not record an idle desktop.
+
+## Edge routing through the real engines (`-render-lines`, `%render … ortho|polyline`)
+
+- Build the current CLI and LSP (`make build-sysml build-lsp`) after any writer change and
+  restart an already-running REPL; it holds the old binary.
+- Use a graph with several connectors and bends. One straight edge cannot tell `splines`,
+  `polyline` and `ortho` apart. Compare the per-edge SVG path `d` values, not just the
+  emitted `splines=` / `skinparam linetype` attribute; default and explicit `splines` output
+  must be byte-identical.
+- Feed DOT to `dot -Tsvg`; a positioned diagram (explicit `Route` metadata) goes through
+  `neato -n2 -Tsvg`. Keep stderr even on exit status zero: Graphviz warns, it does not fail.
+- Graphviz's orthogonal router ignores ports and may cross node bodies; on a pinned ported
+  diagram it can report touching bounding boxes and fall back to straight edges, so a clean
+  compile is no proof that the routing changed. Compare against the default output.
+- Under `ortho` the connector names are `xlabel=`, not `label=` (Graphviz places no `label`
+  on an orthogonal edge). Check the SVG `<text>` elements for every connector name; default
+  and polyline keep ordinary edge labels.
+- The document toolchain may already hold a PlantUML jar under `build/doc-pdf/plantuml/`;
+  look before installing one. `java -jar <jar> -tsvg -pipe` on the emitted PlantUML.
+  `skinparam linetype` sits after the direction and before the body; `hide circle` /
+  `hide empty members` may stand between them.
+- The low-level layout fixtures under `tests/testdata` deliberately include invalid
+  `Canvas`/`Style` members, so a CLI run over them fails validation. Copy the fixture outside
+  the checkout and remove only the explicitly negative members.
+- For a `-render-run` option-misuse check, give a behaviour (`-action …`) and a valid
+  `timeline=<path>` first; otherwise the missing-behaviour guard fires before the option
+  under test.
+- Keep scratch models under `~/scratch`, not `/tmp`, so no unrelated LSP workspace indexing
+  joins in. Real stdio JSON-RPC checks need no editor.
+
+
+## Expression fixtures must be semantically valid, not just parsed
+
+A probe that only needs the parser to accept a construct still goes through the
+full validation tiers in the CLI, the REPL and the LSP, so a fixture that is
+syntactically fine but semantically invalid reports errors that have nothing to
+do with the change under test. Shapes that have cost time:
+
+- `ScalarValues::*` provides the scalar types, not `floor`. Import
+  `RealFunctions::floor` (or `RealFunctions::*`) before calling it.
+- `calc c : Real { expression }` parses but is not a valid calculation usage:
+  its type must be a calculation definition. Write
+  `calc def C { return : Real; expression }` and `calc c : C;`, then `%calc P::c`.
+- A nested calculation definition cannot read an enclosing instance's feature.
+  For expression probes, bind the operands as package-level attributes and
+  declare the calculation definition at package level, or pass them in as
+  parameters.
+- Keep a duplicate-member probe apart from a qualified-reference probe: two
+  members of one name make `Type::name` an ambiguous reference, which is a
+  separate diagnostic from the one being tested.
+- Do not read a clean validation off the CLI exit status. In permissive mode a
+  foreign-notation diagnostic prints at `error` severity while the CLI exits 0
+  and says no error stops a check; inspect the messages and severities, and run
+  `-strict` separately to see the escalation (exit 2).
+- To tell a parser regression from a pre-existing semantic rule, run the same
+  fixture with the name quoted (`'step'`) on a develop build, and keep both the
+  original and the adjusted fixture outputs.

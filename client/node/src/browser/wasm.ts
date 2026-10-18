@@ -130,9 +130,10 @@ async function browserWasmSource(
   if (wasm instanceof Response && wasm.bodyUsed) {
     throw new Error("the WebAssembly Response body has already been read");
   }
-  return loadWasmSource(
-    wasm instanceof Response ? wasm : wasm instanceof URL ? wasm : resourceUrl(wasm),
-  );
+  if (wasm instanceof Response || wasm instanceof URL) {
+    return loadWasmSource(wasm);
+  }
+  return loadWasmSource(resourceUrl(wasm));
 }
 
 function resourceUrl(value: string | URL): string {

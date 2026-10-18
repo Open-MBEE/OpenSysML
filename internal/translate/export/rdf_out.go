@@ -1646,7 +1646,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if statement := nodeStatement(n); statement != nil {
 			// The node is the statement it is written as: its parts are the
 			// node's own, not a member's.
-			_, err := e.encodeBehavior(statement, func(rdf.Term) {}, subject, fqn, within, 0)
+			discard := func(rdf.Term) {
+				// The statement is the node itself, so its term is already subject.
+			}
+			_, err := e.encodeBehavior(statement, discard, subject, fqn, within, 0)
 			return err
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))

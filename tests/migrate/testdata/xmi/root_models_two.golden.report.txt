@@ -1,0 +1,12 @@
+# SysML v1 to v2 migration report: root_models_two.xmi
+# migrated 8 element(s): 8 mapped, 0 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## mapped (8)
+Model	Alpha	_alpha	-> Alpha	(written as package Alpha)
+Model	Beta	_beta	-> Beta	(written as package Beta)
+«Block» Class	Relay	_relay	-> Beta::Relay
+Property	Relay::sensor	_relaySensor	-> Beta::Relay::sensor
+«Block» Class	Sensor	_sensor	-> Alpha::Sensor
+«Block» Class	Station	_station	-> Beta::Station
+Property	Station::Alpha	_stationAlpha	-> Beta::Station::Alpha
+Property	Station::Sensor	_stationSensor	-> Beta::Station::Sensor

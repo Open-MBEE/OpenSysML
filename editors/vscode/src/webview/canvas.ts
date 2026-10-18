@@ -6,6 +6,7 @@ import type { RenderPoint } from "../protocol";
 import {
   CanvasLayout,
   FONT_SIZE,
+  labelLineClass,
   liftedEdges,
   MARGIN,
   movable,
@@ -181,7 +182,7 @@ function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): 
       const span = element("tspan", {
         x: String(box.x + LABEL_PAD_X),
         dy: String(i === 0 ? LINE_HEIGHT * 0.8 : LINE_HEIGHT),
-        class: labelLineClass(i, entry.node.name !== ""),
+        class: labelLineClass(entry.lines, i),
       });
       span.textContent = line;
       text.append(span);
@@ -241,15 +242,6 @@ function drawPort(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode): 
   text.textContent = port.port.name;
   group.append(title, rect, text);
   return group;
-}
-
-// labelLineClass styles the i-th label line: the head, then the «kind» of a
-// named node, then detail.
-function labelLineClass(i: number, named: boolean): string {
-  if (i === 0) {
-    return "head";
-  }
-  return i === 1 && named ? "keyword" : "detail";
 }
 
 // shape is the outline a node is drawn with: a box for an element, square-cornered

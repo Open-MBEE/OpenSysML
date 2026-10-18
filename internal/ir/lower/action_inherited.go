@@ -70,7 +70,7 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) ([
 				recordInheritedPerform(graph, matches[0], decl, body)
 				continue
 			}
-			if replacement := incompatible[decl]; replacement != nil {
+			if incompatible[decl] != nil {
 				continue
 			}
 			if shadowsInheritedActionNode(graph, body, decl) {

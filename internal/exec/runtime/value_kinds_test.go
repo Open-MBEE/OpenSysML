@@ -50,13 +50,13 @@ func kindSamples() map[ValueKind][2]Value {
 		ValInstance: {{Kind: ValInstance, Instance: 1}, {Kind: ValInstance, Instance: 2}},
 		ValSequence: {seqOf(1, 2), seqOf(2, 1)},
 		ValSet:      {setOf(1, 2), setOf(1, 3)},
-		ValExpr:     {NewExprValue(&ast.LiteralInteger{Value: "1"}, nil), NewExprValue(&ast.LiteralInteger{Value: "2"}, nil)},
+		valExpr:     {newExprValue(&ast.LiteralInteger{Value: "1"}, nil), newExprValue(&ast.LiteralInteger{Value: "2"}, nil)},
 		ValUndetermined: {
 			NewUndeterminedValue("a has no value in the model", semantics.CountRange(1)),
 			NewUndeterminedValue("b has no value in the model", semantics.Range{Lower: semantics.Bound{Known: true}, Upper: semantics.Bound{Known: true, Infinite: true}}),
 		},
 		ValQuantity:    {NewQuantityValue(&Quantity{Num: integerValue(1).Const, Unit: metre}), NewQuantityValue(&Quantity{Num: integerValue(2).Const, Unit: metre})},
-		ValVariant:     {NewVariantValue(symA, 0), NewVariantValue(symB, 0)},
+		ValVariant:     {newVariantValue(symA, 0), newVariantValue(symB, 0)},
 		ValEnumLiteral: {NewEnumLiteral(symA), NewEnumLiteral(symB)},
 		ValComplex:     {NewComplex(complex(1, 2)), NewComplex(complex(1, 3))},
 		ValArray:       {NewArrayValue([]int64{2, 2}, []Value{integerValue(1), integerValue(2), integerValue(3), integerValue(4)}), NewArrayValue([]int64{4}, []Value{integerValue(1), integerValue(2), integerValue(3), integerValue(4)})},
@@ -139,19 +139,19 @@ func TestEveryValueKindIsDispatched(t *testing.T) {
 		if s := describeOperand(a); s == "a value" {
 			t.Errorf("%s: describeOperand falls back to %q", name, s)
 		}
-		var notPortable *NotPortableError
+		var notPortable *notPortableError
 		if _, err := row.Carry(a, same); errors.As(err, &notPortable) && notPortable.Reason == unknownKindReason {
 			t.Errorf("%s: Carry falls back to %q", name, err)
 		}
 		// An expression is a deferred body, not a value with an equality.
-		if kind != ValExpr && !valueEqual(a, a) {
+		if kind != valExpr && !valueEqual(a, a) {
 			t.Errorf("%s: valueEqual(a, a) is false", name)
 		}
-		if first, again := valueKeyFunc(a), valueKeyFunc(a); kind != ValExpr && first != again {
+		if first, again := valueKeyFunc(a), valueKeyFunc(a); kind != valExpr && first != again {
 			t.Errorf("%s: valueKeyFunc is not stable: %v then %v", name, first, again)
 		}
 		// Null is one value; every other kind must tell its two samples apart.
-		if kind == ValNull || kind == ValExpr {
+		if kind == ValNull || kind == valExpr {
 			continue
 		}
 		if valueEqual(a, b) {

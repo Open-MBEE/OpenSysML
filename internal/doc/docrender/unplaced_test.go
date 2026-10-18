@@ -18,7 +18,7 @@ func TestDocumentDiagramsSettleUnplacedNodes(t *testing.T) {
 	const (
 		omitted = "// not represented: 1 node(s) without a position, left undrawn\n"
 		striped = "// not represented: 1 node(s) without a position, drawn in a strip below the drawing\n"
-		spare   = "<b>spare : Recorder</b>"
+		spare   = "<b>spare</b>"
 	)
 	check := func(t *testing.T, backend, got string, unplaced view.Unplaced) {
 		t.Helper()

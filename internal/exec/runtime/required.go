@@ -190,7 +190,7 @@ func (ctx *Context) makeRequired(seq *Sequence) error {
 // requiredHolder names the feature or usage holding r, for an error.
 func (ctx *Context) requiredHolder(r *requiredMembers) string {
 	if r.owner == 0 {
-		return symbolText(r.typ)
+		return SymbolText(r.typ)
 	}
 	return fmt.Sprintf("feature %q", r.feature)
 }
@@ -283,7 +283,7 @@ func sameRequired(a, b *Sequence) bool {
 // formatRequired spells the required members seq ends in, by the range of their identities.
 func formatRequired(seq *Sequence) string {
 	r := seq.required
-	return fmt.Sprintf("%d of %s #%d..#%d", r.count, symbolText(r.typ), r.first, r.first+r.count-1)
+	return fmt.Sprintf("%d of %s #%d..#%d", r.count, SymbolText(r.typ), r.first, r.first+r.count-1)
 }
 
 // HeldElements is what a collection value holds, in order — a lazily held member named by
@@ -322,7 +322,7 @@ func holdsMember(val Value, id int64) bool {
 
 // carriedRequired is r as a population of ctx under the same identities, typ its members'
 // type there: r itself, the one ctx already reserved them for, or a copy reserved now. An
-// identity in the range ctx holds an object under, of those made outside keep, is ErrImageIdentityTaken.
+// identity in the range ctx holds an object under, of those made outside keep, is errImageIdentityTaken.
 func (ctx *Context) carriedRequired(r *requiredMembers, typ *symbols.Symbol, keep map[int64]bool) (*requiredMembers, error) {
 	if r.ctx == ctx && r.typ == typ {
 		return r, nil
@@ -332,11 +332,11 @@ func (ctx *Context) carriedRequired(r *requiredMembers, typ *symbols.Symbol, kee
 	}
 	i := sort.Search(len(ctx.required), func(i int) bool { return ctx.required[i].first+ctx.required[i].count > r.first })
 	if i < len(ctx.required) && ctx.required[i].first < r.first+r.count {
-		return nil, fmt.Errorf("%w: identities #%d to #%d are reserved for other members", ErrImageIdentityTaken, r.first, r.first+r.count-1)
+		return nil, fmt.Errorf("%w: identities #%d to #%d are reserved for other members", errImageIdentityTaken, r.first, r.first+r.count-1)
 	}
 	for _, inst := range ctx.madeRequired(r) {
 		if !keep[inst.ID] {
-			return nil, fmt.Errorf("%w: object #%d", ErrImageIdentityTaken, inst.ID)
+			return nil, fmt.Errorf("%w: object #%d", errImageIdentityTaken, inst.ID)
 		}
 	}
 	carried := &requiredMembers{ctx: ctx, typ: typ, owner: r.owner, feature: r.feature, first: r.first, count: r.count, reached: r.reached}

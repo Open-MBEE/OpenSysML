@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::Derived",
+	"outputs": {
+		"c": {"type": "Integer", "value": 4}
+	}
+}

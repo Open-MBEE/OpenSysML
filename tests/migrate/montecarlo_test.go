@@ -24,9 +24,9 @@ func TestMonteCarloAnalysisSnapshotsAreSummaries(t *testing.T) {
 		t.Fatalf("results = %+v, want three configurations", r.Results)
 	}
 	want := []simresults.ConfigurationResults{{
-		ID: "_g0", Name: "'Group 0'", Runs: 3, Draws: "average",
+		ID: "_g0", Name: "Model::'Group 0'", Runs: 3, Draws: "average",
 		Target: "target", Behavior: "run", Location: "Results", Analysis: "t",
-		AnalysisCase: "'Timer Analysis Monte Carlo'", Statistics: []string{simresults.StatisticMean},
+		AnalysisCase: "Model::'Timer Analysis Monte Carlo'", Statistics: []string{simresults.StatisticMean},
 		Observables: []string{"p", "t", "u"},
 		Snapshots: []simresults.Snapshot{
 			{ID: "_raw", Name: "run 1", Values: map[string]float64{"p": 0.5, "t": 2}},
@@ -54,15 +54,15 @@ func TestMonteCarloAnalysisSnapshotsAreSummaries(t *testing.T) {
 			"1 snapshot(s) record no MonteCarloAnalysis::N and Mean together, so they hold no statistics",
 		},
 	}, {
-		ID: "_g5", Name: "'Group 1'", Draws: "average",
+		ID: "_g5", Name: "Model::'Group 1'", Draws: "average",
 		Target: "target", Behavior: "run", Location: "Empty", Analysis: "t",
-		AnalysisCase: "'Timer Analysis Monte Carlo'", Statistics: []string{simresults.StatisticMean},
+		AnalysisCase: "Model::'Timer Analysis Monte Carlo'", Statistics: []string{simresults.StatisticMean},
 		Observables: []string{}, Snapshots: []simresults.Snapshot{},
 		Notes: []string{"the result location Empty holds no snapshot of the target's classifier"},
 	}, {
-		ID: "_g6", Name: "'Group 2'", Runs: 1, Draws: "average",
+		ID: "_g6", Name: "Model::'Group 2'", Runs: 1, Draws: "average",
 		Target: "target", Behavior: "run", Location: "Unbound Results",
-		AnalysisCase: "'Unbound Analysis Monte Carlo'",
+		AnalysisCase: "Model::'Unbound Analysis Monte Carlo'",
 		Observables:  []string{"t"},
 		Snapshots:    []simresults.Snapshot{{ID: "_ub1", Name: "run 1", Values: map[string]float64{"t": 1}}},
 		Notes: []string{

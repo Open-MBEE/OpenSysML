@@ -118,9 +118,9 @@ func TestW7GVerificationAndUseCaseReportTheExtraObjective(t *testing.T) {
 	}
 }
 
-// An analysis case improves several objectives lexicographically
-// (internal/exec/solve), so the cardinality rule does not judge it.
-func TestW7GAnalysisCaseAdmitsSeveralObjectives(t *testing.T) {
+// An analysis case is judged like every other case kind (SysML 8.3.22.2-3):
+// its second objective is reported, as the pilot reports it.
+func TestW7GAnalysisCaseReportsSecondObjective(t *testing.T) {
 	for _, src := range []string{
 		`package C {
 			analysis def As {
@@ -135,8 +135,12 @@ func TestW7GAnalysisCaseAdmitsSeveralObjectives(t *testing.T) {
 			}
 		}`,
 	} {
-		if diags := only(constraintDiags(t, src), "only-one-objective"); len(diags) != 0 {
-			t.Fatalf("analysis case objectives were diagnosed for %q: %v", src, diags)
+		diags := only(constraintDiags(t, src), "only-one-objective")
+		if len(diags) != 1 {
+			t.Fatalf("expected one objective diagnostic for %q, got %v", src, diags)
+		}
+		if line, _ := lineCol(src, diags[0].Span.Offset); line != 4 {
+			t.Errorf("diagnostic for %q is on line %d, want the second objective's line 4", src, line)
 		}
 	}
 }

@@ -57,7 +57,7 @@ class RunWithOpenSysMLServiceAnalysisTest {
                 new OpenSysMLProperties());
 
         service.run(context, target, new RunWithOpenSysMLInput(UUID.randomUUID(), "ctx", ANALYSIS_ID,
-                RunOperation.RUN_ANALYSIS, Map.of("x", "21"), List.of(), List.of("21"), "declared", "subject"));
+                RunOperation.RUN_ANALYSIS, Map.of("x", "21"), List.of(), List.of("21"), "declared", "subject", null));
 
         ArgumentCaptor<AnalysisOptions> options = ArgumentCaptor.forClass(AnalysisOptions.class);
         verify(model).runAnalysis(eq(ANALYSIS), options.capture());

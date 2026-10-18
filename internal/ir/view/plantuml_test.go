@@ -23,6 +23,8 @@ var plantumlGoldenCases = []struct {
 	{"tree-edges", "tree-edges.sysml", "FleetViews::structure", KindTree},
 	{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection},
 	{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", KindInterconnection},
+	{"interconnection-constraints", "interconnection-constraints.sysml", "ParametricViews::amplifierView", KindInterconnection},
+	{"interconnection-constraints-placed", "interconnection-constraints.sysml", "ParametricViews::placedView", KindInterconnection},
 	{"layout", "layout.sysml", "PlantViews::placedView", KindInterconnection},
 	{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 	{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
@@ -141,7 +143,7 @@ func TestMixedPlantUMLNoticesUnnestedCaseAndActorChildren(t *testing.T) {
 			{ID: "n4", Kind: "part def", Name: "equipment"},
 		}},
 	}}
-	puml, err := rendering.PlantUML()
+	puml, err := rendering.PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
@@ -163,15 +165,16 @@ func TestMixedPlantUMLNoticesUnnestedCaseAndActorChildren(t *testing.T) {
 // The tree draws containment as the Mermaid tree does: an edge from a node to
 // each child, every node a class, and hides the circle and empty compartments.
 func TestPlantUMLTreeIsAClassDiagram(t *testing.T) {
-	puml, err := render(t, "tree.sysml", "VehicleViews::vehicleView").PlantUML()
+	puml, err := render(t, "tree.sysml", "VehicleViews::vehicleView").PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
 	for _, want := range []string{
 		"\nhide circle\nhide empty members\n",
 		"class \"<size:10>//«part def»//</size>\\n**Vehicles::Vehicle**\" as n0 <<part def>>\n",
-		"class \"<size:10>//«part»//</size>\\n**engine : Engine**\" as n1 <<part>> <<usage>>\nn0 -- n1\n",
-		"class \"**connect**\" as n3 <<connect>> <<usage>>\nn0 -- n3\n",
+		"class \"<size:10>//«part»//</size>\\n**engine : Engine**\" as n1 <<part>> <<usage>>\n",
+		"\nn0 -- n1\n",
+		"class \"**connect**\" as n5 <<connect>> <<usage>>\nn0 -- n5\n",
 	} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("tree PlantUML lacks %q:\n%s", want, puml)
@@ -183,13 +186,13 @@ func TestPlantUMLTreeIsAClassDiagram(t *testing.T) {
 // block, a port a `port` on its block's border, a connection an undirected heavy
 // line between the ports it joins, a flow a dashed arrow.
 func TestPlantUMLInterconnectionNestsRectangles(t *testing.T) {
-	puml, err := render(t, "interconnection.sysml", "PlantViews::loopView").PlantUML()
+	puml, err := render(t, "interconnection.sysml", "PlantViews::loopView").PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
 	for _, want := range []string{
-		"rectangle \"<size:10>//«part def»//</size>\\n**Loop**\" as n0 <<part def>> {\n  rectangle \"<size:10>//«part»//</size>\\n**pump : Pump**\" as n1 <<part>> <<usage>> {\n    port \"outlet\" as n1.0\n  }\n",
-		"\n}\nn1.0 -[thickness=3]- n2.0 : supply\nn1 -[dashed]-> n2 : of Water\n@enduml\n",
+		"rectangle \"<size:10>//«part def»//</size>\\n**Loop**\" as n0 <<part def>> {\n  rectangle \"<size:10>//«part»//</size>\\n**pump : Pump**\" as n1 <<part>> <<usage>> {\n    port \"outlet\" as n1.0\n    rectangle \"<size:10>//«item»//</size>\\n**waterOut : Water**\" as n2 <<item>> <<usage>>\n  }\n",
+		"\n}\nn1.0 -[thickness=3]- n3.0 : supply\nn2 -[dashed]-> n4 : of Water\n@enduml\n",
 	} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("interconnection PlantUML lacks %q:\n%s", want, puml)
@@ -226,7 +229,7 @@ func TestPlantUMLStateDiagram(t *testing.T) {
 // labelled, every node and edge of the graph drawn. The `start` and `done` the
 // language names head as their kind, since those names are not the body's.
 func TestPlantUMLActionUsesStateGrammar(t *testing.T) {
-	puml, err := render(t, "action.sysml", "FlowViews::driveView").PlantUML()
+	puml, err := render(t, "action.sysml", "FlowViews::driveView").PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
@@ -255,19 +258,19 @@ func TestPlantUMLActionUsesStateGrammar(t *testing.T) {
 // messages in edge order, an unlabelled message without the colon, and an
 // empty rendering one participant carrying the reason.
 func TestPlantUMLSequenceDiagram(t *testing.T) {
-	puml, err := render(t, "sequence-notices.sysml", "NoticeViews::handshakeView").PlantUML()
+	puml, err := render(t, "sequence-notices.sysml", "NoticeViews::handshakeView").PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
 	for _, want := range []string{
 		"' not represented: message pending states no source and target; no message is drawn\n",
-		"participant \"<size:10>//«part»//</size>\\n**caller**\" as n0 <<part>> <<usage>>\nparticipant \"<size:10>//«part»//</size>\\n**callee**\" as n1 <<part>> <<usage>>\nn0 -> n0 : echo\nn0 -> n1 : of Ping\n@enduml\n",
+		"participant \"<size:10>//«part»//</size>\\n**caller**\" as n0 <<part>> <<usage>>\nparticipant \"<size:10>//«part»//</size>\\n**callee**\" as n1 <<part>> <<usage>>\nn0 -> n1 : of Ping\nn0 -> n0 : echo\n@enduml\n",
 	} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("sequence PlantUML lacks %q:\n%s", want, puml)
 		}
 	}
-	empty, err := render(t, "errors.sysml", "ErrorViews::emptySequenceView").PlantUML()
+	empty, err := render(t, "errors.sysml", "ErrorViews::emptySequenceView").PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
@@ -276,14 +279,14 @@ func TestPlantUMLSequenceDiagram(t *testing.T) {
 	}
 	rendering := &Rendering{Kind: KindSequence, Roots: []*Node{{ID: "a", Kind: "part", Name: "a"}, {ID: "b", Kind: "part", Name: "b"}},
 		Edges: []Edge{{From: "a", To: "b", Kind: EdgeFlow}, {From: "b", To: "a", Label: "ack", Kind: EdgeFlow}}}
-	puml, err = rendering.PlantUML()
+	puml, err = rendering.PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
 	if !strings.Contains(puml, "\na -> b\nb -> a : ack\n") {
 		t.Errorf("unlabelled message:\n%s", puml)
 	}
-	if puml, _ := rendering.PlantUMLWith(Options{Direction: DirectionLeftRight}); strings.Contains(puml, "direction") {
+	if puml, _ := rendering.PlantUMLWith(Options{Show: AllShown(), Direction: DirectionLeftRight}); strings.Contains(puml, "direction") {
 		t.Errorf("sequence PlantUML states a direction:\n%s", puml)
 	}
 }
@@ -463,7 +466,7 @@ func TestGoldenPlantUMLPalettes(t *testing.T) {
 			t.Errorf("line %d differs in more than fill:\n%s\n%s", i+1, palette[i], bw[i])
 		}
 	}
-	for _, want := range []string{"as n1 <<part>> <<usage>> #F5D999;line:E69F00 {\n", "as n0 <<part def>> {\n"} {
+	for _, want := range []string{"as n2 <<item>> <<usage>> #BBE1F6;line:56B4E9\n", "as n1 <<part>> <<usage>> {\n", "as n0 <<part def>> {\n"} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("okabe-ito PlantUML lacks %q:\n%s", want, puml)
 		}
@@ -513,11 +516,11 @@ func TestPlantUMLEscapesLabels(t *testing.T) {
 	}
 	node := &Node{ID: "n0", Kind: "part", Name: `q"uote`, Type: "T<x>", Detail: "own **flow**"}
 	label := `<size:10>//«part»//</size>\n**q<U+0022>uote : T<U+003C>x<U+003E>**\nown <U+002A><U+002A>flow<U+002A><U+002A>`
-	if got := (&plantumlWriter{}).plantumlLabel(node); got != label {
+	if got := (&plantumlWriter{labels: labeller{shown: AllShown()}}).plantumlLabel(node); got != label {
 		t.Errorf("plantumlLabel = %q, want %q", got, label)
 	}
 	rendering := &Rendering{Kind: KindTree, Roots: []*Node{node}}
-	puml, err := rendering.PlantUML()
+	puml, err := rendering.PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
@@ -547,7 +550,7 @@ func TestPlantUMLLabelShape(t *testing.T) {
 		{&Node{Kind: "library package", Name: "P"}, `<size:10>//«library package»//</size>\n**P**`, " <<library package>> <<package>>"},
 		{&Node{Kind: "package", Name: "P"}, `<size:10>//«package»//</size>\n**P**`, " <<package>>"},
 	}
-	w := &plantumlWriter{}
+	w := &plantumlWriter{labels: labeller{shown: AllShown()}}
 	for _, tc := range cases {
 		if got := w.plantumlLabel(tc.node); got != tc.label {
 			t.Errorf("label of %+v = %q, want %q", tc.node, got, tc.label)
@@ -598,8 +601,9 @@ func TestPlantUMLHeaderAndGeometryComments(t *testing.T) {
 
 var (
 	// plantumlArrowLine matches an arrow statement between two aliases, a
-	// port's being its node's dotted with its index.
-	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+) (-\[[a-z=0-9]+\]->?|-->|->|--\|>|\.\.\|>|\.\.>|\*--|o--|\+--|--|\.\.) ([\w.]+)( : .*)?$`)
+	// port's being its node's dotted with its index, an end name quoted at
+	// its end.
+	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+)( "[^"]*")? (-\[[a-z=0-9]+\]->?|-->|->|--\|>|\.\.\|>|\.\.>|\*--|o--|\+--|--|\.\.) ("[^"]*" )?([\w.]+)( : .*)?$`)
 	// plantumlDeclarationLine matches an element declaration with its alias.
 	plantumlDeclarationLine = regexp.MustCompile(`^\s*(class|rectangle|state|participant|port|usecase|actor|note|circle|package) ".*" as ([\w.]+)( <<[^>]+>>)*( #[0-9A-F]{6}(;line:[0-9A-F]{6})?)?( \{)?$`)
 	// dotFillLine and plantumlFillLine pick the fill a node is given in each form.
@@ -660,7 +664,7 @@ func checkPlantUMLSyntax(t *testing.T, puml string) {
 			continue
 		}
 		if m := plantumlArrowLine.FindStringSubmatch(line); m != nil {
-			arrows = append(arrows, arrow{m[1], m[3]})
+			arrows = append(arrows, arrow{m[1], m[5]})
 			continue
 		}
 		switch trimmed := strings.TrimSpace(line); {

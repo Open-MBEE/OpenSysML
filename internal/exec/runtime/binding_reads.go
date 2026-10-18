@@ -231,7 +231,7 @@ func (ctx *Context) denotations(syms []*symbols.Symbol) (string, bool) {
 
 // lookupName is the resolver's LookupName, recorded for the binding being made.
 func (ctx *Context) lookupName(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
-	sym, ok := ctx.model.resolver.LookupName(scope, name)
+	sym, ok := ctx.model.resolvedName(scope, name, nil)
 	if ctx.recordingReads() {
 		denoted, renders := ctx.denotation(sym, ok)
 		ctx.noteNameRead(scope, nameRead{query: queryName, name: spelledName{parts: name}}, denoted, renders)
@@ -241,7 +241,7 @@ func (ctx *Context) lookupName(scope *symbols.Scope, name string) (*symbols.Symb
 
 // lookupNameExcluding is the resolver's LookupNameExcluding with excluding's own binding hidden.
 func (ctx *Context) lookupNameExcluding(scope *symbols.Scope, name string, excluding *symbols.Symbol) (*symbols.Symbol, bool) {
-	sym, ok := ctx.model.resolver.LookupNameExcluding(scope, name, excluding.Decl)
+	sym, ok := ctx.model.resolvedName(scope, name, excluding.Decl)
 	if ctx.recordingReads() {
 		denoted, renders := ctx.denotation(sym, ok)
 		read := nameRead{query: queryNameExcluding, name: spelledName{parts: name}, excluding: excluding}

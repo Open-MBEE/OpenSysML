@@ -37,6 +37,7 @@ type hole struct {
 	indent int
 	fill   func()
 	text   string
+	last   bool
 }
 
 // holeMark delimits a hole's marker line in the output until it is filled.
@@ -49,17 +50,36 @@ func (w *writer) hole(fill func()) {
 	w.holes = append(w.holes, hole{indent: w.indent, fill: fill})
 }
 
+// holeLast defers owner aliases until the view holes have been written.
+func (w *writer) holeLast(fill func()) {
+	_, _ = w.buf().WriteString(holeMark + strconv.Itoa(len(w.holes)) + holeMark + "\n")
+	w.holes = append(w.holes, hole{indent: w.indent, fill: fill, last: true})
+}
+
 // fill writes every hole's text, each as its fill writes at the hole's indent.
 func (w *writer) fill() {
-	for i := range w.holes {
-		h := &w.holes[i]
-		w.open()
-		indent := w.indent
-		w.indent = h.indent
-		h.fill()
-		h.text = w.close()
-		w.indent = indent
+	for i := 0; i < len(w.holes); i++ {
+		if w.holes[i].last {
+			continue
+		}
+		w.fillHole(i)
 	}
+	for i := 0; i < len(w.holes); i++ {
+		if !w.holes[i].last {
+			continue
+		}
+		w.fillHole(i)
+	}
+}
+
+func (w *writer) fillHole(i int) {
+	h := &w.holes[i]
+	w.open()
+	indent := w.indent
+	w.indent = h.indent
+	h.fill()
+	h.text = w.close()
+	w.indent = indent
 }
 
 // filled is the output with every hole's marker line replaced by its text.
@@ -221,21 +241,18 @@ func (w *writer) braced(header string, body func()) {
 // enclose writes header with a brace-delimited body, or header followed by
 // empty when the body writes nothing.
 func (w *writer) enclose(header, empty string, body func()) {
-	w.trailed(header, empty, "", body)
+	w.trailed(header, empty, body)
 }
 
 // trailed writes header followed by empty when the body writes nothing, else
-// header with a brace-delimited body opened by the lead line, when there is one.
-func (w *writer) trailed(header, empty, lead string, body func()) {
+// header with a brace-delimited body.
+func (w *writer) trailed(header, empty string, body func()) {
 	inner := w.capture(body)
 	if inner == "" {
 		w.lineOf(header, empty)
 		return
 	}
 	w.lineOf(header, " {")
-	if lead != "" {
-		w.indented(func() { w.line(lead) })
-	}
 	_, _ = w.buf().WriteString(inner)
 	w.line("}")
 }

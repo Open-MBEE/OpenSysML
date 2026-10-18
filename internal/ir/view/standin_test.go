@@ -245,7 +245,7 @@ func TestDOTKeepsUnnamedControlNodesOfTheSource(t *testing.T) {
 // start, on the action's border; each flow keeps its route but for its first
 // point, brought onto the pin's border so the spline touches the one square.
 func TestDOTSharedPinSitsBetweenItsRoutes(t *testing.T) {
-	_, source := standInDOT(t, "StandInViews::sharedView", Options{})
+	_, source := standInDOT(t, "StandInViews::sharedView", Options{Show: AllShown()})
 	if line := dotLine(source, `"n1.0"`); !strings.Contains(line, `pos="70,134!"`) {
 		t.Errorf("shared pin is not between its routes' starts at x=50 and x=90: %q\n%s", line, source)
 	}
@@ -263,7 +263,7 @@ func TestDOTSharedPinSitsBetweenItsRoutes(t *testing.T) {
 // unless it has a name of its own; a name the migration made up is none. That
 // holds of a flow drawn at a pin at one end alone as well as at both.
 func TestDOTPinnedFlowLabelsAreTheirOwnNames(t *testing.T) {
-	rendering, source := standInDOT(t, "StandInViews::sharedView", Options{})
+	rendering, source := standInDOT(t, "StandInViews::sharedView", Options{Show: AllShown()})
 	for edge, label := range map[string]string{
 		`"n1.0" -> "n2.0"`: `label="emit to left"`,
 		`"n1.0" -> "n3.0"`: ``,
@@ -277,17 +277,17 @@ func TestDOTPinnedFlowLabelsAreTheirOwnNames(t *testing.T) {
 			t.Errorf("%s lacks %s: %q", edge, label, line)
 		}
 	}
-	w := newDOTWriter(rendering, Options{Style: StyleCameo})
+	w := newDOTWriter(rendering, Options{Show: AllShown(), Style: StyleCameo})
 	for _, edge := range []Edge{
 		{Label: "value to value", Name: "feed", FromPort: "n1.0", Kind: EdgeFlow},
 		{Label: "value to value", Name: "feed", ToPort: "n2.0", Kind: EdgeFlow},
 	} {
-		if got := w.edgeText(edge); got != "feed" {
-			t.Errorf("edgeText(%+v) = %q, want the flow's own name", edge, got)
+		if _, got, _ := w.edgeTexts(edge); got != "feed" {
+			t.Errorf("edgeTexts(%+v) = %q, want the flow's own name", edge, got)
 		}
 		edge.Name = ""
-		if got := w.edgeText(edge); got != "" {
-			t.Errorf("edgeText(%+v) = %q, want none: the pin names what flows", edge, got)
+		if _, got, _ := w.edgeTexts(edge); got != "" {
+			t.Errorf("edgeTexts(%+v) = %q, want none: the pin names what flows", edge, got)
 		}
 	}
 }
@@ -329,7 +329,7 @@ func TestActionTextOfAnonymousActions(t *testing.T) {
 // An action no diagram positions, drawn in the strip below the drawing, has its
 // pins placed on the box the strip gives it.
 func TestDOTStripPlacesPinsOfUnplacedActions(t *testing.T) {
-	_, source := standInDOT(t, "StandInViews::sharedView", Options{Unplaced: UnplacedStrip})
+	_, source := standInDOT(t, "StandInViews::sharedView", Options{Show: AllShown(), Unplaced: UnplacedStrip})
 	action, pin := dotLine(source, `"n4"`), dotLine(source, `"n4.0"`)
 	if !strings.Contains(action, `label=<<b>loose : Take</b>>`) || !strings.Contains(action, `pos="51.5,-42!"`) {
 		t.Fatalf("loose is not drawn in the strip: %q\n%s", action, source)

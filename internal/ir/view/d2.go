@@ -8,6 +8,13 @@ import (
 	"strings"
 )
 
+const (
+	solidStrokeClose  = "; stroke-width: 1 }"
+	styleOpen         = "style: { "
+	dashedStrokeClose = "; stroke-width: 1; stroke-dash: 3 }"
+	fontSizeClose     = "; font-size: 14 }"
+)
+
 // D2 is the D2 form of a graph-shaped or sequence rendering, in black and
 // white with each kind's default direction.
 func (r *Rendering) D2() (string, error) {
@@ -37,10 +44,10 @@ func (r *Rendering) D2With(options Options) (string, error) {
 	if err := options.Ports.check(); err != nil {
 		return "", err
 	}
-	r = r.settleUnplaced(options.Unplaced, FormD2)
+	r = r.showing(options.Show).settleUnplaced(options.Unplaced, FormD2)
 	w := &d2Writer{
 		fills:   familyFills{palette: options.Palette, tree: r.Kind == KindTree},
-		labels:  labelsOf(r.Roots, false, nil),
+		labels:  labelsOf(r.Roots, false, nil, r.Shown),
 		ports:   r.portView(options.Ports),
 		nested:  r.Kind != KindTree,
 		glyphs:  r.Kind == KindState || r.Kind == KindAction,
@@ -107,6 +114,9 @@ func (r *Rendering) d2Notices(options Options, w *d2Writer) []string {
 	}
 	if options.Style != "" && options.Style != StylePilot {
 		notices = append(notices, styleNotice(options.Style))
+	}
+	if options.Lines.routed() {
+		notices = append(notices, linesNotice(options.Lines, FormD2))
 	}
 	if r.Kind == KindAction {
 		if pins := r.undrawnPins(func(node *Node, port Port) bool { return w.used[node.ID][port.ID] }); len(pins) > 0 {
@@ -188,26 +198,26 @@ const d2Arrow = `stroke: "#181818"; font-size: 13; font-color: black`
 // they are declared: the shapes by element kind, the pseudostate glyphs, and
 // the edges by their kind.
 var d2Classes = []struct{ name, body string }{
-	{"definition", "style: { " + d2Element + "; font-size: 14 }"},
-	{"usage", "style: { " + d2Element + "; font-size: 14; border-radius: 8 }"},
-	{"package", "style: { " + d2Element + "; font-size: 14; stroke-width: 2 }"},
-	{"region", "style: { " + d2Element + "; font-size: 14; stroke-dash: 3 }"},
-	{"pin", "style: { " + d2Element + "; font-size: 10 }"},
+	{"definition", styleOpen + d2Element + fontSizeClose},
+	{"usage", styleOpen + d2Element + "; font-size: 14; border-radius: 8 }"},
+	{"package", styleOpen + d2Element + "; font-size: 14; stroke-width: 2 }"},
+	{"region", styleOpen + d2Element + "; font-size: 14; stroke-dash: 3 }"},
+	{"pin", styleOpen + d2Element + "; font-size: 10 }"},
 	{"initial", "shape: oval; width: 18; height: 18; style: { fill: black; stroke: black }"},
 	{"final", "shape: oval; width: 22; height: 22; style: { fill: black; stroke: black; double-border: true }"},
 	{"terminate", "shape: text; style: { font-size: 24; bold: true; font-color: black }"},
 	{"bar", "shape: rectangle; width: 80; height: 8; style: { fill: black; stroke: black }"},
-	{"choice", "shape: diamond; style: { " + d2Element + "; font-size: 14 }"},
-	{"history", "shape: oval; width: 26; height: 26; style: { " + d2Element + "; font-size: 14 }"},
-	{"edge", "style: { " + d2Arrow + "; stroke-width: 1 }"},
-	{"connection", "style: { " + d2Arrow + "; stroke-width: 3 }"},
-	{"flow", "style: { " + d2Arrow + "; stroke-width: 1; stroke-dash: 3 }"},
-	{"specialization", "target-arrowhead: { shape: triangle; style: { filled: false } }; style: { " + d2Arrow + "; stroke-width: 1 }"},
-	{"typing", "target-arrowhead: { shape: triangle; style: { filled: false } }; style: { " + d2Arrow + "; stroke-width: 1; stroke-dash: 3 }"},
-	{"composition", "source-arrowhead: { shape: diamond; style: { filled: true } }; style: { " + d2Arrow + "; stroke-width: 1 }"},
-	{"reference", "source-arrowhead: { shape: diamond; style: { filled: false } }; style: { " + d2Arrow + "; stroke-width: 1 }"},
-	{"containment", "source-arrowhead: { shape: circle; style: { filled: false } }; style: { " + d2Arrow + "; stroke-width: 1 }"},
-	{"dependency", "style: { " + d2Arrow + "; stroke-width: 1; stroke-dash: 3 }"},
+	{"choice", "shape: diamond; style: { " + d2Element + fontSizeClose},
+	{"history", "shape: oval; width: 26; height: 26; style: { " + d2Element + fontSizeClose},
+	{"edge", styleOpen + d2Arrow + solidStrokeClose},
+	{"connection", styleOpen + d2Arrow + "; stroke-width: 3 }"},
+	{"flow", styleOpen + d2Arrow + dashedStrokeClose},
+	{"specialization", "target-arrowhead: { shape: triangle; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
+	{"typing", "target-arrowhead: { shape: triangle; style: { filled: false } }; style: { " + d2Arrow + dashedStrokeClose},
+	{"composition", "source-arrowhead: { shape: diamond; style: { filled: true } }; style: { " + d2Arrow + solidStrokeClose},
+	{"reference", "source-arrowhead: { shape: diamond; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
+	{"containment", "source-arrowhead: { shape: circle; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
+	{"dependency", styleOpen + d2Arrow + dashedStrokeClose},
 }
 
 // writeClasses declares the classes the body uses, so the file stands alone.
@@ -244,7 +254,7 @@ func (w *d2Writer) writeTree(r *Rendering) {
 	var contain func(node *Node)
 	contain = func(node *Node) {
 		for _, child := range node.Children {
-			w.writeArrow("", w.paths[node.ID], w.paths[child.ID], "--", "", "edge", nil, Origin{})
+			w.writeArrow("", d2EdgeSpec{from: w.paths[node.ID], to: w.paths[child.ID], arrow: "--", class: "edge"})
 			contain(child)
 		}
 	}
@@ -308,7 +318,7 @@ func (w *d2Writer) writeNode(node *Node, scope, indent string) {
 		attrs = append(attrs, link)
 	}
 	if style := w.nodeStyle(node); style != "" {
-		attrs = append(attrs, "style: { "+style+" }")
+		attrs = append(attrs, styleOpen+style+" }")
 	}
 	pins := w.pins(node)
 	var children []*Node
@@ -512,21 +522,44 @@ func (w *d2Writer) writeEdge(indent string, edge Edge) {
 	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
 		class = "dependency"
 	}
-	w.writeArrow(indent, w.end(edge.From, edge.FromPort), w.end(edge.To, edge.ToPort), arrow, edge.Label, class, edge.Style, edge.Origin)
+	w.writeArrow(indent, d2EdgeSpec{from: w.end(edge.From, edge.FromPort), to: w.end(edge.To, edge.ToPort), arrow: arrow, label: edge.Label, class: class, style: edge.Style, origin: edge.Origin}, d2EndLabels(edge)...)
+}
+
+// d2EndLabels are the labels D2 sets at a connection's ends for the edge's end
+// names: the source arrowhead's for the end at From, the target's for the end
+// at To.
+func d2EndLabels(edge Edge) []string {
+	var attrs []string
+	if edge.FromLabel != "" {
+		attrs = append(attrs, "source-arrowhead: { label: "+d2Quote(edge.FromLabel)+" }")
+	}
+	if edge.ToLabel != "" {
+		attrs = append(attrs, "target-arrowhead: { label: "+d2Quote(edge.ToLabel)+" }")
+	}
+	return attrs
 }
 
 // writeArrow writes one connection statement between two paths, with its
-// label when it carries one, its source link and the colours and font of its
-// Style.
-func (w *d2Writer) writeArrow(indent, from, to, arrow, label, class string, style *Style, origin Origin) {
+// label when it carries one, its source link, the colours and font of its
+// Style and any further attributes, as the labels at its ends.
+// d2EdgeSpec is one edge line: its ends, arrowhead, label, class, Style and source link.
+type d2EdgeSpec struct {
+	from, to, arrow, label, class string
+	style                         *Style
+	origin                        Origin
+}
+
+func (w *d2Writer) writeArrow(indent string, a d2EdgeSpec, further ...string) {
+	from, to, arrow, label, class, style, origin := a.from, a.to, a.arrow, a.label, a.class, a.style, a.origin
 	w.classes[class] = true
 	attrs := []string{"class: " + class}
 	if link := w.link(origin); link != "" {
 		attrs = append(attrs, link)
 	}
+	attrs = append(attrs, further...)
 	if style != nil {
 		if own := slices.Concat(d2Colors(style, false), d2Font(style)); len(own) > 0 {
-			attrs = append(attrs, "style: { "+strings.Join(own, "; ")+" }")
+			attrs = append(attrs, styleOpen+strings.Join(own, "; ")+" }")
 		}
 	}
 	if label == "" {

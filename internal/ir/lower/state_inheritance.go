@@ -3,6 +3,7 @@ package lower
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -616,25 +617,40 @@ func vertexName(node ast.Node) string {
 	return ""
 }
 
-// keptAttributes are the inherited attributes a body of its own does not
-// redeclare: a redeclaring attribute is the same feature, with the value the
-// redeclaration states.
-func keptAttributes(inherited, own []Attribute) []Attribute {
-	if len(own) == 0 {
-		return inherited
-	}
-	redeclared := make(map[string]bool, len(own))
-	for _, attr := range own {
-		redeclared[attr.Name] = true
-	}
+// keptAttributes are the attributes a body holds, inherited ones first: a nearer
+// declaration of a name — a body's own or a nearer general's — takes the place of
+// a farther one it redefines, and hides one it does not redefine, which stays
+// held under its ShadowedKey (KerML 1.0 §8.2.3.5.3: a name resolves in the
+// namespace it is written in).
+func (g *StateGraph) keptAttributes(inherited, own []Attribute) []Attribute {
 	kept := make([]Attribute, 0, len(inherited)+len(own))
-	for _, attr := range inherited {
-		if redeclared[attr.Name] {
+	for _, attr := range slices.Concat(inherited, own) {
+		// One declaration reached along two generalization paths is one feature.
+		if attr.Symbol != nil && slices.ContainsFunc(kept, func(k Attribute) bool { return k.Symbol == attr.Symbol }) {
 			continue
+		}
+		i := slices.IndexFunc(kept, func(k Attribute) bool { return k.Name == attr.Name })
+		if i >= 0 {
+			key := ShadowedKey(kept[i].Symbol)
+			if key == "" || g.redefinesAttribute(attr, kept[i]) {
+				kept = slices.Delete(kept, i, i+1)
+			} else {
+				kept[i].Name, kept[i].Shadowed = key, true
+			}
 		}
 		kept = append(kept, attr)
 	}
-	return append(kept, own...)
+	return kept
+}
+
+// redefinesAttribute reports whether nearer redefines farther by clause.
+func (g *StateGraph) redefinesAttribute(nearer, farther Attribute) bool {
+	usage, ok := nearer.Node.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	resolver, _ := g.endpoints.(StateRedefinitionResolver)
+	return redefinesByClause(resolver, nearer.Scope, usage, farther.Symbol)
 }
 
 // DescribeMember names a state machine member in modelling terms, for a message

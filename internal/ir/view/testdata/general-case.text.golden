@@ -1,25 +1,25 @@
 UseCaseViews::useCaseView - case rendering (view def GeneralView, filter @UseCaseUsage)
 
-use case VehicleUseCases::'Provide Transportation'
-subject vehicle : Vehicle
-actor driver : Person
-actor passengers : Person
+use case 'Provide Transportation'
+subject vehicle
+actor driver
+actor passengers
 objective (Deliver the driver and passengers to their destination.)
-include use case addFuel : 'Add Fuel'
+include use case addFuel
 subject vehicle
 actor fueler
-include use case 'enter vehicle' : 'Enter Vehicle'
+include use case 'enter vehicle'
 subject vehicle
 actor driver
 
 relationships:
-  VehicleUseCases::'Provide Transportation' -- vehicle: «subject»
-  driver -- VehicleUseCases::'Provide Transportation'
-  passengers -- VehicleUseCases::'Provide Transportation'
-  VehicleUseCases::'Provide Transportation' .. objective n4
-  VehicleUseCases::'Provide Transportation' ..> addFuel: «include»
+  'Provide Transportation' -- vehicle: «subject»
+  driver -- 'Provide Transportation'
+  passengers -- 'Provide Transportation'
+  'Provide Transportation' .. objective n4
+  'Provide Transportation' ..> addFuel: «include»
   addFuel -- vehicle: «subject»
   fueler -- addFuel
-  VehicleUseCases::'Provide Transportation' ..> 'enter vehicle': «include»
+  'Provide Transportation' ..> 'enter vehicle': «include»
   'enter vehicle' -- vehicle: «subject»
   driver -- 'enter vehicle'

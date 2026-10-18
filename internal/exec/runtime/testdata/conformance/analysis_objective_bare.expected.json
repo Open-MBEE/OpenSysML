@@ -1,0 +1,11 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::costed",
+  "outputs": {
+    "c": {"type": "Real", "value": 5.0}
+  },
+  "verdicts": {
+    "obj": "satisfied"
+  }
+}

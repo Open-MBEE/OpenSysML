@@ -1,0 +1,75 @@
+@startuml
+' ParametricViews::placedView — interconnection rendering (render asInterconnectionDiagram)
+' not represented: 6 positioned node(s) and 5 route(s) kept as comments; PlantUML pins no position, the dot form does
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+' canvas: w=900 h=220
+' layout: n0 x=20 y=40 w=100 h=30
+' layout: n1 x=20 y=100 w=100 h=30
+' layout: n2 x=20 y=160 w=100 h=30
+' layout: n3 x=780 y=40 w=100 h=30
+' layout: n4 x=200 y=20 w=200 h=80
+' layout: n5 x=500 y=20 w=200 h=80
+' route: n0->n4 120,55 200,52
+' route: n1->n4 120,115 200,92
+' route: n4->n5 400,67 500,52
+' route: n2->n5 120,175 500,92
+' route: n5->n3 700,67 780,55
+rectangle "<size:10>//«attribute»//</size>\n**signal**" as n0 <<attribute>> <<usage>>
+rectangle "<size:10>//«attribute»//</size>\n**gain**" as n1 <<attribute>> <<usage>>
+rectangle "<size:10>//«attribute»//</size>\n**noise**" as n2 <<attribute>> <<usage>>
+rectangle "<size:10>//«attribute»//</size>\n**output**" as n3 <<attribute>> <<usage>>
+rectangle "<size:10>//«constraint»//</size>\n**amplify**" as n4 <<constraint>> <<usage>> {
+  port "input" as n4.0
+  port "gain" as n4.1
+  port "output" as n4.2
+}
+rectangle "<size:10>//«constraint»//</size>\n**mix**" as n5 <<constraint>> <<usage>> {
+  port "a" as n5.0
+  port "b" as n5.1
+  port "total" as n5.2
+}
+n0 -- n4.0
+n1 -- n4.1
+n4.2 -- n5.0
+n2 -- n5.1
+n5.2 -- n3
+@enduml

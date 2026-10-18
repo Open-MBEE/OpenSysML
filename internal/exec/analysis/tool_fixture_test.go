@@ -15,6 +15,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -491,19 +492,19 @@ func TestPilotFixtureSweepsThroughTheToolOnEveryJob(t *testing.T) {
 	t.Setenv(standinRecord, record)
 	swept := p.action(t, "Swept")
 	ctx := p.context()
-	plan, err := ctx.ResolveSweepPlan(swept, runtime.SweepPlan{Ranges: []runtime.SweepRange{{Param: "drag", From: intOf(1), To: intOf(4)}}}, 0, nil)
+	plan, err := sweep.ResolvePlan(ctx, swept, sweep.SweepPlan{Ranges: []sweep.SweepRange{{Param: "drag", From: intOf(1), To: intOf(4)}}}, 0, nil)
 	if err != nil {
 		t.Fatalf("resolve the plan: %v", err)
 	}
-	row := func(rctx *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+	row := func(rctx *runtime.Context, bindings []sweep.SweepBinding) (sweep.SweepRunResult, error) {
 		inputs := make(map[string]runtime.Value, len(bindings))
 		for _, b := range bindings {
 			inputs[b.Param] = b.Value
 		}
 		result, err := rctx.RunAnalysis(swept, runtime.AnalysisArgs{Named: inputs}, p.pkg, nil)
-		return runtime.SweepRunResult{Outputs: result.Outputs}, err
+		return sweep.SweepRunResult{Outputs: result.Outputs}, err
 	}
-	sweep := func(r *Registry) runtime.SweepTable {
+	sweep := func(r *Registry) sweep.SweepTable {
 		t.Helper()
 		answered, err := r.Sweep(context.Background(), Request{Model: p.building(), Subject: "Drive::Swept", Schedule: runtime.DefaultSchedulePolicy, Budget: Budget{Jobs: 8}, Selection: Auto()}, plan, row)
 		if err != nil {
@@ -728,17 +729,17 @@ func TestToolCallsAreAttributedToTheContextThatMadeThem(t *testing.T) {
 	record := filepath.Join(t.TempDir(), "requests.jsonl")
 	t.Setenv(standinRecord, record)
 	swept := p.action(t, "Swept")
-	plan, err := p.context().ResolveSweepPlan(swept, runtime.SweepPlan{Ranges: []runtime.SweepRange{{Param: "drag", From: intOf(1), To: intOf(2)}}}, 0, nil)
+	plan, err := sweep.ResolvePlan(p.context(), swept, sweep.SweepPlan{Ranges: []sweep.SweepRange{{Param: "drag", From: intOf(1), To: intOf(2)}}}, 0, nil)
 	if err != nil {
 		t.Fatalf("resolve the plan: %v", err)
 	}
-	row := func(rctx *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+	row := func(rctx *runtime.Context, bindings []sweep.SweepBinding) (sweep.SweepRunResult, error) {
 		inputs := make(map[string]runtime.Value, len(bindings))
 		for _, b := range bindings {
 			inputs[b.Param] = b.Value
 		}
 		result, err := rctx.RunAnalysis(swept, runtime.AnalysisArgs{Named: inputs}, p.pkg, nil)
-		return runtime.SweepRunResult{Outputs: result.Outputs}, err
+		return sweep.SweepRunResult{Outputs: result.Outputs}, err
 	}
 	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
 	answered, err := r.Sweep(context.Background(), Request{Model: p.building(), Subject: "Drive::Swept", Schedule: runtime.DefaultSchedulePolicy, Budget: Budget{Jobs: 2}, Selection: Auto()}, plan, row)

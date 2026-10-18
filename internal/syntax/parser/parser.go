@@ -16,7 +16,7 @@ import (
 // diagnostics; it always produces a tree (ErrorNodes for bad input).
 type Parser struct {
 	src *source.SourceFile
-	lx  *lexer.Lexer
+	lx  *Scanner
 	// buf is a window of the non-trivia token stream: buf[i] is stream token
 	// base+i, and pos is the cursor's stream index.
 	buf  []lexer.Token
@@ -191,7 +191,7 @@ const tokenWindow = 64
 // New creates a Parser for the given source file.
 func New(sf *source.SourceFile) *Parser {
 	// Models measure ~5 source bytes per non-trivia token; the window caps it.
-	return &Parser{src: sf, lx: lexer.New(sf), buf: make([]lexer.Token, 0, min(sf.Len()/5+1, 2*tokenWindow))}
+	return &Parser{src: sf, lx: NewScanner(sf), buf: make([]lexer.Token, 0, min(sf.Len()/5+1, 2*tokenWindow))}
 }
 
 // fill ensures buf holds the token n positions ahead of the cursor (pulling
@@ -224,7 +224,7 @@ func (p *Parser) fill(n int) {
 			}
 			tok = p.lx.Next()
 		}
-		p.buf = append(p.buf, p.unreserved(tok))
+		p.buf = append(p.buf, tok)
 		for _, sp := range comments {
 			p.comments = append(p.comments, pendingComment{
 				span: sp, next: p.buf[len(p.buf)-1],

@@ -29,6 +29,12 @@ pub const CAPABILITY_RENDER_DOCUMENT_HTML: &str = "render_document_html";
 pub const CAPABILITY_RENDER_VIEW: &str = "render_view";
 /// The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON.
 pub const CAPABILITY_EXPORT_GRAPHS: &str = "export_graphs";
+/// The ImportData RPC, which sets the feature values data files assign.
+pub const CAPABILITY_IMPORT_DATA: &str = "import_data";
+/// The CompareResults RPC, which compares a tool's stored results with the runs.
+pub const CAPABILITY_COMPARE_RESULTS: &str = "compare_results";
+/// The `CheckBehavior` RPC, searching every schedule of a behavior for violations and divergent values.
+pub const CAPABILITY_CHECK: &str = "check";
 /// An enumeration literal as `Value.enum_literal`.
 pub const CAPABILITY_ENUM_VALUES: &str = "enum_values";
 /// Evaluating an expression against an instantiated subject.
@@ -136,6 +142,9 @@ pub const CAPABILITY_CONVERT_COMPACT: &str = "convert_compact";
 /// `ParseSourcesRequest.base_model_hash` and `ParseSourcesResponse.affected`: the documents whose
 /// results may differ from the base model's, so a client re-reads only those after an edit.
 pub const CAPABILITY_PARSE_SOURCES_AFFECTED: &str = "parse_sources_affected";
+/// `RenderDocumentResponse.file_name`: the file a rendered set writes the document to, which the
+/// other documents' links to it name.
+pub const CAPABILITY_RENDER_DOCUMENT_FILE_NAME: &str = "render_document_file_name";
 
 /// The remedy for a service lacking `capability`, naming both routes to one that has it.
 pub fn upgrade_remedy(capability: &str) -> String {

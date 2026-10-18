@@ -37,11 +37,11 @@ make build-sysml
 ```text
 ✓ package Rover
 ✓ package Acme
-examples/self-check-rules/rover.sysml:10:2: error: Acme::ModelingRules::partDefinitionHasDocumentation fails for Rover::SensorBus
-Self-model check: 10 elements, 60 checks, 1 violations, 0 unevaluated
+examples/self-check-rules/rover.sysml:10:2: error[self-check-rule]: Acme::ModelingRules::partDefinitionHasDocumentation fails for Rover::SensorBus
+Self-model check: 12 elements, 80 checks, 1 violations, 0 unevaluated
 ```
 
-Exit status 1: one of the 60 constraint applications failed, named by the rule's
+Exit status 1: one of the 80 constraint applications failed, named by the rule's
 qualified name and the element it rejected. Each element of a rule package is
 checked by nothing — `Acme` declares rules, not a model — so the element count
 covers `rover.sysml`'s declarations plus the enclosing `Acme` package only.
@@ -54,7 +54,7 @@ The bundled checks alone find nothing wrong with the rover:
 
 ```text
 ✓ package Rover
-Self-model check: 9 elements, 55 checks, 0 violations, 0 unevaluated
+Self-model check: 11 elements, 75 checks, 0 violations, 0 unevaluated
 ```
 
 Exit status 0.

@@ -9,7 +9,9 @@ type featureWriteValue struct {
 
 func (ctx *Context) beginFeatureWrite(fv *FeatureValue) func() {
 	if ctx.probes > 0 || len(ctx.stateExecutors) == 0 {
-		return func() {}
+		return func() {
+			// No write was begun, so there is none to end.
+		}
 	}
 	if ctx.featureWriteDepth == 0 {
 		ctx.featureWriteBefore = make(map[*FeatureValue]featureWriteValue)
@@ -26,7 +28,9 @@ func (ctx *Context) beginFeatureWrite(fv *FeatureValue) func() {
 // suspendFeatureWrite completes the write under way, so the behaviors it starts write after it.
 func (ctx *Context) suspendFeatureWrite() (resume func()) {
 	if ctx.featureWriteDepth == 0 {
-		return func() {}
+		return func() {
+			// No write was under way, so there is none to resume.
+		}
 	}
 	depth := ctx.featureWriteDepth
 	ctx.featureWriteDepth = 1

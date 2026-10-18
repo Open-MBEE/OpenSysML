@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_ui" name="UI">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_gui" name="GUI"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_panel" name="Panel"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_console" name="Console">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_console_gui" name="GUI" type="_blk_gui" aggregation="composite" association="_assoc_console_gui"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_console_panel" name="panel" type="_blk_panel" aggregation="composite" association="_assoc_console_panel"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_console_gui" memberEnd="_prop_console_gui _ae_console_1">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_ae_console_1" type="_blk_console" association="_assoc_console_gui"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_console_panel" memberEnd="_prop_console_panel _ae_console_2">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_ae_console_2" type="_blk_console" association="_assoc_console_panel"/>
+      </packagedElement>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bdd" name="Console BDD" ownerOfDiagram="_pkg_ui">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_console</usedElements>
+                  <usedElements>_blk_gui</usedElements>
+                  <usedElements>_blk_panel</usedElements>
+                  <usedElements>_prop_console_gui</usedElements>
+                  <usedElements>_prop_console_panel</usedElements>
+                  <usedElements>_assoc_console_gui</usedElements>
+                  <usedElements>_assoc_console_panel</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+  <sysml:Block xmi:id="_s_gui" base_Class="_blk_gui"/>
+  <sysml:Block xmi:id="_s_panel" base_Class="_blk_panel"/>
+  <sysml:Block xmi:id="_s_console" base_Class="_blk_console"/>
+</xmi:XMI>

@@ -32,9 +32,9 @@ func TestInstanceSpecificationLink(t *testing.T) {
     </packagedElement>`, "")
 	wantClean(t, "instance_links.sysml", r)
 	for _, line := range []string{
-		"individual connection def L :> AB {",
-		"end :>> a : IA;",
-		"end :>> b : IB;",
+		"occurrence IA : A;",
+		"occurrence IB : B;",
+		"connection L : AB connect IA to IB {",
 		`attribute :>> label = "connected";`,
 	} {
 		wantLine(t, r.Notation, line)
@@ -68,9 +68,7 @@ func TestInstanceSpecificationLinkOfAnonymousAssociationSpecializesItsConnection
 		"connection def BToA {",
 		"end b : B crosses a.b;",
 		"end a : A crosses b.a;",
-		"individual connection def L :> BToA {",
-		"end :>> b : IB;",
-		"end :>> a : IA;",
+		"connection L : BToA connect IB to IA;",
 	} {
 		wantLine(t, r.Notation, line)
 	}

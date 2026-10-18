@@ -24,15 +24,15 @@ func TestParseChoiceReadsEveryKind(t *testing.T) {
 		{"step 3: 2@left first of 2@left, 3@right", ChoiceTaken{Kind: ChoiceTokenOrder, Step: 3, Alternatives: 2, Taken: 0, Among: []string{"2@left", "3@right"}, Took: "2@left"}},
 		{"step 3: 3@right first of 2@left, 3@right", ChoiceTaken{Kind: ChoiceTokenOrder, Step: 3, Alternatives: 2, Taken: 1, Among: []string{"2@left", "3@right"}, Took: "3@right"}},
 		{"step 1: result of calc test::Ord under the statement orders of its body: 30 first of 12, 30",
-			ChoiceTaken{Kind: ChoiceStatementOrder, Step: 1, Where: "result of calc test::Ord under the statement orders of its body", Alternatives: 2, Taken: 1, Among: []string{"12", "30"}, Took: "30"}},
+			ChoiceTaken{Kind: choiceStatementOrder, Step: 1, Where: "result of calc test::Ord under the statement orders of its body", Alternatives: 2, Taken: 1, Among: []string{"12", "30"}, Took: "30"}},
 		{"step 5: decision select -> 2->alarm", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 5, Where: "decision select", Took: "2->alarm"}},
 		{"state idle on accept go -> 2->right", ChoiceTaken{Kind: ChoiceTransition, Where: "state idle on accept go", Took: "2->right"}},
 		{"on accept go: b1 first of a1, b1", ChoiceTaken{Kind: ChoiceRegionOrder, Where: "on accept go", Alternatives: 2, Taken: 1, Among: []string{"a1", "b1"}, Took: "b1"}},
 		{"t=5.0: state machine c first of state machine a, state machine b, state machine c", ChoiceTaken{Kind: ChoiceDueOrder, Where: "t=5.0", Alternatives: 3, Taken: 2, Among: []string{"state machine a", "state machine b", "state machine c"}, Took: "state machine c"}},
-		{"at t=0.0: do top first of do top, dispatch accept Stop", ChoiceTaken{Kind: ChoiceStepOrder, Where: "at t=0.0", Alternatives: 2, Taken: 0, Among: []string{"do top", "dispatch accept Stop"}, Took: "do top"}},
-		{"at t=2.0: dispatch signal first of do a, do b, dispatch signal", ChoiceTaken{Kind: ChoiceStepOrder, Where: "at t=2.0", Alternatives: 3, Taken: 2, Among: []string{"do a", "do b", "dispatch signal"}, Took: "dispatch signal"}},
-		{"at t=1.0: dispatch change level > 3 1->high first of do low, dispatch change level > 3 1->high", ChoiceTaken{Kind: ChoiceStepOrder, Where: "at t=1.0", Alternatives: 2, Taken: 1, Among: []string{"do low", "dispatch change level > 3 1->high"}, Took: "dispatch change level > 3 1->high"}},
-		{"at t=3.0: dispatch first of do work, dispatch", ChoiceTaken{Kind: ChoiceStepOrder, Where: "at t=3.0", Alternatives: 2, Taken: 1, Among: []string{"do work", "dispatch"}, Took: "dispatch"}},
+		{"at t=0.0: do top first of do top, dispatch accept Stop", ChoiceTaken{Kind: choiceStepOrder, Where: "at t=0.0", Alternatives: 2, Taken: 0, Among: []string{"do top", "dispatch accept Stop"}, Took: "do top"}},
+		{"at t=2.0: dispatch signal first of do a, do b, dispatch signal", ChoiceTaken{Kind: choiceStepOrder, Where: "at t=2.0", Alternatives: 3, Taken: 2, Among: []string{"do a", "do b", "dispatch signal"}, Took: "dispatch signal"}},
+		{"at t=1.0: dispatch change level > 3 1->high first of do low, dispatch change level > 3 1->high", ChoiceTaken{Kind: choiceStepOrder, Where: "at t=1.0", Alternatives: 2, Taken: 1, Among: []string{"do low", "dispatch change level > 3 1->high"}, Took: "dispatch change level > 3 1->high"}},
+		{"at t=3.0: dispatch first of do work, dispatch", ChoiceTaken{Kind: choiceStepOrder, Where: "at t=3.0", Alternatives: 2, Taken: 1, Among: []string{"do work", "dispatch"}, Took: "dispatch"}},
 		{"step 2: decision select -> 2->slow among 1->fast p=0.7, 2->slow p=0.3 drew 0.7748", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 2, Where: "decision select", Alternatives: 2, Taken: 1, Among: []string{"1->fast", "2->slow"}, Took: "2->slow", Weights: []float64{0.7, 0.3}, Drew: 0.7748, Drawn: true}},
 		{"step 2: decision select -> 1->fast among 1->fast p=0.7, 2->slow p=0.3", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 2, Where: "decision select", Alternatives: 2, Taken: 0, Among: []string{"1->fast", "2->slow"}, Took: "1->fast", Weights: []float64{0.7, 0.3}}},
 	}
@@ -60,7 +60,7 @@ func TestParseChoicesRejectsWhatSpellsNoChoice(t *testing.T) {
 		"step 2: d -> x among x", "step 2: d -> x among x p=heavy", "step 2: d -> y among x p=0.5, z p=0.5", "step 2: d -> x among x p=1 drew 1.5", "step 2: d -> x among x p=1 drew u"} {
 		_, err := ParseChoices("step 1: a first of a, b\n" + text)
 		var typed *ChoiceParseError
-		if !errors.As(err, &typed) || !errors.Is(err, ErrInvalidChoice) {
+		if !errors.As(err, &typed) || !errors.Is(err, errInvalidChoice) {
 			t.Errorf("%q: error %T %v, want a ChoiceParseError", text, err, err)
 			continue
 		}
@@ -435,7 +435,7 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 		}
 		for _, o := range x.Outcomes {
 			kinds := choiceKinds(o.Witness)
-			if len(kinds) < 3 || kinds[0] != ChoiceEntryOrder || kinds[1] != ChoiceTransition ||
+			if len(kinds) < 3 || kinds[0] != choiceEntryOrder || kinds[1] != ChoiceTransition ||
 				slices.ContainsFunc(kinds[2:], func(k ChoiceKind) bool { return k != ChoiceRegionOrder }) {
 				t.Fatalf("witness %s draws %v, want the entry, the transition then the unit order", FormatChoices(o.Witness), kinds)
 			}
@@ -448,7 +448,7 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 				t.Errorf("replaying %s reached %s, want %s", FormatChoices(o.Witness), outcome, o.Outcome)
 			}
 			// Replay notes the transition when its firing's first unit is reached.
-			if kinds := choiceKinds(choices); len(kinds) < 3 || kinds[0] != ChoiceEntryOrder || kinds[1] != ChoiceRegionOrder ||
+			if kinds := choiceKinds(choices); len(kinds) < 3 || kinds[0] != choiceEntryOrder || kinds[1] != ChoiceRegionOrder ||
 				countKind(kinds, ChoiceTransition) != 1 ||
 				slices.ContainsFunc(kinds[2:], func(k ChoiceKind) bool { return k != ChoiceRegionOrder && k != ChoiceTransition }) {
 				t.Errorf("replaying %s noted %v, want the entry, unit orders and one transition among them", FormatChoices(o.Witness), kinds)
@@ -1316,7 +1316,7 @@ func TestReplayRefusedChoiceUndoesTheHistoryDefaultsJunctionDraw(t *testing.T) {
 	if choices := ctx.Choices(); len(choices) != 0 {
 		t.Errorf("the run recorded %v, want no choice: the junction's draw is undone with the move", choices)
 	}
-	if taken := ctx.ChoicesTaken(); len(taken) != 0 {
+	if taken := ctx.choicesTaken(); len(taken) != 0 {
 		t.Errorf("the context's witness holds %v, want no move: the junction's draw is undone with the move", taken)
 	}
 }
@@ -1417,7 +1417,7 @@ func TestReplayRefusedChoiceUndoesTheJunctionDrawBeforeIt(t *testing.T) {
 			if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(entered) {
 				t.Errorf("the run recorded %v, want the entry's draws alone: the junction's draw is undone with the move", got)
 			}
-			if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(entered) {
+			if got := FormatChoices(ctx.choicesTaken()); got != FormatChoices(entered) {
 				t.Errorf("the context's witness holds %v, want the entry's moves alone: the junction's draw is undone with the move", got)
 			}
 		})
@@ -1576,7 +1576,7 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(witness[:4]) {
 		t.Errorf("the run recorded %v, want the entry and do-step draws alone: a refused move is not one made", got)
 	}
-	if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(witness[:4]) {
+	if got := FormatChoices(ctx.choicesTaken()); got != FormatChoices(witness[:4]) {
 		t.Errorf("the context holds %v, want the entry and do-step draws alone taken", got)
 	}
 	if got := trace.String(); strings.Contains(got, "choice join sync") || strings.Contains(got, "exit: b") {
@@ -1655,7 +1655,7 @@ func TestReplayRefusedJoinDrawUndoesTheSegmentsChoice(t *testing.T) {
 	if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(witness[:2]) {
 		t.Errorf("the run recorded %v, want the entry's draws alone: the draw among a's transitions is undone with the join", got)
 	}
-	if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(witness[:2]) {
+	if got := FormatChoices(ctx.choicesTaken()); got != FormatChoices(witness[:2]) {
 		t.Errorf("the context holds %v, want the entry's draws alone taken", got)
 	}
 }
@@ -1707,7 +1707,7 @@ func TestReplayRefusesAChoiceBranchNotEnabled(t *testing.T) {
 		if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 1 || !strings.Contains(err.Error(), tc.refused) {
 			t.Fatalf("%q: error %T %v, want the choice move refused with %q", tc.witness, err, err, tc.refused)
 		}
-		if visits := exec.GetStateVisits(); slices.Contains(visits, "left") || slices.Contains(visits, "right") || slices.Contains(visits, "never") {
+		if visits := exec.getStateVisits(); slices.Contains(visits, "left") || slices.Contains(visits, "right") || slices.Contains(visits, "never") {
 			t.Errorf("%q: visits %v after the refusal, want no branch taken", tc.witness, visits)
 		}
 	}
@@ -1946,9 +1946,9 @@ func TestReplayRefusesAMoveNamingAnObjectTheRunDidNotMake(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = exec.RunToCompletion()
-	var refused *WitnessObjectError
-	if !errors.As(err, &refused) || !errors.Is(err, ErrWitnessObject) {
-		t.Fatalf("error %T %v, want a WitnessObjectError", err, err)
+	var refused *witnessObjectError
+	if !errors.As(err, &refused) || !errors.Is(err, errWitnessObject) {
+		t.Fatalf("error %T %v, want a witnessObjectError", err, err)
 	}
 	if refused.Object != w.Objects[0] || !strings.Contains(refused.Reason, "test::beacon#1") {
 		t.Errorf("refused %+v", refused)

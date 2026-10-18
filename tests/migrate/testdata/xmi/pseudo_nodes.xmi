@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- Acquire: an activity whose initial node, and the initial node of the
+         structured node nested in it, have a symbol each; the tool drew the
+         control flows leaving them from the action back to the initial node.
+         Modes: a state machine whose initial pseudostate and final state have
+         symbols, its initial transition drawn from the state back. -->
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_imaging" name="Imaging">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_camera" name="Camera">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_acquire" name="Acquire">
+          <node xmi:type="uml:InitialNode" xmi:id="_pn_init"/>
+          <node xmi:type="uml:ValueSpecificationAction" xmi:id="_pn_position" name="position">
+            <value xmi:type="uml:LiteralReal" xmi:id="_pn_positionVal" value="2.5"/>
+            <result xmi:type="uml:OutputPin" xmi:id="_pn_result" name="result"/>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_pn_check" name="check">
+            <inputValue xmi:type="uml:InputPin" xmi:id="_pn_value" name="value"/>
+            <language>English</language>
+            <body>check the value</body>
+          </node>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_pn_final"/>
+          <node xmi:type="uml:StructuredActivityNode" xmi:id="_pn_adjusting" name="Position Not Correct">
+            <node xmi:type="uml:InitialNode" xmi:id="_pn_init2"/>
+            <node xmi:type="uml:OpaqueAction" xmi:id="_pn_adjust" name="adjust"/>
+            <node xmi:type="uml:ActivityFinalNode" xmi:id="_pn_final2"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_pn_e3" source="_pn_init2" target="_pn_adjust"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_pn_e4" source="_pn_adjust" target="_pn_final2"/>
+          </node>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_pn_e1" source="_pn_init" target="_pn_position"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_pn_e2" source="_pn_position" target="_pn_check"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_pn_e6" source="_pn_check" target="_pn_adjusting"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_pn_e5" source="_pn_adjusting" target="_pn_final"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_pn_of" source="_pn_result" target="_pn_value"/>
+        </ownedBehavior>
+        <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm_modes" name="Modes">
+          <region xmi:type="uml:Region" xmi:id="_sm_region">
+            <subvertex xmi:type="uml:Pseudostate" xmi:id="_ps_init" kind="initial"/>
+            <subvertex xmi:type="uml:Pseudostate" xmi:id="_ps_dup" kind="initial"/>
+            <subvertex xmi:type="uml:Pseudostate" xmi:id="_ps_dangling" kind="initial"/>
+            <subvertex xmi:type="uml:State" xmi:id="_st_idle" name="Idle"/>
+            <subvertex xmi:type="uml:State" xmi:id="_st_active" name="Active">
+              <region xmi:type="uml:Region" xmi:id="_rg_a" name="a">
+                <subvertex xmi:type="uml:Pseudostate" xmi:id="_ps_stray" kind="initial"/>
+                <subvertex xmi:type="uml:State" xmi:id="_st_a1" name="a1"/>
+                <transition xmi:type="uml:Transition" xmi:id="_t_stray" source="_ps_stray" target="_st_b1"/>
+              </region>
+              <region xmi:type="uml:Region" xmi:id="_rg_b" name="b">
+                <subvertex xmi:type="uml:State" xmi:id="_st_b1" name="b1"/>
+              </region>
+            </subvertex>
+            <subvertex xmi:type="uml:FinalState" xmi:id="_st_done"/>
+            <transition xmi:type="uml:Transition" xmi:id="_t_init" source="_ps_init" target="_st_idle"/>
+            <transition xmi:type="uml:Transition" xmi:id="_t_dup" source="_ps_dup" target="_st_idle"/>
+            <transition xmi:type="uml:Transition" xmi:id="_t_active" source="_st_idle" target="_st_active"/>
+            <transition xmi:type="uml:Transition" xmi:id="_t_done" source="_st_active" target="_st_done"/>
+          </region>
+        </ownedBehavior>
+      </packagedElement>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_acquire" name="Acquire" ownerOfDiagram="_act_acquire">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_pn_init</usedElements>
+                  <usedElements>_pn_position</usedElements>
+                  <usedElements>_pn_final</usedElements>
+                  <usedElements>_pn_adjusting</usedElements>
+                  <usedElements>_pn_init2</usedElements>
+                  <usedElements>_pn_adjust</usedElements>
+                  <usedElements>_pn_final2</usedElements>
+                  <usedElements>_pn_e1</usedElements>
+                  <usedElements>_pn_e2</usedElements>
+                  <usedElements>_pn_e3</usedElements>
+                  <usedElements>_pn_e4</usedElements>
+                  <usedElements>_pn_e5</usedElements>
+                  <usedElements>_pn_check</usedElements>
+                  <usedElements>_pn_of</usedElements>
+                  <usedElements>_pn_e6</usedElements>
+                </diagramContents>
+                <binaryObject streamContentID="BINARY-pseudo_nodes"/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_modes" name="Modes" ownerOfDiagram="_sm_modes">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML State Machine Diagram" umlType="State Machine Diagram">
+                <diagramContents>
+                  <usedElements>_ps_init</usedElements>
+                  <usedElements>_st_idle</usedElements>
+                  <usedElements>_st_done</usedElements>
+                  <usedElements>_t_init</usedElements>
+                  <usedElements>_t_done</usedElements>
+                  <usedElements>_ps_dup</usedElements>
+                  <usedElements>_ps_dangling</usedElements>
+                  <usedElements>_t_dup</usedElements>
+                  <usedElements>_st_active</usedElements>
+                  <usedElements>_ps_stray</usedElements>
+                  <usedElements>_st_a1</usedElements>
+                  <usedElements>_st_b1</usedElements>
+                  <usedElements>_t_stray</usedElements>
+                  <usedElements>_t_active</usedElements>
+                </diagramContents>
+                <binaryObject streamContentID="BINARY-pseudo_nodes.modes"/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+</xmi:XMI>

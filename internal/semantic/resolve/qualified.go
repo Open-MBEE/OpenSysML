@@ -283,6 +283,7 @@ func (r *Resolver) unresolved(scope *symbols.Scope, qn *ast.QualifiedName) {
 	r.reportQualified(qn, Diagnostic{
 		Span:    qn.Span(),
 		Message: msg,
+		Code:    CodeUnresolved,
 		Fixes:   fixes,
 	})
 }
@@ -295,6 +296,7 @@ func (r *Resolver) unresolvedMember(scope *symbols.Scope, qn *ast.QualifiedName,
 	r.reportQualified(qn, Diagnostic{
 		Span:    qn.Span(),
 		Message: unresolvedReferencePrefix + r.UnresolvedMember(scope, qn, cur, i),
+		Code:    CodeUnresolved,
 	})
 }
 
@@ -321,7 +323,7 @@ func (r *Resolver) unresolvedNamespace(scope *symbols.Scope, qn *ast.QualifiedNa
 			if fix, ok := r.importFix(scope, ns, cand); ok {
 				fixes = append(fixes, fix)
 			}
-			r.reportQualified(qn, Diagnostic{Span: qn.Span(), Message: msg, Fixes: fixes})
+			r.reportQualified(qn, Diagnostic{Span: qn.Span(), Message: msg, Code: CodeUnresolved, Fixes: fixes})
 			return
 		}
 	}
@@ -333,7 +335,7 @@ func (r *Resolver) unresolvedNamespace(scope *symbols.Scope, qn *ast.QualifiedNa
 				ns, last, strings.Join(cands, ", "))
 		}
 	}
-	r.reportQualified(qn, Diagnostic{Span: qn.Span(), Message: msg})
+	r.reportQualified(qn, Diagnostic{Span: qn.Span(), Message: msg, Code: CodeUnresolved})
 }
 
 // candidatePathResolves reports whether qn rewritten to start at cand names
@@ -367,6 +369,7 @@ func (r *Resolver) ambiguous(qn *ast.QualifiedName, n int) {
 	r.reportQualified(qn, Diagnostic{
 		Span:    qn.Span(),
 		Message: fmt.Sprintf("ambiguous reference: %s (%d candidates)", qnText(qn), n),
+		Code:    CodeAmbiguous,
 	})
 }
 

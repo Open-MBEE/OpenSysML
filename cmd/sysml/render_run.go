@@ -22,8 +22,8 @@ func runRenderModeMisuse() string {
 	switch {
 	case len(renderRuns) == 0:
 		return "-render-run needs a value of the form <timeline|sequence>=<path>"
-	case modelChecks.jsonOut && renderRunWritesStdout():
-		return "-render-run cannot write to stdout with -json; name a file for the rendering"
+	case modelChecks.machine() && renderRunWritesStdout():
+		return "-render-run cannot write to stdout with -json or a -format document; name a file for the rendering"
 	case flagGiven("compare-results"):
 		return "-render-run cannot be combined with -compare-results"
 	case len(modelChecks.actions) == 0 && len(modelChecks.states) == 0 && !modelChecks.advance.given:
@@ -48,8 +48,8 @@ func runRenderModeMisuse() string {
 		return "-render-run cannot be combined with -query"
 	case outputPath != "":
 		return "-render-run names each output path; do not combine it with -output"
-	case renderPalette != "" || renderStyle != "" || renderPorts != "" || renderUnplaced != "":
-		return "-render-palette, -render-style, -render-ports and -render-unplaced apply to model renderings, not -render-run"
+	case renderPalette != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderUnplaced != "":
+		return "-render-palette, -render-style, -render-ports, -render-lines and -render-unplaced apply to model renderings, not -render-run"
 	}
 	return ""
 }

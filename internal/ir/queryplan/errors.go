@@ -164,3 +164,42 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query planning failed for %s", e.Query)
 	}
 }
+
+// ErrorKinds lists every error kind, in declaration order.
+func ErrorKinds() []ErrorKind {
+	return []ErrorKind{
+		ErrorInvalidContext,
+		ErrorLibraryUnavailable,
+		ErrorNotQueryDefinition,
+		ErrorMissingResultParameter,
+		ErrorInvalidParameter,
+		ErrorMissingResult,
+		ErrorConflictingResult,
+		ErrorUnsupportedResult,
+		ErrorUnknownInvocation,
+		ErrorAmbiguousInvocation,
+		ErrorPositionalQueryArgs,
+		ErrorDuplicateArgument,
+		ErrorUnknownArgument,
+		ErrorMissingArgument,
+		ErrorArgumentCount,
+		ErrorArgumentType,
+		ErrorArgumentMultiplicity,
+		ErrorCompositionCycle,
+		ErrorUnknownParameter,
+		ErrorUnsupportedExpression,
+		ErrorUnsupportedDefault,
+		ErrorDefaultType,
+		ErrorDefaultMultiplicity,
+		ErrorInvalidColumn,
+		ErrorColumnSource,
+		ErrorColumnName,
+		ErrorUnknownColumnProperty,
+		ErrorColumnOperator,
+		ErrorColumnType,
+		ErrorDuplicateColumn,
+		ErrorEmptyProjection,
+		ErrorColumnAggregate,
+		ErrorCollectionFunction,
+	}
+}

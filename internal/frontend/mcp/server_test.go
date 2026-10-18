@@ -10,6 +10,7 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 )
 
@@ -82,15 +83,19 @@ func writeModel(t *testing.T, root, name, text string) {
 
 func TestTheServerRegistersTheGroupsAskedFor(t *testing.T) {
 	root := t.TempDir()
+	all := catalog.Names(GroupLSP, GroupRuntime, GroupSession)
 	cases := []struct {
 		groups []Group
 		want   []string
 	}{
-		{nil, []string{"apply_edits", "convert", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs", "instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_sweep", "server_info", "session_close", "session_list", "session_open", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction", "workspace_info"}},
-		{[]Group{GroupLSP}, []string{"workspace_info"}},
-		{[]Group{GroupRuntime}, []string{"apply_edits", "convert", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs", "instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}},
-		{[]Group{GroupSession}, []string{"session_close", "session_list", "session_open"}},
-		{[]Group{GroupSession, GroupRuntime, GroupSession}, []string{"apply_edits", "convert", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs", "instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_sweep", "server_info", "session_close", "session_list", "session_open", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}},
+		{nil, all},
+		{[]Group{GroupLSP}, catalog.Names(GroupLSP)},
+		{[]Group{GroupRuntime}, catalog.Names(GroupRuntime)},
+		{[]Group{GroupSession}, catalog.Names(GroupSession)},
+		{[]Group{GroupSession, GroupRuntime, GroupSession}, catalog.Names(GroupRuntime, GroupSession)},
+	}
+	if len(all) != len(catalog.Tools) {
+		t.Fatalf("the catalog has %d tools but the three groups serve %d", len(catalog.Tools), len(all))
 	}
 	for _, tc := range cases {
 		cs := connect(t, Config{Root: root, Groups: tc.groups, Version: "test"})
@@ -211,16 +216,35 @@ func TestParseGroups(t *testing.T) {
 	}
 }
 
-// With every group on, the catalogue is the sum of the groups' catalogues: the
-// SDK replaces a same-name tool silently, so two groups must never share a name.
+// With every group on, the catalogue is the sum of the groups' catalogues
+// plus tool_catalog, which every server serves once: the SDK replaces a
+// same-name tool silently, so two groups must never share a name.
 func TestGroupsShareNoToolName(t *testing.T) {
 	sum := 0
 	for _, g := range []Group{GroupLSP, GroupRuntime, GroupSession} {
 		cs := connect(t, Config{Root: t.TempDir(), Groups: []Group{g}, Version: "test"})
-		sum += len(toolNames(t, cs))
+		names := toolNames(t, cs)
+		if !slices.Contains(names, "tool_catalog") {
+			t.Errorf("group %s serves no tool_catalog", g)
+		}
+		sum += len(names) - 1
 	}
 	cs := connect(t, Config{Root: t.TempDir(), Groups: []Group{GroupLSP, GroupRuntime, GroupSession}, Version: "test"})
-	if all := len(toolNames(t, cs)); all != sum {
-		t.Fatalf("all groups register %d tools, the groups alone %d: a name is shared", all, sum)
+	if all := len(toolNames(t, cs)); all != sum+1 {
+		t.Fatalf("all groups register %d tools, the groups alone %d plus tool_catalog: a name is shared", all, sum)
+	}
+}
+
+func TestToolCatalogOverNoGroupsListsNoGroup(t *testing.T) {
+	cs := connect(t, Config{Root: t.TempDir(), Groups: []Group{}})
+	if names := toolNames(t, cs); !slices.Equal(names, []string{"tool_catalog"}) {
+		t.Fatalf("no groups serve %v", names)
+	}
+	var out CatalogOutput
+	if res := call(t, cs, "tool_catalog", map[string]any{}, &out); res.IsError {
+		t.Fatalf("tool_catalog: %v", res.Content)
+	}
+	if len(out.Groups) != 0 || len(out.Tools) != 1 || out.Tools[0].Name != "tool_catalog" {
+		t.Errorf("groups %q, tools %v", out.Groups, out.Tools)
 	}
 }

@@ -1,0 +1,15 @@
+exit: A
+enter: B
+transition: A -> B (event: accept Step)
+exit: B
+enter: done
+transition: B -> done
+exit: done
+exit: S (exit action)
+stmt action body
+  stmt assign exits
+      eval feature exits -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+enter: Other
+transition: S -> Other

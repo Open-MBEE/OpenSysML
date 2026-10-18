@@ -40,13 +40,15 @@ def test_a_pre_release_leads_to_its_release():
 
 @pytest.mark.parametrize("declared", ["0.9.3.dev1", "0.9.3.post1", "0.9.3+local"])
 def test_a_development_post_or_local_version_is_not_a_snapshot_base(declared):
+    release = released()
     with pytest.raises(VersionError, match="already a development, post or local version"):
-        snapshot_version.snapshot_core(declared, released())
+        snapshot_version.snapshot_core(declared, release)
 
 
 def test_a_version_without_three_release_segments_is_refused():
+    release = released()
     with pytest.raises(VersionError, match="not a <major>.<minor>.<patch> release"):
-        snapshot_version.snapshot_core("1.0", released())
+        snapshot_version.snapshot_core("1.0", release)
 
 
 def test_the_versions_name_one_night():
@@ -68,7 +70,8 @@ def test_the_pypi_version_is_canonical_pep_440_and_ranks_below_the_release():
     )
     parsed = Version(versions["pypi"])
     assert str(parsed) == versions["pypi"]
-    assert parsed.is_devrelease and parsed.is_prerelease
+    assert parsed.is_devrelease
+    assert parsed.is_prerelease
     assert Version("0.9.2") < parsed < Version("0.9.3rc1") < Version("0.9.3")
 
 
@@ -83,9 +86,10 @@ def test_the_npm_version_is_a_semver_pre_release_of_the_core():
 
 
 def test_the_declared_versions_must_agree():
+    release = released()
     with pytest.raises(VersionError, match="client/node/package.json"):
         snapshot_version.snapshot_versions(
-            DATE, COMMIT, declared="0.9.2", node="0.9.1", released=released()
+            DATE, COMMIT, declared="0.9.2", node="0.9.1", released=release
         )
 
 
@@ -99,14 +103,16 @@ def test_the_node_manifest_may_spell_a_pre_release_its_own_way():
 
 @pytest.mark.parametrize("date", ["2026-10-06", "202610", "20261306", "20260230"])
 def test_a_malformed_date_is_refused(date):
+    release = released()
     with pytest.raises(VersionError, match="Date"):
-        snapshot_version.snapshot_versions(date, COMMIT, declared="0.9.2", node="0.9.2", released=released())
+        snapshot_version.snapshot_versions(date, COMMIT, declared="0.9.2", node="0.9.2", released=release)
 
 
 @pytest.mark.parametrize("commit", ["abc", "ABC1234", "g" * 7, "0" * 41])
 def test_a_malformed_commit_is_refused(commit):
+    release = released()
     with pytest.raises(VersionError, match="Commit"):
-        snapshot_version.snapshot_versions(DATE, commit, declared="0.9.2", node="0.9.2", released=released())
+        snapshot_version.snapshot_versions(DATE, commit, declared="0.9.2", node="0.9.2", released=release)
 
 
 def test_the_checkout_declares_versions_a_snapshot_can_follow():
@@ -174,7 +180,8 @@ def test_stamping_writes_the_snapshot_into_both_manifests(manifests):
         for name, version in manifest["optionalDependencies"].items()
         if name.startswith(f"{manifest['name']}-sysml-grpc-")
     }
-    assert len(platforms) == 5 and set(platforms.values()) == {npm}
+    assert len(platforms) == 5
+    assert set(platforms.values()) == {npm}
     assert manifest["peerDependencies"][f"{manifest['name']}-wasm"] == npm
     # The stamped manifest is what the release gate reads, so it must still read as one.
     assert snapshot_version.check_version.node_declared_version(str(package_json)) == npm
@@ -217,7 +224,8 @@ def test_the_command_reports_a_bad_date_and_stamps_nothing(capsys, tmp_path, mon
 
 
 def test_the_kernel_package_must_declare_the_same_version():
+    release = released()
     with pytest.raises(snapshot_version.VersionError, match="jupyter_opensysml_kernel/_version.py"):
         snapshot_version.snapshot_versions(
-            DATE, COMMIT, declared="0.9.2", node="0.9.2", kernel="0.9.1", released=released()
+            DATE, COMMIT, declared="0.9.2", node="0.9.2", kernel="0.9.1", released=release
         )
