@@ -47,17 +47,23 @@ func Feedback(diags []Diagnostic) string {
 
 // ExtractModel strips Markdown fences a model may have wrapped its answer in.
 func ExtractModel(answer string) string {
-	s := strings.TrimSpace(answer)
-	if !strings.HasPrefix(s, "```") {
-		return s
-	}
-	lines := strings.Split(s, "\n")
-	lines = lines[1:]
-	for i := len(lines) - 1; i >= 0; i-- {
-		if strings.HasPrefix(strings.TrimSpace(lines[i]), "```") {
-			lines = lines[:i]
+	lines := strings.Split(strings.TrimSpace(answer), "\n")
+	start := -1
+	for i, l := range lines {
+		if strings.HasPrefix(strings.TrimSpace(l), "```") {
+			start = i
 			break
 		}
 	}
-	return strings.TrimSpace(strings.Join(lines, "\n"))
+	if start < 0 {
+		return strings.TrimSpace(answer)
+	}
+	end := len(lines)
+	for i := start + 1; i < len(lines); i++ {
+		if strings.HasPrefix(strings.TrimSpace(lines[i]), "```") {
+			end = i
+			break
+		}
+	}
+	return strings.TrimSpace(strings.Join(lines[start+1:end], "\n"))
 }

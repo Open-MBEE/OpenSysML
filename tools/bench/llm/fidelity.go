@@ -13,7 +13,8 @@ type Structure struct {
 	// Elements are "<@type> <qualifiedName>" for every named element.
 	Elements []string `json:"elements"`
 	// Relationships are "<@type> <source qualifiedName> -> <target qualifiedName>"
-	// for every relationship whose ends are both named elements.
+	// for every relationship whose ends are both named elements, except
+	// memberships: ownership is already carried by the qualified names.
 	Relationships []string `json:"relationships"`
 }
 
@@ -61,7 +62,7 @@ func ExtractStructure(apiJSON []byte) (Structure, error) {
 			s.Elements = append(s.Elements, e.Type+" "+qn)
 			continue
 		}
-		if len(e.Source) == 0 || len(e.Target) == 0 {
+		if len(e.Source) == 0 || len(e.Target) == 0 || strings.HasSuffix(e.Type, "Membership") {
 			continue
 		}
 		for _, src := range e.Source {

@@ -107,10 +107,10 @@ func (p *ReplayProvider) Complete(ctx context.Context, req Request) (Response, e
 	if i >= len(recs) {
 		return Response{}, fmt.Errorf("replay: %s has %d recorded answers, a %dth was asked for", key, len(recs), i+1)
 	}
-	p.next[key] = i + 1
 	if p.Strict && recs[i].RequestDigest != RequestDigest(req) {
 		return Response{}, fmt.Errorf("replay: %s answer %d was recorded for a different request", key, i+1)
 	}
+	p.next[key] = i + 1
 	return recs[i].Response, nil
 }
 
