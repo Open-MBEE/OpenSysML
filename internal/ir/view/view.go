@@ -895,9 +895,8 @@ func (r *Renderer) declTypings(sym *symbols.Symbol) []string {
 	return names
 }
 
-// typeSources are the declarations whose typings head sym's box: sym when it declares
-// one, else those of each feature it directly redefines, found the same way, since a
-// redefining feature has the types of the features it redefines (KerML 1.0 §7.3.4.5).
+// typeSources are the declarations whose typings head sym's box: sym when it declares one,
+// else those of each feature it directly redefines, found the same way (KerML 1.0 §7.3.4.5).
 func (r *Renderer) typeSources(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	seen := map[*symbols.Symbol]bool{}
@@ -919,17 +918,46 @@ func (r *Renderer) typeSources(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// headType is the type a usage's box is headed with, as the notation writes it: its
-// declared typing, or else the typings it inherits from the features it redefines,
-// in redefinition order and each spelled once.
-func (r *Renderer) headType(sym *symbols.Symbol) string {
-	var texts []string
+// headTyping is one typing a box's head spells: its text as written, and the
+// qualified name of the element it resolves to, empty when it resolves to none.
+type headTyping struct {
+	text string
+	name string
+}
+
+// headTypingsOf are the typings heading sym's box, in redefinition then declaration
+// order, each element once however its declarations spell it.
+func (r *Renderer) headTypingsOf(sym *symbols.Symbol) []headTyping {
+	var out []headTyping
 	seen := map[string]bool{}
 	for _, source := range r.typeSources(sym) {
-		if text := declType(source); !seen[text] {
-			seen[text] = true
-			texts = append(texts, text)
+		texts := typingTexts(viewRelationshipsOf(source))
+		names := r.declTypings(source)
+		for i, text := range texts {
+			typing := headTyping{text: text}
+			// A source whose typings all resolve pairs each text with its element.
+			if len(names) == len(texts) {
+				typing.name = names[i]
+			}
+			key := "name:" + typing.name
+			if typing.name == "" {
+				key = "text:" + text
+			}
+			if !seen[key] {
+				seen[key] = true
+				out = append(out, typing)
+			}
 		}
+	}
+	return out
+}
+
+// headType is the type a usage's box is headed with, as the notation writes it:
+// its declared typing, or else the ones it inherits from the features it redefines.
+func (r *Renderer) headType(sym *symbols.Symbol) string {
+	var texts []string
+	for _, typing := range r.headTypingsOf(sym) {
+		texts = append(texts, typing.text)
 	}
 	return strings.Join(texts, ", ")
 }
@@ -937,13 +965,9 @@ func (r *Renderer) headType(sym *symbols.Symbol) string {
 // headTypings are the qualified names of the elements headType resolves to, each once.
 func (r *Renderer) headTypings(sym *symbols.Symbol) []string {
 	var names []string
-	seen := map[string]bool{}
-	for _, source := range r.typeSources(sym) {
-		for _, name := range r.declTypings(source) {
-			if !seen[name] {
-				seen[name] = true
-				names = append(names, name)
-			}
+	for _, typing := range r.headTypingsOf(sym) {
+		if typing.name != "" {
+			names = append(names, typing.name)
 		}
 	}
 	return names
@@ -961,6 +985,11 @@ func nodeType(decl ast.Node) string {
 // typingOf spells a declaration's typings as the notation does: every typing in
 // declaration order, a conjugated one behind its `~`, each name quoted as needed.
 func typingOf(rels []*ast.Relationship) string {
+	return strings.Join(typingTexts(rels), ", ")
+}
+
+// typingTexts are a declaration's typings as the notation writes each, in declaration order.
+func typingTexts(rels []*ast.Relationship) []string {
 	var types []string
 	for _, rel := range rels {
 		if rel == nil || rel.Target == nil || rel.Kind != ast.RelTyping {
@@ -975,7 +1004,7 @@ func typingOf(rels []*ast.Relationship) string {
 		}
 		types = append(types, text)
 	}
-	return strings.Join(types, ", ")
+	return types
 }
 
 // referenceText spells a name reference as written: a `$::` root, `::` between

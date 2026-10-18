@@ -258,9 +258,8 @@ func TestRedefiningUsageHeadsWithInheritedType(t *testing.T) {
 	}
 }
 
-// A usage redefining two typed features is headed with both types, in redefinition
-// order; a chain of untyped redefinitions reaches the type at its end; two redefined
-// features of one type spell it once; and every rendering form agrees.
+// A usage redefining typed features is headed with every type they declare, each element
+// once in redefinition order, through untyped chains, the same in every rendering form.
 func TestRedefiningUsageHeadsWithEveryInheritedType(t *testing.T) {
 	rendering := render(t, "redefining-heads.sysml", "RedefiningHeads::heads")
 	d := nodeAt(rendering.Roots, "RedefiningHeads::d")
@@ -271,6 +270,8 @@ func TestRedefiningUsageHeadsWithEveryInheritedType(t *testing.T) {
 		"both":   {"A, B", "RedefiningHeads::A,RedefiningHeads::B"},
 		"single": {"A", "RedefiningHeads::A"},
 		"pair":   {"A", "RedefiningHeads::A"},
+		"lbrb":   {"A, B", "RedefiningHeads::A,RedefiningHeads::B"},
+		"q":      {"Q::A, A", "RedefiningHeads::Q::A,RedefiningHeads::A"},
 	}
 	for name, typing := range want {
 		node := nodeAt(d.Children, name)

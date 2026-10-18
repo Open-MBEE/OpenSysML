@@ -3,6 +3,9 @@ package RedefiningHeads {
 
 	part def A;
 	part def B;
+	package Q {
+		part def A;
+	}
 
 	part def Base {
 		part left : A;
@@ -10,6 +13,10 @@ package RedefiningHeads {
 		part single : A;
 		part one : A;
 		part other : A;
+		part lb : A, B;
+		part rb : B;
+		part ql : Q::A;
+		part qr : A;
 	}
 
 	// A usage redefining two typed features inherits both types; one redefining
@@ -18,12 +25,16 @@ package RedefiningHeads {
 		part both :>> left, right;
 		part :>> single;
 		part pair :>> one, other;
+		part lbrb :>> lb, rb;
+		part q :>> ql, qr;
 	}
 
 	part def Further :> Derived {
 		part :>> both;
 		part :>> single;
 		part :>> pair;
+		part :>> lbrb;
+		part :>> q;
 	}
 
 	part d : Further;

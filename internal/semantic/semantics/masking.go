@@ -91,9 +91,8 @@ func (m *Model) AllRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// DirectRedefinedFeatures returns the features sym itself redefines, by clause,
-// by position (a parameter, connector end or case role) or by name in a metadata
-// body, in that order; what those redefine in turn is AllRedefinedFeatures' concern.
+// DirectRedefinedFeatures returns the features sym itself redefines: by clause, then by
+// position (parameter, connector end, case role), then by name in a metadata body.
 func (m *Model) DirectRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil {
 		return nil
