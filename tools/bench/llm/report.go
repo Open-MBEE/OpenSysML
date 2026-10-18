@@ -20,6 +20,7 @@ type Results struct {
 		MaxRounds   int      `json:"maxRounds"`
 		Samples     int      `json:"samples"`
 		Temperature float64  `json:"temperature"`
+		MaxTokens   int      `json:"maxTokens"`
 		Tasks       int      `json:"tasks"`
 		Tools       []string `json:"mcpTools"`
 	} `json:"settings"`

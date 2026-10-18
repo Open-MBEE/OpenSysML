@@ -80,7 +80,7 @@ func runCommand(args []string, stdout, stderr io.Writer) error {
 	fs.IntVar(&o.Samples, "samples", 3, "samples per cell")
 	fs.IntVar(&o.MaxRounds, "rounds", DefaultMaxRounds, "repair rounds after the first generation")
 	fs.Float64Var(&o.Temperature, "temperature", 0, "sampling temperature")
-	fs.IntVar(&o.MaxTokens, "max-tokens", 4096, "completion token limit")
+	fs.IntVar(&o.MaxTokens, "max-tokens", DefaultMaxTokens, "completion token limit")
 	fs.BoolVar(&o.Pilot, "pilot", false, "judge every compiled document with the pinned pilot validator too")
 	fs.StringVar(&o.Sysml, "sysml", "", "sysml binary; default <repo>/bin/sysml")
 	fs.StringVar(&o.Root, "root", "", "repository root; default the enclosing checkout")
@@ -163,7 +163,8 @@ func runCommand(args []string, stdout, stderr io.Writer) error {
 		return fmt.Errorf("-rounds must not be negative, got %d", o.MaxRounds)
 	}
 	results := &Results{Provider: provider.Name(), Model: provider.Model(), Recorded: baseline.Today()}
-	results.Settings.MaxRounds, results.Settings.Samples, results.Settings.Temperature = o.MaxRounds, o.Samples, o.Temperature
+	results.Settings.MaxRounds, results.Settings.Samples = o.MaxRounds, o.Samples
+	results.Settings.Temperature, results.Settings.MaxTokens = o.Temperature, o.MaxTokens
 	results.Settings.Tasks, results.Settings.Tools = len(tasks), MCPTools
 	results.Toolchain.SysmlVersion = sysmlVersion(ctx, tc.Sysml)
 	if o.Pilot {

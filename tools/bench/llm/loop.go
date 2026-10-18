@@ -12,6 +12,9 @@ import (
 // DefaultMaxRounds is how many repair rounds follow the first generation.
 const DefaultMaxRounds = 3
 
+// DefaultMaxTokens is the completion limit a run asks for unless -max-tokens says otherwise.
+const DefaultMaxTokens = 4096
+
 // MaxToolCallsPerRound bounds the tool-call turns a model may take before it
 // must answer with a document.
 const MaxToolCallsPerRound = 8

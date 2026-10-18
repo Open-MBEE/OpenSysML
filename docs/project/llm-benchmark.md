@@ -209,9 +209,34 @@ Every gold imports what it uses from the OMG standard library (`ScalarValues`, `
 
 ### Live runs
 
-No hosted provider has been run yet: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY` and
-`OPENROUTER_API_KEY` were unset where this record was produced, so those providers were skipped.
-The local `ollama` run is in progress; its results file and table land here when it completes.
+Hosted providers were skipped: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY` and
+`OPENROUTER_API_KEY` were unset where this record was produced, so no frontier model has a
+results file yet. The command to add one is under [Running it](#running-it); its results file
+and row belong here.
+
+One local open-weight model ran, on CPU (Ollama 0.40.6, 8 cores, no GPU), over a reduced design
+because a single completion took minutes: the ten tasks `S01 S05 B01 B05 R01 R05 C01 C05 V01 V05`
+(two per family, simple and medium), both arms, one sample, temperature 0, a 2048-token completion limit, three repair
+rounds, no pilot judging. Results file: [`llm-benchmark-ollama-qwen2.5-coder-7b.json`](llm-benchmark-ollama-qwen2.5-coder-7b.json)
+(recorded 2026-10-18; `toolchain` names the exact `sysml` build).
+
+| Model | Arm | Cells | CR@0 | FCR | Repairs | Fidelity | Halluc. | Pilot agrees | Tool calls |
+|---|---|---|---|---|---|---|---|---|---|
+| ollama/qwen2.5-coder:7b (7.6B, Q4_K_M) | compiler | 10 | 0% | 0% | 3.00 | 0.00 | 0% | — | 0.00 |
+| ollama/qwen2.5-coder:7b (7.6B, Q4_K_M) | mcp | 10 | 0% | 0% | 3.00 | 0.00 | 0% | — | 0.00 |
+
+The paired comparison is all ties (10 pairs per metric, every p = 1.000): the model never called
+a tool, so the mcp arm differed from the compiler arm only by the tool descriptions in its context.
+Not one of the 80 documents parsed. The diagnostics it was shown are in the results file; the
+recurring ones are syntax the model invented or borrowed from elsewhere — `action Brew { body: [
+heatWater, grindBeans ] }`, `decision { if ... { } else { } }`, KerML `class` declarations, an
+`import` without a visibility keyword, and a `/*` comment it never closed — and three rounds of
+verbatim diagnostics did not move it off them (most cells return the same document, byte for byte,
+in every round). It also imported `StandardViewDefinitions::*` into nearly every document, the
+last library the primer names as an example. Hallucination is 0% because nothing reached name
+resolution. One 7B model on ten tasks says nothing about the frontier models the benchmark is
+built for; it does establish that the loop, both arms and the scorer run end to end against a
+live provider, and that the whole run replays bit for bit from its recording (below).
 
 ### Replay check
 
@@ -221,6 +246,11 @@ Markdown fence, tool calls to each of the five tools), so the test can assert ev
 exactly. `TestReplayLoop` in `tools/bench/llm` runs it through both arms and checks compile
 rates, repairs, the hallucinated name, fidelity 1 for a gold against itself, the pilot verdict,
 the recorded tool calls and the paired comparison.
+
+`tools/bench/llm/testdata/replay/ollama-qwen2.5-coder-7b.json` is the recording of the live run
+above. `TestOllamaRecordingReplays` replays it with strict request digests — so the prompts,
+tool descriptions and feedback format must still produce the exact requests the model answered —
+and checks that every cell and the aggregates match the committed results file.
 
 ---
 
@@ -250,6 +280,10 @@ go run -C tools ./cmd/llm-bench run -provider anthropic -model <model> -pilot \
 go run -C tools ./cmd/llm-bench report docs/project/llm-benchmark-*.json   # the tables above
 go run -C tools ./cmd/llm-bench run -provider replay \
   -fixture tools/bench/llm/testdata/replay/synthetic.json -tasks S01 -samples 2
+go run -C tools ./cmd/llm-bench run -provider ollama -model qwen2.5-coder:7b \
+  -tasks S01,S05,B01,B05,R01,R05,C01,C05,V01,V05 -samples 1 -max-tokens 2048 \
+  -record tools/bench/llm/testdata/replay/ollama-qwen2.5-coder-7b.json \
+  -out docs/project/llm-benchmark-ollama-qwen2.5-coder-7b.json          # the local run above
 ```
 
 `-tasks`, `-arms`, `-samples`, `-rounds`, `-temperature`, `-max-tokens` and `-base-url` narrow
