@@ -78,7 +78,7 @@ curl -fsSL https://opensysml.org/install.sh | sh
 irm https://opensysml.org/install.ps1 | iex
 ```
 Both scripts take a release (`--version v0.9.1`, `nightly`), a tool list (`--tools sysml`,
-`sysml-lsp`, `sysml-grpc`, `sysml-jupyter-kernel`, or `all` for every tool the chosen release
+`sysml-lsp`, `sysml-grpc`, `sysml-jupyter-kernel`, `sysml-mcp`, or `all` for every tool the chosen release
 published, read from its `SHA256SUMS.txt`) and a destination (`--prefix`, or `-InstallDir` on
 Windows), and `--dry-run` shows the choice without installing; `sh -s -- --help` lists the rest. The scripts are [`install.sh`](install.sh) and [`install.ps1`](install.ps1) in
 this repository, so a checkout runs them as `./install.sh`.
@@ -286,6 +286,7 @@ SysML v2:
 - **Language Server** — A standard LSP server (`sysml-lsp`) with live diagnostics, semantic hover, go-to-definition, find references, completion, signature help, workspace-wide symbol search, formatting, rename, semantic tokens, quick fixes, code lenses and inlay hints. A VS Code extension with TextMate grammars for `.sysml` and `.kerml` ships in [editors/vscode](editors/vscode), and any editor with a generic LSP client can drive the server directly — [guide chapter 8](docs/guide/08-editors.md) walks through both. *Not yet:* the extension is not on a marketplace — install the nightly `opensysml-sysml.vsix` or build it from source — and the server answers no semantic token delta requests.
 - **Interactive REPL** — An exploratory modeling environment: define models incrementally, evaluate expressions interactively, instantiate parts, run calculations and inspect runtime state, comparable to IPython or Jupyter for systems engineering.
 - **Jupyter Kernel** — `sysml-jupyter-kernel` runs the REPL session behind the Jupyter protocol, so notebook cells hold SysML: declarations accumulate across cells, expressions evaluate, every `%` command works as at the prompt, and views and documents render as Mermaid, SVG, Markdown, tables, HTML or JSON. `pip install jupyter-opensysml-kernel && python -m jupyter_opensysml_kernel install` registers it ([guide chapter 12](docs/guide/12-jupyter.md)).
+- **MCP Server for Coding Agents** — `sysml-mcp` serves the toolchain to OpenCode, Claude Code, Cursor, Codex, VS Code Copilot, Gemini CLI, Devin and any other Model Context Protocol host over stdio: the language server's workspace, the runtime's one-shot service and persistent REPL sessions as tools an agent calls. `sysml-mcp -print-config <host>` writes the host's configuration block ([MCP server reference](docs/reference/sysml-mcp.md)).
 - **Constraint Solving** *(experimental)* — In addition to evaluating what holds of an object, an external SMT solver determines whether a constraint, requirement or satisfaction assertion *can* hold, which conditions conflict when it cannot, which values would satisfy it, which variants a model permits, and what optimizes an `analysis def`'s objectives. The solver is optional and discovered at runtime. [The REPL command reference](docs/reference/repl-commands.md) documents each command, and [installing a solver](docs/guide/01-install.md#installing-a-solver-optional) describes how to obtain one. The design follows OpenMBEE's [HMF](https://github.com/hivecore-dev/hmf) (see [Acknowledgements](#acknowledgements)).
 - **Embeddable Go API** — `client/opensysml` is the public Go surface: parse, look up symbols, evaluate expressions and instantiate parts from Go code, answered in process by the engine the calling binary already links (no port, no child process and no serialization round trip), or over the Connect protocol against an externally hosted service. See [client/opensysml/README.md](client/opensysml/README.md).
 - **Python Client Library** — gRPC-based Python bindings for programmatic access: parse models, resolve symbols, evaluate expressions, instantiate parts, execute actions/state machines. Includes IPython display hooks for Jupyter notebooks and pandas DataFrame integration. Constraint, requirement, satisfaction and calc verdicts are available as RPCs (`verify_constraint`, `verify_requirement`, `verify_satisfaction`, `calc`).
@@ -399,6 +400,7 @@ github.com/Open-MBEE/OpenSysML
 │   ├── sysml-lsp/          # LSP server binary
 │   ├── sysml-grpc/         # Service binary the clients talk to (gRPC, gRPC-Web, Connect)
 │   ├── sysml-jupyter-kernel/ # Jupyter kernel binary
+│   ├── sysml-mcp/          # Model Context Protocol server binary for coding agents
 │   ├── sysml-wasm/         # Combined WebAssembly module
 │   └── sysml-engine/, sysml-core/, sysml-syntax/   # Smaller WebAssembly builds
 ├── internal/               # One directory per layer; a package imports only the layers below it
@@ -463,8 +465,9 @@ Pre-built binaries for Linux, macOS, and Windows are available on the [Releases 
 
 **Release artifacts:** per-binary archives (`sysml-<os>-<arch>.tar.gz`,
 `sysml-lsp-<os>-<arch>.tar.gz`), `opensysml-<os>-<arch>.tar.gz` bundles containing both
-binaries, and `SHA256SUMS.txt`. Windows also gets an installer,
-`opensysml-<x.y.z>-windows-amd64.msi` (`sysml`, `sysml-lsp`, `sysml-grpc`, optional bundled Z3
+binaries, `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows) with the MCP server, its manual
+page and the LICENSE, and `SHA256SUMS.txt`. Windows also gets an installer,
+`opensysml-<x.y.z>-windows-amd64.msi` (`sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-mcp`, optional bundled Z3
 solver; see [packaging/msi](packaging/msi/README.md)), built by the GitHub Actions release
 workflow after CircleCI publishes the release, with its digest in `SHA256SUMS-windows-msi.txt`.
 macOS binaries are not Developer ID signed or notarized; see
@@ -479,14 +482,14 @@ assets beside the unsigned ones that `SHA256SUMS.txt` covers. See the
 Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
 [SignPath Foundation](https://signpath.org).
 
-The Windows binaries (`sysml.exe`, `sysml-lsp.exe`, `sysml-grpc.exe`) of a tagged release are
+The Windows binaries (`sysml.exe`, `sysml-lsp.exe`, `sysml-grpc.exe`, `sysml-mcp.exe`) of a tagged release are
 built by the GitHub Actions workflow
 [`.github/workflows/release-windows.yml`](.github/workflows/release-windows.yml) from the
 tagged commit of this repository and submitted to SignPath for signing from that workflow, so
 every signed file traces back to a public commit and a public build log. The signed files are
 published on the GitHub release as `sysml-windows-amd64-signed.zip`,
 `sysml-lsp-windows-amd64-signed.zip`, `sysml-grpc-windows-amd64-signed.exe`,
-`opensysml-windows-amd64-signed.zip` and the installer `opensysml-<x.y.z>-windows-amd64-signed.msi`
+`sysml-mcp-windows-amd64-signed.zip`, `opensysml-windows-amd64-signed.zip` and the installer `opensysml-<x.y.z>-windows-amd64-signed.msi`
 (built from the signed executables and itself signed), with their digests in
 `SHA256SUMS-windows-signed.txt`. Every signed executable carries `ProductName` `OpenSysML` and
 the release tag as `ProductVersion`/`FileVersion`. The Z3 solver the MSI optionally bundles is

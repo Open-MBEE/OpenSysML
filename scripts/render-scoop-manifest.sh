@@ -55,11 +55,13 @@ sum_for() {
 # Scoop versions carry no "v"; checkver's github source strips it the same way.
 VERSION="${TAG#v}"
 WINDOWS_AMD64="$(sum_for opensysml-windows-amd64.zip)"
+MCP_WINDOWS_AMD64="$(sum_for sysml-mcp-windows-amd64.zip)"
 
 sed \
   -e "s|__TAG__|${TAG}|g" \
   -e "s|__VERSION__|${VERSION}|g" \
   -e "s|__SHA256_WINDOWS_AMD64__|${WINDOWS_AMD64}|g" \
+  -e "s|__SHA256_MCP_WINDOWS_AMD64__|${MCP_WINDOWS_AMD64}|g" \
   "$TEMPLATE" |
   grep -v '^    "##": ' > "$OUT" # drop the maintainer-facing template note
 

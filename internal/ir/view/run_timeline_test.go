@@ -45,7 +45,7 @@ func TestRunSequenceDoesNotSupportD2(t *testing.T) {
 	if !errors.As(err, &wrong) {
 		t.Fatalf("WriteWith(d2) = %v, want WrongFormError", err)
 	}
-	if got, want := err.Error(), "a sequence rendering is not written as d2; ask for text, mermaid or plantuml"; got != want {
+	if got, want := err.Error(), "a sequence rendering is not written as d2; ask for text, mermaid, plantuml, svg or svg-animated"; got != want {
 		t.Errorf("WriteWith(d2) error = %q, want %q", got, want)
 	}
 }
