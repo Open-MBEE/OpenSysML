@@ -963,3 +963,30 @@ func TestExprBodyValueIsTheExpression(t *testing.T) {
 		}
 	}
 }
+
+// `*` is a Positive (KerML checkLiteralInfinitySpecialization), so every numeric
+// type holds it and Boolean and String refuse it, as the pilot judges the same
+// bindings; it spells one value, so the value-count rule reads it as `= 1` is.
+func TestExprUnboundedLiteralIsPositive(t *testing.T) {
+	wantOneDiag(t,
+		`package P { attribute b : ScalarValues::Boolean = *; }`,
+		"cannot bind Natural value to a feature typed by Boolean")
+	wantOneDiag(t,
+		`package P { attribute s : ScalarValues::String = *; }`,
+		"cannot bind Natural value to a feature typed by String")
+	wantOneDiag(t,
+		`package P { attribute def Mass; attribute m : Mass = *; }`,
+		"cannot bind Natural value to a feature typed by Mass")
+	wantOneDiag(t,
+		`package P { attribute two : ScalarValues::Integer[2] = *; }`,
+		"1 value(s) bound to a feature with multiplicity lower bound 2")
+	wantNoDiags(t, `package P {
+		attribute n : ScalarValues::Natural = *;
+		attribute i : ScalarValues::Integer = *;
+		attribute q : ScalarValues::Rational = *;
+		attribute r : ScalarValues::Real = *;
+		attribute ng : ScalarValues::Integer = -*;
+		attribute cmp : ScalarValues::Boolean = * == 1;
+		attribute pair : ScalarValues::Integer[2] = (1, *);
+	}`)
+}

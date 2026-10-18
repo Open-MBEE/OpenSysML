@@ -223,6 +223,8 @@ class RenderGeometry:
     height: float
     has_size: bool
     collapsed: bool
+    # The layout only folds or hides the node: x and y carry no position.
+    unplaced: bool = False
 
 
 @dataclass(frozen=True)
@@ -366,7 +368,7 @@ def render_view_result(response):
             _render_span(node.origin if node.HasField("origin") else None),
             None if not node.HasField("geometry") else RenderGeometry(
                 node.geometry.x, node.geometry.y, node.geometry.width, node.geometry.height,
-                node.geometry.has_size, node.geometry.collapsed,
+                node.geometry.has_size, node.geometry.collapsed, node.geometry.unplaced,
             ),
             _render_style(node.style if node.HasField("style") else None),
         )

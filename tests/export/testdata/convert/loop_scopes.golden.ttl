@@ -75,6 +75,7 @@ elmt:Loops__Charge__prep
     sysml:owner elmt:Loops__Charge ;
     sysml:owningRelationship elmt:Loops__Charge__prep_om ;
     sysml:owningMembership elmt:Loops__Charge__prep_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "prep" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action prep;\n" .
@@ -93,6 +94,7 @@ elmt:Loops__Charge__prep_om
 
 elmt:Loops__Charge___401
     a sysml:WhileLoopActionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Loops::Charge::@1" ;
     sysx:sourceLine "4"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -132,6 +134,7 @@ expr:Loops__Charge___401_puntilCondition
     a sysml:FeatureChainExpression ;
     sysx:sourceText "charging.done" ;
     sysml:elementId "Loops__Charge___401_puntilCondition" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Loops__Charge___401_puntilCondition_pa0 ;
     sysml:ownedRelationship expr:Loops__Charge___401_puntilCondition_pin0_om, expr:Loops__Charge___401_puntilCondition_pout_om, expr:Loops__Charge___401_puntilCondition_ptargetFeature ;
     sysml:ownedMembership expr:Loops__Charge___401_puntilCondition_pin0_om, expr:Loops__Charge___401_puntilCondition_pout_om ;
@@ -154,6 +157,7 @@ expr:Loops__Charge___401_puntilCondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "charging" ;
     sysml:elementId "Loops__Charge___401_puntilCondition_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Loops__Charge___401__charging ;
     sysml:ownedRelationship expr:Loops__Charge___401_puntilCondition_pa0_pout_om, expr:Loops__Charge___401_puntilCondition_pa0_preferent ;
     sysml:ownedMembership expr:Loops__Charge___401_puntilCondition_pa0_pout_om ;
@@ -168,6 +172,7 @@ expr:Loops__Charge___401_puntilCondition_pa0
 
 expr:Loops__Charge___401_puntilCondition_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___401_puntilCondition_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Loops__Charge___401_puntilCondition_pa0 ;
@@ -188,6 +193,7 @@ expr:Loops__Charge___401_puntilCondition_pa0_pout_om
 
 expr:Loops__Charge___401_puntilCondition_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___401_puntilCondition_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Loops__Charge___401_puntilCondition ;
@@ -222,6 +228,7 @@ expr:Loops__Charge___401_puntilCondition_pa0_om
 
 expr:Loops__Charge___401_puntilCondition_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___401_puntilCondition_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Loops__Charge___401_puntilCondition ;
@@ -263,6 +270,7 @@ elmt:Loops__Charge___401__charging
     sysml:owner elmt:Loops__Charge___401 ;
     sysml:owningRelationship elmt:Loops__Charge___401__charging_om ;
     sysml:owningMembership elmt:Loops__Charge___401__charging_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "charging" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "            action charging;\n" .
@@ -281,6 +289,7 @@ elmt:Loops__Charge___401__charging_om
 
 elmt:Loops__Charge___402
     a sysml:WhileLoopActionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Loops::Charge::@2" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -321,6 +330,7 @@ expr:Loops__Charge___402_pwhileCondition
     a sysml:FeatureChainExpression ;
     sysx:sourceText "prep.done" ;
     sysml:elementId "Loops__Charge___402_pwhileCondition" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Loops__Charge___402_pwhileCondition_pa0 ;
     sysml:ownedRelationship expr:Loops__Charge___402_pwhileCondition_pin0_om, expr:Loops__Charge___402_pwhileCondition_pout_om, expr:Loops__Charge___402_pwhileCondition_ptargetFeature ;
     sysml:ownedMembership expr:Loops__Charge___402_pwhileCondition_pin0_om, expr:Loops__Charge___402_pwhileCondition_pout_om ;
@@ -343,6 +353,7 @@ expr:Loops__Charge___402_pwhileCondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "prep" ;
     sysml:elementId "Loops__Charge___402_pwhileCondition_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Loops__Charge__prep ;
     sysml:ownedRelationship expr:Loops__Charge___402_pwhileCondition_pa0_pout_om, expr:Loops__Charge___402_pwhileCondition_pa0_preferent ;
     sysml:ownedMembership expr:Loops__Charge___402_pwhileCondition_pa0_pout_om ;
@@ -357,6 +368,7 @@ expr:Loops__Charge___402_pwhileCondition_pa0
 
 expr:Loops__Charge___402_pwhileCondition_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___402_pwhileCondition_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Loops__Charge___402_pwhileCondition_pa0 ;
@@ -377,6 +389,7 @@ expr:Loops__Charge___402_pwhileCondition_pa0_pout_om
 
 expr:Loops__Charge___402_pwhileCondition_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___402_pwhileCondition_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Loops__Charge___402_pwhileCondition ;
@@ -411,6 +424,7 @@ expr:Loops__Charge___402_pwhileCondition_pa0_om
 
 expr:Loops__Charge___402_pwhileCondition_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___402_pwhileCondition_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Loops__Charge___402_pwhileCondition ;
@@ -443,6 +457,7 @@ expr:Loops__Charge___402_puntilCondition
     a sysml:FeatureChainExpression ;
     sysx:sourceText "pace.done" ;
     sysml:elementId "Loops__Charge___402_puntilCondition" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Loops__Charge___402_puntilCondition_pa0 ;
     sysml:ownedRelationship expr:Loops__Charge___402_puntilCondition_pin0_om, expr:Loops__Charge___402_puntilCondition_pout_om, expr:Loops__Charge___402_puntilCondition_ptargetFeature ;
     sysml:ownedMembership expr:Loops__Charge___402_puntilCondition_pin0_om, expr:Loops__Charge___402_puntilCondition_pout_om ;
@@ -465,6 +480,7 @@ expr:Loops__Charge___402_puntilCondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "pace" ;
     sysml:elementId "Loops__Charge___402_puntilCondition_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Loops__Charge___402__pace ;
     sysml:ownedRelationship expr:Loops__Charge___402_puntilCondition_pa0_pout_om, expr:Loops__Charge___402_puntilCondition_pa0_preferent ;
     sysml:ownedMembership expr:Loops__Charge___402_puntilCondition_pa0_pout_om ;
@@ -479,6 +495,7 @@ expr:Loops__Charge___402_puntilCondition_pa0
 
 expr:Loops__Charge___402_puntilCondition_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___402_puntilCondition_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Loops__Charge___402_puntilCondition_pa0 ;
@@ -499,6 +516,7 @@ expr:Loops__Charge___402_puntilCondition_pa0_pout_om
 
 expr:Loops__Charge___402_puntilCondition_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___402_puntilCondition_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Loops__Charge___402_puntilCondition ;
@@ -533,6 +551,7 @@ expr:Loops__Charge___402_puntilCondition_pa0_om
 
 expr:Loops__Charge___402_puntilCondition_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___402_puntilCondition_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Loops__Charge___402_puntilCondition ;
@@ -574,6 +593,7 @@ elmt:Loops__Charge___402__pace
     sysml:owner elmt:Loops__Charge___402 ;
     sysml:owningRelationship elmt:Loops__Charge___402__pace_om ;
     sysml:owningMembership elmt:Loops__Charge___402__pace_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "pace" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "            action pace;\n" .

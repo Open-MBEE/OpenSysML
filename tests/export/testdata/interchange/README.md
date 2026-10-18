@@ -1,4 +1,4 @@
-The two library identity JSON fixtures are toolkit v0.10.0 full-JSON exports with a hand-edited `ScalarValues::Real` library stub id; the unmatched case also changes its qualified name.
+The two library identity JSON fixtures are toolkit v0.10.0 full-JSON exports with a hand-edited `ScalarValues::Real` library stub id; the unmatched case also changes its qualified name. They stay as written: an ownerless `isLibraryElement` stub is the shape older element-form documents name a library element by, and the reader keeps resolving one — by its id, else by its stated name with a warning, refusing a name the bundled library lacks — though this mapping's own element form no longer writes them.
 
 The `satisfy_by` fixture is a toolkit v0.10.0 full-JSON export of the adjacent source model.
 

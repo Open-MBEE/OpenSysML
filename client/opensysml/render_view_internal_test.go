@@ -16,7 +16,7 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 			Detail: "detail", Text: "text", StandIn: true, Parent: "parent",
 			Ports:    []*pb.RenderPort{{Id: "n0.0", Name: "api", Type: "Demo::API", Direction: "inout"}},
 			Origin:   &pb.Span{File: "views.sysml", StartLine: 4},
-			Geometry: &pb.RenderGeometry{X: 1, Y: 2, Width: 3, Height: 4, HasSize: true, Collapsed: true},
+			Geometry: &pb.RenderGeometry{X: 1, Y: 2, Width: 3, Height: 4, HasSize: true, Collapsed: true, Unplaced: true},
 			Style: &pb.RenderStyle{Fill: "#fff", Line: "#000", Text: "#111", Font: "sans",
 				FontSize: 12, Bold: true, Italic: true},
 		}},
@@ -45,7 +45,7 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 		t.Errorf("rendered node = %+v", node)
 	}
 	if node.Origin == nil || node.Origin.StartLine != 4 || node.Geometry == nil ||
-		!node.Geometry.Collapsed || node.Style == nil || node.Style.FontSize != 12 || !node.Style.Bold {
+		!node.Geometry.Collapsed || !node.Geometry.Unplaced || node.Style == nil || node.Style.FontSize != 12 || !node.Style.Bold {
 		t.Errorf("rendered node optional fields = %+v", node)
 	}
 	if edge := rendered.Edges[0]; edge.From != "n1" || edge.To != "n0" ||
