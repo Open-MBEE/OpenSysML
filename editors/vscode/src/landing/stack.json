@@ -101,6 +101,14 @@
       },
       {
         "id": "n10",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
+        "detail": "",
+        "parent": "n7"
+      },
+      {
+        "id": "n11",
         "kind": "part",
         "name": "validation",
         "type": "Component",
@@ -108,23 +116,31 @@
         "parent": "n1"
       },
       {
-        "id": "n11",
+        "id": "n12",
         "kind": "attribute",
         "name": "label",
         "type": "",
         "detail": "",
-        "parent": "n10"
+        "parent": "n11"
       },
       {
-        "id": "n12",
+        "id": "n13",
         "kind": "attribute",
         "name": "role",
         "type": "",
         "detail": "",
-        "parent": "n10"
+        "parent": "n11"
       },
       {
-        "id": "n13",
+        "id": "n14",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
+        "detail": "",
+        "parent": "n11"
+      },
+      {
+        "id": "n15",
         "kind": "part",
         "name": "stdlib",
         "type": "Component",
@@ -132,49 +148,33 @@
         "parent": "n1"
       },
       {
-        "id": "n14",
+        "id": "n16",
         "kind": "attribute",
         "name": "label",
         "type": "",
         "detail": "",
-        "parent": "n13"
-      },
-      {
-        "id": "n15",
-        "kind": "attribute",
-        "name": "role",
-        "type": "",
-        "detail": "",
-        "parent": "n13"
-      },
-      {
-        "id": "n16",
-        "kind": "part",
-        "name": "lsp",
-        "type": "Component",
-        "detail": "",
-        "parent": "n1"
+        "parent": "n15"
       },
       {
         "id": "n17",
         "kind": "attribute",
-        "name": "label",
+        "name": "role",
         "type": "",
         "detail": "",
-        "parent": "n16"
+        "parent": "n15"
       },
       {
         "id": "n18",
         "kind": "attribute",
-        "name": "role",
-        "type": "",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n16"
+        "parent": "n15"
       },
       {
         "id": "n19",
         "kind": "part",
-        "name": "editors",
+        "name": "lsp",
         "type": "Component",
         "detail": "",
         "parent": "n1"
@@ -197,6 +197,46 @@
       },
       {
         "id": "n22",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
+        "detail": "",
+        "parent": "n19"
+      },
+      {
+        "id": "n23",
+        "kind": "part",
+        "name": "editors",
+        "type": "Component",
+        "detail": "",
+        "parent": "n1"
+      },
+      {
+        "id": "n24",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n23"
+      },
+      {
+        "id": "n25",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n23"
+      },
+      {
+        "id": "n26",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
+        "detail": "",
+        "parent": "n23"
+      },
+      {
+        "id": "n27",
         "kind": "part",
         "name": "repl",
         "type": "Component",
@@ -204,73 +244,33 @@
         "parent": "n1"
       },
       {
-        "id": "n23",
-        "kind": "attribute",
-        "name": "label",
-        "type": "",
-        "detail": "",
-        "parent": "n22"
-      },
-      {
-        "id": "n24",
-        "kind": "attribute",
-        "name": "role",
-        "type": "",
-        "detail": "",
-        "parent": "n22"
-      },
-      {
-        "id": "n25",
-        "kind": "part",
-        "name": "jupyter",
-        "type": "Component",
-        "detail": "",
-        "parent": "n1"
-      },
-      {
-        "id": "n26",
-        "kind": "attribute",
-        "name": "label",
-        "type": "",
-        "detail": "",
-        "parent": "n25"
-      },
-      {
-        "id": "n27",
-        "kind": "attribute",
-        "name": "role",
-        "type": "",
-        "detail": "",
-        "parent": "n25"
-      },
-      {
         "id": "n28",
-        "kind": "part",
-        "name": "engine",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
         "detail": "",
-        "parent": "n1"
+        "parent": "n27"
       },
       {
         "id": "n29",
         "kind": "attribute",
-        "name": "label",
+        "name": "role",
         "type": "",
         "detail": "",
-        "parent": "n28"
+        "parent": "n27"
       },
       {
         "id": "n30",
         "kind": "attribute",
-        "name": "role",
-        "type": "",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n28"
+        "parent": "n27"
       },
       {
         "id": "n31",
         "kind": "part",
-        "name": "solver",
+        "name": "jupyter",
         "type": "Component",
         "detail": "",
         "parent": "n1"
@@ -293,80 +293,80 @@
       },
       {
         "id": "n34",
-        "kind": "part",
-        "name": "analyzers",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n1"
+        "parent": "n31"
       },
       {
         "id": "n35",
-        "kind": "attribute",
-        "name": "label",
-        "type": "",
+        "kind": "part",
+        "name": "engine",
+        "type": "Component",
         "detail": "",
-        "parent": "n34"
+        "parent": "n1"
       },
       {
         "id": "n36",
         "kind": "attribute",
-        "name": "role",
+        "name": "label",
         "type": "",
         "detail": "",
-        "parent": "n34"
+        "parent": "n35"
       },
       {
         "id": "n37",
-        "kind": "part",
-        "name": "service",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
         "detail": "",
-        "parent": "n1"
+        "parent": "n35"
       },
       {
         "id": "n38",
         "kind": "attribute",
-        "name": "label",
-        "type": "",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n37"
+        "parent": "n35"
       },
       {
         "id": "n39",
-        "kind": "attribute",
-        "name": "role",
-        "type": "",
-        "detail": "",
-        "parent": "n37"
-      },
-      {
-        "id": "n40",
         "kind": "part",
-        "name": "clients",
+        "name": "solver",
         "type": "Component",
         "detail": "",
         "parent": "n1"
       },
       {
-        "id": "n41",
+        "id": "n40",
         "kind": "attribute",
         "name": "label",
         "type": "",
         "detail": "",
-        "parent": "n40"
+        "parent": "n39"
       },
       {
-        "id": "n42",
+        "id": "n41",
         "kind": "attribute",
         "name": "role",
         "type": "",
         "detail": "",
-        "parent": "n40"
+        "parent": "n39"
+      },
+      {
+        "id": "n42",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
+        "detail": "",
+        "parent": "n39"
       },
       {
         "id": "n43",
         "kind": "part",
-        "name": "docgen",
+        "name": "analyzers",
         "type": "Component",
         "detail": "",
         "parent": "n1"
@@ -389,90 +389,83 @@
       },
       {
         "id": "n46",
-        "kind": "part",
-        "name": "interchange",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n1"
+        "parent": "n43"
       },
       {
         "id": "n47",
-        "kind": "attribute",
-        "name": "label",
-        "type": "",
+        "kind": "part",
+        "name": "service",
+        "type": "Component",
         "detail": "",
-        "parent": "n46"
+        "parent": "n1"
       },
       {
         "id": "n48",
         "kind": "attribute",
-        "name": "role",
+        "name": "label",
         "type": "",
         "detail": "",
-        "parent": "n46"
+        "parent": "n47"
       },
       {
         "id": "n49",
-        "kind": "part",
-        "name": "migration",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
         "detail": "",
-        "parent": "n1"
+        "parent": "n47"
       },
       {
         "id": "n50",
         "kind": "attribute",
-        "name": "label",
-        "type": "",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n49"
+        "parent": "n47"
       },
       {
         "id": "n51",
-        "kind": "attribute",
-        "name": "role",
-        "type": "",
-        "detail": "",
-        "parent": "n49"
-      },
-      {
-        "id": "n52",
         "kind": "part",
-        "name": "oslc",
+        "name": "clients",
         "type": "Component",
         "detail": "",
         "parent": "n1"
       },
       {
-        "id": "n53",
+        "id": "n52",
         "kind": "attribute",
         "name": "label",
         "type": "",
         "detail": "",
-        "parent": "n52"
+        "parent": "n51"
       },
       {
-        "id": "n54",
+        "id": "n53",
         "kind": "attribute",
         "name": "role",
         "type": "",
         "detail": "",
-        "parent": "n52"
+        "parent": "n51"
+      },
+      {
+        "id": "n54",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
+        "detail": "",
+        "parent": "n51"
       },
       {
         "id": "n55",
         "kind": "part",
-        "name": "pilot",
-        "type": "Project",
+        "name": "docgen",
+        "type": "Component",
         "detail": "",
-        "parent": "n0",
-        "ports": [
-          {
-            "id": "n55.0",
-            "name": "api",
-            "type": "ModelPort"
-          }
-        ]
+        "parent": "n1"
       },
       {
         "id": "n56",
@@ -485,7 +478,7 @@
       {
         "id": "n57",
         "kind": "attribute",
-        "name": "kind",
+        "name": "role",
         "type": "",
         "detail": "",
         "parent": "n55"
@@ -493,82 +486,82 @@
       {
         "id": "n58",
         "kind": "attribute",
-        "name": "lang",
-        "type": "",
+        "name": "kind",
+        "type": "String",
         "detail": "",
         "parent": "n55"
       },
       {
         "id": "n59",
-        "kind": "attribute",
-        "name": "role",
-        "type": "",
+        "kind": "part",
+        "name": "interchange",
+        "type": "Component",
         "detail": "",
-        "parent": "n55"
+        "parent": "n1"
       },
       {
         "id": "n60",
         "kind": "attribute",
-        "name": "repo",
+        "name": "label",
         "type": "",
         "detail": "",
-        "parent": "n55"
+        "parent": "n59"
       },
       {
         "id": "n61",
-        "kind": "part",
-        "name": "grammars",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
         "detail": "",
-        "parent": "n55"
+        "parent": "n59"
       },
       {
         "id": "n62",
         "kind": "attribute",
-        "name": "label",
-        "type": "",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n61"
+        "parent": "n59"
       },
       {
         "id": "n63",
-        "kind": "attribute",
-        "name": "role",
-        "type": "",
+        "kind": "part",
+        "name": "migration",
+        "type": "Component",
         "detail": "",
-        "parent": "n61"
+        "parent": "n1"
       },
       {
         "id": "n64",
-        "kind": "part",
-        "name": "validation",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
         "detail": "",
-        "parent": "n55"
+        "parent": "n63"
       },
       {
         "id": "n65",
         "kind": "attribute",
-        "name": "label",
+        "name": "role",
         "type": "",
         "detail": "",
-        "parent": "n64"
+        "parent": "n63"
       },
       {
         "id": "n66",
         "kind": "attribute",
-        "name": "role",
-        "type": "",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n64"
+        "parent": "n63"
       },
       {
         "id": "n67",
         "kind": "part",
-        "name": "evaluator",
+        "name": "oslc",
         "type": "Component",
         "detail": "",
-        "parent": "n55"
+        "parent": "n1"
       },
       {
         "id": "n68",
@@ -588,43 +581,50 @@
       },
       {
         "id": "n70",
-        "kind": "part",
-        "name": "stdlib",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n55"
+        "parent": "n67"
       },
       {
         "id": "n71",
-        "kind": "attribute",
-        "name": "label",
-        "type": "",
+        "kind": "part",
+        "name": "pilot",
+        "type": "Project",
         "detail": "",
-        "parent": "n70"
+        "parent": "n0",
+        "ports": [
+          {
+            "id": "n71.0",
+            "name": "api",
+            "type": "ModelPort"
+          }
+        ]
       },
       {
         "id": "n72",
         "kind": "attribute",
-        "name": "role",
+        "name": "label",
         "type": "",
         "detail": "",
-        "parent": "n70"
+        "parent": "n71"
       },
       {
         "id": "n73",
-        "kind": "part",
-        "name": "editors",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "",
         "detail": "",
-        "parent": "n55"
+        "parent": "n71"
       },
       {
         "id": "n74",
         "kind": "attribute",
-        "name": "label",
+        "name": "lang",
         "type": "",
         "detail": "",
-        "parent": "n73"
+        "parent": "n71"
       },
       {
         "id": "n75",
@@ -632,94 +632,87 @@
         "name": "role",
         "type": "",
         "detail": "",
-        "parent": "n73"
+        "parent": "n71"
       },
       {
         "id": "n76",
-        "kind": "part",
-        "name": "plantuml",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "repo",
+        "type": "",
         "detail": "",
-        "parent": "n55"
+        "parent": "n71"
       },
       {
         "id": "n77",
-        "kind": "attribute",
-        "name": "label",
-        "type": "",
+        "kind": "part",
+        "name": "grammars",
+        "type": "Component",
         "detail": "",
-        "parent": "n76"
+        "parent": "n71"
       },
       {
         "id": "n78",
         "kind": "attribute",
-        "name": "role",
+        "name": "label",
         "type": "",
         "detail": "",
-        "parent": "n76"
+        "parent": "n77"
       },
       {
         "id": "n79",
-        "kind": "part",
-        "name": "jupyter",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
         "detail": "",
-        "parent": "n55"
+        "parent": "n77"
       },
       {
         "id": "n80",
         "kind": "attribute",
-        "name": "label",
-        "type": "",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n79"
+        "parent": "n77"
       },
       {
         "id": "n81",
-        "kind": "attribute",
-        "name": "role",
-        "type": "",
+        "kind": "part",
+        "name": "validation",
+        "type": "Component",
         "detail": "",
-        "parent": "n79"
+        "parent": "n71"
       },
       {
         "id": "n82",
-        "kind": "part",
-        "name": "xmi",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
         "detail": "",
-        "parent": "n55"
+        "parent": "n81"
       },
       {
         "id": "n83",
         "kind": "attribute",
-        "name": "label",
+        "name": "role",
         "type": "",
         "detail": "",
-        "parent": "n82"
+        "parent": "n81"
       },
       {
         "id": "n84",
         "kind": "attribute",
-        "name": "role",
-        "type": "",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n82"
+        "parent": "n81"
       },
       {
         "id": "n85",
         "kind": "part",
-        "name": "flexo",
-        "type": "Project",
+        "name": "evaluator",
+        "type": "Component",
         "detail": "",
-        "parent": "n0",
-        "ports": [
-          {
-            "id": "n85.0",
-            "name": "api",
-            "type": "ModelPort"
-          }
-        ]
+        "parent": "n71"
       },
       {
         "id": "n86",
@@ -732,7 +725,7 @@
       {
         "id": "n87",
         "kind": "attribute",
-        "name": "kind",
+        "name": "role",
         "type": "",
         "detail": "",
         "parent": "n85"
@@ -740,82 +733,82 @@
       {
         "id": "n88",
         "kind": "attribute",
-        "name": "lang",
-        "type": "",
+        "name": "kind",
+        "type": "String",
         "detail": "",
         "parent": "n85"
       },
       {
         "id": "n89",
-        "kind": "attribute",
-        "name": "role",
-        "type": "",
+        "kind": "part",
+        "name": "stdlib",
+        "type": "Component",
         "detail": "",
-        "parent": "n85"
+        "parent": "n71"
       },
       {
         "id": "n90",
         "kind": "attribute",
-        "name": "repo",
+        "name": "label",
         "type": "",
         "detail": "",
-        "parent": "n85"
+        "parent": "n89"
       },
       {
         "id": "n91",
-        "kind": "part",
-        "name": "layer1",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
         "detail": "",
-        "parent": "n85"
+        "parent": "n89"
       },
       {
         "id": "n92",
         "kind": "attribute",
-        "name": "label",
-        "type": "",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n91"
+        "parent": "n89"
       },
       {
         "id": "n93",
-        "kind": "attribute",
-        "name": "role",
-        "type": "",
+        "kind": "part",
+        "name": "editors",
+        "type": "Component",
         "detail": "",
-        "parent": "n91"
+        "parent": "n71"
       },
       {
         "id": "n94",
-        "kind": "part",
-        "name": "sysmlv2",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
         "detail": "",
-        "parent": "n85"
+        "parent": "n93"
       },
       {
         "id": "n95",
         "kind": "attribute",
-        "name": "label",
+        "name": "role",
         "type": "",
         "detail": "",
-        "parent": "n94"
+        "parent": "n93"
       },
       {
         "id": "n96",
         "kind": "attribute",
-        "name": "role",
-        "type": "",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n94"
+        "parent": "n93"
       },
       {
         "id": "n97",
         "kind": "part",
-        "name": "quadstore",
+        "name": "plantuml",
         "type": "Component",
         "detail": "",
-        "parent": "n85"
+        "parent": "n71"
       },
       {
         "id": "n98",
@@ -835,43 +828,274 @@
       },
       {
         "id": "n100",
-        "kind": "part",
-        "name": "auth",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
         "detail": "",
-        "parent": "n85"
+        "parent": "n97"
       },
       {
         "id": "n101",
-        "kind": "attribute",
-        "name": "label",
-        "type": "",
+        "kind": "part",
+        "name": "jupyter",
+        "type": "Component",
         "detail": "",
-        "parent": "n100"
+        "parent": "n71"
       },
       {
         "id": "n102",
         "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n101"
+      },
+      {
+        "id": "n103",
+        "kind": "attribute",
         "name": "role",
         "type": "",
         "detail": "",
-        "parent": "n100"
+        "parent": "n101"
+      },
+      {
+        "id": "n104",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
+        "detail": "",
+        "parent": "n101"
+      },
+      {
+        "id": "n105",
+        "kind": "part",
+        "name": "xmi",
+        "type": "Component",
+        "detail": "",
+        "parent": "n71"
+      },
+      {
+        "id": "n106",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n105"
+      },
+      {
+        "id": "n107",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n105"
+      },
+      {
+        "id": "n108",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
+        "detail": "",
+        "parent": "n105"
+      },
+      {
+        "id": "n109",
+        "kind": "part",
+        "name": "flexo",
+        "type": "Project",
+        "detail": "",
+        "parent": "n0",
+        "ports": [
+          {
+            "id": "n109.0",
+            "name": "api",
+            "type": "ModelPort"
+          }
+        ]
+      },
+      {
+        "id": "n110",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n109"
+      },
+      {
+        "id": "n111",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "",
+        "detail": "",
+        "parent": "n109"
+      },
+      {
+        "id": "n112",
+        "kind": "attribute",
+        "name": "lang",
+        "type": "",
+        "detail": "",
+        "parent": "n109"
+      },
+      {
+        "id": "n113",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n109"
+      },
+      {
+        "id": "n114",
+        "kind": "attribute",
+        "name": "repo",
+        "type": "",
+        "detail": "",
+        "parent": "n109"
+      },
+      {
+        "id": "n115",
+        "kind": "part",
+        "name": "layer1",
+        "type": "Component",
+        "detail": "",
+        "parent": "n109"
+      },
+      {
+        "id": "n116",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n115"
+      },
+      {
+        "id": "n117",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n115"
+      },
+      {
+        "id": "n118",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
+        "detail": "",
+        "parent": "n115"
+      },
+      {
+        "id": "n119",
+        "kind": "part",
+        "name": "sysmlv2",
+        "type": "Component",
+        "detail": "",
+        "parent": "n109"
+      },
+      {
+        "id": "n120",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n119"
+      },
+      {
+        "id": "n121",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n119"
+      },
+      {
+        "id": "n122",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
+        "detail": "",
+        "parent": "n119"
+      },
+      {
+        "id": "n123",
+        "kind": "part",
+        "name": "quadstore",
+        "type": "Component",
+        "detail": "",
+        "parent": "n109"
+      },
+      {
+        "id": "n124",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n123"
+      },
+      {
+        "id": "n125",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n123"
+      },
+      {
+        "id": "n126",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
+        "detail": "",
+        "parent": "n123"
+      },
+      {
+        "id": "n127",
+        "kind": "part",
+        "name": "auth",
+        "type": "Component",
+        "detail": "",
+        "parent": "n109"
+      },
+      {
+        "id": "n128",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n127"
+      },
+      {
+        "id": "n129",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n127"
+      },
+      {
+        "id": "n130",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "String",
+        "detail": "",
+        "parent": "n127"
       }
     ],
     "edges": [
       {
         "from": "n1",
-        "to": "n85",
+        "to": "n109",
         "fromPort": "n1.0",
-        "toPort": "n85.0",
+        "toPort": "n109.0",
         "label": "opensysml_flexo",
         "kind": "connection"
       },
       {
-        "from": "n55",
-        "to": "n85",
-        "fromPort": "n55.0",
-        "toPort": "n85.0",
+        "from": "n71",
+        "to": "n109",
+        "fromPort": "n71.0",
+        "toPort": "n109.0",
         "label": "pilot_flexo",
         "kind": "connection"
       }
