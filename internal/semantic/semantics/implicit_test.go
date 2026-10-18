@@ -39,12 +39,12 @@ func TestImplicitBaseResolvesThroughIndex(t *testing.T) {
 }
 
 // TestUsageKindsWithoutImplicitBase pins the kinds deliberately left out of the
-// mapping: connector, succession, flow, binding, satisfy, subject and objective
+// mapping: connector, succession, binding, satisfy, subject and objective
 // take their type from the element they relate to, and the KerML structural
 // kinds are definitions in usage position.
 func TestUsageKindsWithoutImplicitBase(t *testing.T) {
 	for _, k := range []ast.UsageKind{
-		ast.UsageConnector, ast.UsageSuccession, ast.UsageFlow, ast.UsageBinding,
+		ast.UsageConnector, ast.UsageSuccession, ast.UsageBinding,
 		ast.UsageSatisfy, ast.UsageSubject, ast.UsageObjective, ast.UsageInteraction,
 		ast.UsageBehavior, ast.UsageAssoc, ast.UsageStruct, ast.UsageClass,
 		ast.UsagePredicate, ast.UsageBool,
@@ -108,6 +108,9 @@ func TestBaseFeatureTypesForUsageBases(t *testing.T) {
 		"Constraints::constraintChecks":        {"Constraints::ConstraintCheck"},
 		"Requirements::requirementChecks":      {"Requirements::RequirementCheck"},
 		"Cases::cases":                         {"Cases::Case"},
+		"Flows::flows":                         {"Flows::Flow"},
+		"Flows::messages":                      {"Flows::Message"},
+		"Flows::successionFlows":               {"Flows::SuccessionFlow"},
 		"AnalysisCases::analysisCases":         {"AnalysisCases::AnalysisCase"},
 		"VerificationCases::verificationCases": {"VerificationCases::VerificationCase"},
 		"UseCases::useCases":                   {"UseCases::UseCase"},

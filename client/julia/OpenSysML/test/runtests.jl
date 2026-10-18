@@ -17,7 +17,7 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
             "type" => "Demo::Part", "detail" => "detail", "text" => "text", "standIn" => true,
             "ports" => [Dict("id" => "n0.0", "name" => "api", "type" => "Demo::API", "direction" => "inout")],
             "origin" => Dict("file" => "views.sysml", "startLine" => 4),
-            "geometry" => Dict("x" => 1, "y" => 2, "width" => 3, "height" => 4, "hasSize" => true, "collapsed" => true),
+            "geometry" => Dict("x" => 1, "y" => 2, "width" => 3, "height" => 4, "hasSize" => true, "collapsed" => true, "unplaced" => true),
             "style" => Dict("fill" => "#fff", "fontSize" => 12, "bold" => true, "italic" => true),
         )],
         "edges" => [Dict("from" => "n0", "to" => "n1", "fromPort" => "n0.0",
@@ -36,6 +36,7 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
     @test rendered.nodes[1].ports[1].direction == "inout"
     @test rendered.nodes[1].origin.start_line == 4
     @test rendered.nodes[1].geometry.collapsed
+    @test rendered.nodes[1].geometry.unplaced
     @test rendered.nodes[1].style.font_size == 12
     @test rendered.edges[1].from_port == "n0.0"
     @test rendered.edges[1].route[1].x == 2

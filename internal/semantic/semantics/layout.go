@@ -36,8 +36,11 @@ func IsLayoutFQN(fqn string) bool {
 type Layout struct {
 	X, Y          float64
 	Width, Height float64
-	HasSize       bool
-	Collapsed     bool
+	// Unplaced marks an annotation binding no x and y: one that only folds
+	// (collapsed) or hides (the show… switches), leaving the place to the tool.
+	Unplaced  bool
+	HasSize   bool
+	Collapsed bool
 	// Hidden are the compartments the annotation's show… switches turn off
 	// for the element's symbol.
 	Hidden HiddenCompartments
@@ -589,8 +592,9 @@ func sameElement(a, b *symbols.Symbol) bool {
 	return a == b || (a.Decl != nil && a.Decl == b.Decl)
 }
 
-// readLayout reads a Layout body: x and y are required reals, width and
-// height an optional pair, collapsed and the show… switches optional booleans.
+// readLayout reads a Layout body: x and y are reals, required unless the body
+// only folds or hides (collapsed, the show… switches); width and height an
+// optional pair with them.
 func (m *Model) readLayout(site *LayoutSite, bindings []MetadataBinding) {
 	layout := &Layout{}
 	var hasX, hasY, hasWidth, hasHeight bool
@@ -615,8 +619,15 @@ func (m *Model) readLayout(site *LayoutSite, bindings []MetadataBinding) {
 			}
 		}
 	}
-	if !bindsFeature(bindings, "x") || !bindsFeature(bindings, "y") {
-		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "Layout binds no x and y to place the element at"})
+	placed := bindsFeature(bindings, "x") && bindsFeature(bindings, "y")
+	if !placed {
+		if !foldsOrHides(bindings) || bindsFeature(bindings, "x") || bindsFeature(bindings, "y") || bindsFeature(bindings, "width") || bindsFeature(bindings, "height") {
+			site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "Layout binds no x and y to place the element at"})
+			return
+		}
+		layout.Unplaced = true
+		site.Layout = layout
+		return
 	}
 	if !hasX || !hasY {
 		return
@@ -952,6 +963,20 @@ func (m *Model) readBool(site *LayoutSite, b MetadataBinding, into *bool) bool {
 	}
 	*into = v.Bool
 	return true
+}
+
+// foldsOrHides reports whether a Layout body binds collapsed or a show… switch,
+// the bindings that mean something without a place.
+func foldsOrHides(bindings []MetadataBinding) bool {
+	for _, b := range bindings {
+		if b.Value == nil {
+			continue
+		}
+		if _, ok := layoutSwitches[b.Feature]; ok || b.Feature == "collapsed" {
+			return true
+		}
+	}
+	return false
 }
 
 // bindsFeature reports whether the body binds feature to a value at all.

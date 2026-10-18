@@ -103,6 +103,7 @@ elmt:Relations__Sub__b
     sysml:owner elmt:Relations__Sub ;
     sysml:owningRelationship elmt:Relations__Sub__b_om ;
     sysml:owningMembership elmt:Relations__Sub__b_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "b" ;
     sysml:type elmt:Relations__Base ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -177,6 +178,7 @@ elmt:Relations__Other__r
     sysml:owner elmt:Relations__Other ;
     sysml:owningRelationship elmt:Relations__Other__r_om ;
     sysml:owningMembership elmt:Relations__Other__r_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "r" ;
     sysml:redefines elmt:Relations__Sub__b ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -211,6 +213,7 @@ elmt:Relations__Other__s
     sysml:owner elmt:Relations__Other ;
     sysml:owningRelationship elmt:Relations__Other__s_om ;
     sysml:owningMembership elmt:Relations__Other__s_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "s" ;
     sysml:subsets elmt:Relations__Other__r ;
     sysx:hasBody "false"^^xsd:boolean ;

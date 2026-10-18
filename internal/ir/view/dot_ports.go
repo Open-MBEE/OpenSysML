@@ -92,7 +92,7 @@ func (w *dotWriter) placePorts(node *Node, ends map[string]routeEnd) {
 	for _, port := range ports {
 		end, ok := ends[port.ID]
 		switch {
-		case port.Geometry != nil && node.Geometry != nil:
+		case port.Geometry.placed() && node.Geometry.placed():
 			at := port.Geometry.centre()
 			centre := box.centre()
 			side := box.nearestSide(at, Point{X: at.X - centre.X, Y: at.Y - centre.Y})
@@ -149,7 +149,7 @@ func (w *dotWriter) pinLayoutPorts(node *Node, owner *nodeBox) {
 // not a cluster, which is boxed round its drawn members instead.
 func (w *dotWriter) layoutPinned(node *Node) bool {
 	cluster := len(node.Children) > 0 && !w.tree
-	return !cluster && isPortKind(node.Kind) && node.Geometry != nil && node.Geometry.HasSize
+	return !cluster && isPortKind(node.Kind) && node.Geometry.placed() && node.Geometry.HasSize
 }
 
 // layoutPinBox is the square of a port a Layout sizes: on the side of owner nearest the Layout's

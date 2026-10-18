@@ -183,6 +183,8 @@ func literalPrimType(value ast.Node) semantics.PrimType {
 		return semantics.PrimNatural
 	case *ast.LiteralReal:
 		return semantics.PrimRational
+	case *ast.LiteralInfinity:
+		return semantics.PrimNatural
 	}
 	return semantics.PrimUnknown
 }
