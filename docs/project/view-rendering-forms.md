@@ -1359,7 +1359,8 @@ Pilot visualizer does; the specification leaves what a rendering draws to the to
   `collapsed` or `show…` switches needs no `x` and `y`: it folds or hides without placing
   (`Geometry.Unplaced`), so the rendering stays one the form lays out itself rather than a
   positioned one that leaves unplaced nodes undrawn. The LSP node then carries `collapsed` and no
-  `x`, `y`; the gRPC and engine renderings carry no geometry for it.
+  `x`, `y`; the gRPC and engine renderings carry its geometry with `collapsed` and `unplaced` set,
+  the coordinates meaning nothing.
 
   ```sysml
   view wiring { expose vehicle; render asInterconnectionDiagram;

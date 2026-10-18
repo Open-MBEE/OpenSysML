@@ -303,7 +303,7 @@ at them, and the tag is kept — `comment="collapsed"` in DOT, ` collapsed` in t
 form omits the hidden rows as DOT does (`writeNodeText` skips `hiddenRow`). A `Layout` binding
 only `collapsed` or `show…` switches binds no `x` and `y` and places nothing
 (`Layout.Unplaced`): it folds or hides and leaves the place to the tool, so it does not turn the
-drawing into a positioned one. A `Layout` binding a size, or nothing, without `x` and `y` is
+drawing into a positioned one. A `Layout` binding a size, one coordinate, or nothing without both `x` and `y` is
 still the `diagram-layout-value` error `Layout binds no x and y to place the element at`. What a view draws
 is also bounded by its filter conditions and its `depth` attribute
 ([limiting what a view draws](view-rendering-forms.md#limiting-what-a-view-draws)).

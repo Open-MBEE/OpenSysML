@@ -653,7 +653,7 @@ func TestSymbolDeclaringSearchesEveryDocument(t *testing.T) {
 }
 
 // A Layout binding only collapsed or a show… switch needs no x and y: it folds
-// or hides without placing. One binding a size, or nothing, still needs a place.
+// or hides without placing. One binding a size, one coordinate, or nothing still needs a place.
 func TestLayoutFoldOnlyNeedsNoPlace(t *testing.T) {
 	m, p := layoutModel(t, `
 		private import DiagramLayout::*;
@@ -663,6 +663,8 @@ func TestLayoutFoldOnlyNeedsNoPlace(t *testing.T) {
 		view hidden { expose engine; metadata Layout about engine { showAttributes = false; } }
 		view sized { expose engine; metadata Layout about engine { collapsed = true; width = 10; height = 10; } }
 		view bare { expose engine; metadata Layout about engine { } }
+		view xOnly { expose engine; metadata Layout about engine { x = 120; collapsed = true; } }
+		view yOnly { expose engine; metadata Layout about engine { y = 40; showAttributes = false; } }
 	`)
 	engine := sym(t, p, "engine")
 
@@ -682,7 +684,7 @@ func TestLayoutFoldOnlyNeedsNoPlace(t *testing.T) {
 		t.Errorf("hide-only layout = %+v, want unplaced with attributes hidden", site.Layout)
 	}
 
-	for _, name := range []string{"sized", "bare"} {
+	for _, name := range []string{"sized", "bare", "xOnly", "yOnly"} {
 		site, ok = m.LayoutOf(sym(t, p, name), engine)
 		if !ok || site.Layout != nil || len(site.Problems) != 1 || site.Problems[0].Message != "Layout binds no x and y to place the element at" {
 			t.Errorf("LayoutOf(%s, engine) = %+v, %v, want the missing-place problem and no Layout", name, site, ok)

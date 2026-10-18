@@ -402,10 +402,10 @@ func marshalRenderView(model *cachedModel, data view.Data) ([]byte, error) {
 				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(),
 			})
 		}
-		if node.Geometry != nil && !node.Geometry.Unplaced {
+		if node.Geometry != nil {
 			item.Geometry = &JRenderGeometry{
 				X: node.Geometry.X, Y: node.Geometry.Y, Width: node.Geometry.Width, Height: node.Geometry.Height,
-				HasSize: node.Geometry.HasSize, Collapsed: node.Geometry.Collapsed,
+				HasSize: node.Geometry.HasSize, Collapsed: node.Geometry.Collapsed, Unplaced: node.Geometry.Unplaced,
 			}
 		}
 		out.Nodes = append(out.Nodes, item)

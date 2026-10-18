@@ -621,7 +621,7 @@ func (m *Model) readLayout(site *LayoutSite, bindings []MetadataBinding) {
 	}
 	placed := bindsFeature(bindings, "x") && bindsFeature(bindings, "y")
 	if !placed {
-		if !foldsOrHides(bindings) || bindsFeature(bindings, "width") || bindsFeature(bindings, "height") {
+		if !foldsOrHides(bindings) || bindsFeature(bindings, "x") || bindsFeature(bindings, "y") || bindsFeature(bindings, "width") || bindsFeature(bindings, "height") {
 			site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "Layout binds no x and y to place the element at"})
 			return
 		}
