@@ -23,8 +23,12 @@ func (ctx *Context) kernelCollectionRead(inst *Instance, name string) (*FeatureV
 }
 
 // kernelCollection is the Kernel-tier collection feature of typ that name reads: a
-// frame-tier usage with an upper bound above one that is none of the frame roots the
-// runtime answers itself.
+// frame-tier usage of multiplicity `[0..*]` whose values the library states by nothing
+// but subsetting. One that is `inverse of` or `unions` another, intersects one it does
+// not subset, holds a
+// value of its own or has a lower bound (`timeEnclosedOccurrences [1..*]`, which holds the
+// occurrence itself) has values the shape cannot supply, as has a frame root the runtime
+// tracks itself; those are left to the caller.
 func (ctx *Context) kernelCollection(typ *symbols.Symbol, name string) (*symbols.Symbol, bool) {
 	if ctx == nil || typ == nil {
 		return nil, false
@@ -37,8 +41,19 @@ func (ctx *Context) kernelCollection(typ *symbols.Symbol, name string) (*symbols
 	if sem.FrameRoot(typ, sym) || semantics.IsParameter(sym) || sem.HeldByValue(sym) {
 		return nil, false
 	}
-	upper := ctx.featureMultiplicity(sym, typ).Upper
-	if !upper.Infinite && (!upper.Known || upper.Value <= 1) {
+	for _, kind := range []ast.RelationshipKind{ast.RelInverseOf, ast.RelUnions} {
+		if len(relationshipsOfKind(sym, kind)) > 0 {
+			return nil, false
+		}
+	}
+	if !ctx.intersectsOnlySubsetted(sym) || ctx.extractDefaultValue(sym) != nil {
+		return nil, false
+	}
+	mult := ctx.featureMultiplicity(sym, typ)
+	if !mult.Upper.Infinite && (!mult.Upper.Known || mult.Upper.Value <= 1) {
+		return nil, false
+	}
+	if !mult.Lower.Known || mult.Lower.Infinite || mult.Lower.Value != 0 {
 		return nil, false
 	}
 	return sym, true
@@ -101,4 +116,22 @@ func (ctx *Context) subsetsTransitively(feature, owner, target *symbols.Symbol) 
 		}
 	}
 	return false
+}
+
+// intersectsOnlySubsetted reports whether every feature sym intersects is one it also
+// subsets — an intersection its subsetting alone implies (`subobjects subsets objects,
+// suboccurrences intersects objects, suboccurrences`), stating no further value.
+func (ctx *Context) intersectsOnlySubsetted(sym *symbols.Symbol) bool {
+	subsetted := map[*symbols.Symbol]bool{}
+	for _, rel := range relationshipsOfKind(sym, ast.RelSubsets) {
+		if target := ctx.model.semantics.RelationshipTarget(sym, rel); target != nil {
+			subsetted[target] = true
+		}
+	}
+	for _, rel := range relationshipsOfKind(sym, ast.RelIntersects) {
+		if target := ctx.model.semantics.RelationshipTarget(sym, rel); target == nil || !subsetted[target] {
+			return false
+		}
+	}
+	return true
 }
