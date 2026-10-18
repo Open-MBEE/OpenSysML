@@ -610,10 +610,17 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *o
 	if !fv.Assumed && (fv.Materialized || fv.HeldValue().Kind != ValInvalid) {
 		return Value{}, false
 	}
-	if _, exact := feature.Multiplicity.Exactly(); exact {
+	return openCountRead(spelled, feature.Multiplicity, feature.Symbol)
+}
+
+// openCountRead is the model-level read of a feature nothing values whose
+// multiplicity fixes no count: undetermined, carrying the bounds. A multiplicity
+// fixing the count (`[1]`, `[0]`) leaves the read to what else is known.
+func openCountRead(spelled string, count semantics.Range, sym *symbols.Symbol) (Value, bool) {
+	if _, exact := count.Exactly(); exact {
 		return Value{}, false
 	}
-	return undeterminedFeatureValue(openCountReason(spelled, feature.Multiplicity), feature.Multiplicity, feature.Symbol), true
+	return undeterminedFeatureValue(openCountReason(spelled, count), count, sym), true
 }
 
 // openCollectionValue is the model-level value of a collection of open count: undetermined,

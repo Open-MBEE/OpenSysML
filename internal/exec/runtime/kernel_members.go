@@ -20,7 +20,7 @@ func (inst *Instance) MemberValue(ctx *Context, name string) (*FeatureValue, err
 	if _, has := inst.FeatureValues[name]; has {
 		return fv, err
 	}
-	if kfv, answered, kerr := ctx.kernelMemberRead(inst, name); answered {
+	if kfv, answered, kerr := ctx.kernelMemberRead(inst, name, false); answered {
 		return kfv, kerr
 	}
 	return fv, err
@@ -32,7 +32,7 @@ func (inst *Instance) MemberValue(ctx *Context, name string) (*FeatureValue, err
 // library's own declared value, the composition it inverts, or its multiplicity —
 // empty where the lower bound is 0, undetermined where it is not. The second
 // result is false for a member the rule does not cover, which the caller reports.
-func (ctx *Context) kernelMemberRead(inst *Instance, name string) (*FeatureValue, bool, error) {
+func (ctx *Context) kernelMemberRead(inst *Instance, name string, model bool) (*FeatureValue, bool, error) {
 	if ctx == nil || inst == nil || ctx.model.semantics == nil {
 		return nil, false, nil
 	}
@@ -55,7 +55,7 @@ func (ctx *Context) kernelMemberRead(inst *Instance, name string) (*FeatureValue
 		return nil, false, nil
 	}
 	feat := ctx.effectiveFeature(name, sym, inst.Type)
-	val, err := ctx.kernelMemberValue(inst, sym, &feat)
+	val, err := ctx.kernelMemberValue(inst, sym, &feat, model)
 	if err != nil {
 		return nil, true, err
 	}
@@ -92,8 +92,9 @@ func (ctx *Context) kernelFrameMember(sym *symbols.Symbol) bool {
 
 // kernelMemberValue is the value of the Kernel member sym on inst, in the order
 // the rule tries: tracked, declared by the library, inverted through composition,
-// then what the multiplicity alone says.
-func (ctx *Context) kernelMemberValue(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
+// then what the multiplicity alone says — which at model level (model) fixes no
+// count for an open multiplicity, the same as for a Systems member (openCountRead).
+func (ctx *Context) kernelMemberValue(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature, model bool) (Value, error) {
 	if val, ok, err := ctx.trackedKernelValue(inst, sym, feat); ok {
 		return val, err
 	}
@@ -105,6 +106,11 @@ func (ctx *Context) kernelMemberValue(inst *Instance, sym *symbols.Symbol, feat 
 	}
 	if val, ok := ctx.kernelInverseValue(inst, sym, feat); ok {
 		return val, nil
+	}
+	if model {
+		if val, open := openCountRead(sym.Name, feat.Multiplicity, sym); open {
+			return val, nil
+		}
 	}
 	if lower := feat.Multiplicity.Lower; lower.Known && !lower.Infinite && lower.Value == 0 {
 		if feat.Scalar() {
