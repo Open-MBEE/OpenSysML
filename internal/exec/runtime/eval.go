@@ -1404,7 +1404,7 @@ func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
 	if now, isClock, err := ec.ctx.clockMember(ec.self, name); isClock {
 		return now, true, err
 	}
-	if _, ok := ec.self.FeatureValues[name]; !ok {
+	if _, ok := ec.self.FeatureValues[name]; !ok && !ec.ctx.derivesKernelCollection(ec.self, name) {
 		return Value{}, false, nil
 	}
 	fv, open, err := ec.memberFeatureValue(ec.self, name)
@@ -1679,6 +1679,9 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
 			return ec.calcUsageMemberValue(sym, inst, rest)
 		}
+		if ec.ctx.derivesKernelCollection(inst, name) {
+			return ec.chainFeatureValue(inst, name, rest, from)
+		}
 		return Value{}, fmt.Errorf("%w: member %s not found in instance", ErrNoSuchFeature, name)
 	}
 	// A variant named through the variation feature it belongs to is the choice
@@ -1694,6 +1697,11 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 		return ec.chainMemberValue(val, rest, variant.Name)
 	}
+	return ec.chainFeatureValue(inst, name, rest, from)
+}
+
+// chainFeatureValue continues a chain through the named feature value of inst.
+func (ec *EvalContext) chainFeatureValue(inst *Instance, name string, rest []ast.NameSegment, from string) (Value, error) {
 	// Read through the feature value so a derived or composite member is materialized
 	// on demand rather than read as an empty feature value.
 	fv, open, err := ec.memberFeatureValue(inst, name)
@@ -3845,7 +3853,7 @@ func (ctx *Context) vectorEqual(a, b *Vector) bool {
 		return false
 	}
 	for i := range a.Elements {
-		if !ctx.valueEqual(constValue(a.Elements[i]), constValue(b.Elements[i])) {
+		if !ctx.valueEqual(ConstValue(a.Elements[i]), ConstValue(b.Elements[i])) {
 			return false
 		}
 	}
