@@ -38,7 +38,7 @@ func (g *group) registerExplain(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "explain_diagnostic",
 		Description: "Explain a diagnostic code (as the CLI's -explain does): what it means, how to resolve it and the specification clause or " +
-			"validation constraint behind it. Every diagnostic the `parse`, `diagnostics` and LSP tools report carries one of these codes. " +
+			"validation constraint behind it. Every diagnostic the `parse`, `diagnostics` and `workspace_diagnostics` tools report carries one of these codes. " +
 			"With no code, list every code with its one-line summary.",
 		Annotations: toolkit.ReadOnly("Explain diagnostic"),
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in ExplainDiagnosticInput) (*mcp.CallToolResult, DiagnosticExplanation, error) {

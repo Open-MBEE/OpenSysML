@@ -1,6 +1,6 @@
 # 1. Install
 
-This chapter covers installing `sysml`, `sysml-lsp`, `sysml-grpc` and `sysml-jupyter-kernel` and checking that they
+This chapter covers installing `sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-jupyter-kernel` and `sysml-mcp` and checking that they
 work. Nothing else is needed for the rest of this guide.
 
 ## From a release build (recommended)
@@ -43,7 +43,7 @@ environment variable for unattended installs:
 | Choice | `install.sh` | `install.ps1` | Environment |
 |---|---|---|---|
 | Release: a tag, `latest` or `nightly` | `--version v0.9.1` | `-Version v0.9.1` | `OPENSYSML_VERSION` |
-| Tools: `sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-jupyter-kernel`, or `all` for every tool the chosen release published | `--tools sysml` | `-Tools sysml` | `OPENSYSML_TOOLS` |
+| Tools: `sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-jupyter-kernel`, `sysml-mcp`, or `all` for every tool the chosen release published | `--tools sysml` | `-Tools sysml` | `OPENSYSML_TOOLS` |
 | Where to install | `--prefix ~/opt` or `--bin-dir ~/bin` | `-InstallDir D:\Tools\OpenSysML` | `OPENSYSML_PREFIX`, `OPENSYSML_BIN_DIR`, `OPENSYSML_INSTALL_DIR` |
 | A mirror of the GitHub release tree | `--base-url URL` | `-BaseUrl URL` | `OPENSYSML_DOWNLOAD_BASE` |
 | Show the choice, install nothing | `--dry-run` | `-DryRun` | |
@@ -122,7 +122,7 @@ sudo mv sysml sysml-lsp /usr/local/bin/
 **Windows — use the installer.** Download `opensysml-<x.y.z>-windows-amd64.msi` from
 [releases](https://github.com/Open-MBEE/OpenSysML/releases/latest) and run it. A setup wizard
 lets you pick the destination folder and the optional components; by default it installs
-`sysml.exe`, `sysml-lsp.exe` and `sysml-grpc.exe` into `C:\Program Files\OpenSysML`, puts that
+`sysml.exe`, `sysml-lsp.exe`, `sysml-grpc.exe` and `sysml-mcp.exe` into `C:\Program Files\OpenSysML`, puts that
 directory on the system `PATH`, and installs the [Z3](https://github.com/Z3Prover/z3) SMT solver
 under `C:\Program Files\OpenSysML\z3` (also on `PATH`) as the optional *SMT solver (Z3)*
 feature, so the experimental `%check`/`%explain` commands work out of the box. Deselect the
@@ -147,6 +147,10 @@ as a dependency.
 **Available binaries:**
 - `sysml` — Interactive REPL
 - `sysml-lsp` — Language Server Protocol server
+- `sysml-mcp` — Model Context Protocol server for coding agents, in its own
+  `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows) with its manual page and the LICENSE;
+  `--tools sysml-mcp` installs it, and `sysml-mcp -print-config <host>` configures the agent
+  ([MCP server reference](../reference/sysml-mcp.md))
 
 `sysml-grpc`, the service the Python bindings talk to, is published as a bare
 `sysml-grpc-<os>-<arch>` file with a `.sha256` sidecar rather than inside an archive, because
@@ -162,7 +166,8 @@ registers the kernel from the source distribution (see
 
 **Archive layout:** the `opensysml-<os>-<arch>.tar.gz` bundles contain both binaries under their
 plain names (`sysml`, `sysml-lsp`). The older single-binary `sysml-<os>-<arch>.tar.gz` and
-`sysml-lsp-<os>-<arch>.tar.gz` archives are still published. The bundles and
+`sysml-lsp-<os>-<arch>.tar.gz` archives are still published, and `sysml-mcp` has its own
+`sysml-mcp-<os>-<arch>.tar.gz`/`.zip`. The bundles and
 `SHA256SUMS.txt` exist from v0.0.4 onward; for earlier releases use the
 single-binary archives. The `sysml-jupyter-kernel` binaries, their sidecars and the
 WebAssembly module are published from 0.10.0 onward. `SHA256SUMS.txt` covers every archive and
