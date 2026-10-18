@@ -145,7 +145,9 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 // path resolves a path argument against the workspace root and refuses one
 // that leaves it, by its lexical form or through a symlink, so a tool reads
 // only under -root. The path handed on has its symlinks resolved, so the
-// service opens the file the check saw, not what a link is later pointed at.
+// service opens the file the check saw, not what a link is later pointed at;
+// since the service reads the format from the name, a link whose extension
+// differs from its target's is refused rather than parsed as the wrong one.
 // A path that does not exist yet is resolved through its nearest existing
 // ancestor.
 func (g *group) path(p string) (string, error) {
@@ -169,6 +171,9 @@ func (g *group) path(p string) (string, error) {
 			}
 			if !under(g.realRoot, real) {
 				return "", argumentError("%s resolves to %s, outside the workspace root %s", p, real, g.root)
+			}
+			if !strings.EqualFold(filepath.Ext(real), filepath.Ext(p)) {
+				return "", argumentError("%s is a link to %s, whose extension names another format; name the file itself or a link with its extension", p, real)
 			}
 			return real, nil
 		}

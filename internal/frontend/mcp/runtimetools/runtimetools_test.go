@@ -686,6 +686,12 @@ func TestPathsStayUnderTheRoot(t *testing.T) {
 	if !strings.Contains(out, real) || strings.Contains(out, "brokenlink.sysml") {
 		t.Errorf("the service must be handed the resolved file, not the link:\n%s", out)
 	}
+	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "alias.kerml")); err != nil {
+		t.Fatal(err)
+	}
+	if msg := h.fails("parse", map[string]any{"paths": []string{"alias.kerml"}}); !strings.Contains(msg, "whose extension names another format") {
+		t.Errorf("a link whose extension differs from its target's: %s", msg)
+	}
 	if msg := h.fails("parse", map[string]any{"paths": []string{"missing/dir/new.sysml"}}); strings.Contains(msg, "outside") {
 		t.Errorf("a path under the root that does not exist yet is not outside it: %s", msg)
 	}
