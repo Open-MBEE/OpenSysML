@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -281,7 +280,7 @@ func sweepEval(ctx *Context, scope *symbols.Scope, src string) (Value, error) {
 	p := parser.New(source.New("<expr>", []byte(src)))
 	expr := p.ParseExpression()
 	if expr == nil || len(p.Diagnostics) > 0 {
-		return Value{}, errors.New(fmt.Sprintf("PARSE %v", p.Diagnostics))
+		return Value{}, fmt.Errorf("PARSE %v", p.Diagnostics)
 	}
 	return ctx.EvalWithScope(expr, scope)
 }
